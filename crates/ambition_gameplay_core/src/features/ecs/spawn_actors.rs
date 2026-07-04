@@ -747,6 +747,11 @@ pub(super) fn spawn_boss_with_overrides(
     // shared body pipeline can integrate it (AS4). Kin/HP are NOT in this bundle —
     // the boss owns those directly (§A1).
     let boss_actor_cluster = boss_actor_cluster(&boss.config, &boss.kin, boss.health.max());
+    // The boss's coarse render/composite footprint (R1.1 envelope split): the
+    // body-generic `BodyEnvelope` the ONE shared integrator publishes the
+    // `CenteredAabb` from, so the boss no longer needs a bespoke render-sized
+    // publish. Captured before `into_components` consumes the scratch.
+    let boss_render_envelope = crate::combat::BodyEnvelope(boss.as_ref().render_size());
     let boss_components = boss.into_components();
     let mut entity = commands.spawn((
         Name::new(format!("Feature boss: {}", authored.name)),
@@ -819,6 +824,11 @@ pub(super) fn spawn_boss_with_overrides(
     // (§A1 slice 3a) — so `apply_hitbox_damage`'s non-`Option` victim query still
     // matches, now via the one bundle every body shares.
     entity.insert(boss_actor_cluster);
+    // The coarse render footprint the shared integrator publishes the CenteredAabb
+    // from (R1.1). Required by `integrate_boss_bodies`' query, so a boss without it
+    // simply would not move — a loud failure the boss suites catch, not a silent
+    // footprint shrink.
+    entity.insert(boss_render_envelope);
     // Per-spawn tweaks Z: read at seed time by `update_boss_encounters`
     // (hp / size / phase triggers) + `sync_boss_encounter_entities`
     // (encounter opt-out). Default for room-authored bosses ⇒ no-op.

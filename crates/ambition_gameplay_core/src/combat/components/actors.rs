@@ -73,6 +73,24 @@ impl ActorDisposition {
 #[derive(Component, Clone, Copy, Debug, PartialEq)]
 pub struct ActorRenderSize(pub ae::Vec2);
 
+/// The body's GROSS coarse-hurtbox footprint — the full-size box the published
+/// `CenteredAabb` covers, distinct from `kin.size` (the collision box the
+/// movement seam sweeps against walls) and from [`ActorRenderSize`] (the sprite
+/// draw quad). Present ⇒ the shared body integrator publishes `CenteredAabb`
+/// from THIS size; absent ⇒ it publishes from `kin.size` (the ordinary actor,
+/// whose collision box IS its footprint).
+///
+/// This is the envelope split (fable-review-2026-07-04 AJ5.1): a giant boss has
+/// a composite render/whole-creature envelope much larger than its collision
+/// box, and that envelope — not the collision box — is the coarse hurtbox a
+/// duelist's swing must overlap. Making the divergence an explicit component
+/// (instead of a bespoke boss integrate arm publishing a render-sized box) is
+/// what lets the boss body flow through the SAME `integrate_actor_body` every
+/// actor uses. Only bosses carry it today; the fine per-part hurtboxes still
+/// come from `damageable_volumes`, not this coarse box.
+#[derive(Component, Clone, Copy, Debug, PartialEq)]
+pub struct BodyEnvelope(pub ae::Vec2);
+
 /// Optional dialogue/interaction payload for a *talkable* actor.
 ///
 /// Lifted off `NpcConfig` so "can be talked to" is a SHARED actor capability,

@@ -493,32 +493,53 @@ pub(crate) fn horizontal_front_wall_clearance(
     best
 }
 
-/// PHASE — integrate boss bodies through the SHARED movement seam (archetype swap
-/// AS4c). A boss IS an aerial actor: its `BossPattern` brain wrote a
-/// `velocity_target` into `ActorControl` upstream, and this arm moves it through the
-/// SAME flight limb every aerial actor uses (`ActorMut::update`) in DIRECT-VELOCITY
-/// mode — the commanded velocity is taken verbatim, byte-identical to the boss's old
-/// bespoke SNAP float (`step_floating_body`). It is the boss sibling of the player's
-/// `integrate_home_body` arm: shares the one movement seam, but keeps the
-/// boss-specific footprint publish (the render-basis-sized `CenteredAabb`, oriented
-/// to the boss's reference frame). Runs after `tick_boss_brains_system` (intent) and
-/// before `update_ecs_bosses` (presentation + attack-damage publish, which read this
-/// frame's already-moved position).
+/// PHASE — integrate boss bodies through the ONE shared per-body integrator
+/// (`integrate_actor_body`), the SAME function every actor body flows through
+/// (fable-review-2026-07-04 R1.1). A boss IS an aerial actor: its `BossPattern`
+/// brain wrote a `velocity_target` into `ActorControl` upstream, and the shared
+/// integrator moves it through the SAME flight limb every aerial actor uses
+/// (`ActorMut::update`) in DIRECT-VELOCITY mode — the commanded velocity is taken
+/// verbatim. There is no longer a bespoke boss `em.update` + `CenteredAabb` publish;
+/// the boss's coarse render footprint rides the body-generic [`crate::combat::BodyEnvelope`]
+/// (the envelope split, AJ5.1), so the one integrator's publish rule
+/// (`footprint = envelope ?? kin.size`) reproduces the render-sized box.
+///
+/// This is the boss sibling of the player's `integrate_home_body` arm and the
+/// actor arm of `integrate_sim_bodies`: three disjoint archetypes, ONE shared
+/// integrator. It keeps its own scheduled slot (chain 1, between
+/// `tick_boss_brains_system` and `update_ecs_bosses`) so the boss's presentation
+/// systems still read this frame's already-moved position. Byte-identical to the
+/// old bespoke arm: a boss's flight produces no jump/dash/land move-events (no
+/// movement FX), never `shark_charge_crash`es (its caps lack `charge_crash_explodes`),
+/// and its stagger timers are always zero (the boss victim path arms none), so
+/// every extra thing `integrate_actor_body` does is a no-op here.
+///
+/// (Merging this into `integrate_sim_bodies`' actor query with NO boss arm is a
+/// later slice — it needs the chain-2 movement phase reordered ahead of the
+/// chain-1 boss presentation systems, a schedule change kept separate from this
+/// integrator-sharing one.)
 pub fn integrate_boss_bodies(
     world_time: Res<WorldTime>,
     world: Res<ambition_engine_core::RoomGeometry>,
     platform_set: Res<crate::MovingPlatformSet>,
     overlay: Res<FeatureEcsWorldOverlay>,
     feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,
+    steering: Res<super::super::actors::ActorSteering>,
     gravity: crate::physics::GravityCtx,
+    mut sfx: bevy::prelude::MessageWriter<ambition_sfx::SfxMessage>,
+    mut vfx: bevy::prelude::MessageWriter<ambition_vfx::vfx::VfxMessage>,
+    mut hit_events: bevy::prelude::MessageWriter<HitEvent>,
     mut bosses: Query<
         (
+            Entity,
             super::super::actor_clusters::ActorClusterQueryData,
             &super::super::boss_clusters::BossConfig,
-            &super::super::boss_clusters::BossEncounter,
-            &ActorControl,
+            &crate::combat::BodyEnvelope,
+            Option<&mut ActorControl>,
+            Option<&mut crate::player::BodyAnimFacts>,
             &super::super::super::components::ActorTarget,
             &mut CenteredAabb,
+            &mut ambition_characters::actor::BodyCombat,
         ),
         (With<FeatureSimEntity>, Without<crate::actor::PlayerEntity>),
     >,
@@ -526,36 +547,39 @@ pub fn integrate_boss_bodies(
     let dt = world_time.sim_dt();
     let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
     let combat_tuning = feel_tuning.feature_combat_tuning();
-    for (mut actor, boss_config, boss_encounter, control, target, mut aabb) in &mut bosses {
+    for (entity, mut cq, boss_config, envelope, mut control, mut anim, target, mut aabb, mut combat) in
+        &mut bosses
+    {
         // Self-heal the collision envelope onto `kin.size` (the seam sweeps it),
         // robust to the profile / spawn-override / sprite-derive timing that writes
-        // `behavior.combat_size`. The render basis stays in `BossEncounter.render_size`.
-        let combat_size = boss_config.behavior.combat_size.unwrap_or(actor.kin.size);
-        let mut em = actor.as_actor_mut();
+        // `behavior.combat_size`. The coarse render footprint stays in `BodyEnvelope`.
+        let combat_size = boss_config.behavior.combat_size.unwrap_or(cq.kin.size);
+        let mut em = cq.as_actor_mut();
         em.kin.size = combat_size;
-        let gravity_dir = gravity.dir_at(em.kin.pos);
-        // Direct-velocity flight (the boss's `ActorConfig.tuning.flight_direct_velocity`
-        // is set): `control.0.velocity_target` is taken verbatim by the flight limb.
-        // A dead boss returns early inside `update` (no move), matching the old skip.
-        let _ = em.update(
-            &feature_world,
+        super::super::actors::integrate_actor_body(
+            entity,
+            &mut em,
+            &mut aabb,
+            &mut combat,
+            control.as_deref_mut(),
+            anim.as_deref_mut(),
+            // The boss's coarse render envelope publishes the `CenteredAabb`
+            // (byte-identical to the old render-sized box); an ordinary actor
+            // would pass `None` and publish from `kin.size`.
+            Some(envelope.0),
             target.pos,
-            combat_tuning,
-            None,
-            dt,
+            // A boss is never mounted.
             false,
-            control.0,
-            gravity_dir,
+            &feature_world,
+            combat_tuning,
+            &steering,
+            &gravity,
+            dt,
             *feel_tuning,
-            // No stagger gate: the boss's old bespoke float applied none, so keep the
-            // movement byte-identical (boss hitstun handling is a later decision).
-            (0.0, 0.0),
+            &mut sfx,
+            &mut vfx,
+            &mut hit_events,
         );
-        aabb.center = em.kin.pos;
-        // Orient the render footprint to the boss's reference frame (identity under
-        // vertical gravity, so replay stays byte-identical there).
-        let boss_frame = ambition_engine_core::AccelerationFrame::new(gravity_dir);
-        aabb.half_size = boss_frame.to_world_half(boss_encounter.render_size * 0.5);
     }
 }
 

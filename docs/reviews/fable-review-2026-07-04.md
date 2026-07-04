@@ -399,4 +399,50 @@ an oracle-violation issue and gets fixed as engine work. Exit: the demo's
 
 # EXECUTION LOG (live — start here, newest last)
 
-*(empty — next agent appends R-entries here)*
+*Executor: opus. Signed per repo convention.*
+
+### R1.1 — the boss body integrates through the ONE shared `integrate_actor_body` ✅ (byte-identical)
+The bespoke boss integration (`integrate_boss_bodies`'s inline `em.update` + a
+render-sized `CenteredAabb` publish) is DELETED; the boss now flows through the
+SAME `integrate_actor_body` every actor body does. The real duplication was the
+integration ALGORITHM, not the query — so `integrate_boss_bodies` stays a thin
+system in its chain-1 slot (a third disjoint-archetype arm beside the player's
+`integrate_home_body` and the actor arm, all sharing the one integrator), which
+preserves the boss's presentation ordering exactly.
+- **The envelope split (AJ5.1) landed as data:** new body-generic
+  `BodyEnvelope(Vec2)` component (`combat/components/actors.rs`) = the coarse
+  render/composite footprint. `integrate_actor_body` gained an
+  `envelope: Option<Vec2>` param and publishes `CenteredAabb` from
+  `footprint = envelope ?? kin.size` — the ONE universal rule. A boss carries
+  `BodyEnvelope(render_size)` (inserted at its sole production spawn,
+  `spawn_actors.rs`); every ordinary actor passes `None` (its collision box IS
+  its footprint) → byte-identical. `kin.size` is the collision box for every
+  body; the boss's coarse-hurtbox envelope is no longer conflated with it.
+- **Byte-identical, verified by construction + tests:** a floating boss produces
+  no jump/dash/land move-events (no movement FX), never `shark_charge_crash`es
+  (its caps lack `charge_crash_explodes`), and its stagger timers are always zero
+  (the boss victim path arms none), so every extra thing `integrate_actor_body`
+  does is a no-op for a boss; the `CenteredAabb` comes out identical because
+  `collision_aabb(SimpleActorGeometry{size: render_size, frame_down: -surface_normal})`
+  == the old `boss_frame.to_world_half(render_size*0.5)` (a non-surface-walker's
+  `-surface_normal == gravity_dir`, kept live by §B2). The boss's `kin.size`
+  self-heal onto `combat_size` is preserved (still in the boss arm before the
+  shared call).
+- **Files:** `combat/components/actors.rs` (+`BodyEnvelope`),
+  `features/ecs/actors/update.rs` (`integrate_actor_body` param + `pub(crate)`),
+  `features/ecs/bosses/tick.rs` (`integrate_boss_bodies` → shared call),
+  `features/ecs/spawn_actors.rs` (`BodyEnvelope` insert).
+- **Verified:** gameplay_core --lib 1134; app suites (rl_sim) boss_lifecycle 8,
+  boss_contact_iframes 4, boss_motion_parity 2, boss_possession_specials 1,
+  duel_arena 4, enemy_attacks_player 1, player_robot_fights_player 1,
+  possession_end_to_end 3, plugin_minimal_app 8 — all green.
+- **REMAINING toward "no boss arm at all" (the last step of AJ5.1):** merge the
+  boss query INTO `integrate_sim_bodies`' actor query (drop `Without<BossConfig>`
+  there) and DELETE `integrate_boss_bodies`. That needs the chain-2 movement
+  phase reordered AHEAD of the chain-1 boss presentation systems
+  (`update_ecs_bosses`/`sync_boss_actor_components`/`sync_actor_poses_from_feature_aabbs`,
+  which read this frame's moved position), so it's a schedule change kept
+  separate from this integrator-sharing one. The `BodyEnvelope` column would then
+  move onto the actor query (`Option<&BodyEnvelope>`).
+
+*(next: R1.2 brain fold, R1.3 BossAnim→CharacterAnim (BLIND), R1.4 possessed-strike faction, R1.5 sweep.)*

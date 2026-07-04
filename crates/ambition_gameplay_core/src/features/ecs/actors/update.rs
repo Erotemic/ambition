@@ -519,13 +519,19 @@ pub fn tick_actor_brains(
 /// onto `ActorControl` so `emit_brain_action_messages` sees the same frame the old
 /// fused loop did.
 #[allow(clippy::too_many_arguments)]
-fn integrate_actor_body(
+pub(crate) fn integrate_actor_body(
     actor_entity: Entity,
     em: &mut ActorMut<'_>,
     aabb: &mut CenteredAabb,
     combat: &mut BodyCombat,
     mut control: Option<&mut ambition_characters::brain::ActorControl>,
     mut anim: Option<&mut crate::player::BodyAnimFacts>,
+    // The body's coarse footprint size: `Some` (a boss's composite render
+    // envelope, from `BodyEnvelope`) publishes the `CenteredAabb` at that size;
+    // `None` (every ordinary actor) publishes it at `em.kin.size` — the
+    // collision box IS the footprint. This is the envelope split (AJ5.1) that
+    // lets a boss share this ONE integrator instead of a bespoke arm.
+    envelope: Option<ae::Vec2>,
     target_pos: ae::Vec2,
     is_mounted: bool,
     feature_world: &ae::World,
@@ -619,9 +625,15 @@ fn integrate_actor_body(
     // player hurtbox, and target volumes. `surface_normal` is kept LIVE for
     // every body by `em.update` (§B2), so it IS the frame — no conditional.
     let down = -em.surface.surface_normal;
+    // The footprint size: a boss's coarse render envelope if it carries one,
+    // else the collision box (`em.kin.size`) — the ordinary actor, whose
+    // collision box IS its footprint. This is the one universal `CenteredAabb`
+    // publish rule (AJ5.1); it replaces the boss's old bespoke render-sized
+    // publish, so the same `to_world_half(size*0.5)` box comes out either way.
+    let footprint = envelope.unwrap_or(em.kin.size);
     let body = crate::features::collision_aabb(&crate::features::SimpleActorGeometry {
         pos: em.kin.pos,
-        size: em.kin.size,
+        size: footprint,
         facing: em.kin.facing,
         frame_down: down,
     });
@@ -722,6 +734,9 @@ pub fn integrate_sim_bodies(
             &mut combat,
             control.as_deref_mut(),
             anim.as_deref_mut(),
+            // No actor carries a `BodyEnvelope` today — its collision box is its
+            // footprint, so `CenteredAabb` publishes from `kin.size` (None).
+            None,
             target.pos,
             mounted.is_some(),
             &feature_world,

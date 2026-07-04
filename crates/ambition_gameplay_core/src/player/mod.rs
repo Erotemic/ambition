@@ -27,6 +27,7 @@ pub mod bundles;
 mod clone_probe_tests;
 pub mod components;
 pub mod events;
+pub mod input_systems;
 pub mod ledge_grab;
 pub mod movement_components;
 pub mod movement_fx;
@@ -56,6 +57,7 @@ pub use components::{
     PlayerSafetyState, PlayerSlot, SlotGestures, SlotInteractionState,
 };
 pub use events::PlayerHealRequested;
+pub use input_systems::{cleanup_timers_system, input_timer_system, interaction_input_system};
 pub use movement_fx::{
     advance_body_anim_overlays, arm_movement_anim_overlays, emit_movement_fx, handle_player_events,
 };

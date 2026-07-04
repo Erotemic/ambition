@@ -49,8 +49,6 @@ use super::setup_systems::{
 };
 use super::sim_systems::{
     apply_cut_rope_room_replay_request_system, apply_player_reset_input_system,
-    apply_suspended_time_scale_system, cleanup_timers_system, input_timer_system,
-    interaction_input_system, sync_live_player_dev_edits_system,
 };
 use super::world_flow::{apply_room_transition_system, ensure_requested_room_parallax_system};
 use ambition_gameplay_core::player::PlayerBodyFrameOutput;
@@ -164,7 +162,7 @@ fn wire_portal_schedule(app: &mut App) {
         Update,
         PortalSet::InputWarp
             .in_set(SandboxSet::PlayerInput)
-            .after(crate::app::interaction_input_system)
+            .after(ambition_gameplay_core::player::interaction_input_system)
             .before(ambition_gameplay_core::player::sync_local_player_input_frame)
             .run_if(ambition_gameplay_core::gameplay_allowed),
     );
@@ -246,7 +244,8 @@ fn register_player_input_systems(app: &mut App) {
     app.add_systems(
         Update,
         (
-            apply_suspended_time_scale_system.run_if(gameplay_suspended),
+            ambition_gameplay_core::time::time_control::apply_suspended_time_scale_system
+                .run_if(gameplay_suspended),
             // ADR 0010 — time-control pipeline. Gated to
             // `gameplay_allowed` so suspended frames don't re-emit a
             // default 1.0 request that would compete with the
@@ -266,14 +265,14 @@ fn register_player_input_systems(app: &mut App) {
             // system (gravity / zones / orient-roll) reads scaled dt without a
             // sandbox dependency. Runs immediately after `refresh_world_time`.
             ambition_gameplay_core::mirror_sim_dt_into_runtime,
-            sync_live_player_dev_edits_system,
+            ambition_gameplay_core::dev::sync_live_player_dev_edits_system,
             apply_player_reset_input_system.run_if(gameplay_allowed),
             ambition_content::bosses::emit_cut_rope_room_replay_after_dialogue_closes,
             apply_cut_rope_room_replay_request_system,
-            input_timer_system
+            ambition_gameplay_core::player::input_timer_system
                 .run_if(gameplay_allowed)
                 .in_set(ambition_input::InputSet::Populate),
-            interaction_input_system.run_if(gameplay_allowed),
+            ambition_gameplay_core::player::interaction_input_system.run_if(gameplay_allowed),
             // Portal-warped held movement input is registered by
             // `ambition_gameplay_core::portal::PortalPlugin` so the portal subsystem owns
             // its input seam.
@@ -453,7 +452,7 @@ fn register_presentation_sync_systems(app: &mut App) {
         Update,
         (
             ambition_gameplay_core::player::write_player_ecs_components,
-            cleanup_timers_system,
+            ambition_gameplay_core::player::cleanup_timers_system,
         )
             .chain()
             .in_set(SandboxSet::PresentationSync),

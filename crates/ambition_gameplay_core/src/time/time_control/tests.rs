@@ -325,6 +325,15 @@ fn gameplay_systems_must_not_read_res_time_directly() {
             "app/input_systems.rs",
             "input buffer decay; ADR 0011 player-clock follow-up",
         ),
+        // Home/player body reaction + gesture + presentation-flash timers folded
+        // down from `ambition_app::app::sim_systems` (C4). They decay on the frame
+        // clock (presentation flash runs even while paused, by design; the reaction
+        // timers still compute their own scaled dt manually) — same ADR 0011
+        // player-clock follow-up as the app-tick path they moved out of.
+        (
+            "player/input_systems.rs",
+            "home-body reaction/gesture/flash timers moved from the app (C4); ADR 0011 follow-up",
+        ),
         // Hot reload polls disk in wall-clock cadence.
         (
             "world/ldtk_world/hot_reload.rs",
@@ -447,4 +456,106 @@ fn world_time_sim_dt_respects_time_scale() {
     paused.scaled_dt = 0.0;
     assert_eq!(paused.sim_dt(), 0.0);
     assert!((paused.wall_dt() - 0.016).abs() < 1e-6);
+}
+
+/// Regression: when gameplay is suspended (pause / dialogue / cutscene / room
+/// transition), `apply_suspended_time_scale_system` must zero both
+/// `ClockState::time_scale` AND `RequestedClockScale::sim_clock` BEFORE
+/// `refresh_world_time` snapshots them — otherwise `WorldTime::scaled_dt` stays
+/// non-zero on the first suspended frame and any presentation system multiplying
+/// by it ticks one extra frame after pause lands.
+#[test]
+fn suspended_frame_zeros_world_time_scaled_dt() {
+    use crate::game_mode::{gameplay_suspended, GameMode};
+    use ambition_time::WorldTime;
+    use bevy::state::app::StatesPlugin;
+
+    let mut app = App::new();
+    app.add_plugins(StatesPlugin);
+    app.insert_state(GameMode::Paused);
+    app.insert_resource(ClockState { time_scale: 1.0 });
+    app.insert_resource(RequestedClockScale {
+        sim_clock: 1.0,
+        ..Default::default()
+    });
+    app.insert_resource(WorldTime {
+        raw_dt: 0.016,
+        scaled_dt: 0.016,
+    });
+    app.insert_resource(Time::<()>::default());
+
+    // Mirror the host ordering from `register_player_input_systems`:
+    // suspended-zero FIRST, then refresh.
+    app.add_systems(
+        Update,
+        (
+            apply_suspended_time_scale_system.run_if(gameplay_suspended),
+            ambition_time::refresh_world_time,
+        )
+            .chain(),
+    );
+
+    let frame = std::time::Duration::from_millis(16);
+    app.world_mut().resource_mut::<Time>().advance_by(frame);
+    app.update();
+
+    let clock = app.world().resource::<ClockState>();
+    let target = app.world().resource::<RequestedClockScale>();
+    let wt = app.world().resource::<WorldTime>();
+    assert_eq!(
+        clock.time_scale, 0.0,
+        "suspended frame must zero ClockState.time_scale"
+    );
+    assert_eq!(
+        target.sim_clock, 0.0,
+        "suspended frame must zero RequestedClockScale.sim_clock"
+    );
+    assert_eq!(
+        wt.scaled_dt, 0.0,
+        "suspended frame must zero WorldTime.scaled_dt (refresh_world_time must \
+         see the zeroed time_scale, not last frame's 1.0)"
+    );
+    assert!(
+        (wt.wall_dt() - 0.016).abs() < 1e-6,
+        "wall clock must keep ticking through pause"
+    );
+}
+
+/// Gameplay-allowed frames take the regular emit → apply → smooth path; the
+/// suspended fallback is short-circuited by `run_if`. `refresh_world_time` then
+/// sees `ClockState::time_scale = 1.0` (the default) and reports a non-zero
+/// `scaled_dt`.
+#[test]
+fn gameplay_frame_preserves_world_time_scaled_dt() {
+    use crate::game_mode::{gameplay_suspended, GameMode};
+    use ambition_time::WorldTime;
+    use bevy::state::app::StatesPlugin;
+
+    let mut app = App::new();
+    app.add_plugins(StatesPlugin);
+    app.insert_state(GameMode::Playing);
+    app.insert_resource(ClockState::default());
+    app.insert_resource(RequestedClockScale::default());
+    app.insert_resource(WorldTime::default());
+    app.insert_resource(Time::<()>::default());
+
+    app.add_systems(
+        Update,
+        (
+            apply_suspended_time_scale_system.run_if(gameplay_suspended),
+            ambition_time::refresh_world_time,
+        )
+            .chain(),
+    );
+
+    let frame = std::time::Duration::from_millis(16);
+    app.world_mut().resource_mut::<Time>().advance_by(frame);
+    app.update();
+
+    let wt = app.world().resource::<WorldTime>();
+    assert!(
+        wt.scaled_dt > 0.0,
+        "gameplay frame must produce a non-zero scaled_dt; got {}",
+        wt.scaled_dt
+    );
 }

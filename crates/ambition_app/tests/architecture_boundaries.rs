@@ -695,6 +695,59 @@ fn architecture_boundaries_app_plugins_does_not_reown_moved_subsystems() {
 }
 
 #[test]
+fn architecture_boundaries_input_timer_systems_moved_to_gameplay_core() {
+    // C4 app-thinness: the body-generic input/timer/dev systems that used to live
+    // in `app/sim_systems.rs` now live in their owning `ambition_gameplay_core`
+    // modules. The app must NOT re-DEFINE them (it only references the moved
+    // `pub fn`s from the library), so the schedule ordering stays app-owned while
+    // the gameplay logic lives down in the library.
+    let sim_systems = fs::read_to_string(app_src().join("app/sim_systems.rs"))
+        .expect("read app/sim_systems.rs");
+    let moved = [
+        "fn sync_live_player_dev_edits_system",
+        "fn apply_suspended_time_scale_system",
+        "fn input_timer_system",
+        "fn interaction_input_system",
+        "fn cleanup_timers_system",
+    ];
+    let redefined = moved
+        .into_iter()
+        .filter(|needle| sim_systems.contains(needle))
+        .collect::<Vec<_>>();
+    assert!(
+        redefined.is_empty(),
+        "app/sim_systems.rs re-defines library-owned systems: {redefined:?}"
+    );
+
+    // The host schedule references the moved systems by their gameplay_core paths.
+    let plugins = fs::read_to_string(app_src().join("app/plugins.rs")).expect("read plugins.rs");
+    for needle in [
+        "ambition_gameplay_core::dev::sync_live_player_dev_edits_system",
+        "ambition_gameplay_core::time::time_control::apply_suspended_time_scale_system",
+        "ambition_gameplay_core::player::input_timer_system",
+        "ambition_gameplay_core::player::interaction_input_system",
+        "ambition_gameplay_core::player::cleanup_timers_system",
+    ] {
+        assert!(
+            plugins.contains(needle),
+            "app/plugins.rs must reference the moved system via its library path: {needle}"
+        );
+    }
+
+    // The two genuinely host/reset-bound systems (they call the app-only
+    // `world_flow::reset_sandbox` AND write render `VfxMessage`) DO stay in the app.
+    for needle in [
+        "fn apply_player_reset_input_system",
+        "fn apply_cut_rope_room_replay_request_system",
+    ] {
+        assert!(
+            sim_systems.contains(needle),
+            "host/reset-bound system must remain defined in the app: {needle}"
+        );
+    }
+}
+
+#[test]
 fn architecture_boundaries_non_portal_mechanics_use_runtime_raycast_seam() {
     let src_root = crate_src();
     let checked_files = [

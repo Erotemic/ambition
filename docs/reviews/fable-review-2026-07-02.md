@@ -2879,6 +2879,35 @@ Explore of the brain code confirmed they all read `target_pos` (directly or via
   caches the enemy `Entity` once (a staging→live handle can go stale — the sibling
   `enemy_attacks_player`, identical scenario, re-queries by id and PASSES its swing assertion).
 
+### E59. C4 app-thinness — 5 of 7 `sim_systems.rs` systems folded into owning gameplay_core plugins ✅
+The app binary held real gameplay-sim logic in `ambition_app::app::sim_systems` (7 systems). Moved the
+LOGIC down to its owning `ambition_gameplay_core` module; the host schedule
+(`register_player_input_systems` / `register_presentation_sync_systems`) keeps owning the ordering +
+`run_if` gates and now references the moved `pub fn`s by their library path.
+- **Moved (render-free, app-only-free):** `apply_suspended_time_scale_system` →
+  `gameplay_core::time::time_control` (+ its two suspended-time regression tests, now in
+  `time_control::tests`); `sync_live_player_dev_edits_system` → `gameplay_core::dev` (beside the dev
+  STATE it reads); `input_timer_system` + `interaction_input_system` + `cleanup_timers_system` → a new
+  `gameplay_core::player::input_systems` (+ the interaction-suppression tests). Mechanical, behavior-
+  preserving (`ambition_gameplay_core::` → `crate::` path rewrite only).
+- **LEFT in the app (genuine host/reset concerns, cannot move):** `apply_player_reset_input_system` +
+  `apply_cut_rope_room_replay_request_system` — both call the app-only `world_flow::reset_sandbox` AND
+  write render `ambition_render::fx::VfxMessage`, and gameplay_core has NO render dep. The cut-rope one
+  is NAMED content; moving it content-side needs the rooms world-hook seam (JD4, fable-reserved), so it
+  stays for now. `sim_systems.rs` is now a documented 2-system host-bound file.
+- **The `Res<Time>` gameplay lint** (`gameplay_systems_must_not_read_res_time_directly`, scans
+  gameplay_core) now sees the moved timer systems; added `player/input_systems.rs` to its allowlist with
+  the same ADR 0011 player-clock follow-up justification the app-tick path carries (the move preserves
+  their raw-frame-dt behavior — presentation flash decays even while paused, by design; NOT a time-domain
+  change snuck in).
+- **Pinned** by a new `architecture_boundaries_input_timer_systems_moved_to_gameplay_core` (mirrors the
+  touch-input guard): `sim_systems.rs` no longer DEFINES the 5 moved systems, `plugins.rs` references
+  them via `ambition_gameplay_core::` paths, and the 2 host-bound ones DO stay defined in the app.
+- **Green:** gameplay_core --lib 1128; `architecture_boundaries`, `plugin_minimal_app`,
+  `possession_end_to_end` all pass; app compiles `--all-targets`. **REMAINING C4:** the
+  `PlatformerEnginePlugin` group (collect the ~30 engine plugins) — sprawly, deferred as noted in the
+  handoff (do only if mechanical).
+
 ## Next (in order) — **the MOVESET UNIFICATION is COMPLETE (E47–E55): melee, specials, ranged, AND boss strikes all run through the ONE moveset runtime.** The audit's TASK sections are stale; trust E-entries + a code re-check before working an item.
 
 ---

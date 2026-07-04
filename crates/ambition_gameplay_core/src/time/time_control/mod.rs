@@ -290,5 +290,23 @@ pub fn smooth_sim_clock_toward_target_system(
     clock.time_scale = crate::move_toward(clock.time_scale, target.sim_clock, rate * frame_dt);
 }
 
+/// While gameplay is suspended, force both live and requested sim-clock scale to
+/// zero so presentation animations freeze and the smoother cannot ramp up next
+/// frame. Gameplay mode leaves scale control to the normal time-control pipeline.
+///
+/// The host schedule runs this FIRST (under `run_if(gameplay_suspended)`), before
+/// `refresh_world_time` snapshots the scale — otherwise `WorldTime::scaled_dt`
+/// stays non-zero on the first suspended frame and presentation systems tick once
+/// after pause lands (ADR 0010 §"Suspended time"). The ordering lives in the app's
+/// `register_player_input_systems`; the logic is body-generic time control and
+/// lives here.
+pub fn apply_suspended_time_scale_system(
+    mut clock: ResMut<ClockState>,
+    mut target: ResMut<RequestedClockScale>,
+) {
+    clock.time_scale = 0.0;
+    target.sim_clock = 0.0;
+}
+
 #[cfg(test)]
 mod tests;

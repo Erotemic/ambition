@@ -62,7 +62,7 @@ pub fn tick_actor_brains(
     // ceiling, so the accumulating sim clock + the slot-based controller input
     // ride alongside `WorldTime`. `SlotControls` feeds any actor carrying a
     // `Brain::Player(slot)` (a possessed body) its controller frame.
-    (world_time, sim_clock, slot_controls, faction_relations, perception_peers): (
+    (world_time, sim_clock, slot_controls, faction_relations, perception_peers, perception_projectiles): (
         Res<WorldTime>,
         Res<crate::features::GameplayElapsed>,
         Res<ambition_characters::brain::SlotControls>,
@@ -75,6 +75,8 @@ pub fn tick_actor_brains(
         // populated by `collect_perception_peers` before this tick. `Option` so test
         // fixtures that skip the resource fall back to an empty (terrain-only) view.
         Option<Res<crate::features::ecs::perception::PerceptionPeers>>,
+        // Pre-collected projectiles snapshot (§A7): the live shots this actor perceives.
+        Option<Res<crate::features::ecs::perception::PerceptionProjectiles>>,
     ),
     world: Res<ambition_engine_core::RoomGeometry>,
     gravity: crate::physics::GravityCtx,
@@ -391,10 +393,11 @@ pub fn tick_actor_brains(
                     // LIVE `FactionRelations`, not the all-false default. PEERS are now
                     // wired too (the pre-collected snapshot below, minus self), so the
                     // view's `nearest_hostile`/`hostiles`/`incoming_threats` are live.
-                    // Projectiles / portals remain empty; migrating brains off the
-                    // side-loaded `BrainSnapshot.target_pos` onto `WorldView.nearest_hostile`
-                    // is the next A7 slice (no brain reads the peer channel yet, so
-                    // wiring it changed no behavior).
+                    // PROJECTILES are wired too (below); only portals remain empty.
+                    // Migrating brains off the side-loaded `BrainSnapshot.target_pos`
+                    // onto `WorldView.nearest_hostile` is the next A7 slice (no brain
+                    // reads the peer/projectile channels yet, so wiring them changed no
+                    // behavior).
                     let self_faction = crate::combat::targeting::effective_faction(
                         faction
                             .copied()
@@ -431,7 +434,10 @@ pub fn tick_actor_brains(
                             can_shield: em.caps.can_shield,
                         },
                         &view_peers,
-                        &[],
+                        perception_projectiles
+                            .as_ref()
+                            .map(|p| p.0.as_slice())
+                            .unwrap_or(&[]),
                         &[],
                         &feature_world,
                         relations,

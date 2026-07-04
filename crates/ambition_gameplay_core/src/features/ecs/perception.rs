@@ -137,6 +137,50 @@ pub fn collect_perception_peers(
     }
 }
 
+/// Per-frame snapshot of every live projectile, refreshed by
+/// [`collect_perception_projectiles`] before the per-body view build (same shape as
+/// [`PerceptionPeers`]). No source `Entity` is needed — a projectile is never its own
+/// viewer.
+#[derive(bevy::prelude::Resource, Default)]
+pub struct PerceptionProjectiles(pub Vec<PerceptionProjectile>);
+
+/// Collect the projectile snapshot from BOTH live pools (§A7 projectiles slice). The
+/// two pools carry faction DIFFERENTLY (only projectiles carry `ProjectileGameplay`,
+/// so it selects them): an `enemy_projectile` reads its own `ActorFaction` component;
+/// a `projectile` `LiveProjectile` has none (the unified stepper attributes via its
+/// owner), so it is snapshotted as `Player` — the live pool is the player/charge path,
+/// and mixed-faction reflected shots are a refinement for when a dodging brain actually
+/// reads `incoming_threats` (no consumer today, so this is additive + behavior-neutral).
+pub fn collect_perception_projectiles(
+    mut out: bevy::prelude::ResMut<PerceptionProjectiles>,
+    enemy_pool: bevy::prelude::Query<
+        (&crate::actor::BodyKinematics, &crate::projectile::ProjectileGameplay, &ActorFaction),
+        bevy::prelude::With<crate::enemy_projectile::EnemyProjectile>,
+    >,
+    live_pool: bevy::prelude::Query<
+        (&crate::actor::BodyKinematics, &crate::projectile::ProjectileGameplay),
+        bevy::prelude::With<crate::projectile::LiveProjectile>,
+    >,
+) {
+    out.0.clear();
+    for (kin, game, faction) in &enemy_pool {
+        out.0.push(PerceptionProjectile {
+            pos: kin.pos,
+            vel: kin.vel,
+            damage: game.damage,
+            faction: *faction,
+        });
+    }
+    for (kin, game) in &live_pool {
+        out.0.push(PerceptionProjectile {
+            pos: kin.pos,
+            vel: kin.vel,
+            damage: game.damage,
+            faction: ActorFaction::Player,
+        });
+    }
+}
+
 /// Build the headless [`WorldView`] for `body` from real world geometry, the
 /// pre-collected peers/projectiles, and the relational faction matrix.
 ///
@@ -552,6 +596,53 @@ mod tests {
         assert!(a.alive);
         let b = peers.0.iter().find(|(e, _)| *e == bob).map(|(_, p)| p).unwrap();
         assert!(!b.id.is_empty(), "a FeatureId-less body still gets a stable id");
+    }
+
+    /// §A7 projectiles-wiring: `collect_perception_projectiles` snapshots BOTH pools —
+    /// the `enemy_projectile` pool reading its own `ActorFaction`, the `LiveProjectile`
+    /// pool defaulting to Player — with pos/vel/damage from the shared
+    /// `BodyKinematics` + `ProjectileGameplay`.
+    #[test]
+    fn collect_perception_projectiles_snapshots_both_pools() {
+        use bevy::prelude::*;
+
+        let mut app = App::new();
+        app.init_resource::<PerceptionProjectiles>();
+        app.add_systems(Update, collect_perception_projectiles);
+        let kin = |x: f32| crate::actor::BodyKinematics {
+            pos: ae::Vec2::new(x, 0.0),
+            vel: ae::Vec2::new(-100.0, 0.0),
+            size: ae::Vec2::new(8.0, 8.0),
+            facing: -1.0,
+        };
+        let game = |dmg: i32| crate::projectile::ProjectileGameplay {
+            age: 0.0,
+            max_lifetime: 2.0,
+            gravity: 0.0,
+            damage: dmg,
+            bounces_remaining: 0,
+            world_hit: crate::projectile::WorldHitPolicy::ExpireOnContact,
+        };
+        app.world_mut().spawn((
+            crate::enemy_projectile::EnemyProjectile,
+            kin(200.0),
+            game(3),
+            ActorFaction::Enemy,
+        ));
+        app.world_mut()
+            .spawn((crate::projectile::LiveProjectile, kin(50.0), game(2)));
+        app.update();
+
+        let shots = app.world().resource::<PerceptionProjectiles>();
+        assert_eq!(shots.0.len(), 2, "both pools snapshotted");
+        assert!(
+            shots.0.iter().any(|p| p.faction == ActorFaction::Enemy && p.damage == 3),
+            "the enemy-pool shot carries its own faction + damage"
+        );
+        assert!(
+            shots.0.iter().any(|p| p.faction == ActorFaction::Player && p.damage == 2),
+            "the live-pool shot defaults to Player"
+        );
     }
 }
 

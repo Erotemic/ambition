@@ -888,3 +888,28 @@ engine now ships no tracks, no cues, no dialogue, and no characters.
 - **Residue noted:** `StartingCharacter::DEFAULT_ID = "player"` remains a
   content string in core machinery (the default-wearing seam) — R3.4 candidate,
   not blocking.
+
+### R3.2b — the WORLDS leave the engine ✅ (`1717e90c`; one BLIND bit)
+Violation #1's biggest chunk: the four `.ldtk` files move to
+`ambition_content/assets/worlds/`, and `ambition_content::worlds` authors +
+installs the `WorldManifest` at every sim-entry choke. Core's built-in
+default manifest DIES — an uninstalled production world load is a loud
+panic; core tests read the game's real worlds via the cross-crate fixture.
+- The bevy_ecs_ldtk spine sheds its last named-world knowledge: the three
+  per-world asset resources + root markers collapse into
+  `LdtkWorldAssets` (one handle per manifest row) + ONE `LdtkWorldRoot`;
+  the bundle spawn is a manifest loop. **BLIND:** the hall world gets a
+  painted-tile bundle for the first time (it was silently unbundled) —
+  hall tiles now render like every other world's.
+- New app-registered `game://` asset source (content assets in dev, shipped
+  assets/ otherwise); `world_bevy_asset_path` prefers `embedded://` when
+  the build embeds (web/Android unchanged). The duplicated embedded-URL
+  consts + `SANDBOX_LDTK_ASSET` die — catalog, embedded registry, hot
+  reload, and the spine all derive from the SAME rows.
+- Path sweep: ldtk_tools defaults, migration scripts, run_headless.sh,
+  deploy_to_steamdeck.sh (now rsyncs content assets too), live docs.
+- **Gate:** full workspace --all-targets green except the documented
+  unified_melee feel-red; static_map configs check; the REAL headless
+  binary boots the moved worlds end-to-end.
+- `rg 'ambition/worlds' crates/ambition_gameplay_core/src` → zero. The
+  engine ships no worlds.

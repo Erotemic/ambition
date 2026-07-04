@@ -913,3 +913,60 @@ panic; core tests read the game's real worlds via the cross-crate fixture.
   binary boots the moved worlds end-to-end.
 - `rg 'ambition/worlds' crates/ambition_gameplay_core/src` → zero. The
   engine ships no worlds.
+
+### R3.3 — room mechanics split by kind ✅ (`1b9b34b4`, `a0c1118a`)
+- **Duel-arena → `RoomLoaded` consumer:** `features/arena.rs` (duel ids,
+  fighter requests, the room constant) moves to
+  `ambition_content::duel_arena`. Its room stager is the FIRST real consumer
+  of the R3.1c fact — both entry points (room load + the `<<duel>>` yarn
+  command, now on the `YarnContentBindings` installer seam instead of the
+  engine's built-in command table) write plain `SpawnActorRequest` messages
+  the engine's applier already resolves (grudge cross-wiring included).
+  `spawn_room_feature_entities` stages NO named content anymore. The
+  adjudicated one-frame message delay is not load-bearing: duel_arena 4/4
+  green including the reset re-stage.
+- **falling_sand → self-gating content plugin (AJ6):** the 1.3k-line
+  prototype room + its switch ids + the optional `bevy_falling_sand` dep
+  move to `ambition_content::falling_sand`; the plugin self-gates on its
+  authored room at runtime. Core's time-domain audit drops its allow-list
+  row (the wall-clock-by-design policy comment rides with the file — the
+  review's "Res<Time> smell" turned out to be DOCUMENTED cadence policy,
+  not a bug; left as-is).
+- **Hall:** already pure authored data by construction after R3.2 (hall.ldtk
+  + hall.yarn + the catalog all live in content; core keeps only the
+  `hall_dialogue_id` schema field — machinery over installed data).
+
+### R3 SESSION LOG — 2026-07-04 evening run (executor: fable)
+Wall-clock (from commit stamps, single autonomous session):
+
+| Phase | Landed | Est (doc) | Actual |
+|---|---|---|---|
+| R3.1a converter registry | `ee48719e` | — | ~30 min |
+| R3.1b WorldManifest | `4c3d5717` | — | ~7 min |
+| R3.1c RoomLoaded | `2d9ec893` | — | ~6 min |
+| R3.2a-i audio registries | `9cb5e72b` | — | ~10 min |
+| R3.2a-ii yarn set | `6987ecaf` | — | ~9 min |
+| R3.2a-iii catalog+cast | `05952f40` | — | ~16 min |
+| R3.2b worlds | `1717e90c` | — | ~23 min |
+| R3.3 duel + falling_sand | `1b9b34b4`,`a0c1118a` | — | ~10 min |
+| **R3.1–R3.3 total** | 14 commits | ~4–5 sessions | **~82 min** |
+
+The doc estimated R3.1 alone as "the multi-session crux" and R3.2 as 3–4
+sessions; the whole arc through R3.3 landed in one evening because the
+R1/R2 unification left clean seams and the install-registry pattern was
+already proven five times over.
+
+**REMAINING in R3 (next session picks up here):**
+- **R3.4 named-residue sweep** — untouched: `features/bosses.rs` id consts,
+  npcs.rs bark tables (#4, ~450 lines), boss sheet defaults + enumerated
+  arrays (#5), `sync.rs` id→sheet arms (#8), the 9 named boss constructors
+  (#9), `ParallaxTheme` (#6), projectile visual kinds, render's
+  `pirate_weapon.rs` (#7). Plus new small residue found this run:
+  `StartingCharacter::DEFAULT_ID = "player"` in core machinery.
+- **R3.5 mount field (AJ3)** — LDtk `mount:` authoring + the 5-step E64 plan.
+- **R3.6 profile-key collapse (AJ4)** — ~72 refs / 8 files.
+- The R3 exit grep (`rg 'gnu_ton|pca|mockingbird|shark|duel_arena|noether|pirate'`
+  in engine crates) is NOT yet clean — that's R3.4's ratchet.
+- **Deferred-by-design:** the build.rs sprite-RON bake + backgrounds/boss
+  art + the OGG tree (the asset-ROOT flip) — they ride the R4e sprite-sheet
+  seam; the Bevy asset root still points at core's assets/ until then.

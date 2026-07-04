@@ -712,10 +712,35 @@ one RON `EntityCatalogDoc` authors a fighter's whole kit (directional verbs +
 `start_impulse` + `on_hit` pogo) and parses/validates/resolves — a fighter is
 DATA, not code.
 
-### R2.5 — the player-melee fold (REMAINING — the R2 capstone)
-The R2 ENGINE is complete (EffectRef/params, directional verbs, on-hit+pogo,
-self-motion) and proven authorable-as-RON. The fold is the consumer, and it
-carries ONE open design decision + several BLIND feel-deltas:
+### R2.5 — the player-melee fold ✅ LANDED — `6806c16b` (the R2 capstone / I7)
+The last combat fork is dissolved: the player's melee is the SAME moveset runtime
+every actor uses, driven by the controlled CHARACTER's kit (Jon: "whatever
+character is chosen behaves like the character; the controller — human, brain, or
+RL — just attaches" — the relativity / non-player-centrism principle).
+- **The derive** (`directional_attack_variants` in `build_actor_moveset`): a
+  body's ONE authored swing → up-/down-tilt + four aerials + pogo down-air, by
+  TRANSFORMING the base volume (reach rotates up/down, mirrors behind), scaled by
+  the character's own reach. Every controlled body resolves these through the
+  shared directional trigger; a neutral grounded attacker (every enemy) still
+  resolves `"attack"` → byte-identical swing.
+- **The player**: `PlayerSimulationBundle` gains `ActorMoveset` (from
+  `action_set.melee` — a worn starting character's swing drives the derive,
+  respecting `overlay_character_moveset` — the character-override decision
+  RESOLVED) + `MovesetMelee`. `pogo_pressed` → the down-air.
+  `project_moveset_melee_to_body_melee` recognizes the whole `attack*` melee
+  family (`is_melee_swing_move`) so the `BodyMelee`/`BodyCombat.attacking`
+  read-models keep working. FollowOwner strikes stamp facing-directed knockback.
+- **Pogo unified** (the world-orb decision RESOLVED): entity targets via the
+  on-hit dispatcher + `apply_pogo_bounce` (`632f96de`); world `PogoOrb` blocks via
+  `pogo_moveset_off_world_orbs`. One pogo — `PogoTarget` entities + `PogoOrb`
+  blocks. Shared `pogo_rise_from` (default 720 = flat `pogo_speed`).
+- **BLIND feel deltas** (Jon's to tune): derived directional geometry vs the old
+  per-intent table, knockback direction, no vertical-commit floors, no attack
+  self-recoil. Mechanics headless-verified: full gate 70 binaries green, only the
+  documented pre-existing RED `unified_melee::a_hostile_actor`.
+
+**Historical note** — the fold's two design decisions (below) were adjudicated by
+Jon mid-run and are now RESOLVED in the landing above:
 
 **Open design decision (needs Jon):** world-orb pogo reconciliation. Breakable
 pogo-orbs (`spawn_breakable`) carry `CenteredAabb` + `PogoTargetVolumes` but NO

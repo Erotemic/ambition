@@ -155,9 +155,14 @@ pub fn tick_actor_brains(
                 Option<&super::super::super::components::ActorAggression>,
                 // §A7: this body's persistent world-belief, updated each tick from its
                 // fresh `WorldView` so its brain can pursue a foe that has left the
-                // viewport. Attached by `ensure_perception_memory`; `Option` for the
+                // viewport. Attached by `ensure_perception`; `Option` for the
                 // one-frame gap before it lands (and for perception-less fixtures).
                 Option<&mut crate::features::ecs::perception::PerceptionMemory>,
+                // This body's PERCEPTION policy (how it learns where its foe is).
+                // Attached (`Sighted`) by `ensure_perception`; `Option` reads as the
+                // default `Perception::Omniscient` (the basic mode) when absent — so a
+                // fixture that wires up no perception targets omnisciently, no fallback.
+                Option<&crate::features::ecs::perception::Perception>,
             ),
         ),
         // The player carries the unified `BodyKinematics` too, and
@@ -171,6 +176,16 @@ pub fn tick_actor_brains(
         // this they'd match here (cluster = `None`) and get ticked by the actor
         // loop ON TOP of their own `tick_boss_brains_system` — a double brain
         // tick. The deleted `ActorRuntime` tag used to keep them out implicitly.
+        //
+        // POLICY, not a fold target (R1.5): this is a SWARM system — per-target
+        // slot-board arbitration + anti-clump crowding — which a boss doesn't
+        // participate in. So a boss's separate `tick_boss_brains_system` is
+        // legitimate NON-SWARM orchestration (boss-only snapshot fields,
+        // `BossAttackIntent` output, possession→special mapping), the same way the
+        // player's own `integrate_home_body` arm is separate — not a parallel system
+        // to merge. Folding it in would add a boss branch that SKIPS all the swarm
+        // machinery (an adapter, not canonicalization). The boss brain LOGIC is
+        // already unified (the universal `Brain::tick`).
         (
             With<FeatureSimEntity>,
             Without<crate::actor::PlayerEntity>,
@@ -238,7 +253,7 @@ pub fn tick_actor_brains(
     for (entity, _, health) in &player_query {
         alive_by_entity.insert(entity, health.current() > 0);
     }
-    for (entity, _, _, disposition, _, _, _, target, _, _, _, _, (clusters, faction, _, _)) in
+    for (entity, _, _, disposition, _, _, _, target, _, _, _, _, (clusters, faction, _, _, _)) in
         &actors
     {
         if let Some(c) = &clusters {
@@ -305,7 +320,7 @@ pub fn tick_actor_brains(
         mut control,
         action_set,
         _mounted,
-        (clusters, faction, aggression, mut perception_memory),
+        (clusters, faction, aggression, mut perception_memory, perception),
     ) in &mut actors
     {
         // Body-generic reaction timers on the body's authoritative `BodyCombat`
@@ -393,20 +408,31 @@ pub fn tick_actor_brains(
                         snapshot.movement_frame_mode = control_frame_modes.movement;
                         snapshot.aim_frame_mode = control_frame_modes.aim;
                     }
-                    // Headless world-out view for this body (S4/S5): built over the
-                    // SAME derived collision world `feature_world` the body integrates
-                    // against, so the brain's line-of-fire gate is answered over real
-                    // geometry (never a parallel sensor). Body-generic (guardrail #1):
-                    // this is the same `build_world_view` the player-robot body uses.
-                    //
-                    // §A7: the body's SELF-view is HONEST — its faction is its real
-                    // (effective, possession-aware) faction, `can_fire` reflects whether
-                    // it actually owns a ranged slot, and hostility resolves against the
-                    // LIVE `FactionRelations` (+ this body's grudge). PEERS + PROJECTILES
-                    // are wired (the pre-collected snapshots, self excluded), so the view's
-                    // `nearest_hostile`/`hostiles`/`incoming_threats` are live; only portals
-                    // remain empty. The brain now TARGETS through this view (below) — its
-                    // foe is what it can perceive, not the omniscient `ActorTarget`.
+                    // §A7 PERCEPTION POLICY: how this body learns where its foe is — a
+                    // typed, per-body [`Perception`], defaulting to `Omniscient` (the
+                    // BASIC mode) when the component is absent. There is NO "perception
+                    // resource missing" fallback anywhere: the target branch below is the
+                    // deliberate policy, not an accident of whether `PerceptionPeers` was
+                    // init'd. Production actors are granted `Sighted` by `ensure_perception`;
+                    // fixtures (and the boss, a separate tick) default to `Omniscient`.
+                    let perception_policy = perception.copied().unwrap_or_default();
+                    let viewport_half = match perception_policy {
+                        // Omniscient still gets a tactical view (for the brain's
+                        // line-of-fire), just at the default extent; its TARGET ignores it.
+                        super::super::perception::Perception::Omniscient => {
+                            super::super::perception::DEFAULT_VIEWPORT_HALF
+                        }
+                        super::super::perception::Perception::Sighted { viewport_half } => {
+                            viewport_half
+                        }
+                    };
+                    // Headless world-out view for this body (S4/S5), built ALWAYS for the
+                    // brain's tactical queries (line-of-fire over the SAME derived
+                    // collision world `feature_world` the body integrates against — never a
+                    // parallel sensor). Body-generic (guardrail #1): the same
+                    // `build_world_view` the player-robot body uses. The SELF-view is
+                    // HONEST — real (possession-aware) faction, `can_fire` reflecting a real
+                    // ranged slot, hostility against the LIVE `FactionRelations` + grudge.
                     let self_faction = crate::combat::targeting::effective_faction(
                         faction
                             .copied()
@@ -414,8 +440,8 @@ pub fn tick_actor_brains(
                         Some(&*brain_ref),
                     );
                     // The other bodies this actor perceives (§A7): the pre-collected
-                    // snapshot minus SELF. `Option` empty when the resource is absent
-                    // (test fixtures) → terrain-only view, exactly as before.
+                    // snapshot minus SELF. Empty when the resource is absent (a bare
+                    // fixture) → a terrain-only view, exactly as before.
                     let view_peers: Vec<super::super::perception::PerceptionPeer> =
                         perception_peers
                             .as_ref()
@@ -454,37 +480,39 @@ pub fn tick_actor_brains(
                         &[],
                         &feature_world,
                         relations,
-                        super::super::perception::DEFAULT_VIEWPORT_HALF,
+                        viewport_half,
                         sim_now,
                     );
-                    // §A7 MIGRATION: the brain observes its foe through the world-out
-                    // port, not the omniscient `ActorTarget`. Fold this tick's view into
-                    // the body's persistent belief, then redirect the snapshot's target
-                    // onto the nearest foe IN VIEW — or, when none is visible, the
-                    // most-confident foe the body REMEMBERS (pursuit of one that left the
-                    // viewport, invariant I6). Perceiving nobody ⇒ no target (idle). The
-                    // omniscient `target_pos`/`target_alive` (from `select_actor_targets`)
-                    // survives ONLY as the fallback for perception-less brain fixtures
-                    // (no `PerceptionPeers` resource) so those unit tests are unchanged.
-                    // Bosses keep the omniscient path (separate `brain.tick`, §A1); the
-                    // player brain ignores the target entirely.
                     if let Some(mem) = perception_memory.as_deref_mut() {
                         mem.0.update(&world_view, dt);
                     }
-                    if perception_peers.is_some() {
-                        let perceived = world_view.nearest_hostile().map(|a| a.pos).or_else(|| {
-                            perception_memory
-                                .as_deref()
-                                .and_then(|m| m.0.last_known_hostile().map(|r| r.pos))
-                        });
-                        match perceived {
-                            Some(pos) => {
-                                snapshot.target_pos = pos;
-                                snapshot.target_alive = true;
-                            }
-                            None => {
-                                snapshot.target_pos = em.kin.pos;
-                                snapshot.target_alive = false;
+                    match perception_policy {
+                        // OMNISCIENT (fixtures + any body not granted senses): the snapshot
+                        // already carries the global `ActorTarget` (`target_pos`/
+                        // `target_alive` from `build_enemy_brain_snapshot`) — nothing to
+                        // override, the body simply knows.
+                        super::super::perception::Perception::Omniscient => {}
+                        // SIGHTED: the brain observes its foe through the world-out port —
+                        // redirect the snapshot's target onto the nearest foe IN VIEW, or,
+                        // when none is visible, the most-confident foe the body REMEMBERS
+                        // (pursuit of one that left the viewport, invariant I6). Perceiving
+                        // nobody ⇒ no target (idle).
+                        super::super::perception::Perception::Sighted { .. } => {
+                            let perceived =
+                                world_view.nearest_hostile().map(|a| a.pos).or_else(|| {
+                                    perception_memory
+                                        .as_deref()
+                                        .and_then(|m| m.0.last_known_hostile().map(|r| r.pos))
+                                });
+                            match perceived {
+                                Some(pos) => {
+                                    snapshot.target_pos = pos;
+                                    snapshot.target_alive = true;
+                                }
+                                None => {
+                                    snapshot.target_pos = em.kin.pos;
+                                    snapshot.target_alive = false;
+                                }
                             }
                         }
                     }
@@ -698,6 +726,15 @@ pub fn integrate_sim_bodies(
         (
             With<FeatureSimEntity>,
             Without<crate::actor::PlayerEntity>,
+            // POLICY (§A1/R1.1): a boss integrates through the SAME
+            // `integrate_actor_body` (R1.1 dissolved its bespoke integrator), but is
+            // driven from its OWN chain-1 `integrate_boss_bodies` — deliberately kept in
+            // that schedule slot so the boss's presentation ordering stays byte-identical.
+            // Excluding it here prevents a double integrate. Folding the boss INTO this
+            // query (the optional "no boss arm") would need a chain reorder for a BLIND
+            // one-frame pose lag, and the boss's chain-1 presentation systems remain
+            // regardless — so the carve-out is a presentation-ordering choice, not an
+            // un-unified integrator.
             Without<super::super::boss_clusters::BossConfig>,
         ),
     >,
@@ -806,6 +843,11 @@ pub fn sync_actor_read_model(
         (
             With<FeatureSimEntity>,
             Without<crate::actor::PlayerEntity>,
+            // POLICY (§A1): a boss mirrors its read-model through its OWN chain-1
+            // `sync_boss_actor_components` (which ALSO carries boss-specific encounter
+            // fields — phase, timers), so it is excluded here to avoid a double sync.
+            // Same non-swarm-orchestration policy as `tick_actor_brains` /
+            // `integrate_boss_bodies`: the boss runs its own chain-1, deliberately.
             Without<super::super::boss_clusters::BossConfig>,
         ),
     >,

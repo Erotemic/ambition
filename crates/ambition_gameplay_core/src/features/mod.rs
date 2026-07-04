@@ -289,13 +289,15 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.add_systems(
             Update,
             (
-                // §A7: ensure every brained actor carries a `PerceptionMemory` before
-                // the brain tick reads it (so a foe that leaves the viewport is still
-                // pursued from belief), then snapshot every body's peer data + every
-                // live projectile BEFORE the brain tick reads them, so a body perceives
+                // §A7: grant every brained non-boss actor SIGHTED perception
+                // (`Perception::Sighted` + a `PerceptionMemory` belief store) before the
+                // brain tick reads it, so a foe that leaves its viewport is still pursued
+                // from belief. Then snapshot every body's peer data + every live
+                // projectile BEFORE the brain tick reads them, so a sighted body perceives
                 // the surrounding world without a second borrow of the actor query.
-                // Populates the peers + projectiles channels `build_world_view` got empty.
-                crate::features::ecs::perception::ensure_perception_memory,
+                // (Bodies without a `Perception` — a boss, a fixture — default to the
+                // basic `Omniscient` mode, reading the global `ActorTarget` directly.)
+                crate::features::ecs::perception::ensure_perception,
                 crate::features::ecs::perception::collect_perception_peers,
                 crate::features::ecs::perception::collect_perception_projectiles,
                 tick_actor_brains,

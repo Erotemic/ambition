@@ -32,9 +32,42 @@ use crate::combat::targeting::FactionRelations;
 
 /// Default viewport half-extent (world px) — the AI analogue of the human's
 /// screen. Generous so a body perceives approaching threats with room to react;
-/// a per-body override can come later if a character wants keener or duller
-/// senses.
+/// a per-body override rides in [`Perception::Sighted`] for a character that wants
+/// keener or duller senses.
 pub const DEFAULT_VIEWPORT_HALF: ae::Vec2 = ae::Vec2::new(480.0, 320.0);
+
+/// A body's PERCEPTION policy — HOW it learns where its foe is. Perception is
+/// UNIVERSAL: targeting always flows through this typed, per-body policy, never
+/// through an implicit "did the perception resource exist this run?" fallback. A
+/// body without the component reads as the default, [`Perception::Omniscient`], so
+/// omniscience is a deliberate BASIC mode, not a degraded path.
+///
+/// The two modes are a spectrum from primal to refined:
+/// - [`Omniscient`](Self::Omniscient) — the BASIC perception: the body simply KNOWS
+///   the nearest hostile ANYWHERE (the global [`ActorTarget`](crate::combat::components::ActorTarget)
+///   `select_actor_targets` maintains). No viewport, no line-of-sight, no forgetting.
+///   A boss has this — it is relentless, you cannot juke it — and it is what any body
+///   defaults to before it is given senses, so a fixture that wires up no perception
+///   still targets correctly through the same `ActorTarget` every body carries.
+/// - [`Sighted`](Self::Sighted) — the body perceives only within `viewport_half` and
+///   pursues a foe that left it from [`PerceptionMemory`] (invariant I6). Ordinary
+///   actors have this: they can lose sight of you, be juked, and give up. This is the
+///   world-out [`WorldView`] port ([`build_world_view`]).
+#[derive(bevy::prelude::Component, Clone, Copy, Debug, PartialEq)]
+pub enum Perception {
+    /// Knows the nearest hostile anywhere (reads the global `ActorTarget`).
+    Omniscient,
+    /// Sees within `viewport_half`; blind beyond it (+ memory pursuit).
+    Sighted { viewport_half: ae::Vec2 },
+}
+
+impl Default for Perception {
+    /// Omniscience is the basic perception — the mode a body has until it is granted
+    /// bounded senses.
+    fn default() -> Self {
+        Perception::Omniscient
+    }
+}
 
 /// The viewing body, described generically (any faction). Built for the
 /// player-robot body exactly as for an enemy (guardrail #1) — this struct names
@@ -198,23 +231,30 @@ pub fn collect_perception_projectiles(
 ///
 /// A component (not a resource) so it lives + dies with the body — no manual pruning
 /// of despawned entities. Attached to every non-boss brained actor by
-/// [`ensure_perception_memory`].
+/// [`ensure_perception`].
 #[derive(bevy::prelude::Component, Default)]
 pub struct PerceptionMemory(pub ambition_characters::perception::WorldMemory);
 
-/// Attach a default [`PerceptionMemory`] to every non-boss brained actor that lacks
-/// one, so the perceived-target derivation always has a belief store to pursue from.
-/// Runs before the brain tick. Matches `tick_actor_brains`' own body set (brained,
-/// non-player, non-boss).
+/// Grant SIGHTED perception to every non-boss brained actor that lacks it: a
+/// [`Perception::Sighted`] policy (bounded viewport + memory pursuit) AND the
+/// [`PerceptionMemory`] belief store it pursues from. Runs before the brain tick.
+/// Matches `tick_actor_brains`' own body set (brained, non-player, non-boss).
 ///
-/// The `Without<BossConfig>` here is documented POLICY, not a parallel-system
-/// carve-out (§A7): the player brain doesn't perceive-target (it steers from
-/// controller input), and a boss now perceives its foe through the SAME world-out
-/// port (`tick_boss_brains_system`), but with an ARENA-WIDE viewport (half-extent =
-/// the whole world) — so it never loses sight of the player and needs no off-screen
-/// belief store to pursue from. A boss that wanted a bounded viewport (and thus
-/// off-screen pursuit) would drop this exclusion and gain memory here; today none do.
-pub fn ensure_perception_memory(
+/// This is where ordinary actors OPT IN to sighted perception — they can be juked,
+/// lose sight of a foe, and give up. Everything WITHOUT a [`Perception`] component
+/// defaults to [`Perception::Omniscient`] (the basic mode), which is documented
+/// POLICY, not a parallel-system carve-out (§A7):
+/// - the **player** brain steers from controller input and never perceive-targets;
+/// - a **boss** is relentless — it knows where you are in its arena (omniscience is
+///   its perception, the `ActorTarget` read every body carries), so it needs no
+///   viewport or belief store. A boss that wanted bounded, juke-able senses would drop
+///   this `Without<BossConfig>` exclusion and be granted `Sighted` + memory here;
+///   today none do.
+///
+/// Because the missing component reads as `Omniscient`, there is NO "perception
+/// resource missing" fallback anywhere: the target derivation branches on this typed
+/// policy, and a fixture that wires up no perception simply gets the basic mode.
+pub fn ensure_perception(
     mut commands: bevy::prelude::Commands,
     bodies: bevy::prelude::Query<
         bevy::prelude::Entity,
@@ -223,12 +263,19 @@ pub fn ensure_perception_memory(
             bevy::prelude::With<crate::features::FeatureSimEntity>,
             bevy::prelude::Without<crate::actor::PlayerEntity>,
             bevy::prelude::Without<crate::combat::boss_clusters::BossConfig>,
+            // Missing memory ⟺ missing perception (both attached together below), so
+            // this one gate nets bodies that lack either.
             bevy::prelude::Without<PerceptionMemory>,
         ),
     >,
 ) {
     for entity in &bodies {
-        commands.entity(entity).insert(PerceptionMemory::default());
+        commands.entity(entity).insert((
+            Perception::Sighted {
+                viewport_half: DEFAULT_VIEWPORT_HALF,
+            },
+            PerceptionMemory::default(),
+        ));
     }
 }
 

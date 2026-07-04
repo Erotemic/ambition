@@ -539,6 +539,78 @@ the boss OBSERVES its foe, it is no longer told where it is.
 - **Verified:** gameplay_core --lib 1134; app suites (rl_sim) boss_lifecycle 8,
   boss_contact_iframes 4, boss_motion_parity 2, boss_possession_specials 1,
   duel_arena 4 — all green.
+- **⚠ SUPERSEDED by R1.2b** (Jon's redirect): the arena-wide-`WorldView` boss build
+  above STILL carried a fallback (`if PerceptionPeers present … else ActorTarget`) —
+  and so did `tick_actor_brains`. Jon flagged the fallback as bloat: "enforce a
+  perception system, and maybe the most basic type of perception is omniscience." R1.2b
+  below dissolves it by making omniscience a first-class typed mode; the boss reverts to
+  reading `ActorTarget` — but now as the blessed `Perception::Omniscient`, not a hidden
+  fallback. The arena-wide viewport (and the boss's perception resources) are GONE.
+
+### R1.2b — perception is a typed policy; omniscience is the BASIC mode (no more resource-presence fallback) ✅ (byte-identical)
+Both `tick_actor_brains` and (R1.2's) `tick_boss_brains_system` chose the target with
+the SAME smell: `if the PerceptionPeers resource happened to exist { sighted WorldView }
+else { omniscient ActorTarget }` — an implicit resource-presence FALLBACK, two ways to
+learn where your foe is bridged by an accident of init. Jon's reframe: **make perception
+a deliberate, typed per-body policy, and let omniscience be its basic mode.**
+- **The type.** New `enum Perception { Omniscient, Sighted { viewport_half } }`
+  (`features/ecs/perception.rs`), `Default = Omniscient`. A body WITHOUT the component
+  reads as `Omniscient` — the basic perception: it simply knows the nearest hostile
+  anywhere (the global `ActorTarget`), no viewport / sight / forgetting. `Sighted` is the
+  world-out `WorldView` port (bounded viewport + `PerceptionMemory` pursuit).
+- **Who is what.** `ensure_perception` (was `ensure_perception_memory`) GRANTS ordinary
+  non-boss actors `Sighted { DEFAULT_VIEWPORT_HALF }` + memory — they can be juked, lose
+  sight, give up. Everything else defaults `Omniscient`: the **player** (steers from
+  input, never perceive-targets), a **boss** (relentless — it knows where you are in its
+  arena; the canonical basic-perception body), and any **fixture** that wires up no
+  perception. So there is NO fallback: the target derivation branches on the typed policy.
+- **Byte-identical today.** `viewport_half == DEFAULT_VIEWPORT_HALF` for every current
+  body, and the branch maps exactly onto the old resource-presence split (production
+  actors were peers-present→Sighted; fixtures peers-absent→Omniscient), so behavior is
+  unchanged. The actor tick still builds its `WorldView` ALWAYS (the brain's line-of-fire
+  needs it); only the TARGET source is policy-gated. The one seam: a production actor is
+  `Omniscient` for the 1 frame before `ensure_perception` attaches `Sighted` (same
+  accepted gap the memory `Option` already had; deterministic, washes out — duel_arena's
+  1800-frame fights are green).
+- **The boss got SIMPLER.** R1.2's arena-wide `WorldView` build + its 3 perception
+  resources + 2 query columns are DELETED; the boss reads `target.pos` (Omniscient),
+  now a blessed mode rather than a carve-out. No per-frame view build for the boss.
+- **Files:** `features/ecs/perception.rs` (`Perception` enum; `ensure_perception`
+  grants Sighted+memory), `features/ecs/actors/update.rs` (query `+Option<&Perception>`;
+  target branches on the policy), `features/ecs/bosses/tick.rs` (reverts R1.2 to the
+  Omniscient `target.pos`), `features/mod.rs` (registration rename).
+- **Verified:** full `cargo test --workspace --all-targets` — 43 test binaries green;
+  the ONLY failure is the documented pre-existing RED `unified_melee::a_hostile_actor`
+  (confirmed identical on the clean baseline). gameplay_core --lib 1134; boss + duel
+  suites (rl_sim) all green.
+
+### R1.5 — every surviving `Without<BossConfig>` is documented POLICY ✅
+The ratchet (`rg 'Without<.*BossConfig>' gameplay_core/src`, excl. comments/tests): ~12
+real query filters. All are genuine boss POLICY, not "the boss has a parallel system":
+- **Domain policy (self-evident):** pickups (a boss doesn't collect), target-volumes +
+  view-index (boss geometry from sprite-metrics), damage-predicates + damage routing
+  (environmental-kill-only etc.), reset (bosses REVIVE via encounter reset, not actor
+  respawn), projectiles (bosses fire via the moveset). Each already reads as a
+  domain difference.
+- **The load-bearing trio (now annotated):** `tick_actor_brains` (:182),
+  `integrate_sim_bodies` actor arm (:719), `sync_actor_read_model` (:827) — the boss runs
+  its OWN chain-1 (`tick_boss_brains_system` / `integrate_boss_bodies` /
+  `sync_boss_actor_components`). Each carve-out now carries a POLICY comment: the boss is
+  a NON-SWARM actor (no slot-board / anti-clump), it integrates through the SHARED
+  `integrate_actor_body` but from a chain-1 slot kept for byte-identical presentation
+  ordering, and its read-model sync also carries boss-only encounter fields. Folding the
+  brain-tick would ADD a swarm-skipping boss branch (adapter, not canonicalization);
+  folding the integrate arm ("no boss arm") needs a chain reorder for a BLIND pose lag and
+  the boss chain-1 presentation stays regardless. So they are documented POLICY.
+- `ensure_perception`'s `Without<BossConfig>` is now the "boss = Omniscient basic mode"
+  policy (R1.2b), superseding R1.2's arena-wide-awareness note.
+
+**R1 COMPLETE.** The boss island's parallel forks are all dissolved (integrate, animator
+write-back, possessed-strike, targeting), and every remaining `Without<BossConfig>` is
+documented boss policy. Optional DEEP-convergence follow-ups (Jon's call, design-gated,
+NOT blocking): the "no boss arm" integrate fold (blind); the `BossAttackIntent` →
+general-move-intent generalization that would let the boss brain-tick truly fold into the
+actor path; boss anim ROWS → `CharacterAnim`. Next roadmap phase: R2 (ability model).
 
 ### R1 HANDOFF — remaining slices (R1.2, R1.5), with the analysis done
 Executor note (opus): R1.1 + R1.4 landed + verified + committed

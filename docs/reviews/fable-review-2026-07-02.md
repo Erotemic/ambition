@@ -2687,9 +2687,13 @@ pogo schema — Jon's call).
   `line_of_fire` is consumed). REMAINING, in order:
   1. **Projectiles channel** (additive, mirrors peers): a `collect_perception_projectiles`
      that snapshots both pools — `enemy_projectile` (`EnemyProjectile` marker) AND
-     `projectile` (`LiveProjectile`), both carry the shared `BodyKinematics` for pos/vel;
-     find each pool's faction+damage component — into a `PerceptionProjectiles` resource,
-     fed to `build_world_view`'s 2nd arg (currently `&[]`). Activates `incoming_threats`.
+     `projectile` (`LiveProjectile`), both carry the shared `BodyKinematics` for pos/vel and
+     `ProjectileGameplay` for `damage`) into a `PerceptionProjectiles` resource, fed to
+     `build_world_view`'s 2nd arg (currently `&[]`). Activates `incoming_threats`. WRINKLE:
+     `ProjectileGameplay` has NO `faction` field (the "faction-routed" doc comment on
+     `entity.rs` is drift) — the firer's faction is by-pool (`EnemyProjectile`→Enemy,
+     `PlayerProjectile`→Player) or via `ProjectileOwner(Entity)`→owner faction; pick one and
+     resolve it when collecting (two per-pool queries, or read the owner).
   2. **Brain migration** (behavior-shifting): swap `snapshot.target_pos` reads for
      `perception.nearest_hostile().map(\|a\| a.pos)` (with `WorldMemory` for pursuit of a
      vanished target), one brain at a time — Smash first (biggest). EXPECT cadence canaries

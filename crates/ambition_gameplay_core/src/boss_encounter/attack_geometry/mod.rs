@@ -531,9 +531,19 @@ pub fn volumes_for_profile(
     behavior: &BossBehaviorProfile,
 ) -> Vec<ae::Aabb> {
     // The strike origin: the boss body position shifted by its authored attack
-    // offset. Each profile's DATA rects (`strike_geometry`) resolve against it.
+    // offset. Each profile's DATA rects resolve against it.
     let origin = pos + behavior.attack_origin_offset;
-    strike_geometry(attack)
+    // A boss may AUTHOR its own rects for this move (§C6 "out of core"): an override
+    // in `behavior.strike_geometry` (RON, keyed by `move_id`) REPLACES the built-in
+    // table — so a content boss supplies its strike shapes with no core edit. Empty =
+    // the built-in per-profile geometry. This one resolve feeds BOTH the debug/pose
+    // path AND `boss_attack_moveset`'s gameplay `HitVolume`s (its single source).
+    let rects: &[StrikeRect] = behavior
+        .strike_geometry
+        .get(&attack.move_id())
+        .map(Vec::as_slice)
+        .unwrap_or_else(|| strike_geometry(attack));
+    rects
         .iter()
         .map(|rect| rect.to_aabb(origin, combat_size))
         .collect()
@@ -692,5 +702,43 @@ mod strike_geometry_data_tests {
                 }
             }
         }
+    }
+
+    /// §C6 "out of core": a boss AUTHORS its own strike rects in its behavior profile
+    /// (RON-loaded here from the fixture), and that override REPLACES the built-in
+    /// geometry for exactly that move — while every other profile keeps the built-in
+    /// table. This is the seam a second game's boss uses to supply strike shapes with
+    /// no edit to core's `strike_geometry`.
+    #[test]
+    fn an_authored_override_replaces_the_built_in_geometry_for_that_move() {
+        use crate::boss_encounter::behavior::BossBehaviorProfile;
+
+        let mut behavior = BossBehaviorProfile::from_data("clockwork_warden");
+        let size = ae::Vec2::new(80.0, 80.0);
+        let pos = ae::Vec2::new(200.0, 100.0);
+        let origin = pos + behavior.attack_origin_offset;
+
+        // Author a single bespoke rect for the floor_slam move — deliberately unlike
+        // the built-in FloorSlam so the swap is unambiguous.
+        let authored = StrikeRect::scaled(ae::Vec2::new(0.0, 1.0), ae::Vec2::new(0.40, 0.40));
+        behavior
+            .strike_geometry
+            .insert("floor_slam".to_string(), vec![authored]);
+
+        // FloorSlam now resolves to the AUTHORED rect, not the built-in slab.
+        let slam = volumes_for_profile(&BossAttackProfile::FloorSlam, pos, size, &behavior);
+        assert_eq!(slam.len(), 1);
+        assert_eq!(slam[0].center(), authored.to_aabb(origin, size).center());
+        assert_eq!(slam[0].half_size(), authored.to_aabb(origin, size).half_size());
+        assert_ne!(
+            slam[0].half_size(),
+            FLOOR_SLAM[0].to_aabb(origin, size).half_size(),
+            "the override must NOT equal the built-in FloorSlam geometry"
+        );
+
+        // A profile with NO authored override still uses the built-in table.
+        let sweep = volumes_for_profile(&BossAttackProfile::SideSweep, pos, size, &behavior);
+        assert_eq!(sweep.len(), 2, "SideSweep keeps its built-in two-box geometry");
+        assert_eq!(sweep[0].center(), SIDE_SWEEP[0].to_aabb(origin, size).center());
     }
 }

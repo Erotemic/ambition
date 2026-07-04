@@ -2799,12 +2799,16 @@ pogo schema — Jon's call).
   half_const}`) resolved by ONE generic `to_aabb`; `strike_geometry(profile) -> &[StrikeRect]` is
   the single source both the gameplay path (`boss_attack_moveset` → `HitVolume`s) and the
   debug/pose fallback read. Byte-identical (pinned by
-  `strike_geometry_is_byte_identical_to_the_old_hardcoded_match` across origins/sizes). **REMAINING
-  = the "out of core" capstone:** let `BossBehaviorProfile` (RON) author a per-move geometry
-  OVERRIDE (`Vec<StrikeRect>`) so a second game's boss supplies its own strike rects with NO core
-  edit — the `StrikeRect` type is already serde-ready for it. The 11 named variants stay (they also
-  key anim rows / overlays / behavior — 72 refs across 8 files — so the ENUM collapse is a separate,
-  larger semantic change, not part of the geometry data-fication).
+  `strike_geometry_is_byte_identical_to_the_old_hardcoded_match` across origins/sizes).
+  **"OUT OF CORE" CAPSTONE DONE ✅ (E58):** `BossBehaviorProfile` (RON) now carries a
+  `strike_geometry: HashMap<move_id, Vec<StrikeRect>>` OVERRIDE — a boss authors its OWN strike
+  rects in `boss_profiles.ron` and they REPLACE the built-in table for that move, NO edit to core.
+  `volumes_for_profile` consults it (feeding BOTH the gameplay `HitVolume`s via `boss_attack_moveset`
+  AND the debug/pose path from its single source); empty default = built-in, unchanged. Pinned by
+  `an_authored_override_replaces_the_built_in_geometry_for_that_move`. **REMAINING (larger,
+  separate):** the 11 named variants stay — they also key anim rows / overlays / behavior (72 refs
+  across 8 files), so collapsing the ENUM itself is a distinct semantic change, not part of the
+  geometry data-fication.
 - **C7 rider-name half** — BLOCKED on `ambition_ldtk_tools` (mount composition still parses `" on Shark"` from the spawn NAME; the fix authors a `mount:` spawn field).
 
 **D-front** (`rooms`/`RoomSpec` content-coupling) — Jon's call, unchanged below.

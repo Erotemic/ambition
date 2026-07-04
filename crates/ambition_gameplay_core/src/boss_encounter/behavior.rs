@@ -114,6 +114,16 @@ pub struct BossBehaviorProfile {
     /// bosses (GNU-ton's shoulder scholar) author their own.
     #[serde(default)]
     pub bark_anchor: BarkAnchorSpec,
+    /// Authored strike-geometry OVERRIDES, keyed by the attack's `move_id`
+    /// (`"floor_slam"`, `"hand_sweep"`, …, or a `Special` key). When a profile's
+    /// move_id is present here, its [`StrikeRect`] list REPLACES the built-in
+    /// [`strike_geometry`](super::attack_geometry::strike_geometry) table for that
+    /// strike — so a boss (a second game's especially) authors its OWN strike rects
+    /// in `boss_profiles.ron` with NO edit to core's geometry table. Empty (the
+    /// `#[serde(default)]`) = use the built-in per-profile geometry, unchanged. The
+    /// "second game adds a boss without editing core" oracle, for strike shapes.
+    #[serde(default)]
+    pub strike_geometry: std::collections::HashMap<String, Vec<super::attack_geometry::StrikeRect>>,
 }
 
 /// Authored speech-bubble anchor for a boss (see

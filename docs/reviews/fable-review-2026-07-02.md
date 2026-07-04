@@ -2684,9 +2684,17 @@ pogo schema — Jon's call).
   every body into a `PerceptionPeers` resource that `build_world_view` now reads (was passed
   `&[]`), so `WorldView`'s `nearest_hostile`/`hostiles`/`incoming_threats` are LIVE in the sim.
   Additive/behavior-neutral (no brain reads the peers channel yet — only the terrain-driven
-  `line_of_fire` is consumed). REMAINING: wire projectiles the same way; then migrate brains
-  off the side-loaded `BrainSnapshot.target_pos` onto `WorldView.nearest_hostile` (the
-  behavior-shifting slice — expect Smash-brain cadence canaries to move, like E54's did).
+  `line_of_fire` is consumed). REMAINING, in order:
+  1. **Projectiles channel** (additive, mirrors peers): a `collect_perception_projectiles`
+     that snapshots both pools — `enemy_projectile` (`EnemyProjectile` marker) AND
+     `projectile` (`LiveProjectile`), both carry the shared `BodyKinematics` for pos/vel;
+     find each pool's faction+damage component — into a `PerceptionProjectiles` resource,
+     fed to `build_world_view`'s 2nd arg (currently `&[]`). Activates `incoming_threats`.
+  2. **Brain migration** (behavior-shifting): swap `snapshot.target_pos` reads for
+     `perception.nearest_hostile().map(\|a\| a.pos)` (with `WorldMemory` for pursuit of a
+     vanished target), one brain at a time — Smash first (biggest). EXPECT cadence canaries
+     to move (duel_arena / actor_phase_split / the E39 unified_body_movement), loosen to the
+     SPIRIT as E54 did. Once every brain is off it, delete `BrainSnapshot.target_pos`.
 - **C1** (L) — 24-item `Item` enum → installable `ItemCatalog` (consumed across menu IR / yarn / persistence).
 - **C4** (L) — machinery-owned `PlatformerEnginePlugin` group + fold `sim_systems.rs` into owning plugins + extract `host/mobile_input/` beside `ambition_input` + an app-thinness boundary test.
 - **C6** (M) — named-boss residue: the 11 geometry `BossAttackProfile` variants (post-E51, consumed by `volumes_for_profile` + hurtbox pose + anim rows) could collapse toward authored rect DATA; named constructors + `MOCKINGBIRD_*` consts; per-boss sheet specs → boss roster RON.

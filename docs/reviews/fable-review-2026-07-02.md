@@ -2932,6 +2932,27 @@ sideways/inverted gravity). **B2** (`surface_normal` stale-frame for non-surface
 item still open; it overlaps the A3/A4 shield/knockback/muzzle consumers and lands with that work (item 3).
 Green: moveset 11, c4 harness 6. No production change — §B was already done; this closes its test coverage.
 
+### E61. §A3/§A4 victim-side damage — VERIFIED complete (incl B2); the B2 live-frame test gap closed ✅
+The handoff re-listed A3/A4 as work, but a fresh code read confirms the whole victim-side damage stack is
+already unified (E6/E7/E9/E11–E13) — the doc lagged the code:
+- **A3** ✅ `combat/hitbox/mod.rs` `apply_hitbox_damage` is ONE `victims` query over every body with a
+  published `CenteredAabb` + faction + the vuln trio (bosses too) — the three drifted victim loops collapsed.
+- **A4** ✅ the world emitters iterate every vulnerable body, NOT just players: `combat/hazards.rs` has an
+  `actor_victims` loop ("an NPC in lava takes the hit, a boss lured into spikes" — pinned by
+  `a_non_player_body_touching_a_hazard_takes_the_hit_too`); `apply_actor_contact_damage` resolves player +
+  `Without<PlayerEntity>` victims off the published `CenteredAabb`; `update_ecs_bosses` emits NO damage —
+  strike damage flows through `apply_hitbox_damage`, body-contact through `apply_actor_contact_damage`.
+- **A5** ✅ ONE `combat::damage::body_vulnerable()` at all 6 emit sites; **A6** ✅ the player publishes the
+  same frame-oriented `CenteredAabb`, so every hurtbox read is the one gravity-oriented accessor.
+- **B2** ✅ `features/enemies/integration.rs:156-168` keeps `surface_normal` LIVE (`= -gravity_dir` at the
+  body's position) for every non-surface-walker, so the shield-block / slash-knockback / ranged-muzzle
+  consumers (`actor_hit.rs:129`, `brain_effects.rs:~117`) read the CORRECT live frame. Surface-walkers keep
+  the clung-surface normal. **Closed the test gap:** added
+  `a_non_surface_walker_keeps_its_frame_normal_live_under_gravity` (drives the real integrator under all four
+  cardinal gravities, asserts `surface_normal == -gravity`; a real canary — dropping the §B2 write trips it).
+No production change to the damage paths — item 3 was already done; this banks the B2 regression canary.
+Green: gameplay_core --lib 1130 (new B1 + B2 canaries).
+
 ## Next (in order) — **the MOVESET UNIFICATION is COMPLETE (E47–E55): melee, specials, ranged, AND boss strikes all run through the ONE moveset runtime.** The audit's TASK sections are stale; trust E-entries + a code re-check before working an item.
 
 ---

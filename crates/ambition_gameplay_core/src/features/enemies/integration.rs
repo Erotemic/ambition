@@ -741,6 +741,58 @@ mod dash_tests {
         );
     }
 
+    /// B2 (fable review §B2): a non-surface-walker's published reference-frame
+    /// normal must track LIVE gravity at its position, not stay pinned to the
+    /// spawn constant `(0,-1)`. Consumers derive the body frame as
+    /// `-surface_normal` (shield block side, slash knockback, ranged muzzle/aim);
+    /// if it stayed screen-down, a body under sideways/inverted gravity would
+    /// block/recoil/fire in the down-gravity frame while its movement obeyed the
+    /// real field. Regression guard for the `!surface_walker` LIVE write.
+    #[test]
+    fn a_non_surface_walker_keeps_its_frame_normal_live_under_gravity() {
+        let world = floored_world();
+        for gravity in [
+            ae::Vec2::new(0.0, 1.0),  // down (baseline)
+            ae::Vec2::new(1.0, 0.0),  // right
+            ae::Vec2::new(0.0, -1.0), // up
+            ae::Vec2::new(-1.0, 0.0), // left
+        ] {
+            let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+            let mut seed = ActorClusterSeed::new(
+                "grunt".to_string(),
+                "Grunt".to_string(),
+                aabb,
+                CharacterBrain::Custom("cellular_automaton_fighter".into()),
+                &[],
+            );
+            // A plain (non-clinging) fighter; make the invariant explicit.
+            seed.config.tuning.surface_walker = false;
+            // Spawn-pinned to screen-down — the exact stale state B2 fixes.
+            seed.surface.surface_normal = ae::Vec2::new(0.0, -1.0);
+            seed.kin.pos = ae::Vec2::new(0.0, 40.0);
+            let mut em = seed.as_actor_mut();
+            em.update(
+                &world,
+                ae::Vec2::new(2000.0, em.kin.pos.y),
+                FeatureCombatTuning::default(),
+                None,
+                1.0 / 60.0,
+                false,
+                ActorControlFrame::neutral(),
+                gravity,
+                crate::time::feel::SandboxFeelTuning::default(),
+                (0.0, 0.0),
+            );
+            let expected = -gravity;
+            assert!(
+                (em.surface.surface_normal - expected).length() < 1e-3,
+                "gravity {gravity:?}: the frame normal must track live gravity; \
+                 got {:?}, want {expected:?}",
+                em.surface.surface_normal
+            );
+        }
+    }
+
     /// Drive a grounded walker (locomotion full-right) for `ticks` steps under
     /// the given post-hit stagger `(hitstun_timer, recoil_lock_timer)`; return
     /// the ground covered along +x. The §A2 step 7 witness rig.

@@ -853,3 +853,38 @@ seams a second game can use.
   exactly one emission with the staged room id.
 - **Verified per slice:** gameplay_core --lib 1143; app rl_sim checks; duel_arena 4
   + plugin_minimal_app 8 green after R3.1c.
+
+### R3.2a — the DATA payload evictions: audio registries, yarn, character catalog ✅
+Three of R3.2's asset-payload seams landed on the proven install pattern; the
+engine now ships no tracks, no cues, no dialogue, and no characters.
+
+- **Audio registries** (`9cb5e72b`): `music_registry.ron` + `sfx_registry.ron`
+  → `ambition_content/assets/audio/`. Core seam:
+  `install_music_registry`/`install_sfx_registry` + `authored_*_registry()`
+  (empty registry in a content-less binary; cross-crate cfg(test) fixture =
+  the game's real data). `for_desktop_dev_default` reads the seam; the dead
+  `*_REGISTRY_ASSET` consts died; regen_music_registry.py writes the new path.
+- **Yarn dialogue** (`6987ecaf`): the 7 `.yarn` → `ambition_content/assets/
+  dialogue/`. `ambition_content::dialogue::yarn` owns YARN_SOURCES +
+  `yarn_spinner_plugin()` — now IN-MEMORY `YarnFileSource` (asset-root
+  coupling gone; the Android folder-scan caveat dissolves) — and
+  `known_dialogue_ids()`. Core dialog keeps only the runtime. Both guards
+  moved WITH the content, unweakened: `yarn_compile` (whole-project compile,
+  ui-gated) + `dialogue_lint` (arity + markup) as content tests;
+  dialogue_lint.py follows.
+- **Character catalog + playable cast** (`05952f40`, violations #3 + #10):
+  `character_catalog.ron` → content; core's `character_roster` becomes the
+  non-Bevy install seam (`install_character_catalog` + `catalog()` parse
+  cache) the LDtk NpcSpawn converter / spawn paths / sprite joins read.
+  Install chokes: content plugin, init_sandbox_resources, the sim-resources
+  plugin (immediately before `character_roster_plugin()`), headless + rl_sim
+  entries. PLAYABLE_ROSTER/next_playable → `content::character_catalog` with
+  their rot-pins. Python tooling paths swept (incl. one commit in the
+  sprite2d_renderer submodule).
+- **Gate:** full `cargo test --workspace --all-targets` — the ONLY failure was
+  the app's stale "asset root must contain dialogue/" expectation (fixed with
+  the move); gameplay_core --lib 1133, content 5 suites, app --lib 140,
+  rl_sim plugin_minimal_app/duel_arena/boss_lifecycle green.
+- **Residue noted:** `StartingCharacter::DEFAULT_ID = "player"` remains a
+  content string in core machinery (the default-wearing seam) — R3.4 candidate,
+  not blocking.

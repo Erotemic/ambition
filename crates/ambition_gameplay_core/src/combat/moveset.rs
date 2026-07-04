@@ -29,7 +29,7 @@ use bevy::prelude::{
 
 use ambition_engine_core as ae;
 use ambition_entity_catalog::{
-    ClipBinding, EffectRef, HitVolume, MoveEvent, MoveEventKind, MoveSpec, MoveWindow,
+    AttackDir, ClipBinding, HitVolume, MoveEvent, MoveEventKind, MoveSpec, MoveWindow,
     MovesetContract, VolumeShape, WindowTag,
 };
 use ambition_time::ProperTimeScale;
@@ -446,37 +446,74 @@ pub fn advance_move_playback(
     }
 }
 
+/// Reduce a body-local attack aim axis to a discrete [`AttackDir`] for
+/// directional move selection. The axis is body/gravity-local (+x = facing,
+/// +y = gravity-down), so `y < 0` is "toward the head" (Up) under ANY gravity
+/// — the same frame the move's volume offsets live in. A forward or neutral aim
+/// both read `Neutral` (the plain jab); an aim opposite facing reads `Back`.
+/// Vertical wins ties so a clear up/down aim beats slight horizontal drift.
+fn attack_dir_from_axis(axis: ae::Vec2) -> AttackDir {
+    const DEADZONE: f32 = 0.5;
+    if axis.y.abs() >= axis.x.abs() && axis.y.abs() > DEADZONE {
+        if axis.y < 0.0 {
+            AttackDir::Up
+        } else {
+            AttackDir::Down
+        }
+    } else if axis.x < -DEADZONE {
+        AttackDir::Back
+    } else {
+        AttackDir::Neutral
+    }
+}
+
 /// TRIGGER a body's data-driven move from its control-frame verb edges: a
-/// `special_pressed` → the `"special"` verb, a `melee_pressed` → the `"attack"`
-/// verb. A body already playing a move (`With<MovePlayback>`) is excluded, so a
-/// move plays to completion before another starts — the move's own duration IS the
-/// fire-rate gate (the same shape as the ranged refire floor). Facing locks at
-/// trigger from the body's kinematics (the Smash convention — a committed swing
-/// doesn't re-aim).
+/// `special_pressed` → the `"special"` verb, a `melee_pressed` → the DIRECTIONAL
+/// `"attack"` verb (resolved by aim + grounded state through the authored verb
+/// chain — `attack_air_down` → `attack_down` → `attack`), a ranged intent → the
+/// `"ranged"` verb. A body already playing a move (`With<MovePlayback>`) is
+/// excluded, so a move plays to completion before another starts — the move's own
+/// duration IS the fire-rate gate. Facing locks at trigger from the body's
+/// kinematics (the Smash convention — a committed swing doesn't re-aim).
 ///
 /// ONE trigger seam for every body (guardrail #1): the same system drives an
-/// actor's melee, the PCA's signature move, and a folded boss's pattern. It is the
-/// production insert the moveset runtime was missing.
+/// actor's melee, the PCA's signature move, a folded boss's pattern, and the
+/// player's directional repertoire (R2.5). A body authoring only `"attack"`
+/// resolves every direction to it — byte-identical to the pre-directional path.
 pub fn trigger_moveset_moves(
     mut commands: Commands,
-    bodies: Query<(Entity, &ActorMoveset, &ActorControl, &ae::BodyKinematics), Without<MovePlayback>>,
+    bodies: Query<
+        (
+            Entity,
+            &ActorMoveset,
+            &ActorControl,
+            &ae::BodyKinematics,
+            // Grounded state selects tilt-vs-air variants. Absent on bare test
+            // bodies → treated as grounded (immaterial: such bodies author only
+            // the base `attack`, which every direction resolves to).
+            Option<&crate::actor::BodyGroundState>,
+        ),
+        Without<MovePlayback>,
+    >,
 ) {
-    for (entity, moveset, control, kin) in &bodies {
+    for (entity, moveset, control, kin, ground) in &bodies {
         let frame = &control.0;
-        let verb = if frame.special_pressed {
-            "special"
+        let grounded = ground.map(|g| g.on_ground).unwrap_or(true);
+        let spec = if frame.special_pressed {
+            moveset.0.move_for_verb("special")
         } else if frame.melee_pressed {
-            ATTACK_VERB
+            let dir = attack_dir_from_axis(frame.attack_axis);
+            moveset.0.move_for_directional_verb(ATTACK_VERB, dir, grounded)
         } else if frame.fire.is_some() {
             // A ranged intent (`frame.fire = Some(dir)`) starts the body's `"ranged"`
             // move; its fire event spawns the projectile, sampling live aim. The move
             // plays to completion before another starts (its duration is a cadence
             // gate; the body-side refire cooldown remains the hard rate floor).
-            RANGED_VERB
+            moveset.0.move_for_verb(RANGED_VERB)
         } else {
             continue;
         };
-        if let Some(spec) = moveset.0.move_for_verb(verb) {
+        if let Some(spec) = spec {
             commands
                 .entity(entity)
                 .insert(MovePlayback::new(spec.clone(), kin.facing));
@@ -635,6 +672,7 @@ fn synth_swing_from_move(pb: &MovePlayback) -> MeleeSwing {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ambition_entity_catalog::EffectRef;
     use ambition_sfx::SfxMessage;
     use crate::combat::events::HitEvent;
     use crate::combat::hitbox::apply_hitbox_damage;

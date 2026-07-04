@@ -216,6 +216,18 @@ pub struct MoveGates {
     pub grounded: Option<bool>,
 }
 
+impl MoveGates {
+    /// Whether these gates permit activation in the given grounded state. A
+    /// grounded-only move is skipped for an airborne body (and vice versa) so
+    /// directional resolution falls through to a permitted fallback.
+    pub fn permits(&self, grounded: bool) -> bool {
+        match self.grounded {
+            Some(required) => required == grounded,
+            None => true,
+        }
+    }
+}
+
 /// One ability activation: a clip binding plus the full gameplay meaning of
 /// the ability on one timeline. **The move timeline is authoritative for both
 /// gameplay and presentation** — windows advance on the owner's proper time
@@ -279,6 +291,52 @@ pub struct PresentationContract {
     pub visual_id: String,
 }
 
+/// A discrete attack aim direction, reduced from the body-local input axis by
+/// the caller (the engine-coordinate threshold stays in the runtime, where the
+/// gravity/input frames live). Drives directional move selection.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum AttackDir {
+    /// No directional aim — the plain forward/neutral attack.
+    Neutral,
+    Up,
+    Down,
+    /// Aimed away from facing (Smash "back air"). +x is facing, so the runtime
+    /// maps `axis.x < 0` here.
+    Back,
+}
+
+/// The verb-id fallback chain for a directional attack, most-specific first.
+/// A moveset that authors only `base` still answers every direction; adding
+/// `{base}_air_down` (a pogo down-air) is purely additive data — never a schema
+/// fork (fable review AJ1: smash-style tilt/smash variants are MORE VERBS).
+///
+/// Examples (`base = "attack"`):
+/// - aerial, `Down`:   `attack_air_down` → `attack_down` → `attack_air` → `attack`
+/// - grounded, `Down`: `attack_down` → `attack`
+/// - grounded, `Neutral`: `attack`
+pub fn directional_verb_chain(base: &str, dir: AttackDir, grounded: bool) -> Vec<String> {
+    let dir_suffix = match dir {
+        AttackDir::Neutral => None,
+        AttackDir::Up => Some("up"),
+        AttackDir::Down => Some("down"),
+        AttackDir::Back => Some("back"),
+    };
+    let mut chain = Vec::with_capacity(4);
+    if !grounded {
+        if let Some(s) = dir_suffix {
+            chain.push(format!("{base}_air_{s}"));
+        }
+    }
+    if let Some(s) = dir_suffix {
+        chain.push(format!("{base}_{s}"));
+    }
+    if !grounded {
+        chain.push(format!("{base}_air"));
+    }
+    chain.push(base.to_string());
+    chain
+}
+
 /// Moveset contract: the entity's moves plus which input verb activates
 /// which move. `moves` is the composition surface — re-binding an existing
 /// move onto a different actor is a data edit here.
@@ -299,6 +357,26 @@ impl MovesetContract {
     /// Resolve an input verb to its move.
     pub fn move_for_verb(&self, verb: &str) -> Option<&MoveSpec> {
         self.move_by_id(self.verbs.get(verb)?)
+    }
+
+    /// Resolve a directional attack to its move: the first verb in the
+    /// most-specific → least-specific chain ([`directional_verb_chain`]) that is
+    /// both authored AND whose gates permit the current grounded state (a
+    /// grounded-only `attack_down` is skipped for an airborne body, falling
+    /// through to `attack`). A moveset that authors only `base` answers every
+    /// direction with the same move.
+    pub fn move_for_directional_verb(
+        &self,
+        base: &str,
+        dir: AttackDir,
+        grounded: bool,
+    ) -> Option<&MoveSpec> {
+        directional_verb_chain(base, dir, grounded)
+            .into_iter()
+            .find_map(|verb| {
+                let mv = self.move_for_verb(&verb)?;
+                mv.gates.permits(grounded).then_some(mv)
+            })
     }
 }
 
@@ -631,6 +709,105 @@ mod tests {
         let prop = doc.entity("crate_seed").unwrap();
         assert!(prop.contracts.moveset.is_none());
         assert!(prop.contracts.presentation.is_some());
+    }
+
+    /// A bare move (no windows) with the given id and grounded gate.
+    fn bare_move(id: &str, grounded: Option<bool>) -> MoveSpec {
+        MoveSpec {
+            id: id.to_string(),
+            clip: ClipBinding {
+                clip: id.to_string(),
+                fallbacks: vec![],
+            },
+            duration_s: 0.3,
+            windows: vec![],
+            events: vec![],
+            gates: MoveGates { grounded },
+        }
+    }
+
+    #[test]
+    fn directional_verb_chain_orders_most_specific_first() {
+        assert_eq!(
+            directional_verb_chain("attack", AttackDir::Down, false),
+            vec!["attack_air_down", "attack_down", "attack_air", "attack"],
+        );
+        assert_eq!(
+            directional_verb_chain("attack", AttackDir::Down, true),
+            vec!["attack_down", "attack"],
+        );
+        assert_eq!(
+            directional_verb_chain("attack", AttackDir::Neutral, true),
+            vec!["attack"],
+        );
+        assert_eq!(
+            directional_verb_chain("attack", AttackDir::Neutral, false),
+            vec!["attack_air", "attack"],
+        );
+    }
+
+    #[test]
+    fn directional_resolution_falls_back_and_respects_gates() {
+        // Only `attack` authored: every direction resolves to it.
+        let base_only = MovesetContract {
+            verbs: BTreeMap::from([("attack".to_string(), "attack".to_string())]),
+            moves: vec![bare_move("attack", None)],
+        };
+        assert_eq!(
+            base_only
+                .move_for_directional_verb("attack", AttackDir::Down, false)
+                .unwrap()
+                .id,
+            "attack",
+        );
+
+        // An aerial-only down-air (a pogo host): aerial+down picks it; the
+        // grounded chain skips it (gate) and falls through to `attack`.
+        let with_dair = MovesetContract {
+            verbs: BTreeMap::from([
+                ("attack".to_string(), "attack".to_string()),
+                ("attack_air_down".to_string(), "dair".to_string()),
+            ]),
+            moves: vec![bare_move("attack", None), bare_move("dair", Some(false))],
+        };
+        assert_eq!(
+            with_dair
+                .move_for_directional_verb("attack", AttackDir::Down, false)
+                .unwrap()
+                .id,
+            "dair",
+        );
+        assert_eq!(
+            with_dair
+                .move_for_directional_verb("attack", AttackDir::Down, true)
+                .unwrap()
+                .id,
+            "attack",
+        );
+
+        // A grounded-only `attack_down` (a down-tilt) is chosen grounded but
+        // skipped for an airborne body — gate-respecting fallthrough.
+        let with_dtilt = MovesetContract {
+            verbs: BTreeMap::from([
+                ("attack".to_string(), "attack".to_string()),
+                ("attack_down".to_string(), "dtilt".to_string()),
+            ]),
+            moves: vec![bare_move("attack", None), bare_move("dtilt", Some(true))],
+        };
+        assert_eq!(
+            with_dtilt
+                .move_for_directional_verb("attack", AttackDir::Down, true)
+                .unwrap()
+                .id,
+            "dtilt",
+        );
+        assert_eq!(
+            with_dtilt
+                .move_for_directional_verb("attack", AttackDir::Down, false)
+                .unwrap()
+                .id,
+            "attack",
+        );
     }
 
     #[test]

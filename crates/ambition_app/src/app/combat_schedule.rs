@@ -26,6 +26,10 @@ impl Plugin for CombatSchedulePlugin {
         // message.
         app.add_message::<ambition_vfx::EffectRequest>();
         app.add_message::<ambition_gameplay_core::combat::moveset::MoveEventMessage>();
+        // On-hit techniques (pogo, …): `dispatch_hitbox_on_hit` writes one per
+        // landed on-hit volume; the engine `apply_pogo_bounce` + any content
+        // technique read it.
+        app.add_message::<ambition_gameplay_core::combat::on_hit::OnHitEffectMessage>();
         // Programmatic actor-spawn seam: scenario tests and RL/agent scene setup
         // emit `SpawnActorRequest`; `apply_spawn_actor_requests` materializes each
         // actor through the same `spawn_boss` / `spawn_enemy` paths room load uses.
@@ -162,6 +166,14 @@ impl Plugin for CombatSchedulePlugin {
                 // resolves overlap → damage event; `tick_and_despawn_hitboxes`
                 // advances lifetimes and cleans expired entities.
                 ambition_gameplay_core::features::apply_hitbox_damage.run_if(gameplay_allowed),
+                // On-hit conditional techniques (fable AJ1): while hitboxes are
+                // still live, `dispatch_hitbox_on_hit` emits one `OnHitEffectMessage`
+                // per damage-valid victim an `on_hit` volume overlaps; the engine
+                // `apply_pogo_bounce` technique consumes it same-frame (the chain
+                // orders them). Both no-op until a move authors an `on_hit` volume.
+                ambition_gameplay_core::combat::on_hit::dispatch_hitbox_on_hit
+                    .run_if(gameplay_allowed),
+                ambition_gameplay_core::combat::on_hit::apply_pogo_bounce.run_if(gameplay_allowed),
                 ambition_gameplay_core::features::tick_and_despawn_hitboxes,
                 // Suppress combat damage during dialog / cutscene / pause: the
                 // victim-side `apply_player_hit_events` is already gated this way, so

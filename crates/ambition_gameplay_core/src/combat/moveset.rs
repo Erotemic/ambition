@@ -403,23 +403,28 @@ pub fn advance_move_playback(
                         // NO HitboxLifetime on purpose: the window's exit
                         // edge (owner proper time) is the despawn authority,
                         // not a wall-clock countdown.
-                        let hitbox = commands
-                            .spawn((
-                                Hitbox {
-                                    owner,
-                                    source: strike_faction,
-                                    anchor: HitboxAnchor::FollowOwner { local_offset },
-                                    half_extent,
-                                    shape,
-                                    facing: pb.facing,
-                                    damage: volume.damage,
-                                    knockback_strength: volume.knockback,
-                                    knock_x: 0.0,
-                                    frame_down,
-                                },
-                                HitboxHits::default(),
-                            ))
-                            .id();
+                        let mut ec = commands.spawn((
+                            Hitbox {
+                                owner,
+                                source: strike_faction,
+                                anchor: HitboxAnchor::FollowOwner { local_offset },
+                                half_extent,
+                                shape,
+                                facing: pb.facing,
+                                damage: volume.damage,
+                                knockback_strength: volume.knockback,
+                                knock_x: 0.0,
+                                frame_down,
+                            },
+                            HitboxHits::default(),
+                        ));
+                        // Conditional on-hit technique (pogo, lifesteal, …): a
+                        // volume authoring `on_hit` gets the sidecar the
+                        // `dispatch_hitbox_on_hit` primitive reads (fable AJ1).
+                        if let Some(effect) = &volume.on_hit {
+                            ec.insert(super::on_hit::HitboxOnHit::new(effect.clone()));
+                        }
+                        let hitbox = ec.id();
                         pb.live_boxes.push((w_idx, hitbox));
                     }
                 }

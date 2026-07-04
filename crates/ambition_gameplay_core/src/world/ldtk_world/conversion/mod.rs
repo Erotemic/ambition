@@ -1,11 +1,17 @@
 //! LDtk → Ambition runtime conversion.
 //!
 //! Materializes the typed [`crate::rooms::RoomSet`] graph from a
-//! validated [`super::project::LdtkProject`]. Per-entity routing
-//! (`entity_to_runtime`) plus IntGrid → block / water / climbable
-//! emission live here.
+//! validated [`super::project::LdtkProject`]. Per-entity routing goes
+//! through the [`LdtkEntityConverter`] REGISTRY (ADR 0009): the engine
+//! registers the standard vocabulary (`Solid`, `LoadingZone`, `Portal`,
+//! `GravityZone`, `EnemySpawn`, …) and a game installs additional
+//! converters at plugin-build time via
+//! [`install_ldtk_entity_converters`] — the loader itself never learns
+//! a content identifier. IntGrid → block / water / climbable emission
+//! also lives here.
 
 use std::collections::BTreeMap;
+use std::sync::OnceLock;
 
 use ambition_engine_core as ae;
 
@@ -19,7 +25,7 @@ use super::intgrid::{
 };
 use super::project::{LdtkEntityInstance, LdtkLevel, LdtkProject};
 use super::surfaces::{
-    compile_surface, is_surface_like_identifier, parse_surface_spec, SurfaceCompiled,
+    compile_surface, parse_surface_spec, SurfaceCompiled, SURFACE_LIKE_IDENTIFIERS,
 };
 use crate::rooms::{
     CameraClampMode, CameraZoneSpec, KinematicPathSpec, LoadingZone, LoadingZoneActivation,
@@ -311,103 +317,102 @@ impl LdtkProject {
 /// `Vec<ae::RoomObject>` so the room composer can route each family into
 /// its own `RoomSpec` field without re-dispatching on a kind enum.
 #[derive(Clone, Debug, Default)]
-pub(super) struct RuntimeEntityEmission {
-    pub(super) spawn: Option<ae::Vec2>,
-    pub(super) blocks: Vec<ae::Block>,
-    pub(super) zones: Vec<LoadingZone>,
-    pub(super) water_regions: Vec<ae::WaterRegion>,
+pub struct RuntimeEntityEmission {
+    pub spawn: Option<ae::Vec2>,
+    pub blocks: Vec<ae::Block>,
+    pub zones: Vec<LoadingZone>,
+    pub water_regions: Vec<ae::WaterRegion>,
     /// LDtk-authored moving platforms emitted by this entity.
     ///
     /// Most entities emit zero platforms; `MovingPlatform` emits one. The room
     /// composer concatenates these so active areas can own multiple authored
     /// moving solids.
-    pub(super) moving_platforms: Vec<crate::world::platforms::MovingPlatformSpec>,
-    pub(super) camera_zones: Vec<CameraZoneSpec>,
-    pub(super) kinematic_paths: Vec<KinematicPathSpec>,
+    pub moving_platforms: Vec<crate::world::platforms::MovingPlatformSpec>,
+    pub camera_zones: Vec<CameraZoneSpec>,
+    pub kinematic_paths: Vec<KinematicPathSpec>,
     /// LDtk-authored decorative props emitted by this entity. Most
     /// entities emit zero; `Prop` emits one. Render-only — see
     /// [`PropSpec`].
-    pub(super) props: Vec<PropSpec>,
+    pub props: Vec<PropSpec>,
     /// LDtk-authored ground held-items emitted by this entity. Most emit
     /// zero; `GroundItem` emits one. See [`crate::rooms::GroundItemSpec`].
-    pub(super) ground_items: Vec<crate::rooms::GroundItemSpec>,
+    pub ground_items: Vec<crate::rooms::GroundItemSpec>,
     /// LDtk-authored portal-gun pickups. Most emit zero; `PortalGunSpawn` emits
     /// one. See [`crate::rooms::PortalGunSpawnSpec`].
     #[cfg(feature = "portal")]
-    pub(super) portal_gun_spawns: Vec<crate::rooms::PortalGunSpawnSpec>,
+    pub portal_gun_spawns: Vec<crate::rooms::PortalGunSpawnSpec>,
     /// LDtk-authored static portals. Most emit zero; `Portal` emits one. See
     /// [`crate::rooms::PortalSpec`].
     #[cfg(feature = "portal")]
-    pub(super) portals: Vec<crate::rooms::PortalSpec>,
+    pub portals: Vec<crate::rooms::PortalSpec>,
     /// LDtk-authored heal/save shrines. Most emit zero; `ShrineSpawn` emits one.
-    pub(super) shrines: Vec<crate::rooms::ShrineSpec>,
+    pub shrines: Vec<crate::rooms::ShrineSpec>,
     /// LDtk-authored localized-gravity zones. Most emit zero; `GravityZone` emits
     /// one. See [`crate::rooms::GravityZoneSpec`].
-    pub(super) gravity_zones: Vec<crate::rooms::GravityZoneSpec>,
+    pub gravity_zones: Vec<crate::rooms::GravityZoneSpec>,
     // --- Per-family authored entity emissions:
-    pub(super) hazards: Vec<crate::rooms::Authored<crate::combat::DamageVolume>>,
-    pub(super) interactables: Vec<crate::rooms::Authored<ambition_interaction::Interactable>>,
-    pub(super) pickups: Vec<crate::rooms::Authored<ambition_interaction::Pickup>>,
-    pub(super) chests: Vec<crate::rooms::Authored<ambition_interaction::Chest>>,
-    pub(super) breakables: Vec<crate::rooms::Authored<ambition_interaction::Breakable>>,
-    pub(super) enemy_spawns:
-        Vec<crate::rooms::Authored<ambition_characters::actor::CharacterBrain>>,
-    pub(super) boss_spawns: Vec<crate::rooms::Authored<ambition_characters::actor::BossBrain>>,
-    pub(super) debug_labels: Vec<crate::rooms::Authored<crate::debug_label::DebugLabel>>,
-    pub(super) ignored: bool,
+    pub hazards: Vec<crate::rooms::Authored<crate::combat::DamageVolume>>,
+    pub interactables: Vec<crate::rooms::Authored<ambition_interaction::Interactable>>,
+    pub pickups: Vec<crate::rooms::Authored<ambition_interaction::Pickup>>,
+    pub chests: Vec<crate::rooms::Authored<ambition_interaction::Chest>>,
+    pub breakables: Vec<crate::rooms::Authored<ambition_interaction::Breakable>>,
+    pub enemy_spawns: Vec<crate::rooms::Authored<ambition_characters::actor::CharacterBrain>>,
+    pub boss_spawns: Vec<crate::rooms::Authored<ambition_characters::actor::BossBrain>>,
+    pub debug_labels: Vec<crate::rooms::Authored<crate::debug_label::DebugLabel>>,
+    pub ignored: bool,
 }
 
 impl RuntimeEntityEmission {
-    fn ignored() -> Self {
+    pub fn ignored() -> Self {
         Self {
             ignored: true,
             ..Self::default()
         }
     }
 
-    fn spawn(value: ae::Vec2) -> Self {
+    pub fn spawn(value: ae::Vec2) -> Self {
         Self {
             spawn: Some(value),
             ..Self::default()
         }
     }
 
-    fn zone(zone: LoadingZone) -> Self {
+    pub fn zone(zone: LoadingZone) -> Self {
         Self {
             zones: vec![zone],
             ..Self::default()
         }
     }
 
-    fn water_region(region: ae::WaterRegion) -> Self {
+    pub fn water_region(region: ae::WaterRegion) -> Self {
         Self {
             water_regions: vec![region],
             ..Self::default()
         }
     }
 
-    fn moving_platform(spec: crate::world::platforms::MovingPlatformSpec) -> Self {
+    pub fn moving_platform(spec: crate::world::platforms::MovingPlatformSpec) -> Self {
         Self {
             moving_platforms: vec![spec],
             ..Self::default()
         }
     }
 
-    fn camera_zone(zone: CameraZoneSpec) -> Self {
+    pub fn camera_zone(zone: CameraZoneSpec) -> Self {
         Self {
             camera_zones: vec![zone],
             ..Self::default()
         }
     }
 
-    fn prop(spec: PropSpec) -> Self {
+    pub fn prop(spec: PropSpec) -> Self {
         Self {
             props: vec![spec],
             ..Self::default()
         }
     }
 
-    fn ground_item(spec: crate::rooms::GroundItemSpec) -> Self {
+    pub fn ground_item(spec: crate::rooms::GroundItemSpec) -> Self {
         Self {
             ground_items: vec![spec],
             ..Self::default()
@@ -415,7 +420,7 @@ impl RuntimeEntityEmission {
     }
 
     #[cfg(feature = "portal_ldtk")]
-    fn portal_gun_spawn(spec: crate::rooms::PortalGunSpawnSpec) -> Self {
+    pub fn portal_gun_spawn(spec: crate::rooms::PortalGunSpawnSpec) -> Self {
         Self {
             portal_gun_spawns: vec![spec],
             ..Self::default()
@@ -423,35 +428,35 @@ impl RuntimeEntityEmission {
     }
 
     #[cfg(feature = "portal_ldtk")]
-    fn portal(spec: crate::rooms::PortalSpec) -> Self {
+    pub fn portal(spec: crate::rooms::PortalSpec) -> Self {
         Self {
             portals: vec![spec],
             ..Self::default()
         }
     }
 
-    fn shrine(spec: crate::rooms::ShrineSpec) -> Self {
+    pub fn shrine(spec: crate::rooms::ShrineSpec) -> Self {
         Self {
             shrines: vec![spec],
             ..Self::default()
         }
     }
 
-    fn gravity_zone(spec: crate::rooms::GravityZoneSpec) -> Self {
+    pub fn gravity_zone(spec: crate::rooms::GravityZoneSpec) -> Self {
         Self {
             gravity_zones: vec![spec],
             ..Self::default()
         }
     }
 
-    fn kinematic_path(spec: KinematicPathSpec) -> Self {
+    pub fn kinematic_path(spec: KinematicPathSpec) -> Self {
         Self {
             kinematic_paths: vec![spec],
             ..Self::default()
         }
     }
 
-    fn from_compiled(compiled: SurfaceCompiled) -> Self {
+    pub fn from_compiled(compiled: SurfaceCompiled) -> Self {
         Self {
             blocks: compiled.blocks,
             breakables: compiled.breakables,
@@ -461,35 +466,37 @@ impl RuntimeEntityEmission {
 
     // Per-family typed emitters. The conversion sites use these instead of
     // wrapping payloads in a generic `RoomObject { kind: ... }`.
-    fn hazard(authored: crate::rooms::Authored<crate::combat::DamageVolume>) -> Self {
+    pub fn hazard(authored: crate::rooms::Authored<crate::combat::DamageVolume>) -> Self {
         Self {
             hazards: vec![authored],
             ..Self::default()
         }
     }
 
-    fn interactable(authored: crate::rooms::Authored<ambition_interaction::Interactable>) -> Self {
+    pub fn interactable(
+        authored: crate::rooms::Authored<ambition_interaction::Interactable>,
+    ) -> Self {
         Self {
             interactables: vec![authored],
             ..Self::default()
         }
     }
 
-    fn pickup(authored: crate::rooms::Authored<ambition_interaction::Pickup>) -> Self {
+    pub fn pickup(authored: crate::rooms::Authored<ambition_interaction::Pickup>) -> Self {
         Self {
             pickups: vec![authored],
             ..Self::default()
         }
     }
 
-    fn chest(authored: crate::rooms::Authored<ambition_interaction::Chest>) -> Self {
+    pub fn chest(authored: crate::rooms::Authored<ambition_interaction::Chest>) -> Self {
         Self {
             chests: vec![authored],
             ..Self::default()
         }
     }
 
-    fn enemy_spawn(
+    pub fn enemy_spawn(
         authored: crate::rooms::Authored<ambition_characters::actor::CharacterBrain>,
     ) -> Self {
         Self {
@@ -498,14 +505,16 @@ impl RuntimeEntityEmission {
         }
     }
 
-    fn boss_spawn(authored: crate::rooms::Authored<ambition_characters::actor::BossBrain>) -> Self {
+    pub fn boss_spawn(
+        authored: crate::rooms::Authored<ambition_characters::actor::BossBrain>,
+    ) -> Self {
         Self {
             boss_spawns: vec![authored],
             ..Self::default()
         }
     }
 
-    fn debug_label(authored: crate::rooms::Authored<crate::debug_label::DebugLabel>) -> Self {
+    pub fn debug_label(authored: crate::rooms::Authored<crate::debug_label::DebugLabel>) -> Self {
         Self {
             debug_labels: vec![authored],
             ..Self::default()
@@ -567,70 +576,130 @@ fn authored_triple(
     (entity.iid.clone(), name, object_aabb(min, size))
 }
 
+/// Everything a converter receives about one LDtk entity instance,
+/// pre-resolved into active-area-local coordinates.
+pub struct LdtkEntityCtx<'a> {
+    pub entity: &'a LdtkEntityInstance,
+    /// Resolved display name (the `name` field, else the LDtk identifier).
+    pub name: String,
+    /// Active-area-local top-left corner (the level offset is applied).
+    pub min: ae::Vec2,
+    pub size: ae::Vec2,
+    /// The level's active-area offset. Apply it to any ADDITIONAL points a
+    /// converter parses out of entity fields (e.g. path points) — `min` has
+    /// it applied already.
+    pub offset: ae::Vec2,
+}
+
+impl LdtkEntityCtx<'_> {
+    /// The `(entity, name, min, size)` tuple most converters consume.
+    pub fn parts(&self) -> (&LdtkEntityInstance, String, ae::Vec2, ae::Vec2) {
+        (self.entity, self.name.clone(), self.min, self.size)
+    }
+}
+
+/// One LDtk entity converter: `identifier → emission`. Pure `fn` — content
+/// registers additional converters via [`install_ldtk_entity_converters`];
+/// everything a game-specific converter needs must come from the entity's
+/// authored fields (the ctx), never from ambient state.
+pub type LdtkEntityConverter = fn(&LdtkEntityCtx<'_>) -> Result<RuntimeEntityEmission, String>;
+
+/// Content-installed LDtk entity converters (ADR 0009). Set once at
+/// plugin-build time; first install wins (same seam contract as
+/// `install_enemy_roster`). Deliberately a process-global `OnceLock`, not a
+/// Bevy `Resource`: conversion runs from pure non-system code
+/// (`LdtkProject::to_room_set`, validators, tools) with no `World` in hand.
+static EXTRA_ENTITY_CONVERTERS: OnceLock<BTreeMap<String, LdtkEntityConverter>> = OnceLock::new();
+
+/// Install game-specific LDtk entity converters — the content layer calls
+/// this at plugin-build time (before any world load). Installed identifiers
+/// pass validation and convert exactly like the engine's standard vocabulary;
+/// a standard identifier cannot be overridden (the standard table wins on
+/// lookup). First install wins; later calls are ignored.
+pub fn install_ldtk_entity_converters<I>(converters: I)
+where
+    I: IntoIterator<Item = (String, LdtkEntityConverter)>,
+{
+    let _ = EXTRA_ENTITY_CONVERTERS.set(converters.into_iter().collect());
+}
+
+/// The engine's standard LDtk vocabulary, registered through the SAME
+/// registry shape content extensions use. Keys mirror
+/// [`super::bevy_runtime::AMBITION_LDTK_ENTITY_IDENTIFIERS`] exactly
+/// (pinned by a test) — the marker-registration list and the converter
+/// table must not drift.
+fn standard_converters() -> &'static BTreeMap<&'static str, LdtkEntityConverter> {
+    static STANDARD: OnceLock<BTreeMap<&'static str, LdtkEntityConverter>> = OnceLock::new();
+    STANDARD.get_or_init(|| {
+        let mut map: BTreeMap<&'static str, LdtkEntityConverter> = BTreeMap::new();
+        // Surface-shaped identifiers (one typed parse → compile pipeline).
+        for identifier in SURFACE_LIKE_IDENTIFIERS {
+            map.insert(identifier, convert_surface as LdtkEntityConverter);
+        }
+        map.insert("PlayerStart", convert_player_start);
+        map.insert("LoadingZone", convert_loading_zone);
+        map.insert("DamageVolume", convert_damage_volume);
+        map.insert("KinematicPath", convert_kinematic_path);
+        map.insert("Prop", convert_prop);
+        map.insert("NpcSpawn", convert_npc_spawn);
+        map.insert("PickupSpawn", convert_pickup_spawn);
+        map.insert("GroundItem", convert_ground_item);
+        // Under `portal_ldtk` these are the real converters; compiled out,
+        // they are loud-error converters (fail, never silently drop).
+        map.insert("PortalGunSpawn", convert_portal_gun_spawn);
+        map.insert("Portal", convert_portal);
+        map.insert("ShrineSpawn", convert_shrine);
+        map.insert("GravityZone", convert_gravity_zone);
+        map.insert("ChestSpawn", convert_chest_spawn);
+        map.insert("EnemySpawn", convert_enemy_spawn);
+        map.insert("BossSpawn", convert_boss_spawn);
+        map.insert("DebugLabel", convert_debug_label);
+        map.insert("WaterVolume", convert_water_volume);
+        map.insert("MovingPlatform", convert_moving_platform);
+        map.insert("CameraZone", convert_camera_zone);
+        map.insert("Switch", convert_switch);
+        // Read by their own consumers off the raw LdtkProject; they never
+        // join the emission stream.
+        for identifier in ["StitchedBoundary", "EncounterTrigger", "LockWall"] {
+            map.insert(identifier, convert_consumed_elsewhere);
+        }
+        map
+    })
+}
+
+/// Resolve the converter for an LDtk identifier: the engine's standard
+/// vocabulary first, then content-installed extensions. `None` = unknown
+/// entity (validation error).
+pub(super) fn converter_for(identifier: &str) -> Option<LdtkEntityConverter> {
+    standard_converters()
+        .get(identifier)
+        .or_else(|| {
+            EXTRA_ENTITY_CONVERTERS
+                .get()
+                .and_then(|extra| extra.get(identifier))
+        })
+        .copied()
+}
+
 pub(super) fn entity_to_runtime(
     entity: &LdtkEntityInstance,
     offset: ae::Vec2,
 ) -> Result<RuntimeEntityEmission, String> {
     let (min, size) = entity_min_size(entity, offset);
-    let name = field_string(entity, "name").unwrap_or_else(|| entity.identifier.clone());
-
-    // Surface-shaped identifiers (canonical `Surface` plus legacy aliases) all
-    // share a typed parse → compile pipeline. Old JSON paths for `Solid`,
-    // `OneWayPlatform`, `BlinkWall`, `HazardBlock`, `PogoOrb`, `ReboundPad`,
-    // and `Breakable` are now routed through `LdtkSurfaceSpec` so future
-    // collision/contact systems consume one typed runtime IR.
-    if is_surface_like_identifier(&entity.identifier) {
-        let spec = parse_surface_spec(entity, min, size, name)?;
-        let compiled = compile_surface(&spec)?;
-        return Ok(RuntimeEntityEmission::from_compiled(compiled));
-    }
-
-    match entity.identifier.as_str() {
-        "PlayerStart" => Ok(RuntimeEntityEmission::spawn(min + size * 0.5)),
-        "LoadingZone" => Ok(convert_loading_zone(entity, name, min, size)),
-        "DamageVolume" => Ok(convert_damage_volume(entity, name, min, size, offset)),
-        "KinematicPath" => convert_kinematic_path(entity, name, min, size, offset),
-        "Prop" => convert_prop(entity, name, min, size),
-        "NpcSpawn" => Ok(convert_npc_spawn(entity, name, min, size)),
-        "PickupSpawn" => Ok(convert_pickup_spawn(entity, name, min, size)),
-        "GroundItem" => convert_ground_item(entity, name, min, size),
-        // Portal-authored entities require the `portal_ldtk` feature. Per the
-        // refactor anti-goal ("do NOT make LDtk silently ignore portal-authored
-        // entities when portal is disabled — fail loudly"), a portal-OFF /
-        // portal_ldtk-OFF build returns an explicit conversion error here rather
-        // than dropping the entity.
-        #[cfg(feature = "portal_ldtk")]
-        "PortalGunSpawn" => Ok(convert_portal_gun_spawn(entity, name, min, size)),
-        #[cfg(feature = "portal_ldtk")]
-        "Portal" => convert_portal(entity, name, min, size),
-        #[cfg(not(feature = "portal_ldtk"))]
-        ident @ ("PortalGunSpawn" | "Portal") => Err(format!(
-            "portal-authored entity '{ident}' ('{}') encountered, but the portal \
-             LDtk converter is compiled out (enable the `portal_ldtk` cargo \
-             feature to author portal entities)",
-            entity.identifier
-        )),
-        "ShrineSpawn" => Ok(convert_shrine(entity, name, min, size)),
-        "GravityZone" => Ok(convert_gravity_zone(entity, name, min, size)),
-        "ChestSpawn" => Ok(convert_chest_spawn(entity, name, min, size)),
-        "EnemySpawn" => Ok(convert_enemy_spawn(entity, name, min, size)),
-        "BossSpawn" => Ok(convert_boss_spawn(entity, name, min, size)),
-        "DebugLabel" => Ok(convert_debug_label(entity, name, min, size)),
-        "WaterVolume" => Ok(convert_water_volume(entity, min, size)),
-        "MovingPlatform" => Ok(convert_moving_platform(entity, name, min, size)),
-        "CameraZone" => Ok(convert_camera_zone(entity, name, min, size)),
-        // StitchedBoundary / EncounterTrigger / LockWall are read by
-        // their own consumers off the raw LdtkProject and never join
-        // the generic RoomObject stream — emit nothing here.
-        "StitchedBoundary" | "EncounterTrigger" | "LockWall" => {
-            Ok(RuntimeEntityEmission::ignored())
-        }
-        "Switch" => Ok(convert_switch(entity, name, min, size)),
-        _ => Err(format!(
+    let ctx = LdtkEntityCtx {
+        entity,
+        name: field_string(entity, "name").unwrap_or_else(|| entity.identifier.clone()),
+        min,
+        size,
+        offset,
+    };
+    let Some(converter) = converter_for(&entity.identifier) else {
+        return Err(format!(
             "unsupported entity identifier '{}'",
             entity.identifier
-        )),
-    }
+        ));
+    };
+    converter(&ctx)
 }
 
 mod entity_converters;

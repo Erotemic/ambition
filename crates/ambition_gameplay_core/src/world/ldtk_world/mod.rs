@@ -44,6 +44,12 @@ mod surfaces;
 mod tests;
 
 pub use bevy_runtime::*;
+// The LDtk entity-converter registry (ADR 0009): content registers
+// game-specific entity converters at plugin-build time; the engine's
+// standard vocabulary enters through the same registry.
+pub use conversion::{
+    install_ldtk_entity_converters, LdtkEntityConverter, LdtkEntityCtx, RuntimeEntityEmission,
+};
 pub use hot_reload::{
     poll_ldtk_file_changes, sandbox_ldtk_asset_path, LdtkHotReloadState, SANDBOX_LDTK_ASSET,
 };
@@ -56,11 +62,10 @@ pub use surfaces::{
     SurfaceContact, SurfaceRespawn,
 };
 
-// External callers (e.g. `crate::encounter`) historically reach for
-// these field accessors via `crate::ldtk_world::field_string` /
-// `field_f32`. Preserve that path with a `pub(crate)` re-export so
-// the post-split crate-internal API stays stable.
-pub use fields::{field_f32, field_string};
+// Field accessors for converter authors (content converters parse their
+// authored fields through these) and historical internal callers
+// (e.g. `crate::encounter`).
+pub use fields::{field_bool, field_f32, field_i32, field_string};
 
 use fields::{
     entity_rect, entity_touches_level_edge, known_entity, pivot_is_top_left, rects_strict_intersect,

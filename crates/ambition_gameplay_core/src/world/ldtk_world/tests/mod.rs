@@ -26,6 +26,7 @@ mod embedded_project;
 mod intgrid;
 mod kinematic_paths;
 mod metadata;
+mod registry;
 mod surfaces;
 
 fn make_entity(identifier: &str, size: [i32; 2], fields: &[(&str, Value)]) -> LdtkEntityInstance {

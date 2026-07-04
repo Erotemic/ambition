@@ -1,18 +1,43 @@
-//! LDtk entity-instance → runtime conversions, split out of conversion.rs
-//! (Refactor 6: production-rebuild unit). One `convert_*` per LDtk entity type;
-//! all private to the ldtk_world conversion module (`pub(super)`), so nothing
-//! outside moves. Helpers + `RuntimeEntityEmission` stay in the parent and are
-//! reached via `super::*` (descendant visibility).
+//! The engine's standard LDtk entity converters — the built-in vocabulary
+//! registered in `standard_converters()`. One `convert_*` per LDtk entity
+//! type, all with the uniform [`LdtkEntityConverter`] signature so the
+//! registry treats engine and content converters identically. Helpers +
+//! `RuntimeEntityEmission` stay in the parent and are reached via `super::*`
+//! (descendant visibility).
 
 use super::*;
 
+/// `PlayerStart` — the area's spawn point (box center).
+pub(super) fn convert_player_start(
+    ctx: &LdtkEntityCtx<'_>,
+) -> Result<RuntimeEntityEmission, String> {
+    Ok(RuntimeEntityEmission::spawn(ctx.min + ctx.size * 0.5))
+}
+
+/// Surface-shaped identifiers (`Solid`, `OneWayPlatform`, `BlinkWall`,
+/// `HazardBlock`, `PogoOrb`, `ReboundPad`, `BreakablePlatform`,
+/// `BreakablePogoOrb`) all share one typed parse → compile pipeline, so
+/// collision/contact systems consume a single runtime IR.
+pub(super) fn convert_surface(ctx: &LdtkEntityCtx<'_>) -> Result<RuntimeEntityEmission, String> {
+    let (entity, name, min, size) = ctx.parts();
+    let spec = parse_surface_spec(entity, min, size, name)?;
+    let compiled = compile_surface(&spec)?;
+    Ok(RuntimeEntityEmission::from_compiled(compiled))
+}
+
+/// `StitchedBoundary` / `EncounterTrigger` / `LockWall` are read by their own
+/// consumers off the raw `LdtkProject` and never join the emission stream.
+pub(super) fn convert_consumed_elsewhere(
+    _ctx: &LdtkEntityCtx<'_>,
+) -> Result<RuntimeEntityEmission, String> {
+    Ok(RuntimeEntityEmission::ignored())
+}
+
 pub(super) fn convert_loading_zone(
-    entity: &LdtkEntityInstance,
-    name: String,
-    min: ae::Vec2,
-    size: ae::Vec2,
-) -> RuntimeEntityEmission {
-    RuntimeEntityEmission::zone(LoadingZone {
+    ctx: &LdtkEntityCtx<'_>,
+) -> Result<RuntimeEntityEmission, String> {
+    let (entity, name, min, size) = ctx.parts();
+    Ok(RuntimeEntityEmission::zone(LoadingZone {
         id: field_string(entity, "id").unwrap_or_else(|| entity.iid.clone()),
         name,
         activation: match field_string(entity, "activation")
@@ -24,16 +49,14 @@ pub(super) fn convert_loading_zone(
             _ => LoadingZoneActivation::Door,
         },
         aabb: object_aabb(min, size),
-    })
+    }))
 }
 
 pub(super) fn convert_damage_volume(
-    entity: &LdtkEntityInstance,
-    name: String,
-    min: ae::Vec2,
-    size: ae::Vec2,
-    offset: ae::Vec2,
-) -> RuntimeEntityEmission {
+    ctx: &LdtkEntityCtx<'_>,
+) -> Result<RuntimeEntityEmission, String> {
+    let (entity, name, min, size) = ctx.parts();
+    let offset = ctx.offset;
     let aabb = object_aabb(min, size);
     let mut volume = crate::combat::DamageVolume::new(
         entity.iid.clone(),
@@ -50,21 +73,19 @@ pub(super) fn convert_damage_volume(
         path.points = offset_points(path.points, offset);
         path
     });
-    RuntimeEntityEmission::hazard(crate::rooms::Authored::new(
+    Ok(RuntimeEntityEmission::hazard(crate::rooms::Authored::new(
         entity.iid.clone(),
         name,
         aabb,
         volume,
-    ))
+    )))
 }
 
 pub(super) fn convert_kinematic_path(
-    entity: &LdtkEntityInstance,
-    name: String,
-    min: ae::Vec2,
-    size: ae::Vec2,
-    offset: ae::Vec2,
+    ctx: &LdtkEntityCtx<'_>,
 ) -> Result<RuntimeEntityEmission, String> {
+    let (entity, name, min, size) = ctx.parts();
+    let offset = ctx.offset;
     let points = offset_points(
         parse_points(&field_string(entity, "points").unwrap_or_default()),
         offset,
@@ -97,12 +118,8 @@ pub(super) fn convert_kinematic_path(
     ))
 }
 
-pub(super) fn convert_prop(
-    entity: &LdtkEntityInstance,
-    name: String,
-    min: ae::Vec2,
-    size: ae::Vec2,
-) -> Result<RuntimeEntityEmission, String> {
+pub(super) fn convert_prop(ctx: &LdtkEntityCtx<'_>) -> Result<RuntimeEntityEmission, String> {
+    let (entity, name, min, size) = ctx.parts();
     // Decorative-only entity. Renders a sprite via `PropRegistry`, but
     // never grows an `Interactable` or a `RoomObject` — so the player
     // can walk past with no dialogue prompt and the engine never sees
@@ -120,12 +137,8 @@ pub(super) fn convert_prop(
     }))
 }
 
-pub(super) fn convert_npc_spawn(
-    entity: &LdtkEntityInstance,
-    name: String,
-    min: ae::Vec2,
-    size: ae::Vec2,
-) -> RuntimeEntityEmission {
+pub(super) fn convert_npc_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RuntimeEntityEmission, String> {
+    let (entity, name, min, size) = ctx.parts();
     // Post-Phase 2: LDtk NpcSpawns carry a stable `character_id`
     // field that keys into `assets/data/character_catalog.ron`. The
     // resolved display name (`catalog.display_name`) becomes the
@@ -157,29 +170,29 @@ pub(super) fn convert_npc_spawn(
         },
     );
     let (id, name, aabb) = authored_triple(entity, display_name, min, size);
-    RuntimeEntityEmission::interactable(crate::rooms::Authored::new(id, name, aabb, interactable))
+    Ok(RuntimeEntityEmission::interactable(
+        crate::rooms::Authored::new(id, name, aabb, interactable),
+    ))
 }
 
 pub(super) fn convert_pickup_spawn(
-    entity: &LdtkEntityInstance,
-    name: String,
-    min: ae::Vec2,
-    size: ae::Vec2,
-) -> RuntimeEntityEmission {
+    ctx: &LdtkEntityCtx<'_>,
+) -> Result<RuntimeEntityEmission, String> {
+    let (entity, name, min, size) = ctx.parts();
     let pickup = ambition_interaction::Pickup::new(
         entity.iid.clone(),
         parse_pickup_kind(&field_string(entity, "kind").unwrap_or_else(|| "health:1".to_string())),
     );
     let (id, name, aabb) = authored_triple(entity, name, min, size);
-    RuntimeEntityEmission::pickup(crate::rooms::Authored::new(id, name, aabb, pickup))
+    Ok(RuntimeEntityEmission::pickup(crate::rooms::Authored::new(
+        id, name, aabb, pickup,
+    )))
 }
 
 pub(super) fn convert_ground_item(
-    entity: &LdtkEntityInstance,
-    name: String,
-    min: ae::Vec2,
-    size: ae::Vec2,
+    ctx: &LdtkEntityCtx<'_>,
 ) -> Result<RuntimeEntityEmission, String> {
+    let (entity, name, min, size) = ctx.parts();
     // Authored held-item pickup. `held_item` is a brain held-item registry id
     // (`meteor`, `bomb`, `puppy_slug_gun`, `gun_sword`, ...); resolution to a
     // `HeldItemSpec` happens at spawn, where an unregistered / feature-gated id
@@ -206,32 +219,28 @@ pub(super) fn convert_ground_item(
 
 #[cfg(feature = "portal_ldtk")]
 pub(super) fn convert_portal_gun_spawn(
-    entity: &LdtkEntityInstance,
-    name: String,
-    min: ae::Vec2,
-    size: ae::Vec2,
-) -> RuntimeEntityEmission {
+    ctx: &LdtkEntityCtx<'_>,
+) -> Result<RuntimeEntityEmission, String> {
+    let (entity, name, min, size) = ctx.parts();
     // Field-less marker (id/name optional): the box gives the pickup's center +
     // half-extent. Spawns an already-armed `PortalGunPickup` at room load.
     let id = field_string(entity, "id")
         .map(|value| value.trim().to_string())
         .filter(|value| !value.is_empty())
         .unwrap_or_else(|| entity.iid.clone());
-    RuntimeEntityEmission::portal_gun_spawn(crate::rooms::PortalGunSpawnSpec {
-        id,
-        name,
-        pos: min + size * 0.5,
-        half_extent: size * 0.5,
-    })
+    Ok(RuntimeEntityEmission::portal_gun_spawn(
+        crate::rooms::PortalGunSpawnSpec {
+            id,
+            name,
+            pos: min + size * 0.5,
+            half_extent: size * 0.5,
+        },
+    ))
 }
 
 #[cfg(feature = "portal_ldtk")]
-pub(super) fn convert_portal(
-    entity: &LdtkEntityInstance,
-    name: String,
-    min: ae::Vec2,
-    size: ae::Vec2,
-) -> Result<RuntimeEntityEmission, String> {
+pub(super) fn convert_portal(ctx: &LdtkEntityCtx<'_>) -> Result<RuntimeEntityEmission, String> {
+    let (entity, name, min, size) = ctx.parts();
     // `color` names the pair (its partner is the linked exit); `normal` is the
     // surface the portal sits on (up = floor, down = ceiling, left = right-wall,
     // right = left-wall — y is down in world space). The box center is the face.
@@ -264,6 +273,33 @@ pub(super) fn convert_portal(
     }))
 }
 
+// Portal-authored entities require the `portal_ldtk` feature. Per the
+// refactor anti-goal ("do NOT make LDtk silently ignore portal-authored
+// entities when portal is disabled — fail loudly"), a portal-OFF /
+// portal_ldtk-OFF build registers explicit ERROR converters rather than
+// dropping the entities.
+#[cfg(not(feature = "portal_ldtk"))]
+pub(super) fn convert_portal_gun_spawn(
+    ctx: &LdtkEntityCtx<'_>,
+) -> Result<RuntimeEntityEmission, String> {
+    portal_compiled_out(ctx)
+}
+
+#[cfg(not(feature = "portal_ldtk"))]
+pub(super) fn convert_portal(ctx: &LdtkEntityCtx<'_>) -> Result<RuntimeEntityEmission, String> {
+    portal_compiled_out(ctx)
+}
+
+#[cfg(not(feature = "portal_ldtk"))]
+fn portal_compiled_out(ctx: &LdtkEntityCtx<'_>) -> Result<RuntimeEntityEmission, String> {
+    Err(format!(
+        "portal-authored entity '{}' encountered, but the portal \
+         LDtk converter is compiled out (enable the `portal_ldtk` cargo \
+         feature to author portal entities)",
+        ctx.entity.identifier
+    ))
+}
+
 fn authored_id(entity: &LdtkEntityInstance) -> String {
     field_string(entity, "id")
         .map(|value| value.trim().to_string())
@@ -271,26 +307,20 @@ fn authored_id(entity: &LdtkEntityInstance) -> String {
         .unwrap_or_else(|| entity.iid.clone())
 }
 
-pub(super) fn convert_shrine(
-    entity: &LdtkEntityInstance,
-    name: String,
-    min: ae::Vec2,
-    size: ae::Vec2,
-) -> RuntimeEntityEmission {
-    RuntimeEntityEmission::shrine(crate::rooms::ShrineSpec {
+pub(super) fn convert_shrine(ctx: &LdtkEntityCtx<'_>) -> Result<RuntimeEntityEmission, String> {
+    let (entity, name, min, size) = ctx.parts();
+    Ok(RuntimeEntityEmission::shrine(crate::rooms::ShrineSpec {
         id: authored_id(entity),
         name,
         pos: min + size * 0.5,
         half_extent: size * 0.5,
-    })
+    }))
 }
 
 pub(super) fn convert_gravity_zone(
-    entity: &LdtkEntityInstance,
-    name: String,
-    min: ae::Vec2,
-    size: ae::Vec2,
-) -> RuntimeEntityEmission {
+    ctx: &LdtkEntityCtx<'_>,
+) -> Result<RuntimeEntityEmission, String> {
+    let (entity, name, min, size) = ctx.parts();
     // `dir` names the gravity direction inside the zone; default up (the demo).
     let dir = match field_string(entity, "dir").as_deref().map(str::trim) {
         Some("down") => ae::Vec2::new(0.0, 1.0),
@@ -298,37 +328,37 @@ pub(super) fn convert_gravity_zone(
         Some("right") => ae::Vec2::new(1.0, 0.0),
         _ => ae::Vec2::new(0.0, -1.0),
     };
-    RuntimeEntityEmission::gravity_zone(crate::rooms::GravityZoneSpec {
-        id: authored_id(entity),
-        name,
-        center: min + size * 0.5,
-        half_extent: size * 0.5,
-        dir,
-        oscillate_amplitude: field_f32(entity, "oscillate_amplitude").unwrap_or(0.0),
-        oscillate_freq: field_f32(entity, "oscillate_freq").unwrap_or(1.0),
-    })
+    Ok(RuntimeEntityEmission::gravity_zone(
+        crate::rooms::GravityZoneSpec {
+            id: authored_id(entity),
+            name,
+            center: min + size * 0.5,
+            half_extent: size * 0.5,
+            dir,
+            oscillate_amplitude: field_f32(entity, "oscillate_amplitude").unwrap_or(0.0),
+            oscillate_freq: field_f32(entity, "oscillate_freq").unwrap_or(1.0),
+        },
+    ))
 }
 
 pub(super) fn convert_chest_spawn(
-    entity: &LdtkEntityInstance,
-    name: String,
-    min: ae::Vec2,
-    size: ae::Vec2,
-) -> RuntimeEntityEmission {
+    ctx: &LdtkEntityCtx<'_>,
+) -> Result<RuntimeEntityEmission, String> {
+    let (entity, name, min, size) = ctx.parts();
     let chest = ambition_interaction::Chest::new(
         entity.iid.clone(),
         field_string(entity, "reward").map(|value| parse_pickup_kind(&value)),
     );
     let (id, name, aabb) = authored_triple(entity, name, min, size);
-    RuntimeEntityEmission::chest(crate::rooms::Authored::new(id, name, aabb, chest))
+    Ok(RuntimeEntityEmission::chest(crate::rooms::Authored::new(
+        id, name, aabb, chest,
+    )))
 }
 
 pub(super) fn convert_enemy_spawn(
-    entity: &LdtkEntityInstance,
-    name: String,
-    min: ae::Vec2,
-    size: ae::Vec2,
-) -> RuntimeEntityEmission {
+    ctx: &LdtkEntityCtx<'_>,
+) -> Result<RuntimeEntityEmission, String> {
+    let (entity, name, min, size) = ctx.parts();
     let mut brain =
         parse_enemy_brain(&field_string(entity, "brain").unwrap_or_else(|| "Passive".to_string()));
     if let Some(path_id) =
@@ -341,27 +371,25 @@ pub(super) fn convert_enemy_spawn(
         }
     }
     let (id, name, aabb) = authored_triple(entity, name, min, size);
-    RuntimeEntityEmission::enemy_spawn(crate::rooms::Authored::new(id, name, aabb, brain))
+    Ok(RuntimeEntityEmission::enemy_spawn(
+        crate::rooms::Authored::new(id, name, aabb, brain),
+    ))
 }
 
-pub(super) fn convert_boss_spawn(
-    entity: &LdtkEntityInstance,
-    name: String,
-    min: ae::Vec2,
-    size: ae::Vec2,
-) -> RuntimeEntityEmission {
+pub(super) fn convert_boss_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RuntimeEntityEmission, String> {
+    let (entity, name, min, size) = ctx.parts();
     let brain =
         parse_boss_brain(&field_string(entity, "brain").unwrap_or_else(|| "Dormant".to_string()));
     let (id, name, aabb) = authored_triple(entity, name, min, size);
-    RuntimeEntityEmission::boss_spawn(crate::rooms::Authored::new(id, name, aabb, brain))
+    Ok(RuntimeEntityEmission::boss_spawn(
+        crate::rooms::Authored::new(id, name, aabb, brain),
+    ))
 }
 
 pub(super) fn convert_debug_label(
-    entity: &LdtkEntityInstance,
-    name: String,
-    min: ae::Vec2,
-    size: ae::Vec2,
-) -> RuntimeEntityEmission {
+    ctx: &LdtkEntityCtx<'_>,
+) -> Result<RuntimeEntityEmission, String> {
+    let (entity, name, min, size) = ctx.parts();
     let pos = min + size * 0.5;
     let aabb = ae::Aabb::new(pos, ae::Vec2::splat(1.0));
     let label = crate::debug_label::DebugLabel::new(
@@ -371,19 +399,15 @@ pub(super) fn convert_debug_label(
             &field_string(entity, "category").unwrap_or_else(|| "Custom".to_string()),
         ),
     );
-    RuntimeEntityEmission::debug_label(crate::rooms::Authored::new(
-        entity.iid.clone(),
-        name,
-        aabb,
-        label,
+    Ok(RuntimeEntityEmission::debug_label(
+        crate::rooms::Authored::new(entity.iid.clone(), name, aabb, label),
     ))
 }
 
 pub(super) fn convert_water_volume(
-    entity: &LdtkEntityInstance,
-    min: ae::Vec2,
-    size: ae::Vec2,
-) -> RuntimeEntityEmission {
+    ctx: &LdtkEntityCtx<'_>,
+) -> Result<RuntimeEntityEmission, String> {
+    let (entity, _name, min, size) = ctx.parts();
     // Entity-authored water: source-agnostic, lands in the same
     // `World::water_regions` list IntGrid Water cells populate.
     // Reserved for irregular pools the per-cell IntGrid layer can't
@@ -405,19 +429,17 @@ pub(super) fn convert_water_volume(
     // canonical authoring path for distinct kinds; if a future entity
     // field needs Murky, add a `kind` field via
     // `register_ldtk_entity_def.py` and route it here.
-    RuntimeEntityEmission::water_region(ae::WaterRegion::new(
+    Ok(RuntimeEntityEmission::water_region(ae::WaterRegion::new(
         object_aabb(min, size),
         ae::WaterKind::Clear,
         spec,
-    ))
+    )))
 }
 
 pub(super) fn convert_moving_platform(
-    entity: &LdtkEntityInstance,
-    name: String,
-    min: ae::Vec2,
-    size: ae::Vec2,
-) -> RuntimeEntityEmission {
+    ctx: &LdtkEntityCtx<'_>,
+) -> Result<RuntimeEntityEmission, String> {
+    let (entity, name, min, size) = ctx.parts();
     // LDtk entity bounds define platform size and, for the legacy sweep
     // mode, starting AABB. When `path_id` is authored, the platform
     // follows the referenced active-area-local `KinematicPathSpec`
@@ -427,7 +449,7 @@ pub(super) fn convert_moving_platform(
     let speed = field_f32(entity, "speed").unwrap_or(130.0);
     let path_id =
         field_string(entity, "path_id").or_else(|| field_string(entity, "patrol_path_id"));
-    RuntimeEntityEmission::moving_platform(
+    Ok(RuntimeEntityEmission::moving_platform(
         crate::world::platforms::MovingPlatformSpec::from_authored(
             entity.iid.clone(),
             name,
@@ -437,16 +459,14 @@ pub(super) fn convert_moving_platform(
             speed,
             path_id,
         ),
-    )
+    ))
 }
 
 pub(super) fn convert_camera_zone(
-    entity: &LdtkEntityInstance,
-    name: String,
-    min: ae::Vec2,
-    size: ae::Vec2,
-) -> RuntimeEntityEmission {
-    RuntimeEntityEmission::camera_zone(CameraZoneSpec {
+    ctx: &LdtkEntityCtx<'_>,
+) -> Result<RuntimeEntityEmission, String> {
+    let (entity, name, min, size) = ctx.parts();
+    Ok(RuntimeEntityEmission::camera_zone(CameraZoneSpec {
         id: field_string(entity, "id").unwrap_or_else(|| entity.iid.clone()),
         name,
         aabb: object_aabb(min, size),
@@ -463,7 +483,7 @@ pub(super) fn convert_camera_zone(
         clamp_mode: CameraClampMode::from_author_value(
             field_string(entity, "clamp_mode").as_deref(),
         ),
-    })
+    }))
 }
 
 /// Convert an LDtk `Switch` entity into a runtime [`ambition_interaction::Interactable`]
@@ -472,12 +492,8 @@ pub(super) fn convert_camera_zone(
 /// The `SwitchFeature` spawn path re-parses the payload into a typed
 /// [`crate::encounter::SwitchActivation`] once, so downstream gameplay
 /// systems never touch the string form.
-pub(super) fn convert_switch(
-    entity: &LdtkEntityInstance,
-    name: String,
-    min: ae::Vec2,
-    size: ae::Vec2,
-) -> RuntimeEntityEmission {
+pub(super) fn convert_switch(ctx: &LdtkEntityCtx<'_>) -> Result<RuntimeEntityEmission, String> {
+    let (entity, name, min, size) = ctx.parts();
     let activation = crate::encounter::SwitchActivation {
         id: field_string(entity, "id").unwrap_or_else(|| entity.iid.clone()),
         action: field_string(entity, "action").unwrap_or_else(|| "ResetEncounter".into()),
@@ -495,10 +511,7 @@ pub(super) fn convert_switch(
     // SwitchActivation id. The entity.iid would default to something
     // like "Switch-4072"; that mismatch silently no-op'd switch state
     // updates and left the switch sprite stuck red.
-    RuntimeEntityEmission::interactable(crate::rooms::Authored::new(
-        activation.id,
-        name,
-        aabb,
-        interactable,
+    Ok(RuntimeEntityEmission::interactable(
+        crate::rooms::Authored::new(activation.id, name, aabb, interactable),
     ))
 }

@@ -11,10 +11,13 @@ use serde_json::Value;
 
 use ambition_engine_core as ae;
 
-use super::{LdtkEntityInstance, LdtkFieldInstance, LdtkLevel, AMBITION_LDTK_ENTITY_IDENTIFIERS};
+use super::{LdtkEntityInstance, LdtkFieldInstance, LdtkLevel};
 
+/// True if the identifier has a registered converter — the engine's standard
+/// vocabulary plus any content-installed converters (ADR 0009), so a
+/// game-registered entity passes validation like a built-in one.
 pub(super) fn known_entity(identifier: &str) -> bool {
-    AMBITION_LDTK_ENTITY_IDENTIFIERS.contains(&identifier)
+    super::conversion::converter_for(identifier).is_some()
 }
 
 pub(super) fn pivot_is_top_left(entity: &LdtkEntityInstance) -> bool {
@@ -69,7 +72,7 @@ pub fn field_f32(entity: &LdtkEntityInstance, name: &str) -> Option<f32> {
     })
 }
 
-pub(super) fn field_i32(entity: &LdtkEntityInstance, name: &str) -> Option<i32> {
+pub fn field_i32(entity: &LdtkEntityInstance, name: &str) -> Option<i32> {
     field_value(&entity.field_instances, name).and_then(|value| match value {
         Value::Number(number) => number.as_i64().map(|value| value as i32),
         Value::String(text) => text.parse::<i32>().ok(),
@@ -77,7 +80,7 @@ pub(super) fn field_i32(entity: &LdtkEntityInstance, name: &str) -> Option<i32> 
     })
 }
 
-pub(super) fn field_bool(entity: &LdtkEntityInstance, name: &str) -> Option<bool> {
+pub fn field_bool(entity: &LdtkEntityInstance, name: &str) -> Option<bool> {
     field_value(&entity.field_instances, name).and_then(|value| match value {
         Value::Bool(value) => Some(*value),
         Value::String(text) => text.parse::<bool>().ok(),

@@ -2977,7 +2977,7 @@ authors its sheet LAYOUT as data — the same "out of core" as E58's `StrikeRect
   (72 refs across 8 files, also keys anim rows/overlays/behavior) stays; that's a distinct semantic change,
   not sheet-layout data-fication.
 
-### E64. C1 — item catalog is an installable content override (JD2: BUILD IT as prep) ✅
+### E63. C1 — item catalog is an installable content override (JD2: BUILD IT as prep) ✅
 The 24-item `Item` enum's baked flavor/wiring (`ITEM_META`: display_name / description / category /
 held_item_id / dialog_id) is now content-authorable data, mirroring the C6 boss-sheet pattern exactly.
 - **Type surgery:** `ItemMeta` fields → owned (`String`) + `serde` + `PartialEq` (+ `serde` on
@@ -2997,6 +2997,33 @@ held_item_id / dialog_id) is now content-authorable data, mirroring the C6 boss-
   compiles. **The `Item` ENUM stays** structural KIT (OoT 24-grid, save-index keyed) — relocating the item
   SET itself is a bigger change (saves/menu/OwnedItems key off the index); the C2 held-item registry + C5
   projectile-spec chain are the natural follow-ons (JD2 "incremental is fine").
+
+### E64. C7 rider-name half — NOTED-AND-SKIPPED: the premise is stale + it hides a mount-authoring FORK ⏸ (for fable)
+Verified against code: **mount COMPOSITION is already brain-driven, NOT name-parsed.** An `EnemySpawn`
+carries `brain: "pirate_on_shark"` / `"pirate_heavy_on_shark"` (a FUSED rider+mount archetype whose
+`composite_visual` fans it into mount + rider) — the engine already de-hardcoded `" on Shark"` from the
+composition path (the earlier §C7 slice). The ONLY residual name-parse is the rider DISPLAY-name strip
+(`composite_rider_name(spawn_name, rider_name_suffix=" on Shark", fallback)` in
+`features/enemies/mod.rs:109`, called by both the sim `spawn_mounts.rs` and render `world.rs:622`).
+- **The handoff's `mount:` field IS a design fork.** Building a `mount: "shark"` spawn FIELD that DRIVES
+  composition means splitting the two fused `*_on_shark` archetypes into a plain rider brain
+  (`pirate` / `pirate_heavy`) + a mount reference, and teaching the LDtk loader to compose
+  `[rider brain] + [mount archetype]` from the field. That decision — **is the mount authored as a field,
+  or does the brain-key encoding stay?** — is the mount-authoring model, which fable should own (it also
+  decides whether the 7 shipped spawns' `mount` value keys an archetype id vs a mount-registry id).
+- **Why not just land the display-name half:** re-authoring the 7 spawn names (6 `pirate_on_shark` +
+  1 `pirate_heavy_on_shark`, across `sandbox.ldtk`) to drop `" on Shark"` + deleting `rider_name_suffix`
+  is unambiguous, BUT it is ENTANGLED with the field decision (the same re-author touches the same 7
+  spawns fable's `mount:` field would), it's a purely cosmetic display-name change with ONE visible
+  behavior (the rider nameplate) that can't be headless-verified, and doing it now would pre-empt +
+  likely re-do fable's mount-field authoring choice. So it waits with the fork.
+- **The ldtk-tools capability already EXISTS** (`def update-entity` to add the field def, `entity set-field`
+  to set per-spawn values) — building the seam is loader + archetype work, not a missing subcommand.
+- **Concrete plan once fable picks the model:** (1) `def update-entity EnemySpawn` → add `mount: String`
+  (optional); (2) loader: `mount` set → compose rider-brain + mount-archetype (retire the fused
+  `*_on_shark` brains, or keep them as constructors); (3) `entity set-field` the 7 spawns: `name` → the
+  rider's real name, `brain` → plain rider, `mount` → "shark"; (4) delete `rider_name_suffix` +
+  `composite_rider_name`'s strip (rider name = spawn name); (5) `roundtrip` + `validate` the .ldtk.
 
 ## Next (in order) — **the MOVESET UNIFICATION is COMPLETE (E47–E55): melee, specials, ranged, AND boss strikes all run through the ONE moveset runtime.** The audit's TASK sections are stale; trust E-entries + a code re-check before working an item.
 

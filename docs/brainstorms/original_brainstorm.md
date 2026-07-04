@@ -635,10 +635,3 @@ architecture. My guess is that our version 1.0 won't get to the full beautiful
 system I want, but if a large subset of our crates are reusable to make writing
 new games easier, that is a win.
 
-
-Our work was interrupted. I committed the partial state to
-c3fd6db749036f55ef54ec04c32832365b44677f. In the meantime I had another agent
-take on some of the easier problems. I'm hoping what they did was helpful. We
-should probably give it a review, update the document appropriately if it
-closed anything prematurely (It was a decent GPT 5.5 model, so I trust it did
-more good than harm), and then continue with the fable-hard tasks.

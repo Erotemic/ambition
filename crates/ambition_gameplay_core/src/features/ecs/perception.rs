@@ -58,6 +58,7 @@ pub struct PerceptionBody {
 
 /// A candidate other-body the viewer may perceive. Pre-collected (id +
 /// kinematics + faction + body-state) before the per-body loop.
+#[derive(Clone)]
 pub struct PerceptionPeer {
     pub id: String,
     pub pos: ae::Vec2,
@@ -87,6 +88,53 @@ pub struct PerceptionPortal {
     pub normal: ae::Vec2,
     pub half_extent: ae::Vec2,
     pub channel_key: u64,
+}
+
+/// Per-frame snapshot of EVERY live body's peer data, refreshed by
+/// [`collect_perception_peers`] BEFORE the per-body view build so a body perceives
+/// the others without a second (mutable-aliasing) borrow of the actor query. Carries
+/// the source `Entity` so a viewer excludes ITSELF when building its own view.
+#[derive(bevy::prelude::Resource, Default)]
+pub struct PerceptionPeers(pub Vec<(bevy::prelude::Entity, PerceptionPeer)>);
+
+/// Collect the peer snapshot from every live body — player, actor, AND boss all
+/// carry [`BodyKinematics`], so ONE query spans them (guardrail #1: no per-type
+/// path). §A7 slice: this POPULATES the peers channel that `build_world_view`
+/// currently receives EMPTY, activating `WorldView`'s `nearest_hostile` /
+/// `hostiles` / `incoming_threats` for the (separate) migration of brains off the
+/// side-loaded `BrainSnapshot.target_pos`. No brain reads the peers channel yet
+/// (only the terrain-driven `line_of_fire` is consumed), so this changes NO
+/// behavior — it is the additive prerequisite. `on_ground` / `shield_raised` are
+/// left `false` for now (no consumer reads them; wire them when a brain needs them).
+pub fn collect_perception_peers(
+    mut peers: bevy::prelude::ResMut<PerceptionPeers>,
+    bodies: bevy::prelude::Query<(
+        bevy::prelude::Entity,
+        Option<&crate::features::FeatureId>,
+        &crate::actor::BodyKinematics,
+        &ambition_characters::actor::BodyHealth,
+        &ActorFaction,
+    )>,
+) {
+    peers.0.clear();
+    for (entity, id, kin, health, faction) in &bodies {
+        peers.0.push((
+            entity,
+            PerceptionPeer {
+                id: id
+                    .map(|f| f.as_str().to_string())
+                    .unwrap_or_else(|| format!("e{}", entity.index())),
+                pos: kin.pos,
+                vel: kin.vel,
+                facing: kin.facing,
+                half_extent: kin.size,
+                faction: *faction,
+                alive: health.alive(),
+                on_ground: false,
+                shield_raised: false,
+            },
+        ));
+    }
 }
 
 /// Build the headless [`WorldView`] for `body` from real world geometry, the
@@ -459,6 +507,51 @@ mod tests {
             Some(ae::Vec2::new(260.0, 180.0)),
             "entering one aperture resolves to its same-channel exit"
         );
+    }
+
+    /// §A7 peers-wiring: `collect_perception_peers` snapshots EVERY body (player,
+    /// actor, boss — all carry `BodyKinematics`) into the resource `build_world_view`
+    /// reads, with its source `Entity` (so a viewer excludes itself). A body without a
+    /// `FeatureId` still gets a stable non-empty id.
+    #[test]
+    fn collect_perception_peers_snapshots_every_body() {
+        use ambition_characters::actor::{BodyHealth, Health};
+        use bevy::prelude::*;
+
+        let mut app = App::new();
+        app.init_resource::<PerceptionPeers>();
+        app.add_systems(Update, collect_perception_peers);
+        let kin = |x: f32| crate::actor::BodyKinematics {
+            pos: ae::Vec2::new(x, 20.0),
+            vel: ae::Vec2::ZERO,
+            size: ae::Vec2::new(14.0, 22.0),
+            facing: 1.0,
+        };
+        let alice = app
+            .world_mut()
+            .spawn((
+                crate::features::FeatureId::new("alice"),
+                kin(10.0),
+                BodyHealth::new(Health::new(5)),
+                ActorFaction::Enemy,
+            ))
+            .id();
+        // No FeatureId → the snapshot derives a stable entity id.
+        let bob = app
+            .world_mut()
+            .spawn((kin(90.0), BodyHealth::new(Health::new(5)), ActorFaction::Boss))
+            .id();
+        app.update();
+
+        let peers = app.world().resource::<PerceptionPeers>();
+        assert_eq!(peers.0.len(), 2, "every body is snapshotted");
+        let a = peers.0.iter().find(|(e, _)| *e == alice).map(|(_, p)| p).unwrap();
+        assert_eq!(a.id, "alice");
+        assert_eq!(a.pos, ae::Vec2::new(10.0, 20.0));
+        assert_eq!(a.faction, ActorFaction::Enemy);
+        assert!(a.alive);
+        let b = peers.0.iter().find(|(e, _)| *e == bob).map(|(_, p)| p).unwrap();
+        assert!(!b.id.is_empty(), "a FeatureId-less body still gets a stable id");
     }
 }
 

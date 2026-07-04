@@ -274,9 +274,14 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // selection, before the NPC bark ticker). Registered separately from the big
         // WorldPrep tuple, which is at Bevy's chain-length ceiling.
         app.init_resource::<ActorSteering>();
+        app.init_resource::<crate::features::ecs::perception::PerceptionPeers>();
         app.add_systems(
             Update,
             (
+                // §A7: snapshot every body's peer data BEFORE the brain tick reads it,
+                // so a body perceives the others without a second borrow of the actor
+                // query. Populates the peers channel `build_world_view` got empty.
+                crate::features::ecs::perception::collect_perception_peers,
                 tick_actor_brains,
                 // Advance moving platforms ONCE before any body integrates, so every
                 // body (home + actors) rides THIS frame's platform positions — the

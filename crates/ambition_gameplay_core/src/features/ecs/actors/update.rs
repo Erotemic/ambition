@@ -62,7 +62,7 @@ pub fn tick_actor_brains(
     // ceiling, so the accumulating sim clock + the slot-based controller input
     // ride alongside `WorldTime`. `SlotControls` feeds any actor carrying a
     // `Brain::Player(slot)` (a possessed body) its controller frame.
-    (world_time, sim_clock, slot_controls, faction_relations): (
+    (world_time, sim_clock, slot_controls, faction_relations, perception_peers): (
         Res<WorldTime>,
         Res<crate::features::GameplayElapsed>,
         Res<ambition_characters::brain::SlotControls>,
@@ -71,6 +71,10 @@ pub fn tick_actor_brains(
         // `::default()` the perception build used to pass (§A7). `Option` matches
         // `select_actor_targets` for test fixtures that skip the resource.
         Option<Res<crate::combat::targeting::FactionRelations>>,
+        // Pre-collected peers snapshot (§A7): the other bodies this actor perceives,
+        // populated by `collect_perception_peers` before this tick. `Option` so test
+        // fixtures that skip the resource fall back to an empty (terrain-only) view.
+        Option<Res<crate::features::ecs::perception::PerceptionPeers>>,
     ),
     world: Res<ambition_engine_core::RoomGeometry>,
     gravity: crate::physics::GravityCtx,
@@ -272,7 +276,7 @@ pub fn tick_actor_brains(
     // holding fallback that steers unassigned actors is folded into the brain
     // snapshot (crowding); movement integration is a separate phase.
     for (
-        _actor_entity,
+        this_actor_entity,
         // aabb / identity / intent / cooldowns / mounted belong to the movement +
         // read-model phases; the query still fetches them (one actor query shape)
         // but the brain phase reads only its intent inputs.
@@ -381,20 +385,35 @@ pub fn tick_actor_brains(
                     // geometry (never a parallel sensor). Body-generic (guardrail #1):
                     // this is the same `build_world_view` the player-robot body uses.
                     //
-                    // §A7: the body's SELF-view is now HONEST — its faction is its
-                    // real (effective, possession-aware) faction, `can_fire` reflects
-                    // whether it actually owns a ranged slot, and hostility resolves
-                    // against the LIVE `FactionRelations`, not the all-false default.
-                    // Peers / projectiles / portals are still empty slices — wiring
-                    // the surrounding-world channel (and migrating brains off the
-                    // side-loaded `BrainSnapshot.target_pos` onto `WorldView`) is the
-                    // remaining A7 slice; the terrain-only view drives the LOF gate today.
+                    // §A7: the body's SELF-view is HONEST — its faction is its real
+                    // (effective, possession-aware) faction, `can_fire` reflects whether
+                    // it actually owns a ranged slot, and hostility resolves against the
+                    // LIVE `FactionRelations`, not the all-false default. PEERS are now
+                    // wired too (the pre-collected snapshot below, minus self), so the
+                    // view's `nearest_hostile`/`hostiles`/`incoming_threats` are live.
+                    // Projectiles / portals remain empty; migrating brains off the
+                    // side-loaded `BrainSnapshot.target_pos` onto `WorldView.nearest_hostile`
+                    // is the next A7 slice (no brain reads the peer channel yet, so
+                    // wiring it changed no behavior).
                     let self_faction = crate::combat::targeting::effective_faction(
                         faction
                             .copied()
                             .unwrap_or(ambition_characters::actor::ActorFaction::Enemy),
                         Some(&*brain_ref),
                     );
+                    // The other bodies this actor perceives (§A7): the pre-collected
+                    // snapshot minus SELF. `Option` empty when the resource is absent
+                    // (test fixtures) → terrain-only view, exactly as before.
+                    let view_peers: Vec<super::super::perception::PerceptionPeer> =
+                        perception_peers
+                            .as_ref()
+                            .map(|p| {
+                                p.0.iter()
+                                    .filter(|(e, _)| *e != this_actor_entity)
+                                    .map(|(_, peer)| peer.clone())
+                                    .collect()
+                            })
+                            .unwrap_or_default();
                     let world_view = super::super::perception::build_world_view(
                         &super::super::perception::PerceptionBody {
                             pos: em.kin.pos,
@@ -411,7 +430,7 @@ pub fn tick_actor_brains(
                             can_dash: em.caps.can_dash,
                             can_shield: em.caps.can_shield,
                         },
-                        &[],
+                        &view_peers,
                         &[],
                         &[],
                         &feature_world,

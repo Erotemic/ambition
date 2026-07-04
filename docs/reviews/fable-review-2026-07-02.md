@@ -2680,7 +2680,13 @@ pogo schema — Jon's call).
   retire the brain's now-redundant `BossAttackState` component write (dead-write cleanup,
   gate on `With<ActorMoveset>`) — see E53 in the E-log. The one deferred nuance is a
   sub-frame read-model wart inherent to cursor→move time (BULK REVIEW QUEUE; damage identical).
-- **A7 perception** (L) — make `WorldView` + `WorldMemory` the ONLY world-out; wire peers/projectiles; migrate brains off `BrainSnapshot.target_pos`.
+- **A7 perception** (L) — PEERS CHANNEL WIRED (E55): `collect_perception_peers` snapshots
+  every body into a `PerceptionPeers` resource that `build_world_view` now reads (was passed
+  `&[]`), so `WorldView`'s `nearest_hostile`/`hostiles`/`incoming_threats` are LIVE in the sim.
+  Additive/behavior-neutral (no brain reads the peers channel yet — only the terrain-driven
+  `line_of_fire` is consumed). REMAINING: wire projectiles the same way; then migrate brains
+  off the side-loaded `BrainSnapshot.target_pos` onto `WorldView.nearest_hostile` (the
+  behavior-shifting slice — expect Smash-brain cadence canaries to move, like E54's did).
 - **C1** (L) — 24-item `Item` enum → installable `ItemCatalog` (consumed across menu IR / yarn / persistence).
 - **C4** (L) — machinery-owned `PlatformerEnginePlugin` group + fold `sim_systems.rs` into owning plugins + extract `host/mobile_input/` beside `ambition_input` + an app-thinness boundary test.
 - **C6** (M) — named-boss residue: the 11 geometry `BossAttackProfile` variants (post-E51, consumed by `volumes_for_profile` + hurtbox pose + anim rows) could collapse toward authored rect DATA; named constructors + `MOCKINGBIRD_*` consts; per-boss sheet specs → boss roster RON.

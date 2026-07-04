@@ -809,3 +809,47 @@ param validation) — real once a move-start/technique authors params. R2.3 (pre
 registry — generalize `attack_move_from_melee`/`fire_move_from_ranged` into keyed
 `simple_melee`/`simple_ranged`) — DRY once the player moves give concrete shape.
 R2.6 (equipment→params merge) — once params thread through.
+
+---
+
+## R3 — content eviction + the world seam (executor: fable, 2026-07-04)
+
+### R3.1 — the world seam's three pieces, all landed ✅
+The multi-session crux (AJ2/JD4) is in: the loader has NO private knowledge of
+entity vocabulary, world list, or start room — all three enter through install
+seams a second game can use.
+
+- **R3.1a converter registry** (`ee48719e`, byte-identical): `entity_to_runtime`'s
+  closed match → a converter REGISTRY (`identifier → fn(&LdtkEntityCtx) →
+  Result<RuntimeEntityEmission, String>`). The engine's 31-identifier standard
+  vocabulary registers through the SAME table shape content uses;
+  `install_ldtk_entity_converters` (OnceLock, first-install-wins — the
+  install_enemy_roster contract) adds game converters at plugin-build time.
+  Validation (`known_entity`) consults the registry, so a content-registered
+  entity passes the validator + converts with zero loader edits. Emission struct
+  + per-family ctors + field accessors are pub for converter authors.
+  Portal-compiled-out stays a LOUD error (error converters under
+  cfg(not(portal_ldtk))). Tests: standard table ↔ `AMBITION_LDTK_ENTITY_IDENTIFIERS`
+  drift pin; an installed converter validates + converts end-to-end; unknown
+  identifiers still fail.
+- **R3.1b WorldManifest** (`4c3d5717`, byte-identical): the FIVE sites that each
+  privately knew the world list (secondary_world_ids, the include_str! trio, the
+  hand-built catalog rows, the duplicate include_bytes! embedded-registry inserts,
+  the hardcoded `"central_hub_complex"` start room) now all derive from ONE
+  installed `WorldManifest { entry_room, worlds }` via `install_world_manifest`.
+  A `WorldSource` row = `{ id, asset_path, loose_path, embedded_text,
+  embedded_bevy_path, required }` and drives: the catalog entry (missing policy
+  from `required`), the serde loader's disk→embedded chain, the Bevy
+  EmbeddedAssetRegistry insert (from the SAME text — the 4MB of duplicated
+  include_bytes! world JSON is gone), hot-reload (primary row), the
+  bevy_ecs_ldtk asset path, and `to_room_set`'s entry room. The BUILT-IN default
+  manifest still names the sandbox worlds UNTIL R3.2 moves the payload — seam
+  first, payload second.
+- **R3.1c RoomLoaded** (`2d9ec893`): `rooms::RoomLoaded { room_id }`, written by
+  `spawn_room_feature_entities` — the one choke point all four staging paths
+  flow through (initial build, transition, reset, hot-reload restage). The JD4
+  seam for imperative per-room content staging; duel-arena moves onto it in
+  R3.3. Registered app-side beside RoomTransitionRequested; staging test asserts
+  exactly one emission with the staged room id.
+- **Verified per slice:** gameplay_core --lib 1143; app rl_sim checks; duel_arena 4
+  + plugin_minimal_app 8 green after R3.1c.

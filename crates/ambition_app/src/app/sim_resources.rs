@@ -98,7 +98,13 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             // that panics on broken references. See
             // `ambition_characters::actor::character_catalog` and ADR 0017
             // (Rust = behavior, RON = content, LDtk = space).
-            .add_plugins(ambition_gameplay_core::character_roster::character_roster_plugin())
+            .add_plugins({
+                // The plugin ctor reads the installed catalog RON — install
+                // here (idempotent, first-wins) so plugin-mount order can
+                // never make the read precede the install.
+                ambition_content::character_catalog::install();
+                ambition_gameplay_core::character_roster::character_roster_plugin()
+            })
             .add_systems(
                 Startup,
                 (

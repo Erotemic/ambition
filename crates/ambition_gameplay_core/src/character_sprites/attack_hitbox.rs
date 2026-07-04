@@ -180,7 +180,7 @@ pub fn actor_attack_hitbox_world(
     facing: f32,
     gravity_dir: ae::Vec2,
 ) -> Option<ae::CombatVolume> {
-    let file_root = crate::character_roster::EMBEDDED_CATALOG
+    let file_root = crate::character_roster::catalog()
         .characters
         .get(character_id)?
         .manifest_target()?;

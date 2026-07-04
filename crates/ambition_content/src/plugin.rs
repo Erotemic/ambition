@@ -33,6 +33,10 @@ impl Plugin for AmbitionContentPlugin {
         // startup choke point also installs; first install wins.
         super::audio_registries::install();
 
+        // Install the character catalog into the engine's roster seam before
+        // any lookup (LDtk NpcSpawn conversion, spawn paths, sprite joins).
+        super::character_catalog::install();
+
         // Install the authored item catalog (C1 — content out of core) into the
         // machinery lib before any item flavor/wiring is read. Byte-identical to
         // the engine's built-in 24-item default table (pinned by

@@ -99,6 +99,11 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
     // Validate the embedded LDtk file up front so we can return Err with a
     // useful diagnostic. `init_sandbox_resources` does this too but exits
     // the process on failure; tests want a structured error instead.
+    // Sim-entry choke point: install the game's content data (character
+    // catalog, audio registries) before the catalog build / world load
+    // reads them. First-install-wins, same as install_boss_roster.
+    ambition_content::character_catalog::install();
+    ambition_content::audio_registries::install();
     let project = ldtk_world::LdtkProject::load_default_for_dev()?;
     let report = project.validate();
     if !report.is_ok() {
@@ -172,8 +177,8 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_sfx::SfxMessage;
     use ambition_input::ControlFrame;
+    use ambition_sfx::SfxMessage;
     use bevy::ecs::message::Messages;
 
     fn sandbox_sim_app() -> App {

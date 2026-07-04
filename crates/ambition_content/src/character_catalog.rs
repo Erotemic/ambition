@@ -1,0 +1,89 @@
+//! Ambition's character-catalog DATA + the curated playable cast —
+//! CONTENT, evicted from the engine core (R3.2, violations #3 and #10).
+//!
+//! The catalog SCHEMA + parser live in
+//! `ambition_characters::actor::character_catalog`; the engine-side parse
+//! cache + lookup helpers live in
+//! `ambition_gameplay_core::character_roster` and read whatever this
+//! module installs. The RON stays a loose file here so the Python tools
+//! (`ambition_ldtk_tools.codegen_character_catalog`, the hall generator)
+//! keep reading it off disk.
+
+/// The authored roster RON (compile-time include; single source of truth
+/// shared with the off-disk tooling).
+pub const CHARACTER_CATALOG_RON: &str = include_str!("../assets/data/character_catalog.ron");
+
+/// Install the catalog into the engine's roster seam. Called from the
+/// app's sim-entry choke points and `AmbitionContentPlugin::build`; first
+/// install wins, so the multiple calls are harmless.
+pub fn install() {
+    ambition_gameplay_core::character_roster::install_character_catalog(CHARACTER_CATALOG_RON);
+}
+
+/// A curated cast of characters the player can start as. The character-select
+/// surface cycles through these; every id is a `character_catalog.ron` row with
+/// a renderable sheet. Deliberately hand-picked and small (not "every NPC") so
+/// it reads as an intentional playable roster — narrow + specific over wide +
+/// generic. Extend by adding a catalog id here.
+pub const PLAYABLE_ROSTER: &[&str] = &[
+    "player",                     // player robot (protagonist)
+    "goblin",                     // melee striker
+    "npc_pirate_admiral",         // pistol + cutlass
+    "perfect_cellular_automaton", // the PCA (Fable extension target)
+    "stochastic_parrot",          // the parrot
+    "sandbag",                    // the training dummy, playable for laughs
+];
+
+/// The next id in [`PLAYABLE_ROSTER`] after `current`, wrapping. Unknown ids
+/// (not in the roster) resolve to the first entry, so a stale selection always
+/// re-enters the cast cleanly.
+pub fn next_playable(current: &str) -> &'static str {
+    let idx = PLAYABLE_ROSTER.iter().position(|id| *id == current);
+    match idx {
+        Some(i) => PLAYABLE_ROSTER[(i + 1) % PLAYABLE_ROSTER.len()],
+        None => PLAYABLE_ROSTER[0],
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_gameplay_core::player::StartingCharacter;
+
+    #[test]
+    fn every_playable_roster_id_is_a_real_catalog_character() {
+        // The curated cast is a hand-maintained list; without this pin it rots
+        // silently when a catalog id is renamed/removed, and the launch flag
+        // would spawn a colored rectangle. Every id must resolve a catalog row.
+        install();
+        for id in PLAYABLE_ROSTER {
+            assert!(
+                ambition_gameplay_core::character_roster::display_name_for_character_id(id)
+                    .is_some(),
+                "PLAYABLE_ROSTER id '{id}' has no character_catalog.ron row — the \
+                 curated cast rotted; fix the roster or the catalog",
+            );
+        }
+    }
+
+    #[test]
+    fn playable_roster_starts_with_protagonist_and_has_no_dupes() {
+        assert_eq!(PLAYABLE_ROSTER[0], StartingCharacter::DEFAULT_ID);
+        for (i, a) in PLAYABLE_ROSTER.iter().enumerate() {
+            for b in &PLAYABLE_ROSTER[i + 1..] {
+                assert_ne!(a, b, "duplicate id in PLAYABLE_ROSTER: {a}");
+            }
+        }
+    }
+
+    #[test]
+    fn next_playable_wraps_and_recovers_unknown() {
+        assert_eq!(next_playable("player"), PLAYABLE_ROSTER[1]);
+        assert_eq!(
+            next_playable(PLAYABLE_ROSTER[PLAYABLE_ROSTER.len() - 1]),
+            "player"
+        );
+        // Unknown / stale ids re-enter at the top of the cast.
+        assert_eq!(next_playable("not_a_real_id"), PLAYABLE_ROSTER[0]);
+    }
+}

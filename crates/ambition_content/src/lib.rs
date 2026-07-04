@@ -22,6 +22,9 @@
 pub mod audio_registries;
 pub mod banter;
 pub mod bosses;
+/// The character catalog DATA + the curated playable cast (install seam:
+/// `ambition_gameplay_core::character_roster`).
+pub mod character_catalog;
 pub mod content_validation;
 pub mod dialogue;
 // `features` (the feature-ECS actor/boss world) was promoted to

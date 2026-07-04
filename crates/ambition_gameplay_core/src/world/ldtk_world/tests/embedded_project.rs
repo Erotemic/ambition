@@ -315,7 +315,7 @@ fn embedded_ldtk_hall_of_characters_has_expected_pedestals() {
 
     // Every NpcSpawn must carry a `character_id` field that
     // resolves in the embedded catalog.
-    let catalog = crate::character_roster::load_embedded();
+    let catalog = crate::character_roster::catalog();
     let mut unresolved: Vec<String> = Vec::new();
     for layer in &hall.layer_instances {
         for entity in &layer.entity_instances {

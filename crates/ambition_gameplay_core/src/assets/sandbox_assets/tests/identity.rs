@@ -20,7 +20,7 @@ fn every_character_catalog_entry_registers_an_asset_path() {
     let catalog = fixture_catalog();
     let inner = catalog.catalog();
     let manifest = inner.manifest();
-    let data = crate::character_roster::load_embedded();
+    let data = crate::character_roster::catalog();
     let mut missing: Vec<String> = Vec::new();
     for (cid, _entry) in data.characters.iter() {
         let id = ids::character_sprite(cid);
@@ -49,7 +49,7 @@ fn every_character_catalog_entry_resolves_a_load_path() {
     // `docs/systems/sprite-rendering-surface.md`.
     const EXPECTED_UNRESOLVABLE: &[&str] = &[];
     let catalog = fixture_catalog();
-    let data = crate::character_roster::load_embedded();
+    let data = crate::character_roster::catalog();
     let mut unresolved: Vec<(String, String)> = Vec::new();
     for (cid, entry) in data.characters.iter() {
         if EXPECTED_UNRESOLVABLE.contains(&cid.as_str()) {

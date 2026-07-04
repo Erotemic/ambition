@@ -58,30 +58,11 @@ impl Default for StartingCharacter {
     }
 }
 
-/// A curated cast of characters the player can start as. The character-select
-/// surface cycles through these; every id is a `character_catalog.ron` row with
-/// a renderable sheet. Deliberately hand-picked and small (not "every NPC") so
-/// it reads as an intentional playable roster — narrow + specific over wide +
-/// generic. Extend by adding a catalog id here.
-pub const PLAYABLE_ROSTER: &[&str] = &[
-    StartingCharacter::DEFAULT_ID, // player robot (protagonist)
-    "goblin",                      // melee striker
-    "npc_pirate_admiral",          // pistol + cutlass
-    "perfect_cellular_automaton",  // the PCA (Fable extension target)
-    "stochastic_parrot",           // the parrot
-    "sandbag",                     // the training dummy, playable for laughs
-];
-
-/// The next id in [`PLAYABLE_ROSTER`] after `current`, wrapping. Unknown ids
-/// (not in the roster) resolve to the first entry, so a stale selection always
-/// re-enters the cast cleanly.
-pub fn next_playable(current: &str) -> &'static str {
-    let idx = PLAYABLE_ROSTER.iter().position(|id| *id == current);
-    match idx {
-        Some(i) => PLAYABLE_ROSTER[(i + 1) % PLAYABLE_ROSTER.len()],
-        None => PLAYABLE_ROSTER[0],
-    }
-}
+// The curated PLAYABLE cast (which catalog ids the character-select surface
+// cycles) is CONTENT — it lives in `ambition_content::character_catalog`
+// (`PLAYABLE_ROSTER` / `next_playable`), beside the catalog data it indexes
+// (R3.2, residue #10). This module keeps only the engine machinery: the
+// StartingCharacter resource + the moveset overlay.
 
 /// Overlay a character's authored combat moveset onto the player's default kit.
 ///
@@ -120,38 +101,6 @@ mod tests {
     }
 
     #[test]
-    fn every_playable_roster_id_is_a_real_catalog_character() {
-        // The curated cast is a hand-maintained list; without this pin it rots
-        // silently when a catalog id is renamed/removed, and the launch flag
-        // would spawn a colored rectangle. Every id must resolve a catalog row.
-        for id in PLAYABLE_ROSTER {
-            assert!(
-                crate::character_roster::display_name_for_character_id(id).is_some(),
-                "PLAYABLE_ROSTER id '{id}' has no character_catalog.ron row — the \
-                 curated cast rotted; fix the roster or the catalog",
-            );
-        }
-    }
-
-    #[test]
-    fn playable_roster_starts_with_protagonist_and_has_no_dupes() {
-        assert_eq!(PLAYABLE_ROSTER[0], StartingCharacter::DEFAULT_ID);
-        for (i, a) in PLAYABLE_ROSTER.iter().enumerate() {
-            for b in &PLAYABLE_ROSTER[i + 1..] {
-                assert_ne!(a, b, "duplicate id in PLAYABLE_ROSTER: {a}");
-            }
-        }
-    }
-
-    #[test]
-    fn next_playable_wraps_and_recovers_unknown() {
-        assert_eq!(next_playable("player"), PLAYABLE_ROSTER[1]);
-        assert_eq!(next_playable(PLAYABLE_ROSTER[PLAYABLE_ROSTER.len() - 1]), "player");
-        // Unknown / stale ids re-enter at the top of the cast.
-        assert_eq!(next_playable("not_a_real_id"), PLAYABLE_ROSTER[0]);
-    }
-
-    #[test]
     fn overlay_keeps_player_slots_when_character_is_peaceful() {
         // Player kit: swipe melee + bolt ranged. Peaceful character: all None,
         // Float locomotion. Overlay keeps the player's offense (still playable)
@@ -172,7 +121,11 @@ mod tests {
         let merged = overlay_character_moveset(player.clone(), peaceful);
         assert!(merged.melee.is_some(), "peaceful char keeps player melee");
         assert!(merged.ranged.is_some(), "peaceful char keeps player ranged");
-        assert_eq!(merged.move_style, MoveStyleSpec::Float, "locomotion is the char's");
+        assert_eq!(
+            merged.move_style,
+            MoveStyleSpec::Float,
+            "locomotion is the char's"
+        );
     }
 
     #[test]

@@ -79,7 +79,7 @@ pub fn known_dialogue_ids() -> Vec<&'static str> {
         }
     }
     ids.extend(
-        ambition_gameplay_core::character_roster::EMBEDDED_CATALOG
+        ambition_gameplay_core::character_roster::catalog()
             .characters
             .values()
             .filter_map(|entry| entry.hall_dialogue_id.as_deref()),
@@ -138,18 +138,17 @@ mod tests {
             .map(str::trim)
             .collect();
 
-        let missing: Vec<(&String, &str)> =
-            ambition_gameplay_core::character_roster::EMBEDDED_CATALOG
-                .characters
-                .iter()
-                .filter_map(|(id, entry)| {
-                    entry
-                        .hall_dialogue_id
-                        .as_deref()
-                        .filter(|hid| !nodes.contains(hid))
-                        .map(|hid| (id, hid))
-                })
-                .collect();
+        let missing: Vec<(&String, &str)> = ambition_gameplay_core::character_roster::catalog()
+            .characters
+            .iter()
+            .filter_map(|(id, entry)| {
+                entry
+                    .hall_dialogue_id
+                    .as_deref()
+                    .filter(|hid| !nodes.contains(hid))
+                    .map(|hid| (id, hid))
+            })
+            .collect();
 
         assert!(
             missing.is_empty(),

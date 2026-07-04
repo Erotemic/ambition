@@ -42,9 +42,7 @@ pub use body_integration::{
     PlayerBodyFrameOutput,
 };
 pub use bundles::{PlayerIdentityBundle, PlayerSimulationBundle};
-pub use starting_character::{
-    next_playable, overlay_character_moveset, StartingCharacter, PLAYABLE_ROSTER,
-};
+pub use starting_character::{overlay_character_moveset, StartingCharacter};
 // NOTE: the body vocabulary — `PlayerEntity` / `PrimaryPlayer` (markers),
 // `PrimaryPlayerOnly` (filter), `BodyKinematics` + the 18 movement clusters,
 // `BodyWallet` (economy — players AND currency-dropping NPCs) — is NOT
@@ -53,7 +51,7 @@ pub use starting_character::{
 // dependency direction (non-player code imports body state from `crate::actor`,
 // never through the player module). The genuinely player-only state stays below.
 pub use components::{
-    BodyMelee, LocalPlayer, BodyAnimFacts, PlayerBlinkCameraState, PlayerInputFrame,
+    BodyAnimFacts, BodyMelee, LocalPlayer, PlayerBlinkCameraState, PlayerInputFrame,
     PlayerSafetyState, PlayerSlot, SlotGestures, SlotInteractionState,
 };
 pub use events::PlayerHealRequested;

@@ -1,44 +1,70 @@
-//! The GAME's character roster: the embedded `character_catalog.ron`
-//! data plus its lookup helpers.
+//! The character-roster SEAM: the game installs its
+//! `character_catalog.ron` text; this module owns the parse cache + the
+//! lookup helpers the non-Bevy call sites use.
 //!
 //! `ambition_characters::character_catalog` owns the catalog SCHEMA +
-//! parser + preset resolver (machinery, content-free); this module
-//! owns Ambition's actual roster DATA — the same machinery/data split
-//! as `character_archetypes.ron` and the sprite-sheet tuning. The RON
-//! lives under this crate's `assets/data/` so it ships with the game
-//! and stays readable by the Python tools
-//! (`ambition_ldtk_tools.codegen_character_catalog`, hall generator).
+//! parser + preset resolver (machinery, content-free);
+//! `ambition_content::character_catalog` owns Ambition's actual roster
+//! DATA (the RON ships in the content crate, readable by the Python tools).
+//! The engine ships no characters (R3.2, the violation-#3 eviction).
+//!
+//! §5 classification: **content registry** — install-once seam
+//! ([`install_character_catalog`], first install wins), immutable after,
+//! read from pure non-system code (the LDtk `NpcSpawn` converter, spawn
+//! paths, sprite lookups) with no `World` in hand. The Bevy
+//! `CharacterCatalog` resource ([`character_roster_plugin`]) always takes
+//! precedence when one is available, but the LDtk parser runs without
+//! `Res<>` access.
 
-use std::sync::LazyLock;
+use std::sync::OnceLock;
 
 use ambition_characters::actor::character_catalog::{
     parse_catalog, CharacterCatalogData, CharacterCatalogPlugin,
 };
 
-/// The embedded roster RON (compile-time include; single source of
-/// truth shared with the runtime asset root + off-disk tooling).
-pub const CHARACTER_CATALOG_RON: &str = include_str!("../assets/data/character_catalog.ron");
+/// Game-installed catalog RON text. First install wins; later calls are
+/// ignored (the `install_enemy_roster` seam contract).
+static CATALOG_RON_OVERRIDE: OnceLock<&'static str> = OnceLock::new();
+static CATALOG: OnceLock<CharacterCatalogData> = OnceLock::new();
 
-/// Path constant for tooling that loads the RON file off disk
-/// (codegen scripts, hall generator). Relative to the asset root.
-pub const CHARACTER_CATALOG_ASSET: &str = "data/character_catalog.ron";
-
-/// Parse the embedded roster. Panics on parse error — a build-time
-/// data bug, not a runtime condition.
-pub fn load_embedded() -> CharacterCatalogData {
-    parse_catalog(CHARACTER_CATALOG_RON)
+/// Install the game's character-catalog RON — the content layer calls this
+/// at every sim entry choke point (before any catalog read). First install
+/// wins.
+pub fn install_character_catalog(catalog_ron: &'static str) {
+    let _ = CATALOG_RON_OVERRIDE.set(catalog_ron);
 }
 
-/// One-time parse cache so non-Bevy call sites (the LDtk parser,
-/// tests, headless tooling) can query the roster without re-parsing.
-/// The Bevy `CharacterCatalog` resource always takes precedence when
-/// one is available, but the LDtk parser runs without `Res<>` access.
-pub static EMBEDDED_CATALOG: LazyLock<CharacterCatalogData> = LazyLock::new(load_embedded);
+/// The installed catalog RON text (feeds the Bevy plugin + the parse cache).
+pub fn catalog_ron() -> &'static str {
+    CATALOG_RON_OVERRIDE.get().copied().unwrap_or_else(|| {
+        #[cfg(test)]
+        {
+            // Test fixture = the game's REAL catalog, read cross-crate from
+            // ambition_content (the install_enemy_roster fixture pattern).
+            include_str!("../../ambition_content/assets/data/character_catalog.ron")
+        }
+        #[cfg(not(test))]
+        {
+            panic!(
+                "character catalog not installed — the game's content must call \
+                 install_character_catalog() before any roster lookup \
+                 (AmbitionContentPlugin / the app's sim-entry choke points do)"
+            )
+        }
+    })
+}
+
+/// One-time parse cache over the installed catalog so non-Bevy call sites
+/// (the LDtk parser, tests, headless tooling) query the roster without
+/// re-parsing.
+pub fn catalog() -> &'static CharacterCatalogData {
+    CATALOG.get_or_init(|| parse_catalog(catalog_ron()))
+}
 
 /// Look up the display name for a character id. Returns `None` if
 /// the id is not in the roster; callers fall back to the id itself.
 pub fn display_name_for_character_id(character_id: &str) -> Option<&'static str> {
-    EMBEDDED_CATALOG
+    catalog()
         .characters
         .get(character_id)
         .map(|entry| entry.display_name.as_str())
@@ -51,7 +77,7 @@ pub fn display_name_for_character_id(character_id: &str) -> Option<&'static str>
 /// actor reliably carries — its display name. Returns `None` for a name with no
 /// catalog row (a generic enemy that renders from a kind-default sheet).
 pub fn character_id_for_display_name(display_name: &str) -> Option<&'static str> {
-    EMBEDDED_CATALOG
+    catalog()
         .characters
         .iter()
         .find(|(_, entry)| entry.display_name == display_name)
@@ -67,8 +93,8 @@ pub fn default_brain_for_character_id(
     character_id: &str,
     spawn_world_x: f32,
 ) -> Option<ambition_characters::brain::Brain> {
-    let entry = EMBEDDED_CATALOG.characters.get(character_id)?;
-    let preset = EMBEDDED_CATALOG.brain_presets.get(&entry.default_brain)?;
+    let entry = catalog().characters.get(character_id)?;
+    let preset = catalog().brain_presets.get(&entry.default_brain)?;
     Some(ambition_characters::actor::character_catalog::brain_from_preset(preset, spawn_world_x))
 }
 
@@ -80,8 +106,8 @@ pub fn default_brain_for_character_id(
 pub fn default_action_set_for_character_id(
     character_id: &str,
 ) -> Option<ambition_characters::brain::ActionSet> {
-    let entry = EMBEDDED_CATALOG.characters.get(character_id)?;
-    let preset = EMBEDDED_CATALOG
+    let entry = catalog().characters.get(character_id)?;
+    let preset = catalog()
         .action_set_presets
         .get(&entry.default_action_set)?;
     Some(ambition_characters::actor::character_catalog::action_set_from_preset(preset))
@@ -97,7 +123,7 @@ pub fn bark_line_for_character_id(
     situation: ambition_characters::actor::character_catalog::BarkSituation,
     rotation: u32,
 ) -> Option<&'static str> {
-    EMBEDDED_CATALOG
+    catalog()
         .characters
         .get(character_id)?
         .barks
@@ -108,7 +134,7 @@ pub fn bark_line_for_character_id(
 /// any. The hall generator reads this to populate each pedestal's
 /// `dialogue_id`; the dialogue validator folds it into the known-id set.
 pub fn hall_dialogue_id_for_character_id(character_id: &str) -> Option<&'static str> {
-    EMBEDDED_CATALOG
+    catalog()
         .characters
         .get(character_id)?
         .hall_dialogue_id
@@ -121,16 +147,18 @@ pub fn hall_dialogue_id_for_character_id(character_id: &str) -> Option<&'static 
 pub fn body_kind_for_character_id(
     character_id: &str,
 ) -> Option<ambition_characters::actor::character_catalog::CharacterBodyKind> {
-    EMBEDDED_CATALOG
+    catalog()
         .characters
         .get(character_id)
         .map(|entry| entry.body_kind)
 }
 
-/// The catalog plugin pre-loaded with this game's roster.
+/// The catalog plugin pre-loaded with the installed roster. The install
+/// must precede this constructor (the app's sim-resources plugin installs
+/// content immediately before adding it).
 pub fn character_roster_plugin() -> CharacterCatalogPlugin {
     CharacterCatalogPlugin {
-        catalog_ron: CHARACTER_CATALOG_RON,
+        catalog_ron: catalog_ron(),
     }
 }
 
@@ -148,7 +176,7 @@ mod tests {
         // The embedded RON should parse and produce a non-empty
         // catalog. Anything else is a build-time error — pin the
         // baseline.
-        let data = load_embedded();
+        let data = catalog();
         assert!(
             !data.characters.is_empty(),
             "embedded character_catalog.ron should have characters"
@@ -168,7 +196,7 @@ mod tests {
         // Every reference in the embedded RON must resolve. Pins
         // the catalog as internally consistent so that the Startup
         // panic never fires under normal builds.
-        let data = load_embedded();
+        let data = catalog();
         let errors = validator::validate(&data);
         assert!(
             errors.is_empty(),
@@ -181,7 +209,7 @@ mod tests {
         // Pin that every character entry's default_brain produces a
         // runtime `Brain` value. Catches preset enum typos at test
         // time rather than first-spawn time.
-        let data = load_embedded();
+        let data = catalog();
         for (id, entry) in &data.characters {
             let preset = data
                 .brain_presets
@@ -204,7 +232,7 @@ mod tests {
     fn action_set_preset_resolves_for_each_entry() {
         // Pair test for action_set: every entry's default_action_set
         // must produce a runtime ActionSet without panicking.
-        let data = load_embedded();
+        let data = catalog();
         for (id, entry) in &data.characters {
             let preset = data
                 .action_set_presets
@@ -218,7 +246,7 @@ mod tests {
     fn validator_reports_missing_brain_preset() {
         // Sanity: validator should detect a default_brain that
         // doesn't exist. Pre-poison the data by mutating a copy.
-        let mut data = load_embedded();
+        let mut data = catalog().clone();
         // Pick the first character and break its default_brain.
         let first_id = data.characters.keys().next().cloned().unwrap();
         data.characters.get_mut(&first_id).unwrap().default_brain = "DOES_NOT_EXIST".to_string();
@@ -237,7 +265,7 @@ mod tests {
         // therefore round-trip — otherwise the Authored.name field
         // ends up populated with the id (e.g. "npc_alice") instead
         // of the human label ("Alice").
-        for (id, entry) in &EMBEDDED_CATALOG.characters {
+        for (id, entry) in &catalog().characters {
             let label = display_name_for_character_id(id);
             assert_eq!(
                 label,
@@ -254,10 +282,10 @@ mod tests {
         // (every actor carries one) back to the catalog id. Each entry whose
         // display name is unique must round-trip id → name → id, so a spawned
         // actor recovers the same catalog id presentation resolves its sheet by.
-        for (id, entry) in &EMBEDDED_CATALOG.characters {
+        for (id, entry) in &catalog().characters {
             // Skip ids that share a display name with another entry — the
             // reverse lookup can only return one, and uniqueness isn't promised.
-            let shares_name = EMBEDDED_CATALOG.characters.iter().any(|(other_id, other)| {
+            let shares_name = catalog().characters.iter().any(|(other_id, other)| {
                 other_id != id && other.display_name == entry.display_name
             });
             if shares_name {
@@ -387,7 +415,7 @@ mod tests {
         // Snapshot above is regenerated by the codegen script;
         // adding a renderer target without a catalog entry trips
         // this test.
-        let data = load_embedded();
+        let data = catalog();
         let mut missing: Vec<&str> = Vec::new();
         for target in RENDERER_COVERAGE_TARGETS {
             if !data.characters.contains_key(*target) {

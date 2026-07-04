@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 use bevy::window::WindowResolution;
 
-use ambition_gameplay_core::assets::game_assets::GameAssetConfig;
 use ambition_engine_core::config::{WINDOW_H, WINDOW_W};
+use ambition_gameplay_core::assets::game_assets::GameAssetConfig;
 use ambition_gameplay_core::game_mode::GameMode;
 
 use super::plugins::{SandboxLdtkPlugin, SandboxPresentationPlugin, SandboxSimulationPlugin};
@@ -130,9 +130,11 @@ mod headless_arg_tests {
             root.join("ambition/sandbox.ron").exists(),
             "asset root {root:?} must contain ambition/sandbox.ron"
         );
+        // (Dialogue no longer lives under the asset root — the yarn set is
+        // CONTENT, embedded in-memory by ambition_content::dialogue::yarn.)
         assert!(
-            root.join("dialogue").is_dir(),
-            "asset root {root:?} must contain the dialogue/ tree"
+            root.join("sprites").is_dir(),
+            "asset root {root:?} must contain the sprites/ tree"
         );
     }
 

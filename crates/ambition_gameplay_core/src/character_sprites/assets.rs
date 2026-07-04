@@ -33,7 +33,7 @@ use ambition_asset_manager::AssetId;
 use super::registry::BodyMetrics;
 use super::sheets::CharacterSheetSpec;
 use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
-use crate::character_roster::EMBEDDED_CATALOG;
+use crate::character_roster::catalog;
 use crate::persistence::settings::VisualQualityBudget;
 use ambition_engine_core as ae;
 
@@ -142,8 +142,7 @@ impl CharacterSpriteAssets {
             "goblin" => self.goblin.as_ref(),
             "sandbag" => self.sandbag.as_ref(),
             _ => {
-                let display =
-                    crate::character_roster::display_name_for_character_id(character_id)?;
+                let display = crate::character_roster::display_name_for_character_id(character_id)?;
                 self.npcs.get(display)
             }
         }
@@ -168,7 +167,7 @@ impl CharacterSpriteAssets {
 /// because the renderer hasn't been run for that target; the actor
 /// then renders the colored-rectangle placeholder.
 pub fn sheet_for_character_id(character_id: &str) -> Option<CharacterSheetSpec> {
-    if let Some(entry) = EMBEDDED_CATALOG.characters.get(character_id) {
+    if let Some(entry) = catalog().characters.get(character_id) {
         if let Some(target) = entry.manifest_target() {
             let tuning = entry
                 .sprite_tuning
@@ -196,7 +195,7 @@ pub fn sheet_for_character_id(character_id: &str) -> Option<CharacterSheetSpec> 
 /// keyed `<target>.<suffix>`. `None` for ids resolved through the manifest-by-id
 /// fallback (they stay at base resolution — acceptable, they render fine).
 fn character_variant_tuning(cid: &str) -> Option<(&'static str, super::sheets::SheetTuning)> {
-    let entry = EMBEDDED_CATALOG.characters.get(cid)?;
+    let entry = catalog().characters.get(cid)?;
     let target = entry.manifest_target()?;
     let tuning = entry
         .sprite_tuning
@@ -261,7 +260,7 @@ pub fn sprite_body_collision_for_character_id(
     character_id: &str,
     ldtk_collision: ae::Vec2,
 ) -> Option<SpriteBodyCollision> {
-    let entry = EMBEDDED_CATALOG.characters.get(character_id)?;
+    let entry = catalog().characters.get(character_id)?;
     let target = entry.manifest_target()?;
     let spec = sheet_for_character_id(character_id)?;
     let record = super::sheets::record_for_target(target)?;
@@ -291,8 +290,8 @@ pub fn sprite_body_collision_for_character_id(
 /// field (stripped of the `sprites/` prefix the catalog stores them
 /// under).
 pub fn all_character_sprite_filenames() -> Vec<(String, String)> {
-    let mut out: Vec<(String, String)> = Vec::with_capacity(EMBEDDED_CATALOG.characters.len());
-    for (cid, entry) in EMBEDDED_CATALOG.characters.iter() {
+    let mut out: Vec<(String, String)> = Vec::with_capacity(catalog().characters.len());
+    for (cid, entry) in catalog().characters.iter() {
         let filename = entry
             .spritesheet
             .strip_prefix("sprites/")
@@ -322,7 +321,9 @@ pub fn load_character_sprites_in(
     let mut loaded = 0usize;
     let mut skipped_no_spec: Vec<&str> = Vec::new();
     let mut skipped_no_path: Vec<&str> = Vec::new();
-    for (cid, entry) in EMBEDDED_CATALOG.characters.iter() {
+    // NB: `catalog` here is the ASSET catalog param; the roster comes from
+    // the installed character catalog.
+    for (cid, entry) in crate::character_roster::catalog().characters.iter() {
         total += 1;
         let Some(sheet_spec) = sheet_for_character_id(cid) else {
             // Neither a hardcoded const nor a manifest in
@@ -670,14 +671,14 @@ mod sprite_body_collision_tests {
     #[test]
     fn derived_collision_is_the_visible_body_and_preserves_the_render() {
         let ldtk = ae::Vec2::new(40.0, 60.0);
-        let Some((cid, derived)) = EMBEDDED_CATALOG
+        let Some((cid, derived)) = catalog()
             .characters
             .keys()
             .find_map(|cid| sprite_body_collision_for_character_id(cid, ldtk).map(|d| (cid, d)))
         else {
             return; // no baked sheet with metrics available
         };
-        let entry = EMBEDDED_CATALOG.characters.get(cid).unwrap();
+        let entry = catalog().characters.get(cid).unwrap();
         let target = entry.manifest_target().unwrap();
         let spec = sheet_for_character_id(cid).unwrap();
         let record = super::super::sheets::record_for_target(target).unwrap();

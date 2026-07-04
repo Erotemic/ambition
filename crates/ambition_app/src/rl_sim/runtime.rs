@@ -67,6 +67,11 @@ impl SandboxSim {
     /// via this entry point with a `start_room` override. The override matches
     /// the visible binary's `--start-room` flag semantics.
     pub fn new_with_options(options: SandboxSimOptions) -> Result<Self, String> {
+        // Sim-entry choke point: install the game's content data (character
+        // catalog, audio registries) before the catalog build / world load
+        // reads them. First-install-wins, same as install_boss_roster.
+        ambition_content::character_catalog::install();
+        ambition_content::audio_registries::install();
         let project = ldtk_world::LdtkProject::load_default_for_dev()?;
         let report = project.validate();
         if !report.is_ok() {

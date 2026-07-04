@@ -192,7 +192,11 @@ fn items_ron_matches_builtin_defaults() {
             builtin.dialog_id
         );
     }
-    assert_eq!(catalog.rows.len(), ITEM_COUNT, "items.ron authors all 24 slots");
+    assert_eq!(
+        catalog.rows.len(),
+        ITEM_COUNT,
+        "items.ron authors all 24 slots"
+    );
 }
 
 /// C1: a content-authored row REPLACES the built-in for that slot — the point of
@@ -211,10 +215,12 @@ fn an_authored_item_row_overrides_the_built_in_slot() {
     ]"#;
     let catalog = ItemCatalog::from_ron(ron);
     let over = catalog.row(0).expect("authored slot 0 override");
-    assert_eq!(over.display_name, "Warp Cannon", "override display takes effect");
+    assert_eq!(
+        over.display_name, "Warp Cannon",
+        "override display takes effect"
+    );
     assert_ne!(
-        over.display_name,
-        ITEM_META[0].display_name,
+        over.display_name, ITEM_META[0].display_name,
         "the override differs from the built-in default"
     );
     assert_eq!(over.held_item_id.as_deref(), Some("warp_cannon"));

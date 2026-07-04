@@ -143,7 +143,10 @@ pub fn tick_encounter_scripts(
     world_time: Res<ambition_time::WorldTime>,
     mut gates: MessageReader<EncounterGate>,
     mut scripts: Query<(&EncounterDef, &mut EncounterScript)>,
-    mut members: Query<(&mut BossEncounter, &mut ambition_characters::actor::BodyHealth)>,
+    mut members: Query<(
+        &mut BossEncounter,
+        &mut ambition_characters::actor::BodyHealth,
+    )>,
     mut banner: ResMut<crate::features::GameplayBanner>,
     mut music: ResMut<crate::encounter::BossEncounterMusicRequest>,
 ) {
@@ -351,7 +354,10 @@ mod tests {
         test_boss_status(hp, BossEncounterPhase::Phase1)
     }
 
-    fn member_health(app: &App, boss: bevy::prelude::Entity) -> &ambition_characters::actor::BodyHealth {
+    fn member_health(
+        app: &App,
+        boss: bevy::prelude::Entity,
+    ) -> &ambition_characters::actor::BodyHealth {
         app.world().entity(boss).get().unwrap()
     }
 

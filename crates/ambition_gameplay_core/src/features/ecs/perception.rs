@@ -195,11 +195,18 @@ pub struct PerceptionProjectiles(pub Vec<PerceptionProjectile>);
 pub fn collect_perception_projectiles(
     mut out: bevy::prelude::ResMut<PerceptionProjectiles>,
     enemy_pool: bevy::prelude::Query<
-        (&crate::actor::BodyKinematics, &crate::projectile::ProjectileGameplay, &ActorFaction),
+        (
+            &crate::actor::BodyKinematics,
+            &crate::projectile::ProjectileGameplay,
+            &ActorFaction,
+        ),
         bevy::prelude::With<crate::enemy_projectile::EnemyProjectile>,
     >,
     live_pool: bevy::prelude::Query<
-        (&crate::actor::BodyKinematics, &crate::projectile::ProjectileGameplay),
+        (
+            &crate::actor::BodyKinematics,
+            &crate::projectile::ProjectileGameplay,
+        ),
         bevy::prelude::With<crate::projectile::LiveProjectile>,
     >,
 ) {
@@ -539,7 +546,10 @@ mod tests {
             0.0,
         );
         assert_eq!(view.actors.len(), 1);
-        assert!(!view.actors[0].hostile_to_self, "same faction, no grudge → not a foe");
+        assert!(
+            !view.actors[0].hostile_to_self,
+            "same faction, no grudge → not a foe"
+        );
         assert!(view.nearest_hostile().is_none());
 
         // Grudge against that exact entity → it becomes the perceived hostile.
@@ -572,7 +582,10 @@ mod tests {
             DEFAULT_VIEWPORT_HALF,
             0.0,
         );
-        assert!(!view.actors[0].hostile_to_self, "a grudge against someone else spares this peer");
+        assert!(
+            !view.actors[0].hostile_to_self,
+            "a grudge against someone else spares this peer"
+        );
     }
 
     /// Line-of-fire over the REAL clipped geometry: a wall between two bodies
@@ -752,7 +765,11 @@ mod tests {
         // No FeatureId → the snapshot derives a stable entity id.
         let bob = app
             .world_mut()
-            .spawn((kin(90.0), BodyHealth::new(Health::new(5)), ActorFaction::Boss))
+            .spawn((
+                kin(90.0),
+                BodyHealth::new(Health::new(5)),
+                ActorFaction::Boss,
+            ))
             .id();
         app.update();
 
@@ -764,7 +781,10 @@ mod tests {
         assert_eq!(a.faction, ActorFaction::Enemy);
         assert!(a.alive);
         let b = peers.0.iter().find(|p| p.entity == bob).unwrap();
-        assert!(!b.id.is_empty(), "a FeatureId-less body still gets a stable id");
+        assert!(
+            !b.id.is_empty(),
+            "a FeatureId-less body still gets a stable id"
+        );
     }
 
     /// §A7 projectiles-wiring: `collect_perception_projectiles` snapshots BOTH pools —
@@ -805,11 +825,17 @@ mod tests {
         let shots = app.world().resource::<PerceptionProjectiles>();
         assert_eq!(shots.0.len(), 2, "both pools snapshotted");
         assert!(
-            shots.0.iter().any(|p| p.faction == ActorFaction::Enemy && p.damage == 3),
+            shots
+                .0
+                .iter()
+                .any(|p| p.faction == ActorFaction::Enemy && p.damage == 3),
             "the enemy-pool shot carries its own faction + damage"
         );
         assert!(
-            shots.0.iter().any(|p| p.faction == ActorFaction::Player && p.damage == 2),
+            shots
+                .0
+                .iter()
+                .any(|p| p.faction == ActorFaction::Player && p.damage == 2),
             "the live-pool shot defaults to Player"
         );
     }

@@ -93,8 +93,8 @@ mod breakable_tests {
     use crate::actor::BodyKinematics;
     use crate::actor::PlayerEntity;
     use crate::world::physics::DebrisBurstMessage;
-    use ambition_time::WorldTime;
     use ambition_interaction::{Breakable, BreakableCollision, BreakableTrigger};
+    use ambition_time::WorldTime;
     use bevy::prelude::{App, Entity, Update};
 
     const THRESHOLD: f32 = BREAK_ON_STAND_SECONDS;

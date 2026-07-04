@@ -29,7 +29,6 @@ use crate::menu::model::{
     SYSTEM_VISIBLE_ROWS,
 };
 use crate::menu::quality_confirm::VisualQualityConfirmState;
-use ambition_sfx::SfxMessage;
 use ambition_gameplay_core::items::{OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use ambition_gameplay_core::menu::backend::{InventoryUiBackend, BEVY_UI_MENU_BACKEND_ENABLED};
 use ambition_gameplay_core::persistence::settings::{
@@ -37,6 +36,7 @@ use ambition_gameplay_core::persistence::settings::{
 };
 use ambition_gameplay_core::player::PlayerHealRequested;
 use ambition_input::MenuControlFrame;
+use ambition_sfx::SfxMessage;
 
 /// The effect/dispatch resources shared by [`grid_menu_nav`] and
 /// [`grid_menu_pointer_release`], bundled into one [`SystemParam`] so each stays

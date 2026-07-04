@@ -14,9 +14,9 @@ use super::super::{ae, GameplayBanner, HitEvent, HitSource};
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.
-use ambition_sfx::SfxMessage;
 use crate::combat::boss_clusters::BossEncounter;
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
+use ambition_sfx::SfxMessage;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
 use super::*;
@@ -268,7 +268,10 @@ mod entity_damage_tests {
     use crate::boss_encounter::BossEncounterPhase;
     use crate::combat::boss_clusters::test_support::test_boss_status;
 
-    fn boss(hp: i32, phase: BossEncounterPhase) -> (BossEncounter, ambition_characters::actor::BodyHealth) {
+    fn boss(
+        hp: i32,
+        phase: BossEncounterPhase,
+    ) -> (BossEncounter, ambition_characters::actor::BodyHealth) {
         test_boss_status(hp, phase)
     }
 

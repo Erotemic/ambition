@@ -804,7 +804,11 @@ mod enemy_archetype_data_tests {
         );
         // A second game's mount authors its own suffix — no engine constant.
         assert_eq!(
-            composite_rider_name("Sir Reginald astride Griffon", Some(" astride Griffon"), "Rider"),
+            composite_rider_name(
+                "Sir Reginald astride Griffon",
+                Some(" astride Griffon"),
+                "Rider"
+            ),
             "Sir Reginald"
         );
     }
@@ -869,9 +873,9 @@ mod enemy_archetype_data_tests {
         assert_eq!(mv.id, "cellular_pulse");
         assert!(mv.duration_s > 0.0, "the move has a positive timeline");
         assert!(
-            mv.windows.iter().any(|w| {
-                matches!(w.tag, WindowTag::Active) && !w.volumes.is_empty()
-            }),
+            mv.windows
+                .iter()
+                .any(|w| { matches!(w.tag, WindowTag::Active) && !w.volumes.is_empty() }),
             "the Cellular Pulse has an Active window carrying a hit volume"
         );
         // Most archetypes carry NO moveset — the field is opt-in data.

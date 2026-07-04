@@ -331,7 +331,9 @@ impl BossClusterScratch {
                 encounter: None,
                 render_size: render_basis,
             },
-            health: ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(18)),
+            health: ambition_characters::actor::BodyHealth::new(
+                ambition_characters::actor::Health::new(18),
+            ),
         }
     }
 
@@ -355,7 +357,12 @@ impl BossClusterScratch {
     /// `BodyHealth` HP authority).
     pub fn into_components(
         self,
-    ) -> (BodyKinematics, BossConfig, BossEncounter, ambition_characters::actor::BodyHealth) {
+    ) -> (
+        BodyKinematics,
+        BossConfig,
+        BossEncounter,
+        ambition_characters::actor::BodyHealth,
+    ) {
         (self.kin, self.config, self.status, self.health)
     }
 }

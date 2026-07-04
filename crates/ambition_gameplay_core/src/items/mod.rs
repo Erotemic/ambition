@@ -195,7 +195,8 @@ static ITEM_META: std::sync::LazyLock<[ItemMeta; ITEM_COUNT]> = std::sync::LazyL
         },
         ItemMeta {
             display_name: "Gun-Sword".into(),
-            description: "A laser sword with a gun on it that shoots swords. Fires aimed bolts.".into(),
+            description: "A laser sword with a gun on it that shoots swords. Fires aimed bolts."
+                .into(),
             category: Weapon,
             held_item_id: Some("gun_sword".into()),
             dialog_id: "gunsword".into(),
@@ -286,7 +287,8 @@ static ITEM_META: std::sync::LazyLock<[ItemMeta; ITEM_COUNT]> = std::sync::LazyL
         },
         ItemMeta {
             display_name: "Bomb".into(),
-            description: "A thrown explosive — it detonates on a short fuse, blasting nearby enemies.".into(),
+            description:
+                "A thrown explosive — it detonates on a short fuse, blasting nearby enemies.".into(),
             category: Weapon,
             held_item_id: Some("bomb".into()),
             dialog_id: "bomb".into(),
@@ -622,4 +624,3 @@ impl OwnedItems {
 
 #[cfg(test)]
 mod tests;
-

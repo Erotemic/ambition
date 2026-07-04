@@ -132,10 +132,11 @@ pub fn interaction_input_system(
     // possession trigger uses so they agree under any gravity. The double-tap-UP
     // door request is an Up gesture, so it is never suppressed.
     let gravity_dir = crate::physics::gravity_dir_or_default(gravity_field.as_deref());
-    let movement_mode = user_settings.as_deref().map_or(
-        ae::InputFrameMode::DEFAULT_MOVEMENT,
-        |s| s.gameplay.movement_frame_mode,
-    );
+    let movement_mode = user_settings
+        .as_deref()
+        .map_or(ae::InputFrameMode::DEFAULT_MOVEMENT, |s| {
+            s.gameplay.movement_frame_mode
+        });
     let down_held = crate::abilities::traversal::possession::holding_descend(
         control_frame.axis_x,
         control_frame.axis_y,

@@ -14,16 +14,16 @@ use super::spawn_message::{ProjectilePool, SpawnProjectile};
 use super::state::{PlayerProjectileState, ProjectileTraceEvent};
 use super::{resolve_world_collision, WorldHitOutcome};
 use crate::actor::BodyKinematics;
-use ambition_characters::actor::BodyCombat;
-use ambition_sfx::SfxMessage;
 use crate::features::{
     can_damage, damage_lands, ActorAggression, ActorDisposition, ActorFaction, BossClusterRef,
-    BossConfig, BreakableFeature, CenteredAabb, FeatureId, FeatureSimEntity, HitEvent, HitKnockback,
-    HitMode, HitSource, HitTarget,
+    BossConfig, BreakableFeature, CenteredAabb, FeatureId, FeatureSimEntity, HitEvent,
+    HitKnockback, HitMode, HitSource, HitTarget,
 };
 use crate::projectile::ProjectileGameplay;
 use crate::trace::GameplayTraceBuffer;
+use ambition_characters::actor::BodyCombat;
 use ambition_engine_core::RoomGeometry;
+use ambition_sfx::SfxMessage;
 use ambition_vfx::vfx::VfxMessage;
 
 /// Speed multiplier applied to a parried shot as it reverses — a timed parry
@@ -48,7 +48,9 @@ fn reflect_parried_shot(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
 ) {
-    commands.entity(proj_entity).insert(ProjectileOwner(parrier));
+    commands
+        .entity(proj_entity)
+        .insert(ProjectileOwner(parrier));
     kin.vel = -kin.vel * PROJECTILE_REFLECT_SPEED_SCALE;
     sfx.write(SfxMessage::Play {
         id: ambition_sfx::ids::WORLD_ROCK_HIT,

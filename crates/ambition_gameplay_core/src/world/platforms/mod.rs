@@ -11,9 +11,9 @@ use ambition_engine_core::AabbExt;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
-use ambition_engine_core::config::{world_to_bevy, WORLD_Z_BLOCK};
 use crate::platformer_runtime::lifecycle::RoomVisual;
 use crate::rooms::{KinematicPathSpec, RoomSet};
+use ambition_engine_core::config::{world_to_bevy, WORLD_Z_BLOCK};
 
 /// LDtk-authored moving-platform declaration before path references are resolved.
 #[derive(Clone, Debug, PartialEq)]

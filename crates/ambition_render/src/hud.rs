@@ -12,10 +12,10 @@
 
 use bevy::prelude::*;
 
-use ambition_gameplay_core::abilities::traversal::possession::ControlledSubject;
 use ambition_characters::actor::BodyHealth;
-use ambition_engine_core::BodyMana;
 use ambition_characters::actor::BodyWallet;
+use ambition_engine_core::BodyMana;
+use ambition_gameplay_core::abilities::traversal::possession::ControlledSubject;
 use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
 
 /// Bar width / height in logical px.

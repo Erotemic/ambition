@@ -187,7 +187,11 @@ impl Default for PogoBounceParams {
 /// params, defaulting when absent/malformed. Shared by the entity pogo
 /// ([`apply_pogo_bounce`]) and the world-orb pogo (`pogo_moveset_off_world_orbs`).
 pub(crate) fn pogo_rise_from(effect: &EffectRef) -> f32 {
-    effect.params.hydrate::<PogoBounceParams>().unwrap_or_default().rise
+    effect
+        .params
+        .hydrate::<PogoBounceParams>()
+        .unwrap_or_default()
+        .rise
 }
 
 /// The engine pogo technique: rebound the OWNER (gravity-up) when its on-hit

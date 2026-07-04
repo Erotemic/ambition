@@ -895,7 +895,13 @@ fn boss_pattern_via_state_machine_matches_the_direct_tick() {
         front_wall_clearance: None,
         dt,
     };
-    tick_boss_pattern(&cfg, &mut direct_state, &ctx, &mut direct_frame, &mut direct_attack);
+    tick_boss_pattern(
+        &cfg,
+        &mut direct_state,
+        &ctx,
+        &mut direct_frame,
+        &mut direct_attack,
+    );
 
     // Universal path: the SAME cfg/state, boss fields on the shared snapshot.
     let mut sm = StateMachineCfg::BossPattern {
@@ -923,7 +929,10 @@ fn boss_pattern_via_state_machine_matches_the_direct_tick() {
     // Attack-state projection parity — it lives in the brain state on the
     // universal path (the seam that lets `Brain::tick`'s `(snapshot, out)`
     // signature carry no separate attack-state out).
-    let StateMachineCfg::BossPattern { state: uni_state, .. } = &sm else {
+    let StateMachineCfg::BossPattern {
+        state: uni_state, ..
+    } = &sm
+    else {
         panic!("still a BossPattern brain");
     };
     assert_eq!(

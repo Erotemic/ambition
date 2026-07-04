@@ -156,7 +156,10 @@ fn possessed_boss_commands_its_authored_specials_and_release_restores_the_patter
     // projected `active_profile` read-model shows the strike. The strike hitbox carries
     // the possessor's EFFECTIVE faction (`Player`, stamped in `advance_move_playback`),
     // so it hits the boss's former allies rather than the controlling player.
-    assert!(!primary.is_special(), "the primary (HandSlam) is a geometry strike");
+    assert!(
+        !primary.is_special(),
+        "the primary (HandSlam) is a geometry strike"
+    );
     sim.step(AgentAction {
         attack: true,
         ..AgentAction::default()

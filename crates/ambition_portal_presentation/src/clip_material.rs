@@ -182,8 +182,8 @@ mod tests {
         assert_eq!(Vec2::new(plane.z, plane.w), Vec2::new(0.0, 1.0));
         // A point above the floor (engine y < 300 → render y > 0) is in front.
         let p = frame.to_render(Vec2::new(500.0, 280.0), 0.0);
-        let d = (Vec2::new(p.x, p.y) - Vec2::new(plane.x, plane.y))
-            .dot(Vec2::new(plane.z, plane.w));
+        let d =
+            (Vec2::new(p.x, p.y) - Vec2::new(plane.x, plane.y)).dot(Vec2::new(plane.z, plane.w));
         assert!(d > 0.0, "above-floor point must be front-of-plane, got {d}");
     }
 

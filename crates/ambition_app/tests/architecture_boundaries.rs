@@ -701,8 +701,8 @@ fn architecture_boundaries_input_timer_systems_moved_to_gameplay_core() {
     // modules. The app must NOT re-DEFINE them (it only references the moved
     // `pub fn`s from the library), so the schedule ordering stays app-owned while
     // the gameplay logic lives down in the library.
-    let sim_systems = fs::read_to_string(app_src().join("app/sim_systems.rs"))
-        .expect("read app/sim_systems.rs");
+    let sim_systems =
+        fs::read_to_string(app_src().join("app/sim_systems.rs")).expect("read app/sim_systems.rs");
     let moved = [
         "fn sync_live_player_dev_edits_system",
         "fn apply_suspended_time_scale_system",

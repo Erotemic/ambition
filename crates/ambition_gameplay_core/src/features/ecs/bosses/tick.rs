@@ -163,10 +163,18 @@ pub fn trigger_boss_attack_moves(
             // projected telegraph read-model + a future bound anim clip slave to the
             // one move timeline). Strike/possession edge → `t0 = tel` starts at the
             // strike, so the hitbox is live the same frame as the pre-Slice-D move.
-            let t0 = if from_telegraph { 0.0 } else { active_start(spec) };
-            commands.entity(entity).insert(
-                crate::combat::moveset::MovePlayback::new_at(spec.clone(), kin.facing, t0),
-            );
+            let t0 = if from_telegraph {
+                0.0
+            } else {
+                active_start(spec)
+            };
+            commands
+                .entity(entity)
+                .insert(crate::combat::moveset::MovePlayback::new_at(
+                    spec.clone(),
+                    kin.facing,
+                    t0,
+                ));
         }
     }
 }
@@ -622,8 +630,17 @@ pub fn integrate_boss_bodies(
     let dt = world_time.sim_dt();
     let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
     let combat_tuning = feel_tuning.feature_combat_tuning();
-    for (entity, mut cq, boss_config, envelope, mut control, mut anim, target, mut aabb, mut combat) in
-        &mut bosses
+    for (
+        entity,
+        mut cq,
+        boss_config,
+        envelope,
+        mut control,
+        mut anim,
+        target,
+        mut aabb,
+        mut combat,
+    ) in &mut bosses
     {
         // Self-heal the collision envelope onto `kin.size` (the seam sweeps it),
         // robust to the profile / spawn-override / sprite-derive timing that writes
@@ -686,7 +703,8 @@ pub fn update_ecs_bosses(
 ) {
     // Sim clock: bosses must slow with bullet-time (ADR 0010).
     let dt = world_time.sim_dt();
-    for (health, mut boss_combat, mut pattern_timer, mut death_anim, mut phase, brain) in &mut bosses
+    for (health, mut boss_combat, mut pattern_timer, mut death_anim, mut phase, brain) in
+        &mut bosses
     {
         let alive = health.alive();
         // Body-generic reaction timers (hit_flash + i-frame + the §A2 stagger set)
@@ -739,14 +757,21 @@ mod attack_moveset_tests {
             crate::features::boss_attack_moveset(&cap, &warden_behavior(), combat_size, &[])
                 .expect("a boss with strikes → a moveset");
         // BOTH profiles now author a move — geometry AND special.
-        assert_eq!(moveset.0.moves.len(), 2, "geometry + special both became moves");
+        assert_eq!(
+            moveset.0.moves.len(),
+            2,
+            "geometry + special both became moves"
+        );
         let slam = moveset
             .0
             .move_by_id("floor_slam")
             .expect("the geometry profile became a hit-volume move");
         assert_eq!(slam.duration_s, 0.3);
         let active = &slam.windows[0];
-        assert!(matches!(active.tag, ambition_entity_catalog::WindowTag::Active));
+        assert!(matches!(
+            active.tag,
+            ambition_entity_catalog::WindowTag::Active
+        ));
         assert!(
             !active.volumes.is_empty(),
             "FloorSlam authors a body-local hit volume"
@@ -889,7 +914,9 @@ mod attack_moveset_tests {
         let (mut app, boss) = telegraph_boss_app();
         app.update();
         assert!(
-            app.world().get::<crate::combat::moveset::MovePlayback>(boss).is_some(),
+            app.world()
+                .get::<crate::combat::moveset::MovePlayback>(boss)
+                .is_some(),
             "the telegraph started a move"
         );
         // The pattern abandons the windup (e.g. a phase transition cleared intent):
@@ -900,7 +927,9 @@ mod attack_moveset_tests {
             .clear();
         app.update();
         assert!(
-            app.world().get::<crate::combat::moveset::MovePlayback>(boss).is_none(),
+            app.world()
+                .get::<crate::combat::moveset::MovePlayback>(boss)
+                .is_none(),
             "an abandoned windup is aborted before it can strike"
         );
     }

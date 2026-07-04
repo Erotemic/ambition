@@ -428,9 +428,9 @@ impl ActorClusterSeed {
                 respawn_timer: 0.0,
                 ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,
             },
-            health: ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(
-                spec.max_health,
-            )),
+            health: ambition_characters::actor::BodyHealth::new(
+                ambition_characters::actor::Health::new(spec.max_health),
+            ),
             surface: ActorSurfaceState {
                 surface_normal: ae::Vec2::new(0.0, -1.0),
                 gravity_scale: if spec.is_aerial { 0.0 } else { 1.0 },
@@ -562,7 +562,9 @@ impl ActorClusterSeed {
                 respawn_timer: 0.0,
                 ai_mode: ambition_characters::actor::ai::CharacterAiMode::Idle,
             },
-            health: ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(1)),
+            health: ambition_characters::actor::BodyHealth::new(
+                ambition_characters::actor::Health::new(1),
+            ),
             surface: ActorSurfaceState {
                 surface_normal: ae::Vec2::new(0.0, -1.0),
                 gravity_scale,

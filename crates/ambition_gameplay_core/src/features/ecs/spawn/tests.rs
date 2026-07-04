@@ -5,11 +5,11 @@ use super::super::brain_builders::{enemy_default_action_set, enemy_default_brain
 use super::super::spawn_actors::spawn_boss;
 use super::super::spawn_mounts::spawn_composite_mount_rider;
 use super::*;
-use ambition_characters::actor::{BodyCombat, BodyHealth};
 use crate::features::{
     ActorAggression, ActorConfig, ActorCooldowns, ActorDisposition, ActorIdentity, ActorIntent,
     AggressionMode, CombatKit, MountSlot, MountedSize, RidingOn,
 };
+use ambition_characters::actor::{BodyCombat, BodyHealth};
 use ambition_characters::brain::{
     ActionSet, ActorControl, Brain, MeleeActionSpec, MoveStyleSpec, StateMachineCfg,
 };

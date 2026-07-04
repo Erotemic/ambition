@@ -49,7 +49,10 @@ pub enum StateMachineCfg {
     Sniper { cfg: SniperCfg, state: SniperState },
     /// Dedicated shark charge brain. Riderless sharks use this to
     /// stalk, lunge, and then cool down after a crash or bite.
-    ChargeCrash { cfg: ChargeCrashCfg, state: ChargeCrashState },
+    ChargeCrash {
+        cfg: ChargeCrashCfg,
+        state: ChargeCrashState,
+    },
     /// Scripted multi-phase boss policy. The cfg + state live in
     /// `brain/boss_pattern.rs`; this variant carries them but the
     /// real tick driver is `tick_boss_brains_system` in

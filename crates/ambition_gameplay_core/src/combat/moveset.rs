@@ -617,7 +617,9 @@ pub fn trigger_moveset_moves(
             } else {
                 attack_dir_from_axis(frame.attack_axis)
             };
-            moveset.0.move_for_directional_verb(ATTACK_VERB, dir, grounded)
+            moveset
+                .0
+                .move_for_directional_verb(ATTACK_VERB, dir, grounded)
         } else if frame.fire.is_some() {
             // A ranged intent (`frame.fire = Some(dir)`) starts the body's `"ranged"`
             // move; its fire event spawns the projectile, sampling live aim. The move
@@ -673,7 +675,10 @@ pub fn dispatch_move_events(
     for ev in events.read() {
         match &ev.kind {
             MoveEventKind::Sfx { cue } => {
-                let pos = positions.get(ev.owner).map(|k| k.pos).unwrap_or(ae::Vec2::ZERO);
+                let pos = positions
+                    .get(ev.owner)
+                    .map(|k| k.pos)
+                    .unwrap_or(ae::Vec2::ZERO);
                 sfx.write(SfxMessage::Play {
                     id: SfxId::new(cue),
                     pos,
@@ -708,7 +713,10 @@ pub fn dispatch_move_events(
                 // (controlled-body-local +x = the body's facing direction).
                 let (dir, dir_policy) = match control.0.fire {
                     Some(req) => (req.dir, req.dir_policy),
-                    None => (ae::Vec2::new(1.0, 0.0), ae::GameplayFramePolicy::ControlledBodyLocal),
+                    None => (
+                        ae::Vec2::new(1.0, 0.0),
+                        ae::GameplayFramePolicy::ControlledBodyLocal,
+                    ),
                 };
                 actions.write(ActorActionMessage {
                     actor: ev.owner,
@@ -805,10 +813,10 @@ fn synth_swing_from_move(pb: &MovePlayback) -> MeleeSwing {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_sfx::SfxMessage;
     use crate::combat::events::HitEvent;
     use crate::combat::hitbox::apply_hitbox_damage;
     use crate::world::physics::DebrisBurstMessage;
+    use ambition_sfx::SfxMessage;
     use ambition_vfx::vfx::VfxMessage;
     use bevy::prelude::*;
 
@@ -1203,7 +1211,10 @@ mod tests {
             )"#,
         )
         .unwrap();
-        assert!(doc.validate().is_empty(), "the two-hit combo is well-formed");
+        assert!(
+            doc.validate().is_empty(),
+            "the two-hit combo is well-formed"
+        );
         doc.entity("combo")
             .unwrap()
             .contracts
@@ -1271,7 +1282,9 @@ mod tests {
         let beam_ticks = cap
             .events
             .iter()
-            .filter(|e| matches!(&e.kind, MoveEventKind::Effect(effect) if effect.key == "beam_tick"))
+            .filter(
+                |e| matches!(&e.kind, MoveEventKind::Effect(effect) if effect.key == "beam_tick"),
+            )
             .count();
         // ~0.30s / 0.016 ≈ 18 active frames; robustly many, and it stopped (the
         // move is 0.40s but the sustain window ended at 0.30s → not every frame).
@@ -1359,7 +1372,10 @@ mod tests {
         let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
         frame.special_pressed = true;
         app.world_mut().spawn((
-            crate::features::CenteredAabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(15.0, 24.0)),
+            crate::features::CenteredAabb::new(
+                ae::Vec2::new(100.0, 100.0),
+                ae::Vec2::new(15.0, 24.0),
+            ),
             ae::BodyKinematics {
                 pos: ae::Vec2::new(100.0, 100.0),
                 vel: ae::Vec2::ZERO,
@@ -1496,7 +1512,11 @@ mod tests {
             .resource_mut::<Messages<ActorActionMessage>>()
             .drain()
             .collect();
-        assert_eq!(acts.len(), 1, "the Effect event bridged to one Special action");
+        assert_eq!(
+            acts.len(),
+            1,
+            "the Effect event bridged to one Special action"
+        );
         assert_eq!(acts[0].actor, owner);
         assert!(matches!(
             &acts[0].request,
@@ -1522,7 +1542,10 @@ mod tests {
 
         let mut control = ActorControl::default();
         // Live aim this frame: a world-space up-right shot toward a strafing target.
-        control.0.fire = Some(ActorFireRequest::world_space(ae::Vec2::new(0.6, -0.8), 240.0));
+        control.0.fire = Some(ActorFireRequest::world_space(
+            ae::Vec2::new(0.6, -0.8),
+            240.0,
+        ));
         let owner = app
             .world_mut()
             .spawn((
@@ -1556,13 +1579,14 @@ mod tests {
             .resource_mut::<Messages<ActorActionMessage>>()
             .drain()
             .collect();
-        assert_eq!(acts.len(), 1, "the Ranged event bridged to one Ranged action");
+        assert_eq!(
+            acts.len(),
+            1,
+            "the Ranged event bridged to one Ranged action"
+        );
         match &acts[0].request {
             ActionRequest::Ranged {
-                spec,
-                origin,
-                dir,
-                ..
+                spec, origin, dir, ..
             } => {
                 assert!(matches!(spec, RangedActionSpec::Bolt { damage: 3, .. }));
                 assert_eq!(*origin, ae::Vec2::new(100.0, 50.0), "origin = owner pos");
@@ -1600,7 +1624,10 @@ mod tests {
             "a shot carries no melee hit volume — the projectile is the damage"
         );
         assert_eq!(
-            fire.events.iter().filter(|e| e.kind == MoveEventKind::Ranged).count(),
+            fire.events
+                .iter()
+                .filter(|e| e.kind == MoveEventKind::Ranged)
+                .count(),
             1,
             "exactly one fire event"
         );
@@ -1608,7 +1635,10 @@ mod tests {
         let mut app = App::new();
         app.add_systems(Update, trigger_moveset_moves);
         let mut control = ActorControl::default();
-        control.0.fire = Some(ActorFireRequest::world_space(ae::Vec2::new(1.0, 0.0), 240.0));
+        control.0.fire = Some(ActorFireRequest::world_space(
+            ae::Vec2::new(1.0, 0.0),
+            240.0,
+        ));
         let body = app
             .world_mut()
             .spawn((
@@ -1637,7 +1667,9 @@ mod tests {
     /// the `"attack"` move projects a swing.
     #[test]
     fn a_ranged_move_does_not_project_a_phantom_melee_swing() {
-        use ambition_characters::brain::action_set::{MeleeActionSpec, RangedActionSpec, SwipeSpec};
+        use ambition_characters::brain::action_set::{
+            MeleeActionSpec, RangedActionSpec, SwipeSpec,
+        };
         // Same body carries both a melee AND a ranged move (both verbs).
         let contract = build_actor_moveset(
             None,
@@ -1674,11 +1706,19 @@ mod tests {
             .id();
         app.update();
         assert!(
-            app.world().get::<BodyMelee>(firing).unwrap().swing.is_none(),
+            app.world()
+                .get::<BodyMelee>(firing)
+                .unwrap()
+                .swing
+                .is_none(),
             "a firing body must not read as mid-swing"
         );
         assert!(
-            app.world().get::<BodyMelee>(swinging).unwrap().swing.is_some(),
+            app.world()
+                .get::<BodyMelee>(swinging)
+                .unwrap()
+                .swing
+                .is_some(),
             "the attack move still projects its swing read-model"
         );
     }

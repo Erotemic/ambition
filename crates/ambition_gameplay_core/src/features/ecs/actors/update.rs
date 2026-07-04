@@ -62,7 +62,14 @@ pub fn tick_actor_brains(
     // ceiling, so the accumulating sim clock + the slot-based controller input
     // ride alongside `WorldTime`. `SlotControls` feeds any actor carrying a
     // `Brain::Player(slot)` (a possessed body) its controller frame.
-    (world_time, sim_clock, slot_controls, faction_relations, perception_peers, perception_projectiles): (
+    (
+        world_time,
+        sim_clock,
+        slot_controls,
+        faction_relations,
+        perception_peers,
+        perception_projectiles,
+    ): (
         Res<WorldTime>,
         Res<crate::features::GameplayElapsed>,
         Res<ambition_characters::brain::SlotControls>,

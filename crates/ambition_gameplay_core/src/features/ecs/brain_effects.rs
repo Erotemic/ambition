@@ -19,11 +19,11 @@
 use ambition_engine_core as ae;
 use bevy::prelude::*;
 
-use ambition_sfx::SfxMessage;
 use crate::enemy_projectile::EnemyProjectileSpawn;
 #[cfg(test)]
 use crate::time::feel::SandboxFeelTuning;
 use ambition_characters::brain::{action_set::ActionRequest, ActorActionMessage};
+use ambition_sfx::SfxMessage;
 
 /// Recoil applied to the firing enemy along the negative fire
 /// direction. Per-archetype because PirateOnShark visibly knocks

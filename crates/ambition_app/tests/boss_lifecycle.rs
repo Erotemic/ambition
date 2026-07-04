@@ -119,10 +119,7 @@ fn boss_max_hp(world: &mut World, placement_id: &str) -> Option<i32> {
 }
 
 fn set_boss_hp(world: &mut World, placement_id: &str, hp: i32) {
-    let mut q = world.query::<(
-        &BossConfig,
-        &mut ambition_characters::actor::BodyHealth,
-    )>();
+    let mut q = world.query::<(&BossConfig, &mut ambition_characters::actor::BodyHealth)>();
     for (config, mut health) in q.iter_mut(world) {
         if config.id == placement_id {
             health.health.current = hp;

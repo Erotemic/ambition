@@ -6,9 +6,9 @@ use super::super::damage_drops::{
     spawn_split_offspring,
 };
 use super::*;
-use ambition_characters::actor::BodyHealth;
 use crate::features::ecs::enemy_component_snapshot;
 use crate::features::{HitMode, HitTarget};
+use ambition_characters::actor::BodyHealth;
 use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
 use bevy::prelude::{App, Update};
@@ -22,7 +22,8 @@ fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
         ambition_characters::actor::CharacterBrain::Custom("medium_striker".into()),
         &[],
     );
-    enemy.health = ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(5));
+    enemy.health =
+        ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(5));
     let (identity, disposition, combat, intent, cooldowns) = enemy_component_snapshot(&enemy);
     app.world_mut()
         .spawn((
@@ -649,7 +650,8 @@ fn spawn_shielding_actor(app: &mut App, shield_raised: bool) -> bevy::prelude::E
         ambition_characters::actor::CharacterBrain::Custom("cellular_automaton_fighter".into()),
         &[],
     );
-    enemy.health = ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(5));
+    enemy.health =
+        ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(5));
     enemy.kin.facing = 1.0;
     // Body capability + raised guard — the two halves the resolver normally fills
     // from `caps.can_shield && frame.shield_held`.

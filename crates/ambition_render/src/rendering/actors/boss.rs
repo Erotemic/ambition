@@ -71,10 +71,9 @@ pub fn upgrade_boss_sprites(
     for (entity, visual) in &new_bosses {
         // The read-model IS the gate: a non-boss (or not-yet-materialized) id has
         // no boss identity and is skipped — its geometry view alone isn't enough.
-        let (Some(view), Some(boss_ident)) = (
-            feature_views.get(&visual.id),
-            boss_render.get(&visual.id),
-        ) else {
+        let (Some(view), Some(boss_ident)) =
+            (feature_views.get(&visual.id), boss_render.get(&visual.id))
+        else {
             continue;
         };
         // Pick the per-boss sheet by authored name / behavior id. Each boss has
@@ -196,10 +195,7 @@ pub fn apply_boss_split_body_z(mut query: Query<&mut Transform, With<BossBodyLay
 /// (same rows + frame counts) because the generator emits them in
 /// lockstep, so the same flat index applies to both.
 pub fn sync_boss_split_overlay(
-    parents: Query<
-        (&Sprite, &BossAnimator, &bevy::sprite::Anchor, &Children),
-        With<BossBodyLayer>,
-    >,
+    parents: Query<(&Sprite, &BossAnimator, &bevy::sprite::Anchor, &Children), With<BossBodyLayer>>,
     mut hands: Query<
         (&mut Sprite, &mut bevy::sprite::Anchor, &BossOverlayLayer),
         Without<BossBodyLayer>,

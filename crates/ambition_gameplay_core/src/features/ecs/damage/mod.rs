@@ -30,9 +30,9 @@ use super::damage_drops::EXPLODER_BLAST_DAMAGE;
 use super::damage_predicates::target_is_ignored;
 #[cfg(test)]
 use super::PickupFeature;
-use ambition_sfx::SfxMessage;
 use crate::features::ActorStimulus;
 use crate::world::physics::DebrisBurstMessage;
+use ambition_sfx::SfxMessage;
 use ambition_vfx::vfx::VfxMessage;
 
 #[derive(SystemParam)]

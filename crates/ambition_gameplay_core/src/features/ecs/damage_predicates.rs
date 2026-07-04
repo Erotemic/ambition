@@ -89,9 +89,8 @@ pub fn ecs_hit_event_hits_boss(
     // elapsed-time estimate — otherwise the projectile could
     // register a hit a few frames off from where the head is drawn
     // and where damage actually lands.
-    bosses
-        .iter()
-        .any(|(id, _aabb, feature, health, attack_state, animation_frame)| {
+    bosses.iter().any(
+        |(id, _aabb, feature, health, attack_state, animation_frame)| {
             if target_is_ignored(&event.ignored_targets, "boss", id.as_str()) {
                 return false;
             }
@@ -104,5 +103,6 @@ pub fn ecs_hit_event_hits_boss(
             )
             .iter()
             .any(|part| event.volume.intersects_aabb(*part))
-        })
+        },
+    )
 }

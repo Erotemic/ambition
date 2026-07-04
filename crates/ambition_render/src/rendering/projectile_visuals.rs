@@ -16,14 +16,14 @@ use bevy::math::{Rect, Vec2};
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
-use ambition_platformer_primitives::body::BodyKinematics;
 use ambition_gameplay_core::assets::game_assets::{EntitySprite, GameAssets};
-use ambition_platformer_primitives::gravity::GravityCtx;
-use ambition_platformer_primitives::gravity::gravity_upright_angle;
 use ambition_gameplay_core::projectile::{
     LiveProjectile, ProjectileArtSource, ProjectileKind, ProjectileRenderSize, ProjectileRotation,
     ProjectileVisualKind,
 };
+use ambition_platformer_primitives::body::BodyKinematics;
+use ambition_platformer_primitives::gravity::gravity_upright_angle;
+use ambition_platformer_primitives::gravity::GravityCtx;
 use ambition_sprite_sheet::SheetRegistry;
 
 /// Marker on the persistent per-projectile sprite entity.

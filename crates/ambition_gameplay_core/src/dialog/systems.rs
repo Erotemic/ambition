@@ -13,10 +13,10 @@ use bevy::prelude::*;
 use super::runtime::DialogChoiceSlot;
 use super::runtime::DialogState;
 use super::speech_sfx::{should_play_talk_blip, talk_blip_id_for_speaker};
-use ambition_sfx::SfxMessage;
 use crate::game_mode::GameMode;
 #[cfg(feature = "input")]
 use ambition_input::MenuControlFrame;
+use ambition_sfx::SfxMessage;
 #[cfg(feature = "input")]
 use ambition_ui_nav::{apply_vertical_scroll, resolve_selectable_row_interaction};
 #[cfg(feature = "input")]

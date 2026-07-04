@@ -63,9 +63,9 @@ pub fn apply_projectile_effects(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_sfx::SfxMessage;
     use crate::features::{HitEvent, HitSource};
     use ambition_engine_core as ae;
+    use ambition_sfx::SfxMessage;
     use ambition_vfx::vfx::VfxMessage;
 
     use crate::combat::components::ActorFaction;
@@ -353,10 +353,10 @@ mod tests {
     /// boss's attack at it.
     #[test]
     fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
-        use ambition_characters::actor::BodyCombat;
         use crate::actor::BodyKinematics;
         use crate::actor::PlayerEntity;
         use crate::actor::{BodyBaseSize, BodyDodgeState, BodyOffense, BodyShieldState};
+        use ambition_characters::actor::BodyCombat;
         let mut app = App::new();
         app.insert_resource(ambition_engine_core::RoomGeometry(ae::World::new(
             "phys",
@@ -457,10 +457,10 @@ mod tests {
     /// exercised.
     #[test]
     fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
-        use ambition_characters::actor::BodyCombat;
         use crate::actor::BodyKinematics;
         use crate::actor::PlayerEntity;
         use crate::actor::{BodyBaseSize, BodyDodgeState, BodyOffense, BodyShieldState};
+        use ambition_characters::actor::BodyCombat;
         let mut app = App::new();
         app.insert_resource(ambition_engine_core::RoomGeometry(ae::World::new(
             "phys",
@@ -519,23 +519,22 @@ mod tests {
         ));
 
         // Fire an enemy-faction shot owned by `attacker`, overlapping the player.
-        app.world_mut()
-            .write_message(ambition_vfx::EffectRequest {
-                owner: attacker,
-                effect: ambition_vfx::Effect::Projectiles {
-                    shots: vec![EnemyProjectileSpawn {
-                        origin: player_pos,
-                        dir: ae::Vec2::new(1.0, 0.0),
-                        speed: 100.0,
-                        damage: 2,
-                        max_lifetime: 2.0,
-                        half_extent: ae::Vec2::new(8.0, 8.0),
-                        owner_id: "boss_bolt".into(),
-                        gravity: 0.0,
-                        visual_tag: 0,
-                    }],
-                },
-            });
+        app.world_mut().write_message(ambition_vfx::EffectRequest {
+            owner: attacker,
+            effect: ambition_vfx::Effect::Projectiles {
+                shots: vec![EnemyProjectileSpawn {
+                    origin: player_pos,
+                    dir: ae::Vec2::new(1.0, 0.0),
+                    speed: 100.0,
+                    damage: 2,
+                    max_lifetime: 2.0,
+                    half_extent: ae::Vec2::new(8.0, 8.0),
+                    owner_id: "boss_bolt".into(),
+                    gravity: 0.0,
+                    visual_tag: 0,
+                }],
+            },
+        });
 
         app.update();
 
@@ -562,23 +561,22 @@ mod tests {
         app.add_message::<ambition_vfx::EffectRequest>();
         app.init_resource::<ProjectileSeqCounter>();
         app.add_systems(Update, apply_projectile_effects);
-        app.world_mut()
-            .write_message(ambition_vfx::EffectRequest {
-                owner: Entity::PLACEHOLDER,
-                effect: ambition_vfx::Effect::Projectiles {
-                    shots: vec![EnemyProjectileSpawn {
-                        origin: ae::Vec2::ZERO,
-                        dir: ae::Vec2::new(1.0, 0.0),
-                        speed: 100.0,
-                        damage: 1,
-                        max_lifetime: 1.0,
-                        half_extent: ae::Vec2::new(8.0, 8.0),
-                        owner_id: "pca".into(),
-                        gravity: 0.0,
-                        visual_tag: ProjectileVisualKind::Glider.to_tag(),
-                    }],
-                },
-            });
+        app.world_mut().write_message(ambition_vfx::EffectRequest {
+            owner: Entity::PLACEHOLDER,
+            effect: ambition_vfx::Effect::Projectiles {
+                shots: vec![EnemyProjectileSpawn {
+                    origin: ae::Vec2::ZERO,
+                    dir: ae::Vec2::new(1.0, 0.0),
+                    speed: 100.0,
+                    damage: 1,
+                    max_lifetime: 1.0,
+                    half_extent: ae::Vec2::new(8.0, 8.0),
+                    owner_id: "pca".into(),
+                    gravity: 0.0,
+                    visual_tag: ProjectileVisualKind::Glider.to_tag(),
+                }],
+            },
+        });
         app.update();
         let mut q = app.world_mut().query::<&ProjectileVisualKind>();
         let kinds: Vec<_> = q.iter(app.world()).copied().collect();

@@ -158,10 +158,10 @@ pub fn update_ecs_hazards(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_characters::actor::BodyCombat;
     use crate::actor::BodyKinematics;
     use crate::actor::PlayerEntity;
     use crate::actor::{BodyBaseSize, BodyDodgeState, BodyOffense, BodyShieldState};
+    use ambition_characters::actor::BodyCombat;
     use bevy::prelude::{App, MessageReader, ResMut, Resource, Update};
 
     #[derive(Resource, Default)]
@@ -266,7 +266,9 @@ mod tests {
                 BodyDodgeState::default(),
                 BodyShieldState::default(),
                 BodyCombat::default(),
-                ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(5)),
+                ambition_characters::actor::BodyHealth::new(
+                    ambition_characters::actor::Health::new(5),
+                ),
             ))
             .id();
         spawn_hazard(&mut app, "spikes", pos);

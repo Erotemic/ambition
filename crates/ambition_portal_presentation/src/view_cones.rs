@@ -733,10 +733,7 @@ fn portal_capture_camera_frame(
     // edge, and the window rendered smeared/warped. `map_aabb` is exact for
     // cardinal portals, and the mesh's entry polygon is clipped to this same
     // host rect, so every mapped vertex now lands inside the capture frame.
-    let rect = ae::Aabb::new(
-        host_view.current_center_world,
-        host_view.visible_view * 0.5,
-    );
+    let rect = ae::Aabb::new(host_view.current_center_world, host_view.visible_view * 0.5);
     let mapped = ambition_portal::pieces::map_aabb(rect, enter, exit);
     Some(geometry::CaptureCameraFrame {
         center: mapped.center(),
@@ -750,8 +747,8 @@ use geometry::{
     aperture_los_rays, aperture_visibility_fraction, capture_dims, compute_cone, cone_render,
     inset_viewer_corners, visibility_route_summary, ApertureLosRay, ConeRender, RebuildKey,
 };
-use mesh::{apply_mesh, make_mesh, pane_z, placeholder_mesh, smooth01};
 pub(crate) use mesh::pane_dominance;
+use mesh::{apply_mesh, make_mesh, pane_z, placeholder_mesh, smooth01};
 
 /// Maintain + update one rig per placed portal with a placed partner: spawn
 /// missing, despawn stale, and update every live rig's geometry in place each
@@ -873,7 +870,8 @@ pub fn sync_portal_view_cones(
             rig.blend += (plan.target - rig.blend) * step;
         }
         let cone = blend_cones(&plan.min, &plan.wedge, smooth01(rig.blend), &enter, &exit);
-        let (z, pane_dominant) = pane_z(&config, viewer, &portal, &partner, Some(rig.pane_dominant));
+        let (z, pane_dominant) =
+            pane_z(&config, viewer, &portal, &partner, Some(rig.pane_dominant));
         rig.pane_dominant = pane_dominant;
         let render = cone_render(
             &cone,

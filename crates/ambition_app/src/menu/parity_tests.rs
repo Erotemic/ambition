@@ -431,13 +431,13 @@ mod dispatch_parity {
     use ambition_characters::brain::ActionSet;
     use ambition_gameplay_core::actor::BodyMana;
     use ambition_gameplay_core::actor::{PlayerEntity, PrimaryPlayer};
-    use ambition_sfx::SfxMessage;
     use ambition_gameplay_core::inventory_ui::InventoryUiState;
     use ambition_gameplay_core::menu::backend::InventoryUiBackend;
     use ambition_gameplay_core::persistence::settings::{SystemMenuEntryId, UserSettings};
     use ambition_gameplay_core::player::PlayerHealRequested;
     use ambition_gameplay_core::session::game_mode::GameMode;
     use ambition_input::MenuControlFrame;
+    use ambition_sfx::SfxMessage;
 
     /// Build a menu app for one backend, with every resource/observer the shared
     /// cursor/dispatch path touches. Mirrors the per-backend harnesses in

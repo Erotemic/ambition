@@ -328,9 +328,8 @@ pub fn ecs_boss_anim_state_and_entity(
     bevy::prelude::Entity,
     crate::boss_encounter::sprites::BossAnimState,
 )> {
-    bosses
-        .iter()
-        .find_map(|(entity, feature_id, boss, health, combat, attack_state, brain)| {
+    bosses.iter().find_map(
+        |(entity, feature_id, boss, health, combat, attack_state, brain)| {
             if feature_id.as_str() != id {
                 return None;
             }
@@ -344,7 +343,8 @@ pub fn ecs_boss_anim_state_and_entity(
                     brain,
                 ),
             ))
-        })
+        },
+    )
 }
 
 /// Return the currently rendered attack-frame sample for a boss,
@@ -371,9 +371,8 @@ pub fn ecs_boss_animation_frame_sample(
     bevy::prelude::Entity,
     crate::features::BossAnimationFrameSample,
 )> {
-    bosses
-        .iter()
-        .find_map(|(entity, feature_id, _boss, _health, _combat, attack_state, _brain)| {
+    bosses.iter().find_map(
+        |(entity, feature_id, _boss, _health, _combat, attack_state, _brain)| {
             if feature_id.as_str() != id {
                 return None;
             }
@@ -428,7 +427,8 @@ pub fn ecs_boss_animation_frame_sample(
                 ));
             }
             result
-        })
+        },
+    )
 }
 
 pub fn ecs_boss_anim_state(

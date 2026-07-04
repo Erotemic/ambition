@@ -1648,7 +1648,12 @@ mod tests {
         let plan = compute_cone(&near, &far, &config, Some(&viewer), world);
         assert!(plan.target > 0.0, "the near window is open");
         let wall_back = 524.0;
-        for p in plan.wedge.entry_quad.iter().chain(plan.min.entry_quad.iter()) {
+        for p in plan
+            .wedge
+            .entry_quad
+            .iter()
+            .chain(plan.min.entry_quad.iter())
+        {
             assert!(
                 p.x <= wall_back + 0.6,
                 "window geometry must stay inside the 24px host wall, got {p:?}",
@@ -1695,7 +1700,12 @@ mod tests {
         let plan = compute_cone(&near, &far, &config, Some(&viewer), world);
         assert!(plan.target > 0.0, "the doorway window is open");
         let wall_back = 524.0;
-        for p in plan.wedge.entry_quad.iter().chain(plan.min.entry_quad.iter()) {
+        for p in plan
+            .wedge
+            .entry_quad
+            .iter()
+            .chain(plan.min.entry_quad.iter())
+        {
             assert!(
                 p.x <= wall_back + 0.6,
                 "a doorway pane must stay inside the wall slab even at the \

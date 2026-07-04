@@ -26,8 +26,7 @@ use ambition_portal::{
 };
 
 use crate::clip_material::{
-    clip_piece_transform, clip_plane_render, sprite_frame_basis, PortalClipMaterial,
-    CLIP_PLANE_OFF,
+    clip_piece_transform, clip_plane_render, sprite_frame_basis, PortalClipMaterial, CLIP_PLANE_OFF,
 };
 use crate::{gun_visuals, PortalGunArt, PortalSceneBody, PortalWorldFrame};
 
@@ -333,9 +332,8 @@ pub fn sync_portal_visuals(
             .map(|rig| rig.pane_dominant())
             .or_else(|| {
                 let (partner, v) = (partner.as_ref()?, viewer.as_deref()?);
-                v.present.then(|| {
-                    crate::view_cones::pane_dominance(portal, partner, v.eye) >= 0.0
-                })
+                v.present
+                    .then(|| crate::view_cones::pane_dominance(portal, partner, v.eye) >= 0.0)
             })
             .unwrap_or(true);
         let frame_z = if dominant {
@@ -469,10 +467,7 @@ mod tests {
         let mut image = Image::default();
         image.texture_descriptor.size.width = 48;
         image.texture_descriptor.size.height = 48;
-        let handle = app
-            .world_mut()
-            .resource_mut::<Assets<Image>>()
-            .add(image);
+        let handle = app.world_mut().resource_mut::<Assets<Image>>().add(image);
         let mut sprite = Sprite::from_image(handle);
         sprite.custom_size = Some(Vec2::new(48.0, 48.0));
         sprite
@@ -694,7 +689,10 @@ mod tests {
             })
             .map(|(n, t)| (n.to_string(), t.translation))
             .collect();
-        assert!(parts.len() >= 10, "both portals' frames spawn, got {parts:?}");
+        assert!(
+            parts.len() >= 10,
+            "both portals' frames spawn, got {parts:?}"
+        );
         // Left portal (world x 500) renders near x 0; right (532) near x 32.
         for (name, t) in &parts {
             if t.x < 16.0 {
@@ -749,10 +747,7 @@ mod tests {
                 *z > window_band_top,
                 "{name} must draw above the window band top {window_band_top}, got {z}"
             );
-            assert!(
-                *z < 20.0,
-                "{name} must stay below the actor band, got {z}"
-            );
+            assert!(*z < 20.0, "{name} must stay below the actor band, got {z}");
         }
 
         // And the frame stays on the WORLD layer: portal captures must

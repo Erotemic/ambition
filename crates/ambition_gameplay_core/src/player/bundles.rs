@@ -5,14 +5,14 @@ use ambition_engine_core::CenteredAabb;
 use bevy::prelude::*;
 
 use super::components::{
-    BodyMelee, LocalPlayer, BodyAnimFacts, PlayerBlinkCameraState, PlayerEntity,
-    PlayerInputFrame, PlayerSafetyState, PlayerSlot, PrimaryPlayer,
+    BodyAnimFacts, BodyMelee, LocalPlayer, PlayerBlinkCameraState, PlayerEntity, PlayerInputFrame,
+    PlayerSafetyState, PlayerSlot, PrimaryPlayer,
 };
 use super::movement_components::BodyKinematics;
 use crate::actor::AncillaryMovementBundle;
-use ambition_characters::actor::{BodyCombat, BodyHealth, BodyWallet};
 use crate::body_mode::BodyModeCapabilities;
 use crate::features::{ActorFaction, ActorPose};
+use ambition_characters::actor::{BodyCombat, BodyHealth, BodyWallet};
 use ambition_characters::brain::{ActionSet, ActorControl, Brain};
 
 /// All simulation components required on the player entity.
@@ -200,7 +200,8 @@ impl PlayerSimulationBundle {
         character_id: &str,
     ) -> Self {
         let mut bundle = Self::from_scratch(scratch, health);
-        if let Some(display) = crate::character_roster::display_name_for_character_id(character_id) {
+        if let Some(display) = crate::character_roster::display_name_for_character_id(character_id)
+        {
             bundle.name = Name::new(display);
         }
         if let Some(character_set) =
@@ -285,11 +286,17 @@ mod tests {
         // and the full player kit — the `player` catalog row is peaceful, so the
         // moveset overlay is a no-op on offense. (Production still routes the
         // protagonist through `from_scratch`; this pins the equivalence.)
-        let bundle =
-            PlayerSimulationBundle::from_scratch_as_character(player_scratch(), Health::new(20), "player");
+        let bundle = PlayerSimulationBundle::from_scratch_as_character(
+            player_scratch(),
+            Health::new(20),
+            "player",
+        );
         assert_eq!(bundle.name.as_str(), "Player");
         assert!(bundle.brain.is_player());
-        assert!(matches!(bundle.action_set.melee, Some(MeleeActionSpec::Swipe(_))));
+        assert!(matches!(
+            bundle.action_set.melee,
+            Some(MeleeActionSpec::Swipe(_))
+        ));
         assert!(matches!(
             bundle.action_set.ranged,
             Some(RangedActionSpec::Bolt { .. })
@@ -310,7 +317,10 @@ mod tests {
         assert_eq!(bundle.name.as_str(), "Pirate Admiral");
         assert!(bundle.brain.is_player(), "still keyboard-controlled");
         assert!(
-            matches!(bundle.action_set.ranged, Some(RangedActionSpec::Pistol { .. })),
+            matches!(
+                bundle.action_set.ranged,
+                Some(RangedActionSpec::Pistol { .. })
+            ),
             "the pirate's pistol should override the player's default bolt",
         );
     }
@@ -327,7 +337,14 @@ mod tests {
             "not_a_real_character",
         );
         assert!(bundle.brain.is_player());
-        assert_eq!(bundle.name.as_str(), "Player", "unknown id keeps the default name");
-        assert!(matches!(bundle.action_set.melee, Some(MeleeActionSpec::Swipe(_))));
+        assert_eq!(
+            bundle.name.as_str(),
+            "Player",
+            "unknown id keeps the default name"
+        );
+        assert!(matches!(
+            bundle.action_set.melee,
+            Some(MeleeActionSpec::Swipe(_))
+        ));
     }
 }

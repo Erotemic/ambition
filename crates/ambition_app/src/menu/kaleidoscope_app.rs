@@ -30,7 +30,6 @@ use crate::menu::model::{
 };
 use crate::menu::quality_confirm::VisualQualityConfirmState;
 use ambition_engine_core::Vec2;
-use ambition_sfx::SfxMessage;
 use ambition_gameplay_core::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use ambition_gameplay_core::persistence::settings::{
     apply_settings_option, settings_menu_model, DevSnapshot, DevToggleId, RadioSnapshot,
@@ -39,6 +38,7 @@ use ambition_gameplay_core::persistence::settings::{
 };
 use ambition_gameplay_core::player::PlayerHealRequested;
 use ambition_input::MenuControlFrame;
+use ambition_sfx::SfxMessage;
 
 /// Play a one-shot UI sound for the cube menu: `Play { id, pos }` with `pos = ZERO`.
 /// `Play` is non-spatialized (see `audio::runtime::audio_play_sfx_messages` — it

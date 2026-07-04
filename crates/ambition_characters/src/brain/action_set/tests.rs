@@ -706,7 +706,9 @@ fn resolve_multi_intent_emits_multi_request() {
     // not an `ActionRequest::Special` here.
     assert_eq!(reqs.len(), 2);
     assert!(
-        !reqs.iter().any(|r| matches!(r, ActionRequest::Special { .. })),
+        !reqs
+            .iter()
+            .any(|r| matches!(r, ActionRequest::Special { .. })),
         "the flat special arm is retired — no Special request from resolve"
     );
 }

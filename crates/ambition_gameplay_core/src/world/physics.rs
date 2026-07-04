@@ -16,9 +16,9 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
 #[cfg(feature = "physics_debris")]
-use ambition_engine_core::config::{world_to_bevy, WORLD_Z_BLOCK, WORLD_Z_FX};
-#[cfg(feature = "physics_debris")]
 use crate::platformer_runtime::lifecycle::RoomVisual;
+#[cfg(feature = "physics_debris")]
+use ambition_engine_core::config::{world_to_bevy, WORLD_Z_BLOCK, WORLD_Z_FX};
 
 #[cfg(feature = "physics_debris")]
 const SANDBOX_GRAVITY: f32 = 1250.0;

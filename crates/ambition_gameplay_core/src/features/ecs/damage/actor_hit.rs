@@ -14,9 +14,9 @@ use super::super::{ae, ActorDisposition, GameplayBanner, HitEvent, HitSource, Se
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.
-use ambition_sfx::SfxMessage;
 use crate::features::ActorStimulus;
 use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
+use ambition_sfx::SfxMessage;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
 use super::*;
@@ -225,10 +225,7 @@ pub(crate) fn apply_actor_hit(
             _ => None,
         };
         if let Some(k) = knockback {
-            let boss_hit = matches!(
-                event.source,
-                HitSource::BossBody | HitSource::BossAttack
-            );
+            let boss_hit = matches!(event.source, HitSource::BossBody | HitSource::BossAttack);
             // §A2 step 7 (FEEL-BLIND): the launch also arms the shared stagger
             // (hitstun / recoil-lock / hitstop on `BodyCombat`), consumed by
             // the actor driver's post-hit input gate + hitstop dt beat — an

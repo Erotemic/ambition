@@ -15,6 +15,7 @@ use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
 use ambition_engine_core as ae;
 
+use ambition_engine_core::RoomGeometry;
 use ambition_gameplay_core::assets::game_assets::GameAssets;
 #[cfg(feature = "audio")]
 use ambition_gameplay_core::assets::sandbox_assets::{ids, SandboxAssetCatalog};
@@ -30,7 +31,6 @@ use ambition_gameplay_core::rooms::RoomSet;
 use ambition_gameplay_core::session::data::{MusicRegistry, SfxRegistry};
 use ambition_gameplay_core::world::physics::PhysicsSandboxSettings;
 use ambition_gameplay_core::world::platforms;
-use ambition_engine_core::RoomGeometry;
 use ambition_render::rendering::{
     spawn_parallax_layers, spawn_room_visuals, HudText, PlayerSpriteBaseline, QuestPanelText,
 };
@@ -329,8 +329,7 @@ fn presentation_world_inner(
     // default) resolves to the compact robot sheet exactly as before; any other
     // selected character binds its own sheet, so the home avatar draws as e.g.
     // the goblin, the pirate admiral, or the Perfect Cellular Automaton.
-    if let Some(asset) =
-        character_sprites.asset_for_character_id(&starting_character.character_id)
+    if let Some(asset) = character_sprites.asset_for_character_id(&starting_character.character_id)
     {
         let player_render = player_placeholder_render_size(&asset.spec, player_collision);
         let sprite = build_character_sprite_with_render_size(asset, player_render);

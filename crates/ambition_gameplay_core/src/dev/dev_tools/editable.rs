@@ -475,7 +475,10 @@ pub fn sync_player_stats_with_inspector(
         (&mut crate::actor::BodyMana, &mut crate::actor::BodyOffense),
         crate::actor::PrimaryPlayerOnly,
     >,
-    mut health_q: Query<&mut ambition_characters::actor::BodyHealth, crate::actor::PrimaryPlayerOnly>,
+    mut health_q: Query<
+        &mut ambition_characters::actor::BodyHealth,
+        crate::actor::PrimaryPlayerOnly,
+    >,
 ) {
     if !snapshot.initialized {
         snapshot.health = stats.health;

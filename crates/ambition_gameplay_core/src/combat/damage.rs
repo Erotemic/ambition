@@ -19,21 +19,21 @@ use bevy::prelude::{Entity, MessageReader, MessageWriter, Query, Res, ResMut, Wi
 use ambition_engine_core as ae;
 use ambition_vfx::vfx::VfxMessage;
 
-use ambition_characters::actor::BodyCombat;
-use ambition_characters::actor::BodyHealth;
 use crate::actor::{BodyDodgeState, BodyOffense, BodyShieldState};
 use crate::actor::{PlayerEntity, PrimaryPlayer, PrimaryPlayerOnly};
-use ambition_sfx::SfxMessage;
 use crate::dev::dev_tools::EditableMovementTuning;
 use crate::features::{self, GameplayBanner, HitEvent as FeatureHitEvent};
 use crate::player::{BodyAnimFacts, PlayerSafetyState};
-use ambition_time::ClockState;
 use crate::time::feel::SandboxFeelTuning;
-use ambition_engine_core::RoomGeometry;
 use crate::{
     remember_safe_player_position, ActorDiedMessage, MovingPlatformSet, SafePositionContext,
     SandboxSimState,
 };
+use ambition_characters::actor::BodyCombat;
+use ambition_characters::actor::BodyHealth;
+use ambition_engine_core::RoomGeometry;
+use ambition_sfx::SfxMessage;
+use ambition_time::ClockState;
 
 /// THE one "can this body take a hit right now?" rule, shared by every damage
 /// EMITTER that needs an early-out (hazards, enemy hitboxes, boss volumes,
@@ -400,7 +400,12 @@ pub(crate) fn apply_body_hit_reaction(
 ) {
     let strength = knockback.map(|k| k.strength.max(0.0)).unwrap_or(0.0);
     *vel = resolved_body_knockback_velocity(
-        body_pos, body_facing, gravity_dir, boss_hit, knockback, feel,
+        body_pos,
+        body_facing,
+        gravity_dir,
+        boss_hit,
+        knockback,
+        feel,
     );
     combat.hitstun_timer = if boss_hit {
         feel.boss_hitstun_time
@@ -881,7 +886,17 @@ mod tests {
         // A headless body with no health component is damaged-but-undying.
         let mut combat = BodyCombat::default();
         let res = resolve_body_hit(
-            &mut combat, None, false, 1.0, pos, pos, DOWN, 5, 1.0, false, TEST_FEEL,
+            &mut combat,
+            None,
+            false,
+            1.0,
+            pos,
+            pos,
+            DOWN,
+            5,
+            1.0,
+            false,
+            TEST_FEEL,
         );
         assert_eq!(
             res,

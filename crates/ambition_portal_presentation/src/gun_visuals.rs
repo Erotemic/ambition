@@ -13,11 +13,12 @@ use ambition_engine_core as ae;
 use ambition_platformer_primitives::body::BodyKinematics;
 use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
 use ambition_portal::pieces as pp;
-use ambition_portal::{find_portal, PlacedPortal, PortalGun, PortalGunPickup, PortalShot, PortalTransit};
+use ambition_portal::{
+    find_portal, PlacedPortal, PortalGun, PortalGunPickup, PortalShot, PortalTransit,
+};
 
 use crate::clip_material::{
-    clip_piece_transform, clip_plane_render, sprite_frame_basis, PortalClipMaterial,
-    CLIP_PLANE_OFF,
+    clip_piece_transform, clip_plane_render, sprite_frame_basis, PortalClipMaterial, CLIP_PLANE_OFF,
 };
 use crate::{PortalAimHint, PortalGunArt, PortalVisual, PortalWorldFrame};
 

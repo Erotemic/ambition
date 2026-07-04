@@ -157,9 +157,7 @@ pub fn animate_player(
         // ADR 0011 — `entity_dt` collapses to `sim_dt` when no ProperTimeScale is
         // set (SP default), so bullet-time / hitstop / pause still slow the
         // animation in lockstep.
-        let dt = world_time.entity_dt(
-            ambition_time::ProperTimeScale::or_default(scale),
-        );
+        let dt = world_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale));
         // Hit feedback is drawn by the white-silhouette overlay in
         // `presentation::rendering::hit_flash` — a sibling mesh that samples this
         // atlas frame and outputs pure white modulated by `BodyCombat::
@@ -218,9 +216,7 @@ pub fn animate_characters(
     // boss freezes the world but leaves the player un-frozen, or
     // future MP boosts one player's proper time.
     for (visual, mut sprite, mut animator, scale, anchor) in &mut query {
-        let dt = world_time.entity_dt(
-            ambition_time::ProperTimeScale::or_default(scale),
-        );
+        let dt = world_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale));
         // ONE actor path — enemy and NPC alike resolve through the SAME picker the
         // player uses, built from the actor's real `Body*` clusters. An actor
         // attacks when its `BodyMelee` is active, whatever its disposition.
@@ -294,9 +290,7 @@ pub fn animate_props(
         let dt = if PROP_KINDS_STATIC_UNTIL_MOVING.contains(&prop.kind.as_str()) {
             0.0
         } else {
-            world_time.entity_dt(
-                ambition_time::ProperTimeScale::or_default(scale),
-            )
+            world_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale))
         };
         // Route through the SAME frame-apply chokepoint as actors so a trimmed
         // prop sheet gets the self-captured trim basis too (props used to skip

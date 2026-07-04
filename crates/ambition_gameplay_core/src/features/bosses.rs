@@ -173,27 +173,28 @@ pub fn boss_attack_moveset(
                 // offset, local = center - pos). Convert each to a body-local
                 // `HitVolume` the move runtime mirrors by facing + rotates into the
                 // gravity frame at spawn.
-                let volumes: Vec<HitVolume> = crate::boss_encounter::attack_geometry::volumes_for_profile(
-                    profile,
-                    ambition_engine_core::Vec2::ZERO,
-                    combat_size,
-                    behavior,
-                )
-                .into_iter()
-                .map(|aabb| {
-                    let c = aabb.center();
-                    let h = aabb.half_size();
-                    HitVolume {
-                        shape: VolumeShape::Rect {
-                            offset: (c.x, c.y),
-                            half_extents: (h.x, h.y),
-                        },
-                        damage: behavior.attack_damage.max(1),
-                        knockback: BOSS_STRIKE_KNOCKBACK,
-                        on_hit: None,
-                    }
-                })
-                .collect();
+                let volumes: Vec<HitVolume> =
+                    crate::boss_encounter::attack_geometry::volumes_for_profile(
+                        profile,
+                        ambition_engine_core::Vec2::ZERO,
+                        combat_size,
+                        behavior,
+                    )
+                    .into_iter()
+                    .map(|aabb| {
+                        let c = aabb.center();
+                        let h = aabb.half_size();
+                        HitVolume {
+                            shape: VolumeShape::Rect {
+                                offset: (c.x, c.y),
+                                half_extents: (h.x, h.y),
+                            },
+                            damage: behavior.attack_damage.max(1),
+                            knockback: BOSS_STRIKE_KNOCKBACK,
+                            on_hit: None,
+                        }
+                    })
+                    .collect();
                 // A geometry profile with no authored volume (defensive) contributes
                 // no move — skip it rather than a hitless Active window.
                 if volumes.is_empty() {

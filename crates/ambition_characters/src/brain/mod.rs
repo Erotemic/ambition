@@ -33,8 +33,7 @@ pub use action_set::{
 #[allow(unused_imports)]
 pub use boss_pattern::{
     tick_boss_pattern, BossAttackIntent, BossAttackPattern, BossAttackProfile, BossAttackState,
-    BossCapability,
-    BossEncounterPhase, BossMacroState, BossMacroTuning, BossMovementFramePolicy,
+    BossCapability, BossEncounterPhase, BossMacroState, BossMacroTuning, BossMovementFramePolicy,
     BossMovementProfile, BossPattern, BossPatternCfg, BossPatternContext, BossPatternState,
     BossPatternStep, CyclePhase,
 };
@@ -49,9 +48,9 @@ pub use smash::{
 pub use snapshot::{BrainSnapshot, WallContact};
 #[allow(unused_imports)]
 pub use state_machine::{
-    tick_state_machine, AuthoredWorldPatrolLane, MeleeBruteCfg, MeleeBruteState, PatrolCfg,
-    PatrolState, ChargeCrashCfg, ChargeCrashState, SkirmisherCfg, SkirmisherState, SniperCfg, SniperState,
-    StateMachineCfg, WandererCfg, WandererState, NPC_PATROL_SPEED,
+    tick_state_machine, AuthoredWorldPatrolLane, ChargeCrashCfg, ChargeCrashState, MeleeBruteCfg,
+    MeleeBruteState, PatrolCfg, PatrolState, SkirmisherCfg, SkirmisherState, SniperCfg,
+    SniperState, StateMachineCfg, WandererCfg, WandererState, NPC_PATROL_SPEED,
 };
 
 #[cfg(test)]

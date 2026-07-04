@@ -470,14 +470,22 @@ const SIDE_SWEEP: &[StrikeRect] = &[
     StrikeRect::scaled(ae::Vec2::new(-0.50, 0.0), ae::Vec2::new(0.25, 0.72)),
     StrikeRect::scaled(ae::Vec2::new(0.50, 0.0), ae::Vec2::new(0.25, 0.72)),
 ];
-const FULL_BODY_PULSE: &[StrikeRect] =
-    &[StrikeRect::scaled(ae::Vec2::new(0.0, 0.0), ae::Vec2::new(0.70, 0.70))];
-const HAZARD_COLUMN: &[StrikeRect] =
-    &[StrikeRect::scaled(ae::Vec2::new(0.0, 0.0), ae::Vec2::new(0.30, 1.80))];
-const WING_SWEEP: &[StrikeRect] =
-    &[StrikeRect::scaled(ae::Vec2::new(0.0, 0.08), ae::Vec2::new(0.56, 0.42))];
-const DIVE_LANE: &[StrikeRect] =
-    &[StrikeRect::scaled(ae::Vec2::new(0.0, 0.42), ae::Vec2::new(0.22, 0.72))];
+const FULL_BODY_PULSE: &[StrikeRect] = &[StrikeRect::scaled(
+    ae::Vec2::new(0.0, 0.0),
+    ae::Vec2::new(0.70, 0.70),
+)];
+const HAZARD_COLUMN: &[StrikeRect] = &[StrikeRect::scaled(
+    ae::Vec2::new(0.0, 0.0),
+    ae::Vec2::new(0.30, 1.80),
+)];
+const WING_SWEEP: &[StrikeRect] = &[StrikeRect::scaled(
+    ae::Vec2::new(0.0, 0.08),
+    ae::Vec2::new(0.56, 0.42),
+)];
+const DIVE_LANE: &[StrikeRect] = &[StrikeRect::scaled(
+    ae::Vec2::new(0.0, 0.42),
+    ae::Vec2::new(0.22, 0.72),
+)];
 const BROADSIDE: &[StrikeRect] = &[
     StrikeRect::scaled(ae::Vec2::new(-0.34, 0.0), ae::Vec2::new(0.18, 0.84)),
     StrikeRect::scaled(ae::Vec2::new(0.34, 0.0), ae::Vec2::new(0.18, 0.84)),
@@ -486,12 +494,18 @@ const HAND_SLAM: &[StrikeRect] = &[
     StrikeRect::scaled(ae::Vec2::new(-0.40, 0.25), ae::Vec2::new(0.14, 0.60)),
     StrikeRect::scaled(ae::Vec2::new(0.40, 0.25), ae::Vec2::new(0.14, 0.60)),
 ];
-const HAND_SWEEP: &[StrikeRect] =
-    &[StrikeRect::scaled(ae::Vec2::new(0.0, 0.15), ae::Vec2::new(0.85, 0.28))];
-const HEAD_DESCENT: &[StrikeRect] =
-    &[StrikeRect::scaled(ae::Vec2::new(0.0, 0.05), ae::Vec2::new(0.32, 0.38))];
-const CONVERGING_SHOCKWAVE: &[StrikeRect] =
-    &[StrikeRect::scaled(ae::Vec2::new(0.0, 0.48), ae::Vec2::new(0.90, 0.08))];
+const HAND_SWEEP: &[StrikeRect] = &[StrikeRect::scaled(
+    ae::Vec2::new(0.0, 0.15),
+    ae::Vec2::new(0.85, 0.28),
+)];
+const HEAD_DESCENT: &[StrikeRect] = &[StrikeRect::scaled(
+    ae::Vec2::new(0.0, 0.05),
+    ae::Vec2::new(0.32, 0.38),
+)];
+const CONVERGING_SHOCKWAVE: &[StrikeRect] = &[StrikeRect::scaled(
+    ae::Vec2::new(0.0, 0.48),
+    ae::Vec2::new(0.90, 0.08),
+)];
 
 /// The body-local strike rectangles for a profile, as DATA. `Special(_)` carries no
 /// body-mounted volume (its damage flows through the content Technique's own effects),
@@ -729,7 +743,10 @@ mod strike_geometry_data_tests {
         let slam = volumes_for_profile(&BossAttackProfile::FloorSlam, pos, size, &behavior);
         assert_eq!(slam.len(), 1);
         assert_eq!(slam[0].center(), authored.to_aabb(origin, size).center());
-        assert_eq!(slam[0].half_size(), authored.to_aabb(origin, size).half_size());
+        assert_eq!(
+            slam[0].half_size(),
+            authored.to_aabb(origin, size).half_size()
+        );
         assert_ne!(
             slam[0].half_size(),
             FLOOR_SLAM[0].to_aabb(origin, size).half_size(),
@@ -738,7 +755,14 @@ mod strike_geometry_data_tests {
 
         // A profile with NO authored override still uses the built-in table.
         let sweep = volumes_for_profile(&BossAttackProfile::SideSweep, pos, size, &behavior);
-        assert_eq!(sweep.len(), 2, "SideSweep keeps its built-in two-box geometry");
-        assert_eq!(sweep[0].center(), SIDE_SWEEP[0].to_aabb(origin, size).center());
+        assert_eq!(
+            sweep.len(),
+            2,
+            "SideSweep keeps its built-in two-box geometry"
+        );
+        assert_eq!(
+            sweep[0].center(),
+            SIDE_SWEEP[0].to_aabb(origin, size).center()
+        );
     }
 }

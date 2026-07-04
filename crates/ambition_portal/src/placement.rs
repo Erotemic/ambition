@@ -259,7 +259,11 @@ pub fn measure_host_depth(occluders: &[ae::Aabb], frame: &PortalFrame, probe_dep
     let mut depth: f32 = 0.0;
     let mut found = false;
     for (near, far) in intervals {
-        let reach = if found { depth + 0.5 } else { pp::SURFACE_GRACE };
+        let reach = if found {
+            depth + 0.5
+        } else {
+            pp::SURFACE_GRACE
+        };
         if near <= reach {
             depth = depth.max(far);
             found = true;
@@ -505,8 +509,7 @@ pub fn transit_step_with_tuning(
             // only blocks re-Begin into the pair just crossed — entering a
             // different pair immediately is legitimate (chained rooms).
             for enter in portals {
-                if cooldown_pair
-                    .is_some_and(|c| c == enter.channel || c == enter.channel.partner())
+                if cooldown_pair.is_some_and(|c| c == enter.channel || c == enter.channel.partner())
                 {
                     continue;
                 }
@@ -528,10 +531,7 @@ pub fn transit_step_with_tuning(
                 let capture = capture_box(enter);
                 let front = pp::front_distance(center, &frame);
                 let entering = front > 0.0 || vel.dot(enter.normal) < 0.0;
-                if front >= -TRANSIT_BEGIN_MARGIN
-                    && entering
-                    && body.strict_intersects(capture)
-                {
+                if front >= -TRANSIT_BEGIN_MARGIN && entering && body.strict_intersects(capture) {
                     return TransitStep::Begin {
                         channel: enter.channel,
                         portal_pos: enter.pos,

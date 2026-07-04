@@ -8,12 +8,12 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 use std::f32::consts::TAU;
 
-use ambition_sfx::SfxMessage;
+use ambition_engine_core::config::{world_to_bevy, WORLD_Z_FX};
 use ambition_gameplay_core::character_sprites::{
     build_character_sprite_with_render_size, CharacterAnim, CharacterAnimator,
 };
-use ambition_engine_core::config::{world_to_bevy, WORLD_Z_FX};
 use ambition_gameplay_core::config::rgba;
+use ambition_sfx::SfxMessage;
 
 // The VFX MESSAGE vocabulary now lives in the foundation crate `ambition_vfx`
 // (presentation-neutral data, so a sim system can emit a cue without depending on

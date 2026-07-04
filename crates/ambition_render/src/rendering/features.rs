@@ -7,8 +7,8 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
 use super::primitives::{feature_color, feature_z, FeatureVisual, RoomVisual};
-use ambition_gameplay_core::assets::game_assets::{self, entity_sprite_or_color, GameAssets};
 use ambition_engine_core::config::world_to_bevy;
+use ambition_gameplay_core::assets::game_assets::{self, entity_sprite_or_color, GameAssets};
 use ambition_gameplay_core::features::{
     ActorDisposition, BossRewardChest, CenteredAabb, ChestFeature, EncounterMob,
     EncounterRewardChest, FeatureId, FeatureName, FeatureVisualKind,
@@ -83,7 +83,9 @@ pub fn spawn_dynamic_feature_visuals(
         let render = BVec2::new(aabb.size().x, aabb.size().y);
         let entity_key = game_assets::entity_sprite_for_enemy(&config.brain);
         let sprite = match assets_ref {
-            Some(a) => entity_sprite_or_color(a, entity_key, render, feature_color(kind, fighting, false)),
+            Some(a) => {
+                entity_sprite_or_color(a, entity_key, render, feature_color(kind, fighting, false))
+            }
             None => Sprite::from_color(feature_color(kind, fighting, false), render),
         };
         commands.spawn((
@@ -112,7 +114,9 @@ pub fn spawn_dynamic_feature_visuals(
         let render = BVec2::new(aabb.size().x, aabb.size().y);
         let entity_key = game_assets::entity_sprite_for_enemy(&config.brain);
         let sprite = match assets_ref {
-            Some(a) => entity_sprite_or_color(a, entity_key, render, feature_color(kind, fighting, false)),
+            Some(a) => {
+                entity_sprite_or_color(a, entity_key, render, feature_color(kind, fighting, false))
+            }
             None => Sprite::from_color(feature_color(kind, fighting, false), render),
         };
         commands.spawn((
@@ -148,7 +152,9 @@ pub fn spawn_dynamic_feature_visuals(
             }
         };
         let sprite = match assets_ref {
-            Some(a) => entity_sprite_or_color(a, entity_key, render, feature_color(kind, fighting, false)),
+            Some(a) => {
+                entity_sprite_or_color(a, entity_key, render, feature_color(kind, fighting, false))
+            }
             None => Sprite::from_color(feature_color(kind, fighting, false), render),
         };
         commands.spawn((
@@ -174,7 +180,10 @@ pub fn spawn_dynamic_feature_visuals(
                 render,
                 feature_color(FeatureVisualKind::Chest, false, false),
             ),
-            None => Sprite::from_color(feature_color(FeatureVisualKind::Chest, false, false), render),
+            None => Sprite::from_color(
+                feature_color(FeatureVisualKind::Chest, false, false),
+                render,
+            ),
         };
         commands.spawn((
             sprite,

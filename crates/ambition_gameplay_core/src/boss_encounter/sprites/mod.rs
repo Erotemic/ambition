@@ -139,68 +139,68 @@ pub fn boss_sheet_override(key: &str) -> Option<BossSheetSpec> {
 // the manifest's `body_metrics.feet_anchor_norm.y`.
 pub static BOSS_SHEET: std::sync::LazyLock<BossSheetSpec> =
     std::sync::LazyLock::new(|| BossSheetSpec {
-    label_width: 100,
-    frame_width: 128,
-    frame_height: 128,
-    rows: vec![
-        (
-            BossAnim::Rest,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.120,
-            },
-        ),
-        (
-            BossAnim::FloorSlam,
-            AnimRow {
-                frame_count: 7,
-                duration_secs: 0.082,
-            },
-        ),
-        (
-            BossAnim::SideSweep,
-            AnimRow {
-                frame_count: 7,
-                duration_secs: 0.072,
-            },
-        ),
-        (
-            BossAnim::SpikeHalo,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.092,
-            },
-        ),
-        (
-            BossAnim::DashEcho,
-            AnimRow {
-                frame_count: 7,
-                duration_secs: 0.062,
-            },
-        ),
-        (
-            BossAnim::Hit,
-            AnimRow {
-                frame_count: 5,
-                duration_secs: 0.090,
-            },
-        ),
-        (
-            BossAnim::Death,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.110,
-            },
-        ),
-    ],
-    // Bosses are visually larger than goblins; a slightly smaller scale
-    // factor stops them from overpowering the rendered scene.
-    collision_scale: 1.6,
-    feet_anchor_y: -0.336,
-    frame_sample_inset: 1,
-    body_centered: false,
-    authored_faces_left: false,
-});
+        label_width: 100,
+        frame_width: 128,
+        frame_height: 128,
+        rows: vec![
+            (
+                BossAnim::Rest,
+                AnimRow {
+                    frame_count: 8,
+                    duration_secs: 0.120,
+                },
+            ),
+            (
+                BossAnim::FloorSlam,
+                AnimRow {
+                    frame_count: 7,
+                    duration_secs: 0.082,
+                },
+            ),
+            (
+                BossAnim::SideSweep,
+                AnimRow {
+                    frame_count: 7,
+                    duration_secs: 0.072,
+                },
+            ),
+            (
+                BossAnim::SpikeHalo,
+                AnimRow {
+                    frame_count: 8,
+                    duration_secs: 0.092,
+                },
+            ),
+            (
+                BossAnim::DashEcho,
+                AnimRow {
+                    frame_count: 7,
+                    duration_secs: 0.062,
+                },
+            ),
+            (
+                BossAnim::Hit,
+                AnimRow {
+                    frame_count: 5,
+                    duration_secs: 0.090,
+                },
+            ),
+            (
+                BossAnim::Death,
+                AnimRow {
+                    frame_count: 8,
+                    duration_secs: 0.110,
+                },
+            ),
+        ],
+        // Bosses are visually larger than goblins; a slightly smaller scale
+        // factor stops them from overpowering the rendered scene.
+        collision_scale: 1.6,
+        feet_anchor_y: -0.336,
+        frame_sample_inset: 1,
+        body_centered: false,
+        authored_faces_left: false,
+    });
 
 /// The Mockingbird boss sheet from the standalone Python generator
 /// (`tools/ambition_sprite2d_renderer/mockingbird_boss_sprite_generator.py`,
@@ -220,78 +220,78 @@ pub static BOSS_SHEET: std::sync::LazyLock<BossSheetSpec> =
 /// `Rest` if the schedule asks for a row this sheet doesn't ship.
 pub static MOCKINGBIRD_SHEET: std::sync::LazyLock<BossSheetSpec> =
     std::sync::LazyLock::new(|| BossSheetSpec {
-    // The mockingbird sheet has no per-row label strip — frame 0
-    // sits at x=0 — so label_width is zero.
-    label_width: 0,
-    // 576×216 wide frames straight from the manifest. The extra edge
-    // margin keeps the pointed nose/flame silhouettes safely inside each
-    // atlas rect while still spending native pixels on the bird instead of
-    // packing a short/wide silhouette into a mostly-empty square canvas.
-    frame_width: 576,
-    frame_height: 216,
-    rows: vec![
-        (
-            BossAnim::Rest,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.110,
-            },
-        ),
-        (
-            BossAnim::DashEcho,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.090,
-            },
-        ),
-        (
-            BossAnim::FloorSlam,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.090,
-            },
-        ),
-        (
-            BossAnim::SpikeHalo,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.088,
-            },
-        ),
-        (
-            BossAnim::Hit,
-            AnimRow {
-                frame_count: 4,
-                duration_secs: 0.080,
-            },
-        ),
-        (
-            BossAnim::Death,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.105,
-            },
-        ),
-    ],
-    // The 576×216 generator output now fits the wide silhouette a bit
-    // more conservatively (roughly y≈34..194 on the hover row) so the
-    // beak / tail / flame tips keep safer atlas margins during in-game
-    // animation. We still no longer need the old 3× Rust-side blow-up
-    // used for the sparse 256×256 sheet.
-    // 1.25 keeps the visible body close to the authored 185px tall
-    // combat box while using much denser native source pixels.
-    collision_scale: 1.25,
-    // `body_centered: true` below makes this read as the body's
-    // normalized vertical offset within the sprite quad rather than
-    // a feet-on-floor delta. Texture bbox-center sits near y=101 of
-    // 216 → (108-114)/108 ≈ -0.05 in Bevy +Y-up.
-    feet_anchor_y: -0.055,
-    frame_sample_inset: 1,
-    body_centered: true,
-    // The mockingbird sheet is drawn in a left-facing profile, so it must
-    // invert the renderer's faces-right assumption or it always faces away.
-    authored_faces_left: true,
-});
+        // The mockingbird sheet has no per-row label strip — frame 0
+        // sits at x=0 — so label_width is zero.
+        label_width: 0,
+        // 576×216 wide frames straight from the manifest. The extra edge
+        // margin keeps the pointed nose/flame silhouettes safely inside each
+        // atlas rect while still spending native pixels on the bird instead of
+        // packing a short/wide silhouette into a mostly-empty square canvas.
+        frame_width: 576,
+        frame_height: 216,
+        rows: vec![
+            (
+                BossAnim::Rest,
+                AnimRow {
+                    frame_count: 6,
+                    duration_secs: 0.110,
+                },
+            ),
+            (
+                BossAnim::DashEcho,
+                AnimRow {
+                    frame_count: 6,
+                    duration_secs: 0.090,
+                },
+            ),
+            (
+                BossAnim::FloorSlam,
+                AnimRow {
+                    frame_count: 6,
+                    duration_secs: 0.090,
+                },
+            ),
+            (
+                BossAnim::SpikeHalo,
+                AnimRow {
+                    frame_count: 6,
+                    duration_secs: 0.088,
+                },
+            ),
+            (
+                BossAnim::Hit,
+                AnimRow {
+                    frame_count: 4,
+                    duration_secs: 0.080,
+                },
+            ),
+            (
+                BossAnim::Death,
+                AnimRow {
+                    frame_count: 8,
+                    duration_secs: 0.105,
+                },
+            ),
+        ],
+        // The 576×216 generator output now fits the wide silhouette a bit
+        // more conservatively (roughly y≈34..194 on the hover row) so the
+        // beak / tail / flame tips keep safer atlas margins during in-game
+        // animation. We still no longer need the old 3× Rust-side blow-up
+        // used for the sparse 256×256 sheet.
+        // 1.25 keeps the visible body close to the authored 185px tall
+        // combat box while using much denser native source pixels.
+        collision_scale: 1.25,
+        // `body_centered: true` below makes this read as the body's
+        // normalized vertical offset within the sprite quad rather than
+        // a feet-on-floor delta. Texture bbox-center sits near y=101 of
+        // 216 → (108-114)/108 ≈ -0.05 in Bevy +Y-up.
+        feet_anchor_y: -0.055,
+        frame_sample_inset: 1,
+        body_centered: true,
+        // The mockingbird sheet is drawn in a left-facing profile, so it must
+        // invert the renderer's faces-right assumption or it always faces away.
+        authored_faces_left: true,
+    });
 
 /// Smirking Behemoth / "You Have To Cut The Rope" boss sheet.
 ///
@@ -308,49 +308,49 @@ pub static MOCKINGBIRD_SHEET: std::sync::LazyLock<BossSheetSpec> =
 /// fall back to `Rest` through `BossSheetSpec::resolve_anim`.
 pub static SMIRKING_BEHEMOTH_SHEET: std::sync::LazyLock<BossSheetSpec> =
     std::sync::LazyLock::new(|| BossSheetSpec {
-    label_width: 100,
-    frame_width: 208,
-    frame_height: 288,
-    rows: vec![
-        (
-            BossAnim::Rest,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.125,
-            },
-        ),
-        (
-            BossAnim::FloorSlam,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.092,
-            },
-        ),
-        (
-            BossAnim::SpikeHalo,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.082,
-            },
-        ),
-        (
-            BossAnim::Death,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.108,
-            },
-        ),
-    ],
-    // The generator now emits a tight 208×288 monolith body with no
-    // transparent floor gutter. collision_scale=1.0 makes the rendered
-    // sprite, derived combat box, and authored LDtk BossSpawn box line
-    // up exactly.
-    collision_scale: 1.0,
-    feet_anchor_y: -0.5,
-    frame_sample_inset: 1,
-    body_centered: false,
-    authored_faces_left: false,
-});
+        label_width: 100,
+        frame_width: 208,
+        frame_height: 288,
+        rows: vec![
+            (
+                BossAnim::Rest,
+                AnimRow {
+                    frame_count: 6,
+                    duration_secs: 0.125,
+                },
+            ),
+            (
+                BossAnim::FloorSlam,
+                AnimRow {
+                    frame_count: 6,
+                    duration_secs: 0.092,
+                },
+            ),
+            (
+                BossAnim::SpikeHalo,
+                AnimRow {
+                    frame_count: 6,
+                    duration_secs: 0.082,
+                },
+            ),
+            (
+                BossAnim::Death,
+                AnimRow {
+                    frame_count: 8,
+                    duration_secs: 0.108,
+                },
+            ),
+        ],
+        // The generator now emits a tight 208×288 monolith body with no
+        // transparent floor gutter. collision_scale=1.0 makes the rendered
+        // sprite, derived combat box, and authored LDtk BossSpawn box line
+        // up exactly.
+        collision_scale: 1.0,
+        feet_anchor_y: -0.5,
+        frame_sample_inset: 1,
+        body_centered: false,
+        authored_faces_left: false,
+    });
 
 impl BossSheetSpec {
     fn row_index(&self, anim: BossAnim) -> Option<usize> {
@@ -543,63 +543,63 @@ pub(crate) const TREX_BOSS_FILENAME: &str = "trex_enemy_spritesheet.png";
 /// while runtime hitboxes stay tied to named parts.
 pub static GNU_TON_SHEET: std::sync::LazyLock<BossSheetSpec> =
     std::sync::LazyLock::new(|| BossSheetSpec {
-    label_width: 0,
-    frame_width: 768,
-    frame_height: 576,
-    rows: vec![
-        (
-            BossAnim::Rest,
-            AnimRow {
-                frame_count: 10,
-                duration_secs: 0.110,
-            },
-        ),
-        (
-            BossAnim::FloorSlam,
-            AnimRow {
-                frame_count: 10,
-                duration_secs: 0.072,
-            },
-        ),
-        (
-            BossAnim::SideSweep,
-            AnimRow {
-                frame_count: 10,
-                duration_secs: 0.065,
-            },
-        ),
-        (
-            BossAnim::SpikeHalo,
-            AnimRow {
-                frame_count: 9,
-                duration_secs: 0.090,
-            },
-        ),
-        (
-            BossAnim::Hit,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.080,
-            },
-        ),
-        (
-            BossAnim::Death,
-            AnimRow {
-                frame_count: 10,
-                duration_secs: 0.105,
-            },
-        ),
-    ],
-    collision_scale: 4.5,
-    // Design-space shoulder top moved to y ≈ -2 (REST_BODY_Y 60 - 62) in
-    // the new 768×576 frame; Bevy anchor.y = +2 / 576. The scholar sits
-    // 18 px above the shoulder (smaller silhouette), so `BossRuntime::pos`
-    // lands at the shoulder ridge — same semantic as before.
-    feet_anchor_y: 2.0 / 576.0,
-    frame_sample_inset: 1,
-    body_centered: true,
-    authored_faces_left: false,
-});
+        label_width: 0,
+        frame_width: 768,
+        frame_height: 576,
+        rows: vec![
+            (
+                BossAnim::Rest,
+                AnimRow {
+                    frame_count: 10,
+                    duration_secs: 0.110,
+                },
+            ),
+            (
+                BossAnim::FloorSlam,
+                AnimRow {
+                    frame_count: 10,
+                    duration_secs: 0.072,
+                },
+            ),
+            (
+                BossAnim::SideSweep,
+                AnimRow {
+                    frame_count: 10,
+                    duration_secs: 0.065,
+                },
+            ),
+            (
+                BossAnim::SpikeHalo,
+                AnimRow {
+                    frame_count: 9,
+                    duration_secs: 0.090,
+                },
+            ),
+            (
+                BossAnim::Hit,
+                AnimRow {
+                    frame_count: 6,
+                    duration_secs: 0.080,
+                },
+            ),
+            (
+                BossAnim::Death,
+                AnimRow {
+                    frame_count: 10,
+                    duration_secs: 0.105,
+                },
+            ),
+        ],
+        collision_scale: 4.5,
+        // Design-space shoulder top moved to y ≈ -2 (REST_BODY_Y 60 - 62) in
+        // the new 768×576 frame; Bevy anchor.y = +2 / 576. The scholar sits
+        // 18 px above the shoulder (smaller silhouette), so `BossRuntime::pos`
+        // lands at the shoulder ridge — same semantic as before.
+        feet_anchor_y: 2.0 / 576.0,
+        frame_sample_inset: 1,
+        body_centered: true,
+        authored_faces_left: false,
+    });
 
 /// Flying Spaghetti Monster boss sheet (7 rows). The sheet ships its own attack
 /// rows, so unlike the old generic fallback this renders the noodly appendages
@@ -615,66 +615,66 @@ pub static GNU_TON_SHEET: std::sync::LazyLock<BossSheetSpec> =
 /// crop so headless/no-asset renders still get the right aspect.
 pub static FLYING_SPAGHETTI_MONSTER_SHEET: std::sync::LazyLock<BossSheetSpec> =
     std::sync::LazyLock::new(|| BossSheetSpec {
-    label_width: 100,
-    frame_width: 393,
-    frame_height: 344,
-    rows: vec![
-        (
-            BossAnim::Rest,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.132,
-            },
-        ),
-        (
-            BossAnim::DashEcho,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.098,
-            },
-        ),
-        (
-            BossAnim::SideSweep,
-            AnimRow {
-                frame_count: 7,
-                duration_secs: 0.090,
-            },
-        ),
-        (
-            BossAnim::FloorSlam,
-            AnimRow {
-                frame_count: 7,
-                duration_secs: 0.090,
-            },
-        ),
-        (
-            BossAnim::SpikeHalo,
-            AnimRow {
-                frame_count: 7,
-                duration_secs: 0.090,
-            },
-        ),
-        (
-            BossAnim::Hit,
-            AnimRow {
-                frame_count: 4,
-                duration_secs: 0.090,
-            },
-        ),
-        (
-            BossAnim::Death,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.108,
-            },
-        ),
-    ],
-    collision_scale: 1.8,
-    feet_anchor_y: 0.0,
-    frame_sample_inset: 1,
-    body_centered: true,
-    authored_faces_left: false,
-});
+        label_width: 100,
+        frame_width: 393,
+        frame_height: 344,
+        rows: vec![
+            (
+                BossAnim::Rest,
+                AnimRow {
+                    frame_count: 6,
+                    duration_secs: 0.132,
+                },
+            ),
+            (
+                BossAnim::DashEcho,
+                AnimRow {
+                    frame_count: 8,
+                    duration_secs: 0.098,
+                },
+            ),
+            (
+                BossAnim::SideSweep,
+                AnimRow {
+                    frame_count: 7,
+                    duration_secs: 0.090,
+                },
+            ),
+            (
+                BossAnim::FloorSlam,
+                AnimRow {
+                    frame_count: 7,
+                    duration_secs: 0.090,
+                },
+            ),
+            (
+                BossAnim::SpikeHalo,
+                AnimRow {
+                    frame_count: 7,
+                    duration_secs: 0.090,
+                },
+            ),
+            (
+                BossAnim::Hit,
+                AnimRow {
+                    frame_count: 4,
+                    duration_secs: 0.090,
+                },
+            ),
+            (
+                BossAnim::Death,
+                AnimRow {
+                    frame_count: 8,
+                    duration_secs: 0.108,
+                },
+            ),
+        ],
+        collision_scale: 1.8,
+        feet_anchor_y: 0.0,
+        frame_sample_inset: 1,
+        body_centered: true,
+        authored_faces_left: false,
+    });
 
 /// T-Rex boss sheet (398×320 frames, 9 rows; reuses the trex *enemy* PNG). The
 /// sheet has more rows than the 7-variant `BossAnim`, so `tail_swipe` and
@@ -686,82 +686,82 @@ pub static FLYING_SPAGHETTI_MONSTER_SHEET: std::sync::LazyLock<BossSheetSpec> =
 /// bipedal, so NOT `body_centered`. _Render scale / anchor are first-pass._
 pub static TREX_BOSS_SHEET: std::sync::LazyLock<BossSheetSpec> =
     std::sync::LazyLock::new(|| BossSheetSpec {
-    label_width: 100,
-    frame_width: 398,
-    frame_height: 320,
-    rows: vec![
-        (
-            BossAnim::Rest,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.140,
-            },
-        ),
-        (
-            BossAnim::DashEcho,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.090,
-            },
-        ),
-        (
-            BossAnim::FloorSlam,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.080,
-            },
-        ),
-        (
-            BossAnim::SideSweep,
-            AnimRow {
-                frame_count: 7,
-                duration_secs: 0.080,
-            },
-        ),
-        (
-            BossAnim::SpikeHalo,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.100,
-            },
-        ),
-        // tail_swipe — duplicate SideSweep label; in the atlas, not separately picked.
-        (
-            BossAnim::SideSweep,
-            AnimRow {
-                frame_count: 7,
-                duration_secs: 0.080,
-            },
-        ),
-        // stomp — duplicate FloorSlam label; in the atlas, not separately picked.
-        (
-            BossAnim::FloorSlam,
-            AnimRow {
-                frame_count: 6,
-                duration_secs: 0.090,
-            },
-        ),
-        (
-            BossAnim::Hit,
-            AnimRow {
-                frame_count: 4,
-                duration_secs: 0.090,
-            },
-        ),
-        (
-            BossAnim::Death,
-            AnimRow {
-                frame_count: 8,
-                duration_secs: 0.110,
-            },
-        ),
-    ],
-    collision_scale: 1.6,
-    feet_anchor_y: -0.5,
-    frame_sample_inset: 1,
-    body_centered: false,
-    authored_faces_left: false,
-});
+        label_width: 100,
+        frame_width: 398,
+        frame_height: 320,
+        rows: vec![
+            (
+                BossAnim::Rest,
+                AnimRow {
+                    frame_count: 6,
+                    duration_secs: 0.140,
+                },
+            ),
+            (
+                BossAnim::DashEcho,
+                AnimRow {
+                    frame_count: 8,
+                    duration_secs: 0.090,
+                },
+            ),
+            (
+                BossAnim::FloorSlam,
+                AnimRow {
+                    frame_count: 8,
+                    duration_secs: 0.080,
+                },
+            ),
+            (
+                BossAnim::SideSweep,
+                AnimRow {
+                    frame_count: 7,
+                    duration_secs: 0.080,
+                },
+            ),
+            (
+                BossAnim::SpikeHalo,
+                AnimRow {
+                    frame_count: 6,
+                    duration_secs: 0.100,
+                },
+            ),
+            // tail_swipe — duplicate SideSweep label; in the atlas, not separately picked.
+            (
+                BossAnim::SideSweep,
+                AnimRow {
+                    frame_count: 7,
+                    duration_secs: 0.080,
+                },
+            ),
+            // stomp — duplicate FloorSlam label; in the atlas, not separately picked.
+            (
+                BossAnim::FloorSlam,
+                AnimRow {
+                    frame_count: 6,
+                    duration_secs: 0.090,
+                },
+            ),
+            (
+                BossAnim::Hit,
+                AnimRow {
+                    frame_count: 4,
+                    duration_secs: 0.090,
+                },
+            ),
+            (
+                BossAnim::Death,
+                AnimRow {
+                    frame_count: 8,
+                    duration_secs: 0.110,
+                },
+            ),
+        ],
+        collision_scale: 1.6,
+        feet_anchor_y: -0.5,
+        frame_sample_inset: 1,
+        body_centered: false,
+        authored_faces_left: false,
+    });
 
 /// Sandbox-side `(label, filename)` rows for every boss spritesheet
 /// the sandbox knows about. The aggregator in
@@ -821,10 +821,14 @@ pub fn dedicated_boss_sheets() -> [(&'static str, BossSheetSpec); 7] {
     // Each key resolves to the content-authored override (`boss_sheets.ron`) if
     // one is installed, else the built-in default — the E58 "empty default =
     // built-in" pattern, now for sheet layouts.
-    let resolve =
-        |key: &'static str, builtin: &std::sync::LazyLock<BossSheetSpec>| -> (&'static str, BossSheetSpec) {
-            (key, boss_sheet_override(key).unwrap_or_else(|| (*builtin).clone()))
-        };
+    let resolve = |key: &'static str,
+                   builtin: &std::sync::LazyLock<BossSheetSpec>|
+     -> (&'static str, BossSheetSpec) {
+        (
+            key,
+            boss_sheet_override(key).unwrap_or_else(|| (*builtin).clone()),
+        )
+    };
     [
         resolve("mockingbird", &MOCKINGBIRD_SHEET),
         resolve("gnu_ton", &GNU_TON_SHEET),

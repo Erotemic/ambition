@@ -14,6 +14,7 @@ use super::primitives::{
     feature_color, feature_z, switch_on_color, FeatureVisual, PlayerSpriteBaseline, PlayerVisual,
     PropVisual, SceneEntities,
 };
+use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_gameplay_core::assets::game_assets::{self, EntitySprite, GameAssets};
 use ambition_gameplay_core::boss_encounter::sprites::{self, BossAnimState, BossAnimator};
 use ambition_gameplay_core::character_sprites::{
@@ -21,7 +22,6 @@ use ambition_gameplay_core::character_sprites::{
     feet_anchor_for_render_size, player_placeholder_render_size, CharacterAnimator,
 };
 use ambition_gameplay_core::combat::BoundFeatureKind;
-use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_gameplay_core::features::{
     ActorRenderSize, BossClusterRef, BreakableFeature, ChestFeature, FeatureId, FeatureViewIndex,
     FeatureVisualKind, Opened,
@@ -276,9 +276,7 @@ pub fn upgrade_actor_sprites(
         let actor_name = Some(actor.name.as_str());
         let named = override_name
             .and_then(|n| assets.characters.npc_asset_for_name(n))
-            .or_else(|| {
-                actor_name.and_then(|n| assets.characters.npc_asset_for_name(n))
-            });
+            .or_else(|| actor_name.and_then(|n| assets.characters.npc_asset_for_name(n)));
         let character_asset = match named {
             Some(asset) => Some(asset),
             None => {

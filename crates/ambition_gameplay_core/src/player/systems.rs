@@ -7,8 +7,8 @@ use super::components::{
 };
 use super::events::PlayerHealRequested;
 use super::movement_components::{BodyGroundState, BodyKinematics};
-use ambition_characters::actor::{BodyCombat, BodyHealth};
 use crate::features::ActorPose;
+use ambition_characters::actor::{BodyCombat, BodyHealth};
 use ambition_characters::brain::{ActorControl, Brain, BrainSnapshot, SlotControls};
 use ambition_engine_core as ae;
 use ambition_input::ControlFrame;

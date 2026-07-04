@@ -482,7 +482,11 @@ pub fn rebuild_boss_render_index(
 ) {
     index.begin_rebuild();
     for (id, boss) in &bosses {
-        index.upsert(id.as_str(), boss.config.name.as_str(), boss.config.behavior.id.as_str());
+        index.upsert(
+            id.as_str(),
+            boss.config.name.as_str(),
+            boss.config.behavior.id.as_str(),
+        );
     }
     index.end_rebuild();
 }

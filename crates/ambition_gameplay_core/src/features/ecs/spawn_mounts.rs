@@ -79,8 +79,9 @@ pub(super) fn spawn_composite_mount_rider(
         mount_brain_payload,
         paths,
     );
-    mount_enemy.health =
-        ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(composite_hp));
+    mount_enemy.health = ambition_characters::actor::BodyHealth::new(
+        ambition_characters::actor::Health::new(composite_hp),
+    );
 
     // Rider variant name: strip the composite's authored `rider_name_suffix`
     // from the spawn name (e.g. "Iron Mary on Shark" → "Iron Mary"), or use the
@@ -126,8 +127,9 @@ pub(super) fn spawn_composite_mount_rider(
     rider_enemy.kin.size = mounted_size;
     // Rider HP from the composite spec's `rider_max_health`.
     if let Some(rider_hp) = composite_spec.rider_max_health {
-        rider_enemy.health =
-            ambition_characters::actor::BodyHealth::new(ambition_characters::actor::Health::new(rider_hp));
+        rider_enemy.health = ambition_characters::actor::BodyHealth::new(
+            ambition_characters::actor::Health::new(rider_hp),
+        );
     }
     rider_enemy.surface.gravity_scale = 0.0;
 

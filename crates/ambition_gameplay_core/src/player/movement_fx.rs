@@ -19,9 +19,9 @@ use bevy::prelude::MessageWriter;
 use ambition_engine_core as ae;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
+use crate::player::{BodyAnimFacts, PlayerBlinkCameraState};
 use ambition_characters::actor::BodyCombat;
 use ambition_sfx::SfxMessage;
-use crate::player::{BodyAnimFacts, PlayerBlinkCameraState};
 
 /// How long the wall-jump push-off pose holds after the WallJump op fires. Short
 /// enough to clear before the apex of the jump arc so the regular `Jump` row
@@ -281,7 +281,16 @@ pub fn handle_player_events(
     let size = clusters.kinematics.size;
     let on_ground = clusters.ground.on_ground;
     // Body-generic SFX/VFX — the SAME emitter the actor tick uses.
-    emit_movement_fx(sfx, vfx, &events, pos, facing, size, on_ground, was_grounded);
+    emit_movement_fx(
+        sfx,
+        vfx,
+        &events,
+        pos,
+        facing,
+        size,
+        on_ground,
+        was_grounded,
+    );
     // Body-generic op-driven overlay poses (the wall-jump push-off) — the SAME
     // arming the actor tick runs (§A9). Player-specific presentation the shared
     // arming deliberately omits stays inline below: the blink-camera lerp and the

@@ -15,9 +15,9 @@ use super::components::{
     ActorAggression, ActorFaction, ActorTarget, AggressionTarget, CenteredAabb,
 };
 use super::FeatureSimEntity;
-use ambition_characters::actor::BodyHealth;
 use crate::actor::BodyKinematics;
 use crate::actor::PlayerEntity;
+use ambition_characters::actor::BodyHealth;
 
 /// Number of [`ActorFaction`] variants (Player / Enemy / Npc / Boss / Neutral).
 /// The relations matrix is indexed by `faction as usize`.
@@ -272,7 +272,9 @@ pub fn select_actor_targets(
             // identity, which nearest-foe targeting does not require.
             let better = match best {
                 None => true,
-                Some((best_entity, _, best_d)) => d < best_d || (d == best_d && *entity < best_entity),
+                Some((best_entity, _, best_d)) => {
+                    d < best_d || (d == best_d && *entity < best_entity)
+                }
             };
             if better {
                 best = Some((*entity, *pos, d));

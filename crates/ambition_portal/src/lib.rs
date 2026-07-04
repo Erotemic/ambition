@@ -78,8 +78,7 @@ pub use transit::{
 pub use tuning::{sync_portal_tuning_convention, PortalConvention, PortalTuning};
 pub use types::{
     find_portal, portal_half_extent, portal_half_extent_with_length, portal_opening_half,
-    PlacedPortal, PortalHostDepths, PortalTransitCooldown, MIN_EXIT_SPEED,
-    PORTAL_VISUAL_THICKNESS,
+    PlacedPortal, PortalHostDepths, PortalTransitCooldown, MIN_EXIT_SPEED, PORTAL_VISUAL_THICKNESS,
 };
 pub use view::{
     aperture_wedge, aperture_wedge_multi, blend_cones, copy_roll, copy_transform,

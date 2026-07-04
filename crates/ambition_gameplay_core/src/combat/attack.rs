@@ -22,19 +22,19 @@ use ambition_characters::brain::{ActorActionMessage, ActorControl, MeleeActionSp
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_vfx::vfx::{SlashKind, VfxMessage};
 
-use ambition_characters::actor::BodyCombat;
-use ambition_sfx::SfxMessage;
 use crate::combat::{
     attack_hitbox_from_view, attack_spec_from_view, resolve_attack_intent_from_view, AttackIntent,
     AttackPhase, AttackView,
 };
 use crate::dev::dev_tools::EditableMovementTuning;
 use crate::features::{self, FeatureEcsWorldOverlay};
-use crate::player::{BodyMelee, BodyAnimFacts};
+use crate::player::{BodyAnimFacts, BodyMelee};
 use crate::time::feel::SandboxFeelTuning;
 use crate::world::platforms::MovingPlatformState;
 use crate::{physics, MeleeSwing, MovingPlatformSet};
+use ambition_characters::actor::BodyCombat;
 use ambition_engine_core::RoomGeometry;
+use ambition_sfx::SfxMessage;
 
 /// Build the engine's `InputState` purely from `ActorControl` —
 /// the player's brain output is the single source of truth for
@@ -157,10 +157,7 @@ pub fn pogo_moveset_off_world_orbs(
     moving_platforms: Res<MovingPlatformSet>,
     feature_ecs_overlay: Res<FeatureEcsWorldOverlay>,
     gravity: physics::GravityCtx,
-    hitboxes: Query<(
-        &ambition_vfx::Hitbox,
-        &crate::combat::on_hit::HitboxOnHit,
-    )>,
+    hitboxes: Query<(&ambition_vfx::Hitbox, &crate::combat::on_hit::HitboxOnHit)>,
     boxes: Query<&features::CenteredAabb>,
     mut owners: Query<(&mut ae::BodyKinematics, &mut crate::actor::BodyGroundState)>,
     mut sfx: MessageWriter<SfxMessage>,
@@ -670,7 +667,8 @@ pub fn advance_body_melee(
     )>,
 ) {
     let dt = world_time.sim_dt();
-    for (entity, mut cq, mut melee, faction, brain, config, mut anim, moveset_melee) in &mut bodies {
+    for (entity, mut cq, mut melee, faction, brain, config, mut anim, moveset_melee) in &mut bodies
+    {
         // The recovery / refire floors tick every frame regardless of a live swing
         // (`advance_attack` advances the swing's own `elapsed`).
         melee.cooldown = (melee.cooldown - dt).max(0.0);

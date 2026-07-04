@@ -28,11 +28,11 @@ use super::*;
 // surfaces them to the `ecs/` submodules that name `super::BodyCombat` — the
 // `super::*` glob no longer carries them since the `features` facade stopped
 // re-exporting the shared body vocabulary.
+use crate::platformer_runtime::lifecycle::RoomVisual;
+use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 use ambition_characters::actor::{BodyCombat, BodyHealth};
 #[cfg(test)]
 use ambition_sfx::SfxMessage;
-use crate::platformer_runtime::lifecycle::RoomVisual;
-use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 use bevy::prelude::{
     Commands, Component, Entity, MessageReader, MessageWriter, NextState, Query, Res, ResMut,
@@ -95,8 +95,8 @@ pub use anim_helpers::{
 };
 pub use banner::{apply_gameplay_banner_requests, tick_gameplay_banner};
 pub use boss_clusters::{
-    boss_is_cleared, BossClusterQueryData, BossClusterRef, BossClusterScratch, BossConfig, BossMut,
-    BossRef, BossEncounter,
+    boss_is_cleared, BossClusterQueryData, BossClusterRef, BossClusterScratch, BossConfig,
+    BossEncounter, BossMut, BossRef,
 };
 pub(crate) use bosses::boss_component_snapshot;
 #[allow(

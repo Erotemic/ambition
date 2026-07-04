@@ -323,7 +323,11 @@ fn apply_capture_snapshot(
     // `player` focus mode: center on the live player body (falls back to the
     // fixed focus if the player isn't spawned yet).
     let focus_center = if config.follow_player {
-        player_q.iter().next().map(|k| k.pos).unwrap_or(config.focus)
+        player_q
+            .iter()
+            .next()
+            .map(|k| k.pos)
+            .unwrap_or(config.focus)
     } else {
         config.focus
     };

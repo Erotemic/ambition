@@ -14,10 +14,10 @@
 use bevy::prelude::*;
 
 use crate::abilities::traversal::possession::ControlledSubject;
-use ambition_characters::actor::BodyHealth;
 use crate::actor::BodyKinematics;
 use crate::actor::BodyMana;
 use crate::actor::{PlayerEntity, PrimaryPlayer};
+use ambition_characters::actor::BodyHealth;
 use ambition_characters::brain::ActorControl;
 use ambition_engine_core::{self as ae, AabbExt};
 

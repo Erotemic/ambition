@@ -12,9 +12,9 @@ use super::variation::{five_f32s_from_seed, seed_from_id};
 use super::{CombatKit, HeldItem};
 use crate::combat::{ActorTuning, CharacterBrainSpec, CharacterBrainTemplate};
 use ambition_characters::brain::{
-    ActionSet, Brain, MeleeBruteCfg, MeleeBruteState, ChargeCrashCfg, ChargeCrashState, SkirmisherCfg,
-    SkirmisherState, SmashCfg, SmashState, SniperCfg, SniperState, StateMachineCfg, WandererCfg,
-    WandererState,
+    ActionSet, Brain, ChargeCrashCfg, ChargeCrashState, MeleeBruteCfg, MeleeBruteState,
+    SkirmisherCfg, SkirmisherState, SmashCfg, SmashState, SniperCfg, SniperState, StateMachineCfg,
+    WandererCfg, WandererState,
 };
 
 /// Build the enemy's durable combat capability kit from archetype data.

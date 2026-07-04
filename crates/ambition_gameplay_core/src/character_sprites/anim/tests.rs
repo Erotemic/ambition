@@ -5,8 +5,8 @@
 //! loop correctly.
 
 use super::*;
-use ambition_characters::actor::BodyCombat;
 use crate::player::PlayerBlinkCameraState;
+use ambition_characters::actor::BodyCombat;
 
 /// Build a player + the three default state inputs that
 /// `pick_player_anim` consumes. Tests then mutate just the
@@ -436,20 +436,48 @@ fn actors_show_movement_overlay_poses_like_the_player() {
     c.ground.on_ground = true;
     // Wall-jump + dash-startup are high-priority overlays (win over locomotion).
     assert_eq!(
-        pick_actor(&c, None, ActorAnimState { wall_jump: true, ..actor_state() }),
+        pick_actor(
+            &c,
+            None,
+            ActorAnimState {
+                wall_jump: true,
+                ..actor_state()
+            }
+        ),
         CharacterAnim::WallJump,
     );
     assert_eq!(
-        pick_actor(&c, None, ActorAnimState { dash_startup: true, ..actor_state() }),
+        pick_actor(
+            &c,
+            None,
+            ActorAnimState {
+                dash_startup: true,
+                ..actor_state()
+            }
+        ),
         CharacterAnim::DashStartup,
     );
     // Landing grades hard vs soft; it only shows on the ground.
     assert_eq!(
-        pick_actor(&c, None, ActorAnimState { landing: Some(true), ..actor_state() }),
+        pick_actor(
+            &c,
+            None,
+            ActorAnimState {
+                landing: Some(true),
+                ..actor_state()
+            }
+        ),
         CharacterAnim::LandHard,
     );
     assert_eq!(
-        pick_actor(&c, None, ActorAnimState { landing: Some(false), ..actor_state() }),
+        pick_actor(
+            &c,
+            None,
+            ActorAnimState {
+                landing: Some(false),
+                ..actor_state()
+            }
+        ),
         CharacterAnim::LandRecovery,
     );
     // No overlay armed → the base ladder (a grounded idle actor reads Idle).

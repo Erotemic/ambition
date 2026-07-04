@@ -59,7 +59,11 @@ fn build_body_mode_test_app() -> (App, Entity) {
     let mut app = App::new();
     app.insert_resource(ambition_engine_core::RoomGeometry(open_world()));
     app.init_resource::<SlotInteractionState>();
-    let world_spawn = app.world().resource::<ambition_engine_core::RoomGeometry>().0.spawn;
+    let world_spawn = app
+        .world()
+        .resource::<ambition_engine_core::RoomGeometry>()
+        .0
+        .spawn;
     app.add_systems(Update, super::update_body_mode);
     let player = app
         .world_mut()
@@ -145,7 +149,11 @@ fn controlled_actor_body_mode_input_does_not_affect_home_body() {
     app.insert_resource(ambition_engine_core::RoomGeometry(open_world()));
     app.init_resource::<SlotInteractionState>();
     app.add_systems(Update, super::update_body_mode);
-    let spawn = app.world().resource::<ambition_engine_core::RoomGeometry>().0.spawn;
+    let spawn = app
+        .world()
+        .resource::<ambition_engine_core::RoomGeometry>()
+        .0
+        .spawn;
     // Vacated home body: has the kit, but NO player brain (someone else is driving).
     let home = spawn_mode_body(&mut app, spawn, None);
     // The possessed actor the primary controller is driving.
@@ -193,7 +201,11 @@ fn player_input_frame_is_not_body_mode_authority() {
     app.insert_resource(ambition_engine_core::RoomGeometry(open_world()));
     app.init_resource::<SlotInteractionState>();
     app.add_systems(Update, super::update_body_mode);
-    let spawn = app.world().resource::<ambition_engine_core::RoomGeometry>().0.spawn;
+    let spawn = app
+        .world()
+        .resource::<ambition_engine_core::RoomGeometry>()
+        .0
+        .spawn;
     let body = spawn_mode_body(&mut app, spawn, Some(PlayerSlot::PRIMARY));
     // A NEUTRAL PlayerInputFrame — if the driver still read it, the body would never
     // crouch. The live crouch intent lives only on ActorControl.

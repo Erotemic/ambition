@@ -23,7 +23,9 @@
 //!   carrying the [`PogoTarget`] capability. Ships with the engine (AJ1: the
 //!   generic platformer kit is engine-provided); a game marks what is pogo-able.
 
-use bevy::prelude::{Component, Entity, Message, MessageReader, MessageWriter, Query, Res, With};
+use bevy::prelude::{
+    Component, Entity, Has, Message, MessageReader, MessageWriter, Query, Res, With,
+};
 
 use ambition_engine_core as ae;
 use ambition_entity_catalog::EffectRef;
@@ -74,12 +76,19 @@ pub struct OnHitEffectMessage {
     pub effect: EffectRef,
 }
 
-/// Fire each on-hit hitbox's technique the first time it overlaps a
-/// damage-valid victim. Runs while hitboxes are live (in the combat chain,
-/// after `apply_hitbox_damage`); one message per (hitbox, victim). Reuses the
-/// same overlap ([`ae::CombatVolume::intersects_aabb`]) and faction
-/// ([`damage_lands`]) rules the damage resolver uses, so "the volume LANDS"
-/// means the same thing here — but decoupled, so the damage path is untouched.
+/// Fire each on-hit hitbox's technique the first time its volume connects.
+/// Runs while hitboxes are live (in the combat chain, after
+/// `apply_hitbox_damage`); one message per (hitbox, target). "Connects" means:
+/// - a **factioned body** — the damage rule ([`damage_lands`]: an enemy, never
+///   an ally), so "the volume LANDS" matches the damage resolver;
+/// - a **factionless target** (a world breakable / pogo-orb) — opts in via the
+///   [`PogoTarget`] capability, unifying world-orb pogo with victim pogo under
+///   the one capability (fable review R2.5, Jon's call). One capability today;
+///   generalize to an `OnHitReceptive` marker if a second factionless on-hit
+///   effect ever lands.
+///
+/// Decoupled from the damage resolvers (own overlap + rules), so the delicate
+/// damage path is untouched and every hitbox source is covered uniformly.
 pub fn dispatch_hitbox_on_hit(
     mut hitboxes: Query<(&Hitbox, &mut HitboxOnHit)>,
     // Owner-box center for FollowOwner tracking: actors carry `CenteredAabb`,
@@ -87,11 +96,12 @@ pub fn dispatch_hitbox_on_hit(
     // kinematics; an owner-less hitbox contributes nothing.
     owners: Query<&super::components::CenteredAabb>,
     owner_kin: Query<&ae::BodyKinematics>,
-    victims: Query<(
+    targets: Query<(
         Entity,
         &super::components::CenteredAabb,
-        &ActorFaction,
+        Option<&ActorFaction>,
         Option<&ambition_characters::brain::Brain>,
+        Has<PogoTarget>,
     )>,
     attacker_aggression: Query<&ActorAggression>,
     friendly_fire: Option<Res<crate::features::FriendlyFire>>,
@@ -111,21 +121,25 @@ pub fn dispatch_hitbox_on_hit(
             .get(hitbox.owner)
             .ok()
             .and_then(|a| a.grudge);
-        for (victim_entity, victim_aabb, victim_faction, victim_brain) in &victims {
-            if victim_entity == hitbox.owner || on_hit.fired.contains(&victim_entity) {
+        for (target, target_aabb, faction, brain, is_pogo_target) in &targets {
+            if target == hitbox.owner || on_hit.fired.contains(&target) {
                 continue;
             }
-            let vf = effective_faction(*victim_faction, victim_brain);
-            if !damage_lands(hitbox.source, vf, friendly_fire, owner_grudge, victim_entity) {
+            let connects = match faction {
+                Some(f) => {
+                    let vf = effective_faction(*f, brain);
+                    damage_lands(hitbox.source, vf, friendly_fire, owner_grudge, target)
+                }
+                // Factionless world target: eligible iff pogo-able.
+                None => is_pogo_target,
+            };
+            if !connects || !world_volume.intersects_aabb(target_aabb.aabb()) {
                 continue;
             }
-            if !world_volume.intersects_aabb(victim_aabb.aabb()) {
-                continue;
-            }
-            on_hit.fired.insert(victim_entity);
+            on_hit.fired.insert(target);
             out.write(OnHitEffectMessage {
                 owner: hitbox.owner,
-                victim: victim_entity,
+                victim: target,
                 contact: world_volume.center(),
                 effect: on_hit.effect.clone(),
             });
@@ -322,6 +336,67 @@ mod tests {
                 .unwrap()
                 .on_ground,
             "the pogo un-grounds the owner",
+        );
+    }
+
+    #[test]
+    fn down_air_pogos_off_a_factionless_world_orb() {
+        // A pogo-orb is a FACTIONLESS world breakable (CenteredAabb + PogoTarget,
+        // no ActorFaction). Victim-pogo and world-orb pogo unify under the one
+        // capability (fable review R2.5, Jon's call).
+        let mut app = App::new();
+        app.add_message::<MoveEventMessage>();
+        app.add_message::<OnHitEffectMessage>();
+        app.add_message::<SfxMessage>();
+        app.init_resource::<WorldTime>();
+        app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
+        app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+        app.add_systems(
+            Update,
+            (
+                advance_move_playback,
+                dispatch_hitbox_on_hit,
+                apply_pogo_bounce,
+            )
+                .chain(),
+        );
+        let owner = app
+            .world_mut()
+            .spawn((
+                ae::CenteredAabb::from_center_size(
+                    ae::Vec2::new(100.0, 100.0),
+                    ae::Vec2::new(28.0, 46.0),
+                ),
+                ae::BodyKinematics {
+                    pos: ae::Vec2::new(100.0, 100.0),
+                    vel: ae::Vec2::ZERO,
+                    size: ae::Vec2::new(28.0, 46.0),
+                    facing: 1.0,
+                },
+                crate::actor::BodyGroundState {
+                    on_ground: true,
+                    ..Default::default()
+                },
+                ActorFaction::Player,
+                MovePlayback::new(pogo_dair(), 1.0),
+            ))
+            .id();
+        // The orb below: NO ActorFaction, just the capability.
+        app.world_mut().spawn((
+            ae::CenteredAabb::from_center_size(
+                ae::Vec2::new(100.0, 130.0),
+                ae::Vec2::new(28.0, 46.0),
+            ),
+            PogoTarget,
+        ));
+        for _ in 0..2 {
+            app.update();
+        }
+        let kin = app.world().get::<ae::BodyKinematics>(owner).unwrap();
+        assert!(
+            kin.vel.y < -1.0,
+            "the owner pogos off a factionless world orb, vel={:?}",
+            kin.vel
         );
     }
 

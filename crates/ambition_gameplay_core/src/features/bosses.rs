@@ -217,6 +217,7 @@ pub fn boss_attack_moveset(
                 }],
                 events: Vec::new(),
                 gates: Default::default(),
+                start_impulse: None,
             })
         })
         .collect();

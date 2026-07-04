@@ -244,6 +244,14 @@ pub struct MoveSpec {
     pub events: Vec<MoveEvent>,
     #[serde(default)]
     pub gates: MoveGates,
+    /// A one-shot body-local velocity ADD applied when the move is triggered —
+    /// the move's self-motion (a jab's forward lunge, a dash-attack's slide, a
+    /// back-air's drift). `(+x = facing, +y = gravity-down)`; the runtime mirrors
+    /// x by facing and rotates it into the owner's gravity frame, so it stays
+    /// frame-correct under any gravity. `None` = no self-motion (the identity
+    /// case for every actor/boss move that doesn't lunge).
+    #[serde(default)]
+    pub start_impulse: Option<(f32, f32)>,
 }
 
 impl MoveSpec {
@@ -723,6 +731,7 @@ mod tests {
             windows: vec![],
             events: vec![],
             gates: MoveGates { grounded },
+            start_impulse: None,
         }
     }
 

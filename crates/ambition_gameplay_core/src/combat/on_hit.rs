@@ -244,6 +244,7 @@ mod tests {
             }],
             events: vec![],
             gates: Default::default(),
+            start_impulse: None,
         }
     }
 

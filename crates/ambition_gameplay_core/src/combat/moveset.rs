@@ -123,6 +123,7 @@ pub fn attack_move_from_melee(spec: &MeleeActionSpec) -> MoveSpec {
             },
         }],
         gates: Default::default(),
+        start_impulse: None,
     }
 }
 
@@ -177,6 +178,7 @@ pub fn fire_move_from_ranged(spec: &RangedActionSpec) -> MoveSpec {
             kind: MoveEventKind::Ranged,
         }],
         gates: Default::default(),
+        start_impulse: None,
     }
 }
 
@@ -487,12 +489,15 @@ fn attack_dir_from_axis(axis: ae::Vec2) -> AttackDir {
 /// resolves every direction to it — byte-identical to the pre-directional path.
 pub fn trigger_moveset_moves(
     mut commands: Commands,
-    bodies: Query<
+    gravity: crate::physics::GravityCtx,
+    mut bodies: Query<
         (
             Entity,
             &ActorMoveset,
             &ActorControl,
-            &ae::BodyKinematics,
+            // Mutable so a move's authored `start_impulse` (self-motion) lands at
+            // trigger — the move-start seam.
+            &mut ae::BodyKinematics,
             // Grounded state selects tilt-vs-air variants. Absent on bare test
             // bodies → treated as grounded (immaterial: such bodies author only
             // the base `attack`, which every direction resolves to).
@@ -501,7 +506,7 @@ pub fn trigger_moveset_moves(
         Without<MovePlayback>,
     >,
 ) {
-    for (entity, moveset, control, kin, ground) in &bodies {
+    for (entity, moveset, control, mut kin, ground) in &mut bodies {
         let frame = &control.0;
         let grounded = ground.map(|g| g.on_ground).unwrap_or(true);
         let spec = if frame.special_pressed {
@@ -519,6 +524,15 @@ pub fn trigger_moveset_moves(
             continue;
         };
         if let Some(spec) = spec {
+            // Self-motion: a body-local impulse mirrored by facing and rotated
+            // into the owner's gravity frame (a jab's lunge stays "forward"
+            // under any gravity). Identity when the move authors none.
+            if let Some((ix, iy)) = spec.start_impulse {
+                let local = ae::Vec2::new(ix * kin.facing, iy);
+                let world_impulse =
+                    ae::AccelerationFrame::new(gravity.dir_at(kin.pos)).to_world(local);
+                kin.vel += world_impulse;
+            }
             commands
                 .entity(entity)
                 .insert(MovePlayback::new(spec.clone(), kin.facing));
@@ -1254,6 +1268,63 @@ mod tests {
             "the special verb edge triggered the move and it landed its hit"
         );
         assert_eq!(cap.events.len(), 1, "the move's timed Sfx event fired once");
+    }
+
+    /// A move authoring `start_impulse` lunges the body toward its facing at
+    /// trigger — the self-motion the flat directional swings applied at
+    /// `start_attack`, now move DATA the player-melee fold rides.
+    #[test]
+    fn a_move_start_impulse_lunges_the_body_toward_facing() {
+        let mut app = App::new();
+        app.add_message::<MoveEventMessage>();
+        app.init_resource::<WorldTime>();
+        app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
+        app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
+        app.add_systems(Update, trigger_moveset_moves);
+        let mv = MoveSpec {
+            id: ATTACK_VERB.into(),
+            clip: ClipBinding {
+                clip: "x".into(),
+                fallbacks: vec![],
+            },
+            duration_s: 0.3,
+            windows: vec![],
+            events: vec![],
+            gates: Default::default(),
+            start_impulse: Some((150.0, 0.0)),
+        };
+        let mut verbs = std::collections::BTreeMap::new();
+        verbs.insert(ATTACK_VERB.to_string(), ATTACK_VERB.to_string());
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
+        frame.melee_pressed = true;
+        let body = app
+            .world_mut()
+            .spawn((
+                ae::BodyKinematics {
+                    pos: ae::Vec2::ZERO,
+                    vel: ae::Vec2::ZERO,
+                    size: ae::Vec2::new(28.0, 46.0),
+                    facing: -1.0,
+                },
+                ActorFaction::Enemy,
+                ActorMoveset(MovesetContract {
+                    verbs,
+                    moves: vec![mv],
+                }),
+                ActorControl(frame),
+            ))
+            .id();
+        app.update();
+        let vel = app.world().get::<ae::BodyKinematics>(body).unwrap().vel;
+        // facing = -1 → forward is -x; default gravity → no rotation.
+        assert!(
+            (vel.x + 150.0).abs() < 1.0,
+            "the move lunged the body toward its facing, vel={vel:?}"
+        );
+        assert!(
+            vel.y.abs() < 1.0,
+            "a horizontal lunge adds no vertical velocity, vel={vel:?}"
+        );
     }
 
     /// Phase-0 keystone: the EFFECT dispatch — the moveset runtime only NAMES

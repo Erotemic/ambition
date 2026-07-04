@@ -1,7 +1,10 @@
 //! Tests for `encounter_id_from_name` slugging and registry profile/runtime linking.
 
-use super::ids::MOCKINGBIRD_ENCOUNTER_ID;
 use super::*;
+
+/// Test fixture: the mockingbird's authored encounter id. Production names no
+/// boss — this literal is a test convenience for the registry-linking assertions.
+const MOCKINGBIRD_ENCOUNTER_ID: &str = "mockingbird";
 
 #[test]
 fn encounter_id_from_name_normalizes_capitalization_and_spaces() {

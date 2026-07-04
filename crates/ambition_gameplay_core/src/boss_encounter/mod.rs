@@ -44,9 +44,7 @@ mod roster;
 mod tests;
 
 pub use ids::encounter_id_from_name;
-// `MOCKINGBIRD_ENCOUNTER_ID` is not re-exported — it's the one hard-coded
-// archetype id, referenced only by internal tests via
-// `super::ids::MOCKINGBIRD_ENCOUNTER_ID`.
+// The engine hard-codes no boss id: `ids` ships only the slugging helper.
 pub use ambition_characters::boss_encounter::{
     BossEncounterEvent, BossEncounterPhase, BossEncounterSpec, BossPhaseEvent, BossPhaseState,
     PhaseTrigger, PhaseTriggerCondition,

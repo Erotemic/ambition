@@ -1,29 +1,8 @@
-//! Boss encounter id helpers: `encounter_id_from_name` slugs an authored boss
-//! name into a stable id (`"Clockwork Warden"` -> `"clockwork_warden"`), and
-//! `MOCKINGBIRD_ENCOUNTER_ID` is the one remaining hard-coded id (referenced by
-//! tests + a planned data-driven boss-reward table).
-
-/// Encounter id of the pirate-cove boss. The chest dropped on its
-/// defeat reuses the standard `encounter_chest_<id>` naming so the
-/// existing open / looted-flag plumbing
-/// (`crate::encounter::encounter_reward_looted_flag`) handles
-/// persistence with no special case.
-///
-/// GENERALIZATION PLAN: this id + the chest constants below are the
-/// only mockingbird-specific knobs in `sync_mockingbird_treasure_chest`.
-/// When a second boss needs an on-defeat drop, lift these into a small
-/// data-driven table — e.g. a `BossDeathReward { encounter_id,
-/// chest_size, drop_offset, reward: PickupKind }` map registered next
-/// to `default_boss_specs()`. The sync function then iterates the
-/// table instead of hard-coding `MOCKINGBIRD_ENCOUNTER_ID`. We're
-/// intentionally NOT building the abstraction yet (one example isn't
-/// a pattern), but the named-after-the-thing function is the smell
-/// that points to the future refactor.
-#[allow(
-    dead_code,
-    reason = "referenced by boss_encounter::tests + planned data-driven boss-reward table"
-)]
-pub const MOCKINGBIRD_ENCOUNTER_ID: &str = "mockingbird";
+//! Boss encounter id helper: `encounter_id_from_name` slugs an authored boss
+//! name into a stable id (`"Clockwork Warden"` -> `"clockwork_warden"`). The
+//! engine names no boss — every boss's chest reward is authored data
+//! (`BossRewardProfile::DropChest` in `boss_profiles.ron`), resolved through
+//! the generic `encounter_chest_<id>` naming.
 
 /// Sanitize an authored boss `name` into a stable encounter id. Lowercases,
 /// strips non-alphanumeric characters, replaces spaces with underscores.

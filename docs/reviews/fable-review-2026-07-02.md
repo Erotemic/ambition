@@ -2793,7 +2793,18 @@ pogo schema — Jon's call).
   `ambition_content`). (2) A `PlatformerEnginePlugin` group collecting the ~30 engine plugins
   hand-added in `plugins.rs` — sprawling design task. Neither is a clean one-pass; the review's
   "boundary test" piece is subsumed by the guard test just added.
-- **C6** (M) — named-boss residue: the 11 geometry `BossAttackProfile` variants (post-E51, consumed by `volumes_for_profile` + hurtbox pose + anim rows) could collapse toward authored rect DATA; named constructors + `MOCKINGBIRD_*` consts; per-boss sheet specs → boss roster RON.
+- **C6** (M) — named-boss geometry. **PROGRESS (E58): the strike geometry is DATA now ✅.**
+  `volumes_for_profile`'s 11 hardcoded magic-number `match` arms became a declarative,
+  `serde`-ready `StrikeRect` table (`{offset_factor·size + offset_const, half_factor·size +
+  half_const}`) resolved by ONE generic `to_aabb`; `strike_geometry(profile) -> &[StrikeRect]` is
+  the single source both the gameplay path (`boss_attack_moveset` → `HitVolume`s) and the
+  debug/pose fallback read. Byte-identical (pinned by
+  `strike_geometry_is_byte_identical_to_the_old_hardcoded_match` across origins/sizes). **REMAINING
+  = the "out of core" capstone:** let `BossBehaviorProfile` (RON) author a per-move geometry
+  OVERRIDE (`Vec<StrikeRect>`) so a second game's boss supplies its own strike rects with NO core
+  edit — the `StrikeRect` type is already serde-ready for it. The 11 named variants stay (they also
+  key anim rows / overlays / behavior — 72 refs across 8 files — so the ENUM collapse is a separate,
+  larger semantic change, not part of the geometry data-fication).
 - **C7 rider-name half** — BLOCKED on `ambition_ldtk_tools` (mount composition still parses `" on Shark"` from the spawn NAME; the fix authors a `mount:` spawn field).
 
 **D-front** (`rooms`/`RoomSpec` content-coupling) — Jon's call, unchanged below.

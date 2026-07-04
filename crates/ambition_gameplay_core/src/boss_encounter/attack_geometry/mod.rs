@@ -411,100 +411,132 @@ pub fn body_damage_aabb(pos: ae::Vec2, combat_size: ae::Vec2) -> ae::Aabb {
 // (`boss_attack_moveset`). The sprite-frame-tracking multi-part geometry those helpers
 // still express is the fidelity the static move volumes approximate (bulk-review).
 
-/// World-space hitbox volumes for a specific attack profile. Pure
-/// function of the profile + body fields. Used as the fallback path
-/// when the boss has no `sprite_metrics`-driven per-animation
-/// hitbox. The gradient sentinel and (since 2026-05-26) GNU-ton
-/// route through `sprite_authored_volumes` instead — the match
-/// arms here are still required for bosses whose sprite RONs don't
-/// yet carry per-animation hitbox.parts.
+/// One body-local strike rectangle, expressed as DATA rather than an imperative
+/// `match` arm (fable review §C6: "collapse the named-boss geometry toward authored
+/// rect DATA"). Both the center offset and the half-extent are an AFFINE function of
+/// the boss's combat size — `factor * size + const` — so the shape scales with any
+/// boss body while a fixed pixel margin (a floor-slam's 22px reach past the feet, its
+/// 18px slab thickness) stays fixed. `serde`-ready so a content boss can eventually
+/// AUTHOR its strike geometry (in the boss roster RON) instead of a core enum variant —
+/// the "second game adds a boss without editing core" oracle. Today the built-in
+/// per-profile tables below supply it; an authored override is the next slice.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct StrikeRect {
+    /// Center offset from the strike origin, as a fraction of the body size.
+    pub offset_factor: ae::Vec2,
+    /// Center offset from the strike origin, as a fixed pixel amount (added).
+    #[serde(default)]
+    pub offset_const: ae::Vec2,
+    /// Half-extent, as a fraction of the body size.
+    pub half_factor: ae::Vec2,
+    /// Half-extent, as a fixed pixel amount (added).
+    #[serde(default)]
+    pub half_const: ae::Vec2,
+}
+
+impl StrikeRect {
+    /// A rect whose center offset and half-extent are PURE fractions of the body
+    /// size (no fixed-pixel term) — the common case for every profile but FloorSlam.
+    pub const fn scaled(offset_factor: ae::Vec2, half_factor: ae::Vec2) -> Self {
+        Self {
+            offset_factor,
+            offset_const: ae::Vec2::ZERO,
+            half_factor,
+            half_const: ae::Vec2::ZERO,
+        }
+    }
+
+    /// Resolve this data rect to a world-space AABB for a body of `size` whose strike
+    /// origin is `origin`.
+    pub fn to_aabb(&self, origin: ae::Vec2, size: ae::Vec2) -> ae::Aabb {
+        ae::Aabb::new(
+            origin + self.offset_factor * size + self.offset_const,
+            self.half_factor * size + self.half_const,
+        )
+    }
+}
+
+// Built-in per-profile strike geometry, as DATA. Each was a hardcoded `vec![Aabb::new
+// (..)]` arm in `volumes_for_profile`; the numbers are IDENTICAL (pinned byte-for-byte
+// by `strike_geometry_is_byte_identical_to_the_old_hardcoded_match`). A content boss's
+// authored geometry would slot in beside these.
+const FLOOR_SLAM: &[StrikeRect] = &[StrikeRect {
+    offset_factor: ae::Vec2::new(0.0, 0.5),
+    offset_const: ae::Vec2::new(0.0, 22.0),
+    half_factor: ae::Vec2::new(0.75, 0.0),
+    half_const: ae::Vec2::new(0.0, 18.0),
+}];
+const SIDE_SWEEP: &[StrikeRect] = &[
+    StrikeRect::scaled(ae::Vec2::new(-0.50, 0.0), ae::Vec2::new(0.25, 0.72)),
+    StrikeRect::scaled(ae::Vec2::new(0.50, 0.0), ae::Vec2::new(0.25, 0.72)),
+];
+const FULL_BODY_PULSE: &[StrikeRect] =
+    &[StrikeRect::scaled(ae::Vec2::new(0.0, 0.0), ae::Vec2::new(0.70, 0.70))];
+const HAZARD_COLUMN: &[StrikeRect] =
+    &[StrikeRect::scaled(ae::Vec2::new(0.0, 0.0), ae::Vec2::new(0.30, 1.80))];
+const WING_SWEEP: &[StrikeRect] =
+    &[StrikeRect::scaled(ae::Vec2::new(0.0, 0.08), ae::Vec2::new(0.56, 0.42))];
+const DIVE_LANE: &[StrikeRect] =
+    &[StrikeRect::scaled(ae::Vec2::new(0.0, 0.42), ae::Vec2::new(0.22, 0.72))];
+const BROADSIDE: &[StrikeRect] = &[
+    StrikeRect::scaled(ae::Vec2::new(-0.34, 0.0), ae::Vec2::new(0.18, 0.84)),
+    StrikeRect::scaled(ae::Vec2::new(0.34, 0.0), ae::Vec2::new(0.18, 0.84)),
+];
+const HAND_SLAM: &[StrikeRect] = &[
+    StrikeRect::scaled(ae::Vec2::new(-0.40, 0.25), ae::Vec2::new(0.14, 0.60)),
+    StrikeRect::scaled(ae::Vec2::new(0.40, 0.25), ae::Vec2::new(0.14, 0.60)),
+];
+const HAND_SWEEP: &[StrikeRect] =
+    &[StrikeRect::scaled(ae::Vec2::new(0.0, 0.15), ae::Vec2::new(0.85, 0.28))];
+const HEAD_DESCENT: &[StrikeRect] =
+    &[StrikeRect::scaled(ae::Vec2::new(0.0, 0.05), ae::Vec2::new(0.32, 0.38))];
+const CONVERGING_SHOCKWAVE: &[StrikeRect] =
+    &[StrikeRect::scaled(ae::Vec2::new(0.0, 0.48), ae::Vec2::new(0.90, 0.08))];
+
+/// The body-local strike rectangles for a profile, as DATA. `Special(_)` carries no
+/// body-mounted volume (its damage flows through the content Technique's own effects),
+/// so it returns an empty slice. This is the single per-profile geometry table both the
+/// gameplay path (`boss_attack_moveset` → `HitVolume`s) and the debug/pose fallback
+/// (`volumes_for_profile`) read.
+pub fn strike_geometry(attack: &BossAttackProfile) -> &'static [StrikeRect] {
+    match attack {
+        BossAttackProfile::FloorSlam => FLOOR_SLAM,
+        BossAttackProfile::SideSweep => SIDE_SWEEP,
+        BossAttackProfile::FullBodyPulse => FULL_BODY_PULSE,
+        BossAttackProfile::HazardColumn => HAZARD_COLUMN,
+        BossAttackProfile::WingSweep => WING_SWEEP,
+        BossAttackProfile::DiveLane => DIVE_LANE,
+        BossAttackProfile::Broadside => BROADSIDE,
+        BossAttackProfile::HandSlam => HAND_SLAM,
+        BossAttackProfile::HandSweep => HAND_SWEEP,
+        BossAttackProfile::HeadDescent => HEAD_DESCENT,
+        BossAttackProfile::ConvergingShockwave => CONVERGING_SHOCKWAVE,
+        BossAttackProfile::Special(_) => &[],
+    }
+}
+
+/// World-space hitbox volumes for a specific attack profile — the DATA-driven resolve
+/// of [`strike_geometry`] at this body's origin/size (fable §C6: the geometry is now a
+/// declarative [`StrikeRect`] table, not a hardcoded per-variant `match`). Pure
+/// function of the profile + body fields. Used as the fallback path when the boss has
+/// no `sprite_metrics`-driven per-animation hitbox. The gradient sentinel and (since
+/// 2026-05-26) GNU-ton route through `sprite_authored_volumes` instead — the geometry
+/// table here is still required for bosses whose sprite RONs don't yet carry
+/// per-animation hitbox.parts, AND is the source `boss_attack_moveset` derives each
+/// boss move's `HitVolume`s from at spawn.
 pub fn volumes_for_profile(
     attack: &BossAttackProfile,
     pos: ae::Vec2,
     combat_size: ae::Vec2,
     behavior: &BossBehaviorProfile,
 ) -> Vec<ae::Aabb> {
-    // `combat_size` is the only size input the volume arms need.
-    let size = combat_size;
+    // The strike origin: the boss body position shifted by its authored attack
+    // offset. Each profile's DATA rects (`strike_geometry`) resolve against it.
     let origin = pos + behavior.attack_origin_offset;
-    match attack {
-        BossAttackProfile::FloorSlam => vec![ae::Aabb::new(
-            origin + ae::Vec2::new(0.0, size.y * 0.5 + 22.0),
-            ae::Vec2::new(size.x * 0.75, 18.0),
-        )],
-        BossAttackProfile::SideSweep => vec![
-            ae::Aabb::new(
-                origin + ae::Vec2::new(-size.x * 0.50, 0.0),
-                ae::Vec2::new(size.x * 0.25, size.y * 0.72),
-            ),
-            ae::Aabb::new(
-                origin + ae::Vec2::new(size.x * 0.50, 0.0),
-                ae::Vec2::new(size.x * 0.25, size.y * 0.72),
-            ),
-        ],
-        BossAttackProfile::FullBodyPulse => vec![ae::Aabb::new(origin, size * 0.70)],
-        // Gradient Sentinel's vertical hazard column: tall narrow
-        // rectangle centered on the boss x, extending well above and
-        // below the boss body so jumping over is hard but lateral
-        // dodge is easy. World-y span uses 1.8× the boss body height
-        // — enough to span a typical sandbox arena's mid-air play
-        // space without being absurdly tall. The Gradient Sentinel
-        // sways ±130 px around its anchor (`AnchorSway` movement
-        // profile), so the lane sweeps with the boss naturally.
-        BossAttackProfile::HazardColumn => vec![ae::Aabb::new(
-            origin + ae::Vec2::new(0.0, 0.0),
-            ae::Vec2::new(size.x * 0.30, size.y * 1.80),
-        )],
-        // Every content special (`Special(_)`) routes its damage through
-        // its own Technique's EFFECTS consumer (spawned projectiles /
-        // World-anchored hitboxes / minions), so it has no body-mounted
-        // melee volume — empty here prevents double-counting via
-        // `boss_attack_damage`'s strike arm.
-        BossAttackProfile::Special(_) => Vec::new(),
-        BossAttackProfile::WingSweep => vec![ae::Aabb::new(
-            origin + ae::Vec2::new(0.0, size.y * 0.08),
-            ae::Vec2::new(size.x * 0.56, size.y * 0.42),
-        )],
-        BossAttackProfile::DiveLane => vec![ae::Aabb::new(
-            origin + ae::Vec2::new(0.0, size.y * 0.42),
-            ae::Vec2::new(size.x * 0.22, size.y * 0.72),
-        )],
-        BossAttackProfile::Broadside => vec![
-            ae::Aabb::new(
-                origin + ae::Vec2::new(-size.x * 0.34, 0.0),
-                ae::Vec2::new(size.x * 0.18, size.y * 0.84),
-            ),
-            ae::Aabb::new(
-                origin + ae::Vec2::new(size.x * 0.34, 0.0),
-                ae::Vec2::new(size.x * 0.18, size.y * 0.84),
-            ),
-        ],
-        // GNU-ton fallbacks (only fire if a non-gnu-ton boss
-        // somehow inherits a Gnu* profile — none today; preserved
-        // so a future actor can adopt them without crashing).
-        BossAttackProfile::HandSlam => vec![
-            ae::Aabb::new(
-                origin + ae::Vec2::new(-size.x * 0.40, size.y * 0.25),
-                ae::Vec2::new(size.x * 0.14, size.y * 0.60),
-            ),
-            ae::Aabb::new(
-                origin + ae::Vec2::new(size.x * 0.40, size.y * 0.25),
-                ae::Vec2::new(size.x * 0.14, size.y * 0.60),
-            ),
-        ],
-        BossAttackProfile::HandSweep => vec![ae::Aabb::new(
-            origin + ae::Vec2::new(0.0, size.y * 0.15),
-            ae::Vec2::new(size.x * 0.85, size.y * 0.28),
-        )],
-        BossAttackProfile::HeadDescent => vec![ae::Aabb::new(
-            origin + ae::Vec2::new(0.0, size.y * 0.05),
-            ae::Vec2::new(size.x * 0.32, size.y * 0.38),
-        )],
-        BossAttackProfile::ConvergingShockwave => vec![ae::Aabb::new(
-            origin + ae::Vec2::new(0.0, size.y * 0.48),
-            ae::Vec2::new(size.x * 0.90, size.y * 0.08),
-        )],
-    }
+    strike_geometry(attack)
+        .iter()
+        .map(|rect| rect.to_aabb(origin, combat_size))
+        .collect()
 }
 
 // `gnu_ton_part_aabb` / `gnu_ton_sprite_scale` /
@@ -550,5 +582,115 @@ mod simple_geometry_tests {
         let aabb = collision_aabb(&geom(ae::Vec2::new(1.0, 0.0)));
         assert_eq!(aabb.center(), ae::Vec2::new(10.0, 20.0));
         assert_eq!(aabb.half_size(), ae::Vec2::new(24.0, 15.0));
+    }
+}
+
+#[cfg(test)]
+mod strike_geometry_data_tests {
+    use super::*;
+    use ambition_characters::brain::BossAttackProfile;
+
+    /// The ORIGINAL hardcoded `volumes_for_profile` arms, verbatim — the reference the
+    /// `StrikeRect` DATA table (fable §C6) must reproduce byte-for-byte.
+    fn reference(attack: &BossAttackProfile, origin: ae::Vec2, size: ae::Vec2) -> Vec<ae::Aabb> {
+        match attack {
+            BossAttackProfile::FloorSlam => vec![ae::Aabb::new(
+                origin + ae::Vec2::new(0.0, size.y * 0.5 + 22.0),
+                ae::Vec2::new(size.x * 0.75, 18.0),
+            )],
+            BossAttackProfile::SideSweep => vec![
+                ae::Aabb::new(
+                    origin + ae::Vec2::new(-size.x * 0.50, 0.0),
+                    ae::Vec2::new(size.x * 0.25, size.y * 0.72),
+                ),
+                ae::Aabb::new(
+                    origin + ae::Vec2::new(size.x * 0.50, 0.0),
+                    ae::Vec2::new(size.x * 0.25, size.y * 0.72),
+                ),
+            ],
+            BossAttackProfile::FullBodyPulse => vec![ae::Aabb::new(origin, size * 0.70)],
+            BossAttackProfile::HazardColumn => vec![ae::Aabb::new(
+                origin + ae::Vec2::new(0.0, 0.0),
+                ae::Vec2::new(size.x * 0.30, size.y * 1.80),
+            )],
+            BossAttackProfile::Special(_) => Vec::new(),
+            BossAttackProfile::WingSweep => vec![ae::Aabb::new(
+                origin + ae::Vec2::new(0.0, size.y * 0.08),
+                ae::Vec2::new(size.x * 0.56, size.y * 0.42),
+            )],
+            BossAttackProfile::DiveLane => vec![ae::Aabb::new(
+                origin + ae::Vec2::new(0.0, size.y * 0.42),
+                ae::Vec2::new(size.x * 0.22, size.y * 0.72),
+            )],
+            BossAttackProfile::Broadside => vec![
+                ae::Aabb::new(
+                    origin + ae::Vec2::new(-size.x * 0.34, 0.0),
+                    ae::Vec2::new(size.x * 0.18, size.y * 0.84),
+                ),
+                ae::Aabb::new(
+                    origin + ae::Vec2::new(size.x * 0.34, 0.0),
+                    ae::Vec2::new(size.x * 0.18, size.y * 0.84),
+                ),
+            ],
+            BossAttackProfile::HandSlam => vec![
+                ae::Aabb::new(
+                    origin + ae::Vec2::new(-size.x * 0.40, size.y * 0.25),
+                    ae::Vec2::new(size.x * 0.14, size.y * 0.60),
+                ),
+                ae::Aabb::new(
+                    origin + ae::Vec2::new(size.x * 0.40, size.y * 0.25),
+                    ae::Vec2::new(size.x * 0.14, size.y * 0.60),
+                ),
+            ],
+            BossAttackProfile::HandSweep => vec![ae::Aabb::new(
+                origin + ae::Vec2::new(0.0, size.y * 0.15),
+                ae::Vec2::new(size.x * 0.85, size.y * 0.28),
+            )],
+            BossAttackProfile::HeadDescent => vec![ae::Aabb::new(
+                origin + ae::Vec2::new(0.0, size.y * 0.05),
+                ae::Vec2::new(size.x * 0.32, size.y * 0.38),
+            )],
+            BossAttackProfile::ConvergingShockwave => vec![ae::Aabb::new(
+                origin + ae::Vec2::new(0.0, size.y * 0.48),
+                ae::Vec2::new(size.x * 0.90, size.y * 0.08),
+            )],
+        }
+    }
+
+    #[test]
+    fn strike_geometry_is_byte_identical_to_the_old_hardcoded_match() {
+        let profiles = [
+            BossAttackProfile::FloorSlam,
+            BossAttackProfile::SideSweep,
+            BossAttackProfile::FullBodyPulse,
+            BossAttackProfile::WingSweep,
+            BossAttackProfile::DiveLane,
+            BossAttackProfile::Broadside,
+            BossAttackProfile::HandSlam,
+            BossAttackProfile::HandSweep,
+            BossAttackProfile::HeadDescent,
+            BossAttackProfile::ConvergingShockwave,
+            BossAttackProfile::HazardColumn,
+            BossAttackProfile::Special("overfit_volley".to_string()),
+        ];
+        // Sweep a couple of origins + body sizes so the affine `factor*size + const`
+        // resolve is checked across scales (FloorSlam's fixed 22/18 px terms must NOT
+        // scale; every other factor must).
+        for origin in [ae::Vec2::ZERO, ae::Vec2::new(120.0, -40.0)] {
+            for size in [ae::Vec2::new(30.0, 48.0), ae::Vec2::new(64.0, 96.0)] {
+                for p in &profiles {
+                    let got: Vec<ae::Aabb> = strike_geometry(p)
+                        .iter()
+                        .map(|r| r.to_aabb(origin, size))
+                        .collect();
+                    let want = reference(p, origin, size);
+                    assert_eq!(got.len(), want.len(), "{p:?} volume count");
+                    for (g, w) in got.iter().zip(want.iter()) {
+                        assert_eq!(g.center(), w.center(), "{p:?} center @ size {size:?}");
+                        assert_eq!(g.half_size(), w.half_size(), "{p:?} half @ size {size:?}");
+                    }
+                }
+            }
+        }
     }
 }

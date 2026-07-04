@@ -93,10 +93,9 @@ pub fn sync_boss_encounter_phase(
 /// `Without<MovePlayback>` gates re-trigger; the move duration equals the authored
 /// strike window (both on the boss's proper time = sim time undilated), so the strike
 /// lasts exactly the window. A **possessed** boss (its `active_profile` set from
-/// controller input in `tick_boss_brains_system`) fires SPECIALS here too — but its
-/// GEOMETRY strikes are suppressed (the old `sync_boss_strike_hitboxes` skipped
-/// player-controlled bosses; possessed-boss geometry with effective faction is a
-/// follow-up).
+/// controller input in `tick_boss_brains_system`) fires SPECIALS *and* GEOMETRY
+/// strikes here — possession grants the full kit (R1.4); the strike hitbox carries
+/// the possessor's effective faction (stamped in `advance_move_playback`).
 pub fn trigger_boss_attack_moves(
     mut commands: Commands,
     bosses: Query<
@@ -239,6 +238,70 @@ pub fn project_boss_attack_state_from_move(
         } else {
             // Spent tail (t >= end; the move is about to be removed): no live strike.
             attack_state.clear();
+        }
+    }
+}
+
+/// PHASE (presentation, SIM-side) — drive each boss's animation frame and publish
+/// the per-frame [`crate::features::BossAnimationFrameSample`] the boss GEOMETRY
+/// reads (fable-review-2026-07-04 R1.3). This retires the render→sim WRITE-BACK:
+/// `animate_bosses` (render) used to `tick` the [`BossAnimator`] AND insert the
+/// sample onto the sim entity — render writing sim state. Now the SIM owns the
+/// frame: it picks the anim from the projected `BossAttackState`, advances the
+/// animator, and writes the sample; the renderer only READS the animator's frame
+/// to draw, so the drawn pose and the geometry share ONE sim-owned frame.
+///
+/// The [`BossAnimator`] is still inserted by the renderer (`upgrade_boss_sprites`,
+/// it holds the loaded sheet asset), so this is a no-op headless (no animator ⇒ no
+/// sample ⇒ the geometry keeps its elapsed-time fallback, byte-identical to today's
+/// headless tests, which never had a render sample). Fully moving the frame STATE
+/// sim-side (a `BodyEnvelope`-style split of `BossAnimator` into frame-state +
+/// draw-only) is the follow-up that drops the render-inserted-component read.
+/// Runs after `project_boss_attack_state_from_move` (so `BossAttackState` is this
+/// frame's) and before the renderer's `animate_bosses`.
+pub fn drive_boss_animators(
+    mut commands: Commands,
+    world_time: Res<WorldTime>,
+    ecs_bosses: Query<(
+        Entity,
+        &crate::features::FeatureId,
+        super::super::boss_clusters::BossClusterRef,
+        &ambition_characters::actor::BodyHealth,
+        &ambition_characters::actor::BodyCombat,
+        &BossAttackState,
+        &Brain,
+    )>,
+    mut animators: Query<(
+        Entity,
+        &crate::features::FeatureId,
+        &mut crate::boss_encounter::sprites::BossAnimator,
+        Option<&ambition_time::ProperTimeScale>,
+    )>,
+) {
+    for (entity, feature_id, mut animator, scale) in &mut animators {
+        let dt = world_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale));
+        let Some((_, state)) =
+            crate::features::ecs_boss_anim_state_and_entity(feature_id.as_str(), &ecs_bosses)
+        else {
+            continue;
+        };
+        let anim = crate::boss_encounter::sprites::pick_boss_anim(state);
+        animator.request_for_phase(anim, state.drive_phase());
+        animator.tick(dt);
+        match crate::features::ecs_boss_animation_frame_sample(
+            feature_id.as_str(),
+            &ecs_bosses,
+            anim,
+            animator.frame,
+        ) {
+            Some((sample_entity, sample)) => {
+                commands.entity(sample_entity).insert(sample);
+            }
+            None => {
+                commands
+                    .entity(entity)
+                    .remove::<crate::features::BossAnimationFrameSample>();
+            }
         }
     }
 }

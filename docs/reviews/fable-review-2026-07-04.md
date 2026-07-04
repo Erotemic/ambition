@@ -475,7 +475,38 @@ strikes like any other move — possession grants the full kit (invariant I2).
   pre-existing red (non-possessed melee-cadence gap, untouched by this identity-
   preserving change).
 
-### R1 HANDOFF — remaining slices (R1.2, R1.3, R1.5), with the analysis done
+### R1.3 — the SIM owns the boss animation frame; the render→sim write-back is retired ✅ (BLIND feel)
+The E37 architectural smell — RENDER's `animate_bosses` ticked the `BossAnimator`
+AND inserted `BossAnimationFrameSample` onto the sim entity (render writing sim
+state, consumed by the boss strike geometry) — is gone. A new sim system
+`drive_boss_animators` (gameplay_core) picks the anim from the projected
+`BossAttackState`, runs the animator's `request_for_phase` + `tick`, and writes the
+sample; the renderer now only READS the sim-driven frame (`current_flat_index()`)
+to draw. The drawn pose and the strike geometry share ONE sim-owned frame.
+- **Byte-identical where it's tested, blind where it isn't.** The `BossAnimator`
+  is still render-inserted (it holds the loaded sheet asset), so headless has no
+  animator ⇒ no sample ⇒ the geometry keeps its elapsed-time fallback — exactly as
+  the headless boss suites already ran (they never had a render sample). So the
+  suites are unaffected. In WINDOWED play the sample is now sim-written one phase
+  earlier (WorldPrep vs presentation) — a one-frame geometry-timing shift, BLIND
+  (Jon feel-checks); the frame algebra itself is the SAME `BossAnimator.tick`.
+- **Files:** `boss_encounter/sprites/mod.rs` (pub `current_flat_index`),
+  `features/ecs/bosses/tick.rs` (`drive_boss_animators`),
+  `features/{ecs/,}mod.rs` (export + register `.after(project_boss_attack_state_from_move)`),
+  `ambition_render/.../actors/boss.rs` (`animate_bosses` reads the frame, no tick,
+  no write-back). Also fixed the stale R1.4 doc-comment on `trigger_boss_attack_moves`.
+- **Verified:** gameplay_core --lib 1134; render --lib 24; app suites (rl_sim)
+  boss_lifecycle 8, boss_contact_iframes 4, boss_motion_parity 2,
+  boss_possession_specials 1, duel_arena 4 — all green.
+- **REMAINING (the "no boss anim island" tail):** the `BossAnimator` frame STATE
+  (`current`/`drive_phase`/`frame`/`elapsed`/`clip_held`) can split fully sim-side
+  (a `BodyEnvelope`-style split: a sim `BossAnimFrame` component + the draw-only
+  render half), dropping the sim's read of a render-inserted component. And boss
+  anim ROWS becoming `CharacterAnim` rows (the actor animator) is the deeper
+  `BossAnim`→`CharacterAnim` convergence — both follow-ups; this slice retired the
+  load-bearing smell (the write-back).
+
+### R1 HANDOFF — remaining slices (R1.2, R1.5), with the analysis done
 Executor note (opus): R1.1 + R1.4 landed + verified + committed
 (`a8b5f3fb`, `ec4168ae`). The three remaining slices are each a substantial
 focused effort; a fresh context should take them one at a time. The
@@ -493,33 +524,34 @@ groundwork:
   behavioral difference), not "the boss has a parallel system." Re-run the grep
   as the ratchet.
 
-- **R1.2 brain fold** (`tick_boss_brains_system` → `tick_actor_brains`): the
-  brain LOGIC is already unified (E30: the boss ticks through the universal
-  `Brain::tick`). What blocks the SYSTEM fold: `tick_actor_brains` is at Bevy's
-  16-param ceiling and `Without<BossConfig>` (to avoid a double brain-tick), and
-  the boss snapshot carries boss-only inputs (`boss_encounter_phase` /
-  `world_size` / `front_wall_clearance`, added in E30). Fold shape: absorb those
-  three into the shared `BrainSnapshot` build (they already live there for the
-  boss path — make the actor build populate them, `Default` for non-bosses),
-  bundle the actor-tick params into a tuple (the pattern `tick_actor_brains`
-  already uses for its writers), then drop `Without<BossConfig>` from `:177` and
-  DELETE `tick_boss_brains_system`. Do the boss's WorldView targeting migration
-  in the SAME slice (the A7 boss remainder): the boss still reads the omniscient
-  `ActorTarget`; route it through `WorldView.nearest_hostile` like every other
-  brain (E56) — after which `BrainSnapshot.target_pos` can finally be deleted.
-  Gate: the 4 boss suites + `duel_arena` + `enemy_attacks_player` (chase
-  determinism is fragile per E39 — assert ranges, not exact positions).
+- **R1.2 brain fold** (`tick_boss_brains_system` → `tick_actor_brains`): **the
+  naive merge is the WRONG shape — do NOT do it.** `tick_actor_brains` is a
+  swarm-specific system (per-player-target slot-board arbitration + anti-clump
+  crowding); a boss doesn't participate in any of that, so folding it in would
+  add a big boss branch that SKIPS the swarm machinery — an adapter that pollutes
+  the actor system, not canonicalization. The boss brain LOGIC is already unified
+  (E30: the universal `Brain::tick`); `tick_boss_brains_system` is legitimately
+  different NON-SWARM orchestration (boss-only snapshot fields, `BossAttackIntent`
+  output, possession→special mapping), the same way the player's `integrate_home_body`
+  is a separate arm. So the `Without<BossConfig>` at `:177` is arguably DOCUMENTED
+  POLICY (a boss is a non-swarm actor), satisfying R1.5's exit. The genuinely
+  elegant fold would first GENERALIZE the boss-specific bits — `BossAttackIntent`
+  → a general "move intent" the actor moveset trigger reads; the possession→special
+  map → a general controller→move map — a bigger DESIGN slice, Jon's call, not a
+  mechanical merge. **Recommendation: reclassify `:177` as policy (document it) and
+  invest R1.2 in the boss WorldView-targeting migration instead** (the A7 boss
+  remainder): the boss still reads the omniscient `ActorTarget`; route it through
+  `WorldView.nearest_hostile` with a large authored `viewport_half` (a boss wants
+  arena-wide awareness — DATA, per E56's viewport knob), removing the perception
+  carve-out and letting `BrainSnapshot.target_pos` eventually die. Gate: the 4 boss
+  suites + `duel_arena` (chase determinism is fragile per E39 — assert ranges).
 
-- **R1.3 `BossAnim` → `CharacterAnim`** (BLIND, the deep one): the E37
-  render→sim write-back (`BossAnimationFrameSample`) exists because the RENDER
-  animator owns the drawn frame, which drives the per-frame strike geometry. The
-  fix (AJ5.3): the drawn attack frame becomes a SIM-side sample of the live
-  `MovePlayback` phase (`MoveSpec` already carries `ClipBinding` + `phase_at`),
-  presentation reads it, the write-back dies, and boss anim rows become
-  `CharacterAnim` rows in the (already-RON, C6/E62) sheet spec. This lands the
-  moveset's clip-by-phase seam for EVERY actor — the last piece of "the move
-  timeline is authoritative for gameplay AND presentation." BLIND for visuals;
-  pin the frame-sample mechanics headlessly. Largest slice; do it alone.
+- **R1.3 write-back — DONE** (see the R1.3 entry above; the render→sim write-back
+  is retired, the sim owns the boss animation frame). The two remaining R1.3-adjacent
+  follow-ups are LOWER value: (a) split the `BossAnimator` frame-state fully sim-side
+  (drop the sim's read of a render-inserted component) and (b) boss anim ROWS →
+  `CharacterAnim` rows (the actor animator) — the deeper `BossAnim`→`CharacterAnim`
+  convergence. Neither is load-bearing; the smell (render writing sim state) is gone.
 
 - **Finish R1.1's "no boss arm"** (optional, folds into R1.2): merge the boss
   query INTO `integrate_sim_bodies` (drop `Without<BossConfig>` at `:701`, move
@@ -530,4 +562,4 @@ groundwork:
   → a one-frame ActorPose lag, presentation-only/BLIND). Cleanest to land WITH
   R1.2 (both touch the boss chain-1 tuple + the schedule).
 
-*(R1.1 + R1.4 done. Remaining: R1.2 brain fold, R1.3 BossAnim→CharacterAnim, R1.5 sweep.)*
+*(R1.1 + R1.3 + R1.4 done. Remaining: R1.2 — reclassify/WorldView (see above); R1.5 sweep.)*

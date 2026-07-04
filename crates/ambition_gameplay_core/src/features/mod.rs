@@ -105,8 +105,8 @@ pub use ecs::{
     ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample,
     ecs_breakable_state, ecs_chest_opened,
     ecs_hit_event_hits_actor, ecs_hit_event_hits_boss, ecs_hit_event_hits_breakable,
-    advance_actor_anim_overlays, enforce_mount_rider_link, integrate_boss_bodies,
-    integrate_sim_bodies, interact_ecs_actors_and_switches,
+    advance_actor_anim_overlays, drive_boss_animators, enforce_mount_rider_link,
+    integrate_boss_bodies, integrate_sim_bodies, interact_ecs_actors_and_switches,
     project_boss_attack_state_from_move, trigger_boss_attack_moves,
     magnetize_pickups, open_ecs_chests, pirate_on_shark_rider_offset,
     rebuild_actor_anim_index, rebuild_actor_render_index, rebuild_boss_render_index,
@@ -266,6 +266,16 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             advance_gameplay_elapsed
                 .before(select_actor_targets)
                 .in_set(crate::schedule::SandboxSet::WorldPrep),
+        );
+        // R1.3: the SIM owns the boss animation frame + writes the geometry sample
+        // (retiring the render→sim write-back in `animate_bosses`). Runs after the
+        // `BossAttackState` projection so it picks this frame's anim, and before the
+        // renderer's presentation `animate_bosses` (a later schedule), which now only
+        // READS the sim-driven frame. A no-op headless (the `BossAnimator` is
+        // render-inserted), so it never touches the headless boss suites.
+        app.add_systems(
+            Update,
+            drive_boss_animators.after(project_boss_attack_state_from_move),
         );
         // The decomposed per-actor pipeline: brain → intent, movement integration,
         // read-model mirror, and contact-damage observer, as four explicit phases.

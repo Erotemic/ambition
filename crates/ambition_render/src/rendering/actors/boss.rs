@@ -242,8 +242,11 @@ pub fn sync_boss_split_overlay(
 
 /// Per-frame state-driven animation for boss entities.
 pub fn animate_bosses(
-    mut commands: Commands,
-    world_time: Res<ambition_time::WorldTime>,
+    // The boss read-model, for the facing flip + the attack-telegraph tint. The
+    // animation FRAME is no longer derived here (R1.3): the SIM owns it
+    // (`drive_boss_animators` runs `request_for_phase` + `tick` and writes the
+    // geometry sample), so this presentation system READS the already-driven
+    // animator and only draws — no more render→sim write-back.
     ecs_bosses: Query<(
         Entity,
         &FeatureId,
@@ -257,9 +260,8 @@ pub fn animate_bosses(
         (
             &FeatureVisual,
             &mut Sprite,
-            &mut BossAnimator,
+            &BossAnimator,
             Option<&mut bevy::sprite::Anchor>,
-            Option<&ambition_time::ProperTimeScale>,
         ),
         Without<PlayerVisual>,
     >,
@@ -273,11 +275,8 @@ pub fn animate_bosses(
     // here: a boss with ProperTimeScale > 1.0 keeps tickling its
     // own animation while the world is frozen by its SimClock
     // request.
-    for (visual, mut sprite, mut animator, anchor, scale) in &mut query {
-        let dt = world_time.entity_dt(
-            ambition_time::ProperTimeScale::or_default(scale),
-        );
-        let Some((boss_entity, state)): Option<(Entity, BossAnimState)> =
+    for (visual, mut sprite, animator, anchor) in &mut query {
+        let Some((_boss_entity, state)): Option<(Entity, BossAnimState)> =
             ambition_gameplay_core::features::ecs_boss_anim_state_and_entity(
                 &visual.id,
                 &ecs_bosses,
@@ -285,23 +284,11 @@ pub fn animate_bosses(
         else {
             continue;
         };
-        let anim = sprites::pick_boss_anim(state);
-        let drive_phase = state.drive_phase();
-        animator.request_for_phase(anim, drive_phase);
-        let index = animator.tick(dt);
-        let animation_sample = ambition_gameplay_core::features::ecs_boss_animation_frame_sample(
-            &visual.id,
-            &ecs_bosses,
-            anim,
-            animator.frame,
-        );
-        if let Some((sample_entity, sample)) = animation_sample {
-            commands.entity(sample_entity).insert(sample);
-        } else {
-            commands
-                .entity(boss_entity)
-                .remove::<ambition_gameplay_core::features::BossAnimationFrameSample>();
-        }
+        // R1.3: the frame is driven SIM-side by `drive_boss_animators` (it ran
+        // `request_for_phase` + `tick` and wrote the geometry sample this frame);
+        // read the current flat index to draw, so the drawn pose and the strike
+        // geometry share the ONE sim-owned frame.
+        let index = animator.current_flat_index();
         // Split sheets: select the page image the active frame draws from
         // before setting the (page-local) index. Single-page bosses skip this.
         if animator.is_paged() {

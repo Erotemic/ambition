@@ -1073,6 +1073,15 @@ impl BossAnimator {
             .flat_index_in_page(self.spec.record_row(anim), frame)
     }
 
+    /// The flat atlas index of the CURRENT `(current, frame)` — for a caller that
+    /// reads the animator's frame without ticking it. R1.3: the SIM drives the
+    /// frame (`drive_boss_animators` runs `request_for_phase` + `tick`), so the
+    /// renderer reads this instead of ticking, and geometry + the drawn sprite
+    /// share the one sim-owned frame.
+    pub fn current_flat_index(&self) -> usize {
+        self.flat_index(self.current, self.frame)
+    }
+
     /// True when the sheet is split across more than one page image, so the
     /// renderer must select the active frame's page. Single-page sheets skip it.
     pub fn is_paged(&self) -> bool {

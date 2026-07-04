@@ -833,6 +833,35 @@ pub struct BossAttackState {
     pub active_elapsed: f32,
 }
 
+/// The boss's per-frame ATTACK INTENT — which profile it WANTS to fire this
+/// frame, written by whatever drives the body (the autonomous `BossPattern` brain
+/// or a possessing controller) and read by `trigger_boss_attack_moves` to START
+/// the matching moveset move.
+///
+/// This is the INTENT half of the fable-review §A1 intent/projection split: the
+/// trigger reads its intent from HERE, so [`BossAttackState`] is free to become a
+/// pure PROJECTION of the live `MovePlayback` (`project_boss_attack_state_from_move`)
+/// rather than doubling as both the brain's intent signal AND the read-model. A
+/// `Telegraph` step sets `telegraph_profile` (play the move from its windup); a
+/// `Strike`/possession step with no telegraph sets `active_profile` (start at the
+/// strike edge). Cleared when the driver has no attack intent this frame.
+#[derive(Component, Clone, Debug, Default, PartialEq)]
+pub struct BossAttackIntent {
+    /// The profile whose move should play FROM ITS WINDUP (a telegraph edge).
+    pub telegraph_profile: Option<BossAttackProfile>,
+    /// The profile whose move should start AT THE STRIKE (no telegraph — a
+    /// possession press or a `tel = 0` path).
+    pub active_profile: Option<BossAttackProfile>,
+}
+
+impl BossAttackIntent {
+    /// Clear both intents — the driver wants no attack this frame.
+    pub fn clear(&mut self) {
+        self.telegraph_profile = None;
+        self.active_profile = None;
+    }
+}
+
 impl BossAttackState {
     /// Clear every field — used when a boss enters a non-attacking
     /// phase (Dormant / Stagger / Death).

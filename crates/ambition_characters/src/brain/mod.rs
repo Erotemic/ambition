@@ -32,7 +32,8 @@ pub use action_set::{
 };
 #[allow(unused_imports)]
 pub use boss_pattern::{
-    tick_boss_pattern, BossAttackPattern, BossAttackProfile, BossAttackState, BossCapability,
+    tick_boss_pattern, BossAttackIntent, BossAttackPattern, BossAttackProfile, BossAttackState,
+    BossCapability,
     BossEncounterPhase, BossMacroState, BossMacroTuning, BossMovementFramePolicy,
     BossMovementProfile, BossPattern, BossPatternCfg, BossPatternContext, BossPatternState,
     BossPatternStep, CyclePhase,

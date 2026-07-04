@@ -3025,6 +3025,35 @@ composition path (the earlier §C7 slice). The ONLY residual name-parse is the r
   rider's real name, `brain` → plain rider, `mount` → "shark"; (4) delete `rider_name_suffix` +
   `composite_rider_name`'s strip (rider name = spawn name); (5) `roundtrip` + `validate` the .ldtk.
 
+### E65. A1 slice — the boss INTENT/projection split LANDED (JD3 prerequisite) ✅
+JD3's named nuance: retiring the `BossAttackState` brain-WRITE is NOT a dead-write removal because
+`trigger_boss_attack_moves` READS it as its intent signal. Did the split first (the sanctioned prerequisite):
+- **New `BossAttackIntent` component** (`ambition_characters::brain`, `{telegraph_profile, active_profile}`) —
+  the per-frame fire INTENT the driver writes and the trigger reads. Added at both boss spawn sites
+  (`spawn_actors.rs`, `encounter_script.rs`).
+- **`tick_boss_brains_system`** now publishes the intent via a `mirror_intent(&attack_state, &mut intent)`
+  helper at each arm exit (dead / possession / non-pattern / BossPattern) — an EXACT mirror of the profiles
+  it writes to `BossAttackState`, so the seam is behavior-identical. **`trigger_boss_attack_moves`** reads
+  `BossAttackIntent` instead of `BossAttackState`.
+- **Why behavior-identical:** the schedule runs tick_boss_brains → trigger → advance_move → projection, so
+  the trigger always read the brain/possession-written `BossAttackState` BEFORE the projection overwrote it;
+  the intent mirror captures exactly that value. Trigger + possession + telegraph/interrupt tests re-pointed
+  at the intent; all green.
+- **What this unblocks (NEXT slice, has a BLIND part):** `BossAttackState` can now become a pure PROJECTION
+  of the live `MovePlayback` — retire the brain-tick's `*attack_state = bps.attack_state.clone()` write and
+  make `project_boss_attack_state_from_move` the SOLE writer (clearing when no move plays). Two carve-outs to
+  handle then: (a) a possessed boss's GEOMETRY strike (intent set, move suppressed → no projection source; its
+  strike POSE would clear — a BLIND presentation change, Jon feel-checks) and (b) the projection query must
+  iterate move-less bosses to clear them (add `Option<&MovePlayback>`). This is the convergence (LESS code);
+  slice 1a is the safe seam it rides on.
+- Green: gameplay_core --lib 1134; boss suites `boss_lifecycle` (8), `boss_contact_iframes` (4),
+  `boss_possession_specials` (1), `boss_motion_parity` (2, rl_sim).
+- **A1 REMAINING after this:** the projection-sole-authority slice (above); the full driver fold
+  (`update_ecs_bosses` — now a thin presentation system — + `tick_boss_brains` into `tick_actor_brains` /
+  `integrate_sim_bodies` with boss as an actor archetype); `BossAnim`→`CharacterAnim` (BLIND, retires the
+  `animate_bosses` render→sim write-back). This is the multi-session tail the handoff flagged; the 171-ref
+  `BossAttackState` surface + 4 boss suites make each a its-own-verified-slice job.
+
 ## Next (in order) — **the MOVESET UNIFICATION is COMPLETE (E47–E55): melee, specials, ranged, AND boss strikes all run through the ONE moveset runtime.** The audit's TASK sections are stale; trust E-entries + a code re-check before working an item.
 
 ---

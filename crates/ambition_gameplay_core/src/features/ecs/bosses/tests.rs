@@ -22,7 +22,7 @@ use ambition_engine_core as ae;
 /// damage and escape the contact-only `boss_contact_iframes` test; this guards it.
 #[test]
 fn boss_strike_spawns_a_boss_hitbox_through_the_moveset() {
-    use ambition_characters::brain::{BossAttackProfile, BossAttackState, BossCapability};
+    use ambition_characters::brain::{BossAttackIntent, BossAttackProfile, BossCapability};
     use bevy::prelude::*;
 
     let combat_size = ae::Vec2::new(80.0, 80.0);
@@ -47,9 +47,9 @@ fn boss_strike_spawns_a_boss_hitbox_through_the_moveset() {
         )
             .chain(),
     );
-    let attack = BossAttackState {
+    // §A1 split: the driver's fire INTENT names FloorSlam → the trigger starts the move.
+    let intent = BossAttackIntent {
         active_profile: Some(BossAttackProfile::FloorSlam),
-        active_remaining: 0.5,
         ..Default::default()
     };
     app.world_mut().spawn((
@@ -60,7 +60,7 @@ fn boss_strike_spawns_a_boss_hitbox_through_the_moveset() {
             size: combat_size,
             facing: 1.0,
         },
-        attack,
+        intent,
         moveset,
         super::super::FeatureSimEntity,
     ));

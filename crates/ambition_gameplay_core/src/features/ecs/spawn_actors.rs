@@ -803,6 +803,9 @@ pub(super) fn spawn_boss_with_overrides(
         boss_action_set,
         ambition_characters::brain::ActorControl::default(),
         ambition_characters::brain::BossAttackState::default(),
+        // §A1 intent/projection split: the driver-written fire INTENT the moveset
+        // trigger reads (BossAttackState is now the projected read-model).
+        ambition_characters::brain::BossAttackIntent::default(),
         boss_capability,
     ));
     if let Some(moveset) = boss_special_moves {

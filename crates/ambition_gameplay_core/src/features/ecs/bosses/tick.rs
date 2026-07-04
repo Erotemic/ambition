@@ -3,9 +3,22 @@
 
 use super::super::*;
 
-use ambition_characters::brain::{ActorControl, BossAttackState, Brain, StateMachineCfg};
+use ambition_characters::brain::{
+    ActorControl, BossAttackIntent, BossAttackState, Brain, StateMachineCfg,
+};
 use ambition_engine_core::AabbExt;
 use bevy::prelude::{Commands, Entity};
+
+/// Copy the profile fields the trigger reads from a boss's finalized
+/// [`BossAttackState`] onto its [`BossAttackIntent`] (fable review §A1
+/// intent/projection split). The intent mirrors exactly what
+/// `trigger_boss_attack_moves` used to read directly off `BossAttackState`, so
+/// repointing the trigger at the intent is behavior-identical — and it frees
+/// `BossAttackState` to become a pure projection of the live `MovePlayback`.
+fn mirror_intent(attack_state: &BossAttackState, intent: &mut BossAttackIntent) {
+    intent.telegraph_profile = attack_state.telegraph_profile.clone();
+    intent.active_profile = attack_state.active_profile.clone();
+}
 
 /// Sync each boss's `encounter_phase` mirror from the entity-local
 /// [`BossPhaseState`] copy (`BossEncounter.encounter`). The mirror is a convenience
@@ -88,7 +101,7 @@ pub fn trigger_boss_attack_moves(
     bosses: Query<
         (
             Entity,
-            &BossAttackState,
+            &BossAttackIntent,
             &crate::combat::moveset::ActorMoveset,
             &crate::actor::BodyKinematics,
             Option<&Brain>,
@@ -106,16 +119,17 @@ pub fn trigger_boss_attack_moves(
             .map(|w| w.start_s)
             .unwrap_or(0.0)
     };
-    for (entity, attack_state, moveset, kin, brain, playback) in &bosses {
-        // The pattern's per-tick INTENT this frame (brain-written before the combat
-        // phase): a Telegraph step wants the move played from its windup (`t0 = 0`),
-        // a Strike/possession step with no telegraph wants it started at the strike
-        // (`t0 = tel`, skipping the windup — preserving possession's instant hit).
-        let intent: Option<(&BossAttackProfile, bool)> = attack_state
+    for (entity, attack_intent, moveset, kin, brain, playback) in &bosses {
+        // The driver's per-tick INTENT this frame (§A1 split — written by the boss
+        // pattern OR possession before the combat phase): a Telegraph step wants the
+        // move played from its windup (`t0 = 0`), a Strike/possession step with no
+        // telegraph wants it started at the strike (`t0 = tel`, skipping the windup —
+        // preserving possession's instant hit).
+        let intent: Option<(&BossAttackProfile, bool)> = attack_intent
             .telegraph_profile
             .as_ref()
             .map(|p| (p, true))
-            .or_else(|| attack_state.active_profile.as_ref().map(|p| (p, false)));
+            .or_else(|| attack_intent.active_profile.as_ref().map(|p| (p, false)));
 
         // A move is already playing: don't re-trigger (its own duration is the
         // fire-rate gate) — but ABORT a still-in-WINDUP move the pattern has
@@ -236,6 +250,10 @@ pub fn tick_boss_brains_system(
             &mut Brain,
             &mut ActorControl,
             &mut BossAttackState,
+            // The per-frame attack INTENT the trigger reads (§A1 intent/projection
+            // split): the driver (autonomous pattern OR possession) writes which
+            // profile it wants to fire here; `trigger_boss_attack_moves` reads it.
+            &mut ambition_characters::brain::BossAttackIntent,
             &super::super::super::components::ActorTarget,
             // The boss's authored special repertoire (body CAPABILITY, persisted
             // across a brain swap). Read only by the possession arm to map input
@@ -248,8 +266,17 @@ pub fn tick_boss_brains_system(
 ) {
     let dt = world_time.sim_dt();
     let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
-    for (_entity, feature, health, mut brain, mut control, mut attack_state, target, capability) in
-        &mut bosses
+    for (
+        _entity,
+        feature,
+        health,
+        mut brain,
+        mut control,
+        mut attack_state,
+        mut intent,
+        target,
+        capability,
+    ) in &mut bosses
     {
         let boss = feature.as_boss_ref();
         if !health.alive() {
@@ -257,6 +284,7 @@ pub fn tick_boss_brains_system(
             // downstream consumer sees a coherent "no intent".
             control.0 = ambition_characters::actor::control::ActorControlFrame::neutral();
             attack_state.clear();
+            intent.clear();
             continue;
         }
 
@@ -324,6 +352,9 @@ pub fn tick_boss_brains_system(
                     // damage flows through the frame-driven hitbox path.
                 }
             }
+            // Publish this frame's fire INTENT for the trigger (§A1 split): mirror
+            // the profile the possession mapping just chose onto BossAttackState.
+            mirror_intent(&attack_state, &mut intent);
             continue;
         }
 
@@ -336,6 +367,7 @@ pub fn tick_boss_brains_system(
         ) {
             control.0 = ambition_characters::actor::control::ActorControlFrame::neutral();
             attack_state.clear();
+            intent.clear();
             continue;
         }
 
@@ -367,6 +399,9 @@ pub fn tick_boss_brains_system(
         if let Some(bps) = brain.boss_pattern_state() {
             *attack_state = bps.attack_state.clone();
         }
+        // Publish the brain's fire INTENT for the trigger (§A1 split): the profile
+        // the pattern wants this frame (telegraph edge → windup; strike → strike).
+        mirror_intent(&attack_state, &mut intent);
 
         // Boss specials run through the SHARED moveset now (fable review §A1): a
         // multi-special boss (the Gradient Sentinel authors four; GNU-ton its apple
@@ -622,16 +657,19 @@ mod attack_moveset_tests {
             "the Special profile still became a sustain-move"
         );
 
-        // Trigger a geometry strike: setting `active_profile` starts the FloorSlam move.
+        // Trigger a geometry strike: the driver's INTENT (§A1 split) names FloorSlam
+        // as the active profile → the trigger starts the FloorSlam move.
         let mut app = App::new();
         app.add_systems(Update, trigger_boss_attack_moves);
-        let mut attack_state = BossAttackState::default();
-        attack_state.active_profile = Some(BossAttackProfile::FloorSlam);
+        let intent = BossAttackIntent {
+            active_profile: Some(BossAttackProfile::FloorSlam),
+            ..Default::default()
+        };
         let boss = app
             .world_mut()
             .spawn((
                 FeatureSimEntity,
-                attack_state,
+                intent,
                 moveset,
                 crate::actor::BodyKinematics {
                     pos: ambition_engine_core::Vec2::ZERO,
@@ -685,13 +723,18 @@ mod attack_moveset_tests {
             )
                 .chain(),
         );
-        let mut attack_state = BossAttackState::default();
-        attack_state.telegraph_profile = Some(BossAttackProfile::FloorSlam);
+        // §A1 split: the trigger reads the INTENT (telegraph edge → play the windup);
+        // the projection WRITES the read-model `BossAttackState` from the live move.
+        let intent = BossAttackIntent {
+            telegraph_profile: Some(BossAttackProfile::FloorSlam),
+            ..Default::default()
+        };
         let boss = app
             .world_mut()
             .spawn((
                 FeatureSimEntity,
-                attack_state,
+                intent,
+                BossAttackState::default(),
                 moveset,
                 crate::combat::components::ActorFaction::Boss,
                 crate::actor::BodyKinematics {
@@ -749,9 +792,10 @@ mod attack_moveset_tests {
             app.world().get::<crate::combat::moveset::MovePlayback>(boss).is_some(),
             "the telegraph started a move"
         );
-        // The pattern abandons the windup (e.g. a phase transition cleared intent).
+        // The pattern abandons the windup (e.g. a phase transition cleared intent):
+        // clearing the INTENT (§A1 split) is what the trigger observes to abort.
         app.world_mut()
-            .get_mut::<BossAttackState>(boss)
+            .get_mut::<BossAttackIntent>(boss)
             .unwrap()
             .clear();
         app.update();

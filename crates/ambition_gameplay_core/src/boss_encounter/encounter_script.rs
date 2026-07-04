@@ -470,6 +470,7 @@ mod tests {
                 member(100),
                 ambition_characters::brain::ActorControl::default(),
                 ambition_characters::brain::BossAttackState::default(),
+                ambition_characters::brain::BossAttackIntent::default(),
                 CommandedMove {
                     target: ae::Vec2::new(300.0, 0.0),
                     speed: 150.0,

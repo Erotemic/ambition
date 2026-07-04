@@ -2691,9 +2691,13 @@ pogo schema — Jon's call).
      `ProjectileGameplay` for `damage`) into a `PerceptionProjectiles` resource, fed to
      `build_world_view`'s 2nd arg (currently `&[]`). Activates `incoming_threats`. WRINKLE:
      `ProjectileGameplay` has NO `faction` field (the "faction-routed" doc comment on
-     `entity.rs` is drift) — the firer's faction is by-pool (`EnemyProjectile`→Enemy,
-     `PlayerProjectile`→Player) or via `ProjectileOwner(Entity)`→owner faction; pick one and
-     resolve it when collecting (two per-pool queries, or read the owner).
+     `entity.rs` is drift). The two pools resolve faction DIFFERENTLY (confirmed): an
+     `enemy_projectile` entity DOES carry an `ActorFaction` component (set at spawn to the
+     firer's Enemy/Boss/Player faction), but a `projectile` `LiveProjectile` carries NONE —
+     the unified `step_projectiles` attributes via `Option<&ProjectileOwner>` /
+     `ProjectileOwnerId` instead. So collect the two pools with SEPARATE queries: enemy pool
+     reads its `ActorFaction`; live pool reads the owner's faction (or defaults, since the
+     channel is unconsumed until a dodging brain reads `incoming_threats`).
   2. **Brain migration** (behavior-shifting): swap `snapshot.target_pos` reads for
      `perception.nearest_hostile().map(\|a\| a.pos)` (with `WorldMemory` for pursuit of a
      vanished target), one brain at a time — Smash first (biggest). EXPECT cadence canaries

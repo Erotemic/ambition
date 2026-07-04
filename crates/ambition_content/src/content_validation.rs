@@ -285,7 +285,7 @@ fn validate_room_music_tracks(
 }
 
 fn validate_npc_dialogue_ids(project: &LdtkProject, report: &mut ContentValidationReport) {
-    let known = ambition_gameplay_core::dialog::known_dialogue_ids()
+    let known = crate::dialogue::known_dialogue_ids()
         .iter()
         .copied()
         .collect::<BTreeSet<_>>();

@@ -67,12 +67,6 @@ pub mod cutscene;
 pub mod cutscene_trigger;
 pub mod dev;
 pub mod dialog;
-// Test-only (`#![cfg(test)]`): static arity lint for the Yarn dialogue commands.
-mod dialog_lint;
-// Test-only (`ui`-gated): compile every `.yarn` so a malformed file fails at
-// `cargo test` rather than crashing the running game's asset loader.
-#[cfg(all(test, feature = "ui"))]
-mod dialog_yarn_compile;
 pub mod encounter;
 pub mod enemy_projectile;
 #[cfg(feature = "falling_sand")]

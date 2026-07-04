@@ -437,10 +437,11 @@ mod tests {
     }
 
     #[test]
-    fn exemplar_hall_dialogue_ids_resolve_and_are_known() {
-        // hall_dialogue_id round-trips, and known_dialogue_ids() folds the
-        // catalog ids in so the LDtk validator accepts authored hall_<id>
-        // nodes without a second hand-maintained list.
+    fn exemplar_hall_dialogue_ids_resolve() {
+        // hall_dialogue_id round-trips against the catalog. (The
+        // known-dialogue-id fold-in and the hall.yarn node cross-check are
+        // CONTENT-conformance tests — they live with the yarn payload in
+        // `ambition_content::dialogue::yarn`.)
         assert_eq!(
             hall_dialogue_id_for_character_id("npc_pirate_admiral"),
             Some("hall_pirate_admiral"),
@@ -448,59 +449,6 @@ mod tests {
         assert_eq!(
             hall_dialogue_id_for_character_id("npc_not_a_character"),
             None
-        );
-        let known = crate::dialog::known_dialogue_ids();
-        for expected in [
-            "hall_pirate_admiral",
-            "hall_stochastic_parrot",
-            "hall_architect",
-        ] {
-            assert!(
-                known.contains(&expected),
-                "{expected} should be in known_dialogue_ids() via the catalog fold-in"
-            );
-        }
-    }
-
-    #[test]
-    fn every_catalog_hall_dialogue_id_has_a_yarn_node() {
-        // The dangling-id bug: a catalog row authors `hall_dialogue_id:
-        // Some("hall_x")` but `hall.yarn` has no `title: hall_x` node, so
-        // Inspecting that pedestal starts an unknown node at runtime (silent
-        // in tests, broken in the game). Pure-text cross-check — no Yarn
-        // runtime — so it runs in every config and fails at `cargo test`.
-        let yarn = std::fs::read_to_string(concat!(
-            env!("CARGO_MANIFEST_DIR"),
-            "/assets/dialogue/sandbox/hall.yarn"
-        ))
-        .expect("read hall.yarn");
-        let nodes: std::collections::HashSet<&str> = yarn
-            .lines()
-            .filter_map(|l| l.strip_prefix("title:"))
-            .map(str::trim)
-            .collect();
-
-        let missing: Vec<(&String, &str)> = EMBEDDED_CATALOG
-            .characters
-            .iter()
-            .filter_map(|(id, entry)| {
-                entry
-                    .hall_dialogue_id
-                    .as_deref()
-                    .filter(|hid| !nodes.contains(hid))
-                    .map(|hid| (id, hid))
-            })
-            .collect();
-
-        assert!(
-            missing.is_empty(),
-            "catalog hall_dialogue_id(s) with no matching `title:` node in \
-             hall.yarn (Inspect would start an unknown node):\n{}",
-            missing
-                .iter()
-                .map(|(id, hid)| format!("  {id} -> {hid}"))
-                .collect::<Vec<_>>()
-                .join("\n"),
         );
     }
 

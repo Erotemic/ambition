@@ -96,7 +96,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     // state, and register the commands / functions / markup used by content.
     #[cfg(feature = "ui")]
     {
-        app.add_plugins(ambition_gameplay_core::dialog::yarn_spinner_plugin());
+        app.add_plugins(ambition_content::dialogue::yarn_spinner_plugin());
         app.add_plugins(ambition_gameplay_core::dialog::YarnBridgePlugin);
         app.add_plugins(ambition_gameplay_core::dialog::YarnBindingsPlugin);
     }

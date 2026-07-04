@@ -18,9 +18,7 @@ fn every_intro_dialogue_id_is_registered_with_validator() {
     // lives in `.yarn` files; the runtime body smoke-check moved
     // to the bridge's integration tests.
     let known: std::collections::HashSet<&str> =
-        ambition_gameplay_core::dialog::known_dialogue_ids()
-            .into_iter()
-            .collect();
+        crate::dialogue::known_dialogue_ids().into_iter().collect();
     for id in intro_dialogue_ids() {
         assert!(
             known.contains(id),
@@ -45,7 +43,7 @@ fn dialog_start_sets_dialogue_id_for_intro_and_sandbox() {
 
 #[test]
 fn known_dialogue_ids_contains_every_intro_id() {
-    let known = ambition_gameplay_core::dialog::known_dialogue_ids();
+    let known = crate::dialogue::known_dialogue_ids();
     for id in intro_dialogue_ids() {
         assert!(
             known.contains(id),

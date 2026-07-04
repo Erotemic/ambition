@@ -1,4 +1,5 @@
-//! Static arity lint for Yarn dialogue commands (Refactor 9).
+//! Static arity lint for Yarn dialogue commands (moved to the content
+//! crate with the yarn payload — R3.2; the lint guards authored CONTENT).
 //!
 //! Yarn only compiles + runs under the `ui` feature, so a `<<command>>` call
 //! with the wrong argument count crashes the *running game*, not any test —
@@ -9,8 +10,6 @@
 //! in every test configuration including lean/headless ones): every fixed-arity
 //! command call in `assets/dialogue/**/*.yarn` must pass the right number of
 //! arguments, so the whole class of crash is caught at `cargo test` time.
-
-#![cfg(test)]
 
 /// Fixed-arity Yarn commands and their expected argument counts. MUST match the
 /// `In<...>` tuple arities of the `cmd_*` fns in `dialog/yarn_bindings.rs`
@@ -109,7 +108,6 @@ fn extract_command_calls(file: &str, text: &str) -> Vec<CommandCall> {
     calls
 }
 
-#[cfg(test)]
 mod tests {
     use super::*;
     use std::path::PathBuf;

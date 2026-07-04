@@ -31,13 +31,7 @@ from pathlib import Path
 
 # tools/ambition_ldtk_tools/ambition_ldtk_tools/dialogue_lint.py -> repo root.
 REPO_ROOT = Path(__file__).resolve().parents[3]
-DEFAULT_ROOT = (
-    REPO_ROOT
-    / "crates"
-    / "ambition_gameplay_core"
-    / "assets"
-    / "dialogue"
-)
+DEFAULT_ROOT = REPO_ROOT / "crates" / "ambition_content" / "assets" / "dialogue"
 
 # Unescaped `[` ... up to the next `]`.
 _SPAN_RE = re.compile(r"(?<!\\)\[([^\]]*)\]")

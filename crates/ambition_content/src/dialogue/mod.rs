@@ -15,6 +15,13 @@
 use bevy::prelude::*;
 
 pub mod cutscene_defaults;
+/// The authored Yarn dialogue set (sources, the Yarn Spinner plugin
+/// constructor, and the validator's known-id surface).
+pub mod yarn;
+
+#[cfg(feature = "ui")]
+pub use yarn::yarn_spinner_plugin;
+pub use yarn::{known_dialogue_ids, YARN_SOURCES};
 
 /// Installs the named Ambition cutscene + combat-banter content resources.
 pub struct AmbitionDialogueContentPlugin;

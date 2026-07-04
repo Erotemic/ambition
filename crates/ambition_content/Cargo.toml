@@ -46,3 +46,7 @@ serde_json = "1"
 
 [dev-dependencies]
 insta = { version = "1", features = ["ron"] }
+# The standalone Yarn compiler (same version bevy_yarnspinner pulls) for the
+# `yarn_compile` guard test — compiles the authored sources the way the
+# game's asset loader would at startup.
+yarnspinner = "0.8"

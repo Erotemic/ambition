@@ -48,7 +48,16 @@ ambition_characters = { path = "../ambition_characters" }
 ambition_interaction = { path = "../ambition_interaction" }
 bevy = { version = "0.18.1", default-features = false, features = ["ui_api"] }
 bevy_yarnspinner = { version = "0.8", optional = true }
-bevy_falling_sand = { version = "0.7.0", optional = true }
+# Drop bevy_falling_sand's default `physics` feature: it bundles its OWN
+# avian2d `PhysicsPlugins`, which collides with Ambition's `AmbitionPhysicsPlugin`
+# ("plugin already added" panic when the falling_sand feature is on). Ambition
+# bridges particles into its own movement world (project_particles_to_movement_world),
+# not avian rigid bodies, so it only needs render/movement/reactions.
+bevy_falling_sand = { version = "0.7.0", optional = true, default-features = false, features = [
+    "render",
+    "movement",
+    "reactions",
+] }
 serde = { version = "1", features = ["derive"] }
 ron = "0.11"
 serde_json = "1"

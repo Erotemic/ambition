@@ -1078,6 +1078,37 @@ archetype RONs (`mount_class:"giant"`, `pilotable_mount_classes:["giant"]`, big
 HP, `StationaryGiant`+`body_damage:0` die) and the on-foot mini-phase RON block —
 all reference the G1 split sheets, so they wait on G1.
 
+### G1 READINESS (scouted, opus 2026-07-05 — headlessly TRACTABLE, next dedicated pass)
+Env confirmed: PIL 12.2.0 + rectpack present; `PYTHONPATH=tools/ambition_sprite2d_renderer
+python3` imports the renderer; `./regen_sprites.sh --target gnu_ton_boss` is the
+wired invocation (no GPU/display). Sheets/RON are gitignored (generated) — parity
+is against freshly-regenerated artifacts; the byte-identical-to-builtin invariant
+already exists (`boss_sheets_ron_matches_builtin_defaults`). Precise entry points:
+- **Generator** (2119 lines): `tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/characters/gnu_ton_boss/sprite_generator.py`.
+  Today "split" is only intra-sheet z-LAYERS, not separate actors: the `body`
+  layer (`_draw_body_layer:954`) draws body+neck+head **+ scholar fused in** (via
+  `draw_gnu_ton_man`); the `hands` layer (`_draw_hands_layer:980`) is hands+VFX.
+  G1 = pull the scholar OUT of the body layer → a scholar-less `giant_gnu`
+  body/head(+hands) sheet + a separate `gnu_ton` scholar-rider sheet; expose the
+  shoulder anchor (`_MAN_CENTER_X/Y ≈ (44,-20)`, `:940-941`) as the `rider_offset`.
+- **Delete per-frame hand geometry:** `_hand_hit_frames`/`gnu_hand_*` in
+  `_gnu_ton_body_metrics` (`:1546-1707`). **COUPLING CHECK (fable/executor):** the
+  live hand hitbox source today is the Rust-side hardcoded StrikeRect (SLAM_STRIKE_Y
+  comment `:951`), which G3 deletes when hand_slam/hand_sweep become limb MoveSpecs.
+  Confirm whether the sheet-RON `body_metrics` hand frames are a live source before
+  deleting standalone in G1 vs. sequencing with G3 (queue for fable if it bites).
+- **Rust/RON registration:** `boss_encounter/sprites/mod.rs` (`BossSheetSpec`,
+  `GNU_TON_SHEET:544`, filename consts `:514-522`, `dedicated_boss_sheets:820`) +
+  `ambition_content/assets/data/boss_sheets.ron` (`gnu_ton`/`gnu_ton_body`/
+  `gnu_ton_hands` keys) — add `giant_gnu` keys; author actor RONs. Render-side split
+  (`ambition_render/.../actors/boss.rs`, `sync_boss_split_overlay`, `BossOverlayLayer`)
+  is CONVENTION-driven (`{key}_body`+`{key}_hands`) — G1 does NOT touch it; that
+  teardown is G3's.
+- **StationaryGiant** is a `BossMovementProfile` arm (`boss_pattern/mod.rs:53`),
+  not yet a component; gnuton spawns fused via `boss_profiles.ron:284`
+  (`movement: StationaryGiant`). `giant_gnu` target/key + `scholar`/`rider_offset`
+  authoring are net-new (G1/G2).
+
 ## SESSION TODO — in-game bug triage (opus 4.8, 2026-07-05) 🔧
 Recon → §7. Two cheap regressions fixed this session; bug 3 downgraded after a
 deeper trace disproved the recon hypothesis; the rest deferred (§7.1, 7.3, 7.4,

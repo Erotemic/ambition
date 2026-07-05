@@ -1190,3 +1190,36 @@ god-dep); `camera_snapshot` waits for sim_view. So after this leaf, R4 is the
 big COUPLED carves (world/combat/sprite) — genuine multi-session dependency
 untangling, not more quick leaves. Start R4b (`ambition_world`, the 139-inbound
 `rooms` repoint; needs R3.1's seam, which landed) as the next real carve.
+
+### R4b — `ambition_world` starting map (scouted; the next real carve)
+`world/` = `ldtk_world/` (6775 LOC, 12 internal-refs) + `rooms/` (2437,
+16 internal-refs) + `platforms/` (951, but depends on `rooms` +
+`platformer_runtime`) + `physics.rs`. The whole module is coupled around
+`rooms` (the 139-inbound universal spine), so there is NO clean seed —
+`ambition_world` is a big atomic carve dominated by the `rooms` repoint. Before
+`rooms` can move to a LOW crate, its ~13 UPWARD deps must be inverted/moved
+(they are why it can't move down today):
+```
+3× crate::features::FeatureName        1× crate::character_sprites::{CharacterAnim,CharacterAnimator}
+2× crate::player::SlotInteractionState 1× crate::player::{PlayerBlinkCameraState,PlayerSafetyState}
+2× crate::abilities::traversal         1× crate::time::feel
+1× crate::features (load.rs)           1× crate::persistence::save
+1× crate::items::pickup                1× crate::dialog::DialogState
+1× crate::combat::DamageVolume         1× crate::character_sprites::sheets
+```
+Each is a dep-inversion decision (does the coupling belong on `rooms`, or should
+the consumer own it and pass it in?). Recommended R4b sequence: (1) invert/relocate
+these ~13 couplings one at a time (each a compiling, committable prep step —
+bounded, safe, no half-carve), until `rooms` reaches down to only
+`ambition_engine_core`/`ambition_platformer_primitives`; (2) create
+`ambition_world`, move `rooms`+`platforms`+`physics`+`ldtk_world` in one atomic
+carve; (3) repoint the 139 inbound consumers (mechanical, via the facade-then-delete
+D2 template); (4) full gate + compile-time before/after. This is a dedicated
+focused run — NOT startable as a quick mid-run slice (the `rooms` move can't reach
+a compiling checkpoint until step 3 completes).
+
+**Session boundary (opus, 2026-07-04):** stopped here at a clean, fully-gated
+checkpoint (R3.4 surface + R3.6 profile-collapse + #8 + R4a-1 carve all landed,
+only the documented `unified_melee` RED). R4b's dep-inversion prep (step 1 above)
+is the natural next autonomous slice; it's real R4 progress that stays committable
+each step. R3.5 mount + R6 target need Jon's steer.

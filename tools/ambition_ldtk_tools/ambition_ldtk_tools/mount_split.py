@@ -66,13 +66,25 @@ def _field(entity: dict, name: str) -> dict | None:
     return None
 
 
-def ensure_mounted_on_fielddef(project: dict) -> dict:
-    """Ensure the EnemySpawn entity def carries a `mounted_on` EntityRef field."""
-    es_def = find_entity_def(project, "EnemySpawn")
+def ensure_mounted_on_fielddef(
+    project: dict,
+    entity_identifier: str = "EnemySpawn",
+    allowed_refs: str = "OnlySame",
+) -> dict:
+    """Ensure an entity def carries a `mounted_on` EntityRef field.
+
+    ADR 0020 authors mount links as a rider entity's `mounted_on` EntityRef →
+    a mount entity. The EnemySpawn rider (pirate/shark) references another
+    EnemySpawn, so `allowed_refs="OnlySame"`; the BossSpawn rider (GNU-ton the
+    scholar) references a `giant_gnu` EnemySpawn mount — a CROSS-type ref — so
+    the caller passes `allowed_refs="Any"`. Idempotent: returns the existing
+    field def untouched if it is already present.
+    """
+    es_def = find_entity_def(project, entity_identifier)
     for f in es_def.get("fieldDefs", []):
         if f["identifier"] == "mounted_on":
             return f
-    _, uid = allocate_iid(project, "EnemySpawn")  # bumps nextUid; reuse the int
+    _, uid = allocate_iid(project, entity_identifier)  # bumps nextUid; reuse the int
     field_def = {
         "identifier": "mounted_on",
         "doc": "ADR 0020: the mount EnemySpawn this rider is mounted on (the "
@@ -103,11 +115,12 @@ def ensure_mounted_on_fielddef(project: dict) -> dict:
         "acceptFileTypes": None,
         "defaultOverride": None,
         "textLanguageMode": None,
-        # EntityRef targets: only other EnemySpawn entities (rider -> mount).
+        # EntityRef targets: `allowed_refs` scopes what the rider may point at
+        # ("OnlySame" for EnemySpawn→EnemySpawn, "Any" for BossSpawn→EnemySpawn).
         "symmetricalRef": False,
         "autoChainRef": True,
         "allowOutOfLevelRef": False,
-        "allowedRefs": "OnlySame",
+        "allowedRefs": allowed_refs,
         "allowedRefsEntityUid": None,
         "allowedRefTags": [],
         "tilesetUid": None,

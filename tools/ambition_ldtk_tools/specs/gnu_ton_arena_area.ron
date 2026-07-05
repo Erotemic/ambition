@@ -40,16 +40,31 @@
 //
 // Ladder gating: the Climbable IntGrid below is painted unconditionally
 // at world-load time, but the sandbox-side `gate_gnu_ton_arena_ladder`
-// system (boss_encounter/gnu_ton.rs) removes the Ladder regions from
+// system (bosses/gnu_ton.rs) removes the Ladder regions from
 // `world.climbable_regions` on entry and re-adds them the frame the
-// gnu_ton boss is defeated. So the cells exist in LDtk but only count
-// at runtime once the player has earned the retreat.
+// gnu_ton (now gnu_ton_rider) boss is defeated. So the cells exist in
+// LDtk but only count at runtime once the player has earned the retreat.
+//
+// REGEN SEQUENCE (this area is NOT single-step — the named floor-gate is a
+// post-patch). After
+//   `area create gnu_ton_arena_area.ron --ldtk sandbox.ldtk --replace-existing`,
+// re-apply the two gate patches (the area spec lowers Solids to anonymous
+// IntGrid, but the gate must be a NAMED Solid entity the runtime can remove):
+//   1. `intgrid erase --level gnu_ton_arena --px 120,208 --size 32,16`
+//      (carves the 48x16 slot out of the lowered entry_ledge)
+//   2. `entity add specs/gnu_ton/add_ladder_floor_gate.yaml`
+//      (adds the `ladder_floor_gate` named Solid entity into that slot)
+// `specs/gnu_ton/lower_boss_spawn.yaml` is now OBSOLETE — the mount already
+// spawns at px [786, 832] here (the fused BossSpawn it moved no longer exists).
 
 (
     id: "gnu_ton_arena",
     level_id: "gnu_ton_arena",
-    world_x: 36000,
-    world_y: 0,
+    // World placement mirrors the live sandbox.ldtk slot (the gridvania layout
+    // owns level positions; this spec tracks it so a `--replace-existing` regen
+    // stays position-preserving rather than relocating the arena).
+    world_x: 5120,
+    world_y: 6656,
     px_wid: 1792,
     px_hei: 1280,
     fill_collision: "empty",
@@ -333,8 +348,17 @@
                 bidirectional: true,
             ),
         ),
+        // ADR 0020 (G4): GNU-ton is authored as a LINKED PAIR — a brainless
+        // `giant_gnu` EnemySpawn MOUNT carrying the giant's 220x220 envelope, and
+        // a `gnu_ton_rider` BossSpawn RIDER (the scholar, the encounter boss)
+        // welded to the giant's saddle via a `mounted_on` EntityRef. The mount
+        // carries no explicit `id`, so its runtime FeatureId == its iid — exactly
+        // the target the rider's ref stores, which `resolve_pending_mount_links`
+        // matches. `spawn_boss` attaches the rider's CanPilot("giant"); G3's limb
+        // router drives the giant's hands from the rider's authored strikes.
         (
-            type: "BossSpawn",
+            type: "EnemySpawn",
+            ref: "giant_gnu_mount",
             px: [
                 786,
                 832,
@@ -344,8 +368,24 @@
                 220,
             ],
             fields: (
+                name: "Giant GNU",
+                brain: "giant_gnu",
+            ),
+        ),
+        (
+            type: "BossSpawn",
+            px: [
+                869,
+                754,
+            ],
+            size: [
+                54,
+                96,
+            ],
+            fields: (
                 name: "GNU-ton",
-                brain: "PhaseScript:gnu_ton",
+                brain: "PhaseScript:gnu_ton_rider",
+                mounted_on: "giant_gnu_mount",
             ),
         ),
         (

@@ -45,8 +45,15 @@ const FLOOR_GATE_BLOCK_NAME: &str = "ladder_floor_gate";
 
 /// GNU-ton recognizer (id or authored display name). Lives content-side:
 /// the generic cluster views no longer carry named-boss predicates.
+///
+/// The arena (ADR 0020 / G4) now spawns the SPLIT pair: the encounter boss is
+/// the `gnu_ton_rider` scholar riding the `giant_gnu` mount, so the gate must
+/// recognize the rider id. The fused `gnu_ton` id is still matched so the gate
+/// keeps working against the (still-authored) fused profile and its regression
+/// tests until the fused teardown lands.
 fn boss_is_gnu_ton(boss: &ambition_gameplay_core::features::BossRef<'_>) -> bool {
     boss.config.behavior.id == "gnu_ton"
+        || boss.config.behavior.id == "gnu_ton_rider"
         || boss.config.name.eq_ignore_ascii_case("gnu_ton")
         || boss.config.name.eq_ignore_ascii_case("gnu-ton")
 }
@@ -164,6 +171,24 @@ mod tests {
         let aabb = ae::Aabb::new(pos, combat_size * 0.5);
         let mut scratch = BossClusterScratch::new(
             "boss_gnu_ton",
+            "GNU-ton",
+            aabb,
+            ambition_characters::actor::BossBrain::Dormant,
+        );
+        scratch.config.behavior = behavior;
+        scratch
+    }
+
+    /// The ADR 0020 / G4 encounter boss: the `gnu_ton_rider` scholar (the boss
+    /// that actually spawns in the reauthored arena — it rides the `giant_gnu`
+    /// mount). The gate must treat this the same as the fused `gnu_ton`.
+    fn spawn_gnu_ton_rider_runtime() -> BossClusterScratch {
+        let behavior = BossBehaviorProfile::from_data("gnu_ton_rider");
+        let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(54.0, 96.0));
+        let pos = ae::Vec2::new(500.0, 400.0);
+        let aabb = ae::Aabb::new(pos, combat_size * 0.5);
+        let mut scratch = BossClusterScratch::new(
+            "boss_gnu_ton_rider",
             "GNU-ton",
             aabb,
             ambition_characters::actor::BossBrain::Dormant,
@@ -300,6 +325,129 @@ mod tests {
             climbable_regions_len(&app),
             0,
             "ladder must be removed on first frame in arena while boss is alive"
+        );
+    }
+
+    /// G4 (ADR 0020): the reauthored arena spawns the LINKED PAIR — the
+    /// `gnu_ton_rider` BossSpawn welded to the `giant_gnu` EnemySpawn mount via
+    /// a `mounted_on` EntityRef — not the fused single `gnu_ton` boss. This
+    /// pins the full authoring→conversion chain (`convert_boss_spawn` emitting a
+    /// `mount_links` entry) end-to-end off the embedded sandbox.ldtk.
+    #[test]
+    fn arena_spawns_the_adr0020_linked_pair() {
+        use ambition_characters::actor::{BossBrain, CharacterBrain};
+        use ambition_gameplay_core::ldtk_world::LdtkProject;
+
+        // `to_room_set` reads the world manifest + resolves spawn display names
+        // through the character roster; install both content seams before
+        // composing (first install wins, so this is safe to call in any test).
+        crate::worlds::install();
+        crate::character_catalog::install();
+        let mut project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+        // Compose ONLY the arena area. The full sandbox composes portal rooms
+        // whose entities need the `portal_ldtk` feature (off in this test build);
+        // the arena itself has no portal entities, so scoping to it keeps the
+        // conversion-level assertion (`convert_boss_spawn` → `mount_links`) light.
+        project
+            .levels
+            .retain(|level| level.identifier == ARENA_ROOM_NAME);
+        let room_set = project.to_room_set().expect("gnu_ton_arena composes");
+        let arena = room_set
+            .rooms
+            .iter()
+            .find(|r| r.id == ARENA_ROOM_NAME)
+            .expect("gnu_ton_arena room exists");
+
+        // Exactly one authored mount link: the rider BossSpawn → the giant mount.
+        assert_eq!(
+            arena.mount_links.len(),
+            1,
+            "the reauthored arena must emit exactly one mount link (rider → mount)"
+        );
+        let (rider_id, mount_id) = &arena.mount_links[0];
+
+        // The mount side is the brainless `giant_gnu` EnemySpawn (the carried giant).
+        let mount = arena
+            .enemy_spawns
+            .iter()
+            .find(|e| &e.id == mount_id)
+            .expect("mount-link target resolves to an authored EnemySpawn");
+        assert!(
+            matches!(&mount.payload, CharacterBrain::Custom(id) if id == "giant_gnu"),
+            "the mount is the giant_gnu archetype, got {:?}",
+            mount.payload
+        );
+
+        // The rider side is the `gnu_ton_rider` BossSpawn (the encounter boss).
+        let rider = arena
+            .boss_spawns
+            .iter()
+            .find(|b| &b.id == rider_id)
+            .expect("mount-link source resolves to an authored BossSpawn");
+        assert!(
+            matches!(
+                &rider.payload,
+                BossBrain::PhaseScript { script_id } if script_id == "gnu_ton_rider"
+            ),
+            "the rider is the gnu_ton_rider phase-script boss, got {:?}",
+            rider.payload
+        );
+
+        // The fused single-boss authoring is gone: nothing spawns `gnu_ton`.
+        assert!(
+            !arena.boss_spawns.iter().any(|b| matches!(
+                &b.payload,
+                BossBrain::PhaseScript { script_id } if script_id == "gnu_ton"
+            )),
+            "the arena must no longer spawn the fused gnu_ton boss — it is the split pair now"
+        );
+    }
+
+    #[test]
+    fn ladder_is_hidden_when_rider_boss_is_alive() {
+        // G4: the reauthored arena spawns the `gnu_ton_rider` (the scholar on
+        // the giant), not the fused `gnu_ton`. The gate must still hide the
+        // retreat ladder while THAT boss is alive, or the split boss would let
+        // the player climb out and skip the fight.
+        let ladder = ae::ClimbableRegion::ladder(ladder_aabb());
+        let mut app = make_app(make_game_world(ARENA_ROOM_NAME, vec![ladder]));
+        app.world_mut()
+            .spawn(spawn_gnu_ton_rider_runtime().into_components());
+        app.update();
+        assert_eq!(
+            climbable_regions_len(&app),
+            0,
+            "ladder must be hidden while the gnu_ton_rider encounter boss is alive"
+        );
+    }
+
+    #[test]
+    fn ladder_appears_when_rider_boss_dies() {
+        // The rider-boss defeat must reveal the retreat ladder, exactly like the
+        // fused boss does — the gate keys on the encounter boss being defeated.
+        let ladder = ae::ClimbableRegion::ladder(ladder_aabb());
+        let mut app = make_app(make_game_world(ARENA_ROOM_NAME, vec![ladder]));
+        let boss_entity = app
+            .world_mut()
+            .spawn(spawn_gnu_ton_rider_runtime().into_components())
+            .id();
+        app.update();
+        assert_eq!(climbable_regions_len(&app), 0);
+        app.world_mut()
+            .get_mut::<ambition_characters::actor::BodyHealth>(boss_entity)
+            .unwrap()
+            .health
+            .current = 0;
+        app.update();
+        let regions = &app
+            .world()
+            .resource::<ambition_engine_core::RoomGeometry>()
+            .0
+            .climbable_regions;
+        assert_eq!(
+            regions.len(),
+            1,
+            "ladder should be back after the rider boss is defeated"
         );
     }
 

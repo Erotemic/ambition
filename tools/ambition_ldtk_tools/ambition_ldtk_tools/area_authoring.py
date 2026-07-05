@@ -705,6 +705,53 @@ def build_entity_instance(
     return instance
 
 
+def _resolve_entity_ref_handles(
+    entity_instances: list[dict],
+    ref_handles: dict[str, str],
+    *,
+    layer_iid: str,
+    level_iid: str,
+    world_iid,
+) -> None:
+    """Resolve spec-local EntityRef handles into real LDtk EntityRef values.
+
+    While building a level, an EntityRef field's `__value` is left as the bare
+    spec-local `ref` handle string (see `build_level`). Once every entity has an
+    iid, rewrite each such field into LDtk's canonical
+    `{entityIid, layerIid, levelIid, worldIid}` object — the exact shape
+    `mount_split` produces and `field_entity_ref` (Rust) reads. Raises on an
+    unknown handle so a typo fails loudly at authoring time instead of silently
+    dropping the mount link.
+    """
+    problems: list[str] = []
+    for inst in entity_instances:
+        for field_inst in inst.get("fieldInstances", []):
+            if field_inst.get("__type") != "EntityRef":
+                continue
+            handle = field_inst.get("__value")
+            # Only bare handle strings need resolution; null (unset) or an
+            # already-resolved object is left alone.
+            if not isinstance(handle, str) or not handle:
+                continue
+            target_iid = ref_handles.get(handle)
+            if target_iid is None:
+                known = ", ".join(sorted(ref_handles)) or "(none)"
+                problems.append(
+                    f"entity '{inst['__identifier']}' field "
+                    f"'{field_inst['__identifier']}' references unknown ref "
+                    f"handle '{handle}'. Known ref handles: {known}"
+                )
+                continue
+            field_inst["__value"] = {
+                "entityIid": target_iid,
+                "layerIid": layer_iid,
+                "levelIid": level_iid,
+                "worldIid": world_iid,
+            }
+    if problems:
+        raise SystemExit("; ".join(problems))
+
+
 def build_level(project: dict, spec: dict) -> dict:
     level_id = spec["level_id"]
     area_id = spec["id"]
@@ -751,6 +798,20 @@ def build_level(project: dict, spec: dict) -> dict:
     collision_iid, _ = allocate_iid(project, "Collision")
     ambition_iid, _ = allocate_iid(project, "Ambition")
 
+    # ADR 0020 mount links: an entity spec may author a `mounted_on` EntityRef
+    # naming a spec-local `ref` handle on a mount entity (the GNU-ton scholar
+    # BossSpawn → its `giant_gnu` EnemySpawn mount). Ensure the target entity
+    # def carries the `mounted_on` field def BEFORE building (so the strict
+    # field check in `build_entity_instance` accepts it), then resolve the
+    # handle into a real LDtk EntityRef after every entity has an iid. The link
+    # can cross entity types (BossSpawn rider → EnemySpawn mount), so the field
+    # def uses `allowedRefs: "Any"`.
+    from ambition_ldtk_tools.mount_split import ensure_mounted_on_fielddef
+
+    for ent_spec in spec.get("entities", []):
+        if "mounted_on" in (ent_spec.get("fields") or {}):
+            ensure_mounted_on_fielddef(project, ent_spec["type"], allowed_refs="Any")
+
     # Split entities into "stays as an entity" vs "lower into IntGrid".
     # Solid / OneWayPlatform / BlinkWall belong on the Collision layer;
     # everything else stays on the Ambition entity layer. This keeps
@@ -759,18 +820,27 @@ def build_level(project: dict, spec: dict) -> dict:
     entity_instances: list[dict] = []
     lowered_count = 0
     lowered_cells = 0
+    # Spec-local `ref` handle → the built entity's iid (mount-link targets).
+    ref_handles: dict[str, str] = {}
     for ent_spec in spec.get("entities", []):
         value = entity_to_intgrid_value(ent_spec)
         if value is None:
-            entity_instances.append(
-                build_entity_instance(
-                    project,
-                    ent_spec,
-                    grid_size,
-                    world_x,
-                    world_y,
-                )
+            instance = build_entity_instance(
+                project,
+                ent_spec,
+                grid_size,
+                world_x,
+                world_y,
             )
+            entity_instances.append(instance)
+            handle = ent_spec.get("ref")
+            if handle:
+                if handle in ref_handles:
+                    raise SystemExit(
+                        f"duplicate entity ref handle '{handle}' in area "
+                        f"'{spec.get('id')}'"
+                    )
+                ref_handles[str(handle)] = instance["iid"]
             continue
         px = ent_spec.get("px")
         if px is None or len(px) != 2:
@@ -800,6 +870,16 @@ def build_level(project: dict, spec: dict) -> dict:
             f"  lowered {lowered_count} static-collision entit{'y' if lowered_count == 1 else 'ies'} "
             f"into {lowered_cells} IntGrid cells"
         )
+
+    # Resolve authored EntityRef fields (mount links). The mount + rider live in
+    # the same level/Ambition layer, so the ref carries this level's iids.
+    _resolve_entity_ref_handles(
+        entity_instances,
+        ref_handles,
+        layer_iid=ambition_iid,
+        level_iid=level_iid,
+        world_iid=project.get("iid"),
+    )
 
     base_layer = {
         "__cWid": c_wid,

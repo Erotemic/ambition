@@ -1158,3 +1158,35 @@ regression risk, not the clean byte-identical field-plumbing AJ3 implied. Best
 done with Jon's steer on the mounted-loadout model (it also touches feel — the
 gun-sword shark-rider is a signature cove enemy). The corrected map above makes
 it a ~1-session slice once the model is picked.
+
+---
+
+## R4 — the carve begins (executor: opus, 2026-07-04)
+
+### R4a-1 — `asset_publish` → `ambition_asset_manager` ✅ (first carve; grow-don't-mint)
+The publish/hygiene classifier module (890 LOC: `classify`/`manifest`/`publish`/
+`hygiene`/`walk`) moved out of `gameplay_core` into its architecture-ratified
+home `ambition_asset_manager` (arch.md: "asset_manager absorbs
+gameplay_core::{assets, asset_publish}"). It was the ONE genuinely-clean R4a leaf
+— fully self-contained (std/serde/ron/tempfile only, ZERO `crate::` code refs,
+its one `crate::` mention is a doc-link that stays valid), no in-crate consumers
+(a tested publish-boundary reference mirroring the Python `sweep`/`variants`
+scripts). `git mv` the dir (history preserved), `pub mod asset_publish;` moves
+from gameplay_core lib.rs to asset_manager lib.rs (its internal `manifest`
+submodule stays namespaced under `asset_publish::`, no collision with
+asset_manager's own `manifest`), and `ron`/`tempfile` deps added to
+asset_manager. Verified: asset_manager 56+6 tests (incl. the moved hygiene
+real-data test), gameplay_core clean [+ full gate]. **Compile-time note:** a
+zero-consumer leaf, so the win is only gameplay_core compiling 890 fewer LOC — a
+marginal delta; the REAL carve wins are the coupled families (R4b world, R4d
+combat, R4e sprite), which need sustained multi-session untangling.
+
+**R4 REALITY CHECK (from scouting the near-leaves):** the doc's other R4a leaves
+are NOT clean-and-independent: `time/` already split its primitive to the
+existing `ambition_time` crate — the gameplay_core `time/` residue (feel /
+time_control / camera_ease) DEPENDS on `crate::{player,combat,features}`, so it
+can't move down; `quest/`+`host/`→persistence reaches UP into menu (the one
+god-dep); `camera_snapshot` waits for sim_view. So after this leaf, R4 is the
+big COUPLED carves (world/combat/sprite) — genuine multi-session dependency
+untangling, not more quick leaves. Start R4b (`ambition_world`, the 139-inbound
+`rooms` repoint; needs R3.1's seam, which landed) as the next real carve.

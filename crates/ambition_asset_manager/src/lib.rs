@@ -20,6 +20,7 @@
 //! See `docs/systems/asset-manager.md` for the full per-profile contract,
 //! hot-reload availability, and Bevy `AssetSource` wiring recommendations.
 
+pub mod asset_publish;
 pub mod id;
 pub mod kind;
 pub mod location;

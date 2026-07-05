@@ -119,6 +119,7 @@ fn rig_world(f: &AccelerationFrame) -> World {
             .collect(),
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),
+        chains: Vec::new(),
     }
 }
 

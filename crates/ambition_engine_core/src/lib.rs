@@ -88,5 +88,6 @@ pub use reference_frame::{
 pub use volume_shape::{VolumeShape, DUMMY_HALF};
 pub use world::{
     BlinkWallTier, Block, BlockKind, ClimbableContact, ClimbableKind, ClimbableRegion,
-    ClimbableSpec, RoomGeometry, WaterContact, WaterKind, WaterRegion, WaterVolumeSpec, World,
+    ClimbableSpec, RoomGeometry, SurfaceChain, SurfaceFrame, SurfaceKind, WaterContact, WaterKind,
+    WaterRegion, WaterVolumeSpec, World,
 };

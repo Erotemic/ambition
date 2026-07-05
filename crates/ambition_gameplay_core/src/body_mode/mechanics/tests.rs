@@ -52,6 +52,7 @@ fn open_world() -> ae::World {
         )],
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),
+        chains: Vec::new(),
     }
 }
 

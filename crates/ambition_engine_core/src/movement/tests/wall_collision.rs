@@ -301,6 +301,7 @@ fn partial_wall_cling_overlap_does_not_teleport_upward() {
         )],
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),
+        chains: Vec::new(),
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
     // Reproduce the exact pre-OOB state from the trace.
@@ -352,6 +353,7 @@ fn descending_onto_top_corner_of_tall_block_lands_normally() {
         )],
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),
+        chains: Vec::new(),
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
     scratch.kinematics.pos = Vec2::new(391.0, 200.0 - 23.0 - 0.5);
@@ -561,6 +563,7 @@ fn sliding_along_the_ceiling_edge_does_not_teleport_across_the_room() {
         ],
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),
+        chains: Vec::new(),
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
     scratch.kinematics.size = Vec2::new(30.0, 48.0);
@@ -610,6 +613,7 @@ fn ceiling_graze_x_sweep_does_not_teleport_body_to_the_far_edge() {
         ],
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),
+        chains: Vec::new(),
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
     scratch.kinematics.size = Vec2::new(30.0, 48.0);
@@ -751,6 +755,7 @@ fn sideways_gravity_blink_wall_is_ground_support() {
         )],
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),
+        chains: Vec::new(),
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
     scratch.kinematics.vel = Vec2::ZERO;
@@ -802,6 +807,7 @@ fn one_way_platform_works_under_sideways_gravity() {
         )],
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),
+        chains: Vec::new(),
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
     scratch.kinematics.vel = Vec2::ZERO;
@@ -915,6 +921,7 @@ fn deeply_embedded_player_is_not_pushout_teleported_under_sideways_gravity() {
         ],
         water_regions: Vec::new(),
         climbable_regions: Vec::new(),
+        chains: Vec::new(),
     };
     let start = Vec2::new(650.0, 650.0); // deep inside the 700x700 slab
 

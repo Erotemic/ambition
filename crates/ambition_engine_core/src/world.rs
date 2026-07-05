@@ -268,11 +268,276 @@ pub struct ClimbableContact {
     pub spec: ClimbableSpec,
 }
 
+/// Gameplay meaning of a [`SurfaceChain`]. Deliberately tiny — semantics grow
+/// when content demands them (design-balance: knobs when use cases land).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SurfaceKind {
+    /// A rideable ground surface (slopes, hills, loop tracks).
+    Ground,
+}
+
+/// The local frame of a chain at an arc-length position: where you are, which
+/// way the surface runs, which way is off the surface.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SurfaceFrame {
+    pub point: Vec2,
+    /// Unit tangent along increasing arc length.
+    pub tangent: Vec2,
+    /// Unit outward normal — `(t.y, -t.x)`, the side a body rides on. Matches
+    /// the [`crate::collision_semantics::Contact`] winding (a floor chain
+    /// authored left→right has tangent `(1,0)` and normal `(0,-1)` = up).
+    pub normal: Vec2,
+    /// Index of the segment this frame lies on.
+    pub segment: usize,
+}
+
+/// The first richer-than-AABB world primitive (fable review 2026-07-05, AJ10
+/// layer 2): a polyline surface a momentum body can ride along — slopes,
+/// hills, valleys, and (when `closed`) full loops.
+///
+/// Conventions:
+/// - One-sided by winding: bodies ride the `+normal` side, where
+///   `normal = (t.y, -t.x)`. Author floors left→to→right (normals up, with y
+///   growing downward). A rideable loop INTERIOR is a closed chain with
+///   negative shoelace [`SurfaceChain::signed_area`].
+/// - Normals are DERIVED, never authored — a validator checks the geometry
+///   instead ([`SurfaceChain::validate`]), so inverted normals /
+///   discontinuous joins can't masquerade as physics bugs.
+/// - `velocity` is the chain's own per-frame motion (a moving surface's
+///   `last_delta`, like [`Block::velocity`]); contact carry falls out of the
+///   contact frame, not a special case.
+/// - Chains are collision geometry ONLY for bodies that opt in (the
+///   surface-momentum motion model). The axis-swept AABB path never sees
+///   them — AABB stays the protected fast path.
+#[derive(Clone, Debug)]
+pub struct SurfaceChain {
+    pub name: String,
+    /// Polyline vertices. For a `closed` chain the last point connects back
+    /// to the first (do NOT duplicate the first point at the end).
+    pub points: Vec<Vec2>,
+    pub closed: bool,
+    pub kind: SurfaceKind,
+    /// Per-frame displacement of this surface (`ZERO` for static geometry).
+    pub velocity: Vec2,
+}
+
+impl SurfaceChain {
+    pub fn open(name: impl Into<String>, points: Vec<Vec2>) -> Self {
+        Self {
+            name: name.into(),
+            points,
+            closed: false,
+            kind: SurfaceKind::Ground,
+            velocity: Vec2::ZERO,
+        }
+    }
+
+    pub fn closed_loop(name: impl Into<String>, points: Vec<Vec2>) -> Self {
+        Self {
+            name: name.into(),
+            points,
+            closed: true,
+            kind: SurfaceKind::Ground,
+            velocity: Vec2::ZERO,
+        }
+    }
+
+    pub fn segment_count(&self) -> usize {
+        if self.points.len() < 2 {
+            0
+        } else if self.closed {
+            self.points.len()
+        } else {
+            self.points.len() - 1
+        }
+    }
+
+    /// Endpoints of segment `i` (wraps for the closing segment).
+    pub fn segment(&self, i: usize) -> (Vec2, Vec2) {
+        let a = self.points[i % self.points.len()];
+        let b = self.points[(i + 1) % self.points.len()];
+        (a, b)
+    }
+
+    pub fn segment_length(&self, i: usize) -> f32 {
+        let (a, b) = self.segment(i);
+        (b - a).length()
+    }
+
+    pub fn tangent(&self, i: usize) -> Vec2 {
+        let (a, b) = self.segment(i);
+        (b - a).normalize_or_zero()
+    }
+
+    /// Outward normal of segment `i`: the tangent rotated by the shared
+    /// winding rule `n = (t.y, -t.x)`.
+    pub fn normal(&self, i: usize) -> Vec2 {
+        let t = self.tangent(i);
+        Vec2::new(t.y, -t.x)
+    }
+
+    pub fn total_length(&self) -> f32 {
+        (0..self.segment_count())
+            .map(|i| self.segment_length(i))
+            .sum()
+    }
+
+    /// The surface frame at arc length `s`. `s` WRAPS on a closed chain and
+    /// CLAMPS to the ends of an open one (falling off an open end is the
+    /// solver's job, not the geometry's).
+    pub fn frame_at(&self, s: f32) -> SurfaceFrame {
+        let total = self.total_length();
+        debug_assert!(total > 0.0, "frame_at on a degenerate chain");
+        let mut s = if self.closed {
+            s.rem_euclid(total)
+        } else {
+            s.clamp(0.0, total)
+        };
+        let count = self.segment_count();
+        for i in 0..count {
+            let len = self.segment_length(i);
+            if s <= len || i == count - 1 {
+                let (a, b) = self.segment(i);
+                let t = self.tangent(i);
+                let f = if len > 0.0 {
+                    (s / len).clamp(0.0, 1.0)
+                } else {
+                    0.0
+                };
+                return SurfaceFrame {
+                    point: a + (b - a) * f,
+                    tangent: t,
+                    normal: Vec2::new(t.y, -t.x),
+                    segment: i,
+                };
+            }
+            s -= len;
+        }
+        unreachable!("segment walk covers the arc length");
+    }
+
+    /// Project `p` onto the chain: returns `(arc_length, signed_distance)`
+    /// of the closest point, where `signed_distance > 0` means `p` is on the
+    /// rideable (`+normal`) side of that segment.
+    pub fn project(&self, p: Vec2) -> (f32, f32) {
+        let mut best: Option<(f32, f32, f32)> = None; // (|d|, s, signed d)
+        let mut arc = 0.0;
+        for i in 0..self.segment_count() {
+            let (a, b) = self.segment(i);
+            let ab = b - a;
+            let len_sq = ab.length_squared();
+            let t = if len_sq > 0.0 {
+                ((p - a).dot(ab) / len_sq).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+            let closest = a + ab * t;
+            let d = (p - closest).length();
+            let signed = (p - closest).dot(self.normal(i));
+            let s = arc + ab.length() * t;
+            if best.is_none_or(|(bd, _, _)| d < bd) {
+                best = Some((d, s, signed));
+            }
+            arc += ab.length();
+        }
+        let (_, s, signed) = best.expect("project on a chain with segments");
+        (s, signed)
+    }
+
+    /// Shoelace signed area of a CLOSED chain (0 for open chains). With the
+    /// engine's y-down screen coordinates and the `n = (t.y, -t.x)` winding,
+    /// a NEGATIVE area means the normals face the enclosed interior — the
+    /// authoring for a rideable loop inside.
+    pub fn signed_area(&self) -> f32 {
+        if !self.closed || self.points.len() < 3 {
+            return 0.0;
+        }
+        let mut twice_area = 0.0;
+        for i in 0..self.points.len() {
+            let a = self.points[i];
+            let b = self.points[(i + 1) % self.points.len()];
+            twice_area += a.x * b.y - b.x * a.y;
+        }
+        twice_area * 0.5
+    }
+
+    /// Authoring validation (the pragmatic tier from `spatial-model.md`:
+    /// catch the geometry that would masquerade as physics bugs). Returns
+    /// human-readable problems; empty = valid.
+    pub fn validate(&self) -> Vec<String> {
+        let mut problems = Vec::new();
+        let min_points = if self.closed { 3 } else { 2 };
+        if self.points.len() < min_points {
+            problems.push(format!(
+                "chain '{}': needs at least {min_points} points ({} authored)",
+                self.name,
+                self.points.len()
+            ));
+            return problems;
+        }
+        if self
+            .points
+            .iter()
+            .any(|p| !p.x.is_finite() || !p.y.is_finite())
+        {
+            problems.push(format!("chain '{}': non-finite point", self.name));
+            return problems;
+        }
+        for i in 0..self.segment_count() {
+            if self.segment_length(i) < 1.0e-3 {
+                problems.push(format!(
+                    "chain '{}': segment {i} is degenerate (zero length) — joins must share \
+                     a single vertex, not duplicate it",
+                    self.name
+                ));
+            }
+        }
+        if self.closed && self.points.first() == self.points.last() && self.points.len() > 1 {
+            problems.push(format!(
+                "chain '{}': closed chain duplicates its first point at the end — the closing \
+                 segment is implicit",
+                self.name
+            ));
+        }
+        // Self-intersection: any two non-adjacent segments crossing makes
+        // support ambiguous. O(n²) — validation-time only.
+        let count = self.segment_count();
+        for i in 0..count {
+            for j in (i + 2)..count {
+                if self.closed && i == 0 && j == count - 1 {
+                    continue; // adjacent through the wrap
+                }
+                let (a1, a2) = self.segment(i);
+                let (b1, b2) = self.segment(j);
+                if segments_cross(a1, a2, b1, b2) {
+                    problems.push(format!(
+                        "chain '{}': segments {i} and {j} cross — self-intersecting surface",
+                        self.name
+                    ));
+                }
+            }
+        }
+        problems
+    }
+}
+
+/// Strict proper-crossing test (shared endpoints / collinear touches don't count).
+fn segments_cross(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) -> bool {
+    fn orient(a: Vec2, b: Vec2, c: Vec2) -> f32 {
+        (b - a).perp_dot(c - a)
+    }
+    let d1 = orient(b1, b2, a1);
+    let d2 = orient(b1, b2, a2);
+    let d3 = orient(a1, a2, b1);
+    let d4 = orient(a1, a2, b2);
+    (d1 * d2 < 0.0) && (d3 * d4 < 0.0)
+}
+
 /// Complete generated room spec.
 ///
 /// Engine-side `World` carries only simulation primitives: blocks,
-/// source-agnostic water + climbable regions, and the room's nominal
-/// size / spawn / display name. Authored entities (hazards, pickups,
+/// source-agnostic water + climbable regions, surface chains, and the room's
+/// nominal size / spawn / display name. Authored entities (hazards, pickups,
 /// chests, enemies, bosses, NPCs, switches, labels) live on the
 /// sandbox-side `RoomSpec` in per-family Vecs — see
 /// `crate::rooms::RoomSpec` in `ambition_gameplay_core`. The engine has no
@@ -293,6 +558,10 @@ pub struct World {
     /// simulator only queries `climbable_at`, never iterates this list
     /// directly.
     pub climbable_regions: Vec<ClimbableRegion>,
+    /// Rideable surface chains (fable review 2026-07-05 AJ10). EMPTY for
+    /// every AABB-only room — the zero-chain case takes the existing fast
+    /// paths untouched; only surface-momentum bodies ever read this list.
+    pub chains: Vec<SurfaceChain>,
 }
 
 /// First collision along a swept body path.
@@ -314,7 +583,16 @@ impl World {
             blocks,
             water_regions: Vec::new(),
             climbable_regions: Vec::new(),
+            chains: Vec::new(),
         }
+    }
+
+    /// Builder-style setter for surface chains. Mirrors `with_water_regions`
+    /// so every authoring source (LDtk entity, generated IR, native RON room)
+    /// flows through one entry point.
+    pub fn with_chains(mut self, chains: Vec<SurfaceChain>) -> Self {
+        self.chains = chains;
+        self
     }
 
     pub fn with_water_regions(mut self, regions: Vec<WaterRegion>) -> Self {
@@ -508,6 +786,124 @@ mod tests {
         let hit = hit.expect("sweep should hit something with two walls in path");
         assert_eq!(hit.block.name, "near");
         assert!(hit.time_of_impact >= 0.0 && hit.time_of_impact <= 1.0);
+    }
+
+    #[test]
+    fn chain_winding_matches_the_contact_convention() {
+        // A floor authored left->right: tangent (1,0), normal (0,-1) = up in
+        // y-down screen coordinates — identical to Contact::tangent's rule.
+        let floor = SurfaceChain::open(
+            "floor",
+            vec![Vec2::new(0.0, 100.0), Vec2::new(200.0, 100.0)],
+        );
+        assert_eq!(floor.tangent(0), Vec2::new(1.0, 0.0));
+        assert_eq!(floor.normal(0), Vec2::new(0.0, -1.0));
+        assert_eq!(floor.total_length(), 200.0);
+    }
+
+    #[test]
+    fn chain_frame_at_wraps_closed_and_clamps_open() {
+        // A 100x100 square loop traversed so its normals face the INTERIOR
+        // (rideable inside): floor L->R, up the right wall, R->L along the
+        // ceiling, down the left wall. Negative shoelace area by convention.
+        let square = SurfaceChain::closed_loop(
+            "loop",
+            vec![
+                Vec2::new(0.0, 0.0),
+                Vec2::new(100.0, 0.0),
+                Vec2::new(100.0, -100.0),
+                Vec2::new(0.0, -100.0),
+            ],
+        );
+        assert_eq!(square.segment_count(), 4);
+        assert_eq!(square.total_length(), 400.0);
+        assert!(square.signed_area() < 0.0, "interior-rideable winding");
+        // Interior-facing normals on every segment: floor up, right wall
+        // leftward, ceiling down, left wall rightward.
+        assert_eq!(square.normal(0), Vec2::new(0.0, -1.0));
+        assert_eq!(square.normal(1), Vec2::new(-1.0, 0.0));
+        assert_eq!(square.normal(2), Vec2::new(0.0, 1.0));
+        assert_eq!(square.normal(3), Vec2::new(1.0, 0.0));
+        // Arc length wraps: s = 450 is s = 50, halfway along the floor.
+        let f = square.frame_at(450.0);
+        assert_eq!(f.segment, 0);
+        assert!((f.point - Vec2::new(50.0, 0.0)).length() < 1e-4);
+        // Negative s wraps backward onto the left wall.
+        let back = square.frame_at(-50.0);
+        assert_eq!(back.segment, 3);
+        // An open chain clamps instead.
+        let open = SurfaceChain::open("ramp", vec![Vec2::new(0.0, 0.0), Vec2::new(100.0, -50.0)]);
+        let end = open.frame_at(1.0e6);
+        assert!((end.point - Vec2::new(100.0, -50.0)).length() < 1e-3);
+    }
+
+    #[test]
+    fn chain_project_reports_arc_and_rideable_side() {
+        let floor = SurfaceChain::open(
+            "floor",
+            vec![Vec2::new(0.0, 100.0), Vec2::new(200.0, 100.0)],
+        );
+        // A point ABOVE the floor (y < 100 in y-down coords) is on the
+        // rideable +normal side.
+        let (s, d) = floor.project(Vec2::new(50.0, 90.0));
+        assert!((s - 50.0).abs() < 1e-4);
+        assert!(d > 0.0, "above the floor is the rideable side (d = {d})");
+        let (_, below) = floor.project(Vec2::new(50.0, 110.0));
+        assert!(below < 0.0, "below the floor is the solid side");
+    }
+
+    #[test]
+    fn chain_validate_catches_authoring_hazards() {
+        // Too few points.
+        assert!(!SurfaceChain::open("p", vec![Vec2::ZERO])
+            .validate()
+            .is_empty());
+        // Degenerate segment (duplicated join vertex).
+        let dup = SurfaceChain::open(
+            "dup",
+            vec![
+                Vec2::ZERO,
+                Vec2::new(50.0, 0.0),
+                Vec2::new(50.0, 0.0),
+                Vec2::new(100.0, 0.0),
+            ],
+        );
+        assert!(dup.validate().iter().any(|p| p.contains("degenerate")));
+        // Closed chain duplicating its first point at the end.
+        let closed_dup = SurfaceChain::closed_loop(
+            "ring",
+            vec![
+                Vec2::ZERO,
+                Vec2::new(100.0, 0.0),
+                Vec2::new(100.0, -100.0),
+                Vec2::ZERO,
+            ],
+        );
+        assert!(closed_dup
+            .validate()
+            .iter()
+            .any(|p| p.contains("closing segment is implicit") || p.contains("degenerate")));
+        // Self-intersection (a bowtie).
+        let bowtie = SurfaceChain::open(
+            "bowtie",
+            vec![
+                Vec2::new(0.0, 0.0),
+                Vec2::new(100.0, -100.0),
+                Vec2::new(100.0, 0.0),
+                Vec2::new(0.0, -100.0),
+            ],
+        );
+        assert!(bowtie.validate().iter().any(|p| p.contains("cross")));
+        // A healthy ramp validates clean.
+        let ramp = SurfaceChain::open(
+            "ramp",
+            vec![
+                Vec2::new(0.0, 0.0),
+                Vec2::new(100.0, -30.0),
+                Vec2::new(200.0, -40.0),
+            ],
+        );
+        assert!(ramp.validate().is_empty(), "{:?}", ramp.validate());
     }
 
     #[test]

@@ -24,6 +24,7 @@ fn flipped_gravity_makes_the_player_fall_up_and_stand_on_the_ceiling() {
             Block::solid("floor", Vec2::new(0.0, h - 40.0), Vec2::new(w, 40.0)),
         ],
         climbable_regions: Vec::new(),
+        chains: Vec::new(),
         water_regions: Vec::new(),
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(400.0, 300.0));
@@ -70,6 +71,7 @@ fn sideways_gravity_pulls_the_player_along_x() {
             Vec2::new(100.0, 600.0),
         )],
         climbable_regions: Vec::new(),
+        chains: Vec::new(),
         water_regions: Vec::new(),
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(200.0, 300.0));
@@ -119,6 +121,7 @@ fn wall_walking_grounds_walks_and_jumps_off_a_side_wall() {
             Block::solid("floor", Vec2::new(0.0, 560.0), Vec2::new(800.0, 40.0)),
         ],
         climbable_regions: Vec::new(),
+        chains: Vec::new(),
         water_regions: Vec::new(),
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(400.0, 300.0));
@@ -215,6 +218,7 @@ fn one_way_platform_works_under_flipped_gravity() {
             Block::one_way("oneway", Vec2::new(300.0, 200.0), Vec2::new(200.0, 12.0)),
         ],
         climbable_regions: Vec::new(),
+        chains: Vec::new(),
         water_regions: Vec::new(),
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(400.0, 400.0));
@@ -456,6 +460,7 @@ fn direct_velocity_flight_takes_the_commanded_velocity_verbatim() {
         spawn: Vec2::new(2000.0, 2000.0),
         blocks: Vec::new(),
         climbable_regions: Vec::new(),
+        chains: Vec::new(),
         water_regions: Vec::new(),
     };
     let terminal = 400.0;
@@ -517,6 +522,7 @@ fn the_player_rides_a_horizontally_moving_platform() {
         spawn: Vec2::new(200.0, 360.0),
         blocks: vec![platform],
         climbable_regions: Vec::new(),
+        chains: Vec::new(),
         water_regions: Vec::new(),
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(200.0, 360.0));

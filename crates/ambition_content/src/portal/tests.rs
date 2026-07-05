@@ -127,6 +127,7 @@ fn portals_adhere_to_one_way_platforms_but_blink_passes_through() {
             Vec2::new(200.0, 12.0),
         )],
         climbable_regions: Vec::new(),
+        chains: Vec::new(),
         water_regions: Vec::new(),
     };
     let from = Vec2::new(200.0, 100.0);

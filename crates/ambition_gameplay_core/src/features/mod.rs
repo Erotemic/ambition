@@ -337,17 +337,28 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // its linked mount, then fan those out onto each limb body. `route_...`
         // bridges the `RidingOn`/`MountSlot` link (attack state on the RIDER, limbs
         // on the MOUNT) and writes `LimbIntents`; `fan_out_limb_intents` copies each
-        // slot's frame onto its limb's `ActorControl`. Runs after the rider's brain
-        // tick + the mount steer (so the rider's frame + attack state are fresh) and
-        // before the bodies integrate (so the limbs execute THIS frame's arc).
+        // slot's frame onto its limb's `ActorControl`. Runs in the movement phase —
+        // after the mount steer, before the bodies integrate — so each limb
+        // EXECUTES its routed arc the same frame it's written.
+        //
+        // Frame contract: the router reads the rider's `BossAttackState`, a
+        // sim-owned READ-MODEL projected from the live `MovePlayback` in the combat
+        // phase (`project_boss_attack_state_from_move`), so it sees the PREVIOUS
+        // frame's projection — the standard one-frame read-model lag every other
+        // consumer of that projection accepts. It must NOT be ordered
+        // `.after(tick_boss_brains_system)`: the boss chain runs after
+        // `integrate_sim_bodies` (the actor chain is `.before(tick_npc_idle_barks)`,
+        // which precedes the boss tick in the WorldPrep chain), so demanding
+        // boss-tick < router < integrate is an unsatisfiable before/after CYCLE —
+        // it paniced the whole app schedule at startup (caught 2026-07-05; the
+        // rl_sim headless app tests are the regression guard for this).
         // Registered separately — the WorldPrep chain tuple is already at Bevy's
-        // chain-length ceiling — with explicit ordering to keep the seam exact.
+        // chain-length ceiling.
         app.add_systems(
             Update,
             (route_boss_strikes_to_limbs, fan_out_limb_intents)
                 .chain()
                 .after(steer_mount_from_rider)
-                .after(tick_boss_brains_system)
                 .before(integrate_sim_bodies)
                 .in_set(crate::schedule::SandboxSet::WorldPrep),
         );

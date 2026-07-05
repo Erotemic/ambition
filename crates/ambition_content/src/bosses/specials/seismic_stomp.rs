@@ -72,6 +72,7 @@ pub fn spawn_seismic_stomp_from_special_messages(
     for msg in messages.read() {
         if let ActionRequest::Special {
             spec: SpecialActionSpec::Special(key),
+            ..
         } = &msg.request
         {
             if key == SEISMIC_STOMP_KEY {

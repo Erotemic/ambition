@@ -8,6 +8,11 @@ description = "Unified actor system for Ambition: actor control/AI vocabulary + 
 
 [dependencies]
 ambition_engine_core = { path = "../ambition_engine_core" }
+# The content-free ability vocabulary (MoveSpec / EffectRef / ParamValue). A
+# downward edge (entity_catalog is a leaf): the universal-brain `Special` action
+# carries an `EffectRef`'s opaque `ParamValue` so a content technique hydrates
+# its own params (fable review A1 / R2.2).
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 ambition_input = { path = "../ambition_input" }
 bevy = { version = "0.18.1", default-features = false, features = ["bevy_log"] }
 ron = "0.11"

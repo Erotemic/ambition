@@ -96,6 +96,63 @@ impl EffectRef {
     }
 }
 
+/// A param-schema check for one technique/prefab key: does an authored
+/// [`ParamValue`] satisfy the technique's contract?
+pub type ParamCheck = fn(&ParamValue) -> Result<(), String>;
+
+/// A check that authored params HYDRATE into the technique's own `T` — the
+/// common case. Register it as `registry.register("glider", check_hydrates::<GliderParams>)`;
+/// a missing required field or a type mismatch becomes a startup error instead
+/// of a mid-fight silent default.
+pub fn check_hydrates<T: serde::de::DeserializeOwned>(params: &ParamValue) -> Result<(), String> {
+    params.hydrate::<T>().map(|_| ()).map_err(|e| e.to_string())
+}
+
+/// Install-time param-schema validation registry (fable AJ1 / A1). Each
+/// content-owned technique/prefab MAY register a [`ParamCheck`] under its
+/// effect key; the content-validation pass runs every authored [`EffectRef`]
+/// through [`validate`](Self::validate), so a param typo fails at startup, not
+/// mid-fight. The engine matches no key, so an unregistered key always passes
+/// (a paramless content-const technique needs no schema).
+#[derive(Default)]
+pub struct ParamSchemaRegistry {
+    checks: BTreeMap<String, ParamCheck>,
+}
+
+impl ParamSchemaRegistry {
+    /// Register a technique's param check. Last registration for a key wins
+    /// (a re-register overrides — content install is the single caller).
+    pub fn register(&mut self, key: impl Into<String>, check: ParamCheck) {
+        self.checks.insert(key.into(), check);
+    }
+
+    /// True once at least one technique has registered a check.
+    pub fn is_empty(&self) -> bool {
+        self.checks.is_empty()
+    }
+
+    /// Validate one authored effect ref. Unknown keys pass (see the type doc).
+    pub fn validate(&self, effect: &EffectRef) -> Result<(), String> {
+        match self.checks.get(&effect.key) {
+            Some(check) => {
+                check(&effect.params).map_err(|e| format!("effect '{}': {e}", effect.key))
+            }
+            None => Ok(()),
+        }
+    }
+
+    /// Validate a batch of authored refs; collect every failure (the content
+    /// pass reports all typos at once rather than failing on the first).
+    pub fn validate_all<'a, I>(&self, refs: I) -> Vec<String>
+    where
+        I: IntoIterator<Item = &'a EffectRef>,
+    {
+        refs.into_iter()
+            .filter_map(|effect| self.validate(effect).err())
+            .collect()
+    }
+}
+
 // ---------------------------------------------------------------------------
 // Moves: the Smash-model timeline.
 // ---------------------------------------------------------------------------
@@ -653,6 +710,44 @@ impl EntityCatalogDoc {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[derive(serde::Deserialize)]
+    struct GliderParams {
+        #[allow(dead_code)]
+        rise: f32,
+    }
+
+    #[test]
+    fn param_schema_registry_catches_typos_at_validate_time() {
+        // AJ1 / A1: a technique registers a hydrate check; the content pass
+        // runs every authored EffectRef through it. A good ref passes; a
+        // missing/mistyped field fails at validate time, not mid-fight.
+        let mut reg = ParamSchemaRegistry::default();
+        assert!(reg.is_empty());
+        reg.register("glider", check_hydrates::<GliderParams>);
+
+        let good = EffectRef {
+            key: "glider".into(),
+            params: ParamValue::parse("(rise: 320.0)").unwrap(),
+        };
+        assert!(reg.validate(&good).is_ok());
+
+        // Wrong type for `rise` — fails, naming the offending key.
+        let bad = EffectRef {
+            key: "glider".into(),
+            params: ParamValue::parse("(rise: \"fast\")").unwrap(),
+        };
+        let err = reg.validate(&bad).expect_err("bad params must fail");
+        assert!(err.contains("glider"), "error names the effect key: {err}");
+
+        // An unregistered key always passes — the engine matches no key.
+        let unknown = EffectRef::new("some_content_const_technique");
+        assert!(reg.validate(&unknown).is_ok());
+
+        // Batch validation collects every failure at once.
+        let errs = reg.validate_all([&good, &bad, &unknown]);
+        assert_eq!(errs.len(), 1, "only the mistyped ref fails: {errs:?}");
+    }
 
     /// The seed catalog: one actor-like entity (a moveset + body +
     /// presentation) and one prop-like entity (body + presentation only).

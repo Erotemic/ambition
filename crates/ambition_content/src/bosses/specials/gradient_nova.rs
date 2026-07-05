@@ -61,6 +61,7 @@ pub fn spawn_gradient_nova_from_special_messages(
     for msg in messages.read() {
         if let ActionRequest::Special {
             spec: SpecialActionSpec::Special(key),
+            ..
         } = &msg.request
         {
             if key == GRADIENT_NOVA_KEY {
@@ -161,6 +162,7 @@ mod tests {
                 actor,
                 request: ActionRequest::Special {
                     spec: SpecialActionSpec::Special(GRADIENT_NOVA_KEY.to_string()),
+                    params: Default::default(),
                 },
             });
         app.update();

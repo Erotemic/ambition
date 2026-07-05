@@ -646,7 +646,17 @@ pub enum ActionRequest {
     /// Trigger the actor's special. Resolved by the per-actor
     /// special handler (player ability system, boss encounter
     /// driver, etc.).
-    Special { spec: SpecialActionSpec },
+    ///
+    /// `params` carries the triggering [`EffectRef`](ambition_entity_catalog::EffectRef)'s
+    /// opaque payload (A1 / R2.2): a moveset `Effect` event bridges its
+    /// `effect.params` in here so the content technique keyed by `spec` can
+    /// [`hydrate`](ambition_entity_catalog::ParamValue::hydrate) its own typed
+    /// params. Brain-emitted specials (bubble_shield, a boss `Special(key)`
+    /// beat) carry the empty default — they name a paramless technique.
+    Special {
+        spec: SpecialActionSpec,
+        params: ambition_entity_catalog::ParamValue,
+    },
     /// Per-tick player projectile signal — drives the player
     /// projectile EFFECTS consumer's charge state machine + motion
     /// recognition buffer. Emitted by a dedicated player-projectile
@@ -744,7 +754,7 @@ impl ActionRequest {
                 RangedActionSpec::Pistol { .. } => "ranged_pistol",
                 RangedActionSpec::Bolt { .. } => "ranged_bolt",
             },
-            Self::Special { spec } => match spec {
+            Self::Special { spec, .. } => match spec {
                 // Open content special — the key carries the specific
                 // identity (e.g. `overfit_volley`); this static label is
                 // just the kind.

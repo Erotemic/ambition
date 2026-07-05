@@ -562,6 +562,7 @@ fn action_request_label_returns_per_variant_string() {
 
     let special = ActionRequest::Special {
         spec: special_key("bubble_shield"),
+        params: Default::default(),
     };
     assert_eq!(special.label(), "special");
 }
@@ -580,6 +581,7 @@ fn action_request_display_includes_kind_and_origin() {
 
     let req2 = ActionRequest::Special {
         spec: special_key("bubble_shield"),
+        params: Default::default(),
     };
     assert_eq!(format!("{}", req2), "special");
 }

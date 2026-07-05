@@ -70,6 +70,7 @@ pub fn spawn_echo_fan_from_special_messages(
     for msg in messages.read() {
         if let ActionRequest::Special {
             spec: SpecialActionSpec::Special(key),
+            ..
         } = &msg.request
         {
             if key == ECHO_FAN_KEY {

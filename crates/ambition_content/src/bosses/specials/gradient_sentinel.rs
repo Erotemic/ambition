@@ -143,6 +143,7 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
     for msg in messages.read() {
         if let ActionRequest::Special {
             spec: SpecialActionSpec::Special(key),
+            ..
         } = &msg.request
         {
             if key == APPLE_RAIN_KEY {
@@ -342,6 +343,7 @@ pub fn spawn_overfit_volley_from_special_messages(
     for msg in messages.read() {
         if let ActionRequest::Special {
             spec: SpecialActionSpec::Special(key),
+            ..
         } = &msg.request
         {
             if key == OVERFIT_VOLLEY_KEY {
@@ -496,6 +498,7 @@ pub fn spawn_minima_trap_from_special_messages(
     for msg in messages.read() {
         if let ActionRequest::Special {
             spec: SpecialActionSpec::Special(key),
+            ..
         } = &msg.request
         {
             if key == MINIMA_TRAP_KEY {
@@ -636,6 +639,7 @@ pub fn spawn_saddle_point_from_special_messages(
     for msg in messages.read() {
         if let ActionRequest::Special {
             spec: SpecialActionSpec::Special(key),
+            ..
         } = &msg.request
         {
             if key == SADDLE_POINT_KEY {
@@ -800,6 +804,7 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
     for msg in messages.read() {
         if let ActionRequest::Special {
             spec: SpecialActionSpec::Special(key),
+            ..
         } = &msg.request
         {
             if key == GRADIENT_CASCADE_KEY {

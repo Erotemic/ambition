@@ -815,6 +815,7 @@ mod tests {
             actor,
             request: ActionRequest::Special {
                 spec: SpecialActionSpec::Special("bubble_shield".to_string()),
+                params: Default::default(),
             },
         };
         assert!(m_special.is_special());

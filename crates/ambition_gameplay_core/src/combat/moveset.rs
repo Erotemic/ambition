@@ -685,16 +685,16 @@ pub fn dispatch_move_events(
                 });
             }
             MoveEventKind::Effect(effect) => {
-                // Bridge to the content-technique seam by the effect KEY. The
-                // opaque `effect.params` ride in the schema but are not yet
-                // threaded through `SpecialActionSpec` — R2.2 extends the
-                // `Special` channel to carry the `EffectRef` so a technique can
-                // hydrate its own params (today every technique uses content
-                // consts, so this bridge is byte-identical).
+                // Bridge to the content-technique seam by the effect KEY, and
+                // thread the opaque `effect.params` through the `Special`
+                // channel (A1 / R2.2) so the keyed technique can hydrate its own
+                // typed params. A paramless effect carries the empty default, so
+                // every existing content-const technique stays byte-identical.
                 actions.write(ActorActionMessage {
                     actor: ev.owner,
                     request: ActionRequest::Special {
                         spec: SpecialActionSpec::Special(effect.key.clone()),
+                        params: effect.params.clone(),
                     },
                 });
             }
@@ -1493,7 +1493,13 @@ mod tests {
             .write(MoveEventMessage {
                 owner,
                 move_id: "sig".into(),
-                kind: MoveEventKind::Effect(EffectRef::new("pca_glider")),
+                kind: MoveEventKind::Effect(EffectRef {
+                    key: "pca_glider".into(),
+                    // A1: authored params must SURVIVE the bridge so the keyed
+                    // technique can hydrate them.
+                    params: ambition_entity_catalog::ParamValue::parse("(rise: 320.0)")
+                        .expect("param RON parses"),
+                }),
             });
         app.update();
 
@@ -1518,10 +1524,22 @@ mod tests {
             "the Effect event bridged to one Special action"
         );
         assert_eq!(acts[0].actor, owner);
-        assert!(matches!(
-            &acts[0].request,
-            ActionRequest::Special { spec: SpecialActionSpec::Special(k) } if k == "pca_glider"
-        ));
+        let ActionRequest::Special { spec, params } = &acts[0].request else {
+            panic!("the Effect event bridged to a Special action");
+        };
+        assert!(matches!(spec, SpecialActionSpec::Special(k) if k == "pca_glider"));
+        // The authored params rode through the bridge and hydrate on the far
+        // side (the first real consumer — a G3 limb technique / demo move —
+        // reads them exactly this way).
+        #[derive(serde::Deserialize)]
+        struct GliderParams {
+            rise: f32,
+        }
+        let hydrated: GliderParams = params.hydrate().expect("params hydrate");
+        assert_eq!(
+            hydrated.rise, 320.0,
+            "authored params survived the dispatch"
+        );
     }
 
     /// Ranged subsumption (option A): a `MoveEventKind::Ranged` fire event BRIDGES to

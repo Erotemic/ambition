@@ -59,6 +59,7 @@ pub fn spawn_eye_beam_from_special_messages(
     for msg in messages.read() {
         if let ActionRequest::Special {
             spec: SpecialActionSpec::Special(key),
+            ..
         } = &msg.request
         {
             if key == EYE_BEAM_KEY {

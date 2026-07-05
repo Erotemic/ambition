@@ -73,6 +73,7 @@ pub fn spawn_mode_collapse_converge_from_special_messages(
     for msg in messages.read() {
         if let ActionRequest::Special {
             spec: SpecialActionSpec::Special(key),
+            ..
         } = &msg.request
         {
             if key == MODE_COLLAPSE_KEY {

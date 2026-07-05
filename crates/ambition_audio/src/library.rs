@@ -93,6 +93,15 @@ impl SoundCue {
         Self::Respawn,
     ];
 
+    /// Reverse of [`Self::sfx_id`]: the procedural cue an [`SfxId`] names, if
+    /// any. Lets the open-ended `SfxMessage::Play { id }` path (used by the
+    /// data-driven moveset, whose events carry a string cue) resolve to a
+    /// guaranteed procedural cue when the string names one — instead of only
+    /// ever hitting the packed bank and silently no-op-ing on a bank miss.
+    pub fn from_sfx_id(id: SfxId) -> Option<Self> {
+        Self::ALL.into_iter().find(|cue| cue.sfx_id() == id)
+    }
+
     pub fn sfx_id(self) -> SfxId {
         match self {
             Self::Jump => sfx::ids::PLAYER_JUMP,

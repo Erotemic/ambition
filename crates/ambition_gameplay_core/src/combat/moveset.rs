@@ -48,6 +48,14 @@ use ambition_time::WorldTime;
 /// The canonical verb id a body's basic melee swing binds to in its moveset.
 pub const ATTACK_VERB: &str = "attack";
 
+/// The SFX cue a plain swing fires. Names the engine's procedural `slash` cue
+/// (`ambition_sfx::ids::PLAYER_SLASH` = `"player.slash"`) so the audio runtime
+/// resolves it to the guaranteed procedural sound — the old bespoke melee path
+/// used `SfxMessage::Slash`, and the moveset must stay audible. (The prior
+/// `"melee_swing"` string matched no bank sample and no procedural cue, so it
+/// silently no-op-ed — the "no attack SFX" bug.)
+pub const SWING_SFX_CUE: &str = "player.slash";
+
 /// The canonical verb id a body's ranged shot binds to in its moveset.
 pub const RANGED_VERB: &str = "ranged";
 
@@ -186,7 +194,7 @@ pub fn simple_melee(p: &SimpleMeleeParams) -> MoveSpec {
         events: vec![MoveEvent {
             at_s: windup,
             kind: MoveEventKind::Sfx {
-                cue: "melee_swing".to_string(),
+                cue: SWING_SFX_CUE.to_string(),
             },
         }],
         gates: Default::default(),
@@ -390,7 +398,7 @@ pub fn simple_charge(p: &SimpleChargeParams) -> MoveSpec {
         events: vec![MoveEvent {
             at_s: charge,
             kind: MoveEventKind::Sfx {
-                cue: "melee_swing".to_string(),
+                cue: SWING_SFX_CUE.to_string(),
             },
         }],
         gates: Default::default(),

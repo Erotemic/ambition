@@ -82,6 +82,14 @@ pub fn audio_play_sfx_messages(
         let SfxMessage::Play { id, .. } = *message else {
             continue;
         };
+        // A string-keyed `Play` that names a procedural cue (e.g. the moveset's
+        // "player.slash" swing) resolves to the guaranteed procedural sound rather
+        // than the bank — so a cue with no bank sample still plays instead of
+        // silently no-op-ing. Genuine bank ids (no matching cue) fall through.
+        if let Some(cue) = SoundCue::from_sfx_id(id) {
+            sfx_channel.play(library.sfx_handle(cue));
+            continue;
+        }
         let bank_provider = bank
             .as_deref()
             .map(|bank| &*bank.0 as &dyn ambition_sfx::SfxProvider);

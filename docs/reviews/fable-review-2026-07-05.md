@@ -554,4 +554,119 @@ Everything else in R7/R9/R10 is opus-executable from this doc.
 *Executor entries append here, 07-04 conventions (R-numbered, gates named,
 BLIND marked, wall-clock per phase for multi-phase runs).*
 
-*(none yet — plan authored 2026-07-05 by fable)*
+## THE FABLE QUEUE RUN (executor: fable, 2026-07-05, one session)
+
+Jon: "execute the hardest unblocked items." All five queue slices + R8.4
+landed, each committed + gated. Every slice is HEADLESS-verified; nothing here
+touches feel (no BLIND bits — no production body carries the new policies yet).
+
+### R8.1 — the contact vocabulary ✅ (`9f13a7b8`, byte-identical)
+`Contact { point, normal, toi, surface_velocity, source }` + `ContactSource
+{ Block, Chain }` in `collision_semantics.rs`, one winding rule everywhere
+(`normal` = surface-outward, `tangent = (-n.y, n.x)`; parry's `normal1` is the
+moving shape's outward normal — negated at the boundary). BOTH sweeps
+populate; resolution untouched. The elegant discovery: the player path needed
+ZERO public signature changes — contacts ride `FrameEvents` (already a
+Vec-carrying struct); the kinematic path gained `step_kinematic_observed(...,
+Option<&mut Vec<Contact>>)` with the plain fn delegating None. Landing = feet
+contact, wall = side contact, grounded frame = a REST contact carrying the
+support's `surface_velocity` (moving-platform carry made visible). Tests: C4
+landing normals under all four cardinal gravities, platform-velocity rest
+contact, player feet/wall contacts via the scratch API. Gate: engine_core 216,
+primitives 48, gameplay_core --lib 1129.
+
+### R8.2 — `SurfaceChain` ✅ (`8aff61a4`)
+The first richer-than-AABB primitive, in engine_core beside `Block`:
+polyline + `closed` + `kind` + per-frame `velocity`; normals DERIVED by the
+shared winding rule, never authored. `World.chains` (+ `with_chains`); every
+AABB-only room authors zero chains. Geometry kit: arc-length `frame_at`
+(wraps/clamps), `project` (arc + signed rideable side), shoelace
+`signed_area` (negative = interior-rideable loop), and the pragmatic
+`validate()` (min points, degenerate joins, duplicated closing vertex, O(n²)
+self-intersection) — bad authored geometry can't masquerade as physics bugs.
+20 `World` literal sites gained the field (tests only). **Deviation from the
+plan doc:** the debug OVERLAY (gizmos) moved out of this slice into the R9.3
+sandbox slice — one gameplay-side touch instead of two; the validator landed
+here as planned. Gate: engine_core 220, gameplay_core --lib 1129.
+
+### R8.3 — the surface-follower solver ✅ (`d825f647`) — the heart
+`engine_core::surface`: circle-proxy body, `Airborne` (ballistic + swept
+circle vs chains AND solid blocks, parry casts, TOI, M10 no-pushout) or
+`Riding { chain, s, v_t }` — 1-D arc-length integration while attached.
+Rules: gravity projects onto the tangent (MIDPOINT-of-step force evaluation —
+found and killed a first-order energy pump at joint crossings); input
+accelerates to `top_speed`, slopes may exceed it; straight-run stick rule
+(low-press surfaces shed a slow body); convex joints launch when centripetal
+demand `v_t²θ/r` beats `stick_factor × press` — convexity computed in
+AUTHORED order (found and fixed: traversal-order cross flips sign moving
+backward; a crest must be a crest both ways); concave (loop-interior) joins
+always follow; open ends launch along the end tangent; chains one-sided;
+jump = +normal, tangent momentum kept. All feel in RON-authorable
+`MomentumParams`. 16 tests incl. loop-completes-above-threshold /
+halfpipe-oscillates-below (initially asserted "sheds" — the solver taught the
+test the right physics), 500px/frame no-tunnel, and **the C4 rig: the whole
+scenario rotated 90° (points + gravity) matches to <0.5px over 600 frames**
+of riding, joints, launch, jump, and ballistic fall. Gate: engine_core 231.
+
+### R8.4 — AABB protection net ✅ (`30010fcf`)
+The reciprocal pin: an axis-swept kinematic body falls straight through a
+chain-only world (zero chain code on the AABB path). Chain-side coexistence
+already pinned by R8.3's suite. Full-workspace behavioral gate recorded below.
+
+### R9.1 — `MotionModel` ✅ (`7041d1d0`)
+The AJ11 policy, exactly the `Perception` shape: absent/`AxisSwept` = today's
+path; `SurfaceMomentum(MomentumMotion { params, state })` dispatches to the
+follower INSIDE the one `integrate_actor_body` (policy branch on body data;
+boss call site passes None). Reads the same brain-produced
+`ActorControlFrame` every controller writes — possession-invariance by
+construction (brain transfer moves the brain; the body's motion identity
+stays). Sets `on_ground` = riding; `surface_normal` follows the ridden chain
+(§B2 — footprint/sprite tilt with the slope); universal CenteredAabb tail.
+Tests: fall→land→run-the-flat→climb-the-ramp with the frame tilting; jump
+launches along +normal with facing write-back. Gate: gameplay_core --lib 1131.
+The archetype-RON row (`MomentumParams` → catalog) + the possessed-Sanic
+end-to-end ride with R9.2/R9.3.
+
+### R10.1 — the limb rig fan-out ✅ (`c9b9dd02`)
+`LimbRig` (spawn-order limbs — stable-id determinism) / `Limb { of, slot }` /
+`LimbIntents` (BTreeMap<LimbSlot, ActorControlFrame>) +
+`fan_out_limb_intents` — `steer_mount_from_rider` generalized 1→N. Limbs =
+ordinary actor bodies (no Brain/BossConfig/BodyHealth); absent slots
+explicitly neutralized (no stale-intent drift). Placed in
+`features/ecs/actors/limbs.rs` (a mount-level capability, but the mount
+module has an in-flight concurrent slice — no shared files touched). Schedule
+REGISTRATION deliberately deferred to the first production rig
+(R10.3/R10.4): contract documented in the module head (after host brain tick
++ mount steer, before `integrate_sim_bodies`). Test: diverging hand intents
+land on the right limbs, strike edges don't bleed, dropped slots neutralize.
+Gate: gameplay_core --lib 1132.
+
+### FULL GATE — `cargo test --workspace --all-targets --features rl_sim --no-fail-fast` ✅
+73 test binaries green (engine_core 231, primitives 49, gameplay_core --lib
+1132, characters 253, app --lib 140, all boss/duel/possession suites). The
+ONLY failure in the workspace is the DOCUMENTED pre-existing RED
+`unified_melee::a_hostile_actor_enters_the_same_body_melee_lifecycle`
+(feel-reserved moveset-cadence gap — confirmed identical before this run;
+untouched). Note: the working tree also carries a concurrent agent's
+uncommitted mount-cutover cleanup; this run shares no files with it.
+
+### Session table (wall-clock, single fable session 2026-07-05)
+
+| Slice | Commit | Est (doc) | Actual |
+|---|---|---|---|
+| kernel read-in | — | — | ~14 min |
+| R8.1 contacts | `9f13a7b8` | (R8.1–8.3 ≈ 1 session) | ~15 min |
+| R8.2 SurfaceChain | `8aff61a4` | " | ~5 min |
+| R8.3 follower solver | `d825f647` | " | ~10 min |
+| R8.4 protection net | `30010fcf` | — | ~1 min |
+| R9.1 MotionModel | `7041d1d0` | ~½ session | ~7 min |
+| R10.1 limb fan-out | `c9b9dd02` | opus-attemptable | ~3 min |
+| **Total** | 6 commits | ~2 sessions | **~55 min** |
+
+**REMAINING (all [opus]-executable from this doc):** R9.2 Sanic character
+(catalog row + `momentum` archetype field → `MotionModel` insert at spawn +
+sprite), R9.3 sandbox room (LDtk chain entity + `ron-room` loop + debug
+overlay gizmos — the overlay deferred from R8.2 lands here), R9.4 proof
+tests, R10.2–R10.5 (sprite split / archetype split / choreography port /
+authoring — R10.1's fan-out registration rides R10.3), R7 (the world carve),
+and the R10.6/M5 player-pilots-the-giant payoff after M5.

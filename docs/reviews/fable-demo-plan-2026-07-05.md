@@ -766,14 +766,26 @@ validates (every chain + generated loop converts), ldtk roundtrips, diff purely
 additive (59→60 levels). **BLIND** — layout/feel are Jon's (see feel queue §5);
 reachability (LoadingZone) + spawn-into-sanic are S4/follow-up.
 
-**SESSION TALLY (opus, 2026-07-05 eve):** S2, A1, A2, C2, C1, S3b-converter,
-S3b-defs, S3b-area — 9 feature commits. §0 crit 2 (ability model) COMPLETE; two
-crit-3 residues (C1, C2) closed; **Sanic is playable geometry now** — a worn
-momentum body has a real level of slopes + a loop to ride. **S3b REMAINING:** the
-debug-overlay gizmos (chain segments/normals/tangents/ridden-frame — draw-blind,
-would aid Jon's feel pass), the `ambition_ldtk_tools surface` convenience
-subcommand. **THEN S4 proofs** (scripted reachability, possession e2e,
-coexistence, overlay screenshot).
+## S3b (overlay) — SurfaceChain debug gizmos ✅ (`d7e7c762`, opus, draw-blind)
+`draw_surface_chains` gizmo: every chain's segments (cyan) + per-segment normal
+(yellow, ridden side) + tangent (green) + vertex dots, under the world-blocks
+toggle. Ships with sanic_sandbox so the ride geometry + the loop's interior
+winding read without playing. Mirrors the existing `draw_portals` normal/tangent
+pattern; app builds.
+
+**S3b is DONE** (converter + defs + area + overlay). The `ambition_ldtk_tools
+surface` convenience subcommand is dropped as redundant — `entity add` + the
+registered defs already author SurfaceChain/SurfaceLoop directly.
+
+**SESSION TALLY (opus, 2026-07-05 eve):** S2, A1, A2, C2, C1, S3b (converter +
+defs + area + overlay) — **10 feature commits.** §0 crit 2 (ability model)
+COMPLETE; two crit-3 residues (C1, C2) closed; the whole S3 Sanic-authoring chain
+(momentum body → character → chains channel → converters → a real playground
+level with a debug overlay) is landed. **S-TRACK NEXT = S4 proofs** (scripted
+reachability at speed / fail-below-threshold, the possession e2e, knight
+coexistence, the overlay screenshot artifact) — then S5 the demo game, gated on
+**E5** (`ambition_runtime`). Parallel big dents remain: **G1→G4 unblock G5
+[★fable]**, **E5 the demo gate**, **W1–W4** the world carve, and the two demos.
 
 **NEXT HEADS (the bigger dents):** **G1→G4 (gnu split) unblock G5 [★fable]**;
 **E5 (`ambition_runtime`) — demo gate for S5 [senior] + M-track — needs a careful

@@ -109,6 +109,46 @@ pub(super) fn convert_surface_chain(
     Ok(RuntimeEntityEmission::chain(chain))
 }
 
+/// `SurfaceLoop` — a rideable full LOOP (the Sonic loop), authored as a MARKER
+/// so a level need not hand-plot 24 points (demo plan S3b / Q17). Fields:
+/// `radius` (px, required) and optional `segments` (polygon resolution, default
+/// 24, min 3). The converter GENERATES the closed polygon chain at conversion
+/// time and emits it into the same `chains` channel `SurfaceChain` uses — the
+/// second real consumer of the content-registered converter seam, strictly
+/// better than a script-injection escape hatch.
+///
+/// Winding is fixed INTERIOR-rideable: vertices wind so each segment's
+/// `normal = (t.y, -t.x)` points toward the loop center, so a momentum body
+/// rides the INSIDE of the loop (up the wall, across the ceiling, and down).
+/// The marker's center (`min + size/2`) is the loop center.
+pub(super) fn convert_surface_loop(
+    ctx: &LdtkEntityCtx<'_>,
+) -> Result<RuntimeEntityEmission, String> {
+    let (entity, name, min, size) = ctx.parts();
+    let radius = field_f32(entity, "radius").unwrap_or(0.0);
+    if radius <= 0.0 {
+        return Err("SurfaceLoop requires a positive `radius`".to_string());
+    }
+    let segments = field_i32(entity, "segments").unwrap_or(24).max(3) as usize;
+    let center = min + size * 0.5;
+    // Decreasing-angle winding → inward normals (interior-rideable). Vertex k at
+    // angle -2πk/n: the first segment heads "up" the right wall, and the shared
+    // `(t.y,-t.x)` rule points its normal toward the center.
+    let points: Vec<ae::Vec2> = (0..segments)
+        .map(|k| {
+            let theta = -std::f32::consts::TAU * (k as f32) / (segments as f32);
+            center + ae::Vec2::new(theta.cos(), theta.sin()) * radius
+        })
+        .collect();
+    let points = offset_points(points, ctx.offset);
+    let loop_chain = ae::SurfaceChain::closed_loop(name, points);
+    let problems = loop_chain.validate();
+    if !problems.is_empty() {
+        return Err(problems.join("; "));
+    }
+    Ok(RuntimeEntityEmission::chain(loop_chain))
+}
+
 pub(super) fn convert_kinematic_path(
     ctx: &LdtkEntityCtx<'_>,
 ) -> Result<RuntimeEntityEmission, String> {

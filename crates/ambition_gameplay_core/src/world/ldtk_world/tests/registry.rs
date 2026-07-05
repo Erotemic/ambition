@@ -138,6 +138,70 @@ fn surface_chain_entity_converts_into_world_chains() {
     assert_eq!(chains[0].normal(0), ae::Vec2::new(0.0, -1.0));
 }
 
+/// The `SurfaceLoop` marker converter (demo plan S3b / Q17): a `radius` +
+/// `segments` marker GENERATES a closed polygon loop into `World::chains` — the
+/// second consumer of the converter seam, no hand-plotted points. The winding
+/// is INTERIOR-rideable: every segment normal points toward the loop center, so
+/// a momentum body rides the inside (the Sonic loop).
+#[test]
+fn surface_loop_marker_generates_an_interior_rideable_loop() {
+    let project = synthetic_level(vec![super::make_entity_at(
+        // 64px marker centered at (532, 332): center = min + size/2.
+        "SurfaceLoop",
+        [500, 300],
+        [64, 64],
+        &[
+            ("radius", Value::Number(200.into())),
+            ("segments", Value::Number(24.into())),
+        ],
+    )]);
+    assert!(
+        project.validate().is_ok(),
+        "SurfaceLoop should validate: {:?}",
+        project.validate().errors
+    );
+    let room_set = project.to_room_set().expect("loop project composes");
+    let chains = &room_set.rooms[0].world.chains;
+    assert_eq!(chains.len(), 1, "one generated loop chain");
+    let loop_chain = &chains[0];
+    assert!(loop_chain.closed, "a loop is a closed chain");
+    assert_eq!(loop_chain.points.len(), 24, "one vertex per segment");
+    let center = ae::Vec2::new(532.0, 332.0);
+    // Every vertex sits on the authored radius about the marker center.
+    for p in &loop_chain.points {
+        assert!(
+            ((*p - center).length() - 200.0).abs() < 0.5,
+            "vertex {p:?} off the radius"
+        );
+    }
+    // Interior-rideable: each segment's normal points INWARD (toward center).
+    for i in 0..loop_chain.segment_count() {
+        let (a, b) = loop_chain.segment(i);
+        let mid = (a + b) * 0.5;
+        let inward = (center - mid).normalize_or_zero();
+        assert!(
+            loop_chain.normal(i).dot(inward) > 0.9,
+            "segment {i} normal {:?} must point toward the center (inward)",
+            loop_chain.normal(i),
+        );
+    }
+}
+
+/// A `SurfaceLoop` with no positive radius fails at conversion (loudly).
+#[test]
+fn surface_loop_without_radius_fails_conversion() {
+    let project = synthetic_level(vec![super::make_entity_at(
+        "SurfaceLoop",
+        [0, 0],
+        [16, 16],
+        &[],
+    )]);
+    assert!(
+        project.to_room_set().is_err(),
+        "a radius-less loop must fail conversion"
+    );
+}
+
 /// Bad chain geometry fails at CONVERSION (loudly), never reaching the sim —
 /// the spatial-model validation tier.
 #[test]

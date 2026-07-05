@@ -57,6 +57,8 @@ KNOWN_ENTITIES = {
     "ShrineSpawn",
     "Solid",
     "StitchedBoundary",
+    "SurfaceChain",
+    "SurfaceLoop",
     "Switch",
     "WaterVolume",
 }

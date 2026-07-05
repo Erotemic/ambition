@@ -256,6 +256,43 @@ pub(crate) fn draw_world_blocks(
     }
 }
 
+/// Momentum-surface debug (demo plan S3b): draw every `SurfaceChain` — its
+/// segments, and at each segment midpoint its TANGENT (green, along increasing
+/// arc length) and its outward NORMAL (yellow, the `+normal` side a body rides).
+/// Vertices get a small dot. Ships with the sanic_sandbox so the ride geometry
+/// (slopes, the loop's interior winding) is legible without playing it.
+pub(crate) fn draw_surface_chains(gizmos: &mut Gizmos, world: &ae::World) {
+    let seg_color = Color::srgba(0.30, 0.90, 1.00, 0.85); // cyan — the surface line
+    let normal_color = Color::srgba(1.00, 0.90, 0.20, 0.85); // yellow — ridden side
+    let tangent_color = Color::srgba(0.40, 1.00, 0.55, 0.75); // green — arc direction
+    let vertex_color = Color::srgba(1.00, 1.00, 1.00, 0.60);
+    for chain in &world.chains {
+        for &p in &chain.points {
+            let c = w2(world, p);
+            gizmos.line_2d(
+                c + ae::Vec2::new(-3.0, 0.0),
+                c + ae::Vec2::new(3.0, 0.0),
+                vertex_color,
+            );
+            gizmos.line_2d(
+                c + ae::Vec2::new(0.0, -3.0),
+                c + ae::Vec2::new(0.0, 3.0),
+                vertex_color,
+            );
+        }
+        for i in 0..chain.segment_count() {
+            let (a, b) = chain.segment(i);
+            gizmos.line_2d(w2(world, a), w2(world, b), seg_color);
+            let mid = (a + b) * 0.5;
+            // Normal + tangent quills (world-space lengths; w2 handles the flip).
+            let n = chain.normal(i);
+            let t = chain.tangent(i);
+            gizmos.line_2d(w2(world, mid), w2(world, mid + n * 22.0), normal_color);
+            gizmos.line_2d(w2(world, mid), w2(world, mid + t * 14.0), tangent_color);
+        }
+    }
+}
+
 /// Lightweight coarse grid drawn straight through gizmos. Used when
 /// `hide_sprites` strips the authored sprite grid so the player still
 /// has a spatial reference. Spacing matches `ambition_engine_core::config::GRID_STEP`

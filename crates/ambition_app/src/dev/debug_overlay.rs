@@ -138,6 +138,9 @@ pub fn draw_debug_overlay(
     }
     if developer_tools.show_world_blocks {
         draw_world_blocks(&mut gizmos, world, &developer_tools);
+        // Momentum ride-surfaces live alongside the blocks (S3b): show the
+        // SurfaceChains + their normals/tangents under the same toggle.
+        draw_surface_chains(&mut gizmos, world);
     }
     if developer_tools.show_micro_grid {
         draw_micro_grid(&mut gizmos, world, 8.0, 16.0);

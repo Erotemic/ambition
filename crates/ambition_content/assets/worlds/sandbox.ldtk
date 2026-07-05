@@ -11,7 +11,7 @@
 	"iid": "ambition-sandbox-world",
 	"jsonVersion": "1.5.3",
 	"appBuildId": 473703,
-	"nextUid": 6805,
+	"nextUid": 6810,
 	"identifierStyle": "Free",
 	"toc": [],
 	"worldLayout": "Free",
@@ -1459,6 +1459,43 @@
 					"autoChainRef": true,
 					"allowOutOfLevelRef": true,
 					"allowedRefs": "Any",
+					"allowedRefsEntityUid": null,
+					"allowedRefTags": [],
+					"tilesetUid": null
+				},
+				{
+					"identifier": "mounted_on",
+					"doc": "ADR 0020: the mount EnemySpawn this rider is mounted on (the mount action pre-applied). Resolved into a RidingOn/MountSlot link.",
+					"__type": "EntityRef",
+					"uid": 6805,
+					"type": "F_EntityRef",
+					"isArray": false,
+					"canBeNull": true,
+					"arrayMinLength": null,
+					"arrayMaxLength": null,
+					"editorDisplayMode": "RefLinkBetweenCenters",
+					"editorDisplayScale": 1,
+					"editorDisplayPos": "Above",
+					"editorLinkStyle": "CurvedArrow",
+					"editorDisplayColor": null,
+					"editorAlwaysShow": false,
+					"editorShowInWorld": true,
+					"editorCutLongValues": true,
+					"editorTextSuffix": null,
+					"editorTextPrefix": null,
+					"useForSmartColor": false,
+					"exportToToc": false,
+					"searchable": false,
+					"min": null,
+					"max": null,
+					"regex": null,
+					"acceptFileTypes": null,
+					"defaultOverride": null,
+					"textLanguageMode": null,
+					"symmetricalRef": false,
+					"autoChainRef": true,
+					"allowOutOfLevelRef": false,
+					"allowedRefs": "OnlySame",
 					"allowedRefsEntityUid": null,
 					"allowedRefTags": [],
 					"tilesetUid": null
@@ -31844,20 +31881,26 @@
 							"__tile": null,
 							"__smartColor": "#FF6B6B",
 							"iid": "EnemySpawn-4480",
-							"width": 108,
-							"height": 96,
+							"width": 44,
+							"height": 78,
 							"defUid": 2008,
 							"px": [192,240],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "Burning Flying Shark", "__tile": null, "defUid": 3018, "realEditorValues": [{
+								{ "__identifier": "name", "__type": "String", "__value": "Pirate Raider", "__tile": null, "defUid": 3018, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["Burning Flying Shark"]
+									"params": ["Pirate Raider"]
 								}] },
-								{ "__identifier": "brain", "__type": "String", "__value": "pirate_on_shark", "__tile": null, "defUid": 3019, "realEditorValues": [{
+								{ "__identifier": "brain", "__type": "String", "__value": "pirate_shark_rider", "__tile": null, "defUid": 3019, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["pirate_on_shark"]
+									"params": ["pirate_shark_rider"]
 								}] },
-								{ "__identifier": "path_id", "__type": "String", "__value": null, "__tile": null, "defUid": 4344, "realEditorValues": [] }
+								{ "__identifier": "path_id", "__type": "String", "__value": null, "__tile": null, "defUid": 4344, "realEditorValues": [] },
+								{ "__identifier": "mounted_on", "__type": "EntityRef", "__value": { "entityIid": "EnemySpawn-6806", "layerIid": "Ambition-4477", "levelIid": "pirate_sky_lookout-4475", "worldIid": "ambition-sandbox-world" }, "__tile": null, "defUid": 6805, "realEditorValues": [{
+									"id": "V_String",
+									"params": [
+										"{'entityIid': 'EnemySpawn-6806', 'layerIid': 'Ambition-4477', 'levelIid': 'pirate_sky_lookout-4475', 'worldIid': 'ambition-sandbox-world'}"
+									]
+								}] }
 							],
 							"__worldX": 2752,
 							"__worldY": 3312
@@ -31870,20 +31913,26 @@
 							"__tile": null,
 							"__smartColor": "#FF6B6B",
 							"iid": "EnemySpawn-4481",
-							"width": 108,
-							"height": 96,
+							"width": 44,
+							"height": 78,
 							"defUid": 2008,
 							"px": [560,160],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "Burning Flying Shark", "__tile": null, "defUid": 3018, "realEditorValues": [{
+								{ "__identifier": "name", "__type": "String", "__value": "Pirate Raider", "__tile": null, "defUid": 3018, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["Burning Flying Shark"]
+									"params": ["Pirate Raider"]
 								}] },
-								{ "__identifier": "brain", "__type": "String", "__value": "pirate_on_shark", "__tile": null, "defUid": 3019, "realEditorValues": [{
+								{ "__identifier": "brain", "__type": "String", "__value": "pirate_shark_rider", "__tile": null, "defUid": 3019, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["pirate_on_shark"]
+									"params": ["pirate_shark_rider"]
 								}] },
-								{ "__identifier": "path_id", "__type": "String", "__value": null, "__tile": null, "defUid": 4344, "realEditorValues": [] }
+								{ "__identifier": "path_id", "__type": "String", "__value": null, "__tile": null, "defUid": 4344, "realEditorValues": [] },
+								{ "__identifier": "mounted_on", "__type": "EntityRef", "__value": { "entityIid": "EnemySpawn-6807", "layerIid": "Ambition-4477", "levelIid": "pirate_sky_lookout-4475", "worldIid": "ambition-sandbox-world" }, "__tile": null, "defUid": 6805, "realEditorValues": [{
+									"id": "V_String",
+									"params": [
+										"{'entityIid': 'EnemySpawn-6807', 'layerIid': 'Ambition-4477', 'levelIid': 'pirate_sky_lookout-4475', 'worldIid': 'ambition-sandbox-world'}"
+									]
+								}] }
 							],
 							"__worldX": 3120,
 							"__worldY": 3232
@@ -31896,20 +31945,26 @@
 							"__tile": null,
 							"__smartColor": "#FF6B6B",
 							"iid": "EnemySpawn-4482",
-							"width": 108,
-							"height": 96,
+							"width": 44,
+							"height": 78,
 							"defUid": 2008,
 							"px": [960,240],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "Burning Flying Shark", "__tile": null, "defUid": 3018, "realEditorValues": [{
+								{ "__identifier": "name", "__type": "String", "__value": "Pirate Raider", "__tile": null, "defUid": 3018, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["Burning Flying Shark"]
+									"params": ["Pirate Raider"]
 								}] },
-								{ "__identifier": "brain", "__type": "String", "__value": "pirate_on_shark", "__tile": null, "defUid": 3019, "realEditorValues": [{
+								{ "__identifier": "brain", "__type": "String", "__value": "pirate_shark_rider", "__tile": null, "defUid": 3019, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["pirate_on_shark"]
+									"params": ["pirate_shark_rider"]
 								}] },
-								{ "__identifier": "path_id", "__type": "String", "__value": null, "__tile": null, "defUid": 4344, "realEditorValues": [] }
+								{ "__identifier": "path_id", "__type": "String", "__value": null, "__tile": null, "defUid": 4344, "realEditorValues": [] },
+								{ "__identifier": "mounted_on", "__type": "EntityRef", "__value": { "entityIid": "EnemySpawn-6808", "layerIid": "Ambition-4477", "levelIid": "pirate_sky_lookout-4475", "worldIid": "ambition-sandbox-world" }, "__tile": null, "defUid": 6805, "realEditorValues": [{
+									"id": "V_String",
+									"params": [
+										"{'entityIid': 'EnemySpawn-6808', 'layerIid': 'Ambition-4477', 'levelIid': 'pirate_sky_lookout-4475', 'worldIid': 'ambition-sandbox-world'}"
+									]
+								}] }
 							],
 							"__worldX": 3520,
 							"__worldY": 3312
@@ -31974,20 +32029,26 @@
 							"__tile": null,
 							"__smartColor": "#FF6B6B",
 							"iid": "EnemySpawn-4505",
-							"width": 108,
-							"height": 96,
+							"width": 72,
+							"height": 110,
 							"defUid": 2008,
 							"px": [720,320],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "Iron Mary on Shark", "__tile": null, "defUid": 3018, "realEditorValues": [{
+								{ "__identifier": "name", "__type": "String", "__value": "Iron Mary", "__tile": null, "defUid": 3018, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["Iron Mary on Shark"]
+									"params": ["Iron Mary"]
 								}] },
-								{ "__identifier": "brain", "__type": "String", "__value": "pirate_heavy_on_shark", "__tile": null, "defUid": 3019, "realEditorValues": [{
+								{ "__identifier": "brain", "__type": "String", "__value": "pirate_heavy_shark_rider", "__tile": null, "defUid": 3019, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["pirate_heavy_on_shark"]
+									"params": ["pirate_heavy_shark_rider"]
 								}] },
-								{ "__identifier": "path_id", "__type": "String", "__value": null, "__tile": null, "defUid": 4344, "realEditorValues": [] }
+								{ "__identifier": "path_id", "__type": "String", "__value": null, "__tile": null, "defUid": 4344, "realEditorValues": [] },
+								{ "__identifier": "mounted_on", "__type": "EntityRef", "__value": { "entityIid": "EnemySpawn-6809", "layerIid": "Ambition-4477", "levelIid": "pirate_sky_lookout-4475", "worldIid": "ambition-sandbox-world" }, "__tile": null, "defUid": 6805, "realEditorValues": [{
+									"id": "V_String",
+									"params": [
+										"{'entityIid': 'EnemySpawn-6809', 'layerIid': 'Ambition-4477', 'levelIid': 'pirate_sky_lookout-4475', 'worldIid': 'ambition-sandbox-world'}"
+									]
+								}] }
 							],
 							"__worldX": 3280,
 							"__worldY": 3392
@@ -32043,6 +32104,106 @@
 							],
 							"__worldX": 3440,
 							"__worldY": 3552
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [12,15],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": 2752,
+							"__worldY": 3312,
+							"iid": "EnemySpawn-6806",
+							"width": 108,
+							"height": 96,
+							"defUid": 2008,
+							"px": [192,240],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "Burning Flying Shark", "__tile": null, "defUid": 3018, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Burning Flying Shark"]
+								}] },
+								{ "__identifier": "brain", "__type": "String", "__value": "burning_flying_shark", "__tile": null, "defUid": 3019, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["burning_flying_shark"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [35,10],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": 3120,
+							"__worldY": 3232,
+							"iid": "EnemySpawn-6807",
+							"width": 108,
+							"height": 96,
+							"defUid": 2008,
+							"px": [560,160],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "Burning Flying Shark", "__tile": null, "defUid": 3018, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Burning Flying Shark"]
+								}] },
+								{ "__identifier": "brain", "__type": "String", "__value": "burning_flying_shark", "__tile": null, "defUid": 3019, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["burning_flying_shark"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [60,15],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": 3520,
+							"__worldY": 3312,
+							"iid": "EnemySpawn-6808",
+							"width": 108,
+							"height": 96,
+							"defUid": 2008,
+							"px": [960,240],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "Burning Flying Shark", "__tile": null, "defUid": 3018, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Burning Flying Shark"]
+								}] },
+								{ "__identifier": "brain", "__type": "String", "__value": "burning_flying_shark", "__tile": null, "defUid": 3019, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["burning_flying_shark"]
+								}] }
+							]
+						},
+						{
+							"__identifier": "EnemySpawn",
+							"__grid": [45,20],
+							"__pivot": [0,0],
+							"__tags": [],
+							"__tile": null,
+							"__smartColor": "#FF6B6B",
+							"__worldX": 3280,
+							"__worldY": 3392,
+							"iid": "EnemySpawn-6809",
+							"width": 108,
+							"height": 96,
+							"defUid": 2008,
+							"px": [720,320],
+							"fieldInstances": [
+								{ "__identifier": "name", "__type": "String", "__value": "Burning Flying Shark", "__tile": null, "defUid": 3018, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["Burning Flying Shark"]
+								}] },
+								{ "__identifier": "brain", "__type": "String", "__value": "burning_flying_shark", "__tile": null, "defUid": 3019, "realEditorValues": [{
+									"id": "V_String",
+									"params": ["burning_flying_shark"]
+								}] }
+							]
 						}
 					]
 				},

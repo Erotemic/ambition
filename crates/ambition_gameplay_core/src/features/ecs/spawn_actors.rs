@@ -254,37 +254,6 @@ impl EnemyActorSpawnPlan {
         self
     }
 
-    pub(super) fn with_brain(mut self, brain: ambition_characters::brain::Brain) -> Self {
-        self.brain = brain;
-        self
-    }
-
-    pub(super) fn with_action_set(
-        mut self,
-        action_set: ambition_characters::brain::ActionSet,
-    ) -> Self {
-        self.action_set = action_set;
-        self
-    }
-
-    pub(super) fn with_combat_kit(mut self, combat_kit: crate::combat::CombatKit) -> Self {
-        self.combat_kit = combat_kit;
-        self
-    }
-
-    pub(super) fn with_held_item(
-        mut self,
-        held_item: Option<ambition_characters::brain::HeldItemSpec>,
-    ) -> Self {
-        self.held_item = held_item;
-        self
-    }
-
-    pub(super) fn without_held_item(mut self) -> Self {
-        self.held_item = None;
-        self
-    }
-
     pub(super) fn spawn(self, commands: &mut Commands) -> Entity {
         let facing = self.enemy.kin.facing;
         let (identity, disposition, combat, intent, cooldowns) =
@@ -925,10 +894,6 @@ pub(super) fn spawn_enemy_with_faction(
     faction: super::ActorFaction,
 ) -> Option<bevy::ecs::entity::Entity> {
     let spec = super::super::enemies::spec_for_brain(&authored.payload);
-    if spec.is_composite() {
-        super::spawn_mounts::spawn_composite_mount_rider(commands, authored, paths, &spec);
-        return None;
-    }
     let enemy = super::actor_clusters::ActorClusterSeed::new(
         authored.id.clone(),
         authored.name.clone(),
@@ -957,25 +922,33 @@ fn attach_mount_role(
         // Feel-tunable; a mount that wants a precise saddle can grow a field.
         let mount_size = spec.default_size.unwrap_or(ae::Vec2::new(64.0, 64.0));
         let rider_offset = ae::Vec2::new(0.0, -(mount_size.y * 0.5 + 40.0));
-        commands.entity(entity).insert(super::Mountable {
-            rider_offset,
-            class: super::MountClass(class.clone()),
-            control_grant: super::ControlGrant::Total,
-            death_impact: match spec.mount_death_splash {
-                Some(amount) => super::MountDeathImpact::Splash(amount),
-                None => super::MountDeathImpact::Dismount,
+        commands.entity(entity).insert((
+            super::Mountable {
+                rider_offset,
+                class: super::MountClass(class.clone()),
+                control_grant: super::ControlGrant::Total,
+                death_impact: match spec.mount_death_splash {
+                    Some(amount) => super::MountDeathImpact::Splash(amount),
+                    None => super::MountDeathImpact::Dismount,
+                },
             },
-        });
+            // A heavy mount keeps the pair's center of gravity near itself, so
+            // the lighter rider orbits it under a gravity flip (sync reads Mass).
+            super::Mass(spec.mass),
+        ));
     }
     if !spec.pilotable_mount_classes.is_empty() {
-        commands.entity(entity).insert(super::CanPilot {
-            classes: spec
-                .pilotable_mount_classes
-                .iter()
-                .cloned()
-                .map(super::MountClass)
-                .collect(),
-        });
+        commands.entity(entity).insert((
+            super::CanPilot {
+                classes: spec
+                    .pilotable_mount_classes
+                    .iter()
+                    .cloned()
+                    .map(super::MountClass)
+                    .collect(),
+            },
+            super::Mass(spec.mass),
+        ));
     }
 }
 

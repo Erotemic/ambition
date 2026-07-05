@@ -100,9 +100,9 @@ pub use ecs::{
     ecs_chest_opened, ecs_hit_event_hits_actor, ecs_hit_event_hits_boss,
     ecs_hit_event_hits_breakable, enforce_mount_rider_link, integrate_boss_bodies,
     integrate_sim_bodies, interact_ecs_actors_and_switches, magnetize_pickups, open_ecs_chests,
-    pirate_on_shark_rider_offset, project_boss_attack_state_from_move, rebuild_actor_anim_index,
-    rebuild_actor_render_index, rebuild_boss_render_index, rebuild_feature_ecs_world_overlay,
-    rebuild_feature_view_index, refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
+    project_boss_attack_state_from_move, rebuild_actor_anim_index, rebuild_actor_render_index,
+    rebuild_boss_render_index, rebuild_feature_ecs_world_overlay, rebuild_feature_view_index,
+    refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
     refresh_breakable_damageable_volumes, reset_ecs_room_features, resolve_pending_mount_links,
     select_actor_targets, spawn_encounter_mob, spawn_enemy_projectiles_from_brain_actions,
     spawn_melee_hitbox, spawn_room_feature_entities, steer_mount_from_rider,
@@ -122,9 +122,8 @@ pub use ecs::{
 };
 pub use ecs::{ActorAnimFrame, ActorSpriteData};
 pub use enemies::{
-    composite_rider_name, composite_visual_plan, enemy_spawn_is_sandbag, install_enemy_roster,
-    ActorSpawnState, ActorSurfaceState, CharacterRoster, CompositeVisualPlan, EnemyRespawnPolicy,
-    ENEMY_DEAD_UNTIL_REST_SUFFIX,
+    enemy_spawn_is_sandbag, install_enemy_roster, ActorSpawnState, ActorSurfaceState,
+    CharacterRoster, EnemyRespawnPolicy, ENEMY_DEAD_UNTIL_REST_SUFFIX,
 };
 pub use events::{
     ActorStimulus, FeatureCombatTuning, FeatureView, FeatureVisualKind, GameplayBanner,

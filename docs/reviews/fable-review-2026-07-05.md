@@ -51,8 +51,16 @@ reaction seam, keep this doc's log current.
   carries further uncommitted mount cleanup (deleted
   `mounted_rider_brain_and_action_set`, archetype row removal) — an in-flight
   slice by another agent; this review does not touch it. **M5
-  (player-piloting) is still unwired** — no mount-specific player-pilot test
-  exists yet; it becomes load-bearing in R10.6.
+  (player-piloting) is LANDED (2026-07-05, opus)** — the mount coupling
+  (`sync_riders_to_mounts` / `enforce_mount_rider_link`) was made
+  controller-agnostic by dropping its player-centric `is_hostile()` gate (a
+  mount that "only obeys enemies" violated the relativity principle); coupling
+  now keys on structural liveness + role components, so a `Brain::Player` rider
+  pilots the mount identically to an AI rider. Two tests pin it: a deterministic
+  mount-module test (`a_player_controlled_rider_pilots_the_mount_agnostically`)
+  and an end-to-end sim test (`player_pilots_mount_end_to_end.rs`: possess-style
+  brain handover → `move_x` drives the MOUNT, home avatar stays put, rider stays
+  welded). The R10.6 payoff is now unblocked.
 - The R3 exit greps and R4a-1 stand as logged in the 07-04 doc. `ambition_world`
   still does not exist; R4b remains scouted-not-started — which is exactly the
   luck this review needs (AJ9 reshapes it before anyone carves).

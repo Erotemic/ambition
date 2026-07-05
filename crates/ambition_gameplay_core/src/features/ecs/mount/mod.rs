@@ -22,15 +22,16 @@
 //! dies the mount keeps running with its own brain.
 //!
 //! Any character can be a mount if it carries [`Mountable`] data and
-//! any character can be a rider if it has a target to ride. The
-//! composite spawn helper [`spawn_mount_rider_pair`] is the only
-//! "shark-rider knowledge" in the runtime — everything else is
-//! generic.
+//! any character can be a rider if it has a target to ride. Authored
+//! pairs come from two linked LDtk `EnemySpawn`s (a rider with a
+//! `mounted_on` entity-ref); [`resolve_pending_mount_links`] installs
+//! the runtime link. There is no "shark-rider knowledge" in the engine
+//! — the whole relationship is data (ADR 0020).
 
 use bevy::prelude::{Commands, Component, Entity, Query, ResMut, Resource, With, Without};
 
 use super::brain_builders::dismounted_rider_brain_and_action_set;
-use super::{ActorDisposition, CenteredAabb};
+use super::CenteredAabb;
 use ambition_engine_core as ae;
 
 /// Physical mass of an actor, used to weight a mount+rider pair's center of
@@ -301,6 +302,14 @@ pub fn steer_mount_from_rider(
 /// the target from a position close to where it'll actually be
 /// after the snap.
 ///
+/// **Controller-agnostic coupling (M5, ADR 0020 §4):** the pair welds on the
+/// STRUCTURAL facts — both bodies are alive and carry their mount-role
+/// components — never on disposition. A rider driven by `Brain::Player` (a human
+/// piloting the vehicle through possession / the control seam) welds and rides
+/// identically to an AI rider; the mount does not care WHO is aboard. Gating on
+/// `is_hostile` here would have been exactly the player-centrism the relativity
+/// principle forbids — a mount that only obeys enemies.
+///
 /// The mount queries are disjoint from the rider queries via
 /// `With<MountSlot>` / `Without<MountSlot>` so the borrow checker
 /// is happy — an entity is either a mount or a rider in this
@@ -311,7 +320,6 @@ pub fn sync_riders_to_mounts(
     mut riders: Query<
         (
             &RidingOn,
-            &ActorDisposition,
             &mut CenteredAabb,
             Option<&MountedSize>,
             Option<&Mass>,
@@ -321,7 +329,6 @@ pub fn sync_riders_to_mounts(
     >,
     mounts: Query<
         (
-            &ActorDisposition,
             &Mountable,
             Option<&Mass>,
             Option<super::actor_clusters::ActorClusterQueryData>,
@@ -333,23 +340,14 @@ pub fn sync_riders_to_mounts(
     // off the saddle in fixed screen space).
     gravity: crate::physics::GravityCtx,
 ) {
-    for (riding, rider_actor, mut rider_aabb, mounted_size, rider_mass, rider_clusters) in
-        &mut riders
-    {
-        let Ok((mount_actor, mountable, mount_mass, mount_clusters)) = mounts.get(riding.mount)
-        else {
+    for (riding, mut rider_aabb, mounted_size, rider_mass, rider_clusters) in &mut riders {
+        let Ok((mountable, mount_mass, mount_clusters)) = mounts.get(riding.mount) else {
             continue;
         };
-        if !mount_actor.is_hostile() {
-            continue;
-        }
         let Some(mount_c) = mount_clusters else {
             continue;
         };
         if !mount_c.health.alive() {
-            continue;
-        }
-        if !rider_actor.is_hostile() {
             continue;
         }
         let Some(mut rider_cq) = rider_clusters else {
@@ -429,7 +427,6 @@ pub fn enforce_mount_rider_link(
         (
             Entity,
             &RidingOn,
-            &ActorDisposition,
             &mut CenteredAabb,
             Option<&MountedBrainCache>,
             Option<&Mounted>,
@@ -442,7 +439,6 @@ pub fn enforce_mount_rider_link(
     mounts: Query<
         (
             Entity,
-            &ActorDisposition,
             Option<&ambition_characters::actor::BodyHealth>,
             Option<&Mountable>,
         ),
@@ -450,12 +446,14 @@ pub fn enforce_mount_rider_link(
     >,
 ) {
     // Build a lookup of mount alive-ness + death impact. With two-pirate
-    // fights this is O(R+M) per frame and the hashmap stays small.
+    // fights this is O(R+M) per frame and the hashmap stays small. Liveness is
+    // the STRUCTURAL fact (the mount's HP pool), never disposition — a
+    // player-piloted mount dissolves on death the same as an enemy one (M5).
     use std::collections::HashMap;
     let mut mount_alive: HashMap<Entity, bool> = HashMap::new();
     let mut mount_death_impact: HashMap<Entity, MountDeathImpact> = HashMap::new();
-    for (mount_entity, mount_actor, mount_health, mountable) in &mounts {
-        let alive = mount_actor.is_hostile() && mount_health.is_some_and(|h| h.alive());
+    for (mount_entity, mount_health, mountable) in &mounts {
+        let alive = mount_health.is_some_and(|h| h.alive());
         mount_alive.insert(mount_entity, alive);
         mount_death_impact.insert(
             mount_entity,
@@ -466,7 +464,6 @@ pub fn enforce_mount_rider_link(
     for (
         rider_entity,
         riding,
-        rider_actor,
         mut rider_aabb,
         cache,
         was_mounted,
@@ -475,9 +472,6 @@ pub fn enforce_mount_rider_link(
         rider_clusters,
     ) in &mut riders
     {
-        if !rider_actor.is_hostile() {
-            continue;
-        }
         let Some(mut rider_cq) = rider_clusters else {
             continue;
         };
@@ -561,18 +555,6 @@ pub fn enforce_mount_rider_link(
             (false, false) => {}
         }
     }
-}
-
-/// Sandbox-units offset for a pirate-on-shark composite. The rider
-/// sits directly above the mount's body with a small overlap so the
-/// pirate visually rests on the shark's saddle rather than floating.
-///
-/// `mount_size` is the mount body size and `rider_size` is the authored
-/// sky-rider size; the offset uses the half-heights so the rider's bottom edge sits
-/// at the mount's top edge plus 8 px of overlap (matches the legacy
-/// fused `rider_aabb` placement).
-pub fn pirate_on_shark_rider_offset(mount_size: ae::Vec2, rider_size: ae::Vec2) -> ae::Vec2 {
-    ae::Vec2::new(0.0, -(mount_size.y * 0.5) - (rider_size.y * 0.5) + 8.0)
 }
 
 #[cfg(test)]

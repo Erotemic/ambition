@@ -541,6 +541,102 @@ fn total_grant_routes_rider_locomotion_to_mount_but_not_fire() {
     );
 }
 
+/// M5 (ADR 0020 §4) — **player-piloting through the control seam is
+/// rider-agnostic.** A PLAYER-driven rider pilots the mount through the exact
+/// same two coupling systems an AI rider uses. Coupling keys on the STRUCTURAL
+/// facts (both bodies alive + carrying their mount-role components), never on
+/// disposition: this rider carries `Brain::Player` and a `Peaceful` disposition
+/// (the shape a possessed / human-driven body has — possession transfers the
+/// player brain but never touches disposition; `Peaceful` here proves the
+/// coupling ignores disposition entirely). It both (a) STEERS the mount — its
+/// locomotion intent flows through `steer_mount_from_rider` onto the mount — and
+/// (b) WELDS to the mount — `sync_riders_to_mounts` snaps its pose — identically
+/// to the enemy Skirmisher rider. Before M5 the `is_hostile()` gate skipped a
+/// non-hostile rider, so a human piloting a vehicle would ride nothing.
+#[test]
+fn a_player_controlled_rider_pilots_the_mount_agnostically() {
+    use ambition_characters::actor::control::ActorControlFrame;
+    use ambition_characters::brain::{ActorControl, Brain, PlayerSlot};
+
+    let mut app = build_app();
+    // The two coupling systems in their schedule order: steer routes the rider's
+    // intent onto the mount, then the pose sync welds the rider back on.
+    app.add_systems(
+        Update,
+        (steer_mount_from_rider, sync_riders_to_mounts).chain(),
+    );
+
+    let mount_pos = ae::Vec2::new(0.0, 0.0);
+    let mount_size = ae::Vec2::new(126.0, 52.0);
+    let mount = app
+        .world_mut()
+        .spawn((
+            hostile("mount", "burning_flying_shark", mount_pos, mount_size),
+            CenteredAabb::from_center_size(mount_pos, mount_size),
+            Mountable::at(ae::Vec2::new(0.0, -40.0)),
+            MountSlot { rider: None },
+            ActorControl(ActorControlFrame::neutral()),
+        ))
+        .id();
+
+    // A hand-authored PLAYER locomotion intent (what `Brain::Player` would emit
+    // from slot input): drive right at 200 px/s, facing left.
+    let mut rider_frame = ActorControlFrame::neutral();
+    rider_frame.locomotion = ae::Vec2::new(1.0, 0.0);
+    rider_frame.velocity_target = ae::Vec2::new(200.0, 0.0);
+    rider_frame.facing = -1.0;
+
+    let rider_start = ae::Vec2::new(999.0, 999.0);
+    let rider_size = ae::Vec2::new(44.0, 78.0);
+    // The full actor-cluster body, but spawned with a PLAYER identity: a
+    // `Peaceful` disposition + `Brain::Player` instead of the enemy default.
+    let (_enemy_disposition, rider_bundle) =
+        hostile("rider", "pirate_raider", rider_start, rider_size);
+    let rider = app
+        .world_mut()
+        .spawn((
+            crate::features::ActorDisposition::Peaceful,
+            rider_bundle,
+            CenteredAabb::from_center_size(rider_start, rider_size),
+            Brain::Player(PlayerSlot::PRIMARY),
+            ActorControl(rider_frame),
+            Mounted,
+            RidingOn { mount },
+        ))
+        .id();
+    app.world_mut()
+        .entity_mut(mount)
+        .insert(MountSlot { rider: Some(rider) });
+
+    app.update();
+
+    // (a) STEERED: the mount executes the PLAYER rider's locomotion intent.
+    let mount_frame = app.world().entity(mount).get::<ActorControl>().unwrap().0;
+    assert_eq!(
+        mount_frame.velocity_target,
+        ae::Vec2::new(200.0, 0.0),
+        "the mount obeys the player rider's velocity_target — piloting through the control seam",
+    );
+    assert_eq!(
+        mount_frame.facing, -1.0,
+        "the mount inherits the player rider's facing",
+    );
+
+    // (b) WELDED: the player rider snapped onto mount.pos + offset, exactly as an
+    // AI rider would — the sync did NOT skip it for being non-hostile.
+    let k = rider_kin(app.world(), rider);
+    assert_eq!(
+        k.pos,
+        ae::Vec2::new(0.0, -40.0),
+        "the player rider welds to mount.pos + offset (controller-agnostic coupling)",
+    );
+    assert_eq!(
+        k.vel,
+        ae::Vec2::ZERO,
+        "the welded player rider's velocity is zeroed"
+    );
+}
+
 /// Same-room reset re-arms the link: starting from a dissolved
 /// state (mount dead, rider with solo brain), once the mount's
 /// `alive` flag is set back to true the enforcer restores the

@@ -530,7 +530,7 @@ mod conversion_tests {
             "shark_a",
             "Burning Flying Shark",
             aabb,
-            ambition_characters::actor::CharacterBrain::Custom("pirate_on_shark".into()),
+            ambition_characters::actor::CharacterBrain::Custom("burning_flying_shark".into()),
             &[],
         );
         enemy.attack.cooldown = 0.0;

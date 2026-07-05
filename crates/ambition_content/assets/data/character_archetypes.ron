@@ -15,8 +15,10 @@
 // these keys via `archetype_data_key`.)
 //
 // Field reference:
-//   max_health         HP pool of the body (shark body for fused actors).
-//   rider_max_health   Optional second HP pool (PirateOnShark, …).
+//   max_health         HP pool of the body.
+//   mount_class        Optional: this archetype can be ridden; the content
+//                      class a rider must be allowed to pilot (ADR 0020).
+//   pilotable_mount_classes  Mount classes a rider of this archetype may pilot.
 //   patrol_speed       Idle-pace movement speed (px/s).
 //   chase_speed        Aggro/engage movement speed (px/s). For aerial
 //                      actors this is the steering convergence rate
@@ -599,49 +601,6 @@
         ))),
         move_style: Float,
     ),
-    "pirate_on_shark": (
-        // Visual fan-out: this spawn renders as a mount + rider pair.
-        composite_visual: Some((
-            mount_brain: "burning_flying_shark",
-            mount_name: "Burning Flying Shark",
-            rider_brain: "pirate_raider",
-            rider_fallback_name: "Pirate Raider",
-        )),
-        max_health: 6,
-        rider_max_health: Some(4),
-        body_contact_damage: false,
-        respawn_on_rest: true,
-        patrol_speed: 110.0,
-        chase_speed: 230.0,
-        aggro_radius: 1200.0,
-        attack_range: 1100.0,
-        contact_strength: 1.10,
-        damage_amount: 2,
-        is_aerial: true,
-        // A riderless shark's fast charge that gets stopped dead by a
-        // wall detonates the shark (#98).
-        charge_crash_explodes: true,
-        // Shark body — scaled down from the original (108, 96) which
-        // dominated arenas and dwarfed every other enemy. The render
-        // size is also driven by this field (see actors.rs sprite
-        // path), so this controls both the collision footprint and
-        // the on-screen shark silhouette. The rider visual scales
-        // off the shark's render height in pirate_rider.rs so the
-        // composite stays proportional.
-        default_size: Some((126.0, 52.0)),
-        // Skirmisher: orbit-and-fire. The legacy `MeleeBrute` template
-        // never emitted `frame.fire` so the shark-rider's ranged
-        // `Bolt` capability was inert under the brain-authoritative
-        // pipeline. Skirmisher maintains the `attack_range` standoff
-        // (1100 px) and emits fire on cooldown — the resolver pulls
-        // Bolt speed / damage from the `ranged` row below.
-        brain_template: Skirmisher,
-        ranged: Some(Bolt(speed: 500.0, damage: 2)),
-        // Held item resolved by id against the registry in
-        // `brain::action_set` (`held_item_by_id`).
-        held_item: Some("gun_sword"),
-        move_style: Float,
-    ),
     // Cove crew. Peaceful by default because aggro_radius stays 0 and
     // `CharacterArchetype::attacks_player()` is false, but the archetype now
     // still carries its own melee capability. That lets systems that
@@ -682,44 +641,6 @@
             step_px: 14.0,
         ))),
         move_style: WalkHeavy,
-    ),
-    "pirate_heavy_on_shark": (
-        // Visual fan-out: heavy rider variant; the rider's display name
-        // comes from the authored spawn name minus " on Shark".
-        composite_visual: Some((
-            mount_brain: "burning_flying_shark",
-            mount_name: "Burning Flying Shark",
-            rider_brain: "pirate_heavy",
-            rider_fallback_name: "Broadside Bess",
-            rider_name_suffix: Some(" on Shark"),
-        )),
-        max_health: 7,
-        rider_max_health: Some(6),
-        body_contact_damage: false,
-        respawn_on_rest: true,
-        patrol_speed: 110.0,
-        chase_speed: 215.0,
-        aggro_radius: 1200.0,
-        attack_range: 1100.0,
-        contact_strength: 1.30,
-        damage_amount: 3,
-        is_aerial: true,
-        // Shark body — scaled down from the original (108, 96) which
-        // dominated arenas and dwarfed every other enemy. The render
-        // size is also driven by this field (see actors.rs sprite
-        // path), so this controls both the collision footprint and
-        // the on-screen shark silhouette. The rider visual scales
-        // off the shark's render height in pirate_rider.rs so the
-        // composite stays proportional.
-        default_size: Some((126.0, 52.0)),
-        // Skirmisher: see `PirateOnShark` above. Same orbit-and-fire
-        // shape; only the Bolt damage scales up.
-        brain_template: Skirmisher,
-        ranged: Some(Bolt(speed: 500.0, damage: 3)),
-        // Heavier composite shares the gun-sword weapon at a higher
-        // Bolt damage; resolved by id against the registry.
-        held_item: Some("gun_sword_heavy"),
-        move_style: Float,
     ),
     // ADR 0020 mounted riders. These are STANDALONE actors that carry the
     // mounted pirate's kit (Skirmisher orbit + gun_sword Bolt). In the world

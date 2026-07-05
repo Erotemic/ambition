@@ -62,7 +62,6 @@ mod reset;
 mod save_sync;
 mod spawn;
 mod spawn_actors;
-mod spawn_mounts;
 mod target_volumes;
 mod view_index;
 
@@ -128,10 +127,9 @@ pub use hitbox::{
 };
 pub use interact::interact_ecs_actors_and_switches;
 pub use mount::{
-    enforce_mount_rider_link, pirate_on_shark_rider_offset, resolve_pending_mount_links,
-    steer_mount_from_rider, sync_riders_to_mounts, CanPilot, ControlGrant, Mass, MountClass,
-    MountDeathImpact, MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize,
-    PendingMountLinks, RidingOn,
+    enforce_mount_rider_link, resolve_pending_mount_links, steer_mount_from_rider,
+    sync_riders_to_mounts, CanPilot, ControlGrant, Mass, MountClass, MountDeathImpact, MountSlot,
+    Mountable, Mounted, MountedBrainCache, MountedSize, PendingMountLinks, RidingOn,
 };
 pub use overlay::{rebuild_feature_ecs_world_overlay, FeatureEcsWorldOverlay};
 pub use pickups::{collect_ecs_pickups, magnetize_pickups};

@@ -623,10 +623,10 @@ fn enemy_health_drop_is_deterministic_and_spawns_a_heart() {
 
 #[test]
 fn an_armed_enemy_archetype_resolves_a_weapon_to_drop() {
-    // The defeat branch's weapon drop keys off `held_item_spec()`; the pirate
-    // carries a gun-sword, so a defeated pirate drops one.
-    let spec = crate::features::enemies::test_spec("pirate_on_shark").held_item_spec();
-    assert!(spec.is_some(), "PirateOnShark carries a weapon");
+    // The defeat branch's weapon drop keys off `held_item_spec()`; the shark
+    // rider carries a gun-sword, so a defeated rider drops one.
+    let spec = crate::features::enemies::test_spec("pirate_shark_rider").held_item_spec();
+    assert!(spec.is_some(), "the shark rider carries a weapon");
     assert_eq!(spec.unwrap().id.as_str(), "gun_sword");
 }
 

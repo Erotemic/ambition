@@ -62,11 +62,6 @@ pub(super) fn enemy_default_action_set(spec: &CharacterArchetypeSpec) -> ActionS
     }
     actions
 }
-fn apply_spec_held_item(spec: &CharacterArchetypeSpec, actions: &mut ActionSet) {
-    if let Some(item) = spec.held_item_spec() {
-        item.apply_to_action_set(actions);
-    }
-}
 
 pub(super) fn held_item_for_spec(
     spec: &CharacterArchetypeSpec,
@@ -243,27 +238,6 @@ fn charge_crash_brain_for_enemy(enemy: &ActorConfig) -> Brain {
             ..Default::default()
         },
     })
-}
-
-/// Build the rider's MOUNTED behavior for a composite mount/rider spawn.
-///
-/// The mounted rider is intentionally not the rider archetype's standalone
-/// brain. While mounted, the rider gets a hostile Skirmisher brain keyed off
-/// the composite archetype's ranged spec and variation keyed by the rider id.
-pub(super) fn mounted_rider_brain_and_action_set(
-    rider_id: &str,
-    rider_spec: &CharacterArchetypeSpec,
-    composite_spec: &CharacterArchetypeSpec,
-) -> (Brain, ActionSet) {
-    let brain = skirmisher_brain_from_tuning(rider_id, &composite_spec.tuning(), true);
-    let mut action_set = ActionSet {
-        melee: None,
-        ranged: composite_spec.ranged_spec(),
-        move_style: rider_spec.move_style(),
-        ..Default::default()
-    };
-    apply_spec_held_item(composite_spec, &mut action_set);
-    (brain, action_set)
 }
 
 /// Build the explicitly-hostile solo behavior a rider receives when its mount dies.

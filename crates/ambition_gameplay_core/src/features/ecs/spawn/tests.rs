@@ -1,20 +1,19 @@
 //! Tests for the ECS feature spawn paths: authored actors/bosses, dynamic
-//! encounter mobs, and composite mount/rider fan-out.
+//! encounter mobs, and mounted-rider archetypes (ADR 0020).
 
 use super::super::brain_builders::{enemy_default_action_set, enemy_default_brain};
 use super::super::spawn_actors::spawn_boss;
-use super::super::spawn_mounts::spawn_composite_mount_rider;
 use super::*;
 use crate::features::{
     ActorAggression, ActorConfig, ActorCooldowns, ActorDisposition, ActorIdentity, ActorIntent,
-    AggressionMode, CombatKit, MountSlot, MountedSize, RidingOn,
+    AggressionMode, CombatKit,
 };
 use ambition_characters::actor::{BodyCombat, BodyHealth};
 use ambition_characters::brain::{
     ActionSet, ActorControl, Brain, MeleeActionSpec, MoveStyleSpec, StateMachineCfg,
 };
 use ambition_engine_core as ae;
-use bevy::prelude::{App, Commands, Update, With};
+use bevy::prelude::{App, Commands, Update};
 
 fn make_enemy(brain_key: &str) -> ActorConfig {
     let aabb = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(20.0, 30.0));
@@ -232,120 +231,29 @@ fn enemy_default_brain_covers_every_combat_archetype() {
     }
 }
 
-/// Regression net: the riderless shark gets the charge-crash brain
-/// while the mounted shark composite keeps the orbiting
-/// Skirmisher-style mount brain on purpose.
+/// ADR 0020 parity: the mounted rider archetype (`pirate_shark_rider`) carries
+/// its own orbit-and-fire kit — a ranged Bolt (the gun-sword) — so that, under a
+/// mount's Total control grant, its Skirmisher brain drives the shark's orbit
+/// and it fires. The fused `pirate_on_shark` row is gone; the loadout now lives
+/// on the standalone rider archetype, spawned as a solo actor linked to the
+/// shark by a `mounted_on` ref.
 #[test]
-fn shark_composite_mount_brain_stays_skirmisher() {
-    use ambition_characters::brain::{Brain, StateMachineCfg};
-    let mut app = App::new();
-    app.add_systems(Update, |mut commands: Commands| {
-        let authored = crate::rooms::Authored {
-            id: "test_shark_on_shark".to_string(),
-            name: "Test Shark on Shark".to_string(),
-            aabb: ae::Aabb::new(ae::Vec2::new(200.0, 120.0), ae::Vec2::new(40.0, 32.0)),
-            payload: ambition_characters::actor::CharacterBrain::Custom("pirate_on_shark".into()),
-        };
-        spawn_composite_mount_rider(
-            &mut commands,
-            &authored,
-            &[],
-            &crate::features::enemies::test_spec("pirate_on_shark"),
-        );
-    });
-    app.update();
-    let mut q = app.world_mut().query::<(&Brain, &MountSlot)>();
-    let (brain, _) = q
-        .iter(app.world())
-        .next()
-        .expect("composite mount should exist");
-    assert!(matches!(
-        brain,
-        Brain::StateMachine(StateMachineCfg::Skirmisher { .. })
+fn mounted_rider_archetype_carries_a_ranged_kit() {
+    let set = enemy_default_action_set(&crate::features::enemies::test_spec("pirate_shark_rider"));
+    assert!(
+        set.ranged.is_some(),
+        "the shark rider fires a Bolt (gun_sword) — its mounted attack",
+    );
+    assert!(matches!(set.move_style, MoveStyleSpec::Walk));
+
+    let heavy = enemy_default_action_set(&crate::features::enemies::test_spec(
+        "pirate_heavy_shark_rider",
     ));
-}
-
-/// Non-heavy shark riders also keep their authored sky-rider scale after
-/// dismount. Mount status should not make a PirateRaider visually grow into
-/// the larger cove spawn profile.
-#[test]
-fn pirate_raider_shark_rider_keeps_compact_dismounted_size() {
-    let mut app = App::new();
-    app.add_systems(Update, |mut commands: Commands| {
-        let authored = crate::rooms::Authored {
-            id: "pirate_raider_sky".to_string(),
-            name: "Pirate Raider on Shark".to_string(),
-            aabb: ae::Aabb::new(ae::Vec2::new(200.0, 120.0), ae::Vec2::new(40.0, 32.0)),
-            payload: ambition_characters::actor::CharacterBrain::Custom("pirate_on_shark".into()),
-        };
-        spawn_composite_mount_rider(
-            &mut commands,
-            &authored,
-            &[],
-            &crate::features::enemies::test_spec("pirate_on_shark"),
-        );
-    });
-    app.update();
-
-    let mut q = app.world_mut().query_filtered::<(
-        &crate::features::BodyKinematics,
-        &crate::features::ActorConfig,
-        &MountedSize,
-    ), With<RidingOn>>();
-    let (kin, config, mounted_size) = q
-        .iter(app.world())
-        .next()
-        .expect("light shark composite should spawn a rider");
-    assert_eq!(
-        config.spawn.size, mounted_size.0,
-        "sky PirateRaider dismount should keep compact rider collision size",
+    assert!(
+        heavy.ranged.is_some(),
+        "the heavy shark rider also fires a Bolt"
     );
-    assert_eq!(
-        kin.size, mounted_size.0,
-        "mounted rider starts at the same compact size it will use after dismount",
-    );
-}
-
-/// PirateHeavy-on-shark uses the small rider sprite/scale. When the shark
-/// dies, she should not suddenly gain the full cove-heavy collision body.
-#[test]
-fn pirate_heavy_shark_rider_keeps_compact_dismounted_size() {
-    let mut app = App::new();
-    app.add_systems(Update, |mut commands: Commands| {
-        let authored = crate::rooms::Authored {
-            id: "iron_mary_sky".to_string(),
-            name: "Iron Mary on Shark".to_string(),
-            aabb: ae::Aabb::new(ae::Vec2::new(200.0, 120.0), ae::Vec2::new(40.0, 32.0)),
-            payload: ambition_characters::actor::CharacterBrain::Custom(
-                "pirate_heavy_on_shark".into(),
-            ),
-        };
-        spawn_composite_mount_rider(
-            &mut commands,
-            &authored,
-            &[],
-            &crate::features::enemies::test_spec("pirate_heavy_on_shark"),
-        );
-    });
-    app.update();
-
-    let mut q = app.world_mut().query_filtered::<(
-        &crate::features::BodyKinematics,
-        &crate::features::ActorConfig,
-        &MountedSize,
-    ), With<RidingOn>>();
-    let (kin, config, mounted_size) = q
-        .iter(app.world())
-        .next()
-        .expect("heavy shark composite should spawn a rider");
-    assert_eq!(
-        config.spawn.size, mounted_size.0,
-        "sky PirateHeavy dismount should keep compact rider collision size",
-    );
-    assert_eq!(
-        kin.size, mounted_size.0,
-        "mounted rider starts at the same compact size it will use after dismount",
-    );
+    assert!(matches!(heavy.move_style, MoveStyleSpec::WalkHeavy));
 }
 
 /// Coverage lint: every hostile-by-default combat archetype gets at least one
@@ -387,9 +295,9 @@ fn enemy_default_action_set_picks_per_archetype_specs() {
     let set = enemy_default_action_set(&crate::features::enemies::test_spec("medium_striker"));
     assert!(matches!(set.melee, Some(MeleeActionSpec::Swipe(_))));
 
-    let set = enemy_default_action_set(&crate::features::enemies::test_spec("pirate_on_shark"));
-    assert!(set.ranged.is_some(), "PirateOnShark has ranged");
-    assert!(matches!(set.move_style, MoveStyleSpec::Float));
+    let set = enemy_default_action_set(&crate::features::enemies::test_spec("pirate_shark_rider"));
+    assert!(set.ranged.is_some(), "pirate_shark_rider has ranged");
+    assert!(matches!(set.move_style, MoveStyleSpec::Walk));
 }
 
 /// PirateHeavy is peaceful by default via brain aggressiveness, but once a

@@ -1241,7 +1241,14 @@ shark. Execution map:
   retarget the composite-spawn parity suite (`ecs/spawn/tests.rs`) to the pair.
 - **M3** — `ambition_ldtk_tools` capability to author the mounted-link (needed by
   M4e; never hand-edit `.ldtk`).
-- **M5** — player-piloting through the control seam (rider-agnostic) + a test.
+- **M5 ✅ (2026-07-05, opus)** — player-piloting through the control seam
+  (rider-agnostic). The mount coupling was made controller-agnostic: dropped the
+  player-centric `is_hostile()` gate in `sync_riders_to_mounts` /
+  `enforce_mount_rider_link` (coupling keys on liveness + role components, not
+  disposition), so a `Brain::Player` rider pilots identically to an AI rider.
+  Tests: `a_player_controlled_rider_pilots_the_mount_agnostically` (mount-module,
+  deterministic) + `player_pilots_mount_end_to_end.rs` (rl_sim: brain handover →
+  `move_x` drives the mount, home avatar inert, rider welded). Unblocks R10.6.
 
 ---
 

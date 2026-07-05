@@ -78,44 +78,6 @@ pub use crate::combat::EnemyRespawnPolicy;
 /// agree on the spelling.
 pub const ENEMY_DEAD_UNTIL_REST_SUFFIX: &str = "_dead_until_rest";
 
-/// Authored mount+rider visual fan-out for a composite spawn (see
-/// [`CharacterArchetypeSpec::composite_visual`]). `mount_brain` / `rider_brain`
-/// are spawn brain keys into the roster; the names are display fallbacks for
-/// the spawned visuals.
-#[derive(Clone, Debug, serde::Deserialize)]
-pub struct CompositeVisualSpec {
-    pub mount_brain: String,
-    pub mount_name: String,
-    pub rider_brain: String,
-    pub rider_fallback_name: String,
-    /// When set, the rider's display name is the authored spawn name with this
-    /// suffix stripped (e.g. `" on Shark"`: "Broadside Bess on Shark" →
-    /// "Broadside Bess"); `None` always uses [`Self::rider_fallback_name`]. The
-    /// suffix is authored content — the engine no longer hardcodes `" on Shark"`
-    /// in the sim + render spawn paths, so a second game's mount composes its
-    /// own naming (fable review 2026-07-02 §C7).
-    #[serde(default)]
-    pub rider_name_suffix: Option<String>,
-}
-
-/// Resolve a composite rider's display name from the authored spawn name.
-///
-/// With a `suffix`, the rider name is the spawn name minus that suffix
-/// (e.g. `"Broadside Bess on Shark"` with `" on Shark"` → `"Broadside Bess"`),
-/// falling back to `fallback` when the suffix doesn't match; without one, the
-/// `fallback` is used directly. The ONE place the suffix-strip lives, shared by
-/// the sim ([`crate::features::ecs`]) and render spawn paths so neither
-/// hardcodes the composite suffix.
-pub fn composite_rider_name(spawn_name: &str, suffix: Option<&str>, fallback: &str) -> String {
-    match suffix {
-        Some(suffix) => spawn_name
-            .strip_suffix(suffix)
-            .unwrap_or(fallback)
-            .to_string(),
-        None => fallback.to_string(),
-    }
-}
-
 #[derive(Clone, Debug, serde::Deserialize)]
 pub(crate) struct CharacterArchetypeSpec {
     /// Optional parent archetype id to inherit movement tuning from. The resolver
@@ -134,8 +96,6 @@ pub(crate) struct CharacterArchetypeSpec {
     #[serde(skip)]
     pub movement_resolved: crate::combat::BodyMovementTuning,
     pub max_health: i32,
-    #[serde(default)]
-    pub rider_max_health: Option<i32>,
     pub patrol_speed: f32,
     pub chase_speed: f32,
     pub aggro_radius: f32,
@@ -184,10 +144,6 @@ pub(crate) struct CharacterArchetypeSpec {
     /// `None` = the archetype doesn't participate.
     #[serde(default)]
     pub dream_seed: Option<f32>,
-    /// When set, this spawn renders as a mount + rider visual pair
-    /// (the sim fans it into two entities; presentation mirrors that).
-    #[serde(default)]
-    pub composite_visual: Option<CompositeVisualSpec>,
     /// This archetype can be ridden (ADR 0020): the content-defined mount
     /// class a rider must be allowed to pilot. `None` = not a mount.
     #[serde(default)]
@@ -600,10 +556,10 @@ pub(crate) const COMBAT_BRAIN_KEYS: &[&str] = &[
     "gradient_seeker",
     "pirate_raider",
     "burning_flying_shark",
-    "pirate_on_shark",
+    "pirate_shark_rider",
     "puppy_slug",
     "pirate_heavy",
-    "pirate_heavy_on_shark",
+    "pirate_heavy_shark_rider",
     "cellular_automaton_fighter",
 ];
 
@@ -621,9 +577,9 @@ pub(crate) const ALL_BRAIN_KEYS: &[&str] = &[
     "sandbag_finite",
     "pirate_raider",
     "burning_flying_shark",
-    "pirate_on_shark",
+    "pirate_shark_rider",
     "pirate_heavy",
-    "pirate_heavy_on_shark",
+    "pirate_heavy_shark_rider",
     "puppy_slug",
     "exploding_mite",
     "dividing_mite",
@@ -667,10 +623,6 @@ impl CharacterArchetypeSpec {
     }
     pub(super) fn move_style(&self) -> ambition_characters::brain::MoveStyleSpec {
         self.move_style
-    }
-    /// True when this spawn renders / fans out as a mount + rider pair.
-    pub(super) fn is_composite(&self) -> bool {
-        self.composite_visual.is_some()
     }
 
     /// Default respawn cadence: heavier presences take a Rest, the rest
@@ -733,24 +685,6 @@ impl CharacterArchetypeSpec {
         }
     }
 }
-/// Per-spawn VISUAL plan for an enemy payload, derived from authored
-/// archetype data. Presentation consumes this instead of the
-/// archetype enum (Stage 20 / B3): the named knowledge stays on this
-/// side of the named/generic boundary, as data.
-#[derive(Clone, Debug)]
-pub struct CompositeVisualPlan {
-    /// See [`CompositeVisualSpec::rider_name_suffix`].
-    pub rider_name_suffix: Option<String>,
-    pub mount_name: String,
-    pub mount_brain: ambition_characters::actor::CharacterBrain,
-    pub rider_brain: ambition_characters::actor::CharacterBrain,
-    pub rider_fallback_name: String,
-    /// Rider's standalone body size (the visual renders at half while
-    /// mounted, mirroring the sim's `MountedSize`).
-    pub rider_standalone_size: ae::Vec2,
-    pub mount_size: ae::Vec2,
-}
-
 /// Whether a spawn payload is a sandbag (passive practice-target archetype).
 /// The ONE surviving fragment of the deleted `enemy_visual_kind` derivation:
 /// used at spawn to pick the static sandbag sprite (the rest of the
@@ -761,71 +695,10 @@ pub fn enemy_spawn_is_sandbag(payload: &ambition_characters::actor::CharacterBra
     spec_for_brain(payload).is_sandbag
 }
 
-/// The mount+rider visual fan-out plan for a composite spawn payload,
-/// or `None` for ordinary single-entity spawns. Backed by the
-/// `composite_visual` rows in `character_archetypes.ron`.
-pub fn composite_visual_plan(
-    payload: &ambition_characters::actor::CharacterBrain,
-) -> Option<CompositeVisualPlan> {
-    let spec = spec_for_brain(payload);
-    let composite = spec.composite_visual.as_ref()?;
-    let mount_brain =
-        ambition_characters::actor::CharacterBrain::Custom(composite.mount_brain.clone());
-    let rider_brain =
-        ambition_characters::actor::CharacterBrain::Custom(composite.rider_brain.clone());
-    let rider_standalone_size = spec_for_brain(&rider_brain)
-        .default_size
-        .unwrap_or(ae::Vec2::new(44.0, 78.0));
-    let mount_size = spec_for_brain(&mount_brain)
-        .default_size
-        .unwrap_or(ae::Vec2::new(126.0, 52.0));
-    Some(CompositeVisualPlan {
-        rider_name_suffix: composite.rider_name_suffix.clone(),
-        mount_name: composite.mount_name.clone(),
-        mount_brain,
-        rider_brain,
-        rider_fallback_name: composite.rider_fallback_name.clone(),
-        rider_standalone_size,
-        mount_size,
-    })
-}
-
 #[cfg(test)]
 mod enemy_archetype_data_tests {
     use super::integration::enemy_attack_aabb_dir;
     use super::*;
-
-    /// `composite_rider_name` strips the authored suffix from the spawn name,
-    /// falls back when the suffix doesn't match, and uses the fallback outright
-    /// when no suffix is authored — the ONE place the composite rider-name is
-    /// resolved, shared by sim + render so neither hardcodes `" on Shark"`.
-    #[test]
-    fn composite_rider_name_strips_authored_suffix() {
-        // Authored suffix present + matching → stripped.
-        assert_eq!(
-            composite_rider_name("Broadside Bess on Shark", Some(" on Shark"), "Fallback"),
-            "Broadside Bess"
-        );
-        // Suffix present but NOT matching this spawn name → fallback.
-        assert_eq!(
-            composite_rider_name("Lone Raider", Some(" on Shark"), "Pirate Raider"),
-            "Pirate Raider"
-        );
-        // No authored suffix → fallback outright (light variants).
-        assert_eq!(
-            composite_rider_name("Anything on Shark", None, "Pirate Raider"),
-            "Pirate Raider"
-        );
-        // A second game's mount authors its own suffix — no engine constant.
-        assert_eq!(
-            composite_rider_name(
-                "Sir Reginald astride Griffon",
-                Some(" astride Griffon"),
-                "Rider"
-            ),
-            "Sir Reginald"
-        );
-    }
 
     /// The installable [`CharacterRoster`] holder resolves a known brain key to
     /// its spec and falls back for an unknown / non-`Custom` brain, and the
@@ -956,17 +829,17 @@ mod enemy_archetype_data_tests {
     #[test]
     fn gun_sword_archetypes_resolve_held_item_by_id() {
         use ambition_characters::brain::RangedActionSpec;
-        let on_shark = test_spec("pirate_on_shark")
+        let on_shark = test_spec("pirate_shark_rider")
             .held_item_spec()
-            .expect("PirateOnShark should resolve a held item");
+            .expect("pirate_shark_rider should resolve a held item");
         assert_eq!(on_shark.id, "gun_sword");
         assert!(matches!(
             on_shark.ranged,
             Some(RangedActionSpec::Bolt { damage: 2, .. })
         ));
-        let heavy = test_spec("pirate_heavy_on_shark")
+        let heavy = test_spec("pirate_heavy_shark_rider")
             .held_item_spec()
-            .expect("PirateHeavyOnShark should resolve a held item");
+            .expect("pirate_heavy_shark_rider should resolve a held item");
         assert_eq!(heavy.id, "gun_sword_heavy");
         assert!(matches!(
             heavy.ranged,
@@ -1022,7 +895,7 @@ mod enemy_archetype_data_tests {
         assert!(crate::features::enemies::test_spec("combatant").body_contact_damage);
         assert!(crate::features::enemies::test_spec("puppy_slug").body_contact_damage);
         assert!(!crate::features::enemies::test_spec("pirate_heavy").body_contact_damage);
-        assert!(!crate::features::enemies::test_spec("pirate_on_shark").body_contact_damage);
+        assert!(!crate::features::enemies::test_spec("pirate_shark_rider").body_contact_damage);
         assert!(!crate::features::enemies::test_spec("sandbag_finite").body_contact_damage);
     }
 
@@ -1224,7 +1097,10 @@ mod capability_tests {
 
             let body = !matches!(
                 key,
-                "sandbag_infinite" | "sandbag_finite" | "pirate_on_shark" | "pirate_heavy_on_shark"
+                "sandbag_infinite"
+                    | "sandbag_finite"
+                    | "pirate_shark_rider"
+                    | "pirate_heavy_shark_rider"
             ) && (attacks || key == "puppy_slug");
             assert_eq!(spec.body_contact_damage, body, "{key} body_contact");
 
@@ -1233,8 +1109,8 @@ mod capability_tests {
                 "large_brute"
                     | "large_colossus"
                     | "pirate_heavy"
-                    | "pirate_on_shark"
-                    | "pirate_heavy_on_shark"
+                    | "pirate_shark_rider"
+                    | "pirate_heavy_shark_rider"
             ) {
                 EnemyRespawnPolicy::OnRest
             } else {

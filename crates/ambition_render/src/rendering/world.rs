@@ -111,17 +111,9 @@ pub fn spawn_room_visuals(
         // ONE actor kind — the sandbag/enemy depiction is resolved by the actor
         // sprite-upgrade fallback (keyed off `is_sandbag`), not a render variant.
         let kind = FeatureVisualKind::Actor;
-        // Composite "X on Shark" spawns become a mount entity + a
-        // rider entity on the sim side (see
-        // `content::features::ecs::mount`). Fan the same way here
-        // so each side has its own FeatureVisual entity — without
-        // this both sims point at ids that don't match any room
-        // visual, and `sync_visuals` hides them.
-        if let Some(plan) = ambition_gameplay_core::features::composite_visual_plan(&enemy.payload)
-        {
-            spawn_composite_visuals(commands, world, enemy, kind, assets, &plan);
-            continue;
-        }
+        // ADR 0020: a mount and its rider are now two SEPARATE authored
+        // `EnemySpawn`s (linked by a `mounted_on` ref), so each renders through
+        // the normal single-actor path below — no composite fan-out.
         spawn_authored_basic(
             commands,
             world,
@@ -581,67 +573,6 @@ fn spawn_authored_basic(
     if let Some(key) = entity_key {
         entity.insert(BoundEntitySprite::new(key));
     }
-}
-
-/// Spawn the mount + rider FeatureVisual entities for an authored
-/// composite "X on Shark" enemy. Mirrors the sim-side fan out in
-/// `content::features::ecs::spawn::spawn_composite_mount_rider`: the
-/// mount keeps the AUTHORED id (so existing same-room reset paths
-/// and id-keyed save flags still target the mount entry), and the
-/// rider takes the `<id>:rider` suffix.
-///
-/// The actual positions / sizes get rewritten by `sync_visuals`
-/// each frame off the FeatureViewIndex (which the sim entities
-/// populate); the spawn just needs a placeholder Sprite + Transform
-/// big enough for `upgrade_actor_sprites` to replace with a textured
-/// CharacterSprite once the asset bank loads.
-fn spawn_composite_visuals(
-    commands: &mut Commands,
-    world: &ae::World,
-    enemy: &ambition_gameplay_core::rooms::Authored<ambition_characters::actor::CharacterBrain>,
-    kind: FeatureVisualKind,
-    assets: Option<&GameAssets>,
-    plan: &ambition_gameplay_core::features::CompositeVisualPlan,
-) {
-    // Mount: keep authored id; reuse the authored aabb (the mount's
-    // default_size is what the sim-side composite spawn uses too).
-    spawn_authored_basic(
-        commands,
-        world,
-        &enemy.id,
-        &plan.mount_name,
-        enemy.aabb,
-        kind,
-        game_assets::entity_sprite_for_enemy(&plan.mount_brain),
-        assets,
-    );
-    // Rider: ":rider" entity id suffix; display name is the authored spawn name
-    // minus the composite's authored `rider_name_suffix` (or the fallback). The
-    // suffix is content, resolved by the SAME shared helper the sim uses, so
-    // render no longer hardcodes " on Shark" (fable review §C7).
-    let rider_name = ambition_gameplay_core::features::composite_rider_name(
-        &enemy.name,
-        plan.rider_name_suffix.as_deref(),
-        &plan.rider_fallback_name,
-    );
-    // Rider renders at HALF its standalone size while mounted so it
-    // fits visually on the mount — mirrors the sim-side `MountedSize`;
-    // `sync_visuals` re-syncs from the FeatureViewIndex next frame,
-    // but the initial visual must be sized right to avoid a tick-1 pop.
-    let rider_size = plan.rider_standalone_size * 0.5;
-    let rider_offset_y = -(plan.mount_size.y * 0.5) - (rider_size.y * 0.5) + 8.0;
-    let rider_pos = enemy.aabb.center() + ae::Vec2::new(0.0, rider_offset_y);
-    let rider_aabb = ae::Aabb::new(rider_pos, rider_size * 0.5);
-    spawn_authored_basic(
-        commands,
-        world,
-        &format!("{}:rider", enemy.id),
-        &rider_name,
-        rider_aabb,
-        kind,
-        game_assets::entity_sprite_for_enemy(&plan.rider_brain),
-        assets,
-    );
 }
 
 fn spawn_authored_hazard(

@@ -1128,6 +1128,41 @@ rules say to surface, not invent (each distorts the architecture if guessed wron
 the BossConfig-keeps-Brain rule lands him on foot — all landed in `af589a32`, waiting
 only on these authoring forks.
 
+### G2-ARCHETYPES — DECISIONS MADE + fork#2 LANDED (opus 2026-07-05, overruling "queue for fable" per Jon's run-and-land directive)
+Jon's live directive (land it; planning-doc executor rules are overrulable) → the
+taxonomy is DECIDED, boldly, per the actors-vs-props model:
+- **DECISION (fork 1): `giant_gnu` is a MOUNT ACTOR** — a prop-like carried body
+  (no brain of its own, `Mountable`, its own HP, `body_contact_damage: false`).
+  It renders via the CHARACTER-sprite path (a catalog entry `npc_giant_gnu` →
+  target `giant_gnu`, loading the G1 `giant_gnu_spritesheet.ron`), NOT the boss
+  split-overlay — the giant's HANDS become limb ACTORS in G3, which retires the
+  split-overlay render entirely. `gnu_ton` (the scholar) stays the BOSS.
+- **fork 2 LANDED** (`{this session}`): `BossBehaviorProfile.pilotable_mount_classes`
+  + `spawn_boss` attaches `CanPilot` (symmetric with the enemy `attach_mount_role`).
+  A boss can now pilot a mount. Regression-pinned (existing profiles stay empty).
+- **fork 3** is a sequencing fact: the split giant is inert until G3's limb routing
+  makes the scholar-boss's strikes drive the giant's hand limbs.
+
+**PRECISE REMAINING PATH to unblock G5** (each a bounded slice under the decisions):
+1. **giant_gnu mount ACTOR render** — a `character_catalog.ron` entry
+   (`npc_giant_gnu` → `giant_gnu`) so `sheet_for_character_id` loads the G1 sheet
+   (verify build.rs bakes `gnu_ton_boss/giant_gnu_spritesheet.ron`); a `giant_gnu`
+   row in `character_archetypes.ron` (`mount_class: "giant"`, big HP,
+   `body_contact_damage: false`, stationary mover, high `mass`, `default_size` ≈ the
+   giant). Headless test: spawns as a `Mountable` mount actor, resolves a sheet.
+2. **gnu_ton rider pairing** — author `pilotable_mount_classes: ["giant"]` +
+   `sprite_target: "gnu_ton_rider"` on the gnu_ton profile (the on-foot mini-phase:
+   a `BossOverrides.phase_triggers` / profile trigger `External("mount_died")` →
+   on-foot phase). Headless test via the Q19 bridge: link a giant_gnu+gnu_ton pair,
+   kill the mount → gnu_ton dismounts (keeps Brain) + fires mount_died phase.
+   KEEP the live fused gnuton until G4 reauthors the arena (no mid-flight regression).
+3. **G3** — the Q18 limb router (`route_boss_strikes_to_limbs` + RON `limb_routing`
+   + `home_offset` station-keeping) + a `LimbRig` of hand limb actors on the giant;
+   delete `sync_boss_split_overlay`/`BossOverlayLayer`/HAND_SLAM|SWEEP StrikeRect.
+4. **G4** — `BossSpawn.mounted_on` + `ldtk_tools mount split`; reauthor gnu_ton_arena
+   as the linked pair; delete the old fused gnu_ton profile. THEN **G5 [★fable]** —
+   possess gnuton / drive the limbs — is executable.
+
 ### G1 READINESS (scouted, opus 2026-07-05 — headlessly TRACTABLE, next dedicated pass)
 Env confirmed: PIL 12.2.0 + rectpack present; `PYTHONPATH=tools/ambition_sprite2d_renderer
 python3` imports the renderer; `./regen_sprites.sh --target gnu_ton_boss` is the

@@ -315,6 +315,105 @@ fn spawn_dead_mount_with_impact(app: &mut App, death_impact: MountDeathImpact) -
 
 const RIDER_TEST_HP: i32 = 5;
 
+/// ADR 0020 resolution: an authored `(rider_id, mount_id)` link resolves into a
+/// live RidingOn/MountSlot once both actors carry the matching `FeatureId`, the
+/// rider `CanPilot`s the mount's class, and the mount is `Mountable`.
+#[test]
+fn resolve_pending_mount_links_links_a_compatible_pair() {
+    use crate::combat::components::FeatureId;
+
+    let mut app = build_app();
+    app.add_systems(Update, resolve_pending_mount_links);
+    let mount = app
+        .world_mut()
+        .spawn((
+            FeatureId::new("shark_1"),
+            {
+                let mut m = Mountable::at(ae::Vec2::new(0.0, -40.0));
+                m.class = MountClass("shark".into());
+                m
+            },
+            MountSlot { rider: None },
+        ))
+        .id();
+    let rider = app
+        .world_mut()
+        .spawn((
+            FeatureId::new("rider_1"),
+            CanPilot {
+                classes: vec![MountClass("shark".into())],
+            },
+        ))
+        .id();
+    app.insert_resource(PendingMountLinks(vec![(
+        "rider_1".into(),
+        "shark_1".into(),
+    )]));
+
+    app.update();
+
+    assert_eq!(
+        app.world().entity(rider).get::<RidingOn>().map(|r| r.mount),
+        Some(mount),
+        "the rider should now ride the named mount",
+    );
+    assert!(
+        app.world().entity(rider).get::<Mounted>().is_some(),
+        "the rider is marked Mounted",
+    );
+    assert_eq!(
+        app.world()
+            .entity(mount)
+            .get::<MountSlot>()
+            .and_then(|s| s.rider),
+        Some(rider),
+        "the mount's MountSlot points back at the rider",
+    );
+    assert!(
+        app.world().resource::<PendingMountLinks>().0.is_empty(),
+        "the resolved link is drained from the pending set",
+    );
+}
+
+/// ADR 0020: a rider that cannot pilot the mount's class is NOT linked — the
+/// pilot-compatibility check drops the illegal pairing.
+#[test]
+fn resolve_pending_mount_links_rejects_an_incompatible_class() {
+    use crate::combat::components::FeatureId;
+
+    let mut app = build_app();
+    app.add_systems(Update, resolve_pending_mount_links);
+    let _mount = app
+        .world_mut()
+        .spawn((
+            FeatureId::new("mech_1"),
+            {
+                let mut m = Mountable::at(ae::Vec2::ZERO);
+                m.class = MountClass("mech".into());
+                m
+            },
+            MountSlot { rider: None },
+        ))
+        .id();
+    let rider = app
+        .world_mut()
+        .spawn((
+            FeatureId::new("rider_1"),
+            CanPilot {
+                classes: vec![MountClass("shark".into())],
+            },
+        ))
+        .id();
+    app.insert_resource(PendingMountLinks(vec![("rider_1".into(), "mech_1".into())]));
+
+    app.update();
+
+    assert!(
+        app.world().entity(rider).get::<RidingOn>().is_none(),
+        "a shark-rider must not be linked to a mech-class mount",
+    );
+}
+
 fn rider_health(world: &bevy::prelude::World, e: Entity) -> ambition_characters::actor::BodyHealth {
     *world
         .entity(e)

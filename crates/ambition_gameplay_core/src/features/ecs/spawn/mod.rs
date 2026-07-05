@@ -49,6 +49,11 @@ pub fn spawn_room_feature_entities(commands: &mut Commands, room: &crate::rooms:
     for enemy in &room.enemy_spawns {
         super::spawn_actors::spawn_enemy(commands, enemy, &paths);
     }
+    // ADR 0020: hand the room's authored `(rider, mount)` links to the
+    // resolver resource. It links them by `FeatureId` once the actors above
+    // have spawned (deferred commands flush first). A fresh room overwrites
+    // any prior room's pending links.
+    commands.insert_resource(crate::features::PendingMountLinks(room.mount_links.clone()));
     for interactable in &room.interactables {
         super::spawn_actors::spawn_interactable(commands, interactable, &paths);
     }

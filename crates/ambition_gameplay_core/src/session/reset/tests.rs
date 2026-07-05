@@ -188,6 +188,7 @@ fn min_app() -> App {
         enemy_spawns: Vec::new(),
         boss_spawns: Vec::new(),
         debug_labels: Vec::new(),
+        mount_links: Vec::new(),
     };
     app.insert_resource(crate::rooms::RoomSet::from_parts(
         "test",

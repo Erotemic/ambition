@@ -16,8 +16,9 @@ use std::sync::OnceLock;
 use ambition_engine_core as ae;
 
 use super::fields::{
-    field_bool, field_f32, field_i32, field_string, parse_boss_brain, parse_debug_label_kind,
-    parse_enemy_brain, parse_optional_path, parse_path_mode, parse_pickup_kind, parse_points,
+    field_bool, field_entity_ref, field_f32, field_i32, field_string, parse_boss_brain,
+    parse_debug_label_kind, parse_enemy_brain, parse_optional_path, parse_path_mode,
+    parse_pickup_kind, parse_points,
 };
 use super::intgrid::{
     emit_climbable_regions_from_intgrid, emit_collision_blocks_from_intgrid,
@@ -153,6 +154,7 @@ impl LdtkProject {
             Vec::new();
         let mut debug_labels: Vec<crate::rooms::Authored<crate::debug_label::DebugLabel>> =
             Vec::new();
+        let mut mount_links: Vec<(String, String)> = Vec::new();
         let mut metadata = crate::rooms::RoomMetadata::default();
         for level in levels {
             // First-non-empty wins so author intent is predictable when
@@ -205,6 +207,7 @@ impl LdtkProject {
                         enemy_spawns.extend(emission.enemy_spawns);
                         boss_spawns.extend(emission.boss_spawns);
                         debug_labels.extend(emission.debug_labels);
+                        mount_links.extend(emission.mount_links);
                     }
                     Err(error) => {
                         errors.push(format!("{} {}: {error}", entity.identifier, entity.iid))
@@ -298,6 +301,7 @@ impl LdtkProject {
             enemy_spawns,
             boss_spawns,
             debug_labels,
+            mount_links,
         })
     }
 
@@ -363,6 +367,10 @@ pub struct RuntimeEntityEmission {
     pub enemy_spawns: Vec<crate::rooms::Authored<ambition_characters::actor::CharacterBrain>>,
     pub boss_spawns: Vec<crate::rooms::Authored<ambition_characters::actor::BossBrain>>,
     pub debug_labels: Vec<crate::rooms::Authored<crate::debug_label::DebugLabel>>,
+    /// ADR 0020 authored mount links: `(rider_id, mount_id)` pairs emitted by a
+    /// rider `EnemySpawn` carrying a `mounted_on` entity-ref. Resolved into a
+    /// `RidingOn`/`MountSlot` link after both actors spawn (`FeatureId` match).
+    pub mount_links: Vec<(String, String)>,
     pub ignored: bool,
 }
 

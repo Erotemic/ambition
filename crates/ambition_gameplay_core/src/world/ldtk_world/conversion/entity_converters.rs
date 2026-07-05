@@ -371,9 +371,20 @@ pub(super) fn convert_enemy_spawn(
         }
     }
     let (id, name, aabb) = authored_triple(entity, name, min, size);
-    Ok(RuntimeEntityEmission::enemy_spawn(
-        crate::rooms::Authored::new(id, name, aabb, brain),
-    ))
+    let mut emission = RuntimeEntityEmission::enemy_spawn(crate::rooms::Authored::new(
+        id.clone(),
+        name,
+        aabb,
+        brain,
+    ));
+    // ADR 0020: a rider EnemySpawn carrying a `mounted_on` entity-ref emits an
+    // authored mount link `(rider_id, mount_id)`. The ref stores the mount's
+    // LDtk `iid`; authored linked pairs carry no explicit `id` field, so the
+    // mount's `FeatureId` equals its `iid` and resolution matches on it.
+    if let Some(mount_id) = field_entity_ref(entity, "mounted_on") {
+        emission.mount_links.push((id, mount_id));
+    }
+    Ok(emission)
 }
 
 pub(super) fn convert_boss_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RuntimeEntityEmission, String> {

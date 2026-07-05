@@ -936,7 +936,47 @@ pub(super) fn spawn_enemy_with_faction(
         authored.payload.clone(),
         paths,
     );
-    Some(spawn_solo_enemy(commands, enemy, authored, faction))
+    let entity = spawn_solo_enemy(commands, enemy, authored, faction);
+    attach_mount_role(commands, entity, &spec);
+    Some(entity)
+}
+
+/// ADR 0020: give a standalone actor its mount role from its archetype. A
+/// `mount_class` archetype becomes [`Mountable`] (a rideable platform); a
+/// `pilotable_mount_classes` archetype becomes a would-be rider ([`CanPilot`]).
+/// The `RidingOn`/`MountSlot` link itself is installed later by
+/// [`super::resolve_pending_mount_links`] from the room's authored `mounted_on`
+/// refs — this only tags the two roles.
+fn attach_mount_role(
+    commands: &mut Commands,
+    entity: bevy::ecs::entity::Entity,
+    spec: &super::super::enemies::CharacterArchetypeSpec,
+) {
+    if let Some(class) = &spec.mount_class {
+        // Saddle offset heuristic: the rider sits just above the mount's top.
+        // Feel-tunable; a mount that wants a precise saddle can grow a field.
+        let mount_size = spec.default_size.unwrap_or(ae::Vec2::new(64.0, 64.0));
+        let rider_offset = ae::Vec2::new(0.0, -(mount_size.y * 0.5 + 40.0));
+        commands.entity(entity).insert(super::Mountable {
+            rider_offset,
+            class: super::MountClass(class.clone()),
+            control_grant: super::ControlGrant::Total,
+            death_impact: match spec.mount_death_splash {
+                Some(amount) => super::MountDeathImpact::Splash(amount),
+                None => super::MountDeathImpact::Dismount,
+            },
+        });
+    }
+    if !spec.pilotable_mount_classes.is_empty() {
+        commands.entity(entity).insert(super::CanPilot {
+            classes: spec
+                .pilotable_mount_classes
+                .iter()
+                .cloned()
+                .map(super::MountClass)
+                .collect(),
+        });
+    }
 }
 
 /// Single-entity hostile spawn — the common path after composite

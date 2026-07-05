@@ -49,6 +49,7 @@ fn test_room_with_platforms(
         enemy_spawns: Vec::new(),
         boss_spawns: Vec::new(),
         debug_labels: Vec::new(),
+        mount_links: Vec::new(),
     }
 }
 

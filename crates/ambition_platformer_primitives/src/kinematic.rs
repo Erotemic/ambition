@@ -457,6 +457,31 @@ mod tests {
     use ambition_engine_core::Block;
 
     #[test]
+    fn aabb_bodies_never_collide_with_surface_chains() {
+        // The R8.4 protection net, direction two: chains are collision
+        // geometry ONLY for surface-momentum bodies. An axis-swept kinematic
+        // body falls straight through a chain-only world — the AABB path
+        // executes zero chain code by construction.
+        let mut world = world_with(Vec::new());
+        world.chains.push(ambition_engine_core::SurfaceChain::open(
+            "chain floor",
+            vec![Vec2::new(0.0, 400.0), Vec2::new(800.0, 400.0)],
+        ));
+        let mut b = body(Vec2::new(400.0, 300.0));
+        for _ in 0..120 {
+            step_kinematic(
+                &mut b,
+                &world,
+                tuning(),
+                KinematicInputs::default(),
+                1.0 / 60.0,
+            );
+        }
+        assert!(!b.on_ground, "no support from a chain");
+        assert!(b.pos.y > 500.0, "fell straight through: {:?}", b.pos);
+    }
+
+    #[test]
     fn observed_contacts_report_landing_normals_for_all_cardinal_gravities() {
         // C4-style: a body dropped onto a support under EACH cardinal gravity
         // reports a feet contact whose normal is -gravity_dir, with a tangent

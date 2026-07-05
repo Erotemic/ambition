@@ -721,6 +721,49 @@
         held_item: Some("gun_sword_heavy"),
         move_style: Float,
     ),
+    // ADR 0020 mounted riders. These are STANDALONE actors that carry the
+    // mounted pirate's kit (Skirmisher orbit + gun_sword Bolt). In the world
+    // they are authored as a rider EnemySpawn with a `mounted_on` entity-ref
+    // to a `burning_flying_shark`; the loader links them (RidingOn/MountSlot).
+    // Under the mount's `Total` control grant the rider's Skirmisher brain
+    // drives the shark's orbit; on dismount the gun_sword (held item = the
+    // authority) keeps it firing. Replaces the fused `pirate_on_shark` rows.
+    "pirate_shark_rider": (
+        max_health: 4,
+        body_contact_damage: false,
+        respawn_on_rest: true,
+        patrol_speed: 110.0,
+        chase_speed: 230.0,
+        aggro_radius: 1200.0,
+        // Orbit-and-fire standoff (matches the old pirate_on_shark row).
+        attack_range: 1100.0,
+        contact_strength: 1.10,
+        damage_amount: 2,
+        default_size: Some((44.0, 78.0)),
+        // A cove raider can pilot a "shark"-class mount.
+        pilotable_mount_classes: ["shark"],
+        brain_template: Skirmisher,
+        ranged: Some(Bolt(speed: 500.0, damage: 2)),
+        held_item: Some("gun_sword"),
+        move_style: Walk,
+    ),
+    "pirate_heavy_shark_rider": (
+        max_health: 6,
+        body_contact_damage: false,
+        respawn_on_rest: true,
+        patrol_speed: 110.0,
+        chase_speed: 215.0,
+        aggro_radius: 1200.0,
+        attack_range: 1100.0,
+        contact_strength: 1.30,
+        damage_amount: 3,
+        default_size: Some((72.0, 110.0)),
+        pilotable_mount_classes: ["shark"],
+        brain_template: Skirmisher,
+        ranged: Some(Bolt(speed: 500.0, damage: 3)),
+        held_item: Some("gun_sword_heavy"),
+        move_style: WalkHeavy,
+    ),
     // Crawlid-style grunt. Body-contact damage only; never aggros.
     // chase_speed is unused but kept non-zero so a future "panic on
     // hit" mode reads sensibly. Collider hugs the dorsal-ridge

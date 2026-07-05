@@ -795,14 +795,31 @@ engine, each a focused slice, NOT a quick eviction:
   milestone; full-zero is E6/G-track.
 
 **SESSION TALLY (opus, 2026-07-05 eve):** S2, A1, A2, C2, C1, S3b (converter +
-defs + area + overlay) — **10 feature commits.** §0 crit 2 (ability model)
-COMPLETE; two crit-3 residues (C1, C2) closed; the whole S3 Sanic-authoring chain
-(momentum body → character → chains channel → converters → a real playground
-level with a debug overlay) is landed. **S-TRACK NEXT = S4 proofs** (scripted
-reachability at speed / fail-below-threshold, the possession e2e, knight
-coexistence, the overlay screenshot artifact) — then S5 the demo game, gated on
-**E5** (`ambition_runtime`). Parallel big dents remain: **G1→G4 unblock G5
-[★fable]**, **E5 the demo gate**, **W1–W4** the world carve, and the two demos.
+defs + area + overlay), C-residue (GNU_TON prefix) — **11 feature commits**, all
+green, ZERO regressions (gameplay_core --lib 1143, content 61, app+rl_sim build).
+§0 crit 2 (ability model) COMPLETE; the whole S3 Sanic-authoring chain landed;
+THREE crit-3 evictions (C1, C2, GNU_TON) + boss profiles confirmed at the
+allowed "test-fixtures-only" milestone.
+
+**HONEST §0 STATUS — every remaining item is a LARGE multi-session track, not a
+bounded slice** (all the quick evictions are now done):
+- **crit 1** (crate map real): the W-track (`ambition_world`/`ambition_ldtk_map`)
+  + E-track carves (`ambition_persistence/menu/audio/dialog/dev_tools/combat/
+  projectiles/sprite_sheet/sim_view/runtime`, `ambition_actors` rename) — none
+  minted yet. This is the bulk of the remaining work.
+- **crit 3** full-zero: the `speech_sfx` voice system (a multi-crate refactor —
+  `DIALOGUE_BLIP_*` ids in `ambition_sfx` foundation + the engine table + a new
+  content voice-profile registry), E3 projectile visual kinds, E6 boss tail.
+- **crit 2** tail: E6 (boss animator split / target_pos / BossAnim→CharacterAnim).
+- **crit 4** (the demos): gated on **E5** (`ambition_runtime`); neither demo
+  crate exists.
+- **crit 5/6**: the slower-light Tier-0 seams (ride E4), the full green gate.
+
+**RECOMMENDED NEXT SESSION ORDER:** E5 (`ambition_runtime`) FIRST — it's the demo
+gate the whole crit-4 depends on and the user's stated priority (unblocks
+S5[senior] + M-track); then the W-track carve (crit 1); the speech_sfx +
+E3/E6 crit-3 decontaminations; G1→G4 (unblock G5 [★fable]). Several need
+app-run / visual verification best done interactively.
 
 **NEXT HEADS (the bigger dents):** **G1→G4 (gnu split) unblock G5 [★fable]**;
 **E5 (`ambition_runtime`) — demo gate for S5 [senior] + M-track — needs a careful

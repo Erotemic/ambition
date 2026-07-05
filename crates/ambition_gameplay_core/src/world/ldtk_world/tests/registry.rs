@@ -112,6 +112,48 @@ fn installed_content_converter_validates_and_converts() {
     assert_eq!(room.props[0].pos, ae::Vec2::new(144.0, 344.0));
 }
 
+/// The `SurfaceChain` standard converter (demo plan S3): a points-field
+/// entity lands in `World::chains` — the momentum-locomotion geometry flows
+/// LDtk → emission → RoomSpec like every other family.
+#[test]
+fn surface_chain_entity_converts_into_world_chains() {
+    let project = synthetic_level(vec![super::make_entity_at(
+        "SurfaceChain",
+        [0, 0],
+        [16, 16],
+        &[("points", Value::String("0,400; 300,400; 500,300".into()))],
+    )]);
+    assert!(
+        project.validate().is_ok(),
+        "SurfaceChain should validate: {:?}",
+        project.validate().errors
+    );
+    let room_set = project.to_room_set().expect("chain project composes");
+    let chains = &room_set.rooms[0].world.chains;
+    assert_eq!(chains.len(), 1, "one authored chain");
+    assert_eq!(chains[0].points.len(), 3);
+    assert_eq!(chains[0].points[0], ae::Vec2::new(0.0, 400.0));
+    assert!(!chains[0].closed);
+    // Winding convention: authored left→right, the floor normal points up.
+    assert_eq!(chains[0].normal(0), ae::Vec2::new(0.0, -1.0));
+}
+
+/// Bad chain geometry fails at CONVERSION (loudly), never reaching the sim —
+/// the spatial-model validation tier.
+#[test]
+fn degenerate_surface_chain_fails_conversion() {
+    let project = synthetic_level(vec![super::make_entity_at(
+        "SurfaceChain",
+        [0, 0],
+        [16, 16],
+        &[("points", Value::String("0,400".into()))],
+    )]);
+    assert!(
+        project.to_room_set().is_err(),
+        "a one-point chain must fail conversion"
+    );
+}
+
 /// An identifier NOBODY registered still fails validation loudly — the
 /// registry widens the vocabulary, it does not make the loader tolerant.
 #[test]

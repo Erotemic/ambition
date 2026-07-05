@@ -155,6 +155,7 @@ impl LdtkProject {
         let mut debug_labels: Vec<crate::rooms::Authored<crate::debug_label::DebugLabel>> =
             Vec::new();
         let mut mount_links: Vec<(String, String)> = Vec::new();
+        let mut chains: Vec<ae::SurfaceChain> = Vec::new();
         let mut metadata = crate::rooms::RoomMetadata::default();
         for level in levels {
             // First-non-empty wins so author intent is predictable when
@@ -208,6 +209,7 @@ impl LdtkProject {
                         boss_spawns.extend(emission.boss_spawns);
                         debug_labels.extend(emission.debug_labels);
                         mount_links.extend(emission.mount_links);
+                        chains.extend(emission.chains);
                     }
                     Err(error) => {
                         errors.push(format!("{} {}: {error}", entity.identifier, entity.iid))
@@ -279,7 +281,8 @@ impl LdtkProject {
                 blocks,
             )
             .with_water_regions(water_regions)
-            .with_climbable_regions(climbable_regions),
+            .with_climbable_regions(climbable_regions)
+            .with_chains(chains),
             loading_zones,
             metadata,
             camera_zones,
@@ -371,6 +374,12 @@ pub struct RuntimeEntityEmission {
     /// rider `EnemySpawn` carrying a `mounted_on` entity-ref. Resolved into a
     /// `RidingOn`/`MountSlot` link after both actors spawn (`FeatureId` match).
     pub mount_links: Vec<(String, String)>,
+    /// Rideable surface chains (demo plan S3/Q17 — the momentum-locomotion
+    /// geometry). Most entities emit zero; `SurfaceChain` emits one, and
+    /// generated-geometry converters (e.g. a content `SurfaceLoop` marker)
+    /// may emit many. Folded into `World::chains`; collision geometry ONLY
+    /// for surface-momentum bodies.
+    pub chains: Vec<ae::SurfaceChain>,
     pub ignored: bool,
 }
 
@@ -392,6 +401,13 @@ impl RuntimeEntityEmission {
     pub fn zone(zone: LoadingZone) -> Self {
         Self {
             zones: vec![zone],
+            ..Self::default()
+        }
+    }
+
+    pub fn chain(chain: ae::SurfaceChain) -> Self {
+        Self {
+            chains: vec![chain],
             ..Self::default()
         }
     }
@@ -652,6 +668,7 @@ fn standard_converters() -> &'static BTreeMap<&'static str, LdtkEntityConverter>
         map.insert("LoadingZone", convert_loading_zone);
         map.insert("DamageVolume", convert_damage_volume);
         map.insert("KinematicPath", convert_kinematic_path);
+        map.insert("SurfaceChain", convert_surface_chain);
         map.insert("Prop", convert_prop);
         map.insert("NpcSpawn", convert_npc_spawn);
         map.insert("PickupSpawn", convert_pickup_spawn);

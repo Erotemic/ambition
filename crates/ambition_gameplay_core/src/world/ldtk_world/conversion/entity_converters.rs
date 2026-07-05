@@ -81,6 +81,34 @@ pub(super) fn convert_damage_volume(
     )))
 }
 
+/// `SurfaceChain` — a rideable surface polyline (demo plan S3, momentum
+/// locomotion). Fields: `points` (semicolon `x,y` pairs, level-local — the
+/// KinematicPath convention), optional `closed: bool` (a loop; the closing
+/// segment is implicit). One-sided by winding (author floors left→right);
+/// the engine validator runs at conversion so inverted joins / degenerate
+/// segments / self-intersections fail LOUDLY here instead of masquerading as
+/// physics bugs in play.
+pub(super) fn convert_surface_chain(
+    ctx: &LdtkEntityCtx<'_>,
+) -> Result<RuntimeEntityEmission, String> {
+    let (entity, name, _min, _size) = ctx.parts();
+    let points = offset_points(
+        parse_points(&field_string(entity, "points").unwrap_or_default()),
+        ctx.offset,
+    );
+    let closed = field_bool(entity, "closed").unwrap_or(false);
+    let chain = if closed {
+        ae::SurfaceChain::closed_loop(name, points)
+    } else {
+        ae::SurfaceChain::open(name, points)
+    };
+    let problems = chain.validate();
+    if !problems.is_empty() {
+        return Err(problems.join("; "));
+    }
+    Ok(RuntimeEntityEmission::chain(chain))
+}
+
 pub(super) fn convert_kinematic_path(
     ctx: &LdtkEntityCtx<'_>,
 ) -> Result<RuntimeEntityEmission, String> {

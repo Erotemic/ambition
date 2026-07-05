@@ -130,6 +130,7 @@ pub const AMBITION_LDTK_ENTITY_IDENTIFIERS: &[&str] = &[
     "LoadingZone",
     "DamageVolume",
     "KinematicPath",
+    "SurfaceChain",
     "NpcSpawn",
     "PickupSpawn",
     "GroundItem",

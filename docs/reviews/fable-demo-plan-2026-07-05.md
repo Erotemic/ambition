@@ -1055,6 +1055,29 @@ dedicated pass (guts the app boot)**; S3b→S4 continue Sanic; W1–W4 world car
 independent. The remaining §0 is the W/E crate carves + the two demos — all
 multi-session.
 
+## G2 (Q19 architecture) — mount death → the boss fights on foot ✅ (`af589a32`, opus)
+The Q19 spec executed verbatim — the reusable, sprite-independent HALF of G2,
+landed ahead of G1 so the G-track advances without waiting on the sprite split:
+- `MountDied { mount, rider }` Bevy Message, written by `enforce_mount_rider_link`
+  at the (dead-mount, still-mounted) dissolution — a body fact, NOT the
+  `EncounterGate` script bus.
+- Q19b dismount rule: a rider carrying `BossConfig` keeps its authored `Brain`
+  untouched on dismount (no new flag — the component IS the marker); it still
+  re-grounds + emits `MountDied` but lands on foot running its own brain.
+- `notify_bosses_on_mount_death` — the direct bridge → `notify_external("mount_died")`,
+  **`PhaseTriggerCondition::External`'s first production caller.** No duplicate
+  publish path: the phase swap on `BossEncounter.encounter` is picked up by
+  `update_boss_encounters` (music, level-triggered) + `boss_phase_transition_feedback`
+  (feedback, edge-triggered) automatically; registered ahead of the phase driver
+  so a `Combat`-set `MountDied` lands same-frame.
+- Tests: boss rider keeps Brain + emits MountDied; bridge flips the boss to its
+  on-foot phase; unrelated MountDied is a no-op. gameplay_core --lib green (18
+  mount + 70 boss_encounter), app+rl_sim builds.
+**G2 REMAINING (rides G1):** the `giant_gnu` mount row + `gnu_ton` rider row
+archetype RONs (`mount_class:"giant"`, `pilotable_mount_classes:["giant"]`, big
+HP, `StationaryGiant`+`body_damage:0` die) and the on-foot mini-phase RON block —
+all reference the G1 split sheets, so they wait on G1.
+
 ## SESSION TODO — in-game bug triage (opus 4.8, 2026-07-05) 🔧
 Recon → §7. Two cheap regressions fixed this session; bug 3 downgraded after a
 deeper trace disproved the recon hypothesis; the rest deferred (§7.1, 7.3, 7.4,

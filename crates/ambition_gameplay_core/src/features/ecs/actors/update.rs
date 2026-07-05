@@ -567,6 +567,11 @@ pub(crate) fn integrate_actor_body(
     // collision box IS the footprint. This is the envelope split (AJ5.1) that
     // lets a boss share this ONE integrator instead of a bespoke arm.
     envelope: Option<ae::Vec2>,
+    // The body's motion IDENTITY (AJ11 / R9.1): `None` / `AxisSwept` = the
+    // axis-role swept path below; `SurfaceMomentum` dispatches to the
+    // surface-follower solver — a policy field on the ONE integrator, the
+    // `Perception` pattern, never a parallel system.
+    motion_model: Option<&mut MotionModel>,
     target_pos: ae::Vec2,
     is_mounted: bool,
     feature_world: &ae::World,
@@ -590,6 +595,52 @@ pub(crate) fn integrate_actor_body(
     let was_grounded = em.ground.on_ground;
     // Localized gravity: each actor feels the gravity of the column it stands in.
     let enemy_gravity_dir = gravity.dir_at(em.kin.pos);
+
+    // ── SurfaceMomentum dispatch (AJ11): the body's movement identity ──
+    if let Some(MotionModel::SurfaceMomentum(m)) = motion_model {
+        let gravity_magnitude = em
+            .config
+            .tuning
+            .movement
+            .body_tuning(
+                em.config.tuning.max_run_speed,
+                enemy_gravity_dir,
+                em.surface.gravity_scale,
+            )
+            .gravity;
+        let mut on_ground = em.ground.on_ground;
+        let mut normal = em.surface.surface_normal;
+        super::motion::step_momentum_body(
+            em.kin,
+            &mut on_ground,
+            &mut normal,
+            m,
+            feature_world,
+            enemy_gravity_dir * gravity_magnitude,
+            brain_frame.locomotion.x,
+            brain_frame.jump_pressed,
+            brain_frame.facing,
+            dt,
+        );
+        em.ground.on_ground = on_ground;
+        em.surface.surface_normal = normal;
+        // The SAME universal footprint publish + frame write-back tail the
+        // axis-swept path runs (frame oriented to the ridden surface).
+        let down = -em.surface.surface_normal;
+        let footprint = envelope.unwrap_or(em.kin.size);
+        let body = crate::features::collision_aabb(&crate::features::SimpleActorGeometry {
+            pos: em.kin.pos,
+            size: footprint,
+            facing: em.kin.facing,
+            frame_down: down,
+        });
+        aabb.center = body.center();
+        aabb.half_size = body.half_size();
+        if let Some(control) = control.as_deref_mut() {
+            control.0 = brain_frame;
+        }
+        return;
+    }
     let shark_charge_vec = brain_frame.velocity_target;
     // Respawn blink: `em.update` revives a dead body in place; apply the revive
     // flash here on the dead→alive transition (the damage-blink lives on
@@ -728,6 +779,7 @@ pub fn integrate_sim_bodies(
             Option<&mut ambition_characters::brain::ActorControl>,
             Option<&mut crate::player::BodyAnimFacts>,
             Option<&super::super::Mounted>,
+            Option<&mut MotionModel>,
             Option<super::super::actor_clusters::ActorClusterQueryData>,
         ),
         (
@@ -764,8 +816,17 @@ pub fn integrate_sim_bodies(
     let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
     let combat_tuning = feel_tuning.feature_combat_tuning();
     // ── ACTOR bodies (the per-body integrator, symmetric with the home body's) ──
-    for (actor_entity, mut aabb, mut combat, target, mut control, mut anim, mounted, clusters) in
-        &mut actors
+    for (
+        actor_entity,
+        mut aabb,
+        mut combat,
+        target,
+        mut control,
+        mut anim,
+        mounted,
+        mut motion_model,
+        clusters,
+    ) in &mut actors
     {
         let Some(mut cq) = clusters else {
             continue;
@@ -781,6 +842,7 @@ pub fn integrate_sim_bodies(
             // No actor carries a `BodyEnvelope` today — its collision box is its
             // footprint, so `CenteredAabb` publishes from `kin.size` (None).
             None,
+            motion_model.as_deref_mut(),
             target.pos,
             mounted.is_some(),
             &feature_world,

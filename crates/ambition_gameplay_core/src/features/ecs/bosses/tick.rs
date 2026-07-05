@@ -659,6 +659,8 @@ pub fn integrate_boss_bodies(
             // (byte-identical to the old render-sized box); an ordinary actor
             // would pass `None` and publish from `kin.size`.
             Some(envelope.0),
+            // A boss body is AxisSwept (no motion-model override).
+            None,
             target.pos,
             // A boss is never mounted.
             false,

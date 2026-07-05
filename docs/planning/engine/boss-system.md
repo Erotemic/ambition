@@ -5,12 +5,17 @@ Bosses are not a special simulation path — they are actors (see
 **optional encounter wrapper**. The whole system is engine machinery; specific
 bosses are content.
 
-> **⚠ Partially stale (flagged 2026-07-04):** boss HP/liveness/hit-flash now
-> live on the shared `BodyHealth`/`BodyCombat` (`BossStatus` → `BossEncounter`,
-> encounter-state only); the boss body moves through the shared flight limb;
-> `BossAttackState` is a pure projection of the live `MovePlayback`. See the
-> fable-review E-log (E14, E33, E66) and `fable-review-2026-07-04.md` AJ5 for
-> the remaining fold.
+> **Status (2026-07-05, current):** the unification LANDED — boss HP/
+> liveness/hit-flash live on the shared `BodyHealth`/`BodyCombat`
+> (`BossEncounter` is encounter-state only); boss strikes run on the moveset
+> runtime (`BossAttackState` is a projection of the live `MovePlayback`);
+> gnuton is the ADR 0020 mounted pair with drivable limb actors and
+> possession verbs. The remaining residue is ONE bounded slice —
+> [`decomposition.md`](decomposition.md) **E6** (animator frame-state split,
+> `BossAnim`→`CharacterAnim`, `target_pos` retirement, the two deep-fold
+> decisions, split-overlay teardown). Fight QUALITY work is
+> [`boss-design.md`](boss-design.md). Multi-limb history:
+> `docs/archive/planning-superseded/multi-limb-bosses.md`.
 
 ---
 

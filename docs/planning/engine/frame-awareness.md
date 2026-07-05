@@ -3,7 +3,7 @@
 > **Status: Jon's design position (2026-07-05), captured verbatim.** The third
 > binding manifesto, beside [`spatial-model.md`](spatial-model.md) (space) and
 > the relativity principle it generalizes. Adjudicated into working discipline
-> by [`../../reviews/fable-demo-plan-2026-07-05.md`](../../reviews/fable-demo-plan-2026-07-05.md)
+> by [`../tracks.md`](../tracks.md) (live queue; the 07-05 plan is archived)
 > (AJ13). Like ADR 0020: do not deviate without raising an explicit challenge
 > Jon accepts.
 

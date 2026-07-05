@@ -9,7 +9,7 @@ implemented_by:
   - docs/brainstorms/
 related_docs:
   - docs/brainstorms/README.md
-  - docs/vision/goal-state.md
+  - docs/planning/vision.md
 last_verified: 2026-05-17
 ---
 
@@ -29,7 +29,7 @@ last_verified: 2026-05-17
 ## Edit protocol
 
 1. Keep speculative language when an idea is not implemented.
-2. When an idea becomes current behavior, promote it into `docs/current/`, `docs/concepts/`, a focused system doc, or an ADR.
+2. When an idea becomes current behavior, promote it into `docs/planning/` (a slice in tracks.md), `docs/concepts/`, a focused system doc, or an ADR.
 3. Link back to the brainstorm when preserving design lineage matters.
 4. Do not bulk-move brainstorms into `archive/` as part of documentation cleanup.
 

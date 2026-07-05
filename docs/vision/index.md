@@ -1,9 +1,17 @@
 # Vision docs index
 
-Vision docs are distilled direction, not implementation truth. Current system truth belongs in `docs/current/`, `docs/concepts/`, `docs/systems/`, and ADRs. Living idea expansion belongs in `docs/brainstorms/`.
+**Direction lives in [`../planning/`](../planning/README.md)** —
+`planning/vision.md` is the product vision and
+`planning/decision-principles.md` holds Jon's decision criteria (both
+consolidated 2026-07-05). This directory keeps the auxiliary notes that
+are reference material rather than plan:
 
-- `goal-state.md` — product and experience target.
-- `endgame-sandbox.md` — long-range sandbox possibilities.
+- `endgame-sandbox.md` — the movement-instrument room design notes.
 - `reference-material.md` — external reference links and inspiration.
+
+(`goal-state.md` was superseded by `planning/vision.md` and archived to
+`../archive/project-snapshots/goal-state-legacy-2026-06.md`;
+`driving_decision_principles.md` was relocated to
+`../planning/decision-principles.md`.)
 
 Mechanics status is tracked in `../mechanics/expressibility-checklist.md`.

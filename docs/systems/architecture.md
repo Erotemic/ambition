@@ -3,7 +3,7 @@
 Ambition is a Rust/Bevy workspace, Bevy-native and ECS-first (old backend-neutral
 constraints superseded by ADR 0002). Post-bisection (Stage 20) it is a layered
 crate graph; lower layers must never import higher ones. Current remaining
-module-boundary work is tracked in `docs/current/next.md` and
+module-boundary work is tracked in `docs/planning/tracks.md` and
 `docs/planning/tech-debt-log.md`.
 
 ## Crate layers

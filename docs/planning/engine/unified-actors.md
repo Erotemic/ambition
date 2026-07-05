@@ -92,7 +92,7 @@ anchors that stop a future PR re-debating a settled decision.
   breakable/hazard) are the brainless kit families. Presentation follows the same
   rule: read-model kinds, placeholder colors, sprite-upgrade gates all key on
   `Actor` + state, never on an actor sub-type. (Adjudicated in
-  `docs/reviews/fable-review-2026-07-02.md` AD1.)
+  `docs/archive/reviews/fable-review-2026-07-02.md` AD1.)
   > "Shouldn't there just be actors and props? … boss, NPC, and Enemy should all be
   > colored the same thing because they are the same thing (or should be, they
   > must be!)."

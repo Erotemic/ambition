@@ -1,135 +1,86 @@
-# Ambition — Master Plan
+# docs/planning — THE single source of truth for where we're going
 
-This directory is the **plan state** for Ambition: where it's going and *how we
-build it here*. It is deliberately small and principle-dense. Operating rules for
-agents live in [`AGENTS.md`](../../AGENTS.md); this is the *what* and the *why*,
-ordered by elegance.
+**Consolidated 2026-07-05 (fable).** This directory is the master plan:
+the vision, the roadmap, the live work queue, and the design doc for
+every planned system. Historical reviews/execution records live in
+`docs/archive/reviews/`; what exists TODAY is described (sometimes
+stalely — refreshing them is a scheduled track) in `docs/concepts|
+systems|mechanics`; `docs/brainstorms/` is Jon's — **agents never write
+there**. If a doc outside this directory contradicts one inside it, this
+directory wins.
 
-> Read this, then the one engine or game doc your task touches. Don't read the
-> whole tree.
+## Read in this order
 
----
-
-## North star
-
-> **Every upgrade a theorem, every boss a failed objective function, every biome a
-> math world model.**
-
-Ambition is, first, a **reusable 2D-platformer engine**. The game is its first
-*content crate* — the proof that the engine composes. We are **engine-first**: the
-engine must become *perfect* — so easy and composable that anything you'd want in a
-real platformer falls out of adding data and a small content crate, with little
-code. The game (story, bosses, biomes) is real and we care about it, but it is
-**secondary to and downstream of** an elegant engine.
-
-There is no release, no production code, **nothing depends on this yet**. That is a
-gift: we get the base right *before* we build the game on it.
-
-## The four goals
-
-Everything we do serves one or more of these. If a change serves none, it is not
-the work.
-
-1. **Fast compile time.** ~150k LOC compiles too slowly; design for incremental
-   rebuilds. Extracting leaf crates is the lever — blocked today by one dependency
-   sink (see the keystone refactor in the roadmap).
-2. **Agent-navigability.** The codebase must be navigable by an AI agent. That
-   means the *right abstractions* and getting **named content** (bosses, abilities,
-   rooms) **out of the foundation crates into content**, generalized where possible.
-3. **Idiomatic Bevy plugins.** Each subsystem is a plugin that owns its vocabulary,
-   its authoritative state, its schedule sets, and its public extension points
-   (the `ambition_portal` split is the exemplar).
-4. **Audit-grade reusability.** A *second* platformer game should be buildable by
-   adding only a content crate atop the unmodified engine — zero core edits. This
-   is the design oracle: *"could another platformer be built by ADDING a content
-   crate without editing core?"*
-
-## How we build here (the stance)
-
-The full statements live in [`AGENTS.md`](../../AGENTS.md); the spine:
-
-- **Elegance is the objective function. Correctness emerges from it.** Find the
-  elegant solution; reject hacks. Smaller, composable code that does more.
-- **Behavior and feel are NOT sacred** (pre-release, zero dependents, no polish
-  pass). Refactor for elegance even when output changes. The gates are: *it
-  compiles* (incl. `ambition_app`) and *invariants hold* — not bit-identical replay.
-  Don't write regression tests to pin unpolished behavior.
-- **Relativity, not player-centrism.** Mechanics are frame-agnostic and shared by
-  every actor; nothing assumes `-y` is up or that the player is special.
-- **Delete, don't bridge. Rename in place, don't alias. Add a seam when the second
-  use case lands.** Pre-release means single-commit replacement over compat shims.
-- **Verify against the REAL headless sim**, never a proxy. The game runs headless
-  (`SandboxSim.step`, the `headless`/`trace_replay` binaries) — step the actual
-  simulation from any state and observe. "Can't test it" is only true of subjective
-  *visual feel*, and even that is headed for headless render-to-disk. The strongest
-  tests are **symmetry/covariance** (an action identical under C4 gravity rotation
-  and through portals) — they survive feel tweaks.
+1. **[`vision.md`](vision.md)** — what we're building and the executor
+   rules (grades, the no-deviation rule). Read every session.
+2. **[`decision-principles.md`](decision-principles.md)** — Jon's own
+   criteria for autonomous choices.
+3. **[`tracks.md`](tracks.md)** — the live queue + execution log. Find
+   your task here; append your results here.
+4. **[`roadmap.md`](roadmap.md)** — phases, the M/U registers, Jon's
+   open questions.
+5. Then ONLY the engine/demo doc your task touches.
 
 ## The map
 
-### `engine/` — the product
+- **`engine/`** — design docs, one per planned system:
+  [`architecture.md`](engine/architecture.md) (the target crate stack) ·
+  [`decomposition.md`](engine/decomposition.md) (**the highest-priority
+  track**: the monolith teardown playbook) ·
+  [`collision-and-ccd.md`](engine/collision-and-ccd.md) (the sweep law,
+  OOB kill, non-axis-aligned geometry, moving portals) ·
+  [`combat-model.md`](engine/combat-model.md) (the full smash stack) ·
+  [`netcode.md`](engine/netcode.md) (determinism → local-N → rollback) ·
+  [`fighter-brain.md`](engine/fighter-brain.md) (the no-cheat level-9
+  CPU) · [`boss-design.md`](engine/boss-design.md) (the measured
+  fight-quality pipeline) ·
+  [`falling-sand.md`](engine/falling-sand.md) · plus the standing
+  manifestos: [`spatial-model.md`](engine/spatial-model.md),
+  [`frame-awareness.md`](engine/frame-awareness.md),
+  [`slower-light.md`](engine/slower-light.md),
+  [`unified-actors.md`](engine/unified-actors.md),
+  [`headless-verification.md`](engine/headless-verification.md), and the
+  sprite/boss pipeline docs.
+- **`demos/`** — the acceptance games (doctrine in
+  [`demos/README.md`](demos/README.md); Sanic, Super Mary-O, Super Smash
+  Siblings, Hollow Lite written in stone).
+- **`game/`** — Ambition-the-game: [`game/vision.md`](game/vision.md)
+  (story spine + pillars), [`game/bosses.md`](game/bosses.md),
+  [`game/characters.md`](game/characters.md),
+  [`game/ambition.md`](game/ambition.md) (how the game sits on the
+  engine + hosts the demos).
 
-- **[`engine/unified-actors.md`](engine/unified-actors.md)** — the flagship. Every
-  actor (player included) is ONE body = kinematics + composable ability limbs + a
-  capability mask, driven by a **Controller** (Human / Brain / RL) through one input
-  seam, observed through one headless `WorldView`. "Player"/"Enemy" are *data*, not
-  types or code paths. This is the heart of the engine and the bulk of the live work.
-- **[`engine/architecture.md`](engine/architecture.md)** — crate layering (Foundation
-  → Runtime Domains → Composition Root), the import/boundary rules, the reusable-engine
-  oracle, the Bevy-plugin shape, the **keystone `Player*`/`Actor*` collapse** that
-  unblocks crate extraction.
-- **[`engine/headless-verification.md`](engine/headless-verification.md)** — the real
-  headless sim as the verification substrate; invariants over tuned values; symmetry.
-- **[`engine/sprite-renderer.md`](engine/sprite-renderer.md)** — measure-by-default
-  sprite metadata.
-- **[`engine/visual-quality-profiles.md`](engine/visual-quality-profiles.md)** — one
-  global quality profile → a structured runtime/device budget every visual subsystem
-  reads; the Android FPS fix (portal-capture throttle + live-switchable texture-res
-  variants).
-- **[`engine/boss-system.md`](engine/boss-system.md)** — bosses as entity-local actors
-  + content.
+## The living-plan discipline (BINDING on every executor)
 
-### `game/` — the first content crate (secondary)
+These docs are the tasking surface for "implement the plan in
+docs/planning" — they must NEVER be stale or read as stale:
 
-- **[`game/vision.md`](game/vision.md)** — the story spine (an AI whose abilities are
-  theorems; uncertainty as the central pressure), the three pillars made concrete, and
-  the triaged idea backlog.
-- **[`game/bosses.md`](game/bosses.md)** — the Perfect Cell-ular Automaton and the
-  "boss = a failed objective function" design language.
-- **[`game/characters.md`](game/characters.md)** — the Hall of Characters + the
-  character catalog; barks/dialogue.
+1. **Same-commit updates.** A commit that completes, partially completes,
+   or invalidates a planned slice updates the relevant doc IN THAT COMMIT:
+   flip the status in [`tracks.md`](tracks.md), mark the slice DONE (one
+   line + commit hash), and correct any design text the code proved wrong.
+2. **Prune, don't accrete.** DONE detail gets compressed to a one-line
+   record after it's a session old; superseded design text moves to
+   `docs/archive/planning-superseded/` with a pointer, never left inline
+   with a warning banner. A plan is a plan, not a changelog — the
+   execution log at the bottom of `tracks.md` is the only append-only
+   section.
+3. **No stale banners.** If you find text that contradicts the code,
+   fix the doc (or archive it) in your current commit — "⚠ stale" flags
+   are a 24-hour bridge at most, never a resting state.
+4. **New work gets planned first.** Development that isn't covered by a
+   doc here gets a slice added (with grade + exit checks) before or with
+   its first commit — the plan stays the superset of the work.
+5. **Drift is a finding.** If the code no longer matches a design sketch
+   or the ledger, update the sketch/ledger in the same commit and note
+   the drift in the execution log — the next agent must be able to trust
+   every table here without re-verifying.
 
-### [`roadmap.md`](roadmap.md)
+## The spine (unchanged, binding)
 
-**Rewritten 2026-07-03 (fable): the full path to a Unity/Godot-class 2D platformer
-engine** — phases P1–P5, the demo-game capability matrix (SMB1/Celeste/Metroid/
-Smash/… as expressibility test vectors), the binding design-decision register
-(M1–M12), the uncertainty watch-list (U1–U7), and the open questions only Jon can
-answer (Q1–Q12). Start there for the big picture; the engine ordering summarized
-below is the older, narrower cut of the same arc.
-
-## Roadmap at a glance (elegance order)
-
-The engine is sequenced so each step deletes duplication the next depends on.
-
-1. **Unified actors** — make the player's rich movement pipeline the ONE body
-   pipeline; raise enemies onto it; collapse the `Player*`/`Actor*` dual hierarchy.
-   *This is the keystone* — it is the prerequisite that unblocks crate extraction
-   (goal 1) and de-player-centers the codebase (goals 2 + 4). See
-   [`engine/unified-actors.md`](engine/unified-actors.md).
-2. **Extract leaf crates** — once the dual hierarchy is collapsed and the player
-   stops being a 20-module dependency sink, split the runtime domains into crates
-   (compile time + reusability).
-3. **Pluginize the domains** — each domain a Bevy plugin with owned vocabulary +
-   extension points (the Portal shape, copied).
-4. **Get named content out of the foundation** — bosses/abilities/rooms move to the
-   content crate behind install-time data seams; prove the reusability oracle by
-   extracting one domain clean.
-5. **Then the game** — build out story, bosses, and biomes on the finished engine.
-
----
-
-*Provenance: this plan consolidates the prior `docs/planning/` tree (engine
-unification, restructuring blueprint, brain interface, locomotion split, and the
-game-design notes), reprioritized by elegance and re-grounded in the stance above.
-Anything in the old docs that contradicts this plan is superseded.*
+North star: *every upgrade a theorem, every boss a failed objective
+function, every biome a math world model.* Engine-first: the game is the
+first content crate. The oracle: *could another platformer be built by
+ADDING a content crate without editing core?* Elegance is the objective
+function; behavior is not sacred pre-release; verify against the real
+headless sim; feel ships BLIND; delete, don't bridge.

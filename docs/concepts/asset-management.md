@@ -12,7 +12,7 @@ implemented_by:
 related_docs:
   - docs/systems/asset-manager.md
   - docs/systems/asset-manager.md
-  - docs/current/state.md
+  - docs/planning/engine/architecture.md
 related_memory:
   - dev/journals/lessons_learned.md
 last_verified: 2026-05-17

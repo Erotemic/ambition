@@ -1,12 +1,12 @@
 # Engine architecture — the target crate stack
 
-**Rewritten 2026-07-04 by fable** (supersedes the pre-keystone version; the
-`Player*`/`Actor*` keystone it centered on is DONE — see
-[`unified-actors.md`](unified-actors.md) step 4 and the fable-review E-log).
-This is the canonical answer to *"what crates should exist, what does each own,
-and which way do imports flow?"* The actor model is
-[`unified-actors.md`](unified-actors.md); the migration plan and work queue live
-in `docs/reviews/fable-review-2026-07-04.md`; the phase roadmap is
+**Rewritten 2026-07-04 by fable; amended 2026-07-05** (host tier added; the
+carve playbook now lives in [`decomposition.md`](decomposition.md), which is
+the EXECUTION companion to this target-state doc). This is the canonical
+answer to *"what crates should exist, what does each own, and which way do
+imports flow?"* The actor model is [`unified-actors.md`](unified-actors.md);
+the ordered teardown recipes are [`decomposition.md`](decomposition.md); the
+live queue is [`../tracks.md`](../tracks.md); the phase roadmap is
 [`../roadmap.md`](../roadmap.md).
 
 > Agent-navigability is the real goal. The point is the right abstractions +
@@ -101,11 +101,21 @@ before any further split; do not pre-commit to one.
 
 ### Tier 5 — assembly
 
-**`ambition_runtime`** (the C4/M12 deliverable): `PlatformerEnginePlugins` — a
-Bevy plugin group owning subsystem ordering, with sim/presentation/headless
-sub-groups and feature flags. The `App::new().add_plugins(...)` moment; the
-single most Unity/Godot-shaped artifact. A second game's `main.rs` is ~100
-lines against this crate.
+**`ambition_runtime`** (the C4/M12 deliverable — EXISTS since `3c70d827`):
+`PlatformerEnginePlugins` — a Bevy plugin group owning the SIM subsystem
+ordering, headless-safe by construction (dep budget: gameplay_core +
+characters + bevy). The `App::new().add_plugins(...)` moment; the single
+most Unity/Godot-shaped artifact. Also owns `add_headless_foundation` (the
+shared headless/RL bootstrap).
+
+**`ambition_host`** (new, 2026-07-05 — the presentation-tier sibling):
+`PlatformerHostPlugins` — the engine-generic WINDOWED host wiring (input
+plugins/routing, portal schedule placement, room-transition registration,
+camera policies) that may depend on `ambition_render`/`ambition_input`. A
+demo app = foundation + `PlatformerEnginePlugins` + `PlatformerHostPlugins`
++ its content crate. Carve recipe: [`decomposition.md`](decomposition.md)
+E5-finish. Post-1.0, the netcode ladder adds `ambition_net` here (transport
++ session; [`netcode.md`](netcode.md)) — seams only until then.
 
 ### Tier 6 — game
 
@@ -116,8 +126,12 @@ lines against this crate.
   **falling-sand as a self-gating content plugin**, duel-arena staging.
 - `ambition_app` — the thin shell: binaries, host glue, RL sim (~6–8k after
   the menu/dev evictions).
-- `demos/…` — P3 proof clones (SMB1 / MoneySeize first), each ONE content
-  crate + a ~100-line app; every needed core edit files an oracle-violation.
+- `demos/…` — the acceptance suite ([`../demos/`](../demos/README.md)):
+  Sanic, Super Mary-O, Super Smash Siblings, Hollow Lite — each ONE content
+  crate + a ~100-line app; every needed core edit files an oracle-violation
+  in [`../tracks.md`](../tracks.md). `ambition_app` additionally depends on
+  the demo CONTENT crates to host them in-world (the mode-scope pattern,
+  decomposition Phase D-C).
 
 ## Bevy-plugin shape
 

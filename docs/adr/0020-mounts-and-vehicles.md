@@ -1,6 +1,17 @@
 # 0020: Mounts and vehicles — two linked actors, control-deferral, independent hurtboxes
 
-**Status:** Accepted.
+## Status
+
+Accepted; IMPLEMENTED (2026-07-05): cutover B1/B2 committed, boss-as-rider
+(`CanPilot` from `spawn_boss`), the gnu_ton linked pair, limb routing, and
+possessed-verb driving all landed (G-track, archived 07-05 review).
+
+## Current implications for agents
+
+Author mounts as TWO linked actors (`Mountable{class}` + `CanPilot{classes}`,
+two HP pools, `ControlGrant(Total)` defer, no-shield hurtboxes); LDtk authors
+the pair as two linked entities (`mounted_on`). Never mint fused rider+mount
+archetype rows. Dismount rule: a rider carrying `BossConfig` keeps its Brain.
 
 **Decided and designed by:** Jon Crall (2026-07-05). This is the *lead design
 decision* for the mount/vehicle subsystem. The model below is Jon's, captured

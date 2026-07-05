@@ -1,294 +1,146 @@
-# Roadmap — from Ambition to a Unity/Godot-class 2D platformer engine
+# Roadmap — the phases, the registers, and Jon's open calls
 
-**Rewritten 2026-07-03 by fable** (previous engine-chain items 1–3 are DONE via the
-unification arc; this version carries the full vision so any executing agent can see
-the mountain, not just the next boulder). Companion docs:
-[`engine/unified-actors.md`](engine/unified-actors.md) (the actor thesis + invariants),
-[`engine/architecture.md`](engine/architecture.md) (the target crate stack —
-rewritten 2026-07-04), ADRs 0009/0019.
+**Rewritten 2026-07-05 by fable** as part of the planning consolidation:
+`docs/planning/` is now the ONE source of truth ([`vision.md`](vision.md)
+is the top; [`tracks.md`](tracks.md) is the live queue; the review docs
+that used to front-end execution are archived in `docs/archive/reviews/`).
+This doc holds the phase map, the demo matrix, the binding
+decision/uncertainty registers, and the questions only Jon can answer.
 
-> **⇒ EXECUTION FRONT-END (consolidated 2026-07-05):**
-> [`../reviews/fable-demo-plan-2026-07-05.md`](../reviews/fable-demo-plan-2026-07-05.md)
-> — THE live plan, aimed at the two first demo games (**Sanic + SMB1**, Q12/Q13
-> ruled). It consolidates and freezes the 07-02 / 07-04 / 07-05 review docs
-> (now historical records) and binds three manifestos:
-> [`engine/architecture.md`](engine/architecture.md),
-> [`engine/spatial-model.md`](engine/spatial-model.md), and
-> [`engine/frame-awareness.md`](engine/frame-awareness.md). Q6 and Q12 are
-> ANSWERED below.
+**The ambition (Jon's words, binding):** a Unity/Unreal/Godot-class 2D
+platformer engine on Bevy + Rust — ECS-native, composition and plugins,
+ELEGANCE and BEAUTY as first-class constraints. **The oracle:** *could
+another platformer be built by ADDING a content crate without editing
+core?*
 
 ---
 
-## The ambition (Jon's words, binding)
+## Where we are (2026-07-05, measured)
 
-> A primary goal of ambition should be to create a game engine on the level of
-> Unity / Unreal / Godot for 2D platformers, on top of Bevy and Rust. That means
-> ECS-native and centered around the idea of composition and plugins. ELEGANCE and
-> BEAUTY are first-class design constraints of the codebase.
-
-**The oracle** (unchanged): *could another platformer be built by ADDING a content
-crate, without editing core?* The stretch version: a demo repo expressing iconic
-games in the engine. Version 1.0 will not be the full beautiful system — but if a
-large subset of the crates are reusable so writing new games is easier, that is a
-win.
-
-**How this differs from Unity/Godot** — and deliberately so: those are *editors*
-first. Our identity is **the Bevy way taken seriously**: the engine is a set of
-composable crates + plugins; content is a Rust crate + RON + LDtk + Yarn; the
-"editor" is best-in-class external tools (LDtk, Inkscape, the rig editor) speaking
-through validated data seams. We compete on *architecture and expressibility*, not
-on shipping an editor binary. (If that identity is wrong, that's question Q2 below —
-it changes the roadmap materially, so it needs an explicit call, not drift.)
-
----
-
-## Where we are (2026-07-03, measured)
-
-24 workspace crates. The foundation layer is genuinely engine-grade and mostly
-clean (verified by the 2026-07-02 four-audit review):
-
-| Layer | Crates (LOC) | State |
-|---|---|---|
-| Foundations | `engine_core` 13.7k, `platformer_primitives` 3.4k, `characters` 16.6k, `portal` 4.6k, `time` 0.3k, `input` 2.4k, `combat` 1.0k, `interaction` 0.3k, `vfx` 0.5k, `sfx`/`sfx_bank` 1.2k, `sprite_sheet` 1.7k, `entity_catalog` 0.7k, `asset_manager` 2.2k, `menu` 4.8k, `ui_nav` 0.7k, `audio` 2.6k, `cutscene` 0.4k, `gameplay_trace` 1.5k | Reusable; frame-agnostic movement core with C4 conformance harnesses; `entity_catalog` + `interaction` are the exemplary open-vocabulary shape |
-| The knot | `gameplay_core` **95.5k** | The remaining monolith: actor ECS sim + combat + world/LDtk + abilities + menus/persistence/dialog, entangled |
-| Presentation | `render` 10k, `portal_presentation` 6.4k | Still imports the knot (D3 cut in progress) |
-| Content / app | `content` 10.6k, `app` 24.6k | Content-installed rosters (enemies/bosses) prove the pattern; app is NOT yet thin assembly (C4) |
-
-**Capability inventory (what already works, engine-grade):** one shared body
-pipeline for player/actor (and soon boss) with capability-masked ability limbs
-(run/jump/dash/blink/fly/shield/ledge/dodge/wall verbs); full gravity-frame
-agnosticism (C4-tested, portals, gravity zones); ONE victim-side damage resolver +
-shared knockback/stagger for every body (§A2, landed); relational
-factions/targeting/grudges; possession as brain transfer over one control seam;
-brains behind a universal `Brain::tick`; deterministic bit-identical replay
-fixtures; content-installed enemy/boss rosters; Yarn dialogue with extensible
-commands; LDtk multi-world authoring with round-trip tooling; a proper-time /
-world-time clock architecture (ADR 0010/0011); headless ms-fast Bevy testing
-culture; a sprite/rig/music generation toolchain.
-
-**The active arc** (execution log in the review doc): dissolve the boss island
-(A1 slice 3: AS4b→AS4c, then the AD2 attack-geometry conversion), collapse the
-render taxonomy to actors|props (AD1), then the D3/D4 crate cuts. That arc is
-~70% done and verified honest.
-
----
-
-## The demo-game matrix (the expressibility oracle suite)
-
-Each iconic game is a *test vector*: it names the engine capabilities it stresses.
-"Have" means the mechanism exists body-generically today, not that the clone is
-built. Tiers = the order the roadmap earns them.
-
-| Game | What it stresses | Status |
-|---|---|---|
-| **Super Mario Bros (1985)** | tile world, run/jump feel, stomp-kill, powerup state, camera scroll policy, flagpole/level-end | **Tier 1 — first clone target.** Have: movement/feel/tiles/contact damage/relational kill. Missing: powerup-as-equipment chain (C1/C2), one-way camera policy knob, level-end sequencing (cutscene crate is embryonic) |
-| **MoneySeize** | precision jump feel, coin economy, door-gated room graph | **Tier 1.** Have: nearly everything (BodyWallet, doors, room graph). This is the "feel calibration" clone |
-| **Celeste** | coyote/buffer/dash/wall mechanics, assist modes, room-based death/retry, moving/crumbling platforms, wind | **Tier 1.** Have: all core verbs + difficulty-assist + safe-respawn. Missing: wind/force volumes, per-room gimmick authoring pattern (the content-registered-system seam C4 wants anyway) |
-| **Metroid** | item-gated traversal, connected map + camera zones, save stations, minimap | **Tier 2.** Have: abilities-as-items direction (C1/C2), shrines=saves, camera zones. Missing: engine-grade map/minimap model, door transition polish |
-| **Hollow Knight** | large-world streaming, benches, currency-loss-on-death, charms/equipment, NPC ecosystem | **Tier 2.** Mostly content + scale; stresses room streaming (Q7) and the equipment layer on C1 |
-| **Dead Cells** | procedural level assembly from authored chunks, weapon rosters, meta-progression | **Tier 3.** Rosters = the proven install pattern. Real gap: runtime room-graph assembly (LDtk is static today) — Q8 |
-| **Smash Bros** | movesets w/ frame-accurate hitboxes, hitstun/knockback/DI, N local players, ledges, platforms | **Tier 3.** Shockingly close: A2 IS hitstun/knockback/hitstop; AD2 makes frame-driven hitboxes first-class; possession/slots exist. Missing: percent-scaling knockback as data, N-player local input routing (SlotControls is built for it), stage/stock structure |
-| **Sonic** | slopes, loops, momentum physics | **EXPEDITED (Jon, 2026-07-05 — Q6 answered YES).** The "Sanic" sandbox demo is the active stress vector for the contact/surface kernel + `MotionModel` policy — fable-review-2026-07-05 R8/R9. AABB stays the protected fast path; a full momentum demo GAME remains a Q12/Q13 call |
-| **Braid** | deterministic rewind, time manipulation | **Edge tier.** Bit-identical replay + the proper-time architecture are real foundations; missing: state snapshot/restore infrastructure — rides Q4 |
-| **Rain World** | procedural animation, ecosystem AI, region streaming | **Edge tier.** The bone/rig toolkit and the Brain/WorldView/memory seams point here; furthest out |
-
-The tiers are also the honesty check: **Tier 1 requires no new engine systems** —
-only the current arc finishing plus C1–C4. If a Tier 1 clone needs a core edit,
-that edit is the roadmap.
-
----
+25 workspace crates. The unification arc (P1) is COMPLETE: one body
+pipeline, one damage resolver, bosses are actors, movesets subsume all
+attack paths, the ability model is three-tier complete, the G-track
+(mounted giant, limb actors, possession-drives-limbs) landed end-to-end,
+the momentum kernel rides chains AND ordinary blocks, `ambition_runtime`
+exists with the engine plugin group. The monolith (`gameplay_core`,
+~95k) is measured, mapped, and mid-carve. The two review-era docs that
+tracked this are archived; their every open item is re-homed in
+[`tracks.md`](tracks.md) (the porting audit is in that doc's header).
 
 ## The phases
 
-### P1 — finish the unification arc (ACTIVE; the review doc's execution log is the tracker)
-One body, one path, no islands. Remaining: AS4b spec-parity pin → size flip → AS4c
-flight-limb fold; the AD2 attack-geometry conversion (`boss_attack_damage` dies);
-AD1-T1 taxonomy collapse; 3e/3f/3g (possession map dies, `BossAnim`→`CharacterAnim`,
-`BossConfig`→archetype data); then A7 (perception: `WorldView` becomes the only
-world-out; brains can perceive their own stagger), A8/A9 (body-generic
-`FrameEvents`→SFX/VFX + anim overlays), A10/B8/B12 residuals.
-**Exit criterion:** `grep`ing for `Without<BossConfig>`/player-only branches in
-mechanics finds only documented POLICY, and the convergence audit in
-unified-actors.md reads all-green.
+- **P1 — unification.** DONE (2026-07-05). The record lives in the
+  archived reviews.
+- **P2 — decomposition + doctrines (ACTIVE).** Execute
+  [`engine/decomposition.md`](engine/decomposition.md) (E5-finish, E4+W,
+  E1–E3, E6–E8, host/app split, navigability standard) alongside the
+  doctrine slices that demos will need:
+  [collision CC1–CC4](engine/collision-and-ccd.md),
+  [combat CM1–CM5/CM7](engine/combat-model.md),
+  [netcode N0–N1](engine/netcode.md). Exit = decomposition playbook
+  exits 1–5.
+- **P3 — demo wave 1: [Sanic](demos/sanic.md) + [Super
+  Mary-O](demos/super-mary-o.md).** Starts the moment E5-finish lands
+  (S4/S5 first — Sanic leads). Exit = both pass the doctrine exits.
+- **P4 — demo wave 2: [Super Smash
+  Siblings](demos/super-smash-siblings.md), then [Hollow
+  Lite](demos/hollow-lite.md).** SSB pulls CM6 + N1 + FB1–FB4; Hollow
+  Lite pulls the boss pipeline BD1–BD8 + respawn policy. Exit = SSB's
+  verbatim exit criteria + Hollow Lite's fun-verdict exit.
+- **P5 — relativity & the long game.** Slower-light L1–L4 (Tier-0 seams
+  ride E4 in P2), moving/angled portals CC6–CC7, online netcode N2–N3,
+  the further matrix tiers (MoneySeize, Celeste-slice, Metroid-slice,
+  Braid-slice, Dead-Cells-slice), engine naming/semver/template (Q1/Q3),
+  the docs-refresh track (mechanics/concepts/systems brought current —
+  [opus], safe once this planning stack is the north star).
+- **Ambition-the-game** runs through all phases as the first customer
+  (hall, zones, story beats consume each engine capability as it lands)
+  and gets its full build-out on the finished engine — the north star
+  ordering unchanged.
 
-### P2 — the engine/content bisection completes (C + D sections of the review)
-- **C1/C2**: item catalog + `HELD_ITEMS` → content-installed rosters (the proven
-  pattern). This is also the Metroid/SMB powerup chain.
-- **C3**: worlds/sprites/catalog embeds → a content-installed `WorldManifest`.
-- **C4**: `PlatformerEnginePlugin` bootstrap (machinery-owned plugin group with
-  DEFAULT ordering baked in); content hooks for named systems; app-thinness
-  boundary test. **This is the single most Unity/Godot-shaped deliverable** — it is
-  the `App::new().add_plugins(DefaultPlugins)` moment for platformers.
-- **D3 T2**: materialize the read-model (post-AD1 taxonomy), re-create
-  `ambition_sim_view` with real meat, cut the render→gameplay_core edge.
-- **D4**: `ambition_world` extraction; the LDtk **content-registered converter**
-  refactor (ADR-0009-shaped) — this is the "second game ships its own world" seam.
-- **D5–D7**: menu stack unification, `character_sprites` down beside
-  `ambition_sprite_sheet`, dialog runtime crate, C5–C7/C9/C12 vocabulary opens.
-- Then the mechanics-knot extraction stops being hard (D1–D4 were the
-  pre-inversions) — re-measure before attempting (see Uncertainty U1).
-**Exit criterion:** the boundary test suite enforces: app = assembly, machinery
-names no content, content edits rebuild only content.
+## The demo-game matrix (test vectors; the four bolded are written in stone)
 
-### P3 — the first proof clone (the oracle made executable)
-Create `demos/demo_smb/` (or MoneySeize — Jon's pick, Q12): a complete
-SMB1-shaped game as ONE content crate + a ~100-line app crate on
-`PlatformerEnginePlugin`. Build it *adversarially*: every place the demo needs a
-core edit files an issue tagged `oracle-violation`, and those become the P3 work
-queue. Ship 2–3 levels, powerups, enemies, a flag. **This phase is cheap and
-should start the moment C4 lands** — it converts the oracle from prose to CI.
-**Exit criterion:** `git log --stat` for the demo touches zero machinery crates.
-
-### P4 — capability tiers, pulled by clones (never speculative)
-Work through the matrix in tier order; each capability lands ONLY when a clone
-demands it (design-balance rule: knobs when use cases land):
-- **Tier 1 finish:** wind/force volumes; camera scroll-policy knobs; level-end /
-  cutscene sequencing; the per-room gimmick pattern (content-registered systems).
-- **Tier 2:** map/minimap model; room streaming policy (Q7); save-station +
-  equipment layers on C1.
-- **Tier 3:** procedural room-graph assembly over LDtk chunks (Q8); N-player local
-  slot routing + percent-knockback data (the Smash demo IS the moveset system's
-  acceptance test).
-- **Edge tier (each gated on a Jon decision):** slopes (Q6), snapshot/rewind (Q4),
-  rig-runtime animation.
-
-### P5 — engine 1.0
-What 1.0 means is Q1/Q12, but the mechanical criteria are already visible:
-the foundation + engine crates get semver + docs + a `cargo generate` template;
-the demo repo builds against a *tagged* engine version (not path deps); the
-boundary tests + C4 harness + replay fixtures are the public conformance suite;
-`ambition_content`/`ambition_app` are just the first customer.
-
-**Sequencing note for executing agents:** P1→P2 is strict (the bisection needs the
-unified vocabulary). P3 starts mid-P2 (needs C4 + C1, not all of D). P4 tiers are
-independent of each other. When blocked on a fork, check the Questions list — if
-it's there, it's Jon's call; log and move to parallel work, don't guess.
-
----
-
-## Design decisions — MADE (binding; re-litigating these needs new evidence)
-
-| # | Decision | Why |
+| Game | Stresses | Status |
 |---|---|---|
-| M1 | **Two-port body**: controller attempts, body enforces (I3) | The seam that makes human/AI/RL/remote interchangeable |
-| M2 | **One control seam**: possession = brain transfer (`Brain::Player(slot)`) | No player-centrism; any body is playable |
-| M3 | **actors\|props taxonomy** (I11, AD1): no Boss/NPC/Enemy type axis anywhere | Verified: the type axis was already dead in the sim; presentation follows |
-| M4 | **Relational everything**: factions/grudges/damage; hazards player-scoped nowhere | Emergent play (lure the boss into lava) falls out |
-| M5 | **Frame-agnostic always** (I10): `AccelerationFrame` + C4 harness for every reaction seam | The relativity principle, made mechanical |
-| M6 | **Content enters via install-time rosters/registries** (RON + `OnceLock` install), never enums in machinery | Proven 4× (enemies, bosses, specials, dialogue ids) |
-| M7 | **Per-frame sprite-driven combat volumes are canonical** (AD2); the sprite-metadata pipeline drives collision/hurtbox/attack | One geometry authority; Smash-class movesets need it |
-| M8 | **LDtk owns space; RON owns tuning; Yarn owns dialogue**; tools not hand-edits | Editor-grade authoring without building an editor |
-| M9 | **Time domains** (ADR 0010/0011): scaled `WorldTime`, proper-time per body, `ClockScaleRequest` only | Hitstop/slow-mo/RL/multiplayer all need it |
-| M10 | **No pushout** (Jon's rule): bodies are never shoved out of geometry | Correctness emerges; the OOB class of bugs dies at the root |
-| M11 | **Pre-release: replace, don't bridge**; behavior is not sacred; parity harness first, then port boldly | The whole E-log validates this |
-| M12 | **Reusable engine bootstrap = a Bevy plugin group with owned ordering** (ADR 0019 → C4) | Composition/plugins is the engine's identity |
+| **Sanic** | momentum kernel, speed-rewarding level design | P3; furthest along |
+| **Super Mary-O** | classic AABB baseline, powerup-equipment, scroll policy, sequencing | P3 |
+| **Super Smash Siblings** | N bodies/N slots, movement-identity coexistence, full combat stack, match state outside core | P4 |
+| **Hollow Lite** | exploration loop, boss-quality pipeline, respawn policy | P4 |
+| MoneySeize | precision feel, coin economy, door-gated graph | P5 tier |
+| Celeste-slice | assist modes, wind/force volumes, room gimmick pattern | P5 tier |
+| Metroid-slice | item-gated traversal, map/minimap (Q10), saves | P5 tier |
+| Braid-slice | snapshot/rewind (rides netcode N3.1) | P5 tier |
+| Dead-Cells-slice | runtime room-graph assembly (Q8) | P5 tier |
+| Rain-World-slice | rig-runtime animation, ecosystem AI | far edge |
 
-## Where the plan may DEVIATE — real uncertainty (not decisions, watch-items)
+## Decisions — MADE (binding; M1–M12 carried forward, new below)
 
-- **U1 — the mechanics knot.** The "~15 inversions then it's easy" estimate for
-  extracting the 30k mechanics core predates D1–D4. Re-measure outward deps when
-  P2 gets there; it may want to stay one crate longer than the topology diagram
-  wishes. Extraction is a means (compile time, navigability), not an end.
-- **U2 — `MoveSpec` will reshape.** AD2's frame-driven volumes + the
-  clip-by-phase seam will likely make the moveset *sprite-metadata-first* with
-  authored windows as the fallback — the current static-window schema is v1, not
-  final. Don't over-invest in authoring tools for the current shape.
-- **U3 — LDtk at scale.** Multi-world merging works today; nobody has measured
-  50-map worlds, editor performance, or converter extensibility ergonomics.
-  D4.3 may reveal LDtk limits that force a compiled-world intermediate format.
-- **U4 — Bevy churn.** Each minor version (0.18→0.19…) taxes 24 crates. The
-  engine's public API should wrap what churns most (schedules, messages) —
-  argument for the C4 plugin group owning ordering.
-- **U5 — perception (A7) has a design tension.** `WorldView` as the ONLY
-  world-out is the elegant seam, but RL training legitimately wants privileged
-  observations and the boss pattern wanted three bespoke inputs (E30 added them
-  to the snapshot). The seam may become `WorldView` + a *declared* privileged
-  channel rather than purity.
-- **U6 — the app crate is 24.6k** and 40% of it is menu machinery in the wrong
-  layer (D5). Thinning it will look like it's making the engine bigger before it
-  makes the app smaller. That's expected, not scope creep.
-- **U7 — feel drift under unification.** A2/A1 changed how hits feel (BLIND
-  commits). If Jon's feel-checks reject something, the fix is per-body
-  `BodyHitFeel`-style DATA, never a re-fork of the path.
+M1 two-port body · M2 one control seam (possession=brain transfer) ·
+M3 actors|props, no type axis · M4 relational everything · M5
+frame-agnostic always (C4) · M6 content via install-time registries ·
+M7 sprite-metadata combat volumes canonical · M8 LDtk owns space, RON
+tuning, Yarn dialogue, tools not hand-edits · M9 time domains ·
+M10 no pushout (sole exception: portal-close eviction) · M11 pre-release
+replace-don't-bridge · M12 runtime = plugin group owning ordering.
 
----
+New (2026-07-05):
 
-## QUESTIONS FOR JON — the design calls only you can make
+| # | Decision | Where |
+|---|---|---|
+| M13 | **The sweep law** — path-dependent state changes evaluate swept, never sampled | [collision-and-ccd.md](engine/collision-and-ccd.md) §1 |
+| M14 | **Blocks are surfaces** — a solid's boundary is a chain; AABB is the fast special case, not a privileged ontology | landed `0189338b` |
+| M15 | **One damage axis, two death policies** (HpDepleted / Unbounded+blast) — percent and HP are the same meter | [combat-model.md](engine/combat-model.md) §1 |
+| M16 | **Wearing is possession semantics** — the worn character's authored kit IS the kit; no fallback overlay | landed `0189338b` |
+| M17 | **The no-cheat brain contract** — difficulty never reads privileged state or scales damage; skill = prediction + option quality under human-rate constraints | [fighter-brain.md](engine/fighter-brain.md) |
+| M18 | **Fight quality is measured** — telegraph grammar + validator + playtester metrics gate boss authoring; taste passes are banked as data | [boss-design.md](engine/boss-design.md) |
+| M19 | **Demo rules are mode-scoped plugins** — ambition hosts every demo; global-state demo rules are a design bug | [demos/README.md](demos/README.md) |
+| M20 | **Determinism is a managed same-build contract** (fixed-tick option, input streams, desync canary); cross-platform float determinism is NOT promised | [netcode.md](engine/netcode.md) N0 — *flagged Q4 below for Jon's confirmation* |
 
-*(Each blocks or steers a phase; none block P1. Answer in place, tersely — this
-doc is the record. Agents: if your fork maps to one of these, stop and do
-parallel work instead of guessing.)*
+## Uncertainty register (watch-items, updated)
 
-**A. Product identity**
-- **Q1.** At 1.0, who is the engine FOR? (a) your games only — polish optional,
-  move fast; (b) published crates others build real games on — semver, docs,
-  API-stability discipline become roadmap items. This decides most of P5.
-- **Q2.** Is "content = a Rust crate + RON + LDtk + Yarn" the *permanent*
-  authoring story, or does 1.0 eventually want a no-Rust content path
-  (pure data packs / scripting)? Current trajectory says Rust-native is the
-  identity (it's the Bevy way, and it's what the oracle tests). Confirm or redirect.
-- **Q3.** Does the engine eventually get its own name/repo (with the demo repo
-  beside it), and roughly when — at P3 (forces honesty early) or P5 (less churn)?
+- **U1 (stands):** the post-carve `ambition_actors` may or may not split
+  further — re-measure, don't pre-commit.
+- **U3 (stands):** LDtk at scale; W4/ADR-0021 keeps the backend swappable.
+- **U4 (stands):** Bevy churn taxes 25 crates; the runtime group owning
+  ordering is the shield.
+- **U5 (resolved by policy):** shipped brains read `WorldView` only (M17);
+  privileged channels are RL-research-only.
+- **U7 (stands):** feel drift under unification — fixes are per-body DATA.
+- **U8 (new):** L3 rollout cost (fighter brain) — budgeted + degradable by
+  design; if snapshot cost makes it infeasible, L2+reads is still level ~7.
+- **U9 (new):** the scoped-mode pattern vs. deep global systems (audio
+  buses, save files) when a demo runs INSIDE ambition — expect a small
+  "host services" contract to emerge; design it when the first wing lands.
 
-**B. Simulation contracts**
-- **Q4.** Is **bit-identical determinism a public engine guarantee** (enables
-  rollback netcode, Braid-rewind, RL reproducibility) or an internal test canary?
-  Public = f32 discipline, stable iteration order, and snapshot/restore become
-  API, not hygiene. This is the biggest hidden-cost question on the list.
-- **Q5.** Multiplayer scope for 1.0: none / local-N-player (the Smash demo) /
-  online rollback? (Local-N looks nearly free on SlotControls; rollback rides Q4
-  and is a different animal.)
-- **Q6.** **Slopes.** Committing to the bespoke swept-AABB kernel is currently
-  implicit. Are slopes/curved terrain (Sonic-class, even Celeste-lite ramps)
-  in the engine's 1.0 capability set? If yes, that's a deep, planned kernel
-  extension (axis-role sweeps must generalize) — better scheduled deliberately
-  than discovered. If no, we say so in the engine docs and Sonic leaves the matrix.
-  **ANSWERED (Jon, 2026-07-05): YES, expedited** — via a geometry/contact
-  layer where AABBs coexist with `SurfaceChain` primitives (not a rewrite of
-  the AABB kernel, which stays the protected fast path). Design:
-  [`engine/spatial-model.md`](engine/spatial-model.md); execution:
-  fable-review-2026-07-05 AJ10/AJ11 + R8/R9. Knight-likes-on-slopes
-  (Celeste-lite ramps) is deliberately deferred until the momentum-body
-  proof lands (Q15 there).
+## QUESTIONS FOR JON (open; answer tersely in place)
 
-**C. World & scale**
-- **Q7.** Metroid/HK-scale worlds: is **room streaming** (load-ahead, seamless
-  camera handoff) an engine capability, or do we commit to rooms+transitions as
-  the model and make transitions gorgeous instead?
-- **Q8.** Is **procedural level assembly** (Dead Cells: stitch authored LDtk
-  chunks at runtime) in scope for the engine, or a game-side concern built on a
-  chunk-loading API we expose?
+- **Q1/Q3 (carried):** who is 1.0 for; engine name/repo split timing.
+- **Q2-name (carried):** endorse `ambition_actors` as the gameplay_core
+  residue rename, or supply a name (E7 blocks on nothing else).
+- **Q4 (M20 confirmation):** determinism as a *same-build* contract with
+  fixed-tick as an option — confirmed? (Cross-platform bit-equality stays
+  a non-goal.)
+- **Q5 (scoped):** online netcode stays post-1.0; local-N ships with SSB —
+  confirm.
+- **Q27 (new):** authoring backends — is a Tiled or Godot-scene importer
+  wanted as the SECOND backend (it would harden the W-carve IR seam), and
+  roughly when? ("Maybe we use some godot authoring tools" — your words;
+  the IR is being shaped so this is additive.)
+- **Q28 (new):** demo naming sign-off: *Super Mary-O*, *Sanic*, *Super
+  Smash Siblings*, *Hollow Lite* — and are parody names the permanent
+  policy for all demo content?
+- **Q29 (new):** the respawn default flip (dead-stays-dead) changes every
+  existing sandbox enemy to never respawn unless we author `OnRoomReenter`
+  per mob row. Plan: author trash mobs as Mob (respawn), leave named/
+  unique actors on the new default. Confirm the triage line (see the
+  respawn slice in tracks.md).
+- **Q30 (new):** for the fable-window priorities (top of tracks.md) —
+  reorder if your remaining fable days should go elsewhere.
 
-**D. Presentation & tooling**
-- **Q9.** Is the **Python toolchain** (sprite renderer, rig editor, music
-  renderer) part of the engine *product* (documented, fresh-clone reproducible,
-  versioned with it) or Ambition-internal tooling? It's a genuine differentiator
-  if productized, and a support burden too.
-- **Q10.** Map/minimap: engine-grade system (Tier 2 wants it) or per-game UI?
-- **Q11.** The menu/settings IR stack (post-D5): engine offering or app-layer
-  reference implementation?
+## Standing practices (unchanged)
 
-**E. Acceptance**
-- **Q12.** Which clones are the **1.0 acceptance suite** vs aspirational? My
-  proposal: SMB1 + MoneySeize + Celeste-slice = acceptance (Tier 1); Metroid-slice
-  = stretch; everything else post-1.0. And: which is the FIRST demo (P3) — SMB1
-  (broadest recognition) or MoneySeize (closest to current feel work)?
-  **ANSWERED (Jon, 2026-07-05): the two FIRST demos are Sanic + SMB1** (Q13:
-  Sanic jumped the queue from sandbox-proof to first-class demo target).
-  Execution: [`../reviews/fable-demo-plan-2026-07-05.md`](../reviews/fable-demo-plan-2026-07-05.md)
-  tracks S and M. MoneySeize/Celeste-slice remain acceptance candidates behind
-  them.
-
----
-
-## Standing practices (unchanged, folded from the old roadmap)
-
-- **Docs are trustworthy or deleted.** This plan included — the review doc's
-  execution log is the ground truth for P1/P2 status.
-- **Data-driven ECS; LDtk owns space; RON owns tuning/audio; tools not hand-edits.**
-- **Evaluate ecosystem crates before rolling custom; document rejections.**
-  Standing candidates when their use case lands: `bevy_asset_loader`, `bevy-tnua`,
-  `big-brain`/`dogoap`, `vleue_navigator`. Don't adopt speculatively.
-- **The validation habit** — a change isn't done until the real headless sim
-  exercised it; feel-touching changes ship BLIND in marked commits for Jon.
-- **Parity harness first, then port boldly; commit = checkpoint.**
+Docs trustworthy or deleted · data-driven ECS · evaluate ecosystem crates
+before custom (`bevy_ggrs`/`bevy_matchbox` join the standing list) · the
+validation habit (real headless sim; BLIND feel commits) · parity harness
+first, then port boldly · commit = checkpoint · wall-clock tables on
+multi-phase runs.

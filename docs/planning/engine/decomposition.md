@@ -1,0 +1,536 @@
+# The decomposition playbook — killing the monolith, carve by carve
+
+**Authored by fable, 2026-07-05.** THE highest-priority engineering track
+(Jon, binding): `ambition_gameplay_core` (~95k LOC) and the fat app must
+decompose into the crate map of [`architecture.md`](architecture.md) so
+that (a) small agents can navigate and modify any one domain safely,
+(b) content/demos plug in without touching core, (c) hot-edit rebuilds
+shrink. This doc is the ORDERED playbook with per-carve recipes and exit
+criteria; live statuses live in [`../tracks.md`](../tracks.md). The specs
+here are ported from the (now archived) 07-04/07-05 review adjudications
+and remain binding — an executor needs no archived doc to proceed.
+
+**Method rules (all carves):**
+
+- **Measure OUTWARD deps first.** "Names no content" ≠ "extractable"; a
+  module with dozens of inbound mechanic deps stays until inversions land.
+- **The D2 template:** kill cycles/misplacements INSIDE the crate first
+  (compiling, committable steps), then ONE atomic move of the module to
+  its crate, then repoint every consumer. Never a lasting facade; delete
+  re-export shims in the same arc.
+- **Compile-parity gates:** after each carve, `cargo build -p
+  ambition_app --features rl_sim` + the suite trio (gameplay_core lib,
+  content, app rl_sim) + the architecture-boundary tests. Schedule shape
+  is pinned by the rl_sim headless app tests (they caught the G3 cycle).
+- **Feature discipline:** `ambition_runtime` forwards
+  `headless`+`input`+`portal_ldtk`; new crates declare features
+  explicitly; never rely on unification accidents.
+- **Record compile-time before/after** per carve (the point is partly
+  rebuild speed — keep the receipts, `cargo build -p <crate> --timings`).
+
+## Anti-god-structure rules (BINDING on every executor)
+
+The failure mode this playbook exists to prevent is re-centralization —
+an agent "simplifying" by putting things in one place. These are hard
+rules; violating them is wrong even when it compiles and reads cleaner
+to you:
+
+1. **No `utils`/`common`/`shared`/`prelude`-dump crates, ever.** A type
+   with no clear owner means the classification is unfinished — finish
+   it (the E2 classification rule generalizes: vocabulary moves DOWN to
+   the crate that OWNS the domain; facts invert to parameters).
+2. **Every moved module keeps/ships its OWN `Plugin`** registering its
+   own systems/messages/resources. The runtime GROUP composes plugins;
+   it never absorbs their registrations inline. If a carve leaves a
+   crate without a plugin (pure vocabulary), that's fine — but never the
+   reverse (a plugin registering another domain's systems).
+3. **The `features/` hub facade DIES; it does not migrate.** No new
+   re-export hub may be created in `ambition_actors`, the runtime, or
+   anywhere else. Consumers import from the owning crate, explicitly
+   (the explicit-imports rule). A "convenience" hub is the monolith's
+   ghost.
+4. **One-way doors:** a lower tier may NEVER import a higher one, and
+   sibling domain crates may not import each other except along the
+   arrows architecture.md draws (combat ← actors, persistence ← menu,
+   …). When you want a sideways import, you have found either (a) a
+   vocabulary type that belongs a tier down, or (b) a fact that should
+   be a parameter/message. There is no (c).
+5. **Resources are owned.** A resource is defined + initialized in
+   exactly one crate (its plugin); other crates read it via system
+   params. Cross-crate `init_resource` of another domain's type is a
+   review flag.
+6. **When splitting, split by AUTHORITY (who mutates), not by theme.**
+   "All the boss stuff together" is a theme; "the systems that mutate
+   BossPhaseState" is an authority. Themes produce god crates.
+
+---
+
+## THE LEDGER — every module, measured, with its destination
+
+*(Measured 2026-07-05 from the tree. This is the ground truth the carves
+execute against; an executor whose module doesn't match this table has
+found drift — update the table in the same commit. LOC ≈ `wc -l`.)*
+
+### `ambition_gameplay_core` (~95k) disposition
+
+| Module | LOC | Destination crate | Carve | Notes |
+|---|---:|---|---|---|
+| `features/ecs/` core (spawn_actors 1241, perception 856, actor_clusters 723, view_index 609, aggression 488, brain_effects 457, anim_helpers 446, brain_builders 433, interact 300, + `actors/` 2705, `spawn/` 468) | ~9.7k | **`ambition_actors`** (Tier 3) | E7 rename | the actor sim heart: spawn/tick/perceive/act |
+| `features/ecs/damage/` | 1914 | `ambition_actors` | E7 | victim-side resolution stays with the bodies it mutates; the HIT VOCABULARY moves with combat (E2 classification rule) |
+| `features/ecs/mount/` | 1969 | `ambition_actors` | E7 | mounts are sim (ADR 0020) |
+| `features/ecs/bosses/` | 1701 | `ambition_actors` (behavior residue → `ambition_characters` per E6d) | E6→E7 | shrinks as E6 folds the brain-tick |
+| `features/ecs/encounter_rewards.rs` | 365 | `ambition_encounter` | E-enc | with encounter/ below |
+| `features/enemies/` | 2188 | `ambition_actors` (schema) — archetype DATA already content | E7 | respawn-policy slice edits here first |
+| `features/bosses.rs`, `npcs.rs`, `banter.rs` | ~1.3k | `ambition_actors` | E7 | |
+| `combat/` (moveset 2292, damage 944, targeting 892, attack 834, hitbox/, on_hit 430, events 432, components/, pickups 340, world_overlay 360, boss_clusters 444) | 11.5k | **`ambition_combat`** | **E2** | world_overlay → `ambition_world` (it's geometry composition); boss_clusters dissolves with E6 |
+| `projectile/` + `enemy_projectile/` | 4412 | **`ambition_projectiles`** | E2 | visual-kind content names leave in E3 |
+| `world/` | 10933 | **`ambition_world`** (IR) + **`ambition_ldtk_map`** (backend) | **W1–W4** | the two-crate cut; converter registry is the keystone |
+| `boss_encounter/` (behavior, registry, sprites, attack_geometry, encounter_script, rewards) | 6750 | behavior/registry → `ambition_characters`; sprites/attack_geometry → `ambition_sprite_sheet`; encounter_script/rewards → `ambition_encounter` | E6 + E3 + E-enc | the three-way split the plan always intended |
+| `player/` (body_integration, bundles, starting_character, trail, affordances) | 6511 | `ambition_actors` | E7 | the home body is A BODY; no player crate — that would re-fork the unification |
+| `persistence/` + `host/` + `quest/` | 5173 | **`ambition_persistence`** | **E1a** | owns stored-shape only; settings IR stays for E1e |
+| `character_sprites/` | 4335 | **`ambition_sprite_sheet`** | **E3** | + the asset-root flip |
+| `abilities/` + `ability_cooldown.rs` | 4211 | `ambition_actors`; **D-B carve candidate `ambition_abilities`** | E7→D-B | traversal kit reads controlled-subject + kinematics; carve iff outward-dep measurement is clean |
+| `assets/` | 3324 | `ambition_asset_manager` | E-assets | mechanical absorb |
+| `menu/` | 3189 | **`ambition_menu`** | **E1e** | + app/menu (below); LAST of E1 |
+| `dev/` | 2975 | **`ambition_dev_tools`** | E1d | + app/dev |
+| `items/` + `inventory_ui/` | 2689 | **`ambition_items`** | E8 | |
+| `encounter/` | 2504 | `ambition_encounter` | E-enc | wave/lockdown kit |
+| `dialog/` | 2217 | **`ambition_dialog`** (runtime) | E1c | game bindings stay sim-side |
+| `time/` | 1431 | stays (measured: depends on player/combat/features); `camera_ease` rides E4 | E8 note | |
+| `audio/` + `music/` | 1791 | **`ambition_audio`** | E1b | |
+| `session/` | 1245 | `ambition_actors` | E7 | lifecycle of the sim |
+| `body_mode/` | 807 | `ambition_actors` | E7 | mode→sprite-state seam lands in E3 but the MODE is sim |
+| `portal/` (glue) | 711 | `ambition_actors` glue or `ambition_portal` adapter | E7 | measure at rename time |
+| `schedule/` | 599 | `ambition_runtime` (the set vocabulary) | E5-finish | `configure_sandbox_sets` moves with it |
+| `gravity/` | 252 | `ambition_actors` | E7 | |
+| `camera_snapshot.rs` | 459 | **`ambition_sim_view`** | **E4** | + per-body velocity (AJ14 Tier-0) |
+| `character_roster.rs` | 572 | `ambition_actors` (install seam) | E7 | |
+| `shrine.rs`, `cutscene.rs`, `actor.rs`, misc | ~550 | `ambition_actors` / `ambition_cutscene` | E7 | |
+| `platformer_runtime/` | 72 | `ambition_runtime` | E5 | already thin |
+
+### `ambition_app` (~24.6k) disposition
+
+| Module | LOC | Destination | Carve |
+|---|---:|---|---|
+| `menu/` | 10046 | `ambition_menu` | E1e (the misplaced elephant) |
+| `app/` (boot/plugins/resources/cli) | 4879 | split: engine-generic sim wiring → `ambition_runtime`; windowed host wiring → **`ambition_host`**; content installs + asset roots + window + Ambition choices stay | E5-finish steps 1–5 |
+| `dev/` | 2714 | `ambition_dev_tools` | E1d |
+| `rl_sim/` | 1612 | stays app-side, thinned onto `add_headless_foundation`; the generic stepping harness is a D-B candidate for `ambition_runtime` | E5-finish 2 |
+| `bin/`, `host/` | 1760 | stays (the thin shell IS the point) | — |
+
+**Post-carve `ambition_actors` ≈ 33k** (features-core + player + abilities
++ session + body_mode + small glue) — ONE concern: the unified actor
+simulation. D-B then re-measures the `ambition_abilities` candidate
+(~4.5k) and stops there unless the numbers argue otherwise (U1).
+
+### Why these pieces are THE pieces (the elegance argument)
+
+The crate boundaries follow the four real fault lines in the domain, not
+line counts: (1) **vocabulary vs. simulation** — schemas/registries/
+formats (entity_catalog, sprite_sheet, characters) sit below the systems
+that step them (actors, combat), so content and tools can depend on
+vocabulary without dragging the sim; (2) **sim vs. space** — the world/IR
+(`ambition_world`) is authored INPUT to the sim, never a peer
+(backend-agnostic by construction, which is what makes Tiled/Godot
+importers additive); (3) **sim vs. observation** — `ambition_sim_view` is
+the one-way read-model boundary (render, netcode confirmation, RL
+observation, and the slower-light shaders are all THE SAME KIND of
+consumer); (4) **engine vs. host vs. content** — `ambition_runtime`
+(headless sim assembly) / `ambition_host` (windowed wiring) /
+content crates (named worlds+rosters+rules). Every demo and the game
+compose from exactly these five faces, which is why the same
+decomposition serves all of them.
+
+### The demo/game → crate support matrix (the proof of sufficiency)
+
+| Consumer | Exercises beyond the shared core |
+|---|---|
+| Sanic | momentum kernel (engine_core::surface), `ambition_world` chains channel, mode-scope seam |
+| Super Mary-O | `ambition_items` equipment policies, camera policy knobs, cutscene kit |
+| Super Smash Siblings | `ambition_combat` CM stack, N1 slot routing (`ambition_host`), fighter brain (`ambition_characters`), `ambition_sim_view` damage-meter read |
+| Hollow Lite | boss pipeline (characters + encounter + combat), `ambition_persistence` (benches), respawn policy (actors) |
+| Ambition itself | ALL of the above + portals, dialog, menu, audio, falling-sand content plugin — and hosts each demo via mode scopes |
+
+Shared core in every column: runtime + host + actors + combat + world +
+sim_view + characters + entity_catalog + input. If a demo needs a crate
+edit outside its column's expectation, that's the oracle firing.
+
+---
+
+## Phase D-A — finish the engine face (the current arc)
+
+**Every carve below is a TASK CARD: preconditions → ordered steps (each
+step compiles and is committable) → exit checks. File anchors are from
+the 2026-07-05 inventory; if the code has drifted, update the card in
+the same commit that exploits the drift. The demos, netcode, combat,
+brain, and boss tracks are DOWNSTREAM of this phase — an agent picking
+up work executes D-A cards first unless tracks.md's queue says
+otherwise.**
+
+### E5-finish — `ambition_runtime` completes (THE DEMO GATE) — [opus, fable-specced]
+
+Precondition: none — the crate exists (`crates/ambition_runtime`, 16 sim
+plugins; consumed at `ambition_app/src/app/plugins.rs:111`).
+
+- **Step 1 — sets + resources into the group.** Move the
+  `configure_sandbox_sets(app)` call (plugins.rs:77) and the sim
+  `init_resource` block (plugins.rs:78-86: ShrineActivationPulse,
+  SlotInteractionState, StartingCharacter) into
+  `PlatformerEnginePlugins`' FIRST plugin (a small `SandboxSetsPlugin`
+  inside `ambition_runtime`), so the set vocabulary exists before any
+  `in_set(...)` registration. Keep `init_resource` semantics (hosts
+  override by `insert_resource` BEFORE `add_plugins` — cli.rs:243 relies
+  on it; add a test: insert-then-add preserves the override).
+- **Step 2 — `CombatSchedulePlugin` into the group.** It imports only
+  gameplay_core + `ambition_vfx` (combat_schedule.rs) — add
+  `ambition_vfx` to runtime's deps. Its
+  `CombatSet::ContentSpecials`/`ContentFlavor` label slots stay
+  registered-but-empty; content attaches app-side (guard test at
+  combat_schedule.rs:253 must stay green).
+- **Step 3 — `add_headless_foundation(app)`** in `ambition_runtime`:
+  the MinimalPlugins+AssetPlugin+ImagePlugin+TransformPlugin+
+  StatesPlugin+`init_state::<GameMode>` block copy-pasted at
+  headless.rs:131-136, its tests 187-192, and rl_sim/runtime.rs:90-95.
+  Replace all three; the visible path (cli.rs:237) shares only the
+  `init_state` piece via a second helper `init_engine_states(app)`.
+- **Step 4 — de-weave content.** Move
+  `emit_cut_rope_room_replay_after_dialogue_closes` (plugins.rs:259) +
+  `apply_cut_rope_room_replay_request_system` (260) and
+  `reset_cut_rope_boss_arena_on_room_reset` (in
+  `register_room_transition_systems`, plugins.rs:412-432) out of the
+  app chains into `AmbitionContentPlugin`, attached via labeled sets
+  (`ContentRoomResetSet` exists; add a `ContentDialogueFollowupSet`
+  anchored after the dialogue-close system). The app chains become
+  pure-engine tuples.
+- **Step 5 — mint `ambition_host`** (new crate, Tier 4½; MAY dep
+  render/input/leafwing/gameplay_core; must NOT dep ambition_content).
+  Move, each as its own plugin inside the group (rule 2):
+  `register_player_input_systems` (plugins.rs:232-326, now content-free
+  after step 4), `register_player_simulation_systems` (331-407 — the
+  app-local `player_clone`/`apply_home_reset_policy`/
+  `sync_player_presentation` pieces STAY app-side; move only the
+  engine-generic chain), `wire_portal_schedule` (136-202, behind the
+  forwarded `portal` feature, after `PortalPlugin`),
+  `register_room_transition_systems`, camera follow/shake
+  (plugins.rs:681-711), `add_input_plugins` (927-984). Preserve the
+  landmines: portal set edges pin against named systems; group order =
+  sets-first.
+- **Step 6 — the proof shell.** Create `demos/demo_shell_smoke` (a
+  test-only bin or an app integration test): foundation +
+  `PlatformerEnginePlugins` + `PlatformerHostPlugins` + a 20-line
+  fixture content plugin → `app.update()` runs one frame headless-window
+  -less without panic. This is the card's exit AND the permanent
+  regression guard for the demo gate.
+
+Exit checks: the smoke shell passes; `ambition_app`'s plugins.rs shrinks
+to content installs + Ambition-specific wiring; rl_sim app tests (the
+schedule-shape guard) green; boundary test extended: `ambition_host`
+imports no `ambition_content`.
+
+### W1–W4 — the world carve — [opus]
+
+Precondition: none (parallel-safe with E5). The four cards:
+
+- **W1 — invert the ~13 `rooms` upward deps.** Grep
+  `world/rooms` for imports of player/combat/features types; each
+  becomes a message the sim consumes or a parameter the caller passes
+  (the Contact/FrameEvents pattern). One commit per inversion; no move
+  yet.
+- **W2 — IR naming in place.** `RuntimeEntityEmission` →
+  `RoomEmission` (carrying the S3 `chains` channel); `SpatialSource`
+  provenance enum replaces render's `"ldtk "` name-sniff; plain-serde
+  derives on `World`/`Block`/`SurfaceChain`/AABB wrappers; the baked
+  `ron-room` manifest loader (serialized `RoomSpec` — generated rooms/
+  fixtures only; authored space stays backend files). The sanic area
+  gains its `ron-room` twin as the IR proof.
+- **W3 — the two-crate cut.** `ambition_world` = IR + rooms graph +
+  composition + converter REGISTRY (no LDtk dep anywhere in it —
+  enforce with a dep test); `ambition_ldtk_map` = the LDtk backend
+  (parser, spine, converters that read LDtk types) depending on
+  `ambition_world`. Atomic move per the D2 template; every consumer
+  repoints in the same arc. Record compile timings before/after.
+- **W4 — the ratchet + ADR 0021.** Encounter loading → emissions;
+  menu-map/session/settings inversions; schedule-set rename; write ADR
+  0021 (authoring-backend-agnostic space) citing spatial-model.md +
+  frame-awareness.md. Exit: `ambition_world` builds with zero LDtk in
+  its tree, and a fixture "second backend" test constructs a RoomSpec
+  purely from IR calls.
+
+### E1a–E1e — persistence → audio → dialog → dev_tools → menu — [opus; E1a fable-specced]
+
+Strictly ordered; menu LAST. Per card: mint the crate, move the module
+(D2: one atomic move after in-crate cleanup), repoint consumers, delete
+the facade, run the gate.
+
+- **E1a `ambition_persistence`** (persistence/ 4.5k + host/ + quest/):
+  owns *what is stored and its serde shape*. The settings **IR** (which
+  renders/pages/curates) STAYS BEHIND for E1e; persistence exposes
+  plain typed settings the IR reads. Exit: zero imports from menu/UI
+  code (dep test).
+- **E1b `ambition_audio`** (audio/ + music/, 1.8k): mechanical.
+- **E1c `ambition_dialog`** (dialog/ 2.2k): runtime + lint machinery;
+  the game's Yarn BINDINGS stay sim-side (they reference actor state).
+- **E1d `ambition_dev_tools`** (core dev/ 3.0k + app dev/ 2.7k): one
+  crate, feature-gated overlays; DevToolsPlugin moves whole.
+- **E1e `ambition_menu`** (core menu/ 3.2k + app menu/ 10k): the
+  settings IR + the host stack; deps `ambition_persistence` (the
+  layering that dissolves the god-dep); the `ambition_touch_input`
+  upward-dep inversion rides this card; C3 (in-game character select
+  over the wear seam) lands here or is explicitly closed.
+
+### E2 — the combat/projectiles carve — [opus]
+
+Precondition: none, but coordinate with E5 step 2 (the schedule plugin
+moves first; the TYPES move here).
+
+1. Inventory the ~23 `combat → features` back-edge refs (mechanical
+   grep; commit the list into the PR description).
+2. Classify each: (a) combat VOCABULARY living features-side (hitbox/
+   hit-event/volume types) → move combat-ward; (b) genuine sim facts →
+   invert to parameters/read-model. No (c) — an unclassifiable ref goes
+   to tracks.md as a design question, work continues on the rest.
+3. Land (a)+(b) as compiling steps INSIDE gameplay_core (the cycle dies
+   while iteration is cheap).
+4. Atomic moves: `combat/` (minus `world_overlay.rs` → W-track; minus
+   `boss_clusters.rs` which dissolves in E6) → `ambition_combat`;
+   `projectile/` + `enemy_projectile/` → `ambition_projectiles` (deps:
+   combat). Direction ruled: **features → combat, never the reverse.**
+5. Only after the move: the combat-model slices (CM1–CM7) land in the
+   new crate.
+
+### E3 — `ambition_sprite_sheet` absorb + the asset-root flip — [opus]
+
+Precondition: G1 landed (it did). Moves `character_sprites/` (4.3k) +
+`boss_encounter::{sprites, attack_geometry}` into the existing
+`ambition_sprite_sheet`; carries the asset-root flip and the blocked
+residue cluster: ParallaxTheme #6, `pirate_weapon` #7,
+`ProjectileVisualKind::{Apple,Glider,Lasersword}` art descriptors, the
+six `BossSheetSpec` statics. Then the sprite-adjacent bug queue homes
+here: §7.3 boss-generic-sheet (FIRST add the `boss_sprites.len()`
+startup log + downgrade `MissingAssetPolicy::SilentPlaceholder` to a
+logging policy — then run), §7.8 shrine/glider rect drift, §7.4 modal
+body-morph rows (a `BodyMode` selects a sheet-supplied sprite-state;
+deletes the morph-ball overlay + hide-toggle).
+
+### E4 — `ambition_sim_view` + the render edge cut — [fable-window design, opus execute]
+
+Ordered steps: (1) **the L5 inversion first** — move `VfxMessage`,
+`ExplosionRequest`, `FireworksRequest` from `ambition_render::fx` down
+to `ambition_vfx` (they are SIM messages; render becomes a consumer) —
+this alone unblocks moving the sim-resources plugin runtime-ward.
+(2) The Q26 scout: enumerate every render/portal_presentation import of
+gameplay_core; view-shaped → the carve list; sim internals → inversion
+slices first; do not start the carve with an unclassified list.
+(3) Mint `ambition_sim_view`: `camera_snapshot.rs`, `view_index.rs`,
+actor render/anim indices, camera-ease; builders stay
+functions-of-inputs. AJ14 Tier-0 binds: per-body world-frame position
+AND velocity + observer velocity in the snapshot; ONE registered
+full-screen post-pass seam stays. (4) `ambition_render` deps flip to
+sim_view + foundations, NOT gameplay_core (the D3.7 lever); boundary
+test enforces it forever.
+
+#### E4 design sketch (pre-solved; do not re-derive)
+
+The view types already exist — the carve RELOCATES and SEALS them, it
+does not invent them: `FeatureViewIndex` (view_index.rs:19),
+`ActorRenderView`/`ActorRenderIndex` (:301/:309),
+`BossRenderView`/`BossRenderIndex` (:415/:421 — dissolves into the actor
+index when E6(b) finishes), `CameraSnapshot2d` (camera_snapshot.rs:31)
++ its resolve inputs. Target shape in `ambition_sim_view`:
+
+```rust
+/// Rebuilt every sim tick by extraction systems that run LAST in the sim
+/// schedule. Presentation reads ONLY this. Plain data, no Entity borrows
+/// beyond opaque ids, no Handle<T>, no interior mutability — snapshot-safe
+/// by construction (netcode N3.1 serializes these for free).
+pub struct SimView {
+    pub tick: u64,                       // confirmed-tick tag (rollback-ready)
+    pub actors: ActorRenderIndex,        // per-body: pos, VELOCITY (AJ14),
+                                         // facing, clip+phase, tint/flash facts
+    pub features: FeatureViewIndex,
+    pub camera: CameraSnapshot2d,        // + observer_velocity (AJ14)
+    pub events: Vec<PresentationFact>,   // sfx/vfx/shake facts, tick-tagged
+}
+```
+
+Rules the sketch fixes: extraction systems are FUNCTIONS of sim state
+(no caching across ticks except double-buffer); `PresentationFact` is
+the ONE event channel presentation consumes (the CM5 per-move sfx/vfx
+events flow through it; rollback dedups by tick); render never queries
+a sim component type — the boundary test greps `ambition_render` for
+gameplay-core/actors types and fails on any hit.
+
+#### D-C design sketch — the mode scope (pre-solved)
+
+```rust
+// ambition_world (RoomMetadata):   pub mode: Option<String>,  // merge: first Some wins
+// ambition_runtime:
+pub fn in_mode(name: &'static str) -> impl Condition { /* reads ActiveRoomMetadata */ }
+#[derive(Component)] pub struct ModeScopedEntity(pub String); // despawned when the mode deactivates
+```
+
+A rules crate attaches every system `.run_if(in_mode("sanic"))` when
+hosted, or unconditionally when standalone — the APP chooses via
+`SanicRulesPlugin::hosted()` vs `::global()` (a constructor flag, not
+two plugins). Mode resources live on a mode-owner entity carrying
+`ModeScopedEntity`, so zone exit cleans up by the same sweep
+`RoomScopedEntity` uses (generalize that sweep, don't duplicate it).
+
+### E6 — the boss tail — [opus]
+
+Precondition: E3 (sprite moves) recommended first. Fully enumerated:
+(a) sim-side `BossAnimFrame` (the sim stops reading a render-inserted
+animator component); (b) remaining `BossAnim` rows → `CharacterAnim`
+for non-gnuton bosses (BLIND visuals, frame-sample pins); (c)
+`BrainSnapshot.target_pos` retirement (the boss brain consumes its
+view/target directly); (d) DECIDE the two recorded deep folds (the
+no-boss-arm integrate fold; `BossAttackIntent` → general move-intent
+folding the boss brain-tick into `tick_actor_brains`) — execute if the
+G-track left them cheap, else document as permanent policy with
+rationale at the code site; either closes the item. Plus the deferred
+teardown: fused `gnu_ton` profile + `sync_boss_split_overlay` +
+`BossOverlayLayer` + split z-consts (retarget the referencing tests to
+the linked-pair arena first).
+
+### E4 — `ambition_sim_view` + the render edge cut — [fable-window design, opus execute]
+
+The Q26 conditional stands: scout every `ambition_render` /
+`portal_presentation` import of gameplay_core; view-shaped list → carve;
+sim internals → file inversion slices first. **Add (2026-07-05 scout
+finding): `VfxMessage`/`ExplosionRequest`/`FireworksRequest` are DEFINED
+in `ambition_render::fx` yet registered as sim messages — invert these
+types down (into `ambition_vfx`, their honest home) as an early slice; it
+unblocks moving the sim-resources plugin into the runtime group.**
+AJ14 Tier-0 obligations bind here: the read-model carries per-body
+world-frame POSITION + VELOCITY and the observer's velocity in the camera
+snapshot; the render stack keeps ONE registered full-screen post-pass
+seam; view/snapshot builders stay functions-of-inputs. `camera_ease`
+moves with this carve (E8 note).
+
+### W1–W4 — the world carve — [opus]
+
+Unchanged from the ruling: W1 the ~13 `rooms` upward-dep inversions; W2
+IR naming in place (`RuntimeEntityEmission`→`RoomEmission` carrying the
+chains channel, `SpatialSource` provenance killing render's `"ldtk "`
+name-sniff, Tier-1 serde on `World`/`Block`/`SurfaceChain` + the baked
+`ron-room` manifest for generated rooms/fixtures); W3 the TWO-crate carve
+(`ambition_world` IR with no LDtk dep; `ambition_ldtk_map` backend);
+W4 the leakage ratchet + **ADR 0021** (authoring-backend-agnostic space —
+this is also where Tiled/Godot-backend ambitions become real: a second
+backend crate is the oracle for the IR seam).
+
+### E1a–E1e — persistence → audio → dialog → dev_tools → menu — [opus; E1a fable-specced]
+
+The ordered sequence, menu LAST (its god-dep dissolves once persistence
+exists): **E1a `ambition_persistence`** owns *what is stored + serde
+shape* (save I/O, settings MODEL, host/, quest/) — zero imports from
+menu/UI; the settings IR stays behind and moves in E1e. **E1b
+`ambition_audio`**, **E1c `ambition_dialog`** (bindings stay sim-side),
+**E1d `ambition_dev_tools`** (core dev/ + app dev/) — mechanical. **E1e
+`ambition_menu`**: gameplay_core menu IR + the app's ~10k host stack;
+the `ambition_touch_input` upward-dep inversion rides this; C3 (in-game
+character select over the wear seam) folds in here.
+
+### E2 — combat/projectiles carve — [opus]
+
+The Q24 recipe: inventory the ~23 combat→features back-edges; classify
+(a) combat vocabulary that lives features-side → move combat-ward,
+(b) genuine sim facts → invert to parameters/read-model (the
+`Contact`/`FrameEvents` pattern); land (a)+(b) inside gameplay_core as
+compiling steps; THEN the atomic move → `ambition_combat` +
+`ambition_projectiles`. Direction ruled: features depends on combat,
+never the reverse. The [combat-model](combat-model.md) slices (CM1–CM7)
+land AFTER the move, in the new crate.
+
+### E3 — `ambition_sprite_sheet` + the asset-root flip — [opus]
+
+After G1 (done). Carve the ONE sprite-metadata pipeline (M7) and carry
+the asset-root flip with it: ParallaxTheme #6, pirate_weapon #7,
+projectile visual kinds (`Apple/Glider/Lasersword` content-named — the
+crit-3 residue), the BossSheetSpec statics. The §7.3 boss-generic-sheet
+investigation, §7.8 shrine/glider rects, and §7.4(b) modal-body-morph
+sprite states (a `BodyMode` selects a sheet-supplied sprite-state —
+deletes the morph-ball overlay hack) all home here.
+
+### E6 — the boss tail — [opus]
+
+Fully enumerated (execute after the sprite work stabilizes): (a) the
+`BossAnimator` frame-state split fully sim-side (sim `BossAnimFrame`;
+sim stops reading a render-inserted component); (b) remaining `BossAnim`
+rows → `CharacterAnim` for non-gnuton bosses (BLIND visuals, frame-sample
+pins); (c) `BrainSnapshot.target_pos` retirement; (d) the two recorded
+deep folds — the no-boss-arm integrate fold and `BossAttackIntent` → a
+general move-intent (which folds the boss brain-tick into
+`tick_actor_brains`) — DECIDE each: execute if the G-track left it cheap,
+else document as permanent policy with rationale. Also the deferred
+teardown: fused `gnu_ton` profile + `sync_boss_split_overlay` +
+`BossOverlayLayer` (test-referenced; smells entry 2026-07-05).
+
+### E7 / E8 — residue — [opus/sonnet]
+
+E7: the `ambition_actors` rename (pending Jon's Q2) + the features-hub
+facade dissolution. E8: `inventory_ui/` → `ambition_items`; the `time/`
+residue stays by measurement. Plus the remaining crit-3 slices:
+`dialog/speech_sfx.rs` voice table → a content voice-profile registry;
+`StartingCharacter` worn-sheet residue (`PLAYER_CHARACTER_ID` /
+`PLAYER_FILE_ROOT` in attack_hitbox.rs).
+
+### E-enc / E-assets — the quiet absorbs — [opus/sonnet]
+
+`encounter/` (+ `features/ecs/encounter_rewards.rs`, + boss_encounter's
+`encounter_script`/`rewards` halves) → `ambition_encounter`; `assets/` →
+`ambition_asset_manager`. Both are low-entanglement mechanical moves per
+the ledger; schedule them as fillers between the big carves.
+
+### App residue — the progression schedule split — [opus]
+
+`ProgressionSchedulePlugin` interleaves engine boss-encounter systems
+with content quest/cut-rope systems — split into an engine progression
+group (→ `ambition_host` or the runtime group) + content attachments via
+labeled sets, same shape as the combat-schedule slots. (New finding from
+the 2026-07-05 inventory; previously untracked.)
+
+## Phase D-B — the post-carve `ambition_actors` and the navigability standard
+
+After D-A, the residue is the actor sim core (~30–35k): spawn/tick/
+perception/damage-routing, player systems, ability kit, body modes,
+session, schedules, view-index builders. Rulings:
+
+- **Re-measure before further splits** (U1 stands). The likely-clean
+  further carve if measurement supports it: the traversal-ability kit
+  (blink/dive/grapple/possession) — it reads the controlled-subject seam
+  and kinematics, not the spawn machinery. Do NOT pre-commit.
+- **The navigability standard applies INSIDE the crate** (this is where
+  "agents can work cleanly" is actually won, and it applies to every
+  engine crate): every module ≤ ~1.5k lines with a header stating its
+  ONE concern, its authoritative state, and its seams; `features/mod.rs`
+  hub-glob patterns dissolve into explicit imports (standing rule); the
+  schedule vocabulary documented in one place; a `MODULES.md` map at the
+  crate root maintained by the same rule as TODO discipline. Slices are
+  mechanical [sonnet] once E-track lands.
+
+## Phase D-C — the demo-hosting seam (ambition runs the demos)
+
+The vision §5 requirement forces one more decomposition artifact — the
+**scoped game-mode pattern**: a demo's rules crate exposes
+`<Demo>RulesPlugin` whose systems are gated on an area/room tag (a
+`RoomMetadata` field, the C1 `gallery` pattern generalized to
+`mode: Option<String>`), not on global state. `ambition_app` adds the
+demo content crates + mounts their zones; the standalone demo app adds
+the same rules plugin globally. Design detail in
+[`../demos/README.md`](../demos/README.md); the engine-side slice is the
+room-scoped run-condition helper (`in_mode("sanic")`) + the mode field.
+
+## Exit criteria (the whole playbook)
+
+1. `ambition_gameplay_core` no longer exists (renamed residue included);
+   every crate in architecture.md's stack is real with imports flowing
+   downward (enforced by the boundary tests).
+2. The named-content grep over engine crates hits zero (test fixtures
+   allowed only under `cfg(test)`).
+3. A demo app builds from runtime+host groups + its content crate with
+   zero engine edits (the oracle, executable).
+4. Workspace green: `cargo test --workspace --all-targets --features
+   rl_sim` (the one documented feel-reserved RED allowed).
+5. Compile receipts: hot-path incremental rebuild (touch a combat file →
+   rebuild) measurably below the monolith baseline recorded before D-A.

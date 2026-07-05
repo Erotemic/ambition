@@ -6,7 +6,7 @@
 > engine-owned canonical spatial model; AABB stays the protected fast path;
 > momentum-based locomotion (the "Sanic" demo) is the stress test. The execution
 > plan derived from this doc is
-> [`../../reviews/fable-review-2026-07-05.md`](../../reviews/fable-review-2026-07-05.md);
+> [`../../archive/reviews/fable-review-2026-07-05.md`](../../archive/reviews/fable-review-2026-07-05.md) (historical);
 > this doc should eventually spawn one or more ADRs (it revises ADR 0017's
 > "LDtk is for space" shorthand) but does not force all implementation
 > immediately. Like ADR 0020: do not deviate without raising an explicit

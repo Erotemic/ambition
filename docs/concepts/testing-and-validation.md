@@ -14,7 +14,7 @@ implemented_by:
 related_docs:
   - docs/systems/testing-strategy.md
   - docs/systems/headless-simulation.md
-  - docs/current/risks.md
+  - docs/planning/tracks.md
 related_memory:
   - dev/journals/cargo-test-command-lessons-2026-05-11.md
   - dev/benchmark-candidates/cargo-test-single-filter-question-2026-05-11.md

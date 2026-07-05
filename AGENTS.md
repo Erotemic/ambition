@@ -20,21 +20,27 @@ For non-trivial work, read in this order:
 3. `dev/README.md`
 4. `dev/SEARCH.md`
 5. `docs/README.md`
-6. `docs/current/state.md`
-7. One focused concept, system doc, recipe, tool doc, planning doc, or vision doc for the task
+6. `docs/planning/README.md` → `docs/planning/vision.md` + `docs/planning/tracks.md` (the master plan + live queue)
+7. One focused concept, system doc, recipe, tool doc, or planning doc for the task
 
 Do not read all of `docs/` or `dev/` by default.
 
 ## Source-of-truth order
 
 1. Fresh user instructions.
-2. ADRs under `docs/adr/`.
-3. Current state under `docs/current/`.
+2. **The master plan under `docs/planning/`** — the single source of truth
+   for direction and tasking ("implement the plan in docs/planning" is the
+   standing job). Its living-plan discipline (`docs/planning/README.md`) is
+   binding: work commits update the plan in the same commit.
+3. ADRs under `docs/adr/`.
 4. Concept pages under `docs/concepts/`.
 5. Focused system/tool docs and recipes under `docs/systems/`, `docs/tools/`, and `docs/recipes/`.
-6. Planning, vision, and brainstorms under `docs/planning/`, `docs/vision/`, and `docs/brainstorms/`.
+6. Brainstorms under `docs/brainstorms/` (Jon's — agents never write there).
 7. Engineering memory under `dev/`.
 8. Generated navigation indexes under `.agent/`.
+
+`docs/current/` is retired (archived 2026-07-05); `docs/vision/` holds
+auxiliary vision notes only — direction lives in `docs/planning/`.
 
 Historical notes under `docs/archive/` are evidence, not current authority. Generated indexes aid localization but do not override source files.
 
@@ -44,89 +50,55 @@ Historical notes under `docs/archive/` are evidence, not current authority. Gene
 - Prefer data-driven ECS flow: authored/generated data -> Bevy components/entities -> systems -> messages/effects.
 - LDtk owns world/level authoring. RON room manifests are historical; RON may still be used for tuning, save/settings, and other data where appropriate.
 - Preserve desktop, web, Android/mobile/touch, controller, and Steam Deck paths. iOS is deferred for hardware, not excluded.
-- **Layered crate split (Stage 20, 2026-06-10):** `ambition_gameplay_core` is the
-  gameplay core library: content-free simulation systems, runtime state, world/LDtk
-  integration, player/session systems, combat/items/encounter machinery, persistence,
-  schedules, and historical facade re-exports. `ambition_render` is the Bevy
-  presentation layer (sprites, camera, parallax, HUD, dialog/cutscene UI, fonts,
-  and render-only visual systems). `ambition_content` is the named game content
-  (quests, bosses, rosters, dialogue, intro, banter, portal adapters) and depends
-  on the machinery. `ambition_app` is the assembly + every binary
-  (`ambition_game_bin`, `headless`, `trace_replay`, `rl_*`) + the full-stack
-  integration tests, and is the only crate allowed to name both machinery and
-  content. Machinery must not import content — `architecture_boundaries` enforces
-  it. Schedule vocabulary (`SandboxSet` etc.) stays in
-  `ambition_gameplay_core::schedule`.
+- **Crate layering:** foundations ← machinery (`ambition_gameplay_core`, being
+  decomposed) ← presentation (`ambition_render`) ← content (`ambition_content`)
+  ← app (`ambition_app`, the only crate naming both machinery and content;
+  `architecture_boundaries` enforces it). The target stack and the teardown
+  playbook: `docs/planning/engine/architecture.md` +
+  `docs/planning/engine/decomposition.md`.
 
 ## Autonomous decision-making
 
-When operating autonomously and you hit an architecture or design fork, **make the
-choice Jon would most likely make and act** — read
-`docs/concepts/autonomous-decision-making.md`. The short version: most
-architecture/implementation forks are yours to decide (reserve questions for
-product/scope, irreversible/outward-facing acts, or true intent ambiguity); score
-candidates by elegance (obvious single source of truth, follows seams, no hidden
-ordering), the layer boundaries (Rust=behavior, RON=content, LDtk=space, machinery
-imports no named content), runtime efficiency, maintainability, and conciseness;
-refactor toward the better-scoring option rather than taking the easy path; prefer
-single-commit replacement over compatibility shims (pre-release); and on a timed
-or autonomous run, **infer and keep going — do not stall to ask.** Until a polish
-pass, output/feel is not a constraint — refactor for elegance even when behavior
-changes. The gates are: it compiles (including `ambition_app`) and invariants hold.
+When operating autonomously and you hit an architecture or design fork, **make
+the choice Jon would most likely make and act** — read
+`docs/planning/decision-principles.md` (Jon's criteria) and
+`docs/concepts/autonomous-decision-making.md`. Reserve questions for
+product/scope, irreversible/outward-facing acts, or true intent ambiguity;
+otherwise infer and keep going — do not stall to ask. Until a polish pass,
+output/feel is not a constraint. The gates: it compiles (including
+`ambition_app`) and invariants hold.
 
 ## Verification
 
 * **Drive the real headless sim — don't say "I can't test it."** The game runs
-  headless (`ambition_app` `headless` / `trace_replay` binaries): step the actual
-  simulation from any state and observe how it progresses. The only thing you may
-  be unsure of is visuals (and those are headed for headless render-to-disk
-  spot-checks). If the real sim can't be exercised headlessly from some state,
-  fixing *that* is the priority — never settle for a proxy/approximation.
-* **Test invariants and properties, not tuned values or feel.** The strongest
-  tests are SYMMETRY / COVARIANCE under the relativity principle — an action
-  behaving identically under C4 gravity rotation and through portals — because
-  those survive feel tweaks. Also: no OOB / wedge / NaN, determinism, feature
-  composition. Do NOT write new regression tests to pin unpolished behavior.
-* **Bit-identical / replay tests are canaries, not cages.** Their job is to flag
-  when a change you *expected* to be behavior-neutral actually wasn't — a smell
-  worth a look. Expect them to fail over time as elegance changes behavior; when
-  the diff isn't egregious, just re-baseline the target (script the update if it's
-  tedious). A failing canary is information, not a wall.
+  headless (`headless` / `trace_replay` binaries); step the actual simulation
+  and observe. If the real sim can't be exercised headlessly from some state,
+  fixing THAT is the priority. Only visual feel is exempt (ships BLIND).
+* **Test invariants and properties, not tuned values or feel** — the strongest
+  are symmetry/covariance (C4 gravity rotation, through-portal). No new
+  regression tests pinning unpolished behavior.
+* **Bit-identical / replay tests are canaries, not cages** — a failure is
+  information; re-baseline when the diff isn't egregious.
+  Full doctrine: `docs/planning/engine/headless-verification.md`.
 
 ## Spatial authoring discipline (LDtk, gates, hitboxes)
 
-If you are placing entities, gates, walls, hitboxes, or other map
-geometry, read `docs/concepts/llm-spatial-authoring-discipline.md`
-before asking the user "where exactly?". The short version: read the
-map, infer the *purpose* of the component (block exit / block entry
-/ gate progression), place it along the seam that fulfils that
-purpose, and state the reasoning in the commit message. Asking
-"where?" is the wrong default.
+Before asking "where exactly?", read
+`docs/concepts/llm-spatial-authoring-discipline.md`: read the map, infer the
+component's PURPOSE, place it on the seam that fulfils it, state the
+reasoning in the commit message. Asking "where?" is the wrong default.
 
 ## Engineering memory and benchmark candidates
 
-Before a non-trivial patch, search prior mistakes:
-
-```bash
-rg -n "<subsystem>|<symptom>|<failure class>" dev/journals dev/benchmark-candidates
-```
-
-Use `dev/journals/` for symptom postmortems and `dev/benchmark-candidates/` for invariant traps before refactors.
-
-If you notice a reusable failure mode, invariant trap, or repo-specific question that would catch a future agent mistake, opportunistically add or update a benchmark candidate under `dev/benchmark-candidates/` and link it from `dev/benchmark-candidates/index.md`. Do this only for durable lessons, not transient task state.
+Before a non-trivial patch: `rg -n "<subsystem>|<symptom>" dev/journals
+dev/benchmark-candidates` (postmortems + invariant traps). Add durable
+lessons to `dev/benchmark-candidates/` + its index — never transient state.
 
 ## Generated indexes
 
-`.agent/index/` is generated, intentionally ignored by Git, and should not be committed.
-
-If `.agent/index/` is missing, stale, or needed for file/symbol/test lookup,
-regenerate it before using it:
-
-```bash
-python scripts/generate_agent_index.py
-python scripts/check_agent_kb.py
-python scripts/check_doc_links.py
-```
+`.agent/index/` is generated and git-ignored. If missing/stale, regenerate:
+`python scripts/generate_agent_index.py && python scripts/check_agent_kb.py
+&& python scripts/check_doc_links.py`.
 
 ## Commit messages
 
@@ -141,10 +113,7 @@ python scripts/check_doc_links.py
 
 ## Style
 
-To keep merge conflicts simple to resolve use a style formatter.
-
-- Use `cargo fmt` on any modified Rust files.
-- Use `ruff format` on any modified Python files.
+- `cargo fmt` on modified Rust files; `ruff format` on modified Python files.
 
 ## Common validation commands
 

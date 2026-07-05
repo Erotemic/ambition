@@ -6,13 +6,14 @@ Use this file to choose what to read. Do not load the whole documentation tree b
 
 - [`../README.md`](../README.md) — stable project overview.
 - [`../AGENTS.md`](../AGENTS.md) — short agent operating instructions.
-- [`current/state.md`](current/state.md) — current architecture and implementation state.
-- [`current/risks.md`](current/risks.md) — high-risk areas and review rules.
-- [`current/next.md`](current/next.md) — current next moves.
+- **[`planning/README.md`](planning/README.md) — THE master plan** (vision,
+  roadmap, live work queue in [`planning/tracks.md`](planning/tracks.md),
+  and a design doc per planned system). The single source of truth for
+  direction; its living-plan discipline is binding on executors.
 - [`adr/README.md`](adr/README.md) — durable architectural decisions.
 - [`../dev/README.md`](../dev/README.md) and [`../dev/SEARCH.md`](../dev/SEARCH.md) — engineering memory and lookup protocol.
 
-## Durable memory
+## Durable memory (what exists today)
 
 - [`concepts/index.md`](concepts/index.md) — concepts, aliases, invariants, edit protocols, validation anchors.
 - [`systems/index.md`](systems/index.md) — current subsystem docs.
@@ -21,12 +22,22 @@ Use this file to choose what to read. Do not load the whole documentation tree b
 - [`mechanics/index.md`](mechanics/index.md) — mechanics expressibility and current gameplay primitives.
 - [`adr/`](adr/) — decisions that supersede older plans.
 
+These describe the EXISTING system and may lag the code; refreshing them is
+a scheduled track in the plan. Where they contradict `planning/`, the plan
+wins for direction and the code wins for current fact.
+
 ## Direction and planning
 
-- [`brainstorms/`](brainstorms/) — active design incubation. This is alive, not archive.
-- [`vision/index.md`](vision/index.md) — distilled product direction.
-- [`planning/index.md`](planning/index.md) — active sequencing and debt management.
-- [`archive/README.md`](archive/README.md) — superseded notes, old handoffs, retired systems, and historical overlays.
+- [`planning/`](planning/README.md) — the master plan (see Start here).
+- [`brainstorms/`](brainstorms/) — Jon's design incubation. Alive, not
+  archive — and agents never write here.
+- [`vision/index.md`](vision/index.md) — auxiliary vision notes
+  (movement-instrument sandbox, external references). Direction itself
+  lives in `planning/vision.md`.
+- [`archive/README.md`](archive/README.md) — superseded notes, old
+  handoffs, retired systems, historical reviews
+  ([`archive/reviews/`](archive/reviews/)), and the retired
+  `docs/current/` snapshots.
 
 ## Generated agent indexes
 
@@ -38,7 +49,7 @@ python scripts/check_agent_kb.py
 python scripts/check_doc_links.py
 ```
 
-Generated indexes are navigation aids. They do not override source files, ADRs, current docs, or concept pages. The current archive includes:
+Generated indexes are navigation aids. They do not override source files, ADRs, or concept pages. The current archive includes:
 
 - [`../.agent/manifest.yaml`](../.agent/manifest.yaml)
 - [`../.agent/retrieval_evals.yaml`](../.agent/retrieval_evals.yaml)
@@ -47,7 +58,7 @@ Generated indexes are navigation aids. They do not override source files, ADRs, 
 
 Read the smallest packet that answers the task:
 
-1. current state/risks/next,
+1. `planning/README.md` → `planning/tracks.md` for tasking,
 2. one concept page,
 3. one focused system/tool doc or recipe,
 4. relevant dev-memory search results,

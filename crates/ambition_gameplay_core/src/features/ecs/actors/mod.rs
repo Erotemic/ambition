@@ -62,9 +62,11 @@ fn shark_charge_crashed_geometry(
 }
 
 mod conversion;
+mod limbs;
 mod motion;
 mod update;
 pub use conversion::*;
+pub use limbs::*;
 pub use motion::*;
 pub use update::*;
 

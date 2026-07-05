@@ -703,7 +703,22 @@ expands `key + params → MoveSpec` at roster install (`sword_slash = simple_mel
 green. **A-track ability model is now COMPLETE (§0 crit 2): data + prefab
 registry + techniques-with-params.** A3 rides M1.
 
-**NEXT HEADS:** C1–C4 (small named-content evictions → §0 crit 3, low-risk,
-in progress); S3b→S4 (continue Sanic); G1→G4 unblock G5 [★fable]; **E5
-(`ambition_runtime`) — the demo gate for S5 [senior] + M-track — needs a careful
-dedicated pass (guts the app boot).** W1 independent.
+## C2 — the engine names no default character ✅ (`f9392130`, opus)
+`StartingCharacter::DEFAULT_ID = "player"` deleted. `Default` is now EMPTY = "no
+override"; `effective_id()` resolves the concrete row LAZILY at spawn from a
+content-installed default (`character_roster::install_default_character_id`,
+fallback = first catalog row, never an engine literal). Content injects
+`PLAYABLE_ROSTER[0]` at the catalog choke point. Consumers (wear seam,
+scene_setup, render-refresh) read `effective_id()`. Green; app builds. (Residue:
+`PLAYER_CHARACTER_ID`/`PLAYER_FILE_ROOT` in attack_hitbox.rs — a separate
+worn-sheet-geometry concern, left for a dedicated slice.)
+
+**INTEGRATION VERIFIED:** `cargo build -p ambition_app --features rl_sim` green
+after S2+A1+A2 (and C2) — the four slices integrate across the whole app.
+
+**NEXT HEADS:** C1 needs a NEW `ambition_ldtk_tools level add-field-def`
+subcommand (the `gallery` bool levelField has no def-authoring tool yet) + hall
+regen — deferred as its own slice. C4 (code_smells sweep) quick. Then the bigger
+dents: **G1→G4 (gnu split) unblock G5 [★fable]**; **E5 (`ambition_runtime`) —
+demo gate for S5 [senior]+M-track — needs a careful dedicated pass (guts app
+boot)**; S3b→S4 continue Sanic; W1 independent.

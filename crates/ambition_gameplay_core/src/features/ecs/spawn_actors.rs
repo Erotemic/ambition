@@ -824,6 +824,22 @@ pub(super) fn spawn_boss_with_overrides(
     // (hp / size / phase triggers) + `sync_boss_encounter_entities`
     // (encounter opt-out). Default for room-authored bosses ⇒ no-op.
     entity.insert(overrides.clone());
+    // ADR 0020: a boss authored as a would-be RIDER (non-empty
+    // `pilotable_mount_classes`) becomes a `CanPilot` — the SAME mount-role tag
+    // the enemy path attaches in `attach_mount_role`, so `spawn_boss` and
+    // `spawn_solo_enemy` stay symmetric (a boss can board a `giant_gnu` mount).
+    // `boss_attack_behavior` is a pre-`into_components` clone, still live here.
+    // The `RidingOn`/`MountSlot` link is installed later by
+    // `resolve_pending_mount_links` from the room's authored `mounted_on` refs.
+    if !boss_attack_behavior.pilotable_mount_classes.is_empty() {
+        entity.insert(super::CanPilot {
+            classes: boss_attack_behavior
+                .pilotable_mount_classes
+                .iter()
+                .map(|c| super::MountClass(c.clone()))
+                .collect(),
+        });
+    }
     // Per-boss special-technique state (apple-rain accumulator, overfit-volley
     // samples, pit/cross/cascade gates, eye-beam lock) is now content-owned
     // (`ambition_content::bosses::specials`), attached to every boss via

@@ -141,6 +141,17 @@ pub struct BossBehaviorProfile {
     /// "second game adds a boss without editing core" oracle, for strike shapes.
     #[serde(default)]
     pub strike_geometry: std::collections::HashMap<String, Vec<super::attack_geometry::StrikeRect>>,
+    /// ADR 0020: mount classes a boss authored as a would-be RIDER may pilot. A
+    /// boss that rides a mount (GNU-ton the scholar aboard the `giant_gnu` mount)
+    /// authors e.g. `["giant"]`; `spawn_boss` then attaches a [`CanPilot`] tag —
+    /// the SAME mount-role the enemy path attaches in `attach_mount_role`, so the
+    /// boss and enemy spawn paths stay symmetric. Empty (the default) ⇒ the boss
+    /// pilots nothing (every boss today). The `RidingOn`/`MountSlot` link itself is
+    /// installed later from the room's authored `mounted_on` refs.
+    ///
+    /// [`CanPilot`]: crate::features::CanPilot
+    #[serde(default)]
+    pub pilotable_mount_classes: Vec<String>,
 }
 
 /// Authored speech-bubble anchor for a boss (see
@@ -548,5 +559,30 @@ pub fn boss_animation_keys_for_profile(
         // Remaining strikes (wing_sweep / dive_lane / broadside) belong to
         // the legacy aerial bosses that still rely on `volumes_for_profile`.
         _ => &[],
+    }
+}
+
+#[cfg(test)]
+mod pilotable_mount_tests {
+    use super::*;
+
+    /// ADR 0020 field addition (fork #2): existing bosses author NO
+    /// `pilotable_mount_classes`, so the serde default keeps them empty — no boss
+    /// pilots anything until it's authored to. Regression pin that adding the
+    /// field left every current profile untouched.
+    #[test]
+    fn existing_profiles_default_to_no_pilotable_classes() {
+        assert!(
+            BossBehaviorProfile::clockwork_warden()
+                .pilotable_mount_classes
+                .is_empty(),
+            "the reference boss pilots nothing by default",
+        );
+        assert!(
+            BossBehaviorProfile::gnu_ton()
+                .pilotable_mount_classes
+                .is_empty(),
+            "GNU-ton authors its rider role in the G2 pair slice, not here",
+        );
     }
 }

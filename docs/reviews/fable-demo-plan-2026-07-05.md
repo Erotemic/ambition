@@ -734,8 +734,20 @@ Special-consumer half-vocabulary smell needs G3/E6; left honestly open.
 after S2+A1+A2+C2 — they integrate across the whole app. (C1 engine+LDtk verified
 via gameplay_core + content test suites.)
 
-**SESSION TALLY (opus, 2026-07-05 eve):** S2, A1, A2, C2, C1 — 6 feature commits.
-§0 crit 2 (ability model) COMPLETE; two crit-3 residues (C1, C2) closed.
+## S3b (converter) — the SurfaceLoop marker → generated rideable loop ✅ (`e5261468`, opus)
+Q17's content-registered `SurfaceLoop` marker converter (the 2nd consumer of the
+S3a converter seam): a `radius`+`segments` marker GENERATES a closed polygon loop
+into the `chains` channel — no hand-plotted points. Winding fixed INTERIOR-
+rideable (segment normals point to center → ride the inside). Registered in the
+converter map; added `SurfaceChain` (an S3a gap) + `SurfaceLoop` to the Python
+validator's KNOWN_ENTITIES. Tests pin the radius/closed/24-vertex shape + the
+inward-normal proof. **S3b REMAINING:** `ambition_ldtk_tools surface add/validate`
+subcommand (+ SurfaceLoop/SurfaceChain entity DEFS via `def register-entity`),
+the `sanic_sandbox` area, the debug-overlay gizmos.
+
+**SESSION TALLY (opus, 2026-07-05 eve):** S2, A1, A2, C2, C1, S3b-converter —
+7 feature commits. §0 crit 2 (ability model) COMPLETE; two crit-3 residues (C1,
+C2) closed; the momentum LOOP geometry now authorable from a marker.
 
 **NEXT HEADS (the bigger dents):** **G1→G4 (gnu split) unblock G5 [★fable]**;
 **E5 (`ambition_runtime`) — demo gate for S5 [senior] + M-track — needs a careful

@@ -713,12 +713,32 @@ scene_setup, render-refresh) read `effective_id()`. Green; app builds. (Residue:
 `PLAYER_CHARACTER_ID`/`PLAYER_FILE_ROOT` in attack_hitbox.rs — a separate
 worn-sheet-geometry concern, left for a dedicated slice.)
 
-**INTEGRATION VERIFIED:** `cargo build -p ambition_app --features rl_sim` green
-after S2+A1+A2 (and C2) — the four slices integrate across the whole app.
+## C1 — gallery is room metadata, not a hardcoded id ✅ (engine `30265b75` + LDtk `27f81e66`, opus)
+Engine: `RoomMetadata::gallery: bool` (merge ORs; level `field_bool`); the
+ambient-bark ticker switches Hall vs Idle pool off `active_metadata().gallery`;
+`HALL_OF_CHARACTERS_AREA` const deleted. LDtk: built the missing
+`ambition_ldtk_tools level add-field-def` subcommand (registers a levelField
+def; idempotent, type-guarded) → `gallery` def in sandbox + hall, hall authors
+`gallery: true`. En route fixed two pre-existing generator bugs: stale
+CATALOG/HALL paths (pointed at dead pre-R3.2 `gameplay_core/` locations — the
+generator only "worked" by scaffolding a fresh dead file) and a
+`--replace-existing` self-overlap (the overlap check counted the level being
+replaced). `generate hall-of-characters` now cleanly regens the real content
+file. Green.
 
-**NEXT HEADS:** C1 needs a NEW `ambition_ldtk_tools level add-field-def`
-subcommand (the `gallery` bool levelField has no def-authoring tool yet) + hall
-regen — deferred as its own slice. C4 (code_smells sweep) quick. Then the bigger
-dents: **G1→G4 (gnu split) unblock G5 [★fable]**; **E5 (`ambition_runtime`) —
-demo gate for S5 [senior]+M-track — needs a careful dedicated pass (guts app
-boot)**; S3b→S4 continue Sanic; W1 independent.
+**C-track status:** C1 ✅, C2 ✅. C3 (in-game character-select) → fold into E1e
+(menu). C4 (code_smells sweep): no entry is resolved by S2/A1/A2/C1/C2 yet — the
+Special-consumer half-vocabulary smell needs G3/E6; left honestly open.
+
+**INTEGRATION VERIFIED:** `cargo build -p ambition_app --features rl_sim` green
+after S2+A1+A2+C2 — they integrate across the whole app. (C1 engine+LDtk verified
+via gameplay_core + content test suites.)
+
+**SESSION TALLY (opus, 2026-07-05 eve):** S2, A1, A2, C2, C1 — 6 feature commits.
+§0 crit 2 (ability model) COMPLETE; two crit-3 residues (C1, C2) closed.
+
+**NEXT HEADS (the bigger dents):** **G1→G4 (gnu split) unblock G5 [★fable]**;
+**E5 (`ambition_runtime`) — demo gate for S5 [senior] + M-track — needs a careful
+dedicated pass (guts the app boot)**; S3b→S4 continue Sanic; W1–W4 world carve
+independent. The remaining §0 is the W/E crate carves + the two demos — all
+multi-session.

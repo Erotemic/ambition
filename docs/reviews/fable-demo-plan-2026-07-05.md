@@ -71,6 +71,26 @@ we write and review code, effective immediately:
    `FIXME(portal-api)` arc) will be the first consumer allowed to introduce a
    shared frame TYPE, and only for what it needs.
 
+### AJ14 — Slower light (Jon's stretch directive; seams now, mechanic later)
+
+Jon wants a **reduced-speed-of-light mechanic** (lower `c`; shader-driven
+visuals; "the trick is how to warp space") as a stretch goal the core must
+make easy. Full design + feasibility:
+[`../planning/engine/slower-light.md`](../planning/engine/slower-light.md).
+The adjudication in one paragraph: **you don't warp sim space — you warp the
+view.** One honest Galilean sim + a `c` speed cap + per-body time dilation
+(which is a γ written through the ALREADY-BUILT proper-time seam, ADR
+0010/0011) + light-limited information (a `Perception::LightLimited` policy
+reading retarded state); the "warp" (aberration/contraction/Doppler) is an
+observer-frame post pass at the camera boundary — the AJ13 camera-as-observer
+made literal. Staged as tiers L1 (sim: `LightZone` + γ + the twin test) → L2
+(retarded perception) → L3 (the shaders, BLIND) → L4 (the relativity biome),
+all POST-demo. **The only obligations on the live plan are Tier 0** — they
+cost ≈ nothing and are folded into the slices below: E4 carries per-body
+VELOCITY + the observer's velocity in the read-model and keeps one
+full-screen post seam; view/snapshot builders stay functions-of-inputs (no
+live-state aliasing); speed caps stay seam-shaped.
+
 ---
 
 ## 2. ANSWERS — every open question from the two frontier audits (binding)
@@ -424,7 +444,11 @@ Was R6's other half + the Tier-1 matrix gaps. All **[opus]** slices with a
 - **E3 [opus]** — R4e `ambition_sprite_sheet` + the asset-root flip (after
   G1, per Q25; absorbs ParallaxTheme/#5/#7/projectile-visual residue).
 - **E4 [opus]** — R4f: the Q26 scout, then `ambition_sim_view` + D3.7 if
-  clean.
+  clean. **AJ14 Tier-0 requirements bind here:** the read-model carries
+  per-rendered-body position AND velocity (world-frame, named per AJ13) plus
+  the OBSERVER's velocity in the camera snapshot, and the render stack keeps
+  ONE registered full-screen post-pass seam — the slower-light shaders (L3)
+  and any future observer-frame effect plug in there without a schema break.
 - **E5 [opus]** — R5: `ambition_runtime::PlatformerEnginePlugins` — **the
   demo gate.** Pull this forward aggressively; S5/M-track cannot start
   without it, and it needs E1e/E2/E3/E4 only to the extent the plugin groups
@@ -443,6 +467,8 @@ NOW  (parallel): S1 → S2 → S3 → S4        [the Sanic playable track]
                  G1 → G2 → G3 → G4        [the giant; G5 with fable later]
 NEXT:            E5 pulled forward (+ E1–E4 as they're ready), E6 after G3
 THEN:            S5 (demo_sanic) and M1–M4 (demo_smb) — adversarial, on E5
+POST-DEMO:       L1–L4 slower light (AJ14; Tier-0 seams already riding E4)
+                 G5 player-drives-the-giant; angled portals (frame-type arc)
 ```
 
 Compile discipline, verification gates, BLIND rules: unchanged from the

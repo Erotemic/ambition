@@ -5545,7 +5545,7 @@
 			"padding": 0,
 			"pxHei": 2638,
 			"pxWid": 2638,
-			"relPath": "../../sprites/player_robot_spritesheet.png",
+			"relPath": "../sprites/player_robot_spritesheet.png",
 			"savedSelections": [],
 			"spacing": 0,
 			"tags": ["sprite"],

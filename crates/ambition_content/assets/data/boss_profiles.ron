@@ -423,6 +423,19 @@
             ("hand_sweep", (slots: ["hand_left", "hand_right"], motion: SweepAcross)),
             ("converging_shockwave", (slots: ["hand_left", "hand_right"], motion: SlamDown)),
         ],
+        // G5 (R10.6): the possessed-verb map — possess the scholar and your
+        // controller verbs command his kit through the same directional-verb
+        // chain an actor melee resolves (attack_down → attack). Because the
+        // move keys match `limb_routing`, these verbs drive the giant's hands
+        // when he's aboard: neutral/side attack sweeps the facing-side hand,
+        // down+attack slams both hands, up+attack raises the converging
+        // shockwave slam, special rains apples. BLIND / Jon retunes bindings:
+        possessed_verbs: [
+            ("attack", "hand_sweep"),
+            ("attack_down", "hand_slam"),
+            ("attack_up", "converging_shockwave"),
+            ("special", "apple_rain"),
+        ],
         movement: StationaryGiant(
             sway_amplitude: 6.0,
             sway_frequency: 0.28,

@@ -165,6 +165,21 @@ pub struct BossBehaviorProfile {
     /// wires its own limbs with no edit to core.
     #[serde(default)]
     pub limb_routing: Vec<(String, LimbRoute)>,
+    /// G5 (R10.6): the POSSESSED-VERB map — controller verb → this boss's move
+    /// key, consulted when a human possesses the boss (`Brain::Player`). The
+    /// possession arm reduces the controller's aim to a directional attack verb
+    /// through the SAME chain every actor melee resolves
+    /// ([`ambition_entity_catalog::directional_verb_chain`]: `attack_down` →
+    /// `attack`), then looks the winning verb up HERE; `"special"` maps the
+    /// special button. Combined with [`Self::limb_routing`], this is the
+    /// controller→limb map: possess GNU-ton, aim down + attack → `hand_slam` →
+    /// both giant hands slam. Empty (the `#[serde(default)]`) ⇒ the legacy
+    /// possession mapping (primary strike / signature special) — every boss
+    /// today except the gnu-ton rider. Authored in `boss_profiles.ron`; verbs
+    /// are data, so a second game's possessable boss maps its own controls with
+    /// no edit to core.
+    #[serde(default)]
+    pub possessed_verbs: Vec<(String, String)>,
 }
 
 /// Q18 (G3): one motion verb the limb router turns into a `velocity_target` arc
@@ -627,5 +642,46 @@ mod pilotable_mount_tests {
                 .is_empty(),
             "GNU-ton authors its rider role in the G2 pair slice, not here",
         );
+    }
+
+    /// G5 field addition: `possessed_verbs` defaults empty (legacy possession
+    /// mapping) for every profile that doesn't author it, and the gnu-ton
+    /// rider's authored map is TYPO-GUARDED — every verb's move key must name a
+    /// move in the profile's own `attacks` repertoire, or the verb could never
+    /// fire (the trigger looks the move up by id in the boss's moveset).
+    #[test]
+    fn possessed_verbs_default_empty_and_authored_keys_name_real_attacks() {
+        assert!(
+            BossBehaviorProfile::clockwork_warden()
+                .possessed_verbs
+                .is_empty(),
+            "unauthored profiles keep the legacy possession mapping",
+        );
+
+        let rider = BossBehaviorProfile::from_data("gnu_ton_rider");
+        assert!(
+            !rider.possessed_verbs.is_empty(),
+            "the gnu-ton rider authors the G5 possessed-verb map",
+        );
+        let move_ids: Vec<String> = rider.attacks.iter().map(|p| p.move_id()).collect();
+        for (verb, move_key) in &rider.possessed_verbs {
+            assert!(
+                move_ids.contains(move_key),
+                "possessed verb '{verb}' names '{move_key}', which is not in the \
+                 rider's authored attacks {move_ids:?} — the verb could never fire",
+            );
+        }
+        // The two limb verbs land on routed strikes so possession drives the
+        // giant's hands (the G5 payoff): both keys appear in limb_routing.
+        for key in ["hand_slam", "hand_sweep"] {
+            assert!(
+                rider
+                    .possessed_verbs
+                    .iter()
+                    .any(|(_, move_key)| move_key == key)
+                    && rider.limb_routing.iter().any(|(k, _)| k == key),
+                "'{key}' should be reachable by a possessed verb AND limb-routed",
+            );
+        }
     }
 }

@@ -846,7 +846,7 @@ pub fn advance_move_playback(
 /// — the same frame the move's volume offsets live in. A forward or neutral aim
 /// both read `Neutral` (the plain jab); an aim opposite facing reads `Back`.
 /// Vertical wins ties so a clear up/down aim beats slight horizontal drift.
-fn attack_dir_from_axis(axis: ae::Vec2) -> AttackDir {
+pub(crate) fn attack_dir_from_axis(axis: ae::Vec2) -> AttackDir {
     const DEADZONE: f32 = 0.5;
     if axis.y.abs() >= axis.x.abs() && axis.y.abs() > DEADZONE {
         if axis.y < 0.0 {

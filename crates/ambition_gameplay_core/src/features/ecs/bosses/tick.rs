@@ -21,6 +21,70 @@ fn mirror_intent(attack_state: &BossAttackState, intent: &mut BossAttackIntent) 
     intent.active_profile = attack_state.active_profile.clone();
 }
 
+/// G5 (R10.6): resolve a POSSESSING controller's attack input into the boss's
+/// fire intent — the controller→verb→move map.
+///
+/// A melee press reduces the controller's body-local aim to a discrete
+/// [`AttackDir`](ambition_entity_catalog::AttackDir) (`attack_dir_from_axis`,
+/// the SAME reduction the actor moveset trigger uses) and walks the shared
+/// [`directional_verb_chain`](ambition_entity_catalog::directional_verb_chain)
+/// (`attack_down` → `attack`; a boss is a free-mover, so there is no
+/// grounded/air split in its chain) over the profile's authored
+/// `possessed_verbs`; the special/projectile button resolves the `"special"`
+/// verb. The winning move key becomes the intent profile via
+/// [`BossAttackProfile::from_move_id`] — the same id `limb_routing` keys on, so
+/// aboard a limb-rigged mount the verb lands on the giant's hands with no extra
+/// plumbing.
+///
+/// A boss authoring NO verbs keeps the legacy deterministic mapping —
+/// melee → primary authored strike (`slot(0)`), special → signature content
+/// special (falling back to `slot(1)`) — byte-identical to the pre-G5 arm
+/// (pinned by `possession_verb_map_tests`).
+fn possessed_attack_choice(
+    frame: &ambition_characters::actor::control::ActorControlFrame,
+    behavior: &crate::features::bosses::BossBehaviorProfile,
+    capability: Option<&ambition_characters::brain::BossCapability>,
+) -> Option<ambition_characters::brain::BossAttackProfile> {
+    use ambition_characters::brain::BossAttackProfile;
+    let verb_move = |verb: &str| -> Option<&String> {
+        behavior
+            .possessed_verbs
+            .iter()
+            .find(|(v, _)| v == verb)
+            .map(|(_, move_key)| move_key)
+    };
+    if frame.melee_pressed || frame.pogo_pressed {
+        // A dedicated pogo press aims Down (mirrors `trigger_moveset_moves`);
+        // a plain melee press resolves by the body-local aim axis.
+        let dir = if frame.pogo_pressed && !frame.melee_pressed {
+            ambition_entity_catalog::AttackDir::Down
+        } else {
+            crate::combat::moveset::attack_dir_from_axis(frame.attack_axis)
+        };
+        let authored = ambition_entity_catalog::directional_verb_chain(
+            crate::combat::moveset::ATTACK_VERB,
+            dir,
+            /* grounded: a boss floats — its verb map authors no air variants */
+            true,
+        )
+        .into_iter()
+        .find_map(|verb| verb_move(&verb));
+        if let Some(move_key) = authored {
+            return Some(BossAttackProfile::from_move_id(move_key));
+        }
+        return capability.and_then(|c| c.slot(0)).map(|(p, _)| p.clone());
+    }
+    if frame.special_pressed || frame.projectile_pressed {
+        if let Some(move_key) = verb_move("special") {
+            return Some(BossAttackProfile::from_move_id(move_key));
+        }
+        return capability
+            .and_then(|c| c.signature_special().or_else(|| c.slot(1)))
+            .map(|(p, _)| p.clone());
+    }
+    None
+}
+
 /// Sync each boss's `encounter_phase` mirror from the entity-local
 /// [`BossPhaseState`] copy (`BossEncounter.encounter`). The mirror is a convenience
 /// field the brain (`BossPatternContext`) reads; the `BossEncounter.encounter`
@@ -397,31 +461,22 @@ pub fn tick_boss_brains_system(
             // gate (a live `MovePlayback` blocks re-trigger, invariant I3), so the
             // possession path needs no separate `active_remaining` bookkeeping. The
             // `BossAttackState` read-model is written SOLELY by the projection from that
-            // live move — no direct write here.
+            // live move — no direct write here. A possessed strike fires as a REAL
+            // strike (R1.4: possession grants the full kit; the hitbox carries the
+            // possessor's effective faction, stamped in `advance_move_playback`), and
+            // when this boss RIDES a limb-rigged mount, the projected `BossAttackState`
+            // drives `route_boss_strikes_to_limbs` exactly as the autonomous pattern
+            // does — press down+attack aboard the giant and both hands slam (G5).
             //
-            // Deterministic mapping (tuning/design is a follow-up): attack → the boss's
-            // primary authored strike; special (blink button) / projectile → its
-            // SIGNATURE content special (falling back to the next strike if the boss
-            // authors only geometry moves). A boss with no authored special is a no-op.
-            //
-            // BLIND (Jon feel-checks): a possessed GEOMETRY strike is suppressed by the
-            // trigger (parity with the retired `sync_boss_strike_hitboxes`, which never
-            // struck for a player-controlled boss). With `BossAttackState` now
-            // projection-only, a suppressed geometry strike starts no move and so shows
-            // no strike POSE either (its damage was already suppressed). A SPECIAL still
-            // fires — its move projects the pose and sustains the content technique with
-            // the firer's effective Player faction. Restoring the geometry strike as a
-            // REAL strike (routed through the moveset with effective faction) is the
-            // effective-faction follow-up.
+            // The mapping is the G5 CONTROLLER→VERB MAP (`possessed_attack_choice`):
+            // the profile's authored `possessed_verbs` resolved through the same
+            // directional-verb chain an actor melee uses, falling back to the legacy
+            // deterministic mapping (primary strike / signature special) for a boss
+            // that authors no verbs. Verb bindings are BLIND (Jon feel-checks).
             intent.clear();
-            let choice = if frame.melee_pressed {
-                capability.and_then(|c| c.slot(0).cloned())
-            } else if frame.special_pressed || frame.projectile_pressed {
-                capability.and_then(|c| c.signature_special().or_else(|| c.slot(1)).cloned())
-            } else {
-                None
-            };
-            if let Some((profile, _strike_seconds)) = choice {
+            if let Some(profile) =
+                possessed_attack_choice(&frame, &boss.config.behavior, capability)
+            {
                 intent.active_profile = Some(profile);
             }
             continue;
@@ -939,6 +994,100 @@ mod attack_moveset_tests {
                 .get::<crate::combat::moveset::MovePlayback>(boss)
                 .is_none(),
             "an abandoned windup is aborted before it can strike"
+        );
+    }
+}
+
+#[cfg(test)]
+mod possession_verb_map_tests {
+    use super::*;
+    use ambition_characters::actor::control::ActorControlFrame;
+    use ambition_characters::brain::{BossAttackProfile, BossCapability};
+    use ambition_engine_core as ae;
+
+    fn rider_behavior() -> crate::features::bosses::BossBehaviorProfile {
+        crate::features::bosses::BossBehaviorProfile::from_data("gnu_ton_rider")
+    }
+
+    fn melee_frame(axis: ae::Vec2) -> ActorControlFrame {
+        let mut f = ActorControlFrame::neutral();
+        f.melee_pressed = true;
+        f.attack_axis = axis;
+        f
+    }
+
+    /// G5: the possessed controller's aim resolves through the directional-verb
+    /// chain over the profile's authored `possessed_verbs` — neutral sweeps,
+    /// down slams, up raises the shockwave, special rains apples. The resolved
+    /// ids are exactly the `limb_routing` keys, so aboard the giant these ARE
+    /// the limb verbs.
+    #[test]
+    fn possessed_verbs_resolve_directionally() {
+        let behavior = rider_behavior();
+        let cases = [
+            (ae::Vec2::ZERO, "hand_sweep"),                     // neutral attack
+            (ae::Vec2::new(1.0, 0.0), "hand_sweep"),            // forward attack
+            (ae::Vec2::new(0.0, 1.0), "hand_slam"),             // down (+y = toward feet)
+            (ae::Vec2::new(0.0, -1.0), "converging_shockwave"), // up
+        ];
+        for (axis, expected) in cases {
+            let got = possessed_attack_choice(&melee_frame(axis), &behavior, None)
+                .unwrap_or_else(|| panic!("aim {axis:?} resolves a move"));
+            assert_eq!(
+                got.move_id(),
+                expected,
+                "aim {axis:?} should command '{expected}'",
+            );
+        }
+        // Back-aim: no authored `attack_back`, so the chain falls through to
+        // the base `attack` verb — the sweep again, never a silent no-op.
+        let back = possessed_attack_choice(&melee_frame(ae::Vec2::new(-1.0, 0.0)), &behavior, None)
+            .expect("back aim falls through the chain to the base attack verb");
+        assert_eq!(back.move_id(), "hand_sweep");
+
+        let mut special = ActorControlFrame::neutral();
+        special.special_pressed = true;
+        let got = possessed_attack_choice(&special, &behavior, None)
+            .expect("the special button resolves the authored 'special' verb");
+        assert_eq!(got, BossAttackProfile::Special("apple_rain".to_string()));
+    }
+
+    /// A boss that authors NO possessed verbs keeps the legacy deterministic
+    /// mapping byte-for-byte: melee → the primary authored strike (`slot(0)`),
+    /// special → the signature content special. No behavior change for every
+    /// existing possessable boss.
+    #[test]
+    fn a_boss_without_verbs_keeps_the_legacy_possession_mapping() {
+        let behavior = crate::features::bosses::BossBehaviorProfile::clockwork_warden();
+        assert!(behavior.possessed_verbs.is_empty());
+        let cap = BossCapability {
+            specials: vec![
+                (BossAttackProfile::Strike("floor_slam".to_string()), 0.3),
+                (
+                    BossAttackProfile::Special("overfit_volley".to_string()),
+                    2.0,
+                ),
+            ],
+        };
+
+        // Melee (any aim — no verbs means direction cannot rebind it).
+        let got =
+            possessed_attack_choice(&melee_frame(ae::Vec2::new(0.0, 1.0)), &behavior, Some(&cap))
+                .expect("legacy fallback: primary strike");
+        assert_eq!(got, BossAttackProfile::Strike("floor_slam".to_string()));
+
+        let mut special = ActorControlFrame::neutral();
+        special.special_pressed = true;
+        let got = possessed_attack_choice(&special, &behavior, Some(&cap))
+            .expect("legacy fallback: signature special");
+        assert_eq!(
+            got,
+            BossAttackProfile::Special("overfit_volley".to_string())
+        );
+
+        // No input → no intent.
+        assert!(
+            possessed_attack_choice(&ActorControlFrame::neutral(), &behavior, Some(&cap)).is_none()
         );
     }
 }

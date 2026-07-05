@@ -1106,3 +1106,227 @@ fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge()
         "an idle limb station-keeps toward its home anchor (steers back up)",
     );
 }
+
+/// G5 (R10.6) — the payoff, end-to-end from the CONTROLLER: possess the
+/// gnu_ton_rider boss aboard the giant, hold down+attack, and the giant's
+/// hands slam. The full chain in one headless app, every production system:
+///
+///   controller (`SlotControls`) → possessed brain tick (the G5 verb map:
+///   `attack_down` → `hand_slam` intent) → `trigger_boss_attack_moves`
+///   (starts the move at its strike edge) → `advance_move_playback` →
+///   `project_boss_attack_state_from_move` (sim-owned read-model) →
+///   `route_boss_strikes_to_limbs` (bridges the RidingOn/MountSlot link) →
+///   `fan_out_limb_intents` (writes the hands' `ActorControl`).
+///
+/// Nothing here is test-injected on the attack path: the verb map and the limb
+/// routing are the AUTHORED `gnu_ton_rider` profile from `boss_profiles.ron`,
+/// and the moveset is the production `boss_attack_moveset` build.
+#[test]
+fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
+    use crate::boss_encounter::{BossEncounterPhase, BossProfile, PhaseTrigger};
+    use crate::features::{
+        fan_out_limb_intents, route_boss_strikes_to_limbs, ActorSurfaceState, BodyKinematics,
+        BossConfig, Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot,
+    };
+    use ambition_characters::actor::control::ActorControlFrame;
+    use ambition_characters::brain::{
+        ActorControl, BossAttackIntent, BossAttackState, BossCapability, Brain, PlayerSlot,
+        SlotControls,
+    };
+
+    let profile =
+        BossProfile::from_id("gnu_ton_rider").expect("gnu_ton_rider boss profile is authored");
+    assert!(
+        profile
+            .behavior
+            .possessed_verbs
+            .iter()
+            .any(|(v, m)| v == "attack_down" && m == "hand_slam"),
+        "gnu_ton_rider must bind attack_down → hand_slam (the G5 verb map)",
+    );
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.init_resource::<ambition_time::WorldTime>();
+    {
+        let mut wt = app.world_mut().resource_mut::<ambition_time::WorldTime>();
+        wt.scaled_dt = 0.05;
+        wt.raw_dt = 0.05;
+    }
+    app.insert_resource(ambition_engine_core::RoomGeometry(ae::World::new(
+        "g5",
+        ae::Vec2::new(2000.0, 2000.0),
+        ae::Vec2::new(1000.0, 1000.0),
+        vec![],
+    )));
+    app.init_resource::<crate::MovingPlatformSet>();
+    app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
+    // The CONTROLLER: slot 0 holds down + attack (axis_y = +1 is toward-feet
+    // under default gravity — the down-tilt).
+    let mut controls = SlotControls::default();
+    let mut input = ambition_input::ControlFrame::default();
+    input.attack_pressed = true;
+    input.axis_y = 1.0;
+    controls.set(PlayerSlot(0), input);
+    app.insert_resource(controls);
+    app.add_message::<crate::combat::moveset::MoveEventMessage>();
+    app.add_systems(
+        Update,
+        (
+            crate::features::tick_boss_brains_system,
+            crate::features::trigger_boss_attack_moves,
+            crate::combat::moveset::advance_move_playback,
+            crate::features::project_boss_attack_state_from_move,
+            route_boss_strikes_to_limbs,
+            fan_out_limb_intents,
+        )
+            .chain(),
+    );
+
+    // The GIANT mount + two hand limbs (the G3 rig shape).
+    let giant_pos = ae::Vec2::new(1000.0, 1200.0);
+    let giant = app
+        .world_mut()
+        .spawn((
+            BodyKinematics {
+                pos: giant_pos,
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(220.0, 220.0),
+                facing: 1.0,
+            },
+            ActorSurfaceState {
+                surface_normal: ae::Vec2::new(0.0, -1.0),
+                gravity_scale: 1.0,
+            },
+            LimbIntents::default(),
+            LimbRouteState::default(),
+            MountSlot { rider: None },
+        ))
+        .id();
+    let spawn_hand = |app: &mut App, slot, home: ae::Vec2| {
+        app.world_mut()
+            .spawn((
+                Limb {
+                    of: giant,
+                    slot,
+                    home_offset: home,
+                },
+                BodyKinematics {
+                    pos: giant_pos + home,
+                    ..Default::default()
+                },
+                ActorControl(ActorControlFrame::neutral()),
+            ))
+            .id()
+    };
+    let hand_l = spawn_hand(&mut app, LimbSlot::HandLeft, ae::Vec2::new(-60.0, 20.0));
+    let hand_r = spawn_hand(&mut app, LimbSlot::HandRight, ae::Vec2::new(60.0, 20.0));
+    app.world_mut().entity_mut(giant).insert(LimbRig {
+        limbs: vec![hand_l, hand_r],
+    });
+
+    // The POSSESSED rider boss: the real cluster components + the production
+    // moveset built from its authored repertoire, driven by `Brain::Player(0)`.
+    let rider_pos = giant_pos + ae::Vec2::new(0.0, -140.0);
+    let capability = BossCapability {
+        specials: profile
+            .behavior
+            .attacks
+            .iter()
+            .map(|p| (p.clone(), 0.3))
+            .collect(),
+    };
+    let moveset = crate::features::boss_attack_moveset(
+        &capability,
+        &profile.behavior,
+        ae::Vec2::new(54.0, 96.0),
+        &[],
+    )
+    .expect("the rider's authored strikes build a moveset");
+    let (boss_encounter, _hp) = crate::combat::boss_clusters::test_support::test_boss_status_with(
+        profile.encounter.max_hp,
+        BossEncounterPhase::Phase1,
+        PhaseTrigger::intrinsic_from_spec(&profile.encounter),
+    );
+    let mut rider_actor = hostile(
+        "gnu_ton_rider",
+        "gnu_ton_rider",
+        rider_pos,
+        ae::Vec2::new(54.0, 96.0),
+    );
+    rider_actor.1 .5.gravity_scale = 0.0; // mounted → gravity off
+    let rider = app
+        .world_mut()
+        .spawn((
+            rider_actor,
+            boss_encounter,
+            BossConfig {
+                id: "gnu_ton_rider".into(),
+                name: profile.display_name.clone(),
+                spawn: rider_pos,
+                brain: ambition_characters::actor::BossBrain::Dormant,
+                behavior: profile.behavior.clone(),
+            },
+            Brain::Player(PlayerSlot(0)),
+            ActorControl(ActorControlFrame::neutral()),
+            BossAttackIntent::default(),
+            BossAttackState::default(),
+            capability,
+            moveset,
+            crate::combat::components::ActorFaction::Boss,
+            crate::features::ActorTarget::default(),
+            crate::features::FeatureSimEntity,
+            Mounted,
+            RidingOn { mount: giant },
+        ))
+        .id();
+    app.world_mut()
+        .entity_mut(giant)
+        .insert(MountSlot { rider: Some(rider) });
+
+    app.update();
+
+    // The controller press became the rider's hand_slam MOVE (verb map → intent
+    // → trigger), started at its strike edge (possession is instant).
+    let pb = app
+        .world()
+        .get::<crate::combat::moveset::MovePlayback>(rider)
+        .expect("down+attack starts the rider's hand_slam move");
+    assert_eq!(pb.spec.id, "hand_slam", "the G5 verb map picked hand_slam");
+
+    // And the giant's hands slammed: both limbs drive DOWN (+y = gravity) with
+    // the melee strike edge — the controller reached the limbs through every
+    // production seam in between.
+    let l = app.world().get::<ActorControl>(hand_l).unwrap().0;
+    let r = app.world().get::<ActorControl>(hand_r).unwrap().0;
+    assert!(
+        l.velocity_target.y > 0.0 && r.velocity_target.y > 0.0,
+        "both giant hands slam downward from the possessed press (l={:?} r={:?})",
+        l.velocity_target,
+        r.velocity_target,
+    );
+    assert!(
+        l.melee_pressed && r.melee_pressed,
+        "both hands fire the strike edge at the possessed slam's Active onset",
+    );
+
+    // Release the button: the intent clears, the move plays out (0.3s at
+    // 0.05/frame), and the hands return to station-keeping — no stale slam.
+    app.world_mut()
+        .resource_mut::<SlotControls>()
+        .set(PlayerSlot(0), ambition_input::ControlFrame::default());
+    for _ in 0..10 {
+        app.update();
+    }
+    assert!(
+        app.world()
+            .get::<crate::combat::moveset::MovePlayback>(rider)
+            .is_none(),
+        "the slam move finished and was removed",
+    );
+    let l = app.world().get::<ActorControl>(hand_l).unwrap().0;
+    assert!(
+        !l.melee_pressed,
+        "idle hands carry no strike edge after the move ends",
+    );
+}

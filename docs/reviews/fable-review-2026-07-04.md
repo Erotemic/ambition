@@ -1111,3 +1111,50 @@ a key," honestly bounded by the layering.
 After the profile-key collapse + #8, a boss's PROFILE + strike RECTS + sprite
 TARGET are 100% RON; only the sheet-LAYOUT statics remain, and they ride R4e with
 the rest of the sprite-metadata pipeline.
+
+---
+
+## R3.5 mount — CORRECTED execution map (opus, 2026-07-04; AJ3 under-specified)
+
+Investigated the full surface (mechanics are already generic:
+`Mountable`/`RidingOn`/`spawn_composite_mount_rider` — note `mount/mod.rs`'s doc
+names a stale `spawn_mount_rider_pair`; the real fn is `spawn_composite_mount_rider`
+at `spawn_mounts.rs:37`). The ldtk-tools capability EXISTS (`def update-entity
+EnemySpawn --add-field mount:String:` + `entity set-field`, run per .ldtk on
+BOTH `sandbox.ldtk` and `intro.ldtk`). The engine-side named residue
+(`pirate_on_shark`/`pirate_heavy_on_shark`) is ALL `#[cfg(test)]`; production
+resolves composition dynamically via `spec.is_composite()` (`enemies/mod.rs:658`,
+keyed on `composite_visual.is_some()`, decision at `spawn_actors.rs:927`).
+
+**THE LOAD-BEARING NUANCE AJ3 MISSED (do NOT execute naively):** the fused
+`pirate_on_shark` (`character_archetypes.ron:595`) / `pirate_heavy_on_shark`
+(`:677`) rows are the SOLE home of the MOUNTED rider's combat identity —
+`brain_template: Skirmisher`, `attack_range: 1100`, `ranged: Bolt(...)`,
+`held_item: "gun_sword"/"gun_sword_heavy"`, `rider_max_health: Some(4)/Some(6)` —
+AND a mount-body-HP override (`max_health: 6/7`; the standalone
+`burning_flying_shark` is HP 6, so the HEAVY rides a 7-HP shark). The plain
+`pirate_raider` (`:540`) and `pirate_heavy` (`:644`, `attacks_player: false`) are
+MELEE-ONLY cove grunts spawned standalone elsewhere. So AJ3's "rider keeps its own
+brain" = a naive `plain-rider + mount` compose **silently drops the gun-sword +
+1100px orbit-and-fire ranged behavior + both HP pools** — a real enemy-behavior
+regression that is NOT headless-verifiable (it's spawned-enemy combat feel).
+
+**Byte-identical decomposition (the correct model):** create DEDICATED mounted-
+rider archetypes (`pirate_shark_rider` / `pirate_heavy_shark_rider`) carrying the
+fused rows' rider loadout (Skirmisher/Bolt/gun_sword/rider HP as their own
+`max_health`); keep `burning_flying_shark` as the mount, and give the heavy its
+7-HP shark via a variant archetype OR a mount-HP override on the compose (the
+6-vs-7 mismatch is the fiddliest bit — decide if the tougher heavy-shark is
+intentional or an accident). Then: `mount: "<mount archetype id>"` +
+`brain: "<mounted-rider archetype>"` + `name: "<bare rider name>"` on the 7
+spawns; the compose reads the two ids; delete `composite_rider_name` +
+`rider_name_suffix`. Parity harness = the composite-spawn tests
+(`ecs/spawn/tests.rs:245-390`, `enemies/mod.rs:945-953/1213`) which pin the
+mounted rider's resolved spec — they catch a dropped loadout.
+
+**Status: DEFERRED.** This is a content-MODELING slice with a genuine judgment
+call (where the mounted loadout + the two HP pools live) and enemy-behavior
+regression risk, not the clean byte-identical field-plumbing AJ3 implied. Best
+done with Jon's steer on the mounted-loadout model (it also touches feel — the
+gun-sword shark-rider is a signature cove enemy). The corrected map above makes
+it a ~1-session slice once the model is picked.

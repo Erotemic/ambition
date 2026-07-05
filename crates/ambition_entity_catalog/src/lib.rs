@@ -206,6 +206,17 @@ pub struct HitVolume {
     /// `on_hit: Some(EffectRef { key: "pogo_bounce", .. })`.
     #[serde(default)]
     pub on_hit: Option<EffectRef>,
+    /// Presentation tag for this volume's strike (§7.1/§7.2): a bladed swing
+    /// authors `"slash_arc"` / `"slash_poke"` and the move runtime (a) draws the
+    /// slash VFX from the SAME spawned volume (hitbox and slash can never point
+    /// different ways) and (b) treats the volume as the character's BLADE —
+    /// resolving the sprite-manifest's authored per-animation hit polygon (keyed
+    /// by the move's clip name) in place of this synthetic shape when the owner
+    /// authors one. `None` = a silent, data-shaped volume (boss geometry
+    /// strikes, hazards) — no VFX, no manifest override. Unknown tags draw the
+    /// default arc; the tag set is engine presentation vocabulary, not content.
+    #[serde(default)]
+    pub vfx: Option<String>,
 }
 
 /// One span of a move's timeline. Times are seconds of the owner's proper

@@ -896,6 +896,7 @@ mod attack_moveset_tests {
             wt.raw_dt = 0.05;
         }
         app.add_message::<crate::combat::moveset::MoveEventMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxMessage>();
         app.add_systems(
             Update,
             (

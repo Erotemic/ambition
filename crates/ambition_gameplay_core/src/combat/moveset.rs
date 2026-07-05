@@ -28,6 +28,7 @@ use bevy::prelude::{
 };
 
 use ambition_engine_core as ae;
+use ambition_engine_core::AabbExt;
 use ambition_entity_catalog::{
     AttackDir, ClipBinding, EffectRef, HitVolume, MoveEvent, MoveEventKind, MoveSpec, MoveWindow,
     MovesetContract, VolumeShape, WindowTag,
@@ -47,6 +48,12 @@ use ambition_time::WorldTime;
 
 /// The canonical verb id a body's basic melee swing binds to in its moveset.
 pub const ATTACK_VERB: &str = "attack";
+
+/// [`HitVolume::vfx`] tags the move runtime knows (§7.2): the sweeping slash
+/// arc and the grounded down-tilt's horizontal poke. Unknown tags draw the arc
+/// (never a silent drop — a tagged volume asked for presentation).
+pub const SLASH_ARC_VFX: &str = "slash_arc";
+pub const SLASH_POKE_VFX: &str = "slash_poke";
 
 /// The SFX cue a plain swing fires. Names the engine's procedural `slash` cue
 /// (`ambition_sfx::ids::PLAYER_SLASH` = `"player.slash"`) so the audio runtime
@@ -160,6 +167,11 @@ pub fn simple_melee(p: &SimpleMeleeParams) -> MoveSpec {
         // A plain swing lands no on-hit technique; directional variants (a
         // down-air pogo) author `on_hit` per-move (R2.5 player-melee fold).
         on_hit: None,
+        // A bladed swing (§7.1/§7.2): draws the slash arc from the spawned
+        // volume, and — when the owner's sprite manifest authors a hit polygon
+        // for this move's clip — swings THAT authored blade instead of this
+        // synthetic rect (the rect is the fallback for unmanifested bodies).
+        vfx: Some(SLASH_ARC_VFX.to_string()),
     };
     MoveSpec {
         id: ATTACK_VERB.to_string(),
@@ -364,6 +376,8 @@ pub fn simple_charge(p: &SimpleChargeParams) -> MoveSpec {
         damage: p.damage.max(1),
         knockback: p.knockback,
         on_hit: None,
+        // A charge is a bladed strike too — same slash + authored-blade rules.
+        vfx: Some(SLASH_ARC_VFX.to_string()),
     };
     MoveSpec {
         id: "charge".to_string(),
@@ -530,6 +544,12 @@ fn directional_attack_variants(base: &MoveSpec) -> Vec<(String, MoveSpec)> {
                     // (fable review AJ1). Fires off any `PogoTarget` (enemy or orb).
                     v.on_hit = Some(EffectRef::new(crate::combat::on_hit::POGO_BOUNCE_KEY));
                 }
+                // The grounded down-tilt reads as a kneeling forward poke, not a
+                // sweep (mirrors the bespoke path's `slash_kind`: Down → Poke);
+                // every other direction keeps the base swing's arc.
+                if matches!(dir, Dir::Down) && grounded && v.vfx.is_some() {
+                    v.vfx = Some(SLASH_POKE_VFX.to_string());
+                }
             }
         }
         m
@@ -693,6 +713,11 @@ pub fn advance_move_playback(
     world_time: Res<WorldTime>,
     gravity: crate::physics::GravityCtx,
     mut events: MessageWriter<MoveEventMessage>,
+    // §7.2: a vfx-tagged volume draws its slash FROM the spawned hitbox
+    // geometry — one box drives damage AND presentation, so they can never
+    // point different ways (the `spawn_melee_strike` invariant, restored onto
+    // the moveset path).
+    mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut players: Query<(
         Entity,
         &mut MovePlayback,
@@ -703,11 +728,15 @@ pub fn advance_move_playback(
         // strike is one of them. `None`/non-player-brain ⇒ the authored faction
         // (identity for every ordinary actor + the player's own body).
         Option<&ambition_characters::brain::Brain>,
+        // §7.1: the owner's sprite catalog id (actors author it on their
+        // `ActorConfig`; the home body carries none → the player manifest
+        // root), resolving the authored per-animation blade polygon.
+        Option<&crate::features::ActorConfig>,
         &ae::BodyKinematics,
         Option<&ProperTimeScale>,
     )>,
 ) {
-    for (owner, mut playback, faction, brain, kin, scale) in &mut players {
+    for (owner, mut playback, faction, brain, config, kin, scale) in &mut players {
         let strike_faction = crate::combat::targeting::effective_faction(*faction, brain);
         // ADR 0011: entity dt collapses to sim dt when the actor carries no
         // ProperTimeScale — undilated actors are the identity case.
@@ -769,44 +798,112 @@ pub fn advance_move_playback(
                     let frame_down = gravity.dir_at(kin.pos);
                     let body_frame = ae::AccelerationFrame::new(frame_down);
                     for volume in &window.volumes {
-                        let (local, half_extent, shape) = match volume.shape {
-                            VolumeShape::Rect {
-                                offset,
-                                half_extents,
-                            } => (
-                                ae::Vec2::new(offset.0 * pb.facing, offset.1),
-                                ae::Vec2::new(half_extents.0, half_extents.1),
-                                None,
+                        // §7.1: a vfx-tagged (bladed) volume prefers the owner's
+                        // AUTHORED manifest hit polygon for this move's clip —
+                        // the box you author and see in `debug-hitboxes` IS the
+                        // gameplay damage box, restored onto the moveset path.
+                        // Directional variants rebind `clip`, so `attack_up` /
+                        // `attack_down` resolve their own rows the day they're
+                        // authored. Resolved body-LOCAL (origin, facing +1,
+                        // screen-down); the hitbox's own facing/frame_down
+                        // mirror + rotate it at query time (`place_at`), the
+                        // same math the bespoke path applied. `None` (no
+                        // authored row / silent volume) falls back to the
+                        // synthetic authored shape.
+                        let manifest = volume.vfx.as_ref().and_then(|_| {
+                            let clip = pb.spec.clip.clip.as_str();
+                            let sprite_cid = config.and_then(|c| c.sprite_character_id.as_deref());
+                            match sprite_cid {
+                                Some(cid) => crate::character_sprites::actor_attack_hitbox_world(
+                                    cid,
+                                    clip,
+                                    ae::Vec2::ZERO,
+                                    kin.size,
+                                    1.0,
+                                    ae::Vec2::new(0.0, 1.0),
+                                ),
+                                None => crate::character_sprites::player_attack_hitbox_world(
+                                    clip,
+                                    ae::Vec2::ZERO,
+                                    kin.size,
+                                    1.0,
+                                    ae::Vec2::new(0.0, 1.0),
+                                ),
+                            }
+                        });
+                        let (local, half_extent, shape) = match &manifest {
+                            // The authored convex blade: body-local points; the
+                            // hitbox anchors at the body and `place_at` mirrors
+                            // + gravity-rotates the hull each query.
+                            Some(ae::CombatVolume::Convex { points, bounds }) => (
+                                ae::Vec2::ZERO,
+                                bounds.half_size(),
+                                Some(ae::VolumeShape::Convex {
+                                    points: points.clone(),
+                                }),
                             ),
-                            VolumeShape::Circle { offset, radius } => (
-                                ae::Vec2::new(offset.0 * pb.facing, offset.1),
-                                ae::Vec2::splat(radius),
-                                Some(ae::VolumeShape::circle(radius)),
-                            ),
+                            // The authored bbox fallback: same spawn-time
+                            // resolution as a synthetic Rect.
+                            Some(vol) => {
+                                let b = vol.bounds();
+                                let c = b.center();
+                                (ae::Vec2::new(c.x * pb.facing, c.y), b.half_size(), None)
+                            }
+                            None => match volume.shape {
+                                VolumeShape::Rect {
+                                    offset,
+                                    half_extents,
+                                } => (
+                                    ae::Vec2::new(offset.0 * pb.facing, offset.1),
+                                    ae::Vec2::new(half_extents.0, half_extents.1),
+                                    None,
+                                ),
+                                VolumeShape::Circle { offset, radius } => (
+                                    ae::Vec2::new(offset.0 * pb.facing, offset.1),
+                                    ae::Vec2::splat(radius),
+                                    Some(ae::VolumeShape::circle(radius)),
+                                ),
+                            },
                         };
                         let local_offset = body_frame.to_world(local);
                         // Axis-aligned extents rotate with the frame too (a
                         // circle's splat is rotation-invariant, so this is
                         // uniform).
                         let half_extent = body_frame.to_world_half(half_extent);
+                        let hb = Hitbox {
+                            owner,
+                            source: strike_faction,
+                            anchor: HitboxAnchor::FollowOwner { local_offset },
+                            half_extent,
+                            shape,
+                            facing: pb.facing,
+                            damage: volume.damage,
+                            knockback_strength: volume.knockback,
+                            knock_x: 0.0,
+                            frame_down,
+                        };
+                        // §7.2: the slash VFX rides the SAME resolved volume the
+                        // damage does (the `spawn_melee_strike` invariant) —
+                        // emitted once at the Active edge.
+                        if let Some(tag) = &volume.vfx {
+                            let kind = if tag == SLASH_POKE_VFX {
+                                ambition_vfx::vfx::SlashKind::Poke
+                            } else {
+                                ambition_vfx::vfx::SlashKind::Arc
+                            };
+                            let b = hb.world_volume(kin.pos).bounds();
+                            crate::combat::attack::emit_melee_slash(
+                                &mut vfx,
+                                b.center(),
+                                b.half_size(),
+                                kind,
+                                b.center() - kin.pos,
+                            );
+                        }
                         // NO HitboxLifetime on purpose: the window's exit
                         // edge (owner proper time) is the despawn authority,
                         // not a wall-clock countdown.
-                        let mut ec = commands.spawn((
-                            Hitbox {
-                                owner,
-                                source: strike_faction,
-                                anchor: HitboxAnchor::FollowOwner { local_offset },
-                                half_extent,
-                                shape,
-                                facing: pb.facing,
-                                damage: volume.damage,
-                                knockback_strength: volume.knockback,
-                                knock_x: 0.0,
-                                frame_down,
-                            },
-                            HitboxHits::default(),
-                        ));
+                        let mut ec = commands.spawn((hb, HitboxHits::default()));
                         // Conditional on-hit technique (pogo, lifesteal, …): a
                         // volume authoring `on_hit` gets the sidecar the
                         // `dispatch_hitbox_on_hit` primitive reads (fable AJ1).
@@ -1236,15 +1333,18 @@ mod tests {
     struct Captured {
         hits: Vec<HitEvent>,
         events: Vec<MoveEventMessage>,
+        slashes: Vec<VfxMessage>,
     }
 
     fn capture(
         mut cap: ResMut<Captured>,
         mut hits: MessageReader<HitEvent>,
         mut evs: MessageReader<MoveEventMessage>,
+        mut vfx: MessageReader<VfxMessage>,
     ) {
         cap.hits.extend(hits.read().cloned());
         cap.events.extend(evs.read().cloned());
+        cap.slashes.extend(vfx.read().cloned());
     }
 
     /// Headless sim harness: move playback + the REAL hitbox damage path,
@@ -1256,6 +1356,7 @@ mod tests {
         app.add_message::<VfxMessage>();
         app.add_message::<DebrisBurstMessage>();
         app.add_message::<MoveEventMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxMessage>();
         app.init_resource::<Captured>();
         app.init_resource::<WorldTime>();
         app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
@@ -1312,6 +1413,93 @@ mod tests {
         for _ in 0..steps {
             app.update();
         }
+    }
+
+    /// §7.1 + §7.2 (the bespoke-path parity restored onto the moveset):
+    /// a bladed (`vfx`-tagged) swing whose clip has an AUTHORED manifest
+    /// hitbox swings THAT blade — the live hitbox carries the sprite's convex
+    /// hull, not `simple_melee`'s synthetic rect — and the slash VFX is drawn
+    /// from the SAME resolved volume, exactly once, at the Active edge.
+    #[test]
+    fn bladed_swing_resolves_the_authored_blade_and_draws_its_slash() {
+        let (mut app, _victim) = app_with_victim();
+        // No `ActorConfig` → the player manifest root; `simple_melee`'s clip
+        // is `attack_side`, the authored blade row (a convex poly).
+        spawn_attacker(
+            &mut app,
+            ae::Vec2::new(100.0, 100.0),
+            ae::Vec2::new(30.0, 48.0),
+            simple_melee(&SimpleMeleeParams::default()),
+        );
+        // Cross the 0.12s windup into the active window.
+        run_seconds(&mut app, 0.14);
+        let shapes: Vec<Option<ae::VolumeShape>> = {
+            let mut q = app.world_mut().query::<&Hitbox>();
+            q.iter(app.world()).map(|h| h.shape.clone()).collect()
+        };
+        assert_eq!(shapes.len(), 1, "the active window's volume is live");
+        assert!(
+            matches!(shapes[0], Some(ae::VolumeShape::Convex { .. })),
+            "the swing carries the AUTHORED convex blade, got {:?}",
+            shapes[0],
+        );
+        let cap = app.world().resource::<Captured>();
+        let slashes: Vec<_> = cap
+            .slashes
+            .iter()
+            .filter(|m| matches!(m, VfxMessage::Slash { .. }))
+            .collect();
+        assert_eq!(slashes.len(), 1, "one slash VFX at the Active edge");
+        if let VfxMessage::Slash { kind, dir, .. } = slashes[0] {
+            assert_eq!(*kind, ambition_vfx::vfx::SlashKind::Arc);
+            assert!(
+                dir.x > 0.0,
+                "the slash points along the strike (facing +x), got {dir:?}",
+            );
+        }
+    }
+
+    /// §7.1 fallback: a bladed swing whose clip authors NO manifest row keeps
+    /// the synthetic rect (payload intact — the hit still lands) and still
+    /// draws its slash. Nothing regresses for unmanifested characters.
+    #[test]
+    fn unauthored_clip_falls_back_to_the_synthetic_rect_and_still_slashes() {
+        let (mut app, _victim) = app_with_victim();
+        let mut spec = simple_melee(&SimpleMeleeParams {
+            reach_px: 60.0,
+            ..Default::default()
+        });
+        // A clip no sprite ever authors → manifest miss. (Even `attack_up`
+        // resolves a real upward hull now, so use a nonsense row.)
+        spec.clip.clip = "no_such_authored_row".to_string();
+        spec.clip.fallbacks.clear();
+        spawn_attacker(
+            &mut app,
+            ae::Vec2::new(100.0, 100.0),
+            ae::Vec2::new(30.0, 48.0),
+            spec,
+        );
+        run_seconds(&mut app, 0.14);
+        let shapes: Vec<Option<ae::VolumeShape>> = {
+            let mut q = app.world_mut().query::<&Hitbox>();
+            q.iter(app.world()).map(|h| h.shape.clone()).collect()
+        };
+        assert_eq!(shapes.len(), 1);
+        assert!(
+            shapes[0].is_none(),
+            "manifest miss → the synthetic rect path (shape None), got {:?}",
+            shapes[0],
+        );
+        let cap = app.world().resource::<Captured>();
+        assert_eq!(
+            cap.slashes
+                .iter()
+                .filter(|m| matches!(m, VfxMessage::Slash { .. }))
+                .count(),
+            1,
+            "the fallback swing still draws its slash",
+        );
+        assert_eq!(cap.hits.len(), 1, "the fallback rect still lands its hit");
     }
 
     /// W9 core: the authored timeline drives the REAL damage path. No hit
@@ -1692,6 +1880,7 @@ mod tests {
         app.add_message::<VfxMessage>();
         app.add_message::<DebrisBurstMessage>();
         app.add_message::<MoveEventMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxMessage>();
         app.init_resource::<Captured>();
         app.init_resource::<WorldTime>();
         app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
@@ -1763,6 +1952,7 @@ mod tests {
     fn a_move_start_impulse_lunges_the_body_toward_facing() {
         let mut app = App::new();
         app.add_message::<MoveEventMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxMessage>();
         app.init_resource::<WorldTime>();
         app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
         app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
@@ -1824,6 +2014,7 @@ mod tests {
         use ambition_characters::brain::ActorActionMessage;
         let mut app = App::new();
         app.add_message::<MoveEventMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxMessage>();
         app.add_message::<SfxMessage>();
         app.add_message::<ActorActionMessage>();
         app.add_systems(Update, dispatch_move_events);
@@ -1911,6 +2102,7 @@ mod tests {
         use ambition_characters::brain::{ActorActionMessage, ActorControl};
         let mut app = App::new();
         app.add_message::<MoveEventMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxMessage>();
         app.add_message::<SfxMessage>();
         app.add_message::<ActorActionMessage>();
         app.add_systems(Update, dispatch_move_events);

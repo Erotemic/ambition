@@ -263,6 +263,7 @@ mod tests {
                     damage: 4,
                     knockback: 0.0,
                     on_hit: Some(EffectRef::new(POGO_BOUNCE_KEY)),
+                    vfx: None,
                 }],
                 sustain_effect: None,
             }],
@@ -277,6 +278,7 @@ mod tests {
     fn harness(victim_is_pogoable: bool) -> (App, Entity) {
         let mut app = App::new();
         app.add_message::<MoveEventMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxMessage>();
         app.add_message::<OnHitEffectMessage>();
         app.add_message::<SfxMessage>();
         app.init_resource::<WorldTime>();
@@ -356,6 +358,7 @@ mod tests {
         // capability (fable review R2.5, Jon's call).
         let mut app = App::new();
         app.add_message::<MoveEventMessage>();
+        app.add_message::<ambition_vfx::vfx::VfxMessage>();
         app.add_message::<OnHitEffectMessage>();
         app.add_message::<SfxMessage>();
         app.init_resource::<WorldTime>();

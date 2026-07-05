@@ -170,6 +170,9 @@ pub fn boss_attack_moveset(
                             damage: behavior.attack_damage.max(1),
                             knockback: BOSS_STRIKE_KNOCKBACK,
                             on_hit: None,
+                            // Boss geometry strikes are data-shaped volumes, not
+                            // bladed swings: no slash VFX, no manifest override.
+                            vfx: None,
                         }
                     })
                     .collect();

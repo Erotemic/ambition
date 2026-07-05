@@ -647,6 +647,217 @@ work.
 
 ---
 
+## 7. IN-GAME BUG RECON — triage + deferred re-adds (opus 4.8, 2026-07-05)
+
+A play session surfaced eight in-game defects (plus one refactor Jon wants on
+the list). opus 4.8 ran a five-agent recon pass — root cause, file anchors,
+regression classification — and Jon triaged each. Three cheap regressions are
+fixed THIS session (see the SESSION TODO log at the bottom); the rest are
+re-homed here with breadcrumbs so fable can prioritise the elegant re-add.
+**The governing rule (Jon):** deleting a bespoke hacky path is fine — the
+obligation is to re-add the capability *elegantly* once the unification unblocks
+it. Each deferred item below is that obligation made explicit. Numbering matches
+Jon's original bug list.
+
+### 7.1 — Authored polygon melee hitboxes lost in the moveset fold — [DEFER / fable decides]
+**Symptom:** the controlled robot's attack is a small square that never orients
+up/down/side; the authored per-direction blade polygons are gone, and that
+square (not the polygon) is the hitbox.
+**Root cause:** `6806c16b` folded player melee onto the moveset runtime;
+`simple_melee` synthesises a hardcoded forward `VolumeShape::Rect`
+(`combat/moveset.rs:144-149`) and `advance_move_playback` spawns hitboxes purely
+from `window.volumes` — it never calls `manifest_attack_hitbox_world`
+(`character_sprites/attack_hitbox.rs:52-117`), which still reads the authored
+convex polygon per animation and covaries with gravity/facing.
+`directional_attack_variants` (`moveset.rs:488-555`) only ROTATES the synthetic
+rect; it carries no authored geometry.
+**Classification:** deliberate-removal regression — the authored-polygon code
+still exists on the now-skipped bespoke path. The moveset volume vocabulary
+(`VolumeShape::{Rect,Circle}`) has no way to say "use the sprite-manifest
+authored hitbox for this move/direction."
+**Elegant re-add (fable's call on shape + priority):** let a `MoveWindow` volume
+REFERENCE the manifest hitbox — e.g. `VolumeShape::Manifest { animation }` (or a
+per-window `authored` flag) that `advance_move_playback` resolves by calling the
+existing `actor_attack_hitbox_world(character_id, move-derived-animation, …)`.
+Directional resolution already exists (variant keying by `attack_axis`), so
+keying the manifest lookup by move id (`attack`/`attack_up`/`attack_down`)
+restores per-direction authored polygons for free. NOT urgent; fable decides
+where this lands (natural sibling to Track A / the E3 moveset-presentation
+surface).
+
+### 7.2 — Attack VFX/SFX gone — [SFX fixed this session; VFX DEFER / fable decides]
+**VFX root cause (DEFER):** `MoveEventKind` has only `Sfx`/`Effect`/`Ranged`
+(`ambition_entity_catalog/src/lib.rs:233-246`) — no `Vfx`/`Slash` variant — and
+`dispatch_move_events` (`moveset.rs:947-1015`) has no VFX branch, so a move has
+no seam to draw its slash. The old bespoke path emitted `VfxMessage::Slash` via
+`spawn_melee_strike` (`combat/attack.rs:320-333`). **Missing vocabulary**, blocked
+on the moveset gaining a presentation-event hook; pairs with 7.1 (both are "the
+moveset can't yet express the authored strike") — do them together.
+**SFX root cause (FIXED, T2):** `simple_melee` emitted the phantom cue
+`"melee_swing"`, registered nowhere → `SfxMessage::Play` silently no-ops. Fixed
+this session by routing to the typed `Slash` cue.
+
+### 7.3 — All bosses render the generic sheet ("goblin") — [DEFER — needs a run; recon fix was WRONG]
+**Symptom:** gnuton, smirking behemoth, and every boss render one shared generic
+placeholder body (`assets.boss` / `ai_slop_zeta`, which reads as "goblin").
+**Investigated this session (opus 4.8) — the recon hypothesis was disproven.**
+The recon proposed dispatching boss render on `sprite_target` instead of
+`behavior_id`. A direct trace of the three tables shows that would REGRESS the
+bosses that currently work. Reconciliation (render key = `behavior_id.lower()`;
+registered sprite keys from `dedicated_boss_sheets()`; scale keys from
+`sprite_render_size_for`):
+
+| Boss | `behavior.id` | `sprite_target` | registered sprite key(s) | current render |
+|---|---|---|---|---|
+| mockingbird | `mockingbird` | `mockingbird_boss` | `mockingbird` | **hits** (on `behavior_id`) |
+| gnu_ton | `gnu_ton` | `gnu_ton_boss` | `gnu_ton`,`gnu_ton_body`,`gnu_ton_hands` | **hits split** (on `behavior_id`) |
+| smirking_behemoth_boss | `smirking_behemoth_boss` | (none→id) | `smirking_behemoth_boss` | **hits** |
+| clockwork_warden | `clockwork_warden` | `boss` | (generic) | generic (by design) |
+
+Dispatching on `sprite_target` would look up `mockingbird_boss` / `gnu_ton_boss`
+— NOT registered — and break mockingbird + gnuton. So the render key dispatch is
+NOT the bug, and must NOT be "fixed" per the recon. **Corrected leading
+hypotheses for the uniform symptom (need a RUN to confirm which):**
+  1. **Uniform load failure** — `load_named_boss_sprite_via_catalog` returns
+  `None` for every boss under the active asset profile/source (the game://-vs-
+  default-source split; the boss sheet files DO exist on disk under
+  `gameplay_core/assets/sprites/`), so `GameAssets.boss_sprites` is empty and
+  every boss falls to `assets.boss`. This is the only mechanism that hits ALL
+  bosses at once. `game_assets/mod.rs:411-423` swallows the per-boss `None`
+  silently; the `MissingAssetPolicy::SilentPlaceholder` upstream hides the cause.
+  2. **Regenerated boss art itself** looks generic/wrong (a sprite-pipeline
+  regression, sibling to §7.8).
+  A separate, real, PER-boss bug: **smirking_behemoth** — if its BossSpawn name
+  resolves through `encounter_id_from_name` to `smirking_behemoth` (strips
+  `_boss`) but the profile id is `smirking_behemoth_boss`, the profile lookup
+  misses → `generic("smirking_behemoth")` → render key `smirking_behemoth` → the
+  registered key `smirking_behemoth_boss` misses → generic. That one IS a
+  slug-reconciliation fix, independent of the uniform failure.
+**Classification / disposition:** DEFERRED. The fix requires (a) a run to confirm
+whether `boss_sprites` is empty at runtime (add a startup log of
+`boss_sprites.len()` + downgrade `SilentPlaceholder` to a logging policy), then
+(b) fix the asset-source resolution if that's the cause, and (c) the
+`smirking_behemoth` slug reconciliation. Home: overlaps E3 (`ambition_sprite_
+sheet` / asset-root flip) + E6 (boss tail). Do NOT apply the recon's
+`sprite_target` dispatch change.
+
+### 7.4 — Morph ball draws the robot behind the ball — [DEFER → modal body morphs]
+**Symptom:** entering the morph ball still renders the robot sprite behind the
+procedural ball.
+**Root cause:** morph has NO sprite representation — `BodyMode::MorphBall` falls
+through `compact_from_mode` to a standing locomotion row
+(`character_sprites/anim/mod.rs:601-608`), so the character pipeline always draws
+a robot while morphed; the ball look leans entirely on a procedural circle
+overlay + a single fragile `Visibility::Hidden` toggle on the player sprite
+(`ambition_render/.../morph_ball.rs:136-188`). Any scheduling/possession/worn-body
+edge that misses that one write leaves the robot showing.
+**Jon's ruling:** a morph BALL is not a first-class engine mechanic — if codified
+anywhere it's per-game logic. The first-class engine mechanic is **modal body
+morphs** (a body mode owns a sprite-state supplied by the character sheet). Two
+obligations: (a) **[content/asset]** add a MorphBall/roll row to the robot sprite
+sheet so the character's OWN render path shows the ball (deletes the hide-toggle +
+procedural overlay — the visibility race disappears); (b) **[engine]** generalise
+"a `BodyMode` selects a sprite-state" so any game authors modal morphs as sheet
+rows + a mode→row map, no bespoke overlay. Home: sprite pipeline /
+actor-geometry-unification (Track E3 / M7). Not this session.
+
+### 7.5 — Crouch sinks the sprite under the floor — [FIX THIS SESSION, T5]
+**Symptom:** crouching drops the sprite below the collision box (feet unplanted).
+**Root cause:** the crouch stance-scale block (`ambition_render/.../actors/mod.rs:
+80-102`) is correct but immediately clobbered — for trimmed sheets,
+`apply_character_frame` restores the STANDING render height + feet-anchor from the
+first-frame `render_basis` (`actors/animation.rs:61-67`, `animator.current_render`)
+at the crouched, lowered pos. Landed with `c66649fd0` (trimmed-atlas render);
+slipped past `crouch_stability.rs` which only asserts engine `pos.y`, never render
+size/anchor.
+**Classification:** clean unintended regression. **Fix:** fold `stance_ratio_y`
+into the trimmed per-frame basis so trimmed sheets respect crouch/crawl/slide AABB
+shrink. See SESSION TODO.
+
+### 7.6 — Portal high-speed tunneling (c135→c134 accelerating fall loop) — [DEFER / fable designs]
+**Symptom:** falling through the c135(floor)→c134(ceiling) translation pair builds
+speed each 680px cycle; eventually the body clips PAST the aperture and lands
+embedded in the floor.
+**Root cause (pre-existing, NOT a refactor regression):** portal transit uses
+discrete per-frame position sampling with fixed guard windows
+(`APPROACH_CARVE_REACH = 96`, `CARVE_DEPTH = 60`; `ambition_portal/.../placement.rs:
+306`, `pieces.rs:266`) sized for ONE worst-case per-frame step (~63px). The
+relaxed fall cap (`engine_core/.../integration.rs:435-450`) lets the loop exceed
+that, so in one frame the body jumps from in-front-of-plane to past the carve hole;
+`transit_step` fires neither Begin nor rescue, the carve re-seals, and (under Jon's
+no-pushout rule) the swept solid-sweep grounds it embedded. Solid blocks already
+sweep (no tunneling); only the PORTAL trigger is discrete.
+**Jon's steer:** the fix is a swept/CCD trigger (sweep `pos → pos+vel·dt` against
+walls AND portal apertures), NOT a speed cap (that would kill the signature "speedy
+thing comes out" mechanic). Primitives already exist: `raycast_through_portals`
+(`placement.rs:25`, portal-aware segment cast) + `first_body_sweep`
+(`engine_core/.../world.rs:687`) + the momentum follower's proven 500px/frame
+no-tunnel CCD (R8.3). Scope = the transit TRIGGER only, not a physics rewrite; keep
+the discrete carve as the low-speed fast path; add a headless regression (fling the
+pair at ~500px/frame, assert transit every cycle, never embed). Independent of the
+angled-portal arc (post-1.0). **fable determines the elegant shape + schedules.**
+
+### 7.7 — Respawn policy unification: "dead stays dead" as the default — [DEFER + ADR 0022]
+**Symptom:** killed NPCs infinitely respawn on room re-entry.
+**Root cause:** the spawn/despawn machinery is SOUND (every actor is
+`RoomScopedEntity`; all four spawners despawn-then-respawn). The defect is policy:
+the default `respawn_policy()` is `OnRoomReenter` (`features/enemies/mod.rs:630-635`)
+and the kill-flag writer skips it (`features/ecs/damage/actor_hit.rs:309-320`), so
+default actors re-instantiate alive on re-entry; separately the peaceful-NPC
+dead-flag is never READ (`features/ecs/save_sync.rs:69-94` — peaceful branch needs
+the hostile flag, enemy branch needs `interaction.is_none()`, so a killed peaceful
+NPC falls through both). Unification-era gap, not a spawn-code bug.
+**Jon's model (the elegant unification):** fold the sandbag/training-dummy
+respawn-in-place special-case INTO the respawn policy — one enum that GROWS as
+mechanics land. The DEFAULT for a unique actor is **dead stays dead forever**. This
+is *architecturally* less simple than room-respawn — but that is the point of
+building an engine: make the intuitively-correct default the easy one for
+downstream games. Later a **`Mob`** actor concept authors respawn-on-save /
+respawn-on-reenter as an AUTHOR choice.
+**Killable important NPCs (Jon — 100% yes, "Morrowind rules"):** killing a
+questline-critical NPC is allowed; the full effect (the reality-rift "a thread of
+major consequence has been cut" dialogue) is a per-GAME choice codified in
+`docs/storylines/cannon.md` §Story Continuity. The ENGINE only makes that per-game
+choice EASY — the default "dead stays dead" + author-selected policies are that
+seam.
+**Deliverables:** (1) unify respawn-in-place + respawn-policy into one grown enum;
+(2) default unique actor = dead-stays-dead; (3) wire the peaceful-NPC dead-flag
+read; (4) the `Mob` actor concept; (5) **ADR 0022 — engine respawn policy** (0021
+is reserved by W4). *Model note for fable: this item + the ADR proposal were added
+by opus 4.8.* Home: a dedicated actor-policy slice (Track E-adjacent). Not this
+session.
+
+### 7.8 — Shrine + glider sprites broken — [DEFER — sprite authoring in flux]
+**Symptom:** shrine and glider render broken.
+**Root cause (inferred; unverified without a run):** assets + code paths intact;
+likely RON↔PNG rect drift under the measure-by-default label-gutter packing (shrine
+rects start x:112, glider x:100 — offset by `label_width`, not a zero grid). A regen
+that changed the packer/label width desyncs the committed RON from the emitted PNG.
+(Regeneration IS possible in this env — `rectpack`+`python3` present — the recon
+agents simply lacked run access.)
+**Jon's ruling:** DEFER. Sprite authoring itself is likely to change; no point
+fixing something that may break again or get fixed as correctness emerges from the
+sprite-pipeline refactor. Revisit after Track E3 / sprite-renderer-refactor.
+
+### 7.9 — Portal gun → a normal item (portal crate should not know the gun) — [DEFER, refactor, low priority]
+*Not a bug — a decontamination Jon wants on the refactor list.*
+**Today:** the portal crate knows too much about "the portal gun."
+**Target:** the portal gun is a NORMAL item (like the laser sword); `ambition_portal`
+knows ~nothing about the gun. The gun's only special property: the projectiles it
+fires spawn portals on the surfaces they land on. **A single gun spawns exactly ONE
+portal PAIR (2 modes/colours)** — not four. Each gun INSTANCE carries a small bit of
+identity: which portal-pair colour ids it owns, so multiple guns don't interfere
+with each other or with level-authored portals. (Jon never intended one gun to shoot
+four pairs.) Otherwise it behaves like any other item.
+**Shape (fable/opus to detail):** move the gun into the item/weapon vocabulary; the
+portal crate exposes a "spawn a portal of pair-id P on this surface" primitive; the
+gun item carries an owned pair-id (2 endpoints) and, on projectile-land, calls that
+primitive. Aligns with the crit-3 "engine names no content" thrust. Home: Track
+C-like decontamination / the item vocabulary (near A2 prefab items). Low priority /
+good filler.
+
+---
+
 # EXECUTION LOG (live — newest last)
 
 ## S1 — the home body rides momentum ✅ (`75f7bf8f`, fable, 2026-07-05)
@@ -843,3 +1054,21 @@ verification best done interactively.
 dedicated pass (guts the app boot)**; S3b→S4 continue Sanic; W1–W4 world carve
 independent. The remaining §0 is the W/E crate carves + the two demos — all
 multi-session.
+
+## SESSION TODO — in-game bug triage (opus 4.8, 2026-07-05) 🔧
+Recon → §7. Two cheap regressions fixed this session; bug 3 downgraded after a
+deeper trace disproved the recon hypothesis; the rest deferred (§7.1, 7.3, 7.4,
+7.6, 7.7, 7.8, 7.9). Checklist:
+- [x] **T2 (SFX, §7.2)** — `simple_melee`/`simple_charge` phantom cue
+  `"melee_swing"` → the real `player.slash` procedural cue (`SWING_SFX_CUE`);
+  the `Play { id }` audio path now prefers a procedural `SoundCue` when the id
+  names one (`SoundCue::from_sfx_id`), falling back to the bank. **DONE.**
+- [~] **T3 (boss sprites, §7.3)** — **DOWNGRADED to deferred.** Traced the
+  id↔target↔registered-key tables: the current `behavior_id` dispatch is
+  consistent and the recon's `sprite_target` swap would REGRESS mockingbird +
+  gnuton. Uniform symptom points to a load failure / regenerated art — needs a
+  run to confirm. No code changed. See §7.3 for the corrected finding.
+- [x] **T5 (crouch, §7.5)** — folded `stance_ratio_y` (current/base AABB height)
+  into the trimmed per-frame basis in `apply_character_frame`
+  (`actors/animation.rs`); trimmed sheets now respect the crouch/crawl/slide
+  shrink instead of restoring standing height/anchor at the lowered pos. **DONE.**

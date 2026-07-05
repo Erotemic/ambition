@@ -31,3 +31,4 @@ Use an ADR when a decision:
 - [0017: Rust holds behavior; RON authors content; LDtk authors space](0017-rust-behavior-ron-content-ldtk-space.md)
 - [0018: Enemy cluster variation — per-actor jitter is mandatory at every brain-spawn site](0018-enemy-cluster-variation.md)
 - [0019: Pluginized platformer runtime via same-crate proto-boundaries](0019-pluginized-platformer-runtime.md)
+- [0020: Mounts and vehicles — two linked actors, control-deferral, independent hurtboxes](0020-mounts-and-vehicles.md)

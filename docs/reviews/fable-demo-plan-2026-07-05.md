@@ -485,5 +485,32 @@ new entries append HERE.
 
 # EXECUTION LOG (live — newest last)
 
-*(consolidation authored 2026-07-05 by fable; no slices executed from this
-doc yet — S1/W1/G1 are the ready heads of their tracks)*
+## S1 — the home body rides momentum ✅ (`75f7bf8f`, fable, 2026-07-05)
+The Q16 spec executed verbatim: `integrate_home_body` gained the `MotionModel`
+dispatch (players query + `Option<&mut MotionModel>`); the momentum branch
+drives the R9.1 pure core over the composited view from the GATED input;
+hazard/OOB parity via the kernel predicate — now exported ONCE as
+`ae::movement::touching_hazard_aabb` (never a duplicated near-copy) — plus
+the gravity-relative fell-out rule; reset → spawn + follower state Airborne.
+`step_momentum_body` returns its contacts → the home `FrameEvents.contacts`.
+`MotionModel`/`MomentumMotion` re-exported through the features hub.
+Probe-verified full arc (lands, 133→900px/s cap, runs 1300px, launches off
+the open chain end, falls out, resets — all correct); tests pin the ride/jump
+and the pit-death-respawns-Airborne rule. gameplay_core --lib 1135,
+engine_core 231.
+
+## S3a — the chains emission channel + SurfaceChain converter ✅ (`8ab942ed`, fable)
+The Q17 ruling executed: S-track owns the channel;
+`RuntimeEntityEmission.chains` → `compose_runtime_area` fold →
+`RoomSpec.world.chains`. New standard converter `SurfaceChain` (32nd
+identifier; drift pin green): `points` semicolon pairs + optional `closed`;
+the engine validator runs AT CONVERSION (bad geometry fails the loader
+loudly). End-to-end test pins LDtk→World.chains + the winding convention;
+degenerate chains fail conversion. gameplay_core --lib 1137.
+**W2 REBASES on this** — the emission relocation carries the field.
+
+**NEXT HEADS:** S2 (MomentumParamsSpec + catalog row + spawn/wear insertion —
+the wear/unwear hygiene test from the Q16 spec lands here), S3b (content
+`SurfaceLoop` marker converter, `ambition_ldtk_tools surface` subcommand +
+Python-validator identifier registration, the `sanic_sandbox` area, the
+debug-overlay gizmos), W1, G1.

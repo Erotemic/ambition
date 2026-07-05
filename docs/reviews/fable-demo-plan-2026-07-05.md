@@ -777,6 +777,23 @@ pattern; app builds.
 surface` convenience subcommand is dropped as redundant — `entity add` + the
 registered defs already author SurfaceChain/SurfaceLoop directly.
 
+## C-residue — evict GNU_TON_APPLE_OWNER_PREFIX ✅ (`bdca6f56`, opus)
+The engine exported a named boss-projectile prefix `"gnu_ton_apple"` used only by
+content; moved it into `gradient_sentinel`, deleted the stale `is_apple_owner`
+doc (that sniff no longer exists — art is `ProjectileVisualKind::Apple`), dropped
+the re-export. **crit-3 grep audit (this session):** the boss PROFILES are
+`cfg(test)`-only fixtures (production installs from `boss_profiles.ron`) →
+"test-fixtures-only" milestone MET. Remaining PRODUCTION named-content in the
+engine, each a focused slice, NOT a quick eviction:
+- **`dialog/speech_sfx.rs`** — a large hardcoded `character-name → DIALOGUE_BLIP_*`
+  voice table (alice/bob/pirate/ninja/goblin/… dozens). Needs a content voice-
+  profile registry (the character-catalog eviction pattern). **[crit-3 slice]**
+- **`projectile/visual_kind.rs`** — `ProjectileVisualKind::{Apple,Glider,Lasersword}`
+  + their sprite-path art descriptors name content. This is the E3 "projectile
+  visual kinds" residue. **[E3]**
+- boss test fixtures (`BossBehaviorProfile::gnu_ton()` etc.) — allowed by the
+  milestone; full-zero is E6/G-track.
+
 **SESSION TALLY (opus, 2026-07-05 eve):** S2, A1, A2, C2, C1, S3b (converter +
 defs + area + overlay) — **10 feature commits.** §0 crit 2 (ability model)
 COMPLETE; two crit-3 residues (C1, C2) closed; the whole S3 Sanic-authoring chain

@@ -1091,10 +1091,23 @@ a key," honestly bounded by the layering.
   the projection to consult the RON override map if a game needs custom geometry
   keys visible in the telegraph — not needed by any current boss.
 
-**REMAINING for "a new boss is 100% RON" (the sheet-half of R3.6, = R3.4 #5/#8):**
-the 6 `BossSheetSpec` statics (mirror `boss_sheets.ron`, pinned by
-`boss_sheets_ron_matches_builtin_defaults`) + `sync.rs::sprite_target_for_boss` /
-`sprite_render_size_for` id→target→static matches. Evict = installed RON is the
-sole source + a `sprite_target` DATA field (same shape as the self-dodge fix).
-After the profile-key collapse above, the PROFILE + strike RECTS are 100% RON;
-only the SHEET rows + sprite-target still route through built-in statics.
+**Sheet-half progress:**
+- **#8 sprite_target — LANDED (`ff1cb5f5`).** `sync.rs::sprite_target_for_boss`'s
+  hardcoded boss-id→target match (gnu_ton→gnu_ton_boss, mockingbird→…, warden→
+  "boss") became a `BossBehaviorProfile.sprite_target: Option<String>` DATA field
+  (authored for the 3 divergent bosses; `None` = id-is-target). `generic()`
+  resets it to identity. Byte-identical (gameplay_core 1133 incl. the mockingbird
+  hurtbox test, content 61, boss suites). sync.rs names no boss.
+- **#5 BossSheetSpec statics → R4e.** The 6 `BossSheetSpec` LazyLock statics that
+  `sprite_render_size_for` reads (+ `builtin_boss_sheets`/`dedicated_boss_sheets`/
+  `all_boss_sprite_filenames` enumerations, pinned byte-identical to
+  `boss_sheets.ron` by `boss_sheets_ron_matches_builtin_defaults`) are sprite-sheet
+  METADATA. Fully evicting them (engine ships zero sheets) changes
+  headless-without-content behavior (static size → boss_size fallback) AND the
+  render-side sheet loading + enumerations read them too — this is the R4e
+  sprite-sheet carve (character_sprites + boss sprites/attack_geometry →
+  `ambition_sprite_sheet`, M7), NOT a clean pre-R4e deletion. **Folded into R4e.**
+
+After the profile-key collapse + #8, a boss's PROFILE + strike RECTS + sprite
+TARGET are 100% RON; only the sheet-LAYOUT statics remain, and they ride R4e with
+the rest of the sprite-metadata pipeline.

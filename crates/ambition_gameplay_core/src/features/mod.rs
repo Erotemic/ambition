@@ -105,19 +105,20 @@ pub use ecs::{
     rebuild_feature_view_index, refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
     refresh_breakable_damageable_volumes, reset_ecs_room_features, select_actor_targets,
     spawn_encounter_mob, spawn_enemy_projectiles_from_brain_actions, spawn_melee_hitbox,
-    spawn_room_feature_entities, sync_actor_poses_from_feature_aabbs, sync_actor_read_model,
-    sync_boss_actor_components, sync_boss_encounter_phase, sync_boss_reward_chests_ecs,
-    sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save,
-    sync_encounter_reward_chests_ecs, sync_riders_to_mounts, tick_actor_brains,
-    tick_and_despawn_hitboxes, tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks,
-    tick_pending_challenges, trigger_boss_attack_moves, update_ecs_bosses, update_ecs_breakables,
-    update_ecs_falling_chests, update_ecs_hazards, ActorAnimIndex, ActorRenderIndex,
-    ActorRenderView, ActorSteering, BossClusterQueryData, BossClusterRef, BossClusterScratch,
-    BossConfig, BossEncounter, BossMut, BossOverrides, BossRef, BossRenderIndex, BossRenderView,
-    CanPilot, ControlGrant, FactionRelations, FeatureEcsWorldOverlay, FeatureSimEntity,
-    FeatureViewIndex, FriendlyFire, HazardFeature, HeldItem, Hitbox, HitboxAnchor, HitboxHits,
-    HitboxLifetime, MountClass, MountDeathImpact, MountSlot, Mountable, Mounted, MountedBrainCache,
-    MountedSize, PendingChallenge, RidingOn, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
+    spawn_room_feature_entities, steer_mount_from_rider, sync_actor_poses_from_feature_aabbs,
+    sync_actor_read_model, sync_boss_actor_components, sync_boss_encounter_phase,
+    sync_boss_reward_chests_ecs, sync_ecs_actors_with_save, sync_ecs_bosses_with_save,
+    sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs, sync_riders_to_mounts,
+    tick_actor_brains, tick_and_despawn_hitboxes, tick_boss_brains_system, tick_gameplay_banner,
+    tick_npc_idle_barks, tick_pending_challenges, trigger_boss_attack_moves, update_ecs_bosses,
+    update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards, ActorAnimIndex,
+    ActorRenderIndex, ActorRenderView, ActorSteering, BossClusterQueryData, BossClusterRef,
+    BossClusterScratch, BossConfig, BossEncounter, BossMut, BossOverrides, BossRef,
+    BossRenderIndex, BossRenderView, CanPilot, ControlGrant, FactionRelations,
+    FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex, FriendlyFire, HazardFeature,
+    HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime, MountClass, MountDeathImpact,
+    MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, PendingChallenge, RidingOn,
+    SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
 };
 pub use ecs::{ActorAnimFrame, ActorSpriteData};
 pub use enemies::{
@@ -291,6 +292,11 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 crate::features::ecs::perception::collect_perception_peers,
                 crate::features::ecs::perception::collect_perception_projectiles,
                 tick_actor_brains,
+                // ADR 0020: a mount with a rider defers its locomotion to the
+                // rider's brain (the orbit lives on the rider). Runs after the
+                // brain tick (rider control frame fresh) and before the body
+                // integrate (mount executes the routed intent).
+                steer_mount_from_rider,
                 // Advance moving platforms ONCE before any body integrates, so every
                 // body (home + actors) rides THIS frame's platform positions — the
                 // home body used to advance them in `PlayerSimulation`, after the

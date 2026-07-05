@@ -387,6 +387,61 @@ fn dismount_impact_leaves_rider_hp_intact() {
     assert!(app.world().entity(rider).get::<Mounted>().is_none());
 }
 
+/// ADR 0020 control routing: with the default `Total` grant, the rider's
+/// brain locomotion intent is copied onto the mount (the orbit lives on the
+/// rider), while attack/fire intent is NOT copied — the rider fires from the
+/// saddle. Runs `steer_mount_from_rider` directly on hand-built control
+/// frames so the assertion is about the routing, not the whole brain tick.
+#[test]
+fn total_grant_routes_rider_locomotion_to_mount_but_not_fire() {
+    use ambition_characters::actor::control::ActorControlFrame;
+    use ambition_characters::brain::ActorControl;
+
+    let mut app = build_app();
+    app.add_systems(Update, steer_mount_from_rider);
+
+    let mount = app
+        .world_mut()
+        .spawn((
+            Mountable::at(ae::Vec2::new(0.0, -40.0)),
+            MountSlot { rider: None },
+            ActorControl(ActorControlFrame::neutral()),
+        ))
+        .id();
+
+    let mut rider_frame = ActorControlFrame::neutral();
+    rider_frame.velocity_target = ae::Vec2::new(120.0, -30.0);
+    rider_frame.locomotion = ae::Vec2::new(1.0, 0.0);
+    rider_frame.facing = -1.0;
+    rider_frame.fire = Some(
+        ambition_characters::actor::control::ActorFireRequest::world_space(
+            ae::Vec2::new(1.0, 0.0),
+            100.0,
+        ),
+    );
+    let rider = app
+        .world_mut()
+        .spawn((Mounted, RidingOn { mount }, ActorControl(rider_frame)))
+        .id();
+    app.world_mut()
+        .entity_mut(mount)
+        .insert(MountSlot { rider: Some(rider) });
+
+    app.update();
+
+    let mount_frame = app.world().entity(mount).get::<ActorControl>().unwrap().0;
+    assert_eq!(
+        mount_frame.velocity_target,
+        ae::Vec2::new(120.0, -30.0),
+        "Total grant copies the rider's velocity_target onto the mount",
+    );
+    assert_eq!(mount_frame.facing, -1.0, "and the rider's facing");
+    assert!(
+        mount_frame.fire.is_none(),
+        "but the mount does NOT inherit the rider's fire intent — the rider fires",
+    );
+}
+
 /// Same-room reset re-arms the link: starting from a dissolved
 /// state (mount dead, rider with solo brain), once the mount's
 /// `alive` flag is set back to true the enforcer restores the

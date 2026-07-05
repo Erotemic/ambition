@@ -193,6 +193,43 @@ pub struct Mounted;
 #[derive(Component, Clone, Copy, Debug)]
 pub struct MountedSize(pub ae::Vec2);
 
+/// ADR 0020 control routing: the mount defers its locomotion to the rider.
+///
+/// With `ControlGrant::Total` (the default and only grant today) the mount
+/// fully obeys — the RIDER's brain owns the orbit (it is a Skirmisher), and
+/// this copies the rider's movement intent onto the mount so the mount body
+/// integrates that orbit. The rider's own body movement stays suppressed
+/// (`is_mounted`) and it welds to the mount in [`sync_riders_to_mounts`].
+/// Attack / fire intent is NOT copied — the rider still fires from the
+/// saddle. A riderless mount runs its own brain untouched.
+///
+/// Runs after `tick_actor_brains` (so the rider's control frame is fresh)
+/// and before `integrate_sim_bodies` (so the mount integrates the routed
+/// intent). Rider/mount queries are disjoint via `With`/`Without<MountSlot>`.
+pub fn steer_mount_from_rider(
+    riders: Query<
+        (&RidingOn, &ambition_characters::brain::ActorControl),
+        (With<Mounted>, Without<MountSlot>),
+    >,
+    mut mounts: Query<(&Mountable, &mut ambition_characters::brain::ActorControl), With<MountSlot>>,
+) {
+    for (riding, rider_control) in &riders {
+        let Ok((mountable, mut mount_control)) = mounts.get_mut(riding.mount) else {
+            continue;
+        };
+        if mountable.control_grant != ControlGrant::Total {
+            continue;
+        }
+        // Total grant → the mount executes the rider's locomotion intent.
+        let rider_frame = rider_control.0;
+        let mount_frame = &mut mount_control.0;
+        mount_frame.locomotion = rider_frame.locomotion;
+        mount_frame.velocity_target = rider_frame.velocity_target;
+        mount_frame.facing = rider_frame.facing;
+        mount_frame.drop_through = rider_frame.drop_through;
+    }
+}
+
 /// Lock every rider's position / facing / vel / gravity to its
 /// mount each tick. Runs after the per-actor brain tick so the
 /// rider's brain has had a chance to emit a fire intent against

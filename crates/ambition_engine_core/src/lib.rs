@@ -36,6 +36,7 @@ pub mod ledge_grab;
 pub mod movement;
 pub mod player_state;
 pub mod reference_frame;
+pub mod surface;
 pub mod volume_shape;
 pub mod world;
 

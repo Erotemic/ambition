@@ -1341,11 +1341,6 @@ pub fn sync_actor_components_from_cluster(
     };
 }
 
-/// Area id of the Hall of Characters (matches the generated level/area in
-/// `generate_hall_of_characters.py`). When this is the active area, the idle
-/// ticker switches NPC ambient barks to their `Hall` pool.
-const HALL_OF_CHARACTERS_AREA: &str = "hall_of_characters";
-
 /// Per-NPC ambient-bark timing (decremented by sim dt; deterministic jitter).
 #[derive(Default)]
 pub struct NpcIdleBarkState {
@@ -1395,14 +1390,18 @@ pub fn tick_npc_idle_barks(
     if dt <= 0.0 {
         return;
     }
-    // While the player is touring the Hall of Characters, pedestals draw their
-    // `Hall` bark pool (the fun gallery lines); everywhere else NPCs mutter
-    // their `Idle` pool. Same ambient ticker, different occasion.
-    let situation = match room_set.as_deref() {
-        Some(rs) if rs.active_spec().id == HALL_OF_CHARACTERS_AREA => {
-            ambition_characters::actor::character_catalog::BarkSituation::Hall
-        }
-        _ => ambition_characters::actor::character_catalog::BarkSituation::Idle,
+    // In a GALLERY room (the Hall of Characters), pedestals draw their `Hall`
+    // bark pool (the fun gallery lines); everywhere else NPCs mutter their
+    // `Idle` pool. Same ambient ticker, different occasion — keyed off the
+    // engine-generic `RoomMetadata::gallery` flag, not a content room id (C1).
+    let is_gallery = room_set
+        .as_deref()
+        .map(|rs| rs.active_metadata().gallery)
+        .unwrap_or(false);
+    let situation = if is_gallery {
+        ambition_characters::actor::character_catalog::BarkSituation::Hall
+    } else {
+        ambition_characters::actor::character_catalog::BarkSituation::Idle
     };
     // Bark cadence per occasion. The Hall packs ~100 pedestals into one room, so
     // it barks far less often than a lone ambient NPC to keep the gallery from

@@ -139,6 +139,7 @@ impl LdtkLevel {
                 full_opacity_count: take_count("nameplate_full_opacity_count"),
                 fade_out_count: take_count("nameplate_fade_out_count"),
             },
+            gallery: self.field_bool("gallery").unwrap_or(false),
         }
     }
 
@@ -198,6 +199,14 @@ impl LdtkLevel {
         field_value(&self.field_instances, name).and_then(|value| match value {
             Value::Number(number) => number.as_i64().map(|value| value as i32),
             Value::String(text) => text.parse::<i32>().ok(),
+            _ => None,
+        })
+    }
+
+    pub(super) fn field_bool(&self, name: &str) -> Option<bool> {
+        field_value(&self.field_instances, name).and_then(|value| match value {
+            Value::Bool(flag) => Some(*flag),
+            Value::String(text) => text.parse::<bool>().ok(),
             _ => None,
         })
     }

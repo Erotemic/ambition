@@ -71,6 +71,33 @@ fn level_metadata_reads_optional_biome_fields() {
     );
     assert_eq!(meta.nameplate_policy.full_opacity_count, Some(100));
     assert_eq!(meta.nameplate_policy.fade_out_count, Some(120));
+    // No `gallery` field → false (an ordinary room is not a gallery).
+    assert!(!meta.gallery);
+}
+
+#[test]
+fn level_metadata_reads_gallery_bool() {
+    // C1: the engine keys "is this the Hall of Characters" off a generic
+    // `gallery` bool level field, not a hardcoded content room id. A level
+    // authoring `gallery: true` reads back as a gallery.
+    let level = LdtkLevel {
+        iid: "gallery-iid".into(),
+        identifier: "hall".into(),
+        world_x: 0,
+        world_y: 0,
+        px_wid: 256,
+        px_hei: 256,
+        field_instances: vec![LdtkFieldInstance {
+            identifier: "gallery".into(),
+            value: Value::Bool(true),
+            real_editor_values: vec![],
+        }],
+        layer_instances: Vec::new(),
+    };
+    assert!(
+        level.level_metadata().gallery,
+        "gallery:true reads back true"
+    );
 }
 
 #[test]
@@ -114,6 +141,7 @@ fn room_metadata_merge_first_non_empty_wins() {
         visual_theme: None,
         visual_profile: Default::default(),
         nameplate_policy: Default::default(),
+        gallery: false,
     };
     let b = RoomMetadata {
         biome: Some("basement".into()),
@@ -122,6 +150,7 @@ fn room_metadata_merge_first_non_empty_wins() {
         visual_theme: None,
         visual_profile: Default::default(),
         nameplate_policy: Default::default(),
+        gallery: false,
     };
     a.merge(b);
     assert_eq!(a.biome.as_deref(), Some("hub"), "first non-empty wins");

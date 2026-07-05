@@ -125,6 +125,12 @@ pub struct RoomMetadata {
     pub visual_theme: Option<String>,
     pub visual_profile: RoomVisualProfile,
     pub nameplate_policy: RoomNameplatePolicy,
+    /// This room is a character GALLERY (the Hall of Characters and any future
+    /// pedestal room). Engine-generic policy hook (C1): systems switch behavior
+    /// on this flag instead of matching a content room id — e.g. the ambient
+    /// bark ticker draws each NPC's `Hall` pool here and its `Idle` pool
+    /// elsewhere. Authored as the LDtk level bool field `gallery`.
+    pub gallery: bool,
 }
 
 impl RoomMetadata {
@@ -135,6 +141,7 @@ impl RoomMetadata {
             && self.visual_theme.is_none()
             && self.visual_profile.is_empty()
             && self.nameplate_policy.is_empty()
+            && !self.gallery
     }
 
     /// Fold `other` into `self`, preferring values already set.
@@ -153,6 +160,8 @@ impl RoomMetadata {
         if self.visual_theme.is_none() {
             self.visual_theme = other.visual_theme;
         }
+        // A multi-level area is a gallery if ANY member level marks it one.
+        self.gallery = self.gallery || other.gallery;
         self.visual_profile.merge(other.visual_profile);
         self.nameplate_policy.merge(other.nameplate_policy);
     }

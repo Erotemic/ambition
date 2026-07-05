@@ -17,6 +17,12 @@ pub struct FrameEvents {
     pub blinks: Vec<BlinkEvent>,
     pub reset: bool,
     pub hazard: bool,
+    /// World contacts resolved this step (fable review 2026-07-05 AJ10: the
+    /// contact vocabulary). Pure observability — resolution is unchanged;
+    /// readers interpret (the debug overlay, a future general resolver).
+    /// Landing pushes a feet contact, a wall push a side contact, and a
+    /// grounded frame a rest contact carrying the support's `surface_velocity`.
+    pub contacts: Vec<crate::collision_semantics::Contact>,
 }
 
 impl FrameEvents {
@@ -44,5 +50,6 @@ impl FrameEvents {
         self.blinks.extend(other.blinks);
         self.reset |= other.reset;
         self.hazard |= other.hazard;
+        self.contacts.extend(other.contacts);
     }
 }

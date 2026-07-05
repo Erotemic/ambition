@@ -236,6 +236,97 @@ pub fn supporting_block<'a>(
     })
 }
 
+// --- The contact vocabulary (fable review 2026-07-05, AJ10 layer 1) ---
+//
+// The lingua franca between the world's geometry and a body's interpretation
+// of it: "the world exposes coherent contact information; bodies decide what
+// that contact means." Both sweeps POPULATE contacts (the player sweep into
+// `FrameEvents.contacts`, the kinematic sweep through
+// `step_kinematic_observed`); resolution itself is unchanged — the AABB path
+// still acts on axis faces, and the surface-follower solver consumes the same
+// vocabulary for chains. Observability first, byte-identical.
+
+/// What a contact was made against.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ContactSource {
+    /// An axis-aligned world block.
+    Block { kind: BlockKind },
+    /// A segment of a [`crate::world::SurfaceChain`] (`chain` indexes
+    /// `World::chains`, `segment` the chain's segment list).
+    Chain { chain: u32, segment: u32 },
+}
+
+/// One resolved world contact for a moving body this step.
+///
+/// Conventions (shared with the surface-follower solver):
+/// - `normal` is the unit OUTWARD normal of the SURFACE — it points away from
+///   the surface, toward the body. (Parry's `normal1` is the outward normal of
+///   the MOVING shape, i.e. the opposite sign — negate it at the boundary.)
+/// - `tangent()` is `normal` rotated so that for a floor under down-gravity
+///   (`normal == (0,-1)` with y growing downward) the tangent is `(1,0)` —
+///   "rightward along the surface". `t = (-n.y, n.x)`, `n = (t.y, -t.x)`.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Contact {
+    /// Approximate contact point on the surface (face midpoint of the
+    /// perpendicular overlap for block faces).
+    pub point: Vec2,
+    /// Unit outward normal of the surface, pointing toward the body.
+    pub normal: Vec2,
+    /// Normalized time along the attempted step delta in `[0,1]`; `0.0` for
+    /// repair/rest contacts that did not come from a swept cast.
+    pub toi: f32,
+    /// The surface's own frame motion this step (a moving platform's
+    /// `Block.velocity`; `ZERO` for static geometry).
+    pub surface_velocity: Vec2,
+    pub source: ContactSource,
+}
+
+impl Contact {
+    /// Surface tangent, consistently wound: `(-n.y, n.x)`.
+    pub fn tangent(&self) -> Vec2 {
+        Vec2::new(-self.normal.y, self.normal.x)
+    }
+}
+
+/// Build a [`Contact`] for a body touching an axis-aligned face of `block`.
+/// `normal` is the SURFACE outward normal (cardinal for block faces).
+pub fn block_face_contact(body: Aabb, block: &Block, normal: Vec2, toi: f32) -> Contact {
+    Contact {
+        point: face_contact_point(body, block.aabb, normal),
+        normal,
+        toi,
+        surface_velocity: block.velocity,
+        source: ContactSource::Block { kind: block.kind },
+    }
+}
+
+/// Approximate contact point on an axis-aligned surface face: the face
+/// coordinate along the normal axis, the midpoint of the body/surface overlap
+/// on the perpendicular axis.
+fn face_contact_point(body: Aabb, surface: Aabb, normal: Vec2) -> Vec2 {
+    if normal.x.abs() > normal.y.abs() {
+        let x = if normal.x > 0.0 {
+            surface.right()
+        } else {
+            surface.left()
+        };
+        let y0 = body.top().max(surface.top());
+        let y1 = body.bottom().min(surface.bottom());
+        Vec2::new(x, 0.5 * (y0 + y1))
+    } else if normal.y != 0.0 {
+        let y = if normal.y > 0.0 {
+            surface.bottom()
+        } else {
+            surface.top()
+        };
+        let x0 = body.left().max(surface.left());
+        let x1 = body.right().min(surface.right());
+        Vec2::new(0.5 * (x0 + x1), y)
+    } else {
+        body.center()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -393,6 +484,52 @@ mod tests {
             false,
             96.0,
         ));
+    }
+
+    #[test]
+    fn contact_tangent_winding_is_consistent() {
+        // Floor under down-gravity: normal up (0,-1) -> tangent rightward (1,0).
+        let c = Contact {
+            point: Vec2::ZERO,
+            normal: Vec2::new(0.0, -1.0),
+            toi: 0.0,
+            surface_velocity: Vec2::ZERO,
+            source: ContactSource::Block {
+                kind: BlockKind::Solid,
+            },
+        };
+        assert_eq!(c.tangent(), Vec2::new(1.0, 0.0));
+        // Round trip: n = (t.y, -t.x).
+        let t = c.tangent();
+        assert_eq!(Vec2::new(t.y, -t.x), c.normal);
+    }
+
+    #[test]
+    fn block_face_contact_point_lies_on_the_face_for_all_cardinals() {
+        let block = Block::solid("floor", Vec2::new(0.0, 100.0), Vec2::new(100.0, 20.0));
+        // Body resting on top of the block (normal up).
+        let body = aabb_from_min_size(Vec2::new(30.0, 80.0), Vec2::new(20.0, 20.0));
+        let c = block_face_contact(body, &block, Vec2::new(0.0, -1.0), 0.25);
+        assert!((c.point.y - 100.0).abs() < 1e-4, "on the top face");
+        assert!((c.point.x - 40.0).abs() < 1e-4, "midpoint of x overlap");
+        assert_eq!(c.toi, 0.25);
+        assert_eq!(c.surface_velocity, Vec2::ZERO);
+        assert_eq!(
+            c.source,
+            ContactSource::Block {
+                kind: BlockKind::Solid
+            }
+        );
+        // Body pressed against the block's left face (normal pointing -x).
+        let side_body = aabb_from_min_size(Vec2::new(-20.0, 105.0), Vec2::new(20.0, 10.0));
+        let side = block_face_contact(side_body, &block, Vec2::new(-1.0, 0.0), 0.0);
+        assert!((side.point.x - 0.0).abs() < 1e-4, "on the left face");
+        assert!((side.point.y - 110.0).abs() < 1e-4, "midpoint of y overlap");
+        // A moving block stamps its velocity onto the contact.
+        let mut mover = block.clone();
+        mover.velocity = Vec2::new(3.0, 0.0);
+        let carried = block_face_contact(body, &mover, Vec2::new(0.0, -1.0), 0.0);
+        assert_eq!(carried.surface_velocity, Vec2::new(3.0, 0.0));
     }
 
     #[test]

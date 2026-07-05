@@ -155,7 +155,8 @@ pub(super) fn integrate_velocity_clusters(
         || clusters.ground.drop_through_timer > 0.0;
 
     let sweep = |clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
-                 axis: crate::collision_semantics::Axis| {
+                 axis: crate::collision_semantics::Axis,
+                 contacts: &mut Vec<crate::collision_semantics::Contact>| {
         let prev_feet_coord = clusters
             .kinematics
             .aabb_oriented(tuning.gravity_dir)
@@ -176,10 +177,11 @@ pub(super) fn integrate_velocity_clusters(
             prev_feet_coord,
             drop_through,
             tuning.gravity_dir,
+            contacts,
         );
     };
 
-    sweep(clusters, side_axis);
+    sweep(clusters, side_axis, &mut events.contacts);
     apply_wall_abilities_clusters(
         clusters.kinematics,
         clusters.ground,
@@ -192,7 +194,7 @@ pub(super) fn integrate_velocity_clusters(
         events,
     );
     clusters.ground.on_ground = false;
-    sweep(clusters, gravity_axis);
+    sweep(clusters, gravity_axis, &mut events.contacts);
 
     // Emergent platform riding — the SAME rule the shared `step_kinematic` sweep
     // applies to enemies/NPCs: a grounded body resting on a MOVING solid is carried
@@ -212,6 +214,14 @@ pub(super) fn integrate_velocity_clusters(
         ) {
             let v = support.velocity;
             clusters.kinematics.pos += v - v.dot(g) * g;
+            // The grounded-frame REST contact: the one place per frame that
+            // knows both the support and its frame motion, so the contact
+            // carries `surface_velocity` (moving-platform carry made visible).
+            events
+                .contacts
+                .push(crate::collision_semantics::block_face_contact(
+                    oriented, support, -g, 0.0,
+                ));
         }
     }
 

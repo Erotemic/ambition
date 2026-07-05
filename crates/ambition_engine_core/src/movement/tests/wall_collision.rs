@@ -635,6 +635,7 @@ fn ceiling_graze_x_sweep_does_not_teleport_body_to_the_far_edge() {
         prev_feet_coord,
         false,
         gravity_dir,
+        &mut Vec::new(),
     );
     let after = scratch.kinematics.pos;
     assert!(

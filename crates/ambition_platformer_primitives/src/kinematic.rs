@@ -32,10 +32,10 @@
 //! sweep helpers in `movement`.
 
 use ambition_engine_core::collision_semantics::{
-    axis_role, body_on_support_side, gravity_axis, is_contact_range_snap,
+    axis_role, block_face_contact, body_on_support_side, gravity_axis, is_contact_range_snap,
     is_full_collision_surface, is_solid_for_axis, moving_toward_feet,
     one_way_landing_from_previous_feet, perpendicular_overlap, snap_feet_to_surface,
-    supporting_block, surface_supports_body_at_rest, Axis, AxisRole, MOTION_EPS,
+    supporting_block, surface_supports_body_at_rest, Axis, AxisRole, Contact, MOTION_EPS,
 };
 use ambition_engine_core::Vec2;
 use ambition_engine_core::{Aabb, AabbExt};
@@ -111,6 +111,23 @@ pub fn step_kinematic(
     inputs: KinematicInputs,
     dt: f32,
 ) {
+    step_kinematic_observed(body, world, tuning, inputs, dt, None);
+}
+
+/// [`step_kinematic`] with contact observability (fable review 2026-07-05
+/// AJ10): every resolved world contact this step is pushed into `contacts`
+/// (landing = feet contact with normal `-gravity_dir`, wall = the surface's
+/// outward normal from the parry cast, rest = a support contact carrying the
+/// support's `surface_velocity`). Pass `None` for the plain step — resolution
+/// is IDENTICAL either way; the sink is pure observability.
+pub fn step_kinematic_observed(
+    body: &mut KinematicBody,
+    world: &World,
+    tuning: KinematicTuning,
+    inputs: KinematicInputs,
+    dt: f32,
+    mut contacts: Option<&mut Vec<Contact>>,
+) {
     let g = cardinal_gravity(tuning.gravity_dir);
 
     // 1. Gravity along the body's local down direction, capped along that same
@@ -145,6 +162,7 @@ pub fn step_kinematic(
         inputs.drop_through,
         prev_feet_coord,
         dt,
+        contacts.as_deref_mut(),
     );
     sweep_axis(
         body,
@@ -154,6 +172,7 @@ pub fn step_kinematic(
         inputs.drop_through,
         prev_feet_coord,
         dt,
+        contacts.as_deref_mut(),
     );
 
     // 3. Resting support stabilization. Swept motion handles crossings; this
@@ -177,10 +196,13 @@ pub fn step_kinematic(
             // component is already represented by support/contact resolution.
             let v = support.velocity;
             body.pos += v - v.dot(g) * g;
+            if let Some(sink) = contacts.as_deref_mut() {
+                sink.push(block_face_contact(body.aabb(), support, -g, 0.0));
+            }
         }
     }
 
-    resolve_penetration(body, world, g);
+    resolve_penetration(body, world, g, contacts);
 }
 
 fn cardinal_gravity(gravity_dir: Vec2) -> Vec2 {
@@ -236,10 +258,11 @@ fn sweep_axis(
     drop_through: bool,
     prev_feet_coord: f32,
     dt: f32,
+    mut contacts: Option<&mut Vec<Contact>>,
 ) {
     let delta_amount = axis_component(body.vel, axis) * dt;
     if delta_amount.abs() <= MOTION_EPS {
-        resolve_axis(body, world, axis, gravity_dir, drop_through);
+        resolve_axis(body, world, axis, gravity_dir, drop_through, contacts);
         return;
     }
 
@@ -279,14 +302,33 @@ fn sweep_axis(
             body.on_ground = true;
             clear_axis_velocity(&mut body.vel, axis);
             clear_velocity_toward_feet(&mut body.vel, gravity_dir);
+            if let Some(sink) = contacts.as_deref_mut() {
+                sink.push(block_face_contact(
+                    body.aabb(),
+                    hit.block,
+                    -gravity_dir,
+                    toi,
+                ));
+            }
         } else {
             clear_axis_velocity(&mut body.vel, axis);
+            if let Some(sink) = contacts.as_deref_mut() {
+                // The SURFACE outward normal: parry's `normal1` is the moving
+                // shape's outward normal, so negate it; fall back to the
+                // swept-axis face when the cast reported none (t=0 overlap).
+                let normal = if hit.normal1.length_squared() > 0.5 {
+                    -hit.normal1
+                } else {
+                    axis_delta(axis, -delta_amount.signum())
+                };
+                sink.push(block_face_contact(body.aabb(), hit.block, normal, toi));
+            }
         }
     } else {
         add_axis(&mut body.pos, axis, delta_amount);
     }
 
-    resolve_axis(body, world, axis, gravity_dir, drop_through);
+    resolve_axis(body, world, axis, gravity_dir, drop_through, contacts);
 }
 
 fn axis_resolution(body: Aabb, block: Aabb, axis: Axis) -> Vec2 {
@@ -314,6 +356,7 @@ fn resolve_axis(
     axis: Axis,
     gravity_dir: Vec2,
     drop_through: bool,
+    mut contacts: Option<&mut Vec<Contact>>,
 ) {
     for block in &world.blocks {
         if !is_solid_for_axis(block.kind, axis, gravity_dir) {
@@ -341,6 +384,9 @@ fn resolve_axis(
             body.on_ground = true;
             clear_axis_velocity(&mut body.vel, axis);
             clear_velocity_toward_feet(&mut body.vel, gravity_dir);
+            if let Some(sink) = contacts.as_deref_mut() {
+                sink.push(block_face_contact(aabb, block, -gravity_dir, 0.0));
+            }
         } else {
             let push = axis_resolution(aabb, block.aabb, axis);
             // A penetration push larger than the body's own half-extent is a
@@ -360,11 +406,22 @@ fn resolve_axis(
                 body.on_ground = true;
                 clear_velocity_toward_feet(&mut body.vel, gravity_dir);
             }
+            if let Some(sink) = contacts.as_deref_mut() {
+                let normal = push.normalize_or_zero();
+                if normal != Vec2::ZERO {
+                    sink.push(block_face_contact(aabb, block, normal, 0.0));
+                }
+            }
         }
     }
 }
 
-fn resolve_penetration(body: &mut KinematicBody, world: &World, gravity_dir: Vec2) {
+fn resolve_penetration(
+    body: &mut KinematicBody,
+    world: &World,
+    gravity_dir: Vec2,
+    mut contacts: Option<&mut Vec<Contact>>,
+) {
     // Last-resort support-side depenetration. This is deliberately phrased in
     // feet/head coordinates rather than vertical top/bottom so it handles bodies
     // spawned into a support under any cardinal gravity.
@@ -386,6 +443,9 @@ fn resolve_penetration(body: &mut KinematicBody, world: &World, gravity_dir: Vec
             body.pos += snap;
             body.on_ground = true;
             clear_velocity_toward_feet(&mut body.vel, gravity_dir);
+            if let Some(sink) = contacts.as_deref_mut() {
+                sink.push(block_face_contact(aabb, block, -gravity_dir, 0.0));
+            }
             break;
         }
     }
@@ -395,6 +455,82 @@ fn resolve_penetration(body: &mut KinematicBody, world: &World, gravity_dir: Vec
 mod tests {
     use super::*;
     use ambition_engine_core::Block;
+
+    #[test]
+    fn observed_contacts_report_landing_normals_for_all_cardinal_gravities() {
+        // C4-style: a body dropped onto a support under EACH cardinal gravity
+        // reports a feet contact whose normal is -gravity_dir, with a tangent
+        // perpendicular to it. Resolution is unchanged (the plain step is the
+        // observed step with a None sink) — this pins the observability.
+        for g in [
+            Vec2::new(0.0, 1.0),
+            Vec2::new(0.0, -1.0),
+            Vec2::new(1.0, 0.0),
+            Vec2::new(-1.0, 0.0),
+        ] {
+            let center = Vec2::new(400.0, 300.0);
+            let block_center = center + g * 100.0;
+            let world = world_with(vec![Block::solid(
+                "support",
+                block_center - Vec2::splat(60.0),
+                Vec2::splat(120.0),
+            )]);
+            let mut b = body(center);
+            let tuning = KinematicTuning {
+                gravity: 1450.0,
+                max_fall_speed: 760.0,
+                gravity_dir: g,
+            };
+            let mut contacts = Vec::new();
+            for _ in 0..240 {
+                contacts.clear();
+                step_kinematic_observed(
+                    &mut b,
+                    &world,
+                    tuning,
+                    KinematicInputs::default(),
+                    1.0 / 60.0,
+                    Some(&mut contacts),
+                );
+                if b.on_ground {
+                    break;
+                }
+            }
+            assert!(b.on_ground, "gravity {g:?}: body landed");
+            let feet = contacts
+                .iter()
+                .find(|c| (c.normal + g).length() < 1e-3)
+                .unwrap_or_else(|| {
+                    panic!("gravity {g:?}: a feet contact with normal == -g, got {contacts:?}")
+                });
+            assert_eq!(feet.surface_velocity, Vec2::ZERO);
+            assert!(feet.tangent().dot(feet.normal).abs() < 1e-6);
+        }
+    }
+
+    #[test]
+    fn observed_rest_contact_carries_moving_platform_velocity() {
+        let mut platform = Block::solid("mover", Vec2::new(340.0, 340.0), Vec2::new(120.0, 20.0));
+        platform.velocity = Vec2::new(2.0, 0.0);
+        let world = world_with(vec![platform]);
+        // Feet (pos.y + 23) exactly on the platform top (340).
+        let mut b = body(Vec2::new(400.0, 317.0));
+        let mut contacts = Vec::new();
+        step_kinematic_observed(
+            &mut b,
+            &world,
+            tuning(),
+            KinematicInputs::default(),
+            1.0 / 60.0,
+            Some(&mut contacts),
+        );
+        assert!(b.on_ground);
+        let rest = contacts
+            .iter()
+            .find(|c| c.surface_velocity == Vec2::new(2.0, 0.0))
+            .expect("the rest contact carries the platform's frame velocity");
+        assert!((rest.normal - Vec2::new(0.0, -1.0)).length() < 1e-3);
+    }
 
     fn world_with(blocks: Vec<Block>) -> World {
         World {

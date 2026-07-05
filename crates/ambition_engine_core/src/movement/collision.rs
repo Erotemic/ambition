@@ -1,7 +1,8 @@
 use crate::collision_semantics::{
-    axis_role, body_on_support_side, is_contact_range_snap, is_full_collision_surface,
-    is_solid_for_axis, moving_toward_feet, one_way_landing_from_previous_feet,
-    snap_feet_to_surface, surface_supports_body_at_rest, Axis, AxisRole,
+    axis_role, block_face_contact, body_on_support_side, is_contact_range_snap,
+    is_full_collision_surface, is_solid_for_axis, moving_toward_feet,
+    one_way_landing_from_previous_feet, snap_feet_to_surface, surface_supports_body_at_rest, Axis,
+    AxisRole, Contact,
 };
 use crate::geometry::{Aabb, AabbExt};
 use crate::world::{BlockKind, World};
@@ -241,6 +242,7 @@ pub(super) fn sweep_player_axis_clusters(
     prev_feet_coord: f32,
     drop_through: bool,
     gravity_dir: Vec2,
+    contacts: &mut Vec<Contact>,
 ) {
     let role = axis_role(axis, gravity_dir);
     let delta = axis_vec(axis, delta_along);
@@ -254,6 +256,7 @@ pub(super) fn sweep_player_axis_clusters(
             prev_feet_coord,
             drop_through,
             gravity_dir,
+            contacts,
         );
         return;
     }
@@ -295,10 +298,22 @@ pub(super) fn sweep_player_axis_clusters(
             if role == AxisRole::Gravity {
                 ground.on_ground = true;
             }
+            contacts.push(block_face_contact(
+                body,
+                hit.block,
+                -gravity_dir,
+                toi_fraction,
+            ));
         } else if role == AxisRole::Gravity {
-            let (push, _) = axis_face_resolution(body, hit.block.aabb, axis);
+            let (push, push_normal) = axis_face_resolution(body, hit.block.aabb, axis);
             if apply_bounded_resolution(kinematics, gravity_dir, push) {
                 zero_axis_vel(kinematics, axis);
+                contacts.push(block_face_contact(
+                    body,
+                    hit.block,
+                    push_normal,
+                    toi_fraction,
+                ));
             }
         } else {
             let immediate_contact = hit.time_of_impact <= 1.0e-5;
@@ -332,6 +347,12 @@ pub(super) fn sweep_player_axis_clusters(
                 kinematics.pos += axis_vec(axis, d);
                 zero_axis_vel(kinematics, axis);
                 apply_side_contact(wall, axis_vec(axis, normal_sign), gravity_dir);
+                contacts.push(block_face_contact(
+                    body,
+                    hit.block,
+                    axis_vec(axis, normal_sign),
+                    toi_fraction,
+                ));
             }
         }
     } else {
@@ -347,6 +368,7 @@ pub(super) fn sweep_player_axis_clusters(
         prev_feet_coord,
         drop_through,
         gravity_dir,
+        contacts,
     );
 }
 
@@ -366,6 +388,7 @@ fn resolve_axis_repair(
     prev_feet_coord: f32,
     drop_through: bool,
     gravity_dir: Vec2,
+    contacts: &mut Vec<Contact>,
 ) {
     let role = axis_role(axis, gravity_dir);
     let mut aabb = kinematics.aabb_oriented(gravity_dir);
@@ -400,16 +423,20 @@ fn resolve_axis_repair(
             AxisRole::Gravity => {
                 let on_support = matches!(block.kind, BlockKind::OneWay)
                     || body_on_support_side(aabb, block.aabb, gravity_dir);
-                let delta = if on_support {
-                    snap_feet_to_surface(aabb, block.aabb, gravity_dir)
+                let (delta, normal) = if on_support {
+                    (
+                        snap_feet_to_surface(aabb, block.aabb, gravity_dir),
+                        -gravity_dir,
+                    )
                 } else {
-                    axis_face_resolution(aabb, block.aabb, axis).0
+                    axis_face_resolution(aabb, block.aabb, axis)
                 };
                 if apply_bounded_resolution(kinematics, gravity_dir, delta) {
                     if on_support {
                         ground.on_ground = true;
                     }
                     zero_axis_vel(kinematics, axis);
+                    contacts.push(block_face_contact(aabb, block, normal, 0.0));
                 }
             }
             AxisRole::Side => {
@@ -422,6 +449,12 @@ fn resolve_axis_repair(
                     kinematics.pos += axis_vec(axis, d);
                     zero_axis_vel(kinematics, axis);
                     apply_side_contact(wall, axis_vec(axis, normal_sign), gravity_dir);
+                    contacts.push(block_face_contact(
+                        aabb,
+                        block,
+                        axis_vec(axis, normal_sign),
+                        0.0,
+                    ));
                 }
             }
         }

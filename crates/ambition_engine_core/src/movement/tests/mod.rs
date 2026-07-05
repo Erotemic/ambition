@@ -52,6 +52,7 @@ mod c4_reaction_seams;
 mod climbing;
 mod clock;
 mod combat_actions;
+mod contacts;
 mod glide_and_air;
 mod ledge_grab;
 mod wall_collision;

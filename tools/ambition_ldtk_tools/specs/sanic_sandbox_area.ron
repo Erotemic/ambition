@@ -1,0 +1,77 @@
+// sanic_sandbox — the momentum playground (demo plan S3b). A wide run of
+// rideable SurfaceChains (a flat straight, a shallow valley) plus one
+// interior-rideable SurfaceLoop, so a worn `MotionModel::SurfaceMomentum` body
+// (Sanic) can build speed, dip through the valley, and ride the loop. One
+// knight NPC (viking warrior) ambles on the floor to prove coexistence — combat
+// bodies stay axis-swept while Sanic rides surfaces in the same room.
+//
+// Coords are level-local, y-DOWN. The momentum body rides the SurfaceChains
+// (authored left->right so their normals point up); Solid walls fence the ends.
+// Placed at a verified-free world region (x >= 9600, clear of every level).
+//
+// Layout (3200x1000): floor chain at y~880 with a valley near x1400..1800; a
+// 200px loop sitting on the floor at x=2600. FEEL/polish is Jon's (BLIND).
+(
+    id: "sanic_sandbox",
+    level_id: "sanic_sandbox",
+    world_x: 9600,
+    world_y: 3000,
+    px_wid: 3200,
+    px_hei: 1008,
+    fill_collision: "empty",
+    bg_color: "#0A1420",
+    biome: "lab",
+    music_track: "pulse_drift_voyage",
+    entities: [
+        // Fence the run so a fast body can't sail off the open chain ends.
+        ( type: "Solid", px: [0, 0], size: [16, 1008], fields: ( name: "left_wall" ) ),
+        ( type: "Solid", px: [3184, 0], size: [16, 1008], fields: ( name: "right_wall" ) ),
+        ( type: "HazardBlock", px: [16, 988], size: [3168, 20], fields: ( name: "pit_floor" ) ),
+        // The rideable floor: a flat straight, then a shallow valley (a dip that
+        // trades height for speed), then flat again. Authored left->right.
+        (
+            type: "SurfaceChain",
+            px: [100, 860],
+            size: [16, 16],
+            fields: (
+                name: "sanic_floor",
+                points: "100,880; 1000,880; 1400,940; 1800,940; 2200,880; 3080,880",
+            ),
+        ),
+        // A launch ramp rising toward the loop's approach.
+        (
+            type: "SurfaceChain",
+            px: [2200, 800],
+            size: [16, 16],
+            fields: (
+                name: "sanic_ramp",
+                points: "2200,880; 2380,820",
+            ),
+        ),
+        // The loop: a marker; the converter generates a 24-gon of radius 200
+        // about its CENTER (min + size/2 = (2600, 680)), whose bottom kisses the
+        // floor at y=880. Interior-rideable by construction.
+        (
+            type: "SurfaceLoop",
+            px: [2584, 664],
+            size: [32, 32],
+            fields: ( name: "sanic_loop", radius: 200.0, segments: 24 ),
+        ),
+        // A knight ambling on the floor — coexistence: it fights AABB while
+        // Sanic rides the chains in the same room.
+        (
+            type: "NpcSpawn",
+            px: [700, 800],
+            size: [48, 80],
+            fields: ( character_id: "npc_viking_warrior", patrol_radius: 200.0 ),
+        ),
+        // Spawn on the flat start, feet at the floor line.
+        ( type: "PlayerStart", px: [200, 834], size: [28, 46], fields: ( name: "sanic_sandbox_spawn" ) ),
+        (
+            type: "CameraZone",
+            px: [0, 0],
+            size: [3200, 1008],
+            fields: ( id: "sanic_sandbox_camera", name: "sanic_sandbox_camera", mode: "Default" ),
+        ),
+    ],
+)

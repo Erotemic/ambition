@@ -165,16 +165,16 @@ fn gnu_ton_metrics_come_from_per_animation_hurtboxes() {
 fn mockingbird_resolves_a_body_hurtbox_from_the_baked_registry() {
     use crate::features::bosses::BossBehaviorProfile;
 
-    // The behavior id must map to the sheet target the RON declares,
-    // otherwise the registry lookup misses (the masked half of the bug).
+    let registry = crate::character_sprites::baked_sheet_registry();
+    let behavior = BossBehaviorProfile::mockingbird();
+    // The behavior must map to the sheet target the RON declares (its authored
+    // `sprite_target`), otherwise the registry lookup misses (the masked half of
+    // the bug).
     assert_eq!(
-        sprite_target_for_boss("mockingbird"),
+        sprite_target_for_boss(&behavior),
         "mockingbird_boss",
         "mockingbird behavior must map to its 'mockingbird_boss' sheet target",
     );
-
-    let registry = crate::character_sprites::baked_sheet_registry();
-    let behavior = BossBehaviorProfile::mockingbird();
     let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(500.0, 185.0));
     let pos = ae::Vec2::new(500.0, 400.0);
     let mut boss = super::super::boss_clusters::BossClusterScratch::new(

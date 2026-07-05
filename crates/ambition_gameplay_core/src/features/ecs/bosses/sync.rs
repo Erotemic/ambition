@@ -119,30 +119,16 @@ pub fn sync_boss_actor_components(
     }
 }
 
-/// Map a boss `BossBehaviorProfile::id` to its sprite-registry
-/// target id. The sprite generator's `target` field doesn't always
-/// match the boss internal id — clockwork_warden / gradient_sentinel
-/// both share the generic `"boss"` sheet. Future RON-authored
-/// boss specs can carry their own sprite target string; for now
-/// this match is the single mapping point.
-pub fn sprite_target_for_boss(behavior_id: &str) -> &str {
-    match behavior_id {
-        "clockwork_warden" | "gradient_sentinel" => "boss",
-        // GNU-ton's hand-tuned `gnu_ton_part_aabb` math was migrated
-        // into the standard `body_metrics` pipeline (the
-        // `gnu_ton_boss_spritesheet.ron`'s `animations` block) on
-        // 2026-05-26. Map the behavior id to that sheet target so
-        // `derive_boss_sprite_metrics` picks up the per-animation
-        // hitboxes / hurtboxes.
-        "gnu_ton" => "gnu_ton_boss",
-        // The mockingbird's sprite RON declares `target: "mockingbird_boss"`
-        // (matching its `mockingbird_boss_spritesheet.png` / file root), so
-        // map the behavior id to that sheet target — otherwise the
-        // `body_metrics` lookup in `boss_sprite_metrics_from_registry` misses
-        // and the boss falls back to the bare combat_size hurtbox.
-        "mockingbird" => "mockingbird_boss",
-        other => other,
-    }
+/// The sprite-registry target id a boss draws from — its authored
+/// `BossBehaviorProfile::sprite_target`, or its `id` when unset (the common
+/// case). The sprite generator's `target` doesn't always match the boss id:
+/// clockwork_warden / gradient_sentinel share the generic `"boss"` sheet,
+/// GNU-ton draws `"gnu_ton_boss"`, the mockingbird `"mockingbird_boss"` — each
+/// authored in `boss_profiles.ron`. The engine names no boss here.
+pub fn sprite_target_for_boss(
+    behavior: &crate::boss_encounter::behavior::BossBehaviorProfile,
+) -> &str {
+    behavior.sprite_target.as_deref().unwrap_or(&behavior.id)
 }
 
 /// World-space size of the rendered sprite quad for a boss, given the
@@ -291,7 +277,7 @@ pub(crate) fn boss_sprite_metrics_from_registry(
     boss: super::super::boss_clusters::BossRef<'_>,
     registry: &SheetRegistry,
 ) -> Option<(ActorSpriteMetrics, Option<ae::Vec2>)> {
-    let target = sprite_target_for_boss(&boss.config.behavior.id);
+    let target = sprite_target_for_boss(&boss.config.behavior);
     let (metrics, frame_w, frame_h) = registry.body_metrics(target)?;
     // AS4b: scale from the sprite render BASIS, not `kin.size` (now the collision
     // envelope) — so the derived world metrics are unchanged by the size flip.

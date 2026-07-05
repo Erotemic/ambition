@@ -28,6 +28,15 @@ use ambition_engine_core as ae;
 #[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 pub struct BossBehaviorProfile {
     pub id: String,
+    /// Sprite-registry target id: which sheet the boss draws from and keys its
+    /// per-animation hit/hurtboxes against. `None` (the default) = the boss's
+    /// own `id` IS the target (the common case). Author it only when the sheet
+    /// target diverges from the id — the gradient sentinel / clockwork warden
+    /// share the generic `"boss"` sheet, GNU-ton draws `"gnu_ton_boss"`, the
+    /// mockingbird `"mockingbird_boss"`. Data-driven so the engine's sprite
+    /// lookup names no boss (was a hardcoded id->target match in `sync.rs`).
+    #[serde(default)]
+    pub sprite_target: Option<String>,
     #[serde(default, with = "boss_vec2_option")]
     pub combat_size: Option<ae::Vec2>,
     pub movement: BossMovementProfile,
@@ -329,6 +338,9 @@ impl BossBehaviorProfile {
     pub fn generic(id: impl Into<String>) -> Self {
         let mut profile = Self::from_data("clockwork_warden");
         profile.id = id.into();
+        // A generic boss draws from ITS OWN id's sheet, not the warden's
+        // `"boss"` sheet — reset the cloned sprite target to identity.
+        profile.sprite_target = None;
         profile
     }
 

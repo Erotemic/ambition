@@ -69,6 +69,7 @@
     // ============================================================
     "clockwork_warden": (
         id: "clockwork_warden",
+        sprite_target: Some("boss"),
         reward_ability: Some("markrecall"),
         // Tightened combat size to roughly match the visible sprite
         // body: the clockwork_warden sheet has body_pixel_bbox 106×83
@@ -212,6 +213,7 @@
     // ============================================================
     "mockingbird": (
         id: "mockingbird",
+        sprite_target: Some("mockingbird_boss"),
         signature_gauntlet: Some("volley"),
         combat_size: Some((500.0, 185.0)),
         movement: AirSwoop(
@@ -282,6 +284,7 @@
     "gnu_ton": (
         bark_anchor: (dx_px: 38.0, dy_half_h: -0.55, dy_px: -18.0),
         id: "gnu_ton",
+        sprite_target: Some("gnu_ton_boss"),
         reward_ability: Some("fireball"),
         signature_gauntlet: Some("meteor"),
         combat_size: Some((220.0, 220.0)),

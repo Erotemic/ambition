@@ -65,23 +65,90 @@ pub const RANGED_VERB: &str = "ranged";
 /// pogo remain on the flat player path for now (bulk-review: player-melee fold).
 pub fn attack_move_from_melee(spec: &MeleeActionSpec) -> MoveSpec {
     let (windup, active, recover, damage, reach) = spec.timeline();
-    let windup = windup.max(0.0);
-    let active = active.max(0.02);
-    let recover = recover.max(0.0);
+    // The authored-melee path is now a thin adapter over the `simple_melee`
+    // engine prefab (A2): the MeleeActionSpec timeline becomes prefab params.
+    // Byte-identical — the clamps + volume shape live in the prefab core.
+    simple_melee(&SimpleMeleeParams {
+        windup_s: windup,
+        active_s: active,
+        recover_s: recover,
+        damage,
+        reach_px: reach,
+        knockback: 120.0,
+    })
+}
+
+/// Params for the [`simple_melee`] engine prefab (A2 / R2.3) — a forward swing
+/// as authored DATA. Every field defaults, so a roster prefab row omits what it
+/// doesn't tune (`prefab: "simple_melee"` with empty params = a default jab).
+/// `sword_slash` is literally this prefab + params, zero new code.
+#[derive(Debug, Clone, Copy, serde::Deserialize)]
+pub struct SimpleMeleeParams {
+    #[serde(default = "smp_windup")]
+    pub windup_s: f32,
+    #[serde(default = "smp_active")]
+    pub active_s: f32,
+    #[serde(default = "smp_recover")]
+    pub recover_s: f32,
+    #[serde(default = "smp_damage")]
+    pub damage: i32,
+    #[serde(default = "smp_reach")]
+    pub reach_px: f32,
+    #[serde(default = "smp_knockback")]
+    pub knockback: f32,
+}
+
+fn smp_windup() -> f32 {
+    0.12
+}
+fn smp_active() -> f32 {
+    0.10
+}
+fn smp_recover() -> f32 {
+    0.18
+}
+fn smp_damage() -> i32 {
+    1
+}
+fn smp_reach() -> f32 {
+    36.0
+}
+fn smp_knockback() -> f32 {
+    120.0
+}
+
+impl Default for SimpleMeleeParams {
+    fn default() -> Self {
+        Self {
+            windup_s: smp_windup(),
+            active_s: smp_active(),
+            recover_s: smp_recover(),
+            damage: smp_damage(),
+            reach_px: smp_reach(),
+            knockback: smp_knockback(),
+        }
+    }
+}
+
+/// The `simple_melee` prefab core: a forward Startup/Active(one Rect hit)/Recovery
+/// swing on the owner's proper-time clock. Shared by the authored-melee adapter
+/// ([`attack_move_from_melee`]) and the prefab registry.
+pub fn simple_melee(p: &SimpleMeleeParams) -> MoveSpec {
+    let windup = p.windup_s.max(0.0);
+    let active = p.active_s.max(0.02);
+    let recover = p.recover_s.max(0.0);
     let duration = windup + active + recover;
     // Forward rect: centered just past the body, extending to `reach`, with a
     // torso-height band. Authored body-local (x = side/forward); the runtime
     // mirrors it by facing and rotates it into the gravity frame at spawn.
-    let half_x = (reach * 0.5).max(8.0);
+    let half_x = (p.reach_px * 0.5).max(8.0);
     let volume = HitVolume {
         shape: VolumeShape::Rect {
-            offset: (reach * 0.6, 0.0),
+            offset: (p.reach_px * 0.6, 0.0),
             half_extents: (half_x, 16.0),
         },
-        damage: damage.max(1),
-        // Aggressor-push default; the damage resolver derives direction from
-        // facing/contact. Tunable — noted in the bulk-review queue.
-        knockback: 120.0,
+        damage: p.damage.max(1),
+        knockback: p.knockback,
         // A plain swing lands no on-hit technique; directional variants (a
         // down-air pogo) author `on_hit` per-move (R2.5 player-melee fold).
         on_hit: None,
@@ -147,6 +214,46 @@ pub fn fire_move_from_ranged(spec: &RangedActionSpec) -> MoveSpec {
         RangedActionSpec::Bolt { .. } => (0.18, 0.20),
         RangedActionSpec::Arrow { .. } => (0.28, 0.22),
     };
+    // Thin adapter over the `simple_ranged` engine prefab (A2). The projectile
+    // still comes from the owner's live ActionSet.ranged at the fire event.
+    simple_ranged(&SimpleRangedParams {
+        windup_s: windup,
+        recover_s: recover,
+    })
+}
+
+/// Params for the [`simple_ranged`] engine prefab (A2). The move carries NO
+/// projectile spec — the fire event samples the owner's live `ActionSet.ranged`
+/// — so its only knobs are the draw/settle timings.
+#[derive(Debug, Clone, Copy, serde::Deserialize)]
+pub struct SimpleRangedParams {
+    #[serde(default = "srp_windup")]
+    pub windup_s: f32,
+    #[serde(default = "srp_recover")]
+    pub recover_s: f32,
+}
+
+fn srp_windup() -> f32 {
+    0.12
+}
+fn srp_recover() -> f32 {
+    0.18
+}
+
+impl Default for SimpleRangedParams {
+    fn default() -> Self {
+        Self {
+            windup_s: srp_windup(),
+            recover_s: srp_recover(),
+        }
+    }
+}
+
+/// The `simple_ranged` prefab core: a Startup(draw)/Recovery(settle) timeline
+/// whose single [`MoveEventKind::Ranged`] fire event spawns the owner's shot.
+pub fn simple_ranged(p: &SimpleRangedParams) -> MoveSpec {
+    let windup = p.windup_s.max(0.0);
+    let recover = p.recover_s.max(0.0);
     let duration = windup + recover;
     MoveSpec {
         id: RANGED_VERB.to_string(),
@@ -179,6 +286,181 @@ pub fn fire_move_from_ranged(spec: &RangedActionSpec) -> MoveSpec {
         }],
         gates: Default::default(),
         start_impulse: None,
+    }
+}
+
+/// Params for the [`simple_charge`] engine prefab (A2) — a hold-then-release
+/// heavy hit the demos need (SMB1's crouch-charge, a wind-up smash). The
+/// `charge_s` Startup window is the hold; the `active_s` Active window lands one
+/// forward Rect hit sized from `reach_px`, then `recover_s` settle.
+#[derive(Debug, Clone, Copy, serde::Deserialize)]
+pub struct SimpleChargeParams {
+    #[serde(default = "scp_charge")]
+    pub charge_s: f32,
+    #[serde(default = "scp_active")]
+    pub active_s: f32,
+    #[serde(default = "scp_recover")]
+    pub recover_s: f32,
+    #[serde(default = "scp_damage")]
+    pub damage: i32,
+    #[serde(default = "scp_reach")]
+    pub reach_px: f32,
+    #[serde(default = "scp_knockback")]
+    pub knockback: f32,
+}
+
+fn scp_charge() -> f32 {
+    0.45
+}
+fn scp_active() -> f32 {
+    0.12
+}
+fn scp_recover() -> f32 {
+    0.30
+}
+fn scp_damage() -> i32 {
+    3
+}
+fn scp_reach() -> f32 {
+    44.0
+}
+fn scp_knockback() -> f32 {
+    260.0
+}
+
+impl Default for SimpleChargeParams {
+    fn default() -> Self {
+        Self {
+            charge_s: scp_charge(),
+            active_s: scp_active(),
+            recover_s: scp_recover(),
+            damage: scp_damage(),
+            reach_px: scp_reach(),
+            knockback: scp_knockback(),
+        }
+    }
+}
+
+/// The `simple_charge` prefab core.
+pub fn simple_charge(p: &SimpleChargeParams) -> MoveSpec {
+    let charge = p.charge_s.max(0.0);
+    let active = p.active_s.max(0.02);
+    let recover = p.recover_s.max(0.0);
+    let duration = charge + active + recover;
+    let half_x = (p.reach_px * 0.5).max(8.0);
+    let volume = HitVolume {
+        shape: VolumeShape::Rect {
+            offset: (p.reach_px * 0.6, 0.0),
+            half_extents: (half_x, 18.0),
+        },
+        damage: p.damage.max(1),
+        knockback: p.knockback,
+        on_hit: None,
+    };
+    MoveSpec {
+        id: "charge".to_string(),
+        clip: ClipBinding {
+            clip: "attack_side".to_string(),
+            fallbacks: vec!["slash".to_string(), "idle".to_string()],
+        },
+        duration_s: duration,
+        windows: vec![
+            MoveWindow {
+                start_s: 0.0,
+                end_s: charge,
+                tag: WindowTag::Startup,
+                volumes: vec![],
+                sustain_effect: None,
+            },
+            MoveWindow {
+                start_s: charge,
+                end_s: charge + active,
+                tag: WindowTag::Active,
+                volumes: vec![volume],
+                sustain_effect: None,
+            },
+            MoveWindow {
+                start_s: charge + active,
+                end_s: duration,
+                tag: WindowTag::Recovery,
+                volumes: vec![],
+                sustain_effect: None,
+            },
+        ],
+        events: vec![MoveEvent {
+            at_s: charge,
+            kind: MoveEventKind::Sfx {
+                cue: "melee_swing".to_string(),
+            },
+        }],
+        gates: Default::default(),
+        start_impulse: None,
+    }
+}
+
+/// A prefab builder: hydrate an authored [`ParamValue`] into the prefab's own
+/// params and expand it into a [`MoveSpec`]. `fn`-pointer shaped so the registry
+/// stays a plain data table.
+pub type MovePrefabBuilder = fn(&ambition_entity_catalog::ParamValue) -> Result<MoveSpec, String>;
+
+/// String-keyed prefab registry (A2 / R2.3): `key + params -> MoveSpec`, expanded
+/// at roster install. The engine ships `simple_melee` / `simple_ranged` /
+/// `simple_charge`; a content roster names a prefab + params to mint a move with
+/// ZERO new code (`sword_slash = simple_melee` + sword params). Content may
+/// register its own prefabs for richer shapes.
+pub struct MovePrefabRegistry {
+    builders: std::collections::BTreeMap<String, MovePrefabBuilder>,
+}
+
+impl MovePrefabRegistry {
+    /// A registry pre-seeded with the engine-shipped prefabs.
+    pub fn with_engine_prefabs() -> Self {
+        let mut reg = Self {
+            builders: std::collections::BTreeMap::new(),
+        };
+        reg.register("simple_melee", |p| {
+            Ok(simple_melee(&p.hydrate().map_err(|e| e.to_string())?))
+        });
+        reg.register("simple_ranged", |p| {
+            Ok(simple_ranged(&p.hydrate().map_err(|e| e.to_string())?))
+        });
+        reg.register("simple_charge", |p| {
+            Ok(simple_charge(&p.hydrate().map_err(|e| e.to_string())?))
+        });
+        reg
+    }
+
+    /// Register (or override) a prefab builder under `key`.
+    pub fn register(&mut self, key: impl Into<String>, builder: MovePrefabBuilder) {
+        self.builders.insert(key.into(), builder);
+    }
+
+    /// Expand a prefab row into a move named `move_id`. Errors if the key is
+    /// unknown (a roster typo) or the authored params don't hydrate.
+    pub fn expand(
+        &self,
+        key: &str,
+        params: &ambition_entity_catalog::ParamValue,
+        move_id: &str,
+    ) -> Result<MoveSpec, String> {
+        let builder = self
+            .builders
+            .get(key)
+            .ok_or_else(|| format!("unknown move prefab '{key}'"))?;
+        let mut spec = builder(params)?;
+        spec.id = move_id.to_string();
+        Ok(spec)
+    }
+
+    /// True iff no prefab is registered.
+    pub fn is_empty(&self) -> bool {
+        self.builders.is_empty()
+    }
+}
+
+impl Default for MovePrefabRegistry {
+    fn default() -> Self {
+        Self::with_engine_prefabs()
     }
 }
 
@@ -819,6 +1101,73 @@ mod tests {
     use ambition_sfx::SfxMessage;
     use ambition_vfx::vfx::VfxMessage;
     use bevy::prelude::*;
+
+    #[test]
+    fn prefab_registry_expands_sword_slash_from_simple_melee_with_zero_new_code() {
+        // A2 / R2.3: `sword_slash` is the `simple_melee` prefab + params, minted
+        // by name at roster install — no bespoke builder.
+        let reg = MovePrefabRegistry::with_engine_prefabs();
+        assert!(!reg.is_empty());
+        let params = ambition_entity_catalog::ParamValue::parse(
+            "(windup_s: 0.2, active_s: 0.08, recover_s: 0.3, damage: 4, reach_px: 60.0)",
+        )
+        .unwrap();
+        let sword = reg
+            .expand("simple_melee", &params, "sword_slash")
+            .expect("simple_melee expands");
+        assert_eq!(
+            sword.id, "sword_slash",
+            "expand renames to the roster move id"
+        );
+        // The authored damage/reach flowed into the Active window's hit volume.
+        let active = sword
+            .windows
+            .iter()
+            .find(|w| matches!(w.tag, WindowTag::Active))
+            .expect("charge has an Active window");
+        assert_eq!(active.volumes.len(), 1);
+        assert_eq!(active.volumes[0].damage, 4);
+        assert!((sword.duration_s - 0.58).abs() < 1e-5, "0.2+0.08+0.3");
+    }
+
+    #[test]
+    fn prefab_registry_rejects_unknown_key_and_bad_params() {
+        let reg = MovePrefabRegistry::with_engine_prefabs();
+        let empty = ambition_entity_catalog::ParamValue::default();
+        assert!(
+            reg.expand("not_a_prefab", &empty, "x").is_err(),
+            "typo'd key"
+        );
+        // Wrong type for a field fails at expand (install) time.
+        let bad = ambition_entity_catalog::ParamValue::parse("(damage: \"lots\")").unwrap();
+        assert!(reg.expand("simple_melee", &bad, "x").is_err(), "bad params");
+        // Empty params hydrate to the prefab defaults (every field defaults).
+        assert!(reg.expand("simple_charge", &empty, "smash").is_ok());
+    }
+
+    #[test]
+    fn authored_melee_adapter_matches_the_simple_melee_prefab() {
+        // The MeleeActionSpec path and the prefab produce the same move for the
+        // same timeline — the adapter is byte-identical to the generalized core.
+        use ambition_characters::brain::action_set::SwipeSpec;
+        let spec = MeleeActionSpec::Swipe(SwipeSpec {
+            windup_s: 0.15,
+            active_s: 0.1,
+            recover_s: 0.18,
+            damage: 2,
+            reach_px: 40.0,
+        });
+        let via_adapter = attack_move_from_melee(&spec);
+        let via_prefab = simple_melee(&SimpleMeleeParams {
+            windup_s: 0.15,
+            active_s: 0.1,
+            recover_s: 0.18,
+            damage: 2,
+            reach_px: 40.0,
+            knockback: 120.0,
+        });
+        assert_eq!(via_adapter, via_prefab);
+    }
 
     /// The seed move: SwipeSpec-as-data (0.28 windup / 0.08 active with one
     /// forward rect volume / recovery), one timed Sfx event on the swing.

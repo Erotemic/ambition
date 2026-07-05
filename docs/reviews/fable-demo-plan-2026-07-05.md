@@ -815,11 +815,28 @@ bounded slice** (all the quick evictions are now done):
   crate exists.
 - **crit 5/6**: the slower-light Tier-0 seams (ride E4), the full green gate.
 
-**RECOMMENDED NEXT SESSION ORDER:** E5 (`ambition_runtime`) FIRST — it's the demo
-gate the whole crit-4 depends on and the user's stated priority (unblocks
-S5[senior] + M-track); then the W-track carve (crit 1); the speech_sfx +
-E3/E6 crit-3 decontaminations; G1→G4 (unblock G5 [★fable]). Several need
-app-run / visual verification best done interactively.
+## E5 (first slice) — ambition_runtime + PlatformerEnginePlugins ✅ (`3c70d827`, opus)
+**The demo gate exists.** Minted the `ambition_runtime` crate (§0 crit 1: one
+target-stack crate now real) with `PlatformerEnginePlugins`, a Bevy PluginGroup
+bundling the 16 unconditional/unentangled engine sim plugins (world-prep,
+universal brain, gravity, abilities, item pickups, feature collection/
+interaction/effects/view-sync, LDtk spine, encounters, cutscenes, room reset,
+traces, affordances). Solved gameplay_core's headless feature coherence
+(`headless` + `input` + `portal_ldtk`). `ambition_app` now composes its sim
+through the group + its app-local host wiring (input/sim/room-transition/
+presentation-sync system registrations, combat/progression schedules, portal
+placement — these stay app-side, tighten in later). **Parity VERIFIED:** app
+builds; plugin_minimal_app + movement_axis + boss_lifecycle + collision oracle +
+gravity_symmetry + architecture_boundaries (32) all green — the extraction did
+not change the resolved schedule (set-based ordering). **E5 REMAINING:** migrate
+the app-local host wiring + content-neutral resources into the group (or a thin
+host adapter); then S5/M demo apps build on `PlatformerEnginePlugins` + their own
+content crate.
+
+**RECOMMENDED NEXT SESSION ORDER:** finish E5 (migrate the host wiring; then the
+demos can start); the W-track carve (crit 1); the speech_sfx + E3/E6 crit-3
+decontaminations; G1→G4 (unblock G5 [★fable]). Several need app-run / visual
+verification best done interactively.
 
 **NEXT HEADS (the bigger dents):** **G1→G4 (gnu split) unblock G5 [★fable]**;
 **E5 (`ambition_runtime`) — demo gate for S5 [senior] + M-track — needs a careful

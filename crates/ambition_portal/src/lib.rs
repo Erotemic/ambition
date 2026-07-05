@@ -68,12 +68,14 @@ pub use placement::{
     measure_host_depth, portal_facing_flips, portal_facing_flips_for_convention, portal_fits,
     portal_input_warp_flips_horizontal, portal_input_warp_flips_horizontal_for_convention,
     portal_transit_roll, raycast_through_portals, raycast_through_portals_tuned, somersault_roll,
-    somersault_roll_for_convention, transit_step, transit_step_with_tuning, TransitStep,
+    somersault_roll_for_convention, transit_step, transit_step_with_tuning, SweptSample,
+    TransitStep,
 };
 pub use transit::{
     portal_teleport_ground_items, portal_transit, publish_portal_carves, tick_portal_cooldowns,
     BodyTeleported, PlayerMovementIntent, PortalBody, PortalBodyTransited, PortalCarves,
-    PortalEmission, PortalInputWarp, PortalPolicy, PortalTransit, PortalTransitable,
+    PortalEmission, PortalInputWarp, PortalPolicy, PortalSweepAnchor, PortalTransit,
+    PortalTransitable,
 };
 pub use tuning::{sync_portal_tuning_convention, PortalConvention, PortalTuning};
 pub use types::{

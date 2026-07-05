@@ -12,7 +12,7 @@ use ambition_platformer_primitives::orientation::ActorRoll;
 use ambition_platformer_primitives::transit::rotate_velocity_between_normals as portal_transform_velocity;
 
 use super::color::PortalChannel;
-use super::placement::{transit_step_with_tuning, TransitStep, TRANSIT_BEGIN_MARGIN};
+use super::placement::{transit_step_with_tuning, SweptSample, TransitStep, TRANSIT_BEGIN_MARGIN};
 use super::tuning::PortalTuning;
 use super::types::{
     find_portal, portal_exit_clearance, PlacedPortal, PortalHostDepths, PortalTransitCooldown,
@@ -174,6 +174,20 @@ pub fn publish_portal_carves(
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct PortalBody;
 
+/// The body's previous authoritative transit sample — the anchor for the SWEPT
+/// (CCD) transit tier (§7.6). [`portal_transit`] maintains it: reads it as the
+/// [`SweptSample`] fed to `transit_step`, then overwrites it with this frame's
+/// post-step position + velocity (post-transfer, so a teleport never reads as a
+/// swept segment next frame). Inserted lazily on a body's first transit step —
+/// its first frame simply has no sweep, which is the correct degenerate case.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct PortalSweepAnchor {
+    /// Body center at the end of the previous `portal_transit` run.
+    pub pos: Vec2,
+    /// Body velocity at the end of the previous `portal_transit` run.
+    pub vel: Vec2,
+}
+
 /// HOW a body participates in transit — behavioral, never identity. The core
 /// transit reads only these flags; it never names Player / Boss / Projectile.
 /// Ambition maps its game identities → policy when it tags an entity.
@@ -245,6 +259,7 @@ pub fn portal_transit(
             Option<&mut PortalTransit>,
             Option<&mut ActorRoll>,
             Option<&PortalTransitCooldown>,
+            Option<&mut PortalSweepAnchor>,
         ),
         With<PortalBody>,
     >,
@@ -261,17 +276,26 @@ pub fn portal_transit(
     let gravity_dir =
         ambition_platformer_primitives::gravity::gravity_dir_or_default(gravity.as_deref());
 
-    for (entity, mut kin, policy, mut transit, mut roll, cooldown) in &mut bodies {
+    for (entity, mut kin, policy, mut transit, mut roll, cooldown, mut anchor) in &mut bodies {
         // The transit cooldown is a BODY latch (`PortalTransitCooldown`),
         // ticked by `tick_portal_cooldowns` and scoped to the PAIR the body
         // just crossed; gun-independent so nothing can ping-pong back through
         // an authored pair, while a different pair stays enterable.
         let cooldown_pair = cooldown.map(|c| c.pair);
         let default_depths = PortalHostDepths::default();
+        // The swept (CCD) tier's segment start: the body's TRUE position last
+        // run (not `pos - vel * dt` — a body the integrator already stopped at
+        // the carve bottom has zeroed velocity, which is the very case the
+        // sweep exists to catch).
+        let sweep = anchor.as_deref().map(|a| SweptSample {
+            pos: a.pos,
+            vel: a.vel,
+        });
         let step = transit_step_with_tuning(
             kin.pos,
             kin.size,
             kin.vel,
+            sweep,
             transit.as_deref().copied(),
             cooldown_pair,
             &all,
@@ -351,6 +375,21 @@ pub fn portal_transit(
             }
             TransitStep::Clear => {
                 commands.entity(entity).remove::<PortalTransit>();
+            }
+        }
+        // Refresh the sweep anchor with this frame's POST-step sample: after a
+        // Transfer the recorded pos is the exit-side one, so the teleport can
+        // never read as a swept segment next frame.
+        match anchor.as_deref_mut() {
+            Some(a) => {
+                a.pos = kin.pos;
+                a.vel = kin.vel;
+            }
+            None => {
+                commands.entity(entity).insert(PortalSweepAnchor {
+                    pos: kin.pos,
+                    vel: kin.vel,
+                });
             }
         }
     }

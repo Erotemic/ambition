@@ -408,10 +408,34 @@ fn transfer_step(
     }
 }
 
+/// The body's PREVIOUS authoritative sample for the swept (CCD) transit tier:
+/// where it was last frame and how fast it was moving then. The caller (the
+/// transit system's `PortalSweepAnchor`) records the TRUE last-frame position —
+/// not `pos - vel * dt` — because the very failure the sweep exists to fix
+/// (a high-speed fall stopped/grounded at the carve bottom) zeroes the body's
+/// live velocity, which would erase a reconstructed segment.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct SweptSample {
+    /// Authoritative body center at the previous transit step.
+    pub pos: Vec2,
+    /// Body velocity at the previous transit step (gates the sweep to
+    /// segments that look like one frame of ballistic motion).
+    pub vel: Vec2,
+}
+
+/// The largest sim step (s) one swept segment may represent. Mirrors the
+/// Ambition 1/30 s controlled-body sim-step clamp (the same host budget
+/// [`APPROACH_CARVE_REACH`] is sized against): a prev→now displacement longer
+/// than `|prev_vel| * MAX_SWEPT_STEP_S` (+ slack) is NOT one frame of ballistic
+/// motion — it is a respawn / reset / scripted teleport — and must never be
+/// treated as travel that can cross a portal plane.
+const MAX_SWEPT_STEP_S: f32 = 1.0 / 30.0;
+
 /// Compute the transit step for a body. See [`TransitStep`]. `cooldown_pair`
 /// is the body's post-jump latch, scoped to the pair it just crossed
 /// ([`super::types::PortalTransitCooldown`]); `gravity_dir` selects whether a
-/// transit tumbles or just turns around.
+/// transit tumbles or just turns around. The discrete convenience — no swept
+/// sample, default depths/tuning.
 pub fn transit_step(
     center: Vec2,
     size: Vec2,
@@ -425,6 +449,7 @@ pub fn transit_step(
         center,
         size,
         vel,
+        None,
         transit,
         cooldown_pair,
         portals,
@@ -432,6 +457,78 @@ pub fn transit_step(
         &super::types::PortalHostDepths::default(),
         &PortalTuning::default(),
     )
+}
+
+/// The SWEPT (CCD) crossing scan shared by the unlatched and post-transfer
+/// arms of [`transit_step_with_tuning`]: did the prev→now SEGMENT cross a
+/// paired portal's plane front→behind through its opening? If so, the body
+/// physically fell through the aperture this frame — build its Transfer.
+///
+/// Known bound (documented, not defended): the scan resolves ONE crossing per
+/// step, so a body travelling more than a whole portal-loop's length in a
+/// single frame (e.g. > 680px/frame on the c135↔c134 pair) can out-run one
+/// transfer per frame. That is several times terminal velocity through a
+/// gameplay loop; the regression pins correctness to ~600px/frame.
+#[allow(clippy::too_many_arguments)]
+fn swept_crossing_step(
+    sweep: Option<SweptSample>,
+    center: Vec2,
+    size: Vec2,
+    vel: Vec2,
+    portals: &[PlacedPortal],
+    gravity_dir: Vec2,
+    tuning: &PortalTuning,
+) -> Option<TransitStep> {
+    let prev = sweep?;
+    let seg = center - prev.pos;
+    let seg_len = seg.length();
+    // One frame of ballistic motion, or a teleport? (See MAX_SWEPT_STEP_S.)
+    let max_step = prev.vel.length() * MAX_SWEPT_STEP_S * 1.5 + TRANSIT_BEGIN_MARGIN;
+    if seg_len <= 1e-3 || seg_len > max_step {
+        return None;
+    }
+    for enter in portals {
+        let Some(exit) = find_portal(portals, enter.channel.partner()) else {
+            continue;
+        };
+        if !portal_fits(size, enter) {
+            continue;
+        }
+        let ef = enter.frame();
+        let f0 = pp::front_distance(prev.pos, &ef);
+        let f1 = pp::front_distance(center, &ef);
+        // Crossed the plane INTO the wall this step.
+        if f0 <= 0.0 || f1 > 0.0 {
+            continue;
+        }
+        // Where along the segment the plane was crossed, and whether that
+        // point is within the opening.
+        let t = f0 / (f0 - f1);
+        let at = prev.pos + seg * t;
+        let along = Vec2::new(-ef.normal.y, ef.normal.x);
+        let offset = (at - ef.pos).dot(along).abs();
+        if offset <= ef.aperture_half() + TRANSIT_BEGIN_MARGIN {
+            // Carry the velocity that PRODUCED the crossing: the live `vel`
+            // when it still points into the portal (unobstructed fast
+            // crossing), else the previous sample's (the integrator
+            // stopped/zeroed the body at the carve bottom AFTER it crossed —
+            // the exit must still get the entry momentum).
+            let carried = if vel.dot(enter.normal) < 0.0 {
+                vel
+            } else {
+                prev.vel
+            };
+            return Some(transfer_step(
+                center,
+                carried,
+                *enter,
+                exit,
+                gravity_dir,
+                tuning,
+            ));
+        }
+    }
+    None
 }
 
 /// Compute the transit step with editable portal tuning and the host-measured
@@ -443,6 +540,7 @@ pub fn transit_step_with_tuning(
     center: Vec2,
     size: Vec2,
     vel: Vec2,
+    sweep: Option<SweptSample>,
     transit: Option<PortalTransit>,
     cooldown_pair: Option<PortalChannel>,
     portals: &[PlacedPortal],
@@ -504,6 +602,39 @@ pub fn transit_step_with_tuning(
                     return transfer_step(center, vel, *enter, exit, gravity_dir, tuning);
                 }
             }
+            // SWEPT crossing (CCD — the §7.6 high-speed tier, runs EVEN on
+            // cooldown like the rescue): at speeds past the carve budget
+            // (`APPROACH_CARVE_REACH` / `CARVE_DEPTH` are sized for ~63 px/frame;
+            // the relaxed fall cap on an accelerating portal loop exceeds that
+            // without bound) one frame's step can jump the body from
+            // in-front-of-plane to PAST the whole carve volume — the capture box
+            // is never sampled (no Begin) and the body no longer intersects the
+            // hole (no rescue), so the carve re-seals and, under the no-pushout
+            // rule, the body grounds EMBEDDED with its momentum killed. Solid
+            // blocks already sweep; this makes the transit TRIGGER swept too:
+            // if the prev→now SEGMENT crossed the entry plane front→behind and
+            // the crossing point lies within the aperture, the body physically
+            // fell through the opening this frame — transfer it, however deep it
+            // ended up. `transfer_step`'s `map_point` glue handles any depth
+            // continuously (depth past the entry plane = depth in front of the
+            // exit), so a deep crossing emerges correspondingly far along its
+            // path — momentum preserved, which is the point ("speedy thing goes
+            // in, speedy thing comes out").
+            //
+            // Two guards keep this honest:
+            // * The crossing DIRECTION is the segment's own (front → behind);
+            //   the live `vel` gate is deliberately NOT used — the integrator
+            //   may already have stopped the body at the carve bottom and
+            //   zeroed it, which is exactly the failure being fixed.
+            // * The segment must look like ONE frame of ballistic motion:
+            //   length ≤ `|prev_vel| * MAX_SWEPT_STEP_S` (+ slack). A respawn /
+            //   reset / scripted teleport produces an arbitrary segment that
+            //   must never read as travel through an aperture.
+            if let Some(step) =
+                swept_crossing_step(sweep, center, size, vel, portals, gravity_dir, tuning)
+            {
+                return step;
+            }
             // Begin into the first portal (across ALL pairs) the body is
             // entering. The post-crossing cooldown latch is PAIR-scoped: it
             // only blocks re-Begin into the pair just crossed — entering a
@@ -551,6 +682,22 @@ pub fn transit_step_with_tuning(
             // every query uses the portal pieces.
             if !t.crossed && pp::front_distance(center, &ef) <= 0.0 {
                 return transfer_step(center, vel, enter, exit, gravity_dir, tuning);
+            }
+            // SWEPT re-crossing while the POST-transfer latch is still clearing
+            // (§7.6): on a fast portal loop the flight time between the exit and
+            // the next entry can shrink BELOW one frame, so the body swept-crosses
+            // the next aperture while `crossed` is still latched and the trailing
+            // edge hasn't cleared. Without this arm the machine spends that frame
+            // on Clear, the crossing is behind the plane by the time the None arm
+            // sees it, and the body embeds. A pre-crossing latch (`!crossed`) is
+            // NOT swept: its own centroid sign-test above already fires at any
+            // depth.
+            if t.crossed {
+                if let Some(step) =
+                    swept_crossing_step(sweep, center, size, vel, portals, gravity_dir, tuning)
+                {
+                    return step;
+                }
             }
             // Stay engaged so the carve persists long enough to sink + cross —
             // clearing on "not straddling yet" would drop the carve every other
@@ -654,6 +801,7 @@ mod tests {
             Vec2::new(80.0, 0.0), // moving +x = away from A's face = vel·n < 0
             None,
             None,
+            None,
             &portals,
             Vec2::new(0.0, 1.0),
             &depths,
@@ -755,5 +903,197 @@ mod tests {
             matches!(step, TransitStep::Idle),
             "a body below the carve volume must not be rescued, got {step:?}"
         );
+    }
+
+    fn ceiling(channel: PortalChannel, pos: Vec2) -> PlacedPortal {
+        PlacedPortal {
+            channel,
+            pos,
+            normal: Vec2::new(0.0, 1.0),
+            half_extent: portal_half_extent(Vec2::new(0.0, 1.0)),
+        }
+    }
+
+    /// §7.6 — the swept (CCD) transit tier, on the exact failing configuration:
+    /// a floor→ceiling translation pair forming an ACCELERATING fall loop under
+    /// a relaxed fall cap. The discrete tiers are sized for ~63 px/frame
+    /// (`APPROACH_CARVE_REACH` / `CARVE_DEPTH`); past that, one frame's step
+    /// jumps the body clean over the capture box AND the carve volume, no tier
+    /// fires, and the body lands embedded in the floor with its momentum
+    /// killed. The swept tier must transfer EVERY cycle, up past 800 px/frame,
+    /// with the pair cooldown latched exactly as the live system latches it.
+    #[test]
+    fn swept_tier_transfers_the_accelerating_fall_loop_at_any_speed() {
+        let floor_y = 300.0;
+        let ceiling_y = floor_y - 680.0;
+        let portals = [
+            floor(PURPLE, Vec2::new(100.0, floor_y)),
+            ceiling(YELLOW, Vec2::new(100.0, ceiling_y)),
+        ];
+        let size = Vec2::new(24.0, 40.0);
+        let dt = 1.0 / 30.0;
+        let gravity = 4000.0; // px/s², no fall cap — the loop accelerates forever
+        let tuning = PortalTuning::default();
+        let depths = crate::types::PortalHostDepths::default();
+
+        let mut pos = Vec2::new(100.0, ceiling_y + 40.0);
+        let mut vel = Vec2::new(0.0, 200.0);
+        let mut prev = SweptSample { pos, vel };
+        let mut transit: Option<PortalTransit> = None;
+        let mut cooldown: Option<(PortalChannel, f32)> = None;
+        let mut transfers = 0u32;
+        let mut peak_step = 0.0f32;
+
+        // 140 frames at g=4000 peaks ~630px/frame — past the ~500px/frame the
+        // §7.6 report asked for, under the documented one-crossing-per-step
+        // bound (a segment longer than the whole 680px loop can out-run one
+        // transfer per frame; that regime is physically off the map).
+        for frame in 0..140 {
+            let step = transit_step_with_tuning(
+                pos,
+                size,
+                vel,
+                Some(prev),
+                transit,
+                cooldown.map(|(c, _)| c),
+                &portals,
+                Vec2::new(0.0, 1.0),
+                &depths,
+                &tuning,
+            );
+            match step {
+                TransitStep::Begin { channel, .. } => {
+                    transit = Some(PortalTransit {
+                        straddling: channel,
+                        crossed: false,
+                    });
+                }
+                TransitStep::Transfer {
+                    pos: p,
+                    vel: v,
+                    exit_channel,
+                    ..
+                } => {
+                    pos = p;
+                    vel = v;
+                    transfers += 1;
+                    cooldown = Some((exit_channel, tuning.teleport_cooldown_s));
+                    transit = transit.map(|mut t| {
+                        t.crossed = true;
+                        t.straddling = exit_channel;
+                        t
+                    });
+                }
+                TransitStep::Clear => transit = None,
+                TransitStep::Idle | TransitStep::Continue => {}
+            }
+
+            // The no-embed invariant: after the machine ran, the body may
+            // overshoot the floor plane only within the frame it crossed it —
+            // the NEXT machine call must have transferred it back out. A body
+            // still below the plane here means every tier missed: embedded.
+            assert!(
+                pos.y <= floor_y + 1.0,
+                "frame {frame}: body ended {}px past the floor plane at \
+                 {:.0}px/frame — the transit trigger tunneled",
+                pos.y - floor_y,
+                vel.y * dt,
+            );
+
+            // Anchor + physics (the pure-machine mirror of the live system:
+            // record post-step pos/vel, then integrate one ballistic frame).
+            prev = SweptSample { pos, vel };
+            vel.y += gravity * dt;
+            pos.y += vel.y * dt;
+            peak_step = peak_step.max(vel.y * dt);
+            cooldown = cooldown.and_then(|(c, t)| {
+                let t = t - dt;
+                (t > 0.0).then_some((c, t))
+            });
+        }
+
+        assert!(
+            peak_step > 500.0,
+            "the loop must actually reach tunneling speeds, peaked at {peak_step:.0}px/frame",
+        );
+        assert!(
+            transfers > 40,
+            "the loop must keep cycling (one transfer per crossing), got {transfers}",
+        );
+    }
+
+    /// The swept tier's teleport guard: a prev→now segment far longer than one
+    /// frame of the previous velocity's ballistic travel (a respawn / reset /
+    /// scripted teleport) must NEVER read as travel through an aperture, even
+    /// when the straight line between the two points crosses the portal plane
+    /// inside the opening.
+    #[test]
+    fn swept_tier_ignores_teleport_sized_segments() {
+        let portals = [
+            floor(PURPLE, Vec2::new(100.0, 300.0)),
+            floor(YELLOW, Vec2::new(500.0, 300.0)),
+        ];
+        // "Respawned" from far above the portal to far below it; the previous
+        // velocity was a gentle 100 px/s — the 800px segment is two orders of
+        // magnitude past one frame of that motion.
+        let step = transit_step_with_tuning(
+            Vec2::new(100.0, 700.0),
+            Vec2::new(24.0, 40.0),
+            Vec2::ZERO,
+            Some(SweptSample {
+                pos: Vec2::new(100.0, -100.0),
+                vel: Vec2::new(0.0, 100.0),
+            }),
+            None,
+            None,
+            &portals,
+            Vec2::new(0.0, 1.0),
+            &crate::types::PortalHostDepths::default(),
+            &PortalTuning::default(),
+        );
+        assert!(
+            matches!(step, TransitStep::Idle),
+            "a teleport-sized segment must not sweep through a portal, got {step:?}"
+        );
+    }
+
+    /// The swept tier carries the ENTRY momentum even when the integrator
+    /// already stopped the body (grounded at the carve bottom, velocity
+    /// zeroed) after it crossed — the exact §7.6 embed: the previous sample
+    /// proves the crossing and supplies the velocity the exit must emit.
+    #[test]
+    fn swept_tier_transfers_a_stopped_body_with_its_entry_momentum() {
+        let portals = [
+            floor(PURPLE, Vec2::new(100.0, 300.0)),
+            ceiling(YELLOW, Vec2::new(100.0, -380.0)),
+        ];
+        // Last frame: 90px above the plane falling 15000 px/s (500 px/frame).
+        // This frame: the integrator stopped it 110px past the plane (beyond
+        // the 60px carve — the rescue can't see it) and zeroed its velocity.
+        let step = transit_step_with_tuning(
+            Vec2::new(100.0, 410.0),
+            Vec2::new(24.0, 40.0),
+            Vec2::ZERO,
+            Some(SweptSample {
+                pos: Vec2::new(100.0, 210.0),
+                vel: Vec2::new(0.0, 15000.0),
+            }),
+            None,
+            Some(PURPLE), // even mid ping-pong cooldown
+            &portals,
+            Vec2::new(0.0, 1.0),
+            &crate::types::PortalHostDepths::default(),
+            &PortalTuning::default(),
+        );
+        match step {
+            TransitStep::Transfer { vel, .. } => {
+                assert!(
+                    vel.y > 10000.0,
+                    "the exit must emit the ENTRY momentum, not the zeroed \
+                     post-stop velocity; got {vel:?}"
+                );
+            }
+            other => panic!("a swept crossing must transfer a stopped body, got {other:?}"),
+        }
     }
 }

@@ -341,6 +341,9 @@ pub(super) struct NpcActorSpawnPlan {
     action_set: ambition_characters::brain::ActionSet,
     combat_kit: crate::combat::CombatKit,
     aggression: super::ActorAggression,
+    /// Catalog `character_id` this NPC was authored from (Npc interaction
+    /// kind), used to resolve movement identity (`MotionModel`) at spawn.
+    interaction_character_id: Option<String>,
 }
 
 impl NpcActorSpawnPlan {
@@ -360,6 +363,10 @@ impl NpcActorSpawnPlan {
             ambition_interaction::InteractionKind::Npc { dialogue_id, .. } => {
                 dialogue_id.as_deref()
             }
+            _ => None,
+        };
+        let interaction_character_id = match &interactable.kind {
+            ambition_interaction::InteractionKind::Npc { character_id, .. } => character_id.clone(),
             _ => None,
         };
         // The hostile archetype this actor becomes when provoked: feeds its
@@ -408,6 +415,7 @@ impl NpcActorSpawnPlan {
             aggression: super::ActorAggression::retaliates_when_hit(
                 super::super::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
             ),
+            interaction_character_id,
         }
     }
 
@@ -475,6 +483,24 @@ impl NpcActorSpawnPlan {
         }
         if let Some(size) = render_size {
             entity.insert(crate::features::ActorRenderSize(size));
+        }
+        // Movement identity is body DATA (Q16 / S2): an NPC authored from a
+        // momentum catalog row (an NPC Sanic, for coexistence + the possession
+        // e2e) rides surfaces through the SAME `MotionModel::SurfaceMomentum`
+        // the worn-player path inserts — resolved from the same roster lookup,
+        // so player-Sanic and NPC-Sanic can never disagree. The catalog
+        // character_id rides in on the Npc interaction kind; fall back to the
+        // display-name join for legacy/synthetic spawns.
+        let momentum_id = match &self.interaction_character_id {
+            Some(id) => Some(id.as_str()),
+            None => crate::character_roster::character_id_for_display_name(&self.feature_name),
+        };
+        if let Some(params) =
+            momentum_id.and_then(crate::character_roster::momentum_params_for_character_id)
+        {
+            entity.insert(crate::features::MotionModel::SurfaceMomentum(
+                crate::features::MomentumMotion::new(params),
+            ));
         }
         entity.id()
     }

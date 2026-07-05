@@ -19,8 +19,12 @@
 //! side (`ambition_app::app::scene_setup`) binds the sprite sheet.
 
 use bevy::ecs::resource::Resource;
+use bevy::ecs::system::Commands;
+use bevy::prelude::Entity;
 
 use ambition_characters::brain::ActionSet;
+
+use crate::features::{MomentumMotion, MotionModel};
 
 /// The catalog `character_id` the local player spawns as.
 ///
@@ -83,6 +87,30 @@ pub fn overlay_character_moveset(player: ActionSet, character: ActionSet) -> Act
     }
 }
 
+/// Apply the worn character's MOVEMENT IDENTITY to an already-spawned body
+/// (Q16 §S2): if the character authors surface-momentum params, insert
+/// `MotionModel::SurfaceMomentum`; otherwise **REMOVE** any `MotionModel` the
+/// body carried so it falls back to the axis-swept path.
+///
+/// The explicit removal is the point: wearing is a re-parametrisation of ONE
+/// box (`Brain::Player` never moves), so a re-wear must not leave a stale
+/// momentum model riding a chain the new character can't — the render-refresh
+/// clobber gotcha in reverse. `momentum_params_for_character_id` is the single
+/// source of truth, so the player-wear seam and the actor spawn path can never
+/// disagree on which characters ride surfaces.
+pub fn apply_worn_motion_model(commands: &mut Commands, entity: Entity, character_id: &str) {
+    match crate::character_roster::momentum_params_for_character_id(character_id) {
+        Some(params) => {
+            commands
+                .entity(entity)
+                .insert(MotionModel::SurfaceMomentum(MomentumMotion::new(params)));
+        }
+        None => {
+            commands.entity(entity).remove::<MotionModel>();
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -93,6 +121,47 @@ mod tests {
         let sc = StartingCharacter::default();
         assert_eq!(sc.character_id, "player");
         assert!(sc.is_default());
+    }
+
+    #[test]
+    fn wearing_sanic_inserts_momentum_then_unwearing_removes_it() {
+        // Q16 test (c): wearing a momentum character makes the box ride
+        // surfaces; re-wearing a non-momentum character REMOVES the model so a
+        // stale MotionModel never rides a chain the new character can't (the
+        // render-refresh clobber gotcha in reverse). Removal restores the
+        // axis-swept path byte-for-byte — the absence of the component IS the
+        // default.
+        use bevy::prelude::*;
+
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        let entity = app.world_mut().spawn_empty().id();
+
+        // Wear Sanic → SurfaceMomentum inserted with the authored fast profile.
+        let mut queue = bevy::ecs::world::CommandQueue::default();
+        {
+            let mut commands = Commands::new(&mut queue, app.world());
+            apply_worn_motion_model(&mut commands, entity, "sanic");
+        }
+        queue.apply(app.world_mut());
+        match app.world().get::<MotionModel>(entity) {
+            Some(MotionModel::SurfaceMomentum(m)) => {
+                assert_eq!(m.params.top_speed, 1200.0, "Sanic's authored top speed");
+            }
+            other => panic!("expected SurfaceMomentum after wearing Sanic, got {other:?}"),
+        }
+
+        // Re-wear the protagonist (axis-swept) → the model is removed entirely.
+        let mut queue = bevy::ecs::world::CommandQueue::default();
+        {
+            let mut commands = Commands::new(&mut queue, app.world());
+            apply_worn_motion_model(&mut commands, entity, "player");
+        }
+        queue.apply(app.world_mut());
+        assert!(
+            app.world().get::<MotionModel>(entity).is_none(),
+            "unwearing a momentum character restores the axis-swept path (no MotionModel)"
+        );
     }
 
     #[test]

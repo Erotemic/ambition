@@ -141,6 +141,23 @@ pub fn hall_dialogue_id_for_character_id(character_id: &str) -> Option<&'static 
         .as_deref()
 }
 
+/// The authored surface-momentum params for a character id, hydrated into the
+/// serde-free kernel struct (Q21 / S2). `Some` means the character's body opts
+/// into `MotionModel::SurfaceMomentum` — the surface-follower solver. Returns
+/// `None` for an unknown id or a row that authors no `momentum` field (the
+/// axis-swept default). This is the single lookup both the player-wear seam
+/// ([`crate::player::apply_worn_motion_model`]) and the actor spawn path read.
+pub fn momentum_params_for_character_id(
+    character_id: &str,
+) -> Option<ambition_engine_core::surface::MomentumParams> {
+    catalog()
+        .characters
+        .get(character_id)?
+        .momentum
+        .as_ref()
+        .map(|spec| spec.to_kernel())
+}
+
 /// The catalog `body_kind` for a character id, if present. `Floating` means the
 /// actor is gravity-free (a flyer): the spawn zeroes its `gravity_scale` so the
 /// brain's full 2D `desired_vel` drives flight.
@@ -478,6 +495,28 @@ mod tests {
             hall_dialogue_id_for_character_id("npc_not_a_character"),
             None
         );
+    }
+
+    #[test]
+    fn sanic_authors_a_fast_momentum_profile_others_ride_axis_swept() {
+        // The demo speedster opts into surface momentum with a tuned fast
+        // profile; the protagonist (axis-swept) and unknown ids resolve None so
+        // `apply_worn_motion_model` REMOVES any stale model on them.
+        let sanic =
+            momentum_params_for_character_id("sanic").expect("sanic authors a `momentum` field");
+        assert_eq!(sanic.top_speed, 1200.0, "Sanic's authored top speed");
+        assert_eq!(sanic.ground_accel, 900.0);
+        assert_eq!(sanic.jump_speed, 700.0);
+        // Omitted field inherits the kernel baseline.
+        assert_eq!(
+            sanic.brake,
+            ambition_engine_core::surface::MomentumParams::default().brake
+        );
+        assert!(
+            momentum_params_for_character_id("player").is_none(),
+            "the protagonist stays axis-swept"
+        );
+        assert!(momentum_params_for_character_id("npc_not_a_character").is_none());
     }
 
     #[test]

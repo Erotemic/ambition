@@ -8,6 +8,7 @@
 //! 2. RON authoring follows a stable, documented shape that doesn't
 //!    move when an unrelated runtime detail changes.
 
+use ambition_engine_core as ae;
 use serde::Deserialize;
 use std::collections::BTreeMap;
 
@@ -64,6 +65,103 @@ pub struct SpriteTuningSpec {
     /// generated anchor doesn't sit actors on the floor correctly.
     #[serde(default)]
     pub feet_anchor_y: Option<f32>,
+}
+
+/// Surface-momentum motion feel, authored on the catalog row (Q21). The
+/// gameplay-side **mirror** of the serde-free kernel struct
+/// [`ae::surface::MomentumParams`](ambition_engine_core::surface::MomentumParams):
+/// the kernel stays serde-free (its doc's contract), so this Deserialize twin
+/// lives here and hydrates via [`to_kernel`](MomentumParamsSpec::to_kernel).
+///
+/// Every field carries a `#[serde(default = ...)]` matching the kernel's
+/// `Default` value-for-value, so authored RON omits whatever it doesn't tune —
+/// `momentum: Some(())` alone yields the kernel defaults. A character row that
+/// carries this field opts its body into `MotionModel::SurfaceMomentum` (the
+/// surface-follower solver); a row without it stays on the axis-swept path.
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
+pub struct MomentumParamsSpec {
+    #[serde(default = "md_ground_accel")]
+    pub ground_accel: f32,
+    #[serde(default = "md_brake")]
+    pub brake: f32,
+    #[serde(default = "md_friction")]
+    pub friction: f32,
+    #[serde(default = "md_slope_factor")]
+    pub slope_factor: f32,
+    #[serde(default = "md_top_speed")]
+    pub top_speed: f32,
+    #[serde(default = "md_air_accel")]
+    pub air_accel: f32,
+    #[serde(default = "md_jump_speed")]
+    pub jump_speed: f32,
+    #[serde(default = "md_stick_factor")]
+    pub stick_factor: f32,
+    #[serde(default = "md_min_stick_speed")]
+    pub min_stick_speed: f32,
+}
+
+// Per-field defaults, read straight off the kernel `Default` so the two never
+// drift (the kernel is the single source of truth for the feel baseline).
+fn md_ground_accel() -> f32 {
+    ae::surface::MomentumParams::default().ground_accel
+}
+fn md_brake() -> f32 {
+    ae::surface::MomentumParams::default().brake
+}
+fn md_friction() -> f32 {
+    ae::surface::MomentumParams::default().friction
+}
+fn md_slope_factor() -> f32 {
+    ae::surface::MomentumParams::default().slope_factor
+}
+fn md_top_speed() -> f32 {
+    ae::surface::MomentumParams::default().top_speed
+}
+fn md_air_accel() -> f32 {
+    ae::surface::MomentumParams::default().air_accel
+}
+fn md_jump_speed() -> f32 {
+    ae::surface::MomentumParams::default().jump_speed
+}
+fn md_stick_factor() -> f32 {
+    ae::surface::MomentumParams::default().stick_factor
+}
+fn md_min_stick_speed() -> f32 {
+    ae::surface::MomentumParams::default().min_stick_speed
+}
+
+impl Default for MomentumParamsSpec {
+    fn default() -> Self {
+        // Mirrors `ae::surface::MomentumParams::default()` field-for-field.
+        Self {
+            ground_accel: md_ground_accel(),
+            brake: md_brake(),
+            friction: md_friction(),
+            slope_factor: md_slope_factor(),
+            top_speed: md_top_speed(),
+            air_accel: md_air_accel(),
+            jump_speed: md_jump_speed(),
+            stick_factor: md_stick_factor(),
+            min_stick_speed: md_min_stick_speed(),
+        }
+    }
+}
+
+impl MomentumParamsSpec {
+    /// Hydrate into the serde-free kernel struct the surface solver consumes.
+    pub fn to_kernel(&self) -> ae::surface::MomentumParams {
+        ae::surface::MomentumParams {
+            ground_accel: self.ground_accel,
+            brake: self.brake,
+            friction: self.friction,
+            slope_factor: self.slope_factor,
+            top_speed: self.top_speed,
+            air_accel: self.air_accel,
+            jump_speed: self.jump_speed,
+            stick_factor: self.stick_factor,
+            min_stick_speed: self.min_stick_speed,
+        }
+    }
 }
 
 /// An occasion on which a character may speak a one-line speech bubble.
@@ -184,6 +282,13 @@ pub struct CharacterCatalogEntry {
     /// the hall generator to populate each pedestal's `dialogue_id`.
     #[serde(default)]
     pub hall_dialogue_id: Option<String>,
+    /// Surface-momentum motion feel (Q21 / S2). `Some` opts this character's
+    /// body into `MotionModel::SurfaceMomentum` — the surface-follower solver
+    /// (slopes, loops, momentum) — whether it is spawned as an NPC or WORN by
+    /// the player. `None` (the default) keeps the body on the axis-swept path,
+    /// so every existing character is untouched.
+    #[serde(default)]
+    pub momentum: Option<MomentumParamsSpec>,
 }
 
 impl CharacterCatalogEntry {
@@ -380,4 +485,36 @@ pub struct CharacterCatalogData {
     pub brain_presets: BTreeMap<String, BrainPreset>,
     pub action_set_presets: BTreeMap<String, ActionSetPreset>,
     pub characters: BTreeMap<String, CharacterCatalogEntry>,
+}
+
+#[cfg(test)]
+mod momentum_spec_tests {
+    use super::*;
+
+    #[test]
+    fn omitted_fields_inherit_the_kernel_defaults() {
+        // Authoring only what it tunes (Sanic's fast profile) leaves every
+        // other field at the kernel `Default` — the Q21 contract.
+        let spec: MomentumParamsSpec =
+            ron::from_str("(ground_accel: 900.0, top_speed: 1200.0, jump_speed: 700.0)")
+                .expect("partial momentum spec should deserialize");
+        let k = spec.to_kernel();
+        let d = ae::surface::MomentumParams::default();
+        assert_eq!(k.ground_accel, 900.0, "tuned field wins");
+        assert_eq!(k.top_speed, 1200.0);
+        assert_eq!(k.jump_speed, 700.0);
+        // Untouched fields match the kernel baseline value-for-value.
+        assert_eq!(k.brake, d.brake);
+        assert_eq!(k.friction, d.friction);
+        assert_eq!(k.slope_factor, d.slope_factor);
+        assert_eq!(k.air_accel, d.air_accel);
+        assert_eq!(k.stick_factor, d.stick_factor);
+        assert_eq!(k.min_stick_speed, d.min_stick_speed);
+    }
+
+    #[test]
+    fn empty_spec_is_the_kernel_default() {
+        let spec: MomentumParamsSpec = ron::from_str("()").expect("empty spec ok");
+        assert_eq!(spec.to_kernel(), ae::surface::MomentumParams::default());
+    }
 }

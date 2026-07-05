@@ -42,7 +42,9 @@ pub use body_integration::{
     PlayerBodyFrameOutput,
 };
 pub use bundles::{PlayerIdentityBundle, PlayerSimulationBundle};
-pub use starting_character::{overlay_character_moveset, StartingCharacter};
+pub use starting_character::{
+    apply_worn_motion_model, overlay_character_moveset, StartingCharacter,
+};
 // NOTE: the body vocabulary — `PlayerEntity` / `PrimaryPlayer` (markers),
 // `PrimaryPlayerOnly` (filter), `BodyKinematics` + the 18 movement clusters,
 // `BodyWallet` (economy — players AND currency-dropping NPCs) — is NOT

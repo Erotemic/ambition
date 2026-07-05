@@ -18,7 +18,7 @@ use ambition_engine_core as ae;
 use bevy::prelude::Component;
 
 /// How this body turns intent + world into motion.
-#[derive(Component, Default)]
+#[derive(Component, Default, Debug)]
 pub enum MotionModel {
     /// The axis-role swept-AABB path every current body uses (the default —
     /// an absent component reads as this).

@@ -129,6 +129,13 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
         ))
         .id();
 
+    // Movement identity travels WITH the worn character (Q16 / S2): a character
+    // authoring surface-momentum params (Sanic) makes the home box ride chains;
+    // any other character removes the model so the box stays axis-swept. The
+    // default `player` row authors no momentum, so this is a no-op for the
+    // protagonist.
+    crate::player::apply_worn_motion_model(commands, player, &starting_character.character_id);
+
     // HUD entity is presentation-side; placeholder until presentation_world
     // overwrites this resource.
     commands.insert_resource(SceneEntities {

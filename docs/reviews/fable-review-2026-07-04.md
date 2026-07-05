@@ -1188,7 +1188,33 @@ shark. Execution map:
   is copied onto the mount, so the mount body integrates the rider's orbit;
   attack/fire intent stays on the rider. Headless test. This was the trickiest,
   most novel piece of the cutover — the behavioral heart of the ADR is now in.
-- **M2 resolution + M4 (the atomic cutover, NEXT — one focused pass):** the seam
+- **Cutover Phase A ✅ (committed `d62ee220`)** — the ENGINE HALF of the cutover,
+  coexisting with the still-live composite path (dormant on real data until the
+  `.ldtk` flip): `convert_enemy_spawn` reads a rider `mounted_on` ref → emits an
+  authored `(rider_id, mount_id)` link, threaded through `RuntimeEntityEmission`
+  + the conversion fold into `RoomSpec.mount_links`; `resolve_pending_mount_links`
+  (scheduled before `sync_riders_to_mounts`) matches by `FeatureId`, checks
+  `CanPilot` vs `Mountable.class`, installs `RidingOn`/`MountSlot`/`Mounted`
+  (drops incompatible, retries un-spawned); spawn-side `attach_mount_role` gives
+  a `mount_class` archetype `Mountable` + a `pilotable` archetype `CanPilot`.
+  Authored linked entities will carry NO explicit `id` field, so `FeatureId ==
+  iid == the ref target` — the iid/authored-id mismatch is sidestepped by
+  authoring discipline. 2 resolution tests; full gameplay_core suite green (1132).
+- **Cutover Phase B (remaining — the world-file flip, one focused pass):** (1)
+  add rider archetypes `pirate_shark_rider` (HP4, Skirmisher, Bolt(500,2),
+  gun_sword, pilotable ["shark"]) + `pirate_heavy_shark_rider` (HP6, Bolt(500,3),
+  gun_sword_heavy) carrying the fused rows' loadout; (2) `ambition_ldtk_tools`
+  (Python) new subcommand: add a `mounted_on` EntityRef field to the EnemySpawn
+  def + split each `pirate_on_shark`/`pirate_heavy_on_shark` EnemySpawn (14 refs
+  ≈ 7 instances across `sandbox.ldtk`+`intro.ldtk`) into a `burning_flying_shark`
+  mount + a rider EnemySpawn with `mounted_on` → the mount iid; roundtrip-verify;
+  (3) DELETE `pirate_on_shark`/`pirate_heavy_on_shark` rows + `composite_visual`/
+  `CompositeVisualSpec`/`is_composite()`/`composite_rider_name`/`rider_name_suffix`/
+  `spawn_composite_mount_rider` + the render-side `spawn_composite_visuals`; (4)
+  retarget the composite-spawn parity suite (`ecs/spawn/tests.rs`,
+  `enemies/mod.rs`) to the linked pair. Must land atomically (world rewrite +
+  deletion together) — a half-flip breaks the shark encounters.
+- **(superseded) M2 resolution + M4 scoping note:** the seam
   is now precisely scoped. Spawned actors already carry `FeatureId(authored.id)`,
   and a mount's authored id defaults to its LDtk `iid`, so resolution is a clean
   `FeatureId → Entity` match + the `CanPilot`/`Mountable.class` compat check. The

@@ -1,5 +1,13 @@
 # Fable review — 2026-07-05: space, momentum, and the mounted giant
 
+> **⚠ HISTORICAL (frozen 2026-07-05 evening).** Consolidated with the 07-04
+> review into
+> **[`fable-demo-plan-2026-07-05.md`](fable-demo-plan-2026-07-05.md)** — work
+> from THAT doc. Jon's §7 rulings and the §8 opus questions (Q16–Q21) are
+> ANSWERED there (§2); the open R7/R9/R10 slices are re-homed as tracks
+> W/S/G. This doc remains the record: AJ8–AJ12 + the FABLE-queue execution
+> log (R8.1–R10.1). Append nothing here.
+
 **Authored by fable** from Jon's 2026-07-05 direction (three directives, below)
 plus three fresh deep audits of the code as it stands today: the collision
 kernel + every AABB/global-axis assumption site, the post-R3 world seam, and
@@ -542,18 +550,164 @@ Everything else in R7/R9/R10 is opus-executable from this doc.
   (`cargo test -p ambition_engine_core`); R7's carve is measured
   before/after like every R4 slice.
 
-## 7. JON'S OPEN DECISIONS (defaults chosen; nothing blocks)
+## 7. JON'S OPEN DECISIONS
 
-- **Q13 — how far does Sanic go after R9?** Default: the sandbox proof only;
-  a momentum DEMO GAME (zones, enemies, rings-analog) becomes a demo-matrix
-  candidate beside SMB1/MoneySeize (Q12) rather than jumping the queue.
-- **Q14 — mount class name for the gnu** (`"gnu"` chosen; `"giant"` if you
-  want mechs/colossi to share the class) and whether the dismounted-gnuton
-  on-foot phase gets its own mini phase-pattern (default: yes, one short
-  scripted phase — it's one RON block).
-- **Q15 — knight-likes on chains (Celeste ramps)**: in 1.0 scope or not?
-  Default: decide AFTER R8/R9 prove the contact model (the honest answer to
-  the old Q6 depends on evidence we're about to buy).
+**Jon ruled 2026-07-05 (all four below + Q12/Q16 in §8):**
+
+- **Q13 — how far does Sanic go? → DECIDED: Sanic JUMPS THE QUEUE.** Not a
+  sandbox proof — Sanic is a first-class DEMO TARGET (a real momentum game,
+  zones/enemies/rings-analog), promoted ahead of the rest of the queue. Pairs
+  with SMB1 as the two first demo clones (see Q12, §8).
+- **Q14 — the gnu mount → DECIDED: `giant_gnu`.** The mount actor id is
+  `giant_gnu`. Dismounted-gnuton keeps its own short on-foot phase (the default
+  holds). *(Residual for fable: is the `mount_class` STRING `"giant"` — shareable
+  so a future mech/colossus rider pilots it — or gnu-specific `"giant_gnu"`? Jon's
+  "giant" framing leans shareable; confirm the class string when authoring R10.3.)*
+- **Q15 — knight-likes on chains (Celeste ramps) → DECIDED: NOT in 1.0.** Jon:
+  "talked out of it — cheaper to add later." Post-1.0; the contact kernel (R8)
+  keeps the seam so it's additive when it comes.
+
+## 8. OPUS FRONTIER — readiness map + questions for fable (raised 2026-07-05, opus)
+
+Opus swept the ACTUAL code surfaces of every remaining opus slice (four
+parallel audits: R7 carve, R9.2–9.4 Sanic, R10.2–10.5 giant, R4c–R6). Most of
+the frontier is genuinely opus-safe. But four slices spec a mechanism in PROSE
+that **does not exist in the code yet** or lands on a **deliberately-deferred
+fork** — those need a fable answer (or a fable slice) before opus commits.
+Fable: answer inline on the `**fable:**` lines, or take any slice.
+
+### Readiness (grounded in code, not the difficulty flags)
+
+| Slice | Verdict | The blocker (if any) |
+|---|---|---|
+| **R7.1–R7.4** (world carve) | ✅ clean opus | boundary already clean, no cycles, ~120–180 mechanical repoints; 2 tiny confirms (Q20) |
+| **R10.2** (gnu sprite split) | ✅ clean opus | art already drawn in the generator; re-package into 3 sheets |
+| **R10.5** (BossSpawn `mounted_on`) | ✅ clean opus | ~4-line mirror of landed `convert_enemy_spawn`; resolution already brain-agnostic |
+| **R4f / R4g / R5** | ✅ clean opus | mechanical/downstream (R4g = pure rename churn) |
+| **R9.4** (proofs) | ✅ clean opus | every proof has a test precedent; inherits R9.2/R9.3 decisions only |
+| **R9.2** (Sanic character) | 🔧 fable-led (Jon: Sanic is BOTH) | **Q16 RULED (b)** — unify `integrate_home_body` w/ `MotionModel`; kernel-adjacent |
+| **R9.3** (sandbox room) | ⚠ needs fable | **Q17** — `ron-room` blocked on R7.2; chains-emission channel overlaps R7.2 |
+| **R10.4** (choreography port) | ⚠ needs fable | **Q18** — profile→limb-slot routing seam is net-new + slot map under-specified |
+| **R10.3** (archetype + dismount) | ⚠ needs fable | **Q19** — `External("mount_died")` has zero wiring; dismount erases the boss brain |
+| **R4c** (support ring) | 🔴 senior design | persistence↔menu god-dep (132 inbound); needs the AJ6 layering |
+| **R4d** (combat/projectiles) | 🔴 senior design | combat↔features mutual-re-export cycle + 10k moveset kit |
+| **R6** (proof clones) | 🔴 senior effort (Jon: Sanic + SMB1) | **Q12 RULED** — Sanic + SMB1 are the two first demo targets; adversarial per-clone |
+
+### The four design questions
+
+- **Q16 — R9.2 momentum playability path. → JON RULED: "Sanic is BOTH."**
+  R9.1 built the `MotionModel` dispatch ONLY in the actor path
+  (`integrate_actor_body`); `integrate_home_body` (`player/body_integration.rs:111`)
+  has no `MotionModel` branch, and the home-vs-actor integration split is
+  deliberately deferred (`starting_character.rs:14-15,77-84`). Jon wants Sanic
+  playable as a START-CHARACTER *and* possessable — i.e. **BOTH** paths must ride
+  momentum. So option **(b) is chosen: grow a `MotionModel` branch on
+  `integrate_home_body`** (unify the deferred player/actor integration). This is
+  kernel-adjacent (R9.1 scoped it out), so **R9.2 is reclassified from opus to a
+  fable-led / fable-supervised slice** — the home-path momentum unification is
+  the exact "don't unify the deferred split on your own" edge opus must not cross.
+  **fable action:** spec the `integrate_home_body` `MotionModel` branch (mirror
+  the `integrate_actor_body` dispatch; possession-invariance already holds since
+  both read the same brain-produced `ActorControlFrame`).
+
+- **Q17 — R9.3 ordering vs R7, and IR ownership.** R9.3(b)'s `ron-room` room is
+  *literally* an R7.2 deliverable (nothing serializes `RoomSpec` today; zero
+  repo matches for `ron-room`). R9.3(a)'s LDtk `SurfaceChain` entity needs a
+  **net-new `Vec<SurfaceChain>` emission channel folded into `World.chains`** —
+  production LDtk→World never populates `chains` today, and that fold lives in
+  the exact `compose_runtime_area`/`RuntimeEntityEmission` code R7.2 relocates
+  (conflict risk if done concurrently). Registry + point-array parsing
+  (`fields.rs:108 parse_points`) + `ambition_ldtk_tools` are all ready to reuse.
+  Decision: **do R7 first** (then R9.3 rides the clean IR + real `ron-room`), or
+  let R9.3(b) prove native-IR authoring via a content-side script injecting
+  `World::with_chains` (works today) and R9.3 owns the new chains channel? And
+  either way — does R7.2 add the chains emission channel so R9.3 only registers a
+  converter?
+  **fable:**
+
+- **Q18 — R10.4 profile→limb routing seam + slot map.** The strike PRIMITIVE is
+  real (a limb body with `ActorMoveset` runs a FollowOwner `"attack"` move via
+  the landed moveset runtime; R10.1's `fan_out_limb_intents` copies per-slot
+  frames onto limbs). But nothing translates `active_profile == "hand_slam"`
+  into `LimbIntents` — `tick_boss_pattern` emits ONE frame for ONE body and has
+  no limb concept. Two design calls: **(1)** where does that translation live —
+  extend `tick_boss_pattern` (make the brain limb-aware) or a new gameplay-core
+  system reading `BossAttackState`/`BossAttackIntent` and writing `LimbIntents`
+  + a host-body intent (for `head_descent` = a gnu-body move)? **(2)** the
+  per-profile slot map — `hand_slam` → both hands? `hand_sweep` → which hand (a
+  single wide rect today — unpinned)? `converging_shockwave` → both (given).
+  Authored in RON (a serpent's extra limbs imply data) or hardcoded? (Also:
+  register `fan_out_limb_intents` in the schedule — deferred from R10.1 to here.)
+  **fable:** _(design the routing seam + schedule wiring — fable's call. Jon on
+  the slot-map taste (which hand sweeps): "don't care yet" → fable's discretion /
+  BLIND for Jon's later visual pass.)_
+
+- **Q19 — R10.3 dismount-phase mechanism.** Two code gaps the R10.3 bullet
+  doesn't acknowledge: **(a)** `PhaseTriggerCondition::External("mount_died")`
+  exists as a TYPE (`boss_encounter.rs:117`) but `notify_external` has **zero
+  production callers** (only a unit test) — nothing bridges a gameplay event to
+  a phase gate; the separate `EncounterGate` message bus
+  (`encounter_script.rs:38`) is the wired one. Should mount-death reuse the
+  `EncounterGate` bus + a new bridge that fires `notify_external` on the rider's
+  `BossPhaseState`, or a direct system? **(b)** the current mount-death dismount
+  (`mount/mod.rs` dissolution) installs a GENERIC solo brain via
+  `dismounted_rider_brain_and_action_set` — for a boss rider that WIPES the
+  `BossPattern`/`BossConfig`, but AJ12 wants gnuton to fight on foot AS A BOSS.
+  Confirm dismount needs a boss-aware branch (retain `BossPattern`) — a design
+  call, not mechanical.
+  **fable:**
+
+### Minor confirms (opus can default; cheap to settle)
+
+- **Q20 — R7.2 serde shape.** `RoomSpec.world` holds the *baked* engine `World`
+  (IntGrid already compiled to `Block`s), so serializing `RoomSpec` yields BAKED
+  geometry, not an authored source schema — confirm `ron-room` is intentionally
+  the baked form. And R7.2 must add `Serialize`/`Deserialize` down onto Tier-1
+  `engine_core` geometry (`World`/`Block`/`SurfaceChain`/`Aabb` — all plain data,
+  safe) since `RoomSpec` embeds `ae::World`; confirm Tier-1 serde is acceptable
+  (if Tier 1 must stay serde-free, R7.2 needs a decoupling design and escalates).
+  **fable:** _(default: yes to both — baked form, Tier-1 serde OK)_
+- **Q21 — R9.2 params typing.** Kernel `ae::surface::MomentumParams`
+  (`surface.rs:52`) is not `Deserialize`. Derive it on the kernel struct, or a
+  gameplay-side authorable mirror that hydrates it (its doc leans "gameplay
+  hydrates")?
+  **fable:** _(default: gameplay-side mirror, per the kernel doc)_
+
+### Sequencing takeaway — REVISED for Jon's rulings (Sanic jumps the queue)
+
+Jon promoted Sanic from "sandbox proof" to a **first demo target** (with SMB1),
+so the R9 → Sanic-demo track now leads. That collides with the "R7 first"
+tidiness: R7 is a 3–4-session carve, and gating a queue-jumping Sanic behind the
+whole world carve defeats the promotion. So:
+
+- **Do NOT gate Sanic on R7.** Take the escape hatch (Q17): R9.3's LOOP is
+  authored by a content-side script injecting `World::with_chains` /
+  `RoomGeometry` (works today, no `ron-room`); R9.3's SLOPES use the LDtk
+  `SurfaceChain` converter. The *real* `ron-room` format + the baked-`RoomSpec`
+  serde land later WITH R7.2, and R9.3's script-authored loop is then re-homed.
+  **Q17 for fable: confirm this split** (script-loop now, `ron-room` at R7) and
+  **who adds the `Vec<SurfaceChain>` emission channel** — if R9.3 adds it now,
+  R7.2 must not re-invent it (coordinate the `RuntimeEntityEmission`/
+  `compose_runtime_area` touch to avoid a conflict).
+- **R9.2 is now fable-led** (Q16 = both → home-path `MotionModel` unification).
+  It is the gate for a *playable* Sanic; fable specs the `integrate_home_body`
+  branch, then the rest of R9.2 (catalog/archetype/sprite) is opus.
+- **R7 still lands** — it's the keystone for the IR and the `ron-room` proof —
+  just not as a prerequisite to Sanic. It's fully opus-safe and can run in
+  parallel with the Sanic track.
+- Independent of all this: **R10.3/R10.4** (Q18/Q19) need fable regardless;
+  **R10.2 / R10.5 / R4f / R4g / R5** proceed opus-side anytime.
+
+### New spec work Jon's rulings create (for fable)
+
+1. **A Sanic DEMO scope** (Q13 promotion): Sanic is no longer just R9's sandbox
+   proof — it needs a demo-clone scope like R6 (a content crate + a thin app
+   against `ambition_runtime`, momentum zones/enemies/rings-analog). Fable to
+   spec it as the first R6 target beside SMB1 (the oracle: does the momentum
+   demo build by ADDING content, editing no core?).
+2. **The home-path momentum branch** (Q16): the R9.2 kernel-adjacent slice above.
+3. **`giant_gnu` class-string confirm** (Q14): `"giant"` (shareable) vs
+   `"giant_gnu"` (specific) when R10.3 authors the mount row.
 
 ---
 

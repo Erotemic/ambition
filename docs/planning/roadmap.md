@@ -7,18 +7,14 @@ the mountain, not just the next boulder). Companion docs:
 [`engine/architecture.md`](engine/architecture.md) (the target crate stack —
 rewritten 2026-07-04), ADRs 0009/0019.
 
-> **⇒ EXECUTION FRONT-END (2026-07-04):**
-> [`../reviews/fable-review-2026-07-04.md`](../reviews/fable-review-2026-07-04.md)
-> holds the current work queue (R1–R6) and the binding adjudications (ability
-> model, world seam, mount authoring, profile-key collapse, boss integrate-fold).
-> The 2026-07-02 review is the frozen E-log record. P1/P2 of this roadmap execute
-> as that doc's R-phases. (Facts drifted since 07-03: 25 crates now —
-> `touch_input` extracted; `gameplay_core` measured ~99.5k.)
-> **Extended 2026-07-05 by
-> [`../reviews/fable-review-2026-07-05.md`](../reviews/fable-review-2026-07-05.md)**
-> (phases R7–R10: backend-agnostic spatial model per
-> [`engine/spatial-model.md`](engine/spatial-model.md), contact/surface
-> kernel + momentum locomotion, the gnuton mounted-giant split). Q6 is
+> **⇒ EXECUTION FRONT-END (consolidated 2026-07-05):**
+> [`../reviews/fable-demo-plan-2026-07-05.md`](../reviews/fable-demo-plan-2026-07-05.md)
+> — THE live plan, aimed at the two first demo games (**Sanic + SMB1**, Q12/Q13
+> ruled). It consolidates and freezes the 07-02 / 07-04 / 07-05 review docs
+> (now historical records) and binds three manifestos:
+> [`engine/architecture.md`](engine/architecture.md),
+> [`engine/spatial-model.md`](engine/spatial-model.md), and
+> [`engine/frame-awareness.md`](engine/frame-awareness.md). Q6 and Q12 are
 > ANSWERED below.
 
 ---
@@ -277,6 +273,11 @@ parallel work instead of guessing.)*
   proposal: SMB1 + MoneySeize + Celeste-slice = acceptance (Tier 1); Metroid-slice
   = stretch; everything else post-1.0. And: which is the FIRST demo (P3) — SMB1
   (broadest recognition) or MoneySeize (closest to current feel work)?
+  **ANSWERED (Jon, 2026-07-05): the two FIRST demos are Sanic + SMB1** (Q13:
+  Sanic jumped the queue from sandbox-proof to first-class demo target).
+  Execution: [`../reviews/fable-demo-plan-2026-07-05.md`](../reviews/fable-demo-plan-2026-07-05.md)
+  tracks S and M. MoneySeize/Celeste-slice remain acceptance candidates behind
+  them.
 
 ---
 

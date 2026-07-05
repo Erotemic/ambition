@@ -1,5 +1,13 @@
 # Fable review — 2026-07-04: the architecture consolidation
 
+> **⚠ HISTORICAL (frozen 2026-07-05).** This doc and its 07-05 extension are
+> consolidated into
+> **[`fable-demo-plan-2026-07-05.md`](fable-demo-plan-2026-07-05.md)** — work
+> from THAT doc. Everything still open here (A1 tail, R4c–R4g, R5, R6, the
+> §7 opus questions Q22–Q26) is re-homed and ANSWERED there (tracks E/M/S).
+> This doc remains the record: adjudications AJ1–AJ7 + the R1–R3.6/R4a
+> execution log. Append nothing here.
+
 **Authored by fable** after a full-repo review (four parallel deep audits:
 gameplay_core module map + coupling histogram, workspace dep graph, planning-doc
 reconciliation, content-in-core hunt) plus a front-to-back read of the
@@ -402,6 +410,84 @@ an oracle-violation issue and gets fixed as engine work. Exit: the demo's
   known RED: `unified_melee::a_hostile_actor…` (feel-reserved, documented).
 - Estimates vs actuals: multi-session runs record wall-clock per phase and a
   final table (Jon's standing ask).
+
+## 7. OPUS FRONTIER on the 07-04 REMAINDER — readiness + questions for fable (2026-07-05, opus)
+
+Opus reviewed what's still OPEN in this doc (per Jon: "we still haven't finished
+it") and audited the code. **Done:** R1, R2, R3.1–R3.6, R3.5→ADR 0020 (mount),
+R4a-1 (`asset_publish`→`ambition_asset_manager`). **R4b is superseded by R7** in
+the 07-05 doc (two-crate world carve — do NOT execute R4b's one-crate shape).
+**Still open:** the A1 tail remainder, R4c–R4g, R5, R6, and the deferred `Item`
+set. Two of these need a fable design pass before opus can carve cleanly; one is
+a live cross-doc coordination call. Fable: answer inline / take slices.
+
+### Readiness (07-04 remainder, grounded in code)
+
+| Item | Verdict | Blocker |
+|---|---|---|
+| **A1 tail** (AJ5.2 brain fold + AJ5.3 BossAnim→CharacterAnim) | ⚠ open + cross-doc | **Q22** — overlaps 07-05 R10; sequence together? |
+| **R4c** support ring (persistence/menu/audio/dev/dialog) | 🔴 senior design | **Q23** — the persistence↔menu LAYERING (AJ6) at slice level |
+| **R4d** combat/projectiles | 🔴 senior design | **Q24** — break the combat↔features mutual-re-export cycle |
+| **R4e** sprite_sheet (the M7 ONE pipeline) | ⚠ coordinate | **Q25** — ride R10.2 + the asset-root flip |
+| **R4f** sim_view + render edge | ✅→⚠ | **Q26** — is the D3 read-model boundary clean enough to fire D3.7? |
+| **R4g** rename + hub dissolve | ✅ mechanical | Q2 (rename name) — Jon endorse `ambition_actors`? |
+| **R5** engine face | ✅ downstream | none (after R4) |
+| **R6** proof clones | 🔴 senior effort | **Q12 RULED: Sanic + SMB1** (see 07-05 §8) |
+| deferred **`Item` set** (violation #2) | ⏸ by design | lands with the Sanic/SMB1 demo when it needs items |
+
+### The questions
+
+- **Q22 — A1 tail vs 07-05 R10 (coordination).** The A1 tail is genuinely OPEN:
+  `tick_boss_brains_system` still ticks bosses separately (not folded into
+  `tick_actor_brains`), `BrainSnapshot.target_pos` is still alive
+  (`snapshot.rs:70` — AJ5.2 said it "can finally die" after the fold), 10
+  `Without<BossConfig>` filters remain, and the boss sprite/attack-geometry path
+  is still boss-specific (`boss_encounter/sprites/`, `attack_geometry/`). 07-05
+  §6 says **R10 ACCELERATES this tail** (pushing gnuton — the last boss — onto
+  the moveset runtime does the BossAnim→CharacterAnim + boss→actor fold for the
+  one remaining boss). So: do we finish the A1 tail as a STANDALONE slice first
+  (fold all bosses now), or fold it INTO R10.3/R10.4 (gnuton is the last boss; the
+  fold falls out of making it a mount+rider on the moveset)? The latter avoids
+  doing the boss-fold twice. **fable:**
+- **Q23 — R4c: the persistence↔menu layering (the god-dep).** `ambition_persistence`
+  is the workspace's one "god-dep" — 132 inbound refs and it reaches UP into
+  menu; AJ6 says it "resolves by LAYERING (persistence below menu), not one
+  mega-crate," but the slice-level cut isn't specced. What is the layer boundary
+  — which persistence concerns sit below menu (save/settings model) vs which are
+  menu-owned (settings UI/IR)? Does the app's 10k-LOC menu host stack move
+  wholesale into `ambition_menu`, and does the `ambition_touch_input` upward-dep
+  inversion (AJ7) ride this slice or precede it? This is 5 carves under one label
+  — is R4c one slice or a sequence (persistence → audio → dialog → dev_tools →
+  menu-last)? **fable:**
+- **Q24 — R4d: breaking the combat↔features cycle.** `combat/` and `features/`
+  are "mutually re-exporting BY CONSTRUCTION" (a real dependency cycle), and the
+  10k moveset kit — the hottest surface in the codebase (R1/R2/moveset all live
+  here) — must move into `ambition_combat` while cutting a 23-ref back-edge.
+  What's the inversion shape: does `features` depend on `combat` (one direction),
+  or do both depend on a new lower crate for the shared types? Where does the
+  moveset runtime land relative to the cut, and what's the facade-then-delete
+  order so the workspace compiles per step? This is the doc's own flagged
+  "coupled family needing sustained multi-session untangling." **fable:**
+- **Q25 — R4e coordination.** R4e (the M7 ONE sprite pipeline) is where 07-05's
+  deferred `ParallaxTheme` + `BossSheetSpec` LazyLock statics land (they're
+  "asset-ROOT-blocked, ride R4e"), and 07-05 R10.2 routes gnuton's sheets through
+  this same pipeline. Confirm the ordering: does R4e wait until R10.2 has split
+  the gnu sheets (so all boss art enters the pipeline uniformly), or does R4e
+  build the pipeline first and R10.2 targets it? And does R4e carry the asset-root
+  flip, or is that a separate prerequisite? **fable:**
+- **Q26 — R4f readiness (D3.7).** R4f introduces `ambition_sim_view` and "fires
+  the D3.7 lever" so render/portal_presentation leave the hot rebuild path;
+  `camera_snapshot`+`camera_ease` were parked waiting on it. Is the D3 read-model
+  boundary actually clean enough to fire now (i.e. can render read a sim_view
+  snapshot without reaching into sim internals), or does R4f need a scouting pass
+  first like R4b/R7 got? Mostly mechanical IF the boundary is clean — confirm. **fable:**
+
+### Minor / Jon
+- **Q2 (rename)** — endorse `ambition_actors` for the gameplay_core residue (R4g)
+  or supply a name; pure churn, scheduled last. **Jon:** _(open)_
+- **Q12 RULED** — R6 first demo clones = **Sanic + SMB1** (Jon 2026-07-05;
+  Sanic jumps the queue — see 07-05 §7/§8). The deferred `Item`-enum set
+  (violation #2) lands when the Sanic/SMB1 demo first needs its own items.
 
 ---
 

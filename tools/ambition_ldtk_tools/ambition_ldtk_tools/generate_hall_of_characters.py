@@ -61,7 +61,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 CATALOG_PATH = (
     REPO_ROOT
     / "crates"
-    / "ambition_gameplay_core"
+    / "ambition_content"
     / "assets"
     / "data"
     / "character_catalog.ron"
@@ -82,9 +82,8 @@ SPEC_PATH = (
 HALL_LDTK_PATH = (
     REPO_ROOT
     / "crates"
-    / "ambition_gameplay_core"
+    / "ambition_content"
     / "assets"
-    / "ambition"
     / "worlds"
     / "hall_of_characters.ldtk"
 )
@@ -499,6 +498,11 @@ def build_spec(
         "music_track": "pulse_drift_voyage",
         "ambient_profile": "hum",
         "visual_theme": "default",
+        # The engine keys "Hall bark pool + gallery policy" off this generic
+        # `gallery` flag, not a hardcoded room id (C1). The `gallery` levelField
+        # def is registered in sandbox.ldtk (cloned into this file on a fresh
+        # scaffold) via `ambition_ldtk_tools level add-field-def`.
+        "gallery": True,
         # No `connect_to`: the hub-side door (`hall_of_characters_door` in
         # central_hub_main) is permanent hand-authored content in sandbox.ldtk.
         # The hall's own `hall_of_characters_entry` zone (authored above in

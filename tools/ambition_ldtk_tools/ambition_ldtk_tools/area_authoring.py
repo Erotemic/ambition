@@ -461,6 +461,7 @@ OPTIONAL_LEVEL_FIELDS = (
     "visual_theme",
     "nameplate_full_opacity_count",
     "nameplate_fade_out_count",
+    "gallery",
 )
 
 
@@ -720,8 +721,12 @@ def build_level(project: dict, spec: dict) -> dict:
         )
 
     # Reject overlap with existing levels in the world frame so the tool
-    # never silently squats on existing geometry.
+    # never silently squats on existing geometry. Skip the level being
+    # REPLACED (same identifier) — a `--replace-existing` regen legitimately
+    # reuses its own world rect, so it must not count as a self-overlap.
     for lev in project.get("levels", []):
+        if lev.get("identifier") == level_id:
+            continue
         if (
             world_x < lev["worldX"] + lev["pxWid"]
             and world_x + px_wid > lev["worldX"]

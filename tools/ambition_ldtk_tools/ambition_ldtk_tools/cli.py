@@ -221,6 +221,8 @@ def cmd_level(args, rest):
         return _delegate("ambition_ldtk_tools.edit.spec_diff", rest)
     if args.level_action == "delete":
         return _delegate("ambition_ldtk_tools.edit.level_delete", rest)
+    if args.level_action == "add-field-def":
+        return _delegate("ambition_ldtk_tools.edit.level_add_field_def", rest)
     return _todo(f"level {args.level_action}")
 
 
@@ -535,6 +537,15 @@ def build_parser() -> argparse.ArgumentParser:
             "Delete a whole level (room) from an LDtk file. Usage: "
             "level delete <level_id> [--ldtk PATH] (--in-place | --output PATH) "
             "[--backup]. Use when relocating a level to its own secondary world."
+        ),
+    )
+    level_sub.add_parser(
+        "add-field-def",
+        help=(
+            "Register a new levelField DEFINITION so specs / set-field can "
+            "author it. Usage: level add-field-def <name> --type Bool|String|Int|Float "
+            "[--doc TEXT] [--default V] <ldtk> (--in-place | --output PATH). "
+            "Idempotent: re-adding an existing field is a no-op."
         ),
     )
     sp_level.set_defaults(func=cmd_level)

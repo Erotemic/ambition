@@ -1,7 +1,17 @@
-# THE DEMO PLAN — Sanic + SMB1 (consolidated execution front-end)
+# THE ENGINE PLAN — the full architecture vision, proven by Sanic + SMB1
 
-**Authored by fable, 2026-07-05 (evening),** consolidating and superseding the
-two review docs at Jon's direction:
+**THIS IS THE SINGLE GOAL DOCUMENT.** Hand this doc to an executing agent and
+"complete it" is the tasking: it carries the ENTIRE remaining engine-
+architecture vision — the unification tails, the decomposition (every carve),
+the content evictions and cleanups, the ability-model completion, and the two
+demo games that PROVE the architecture. The demos are the acceptance test,
+not the whole goal. §0 states the goal; §6 is the completeness audit showing
+every open item from the three historical reviews is either DONE in code or
+re-homed here — nothing else is outstanding anywhere.
+
+**Authored by fable, 2026-07-05 (evening; completeness audit appended the
+same night),** consolidating and superseding the review docs at Jon's
+direction:
 
 - [`fable-review-2026-07-04.md`](fable-review-2026-07-04.md) — now
   **HISTORICAL** (the R1–R6 record, adjudications AJ1–AJ7, its E-log frozen).
@@ -32,6 +42,47 @@ sign the spec doesn't fit the code). Commit each verified slice, explicit
 paths, BLIND-marked feel commits, C4 scenario for every new reaction seam,
 keep THIS doc's log current, wall-clock table for multi-phase runs. Known
 standing RED: `unified_melee::a_hostile_actor…` (feel-reserved).
+
+---
+
+## 0. THE GOAL STATE (what "done" means)
+
+When this document is complete, ALL of the following hold:
+
+1. **The crate map is real.** Every crate in
+   [`architecture.md`](../planning/engine/architecture.md)'s 6-tier target
+   stack exists with imports flowing strictly downward:
+   `ambition_world` + `ambition_ldtk_map` (W), `ambition_persistence` /
+   `ambition_menu` / `ambition_audio` / `ambition_dialog` /
+   `ambition_dev_tools` (E1), `ambition_combat` + `ambition_projectiles`
+   (E2), `ambition_sprite_sheet` (E3), `ambition_sim_view` with the render
+   edge cut (E4), `ambition_runtime::PlatformerEnginePlugins` (E5), and the
+   gameplay_core residue renamed `ambition_actors` with the `features/` hub
+   facade dissolved (E7).
+2. **The unification has no tails.** The ability model is COMPLETE (three
+   tiers live: data + prefab registry + techniques-with-params — track A);
+   the A1 boss tail is closed (E6); every `Without<BossConfig>` is documented
+   policy; movement identity, perception, and motion are typed per-body
+   policies in ONE pipeline.
+3. **The engine names no content.** The named-content grep
+   (`rg 'gnu_ton|pca|mockingbird|shark|duel_arena|noether|pirate|sanic|hall_of_characters'`
+   over engine crates) hits test fixtures only, then zero; the residual
+   cleanups (track C) are gone; content enters ONLY through install
+   registries, converters, and manifests.
+4. **The two demos pass the oracle.** `demos/demo_sanic` and `demos/demo_smb`
+   each = one content crate + a ~100-line app on `ambition_runtime`, and each
+   demo's `git log --stat` touches zero engine crates. The boundary test
+   suite enforces app-thinness and machinery-names-no-content permanently.
+5. **The stretch seams exist** (not the stretch features): AJ13 frame
+   discipline in review practice, AJ14's Tier-0 obligations in E4, the
+   knight-on-chains and angled-portal seams intact for post-1.0.
+6. **The full workspace gate is green** (`cargo test --workspace
+   --all-targets --features rl_sim`) with the one documented feel-reserved
+   RED; the C4 rigs, replay fixtures, and boss/duel suites all pass.
+
+Post-1.0 concerns (roadmap P4/P5: further clone tiers, semver/docs/template,
+Q1–Q11) deliberately stay in [`roadmap.md`](../planning/roadmap.md) — they
+are NOT this document's scope.
 
 ---
 
@@ -338,9 +389,10 @@ those first. Do not start the carve with an unclassified list.
 
 ## 3. THE TRACKS
 
-Five tracks. S leads (Jon: Sanic jumps the queue). W and G run parallel to S.
-E runs behind demo needs — **E5 (`ambition_runtime`) is the gate for both
-demo games** (S5, M-track). Old R-numbers cited for traceability.
+Seven tracks. S leads (Jon: Sanic jumps the queue); W and G run parallel to
+S; A and C are small independent fillers; E runs behind demo needs — **E5
+(`ambition_runtime`) is the gate for both demo games** (S5, M-track). Old
+R-numbers cited for traceability; §6 proves nothing was dropped.
 
 ### Track S — Sanic (LEADS)
 
@@ -453,11 +505,71 @@ Was R6's other half + the Tier-1 matrix gaps. All **[opus]** slices with a
   demo gate.** Pull this forward aggressively; S5/M-track cannot start
   without it, and it needs E1e/E2/E3/E4 only to the extent the plugin groups
   reference their crates (assemble with what exists; tighten as carves land).
-- **E6 [opus, after G3]** — the A1-tail residue (Q22): the boss brain-tick
-  fold decision, `BrainSnapshot.target_pos` retirement, remaining
-  `BossAnim`→`CharacterAnim` rows.
+- **E6 [opus, after G3]** — the A1-tail residue (Q22), fully enumerated:
+  (a) the `BossAnimator` frame-state split fully sim-side (a sim
+  `BossAnimFrame` component; the sim stops reading a render-inserted
+  component — the R1.3 follow-up); (b) remaining `BossAnim` rows →
+  `CharacterAnim` rows for the non-gnuton bosses (BLIND visuals, mechanics
+  pinned by frame-sample tests); (c) `BrainSnapshot.target_pos` retirement
+  (the boss brain consumes its view/target directly); (d) the DECISIONS on
+  the two optional deep folds recorded in the R1 close — the "no boss arm"
+  integrate fold (needs the chain reorder, BLIND one-frame pose lag) and
+  `BossAttackIntent` → a general move-intent (which would let the boss
+  brain-tick truly fold into `tick_actor_brains`) — execute them if G-track
+  left them cheap, or document them as permanent policy with rationale;
+  either closes the item.
 - **E7 [Jon + opus]** — R4g rename (`ambition_actors`, pending Q2) + the
   features-hub facade dissolution sweep.
+- **E8 [opus]** — the last R4a near-leaf: `inventory_ui/` → `ambition_items`
+  (arch.md: items owns "item/inventory/equipment machinery, shop,
+  inventory-UI state"). The `time/` residue (feel / time_control /
+  camera_ease) stays in gameplay_core by measurement (depends on
+  player/combat/features); `camera_ease` moves WITH E4's sim_view.
+
+### Track A — the ability-model completion (the R2 deferred trio; consumers arrived)
+
+The 07-04 doc deferred these until a consumer existed. The demos ARE the
+consumers — this track completes the JD1/AJ1 three-tier model:
+
+- **A1 [opus]** (was R2.2) — thread `EffectRef.params` through the
+  `Effect→ActorActionMessage::Special` dispatch (params ride along; today the
+  bridge drops them) + the install-time param-schema validation hook from
+  AJ1 (each registered technique/prefab may register a check the
+  content-validation pass runs — typos fail at startup, not mid-fight).
+  First consumer: any G3 limb technique or S5/M4 demo move that authors
+  params.
+- **A2 [opus]** (was R2.3) — the PREFAB registry: string-keyed constructors
+  `(params) -> MoveSpec` expanded at roster install; generalize
+  `attack_move_from_melee` / `fire_move_from_ranged` into the engine-shipped
+  `simple_melee` / `simple_ranged` (+ `simple_charge` as the demos need
+  them). `sword_slash` = `simple_melee` + params, zero new code. First
+  consumer: the demo rosters (S5/M4 author kits as prefab rows).
+- **A3 [opus, with M1]** (was R2.6) — the equipment→params merge: numeric
+  equipment modifiers MERGE into the params value at trigger-resolve;
+  behavioral overrides are components the technique reads. Lands WITH M1
+  (SMB1 powerups are literally equipment rows modifying the body/moves) —
+  the adjudicated consumer.
+
+### Track C — residual content/cleanup sweep (small, independent, all [opus])
+
+The last named-content/hygiene residuals from the historical audits, none
+blocked:
+
+- **C1** — `HALL_OF_CHARACTERS_AREA` (`actors/update.rs`): the bark-pool
+  switch matches a room-id string. Fix as adjudicated: a room-metadata
+  `gallery: bool` (LDtk level field + `RoomMetadata` + loader wiring, edited
+  via `ambition_ldtk_tools level set-field`); the const dies.
+- **C2** — `StartingCharacter::DEFAULT_ID = "player"` (+
+  `PLAYER_CHARACTER_ID`/`PLAYER_FILE_ROOT`): the default-character SEAM
+  hardcodes a content id; content injects the default (it owns
+  `PLAYABLE_ROSTER[0]`) through the existing install pattern.
+- **C3** — the in-game character-select follow-up from the
+  starting-character feature (menu row driving the wear seam; the
+  `AMBITION_START_CHARACTER` env var stays as the dev path) + the
+  AbilitySet-unify note from that feature's landing — fold or explicitly
+  close during E1e (menu consolidation touches the same surface).
+- **C4** — sweep `dev/journals/code_smells.md`: close entries these tracks
+  resolve; keep the journal honest (docs-describing-dead-things rule).
 
 ## 4. SEQUENCING (the short version)
 
@@ -465,10 +577,12 @@ Was R6's other half + the Tier-1 matrix gaps. All **[opus]** slices with a
 NOW  (parallel): S1 → S2 → S3 → S4        [the Sanic playable track]
                  W1 → W2 → W3 → W4        [the carve; W2 rebases on S3's chains channel]
                  G1 → G2 → G3 → G4        [the giant; G5 with fable later]
+                 C1–C4, E8, A1–A2         [small, independent — good fillers]
 NEXT:            E5 pulled forward (+ E1–E4 as they're ready), E6 after G3
-THEN:            S5 (demo_sanic) and M1–M4 (demo_smb) — adversarial, on E5
+THEN:            S5 (demo_sanic) and M1–M4+A3 (demo_smb) — adversarial, on E5
 POST-DEMO:       L1–L4 slower light (AJ14; Tier-0 seams already riding E4)
-                 G5 player-drives-the-giant; angled portals (frame-type arc)
+                 G5 player-drives-the-giant; angled portals (frame-type arc);
+                 knight-likes-on-chains (Q15: not in 1.0, seam kept)
 ```
 
 Compile discipline, verification gates, BLIND rules: unchanged from the
@@ -480,6 +594,51 @@ new entries append HERE.
 - **Q2** — the `ambition_actors` rename: endorse or rename (E7).
 - Feel-pass queue (standing): `unified_melee` RED, the BLIND commits ledger,
   the G3 limb-arc taste pass (Q18's slot map is fable-BLIND until then).
+
+## 6. COMPLETENESS AUDIT — every open item from the three reviews, accounted for
+
+*(Swept 2026-07-05 night, against CODE, not just the docs. If it isn't in
+this table, it was verified DONE.)*
+
+**fable-review-2026-07-02** (E1–E66): fully executed; its adjudications were
+absorbed by the 07-04 doc's AJ1–AJ7. Sole survivors: the deferred-tuning /
+BULK REVIEW QUEUE items = **Jon's standing feel queue** (§5) — not agent
+work.
+
+**fable-review-2026-07-04** — open items → here:
+
+| Historical item | Status / new home |
+|---|---|
+| A1 tail (brain fold, target_pos, BossAnim rows, animator split, deep folds) | **E6** (fully enumerated; verified live in code: `BrainSnapshot.target_pos` exists, animator sample flow unchanged) |
+| R2.2 params-through-dispatch + validation | **A1** (verified: zero `hydrate` call sites in moveset — genuinely open) |
+| R2.3 prefab registry | **A2** |
+| R2.6 equipment→params | **A3** (rides M1) |
+| R2.5 BLIND feel deltas; `unified_melee` RED | Jon's feel queue (§5) |
+| R3.4 blocked residue: ParallaxTheme #6, pirate_weapon #7, projectile visual kinds, BossSheetSpec statics #5, asset-root flip | **E3** (Q25) |
+| R3.4 residue: `HALL_OF_CHARACTERS_AREA` | **C1** (verified live at `actors/update.rs:1347`) |
+| R3.4 residue: `StartingCharacter::DEFAULT_ID` | **C2** (verified live) |
+| R4a leftovers: `inventory_ui/`→items; `time/` residue; camera_ease/camera_snapshot | **E8** (inventory_ui); time residue stays by measurement; camera pieces ride **E4** |
+| R4b world carve | **W1–W4** (reshaped two-crate form) |
+| R4c/R4d/R4e/R4f/R4g, R5 | **E1a–e / E2 / E3 / E4 / E7 / E5** (Q23–Q26 specs in §2) |
+| R6 proof clones + the deferred `Item` SET | **S5 + M1–M4** (Item SET opens in S5) |
+| Q2 rename; Q12 | §5; RULED (Sanic+SMB1) |
+| mount M-slices | ALL LANDED (M1–M5, cutover A+B; G5 = the remaining payoff) |
+| stale-doc sweeps, boundary tests, exit greps | §0 exit criteria (3, 4, 6) |
+
+**fable-review-2026-07-05** — open items → here:
+
+| Historical item | Status / new home |
+|---|---|
+| R7.1–R7.4 | **W1–W4** |
+| R8.1–R8.4 | **DONE** (committed 2026-07-05: `9f13a7b8`…`30010fcf`) |
+| R9.1 | **DONE** (`7041d1d0`) |
+| R9.2–R9.4 | **S1 DONE** (`75f7bf8f`) **+ S3a DONE** (`8ab942ed`); rest = **S2/S3b/S4** |
+| R10.1 | **DONE** (`c9b9dd02`) |
+| R10.2–R10.6 | **G1–G5** (Q18/Q19 specs in §2) |
+| debug overlay (deferred from R8.2) | **S3b** |
+| ADR 0021 | **W4** |
+| angled portals; knight-on-chains | post-1.0 seams (§0 item 5; Q15 ruled) |
+| Q13–Q21 | RULED/answered (§2) |
 
 ---
 

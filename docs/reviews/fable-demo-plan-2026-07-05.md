@@ -745,9 +745,18 @@ inward-normal proof. **S3b REMAINING:** `ambition_ldtk_tools surface add/validat
 subcommand (+ SurfaceLoop/SurfaceChain entity DEFS via `def register-entity`),
 the `sanic_sandbox` area, the debug-overlay gizmos.
 
-**SESSION TALLY (opus, 2026-07-05 eve):** S2, A1, A2, C2, C1, S3b-converter —
-7 feature commits. §0 crit 2 (ability model) COMPLETE; two crit-3 residues (C1,
-C2) closed; the momentum LOOP geometry now authorable from a marker.
+## S3b (defs) — SurfaceChain + SurfaceLoop entity defs registered ✅ (`ff4e6fa1`, opus)
+The S3a/S3b converters were only reachable from synthetic tests (no LDtk
+`defs.entities` entry). Registered both entity defs into sandbox.ldtk via `def
+register-entity` — a level can now PLACE a `SurfaceChain` slope or a
+`SurfaceLoop` marker. Content graph validates.
+
+**SESSION TALLY (opus, 2026-07-05 eve):** S2, A1, A2, C2, C1, S3b-converter,
+S3b-defs — 8 feature commits. §0 crit 2 (ability model) COMPLETE; two crit-3
+residues (C1, C2) closed; momentum slopes + LOOP geometry authorable as LDtk
+entities. **S3b REMAINING:** the `sanic_sandbox` area (author it with
+`area create`), the `ambition_ldtk_tools surface add/validate` convenience
+subcommand, the debug-overlay gizmos.
 
 **NEXT HEADS (the bigger dents):** **G1→G4 (gnu split) unblock G5 [★fable]**;
 **E5 (`ambition_runtime`) — demo gate for S5 [senior] + M-track — needs a careful

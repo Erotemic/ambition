@@ -182,18 +182,20 @@ impl PlayerSimulationBundle {
 
     /// Like [`from_scratch`](Self::from_scratch), but the player spawns *as* the
     /// catalog character `character_id`: its display name becomes the entity
-    /// [`Name`], and its authored combat moveset is overlaid onto the player's
-    /// default kit (the character's defined melee / ranged / special win; empty
-    /// slots keep the player kit so a peaceful character is still playable). The
-    /// player box is otherwise untouched — same `Brain::Player`, same markers,
-    /// same traversal ability kit, same collision. The chosen character's SPRITE
-    /// is bound presentation-side (`scene_setup`), not here.
+    /// [`Name`], and its authored ActionSet **IS the kit** — wearing is a full
+    /// re-parametrisation of the one control box (possession semantics: a
+    /// goblin swipes, a pirate fires a pistol, a peaceful character does not
+    /// secretly shoot the robot's fireballs). Slots the character leaves empty
+    /// stay EMPTY. The player box is otherwise untouched — same
+    /// `Brain::Player`, same markers, same collision. The chosen character's
+    /// SPRITE is bound presentation-side (`scene_setup`), not here.
     ///
-    /// Passing the content default id (the protagonist row) yields a bundle
-    /// equivalent to `from_scratch` — that row is the peaceful default, so the
-    /// overlay is a no-op on offense. Callers should still branch on
-    /// `is_default()` (an unset `StartingCharacter`) and use `from_scratch` for
-    /// the protagonist so the canonical path is provably unchanged.
+    /// The one exception is the PROTAGONIST (the content-installed default
+    /// row): its kit is the code-side `default_player_action_set` (derived
+    /// from the live `AbilitySet` dev toggles), so wearing the default id
+    /// yields a bundle equivalent to `from_scratch`. Callers should still
+    /// branch on `is_default()` and use `from_scratch` for the protagonist so
+    /// the canonical path is provably unchanged.
     pub fn from_scratch_as_character(
         scratch: ae::BodyClusterScratch,
         health: ambition_characters::actor::Health,
@@ -204,22 +206,23 @@ impl PlayerSimulationBundle {
         {
             bundle.name = Name::new(display);
         }
-        if let Some(character_set) =
-            crate::character_roster::default_action_set_for_character_id(character_id)
-        {
-            let player_kit = bundle.action_set.clone();
-            bundle.action_set = crate::player::overlay_character_moveset(player_kit, character_set);
-            // Re-derive the melee moveset from the WORN character's swing, so a
-            // starting character keeps its own melee (respecting the override) —
-            // the character defines behavior, the controller just attaches.
-            bundle.moveset = crate::combat::moveset::ActorMoveset(
-                crate::combat::moveset::build_actor_moveset(
-                    None,
-                    bundle.action_set.melee.as_ref(),
-                    None,
-                )
-                .unwrap_or_default(),
-            );
+        let is_protagonist = character_id == crate::character_roster::default_character_id();
+        if !is_protagonist {
+            if let Some(character_set) =
+                crate::character_roster::default_action_set_for_character_id(character_id)
+            {
+                bundle.action_set = character_set;
+                // Re-derive the melee moveset from the WORN character's swing —
+                // the character defines behavior, the controller just attaches.
+                bundle.moveset = crate::combat::moveset::ActorMoveset(
+                    crate::combat::moveset::build_actor_moveset(
+                        None,
+                        bundle.action_set.melee.as_ref(),
+                        None,
+                    )
+                    .unwrap_or_default(),
+                );
+            }
         }
         bundle
     }
@@ -282,10 +285,11 @@ mod tests {
 
     #[test]
     fn wearing_the_default_id_is_the_protagonist() {
-        // Explicitly wearing the default `player` id keeps the protagonist name
-        // and the full player kit — the `player` catalog row is peaceful, so the
-        // moveset overlay is a no-op on offense. (Production still routes the
-        // protagonist through `from_scratch`; this pins the equivalence.)
+        // Explicitly wearing the DEFAULT id keeps the protagonist name and the
+        // full code-side player kit — the protagonist is the one row whose kit
+        // is NOT its (peaceful) catalog action set. Production installs the
+        // default at the content choke point; mirror that here.
+        crate::character_roster::install_default_character_id("player");
         let bundle = PlayerSimulationBundle::from_scratch_as_character(
             player_scratch(),
             Health::new(20),
@@ -306,9 +310,11 @@ mod tests {
     #[test]
     fn player_wears_pirate_admiral_identity_and_moveset() {
         // The player box stays (Brain::Player, PlayerEntity by type), but it now
-        // reads as the Pirate Admiral: its name, and its authored PISTOL, which
-        // overrides the player's default bolt — "nothing changes except my
-        // abilities".
+        // reads as the Pirate Admiral: its name and its authored PISTOL — the
+        // worn character's ActionSet IS the kit (no fallback to the player's
+        // bolt). Pin the installed default so the protagonist branch is
+        // deterministic regardless of test order.
+        crate::character_roster::install_default_character_id("player");
         let bundle = PlayerSimulationBundle::from_scratch_as_character(
             player_scratch(),
             Health::new(20),
@@ -328,9 +334,10 @@ mod tests {
     #[test]
     fn unknown_character_id_still_spawns_a_controllable_player() {
         // A stale / unknown id keeps the player fully playable: name + moveset
-        // fall back to the player defaults (no catalog row to overlay), and it
+        // fall back to the player defaults (no catalog row to wear), and it
         // is still Brain::Player. The sprite falls back to the colored rectangle
         // presentation-side.
+        crate::character_roster::install_default_character_id("player");
         let bundle = PlayerSimulationBundle::from_scratch_as_character(
             player_scratch(),
             Health::new(20),

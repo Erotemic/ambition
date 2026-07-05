@@ -61,6 +61,28 @@ pub struct Block {
 }
 
 impl Block {
+    /// The block's exterior boundary as a closed, exterior-rideable
+    /// [`SurfaceChain`] (positive shoelace: outward normals under the shared
+    /// `n = (t.y, -t.x)` winding rule). This is what makes a solid block a
+    /// SURFACE to the momentum solver — one riding model for authored chains
+    /// and ordinary room geometry. Carries the block's `velocity`, so riding
+    /// a moving block composes exactly like riding a moving chain.
+    pub fn boundary_chain(&self) -> SurfaceChain {
+        let min = self.aabb.min;
+        let max = self.aabb.max;
+        let mut chain = SurfaceChain::closed_loop(
+            self.name.clone(),
+            vec![
+                Vec2::new(min.x, min.y), // top-left (y grows downward)
+                Vec2::new(max.x, min.y), // top-right
+                Vec2::new(max.x, max.y), // bottom-right
+                Vec2::new(min.x, max.y), // bottom-left
+            ],
+        );
+        chain.velocity = self.velocity;
+        chain
+    }
+
     pub fn solid(name: impl Into<String>, min: Vec2, size: Vec2) -> Self {
         Self {
             name: name.into(),

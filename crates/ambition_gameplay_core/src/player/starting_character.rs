@@ -23,8 +23,6 @@ use bevy::ecs::resource::Resource;
 use bevy::ecs::system::Commands;
 use bevy::prelude::Entity;
 
-use ambition_characters::brain::ActionSet;
-
 use crate::features::{MomentumMotion, MotionModel};
 
 /// The catalog `character_id` the local player spawns as.
@@ -74,24 +72,11 @@ impl StartingCharacter {
 // (R3.2, residue #10). This module keeps only the engine machinery: the
 // StartingCharacter resource + the moveset overlay.
 
-/// Overlay a character's authored combat moveset onto the player's default kit.
-///
-/// The character's DEFINED slots win — a goblin swipes, a pirate fires a pistol
-/// — while slots the character leaves empty fall back to the player kit, so a
-/// peaceful character stays playable (you can still attack with the player's
-/// default swipe / bolt). Locomotion style always comes from the character.
-///
-/// This is precisely "nothing changes except my abilities": the traversal kit
-/// belongs to the player box; the melee / ranged / special read as the *worn*
-/// character's whenever that character authored one.
-pub fn overlay_character_moveset(player: ActionSet, character: ActionSet) -> ActionSet {
-    ActionSet {
-        move_style: character.move_style,
-        melee: character.melee.or(player.melee),
-        ranged: character.ranged.or(player.ranged),
-        special: character.special.or(player.special),
-    }
-}
+// NOTE (2026-07-05): the old `overlay_character_moveset` fallback — empty worn
+// slots kept the player's swipe/bolt/shield — is GONE. Wearing is possession
+// semantics: the worn character's authored ActionSet IS the kit (Jon's Sanic
+// report: a peaceful speedster must not secretly shoot the robot's fireballs).
+// The protagonist keeps its code-side kit via the `from_scratch` path.
 
 /// Apply the worn character's MOVEMENT IDENTITY to an already-spawned body
 /// (Q16 §S2): if the character authors surface-momentum params, insert
@@ -120,7 +105,6 @@ pub fn apply_worn_motion_model(commands: &mut Commands, entity: Entity, characte
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_characters::brain::{MeleeActionSpec, MoveStyleSpec, RangedActionSpec, SwipeSpec};
 
     #[test]
     fn default_is_unset_and_is_default() {
@@ -184,63 +168,5 @@ mod tests {
     #[test]
     fn non_default_id_is_not_default() {
         assert!(!StartingCharacter::new("goblin").is_default());
-    }
-
-    #[test]
-    fn overlay_keeps_player_slots_when_character_is_peaceful() {
-        // Player kit: swipe melee + bolt ranged. Peaceful character: all None,
-        // Float locomotion. Overlay keeps the player's offense (still playable)
-        // but adopts the character's locomotion.
-        let player = ActionSet {
-            melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
-            ranged: Some(RangedActionSpec::Bolt {
-                speed: 600.0,
-                damage: 1,
-            }),
-            move_style: MoveStyleSpec::Walk,
-            special: None,
-        };
-        let peaceful = ActionSet {
-            move_style: MoveStyleSpec::Float,
-            ..Default::default()
-        };
-        let merged = overlay_character_moveset(player.clone(), peaceful);
-        assert!(merged.melee.is_some(), "peaceful char keeps player melee");
-        assert!(merged.ranged.is_some(), "peaceful char keeps player ranged");
-        assert_eq!(
-            merged.move_style,
-            MoveStyleSpec::Float,
-            "locomotion is the char's"
-        );
-    }
-
-    #[test]
-    fn overlay_lets_character_offense_win() {
-        // Character authors a Lunge melee; it overrides the player's Swipe.
-        let player = ActionSet {
-            melee: Some(MeleeActionSpec::Swipe(SwipeSpec::STRIKER_DEFAULT)),
-            ranged: None,
-            move_style: MoveStyleSpec::Walk,
-            special: None,
-        };
-        let character = ActionSet {
-            melee: Some(MeleeActionSpec::Swipe(SwipeSpec {
-                windup_s: 0.9,
-                active_s: 0.1,
-                recover_s: 0.5,
-                damage: 3,
-                reach_px: 50.0,
-            })),
-            ranged: None,
-            move_style: MoveStyleSpec::WalkHeavy,
-            special: None,
-        };
-        let merged = overlay_character_moveset(player, character);
-        // The character's melee (damage 3) wins over the player's default.
-        match merged.melee {
-            Some(MeleeActionSpec::Swipe(spec)) => assert_eq!(spec.damage, 3),
-            other => panic!("expected the character's Swipe, got {other:?}"),
-        }
-        assert_eq!(merged.move_style, MoveStyleSpec::WalkHeavy);
     }
 }

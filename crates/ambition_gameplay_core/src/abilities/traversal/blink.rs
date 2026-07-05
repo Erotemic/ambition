@@ -94,14 +94,22 @@ pub fn blink_system(
     // and its OWN `HeldItem`. No `With<PlayerEntity>` filter, no `PlayerInputFrame`
     // (a possessed actor has neither). A possessed body blinks iff IT holds the
     // blink item; the vacated home avatar is not the subject, so it never blinks.
+    //
+    // `Without<MotionModel>`: the box-traversal kit belongs to the axis-swept
+    // integration path. A surface-momentum body's traversal IS its kernel (the
+    // S1 v1 ruling: blink/dash machinery absent) — a worn speedster must not
+    // teleport with the robot's blink.
     controlled: Res<ControlledSubject>,
-    mut bodies: Query<(
-        Entity,
-        &mut BodyKinematics,
-        &HeldItem,
-        &ActorControl,
-        Option<&mut crate::ability_cooldown::AbilityCooldown>,
-    )>,
+    mut bodies: Query<
+        (
+            Entity,
+            &mut BodyKinematics,
+            &HeldItem,
+            &ActorControl,
+            Option<&mut crate::ability_cooldown::AbilityCooldown>,
+        ),
+        bevy::ecs::query::Without<crate::features::MotionModel>,
+    >,
     mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut hits: MessageWriter<crate::features::HitEvent>,

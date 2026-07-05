@@ -456,6 +456,53 @@ mod home_momentum_tests {
     }
 
     #[test]
+    fn momentum_home_body_rides_ordinary_block_floors() {
+        // THE Sanic-in-a-normal-room regression (Jon, 2026-07-05): every
+        // sandbox room floors with AABB `Block`s, not authored chains. A
+        // worn momentum body must land, run, and jump on plain solids —
+        // blocks are surfaces (`Block::boundary_chain`), not just obstacles.
+        let world = ae::World::new(
+            "home-momentum-blocks",
+            ae::Vec2::new(3000.0, 1200.0),
+            ae::Vec2::new(200.0, 500.0),
+            vec![ae::world::Block::solid(
+                "floor",
+                ae::Vec2::new(0.0, 600.0),
+                ae::Vec2::new(2800.0, 100.0),
+            )],
+        );
+        let mut r = rig(world);
+        let mut run = ActorControlFrame::neutral();
+        run.locomotion.x = 1.0;
+        run.facing = 1.0;
+        let mut mid_run = false;
+        for _ in 0..240 {
+            step(&mut r, run);
+            if r.scratch.ground.on_ground && r.scratch.kinematics.pos.x > 500.0 {
+                mid_run = true;
+                break;
+            }
+        }
+        assert!(mid_run, "rode the block floor and advanced past x=500");
+        assert!(
+            r.frame_out.events.contacts.iter().any(|c| matches!(
+                c.source,
+                ae::collision_semantics::ContactSource::Block { .. }
+            )),
+            "block ride contact published"
+        );
+        let mut jump = run;
+        jump.jump_pressed = true;
+        step(&mut r, jump);
+        assert!(!r.scratch.ground.on_ground, "left the floor");
+        assert!(
+            r.scratch.kinematics.vel.y < -400.0,
+            "jumped off a block floor: {:?}",
+            r.scratch.kinematics.vel
+        );
+    }
+
+    #[test]
     fn momentum_home_body_dies_in_pits_and_respawns_airborne() {
         // The chain ends mid-world; running off it drops the body past the
         // world bottom — the Q16 hazard/OOB parity gate must fire.

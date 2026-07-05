@@ -2,7 +2,7 @@
 //! (fable review 2026-07-05, AJ10 layer 3).
 //!
 //! The ONE new mover. A surface-momentum body is a **circle proxy** that is
-//! either ballistic (`Airborne`) or attached to a chain (`Riding { chain, s,
+//! either ballistic (`Airborne`) or attached to a surface (`Riding { on, s,
 //! v_t }`). While riding, integration is **1-D along the chain's arc
 //! length** — position is slaved to `s`, velocity is the scalar `v_t` along
 //! the tangent — which is what makes ramps, valleys, and loops deterministic
@@ -27,10 +27,22 @@
 //! - **No pushout** (M10): all airborne motion is swept to TOI; landing snaps
 //!   only by the contact-range discipline; nothing teleports.
 //! - Chains are one-sided: a body approaching from the back side passes
-//!   through. Blocks remain universal obstacles (swept circle vs solids); in
-//!   v1 a block is an obstacle to slide along, not a stance — jumping happens
-//!   from chains. One-ways/hazards/pogo/rebound blocks are gameplay-layer
-//!   concerns, not follower collision (same split as the kinematic sweep).
+//!   through. A solid [`Block`](crate::world::Block) IS a surface too — its
+//!   exterior boundary is a closed rectangular chain
+//!   ([`Block::boundary_chain`](crate::world::Block::boundary_chain)), so the
+//!   ONE riding model covers authored chains and ordinary room geometry
+//!   alike: a momentum body lands on, runs along, and jumps from block floors
+//!   with the same stick/joint rules. Block corners are convex joints whose
+//!   entered face carries no pressing load, so walking off an edge launches
+//!   (correct) and a body can never wrap around a block by accident.
+//! - **Landing is load-bearing**: an airborne body ATTACHES only to a surface
+//!   gravity presses it onto (`g·(-n̂) > 0` — floors and up-slopes in the
+//!   local gravity frame). Walls and ceilings hit from the air deflect (the
+//!   into-surface velocity dies, flight continues) — wall/ceiling riding is
+//!   reached by CONTINUITY (riding through a loop or an authored curve),
+//!   never by bonking into a corridor roof. Frame-agnostic by construction.
+//!   One-ways/hazards/pogo/rebound blocks are gameplay-layer concerns, not
+//!   follower collision (same split as the kinematic sweep).
 //!
 //! Everything here is vector math — no cardinal-axis assumptions — so the C4
 //! rotation rig holds by construction (see tests).
@@ -38,7 +50,7 @@
 use parry2d::{
     math::{Pose, Vector},
     query::{self, ShapeCastOptions},
-    shape::{Ball, Cuboid, Segment},
+    shape::{Ball, Segment},
 };
 
 use crate::collision_semantics::{is_full_collision_surface, Contact, ContactSource};
@@ -88,14 +100,26 @@ impl Default for MomentumParams {
     }
 }
 
+/// Which world surface a riding body is attached to. An authored chain and a
+/// solid block's exterior boundary are the SAME thing to the solver — a
+/// polyline with one-sided outward normals — so `Riding` names either.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SurfaceRef {
+    /// `world.chains[i]`.
+    Chain(usize),
+    /// The exterior boundary of `world.blocks[i]`
+    /// ([`crate::world::Block::boundary_chain`]).
+    Block(usize),
+}
+
 /// Where the body is relative to the world's surfaces.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum SurfaceMotion {
     Airborne,
-    /// Attached to `world.chains[chain]` at arc length `s`, moving at scalar
+    /// Attached to the surface `on` at arc length `s`, moving at scalar
     /// speed `v_t` along the tangent (signed: + = increasing arc length).
     Riding {
-        chain: usize,
+        on: SurfaceRef,
         s: f32,
         v_t: f32,
     },
@@ -152,7 +176,7 @@ pub fn step_surface_body(
         return;
     }
     match body.motion {
-        SurfaceMotion::Riding { chain, s, v_t } => {
+        SurfaceMotion::Riding { on, s, v_t } => {
             step_riding(
                 body,
                 world,
@@ -160,7 +184,7 @@ pub fn step_surface_body(
                 gravity,
                 inputs,
                 dt,
-                chain,
+                on,
                 s,
                 v_t,
                 contacts.as_deref_mut(),
@@ -180,6 +204,35 @@ pub fn step_surface_body(
     }
 }
 
+/// Materialize the chain a [`SurfaceRef`] names. `None` when the referenced
+/// surface no longer exists (room rebuilt under the rider — go airborne).
+fn resolve_surface(world: &World, on: SurfaceRef) -> Option<std::borrow::Cow<'_, SurfaceChain>> {
+    match on {
+        SurfaceRef::Chain(i) => world.chains.get(i).map(std::borrow::Cow::Borrowed),
+        SurfaceRef::Block(i) => {
+            let block = world.blocks.get(i)?;
+            if !is_full_collision_surface(block.kind) {
+                return None;
+            }
+            Some(std::borrow::Cow::Owned(block.boundary_chain()))
+        }
+    }
+}
+
+/// The contact source a ride on `on` reports (chains carry their segment;
+/// blocks carry their kind, matching the kinematic sweep's vocabulary).
+fn ride_contact_source(world: &World, on: SurfaceRef, segment: usize) -> ContactSource {
+    match on {
+        SurfaceRef::Chain(i) => ContactSource::Chain {
+            chain: i as u32,
+            segment: segment as u32,
+        },
+        SurfaceRef::Block(i) => ContactSource::Block {
+            kind: world.blocks[i].kind,
+        },
+    }
+}
+
 #[allow(clippy::too_many_arguments)]
 fn step_riding(
     body: &mut SurfaceBody,
@@ -188,15 +241,16 @@ fn step_riding(
     gravity: Vec2,
     inputs: SurfaceInputs,
     dt: f32,
-    chain_idx: usize,
+    on: SurfaceRef,
     s: f32,
     mut v_t: f32,
     mut contacts: Option<&mut Vec<Contact>>,
 ) {
-    let Some(chain) = world.chains.get(chain_idx) else {
+    let Some(chain) = resolve_surface(world, on) else {
         body.motion = SurfaceMotion::Airborne;
         return;
     };
+    let chain = chain.as_ref();
     let frame = chain.frame_at(s);
 
     // Jump: leave along the outward normal (+n̂ points off the surface,
@@ -255,21 +309,14 @@ fn step_riding(
             let f = chain.frame_at(new_s);
             body.pos = f.point + f.normal * body.radius;
             body.vel = v_t * f.tangent + per_frame_to_per_sec(chain.velocity, dt);
-            body.motion = SurfaceMotion::Riding {
-                chain: chain_idx,
-                s: new_s,
-                v_t,
-            };
+            body.motion = SurfaceMotion::Riding { on, s: new_s, v_t };
             if let Some(sink) = contacts.as_deref_mut() {
                 sink.push(Contact {
                     point: f.point,
                     normal: f.normal,
                     toi: 0.0,
                     surface_velocity: chain.velocity,
-                    source: ContactSource::Chain {
-                        chain: chain_idx as u32,
-                        segment: f.segment as u32,
-                    },
+                    source: ride_contact_source(world, on, f.segment),
                 });
             }
         }
@@ -426,25 +473,33 @@ fn step_airborne(
     match first_circle_hit(world, body.pos, body.radius, delta) {
         Some(hit) => {
             body.pos += delta * hit.toi;
-            match hit.what {
-                CircleHitTarget::Chain { chain, .. } => {
-                    let surface = &world.chains[chain];
-                    let (s, _) = surface.project(body.pos);
-                    let f = surface.frame_at(s);
-                    body.pos = f.point + f.normal * body.radius;
-                    let rel = body.vel - per_frame_to_per_sec(surface.velocity, dt);
-                    let v_t = rel.dot(f.tangent);
-                    body.motion = SurfaceMotion::Riding { chain, s, v_t };
-                    body.vel = v_t * f.tangent + per_frame_to_per_sec(surface.velocity, dt);
-                }
-                CircleHitTarget::Block { .. } => {
-                    // Slide: kill the into-surface velocity component; the
-                    // remainder of this frame's motion is dropped (v1 — one
-                    // swept TOI per frame, never a pushout).
-                    let n = hit.normal;
-                    let into = body.vel.dot(-n).max(0.0);
-                    body.vel += into * n;
-                }
+            // Landing is load-bearing: attach only to a surface gravity
+            // presses the body onto (floors/up-slopes in the local gravity
+            // frame). Walls and ceilings hit from the air DEFLECT — riding
+            // them is reached by continuity, never by bonking.
+            let press = gravity.dot(-hit.normal);
+            if press > 0.0 {
+                let on = match hit.what {
+                    CircleHitTarget::Chain { chain } => SurfaceRef::Chain(chain),
+                    CircleHitTarget::Block { block } => SurfaceRef::Block(block),
+                };
+                let surface = resolve_surface(world, on)
+                    .expect("first_circle_hit only reports live surfaces");
+                let surface = surface.as_ref();
+                let (s, _) = surface.project(body.pos);
+                let f = surface.frame_at(s);
+                body.pos = f.point + f.normal * body.radius;
+                let rel = body.vel - per_frame_to_per_sec(surface.velocity, dt);
+                let v_t = rel.dot(f.tangent);
+                body.motion = SurfaceMotion::Riding { on, s, v_t };
+                body.vel = v_t * f.tangent + per_frame_to_per_sec(surface.velocity, dt);
+            } else {
+                // Deflect: kill the into-surface velocity component; the
+                // remainder of this frame's motion is dropped (one swept
+                // TOI per frame, never a pushout).
+                let n = hit.normal;
+                let into = body.vel.dot(-n).max(0.0);
+                body.vel += into * n;
             }
             if let Some(sink) = contacts.as_deref_mut() {
                 sink.push(Contact {
@@ -473,7 +528,7 @@ struct CircleHit {
 
 enum CircleHitTarget {
     Chain { chain: usize },
-    Block {},
+    Block { block: usize },
 }
 
 /// Earliest swept-circle hit against chains (one-sided) and solid blocks.
@@ -532,40 +587,70 @@ fn first_circle_hit(world: &World, center: Vec2, radius: f32, delta: Vec2) -> Op
         }
     }
 
-    // Solid blocks: universal obstacles.
-    for block in &world.blocks {
+    // Solid blocks: their exterior boundaries are surfaces, swept exactly
+    // like chain segments (per-face, one-sided from outside). A convex AABB
+    // approached from outside always presents its facing faces, so per-face
+    // segment casts cover everything the old whole-cuboid cast did — and
+    // every hit is attachable.
+    for (bi, block) in world.blocks.iter().enumerate() {
         if !is_full_collision_surface(block.kind) {
             continue;
         }
-        let half = block.aabb.half_size();
-        let cuboid = Cuboid::new(Vector::new(half.x.max(0.0), half.y.max(0.0)));
-        let block_center = block.aabb.center();
-        let Ok(Some(hit)) = query::cast_shapes(
-            &pose,
-            vel,
-            &ball,
-            &Pose::translation(block_center.x, block_center.y),
-            Vector::ZERO,
-            &cuboid,
-            options,
-        ) else {
-            continue;
-        };
-        let toi = hit.time_of_impact.clamp(0.0, 1.0);
-        // Parry's normal1 is the moving shape's outward normal; the surface
-        // normal is its negation.
-        let n = -Vec2::new(hit.normal1.x, hit.normal1.y);
-        if n.dot(delta) >= 0.0 {
-            continue; // grazing/leaving contact, not a blocker
-        }
-        if best.as_ref().is_none_or(|b| toi < b.toi) {
-            best = Some(CircleHit {
-                toi,
-                normal: n,
-                surface_velocity: block.velocity,
-                source: ContactSource::Block { kind: block.kind },
-                what: CircleHitTarget::Block {},
+        let boundary = block.boundary_chain();
+        for i in 0..boundary.segment_count() {
+            let (a, b) = boundary.segment(i);
+            let n = boundary.normal(i);
+            if delta.dot(n) >= 0.0 {
+                continue; // moving away from / along the face
+            }
+            if (center - a).dot(n) < 0.0 {
+                continue; // behind the face plane (inside/adjacent) — not approachable
+            }
+            let seg = Segment::new(Vector::new(a.x, a.y), Vector::new(b.x, b.y));
+            let Ok(Some(hit)) = query::cast_shapes(
+                &pose,
+                vel,
+                &ball,
+                &Pose::identity(),
+                Vector::ZERO,
+                &seg,
+                options,
+            ) else {
+                continue;
+            };
+            let toi = hit.time_of_impact.clamp(0.0, 1.0);
+            // Interior faces of flush composite geometry are NOT surfaces: a
+            // floor tiled from several blocks buries each block's side walls
+            // inside its neighbors. Probe just outside the face at the
+            // contact point — buried inside another solid ⇒ skip the hit.
+            let center_at_impact = center + delta * toi;
+            let ab = b - a;
+            let t = if ab.length_squared() > 0.0 {
+                ((center_at_impact - a).dot(ab) / ab.length_squared()).clamp(0.0, 1.0)
+            } else {
+                0.0
+            };
+            let probe = a + ab * t + n * 0.5;
+            let buried = world.blocks.iter().enumerate().any(|(bj, other)| {
+                bj != bi
+                    && is_full_collision_surface(other.kind)
+                    && probe.x >= other.aabb.min.x
+                    && probe.x <= other.aabb.max.x
+                    && probe.y >= other.aabb.min.y
+                    && probe.y <= other.aabb.max.y
             });
+            if buried {
+                continue;
+            }
+            if best.as_ref().is_none_or(|b| toi < b.toi) {
+                best = Some(CircleHit {
+                    toi,
+                    normal: n,
+                    surface_velocity: block.velocity,
+                    source: ContactSource::Block { kind: block.kind },
+                    what: CircleHitTarget::Block { block: bi },
+                });
+            }
         }
     }
     best
@@ -640,7 +725,7 @@ mod tests {
         let f = world.chains[chain_idx].frame_at(s);
         let mut b = SurfaceBody::new(f.point + f.normal * radius, radius);
         b.motion = SurfaceMotion::Riding {
-            chain: chain_idx,
+            on: SurfaceRef::Chain(chain_idx),
             s,
             v_t,
         };
@@ -1112,5 +1197,255 @@ mod tests {
             );
             assert_eq!(a.riding(), b.riding(), "frame {frame}: state diverged");
         }
+    }
+
+    // ---- blocks are surfaces (the Sanic-in-a-normal-room fix) ----
+
+    fn world_with_blocks(blocks: Vec<crate::world::Block>) -> World {
+        World::new("block-test", Vec2::new(4000.0, 4000.0), Vec2::ZERO, blocks)
+    }
+
+    fn floor_block(min: Vec2, size: Vec2) -> crate::world::Block {
+        crate::world::Block::solid("floor", min, size)
+    }
+
+    #[test]
+    fn body_lands_runs_and_jumps_on_a_block_floor() {
+        // A plain solid floor — no authored chains anywhere. The momentum
+        // body must land (ride), accelerate under input, and jump: the exact
+        // capabilities that were chain-only before blocks became surfaces.
+        let world = world_with_blocks(vec![floor_block(
+            Vec2::new(0.0, 500.0),
+            Vec2::new(2000.0, 100.0),
+        )]);
+        let params = frictionless();
+        let mut body = SurfaceBody::new(Vec2::new(200.0, 400.0), 14.0);
+
+        // Fall on: within a second it must be riding the block's top face.
+        for _ in 0..60 {
+            step_surface_body(
+                &mut body,
+                &world,
+                &params,
+                G,
+                SurfaceInputs::default(),
+                DT,
+                None,
+            );
+        }
+        assert!(body.riding(), "body never grounded on the block floor");
+        assert!(
+            matches!(
+                body.motion,
+                SurfaceMotion::Riding {
+                    on: SurfaceRef::Block(0),
+                    ..
+                }
+            ),
+            "riding the block, not a phantom chain: {:?}",
+            body.motion
+        );
+        assert!(
+            (body.pos.y - (500.0 - 14.0)).abs() < 1.0,
+            "resting on the top face"
+        );
+
+        // Run right: real horizontal progress (the old slide-only block path
+        // dropped the frame remainder at toi≈0 — near-zero advance).
+        let x0 = body.pos.x;
+        for _ in 0..60 {
+            let input = SurfaceInputs {
+                run: 1.0,
+                jump_pressed: false,
+            };
+            step_surface_body(&mut body, &world, &params, G, input, DT, None);
+        }
+        assert!(body.riding(), "still grounded while running");
+        assert!(
+            body.pos.x - x0 > 200.0,
+            "ran along the floor: {} -> {}",
+            x0,
+            body.pos.x
+        );
+
+        // Jump: leaves the surface along the normal, moving up.
+        let input = SurfaceInputs {
+            run: 0.0,
+            jump_pressed: true,
+        };
+        step_surface_body(&mut body, &world, &params, G, input, DT, None);
+        assert!(!body.riding(), "jump detaches");
+        assert!(
+            body.vel.y < -200.0,
+            "jump launches against gravity: {:?}",
+            body.vel
+        );
+    }
+
+    #[test]
+    fn flush_block_seams_do_not_stop_a_runner() {
+        // Two flush blocks forming one continuous floor. Crossing the seam
+        // costs at most a micro-launch + same-frame reattach; speed carries.
+        let world = world_with_blocks(vec![
+            floor_block(Vec2::new(0.0, 500.0), Vec2::new(400.0, 100.0)),
+            floor_block(Vec2::new(400.0, 500.0), Vec2::new(2000.0, 100.0)),
+        ]);
+        let params = frictionless();
+        let mut body = SurfaceBody::new(Vec2::new(100.0, 470.0), 14.0);
+        for _ in 0..30 {
+            step_surface_body(
+                &mut body,
+                &world,
+                &params,
+                G,
+                SurfaceInputs::default(),
+                DT,
+                None,
+            );
+        }
+        assert!(body.riding(), "grounded on the first block");
+        for _ in 0..150 {
+            let input = SurfaceInputs {
+                run: 1.0,
+                jump_pressed: false,
+            };
+            step_surface_body(&mut body, &world, &params, G, input, DT, None);
+        }
+        assert!(body.pos.x > 500.0, "crossed the seam: {:?}", body.pos);
+        assert!(
+            matches!(
+                body.motion,
+                SurfaceMotion::Riding {
+                    on: SurfaceRef::Block(1),
+                    ..
+                }
+            ),
+            "riding the second block: {:?}",
+            body.motion
+        );
+        assert!(
+            (body.pos.y - (500.0 - 14.0)).abs() < 2.0,
+            "still on the floor plane"
+        );
+    }
+
+    #[test]
+    fn walking_off_a_block_edge_launches_and_never_wraps() {
+        // A block corner is a convex joint whose wall face carries no
+        // pressing load — walking off the edge must LAUNCH (fall), never
+        // wrap around onto the wall.
+        let world = world_with_blocks(vec![floor_block(
+            Vec2::new(0.0, 500.0),
+            Vec2::new(400.0, 100.0),
+        )]);
+        let params = frictionless();
+        let mut body = SurfaceBody::new(Vec2::new(300.0, 470.0), 14.0);
+        for _ in 0..30 {
+            step_surface_body(
+                &mut body,
+                &world,
+                &params,
+                G,
+                SurfaceInputs::default(),
+                DT,
+                None,
+            );
+        }
+        assert!(body.riding());
+        let mut went_airborne = false;
+        for _ in 0..120 {
+            let input = SurfaceInputs {
+                run: 1.0,
+                jump_pressed: false,
+            };
+            step_surface_body(&mut body, &world, &params, G, input, DT, None);
+            if !body.riding() {
+                went_airborne = true;
+            }
+            if body.riding() {
+                // Any riding position must stay on the TOP face — never the
+                // right wall (x would pin to 400+radius) or the underside.
+                assert!(
+                    body.pos.y <= 500.0 - 14.0 + 1.0,
+                    "wrapped off the top face: {:?}",
+                    body.pos
+                );
+            }
+        }
+        assert!(went_airborne, "never launched off the edge");
+        assert!(body.pos.x > 400.0, "carried past the edge: {:?}", body.pos);
+    }
+
+    #[test]
+    fn ceiling_bonk_deflects_and_never_sticks() {
+        // Jumping up into a block's underside: landing is load-bearing
+        // (press <= 0 on the bottom face), so the body deflects and falls —
+        // it never glues to a corridor roof.
+        let world = world_with_blocks(vec![floor_block(
+            Vec2::new(0.0, 0.0),
+            Vec2::new(2000.0, 100.0),
+        )]);
+        let params = frictionless();
+        let mut body = SurfaceBody::new(Vec2::new(500.0, 300.0), 14.0);
+        body.vel = Vec2::new(300.0, -900.0); // fast up + sideways
+        for _ in 0..120 {
+            step_surface_body(
+                &mut body,
+                &world,
+                &params,
+                G,
+                SurfaceInputs::default(),
+                DT,
+                None,
+            );
+            assert!(!body.riding(), "stuck to the ceiling: {:?}", body.motion);
+        }
+        assert!(body.vel.y > 0.0, "falling again after the bonk");
+    }
+
+    #[test]
+    fn rotated_gravity_lands_on_the_gravity_side_face_of_a_block() {
+        // C4 discipline: with gravity pointing +x, a block's LEFT face is
+        // "the floor" (press > 0) and the body lands and rides it.
+        let world = world_with_blocks(vec![floor_block(
+            Vec2::new(1000.0, 0.0),
+            Vec2::new(200.0, 2000.0),
+        )]);
+        let params = frictionless();
+        let g = Vec2::new(1450.0, 0.0);
+        let mut body = SurfaceBody::new(Vec2::new(800.0, 900.0), 14.0);
+        for _ in 0..90 {
+            step_surface_body(
+                &mut body,
+                &world,
+                &params,
+                g,
+                SurfaceInputs::default(),
+                DT,
+                None,
+            );
+        }
+        assert!(body.riding(), "grounded on the gravity-side face");
+        assert!(
+            (body.pos.x - (1000.0 - 14.0)).abs() < 1.0,
+            "resting on the left face: {:?}",
+            body.pos
+        );
+        // "Run" along the wall-floor: tangent motion works in the rotated frame.
+        let y0 = body.pos.y;
+        for _ in 0..60 {
+            let input = SurfaceInputs {
+                run: 1.0,
+                jump_pressed: false,
+            };
+            step_surface_body(&mut body, &world, &params, g, input, DT, None);
+        }
+        assert!(body.riding());
+        assert!(
+            (body.pos.y - y0).abs() > 100.0,
+            "ran along the face: {} -> {}",
+            y0,
+            body.pos.y
+        );
     }
 }

@@ -1153,9 +1153,20 @@ taxonomy is DECIDED, boldly, per the actors-vs-props model:
   mount `LimbIntents`), `LimbMotion`/`LimbRoute` verbs, `home_offset` station-keeping,
   `spawn_giant_hand_limbs`. ADDITIVE (live fused split-overlay untouched). Test green.
 - **G4 (1/2)** ✅ `<converter>` — `convert_boss_spawn` honors `mounted_on` (a boss rider).
-- **G4 (2/2)** 🔄 — reauthor gnu_ton_arena as the linked pair (area spec + regen),
-  BossSpawn `mounted_on` field def, arena-gate id fix, roundtrip/validate, teardown-if-clean.
-  When it lands, **G5 [★fable] is executable** (the arena spawns the drivable pair).
+- **G4 (2/2)** ✅ `13d5e3a2` — gnu_ton_arena reauthored as the linked pair (giant_gnu
+  EnemySpawn mount + gnu_ton_rider BossSpawn `mounted_on` it) via the area spec + regen;
+  BossSpawn `mounted_on` field def (cross-type EntityRef tooling in mount_split/area_authoring);
+  arena-gate recognizes the rider; roundtrip/validate clean; `arena_spawns_the_adr0020_linked_pair`
+  test green. Teardown of the fused profile + split-overlay DEFERRED (still test-referenced;
+  logged in code_smells.md).
+
+**✅✅ THE G-TRACK IS COMPLETE — G5 [★fable] IS UNBLOCKED.** The gnu_ton_arena now spawns
+the drivable `giant_gnu` mount + `gnu_ton_rider` boss pair: the boss pilots the giant
+(`CanPilot`/`ControlGrant`), the giant's hands are limb actors the boss's strikes route to
+(G3), and killing the giant drops the boss to fight on foot (Q19). G5 (possess gnuton /
+board the giant / drive the limbs — the controller→limb verb map) is a **fable design slice**
+that now has every prerequisite in code. Remaining G-track tail: **G5 [★fable]** (design,
+scheduled with fable) + the deferred fused-gnuton/split-overlay teardown (cleanup).
 
 **PRECISE REMAINING PATH to unblock G5** (each a bounded slice under the decisions):
 1. **giant_gnu mount ACTOR render** — a `character_catalog.ron` entry

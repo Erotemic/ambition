@@ -685,9 +685,25 @@ kernel defaults; roster resolves the fast profile + None for axis-swept/unknown;
 wear-then-unwear inserts-then-removes. gameplay_core --lib + characters green.
 (env: `rectpack` was missing — installed user-level so the sheet renders.)
 
-**NEXT HEADS:** S3b (content `SurfaceLoop` marker converter, `ambition_ldtk_
-tools surface` subcommand + Python-validator identifier registration, the
-`sanic_sandbox` area, the debug-overlay gizmos), then S4 proofs; **E5
-(`ambition_runtime`) pulled forward — the demo gate that unblocks S5 [senior] +
-the M-track**; G1→G4 unblock G5 [★fable]. W1, C1–C4, A1–A2 are independent
-fillers.
+## A1 — params through the Special dispatch + AJ1 param-schema seam ✅ (`dd62a8b6`, opus)
+`ActionRequest::Special` carries `params: ParamValue` beside `spec`; the moveset
+`Effect` bridge threads `effect.params` (was dropped) so a keyed technique
+hydrates its own typed params — clean downward dep `characters → entity_catalog`
+(leaf, no cycle). AJ1: `ParamSchemaRegistry` + `check_hydrates::<T>` in
+entity_catalog — a technique registers a check; the content pass runs authored
+EffectRefs through it (typo → startup error, not mid-fight). Bridge test hydrates
+`(rise: 320.0)` on the far side; registry test names the offending key. Green.
+
+## A2 — the move-prefab registry ✅ (`c4bdb516`, opus)
+`attack_move_from_melee`/`fire_move_from_ranged` generalized into params-driven
+engine prefabs `simple_melee`/`simple_ranged` (+ new `simple_charge`); the
+authored-spec builders are byte-identical adapters (pinned). `MovePrefabRegistry`
+expands `key + params → MoveSpec` at roster install (`sword_slash = simple_melee`
++ params, zero new code); unknown key / bad params fail at install. moveset 21
+green. **A-track ability model is now COMPLETE (§0 crit 2): data + prefab
+registry + techniques-with-params.** A3 rides M1.
+
+**NEXT HEADS:** C1–C4 (small named-content evictions → §0 crit 3, low-risk,
+in progress); S3b→S4 (continue Sanic); G1→G4 unblock G5 [★fable]; **E5
+(`ambition_runtime`) — the demo gate for S5 [senior] + M-track — needs a careful
+dedicated pass (guts the app boot).** W1 independent.

@@ -22,6 +22,11 @@ impl Plugin for ProgressionSchedulePlugin {
         // / cues) + the on-death payload-release signal.
         app.add_message::<ambition_gameplay_core::boss_encounter::EncounterGate>();
         app.add_message::<ambition_gameplay_core::boss_encounter::PayloadReleased>();
+        // ADR 0020 / Q19: mount dissolution → the rider boss's `mount_died`
+        // external phase trigger. Written in the `Combat` set (earlier this
+        // frame) by `enforce_mount_rider_link`, consumed by
+        // `notify_bosses_on_mount_death` at the head of the boss chain below.
+        app.add_message::<ambition_gameplay_core::features::MountDied>();
         app.add_systems(
             Update,
             (
@@ -29,6 +34,9 @@ impl Plugin for ProgressionSchedulePlugin {
                 // the outer tuple under Bevy's 20-element limit; internal order
                 // preserved). Drives phase + encounter + script + payload.
                 (
+                    // Mount-death → `mount_died` external phase trigger, ahead
+                    // of the phase driver so the swap is same-frame (Q19).
+                    ambition_gameplay_core::boss_encounter::notify_bosses_on_mount_death,
                     ambition_gameplay_core::boss_encounter::update_boss_encounters,
                     ambition_gameplay_core::boss_encounter::sync_boss_encounter_entities,
                     ambition_gameplay_core::boss_encounter::update_encounter_progress,

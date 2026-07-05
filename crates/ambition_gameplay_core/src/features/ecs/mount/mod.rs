@@ -28,11 +28,29 @@
 //! the runtime link. There is no "shark-rider knowledge" in the engine
 //! — the whole relationship is data (ADR 0020).
 
-use bevy::prelude::{Commands, Component, Entity, Query, ResMut, Resource, With, Without};
+use bevy::prelude::{
+    Commands, Component, Entity, Message, MessageWriter, Query, ResMut, Resource, With, Without,
+};
 
 use super::brain_builders::dismounted_rider_brain_and_action_set;
 use super::CenteredAabb;
 use ambition_engine_core as ae;
+
+/// Emitted the frame a mount dies and its rider dismounts (the
+/// `(dead-mount, still-mounted)` dissolution in [`enforce_mount_rider_link`]).
+/// Carries both entities so a consumer can react to either side.
+///
+/// This is a body FACT crossing out of the mount coupling — deliberately NOT
+/// routed through the `EncounterGate` script bus (that channel is
+/// script-vocabulary). The boss-encounter bridge subscribes to turn it into a
+/// `mount_died` external phase trigger — the boss whose mount died fights on
+/// foot in an authored mini-phase (ADR 0020; Q19). Any other system may
+/// subscribe to the same message later without touching this one.
+#[derive(Message, Clone, Copy, Debug)]
+pub struct MountDied {
+    pub mount: Entity,
+    pub rider: Entity,
+}
 
 /// Physical mass of an actor, used to weight a mount+rider pair's center of
 /// gravity. A heavy mount (the shark) keeps the COG near itself so the lighter
@@ -423,6 +441,7 @@ pub fn sync_riders_to_mounts(
 /// re-applying the dissolve.
 pub fn enforce_mount_rider_link(
     mut commands: Commands,
+    mut mount_died: MessageWriter<MountDied>,
     mut riders: Query<
         (
             Entity,
@@ -432,6 +451,10 @@ pub fn enforce_mount_rider_link(
             Option<&Mounted>,
             Option<&super::HeldItem>,
             Option<&super::CombatKit>,
+            // A rider whose identity is AUTHORED, not derived from its kit (it
+            // carries `BossConfig`), keeps its `Brain` untouched on dismount —
+            // no new flag, the component IS the marker (ADR 0020; Q19b).
+            Option<&crate::features::BossConfig>,
             Option<super::actor_clusters::ActorClusterQueryData>,
         ),
         Without<MountSlot>,
@@ -469,6 +492,7 @@ pub fn enforce_mount_rider_link(
         was_mounted,
         held_item,
         combat_kit,
+        boss_config,
         rider_clusters,
     ) in &mut riders
     {
@@ -500,10 +524,11 @@ pub fn enforce_mount_rider_link(
                 }
             }
             // Mount dead, rider currently mounted → dissolve. Flip gravity on,
-            // keep the rider at its authored sky-rider size, and install the
-            // shared explicitly-hostile dismounted rider brain/action-set policy
-            // so a PirateRaider / PirateHeavy variant falls and fights without
-            // visually scaling up.
+            // keep the rider at its authored sky-rider size, emit `MountDied`,
+            // and install the shared explicitly-hostile dismounted rider
+            // brain/action-set policy so a PirateRaider / PirateHeavy variant
+            // falls and fights without visually scaling up — EXCEPT a boss
+            // rider (carries `BossConfig`), whose authored `Brain` is kept.
             (false, true) => {
                 // Mount death impact (ADR 0020): by default the rider drops
                 // unharmed, but a mount authored to explode splashes lethal-ish
@@ -533,19 +558,35 @@ pub fn enforce_mount_rider_link(
                 // size overrides explicit and safe.
                 rider_aabb.center = rider.kin.pos;
                 rider_aabb.half_size = rider.kin.size * 0.5;
-                // Rebuild from the rider's DURABLE stored combat kit (the
-                // same data the archetype projected at spawn) so dismount
-                // never re-reads the roster enum. A rider always carries a
-                // CombatKit; fall back to an empty kit defensively.
-                let rider_kit = combat_kit.cloned().unwrap_or_default();
-                let (new_brain, new_action_set) = dismounted_rider_brain_and_action_set(
-                    rider.config,
-                    &rider_kit,
-                    held_item.map(|item| &item.spec),
-                );
+                // Announce the dissolution as a body fact (ADR 0020; Q19a). The
+                // boss-encounter bridge turns this into a `mount_died` external
+                // phase trigger for a mounted boss; other consumers may listen
+                // too. Written after the (possibly lethal) splash: a rider the
+                // splash killed already `continue`d above, so a `MountDied` here
+                // always names a rider that survives to dismount.
+                mount_died.write(MountDied {
+                    mount: riding.mount,
+                    rider: rider_entity,
+                });
+                // Brain swap: rebuild the solo brain/action-set from the rider's
+                // DURABLE stored kit — UNLESS the rider's identity is authored (it
+                // carries `BossConfig`). A boss's behavior is not derived from a
+                // kit, so re-deriving it on dismount would be wrong; it lands on
+                // foot still running its authored `Brain`/`BossPattern` (Q19b).
+                if boss_config.is_none() {
+                    // A rider always carries a CombatKit; fall back defensively.
+                    let rider_kit = combat_kit.cloned().unwrap_or_default();
+                    let (new_brain, new_action_set) = dismounted_rider_brain_and_action_set(
+                        rider.config,
+                        &rider_kit,
+                        held_item.map(|item| &item.spec),
+                    );
+                    commands
+                        .entity(rider_entity)
+                        .insert((new_brain, new_action_set));
+                }
                 commands
                     .entity(rider_entity)
-                    .insert((new_brain, new_action_set))
                     .remove::<Mounted>()
                     // Sprite-binding refresh so the rider's sheet
                     // re-resolves on the next presentation pass.

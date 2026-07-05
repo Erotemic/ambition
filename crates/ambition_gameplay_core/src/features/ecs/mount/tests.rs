@@ -65,6 +65,9 @@ fn rider_surface(
 fn build_app() -> App {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
+    // `enforce_mount_rider_link` emits `MountDied` on dissolution; register the
+    // message so its `MessageWriter` resolves in the harness (Q19).
+    app.add_message::<MountDied>();
     app
 }
 
@@ -245,6 +248,77 @@ fn dead_mount_dissolves_link_keeping_records() {
     assert!(
         slot.rider.is_some(),
         "MountSlot.rider stays populated so reset can re-arm",
+    );
+}
+
+/// Q19b (ADR 0020): a rider whose identity is AUTHORED — it carries
+/// `BossConfig` — keeps its `Brain` untouched on dismount (its behavior is not
+/// derived from a kit, so re-deriving it would be wrong). It still re-grounds
+/// (gravity on, `Mounted` removed) and emits `MountDied`, but lands on foot
+/// still running its authored brain — gnuton stepping off his dead giant.
+#[test]
+fn boss_rider_keeps_its_brain_and_emits_mount_died_on_dismount() {
+    use ambition_characters::brain::{Brain, PlayerSlot};
+
+    #[derive(Resource, Default)]
+    struct MountDiedLog(Vec<(Entity, Entity)>);
+    fn log_mount_died(
+        mut reader: bevy::prelude::MessageReader<MountDied>,
+        mut log: ResMut<MountDiedLog>,
+    ) {
+        for ev in reader.read() {
+            log.0.push((ev.mount, ev.rider));
+        }
+    }
+
+    let mut app = build_app();
+    app.init_resource::<MountDiedLog>();
+    app.add_systems(Update, (enforce_mount_rider_link, log_mount_died).chain());
+
+    // A dead mount + a live mounted rider (default `Dismount` impact).
+    let (mount, rider) = spawn_dead_mount_with_impact(&mut app, MountDeathImpact::Dismount);
+    // Make the rider a BOSS: an authored `BossConfig` marker + a distinctive
+    // `Brain::Player` marker. The dismount rebuild would produce a
+    // `Brain::StateMachine`, so a surviving `Player` proves the brain is
+    // untouched — no new flag, the component IS the marker (Q19b).
+    app.world_mut().entity_mut(rider).insert((
+        crate::features::BossConfig {
+            id: "boss_rider".into(),
+            name: "Boss Rider".into(),
+            spawn: ae::Vec2::ZERO,
+            brain: ambition_characters::actor::BossBrain::Dormant,
+            behavior: crate::features::BossBehaviorProfile::generic("boss_rider"),
+        },
+        Brain::Player(PlayerSlot(0)),
+    ));
+
+    app.update();
+
+    // Brain untouched: still the authored `Player` marker, not a rebuilt
+    // solo-melee `StateMachine`.
+    assert!(
+        matches!(
+            app.world().entity(rider).get::<Brain>().unwrap(),
+            Brain::Player(_)
+        ),
+        "a BossConfig rider must keep its authored Brain on dismount",
+    );
+    // Re-grounding still happens: gravity flipped on, Mounted marker cleared.
+    assert_eq!(
+        rider_surface(app.world(), rider).gravity_scale,
+        1.0,
+        "the dismounted boss rider still gets gravity so it falls to the floor",
+    );
+    assert!(
+        app.world().entity(rider).get::<Mounted>().is_none(),
+        "Mounted marker is removed on dismount even for a boss rider",
+    );
+    // The dissolution fact is announced (Q19a) with both entities.
+    let log = app.world().resource::<MountDiedLog>();
+    assert_eq!(
+        log.0,
+        vec![(mount, rider)],
+        "MountDied is emitted once, naming the dead mount and its rider",
     );
 }
 

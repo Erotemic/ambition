@@ -129,8 +129,8 @@ pub use hitbox::{
 pub use interact::interact_ecs_actors_and_switches;
 pub use mount::{
     enforce_mount_rider_link, resolve_pending_mount_links, steer_mount_from_rider,
-    sync_riders_to_mounts, CanPilot, ControlGrant, Mass, MountClass, MountDeathImpact, MountSlot,
-    Mountable, Mounted, MountedBrainCache, MountedSize, PendingMountLinks, RidingOn,
+    sync_riders_to_mounts, CanPilot, ControlGrant, Mass, MountClass, MountDeathImpact, MountDied,
+    MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, PendingMountLinks, RidingOn,
 };
 pub use overlay::{rebuild_feature_ecs_world_overlay, FeatureEcsWorldOverlay};
 pub use pickups::{collect_ecs_pickups, magnetize_pickups};

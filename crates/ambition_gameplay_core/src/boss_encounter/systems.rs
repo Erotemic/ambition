@@ -253,6 +253,40 @@ pub fn update_boss_encounters(
     );
 }
 
+/// Bridge a [`MountDied`](crate::features::MountDied) body fact into the rider's
+/// entity-local phase machine (ADR 0020; Q19a). A rider that both carries
+/// `BossConfig` (a boss) and holds an encounter phase state fires its
+/// `External("mount_died")` trigger — flipping a dismounted boss into its
+/// authored on-foot mini-phase. This is
+/// [`PhaseTriggerCondition::External`](crate::boss_encounter::PhaseTriggerCondition::External)'s
+/// first production caller.
+///
+/// A DIRECT bridge on purpose, never the `EncounterGate` script bus: this is a
+/// body fact crossing into encounter state, not script vocabulary (the script
+/// bus can subscribe to the same message later if a set-piece wants it).
+///
+/// No event publishing here: the swap lands on `BossEncounter.encounter`
+/// directly and the downstream reactions already track it —
+/// [`update_boss_encounters`] re-derives the active music from the CURRENT phase
+/// (level-triggered) and [`boss_phase_transition_feedback`] diffs the phase
+/// against its `Local` snapshot (edge-triggered). Registered just before
+/// `update_boss_encounters` in the Progression chain so the swap — from a
+/// `MountDied` written in the earlier `Combat` set — is visible the same frame.
+pub fn notify_bosses_on_mount_death(
+    mut mount_deaths: MessageReader<crate::features::MountDied>,
+    mut riders: Query<&mut crate::features::BossEncounter, With<crate::features::BossConfig>>,
+) {
+    for ev in mount_deaths.read() {
+        let Ok(mut encounter) = riders.get_mut(ev.rider) else {
+            // A non-boss rider (a pirate) has no phase state to notify.
+            continue;
+        };
+        if let Some(phase) = encounter.encounter.as_mut() {
+            let _ = phase.notify_external("mount_died");
+        }
+    }
+}
+
 /// The adaptive-music track a boss plays in `phase`, from its authored spec.
 /// `None` for `Dormant` / `Death` (no boss music — room music resumes).
 fn phase_music_track(
@@ -463,5 +497,95 @@ mod phase_feedback_tests {
         set_phase(&mut app, boss, BossEncounterPhase::Phase1);
         app.update();
         assert_eq!(shake_px(&app), 0.0, "Phase1 is not a dramatic transition");
+    }
+}
+
+#[cfg(test)]
+mod mount_death_bridge_tests {
+    //! Q19a: `MountDied` → the rider boss's `External("mount_died")` phase
+    //! trigger. `notify_bosses_on_mount_death` is
+    //! `PhaseTriggerCondition::External`'s first production caller.
+    use super::*;
+    use crate::boss_encounter::{BossEncounterPhase, PhaseTrigger};
+    use crate::combat::boss_clusters::test_support::{test_boss_config, test_boss_status_with};
+    use crate::combat::boss_clusters::BossEncounter;
+    use crate::features::MountDied;
+
+    fn bridge_app() -> App {
+        let mut app = App::new();
+        app.add_message::<MountDied>();
+        app.add_systems(Update, notify_bosses_on_mount_death);
+        app
+    }
+
+    /// Spawn a boss carrying a `mount_died` external trigger from `Phase1`, at
+    /// `Phase1`. Returns its entity.
+    fn spawn_mounted_boss(app: &mut App) -> Entity {
+        let config = test_boss_config("gnu_ton", "GNU-ton", "gnu_ton");
+        let (status, health) = test_boss_status_with(
+            100,
+            BossEncounterPhase::Phase1,
+            vec![PhaseTrigger::external(
+                "mount_died",
+                BossEncounterPhase::Phase1,
+                BossEncounterPhase::Enrage,
+                0.0,
+            )],
+        );
+        app.world_mut().spawn((config, status, health)).id()
+    }
+
+    fn phase_of(app: &App, e: Entity) -> BossEncounterPhase {
+        app.world()
+            .entity(e)
+            .get::<BossEncounter>()
+            .unwrap()
+            .encounter
+            .as_ref()
+            .unwrap()
+            .phase
+    }
+
+    /// A `MountDied` naming the boss rider fires its `mount_died` trigger,
+    /// flipping it into the authored on-foot phase.
+    #[test]
+    fn mount_death_flips_the_rider_boss_into_its_on_foot_phase() {
+        let mut app = bridge_app();
+        let boss = spawn_mounted_boss(&mut app);
+        assert_eq!(phase_of(&app, boss), BossEncounterPhase::Phase1);
+
+        app.world_mut().write_message(MountDied {
+            mount: Entity::PLACEHOLDER,
+            rider: boss,
+        });
+        app.update();
+
+        assert_eq!(
+            phase_of(&app, boss),
+            BossEncounterPhase::Enrage,
+            "the dismounted boss should advance to its authored on-foot phase",
+        );
+    }
+
+    /// A `MountDied` for an unrelated entity leaves the boss's phase alone (no
+    /// spurious external fire).
+    #[test]
+    fn mount_death_for_another_entity_does_not_move_the_boss() {
+        let mut app = bridge_app();
+        let boss = spawn_mounted_boss(&mut app);
+
+        // A non-boss rider entity — the bridge's `riders.get_mut` misses it.
+        let bystander = app.world_mut().spawn_empty().id();
+        app.world_mut().write_message(MountDied {
+            mount: Entity::PLACEHOLDER,
+            rider: bystander,
+        });
+        app.update();
+
+        assert_eq!(
+            phase_of(&app, boss),
+            BossEncounterPhase::Phase1,
+            "an unrelated mount death must not phase this boss",
+        );
     }
 }

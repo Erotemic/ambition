@@ -117,7 +117,7 @@ pub use ecs::{
     BossRenderIndex, BossRenderView, CanPilot, ControlGrant, FactionRelations,
     FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex, FriendlyFire, HazardFeature,
     HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime, MountClass, MountDeathImpact,
-    MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, PendingChallenge,
+    MountDied, MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, PendingChallenge,
     PendingMountLinks, RidingOn, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
 };
 pub use ecs::{step_momentum_body, MomentumMotion, MotionModel};

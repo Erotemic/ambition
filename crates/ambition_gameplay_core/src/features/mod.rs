@@ -120,6 +120,7 @@ pub use ecs::{
     MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, PendingChallenge,
     PendingMountLinks, RidingOn, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
 };
+pub use ecs::{step_momentum_body, MomentumMotion, MotionModel};
 pub use ecs::{ActorAnimFrame, ActorSpriteData};
 pub use enemies::{
     enemy_spawn_is_sandbag, install_enemy_roster, ActorSpawnState, ActorSurfaceState,

@@ -38,6 +38,10 @@ mod tuning;
 
 pub use abilities::resolve_shield;
 pub use blink::{blink_destination_clusters, blink_destination_to_point_clusters};
+// The ONE hazard-touch rule, exported so external movement policies (e.g. the
+// gameplay layer's surface-momentum branch) apply the SAME predicate the
+// engine sim phase applies — never a duplicated near-copy.
+pub use collision::touching_hazard_aabb;
 pub use events::{BlinkEvent, FrameEvents};
 pub use input::InputState;
 /// Screen-vertical input → gravity-relative "descend" intent (the vertical

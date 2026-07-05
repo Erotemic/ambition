@@ -116,6 +116,13 @@ pub fn integrate_home_body(
     hurtbox: &mut ae::CenteredAabb,
     frame_out: &mut PlayerBodyFrameOutput,
     moving_platforms: &[MovingPlatformState],
+    // The body's motion IDENTITY (demo plan AJ11/Q16 — "Sanic is BOTH"):
+    // `None`/`AxisSwept` = the axis-swept path below, byte-identical;
+    // `SurfaceMomentum` dispatches the HOME body to the surface-follower
+    // solver — the same policy branch `integrate_actor_body` carries, so a
+    // worn momentum character rides whether it is the start character or a
+    // possessed actor.
+    motion_model: Option<&mut crate::features::MotionModel>,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     frame_dt: f32,
@@ -140,6 +147,28 @@ pub fn integrate_home_body(
     } else {
         scaled_dt
     };
+
+    // ── SurfaceMomentum dispatch (Q16): the home body's movement identity ──
+    // Uses the GATED input (hitstun/recoil authority-reduction stays uniform
+    // with every other body) and skips the AABB-path machinery below (ledge
+    // carry, jump buffer, dash/blink — capabilities absent on a momentum
+    // body v1).
+    if let Some(crate::features::MotionModel::SurfaceMomentum(m)) = motion_model {
+        integrate_home_momentum(
+            input,
+            actor_control.facing,
+            world,
+            clusters,
+            hurtbox,
+            frame_out,
+            moving_platforms,
+            m,
+            tuning,
+            sim_dt,
+            feature_ecs_overlay,
+        );
+        return;
+    }
 
     // Pre-sim LEDGE-platform carry. Platforms are advanced once (by
     // `advance_moving_platforms`) ahead of this whole phase, so we read this frame's
@@ -214,6 +243,88 @@ pub fn integrate_home_body(
     hurtbox.half_size = body.half_size();
 }
 
+/// The home body's surface-momentum frame (the Q16 branch): drive the R9.1
+/// pure core over the SAME composited collision view, then apply the SAME
+/// hazard/out-of-bounds gate the engine sim phase applies to axis-swept
+/// bodies — Sanic dies in pits. Publishes the hurtbox oriented to the ridden
+/// surface (`frame_down = -surface_normal`, gravity when airborne — the §B2
+/// rule); sprite tilt-on-slope is a presentation follow-up (BLIND).
+#[allow(clippy::too_many_arguments)]
+fn integrate_home_momentum(
+    input: ae::InputState,
+    facing_intent: f32,
+    world: &ae::World,
+    clusters: &mut ae::BodyClustersMut<'_>,
+    hurtbox: &mut ae::CenteredAabb,
+    frame_out: &mut PlayerBodyFrameOutput,
+    moving_platforms: &[MovingPlatformState],
+    m: &mut crate::features::MomentumMotion,
+    tuning: ae::MovementTuning,
+    sim_dt: f32,
+    feature_ecs_overlay: &FeatureEcsWorldOverlay,
+) {
+    use ambition_engine_core::AabbExt;
+
+    let collision_world = world_with_sandbox_solids(world, moving_platforms, feature_ecs_overlay);
+    let was_grounded = clusters.ground.on_ground;
+    let pre_sim_fall_speed = clusters.kinematics.vel.dot(tuning.gravity_dir);
+
+    let mut on_ground = clusters.ground.on_ground;
+    // Recomputed per step by the momentum core (ride contact, else gravity);
+    // the home body has no persistent `ActorSurfaceState` — the frame publish
+    // below is this step's truth.
+    let mut surface_normal = -tuning.gravity_dir;
+    let mut events = ae::FrameEvents::default();
+    events.contacts = crate::features::step_momentum_body(
+        clusters.kinematics,
+        &mut on_ground,
+        &mut surface_normal,
+        m,
+        &collision_world,
+        tuning.gravity_dir * tuning.gravity,
+        input.axis_x,
+        input.jump_pressed,
+        facing_intent,
+        sim_dt,
+    );
+    clusters.ground.on_ground = on_ground;
+
+    // Hazard / out-of-bounds parity with the axis-swept sim phase: the SAME
+    // hazard predicate over the SAME composited view + the gravity-relative
+    // "fell 200px past the world AABB" rule. On trigger: engine-level body
+    // reset to spawn, and the follower state returns to Airborne (never
+    // respawn "riding" a chain the body is no longer on).
+    let pos = clusters.kinematics.pos;
+    let clamped = ae::Vec2::new(
+        pos.x.clamp(0.0, world.size.x),
+        pos.y.clamp(0.0, world.size.y),
+    );
+    let fell_out = (pos - clamped).dot(tuning.gravity_dir) > 200.0;
+    if ae::movement::touching_hazard_aabb(&collision_world, clusters.kinematics.aabb()) || fell_out
+    {
+        events.hazard = true;
+        events.reset = true;
+        ae::reset_body_clusters(clusters, world.spawn);
+        m.state = ambition_engine_core::surface::SurfaceMotion::Airborne;
+    }
+
+    *frame_out = PlayerBodyFrameOutput {
+        was_grounded,
+        pre_sim_fall_speed,
+        reset: events.reset,
+        events,
+    };
+
+    let body = crate::features::collision_aabb(&crate::features::SimpleActorGeometry {
+        pos: clusters.kinematics.pos,
+        size: clusters.kinematics.size,
+        facing: clusters.kinematics.facing,
+        frame_down: -surface_normal,
+    });
+    hurtbox.center = body.center();
+    hurtbox.half_size = body.half_size();
+}
+
 /// Advance the world's moving platforms ONCE per frame, ahead of every body
 /// integration (home + actors), so every body rides this frame's platform
 /// positions. Peeled out of the per-entity body loop so it can't multiply. Uses
@@ -233,6 +344,147 @@ pub fn advance_moving_platforms(
     };
     for platform in platforms.0.iter_mut() {
         platform.update(sim_dt);
+    }
+}
+
+#[cfg(test)]
+mod home_momentum_tests {
+    use super::*;
+    use crate::features::{MomentumMotion, MotionModel};
+    use ambition_characters::actor::control::ActorControlFrame;
+    use ambition_engine_core as ae;
+
+    const DT: f32 = 1.0 / 60.0;
+
+    fn chain_world() -> ae::World {
+        ae::World::new(
+            "home-momentum",
+            ae::Vec2::new(3000.0, 1200.0),
+            ae::Vec2::new(200.0, 500.0),
+            Vec::new(),
+        )
+        .with_chains(vec![ae::SurfaceChain::open(
+            "floor",
+            vec![ae::Vec2::new(0.0, 600.0), ae::Vec2::new(1500.0, 600.0)],
+        )])
+    }
+
+    struct Rig {
+        scratch: ae::BodyClusterScratch,
+        model: MotionModel,
+        hurtbox: ae::CenteredAabb,
+        frame_out: PlayerBodyFrameOutput,
+        world: ae::World,
+        overlay: FeatureEcsWorldOverlay,
+    }
+
+    fn rig(world: ae::World) -> Rig {
+        Rig {
+            scratch: crate::player::primary_player_scratch(
+                world.spawn,
+                ae::AbilitySet::sandbox_all(),
+            ),
+            model: MotionModel::SurfaceMomentum(MomentumMotion::new(
+                ae::surface::MomentumParams::default(),
+            )),
+            hurtbox: ae::CenteredAabb::new(world.spawn, ae::Vec2::splat(10.0)),
+            frame_out: PlayerBodyFrameOutput::default(),
+            world,
+            overlay: FeatureEcsWorldOverlay::default(),
+        }
+    }
+
+    fn step(r: &mut Rig, frame: ActorControlFrame) {
+        let mut clusters = r.scratch.as_mut();
+        integrate_home_body(
+            frame,
+            &r.world,
+            &mut clusters,
+            &BodyCombat::default(),
+            &mut r.hurtbox,
+            &mut r.frame_out,
+            &[],
+            Some(&mut r.model),
+            ae::DEFAULT_TUNING,
+            SandboxFeelTuning::default(),
+            DT,
+            DT,
+            &r.overlay,
+        );
+    }
+
+    #[test]
+    fn worn_momentum_home_body_rides_runs_and_jumps() {
+        let mut r = rig(chain_world());
+        // Fall onto the chain, then run right.
+        let mut run = ActorControlFrame::neutral();
+        run.locomotion.x = 1.0;
+        run.facing = 1.0;
+        // Sample mid-run: kept running, the body (correctly) launches off the
+        // chain's open end around x=1500 and falls out — not this test's
+        // subject.
+        let mut mid_run = false;
+        for _ in 0..240 {
+            step(&mut r, run);
+            if r.scratch.ground.on_ground && r.scratch.kinematics.pos.x > 500.0 {
+                mid_run = true;
+                break;
+            }
+        }
+        assert!(mid_run, "rode the chain and advanced past x=500");
+        // The hurtbox publish followed the body.
+        assert!((r.hurtbox.center - r.scratch.kinematics.pos).length() < 40.0);
+        // The frame reports ride contacts (the contact vocabulary reaches the
+        // home body's FrameEvents).
+        assert!(
+            r.frame_out.events.contacts.iter().any(|c| matches!(
+                c.source,
+                ae::collision_semantics::ContactSource::Chain { .. }
+            )),
+            "ride contact published"
+        );
+        // Jump: the GATED input path maps jump_pressed through.
+        let mut jump = run;
+        jump.jump_pressed = true;
+        step(&mut r, jump);
+        assert!(!r.scratch.ground.on_ground, "left the surface");
+        assert!(
+            r.scratch.kinematics.vel.y < -400.0,
+            "launched along +normal: {:?}",
+            r.scratch.kinematics.vel
+        );
+    }
+
+    #[test]
+    fn momentum_home_body_dies_in_pits_and_respawns_airborne() {
+        // The chain ends mid-world; running off it drops the body past the
+        // world bottom — the Q16 hazard/OOB parity gate must fire.
+        let mut r = rig(chain_world());
+        let mut run = ActorControlFrame::neutral();
+        run.locomotion.x = 1.0;
+        let mut saw_reset = false;
+        for _ in 0..1800 {
+            step(&mut r, run);
+            if r.frame_out.reset {
+                saw_reset = true;
+                break;
+            }
+        }
+        assert!(saw_reset, "fell out and the reset flagged");
+        assert_eq!(
+            r.scratch.kinematics.pos, r.world.spawn,
+            "engine-level body reset to spawn"
+        );
+        assert!(
+            matches!(
+                r.model,
+                MotionModel::SurfaceMomentum(MomentumMotion {
+                    state: ae::surface::SurfaceMotion::Airborne,
+                    ..
+                })
+            ),
+            "respawns airborne, never 'riding' a chain it left"
+        );
     }
 }
 

@@ -808,6 +808,7 @@ pub fn integrate_sim_bodies(
             &ambition_characters::brain::ActorControl,
             &mut CenteredAabb,
             &mut crate::player::PlayerBodyFrameOutput,
+            Option<&mut MotionModel>,
         ),
         With<crate::actor::PlayerEntity>,
     >,
@@ -874,7 +875,9 @@ pub fn integrate_sim_bodies(
     let player_feel = *feel_tuning;
     let frame_dt = world_time.raw_dt;
     let scaled_dt = world_time.scaled_dt;
-    for (mut cluster_item, combat, control, mut hurtbox, mut frame_out) in &mut players {
+    for (mut cluster_item, combat, control, mut hurtbox, mut frame_out, mut motion_model) in
+        &mut players
+    {
         let mut clusters = cluster_item.as_clusters_mut();
         crate::player::integrate_home_body(
             control.0,
@@ -884,6 +887,7 @@ pub fn integrate_sim_bodies(
             &mut hurtbox,
             &mut frame_out,
             &platform_set.0,
+            motion_model.as_deref_mut(),
             player_tuning,
             player_feel,
             frame_dt,

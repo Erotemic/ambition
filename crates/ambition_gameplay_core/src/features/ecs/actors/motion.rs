@@ -55,6 +55,9 @@ impl MomentumMotion {
 /// Writes back: position/velocity, `on_ground` (= riding), and the body's
 /// reference frame (`surface_normal` follows the ridden chain — the footprint
 /// and sprite orient to the surface, the same §B2 rule surface-walkers use).
+/// Returns the step's resolved [`ae::collision_semantics::Contact`]s so the
+/// caller can publish them (the home path routes them into
+/// `FrameEvents.contacts`).
 #[allow(clippy::too_many_arguments)]
 pub fn step_momentum_body(
     kin: &mut ae::BodyKinematics,
@@ -67,7 +70,7 @@ pub fn step_momentum_body(
     jump_pressed: bool,
     facing: f32,
     dt: f32,
-) {
+) -> Vec<ae::collision_semantics::Contact> {
     let mut body = ae::surface::SurfaceBody {
         pos: kin.pos,
         vel: kin.vel,
@@ -106,6 +109,7 @@ pub fn step_momentum_body(
     } else {
         -gravity.normalize_or_zero()
     };
+    contacts
 }
 
 #[cfg(test)]

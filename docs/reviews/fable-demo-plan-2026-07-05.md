@@ -1095,6 +1095,39 @@ The ADR 0020 sprite split, ADDITIVE (gnu_ton_boss full/body/hands byte-identical
   first-pass placeholder for G2 to tune.
 **G1 DONE.** G2-archetypes rides these keys.
 
+### G2-ARCHETYPES — DESIGN FORKS surfaced for fable (opus 2026-07-05; [opus, fable-specced] → escalated)
+G1 (sprites) + G2/Q19 (dismount/bridge) landed. Authoring the `giant_gnu` mount +
+`gnu_ton` rider ROWS hits three genuine boss-vs-actor taxonomy forks the executor
+rules say to surface, not invent (each distorts the architecture if guessed wrong):
+1. **Is `giant_gnu` a boss or a character actor?** The plan's "big HP, real mover —
+   `StationaryGiant`" is BOSS vocabulary (`BossMovementProfile`, `boss_profiles.ron`),
+   but a MOUNT wants `Mountable`/`mount_class`, which `attach_mount_role` grants ONLY
+   in the ENEMY spawn path (`spawn_actors.rs:931`, `spawn_solo_enemy`) from
+   `CharacterArchetypeSpec` — never in `spawn_boss`. AND the giant's sprite is
+   registered as a BOSS sheet (`giant_gnu`/`_body`/`_hands` in boss_sheets), but
+   character-archetype (enemy) actors resolve sprites by id→CHARACTER-sheet
+   convention (no sprite field on `CharacterArchetypeSpec`). So "giant as an enemy
+   archetype" can't find its boss-registered sprite, and "giant as a boss" has no
+   mount-role attachment. → **fable: is the carried giant a brainless MOUNT actor
+   (needs boss-sheet render for a non-boss + a stationary character mover) or a
+   second boss? This is the Boss/NPC/prop taxonomy call.**
+2. **A boss as a rider needs `CanPilot`.** `gnu_ton` stays a boss (BossConfig +
+   encounter HP), but `spawn_boss`/`BossBehaviorProfile` carry no
+   `pilotable_mount_classes` and `attach_mount_role` isn't called for bosses. →
+   **fable/opus: extend `spawn_boss` to attach a mount role from a new authored
+   field (BossBehaviorProfile or BossSpawn), OR author the rider via the enemy path
+   with boss identity grafted. Bounded once the shape is chosen.**
+3. **G2-archetypes is INERT without G3.** A split giant is a brainless carried body;
+   the scholar-boss's scripted `hand_slam`/`hand_sweep`/`head_descent` only reach the
+   giant's hands via G3's limb routing (Q18). So a *functional* split needs G2-arch
+   + G3 together — G2-arch alone spawns a giant that stands doing nothing. The clean
+   landing is G2-arch (rows + boss mount-role + the on-foot mini-phase, tested
+   headlessly via the Q19 bridge) THEN G3 (limbs make it fight), THEN G4 (LDtk pair).
+**Q19's bridge is ready to receive**: once the pair is authored + linked, killing the
+`giant_gnu` mount fires `gnu_ton`'s `External("mount_died")` → on-foot mini-phase, and
+the BossConfig-keeps-Brain rule lands him on foot — all landed in `af589a32`, waiting
+only on these authoring forks.
+
 ### G1 READINESS (scouted, opus 2026-07-05 — headlessly TRACTABLE, next dedicated pass)
 Env confirmed: PIL 12.2.0 + rectpack present; `PYTHONPATH=tools/ambition_sprite2d_renderer
 python3` imports the renderer; `./regen_sprites.sh --target gnu_ton_boss` is the

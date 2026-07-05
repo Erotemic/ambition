@@ -594,6 +594,11 @@ new entries append HERE.
 - **Q2** — the `ambition_actors` rename: endorse or rename (E7).
 - Feel-pass queue (standing): `unified_melee` RED, the BLIND commits ledger,
   the G3 limb-arc taste pass (Q18's slot map is fable-BLIND until then).
+- **BLIND commits ledger** (opus 2026-07-05 eve): `d620a230` sanic_sandbox
+  area layout — is the valley/ramp/loop placement rideable + fun? (headless
+  geometry verified; play-feel unchecked). Sanic sprite (`sanic`) draws blind —
+  spot-check the silhouette. Sanic momentum params (top_speed 1200 etc.) are a
+  first guess; tune on the feel pass.
 
 ## 6. COMPLETENESS AUDIT — every open item from the three reviews, accounted for
 
@@ -751,12 +756,24 @@ The S3a/S3b converters were only reachable from synthetic tests (no LDtk
 register-entity` — a level can now PLACE a `SurfaceChain` slope or a
 `SurfaceLoop` marker. Content graph validates.
 
+## S3b (area) — the sanic_sandbox momentum playground ✅ (`d620a230`, opus, BLIND)
+Authored a real momentum level via `area create` from
+`specs/sanic_sandbox_area.ron`: a rideable floor `SurfaceChain` (valley + launch
+ramp), one `SurfaceLoop` marker (radius 200) on the floor, a HazardBlock pit +
+Solid end walls, a viking-warrior knight (coexistence), PlayerStart + CameraZone;
+at a verified-free world region (x=9600). Headless-verified: content graph
+validates (every chain + generated loop converts), ldtk roundtrips, diff purely
+additive (59→60 levels). **BLIND** — layout/feel are Jon's (see feel queue §5);
+reachability (LoadingZone) + spawn-into-sanic are S4/follow-up.
+
 **SESSION TALLY (opus, 2026-07-05 eve):** S2, A1, A2, C2, C1, S3b-converter,
-S3b-defs — 8 feature commits. §0 crit 2 (ability model) COMPLETE; two crit-3
-residues (C1, C2) closed; momentum slopes + LOOP geometry authorable as LDtk
-entities. **S3b REMAINING:** the `sanic_sandbox` area (author it with
-`area create`), the `ambition_ldtk_tools surface add/validate` convenience
-subcommand, the debug-overlay gizmos.
+S3b-defs, S3b-area — 9 feature commits. §0 crit 2 (ability model) COMPLETE; two
+crit-3 residues (C1, C2) closed; **Sanic is playable geometry now** — a worn
+momentum body has a real level of slopes + a loop to ride. **S3b REMAINING:** the
+debug-overlay gizmos (chain segments/normals/tangents/ridden-frame — draw-blind,
+would aid Jon's feel pass), the `ambition_ldtk_tools surface` convenience
+subcommand. **THEN S4 proofs** (scripted reachability, possession e2e,
+coexistence, overlay screenshot).
 
 **NEXT HEADS (the bigger dents):** **G1→G4 (gnu split) unblock G5 [★fable]**;
 **E5 (`ambition_runtime`) — demo gate for S5 [senior] + M-track — needs a careful

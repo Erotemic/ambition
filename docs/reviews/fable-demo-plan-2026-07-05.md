@@ -1143,6 +1143,20 @@ taxonomy is DECIDED, boldly, per the actors-vs-props model:
 - **fork 3** is a sequencing fact: the split giant is inert until G3's limb routing
   makes the scholar-boss's strikes drive the giant's hand limbs.
 
+**G-TRACK EXECUTION (opus, driving the full chain to G5):**
+- **fork#2** ✅ `7873010d` — a boss can pilot a mount (`CanPilot` from `spawn_boss`).
+- **slices 1+2** ✅ `3f8f03e1` — `giant_gnu` mount actor + `gnu_ton_rider` boss pair;
+  the mount-death→on-foot-phase bridge (new `BossEncounterSpec.extra_phase_triggers`
+  seam authoring `External("mount_died")`) is verified end-to-end on the real pair.
+- **G3** ✅ `cb694744` — the giant's hands are drivable limb ACTORS; `route_boss_strikes_to_limbs`
+  bridges the RidingOn/MountSlot link (rider `BossAttackState` + `limb_routing` →
+  mount `LimbIntents`), `LimbMotion`/`LimbRoute` verbs, `home_offset` station-keeping,
+  `spawn_giant_hand_limbs`. ADDITIVE (live fused split-overlay untouched). Test green.
+- **G4 (1/2)** ✅ `<converter>` — `convert_boss_spawn` honors `mounted_on` (a boss rider).
+- **G4 (2/2)** 🔄 — reauthor gnu_ton_arena as the linked pair (area spec + regen),
+  BossSpawn `mounted_on` field def, arena-gate id fix, roundtrip/validate, teardown-if-clean.
+  When it lands, **G5 [★fable] is executable** (the arena spawns the drivable pair).
+
 **PRECISE REMAINING PATH to unblock G5** (each a bounded slice under the decisions):
 1. **giant_gnu mount ACTOR render** — a `character_catalog.ron` entry
    (`npc_giant_gnu` → `giant_gnu`) so `sheet_for_character_id` loads the G1 sheet

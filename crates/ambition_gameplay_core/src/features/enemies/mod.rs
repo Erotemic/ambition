@@ -188,6 +188,20 @@ pub(crate) struct CharacterArchetypeSpec {
     /// (the sim fans it into two entities; presentation mirrors that).
     #[serde(default)]
     pub composite_visual: Option<CompositeVisualSpec>,
+    /// This archetype can be ridden (ADR 0020): the content-defined mount
+    /// class a rider must be allowed to pilot. `None` = not a mount.
+    #[serde(default)]
+    pub mount_class: Option<String>,
+    /// Mount classes a *rider* of this archetype may pilot (ADR 0020).
+    /// Empty = this archetype cannot mount anything. A shark-rider carries
+    /// `["shark"]`; it cannot board a `"mech"`-class mount.
+    #[serde(default)]
+    pub pilotable_mount_classes: Vec<String>,
+    /// Damage this *mount* splashes onto its rider when it dies (ADR 0020).
+    /// `None` = the rider drops unharmed (a `MountDeathImpact::Dismount`);
+    /// `Some(n)` = the rider takes `n` damage (a mech exploding).
+    #[serde(default)]
+    pub mount_death_splash: Option<i32>,
     #[serde(default, with = "vec2_option")]
     pub default_size: Option<ae::Vec2>,
     /// Brain template the spawn site instantiates for this archetype.

@@ -546,6 +546,8 @@
         contact_strength: 0.85,
         damage_amount: 1,
         default_size: Some((44.0, 78.0)),
+        // A cove raider can ride a "shark"-class mount (ADR 0020).
+        pilotable_mount_classes: ["shark"],
         brain_template: Smash,
         melee: Some(Swipe((
             windup_s: 0.28,
@@ -578,6 +580,11 @@
         // off the shark's render height in pirate_rider.rs so the
         // composite stays proportional.
         default_size: Some((126.0, 52.0)),
+        // This archetype can be ridden (ADR 0020): its mount class is
+        // "shark"; only riders whose `pilotable_mount_classes` include
+        // "shark" may board it. It splashes no death damage (a dead shark
+        // drops its rider unharmed — the default Dismount).
+        mount_class: Some("shark"),
         // The shark is far heavier than its rider, so the mount+rider center of
         // gravity sits near the shark and the lighter pirate orbits it when the
         // pair rolls under a gravity flip (default actor mass is 1.0).
@@ -643,6 +650,8 @@
     // of falling back to a generic striker.
     "pirate_heavy": (
         max_health: 10,
+        // A heavy cove pirate can ride a "shark"-class mount (ADR 0020).
+        pilotable_mount_classes: ["shark"],
         // Peaceful cove crew until provoked; then forced into an
         // aggressive MeleeBrute with a wide aggro radius.
         attacks_player: false,

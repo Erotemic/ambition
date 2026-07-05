@@ -82,9 +82,7 @@ fn sync_riders_to_mounts_snaps_rider_to_mount_offset() {
         .spawn((
             hostile("mount", "burning_flying_shark", mount_pos, mount_size),
             CenteredAabb::from_center_size(mount_pos, mount_size),
-            Mountable {
-                rider_offset: ae::Vec2::new(0.0, -40.0),
-            },
+            Mountable::at(ae::Vec2::new(0.0, -40.0)),
             MountSlot { rider: None },
         ))
         .id();
@@ -169,9 +167,7 @@ fn spawn_pair(app: &mut App, mount_alive: bool, rider_alive: bool) -> (Entity, E
         .world_mut()
         .spawn((
             mount_actor,
-            Mountable {
-                rider_offset: ae::Vec2::new(0.0, -40.0),
-            },
+            Mountable::at(ae::Vec2::new(0.0, -40.0)),
             MountSlot { rider: None },
         ))
         .id();
@@ -250,6 +246,145 @@ fn dead_mount_dissolves_link_keeping_records() {
         slot.rider.is_some(),
         "MountSlot.rider stays populated so reset can re-arm",
     );
+}
+
+/// ADR 0020 pilot-compatibility: a rider may only pilot mount classes
+/// its `CanPilot` set lists. A shark-rider carries `["shark"]` and can
+/// board a shark but not a mech.
+#[test]
+fn can_pilot_matches_authored_classes() {
+    let rider = CanPilot {
+        classes: vec![MountClass("shark".into())],
+    };
+    assert!(
+        rider.can_pilot(&MountClass("shark".into())),
+        "a shark-rider can pilot a shark-class mount",
+    );
+    assert!(
+        !rider.can_pilot(&MountClass("mech".into())),
+        "a shark-rider cannot pilot a mech-class mount",
+    );
+}
+
+/// ADR 0020 default: a mount extends its rider `ControlGrant::Total` and,
+/// unless authored otherwise, drops the rider unharmed on death.
+#[test]
+fn mountable_defaults_are_total_control_and_clean_dismount() {
+    let m = Mountable::at(ae::Vec2::ZERO);
+    assert_eq!(m.control_grant, ControlGrant::Total);
+    assert_eq!(m.death_impact, MountDeathImpact::Dismount);
+}
+
+/// Spawn a dead mount carrying `death_impact` + a live mounted rider,
+/// mirroring `spawn_pair` but letting the caller set the mount's impact.
+fn spawn_dead_mount_with_impact(app: &mut App, death_impact: MountDeathImpact) -> (Entity, Entity) {
+    let mount_pos = ae::Vec2::new(0.0, 0.0);
+    let mount_size = ae::Vec2::new(126.0, 52.0);
+    let mut mount_actor = hostile("mount", "burning_flying_shark", mount_pos, mount_size);
+    mount_actor.1 .2.health.current = 0; // mount dead → dissolution fires
+    let mut mountable = Mountable::at(ae::Vec2::new(0.0, -40.0));
+    mountable.death_impact = death_impact;
+    let mount = app
+        .world_mut()
+        .spawn((mount_actor, mountable, MountSlot { rider: None }))
+        .id();
+
+    let rider_pos = ae::Vec2::new(0.0, -40.0);
+    let rider_size = ae::Vec2::new(44.0, 78.0);
+    let mut rider_actor = hostile("rider", "pirate_raider", rider_pos, rider_size);
+    rider_actor.1 .5.gravity_scale = 0.0;
+    // Force a known 5-HP pool so splash arithmetic is deterministic
+    // regardless of what the seed default resolves to in a minimal test.
+    rider_actor.1 .2 = ambition_characters::actor::BodyHealth::new(
+        ambition_characters::actor::Health::new(RIDER_TEST_HP),
+    );
+    let rider = app
+        .world_mut()
+        .spawn((
+            rider_actor,
+            CenteredAabb::from_center_size(rider_pos, rider_size),
+            Mounted,
+            RidingOn { mount },
+        ))
+        .id();
+    app.world_mut()
+        .entity_mut(mount)
+        .insert(MountSlot { rider: Some(rider) });
+    (mount, rider)
+}
+
+const RIDER_TEST_HP: i32 = 5;
+
+fn rider_health(world: &bevy::prelude::World, e: Entity) -> ambition_characters::actor::BodyHealth {
+    *world
+        .entity(e)
+        .get::<ambition_characters::actor::BodyHealth>()
+        .expect("rider has BodyHealth")
+}
+
+/// ADR 0020: a non-lethal mount `death_impact: Splash(n)` subtracts `n`
+/// from the rider's separate HP pool on the death transition, then the
+/// rider still dismounts (gravity on, Mounted removed).
+#[test]
+fn nonlethal_mount_death_splash_damages_the_rider_then_dismounts() {
+    let mut app = build_app();
+    app.add_systems(Update, enforce_mount_rider_link);
+    let (_mount, rider) = spawn_dead_mount_with_impact(&mut app, MountDeathImpact::Splash(2));
+
+    app.update();
+
+    assert_eq!(
+        rider_health(app.world(), rider).current(),
+        RIDER_TEST_HP - 2,
+        "a Splash(2) mount death should take 2 off the rider's HP",
+    );
+    assert!(
+        rider_health(app.world(), rider).alive(),
+        "5-HP rider survives a 2-damage splash",
+    );
+    assert!(
+        app.world().entity(rider).get::<Mounted>().is_none(),
+        "surviving rider still dismounts (Mounted removed)",
+    );
+    assert_eq!(
+        rider_surface(app.world(), rider).gravity_scale,
+        1.0,
+        "surviving rider falls off the dead mount",
+    );
+}
+
+/// ADR 0020: a lethal `death_impact: Splash(n)` (mech explosion) kills the
+/// rider — its HP pool drops to non-alive and no solo brain is installed.
+#[test]
+fn lethal_mount_death_splash_kills_the_rider() {
+    let mut app = build_app();
+    app.add_systems(Update, enforce_mount_rider_link);
+    let (_mount, rider) = spawn_dead_mount_with_impact(&mut app, MountDeathImpact::Splash(99));
+
+    app.update();
+
+    assert!(
+        !rider_health(app.world(), rider).alive(),
+        "a lethal splash (mech explosion) kills the rider too",
+    );
+}
+
+/// ADR 0020: the default `Dismount` impact leaves the rider's HP intact —
+/// a dead shark drops its rider unharmed.
+#[test]
+fn dismount_impact_leaves_rider_hp_intact() {
+    let mut app = build_app();
+    app.add_systems(Update, enforce_mount_rider_link);
+    let (_mount, rider) = spawn_dead_mount_with_impact(&mut app, MountDeathImpact::Dismount);
+
+    app.update();
+
+    assert_eq!(
+        rider_health(app.world(), rider).current(),
+        RIDER_TEST_HP,
+        "a clean dismount takes no HP from the rider",
+    );
+    assert!(app.world().entity(rider).get::<Mounted>().is_none());
 }
 
 /// Same-room reset re-arms the link: starting from a dissolved

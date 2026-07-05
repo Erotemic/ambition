@@ -163,8 +163,28 @@ pub(super) fn spawn_composite_mount_rider(
     .with_combat_kit(mount_combat_kit)
     .without_held_item()
     .spawn(commands);
+    // Mount class / control grant / death impact (ADR 0020). The class
+    // comes from the mount archetype (a mount authors `mount_class`); the
+    // control grant defaults to Total (the only variant today); the death
+    // impact is Splash(n) if the mount authored `mount_death_splash`, else
+    // a clean Dismount.
+    let mount_class = super::MountClass(
+        mount_spec
+            .mount_class
+            .clone()
+            .unwrap_or_else(|| cv.mount_brain.clone()),
+    );
+    let death_impact = match mount_spec.mount_death_splash {
+        Some(amount) => super::MountDeathImpact::Splash(amount),
+        None => super::MountDeathImpact::Dismount,
+    };
     commands.entity(mount_entity).insert((
-        super::Mountable { rider_offset },
+        super::Mountable {
+            rider_offset,
+            class: mount_class.clone(),
+            control_grant: super::ControlGrant::Total,
+            death_impact,
+        },
         super::MountSlot::default(),
         super::Mass(mount_spec.mass),
     ));
@@ -193,6 +213,19 @@ pub(super) fn spawn_composite_mount_rider(
     .with_combat_kit(rider_combat_kit)
     .with_held_item(rider_held_item)
     .spawn(commands);
+    // Which mount classes this rider may pilot (ADR 0020). A rider authors
+    // `pilotable_mount_classes` on its archetype; fall back to the class of
+    // the mount it is authored onto so an existing pairing stays valid.
+    let pilotable: Vec<super::MountClass> = if rider_spec.pilotable_mount_classes.is_empty() {
+        vec![mount_class.clone()]
+    } else {
+        rider_spec
+            .pilotable_mount_classes
+            .iter()
+            .cloned()
+            .map(super::MountClass)
+            .collect()
+    };
     commands.entity(rider_entity).insert((
         mounted_brain_cache,
         super::Mounted,
@@ -200,6 +233,7 @@ pub(super) fn spawn_composite_mount_rider(
         super::RidingOn {
             mount: mount_entity,
         },
+        super::CanPilot { classes: pilotable },
         super::Mass(rider_spec.mass),
     ));
 

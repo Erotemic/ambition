@@ -48,15 +48,95 @@ impl Default for Mass {
     }
 }
 
+/// A mount's *class* — the content-defined category a rider must be
+/// allowed to pilot (a shark-rider cannot pilot a mech). The engine
+/// enumerates no classes; they are pure content strings (`"shark"`,
+/// `"mech"`, `"horse"`), matched against a rider's [`CanPilot`] set.
+/// See ADR 0020.
+#[derive(Component, Clone, Debug, PartialEq, Eq, Hash, Default)]
+pub struct MountClass(pub String);
+
+impl MountClass {
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+/// How much of the rider's control intent the mount actually obeys while
+/// ridden. The mount's own brain *defers* to the rider through this grant
+/// (ADR 0020). The default — and the only variant implemented today — is
+/// [`ControlGrant::Total`]: the rider drives fully. Partial/disobedient
+/// grants (a skittish horse, an unstable mech that drops or distorts
+/// intent) are a reserved seam: add variants here when content needs them.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum ControlGrant {
+    /// Rider intent passes straight through — the mount fully obeys.
+    #[default]
+    Total,
+    // Future: Partial { .. }, Skittish { .. }, Locked { .. } — see ADR 0020.
+}
+
+/// What happens to the *rider* when its mount dies. Two actors, two health
+/// pools: by default a dead mount simply drops its rider unharmed
+/// ([`MountDeathImpact::Dismount`]). A mount that should hurt its rider on
+/// death — a mech that explodes — authors [`MountDeathImpact::Splash`] with
+/// the damage the rider takes (large enough is lethal). See ADR 0020.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum MountDeathImpact {
+    /// Rider is unharmed and simply dismounts (the default).
+    #[default]
+    Dismount,
+    /// Rider takes this much damage when the mount dies.
+    Splash(i32),
+}
+
 /// Attached to a mount entity. Specifies where the rider rides
-/// relative to the mount's center (sandbox units; y grows downward).
-#[derive(Component, Clone, Copy, Debug)]
+/// relative to the mount's center (sandbox units; y grows downward),
+/// the mount's [`MountClass`], the [`ControlGrant`] it extends its
+/// rider, and its [`MountDeathImpact`].
+#[derive(Component, Clone, Debug)]
 pub struct Mountable {
     /// Rider's center offset from the mount's center. For an
     /// aerial mount this is typically `(0, -mount.size.y * 0.5 -
     /// rider.size.y * 0.5 + epsilon)` so the rider sits on the
     /// mount's saddle without their hitboxes overlapping.
     pub rider_offset: ae::Vec2,
+    /// The mount's class — a rider needs a matching [`CanPilot`] entry.
+    pub class: MountClass,
+    /// How fully the mount obeys the rider (default `Total`).
+    pub control_grant: ControlGrant,
+    /// What the rider suffers when this mount dies (default `Dismount`).
+    pub death_impact: MountDeathImpact,
+}
+
+impl Mountable {
+    /// A mount at `rider_offset` with default class / control grant
+    /// (`Total`) / death impact (`Dismount`). Callers that author a
+    /// specific class or explosion set the fields after.
+    pub fn at(rider_offset: ae::Vec2) -> Self {
+        Self {
+            rider_offset,
+            class: MountClass::default(),
+            control_grant: ControlGrant::Total,
+            death_impact: MountDeathImpact::Dismount,
+        }
+    }
+}
+
+/// Attached to a rider (or would-be rider) entity. The set of mount
+/// [`MountClass`]es this actor is allowed to pilot. A shark-rider carries
+/// `["shark"]`; it cannot board a `"mech"`-class mount. The engine checks
+/// this before establishing a [`RidingOn`] link. See ADR 0020.
+#[derive(Component, Clone, Debug, Default)]
+pub struct CanPilot {
+    pub classes: Vec<MountClass>,
+}
+
+impl CanPilot {
+    /// Whether a rider carrying this component may pilot `class`.
+    pub fn can_pilot(&self, class: &MountClass) -> bool {
+        self.classes.contains(class)
+    }
 }
 
 /// Attached to a mount entity. Holds the rider's `Entity` if one
@@ -262,17 +342,23 @@ pub fn enforce_mount_rider_link(
             Entity,
             &ActorDisposition,
             Option<&ambition_characters::actor::BodyHealth>,
+            Option<&Mountable>,
         ),
         With<MountSlot>,
     >,
 ) {
-    // Build a lookup of mount alive-ness. With two-pirate fights
-    // this is O(R+M) per frame and the hashmap stays small.
+    // Build a lookup of mount alive-ness + death impact. With two-pirate
+    // fights this is O(R+M) per frame and the hashmap stays small.
     use std::collections::HashMap;
     let mut mount_alive: HashMap<Entity, bool> = HashMap::new();
-    for (mount_entity, mount_actor, mount_health) in &mounts {
+    let mut mount_death_impact: HashMap<Entity, MountDeathImpact> = HashMap::new();
+    for (mount_entity, mount_actor, mount_health, mountable) in &mounts {
         let alive = mount_actor.is_hostile() && mount_health.is_some_and(|h| h.alive());
         mount_alive.insert(mount_entity, alive);
+        mount_death_impact.insert(
+            mount_entity,
+            mountable.map(|m| m.death_impact).unwrap_or_default(),
+        );
     }
 
     for (
@@ -323,6 +409,22 @@ pub fn enforce_mount_rider_link(
             // so a PirateRaider / PirateHeavy variant falls and fights without
             // visually scaling up.
             (false, true) => {
+                // Mount death impact (ADR 0020): by default the rider drops
+                // unharmed, but a mount authored to explode splashes lethal-ish
+                // damage onto the rider's separate HP pool. Applied once, on the
+                // death transition, before the dismount rebuild.
+                if let MountDeathImpact::Splash(amount) = mount_death_impact
+                    .get(&riding.mount)
+                    .copied()
+                    .unwrap_or_default()
+                {
+                    rider.health.damage(amount);
+                    // If the splash killed the rider, skip the dismount rebuild —
+                    // a dead rider needs no solo brain.
+                    if !rider.health.alive() {
+                        continue;
+                    }
+                }
                 rider.surface.gravity_scale = if rider.config.tuning.is_aerial {
                     0.0
                 } else {

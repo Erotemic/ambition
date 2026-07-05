@@ -114,10 +114,10 @@ pub use ecs::{
     update_ecs_falling_chests, update_ecs_hazards, ActorAnimIndex, ActorRenderIndex,
     ActorRenderView, ActorSteering, BossClusterQueryData, BossClusterRef, BossClusterScratch,
     BossConfig, BossEncounter, BossMut, BossOverrides, BossRef, BossRenderIndex, BossRenderView,
-    FactionRelations, FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex, FriendlyFire,
-    HazardFeature, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime, MountSlot,
-    Mountable, Mounted, MountedBrainCache, MountedSize, PendingChallenge, RidingOn, SpawnActorKind,
-    SpawnActorRequest, CHALLENGE_GRACE_S,
+    CanPilot, ControlGrant, FactionRelations, FeatureEcsWorldOverlay, FeatureSimEntity,
+    FeatureViewIndex, FriendlyFire, HazardFeature, HeldItem, Hitbox, HitboxAnchor, HitboxHits,
+    HitboxLifetime, MountClass, MountDeathImpact, MountSlot, Mountable, Mounted, MountedBrainCache,
+    MountedSize, PendingChallenge, RidingOn, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
 };
 pub use ecs::{ActorAnimFrame, ActorSpriteData};
 pub use enemies::{

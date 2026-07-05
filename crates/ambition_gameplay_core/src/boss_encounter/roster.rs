@@ -44,6 +44,8 @@ impl BossSpecRoster for BossEncounterSpec {
             music_phase1: "fast_paced_violin_boss".into(),
             music_phase2: "fast_paced_violin_boss".into(),
             music_enrage: "fast_paced_violin_boss".into(),
+            // The generic base carries no bespoke External gates.
+            extra_phase_triggers: Vec::new(),
         }
     }
 }

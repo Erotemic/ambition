@@ -1,0 +1,41 @@
+// Boss encounter spec — GNU-ton RIDER (ADR 0020 mount/rider split, G2).
+//
+// The scholar half of GNU-ton: a boss that RIDES the `giant_gnu` mount actor.
+// Authored ALONGSIDE the still-live fused `gnu_ton.ron` (the arena keeps using
+// `gnu_ton` until G4 reauthors it as the linked pair), so this is ADDITIVE with
+// no live-boss regression. Numbers mirror `gnu_ton.ron`.
+//
+// The one bespoke addition is `extra_phase_triggers`: a `mount_died` External
+// gate that fires the rider into `Enrage` — the ON-FOOT mini-phase. When the
+// `giant_gnu` mount dies, `enforce_mount_rider_link` re-grounds the boss (keeps
+// its Brain, per the BossConfig rule) and emits `MountDied`, which
+// `notify_bosses_on_mount_death` turns into `notify_external("mount_died")` on
+// this boss's phase state. `from: []` fires from any live phase; `lock: 0.0`
+// flips immediately so the dismounted scholar makes his desperate on-foot stand
+// the same frame.
+(
+    id: "gnu_ton_rider",
+    name: "GNU-ton",
+    max_hp: 42,
+    phase1_to_transition_hp: 0.65,
+    transition_to_phase2_hp: 0.65,
+    phase2_to_enrage_hp: 0.28,
+    intro_seconds: 2.8,
+    transition_seconds: 2.0,
+    stagger_seconds: 2.2,
+    death_seconds: 3.0,
+    stagger_threshold: 8,
+    stagger_window_seconds: 2.0,
+    music_intro: "standing_on_shoulders",
+    music_phase1: "standing_on_shoulders",
+    music_phase2: "standing_on_shoulders",
+    music_enrage: "standing_on_shoulders",
+    extra_phase_triggers: [
+        (
+            when: External("mount_died"),
+            from: [],
+            to: Enrage,
+            lock: 0.0,
+        ),
+    ],
+)

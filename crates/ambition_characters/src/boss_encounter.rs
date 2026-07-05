@@ -58,6 +58,14 @@ pub struct BossEncounterSpec {
     pub music_phase1: String,
     pub music_phase2: String,
     pub music_enrage: String,
+    /// Authored phase triggers appended to the intrinsic HP / time-in-phase
+    /// ones (`intrinsic_from_spec`). This is the content seam for `External`
+    /// gates a boss can't derive from HP alone — e.g. a mounted boss's
+    /// `External("mount_died")` flip into an on-foot mini-phase (ADR 0020; G2).
+    /// Empty (the serde default) for every existing boss, so their phase graphs
+    /// are byte-unchanged; a rider boss authors one row here.
+    #[serde(default)]
+    pub extra_phase_triggers: Vec<PhaseTrigger>,
 }
 
 /// Bridge events the phase mechanism emits for the music / banner / cutscene
@@ -222,6 +230,9 @@ impl PhaseTrigger {
             Enrage,
             0.0,
         ));
+        // Authored External / bespoke triggers (ADR 0020 mount_died flip, etc.)
+        // ride on top of the intrinsic HP graph.
+        triggers.extend(spec.extra_phase_triggers.iter().cloned());
         triggers
     }
 }
@@ -650,6 +661,7 @@ mod phase_mechanism_tests {
             music_phase1: String::new(),
             music_phase2: String::new(),
             music_enrage: String::new(),
+            extra_phase_triggers: Vec::new(),
         }
     }
 }

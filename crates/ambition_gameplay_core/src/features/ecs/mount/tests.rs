@@ -786,3 +786,172 @@ fn dead_rider_does_not_disturb_mount_records() {
         "mount stays alive when rider dies"
     );
 }
+
+/// G2-archetypes end-to-end (ADR 0020; Q19): the REAL authored `giant_gnu`
+/// mount + `gnu_ton_rider` boss pair, exercised through the whole
+/// dismount→on-foot bridge.
+///
+/// This ties together every G2 authoring seam at once:
+///   * the `giant_gnu` archetype parses with `mount_class == "giant"` (it IS a
+///     rideable mount),
+///   * `npc_giant_gnu` resolves a character sprite (the mount renders via the
+///     character-sprite path, not the boss split-overlay),
+///   * the `gnu_ton_rider` boss profile carries the authored `mount_died`
+///     External phase trigger (its on-foot mini-phase), and
+///   * linking the pair and killing the mount drives the Q19 bridge: the boss
+///     dismounts KEEPING its Brain (the BossConfig rule), gravity flips on, and
+///     its phase advances to the authored on-foot `Enrage` via `mount_died`.
+#[test]
+fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
+    use crate::boss_encounter::{
+        BossEncounterPhase, BossProfile, PhaseTrigger, PhaseTriggerCondition,
+    };
+    use ambition_characters::brain::{Brain, PlayerSlot};
+
+    // (1) The `giant_gnu` archetype parses as a rideable "giant"-class mount.
+    let mount_spec = crate::features::enemies::test_spec("giant_gnu");
+    assert_eq!(
+        mount_spec.mount_class.as_deref(),
+        Some("giant"),
+        "the giant_gnu archetype must be a rideable 'giant'-class mount",
+    );
+    assert!(
+        !mount_spec.body_contact_damage,
+        "the carried giant deals no contact damage (its rider is the threat)",
+    );
+
+    // (2) The `npc_giant_gnu` catalog id resolves a character sprite — the mount
+    // renders through the character-sprite path. Gated on the baked sheet being
+    // present (sprites are gitignored/regenerated; a fresh clone has none).
+    if crate::character_sprites::record_for_target("giant_gnu").is_some() {
+        assert!(
+            crate::character_sprites::sheet_for_character_id("npc_giant_gnu").is_some(),
+            "npc_giant_gnu should resolve the baked giant_gnu sheet spec",
+        );
+    }
+
+    // (3) The authored `gnu_ton_rider` boss profile carries the on-foot
+    // `mount_died` External trigger (this is what makes the mini-phase authored,
+    // not test-injected).
+    let profile = BossProfile::from_id("gnu_ton_rider")
+        .expect("gnu_ton_rider boss profile+encounter are authored");
+    assert_eq!(
+        profile.behavior.pilotable_mount_classes,
+        vec!["giant".to_string()],
+        "the rider boss pilots the 'giant' mount class",
+    );
+    let triggers = PhaseTrigger::intrinsic_from_spec(&profile.encounter);
+    let mount_died_to = triggers.iter().find_map(|t| match &t.when {
+        PhaseTriggerCondition::External(g) if g == "mount_died" => Some(t.to),
+        _ => None,
+    });
+    assert_eq!(
+        mount_died_to,
+        Some(BossEncounterPhase::Enrage),
+        "the authored gnu_ton_rider encounter must carry a mount_died -> Enrage \
+         External trigger (the on-foot mini-phase)",
+    );
+
+    // (4) Spawn the REAL pair, link it, kill the mount, and tick the whole
+    // bridge (dissolution + boss-encounter notify) in one update.
+    let mut app = build_app();
+    app.add_systems(
+        Update,
+        (
+            enforce_mount_rider_link,
+            crate::boss_encounter::notify_bosses_on_mount_death,
+        )
+            .chain(),
+    );
+
+    // The giant_gnu MOUNT — spawned already dead so the dissolution fires this
+    // frame. Rideable "giant" class + the standard MountSlot back-reference.
+    let mount_pos = ae::Vec2::new(0.0, 0.0);
+    let mount_size = ae::Vec2::new(220.0, 220.0);
+    let mut mount_actor = hostile("giant_gnu", "giant_gnu", mount_pos, mount_size);
+    mount_actor.1 .2.health.current = 0; // dead → dissolution fires
+    let mut mountable = Mountable::at(ae::Vec2::new(0.0, -140.0));
+    mountable.class = MountClass("giant".into());
+    let mount = app
+        .world_mut()
+        .spawn((mount_actor, mountable, MountSlot { rider: None }))
+        .id();
+
+    // The gnu_ton_rider BOSS — a live mounted rider carrying the authored
+    // encounter phase state (at Phase1) + a distinctive `Brain::Player` marker
+    // so a surviving marker proves the BossConfig brain-keep rule. The dismount
+    // rebuild would produce a `Brain::StateMachine`, so `Player` surviving is
+    // load-bearing.
+    let rider_pos = ae::Vec2::new(0.0, -140.0);
+    let rider_size = ae::Vec2::new(54.0, 96.0);
+    let mut rider_actor = hostile("gnu_ton_rider", "gnu_ton_rider", rider_pos, rider_size);
+    rider_actor.1 .5.gravity_scale = 0.0; // mounted → gravity off
+    let (boss_encounter, _hp) = crate::combat::boss_clusters::test_support::test_boss_status_with(
+        profile.encounter.max_hp,
+        BossEncounterPhase::Phase1,
+        triggers,
+    );
+    let boss_config = crate::features::BossConfig {
+        id: "gnu_ton_rider".into(),
+        name: profile.display_name.clone(),
+        spawn: rider_pos,
+        brain: ambition_characters::actor::BossBrain::Dormant,
+        behavior: profile.behavior.clone(),
+    };
+    let rider = app
+        .world_mut()
+        .spawn((
+            rider_actor,
+            CenteredAabb::from_center_size(rider_pos, rider_size),
+            boss_encounter,
+            boss_config,
+            Brain::Player(PlayerSlot(0)),
+            CanPilot {
+                classes: vec![MountClass("giant".into())],
+            },
+            Mounted,
+            RidingOn { mount },
+        ))
+        .id();
+    app.world_mut()
+        .entity_mut(mount)
+        .insert(MountSlot { rider: Some(rider) });
+
+    app.update();
+
+    // The boss kept its authored Brain (BossConfig rule, Q19b) — not a rebuilt
+    // solo StateMachine.
+    assert!(
+        matches!(
+            app.world().entity(rider).get::<Brain>().unwrap(),
+            Brain::Player(_)
+        ),
+        "the dismounted gnu_ton_rider boss must keep its authored Brain",
+    );
+    // Gravity flipped on so the scholar falls off the dead giant.
+    assert_eq!(
+        rider_surface(app.world(), rider).gravity_scale,
+        1.0,
+        "the dismounted boss gets gravity so it lands on foot",
+    );
+    // Mounted marker cleared.
+    assert!(
+        app.world().entity(rider).get::<Mounted>().is_none(),
+        "the Mounted marker is removed on dismount",
+    );
+    // And the phase advanced to the authored on-foot mini-phase via mount_died.
+    let phase = app
+        .world()
+        .entity(rider)
+        .get::<crate::features::BossEncounter>()
+        .unwrap()
+        .encounter
+        .as_ref()
+        .unwrap()
+        .phase;
+    assert_eq!(
+        phase,
+        BossEncounterPhase::Enrage,
+        "mount death must flip the rider boss into its authored on-foot phase",
+    );
+}

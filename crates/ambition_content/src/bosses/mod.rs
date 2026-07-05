@@ -62,6 +62,7 @@ pub fn install_boss_roster() {
         include_str!("../../assets/data/boss_encounters/clockwork_warden.ron"),
         include_str!("../../assets/data/boss_encounters/mockingbird.ron"),
         include_str!("../../assets/data/boss_encounters/gnu_ton.ron"),
+        include_str!("../../assets/data/boss_encounters/gnu_ton_rider.ron"),
         include_str!("../../assets/data/boss_encounters/smirking_behemoth_boss.ron"),
         include_str!("../../assets/data/boss_encounters/flying_spaghetti_monster_boss.ron"),
         include_str!("../../assets/data/boss_encounters/trex_boss.ron"),

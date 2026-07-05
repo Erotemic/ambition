@@ -596,6 +596,26 @@
         hall_dialogue_id: Some("hall_npc_burning_flying_shark"),
         ),
 
+        // ===== Giant GNU (ADR 0020 mount actor — the carried giant GNU-ton
+        // rides on). A brainless, stationary MOUNT: it renders via the
+        // character-sprite path from the G1 scholar-less `giant_gnu` sheet
+        // (target `giant_gnu`, collision_scale 4.5 matching the giant art). Its
+        // rideability + heavy mass + own HP live on the `giant_gnu` archetype
+        // (character_archetypes.ron); GNU-ton (the rider) stays the boss. Not a
+        // hall pedestal (inspect-silent, no dialogue).
+        "npc_giant_gnu": (
+            sprite_tuning: Some((collision_scale: 4.5, frame_sample_inset: 1)),
+            display_name: "Giant GNU",
+            spritesheet: "sprites/gnu_ton_boss/giant_gnu_spritesheet.png",
+            manifest: "sprites/gnu_ton_boss/giant_gnu_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Wide,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["mount", "giant"],
+        ),
+
         // ===== Puppy Slug (wanderer crawlid).
         "npc_puppy_slug": (
             sprite_tuning: Some((collision_scale: 1.4, frame_sample_inset: 1)),

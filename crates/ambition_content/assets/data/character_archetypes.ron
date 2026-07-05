@@ -601,6 +601,43 @@
         ))),
         move_style: Float,
     ),
+    // ADR 0020 mount actor: the GIANT GNU that GNU-ton rides on (G2). A
+    // brainless, STATIONARY carried body — no attack, no contact damage, its
+    // OWN big HP pool, and heavy `mass` so the pair's center of gravity sits on
+    // the giant (the lighter scholar-rider orbits it under a gravity flip). Its
+    // `mount_class: "giant"` makes it rideable; only riders whose
+    // `pilotable_mount_classes` include "giant" (the `gnu_ton_rider` boss) may
+    // board it. It carries NO `pilotable_mount_classes` (the giant is the mount,
+    // never a rider). Death drops the rider unharmed (default `Dismount`), which
+    // the Q19 bridge turns into the rider boss's on-foot mini-phase. Sprite +
+    // rideable render come from the `npc_giant_gnu` catalog row.
+    "giant_gnu": (
+        max_health: 42,
+        // Stationary: no patrol / chase / aggro / attack. The StandStill brain
+        // ignores these, but the schema requires the numeric fields.
+        patrol_speed: 0.0,
+        chase_speed: 0.0,
+        aggro_radius: 0.0,
+        attack_range: 0.0,
+        contact_strength: 0.0,
+        damage_amount: 0,
+        // A brainless prop-like mount never seeks or strikes the player; its
+        // rider is the threat, and the body itself does no contact damage.
+        attacks_player: false,
+        body_contact_damage: false,
+        // The giant is the mount (ADR 0020), pilotable by "giant"-class riders.
+        mount_class: Some("giant"),
+        // Far heavier than the scholar rider so the mount+rider COG sits on the
+        // giant and the lighter rider orbits it under a gravity flip.
+        mass: 8.0,
+        // The giant's collision envelope (mirrors the fused gnu_ton combat_size).
+        default_size: Some((220.0, 220.0)),
+        // No motion / no AI — the carried giant just stands.
+        brain_template: StandStill,
+        // Grounded heavy locomotion (inert while StandStill, but the correct
+        // style for a lumbering giant if ever steered).
+        move_style: WalkHeavy,
+    ),
     // Cove crew. Peaceful by default because aggro_radius stays 0 and
     // `CharacterArchetype::attacks_player()` is false, but the archetype now
     // still carries its own melee capability. That lets systems that

@@ -266,6 +266,12 @@ def cmd_def(args, rest):
     return _todo(f"def {args.def_action}")
 
 
+def cmd_mount(args, rest):
+    if args.mount_action == "split":
+        return _delegate("ambition_ldtk_tools.mount_split", rest)
+    return _todo(f"mount {args.mount_action}")
+
+
 def cmd_layer(args, rest):
     if args.layer_action == "split-entities":
         return _delegate(
@@ -620,6 +626,19 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     sp_def.set_defaults(func=cmd_def)
+
+    # mount split — ADR 0020 fused-composite → linked mount+rider pair migration
+    sp_mount = sub.add_parser("mount", help="Mount authoring (ADR 0020)")
+    mount_sub = sp_mount.add_subparsers(dest="mount_action", required=True)
+    mount_sub.add_parser(
+        "split",
+        help=(
+            "Split fused composite EnemySpawns (pirate_on_shark / "
+            "pirate_heavy_on_shark) into linked mount+rider pairs. "
+            "Usage: mount split <ldtk> (--in-place | --output PATH)"
+        ),
+    )
+    sp_mount.set_defaults(func=cmd_mount)
 
     # tileset add
     sp_tileset = sub.add_parser("tileset", help="Tileset definition edits")

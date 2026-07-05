@@ -1056,11 +1056,22 @@ fn architecture_boundaries_abilities_live_under_abilities_layer() {
         )
     );
 
+    // The app composes the engine simulation — abilities included — through the
+    // `ambition_runtime::PlatformerEnginePlugins` group (E5, the demo gate). The
+    // abilities are still assembled via `AmbitionAbilitiesPlugin`, now INSIDE
+    // that group, so a demo app gets the same ability kit without touching the
+    // app.
     let plugins_text =
         fs::read_to_string(app_src().join("app/plugins.rs")).expect("read app/plugins.rs");
     assert!(
-        plugins_text.contains("ambition_gameplay_core::abilities::AmbitionAbilitiesPlugin"),
-        "app/plugins.rs should compose abilities through AmbitionAbilitiesPlugin"
+        plugins_text.contains("ambition_runtime::PlatformerEnginePlugins"),
+        "app/plugins.rs should compose the engine sim through PlatformerEnginePlugins"
+    );
+    let runtime_text = fs::read_to_string(repo_root().join("crates/ambition_runtime/src/lib.rs"))
+        .expect("read ambition_runtime/src/lib.rs");
+    assert!(
+        runtime_text.contains("ambition_gameplay_core::abilities::AmbitionAbilitiesPlugin"),
+        "PlatformerEnginePlugins should compose abilities through AmbitionAbilitiesPlugin"
     );
 }
 

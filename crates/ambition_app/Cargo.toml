@@ -102,6 +102,9 @@ profile = ["ambition_gameplay_core/profile"]
 
 [dependencies]
 ambition_gameplay_core = { path = "../ambition_gameplay_core", default-features = false }
+# The engine face (E5): the app assembles its sim from `PlatformerEnginePlugins`
+# — the same group a demo app uses — plus its app-local host wiring.
+ambition_runtime = { path = "../ambition_runtime" }
 ambition_content = { path = "../ambition_content" }
 ambition_render = { path = "../ambition_render" }
 ambition_cutscene = { path = "../ambition_cutscene" }

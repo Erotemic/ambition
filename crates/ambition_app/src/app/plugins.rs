@@ -101,44 +101,33 @@ pub fn add_simulation_plugins(app: &mut App) {
         app.add_plugins(ambition_gameplay_core::dialog::YarnBindingsPlugin);
     }
 
-    app.add_plugins(ambition_gameplay_core::features::WorldPrepSchedulePlugin);
-    // Universal-brain messages/resources; per-tick systems are registered below.
-    app.add_plugins(ambition_characters::brain::BrainPlugin);
+    // The content-free engine SIMULATION plugins (E5): the SAME
+    // `PlatformerEnginePlugins` group a demo app builds on — the sim schedule,
+    // the universal brain, gravity, traversal abilities, item pickups,
+    // encounters/cutscenes, feature collection/interaction/effects/view-sync,
+    // room reset, traces, and affordances. Ordering is set-based (configured by
+    // `configure_sandbox_sets` above), so pulling these out of the interleaved
+    // list into one group does not change the resolved schedule.
+    app.add_plugins(ambition_runtime::PlatformerEnginePlugins);
+
+    // App-local HOST wiring the group deliberately leaves behind — per-tick
+    // player input/simulation/room-transition/presentation-sync system
+    // registrations, the combat + progression host schedules, and the portal
+    // schedule placement. These wrap app-local systems or need host-specific
+    // ordering; they tighten into the group (or a thin host adapter) as the
+    // E-track carves land.
     register_player_input_systems(app);
     register_player_simulation_systems(app);
-    // Ambition's player ability/weapon kit plus its small shared app state.
-    app.add_plugins(ambition_gameplay_core::abilities::AmbitionAbilitiesPlugin);
-    // "Tie a knot": the emitted player trail used as the substrate for future
-    // cycle/spell mechanics. Emission starts disabled until input toggles it.
-    app.add_plugins(ambition_gameplay_core::player::trail::PlayerTrailPlugin);
-    // Gravity zones / switches and their per-frame ambient-gravity snapshot.
-    app.add_plugins(ambition_gameplay_core::gravity::GravityPlugin);
     #[cfg(feature = "portal")]
     {
         app.add_plugins(ambition_gameplay_core::portal::PortalPlugin);
         // Host-side placement for portal's internal sets.
         wire_portal_schedule(app);
     }
-    app.add_plugins(ambition_gameplay_core::items::pickup::ItemPickupSimulationPlugin);
     register_room_transition_systems(app);
     app.add_plugins(super::combat_schedule::CombatSchedulePlugin);
     register_presentation_sync_systems(app);
-    app.add_plugins(ambition_gameplay_core::features::FeatureCollectionSchedulePlugin);
-    app.add_plugins(ambition_gameplay_core::features::FeatureInteractionSchedulePlugin);
-    app.add_plugins(ldtk_world::LdtkRuntimeSpinePlugin);
-    app.add_plugins(ambition_gameplay_core::encounter::EncounterSimulationSchedulePlugin);
-    app.add_plugins(ambition_gameplay_core::cutscene::CutsceneSchedulePlugin);
-    app.add_plugins(ambition_gameplay_core::features::GameplayEffectsSchedulePlugin);
     app.add_plugins(super::progression_schedule::ProgressionSchedulePlugin);
-    app.add_plugins(ambition_gameplay_core::features::FeatureViewSyncSchedulePlugin);
-    app.add_plugins(ambition_gameplay_core::session::reset::SandboxResetSchedulePlugin);
-    app.add_plugins(ambition_gameplay_core::trace::TraceSchedulePlugin);
-    // Per-frame "what would each verb do right now?" table consumed
-    // by the touch / control-prompt HUD and (future) gameplay code.
-    // Registered alongside simulation so headless / RL builds can
-    // also inspect affordances; the resources are cheap and the
-    // compute systems no-op when no primary player exists.
-    app.add_plugins(ambition_gameplay_core::player::affordances::AffordancesPlugin);
 }
 
 /// Host-side placement for portal systems: map each portal-internal set to

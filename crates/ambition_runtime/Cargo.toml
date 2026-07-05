@@ -1,0 +1,26 @@
+[package]
+name = "ambition_runtime"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The platformer ENGINE face (demo plan E5): a `PlatformerEnginePlugins` plugin group that assembles the content-free simulation plugins, so a game (Ambition, or a demo) builds an engine App by adding this group + its own content crate. The demo gate — S5/M-track apps depend on this, not on ambition_app."
+
+[dependencies]
+# The headless sim feature set: the sim schedule + LDtk runtime spine, WITHOUT
+# the desktop/visible/devtools stack. A demo app layers its own presentation on
+# top. (Feature unification with a visible host app is fine — it only ever ADDS
+# rendering features the host already declares.)
+ambition_gameplay_core = { path = "../ambition_gameplay_core", default-features = false, features = [
+    "headless",
+    "input",
+    "portal_ldtk",
+] }
+ambition_characters = { path = "../ambition_characters" }
+bevy = { version = "0.18.1", default-features = false }
+
+[features]
+# Forward the sim-relevant feature gates so a consumer can opt into the same
+# optional subsystems the plugin group conditionally bundles. Kept minimal for
+# the first assembly; widened as more plugins migrate in.
+portal = ["ambition_gameplay_core/portal"]

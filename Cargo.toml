@@ -18,6 +18,7 @@ members = [
     "crates/ambition_render",
     "crates/ambition_portal_presentation",
     "crates/ambition_gameplay_core",
+    "crates/ambition_runtime",
     "crates/ambition_sfx",
     "crates/ambition_sfx_bank",
     "crates/ambition_sprite_sheet",

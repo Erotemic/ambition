@@ -21,6 +21,12 @@ pub(crate) fn apply_character_frame(
     facing: f32,
     gravity_dir: ambition_engine_core::Vec2,
     color: Color,
+    // Body-mode stance compaction (crouch/crawl/slide/morph shrinks the AABB and
+    // slides `pos` down to keep feet planted). `current AABB height / base height`,
+    // clamped (0, 1]; `1.0` for a body at full standing height. Applied to the
+    // TRIMMED per-frame height so trimmed sheets match the untrimmed stance-scale in
+    // `sync_visuals` instead of restoring the standing height at the lowered pos.
+    stance_ratio_y: f32,
 ) {
     animator.request(anim);
     let index = animator.tick(dt);
@@ -58,7 +64,12 @@ pub(crate) fn apply_character_frame(
     // untrimmed sheets, so those keep their fixed spawn-time size/anchor and are
     // byte-identical. The anchor x mirrors with the facing flip so an
     // off-centre trim stays consistent left/right.
-    if let (Some((size, mut anchor_v)), Some(anchor)) = (animator.current_render(), anchor) {
+    if let (Some((mut size, mut anchor_v)), Some(anchor)) = (animator.current_render(), anchor) {
+        // Crouch/crawl/slide/morph: scale the trimmed height by the collision-shrink
+        // ratio so the feet stay planted (the normalized anchor preserves foot
+        // alignment). Without this a trimmed sheet renders standing height at the
+        // lowered crouch pos and sinks through the floor.
+        size.y *= stance_ratio_y;
         sprite.custom_size = Some(size);
         if flip {
             anchor_v.x = -anchor_v.x;
@@ -102,6 +113,9 @@ pub fn animate_player(
                 Option<&ambition_gameplay_core::player::BodyMelee>,
                 Option<&ambition_time::ProperTimeScale>,
                 Option<&mut bevy::sprite::Anchor>,
+                // Base (standing) AABB — the denominator of the crouch stance ratio.
+                // Optional so a player-bodied clone that lacks it animates unchanged.
+                Option<&ambition_engine_core::BodyBaseSize>,
             ),
         ),
         With<PlayerVisual>,
@@ -132,9 +146,15 @@ pub fn animate_player(
             anim_state,
             blink_cam,
         ),
-        (body_mode, env_contact, abilities, dodge, shield, active_attack, scale, anchor),
+        (body_mode, env_contact, abilities, dodge, shield, active_attack, scale, anchor, base_size),
     ) in &mut query
     {
+        // Stance compaction ratio: current AABB height / base standing height. The
+        // engine shrinks the AABB (and lowers `pos`) on crouch/crawl/slide/morph; the
+        // trimmed-sheet render must scale to match or the sprite sinks under the floor.
+        let stance_ratio_y = base_size
+            .map(|b| (kinematics.size.y / b.base_size.y.max(1.0)).clamp(0.1, 1.0))
+            .unwrap_or(1.0);
         let attack_state = active_attack.and_then(|a| a.swing.as_ref());
         let anim = ambition_gameplay_core::character_sprites::pick_player_anim(
             anim_state,
@@ -171,6 +191,7 @@ pub fn animate_player(
             kinematics.facing,
             player_gravity,
             Color::WHITE,
+            stance_ratio_y,
         );
     }
 }
@@ -241,6 +262,9 @@ pub fn animate_characters(
             frame.facing,
             gravity.dir_at(frame.pos),
             color,
+            // Enemies/NPCs don't drive the crouch stance-scale seam (their compaction,
+            // if any, is authored per-anim); full standing height.
+            1.0,
         );
     }
 }
@@ -306,6 +330,8 @@ pub fn animate_props(
             1.0,
             ambition_engine_core::Vec2::Y,
             Color::WHITE,
+            // Props don't crouch — full standing height.
+            1.0,
         );
     }
 }

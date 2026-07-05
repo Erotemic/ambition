@@ -599,6 +599,12 @@ new entries append HERE.
   geometry verified; play-feel unchecked). Sanic sprite (`sanic`) draws blind —
   spot-check the silhouette. Sanic momentum params (top_speed 1200 etc.) are a
   first guess; tune on the feel pass.
+- **BLIND additions (fable 2026-07-05 night):** `a5d15247` G5 possessed-verb
+  BINDINGS (attack→hand_sweep, down→hand_slam, up→converging_shockwave,
+  special→apple_rain) — retune in `boss_profiles.ron possessed_verbs`;
+  `05a32378` moveset slash VFX placement/size + the authored-blade swap on
+  every moveset melee (incl. enemies) — check swings read right in-game;
+  `31342e6f` swept portal transit at loop speeds — feel the c135/c134 dive.
 
 ## 6. COMPLETENESS AUDIT — every open item from the three reviews, accounted for
 
@@ -659,7 +665,7 @@ obligation is to re-add the capability *elegantly* once the unification unblocks
 it. Each deferred item below is that obligation made explicit. Numbering matches
 Jon's original bug list.
 
-### 7.1 — Authored polygon melee hitboxes lost in the moveset fold — [DEFER / fable decides]
+### 7.1 — Authored polygon melee hitboxes lost in the moveset fold — [FIXED, fable `05a32378`]
 **Symptom:** the controlled robot's attack is a small square that never orients
 up/down/side; the authored per-direction blade polygons are gone, and that
 square (not the polygon) is the hitbox.
@@ -685,7 +691,7 @@ restores per-direction authored polygons for free. NOT urgent; fable decides
 where this lands (natural sibling to Track A / the E3 moveset-presentation
 surface).
 
-### 7.2 — Attack VFX/SFX gone — [SFX fixed this session; VFX DEFER / fable decides]
+### 7.2 — Attack VFX/SFX gone — [FIXED: SFX T2; VFX fable `05a32378`]
 **VFX root cause (DEFER):** `MoveEventKind` has only `Sfx`/`Effect`/`Ranged`
 (`ambition_entity_catalog/src/lib.rs:233-246`) — no `Vfx`/`Slash` variant — and
 `dispatch_move_events` (`moveset.rs:947-1015`) has no VFX branch, so a move has
@@ -774,7 +780,7 @@ size/anchor.
 into the trimmed per-frame basis so trimmed sheets respect crouch/crawl/slide AABB
 shrink. See SESSION TODO.
 
-### 7.6 — Portal high-speed tunneling (c135→c134 accelerating fall loop) — [DEFER / fable designs]
+### 7.6 — Portal high-speed tunneling (c135→c134 accelerating fall loop) — [FIXED, fable `31342e6f`]
 **Symptom:** falling through the c135(floor)→c134(ceiling) translation pair builds
 speed each 680px cycle; eventually the body clips PAST the aperture and lands
 embedded in the floor.
@@ -1236,3 +1242,76 @@ deeper trace disproved the recon hypothesis; the rest deferred (§7.1, 7.3, 7.4,
   into the trimmed per-frame basis in `apply_character_frame`
   (`actors/animation.rs`); trimmed sheets now respect the crouch/crawl/slide
   shrink instead of restoring standing height/anchor at the lowered pos. **DONE.**
+
+## G5 — possess gnuton, drive the giant's limbs ✅ (`a5d15247`, fable, 2026-07-05)
+**THE G-TRACK IS FULLY COMPLETE.** The payoff slice, designed + landed as the
+controller→verb map, maximally reusing what already existed:
+- `BossBehaviorProfile.possessed_verbs: Vec<(verb, move_key)>` — sibling of
+  `limb_routing`, authored RON. The possession arm of `tick_boss_brains_system`
+  (`possessed_attack_choice`) reduces the controller's body-local aim with the
+  SAME `attack_dir_from_axis` + `directional_verb_chain` every actor melee
+  resolves (attack_down → attack; the boss floats, no air split), publishes the
+  winning move key as fire intent via `from_move_id` — the same id
+  `limb_routing` keys on, so aboard the giant the verbs ARE the limb verbs with
+  zero new plumbing. No authored verbs → legacy slot(0)/signature mapping,
+  byte-identical (pinned).
+- gnu_ton_rider binds attack→hand_sweep, down→hand_slam,
+  up→converging_shockwave, special→apple_rain (BLIND; typo-guarded by test —
+  every verb must name an authored attack).
+- e2e (mount tests): SlotControls down+attack on a possessed rider aboard the
+  real rig → hand_slam plays → projects → routes across RidingOn/MountSlot →
+  BOTH giant hands slam with the strike edge; release → move completes, hands
+  re-station. Every system in the chain is the production one.
+
+## HOTFIX — the game paniced at startup (G3 schedule cycle) ✅ (`32f42cb9`, fable)
+Jon's live run hit `Error when initializing schedule Update: … before/after
+cycle`. Root cause: the G3 registration demanded `.after(tick_boss_brains_system)`
+AND `.before(integrate_sim_bodies)`, but the app schedule already orders
+`integrate_sim_bodies < tick_npc_idle_barks < tick_boss_brains_system` —
+unsatisfiable; the full composition only exists in the real app, so headless
+gameplay_core suites stayed green. Fix: the limb router stays in the movement
+phase and reads `BossAttackState` as the read-model it is (previous frame's
+projection — the standard lag every consumer of it accepts); dropped the
+impossible edge, documented the contract at the registration. **The rl_sim
+headless app tests reproduce this class of failure and are the regression
+guard** (they were failing; now 140 green + all integration suites; sole RED =
+the documented feel-reserved `unified_melee::a_hostile_actor…`).
+
+## §7.6 — swept (CCD) portal transit ✅ (`31342e6f`, fable)
+Jon's steer executed (sweep the TRIGGER, never a speed cap): `SweptSample` +
+a swept tier in `transit_step_with_tuning` — if the prev→now segment crossed a
+paired portal's plane through its opening, the body fell through this frame;
+transfer at any depth (`map_point` is continuous in depth). Runs in the
+unlatched arm AND the post-transfer latch arm (on a fast loop the exit→entry
+flight drops below one frame). Momentum honesty: carries the velocity that
+PRODUCED the crossing (the grounded-at-carve-bottom embed zeroes the live one).
+Teleport guard: segments longer than one frame of prior ballistic motion never
+sweep. `PortalSweepAnchor` records true post-step samples in `portal_transit`.
+Regression: the exact 680px floor→ceiling pair flung to ~630px/frame — transit
+every cycle, never embeds. Documented bound: one crossing per step (>680px/frame
+out-runs it — several times terminal). portal 46 green.
+
+## §7.1 + §7.2 — authored blades + slash VFX on the moveset path ✅ (`05a32378`, fable)
+One vocabulary, both regressions: `HitVolume.vfx: Option<String>`
+("slash_arc"/"slash_poke") marks a volume as the character's BLADED swing —
+(a) the slash VFX draws from the SAME spawned volume at the Active edge (the
+`spawn_melee_strike` can't-diverge invariant, restored), down-tilt pokes;
+(b) a tagged volume prefers the sprite-manifest's authored hit polygon for the
+move's CLIP (directional variants rebind clip → per-direction rows key
+themselves; attack_up already resolves a real upward hull), resolved body-local
+and mirrored/rotated by the hitbox's own `place_at` — the bespoke path's
+gravity covariance. Actors key by `ActorConfig.sprite_character_id`; home body
+by the player root (C2 worn-sheet residue stands). Miss → synthetic rect,
+payload intact. Boss geometry volumes stay silent (`vfx: None`) — no boss
+slashes, no manifest overrides. `MoveEventKind` needed no new variant: the
+volume tag IS the presentation seam, geometry-coupled (recorded as the §7.2
+resolution). Pins: Convex blade + one Arc slash; fallback rect still hits +
+slashes. gameplay_core 1157 / content 64 / app rl_sim 140 green.
+
+**FABLE SESSION TALLY (2026-07-05 night):** G5 (`a5d15247`), startup-panic
+hotfix (`32f42cb9`), §7.6 swept transit (`31342e6f`), §7.1+7.2 authored
+blades/VFX (`05a32378`) — every [★fable] item on the plan is now executed;
+the G-track is closed end-to-end. Remaining §7 defers: 7.3 (needs a run),
+7.4 (modal body morphs, E3/M7), 7.7 (respawn policy + ADR 0022), 7.8 (sprite
+authoring in flux), 7.9 (portal gun → item, low priority). Remaining §0 is
+the W/E crate carves + the two demos (multi-session, [opus]).

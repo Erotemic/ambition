@@ -638,6 +638,34 @@
         // style for a lumbering giant if ever steered).
         move_style: WalkHeavy,
     ),
+    // Q18 (G3) GIANT GNU HAND — one of the giant's two driven limb bodies. A
+    // brainless actor body (no attack / no contact damage / StandStill) that the
+    // gnu_ton_rider boss's strikes drive through the limb router
+    // (`route_boss_strikes_to_limbs` → `fan_out_limb_intents`). NOT rideable (the
+    // giant is the mount, the hands are its limbs) and NOT a rider. Renders the
+    // `giant_gnu_hands` sheet via the `npc_giant_gnu_hands` catalog row. Its
+    // ActorControl is clobbered by the fan-out each tick, so the StandStill brain
+    // is inert — the rig owns the hand's motion, not a brain.
+    "giant_gnu_hands": (
+        max_health: 42,
+        patrol_speed: 0.0,
+        chase_speed: 0.0,
+        aggro_radius: 0.0,
+        attack_range: 0.0,
+        contact_strength: 0.0,
+        damage_amount: 0,
+        // The hands themselves deal no contact damage; the rider's routed strikes
+        // spawn the damaging hitboxes through the moveset runtime.
+        attacks_player: false,
+        body_contact_damage: false,
+        // A hand is lighter than the giant body but heavy enough to feel solid.
+        mass: 2.0,
+        // A hand's collision envelope — a fraction of the giant body.
+        default_size: Some((154.0, 154.0)),
+        // No autonomous motion — the limb router steers it.
+        brain_template: StandStill,
+        move_style: WalkHeavy,
+    ),
     // Cove crew. Peaceful by default because aggro_radius stays 0 and
     // `CharacterArchetype::attacks_player()` is false, but the archetype now
     // still carries its own melee capability. That lets systems that

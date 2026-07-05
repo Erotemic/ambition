@@ -81,9 +81,10 @@ pub use actors::{
 #[cfg(test)]
 pub(crate) use actors::hostile_brain_id_for_actor;
 pub use actors::{
-    apply_actor_contact_damage, integrate_sim_bodies, step_momentum_body,
-    sync_actor_poses_from_feature_aabbs, sync_actor_read_model, tick_actor_brains,
-    tick_npc_idle_barks, ActorSteering, MomentumMotion, MotionModel,
+    apply_actor_contact_damage, fan_out_limb_intents, integrate_sim_bodies,
+    route_boss_strikes_to_limbs, step_momentum_body, sync_actor_poses_from_feature_aabbs,
+    sync_actor_read_model, tick_actor_brains, tick_npc_idle_barks, ActorSteering, Limb,
+    LimbIntents, LimbRig, LimbRouteState, LimbSlot, MomentumMotion, MotionModel,
 };
 pub use aggression::{
     apply_actor_stimuli, tick_pending_challenges, PendingChallenge, CHALLENGE_GRACE_S,

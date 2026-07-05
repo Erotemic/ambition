@@ -152,6 +152,49 @@ pub struct BossBehaviorProfile {
     /// [`CanPilot`]: crate::features::CanPilot
     #[serde(default)]
     pub pilotable_mount_classes: Vec<String>,
+    /// Q18 (G3): the profile→limb routing seam. Keyed by the strike's move id
+    /// (`"hand_slam"`, `"hand_sweep"`, …), each entry names which of the mount's
+    /// limb slots a strike drives and how ([`LimbRoute`]). When this boss is a
+    /// RIDER whose linked mount carries a [`crate::features::LimbRig`],
+    /// `route_boss_strikes_to_limbs` turns the ACTIVE strike's route into per-limb
+    /// `velocity_target` arcs + a `melee_pressed` edge, written onto the mount's
+    /// [`crate::features::LimbIntents`]. A strike move id NOT present here stays a
+    /// host-body strike (no limb intent) — exactly as today. Empty (the
+    /// `#[serde(default)]`) ⇒ no strike drives limbs (every boss but the gnu-ton
+    /// rider). Authored in `boss_profiles.ron`, so a second game's mounted boss
+    /// wires its own limbs with no edit to core.
+    #[serde(default)]
+    pub limb_routing: Vec<(String, LimbRoute)>,
+}
+
+/// Q18 (G3): one motion verb the limb router turns into a `velocity_target` arc
+/// across a strike's Startup/Active phases. A tiny closed set — anything richer
+/// is authored later as per-limb `MoveSpec`s. Data-driven on the boss profile;
+/// the router (`route_boss_strikes_to_limbs`) owns the arc math.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Deserialize)]
+pub enum LimbMotion {
+    /// Lift the limb toward `-gravity` (wind up / hold high).
+    Raise,
+    /// Sweep the limb laterally along the host's facing.
+    SweepAcross,
+    /// Arc the limb down along `+gravity` to a strike depth (an overhead slam).
+    SlamDown,
+    /// Station-keep — the limb holds its home pose while others strike.
+    Hold,
+}
+
+/// Q18 (G3): a strike's limb ROUTE — which of the mount's limb slots it drives
+/// (`"hand_left"` / `"hand_right"`), and the [`LimbMotion`] each performs. Keyed
+/// by move id inside [`BossBehaviorProfile::limb_routing`]. Authored in RON:
+/// `("hand_slam", (slots: ["hand_left", "hand_right"], motion: SlamDown))`.
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+pub struct LimbRoute {
+    /// Slot names the strike drives. `"hand_left"` / `"hand_right"` map to
+    /// [`crate::features::LimbSlot`] via `LimbSlot::from_route_str`; unknown names
+    /// are ignored (a route to a slot the rig doesn't carry is simply inert).
+    pub slots: Vec<String>,
+    /// How each named slot moves during the strike.
+    pub motion: LimbMotion,
 }
 
 /// Authored speech-bubble anchor for a boss (see

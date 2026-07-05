@@ -945,7 +945,108 @@ pub(super) fn spawn_enemy_with_faction(
     );
     let entity = spawn_solo_enemy(commands, enemy, authored, faction);
     attach_mount_role(commands, entity, &spec);
+    // Q18 (G3): a mount archetype that carries articulated hands (the `giant`-class
+    // giant_gnu) grows a `LimbRig` + two hand limb bodies the rider boss's strikes
+    // route to. v1 is scoped to the `"giant"` class (see `mount_has_hand_limbs`); a
+    // per-archetype `has_hand_limbs` flag is the data-driven generalization, left
+    // for when a second limbed mount lands.
+    if mount_has_hand_limbs(&spec) {
+        spawn_giant_hand_limbs(commands, entity, authored.aabb, &spec);
+    }
     Some(entity)
+}
+
+/// v1 predicate (Q18): which mount archetypes carry driven hand limbs. Scoped to
+/// the `"giant"` class — the only limbed mount today. Generalizing to a
+/// data-driven archetype flag is deferred until a second limbed mount exists.
+fn mount_has_hand_limbs(spec: &super::super::enemies::CharacterArchetypeSpec) -> bool {
+    spec.mount_class.as_deref() == Some("giant")
+}
+
+/// Q18 (G3): spawn the two hand limb bodies for a `giant`-class mount and wire the
+/// [`super::LimbRig`]. Each hand is an ORDINARY actor body (it integrates + renders
+/// the `giant_gnu_hands` sheet via the `npc_giant_gnu_hands` catalog row) carrying
+/// a [`super::Limb`] with its host-local `home_offset`; the giant carries the rig
+/// plus the router's [`super::LimbIntents`] / [`super::LimbRouteState`]. The rider
+/// boss's strikes reach these hands through `route_boss_strikes_to_limbs` +
+/// `fan_out_limb_intents` — the giant itself stays brainless (the rig owns no
+/// behavior).
+///
+/// Deviation from the R10.1 limbs doc ("no Brain/BodyHealth"): the hands reuse the
+/// full character-actor cluster — the SAME path slices 1+2 wired the brainless
+/// giant mount itself — so they get integration + rendering for free. Their
+/// `giant_gnu_hands` archetype is brainless (`StandStill`) and deals no contact
+/// damage, and the fan-out clobbers their `ActorControl` every tick, so the
+/// cluster's brain/health ride along inertly rather than justifying a bespoke
+/// minimal body.
+fn spawn_giant_hand_limbs(
+    commands: &mut Commands,
+    giant: bevy::ecs::entity::Entity,
+    giant_aabb: ae::Aabb,
+    spec: &super::super::enemies::CharacterArchetypeSpec,
+) {
+    let giant_half = spec
+        .default_size
+        .map(|s| s * 0.5)
+        .unwrap_or_else(|| giant_aabb.half_size());
+    let giant_center = giant_aabb.center();
+    // Hand body extent — a fraction of the giant so the two hands read as hands,
+    // not full-body copies (feel-tunable; the render is a box fallback until the
+    // giant_gnu_hands sheet is regenerated).
+    let hand_size = ae::Vec2::new(giant_half.x * 0.7, giant_half.y * 0.7);
+    // Host-local idle anchors: a hand off each shoulder, slightly forward/down of
+    // the giant's center (body-frame; the router rotates these into the gravity
+    // frame). These are the station-keeping home poses.
+    let home_l = ae::Vec2::new(-giant_half.x * 0.55, giant_half.y * 0.15);
+    let home_r = ae::Vec2::new(giant_half.x * 0.55, giant_half.y * 0.15);
+
+    let mut hands: Vec<bevy::ecs::entity::Entity> = Vec::with_capacity(2);
+    for (slot, home, tag) in [
+        (super::LimbSlot::HandLeft, home_l, "left"),
+        (super::LimbSlot::HandRight, home_r, "right"),
+    ] {
+        let center = giant_center + home;
+        let aabb = ae::Aabb::new(center, hand_size * 0.5);
+        // Unique per giant instance (feature ids must not collide across live spawns).
+        let hand_id = format!("giant_gnu_hand_{tag}_{}", giant.index());
+        let seed = super::actor_clusters::ActorClusterSeed::new(
+            hand_id.clone(),
+            "Giant GNU Hand",
+            aabb,
+            ambition_characters::actor::CharacterBrain::Custom("giant_gnu_hands".into()),
+            &[],
+        );
+        let hand = spawn_solo_enemy(
+            commands,
+            seed,
+            &crate::rooms::Authored {
+                id: hand_id,
+                name: "Giant GNU Hand".to_string(),
+                aabb,
+                payload: ambition_characters::actor::CharacterBrain::Custom(
+                    "giant_gnu_hands".into(),
+                ),
+            },
+            super::ActorFaction::Enemy,
+        );
+        commands.entity(hand).insert((
+            super::Limb {
+                of: giant,
+                slot,
+                home_offset: home,
+            },
+            // A hand is not itself a threat/target — flip it out of the hostile
+            // default so targeting/aggro ignore it; the fan-out is its only driver.
+            super::ActorDisposition::Peaceful,
+        ));
+        hands.push(hand);
+    }
+
+    commands.entity(giant).insert((
+        super::LimbRig { limbs: hands },
+        super::LimbIntents::default(),
+        super::LimbRouteState::default(),
+    ));
 }
 
 /// ADR 0020: give a standalone actor its mount role from its archetype. A

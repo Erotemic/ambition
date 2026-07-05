@@ -409,6 +409,20 @@
         // ADR 0020: this boss RIDES a "giant"-class mount. `spawn_boss` attaches
         // the CanPilot tag from this list.
         pilotable_mount_classes: ["giant"],
+        // Q18 (G3) limb routing — which of the giant mount's hand limbs each strike
+        // drives, and how. `route_boss_strikes_to_limbs` reads THIS map off the
+        // rider boss and writes per-limb intents onto the linked giant. BLIND / Jon
+        // retunes later ("don't care yet"):
+        //   * hand_slam  → both hands, overhead SlamDown.
+        //   * hand_sweep → the facing-side hand only, lateral SweepAcross.
+        //   * converging_shockwave → both hands, SlamDown.
+        // head_descent stays a host-body move (no limb route) and apple_rain stays a
+        // Special — neither appears here, so they route to NO limb (unchanged).
+        limb_routing: [
+            ("hand_slam", (slots: ["hand_left", "hand_right"], motion: SlamDown)),
+            ("hand_sweep", (slots: ["hand_left", "hand_right"], motion: SweepAcross)),
+            ("converging_shockwave", (slots: ["hand_left", "hand_right"], motion: SlamDown)),
+        ],
         movement: StationaryGiant(
             sway_amplitude: 6.0,
             sway_frequency: 0.28,

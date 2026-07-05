@@ -955,3 +955,154 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
         "mount death must flip the rider boss into its authored on-foot phase",
     );
 }
+
+/// Q18 (G3) end-to-end: the gnu_ton_rider boss's `hand_slam` strike ROUTES to the
+/// giant mount's two hand limbs. Spawns the rig the way the spawn hook wires it —
+/// a giant carrying `LimbRig` + `LimbIntents` + `LimbRouteState`, two hand limb
+/// bodies, and a linked rider boss whose `BossConfig` carries the authored
+/// `limb_routing` — then drives the rider into a `hand_slam` Active window and runs
+/// the real `route_boss_strikes_to_limbs` + `fan_out_limb_intents` seam.
+///
+/// Asserts the router BRIDGES the RidingOn/MountSlot link (attack state on the
+/// RIDER, limbs on the MOUNT) and yields divergent limb intents: both hands drive
+/// DOWN (+gravity) with a `melee_pressed` strike edge for `SlamDown`. Then, with no
+/// active strike, the same limbs fall back to their home-station intent.
+#[test]
+fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge() {
+    use crate::boss_encounter::BossProfile;
+    use crate::features::{
+        fan_out_limb_intents, route_boss_strikes_to_limbs, ActorSurfaceState, BodyKinematics,
+        BossConfig, Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot,
+    };
+    use ambition_characters::actor::control::ActorControlFrame;
+    use ambition_characters::brain::{ActorControl, BossAttackProfile, BossAttackState};
+
+    let profile =
+        BossProfile::from_id("gnu_ton_rider").expect("gnu_ton_rider boss profile is authored");
+    // The RON `limb_routing` loaded: hand_slam is authored as a limb route.
+    assert!(
+        profile
+            .behavior
+            .limb_routing
+            .iter()
+            .any(|(k, _)| k == "hand_slam"),
+        "gnu_ton_rider must author a hand_slam limb route (Q18)",
+    );
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.add_systems(
+        Update,
+        (route_boss_strikes_to_limbs, fan_out_limb_intents).chain(),
+    );
+
+    // The GIANT mount at origin, grounded (floor normal points up → gravity down).
+    let giant_pos = ae::Vec2::ZERO;
+    let giant = app
+        .world_mut()
+        .spawn((
+            BodyKinematics {
+                pos: giant_pos,
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(220.0, 220.0),
+                facing: 1.0,
+            },
+            ActorSurfaceState {
+                surface_normal: ae::Vec2::new(0.0, -1.0),
+                gravity_scale: 1.0,
+            },
+            LimbIntents::default(),
+            LimbRouteState::default(),
+            MountSlot { rider: None },
+        ))
+        .id();
+
+    // Two hand limbs displaced 15px BELOW their home anchors, so the idle
+    // station-keeping (velocity steers back toward home) is a non-trivial value.
+    let home_l = ae::Vec2::new(-60.0, 20.0);
+    let home_r = ae::Vec2::new(60.0, 20.0);
+    let spawn_hand = |app: &mut App, slot, home: ae::Vec2| {
+        app.world_mut()
+            .spawn((
+                Limb {
+                    of: giant,
+                    slot,
+                    home_offset: home,
+                },
+                BodyKinematics {
+                    pos: giant_pos + home + ae::Vec2::new(0.0, 15.0),
+                    ..Default::default()
+                },
+                ActorControl(ActorControlFrame::neutral()),
+            ))
+            .id()
+    };
+    let hand_l = spawn_hand(&mut app, LimbSlot::HandLeft, home_l);
+    let hand_r = spawn_hand(&mut app, LimbSlot::HandRight, home_r);
+    app.world_mut().entity_mut(giant).insert(LimbRig {
+        limbs: vec![hand_l, hand_r],
+    });
+
+    // The RIDER boss carries the authored behavior (with limb_routing) and is driven
+    // into a hand_slam ACTIVE window (the sim-owned BossAttackState projection).
+    let mut attack = BossAttackState::default();
+    attack.active_profile = Some(BossAttackProfile::Strike("hand_slam".into()));
+    attack.active_elapsed = 1.7;
+    attack.active_remaining = 0.3;
+    let rider = app
+        .world_mut()
+        .spawn((
+            attack,
+            BossConfig {
+                id: "gnu_ton_rider".into(),
+                name: profile.display_name.clone(),
+                spawn: ae::Vec2::ZERO,
+                brain: ambition_characters::actor::BossBrain::Dormant,
+                behavior: profile.behavior.clone(),
+            },
+            RidingOn { mount: giant },
+        ))
+        .id();
+    app.world_mut()
+        .entity_mut(giant)
+        .insert(MountSlot { rider: Some(rider) });
+
+    app.update();
+
+    // Both hands drove DOWN (+y = gravity) and fired the strike edge (SlamDown at
+    // Active onset) — divergent, purely-vertical slam intents, not station-keeping.
+    let l = app.world().get::<ActorControl>(hand_l).unwrap().0;
+    let r = app.world().get::<ActorControl>(hand_r).unwrap().0;
+    assert!(
+        l.velocity_target.y > 0.0 && r.velocity_target.y > 0.0,
+        "both giant hands slam DOWNWARD for a routed hand_slam (l={:?} r={:?})",
+        l.velocity_target,
+        r.velocity_target,
+    );
+    assert!(
+        l.melee_pressed && r.melee_pressed,
+        "both hands fire a melee_pressed strike edge at the Active onset",
+    );
+    assert!(
+        l.velocity_target.x.abs() < 1.0 && r.velocity_target.x.abs() < 1.0,
+        "SlamDown is purely vertical (no lateral drift)",
+    );
+
+    // With NO active strike, the same limbs fall back to their HOME-station intent:
+    // no strike edge, and the velocity steers back UP toward the home anchor (the
+    // limb sits 15px below home, so the corrective is negative-y).
+    app.world_mut()
+        .get_mut::<BossAttackState>(rider)
+        .unwrap()
+        .clear();
+    app.update();
+    let l = app.world().get::<ActorControl>(hand_l).unwrap().0;
+    assert!(
+        !l.melee_pressed,
+        "no active strike → no strike edge on the idle limb",
+    );
+    assert!(
+        l.velocity_target.y < 0.0,
+        "an idle limb station-keeps toward its home anchor (steers back up)",
+    );
+}

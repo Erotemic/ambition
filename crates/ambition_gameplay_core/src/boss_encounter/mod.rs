@@ -49,7 +49,10 @@ pub use ambition_characters::boss_encounter::{
     BossEncounterEvent, BossEncounterPhase, BossEncounterSpec, BossPhaseEvent, BossPhaseState,
     PhaseTrigger, PhaseTriggerCondition,
 };
-pub use behavior::{install_boss_profiles, install_boss_special_anim_keys, BossProfileRegistry};
+pub use behavior::{
+    install_boss_profiles, install_boss_special_anim_keys, BossProfileRegistry, LimbMotion,
+    LimbRoute,
+};
 pub use encounter_entity::{
     release_payloads_on_death, sync_boss_encounter_entities, update_encounter_progress,
     EncounterDef, EncounterProgress, EncounterWin, MemberProgress, PayloadReleased, ReleaseOnDeath,

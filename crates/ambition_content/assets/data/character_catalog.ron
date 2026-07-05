@@ -616,6 +616,24 @@
             tags: ["mount", "giant"],
         ),
 
+        // ===== Giant GNU Hands (Q18 / G3 — the giant's two DRIVEN limb bodies).
+        // A brainless actor body rendering the scholar-less `giant_gnu_hands`
+        // sheet; the gnu_ton_rider boss's strikes drive it through the limb router.
+        // Same 768x576 layout / collision_scale 4.5 as the giant body (they share
+        // the G1 sheet placement). Not a hall pedestal (inspect-silent).
+        "npc_giant_gnu_hands": (
+            sprite_tuning: Some((collision_scale: 4.5, frame_sample_inset: 1)),
+            display_name: "Giant GNU Hand",
+            spritesheet: "sprites/gnu_ton_boss/giant_gnu_hands_spritesheet.png",
+            manifest: "sprites/gnu_ton_boss/giant_gnu_hands_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Wide,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["limb", "giant"],
+        ),
+
         // ===== Puppy Slug (wanderer crawlid).
         "npc_puppy_slug": (
             sprite_tuning: Some((collision_scale: 1.4, frame_sample_inset: 1)),

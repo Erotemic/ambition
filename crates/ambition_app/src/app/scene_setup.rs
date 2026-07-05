@@ -329,7 +329,7 @@ fn presentation_world_inner(
     // default) resolves to the compact robot sheet exactly as before; any other
     // selected character binds its own sheet, so the home avatar draws as e.g.
     // the goblin, the pirate admiral, or the Perfect Cellular Automaton.
-    if let Some(asset) = character_sprites.asset_for_character_id(&starting_character.character_id)
+    if let Some(asset) = character_sprites.asset_for_character_id(starting_character.effective_id())
     {
         let player_render = player_placeholder_render_size(&asset.spec, player_collision);
         let sprite = build_character_sprite_with_render_size(asset, player_render);

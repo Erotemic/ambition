@@ -18,6 +18,9 @@ pub const CHARACTER_CATALOG_RON: &str = include_str!("../assets/data/character_c
 /// install wins, so the multiple calls are harmless.
 pub fn install() {
     ambition_gameplay_core::character_roster::install_character_catalog(CHARACTER_CATALOG_RON);
+    // Content owns which row is the default the home box wears with no override
+    // (C2): the engine names no character, so inject `PLAYABLE_ROSTER[0]` here.
+    ambition_gameplay_core::character_roster::install_default_character_id(PLAYABLE_ROSTER[0]);
 }
 
 /// A curated cast of characters the player can start as. The character-select
@@ -68,7 +71,21 @@ mod tests {
 
     #[test]
     fn playable_roster_starts_with_protagonist_and_has_no_dupes() {
-        assert_eq!(PLAYABLE_ROSTER[0], StartingCharacter::DEFAULT_ID);
+        // The protagonist ("player") is the roster's head. Content OWNS this
+        // (C2): installing the catalog injects `PLAYABLE_ROSTER[0]` as the
+        // engine's default character, and an unset `StartingCharacter` then
+        // resolves to it.
+        assert_eq!(PLAYABLE_ROSTER[0], "player");
+        install();
+        assert_eq!(
+            ambition_gameplay_core::character_roster::default_character_id(),
+            PLAYABLE_ROSTER[0],
+            "content install injects the default character id"
+        );
+        assert_eq!(
+            StartingCharacter::default().effective_id(),
+            PLAYABLE_ROSTER[0]
+        );
         for (i, a) in PLAYABLE_ROSTER.iter().enumerate() {
             for b in &PLAYABLE_ROSTER[i + 1..] {
                 assert_ne!(a, b, "duplicate id in PLAYABLE_ROSTER: {a}");

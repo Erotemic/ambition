@@ -390,8 +390,8 @@ pub fn refresh_player_sprites_on_game_assets_change(
     // character sprite that `scene_setup` bound (see StartingCharacter).
     let start_id = starting_character
         .as_deref()
-        .map(|s| s.character_id.as_str())
-        .unwrap_or(ambition_gameplay_core::player::StartingCharacter::DEFAULT_ID);
+        .map(|s| s.effective_id())
+        .unwrap_or_else(|| ambition_gameplay_core::character_roster::default_character_id());
     let Some(asset) = assets.characters.asset_for_character_id(start_id) else {
         return;
     };

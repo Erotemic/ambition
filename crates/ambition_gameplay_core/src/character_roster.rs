@@ -34,6 +34,32 @@ pub fn install_character_catalog(catalog_ron: &'static str) {
     let _ = CATALOG_RON_OVERRIDE.set(catalog_ron);
 }
 
+/// The content-installed default playable character id (C2). The engine names
+/// no specific character: the game owns which catalog row the home box wears
+/// with no override (its `PLAYABLE_ROSTER[0]`), and installs it here.
+static DEFAULT_CHARACTER_ID: OnceLock<&'static str> = OnceLock::new();
+
+/// Install the default playable character id — the content layer calls this at
+/// the same choke point as [`install_character_catalog`]. First install wins.
+pub fn install_default_character_id(id: &'static str) {
+    let _ = DEFAULT_CHARACTER_ID.set(id);
+}
+
+/// The default playable character id the home box wears with no override.
+/// Resolved lazily (at spawn, after content install), so the engine never
+/// bakes in a content name. When the game hasn't installed one, falls back to
+/// the FIRST catalog row — still content-derived, never an engine literal.
+pub fn default_character_id() -> &'static str {
+    DEFAULT_CHARACTER_ID.get().copied().unwrap_or_else(|| {
+        catalog()
+            .characters
+            .keys()
+            .next()
+            .map(String::as_str)
+            .unwrap_or("")
+    })
+}
+
 /// The installed catalog RON text (feeds the Bevy plugin + the parse cache).
 pub fn catalog_ron() -> &'static str {
     CATALOG_RON_OVERRIDE.get().copied().unwrap_or_else(|| {

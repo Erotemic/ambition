@@ -4,8 +4,9 @@
 //! home-body integration loop, the player markers, and the full traversal
 //! ability kit. WHICH character that box *wears* — its sprite, its combat
 //! moveset, and its name — is chosen by the [`StartingCharacter`] resource.
-//! The default is the canonical `player` (the robot protagonist), so an
-//! untouched build spawns exactly as it did before this resource existed.
+//! With no override the resource is EMPTY and resolves (at spawn) to the
+//! CONTENT-installed default character (C2) — the engine names no specific
+//! character — so an untouched build spawns exactly as it did before.
 //!
 //! This is the runtime seam behind Jon's polish-list ask: *"swap my starting
 //! character for PCA or a pirate ... just spawn the character and make its
@@ -29,36 +30,41 @@ use crate::features::{MomentumMotion, MotionModel};
 /// The catalog `character_id` the local player spawns as.
 ///
 /// Read at session setup by both the simulation (moveset + name) and
-/// presentation (sprite) halves. Defaults to [`Self::DEFAULT_ID`].
-#[derive(Resource, Clone, Debug, PartialEq, Eq)]
+/// presentation (sprite) halves. An EMPTY `character_id` means "no override —
+/// wear the content-installed default" ([`crate::character_roster::default_character_id`]);
+/// [`Default`] is exactly that. The engine names no specific character (C2):
+/// which row is the default is CONTENT's choice, resolved lazily at spawn.
+#[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
 pub struct StartingCharacter {
-    /// A `character_catalog.ron` row id. Ids without a renderable sheet still
-    /// spawn a controllable player (the sprite falls back to the colored
-    /// rectangle) — the sim side never depends on presentation.
+    /// A `character_catalog.ron` row id, or EMPTY for the content default.
+    /// Ids without a renderable sheet still spawn a controllable player (the
+    /// sprite falls back to the colored rectangle) — the sim side never depends
+    /// on presentation.
     pub character_id: String,
 }
 
 impl StartingCharacter {
-    /// The canonical protagonist id — the robot player. Selecting this is a
-    /// no-op relative to the pre-feature spawn: [`is_default`](Self::is_default)
-    /// routes it through the untouched `from_scratch` bundle.
-    pub const DEFAULT_ID: &'static str = "player";
-
     pub fn new(character_id: impl Into<String>) -> Self {
         Self {
             character_id: character_id.into(),
         }
     }
 
-    /// True when the player spawns as the canonical protagonist (no override).
+    /// True when the player spawns as the canonical protagonist (no override) —
+    /// an empty id routes through the untouched `from_scratch` bundle.
     pub fn is_default(&self) -> bool {
-        self.character_id == Self::DEFAULT_ID
+        self.character_id.is_empty()
     }
-}
 
-impl Default for StartingCharacter {
-    fn default() -> Self {
-        Self::new(Self::DEFAULT_ID)
+    /// The concrete catalog id to wear: the explicit override, or the
+    /// content-installed default when unset. Resolve at spawn time, never at
+    /// resource init (the content default installs at the catalog choke point).
+    pub fn effective_id(&self) -> &str {
+        if self.character_id.is_empty() {
+            crate::character_roster::default_character_id()
+        } else {
+            &self.character_id
+        }
     }
 }
 
@@ -117,10 +123,21 @@ mod tests {
     use ambition_characters::brain::{MeleeActionSpec, MoveStyleSpec, RangedActionSpec, SwipeSpec};
 
     #[test]
-    fn default_is_protagonist_and_is_default() {
+    fn default_is_unset_and_is_default() {
+        // No override: an empty id routes to the untouched `from_scratch` path.
+        // The concrete row is CONTENT's (`effective_id` resolves it at spawn);
+        // the engine bakes in no character name.
         let sc = StartingCharacter::default();
-        assert_eq!(sc.character_id, "player");
+        assert!(sc.character_id.is_empty());
         assert!(sc.is_default());
+        // `effective_id` resolves to a real catalog row (the content-installed
+        // default, or the first row as fallback) — never empty, never a name
+        // the ENGINE baked in.
+        let eff = sc.effective_id();
+        assert!(!eff.is_empty());
+        assert!(crate::character_roster::catalog()
+            .characters
+            .contains_key(eff));
     }
 
     #[test]

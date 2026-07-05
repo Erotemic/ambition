@@ -134,7 +134,7 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
     // any other character removes the model so the box stays axis-swept. The
     // default `player` row authors no momentum, so this is a no-op for the
     // protagonist.
-    crate::player::apply_worn_motion_model(commands, player, &starting_character.character_id);
+    crate::player::apply_worn_motion_model(commands, player, starting_character.effective_id());
 
     // HUD entity is presentation-side; placeholder until presentation_world
     // overwrites this resource.

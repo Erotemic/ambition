@@ -189,10 +189,10 @@ impl PlayerSimulationBundle {
     /// same traversal ability kit, same collision. The chosen character's SPRITE
     /// is bound presentation-side (`scene_setup`), not here.
     ///
-    /// Passing [`StartingCharacter::DEFAULT_ID`](crate::player::StartingCharacter::DEFAULT_ID)
-    /// (`"player"`) yields a bundle equivalent to `from_scratch` — the `player`
-    /// catalog row is the peaceful default, so the overlay is a no-op on offense.
-    /// Callers should still branch on `is_default()` and use `from_scratch` for
+    /// Passing the content default id (the protagonist row) yields a bundle
+    /// equivalent to `from_scratch` — that row is the peaceful default, so the
+    /// overlay is a no-op on offense. Callers should still branch on
+    /// `is_default()` (an unset `StartingCharacter`) and use `from_scratch` for
     /// the protagonist so the canonical path is provably unchanged.
     pub fn from_scratch_as_character(
         scratch: ae::BodyClusterScratch,

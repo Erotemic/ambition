@@ -1078,6 +1078,23 @@ archetype RONs (`mount_class:"giant"`, `pilotable_mount_classes:["giant"]`, big
 HP, `StationaryGiant`+`body_damage:0` die) and the on-foot mini-phase RON block —
 all reference the G1 split sheets, so they wait on G1.
 
+## G1 — the gnu sprite split ✅ (`3031464b` + submodule `8bd7548`, opus, draw-blind)
+The ADR 0020 sprite split, ADDITIVE (gnu_ton_boss full/body/hands byte-identical):
+- **`giant_gnu`** MOUNT — the giant WITHOUT the scholar: a scholar-less `giant_body`
+  layer (`_draw_body_layer(draw_man=False)` across all 6 anim rows) lockstep-packed
+  with the shared `hands` layer. Sheets giant_gnu body/hands/full (3850×3850) + RON.
+- **`gnu_ton_rider`** RIDER — the scholar drawn ALONE + centered (`_pack_scholar`,
+  own tight trim, 362×378) + RON (no body_metrics).
+- Registered in Rust (`sprites/mod.rs`: `GIANT_GNU_SHEET`=GNU_TON_SHEET clone +
+  `GNU_TON_RIDER_SHEET`; 7→11 keys) + `boss_sheets.ron` (byte-consistent pin green).
+- **rider_offset recorded: design-space x=44.0, y=-20.0** (`_MAN_CENTER_X/Y`) in
+  `giant_gnu_actor.ron` + the `GIANT_GNU_SHEET` doc — G2 authors `Mountable::rider_offset`
+  from it. Per-frame hand hit-geometry LEFT in place (coupled to G3's StrikeRect
+  teardown). Verified: sprites 22 + content bosses 22 green; regen clean. Previews
+  shipped BLIND for Jon's silhouette/feel check; rider `collision_scale` is a
+  first-pass placeholder for G2 to tune.
+**G1 DONE.** G2-archetypes rides these keys.
+
 ### G1 READINESS (scouted, opus 2026-07-05 — headlessly TRACTABLE, next dedicated pass)
 Env confirmed: PIL 12.2.0 + rectpack present; `PYTHONPATH=tools/ambition_sprite2d_renderer
 python3` imports the renderer; `./regen_sprites.sh --target gnu_ton_boss` is the

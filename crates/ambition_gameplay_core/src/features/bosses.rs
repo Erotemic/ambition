@@ -1,8 +1,7 @@
 //! Boss runtime glue for the actor simulation: the [`boss_special_for_profile`]
 //! resolver that maps a `BossAttackProfile::Special(key)` to a
 //! `SpecialActionSpec` (the open seam `tick_boss_brains_system` uses to emit
-//! `ActorActionMessage::Special`), plus the apple-projectile owner prefix
-//! ([`GNU_TON_APPLE_OWNER_PREFIX`]). The boss PROFILE/pattern vocabulary and
+//! `ActorActionMessage::Special`). The boss PROFILE/pattern vocabulary and
 //! sprite metrics now live in `ambition_characters::brain::boss_pattern` and
 //! `crate::boss_encounter::behavior` and are re-exported here for legacy paths.
 
@@ -29,12 +28,6 @@ pub use ambition_characters::brain::boss_pattern::{BossAttackProfile, BossMoveme
 // Future boss specials follow the same pattern — one consumer per
 // `SpecialActionSpec` variant — instead of accumulating side-channel
 // `Vec`s the caller flushes.
-
-/// Stable id prefix used by the visuals layer to switch the
-/// flat-red-rectangle bullet shape to the apple sprite (red body +
-/// green leaf + brown stem). Keep in sync with
-/// `enemy_projectile::visuals::is_apple_owner`.
-pub const GNU_TON_APPLE_OWNER_PREFIX: &str = "gnu_ton_apple";
 
 // All boss-special tuning numbers (apple-rain cadence, overfit-volley sampling,
 // minima-trap / saddle-point / gradient-cascade params, the eye-beam tuning)

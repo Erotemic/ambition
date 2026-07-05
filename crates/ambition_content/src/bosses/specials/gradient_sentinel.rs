@@ -67,6 +67,10 @@ const APPLE_RAIN_HALF_EXTENT: ae::Vec2 = ae::Vec2::new(14.0, 16.0);
 const APPLE_RAIN_GRAVITY: f32 = 540.0;
 const APPLE_RAIN_LIFETIME: f32 = 6.0;
 const APPLE_RAIN_SPAWN_HEIGHT_ABOVE_PLAYER: f32 = 320.0;
+/// Owner-id prefix for this technique's apple projectiles (self / friendly-fire
+/// filtering + traces ONLY — art is data-driven via `ProjectileVisualKind::Apple`).
+/// Owned HERE in content: the engine names no boss's projectiles (crit 3).
+const GNU_TON_APPLE_OWNER_PREFIX: &str = "gnu_ton_apple";
 const PHI_FRAC: f32 = 0.618_033_99;
 
 /// Horizontal spawn lane (world x) for the `spawn_index`-th GNU-ton
@@ -185,11 +189,7 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
                         damage,
                         max_lifetime: APPLE_RAIN_LIFETIME,
                         half_extent: APPLE_RAIN_HALF_EXTENT,
-                        owner_id: format!(
-                            "{}:{}",
-                            ambition_gameplay_core::features::bosses::GNU_TON_APPLE_OWNER_PREFIX,
-                            boss.config.id,
-                        ),
+                        owner_id: format!("{}:{}", GNU_TON_APPLE_OWNER_PREFIX, boss.config.id),
                         gravity: APPLE_RAIN_GRAVITY,
                         // The apple-rain fruit renders as the generated apple
                         // sprite (kept upright vs gravity) — keyed by kind, not

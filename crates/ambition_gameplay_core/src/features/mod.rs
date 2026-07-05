@@ -66,7 +66,7 @@ pub use boss_attack_geometry::{
 };
 pub use bosses::{
     boss_attack_moveset, boss_special_for_profile, ActorSpriteMetrics, BossAttackProfile,
-    BossBehaviorProfile, BossMovementProfile, BossRewardProfile, GNU_TON_APPLE_OWNER_PREFIX,
+    BossBehaviorProfile, BossMovementProfile, BossRewardProfile,
 };
 pub use bus::{
     apply_flag_effects, apply_gameplay_sfx_effects, apply_quest_effects, apply_switch_effects,

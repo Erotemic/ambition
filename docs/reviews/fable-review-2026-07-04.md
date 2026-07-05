@@ -1159,6 +1159,35 @@ done with Jon's steer on the mounted-loadout model (it also touches feel — the
 gun-sword shark-rider is a signature cove enemy). The corrected map above makes
 it a ~1-session slice once the model is picked.
 
+### R3.5 — RESOLVED into ADR 0020 (Jon's lead design, 2026-07-05)
+
+Jon reframed R3.5 from "evict the fused row" into designing the **canonical
+mount/vehicle model**, now recorded as **`docs/adr/0020-mounts-and-vehicles.md`**
+(his decision, captured verbatim, changeable only via an accepted challenge).
+Model: two actors (`Mountable{class}` mount + `CanPilot{classes}` rider), two HP
+pools, a `ControlGrant` (default `Total`) through which the mount defers to the
+rider, independent hurtboxes (normal hitbox↔hurtbox — no blanket shield) + opt-in
+`death_impact` splash. Rider-agnostic (the player pilots vehicles through the same
+seam). Authored as **two LDtk entities linked by an entity-ref** (the mount action
+pre-applied); in-game boarding + partial-control + ability grant/disable are
+reserved seams. The 6-vs-7 shark HP was an accident → both riders ride the 6-HP
+shark. Execution map:
+
+- **M1 ✅ (committed `85d03013`)** — `MountClass` / `CanPilot` (+`can_pilot`) /
+  `ControlGrant{Total}` / `MountDeathImpact{Dismount|Splash}` types + semantics;
+  splash wired into `enforce_mount_rider_link`; populated from new archetype-RON
+  fields (`mount_class` / `pilotable_mount_classes` / `mount_death_splash`) on the
+  standalone mount + rider rows (which survive the cutover). 4 headless tests.
+  Feel-neutral, permanent — only the *population source* changes at cutover.
+- **M2** — LDtk EntityRef parse + loader resolves an authored linked pair into
+  `RidingOn`/`MountSlot` (the "mount action pre-applied" state).
+- **M3** — `ambition_ldtk_tools` capability to author the mounted-link.
+- **M4** — cutover: plain rider archetype + plain shark mount + authored link;
+  delete the fused `pirate_on_shark`/`composite_visual`/`composite_rider_name`/
+  `rider_name_suffix`; retarget the composite-spawn parity suite; rewrite the
+  `.ldtk` spawns via M3's tool.
+- **M5** — player-piloting through the control seam (rider-agnostic) + a test.
+
 ---
 
 ## R4 — the carve begins (executor: opus, 2026-07-04)

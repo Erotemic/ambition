@@ -161,6 +161,160 @@
         body_centered: true,
         authored_faces_left: false,
     ),
+    // ADR 0020 mount/rider split (G1): the giant GNU MOUNT is the fused giant
+    // WITHOUT the scholar — its sheet layout mirrors `gnu_ton` byte-for-byte
+    // (768x576, 6 rows, collision_scale 4.5). `giant_gnu_body` / `giant_gnu_hands`
+    // share that placement. These are byte-identical to the built-in
+    // GIANT_GNU_SHEET default (== GNU_TON_SHEET), pinned by
+    // `boss_sheets_ron_matches_builtin_defaults`.
+    "giant_gnu": (
+        label_width: 0,
+        frame_width: 768,
+        frame_height: 576,
+        rows: [
+            (Rest, (
+                frame_count: 10,
+                duration_secs: 0.11,
+            )),
+            (FloorSlam, (
+                frame_count: 10,
+                duration_secs: 0.072,
+            )),
+            (SideSweep, (
+                frame_count: 10,
+                duration_secs: 0.065,
+            )),
+            (SpikeHalo, (
+                frame_count: 9,
+                duration_secs: 0.09,
+            )),
+            (Hit, (
+                frame_count: 6,
+                duration_secs: 0.08,
+            )),
+            (Death, (
+                frame_count: 10,
+                duration_secs: 0.105,
+            )),
+        ],
+        collision_scale: 4.5,
+        feet_anchor_y: 0.0034722222,
+        frame_sample_inset: 1,
+        body_centered: true,
+        authored_faces_left: false,
+    ),
+    "giant_gnu_body": (
+        label_width: 0,
+        frame_width: 768,
+        frame_height: 576,
+        rows: [
+            (Rest, (
+                frame_count: 10,
+                duration_secs: 0.11,
+            )),
+            (FloorSlam, (
+                frame_count: 10,
+                duration_secs: 0.072,
+            )),
+            (SideSweep, (
+                frame_count: 10,
+                duration_secs: 0.065,
+            )),
+            (SpikeHalo, (
+                frame_count: 9,
+                duration_secs: 0.09,
+            )),
+            (Hit, (
+                frame_count: 6,
+                duration_secs: 0.08,
+            )),
+            (Death, (
+                frame_count: 10,
+                duration_secs: 0.105,
+            )),
+        ],
+        collision_scale: 4.5,
+        feet_anchor_y: 0.0034722222,
+        frame_sample_inset: 1,
+        body_centered: true,
+        authored_faces_left: false,
+    ),
+    "giant_gnu_hands": (
+        label_width: 0,
+        frame_width: 768,
+        frame_height: 576,
+        rows: [
+            (Rest, (
+                frame_count: 10,
+                duration_secs: 0.11,
+            )),
+            (FloorSlam, (
+                frame_count: 10,
+                duration_secs: 0.072,
+            )),
+            (SideSweep, (
+                frame_count: 10,
+                duration_secs: 0.065,
+            )),
+            (SpikeHalo, (
+                frame_count: 9,
+                duration_secs: 0.09,
+            )),
+            (Hit, (
+                frame_count: 6,
+                duration_secs: 0.08,
+            )),
+            (Death, (
+                frame_count: 10,
+                duration_secs: 0.105,
+            )),
+        ],
+        collision_scale: 4.5,
+        feet_anchor_y: 0.0034722222,
+        frame_sample_inset: 1,
+        body_centered: true,
+        authored_faces_left: false,
+    ),
+    // ADR 0020 RIDER: the scholar's own tight-trimmed standalone sheet. Same 6
+    // rows, but a small first-pass collision_scale (scholar is tiny vs the
+    // giant) and grounded (body_centered: false). Byte-identical to the built-in
+    // GNU_TON_RIDER_SHEET default.
+    "gnu_ton_rider": (
+        label_width: 0,
+        frame_width: 768,
+        frame_height: 576,
+        rows: [
+            (Rest, (
+                frame_count: 10,
+                duration_secs: 0.11,
+            )),
+            (FloorSlam, (
+                frame_count: 10,
+                duration_secs: 0.072,
+            )),
+            (SideSweep, (
+                frame_count: 10,
+                duration_secs: 0.065,
+            )),
+            (SpikeHalo, (
+                frame_count: 9,
+                duration_secs: 0.09,
+            )),
+            (Hit, (
+                frame_count: 6,
+                duration_secs: 0.08,
+            )),
+            (Death, (
+                frame_count: 10,
+                duration_secs: 0.105,
+            )),
+        ],
+        collision_scale: 1.0,
+        feet_anchor_y: 0.0,
+        frame_sample_inset: 1,
+        body_centered: false,
+        authored_faces_left: false,
+    ),
     "gradient_sentinel": (
         label_width: 100,
         frame_width: 128,

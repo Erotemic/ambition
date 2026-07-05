@@ -520,6 +520,14 @@ pub(crate) const SMIRKING_BEHEMOTH_FILENAME: &str = "smirking_behemoth_boss_spri
 // danger separately.
 pub(crate) const GNU_TON_BODY_FILENAME: &str = "gnu_ton_boss/gnu_ton_boss_body_spritesheet.png";
 pub(crate) const GNU_TON_HANDS_FILENAME: &str = "gnu_ton_boss/gnu_ton_boss_hands_spritesheet.png";
+// ADR 0020 mount/rider split (G1): the SAME generator additionally emits the
+// giant GNU MOUNT (scholar-less body + shared hands) and the scholar RIDER
+// (drawn alone) into the `gnu_ton_boss/` install dir. `giant_gnu` is the giant
+// WITHOUT the scholar; `gnu_ton_rider` is the scholar's own tight-trimmed sheet.
+pub(crate) const GIANT_GNU_FILENAME: &str = "gnu_ton_boss/giant_gnu_spritesheet.png";
+pub(crate) const GIANT_GNU_BODY_FILENAME: &str = "gnu_ton_boss/giant_gnu_body_spritesheet.png";
+pub(crate) const GIANT_GNU_HANDS_FILENAME: &str = "gnu_ton_boss/giant_gnu_hands_spritesheet.png";
+pub(crate) const GNU_TON_RIDER_FILENAME: &str = "gnu_ton_boss/gnu_ton_rider_spritesheet.png";
 pub(crate) const FLYING_SPAGHETTI_MONSTER_FILENAME: &str =
     "flying_spaghetti_monster_boss_spritesheet.png";
 // The T-Rex boss reuses the published trex *enemy* sheet — no separate boss
@@ -598,6 +606,84 @@ pub static GNU_TON_SHEET: std::sync::LazyLock<BossSheetSpec> =
         feet_anchor_y: 2.0 / 576.0,
         frame_sample_inset: 1,
         body_centered: true,
+        authored_faces_left: false,
+    });
+
+/// Giant GNU MOUNT sheet (ADR 0020 mount/rider split, G1).
+///
+/// The giant wildebeest body WITHOUT the scholar, lockstep-packed exactly like
+/// the fused `gnu_ton` sheet (identical 768×576 frame layout / rows / anchor),
+/// so its layout mirrors `GNU_TON_SHEET` byte-for-byte. `giant_gnu_body` =
+/// scholar-less body page, `giant_gnu_hands` = the (identical) hands page.
+///
+/// The scholar's shoulder anchor for the runtime `Mountable::rider_offset` is
+/// design-space `(_MAN_CENTER_X ≈ 44.0, _MAN_CENTER_Y ≈ -20.0)` relative to the
+/// giant frame center (recorded in the generator's `giant_gnu_actor.ron`); G2
+/// authors the rider socket from it.
+pub static GIANT_GNU_SHEET: std::sync::LazyLock<BossSheetSpec> =
+    std::sync::LazyLock::new(|| GNU_TON_SHEET.clone());
+
+/// GNU-ton scholar RIDER sheet (ADR 0020 mount/rider split, G1).
+///
+/// The scholar drawn ALONE + centered, packed on its OWN tight trim (NOT
+/// lockstep with the giant) — so it carries the same 6 animation rows but a much
+/// smaller silhouette. `frame_width`/`frame_height` mirror the generator's
+/// logical draw canvas (768×576); the live atlas + tight rects come from the
+/// published RON. `collision_scale` is a small first-pass value (the scholar is
+/// tiny vs. the giant); G2 tunes the real rider render/placement.
+pub static GNU_TON_RIDER_SHEET: std::sync::LazyLock<BossSheetSpec> =
+    std::sync::LazyLock::new(|| BossSheetSpec {
+        label_width: 0,
+        frame_width: 768,
+        frame_height: 576,
+        rows: vec![
+            (
+                BossAnim::Rest,
+                AnimRow {
+                    frame_count: 10,
+                    duration_secs: 0.110,
+                },
+            ),
+            (
+                BossAnim::FloorSlam,
+                AnimRow {
+                    frame_count: 10,
+                    duration_secs: 0.072,
+                },
+            ),
+            (
+                BossAnim::SideSweep,
+                AnimRow {
+                    frame_count: 10,
+                    duration_secs: 0.065,
+                },
+            ),
+            (
+                BossAnim::SpikeHalo,
+                AnimRow {
+                    frame_count: 9,
+                    duration_secs: 0.090,
+                },
+            ),
+            (
+                BossAnim::Hit,
+                AnimRow {
+                    frame_count: 6,
+                    duration_secs: 0.080,
+                },
+            ),
+            (
+                BossAnim::Death,
+                AnimRow {
+                    frame_count: 10,
+                    duration_secs: 0.105,
+                },
+            ),
+        ],
+        collision_scale: 1.0,
+        feet_anchor_y: 0.0,
+        frame_sample_inset: 1,
+        body_centered: false,
         authored_faces_left: false,
     });
 
@@ -775,6 +861,11 @@ pub fn all_boss_sprite_filenames() -> Vec<(&'static str, &'static str)> {
         ("smirking_behemoth_boss", SMIRKING_BEHEMOTH_FILENAME),
         ("gnu_ton_body", GNU_TON_BODY_FILENAME),
         ("gnu_ton_hands", GNU_TON_HANDS_FILENAME),
+        // ADR 0020 split: giant MOUNT + scholar RIDER sheets.
+        ("giant_gnu", GIANT_GNU_FILENAME),
+        ("giant_gnu_body", GIANT_GNU_BODY_FILENAME),
+        ("giant_gnu_hands", GIANT_GNU_HANDS_FILENAME),
+        ("gnu_ton_rider", GNU_TON_RIDER_FILENAME),
         (
             "flying_spaghetti_monster_boss",
             FLYING_SPAGHETTI_MONSTER_FILENAME,
@@ -805,6 +896,11 @@ pub fn builtin_boss_sheets() -> std::collections::HashMap<String, BossSheetSpec>
     m.insert("gnu_ton".to_string(), GNU_TON_SHEET.clone());
     m.insert("gnu_ton_body".to_string(), GNU_TON_SHEET.clone());
     m.insert("gnu_ton_hands".to_string(), GNU_TON_SHEET.clone());
+    // ADR 0020 split: giant MOUNT (mirrors gnu_ton layout) + scholar RIDER.
+    m.insert("giant_gnu".to_string(), GIANT_GNU_SHEET.clone());
+    m.insert("giant_gnu_body".to_string(), GIANT_GNU_SHEET.clone());
+    m.insert("giant_gnu_hands".to_string(), GIANT_GNU_SHEET.clone());
+    m.insert("gnu_ton_rider".to_string(), GNU_TON_RIDER_SHEET.clone());
     m.insert(
         "smirking_behemoth_boss".to_string(),
         SMIRKING_BEHEMOTH_SHEET.clone(),
@@ -817,7 +913,7 @@ pub fn builtin_boss_sheets() -> std::collections::HashMap<String, BossSheetSpec>
     m
 }
 
-pub fn dedicated_boss_sheets() -> [(&'static str, BossSheetSpec); 7] {
+pub fn dedicated_boss_sheets() -> [(&'static str, BossSheetSpec); 11] {
     // Each key resolves to the content-authored override (`boss_sheets.ron`) if
     // one is installed, else the built-in default — the E58 "empty default =
     // built-in" pattern, now for sheet layouts.
@@ -835,6 +931,11 @@ pub fn dedicated_boss_sheets() -> [(&'static str, BossSheetSpec); 7] {
         resolve("smirking_behemoth_boss", &SMIRKING_BEHEMOTH_SHEET),
         resolve("gnu_ton_body", &GNU_TON_SHEET),
         resolve("gnu_ton_hands", &GNU_TON_SHEET),
+        // ADR 0020 split: giant MOUNT + scholar RIDER.
+        resolve("giant_gnu", &GIANT_GNU_SHEET),
+        resolve("giant_gnu_body", &GIANT_GNU_SHEET),
+        resolve("giant_gnu_hands", &GIANT_GNU_SHEET),
+        resolve("gnu_ton_rider", &GNU_TON_RIDER_SHEET),
         resolve(
             "flying_spaghetti_monster_boss",
             &FLYING_SPAGHETTI_MONSTER_SHEET,

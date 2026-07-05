@@ -88,6 +88,23 @@ pub fn field_bool(entity: &LdtkEntityInstance, name: &str) -> Option<bool> {
     })
 }
 
+/// Read an LDtk **EntityRef** field, returning the referenced entity's
+/// `iid`. LDtk stores an entity-reference field's `__value` as an object
+/// `{ "entityIid": "...", "layerIid": "...", "levelIid": "...",
+/// "worldIid": "..." }` (or `null` when unset). This returns the
+/// `entityIid` so the loader can resolve the referenced entity after
+/// both instances have spawned — the primitive behind ADR 0020's
+/// two-linked-entities mount authoring (a rider's `mounted_on` ref).
+pub fn field_entity_ref(entity: &LdtkEntityInstance, name: &str) -> Option<String> {
+    match field_value(&entity.field_instances, name)? {
+        // The canonical LDtk shape: an object carrying `entityIid`.
+        Value::Object(map) => map.get("entityIid").and_then(value_to_string),
+        // Some exporters flatten a ref to the bare iid string.
+        Value::String(iid) if !iid.is_empty() => Some(iid.clone()),
+        _ => None,
+    }
+}
+
 pub(super) fn parse_points(value: &str) -> Vec<ae::Vec2> {
     value
         .split(';')
@@ -227,6 +244,52 @@ mod tests {
             parse_path_mode("???"),
             KinematicPathMode::PingPong
         ));
+    }
+
+    fn entity_with_field(name: &str, value: Value) -> LdtkEntityInstance {
+        LdtkEntityInstance {
+            iid: "self".into(),
+            identifier: "EnemySpawn".into(),
+            pivot: vec![0.5, 1.0],
+            px: [0, 0],
+            width: 16,
+            height: 16,
+            field_instances: vec![LdtkFieldInstance {
+                identifier: name.into(),
+                value,
+                real_editor_values: Vec::new(),
+            }],
+        }
+    }
+
+    #[test]
+    fn field_entity_ref_reads_entity_iid_from_object_or_bare_string() {
+        // Canonical LDtk EntityRef shape: an object carrying entityIid.
+        let obj = entity_with_field(
+            "mounted_on",
+            serde_json::json!({
+                "entityIid": "mount-abc",
+                "layerIid": "layer-1",
+                "levelIid": "level-1",
+                "worldIid": "world-1",
+            }),
+        );
+        assert_eq!(
+            field_entity_ref(&obj, "mounted_on"),
+            Some("mount-abc".to_string()),
+        );
+        // A flattened bare-iid string is also accepted.
+        let bare = entity_with_field("mounted_on", Value::String("mount-xyz".into()));
+        assert_eq!(
+            field_entity_ref(&bare, "mounted_on"),
+            Some("mount-xyz".to_string()),
+        );
+        // An unset (null) ref, an empty string, and a missing field are None.
+        let null = entity_with_field("mounted_on", Value::Null);
+        assert_eq!(field_entity_ref(&null, "mounted_on"), None);
+        let empty = entity_with_field("mounted_on", Value::String(String::new()));
+        assert_eq!(field_entity_ref(&empty, "mounted_on"), None);
+        assert_eq!(field_entity_ref(&null, "not_a_field"), None);
     }
 
     #[test]

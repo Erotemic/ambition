@@ -668,8 +668,26 @@ loudly). End-to-end test pins LDtk→World.chains + the winding convention;
 degenerate chains fail conversion. gameplay_core --lib 1137.
 **W2 REBASES on this** — the emission relocation carries the field.
 
-**NEXT HEADS:** S2 (MomentumParamsSpec + catalog row + spawn/wear insertion —
-the wear/unwear hygiene test from the Q16 spec lands here), S3b (content
-`SurfaceLoop` marker converter, `ambition_ldtk_tools surface` subcommand +
-Python-validator identifier registration, the `sanic_sandbox` area, the
-debug-overlay gizmos), W1, G1.
+## S2 — Sanic the character (momentum on the catalog row) ✅ (`ea632936`, opus)
+The Q21/S2 spec executed: `MomentumParamsSpec` (serde) mirrors the serde-free
+kernel `MomentumParams` field-for-field (every field `#[serde(default)]` off
+the kernel `Default`, so authored RON omits what it doesn't tune); `to_kernel`
+hydrates; `momentum: Option<_>` on the catalog entry. `momentum_params_for_
+character_id` is the ONE roster lookup both seams read — `apply_worn_motion_
+model` INSERTS `SurfaceMomentum` for a momentum character and REMOVES it
+otherwise (the render-refresh clobber gotcha in reverse), wired into the player
+spawn; the peaceful-NPC spawn resolves momentum from the Npc interaction id, so
+NPC-Sanic rides too. Catalog row `sanic` (fast profile: top_speed 1200 /
+ground_accel 900 / jump_speed 700) on the existing draw-blind `sanic` sheet
+(verified renders — blue meme speedster, run streaks, spin-ball, full moveset);
+playable via `AMBITION_START_CHARACTER=sanic`. Tests: partial/empty spec →
+kernel defaults; roster resolves the fast profile + None for axis-swept/unknown;
+wear-then-unwear inserts-then-removes. gameplay_core --lib + characters green.
+(env: `rectpack` was missing — installed user-level so the sheet renders.)
+
+**NEXT HEADS:** S3b (content `SurfaceLoop` marker converter, `ambition_ldtk_
+tools surface` subcommand + Python-validator identifier registration, the
+`sanic_sandbox` area, the debug-overlay gizmos), then S4 proofs; **E5
+(`ambition_runtime`) pulled forward — the demo gate that unblocks S5 [senior] +
+the M-track**; G1→G4 unblock G5 [★fable]. W1, C1–C4, A1–A2 are independent
+fillers.

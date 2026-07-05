@@ -17,6 +17,14 @@ front-end.
 (audits A–D, adjudications AD1–AD5, E-log E1–E66). Its task sections were
 already stale before this review; **do not work from it — work from THIS doc.**
 
+**Extended by [`fable-review-2026-07-05.md`](fable-review-2026-07-05.md)
+(2026-07-05):** adjudications AJ8–AJ12 + phases **R7–R10** in the same
+numbering space (authoring-backend-agnostic space per Jon's
+`spatial-model.md`, the contact/surface kernel + momentum locomotion /
+"Sanic", the gnuton mounted-giant split). **R4b is RESHAPED by its AJ9** —
+the carve now targets TWO crates (`ambition_world` + `ambition_ldtk_map`);
+execute the world carve from the 07-05 doc (R7), not from R4b below.
+
 ---
 
 ## 1. VERDICT on the 2026-07-02→04 execution
@@ -1268,6 +1276,13 @@ untangling, not more quick leaves. Start R4b (`ambition_world`, the 139-inbound
 `rooms` repoint; needs R3.1's seam, which landed) as the next real carve.
 
 ### R4b — `ambition_world` starting map (scouted; the next real carve)
+
+> **⚠ RESHAPED (2026-07-05):** the carve target is now TWO crates —
+> `ambition_world` (canonical spatial IR, no LDtk dep) + `ambition_ldtk_map`
+> (the LDtk backend). The dep-inversion prep below (step 1) stands unchanged;
+> steps 2–3 execute as **R7.2–R7.4 of
+> [`fable-review-2026-07-05.md`](fable-review-2026-07-05.md)** (AJ9). Do not
+> carve to the one-crate shape.
 `world/` = `ldtk_world/` (6775 LOC, 12 internal-refs) + `rooms/` (2437,
 16 internal-refs) + `platforms/` (951, but depends on `rooms` +
 `platformer_runtime`) + `physics.rs`. The whole module is coupled around

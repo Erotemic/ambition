@@ -14,6 +14,12 @@ rewritten 2026-07-04), ADRs 0009/0019.
 > The 2026-07-02 review is the frozen E-log record. P1/P2 of this roadmap execute
 > as that doc's R-phases. (Facts drifted since 07-03: 25 crates now —
 > `touch_input` extracted; `gameplay_core` measured ~99.5k.)
+> **Extended 2026-07-05 by
+> [`../reviews/fable-review-2026-07-05.md`](../reviews/fable-review-2026-07-05.md)**
+> (phases R7–R10: backend-agnostic spatial model per
+> [`engine/spatial-model.md`](engine/spatial-model.md), contact/surface
+> kernel + momentum locomotion, the gnuton mounted-giant split). Q6 is
+> ANSWERED below.
 
 ---
 
@@ -86,7 +92,7 @@ built. Tiers = the order the roadmap earns them.
 | **Hollow Knight** | large-world streaming, benches, currency-loss-on-death, charms/equipment, NPC ecosystem | **Tier 2.** Mostly content + scale; stresses room streaming (Q7) and the equipment layer on C1 |
 | **Dead Cells** | procedural level assembly from authored chunks, weapon rosters, meta-progression | **Tier 3.** Rosters = the proven install pattern. Real gap: runtime room-graph assembly (LDtk is static today) — Q8 |
 | **Smash Bros** | movesets w/ frame-accurate hitboxes, hitstun/knockback/DI, N local players, ledges, platforms | **Tier 3.** Shockingly close: A2 IS hitstun/knockback/hitstop; AD2 makes frame-driven hitboxes first-class; possession/slots exist. Missing: percent-scaling knockback as data, N-player local input routing (SlotControls is built for it), stage/stock structure |
-| **Sonic** | slopes, loops, momentum physics | **Edge tier.** REAL ENGINE GAP: the collision kernel is axis-aligned swept-AABB; slopes touch its deepest assumptions — Q6 |
+| **Sonic** | slopes, loops, momentum physics | **EXPEDITED (Jon, 2026-07-05 — Q6 answered YES).** The "Sanic" sandbox demo is the active stress vector for the contact/surface kernel + `MotionModel` policy — fable-review-2026-07-05 R8/R9. AABB stays the protected fast path; a full momentum demo GAME remains a Q12/Q13 call |
 | **Braid** | deterministic rewind, time manipulation | **Edge tier.** Bit-identical replay + the proper-time architecture are real foundations; missing: state snapshot/restore infrastructure — rides Q4 |
 | **Rain World** | procedural animation, ecosystem AI, region streaming | **Edge tier.** The bone/rig toolkit and the Brain/WorldView/memory seams point here; furthest out |
 
@@ -241,6 +247,13 @@ parallel work instead of guessing.)*
   in the engine's 1.0 capability set? If yes, that's a deep, planned kernel
   extension (axis-role sweeps must generalize) — better scheduled deliberately
   than discovered. If no, we say so in the engine docs and Sonic leaves the matrix.
+  **ANSWERED (Jon, 2026-07-05): YES, expedited** — via a geometry/contact
+  layer where AABBs coexist with `SurfaceChain` primitives (not a rewrite of
+  the AABB kernel, which stays the protected fast path). Design:
+  [`engine/spatial-model.md`](engine/spatial-model.md); execution:
+  fable-review-2026-07-05 AJ10/AJ11 + R8/R9. Knight-likes-on-slopes
+  (Celeste-lite ramps) is deliberately deferred until the momentum-body
+  proof lands (Q15 there).
 
 **C. World & scale**
 - **Q7.** Metroid/HK-scale worlds: is **room streaming** (load-ahead, seamless

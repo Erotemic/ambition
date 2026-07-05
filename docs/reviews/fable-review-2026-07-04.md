@@ -1179,13 +1179,34 @@ shark. Execution map:
   fields (`mount_class` / `pilotable_mount_classes` / `mount_death_splash`) on the
   standalone mount + rider rows (which survive the cutover). 4 headless tests.
   Feel-neutral, permanent — only the *population source* changes at cutover.
-- **M2** — LDtk EntityRef parse + loader resolves an authored linked pair into
-  `RidingOn`/`MountSlot` (the "mount action pre-applied" state).
-- **M3** — `ambition_ldtk_tools` capability to author the mounted-link.
-- **M4** — cutover: plain rider archetype + plain shark mount + authored link;
-  delete the fused `pirate_on_shark`/`composite_visual`/`composite_rider_name`/
-  `rider_name_suffix`; retarget the composite-spawn parity suite; rewrite the
-  `.ldtk` spawns via M3's tool.
+- **M2 parser ✅ (committed `f7041a56`)** — `field_entity_ref` reads an LDtk
+  EntityRef field (`__value` object `entityIid`, or a bare-iid string); unit-tested.
+- **C1 control inversion ✅ (committed `7250851e`)** — Jon's call: the orbit moves
+  to the rider brain. New `steer_mount_from_rider` (scheduled between
+  `tick_actor_brains` and `integrate_sim_bodies`): with `ControlGrant::Total` the
+  rider's locomotion intent (velocity_target / locomotion / facing / drop_through)
+  is copied onto the mount, so the mount body integrates the rider's orbit;
+  attack/fire intent stays on the rider. Headless test. This was the trickiest,
+  most novel piece of the cutover — the behavioral heart of the ADR is now in.
+- **M2 resolution + M4 (the atomic cutover, NEXT — one focused pass):** the seam
+  is now precisely scoped. Spawned actors already carry `FeatureId(authored.id)`,
+  and a mount's authored id defaults to its LDtk `iid`, so resolution is a clean
+  `FeatureId → Entity` match + the `CanPilot`/`Mountable.class` compat check. The
+  invasive part (why it must be atomic, not a dribble): threading the rider's
+  `mounted_on` iid from `convert_enemy_spawn` through the `rooms` spine to the
+  spawn site — the enemy `Authored<CharacterBrain>` payload must grow to an
+  `AuthoredEnemy { brain, mounted_on: Option<String> }` (ripples through
+  `rooms`/`spawn_actors`). Then, in the SAME pass: (a) any archetype with
+  `mount_class` gets `Mountable` at spawn (today only the composite path adds it);
+  (b) a rider with `mounted_on` gets `PendingMountLink(mount_iid)` + `CanPilot`;
+  (c) a resolution system inserts `RidingOn`/`MountSlot`/`Mounted` + welds;
+  (d) delete the fused `pirate_on_shark`/`pirate_heavy_on_shark` rows +
+  `composite_visual`/`CompositeVisualSpec`/`composite_rider_name`/
+  `rider_name_suffix`/`spawn_composite_mount_rider`; (e) rewrite the shark spawns
+  in `sandbox.ldtk` + `intro.ldtk` as two linked entities (via M3's tool); (f)
+  retarget the composite-spawn parity suite (`ecs/spawn/tests.rs`) to the pair.
+- **M3** — `ambition_ldtk_tools` capability to author the mounted-link (needed by
+  M4e; never hand-edit `.ldtk`).
 - **M5** — player-piloting through the control seam (rider-agnostic) + a test.
 
 ---

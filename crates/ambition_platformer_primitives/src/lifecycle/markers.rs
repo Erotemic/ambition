@@ -46,6 +46,14 @@ pub struct PersistentEntity;
 #[derive(Component, Default)]
 pub struct PlayerVisual;
 
+/// Marker for simulation-side feature entities spawned from the active room.
+/// They are deliberately separate from presentation `FeatureVisual` sprites;
+/// visible builds keep using the existing visual entities and look up live ECS
+/// state by `FeatureId`. Lifecycle vocabulary: a room-scoped sim marker that
+/// lives beside the other runtime-owned scope markers.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct FeatureSimEntity;
+
 /// The scene's root entity handles (player sprite + HUD surfaces). Opaque `Entity`
 /// slots shared by setup, input, and presentation; runtime-owned so sim systems can
 /// reference them without importing presentation.

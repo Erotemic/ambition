@@ -52,10 +52,3 @@ pub struct PrimaryPlayer;
 /// so it belongs beside them: reusable mechanics + presentation can filter on the
 /// camera/HUD/dev-tool target without depending on the sandbox's `player` module.
 pub type PrimaryPlayerOnly = (With<PlayerEntity>, With<PrimaryPlayer>);
-
-/// Marker for simulation-side feature entities spawned from the active room.
-/// They are deliberately separate from presentation `FeatureVisual` sprites;
-/// visible builds keep using the existing visual entities and look up live ECS
-/// state by `FeatureId`.
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct FeatureSimEntity;

@@ -160,7 +160,7 @@ pub use targeting::{
 // `ambition_platformer_primitives::markers` (ADR 0019). Re-exported here so all
 // existing `crate::features::ecs::FeatureSimEntity` call sites compile
 // unchanged.
-pub use ambition_platformer_primitives::markers::FeatureSimEntity;
+pub use ambition_platformer_primitives::lifecycle::FeatureSimEntity;
 
 // `HazardFeature` moved to the combat kit with the hazard runtime.
 pub use crate::combat::hazard_runtime::HazardFeature;

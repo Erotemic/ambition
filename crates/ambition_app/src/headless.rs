@@ -13,15 +13,9 @@
 
 use std::fmt;
 
-use bevy::asset::AssetPlugin;
-use bevy::image::ImagePlugin;
 use bevy::prelude::*;
-use bevy::state::app::StatesPlugin;
-use bevy::time::TimePlugin;
-use bevy::transform::TransformPlugin;
 
 use crate::app::SandboxSimulationPlugin;
-use ambition_gameplay_core::game_mode::GameMode;
 use ambition_gameplay_core::ldtk_world;
 use ambition_gameplay_core::rooms::RoomSet;
 
@@ -124,17 +118,10 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
         .len();
 
     let mut app = App::new();
-    // Minimal Bevy foundation: time/transform/state/asset/image registries.
-    // ImagePlugin is included because bevy_ecs_ldtk's tile spawning touches
-    // Image asset handles even when no rendering happens; without it the
-    // asset type is unregistered and LdtkPlugin panics during setup.
-    app.add_plugins(MinimalPlugins);
-    app.add_plugins(AssetPlugin::default());
-    app.add_plugins(ImagePlugin::default());
-    app.add_plugins(TransformPlugin);
-    app.add_plugins(StatesPlugin);
-    app.init_state::<GameMode>();
-    let _ = TimePlugin; // re-export reference; MinimalPlugins already adds it.
+    // The shared engine foundation (schedules/time, asset + image registries,
+    // transforms, states) — ONE definition in ambition_runtime for every
+    // headless entry point.
+    ambition_runtime::add_headless_foundation(&mut app);
 
     app.add_plugins(SandboxSimulationPlugin);
 
@@ -184,12 +171,7 @@ mod tests {
 
     fn sandbox_sim_app() -> App {
         let mut app = App::new();
-        app.add_plugins(MinimalPlugins);
-        app.add_plugins(AssetPlugin::default());
-        app.add_plugins(ImagePlugin::default());
-        app.add_plugins(TransformPlugin);
-        app.add_plugins(StatesPlugin);
-        app.init_state::<GameMode>();
+        ambition_runtime::add_headless_foundation(&mut app);
         app.add_plugins(crate::app::SandboxSimulationPlugin);
         app
     }

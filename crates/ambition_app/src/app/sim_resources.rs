@@ -28,8 +28,8 @@ use ambition_gameplay_core::game_mode::GameMode;
 use ambition_gameplay_core::session::data;
 use ambition_gameplay_core::world::physics::DebrisBurstMessage;
 use ambition_gameplay_core::ActorDiedMessage;
-use ambition_render::fx::{ExplosionRequest, FireworksRequest, VfxMessage};
 use ambition_sfx::SfxMessage;
+use ambition_vfx::{ExplosionRequest, FireworksRequest, VfxMessage};
 
 pub struct SandboxSimulationResourcesPlugin;
 
@@ -49,7 +49,6 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             .add_message::<ambition_gameplay_core::features::HitEvent>()
             .add_message::<ambition_gameplay_core::features::ActorStimulus>()
             .add_message::<ambition_gameplay_core::features::ResetRoomFeaturesEvent>()
-            .add_message::<ambition_content::bosses::CutRopeRoomReplayRequested>()
             .add_message::<ambition_gameplay_core::features::GameplayBannerRequested>()
             .add_message::<ambition_gameplay_core::player::PlayerHealRequested>()
             .add_message::<ambition_gameplay_core::rooms::RoomTransitionRequested>()
@@ -85,9 +84,8 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             .insert_resource(ambition_gameplay_core::SandboxSimState::default())
             .insert_resource(ambition_gameplay_core::SandboxDevState::default())
             .insert_resource(ambition_gameplay_core::features::GameplayBanner::default())
-            .insert_resource(ambition_content::bosses::CutRopeBossArenaState::default())
-            .insert_resource(ambition_content::bosses::CutRopeHeavyObjectCycle::default())
-            .insert_resource(ambition_content::bosses::PendingCutRopeRoomReplay::default())
+            // Cut-rope resources moved to AmbitionBossContentPlugin — content
+            // owns and initializes its own state (anti-god rule 5).
             .insert_resource(ambition_gameplay_core::features::FeatureEcsWorldOverlay::default())
             .insert_resource(ambition_gameplay_core::features::FeatureViewIndex::default())
             .insert_resource(ambition_gameplay_core::features::ActorRenderIndex::default())
@@ -204,7 +202,8 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             .insert_resource(ambition_gameplay_core::CameraEaseState::default())
             .insert_resource(ambition_gameplay_core::CameraEaseTuning::default())
             .insert_resource(ambition_gameplay_core::time::camera_ease::CameraShakeState::default())
-            .insert_resource(ambition_render::rendering::CameraViewState::default())
+            // CameraViewState (render-owned) moved to the presentation half —
+            // the sim never reads it (anti-god rule 5: resources are owned).
             .insert_resource(
                 ambition_gameplay_core::session::reset::SandboxResetRequested::default(),
             );

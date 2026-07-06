@@ -22,8 +22,7 @@ use ambition_gameplay_core::schedule::{
     populate_menu_control_frame_from_actions,
 };
 use ambition_gameplay_core::schedule::{
-    attach_player_input_components, configure_sandbox_sets,
-    toggle_player_trail_emission_from_actions, SandboxSet,
+    attach_player_input_components, toggle_player_trail_emission_from_actions, SandboxSet,
 };
 use ambition_gameplay_core::time::feel::SandboxFeelTuning;
 use ambition_gameplay_core::world::physics;
@@ -47,9 +46,7 @@ use super::setup_systems::{
     reload_visual_quality_assets_on_scale_change, setup_presentation_system,
     setup_simulation_system,
 };
-use super::sim_systems::{
-    apply_cut_rope_room_replay_request_system, apply_player_reset_input_system,
-};
+use super::sim_systems::{apply_player_reset_input_system, apply_room_replay_request_system};
 use super::world_flow::{apply_room_transition_system, ensure_requested_room_parallax_system};
 use ambition_gameplay_core::player::PlayerBodyFrameOutput;
 
@@ -70,20 +67,10 @@ pub fn add_simulation_plugins(app: &mut App) {
     // a headless-friendly init path), it lives in
     // `add_presentation_plugins`.
 
-    // Declare the canonical simulation-phase ordering. Individual system
-    // registrations below only need `.in_set(SandboxSet::X)`; they no longer
-    // need to pin a cross-set system via `.after(other_system)`. Intra-set
-    // `.chain()` ordering is still expressed per-system.
-    configure_sandbox_sets(app);
-    app.init_resource::<ambition_gameplay_core::shrine::ShrineActivationPulse>();
-    // Slot-keyed gesture/buffer authority (double-tap, interact buffer). Local
-    // input publishes it; body mode / interaction / transitions consume it for the
-    // controlled body's slot — no privileged per-body interaction component.
-    app.init_resource::<ambition_gameplay_core::player::SlotInteractionState>();
-    // Which character the local player spawns as. Default = the `player`
-    // protagonist (no change); the character-select surface rewrites this, and
-    // both startup halves (sim moveset/name + presentation sprite) read it.
-    app.init_resource::<ambition_gameplay_core::player::StartingCharacter>();
+    // The canonical simulation-phase sets + engine resources now live in
+    // `ambition_runtime::SandboxSetsPlugin` (first in the engine group below).
+    // Hosts still override StartingCharacter etc. by inserting BEFORE
+    // `add_simulation_plugins` runs — init_resource never clobbers.
 
     app.add_plugins(super::sim_resources::SandboxSimulationResourcesPlugin);
 
@@ -102,12 +89,12 @@ pub fn add_simulation_plugins(app: &mut App) {
     }
 
     // The content-free engine SIMULATION plugins (E5): the SAME
-    // `PlatformerEnginePlugins` group a demo app builds on — the sim schedule,
-    // the universal brain, gravity, traversal abilities, item pickups,
-    // encounters/cutscenes, feature collection/interaction/effects/view-sync,
-    // room reset, traces, and affordances. Ordering is set-based (configured by
-    // `configure_sandbox_sets` above), so pulling these out of the interleaved
-    // list into one group does not change the resolved schedule.
+    // `PlatformerEnginePlugins` group a demo app builds on — the sandbox sets
+    // + engine resources, the sim schedule, the universal brain, gravity,
+    // traversal abilities, item pickups, encounters/cutscenes, feature
+    // collection/interaction/effects/view-sync, room reset, traces,
+    // affordances, and the combat-phase chain. Ordering is set-based, so
+    // group membership does not change the resolved schedule.
     app.add_plugins(ambition_runtime::PlatformerEnginePlugins);
 
     // App-local HOST wiring the group deliberately leaves behind — per-tick
@@ -125,7 +112,6 @@ pub fn add_simulation_plugins(app: &mut App) {
         wire_portal_schedule(app);
     }
     register_room_transition_systems(app);
-    app.add_plugins(super::combat_schedule::CombatSchedulePlugin);
     register_presentation_sync_systems(app);
     app.add_plugins(super::progression_schedule::ProgressionSchedulePlugin);
 }
@@ -256,8 +242,10 @@ fn register_player_input_systems(app: &mut App) {
             ambition_gameplay_core::mirror_sim_dt_into_runtime,
             ambition_gameplay_core::dev::sync_live_player_dev_edits_system,
             apply_player_reset_input_system.run_if(gameplay_allowed),
-            ambition_content::bosses::emit_cut_rope_room_replay_after_dialogue_closes,
-            apply_cut_rope_room_replay_request_system,
+            // Content dialogue-followup emitters (e.g. cut-rope "try again")
+            // hang on the labeled slot anchored below; the generic replay
+            // consumer drains their requests the same frame.
+            apply_room_replay_request_system,
             ambition_gameplay_core::player::input_timer_system
                 .run_if(gameplay_allowed)
                 .in_set(ambition_input::InputSet::Populate),
@@ -299,6 +287,15 @@ fn register_player_input_systems(app: &mut App) {
         )
             .chain()
             .in_set(SandboxSet::PlayerInput),
+    );
+    // Anchor the content dialogue-followup slot: emitters (registered by
+    // content plugins) run in PlayerInput before the generic replay consumer,
+    // so a request emitted this frame is drained this frame.
+    app.configure_sets(
+        Update,
+        ambition_gameplay_core::session::reset::ContentDialogueFollowupSet
+            .in_set(SandboxSet::PlayerInput)
+            .before(apply_room_replay_request_system),
     );
     // Universal-brain effects resolver — moved OUT of `PlayerInput` to run AFTER
     // `WorldPrep`. `PlayerInput` now precedes `WorldPrep`, so this must run after
@@ -418,16 +415,19 @@ fn register_room_transition_systems(app: &mut App) {
             apply_room_transition_system,
             // One reset over the unified actor cluster (NPCs + enemies).
             ambition_gameplay_core::features::reset_ecs_room_features,
-            // Content-side reset work carries the ContentRoomResetSet
-            // label so generic plugins (gravity, portal) can order
-            // after it without naming content systems.
-            ambition_content::bosses::reset_cut_rope_boss_arena_on_room_reset
-                .in_set(ambition_gameplay_core::session::reset::ContentRoomResetSet),
-            // Portal room-reset cleanup is registered by
-            // `ambition_gameplay_core::portal::PortalPlugin`.
         )
             .chain()
             .in_set(SandboxSet::RoomTransition),
+    );
+    // Anchor the content room-reset slot AFTER the engine's feature reset.
+    // Content plugins register their reset systems in the slot; generic
+    // plugins (gravity, portal RoomReset) order after the SET — nobody
+    // names a content system (E5-finish de-weave).
+    app.configure_sets(
+        Update,
+        ambition_gameplay_core::session::reset::ContentRoomResetSet
+            .in_set(SandboxSet::RoomTransition)
+            .after(ambition_gameplay_core::features::reset_ecs_room_features),
     );
 }
 
@@ -679,6 +679,9 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
 }
 
 fn install_camera_and_debug_overlay_systems(app: &mut App) {
+    // Render-owned camera view state, initialized with the presentation half
+    // that reads it (nameplates, HUD, this overlay) — the sim never touches it.
+    app.init_resource::<ambition_render::rendering::CameraViewState>();
     app.init_resource::<debug_overlay::DebugOverlayLabels>();
     app.add_systems(
         Update,

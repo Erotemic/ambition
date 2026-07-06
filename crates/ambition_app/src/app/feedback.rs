@@ -1,8 +1,8 @@
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
-use ambition_render::fx::VfxMessage;
 use ambition_sfx::SfxMessage;
+use ambition_vfx::VfxMessage;
 
 /// Bundled `MessageWriter`s for the sim → presentation event channels
 /// the player tick (and the `player_body_phase` helper it calls) writes

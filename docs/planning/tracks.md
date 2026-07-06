@@ -41,7 +41,7 @@ Everything else on this page is opus-or-below by design.
 
 | Track | Doc | Status | Next |
 |---|---|---|---|
-| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — E5 first slice landed (`3c70d827`); W/E1/E2/E3/E6/E7/E8 open | E5-finish steps 1–5 [opus, fable-specced] |
+| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — E5 first slice `3c70d827`; **E5-finish steps 1–4 LANDED 2026-07-06** (sets+resources+combat schedule into the group; shared headless foundation; cut-rope de-woven via generic `RoomReplayRequested` + labeled slots; E4-prep: fx facade imports repointed, CameraViewState + cut-rope resources re-owned) | E5 step 5 (mint [the windowed host]) + step 6 (smoke shell) [opus]; W/E1/E2/E3/E6/E7/E8 open |
 | Decomposition D-B/D-C | same | queued behind D-A | mode-scope seam can land early (demos want it) |
 | Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | NEW — §7.6 swept transit + blocks-as-surfaces landed | CC1 cast consolidation [opus] |
 | Combat stack | [engine/combat-model.md](engine/combat-model.md) | NEW | CM1 knockback growth (parity-pinned) [opus] |
@@ -162,3 +162,26 @@ to 2-local-human; NO online round 1); Q4 decision brief written
 quarter-circle entities instead) / Q28 (parody names = policy) / Q29
 (respawn triage) / Q30 (fable window + hardest-carves-are-fable)
 recorded; slash-VFX deprioritized into CM5.
+
+## 2026-07-06 (fable) — E5-finish steps 1–4 + E4 prep (execution)
+[the sim assembly] grew: `SandboxSetsPlugin` (sets + ShrineActivationPulse/
+SlotInteractionState/StartingCharacter, FIRST in the group; host-override-
+by-pre-insert preserved), `CombatSchedulePlugin` moved in wholesale
+(ambition_vfx dep added; content slots + guard test intact),
+`add_headless_foundation` + `init_engine_states` (the 3× copy-pasted
+foundation block + 2× cli init_state all converge). De-weave: the engine
+gained `session::reset::RoomReplayRequested` (generic) +
+`ContentDialogueFollowupSet`; the cut-rope emitter/reset systems moved to
+`AmbitionBossContentPlugin` on the labeled slots; the app's replay consumer
+is the generic `apply_room_replay_request_system`; `CutRopeRoomReplayRequested`
+deleted. E4 prep: all `ambition_render::fx` type imports repointed to
+`ambition_vfx` (the types had already moved; the facade was the residue);
+`CameraViewState` init moved to the presentation half; cut-rope resources
+now initialized by the content plugin (anti-god rule 5 sweeps).
+ALSO: disk-full incident — `/home/joncrall/ambition-target/debug` had
+grown to 351G; deleted (pure build cache; one full rebuild), plus the
+config-blessed stale repo `target/` (13G) and >1-day-old `debug_traces/`
+(5.6G). Flag for Jon: consider a cron/`cargo-sweep` or periodic
+`rm -rf $CARGO_TARGET_DIR/debug` to stop the target dir re-ballooning.
+The extension-crate ruling (kaleidoscope) is recorded in architecture.md
+Tier 6 + the E1e card.

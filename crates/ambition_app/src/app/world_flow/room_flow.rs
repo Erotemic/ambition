@@ -14,9 +14,9 @@ use ambition_gameplay_core::platformer_runtime::lifecycle::RoomScopedEntity;
 use ambition_gameplay_core::rooms;
 use ambition_gameplay_core::time::feel::SandboxFeelTuning;
 use ambition_gameplay_core::world::physics;
-use ambition_render::fx::{ParticleKind, VfxMessage};
 use ambition_render::rendering::spawn_room_visuals;
 use ambition_sfx::SfxMessage;
+use ambition_vfx::{ParticleKind, VfxMessage};
 
 use super::super::feedback::SandboxEventWriters;
 use super::{ground_gap_below_feet, RoomClock};

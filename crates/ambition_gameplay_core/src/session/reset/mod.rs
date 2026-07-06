@@ -19,12 +19,30 @@ use bevy::prelude::*;
 use ambition_engine_core as ae;
 
 /// Room-transition slot for *content-side* reset work (named boss
-/// arenas, story state). The app assembly places the content layer's
-/// reset systems in this set; machinery that must run after content
-/// resets (e.g. gravity reset-to-default) orders against the SET, so
-/// generic plugins never name a content system.
+/// arenas, story state). Content plugins register their reset systems in
+/// this set; the host anchors the set into the room-transition chain, and
+/// machinery that must run after content resets (e.g. gravity
+/// reset-to-default) orders against the SET — generic plugins never name
+/// a content system.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct ContentRoomResetSet;
+
+/// Player-input-phase slot for content systems that FOLLOW UP a closed
+/// dialogue with a request (e.g. emit [`RoomReplayRequested`] after a
+/// "try again" conversation ends). Content plugins register emitters in
+/// this set; the host anchors it before the replay consumer so a request
+/// lands the same frame it is emitted.
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ContentDialogueFollowupSet;
+
+/// Replay the ACTIVE room in place: reset the controlled player to the
+/// room spawn and tear down + respawn the room's scoped state (bosses,
+/// features), leaving progress outside the room untouched. CONTENT emits
+/// this (a "try again" beat, a challenge retry); the host's replay
+/// consumer drains it. Engine-generic vocabulary — the message names no
+/// content.
+#[derive(Message, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct RoomReplayRequested;
 
 use crate::boss_encounter::BossEncounterRegistry;
 use crate::encounter::{EncounterMusicRequest, EncounterRegistry};
@@ -254,6 +272,7 @@ pub struct SandboxResetSchedulePlugin;
 impl Plugin for SandboxResetSchedulePlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<crate::session::RespawnRoomVisualsRequested>();
+        app.add_message::<RoomReplayRequested>();
         app.add_systems(
             Update,
             // Clear transient portals/held-items/summons BEFORE the request flag

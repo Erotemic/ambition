@@ -17,7 +17,16 @@ ambition_gameplay_core = { path = "../ambition_gameplay_core", default-features 
     "portal_ldtk",
 ] }
 ambition_characters = { path = "../ambition_characters" }
-bevy = { version = "0.18.1", default-features = false }
+# The combat-phase chain's effect seam (`EffectRequest`/`apply_effects`) —
+# sim-side effect vocabulary, not presentation.
+ambition_vfx = { path = "../ambition_vfx" }
+bevy = { version = "0.18.1", default-features = false, features = [
+    # add_headless_foundation: asset/image registries + states for a
+    # windowless engine app (bevy_ecs_ldtk touches Image handles).
+    "bevy_asset",
+    "bevy_image",
+    "bevy_state",
+] }
 
 [features]
 # Forward the sim-relevant feature gates so a consumer can opt into the same

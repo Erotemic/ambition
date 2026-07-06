@@ -54,7 +54,6 @@ use parry2d::{
 };
 
 use crate::collision_semantics::{is_full_collision_surface, Contact, ContactSource};
-use crate::geometry::AabbExt;
 use crate::world::{SurfaceChain, World};
 use crate::Vec2;
 

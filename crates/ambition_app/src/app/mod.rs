@@ -20,7 +20,6 @@
 //! (e.g. `StartRoomOverride`); use the plugin API otherwise.
 
 mod cli;
-mod combat_schedule;
 mod dev_runtime;
 mod feedback;
 mod hud;
@@ -61,4 +60,4 @@ pub use plugins::{
     SandboxPresentationPlugin, SandboxSimulationPlugin,
 };
 pub use resources::{init_sandbox_resources, StartRoomOverride};
-pub use sim_systems::{apply_cut_rope_room_replay_request_system, apply_player_reset_input_system};
+pub use sim_systems::{apply_player_reset_input_system, apply_room_replay_request_system};

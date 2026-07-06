@@ -9,12 +9,11 @@
 //! their ordering + `run_if` gates and references those moved `pub fn`s.
 //!
 //! The two systems below stay in the app because they call the app-only
-//! `super::world_flow::reset_sandbox` (a host/reset concern) AND write
-//! `ambition_render::fx::VfxMessage` — and `ambition_gameplay_core` has no
-//! `ambition_render` dependency, so they cannot move to a library plugin. The
-//! cut-rope replay system is NAMED content (`ambition_content::bosses`); moving it
-//! content-side needs the rooms world-hook seam (JD4, fable-reserved), so it stays
-//! here for now.
+//! `super::world_flow::reset_sandbox` (a host/reset concern). They are
+//! otherwise engine-shaped (the replay consumer drains the ENGINE's generic
+//! `session::reset::RoomReplayRequested`; content emits it from the
+//! `ContentDialogueFollowupSet` slot — the E5-finish de-weave), so they move
+//! into [the windowed host] when the reset/world-flow concern moves with them.
 //!
 //! Each is a narrow query/resource system registered in the
 //! [`SandboxSet::CoreSimulation`] chain configured by
@@ -30,8 +29,8 @@ use ambition_gameplay_core::features;
 use ambition_gameplay_core::time::feel::SandboxFeelTuning;
 use ambition_gameplay_core::SandboxSimState;
 use ambition_input::ControlFrame;
-use ambition_render::fx::VfxMessage;
 use ambition_sfx::SfxMessage;
+use ambition_vfx::VfxMessage;
 
 /// Detect a player-pressed reset (the Reset button / `controls.reset_pressed`)
 /// and execute the full sandbox reset before the rest of the gameplay
@@ -109,14 +108,15 @@ pub fn apply_player_reset_input_system(
     });
 }
 
-/// Replay the cut-rope boss room from a Yarn/dialogue command.
+/// Replay the ACTIVE room from a content-emitted request (the engine's
+/// generic `RoomReplayRequested` — e.g. a "try again" dialogue beat).
 ///
 /// This intentionally mirrors `apply_player_reset_input_system` instead of
 /// driving `ControlFrame::reset_pressed`: the command can run while gameplay
 /// input is suspended by dialogue, so relying on the input frame would make the
 /// reset timing depend on UI/game-mode scheduling.
-pub fn apply_cut_rope_room_replay_request_system(
-    mut replay_requests: MessageReader<ambition_content::bosses::CutRopeRoomReplayRequested>,
+pub fn apply_room_replay_request_system(
+    mut replay_requests: MessageReader<ambition_gameplay_core::session::reset::RoomReplayRequested>,
     world: Res<RoomGeometry>,
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,

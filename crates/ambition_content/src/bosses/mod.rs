@@ -26,9 +26,9 @@ pub use cut_rope::{
     detect_cut_rope_rope_cut, emit_cut_rope_room_replay_after_dialogue_closes, is_cut_rope_boss,
     reset_cut_rope_boss_arena_on_room_reset, reset_cut_rope_boss_attempt, setup_cut_rope_encounter,
     spawn_cut_rope_victory_npc, sync_cut_rope_boss_arena_prop_visuals, tick_cut_rope_flavor,
-    CutRopeBossArenaState, CutRopeHeavyObjectCycle, CutRopeRoomReplayRequested,
-    PendingCutRopeRoomReplay, SmirkingBehemothVictoryNpc, CUT_ROPE_BOSS_ID,
-    CUT_ROPE_VICTORY_NPC_DIALOGUE_ID, CUT_ROPE_VICTORY_NPC_ID,
+    CutRopeBossArenaState, CutRopeHeavyObjectCycle, PendingCutRopeRoomReplay,
+    SmirkingBehemothVictoryNpc, CUT_ROPE_BOSS_ID, CUT_ROPE_VICTORY_NPC_DIALOGUE_ID,
+    CUT_ROPE_VICTORY_NPC_ID,
 };
 pub use gnu_ton::gate_gnu_ton_arena_ladder;
 
@@ -118,10 +118,32 @@ impl Plugin for AmbitionBossContentPlugin {
             ambition_gameplay_core::boss_encounter::BossEncounterRegistry::default(),
         );
 
+        // Cut-rope arena state is CONTENT state — owned and initialized here,
+        // never by the host's sim plugin (anti-god rule 5).
+        app.init_resource::<CutRopeBossArenaState>();
+        app.init_resource::<CutRopeHeavyObjectCycle>();
+        app.init_resource::<PendingCutRopeRoomReplay>();
+
         // The named per-boss special-attack Techniques (state attachment +
         // schedule into the engine's `CombatSet::ContentSpecials` slot) are
         // a self-contained content domain unit.
         app.add_plugins(specials::BossSpecialContentPlugin);
+
+        // Content hangs its room-reset + dialogue-followup work on the
+        // engine's labeled slots — the host anchors the SLOTS into its
+        // chains; it never names these systems (E5-finish de-weave):
+        // - room re-entry/reset: restore the cut-rope arena's persisted state.
+        // - dialogue followup: the "try again" beat emits the engine's
+        //   generic `RoomReplayRequested` once the dialog closes.
+        app.add_systems(
+            Update,
+            (
+                reset_cut_rope_boss_arena_on_room_reset
+                    .in_set(ambition_gameplay_core::session::reset::ContentRoomResetSet),
+                emit_cut_rope_room_replay_after_dialogue_closes
+                    .in_set(ambition_gameplay_core::session::reset::ContentDialogueFollowupSet),
+            ),
+        );
 
         // Cut-rope post-damage flavor (rope-cut detection → gate, hazard→
         // visual mirror + impact flavor, prop visuals). Runs in the engine's

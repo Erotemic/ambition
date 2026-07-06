@@ -3,7 +3,6 @@ use bevy::window::WindowResolution;
 
 use ambition_engine_core::config::{WINDOW_H, WINDOW_W};
 use ambition_gameplay_core::assets::game_assets::GameAssetConfig;
-use ambition_gameplay_core::game_mode::GameMode;
 
 use super::plugins::{SandboxLdtkPlugin, SandboxPresentationPlugin, SandboxSimulationPlugin};
 
@@ -234,7 +233,7 @@ pub fn run_visible() {
             }),
     );
     // DefaultPlugins installs StatesPlugin, so initialize GameMode after it.
-    app.init_state::<GameMode>();
+    ambition_runtime::init_engine_states(&mut app);
     let active_profile = asset_config.asset_profile;
     app.insert_resource(asset_config);
     // Launch-time "choose your character": inserted BEFORE the plugins so the
@@ -318,7 +317,7 @@ pub fn run_web() {
         ..default()
     }));
     // DefaultPlugins installs StatesPlugin, so initialize GameMode after it.
-    app.init_state::<GameMode>();
+    ambition_runtime::init_engine_states(&mut app);
     // GameAssetConfig defaults match the no-args desktop path — no
     // `std::env::args` parsing on the web because the browser provides
     // none and the helper hits stdlib paths that don't exist on wasm.

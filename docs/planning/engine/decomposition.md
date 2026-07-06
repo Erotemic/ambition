@@ -280,11 +280,18 @@ the facade, run the gate.
   the game's Yarn BINDINGS stay sim-side (they reference actor state).
 - **E1d `ambition_dev_tools`** (core dev/ 3.0k + app dev/ 2.7k): one
   crate, feature-gated overlays; DevToolsPlugin moves whole.
-- **E1e `ambition_menu`** (core menu/ 3.2k + app menu/ 10k): the
-  settings IR + the host stack; deps `ambition_persistence` (the
-  layering that dissolves the god-dep); the `ambition_touch_input`
-  upward-dep inversion rides this card; C3 (in-game character select
-  over the wear seam) lands here or is explicitly closed.
+- **E1e `ambition_menu`** (core menu/ 3.2k + app menu/ 10k) — a
+  THREE-way split (amended 2026-07-06, the extension-crate ruling in
+  architecture.md Tier 6): (1) menu model + settings IR + host stack +
+  the plain GRID backend → [the menu stack] (deps
+  `ambition_persistence` — the layering that dissolves the god-dep);
+  (2) the lunex **kaleidoscope backend** → `game/
+  ambition_menu_kaleidoscope`, the FIRST extension crate (engine-only
+  deps, boundary-tested, optional for any game incl. Ambition);
+  (3) Ambition's menu content stays content-side. The
+  `ambition_touch_input` upward-dep inversion rides this card; C3
+  (in-game character select over the wear seam) lands here or is
+  explicitly closed.
 
 ### E2 — the combat/projectiles carve — [opus]
 
@@ -327,20 +334,77 @@ work. This is the riskiest cut — the sim/presentation boundary. Related
 escalation rule: W3's two-crate cut and E2's back-edge classification
 escalate to fable at the FIRST genuinely ambiguous item, not the third.)*
 
-Ordered steps: (1) **the L5 inversion first** — move `VfxMessage`,
-`ExplosionRequest`, `FireworksRequest` from `ambition_render::fx` down
-to `ambition_vfx` (they are SIM messages; render becomes a consumer) —
-this alone unblocks moving the sim-resources plugin runtime-ward.
-(2) The Q26 scout: enumerate every render/portal_presentation import of
-gameplay_core; view-shaped → the carve list; sim internals → inversion
-slices first; do not start the carve with an unclassified list.
-(3) Mint `ambition_sim_view`: `camera_snapshot.rs`, `view_index.rs`,
-actor render/anim indices, camera-ease; builders stay
-functions-of-inputs. AJ14 Tier-0 binds: per-body world-frame position
-AND velocity + observer velocity in the snapshot; ONE registered
-full-screen post-pass seam stays. (4) `ambition_render` deps flip to
-sim_view + foundations, NOT gameplay_core (the D3.7 lever); boundary
-test enforces it forever.
+**Steps 1–2 are DONE (2026-07-06):** the vfx-message types already
+lived in `ambition_vfx` (render's `fx` was a re-export facade); every
+sim-side consumer now imports from `ambition_vfx` directly, and the
+scout ran — verdict: **the carve can start; `ambition_portal_
+presentation` is ALREADY below the boundary (zero gameplay_core refs);
+render imports ~103 distinct gameplay_core symbols; render WRITES sim
+state in exactly three places** (the `CameraEaseState` ResMut in
+`camera_follow`; `FeatureName` inserts on render-spawned props in
+`rendering/world.rs`; the `BossAnimator` insert in
+`rendering/actors/boss.rs` — the E6(a) back-edge) **plus render's
+plugin registering sim mutators** (`advance_actor_anim_overlays`,
+`rebuild_actor_anim_index`, and nine portal glue systems).
+
+**Step 3 — the pre-inversion queue (scouted 2026-07-06; each is one
+committable slice; render-side reads become SimView fields):**
+
+1. `BodyKinematics` reads (sync_visuals/animation/camera/fx/items/
+   projectiles/pirate_weapon) → `ActorRenderView { pos, velocity,
+   size, facing }` (AJ14 pos+velocity land here).
+2. The `ActorSpriteData` mega-QueryData (hit_flash, deep_dream; ~15
+   sim components) → collapse into `ActorRenderView`+`ActorAnimView`.
+3. `BodyAnimFacts`/`BodyMelee`/`PlayerBlinkCameraState`/`BodyCombat`/
+   `Body*State` cluster reads in animate_characters →
+   `ActorAnimView { clip, phase, stance_ratio, facing, blink_flags }`;
+   the extraction (`rebuild_actor_anim_index`) moves sim-side, LAST in
+   tick.
+4. `ActorRoll` → `ActorRenderView.roll_angle`.
+5. `BodyHealth`/`BodyCombat`/`Health` reads (health/hit_flash/
+   nameplates/boss/overlays/hud) → `{ hp_frac, alive, hit_flash_t }`.
+6. `BodyWallet` (hud) → a `PlayerHudFacts` view row.
+7. Boss internals (`BossConfig`/`BossClusterRef`/`BossPhase`/`Brain`/
+   `BossAttackState`/`BossAttackProfile`) → extend `BossRenderIndex`
+   (`phase, hp_frac, telegraph/strike move ids, hazard volumes`);
+   dissolves into the actor index at E6(b).
+8. The render-inserted `BossAnimator` → E6(a): sim-owned
+   `BossAnimFrame`; render stops inserting.
+9. Live feature-marker queries (ActorDisposition, chest/breakable/
+   encounter markers, FeatureEcsWorldOverlay) → `FeatureViewIndex`
+   rows (the `ecs_*` accessors already point this way).
+10. Render-inserted `FeatureName` on props → sim inserts at room load
+    (or a render-local `PropName`).
+11. `HeldItem`/`GroundItem`/`HeldProjectile` → `held_item_id` on the
+    view + a `GroundItemView` list.
+12. `ActorControl` read in item_visuals → `ActorRenderView.aim`.
+13. `PlayerProjectileState`/`ProjectileVisualKind` →
+    `ProjectileView { kind, charge_tier, charge_alpha }`.
+14. `PlayerMark` → a `MarkView`/presentation fact.
+15. `GravityFlipSwitch`, `HealShrine`/`ShrineActivationPulse` → view
+    rows.
+16. `ControlledSubject` reads (camera/hud/fx/items/nameplates) →
+    `SimView.controlled_body: Option<BodyId>` — ONE field, five
+    call sites.
+17. **The one render WRITE:** `CameraEaseState` integration moves into
+    the sim-side snapshot extraction; render reads only
+    `CameraSnapshot2d { …, observer_velocity }` (AJ14).
+18. fx blink preview (`MovingPlatformSet` + composed world) → a
+    sim-computed `BlinkPreviewFact { target_point, valid }`.
+19. The extraction systems + `ActorAnimIndex` init move OUT of
+    render's plugin into sim_view's plugin (LAST in sim schedule).
+20. The nine portal glue systems registered by render's plugin →
+    the portal adapter/actors side (with E7); render keeps only
+    presentation.
+
+**Step 4 — mint the crate:** `ambition_sim_view` takes
+`camera_snapshot.rs`, `view_index.rs`, the anim index, camera-ease;
+builders stay functions-of-inputs; ONE registered full-screen
+post-pass seam stays. **Step 5 — the flip:** `ambition_render` deps =
+sim_view + foundations + vocabularies, NOT gameplay_core; boundary
+test enforces it forever. Slices 1–16 are individually committable
+[opus with this table]; 17–20 and the final flip are the [★fable]
+part.
 
 #### E4 design sketch (pre-solved; do not re-derive)
 

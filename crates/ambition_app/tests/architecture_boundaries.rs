@@ -735,10 +735,13 @@ fn architecture_boundaries_input_timer_systems_moved_to_gameplay_core() {
     }
 
     // The two genuinely host/reset-bound systems (they call the app-only
-    // `world_flow::reset_sandbox` AND write render `VfxMessage`) DO stay in the app.
+    // `world_flow::reset_sandbox`) DO stay in the app. The replay consumer is
+    // the GENERIC one — it drains the engine's `RoomReplayRequested`; the
+    // cut-rope emitter lives content-side on `ContentDialogueFollowupSet`
+    // (E5-finish de-weave).
     for needle in [
         "fn apply_player_reset_input_system",
-        "fn apply_cut_rope_room_replay_request_system",
+        "fn apply_room_replay_request_system",
     ] {
         assert!(
             sim_systems.contains(needle),

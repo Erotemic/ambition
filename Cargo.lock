@@ -420,6 +420,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_characters",
  "ambition_gameplay_core",
+ "ambition_vfx",
  "bevy",
 ]
 

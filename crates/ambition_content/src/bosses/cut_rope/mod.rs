@@ -31,11 +31,9 @@ use ambition_gameplay_core::features::{
 };
 use ambition_gameplay_core::rooms::{PropSpec, RoomSet};
 use ambition_gameplay_core::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
-use ambition_render::fx::{
-    ExplosionKind, ExplosionRequest, FireworksRequest, ParticleKind, VfxMessage,
-};
 use ambition_render::rendering::PropVisual;
 use ambition_sfx::SfxMessage;
+use ambition_vfx::{ExplosionKind, ExplosionRequest, FireworksRequest, ParticleKind, VfxMessage};
 
 pub const CUT_ROPE_BOSS_ID: &str = "smirking_behemoth_boss";
 pub const CUT_ROPE_VICTORY_NPC_ID: &str = "smirking_behemoth_victory_npc";
@@ -58,8 +56,9 @@ pub fn is_cut_rope_boss(id: &str) -> bool {
     id == CUT_ROPE_BOSS_ID
 }
 
-#[derive(Message, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct CutRopeRoomReplayRequested;
+// The replay request itself is the ENGINE's generic
+// `session::reset::RoomReplayRequested` — content emits it; no
+// content-named replay message exists.
 
 /// Latched by the Yarn `<<reset_cut_rope_room>>` command once the player chooses the
 /// replay option. The actual room reset intentionally waits until the dialog UI has
@@ -126,18 +125,21 @@ impl CutRopeHeavyObjectCycle {
     }
 }
 
-/// Convert a pending dialogue-authored replay into the normal replay message after
-/// the final dialog line has been dismissed.
+/// Convert a pending dialogue-authored replay into the ENGINE's generic
+/// [`RoomReplayRequested`](ambition_gameplay_core::session::reset::RoomReplayRequested)
+/// after the final dialog line has been dismissed. Registered in the engine's
+/// `ContentDialogueFollowupSet` slot by `AmbitionBossContentPlugin`, so the
+/// host never names this system.
 pub fn emit_cut_rope_room_replay_after_dialogue_closes(
     dialogue: Res<ambition_gameplay_core::dialog::DialogState>,
     mut pending: ResMut<PendingCutRopeRoomReplay>,
-    mut replay_requests: MessageWriter<CutRopeRoomReplayRequested>,
+    mut replay_requests: MessageWriter<ambition_gameplay_core::session::reset::RoomReplayRequested>,
 ) {
     if !pending.requested || dialogue.active() {
         return;
     }
     pending.requested = false;
-    replay_requests.write(CutRopeRoomReplayRequested);
+    replay_requests.write(ambition_gameplay_core::session::reset::RoomReplayRequested);
 }
 
 /// Reset the Smirking Behemoth encounter so the room can be replayed in-place.

@@ -1,15 +1,9 @@
-use bevy::asset::AssetPlugin;
-use bevy::image::ImagePlugin;
 use bevy::prelude::*;
-use bevy::state::app::StatesPlugin;
 use bevy::time::TimeUpdateStrategy;
-use bevy::transform::TransformPlugin;
-use bevy::MinimalPlugins;
 
 use ambition_engine_core as ae;
 
 use crate::app::{SandboxSimulationPlugin, StartRoomOverride};
-use ambition_gameplay_core::game_mode::GameMode;
 use ambition_gameplay_core::ldtk_world;
 use ambition_gameplay_core::rooms::RoomSet;
 use ambition_input::ControlFrame;
@@ -87,12 +81,8 @@ impl SandboxSim {
         }
 
         let mut app = App::new();
-        app.add_plugins(MinimalPlugins);
-        app.add_plugins(AssetPlugin::default());
-        app.add_plugins(ImagePlugin::default());
-        app.add_plugins(TransformPlugin);
-        app.add_plugins(StatesPlugin);
-        app.init_state::<GameMode>();
+        // The shared engine foundation — one definition in ambition_runtime.
+        ambition_runtime::add_headless_foundation(&mut app);
 
         // Programmatic start-room override: insert before SandboxSimulationPlugin
         // builds (which calls init_sandbox_resources and consumes the override).

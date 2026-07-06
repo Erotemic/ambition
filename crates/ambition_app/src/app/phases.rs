@@ -10,8 +10,8 @@ use bevy::prelude::*;
 
 use ambition_engine_core as ae;
 use ambition_gameplay_core::player::{handle_player_events, PlayerBodyFrameOutput};
-use ambition_render::fx::VfxMessage;
 use ambition_sfx::SfxMessage;
+use ambition_vfx::VfxMessage;
 
 /// PHASE — sync player presentation. Reads the [`PlayerBodyFrameOutput`] the
 /// movement phase wrote and emits the screen-facing feedback: the hard-fall screen

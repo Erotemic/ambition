@@ -136,6 +136,30 @@ data. Its app owns (~100 lines): foundation plugins + [the sim assembly] +
 [the windowed host] + its content plugin + host choices (window title,
 asset roots, global-vs-hosted mode activation).
 
+**Extension crates (Jon's proposal, 2026-07-06 — ADOPTED with guardrails).**
+A game may also ship **extension crates**: optional, reusable plugins that
+are bespoke to one game's taste but engine-clean — the exemplar is the
+lunex **kaleidoscope menu backend** (Ambition's flashy menu renderer; other
+games get the plain grid backend from [the menu stack] by default but MAY
+pull the kaleidoscope in). Rules that keep this from overcomplicating:
+
+1. An extension crate depends ONLY on engine crates (roles above) — never
+   on its game's content crate. That is what makes it adoptable by another
+   game, and it is boundary-test-enforced like every other arrow.
+2. It lives in the game's tree (`game/ambition_menu_kaleidoscope/`), not
+   `crates/` — the filesystem says "optional taste", not "engine".
+3. **Mint on extraction, never speculatively:** a piece becomes an
+   extension crate only when it is (a) optional for its own game's sim,
+   (b) already engine-only in its imports, and (c) a coherent domain.
+   Grow-don't-mint applies; most game code is just content.
+
+This is the seed of a plugin ecosystem (games sharing optional backends/
+modes/effects), bought without any new machinery — it is just Tier 6 with
+the arrows pointed carefully. The E1e menu carve therefore splits three
+ways: menu model/IR/host stack → [the menu stack] (engine); the grid
+backend → [the menu stack] (the default renderer); the kaleidoscope/lunex
+backend → `game/ambition_menu_kaleidoscope` (the first extension crate).
+
 ## 3. The Bevy-plugin shape (per domain crate)
 
 1. **Owned vocabulary** — components/resources/messages native to the domain.

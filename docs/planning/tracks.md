@@ -44,7 +44,7 @@ Everything else on this page is opus-or-below by design.
 | Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — E5 first slice `3c70d827`; **E5-finish steps 1–4 LANDED 2026-07-06** (sets+resources+combat schedule into the group; shared headless foundation; cut-rope de-woven via generic `RoomReplayRequested` + labeled slots; E4-prep: fx facade imports repointed, CameraViewState + cut-rope resources re-owned) | E5 step 5 (mint [the windowed host]) + step 6 (smoke shell) [opus]; W/E1/E2/E3/E6/E7/E8 open |
 | Decomposition D-B/D-C | same | queued behind D-A | mode-scope seam can land early (demos want it) |
 | Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | NEW — §7.6 swept transit + blocks-as-surfaces landed | CC1 cast consolidation [opus] |
-| Combat stack | [engine/combat-model.md](engine/combat-model.md) | CM1+CM2 LANDED 2026-07-06 (knockback growth + weight + DeathPolicy; launch DI off ActorControl, parity-pinned) | CM3 smash/charge release scaling [opus] |
+| Combat stack | [engine/combat-model.md](engine/combat-model.md) | CM1+CM2+CM3 LANDED 2026-07-06 (knockback growth+weight+DeathPolicy; launch DI; smash-charge scaling + smash verb class — all parity-pinned) → **CM4 (fable) is UNBLOCKED** | CM5 per-move sfx/vfx presentation [opus]; CM4 cancel tables [fable]; CM6/CM7 |
 | Netcode ladder | [engine/netcode.md](engine/netcode.md) | NEW | N0.2 input-stream type; N0.3 lint set [opus] |
 | Fighter brain | [engine/fighter-brain.md](engine/fighter-brain.md) | NEW | FB1 view audit [opus] (CM7 first) |
 | Boss pipeline | [engine/boss-design.md](engine/boss-design.md) | NEW | BD4 seed extraction [opus/sonnet]; BD1 after |
@@ -243,3 +243,21 @@ rotate-toward-bounded, cannot-DI-along-launch, C4 conjugation-under-gravity
 1165/1165 green, app rl_sim gate build clean. RL survival-extension assertion
 deferred to the FB self-play rig; `launch_dir` full directional launch deferred
 to CM3. Next: CM3 (smash/charge release scaling + verb-map smash class).
+
+## 2026-07-06 (opus) — CM3: smash-charge scaling + smash verb class → CM4 UNBLOCKED
+`MoveSpec.smash_charge_mult` (data, default 1.0 → parity) + `charge_fraction_at(t)`/
+`charge_scale_at(t)` on `MoveSpec` — the charge state IS the move's clock
+(`MovePlayback.t`), no new component (as specced). `advance_move_playback` scales
+the spawned hitbox's damage + knockback by `charge_scale_at(t)` (interpolates
+`1.0 → smash_charge_mult` by how far the owner's clock advanced through the
+leading Startup window). `simple_charge` prefab exposes the mult. The "verb-map
+smash class" is already expressible per AJ1 (MORE VERBS): the generic `verbs` map
++ `directional_verb_chain(base="smash")` resolve smash verbs distinctly from
+tilt/`attack` — a test proves it; flick-vs-hold input is per-game (SSB). Tests:
+charge interpolation + parity + no-startup-window + smash-verb resolution + a
+runtime charged-hitbox-doubling. entity_catalog 12/12, gameplay_core lib
+1165/1165 green. Partial-charge-on-early-release awaits an `attack_held/released`
+control signal (input+feel, Jon's); the fraction already derives from `t`.
+**With CM1–CM3 landed, CM4 (cancel tables, fable) is UNBLOCKED.** Next on the CM
+ladder: CM5 (per-move sfx/vfx) [opus]. Moving to the CC ladder (→ unblocks CC5)
++ CM7.

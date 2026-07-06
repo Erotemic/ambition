@@ -272,6 +272,7 @@ mod tests {
             events: vec![],
             gates: Default::default(),
             start_impulse: None,
+            smash_charge_mult: 1.0,
         }
     }
 

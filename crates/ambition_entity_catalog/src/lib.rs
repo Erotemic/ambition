@@ -334,6 +334,21 @@ pub struct MoveSpec {
     /// case for every actor/boss move that doesn't lunge).
     #[serde(default)]
     pub start_impulse: Option<(f32, f32)>,
+    /// Smash-charge payoff (CM3): the multiplier a FULLY-charged release applies
+    /// to this move's damage and knockback. The applied scale interpolates
+    /// `1.0 → smash_charge_mult` by the charge fraction reached at release (how
+    /// far the owner's clock advanced through the leading Startup window). DEFAULT
+    /// `1.0` = no charge scaling (every non-charge move, and Ambition's charge
+    /// moves until a game opts in) — byte-parity. A smash roster authors e.g.
+    /// `2.0` so a held smash lands twice as hard as a tap.
+    #[serde(default = "default_charge_mult")]
+    pub smash_charge_mult: f32,
+}
+
+/// Serde default for [`MoveSpec::smash_charge_mult`]: the multiplicative
+/// identity, so every existing move is unscaled (parity).
+fn default_charge_mult() -> f32 {
+    1.0
 }
 
 impl MoveSpec {
@@ -360,6 +375,34 @@ impl MoveSpec {
             return 1.0;
         }
         (t / self.duration_s).clamp(0.0, 1.0)
+    }
+
+    /// The charge fraction (`0..=1`) reached at proper-time `t`: how far the
+    /// owner's clock advanced through the leading Startup (charge) window. A
+    /// move with no Startup window is "fully charged" instantly. This is the
+    /// smash-charge state — it lives on the move's clock (`MovePlayback.t`), not
+    /// a parallel component (CM3).
+    pub fn charge_fraction_at(&self, t: f32) -> f32 {
+        let charge_end = self
+            .windows
+            .iter()
+            .find(|w| matches!(w.tag, WindowTag::Startup))
+            .map(|w| w.end_s)
+            .unwrap_or(0.0);
+        if charge_end <= 0.0 {
+            return 1.0;
+        }
+        (t / charge_end).clamp(0.0, 1.0)
+    }
+
+    /// The damage/knockback scale a release at proper-time `t` applies (CM3):
+    /// `1.0 → smash_charge_mult` interpolated by the charge fraction. Returns
+    /// `1.0` exactly when `smash_charge_mult == 1.0` (parity: no charge scaling).
+    pub fn charge_scale_at(&self, t: f32) -> f32 {
+        if self.smash_charge_mult == 1.0 {
+            return 1.0;
+        }
+        1.0 + self.charge_fraction_at(t) * (self.smash_charge_mult - 1.0)
     }
 }
 
@@ -852,7 +895,78 @@ mod tests {
             events: vec![],
             gates: MoveGates { grounded },
             start_impulse: None,
+            smash_charge_mult: 1.0,
         }
+    }
+
+    // --- CM3: smash-charge scaling + the smash verb class ---
+
+    fn startup(end_s: f32) -> MoveWindow {
+        MoveWindow {
+            start_s: 0.0,
+            end_s,
+            tag: WindowTag::Startup,
+            volumes: vec![],
+            sustain_effect: None,
+        }
+    }
+
+    #[test]
+    fn charge_scale_interpolates_by_fraction_and_is_parity_at_unit_mult() {
+        let mut m = bare_move("charge", None);
+        m.windows = vec![startup(0.4)];
+        // Parity: default mult 1.0 -> always 1.0, whatever the fraction.
+        assert_eq!(m.charge_scale_at(0.0), 1.0);
+        assert_eq!(m.charge_scale_at(0.4), 1.0);
+        // Opt in: fraction is elapsed / charge-window length, clamped.
+        m.smash_charge_mult = 3.0;
+        assert!((m.charge_fraction_at(0.0) - 0.0).abs() < 1e-6);
+        assert!((m.charge_fraction_at(0.2) - 0.5).abs() < 1e-6);
+        assert!((m.charge_fraction_at(0.4) - 1.0).abs() < 1e-6);
+        assert!(
+            (m.charge_fraction_at(0.9) - 1.0).abs() < 1e-6,
+            "clamps at full"
+        );
+        // scale = 1 + frac*(mult-1): 0 -> 1, 0.5 -> 2, 1 -> 3.
+        assert!((m.charge_scale_at(0.0) - 1.0).abs() < 1e-6);
+        assert!((m.charge_scale_at(0.2) - 2.0).abs() < 1e-6);
+        assert!((m.charge_scale_at(0.4) - 3.0).abs() < 1e-6);
+    }
+
+    #[test]
+    fn no_startup_window_is_fully_charged_instantly() {
+        let mut m = bare_move("jab", None);
+        m.smash_charge_mult = 2.0; // no Startup window -> full charge at once
+        assert_eq!(m.charge_fraction_at(0.0), 1.0);
+        assert_eq!(m.charge_scale_at(0.0), 2.0);
+    }
+
+    #[test]
+    fn smash_verbs_resolve_distinctly_from_tilt_verbs() {
+        // CM3 smash class = MORE VERBS (AJ1): a moveset binds `smash_up` distinct
+        // from the tilt `attack_up`, resolved by the SAME generic verb map. The
+        // input side (flick vs. hold) picks the base verb per game.
+        let contract = MovesetContract {
+            verbs: [
+                ("attack_up".to_string(), "tilt_up_move".to_string()),
+                ("smash_up".to_string(), "smash_up_move".to_string()),
+            ]
+            .into_iter()
+            .collect(),
+            moves: vec![
+                bare_move("tilt_up_move", Some(true)),
+                bare_move("smash_up_move", Some(true)),
+            ],
+        };
+        let tilt = contract
+            .move_for_directional_verb("attack", AttackDir::Up, true)
+            .unwrap();
+        let smash = contract
+            .move_for_directional_verb("smash", AttackDir::Up, true)
+            .unwrap();
+        assert_eq!(tilt.id, "tilt_up_move");
+        assert_eq!(smash.id, "smash_up_move");
+        assert_ne!(tilt.id, smash.id, "smash and tilt are distinct moves");
     }
 
     /// The full R2 ability vocabulary, authored entirely as RON: directional
@@ -881,6 +995,7 @@ mod tests {
                                 ]),
                             ],
                             start_impulse: Some((30.0, 0.0)),
+                            smash_charge_mult: 1.0,
                         ),
                         (
                             id: "dair",

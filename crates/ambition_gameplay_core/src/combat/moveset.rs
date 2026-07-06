@@ -215,6 +215,7 @@ pub fn simple_melee(p: &SimpleMeleeParams) -> MoveSpec {
         }],
         gates: Default::default(),
         start_impulse: None,
+        smash_charge_mult: 1.0,
     }
 }
 
@@ -310,6 +311,7 @@ pub fn simple_ranged(p: &SimpleRangedParams) -> MoveSpec {
         }],
         gates: Default::default(),
         start_impulse: None,
+        smash_charge_mult: 1.0,
     }
 }
 
@@ -331,6 +333,11 @@ pub struct SimpleChargeParams {
     pub reach_px: f32,
     #[serde(default = "scp_knockback")]
     pub knockback: f32,
+    /// CM3 smash-charge payoff: the multiplier a fully-charged release applies to
+    /// damage + knockback (`1.0 → smash_charge_mult` by charge fraction). DEFAULT
+    /// `1.0` = no scaling (parity); a smash roster authors e.g. `2.0`.
+    #[serde(default = "scp_charge_mult")]
+    pub smash_charge_mult: f32,
 }
 
 fn scp_charge() -> f32 {
@@ -351,6 +358,9 @@ fn scp_reach() -> f32 {
 fn scp_knockback() -> f32 {
     260.0
 }
+fn scp_charge_mult() -> f32 {
+    1.0
+}
 
 impl Default for SimpleChargeParams {
     fn default() -> Self {
@@ -361,6 +371,7 @@ impl Default for SimpleChargeParams {
             damage: scp_damage(),
             reach_px: scp_reach(),
             knockback: scp_knockback(),
+            smash_charge_mult: scp_charge_mult(),
         }
     }
 }
@@ -423,6 +434,8 @@ pub fn simple_charge(p: &SimpleChargeParams) -> MoveSpec {
         }],
         gates: Default::default(),
         start_impulse: None,
+        // CM3: the charge move's payoff — the authored release multiplier.
+        smash_charge_mult: p.smash_charge_mult,
     }
 }
 
@@ -803,6 +816,12 @@ pub fn advance_move_playback(
                     // spawned it screen-up, into a sideways body's ceiling).
                     let frame_down = gravity.dir_at(kin.pos);
                     let body_frame = ae::AccelerationFrame::new(frame_down);
+                    // CM3: the smash-charge payoff. The scale interpolates
+                    // `1.0 → smash_charge_mult` by the charge fraction reached at
+                    // this release instant (`t`, the owner's clock), so a held
+                    // smash lands harder than a tap. `1.0` (every non-charge move)
+                    // leaves damage/knockback byte-identical — parity.
+                    let charge_scale = pb.spec.charge_scale_at(t);
                     for volume in &window.volumes {
                         // §7.1: a vfx-tagged (bladed) volume prefers the owner's
                         // AUTHORED manifest hit polygon for this move's clip —
@@ -883,8 +902,11 @@ pub fn advance_move_playback(
                             half_extent,
                             shape,
                             facing: pb.facing,
-                            damage: volume.damage,
-                            knockback_strength: volume.knockback,
+                            // CM3: charge scaling folds onto the authored base —
+                            // damage rounds, knockback scales linearly. Both are
+                            // identity at `charge_scale == 1.0` (parity).
+                            damage: ((volume.damage as f32) * charge_scale).round() as i32,
+                            knockback_strength: volume.knockback * charge_scale,
                             // CM1: the smash-percent growth term rides the volume
                             // through to the victim-side scaling at overlap.
                             knockback_growth: volume.kb_growth,
@@ -1659,6 +1681,75 @@ mod tests {
         }
     }
 
+    /// CM3: a fully-charged release scales the spawned hitbox's damage AND
+    /// knockback by `smash_charge_mult`; `1.0` is byte-parity.
+    #[test]
+    fn a_charged_release_scales_the_spawned_hitbox() {
+        fn charge_move(mult: f32) -> MoveSpec {
+            let ron = format!(
+                r#"(
+                    schema_version: 1,
+                    entities: [(
+                        id: "seed",
+                        contracts: (moveset: Some((
+                            verbs: {{"attack": "smash"}},
+                            moves: [(
+                                id: "smash",
+                                clip: (clip: "slash", fallbacks: ["idle"]),
+                                duration_s: 0.5,
+                                smash_charge_mult: {mult},
+                                windows: [
+                                    (start_s: 0.0, end_s: 0.2, tag: Startup, volumes: []),
+                                    (start_s: 0.2, end_s: 0.4, tag: Active, volumes: [
+                                        (shape: Rect(offset: (28.0, 0.0), half_extents: (16.0, 12.0)),
+                                         damage: 5, knockback: 100.0),
+                                    ]),
+                                ],
+                            )],
+                        ))),
+                    )],
+                )"#
+            );
+            let doc = ambition_entity_catalog::EntityCatalogDoc::parse(&ron).unwrap();
+            doc.entity("seed")
+                .unwrap()
+                .contracts
+                .moveset
+                .as_ref()
+                .unwrap()
+                .move_for_verb("attack")
+                .unwrap()
+                .clone()
+        }
+        let read = |mult: f32| -> (i32, f32) {
+            let (mut app, _v) = app_with_victim();
+            spawn_attacker(
+                &mut app,
+                ae::Vec2::new(100.0, 100.0),
+                ae::Vec2::new(15.0, 24.0),
+                charge_move(mult),
+            );
+            // Run into the Active window (t ≈ 0.26): the charge window (0..0.2)
+            // is fully elapsed, so the release is fully charged.
+            run_seconds(&mut app, 0.25);
+            let mut q = app.world_mut().query::<&Hitbox>();
+            let hb = q
+                .iter(app.world())
+                .next()
+                .expect("the active window spawns the volume");
+            (hb.damage, hb.knockback_strength)
+        };
+        // Parity: unit mult leaves the authored values exactly.
+        assert_eq!(read(1.0), (5, 100.0));
+        // Full charge at 2.0 doubles both.
+        let (dmg, kb) = read(2.0);
+        assert_eq!(dmg, 10, "damage doubles at full charge");
+        assert!(
+            (kb - 200.0).abs() < 1e-3,
+            "knockback doubles at full charge: {kb}"
+        );
+    }
+
     /// W9 decomposability proof: the SAME MoveSpec value bound to a second,
     /// differently-shaped actor lands the same hit — re-binding is data.
     #[test]
@@ -1977,6 +2068,7 @@ mod tests {
             events: vec![],
             gates: Default::default(),
             start_impulse: Some((150.0, 0.0)),
+            smash_charge_mult: 1.0,
         };
         let mut verbs = std::collections::BTreeMap::new();
         verbs.insert(ATTACK_VERB.to_string(), ATTACK_VERB.to_string());

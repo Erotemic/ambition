@@ -1076,3 +1076,51 @@ settings sync, encounter/room/radio intent). Gate: `cargo fmt`;
 `cargo fmt --check`; `python3 scripts/check_doc_links.py`;
 `python3 scripts/check_agent_kb.py`; `cargo run -p ambition_app --bin
 headless -- 120`.
+
+## 2026-07-06 (opus) — E1c EXECUTED: `ambition_dialog` owns the dialogue runtime
+
+Minted `crates/ambition_dialog` and moved the engine-side dialogue
+machinery out of `ambition_gameplay_core`: the `DialogState` view model +
+typewriter/options reveal state machines, `DialogChoice`, the
+typewriter-SFX selection rules, the input/reveal Bevy systems, the
+`bevy_yarnspinner`↔`DialogState` bridge, and the generic Yarn binding
+machinery (`YarnStateMirror`/`YarnStateMirrorData`, `YarnPresentationCue`,
+the `YarnContentBindings` installer seam, `YarnBindingsPlugin`). The crate
+depends only on the foundations (`engine_core`, `ui_nav`, `input`, `sfx`,
+`persistence`) + `bevy_yarnspinner` (behind `ui`).
+
+Two seams make the runtime reusable and content-free:
+1. **GameMode decoupling.** The runtime flips `DialogState.active` and
+   names no host session mode. All `crate::game_mode::GameMode` reads/writes
+   left the bridge + input systems; the sim-side `sync_dialogue_game_mode`
+   maps active→`GameMode::Playing` when a conversation ends. Entering
+   `Dialogue` stays the interaction system's job (every old `set(Playing)`
+   site coincided with `active=false`, so the mapping is exact).
+2. **Installer-only vocabulary.** `spawn_dialogue_runner` registers no
+   concrete command — it only runs `YarnContentBindings.installers`.
+   Ambition's actor/save-state Yarn commands + functions
+   (give_item/buy/sell/challenge/spawn_*, boss_cleared/flag/visit_count/
+   inventory_has/wallet_*) and the `SandboxSave`→mirror refresh stay in
+   `gameplay_core::dialog::yarn_bindings` and register through the seam via
+   the new `install_game_bindings`.
+
+`gameplay_core::dialog` is now a facade: it re-exports the runtime on the
+historical `ambition_gameplay_core::dialog::*` path (render/content/app/
+host need no import edits) and owns the two sim-side plugins
+(`YarnBindingsPlugin`/`YarnBridgePlugin` wrap the reusable ones + schedule
+the refresh/installer/sync) and `sync_dialogue_game_mode`. Content keeps
+naming `dialog::yarn_bindings::{YarnStateMirror, YarnContentBindings,
+refresh_yarn_state_mirror, …}` (re-exported from `ambition_dialog`).
+
+Added boundary test
+`architecture_boundaries_dialog_crate_is_runtime_only` (foundational path
+deps only; no game/actor/menu/UI code refs), and fixed pre-existing E1a
+drift in `architecture_boundaries_input_crate_is_extracted` (the canonical
+`controls` re-export moved into `ambition_persistence` at E1a). Gate:
+`cargo test -p ambition_dialog --features "ui input"` (18);
+`cargo test -p ambition_gameplay_core --lib --features "ui input"` (1011);
+`cargo test -p ambition_app --test architecture_boundaries` (34);
+`cargo check -p ambition_content --all-features`;
+`cargo check -p ambition_app --features rl_sim`;
+`cargo run -p ambition_app --bin headless -- 120` (clean);
+rustfmt on touched files.

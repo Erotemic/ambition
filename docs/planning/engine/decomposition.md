@@ -693,8 +693,25 @@ the facade, run the gate.
   environment/player-water mix, plugin/schedule assembly, settings-to-mix sync,
   and encounter/room/radio intent mapping. Do not move those into the
   foundational crate without first extracting their host-specific inputs.
-- **E1c `ambition_dialog`** (dialog/ 2.2k): runtime + lint machinery;
-  the game's Yarn BINDINGS stay sim-side (they reference actor state).
+- ✅ **E1c `ambition_dialog` DONE (opus, 2026-07-06):** the reusable
+  dialogue RUNTIME moved into the new crate — `DialogState` view model +
+  reveal state machines, typewriter-SFX selection, the input/reveal
+  systems, the `bevy_yarnspinner`↔`DialogState` bridge, and the generic
+  binding machinery (`YarnStateMirror`, `YarnPresentationCue`, the
+  `YarnContentBindings` installer seam, `YarnBindingsPlugin`). Two seams
+  keep it content-free: (1) **GameMode decoupling** — the runtime flips
+  `DialogState.active` and owns no session mode; the sim-side
+  `sync_dialogue_game_mode` maps active→`GameMode::Playing` (interaction
+  still enters `Dialogue`); (2) **installer-only vocabulary** —
+  `spawn_dialogue_runner` names no command; Ambition's actor/save-state
+  Yarn bindings (give_item/challenge/shop/boss_cleared/…) + the
+  SandboxSave→mirror refresh stay in `gameplay_core::dialog::yarn_bindings`
+  and register via `install_game_bindings`. `gameplay_core::dialog` is now
+  a facade re-exporting the runtime on the historical path (render/content/
+  app/host unchanged). Boundary test
+  `architecture_boundaries_dialog_crate_is_runtime_only` (foundational deps
+  only). "lint machinery" in the original card was stale — the Yarn
+  validator already lives in `ambition_content::dialogue::yarn`.
 - **E1d `ambition_dev_tools`** (core dev/ 3.0k + app dev/ 2.7k): one
   crate, feature-gated overlays; DevToolsPlugin moves whole.
 - **E1e `ambition_menu`** (core menu/ 3.2k + app menu/ 10k) — a

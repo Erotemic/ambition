@@ -739,8 +739,28 @@ moves first; the TYPES move here).
    placements`); the runtime half moves to `ambition_combat` here. Don't
    merge the two decisions — E2 owns the runtime move, W-a owns the
    authored schema.
-2. Land the verdicts as compiling steps INSIDE gameplay_core (the cycle
-   dies while iteration is cheap). One commit per verdict bullet.
+2. ✅ **DONE (opus 2026-07-06 night) — the in-place verdicts, one commit
+   each, all byte-parity, all INSIDE gameplay_core:** (1) `CenteredAabb`
+   off the `crate::features` hub → `ae::CenteredAabb`; (2) `HitEvent`/
+   `HitTarget` combat sites off the hub → `crate::combat::events::`;
+   (3) `FactionRelations`/`FriendlyFire` init owned by combat
+   (`combat::targeting::init_targeting_resources`, WorldPrep invokes it —
+   rule 5); (4) minted `combat::CombatTuning { weight }`, written at the two
+   actor-spawn choke points (`into_components` + `boss_actor_cluster`), the
+   hitbox weight read converted off `Option<&ActorConfig>` (the moveset
+   sprite-id read + attack cooldown-mult read are a DIFFERENT field/concern,
+   not this verdict — left for the atomic move); (5) `damage.rs` writes
+   `GameplayBannerRequested` instead of the `GameplayBanner` resource;
+   (6) `FeatureEcsWorldOverlay` combat sites → `combat::overlay`;
+   (7) `FeatureSimEntity` → `ambition_platformer_primitives::lifecycle`.
+   Gate green each commit (gameplay_core lib 1175; full app rl_sim suite on
+   the two behavior-touching verdicts 4+5; only the documented
+   `unified_melee::a_hostile_actor` feel-RED fails). The remaining combat
+   upward reads (`features::HitSource`/`HitMode`/`HitKnockback`/
+   `ActorFaction`/`world_with_sandbox_solids`/`ENEMY_ATTACK_COOLDOWN`, the
+   moveset/attack `ActorConfig` non-weight reads) are combat's own
+   vocabulary or other-domain facts to resolve at the ATOMIC move (step 3,
+   RESERVED) — not among the pre-classified in-place verdicts.
 3. Atomic moves: `combat/` (minus `overlay.rs` → W-track; minus
    `boss_clusters.rs` which dissolves in E6) → `ambition_combat`;
    `projectile/` + `enemy_projectile/` → `ambition_projectiles` (deps:

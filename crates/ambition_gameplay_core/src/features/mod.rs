@@ -199,6 +199,10 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.init_resource::<FriendlyFire>();
         // Accumulating sim-time for brain perception (reaction latency).
         app.init_resource::<GameplayElapsed>();
+        // Hot-reload watcher state read by `poll_ldtk_file_changes` below.
+        // Default = watcher disabled; the visible app pre-inserts its
+        // `from_catalog` value before the engine group (init never clobbers).
+        app.init_resource::<crate::ldtk_world::LdtkHotReloadState>();
         app.add_systems(
             Update,
             (

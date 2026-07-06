@@ -344,6 +344,7 @@ dependencies = [
 name = "ambition_host"
 version = "0.1.0"
 dependencies = [
+ "ambition_engine_core",
  "ambition_gameplay_core",
  "ambition_input",
  "ambition_render",
@@ -439,10 +440,13 @@ dependencies = [
  "ambition_engine_core",
  "ambition_gameplay_core",
  "ambition_input",
+ "ambition_platformer_primitives",
+ "ambition_sfx",
  "ambition_sim_view",
  "ambition_time",
  "ambition_vfx",
  "bevy",
+ "bevy_common_assets",
 ]
 
 [[package]]

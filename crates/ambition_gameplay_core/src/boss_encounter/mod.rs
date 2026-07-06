@@ -65,7 +65,7 @@ pub use encounter_script::{
 pub use profile::{default_boss_profiles, BossProfile, BossRewardProfile};
 pub use registry::BossEncounterRegistry;
 pub use roster::BossSpecRoster;
-pub use specs::{default_boss_specs, install_boss_encounter_specs};
+pub use specs::{boss_content_installed, default_boss_specs, install_boss_encounter_specs};
 pub use systems::{
     boss_phase_transition_feedback, notify_bosses_on_mount_death, populate_boss_encounter_registry,
     update_boss_encounters,

@@ -26,6 +26,15 @@ demos/
                         <Name>ContentPlugin + <Name>RulesPlugin (global)
 ```
 
+**The executable reference:** `crates/ambition_host/tests/
+demo_shell_smoke.rs` (E5 step 6) IS this shape, live and gate-enforced —
+foundation + engine group + host group + a fixture content plugin that
+(1) installs its one-character catalog RON, (2) inserts its
+`RoomSet`/`RoomGeometry`/`ActiveRoomMetadata`, and (3) runs the engine's
+`session::setup::simulation_world` in a Startup system labeled
+`SimulationSetupSet` (which spawns the player box the host's input attach
+finds). Start every `<name>_app` by copying that fixture.
+
 - **Standalone:** depends only on engine crates. `git log --stat` for the
   demo touches ZERO engine crates. Every needed core change files an
   `oracle-violation` in [`../tracks.md`](../tracks.md) and becomes engine

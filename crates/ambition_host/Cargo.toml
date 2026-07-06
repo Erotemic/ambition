@@ -37,5 +37,6 @@ portal_render = [
 
 [dev-dependencies]
 # The demo-shell smoke test (E5 step 6) assembles foundation + engine group +
-# this host group + a fixture content plugin.
+# this host group + a fixture content plugin (which builds a one-room world).
 ambition_runtime = { path = "../ambition_runtime" }
+ambition_engine_core = { path = "../ambition_engine_core" }

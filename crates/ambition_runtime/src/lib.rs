@@ -44,6 +44,7 @@ mod player_schedule;
 mod portal_schedule;
 mod progression_schedule;
 mod room_schedule;
+mod sim_core_resources;
 
 pub use combat_schedule::CombatSchedulePlugin;
 pub use player_schedule::PlayerSchedulePlugin;
@@ -51,6 +52,7 @@ pub use player_schedule::PlayerSchedulePlugin;
 pub use portal_schedule::PortalSchedulePlugin;
 pub use progression_schedule::ProgressionSchedulePlugin;
 pub use room_schedule::RoomTransitionSchedulePlugin;
+pub use sim_core_resources::SimCoreResourcesPlugin;
 
 /// The canonical simulation-phase SETS + the engine resources every consumer
 /// needs before any `.in_set(SandboxSet::…)` registration or host override.
@@ -86,6 +88,9 @@ impl PluginGroup for PlatformerEnginePlugins {
         let builder = PluginGroupBuilder::start::<Self>()
             // Sets + engine resources FIRST (see SandboxSetsPlugin docs).
             .add(SandboxSetsPlugin)
+            // The engine sim messages + resource defaults (E5 step 6) —
+            // hosts override by insert-before-add (init never clobbers).
+            .add(SimCoreResourcesPlugin)
             // The world-prep phase (body integration, gravity collection, etc.).
             .add(ambition_gameplay_core::features::WorldPrepSchedulePlugin)
             // Universal-brain messages/resources (player/NPC/enemy/boss).

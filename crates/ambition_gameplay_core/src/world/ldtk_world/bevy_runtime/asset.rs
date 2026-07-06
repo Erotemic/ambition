@@ -75,6 +75,22 @@ pub struct LdtkRuntimeIndex {
     synced_revision: u64,
 }
 
+/// The "no LDtk world installed" index: no areas, no levels. RON-only
+/// apps (demo shells, generated-room fixtures) run the spine against this
+/// and every rebuild is a no-op; installing a real project replaces it
+/// via `from_project`.
+impl Default for LdtkRuntimeIndex {
+    fn default() -> Self {
+        Self {
+            active_area: String::new(),
+            area_level_iids: BTreeMap::new(),
+            area_bounds: BTreeMap::new(),
+            revision: 1,
+            synced_revision: 0,
+        }
+    }
+}
+
 impl LdtkRuntimeIndex {
     pub fn from_project(project: &LdtkProject, start_area: impl Into<String>) -> Self {
         let mut area_level_iids: BTreeMap<String, Vec<String>> = BTreeMap::new();

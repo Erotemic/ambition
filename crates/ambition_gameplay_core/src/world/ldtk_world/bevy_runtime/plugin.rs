@@ -43,6 +43,16 @@ pub struct LdtkRuntimeSpinePlugin;
 
 impl Plugin for LdtkRuntimeSpinePlugin {
     fn build(&self, app: &mut App) {
+        // The spine's own index/stat resources (anti-god rule 5: the owner
+        // initializes). Empty defaults; the rebuild chain below fills them
+        // from whatever LDtk entities exist (none, in a RON-only demo).
+        app.init_resource::<super::asset::LdtkRuntimeIndex>();
+        app.init_resource::<super::indices::LdtkRuntimeSpineStats>();
+        app.init_resource::<super::indices::LdtkRuntimeSpineIndex>();
+        app.init_resource::<super::indices::LdtkRuntimeSolidIndex>();
+        app.init_resource::<super::indices::LdtkRuntimeOneWayIndex>();
+        app.init_resource::<super::indices::LdtkRuntimeDamageIndex>();
+        app.init_resource::<super::parity::LdtkRuntimeSpineParity>();
         app.add_systems(
             Update,
             (

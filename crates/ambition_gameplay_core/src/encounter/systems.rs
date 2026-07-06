@@ -19,11 +19,18 @@ use super::{
 pub fn populate_encounter_registry(
     mut registry: ResMut<EncounterRegistry>,
     save: Res<crate::persistence::save::SandboxSave>,
-    project: Res<crate::ldtk_world::SandboxLdtkProject>,
+    // Optional: a RON-only app (demo shell, generated rooms) installs no
+    // LDtk project — that's an empty encounter set, not an error. (W4 will
+    // route encounter loading through RoomEmission instead of the project.)
+    project: Option<Res<crate::ldtk_world::SandboxLdtkProject>>,
 ) {
     if registry.specs_loaded {
         return;
     }
+    let Some(project) = project else {
+        registry.specs_loaded = true;
+        return;
+    };
     let entries = load_encounter_specs_from_ldtk(&project.0, save.data());
     let count = entries.len();
     for (id, spec, persisted) in entries {

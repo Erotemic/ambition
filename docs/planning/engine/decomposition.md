@@ -335,16 +335,46 @@ consumes `PlatformerEnginePlugins` inside `add_simulation_plugins`,
   gravity_symmetry_room}`; `player_phase_split`/`actor_phase_split` pin the
   phase seam. If the lift breaks a `wire_portal_schedule` pin, one of these
   goes RED — no manual schedule inspection needed.
-- **Step 6 — the proof shell.** Create a demo-shell smoke test:
-  foundation + `PlatformerEnginePlugins` + `PlatformerHostPlugins` + a
-  ~20-line fixture content plugin → `app.update()` runs one frame
-  without panic. This is the card's exit AND the permanent regression
-  guard for the demo gate.
+- **Step 6 — ✅ EXECUTED (fable, 2026-07-06 night): the proof shell +
+  the engine-resource split it forced.** `ambition_host/tests/
+  demo_shell_smoke.rs` boots foundation + `PlatformerEnginePlugins` +
+  `PlatformerHostPlugins` + a fixture content plugin for three frames.
+  Getting it green surfaced every place the engine group leaned on
+  Ambition's assembly, each fixed at its owner:
+  - `ambition_runtime::SimCoreResourcesPlugin` minted (in the group,
+    right after the sets plugin): ALL engine sim messages + resource
+    defaults moved out of the app's `SandboxSimulationResourcesPlugin`
+    (now only: catalog/roster install + the data-asset/setup Startup
+    chain + profiling report). Everything uses `init_resource`
+    semantics — hosts override by insert-before-add.
+  - Domain plugins now init their OWN state (rule 5):
+    `WorldPrepSchedulePlugin` (+`LdtkHotReloadState` default =
+    watcher-off), `LdtkRuntimeSpinePlugin` (+its five indexes +
+    `LdtkRuntimeIndex::default()` = the "no LDtk installed" index),
+    `CutsceneSchedulePlugin` (+library/bindings/queue/active/advance),
+    `TraceSchedulePlugin` (+the portal `BodyTeleported` message,
+    idempotent).
+  - Content-optional seams: `populate_boss_encounter_registry`
+    short-circuits to an empty roster when no game installed boss
+    content (`boss_content_installed()`; the missing-install panic
+    stays live on any path that RESOLVES a boss);
+    `populate_encounter_registry` takes `Option<Res<SandboxLdtkProject>>`
+    (RON-only apps have no project; W4 re-routes this through
+    `RoomEmission`).
+  - `RoomSpec::new(id, world)` public constructor (the generated-room/
+    fixture starting point).
+  - **What a game/fixture MUST still provide** (deliberately not engine
+    defaults): its character catalog (`install_character_catalog`), its
+    `RoomSet`/`RoomGeometry`/`ActiveRoomMetadata`, and a Startup system
+    in `SimulationSetupSet` that calls `session::setup::
+    simulation_world` (spawns the player box). The smoke test IS the
+    reference implementation (demos/README.md points at it).
 
-Exit checks: the smoke shell passes; the app's `plugins.rs` shrinks to
+Exit checks: ✅ the smoke shell passes; the app's `plugins.rs` shrank to
 content installs + Ambition-specific wiring; rl_sim app tests (the
-schedule-shape guard) green; boundary test extended: [the windowed host]
-imports no `ambition_content`.
+schedule-shape guard) green; the host boundary test holds ([the windowed
+host] imports no `ambition_content`). **E5-finish is COMPLETE — THE DEMO
+GATE IS OPEN** (S5/M-track demo apps may mint).
 
 ### W1–W4 — the world carve — [opus]
 
@@ -572,30 +602,76 @@ the facade, run the gate.
   (in-game character select over the wear seam) lands here or is
   explicitly closed.
 
-### E2 — the combat/projectiles carve — [opus]
+### E2 — the combat/projectiles carve — [opus; back-edges PRE-CLASSIFIED by fable]
 
 Precondition: none, but coordinate with E5 step 2 (the schedule plugin
 moves first; the TYPES move here).
 
-1. Inventory the ~23 `combat → features` back-edge refs (mechanical
-   grep; commit the list into the PR description).
-2. Classify each: (a) combat VOCABULARY living features-side (hitbox/
-   hit-event/volume types) → move combat-ward; (b) genuine sim facts →
-   invert to parameters/read-model. No (c) — an unclassifiable ref goes
-   to tracks.md as a design question, work continues on the rest.
+1. ✅ **The back-edge inventory + classification is DONE (fable,
+   2026-07-06 night — grep of `crate::features::` in `combat/`,
+   non-test). Execute each verdict; if the code has drifted, re-grep and
+   match the nearest verdict below — do NOT invent a new category:**
+   - **`CenteredAabb` (moveset, hitbox, tests)** — a re-export ALIAS;
+     the type is `ambition_engine_core::CenteredAabb`. Verdict: repoint
+     the import to engine_core. Pure path fix.
+   - **`HitEvent` / `HitTarget` (moveset, damage, bus)** — combat
+     VOCABULARY living features-side. Verdict (a): the DEFINITIONS move
+     into `combat/` (then travel with the crate); `features`/actors
+     re-import from combat — the legal actors→combat arrow.
+   - **`FriendlyFire`, `FactionRelations` (on_hit, hitbox)** — faction/
+     targeting policy resources. Verdict (a): combat owns targeting
+     (architecture Tier-2 row) → move both into `combat::targeting`;
+     the WorldPrep init moves with them (rule 5).
+   - **`Option<&ActorConfig>` (moveset, hitbox — the CM1 weight read)**
+     — a genuine sim fact from the actor domain; combat may NOT import
+     the sim heart. Verdict (b): mint a combat-owned component (e.g.
+     `CombatTuning { weight, … }`) that actor SPAWN writes from the
+     archetype (actors→combat, legal); the two queries read it instead
+     of `ActorConfig`. Byte-parity: same values, new carrier.
+   - **`SetFlagRequested`/`QuestAdvanceRequested` (bus, pickups)** —
+     progression vocabulary. Verdict (a-down): these messages belong to
+     [the saved shapes] (`ambition_persistence` owns flags/quest rules)
+     — move at E1a if it lands first, else leave in features and record
+     the arrow combat→persistence as the target; combat only WRITES
+     them.
+   - **`SwitchActivated`, `GameplaySfxRequested` (bus)** — encounter/
+     sfx vocabulary. Verdict (a-down): `GameplaySfxRequested` →
+     `ambition_sfx` (the effect vocabulary crate); `SwitchActivated` →
+     `ambition_encounter` at E-enc (combat only writes it).
+   - **`GameplayBanner` (damage)** — a UI resource written directly
+     from combat. Verdict (b): write the EXISTING
+     `GameplayBannerRequested` message instead; only the UI layer reads
+     the resource. (Kills a combat→UI write.)
+   - **`FeatureEcsWorldOverlay` (attack)** — already DEFINED in
+     `combat/overlay.rs` (features re-exports it) and carries only
+     engine_core types (`Vec<ae::Block>` + gate solids). Verdict: the
+     overlay type + rebuild are geometry COMPOSITION → they move to the
+     world crate in the W-track (ledger row `world_overlay`); until
+     then, repoint the features-path references to `combat::overlay`
+     (they're path residue). Combat systems keep reading the resource;
+     post-W3 the arrow is combat→world which is NOT drawn — at that
+     point the composited solids become a system PARAM (the same
+     inversion as W1).
+   - **`FeatureSimEntity` (hazards)** — room-scoped-lifecycle marker.
+     Verdict (a-down): the marker is lifecycle vocabulary → move to
+     `ambition_platformer_primitives::lifecycle` (where `SceneEntities`
+     already lives); everything re-imports from there.
+   - **`select_actor_targets` (components/actors doc-comment)** —
+     comment-only; rewrite the sentence when the file moves.
    **Note (Q31, 2026-07-06):** for any combat type that is BOTH an
    authored placement schema AND a runtime component (`DamageVolume` is
    the case — authored hazards vs the live hitbox), the AUTHORED-schema
-   half follows the Tier-0 ruling ([Q-FABLE W-a]); the runtime half moves
-   to `ambition_combat` here. Don't merge the two decisions — E2 owns the
-   runtime move, W-a owns the authored schema.
-3. Land (a)+(b) as compiling steps INSIDE gameplay_core (the cycle dies
-   while iteration is cheap).
-4. Atomic moves: `combat/` (minus `world_overlay.rs` → W-track; minus
+   half follows the [W-a] ruling (→ `ambition_entity_catalog::
+   placements`); the runtime half moves to `ambition_combat` here. Don't
+   merge the two decisions — E2 owns the runtime move, W-a owns the
+   authored schema.
+2. Land the verdicts as compiling steps INSIDE gameplay_core (the cycle
+   dies while iteration is cheap). One commit per verdict bullet.
+3. Atomic moves: `combat/` (minus `overlay.rs` → W-track; minus
    `boss_clusters.rs` which dissolves in E6) → `ambition_combat`;
    `projectile/` + `enemy_projectile/` → `ambition_projectiles` (deps:
    combat). Direction ruled: **features → combat, never the reverse.**
-5. Only after the move: the combat-model slices (CM1–CM7) land in the
+4. Only after the move: further combat-model slices (CM6+) land in the
    new crate.
 
 ### E3 — `ambition_sprite_sheet` absorb + the asset-root flip — [opus]

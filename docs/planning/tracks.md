@@ -42,9 +42,18 @@ listed preconditions are DONE here.**
 5. ✅ **FB6 rollout architecture** — budget contract pinned in
    fighter-brain.md §5 (2 ms cap, scratch-world seeding, calibration
    instrument), 2026-07-06.
-Standing escalation: W3 (the world two-crate cut) and E2 (back-edge
-classification) escalate to fable at the FIRST ambiguous item.
-Everything else on this page is opus-or-below by design.
+**Post-fable escalation protocol (fable's availability has ended —
+2026-07-06 night).** The old valve ("escalate to fable at the first
+ambiguous item") is CLOSED; its two named consumers are pre-answered
+(E2's back-edges are classified verdict-by-verdict in decomposition.md;
+W3's ambiguities are covered by the W-a…W-e rulings + the 5-step W
+queue). When an executor still hits a genuine design ambiguity (a case
+the rulings don't cover, not a case that's merely hard):
+1. do NOT improvise doctrine and do NOT block — park that slice;
+2. write a DECISION BRIEF for Jon in this file (options, consequences,
+   one recommendation — the Q4 brief in netcode.md is the template);
+3. continue with the nearest unambiguous work.
+Everything on this page is opus-or-below by design.
 
 ### 📋 LAST-CHANCE FABLE QUESTION REGISTER — ✅ ALL RULED (fable, 2026-07-06 night)
 
@@ -149,7 +158,7 @@ fable card. Ranked by how much they gate a fable task.
 
 | Track | Doc | Status | Next |
 |---|---|---|---|
-| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — E5 first slice `3c70d827`; E5-finish steps 1–4 LANDED 2026-07-06; **E5 STEP 5 EXECUTED (fable 2026-07-06 night, amended: shared sim wiring → `ambition_runtime` per-domain plugins — Player/RoomTransition/Portal/Progression schedule plugins; `ambition_host` = leafwing bindings + camera cluster only; full parity suite green)**; W1 STATE-inversion (opus); **W-a…W-e RULED — the 5-step OPUS-SAFE W queue is in decomposition.md** | **E5 step 6 (engine-resource split + demo smoke shell)**; **W queue steps 1–5 [opus]**; E1/E2/E3/E6/E7/E8 open |
+| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — **E5-finish COMPLETE (fable 2026-07-06 night): step 5 executed (amended: shared sim wiring → `ambition_runtime` per-domain plugins; `ambition_host` = leafwing bindings + camera cluster) + step 6 executed (SimCoreResourcesPlugin split + the demo smoke shell PASSES) — THE DEMO GATE IS OPEN**; W1 STATE-inversion (opus); **W-a…W-e RULED — the 5-step OPUS-SAFE W queue is in decomposition.md**; **E2 back-edges PRE-CLASSIFIED (fable) — verdict list in the E2 card** | **W queue steps 1–5 [opus]**; E1a next crate-mint; E2 verdicts; E3/E6/E7/E8 open |
 | Decomposition D-B/D-C | same | queued behind D-A | mode-scope seam can land early (demos want it) |
 | Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | **CC1 COMPLETE + CC5 LANDED (fable) + CC2 COMPLETE (opus, 2026-07-06)** — engine_core::frame vocabulary + cast family registry real in code; CC2 first pass (hazards swept) + completion (§3.3 every reader classified: loading-zone Door/Walk/EdgeExit now swept via `transition_for_player`; water/climbable annotated discrete-OK + `thin_region_warnings` authoring validator; ledge audited; auto-collect N/A) parity suites green | CC3 fuzz rig (§6.1 oracle) [opus]; CC6 moving portals (§5-P2 spec) [opus] |
 | Combat stack | [engine/combat-model.md](engine/combat-model.md) | CM1 (incl. **launch_dir consumption, fable 2026-07-06 evening** `c695cd9c`)+CM2+CM3+CM7+CM4+CM5 LANDED — per-move presentation authored; smash axes complete (growth, DI, charge, cancel tables, fixed launch angles) | CM6 grab/throw/shield-stun (brings OnBlock) [opus, with SSB] |
@@ -157,8 +166,8 @@ fable card. Ranked by how much they gate a fable task.
 | Fighter brain | [engine/fighter-brain.md](engine/fighter-brain.md) | NEW | FB1 view audit [opus] (CM7 first) |
 | Boss pipeline | [engine/boss-design.md](engine/boss-design.md) | NEW | BD4 seed extraction [opus/sonnet]; BD1 after |
 | Falling sand | [engine/falling-sand.md](engine/falling-sand.md) | NEW; low priority | FS1 single-owner + conservation [opus] |
-| S — Sanic | [demos/sanic.md](demos/sanic.md) | S1–S3 landed; Sanic-in-normal-rooms fixed (`0189338b`) | S4 proofs; ball-dash technique [opus] |
-| M — Super Mary-O | [demos/super-mary-o.md](demos/super-mary-o.md) | gated on E5-finish | M1+A3 powerup-equipment [opus] |
+| S — Sanic | [demos/sanic.md](demos/sanic.md) | S1–S3 landed; Sanic-in-normal-rooms fixed (`0189338b`); **S5 UNBLOCKED (E5-finish complete 2026-07-06 night; copy the demo-shell fixture)** | S4 proofs; ball-dash technique; S5 demo app [opus] |
+| M — Super Mary-O | [demos/super-mary-o.md](demos/super-mary-o.md) | **UNBLOCKED (E5-finish complete 2026-07-06 night)** | M1+A3 powerup-equipment [opus] |
 | F — Super Smash Siblings | [demos/super-smash-siblings.md](demos/super-smash-siblings.md) | gated on CM/N1/FB | F1 rules crate once CM1–CM2 land |
 | H — Hollow Lite | [demos/hollow-lite.md](demos/hollow-lite.md) | gated on BD pipeline | after BD7 pilot |
 | Slower light | [engine/slower-light.md](engine/slower-light.md) | Tier-0 rides E4; L1–L4 in P5 | — |
@@ -648,6 +657,20 @@ architecture.md Tier 5. Landed:
   boundary greps retargeted to the new runtime files, same invariants),
   gameplay_core lib 1175, content 64, observation_boundary, host 2/2.
   Zero behavior change.
+
+**E5 STEP 6 + THE DEMO GATE (same night, second commit):**
+`SimCoreResourcesPlugin` minted in the engine group — every engine sim
+message + resource default moved out of the app (which keeps only the
+catalog/roster install + the setup Startup chain); domain plugins init
+their own state (spine indexes, hot-reload watcher-off default, cutscene
+channels, trace's portal message); boss/encounter registries are
+content-OPTIONAL (empty roster short-circuit + `Option<SandboxLdtkProject>`
+— the missing-install panics stay live on paths that resolve real
+content); `RoomSpec::new` public. **`ambition_host/tests/
+demo_shell_smoke.rs` PASSES: a demo-shaped app (foundation + engine group
++ host group + a fixture content plugin) boots and ticks.** The fixture
+is the reference demo assembly (demos/README.md). S5 + the M track
+unblock.
 
 **The last-chance register is CLOSED:** W-a…W-e all ruled (see
 decomposition.md W-track). Highlights: every schema type measured PURE DATA

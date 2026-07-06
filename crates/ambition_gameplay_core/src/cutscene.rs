@@ -159,6 +159,15 @@ pub struct CutsceneSchedulePlugin;
 
 impl Plugin for CutsceneSchedulePlugin {
     fn build(&self, app: &mut App) {
+        // The cutscene state channels + empty library/bindings (anti-god
+        // rule 5: the domain plugin owns its init). Content POPULATES the
+        // library/bindings; a game that pre-inserts them wins (init never
+        // clobbers).
+        app.init_resource::<RoomCutsceneBindings>();
+        app.init_resource::<CutsceneLibrary>();
+        app.init_resource::<CutsceneTriggerQueue>();
+        app.init_resource::<ActiveCutscene>();
+        app.init_resource::<CutsceneAdvanceRequest>();
         app.add_systems(
             Update,
             (

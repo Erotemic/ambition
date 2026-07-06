@@ -43,6 +43,15 @@ pub fn install_boss_encounter_specs(specs: Vec<BossEncounterSpec>) {
     let _ = BOSS_ENCOUNTER_SPEC_OVERRIDE.set(specs);
 }
 
+/// Whether any game installed boss content. A game with NO bosses (a demo
+/// shell, a boss-free platformer) legitimately never installs — the registry
+/// populate treats that as an empty roster instead of tripping the
+/// missing-install panic, which stays live for any path that actually
+/// RESOLVES a boss (`boss_encounter_specs`).
+pub fn boss_content_installed() -> bool {
+    BOSS_ENCOUNTER_SPEC_OVERRIDE.get().is_some()
+}
+
 /// The installed encounter specs. Production REQUIRES the content install (no
 /// embedded boss data in the lib binary); lib unit tests read content's
 /// authored `boss_encounters/` at compile-relative path so they resolve

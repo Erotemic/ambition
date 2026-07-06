@@ -14,6 +14,12 @@ pub struct TraceSchedulePlugin;
 
 impl Plugin for TraceSchedulePlugin {
     fn build(&self, app: &mut App) {
+        // `record_frame_system` reads the portal teleport fact when the
+        // feature is compiled in; register the message here too (idempotent)
+        // so the trace works in apps that compile portal support without
+        // adding `PortalPlugin` (e.g. the demo shell).
+        #[cfg(feature = "portal")]
+        app.add_message::<crate::portal::BodyTeleported>();
         app.init_resource::<ambition_gameplay_trace::ActorTraceBuffer>()
             .add_systems(
                 Update,

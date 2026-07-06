@@ -52,6 +52,40 @@ pub struct RoomSpec {
     pub mount_links: Vec<(String, String)>,
 }
 
+impl RoomSpec {
+    /// A room with the given geometry and no authored entities. The starting
+    /// point for generated rooms, fixtures, and demo shells; authored paths
+    /// (LDtk) fill every list from the map instead.
+    pub fn new(id: impl Into<String>, world: ae::World) -> Self {
+        Self {
+            id: id.into(),
+            world,
+            loading_zones: Vec::new(),
+            metadata: RoomMetadata::default(),
+            camera_zones: Vec::new(),
+            kinematic_paths: Vec::new(),
+            moving_platforms: Vec::new(),
+            props: Vec::new(),
+            ground_items: Vec::new(),
+            #[cfg(feature = "portal")]
+            portal_gun_spawns: Vec::new(),
+            #[cfg(feature = "portal")]
+            portals: Vec::new(),
+            shrines: Vec::new(),
+            gravity_zones: Vec::new(),
+            hazards: Vec::new(),
+            interactables: Vec::new(),
+            pickups: Vec::new(),
+            chests: Vec::new(),
+            breakables: Vec::new(),
+            enemy_spawns: Vec::new(),
+            boss_spawns: Vec::new(),
+            debug_labels: Vec::new(),
+            mount_links: Vec::new(),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub(crate) struct TransitionEdge {
     pub(crate) from_zone: String,

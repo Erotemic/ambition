@@ -21,6 +21,20 @@ pub fn populate_boss_encounter_registry(mut registry: ResMut<BossEncounterRegist
     if registry.specs_loaded {
         return;
     }
+    // A game with no boss content (demo shell, boss-free platformer) never
+    // calls the install — that's a legitimately empty roster, not the
+    // missing-install mis-assembly the specs panic guards (which stays live
+    // on any path that actually resolves a boss). Lib tests keep the
+    // cfg(test) directory fallback instead of this short-circuit.
+    #[cfg(not(test))]
+    if !super::boss_content_installed() {
+        bevy::log::info!(
+            target: "ambition::boss_encounter",
+            "boss_encounter registry: no boss content installed (empty roster)"
+        );
+        registry.specs_loaded = true;
+        return;
+    }
     // Per ADR 0017: named boss encounter specs are authored in
     // `ambition_content/assets/data/boss_encounters/<id>.ron` and installed
     // before the registry is populated. Log a one-time startup census so a

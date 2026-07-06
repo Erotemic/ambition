@@ -21,7 +21,7 @@ use ambition_gameplay_core::projectile::{
     ProjectileArtSource, ProjectileKind, ProjectileRenderSize, ProjectileRotation,
     ProjectileVisualKind,
 };
-use ambition_gameplay_core::sim_view::ProjectileView;
+use ambition_sim_view::ProjectileView;
 use ambition_platformer_primitives::gravity::gravity_upright_angle;
 use ambition_platformer_primitives::gravity::GravityCtx;
 use ambition_sprite_sheet::SheetRegistry;
@@ -347,7 +347,7 @@ pub fn sync_projectile_charge_visuals(
     // Sim-built pose read-model (E4): charge tier + body geometry facts, no
     // live cluster / projectile-state reads.
     player_q: Query<
-        &ambition_gameplay_core::features::BodyPoseView,
+        &ambition_sim_view::BodyPoseView,
         With<ambition_platformer_primitives::markers::PlayerEntity>,
     >,
     existing_charge: Query<Entity, With<PlayerChargeVisual>>,

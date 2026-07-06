@@ -17,6 +17,7 @@ ambition_gameplay_core = { path = "../ambition_gameplay_core", default-features 
     "portal_ldtk",
 ] }
 ambition_characters = { path = "../ambition_characters" }
+ambition_sim_view = { path = "../ambition_sim_view", features = ["input"] }
 # The combat-phase chain's effect seam (`EffectRequest`/`apply_effects`) —
 # sim-side effect vocabulary, not presentation.
 ambition_vfx = { path = "../ambition_vfx" }

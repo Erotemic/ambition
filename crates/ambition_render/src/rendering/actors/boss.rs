@@ -55,8 +55,8 @@ pub fn upgrade_boss_sprites(
     // identity (name + behavior id, for the sheet lookup) rides `BossRenderIndex`.
     // Reading both by id lets this system bind a boss sheet WITHOUT borrowing the
     // live boss clusters — the boss render becomes a read-model consumer.
-    feature_views: Res<ambition_gameplay_core::features::FeatureViewIndex>,
-    boss_render: Res<ambition_gameplay_core::features::BossRenderIndex>,
+    feature_views: Res<ambition_sim_view::FeatureViewIndex>,
+    boss_render: Res<ambition_sim_view::BossRenderIndex>,
     new_bosses: Query<
         (Entity, &FeatureVisual),
         (Without<CharacterAnimator>, Without<BossAnimator>),
@@ -244,7 +244,7 @@ pub fn animate_bosses(
     // (`drive_boss_animators` runs `request_for_phase` + `tick` and writes the
     // geometry sample), so this presentation system READS the already-driven
     // animator and only draws — no render→sim reads at all.
-    boss_frames: Res<ambition_gameplay_core::features::BossFrameIndex>,
+    boss_frames: Res<ambition_sim_view::BossFrameIndex>,
     mut query: Query<
         (
             &FeatureVisual,

@@ -13,9 +13,10 @@
 //! visual: EVERY body's raised shield (player and brain-driven alike)
 //! materializes one row, so the render pool is a pure consumer.
 
-use super::*;
-use crate::character_sprites::CharacterAnim;
-use crate::platformer_runtime::lifecycle::PlayerVisual;
+use ambition_characters::actor::{BodyCombat, BodyHealth};
+use ambition_gameplay_core::character_sprites::CharacterAnim;
+use ambition_platformer_primitives::lifecycle::PlayerVisual;
+use bevy::prelude::{Commands, Entity, Query, Res, ResMut, Resource, With};
 
 /// Sim-resolved presentation pose for one player-bodied entity: everything
 /// the renderer needs to place, size, animate, and flash the sprite. Plain
@@ -95,28 +96,28 @@ pub fn rebuild_body_pose_views(
         (
             (
                 Entity,
-                &crate::actor::BodyKinematics,
-                Option<&crate::actor::BodyGroundState>,
-                Option<&crate::actor::BodyWallState>,
-                Option<&crate::actor::BodyBlinkState>,
-                Option<&crate::actor::BodyFlightState>,
-                Option<&crate::actor::BodyDashState>,
-                Option<&crate::actor::BodyLedgeState>,
+                &ambition_gameplay_core::actor::BodyKinematics,
+                Option<&ambition_gameplay_core::actor::BodyGroundState>,
+                Option<&ambition_gameplay_core::actor::BodyWallState>,
+                Option<&ambition_gameplay_core::actor::BodyBlinkState>,
+                Option<&ambition_gameplay_core::actor::BodyFlightState>,
+                Option<&ambition_gameplay_core::actor::BodyDashState>,
+                Option<&ambition_gameplay_core::actor::BodyLedgeState>,
                 Option<&BodyCombat>,
-                Option<&crate::player::BodyAnimFacts>,
-                Option<&crate::player::PlayerBlinkCameraState>,
+                Option<&ambition_gameplay_core::player::BodyAnimFacts>,
+                Option<&ambition_gameplay_core::player::PlayerBlinkCameraState>,
             ),
             (
-                Option<&crate::actor::BodyModeState>,
-                Option<&crate::actor::BodyEnvironmentContact>,
-                Option<&crate::actor::BodyAbilities>,
-                Option<&crate::actor::BodyDodgeState>,
-                Option<&crate::actor::BodyShieldState>,
-                Option<&crate::player::BodyMelee>,
+                Option<&ambition_gameplay_core::actor::BodyModeState>,
+                Option<&ambition_gameplay_core::actor::BodyEnvironmentContact>,
+                Option<&ambition_gameplay_core::actor::BodyAbilities>,
+                Option<&ambition_gameplay_core::actor::BodyDodgeState>,
+                Option<&ambition_gameplay_core::actor::BodyShieldState>,
+                Option<&ambition_gameplay_core::player::BodyMelee>,
                 Option<&ambition_engine_core::BodyBaseSize>,
                 Option<&BodyHealth>,
-                Option<&crate::platformer_runtime::orientation::ActorRoll>,
-                Option<&crate::projectile::PlayerProjectileState>,
+                Option<&ambition_gameplay_core::platformer_runtime::orientation::ActorRoll>,
+                Option<&ambition_gameplay_core::projectile::PlayerProjectileState>,
                 Option<&mut BodyPoseView>,
             ),
         ),
@@ -173,7 +174,7 @@ pub fn rebuild_body_pose_views(
                 (Some(ground), Some(wall), Some(blink), Some(flight), Some(dash), Some(ledge)),
                 (Some(combat), Some(anim_facts), Some(blink_cam)),
                 (Some(body_mode), Some(env_contact), Some(abilities), Some(dodge), Some(shield)),
-            ) => crate::character_sprites::pick_player_anim(
+            ) => ambition_gameplay_core::character_sprites::pick_player_anim(
                 anim_facts,
                 combat,
                 blink_cam,
@@ -238,8 +239,8 @@ pub struct ShieldRingsView(pub Vec<ShieldRingFact>);
 pub fn rebuild_shield_rings_view(
     mut view: ResMut<ShieldRingsView>,
     bodies: Query<(
-        &crate::actor::BodyKinematics,
-        &crate::actor::BodyShieldState,
+        &ambition_gameplay_core::actor::BodyKinematics,
+        &ambition_gameplay_core::actor::BodyShieldState,
     )>,
 ) {
     view.0.clear();

@@ -91,7 +91,7 @@ pub fn animate_player(
         (
             &mut Sprite,
             &mut CharacterAnimator,
-            &ambition_gameplay_core::features::BodyPoseView,
+            &ambition_sim_view::BodyPoseView,
             Option<&ambition_time::ProperTimeScale>,
             Option<&mut bevy::sprite::Anchor>,
         ),
@@ -155,7 +155,7 @@ pub fn animate_characters(
     // Materialized per-actor pose read-model (built by `rebuild_actor_anim_index`
     // in the render presentation chain just before this system) — the renderer
     // animates from a snapshot, no longer borrowing the live actor clusters.
-    anim_index: Res<ambition_gameplay_core::features::ActorAnimIndex>,
+    anim_index: Res<ambition_sim_view::ActorAnimIndex>,
     // Localized gravity, so an enemy/NPC wall-walking or on a flipped-gravity
     // ceiling flips the right way (the same gravity-aware facing the player got).
     gravity: ambition_platformer_primitives::gravity::GravityCtx,

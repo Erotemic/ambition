@@ -689,7 +689,7 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
     app.add_systems(
         Update,
         ambition_render::rendering::publish_camera_viewport
-            .before(ambition_gameplay_core::camera_snapshot::resolve_camera_observation),
+            .before(ambition_sim_view::camera_snapshot::resolve_camera_observation),
     );
     app.add_systems(
         Update,
@@ -704,7 +704,7 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
             .chain()
             .after(animate_bosses)
             // Read THIS tick's resolved snapshot, not last frame's.
-            .after(ambition_gameplay_core::camera_snapshot::resolve_camera_observation),
+            .after(ambition_sim_view::camera_snapshot::resolve_camera_observation),
     );
     // The Ambition portal host-adapter observation glue (world-frame /
     // viewer / focus / debug seam publishers, scene-body tagging, dev
@@ -723,7 +723,7 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
             // continuity update, before the observation resolves.
             ambition_render::rendering::publish_portal_camera_clamp
                 .after(ambition_gameplay_core::portal::apply_portal_camera_continuity)
-                .before(ambition_gameplay_core::camera_snapshot::resolve_camera_observation),
+                .before(ambition_sim_view::camera_snapshot::resolve_camera_observation),
         ),
     );
     #[cfg(feature = "portal_render")]

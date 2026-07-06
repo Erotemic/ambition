@@ -22,7 +22,7 @@ use ambition_app::app::{
 };
 use ambition_engine_core as ae;
 use ambition_gameplay_core::assets::game_assets::GameAssetConfig;
-use ambition_gameplay_core::camera_snapshot::{
+use ambition_sim_view::camera_snapshot::{
     resolve_follow_camera_snapshot, CameraFocus2d, CameraSnapshotResolveInput,
     CameraSnapshotResolveMode,
 };

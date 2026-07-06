@@ -11,12 +11,12 @@
 //! via the projectile spawner) draw it down and it recovers. Money is fed by
 //! `PickupKind::Currency` collection crediting the body wallet. This module
 //! is a pure consumer of the sim-built
-//! [`ambition_gameplay_core::sim_view::PlayerHudFacts`] snapshot (E4 slices
+//! [`ambition_sim_view::PlayerHudFacts`] snapshot (E4 slices
 //! 5+6+16) — it never queries live body clusters.
 
 use bevy::prelude::*;
 
-use ambition_gameplay_core::sim_view::PlayerHudFacts;
+use ambition_sim_view::PlayerHudFacts;
 use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
 
 /// Bar width / height in logical px.

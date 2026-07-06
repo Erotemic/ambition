@@ -25,7 +25,7 @@ pub struct BossSpriteMetricsApplied;
 /// `ActorIntent` components used by NPCs and enemies. This keeps future
 /// faction, targeting, HUD, and held-item work from needing to pattern-match
 /// directly on `BossFeature` for ordinary combat facts.
-pub(crate) fn boss_component_snapshot(
+pub fn boss_component_snapshot(
     boss: super::super::boss_clusters::BossRef<'_>,
     attack_state: &BossAttackState,
     // The boss's HP authority (§A1) — liveness is `health.alive()`, never a

@@ -85,7 +85,7 @@ const GRADIENT_LANE_VISUAL_Z: f32 = 10.5;
 pub fn manage_gradient_lane_visual(
     mut commands: Commands,
     world: Res<ambition_engine_core::RoomGeometry>,
-    boss_frames: Res<ambition_gameplay_core::features::BossFrameIndex>,
+    boss_frames: Res<ambition_sim_view::BossFrameIndex>,
     mut visuals: Query<(Entity, &GradientLaneVisual, &mut Transform, &mut Sprite)>,
 ) {
     let mut active: std::collections::HashMap<&str, (bool, ae::Vec2, BVec2)> =
@@ -173,7 +173,7 @@ pub fn apply_placeholder_sprites_override(
         Option<&SpriteOriginalState>,
         Option<&FeatureVisual>,
         Option<&PlayerVisual>,
-        Option<&ambition_gameplay_core::features::BodyPoseView>,
+        Option<&ambition_sim_view::BodyPoseView>,
         Option<&ambition_gameplay_core::projectile::ProjectileVisualKind>,
     )>,
 ) {

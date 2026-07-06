@@ -11,9 +11,8 @@ use super::primitives::HealthOverlayVisual;
 use crate::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_characters::actor::Health;
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
-use ambition_gameplay_core::features::{
-    ActorRenderIndex, BossRenderIndex, FeatureViewIndex, FeatureVisualKind,
-};
+use ambition_gameplay_core::features::FeatureVisualKind;
+use ambition_sim_view::{ActorRenderIndex, BossRenderIndex, FeatureViewIndex};
 
 #[derive(Component)]
 pub struct BossHealthBarOverlayVisual;
@@ -152,13 +151,13 @@ pub fn sync_health_overlays(
     // `BodyPoseView`; actors/bosses/breakables ride their `FeatureView`
     // rows (hp/alive/fighting facts) + the identity indexes for labels.
     player: Query<
-        &ambition_gameplay_core::features::BodyPoseView,
+        &ambition_sim_view::BodyPoseView,
         ambition_platformer_primitives::markers::PrimaryPlayerOnly,
     >,
     feature_views: Res<FeatureViewIndex>,
     actor_render: Res<ActorRenderIndex>,
     boss_render: Res<BossRenderIndex>,
-    boss_frames: Res<ambition_gameplay_core::features::BossFrameIndex>,
+    boss_frames: Res<ambition_sim_view::BossFrameIndex>,
 ) {
     for entity in overlays.iter() {
         commands.entity(entity).despawn();

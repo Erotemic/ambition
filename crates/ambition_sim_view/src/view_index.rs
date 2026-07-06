@@ -3,7 +3,18 @@
 //! Presentation systems consult this read-model for sprite swaps, debug overlays,
 //! and HUD readouts instead of re-scanning every feature family per visual.
 
-use super::*;
+use ambition_engine_core as ae;
+use ambition_engine_core::AabbExt;
+use bevy::prelude::{Entity, Query, Res, ResMut, Resource, With, Without};
+
+use crate::anim_index::ActorSpriteData;
+use ambition_gameplay_core::features::HazardFeature;
+use ambition_gameplay_core::features::{
+    ActorConfig, ActorDisposition, ActorIdentity, ActorRenderSize, ActorSurfaceState, BodyMelee,
+    BossDeathAnimation, BossPhase, BreakableFeature, CenteredAabb, ChestFeature, Collected,
+    FeatureId, FeatureSimEntity, FeatureView, FeatureVisualKind, Opened, PickupFeature,
+    SwitchFeature, SwitchOn,
+};
 
 /// Per-frame snapshot of every ECS-owned feature's `FeatureView`, keyed
 /// by [`FeatureId`].
@@ -99,11 +110,11 @@ pub fn rebuild_feature_view_index(
             Option<&ambition_characters::actor::BodyCombat>,
             Option<&ambition_characters::actor::BodyHealth>,
             Option<&BodyMelee>,
-            Option<&super::actor_clusters::ActorConfig>,
+            Option<&ActorConfig>,
             Option<&ActorSurfaceState>,
             // Portal aerial-roll (same component the player uses) so actors
             // somersault + self-right through portals just like the player.
-            Option<&crate::platformer_runtime::orientation::ActorRoll>,
+            Option<&ambition_gameplay_core::platformer_runtime::orientation::ActorRoll>,
         ),
         // Bosses carry the shared actor read-models (`ActorDisposition` etc., synced
         // by `sync_boss_actor_components`) but are their OWN feature family below.
@@ -113,12 +124,12 @@ pub fn rebuild_feature_view_index(
         // are absent), shadowing the boss view → the boss renders as the generic
         // fallback sprite instead of its sheet. This is the boss-exclusion the
         // deleted `ActorRuntime` tag used to provide implicitly.
-        Without<super::boss_clusters::BossConfig>,
+        Without<ambition_gameplay_core::features::BossConfig>,
     >,
     hazards: Query<(&FeatureId, &CenteredAabb, &HazardFeature)>,
     bosses: Query<(
         &FeatureId,
-        super::boss_clusters::BossClusterRef,
+        ambition_gameplay_core::features::BossClusterRef,
         &ambition_characters::brain::BossAttackState,
         // Shared combat read-model, synced from the boss runtime by
         // `sync_boss_actor_components` (WorldPrep, before this rebuild).
@@ -131,7 +142,7 @@ pub fn rebuild_feature_view_index(
         // Gravity-upright roll — the SAME `ActorRoll` the player / enemies / NPCs
         // use, so a boss rights itself under flipped / sideways gravity instead of
         // staying screen-axis-aligned (it floats, but it should still flip).
-        Option<&crate::platformer_runtime::orientation::ActorRoll>,
+        Option<&ambition_gameplay_core::platformer_runtime::orientation::ActorRoll>,
     )>,
 ) {
     index.begin_rebuild();
@@ -439,14 +450,14 @@ impl ActorRenderIndex {
 }
 
 /// Rebuild [`ActorRenderIndex`] from the live actor clusters + the shared
-/// [`crate::features::ActorRenderSize`] component (joined on the same entity, so
+/// [`ActorRenderSize`] component (joined on the same entity, so
 /// the pass is O(actors), not a per-actor cross-scan). Runs in the sim's
 /// `FeatureViewSync` set beside [`rebuild_feature_view_index`], so the snapshot
 /// is ready before presentation reads it. Bosses have their OWN sprite path
 /// (`upgrade_boss_sprites`) and props aren't actors, so neither appears here.
 pub fn rebuild_actor_render_index(
     mut index: ResMut<ActorRenderIndex>,
-    actors: Query<(ActorSpriteData, Option<&crate::features::ActorRenderSize>)>,
+    actors: Query<(ActorSpriteData, Option<&ActorRenderSize>)>,
 ) {
     index.begin_rebuild();
     for (a, render_size) in &actors {
@@ -542,7 +553,7 @@ impl BossRenderIndex {
 /// materialized.
 pub fn rebuild_boss_render_index(
     mut index: ResMut<BossRenderIndex>,
-    bosses: Query<(&FeatureId, super::boss_clusters::BossClusterRef)>,
+    bosses: Query<(&FeatureId, ambition_gameplay_core::features::BossClusterRef)>,
 ) {
     index.begin_rebuild();
     for (id, boss) in &bosses {
@@ -658,7 +669,9 @@ impl NameplateIndex {
 #[allow(clippy::type_complexity)]
 pub fn rebuild_nameplate_index(
     mut index: ResMut<NameplateIndex>,
-    controlled: Option<Res<crate::abilities::traversal::possession::ControlledSubject>>,
+    controlled: Option<
+        Res<ambition_gameplay_core::abilities::traversal::possession::ControlledSubject>,
+    >,
     primary_player: Query<Entity, ambition_platformer_primitives::markers::PrimaryPlayerOnly>,
     views: Res<FeatureViewIndex>,
     actors: Query<

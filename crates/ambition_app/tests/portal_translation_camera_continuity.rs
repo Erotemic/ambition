@@ -82,10 +82,10 @@ impl HeadlessCameraHarness {
                 // Same-frame clamp pad into the sim resolve, like the host.
                 ambition_render::rendering::publish_portal_camera_clamp
                     .after(ambition_gameplay_core::portal::apply_portal_camera_continuity)
-                    .before(ambition_gameplay_core::camera_snapshot::resolve_camera_observation),
+                    .before(ambition_sim_view::camera_snapshot::resolve_camera_observation),
                 camera_follow
                     .after(ambition_gameplay_core::portal::apply_portal_camera_continuity)
-                    .after(ambition_gameplay_core::camera_snapshot::resolve_camera_observation),
+                    .after(ambition_sim_view::camera_snapshot::resolve_camera_observation),
             ),
         );
         app.world_mut().spawn((

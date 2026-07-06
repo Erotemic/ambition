@@ -59,7 +59,6 @@ pub mod actor;
 pub mod assets;
 pub mod body_mode;
 pub mod boss_encounter;
-pub mod camera_snapshot;
 pub mod character_sprites;
 pub mod config;
 pub mod cutscene;
@@ -87,7 +86,6 @@ pub mod portal;
 pub mod projectile;
 pub mod session;
 pub mod shrine;
-pub mod sim_view;
 pub mod time;
 pub mod world;
 
@@ -102,11 +100,6 @@ pub use world::{ldtk_world, rooms};
 // `ProperTimeScale`, `refresh_world_time` — lives in `ambition_time`; name it
 // there directly. Only the sandbox-owned `mirror_sim_dt_into_runtime` bridge
 // still surfaces at the crate root.)
-pub use camera_snapshot::{
-    resolve_follow_camera_snapshot, CameraBlinkInput, CameraFocus2d, CameraSnapshot2d,
-    CameraSnapshotResolveInput, CameraSnapshotResolveMode, SceneCaptureRequest,
-    MAX_CAMERA_SMOOTH_DT,
-};
 pub use time::camera_ease::{
     CameraEaseState, CameraEaseTuning, DEFAULT_CAMERA_ZOOM_IN_RATE, DEFAULT_CAMERA_ZOOM_OUT_RATE,
     DEFAULT_CAMERA_ZOOM_SNAP_EPSILON,

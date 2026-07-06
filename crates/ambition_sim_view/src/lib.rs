@@ -1,0 +1,80 @@
+//! **[the observation boundary]** — the `SimView` read-model (E4).
+//!
+//! Everything here is a plain-data snapshot of sim state, rebuilt once per
+//! sim tick by extraction systems that run LAST in the sim tail
+//! (`SandboxSet::FeatureViewSync`) or as tail observers after
+//! `CoreSimulation` (the camera resolve). Builders are pure functions of sim
+//! state — no caching across ticks, no `Entity`/`Handle` borrows in the
+//! rows — so every observer (render, RL observation, netcode confirmation,
+//! the fighter brain, slower-light shaders) consumes the SAME facts.
+//!
+//! Render depends on THIS crate for sim facts; it never queries the sim
+//! heart's live components (the boundary test in `ambition_render` pins
+//! that).
+
+mod anim_index;
+pub mod camera_snapshot;
+mod facts;
+mod pose_view;
+mod view_index;
+
+pub use anim_index::{
+    rebuild_actor_anim_index, rebuild_boss_frame_index, ActorAnimFrame, ActorAnimIndex,
+    ActorSpriteData, BossFrameIndex, BossFrameView, HazardLaneFact,
+};
+pub use facts::*;
+pub use pose_view::{
+    rebuild_body_pose_views, rebuild_shield_rings_view, BodyPoseView, ShieldRingFact,
+    ShieldRingsView,
+};
+pub use view_index::{
+    rebuild_actor_render_index, rebuild_boss_render_index, rebuild_feature_view_index,
+    rebuild_nameplate_index, ActorRenderIndex, ActorRenderView, BossRenderIndex, BossRenderView,
+    FeatureViewIndex, NameplateFact, NameplateIndex,
+};
+
+/// Rebuilds the observation read-models once per frame, sim-side:
+/// [`FeatureViewIndex`] (geometry/state for every feature),
+/// [`ActorRenderIndex`] / [`BossRenderIndex`] (materialized identity facts),
+/// [`NameplateIndex`], [`BossFrameIndex`], the per-actor POSE snapshot
+/// ([`ActorAnimIndex`]: overlay advance + anim pick), the player-bodied
+/// [`BodyPoseView`] components, and [`ShieldRingsView`]. All let observers
+/// read a snapshot instead of live-querying the sim's ECS.
+pub struct FeatureViewSyncSchedulePlugin;
+
+impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        use bevy::prelude::{IntoScheduleConfigs, Update};
+        // Owned here (anti-god rule 5): the plugin that rebuilds the index
+        // initializes it; consumers only read.
+        app.init_resource::<ActorAnimIndex>();
+        app.init_resource::<ShieldRingsView>();
+        app.init_resource::<BossFrameIndex>();
+        app.init_resource::<NameplateIndex>();
+        app.add_systems(
+            Update,
+            (
+                // The nameplate rows prefer the feature view's geometry, so
+                // they rebuild strictly after it (same-frame read).
+                (rebuild_feature_view_index, rebuild_nameplate_index).chain(),
+                rebuild_actor_render_index,
+                rebuild_boss_render_index,
+                rebuild_boss_frame_index,
+                // Overlay clocks advance right before their one reader
+                // rebuilds the pose snapshot (§A9 ordering, preserved). The
+                // overlay ADVANCE mutates sim components, so it stays defined
+                // in the sim heart; this plugin only schedules it.
+                (
+                    ambition_gameplay_core::features::advance_actor_anim_overlays,
+                    rebuild_actor_anim_index,
+                )
+                    .chain(),
+                // Player-bodied pose components + the pooled shield-ring rows —
+                // the per-body half of the pose read-model (E4 slices 1–4).
+                rebuild_body_pose_views,
+                rebuild_shield_rings_view,
+            )
+                .in_set(ambition_gameplay_core::schedule::SandboxSet::FeatureViewSync),
+        );
+    }
+}

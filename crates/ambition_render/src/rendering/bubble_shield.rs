@@ -135,7 +135,7 @@ pub fn sync_bubble_shield_visual(
     world: Res<ambition_engine_core::RoomGeometry>,
     // Every raised shield, resolved sim-side into the pooled-ring read-model
     // (E4): render positions rings, it no longer queries the live clusters.
-    active: Res<ambition_gameplay_core::features::ShieldRingsView>,
+    active: Res<ambition_sim_view::ShieldRingsView>,
     mut rings: Query<(&mut Transform, &mut Sprite, &mut Visibility), With<BubbleShieldVisual>>,
 ) {
     let active = &active.0;

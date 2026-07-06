@@ -11,7 +11,7 @@ use std::collections::{HashMap, HashSet};
 
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_engine_core::{self as ae, AabbExt};
-use ambition_gameplay_core::features::NameplateIndex;
+use ambition_sim_view::NameplateIndex;
 use ambition_gameplay_core::rooms::{ActiveRoomMetadata, RoomNameplatePolicy};
 use bevy::prelude::*;
 

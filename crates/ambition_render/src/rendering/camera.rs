@@ -3,7 +3,7 @@
 //! The RESOLVE — zoom policy, camera zones, target easing, blink
 //! interpolation, clamping (the `CameraEaseState` write) — is the SIM's
 //! observation seam now
-//! ([`ambition_gameplay_core::camera_snapshot::CameraObservationPlugin`],
+//! ([`ambition_sim_view::camera_snapshot::CameraObservationPlugin`],
 //! E4-17): the sim publishes one [`ResolvedCameraSnapshot`] per tick. This
 //! module only (a) publishes the physical viewport (an observer fact the
 //! resolver consumes), (b) applies presentation-only deltas — portal camera
@@ -16,7 +16,7 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 use super::primitives::PlayerVisual;
-use ambition_gameplay_core::camera_snapshot::{
+use ambition_sim_view::camera_snapshot::{
     CameraExtraClamp, CameraSnapshot2d, CameraViewport, ResolvedCameraSnapshot,
 };
 

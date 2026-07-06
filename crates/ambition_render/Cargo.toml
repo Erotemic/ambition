@@ -14,13 +14,14 @@ default = []
 # Forwarders: cfg(feature = "...") gates inside this crate key off OUR feature
 # names; each forwards to the matching ambition_gameplay_core machinery feature so a
 # mismatched combination is a compile error, never a silent missing system.
-input = ["dep:leafwing-input-manager", "ambition_gameplay_core/input"]
+input = ["dep:leafwing-input-manager", "ambition_gameplay_core/input", "ambition_sim_view/input"]
 # The reusable portal renderer the world-sync code installs when portals draw.
 portal_render = ["dep:ambition_portal_presentation", "ambition_gameplay_core/portal_render"]
 
 [dependencies]
 # The machinery this crate renders. Same always-on baseline every persona used
 # pre-split (ldtk/input/portal are not end-to-end cfg-gated in the sandbox).
+ambition_sim_view = { path = "../ambition_sim_view" }
 ambition_gameplay_core = { path = "../ambition_gameplay_core", default-features = false, features = [
     "ldtk_runtime",
     "input",

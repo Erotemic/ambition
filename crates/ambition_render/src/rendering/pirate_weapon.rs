@@ -23,7 +23,7 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
-use ambition_gameplay_core::sim_view::WieldedGunSwordsView;
+use ambition_sim_view::WieldedGunSwordsView;
 
 #[derive(Component)]
 pub struct PirateWeaponVisual;

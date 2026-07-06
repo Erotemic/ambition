@@ -62,7 +62,7 @@ pub use ambition_gameplay_core::combat::BoundFeatureKind;
 // module-private; the schedule registration uses
 // `actors::manage_gradient_lane_visual` directly so no outside
 // callers need a re-export.
-pub use ambition_gameplay_core::camera_snapshot::{CameraSnapshot2d, SceneCaptureRequest};
+pub use ambition_sim_view::camera_snapshot::{CameraSnapshot2d, SceneCaptureRequest};
 #[cfg(feature = "portal_render")]
 pub use camera::publish_portal_camera_clamp;
 pub use camera::{camera_follow, publish_camera_viewport, CameraViewState};

@@ -9,7 +9,7 @@ use ambition_engine_core::RoomGeometry;
 use ambition_engine_core::{self as ae};
 use ambition_platformer_primitives::gravity::{GravityField, GravityZone};
 
-use ambition_gameplay_core::sim_view::GravitySwitchesView;
+use ambition_sim_view::GravitySwitchesView;
 
 /// Marks the visual for a [`GravityZone`].
 #[derive(Component)]

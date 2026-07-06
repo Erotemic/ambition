@@ -826,7 +826,7 @@ pub fn spawn_blink_effects(
 /// Live ring of orbiting embers showing where the next blink will land.
 ///
 /// Pure consumer of the sim-resolved
-/// [`ambition_gameplay_core::sim_view::BlinkPreviewFact`] (E4 slice 18):
+/// [`ambition_sim_view::BlinkPreviewFact`] (E4 slice 18):
 /// the destination is computed sim-side with the SAME resolution the actual
 /// blink uses, so the preview can never disagree with the eventual teleport
 /// endpoint. This system only draws the ember ring.
@@ -835,7 +835,7 @@ pub fn update_blink_preview(
     mut commands: Commands,
     time: Res<Time>,
     world: Res<ambition_engine_core::RoomGeometry>,
-    fact: Res<ambition_gameplay_core::sim_view::BlinkPreviewFact>,
+    fact: Res<ambition_sim_view::BlinkPreviewFact>,
     mut existing: Query<(Entity, &BlinkPreviewVisual, &mut Transform, &mut Sprite)>,
 ) {
     if !fact.active {

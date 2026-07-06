@@ -151,6 +151,7 @@ dependencies = [
  "ambition_render",
  "ambition_runtime",
  "ambition_sfx",
+ "ambition_sim_view",
  "ambition_time",
  "ambition_touch_input",
  "ambition_ui_nav",
@@ -294,6 +295,7 @@ dependencies = [
  "ambition_portal",
  "ambition_portal_presentation",
  "ambition_sfx",
+ "ambition_sim_view",
  "ambition_sprite_sheet",
  "ambition_time",
  "ambition_ui_nav",
@@ -407,6 +409,7 @@ dependencies = [
  "ambition_platformer_primitives",
  "ambition_portal_presentation",
  "ambition_sfx",
+ "ambition_sim_view",
  "ambition_sprite_sheet",
  "ambition_time",
  "ambition_vfx",
@@ -420,6 +423,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_characters",
  "ambition_gameplay_core",
+ "ambition_sim_view",
  "ambition_vfx",
  "bevy",
 ]
@@ -439,6 +443,22 @@ name = "ambition_sfx_bank"
 version = "0.1.0"
 dependencies = [
  "thiserror 1.0.69",
+]
+
+[[package]]
+name = "ambition_sim_view"
+version = "0.1.0"
+dependencies = [
+ "ambition_characters",
+ "ambition_engine_core",
+ "ambition_gameplay_core",
+ "ambition_input",
+ "ambition_interaction",
+ "ambition_platformer_primitives",
+ "ambition_time",
+ "bevy",
+ "bevy_math",
+ "leafwing-input-manager",
 ]
 
 [[package]]

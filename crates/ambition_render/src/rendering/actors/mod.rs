@@ -23,10 +23,10 @@ use ambition_gameplay_core::character_sprites::{
 };
 use ambition_gameplay_core::combat::BoundFeatureKind;
 use ambition_gameplay_core::features::{
-    ActorRenderSize, BossClusterRef, BreakableFeature, ChestFeature, FeatureId, FeatureViewIndex,
-    FeatureVisualKind, Opened,
+    ActorRenderSize, BreakableFeature, ChestFeature, FeatureId, FeatureVisualKind, Opened,
 };
 use ambition_gameplay_core::persistence::settings::TextureResolutionScale;
+use ambition_sim_view::FeatureViewIndex;
 
 mod animation;
 mod boss;
@@ -49,7 +49,7 @@ pub fn sync_visuals(
             &mut Transform,
             &mut Sprite,
             Option<&PlayerSpriteBaseline>,
-            &ambition_gameplay_core::features::BodyPoseView,
+            &ambition_sim_view::BodyPoseView,
         ),
         With<PlayerVisual>,
     >,
@@ -223,7 +223,7 @@ pub fn upgrade_actor_sprites(
     // authored render size) — the renderer binds a sprite from this snapshot
     // WITHOUT borrowing gameplay_core's live actor clusters. Built by
     // `rebuild_actor_render_index` in the sim's `FeatureViewSync` set.
-    actor_render: Res<ambition_gameplay_core::features::ActorRenderIndex>,
+    actor_render: Res<ambition_sim_view::ActorRenderIndex>,
     // Names we've already warned about resolving no sprite, so the warning fires
     // once per offending name instead of every frame the actor is unbound.
     mut warned_sprite_names: Local<std::collections::HashSet<String>>,
@@ -366,7 +366,7 @@ pub fn refresh_player_sprites_on_game_assets_change(
     players: Query<
         (
             Entity,
-            &ambition_engine_core::BodyBaseSize,
+            &ambition_sim_view::BodyPoseView,
             Option<&BoundSpriteQuality>,
         ),
         With<PlayerVisual>,
@@ -392,11 +392,11 @@ pub fn refresh_player_sprites_on_game_assets_change(
     if images.get(&asset.texture).is_none() {
         return;
     }
-    for (entity, base_size, bound_quality) in &players {
+    for (entity, pose, bound_quality) in &players {
         if bound_quality.is_some_and(|q| q.scale == scale) {
             continue;
         }
-        let collision = BVec2::new(base_size.base_size.x, base_size.base_size.y);
+        let collision = BVec2::new(pose.base_size.x, pose.base_size.y);
         let render = player_placeholder_render_size(&asset.spec, collision);
         commands.entity(entity).insert((
             build_character_sprite_with_render_size(asset, render),

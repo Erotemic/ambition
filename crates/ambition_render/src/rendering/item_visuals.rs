@@ -4,7 +4,7 @@
 //! — no live item/body queries.
 
 use ambition_gameplay_core::items::pickup::FIREBALL_ID;
-use ambition_gameplay_core::sim_view::{GroundItemsView, HeldItemView, HeldShotsView};
+use ambition_sim_view::{GroundItemsView, HeldItemView, HeldShotsView};
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 

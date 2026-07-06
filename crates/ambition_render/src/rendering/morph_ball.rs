@@ -138,7 +138,7 @@ pub fn sync_morph_ball_visual(
     // Sim-built pose read-model (E4): body-mode + geometry facts, no live
     // cluster reads.
     player_q: Query<
-        &ambition_gameplay_core::features::BodyPoseView,
+        &ambition_sim_view::BodyPoseView,
         ambition_platformer_primitives::markers::PrimaryPlayerOnly,
     >,
     mut player_query: Query<

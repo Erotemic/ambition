@@ -87,9 +87,9 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             // Cut-rope resources moved to AmbitionBossContentPlugin — content
             // owns and initializes its own state (anti-god rule 5).
             .insert_resource(ambition_gameplay_core::features::FeatureEcsWorldOverlay::default())
-            .insert_resource(ambition_gameplay_core::features::FeatureViewIndex::default())
-            .insert_resource(ambition_gameplay_core::features::ActorRenderIndex::default())
-            .insert_resource(ambition_gameplay_core::features::BossRenderIndex::default())
+            .insert_resource(ambition_sim_view::FeatureViewIndex::default())
+            .insert_resource(ambition_sim_view::ActorRenderIndex::default())
+            .insert_resource(ambition_sim_view::BossRenderIndex::default())
             .add_plugins(RonAssetPlugin::<data::SandboxDataSpec>::new(&["ron"]))
             // CharacterCatalogPlugin installs the parsed character
             // catalog as a Bevy resource and runs a Startup validator

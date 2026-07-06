@@ -3,7 +3,7 @@
 //! sim-side `PlayerMark` from ambition_gameplay_core.
 
 use ambition_engine_core as ae;
-use ambition_gameplay_core::sim_view::MarkBeaconsView;
+use ambition_sim_view::MarkBeaconsView;
 use bevy::prelude::*;
 
 /// Marks the persistent beacon sprite shown at a player's dropped recall mark.

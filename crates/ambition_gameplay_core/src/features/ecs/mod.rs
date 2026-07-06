@@ -58,13 +58,11 @@ mod interact;
 mod mount;
 pub mod perception;
 pub use mount::{rider_hand_world_pos, rider_hand_world_pos_in_frame};
-mod pose_view;
 mod reset;
 mod save_sync;
 mod spawn;
 mod spawn_actors;
 mod target_volumes;
-mod view_index;
 
 // Combat-kit aliases keep `ecs::<module>` paths stable for callers.
 pub use crate::combat::boss_clusters;
@@ -91,17 +89,18 @@ pub use aggression::{
     apply_actor_stimuli, tick_pending_challenges, PendingChallenge, CHALLENGE_GRACE_S,
 };
 pub use anim_helpers::{
-    advance_actor_anim_overlays, ecs_boss_anim_state, ecs_boss_anim_state_and_entity,
-    ecs_boss_animation_frame_sample, ecs_breakable_state, ecs_chest_opened,
-    rebuild_actor_anim_index, rebuild_boss_frame_index, ActorAnimFrame, ActorAnimIndex,
-    ActorSpriteData, BossFrameIndex, BossFrameView, HazardLaneFact,
+    advance_actor_anim_overlays, boss_anim_state_for, ecs_boss_anim_state,
+    ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample, ecs_breakable_state,
+    ecs_chest_opened,
 };
 pub use banner::{apply_gameplay_banner_requests, tick_gameplay_banner};
 pub use boss_clusters::{
     boss_is_cleared, BossClusterQueryData, BossClusterRef, BossClusterScratch, BossConfig,
     BossEncounter, BossMut, BossRef,
 };
-pub(crate) use bosses::boss_component_snapshot;
+// `boss_component_snapshot` is pub: the observation-boundary contract tests
+// (ambition_sim_view) build boss read-model components from a scratch boss.
+pub use bosses::boss_component_snapshot;
 #[allow(
     unused_imports,
     reason = "marker re-exported for tests / external visualizers"
@@ -137,10 +136,6 @@ pub use mount::{
 };
 pub use overlay::{rebuild_feature_ecs_world_overlay, FeatureEcsWorldOverlay};
 pub use pickups::{collect_ecs_pickups, magnetize_pickups};
-pub use pose_view::{
-    rebuild_body_pose_views, rebuild_shield_rings_view, BodyPoseView, ShieldRingFact,
-    ShieldRingsView,
-};
 pub use reset::reset_ecs_room_features;
 pub use save_sync::{
     sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save,
@@ -158,11 +153,6 @@ pub use target_volumes::{
 pub use targeting::{
     can_damage, damage_lands, dissolve_settled_grudges, select_actor_targets, FactionRelations,
     FriendlyFire,
-};
-pub use view_index::{
-    rebuild_actor_render_index, rebuild_boss_render_index, rebuild_feature_view_index,
-    rebuild_nameplate_index, ActorRenderIndex, ActorRenderView, BossRenderIndex, BossRenderView,
-    FeatureViewIndex, NameplateFact, NameplateIndex,
 };
 
 // `FeatureSimEntity` is a generic entity-marker queried by the reusable

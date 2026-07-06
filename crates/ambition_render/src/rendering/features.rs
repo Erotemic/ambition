@@ -4,7 +4,7 @@
 //! handled by [`super::world::spawn_room_visuals`] at room load.
 //!
 //! Pure consumer of the sim-built
-//! [`ambition_gameplay_core::sim_view::DynamicFeatureViews`] rows (E4 slice
+//! [`ambition_sim_view::DynamicFeatureViews`] rows (E4 slice
 //! 9): the sim resolves identity / geometry / placeholder-sprite facts; this
 //! pass only spawns the missing visuals.
 
@@ -14,7 +14,7 @@ use bevy::prelude::*;
 use super::primitives::{feature_color, feature_z, FeatureVisual, RoomVisual};
 use ambition_engine_core::config::world_to_bevy;
 use ambition_gameplay_core::assets::game_assets::{entity_sprite_or_color, GameAssets};
-use ambition_gameplay_core::sim_view::DynamicFeatureViews;
+use ambition_sim_view::DynamicFeatureViews;
 
 /// Spawn `FeatureVisual` entities for dynamically introduced ECS features
 /// that don't have one yet. Static LDtk-derived features get their visuals

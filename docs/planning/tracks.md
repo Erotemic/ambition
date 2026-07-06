@@ -24,12 +24,16 @@ listed preconditions are DONE here.**
 ## ⚡ THE FABLE WINDOW (order confirmed by Jon 2026-07-06 + his addition:
 ## the hardest decompositions are fable EXECUTION work, not just design)
 
-1. **E4 — the observation-boundary carve** — ⏳ IN PROGRESS: slices 17
-   (camera seam) + **19 (pose read-model sim-side)** + **the player
-   pose half of 1–4 (`BodyPoseView` + `ShieldRingsView`, fable
-   2026-07-06 evening)** done; slice 20's set-label inversion design
-   pinned in the card; remaining slices being executed fable-side this
-   session; step 4 (mint `ambition_sim_view`) after.
+1. **E4 — the observation-boundary carve** — ✅ **SLICES 1–20 + THE
+   MINT DONE (fable 2026-07-06 evening)** except slice 8 (the
+   `BossAnimator` render-insert — E6(a) territory by design).
+   `crates/ambition_sim_view` is real: pose/anim/feature/boss/
+   nameplate/hud/item/prop/camera read-models, rebuilt in the sim
+   tail; render is a pure consumer and the
+   `observation_boundary` test forbids ~45 live sim-state type names
+   in render sources forever. Remaining E4 tail: the full dep-flip
+   (render drops gameplay_core) is gated on E1/E3/E-assets/W — the
+   remaining imports are vocabulary+assets, not sim state.
 2. ✅ **`SimSnapshot` design** — identity + scope pinned in netcode.md
    N3.1 (SimId vocabulary, include/exclude lists, derived-state rule),
    2026-07-06.
@@ -483,3 +487,38 @@ replay-fixture determinism guard + boss_lifecycle 8/8 + all app integration
 tests green (only the documented `unified_melee::a_hostile_actor` feel-RED
 fails, unrelated); content 64/64, app lib 139/139, gate build clean. Follow-up
 (trivial): relocate the now-content-free engine plugin into the runtime group.
+
+## 2026-07-06 (fable, evening) — E4 EXECUTED: slices 1–20 + the `ambition_sim_view` mint
+The observation-boundary carve ran to completion in one session, six
+commits, each gate-green (`d5675f27`, `07a57205`, `68fd5534`,
+`9e1c852d`, `e29c9a90`, `971bb41a`, + the mint):
+- **Pose (1–4):** `BodyPoseView` per player-bodied entity (pos/vel/size/
+  base/facing/roll/stance/gravity/anim/flash/hp/morph/charge — AJ14
+  velocity fields live); `pick_player_anim` runs sim-side only;
+  `ShieldRingsView` pools every raised shield. animate_player's
+  17-component query is 5.
+- **Facts (5–7, 9, 11–16, 18):** `FeatureView` grew alive/flash/hp/
+  dummy facts; `BossFrameIndex` (anim state + combat AABB + the
+  hazard lane from the SAME volume math as damage); `NameplateIndex`
+  (controlled-subject suppression is a sim fact; plates key by id, not
+  Entity); `sim_view` facts for hud/held-item/ground-items/shots/
+  marks/shrines/gravity-switches/gun-swords/projectiles/dynamic
+  features/blink-preview. `ControlledSubject` never appears in render.
+- **Back-edges killed:** `regen_player_mana` + the shrine-pulse tick
+  moved sim-side; render's `FeatureName` inserts died (`PropVisual.
+  name` is the render-local naming fact); the four gate-portal
+  presentation systems moved OUT of `gameplay_core::rooms` into
+  render; the portal host-adapter glue self-registers in
+  `PortalObservationPlugin`/`PortalObservationSet` (slice 20 executed
+  as pinned; the `tag_portal_scene_bodies` audit ruled its
+  `sync_visuals` pin stale — it tags SIM bodies).
+- **The mint (step 4):** `crates/ambition_sim_view` [the observation
+  boundary] with camera_snapshot/view_index/anim_index/pose_view/facts
+  + both view plugins; runtime group adds them; contract tests moved
+  with it. RULING: camera-EASE stays sim-side (boss shake +
+  portal-continuity write it; only the resolve observes).
+- **The boundary is enforced:** `ambition_render/tests/
+  observation_boundary.rs` fails on any render source naming a live
+  sim-state type (whole-identifier, comment-stripped). The full
+  dep-flip (step 5) awaits E1/E3/E-assets/W (vocabulary+assets moves).
+Remaining E4-adjacent: slice 8 (`BossAnimator` insert) rides E6(a).

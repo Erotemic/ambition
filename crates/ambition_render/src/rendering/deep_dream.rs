@@ -100,7 +100,7 @@ pub fn attach_puppy_slug_deep_dream_overlays(
     images: Res<Assets<Image>>,
     // Actor identity read-model (E4 slice 2): dream participation + name
     // ride `ActorRenderView`, no live cluster reads.
-    actor_render: Res<ambition_gameplay_core::features::ActorRenderIndex>,
+    actor_render: Res<ambition_sim_view::ActorRenderIndex>,
     candidates: Query<
         (Entity, &FeatureVisual, &Transform, &Sprite, Option<&Anchor>),
         (
@@ -288,7 +288,7 @@ pub fn cleanup_puppy_slug_deep_dream_overlays(
 
 fn puppy_slug_seed(
     id: &str,
-    actor_render: &ambition_gameplay_core::features::ActorRenderIndex,
+    actor_render: &ambition_sim_view::ActorRenderIndex,
 ) -> Option<f32> {
     let actor = actor_render.get(id)?;
     // Name + dream participation both come from the identity read-model.

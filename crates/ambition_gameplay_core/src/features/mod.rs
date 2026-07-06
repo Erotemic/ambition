@@ -71,7 +71,7 @@ pub use bosses::{
 pub use bus::{
     apply_flag_effects, apply_gameplay_sfx_effects, apply_quest_effects, apply_switch_effects,
 };
-pub use ecs::actor_component_snapshot;
+pub use ecs::{actor_component_snapshot, boss_component_snapshot};
 // Runtime minion/summon spawner, re-exported so non-feature modules (e.g. the
 // puppy-slug gun) can summon actors without reaching into the private `ecs` tree.
 pub(crate) use ecs::spawn_runtime_minion;
@@ -92,41 +92,35 @@ pub use ecs::actor_clusters::{
 pub use ecs::{
     advance_actor_anim_overlays, apply_actor_contact_damage, apply_actor_stimuli,
     apply_feature_hit_events, apply_gameplay_banner_requests, apply_hitbox_damage,
-    apply_spawn_actor_requests, apply_summon_effects, boss_is_cleared, boss_spawn_hurtboxes,
-    can_damage, clear_encounter_reward_ecs, collect_ecs_pickups, damage_lands,
-    derive_boss_sprite_metrics, derive_pogo_target_volumes, despawn_encounter_mobs,
+    apply_spawn_actor_requests, apply_summon_effects, boss_anim_state_for, boss_is_cleared,
+    boss_spawn_hurtboxes, can_damage, clear_encounter_reward_ecs, collect_ecs_pickups,
+    damage_lands, derive_boss_sprite_metrics, derive_pogo_target_volumes, despawn_encounter_mobs,
     dissolve_settled_grudges, drive_boss_animators, ecs_boss_anim_state,
     ecs_boss_anim_state_and_entity, ecs_boss_animation_frame_sample, ecs_breakable_state,
     ecs_chest_opened, ecs_hit_event_hits_actor, ecs_hit_event_hits_boss,
     ecs_hit_event_hits_breakable, enforce_mount_rider_link, fan_out_limb_intents,
     integrate_boss_bodies, integrate_sim_bodies, interact_ecs_actors_and_switches,
     magnetize_pickups, open_ecs_chests, project_boss_attack_state_from_move,
-    rebuild_actor_anim_index, rebuild_actor_render_index, rebuild_body_pose_views,
-    rebuild_boss_frame_index, rebuild_boss_render_index, rebuild_feature_ecs_world_overlay,
-    rebuild_feature_view_index, rebuild_nameplate_index, rebuild_shield_rings_view,
-    refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
-    refresh_breakable_damageable_volumes, reset_ecs_room_features, resolve_pending_mount_links,
-    route_boss_strikes_to_limbs, select_actor_targets, spawn_encounter_mob,
-    spawn_enemy_projectiles_from_brain_actions, spawn_melee_hitbox, spawn_room_feature_entities,
-    steer_mount_from_rider, sync_actor_poses_from_feature_aabbs, sync_actor_read_model,
-    sync_boss_actor_components, sync_boss_encounter_phase, sync_boss_reward_chests_ecs,
-    sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save,
-    sync_encounter_reward_chests_ecs, sync_riders_to_mounts, tick_actor_brains,
-    tick_and_despawn_hitboxes, tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks,
-    tick_pending_challenges, trigger_boss_attack_moves, update_ecs_bosses, update_ecs_breakables,
-    update_ecs_falling_chests, update_ecs_hazards, ActorAnimIndex, ActorRenderIndex,
-    ActorRenderView, ActorSteering, BodyPoseView, BossClusterQueryData, BossClusterRef,
-    BossClusterScratch, BossConfig, BossEncounter, BossFrameIndex, BossFrameView, BossMut,
-    BossOverrides, BossRef, BossRenderIndex, BossRenderView, CanPilot, ControlGrant,
-    FactionRelations, FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex, FriendlyFire,
-    HazardFeature, HazardLaneFact, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime,
-    Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot, MountClass, MountDeathImpact, MountDied,
-    MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, NameplateFact, NameplateIndex,
-    PendingChallenge, PendingMountLinks, RidingOn, ShieldRingFact, ShieldRingsView, SpawnActorKind,
-    SpawnActorRequest, CHALLENGE_GRACE_S,
+    rebuild_feature_ecs_world_overlay, refresh_actor_damageable_volumes,
+    refresh_boss_damageable_volumes, refresh_breakable_damageable_volumes, reset_ecs_room_features,
+    resolve_pending_mount_links, route_boss_strikes_to_limbs, select_actor_targets,
+    spawn_encounter_mob, spawn_enemy_projectiles_from_brain_actions, spawn_melee_hitbox,
+    spawn_room_feature_entities, steer_mount_from_rider, sync_actor_poses_from_feature_aabbs,
+    sync_actor_read_model, sync_boss_actor_components, sync_boss_encounter_phase,
+    sync_boss_reward_chests_ecs, sync_ecs_actors_with_save, sync_ecs_bosses_with_save,
+    sync_ecs_switches_from_save, sync_encounter_reward_chests_ecs, sync_riders_to_mounts,
+    tick_actor_brains, tick_and_despawn_hitboxes, tick_boss_brains_system, tick_gameplay_banner,
+    tick_npc_idle_barks, tick_pending_challenges, trigger_boss_attack_moves, update_ecs_bosses,
+    update_ecs_breakables, update_ecs_falling_chests, update_ecs_hazards, ActorSteering,
+    BossClusterQueryData, BossClusterRef, BossClusterScratch, BossConfig, BossEncounter, BossMut,
+    BossOverrides, BossRef, CanPilot, ControlGrant, FactionRelations, FeatureEcsWorldOverlay,
+    FeatureSimEntity, FriendlyFire, HazardFeature, HeldItem, Hitbox, HitboxAnchor, HitboxHits,
+    HitboxLifetime, Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot, MountClass,
+    MountDeathImpact, MountDied, MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize,
+    PendingChallenge, PendingMountLinks, RidingOn, SpawnActorKind, SpawnActorRequest,
+    CHALLENGE_GRACE_S,
 };
 pub use ecs::{step_momentum_body, MomentumMotion, MotionModel};
-pub use ecs::{ActorAnimFrame, ActorSpriteData};
 pub use enemies::{
     enemy_spawn_is_sandbag, install_enemy_roster, ActorSpawnState, ActorSurfaceState,
     CharacterRoster, RespawnPolicy, ENEMY_DEAD_UNTIL_REST_SUFFIX,
@@ -415,52 +409,6 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
             )
                 .chain()
                 .in_set(crate::schedule::SandboxSet::FeatureInteraction),
-        );
-    }
-}
-
-/// Rebuilds the observation read-models once per frame, sim-side:
-/// [`FeatureViewIndex`] (geometry/state for every feature),
-/// [`ActorRenderIndex`] (the materialized per-actor identity facts the
-/// renderer binds sprites from), and — since E4 slice 19 — the per-actor
-/// POSE snapshot ([`ActorAnimIndex`]: overlay advance + anim pick). All let
-/// presentation read a snapshot instead of live-querying the sim's ECS.
-///
-/// The anim pair moving SIM-side (out of render's plugin) is the E4
-/// observation-boundary rule made real: clip+phase is a read-model fact
-/// (netcode confirmation, the fighter brain's move-phase reads, and
-/// per-observer views all consume it), so a headless build computes it
-/// too — extraction systems are functions of sim state that run LAST in
-/// the sim tail, and presentation is a pure consumer.
-pub struct FeatureViewSyncSchedulePlugin;
-
-impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
-    fn build(&self, app: &mut bevy::prelude::App) {
-        use bevy::prelude::{IntoScheduleConfigs, Update};
-        // Owned here (anti-god rule 5): the plugin that rebuilds the index
-        // initializes it; render only reads.
-        app.init_resource::<ActorAnimIndex>();
-        app.init_resource::<ShieldRingsView>();
-        app.init_resource::<BossFrameIndex>();
-        app.init_resource::<NameplateIndex>();
-        app.add_systems(
-            Update,
-            (
-                // The nameplate rows prefer the feature view's geometry, so
-                // they rebuild strictly after it (same-frame read).
-                (rebuild_feature_view_index, rebuild_nameplate_index).chain(),
-                rebuild_actor_render_index,
-                rebuild_boss_render_index,
-                rebuild_boss_frame_index,
-                // Overlay clocks advance right before their one reader
-                // rebuilds the pose snapshot (§A9 ordering, preserved).
-                (advance_actor_anim_overlays, rebuild_actor_anim_index).chain(),
-                // Player-bodied pose components + the pooled shield-ring rows —
-                // the per-body half of the pose read-model (E4 slices 1–4).
-                rebuild_body_pose_views,
-                rebuild_shield_rings_view,
-            )
-                .in_set(crate::schedule::SandboxSet::FeatureViewSync),
         );
     }
 }

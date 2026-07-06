@@ -99,10 +99,10 @@ impl PluginGroup for PlatformerEnginePlugins {
             .add(ambition_gameplay_core::cutscene::CutsceneSchedulePlugin)
             // Gameplay effects + feature view-sync schedules.
             .add(ambition_gameplay_core::features::GameplayEffectsSchedulePlugin)
-            .add(ambition_gameplay_core::features::FeatureViewSyncSchedulePlugin)
+            .add(ambition_sim_view::FeatureViewSyncSchedulePlugin)
             // The observation-boundary view resources (E4): HUD facts, held
             // items/shots, marks, shrines, gravity switches, gun-swords.
-            .add(ambition_gameplay_core::sim_view::SimViewPlugin)
+            .add(ambition_sim_view::SimViewPlugin)
             // Sandbox reset schedule.
             .add(ambition_gameplay_core::session::reset::SandboxResetSchedulePlugin)
             // Deterministic sim traces.
@@ -112,7 +112,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             // The camera OBSERVATION seam (E4-17): the sim resolves ONE
             // follow-camera snapshot per tick (the only CameraEaseState
             // writer); presentation consumes it. Headless/RL readers too.
-            .add(ambition_gameplay_core::camera_snapshot::CameraObservationPlugin)
+            .add(ambition_sim_view::camera_snapshot::CameraObservationPlugin)
             // The combat-phase chain + the content extension slots
             // (CombatSet::ContentSpecials / ContentFlavor).
             .add(CombatSchedulePlugin);

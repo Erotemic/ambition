@@ -221,8 +221,8 @@ pub fn sync_hit_flash_overlays(
     // Sim-built read-models (E4 slices 2+5): a feature's flash timer rides
     // its `FeatureView` row; the player-bodied timer rides `BodyPoseView`
     // on the SAME entity that carries the sprite.
-    feature_views: Res<ambition_gameplay_core::features::FeatureViewIndex>,
-    poses: Query<&ambition_gameplay_core::features::BodyPoseView>,
+    feature_views: Res<ambition_sim_view::FeatureViewIndex>,
+    poses: Query<&ambition_sim_view::BodyPoseView>,
     sources: Query<
         (
             Entity,
@@ -340,8 +340,8 @@ fn hit_flash_secs_for_source(
     source_entity: Entity,
     feature: Option<&FeatureVisual>,
     player: Option<&PlayerVisual>,
-    feature_views: &ambition_gameplay_core::features::FeatureViewIndex,
-    poses: &Query<&ambition_gameplay_core::features::BodyPoseView>,
+    feature_views: &ambition_sim_view::FeatureViewIndex,
+    poses: &Query<&ambition_sim_view::BodyPoseView>,
 ) -> Option<f32> {
     // Player path: the entity that carries `PlayerVisual` is the same one
     // that carries the sim-built `BodyPoseView`, so read ITS flash timer —

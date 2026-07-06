@@ -6,7 +6,7 @@ use super::sheet_atlas::{
     atlas_layout_from_record, row_duration, row_frame_count, row_start_index,
 };
 use ambition_gameplay_core::shrine::ShrineActivationPulse;
-use ambition_gameplay_core::sim_view::{ShrineFact, ShrinesView};
+use ambition_sim_view::{ShrineFact, ShrinesView};
 use ambition_sprite_sheet::{SheetRecord, SheetRegistry};
 use bevy::prelude::*;
 use bevy::{image::TextureAtlas, image::TextureAtlasLayout};

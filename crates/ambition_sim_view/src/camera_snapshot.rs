@@ -10,10 +10,10 @@ use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
 use bevy_math::UVec2;
 
-use crate::persistence::settings::video::CameraFramingPreset;
-use crate::persistence::settings::CameraAspectPolicy;
-use crate::rooms::{CameraClampMode, CameraZoneSpec};
-use crate::{CameraEaseState, CameraEaseTuning};
+use ambition_gameplay_core::persistence::settings::video::CameraFramingPreset;
+use ambition_gameplay_core::persistence::settings::CameraAspectPolicy;
+use ambition_gameplay_core::rooms::{CameraClampMode, CameraZoneSpec};
+use ambition_gameplay_core::{CameraEaseState, CameraEaseTuning};
 
 /// Upper bound on `dt` for camera scale + target easing.
 ///
@@ -520,26 +520,28 @@ pub struct ResolvedCameraSnapshot {
 #[allow(clippy::too_many_arguments)]
 pub fn resolve_camera_observation(
     world: bevy::prelude::Res<ae::RoomGeometry>,
-    room_set: bevy::prelude::Res<crate::rooms::RoomSet>,
+    room_set: bevy::prelude::Res<ambition_gameplay_core::rooms::RoomSet>,
     time: bevy::prelude::Res<bevy::prelude::Time>,
-    developer_tools: bevy::prelude::Res<crate::dev::dev_tools::DeveloperTools>,
-    encounter_registry: bevy::prelude::Res<crate::encounter::EncounterRegistry>,
-    user_settings: bevy::prelude::Res<crate::persistence::settings::UserSettings>,
+    developer_tools: bevy::prelude::Res<ambition_gameplay_core::dev::dev_tools::DeveloperTools>,
+    encounter_registry: bevy::prelude::Res<ambition_gameplay_core::encounter::EncounterRegistry>,
+    user_settings: bevy::prelude::Res<ambition_gameplay_core::persistence::settings::UserSettings>,
     viewport: bevy::prelude::Res<CameraViewport>,
     extra_clamp: bevy::prelude::Res<CameraExtraClamp>,
-    ease_tuning: bevy::prelude::Res<crate::CameraEaseTuning>,
-    mut camera_state: bevy::prelude::ResMut<crate::CameraEaseState>,
+    ease_tuning: bevy::prelude::Res<ambition_gameplay_core::CameraEaseTuning>,
+    mut camera_state: bevy::prelude::ResMut<ambition_gameplay_core::CameraEaseState>,
     mut resolved: bevy::prelude::ResMut<ResolvedCameraSnapshot>,
     mut last_camera_room: bevy::prelude::Local<Option<String>>,
     player: bevy::prelude::Query<
         (
             &ambition_platformer_primitives::body::BodyKinematics,
             &ae::BodyBaseSize,
-            &crate::player::PlayerBlinkCameraState,
+            &ambition_gameplay_core::player::PlayerBlinkCameraState,
         ),
         ambition_platformer_primitives::markers::PrimaryPlayerOnly,
     >,
-    controlled: bevy::prelude::Res<crate::abilities::traversal::possession::ControlledSubject>,
+    controlled: bevy::prelude::Res<
+        ambition_gameplay_core::abilities::traversal::possession::ControlledSubject,
+    >,
     body_kinematics: bevy::prelude::Query<&ambition_platformer_primitives::body::BodyKinematics>,
 ) {
     // Dev tools can temporarily replace the authored/default camera view.
@@ -630,7 +632,8 @@ impl bevy::prelude::Plugin for CameraObservationPlugin {
         app.init_resource::<ResolvedCameraSnapshot>();
         app.add_systems(
             bevy::prelude::Update,
-            resolve_camera_observation.after(crate::schedule::SandboxSet::CoreSimulation),
+            resolve_camera_observation
+                .after(ambition_gameplay_core::schedule::SandboxSet::CoreSimulation),
         );
     }
 }

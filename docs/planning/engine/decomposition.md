@@ -407,9 +407,12 @@ committable slice; render-side reads become SimView fields):**
     {GravitySwitchesView, ShrinesView}`; the `ShrineActivationPulse`
     timer now ticks SIM-side (the render write is dead) and render
     reads it read-only (fable 2026-07-06).
-16. `ControlledSubject` reads (camera/hud/fx/items/nameplates) →
-    `SimView.controlled_body: Option<BodyId>` — ONE field, five
-    call sites.
+16. ✅ `ControlledSubject` reads (camera/hud/fx/items/nameplates) are
+    GONE from render (fable 2026-07-06): each consumer's view carries
+    the controlled-body resolution as a FACT (`PlayerHudFacts`,
+    `HeldItemView`, `NameplateFact.controlled`, `BlinkPreviewFact`,
+    the camera resolve) — the sim resolves the subject once per
+    domain, render never sees an `Entity`.
 17. ✅ **DONE (fable 2026-07-06): the one render WRITE inverted.**
     `CameraObservationPlugin` (gameplay_core `camera_snapshot`, in the
     engine group) resolves the follow snapshot as a TAIL OBSERVER after
@@ -447,14 +450,27 @@ committable slice; render-side reads become SimView fields):**
     — dropped. `load_portal_gun_art` + F7/F10 dev toggles ride the same
     plugin.
 
-**Step 4 — mint the crate:** `ambition_sim_view` takes
-`camera_snapshot.rs`, `view_index.rs`, the anim index, camera-ease;
-builders stay functions-of-inputs; ONE registered full-screen
-post-pass seam stays. **Step 5 — the flip:** `ambition_render` deps =
-sim_view + foundations + vocabularies, NOT gameplay_core; boundary
-test enforces it forever. Slices 1–16 are individually committable
-[opus with this table]; 17–20 and the final flip are the [★fable]
-part.
+**Step 4 — ✅ MINTED (fable 2026-07-06):** `crates/ambition_sim_view`
+= [the observation boundary]: `camera_snapshot` (types + the
+`CameraObservationPlugin` resolve), `view_index` (feature/actor/boss/
+nameplate indexes), `anim_index` (`ActorAnimIndex` + `BossFrameIndex`
++ `ActorSpriteData`), `pose_view` (`BodyPoseView` + shield rings),
+`facts` (hud/items/marks/shrines/gravity/gun-swords/projectiles/
+dynamic-features/blink), + `FeatureViewSyncSchedulePlugin` and
+`SimViewPlugin` (added by the runtime group). RULING pinned at the
+mint: **camera-EASE state stays sim-side** (`time/camera_ease`) — the
+boss shake + portal-continuity writers are sim systems; the ease
+RESOURCE is sim state and only its RESOLVE observes. The sim→view
+contract tests moved to `ambition_sim_view/tests/view_contract.rs`
+(the dev-dep cycle gives gameplay_core's test build a different type
+universe). **Step 5 — the flip:** partially enforced NOW by
+`ambition_render/tests/observation_boundary.rs` (render sources must
+never name ~45 live sim-STATE types — whole-identifier match,
+comment-stripped); the full dep-flip (render drops gameplay_core
+entirely) stays gated on E1 (menu/dev/persistence), E3
+(character_sprites), E-assets (GameAssets), and the rooms/world
+carve — those are the remaining render→gameplay_core imports, all
+vocabulary/assets, not sim state.
 
 #### E4 design sketch (pre-solved; do not re-derive)
 

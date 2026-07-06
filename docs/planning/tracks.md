@@ -87,7 +87,7 @@ fable card. Ranked by how much they gate a fable task.
 |---|---|---|---|
 | Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — E5 first slice `3c70d827`; **E5-finish steps 1–4 LANDED 2026-07-06** (sets+resources+combat schedule into the group; shared headless foundation; cut-rope de-woven via generic `RoomReplayRequested` + labeled slots; E4-prep: fx facade imports repointed, CameraViewState + cut-rope resources re-owned) | E5 step 5 (mint [the windowed host]) + step 6 (smoke shell) [opus]; W/E1/E2/E3/E6/E7/E8 open |
 | Decomposition D-B/D-C | same | queued behind D-A | mode-scope seam can land early (demos want it) |
-| Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | CC1 PARTIAL 2026-07-06 — `engine_core::cast` surface minted (safe boundary, 236/236); **full consolidation + portal tier = fable (see hard-problems log)** | CC2 trigger-sweep audit [opus, but see CC1 remaining]; CC5 `PortalFrame` [fable] gates the cast endgame |
+| Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | CC1 partial + **CC2 first pass LANDED 2026-07-06** — `cast::aabb_path_contacts` swept trigger primitive + hazards converted (tunneling test); classification audit in the doc for fable review | CC2 completion (auto-coins/doors/regions/ledge classify+convert) [opus]; CC3 fuzz rig [opus]; CC5 `PortalFrame` [fable] |
 | Combat stack | [engine/combat-model.md](engine/combat-model.md) | CM1+CM2+CM3+CM7 LANDED 2026-07-06 (knockback growth+weight+DeathPolicy; launch DI; smash-charge; frame-data table — all parity-pinned) → **CM4 (fable) UNBLOCKED**; CM7 feeds FB2 | CM5 per-move sfx/vfx [opus]; CM4 cancel tables [fable]; CM6 |
 | Netcode ladder | [engine/netcode.md](engine/netcode.md) | NEW | N0.2 input-stream type; N0.3 lint set [opus] |
 | Fighter brain | [engine/fighter-brain.md](engine/fighter-brain.md) | NEW | FB1 view audit [opus] (CM7 first) |
@@ -323,3 +323,18 @@ CM1's `launch_dir` resolver rework are all recorded there.
 STOP POINT (Jon): CM1/CM2/CM3/CM7 fully landed + CC1 partial; combat side of
 fable maximally unblocked (CM4 ready, FB2 fed); CC/E4/E5 remain and the CC
 endgame is now a documented fable call.
+
+## 2026-07-06 (opus) — CC2 first pass: the swept trigger primitive + hazards
+Added `cast::aabb_path_contacts(center, half, delta, target)` — THE trigger-tier
+swept primitive (collision-and-ccd.md §2): preserves the discrete standing-in-it
+case exactly (parity for slow bodies) and ADDS the swept path, so a fast body
+can't tunnel a thin trigger volume. Unit-tested (tunnel caught, near-miss
+ignored, discrete preserved). CONVERTED hazard touch — player AND actor victims
+now sweep their frame path (both bodies, relativity principle; a Sanic-speed body
+or a lured actor can't leap a spike without being spiked); a tunneling test
+proves a body that ends CLEAR of a hazard but crossed it takes the hit. The
+classification audit (hazards→swept done; blink→already swept; GroundItem
+pickup→discrete-OK button-gated, annotated in code; remaining: auto-coins,
+mid-room doors, water/climbable regions, ledge) is written into the CC2 slice row
+for fable's review. engine_core 239/239 (+3 cast tests), gameplay_core 1167/1167
+green. The CC2 completion pass classifies+converts the remaining readers.

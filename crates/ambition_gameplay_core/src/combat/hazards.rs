@@ -34,6 +34,9 @@ pub fn update_ecs_hazards(
     actor_victims: Query<
         (
             Entity,
+            // `Option`: every real body carries kinematics (→ swept), but a bare
+            // headless/test hurtbox without it falls back to the discrete check.
+            Option<&crate::actor::BodyKinematics>,
             &CenteredAabb,
             &crate::actor::BodyOffense,
             &crate::actor::BodyDodgeState,
@@ -81,8 +84,18 @@ pub fn update_ecs_hazards(
         // hazard hits). Single-player behavior preserved because the
         // iterator has exactly one entity today.
         for (player_entity, kin, hurtbox, offense, dodge, shield, combat) in &player {
+            // CC2 (the sweep law): a hazard touch is path-dependent — a fast body
+            // (blink, dash, Sanic run) must not tunnel through a thin spike
+            // between frames. Route through the ONE swept trigger primitive
+            // instead of a discrete endpoint overlap. Parity for slow/standing
+            // bodies (it subsumes the old `strict_intersects`).
             if !crate::combat::damage::body_vulnerable(offense, dodge, shield, combat)
-                || !hazard.aabb().strict_intersects(hurtbox.aabb())
+                || !ae::cast::aabb_path_contacts(
+                    hurtbox.center,
+                    hurtbox.half_size,
+                    kin.vel * dt,
+                    hazard.aabb(),
+                )
             {
                 continue;
             }
@@ -128,10 +141,18 @@ pub fn update_ecs_hazards(
         // Non-player bodies: same hazard, same rule, pre-resolved victim.
         // Knockback is left to the victim consumer (actor knockback rides the
         // resolver, not the event — see §A2).
-        for (victim, hurtbox, offense, dodge, shield, combat, health) in &actor_victims {
+        for (victim, kin, hurtbox, offense, dodge, shield, combat, health) in &actor_victims {
+            // CC2: every body sweeps the same way (relativity principle) — an
+            // actor lured onto spikes at speed can't tunnel them either.
+            let delta = kin.map(|k| k.vel * dt).unwrap_or(ae::Vec2::ZERO);
             if health.current() <= 0
                 || !crate::combat::damage::body_vulnerable(offense, dodge, shield, combat)
-                || !hazard.aabb().strict_intersects(hurtbox.aabb())
+                || !ae::cast::aabb_path_contacts(
+                    hurtbox.center,
+                    hurtbox.half_size,
+                    delta,
+                    hazard.aabb(),
+                )
             {
                 continue;
             }
@@ -285,6 +306,59 @@ mod tests {
             hits.iter().any(|e| matches!(e.source, HitSource::Hazard)
                 && matches!(e.target, HitTarget::Actor(v) if v == victim)),
             "an overlapping non-player body should take a pre-resolved hazard hit; got {hits:?}"
+        );
+    }
+
+    /// CC2 (the sweep law): a body leaps ACROSS a hazard in one frame, ending
+    /// CLEAR of it. The old discrete endpoint overlap missed the tunnel; the
+    /// swept path catches it. This is the tunneling class §7.6 retires.
+    #[test]
+    fn a_fast_body_cannot_tunnel_through_a_hazard_between_frames() {
+        let mut app = app_with_hazard_system();
+        {
+            let mut wt = app.world_mut().resource_mut::<ambition_time::WorldTime>();
+            wt.scaled_dt = 0.1;
+            wt.raw_dt = 0.1;
+        }
+        let end = ae::Vec2::new(160.0, 100.0);
+        // vel * dt = 200 px this frame → the path started at x = -40, crossing
+        // the hazard at x = 100, and ENDED clear at x = 160.
+        app.world_mut().spawn((
+            PlayerEntity,
+            BodyKinematics {
+                pos: end,
+                vel: ae::Vec2::new(2000.0, 0.0),
+                size: ae::Vec2::new(28.0, 46.0),
+                facing: 1.0,
+                ..Default::default()
+            },
+            ae::CenteredAabb::from_center_size(end, ae::Vec2::new(28.0, 46.0)),
+            BodyBaseSize {
+                base_size: ae::Vec2::new(28.0, 46.0),
+            },
+            BodyOffense::default(),
+            BodyDodgeState::default(),
+            BodyShieldState::default(),
+            BodyCombat::default(),
+        ));
+        spawn_hazard(&mut app, "spikes", ae::Vec2::new(100.0, 100.0));
+        // Sanity: at the END position the player is CLEAR of the hazard, so a
+        // discrete check would emit nothing — any hit here is the swept catch.
+        assert!(
+            !ae::Aabb::new(end, ae::Vec2::new(14.0, 23.0)).strict_intersects(ae::Aabb::new(
+                ae::Vec2::new(100.0, 100.0),
+                ae::Vec2::new(16.0, 16.0)
+            )),
+            "test setup: the end position must be clear of the hazard"
+        );
+        app.update();
+        assert!(
+            app.world()
+                .resource::<HitLog>()
+                .0
+                .iter()
+                .any(|s| matches!(s, HitSource::Hazard)),
+            "a body whose path crossed the hazard should take the hit (no tunneling)"
         );
     }
 }

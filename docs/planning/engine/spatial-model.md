@@ -182,6 +182,35 @@ Existing AABB-friendly worlds and bodies must remain efficient.
 Richer geometry is opt-in where content and body behavior require it.
 ```
 
+## The `SurfaceRamp` generator (pinned math — Q27's quarter-circle entity)
+
+The parameterized generator entity (radius `r`, `orientation`, `segments`
+≈ 8) that keeps LDtk sufficient for floor↔wall momentum transitions. The
+arc parametrization, in world coords (**+y is DOWN**), for the base
+orientation `FloorToRightWall` (walkable floor surface at `y0` running
++x into a wall face at `x1` going up):
+
+```text
+center  C   = (x1 − r,  y0 − r)
+P(θ)        = C + r · (sin θ, cos θ),  θ ∈ [0°, 90°], segments+1 points
+P(0°)       = (x1 − r, y0)   — tangent on the floor
+P(90°)      = (x1, y0 − r)   — tangent on the wall
+```
+
+The other three orientations are axis mirrors of the SAME table
+(`FloorToLeftWall`: mirror x about the corner; the two ceiling variants:
+mirror y). **Do NOT hand-derive the winding sign per orientation:** emit
+points via the same arc helper `SurfaceLoop`'s converter uses (reuse it;
+if its helper is loop-specific, extract it), in travel order
+floor→wall, and let the WINDING ORACLE decide correctness — a
+4-case parameterized headless test in which a momentum body enters each
+ramp along the floor at speed and must EXIT moving up the wall (and the
+mirrored body, under C4 gravity conjugation, does the same). A sign
+error flips a case from "climbs the wall" to "launches off/clips" — the
+test catches what inspection doesn't (`AMBITION_REVIEW(spatial)` at the
+converter). Converter + LDtk entity def + validator row follow the
+`SurfaceLoop` pattern verbatim.
+
 ## Momentum-based locomotion is a stress test for the spatial model
 
 The Sanic demo should be treated as a focused stress test for Ambition's

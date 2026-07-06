@@ -50,10 +50,17 @@ material, rate, direction), `ambition_world` carries it as an authored
 record, and the falling-sand CONTENT plugin registers the interpreter that
 lowers it into the runtime emitter at room-load. So the same-tier deps hold:
 `ambition_world` never names the falling-sand runtime; the content plugin
-depends on world + reads the schema. **QUESTION FOR FABLE:** whether the
-spout schema is a general "emitter" placement or a falling-sand-specific
-one rides [Q-FABLE W-a] (where authored schemas live + how specific they
-get) — do not invent it before that lands.
+depends on world + reads the schema. **✅ RULED (fable, 2026-07-06 night, closing the last open schema
+question):** the spout schema is **falling-sand-SPECIFIC** —
+`SpoutSpec { material: String, rate: f32, direction: [f32; 2] }` as a
+`PlacementSchema::Spout(...)` variant in the Tier-0 placements module
+([W-a]). Do NOT author a general "emitter" placement: narrow specific
+types beat wide generic ones (the closed, editor-visible schema is
+Jon's stated preference, §4b.3), and generalization waits for a SECOND
+emitter-shaped placement to actually land (grow-don't-mint). The
+falling-sand content plugin registers the `Spout` interpreter through
+the [W-b] `register_placement_interpreter` API — the canonical CONTENT
+interpreter, and the W-queue step-3 proof case.
 
 ## 2. Oiler (ideas parked here deliberately — feel-pass era work)
 

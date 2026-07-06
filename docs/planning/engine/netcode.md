@@ -90,11 +90,41 @@ the guardrails above keep level 3 reachable.)
 
 Obligations (each a slice, all [opus]):
 
-- **N0.1 Fixed-tick sim mode.** The sim already steps headlessly at fixed
-  dt (`SandboxSim.step`); the windowed app steps on frame time. Add the
-  runtime option: sim at fixed Hz + presentation interpolation reading the
-  read-model. Feel-sensitive input timing stays on the per-player FEEL
-  clock (the existing time-domain split — this is what it was FOR).
+- **N0.1 Fixed-tick sim mode — ✅ the two-clocks review is RULED (fable,
+  2026-07-06 night). Opus executes; do not re-derive:**
+  - **The two clocks are:** (1) the **SIM TICK** clock — fixed 60 Hz, the
+    only clock sim systems advance on in fixed-tick mode; the tick COUNT
+    is the canonical timeline (N0.2 streams and N0.4 hashes key on it);
+    (2) the **FRAME/FEEL** clock — the render frame's raw dt, driving
+    presentation interpolation, device sampling, and the per-player
+    feel-time effects (the ADR 0010/0011 split — this is what it was for).
+  - **Bullet-time composes INSIDE the tick, never with the tick rate:**
+    `time_scale` (ClockScaleRequest pipeline) scales `scaled_dt =
+    TICK_DT × time_scale` while the tick cadence stays fixed. Never
+    scale the accumulator; a slowed world still ticks 60 Hz (determinism
+    + netcode need the fixed timeline; the sim just moves less per tick
+    — which is ALREADY the semantics of `WorldTime::scaled_dt`).
+  - **Input latching:** devices sample per FRAME (feel); the input bridge
+    LATCHES frame samples into ONE per-tick `SlotControls` frame — axes
+    take the latest sample, edge/press events OR across the frames inside
+    a tick so a sub-tick tap is never lost. The per-TICK frame is what
+    N0.2 records and what the sim consumes.
+  - **Mechanism (Bevy-native):** fixed-tick mode hosts the SIM sets in
+    `FixedUpdate` (Bevy's `Time<Fixed>` accumulator; presentation stays
+    in `Update` and interpolates read-model states by the overstep
+    fraction). Execution is a mechanical THREADING slice: each
+    engine-group schedule plugin (and `configure_sandbox_sets`) gains a
+    `schedule: InternedScheduleLabel` field defaulting to `Update` —
+    `PlatformerEnginePlugins` becomes a struct with a `fixed_tick: bool`
+    knob that threads the label to every member plugin. Default stays
+    frame-stepped (Ambition today, byte-parity); SSB/demos opt in.
+    Presentation interpolation reads previous+current tick pose from the
+    read-model (BodyPoseView carries pos+vel — velocity extrapolation is
+    the cheap v1; a two-tick pose buffer is the v2 if extrapolation
+    visibly jitters).
+  - **Ordering guard:** the rl_sim schedule-shape tests must pass with
+    the label threaded BOTH ways (parameterize one suite run over
+    Update/FixedUpdate) — that's the exit check.
 - **N0.2 Input-stream capture as a first-class type.** `SlotControls`
   per-tick, serializable, versioned — the SAME artifact serves replay
   fixtures, RL trajectories, desync forensics, and the wire format later.
@@ -216,7 +246,7 @@ world can rebuild); (4) the fighter brain's rollouts call
 
 | Rung | When | Grade |
 |---|---|---|
-| N0.1–N0.4 | before/with SSB demo | [opus] (N0.1 wants a fable/opus-specced review of the two clocks) |
+| N0.1–N0.4 | before/with SSB demo | [opus] (N0.1's two-clocks review is RULED above — mechanical threading) |
 | N1.1–N1.3 | the SSB demo's engine prerequisites | [opus] |
 | N2 | post-1.0, evaluation first | [opus] |
 | N3.1 design | NOW (fable window) — implementation later | **[fable design]** → [opus execute] |

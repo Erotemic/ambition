@@ -12,7 +12,8 @@ only makes sense at speed.
 blocks-as-surfaces), Sanic catalog row + sheet, `sanic_sandbox` proving
 area, chains channel + LDtk converters + debug overlay, swept portal
 transit at speed. Remaining: S4 proofs, the ball-dash special, the demo
-game itself (S5, gated on E5-finish).
+game itself (S5 — UNBLOCKED 2026-07-06 night: E5-finish landed; copy the
+demo-shell fixture in `crates/ambition_host/tests/demo_shell_smoke.rs`).
 
 ## Consumes (by role) / Owns
 
@@ -34,7 +35,7 @@ technique registration, the bits pickup + drop-on-hit policy rows, the
 booster/spring entity rows, 2–3 patrol enemy rows, the goal-gate +
 results sequence, HUD.
 
-**Engine prerequisites:** E5-finish. Nice-to-have: CM5 (per-move
+**Engine prerequisites:** E5-finish ✅ (landed 2026-07-06 night). Nice-to-have: CM5 (per-move
 sfx/vfx). Expected oracle-violations: speed-adaptive camera look-ahead
 knob; anything the spring/booster surfaces need beyond rebound blocks.
 

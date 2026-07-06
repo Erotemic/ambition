@@ -196,8 +196,9 @@ registry (seam) or immutable asset cache (no seam).
 
 **Ruling (Jon + GPT-5.5, 2026-07-06 — this CLOSES the W3 vocab-arrow
 question; future agents do NOT reopen the pure-world-IR decision.)** The
-executor-facing task breakdown + the open sub-questions live in
-[`decomposition.md`](decomposition.md) "W-track FEEDBACK FOR FABLE".
+executor-facing task breakdown lives in [`decomposition.md`](decomposition.md)'s
+W-track block — the implementation sub-questions [W-a..W-e] are ALL RULED
+there (fable, 2026-07-06 night) with a 5-step OPUS-SAFE execution queue.
 
 1. **The world/spatial IR stays PURE.** `ambition_world` depends on ZERO
    runtime character/combat/projectile/demo crates (not merely zero LDtk).

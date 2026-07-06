@@ -33,6 +33,41 @@ moveset `MoveSpec`s. Remaining vocabulary slices:
   player near/far/above/behind, boss HP band), *interrupts* (on-hit,
   on-phase, on-timer), and *stances* (named sub-pattern the interrupt
   vocabulary can enter/leave). No scripting language — three enum arms.
+  **Pinned data sketch (fable — extend the EXISTING
+  `BossPatternStep`/`BossPattern` in `ambition_characters::brain::
+  boss_pattern`, do not mint a parallel format):**
+  ```rust
+  // Two new BossPatternStep arms (serde, alongside Telegraph/Strike/Rest):
+  Select { table: Vec<WeightedArm> },   // roll once when reached
+  Stance { id: String },                // jump to the named stance's steps
+  pub struct WeightedArm {
+      pub weight: f32,
+      pub when: Option<SituationBucket>, // None = always eligible
+      pub steps: Vec<BossPatternStep>,   // inline sub-sequence
+  }
+  // The bucket is a CLOSED enum computed from the boss's existing view
+  // (distance band, relative vertical, behind/ahead, own HP band):
+  pub enum SituationBucket { PlayerNear, PlayerFar, PlayerAbove,
+      PlayerBehind, HpBelow(f32) }
+  // BossPattern grows named stances + interrupts (both serde-default
+  // empty = every existing RON row parses unchanged, byte-parity):
+  pub struct BossPattern {
+      pub steps: Vec<BossPatternStep>,
+      pub stances: HashMap<String, Vec<BossPatternStep>>,  // entered via Stance{id}
+      pub interrupts: Vec<InterruptRule>,
+  }
+  pub struct InterruptRule {
+      pub on: InterruptTrigger,          // OnHitTaken{min_damage}, OnPhaseEnter{n},
+                                         // OnTimer{every_s}
+      pub cooldown_s: f32,
+      pub enter: String,                 // stance id to jump to
+  }
+  ```
+  Runtime: the pattern ticker (which already walks `steps` by duration)
+  gains a small cursor stack (current stance + return point); `Select`
+  rolls with the boss's seeded RNG stream (determinism, netcode N0
+  guardrails). Weighted-roll + interrupt-cooldown + bucket-eval are pure
+  fns, unit-tested without Bevy.
 - **BD2 — arena beats as data:** hazard waves, add/summon spawns, terrain
   changes (the RoomGeometry overlay + encounter script bus both exist)
   authorable from the encounter spec, so set-piece phases don't need Rust.
@@ -120,6 +155,31 @@ Headless, deterministic, agent-runnable:
   band adjustments. The agent NEVER ships on vibes and never tunes
   against its own judgment of fun — only against the validator, the
   bands, and Jon's recorded feedback.
+- **The report format (pinned — BD6 emits exactly this, one RON per run
+  batch, committed next to the fight's RON + summarized in the commit
+  message):**
+  ```ron
+  FightReport(
+      boss_id: "...", build: "<git sha>", runs: 32, seed0: 1234,
+      per_difficulty: { 3: RunBand(...), 6: RunBand(...), 9: RunBand(...) },
+  )
+  // RunBand per difficulty:
+  RunBand(
+      win_rate: f32,                  // brain beats boss
+      time_to_kill_s: (min, med, max),
+      hits_taken: (min, med, max),    // band target lives in the same RON
+                                      // file as §3's validator bands
+      threat_density: [f32; N_PHASES],// mean active-volume area/arena area
+      verb_usage: { "jump": u32, "dash": u32, ... },  // winning runs only
+      punish_conversion: f32,         // punishes landed / punish windows seen
+      damage_sources: { "<attack id>": f32 },  // fraction of all damage
+  )
+  ```
+  In-band assertions (BD6 ships them as a test the pilot calibrates):
+  win_rate rises with difficulty; hits_taken median inside the authored
+  band; no `damage_sources` entry > 0.5; `verb_usage` covers every core
+  movement verb; `threat_density` non-decreasing across phases with at
+  least one valley (the breathing rule).
 
 ## 5. Honesty about the ceiling
 

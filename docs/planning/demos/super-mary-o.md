@@ -26,7 +26,8 @@ flower-analog: `simple_ranged` grant), goomba/koopa-analog rows + the
 shell PROP (a brainless sliding hazard both sides can trigger —
 actors-vs-props exercised), the flagpole sequence, HUD, title/results.
 
-**Engine prerequisites:** E5-finish; A3 (equipment→params — M1 is its
+**Engine prerequisites:** E5-finish ✅ (landed 2026-07-06 night); A3 (equipment→params — design PINNED in
+[combat-model.md](../engine/combat-model.md) §8 "A3 design"; M1 is its
 adjudicated consumer). Expected oracle-violations: the one-way forward
 scroll clamp (a `CameraZoneSpec` policy knob).
 

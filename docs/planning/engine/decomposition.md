@@ -21,10 +21,10 @@ commit (living-plan discipline), don't guess.
 availability is ending (Jon, 2026-07-06), every unresolved design decision
 is tagged so a future opus agent knows exactly where it may NOT improvise:
 - **`QUESTION FOR FABLE [tag]`** — a design/doctrine decision fable owns.
-  Opus must NOT invent an answer that sets doctrine; if fable's budget runs
-  out first, opus breaks it down *carefully against the nearest ruling*
-  (Jon: "the rest of the plan will be on you… break them down carefully").
-  Each states what it blocks.
+  **(As of 2026-07-06 night ZERO live markers remain — every one was
+  ruled before the window closed. The convention stays documented for
+  reading old commits; a NEW design ambiguity follows the post-fable
+  decision-brief protocol in tracks.md instead.)**
 - **`OPUS-SAFE`** — the doctrine is settled; the remaining work is
   mechanical and opus executes it directly (no design freedom).
 When a `QUESTION FOR FABLE` is resolved, replace it with the ruling + flip
@@ -316,16 +316,10 @@ consumes `PlatformerEnginePlugins` inside `add_simulation_plugins`,
   (anti-god rule 2), keep the STAY set registered app-side, preserve the
   three portal pins. No E1d/E1e prerequisite. Exit per below.
 
-  **SCAFFOLD ALREADY MINTED (opus 2026-07-06):** `crates/ambition_host`
-  exists — `PlatformerHostPlugins` (empty `PluginGroup` with a `HostSeamPlugin`
-  placeholder + the per-domain `.add(...)` skeleton commented in `build()`),
-  workspace-wired, `bevy`-only deps, and `tests/host_names_no_content.rs`
-  already LOCKS the no-content boundary. So fable's carve is a pure
-  system-move + dep-add, not crate ceremony: fill `PlatformerHostPlugins`
-  with the MOVES plugins, add the real deps (`ambition_gameplay_core`/
-  `_runtime`/`_render`/`_input`/`leafwing`), wire `add_plugins(
-  PlatformerHostPlugins)` into the app next to `PlatformerEnginePlugins`,
-  delete the moved app registrations + `HostSeamPlugin`.
+  **(Historical scaffold note, superseded by execution:** the empty
+  `HostSeamPlugin` scaffold this brief describes was replaced by the real
+  `HostInputBindingsPlugin`/`HostCameraPlugin` at step 5; the no-content
+  boundary test carried over.)
   **PARITY HARNESS ALREADY EXISTS — port boldly.** The portal ordering is
   covered end-to-end by `ambition_app/tests/{portal_bridge_reachability,
   portal_translation_camera_continuity, projectile_portal_transit,
@@ -462,31 +456,51 @@ execution. Do not reopen; deviations follow vision.md §7 (a genuine
 "fable didn't see X" only).**
 
 - **✅ RULED [W-a] — the Tier-0 schema home is `ambition_entity_catalog`
-  [the authoring spine], and every type in question moves WHOLE — a scout
-  confirmed they are all already pure serde-able data with zero runtime
-  state** (`ambition_characters/src/actor/mod.rs`: `CharacterBrain`
-  {Passive, Patrol, Guard, Custom}, `BossBrain` {Dormant, PhaseScript,
-  Custom}, `KinematicPath`/`KinematicPathMode`, the hazard/prop
-  `RespawnPolicy` {Never, AfterSeconds, OnRoomReload, Persistent};
-  `ambition_combat/src/lib.rs`: `DamageVolume` + its payload vocabulary
-  `Damage`/`DamageKind` and `DamageTeam`). No spec/runtime split is needed
-  ANYWHERE in this set. Execution rules:
-  1. All of the above move to `ambition_entity_catalog` (one module, e.g.
-     `placements.rs`, doc-headed as "the authored-placement schema
-     vocabulary — §4b"). `ambition_characters`/`ambition_combat` re-import
-     from the catalog (explicit imports; NO lasting re-export shims — D2).
-  2. **Name collision ruling:** the hazard/prop `RespawnPolicy`
-     (characters) RENAMES to `HazardRespawn` on the move; the ADR-0022
-     actor `RespawnPolicy` (gameplay_core `combat/components`) keeps the
-     name and ALSO moves to the catalog when E2 relocates the authored
-     archetype schema (it is authored archetype data). Two same-named
-     enums may not coexist in the schema module.
-  3. **The general split line (for FUTURE types that are not pure data):**
-     the Tier-0 schema is what the author writes; a runtime component may
-     EMBED the schema by value (`Live { spec: Spec, owner, timers… }`),
-     NEVER mirror it field-by-field (reorganize-don't-adapt). If a type
-     mixes authored fields and runtime state, extract the authored subset
-     as the schema and embed it.
+  [the authoring spine], WITH the tier-purity constraint that decides
+  what may move whole.** A scout confirmed every type in question is
+  already pure serde-able data with zero runtime state
+  (`ambition_characters/src/actor/mod.rs`: `CharacterBrain` {Passive,
+  Patrol, Guard, Custom}, `BossBrain` {Dormant, PhaseScript, Custom},
+  `KinematicPath`/`KinematicPathMode`, the hazard/prop `RespawnPolicy`
+  {Never, AfterSeconds, OnRoomReload, Persistent};
+  `ambition_combat/src/lib.rs`: `DamageVolume` + `Damage`/`DamageKind`
+  and `DamageTeam`). **BUT `ambition_entity_catalog` is serde+ron ONLY
+  and stays that way — it may NEVER dep `ambition_engine_core`** (Tier 0
+  cannot import Tier 1; the `HitVolume` precedent uses `VolumeShape` +
+  plain f32s, never `Aabb`/`Vec2`). That constraint yields the verdicts:
+  1. **Move WHOLE to `ambition_entity_catalog::placements`** (one module,
+     doc-headed "the authored-placement schema vocabulary — §4b"):
+     `CharacterBrain`, `BossBrain`, `DamageKind`, `DamageTeam`, and the
+     hazard/prop respawn enum RENAMED `HazardRespawn` (name-collision
+     ruling: the ADR-0022 actor `RespawnPolicy` keeps its name and also
+     lands in the catalog when E2 relocates the archetype schema; two
+     same-named enums may not coexist in the schema module). All are
+     dep-free pure enums. Consumers re-import explicitly; NO lasting
+     re-export shims (D2).
+  2. **`KinematicPath`/`KinematicPathMode` → `ambition_engine_core`**
+     (NOT the catalog): they carry `Vec2` points — spatial GEOMETRY
+     vocabulary, which is exactly what engine_core owns
+     (`World`/`Block`/`SurfaceChain` live there). This satisfies the
+     earlier "world or Tier-0" ruling at the correct tier: engine_core
+     is below every consumer (the small `ambition_combat` crate
+     included), and the W3 world crate deps engine_core anyway.
+  3. **`DamageVolume` and `Damage` do NOT move — they DISSOLVE at W2/
+     lowering.** `DamageVolume` is an authored hazard-placement record
+     in disguise (`id` + `aabb` are RECORD-level fields; the rest is the
+     schema). Under the [W-b] shape it becomes `PlacementRecord { id,
+     aabb, schema: PlacementSchema::Hazard(HazardSpec) }` with Tier-0
+     `HazardSpec { damage: i32, knockback: [f32; 2], kind: DamageKind,
+     team: DamageTeam, hitstop_seconds: f32, respawn: HazardRespawn,
+     path_id: Option<String> }` (plain pairs, the HitVolume idiom; the
+     lowering interpreter converts to `Vec2` once at room load). The
+     legacy types are REPLACED, not relocated — delete them when the
+     hazard interpreter lands (W-queue step 3).
+  4. **The general split line (for FUTURE types):** the Tier-0 schema is
+     what the author writes, in plain serde types (numbers/strings/
+     enums, `[f32; 2]` for vectors — never kernel types); the spatial
+     footprint lives on the placement RECORD (world crate, Tier 2); a
+     runtime component may EMBED the schema by value, NEVER mirror it
+     field-by-field (reorganize-don't-adapt).
 - **✅ RULED [W-b] — TWO stages, ONE pattern, both owned by [the space
   IR].** The two-stage seam is explicit: (1) the EXISTING backend
   converter registry (`ldtk_world/conversion`, keyed by LDtk entity
@@ -553,11 +567,14 @@ execution. Do not reopen; deviations follow vision.md §7 (a genuine
 
 **OPUS-SAFE — the W execution queue (strict order; each step compiles +
 commits alone):**
-1. **W-a moves:** mint `ambition_entity_catalog::placements`; move
-   `KinematicPath`/`KinematicPathMode` + `CharacterBrain` + `BossBrain` +
-   `HazardRespawn` (renamed) + `DamageVolume`/`Damage`/`DamageKind`/
-   `DamageTeam`; repoint every consumer (grep-driven); delete the old
-   definitions. NO shims.
+1. **W-a moves:** mint `ambition_entity_catalog::placements` with
+   `CharacterBrain` + `BossBrain` + `HazardRespawn` (renamed) +
+   `DamageKind` + `DamageTeam`; move `KinematicPath`/`KinematicPathMode`
+   to `ambition_engine_core` (the geometry vocabulary — verdict 2 above);
+   repoint every consumer (grep-driven; ~50 files name the brains, ~105
+   lines name KinematicPath); delete the old definitions. NO shims.
+   `DamageVolume`/`Damage` stay put for now (they dissolve in step 3 —
+   verdict 3 above).
 2. **W2 payload:** `RuntimeEntityEmission` → `RoomEmission` carrying
    `Vec<PlacementRecord>` (the [W-b] shape) + the S3 `chains` channel +
    `SpatialSource` provenance + plain-serde derives + the `ron-room`
@@ -691,9 +708,10 @@ deletes the morph-ball overlay + hide-toggle).
 ### E4 — [the observation boundary] + the render edge cut — [★fable executes steps 2–4; opus does step 1]
 
 *(Re-graded 2026-07-06 per Jon: the hardest decompositions are fable
-work. This is the riskiest cut — the sim/presentation boundary. Related
-escalation rule: W3's two-crate cut and E2's back-edge classification
-escalate to fable at the FIRST genuinely ambiguous item, not the third.)*
+work. This is the riskiest cut — the sim/presentation boundary.
+Historical note: the old W3/E2 fable-escalation rule is RETIRED — E2's
+back-edges are pre-classified in the E2 card and W-a..W-e are ruled; the
+post-fable protocol lives in tracks.md.)*
 
 **Steps 1–2 are DONE (2026-07-06):** the vfx-message types already
 lived in `ambition_vfx` (render's `fx` was a re-export facade); every
@@ -838,9 +856,9 @@ SimView/observation facts, not raw sim reads, and architectural CHURN is
 ACCEPTED when it removes long-term coupling (the long game). So Step 5 is
 now **OPUS-SAFE sequencing, not a design question** — it proceeds
 mechanically as each gate (E1/E3/E-assets/W) lands; no fable ruling
-needed. (The one open SimView-adjacent design item is whether SimView also
-carries WORLD/geometry facts once permanent world change lands — that is
-[Q-FABLE W-c], tracked in the last-chance register.)
+needed. (The SimView-world question is RULED with [W-c]: SimView observes only
+the base⊕delta COMPOSITED view and gains a `WorldGeometryVersion` bump
+fact when permanent change lands — never wholesale geometry mirroring.)
 
 #### E4 design sketch (pre-solved; do not re-derive)
 
@@ -911,16 +929,22 @@ for non-gnuton bosses (BLIND visuals, frame-sample pins); (c)
 `BrainSnapshot.target_pos` retirement (the boss brain consumes its
 view/target directly); (d) DECIDE the two recorded deep folds (the
 no-boss-arm integrate fold; `BossAttackIntent` → general move-intent
-folding the boss brain-tick into `tick_actor_brains`) — execute if the
-G-track left them cheap, else document as permanent policy with
-rationale at the code site; either closes the item. Plus the deferred
+folding the boss brain-tick into `tick_actor_brains`) — **"cheap" is now
+BOUNDED (fable): attempt each fold on a branch, time-boxed to half a
+session; it counts as cheap iff the diff stays ≤ ~200 LOC net, adds NO
+new seam/adapter types, and the boss suites pass unmodified. Miss any
+bound → revert and write the permanent-policy comment at the code site
+naming which bound failed.** Either closes the item. Plus the deferred
 teardown: fused `gnu_ton` profile + `sync_boss_split_overlay` +
 `BossOverlayLayer` + split z-consts (retarget the referencing tests to
 the linked-pair arena first).
 
 ### E7 / E8 — residue + the workspace re-home — [opus/sonnet]
 
-E7: the `ambition_actors` rename (pending Jon's Q2), the features-hub
+E7: the `ambition_actors` rename (pending Jon's Q2 — **default ruling
+so this never stalls: if Q2 is still unanswered at execution time,
+`ambition_actors` IS the name**; a later rename is one mechanical
+sweep), the features-hub
 facade dissolution, **and the workspace re-home** (architecture §1):
 `ambition_content` + `ambition_app` move from `crates/` to `game/`,
 demo pairs live under `demos/` — a mechanical `git mv` + workspace-
@@ -953,10 +977,9 @@ former positions) and are registered by `AmbitionBossContentPlugin` /
 (`ContentSpecials`/`ContentFlavor`) + reset slots. The quest EVENT pump
 (push/apply) stayed engine (it was never content — a content:: re-export).
 Ordering preserved byte-for-byte (replay-fixture determinism guard +
-boss_lifecycle 8/8 green). **Follow-up:** the now-content-free engine
-`ProgressionSchedulePlugin` can move from the app into the runtime group
-(`ambition_runtime`) — a trivial relocation now that it names no content
-("assemble with what exists; tighten as carves land").
+boss_lifecycle 8/8 green). **Follow-up ✅ DONE (E5 step 5, 2026-07-06 night):**
+`ProgressionSchedulePlugin` moved into `ambition_runtime` and rides
+`PlatformerEnginePlugins`.
 
 ## Phase D-B — the post-carve `ambition_actors` and the navigability standard
 

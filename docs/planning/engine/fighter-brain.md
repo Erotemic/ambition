@@ -158,7 +158,7 @@ this track.
 | FB1 | View audit for the no-cheat contract: does `WorldView`/`BrainSnapshot` carry move-phase, damage meters, stage geometry? Add missing fields; add the perception delay-buffer wrapper | [opus] |
 | FB2 | Frame-data table consumer (needs CM7) + L2 option generator/scorer with authored weights | [opus, fable-specced — this doc §1] |
 | FB3 | L1 classifier + scenario fixture suite | [opus] |
-| FB4 | Difficulty profiles + humanity checks + ladder self-play rig | [opus] |
+| FB4 | Difficulty profiles + humanity checks + ladder self-play rig — concretely: (1) the nine `FighterBrainProfile` RON rows per §4 (reaction_ms interpolates 500→150, apm_cap, noise σ, rollout knobs 0 until FB6); (2) the THREE humanity checks from §3 as headless tests — input-rate histogram ≤ apm_cap, reaction-time distribution matches the configured latency (assert the delay buffer is the ONLY view path — a lint-style grep + a runtime assert), and no same-tick perceive→act; (3) the ladder rig = N headless matches per adjacent-level pair via `SlotControls`, gate: level n beats n−1 in ≥ 60%, plus L9-vs-sandbag damage-efficiency floor. The rig reuses the duel-arena headless harness (`ambition_app/tests/duel_arena.rs` is the seed) | [opus] |
 | FB5 | Opponent-model memory (bucketed frequencies, decay) | [opus] |
 | FB6 | L3 rollouts on the snapshot seam (after netcode N3.1) with compute budget + degradation | **[fable design, opus execute]** |
 

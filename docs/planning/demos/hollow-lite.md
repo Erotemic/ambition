@@ -30,7 +30,7 @@ respawn policy — mode-scoped), the focus/heal technique registration,
 four enemy rows, the BOSS (authored through the pipeline — the BD8
 acceptance), HUD, title/results.
 
-**Engine prerequisites:** E5-finish; BD1–BD7; FB1–FB4; CM5; the respawn
+**Engine prerequisites:** E5-finish ✅ (landed 2026-07-06 night); BD1–BD7; FB1–FB4; CM5; the respawn
 slice (tracks.md).
 
 ## Design (v1 scope)

@@ -17,7 +17,7 @@ stretch). Percent-style damage display. A character select screen.
 
 | Role | What SSB uses it for | Must exist first |
 |---|---|---|
-| [the sim assembly] + [the windowed host] | app composition, mode scope (`in_mode("ssb")`), fixed-tick option | decomposition E5-finish; netcode N0.1 |
+| [the sim assembly] + [the windowed host] | app composition, mode scope (`in_mode("ssb")`), fixed-tick option | decomposition E5-finish ✅ (2026-07-06 night); netcode N0.1 (RULED — netcode.md N0.1) |
 | [the sim heart] | bodies, slots, possession (hosted mode seeds slot 1 from the possessed body), spawn/respawn primitives | E5-finish (exists today) |
 | [the combat resolver] | knockback growth + weight + `Unbounded` death policy (CM1), DI (CM2), smash/charge (CM3), cancels (CM4), per-move sfx/vfx (CM5), grab/throw/shield-stun (CM6), frame-data table (CM7) | CM1–CM7 |
 | [the movement kernel] | BOTH movers in one arena — that's the whole point (robot/mary-o/goblin on axis-swept; sanic on surface-momentum) | landed |

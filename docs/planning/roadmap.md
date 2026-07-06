@@ -40,8 +40,10 @@ tracked this are archived; their every open item is re-homed in
   [netcode N0–N1](engine/netcode.md). Exit = decomposition playbook
   exits 1–5.
 - **P3 — demo wave 1: [Sanic](demos/sanic.md) + [Super
-  Mary-O](demos/super-mary-o.md).** Starts the moment E5-finish lands
-  (S4/S5 first — Sanic leads). Exit = both pass the doctrine exits.
+  Mary-O](demos/super-mary-o.md).** **UNBLOCKED — E5-finish landed
+  2026-07-06 night (the demo gate is open; the shell smoke test is the
+  reference assembly).** S4/S5 first — Sanic leads. Exit = both pass the
+  doctrine exits.
 - **P4 — demo wave 2: [Super Smash
   Siblings](demos/super-smash-siblings.md), then [Hollow
   Lite](demos/hollow-lite.md).** SSB pulls CM6 + N1 + FB1–FB4; Hollow
@@ -143,7 +145,10 @@ New (2026-07-05):
   named/unique actors take dead-stays-dead).
 - **Q30 — fable-window order CONFIRMED**, with the addition (Jon): the
   hardest decompositions themselves are fable work — E4 is re-graded
-  [★fable executes]; W3/E2 escalate to fable at the first ambiguity.
+  [★fable executes]. *(Historical: the fable window CLOSED 2026-07-06
+  night with E4+E5 executed; the W3/E2 escalation valve is retired —
+  E2's back-edges are pre-classified and W-a..W-e are ruled; the
+  post-fable protocol is in tracks.md.)*
 - **Q31 — the W3 vocab-arrow / authored-placement model RULED (Jon +
   GPT-5.5).** World IR stays PURE (zero runtime character/combat/demo
   deps); authored maps still declare content (spawns, the falling-sand
@@ -152,9 +157,10 @@ New (2026-07-05):
   interprets records into behavior (sim/content → world, never reverse);
   the **base+delta seam for permanent world change is RESERVED** (the
   world is not immutable). Canonical: [`engine/architecture.md`](engine/
-  architecture.md) §4b + Tier-0 note; executor tasking + the still-open
-  sub-questions [W-a..W-e]: [`engine/decomposition.md`](engine/
-  decomposition.md) W-track.
+  architecture.md) §4b + Tier-0 note; executor tasking: [`engine/
+  decomposition.md`](engine/decomposition.md) W-track — the [W-a..W-e]
+  sub-questions are ALL RULED there (2026-07-06 night) with a 5-step
+  OPUS-SAFE execution queue.
 - **Q32 — SimView IS the observation boundary (Jon).** Presentation
   migrates toward SimView/observation facts, not raw sim reads;
   architectural churn is ACCEPTED when it removes long-term coupling

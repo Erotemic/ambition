@@ -58,10 +58,13 @@ Everything on this page is opus-or-below by design.
 ### 📋 LAST-CHANCE FABLE QUESTION REGISTER — ✅ ALL RULED (fable, 2026-07-06 night)
 
 Every fable-owned design decision is now closed. **[W-a]–[W-e] are RULED
-in decomposition.md's W-track block** (Tier-0 home = entity_catalog +
-whole-type moves + the `HazardRespawn` rename; two-stage registry with the
-pinned `PlacementRecord`/`register_placement_interpreter` API; `WorldDelta`
-= ordered ops, SimView sees composited only + `WorldGeometryVersion`;
+in decomposition.md's W-track block** (Tier-0 home = entity_catalog —
+serde-only, NEVER deps engine_core: pure enums move whole,
+`KinematicPath` → engine_core with the geometry vocabulary,
+`DamageVolume`/`Damage` dissolve into `PlacementRecord`+`HazardSpec` at
+lowering, `HazardRespawn` rename; two-stage registry with the pinned
+`PlacementRecord`/`register_placement_interpreter` API; `WorldDelta` =
+ordered ops, SimView sees composited only + `WorldGeometryVersion`;
 placement ids REQUIRED at the record layer; unknown placement = hard
 error). The W execution queue (5 ordered OPUS-SAFE steps) is written
 there. **No open fable design questions remain on this page.** Remaining
@@ -71,7 +74,7 @@ entry.
 
 **Opus-sequencing notes (unchanged):** the **E4 full dep-flip** is
 OPUS-SAFE-once-gated (Q32) behind E1/E3/E-assets/W. **E5 step 5 is DONE**
-(see the log; step 6's demo shell rides the resource split, next). The
+(see the log; step 6 is DONE — the demo shell passes). The
 `KinematicPath`→Tier-0 move is W-queue step 1.
 
 ### 🟢 OPUS SESSION 2026-07-06 (b) — where the CLEAN opus surface bottomed out
@@ -94,10 +97,10 @@ and found the surface is now uniformly **not** cleanly-opus. The accounting
   app-side + two `dev_runtime` systems. Scaffold + readiness brief landed; the
   only careful part is the `wire_portal_schedule` ordering pins (fable-graded).
   See the "E5 step-5 de-risked" execution-log entry below.
-- **Progression move-to-runtime-group** (the de-weave's follow-up) — blocked on
-  a DEEPER de-weave: the engine chain still carries `menu::map` + `dev_tools`
-  systems (E1d/E1e territory) that don't belong in the content-free engine
-  group. The content de-weave (done) was the safe half.
+- **Progression move-to-runtime-group** — ✅ DONE at E5 step 5 (the
+  plugin moved into `ambition_runtime` wholesale; the old "deeper de-weave"
+  concern was moot — its chain was already content-free and names only
+  gameplay_core systems, which the runtime may name).
 - **CC3 hard oracle** — the diagnostic exists (`collision_invariant_oracle`);
   the hard-asserting form is Jon-deferred (it would RED on the deferred
   embed/OOB bugs). **CC6 moving portals** — substantial guarded portal-physics.
@@ -112,8 +115,10 @@ and found the surface is now uniformly **not** cleanly-opus. The accounting
   VISUAL verification (spatial-authoring discipline) + no room needs it yet.
 - **FS1** — bridges the external `bevy_falling_sand` crate, feature-gated (off
   in the gate), low-pri. **BD4** — cataloging/doc. **FB1** — read-only audit.
-- **Sanic ball-dash** — gated on E5-finish (needs a sanic content-crate home) +
-  a new release→velocity technique + hurtbox-resize seam.
+- **Sanic ball-dash** — ~~gated on E5-finish~~ E5-finish landed later the
+  same night → needs only the new release→velocity technique +
+  hurtbox-resize seam (sketch in demos/sanic.md), inside the S5 content
+  crate.
 - **Slash-VFX black square / E3 sprite bugs** — render-side, need a visual run
   (E3-gated). **Dialog-context slice** — "design note first" per its card.
 
@@ -219,14 +224,14 @@ sandbag InPlace). ADR 0022 written. Original spec below for reference:
 | Item | Home | Grade |
 |---|---|---|
 | Slash VFX renders as a black square | DEPRIORITIZED (Jon 2026-07-06: leaf effect, likely a sprite-source read quirk) — fold into CM5's per-move presentation slice when it lands; root-cause there, no dedicated pass | [opus] |
-| `SurfaceRamp` quarter-circle marker entities (Q27 ruling): generated quarter-arc chain for floor↔wall momentum transitions; params radius/orientation/segments; same converter pattern as `SurfaceLoop` + LDtk entity def + validator row | [the space IR] converters / sanic demo | [opus/sonnet] |
+| `SurfaceRamp` quarter-circle marker entities (Q27 ruling): generated quarter-arc chain for floor↔wall momentum transitions — **arc math + the 4-case winding-oracle test protocol PINNED in [spatial-model.md](engine/spatial-model.md) §SurfaceRamp** | [the space IR] converters / sanic demo | [opus/sonnet] |
 | Per-attack VFX/SFX (not one generic swing) | ✅ CM5 landed (opus 2026-07-06): `swing_sfx`/`swing_vfx` prefab params + `Vfx{effect}` timed event — each authored move sounds/looks distinct | done |
 | Morph ball still draws the robot; generalize modal body morphs | E3 (mode→sprite-state row) | [opus] |
 | Shrine + glider sprites broken | E3 (rect drift; sprite pipeline) | [opus] |
 | All bosses render the generic sheet | E3/E6 — needs a RUN with `boss_sprites.len()` logging; do NOT apply the disproven sprite_target dispatch | [opus] |
 | NPCs infinitely respawn | ✅ FIXED — the respawn slice above (ADR 0022) | done |
 | Kernel-guide NPC should patrol a home base when peaceful | ✅ ALREADY DONE (verified opus 2026-07-06 — stale item / TODO drift): the `patrol_peaceful` brain preset (`Patrol` radius 64 / speed 28 / **aggressiveness 0** = peaceful home-lane pacer) exists in the brain vocabulary; the kernel-guide catalog row defaults to it (`brain=None` in its central_hub NpcSpawn → catalog default), body-generic. Tests: `patrol_paces_horizontally_around_spawn`, `peaceful_patrol_in_talk_range_holds_and_faces_target`. | done |
-| Dialogs don't adapt to WHO is talking (possessed actor gets self-dialogue) | dialog context slice: the interact seam passes speaker/subject identities as Yarn variables; self-interaction gets a default branch | [opus, small design note first] |
+| Dialogs don't adapt to WHO is talking (possessed actor gets self-dialogue) | dialog context slice — **design note WRITTEN (fable): at interact-dispatch the seam sets three Yarn variables before running the node — `$speaker_id` (the CONTROLLED body's `config.id` / worn character id), `$listener_id` (the interact target's id), `$speaker_is_self` (= ids equal). Content branches on them (`<<if $speaker_is_self>>`). Engine-side default: when `$speaker_is_self` and the dialogue declares no `self` branch/node (convention: node `<name>__self` if present), the interaction is SUPPRESSED (no dialog opens) — talking to your own body is a no-op unless content authors it. Ids, not display names (entity-id-matches-label rule); display names resolve content-side.** | [opus] |
 | Sanic ball-dash special | demos/sanic.md (the one new technique) | [opus] |
 | Portal gun should be a normal item (portal crate forgets the gun; one gun = one pair) | decontamination near A2/items; portal exposes `spawn portal of pair P on surface` primitive | [opus, low priority] |
 | Smells journal (dev/journals/code_smells.md) | C4-style sweep rides each related track; the journal stays the intake | — |
@@ -672,14 +677,50 @@ demo_shell_smoke.rs` PASSES: a demo-shaped app (foundation + engine group
 is the reference demo assembly (demos/README.md). S5 + the M track
 unblock.
 
+**THE OPUS-PROOFING DETAIL PASS (same night, third commit).** A doc
+audit swept every planning file for staleness + underspecification; all
+findings folded in:
+- *Staleness:* P3 demo wave marked UNBLOCKED (roadmap); the retired
+  fable-escalation valve scrubbed everywhere (roadmap Q30/Q31,
+  architecture §4b, decomposition E4 note); the host-scaffold and
+  progression-follow-up notes marked historical/done; demo prereq
+  tables show E5-finish ✅; README's fable note updated.
+- *Every underspecified gate now carries a pinned design:* **CM6**
+  (shield component + held verb in the ONE resolver,
+  grab-beats-shield-beats-damage, holds REUSE the ADR-0020
+  `ControlGrant`, throws = `throw`-verb family, `HitOutcome::Blocked` is
+  CM4's OnBlock fact — combat-model.md §8); **A3 equipment→params** (the
+  missing card, written: `ParamModifier{param, op, scope}` folded at
+  trigger-resolve, behavioral `grants:`, `ConsumeAsArmor` on-hit policy —
+  combat-model.md); **N0.1** (the two-clocks review RULED: fixed 60 Hz
+  tick = canonical timeline, bullet-time scales INSIDE the tick, per-tick
+  input latching with OR'd edges, FixedUpdate hosting via a threaded
+  schedule label — netcode.md); **BD1** (Select/Stance/InterruptRule
+  data sketch extending the real `BossPatternStep` — boss-design.md);
+  **BD6** (the `FightReport` RON schema + in-band assertions);
+  **FB4** (profiles/humanity-checks/ladder rig made concrete);
+  **E6(d)** ("cheap" bounded: ≤200 LOC net, no new seams, suites
+  unmodified, half-session box); **E7** (Q2 default: `ambition_actors`
+  stands if unanswered); **SurfaceRamp** (arc parametrization in
+  +y-down + the 4-case winding-oracle test protocol — spatial-model.md);
+  **dialog-context** (the `$speaker_id`/`$listener_id`/
+  `$speaker_is_self` Yarn contract + suppress-by-default self-talk —
+  this file's bug queue); **falling-sand spout** (RULED
+  falling-sand-specific `SpoutSpec`, no generic emitter — the W-queue
+  step-3 proof case).
+No `QUESTION FOR FABLE` markers remain anywhere in docs/planning.
+
 **The last-chance register is CLOSED:** W-a…W-e all ruled (see
-decomposition.md W-track). Highlights: every schema type measured PURE DATA
-→ whole-type moves to `ambition_entity_catalog::placements` (no spec/
-runtime splits; `HazardRespawn` rename resolves the RespawnPolicy name
-collision); two-stage registry with pinned `PlacementRecord{id, schema,
-aabb}` + `register_placement_interpreter(kind, fn)` API (engine AND content
-register; duplicate = panic); `WorldDelta` = ordered persisted ops, SimView
-observes composited-only + `WorldGeometryVersion`; placement ids REQUIRED
-now (LDtk iid / bake-synth — W-c's RemovePlacement forces them); unknown
-placement = hard error naming the registered kinds. A 5-step ordered
-OPUS-SAFE W execution queue replaces the questions.
+decomposition.md W-track). Highlights: the Tier-0 catalog stays
+serde-only (NEVER deps engine_core — the HitVolume plain-fields idiom is
+the law): pure enums (`CharacterBrain`/`BossBrain`/`HazardRespawn`/
+`DamageKind`/`DamageTeam`) move whole; `KinematicPath` → engine_core
+(geometry vocabulary); `DamageVolume`/`Damage` DISSOLVE into
+`PlacementRecord{id, aabb, schema}` + Tier-0 `HazardSpec` when the hazard
+interpreter lands; two-stage registry with the pinned
+`register_placement_interpreter(kind, fn)` API (engine AND content
+register; duplicate = panic); `WorldDelta` = ordered persisted ops,
+SimView observes composited-only + `WorldGeometryVersion`; placement ids
+REQUIRED now (LDtk iid / bake-synth — W-c's RemovePlacement forces them);
+unknown placement = hard error naming the registered kinds. A 5-step
+ordered OPUS-SAFE W execution queue replaces the questions.

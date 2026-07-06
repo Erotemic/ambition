@@ -177,6 +177,94 @@ same control frame performs the jump/dash — no second dispatcher). No
 `Cancelable` window ⇒ today's reject byte-identically (the parity pin,
 tested).
 
+**CM6 design — shield / grab / throw (fable, 2026-07-06 night; opus
+executes — the shapes are pinned, do not re-derive):**
+
+- **Shield is a component + a held verb, resolved INSIDE the one
+  victim-side resolver.** `BodyShield { hp, max, regen_per_s, raised,
+  stun_s }` on shield-capable bodies (authored per archetype/ActorTuning;
+  ABSENT by default = byte-parity for all PvE). The raise input is a
+  held `shield` verb on the shared control frame (`ActorControl`) — so a
+  brain / RL policy / level-9 CPU shields through the SAME seam a human
+  does (relativity principle), and the EXISTING bubble-shield visual +
+  `ShieldRingsView` become this component's presentation for free.
+  Resolution order in the resolver: **grab beats shield beats damage** —
+  (1) a Grab contact ignores `raised`; (2) `raised && stun_s == 0.0`
+  routes the hit to shield HP (× authored `shield_efficiency`), victim
+  takes zero body damage/knockback, gains `stun_s = stun_base +
+  stun_per_damage × dmg` (data), and optional authored `chip_fraction`
+  leaks to body HP (default 0); (3) otherwise today's path, unchanged.
+  Shield BREAK (`hp ≤ 0`): long authored `break_stun_s`, shield
+  unusable until regen crosses a re-enable threshold. v1 shield volume =
+  the body hurtbox (no spatial shrink; shrink is a later presentation +
+  partial-exposure slice, explicitly out of v1).
+- **The shield FACT (what CM4 waits for):** the hit path already marks
+  `MovePlayback.landed_hit`; the same mark pass sets a new
+  `landed_block` when the victim's shield absorbed it, and `HitEvent`
+  grows `outcome: HitOutcome { Hit (serde-default), Blocked }`.
+  `CancelCondition::OnBlock` then reads `landed_block` exactly as
+  `OnHit` reads `landed_hit` — one namespace, one mark pass.
+- **Grab = a MoveSpec volume with a contact VERB, and holding = the
+  mount vocabulary reused.** `HitVolume` grows `on_contact:
+  ContactVerb { Damage (serde-default), Grab }`. A Grab contact
+  establishes a hold: the victim body receives a temporary
+  **`ControlGrant(Total)` to the holder** — the SAME authority transfer
+  ADR 0020 mounts use (do NOT mint a parallel grabbed-state machine;
+  a grab IS a hostile brief mount). Victim pose follows the holder's
+  authored hold anchor (body-local offset, gravity-frame). Escape =
+  mash: accumulated victim input activity (any verb edges on its slot
+  frame) shortens the authored `hold_s`; brains mash through the same
+  seam.
+- **Throws are moves in the `throw` verb family** —
+  `directional_verb_chain(base = "throw")` resolves throw_up/forward/
+  back/down while holding (the verb map already supports families,
+  CM3). A throw's hit applies DIRECTLY to the held victim (the hold is
+  the contact — no volume overlap test), releasing the grant and
+  feeding damage + `launch_dir` + growth + DI through the UNCHANGED
+  resolver chain. Pummel (attack verb while holding) is an optional v1.5
+  flag: small fixed damage, extends `hold_s` slightly.
+- **Parity + tests:** every new field serde-defaults to absent/off;
+  the CM exit test grows: two archetypes → one shields a hit (stun,
+  no knockback, OnBlock cancel fires), one gets grabbed + thrown
+  (grant applied/released, launch through DI) — all via `SlotControls`
+  headlessly. C4 conjugation applies to throws like any launch.
+
+**A3 design — equipment→params (fable, 2026-07-06 night; the card the
+M-track was missing; [the stuff kit] + this doc share it):**
+
+- **The model (one sentence, now with shapes):** worn equipment
+  contributes (a) NUMERIC modifiers that merge into move/body params at
+  the moment a value is RESOLVED, and (b) BEHAVIORAL grants that are
+  ordinary components/prefab rows — never a third mechanism.
+- **(a) Numeric modifiers.** `EquipmentRow` (items RON) gains
+  `modifiers: Vec<ParamModifier>` where `ParamModifier { param:
+  String /* the EffectRef/prefab param namespace the catalog already
+  validates */, op: Add(f32) | Mul(f32), scope: Move(String) | Verb(
+  String) | Body }`. Resolution: ONE pure helper
+  `resolved_param(base, worn_equipment, param_key, scope) -> f32`
+  called at TRIGGER-RESOLVE time (where the prefab expansion / move
+  trigger already reads its params) and at the few body-param read
+  points (max HP, BodyBaseSize scale). Never bake modified values into
+  stored state — resolution is a read-time fold (ordering: all Adds,
+  then all Muls; document IN the helper).
+- **(b) Behavioral grants.** An equipment row may name a `grants:`
+  list — moveset prefab rows (the flower-analog grants a
+  `simple_ranged` row into the wearer's verb map) and/or components
+  (the mushroom-analog raises `BodyBaseSize`). Grant application/
+  removal rides equip/unequip through the EXISTING wear/roster seams;
+  no new lifecycle.
+- **Armor-instead-of-HP (the on-hit equipment policy).** An equipment
+  row may declare `on_hit: ConsumeAsArmor { downgrade_to:
+  Option<RowId> }`: inside the ONE victim-side resolver (before body
+  damage), a worn armor row consumes the hit — equipment is removed/
+  downgraded, victim takes zero HP damage, gains the normal brief
+  i-frames. Default absent = parity. (Mary-O: big→small is
+  `downgrade_to: None` on the mushroom row.)
+- **Exit test:** headless — equip mushroom-analog (size + armor: one
+  hit downgrades, second hit damages HP), equip flower-analog (verb
+  map gains the ranged move; unequip removes it), a `Mul` modifier
+  visibly scales one authored param at trigger-resolve.
+
 **CM7 frame-data table**: a pure derivation, no storage —
 `fn frame_data(spec: &MoveSpec) -> MoveFrameData { startup, active
 spans, recovery, cancels, volumes' reach }` computed from
@@ -194,7 +282,7 @@ resolution).
 | CM3 | ✅ LANDED 2026-07-06. `MoveSpec.smash_charge_mult` (data, default 1.0 → parity) + `MoveSpec::charge_fraction_at(t)`/`charge_scale_at(t)` (charge state = the move's clock `MovePlayback.t`, no new component); `advance_move_playback` scales the spawned hitbox's damage + knockback by `charge_scale_at(t)`. `simple_charge` prefab exposes the mult param. Smash verb class = MORE VERBS (AJ1): the generic `verbs` map + `directional_verb_chain(base="smash")` already resolve smash verbs distinctly from tilt/`attack` (test proves it); the flick-vs-hold input distinction is per-game (SSB). Tests: charge scale interpolation + parity + no-startup + smash-verb resolution + a runtime charged-hitbox doubling. Partial-charge-on-EARLY-release awaits an `attack_held/released` control signal (input+feel, Jon's domain); the fraction already derives from `t`, so it's a small future add. | done |
 | CM4 | ✅ LANDED 2026-07-06 (fable). `WindowTag::Cancelable` grew `condition` (Always/OnHit/OnWhiff; OnBlock waits for CM6's shield fact); ONE cancel namespace (`CANCEL_CLASS_NAMES` + declared ids, validator-enforced); `MovePlayback.landed_hit` set by the real hit path; the trigger seam cancels via `MoveSpec::cancel_permits` — move-into-move replaces same-frame with the natural-completion teardown, jump/dash entries end the move early. Empty timeline = byte-parity reject (tested); 7 new tests incl. the real-hit-path connect fact. `frame_data().cancel_windows` carries conditions (FB2-ready) | done |
 | CM5 | ✅ LANDED 2026-07-06 (opus). Per-move presentation is authored, not hardcoded: `MoveEventKind::Vfx { effect }` (entity_catalog) — a timed COSMETIC burst resolved through the content-registered `ambition_vfx::move_vfx_kind` vocabulary (the shared `ExplosionKind` set); `SimpleMeleeParams`/`SimpleChargeParams` gained `swing_sfx: Option<String>` + `swing_vfx: Option<String>` (default `None` → byte-parity; an authored row makes the move sound/look distinct with zero code). Validation: `MoveSpec::presentation_problems(vfx_known)` (oracle injected — entity_catalog stays vfx-free) runs inside `MovePrefabRegistry::expand`, so a typo'd cue/effect fails at the SAME startup gate a bad prefab key hits — never a silent missing effect. Dispatcher emits `VfxMessage::Explosion` at the owner. 3 new tests (authored-vs-parity, typo rejected, dispatch→burst). NOTE: the slash-VFX black-square is a SEPARATE render-side sprite-source quirk (needs a visual run), NOT closed here. | done |
-| CM6 | Grab/throw/shield-stun vocabulary | [opus, lands with SSB demo] |
+| CM6 | Grab/throw/shield-stun vocabulary — **design PINNED §8 (shield component + held verb in the one resolver, grab-beats-shield-beats-damage, holds reuse the ADR-0020 `ControlGrant`, throws are `throw`-family moves, `HitOutcome::Blocked` is the CM4 OnBlock fact)** | [opus, lands with SSB demo] |
 | CM7 | ✅ LANDED 2026-07-06. `MoveSpec::frame_data() -> MoveFrameData { total_s, startup_s, active_spans, recovery_s, cancel_windows, reach }` — a PURE derivation from `windows`+`duration_s` (no storage), in `ambition_entity_catalog` so brain + boss validators reach it with no upward dep. Startup = first Active start; recovery = duration − last Active end; reach = farthest body-local `+x` extent over Active volumes; cancel windows from `WindowTag::Cancelable` (CM4's richer `CancelRule` folds into the same `CancelWindow` shape when it lands). Tests: full derivation + hitless-move. Consumers (FB2 option scorer, boss validator) wire it when they land. | done |
 
 Exit: a headless test drives two archetypes through hit → DI → knockback →

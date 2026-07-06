@@ -9,7 +9,7 @@ use ambition_engine_core::Aabb;
 use ambition_entity_catalog::placements::HazardRespawn;
 
 /// A player-facing interaction trigger.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Interactable {
     pub id: String,
     pub prompt: String,
@@ -38,7 +38,7 @@ impl Interactable {
 }
 
 /// What an interactable does when activated.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum InteractionKind {
     Door {
         target: Option<String>,
@@ -74,7 +74,7 @@ pub enum InteractionKind {
 }
 
 /// Collectible object semantics.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Pickup {
     pub id: String,
     pub kind: PickupKind,
@@ -104,7 +104,7 @@ pub enum PickupKind {
 }
 
 /// Treasure chest state and reward. Chests are interactables plus persistence.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Chest {
     pub id: String,
     pub state: ChestState,
@@ -123,7 +123,7 @@ impl Chest {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ChestState {
     Closed,
     Opening,
@@ -135,7 +135,7 @@ pub enum ChestState {
 /// Replaces an earlier magic-string check that decided "stand-to-crumble" by
 /// substring-matching on the entity name/id. Authors now pick the trigger
 /// explicitly per LDtk entity.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum BreakableTrigger {
     /// Only player attacks deal damage (default; original behavior).
     #[default]
@@ -163,7 +163,7 @@ impl BreakableTrigger {
 /// Replaces the older `solid: bool` knob with a typed shape so authoring
 /// tooling (LDtk Surface) can compile down a single rectangular volume into
 /// either a hard wall, a one-way landing, or a pure trigger volume.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum BreakableCollision {
     /// Pure trigger volume: damage/contact events apply, but the player passes
     /// through it. Useful for breakable scenery that does not block movement.
@@ -188,7 +188,7 @@ impl BreakableCollision {
 }
 
 /// Breakable wall/platform/object semantics.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Breakable {
     pub id: String,
     pub state: BreakableState,
@@ -229,7 +229,7 @@ impl Breakable {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum BreakableState {
     Intact,
     Cracking,

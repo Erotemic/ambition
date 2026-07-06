@@ -6,7 +6,7 @@
 use super::*;
 
 /// Complete room data used by the Bevy sandbox.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct RoomSpec {
     pub id: String,
     pub world: ae::World,
@@ -98,7 +98,7 @@ pub(crate) struct TransitionEdge {
 }
 
 /// Authored directed connection between loading zones in runtime rooms.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct RoomLink {
     pub from_room: String,
     pub from_zone: String,

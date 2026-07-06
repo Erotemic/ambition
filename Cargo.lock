@@ -224,6 +224,7 @@ dependencies = [
  "ambition_engine_core",
  "ambition_entity_catalog",
  "bevy",
+ "serde",
 ]
 
 [[package]]
@@ -401,6 +402,7 @@ dependencies = [
  "ambition_engine_core",
  "ambition_platformer_primitives",
  "bevy",
+ "serde",
 ]
 
 [[package]]

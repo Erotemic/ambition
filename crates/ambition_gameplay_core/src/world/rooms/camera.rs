@@ -5,7 +5,7 @@
 
 use super::*;
 
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum CameraClampMode {
     #[default]
     RoomBounds,
@@ -35,7 +35,7 @@ impl CameraClampMode {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct CameraZoneSpec {
     pub id: String,
     pub name: String,
@@ -61,7 +61,7 @@ impl CameraZoneSpec {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct KinematicPathSpec {
     /// Stable authored lookup id. LDtk may not have an explicit `id` field yet,
     /// so conversion falls back to the entity `name` and finally the LDtk iid.

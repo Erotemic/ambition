@@ -9,7 +9,7 @@
 
 use ambition_engine_core::Vec2;
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct DebugLabel {
     pub text: String,
     pub position: Vec2,
@@ -26,7 +26,7 @@ impl DebugLabel {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum DebugLabelKind {
     Room,
     LoadingZone,

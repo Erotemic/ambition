@@ -58,7 +58,7 @@ impl Actor {
 }
 
 /// Generic hit-point component for enemies, bosses, breakables, and the player.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct Health {
     pub current: i32,
     pub max: i32,

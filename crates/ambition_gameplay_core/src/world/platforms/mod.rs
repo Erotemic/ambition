@@ -16,7 +16,7 @@ use crate::rooms::{KinematicPathSpec, RoomSet};
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_BLOCK};
 
 /// LDtk-authored moving-platform declaration before path references are resolved.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct MovingPlatformSpec {
     pub id: String,
     pub name: String,
@@ -84,7 +84,7 @@ impl MovingPlatformSpec {
 }
 
 /// Runtime state for one LDtk-authored moving platform.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct MovingPlatformState {
     pub id: String,
     pub name: String,
@@ -99,7 +99,7 @@ pub struct MovingPlatformState {
     last_delta: ae::Vec2,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 enum MovingPlatformMotion {
     Sweep {
         min_x: f32,

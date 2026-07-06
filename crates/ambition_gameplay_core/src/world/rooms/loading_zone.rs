@@ -6,7 +6,7 @@
 use super::*;
 
 /// How a loading zone should be activated.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum LoadingZoneActivation {
     /// Walk-off-the-edge transition. Validator requires the zone to
     /// touch a level edge so the player physically walks off the
@@ -37,7 +37,7 @@ impl LoadingZoneActivation {
 }
 
 /// A non-colliding rectangular trigger that swaps the active room.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct LoadingZone {
     pub id: String,
     pub name: String,

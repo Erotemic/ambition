@@ -42,7 +42,7 @@ pub struct ActiveRoomMetadata(pub RoomMetadata);
 /// renderer palette/theme variants, nameplate presentation policy. This
 /// struct is intentionally non-exhaustive — adding a metadata seam is
 /// cheaper than adding a new resource per consumer.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct RoomVisualProfile {
     /// Stable authored profile id (for example `intro_wakeup_room`).
     pub id: Option<String>,
@@ -92,7 +92,7 @@ impl RoomVisualProfile {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct RoomNameplatePolicy {
     /// Number of nearest eligible nameplates to draw at full opacity.
     /// `None` falls back to the presentation default.
@@ -117,7 +117,7 @@ impl RoomNameplatePolicy {
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub struct RoomMetadata {
     pub biome: Option<String>,
     pub music_track: Option<String>,

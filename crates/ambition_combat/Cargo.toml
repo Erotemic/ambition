@@ -16,5 +16,7 @@ ambition_characters = { path = "../ambition_characters" }
 ambition_engine_core = { path = "../ambition_engine_core" }
 # Tier-0 authored-placement schema: DamageKind / DamageTeam / HazardRespawn.
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
+# Authored-hazard serde (the room-IR ron-room bake carries DamageVolume).
+serde = { version = "1", features = ["derive"] }
 # One Resource derive (the slot registry); ECS surface only.
 bevy = { version = "0.18.1", default-features = false }

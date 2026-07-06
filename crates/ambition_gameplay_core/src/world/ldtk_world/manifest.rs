@@ -46,6 +46,23 @@ pub struct WorldSource {
     pub required: bool,
 }
 
+/// One baked `ron-room` a game ships (W2): a serialized `RoomSpec` doc the
+/// loader appends to the composed room set — generated rooms/fixtures only;
+/// authored space stays backend files. See `crate::world::ron_room`.
+#[derive(Clone, Debug)]
+pub struct RonRoomSource {
+    /// Row identity for diagnostics (`ron_room.*` by convention).
+    pub id: AssetId,
+    /// Absolute desktop-dev file path (same contract as
+    /// [`WorldSource::loose_path`]).
+    pub loose_path: Option<PathBuf>,
+    /// The doc's RON text embedded into the binary (bundled builds).
+    pub embedded_text: Option<&'static str>,
+    /// Required rooms abort composition when unresolvable; optional ones
+    /// warn and are skipped (the secondary-world tolerance contract).
+    pub required: bool,
+}
+
 /// A game's world declaration: which LDtk files exist and where play starts.
 #[derive(Clone, Debug)]
 pub struct WorldManifest {
@@ -54,6 +71,8 @@ pub struct WorldManifest {
     /// project (synthetic fixtures, partial checkouts).
     pub entry_room: String,
     pub worlds: Vec<WorldSource>,
+    /// Baked `ron-room` docs appended to the composed room set (W2).
+    pub ron_rooms: Vec<RonRoomSource>,
 }
 
 impl WorldManifest {
@@ -142,6 +161,7 @@ fn test_fixture_manifest() -> WorldManifest {
     };
     WorldManifest {
         entry_room: "central_hub_complex".to_string(),
+        ron_rooms: Vec::new(),
         worlds: vec![
             source(
                 "world.sandbox_ldtk",

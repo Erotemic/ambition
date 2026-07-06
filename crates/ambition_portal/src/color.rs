@@ -75,7 +75,7 @@ impl PortalGunColor {
 /// (Purple↔Yellow, Teal↔Red, Green↔Magenta, Cyan↔Rose) so it's clear at a glance
 /// which two portals are linked. Authored pairs are NOT gun-owned, so they
 /// persist even with no gun around.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum PortalChannelColor {
     Purple,
     Yellow,

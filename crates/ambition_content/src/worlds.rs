@@ -64,6 +64,9 @@ pub fn world_manifest() -> WorldManifest {
     };
     WorldManifest {
         entry_room: "central_hub_complex".to_string(),
+        // No baked ron-rooms shipped yet: generated rooms land here when a
+        // bake tool emits them (W2 loader is live; see world::ron_room).
+        ron_rooms: Vec::new(),
         worlds: vec![
             source(
                 "world.sandbox_ldtk",

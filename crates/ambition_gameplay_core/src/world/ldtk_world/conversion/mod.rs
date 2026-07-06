@@ -69,10 +69,16 @@ impl LdtkProject {
                 .unwrap_or_else(|| entry_room.to_string())
         };
 
-        let links = self.collect_room_links();
+        let mut links = self.collect_room_links();
         let mut rooms = Vec::new();
         for (area_id, levels) in area_levels {
             rooms.push(self.compose_runtime_area(&area_id, &levels)?);
+        }
+        // Baked `ron-room` docs (W2): rooms that enter the graph as
+        // serialized IR, no authoring backend behind them.
+        for doc in crate::world::ron_room::load_manifest_ron_rooms()? {
+            links.extend(doc.links);
+            rooms.push(doc.spec);
         }
         Ok(RoomSet::from_parts(start_room, rooms, links))
     }

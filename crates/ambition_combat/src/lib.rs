@@ -11,7 +11,7 @@ use ambition_engine_core::{Aabb, AabbExt, KinematicPath, Vec2};
 use ambition_entity_catalog::placements::{DamageKind, DamageTeam, HazardRespawn};
 
 /// Damage payload shared by hitboxes and persistent damage volumes.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Damage {
     pub amount: i32,
     pub knockback: Vec2,
@@ -48,7 +48,7 @@ impl Damage {
 
 /// Persistent or reusable damaging area: spikes, lasers, spike balls, boss
 /// patterns, enemy contact damage, and similar hazards.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct DamageVolume {
     pub id: String,
     pub aabb: Aabb,

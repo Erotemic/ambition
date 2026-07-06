@@ -18,7 +18,7 @@ use super::*;
 /// They live on `RoomSpec.props` instead so the sandbox can iterate
 /// them once at room load to spawn presentation entities without
 /// the engine ever seeing them.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct PropSpec {
     /// LDtk iid — stable across rebuilds for save/debug joins.
     pub id: String,
@@ -45,7 +45,7 @@ pub struct PropSpec {
 /// the gauntlet / weapon pickups that the debug `spawn_debug_ground_items_once`
 /// table used to drop near the player — kept off `World::objects` for the same
 /// reason as [`PropSpec`] (the engine never sees them).
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct GroundItemSpec {
     /// LDtk iid — stable across rebuilds for save/debug joins.
     pub id: String,
@@ -66,7 +66,7 @@ pub struct GroundItemSpec {
 /// load — the authored-placement home for the debug
 /// `spawn_debug_portal_gun_pickup_once`.
 #[cfg(feature = "portal")]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct PortalGunSpawnSpec {
     /// LDtk iid — stable across rebuilds for save/debug joins.
     pub id: String,
@@ -83,7 +83,7 @@ pub struct PortalGunSpawnSpec {
 /// lab, independent of the portal gun. The half-extent is the standard portal
 /// opening (derived from the normal), not the LDtk box size.
 #[cfg(feature = "portal")]
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct PortalSpec {
     /// LDtk iid — stable across rebuilds for save/debug joins.
     pub id: String,
@@ -111,7 +111,7 @@ pub struct PortalSpec {
 /// LDtk-authored heal/save shrine. Resolves to a [`crate::shrine::HealShrine`]
 /// at room load — the authored-placement home for the debug
 /// `spawn_debug_shrine_once`.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ShrineSpec {
     /// LDtk iid — stable across rebuilds for save/debug joins.
     pub id: String,
@@ -127,7 +127,7 @@ pub struct ShrineSpec {
 /// `oscillate_amplitude > 0` also attaches a [`crate::physics::OscillatingZone`]
 /// so the column slides horizontally. The authored-placement home for the debug
 /// `spawn_debug_gravity_zone_once`.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct GravityZoneSpec {
     /// LDtk iid — stable across rebuilds for save/debug joins.
     pub id: String,
@@ -147,7 +147,7 @@ pub struct GravityZoneSpec {
 
 /// Authored entity payload — `(id, name, aabb, payload)`. Per-family typing
 /// keeps authored entities out of the engine crate.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct Authored<T> {
     pub id: String,
     pub name: String,

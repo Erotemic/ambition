@@ -98,6 +98,11 @@ pub fn apply_feature_hit_events(
             Option<&mut super::super::components::ActorAggression>,
             // Dialogue payload — present on talkable actors (drives barks).
             Option<&super::super::components::ActorInteraction>,
+            // The actor's held locomotion, for directional influence (CM2). The
+            // brain writes it every tick; DI reads the SAME field, so a level-9
+            // CPU or RL policy DIs its own knockback like a human. `Option` for
+            // bare test bodies; inert unless `feel.di_max_angle` is authored.
+            Option<&ambition_characters::brain::ActorControl>,
             super::actor_clusters::ActorClusterQueryData,
         ),
         // Bosses are handled by the disjoint `bosses` query; both take
@@ -220,6 +225,7 @@ pub fn apply_feature_hit_events(
             mut cooldowns,
             mut aggression,
             interaction,
+            control,
             mut cq,
         ) in &mut actors
         {
@@ -241,6 +247,8 @@ pub fn apply_feature_hit_events(
                 continue;
             }
             let interactable = interaction.map(|i| &i.interactable);
+            // The victim's held locomotion (local frame) drives DI (CM2).
+            let di_input_local = control.map(|c| c.0.locomotion).unwrap_or_default();
             let mut em = cq.as_actor_mut();
             if apply_actor_hit(
                 &event,
@@ -253,6 +261,7 @@ pub fn apply_feature_hit_events(
                 &mut banner,
                 combat_banter.as_deref(),
                 feel,
+                di_input_local,
                 &mut writers,
             ) {
                 actor_hit_this_event = true;

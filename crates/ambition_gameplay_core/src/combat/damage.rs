@@ -100,6 +100,48 @@ pub fn scaled_knockback(
     base + growth * victim_damage_taken.max(0) as f32 / weight
 }
 
+/// THE directional-influence law (CM2): the victim's held control rotates its
+/// OWN knockback launch, by at most `max_angle` radians. Pure and
+/// frame-agnostic — `launch` is the resolved world-frame launch velocity;
+/// `di_input_local` is the victim's `ActorControl.locomotion` (local `x` = side,
+/// `y` = gravity-down, magnitude a `[0,1]` throttle); `gravity_dir` places that
+/// local intent into the world frame. The rotation turns `launch` TOWARD the
+/// held direction, weighted by how PERPENDICULAR the input is to the launch
+/// (you cannot DI along your own launch line) and by the throttle — classic
+/// smash DI. PARITY: `max_angle == 0.0` (or a null input) returns `launch`
+/// unchanged, so DI is inert until a game authors a budget. Frame-agnostic
+/// because `launch` and the world-frame input rotate together under any gravity,
+/// so the victim-local trajectory conjugates (the C4 law).
+pub fn di_adjust(
+    launch: ae::Vec2,
+    di_input_local: ae::Vec2,
+    gravity_dir: ae::Vec2,
+    max_angle: f32,
+) -> ae::Vec2 {
+    if max_angle <= 0.0 {
+        return launch;
+    }
+    let speed = launch.length();
+    if speed < 1e-6 {
+        return launch;
+    }
+    let frame = ae::AccelerationFrame::new(gravity_dir);
+    let di_world = frame.to_world(di_input_local);
+    let di_mag = di_world.length();
+    if di_mag < 1e-6 {
+        return launch;
+    }
+    let throttle = di_mag.min(1.0);
+    let launch_dir = launch / speed;
+    let di_dir = di_world / di_mag;
+    // Signed sine of the angle FROM launch TO the held direction: its magnitude
+    // is the perpendicular fraction, its sign the way to rotate.
+    let cross = launch_dir.x * di_dir.y - launch_dir.y * di_dir.x;
+    let rot = (max_angle * cross.abs() * throttle).min(max_angle) * cross.signum();
+    let (s, c) = rot.sin_cos();
+    ae::Vec2::new(launch.x * c - launch.y * s, launch.x * s + launch.y * c)
+}
+
 /// Per-body feel values for [`resolve_body_hit`] — how hard the hit reads on
 /// THIS body (blink length, i-frame window), not whether it lands. The player
 /// and actors pass different numbers; the rule is one.
@@ -249,6 +291,8 @@ pub(crate) fn handle_player_damage_events(
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     difficulty_multiplier: f32,
+    // The controlled body's held locomotion (local frame) for DI (CM2).
+    di_input_local: ae::Vec2,
     anim: &mut BodyAnimFacts,
     combat: &mut BodyCombat,
 ) {
@@ -335,7 +379,16 @@ pub(crate) fn handle_player_damage_events(
                 // Getting hit knocks you off a ledge grab — you fall with the
                 // knockback instead of hanging there immune.
                 clusters.ledge.knock_off_on_hit();
-                apply_player_knockback(sfx, vfx, clusters, combat, tuning, feel, &damage);
+                apply_player_knockback(
+                    sfx,
+                    vfx,
+                    clusters,
+                    combat,
+                    tuning,
+                    feel,
+                    &damage,
+                    di_input_local,
+                );
             }
         },
     }
@@ -381,6 +434,10 @@ pub(crate) fn resolved_body_knockback_velocity(
     gravity_dir: ae::Vec2,
     boss_hit: bool,
     knockback: Option<&features::HitKnockback>,
+    // The victim's held control (local frame), for directional influence (CM2).
+    // `ZERO` == no DI intent; the effect is also inert unless `feel.di_max_angle`
+    // is nonzero, so this is parity-free by construction.
+    di_input_local: ae::Vec2,
     feel: SandboxFeelTuning,
 ) -> ae::Vec2 {
     let frame = ae::AccelerationFrame::new(gravity_dir);
@@ -405,7 +462,10 @@ pub(crate) fn resolved_body_knockback_velocity(
     } else {
         feel.enemy_knockback_y
     };
-    frame.to_world(ae::Vec2::new(dir * knock_x * strength, -knock_y * strength))
+    let launch = frame.to_world(ae::Vec2::new(dir * knock_x * strength, -knock_y * strength));
+    // CM2: the victim's held input rotates its own launch, bounded by the
+    // authored DI budget. Inert at `di_max_angle == 0` (Ambition today).
+    di_adjust(launch, di_input_local, gravity_dir, feel.di_max_angle)
 }
 
 /// The ONE post-hit launch + stagger arming for ANY struck body (§A2 steps
@@ -422,6 +482,8 @@ pub(crate) fn apply_body_hit_reaction(
     gravity_dir: ae::Vec2,
     boss_hit: bool,
     knockback: Option<&features::HitKnockback>,
+    // The struck body's held control (local frame) for DI (CM2). `ZERO` = none.
+    di_input_local: ae::Vec2,
     feel: SandboxFeelTuning,
 ) {
     let strength = knockback.map(|k| k.strength.max(0.0)).unwrap_or(0.0);
@@ -431,6 +493,7 @@ pub(crate) fn apply_body_hit_reaction(
         gravity_dir,
         boss_hit,
         knockback,
+        di_input_local,
         feel,
     );
     combat.hitstun_timer = if boss_hit {
@@ -454,6 +517,8 @@ pub(crate) fn apply_player_knockback(
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     damage: &features::HitEvent,
+    // The controlled body's held locomotion (local frame) for DI (CM2).
+    di_input_local: ae::Vec2,
 ) {
     let boss_hit = matches!(
         damage.source,
@@ -473,6 +538,7 @@ pub(crate) fn apply_player_knockback(
         tuning.gravity_dir,
         boss_hit,
         knockback,
+        di_input_local,
         feel,
     );
     ae::refresh_movement_resources_clusters(
@@ -529,6 +595,10 @@ pub fn apply_player_hit_events(
             &mut BodyAnimFacts,
             &mut BodyCombat,
             &mut PlayerSafetyState,
+            // The controlled body's held input, for directional influence (CM2).
+            // `Option` so a headless player with no brain still resolves (→ ZERO,
+            // no DI). Inert unless `feel.di_max_angle` is authored nonzero.
+            Option<&ambition_characters::brain::ActorControl>,
         ),
         PrimaryPlayerOnly,
     >,
@@ -590,8 +660,15 @@ pub fn apply_player_hit_events(
         })
         .collect();
 
-    for (player_entity, mut cluster_item, player_health, mut anim, mut combat, mut safety) in
-        &mut player_q
+    for (
+        player_entity,
+        mut cluster_item,
+        player_health,
+        mut anim,
+        mut combat,
+        mut safety,
+        control,
+    ) in &mut player_q
     {
         let target_events: Vec<FeatureHitEvent> = resolved
             .iter()
@@ -599,6 +676,8 @@ pub fn apply_player_hit_events(
             .map(|(_, e)| e.clone())
             .collect();
         let damaged_this_frame = !target_events.is_empty();
+        // The victim's held locomotion (local frame) drives DI (CM2).
+        let di_input_local = control.map(|c| c.0.locomotion).unwrap_or(ae::Vec2::ZERO);
 
         let mut clusters = cluster_item.as_clusters_mut();
         handle_player_damage_events(
@@ -616,6 +695,7 @@ pub fn apply_player_hit_events(
             tuning,
             feel,
             difficulty_multiplier,
+            di_input_local,
             &mut anim,
             &mut combat,
         );
@@ -958,6 +1038,7 @@ mod tests {
                 gravity_dir,
                 false,
                 Some(&knockback),
+                ae::Vec2::ZERO,
                 feel,
             );
             let local_vel = ae::Vec2::new(vel.dot(frame.side), vel.dot(frame.down));
@@ -1027,6 +1108,7 @@ mod tests {
                 gravity_dir,
                 false,
                 Some(&knockback),
+                ae::Vec2::ZERO,
                 feel,
             );
             let local_vel = ae::Vec2::new(vel.dot(frame.side), vel.dot(frame.down));
@@ -1055,5 +1137,77 @@ mod tests {
         assert_eq!(h.damage_taken(), 7);
         h.damage(100); // clamps at the pool max
         assert_eq!(h.damage_taken(), 20);
+    }
+
+    // --- CM2: directional influence ---
+
+    #[test]
+    fn di_is_inert_at_zero_budget_or_null_input() {
+        let launch = ae::Vec2::new(300.0, -400.0);
+        let down = ae::Vec2::new(0.0, 1.0);
+        // Zero budget -> no DI, whatever the input.
+        assert_eq!(
+            di_adjust(launch, ae::Vec2::new(1.0, 0.0), down, 0.0),
+            launch
+        );
+        // Null input -> no DI, even with a budget.
+        assert_eq!(di_adjust(launch, ae::Vec2::ZERO, down, 0.35), launch);
+        // Zero-length launch (no knockback) is left alone.
+        assert_eq!(
+            di_adjust(ae::Vec2::ZERO, ae::Vec2::new(1.0, 0.0), down, 0.35),
+            ae::Vec2::ZERO
+        );
+    }
+
+    #[test]
+    fn di_rotates_toward_held_input_bounded_by_the_budget() {
+        let down = ae::Vec2::new(0.0, 1.0);
+        // Launch straight "up" (world -y); hold fully perpendicular (local +x =
+        // world +x). Speed is preserved and the vector rotates by exactly the
+        // budget (perpendicular input, full throttle).
+        let launch = ae::Vec2::new(0.0, -100.0);
+        let max = 0.30_f32;
+        let out = di_adjust(launch, ae::Vec2::new(1.0, 0.0), down, max);
+        assert!((out.length() - 100.0).abs() < 1e-3, "DI preserves speed");
+        let ang = (out.x / out.length()).asin(); // angle off vertical toward +x
+        assert!(
+            (ang - max).abs() < 1e-3,
+            "rotates by the full budget: {ang}"
+        );
+        // Holding INTO the launch line (parallel) cannot DI — no rotation.
+        let parallel = di_adjust(launch, ae::Vec2::new(0.0, -1.0), down, max);
+        assert!(
+            (parallel - launch).length() < 1e-3,
+            "cannot DI along the launch"
+        );
+    }
+
+    #[test]
+    fn di_conjugates_under_rotated_gravity() {
+        // C4: the SAME local input under rotated gravity yields the conjugated
+        // launch — DI is frame-agnostic, so the victim-local outgoing angle is
+        // identical under every gravity.
+        let max = 0.28_f32;
+        let di_local = ae::Vec2::new(1.0, 0.0); // hold local-side
+        let local_launch = ae::Vec2::new(0.0, -100.0); // straight up, body-local
+        let mut expected_local: Option<ae::Vec2> = None;
+        for gravity_dir in [
+            ae::Vec2::new(0.0, 1.0),
+            ae::Vec2::new(1.0, 0.0),
+            ae::Vec2::new(0.0, -1.0),
+            ae::Vec2::new(-1.0, 0.0),
+        ] {
+            let frame = ae::AccelerationFrame::new(gravity_dir);
+            let launch_world = frame.to_world(local_launch);
+            let out = di_adjust(launch_world, di_local, gravity_dir, max);
+            let out_local = ae::Vec2::new(out.dot(frame.side), out.dot(frame.down));
+            match expected_local {
+                None => expected_local = Some(out_local),
+                Some(e) => assert!(
+                    (out_local - e).length() < 1e-3,
+                    "DI must conjugate for {gravity_dir:?}: {out_local:?} vs {e:?}"
+                ),
+            }
+        }
     }
 }

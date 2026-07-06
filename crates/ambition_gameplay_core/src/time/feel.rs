@@ -61,6 +61,13 @@ pub struct SandboxFeelTuning {
     pub hazard_respawn_invulnerability_time: f32,
     /// Hitstop on the receiving side of enemy/boss damage.
     pub player_damage_hitstop_time: f32,
+    /// Directional-influence budget (CM2), radians: the maximum the victim's
+    /// held control may rotate its OWN knockback launch. Reads the victim's
+    /// `ActorControl.locomotion` (the same gated input every system reads), so
+    /// DI works identically for humans, brains, and RL policies. DEFAULT `0.0`
+    /// = no DI (Ambition today, byte-parity); a fighter mode (Super Smash
+    /// Siblings) authors a smash-like ≈ 0.31 (18°) to turn it on.
+    pub di_max_angle: f32,
 }
 
 impl Default for SandboxFeelTuning {
@@ -95,6 +102,9 @@ impl Default for SandboxFeelTuning {
             knockback_invulnerability_time: 0.75,
             hazard_respawn_invulnerability_time: 1.10,
             player_damage_hitstop_time: 0.070,
+            // DI off by default — Ambition's PvE knockback is unchanged; a
+            // fighter demo authors a nonzero budget to enable it.
+            di_max_angle: 0.0,
         }
     }
 }

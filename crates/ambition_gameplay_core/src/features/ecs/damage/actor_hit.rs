@@ -52,6 +52,9 @@ pub(crate) fn apply_actor_hit(
     // Knockback feel values (§A2 step 6) — the same tuning the player's
     // knockback resolution reads.
     feel: crate::time::feel::SandboxFeelTuning,
+    // The struck actor's held locomotion (local frame) for DI (CM2) — the SAME
+    // `ActorControl` the brain writes, so a brain/RL victim DIs like a human.
+    di_input_local: ae::Vec2,
     writers: &mut FeatureHitWriters<'_, '_>,
 ) -> bool {
     if disposition.is_peaceful() {
@@ -237,6 +240,7 @@ pub(crate) fn apply_actor_hit(
                 gravity_dir,
                 boss_hit,
                 Some(&k),
+                di_input_local,
                 feel,
             );
         }

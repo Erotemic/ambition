@@ -135,8 +135,8 @@ src/
 
 | Crate | ROLE | Owns |
 |---|---|---|
-| `ambition_runtime` | **[the sim assembly]** | `PlatformerEnginePlugins` (headless-safe sim composition, owns set ordering + the schedule vocabulary), `add_headless_foundation`, `init_engine_states`, the mode-scope helpers (`in_mode`, `ModeScopedEntity`), the `SnapshotRegistry` (netcode N3.1) |
-| `ambition_host` | **[the windowed host]** | `PlatformerHostPlugins` (input plugins, portal schedule placement, room-transition + camera wiring — everything a WINDOWED game needs that headless doesn't). May dep [the picture]. |
+| `ambition_runtime` | **[the sim assembly]** | `PlatformerEnginePlugins` (headless-safe sim composition, owns set ordering + the schedule vocabulary — INCLUDING the per-frame player/room/portal/progression schedule wiring: headless/RL runs the same player frame a window does, E5 step-5 ruling), `add_headless_foundation`, `init_engine_states`, the mode-scope helpers (`in_mode`, `ModeScopedEntity`), the `SnapshotRegistry` (netcode N3.1) |
+| `ambition_host` | **[the windowed host]** | `PlatformerHostPlugins` — ONLY what a windowed game needs that headless doesn't: the leafwing input bindings/device bridge (`HostInputBindingsPlugin`) and the camera follow/shake/portal-continuity cluster (`HostCameraPlugin`). May dep [the picture]. The test "would headless/RL need this system?" decides runtime-vs-host for every future addition. |
 | (post-1.0) `ambition_net` | **[the wire]** | transport trait, session shell, rollback driver | 
 
 ### Tier 6 — games (each: one content crate + one thin app)
@@ -238,8 +238,10 @@ mid-room dynamics compose through the derived `CollisionWorld` overlay
 **PERMANENT gameplay-driven changes** ride the reserved base+delta seam
 (§4b.5) — a mutable overlay/delta on the immutable authored base, not an
 in-place mutation of the authored `RoomGeometry`. (This generalizes the
-transient `CollisionWorld` overlay to PERSISTED change; the concrete
-representation is [Q-FABLE W-c] in decomposition.md.) Authoring backends
+transient `CollisionWorld` overlay to PERSISTED change; representation is
+RULED — `WorldDelta` = ordered ops per room, save-persisted, SimView sees
+only the composited view + a `WorldGeometryVersion` bump: the [W-c] ruling
+in decomposition.md.) Authoring backends
 own SPACE; parameterized generator entities (`SurfaceLoop`, planned
 `SurfaceRamp` quarter-circle floor↔wall transitions — Q27 ruling) keep
 LDtk sufficient for non-axis-aligned content without a new backend.

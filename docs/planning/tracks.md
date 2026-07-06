@@ -46,31 +46,24 @@ Standing escalation: W3 (the world two-crate cut) and E2 (back-edge
 classification) escalate to fable at the FIRST ambiguous item.
 Everything else on this page is opus-or-below by design.
 
-### 📋 LAST-CHANCE FABLE QUESTION REGISTER (Jon: fable availability is ending — 2026-07-06)
+### 📋 LAST-CHANCE FABLE QUESTION REGISTER — ✅ ALL RULED (fable, 2026-07-06 night)
 
-Every unresolved fable-owned DESIGN decision, consolidated. Jon's rulings
-(Q31–Q33, netcode Q4, CC3) resolved the big ones; what remains is
-implementation doctrine. **If fable's budget runs out, these fall to
-opus — break them down carefully against the nearest ruling; do NOT set
-doctrine that contradicts a ✅ ruling.** Marker convention: decomposition.md
-preamble.
+Every fable-owned design decision is now closed. **[W-a]–[W-e] are RULED
+in decomposition.md's W-track block** (Tier-0 home = entity_catalog +
+whole-type moves + the `HazardRespawn` rename; two-stage registry with the
+pinned `PlacementRecord`/`register_placement_interpreter` API; `WorldDelta`
+= ordered ops, SimView sees composited only + `WorldGeometryVersion`;
+placement ids REQUIRED at the record layer; unknown placement = hard
+error). The W execution queue (5 ordered OPUS-SAFE steps) is written
+there. **No open fable design questions remain on this page.** Remaining
+fable-graded material is EXECUTION-hard, not design-open — see the
+"remaining fable-tier surface" note in the 2026-07-06-night execution-log
+entry.
 
-| Q | Where (canonical) | What it BLOCKS | Opus fallback if fable can't |
-|---|---|---|---|
-| **[W-a]** Tier-0 authored-schema home + the schema/runtime split line (per `CharacterBrain`/`BossBrain`/`DamageVolume`/`RespawnPolicy`) | decomposition W-track | W2 (`RoomEmission` payload shape), the schema relocations, E2 vocab classification | Default home `ambition_entity_catalog`; move whole enums that are already pure-data; split an authored spec only where the type carries runtime behavior. |
-| **[W-b]** lowering-interpreter registration API + the **two-stage seam** (backend parse → world RECORD → sim interpret) + **engine-vs-content interpreters** (hazard→combat is engine; spout→falling-sand is content — the registry must take both) | decomposition W-track + architecture §4b.4 | W3 crate cut, room-load lowering, falling-sand spout, hazard lowering | Generalize the EXISTING `ldtk_world/conversion` converter registry (don't add a second); make interpreter registration open to both engine and content crates. |
-| **[W-c]** mutable-world delta representation (base+overlay/delta vs mutable state vs save-patch) + **which layer SimView observes** (must be base+delta composited) + **does SimView carry world/geometry facts at all** (today it's actor/feature/camera only — permanent change forces a world-view fact) | architecture §4b.5 / §5 | permanent-world-change features, save deltas, SimView world-observation | RESERVE the seam only (name base+delta); do NOT implement; when first needed, SimView observes the composited view. |
-| **[W-d]** stable authored placement IDs: required-now / recommended-when-cheap / deferred | decomposition W-track | SimView identity, replay, fuzz traces, save deltas, deterministic spawn, editor diagnostics | Defer unless cheap; add the moment any one consumer above forces it. |
-| **[W-e]** unknown-placement policy (hard error vs mode-split warn+inert) | decomposition W-track | lowering error handling | Hard error (Jon: clarity > perfect dev policy). |
-
-**Opus-sequencing, NOT design questions (no fable needed):** the **E4 full
-dep-flip** (render drops gameplay_core) is now OPUS-SAFE-once-gated — Jon
-blessed the SimView churn (Q32), so it is pure sequencing behind E1/E3/
-E-assets/W, not a decision. **E5 step 5** (host mint) is OPUS/★fable
-execution, unblocked, brief in decomposition.md — the only judgment is the
-portal-ordering care, not a doctrine question. The `KinematicPath`→world
-move (part of the W ruling) is OPUS-SAFE and can proceed independently of
-[W-a].
+**Opus-sequencing notes (unchanged):** the **E4 full dep-flip** is
+OPUS-SAFE-once-gated (Q32) behind E1/E3/E-assets/W. **E5 step 5 is DONE**
+(see the log; step 6's demo shell rides the resource split, next). The
+`KinematicPath`→Tier-0 move is W-queue step 1.
 
 ### 🟢 OPUS SESSION 2026-07-06 (b) — where the CLEAN opus surface bottomed out
 
@@ -156,7 +149,7 @@ fable card. Ranked by how much they gate a fable task.
 
 | Track | Doc | Status | Next |
 |---|---|---|---|
-| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — E5 first slice `3c70d827`; **E5-finish steps 1–4 LANDED 2026-07-06** (sets+resources+combat schedule into the group; shared headless foundation; cut-rope de-woven via generic `RoomReplayRequested` + labeled slots; E4-prep: fx facade imports repointed, CameraViewState + cut-rope resources re-owned); **W1 STATE-inversion started (opus 2026-07-06): `rooms/load.rs` no longer names player/dialog/combat runtime state — the world→characters/combat VOCAB arrow escalated to fable (W-track feedback block in decomposition.md)** | **E5 step 5 (mint [the windowed host]) — UNBLOCKED (opus proved NOT gated on E1d/E1e, 2026-07-06); `ambition_host` scaffold + boundary test minted; readiness brief in decomposition.md ★fable executes** + step 6 (smoke shell); **W3 vocab-arrow ruling [fable] then W2/W3**; E1/E2/E3/E6/E7/E8 open |
+| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — E5 first slice `3c70d827`; E5-finish steps 1–4 LANDED 2026-07-06; **E5 STEP 5 EXECUTED (fable 2026-07-06 night, amended: shared sim wiring → `ambition_runtime` per-domain plugins — Player/RoomTransition/Portal/Progression schedule plugins; `ambition_host` = leafwing bindings + camera cluster only; full parity suite green)**; W1 STATE-inversion (opus); **W-a…W-e RULED — the 5-step OPUS-SAFE W queue is in decomposition.md** | **E5 step 6 (engine-resource split + demo smoke shell)**; **W queue steps 1–5 [opus]**; E1/E2/E3/E6/E7/E8 open |
 | Decomposition D-B/D-C | same | queued behind D-A | mode-scope seam can land early (demos want it) |
 | Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | **CC1 COMPLETE + CC5 LANDED (fable) + CC2 COMPLETE (opus, 2026-07-06)** — engine_core::frame vocabulary + cast family registry real in code; CC2 first pass (hazards swept) + completion (§3.3 every reader classified: loading-zone Door/Walk/EdgeExit now swept via `transition_for_player`; water/climbable annotated discrete-OK + `thin_region_warnings` authoring validator; ledge audited; auto-collect N/A) parity suites green | CC3 fuzz rig (§6.1 oracle) [opus]; CC6 moving portals (§5-P2 spec) [opus] |
 | Combat stack | [engine/combat-model.md](engine/combat-model.md) | CM1 (incl. **launch_dir consumption, fable 2026-07-06 evening** `c695cd9c`)+CM2+CM3+CM7+CM4+CM5 LANDED — per-move presentation authored; smash axes complete (growth, DI, charge, cancel tables, fixed launch angles) | CM6 grab/throw/shield-stun (brings OnBlock) [opus, with SSB] |
@@ -619,3 +612,51 @@ easier:
   host-generic vs app-local split per register-fn + the three portal pins to
   preserve + the note that the parity harness ALREADY EXISTS (the portal/gravity/
   continuity suites catch any ordering break — port boldly).
+
+## 2026-07-06 (fable, night) — E5 STEP 5 EXECUTED + the W-a…W-e last-chance rulings
+
+**E5 step 5 (THE DEMO GATE carve) — done, with one card amendment.** The
+card's "move the five register fns to `ambition_host`" was wrong for four
+of them: `add_simulation_plugins` is added by headless/RL too (`headless.rs`,
+`rl_sim/runtime.rs`, every parity suite), so the shared per-frame SIM wiring
+belongs in the ENGINE group — "a headless entry point adds only the engine
+group" is the doctrine that decides runtime-vs-host, now recorded in
+architecture.md Tier 5. Landed:
+- **`ambition_runtime` grew four per-domain plugins** (anti-god rule 2):
+  `PlayerSchedulePlugin` (time-control pipeline → input → controlled-subject
+  → brains → body-mode → possession → hit events → presentation write-back,
+  + the brain-emitter block + required-components registrations),
+  `RoomTransitionSchedulePlugin` (detect + feature reset + ContentRoomResetSet
+  anchor), `PortalSchedulePlugin` (PortalPlugin + the three ordering
+  landmines, behind `portal`), `ProgressionSchedulePlugin` (file moved from
+  the app — the documented follow-up).
+- **`ambition_host` is real:** `HostInputBindingsPlugin` (leafwing map,
+  device→ControlFrame/MenuControlFrame bridge, active-input-kind tracking;
+  startup attach anchored on the NEW `SimulationSetupSet` label instead of
+  naming the app's setup system) + `HostCameraPlugin` (viewport publish →
+  shake → camera_follow; portal camera continuity + PortalObservationPlugin
+  under `portal_render`). Boundary test kept.
+- **The app keeps only true residue**, pinned into documented ordering SLOTS
+  the engine chains leave open: the reset/replay consumers (they call
+  app-only `reset_sandbox`; the replay consumer also names content — logged
+  as a smell), the player-clone block, home-reset policy + home
+  presentation, the room-transition APPLY composer, `sync_preset_input_map`,
+  and the debug-overlay chain.
+- **Parity:** app rl_sim FULL suite green (portal_bridge/floor-bounce/
+  continuity/reset-preserves-authored/lab-usable, gravity trio, phase
+  splits, replay-fixture determinism, architecture boundaries ×32 — two
+  boundary greps retargeted to the new runtime files, same invariants),
+  gameplay_core lib 1175, content 64, observation_boundary, host 2/2.
+  Zero behavior change.
+
+**The last-chance register is CLOSED:** W-a…W-e all ruled (see
+decomposition.md W-track). Highlights: every schema type measured PURE DATA
+→ whole-type moves to `ambition_entity_catalog::placements` (no spec/
+runtime splits; `HazardRespawn` rename resolves the RespawnPolicy name
+collision); two-stage registry with pinned `PlacementRecord{id, schema,
+aabb}` + `register_placement_interpreter(kind, fn)` API (engine AND content
+register; duplicate = panic); `WorldDelta` = ordered persisted ops, SimView
+observes composited-only + `WorldGeometryVersion`; placement ids REQUIRED
+now (LDtk iid / bake-synth — W-c's RemovePlacement forces them); unknown
+placement = hard error naming the registered kinds. A 5-step ordered
+OPUS-SAFE W execution queue replaces the questions.

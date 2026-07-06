@@ -27,7 +27,6 @@ mod phases;
 mod player_clone;
 mod player_tick;
 mod plugins;
-mod progression_schedule;
 mod resources;
 mod scene_setup;
 mod setup_systems;

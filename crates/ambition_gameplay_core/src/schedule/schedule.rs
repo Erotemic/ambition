@@ -31,6 +31,15 @@ use bevy::prelude::*;
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub struct PresentationSetupSet;
 
+/// Startup-phase slot for the host's SIMULATION setup (room geometry,
+/// player spawn, sim registries). The machinery-facing label for "the
+/// world exists now": engine/host systems that must initialize after
+/// the sim world is set up (e.g. attaching input components to the
+/// spawned player) order `.after(this set)` instead of naming the
+/// host's setup system — the same inversion as [`PresentationSetupSet`].
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub struct SimulationSetupSet;
+
 /// Slot inside the `WorldPrep` boss tick chain where the content layer
 /// inserts per-boss steering systems (e.g. the cut-rope boss tracking
 /// its anvil). Configured `.after(tick_boss_brains_system)` and

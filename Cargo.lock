@@ -145,6 +145,7 @@ dependencies = [
  "ambition_cutscene",
  "ambition_engine_core",
  "ambition_gameplay_core",
+ "ambition_host",
  "ambition_input",
  "ambition_menu",
  "ambition_platformer_primitives",
@@ -343,7 +344,13 @@ dependencies = [
 name = "ambition_host"
 version = "0.1.0"
 dependencies = [
+ "ambition_gameplay_core",
+ "ambition_input",
+ "ambition_render",
+ "ambition_runtime",
+ "ambition_sim_view",
  "bevy",
+ "leafwing-input-manager",
 ]
 
 [[package]]
@@ -429,8 +436,11 @@ name = "ambition_runtime"
 version = "0.1.0"
 dependencies = [
  "ambition_characters",
+ "ambition_engine_core",
  "ambition_gameplay_core",
+ "ambition_input",
  "ambition_sim_view",
+ "ambition_time",
  "ambition_vfx",
  "bevy",
 ]

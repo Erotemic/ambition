@@ -19,4 +19,5 @@ pub use input_systems::{
 };
 pub use schedule::{
     configure_sandbox_sets, BossSteerSlot, CombatSet, PresentationSetupSet, SandboxSet,
+    SimulationSetupSet,
 };

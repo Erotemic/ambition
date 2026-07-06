@@ -3,8 +3,6 @@ use bevy_asset_loader::asset_collection::AssetCollectionApp;
 use bevy_ecs_ldtk::prelude::LdtkPlugin;
 #[cfg(feature = "ui")]
 use bevy_material_ui::MaterialUiPlugin;
-#[cfg(feature = "input")]
-use leafwing_input_manager::prelude::InputManagerPlugin;
 
 use ambition_gameplay_core::assets::loading;
 use ambition_gameplay_core::dev::dev_tools::{
@@ -12,27 +10,18 @@ use ambition_gameplay_core::dev::dev_tools::{
     MovementProfile, PlayerBodyProfile,
 };
 use ambition_gameplay_core::dialog;
-use ambition_gameplay_core::game_mode::{gameplay_allowed, gameplay_suspended};
+use ambition_gameplay_core::game_mode::gameplay_allowed;
 use ambition_gameplay_core::inventory_ui;
 use ambition_gameplay_core::ldtk_world;
 use ambition_gameplay_core::rooms;
-#[cfg(feature = "input")]
-use ambition_gameplay_core::schedule::{
-    apply_menu_frame_to_cutscene_request, populate_control_frame_from_actions,
-    populate_menu_control_frame_from_actions,
-};
-use ambition_gameplay_core::schedule::{
-    attach_player_input_components, toggle_player_trail_emission_from_actions, SandboxSet,
-};
+use ambition_gameplay_core::schedule::SandboxSet;
 use ambition_gameplay_core::time::feel::SandboxFeelTuning;
+#[cfg(feature = "physics_debris")]
 use ambition_gameplay_core::world::physics;
 #[cfg(feature = "physics_debris")]
 use ambition_gameplay_core::world::physics::physics_spawn_debris_messages;
-use ambition_input::MenuControlFrame;
-#[cfg(feature = "input")]
-use ambition_input::{MenuInputState, PlayerDashTriggerState, SandboxAction};
 use ambition_render::fx::{self, vfx_spawn_messages};
-use ambition_render::rendering::{animate_bosses, camera_follow, sync_visuals};
+use ambition_render::rendering::{camera_follow, sync_visuals};
 use ambition_render::ui_fonts;
 
 use crate::dev::debug_overlay;
@@ -48,7 +37,6 @@ use super::setup_systems::{
 };
 use super::sim_systems::{apply_player_reset_input_system, apply_room_replay_request_system};
 use super::world_flow::{apply_room_transition_system, ensure_requested_room_parallax_system};
-use ambition_gameplay_core::player::PlayerBodyFrameOutput;
 
 /// Register core simulation plugins, message types, and the gameplay
 /// schedule. Headless and visible both call this.
@@ -97,252 +85,59 @@ pub fn add_simulation_plugins(app: &mut App) {
     // group membership does not change the resolved schedule.
     app.add_plugins(ambition_runtime::PlatformerEnginePlugins);
 
-    // App-local HOST wiring the group deliberately leaves behind — per-tick
-    // player input/simulation/room-transition/presentation-sync system
-    // registrations, the combat + progression host schedules, and the portal
-    // schedule placement. These wrap app-local systems or need host-specific
-    // ordering; they tighten into the group (or a thin host adapter) as the
-    // E-track carves land.
-    register_player_input_systems(app);
-    register_player_simulation_systems(app);
-    #[cfg(feature = "portal")]
-    {
-        app.add_plugins(ambition_gameplay_core::portal::PortalPlugin);
-        // Host-side placement for portal's internal sets.
-        wire_portal_schedule(app);
-    }
-    register_room_transition_systems(app);
-    register_presentation_sync_systems(app);
-    app.add_plugins(super::progression_schedule::ProgressionSchedulePlugin);
+    // App-LOCAL residue the E5 step-5 carve deliberately left behind. The
+    // engine group above registers the shared per-frame wiring (player input
+    // chain, brains, possession, room-transition detect/reset, portal
+    // schedule, progression); these systems wrap app-only concerns
+    // (`reset_sandbox`, `load_room` + render spawns, the player clone) and
+    // pin themselves into the documented ordering SLOTS between engine
+    // systems (see `ambition_runtime::PlayerSchedulePlugin` /
+    // `RoomTransitionSchedulePlugin` module docs).
+    register_app_local_sim_systems(app);
 }
 
-/// Host-side placement for portal systems: map each portal-internal set to
-/// the sandbox phase, cross-set ordering edge, and gameplay run condition.
-#[cfg(feature = "portal")]
-fn wire_portal_schedule(app: &mut App) {
-    use ambition_gameplay_core::portal::PortalSet;
-
-    // Carves publish after gravity-zone collection and before core simulation.
-    app.configure_sets(
-        Update,
-        PortalSet::Carves
-            .after(ambition_gameplay_core::physics::collect_gravity_zones)
-            .before(SandboxSet::CoreSimulation),
-    );
-
-    // InputWarp: input rewrite in the player-input phase, after interaction
-    // input and before the player input frame is synced (the Move-axis-fix
-    // window), gated to gameplay.
-    app.configure_sets(
-        Update,
-        PortalSet::InputWarp
-            .in_set(SandboxSet::PlayerInput)
-            .after(ambition_gameplay_core::player::interaction_input_system)
-            .before(ambition_gameplay_core::player::sync_local_player_input_frame)
-            .run_if(ambition_gameplay_core::gameplay_allowed),
-    );
-
-    // Weapon maintenance stays ungated for orphan cleanup / roll readiness.
-    app.configure_sets(
-        Update,
-        PortalSet::WeaponAndProjectiles
-            .in_set(SandboxSet::PlayerSimulation)
-            .run_if(ambition_gameplay_core::gameplay_allowed),
-    );
-    app.configure_sets(
-        Update,
-        PortalSet::WeaponMaintenance.in_set(SandboxSet::PlayerSimulation),
-    );
-
-    // RoomReset: reset-time portal cleanup in the room-transition phase, after
-    // the content layer's room-reset work (the cut-rope boss arena reset).
-    app.configure_sets(
-        Update,
-        PortalSet::RoomReset
-            .in_set(SandboxSet::RoomTransition)
-            .after(ambition_gameplay_core::session::reset::ContentRoomResetSet),
-    );
-
-    // TransitGuards: suppress ledge-grab while transiting, BEFORE the unified body
-    // integration reads it. Movement moved into `WorldPrep` (`integrate_sim_bodies`),
-    // so the guard runs there too, ahead of it. Gated to gameplay.
-    app.configure_sets(
-        Update,
-        PortalSet::TransitGuards
-            .in_set(SandboxSet::WorldPrep)
-            .before(ambition_gameplay_core::features::integrate_sim_bodies)
-            .run_if(ambition_gameplay_core::gameplay_allowed),
-    );
-
-    // Transit: teleports run after body + ground-item integration so this frame's
-    // integrated body positions are what cross the portal. Body integration now
-    // completes in `WorldPrep`; `PlayerSimulation` runs after it, so membership +
-    // the CoreHeldItems edge are enough. Gated to gameplay.
-    app.configure_sets(
-        Update,
-        PortalSet::Transit
-            .in_set(SandboxSet::PlayerSimulation)
-            .after(ambition_gameplay_core::items::pickup::ItemPickupSet::CoreHeldItems)
-            .run_if(ambition_gameplay_core::gameplay_allowed),
-    );
-}
-
-// Core simulation, split into 6 finer-grained sub-sets that are
-// chained inside `SandboxSet::CoreSimulation`. See
-// `schedule.rs::configure_sandbox_sets` for the sub-set ordering.
-// External presentation/audio/HUD systems still pin against
-// `SandboxSet::CoreSimulation`; that constraint covers all six
-// sub-sets transitively.
-
-/// Dev-edit sync + input-driven reset + gameplay timer decay + interact
-/// buffer + suspended-time fallback. Each subsequent system depends on
-/// the previous one's ControlFrame / component mutation, so they stay
-/// chained.
-///
-/// Ordering subtleties (ADR 0010 §"Suspended time"):
-/// * `apply_suspended_time_scale_system` runs FIRST so when gameplay
-///   is suspended (pause / dialogue / cutscene / room transition) the
-///   sim_clock target and `SandboxSimState::time_scale` are zeroed
-///   BEFORE `refresh_world_time` snapshots them. Previously this
-///   system ran last in the chain, so `WorldTime::scaled_dt` could
-///   be non-zero on the very first suspended frame and presentation
-///   systems scaling animations by `time_scale * dt` would tick once
-///   after pause landed.
-/// * The emit → apply → smooth trio is gated to `gameplay_allowed`
-///   so it doesn't immediately re-populate `RequestedClockScale` /
-///   `time_scale` back from the zero the suspended fallback just
-///   wrote. On the first re-resumed frame they run again and the
-///   smoother ramps back up from 0 to 1.0 at the authored rate.
-/// * `refresh_world_time` then snapshots whichever path won this
-///   frame, so downstream systems always see a coherent `scaled_dt`.
-fn register_player_input_systems(app: &mut App) {
+/// The app-LOCAL per-frame systems, pinned into the ordering SLOTS the engine
+/// chains leave for the host (E5 step 5). Everything engine-generic that used
+/// to be registered here lives in `ambition_runtime::{PlayerSchedulePlugin,
+/// RoomTransitionSchedulePlugin, PortalSchedulePlugin,
+/// ProgressionSchedulePlugin}`.
+fn register_app_local_sim_systems(app: &mut App) {
+    // ── The PlayerInput gap: the Ambition reset/replay consumers ──────────
+    //
+    // Both call the app-only `world_flow::reset_sandbox`, and the replay
+    // consumer names content (the cut-rope attempt reset) — so they stay
+    // app-side, slotted after the dev-edit sync and before the input timer
+    // (the exact position they held in the old inline chain).
     app.add_systems(
         Update,
         (
-            ambition_gameplay_core::time::time_control::apply_suspended_time_scale_system
-                .run_if(gameplay_suspended),
-            // ADR 0010 — time-control pipeline. Gated to
-            // `gameplay_allowed` so suspended frames don't re-emit a
-            // default 1.0 request that would compete with the
-            // suspended fallback above.
-            ambition_gameplay_core::time::time_control::emit_player_time_intent_system
-                .run_if(gameplay_allowed),
-            ambition_gameplay_core::time::time_control::apply_clock_scale_requests
-                .run_if(gameplay_allowed),
-            ambition_gameplay_core::time::time_control::smooth_sim_clock_toward_target_system
-                .run_if(gameplay_allowed),
-            // Unconditional: snapshot whichever path (suspended-zero
-            // or gameplay-smoothed) wrote `SandboxSimState::time_scale`
-            // this frame into `WorldTime` for downstream readers.
-            ambition_time::refresh_world_time,
-            // Mirror the freshly-snapshotted `WorldTime::sim_dt()` into the
-            // runtime crate's neutral `SimDt` so every downstream runtime
-            // system (gravity / zones / orient-roll) reads scaled dt without a
-            // sandbox dependency. Runs immediately after `refresh_world_time`.
-            ambition_gameplay_core::mirror_sim_dt_into_runtime,
-            ambition_gameplay_core::dev::sync_live_player_dev_edits_system,
             apply_player_reset_input_system.run_if(gameplay_allowed),
-            // Content dialogue-followup emitters (e.g. cut-rope "try again")
-            // hang on the labeled slot anchored below; the generic replay
-            // consumer drains their requests the same frame.
             apply_room_replay_request_system,
-            ambition_gameplay_core::player::input_timer_system
-                .run_if(gameplay_allowed)
-                .in_set(ambition_input::InputSet::Populate),
-            ambition_gameplay_core::player::interaction_input_system.run_if(gameplay_allowed),
-            // Portal-warped held movement input is registered by
-            // `ambition_gameplay_core::portal::PortalPlugin` so the portal subsystem owns
-            // its input seam.
-            // Controller-input setup, nested into one chained group (keeps the
-            // outer tuple within Bevy's 20-system limit):
-            // 1. Resolve the CONTROLLED SUBJECT — the body carrying
-            //    `Brain::Player(PRIMARY)` this frame (home avatar, or a possessed
-            //    actor). Camera / portal viewer / nameplates / the player melee
-            //    lifecycle read it; it replaces the old
-            //    `PrimaryPlayer + PossessionState` overrides.
-            // 2. Publish the local device frame into the slot-based controller
-            //    model (`SlotControls[PRIMARY]`) — the canonical source every
-            //    controlled body reads by its brain's slot.
-            // 3. Mirror each controlled body's slot frame onto its
-            //    PlayerInputFrame (gated on brain ownership: a vacated avatar
-            //    sees neutral input, so it has no local attack authority).
-            (
-                ambition_gameplay_core::abilities::traversal::possession::resolve_controlled_subject,
-                ambition_gameplay_core::player::populate_slot_controls,
-                ambition_gameplay_core::player::sync_local_player_input_frame,
-            )
-                .chain(),
-            // Universal-brain seam: translate this frame's slot input into each
-            // controlled body's ActorControl frame. Runs after the input sync so the
-            // brain sees this frame's inputs. The ActorControl output is the
-            // polarity-flip authority for `player_control_system` /
-            // `player_simulation_system` (see `engine_input_from_actor_control`).
-            ambition_gameplay_core::player::tick_player_brains,
-            // Body-mode policy (crouch / morph / climb) consumes the CONTROLLED
-            // body's freshly-produced ActorControl + its slot gestures, so it must run
-            // AFTER `tick_player_brains` and still before WorldPrep movement so the
-            // resize/mode change lands on the same frame as the edge.
-            ambition_gameplay_core::body_mode::update_body_mode,
-            ambition_gameplay_core::player::sync_player_actor_poses,
         )
             .chain()
-            .in_set(SandboxSet::PlayerInput),
+            .in_set(SandboxSet::PlayerInput)
+            .after(ambition_gameplay_core::dev::sync_live_player_dev_edits_system)
+            .before(ambition_gameplay_core::player::input_timer_system),
     );
-    // Anchor the content dialogue-followup slot: emitters (registered by
-    // content plugins) run in PlayerInput before the generic replay consumer,
-    // so a request emitted this frame is drained this frame.
+    // Content dialogue-followup emitters (e.g. cut-rope "try again") run
+    // before the replay consumer that drains their requests the same frame.
+    // The engine anchors the slot's PHASE (PlayerInput); the consumer edge is
+    // ours because the consumer is ours.
     app.configure_sets(
         Update,
         ambition_gameplay_core::session::reset::ContentDialogueFollowupSet
-            .in_set(SandboxSet::PlayerInput)
             .before(apply_room_replay_request_system),
     );
-    // Universal-brain effects resolver — moved OUT of `PlayerInput` to run AFTER
-    // `WorldPrep`. `PlayerInput` now precedes `WorldPrep`, so this must run after
-    // the actor/boss brain ticks (`update_ecs_actors` / `tick_boss_brains_system`)
-    // to observe THIS frame's actor `ActorControl` (not last frame's) — otherwise
-    // every enemy's melee/ranged would lag a frame. It still runs before `Combat`
-    // (where the consumers spawn hitboxes/projectiles), same frame.
-    //   - `emit_brain_action_messages`: ActionSet × ActorControl → per-request
-    //     `ActorActionMessage` (enemy ranged, enemy melee start, player melee/pogo
-    //     gating, boss specials).
-    //   - `emit_player_projectile_tick_messages`: per-tick charge axis/edges for
-    //     charge-capable bodies → `PlayerProjectileTick`.
-    //   - `observe_brain_action_counter`: HUD/debug "any brain wants something".
-    app.add_systems(
-        Update,
-        (
-            ambition_characters::brain::emit_brain_action_messages,
-            ambition_characters::brain::emit_player_projectile_tick_messages,
-            ambition_characters::brain::observe_brain_action_counter,
-        )
-            .chain()
-            .after(SandboxSet::WorldPrep)
-            .before(SandboxSet::PlayerSimulation),
-    );
-}
 
-/// Main player tick: clear the reset flag, run control, run simulation,
-/// then drain damage. Simulation short-circuits when control already reset
-/// the player so same-frame respawns are not clobbered.
-fn register_player_simulation_systems(app: &mut App) {
-    // Every player body carries the movement→presentation hand-off the movement
-    // phase writes and the presentation phase reads (required so both phase queries
-    // always match the player + any clone).
-    app.register_required_components::<ambition_gameplay_core::actor::PlayerEntity, PlayerBodyFrameOutput>();
-    // Every player body publishes the same gravity-oriented combat footprint an
-    // actor does (fable review 2026-07-02 §A6); integrate_home_body writes it.
-    app.register_required_components_with::<ambition_gameplay_core::actor::PlayerEntity, ambition_engine_core::CenteredAabb>(
-        || ambition_engine_core::CenteredAabb::new(ambition_engine_core::Vec2::ZERO, ambition_engine_core::Vec2::ZERO),
-    );
-    // Brain-driven player clone (press K): a `PlayerEntity` body driven by a
-    // PlayerDemo brain through the SAME shared player systems as the human player.
-    // Spawn lands in `WorldPrep` (the earliest set) so the new body exists before
-    // the PlayerInput/PlayerSimulation phases pick it up the same frame; the brain
-    // tick produces its `ActorControl` in `PlayerInput` (before the control phase
-    // consumes it); the transform sync runs in `PresentationSync` after the shared
-    // simulation has moved it. Movement itself is no longer here — it flows through
-    // `player_control_system` / `player_simulation_system` like every player body.
+    // ── Brain-driven player clone (press K) ────────────────────────────────
+    //
+    // A `PlayerEntity` body driven by a PlayerDemo brain through the SAME
+    // shared player systems as the human player. Spawn lands in `WorldPrep`
+    // (the earliest set) so the new body exists before the PlayerInput/
+    // PlayerSimulation phases pick it up the same frame; the brain tick
+    // produces its `ActorControl` in `PlayerInput` (before the control phase
+    // consumes it); the transform sync runs in `PresentationSync` after the
+    // shared simulation has moved it.
     app.init_resource::<crate::app::player_clone::PlayerCloneClock>()
         .init_resource::<crate::app::player_clone::SpawnPlayerCloneRequest>()
         .add_systems(
@@ -371,80 +166,47 @@ fn register_player_simulation_systems(app: &mut App) {
                 .in_set(SandboxSet::ResetProcessing)
                 .before(ambition_gameplay_core::session::reset::process_sandbox_reset_request),
         );
-    // Possession systems stay chained with the player tick. Possession is now
-    // pure BRAIN TRANSFER, so there is no `not_possessing` control gate: the
-    // vacated home avatar is inert because it no longer carries a player brain
-    // (its `ActorControl` is neutral), and the possessed actor is driven through
-    // the actor tick by the transferred `Brain::Player`.
+
+    // ── The PlayerSimulation gap: home reset policy + home presentation ───
+    //
+    // Slotted between the possession release and the hit-event drain (the
+    // exact position they held in the old inline chain).
     app.add_systems(
         Update,
         (
-            // Possession: Down+Interact hold transfers the player brain onto the
-            // nearest non-boss actor; a press releases. Brain transfer + the
-            // target-lost safety run here; the actual body movement already happened
-            // in `WorldPrep` (`integrate_sim_bodies`), one frame's-worth of latency
-            // across the handover, exactly as before.
-            ambition_gameplay_core::abilities::traversal::possession::possession_trigger_system
-                .run_if(gameplay_allowed),
-            ambition_gameplay_core::abilities::traversal::possession::release_possession_if_target_lost,
             // HOME RESET POLICY. Movement already integrated the home body in
-            // `WorldPrep` and flagged any reset in `PlayerBodyFrameOutput`; this owns
-            // the home-only sandbox + room reset on that flag (an actor never
-            // teleports to the player spawn). Moves no body.
+            // `WorldPrep` and flagged any reset in `PlayerBodyFrameOutput`;
+            // this owns the home-only sandbox + room reset on that flag (an
+            // actor never teleports to the player spawn). Moves no body.
             apply_home_reset_policy.run_if(gameplay_allowed),
             // HOME PRESENTATION — screen shake + landing SFX + the per-op
             // anim/SFX/VFX — reads the same hand-off. Moves no body.
             sync_player_presentation.run_if(gameplay_allowed),
-            ambition_gameplay_core::combat::damage::apply_player_hit_events
-                .run_if(gameplay_allowed),
         )
             .chain()
-            .in_set(SandboxSet::PlayerSimulation),
+            .in_set(SandboxSet::PlayerSimulation)
+            .after(
+                ambition_gameplay_core::abilities::traversal::possession::release_possession_if_target_lost,
+            )
+            .before(ambition_gameplay_core::combat::damage::apply_player_hit_events),
     );
-}
 
-/// Detection emits `RoomTransitionRequested`; apply consumes it and runs
-/// `load_room`; the feature-side `reset_ecs_room_features` system tears
-/// down per-room ECS state.
-fn register_room_transition_systems(app: &mut App) {
+    // ── The RoomTransition gap: the transition APPLY composer ─────────────
+    //
+    // Detection (engine) emits `RoomTransitionRequested`; this pair consumes
+    // it, runs `load_room` + the render spawns, and applies the cross-domain
+    // arrival resets (the W1 composition tier); the engine's
+    // `reset_ecs_room_features` then tears down per-room ECS state.
     app.add_systems(
         Update,
         (
-            ambition_gameplay_core::rooms::detect_room_transition_system.run_if(gameplay_allowed),
             ensure_requested_room_parallax_system,
             apply_room_transition_system,
-            // One reset over the unified actor cluster (NPCs + enemies).
-            ambition_gameplay_core::features::reset_ecs_room_features,
         )
             .chain()
-            .in_set(SandboxSet::RoomTransition),
-    );
-    // Anchor the content room-reset slot AFTER the engine's feature reset.
-    // Content plugins register their reset systems in the slot; generic
-    // plugins (gravity, portal RoomReset) order after the SET — nobody
-    // names a content system (E5-finish de-weave).
-    app.configure_sets(
-        Update,
-        ambition_gameplay_core::session::reset::ContentRoomResetSet
             .in_set(SandboxSet::RoomTransition)
-            .after(ambition_gameplay_core::features::reset_ecs_room_features),
-    );
-}
-
-/// Slash/pogo attack lifecycle, projectile tick, and the feature-side
-/// damage event apply.
-/// Player ECS body write-back + presentation timer decays. Runs
-/// unconditionally so paused / dialogue modes still wind down flash and
-/// landing-pose timers.
-fn register_presentation_sync_systems(app: &mut App) {
-    app.add_systems(
-        Update,
-        (
-            ambition_gameplay_core::player::write_player_ecs_components,
-            ambition_gameplay_core::player::cleanup_timers_system,
-        )
-            .chain()
-            .in_set(SandboxSet::PresentationSync),
+            .after(ambition_gameplay_core::rooms::detect_room_transition_system)
+            .before(ambition_gameplay_core::features::reset_ecs_room_features),
     );
 }
 
@@ -539,6 +301,11 @@ pub(super) fn spawn_ldtk_world_root(
 /// Register presentation-side plugins (input, dialogue, inspector, audio
 /// and VFX subscribers, HUD, debug overlays). Visible binary only.
 pub fn add_presentation_plugins(app: &mut App) {
+    // The windowed-host face (E5 step 5): leafwing input bindings + the
+    // camera follow/shake cluster (+ portal camera continuity). The SAME
+    // group a windowed demo adds; the app-local presentation below layers
+    // Ambition's HUD/menu/dev stack on top.
+    app.add_plugins(ambition_host::PlatformerHostPlugins);
     install_presentation_resources_and_subplugins(app);
     app.add_plugins(ambition_gameplay_core::persistence::PersistenceSchedulePlugin);
     install_menu_setup_and_hotkeys(app);
@@ -584,7 +351,13 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     app.add_plugins(crate::dev::DevToolsPlugin);
     add_physics_debris_plugins(app);
     add_ui_plugins(app);
-    add_input_plugins(app);
+    // Input bindings/bridge live in `ambition_host::HostInputBindingsPlugin`
+    // (E5 step 5). The app-local residue: the dev preset-input-map sync.
+    #[cfg(feature = "input")]
+    app.add_systems(
+        Update,
+        sync_preset_input_map.before(SandboxSet::CoreSimulation),
+    );
     add_audio_plugins(app);
     add_mobile_touch_plugin(app);
     #[cfg(feature = "falling_sand")]
@@ -679,60 +452,31 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
 }
 
 fn install_camera_and_debug_overlay_systems(app: &mut App) {
-    // Render-owned camera view state, initialized with the presentation half
-    // that reads it (nameplates, HUD, this overlay) — the sim never touches it.
-    app.init_resource::<ambition_render::rendering::CameraViewState>();
+    // The camera cluster itself (viewport publish, shake, follow, portal
+    // continuity) is `ambition_host::HostCameraPlugin` (E5 step 5). What
+    // stays here is the Ambition DEBUG OVERLAY, drawn once the camera has
+    // landed this frame.
     app.init_resource::<debug_overlay::DebugOverlayLabels>();
-    // The observer fact: publish THIS frame's physical viewport before the
-    // sim's observation resolve consumes it (E4-17 — the resolve lives in
-    // CameraObservationPlugin now; camera_follow only APPLIES the snapshot).
-    app.add_systems(
-        Update,
-        ambition_render::rendering::publish_camera_viewport
-            .before(ambition_sim_view::camera_snapshot::resolve_camera_observation),
-    );
-    app.add_systems(
-        Update,
-        (
-            ambition_gameplay_core::time::camera_ease::tick_camera_shake,
-            camera_follow,
-            debug_overlay::draw_debug_overlay,
-            // Materialize the labels the overlay just queued (Text2d). Runs
-            // right after so the labels track this frame's boxes.
-            debug_overlay::render_debug_overlay_labels,
-        )
-            .chain()
-            .after(animate_bosses)
-            // Read THIS tick's resolved snapshot, not last frame's.
-            .after(ambition_sim_view::camera_snapshot::resolve_camera_observation),
-    );
-    // The Ambition portal host-adapter observation glue (world-frame /
-    // viewer / focus / debug seam publishers, scene-body tagging, dev
-    // toggles, gun art) — sim-owned plugin, host-added (E4 slice 20).
+    // With portals, the continuity camera tag (registered by HostCameraPlugin)
+    // must land before the overlay reads it.
     #[cfg(feature = "portal_render")]
-    app.add_plugins(ambition_gameplay_core::portal::PortalObservationPlugin);
-    #[cfg(feature = "portal_render")]
-    app.add_systems(
-        Update,
-        (
-            ambition_gameplay_core::portal::apply_portal_camera_continuity
-                .after(SandboxSet::CoreSimulation)
-                .after(ambition_gameplay_core::portal::sync_portal_camera_continuity_focus)
-                .before(camera_follow),
-            // Same-frame pad into the sim resolve (E4-17): after the
-            // continuity update, before the observation resolves.
-            ambition_render::rendering::publish_portal_camera_clamp
-                .after(ambition_gameplay_core::portal::apply_portal_camera_continuity)
-                .before(ambition_sim_view::camera_snapshot::resolve_camera_observation),
-        ),
-    );
-    #[cfg(feature = "portal_render")]
-    app.add_systems(
-        Update,
-        ambition_gameplay_core::portal::tag_portal_camera_continuity_camera
-            .after(camera_follow)
-            .before(debug_overlay::draw_debug_overlay),
-    );
+    let overlay = (
+        debug_overlay::draw_debug_overlay,
+        // Materialize the labels the overlay just queued (Text2d). Runs
+        // right after so the labels track this frame's boxes.
+        debug_overlay::render_debug_overlay_labels,
+    )
+        .chain()
+        .after(camera_follow)
+        .after(ambition_gameplay_core::portal::tag_portal_camera_continuity_camera);
+    #[cfg(not(feature = "portal_render"))]
+    let overlay = (
+        debug_overlay::draw_debug_overlay,
+        debug_overlay::render_debug_overlay_labels,
+    )
+        .chain()
+        .after(camera_follow);
+    app.add_systems(Update, overlay);
 }
 
 fn install_fx_and_hud_systems(app: &mut App) {
@@ -944,73 +688,10 @@ pub(super) fn add_ui_plugins(app: &mut App) {
 #[cfg(not(feature = "ui"))]
 pub(super) fn add_ui_plugins(_app: &mut App) {}
 
-/// Install the leafwing-input-manager plugin, the player-input attach
-/// startup system, and the bridge that keeps `Res<ControlFrame>` in sync
-/// with leafwing's `ActionState`. Gated behind `input` so headless /
-/// minimal builds can drop `leafwing-input-manager` from the dep graph;
-/// the sim itself reads `Res<ControlFrame>` (always-available) and is
-/// agnostic to where the frame came from.
-#[cfg(feature = "input")]
-pub(super) fn add_input_plugins(app: &mut App) {
-    app.init_resource::<MenuInputState>()
-        .init_resource::<MenuControlFrame>()
-        .init_resource::<PlayerDashTriggerState>()
-        .init_resource::<ambition_input::ActiveInputKind>()
-        .add_plugins(InputManagerPlugin::<SandboxAction>::default())
-        // Track which input source is CURRENTLY active (last to produce
-        // GENUINE input). This gates the menu mouse-hover handlers so a
-        // rebuild-induced `Pointer<Over>` under a stationary mouse can't
-        // snap the cursor back while the player navigates with the
-        // keyboard / gamepad / touch. Runs in the input populate set so
-        // the value is fresh before this frame's menu consumers + before
-        // the hover observers fire on rebuilt controls. The detector
-        // covers keyboard / mouse / gamepad; the touch fold in the
-        // mobile_input plugin flips it to `Touch` itself.
-        .add_systems(
-            Update,
-            ambition_input::update_active_input_kind.in_set(ambition_input::InputSet::Populate),
-        )
-        .add_systems(
-            Startup,
-            attach_player_input_components.after(setup_simulation_system),
-        )
-        // Collect semantic menu intent before gameplay input is suppressed.
-        // `populate_control_frame_from_actions` may zero the sim-side
-        // `ControlFrame` in UI modes, but it must not mutate leafwing's
-        // `ActionState`; held keyboard/menu buttons should not become
-        // `just_pressed` again on every dialog frame.
-        //
-        // Therefore the order is:
-        // 1. read keyboard/gamepad menu actions into `MenuControlFrame`,
-        // 2. read/suppress gameplay into `ControlFrame`,
-        // 3. let touch folds merge into both seams before the consumers below.
-        //
-        // Touch fold (mobile_input plugin) runs
-        // `.after(populate_control_frame_from_actions)` for gameplay and
-        // `.after(populate_menu_control_frame_from_actions)` for menus, then
-        // `.before(MenuNavConsume)` (the unified menu's nav set), so pause /
-        // inventory / navigation see keyboard, gamepad, and touch contributions
-        // in one frame.
-        .add_systems(
-            Update,
-            (
-                populate_menu_control_frame_from_actions,
-                populate_control_frame_from_actions.in_set(ambition_input::InputSet::Populate),
-                toggle_player_trail_emission_from_actions,
-                apply_menu_frame_to_cutscene_request,
-                dialog::dialog_pointer_input,
-            )
-                .chain()
-                .before(SandboxSet::CoreSimulation),
-        )
-        .add_systems(
-            Update,
-            sync_preset_input_map.before(SandboxSet::CoreSimulation),
-        );
-}
-
-#[cfg(not(feature = "input"))]
-pub(super) fn add_input_plugins(_app: &mut App) {}
+// The leafwing input bindings + the device→ControlFrame bridge moved to
+// `ambition_host::HostInputBindingsPlugin` (E5 step 5). The touch fold below
+// still runs ALONGSIDE it (both write the same `ControlFrame` seam), and the
+// dev preset-input-map sync stays registered app-side (dev_runtime).
 
 /// Register the [`TouchControlsPlugin`](ambition_touch_input::TouchControlsPlugin)
 /// (`virtual_joystick` sticks + on-screen action buttons that fold into

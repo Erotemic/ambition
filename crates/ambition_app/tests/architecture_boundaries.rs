@@ -718,8 +718,12 @@ fn architecture_boundaries_input_timer_systems_moved_to_gameplay_core() {
         "app/sim_systems.rs re-defines library-owned systems: {redefined:?}"
     );
 
-    // The host schedule references the moved systems by their gameplay_core paths.
-    let plugins = fs::read_to_string(app_src().join("app/plugins.rs")).expect("read plugins.rs");
+    // The engine schedule (E5 step 5: the shared player-frame wiring lives in
+    // `ambition_runtime::PlayerSchedulePlugin`) references the moved systems
+    // by their gameplay_core paths.
+    let engine_schedule =
+        fs::read_to_string(repo_root().join("crates/ambition_runtime/src/player_schedule.rs"))
+            .expect("read ambition_runtime/src/player_schedule.rs");
     for needle in [
         "ambition_gameplay_core::dev::sync_live_player_dev_edits_system",
         "ambition_gameplay_core::time::time_control::apply_suspended_time_scale_system",
@@ -728,8 +732,8 @@ fn architecture_boundaries_input_timer_systems_moved_to_gameplay_core() {
         "ambition_gameplay_core::player::cleanup_timers_system",
     ] {
         assert!(
-            plugins.contains(needle),
-            "app/plugins.rs must reference the moved system via its library path: {needle}"
+            engine_schedule.contains(needle),
+            "the engine player schedule must reference the moved system via its library path: {needle}"
         );
     }
 
@@ -792,15 +796,18 @@ fn architecture_boundaries_portal_orders_against_item_set_not_function() {
         "portal/plugin.rs must not name the host item subsystem in code"
     );
 
+    // The portal-set placement lives in the engine group now (E5 step 5:
+    // `ambition_runtime::PortalSchedulePlugin`).
     let wiring =
-        fs::read_to_string(app_src().join("app/plugins.rs")).expect("read sandbox plugins source");
+        fs::read_to_string(repo_root().join("crates/ambition_runtime/src/portal_schedule.rs"))
+            .expect("read ambition_runtime/src/portal_schedule.rs");
     assert!(
         !wiring.contains("after(ambition_gameplay_core::items::pickup::ground_item_physics)"),
-        "host wiring should order PortalSet::Transit against ItemPickupSet, not a concrete function"
+        "portal wiring should order PortalSet::Transit against ItemPickupSet, not a concrete function"
     );
     assert!(
         wiring.contains("ambition_gameplay_core::items::pickup::ItemPickupSet::CoreHeldItems"),
-        "host wiring should order PortalSet::Transit on the held-item/ground-item simulation set"
+        "portal wiring should order PortalSet::Transit on the held-item/ground-item simulation set"
     );
 }
 

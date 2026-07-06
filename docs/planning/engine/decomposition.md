@@ -224,21 +224,40 @@ consumes `PlatformerEnginePlugins` inside `add_simulation_plugins`,
   attached via labeled sets (`ContentRoomResetSet` exists; add a
   `ContentDialogueFollowupSet` anchored after the dialogue-close
   system). The app chains become pure-engine tuples.
-- **Step 5 — mint [the windowed host]** (`ambition_host`, new crate;
-  MAY dep render/input/leafwing/gameplay_core; must NOT dep
-  ambition_content). Move, each as its own plugin inside the group
-  (anti-god rule 2): `register_player_input_systems` (content-free
-  after step 4), the engine-generic part of
-  `register_player_simulation_systems` (the app-local
-  `player_clone`/`apply_home_reset_policy`/`sync_player_presentation`
-  pieces STAY app-side), `wire_portal_schedule` (behind the forwarded
-  `portal` feature, after `PortalPlugin`),
-  `register_room_transition_systems`, the camera follow/shake cluster,
-  and `add_input_plugins`. Preserve the landmines: the portal wiring
-  pins sets against NAMED systems (`collect_gravity_zones`,
-  `integrate_sim_bodies`, …) and must run after the sets plugin.
+- **Step 5 — ✅ EXECUTED (fable, 2026-07-06 night) with ONE amendment to
+  this card.** The card said "move the five register fns to
+  `ambition_host`"; execution found that is WRONG for four of them —
+  `add_simulation_plugins` (which registers them) is added by BOTH the
+  visible binary AND headless/RL (`headless.rs`, `rl_sim/runtime.rs`,
+  every portal/gravity parity suite), and the scaffold doctrine
+  "a headless entry point adds ONLY the engine group" wins. So the
+  shared per-frame SIM wiring went to **`ambition_runtime`** (the engine
+  group) as per-domain plugins — `PlayerSchedulePlugin` (time-control →
+  input → controlled-subject → brains → possession → hit events →
+  presentation write-back, + the brain-emitter block),
+  `RoomTransitionSchedulePlugin` (detect + feature reset + the content
+  slot), `PortalSchedulePlugin` (PortalPlugin + the three ordering
+  landmines, feature `portal`), `ProgressionSchedulePlugin` (moved
+  file) — and **`ambition_host`** received only the genuinely WINDOWED
+  wiring: `HostInputBindingsPlugin` (leafwing map + device→ControlFrame
+  bridge, feature `input`; startup attach rides the new
+  `SimulationSetupSet` label instead of naming the app's setup system)
+  and `HostCameraPlugin` (viewport publish → shake → `camera_follow`,
+  + portal camera continuity under `portal_render`). The app-local
+  residue pins itself into two documented ordering SLOTS the engine
+  chains leave open (reset/replay pair in PlayerInput; home-reset/
+  presentation pair in PlayerSimulation; the room-transition APPLY
+  composer in RoomTransition) — see `register_app_local_sim_systems`
+  (`ambition_app/src/app/plugins.rs`) + the runtime plugins' module
+  docs. Parity: full app rl_sim suite (portal/gravity/continuity/
+  replay-fixture) green, zero behavior change.
 
-  #### ✅ READINESS BRIEF FOR FABLE (opus investigation 2026-07-06 — corrects the stale "gated on E1d/E1e" accounting)
+  #### ✅ READINESS BRIEF (opus 2026-07-06) — HISTORICAL; superseded by the executed step-5 amendment above
+  *(The brief's "MOVES to `ambition_host`" destination was amended at
+  execution: the shared sim wiring landed in `ambition_runtime` because
+  headless/RL registers it too; only leafwing input + the camera cluster
+  landed in `ambition_host`. The system-by-system MOVES/STAY
+  classification below was correct and was executed as written.)*
 
   **E5 step 5 is NOT gated on the E1d/E1e crate mints.** `ambition_host`
   MAY dep `gameplay_core`, so any host-set system living in gameplay_core
@@ -407,49 +426,122 @@ schema-vs-component note.** Summary of the ruling (do NOT reopen it):
 - **The world is not immutable** — a base+delta seam for permanent
   gameplay change is RESERVED (architecture §4b.5 / §5).
 
-**These implementation sub-questions remain fable's to rule (opus must NOT
-improvise the schema boundary — mark, do not invent):**
+**✅ ALL FIVE SUB-QUESTIONS RULED (fable, 2026-07-06 night — the last-chance
+pass). Everything below is now OPUS-SAFE; no design freedom remains, only
+execution. Do not reopen; deviations follow vision.md §7 (a genuine
+"fable didn't see X" only).**
 
-- **QUESTION FOR FABLE [W-a] — the Tier-0 schema home + the schema/runtime
-  split.** Candidate home: `ambition_entity_catalog` ([the authoring
-  spine], already Tier-0). For each of `CharacterBrain`/`BossBrain`/
-  `DamageVolume`/`RespawnPolicy`: does the whole enum move to Tier-0 (it
-  may already be pure data), or does an authored SPEC split from the
-  runtime component/behavior? Draw the exact line. (`KinematicPath` is
-  already ruled → world/geometry.)
-- **QUESTION FOR FABLE [W-b] — the interpreter/converter registration
-  API.** The exact signature of a registered lowering interpreter
-  (`schema_id → fn(&Placement, &mut Commands, …)`), where the registry
-  lives, and the room-load call site. GENERALIZE the existing converter
-  registry; do not add a second.
-- **QUESTION FOR FABLE [W-c] — the mutable-world delta representation.**
-  base+overlay/delta vs mutable world state vs save-game patch layer.
-  Name the concept + reserve the seam now; full impl deferred. **Pin
-  which layer SimView observes** (must be base+delta composited).
-- **QUESTION FOR FABLE [W-d] — stable authored placement IDs.** Jon: good
-  if cheap, else DEFER — must not block the architecture. If deferred,
-  the future consumers that will want them: SimView identity, fuzz
-  traces, replay, save deltas, deterministic spawn identity, editor
-  diagnostics. Decide "required now / recommended-when-cheap / deferred"
-  and record which.
-- **QUESTION FOR FABLE [W-e] — unknown-placement policy.** Jon: a hard
-  error is probably fine (architectural clarity > perfect dev policy).
-  Optional refinement (only if cheap): hard-error for shipped/imported
-  content, warn+inert for dev/editor mode. Not a strong preference —
-  pick the simplest.
+- **✅ RULED [W-a] — the Tier-0 schema home is `ambition_entity_catalog`
+  [the authoring spine], and every type in question moves WHOLE — a scout
+  confirmed they are all already pure serde-able data with zero runtime
+  state** (`ambition_characters/src/actor/mod.rs`: `CharacterBrain`
+  {Passive, Patrol, Guard, Custom}, `BossBrain` {Dormant, PhaseScript,
+  Custom}, `KinematicPath`/`KinematicPathMode`, the hazard/prop
+  `RespawnPolicy` {Never, AfterSeconds, OnRoomReload, Persistent};
+  `ambition_combat/src/lib.rs`: `DamageVolume` + its payload vocabulary
+  `Damage`/`DamageKind` and `DamageTeam`). No spec/runtime split is needed
+  ANYWHERE in this set. Execution rules:
+  1. All of the above move to `ambition_entity_catalog` (one module, e.g.
+     `placements.rs`, doc-headed as "the authored-placement schema
+     vocabulary — §4b"). `ambition_characters`/`ambition_combat` re-import
+     from the catalog (explicit imports; NO lasting re-export shims — D2).
+  2. **Name collision ruling:** the hazard/prop `RespawnPolicy`
+     (characters) RENAMES to `HazardRespawn` on the move; the ADR-0022
+     actor `RespawnPolicy` (gameplay_core `combat/components`) keeps the
+     name and ALSO moves to the catalog when E2 relocates the authored
+     archetype schema (it is authored archetype data). Two same-named
+     enums may not coexist in the schema module.
+  3. **The general split line (for FUTURE types that are not pure data):**
+     the Tier-0 schema is what the author writes; a runtime component may
+     EMBED the schema by value (`Live { spec: Spec, owner, timers… }`),
+     NEVER mirror it field-by-field (reorganize-don't-adapt). If a type
+     mixes authored fields and runtime state, extract the authored subset
+     as the schema and embed it.
+- **✅ RULED [W-b] — TWO stages, ONE pattern, both owned by [the space
+  IR].** The two-stage seam is explicit: (1) the EXISTING backend
+  converter registry (`ldtk_world/conversion`, keyed by LDtk entity
+  identifier) parses backend entities into **authored placement RECORDS**
+  on `RoomEmission`; (2) a NEW **lowering registry** (same
+  registration pattern, different key: the Tier-0 schema KIND) maps each
+  record → live entities at room-load. They are NOT merged into one
+  registry — the keys and inputs differ, and merging would couple the
+  backend to sim types (exactly what W3 forbids). Pinned API shape:
+  ```rust
+  // [the space IR] (gameplay_core::world today; ambition_world at W3)
+  pub struct PlacementRecord {
+      pub id: PlacementId,          // W-d: REQUIRED (LDtk iid / bake-synth)
+      pub schema: PlacementSchema,  // the CLOSED Tier-0 enum (§4b.3)
+      pub aabb: Aabb,               // authored footprint (pos+size)
+  }
+  pub type LoweringFn = fn(&PlacementRecord, &mut LoweringCtx);
+  // LoweringCtx wraps Commands + room/arrival facts; grows fields by need.
+  impl App /* extension trait in the space IR */ {
+      fn register_placement_interpreter(&mut self,
+          kind: PlacementKind, f: LoweringFn) -> &mut Self;
+  }
+  ```
+  `PlacementKind` is the fieldless mirror of `PlacementSchema`'s variants
+  (derive or a `kind()` method). ENGINE interpreters (hazard→combat) and
+  CONTENT interpreters (spout→falling-sand) register through the SAME
+  call — the registry is open by construction. Duplicate registration for
+  one kind PANICS (two owners = an authority bug, anti-god rule 5). The
+  room-load call site: the same spawn pass that today hardcodes
+  feature spawning (`spawn_room_feature_entities` path) iterates the
+  emission's records and dispatches by kind; hardcoded branches convert
+  to registered interpreters one at a time (each its own commit).
+- **✅ RULED [W-c] — base + ordered DELTA OPS, named `WorldDelta`,
+  reserved now, implemented at first need.** Representation: an ordered
+  op list per room (`enum WorldDeltaOp { RemoveBlock(BlockId),
+  AddBlock(Block), RemovePlacement(PlacementId), … }` — the op set grows
+  variant-by-variant as features land), persisted into the save as a
+  patch, replayable. NOT a mutable world, NOT save-side geometry
+  snapshots (ops are compact, serialize as events for netcode, and
+  compose with replay). The effective room = base ⊕ delta, composited by
+  the SAME derived-`CollisionWorld`-overlay path transient dynamics
+  already use — the delta generalizes that overlay to PERSISTED change.
+  **SimView observes ONLY the composited view** (consumers never see
+  base-vs-delta). SimView does NOT mirror geometry wholesale: when the
+  first permanent-change feature lands, SimView gains a
+  `WorldGeometryVersion` fact (tick-tagged bump) and presentation
+  re-reads composited geometry through the normal room-(re)load path on
+  version change — render already knows how to rebuild a room's visuals;
+  reuse that, don't stream polygons through the view.
+- **✅ RULED [W-d] — placement ids are REQUIRED NOW at the record layer**
+  (`PlacementRecord.id`), because they are effectively free — LDtk
+  already provides stable per-entity `iid`s (`config.id == LDtk iid` is
+  ALREADY the actor-identity convention, ADR 0022 / the gnu_ton repair),
+  and baked `ron-room`/generated rooms synthesize `"{room}:{index}"` at
+  bake time — and because [W-c]'s `RemovePlacement(PlacementId)` op and
+  netcode N3.1's SimId vocabulary both need them; retrofitting ids under
+  saved deltas later would be far more expensive. Consumers (SimView
+  identity, replay, fuzz traces, deterministic spawn) adopt lazily.
+- **✅ RULED [W-e] — unknown placement = HARD ERROR at room-load
+  lowering** (panic naming the schema kind, the placement id, the room,
+  AND the list of registered kinds — the catalog-validator precedent:
+  fail at the same startup gate a broken catalog reference hits). No
+  dev/shipped mode split — Jon: clarity > perfect dev policy.
 
-**OPUS-SAFE once W-a/W-b are ruled:** the type moves (`KinematicPath`→
-world is already ruled and can proceed independently), the schema
-relocations, the dep-test (`ambition_world` names no runtime crate), the
-interpreter registration, and the room-load lowering wiring are mechanical
-opus work. W2 ("IR naming in place") depends on the [W-a] payload shape;
-`encounter → world, characters` is a drawn arrow, so enemy/boss spawn
-lowering can live in the encounter/content interpreter, not the IR.
-
-**⚠️ Jon's directive (2026-07-06): fable may run out of budget before
-ruling all of W-a…W-e. If so, these fall to opus — break them down
-carefully against this ruling + architecture §4b; do NOT invent doctrine
-that contradicts the pure-world-IR + Tier-0-schema decision above.**
+**OPUS-SAFE — the W execution queue (strict order; each step compiles +
+commits alone):**
+1. **W-a moves:** mint `ambition_entity_catalog::placements`; move
+   `KinematicPath`/`KinematicPathMode` + `CharacterBrain` + `BossBrain` +
+   `HazardRespawn` (renamed) + `DamageVolume`/`Damage`/`DamageKind`/
+   `DamageTeam`; repoint every consumer (grep-driven); delete the old
+   definitions. NO shims.
+2. **W2 payload:** `RuntimeEntityEmission` → `RoomEmission` carrying
+   `Vec<PlacementRecord>` (the [W-b] shape) + the S3 `chains` channel +
+   `SpatialSource` provenance + plain-serde derives + the `ron-room`
+   loader (card above, unchanged).
+3. **Lowering registry:** land `PlacementSchema`/`PlacementKind`/
+   `LoweringCtx`/the registry + the [W-e] hard error; convert ONE
+   hardcoded spawn branch (the falling-sand spout is the canonical first,
+   or hazards if the spout is blocked) as the proof; convert the rest
+   branch-by-branch.
+4. **W3 cut** (card above): `ambition_world` + `ambition_ldtk_map`;
+   `detect_room_transition_system` moves to the sim heart (it is a
+   sim-tier system, W1 finding); dep-tests (`ambition_world` names zero
+   runtime crates AND zero LDtk).
+5. **W4 ratchet + ADR 0021** (card above).
 
 ### E1a–E1e — persistence → audio → dialog → dev_tools → menu — [opus; E1a fable-specced]
 

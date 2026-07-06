@@ -21,6 +21,12 @@ ambition_sim_view = { path = "../ambition_sim_view", features = ["input"] }
 # The combat-phase chain's effect seam (`EffectRequest`/`apply_effects`) —
 # sim-side effect vocabulary, not presentation.
 ambition_vfx = { path = "../ambition_vfx" }
+# The per-frame player/room schedule wiring (E5 step 5): the world-clock
+# refresh, the input-set vocabulary, and the body-cluster component types the
+# player frame registers as required components.
+ambition_time = { path = "../ambition_time" }
+ambition_input = { path = "../ambition_input" }
+ambition_engine_core = { path = "../ambition_engine_core" }
 bevy = { version = "0.18.1", default-features = false, features = [
     # add_headless_foundation: asset/image registries + states for a
     # windowless engine app (bevy_ecs_ldtk touches Image handles).

@@ -24,24 +24,33 @@
 //! view-sync, room reset, traces, affordances, and the combat-phase chain
 //! ([`CombatSchedulePlugin`]) with its content extension slots.
 //!
-//! ## What is deliberately NOT here (yet)
+//! ## What is deliberately NOT here
 //!
-//! Still assembled app-side because they either wrap app-local systems or
-//! carry presentation deps: the sandbox resource plugin (blocked on the E4
-//! vfx-message inversion), the progression schedule (needs its engine/content
-//! split), the per-frame player input/simulation/room-transition registrations
-//! and portal schedule wiring (destined for [the windowed host],
-//! `ambition_host`). Those tighten as the E-track carves land — "assemble with
-//! what exists; tighten as carves land". The group grows; its consumers don't
-//! change.
+//! The app-LOCAL residue the E5 carve deliberately left behind: the Ambition
+//! reset/replay consumers, the home-reset policy + player presentation sync,
+//! the room-transition APPLY composer (`load_room` + render spawns), and the
+//! catalog/roster content installs. Each pins itself into a documented
+//! ordering SLOT between engine systems (see `player_schedule` /
+//! `room_schedule` module docs).
 //!
 //! Presentation, audio, windowing, dev tools, and CONTENT are never in this
-//! group — they are the game's / host's responsibility.
+//! group — [the windowed host] (`ambition_host`) and the game's app own those.
 
 use bevy::app::{App, Plugin, PluginGroup, PluginGroupBuilder};
 
 mod combat_schedule;
+mod player_schedule;
+#[cfg(feature = "portal")]
+mod portal_schedule;
+mod progression_schedule;
+mod room_schedule;
+
 pub use combat_schedule::CombatSchedulePlugin;
+pub use player_schedule::PlayerSchedulePlugin;
+#[cfg(feature = "portal")]
+pub use portal_schedule::PortalSchedulePlugin;
+pub use progression_schedule::ProgressionSchedulePlugin;
+pub use room_schedule::RoomTransitionSchedulePlugin;
 
 /// The canonical simulation-phase SETS + the engine resources every consumer
 /// needs before any `.in_set(SandboxSet::…)` registration or host override.
@@ -115,7 +124,23 @@ impl PluginGroup for PlatformerEnginePlugins {
             .add(ambition_sim_view::camera_snapshot::CameraObservationPlugin)
             // The combat-phase chain + the content extension slots
             // (CombatSet::ContentSpecials / ContentFlavor).
-            .add(CombatSchedulePlugin);
+            .add(CombatSchedulePlugin)
+            // The per-frame player lifecycle (E5 step 5): time control →
+            // input → controlled subject → brains → possession → hit events
+            // → presentation write-back. Headless/RL runs all of it.
+            .add(PlayerSchedulePlugin)
+            // Room-transition detection + per-room feature reset; the host's
+            // transition APPLY (the composition tier) slots in between.
+            .add(RoomTransitionSchedulePlugin)
+            // The engine progression chain (boss encounters, save mirrors,
+            // quest pump, room metadata/music, portal phases) + its content
+            // slots.
+            .add(ProgressionSchedulePlugin);
+        #[cfg(feature = "portal")]
+        let builder = builder
+            // PortalPlugin + the portal-set schedule placement (the three
+            // ordering landmines documented on the plugin).
+            .add(PortalSchedulePlugin);
         builder
     }
 }

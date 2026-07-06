@@ -42,8 +42,8 @@ visible = [
     "kaleidoscope_menu",
 ]
 
-portal = ["ambition_gameplay_core/portal", "ambition_content/portal"]
-portal_render = ["portal", "ambition_gameplay_core/portal_render", "ambition_render/portal_render", "ambition_content/portal_render"]
+portal = ["ambition_gameplay_core/portal", "ambition_content/portal", "ambition_runtime/portal", "ambition_host/portal"]
+portal_render = ["portal", "ambition_gameplay_core/portal_render", "ambition_render/portal_render", "ambition_content/portal_render", "ambition_host/portal_render"]
 portal_ldtk = ["portal", "ambition_gameplay_core/portal_ldtk"]
 
 desktop_platform = ["ambition_gameplay_core/desktop_platform"]
@@ -92,7 +92,7 @@ ldtk_runtime = ["ambition_gameplay_core/ldtk_runtime", "dep:bevy_ecs_ldtk", "dep
 audio = ["ambition_gameplay_core/audio", "ambition_content/audio", "dep:bevy_kira_audio"]
 ui = ["ambition_gameplay_core/ui", "ambition_content/ui", "dep:bevy_material_ui", "dep:bevy_yarnspinner"]
 physics_debris = ["ambition_gameplay_core/physics_debris"]
-input = ["ambition_gameplay_core/input", "ambition_render/input", "dep:leafwing-input-manager"]
+input = ["ambition_gameplay_core/input", "ambition_render/input", "ambition_host/input", "dep:leafwing-input-manager"]
 mobile_touch = ["input", "ambition_gameplay_core/mobile_touch", "ambition_touch_input/mobile_touch"]
 falling_sand = ["ambition_content/falling_sand"]
 bevy_ui_menu = ["ambition_gameplay_core/bevy_ui_menu"]
@@ -105,6 +105,8 @@ ambition_gameplay_core = { path = "../ambition_gameplay_core", default-features 
 # The engine face (E5): the app assembles its sim from `PlatformerEnginePlugins`
 # — the same group a demo app uses — plus its app-local host wiring.
 ambition_runtime = { path = "../ambition_runtime" }
+# The windowed-host face (E5 step 5): leafwing bindings + camera cluster.
+ambition_host = { path = "../ambition_host" }
 ambition_sim_view = { path = "../ambition_sim_view", features = ["input"] }
 ambition_content = { path = "../ambition_content" }
 ambition_render = { path = "../ambition_render" }

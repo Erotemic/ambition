@@ -180,13 +180,14 @@ violation gets a row here + a slice in the right doc.)*
 
 # EXECUTION LOG (append newest last)
 
-**⚠ Pre-existing RED found 2026-07-06 (fable, during CC5 parity runs — fails
-at `6e48e598` with a clean tree, unrelated to the CC work):**
+**✅ RED FIXED 2026-07-06 (opus):**
 `ambition_content bosses::gnu_ton::tests::arena_spawns_the_adr0020_linked_pair`
-— the reauthored arena emits 0 mount links (expects 1 rider→mount). Likely
-fallout of a recent content/data commit (`68943d28` "Commit loose data" or the
-falling-sand room edit touching shared LDtk). Needs an [opus] look: re-run
-`world validate`, check the gnu arena's mount-link entity fields.
+— root cause was `68943d28` "Commit loose data": the sandbox.ldtk re-authoring
+nulled the rider `BossSpawn-6837`'s `mounted_on` EntityRef (iids preserved,
+value → null), so the arena emitted 0 mount links. Restored the EntityRef quad
+(→ the still-present `EnemySpawn-6836` giant mount) via `entity set-field`
+(tool, not hand-edit); the repair pass reproduces G4's exact `realEditorValues`
+shape. gnu_ton module 11/11 green; the ADR-0020 linked pair authors again.
 
 ## 2026-07-05 (fable) — Sanic-in-normal-rooms + wear semantics (`0189338b`)
 Blocks are surfaces (SurfaceRef::Block, boundary chains, interior-face

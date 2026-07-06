@@ -83,8 +83,12 @@ pub use components::{
     EncounterRewardChest, EnemyActorBundle, FallingChest, FeatureBaseBundle, FeatureId,
     FeatureLifecycleBundle, FeatureName, FeatureRenderedBundle, MeleeSwing, Opened, PersistKey,
     PickupBundle, PickupFeature, PogoPolicy, PogoTargetContributor, PogoTargetVolumes, PostBossNpc,
-    RespawnTimer, RuntimeStagedActor, SandboxSolidContributor, StandTimer, SwitchFeature, SwitchOn,
+    RespawnTimer, RuntimeStagedActor, SandboxSolidContributor, StandTimer,
 };
+// Switch machinery + the quest-advance message live with their owning domains
+// (E2): the hub keeps the names importable until it dissolves (E7/E8).
+pub use crate::encounter::{SwitchActivated, SwitchFeature, SwitchOn};
+pub use crate::quest::QuestAdvanceRequested;
 pub use ecs::actor_clusters::{
     ActorClusterSeed, ActorConfig, ActorMotionPath, ActorMut, ActorStatus, BodyKinematics,
 };
@@ -127,8 +131,7 @@ pub use enemies::{
 pub use events::{
     ActorStimulus, FeatureCombatTuning, FeatureView, FeatureVisualKind, GameplayBanner,
     GameplayBannerRequested, GameplaySfxRequested, HitEvent, HitKnockback, HitMode, HitSource,
-    HitTarget, NpcDialogueRequest, QuestAdvanceRequested, ResetRoomFeaturesEvent, RoomResetReason,
-    SetFlagRequested, SwitchActivated,
+    HitTarget, NpcDialogueRequest, ResetRoomFeaturesEvent, RoomResetReason, SetFlagRequested,
 };
 pub use hazards::HazardRuntime;
 pub use npcs::{NPC_PATROL_SPEED, NPC_TALK_RADIUS};

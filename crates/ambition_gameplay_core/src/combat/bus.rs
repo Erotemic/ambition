@@ -5,9 +5,9 @@
 //! audio cues. Replaces the former single `GameplayEffect` enum bus; schedule
 //! composition stays content-side, not here.
 
-use crate::features::events::{
-    GameplaySfxRequested, QuestAdvanceRequested, SetFlagRequested, SwitchActivated,
-};
+use crate::encounter::SwitchActivated;
+use crate::features::events::{GameplaySfxRequested, SetFlagRequested};
+use crate::quest::QuestAdvanceRequested;
 use bevy::prelude::{MessageReader, MessageWriter, ResMut};
 
 /// Save writes first so quest conditions that read flags see them this same

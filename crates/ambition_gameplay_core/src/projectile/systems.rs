@@ -620,9 +620,7 @@ pub fn step_projectiles(
                 damage: game.damage.max(1),
                 // Player shots always carry the kind component; default is
                 // unreachable (kept total for the engine-generic body).
-                source: HitSource::PlayerProjectile {
-                    kind: kind.unwrap_or(crate::projectile::ProjectileKind::Fireball),
-                },
+                source: HitSource::PlayerProjectile,
                 attacker: owner_entity,
                 target: HitTarget::Volume,
                 mode: HitMode::Knockback,

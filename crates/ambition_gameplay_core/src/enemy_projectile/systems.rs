@@ -155,7 +155,7 @@ mod tests {
         assert!(
             cap.0
                 .iter()
-                .any(|e| matches!(e.source, HitSource::PlayerProjectile { .. })),
+                .any(|e| matches!(e.source, HitSource::PlayerProjectile)),
             "the player-faction shot lands a PlayerProjectile hit on the enemy"
         );
         assert!(

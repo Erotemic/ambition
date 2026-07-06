@@ -564,9 +564,7 @@ fn emit_fireball_explosion(
     feature_damage.write(crate::features::HitEvent {
         volume: ae::Aabb::new(pos, Vec2::splat(half)).into(),
         damage,
-        source: crate::features::HitSource::PlayerProjectile {
-            kind: crate::projectile::ProjectileKind::Fireball,
-        },
+        source: crate::features::HitSource::PlayerProjectile,
         attacker,
         target: crate::features::HitTarget::Volume,
         mode: crate::features::HitMode::Knockback,
@@ -860,9 +858,7 @@ pub fn held_projectile_step(
         let hit_event = crate::features::HitEvent {
             volume: HeldProjectile::contact_aabb(pos).into(),
             damage: proj.damage,
-            source: crate::features::HitSource::PlayerProjectile {
-                kind: crate::projectile::ProjectileKind::Fireball,
-            },
+            source: crate::features::HitSource::PlayerProjectile,
             attacker,
             target: crate::features::HitTarget::Volume,
             mode: crate::features::HitMode::Knockback,

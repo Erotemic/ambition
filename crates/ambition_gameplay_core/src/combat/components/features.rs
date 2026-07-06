@@ -199,25 +199,5 @@ pub struct PogoTargetVolumes {
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PogoTargetContributor;
 
-/// ECS-native switch.
-///
-/// Carries a typed `SwitchActivation` (private to `crate::encounter`)
-/// instead of the raw `"switch:<id>:<action>:<target>"` wire string. The parse happens
-/// once at LDtk-to-ECS spawn time in
-/// `crate::features::ecs::spawn_room_feature_entity`; the
-/// activation-queue / switch-index / interact-emit paths all read
-/// `feature.activation` directly.
-#[derive(Component, Clone, Debug, PartialEq, Eq)]
-pub struct SwitchFeature {
-    pub activation: crate::encounter::SwitchActivation,
-}
-
-impl SwitchFeature {
-    pub fn new(activation: crate::encounter::SwitchActivation) -> Self {
-        Self { activation }
-    }
-}
-
-/// Live switch state used by rendering and encounter reset logic.
-#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub struct SwitchOn(pub bool);
+// `SwitchFeature`/`SwitchOn` moved to `crate::encounter::switches` (E2):
+// they carry encounter vocabulary (`SwitchActivation`).

@@ -391,3 +391,9 @@ mod tests {
         assert!(!quest.start());
     }
 }
+
+/// Feed a structured quest event into `QuestRegistry`. (Moved here from the
+/// combat event roster at E2 — quest owns its advance vocabulary; the writers
+/// are the interact/bus/pickup glue systems.)
+#[derive(bevy::prelude::Message, Clone, Debug, PartialEq)]
+pub struct QuestAdvanceRequested(pub QuestAdvanceEvent);

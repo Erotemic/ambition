@@ -138,3 +138,33 @@ mod switch_index_tests {
         assert_eq!(idx.switch_id_for_encounter("missing"), None);
     }
 }
+
+use ambition_engine_core as ae;
+use bevy::prelude::{Component, Message};
+
+/// A live Switch interactable (parsed once at LDtk spawn; see
+/// `spawn_room_feature_entity`). Moved here from the combat components at E2
+/// — the payload is encounter vocabulary.
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
+pub struct SwitchFeature {
+    pub activation: SwitchActivation,
+}
+
+impl SwitchFeature {
+    pub fn new(activation: SwitchActivation) -> Self {
+        Self { activation }
+    }
+}
+
+/// Live switch state used by rendering and encounter reset logic.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct SwitchOn(pub bool);
+
+/// A Switch interactable was activated. Carries the parsed
+/// [`SwitchActivation`] directly — the `switch:<id>:<action>:<target>` wire
+/// string lives only at the engine `InteractionKind::Custom` boundary.
+#[derive(Message, Clone, Debug, PartialEq)]
+pub struct SwitchActivated {
+    pub activation: SwitchActivation,
+    pub pos: ae::Vec2,
+}

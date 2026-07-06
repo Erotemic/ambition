@@ -196,19 +196,11 @@ pub struct SetFlagRequested {
     pub on: bool,
 }
 
-/// Feed a structured quest event into `QuestRegistry`.
-#[derive(Message, Clone, Debug, PartialEq)]
-pub struct QuestAdvanceRequested(pub crate::quest::QuestAdvanceEvent);
+// `QuestAdvanceRequested` moved to `crate::quest` (E2): quest owns its
+// advance vocabulary; combat must not name it.
 
-/// A Switch interactable was activated. Carries the parsed
-/// `SwitchActivation` (private to `crate::encounter`) directly — the
-/// `switch:<id>:<action>:<target>` wire string lives only at the engine
-/// `InteractionKind::Custom` boundary and is parsed once at LDtk spawn time.
-#[derive(Message, Clone, Debug, PartialEq)]
-pub struct SwitchActivated {
-    pub activation: crate::encounter::SwitchActivation,
-    pub pos: ae::Vec2,
-}
+// `SwitchActivated` moved to `crate::encounter::switches` (E2): it names
+// encounter vocabulary; combat must not.
 
 /// Standalone audio-only gameplay effect. Use typed presentation vectors for
 /// sounds that also imply VFX/progression, and this message for bare audio.
@@ -322,9 +314,7 @@ pub enum HitSource {
     PlayerSlash { knock_x: f32 },
     /// Player projectile (Fireball / Hadouken). No knockback today;
     /// the projectile's own velocity carries the visual feedback.
-    PlayerProjectile {
-        kind: crate::projectile::ProjectileKind,
-    },
+    PlayerProjectile,
     /// Pogo bounce on a breakable orb. The carrying `HitEvent`'s
     /// `volume` field is the orb's authoritative AABB; the consumer
     /// matches it against `pogo_refresh` breakables via
@@ -364,7 +354,7 @@ impl HitSource {
         matches!(
             self,
             HitSource::PlayerSlash { .. }
-                | HitSource::PlayerProjectile { .. }
+                | HitSource::PlayerProjectile
                 | HitSource::PogoBounce
                 | HitSource::EnemyChargeCrash
         )

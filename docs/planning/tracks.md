@@ -77,7 +77,7 @@ fable card. Ranked by how much they gate a fable task.
 |---|---|---|---|
 | Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — E5 first slice `3c70d827`; **E5-finish steps 1–4 LANDED 2026-07-06** (sets+resources+combat schedule into the group; shared headless foundation; cut-rope de-woven via generic `RoomReplayRequested` + labeled slots; E4-prep: fx facade imports repointed, CameraViewState + cut-rope resources re-owned) | E5 step 5 (mint [the windowed host]) + step 6 (smoke shell) [opus]; W/E1/E2/E3/E6/E7/E8 open |
 | Decomposition D-B/D-C | same | queued behind D-A | mode-scope seam can land early (demos want it) |
-| Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | CC1 partial + **CC2 first pass LANDED 2026-07-06** — `cast::aabb_path_contacts` swept trigger primitive + hazards converted (tunneling test); classification audit in the doc for fable review | CC2 completion (auto-coins/doors/regions/ledge classify+convert) [opus]; CC3 fuzz rig [opus]; CC5 `PortalFrame` [fable] |
+| Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | **CC1 COMPLETE + CC5 LANDED (fable, 2026-07-06)** — engine_core::frame vocabulary + cast family registry real in code (ray tier moved down, portal-aware cast in `cast`, wrapper in portal crate), parity suites green; CC2 first pass landed earlier same day | CC2 completion (§3.3 table) [opus]; CC3 fuzz rig (§6.1 oracle) [opus]; CC6 moving portals (§5-P2 spec) [opus] |
 | Combat stack | [engine/combat-model.md](engine/combat-model.md) | CM1+CM2+CM3+CM7 LANDED 2026-07-06 (knockback growth+weight+DeathPolicy; launch DI; smash-charge; frame-data table — all parity-pinned) → **CM4 (fable) UNBLOCKED**; CM7 feeds FB2 | CM5 per-move sfx/vfx [opus]; CM4 cancel tables [fable]; CM6 |
 | Netcode ladder | [engine/netcode.md](engine/netcode.md) | NEW | N0.2 input-stream type; N0.3 lint set [opus] |
 | Fighter brain | [engine/fighter-brain.md](engine/fighter-brain.md) | NEW | FB1 view audit [opus] (CM7 first) |
@@ -175,6 +175,14 @@ violation gets a row here + a slice in the right doc.)*
 ---
 
 # EXECUTION LOG (append newest last)
+
+**⚠ Pre-existing RED found 2026-07-06 (fable, during CC5 parity runs — fails
+at `6e48e598` with a clean tree, unrelated to the CC work):**
+`ambition_content bosses::gnu_ton::tests::arena_spawns_the_adr0020_linked_pair`
+— the reauthored arena emits 0 mount links (expects 1 rider→mount). Likely
+fallout of a recent content/data commit (`68943d28` "Commit loose data" or the
+falling-sand room edit touching shared LDtk). Needs an [opus] look: re-run
+`world validate`, check the gnu arena's mount-link entity fields.
 
 ## 2026-07-05 (fable) — Sanic-in-normal-rooms + wear semantics (`0189338b`)
 Blocks are surfaces (SurfaceRef::Block, boundary chains, interior-face

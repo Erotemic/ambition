@@ -510,11 +510,11 @@ explicitly (portal-side policy), which is what it always meant.
 
 | # | Slice | Grade |
 |---|---|---|
-| CC1 | ⏳ PARTIAL (opus, 2026-07-06): `cast` minted, `body_sweep` + re-exports, 236/236 green. **Completion now RULED (§3.4): (a) circle stays kernel-private; (b) move `ray_aabb`/`raycast_solids`/`SolidWorldQuery` down into `cast`; (c) portal cast rides CC5.** (b) is mechanical | [opus — execute §3.4(b); (c) after CC5] |
+| CC1 | ✅ **COMPLETE (fable, 2026-07-06).** All three §3.4 rulings executed: (a) circle stays kernel-private (documented in cast's header); (b) `ray_aabb`/`raycast_solids`/`SolidWorldQuery` moved down into `cast`, `world_query.rs` deleted, consumers repointed; (c) `cast::ray_through_apertures` landed with CC5 — §3.5 segment semantics (incl. the flush-mount tie-break: `t == solid_t` → aperture wins), `raycast_through_portals` is now the gameplay wrapper supplying aperture pairs + the game-wide convention | done |
 | CC2 | ⏳ FIRST PASS (opus, 2026-07-06): `aabb_path_contacts` + hazards converted + tunneling test. **Completion = the §3.3 table:** auto-collect → ANY-HIT; mid-room Doors → FIRST-TOI; water/climb thin-region validator rule; ledge audit; the `AMBITION_REVIEW(discrete_ok)` markers; migrate hazard delta onto the §3.1 sample when it mints | [opus — the table is the checklist] |
 | CC3 | Fuzz invariant rig + CI wiring — the §6.1 oracle verbatim, §6.2 traces, seeded-reproducible | [opus — the oracle is written; no design freedom] |
 | CC4 | Broadphase grid for chains+blocks casts (profile first) | [opus; NOT a CC1–CC3 precondition] |
-| CC5 | `PortalFrame`/`PortalAperture` split + parity-pinned migration (§7) | [fable — IN EXECUTION 2026-07-06] |
+| CC5 | ✅ **LANDED (fable, 2026-07-06).** `engine_core::frame` minted (`PortalFrame {origin, normal, velocity}`, tangent DERIVED, `PortalAperture {frame, half_length}`, explicit `MapConvention`, `map_vec/map_point/map_velocity` incl. Galilean composition); platformer math delegates to the ONE implementation; `pieces::PortalFrame` REPLACED (no shim) — frame-only consumers take `&PortalFrame`, opening-aware take `&PortalAperture` (`PlacedPortal::{frame, aperture}`). Full parity suite green (portal 46, presentation 45, gameplay 1167, app rl_sim). CC6 may now read non-zero `velocity` | done |
 | CC6 | Moving portals: host-attached frames, §5-P2 update order + edge-case rulings, relative swept trigger, `map_velocity` composition, C4/portal conjugation tests | [opus — spec complete] |
 | CC7 | P3a angled math/authoring → then P3b straddle-pieces + P4 dynamic straddle (post-demo, P3b gated on S3) | [opus] |
 | CC8 | AABB slope vocabulary (S2 rules, pinned) — only when a demo/content demands it | [opus] |

@@ -7,7 +7,6 @@
 use bevy::prelude::*;
 
 use crate::pieces::{self as pp, PortalFrame};
-use ae::cast::{ray_aabb, raycast_solids};
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_platformer_primitives::transit::rotate_velocity_between_normals as portal_transform_velocity;
 
@@ -17,11 +16,16 @@ use super::tuning::PortalTuning;
 use super::types::{find_portal, PlacedPortal};
 
 /// Recursive, portal-aware raycast: cast from `origin` along `dir`, and if the
-/// ray crosses a portal face (entering from its front) before hitting a solid,
-/// transform the remaining ray through the linked portal and continue — so line
-/// of sight, beams, grapples, and aim traces "see through" a portal pair. The
-/// returned `(hit, normal)` is in the chart where the ray finally lands. Bounded
-/// by `max_depth` so two portals facing each other can't loop forever.
+/// ray crosses a portal aperture (entering from its front, within the opening)
+/// before hitting a solid, transform the remaining ray through the linked
+/// portal and continue — so line of sight, beams, grapples, and aim traces
+/// "see through" a portal pair. The returned `(hit, normal)` is in the chart
+/// where the ray finally lands. Bounded by `max_depth` so two portals facing
+/// each other can't loop forever.
+///
+/// THE GAMEPLAY WRAPPER (CC5): the traversal itself is engine geometry —
+/// [`ae::cast::ray_through_apertures`] — this function supplies the aperture
+/// pairs from the placed portals and the game-wide map convention.
 pub fn raycast_through_portals(
     world: &ae::World,
     portals: &[PlacedPortal],
@@ -31,50 +35,28 @@ pub fn raycast_through_portals(
     include_one_way: bool,
     max_depth: u32,
 ) -> Option<(Vec2, Vec2)> {
-    let mut origin = origin;
-    let mut dir = dir.normalize_or_zero();
-    if dir == Vec2::ZERO {
-        return None;
-    }
-    let mut budget = max_dist;
-    for _ in 0..=max_depth {
-        let solid = raycast_solids(world, origin, dir, budget, include_one_way);
-        let solid_t = solid
-            .map(|(hit, _)| (hit - origin).length())
-            .unwrap_or(f32::INFINITY);
-        // Nearest portal face the ray ENTERS (front side) before that solid —
-        // across ALL placed pairs, each portal redirecting to its partner.
-        let mut nearest: Option<(f32, PlacedPortal, PlacedPortal)> = None;
-        for enter in portals {
-            let Some(exit) = find_portal(portals, enter.channel.partner()) else {
-                continue;
-            };
-            // Only enter through the front of the face (moving into it).
-            if dir.dot(enter.normal) >= 0.0 {
-                continue;
-            }
-            if let Some((t, _)) = ray_aabb(origin, dir, ae::Aabb::new(enter.pos, enter.half_extent))
-            {
-                if t <= budget && t < solid_t && nearest.map_or(true, |(bt, _, _)| t < bt) {
-                    nearest = Some((t, *enter, exit));
-                }
-            }
-        }
-        match nearest {
-            Some((t, enter, exit)) => {
-                let entry = origin + dir * t;
-                // Emerge just out of the exit face, redirected through the pair.
-                origin = pp::map_point(entry, &enter.frame(), &exit.frame()) + exit.normal;
-                dir = pp::portal_map_vec(dir, enter.normal, exit.normal).normalize_or_zero();
-                budget -= t;
-                if budget <= 0.0 || dir == Vec2::ZERO {
-                    return None;
-                }
-            }
-            None => return solid,
-        }
-    }
-    None
+    let pairs: Vec<(ae::frame::PortalAperture, ae::frame::PortalAperture)> = portals
+        .iter()
+        .filter_map(|enter| {
+            let exit = find_portal(portals, enter.channel.partner())?;
+            Some((enter.aperture(), exit.aperture()))
+        })
+        .collect();
+    let convention = if pp::portal_map_rotation() {
+        ae::frame::MapConvention::Rotation
+    } else {
+        ae::frame::MapConvention::Reflection
+    };
+    ae::cast::ray_through_apertures(
+        world,
+        &pairs,
+        origin,
+        dir,
+        max_dist,
+        include_one_way,
+        max_depth,
+        convention,
+    )
 }
 
 /// Portal-aware raycast using the editable portal recursion budget.

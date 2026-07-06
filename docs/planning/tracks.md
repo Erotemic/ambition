@@ -77,12 +77,13 @@ entry.
 fable-hard?"):** NO item is design-hard anymore; risk now concentrates in
 EXECUTION at exactly two places, both mitigated by sequencing (the D2
 rule: cycles die in place first, atomic moves second):
-1. **W2's `RoomEmission`/`PlacementRecord` payload reshaping** — the one
-   commit whose shape propagates into every converter. Sequence: W-queue
-   step 1 + the E2 in-place verdicts FIRST (small compiling commits),
-   then W2, **then pause for ONE review of the W2 commit (Jon or any
-   remaining fable budget — a review, not a work session)** before W3/E2
-   atomic moves build on it.
+1. ✅ **W2's `RoomEmission`/`PlacementRecord` payload reshaping — EXECUTED
+   BY FABLE DIRECTLY (2026-07-07, commits W2.1–W2.4)**, which satisfies
+   the review clause more strongly than a review would (the clause
+   existed to catch shape errors in an opus execution). See the amended
+   W2 card in decomposition.md — one ruling changed in execution:
+   `GeoSource` (§3.6) is the provenance enum; no `SpatialSource` was
+   minted. W3 may now build on the landed shape.
 2. **E2's atomic move of `combat/`** — near-mechanical once its in-place
    verdict commits land; do not attempt it before them.
 Everything else on the carve list is compiler-driven. Estimated total:
@@ -180,7 +181,7 @@ fable card. Ranked by how much they gate a fable task.
 
 | Track | Doc | Status | Next |
 |---|---|---|---|
-| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — **E5-finish COMPLETE (fable 2026-07-06 night): step 5 executed (amended: shared sim wiring → `ambition_runtime` per-domain plugins; `ambition_host` = leafwing bindings + camera cluster) + step 6 executed (SimCoreResourcesPlugin split + the demo smoke shell PASSES) — THE DEMO GATE IS OPEN**; W1 STATE-inversion (opus); **W-a…W-e RULED — the 5-step OPUS-SAFE W queue is in decomposition.md**; **E2 back-edges PRE-CLASSIFIED (fable) — verdict list in the E2 card**; **W-queue step 1 DONE + E2 IN-PLACE VERDICTS DONE (opus 2026-07-06 night): entity_catalog::placements + engine_core::kinematic_path minted; all 7 E2 back-edge verdicts landed in-place (CombatTuning minted, banner→message, CenteredAabb/HitEvent/overlay repointed, FeatureSimEntity→lifecycle) — combat's atomic move is now near-mechanical** | **W queue steps 2–5 [opus]** (W2 = the ONE review-point); E2 atomic move (reserved); E1a next crate-mint; E3/E6/E7/E8 open |
+| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — **E5-finish COMPLETE (fable 2026-07-06 night): step 5 executed (amended: shared sim wiring → `ambition_runtime` per-domain plugins; `ambition_host` = leafwing bindings + camera cluster) + step 6 executed (SimCoreResourcesPlugin split + the demo smoke shell PASSES) — THE DEMO GATE IS OPEN**; W1 STATE-inversion (opus); **W-a…W-e RULED — the 5-step OPUS-SAFE W queue is in decomposition.md**; **E2 back-edges PRE-CLASSIFIED (fable) — verdict list in the E2 card**; **W-queue step 1 DONE + E2 IN-PLACE VERDICTS DONE (opus 2026-07-06 night): entity_catalog::placements + engine_core::kinematic_path minted; all 7 E2 back-edge verdicts landed in-place (CombatTuning minted, banner→message, CenteredAabb/HitEvent/overlay repointed, FeatureSimEntity→lifecycle) — combat's atomic move is now near-mechanical** | **W2 ✅ EXECUTED (fable 2026-07-07 — see the log; GeoSource subsumed SpatialSource)**; W queue steps 3–5 [opus]; E2 atomic move IN PROGRESS (fable); E1a next crate-mint; E3/E6/E7/E8 open |
 | Decomposition D-B/D-C | same | queued behind D-A | mode-scope seam can land early (demos want it) |
 | Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | **CC1 COMPLETE + CC5 LANDED (fable) + CC2 COMPLETE + §3.6 GeoId/GeoFaceRef SUBSTRATE MINTED (opus, 2026-07-06)** — SweepSample §3.1 PARKED (decision brief above); GeoId types + Block.id (Anon default, byte-parity) real in code, first consumer = CC6 — engine_core::frame vocabulary + cast family registry real in code; CC2 first pass (hazards swept) + completion (§3.3 every reader classified: loading-zone Door/Walk/EdgeExit now swept via `transition_for_player`; water/climbable annotated discrete-OK + `thin_region_warnings` authoring validator; ledge audited; auto-collect N/A) parity suites green | CC3 fuzz rig (§6.1 oracle) [opus]; CC6 moving portals (§5-P2 spec) [opus] |
 | Combat stack | [engine/combat-model.md](engine/combat-model.md) | CM1 (incl. **launch_dir consumption, fable 2026-07-06 evening** `c695cd9c`)+CM2+CM3+CM7+CM4+CM5 LANDED — per-move presentation authored; smash axes complete (growth, DI, charge, cancel tables, fixed launch angles) | CM6 grab/throw/shield-stun (brings OnBlock) [opus, with SSB] |
@@ -943,3 +944,40 @@ phase's OWN integration segment, both endpoints captured INSIDE the kernel**
 **CC6 (moving portals) is now fully unblocked for opus** — both prerequisites
 (SweepSample §3.1 + GeoId §3.6) are in code; the relative swept trigger reads
 `sample` and the host ref is `GeoFaceRef`.
+
+## 2026-07-07 (fable, b) — W2 EXECUTED (the one review-point commit is IN, by fable's own hand)
+The reserved risky carve landed as four compiling commits (W2.1–W2.4);
+the risk-map review clause is satisfied by fable executing directly.
+- **W2.1** — serde across the engine IR spine (`World`/`Block`/chains/
+  water/climbable/GeoId family/`KinematicPath`/`CenteredAabb`; `Aabb` =
+  `Aabb2d` already serde under bevy_math's `serialize` feature). The
+  emission paths now assign REAL GeoIds: IntGrid → level-scoped
+  `TileLayer{"{level}/{layer}"}` + row-major merge ordinal (§3.6
+  determinism contract, pinned by test); entity-authored blocks →
+  `Placement(iid)`. Render's `"ldtk "` name-sniff is DEAD — provenance
+  reads `GeoSource::TileLayer`. **Ruling amendment: no `SpatialSource`
+  enum — `GeoSource` IS the provenance model; never mint a second one.**
+- **W2.2** — `RuntimeEntityEmission` → `RoomEmission` (pure rename; all
+  four reference sites internal to `ldtk_world`).
+- **W2.3** — the [W-b] record channel: Tier-0 `HazardSpec` (pinned
+  plain-pairs shape) + CLOSED `PlacementSchema{Hazard}` in
+  `entity_catalog::placements` (+ serde derives the module doc already
+  promised); `world::placements::PlacementRecord { id: PlacementId
+  ([W-d] REQUIRED), schema, aabb }`; `RoomEmission.placements` +
+  `RoomSpec.placements` routed like every family;
+  `convert_damage_volume` DUAL-emits (legacy hazard + record twin, same
+  iid — pinned by test). Records stay inert until W-queue step 3
+  registers the hazard interpreter and deletes the legacy channel.
+- **W2.4** — serde across the whole `RoomSpec` tree (interaction/combat/
+  portal payload types included; combat + portal grew serde deps);
+  `world::ron_room` — `RonRoomDoc { spec, links }` ⇄ RON +
+  `WorldManifest.ron_rooms` rows + `to_room_set` append. **THE IR
+  PROOF:** the sanic area round-trips serialize∘parse as a string fixed
+  point and re-enters a `RoomSet` with no LDtk in the second path; a
+  pure-generated `RoomSpec` bakes/reloads (the W4 "second backend"
+  seed).
+Gate: engine_core 260, gameplay_core lib 1179, content 64+5, interaction/
+combat/catalog/characters/portal suites 335, app `--features rl_sim`
+builds + full suite green (only the documented `unified_melee` feel-RED).
+**W-queue state: steps 1–2 ✅; step 3 (lowering registry) is the next opus
+slice; W3's cut now builds on a landed, fable-verified shape.**

@@ -451,13 +451,29 @@ Precondition: none (parallel-safe with E5). The four cards:
     `RoomEmission`/room-graph types (`rooms/room_graph.rs`,
     `ldtk_world/conversion/mod.rs`). `world/rooms/specs.rs` +
     `camera.rs` add doc-comment-only mentions (no compile dep).
-- **W2 — IR naming in place.** `RuntimeEntityEmission` →
-  `RoomEmission` (carrying the S3 `chains` channel); `SpatialSource`
-  provenance enum replaces render's `"ldtk "` name-sniff; plain-serde
-  derives on `World`/`Block`/`SurfaceChain`/AABB wrappers; the baked
-  `ron-room` manifest loader (serialized `RoomSpec` — generated rooms/
-  fixtures only; authored space stays backend files). The sanic area
-  gains its `ron-room` twin as the IR proof.
+- ✅ **W2 — IR naming in place — DONE (fable 2026-07-07, commits
+  W2.1–W2.4).** `RuntimeEntityEmission` → `RoomEmission`; plain-serde
+  across the ENTIRE `RoomSpec` tree (engine IR spine + rooms specs +
+  interaction/combat/portal payload types); the `ron-room` manifest
+  loader (`world::ron_room`, `WorldManifest.ron_rooms` rows,
+  `to_room_set` appends) with the sanic-area round-trip as the IR proof
+  plus a pure-generated bake/reload (the W4 "second backend" seed).
+  **AMENDMENT — no `SpatialSource` was minted:** the card predates the
+  §3.6 GeoId landing; `GeoSource` IS the provenance enum. Render's
+  `"ldtk "` name-sniff now reads `GeoSource::TileLayer`, and the
+  emission paths assign REAL ids (IntGrid → level-scoped
+  `TileLayer{"{level}/{layer}"}` + row-major merge ordinal;
+  entity-authored blocks → `Placement(iid)`). One identity model — do
+  not introduce a second provenance vocabulary later.
+  **Bonus (pulled from step 3 to make the [W-b] shape real):**
+  `PlacementRecord`/`PlacementSchema`/`HazardSpec` are IN CODE
+  (`world/placements.rs` + `entity_catalog::placements`), and
+  `convert_damage_volume` DUAL-emits (legacy hazard family + record
+  twin, same placement id). Step 3 still owns: `PlacementKind`, the
+  lowering registry + [W-e] hard error, branch conversion, and deleting
+  the legacy channel (inline `motion` hazards: lift the path into a
+  room-level `KinematicPath` at dissolution — see the `HazardSpec` doc
+  note).
 - **W3 — the two-crate cut.** `ambition_world` = IR + rooms graph +
   composition + converter REGISTRY (no LDtk dep anywhere in it —
   enforce with a dep test); `ambition_ldtk_map` = the LDtk backend
@@ -632,12 +648,14 @@ commits alone):**
    — verdict 3). Gate green: entity_catalog/engine_core/characters/combat/
    interaction unit suites, gameplay_core lib 1175, content 64, sim_view
    boundary, app build clean.
-2. **W2 payload:** `RuntimeEntityEmission` → `RoomEmission` carrying
-   `Vec<PlacementRecord>` (the [W-b] shape) + the S3 `chains` channel +
-   `SpatialSource` provenance + plain-serde derives + the `ron-room`
-   loader (card above, unchanged).
-3. **Lowering registry:** land `PlacementSchema`/`PlacementKind`/
-   `LoweringCtx`/the registry + the [W-e] hard error; convert ONE
+2. ✅ **W2 payload — DONE (fable 2026-07-07).** `RoomEmission` +
+   `Vec<PlacementRecord>` + serde IR + the `ron-room` loader landed; the
+   provenance ruling changed (`GeoSource`, no `SpatialSource`) — see the
+   amended W2 card above. `PlacementSchema`/`HazardSpec` came early
+   (they're the record's type); step 3 keeps the registry half.
+3. **Lowering registry:** land `PlacementKind`/`LoweringCtx`/the
+   registry (`PlacementSchema`/`HazardSpec` already landed with W2) +
+   the [W-e] hard error; convert ONE
    hardcoded spawn branch (the falling-sand spout is the canonical first,
    or hazards if the spout is blocked) as the proof; convert the rest
    branch-by-branch.

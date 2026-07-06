@@ -71,7 +71,7 @@ pub struct ActorSurfaceState {
 // `RespawnPolicy` moved to the combat kit (generic death/respawn
 // vocabulary); re-exported so `crate::features::RespawnPolicy`
 // paths keep working.
-pub use crate::combat::RespawnPolicy;
+pub use ambition_entity_catalog::placements::RespawnPolicy;
 
 /// Flag-id suffix used by `_dead_until_rest` flags. Constant so the
 /// kill hook, save sync, and `clear_dead_until_rest_flags` all
@@ -142,7 +142,7 @@ pub(crate) struct CharacterArchetypeSpec {
     /// author `OnRoomReenter`, mini-boss presences `OnRest`, training
     /// sandbags `InPlace(secs)`.
     #[serde(default)]
-    pub respawn: crate::combat::RespawnPolicy,
+    pub respawn: ambition_entity_catalog::placements::RespawnPolicy,
     /// Knockback weight (CM1): heavier bodies launch less under the growth term.
     /// Default `1.0` (the reference body) keeps every un-authored archetype at
     /// today's flat knockback.
@@ -310,8 +310,8 @@ mod vec2_option {
 /// Brain template choice keyed off `CharacterArchetype`. The definition is
 /// generic kit vocabulary — re-exported here so the archetype spec row
 /// (`brain_template`) and the spawn-site projection keep their existing
-/// path. See [`crate::combat::CharacterBrainTemplate`].
-pub(super) use crate::combat::CharacterBrainTemplate;
+/// path. See [`crate::features::ecs::actor_tuning::CharacterBrainTemplate`].
+pub(super) use crate::features::ecs::actor_tuning::CharacterBrainTemplate;
 
 /// Serde default for [`CharacterArchetypeSpec::attack_cooldown_mult`]: the
 /// multiplicative identity (most archetypes use the shared cooldown).
@@ -604,12 +604,12 @@ pub(crate) const ALL_BRAIN_KEYS: &[&str] = &[
 impl CharacterArchetypeSpec {
     /// Project the generic brain-construction inputs (kit vocabulary) the
     /// runtime brain rebuilds reconstruct without naming the roster.
-    pub(super) fn brain_spec(&self) -> crate::combat::CharacterBrainSpec {
-        crate::combat::CharacterBrainSpec {
+    pub(super) fn brain_spec(&self) -> crate::features::ecs::actor_tuning::CharacterBrainSpec {
+        crate::features::ecs::actor_tuning::CharacterBrainSpec {
             template: self.brain_template,
-            smash_hit_band: self
-                .smash_hit_band
-                .unwrap_or(crate::combat::CharacterBrainSpec::DEFAULT_SMASH_HIT_BAND),
+            smash_hit_band: self.smash_hit_band.unwrap_or(
+                crate::features::ecs::actor_tuning::CharacterBrainSpec::DEFAULT_SMASH_HIT_BAND,
+            ),
             smash_heavy: self.smash_heavy,
             smash_dash_to_close: self.smash_dash_to_close,
             smash_duelist: self.smash_duelist,
@@ -641,8 +641,8 @@ impl CharacterArchetypeSpec {
     }
 
     /// Project the per-frame runtime tuning carried on `ActorConfig.tuning`.
-    pub(crate) fn tuning(&self) -> crate::combat::ActorTuning {
-        crate::combat::ActorTuning {
+    pub(crate) fn tuning(&self) -> crate::features::ecs::actor_tuning::ActorTuning {
+        crate::features::ecs::actor_tuning::ActorTuning {
             // Resolved at roster-build time from the archetype hierarchy
             // (BASELINE <- inherits-chain <- this row's `movement` patch).
             movement: self.movement_resolved,
@@ -963,7 +963,10 @@ mod capability_tests {
         let infinite = crate::features::enemies::test_spec("sandbag_infinite");
         assert!(infinite.never_dies);
         assert!(
-            !matches!(infinite.respawn, crate::combat::RespawnPolicy::InPlace(_)),
+            !matches!(
+                infinite.respawn,
+                ambition_entity_catalog::placements::RespawnPolicy::InPlace(_)
+            ),
             "infinite sandbag never dies; it needs no revive timer"
         );
 
@@ -971,7 +974,7 @@ mod capability_tests {
         assert!(!finite.never_dies);
         assert_eq!(
             finite.tuning().respawn,
-            crate::combat::RespawnPolicy::InPlace(0.85),
+            ambition_entity_catalog::placements::RespawnPolicy::InPlace(0.85),
             "finite sandbag revives in place (the InPlace arm of ADR 0022)"
         );
 

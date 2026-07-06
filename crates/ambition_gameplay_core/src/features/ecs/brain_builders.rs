@@ -10,7 +10,7 @@ use super::super::enemies::CharacterArchetypeSpec;
 use super::actor_clusters::ActorConfig;
 use super::variation::{five_f32s_from_seed, seed_from_id};
 use super::{CombatKit, HeldItem};
-use crate::combat::{ActorTuning, CharacterBrainSpec, CharacterBrainTemplate};
+use crate::features::ecs::actor_tuning::{ActorTuning, CharacterBrainSpec, CharacterBrainTemplate};
 use ambition_characters::brain::{
     ActionSet, Brain, ChargeCrashCfg, ChargeCrashState, MeleeBruteCfg, MeleeBruteState,
     SkirmisherCfg, SkirmisherState, SmashCfg, SmashState, SniperCfg, SniperState, StateMachineCfg,

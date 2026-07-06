@@ -120,6 +120,40 @@ pub enum PlacementSchema {
     Hazard(HazardSpec),
 }
 
+/// Authored rule for when a defeated actor reappears (ADR 0022) — ONE
+/// enum for every reappearance mechanic, authored per archetype row
+/// (`respawn:` in `character_archetypes.ron`); a future EnemySpawn LDtk
+/// field can override a single placement.
+///
+/// **The default is `DeadStaysDead`** — the intuitively-correct rule for
+/// a unique actor in a persistent world ("Morrowind rules"). Respawning
+/// is an AUTHOR'S choice: trash mobs opt into `OnRoomReenter`,
+/// mini-boss-tier presences into `OnRest`, training dummies into
+/// `InPlace(secs)`.
+///
+/// Mechanics: the kill hook in `damage/actor_hit.rs` matches this policy
+/// — `InPlace` arms the in-place revive timer (no flag, no drops);
+/// `DeadStaysDead` / `OnRest` write the persistent death flag their
+/// respawn horizon implies; `OnRoomReenter` writes nothing. The
+/// room-load `save_sync` reads the flags back into `alive = false`. A
+/// "rest" event clears just the `_dead_until_rest` flags.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub enum RespawnPolicy {
+    /// Dead stays dead — forever (an explicit save reset is the only
+    /// return). THE DEFAULT: named/unique actors take it implicitly.
+    #[default]
+    DeadStaysDead,
+    /// Stays dead until the player rests at a save point
+    /// (mini-boss-tier presences: brutes, colossi, pirate heavies).
+    OnRest,
+    /// Fresh every time the player enters the room — the "Mob" choice
+    /// (trash grunts: skitters, lurkers, raiders, goblins).
+    OnRoomReenter,
+    /// Revives in place this many seconds after death, where it stood
+    /// (training sandbags). No death drops, no flag.
+    InPlace(f32),
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

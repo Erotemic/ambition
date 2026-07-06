@@ -42,6 +42,7 @@ use bevy::prelude::{
 use ambition_time::WorldTime;
 
 pub mod actor_clusters;
+pub mod actor_tuning;
 mod actors;
 mod aggression;
 mod anim_helpers;

@@ -61,7 +61,7 @@ fn evaluate_enemy_ai_output(
     pos: ae::Vec2,
     target_pos: ae::Vec2,
     brain: &ambition_entity_catalog::placements::CharacterBrain,
-    tuning: &crate::combat::ActorTuning,
+    tuning: &crate::features::ecs::actor_tuning::ActorTuning,
     attack: &crate::features::BodyMelee,
     alive: bool,
 ) -> ambition_characters::actor::ai::CharacterAiOutput {
@@ -130,7 +130,7 @@ impl<'a> ActorMut<'a> {
             self.status.respawn_timer = (self.status.respawn_timer - dt).max(0.0);
             if matches!(
                 self.config.tuning.respawn,
-                crate::combat::RespawnPolicy::InPlace(_)
+                ambition_entity_catalog::placements::RespawnPolicy::InPlace(_)
             ) && self.status.respawn_timer <= 0.0
             {
                 // `health.reset()` IS the revive — restoring HP makes `alive()` true.

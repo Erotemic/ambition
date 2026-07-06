@@ -70,11 +70,11 @@ pub struct ActorConfig {
     pub name: String,
     /// Per-frame runtime tuning snapshot (kit vocabulary), projected
     /// from the archetype's authored spec at spawn.
-    pub tuning: crate::combat::ActorTuning,
+    pub tuning: crate::features::ecs::actor_tuning::ActorTuning,
     /// Generic brain-construction inputs (kit vocabulary), projected
     /// from the archetype at spawn so the runtime brain rebuilds
     /// reconstruct a brain without naming the roster enum.
-    pub brain_spec: crate::combat::CharacterBrainSpec,
+    pub brain_spec: crate::features::ecs::actor_tuning::CharacterBrainSpec,
     pub brain: ambition_entity_catalog::placements::CharacterBrain,
     pub spawn: ActorSpawnState,
     /// LDtk display name of the original NPC when this enemy was spawned
@@ -543,7 +543,7 @@ impl ActorClusterSeed {
         // NPC_PATROL_SPEED while the SAME body sprints at `max_run_speed` when a
         // player drives it. (Was: all three = NPC_PATROL_SPEED, conflating policy
         // with capability — the "possessed NPC moves extremely slowly" bug.)
-        let tuning = crate::combat::ActorTuning {
+        let tuning = crate::features::ecs::actor_tuning::ActorTuning {
             max_health: 1,
             patrol_speed: ambition_characters::brain::NPC_PATROL_SPEED,
             chase_speed: ambition_characters::brain::NPC_PATROL_SPEED,
@@ -581,7 +581,7 @@ impl ActorClusterSeed {
                 id: id.into(),
                 name: name.into(),
                 tuning,
-                brain_spec: crate::combat::CharacterBrainSpec::default(),
+                brain_spec: crate::features::ecs::actor_tuning::CharacterBrainSpec::default(),
                 brain: config_brain,
                 spawn: ActorSpawnState {
                     pos,

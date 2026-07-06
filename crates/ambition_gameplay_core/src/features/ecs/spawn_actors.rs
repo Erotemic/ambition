@@ -377,7 +377,7 @@ impl NpcActorSpawnPlan {
         // permanent (ADR 0022 "Morrowind rules") regardless of the mob-tier
         // respawn policy the borrowed combat archetype authors. The policy is
         // a property of the PLACEMENT, and this placement is a person.
-        hostile_spec.respawn = crate::combat::RespawnPolicy::DeadStaysDead;
+        hostile_spec.respawn = ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead;
         let combat_kit = super::brain_builders::enemy_combat_kit_for_spec(&hostile_spec);
         let (seed, render_size) = super::actor_clusters::ActorClusterSeed::new_peaceful_npc(
             id.clone(),
@@ -564,7 +564,7 @@ fn boss_actor_cluster(
     // boss body-contact push. STRIKE offense is the frame-driven Boss hitboxes
     // (`sync_boss_strike_hitboxes`), so `attacks_player` (actor melee) stays off.
     let body_damage = config.behavior.body_damage;
-    let tuning = crate::combat::ActorTuning {
+    let tuning = crate::features::ecs::actor_tuning::ActorTuning {
         max_health: hp_max,
         chase_speed: BOSS_FLIGHT_SPEED,
         max_run_speed: BOSS_FLIGHT_SPEED,
@@ -583,7 +583,7 @@ fn boss_actor_cluster(
         id: config.id.clone(),
         name: config.name.clone(),
         tuning,
-        brain_spec: crate::combat::CharacterBrainSpec::default(),
+        brain_spec: crate::features::ecs::actor_tuning::CharacterBrainSpec::default(),
         // The boss's REAL brain is its `BossPattern` `Brain` component. This
         // integrator-facing `CharacterBrain` only feeds patrol-stall intent, which
         // a free-flying boss never uses, so it takes the inert `Passive` row.

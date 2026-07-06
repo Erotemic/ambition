@@ -262,7 +262,9 @@ pub(crate) fn apply_actor_hit(
         if killed {
             // `health.damage` already zeroed HP → `alive()` is false; no flag to
             // flip. ONE death path, matched on the ONE authored policy (ADR 0022).
-            if let crate::combat::RespawnPolicy::InPlace(respawn_s) = em.config.tuning.respawn {
+            if let ambition_entity_catalog::placements::RespawnPolicy::InPlace(respawn_s) =
+                em.config.tuning.respawn
+            {
                 em.status.respawn_timer = respawn_s;
                 banner.show(format!("{} dropped; respawning", em.config.name), 2.6);
             } else {

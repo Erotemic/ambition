@@ -1741,7 +1741,7 @@ mod tests {
     fn spawn_attacker(app: &mut App, pos: ae::Vec2, body: ae::Vec2, spec: MoveSpec) -> Entity {
         app.world_mut()
             .spawn((
-                crate::features::CenteredAabb::new(pos, body),
+                ae::CenteredAabb::new(pos, body),
                 // The playback system resolves the owner's gravity frame from
                 // its authoritative kinematics, like every real actor carries.
                 ae::BodyKinematics {
@@ -2335,10 +2335,7 @@ mod tests {
         let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
         frame.special_pressed = true;
         app.world_mut().spawn((
-            crate::features::CenteredAabb::new(
-                ae::Vec2::new(100.0, 100.0),
-                ae::Vec2::new(15.0, 24.0),
-            ),
+            ae::CenteredAabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(15.0, 24.0)),
             ae::BodyKinematics {
                 pos: ae::Vec2::new(100.0, 100.0),
                 vel: ae::Vec2::ZERO,

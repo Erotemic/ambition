@@ -158,7 +158,7 @@ pub fn pogo_moveset_off_world_orbs(
     feature_ecs_overlay: Res<FeatureEcsWorldOverlay>,
     gravity: physics::GravityCtx,
     hitboxes: Query<(&ambition_vfx::Hitbox, &crate::combat::on_hit::HitboxOnHit)>,
-    boxes: Query<&features::CenteredAabb>,
+    boxes: Query<&ae::CenteredAabb>,
     mut owners: Query<(&mut ae::BodyKinematics, &mut crate::actor::BodyGroundState)>,
     mut sfx: MessageWriter<SfxMessage>,
 ) {

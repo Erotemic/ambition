@@ -235,7 +235,7 @@ fn player_faction_hitbox_emits_an_attacker_side_feature_hit() {
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
     let owner = app
         .world_mut()
-        .spawn(crate::features::CenteredAabb::new(
+        .spawn(ae::CenteredAabb::new(
             ae::Vec2::new(100.0, 100.0),
             ae::Vec2::new(12.0, 16.0),
         ))
@@ -296,7 +296,7 @@ fn arena_hitbox_app(relations: FactionRelations, victim_faction: ActorFaction) -
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
     let owner = app
         .world_mut()
-        .spawn(crate::features::CenteredAabb::new(
+        .spawn(ae::CenteredAabb::new(
             ae::Vec2::new(100.0, 100.0),
             ae::Vec2::new(12.0, 16.0),
         ))
@@ -324,10 +324,7 @@ fn arena_hitbox_app(relations: FactionRelations, victim_faction: ActorFaction) -
     let victim = app
         .world_mut()
         .spawn((
-            crate::features::CenteredAabb::new(
-                ae::Vec2::new(100.0, 100.0),
-                ae::Vec2::new(14.0, 20.0),
-            ),
+            ae::CenteredAabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(14.0, 20.0)),
             victim_faction,
             // Every body carries the vulnerability trio (§A1 slice 3) — the
             // victim query is no longer `Option` over them.
@@ -406,7 +403,7 @@ fn enemy_hitbox_over_player_app(relations: FactionRelations) -> (App, Entity) {
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
     let owner = app
         .world_mut()
-        .spawn(crate::features::CenteredAabb::new(
+        .spawn(ae::CenteredAabb::new(
             ae::Vec2::new(100.0, 100.0),
             ae::Vec2::new(12.0, 16.0),
         ))
@@ -502,10 +499,7 @@ fn player_faction_hitbox_only_fires_once() {
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
     let owner = app
         .world_mut()
-        .spawn(crate::features::CenteredAabb::new(
-            ae::Vec2::ZERO,
-            ae::Vec2::splat(8.0),
-        ))
+        .spawn(ae::CenteredAabb::new(ae::Vec2::ZERO, ae::Vec2::splat(8.0)))
         .id();
     app.world_mut().spawn((
         Hitbox {

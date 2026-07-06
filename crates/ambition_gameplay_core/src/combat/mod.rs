@@ -54,14 +54,15 @@ pub mod held_items;
 pub mod hitbox;
 pub mod moveset;
 pub mod on_hit;
-pub mod overlay;
 pub mod path_motion;
 pub mod pickups;
 pub mod spawn_static;
 pub mod targeting;
 pub mod util;
 pub mod variation;
-pub mod world_overlay;
+// `overlay` + `world_overlay` moved to `crate::world::{overlay, overlay_rebuild}`
+// (E2 → W-track): the overlay resource + `CollisionWorld` compositing are
+// geometry COMPOSITION, destined for `ambition_world` at W3.
 
 // The pure combat MODEL (Damage / Hitbox / AttackSpec / DamageVolume / slots) is
 // the reusable `ambition_combat` foundation crate, re-exported here so the whole
@@ -77,4 +78,3 @@ pub use events::*;
 pub use ambition_platformer_primitives::lifecycle::FeatureSimEntity;
 pub use hazard_runtime::*;
 pub use path_motion::*;
-pub use world_overlay::*;

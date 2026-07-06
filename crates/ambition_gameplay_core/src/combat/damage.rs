@@ -592,7 +592,7 @@ pub fn apply_player_hit_events(
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     user_settings: Res<crate::persistence::settings::UserSettings>,
-    feature_ecs_overlay: Res<crate::combat::overlay::FeatureEcsWorldOverlay>,
+    feature_ecs_overlay: Res<crate::world::overlay::FeatureEcsWorldOverlay>,
     mut sim_state: ResMut<SandboxSimState>,
     mut clock: ResMut<ClockState>,
     mut banner_requests: MessageWriter<GameplayBannerRequested>,
@@ -659,7 +659,7 @@ pub fn apply_player_hit_events(
         * assist_factor;
     let tuning = editable_tuning.as_engine();
     let feel = *feel_tuning;
-    let safe_world = crate::combat::world_with_sandbox_solids(
+    let safe_world = crate::world::overlay_rebuild::world_with_sandbox_solids(
         &world.0,
         &moving_platforms.0,
         &feature_ecs_overlay,

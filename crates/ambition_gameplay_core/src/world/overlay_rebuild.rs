@@ -4,7 +4,7 @@
 //! the apertures (borrowing when none are active, for the projectile path).
 //! `carve_portal_apertures` splits solid host blocks around the holes.
 //! The overlay *resource* lives in [`overlay`](super::overlay); this is the
-//! consumption side. Re-exported via `pub use world_overlay::*`.
+//! consumption side. Consumers import `crate::world::overlay_rebuild` (post-E2 home).
 //!
 //! [`CollisionWorld`] is the single collision read-API every actor sweep/raycast
 //! should reach for instead of `Res<RoomGeometry>`: it composites the authored
@@ -13,7 +13,11 @@
 //! property), never the bare geometry.
 
 use super::overlay::FeatureEcsWorldOverlay;
-use super::*;
+use crate::combat::*;
+use crate::world::platforms::MovingPlatformState;
+use ambition_engine_core as ae;
+use ambition_engine_core::AabbExt;
+use bevy::prelude::*;
 use std::borrow::Cow;
 
 /// The single collision read-API. Composites the authored [`ambition_engine_core::RoomGeometry`]

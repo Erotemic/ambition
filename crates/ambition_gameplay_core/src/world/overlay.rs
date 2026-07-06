@@ -6,7 +6,10 @@
 //! collision world calls `world_with_sandbox_solids` with this resource;
 //! rebuilding it once per frame keeps the augment cheap.
 
-use super::*;
+use ambition_engine_core as ae;
+use bevy::prelude::*;
+
+use crate::combat::*;
 
 /// Collision contribution from ECS-owned breakables. Rebuilt before the main
 /// sandbox tick and consumed by `world_with_sandbox_solids` anywhere the engine

@@ -54,8 +54,8 @@ pub use crate::combat::components;
 pub use crate::combat::events;
 pub use crate::combat::hazard_runtime as hazards;
 pub use crate::combat::path_motion;
-pub use crate::combat::world_overlay;
 pub use crate::combat::{bus, util};
+pub use crate::world::overlay_rebuild as world_overlay;
 
 pub use boss_attack_geometry::{
     active_attack_volumes, body_damage_aabb, bounding_aabb, collision_aabb, damageable_volumes,

@@ -69,8 +69,8 @@ mod target_volumes;
 // Combat-kit aliases keep `ecs::<module>` paths stable for callers.
 pub use crate::combat::boss_clusters;
 pub use crate::combat::{
-    banner, breakables, chests, falling_chest, hazards, held_items, hitbox, overlay, pickups,
-    spawn_static, targeting, variation,
+    banner, breakables, chests, falling_chest, hazards, held_items, hitbox, pickups, spawn_static,
+    targeting, variation,
 };
 
 pub use actors::{
@@ -102,6 +102,7 @@ pub use boss_clusters::{
 };
 // `boss_component_snapshot` is pub: the observation-boundary contract tests
 // (ambition_sim_view) build boss read-model components from a scratch boss.
+pub use crate::world::overlay::{rebuild_feature_ecs_world_overlay, FeatureEcsWorldOverlay};
 pub use bosses::boss_component_snapshot;
 #[allow(
     unused_imports,
@@ -136,7 +137,6 @@ pub use mount::{
     sync_riders_to_mounts, CanPilot, ControlGrant, Mass, MountClass, MountDeathImpact, MountDied,
     MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, PendingMountLinks, RidingOn,
 };
-pub use overlay::{rebuild_feature_ecs_world_overlay, FeatureEcsWorldOverlay};
 pub use pickups::{collect_ecs_pickups, magnetize_pickups};
 pub use reset::reset_ecs_room_features;
 pub use save_sync::{

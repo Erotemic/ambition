@@ -22,7 +22,6 @@ use ambition_characters::brain::{ActorActionMessage, ActorControl, MeleeActionSp
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_vfx::vfx::{SlashKind, VfxMessage};
 
-use crate::combat::overlay::FeatureEcsWorldOverlay;
 use crate::combat::BodyMelee;
 use crate::combat::{
     attack_hitbox_from_view, attack_spec_from_view, resolve_attack_intent_from_view, AttackIntent,
@@ -30,6 +29,7 @@ use crate::combat::{
 };
 use crate::dev::dev_tools::EditableMovementTuning;
 use crate::features;
+use crate::world::overlay::FeatureEcsWorldOverlay;
 
 /// Baseline seconds between enemy contact attacks (scaled per-actor by
 /// `attack_cooldown_mult`). Combat-owned pacing tuning (E2).
@@ -188,7 +188,7 @@ pub fn pogo_moveset_off_world_orbs(
     if pogo.is_empty() {
         return;
     }
-    let assembled = crate::combat::world_with_sandbox_solids(
+    let assembled = crate::world::overlay_rebuild::world_with_sandbox_solids(
         &world.0,
         &moving_platforms.0,
         &feature_ecs_overlay,
@@ -509,7 +509,7 @@ pub fn advance_attack(
             && attack_state.spec.can_pogo
             && !attack_state.pogo_applied
         {
-            let attack_world = crate::combat::world_with_sandbox_solids(
+            let attack_world = crate::world::overlay_rebuild::world_with_sandbox_solids(
                 world,
                 moving_platforms,
                 feature_ecs_overlay,

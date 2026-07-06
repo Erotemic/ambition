@@ -821,10 +821,10 @@ pub fn advance_move_playback(
         // strike is one of them. `None`/non-player-brain ⇒ the authored faction
         // (identity for every ordinary actor + the player's own body).
         Option<&ambition_characters::brain::Brain>,
-        // §7.1: the owner's sprite catalog id (actors author it on their
-        // `ActorConfig`; the home body carries none → the player manifest
-        // root), resolving the authored per-animation blade polygon.
-        Option<&crate::features::ActorConfig>,
+        // §7.1: the owner's sprite catalog id (projected onto the combat-owned
+        // `CombatTuning` at spawn; the home body carries none → the player
+        // manifest root), resolving the authored per-animation blade polygon.
+        Option<&super::components::CombatTuning>,
         &ae::BodyKinematics,
         Option<&ProperTimeScale>,
     )>,
@@ -912,23 +912,14 @@ pub fn advance_move_playback(
                         let manifest = volume.vfx.as_ref().and_then(|_| {
                             let clip = pb.spec.clip.clip.as_str();
                             let sprite_cid = config.and_then(|c| c.sprite_character_id.as_deref());
-                            match sprite_cid {
-                                Some(cid) => crate::character_sprites::actor_attack_hitbox_world(
-                                    cid,
-                                    clip,
-                                    ae::Vec2::ZERO,
-                                    kin.size,
-                                    1.0,
-                                    ae::Vec2::new(0.0, 1.0),
-                                ),
-                                None => crate::character_sprites::player_attack_hitbox_world(
-                                    clip,
-                                    ae::Vec2::ZERO,
-                                    kin.size,
-                                    1.0,
-                                    ae::Vec2::new(0.0, 1.0),
-                                ),
-                            }
+                            super::authored_volumes::authored_attack_volume(
+                                sprite_cid,
+                                clip,
+                                ae::Vec2::ZERO,
+                                kin.size,
+                                1.0,
+                                ae::Vec2::new(0.0, 1.0),
+                            )
                         });
                         let (local, half_extent, shape) = match &manifest {
                             // The authored convex blade: body-local points; the
@@ -1691,6 +1682,14 @@ mod tests {
     /// Headless sim harness: move playback + the REAL hitbox damage path,
     /// fixed 16ms sim ticks, a vulnerable player standing in reach.
     fn app_with_victim() -> (App, Entity) {
+        // The authored-blade path resolves through the install seam exactly
+        // like production (the runtime plugin installs the same resolver).
+        // NOTE for the E2 atomic move: this line is the ONE gameplay_core
+        // coupling in the moveset tests — the blade INTEGRATION test travels
+        // to the features layer when moveset.rs moves crates.
+        super::super::authored_volumes::install_authored_attack_volumes(
+            crate::character_sprites::authored_attack_volume_resolver,
+        );
         let mut app = App::new();
         app.add_message::<HitEvent>();
         app.add_message::<SfxMessage>();

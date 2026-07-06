@@ -694,6 +694,8 @@ impl ActorClusterSeed {
         // sim-heart `ActorConfig`.
         let combat_tuning = crate::combat::CombatTuning {
             weight: self.config.tuning.weight,
+            attack_cooldown_mult: self.config.tuning.attack_cooldown_mult,
+            sprite_character_id: self.config.sprite_character_id.clone(),
         };
         (
             self.kin,

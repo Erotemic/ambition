@@ -138,6 +138,26 @@ fn player_render_size(collision: ae::Vec2) -> Option<ae::Vec2> {
 ///
 /// TODO(non-player-centric): take the controlled actor's sheet/character
 /// ids instead of the hardcoded player ones, so any possessed actor's
+
+/// The combat-seam resolver (`combat::authored_volumes`): one entry point the
+/// runtime assembly installs so the strike paths resolve authored volumes
+/// without naming this module. `None` cid = the player manifest root.
+pub fn authored_attack_volume_resolver(
+    sprite_character_id: Option<&str>,
+    animation: &str,
+    body_pos: ae::Vec2,
+    collision: ae::Vec2,
+    facing: f32,
+    gravity_dir: ae::Vec2,
+) -> Option<ae::CombatVolume> {
+    match sprite_character_id {
+        Some(cid) => {
+            actor_attack_hitbox_world(cid, animation, body_pos, collision, facing, gravity_dir)
+        }
+        None => player_attack_hitbox_world(animation, body_pos, collision, facing, gravity_dir),
+    }
+}
+
 /// authored melee box drives its attack.
 pub fn player_attack_hitbox_world(
     animation: &str,

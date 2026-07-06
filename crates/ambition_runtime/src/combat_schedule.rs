@@ -20,6 +20,12 @@ pub struct CombatSchedulePlugin;
 
 impl Plugin for CombatSchedulePlugin {
     fn build(&self, app: &mut App) {
+        // The authored attack-volume seam: the strike paths resolve artist-
+        // authored hit polygons through an installed resolver instead of
+        // naming the sprite-metadata pipeline (E2). First install wins.
+        ambition_gameplay_core::combat::authored_volumes::install_authored_attack_volumes(
+            ambition_gameplay_core::character_sprites::authored_attack_volume_resolver,
+        );
         // The effect seam: techniques (the shockwave gauntlet, the boss
         // phase-transition slam, …) emit `EffectRequest`; `apply_effects` below
         // drains it. Registered here so the writers never hit an unregistered

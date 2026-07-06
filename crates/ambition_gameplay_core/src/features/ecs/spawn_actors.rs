@@ -613,7 +613,13 @@ fn boss_actor_cluster(
         caps,
         // Project the boss's weight onto the combat-owned carrier at spawn
         // (E2 verdict b); default `1.0` here since bosses don't author weight.
-        crate::combat::CombatTuning { weight },
+        crate::combat::CombatTuning {
+            weight,
+            // Bosses pace strikes via their move scripts, and carry no sprite
+            // catalog id (their strike volumes are frame-authored).
+            attack_cooldown_mult: 1.0,
+            sprite_character_id: None,
+        },
     )
 }
 

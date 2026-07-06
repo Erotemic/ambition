@@ -347,7 +347,7 @@ pub fn emit_melee_slash(
 /// Source the player's melee hitbox from the sprite manifest — the box authored
 /// and shown by `debug-hitboxes` — so the gameplay damage volume matches the
 /// visible blade, the same data-driven path bosses use
-/// (`character_sprites::player_attack_hitbox_world`). Returns `None` when the
+/// (the installed `authored_volumes` resolver). Returns `None` when the
 /// current swing's animation has no authored hitbox, so callers fall back to the
 /// hardcoded `AttackSpec` volume.
 pub fn player_attack_hitbox(
@@ -356,7 +356,8 @@ pub fn player_attack_hitbox(
     gravity_dir: ae::Vec2,
 ) -> Option<ae::CombatVolume> {
     let animation = attack_intent_animation(intent);
-    crate::character_sprites::player_attack_hitbox_world(
+    super::authored_volumes::authored_attack_volume(
+        None,
         animation,
         view.pos,
         view.size,
@@ -444,23 +445,14 @@ pub fn advance_attack(
         // `spawn_melee_strike`), so they can never diverge.
         let spec_box = attack_hitbox_from_view(&view, attack_state.spec);
         let animation = attack_intent_animation(attack_state.spec.intent);
-        let manifest = match sprite_cid {
-            Some(cid) => crate::character_sprites::actor_attack_hitbox_world(
-                cid,
-                animation,
-                view.pos,
-                view.size,
-                view.facing,
-                tuning.gravity_dir,
-            ),
-            None => crate::character_sprites::player_attack_hitbox_world(
-                animation,
-                view.pos,
-                view.size,
-                view.facing,
-                tuning.gravity_dir,
-            ),
-        };
+        let manifest = super::authored_volumes::authored_attack_volume(
+            sprite_cid,
+            animation,
+            view.pos,
+            view.size,
+            view.facing,
+            tuning.gravity_dir,
+        );
         let world_box = manifest.map(|v| v.bounds()).unwrap_or(spec_box);
 
         let first_active_frame = !attack_state.active_started;
@@ -583,7 +575,7 @@ pub fn start_body_melee(
         &BodyCombat,
         &ActorControl,
         Option<&crate::combat::held_items::HeldItem>,
-        Option<&features::ActorConfig>,
+        Option<&super::components::CombatTuning>,
         Option<&mut BodyAnimFacts>,
         Has<MovesetMelee>,
     )>,
@@ -617,11 +609,11 @@ pub fn start_body_melee(
         let held_melee = held.and_then(|item| item.spec.melee);
         let frame = control.0;
         // The recovery/AI pacing floor is BODY DATA: an actor's authored cooldown
-        // (the same value the deleted `begin_melee_attack` set) paces its brain's
-        // next swing; the player carries no `ActorConfig`, so it has none (its
-        // re-swing is gated by the swing duration + recoil lock).
+        // (projected onto the combat-owned `CombatTuning` at spawn) paces its
+        // brain's next swing; the player carries no `CombatTuning`, so it has
+        // none (its re-swing is gated by the swing duration + recoil lock).
         let cooldown = config
-            .map(|c| ENEMY_ATTACK_COOLDOWN * c.tuning.attack_cooldown_mult)
+            .map(|c| ENEMY_ATTACK_COOLDOWN * c.attack_cooldown_mult)
             .unwrap_or(0.0);
         let gravity_dir = gravity.dir_at(cq.kinematics.pos);
         let mut clusters = cq.as_clusters_mut();
@@ -678,7 +670,7 @@ pub fn advance_body_melee(
         &mut BodyMelee,
         &ambition_characters::actor::pose::ActorFaction,
         Option<&ambition_characters::brain::Brain>,
-        Option<&features::ActorConfig>,
+        Option<&super::components::CombatTuning>,
         Option<&mut BodyAnimFacts>,
         Has<MovesetMelee>,
     )>,

@@ -13,24 +13,27 @@
 use bevy::prelude::{Commands, Entity, MessageWriter, Query, With};
 
 use super::{validated_spawn, LoadingZoneActivation, RoomSet, RoomSpec, RoomTransition};
-use crate::dialog::DialogState;
 use crate::features;
 use crate::platformer_runtime::lifecycle::RoomScopedEntity;
-use crate::player::{PlayerBlinkCameraState, PlayerSafetyState};
 use crate::time::feel::SandboxFeelTuning;
 use crate::world::physics::{self, PhysicsRoomEntity};
 use crate::world::platforms::{self, MovingPlatformState};
-use crate::{SandboxDevState, SandboxSimState, ROOM_DOOR_CAMERA_SNAP_TIME};
-use ambition_characters::actor::BodyCombat;
+use crate::{SandboxDevState, SandboxSimState};
 use ambition_engine_core as ae;
 use ambition_engine_core::RoomGeometry;
 use ambition_sfx::SfxMessage;
 use ambition_time::ClockState;
 
-/// What [`load_room_geometry`] hands back to the presentation layer so the host
-/// can spawn parallax/room visuals and the arrival VFX without re-deriving room
-/// state: the now-active room spec, the validated arrival position, and whether
-/// this was an edge exit (contiguous scroll) versus a door (discrete teleport).
+/// What [`load_room_geometry`] hands back to the composition layer so the host
+/// can spawn parallax/room visuals + arrival VFX and apply the cross-domain
+/// per-transition resets without re-deriving room state: the now-active room
+/// spec, the validated arrival position, and whether this was an edge exit
+/// (contiguous scroll) versus a door (discrete teleport).
+///
+/// `arrival_pos` and `edge_exit` are the sole inputs the caller needs for the
+/// player/dialog/combat resets (see `apply_room_transition_resets` in the
+/// composition tier) — the world IR resolves geometry, the composition tier owns
+/// the multi-domain state reset (anti-god rule 6: split by who mutates).
 pub struct RoomLoadResult {
     pub spec: RoomSpec,
     pub arrival_pos: ae::Vec2,
@@ -42,10 +45,14 @@ pub struct RoomLoadResult {
 /// resets the controlled body to its validated arrival (preserving velocity on
 /// edge exits so side-to-side scrolling feels continuous), rebuilds and spawns
 /// moving platforms, spawns the room's feature entities, and resets the transient
-/// per-room clock/combat/interaction state.
+/// per-room clock/cooldown state it owns.
 ///
-/// Emits only the room-reset `SfxMessage` (a sim fact). All render-side spawning
-/// and arrival VFX are the host's job — see [`RoomLoadResult`].
+/// It does NOT touch the higher-tier player/dialog/combat STATE (blink camera,
+/// respawn safety, dialogue, hit-flash/timers) — those are live SIM state the
+/// space IR must never name (W1). The caller in the composition tier applies
+/// them from the returned [`RoomLoadResult`]. Emits only the room-reset
+/// `SfxMessage` (a sim fact); all render-side spawning and arrival VFX are the
+/// host's job.
 #[allow(clippy::too_many_arguments)]
 pub fn load_room_geometry(
     commands: &mut Commands,
@@ -54,14 +61,7 @@ pub fn load_room_geometry(
     dev_state: &mut SandboxDevState,
     sim_state: &mut SandboxSimState,
     clock: &mut ClockState,
-    // Player-presentation state — only the home body carries these. A possessed
-    // actor transitioning has neither (it's not the home avatar), so they're
-    // optional: `None` skips the home-only respawn-point + blink-camera resets.
-    safety: Option<&mut PlayerSafetyState>,
     moving_platforms: &mut Vec<MovingPlatformState>,
-    dialogue: &mut DialogState,
-    combat: &mut BodyCombat,
-    blink_cam: Option<&mut PlayerBlinkCameraState>,
     world: &mut RoomGeometry,
     room_set: &mut RoomSet,
     room_visuals: &Query<(Entity, Option<&PhysicsRoomEntity>), With<RoomScopedEntity>>,
@@ -110,32 +110,9 @@ pub fn load_room_geometry(
     if edge_exit {
         clusters.kinematics.vel = old_velocity;
     }
-    if let Some(blink_cam) = blink_cam {
-        blink_cam.blink_in_timer = 0.0;
-        blink_cam.blink_camera_from = clusters.kinematics.pos;
-        blink_cam.blink_camera_to = clusters.kinematics.pos;
-        blink_cam.camera_snap_timer = if edge_exit {
-            0.0
-        } else {
-            ROOM_DOOR_CAMERA_SNAP_TIME
-        };
-    }
-    combat.hit_flash = if edge_exit {
-        feel.edge_transition_flash
-    } else {
-        feel.door_transition_flash
-    };
-    combat.hitstop_timer = 0.0;
-    combat.damage_invuln_timer = 0.0;
-    combat.hitstun_timer = 0.0;
-    combat.recoil_lock_timer = 0.0;
-    if let Some(safety) = safety {
-        safety.last_safe_pos = clusters.kinematics.pos;
-    }
     clock.time_scale = 1.0;
     *moving_platforms = platforms::moving_platforms_for_room(&spec);
     features::spawn_room_feature_entities(commands, &spec);
-    dialogue.close();
     // This guard prevents immediate backtracking when arriving inside/near a
     // paired zone. It should not feel like frozen input, so keep it short and
     // rely on validated arrivals to do most of the safety work.

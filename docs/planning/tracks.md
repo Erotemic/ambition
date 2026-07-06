@@ -127,7 +127,7 @@ fable card. Ranked by how much they gate a fable task.
 
 | Track | Doc | Status | Next |
 |---|---|---|---|
-| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — E5 first slice `3c70d827`; **E5-finish steps 1–4 LANDED 2026-07-06** (sets+resources+combat schedule into the group; shared headless foundation; cut-rope de-woven via generic `RoomReplayRequested` + labeled slots; E4-prep: fx facade imports repointed, CameraViewState + cut-rope resources re-owned) | E5 step 5 (mint [the windowed host]) + step 6 (smoke shell) [opus]; W/E1/E2/E3/E6/E7/E8 open |
+| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — E5 first slice `3c70d827`; **E5-finish steps 1–4 LANDED 2026-07-06** (sets+resources+combat schedule into the group; shared headless foundation; cut-rope de-woven via generic `RoomReplayRequested` + labeled slots; E4-prep: fx facade imports repointed, CameraViewState + cut-rope resources re-owned); **W1 STATE-inversion started (opus 2026-07-06): `rooms/load.rs` no longer names player/dialog/combat runtime state — the world→characters/combat VOCAB arrow escalated to fable (W-track feedback block in decomposition.md)** | E5 step 5 (mint [the windowed host]) + step 6 (smoke shell) [opus, blocked on E1d]; **W3 vocab-arrow ruling [fable] then W2/W3**; E1/E2/E3/E6/E7/E8 open |
 | Decomposition D-B/D-C | same | queued behind D-A | mode-scope seam can land early (demos want it) |
 | Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | **CC1 COMPLETE + CC5 LANDED (fable) + CC2 COMPLETE (opus, 2026-07-06)** — engine_core::frame vocabulary + cast family registry real in code; CC2 first pass (hazards swept) + completion (§3.3 every reader classified: loading-zone Door/Walk/EdgeExit now swept via `transition_for_player`; water/climbable annotated discrete-OK + `thin_region_warnings` authoring validator; ledge audited; auto-collect N/A) parity suites green | CC3 fuzz rig (§6.1 oracle) [opus]; CC6 moving portals (§5-P2 spec) [opus] |
 | Combat stack | [engine/combat-model.md](engine/combat-model.md) | CM1 (incl. **launch_dir consumption, fable 2026-07-06 evening** `c695cd9c`)+CM2+CM3+CM7+CM4+CM5 LANDED — per-move presentation authored; smash axes complete (growth, DI, charge, cancel tables, fixed launch angles) | CM6 grab/throw/shield-stun (brings OnBlock) [opus, with SSB] |
@@ -538,3 +538,32 @@ downstream). C4 conjugation + speed-invariant + mirror + degenerate-
 vector tests. With this, the fable window list is fully ✅ and the
 remaining open fable-tier item is E5 step 5 (gated on E1d/E1e) + the
 W3/E2 standing escalations.
+
+## 2026-07-06 (opus) — W1 STATE-inversion (`rooms/load.rs`) + W3 vocab-arrow escalated to fable
+Read docs/planning to unblock fable. Findings: the fable window is 100% ✅;
+the named-next fable item E5 step 5 is genuinely blocked (E1d `dev_tools`
+reads deep `actor`/`player`/`world`/`features` sim state, so it can't extract
+before E7/W — confirmed the opus accounting). Pivoted to the cleanest fable-
+unblocking opus work: the **W-track**. Measured every `world/` upward dep and
+found they split by KIND — runtime STATE (a clean W1 invert) vs authored
+VOCABULARY (the genuine W3 classification).
+- **Landed (this commit):** `world/rooms/load.rs` `load_room_geometry` dropped
+  its `PlayerSafetyState`/`PlayerBlinkCameraState`/`DialogState`/`BodyCombat`
+  params + `ROOM_DOOR_CAMERA_SNAP_TIME` — the space IR now returns geometry +
+  arrival facts only; the composition tier (`ambition_app`
+  `room_flow::apply_room_transition_resets`) applies the four cross-domain
+  resets from `arrival_pos`+`edge_exit` (anti-god rule 6: no single domain owns
+  a transition, so the composer does). Byte-identical: gameplay_core rooms 32/32,
+  app `fixture_replays_with_zero_divergence` + `room_spatial_integrity` green,
+  app rl_sim gate build clean (only the documented `unified_melee::a_hostile_actor`
+  feel-RED fails, unrelated).
+- **Escalated to fable (docs, not forced):** the `world → ambition_characters +
+  ambition_combat` VOCAB arrow (`RoomEmission`/room-graph carry
+  `Authored<CharacterBrain/BossBrain/DamageVolume>` + `KinematicPath`) is an
+  undrawn Tier-2 sideways arrow (anti-god rule 4) — the W3 cut can't resolve it
+  mechanically (the LDtk backend can't name those types either, `ldtk_map→world`
+  only). Full pre-solved option matrix (opaque-IR / draw-the-arrow / sink-specs-
+  to-Tier-0 / KinematicPath-is-mis-homed) with an opus recommendation written
+  into decomposition.md's "W-track FEEDBACK FOR FABLE" block; W2 is blocked on
+  this ruling. Also flagged: `rooms/systems.rs detect_room_transition_system` is
+  a sim-tier system that MOVES at W3, not a W1 invert.

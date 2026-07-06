@@ -239,11 +239,36 @@ imports no `ambition_content`.
 
 Precondition: none (parallel-safe with E5). The four cards:
 
-- **W1 — invert the ~13 `rooms` upward deps.** Grep
-  `world/rooms` for imports of player/combat/features types; each
-  becomes a message the sim consumes or a parameter the caller passes
-  (the Contact/FrameEvents pattern). One commit per inversion; no move
-  yet.
+- **W1 — invert the `world` upward deps.** Grep `world/` for imports of
+  higher-tier types; each becomes a message the sim consumes or a
+  parameter the caller passes (the Contact/FrameEvents pattern). One
+  commit per inversion; no move yet. **Measured 2026-07-06 (opus) — the
+  deps split by KIND, and only one kind is a clean W1 invert:**
+  - **Runtime STATE deps (clean W1 inverts — live sim state the IR must
+    never name):** ✅ **`rooms/load.rs` DONE (opus 2026-07-06):**
+    `load_room_geometry` dropped its `PlayerSafetyState`/
+    `PlayerBlinkCameraState`/`DialogState`/`BodyCombat` params +
+    `ROOM_DOOR_CAMERA_SNAP_TIME`; it now returns geometry + arrival facts
+    only, and the composition tier (`ambition_app` `room_flow::
+    apply_room_transition_resets`) applies the four cross-domain resets
+    from the returned `arrival_pos`+`edge_exit` (anti-god rule 6: no
+    single domain owns the transition, so the composer does).
+    Byte-identical. **REMAINING STATE dep:** `rooms/systems.rs
+    detect_room_transition_system` reads `ControlledSubject`,
+    `SlotInteractionState`, `BodyKinematics`, `PrimaryPlayerOnly` — this
+    is NOT an invertible dep, it is a **sim-tier system that merely lives
+    under `world/rooms`**; it MOVES to the sim heart at W3 (it detects a
+    body/zone overlap and emits `RoomTransitionRequested`). Document the
+    move; don't try to invert it.
+  - **VOCABULARY deps (the genuine W3 classification — ESCALATED to
+    fable, see the W-track feedback block below):** `CharacterBrain`,
+    `BossBrain`, `KinematicPath`/`KinematicPathMode`, `RespawnPolicy`
+    (all `ambition_characters::actor`) and `DamageVolume`
+    (`ambition_combat`) are named pervasively — `world/platforms`,
+    `ldtk_world/{surfaces,fields,conversion,entity_converters}`, and the
+    `RoomEmission`/room-graph types (`rooms/room_graph.rs`,
+    `ldtk_world/conversion/mod.rs`). `world/rooms/specs.rs` +
+    `camera.rs` add doc-comment-only mentions (no compile dep).
 - **W2 — IR naming in place.** `RuntimeEntityEmission` →
   `RoomEmission` (carrying the S3 `chains` channel); `SpatialSource`
   provenance enum replaces render's `"ldtk "` name-sniff; plain-serde
@@ -263,6 +288,61 @@ Precondition: none (parallel-safe with E5). The four cards:
   frame-awareness.md. Exit: `ambition_world` builds with zero LDtk in
   its tree, and a fixture "second backend" test constructs a RoomSpec
   purely from IR calls.
+
+#### 🔴 W-track FEEDBACK FOR FABLE — the vocab-arrow classification (opus escalated 2026-07-06)
+
+The W1 STATE inverts are clean opus work (load.rs done above). But the
+W3 two-crate cut hits a **genuinely ambiguous design decision opus will
+NOT force** (the escalation rule: "W3 escalates to fable at the FIRST
+ambiguous item"). Pre-solved as far as opus can take it so fable executes
+without re-measuring:
+
+**The question.** `ambition_world` is Tier 2 (architecture.md), and its
+ONLY drawn arrow is "ZERO LDtk deps." The undrawn arrows
+`world → ambition_characters` and `world → ambition_combat` are what the
+`RoomEmission`/room-graph types currently REQUIRE, because they carry
+concrete authored vocabulary: `Authored<CharacterBrain>`,
+`Authored<BossBrain>`, `Authored<DamageVolume>`, `KinematicPath` (moving
+platforms + camera), `RespawnPolicy` (surfaces). Per anti-god rule 4
+(siblings import only along drawn arrows) this is a real violation the cut
+must resolve. **Note it does NOT resolve by "the parsers go to
+`ambition_ldtk_map`"** — `ldtk_map → world` only, so the backend can't
+name `CharacterBrain` either. So the authored-brain/hazard vocabulary has
+to land somewhere BOTH world and its backend may see, i.e. a tier at or
+below `ambition_world`.
+
+**The options (opus recommends a hybrid — c+d — but it's fable's call):**
+- **(a) Opaque IR.** `RoomEmission` carries authored payloads as Tier-0
+  data (RON `Value`/strings/ids); the sim resolves them to
+  `CharacterBrain`/`DamageVolume` at spawn. Cleanest layering; costs a
+  resolve seam + loses compile-time schema checking at author time.
+- **(b) Draw the arrow.** Amend architecture.md to sanction
+  `world → characters + combat` (vocabulary-only). Cheapest diff;
+  weakens the "space IR is never a peer to the sim" invariant that makes
+  Tiled/Godot importers additive — a Godot importer would drag actor+
+  combat vocab. Opus's read: this erodes the property W exists to protect.
+- **(c) Sink the authored SPECS to Tier 0.** `CharacterBrain`/`BossBrain`/
+  `RespawnPolicy`/`DamageVolume` (as AUTHORED SCHEMAS, distinct from any
+  runtime component) move to a Tier-0 vocabulary crate (candidate:
+  `ambition_entity_catalog`, which already owns authored specs). Both
+  `ambition_world` and `ambition_characters`/`ambition_combat` then read
+  DOWN to it — no sideways arrow. Most work; best preserves the invariant.
+- **(d) `KinematicPath` is mis-homed.** A waypoint path + `PathMode` for a
+  MOVING PLATFORM is world/geometry vocabulary, not actor vocabulary — it
+  currently sits in `ambition_characters::actor` only by history. Moving
+  it to `ambition_world` (or Tier 0) resolves `world/platforms`,
+  `camera.rs`, and `ldtk_world/fields` path-parsing with zero sideways
+  arrow, independent of (a)/(b)/(c). Opus flags this as almost certainly
+  correct regardless of the brain/hazard call — a `git mv` of the type +
+  repoint `ambition_characters` consumers.
+
+**Also for fable at W3:** whichever of (a)/(c) is chosen dictates the
+`RoomEmission` payload shape, which W2 ("IR naming in place") should land
+FIRST — so W2 is blocked on this ruling. `encounter → world, characters`
+IS a drawn arrow, so if enemy/boss SPAWNS are re-homed to the encounter
+layer rather than the room emission, that arrow already covers them (a
+strong hint toward option (a): the space IR emits placements-with-opaque-
+payloads, the encounter/content layer interprets WHO spawns).
 
 ### E1a–E1e — persistence → audio → dialog → dev_tools → menu — [opus; E1a fable-specced]
 

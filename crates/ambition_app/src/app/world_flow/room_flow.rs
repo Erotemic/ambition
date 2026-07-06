@@ -63,6 +63,49 @@ pub(crate) fn reset_sandbox(
     });
 }
 
+/// Apply the cross-domain per-transition STATE resets that the space IR
+/// (`rooms::load_room_geometry`) deliberately does not touch: blink-camera snap,
+/// respawn-safety anchor, hit-flash/combat timers, and dialogue close. These live
+/// in the composition tier because they mutate four different domains' state
+/// (player / dialog / combat) — no single domain owns the transition, so the
+/// caller that composes them does (anti-god rule 6). Derived entirely from the
+/// arrival position + edge-exit fact the IR returns, so behavior is byte-identical
+/// to when these writes lived inside `load_room_geometry`.
+#[allow(clippy::too_many_arguments)]
+fn apply_room_transition_resets(
+    safety: Option<&mut ambition_gameplay_core::player::PlayerSafetyState>,
+    dialogue: &mut ambition_gameplay_core::dialog::DialogState,
+    combat: &mut ambition_characters::actor::BodyCombat,
+    blink_cam: Option<&mut ambition_gameplay_core::player::PlayerBlinkCameraState>,
+    arrival_pos: ae::Vec2,
+    edge_exit: bool,
+    feel: SandboxFeelTuning,
+) {
+    if let Some(blink_cam) = blink_cam {
+        blink_cam.blink_in_timer = 0.0;
+        blink_cam.blink_camera_from = arrival_pos;
+        blink_cam.blink_camera_to = arrival_pos;
+        blink_cam.camera_snap_timer = if edge_exit {
+            0.0
+        } else {
+            ambition_gameplay_core::ROOM_DOOR_CAMERA_SNAP_TIME
+        };
+    }
+    combat.hit_flash = if edge_exit {
+        feel.edge_transition_flash
+    } else {
+        feel.door_transition_flash
+    };
+    combat.hitstop_timer = 0.0;
+    combat.damage_invuln_timer = 0.0;
+    combat.hitstun_timer = 0.0;
+    combat.recoil_lock_timer = 0.0;
+    if let Some(safety) = safety {
+        safety.last_safe_pos = arrival_pos;
+    }
+    dialogue.close();
+}
+
 pub(crate) fn load_room(
     commands: &mut Commands,
     sfx: &mut MessageWriter<SfxMessage>,
@@ -103,17 +146,27 @@ pub(crate) fn load_room(
         dev_state,
         sim_state,
         clock,
-        safety,
         moving_platforms,
-        dialogue,
-        combat,
-        blink_cam,
         world,
         room_set,
         room_visuals,
         carry_body,
         transition,
         tuning,
+        feel,
+    );
+
+    // The space IR (`load_room_geometry`) resolved geometry + arrival but does not
+    // name higher-tier player/dialog/combat STATE (W1). The composition tier owns
+    // the cross-domain per-transition reset (anti-god rule 6: split by who
+    // mutates), driven purely by the returned arrival + edge-exit facts.
+    apply_room_transition_resets(
+        safety,
+        dialogue,
+        combat,
+        blink_cam,
+        arrival_pos,
+        edge_exit,
         feel,
     );
 

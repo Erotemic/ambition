@@ -330,7 +330,7 @@ impl LdtkProject {
 /// `Vec<ae::RoomObject>` so the room composer can route each family into
 /// its own `RoomSpec` field without re-dispatching on a kind enum.
 #[derive(Clone, Debug, Default)]
-pub struct RuntimeEntityEmission {
+pub struct RoomEmission {
     pub spawn: Option<ae::Vec2>,
     pub blocks: Vec<ae::Block>,
     pub zones: Vec<LoadingZone>,
@@ -386,7 +386,7 @@ pub struct RuntimeEntityEmission {
     pub ignored: bool,
 }
 
-impl RuntimeEntityEmission {
+impl RoomEmission {
     pub fn ignored() -> Self {
         Self {
             ignored: true,
@@ -633,7 +633,7 @@ impl LdtkEntityCtx<'_> {
 /// registers additional converters via [`install_ldtk_entity_converters`];
 /// everything a game-specific converter needs must come from the entity's
 /// authored fields (the ctx), never from ambient state.
-pub type LdtkEntityConverter = fn(&LdtkEntityCtx<'_>) -> Result<RuntimeEntityEmission, String>;
+pub type LdtkEntityConverter = fn(&LdtkEntityCtx<'_>) -> Result<RoomEmission, String>;
 
 /// Content-installed LDtk entity converters (ADR 0009). Set once at
 /// plugin-build time; first install wins (same seam contract as
@@ -717,7 +717,7 @@ pub(super) fn converter_for(identifier: &str) -> Option<LdtkEntityConverter> {
 pub(super) fn entity_to_runtime(
     entity: &LdtkEntityInstance,
     offset: ae::Vec2,
-) -> Result<RuntimeEntityEmission, String> {
+) -> Result<RoomEmission, String> {
     let (min, size) = entity_min_size(entity, offset);
     let ctx = LdtkEntityCtx {
         entity,

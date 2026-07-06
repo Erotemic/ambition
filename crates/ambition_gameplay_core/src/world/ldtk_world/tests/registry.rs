@@ -12,7 +12,7 @@ use ambition_engine_core as ae;
 use super::super::conversion::converter_for;
 use super::super::project::*;
 use super::super::{
-    install_ldtk_entity_converters, LdtkEntityConverter, LdtkEntityCtx, RuntimeEntityEmission,
+    install_ldtk_entity_converters, LdtkEntityConverter, LdtkEntityCtx, RoomEmission,
     AMBITION_LDTK_ENTITY_IDENTIFIERS,
 };
 
@@ -68,8 +68,8 @@ fn synthetic_level(entities: Vec<LdtkEntityInstance>) -> LdtkProject {
 
 /// A game-registered converter: a `TestContentTotem` entity emits a decorative
 /// prop, exactly as a content crate would extend the vocabulary.
-fn convert_test_content_totem(ctx: &LdtkEntityCtx<'_>) -> Result<RuntimeEntityEmission, String> {
-    Ok(RuntimeEntityEmission {
+fn convert_test_content_totem(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
+    Ok(RoomEmission {
         props: vec![crate::rooms::PropSpec {
             id: ctx.entity.iid.clone(),
             name: ctx.name.clone(),

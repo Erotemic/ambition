@@ -49,7 +49,7 @@ pub use bevy_runtime::*;
 // game-specific entity converters at plugin-build time; the engine's
 // standard vocabulary enters through the same registry.
 pub use conversion::{
-    install_ldtk_entity_converters, LdtkEntityConverter, LdtkEntityCtx, RuntimeEntityEmission,
+    install_ldtk_entity_converters, LdtkEntityConverter, LdtkEntityCtx, RoomEmission,
 };
 pub use hot_reload::{poll_ldtk_file_changes, LdtkHotReloadState};
 // The WorldManifest install seam (JD4): a game declares its LDtk worlds +

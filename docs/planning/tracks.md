@@ -41,6 +41,46 @@ Standing escalation: W3 (the world two-crate cut) and E2 (back-edge
 classification) escalate to fable at the FIRST ambiguous item.
 Everything else on this page is opus-or-below by design.
 
+### 🟢 OPUS SESSION 2026-07-06 (b) — where the CLEAN opus surface bottomed out
+
+A second opus session cleared the remaining *cleanly-unblocked, autonomously-
+safe* opus work (gnu-ton RED, CC2-complete, CM5, progression de-weave, patrol
+close — see the execution log). It then evaluated every other open opus item
+and found the surface is now uniformly **not** cleanly-opus. The accounting
+(so the next agent / fable doesn't re-investigate):
+
+- **E4 slices 1–16** — the identity-bearing ones (esp. #16 `ControlledSubject`
+  → `SimView.controlled_body`) CASCADE into render's raw-`Entity`-join identity
+  model (nameplates/hud/fx/items compare `entity == controlled.0`). Converting
+  to stable-id views is the "riskiest cut" fable is graded for — escalated, not
+  forced (matches Jon's "hardest decompositions are fable").
+- **E5 step 5** (mint `ambition_host`) — the movable set entangles
+  `dev_runtime` (E1d territory: `sync_preset_input_map`) + menu + the camera/
+  debug-overlay interleave + the portal-schedule NAMED-system landmines. A
+  clean cut needs the dev/menu split first — fable-tier.
+- **Progression move-to-runtime-group** (the de-weave's follow-up) — blocked on
+  a DEEPER de-weave: the engine chain still carries `menu::map` + `dev_tools`
+  systems (E1d/E1e territory) that don't belong in the content-free engine
+  group. The content de-weave (done) was the safe half.
+- **CC3 hard oracle** — the diagnostic exists (`collision_invariant_oracle`);
+  the hard-asserting form is Jon-deferred (it would RED on the deferred
+  embed/OOB bugs). **CC6 moving portals** — substantial guarded portal-physics.
+- **Netcode N0.2/N0.3** — carry the "pending Q4 confirmation" gate (Jon's call).
+- **E1a–e / E3 / E6 / E7-E8 / E-enc / E-assets** — real opus D-A but each is a
+  multi-hour crate-MINT (move 2–4k LOC + repoint every consumer + delete
+  facade); starting one without landing it compiling violates "only gate is it
+  compiles" (a broken tree is worse than a checkpoint). These want a dedicated
+  focused session each, not the tail of a multi-item run.
+- **SurfaceRamp converter** — 4-orientation quarter-arc winding in +y-down
+  coords; "masquerades as a physics bug in play" if subtly wrong and wants
+  VISUAL verification (spatial-authoring discipline) + no room needs it yet.
+- **FS1** — bridges the external `bevy_falling_sand` crate, feature-gated (off
+  in the gate), low-pri. **BD4** — cataloging/doc. **FB1** — read-only audit.
+- **Sanic ball-dash** — gated on E5-finish (needs a sanic content-crate home) +
+  a new release→velocity technique + hurtbox-resize seam.
+- **Slash-VFX black square / E3 sprite bugs** — render-side, need a visual run
+  (E3-gated). **Dialog-context slice** — "design note first" per its card.
+
 ### 🔴 HARD PROBLEMS surfaced for fable (opus hit the ambiguity boundary, 2026-07-06)
 
 Logged while executing the CM/CC/CM7 ladders (opus). These are the items where

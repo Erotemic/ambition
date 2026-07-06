@@ -123,15 +123,37 @@ impl RoomSet {
         self.active_spec()
     }
 
+    /// Find the loading zone the controlled body's frame path enters this tick.
+    ///
+    /// CC2 (the sweep law, collision-and-ccd.md §3.3): a loading-zone entry is
+    /// path-dependent. An overlap-fire zone (`Walk`, mid-room, not backed by a
+    /// world edge) must not be tunnelled by a fast body (blink / dash / Sanic
+    /// run) between frames, so the reader sweeps the body's `delta` path through
+    /// the zone via the ONE swept primitive instead of a discrete endpoint
+    /// overlap. Parity for slow / standing bodies — `aabb_path_contacts`
+    /// subsumes the old `strict_intersects` (the discrete overlap is the
+    /// `delta == 0` case). `Door` zones stay button-gated (`is_ready` requires
+    /// `wants_interact`), so the sweep only ever HELPS them: you cannot
+    /// tunnel-and-interact. `EdgeExit` bands sit at the room boundary backed by
+    /// world edge, so a tunnel past one is an OOB the CC3 oracle catches, not a
+    /// silent miss — the sweep costs nothing there and closes the gap for free.
     pub fn transition_for_player(
         &self,
         player_aabb: ae::Aabb,
+        delta: ae::Vec2,
         wants_interact: bool,
     ) -> Option<RoomTransition> {
         let zone = self
             .active_loading_zones()
             .iter()
-            .find(|zone| player_aabb.strict_intersects(zone.aabb) && zone.is_ready(wants_interact))?
+            .find(|zone| {
+                ae::cast::aabb_path_contacts(
+                    player_aabb.center(),
+                    player_aabb.half_size(),
+                    delta,
+                    zone.aabb,
+                ) && zone.is_ready(wants_interact)
+            })?
             .clone();
         self.transition_from_zone(zone)
     }
@@ -187,6 +209,12 @@ impl RoomSet {
     pub fn layout_warnings(&self) -> Vec<String> {
         let mut warnings = Vec::new();
         for (room_index, room) in self.rooms.iter().enumerate() {
+            // CC2 §3.3: flag water/climbable state regions thin enough for a
+            // fast body to tunnel between frames (the authoring half of the
+            // sweep law — the per-frame reads stay discrete).
+            for w in room.world.thin_region_warnings() {
+                warnings.push(format!("room {room_index} '{}' {w}", room.world.name));
+            }
             for zone in &room.loading_zones {
                 // Active fixtures inside a zone teleport the player
                 // straight into damage / a bounce.

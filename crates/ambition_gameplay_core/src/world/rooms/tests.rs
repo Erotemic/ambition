@@ -137,6 +137,7 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
     app.insert_resource(GatePortalRegistry::default());
     app.init_resource::<SlotInteractionState>();
     app.init_resource::<Captured>();
+    app.init_resource::<ambition_time::WorldTime>();
     app.add_message::<RoomTransitionRequested>();
     app.add_systems(Update, (detect_room_transition_system, capture).chain());
 
@@ -171,6 +172,100 @@ fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
         Some(1),
         "the possessed (controlled) actor in the walk zone triggers the transition to room b, \
          even though the home avatar is far away",
+    );
+}
+
+/// CC2 (§3.3, the sweep law): a fast body must not tunnel an overlap-fire
+/// (`Walk`) loading zone. A body that starts BEFORE the zone and ends PAST it
+/// in one frame — never discretely overlapping either endpoint — still crosses
+/// the zone's swept path, so the transition fires. The pre-CC2 discrete
+/// `strict_intersects` check would silently miss this (blink / dash / Sanic
+/// speed leaping straight over the exit band).
+#[test]
+fn a_fast_body_cannot_tunnel_a_walk_loading_zone() {
+    use crate::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+    use crate::player::SlotInteractionState;
+    use bevy::prelude::*;
+
+    #[derive(Resource, Default)]
+    struct Captured(Option<usize>);
+
+    fn capture(mut reqs: MessageReader<RoomTransitionRequested>, mut out: ResMut<Captured>) {
+        if let Some(req) = reqs.read().last() {
+            out.0 = Some(req.transition.target_room);
+        }
+    }
+
+    // A thin exit band at x = 100 (half-width 8) — thinner than the body travels
+    // in one frame.
+    let zone_center = ae::Vec2::new(100.0, 100.0);
+    let mut room_a = spec_with(RoomMetadata::default(), "a");
+    room_a.loading_zones = vec![LoadingZone {
+        id: "exit_a".into(),
+        name: "east".into(),
+        activation: LoadingZoneActivation::Walk,
+        aabb: ae::Aabb::new(zone_center, ae::Vec2::new(8.0, 40.0)),
+    }];
+    let mut room_b = spec_with(RoomMetadata::default(), "b");
+    room_b.loading_zones = vec![LoadingZone {
+        id: "entry_b".into(),
+        name: "west".into(),
+        activation: LoadingZoneActivation::Walk,
+        aabb: ae::Aabb::new(ae::Vec2::new(60.0, 100.0), ae::Vec2::new(8.0, 40.0)),
+    }];
+    let set = RoomSet::from_parts(
+        "a",
+        vec![room_a, room_b],
+        vec![RoomLink {
+            from_room: "a".into(),
+            from_zone: "exit_a".into(),
+            to_room: "b".into(),
+            to_zone: "entry_b".into(),
+            bidirectional: false,
+        }],
+    );
+
+    let mut app = App::new();
+    app.insert_resource(set);
+    app.insert_resource(crate::SandboxSimState::default());
+    app.insert_resource(GatePortalRegistry::default());
+    app.init_resource::<SlotInteractionState>();
+    app.init_resource::<Captured>();
+    // A 60 fps frame; the body crosses the whole zone within it.
+    app.insert_resource(ambition_time::WorldTime {
+        scaled_dt: 1.0 / 60.0,
+        ..Default::default()
+    });
+    app.add_message::<RoomTransitionRequested>();
+    app.add_systems(Update, (detect_room_transition_system, capture).chain());
+
+    // The body has already SHOT PAST the zone this frame: it ends at x = 200
+    // (clear of the x = 100 band, half-width 12) having entered from x = 40, so
+    // its velocity places the band squarely on its swept path. A discrete
+    // endpoint check at x = 200 would see no overlap and miss the exit.
+    let dt = 1.0 / 60.0;
+    let end = ae::Vec2::new(200.0, 100.0);
+    let start = ae::Vec2::new(40.0, 100.0);
+    let vel = (end - start) / dt;
+    app.world_mut().spawn((
+        PlayerEntity,
+        PrimaryPlayer,
+        BodyKinematics {
+            pos: end,
+            vel,
+            size: ae::Vec2::new(24.0, 40.0),
+            facing: 1.0,
+        },
+    ));
+
+    app.update();
+
+    assert_eq!(
+        app.world().resource::<Captured>().0,
+        Some(1),
+        "a body that tunnelled through the walk zone in one frame still triggers \
+         the transition — the reader sweeps its path (CC2), it does not sample \
+         the endpoint",
     );
 }
 

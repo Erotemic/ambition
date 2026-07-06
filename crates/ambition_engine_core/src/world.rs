@@ -637,6 +637,12 @@ impl World {
     /// water. Source-agnostic: callers must not iterate
     /// `water_regions` directly.
     pub fn water_at(&self, body: Aabb) -> Option<WaterContact> {
+        // AMBITION_REVIEW(discrete_ok): water is an ENTER/EXIT state region, not
+        // a first-TOI trigger. A thick region can't be tunnelled (the body is
+        // inside it for many frames); the ONLY tunnel risk is a region thinner
+        // than one frame's travel, which `thin_region_warnings` flags at
+        // authoring time — CC2 §3.3 sweeps the AUTHORING, not this per-frame
+        // read (which RL steps millions of times).
         let region = self
             .water_regions
             .iter()
@@ -665,6 +671,9 @@ impl World {
     /// sources (LDtk IntGrid, LDtk entity, generated) all look
     /// identical to the simulator. Mirrors `water_at`.
     pub fn climbable_at(&self, body: Aabb) -> Option<ClimbableContact> {
+        // AMBITION_REVIEW(discrete_ok): climbable is an ENTER/EXIT state region
+        // (same rationale as `water_at`). Thin-strip tunnels are an authoring
+        // defect `thin_region_warnings` catches, not a per-frame sweep concern.
         let region = self
             .climbable_regions
             .iter()
@@ -733,7 +742,53 @@ impl World {
         }
         best
     }
+
+    /// CC2 §3.3 (the sweep law, authoring half): water + climbable regions are
+    /// read DISCRETELY per frame (`water_at`/`climbable_at`) because they are
+    /// ENTER/EXIT state regions, not first-TOI triggers — sweeping them every
+    /// frame would cost the RL loop dearly for no gameplay gain. The ONE way a
+    /// discrete region read can silently miss is a region thinner than a fast
+    /// body's single-frame travel along the thin axis (the body starts one side
+    /// and ends the other, never sampled inside). So the sweep moves to
+    /// AUTHORING: this flags any region whose smaller dimension is under
+    /// [`MIN_STATE_REGION_THICKNESS`], the floor below which a
+    /// [`MAX_EXPECTED_BODY_SPEED`] body could tunnel it in a 60 Hz frame.
+    /// Authors thicken the strip (or, for a genuinely thin trigger, convert the
+    /// reader to a swept check). Non-fatal — returns human-readable warnings.
+    pub fn thin_region_warnings(&self) -> Vec<String> {
+        let mut warnings = Vec::new();
+        let flag = |kind: &str, aabb: Aabb, out: &mut Vec<String>| {
+            let thickness = aabb.width().min(aabb.height());
+            if thickness < MIN_STATE_REGION_THICKNESS {
+                out.push(format!(
+                    "{kind} region at ({:.0}, {:.0}) is {thickness:.0}px thin — under the \
+                     {MIN_STATE_REGION_THICKNESS:.0}px floor a fast body can tunnel in one \
+                     frame; thicken it or make the reader swept (CC2 §3.3)",
+                    aabb.center().x,
+                    aabb.center().y,
+                ));
+            }
+        };
+        for region in &self.water_regions {
+            flag("water", region.aabb, &mut warnings);
+        }
+        for region in &self.climbable_regions {
+            flag("climbable", region.aabb, &mut warnings);
+        }
+        warnings
+    }
 }
+
+/// The fastest sustained body speed CC2's authoring validator plans for —
+/// comfortably above [`crate::movement::tuning::FLIGHT_TERMINAL_SPEED`] (760)
+/// to cover dash / Sanic-momentum bursts. Blink is a discrete teleport handled
+/// by its own swept path, so it is deliberately NOT the reference here.
+pub const MAX_EXPECTED_BODY_SPEED: f32 = 1560.0;
+
+/// Minimum thickness (px) an ENTER/EXIT state region (water / climbable) must
+/// have so a [`MAX_EXPECTED_BODY_SPEED`] body cannot tunnel it in one 60 Hz
+/// frame: `MAX_EXPECTED_BODY_SPEED / 60 = 26px`.
+pub const MIN_STATE_REGION_THICKNESS: f32 = MAX_EXPECTED_BODY_SPEED / 60.0;
 
 /// The active room's authored static spatial geometry — collision blocks,
 /// water/climbable regions, bounds, spawn — exposed as a Bevy resource wrapping
@@ -1057,6 +1112,35 @@ mod tests {
             contact.bottom_y
         );
         assert_eq!(contact.kind, ClimbableKind::Ladder);
+    }
+
+    #[test]
+    fn thin_region_warnings_flags_tunnelable_regions_and_passes_thick_ones() {
+        // A thick water pool and a thin climbable strip (a 6px-wide vertical
+        // vine — under the 26px floor a fast body tunnels it in one frame).
+        let world = World::new(
+            "test",
+            Vec2::new(500.0, 500.0),
+            Vec2::new(10.0, 10.0),
+            Vec::new(),
+        )
+        .with_water_regions(vec![WaterRegion::new(
+            Aabb::new(Vec2::new(200.0, 200.0), Vec2::new(100.0, 40.0)),
+            WaterKind::Clear,
+            WaterVolumeSpec::default(),
+        )])
+        .with_climbable_regions(vec![ClimbableRegion::ladder(Aabb::new(
+            Vec2::new(300.0, 200.0),
+            Vec2::new(3.0, 100.0),
+        ))]);
+        let warnings = world.thin_region_warnings();
+        assert_eq!(warnings.len(), 1, "only the thin vine warns: {warnings:?}");
+        assert!(
+            warnings[0].contains("climbable") && warnings[0].contains("tunnel"),
+            "the warning names the thin climbable region: {warnings:?}"
+        );
+        // The floor is derived from the max expected body speed at 60 Hz.
+        assert!((MIN_STATE_REGION_THICKNESS - 26.0).abs() < 1.0);
     }
 
     #[test]

@@ -46,6 +46,12 @@ pub fn probe_ledge_grab_in_frame(
     world: &World,
     gravity_dir: Vec2,
 ) -> Option<LedgeContact> {
+    // AMBITION_REVIEW(discrete_ok): CC2 §3.3 ledge audit — this probe fires
+    // OFF a resolved wall contact (`wall_normal_x`, a Class-A kernel output;
+    // the body is already clung/resting against the wall this frame), not off a
+    // path-dependent trigger overlap. There is no endpoint sample a fast body
+    // could tunnel: you cannot reach the probe without the swept resolve first
+    // planting you on the wall. Swept by construction; nothing to convert.
     if wall_normal_x.abs() < 0.5 {
         return None;
     }

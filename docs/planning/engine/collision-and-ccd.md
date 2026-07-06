@@ -151,11 +151,11 @@ add a row in the same commit):
 | Hazard touch | ANY-HIT along path → damage event; repeat-contact suppressed by existing i-frames (STAY handled by re-arming, not by the sweep) | swept 2026-07-06 (CC2 first pass) |
 | Blink destination validity | full-path body sweep (`cast::body_sweep`) | already swept |
 | GroundItem pickup | DISCRETE-OK: button-gated (`melee_pressed`), a deliberate act at rest, not a path auto-collect | annotated in code |
-| Auto-collect tokens (coins/rings-analog) | ANY-HIT along path, each volume independent (order along the path irrelevant) | CC2-completion converts |
-| Mid-room Door loading zones | FIRST-TOI ENTER (Class B) | CC2-completion converts |
-| EdgeExit loading zones | DISCRETE-OK: the exit band sits at the room boundary backed by world edge; a tunnel "past" it is an OOB the CC3 oracle catches, not a silent miss | annotate |
-| Water / climbable region entry | ENTER/EXIT state edges, DISCRETE-OK for thick regions; the authoring validator flags any region thinner than `max_expected_speed · dt` (thin strips must thicken or the reader converts) — sweep the AUTHORING, not every frame | CC2-completion adds the validator rule |
-| Ledge grab | derives from kernel contacts (Class A output) — swept by construction; audit confirms no residual endpoint check | CC2-completion audits |
+| Auto-collect tokens (coins/rings-analog) | ANY-HIT along path, each volume independent (order along the path irrelevant) | N/A — no auto-collect pickup exists yet (GroundItem is the only pickup, button-gated); the pattern (route through `cast::aabb_path_contacts`) is documented in `items/pickup/mod.rs` for whoever adds one (opus 2026-07-06) |
+| Mid-room Door loading zones | FIRST-TOI ENTER (Class B) | swept 2026-07-06 (CC2-completion): `transition_for_player` sweeps the body's `delta` via `cast::aabb_path_contacts`; Door stays interact-gated so the sweep only helps it |
+| EdgeExit / Walk loading zones | overlap-fire; `Walk` (mid-room, not edge-backed) IS the real tunnel case; EdgeExit is edge-backed (a tunnel past it is an OOB CC3 catches) | swept 2026-07-06 (CC2-completion): the ONE `transition_for_player` sweep subsumes both; tunnel test pins a fast body crossing a `Walk` band |
+| Water / climbable region entry | ENTER/EXIT state edges, DISCRETE-OK for thick regions; the authoring validator flags any region thinner than `max_expected_speed · dt` (thin strips must thicken or the reader converts) — sweep the AUTHORING, not every frame | done 2026-07-06 (CC2-completion): readers annotated `discrete_ok`; `World::thin_region_warnings` (floor = `MAX_EXPECTED_BODY_SPEED/60 = 26px`) wired into room `layout_warnings` |
+| Ledge grab | derives from kernel contacts (Class A output) — swept by construction; audit confirms no residual endpoint check | audited 2026-07-06 (CC2-completion): the probe fires off a resolved wall contact, not a trigger overlap — swept by construction, annotated `discrete_ok` at the probe site |
 | Camera / music / ambient zones | DISCRETE-OK: genuinely positional, one-frame slop imperceptible | blanket grant |
 
 **The discrete-OK convention (grep-able, mandatory):** any reader granted

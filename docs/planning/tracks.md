@@ -81,7 +81,7 @@ fable card. Ranked by how much they gate a fable task.
 |---|---|---|---|
 | Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — E5 first slice `3c70d827`; **E5-finish steps 1–4 LANDED 2026-07-06** (sets+resources+combat schedule into the group; shared headless foundation; cut-rope de-woven via generic `RoomReplayRequested` + labeled slots; E4-prep: fx facade imports repointed, CameraViewState + cut-rope resources re-owned) | E5 step 5 (mint [the windowed host]) + step 6 (smoke shell) [opus]; W/E1/E2/E3/E6/E7/E8 open |
 | Decomposition D-B/D-C | same | queued behind D-A | mode-scope seam can land early (demos want it) |
-| Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | **CC1 COMPLETE + CC5 LANDED (fable, 2026-07-06)** — engine_core::frame vocabulary + cast family registry real in code (ray tier moved down, portal-aware cast in `cast`, wrapper in portal crate), parity suites green; CC2 first pass landed earlier same day | CC2 completion (§3.3 table) [opus]; CC3 fuzz rig (§6.1 oracle) [opus]; CC6 moving portals (§5-P2 spec) [opus] |
+| Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | **CC1 COMPLETE + CC5 LANDED (fable) + CC2 COMPLETE (opus, 2026-07-06)** — engine_core::frame vocabulary + cast family registry real in code; CC2 first pass (hazards swept) + completion (§3.3 every reader classified: loading-zone Door/Walk/EdgeExit now swept via `transition_for_player`; water/climbable annotated discrete-OK + `thin_region_warnings` authoring validator; ledge audited; auto-collect N/A) parity suites green | CC3 fuzz rig (§6.1 oracle) [opus]; CC6 moving portals (§5-P2 spec) [opus] |
 | Combat stack | [engine/combat-model.md](engine/combat-model.md) | CM1+CM2+CM3+CM7+**CM4 (fable, 2026-07-06)** LANDED — the full cancel/chain table rides the move timeline (`Cancelable{into, condition}`), parity-pinned, connect-fact wired through the real hit path | CM5 per-move sfx/vfx [opus]; CM6 grab/throw/shield-stun (brings OnBlock) [opus, with SSB] |
 | Netcode ladder | [engine/netcode.md](engine/netcode.md) | NEW | N0.2 input-stream type; N0.3 lint set [opus] |
 | Fighter brain | [engine/fighter-brain.md](engine/fighter-brain.md) | NEW | FB1 view audit [opus] (CM7 first) |
@@ -388,3 +388,22 @@ Found during parity runs: pre-existing content RED (gnu_ton mount link,
 logged above). Next fable-tier work: E4 slices 1–16 are opus-per-table;
 the remaining fable calls are E4's final flip (step 5) + W3/E2
 escalations when opus hits them.
+
+## 2026-07-06 (opus) — CC2 COMPLETE: the §3.3 trigger-classification pass
+Every path-dependent reader in the §3.3 table now declares its verb.
+**Converted to swept:** loading-zone entry — `transition_for_player` takes the
+body's frame `delta` and routes through `cast::aabb_path_contacts`, so a fast
+body (Sanic/dash/blink) can no longer tunnel an overlap-fire `Walk` band
+between frames (tunnel test pins it); the discrete standing-in-it case is
+`delta == 0`, byte-preserved; `Door` stays interact-gated so the sweep only
+ever helps it. **Annotated discrete-OK + authoring-swept:** water/climbable
+region entry — the per-frame `water_at`/`climbable_at` reads stay discrete
+(ENTER/EXIT state, RL-hot), with `World::thin_region_warnings` (floor =
+`MAX_EXPECTED_BODY_SPEED/60 = 26px`) wired into room `layout_warnings` to flag
+tunnelable thin strips at authoring time. **Audited:** ledge grab fires off a
+resolved wall contact (Class-A kernel output), swept by construction —
+annotated at the probe. **N/A:** no auto-collect token pickup exists yet
+(GroundItem is the only pickup, button-gated); the swept-pattern recipe is
+documented in `items/pickup/mod.rs` for whoever adds one. engine_core 249/249
+(+thin-region test), rooms 31/31 (+tunnel test), app rl_sim gate build clean.
+Next CC-ladder opus work: CC3 fuzz rig (§6.1 oracle), CC6 moving portals.

@@ -271,6 +271,7 @@ pub fn detect_room_transition_system(
     mut slot_gestures: ResMut<crate::player::SlotInteractionState>,
     bodies: Query<&crate::actor::BodyKinematics>,
     primary_q: Query<Entity, crate::actor::PrimaryPlayerOnly>,
+    world_time: Res<WorldTime>,
 ) {
     if sim_state.room_transition_cooldown > 0.0 {
         return;
@@ -281,7 +282,12 @@ pub fn detect_room_transition_system(
     let Some(kin) = subject.and_then(|subject| bodies.get(subject).ok()) else {
         return;
     };
-    let Some(zone) = room_set.transition_for_player(kin.aabb(), slot_gestures.primary().buffered())
+    // CC2 (§3.3): sweep the body's frame path into the zone so a fast body
+    // can't tunnel an overlap-fire (`Walk`) loading zone between frames. The
+    // discrete standing-in-it case is `delta == 0`, preserved exactly.
+    let delta = kin.vel * world_time.sim_dt();
+    let Some(zone) =
+        room_set.transition_for_player(kin.aabb(), delta, slot_gestures.primary().buffered())
     else {
         return;
     };

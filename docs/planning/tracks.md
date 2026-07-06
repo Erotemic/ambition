@@ -253,6 +253,80 @@ sandbag InPlace). ADR 0022 written. Original spec below for reference:
 | Portal gun should be a normal item (portal crate forgets the gun; one gun = one pair) | decontamination near A2/items; portal exposes `spawn portal of pair P on surface` primitive | [opus, low priority] |
 | Smells journal (dev/journals/code_smells.md) | C4-style sweep rides each related track; the journal stays the intake | — |
 
+## 🅿️ PARKED SLICE — DECISION BRIEF: SweepSample's ECS-integration seam (opus 2026-07-06 night)
+
+**Status: PARKED per the post-fable protocol.** The `SweepSample` §3.1 spec
+pins the TYPE, the four contract rules, and the does-NOT-carry list exactly —
+but it does NOT pin the ECS-INTEGRATION seam, and the code (read this session)
+shows that seam carries genuine unresolved design content with high blast
+radius on the guarded collision heart. Opus declined to improvise doctrine
+here. Steps 1/2/4 of the W-queue/E2/GeoId run landed around it; this is the one
+slice that needs a ruling before execution.
+
+**Why it's not "merely hard" (the concrete entanglement, from the code):**
+1. **In-kernel discontinuities.** `integrate_home_body`
+   (`player/body_integration.rs`) calls `update_body_with_tuning_clusters`
+   (the AABB kernel) and then, *in the same call*, does an engine-level
+   teleport-to-spawn when `events.reset` fires (`reset_body_clusters(clusters,
+   world.spawn)`). BLINK and the momentum solver's snaps also happen INSIDE the
+   kernel. So "write the sample AFTER the kernel" (§3.1) would capture a
+   prev→curr segment that SPANS a mid-kernel teleport/blink — a spurious path
+   the hazard reader would then sweep. §3.2 lists Class-B as portal/room/
+   death/scripted-teleport and EXCLUDES blink (kernel Class-A), so blink has no
+   pinned reset — yet it is a discontinuity.
+2. **The reset surface spans three crates and ~20 sites** (`.pos =` writers:
+   engine_core blink, `ambition_portal` transfer, gameplay_core respawn ×2 via
+   `reset_body_clusters`, boss reset, mount rider-positioning, mark-recall,
+   enemy corner-slide, room transition). Missing ANY one makes the migrated
+   hazard reader fire spuriously after that teleport. The spec names only four
+   ("portal transfer, teleport, respawn, room transition").
+3. **The verification gap.** The reset protocol is only EXERCISED once a reader
+   consumes the sample (the hazard migration). So a type+writers+resets mint
+   with the reader left on `vel·dt` ships an UNVERIFIED reset protocol (dead
+   code CC6 would then trust); migrating the reader is the byte-parity-risky
+   change on guarded hazard behavior (the sample's true prev→curr differs from
+   `vel·dt` exactly on wall-stop and teleport frames).
+
+**The core question to rule:** does `SweepSample` (a) live in
+`BodyClustersMut` so the kernels write/reset it directly at every internal
+discontinuity (blink, `events.reset`, momentum snap), or (b) stay a standalone
+component written by the two integration SYSTEMS after the kernel returns, with
+an explicit rule for in-kernel discontinuities? And: **is blink a sample-reset
+(a "scripted teleport") or Class-A motion (no reset, its path is real)?**
+
+**Options:**
+- **(A) Cluster-member.** `SweepSample` joins `BodyClustersMut`; the kernels set
+  `prev = curr; curr = new_pos` at step end and `prev = curr = new_pos` at every
+  internal teleport/blink/reset. PRO: one write site per discontinuity, provably
+  complete (the kernel owns every pos write). CON: widens the cluster view +
+  every scratch/test constructor; touches the hottest struct in engine_core.
+- **(B) System-layer component + blink-is-Class-A.** Standalone component; the
+  two integration systems write it post-kernel; the four named Class-B writers
+  reset it; blink/`events.reset` are NOT reset (their path is "real"). PRO:
+  minimal cluster churn. CON: hazard sweep will graze along blink/reset paths —
+  a behavior change that may or may not be byte-parity vs `vel·dt` (depends on
+  whether blink zeroes vel); likely trips a portal/gravity/hazard suite, and if
+  it does the fix is ad-hoc per writer.
+- **(C) System-layer component + blink/reset ARE resets.** Like (B) but the
+  integration system detects an in-tick teleport (blink fired / `events.reset`)
+  and resets the sample same-tick. PRO: no cluster churn, correct paths. CON:
+  the "did a discontinuity happen this tick" signal must be plumbed out of the
+  kernel (it is not today — `events` reports `reset` but not `blinked`), so it's
+  a new kernel output.
+
+**Recommendation: (A) cluster-member.** The sample IS body motion state; putting
+it where every pos write already lives is the only option that makes the reset
+protocol PROVABLY complete (the §3.1 completeness requirement) rather than a
+grep-audited hope across 20 sites and 3 crates. The cluster-view widening is
+mechanical and one-time; it is the same place `BodyKinematics` already lives, so
+the kernel writes are local. Do it as: 3a mint + cluster field + kernel writes
+(zero readers, byte-parity); 3b reset at internal discontinuities incl. blink
+(still zero readers); 3c migrate the hazard reader (full hazard/portal/gravity
+suites are the byte-parity gate). If 3c reveals a blink-vs-`vel·dt` parity
+delta, THAT is the feel call for Jon (a blinking body grazing a spike), logged
+separately. **Needs Jon's (or fable-budget's) ruling on (A) vs the blink
+classification before execution — it rewrites the hottest engine struct.**
+
 ## Oracle-violation log (demos file here; engine work exits through tracks)
 
 *(empty — the discipline: demo commits never touch engine crates; each

@@ -21,9 +21,9 @@ use ambition_vfx::vfx::VfxMessage;
 
 use crate::actor::{BodyDodgeState, BodyOffense, BodyShieldState};
 use crate::actor::{PlayerEntity, PrimaryPlayer, PrimaryPlayerOnly};
-use crate::combat::events::{HitEvent as FeatureHitEvent, HitTarget};
+use crate::combat::events::{GameplayBannerRequested, HitEvent as FeatureHitEvent, HitTarget};
 use crate::dev::dev_tools::EditableMovementTuning;
-use crate::features::{self, GameplayBanner};
+use crate::features;
 use crate::player::{BodyAnimFacts, PlayerSafetyState};
 use crate::time::feel::SandboxFeelTuning;
 use crate::{
@@ -242,7 +242,7 @@ pub(crate) fn death_respawn_player(
     sim_state: &mut SandboxSimState,
     clock: &mut ClockState,
     safety: &mut PlayerSafetyState,
-    banner: &mut GameplayBanner,
+    banner_requests: &mut MessageWriter<GameplayBannerRequested>,
     player_health: Option<&mut BodyHealth>,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -270,7 +270,10 @@ pub(crate) fn death_respawn_player(
     }
     combat.damage_invuln_timer = feel.hazard_respawn_invulnerability_time;
     combat.hit_flash = feel.reset_flash_time.max(0.35);
-    banner.show("PLAYER DOWN: respawned at room start with full HP", 2.4);
+    banner_requests.write(GameplayBannerRequested::new(
+        "PLAYER DOWN: respawned at room start with full HP",
+        2.4,
+    ));
     sfx.write(SfxMessage::Death { pos: from });
     vfx.write(VfxMessage::ResetEffects { from, to });
     died.write(ActorDiedMessage { pos: from, cause });
@@ -286,7 +289,7 @@ pub(crate) fn handle_player_damage_events(
     sim_state: &mut SandboxSimState,
     clock: &mut ClockState,
     safety: &mut PlayerSafetyState,
-    banner: &mut GameplayBanner,
+    banner_requests: &mut MessageWriter<GameplayBannerRequested>,
     mut player_health: Option<&mut BodyHealth>,
     damage_events: &[FeatureHitEvent],
     tuning: ae::MovementTuning,
@@ -342,7 +345,7 @@ pub(crate) fn handle_player_damage_events(
                 id: ambition_sfx::ids::WORLD_ROCK_HIT,
                 pos: clusters.kinematics.pos,
             });
-            banner.show("blocked", 1.0);
+            banner_requests.write(GameplayBannerRequested::new("blocked", 1.0));
         }
         BodyHitResolution::Damaged { died: true, .. } => {
             // Attribution for the death fact: the killing hit's source category
@@ -360,7 +363,7 @@ pub(crate) fn handle_player_damage_events(
                 sim_state,
                 clock,
                 safety,
-                banner,
+                banner_requests,
                 player_health,
                 tuning,
                 feel,
@@ -593,7 +596,7 @@ pub fn apply_player_hit_events(
     feature_ecs_overlay: Res<features::FeatureEcsWorldOverlay>,
     mut sim_state: ResMut<SandboxSimState>,
     mut clock: ResMut<ClockState>,
-    mut banner: ResMut<GameplayBanner>,
+    mut banner_requests: MessageWriter<GameplayBannerRequested>,
     mut hit_events: MessageReader<FeatureHitEvent>,
     mut died_writer: MessageWriter<ActorDiedMessage>,
     mut sfx_writer: MessageWriter<SfxMessage>,
@@ -708,7 +711,7 @@ pub fn apply_player_hit_events(
             &mut sim_state,
             &mut clock,
             &mut safety,
-            &mut banner,
+            &mut banner_requests,
             player_health.map(|h| h.into_inner()),
             &target_events,
             tuning,

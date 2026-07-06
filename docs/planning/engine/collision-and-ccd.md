@@ -190,7 +190,7 @@ aperture) and P3 relax the cardinal restriction.
 
 | # | Slice | Grade |
 |---|---|---|
-| CC1 | `engine_core::cast` consolidation: move/absorb `sweep_hit`/`first_body_sweep`/`first_circle_hit`/`raycast_through_portals` behind one module; no behavior change; every external caller repointed | [opus] |
+| CC1 | ⏳ PARTIAL LANDED 2026-07-06 (opus). `ambition_engine_core::cast` minted as THE swept-primitive API surface: re-exports `AabbExt`/`AabbSweepHit` + owns the public `body_sweep()` entry (delegates to `World::first_body_sweep`, which holds privileged block-set access); external caller (platformer `kinematic`) repointed; engine_core 236/236 green (no behavior change). **REMAINING (a genuine hard problem → see fable log below):** `first_circle_hit` is intimate with the momentum kernel's surface types and won't extract without behavior-change risk on the most-guarded code; `raycast_solids`/`ray_aabb` live in `ambition_platformer_primitives` (generic over `SolidWorldQuery`); and `raycast_through_portals` (`ambition_portal`) can't move into engine_core without the engine-level aperture type that **IS CC5's `PortalFrame`** — so the portal-cast absorption is fable's CC5, not opus's CC1. | [opus done to the safe boundary; **fable** owns the kernel-extraction + portal-tier absorption] |
 | CC2 | Trigger-sweep audit: enumerate every path-dependent reader (hazards, zones, pickups, loading zones, water, climbables, ledge, blink validity) → classify swept/discrete-OK; convert the swept class to CC1 calls; log the discrete-OK list IN CODE at each site | [opus; fable reviews the classification] |
 | CC3 | The composed-world fuzz invariant rig + CI wiring | [opus] |
 | CC4 | Broadphase grid for chains+blocks casts (profile first) | [opus] |

@@ -28,6 +28,7 @@
 
 pub mod abilities;
 pub mod body_clusters;
+pub mod cast;
 pub mod collision_semantics;
 pub mod combat_volume;
 pub mod config;

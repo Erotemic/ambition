@@ -268,7 +268,8 @@ fn sweep_axis(
 
     let delta = axis_delta(axis, delta_amount);
     let start_body = body.aabb();
-    if let Some(hit) = world.first_body_sweep(start_body, delta, |block| {
+    // CC1: body-vs-world sweeps route through the one `cast` entry point.
+    if let Some(hit) = ambition_engine_core::cast::body_sweep(world, start_body, delta, |block| {
         if !is_solid_for_axis(block.kind, axis, gravity_dir) {
             return false;
         }

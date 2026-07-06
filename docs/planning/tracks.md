@@ -37,13 +37,57 @@ Standing escalation: W3 (the world two-crate cut) and E2 (back-edge
 classification) escalate to fable at the FIRST ambiguous item.
 Everything else on this page is opus-or-below by design.
 
+### 🔴 HARD PROBLEMS surfaced for fable (opus hit the ambiguity boundary, 2026-07-06)
+
+Logged while executing the CM/CC/CM7 ladders (opus). These are the items where
+the clean path needed a fable-tier decision or touched the most-guarded code —
+opus stopped at the safe boundary rather than risk a regression or pre-empt a
+fable card. Ranked by how much they gate a fable task.
+
+1. **CC1→CC5 collision-cast consolidation is genuinely cross-crate + kernel-
+   tangled — the "one `cast` module" cannot own all four primitives without
+   fable's calls.** The four cast primitives live in THREE crates at different
+   layers: `sweep_hit`(AabbExt) + `first_body_sweep`(World) + `first_circle_hit`
+   (surface.rs, private) in engine_core; `raycast_solids`/`ray_aabb` in
+   `ambition_platformer_primitives` (generic over `SolidWorldQuery`);
+   `raycast_through_portals` in `ambition_portal` (needs `PlacedPortal`). Opus
+   landed the safe surface (`engine_core::cast` re-exports + `body_sweep` entry,
+   236/236 green). The REMAINING consolidation needs three fable rulings:
+   **(a)** does `first_circle_hit` extract from the momentum kernel, or does
+   `cast` re-export a kernel-owned primitive? (it's intimate with `SurfaceChain`/
+   `resolve_surface`; extraction risks behavior change on the no-pushout/OOB
+   path). **(b)** do `raycast_solids`/`ray_aabb` + `SolidWorldQuery` move DOWN
+   into engine_core (a cascade), or does `cast` stay a facade over the correctly-
+   layered homes? **(c)** the portal-aware cast can only live in `cast` once
+   engine_core owns an aperture type — **that IS CC5's `PortalFrame`**, so
+   CC2–CC4 arguably can't reach their clean end until CC5 lands first, inverting
+   the ladder order. Net: the CC ladder's "no system rolls its own cast" endgame
+   is a fable design call about crate layering, not a mechanical opus port.
+
+2. **CM2 DI + CM3 charge each left a feel/input seam that is Jon's, not opus's.**
+   DI (`di_max_angle`) defaults OFF — turning it on for a fighter is a feel
+   number Jon sets. Partial-charge-on-EARLY-release needs a new
+   `attack_held`/`attack_released` signal on `ActorControlFrame` + input mapping
+   (a feel + input-layer change); opus wired the scaling so the charge fraction
+   already derives from `MovePlayback.t`, but the release TRIGGER is deferred.
+   Neither is a blocker; both are one small authored change away and want Jon's
+   feel eye.
+
+3. **CM1 `launch_dir` (authored directional launch) needs the ±side knockback
+   model reworked into arbitrary 2D launch angles.** `resolved_body_knockback_
+   velocity` currently launches along ±`frame.side` with a fixed rise; honoring a
+   volume's authored `launch_dir` (smash-style fixed launch angles) is a rework
+   of that resolver, not a field read. The field is authored + carried (CM1);
+   the consumption was deferred. Small but wants care (it's on the knockback path
+   Jon guards) — a fable/opus-with-parity call.
+
 ## Track index (status → next slice)
 
 | Track | Doc | Status | Next |
 |---|---|---|---|
 | Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — E5 first slice `3c70d827`; **E5-finish steps 1–4 LANDED 2026-07-06** (sets+resources+combat schedule into the group; shared headless foundation; cut-rope de-woven via generic `RoomReplayRequested` + labeled slots; E4-prep: fx facade imports repointed, CameraViewState + cut-rope resources re-owned) | E5 step 5 (mint [the windowed host]) + step 6 (smoke shell) [opus]; W/E1/E2/E3/E6/E7/E8 open |
 | Decomposition D-B/D-C | same | queued behind D-A | mode-scope seam can land early (demos want it) |
-| Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | NEW — §7.6 swept transit + blocks-as-surfaces landed | CC1 cast consolidation [opus] |
+| Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | CC1 PARTIAL 2026-07-06 — `engine_core::cast` surface minted (safe boundary, 236/236); **full consolidation + portal tier = fable (see hard-problems log)** | CC2 trigger-sweep audit [opus, but see CC1 remaining]; CC5 `PortalFrame` [fable] gates the cast endgame |
 | Combat stack | [engine/combat-model.md](engine/combat-model.md) | CM1+CM2+CM3+CM7 LANDED 2026-07-06 (knockback growth+weight+DeathPolicy; launch DI; smash-charge; frame-data table — all parity-pinned) → **CM4 (fable) UNBLOCKED**; CM7 feeds FB2 | CM5 per-move sfx/vfx [opus]; CM4 cancel tables [fable]; CM6 |
 | Netcode ladder | [engine/netcode.md](engine/netcode.md) | NEW | N0.2 input-stream type; N0.3 lint set [opus] |
 | Fighter brain | [engine/fighter-brain.md](engine/fighter-brain.md) | NEW | FB1 view audit [opus] (CM7 first) |
@@ -261,3 +305,21 @@ control signal (input+feel, Jon's); the fraction already derives from `t`.
 **With CM1–CM3 landed, CM4 (cancel tables, fable) is UNBLOCKED.** Next on the CM
 ladder: CM5 (per-move sfx/vfx) [opus]. Moving to the CC ladder (→ unblocks CC5)
 + CM7.
+
+## 2026-07-06 (opus) — CM7 frame-data + CC1 (partial) + hard-problems log for fable
+CM7 landed (`800419ff`): `MoveSpec::frame_data() -> MoveFrameData` (pure
+derivation in entity_catalog; startup/active/recovery/cancel windows + reach) —
+feeds FB2. CC1 landed to its SAFE BOUNDARY: `ambition_engine_core::cast` minted
+as the swept-primitive API surface (re-exports `AabbExt`/`AabbSweepHit` + public
+`body_sweep()` entry delegating to `World::first_body_sweep`; external
+platformer caller repointed; engine_core 236/236 green, no behavior change). The
+FULL CC1 consolidation is NOT mechanical — the four cast primitives span three
+crates at different layers and the portal-aware cast needs CC5's `PortalFrame`
+aperture type to live in `cast` without inverting layering; opus stopped at the
+boundary and logged the three fable rulings this needs (see the HARD PROBLEMS
+section at the top of this file). Per "log hard problems for fable" (Jon,
+2026-07-06): the CC-ladder cast endgame, the DI/charge feel+input seams, and
+CM1's `launch_dir` resolver rework are all recorded there.
+STOP POINT (Jon): CM1/CM2/CM3/CM7 fully landed + CC1 partial; combat side of
+fable maximally unblocked (CM4 ready, FB2 fed); CC/E4/E5 remain and the CC
+endgame is now a documented fable call.

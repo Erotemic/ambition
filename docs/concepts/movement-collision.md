@@ -12,7 +12,7 @@ aliases:
 implemented_by:
   - crates/ambition_engine_core/src/movement/mod.rs
   - crates/ambition_platformer_primitives/src/kinematic.rs
-  - crates/ambition_gameplay_core/src/combat/mod.rs
+  - crates/ambition_combat/src/lib.rs
   - crates/ambition_gameplay_core/src/projectile/mod.rs
   - crates/ambition_engine_core/src/player_state.rs
   - crates/ambition_engine_core/src/ledge_grab/mod.rs

@@ -7,7 +7,7 @@
 //! id; any unbooked encounter falls back to a single wave from its `EnemySpawn`
 //! markers. The loader names no specific encounter — that's the content seam.
 
-use crate::persistence::save_data::PersistedEncounterState;
+use ambition_persistence::save_data::PersistedEncounterState;
 
 use crate::ldtk_world::LdtkProject;
 
@@ -74,7 +74,7 @@ fn authored_encounter_waves(id: &str) -> Option<Vec<EncounterWaveSpec>> {
 /// LDtk `EnemySpawn` markers. The loader names no specific encounter.
 pub fn load_encounter_specs_from_ldtk(
     project: &LdtkProject,
-    save: &crate::persistence::save_data::SandboxSaveData,
+    save: &ambition_persistence::save_data::SandboxSaveData,
 ) -> Vec<(String, EncounterSpec, PersistedEncounterState)> {
     let mut out = Vec::new();
     for level in &project.levels {

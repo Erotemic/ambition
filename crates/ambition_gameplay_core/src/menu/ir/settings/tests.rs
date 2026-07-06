@@ -2,7 +2,7 @@
 //! labels) and `apply_settings_option` mutation/close behaviour.
 
 use super::*;
-use crate::persistence::settings::UserSettings;
+use ambition_persistence::settings::UserSettings;
 
 #[test]
 fn model_has_the_four_categories_in_order() {

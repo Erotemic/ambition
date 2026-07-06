@@ -138,7 +138,7 @@ pub fn fold_to_menu_control_frame(
     touches: Res<Touches>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
     windows: Query<&Window, With<PrimaryWindow>>,
-    user_settings: Res<ambition_gameplay_core::persistence::settings::UserSettings>,
+    user_settings: Res<ambition_persistence::settings::UserSettings>,
     exclusion_zones: Query<&TouchExclusionZone>,
     mut gesture: ResMut<MenuTouchGestureState>,
     mut frame: ResMut<MenuControlFrame>,
@@ -243,12 +243,11 @@ pub fn touch_move_to_menu_dir(
     touch: TouchInputState,
     deadzone: f32,
 ) -> Option<ambition_input::MenuDir> {
-    let (x, y_down) =
-        ambition_gameplay_core::persistence::settings::ControlSettings::apply_deadzone(
-            touch.move_x,
-            touch.move_y,
-            deadzone,
-        );
+    let (x, y_down) = ambition_persistence::settings::ControlSettings::apply_deadzone(
+        touch.move_x,
+        touch.move_y,
+        deadzone,
+    );
     ambition_input::analog_to_dir(x, -y_down, 0.5)
 }
 

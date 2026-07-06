@@ -535,7 +535,7 @@ pub fn apply_player_hit_events(
     (world, moving_platforms): (Res<RoomGeometry>, Res<MovingPlatformSet>),
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
-    user_settings: Res<crate::persistence::settings::UserSettings>,
+    user_settings: Res<ambition_persistence::settings::UserSettings>,
     feature_ecs_overlay: Res<crate::world::overlay::FeatureEcsWorldOverlay>,
     mut sim_state: ResMut<SandboxSimState>,
     mut clock: ResMut<ClockState>,
@@ -595,8 +595,8 @@ pub fn apply_player_hit_events(
         .collect();
 
     let assist_factor = match user_settings.gameplay.assist {
-        crate::persistence::settings::AssistMode::Off => 1.0,
-        crate::persistence::settings::AssistMode::On => 0.5,
+        ambition_persistence::settings::AssistMode::Off => 1.0,
+        ambition_persistence::settings::AssistMode::On => 0.5,
     };
     let difficulty_multiplier = user_settings.gameplay.difficulty.damage_taken_multiplier()
         * user_settings.gameplay.player_damage_multiplier

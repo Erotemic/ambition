@@ -381,6 +381,7 @@ ambition_ui_nav = { path = "../ambition_ui_nav" }
 # the Bevy-UI grid (#31). De-vendored from the submodule into a normal repo crate
 # so it can be edited without the submodule commit + gitlink-bump dance.
 ambition_menu = { path = "../ambition_menu" }
+ambition_persistence = { path = "../ambition_persistence" }
 # Logical asset catalog + per-profile source resolution. Bevy + sfx
 # features so the sandbox can format `AssetPath` strings through the
 # catalog and (in a follow-up) route the SFX bank bytes through the

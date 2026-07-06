@@ -13,7 +13,7 @@ use std::sync::Arc;
 
 use ambition_gameplay_core::dialog::yarn_bindings::{YarnStateMirror, YarnStateMirrorData};
 use ambition_gameplay_core::features::SetFlagRequested;
-use ambition_gameplay_core::persistence::save::SandboxSave;
+use ambition_persistence::save::SandboxSave;
 
 use super::{CutRopeHeavyObjectCycle, PendingCutRopeRoomReplay};
 

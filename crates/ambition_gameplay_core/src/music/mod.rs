@@ -8,7 +8,7 @@
 
 use bevy::prelude::*;
 
-use crate::persistence::settings::UserSettings;
+use ambition_persistence::settings::UserSettings;
 
 mod intent;
 

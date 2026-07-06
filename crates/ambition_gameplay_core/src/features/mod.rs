@@ -88,7 +88,7 @@ pub use components::{
 // Switch machinery + the quest-advance message live with their owning domains
 // (E2): the hub keeps the names importable until it dissolves (E7/E8).
 pub use crate::encounter::{SwitchActivated, SwitchFeature, SwitchOn};
-pub use crate::quest::QuestAdvanceRequested;
+pub use ambition_persistence::quest::QuestAdvanceRequested;
 pub use ecs::actor_bundles::{
     ChestBundle, EnemyActorBundle, FeatureBaseBundle, FeatureLifecycleBundle,
     FeatureRenderedBundle, PickupBundle,

@@ -11,7 +11,7 @@ pub fn track_room_visits(
     room_set: Res<crate::rooms::RoomSet>,
     mut map: ResMut<MapMenuState>,
     mut last: Local<Option<String>>,
-    mut save: ResMut<crate::persistence::save::SandboxSave>,
+    mut save: ResMut<ambition_persistence::save::SandboxSave>,
 ) {
     let current = room_set.active_spec().id.clone();
     if last.as_deref() == Some(current.as_str()) {
@@ -24,7 +24,7 @@ pub fn track_room_visits(
 }
 
 pub fn sync_map_from_save(
-    save: Res<crate::persistence::save::SandboxSave>,
+    save: Res<ambition_persistence::save::SandboxSave>,
     mut map: ResMut<MapMenuState>,
     mut hydrated: Local<bool>,
 ) {

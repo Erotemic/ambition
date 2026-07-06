@@ -88,7 +88,7 @@ pub fn ensure_portal_bodies(
 pub fn sync_portal_reorient_from_settings(
     // Optional: headless / unit-test apps may run portal transit without the
     // settings resource. Absent → leave the portal crate's default (ON).
-    settings: Option<Res<ambition_gameplay_core::persistence::settings::UserSettings>>,
+    settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     mut tuning: ResMut<PortalTuning>,
 ) {
     let Some(settings) = settings else {

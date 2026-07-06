@@ -109,7 +109,7 @@ struct FallingSandSpoutState {
 }
 
 impl FallingSandSpoutState {
-    fn from_save(save: &ambition_gameplay_core::persistence::save_data::SandboxSaveData) -> Self {
+    fn from_save(save: &ambition_persistence::save_data::SandboxSaveData) -> Self {
         Self {
             sand: save.switch(SAND_SWITCH),
             water: save.switch(WATER_SWITCH),
@@ -308,7 +308,7 @@ fn setup_particle_types(mut commands: Commands) {
 fn sync_falling_sand_room_state(
     mut commands: Commands,
     room_set: Res<ambition_gameplay_core::rooms::RoomSet>,
-    save: Res<ambition_gameplay_core::persistence::save::SandboxSave>,
+    save: Res<ambition_persistence::save::SandboxSave>,
     mut state: ResMut<FallingSandRoomState>,
     particles: Query<Entity, With<Particle>>,
 ) {
@@ -473,7 +473,7 @@ fn emit_particle_rect(
 fn capture_falling_sand_switch_interactions(
     room_set: Res<ambition_gameplay_core::rooms::RoomSet>,
     mut state: ResMut<FallingSandRoomState>,
-    mut save: ResMut<ambition_gameplay_core::persistence::save::SandboxSave>,
+    mut save: ResMut<ambition_persistence::save::SandboxSave>,
     mut effects: MessageReader<ambition_gameplay_core::features::SwitchActivated>,
 ) {
     if room_set.active_spec().id != ROOM_ID {

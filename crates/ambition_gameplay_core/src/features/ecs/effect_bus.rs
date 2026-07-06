@@ -7,7 +7,7 @@
 
 use crate::encounter::SwitchActivated;
 use crate::features::events::{GameplaySfxRequested, SetFlagRequested};
-use crate::quest::QuestAdvanceRequested;
+use ambition_persistence::quest::QuestAdvanceRequested;
 use bevy::prelude::{MessageReader, MessageWriter, ResMut};
 
 /// Save writes first so quest conditions that read flags see them this same
@@ -15,12 +15,14 @@ use bevy::prelude::{MessageReader, MessageWriter, ResMut};
 /// the former monolithic router behavior.
 pub fn apply_flag_effects(
     mut effects: MessageReader<SetFlagRequested>,
-    mut save: ResMut<crate::persistence::save::SandboxSave>,
-    mut quests: ResMut<crate::quest::QuestRegistry>,
+    mut save: ResMut<ambition_persistence::save::SandboxSave>,
+    mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
 ) {
     for effect in effects.read() {
         if effect.on {
-            quests.push_event(crate::quest::QuestAdvanceEvent::FlagSet(effect.id.clone()));
+            quests.push_event(ambition_persistence::quest::QuestAdvanceEvent::FlagSet(
+                effect.id.clone(),
+            ));
         }
         save.data_mut().set_flag(effect.id.clone(), effect.on);
     }
@@ -29,7 +31,7 @@ pub fn apply_flag_effects(
 /// Structured quest events from gameplay (NPC talked, item collected, etc.).
 pub fn apply_quest_effects(
     mut effects: MessageReader<QuestAdvanceRequested>,
-    mut quests: ResMut<crate::quest::QuestRegistry>,
+    mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
 ) {
     for effect in effects.read() {
         quests.push_event(effect.0.clone());
@@ -84,8 +86,9 @@ mod tests {
             id: "flag".into(),
             on: true,
         };
-        let quest =
-            QuestAdvanceRequested(crate::quest::QuestAdvanceEvent::NpcTalked("guide".into()));
+        let quest = QuestAdvanceRequested(
+            ambition_persistence::quest::QuestAdvanceEvent::NpcTalked("guide".into()),
+        );
         let switch = SwitchActivated {
             activation: crate::encounter::SwitchActivation {
                 id: "goblin_encounter".into(),
@@ -102,7 +105,7 @@ mod tests {
         assert!(flag.on);
         assert!(matches!(
             quest.0,
-            crate::quest::QuestAdvanceEvent::NpcTalked(_)
+            ambition_persistence::quest::QuestAdvanceEvent::NpcTalked(_)
         ));
         assert_eq!(switch.pos, ae::Vec2::new(1.0, 2.0));
         assert_eq!(sfx.pos, ae::Vec2::new(5.0, 6.0));

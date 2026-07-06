@@ -10,10 +10,10 @@ use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
 use bevy_math::UVec2;
 
-use ambition_gameplay_core::persistence::settings::video::CameraFramingPreset;
-use ambition_gameplay_core::persistence::settings::CameraAspectPolicy;
 use ambition_gameplay_core::rooms::{CameraClampMode, CameraZoneSpec};
 use ambition_gameplay_core::{CameraEaseState, CameraEaseTuning};
+use ambition_persistence::settings::video::CameraFramingPreset;
+use ambition_persistence::settings::CameraAspectPolicy;
 
 /// Upper bound on `dt` for camera scale + target easing.
 ///
@@ -524,7 +524,7 @@ pub fn resolve_camera_observation(
     time: bevy::prelude::Res<bevy::prelude::Time>,
     developer_tools: bevy::prelude::Res<ambition_gameplay_core::dev::dev_tools::DeveloperTools>,
     encounter_registry: bevy::prelude::Res<ambition_gameplay_core::encounter::EncounterRegistry>,
-    user_settings: bevy::prelude::Res<ambition_gameplay_core::persistence::settings::UserSettings>,
+    user_settings: bevy::prelude::Res<ambition_persistence::settings::UserSettings>,
     viewport: bevy::prelude::Res<CameraViewport>,
     extra_clamp: bevy::prelude::Res<CameraExtraClamp>,
     ease_tuning: bevy::prelude::Res<ambition_gameplay_core::CameraEaseTuning>,

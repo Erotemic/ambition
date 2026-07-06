@@ -34,7 +34,7 @@ use ambition_input::{
 /// is untouched; only the device-agnostic frames are zeroed.
 #[cfg(feature = "input")]
 fn input_suppressed_by_unfocus(
-    settings: &crate::persistence::settings::UserSettings,
+    settings: &ambition_persistence::settings::UserSettings,
     window_focus: impl IntoIterator<Item = bool>,
 ) -> bool {
     if !settings.gameplay.pause_input_when_unfocused {
@@ -116,7 +116,7 @@ pub fn populate_control_frame_from_actions(
     mode: Res<State<GameMode>>,
     player_input: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
     mut frame: ResMut<ControlFrame>,
-    user_settings: Res<crate::persistence::settings::UserSettings>,
+    user_settings: Res<ambition_persistence::settings::UserSettings>,
     mut dash_state: ResMut<PlayerDashTriggerState>,
     cutscene: Res<ambition_cutscene::ActiveCutscene>,
     mut cutscene_request: ResMut<ambition_cutscene::CutsceneAdvanceRequest>,
@@ -208,7 +208,7 @@ pub fn populate_menu_control_frame_from_actions(
     player_input: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
     mut menu_frame: ResMut<MenuControlFrame>,
     mut menu_input_state: ResMut<MenuInputState>,
-    user_settings: Res<crate::persistence::settings::UserSettings>,
+    user_settings: Res<ambition_persistence::settings::UserSettings>,
     mut mouse_wheel: MessageReader<MouseWheel>,
     windows: Query<&Window>,
 ) {
@@ -231,7 +231,7 @@ pub fn populate_menu_control_frame_from_actions(
         let edge_right = actions.just_pressed(&SandboxAction::MenuNavigateRight);
 
         let raw = actions.clamped_axis_pair(&SandboxAction::MenuStick);
-        let (sx, sy) = crate::persistence::settings::ControlSettings::apply_deadzone(
+        let (sx, sy) = ambition_persistence::settings::ControlSettings::apply_deadzone(
             raw.x,
             raw.y,
             user_settings.controls.left_stick_deadzone,
@@ -302,7 +302,7 @@ pub fn apply_menu_frame_to_cutscene_request(
 #[cfg(all(test, feature = "input"))]
 mod focus_gate_tests {
     use super::input_suppressed_by_unfocus;
-    use crate::persistence::settings::UserSettings;
+    use ambition_persistence::settings::UserSettings;
 
     #[test]
     fn unfocus_gate_is_off_by_default() {

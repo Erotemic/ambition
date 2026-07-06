@@ -13,7 +13,7 @@ use ambition_engine_core as ae;
 use bevy::prelude::*;
 
 use crate::cutscene_trigger::CutsceneTriggerQueue;
-use crate::quest::QuestRegistry;
+use ambition_persistence::quest::QuestRegistry;
 
 use super::{default_boss_profiles, events::publish_events, BossEncounterRegistry, BossProfile};
 
@@ -63,7 +63,7 @@ pub fn update_boss_encounters(
     world_time: Res<ambition_time::WorldTime>,
     registry: Res<BossEncounterRegistry>,
     mut banner: ResMut<crate::features::GameplayBanner>,
-    mut save: ResMut<crate::persistence::save::SandboxSave>,
+    mut save: ResMut<ambition_persistence::save::SandboxSave>,
     mut music_request: ResMut<crate::encounter::BossEncounterMusicRequest>,
     mut quests: ResMut<QuestRegistry>,
     mut cutscene_queue: ResMut<CutsceneTriggerQueue>,
@@ -215,11 +215,13 @@ pub fn update_boss_encounters(
             if !crate::features::boss_is_cleared(&save, &feature.config) {
                 save.data_mut().set_boss(
                     &runtime_id,
-                    crate::persistence::save_data::PersistedEncounterState::Cleared,
+                    ambition_persistence::save_data::PersistedEncounterState::Cleared,
                 );
-                quests.push_event(crate::quest::QuestAdvanceEvent::BossDefeated(
-                    archetype_id.clone(),
-                ));
+                quests.push_event(
+                    ambition_persistence::quest::QuestAdvanceEvent::BossDefeated(
+                        archetype_id.clone(),
+                    ),
+                );
             }
         }
 

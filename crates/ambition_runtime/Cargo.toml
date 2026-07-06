@@ -29,6 +29,7 @@ ambition_input = { path = "../ambition_input" }
 ambition_engine_core = { path = "../ambition_engine_core" }
 # The engine sim messages/resource defaults (E5 step 6, SimCoreResourcesPlugin).
 ambition_sfx = { path = "../ambition_sfx" }
+ambition_persistence = { path = "../ambition_persistence" }
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 bevy_common_assets = { version = "0.15", features = ["ron"] }
 bevy = { version = "0.18.1", default-features = false, features = [

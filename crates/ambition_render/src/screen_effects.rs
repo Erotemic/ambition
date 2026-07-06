@@ -31,7 +31,7 @@ use bevy::{
     },
 };
 
-use ambition_gameplay_core::persistence::settings::{ScreenShaderSettings, UserSettings};
+use ambition_persistence::settings::{ScreenShaderSettings, UserSettings};
 
 const SHADER_ASSET_PATH: &str = "shaders/screen_effects.wgsl";
 

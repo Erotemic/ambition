@@ -28,7 +28,7 @@ fn fold_system_touch_down_sets_menu_down_and_active_touch() {
     app.init_resource::<MobileTouchState>();
     app.init_resource::<MenuTouchGestureState>();
     app.init_resource::<MenuControlFrame>();
-    app.init_resource::<ambition_gameplay_core::persistence::settings::UserSettings>();
+    app.init_resource::<ambition_persistence::settings::UserSettings>();
     // Start the active-input marker on Keyboard so the flip to Touch is
     // unambiguous (not a no-op from a default that already equals Touch).
     app.insert_resource(ActiveInputKind::Keyboard);

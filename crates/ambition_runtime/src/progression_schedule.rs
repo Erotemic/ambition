@@ -61,7 +61,7 @@ impl Plugin for ProgressionSchedulePlugin {
                 ambition_gameplay_core::features::sync_ecs_actors_with_save,
                 ambition_gameplay_core::features::sync_ecs_bosses_with_save,
                 ambition_gameplay_core::quest::push_room_entered_quest_events,
-                ambition_gameplay_core::quest::apply_quest_advance_events,
+                ambition_persistence::quest::apply_quest_advance_events,
                 // ContentQuestRewardSet slot (grant_quest_completion_rewards)
                 // anchors between the quest pump and the metadata sync below.
                 ambition_gameplay_core::rooms::sync_active_room_metadata,
@@ -107,7 +107,7 @@ impl Plugin for ProgressionSchedulePlugin {
             Update,
             ContentQuestRewardSet
                 .in_set(SandboxSet::Progression)
-                .after(ambition_gameplay_core::quest::apply_quest_advance_events)
+                .after(ambition_persistence::quest::apply_quest_advance_events)
                 .before(ambition_gameplay_core::rooms::sync_active_room_metadata),
         );
 

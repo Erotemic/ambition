@@ -1,5 +1,5 @@
 //! Frame pacing (battery saver) — wires [`bevy_framepace`] to the Video setting
-//! [`ambition_gameplay_core::persistence::settings::video::VideoSettings::frame_cap`].
+//! [`ambition_persistence::settings::video::VideoSettings::frame_cap`].
 //!
 //! `Auto` ([`Limiter::Auto`]) sleeps to match the display refresh rate; `120/60/30/24`
 //! cap to a fixed rate ([`Limiter::from_framerate`]) for deeper battery/heat savings;
@@ -13,8 +13,8 @@
 use bevy::prelude::*;
 use bevy_framepace::{FramepacePlugin, FramepaceSettings, Limiter};
 
-use ambition_gameplay_core::persistence::settings::video::FramePaceCap;
-use ambition_gameplay_core::persistence::settings::UserSettings;
+use ambition_persistence::settings::video::FramePaceCap;
+use ambition_persistence::settings::UserSettings;
 
 /// Installs `bevy_framepace` and keeps its limiter mirrored to the Video setting.
 pub struct FramePacePlugin;

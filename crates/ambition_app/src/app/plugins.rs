@@ -307,7 +307,10 @@ pub fn add_presentation_plugins(app: &mut App) {
     // Ambition's HUD/menu/dev stack on top.
     app.add_plugins(ambition_host::PlatformerHostPlugins);
     install_presentation_resources_and_subplugins(app);
-    app.add_plugins(ambition_gameplay_core::persistence::PersistenceSchedulePlugin);
+    app.add_plugins((
+        ambition_persistence::PersistenceSchedulePlugin,
+        ambition_gameplay_core::persistence::DeveloperPersistenceSchedulePlugin,
+    ));
     install_menu_setup_and_hotkeys(app);
     app.add_plugins(ambition_render::rendering::PresentationVisualAnimationPlugin);
     install_camera_and_debug_overlay_systems(app);

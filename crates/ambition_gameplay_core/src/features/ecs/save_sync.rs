@@ -14,7 +14,7 @@ use super::*;
 /// because their lifecycle belongs to encounter state.
 pub fn sync_ecs_actors_with_save(
     mut commands: Commands,
-    save: Res<crate::persistence::save::SandboxSave>,
+    save: Res<ambition_persistence::save::SandboxSave>,
     // A persisted-hostile NPC re-establishes its grudge against the current primary
     // player on load (the original attacker entity doesn't survive a save round-trip;
     // single-player has exactly one player to be angry at).
@@ -121,7 +121,7 @@ pub fn sync_ecs_actors_with_save(
 
 /// Mirror persisted boss-cleared state onto ECS-owned boss actors.
 pub fn sync_ecs_bosses_with_save(
-    save: Res<crate::persistence::save::SandboxSave>,
+    save: Res<ambition_persistence::save::SandboxSave>,
     mut bosses: Query<
         (
             super::boss_clusters::BossClusterQueryData,
@@ -153,7 +153,7 @@ pub fn sync_ecs_bosses_with_save(
 /// Encounter arming now reads `EncounterSwitchIndex`, which is rebuilt from
 /// these ECS components.
 pub fn sync_ecs_switches_from_save(
-    save: Res<crate::persistence::save::SandboxSave>,
+    save: Res<ambition_persistence::save::SandboxSave>,
     mut switches: Query<(&FeatureId, &mut SwitchOn), With<SwitchFeature>>,
 ) {
     for (id, mut switch_on) in &mut switches {
@@ -168,7 +168,7 @@ mod actor_liveness_tests {
     //! NPC, the exact case that used to fall through both branches of
     //! `sync_ecs_actors_with_save` and respawn alive forever.
     use super::*;
-    use crate::persistence::save::SandboxSave;
+    use ambition_persistence::save::SandboxSave;
     use bevy::prelude::{App, Update};
 
     fn spawn_guide_npc(app: &mut App, id: &str) -> bevy::prelude::Entity {
@@ -260,7 +260,7 @@ mod switch_save_tests {
     //! (or a reset that rewrote flags) re-derives switch visuals/state.
     use super::*;
     use crate::encounter::SwitchActivation;
-    use crate::persistence::save::SandboxSave;
+    use ambition_persistence::save::SandboxSave;
     use bevy::prelude::{App, Update};
 
     #[test]

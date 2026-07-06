@@ -5,7 +5,7 @@
 //! renderer). This module is the gameplay-side *player*: it reads triggers from
 //! [`crate::cutscene_trigger::CutsceneTriggerQueue`], starts/advances the active
 //! cutscene, and applies its side effects (save-flag writes via
-//! [`crate::persistence::save::SandboxSave`]). The HUD/overlay presentation
+//! [`ambition_persistence::save::SandboxSave`]). The HUD/overlay presentation
 //! reads `ActiveCutscene` from the render crate.
 //!
 //! These systems are gameplay-coupled (rooms, save, schedule) so they live here
@@ -49,7 +49,7 @@ pub fn drain_cutscene_triggers(
     mut queue: ResMut<CutsceneTriggerQueue>,
     library: Res<CutsceneLibrary>,
     mut active: ResMut<ActiveCutscene>,
-    save: Res<crate::persistence::save::SandboxSave>,
+    save: Res<ambition_persistence::save::SandboxSave>,
 ) {
     if active.is_playing() {
         return;
@@ -77,7 +77,7 @@ pub fn tick_active_cutscene(
     time: Res<Time>,
     mut active: ResMut<ActiveCutscene>,
     mut request: ResMut<CutsceneAdvanceRequest>,
-    mut save: ResMut<crate::persistence::save::SandboxSave>,
+    mut save: ResMut<ambition_persistence::save::SandboxSave>,
 ) {
     let dismiss = std::mem::take(&mut request.dismiss_dialogue);
     let skip = std::mem::take(&mut request.skip_cutscene);

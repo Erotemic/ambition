@@ -25,7 +25,7 @@ use ambition_gameplay_core::combat::BoundFeatureKind;
 use ambition_gameplay_core::features::{
     ActorRenderSize, BreakableFeature, ChestFeature, FeatureId, FeatureVisualKind, Opened,
 };
-use ambition_gameplay_core::persistence::settings::TextureResolutionScale;
+use ambition_persistence::settings::TextureResolutionScale;
 use ambition_sim_view::FeatureViewIndex;
 
 mod animation;

@@ -239,7 +239,7 @@ fn processor_wipes_save_flags_and_clears_registries() {
             .set_flag("encounter_goblin_encounter_reward_dropped", true);
         save.data_mut().set_encounter(
             "goblin_encounter",
-            crate::persistence::save_data::PersistedEncounterState::Cleared,
+            ambition_persistence::save_data::PersistedEncounterState::Cleared,
         );
     }
     {
@@ -269,7 +269,7 @@ fn processor_wipes_save_flags_and_clears_registries() {
         .flag("encounter_goblin_encounter_reward_dropped"));
     assert_eq!(
         save.data().encounter("goblin_encounter"),
-        crate::persistence::save_data::PersistedEncounterState::Untouched
+        ambition_persistence::save_data::PersistedEncounterState::Untouched
     );
     // Registries flag-flipped back so populate Update systems
     // will re-run on the next frame.

@@ -123,7 +123,7 @@ pub fn apply_room_replay_request_system(
     mut sim_state: ResMut<SandboxSimState>,
     mut clock: ResMut<ambition_time::ClockState>,
     boss_registry: Res<ambition_gameplay_core::boss_encounter::BossEncounterRegistry>,
-    mut save: Option<ResMut<ambition_gameplay_core::persistence::save::SandboxSave>>,
+    mut save: Option<ResMut<ambition_persistence::save::SandboxSave>>,
     mut boss_music: Option<ResMut<ambition_gameplay_core::encounter::BossEncounterMusicRequest>>,
     // Cut-rope boss placements in the room — R4 keys "cleared" by placement
     // (`config.id`), so the replay clears those keys (the respawned boss carries

@@ -11,8 +11,8 @@ use bevy::prelude::*;
 
 use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::items::OwnedItems;
-use crate::persistence::save::SandboxSave;
 use ambition_characters::actor::BodyWallet;
+use ambition_persistence::save::SandboxSave;
 
 /// Set once the saved inventory has been applied to the live state (or skipped
 /// for a fresh save), so the write-back can't fire before the restore and
@@ -98,8 +98,8 @@ mod tests {
         save.data_mut().wallet = 137;
         // HealthCell is a stacking consumable; Bomb is a unique weapon (cap 1).
         save.data_mut().items = vec![
-            crate::persistence::save_data::PersistedItem::new(Item::HealthCell.dialog_id(), 4),
-            crate::persistence::save_data::PersistedItem::new(Item::Bomb.dialog_id(), 1),
+            ambition_persistence::save_data::PersistedItem::new(Item::HealthCell.dialog_id(), 4),
+            ambition_persistence::save_data::PersistedItem::new(Item::Bomb.dialog_id(), 1),
         ];
         // Live state is the starter (Fireball etc.), wallet 0.
         let (mut app, player) = app_with(save, OwnedItems::starter(), 0);

@@ -111,7 +111,7 @@ pub fn interact_ecs_actors_and_switches(
         dialogue.set_speaker_entity(actor_entity);
         next_mode.set(crate::GameMode::Dialogue);
         quest_advance.write(QuestAdvanceRequested(
-            crate::quest::QuestAdvanceEvent::NpcTalked(identity.id.clone()),
+            ambition_persistence::quest::QuestAdvanceEvent::NpcTalked(identity.id.clone()),
         ));
         set_flag.write(SetFlagRequested {
             id: "met_any_hub_npc".into(),

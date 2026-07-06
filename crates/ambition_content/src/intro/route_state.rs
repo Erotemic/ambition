@@ -61,7 +61,7 @@ pub const INTRO_FLAG_CHAINS: &[(&str, &str)] = &[
 /// frame; cost is O(chains × set-flag-lookups) and the chain table is
 /// expected to stay under a few dozen entries.
 pub fn emit_intro_flag_chains(
-    save: Res<ambition_gameplay_core::persistence::save::SandboxSave>,
+    save: Res<ambition_persistence::save::SandboxSave>,
     mut effects: MessageWriter<SetFlagRequested>,
 ) {
     let data = save.data();
@@ -106,7 +106,7 @@ pub const INTRO_FLAG_GATED_LOCK_WALLS: &[(&str, &str)] = &[
 pub fn compute_intro_flag_gated_lock_walls(
     project: &ambition_gameplay_core::world::ldtk_world::LdtkProject,
     active_room_id: &str,
-    save: &ambition_gameplay_core::persistence::save_data::SandboxSaveData,
+    save: &ambition_persistence::save_data::SandboxSaveData,
 ) -> Vec<(
     String,
     ambition_engine_core::Vec2,
@@ -162,7 +162,7 @@ pub fn compute_intro_flag_gated_lock_walls(
 pub fn sync_intro_flag_gated_lock_walls(
     project: Option<Res<ambition_gameplay_core::world::ldtk_world::SandboxLdtkProject>>,
     room_set: Option<Res<ambition_gameplay_core::rooms::RoomSet>>,
-    save: Option<Res<ambition_gameplay_core::persistence::save::SandboxSave>>,
+    save: Option<Res<ambition_persistence::save::SandboxSave>>,
     overlay: Option<ResMut<ambition_gameplay_core::features::FeatureEcsWorldOverlay>>,
 ) {
     let (Some(project), Some(room_set), Some(save), Some(mut overlay)) =
@@ -268,7 +268,7 @@ mod tests {
     #[test]
     fn lock_wall_compute_returns_block_when_flag_clear() {
         let project = synthetic_alice_relay_project();
-        let save = ambition_gameplay_core::persistence::save_data::SandboxSaveData::default();
+        let save = ambition_persistence::save_data::SandboxSaveData::default();
         let walls = compute_intro_flag_gated_lock_walls(&project, "alice_relay", &save);
         assert_eq!(walls.len(), 1, "expected one lock wall");
         let (id, min, size) = &walls[0];
@@ -282,7 +282,7 @@ mod tests {
     #[test]
     fn lock_wall_compute_drops_block_when_flag_set() {
         let project = synthetic_alice_relay_project();
-        let mut save = ambition_gameplay_core::persistence::save_data::SandboxSaveData::default();
+        let mut save = ambition_persistence::save_data::SandboxSaveData::default();
         save.set_flag("bob_field_survey_received", true);
         let walls = compute_intro_flag_gated_lock_walls(&project, "alice_relay", &save);
         assert!(walls.is_empty(), "expected no lock walls after unlock");
@@ -294,7 +294,7 @@ mod tests {
     #[test]
     fn lock_wall_compute_skips_other_rooms() {
         let project = synthetic_alice_relay_project();
-        let save = ambition_gameplay_core::persistence::save_data::SandboxSaveData::default();
+        let save = ambition_persistence::save_data::SandboxSaveData::default();
         let walls = compute_intro_flag_gated_lock_walls(&project, "drain_alley", &save);
         assert!(walls.is_empty(), "expected no lock walls for inactive room");
     }
@@ -318,7 +318,7 @@ mod tests {
                 real_editor_values: vec![serde_json::Value::Null],
             }];
         }
-        let save = ambition_gameplay_core::persistence::save_data::SandboxSaveData::default();
+        let save = ambition_persistence::save_data::SandboxSaveData::default();
         let walls = compute_intro_flag_gated_lock_walls(&project, "alice_relay", &save);
         assert!(
             walls.is_empty(),
@@ -351,7 +351,7 @@ mod tests {
         use crate::quest::QuestRegistry;
         use ambition_gameplay_core::features::apply_flag_effects;
         use ambition_gameplay_core::features::SetFlagRequested;
-        use ambition_gameplay_core::persistence::save::SandboxSave;
+        use ambition_persistence::save::SandboxSave;
         use bevy::app::{App, Update};
 
         let mut app = App::new();
@@ -394,7 +394,7 @@ mod tests {
         use crate::quest::{apply_quest_advance_events, default_quest_specs, QuestRegistry};
         use ambition_gameplay_core::features::{apply_flag_effects, apply_quest_effects};
         use ambition_gameplay_core::features::{QuestAdvanceRequested, SetFlagRequested};
-        use ambition_gameplay_core::persistence::save::SandboxSave;
+        use ambition_persistence::save::SandboxSave;
         use bevy::app::{App, Update};
 
         let mut app = App::new();
@@ -444,7 +444,7 @@ mod tests {
             .data_mut()
             .set_flag("alice_route_note_carried", true);
         app.world_mut().resource_mut::<QuestRegistry>().push_event(
-            ambition_gameplay_core::quest::QuestAdvanceEvent::FlagSet(
+            ambition_persistence::quest::QuestAdvanceEvent::FlagSet(
                 "alice_route_note_carried".into(),
             ),
         );
@@ -461,7 +461,7 @@ mod tests {
             .data_mut()
             .set_flag("bob_field_survey_received", true);
         app.world_mut().resource_mut::<QuestRegistry>().push_event(
-            ambition_gameplay_core::quest::QuestAdvanceEvent::FlagSet(
+            ambition_persistence::quest::QuestAdvanceEvent::FlagSet(
                 "bob_field_survey_received".into(),
             ),
         );
@@ -476,7 +476,7 @@ mod tests {
             .data_mut()
             .set_flag("intro_p5_route_memory_received", true);
         app.world_mut().resource_mut::<QuestRegistry>().push_event(
-            ambition_gameplay_core::quest::QuestAdvanceEvent::FlagSet(
+            ambition_persistence::quest::QuestAdvanceEvent::FlagSet(
                 "intro_p5_route_memory_received".into(),
             ),
         );
@@ -496,7 +496,7 @@ mod tests {
         use crate::quest::QuestRegistry;
         use ambition_gameplay_core::features::apply_flag_effects;
         use ambition_gameplay_core::features::SetFlagRequested;
-        use ambition_gameplay_core::persistence::save::SandboxSave;
+        use ambition_persistence::save::SandboxSave;
         use bevy::app::{App, Update};
 
         let mut app = App::new();

@@ -31,7 +31,7 @@
 //! rows and no references to dev-only code.
 
 use super::settings::{settings_menu_model, SettingsOption, SettingsOptionId, SettingsOptionKind};
-use crate::persistence::settings::UserSettings;
+use ambition_persistence::settings::UserSettings;
 
 /// True in builds that ship the developer tooling. Matches the gate used by the
 /// rest of the sandbox dev surface (`DeveloperTools` inspector, dev hotkeys), so

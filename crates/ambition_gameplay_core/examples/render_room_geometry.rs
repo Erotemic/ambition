@@ -22,11 +22,11 @@
 
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_gameplay_core as sb;
-use image::{Rgba, RgbaImage};
 use ambition_sim_view::camera_snapshot::{
     resolve_follow_camera_snapshot, CameraFocus2d, CameraSnapshot2d, CameraSnapshotResolveInput,
     CameraSnapshotResolveMode,
 };
+use image::{Rgba, RgbaImage};
 use sb::persistence::settings::video::CameraFramingPreset;
 use sb::persistence::settings::CameraAspectPolicy;
 

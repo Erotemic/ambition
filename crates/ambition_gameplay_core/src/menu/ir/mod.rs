@@ -2,7 +2,7 @@
 //!
 //! - [`settings`] — the shared, renderer-agnostic settings model
 //!   (`SettingsMenuModel` / `SettingsOption` / `apply_settings_option`); built
-//!   from `crate::persistence::settings::UserSettings`. (Was
+//!   from `ambition_persistence::settings::UserSettings`. (Was
 //!   `crate::persistence::settings::menu`.)
 //! - [`system`] — the System-menu layer that sits on top of [`settings`]
 //!   (Radio / Video / Audio / Controls / Gameplay / Language / Reset* / Quit /

@@ -146,7 +146,7 @@ pub fn holding_descend(
 pub fn possession_trigger_system(
     control: Res<ambition_input::ControlFrame>,
     gravity_field: Option<Res<crate::physics::GravityField>>,
-    user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
+    user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     world_time: Res<ambition_time::WorldTime>,
     mut hold_timer: Local<f32>,
     mut prev_down_interact: Local<bool>,

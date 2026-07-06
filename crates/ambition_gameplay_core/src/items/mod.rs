@@ -598,13 +598,14 @@ impl OwnedItems {
     /// Serialize the owned counts to the persisted save form (every item with a
     /// non-zero count, keyed by stable `dialog_id`). Equipped state is not
     /// persisted yet — re-equip from the grid on load (handoff).
-    pub fn to_persisted(&self) -> Vec<crate::persistence::save_data::PersistedItem> {
+    pub fn to_persisted(&self) -> Vec<ambition_persistence::save_data::PersistedItem> {
         Item::ALL
             .into_iter()
             .filter_map(|item| {
                 let c = self.count(item);
-                (c > 0)
-                    .then(|| crate::persistence::save_data::PersistedItem::new(item.dialog_id(), c))
+                (c > 0).then(|| {
+                    ambition_persistence::save_data::PersistedItem::new(item.dialog_id(), c)
+                })
             })
             .collect()
     }
@@ -612,7 +613,7 @@ impl OwnedItems {
     /// Replace the owned counts from a persisted save (clears first, then grants
     /// each — so `grant`'s unique-item clamp still applies to a hand-edited save).
     /// Unknown ids (a catalog item removed since the save) are skipped.
-    pub fn apply_persisted(&mut self, items: &[crate::persistence::save_data::PersistedItem]) {
+    pub fn apply_persisted(&mut self, items: &[ambition_persistence::save_data::PersistedItem]) {
         *self = Self::default();
         for p in items {
             if let Some(item) = Item::from_dialog_id(&p.id) {

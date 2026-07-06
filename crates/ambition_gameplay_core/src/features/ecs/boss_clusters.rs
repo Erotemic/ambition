@@ -375,10 +375,13 @@ impl BossClusterScratch {
 /// "cleared" predicate, called by both the room-load save-sync
 /// (`sync_ecs_bosses_with_save`) and the per-tick encounter driver
 /// (`update_boss_encounters`) so the skip-check can't drift between them.
-pub fn boss_is_cleared(save: &crate::persistence::save::SandboxSave, config: &BossConfig) -> bool {
+pub fn boss_is_cleared(
+    save: &ambition_persistence::save::SandboxSave,
+    config: &BossConfig,
+) -> bool {
     matches!(
         save.data().boss(&config.id),
-        crate::persistence::save_data::PersistedEncounterState::Cleared
+        ambition_persistence::save_data::PersistedEncounterState::Cleared
     )
 }
 

@@ -65,24 +65,25 @@ impl QuestRegistry {
 
 /// Push a `RoomEntered` quest event whenever the active room
 /// changes. Idempotent: only fires the frame the room id flips.
-pub fn push_room_entered_quest_events(
-    room_set: Res<crate::rooms::RoomSet>,
+pub fn push_room_entered_quest_event_for_room(
+    current: &str,
     mut registry: ResMut<QuestRegistry>,
     mut last_room: Local<Option<String>>,
 ) {
-    let current = room_set.active_spec().id.clone();
-    if last_room.as_deref() == Some(current.as_str()) {
+    if last_room.as_deref() == Some(current) {
         return;
     }
-    *last_room = Some(current.clone());
-    registry.push_event(crate::quest::QuestAdvanceEvent::RoomEntered(current));
+    *last_room = Some(current.to_owned());
+    registry.push_event(crate::quest::QuestAdvanceEvent::RoomEntered(
+        current.to_owned(),
+    ));
 }
 
 /// Drain pending advance events into the registry and write quest
 /// progress back to the save resource. Runs each frame.
 pub fn apply_quest_advance_events(
     mut registry: ResMut<QuestRegistry>,
-    mut save: ResMut<crate::persistence::save::SandboxSave>,
+    mut save: ResMut<crate::save::SandboxSave>,
 ) {
     let events = std::mem::take(&mut registry.pending_events);
     if events.is_empty() {

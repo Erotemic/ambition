@@ -175,7 +175,7 @@ pub fn charge_projectile_input(
         With<ambition_characters::brain::ChargesProjectiles>,
     >,
     mut brain_actions: MessageReader<ambition_characters::brain::ActorActionMessage>,
-    user_settings: Res<crate::persistence::settings::UserSettings>,
+    user_settings: Res<ambition_persistence::settings::UserSettings>,
     gravity: crate::physics::GravityCtx,
     mut trace: ResMut<GameplayTraceBuffer>,
     // Firing emits `SpawnProjectile`; the player-pool consumer runs after this

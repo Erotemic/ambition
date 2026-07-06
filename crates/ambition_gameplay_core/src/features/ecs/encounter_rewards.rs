@@ -14,7 +14,7 @@ use bevy::prelude::Name;
 /// Drop the encounter's ECS reward chest, if any, and clear its looted flag.
 pub fn clear_encounter_reward_ecs(
     commands: &mut Commands,
-    save: &mut crate::persistence::save_data::SandboxSaveData,
+    save: &mut ambition_persistence::save_data::SandboxSaveData,
     chests: &Query<
         (Entity, &EncounterRewardChest, &FeatureId, Option<&Opened>),
         With<ChestFeature>,
@@ -35,7 +35,7 @@ pub fn clear_encounter_reward_ecs(
 /// Idempotently ensure cleared mob encounters have an ECS reward chest.
 pub fn sync_encounter_reward_chests_ecs(
     commands: &mut Commands,
-    save: &crate::persistence::save_data::SandboxSaveData,
+    save: &ambition_persistence::save_data::SandboxSaveData,
     registry: &crate::encounter::EncounterRegistry,
     chests: &Query<
         (Entity, &EncounterRewardChest, &FeatureId, Option<&Opened>),
@@ -94,7 +94,7 @@ pub fn sync_encounter_reward_chests_ecs(
 /// from the boss encounter system and owns the reward chest entity/state natively.
 pub fn sync_boss_reward_chests_ecs(
     commands: &mut Commands,
-    save: &crate::persistence::save_data::SandboxSaveData,
+    save: &ambition_persistence::save_data::SandboxSaveData,
     registry: &crate::boss_encounter::BossEncounterRegistry,
     world: &ae::World,
     // (placement_id, archetype_id, spawn) for each boss in the room. R4 keys the
@@ -126,7 +126,7 @@ pub fn sync_boss_reward_chests_ecs(
         };
         if !matches!(
             save.boss(placement_id),
-            crate::persistence::save_data::PersistedEncounterState::Cleared
+            ambition_persistence::save_data::PersistedEncounterState::Cleared
         ) {
             continue;
         }
@@ -185,8 +185,8 @@ mod reward_sync_tests {
     //! /&Query helper.
     use super::*;
     use crate::encounter::{EncounterPhase, EncounterRegistry, EncounterSpec, EncounterState};
-    use crate::persistence::save::SandboxSave;
     use ambition_interaction::PickupKind;
+    use ambition_persistence::save::SandboxSave;
     use bevy::prelude::{App, Update};
 
     fn cleared_registry() -> EncounterRegistry {
@@ -269,8 +269,8 @@ mod boss_reward_sync_tests {
     //! a normal wrapper system can drive the helper.
     use super::*;
     use crate::boss_encounter::{BossEncounterRegistry, BossProfile};
-    use crate::persistence::save::SandboxSave;
-    use crate::persistence::save_data::PersistedEncounterState;
+    use ambition_persistence::save::SandboxSave;
+    use ambition_persistence::save_data::PersistedEncounterState;
     use bevy::prelude::{App, Resource, Update};
 
     #[derive(Resource)]

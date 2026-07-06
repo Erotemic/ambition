@@ -6,9 +6,9 @@
 use super::*;
 use crate::encounter::switches::{EncounterSwitchIndex, EncounterSwitchLink};
 use crate::ldtk_world::LdtkProject;
-use crate::persistence::save_data::PersistedEncounterState;
 use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
+use ambition_persistence::save_data::PersistedEncounterState;
 
 /// Drive an EncounterState past `Starting` into the first wave's
 /// `Active` phase. The lab_spec uses `intro_seconds: 0.0` so a
@@ -247,7 +247,7 @@ fn to_persisted_collapses_active_to_untouched() {
 #[test]
 fn load_encounter_specs_picks_up_goblin_encounter() {
     let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
-    let save = crate::persistence::save_data::SandboxSaveData::default();
+    let save = ambition_persistence::save_data::SandboxSaveData::default();
     let entries = load_encounter_specs_from_ldtk(&project, &save);
     let goblin_encounter = entries
         .iter()
@@ -261,7 +261,7 @@ fn load_encounter_specs_picks_up_goblin_encounter() {
 #[test]
 fn load_encounter_specs_respects_persisted_cleared() {
     let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
-    let mut save = crate::persistence::save_data::SandboxSaveData::default();
+    let mut save = ambition_persistence::save_data::SandboxSaveData::default();
     save.set_encounter("goblin_encounter", PersistedEncounterState::Cleared);
     let entries = load_encounter_specs_from_ldtk(&project, &save);
     let (_, _, state) = entries
@@ -306,7 +306,7 @@ fn ldtk_switch_runtime_id_matches_activation_payload() {
 #[test]
 fn goblin_encounter_loaded_spec_has_three_waves_lockwall_and_intro() {
     let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
-    let save = crate::persistence::save_data::SandboxSaveData::default();
+    let save = ambition_persistence::save_data::SandboxSaveData::default();
     let entries = load_encounter_specs_from_ldtk(&project, &save);
     let (_, spec, _) = entries
         .iter()

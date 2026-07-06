@@ -16,7 +16,7 @@ use crate::host::windowing;
 
 #[derive(SystemParam)]
 pub(super) struct HudCameraParams<'w, 's> {
-    user_settings: Res<'w, ambition_gameplay_core::persistence::settings::UserSettings>,
+    user_settings: Res<'w, ambition_persistence::settings::UserSettings>,
     player: bevy::prelude::Query<
         'w,
         's,
@@ -324,7 +324,7 @@ pub(super) fn update_hud(
 /// quests, which collapses the panel visually.
 pub fn update_quest_panel(
     quests: Res<ambition_content::quest::QuestRegistry>,
-    user_settings: Res<ambition_gameplay_core::persistence::settings::UserSettings>,
+    user_settings: Res<ambition_persistence::settings::UserSettings>,
     entities: Res<SceneEntities>,
     mut query: Query<&mut Text, With<ambition_render::rendering::QuestPanelText>>,
 ) {

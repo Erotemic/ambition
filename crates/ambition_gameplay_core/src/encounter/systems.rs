@@ -18,7 +18,7 @@ use super::{
 /// project and apply persisted states from the save.
 pub fn populate_encounter_registry(
     mut registry: ResMut<EncounterRegistry>,
-    save: Res<crate::persistence::save::SandboxSave>,
+    save: Res<ambition_persistence::save::SandboxSave>,
     // Optional: a RON-only app (demo shell, generated rooms) installs no
     // LDtk project — that's an empty encounter set, not an error. (W4 will
     // route encounter loading through RoomEmission instead of the project.)
@@ -59,13 +59,13 @@ pub fn update_encounters_from_world(
     world_time: Res<ambition_time::WorldTime>,
     mut died_messages: MessageReader<crate::ActorDiedMessage>,
     mut registry: ResMut<EncounterRegistry>,
-    mut save: ResMut<crate::persistence::save::SandboxSave>,
+    mut save: ResMut<ambition_persistence::save::SandboxSave>,
     mut switch_activations: ResMut<SwitchActivationQueue>,
     switch_index: Res<EncounterSwitchIndex>,
     mut trace: ResMut<crate::trace::GameplayTraceBuffer>,
     player_body_q: Query<&crate::actor::BodyKinematics, With<crate::actor::PlayerEntity>>,
     mut music_request: ResMut<EncounterMusicRequest>,
-    mut quests: ResMut<crate::quest::QuestRegistry>,
+    mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
     mut banner_requests: MessageWriter<crate::features::GameplayBannerRequested>,
     room_set: Res<crate::rooms::RoomSet>,
     encounter_mobs: Query<(
@@ -252,9 +252,9 @@ pub fn update_encounters_from_world(
             3.0,
         ));
         // Quest hook: a "clear encounter" step can advance now.
-        quests.push_event(crate::quest::QuestAdvanceEvent::EncounterCleared(
-            encounter_id.clone(),
-        ));
+        quests.push_event(
+            ambition_persistence::quest::QuestAdvanceEvent::EncounterCleared(encounter_id.clone()),
+        );
     }
 
     // 6. Switch toggles. Just toggle the persisted switch state; the
@@ -270,7 +270,7 @@ pub fn update_encounters_from_world(
         save.data_mut().set_flag("test_switch_toggled", true);
         save.data_mut()
             .set_flag(format!("switch_{}_used", activation.id), true);
-        quests.push_event(crate::quest::QuestAdvanceEvent::FlagSet(
+        quests.push_event(ambition_persistence::quest::QuestAdvanceEvent::FlagSet(
             "test_switch_toggled".into(),
         ));
         // Hub gravity switch: a `Switch` whose `action` is "FlipGravity" INVERTS

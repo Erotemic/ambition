@@ -139,7 +139,7 @@ pub struct PlayerIntent {
 /// exactly the same facing within one frame.
 pub fn compute_controlled_actor_intent(
     gravity_field: Option<Res<crate::physics::GravityField>>,
-    user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
+    user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     player_q: Query<
         (
             &crate::player::PlayerInputFrame,

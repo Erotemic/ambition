@@ -37,7 +37,7 @@ use bevy::prelude::*;
 use bevy_yarnspinner::prelude::DialogueRunner;
 
 use crate::features::SetFlagRequested;
-use crate::persistence::save::SandboxSave;
+use ambition_persistence::save::SandboxSave;
 
 // ===== Shared state mirror =====================================
 

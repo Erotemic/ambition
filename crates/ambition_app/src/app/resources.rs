@@ -193,5 +193,5 @@ pub fn init_sandbox_resources(app: &mut App) {
         // Aggregate user settings (video/audio/controls/gameplay).
         // Mutated by the pause menu; read by audio/video/gameplay
         // systems and the input deadzone/hysteresis filter.
-        .insert_resource(ambition_gameplay_core::persistence::settings::UserSettings::default());
+        .insert_resource(ambition_persistence::settings::UserSettings::default());
 }

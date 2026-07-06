@@ -53,7 +53,7 @@ pub fn sync_room_music_request(
 /// even when the switch flickers.
 pub fn tick_portal_phases_system(
     world_time: Res<WorldTime>,
-    save: Res<crate::persistence::save::SandboxSave>,
+    save: Res<ambition_persistence::save::SandboxSave>,
     mut portals: ResMut<GatePortalRegistry>,
 ) {
     // Scaled dt — pause / hitstop / bullet-time naturally freezes

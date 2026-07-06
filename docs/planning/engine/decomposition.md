@@ -671,11 +671,17 @@ Strictly ordered; menu LAST. Per card: mint the crate, move the module
 (D2: one atomic move after in-crate cleanup), repoint consumers, delete
 the facade, run the gate.
 
-- **E1a `ambition_persistence`** (persistence/ 4.5k + host/ + quest/):
-  owns *what is stored and its serde shape*. The settings **IR** (which
-  renders/pages/curates) STAYS BEHIND for E1e; persistence exposes
-  plain typed settings the IR reads. Exit: zero imports from menu/UI
-  code (dep test).
+- ✅ **E1a `ambition_persistence` DONE (Codex, 2026-07-06):** the crate
+  owns save data + save I/O, typed `UserSettings` + settings I/O,
+  display-mode vocabulary, quest specs/events/registry, and the
+  `PersistenceSchedulePlugin`. Consumers now name
+  `ambition_persistence::{save, save_data, settings, quest}` directly;
+  `ambition_gameplay_core::persistence` is only an adapter for the
+  remaining settings/menu IR and `DeveloperTools` disk persistence.
+  The settings **IR** (renders/pages/curates) stays behind for E1e;
+  `DeveloperTools` persistence stays behind for E1d. Exit locked by
+  `architecture_boundaries_persistence_crate_owns_stored_shapes_only`
+  (no menu/UI/game machinery imports).
 - **E1b `ambition_audio`** (audio/ + music/, 1.8k): **NOT mechanical
   (opus 2026-07-06 re-measured):** `gameplay_core/src/{audio,music}` reaches
   UP into `session`(2)/`persistence`(2)/`encounter`(2)/`rooms`(1)/`assets`(2)

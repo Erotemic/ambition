@@ -16,8 +16,8 @@ use std::collections::HashSet;
 use super::primitives::RoomVisual;
 use ambition_engine_core::config::{WINDOW_H, WINDOW_W};
 use ambition_gameplay_core::assets::game_assets::{GameAssets, ParallaxLayerAsset, ParallaxTheme};
-use ambition_gameplay_core::persistence::settings::ParallaxBudget;
 use ambition_gameplay_core::rooms::RoomMetadata;
+use ambition_persistence::settings::ParallaxBudget;
 
 #[derive(Component, Clone, Copy, Debug)]
 pub struct ParallaxLayerVisual {

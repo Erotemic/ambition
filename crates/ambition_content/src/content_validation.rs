@@ -329,7 +329,7 @@ fn validate_quest_conditions(
 
     let loaded_encounters = ambition_gameplay_core::encounter::load_encounter_specs_from_ldtk(
         project,
-        &ambition_gameplay_core::persistence::save_data::SandboxSaveData::default(),
+        &ambition_persistence::save_data::SandboxSaveData::default(),
     );
     for (id, spec, _) in loaded_encounters {
         if !spec.music_track.trim().is_empty() && !valid_tracks.contains(spec.music_track.as_str())
@@ -347,7 +347,7 @@ fn validate_quest_conditions(
         }
         for (index, step) in spec.steps.iter().enumerate() {
             match &step.condition {
-                ambition_gameplay_core::quest::QuestStepCondition::RoomEntered(room) => {
+                ambition_persistence::quest::QuestStepCondition::RoomEntered(room) => {
                     if !room_ids.contains(room.as_str()) {
                         report.push_error(format!(
                             "quest '{}'/step {} references unknown room '{}'",
@@ -355,7 +355,7 @@ fn validate_quest_conditions(
                         ));
                     }
                 }
-                ambition_gameplay_core::quest::QuestStepCondition::EncounterCleared(encounter) => {
+                ambition_persistence::quest::QuestStepCondition::EncounterCleared(encounter) => {
                     if !encounter_ids.contains(encounter.as_str()) {
                         report.push_error(format!(
                             "quest '{}'/step {} references unknown encounter '{}'",
@@ -363,7 +363,7 @@ fn validate_quest_conditions(
                         ));
                     }
                 }
-                ambition_gameplay_core::quest::QuestStepCondition::BossDefeated(boss) => {
+                ambition_persistence::quest::QuestStepCondition::BossDefeated(boss) => {
                     if !boss_ids.contains(boss.as_str()) {
                         report.push_error(format!(
                             "quest '{}'/step {} references unknown authored boss encounter '{}'",
@@ -371,7 +371,7 @@ fn validate_quest_conditions(
                         ));
                     }
                 }
-                ambition_gameplay_core::quest::QuestStepCondition::FlagSet(flag) => {
+                ambition_persistence::quest::QuestStepCondition::FlagSet(flag) => {
                     if !known_flags.contains(flag.as_str()) {
                         report.push_error(format!(
                             "quest '{}'/step {} references unknown authored flag '{}'",
@@ -379,7 +379,7 @@ fn validate_quest_conditions(
                         ));
                     }
                 }
-                ambition_gameplay_core::quest::QuestStepCondition::ItemCollected(item) => {
+                ambition_persistence::quest::QuestStepCondition::ItemCollected(item) => {
                     if !item_ids.contains(item.as_str()) {
                         report.push_error(format!(
                             "quest '{}'/step {} references unknown pickup/item id '{}'",
@@ -387,7 +387,7 @@ fn validate_quest_conditions(
                         ));
                     }
                 }
-                ambition_gameplay_core::quest::QuestStepCondition::NpcTalked(npc) => {
+                ambition_persistence::quest::QuestStepCondition::NpcTalked(npc) => {
                     // Gameplay emits the runtime NPC object id for NpcTalked. Most current
                     // quests use flags instead, but keep the validator honest for future ones.
                     if !authored_npc_ids(project).contains(npc.as_str()) {
@@ -595,7 +595,7 @@ mod tests {
         assert!(boss_ids.contains("clockwork_warden"));
         for spec in crate::quest::default_quest_specs() {
             for step in &spec.steps {
-                if let ambition_gameplay_core::quest::QuestStepCondition::BossDefeated(id) =
+                if let ambition_persistence::quest::QuestStepCondition::BossDefeated(id) =
                     &step.condition
                 {
                     assert!(

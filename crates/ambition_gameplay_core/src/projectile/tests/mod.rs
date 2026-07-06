@@ -65,7 +65,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     // these tests, so the overlay is empty (collision == raw world).
     app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
     app.insert_resource(ControlFrame::default());
-    app.insert_resource(crate::persistence::settings::UserSettings::default());
+    app.insert_resource(ambition_persistence::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
     app.insert_resource(GameplayBanner::default());
     // Projectile state lives on the player; this counter only gives in-flight

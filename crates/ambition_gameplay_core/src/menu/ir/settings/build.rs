@@ -4,7 +4,7 @@
 use super::*;
 use crate::persistence::settings::audio::AudioSettings;
 use crate::persistence::settings::video::CameraZoomPreset;
-use crate::persistence::settings::UserSettings;
+use ambition_persistence::settings::UserSettings;
 
 pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
     use crate::host::windowing::DisplayModeKind;

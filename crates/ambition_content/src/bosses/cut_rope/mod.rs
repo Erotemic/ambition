@@ -155,7 +155,7 @@ pub fn emit_cut_rope_room_replay_after_dialogue_closes(
 /// passes the cut-rope boss placement ids currently in the room to clear.
 pub fn reset_cut_rope_boss_attempt(
     registry: &BossEncounterRegistry,
-    save: Option<&mut ambition_gameplay_core::persistence::save::SandboxSave>,
+    save: Option<&mut ambition_persistence::save::SandboxSave>,
     music_request: Option<&mut ambition_gameplay_core::encounter::BossEncounterMusicRequest>,
     placement_ids: &[String],
 ) {
@@ -167,7 +167,7 @@ pub fn reset_cut_rope_boss_attempt(
         for placement_id in placement_ids {
             data.set_boss(
                 placement_id,
-                ambition_gameplay_core::persistence::save_data::PersistedEncounterState::Untouched,
+                ambition_persistence::save_data::PersistedEncounterState::Untouched,
             );
         }
         // The NPC appears only after the victory beat. Replaying the room should

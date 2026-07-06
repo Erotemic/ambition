@@ -52,7 +52,7 @@ pub fn heal_save_shrine_system(
     )>,
     primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
     shrines: Query<&HealShrine>,
-    mut save: ResMut<crate::persistence::save::SandboxSave>,
+    mut save: ResMut<ambition_persistence::save::SandboxSave>,
     mut activation: ResMut<ShrineActivationPulse>,
     mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
 ) {
@@ -105,7 +105,7 @@ mod tests {
     fn interacting_at_the_shrine_heals_to_full() {
         let mut app = App::new();
         app.add_message::<ambition_sfx::SfxMessage>();
-        app.init_resource::<crate::persistence::save::SandboxSave>();
+        app.init_resource::<ambition_persistence::save::SandboxSave>();
         app.init_resource::<ShrineActivationPulse>();
         app.add_systems(Update, heal_save_shrine_system);
 
@@ -165,7 +165,7 @@ mod tests {
     fn no_heal_without_interact_or_when_not_touching() {
         let mut app = App::new();
         app.add_message::<ambition_sfx::SfxMessage>();
-        app.init_resource::<crate::persistence::save::SandboxSave>();
+        app.init_resource::<ambition_persistence::save::SandboxSave>();
         app.init_resource::<ShrineActivationPulse>();
         app.add_systems(Update, heal_save_shrine_system);
         let player = app

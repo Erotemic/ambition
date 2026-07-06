@@ -9,43 +9,7 @@
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
-/// User-facing display modes supported by the sandbox.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum DisplayModeKind {
-    Windowed,
-    Borderless,
-    Fullscreen,
-}
-
-impl DisplayModeKind {
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::Windowed => "windowed",
-            Self::Borderless => "borderless",
-            Self::Fullscreen => "fullscreen",
-        }
-    }
-}
-
-/// Tracks the display mode we last requested.
-#[derive(Resource, Clone, Copy, Debug)]
-pub struct DisplayModeState {
-    pub mode: DisplayModeKind,
-}
-
-impl Default for DisplayModeState {
-    fn default() -> Self {
-        Self {
-            mode: DisplayModeKind::Windowed,
-        }
-    }
-}
-
-impl DisplayModeState {
-    pub fn label(&self) -> &'static str {
-        self.mode.label()
-    }
-}
+pub use ambition_persistence::host::windowing::{DisplayModeKind, DisplayModeState};
 
 /// Runtime display-mode hotkeys (developer convenience).
 ///

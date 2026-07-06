@@ -14,7 +14,7 @@ use super::*;
 pub fn spawn_cut_rope_victory_npc(
     mut commands: Commands,
     room_set: Res<RoomSet>,
-    save: Res<ambition_gameplay_core::persistence::save::SandboxSave>,
+    save: Res<ambition_persistence::save::SandboxSave>,
     mut released: MessageReader<ambition_gameplay_core::boss_encounter::PayloadReleased>,
     existing: Query<&FeatureId, With<SmirkingBehemothVictoryNpc>>,
     bosses: Query<(Entity, &FeatureId, &CenteredAabb, BossClusterRef), With<FeatureSimEntity>>,
@@ -48,7 +48,7 @@ pub fn spawn_cut_rope_victory_npc(
     // the placement reads cleared in the save (room re-entry).
     let boss_persisted_cleared = matches!(
         save.data().boss(&boss.config.id),
-        ambition_gameplay_core::persistence::save_data::PersistedEncounterState::Cleared
+        ambition_persistence::save_data::PersistedEncounterState::Cleared
     );
     let released_now = released_hosts.contains(&boss_entity);
     if !boss_persisted_cleared && !released_now {

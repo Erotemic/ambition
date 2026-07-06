@@ -379,7 +379,7 @@ fn spawn_frame_axis_glyphs(mut cmd: Commands, ui_fonts: Option<Res<UiFonts>>) {
 /// a different raw joystick direction now means local U/D/L/R.
 fn position_frame_axis_glyphs(
     gravity: Option<Res<ambition_gameplay_core::physics::GravityField>>,
-    user_settings: Option<Res<ambition_gameplay_core::persistence::settings::UserSettings>>,
+    user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     mut glyphs: Query<(&FrameAxisGlyph, &mut Node)>,
 ) {
     use ambition_engine_core::{AccelerationFrame, InputFrameMode};
@@ -537,7 +537,7 @@ fn sync_touch_ui_visibility(
 /// Both values default to `true` so the HUD is on by default and
 /// the user can flip it off via the controls page.
 fn sync_touch_visibility_from_settings(
-    settings: Res<ambition_gameplay_core::persistence::settings::UserSettings>,
+    settings: Res<ambition_persistence::settings::UserSettings>,
     mut visible: ResMut<TouchControlsVisible>,
 ) {
     if visible.0 != settings.controls.touch_controls_visible {
@@ -919,7 +919,7 @@ fn touch_action_to_sandbox_action(action: TouchActionButton) -> SandboxAction {
 /// instead of always showing the out-of-the-box Z/X/C keys.
 pub fn update_button_glyph_from_active_input(
     active: Res<ambition_gameplay_core::player::affordances::ActiveInputMethod>,
-    settings: Option<Res<ambition_gameplay_core::persistence::settings::UserSettings>>,
+    settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     mut labels: Query<(&TouchActionLabel, &mut ButtonGlyph)>,
 ) {
     // Resolve the player's chosen keyboard preset from settings; fall

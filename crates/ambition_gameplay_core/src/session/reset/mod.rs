@@ -46,12 +46,12 @@ pub struct RoomReplayRequested;
 
 use crate::boss_encounter::BossEncounterRegistry;
 use crate::encounter::{EncounterMusicRequest, EncounterRegistry};
-use crate::persistence::save::SandboxSave;
 use crate::platformer_runtime::lifecycle::RoomScopedEntity;
-use crate::quest::QuestRegistry;
 use crate::rooms::RoomSet;
 use crate::world::physics;
 use crate::world::platforms;
+use ambition_persistence::quest::QuestRegistry;
+use ambition_persistence::save::SandboxSave;
 
 /// Bundles sim-state resources so `process_sandbox_reset_request`
 /// stays within Bevy's 16-SystemParam limit.
@@ -125,7 +125,7 @@ pub fn process_sandbox_reset_request(
 
     // 1. Wipe the persisted save. Change-detection will trigger the
     //    autosave system to write the empty save to disk this tick.
-    *save.data_mut() = crate::persistence::save_data::SandboxSaveData::default();
+    *save.data_mut() = ambition_persistence::save_data::SandboxSaveData::default();
 
     // 2. Clear registries. Setting them to Default flips
     //    `specs_loaded` / `initialized` back to false so the populate

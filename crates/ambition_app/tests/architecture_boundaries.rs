@@ -488,6 +488,33 @@ fn architecture_boundaries_menu_crate_stays_content_free() {
     );
 }
 
+#[test]
+fn architecture_boundaries_persistence_crate_owns_stored_shapes_only() {
+    let crate_root = repo_root().join("crates/ambition_persistence");
+    assert_workspace_contains_crate("ambition_persistence");
+    assert!(
+        crate_root.join("Cargo.toml").exists(),
+        "ambition_persistence crate should exist at crates/ambition_persistence"
+    );
+    let forbidden = [
+        "ambition_gameplay_core",
+        "ambition_menu",
+        "ambition_render",
+        "ambition_content",
+        "ambition_app",
+    ];
+    assert_manifest_has_no_deps(
+        &crate_root,
+        &forbidden,
+        "ambition_persistence owns stored shapes, not menu/UI/game machinery",
+    );
+    assert_source_tree_has_no_code_refs(
+        crate_root.join("src"),
+        &forbidden,
+        "ambition_persistence must stay free of menu/UI/game machinery imports",
+    );
+}
+
 /// `ambition_interaction` is a reusable, content-free foundation crate: the
 /// interactive-world-object MODEL (Interactable / InteractionKind / Pickup / Chest
 /// / Breakable + state enums) over the actor + geometry foundations. It must not

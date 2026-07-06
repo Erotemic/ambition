@@ -8,10 +8,10 @@ use ambition_gameplay_core::assets::game_assets::{self, GameAssetConfig};
 use ambition_gameplay_core::assets::loading;
 use ambition_gameplay_core::dev::dev_tools::{EditableAbilitySet, EditableMovementTuning};
 use ambition_gameplay_core::ldtk_world;
-use ambition_gameplay_core::persistence::settings::TextureResolutionScale;
 use ambition_gameplay_core::rooms;
 use ambition_gameplay_core::session::{data, setup};
 use ambition_gameplay_core::world::physics;
+use ambition_persistence::settings::TextureResolutionScale;
 use ambition_render::rendering::SceneEntities;
 use ambition_render::ui_fonts;
 

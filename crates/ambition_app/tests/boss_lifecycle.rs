@@ -31,8 +31,8 @@ use ambition_gameplay_core::features::ecs::boss_clusters::{BossConfig, BossEncou
 use ambition_gameplay_core::features::{
     BossOverrides, BossRewardChest, ResetRoomFeaturesEvent, RoomResetReason,
 };
-use ambition_gameplay_core::persistence::save::SandboxSave;
-use ambition_gameplay_core::persistence::save_data::PersistedEncounterState;
+use ambition_persistence::save::SandboxSave;
+use ambition_persistence::save_data::PersistedEncounterState;
 use bevy::prelude::World;
 
 const MOCKINGBIRD_TRACK: &str = "how_to_kill_a_mockingbird";

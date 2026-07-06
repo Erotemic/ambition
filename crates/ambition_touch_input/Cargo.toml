@@ -31,6 +31,7 @@ ambition_gameplay_core = { path = "../ambition_gameplay_core", default-features 
 ambition_render = { path = "../ambition_render" }
 ambition_cutscene = { path = "../ambition_cutscene" }
 ambition_ui_nav = { path = "../ambition_ui_nav" }
+ambition_persistence = { path = "../ambition_persistence" }
 bevy = { version = "0.18.1", default-features = false, features = ["ui_api"] }
 leafwing-input-manager = { version = "0.20", optional = true }
 virtual_joystick = { version = "2.7.2", default-features = false, optional = true }

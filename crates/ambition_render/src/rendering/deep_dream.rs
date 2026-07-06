@@ -286,10 +286,7 @@ pub fn cleanup_puppy_slug_deep_dream_overlays(
     }
 }
 
-fn puppy_slug_seed(
-    id: &str,
-    actor_render: &ambition_sim_view::ActorRenderIndex,
-) -> Option<f32> {
+fn puppy_slug_seed(id: &str, actor_render: &ambition_sim_view::ActorRenderIndex) -> Option<f32> {
     let actor = actor_render.get(id)?;
     // Name + dream participation both come from the identity read-model.
     // Peaceful actors carry the peaceful default tuning (dream_seed = None),

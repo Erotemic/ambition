@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::persistence::settings::video::CameraZoomPreset;
-use crate::persistence::settings::UserSettings;
+use ambition_persistence::settings::UserSettings;
 
 pub fn close_menu_option() -> SettingsOption {
     SettingsOption {

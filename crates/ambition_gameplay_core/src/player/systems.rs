@@ -77,7 +77,7 @@ pub fn sync_player_actor_poses(
 /// exists today.
 pub fn tick_player_brains(
     gravity_field: Option<Res<crate::physics::GravityField>>,
-    user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
+    user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     slots: Res<SlotControls>,
     mut players: Query<(
         &BodyKinematics,

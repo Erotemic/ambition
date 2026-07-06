@@ -29,7 +29,7 @@ pub fn input_timer_system(
     time: Res<Time>,
     feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,
     gravity_field: Option<Res<crate::physics::GravityField>>,
-    user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
+    user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     mut sim_state: ResMut<crate::SandboxSimState>,
     mut control_frame: ResMut<ControlFrame>,
     mut slot_gestures: ResMut<crate::player::SlotInteractionState>,
@@ -100,7 +100,7 @@ pub fn interaction_input_system(
     feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,
     control_frame: Res<ControlFrame>,
     gravity_field: Option<Res<crate::physics::GravityField>>,
-    user_settings: Option<Res<crate::persistence::settings::UserSettings>>,
+    user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     controlled: Option<Res<crate::abilities::traversal::possession::ControlledSubject>>,
     mut slot_gestures: ResMut<crate::player::SlotInteractionState>,
     // Hit-stun gate reads the CONTROLLED body's reaction state — the body actually

@@ -25,7 +25,7 @@ use super::yarn_bindings::{
     register_commands, register_functions, YarnContentBindings, YarnPresentationCue,
     YarnStateMirror,
 };
-use crate::persistence::save::SandboxSave;
+use ambition_persistence::save::SandboxSave;
 use ambition_sfx::SfxMessage;
 
 /// Bevy resource: entity id of the singleton `DialogueRunner`.

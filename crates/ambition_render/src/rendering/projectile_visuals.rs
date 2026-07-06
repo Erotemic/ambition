@@ -21,9 +21,9 @@ use ambition_gameplay_core::projectile::{
     ProjectileArtSource, ProjectileKind, ProjectileRenderSize, ProjectileRotation,
     ProjectileVisualKind,
 };
-use ambition_sim_view::ProjectileView;
 use ambition_platformer_primitives::gravity::gravity_upright_angle;
 use ambition_platformer_primitives::gravity::GravityCtx;
+use ambition_sim_view::ProjectileView;
 use ambition_sprite_sheet::SheetRegistry;
 
 /// Marker on the persistent per-projectile sprite entity.

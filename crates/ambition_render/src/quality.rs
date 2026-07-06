@@ -5,9 +5,7 @@
 
 use bevy::prelude::*;
 
-use ambition_gameplay_core::persistence::settings::{
-    UserSettings, VisualQualityBudget, VisualQualityProfile,
-};
+use ambition_persistence::settings::{UserSettings, VisualQualityBudget, VisualQualityProfile};
 
 #[derive(Resource, Clone, Debug, PartialEq)]
 pub struct ResolvedVisualQuality {
@@ -17,8 +15,7 @@ pub struct ResolvedVisualQuality {
 
 impl Default for ResolvedVisualQuality {
     fn default() -> Self {
-        let settings =
-            ambition_gameplay_core::persistence::settings::VisualQualitySettings::default();
+        let settings = ambition_persistence::settings::VisualQualitySettings::default();
         Self {
             profile: settings.profile,
             budget: settings.resolved_budget(),

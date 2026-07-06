@@ -96,7 +96,7 @@ impl Plugin for SimCoreResourcesPlugin {
             // Sandbox save (encounter defeat + switch state). Loaded from
             // disk by the presentation half only — headless/RL never touch
             // disk; mutated by encounter/switch systems.
-            .init_resource::<ambition_gameplay_core::persistence::save::SandboxSave>()
+            .init_resource::<ambition_persistence::save::SandboxSave>()
             // World-clock dt mirror — `WorldTime::scaled_dt` is the
             // bullet-time-respecting delta for gameplay timers.
             .init_resource::<ambition_time::WorldTime>()
@@ -125,12 +125,12 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_gameplay_core::dev::dev_tools::EditableAbilitySet>()
             // Engine-typed settings/inventory defaults; games pre-insert
             // their authored starters.
-            .init_resource::<ambition_gameplay_core::persistence::settings::UserSettings>()
+            .init_resource::<ambition_persistence::settings::UserSettings>()
             .init_resource::<ambition_gameplay_core::items::OwnedItems>()
             // The quest + boss-encounter registries are ENGINE vocabulary
             // read by the encounter/progression chains; content POPULATES
             // them (never owns the init).
-            .init_resource::<ambition_gameplay_core::quest::QuestRegistry>()
+            .init_resource::<ambition_persistence::quest::QuestRegistry>()
             .init_resource::<ambition_gameplay_core::boss_encounter::BossEncounterRegistry>();
     }
 }

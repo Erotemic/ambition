@@ -22,13 +22,13 @@ use ambition_app::app::{
 };
 use ambition_engine_core as ae;
 use ambition_gameplay_core::assets::game_assets::GameAssetConfig;
+use ambition_gameplay_core::game_mode::GameMode;
+use ambition_gameplay_core::session::camera_layers::{FrontHudCamera, MainCamera};
+use ambition_render::rendering::{camera_follow, sync_parallax_layers, CameraViewState};
 use ambition_sim_view::camera_snapshot::{
     resolve_follow_camera_snapshot, CameraFocus2d, CameraSnapshotResolveInput,
     CameraSnapshotResolveMode,
 };
-use ambition_gameplay_core::game_mode::GameMode;
-use ambition_gameplay_core::session::camera_layers::{FrontHudCamera, MainCamera};
-use ambition_render::rendering::{camera_follow, sync_parallax_layers, CameraViewState};
 use bevy::app::AppExit;
 use bevy::app::{PluginGroup, ScheduleRunnerPlugin};
 use bevy::camera::{ImageRenderTarget, RenderTarget};
@@ -302,7 +302,7 @@ fn apply_capture_snapshot(
     config: Res<SceneCaptureConfig>,
     world: Res<ambition_engine_core::RoomGeometry>,
     room_set: Res<ambition_gameplay_core::rooms::RoomSet>,
-    user_settings: Res<ambition_gameplay_core::persistence::settings::UserSettings>,
+    user_settings: Res<ambition_persistence::settings::UserSettings>,
     ease_tuning: Res<ambition_gameplay_core::CameraEaseTuning>,
     mut view_state: ResMut<CameraViewState>,
     player_q: Query<

@@ -13,7 +13,7 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
 use crate::character_sprites::{RenderBasis, SheetRecord};
-use crate::persistence::settings::VisualQualityBudget;
+use ambition_persistence::settings::VisualQualityBudget;
 
 /// Boss animation rows in the order the generator emits them.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]

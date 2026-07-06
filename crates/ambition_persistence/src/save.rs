@@ -1,6 +1,6 @@
 //! Sandbox save game I/O + autosave.
 //!
-//! The data shape lives in `crate::persistence::save_data` (`SandboxSaveData`,
+//! The data shape lives in `crate::save_data` (`SandboxSaveData`,
 //! `PersistedEncounter`, `PersistedSwitch`). This module is the
 //! Bevy-side shim (`SandboxSave` resource) that loads/saves to disk and
 //! coordinates autosave.
@@ -19,9 +19,10 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+use bevy::log::{info, warn};
 use bevy::prelude::*;
 
-use crate::persistence::save_data::SandboxSaveData;
+use crate::save_data::SandboxSaveData;
 
 pub const SANDBOX_SAVE_FILE: &str = "ambition/sandbox_save.ron";
 
@@ -44,7 +45,7 @@ impl SandboxSave {
 /// as the settings persistence module so both files end up alongside
 /// each other.
 pub fn save_path() -> PathBuf {
-    save_path_under(&crate::persistence::settings::platform_paths::data_dir_root())
+    save_path_under(&crate::settings::platform_paths::data_dir_root())
 }
 
 pub fn save_path_under(root: &Path) -> PathBuf {
@@ -137,7 +138,7 @@ pub fn autosave_sandbox_save(_save: Res<SandboxSave>) {}
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::persistence::save_data::PersistedEncounterState;
+    use crate::save_data::PersistedEncounterState;
     use std::sync::Mutex;
 
     static TEST_DIR_LOCK: Mutex<()> = Mutex::new(());

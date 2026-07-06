@@ -667,7 +667,7 @@ pub fn ability_aim_world(
 // build stays clean until then. See code_smells 2026-07-03.
 #[allow(dead_code)]
 pub(crate) fn control_frame_modes_from_settings(
-    settings: Option<&crate::persistence::settings::UserSettings>,
+    settings: Option<&ambition_persistence::settings::UserSettings>,
 ) -> ae::ControlFrameModes {
     settings.map_or(ae::ControlFrameModes::default(), |s| {
         s.gameplay.control_frame_modes()

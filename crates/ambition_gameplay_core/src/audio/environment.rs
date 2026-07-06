@@ -203,7 +203,7 @@ pub fn smooth_audio_environment(
 /// the filter handle, and leave the user-mixer composition intact.
 #[cfg(feature = "audio")]
 pub fn apply_audio_environment(
-    settings: Res<crate::persistence::settings::UserSettings>,
+    settings: Res<ambition_persistence::settings::UserSettings>,
     env: Res<AudioEnvironment>,
     music_channel: Res<AudioChannel<MusicChannel>>,
     sfx_channel: Res<AudioChannel<SfxChannel>>,

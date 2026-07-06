@@ -34,8 +34,8 @@ use super::registry::BodyMetrics;
 use super::sheets::CharacterSheetSpec;
 use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
 use crate::character_roster::catalog;
-use crate::persistence::settings::VisualQualityBudget;
 use ambition_engine_core as ae;
+use ambition_persistence::settings::VisualQualityBudget;
 
 /// One page image of a (possibly split) character sheet: its texture handle
 /// plus the [`TextureAtlasLayout`] addressing only that page's frames.

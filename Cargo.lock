@@ -149,6 +149,7 @@ dependencies = [
  "ambition_host",
  "ambition_input",
  "ambition_menu",
+ "ambition_persistence",
  "ambition_platformer_primitives",
  "ambition_render",
  "ambition_runtime",
@@ -245,6 +246,7 @@ dependencies = [
  "ambition_gameplay_core",
  "ambition_input",
  "ambition_interaction",
+ "ambition_persistence",
  "ambition_platformer_primitives",
  "ambition_render",
  "ambition_sfx",
@@ -301,6 +303,7 @@ dependencies = [
  "ambition_input",
  "ambition_interaction",
  "ambition_menu",
+ "ambition_persistence",
  "ambition_platformer_primitives",
  "ambition_portal",
  "ambition_portal_presentation",
@@ -393,6 +396,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_persistence"
+version = "0.1.0"
+dependencies = [
+ "ambition_engine_core",
+ "ambition_input",
+ "bevy",
+ "ron 0.11.0",
+ "serde",
+ "serde_json",
+ "tempfile",
+]
+
+[[package]]
 name = "ambition_platformer_primitives"
 version = "0.1.0"
 dependencies = [
@@ -432,6 +448,7 @@ dependencies = [
  "ambition_gameplay_core",
  "ambition_input",
  "ambition_interaction",
+ "ambition_persistence",
  "ambition_platformer_primitives",
  "ambition_portal_presentation",
  "ambition_sfx",
@@ -451,6 +468,7 @@ dependencies = [
  "ambition_engine_core",
  "ambition_gameplay_core",
  "ambition_input",
+ "ambition_persistence",
  "ambition_platformer_primitives",
  "ambition_sfx",
  "ambition_sim_view",
@@ -487,6 +505,7 @@ dependencies = [
  "ambition_gameplay_core",
  "ambition_input",
  "ambition_interaction",
+ "ambition_persistence",
  "ambition_platformer_primitives",
  "ambition_time",
  "bevy",
@@ -520,6 +539,7 @@ dependencies = [
  "ambition_engine_core",
  "ambition_gameplay_core",
  "ambition_input",
+ "ambition_persistence",
  "ambition_render",
  "ambition_ui_nav",
  "bevy",

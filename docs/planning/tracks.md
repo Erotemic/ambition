@@ -181,7 +181,7 @@ fable card. Ranked by how much they gate a fable task.
 
 | Track | Doc | Status | Next |
 |---|---|---|---|
-| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — **E5-finish COMPLETE (fable 2026-07-06 night): step 5 executed (amended: shared sim wiring → `ambition_runtime` per-domain plugins; `ambition_host` = leafwing bindings + camera cluster) + step 6 executed (SimCoreResourcesPlugin split + the demo smoke shell PASSES) — THE DEMO GATE IS OPEN**; W1 STATE-inversion (opus); **W-a…W-e RULED — the 5-step OPUS-SAFE W queue is in decomposition.md**; **E2 back-edges PRE-CLASSIFIED (fable) — verdict list in the E2 card**; **W-queue step 1 DONE + E2 IN-PLACE VERDICTS DONE (opus 2026-07-06 night): entity_catalog::placements + engine_core::kinematic_path minted; all 7 E2 back-edge verdicts landed in-place (CombatTuning minted, banner→message, CenteredAabb/HitEvent/overlay repointed, FeatureSimEntity→lifecycle) — combat's atomic move is now near-mechanical** | **W2 ✅ EXECUTED (fable 2026-07-07 — see the log; GeoSource subsumed SpatialSource)**; W queue steps 3–5 [opus]; **E2 combat carve ✅ EXECUTED (fable 2026-07-07 — the kit IS ambition_combat; see the log)**; projectiles mint = a dedicated de-weave session (census in the E2 card); E1a next crate-mint; E3/E6/E7/E8 open |
+| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — **E5-finish COMPLETE (fable 2026-07-06 night): step 5 executed (amended: shared sim wiring → `ambition_runtime` per-domain plugins; `ambition_host` = leafwing bindings + camera cluster) + step 6 executed (SimCoreResourcesPlugin split + the demo smoke shell PASSES) — THE DEMO GATE IS OPEN**; W1 STATE-inversion (opus); **W-a…W-e RULED — the 5-step OPUS-SAFE W queue is in decomposition.md**; **E2 back-edges PRE-CLASSIFIED (fable) — verdict list in the E2 card**; **W-queue step 1 DONE + E2 IN-PLACE VERDICTS DONE (opus 2026-07-06 night): entity_catalog::placements + engine_core::kinematic_path minted; all 7 E2 back-edge verdicts landed in-place (CombatTuning minted, banner→message, CenteredAabb/HitEvent/overlay repointed, FeatureSimEntity→lifecycle) — combat's atomic move is now near-mechanical**; **E1a persistence carve ✅ DONE (Codex 2026-07-06): `ambition_persistence` owns save/settings/quest stored shapes; gameplay-core retains only settings/menu IR + dev persistence adapters for E1e/E1d** | **W2 ✅ EXECUTED (fable 2026-07-07 — see the log; GeoSource subsumed SpatialSource)**; W queue steps 3–5 [opus]; **E2 combat carve ✅ EXECUTED (fable 2026-07-07 — the kit IS ambition_combat; see the log)**; projectiles mint = a dedicated de-weave session (census in the E2 card); E1b next E1 slice; E3/E6/E7/E8 open |
 | Decomposition D-B/D-C | same | queued behind D-A | mode-scope seam can land early (demos want it) |
 | Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | **CC1 COMPLETE + CC5 LANDED (fable) + CC2 COMPLETE + §3.6 GeoId/GeoFaceRef SUBSTRATE MINTED (opus, 2026-07-06)** — SweepSample §3.1 PARKED (decision brief above); GeoId types + Block.id (Anon default, byte-parity) real in code, first consumer = CC6 — engine_core::frame vocabulary + cast family registry real in code; CC2 first pass (hazards swept) + completion (§3.3 every reader classified: loading-zone Door/Walk/EdgeExit now swept via `transition_for_player`; water/climbable annotated discrete-OK + `thin_region_warnings` authoring validator; ledge audited; auto-collect N/A) parity suites green | CC3 fuzz rig (§6.1 oracle) [opus]; CC6 moving portals (§5-P2 spec) [opus] |
 | Combat stack | [engine/combat-model.md](engine/combat-model.md) | CM1 (incl. **launch_dir consumption, fable 2026-07-06 evening** `c695cd9c`)+CM2+CM3+CM7+CM4+CM5 LANDED — per-move presentation authored; smash axes complete (growth, DI, charge, cancel tables, fixed launch angles) | CM6 grab/throw/shield-stun (brings OnBlock) [opus, with SSB] |
@@ -1032,3 +1032,26 @@ their code; sprites-side gained the blade data test), app `--features
 rl_sim` full suite green (only the documented `unified_melee` feel-RED).
 **Projectiles measured: 96 upward refs — a DEDICATED session following
 this exact arc (census + order in the E2 card), not a tail item.**
+
+## 2026-07-06 (Codex) — E1a EXECUTED: `ambition_persistence` owns saved shapes
+
+Minted `crates/ambition_persistence` and moved the persistence-owned
+surface out of `ambition_gameplay_core`: `SandboxSaveData`/`SandboxSave`
+I/O, typed `UserSettings` + settings I/O, display-mode vocabulary, and
+quest specs/events/registry/save mirroring. Runtime/content/render/app/
+touch/sim-view consumers now name `ambition_persistence` directly, so
+Bevy has one canonical `SandboxSave`, `UserSettings`, and
+`QuestRegistry` resource. The gameplay-core residue is intentionally
+small and assigned to later E1 slices: settings/menu IR remains behind
+for E1e, and `DeveloperTools` disk persistence remains beside dev tools
+until E1d; the room-specific quest producer remains a gameplay-core
+adapter over the generic quest event. Added the boundary test
+`architecture_boundaries_persistence_crate_owns_stored_shapes_only` to
+forbid menu/UI/game machinery imports in the new crate. Gate:
+`cargo fmt --check`; `cargo test -p ambition_persistence` (66);
+`cargo test -p ambition_gameplay_core --lib` (1029);
+`cargo test -p ambition_content --all-features` (102+4+1+1);
+`cargo check -p ambition_app --features rl_sim`; focused
+architecture-boundary test green; `python3 scripts/check_agent_kb.py`;
+`python3 scripts/check_doc_links.py`; `cargo run -p ambition_app --bin
+headless -- 120`.

@@ -8,8 +8,8 @@
 use bevy::math::bounding::IntersectsVolume;
 use bevy::prelude::Resource;
 
-use crate::persistence::save_data::PersistedEncounterState;
 use ambition_engine_core as ae;
+use ambition_persistence::save_data::PersistedEncounterState;
 
 use super::{EncounterEvent, EncounterMobSpec, EncounterSpec};
 

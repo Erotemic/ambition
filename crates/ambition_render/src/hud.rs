@@ -16,8 +16,8 @@
 
 use bevy::prelude::*;
 
-use ambition_sim_view::PlayerHudFacts;
 use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
+use ambition_sim_view::PlayerHudFacts;
 
 /// Bar width / height in logical px.
 const BAR_W: f32 = 168.0;

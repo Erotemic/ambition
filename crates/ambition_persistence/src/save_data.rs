@@ -4,7 +4,7 @@
 //!
 //! These types are pure data + `serde`: no Bevy, file paths, autosave timing,
 //! or LDtk. The Bevy-side disk shim that loads/saves them lives in the sibling
-//! `crate::persistence::save` module. Keeping the shapes I/O-free gives reusable
+//! `crate::save` module. Keeping the shapes I/O-free gives reusable
 //! mechanics (encounter defeat, switch latch, ability flags) one canonical form
 //! shared across sandbox and any future story / editor tooling.
 

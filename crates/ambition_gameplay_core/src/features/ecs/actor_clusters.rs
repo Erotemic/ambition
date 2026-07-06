@@ -676,7 +676,14 @@ impl ActorClusterSeed {
         BodyMelee,
         AncillaryMovementBundle,
         crate::combat::CombatCapabilities,
+        crate::combat::CombatTuning,
     ) {
+        // Project the actor's authored weight onto the combat-owned carrier at
+        // spawn (E2 verdict b): the damage paths read `CombatTuning`, never the
+        // sim-heart `ActorConfig`.
+        let combat_tuning = crate::combat::CombatTuning {
+            weight: self.config.tuning.weight,
+        };
         (
             self.kin,
             self.status,
@@ -687,6 +694,7 @@ impl ActorClusterSeed {
             self.attack,
             AncillaryMovementBundle::from_scratch(self.body.0),
             self.caps,
+            combat_tuning,
         )
     }
 }

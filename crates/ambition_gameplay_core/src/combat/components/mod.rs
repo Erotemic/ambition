@@ -349,6 +349,28 @@ impl ActorTuning {
     }
 }
 
+/// Combat-owned per-body tuning read by the damage paths (E2 verdict b).
+///
+/// The CM1 knockback-scaling law needs the victim's `weight`, an actor fact
+/// authored on `ActorTuning`. Combat may NOT import the sim-heart `ActorConfig`
+/// to read it, so actor SPAWN projects the value onto this combat-owned carrier
+/// (actors → combat, the legal arrow); the hitbox resolver reads `CombatTuning`
+/// instead of reaching up into `ActorConfig`. Bodies without one (the player,
+/// headless test bodies) fall back to the reference `1.0` — byte-parity with the
+/// old `Option<&ActorConfig>` read.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct CombatTuning {
+    /// Knockback weight (CM1): heavier bodies launch less under the same growth
+    /// term. `1.0` is the reference body.
+    pub weight: f32,
+}
+
+impl Default for CombatTuning {
+    fn default() -> Self {
+        Self { weight: 1.0 }
+    }
+}
+
 /// Which motion / AI state-machine template a brain instantiates.
 /// Generic kit vocabulary: the brain module is the universal-actor
 /// abstraction and shouldn't know named enemies, and the runtime brain

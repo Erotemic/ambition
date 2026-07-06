@@ -15,6 +15,7 @@ type ActorClusterBundle = (
     crate::features::BodyMelee,
     crate::actor::AncillaryMovementBundle,
     crate::combat::CombatCapabilities,
+    crate::combat::CombatTuning,
 );
 
 fn hostile(

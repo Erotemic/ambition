@@ -551,6 +551,7 @@ fn boss_actor_cluster(
     super::super::components::BodyMelee,
     crate::actor::AncillaryMovementBundle,
     crate::combat::CombatCapabilities,
+    crate::combat::CombatTuning,
 ) {
     let caps = crate::combat::CombatCapabilities {
         can_fly: true,
@@ -577,6 +578,7 @@ fn boss_actor_cluster(
         contact_strength: 2.6,
         ..Default::default()
     };
+    let weight = tuning.weight;
     let actor_config = super::actor_clusters::ActorConfig {
         id: config.id.clone(),
         name: config.name.clone(),
@@ -609,6 +611,9 @@ fn boss_actor_cluster(
             super::actor_clusters::ActorBody::from_caps(&caps, true).0,
         ),
         caps,
+        // Project the boss's weight onto the combat-owned carrier at spawn
+        // (E2 verdict b); default `1.0` here since bosses don't author weight.
+        crate::combat::CombatTuning { weight },
     )
 }
 

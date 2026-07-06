@@ -229,6 +229,7 @@ mod tests {
         crate::features::BodyMelee,
         crate::actor::AncillaryMovementBundle,
         crate::combat::CombatCapabilities,
+        crate::combat::CombatTuning,
     );
 
     /// Spawnable (disposition + clusters) bundle for an enemy test fixture.

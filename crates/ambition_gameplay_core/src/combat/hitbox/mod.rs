@@ -91,11 +91,13 @@ pub fn apply_hitbox_damage(
         bevy::prelude::Has<crate::actor::PlayerEntity>,
         // CM1 knockback scaling: the victim's accumulated-damage meter and its
         // archetype weight. Both `Option` — the player carries `BodyHealth` but
-        // no `ActorConfig` (weight → reference `1.0`); a headless test body may
+        // no `CombatTuning` (weight → reference `1.0`); a headless test body may
         // carry neither (damage_taken → 0). Growth is inert unless the striking
         // volume authored `kb_growth`, so this is parity-free by construction.
+        // Reads the combat-owned `CombatTuning`, never the sim-heart `ActorConfig`
+        // (E2 verdict b).
         Option<&ambition_characters::actor::BodyHealth>,
-        Option<&crate::features::ActorConfig>,
+        Option<&super::components::CombatTuning>,
     )>,
     // The attacker's grudge, looked up from the swing owner — the DAMAGE-side
     // per-entity override. Lets a hit land on a same-faction body the owner has a
@@ -173,7 +175,7 @@ pub fn apply_hitbox_damage(
                     vuln,
                     is_player,
                     victim_health,
-                    victim_cfg,
+                    victim_tuning,
                 ) in &victims
                 {
                     if victim_entity == hitbox.owner {
@@ -244,7 +246,7 @@ pub fn apply_hitbox_damage(
                     // `growth == 0` (every un-authored volume) returns the flat
                     // strength unchanged — parity by construction.
                     let victim_damage_taken = victim_health.map(|h| h.damage_taken()).unwrap_or(0);
-                    let victim_weight = victim_cfg.map(|c| c.tuning.weight).unwrap_or(1.0);
+                    let victim_weight = victim_tuning.map(|ct| ct.weight).unwrap_or(1.0);
                     let strength = crate::combat::damage::scaled_knockback(
                         hitbox.knockback_strength,
                         hitbox.knockback_growth,

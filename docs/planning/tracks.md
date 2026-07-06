@@ -181,7 +181,7 @@ fable card. Ranked by how much they gate a fable task.
 
 | Track | Doc | Status | Next |
 |---|---|---|---|
-| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — **E5-finish COMPLETE (fable 2026-07-06 night): step 5 executed (amended: shared sim wiring → `ambition_runtime` per-domain plugins; `ambition_host` = leafwing bindings + camera cluster) + step 6 executed (SimCoreResourcesPlugin split + the demo smoke shell PASSES) — THE DEMO GATE IS OPEN**; W1 STATE-inversion (opus); **W-a…W-e RULED — the 5-step OPUS-SAFE W queue is in decomposition.md**; **E2 back-edges PRE-CLASSIFIED (fable) — verdict list in the E2 card**; **W-queue step 1 DONE + E2 IN-PLACE VERDICTS DONE (opus 2026-07-06 night): entity_catalog::placements + engine_core::kinematic_path minted; all 7 E2 back-edge verdicts landed in-place (CombatTuning minted, banner→message, CenteredAabb/HitEvent/overlay repointed, FeatureSimEntity→lifecycle) — combat's atomic move is now near-mechanical** | **W2 ✅ EXECUTED (fable 2026-07-07 — see the log; GeoSource subsumed SpatialSource)**; W queue steps 3–5 [opus]; E2 atomic move IN PROGRESS (fable); E1a next crate-mint; E3/E6/E7/E8 open |
+| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — **E5-finish COMPLETE (fable 2026-07-06 night): step 5 executed (amended: shared sim wiring → `ambition_runtime` per-domain plugins; `ambition_host` = leafwing bindings + camera cluster) + step 6 executed (SimCoreResourcesPlugin split + the demo smoke shell PASSES) — THE DEMO GATE IS OPEN**; W1 STATE-inversion (opus); **W-a…W-e RULED — the 5-step OPUS-SAFE W queue is in decomposition.md**; **E2 back-edges PRE-CLASSIFIED (fable) — verdict list in the E2 card**; **W-queue step 1 DONE + E2 IN-PLACE VERDICTS DONE (opus 2026-07-06 night): entity_catalog::placements + engine_core::kinematic_path minted; all 7 E2 back-edge verdicts landed in-place (CombatTuning minted, banner→message, CenteredAabb/HitEvent/overlay repointed, FeatureSimEntity→lifecycle) — combat's atomic move is now near-mechanical** | **W2 ✅ EXECUTED (fable 2026-07-07 — see the log; GeoSource subsumed SpatialSource)**; W queue steps 3–5 [opus]; **E2 combat carve ✅ EXECUTED (fable 2026-07-07 — the kit IS ambition_combat; see the log)**; projectiles mint = a dedicated de-weave session (census in the E2 card); E1a next crate-mint; E3/E6/E7/E8 open |
 | Decomposition D-B/D-C | same | queued behind D-A | mode-scope seam can land early (demos want it) |
 | Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | **CC1 COMPLETE + CC5 LANDED (fable) + CC2 COMPLETE + §3.6 GeoId/GeoFaceRef SUBSTRATE MINTED (opus, 2026-07-06)** — SweepSample §3.1 PARKED (decision brief above); GeoId types + Block.id (Anon default, byte-parity) real in code, first consumer = CC6 — engine_core::frame vocabulary + cast family registry real in code; CC2 first pass (hazards swept) + completion (§3.3 every reader classified: loading-zone Door/Walk/EdgeExit now swept via `transition_for_player`; water/climbable annotated discrete-OK + `thin_region_warnings` authoring validator; ledge audited; auto-collect N/A) parity suites green | CC3 fuzz rig (§6.1 oracle) [opus]; CC6 moving portals (§5-P2 spec) [opus] |
 | Combat stack | [engine/combat-model.md](engine/combat-model.md) | CM1 (incl. **launch_dir consumption, fable 2026-07-06 evening** `c695cd9c`)+CM2+CM3+CM7+CM4+CM5 LANDED — per-move presentation authored; smash axes complete (growth, DI, charge, cancel tables, fixed launch angles) | CM6 grab/throw/shield-stun (brings OnBlock) [opus, with SSB] |
@@ -981,3 +981,54 @@ combat/catalog/characters/portal suites 335, app `--features rl_sim`
 builds + full suite green (only the documented `unified_melee` feel-RED).
 **W-queue state: steps 1–2 ✅; step 3 (lowering registry) is the next opus
 slice; W3's cut now builds on a landed, fable-verified shape.**
+
+
+## 2026-07-07 (fable, c) — E2 EXECUTED: the combat kit IS `ambition_combat`
+The reserved atomic move landed as eleven compiling commits
+(E2.8–E2.18 + THE MOVE, 727bafe6). The card's "near-mechanical" claim was
+re-measured first: 184 real upward refs, ~25 distinct symbols — the
+opus in-place verdicts had covered only the features-hub reads. What
+happened, in order:
+- **E2.8/E2.9 (mechanical):** 84 hub-path refs died (Body* → engine_core;
+  markers/lifecycle/gravity → platformer_primitives; combat-owned types
+  reached via `crate::features`/`crate::player` hub paths → their real
+  homes); `ENEMY_ATTACK_COOLDOWN` became combat's; `room_spec_paths` →
+  spawn side.
+- **E2.10:** `PhysicsDebrisCue`/`DebrisBurstMessage` → `ambition_vfx`
+  (effect vocabulary, the debris twin of `VfxMessage`); the Avian
+  subscriber stays in `world/physics` as the adapter half.
+- **E2.11:** `CombatTuning` grew `attack_cooldown_mult` +
+  `sprite_character_id` (spawn projects the full actor read surface) and
+  the `authored_volumes` INSTALL SEAM was minted — combat asks for
+  artist-authored hit polygons through an installed resolver
+  (`CombatSchedulePlugin` installs `character_sprites`'s); uninstalled =
+  the existing spec-volume fallback. `Option<&ActorConfig>` is GONE from
+  combat.
+- **E2.12/E2.13/E2.14:** message defs re-homed (`QuestAdvanceRequested`
+  → quest, `SwitchActivated`+`SwitchFeature`/`SwitchOn` → encounter);
+  `HitSource::PlayerProjectile.kind` DROPPED (never read); `ActorTuning`
+  + `CharacterBrainTemplate`/`CharacterBrainSpec` →
+  `features::ecs::actor_tuning`; actor `RespawnPolicy` → the Tier-0
+  catalog ([W-a]); `DeathPolicy` STAYS combat (CM1 meter-kill law);
+  spawn bundles → `features::ecs::actor_bundles`.
+- **E2.15/E2.16/E2.17:** the overlay pair (`FeatureEcsWorldOverlay` +
+  `CollisionWorld`/`world_with_sandbox_solids`) → `crate::world::
+  {overlay, overlay_rebuild}` (W-track material); the glue seven
+  (attack=legacy flat swing, damage_apply=victim-side/E7, effect_bus,
+  pickups, chests, spawn_static=lowering, boss_clusters=E6) → under
+  `features::ecs`; shared predicates/emitters (`body_vulnerable`,
+  `shield_blocks_hit`, `scaled_knockback`, `emit_melee_slash`) settled
+  in `combat::util`. Combat's upward surface hit ZERO.
+- **E2.18 + THE MOVE:** the blade test split along the seam (combat
+  tests the seam with a fixture resolver; the real sprite-data assertion
+  lives sprites-side), then sixteen modules moved whole into
+  `ambition_combat` (joining the model half), kit visibility promoted at
+  the crate boundary, deps = interaction/primitives/sfx/time/vfx. ONE
+  alias remains (`pub use ambition_combat as combat;` in gameplay_core's
+  lib.rs) so `crate::combat::` paths resolve until the features hub
+  dissolves at E7/E8 — no other shim.
+Gate: ambition_combat 100, gameplay_core lib 1095 (tests traveled with
+their code; sprites-side gained the blade data test), app `--features
+rl_sim` full suite green (only the documented `unified_melee` feel-RED).
+**Projectiles measured: 96 upward refs — a DEDICATED session following
+this exact arc (census + order in the E2 card), not a tail item.**

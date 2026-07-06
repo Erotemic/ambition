@@ -833,8 +833,15 @@ moves first; the TYPES move here).
      reader ever destructures it; writers hardcode Fireball; pre-release
      no-compat) so combat sheds `ProjectileKind`.
    `projectile/` + `enemy_projectile/` → `ambition_projectiles` (deps:
-   combat) — NOT yet re-measured; run the same upward-ref census before
-   executing. Direction ruled: **features → combat, never the reverse.**
+   combat) — **MEASURED (fable 2026-07-07): 96 upward refs (features 40,
+   actor 19, player 14, trace 8, portal 4, physics 3, persistence 3) —
+   a dedicated de-weave session, NOT a tail item. Execute it EXACTLY like
+   combat's arc (E2.8–E2.18): mechanical repoint of re-export residue
+   first (actor/physics are mostly `ae::`/primitives paths), then
+   per-symbol verdicts (trace = dev-tooling seam; portal = transit hooks;
+   player = ownership/heal messages), then leave-behind re-home, then the
+   move. The combat commits are the worked example.**
+   Direction ruled: **features → combat, never the reverse.**
 4. Only after the move: further combat-model slices (CM6+) land in the
    new crate.
 

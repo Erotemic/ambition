@@ -312,6 +312,7 @@ mod tests {
         // space and reports no solid hit within budget.
         let mut world = World::new("test", Vec2::new(2000.0, 2000.0), Vec2::ZERO, vec![]);
         world.blocks.push(Block {
+            id: crate::geo_id::GeoId::anon(),
             name: "wall".into(),
             aabb: Aabb::new(Vec2::new(210.0, 0.0), Vec2::new(10.0, 200.0)),
             kind: BlockKind::Solid,

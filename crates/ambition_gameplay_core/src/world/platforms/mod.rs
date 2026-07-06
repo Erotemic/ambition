@@ -232,6 +232,7 @@ impl MovingPlatformState {
 
     pub fn as_collision_block(&self) -> ae::Block {
         ae::Block {
+            id: ae::GeoId::anon(),
             name: self.name.clone(),
             aabb: self.aabb(),
             // This frame's displacement — the collision sweep carries any body

@@ -348,6 +348,21 @@ pub struct GeoFaceRef {
    rule (no `Anon` in deltas) lands with the first delta op. Do not
    sweep the codebase converting `name` usages speculatively.
 
+**✅ SUBSTRATE MINTED (opus 2026-07-06 night).** The types are in code:
+`ambition_engine_core::geo_id` — `PlacementId`, `GeoSource`, `GeoId`
+(+ `anon`/`placement`/`tile_layer` constructors, `Default = Anon`), `Face`
+(Top/Bottom/Left/Right | Segment(u16)), `GeoFaceRef` — all re-exported at the
+crate root beside `World`/`Block`. **`Block` gained `id: GeoId`;** the six
+`Block` constructors + the ~10 struct-literal sites default to `GeoSource::Anon`
+so the fixture/composition surface is byte-parity (the id is inert — no logic
+reads it yet). Real `Placement`/`TileLayer` sources are NOT assigned: they need
+the iid threaded through the emission paths + a constructor variant, which is
+W2's `RoomEmission` reshaping (rule 4 above) — assigning them now would be the
+speculative sweep this rule forbids. The FIRST consumer is CC6's `PortalHostRef`
+(= `GeoFaceRef`); the validator (no `Anon` in deltas) lands with the first
+`WorldDelta` op. engine_core 252 (+3 geo_id tests), gameplay_core lib 1175,
+full app rl_sim suite green.
+
 ## 4. Non-axis-aligned geometry
 
 The end state: **a room may be built from arbitrary polyline/polygon

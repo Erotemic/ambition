@@ -48,6 +48,11 @@ impl BlockKind {
 /// One piece of generated room geometry.
 #[derive(Clone, Debug)]
 pub struct Block {
+    /// Durable geometry identity (collision-and-ccd.md §3.6). `name` stays the
+    /// human label; `id` is what `WorldDelta` ops / the CC6 portal host ref /
+    /// traces name. Fixture constructors default to `GeoSource::Anon`; the IR
+    /// emission paths assign real sources.
+    pub id: crate::geo_id::GeoId,
     pub name: String,
     pub aabb: Aabb,
     pub kind: BlockKind,
@@ -85,6 +90,7 @@ impl Block {
 
     pub fn solid(name: impl Into<String>, min: Vec2, size: Vec2) -> Self {
         Self {
+            id: crate::geo_id::GeoId::anon(),
             name: name.into(),
             aabb: aabb_from_min_size(min, size),
             kind: BlockKind::Solid,
@@ -94,6 +100,7 @@ impl Block {
 
     pub fn blink_wall(name: impl Into<String>, min: Vec2, size: Vec2, tier: BlinkWallTier) -> Self {
         Self {
+            id: crate::geo_id::GeoId::anon(),
             name: name.into(),
             aabb: aabb_from_min_size(min, size),
             kind: BlockKind::BlinkWall { tier },
@@ -103,6 +110,7 @@ impl Block {
 
     pub fn one_way(name: impl Into<String>, min: Vec2, size: Vec2) -> Self {
         Self {
+            id: crate::geo_id::GeoId::anon(),
             name: name.into(),
             aabb: aabb_from_min_size(min, size),
             kind: BlockKind::OneWay,
@@ -112,6 +120,7 @@ impl Block {
 
     pub fn hazard(name: impl Into<String>, min: Vec2, size: Vec2) -> Self {
         Self {
+            id: crate::geo_id::GeoId::anon(),
             name: name.into(),
             aabb: aabb_from_min_size(min, size),
             kind: BlockKind::Hazard,
@@ -121,6 +130,7 @@ impl Block {
 
     pub fn pogo_orb(name: impl Into<String>, center: Vec2, radius: f32) -> Self {
         Self {
+            id: crate::geo_id::GeoId::anon(),
             name: name.into(),
             aabb: Aabb::new(center, Vec2::new(radius, radius)),
             kind: BlockKind::PogoOrb,
@@ -130,6 +140,7 @@ impl Block {
 
     pub fn rebound(name: impl Into<String>, min: Vec2, size: Vec2, impulse: Vec2) -> Self {
         Self {
+            id: crate::geo_id::GeoId::anon(),
             name: name.into(),
             aabb: aabb_from_min_size(min, size),
             kind: BlockKind::Rebound { impulse },

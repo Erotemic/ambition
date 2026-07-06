@@ -223,6 +223,7 @@ fn carve_portal_apertures(blocks: &mut Vec<ae::Block>, holes: &[ae::Aabb]) {
         }
         for aabb in pieces {
             blocks.push(ae::Block {
+                id: ae::GeoId::anon(),
                 name: block.name.clone(),
                 aabb,
                 kind: block.kind,
@@ -249,6 +250,7 @@ mod collision_world_tests {
             ae::Vec2::new(400.0, 400.0),
             ae::Vec2::new(50.0, 50.0),
             vec![ae::Block {
+                id: ae::GeoId::anon(),
                 name: "floor".into(),
                 aabb: ae::Aabb::new(ae::Vec2::new(200.0, 380.0), ae::Vec2::new(200.0, 20.0)),
                 kind: ae::BlockKind::Solid,
@@ -302,6 +304,7 @@ mod collision_world_tests {
         app.insert_resource(room_one_block());
         app.insert_resource(FeatureEcsWorldOverlay {
             blocks: vec![ae::Block {
+                id: ae::GeoId::anon(),
                 name: "ecs-solid".into(),
                 aabb: ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(10.0, 10.0)),
                 kind: ae::BlockKind::Solid,

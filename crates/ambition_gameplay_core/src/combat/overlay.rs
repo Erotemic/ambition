@@ -105,6 +105,7 @@ pub fn rebuild_feature_ecs_world_overlay(
             ambition_interaction::BreakableCollision::OneWayUp => ae::BlockKind::OneWay,
         };
         overlay.blocks.push(ae::Block {
+            id: ae::GeoId::anon(),
             name: format!("ecs-breakable {}", name.0.as_str()),
             aabb: aabb.aabb(),
             kind,
@@ -113,6 +114,7 @@ pub fn rebuild_feature_ecs_world_overlay(
         if feature.breakable.collision.blocks_movement() && feature.breakable.trigger.allows_stand()
         {
             overlay.blocks.push(ae::Block {
+                id: ae::GeoId::anon(),
                 name: format!("ecs-breakable-pogo-target {}", id.as_str()),
                 aabb: aabb.aabb(),
                 kind: ae::BlockKind::PogoOrb,
@@ -126,6 +128,7 @@ pub fn rebuild_feature_ecs_world_overlay(
     // at spawn, but this fallback keeps minimal tests and custom spawns working.
     for (id, aabb) in &legacy_pogo_targets {
         overlay.blocks.push(ae::Block {
+            id: ae::GeoId::anon(),
             name: format!("ecs-legacy-pogo-target {}", id.as_str()),
             aabb: aabb.aabb(),
             kind: ae::BlockKind::PogoOrb,
@@ -139,6 +142,7 @@ pub fn rebuild_feature_ecs_world_overlay(
     for (id, pogo) in &pogo_targets {
         for (idx, aabb) in pogo.volumes.iter().copied().enumerate() {
             overlay.blocks.push(ae::Block {
+                id: ae::GeoId::anon(),
                 name: format!("ecs-pogo-target {} {}", id.as_str(), idx),
                 aabb,
                 kind: ae::BlockKind::PogoOrb,

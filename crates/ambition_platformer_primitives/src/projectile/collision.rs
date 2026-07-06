@@ -115,6 +115,7 @@ mod tests {
     fn world_with_block(kind: ae::BlockKind, center: ae::Vec2, half: ae::Vec2) -> ae::World {
         let mut w = ae::World::new("test", ae::Vec2::new(800.0, 600.0), ae::Vec2::ZERO, vec![]);
         w.blocks.push(ae::Block {
+            id: ae::GeoId::anon(),
             name: "wall".into(),
             aabb: ae::Aabb::new(center, half),
             kind,

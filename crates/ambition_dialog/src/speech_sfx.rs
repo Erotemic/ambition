@@ -8,7 +8,7 @@
 use ambition_sfx::ids;
 use ambition_sfx::SfxId;
 
-use super::runtime::DialogSpeechStyle;
+use crate::runtime::DialogSpeechStyle;
 
 /// How many newly-visible alphanumeric characters pass between normal
 /// typewriter blips. Spaces and punctuation act like visual pauses and do not
@@ -20,7 +20,7 @@ const TALK_BLIP_CHAR_INTERVAL: usize = 5;
 /// `previous_visible_chars` and `visible_chars` are character counts into
 /// `line`, not byte offsets. If a low framerate tick reveals many characters at
 /// once, this still emits at most one blip for the frame.
-pub(in crate::dialog) fn should_play_talk_blip(
+pub(crate) fn should_play_talk_blip(
     line: &str,
     previous_visible_chars: usize,
     visible_chars: usize,
@@ -43,7 +43,7 @@ pub(in crate::dialog) fn should_play_talk_blip(
 /// today because there are not yet per-speaker styled voiceprints in the bank;
 /// the function is shaped so those can be added later without changing the
 /// reveal system.
-pub(in crate::dialog) fn talk_blip_id_for_speaker(
+pub(crate) fn talk_blip_id_for_speaker(
     speaker_label: &str,
     dialogue_id: &str,
     style: DialogSpeechStyle,

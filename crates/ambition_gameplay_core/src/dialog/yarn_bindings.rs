@@ -30,7 +30,15 @@
 //! single source of truth. Couples to `SandboxSave`, `SfxMessage`,
 //! `GameplayEffect`, etc. — that's the bridge's whole job.
 
-use std::sync::{Arc, RwLock};
+//! The generic binding machinery (the [`YarnStateMirror`] shape, the
+//! [`YarnPresentationCue`], the [`YarnContentBindings`] installer seam, and
+//! [`YarnBindingsPlugin`]) lives in the reusable `ambition_dialog` crate (E1c).
+//! This module keeps only Ambition's game-specific vocabulary — the commands
+//! and functions that touch actor/save state — and the per-frame refresh that
+//! fills the mirror from `SandboxSave`. It registers on the runtime through the
+//! installer seam via [`install_game_bindings`].
+
+use std::sync::Arc;
 
 use ambition_engine_core as ae;
 use bevy::prelude::*;
@@ -39,47 +47,26 @@ use bevy_yarnspinner::prelude::DialogueRunner;
 use crate::features::SetFlagRequested;
 use ambition_persistence::save::SandboxSave;
 
-// ===== Shared state mirror =====================================
+// Re-export the generic binding types from the reusable dialog crate so the
+// game bindings + content plugins keep naming
+// `ambition_gameplay_core::dialog::yarn_bindings::{...}`.
+pub use ambition_dialog::{
+    clear_yarn_presentation_cue, YarnBindingInstaller, YarnContentBindings, YarnPresentationCue,
+    YarnStateMirror, YarnStateMirrorData,
+};
 
-/// Snapshot of save data the Yarn `library` functions read from.
-/// Refreshed each frame from `SandboxSave` by
-/// [`refresh_yarn_state_mirror`]. Wrapped in `Arc<RwLock<...>>` so
-/// the closures registered on the runner's `Library` (which capture
-/// by move) can read it without taking a Bevy resource.
-///
-/// Yarn `library` functions are synchronous pure functions — they
-/// can't take a `Res<SandboxSave>` like a Bevy system can. The
-/// mirror shape solves that: a refresh system updates the snapshot
-/// inside the lock once per frame, and function closures lock-and-
-/// read on every Yarn `<<if>>` evaluation.
-#[derive(Default, Clone, Debug)]
-pub struct YarnStateMirrorData {
-    /// flag id → on/off.
-    pub flags: std::collections::HashMap<String, bool>,
-    /// canonical boss encounter ids in `Cleared` state.
-    pub bosses_cleared: std::collections::HashSet<String>,
-    /// canonical quest ids whose state is `InProgress`.
-    pub quests_active: std::collections::HashSet<String>,
-    /// dialogue id → visit count.
-    pub visit_counts: std::collections::HashMap<String, u32>,
-    /// Content-fed string values keyed by name (e.g. a boss room's
-    /// current heavy-object id). The generic refresh below never
-    /// touches these; content-side systems mirror their own state in
-    /// (after [`refresh_yarn_state_mirror`]) and content-installed
-    /// Yarn functions read them. Keeps named content out of this
-    /// generic mirror.
-    pub extras: std::collections::HashMap<String, String>,
-    /// Item `dialog_id()` → held count, mirrored from the live
-    /// `OwnedItems` catalog resource so `inventory_has(...)` can read it.
-    pub inventory_counts: std::collections::HashMap<String, u32>,
-    /// Player money, mirrored from the primary player's `BodyWallet` so a
-    /// merchant dialogue can show the balance / gate purchases (`wallet_balance`,
-    /// `can_afford`).
-    pub wallet_balance: i32,
+/// The host installer: registers Ambition's generic Yarn vocabulary
+/// (commands + functions) on the runner. Pushed into
+/// [`YarnContentBindings`] by [`crate::dialog::YarnBindingsPlugin`] so the
+/// reusable bridge names no concrete game command.
+pub fn install_game_bindings(
+    commands: &mut Commands,
+    runner: &mut DialogueRunner,
+    mirror: &YarnStateMirror,
+) {
+    register_commands(commands, runner);
+    register_functions(runner, mirror);
 }
-
-#[derive(Resource, Default, Clone)]
-pub struct YarnStateMirror(pub Arc<RwLock<YarnStateMirrorData>>);
 
 /// Per-frame refresh: copy the relevant slices of [`SandboxSave`]
 /// into the mirror so Yarn functions read consistent values for the
@@ -135,71 +122,6 @@ pub fn refresh_yarn_state_mirror(
     snap.visit_counts.clear();
     for visit in &data.dialog_visits {
         snap.visit_counts.insert(visit.id.clone(), visit.count);
-    }
-}
-
-// ===== Markup cue ==============================================
-
-/// Per-frame presentation cue surface populated by the bridge's
-/// `on_present_line` observer whenever a Yarn line carries `[shout]`
-/// or `[whisper]` markup. Camera shake / audio pitch consumers read
-/// this in their normal Update systems; the cue clears each frame
-/// via [`clear_yarn_presentation_cue`] before the bridge writes the
-/// next one.
-///
-/// Phase 4 today: the cue resource exists + the bridge writes to
-/// it. Wiring the camera shake and audio pitch CONSUMERS is left
-/// as scaffolding — these are presentation hooks that need their
-/// own consumer systems (small follow-up; the Yarn side is done).
-#[derive(Resource, Default, Debug, Clone)]
-pub struct YarnPresentationCue {
-    /// True iff the most recent line carried `[shout]` markup.
-    /// Consumers (camera shake, voice volume) trigger off the rising
-    /// edge.
-    pub shout: bool,
-    /// True iff the most recent line carried `[whisper]` markup.
-    /// Consumers (audio pitch / volume drop) trigger off the rising
-    /// edge.
-    pub whisper: bool,
-}
-
-/// Reset the markup cue once per frame. Runs before the bridge
-/// observer fires (which writes the cue for THIS frame's line).
-pub fn clear_yarn_presentation_cue(mut cue: ResMut<YarnPresentationCue>) {
-    cue.shout = false;
-    cue.whisper = false;
-}
-
-// ===== Content extension seam ===================================
-
-/// One content-side installer: registers that content's custom Yarn
-/// commands and/or library functions on the runner. Runs once when
-/// the singleton `DialogueRunner` is spawned, after the generic
-/// commands/functions are registered.
-pub type YarnBindingInstaller = fn(&mut Commands, &mut DialogueRunner, &YarnStateMirror);
-
-/// Content-registered Yarn vocabulary. The dialog runtime owns the
-/// generic commands/functions (`set_flag`, `give_item`, …); content
-/// plugins push installers here for named vocabulary (e.g. the
-/// cut-rope boss commands) so this module names no content.
-#[derive(Resource, Default)]
-pub struct YarnContentBindings {
-    pub installers: Vec<YarnBindingInstaller>,
-}
-
-// ===== Plugin ===================================================
-
-pub struct YarnBindingsPlugin;
-
-impl Plugin for YarnBindingsPlugin {
-    fn build(&self, app: &mut App) {
-        app.init_resource::<YarnStateMirror>();
-        app.init_resource::<YarnPresentationCue>();
-        app.init_resource::<YarnContentBindings>();
-        app.add_systems(
-            Update,
-            (clear_yarn_presentation_cue, refresh_yarn_state_mirror).chain(),
-        );
     }
 }
 

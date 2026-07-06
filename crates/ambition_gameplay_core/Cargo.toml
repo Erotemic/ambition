@@ -267,9 +267,19 @@ authored_audio = ["dep:bevy_kira_audio", "ambition_audio/kira"]
 # the entire audio runtime (no plugin install, no AudioContext
 # creation) even though `bevy_kira_audio` was in the dep graph.
 web_audio = ["audio"]
-ui = ["dep:bevy_material_ui", "dep:bevy_yarnspinner", "dep:yarnspinner"]
+ui = [
+    "dep:bevy_material_ui",
+    "dep:bevy_yarnspinner",
+    "dep:yarnspinner",
+    "ambition_dialog/ui",
+]
 physics_debris = ["dep:avian2d"]
-input = ["dep:leafwing-input-manager", "ambition_input/input", "ambition_ui_nav/input"]
+input = [
+    "dep:leafwing-input-manager",
+    "ambition_input/input",
+    "ambition_ui_nav/input",
+    "ambition_dialog/input",
+]
 # Mobile / Android touch input. Pulls `virtual_joystick` for the
 # on-screen sticks; the supporting Bevy systems live behind this feature
 # flag so desktop / gamepad / headless builds skip the touch path.
@@ -382,6 +392,10 @@ ambition_ui_nav = { path = "../ambition_ui_nav" }
 # so it can be edited without the submodule commit + gitlink-bump dance.
 ambition_menu = { path = "../ambition_menu" }
 ambition_persistence = { path = "../ambition_persistence" }
+# Reusable dialogue runtime (E1c): DialogState view model + typewriter reveal +
+# input systems + the bevy_yarnspinner bridge and binding-installer seam. The
+# game-specific Yarn bindings + GameMode sync stay in `src/dialog`.
+ambition_dialog = { path = "../ambition_dialog" }
 # Logical asset catalog + per-profile source resolution. Bevy + sfx
 # features so the sandbox can format `AssetPath` strings through the
 # catalog and (in a follow-up) route the SFX bank bytes through the

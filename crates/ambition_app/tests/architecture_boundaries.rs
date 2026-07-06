@@ -515,6 +515,47 @@ fn architecture_boundaries_persistence_crate_owns_stored_shapes_only() {
     );
 }
 
+/// `ambition_dialog` is the reusable dialogue runtime (E1c): the `DialogState`
+/// view model, typewriter reveal + input systems, and the `bevy_yarnspinner`
+/// bridge + binding-installer seam. It must name no game/actor/menu/UI content —
+/// a host's game-specific Yarn bindings register through the installer seam and
+/// the host maps `DialogState.active` onto its own session mode. So another
+/// platformer reuses the dialogue runtime by depending on it and installing its
+/// own vocabulary.
+#[test]
+fn architecture_boundaries_dialog_crate_is_runtime_only() {
+    let crate_root = repo_root().join("crates/ambition_dialog");
+    assert_workspace_contains_crate("ambition_dialog");
+    assert!(
+        crate_root.join("Cargo.toml").exists(),
+        "ambition_dialog crate should exist at crates/ambition_dialog"
+    );
+    // Only the foundational tiers: geometry, ui-nav, input, sfx, persistence.
+    assert_manifest_path_deps_only(
+        &crate_root,
+        &[
+            "ambition_engine_core",
+            "ambition_ui_nav",
+            "ambition_input",
+            "ambition_sfx",
+            "ambition_persistence",
+        ],
+        "ambition_dialog is the reusable dialogue runtime; game bindings stay host-side",
+    );
+    assert_source_tree_has_no_code_refs(
+        crate_root.join("src"),
+        &[
+            "ambition_gameplay_core",
+            "ambition_menu",
+            "ambition_render",
+            "ambition_content",
+            "ambition_app",
+            "ambition_characters",
+        ],
+        "ambition_dialog must stay free of game/actor/menu/UI machinery imports",
+    );
+}
+
 /// `ambition_interaction` is a reusable, content-free foundation crate: the
 /// interactive-world-object MODEL (Interactable / InteractionKind / Pickup / Chest
 /// / Breakable + state enums) over the actor + geometry foundations. It must not
@@ -603,11 +644,22 @@ fn architecture_boundaries_input_crate_is_extracted() {
         "the ambition_gameplay_core::input compat shim was removed; \
          import ambition_input by its canonical path, not via gameplay_core"
     );
+    // The canonical `controls` re-export moved into `ambition_persistence`
+    // during E1a; gameplay-core's settings mod now surfaces it transitively.
+    // Assert both links so the input-settings vocabulary stays single-sourced.
+    let persistence_settings =
+        fs::read_to_string(repo_root().join("crates/ambition_persistence/src/settings/mod.rs"))
+            .expect("read ambition_persistence settings mod.rs");
+    assert!(
+        persistence_settings.contains("pub use ambition_input::settings as controls"),
+        "ambition_persistence::settings::controls should re-export ambition_input::settings"
+    );
     let settings_mod = fs::read_to_string(crate_src().join("persistence/settings/mod.rs"))
         .expect("read persistence settings mod.rs");
     assert!(
-        settings_mod.contains("pub use ambition_input::settings as controls"),
-        "persistence::settings::controls should re-export ambition_input::settings"
+        settings_mod.contains("controls"),
+        "gameplay-core persistence::settings should re-surface `controls` \
+         from ambition_persistence (the E1a layering)"
     );
 }
 

@@ -6,7 +6,7 @@
 //! covers only what the UI view-model still needs:
 //!
 //! - [`DialogChoice`] — the runtime option representation written
-//!   by the Yarn bridge into [`crate::dialog::DialogState.current_options`]
+//!   by the Yarn bridge into [`crate::DialogState`]`.current_options`
 //!   and rendered by `sync_dialog_ui`. `next_node` / `note` /
 //!   `close_after` are vestigial fields kept for the existing UI
 //!   layout code (the renderer reads `label` and ignores the rest);

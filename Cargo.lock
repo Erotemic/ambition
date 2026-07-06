@@ -272,6 +272,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_dialog"
+version = "0.1.0"
+dependencies = [
+ "ambition_engine_core",
+ "ambition_input",
+ "ambition_persistence",
+ "ambition_sfx",
+ "ambition_ui_nav",
+ "bevy",
+ "bevy_yarnspinner",
+]
+
+[[package]]
 name = "ambition_engine_core"
 version = "0.1.0"
 dependencies = [
@@ -298,6 +311,7 @@ dependencies = [
  "ambition_characters",
  "ambition_combat",
  "ambition_cutscene",
+ "ambition_dialog",
  "ambition_engine_core",
  "ambition_entity_catalog",
  "ambition_gameplay_trace",

@@ -14,14 +14,14 @@
 
 use bevy::prelude::{Component, Entity, Resource};
 
-use super::content::DialogChoice;
+use crate::content::DialogChoice;
 use ambition_engine_core::Vec2;
 use ambition_ui_nav::MenuFocusState;
 
 /// Marker on a rendered dialog choice-row entity, carrying its option index.
 ///
 /// The render layer's `dialog_ui` spawns these; the sim-side
-/// [`super::systems::dialog_pointer_input`] reads them to map a click to a
+/// [`crate::systems::dialog_pointer_input`] reads them to map a click to a
 /// choice. Content-free, so it lives in the sandbox dialog module — both the
 /// renderer and the input system name it without crossing the seam backwards.
 #[derive(Component, Clone, Copy, Debug)]
@@ -39,7 +39,7 @@ pub struct DialogState {
     /// frame, before `PresentLine` lands), flipped to `false` when
     /// the runner reports `DialogueCompleted`. Bridge-write access
     /// inside the crate; readers go through `active()`.
-    pub(in crate::dialog) active: bool,
+    pub(crate) active: bool,
     /// Display name of the NPC that started this conversation.
     /// Yarn lines carry their own `character_name`; this is the
     /// fallback shown when a line has no speaker prefix.
@@ -54,75 +54,75 @@ pub struct DialogState {
     /// I'm talking to" (e.g. `<<challenge>>` provoking it into a fight)
     /// read this. Cleared on every `start()` so a stale entity from a
     /// prior conversation can't leak into the next one.
-    pub(in crate::dialog) speaker_entity: Option<Entity>,
+    pub(crate) speaker_entity: Option<Entity>,
 
     /// Latest speaker from `PresentLine`. May differ from
     /// `npc_name` mid-conversation (e.g. an off-screen voice or a
     /// second character).
-    pub(in crate::dialog) current_speaker: String,
+    pub(crate) current_speaker: String,
     /// Latest line text (with character-name prefix stripped).
-    pub(in crate::dialog) current_line: String,
+    pub(crate) current_line: String,
     /// Typewriter reveal state for the current line.
-    pub(in crate::dialog) line_reveal: LineRevealState,
+    pub(crate) line_reveal: LineRevealState,
     /// Presentation style for the current line, derived from Yarn markup.
     /// Normal speech can use speaker voiceprints; styled speech uses generic
     /// whisper/shout blips until per-speaker styled variants are authored.
-    pub(in crate::dialog) speech_style: DialogSpeechStyle,
+    pub(crate) speech_style: DialogSpeechStyle,
     /// Whether the line was marked by Yarn as the last line before
     /// an options block. This is the explicit "auto-advance into
     /// options" signal, so plain lines still require a confirm.
-    pub(in crate::dialog) line_last_before_options: bool,
+    pub(crate) line_last_before_options: bool,
     /// Latest options from `PresentOptions`. Empty when the
     /// player is reading a non-branching line.
-    pub(in crate::dialog) current_options: Vec<DialogChoice>,
+    pub(crate) current_options: Vec<DialogChoice>,
     /// Typewriter reveal state for the current options list.
-    pub(in crate::dialog) options_reveal: OptionsRevealState,
+    pub(crate) options_reveal: OptionsRevealState,
     /// Parallel-index Yarn option ids, used by the dispatch
     /// system to call `runner.select_option(...)`.
     #[cfg(feature = "ui")]
-    pub(in crate::dialog) yarn_option_ids: Vec<OptionId>,
+    pub(crate) yarn_option_ids: Vec<OptionId>,
 
-    pub(in crate::dialog) selected_option: usize,
+    pub(crate) selected_option: usize,
     /// Android/touch row activation is deliberately two-step:
     /// first tap selects, second tap or a Confirm button
     /// activates. This prevents a finger press that turns into a
     /// small drag from accidentally advancing dialogue.
-    pub(in crate::dialog) pointer_armed: Option<usize>,
+    pub(crate) pointer_armed: Option<usize>,
     /// Which input source currently owns selection focus, plus the
     /// last row the pointer actually hovered.
-    pub(in crate::dialog) focus: MenuFocusState,
+    pub(crate) focus: MenuFocusState,
     /// Last cursor position that successfully owned dialog hover.
     /// Used to ignore stationary hover when the option list scrolls
     /// underneath the mouse.
-    pub(in crate::dialog) last_pointer_position: Option<Vec2>,
+    pub(crate) last_pointer_position: Option<Vec2>,
 
     /// Pending request: `Some((dialogue_id, npc_name))` until a
     /// dispatch system drains it and calls `runner.start_node`.
-    pub(in crate::dialog) pending_start: Option<(String, String)>,
+    pub(crate) pending_start: Option<(String, String)>,
     /// Pending request: `true` until a dispatch system drains it
     /// and calls `runner.stop`. Set on `state.close()`.
-    pub(in crate::dialog) pending_close: bool,
+    pub(crate) pending_close: bool,
     /// Pending request: `Some(option_index_into_current_options)`
     /// until a dispatch system drains it and calls
     /// `runner.select_option(yarn_option_ids[i])`.
-    pub(in crate::dialog) pending_select: Option<usize>,
+    pub(crate) pending_select: Option<usize>,
     /// Pending request: `true` until a dispatch system drains it
     /// and calls `runner.continue_in_next_update()`. Set by the
     /// player confirming a plain line, or by the reveal tick when a
     /// line explicitly marked as `lastline` finishes and needs to
     /// hand off to an options block immediately.
-    pub(in crate::dialog) pending_advance: bool,
+    pub(crate) pending_advance: bool,
     /// Set by the `DialogueCompleted` observer when the runner
     /// finishes a node chain but `current_line` still has text to
     /// read. The UI keeps showing the dialog with a "press to
     /// continue" hint; the player's next confirm flips this to a
     /// `pending_close`. Without this flag, the auto-advance flow
     /// would race past the final line before the player could read.
-    pub(in crate::dialog) runner_done_pending_close: bool,
+    pub(crate) runner_done_pending_close: bool,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub(in crate::dialog) enum DialogSpeechStyle {
+pub(crate) enum DialogSpeechStyle {
     #[default]
     Normal,
     Whisper,
@@ -130,7 +130,7 @@ pub(in crate::dialog) enum DialogSpeechStyle {
 }
 
 impl DialogSpeechStyle {
-    pub(in crate::dialog) fn from_markup(shout: bool, whisper: bool) -> Self {
+    pub(crate) fn from_markup(shout: bool, whisper: bool) -> Self {
         if shout {
             Self::Shout
         } else if whisper {
@@ -142,7 +142,7 @@ impl DialogSpeechStyle {
 }
 
 #[derive(Clone, Debug)]
-pub(in crate::dialog) struct LineRevealState {
+pub(crate) struct LineRevealState {
     full_line_byte_ends: Vec<usize>,
     revealed_chars: usize,
     elapsed_s: f32,
@@ -262,20 +262,20 @@ impl DialogState {
         }
     }
 
-    pub(in crate::dialog) fn start_revealing_line(&mut self, text: String) {
+    pub(crate) fn start_revealing_line(&mut self, text: String) {
         self.current_line = text;
         self.line_reveal = LineRevealState::from_line(&self.current_line);
     }
 
-    pub(in crate::dialog) fn tick_reveal(&mut self, delta_s: f32) {
+    pub(crate) fn tick_reveal(&mut self, delta_s: f32) {
         self.line_reveal.tick(delta_s, &self.current_line);
     }
 
-    pub(in crate::dialog) fn visible_line_char_count(&self) -> usize {
+    pub(crate) fn visible_line_char_count(&self) -> usize {
         self.line_reveal.revealed_char_count()
     }
 
-    pub(in crate::dialog) fn speaker_label_for_sfx(&self) -> &str {
+    pub(crate) fn speaker_label_for_sfx(&self) -> &str {
         if self.current_speaker.is_empty() {
             &self.npc_name
         } else {
@@ -283,44 +283,44 @@ impl DialogState {
         }
     }
 
-    pub(in crate::dialog) fn set_speech_style(&mut self, style: DialogSpeechStyle) {
+    pub(crate) fn set_speech_style(&mut self, style: DialogSpeechStyle) {
         self.speech_style = style;
     }
 
-    pub(in crate::dialog) fn speech_style(&self) -> DialogSpeechStyle {
+    pub(crate) fn speech_style(&self) -> DialogSpeechStyle {
         self.speech_style
     }
 
-    pub(in crate::dialog) fn reveal_full_line(&mut self) {
+    pub(crate) fn reveal_full_line(&mut self) {
         self.line_reveal.reveal_full_line(&self.current_line);
     }
 
-    pub(in crate::dialog) fn line_reveal_complete(&self) -> bool {
+    pub(crate) fn line_reveal_complete(&self) -> bool {
         self.line_reveal.complete(&self.current_line)
     }
 
-    pub(in crate::dialog) fn visible_line(&self) -> &str {
+    pub(crate) fn visible_line(&self) -> &str {
         self.line_reveal.visible_line(&self.current_line)
     }
 
-    pub(in crate::dialog) fn set_line_last_before_options(&mut self, is_last: bool) {
+    pub(crate) fn set_line_last_before_options(&mut self, is_last: bool) {
         self.line_last_before_options = is_last;
     }
 
-    pub(in crate::dialog) fn line_last_before_options(&self) -> bool {
+    pub(crate) fn line_last_before_options(&self) -> bool {
         self.line_last_before_options
     }
 
-    pub(in crate::dialog) fn tick_options_reveal(&mut self, delta_s: f32) {
+    pub(crate) fn tick_options_reveal(&mut self, delta_s: f32) {
         self.options_reveal
             .tick(delta_s, self.current_options.len());
     }
 
-    pub(in crate::dialog) fn reveal_full_options(&mut self) {
+    pub(crate) fn reveal_full_options(&mut self) {
         self.options_reveal.reveal_full(self.current_options.len());
     }
 
-    pub(in crate::dialog) fn options_reveal_complete(&self) -> bool {
+    pub(crate) fn options_reveal_complete(&self) -> bool {
         self.options_reveal.complete(self.current_options.len())
     }
 
@@ -336,7 +336,7 @@ impl DialogState {
         self.selected_option
     }
 
-    pub(in crate::dialog) fn select_delta(&mut self, delta: isize) {
+    pub(crate) fn select_delta(&mut self, delta: isize) {
         self.focus.mark_keyboard();
         let len = self.options().len();
         if len == 0 {
@@ -358,7 +358,7 @@ impl DialogState {
     /// `DialogueCompleted` observer. Callers that needed the return
     /// value (legacy `if closed { next_mode.set(Playing) }`) get
     /// their game-mode transition from the observer instead.
-    pub(in crate::dialog) fn confirm_or_advance(&mut self) -> bool {
+    pub(crate) fn confirm_or_advance(&mut self) -> bool {
         if !self.line_reveal_complete() {
             self.reveal_full_line();
             return false;
@@ -445,7 +445,7 @@ impl LineRevealState {
 }
 
 #[derive(Clone, Debug)]
-pub(in crate::dialog) struct OptionsRevealState {
+pub(crate) struct OptionsRevealState {
     visible_count: usize,
     elapsed_s: f32,
     options_per_second: f32,

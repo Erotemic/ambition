@@ -1,7 +1,7 @@
 //! Dialogue Bevy systems: input translation + the typewriter reveal tick.
 //!
-//! These read [`super::runtime::DialogState`] and write its `pending_*`
-//! request fields (which [`super::yarn_bridge`] later drains into the runner):
+//! These read [`crate::runtime::DialogState`] and write its `pending_*`
+//! request fields (which [`crate::bridge`] later drains into the runner):
 //! - [`dialog_reveal_tick`] — advances the visible substring of the line/options.
 //! - [`dialog_input`] — keyboard/gamepad nav (up/down/select/back), `input`-gated.
 //! - [`dialog_pointer_input`] — mouse/touch choice-row selection, `input`-gated.
@@ -10,10 +10,9 @@
 
 use bevy::prelude::*;
 
-use super::runtime::DialogChoiceSlot;
-use super::runtime::DialogState;
-use super::speech_sfx::{should_play_talk_blip, talk_blip_id_for_speaker};
-use crate::game_mode::GameMode;
+use crate::runtime::DialogChoiceSlot;
+use crate::runtime::DialogState;
+use crate::speech_sfx::{should_play_talk_blip, talk_blip_id_for_speaker};
 #[cfg(feature = "input")]
 use ambition_input::MenuControlFrame;
 use ambition_sfx::SfxMessage;
@@ -72,15 +71,10 @@ pub fn dialog_reveal_tick(
 #[cfg(feature = "input")]
 pub fn dialog_pointer_input(
     mut dialogue: ResMut<DialogState>,
-    mode: Res<State<GameMode>>,
-    next_mode: ResMut<NextState<GameMode>>,
     windows: Query<&Window, With<PrimaryWindow>>,
     choices: Query<(&Interaction, &DialogChoiceSlot), Changed<Interaction>>,
 ) {
     if !dialogue.active() {
-        return;
-    }
-    if !matches!(mode.get(), GameMode::Dialogue) {
         return;
     }
     let cursor_position = windows.single().ok().and_then(Window::cursor_position);
@@ -126,9 +120,9 @@ pub fn dialog_pointer_input(
                     if confirm {
                         dialogue.pointer_armed = None;
                         // Confirm advances via the Yarn dispatch
-                        // (sets pending_select/advance); the
-                        // dialog-completed observer flips
-                        // GameMode back to Playing.
+                        // (sets pending_select/advance); when the
+                        // dialogue closes, `DialogState.active` flips
+                        // and the host maps that onto its session mode.
                         dialogue.confirm_or_advance();
                     } else {
                         dialogue.pointer_armed = Some(index);
@@ -147,36 +141,22 @@ pub fn dialog_pointer_input(
             Interaction::None => {}
         }
     }
-    // `next_mode` is reserved for the back-button path below — keep
-    // the parameter on the signature so the system schedule slot
-    // doesn't have to change when we add back-button support to the
-    // pointer surface.
-    let _ = next_mode;
 }
 
 #[cfg(not(feature = "input"))]
 pub fn dialog_pointer_input() {}
 
 #[cfg(feature = "input")]
-pub fn dialog_input(
-    menu: Res<MenuControlFrame>,
-    mut dialogue: ResMut<DialogState>,
-    mode: Res<State<GameMode>>,
-    mut next_mode: ResMut<NextState<GameMode>>,
-) {
+pub fn dialog_input(menu: Res<MenuControlFrame>, mut dialogue: ResMut<DialogState>) {
     if !dialogue.active() {
         return;
     }
-    if !matches!(mode.get(), GameMode::Dialogue) {
-        return;
-    }
     if menu.back || menu.start {
-        // Back-button close: the dispatch system will tell the
-        // runner to stop, and the dialog-completed observer will
-        // flip the GameMode. The explicit `next_mode.set` here is
-        // belt-and-suspenders so the UI hides this same frame.
+        // Back-button close: the dispatch system tells the runner to
+        // stop. `close()` flips `DialogState.active` this same frame
+        // (so the UI hides immediately); the host maps the inactive
+        // state onto its session mode.
         dialogue.close();
-        next_mode.set(GameMode::Playing);
         return;
     }
     let mut frame = ambition_input::MenuInputFrame {
@@ -197,9 +177,9 @@ pub fn dialog_input(
     }
     if frame.select {
         // The Yarn runner closes the dialogue asynchronously via
-        // the `DialogueCompleted` observer (which flips GameMode
-        // back to Playing). `confirm_or_advance` now always returns
-        // `false`; the legacy `if closed { ... }` branch is gone.
+        // the `DialogueCompleted` observer (which flips
+        // `DialogState.active`). `confirm_or_advance` now always
+        // returns `false`; the legacy `if closed { ... }` branch is gone.
         dialogue.confirm_or_advance();
     }
 }
@@ -232,7 +212,7 @@ fn handle_dialog_choice_hover(
         &Interaction::Hovered,
         index,
         selected,
-        crate::persistence::settings::MenuTapMode::TapToSelectThenConfirm,
+        ambition_persistence::settings::MenuTapMode::TapToSelectThenConfirm,
         false,
         pointer_armed,
         focus,

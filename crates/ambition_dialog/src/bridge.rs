@@ -19,12 +19,9 @@ use bevy::prelude::*;
 use bevy_yarnspinner::events::*;
 use bevy_yarnspinner::prelude::*;
 
-use super::content::DialogChoice;
-use super::runtime::{DialogSpeechStyle, DialogState};
-use super::yarn_bindings::{
-    register_commands, register_functions, YarnContentBindings, YarnPresentationCue,
-    YarnStateMirror,
-};
+use crate::bindings::{YarnContentBindings, YarnPresentationCue, YarnStateMirror};
+use crate::content::DialogChoice;
+use crate::runtime::{DialogSpeechStyle, DialogState};
 use ambition_persistence::save::SandboxSave;
 use ambition_sfx::SfxMessage;
 
@@ -57,9 +54,9 @@ impl Plugin for YarnBridgePlugin {
 }
 
 /// Spawn the singleton `DialogueRunner` once `YarnProject` is
-/// available. Registers commands + functions before spawning so
-/// authored content can use the full vocabulary on the first node
-/// entered.
+/// available. Runs every registered [`YarnContentBindings`] installer
+/// before spawning so authored content can use the full vocabulary on
+/// the first node entered.
 ///
 /// One-shot guarded by `DialogueRunnerEntity` already existing —
 /// the run condition (`resource_exists::<YarnProject>`) fires every
@@ -75,17 +72,17 @@ fn spawn_dialogue_runner(
         return;
     }
     let mut runner = project.create_dialogue_runner(&mut commands);
-    register_commands(&mut commands, &mut runner);
-    register_functions(&mut runner, &mirror);
-    // Content-side vocabulary (named boss commands/functions), pushed
-    // into the registry by content plugins at build time.
+    // All Yarn vocabulary — the host's generic game commands/functions
+    // AND content-side named vocabulary — is registered through the
+    // installer seam. The bridge names no concrete command, so the
+    // runtime stays reusable across games.
     for install in &content_bindings.installers {
         install(&mut commands, &mut runner, &mirror);
     }
     let entity = commands.spawn(runner).id();
     commands.insert_resource(DialogueRunnerEntity(entity));
     info!(
-        target: "ambition_gameplay_core::dialog::yarn",
+        target: "ambition_dialog::bridge",
         "spawned DialogueRunner entity {entity:?}",
     );
 }
@@ -102,7 +99,6 @@ fn dispatch_pending_dialog_requests(
     runner_e: Option<Res<DialogueRunnerEntity>>,
     mut runner_q: Query<&mut DialogueRunner>,
     save: Option<ResMut<SandboxSave>>,
-    mut next_mode: Option<ResMut<NextState<crate::game_mode::GameMode>>>,
 ) {
     // Early-return + visible diagnostic if the runner hasn't
     // spawned yet. Without this, dialog.start() requests pile up
@@ -111,7 +107,7 @@ fn dispatch_pending_dialog_requests(
     let Some(runner_e) = runner_e else {
         if state.pending_start.is_some() || state.pending_close {
             warn!(
-                target: "ambition_gameplay_core::dialog::yarn",
+                target: "ambition_dialog::bridge",
                 "dispatch_pending_dialog_requests: DialogueRunner not spawned yet; \
                  pending request will be retried next frame",
             );
@@ -120,7 +116,7 @@ fn dispatch_pending_dialog_requests(
     };
     let Ok(mut runner) = runner_q.get_mut(runner_e.0) else {
         warn!(
-            target: "ambition_gameplay_core::dialog::yarn",
+            target: "ambition_dialog::bridge",
             "dispatch_pending_dialog_requests: DialogueRunnerEntity points at {:?} \
              but no DialogueRunner component there",
             runner_e.0,
@@ -135,38 +131,33 @@ fn dispatch_pending_dialog_requests(
         }
         if !runner.node_exists(&dialogue_id) {
             warn!(
-                target: "ambition_gameplay_core::dialog::yarn",
+                target: "ambition_dialog::bridge",
                 "start({dialogue_id:?}): Yarn node not found. Add it to a \
                  file in assets/dialogue/sandbox/*.yarn with a matching title header",
             );
             // Flip everything back so the game doesn't freeze in
-            // Dialogue mode. The caller (`interact_*`) set
-            // GameMode=Dialogue synchronously; we have to unset it.
+            // Dialogue mode. The caller (`interact_*`) set its session
+            // mode synchronously; clearing `active` lets the host map
+            // back out of it.
             state.active = false;
-            if let Some(next_mode) = next_mode.as_deref_mut() {
-                next_mode.set(crate::game_mode::GameMode::Playing);
-            }
             return;
         }
         if let Err(e) = runner.try_start_node(&dialogue_id) {
             warn!(
-                target: "ambition_gameplay_core::dialog::yarn",
+                target: "ambition_dialog::bridge",
                 "try_start_node({dialogue_id:?}) failed: {e}",
             );
             state.active = false;
-            if let Some(next_mode) = next_mode.as_deref_mut() {
-                next_mode.set(crate::game_mode::GameMode::Playing);
-            }
             return;
         }
         // Reset the accumulator for the new conversation.
         state.current_line.clear();
         state.current_speaker.clear();
-        state.line_reveal = crate::dialog::runtime::LineRevealState::default();
+        state.line_reveal = crate::runtime::LineRevealState::default();
         state.line_last_before_options = false;
-        state.options_reveal = crate::dialog::runtime::OptionsRevealState::default();
+        state.options_reveal = crate::runtime::OptionsRevealState::default();
         info!(
-            target: "ambition_gameplay_core::dialog::yarn",
+            target: "ambition_dialog::bridge",
             "start_node({dialogue_id}) — runner advancing next tick",
         );
     }
@@ -177,16 +168,16 @@ fn dispatch_pending_dialog_requests(
         if let Some(option_id) = option_id {
             if let Err(e) = runner.select_option(option_id) {
                 warn!(
-                    target: "ambition_gameplay_core::dialog::yarn",
+                    target: "ambition_dialog::bridge",
                     "select_option({option_id:?}) failed: {e}",
                 );
             }
             // Reset the body + option accumulator for the next beat.
             state.current_line.clear();
             state.current_speaker.clear();
-            state.line_reveal = crate::dialog::runtime::LineRevealState::default();
+            state.line_reveal = crate::runtime::LineRevealState::default();
             state.line_last_before_options = false;
-            state.options_reveal = crate::dialog::runtime::OptionsRevealState::default();
+            state.options_reveal = crate::runtime::OptionsRevealState::default();
             state.current_options.clear();
             state.yarn_option_ids.clear();
             state.selected_option = 0;
@@ -214,11 +205,8 @@ fn dispatch_pending_dialog_requests(
         state.yarn_option_ids.clear();
         state.selected_option = 0;
         state.line_last_before_options = false;
-        state.options_reveal = crate::dialog::runtime::OptionsRevealState::default();
+        state.options_reveal = crate::runtime::OptionsRevealState::default();
         state.runner_done_pending_close = false;
-        if let Some(next_mode) = next_mode.as_deref_mut() {
-            next_mode.set(crate::game_mode::GameMode::Playing);
-        }
     }
 }
 
@@ -239,7 +227,7 @@ fn on_present_line(
     // Drop stale options from the previous beat. The new beat's
     // options arrive via `PresentOptions`.
     state.current_options.clear();
-    state.options_reveal = crate::dialog::runtime::OptionsRevealState::default();
+    state.options_reveal = crate::runtime::OptionsRevealState::default();
     state.yarn_option_ids.clear();
     state.selected_option = 0;
     // Markup cue capture for [shout] / [whisper] hooks. Shout wins for
@@ -293,11 +281,7 @@ fn on_present_options(event: On<PresentOptions>, mut state: ResMut<DialogState>)
     state.selected_option = 0;
 }
 
-fn on_dialogue_completed(
-    _event: On<DialogueCompleted>,
-    mut state: ResMut<DialogState>,
-    mut next_mode: Option<ResMut<NextState<crate::game_mode::GameMode>>>,
-) {
+fn on_dialogue_completed(_event: On<DialogueCompleted>, mut state: ResMut<DialogState>) {
     state.pending_advance = false;
     if !state.current_line.is_empty() {
         // The runner finished but there's still accumulated text
@@ -314,8 +298,5 @@ fn on_dialogue_completed(
     state.yarn_option_ids.clear();
     state.selected_option = 0;
     state.line_last_before_options = false;
-    state.options_reveal = crate::dialog::runtime::OptionsRevealState::default();
-    if let Some(next_mode) = next_mode.as_deref_mut() {
-        next_mode.set(crate::game_mode::GameMode::Playing);
-    }
+    state.options_reveal = crate::runtime::OptionsRevealState::default();
 }

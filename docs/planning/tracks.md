@@ -72,6 +72,23 @@ fable-graded material is EXECUTION-hard, not design-open — see the
 "remaining fable-tier surface" note in the 2026-07-06-night execution-log
 entry.
 
+**Decomposition risk map + the fable-reserve recommendation (fable,
+2026-07-06 night — answering "is any of the 64k carve list still
+fable-hard?"):** NO item is design-hard anymore; risk now concentrates in
+EXECUTION at exactly two places, both mitigated by sequencing (the D2
+rule: cycles die in place first, atomic moves second):
+1. **W2's `RoomEmission`/`PlacementRecord` payload reshaping** — the one
+   commit whose shape propagates into every converter. Sequence: W-queue
+   step 1 + the E2 in-place verdicts FIRST (small compiling commits),
+   then W2, **then pause for ONE review of the W2 commit (Jon or any
+   remaining fable budget — a review, not a work session)** before W3/E2
+   atomic moves build on it.
+2. **E2's atomic move of `combat/`** — near-mechanical once its in-place
+   verdict commits land; do not attempt it before them.
+Everything else on the carve list is compiler-driven. Estimated total:
+~10–14 focused opus sessions for the full 64k, one dedicated session per
+crate mint (never the tail of a multi-item run).
+
 **Opus-sequencing notes (unchanged):** the **E4 full dep-flip** is
 OPUS-SAFE-once-gated (Q32) behind E1/E3/E-assets/W. **E5 step 5 is DONE**
 (see the log; step 6 is DONE — the demo shell passes). The

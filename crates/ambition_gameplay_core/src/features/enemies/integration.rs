@@ -123,7 +123,11 @@ impl<'a> ActorMut<'a> {
         // driver, where that component is in scope.
         if !self.health.alive() {
             self.status.respawn_timer = (self.status.respawn_timer - dt).max(0.0);
-            if self.config.tuning.revives_in_place && self.status.respawn_timer <= 0.0 {
+            if matches!(
+                self.config.tuning.respawn,
+                crate::combat::RespawnPolicy::InPlace(_)
+            ) && self.status.respawn_timer <= 0.0
+            {
                 // `health.reset()` IS the revive — restoring HP makes `alive()` true.
                 self.health.reset();
                 self.kin.pos = self.config.spawn.pos;

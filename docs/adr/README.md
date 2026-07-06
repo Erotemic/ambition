@@ -32,3 +32,5 @@ Use an ADR when a decision:
 - [0018: Enemy cluster variation — per-actor jitter is mandatory at every brain-spawn site](0018-enemy-cluster-variation.md)
 - [0019: Pluginized platformer runtime via same-crate proto-boundaries](0019-pluginized-platformer-runtime.md)
 - [0020: Mounts and vehicles — two linked actors, control-deferral, independent hurtboxes](0020-mounts-and-vehicles.md)
+- 0021: reserved (authoring-backend-agnostic space — lands with the W4 world-carve slice)
+- [0022: Respawn policy — dead stays dead by default; respawning is authored](0022-respawn-policy.md)

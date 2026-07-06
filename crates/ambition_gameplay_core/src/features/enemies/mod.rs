@@ -68,10 +68,10 @@ pub struct ActorSurfaceState {
     pub gravity_scale: f32,
 }
 
-// `EnemyRespawnPolicy` moved to the combat kit (generic death/respawn
-// vocabulary); re-exported so `crate::features::EnemyRespawnPolicy`
+// `RespawnPolicy` moved to the combat kit (generic death/respawn
+// vocabulary); re-exported so `crate::features::RespawnPolicy`
 // paths keep working.
-pub use crate::combat::EnemyRespawnPolicy;
+pub use crate::combat::RespawnPolicy;
 
 /// Flag-id suffix used by `_dead_until_rest` flags. Constant so the
 /// kill hook, save sync, and `clear_dead_until_rest_flags` all
@@ -137,9 +137,12 @@ pub(crate) struct CharacterArchetypeSpec {
     /// Damage never kills (infinite training dummy).
     #[serde(default)]
     pub never_dies: bool,
-    /// On death, respawn in place after this many seconds.
+    /// When this defeated actor reappears (ADR 0022). DEFAULT =
+    /// `DeadStaysDead` — respawning is an authored opt-in: trash mobs
+    /// author `OnRoomReenter`, mini-boss presences `OnRest`, training
+    /// sandbags `InPlace(secs)`.
     #[serde(default)]
-    pub respawn_in_place_seconds: Option<f32>,
+    pub respawn: crate::combat::RespawnPolicy,
     /// Deep-dream visual jitter seed (psychedelic shader pass);
     /// `None` = the archetype doesn't participate.
     #[serde(default)]
@@ -250,10 +253,6 @@ pub(crate) struct CharacterArchetypeSpec {
     /// stay non-damaging until provoked.
     #[serde(default = "default_true")]
     pub body_contact_damage: bool,
-    /// Defeated body takes a Rest to reappear (heavier mini-boss-tier
-    /// presences) instead of refreshing on every room re-entry.
-    #[serde(default)]
-    pub respawn_on_rest: bool,
     /// Visual identity of this archetype's ranged projectile. Authored so the
     /// render layer selects shot art by KIND (e.g. `Glider` for the Perfect
     /// Cell-ular Automaton) instead of sniffing the owner-id string. Defaults
@@ -625,16 +624,6 @@ impl CharacterArchetypeSpec {
         self.move_style
     }
 
-    /// Default respawn cadence: heavier presences take a Rest, the rest
-    /// refresh on every room re-entry.
-    pub(super) fn respawn_policy(&self) -> EnemyRespawnPolicy {
-        if self.respawn_on_rest {
-            EnemyRespawnPolicy::OnRest
-        } else {
-            EnemyRespawnPolicy::OnRoomReenter
-        }
-    }
-
     /// Project the per-frame runtime tuning carried on `ActorConfig.tuning`.
     pub(crate) fn tuning(&self) -> crate::combat::ActorTuning {
         crate::combat::ActorTuning {
@@ -655,8 +644,9 @@ impl CharacterArchetypeSpec {
             attacks_player: self.attacks_player,
             surface_walker: self.surface_walker,
             cling_breaks_on_hit: self.cling_breaks_on_hit,
-            // Self-revive loop = the authored respawn-in-place timer exists.
-            revives_in_place: self.respawn_in_place_seconds.is_some(),
+            // The ONE authored respawn policy (ADR 0022) — the kill hook and
+            // the in-place revive tick both match on it.
+            respawn: self.respawn,
             is_aerial: self.is_aerial,
             // Archetype flyers use smoothed accel flight; direct-velocity is a boss
             // opt-in (its brain commands exact velocities). See AS4.
@@ -675,8 +665,6 @@ impl CharacterArchetypeSpec {
             divides_on_death: self.divides_on_death,
             charge_crash_explodes: self.charge_crash_explodes,
             never_dies: self.never_dies,
-            respawn_in_place_seconds: self.respawn_in_place_seconds,
-            respawn_policy: self.respawn_policy(),
             drops_held_item: self.held_item_spec(),
             can_blink: self.smash_can_blink,
             can_fly: self.smash_can_fly,
@@ -952,13 +940,20 @@ mod capability_tests {
             crate::features::enemies::test_spec("burning_flying_shark").combat_capabilities();
         assert!(shark.charge_crash_explodes);
 
-        let infinite =
-            crate::features::enemies::test_spec("sandbag_infinite").combat_capabilities();
-        assert!(infinite.never_dies && infinite.respawn_in_place_seconds.is_none());
+        let infinite = crate::features::enemies::test_spec("sandbag_infinite");
+        assert!(infinite.never_dies);
+        assert!(
+            !matches!(infinite.respawn, crate::combat::RespawnPolicy::InPlace(_)),
+            "infinite sandbag never dies; it needs no revive timer"
+        );
 
-        let finite = crate::features::enemies::test_spec("sandbag_finite").combat_capabilities();
+        let finite = crate::features::enemies::test_spec("sandbag_finite");
         assert!(!finite.never_dies);
-        assert_eq!(finite.respawn_in_place_seconds, Some(0.85));
+        assert_eq!(
+            finite.tuning().respawn,
+            crate::combat::RespawnPolicy::InPlace(0.85),
+            "finite sandbag revives in place (the InPlace arm of ADR 0022)"
+        );
 
         // A plain combatant has no special capabilities.
         let base = crate::features::enemies::test_spec("combatant").combat_capabilities();
@@ -1089,7 +1084,7 @@ mod capability_tests {
     /// against a silent mis-migration.
     #[test]
     fn ron_derived_behaviors_match_the_legacy_identity_formulas() {
-        use super::EnemyRespawnPolicy;
+        use super::RespawnPolicy;
         for &key in ALL_BRAIN_KEYS {
             let spec = test_spec(key);
             let attacks = !matches!(key, "puppy_slug" | "pirate_heavy");
@@ -1104,6 +1099,10 @@ mod capability_tests {
             ) && (attacks || key == "puppy_slug");
             assert_eq!(spec.body_contact_damage, body, "{key} body_contact");
 
+            // ADR 0022: the enum is AUTHORED per row now. Mini-boss presences
+            // rest-gate; sandbags revive in place; every other roster row is an
+            // explicit OnRoomReenter mob (the Q29 triage) — the DeadStaysDead
+            // default is for unique placements (NPCs pin it at spawn).
             let policy = if matches!(
                 key,
                 "large_brute"
@@ -1112,11 +1111,15 @@ mod capability_tests {
                     | "pirate_shark_rider"
                     | "pirate_heavy_shark_rider"
             ) {
-                EnemyRespawnPolicy::OnRest
+                RespawnPolicy::OnRest
+            } else if key == "sandbag_finite" {
+                RespawnPolicy::InPlace(0.85)
+            } else if key == "sandbag_infinite" {
+                RespawnPolicy::DeadStaysDead // never_dies; policy is moot
             } else {
-                EnemyRespawnPolicy::OnRoomReenter
+                RespawnPolicy::OnRoomReenter
             };
-            assert_eq!(spec.respawn_policy(), policy, "{key} respawn_policy");
+            assert_eq!(spec.respawn, policy, "{key} respawn policy");
 
             let bs = spec.brain_spec();
             assert_eq!(

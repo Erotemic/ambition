@@ -56,11 +56,19 @@ Everything else on this page is opus-or-below by design.
 | Slower light | [engine/slower-light.md](engine/slower-light.md) | Tier-0 rides E4; L1–L4 in P5 | — |
 | Docs refresh (mechanics/concepts/systems currency) | — | P5; safe for [opus] once this stack is north star | — |
 
-## The actor-policy slice: respawn unification + ADR 0022 — [opus, fable-specced]
+## The actor-policy slice: respawn unification + ADR 0022 — ✅ DONE (fable, 2026-07-06)
 
-Jon's model: default = **dead stays dead**; respawning is an AUTHORED
-choice (`Mob`); the sandbag in-place timer folds into the same enum.
-Scouted 2026-07-05; exact edit points:
+Executed as specced, with one design addition discovered in the code:
+**policy is a property of the PLACEMENT** — peaceful NPCs borrow a mob
+archetype's spec for their provoked form, so the NPC spawn plan PINS
+`DeadStaysDead` (otherwise a "guide" borrowing `medium_striker`'s row
+would respawn like a mob). One enum (`RespawnPolicy`, serde, default
+DeadStaysDead, `InPlace(secs)` folds the sandbag timer), ONE carrier
+(`ActorTuning.respawn` — the caps/tuning triplication deleted), one
+kill-path match, universal liveness-on-load (+ the missing test),
+Q29 triage authored (16 mob rows OnRoomReenter incl. the staged duel
+pair + the gnu arena pair to preserve encounter reset; 5 OnRest;
+sandbag InPlace). ADR 0022 written. Original spec below for reference:
 
 1. **One authored field replaces two derived bools.** `EnemyRespawnPolicy`
    (`combat/components`) grows `InPlace(f32)`; `#[default]` flips
@@ -99,7 +107,7 @@ Scouted 2026-07-05; exact edit points:
 | Morph ball still draws the robot; generalize modal body morphs | E3 (mode→sprite-state row) | [opus] |
 | Shrine + glider sprites broken | E3 (rect drift; sprite pipeline) | [opus] |
 | All bosses render the generic sheet | E3/E6 — needs a RUN with `boss_sprites.len()` logging; do NOT apply the disproven sprite_target dispatch | [opus] |
-| NPCs infinitely respawn | the respawn slice above | [opus] |
+| NPCs infinitely respawn | ✅ FIXED — the respawn slice above (ADR 0022) | done |
 | Kernel-guide NPC should patrol a home base when peaceful | a `patrol` brain preset (waypoints/home-radius) in the brain vocabulary — small, body-generic | [opus] |
 | Dialogs don't adapt to WHO is talking (possessed actor gets self-dialogue) | dialog context slice: the interact seam passes speaker/subject identities as Yarn variables; self-interaction gets a default branch | [opus, small design note first] |
 | Sanic ball-dash special | demos/sanic.md (the one new technique) | [opus] |

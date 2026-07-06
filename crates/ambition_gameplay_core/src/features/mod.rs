@@ -127,7 +127,7 @@ pub use ecs::{step_momentum_body, MomentumMotion, MotionModel};
 pub use ecs::{ActorAnimFrame, ActorSpriteData};
 pub use enemies::{
     enemy_spawn_is_sandbag, install_enemy_roster, ActorSpawnState, ActorSurfaceState,
-    CharacterRoster, EnemyRespawnPolicy, ENEMY_DEAD_UNTIL_REST_SUFFIX,
+    CharacterRoster, RespawnPolicy, ENEMY_DEAD_UNTIL_REST_SUFFIX,
 };
 pub use events::{
     ActorStimulus, FeatureCombatTuning, FeatureView, FeatureVisualKind, GameplayBanner,

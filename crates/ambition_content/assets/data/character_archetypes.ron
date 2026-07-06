@@ -71,7 +71,7 @@
 //                      false = peaceful until provoked (cove crew, wildlife).
 //   body_contact_damage  Body touch hurts the player. Default true; false for
 //                      sandbags + the composite shark (rider is the threat).
-//   respawn_on_rest    Defeated body needs a Rest to reappear (heavier
+//   respawn            When a defeated body reappears (ADR 0022): DeadStaysDead
 //                      presences) vs refreshing every room re-entry. Default false.
 //   smash_heavy        Smash template uses the heavy base (longer reach,
 //                      slower chase). Default false; inert unless Smash.
@@ -85,6 +85,7 @@
 //   ENEMY_ATTACK_RANGE = 150.0
 {
     "combatant": (
+        respawn: OnRoomReenter,
         max_health: 4,
         patrol_speed: 105.0,
         chase_speed: 155.0,
@@ -115,6 +116,7 @@
     // now (resolved in `update_ecs_actors` / the actor damage path), so a
     // possessing player inherits the same kit.
     "cellular_automaton_fighter": (
+        respawn: OnRoomReenter,
         max_health: 60,
         patrol_speed: 96.0,
         chase_speed: 168.0,
@@ -195,6 +197,7 @@
     // (an AI whose abilities are theorems) is a separate, identity-sensitive call.
     // Tuning is a first-pass and FEEL-UNVERIFIED (Jon checks in-game).
     "player_robot": (
+        respawn: OnRoomReenter,
         // The protagonist's body should MOVE like the player (roadmap: enemies
         // rise to the player). Override the generic body baseline with the player's
         // own snappier physics — higher gravity + fall cap + jump, near-instant run
@@ -273,6 +276,7 @@
         move_style: Walk,
     ),
     "small_skitter": (
+        respawn: OnRoomReenter,
         max_health: 2,
         patrol_speed: 150.0,
         chase_speed: 210.0,
@@ -297,6 +301,7 @@
     // light contact swipe — but the real threat is the death blast
     // (`damage.rs::spawn_death_explosion`). Kill it at range or eat the boom.
     "exploding_mite": (
+        respawn: OnRoomReenter,
         max_health: 2,
         patrol_speed: 70.0,
         chase_speed: 245.0,
@@ -320,6 +325,7 @@
     // fast SmallSkitter offspring on death (`damage.rs::spawn_split_offspring`).
     // A priority target — whittle it, then clean up the children.
     "dividing_mite": (
+        respawn: OnRoomReenter,
         max_health: 4,
         patrol_speed: 80.0,
         chase_speed: 130.0,
@@ -345,6 +351,7 @@
     // has to chase it down or out-range it. Grounded (move_style Walk), unlike
     // the aerial pirate-on-shark Skirmishers.
     "ranged_skirmisher": (
+        respawn: OnRoomReenter,
         max_health: 3,
         patrol_speed: 90.0,
         chase_speed: 150.0,
@@ -364,6 +371,7 @@
     // fast, low HP — a darting nuisance, not a bruiser. The ambitious pass
     // differentiates the two sky spawns into distinct attack patterns.
     "sky_parrot": (
+        respawn: OnRoomReenter,
         max_health: 3,
         patrol_speed: 120.0,
         chase_speed: 240.0,
@@ -390,6 +398,7 @@
     // Sluggish wanderer. Tiny aggro so the player can walk past, but a
     // careless approach still punishes via the swipe.
     "small_lurker": (
+        respawn: OnRoomReenter,
         max_health: 2,
         patrol_speed: 60.0,
         chase_speed: 90.0,
@@ -409,6 +418,7 @@
         move_style: Walk,
     ),
     "medium_striker": (
+        respawn: OnRoomReenter,
         max_health: 5,
         patrol_speed: 105.0,
         chase_speed: 170.0,
@@ -447,7 +457,7 @@
         // Lumbering heavy: attacks recover slower than the shared cooldown.
         attack_cooldown_mult: 1.35,
         smash_heavy: true,
-        respawn_on_rest: true,
+        respawn: OnRest,
         brain_template: Smash,
         melee: Some(Lunge((
             windup_s: 0.45,
@@ -472,7 +482,7 @@
         contact_strength: 1.50,
         damage_amount: 3,
         smash_heavy: true,
-        respawn_on_rest: true,
+        respawn: OnRest,
         brain_template: Smash,
         melee: Some(Lunge((
             windup_s: 0.45,
@@ -486,6 +496,7 @@
         move_style: WalkHeavy,
     ),
     "gradient_seeker": (
+        respawn: OnRoomReenter,
         max_health: 4,
         patrol_speed: 130.0,
         chase_speed: 225.0,
@@ -524,7 +535,7 @@
     ),
     "sandbag_finite": (
         max_health: 6,
-        respawn_in_place_seconds: Some(0.85),
+        respawn: InPlace(0.85),
         body_contact_damage: false,
         patrol_speed: 105.0,
         chase_speed: 155.0,
@@ -540,6 +551,7 @@
         move_style: Walk,
     ),
     "pirate_raider": (
+        respawn: OnRoomReenter,
         max_health: 5,
         patrol_speed: 130.0,
         chase_speed: 190.0,
@@ -563,6 +575,7 @@
     // Aerial shark (dismounted form). chase_speed is the steering
     // convergence rate, not ground sprint.
     "burning_flying_shark": (
+        respawn: OnRoomReenter,
         max_health: 6,
         patrol_speed: 110.0,
         chase_speed: 260.0,
@@ -612,6 +625,7 @@
     // the Q19 bridge turns into the rider boss's on-foot mini-phase. Sprite +
     // rideable render come from the `npc_giant_gnu` catalog row.
     "giant_gnu": (
+        respawn: OnRoomReenter,
         max_health: 42,
         // Stationary: no patrol / chase / aggro / attack. The StandStill brain
         // ignores these, but the schema requires the numeric fields.
@@ -647,6 +661,7 @@
     // ActorControl is clobbered by the fan-out each tick, so the StandStill brain
     // is inert — the rig owns the hand's motion, not a brain.
     "giant_gnu_hands": (
+        respawn: OnRoomReenter,
         max_health: 42,
         patrol_speed: 0.0,
         chase_speed: 0.0,
@@ -680,7 +695,7 @@
         // aggressive MeleeBrute with a wide aggro radius.
         attacks_player: false,
         body_contact_damage: false,
-        respawn_on_rest: true,
+        respawn: OnRest,
         provoke_forced_brute_min_aggro: Some(500.0),
         // attack_range is the stop-and-swing distance. PirateHeavy's
         // melee hitbox (attack_aabb_dir) reaches size.x*0.55+24+34 =
@@ -717,7 +732,7 @@
     "pirate_shark_rider": (
         max_health: 4,
         body_contact_damage: false,
-        respawn_on_rest: true,
+        respawn: OnRest,
         patrol_speed: 110.0,
         chase_speed: 230.0,
         aggro_radius: 1200.0,
@@ -736,7 +751,7 @@
     "pirate_heavy_shark_rider": (
         max_health: 6,
         body_contact_damage: false,
-        respawn_on_rest: true,
+        respawn: OnRest,
         patrol_speed: 110.0,
         chase_speed: 215.0,
         aggro_radius: 1200.0,
@@ -755,6 +770,7 @@
     // hit" mode reads sensibly. Collider hugs the dorsal-ridge
     // silhouette of the 128×95 sprite (body bbox ~120×31).
     "puppy_slug": (
+        respawn: OnRoomReenter,
         // Ambient wildlife: never aggros, but its body still hurts on touch.
         attacks_player: false,
         // Deep-dream visual jitter seed (slug-only psychedelic pass).

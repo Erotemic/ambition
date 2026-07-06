@@ -77,12 +77,6 @@ pub struct CombatCapabilities {
     /// Damage never kills (training dummy with an effectively
     /// infinite pool).
     pub never_dies: bool,
-    /// On death, respawns in place after this many seconds instead of
-    /// counting as defeated.
-    pub respawn_in_place_seconds: Option<f32>,
-    /// When a real (non-encounter) kill should clear: the death flag
-    /// vocabulary the save mirror consumes.
-    pub respawn_policy: EnemyRespawnPolicy,
     /// Weapon dropped at the corpse as a wieldable `GroundItem` (the
     /// "steal the enemy's weapon" rule), resolved from authored data
     /// at spawn.
@@ -274,9 +268,11 @@ pub struct ActorTuning {
     /// falls with gravity for a moment, then re-attaches). `false` keeps
     /// it clinging when struck.
     pub cling_breaks_on_hit: bool,
-    /// Self-revives in place after its respawn timer instead of
-    /// counting as defeated (finite training dummies).
-    pub revives_in_place: bool,
+    /// When this defeated actor reappears (ADR 0022) — the ONE authored
+    /// respawn policy. `InPlace(secs)` self-revives where it stood
+    /// (finite training dummies); the flag-writing arms are consumed by
+    /// the kill hook; DEFAULT: dead stays dead.
+    pub respawn: RespawnPolicy,
     /// Flies: no gravity, aerial slot class.
     pub is_aerial: bool,
     /// Direct-velocity free-mover: the brain commands an EXACT velocity each tick
@@ -319,7 +315,7 @@ impl Default for ActorTuning {
             attacks_player: false,
             surface_walker: false,
             cling_breaks_on_hit: false,
-            revives_in_place: false,
+            respawn: RespawnPolicy::default(),
             is_aerial: false,
             flight_direct_velocity: false,
             is_sandbag: false,
@@ -444,28 +440,36 @@ impl Default for CharacterBrainSpec {
     }
 }
 
-/// Authored rule for when a defeated enemy should reappear. Picked
-/// per-archetype today; a future EnemySpawn LDtk field can override
-/// it on a single spawn without touching the archetype default.
+/// Authored rule for when a defeated actor reappears (ADR 0022) — ONE
+/// enum for every reappearance mechanic, authored per archetype row
+/// (`respawn:` in `character_archetypes.ron`); a future EnemySpawn LDtk
+/// field can override a single placement.
 ///
-/// The kill hook in `damage.rs` writes one of two persistent flags
-/// (or none) depending on this policy; the room-load `save_sync`
-/// reads either flag back into `alive = false`. A "rest" event
-/// clears just the `_dead_until_rest` flags, so OnRest enemies come
-/// back at the next rest but OnRoomReenter ones come back on the
-/// next room load.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-pub enum EnemyRespawnPolicy {
-    /// Fresh every time the player enters the room. Default for
-    /// trash grunts (skitters, lurkers, raiders, puppy slugs).
+/// **The default is `DeadStaysDead`** — the intuitively-correct rule for
+/// a unique actor in a persistent world ("Morrowind rules"). Respawning
+/// is an AUTHOR'S choice: trash mobs opt into `OnRoomReenter`,
+/// mini-boss-tier presences into `OnRest`, training dummies into
+/// `InPlace(secs)`.
+///
+/// Mechanics: the kill hook in `damage/actor_hit.rs` matches this policy
+/// — `InPlace` arms the in-place revive timer (no flag, no drops);
+/// `DeadStaysDead` / `OnRest` write the persistent death flag their
+/// respawn horizon implies; `OnRoomReenter` writes nothing. The
+/// room-load `save_sync` reads the flags back into `alive = false`. A
+/// "rest" event clears just the `_dead_until_rest` flags.
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum RespawnPolicy {
+    /// Dead stays dead — forever (an explicit save reset is the only
+    /// return). THE DEFAULT: named/unique actors take it implicitly.
     #[default]
-    OnRoomReenter,
-    /// Stays dead until the player rests at a save point. Default
-    /// for mini-boss-tier presences (brutes, colossi, pirate
-    /// heavies, sharks-with-riders).
+    DeadStaysDead,
+    /// Stays dead until the player rests at a save point
+    /// (mini-boss-tier presences: brutes, colossi, pirate heavies).
     OnRest,
-    /// Permanent kill — only an explicit save reset brings them
-    /// back. Reserved for scripted one-off encounters that aren't
-    /// `encounter:*` ids (which have their own state machine).
-    Never,
+    /// Fresh every time the player enters the room — the "Mob" choice
+    /// (trash grunts: skitters, lurkers, raiders, goblins).
+    OnRoomReenter,
+    /// Revives in place this many seconds after death, where it stood
+    /// (training sandbags). No death drops, no flag.
+    InPlace(f32),
 }

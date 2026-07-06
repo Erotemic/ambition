@@ -372,7 +372,12 @@ impl NpcActorSpawnPlan {
         // The hostile archetype this actor becomes when provoked: feeds its
         // stored CombatKit (so a provoked NPC fights with the right weapon) and
         // the seed's inert reconstruction spec.
-        let hostile_spec = super::actors::hostile_spec_for_actor(&id, &name, dialogue_id);
+        let mut hostile_spec = super::actors::hostile_spec_for_actor(&id, &name, dialogue_id);
+        // An NPC is by construction a UNIQUE named placement: its death is
+        // permanent (ADR 0022 "Morrowind rules") regardless of the mob-tier
+        // respawn policy the borrowed combat archetype authors. The policy is
+        // a property of the PLACEMENT, and this placement is a person.
+        hostile_spec.respawn = crate::combat::RespawnPolicy::DeadStaysDead;
         let combat_kit = super::brain_builders::enemy_combat_kit_for_spec(&hostile_spec);
         let (seed, render_size) = super::actor_clusters::ActorClusterSeed::new_peaceful_npc(
             id.clone(),

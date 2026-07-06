@@ -252,8 +252,9 @@ pub(crate) fn apply_actor_hit(
             em.kin.vel += peel;
         }
         if killed {
-            // `health.damage` already zeroed HP → `alive()` is false; no flag to flip.
-            if let Some(respawn_s) = caps.respawn_in_place_seconds {
+            // `health.damage` already zeroed HP → `alive()` is false; no flag to
+            // flip. ONE death path, matched on the ONE authored policy (ADR 0022).
+            if let crate::combat::RespawnPolicy::InPlace(respawn_s) = em.config.tuning.respawn {
                 em.status.respawn_timer = respawn_s;
                 banner.show(format!("{} dropped; respawning", em.config.name), 2.6);
             } else {
@@ -304,16 +305,19 @@ pub(crate) fn apply_actor_hit(
                         bevy::prelude::Name::new("Dropped weapon"),
                     ));
                 }
-                if !em.config.id.starts_with("encounter:") && !em.config.tuning.is_sandbag {
-                    use crate::features::EnemyRespawnPolicy as P;
-                    let flag_id = match caps.respawn_policy {
-                        P::OnRoomReenter => None,
+                // Persist the death per the authored policy (ADR 0022).
+                // `encounter:*` ids keep their own state machine; `InPlace`
+                // is unreachable here (the timer arm above returned).
+                if !em.config.id.starts_with("encounter:") {
+                    use crate::features::RespawnPolicy as P;
+                    let flag_id = match em.config.tuning.respawn {
+                        P::OnRoomReenter | P::InPlace(_) => None,
                         P::OnRest => Some(format!(
                             "enemy_{}{}",
                             em.config.id,
                             crate::features::ENEMY_DEAD_UNTIL_REST_SUFFIX,
                         )),
-                        P::Never => Some(format!("enemy_{}_dead", em.config.id)),
+                        P::DeadStaysDead => Some(format!("enemy_{}_dead", em.config.id)),
                     };
                     if let Some(id) = flag_id {
                         writers.set_flag.write(SetFlagRequested { id, on: true });

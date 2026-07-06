@@ -73,10 +73,24 @@ pub struct PropVisual {
     pub id: String,
     /// Registry key the sprite was looked up under.
     pub kind: String,
+    /// Authored display name (the LDtk entity name). Per-name presentation
+    /// systems (gate-portal visibility / ring spin, the cut-rope arena
+    /// props) match on THIS — a render-local fact, replacing the old
+    /// render-inserted sim `FeatureName` (E4 slice 10).
+    pub name: String,
     /// Authored nominal collision footprint used to rebuild the sprite if the
     /// quality profile reloads the underlying character-sheet asset.
     pub size: Vec2,
 }
+
+/// Tag on the portal + gate-ring visual entities so the generic
+/// `animate_characters` / `animate_props` systems skip them. Without this
+/// filter the generic animator re-pins them to `Idle` every frame and
+/// clobbers the row the gate-portal presentation systems request from
+/// `GatePortalPhase`. Those systems own these entities' animator request,
+/// frame tick, and atlas index.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct PortalSprite;
 
 #[derive(Component)]
 pub struct HealthOverlayVisual;

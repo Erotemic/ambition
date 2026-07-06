@@ -198,7 +198,6 @@ pub fn sync_cut_rope_boss_arena_prop_visuals(
     state: Res<CutRopeBossArenaState>,
     heavy_object: Res<CutRopeHeavyObjectCycle>,
     mut prop_visuals: Query<(
-        &FeatureName,
         &mut PropVisual,
         &mut Transform,
         &mut Sprite,
@@ -266,7 +265,6 @@ fn prop_aabb(prop: &PropSpec) -> ae::Aabb {
 
 fn sync_cut_rope_prop_visuals(
     prop_visuals: &mut Query<(
-        &FeatureName,
         &mut PropVisual,
         &mut Transform,
         &mut Sprite,
@@ -280,10 +278,11 @@ fn sync_cut_rope_prop_visuals(
     object_kind: CutRopeHeavyObjectKind,
     assets: Option<&GameAssets>,
 ) {
-    for (name, mut prop, mut transform, mut sprite, animator, anchor, visibility) in
+    for (mut prop, mut transform, mut sprite, animator, anchor, visibility) in
         prop_visuals.iter_mut()
     {
-        let key_matches = |needle: &str, prop: &PropVisual| prop.kind == needle || name.0 == needle;
+        let key_matches =
+            |needle: &str, prop: &PropVisual| prop.kind == needle || prop.name == needle;
         if key_matches(ROPE_KIND, &prop) {
             if let Some(mut visibility) = visibility {
                 *visibility = if state.rope_cut {
@@ -370,7 +369,6 @@ pub fn reset_cut_rope_boss_arena_on_room_reset(
     mut heavy_object: ResMut<CutRopeHeavyObjectCycle>,
     mut reset_events: MessageReader<ResetRoomFeaturesEvent>,
     mut prop_visuals: Query<(
-        &FeatureName,
         &mut PropVisual,
         &mut Transform,
         &mut Sprite,

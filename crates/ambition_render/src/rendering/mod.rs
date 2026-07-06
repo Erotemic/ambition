@@ -32,6 +32,7 @@ pub mod bubble_shield;
 mod camera;
 mod deep_dream;
 mod features;
+pub mod gate_portal_visuals;
 pub mod gravity_visuals;
 mod health;
 mod hit_flash;

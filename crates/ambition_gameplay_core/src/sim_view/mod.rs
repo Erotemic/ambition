@@ -253,6 +253,201 @@ pub fn rebuild_wielded_gun_swords_view(
     }
 }
 
+/// Per-projectile presentation pose (E4 slice 13): the art-selection kind
+/// plus the frame's kinematic facts, written on the projectile entity
+/// sim-side. Render queries ONLY this component — never the live
+/// `BodyKinematics`. Removed when a pooled projectile stops being live.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct ProjectileView {
+    pub kind: crate::projectile::ProjectileVisualKind,
+    pub pos: ae::Vec2,
+    pub vel: ae::Vec2,
+    pub size: ae::Vec2,
+}
+
+#[allow(clippy::type_complexity)]
+pub fn rebuild_projectile_views(
+    mut commands: Commands,
+    mut live: Query<
+        (
+            Entity,
+            &BodyKinematics,
+            &crate::projectile::ProjectileVisualKind,
+            Option<&mut ProjectileView>,
+        ),
+        With<crate::projectile::LiveProjectile>,
+    >,
+    // Pooled projectiles: a reused entity that is no longer live must drop
+    // its view so render despawns the visual instead of drawing a corpse.
+    stale: Query<
+        Entity,
+        (
+            With<ProjectileView>,
+            Without<crate::projectile::LiveProjectile>,
+        ),
+    >,
+) {
+    for (entity, kin, kind, view) in &mut live {
+        let next = ProjectileView {
+            kind: *kind,
+            pos: kin.pos,
+            vel: kin.vel,
+            size: kin.size,
+        };
+        match view {
+            Some(mut view) => *view = next,
+            None => {
+                commands.entity(entity).insert(next);
+            }
+        }
+    }
+    for entity in &stale {
+        commands.entity(entity).remove::<ProjectileView>();
+    }
+}
+
+/// One dynamically-introduced feature's spawn facts (E4 slice 9): encounter
+/// mobs, staged duel actors, post-boss NPCs, and reward chests appear after
+/// room load, so render discovers them from THIS list instead of declaring
+/// the marker/config queries itself.
+#[derive(Clone, Debug)]
+pub struct DynamicFeatureFact {
+    pub id: String,
+    /// Display label for the visual's debug `Name`.
+    pub label: String,
+    /// Family label ("Encounter mob" / "Staged actor" / "Post-boss NPC" /
+    /// "Reward chest") — presentation naming only.
+    pub family: &'static str,
+    pub pos: ae::Vec2,
+    pub size: ae::Vec2,
+    pub visual_kind: crate::features::FeatureVisualKind,
+    pub fighting: bool,
+    /// The placeholder entity-sprite the spawn resolves to (from the actor's
+    /// brain / the NPC's interactable / the chest payload).
+    pub sprite_key: Option<crate::assets::game_assets::EntitySprite>,
+}
+
+#[derive(Resource, Default, Clone, Debug)]
+pub struct DynamicFeatureViews(pub Vec<DynamicFeatureFact>);
+
+#[allow(clippy::type_complexity)]
+pub fn rebuild_dynamic_feature_views(
+    mut view: ResMut<DynamicFeatureViews>,
+    ecs_mobs: Query<
+        (
+            &crate::features::FeatureId,
+            &crate::features::CenteredAabb,
+            &crate::features::ActorDisposition,
+            Option<&crate::features::ActorConfig>,
+        ),
+        With<crate::features::EncounterMob>,
+    >,
+    staged_actors: Query<
+        (
+            &crate::features::FeatureId,
+            &crate::features::CenteredAabb,
+            &crate::features::ActorDisposition,
+            Option<&crate::features::ActorConfig>,
+        ),
+        With<crate::features::RuntimeStagedActor>,
+    >,
+    post_boss_npcs: Query<
+        (
+            &crate::features::FeatureId,
+            &crate::features::FeatureName,
+            &crate::features::CenteredAabb,
+            &crate::features::ActorDisposition,
+            Option<&crate::features::ActorConfig>,
+            Option<&crate::features::ActorInteraction>,
+        ),
+        With<crate::features::PostBossNpc>,
+    >,
+    ecs_reward_chests: Query<
+        (
+            &crate::features::FeatureId,
+            &crate::features::CenteredAabb,
+            &crate::features::ChestFeature,
+        ),
+        bevy::prelude::Or<(
+            With<crate::features::EncounterRewardChest>,
+            With<crate::features::BossRewardChest>,
+        )>,
+    >,
+) {
+    use crate::assets::game_assets;
+    use crate::features::FeatureVisualKind;
+    view.0.clear();
+    for (id, aabb, disposition, config) in &ecs_mobs {
+        // Encounter mobs are hostile by construction; skip any peaceful one.
+        let (false, Some(config)) = (disposition.is_peaceful(), config) else {
+            continue;
+        };
+        view.0.push(DynamicFeatureFact {
+            id: id.as_str().to_string(),
+            label: config.name.clone(),
+            family: "Encounter mob",
+            pos: aabb.center,
+            size: aabb.size(),
+            visual_kind: FeatureVisualKind::Actor,
+            fighting: true,
+            sprite_key: game_assets::entity_sprite_for_enemy(&config.brain),
+        });
+    }
+    for (id, aabb, disposition, config) in &staged_actors {
+        let (false, Some(config)) = (disposition.is_peaceful(), config) else {
+            continue;
+        };
+        view.0.push(DynamicFeatureFact {
+            id: id.as_str().to_string(),
+            label: config.name.clone(),
+            family: "Staged actor",
+            pos: aabb.center,
+            size: aabb.size(),
+            visual_kind: FeatureVisualKind::Actor,
+            fighting: true,
+            sprite_key: game_assets::entity_sprite_for_enemy(&config.brain),
+        });
+    }
+    for (id, name, aabb, disposition, config, interaction) in &post_boss_npcs {
+        let fighting = !disposition.is_peaceful();
+        // A peaceful post-boss NPC resolves its sprite from the dialogue
+        // interactable; a hostile one (provoked) from its archetype brain.
+        let sprite_key = if disposition.is_peaceful() {
+            match interaction {
+                Some(i) => game_assets::entity_sprite_for_interactable(&i.interactable),
+                None => continue,
+            }
+        } else {
+            match config {
+                Some(c) => game_assets::entity_sprite_for_enemy(&c.brain),
+                None => continue,
+            }
+        };
+        view.0.push(DynamicFeatureFact {
+            id: id.as_str().to_string(),
+            label: name.0.clone(),
+            family: "Post-boss NPC",
+            pos: aabb.center,
+            size: aabb.size(),
+            visual_kind: FeatureVisualKind::Actor,
+            fighting,
+            sprite_key,
+        });
+    }
+    for (id, aabb, chest) in &ecs_reward_chests {
+        view.0.push(DynamicFeatureFact {
+            id: id.as_str().to_string(),
+            label: id.as_str().to_string(),
+            family: "Reward chest",
+            pos: aabb.center,
+            size: aabb.size(),
+            visual_kind: FeatureVisualKind::Chest,
+            fighting: false,
+            sprite_key: game_assets::entity_sprite_for_chest(&chest.chest),
+        });
+    }
+}
+
 /// Registers the observation-boundary view resources + their rebuilds in the
 /// sim tail. Owned here (anti-god rule 5): the plugin that rebuilds a view
 /// initializes it; presentation only reads.
@@ -267,7 +462,8 @@ impl Plugin for SimViewPlugin {
             .init_resource::<MarkBeaconsView>()
             .init_resource::<GravitySwitchesView>()
             .init_resource::<ShrinesView>()
-            .init_resource::<WieldedGunSwordsView>();
+            .init_resource::<WieldedGunSwordsView>()
+            .init_resource::<DynamicFeatureViews>();
         app.add_systems(
             Update,
             (
@@ -280,6 +476,8 @@ impl Plugin for SimViewPlugin {
                 rebuild_shrines_view,
                 tick_shrine_activation_pulse,
                 rebuild_wielded_gun_swords_view,
+                rebuild_projectile_views,
+                rebuild_dynamic_feature_views,
             )
                 .in_set(crate::schedule::SandboxSet::FeatureViewSync),
         );

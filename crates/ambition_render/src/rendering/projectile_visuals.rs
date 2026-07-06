@@ -18,10 +18,10 @@ use bevy::sprite::Anchor;
 
 use ambition_gameplay_core::assets::game_assets::{EntitySprite, GameAssets};
 use ambition_gameplay_core::projectile::{
-    LiveProjectile, ProjectileArtSource, ProjectileKind, ProjectileRenderSize, ProjectileRotation,
+    ProjectileArtSource, ProjectileKind, ProjectileRenderSize, ProjectileRotation,
     ProjectileVisualKind,
 };
-use ambition_platformer_primitives::body::BodyKinematics;
+use ambition_gameplay_core::sim_view::ProjectileView;
 use ambition_platformer_primitives::gravity::gravity_upright_angle;
 use ambition_platformer_primitives::gravity::GravityCtx;
 use ambition_sprite_sheet::SheetRegistry;
@@ -121,14 +121,13 @@ fn velocity_aligned_angle(vel: ambition_engine_core::Vec2) -> f32 {
 /// Build the sprite (and optional anchor / frame animator) for a freshly-spawned
 /// projectile from its kind's art descriptor.
 fn build_visual(
-    kind: ProjectileVisualKind,
-    kin: &BodyKinematics,
+    view: &ProjectileView,
     asset_server: &AssetServer,
     sheets: &SheetRegistry,
     energy: Option<&Handle<Image>>,
 ) -> BuiltVisual {
-    let art = kind.art();
-    let body = Vec2::new(kin.size.x, kin.size.y);
+    let art = view.kind.art();
+    let body = Vec2::new(view.size.x, view.size.y);
     let rgba = |c: [f32; 4]| Color::srgba(c[0], c[1], c[2], c[3]);
 
     match art.source {
@@ -143,7 +142,7 @@ fn build_visual(
                 },
                 None => Sprite::from_color(rgba(c), size),
             };
-            sprite.flip_x = kin.vel.x < 0.0;
+            sprite.flip_x = view.vel.x < 0.0;
             BuiltVisual {
                 sprite,
                 anchor: None,
@@ -153,7 +152,7 @@ fn build_visual(
         ProjectileArtSource::SolidColor { rgba: c } => {
             let size = render_size(art.size, body, 1.0);
             let mut sprite = Sprite::from_color(rgba(c), size);
-            sprite.flip_x = kin.vel.x < 0.0;
+            sprite.flip_x = view.vel.x < 0.0;
             BuiltVisual {
                 sprite,
                 anchor: None,
@@ -179,7 +178,7 @@ fn build_visual(
             target,
             animation,
             animate,
-            kin,
+            view,
             asset_server,
             sheets,
         ),
@@ -196,7 +195,7 @@ fn build_sheet_visual(
     target: &str,
     animation: &str,
     animate: bool,
-    kin: &BodyKinematics,
+    view: &ProjectileView,
     asset_server: &AssetServer,
     sheets: &SheetRegistry,
 ) -> BuiltVisual {
@@ -206,7 +205,7 @@ fn build_sheet_visual(
     let Some((record, row)) = record.zip(row) else {
         // Missing sheet / row: fall back to a small magenta quad so the shot is
         // still visible (and the mistake obvious) rather than invisible.
-        let size = render_size(size, Vec2::new(kin.size.x, kin.size.y), 1.0);
+        let size = render_size(size, Vec2::new(view.size.x, view.size.y), 1.0);
         return BuiltVisual {
             sprite: Sprite::from_color(Color::srgb(1.0, 0.0, 1.0), size),
             anchor: None,
@@ -222,7 +221,7 @@ fn build_sheet_visual(
     let mut sprite = Sprite::from_image(asset_server.load(format!("sprites/{}", record.image)));
     sprite.custom_size = Some(render_size(
         size,
-        Vec2::new(kin.size.x, kin.size.y),
+        Vec2::new(view.size.x, view.size.y),
         frame_aspect,
     ));
     sprite.rect = Some(first);
@@ -246,7 +245,8 @@ fn build_sheet_visual(
 
 /// Spawn + maintain one persistent sprite for each in-flight projectile (player
 /// and enemy alike). Runs after `step_projectiles`. Art is a pure function of
-/// the projectile's [`ProjectileVisualKind`]; this system never reads `owner_id`.
+/// the projectile's sim-built [`ProjectileView`] (E4 slice 13); this system
+/// never reads `owner_id` or the live kinematics.
 #[allow(clippy::too_many_arguments)]
 pub fn sync_projectile_visuals(
     mut commands: Commands,
@@ -257,12 +257,9 @@ pub fn sync_projectile_visuals(
     sheets: Res<SheetRegistry>,
     game_assets: Option<Res<GameAssets>>,
     // Projectiles that don't have a visual yet get one spawned.
-    new_projectiles: Query<
-        (Entity, &BodyKinematics, &ProjectileVisualKind),
-        (With<LiveProjectile>, Without<ProjectileVisualLink>),
-    >,
-    // Live bodies for the per-frame transform refresh.
-    bodies: Query<&BodyKinematics, With<LiveProjectile>>,
+    new_projectiles: Query<(Entity, &ProjectileView), Without<ProjectileVisualLink>>,
+    // Live views for the per-frame transform refresh.
+    bodies: Query<&ProjectileView>,
     mut visuals: Query<
         (
             Entity,
@@ -280,17 +277,17 @@ pub fn sync_projectile_visuals(
         .and_then(|a| a.entities.get(EntitySprite::ProjectileEnergy));
 
     // Spawn one persistent visual per NEW projectile entity.
-    for (proj_entity, kin, kind) in &new_projectiles {
-        let built = build_visual(*kind, kin, &asset_server, &sheets, energy);
+    for (proj_entity, view) in &new_projectiles {
+        let built = build_visual(view, &asset_server, &sheets, energy);
         let translation =
-            ambition_engine_core::config::world_to_bevy(&world.0, kin.pos, projectile_z());
+            ambition_engine_core::config::world_to_bevy(&world.0, view.pos, projectile_z());
         let mut visual = commands.spawn((
             built.sprite,
             Transform::from_translation(translation),
             ProjectileVisual,
-            *kind,
+            view.kind,
             VisualProjectile(proj_entity),
-            Name::new(format!("Projectile visual: {}", kind.label())),
+            Name::new(format!("Projectile visual: {}", view.kind.label())),
         ));
         if let Some(anchor) = built.anchor {
             visual.insert(anchor);
@@ -304,26 +301,26 @@ pub fn sync_projectile_visuals(
             .insert(ProjectileVisualLink(visual));
     }
 
-    // Refresh existing visuals from their live body; despawn orphans.
+    // Refresh existing visuals from their live view; despawn orphans.
     let dt = world_time.scaled_dt;
     for (visual_entity, link, kind, anim, mut transform, mut sprite) in &mut visuals {
-        let Ok(kin) = bodies.get(link.0) else {
+        let Ok(view) = bodies.get(link.0) else {
             commands.entity(visual_entity).despawn();
             continue;
         };
         transform.translation =
-            ambition_engine_core::config::world_to_bevy(&world.0, kin.pos, projectile_z());
+            ambition_engine_core::config::world_to_bevy(&world.0, view.pos, projectile_z());
 
         match kind.art().rotation {
             ProjectileRotation::FlipToTravel => {
-                sprite.flip_x = kin.vel.x < 0.0;
+                sprite.flip_x = view.vel.x < 0.0;
             }
             ProjectileRotation::GravityUpright => {
                 transform.rotation =
-                    Quat::from_rotation_z(gravity_upright_angle(gravity.dir_at(kin.pos)));
+                    Quat::from_rotation_z(gravity_upright_angle(gravity.dir_at(view.pos)));
             }
             ProjectileRotation::VelocityAligned => {
-                transform.rotation = Quat::from_rotation_z(velocity_aligned_angle(kin.vel));
+                transform.rotation = Quat::from_rotation_z(velocity_aligned_angle(view.vel));
             }
         }
 

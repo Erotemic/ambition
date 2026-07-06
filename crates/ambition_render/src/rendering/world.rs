@@ -161,12 +161,11 @@ pub fn spawn_room_visuals(
 /// Always inserts:
 /// - `RoomVisual` so the room-swap path despawns the prop with the
 ///   rest of the room's presentation.
-/// - `PropVisual { id, kind, size }` so the generic prop-anim tick can
-///   find it and so debug overlays can label it.
-/// - `ambition_gameplay_core::features::FeatureName(prop.name)` so per-name systems
-///   (portal visibility / ring rotation / portal anim) keep finding
-///   the gate ring + gate portal entities after the migration from
-///   NpcSpawn-as-prop.
+/// - `PropVisual { id, kind, name, size }` so the generic prop-anim tick
+///   can find it, debug overlays can label it, and per-name presentation
+///   systems (gate-portal visibility / ring rotation, the cut-rope arena)
+///   match it — a render-local fact; render no longer inserts the sim's
+///   `FeatureName` (E4 slice 10).
 pub fn spawn_room_prop(
     commands: &mut Commands,
     world: &ae::World,
@@ -189,9 +188,9 @@ pub fn spawn_room_prop(
         PropVisual {
             id: prop.id.clone(),
             kind: prop.kind.clone(),
+            name: prop.name.clone(),
             size: BVec2::new(prop.size.x, prop.size.y),
         },
-        ambition_gameplay_core::features::FeatureName::new(prop.name.clone()),
     ));
 
     if let Some(asset) = assets.and_then(|a| a.characters.prop_asset_for_kind(&prop.kind)) {
@@ -567,7 +566,6 @@ fn spawn_authored_basic(
         Transform::from_translation(world_to_bevy(world, aabb.center(), feature_z(kind))),
         Name::new(format!("Room entity: {}", name)),
         FeatureVisual { id: id.to_string() },
-        ambition_gameplay_core::features::FeatureName::new(name.to_string()),
         RoomVisual,
     ));
     if let Some(key) = entity_key {

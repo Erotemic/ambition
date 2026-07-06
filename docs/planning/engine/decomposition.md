@@ -385,9 +385,10 @@ committable slice; render-side reads become SimView fields):**
    the actor index at E6(b).
 8. The render-inserted `BossAnimator` → E6(a): sim-owned
    `BossAnimFrame`; render stops inserting.
-9. Live feature-marker queries (ActorDisposition, chest/breakable/
-   encounter markers, FeatureEcsWorldOverlay) → `FeatureViewIndex`
-   rows (the `ecs_*` accessors already point this way).
+9. ✅ Live feature-marker queries (encounter mobs, staged actors,
+   post-boss NPCs, reward chests) → `sim_view::DynamicFeatureViews`
+   (fable 2026-07-06); `FeatureEcsWorldOverlay` (lock walls) remains a
+   render-read resource — it is already a derived read-model.
 10. Render-inserted `FeatureName` on props → sim inserts at room load
     (or a render-local `PropName`).
 11. ✅ `HeldItem`/`GroundItem`/`HeldProjectile` → `sim_view::
@@ -396,8 +397,11 @@ committable slice; render-side reads become SimView fields):**
     aim resolved sim-side too.
 12. ✅ `ActorControl` read in item_visuals → `HeldItemFact.aim`
     (fable 2026-07-06).
-13. `PlayerProjectileState`/`ProjectileVisualKind` →
-    `ProjectileView { kind, charge_tier, charge_alpha }`.
+13. ✅ `sim_view::ProjectileView { kind, pos, vel, size }` component on
+    live projectiles (removed on pooled reuse); charge tier rides
+    `BodyPoseView.charge_tier` (fable 2026-07-06). Residue: the
+    visual↔projectile link is still `Entity`-keyed (deterministic
+    spawn ids arrive with netcode N3.1).
 14. ✅ `PlayerMark` → `sim_view::MarkBeaconsView` (fable 2026-07-06).
 15. ✅ `GravityFlipSwitch`, `HealShrine` → `sim_view::
     {GravitySwitchesView, ShrinesView}`; the `ShrineActivationPulse`

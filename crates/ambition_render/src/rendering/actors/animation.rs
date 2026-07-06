@@ -148,7 +148,7 @@ pub fn animate_characters(
         ),
         (
             Without<PlayerVisual>,
-            Without<ambition_gameplay_core::rooms::PortalSprite>,
+            Without<super::super::primitives::PortalSprite>,
             Without<PropVisual>,
         ),
     >,
@@ -210,7 +210,7 @@ pub const PROP_KINDS_STATIC_UNTIL_MOVING: &[&str] = &["intro_cart"];
 /// the regular `animate_characters` lookup would skip them — without
 /// this system the sprite stays pinned to frame 0 forever.
 ///
-/// Filtered with `Without<ambition_gameplay_core::rooms::PortalSprite>` so the gate
+/// Filtered with `Without<super::super::primitives::PortalSprite>` so the gate
 /// ring + gate portal stay owned by the portal-presentation systems
 /// (which drive the animator from `GatePortalPhase` instead of a flat
 /// Idle row tick).
@@ -231,7 +231,7 @@ pub fn animate_props(
             Option<&ambition_time::ProperTimeScale>,
             Option<&mut bevy::sprite::Anchor>,
         ),
-        Without<ambition_gameplay_core::rooms::PortalSprite>,
+        Without<super::super::primitives::PortalSprite>,
     >,
 ) {
     // ADR 0011 — per-entity proper time. Props that need to keep

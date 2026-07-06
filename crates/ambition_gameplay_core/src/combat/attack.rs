@@ -398,7 +398,7 @@ pub fn advance_attack(
     tuning: ae::MovementTuning,
     frame_dt: f32,
     feature_ecs_overlay: &FeatureEcsWorldOverlay,
-    hit_events: &mut MessageWriter<features::HitEvent>,
+    hit_events: &mut MessageWriter<crate::combat::events::HitEvent>,
 ) {
     let Some(mut attack_state) = attack.take() else {
         return;
@@ -520,12 +520,12 @@ pub fn advance_attack(
                 clusters.ground.on_ground = false;
                 attack_state.pogo_applied = true;
                 sfx.write(SfxMessage::Pogo { pos: player_pos });
-                hit_events.write(features::HitEvent {
+                hit_events.write(crate::combat::events::HitEvent {
                     volume: orb_aabb.into(),
                     damage: 1,
                     source: features::HitSource::PogoBounce,
                     attacker: Some(actor),
-                    target: features::HitTarget::OrbMatch,
+                    target: crate::combat::events::HitTarget::OrbMatch,
                     mode: features::HitMode::Knockback,
                     knockback: None,
                     ignored_targets: Vec::new(),
@@ -654,7 +654,7 @@ pub fn advance_body_melee(
     mut commands: bevy::prelude::Commands,
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,
-    mut hit_events: MessageWriter<features::HitEvent>,
+    mut hit_events: MessageWriter<crate::combat::events::HitEvent>,
     mut bodies: Query<(
         Entity,
         ae::BodyClusterQueryData,

@@ -21,8 +21,9 @@ use ambition_vfx::vfx::VfxMessage;
 
 use crate::actor::{BodyDodgeState, BodyOffense, BodyShieldState};
 use crate::actor::{PlayerEntity, PrimaryPlayer, PrimaryPlayerOnly};
+use crate::combat::events::{HitEvent as FeatureHitEvent, HitTarget};
 use crate::dev::dev_tools::EditableMovementTuning;
-use crate::features::{self, GameplayBanner, HitEvent as FeatureHitEvent};
+use crate::features::{self, GameplayBanner};
 use crate::player::{BodyAnimFacts, PlayerSafetyState};
 use crate::time::feel::SandboxFeelTuning;
 use crate::{
@@ -287,7 +288,7 @@ pub(crate) fn handle_player_damage_events(
     safety: &mut PlayerSafetyState,
     banner: &mut GameplayBanner,
     mut player_health: Option<&mut BodyHealth>,
-    damage_events: &[features::HitEvent],
+    damage_events: &[FeatureHitEvent],
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     difficulty_multiplier: f32,
@@ -534,7 +535,7 @@ pub(crate) fn apply_player_knockback(
     combat: &mut BodyCombat,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
-    damage: &features::HitEvent,
+    damage: &FeatureHitEvent,
     // The controlled body's held locomotion (local frame) for DI (CM2).
     di_input_local: ae::Vec2,
 ) {
@@ -668,11 +669,11 @@ pub fn apply_player_hit_events(
         .into_iter()
         .filter_map(|e| {
             let target = match e.target {
-                features::HitTarget::Player(entity) => Some(entity),
-                features::HitTarget::Volume => primary,
+                HitTarget::Player(entity) => Some(entity),
+                HitTarget::Volume => primary,
                 // Pre-resolved non-player actor victim + orb-match are not player
                 // hits — the actor / breakable consumers own them.
-                features::HitTarget::Actor(_) | features::HitTarget::OrbMatch => None,
+                HitTarget::Actor(_) | HitTarget::OrbMatch => None,
             };
             target.map(|t| (t, e))
         })

@@ -1208,7 +1208,7 @@ pub fn trigger_moveset_moves(
 /// shared `HitEvent` channel from its own reader position (the established
 /// multi-consumer pattern on this channel).
 pub fn mark_move_playback_landed_hits(
-    mut events: MessageReader<crate::features::HitEvent>,
+    mut events: MessageReader<crate::combat::events::HitEvent>,
     mut playbacks: Query<&mut MovePlayback>,
 ) {
     for ev in events.read() {
@@ -1217,7 +1217,8 @@ pub fn mark_move_playback_landed_hits(
         };
         if !matches!(
             ev.target,
-            crate::features::HitTarget::Actor(_) | crate::features::HitTarget::Player(_)
+            crate::combat::events::HitTarget::Actor(_)
+                | crate::combat::events::HitTarget::Player(_)
         ) {
             continue;
         }

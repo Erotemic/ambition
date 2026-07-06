@@ -24,15 +24,19 @@ listed preconditions are DONE here.**
 ## ⚡ THE FABLE WINDOW (order confirmed by Jon 2026-07-06 + his addition:
 ## the hardest decompositions are fable EXECUTION work, not just design)
 
-1. **E4 — EXECUTE the observation-boundary carve** (steps 2–4 of the
-   card; opus can pre-land step 1, the vfx-message inversion). The
-   riskiest cut in the playbook.
-2. **`SimSnapshot` design** (netcode N3.1 — design written into the doc;
-   review/refine against code when implementing starts).
-3. **CM4 cancel-table advancer** — execute or pair-review opus's cut.
-4. **CC5 `PortalFrame`** — execute, or leave opus the parity-gated card.
-5. **FB6 rollout architecture** — sketch is in the doc; refine at
-   implementation time.
+1. **E4 — the observation-boundary carve** — ⏳ IN PROGRESS: slices 17
+   (camera seam) + **19 (pose read-model sim-side, fable 2026-07-06)**
+   done; slice 20's set-label inversion design pinned in the card
+   [opus]; slices 1–16 remain [opus with the card's table]; step 4
+   (mint `ambition_sim_view`) after.
+2. ✅ **`SimSnapshot` design** — identity + scope pinned in netcode.md
+   N3.1 (SimId vocabulary, include/exclude lists, derived-state rule),
+   2026-07-06.
+3. ✅ **CM4 cancel tables** — LANDED (fable, 2026-07-06).
+4. ✅ **CC5 `PortalFrame`** — LANDED + CC1 COMPLETE (fable, 2026-07-06).
+5. ✅ **FB6 rollout architecture** — budget contract pinned in
+   fighter-brain.md §5 (2 ms cap, scratch-world seeding, calibration
+   instrument), 2026-07-06.
 Standing escalation: W3 (the world two-crate cut) and E2 (back-edge
 classification) escalate to fable at the FIRST ambiguous item.
 Everything else on this page is opus-or-below by design.
@@ -358,3 +362,28 @@ pickup→discrete-OK button-gated, annotated in code; remaining: auto-coins,
 mid-room doors, water/climbable regions, ledge) is written into the CC2 slice row
 for fable's review. engine_core 239/239 (+3 cast tests), gameplay_core 1167/1167
 green. The CC2 completion pass classifies+converts the remaining readers.
+
+## 2026-07-06 (fable) — THE FABLE-WINDOW EXECUTION RUN (contracts + CC5/CC1 + CM4 + E4-19)
+One session, four commits after the contract pass (`cdb0e5c8`):
+- **CC5 + CC1 COMPLETE** (`9aa4d998`, `a413f4b2`, `2c74a3f4`):
+  `engine_core::frame` minted (PortalFrame {origin, normal, velocity},
+  tangent DERIVED, PortalAperture, explicit MapConvention, Galilean
+  map_velocity); platformer math delegates to the ONE implementation;
+  ray tier moved down into `cast` (world_query.rs deleted); the old
+  pieces::PortalFrame REPLACED across portal + presentation (frame-only
+  vs opening-aware signatures separated); `cast::ray_through_apertures`
+  landed with §3.5 segment semantics + the flush-mount tie-break
+  (aperture wins t == solid_t — the old thick-box behavior, now
+  explicit). Full parity: portal 46, presentation 45, engine_core 248,
+  gameplay 1167→1174, app rl_sim green. CC6 may now read velocity.
+- **CM4** (`ef132da9`): cancel tables ride the timeline
+  (Cancelable{into, condition}); OnBlock deliberately deferred to CM6's
+  shield fact; landed_hit wired through the REAL hit path; jump/dash
+  end-early escapes; byte-parity reject without windows (tested, 7 new).
+- **E4 slice 19** (`65606d5b`): pose read-model rebuilds sim-side in
+  FeatureViewSyncSchedulePlugin; render is a pure consumer; slice 20
+  design pinned for opus.
+Found during parity runs: pre-existing content RED (gnu_ton mount link,
+logged above). Next fable-tier work: E4 slices 1–16 are opus-per-table;
+the remaining fable calls are E4's final flip (step 5) + W3/E2
+escalations when opus hits them.

@@ -197,7 +197,7 @@ resolution).
 | CM4 | Cancel tables on `MoveSpec` + buffered-intent cancel path + frame-data read API | [fable-specced; the advancer edit wants care] |
 | CM5 | Per-move sfx/vfx presentation events + prefab params + validation | [opus] — also closes jonnotes per-attack-vfx/sfx |
 | CM6 | Grab/throw/shield-stun vocabulary | [opus, lands with SSB demo] |
-| CM7 | Frame-data introspection: derive per-move startup/active/recovery/cancel windows as a queryable table (consumed by the fighter brain + boss validators) | [opus] |
+| CM7 | ✅ LANDED 2026-07-06. `MoveSpec::frame_data() -> MoveFrameData { total_s, startup_s, active_spans, recovery_s, cancel_windows, reach }` — a PURE derivation from `windows`+`duration_s` (no storage), in `ambition_entity_catalog` so brain + boss validators reach it with no upward dep. Startup = first Active start; recovery = duration − last Active end; reach = farthest body-local `+x` extent over Active volumes; cancel windows from `WindowTag::Cancelable` (CM4's richer `CancelRule` folds into the same `CancelWindow` shape when it lands). Tests: full derivation + hitless-move. Consumers (FB2 option scorer, boss validator) wire it when they land. | done |
 
 Exit: a headless test drives two archetypes through hit → DI → knockback →
 cancel-chain → KO-by-blast-zone entirely via `SlotControls`, and the same

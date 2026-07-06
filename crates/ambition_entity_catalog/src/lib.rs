@@ -404,6 +404,102 @@ impl MoveSpec {
         }
         1.0 + self.charge_fraction_at(t) * (self.smash_charge_mult - 1.0)
     }
+
+    /// Derive this move's frame data (CM7): the startup / active / recovery /
+    /// cancel windows and the strike's reach, as a queryable table. A PURE
+    /// derivation from `windows` + `duration_s` — no storage, no new state. The
+    /// fighter brain reads it to time punishes and spacing; the boss validator
+    /// reads it to assert telegraph/recovery budgets. Proper-time seconds
+    /// throughout (the owner's clock), like every `MoveSpec` duration.
+    pub fn frame_data(&self) -> MoveFrameData {
+        let active_spans: Vec<(f32, f32)> = self
+            .windows
+            .iter()
+            .filter(|w| matches!(w.tag, WindowTag::Active))
+            .map(|w| (w.start_s, w.end_s))
+            .collect();
+        let cancel_windows: Vec<CancelWindow> = self
+            .windows
+            .iter()
+            .filter_map(|w| match &w.tag {
+                WindowTag::Cancelable { into } => Some(CancelWindow {
+                    start_s: w.start_s,
+                    end_s: w.end_s,
+                    into: into.clone(),
+                }),
+                _ => None,
+            })
+            .collect();
+        // Startup = time until the first live hit; a move with no Active window
+        // is pure recovery/utility, so its "startup" is its whole duration.
+        let first_active = active_spans
+            .iter()
+            .map(|(s, _)| *s)
+            .fold(f32::MAX, f32::min);
+        let startup_s = if active_spans.is_empty() {
+            self.duration_s
+        } else {
+            first_active
+        };
+        // Recovery = from the last Active edge to the move's end.
+        let last_active_end = active_spans.iter().map(|(_, e)| *e).fold(0.0_f32, f32::max);
+        let recovery_s = (self.duration_s - last_active_end).max(0.0);
+        // Reach = the farthest body-local +x extent any Active volume reaches
+        // (offset toward facing + the volume's half-width / radius). Zero when
+        // the move lands no volume (a pure-motion or effect-only move).
+        let reach = self
+            .windows
+            .iter()
+            .filter(|w| matches!(w.tag, WindowTag::Active))
+            .flat_map(|w| w.volumes.iter())
+            .map(|v| match v.shape {
+                VolumeShape::Rect {
+                    offset,
+                    half_extents,
+                } => offset.0 + half_extents.0,
+                VolumeShape::Circle { offset, radius } => offset.0 + radius,
+            })
+            .fold(0.0_f32, f32::max);
+        MoveFrameData {
+            total_s: self.duration_s,
+            startup_s,
+            active_spans,
+            recovery_s,
+            cancel_windows,
+            reach,
+        }
+    }
+}
+
+/// A move's cancel window (CM7): the proper-time span during which the move may
+/// be canceled into the named move classes/ids. Derived from a
+/// [`WindowTag::Cancelable`] window; CM4's richer `CancelRule` (per-condition)
+/// folds into this same shape when it lands.
+#[derive(Debug, Clone, PartialEq)]
+pub struct CancelWindow {
+    pub start_s: f32,
+    pub end_s: f32,
+    pub into: Vec<String>,
+}
+
+/// The queryable frame data of a move (CM7) — the introspection the fighter
+/// brain and boss validators consume. A pure derivation of [`MoveSpec::frame_data`]
+/// (no storage). All times are the owner's proper-time seconds.
+#[derive(Debug, Clone, PartialEq)]
+pub struct MoveFrameData {
+    /// Total move length.
+    pub total_s: f32,
+    /// Time until the first Active window opens — the tell the opponent reads.
+    pub startup_s: f32,
+    /// Every Active window's `(start, end)`, in declaration order.
+    pub active_spans: Vec<(f32, f32)>,
+    /// Time from the last Active window's end to the move's end — the punish
+    /// window.
+    pub recovery_s: f32,
+    /// Cancel windows (`WindowTag::Cancelable`), for combo/chain reasoning.
+    pub cancel_windows: Vec<CancelWindow>,
+    /// Farthest body-local reach of any Active volume (`+x` toward facing).
+    pub reach: f32,
 }
 
 // ---------------------------------------------------------------------------
@@ -939,6 +1035,95 @@ mod tests {
         m.smash_charge_mult = 2.0; // no Startup window -> full charge at once
         assert_eq!(m.charge_fraction_at(0.0), 1.0);
         assert_eq!(m.charge_scale_at(0.0), 2.0);
+    }
+
+    // --- CM7: frame-data introspection ---
+
+    #[test]
+    fn frame_data_derives_startup_active_recovery_cancels_and_reach() {
+        let mut m = bare_move("smash_side", None);
+        m.duration_s = 0.60;
+        m.windows = vec![
+            MoveWindow {
+                start_s: 0.0,
+                end_s: 0.18,
+                tag: WindowTag::Startup,
+                volumes: vec![],
+                sustain_effect: None,
+            },
+            MoveWindow {
+                start_s: 0.18,
+                end_s: 0.26,
+                tag: WindowTag::Active,
+                volumes: vec![
+                    HitVolume {
+                        shape: VolumeShape::Rect {
+                            offset: (28.0, 0.0),
+                            half_extents: (16.0, 12.0),
+                        },
+                        damage: 4,
+                        knockback: 100.0,
+                        kb_growth: 0.0,
+                        launch_dir: None,
+                        on_hit: None,
+                        vfx: None,
+                    },
+                    HitVolume {
+                        shape: VolumeShape::Circle {
+                            offset: (30.0, 0.0),
+                            radius: 20.0,
+                        },
+                        damage: 2,
+                        knockback: 40.0,
+                        kb_growth: 0.0,
+                        launch_dir: None,
+                        on_hit: None,
+                        vfx: None,
+                    },
+                ],
+                sustain_effect: None,
+            },
+            MoveWindow {
+                start_s: 0.26,
+                end_s: 0.42,
+                tag: WindowTag::Cancelable {
+                    into: vec!["jump".to_string(), "dash".to_string()],
+                },
+                volumes: vec![],
+                sustain_effect: None,
+            },
+        ];
+        let fd = m.frame_data();
+        assert_eq!(fd.total_s, 0.60);
+        assert!(
+            (fd.startup_s - 0.18).abs() < 1e-6,
+            "startup = first Active start"
+        );
+        assert_eq!(fd.active_spans, vec![(0.18, 0.26)]);
+        // recovery = duration - last Active end = 0.60 - 0.26.
+        assert!((fd.recovery_s - 0.34).abs() < 1e-6, "recovery to move end");
+        assert_eq!(fd.cancel_windows.len(), 1);
+        assert_eq!(fd.cancel_windows[0].into, vec!["jump", "dash"]);
+        assert!((fd.cancel_windows[0].start_s - 0.26).abs() < 1e-6);
+        // reach = max(rect 28+16=44, circle 30+20=50) = 50.
+        assert!(
+            (fd.reach - 50.0).abs() < 1e-6,
+            "reach is the farthest volume: {}",
+            fd.reach
+        );
+    }
+
+    #[test]
+    fn frame_data_of_a_hitless_move_is_all_startup_no_reach() {
+        // A pure-utility move (no Active window): "startup" spans the whole move,
+        // reach is zero, no active spans — the brain reads it as unthreatening.
+        let mut m = bare_move("taunt", None);
+        m.duration_s = 0.5;
+        let fd = m.frame_data();
+        assert!(fd.active_spans.is_empty());
+        assert_eq!(fd.startup_s, 0.5);
+        assert_eq!(fd.recovery_s, 0.5);
+        assert_eq!(fd.reach, 0.0);
     }
 
     #[test]

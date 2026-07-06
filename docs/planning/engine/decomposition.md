@@ -783,10 +783,58 @@ moves first; the TYPES move here).
    moveset/attack `ActorConfig` non-weight reads) are combat's own
    vocabulary or other-domain facts to resolve at the ATOMIC move (step 3,
    RESERVED) — not among the pre-classified in-place verdicts.
-3. Atomic moves: `combat/` (minus `overlay.rs` → W-track; minus
-   `boss_clusters.rs` which dissolves in E6) → `ambition_combat`;
+3. Atomic moves: `combat/` → `ambition_combat` **with the FINALIZED
+   boundary below (fable 2026-07-07 — the de-weave commits E2.8–E2.12
+   re-measured the card's "near-mechanical" claim: the 7 in-place
+   verdicts covered the features-hub reads, but 184 total upward refs
+   remained. E2.8/E2.9 killed the path residue, E2.10 moved the debris
+   vocabulary to `ambition_vfx`, E2.11 grew `CombatTuning`
+   {weight, attack_cooldown_mult, sprite_character_id} + minted the
+   `authored_volumes` install seam so combat never names
+   `character_sprites`/`ActorConfig`. What remains is EXECUTION against
+   this ruled boundary — do NOT re-derive it):**
+   - **MOVE to `ambition_combat`:** `moveset.rs` (its authored-blade
+     INTEGRATION test relocates features-side — flagged in the fixture),
+     `hitbox/`, `on_hit.rs`, `targeting.rs`, `events.rs`,
+     `authored_volumes.rs`, `components/actors.rs`, most of
+     `components/{mod,features}.rs` (see splits), `hazards.rs`,
+     `hazard_runtime.rs`, `breakables.rs`, `falling_chest.rs`,
+     `banner.rs`, `held_items.rs`, `path_motion.rs`, `variation.rs`,
+     `util.rs`, the `mod.rs` consts. New crate deps: sfx, time, vfx,
+     platformer_primitives, interaction (+ existing characters/
+     engine_core/entity_catalog/bevy).
+   - **STAY (re-home under `features/`, each already destined
+     elsewhere):** `attack.rs` (the LEGACY flat-swing driver — moveset
+     subsumes it (CM plan), and its weave — `EditableMovementTuning`,
+     `SandboxFeelTuning`, `BodyAnimFacts`, `MovingPlatformState` — is
+     real; dissolving code must not drive crate design), `damage.rs`
+     (VICTIM-side resolution — mutates `PlayerSafetyState`/
+     `BodyAnimFacts`, reads assist settings; it is E7 `ambition_actors`
+     material like `features/ecs/damage/`), `bus.rs` (progression/
+     encounter glue → E1a/E-enc), `pickups.rs` + `chests.rs`
+     (progression + possession glue), `spawn_static.rs` (room-load
+     LOWERING — dissolves into W-queue step 3 interpreters),
+     `boss_clusters.rs` (E6), `overlay.rs` + `world_overlay.rs`
+     (W-track geometry composition).
+   - **SPLITS (relocate features-side at the move):**
+     `components/mod.rs`: `ActorTuning` (actor archetype tuning; its
+     `ranged_visual: ProjectileVisualKind` names projectile vocabulary),
+     `CharacterBrainTemplate`/`CharacterBrainSpec`, actor
+     `RespawnPolicy`/`DeathPolicy` → live beside `ActorConfig`
+     (`features/ecs`); `CombatCapabilities`/`BodyMovementTuning`/
+     `BodyMovementPatch`/`CombatTuning` move with combat.
+     `components/features.rs`: `SwitchFeature`/`SwitchOn` (name
+     `encounter::SwitchActivation`) → features; the rest moves.
+     `components/spawn.rs` (`EnemyActorBundle` — actor spawn machinery,
+     carries `BodyAnimFacts`) → features whole.
+     `events.rs`: `QuestAdvanceRequested` + `SwitchActivated` message
+     DEFS → features (their writers — bus/pickups/breakable switch glue
+     — all stay); **`HitSource::PlayerProjectile.kind` is DROPPED** (no
+     reader ever destructures it; writers hardcode Fireball; pre-release
+     no-compat) so combat sheds `ProjectileKind`.
    `projectile/` + `enemy_projectile/` → `ambition_projectiles` (deps:
-   combat). Direction ruled: **features → combat, never the reverse.**
+   combat) — NOT yet re-measured; run the same upward-ref census before
+   executing. Direction ruled: **features → combat, never the reverse.**
 4. Only after the move: further combat-model slices (CM6+) land in the
    new crate.
 

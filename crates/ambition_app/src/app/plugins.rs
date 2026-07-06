@@ -683,6 +683,14 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
     // that reads it (nameplates, HUD, this overlay) — the sim never touches it.
     app.init_resource::<ambition_render::rendering::CameraViewState>();
     app.init_resource::<debug_overlay::DebugOverlayLabels>();
+    // The observer fact: publish THIS frame's physical viewport before the
+    // sim's observation resolve consumes it (E4-17 — the resolve lives in
+    // CameraObservationPlugin now; camera_follow only APPLIES the snapshot).
+    app.add_systems(
+        Update,
+        ambition_render::rendering::publish_camera_viewport
+            .before(ambition_gameplay_core::camera_snapshot::resolve_camera_observation),
+    );
     app.add_systems(
         Update,
         (
@@ -694,15 +702,24 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
             debug_overlay::render_debug_overlay_labels,
         )
             .chain()
-            .after(animate_bosses),
+            .after(animate_bosses)
+            // Read THIS tick's resolved snapshot, not last frame's.
+            .after(ambition_gameplay_core::camera_snapshot::resolve_camera_observation),
     );
     #[cfg(feature = "portal_render")]
     app.add_systems(
         Update,
-        ambition_gameplay_core::portal::apply_portal_camera_continuity
-            .after(SandboxSet::CoreSimulation)
-            .after(ambition_gameplay_core::portal::sync_portal_camera_continuity_focus)
-            .before(camera_follow),
+        (
+            ambition_gameplay_core::portal::apply_portal_camera_continuity
+                .after(SandboxSet::CoreSimulation)
+                .after(ambition_gameplay_core::portal::sync_portal_camera_continuity_focus)
+                .before(camera_follow),
+            // Same-frame pad into the sim resolve (E4-17): after the
+            // continuity update, before the observation resolves.
+            ambition_render::rendering::publish_portal_camera_clamp
+                .after(ambition_gameplay_core::portal::apply_portal_camera_continuity)
+                .before(ambition_gameplay_core::camera_snapshot::resolve_camera_observation),
+        ),
     );
     #[cfg(feature = "portal_render")]
     app.add_systems(

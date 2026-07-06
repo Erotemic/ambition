@@ -171,6 +171,20 @@ quarter-circle entities instead) / Q28 (parody names = policy) / Q29
 (respawn triage) / Q30 (fable window + hardest-carves-are-fable)
 recorded; slash-VFX deprioritized into CM5.
 
+## 2026-07-06 (fable) — respawn unification + E4-17 (execution, later same day)
+ADR 0022 landed (`23b81c99`): ONE authored `RespawnPolicy` (default
+DeadStaysDead), one carrier, one kill-path match, placement-pins for NPCs,
+universal liveness-on-load + the missing test, Q29 triage in the RON. The
+infinite-NPC-respawn bug is dead at the root.
+E4-17 landed (commit follows): the camera OBSERVATION seam —
+`CameraObservationPlugin` resolves the follow snapshot sim-side as a tail
+observer (the only `CameraEaseState` writer; also live headless/RL);
+render's `camera_follow` is a pure consumer; `CameraViewport`/
+`CameraExtraClamp` are the generic observer-input resources; portal
+continuity bridges its clamp pad same-frame. Discovered + recorded:
+`PresentationSync` nests inside `CoreSimulation` — post-sim observers
+anchor `.after(CoreSimulation)`. Continuity suite 3/3 green.
+
 ## 2026-07-06 (fable) — E5-finish steps 1–4 + E4 prep (execution)
 [the sim assembly] grew: `SandboxSetsPlugin` (sets + ShrineActivationPulse/
 SlotInteractionState/StartingCharacter, FIRST in the group; host-override-

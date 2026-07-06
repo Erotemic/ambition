@@ -457,3 +457,180 @@ fn clamp_or_center(value: f32, min: f32, max: f32) -> f32 {
         (min + max) * 0.5
     }
 }
+
+// ---------------------------------------------------------------------------
+// The camera OBSERVATION seam (E4 slice 17 — the render→sim write inverted).
+//
+// The follow-camera resolve (which integrates `CameraEaseState`) used to run
+// INSIDE the render crate's `camera_follow`, making presentation the writer
+// of sim-side ease state. It is now a sim-scheduled system here — the
+// AJ13 "camera is an observer" boundary made structural: the sim publishes
+// ONE resolved snapshot per tick; presentation consumes it (portal
+// continuity applies its deltas to a COPY, never to this state). This whole
+// block relocates into [the observation boundary] (`ambition_sim_view`)
+// with the E4 carve.
+// ---------------------------------------------------------------------------
+
+/// The observer's physical viewport in pixels — an OBSERVER FACT the
+/// windowed host publishes each frame (`publish_camera_viewport` in the
+/// render layer). Headless runs keep the default design-window size, so the
+/// resolver (and any RL reader of [`ResolvedCameraSnapshot`]) works without
+/// a window. Consumed ONLY by the observation resolve below — sim systems
+/// never read it.
+#[derive(bevy::prelude::Resource, Clone, Copy, Debug)]
+pub struct CameraViewport {
+    /// Physical viewport size, pixels (world-frame-free — a screen fact).
+    pub px: ae::Vec2,
+}
+
+impl Default for CameraViewport {
+    fn default() -> Self {
+        Self {
+            px: ae::Vec2::new(ae::config::WINDOW_W as f32, ae::config::WINDOW_H as f32),
+        }
+    }
+}
+
+/// Optional extra clamp target for the resolve (world-frame center) — the
+/// generic seam a presentation adapter (portal camera continuity today) may
+/// write when it needs the clamp bounds padded toward a point. `None` every
+/// frame it isn't actively needed (the writer owns clearing it).
+#[derive(bevy::prelude::Resource, Clone, Copy, Debug, Default)]
+pub struct CameraExtraClamp(pub Option<ae::Vec2>);
+
+/// THE published observation: the follow-camera snapshot resolved once per
+/// sim tick, plus the raw follow point it framed. Presentation reads this
+/// (applying shake/portal deltas to a copy); RL/headless readers may read it
+/// too — it is plain data.
+#[derive(bevy::prelude::Resource, Clone, Debug, Default)]
+pub struct ResolvedCameraSnapshot {
+    pub snapshot: CameraSnapshot2d,
+    /// World-frame position of the followed body (the controlled subject)
+    /// this tick — the un-eased follow point presentation adapters (portal
+    /// continuity) key their offsets from.
+    pub follow_world: ae::Vec2,
+}
+
+/// Resolve the follow camera for this tick (the ONE writer of
+/// [`CameraEaseState`]). A TAIL OBSERVER: runs after the whole
+/// `CoreSimulation` chain (like `Trace`) so it sees final body positions AND
+/// any post-sim presentation adapters (portal camera continuity) have had
+/// their same-frame say through the observer-input resources. Presentation
+/// consumers order `.after(resolve_camera_observation)`.
+#[allow(clippy::too_many_arguments)]
+pub fn resolve_camera_observation(
+    world: bevy::prelude::Res<ae::RoomGeometry>,
+    room_set: bevy::prelude::Res<crate::rooms::RoomSet>,
+    time: bevy::prelude::Res<bevy::prelude::Time>,
+    developer_tools: bevy::prelude::Res<crate::dev::dev_tools::DeveloperTools>,
+    encounter_registry: bevy::prelude::Res<crate::encounter::EncounterRegistry>,
+    user_settings: bevy::prelude::Res<crate::persistence::settings::UserSettings>,
+    viewport: bevy::prelude::Res<CameraViewport>,
+    extra_clamp: bevy::prelude::Res<CameraExtraClamp>,
+    ease_tuning: bevy::prelude::Res<crate::CameraEaseTuning>,
+    mut camera_state: bevy::prelude::ResMut<crate::CameraEaseState>,
+    mut resolved: bevy::prelude::ResMut<ResolvedCameraSnapshot>,
+    mut last_camera_room: bevy::prelude::Local<Option<String>>,
+    player: bevy::prelude::Query<
+        (
+            &ambition_platformer_primitives::body::BodyKinematics,
+            &ae::BodyBaseSize,
+            &crate::player::PlayerBlinkCameraState,
+        ),
+        ambition_platformer_primitives::markers::PrimaryPlayerOnly,
+    >,
+    controlled: bevy::prelude::Res<crate::abilities::traversal::possession::ControlledSubject>,
+    body_kinematics: bevy::prelude::Query<&ambition_platformer_primitives::body::BodyKinematics>,
+) {
+    // Dev tools can temporarily replace the authored/default camera view.
+    let (base_view_w, base_view_h) = if developer_tools.camera_view_override_enabled {
+        (
+            developer_tools.camera_view_w.max(64.0),
+            developer_tools.camera_view_h.max(64.0),
+        )
+    } else {
+        user_settings.video.camera_zoom.base_view()
+    };
+    let base_view = ae::Vec2::new(base_view_w, base_view_h);
+    let overview_scale = developer_tools.overview_camera_scale.max(1.0);
+    let encounter_scale = encounter_registry.active_camera_zoom().max(1.0);
+
+    let Ok((mut player_body, player_base_size, blink_cam)) =
+        player.single().map(|(b, bs, bc)| (*b, *bs, *bc))
+    else {
+        return;
+    };
+    // Follow the CONTROLLED SUBJECT's body. Zoom + blink easing stay on the
+    // home avatar's presentation state; only the follow point tracks the
+    // driven body.
+    if let Some(subject) = controlled.0 {
+        if let Ok(kin) = body_kinematics.get(subject) {
+            player_body.pos = kin.pos;
+        }
+    }
+
+    let active_spec = room_set.active_spec();
+    let room_changed = last_camera_room.as_deref() != Some(active_spec.id.as_str());
+    if room_changed {
+        *last_camera_room = Some(active_spec.id.clone());
+        // Disjoint LDtk areas: reset target easing so it never interpolates
+        // through unrelated world coordinates.
+        camera_state.target_initialized = false;
+    }
+    let snap_camera = blink_cam.camera_snap_timer > 0.0 || room_changed;
+
+    let focus = CameraFocus2d {
+        center_world: player_body.pos,
+        size: player_body.size,
+        base_size: player_base_size.base_size,
+        facing: player_body.facing,
+    };
+    let blink = CameraBlinkInput {
+        blink_in_timer: blink_cam.blink_in_timer,
+        blink_in_duration: blink_cam.blink_in_duration,
+        blink_camera_from: blink_cam.blink_camera_from,
+    };
+    let snapshot = resolve_follow_camera_snapshot(
+        CameraSnapshotResolveInput {
+            world: &world.0,
+            camera_zones: &active_spec.camera_zones,
+            focus,
+            base_view,
+            viewport_px: viewport.px,
+            aspect_policy: user_settings.video.camera_aspect,
+            framing: user_settings.video.camera_framing,
+            overview_scale,
+            encounter_scale,
+            overview_camera: developer_tools.overview_camera,
+            snap_camera,
+            blink: Some(blink),
+            dt: time.delta_secs(),
+            mode: CameraSnapshotResolveMode::Eased,
+            extra_clamp_center_world: extra_clamp.0,
+            ease_tuning: *ease_tuning,
+        },
+        Some(&mut *camera_state),
+    );
+    *resolved = ResolvedCameraSnapshot {
+        snapshot,
+        follow_world: player_body.pos,
+    };
+}
+
+/// The observation seam's plugin: owns the observer-input resources + the
+/// published snapshot, and schedules the ONE resolve per tick. Part of
+/// [`PlatformerEnginePlugins`] — headless apps get a live snapshot too.
+pub struct CameraObservationPlugin;
+
+impl bevy::prelude::Plugin for CameraObservationPlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        use bevy::prelude::IntoScheduleConfigs as _;
+        app.init_resource::<CameraViewport>();
+        app.init_resource::<CameraExtraClamp>();
+        app.init_resource::<ResolvedCameraSnapshot>();
+        app.add_systems(
+            bevy::prelude::Update,
+            resolve_camera_observation.after(crate::schedule::SandboxSet::CoreSimulation),
+        );
+    }
+}

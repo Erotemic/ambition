@@ -62,7 +62,9 @@ pub use ambition_gameplay_core::combat::BoundFeatureKind;
 // `actors::manage_gradient_lane_visual` directly so no outside
 // callers need a re-export.
 pub use ambition_gameplay_core::camera_snapshot::{CameraSnapshot2d, SceneCaptureRequest};
-pub use camera::{camera_follow, CameraViewState};
+#[cfg(feature = "portal_render")]
+pub use camera::publish_portal_camera_clamp;
+pub use camera::{camera_follow, publish_camera_viewport, CameraViewState};
 pub use health::{sync_boss_health_bar_overlay, sync_health_overlays};
 pub use nameplates::{
     sync_actor_nameplates, ActorNameplatePresentationPlugin, ActorNameplateSet,

@@ -386,9 +386,17 @@ committable slice; render-side reads become SimView fields):**
 16. `ControlledSubject` reads (camera/hud/fx/items/nameplates) →
     `SimView.controlled_body: Option<BodyId>` — ONE field, five
     call sites.
-17. **The one render WRITE:** `CameraEaseState` integration moves into
-    the sim-side snapshot extraction; render reads only
-    `CameraSnapshot2d { …, observer_velocity }` (AJ14).
+17. ✅ **DONE (fable 2026-07-06): the one render WRITE inverted.**
+    `CameraObservationPlugin` (gameplay_core `camera_snapshot`, in the
+    engine group) resolves the follow snapshot as a TAIL OBSERVER after
+    `CoreSimulation` — the only `CameraEaseState` writer; render's
+    `camera_follow` applies a COPY (portal-continuity deltas + shake).
+    Observer-input resources: `CameraViewport` (host publishes),
+    `CameraExtraClamp` (portal continuity bridges same-frame). NOTE for
+    the carve: `PresentationSync` is nested INSIDE `CoreSimulation`, so
+    post-sim observers anchor `.after(CoreSimulation)`, never in that
+    set. AJ14's `observer_velocity` field rides the sim_view mint (the
+    snapshot builder now lives sim-side, so it's a field addition).
 18. fx blink preview (`MovingPlatformSet` + composed world) → a
     sim-computed `BlinkPreviewFact { target_point, valid }`.
 19. The extraction systems + `ActorAnimIndex` init move OUT of

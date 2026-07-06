@@ -1,5 +1,14 @@
-//! Player-following camera with smooth zoom in/out around encounter
-//! transitions and an overview-camera dev mode.
+//! Presentation half of the follow camera.
+//!
+//! The RESOLVE — zoom policy, camera zones, target easing, blink
+//! interpolation, clamping (the `CameraEaseState` write) — is the SIM's
+//! observation seam now
+//! ([`ambition_gameplay_core::camera_snapshot::CameraObservationPlugin`],
+//! E4-17): the sim publishes one [`ResolvedCameraSnapshot`] per tick. This
+//! module only (a) publishes the physical viewport (an observer fact the
+//! resolver consumes), (b) applies presentation-only deltas — portal camera
+//! continuity, shake — to a COPY of the snapshot, and (c) writes the Bevy
+//! camera transform/projection. Render never mutates sim camera state.
 
 use ambition_engine_core as ae;
 use bevy::ecs::system::SystemParam;
@@ -8,17 +17,15 @@ use bevy::window::PrimaryWindow;
 
 use super::primitives::PlayerVisual;
 use ambition_gameplay_core::camera_snapshot::{
-    resolve_follow_camera_snapshot, CameraBlinkInput, CameraFocus2d, CameraSnapshot2d,
-    CameraSnapshotResolveInput, CameraSnapshotResolveMode,
+    CameraExtraClamp, CameraSnapshot2d, CameraViewport, ResolvedCameraSnapshot,
 };
-use ambition_gameplay_core::rooms::RoomSet;
 
 /// Live camera diagnostics and feel-lab data.
 ///
-/// Updated by [`camera_follow`] after the camera target and orthographic scale
-/// are resolved. HUD/debug overlays read this so they can show the *actual*
-/// gameplay view, not a recomputed approximation that may drift when aspect or
-/// encounter policy changes.
+/// Updated by [`camera_follow`] after the presentation deltas are applied.
+/// HUD/debug overlays read this so they can show the *actual* gameplay view,
+/// not a recomputed approximation that may drift when aspect or encounter
+/// policy changes.
 #[derive(Resource, Clone, Debug)]
 #[allow(dead_code)] // base_view + orthographic_scale are exposed for HUD/debug overlays.
 pub struct CameraViewState {
@@ -55,18 +62,17 @@ impl From<&CameraSnapshot2d> for CameraViewState {
     }
 }
 
-#[derive(SystemParam)]
-pub struct CameraFollowResources<'w> {
-    world: Res<'w, ambition_engine_core::RoomGeometry>,
-    room_set: Res<'w, RoomSet>,
-    time: Res<'w, Time>,
-    developer_tools: Res<'w, ambition_gameplay_core::dev::dev_tools::DeveloperTools>,
-    encounter_registry: Res<'w, ambition_gameplay_core::encounter::EncounterRegistry>,
-    user_settings: Res<'w, ambition_gameplay_core::persistence::settings::UserSettings>,
-    camera_state: ResMut<'w, ambition_gameplay_core::CameraEaseState>,
-    view_state: ResMut<'w, CameraViewState>,
-    ease_tuning: Res<'w, ambition_gameplay_core::CameraEaseTuning>,
-    shake: Res<'w, ambition_gameplay_core::time::camera_ease::CameraShakeState>,
+/// Publish the physical window size into the sim's [`CameraViewport`]
+/// observer fact. Runs before the sim's `PresentationSync` resolve so the
+/// snapshot uses THIS frame's viewport. Headless apps never run this — the
+/// resolver keeps the design-window default.
+pub fn publish_camera_viewport(
+    windows: Query<&Window, With<PrimaryWindow>>,
+    mut viewport: ResMut<CameraViewport>,
+) {
+    if let Ok(w) = windows.single() {
+        viewport.px = ae::Vec2::new(w.width().max(1.0), w.height().max(1.0));
+    }
 }
 
 #[cfg(feature = "portal_render")]
@@ -77,50 +83,37 @@ pub struct PortalCameraContinuityParams<'w> {
     host_view: Option<ResMut<'w, ambition_portal_presentation::PortalCameraContinuityHostView>>,
 }
 
-/// Follow the player in rooms larger than the window.
-///
-/// The simulation uses top-left world coordinates, while Bevy renders around a
-/// centered camera. We convert the player to Bevy coordinates, then clamp the
-/// camera center so the player can scroll through large rooms without showing
-/// outside the generated level bounds. Small rooms remain centered.
-///
-/// Smoothly eases between camera scales when an encounter starts /
-/// ends. A snap was distracting; the eased path preserves "I crossed
-/// a threshold and the world breathed out" pacing without making
-/// the player wait for the camera.
-///
-/// **Multiplayer caveat (primary-player-only):** the camera follows
-/// the lone player today. A future co-op build needs to follow the
-/// player with `PrimaryPlayer` (or compute a midpoint between local
-/// players); the query should switch to
-/// `With<ambition_platformer_primitives::markers::PrimaryPlayer>` once a second player can
-/// exist. See [`ambition_gameplay_core::player::queries::PrimaryPlayerOnly`].
+/// Bridge the portal-continuity clamp pad into the sim resolver's generic
+/// [`CameraExtraClamp`] input BEFORE this tick's resolve — same-frame, like
+/// the old inline read (a post-resolve copy would lag the pad one frame and
+/// visibly step the camera at transit clear).
+#[cfg(feature = "portal_render")]
+pub fn publish_portal_camera_clamp(
+    selection: Option<Res<ambition_portal_presentation::PortalCameraContinuitySelection>>,
+    state: Option<Res<ambition_portal_presentation::PortalCameraContinuityState>>,
+    mut extra_clamp: ResMut<CameraExtraClamp>,
+) {
+    let enabled = selection.as_deref().is_some_and(|selection| {
+        selection.mode == ambition_portal_presentation::PortalCameraTransitMode::Continuous
+    });
+    extra_clamp.0 = enabled
+        .then(|| state.as_deref().and_then(|s| s.clamp_padding_center_world))
+        .flatten();
+}
+
+/// Apply the sim-resolved camera snapshot to the main camera, layering the
+/// presentation-only deltas (portal camera continuity, shake) onto a COPY.
 pub fn camera_follow(
-    resources: CameraFollowResources,
+    resolved: Res<ResolvedCameraSnapshot>,
+    world: Res<ambition_engine_core::RoomGeometry>,
+    mut view_state: ResMut<CameraViewState>,
+    shake: Res<ambition_gameplay_core::time::camera_ease::CameraShakeState>,
+    mut extra_clamp: ResMut<CameraExtraClamp>,
     #[cfg(feature = "portal_render")] mut portal_continuity: PortalCameraContinuityParams,
-    mut last_camera_room: Local<Option<String>>,
-    player: Query<
-        (
-            &ambition_platformer_primitives::body::BodyKinematics,
-            &ambition_engine_core::BodyBaseSize,
-            &ambition_gameplay_core::player::PlayerBlinkCameraState,
-        ),
-        ambition_platformer_primitives::markers::PrimaryPlayerOnly,
-    >,
-    // The camera follows the CONTROLLED SUBJECT — the body carrying
-    // `Brain::Player(PRIMARY)`. That's the home avatar normally, or the possessed
-    // actor while possessing (so the view follows the body you're driving). Both
-    // carry the shared `BodyKinematics`, so one read query serves either.
-    controlled: Res<ambition_gameplay_core::abilities::traversal::possession::ControlledSubject>,
-    body_kinematics: Query<&ambition_platformer_primitives::body::BodyKinematics>,
-    windows: Query<&Window, With<PrimaryWindow>>,
     // `With<MainCamera>` (not the broad `With<Camera2d>`): besides the #31 cube
     // pause-menu Camera3d, the portal view-cone renderer spawns offscreen
     // capture `Camera2d`s. A broad match would drag every capture to the player
-    // and overwrite its `Fixed` ortho scale with the main zoom each frame — so
-    // each portal window would show "the player area at the current zoom"
-    // instead of a fixed slice of its exit. Pinning to the single main game
-    // camera keeps follow/zoom off the captures.
+    // and overwrite its `Fixed` ortho scale with the main zoom each frame.
     mut query: Query<
         (&mut Transform, &mut Projection),
         (
@@ -129,139 +122,41 @@ pub fn camera_follow(
         ),
     >,
 ) {
-    let CameraFollowResources {
-        world,
-        room_set,
-        time,
-        developer_tools,
-        encounter_registry,
-        user_settings,
-        mut camera_state,
-        mut view_state,
-        ease_tuning,
-        shake,
-    } = resources;
-
-    // DeveloperTools can temporarily replace the authored/default camera view.
-    let (base_view_w, base_view_h) = if developer_tools.camera_view_override_enabled {
-        (
-            developer_tools.camera_view_w.max(64.0),
-            developer_tools.camera_view_h.max(64.0),
-        )
-    } else {
-        user_settings.video.camera_zoom.base_view()
-    };
-    let base_view = ae::Vec2::new(base_view_w, base_view_h);
-
-    let overview_scale = developer_tools.overview_camera_scale.max(1.0);
-    let encounter_scale = encounter_registry.active_camera_zoom().max(1.0);
-    let Ok((mut player_body, player_base_size, blink_cam)) =
-        player.single().map(|(b, bs, bc)| (*b, *bs, *bc))
-    else {
-        return;
-    };
-    // Follow the controlled subject's body position. Zoom + blink easing stay on
-    // the home avatar's presentation state (`player_base_size`/`blink_cam`),
-    // which is fine for framing; only the follow point tracks the driven body.
-    if let Some(subject) = controlled.0 {
-        if let Ok(kin) = body_kinematics.get(subject) {
-            player_body.pos = kin.pos;
-        }
-    }
-
-    let active_spec = room_set.active_spec();
-    let room_changed = last_camera_room.as_deref() != Some(active_spec.id.as_str());
-    if room_changed {
-        *last_camera_room = Some(active_spec.id.clone());
-        // Room transitions can connect LDtk areas that are spatially disjoint.
-        // Reset the presentation-only camera target immediately so target easing
-        // does not interpolate through unrelated world coordinates.
-        camera_state.target_initialized = false;
-    }
-    let snap_camera = blink_cam.camera_snap_timer > 0.0 || room_changed;
-
-    let (window_w, window_h) = windows
-        .single()
-        .map(|w| (w.width().max(1.0), w.height().max(1.0)))
-        .unwrap_or((
-            ambition_engine_core::config::WINDOW_W as f32,
-            ambition_engine_core::config::WINDOW_H as f32,
-        ));
-
-    #[cfg(feature = "portal_render")]
-    let (portal_continuity_enabled, portal_clamp_padding_center_world) = {
-        let enabled = portal_continuity
-            .selection
-            .as_deref()
-            .is_some_and(|selection| {
-                selection.mode == ambition_portal_presentation::PortalCameraTransitMode::Continuous
-            });
-        let padding = enabled
-            .then(|| {
-                portal_continuity
-                    .state
-                    .as_deref()
-                    .and_then(|state| state.clamp_padding_center_world)
-            })
-            .flatten();
-        (enabled, padding)
-    };
-    #[cfg(not(feature = "portal_render"))]
-    let portal_clamp_padding_center_world = None;
-
-    let focus = CameraFocus2d {
-        center_world: player_body.pos,
-        size: player_body.size,
-        base_size: player_base_size.base_size,
-        facing: player_body.facing,
-    };
-    let blink = CameraBlinkInput {
-        blink_in_timer: blink_cam.blink_in_timer,
-        blink_in_duration: blink_cam.blink_in_duration,
-        blink_camera_from: blink_cam.blink_camera_from,
-    };
-    // `mut` is REQUIRED under `portal_render`: the portal-continuity block below
-    // reassigns `snapshot.center_world` / `.rotation_radians`. Without that
-    // feature the block is compiled out and the binding isn't mutated, so the
-    // `mut` reads as unused — silence it only in that config (do NOT drop `mut`,
-    // which breaks the portal_render build).
+    // Presentation deltas apply to a COPY — the sim's resolved snapshot is
+    // read-only here.
     #[cfg_attr(not(feature = "portal_render"), allow(unused_mut))]
-    let mut snapshot = resolve_follow_camera_snapshot(
-        CameraSnapshotResolveInput {
-            world: &world.0,
-            camera_zones: &active_spec.camera_zones,
-            focus,
-            base_view,
-            viewport_px: ae::Vec2::new(window_w, window_h),
-            aspect_policy: user_settings.video.camera_aspect,
-            framing: user_settings.video.camera_framing,
-            overview_scale,
-            encounter_scale,
-            overview_camera: developer_tools.overview_camera,
-            snap_camera,
-            blink: Some(blink),
-            dt: time.delta_secs(),
-            mode: CameraSnapshotResolveMode::Eased,
-            extra_clamp_center_world: portal_clamp_padding_center_world,
-            ease_tuning: *ease_tuning,
-        },
-        Some(&mut *camera_state),
-    );
+    let mut snapshot = resolved.snapshot.clone();
+    let follow_world = resolved.follow_world;
 
+    #[cfg(not(feature = "portal_render"))]
+    {
+        // Without portal continuity nothing writes the extra clamp; keep it
+        // cleared so a stale pad can't linger across feature configs.
+        extra_clamp.0 = None;
+    }
     #[cfg(feature = "portal_render")]
-    let ordinary_center_world = snapshot.center_world;
-    #[cfg(feature = "portal_render")]
-    let portal_clamp_padding_still_needed =
-        (ordinary_center_world - snapshot.unpadded_center_world).length() > 0.5;
+    let _ = &mut extra_clamp; // written pre-resolve by publish_portal_camera_clamp
 
     #[cfg(feature = "portal_render")]
     {
+        let portal_continuity_enabled =
+            portal_continuity
+                .selection
+                .as_deref()
+                .is_some_and(|selection| {
+                    selection.mode
+                        == ambition_portal_presentation::PortalCameraTransitMode::Continuous
+                });
+        let ordinary_center_world = snapshot.center_world;
+        let portal_clamp_padding_still_needed =
+            (ordinary_center_world - snapshot.unpadded_center_world).length() > 0.5;
+
         if let Some(portal_state) = portal_continuity.state.as_deref_mut() {
             if portal_continuity_enabled {
                 let weight = portal_state.active_weight();
                 if weight > 0.0 {
                     let screen_offset = portal_state.body_screen_offset_world.unwrap_or(Vec2::ZERO);
-                    snapshot.center_world = player_body.pos - screen_offset;
+                    snapshot.center_world = follow_world - screen_offset;
                     portal_state.target_camera_world = Some(snapshot.center_world);
                 } else if !portal_clamp_padding_still_needed {
                     portal_state.clear_clamp_padding();

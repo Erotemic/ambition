@@ -62,6 +62,13 @@ impl HeadlessCameraHarness {
         app.init_resource::<PortalCameraContinuityConfig>();
         app.init_resource::<PortalCameraContinuityState>();
         app.init_resource::<PortalCameraContinuityHostView>();
+        // camera_follow is the PRESENTATION half now (E4-17): the sim's
+        // CameraObservationPlugin (inside SandboxSimulationPlugin's engine
+        // group) resolves the snapshot as a tail observer after
+        // CoreSimulation; the rig composes the render-side apply after it,
+        // exactly like the real host, and owns the render-side
+        // CameraViewState resource it registers.
+        app.init_resource::<CameraViewState>();
         app.add_systems(
             Update,
             (
@@ -72,7 +79,13 @@ impl HeadlessCameraHarness {
                 ambition_gameplay_core::portal::apply_portal_camera_continuity
                     .after(SandboxSet::CoreSimulation)
                     .before(camera_follow),
-                camera_follow.after(ambition_gameplay_core::portal::apply_portal_camera_continuity),
+                // Same-frame clamp pad into the sim resolve, like the host.
+                ambition_render::rendering::publish_portal_camera_clamp
+                    .after(ambition_gameplay_core::portal::apply_portal_camera_continuity)
+                    .before(ambition_gameplay_core::camera_snapshot::resolve_camera_observation),
+                camera_follow
+                    .after(ambition_gameplay_core::portal::apply_portal_camera_continuity)
+                    .after(ambition_gameplay_core::camera_snapshot::resolve_camera_observation),
             ),
         );
         app.world_mut().spawn((

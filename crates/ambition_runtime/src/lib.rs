@@ -106,6 +106,10 @@ impl PluginGroup for PlatformerEnginePlugins {
             .add(ambition_gameplay_core::trace::TraceSchedulePlugin)
             // Per-frame affordance table (what would each verb do right now).
             .add(ambition_gameplay_core::player::affordances::AffordancesPlugin)
+            // The camera OBSERVATION seam (E4-17): the sim resolves ONE
+            // follow-camera snapshot per tick (the only CameraEaseState
+            // writer); presentation consumes it. Headless/RL readers too.
+            .add(ambition_gameplay_core::camera_snapshot::CameraObservationPlugin)
             // The combat-phase chain + the content extension slots
             // (CombatSet::ContentSpecials / ContentFlavor).
             .add(CombatSchedulePlugin);

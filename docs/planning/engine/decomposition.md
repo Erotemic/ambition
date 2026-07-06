@@ -110,7 +110,7 @@ found drift — update the table in the same commit. LOC ≈ `wc -l`.)*
 | `persistence/` + `host/` + `quest/` | 5173 | **`ambition_persistence`** | **E1a** | owns stored-shape only; settings IR stays for E1e |
 | `character_sprites/` | 4335 | **`ambition_sprite_sheet`** | **E3** | + the asset-root flip |
 | `abilities/` + `ability_cooldown.rs` | 4211 | `ambition_actors`; **D-B carve candidate `ambition_abilities`** | E7→D-B | traversal kit reads controlled-subject + kinematics; carve iff outward-dep measurement is clean |
-| `assets/` | 3324 | `ambition_asset_manager` | E-assets | mechanical absorb |
+| `assets/` | 3324 | `ambition_asset_manager` | E-assets | **NOT a mechanical absorb (opus 2026-07-06 re-measured):** `gameplay_core/src/assets/` reaches UP into `session`(7)/`persistence`(4)/`features`(3)/`character_sprites`(3)/`rooms`(2)/`boss_encounter`(2)/`combat`(1) — moving it into the Tier-1 `ambition_asset_manager` would cycle. D2: invert/relocate those upward reads FIRST (dedicated session), then absorb. `ambition_asset_manager` already holds the foundational vocab (id/kind/location/manifest/policy/resolver/profile/preload, ~2.2k) |
 | `menu/` | 3189 | **`ambition_menu`** | **E1e** | + app/menu (below); LAST of E1 |
 | `dev/` | 2975 | **`ambition_dev_tools`** | E1d | + app/dev |
 | `items/` + `inventory_ui/` | 2689 | **`ambition_items`** | E8 | |
@@ -658,7 +658,11 @@ the facade, run the gate.
   renders/pages/curates) STAYS BEHIND for E1e; persistence exposes
   plain typed settings the IR reads. Exit: zero imports from menu/UI
   code (dep test).
-- **E1b `ambition_audio`** (audio/ + music/, 1.8k): mechanical.
+- **E1b `ambition_audio`** (audio/ + music/, 1.8k): **NOT mechanical
+  (opus 2026-07-06 re-measured):** `gameplay_core/src/{audio,music}` reaches
+  UP into `session`(2)/`persistence`(2)/`encounter`(2)/`rooms`(1)/`assets`(2)
+  — same D2 pattern (invert the upward reads first, then move into the existing
+  `ambition_audio` foundational crate, ~1k). A dedicated session, not a filler.
 - **E1c `ambition_dialog`** (dialog/ 2.2k): runtime + lint machinery;
   the game's Yarn BINDINGS stay sim-side (they reference actor state).
 - **E1d `ambition_dev_tools`** (core dev/ 3.0k + app dev/ 2.7k): one

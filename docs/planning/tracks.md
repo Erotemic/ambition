@@ -849,3 +849,39 @@ SimView observes composited-only + `WorldGeometryVersion`; placement ids
 REQUIRED now (LDtk iid / bake-synth — W-c's RemovePlacement forces them);
 unknown placement = hard error naming the registered kinds. A 5-step
 ordered OPUS-SAFE W execution queue replaces the questions.
+
+## 2026-07-06 (opus) — the decomposition-unblock run: W-a + E2 in-place + GeoId (+ SweepSample parked)
+Executed the ordered arc that makes the RESERVED risky carves (W2, E2's
+atomic move, CC6) cheap — each step in-place/additive, gate-green, one focused
+commit at a time. Landed:
+- **W-queue step 1 (W-a):** minted `ambition_entity_catalog::placements`
+  (`CharacterBrain`/`BossBrain`/`DamageKind`/`DamageTeam`/`HazardRespawn`) +
+  `ambition_engine_core::kinematic_path` (`KinematicPath`/`KinematicPathMode`);
+  repointed every consumer (bulk full-path sed + 5 grouped-brace uses + the two
+  `DamageKind` sites); deleted the old defs; NO shims; entity_catalog added as a
+  dep of combat/interaction/content/sim_view/app.
+- **E2 in-place verdicts (all 7, one commit each, byte-parity):** CenteredAabb +
+  HitEvent/HitTarget + FeatureEcsWorldOverlay off the `crate::features` hub →
+  combat-local paths; FactionRelations/FriendlyFire init owned by combat (rule 5);
+  minted `combat::CombatTuning{weight}` written at the two actor-spawn choke points
+  + the hitbox weight read converted off `Option<&ActorConfig>`; `damage.rs` writes
+  `GameplayBannerRequested` not the UI resource; `FeatureSimEntity` →
+  `platformer_primitives::lifecycle`. Combat's atomic move is now near-mechanical.
+- **W-queue step 4 (GeoId):** minted the `geo_id` substrate (`PlacementId`/
+  `GeoSource`/`GeoId`/`Face`/`GeoFaceRef`) + `Block.id` (Anon default, inert →
+  byte-parity). No consumer; real sources deferred to W2/CC6 per §3.6 rule 4.
+- **CC2 filler:** GroundItem pickup now carries the grep-able
+  `AMBITION_REVIEW(discrete_ok)` marker.
+**PARKED — W-queue step 3 (SweepSample §3.1):** genuine ECS-integration-seam
+ambiguity + guarded-code blast radius (in-kernel blink/`events.reset`
+discontinuities; ~20-site reset surface across 3 crates; reset protocol
+unverifiable until the byte-parity-risky hazard migration). Full decision brief
+above (recommendation: SweepSample as a `BodyClustersMut` member so the reset
+protocol is provably complete) — needs Jon's / fable-budget's ruling before it
+touches the hottest engine struct.
+**NOT STARTED (correctly) — E-assets + E1b:** re-measured as NOT mechanical
+(both reach up into session/persistence/features/rooms/encounter/combat — a
+cycle if moved into their Tier-1 target crates); each is a dedicated
+invert-then-move session, not a filler. Ledger rows corrected.
+Gate every commit: gameplay_core lib 1175, engine_core 252, content 64, full app
+rl_sim suite green (only the documented `unified_melee::a_hostile_actor` feel-RED).

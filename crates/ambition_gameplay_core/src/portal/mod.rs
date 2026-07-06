@@ -40,7 +40,7 @@ pub use ambition_portal_presentation::*;
 mod host_adapter {
     use bevy::prelude::*;
 
-    use ambition_platformer_primitives::world_query::SolidWorldQuery;
+    use ambition_engine_core::cast::SolidWorldQuery;
     use ambition_portal_presentation::{
         PortalCameraContinuityCamera, PortalCameraContinuityConfig, PortalCameraContinuityFocus,
         PortalCameraContinuityHostView, PortalCameraContinuitySelection,

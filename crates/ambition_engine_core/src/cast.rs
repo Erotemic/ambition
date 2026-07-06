@@ -15,25 +15,25 @@
 //!   entry (player movement solids, blink blockers, one-way landing tests, spawn
 //!   blockers, enemy collision all ask it their own question via the predicate).
 //!
-//! Deliberately NOT yet absorbed (single-owner in their correctly-layered homes;
-//! their move into `cast` is tracked, not lost):
-//! - the **swept-circle** primitive (`first_circle_hit`) is intimate with the
-//!   momentum kernel's surface types (`SurfaceChain`, `resolve_surface`) and
-//!   stays in [`crate::surface`]; extracting it without behavior change is its
-//!   own slice.
-//! - the **segment raycast** tier (`raycast_solids`/`ray_aabb`) lives in
-//!   `ambition_platformer_primitives` (it is generic over `SolidWorldQuery`);
-//!   the **portal-aware** cast (`raycast_through_portals`) lives in
-//!   `ambition_portal` and depends on portal geometry — its absorption is the
-//!   `PortalFrame` slice (CC5), which introduces the engine-level aperture type
-//!   this module would need to own a portal-aware cast without inverting layers.
+//! - **Segment ray vs the solid world** — [`raycast_solids`] over the narrow
+//!   [`SolidWorldQuery`] seam, and the underlying [`ray_aabb`] slab query
+//!   (moved down from `ambition_platformer_primitives` per the CC1 ruling —
+//!   collision-and-ccd.md §3.4(b)).
+//!
+//! Deliberately NOT absorbed (ruled, collision-and-ccd.md §3.4(a)): the
+//! **swept-circle** primitive (`first_circle_hit`) is load-bearing interior of
+//! the momentum kernel (`SurfaceChain` / `resolve_surface` intimacy, on the
+//! no-pushout/OOB path) and stays kernel-private in [`crate::surface`]; a
+//! public swept-circle query is minted here only when a consumer outside the
+//! kernel lands. The **portal-aware** cast rides CC5's aperture vocabulary
+//! ([`crate::frame`]).
 //!
 //! CC2 (the trigger-sweep audit) converts discrete path-dependent readers to
 //! call THESE entry points; new unswept readers are then a flagged review
 //! pattern.
 
 use crate::geometry::Aabb;
-use crate::world::{Block, SweepHit, World};
+use crate::world::{Block, BlockKind, SweepHit, World};
 use crate::Vec2;
 
 // The swept-AABB primitive + its hit record — re-exported so `cast` is the ONE
@@ -86,6 +86,100 @@ pub fn aabb_path_contacts(center: Vec2, half: Vec2, delta: Vec2, target: Aabb) -
     Aabb::new(center - delta, half)
         .sweep_hit(delta, target)
         .is_some()
+}
+
+/// The minimal world access [`raycast_solids`] needs: a way to visit every solid
+/// AABB the ray could hit.
+///
+/// `raycast_solids` only ever reads, per block, whether the block is hittable
+/// (given the `include_one_way` policy) and its [`Aabb`]. This trait captures
+/// exactly that — the world decides which blocks count as solid; the raycast
+/// just consumes their AABBs. (Moved down from
+/// `ambition_platformer_primitives::world_query`, CC1 ruling §3.4(b); the
+/// canonical `impl` for [`World`] lives right below, beside the type.)
+pub trait SolidWorldQuery {
+    /// Invoke `visit` once for each solid AABB the ray should test.
+    ///
+    /// When `include_one_way` is true, one-way platforms are visited too;
+    /// otherwise they are skipped (blink/dive/grapple pass through them, while
+    /// portal placement adheres to them).
+    fn for_each_solid_aabb(&self, include_one_way: bool, visit: &mut dyn FnMut(Aabb));
+}
+
+/// The engine_core world's solid-block policy: `Solid` and `BlinkWall` blocks
+/// are always hittable; one-way platforms only when `include_one_way` is set
+/// (portal placement adheres to them; blink/dive/grapple pass through).
+impl SolidWorldQuery for World {
+    fn for_each_solid_aabb(&self, include_one_way: bool, visit: &mut dyn FnMut(Aabb)) {
+        for block in &self.blocks {
+            let hittable = matches!(block.kind, BlockKind::Solid | BlockKind::BlinkWall { .. })
+                || (include_one_way && matches!(block.kind, BlockKind::OneWay));
+            if hittable {
+                visit(block.aabb);
+            }
+        }
+    }
+}
+
+/// Nearest solid surface hit by a ray from `origin` along `dir`.
+///
+/// Returns the hit point and the outward face normal (pointing back toward the
+/// ray). `include_one_way` is opt-in because blink/dive/grapple pathing can pass
+/// through one-way platforms, while portal placement should adhere to them.
+pub fn raycast_solids<W: SolidWorldQuery + ?Sized>(
+    world: &W,
+    origin: Vec2,
+    dir: Vec2,
+    max_dist: f32,
+    include_one_way: bool,
+) -> Option<(Vec2, Vec2)> {
+    let dir = dir.normalize_or_zero();
+    if dir == Vec2::ZERO {
+        return None;
+    }
+    let mut best_t = max_dist;
+    let mut best_normal = Vec2::ZERO;
+    world.for_each_solid_aabb(include_one_way, &mut |aabb| {
+        if let Some((t, n)) = ray_aabb(origin, dir, aabb) {
+            if t < best_t {
+                best_t = t;
+                best_normal = n;
+            }
+        }
+    });
+    if best_normal == Vec2::ZERO {
+        None
+    } else {
+        Some((origin + dir * best_t, best_normal))
+    }
+}
+
+/// Ray-vs-AABB slab query. Returns `(t_near, face_normal)` for a forward hit
+/// (`t >= 0`).
+pub fn ray_aabb(origin: Vec2, dir: Vec2, aabb: Aabb) -> Option<(f32, Vec2)> {
+    // 1/0 -> +/-inf is the intended slab-method behavior for axis-parallel rays.
+    let inv = Vec2::new(1.0 / dir.x, 1.0 / dir.y);
+    let tx1 = (aabb.min.x - origin.x) * inv.x;
+    let tx2 = (aabb.max.x - origin.x) * inv.x;
+    let ty1 = (aabb.min.y - origin.y) * inv.y;
+    let ty2 = (aabb.max.y - origin.y) * inv.y;
+    let tminx = tx1.min(tx2);
+    let tmaxx = tx1.max(tx2);
+    let tminy = ty1.min(ty2);
+    let tmaxy = ty1.max(ty2);
+    let t_near = tminx.max(tminy);
+    let t_far = tmaxx.min(tmaxy);
+    if t_near > t_far || t_far < 0.0 {
+        return None;
+    }
+    // The axis that produced t_near is the face we hit; its normal opposes
+    // the ray's travel on that axis.
+    let normal = if tminx > tminy {
+        Vec2::new(-dir.x.signum(), 0.0)
+    } else {
+        Vec2::new(0.0, -dir.y.signum())
+    };
+    Some((t_near.max(0.0), normal))
 }
 
 #[cfg(test)]

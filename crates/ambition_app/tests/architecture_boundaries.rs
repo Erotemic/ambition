@@ -372,7 +372,6 @@ fn architecture_boundaries_platformer_runtime_crate_is_extracted() {
             "src/lifecycle/cleanup.rs",
             "src/math.rs",
             "src/transit.rs",
-            "src/world_query.rs",
             "src/body.rs",
             "src/gravity.rs",
             "src/orientation.rs",

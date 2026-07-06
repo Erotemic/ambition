@@ -32,6 +32,7 @@ pub mod cast;
 pub mod collision_semantics;
 pub mod combat_volume;
 pub mod config;
+pub mod frame;
 pub mod geometry;
 pub mod ledge_grab;
 pub mod movement;

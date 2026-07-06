@@ -16,4 +16,3 @@ pub mod projectile;
 pub mod schedule;
 pub mod time;
 pub mod transit;
-pub mod world_query;

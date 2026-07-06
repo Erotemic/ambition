@@ -10,7 +10,7 @@
 //!
 //! Stage 16 moved the generic body / world-query / body-kinematics surface into
 //! the crate too: `body` and `collision` are now thin facades re-exporting
-//! `ambition_platformer_primitives::{body, world_query}`.
+//! `ambition_platformer_primitives::body` / `ambition_engine_core::cast`.
 //!
 //! The not-yet-extracted remainder stays here because it still reaches back into
 //! the sandbox and is therefore NOT import-clean:

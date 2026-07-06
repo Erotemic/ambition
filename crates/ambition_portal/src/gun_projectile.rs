@@ -6,7 +6,7 @@
 //! [`step_portal_shot`] helper here only for Ambition's current gun workflow.
 //!
 //! World access is captured through the reusable
-//! [`SolidWorldQuery`](ambition_platformer_primitives::world_query::SolidWorldQuery)
+//! [`SolidWorldQuery`](ambition_engine_core::cast::SolidWorldQuery)
 //! seam — the pure [`step_portal_shot`] helper raycasts against it (plus a
 //! world-bounds rectangle) and decides the outcome, so portal core never reads
 //! the concrete `Res<RoomGeometry>`. The Bevy adapter that owns `RoomGeometry` lives in
@@ -14,8 +14,8 @@
 
 use bevy::prelude::*;
 
+use ambition_engine_core::cast::{raycast_solids, SolidWorldQuery};
 use ambition_platformer_primitives::prelude::SpawnScopedExt;
-use ambition_platformer_primitives::world_query::{raycast_solids, SolidWorldQuery};
 
 use super::color::PortalChannel;
 use super::messages::{PortalFireIntent, PortalShotFired};
@@ -74,7 +74,7 @@ pub fn portal_fire_system(
 /// concrete world type.
 ///
 /// `solids` is the reusable
-/// [`SolidWorldQuery`](ambition_platformer_primitives::world_query::SolidWorldQuery)
+/// [`SolidWorldQuery`](ambition_engine_core::cast::SolidWorldQuery)
 /// surface (Stage 16); `size` is the world rectangle (origin at `(0,0)`) the
 /// shot fizzles 64px outside of.
 pub struct PortalShotWorld<'a, W: SolidWorldQuery + ?Sized> {

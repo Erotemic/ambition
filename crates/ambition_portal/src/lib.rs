@@ -46,7 +46,6 @@ pub use ambition_platformer_primitives::orientation::{
     ensure_actor_roll, update_actor_roll, ActorRoll,
 };
 pub use ambition_platformer_primitives::transit::rotate_velocity_between_normals as portal_transform_velocity;
-pub use ambition_platformer_primitives::world_query::raycast_solids;
 
 pub use color::{PortalChannel, PortalChannelColor, PortalGunColor};
 pub use eviction::{evict_straddlers_on_portal_change, PortalFrameHistory};

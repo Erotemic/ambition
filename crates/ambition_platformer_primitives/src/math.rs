@@ -66,9 +66,10 @@ pub fn rotate(v: Vec2, cs: (f32, f32)) -> Vec2 {
 /// normal" that fixes which way is "along" the doorway: the normal rotated +90°.
 /// (floor → +x, ceiling → -x, right-wall → -y, left-wall → +y.) The portal map
 /// preserves the tangent component, so it does NOT mirror your along-surface
-/// direction the way a bare rotation would.
+/// direction the way a bare rotation would. Delegates to the ONE handedness
+/// definition, [`ambition_engine_core::frame::tangent_of`] (CC5).
 pub fn portal_tangent(normal: Vec2) -> Vec2 {
-    Vec2::new(-normal.y, normal.x)
+    ambition_engine_core::frame::tangent_of(normal)
 }
 
 /// The IDEAL portal map for a free vector (velocity / spatial offset), given a
@@ -91,10 +92,15 @@ pub fn portal_map_vec(v: Vec2, n_in: Vec2, n_out: Vec2) -> Vec2 {
 /// Tangent-**reflection** map (det −1, the default): along-surface component
 /// PRESERVED. Floor↔floor keeps horizontal direction; opposite-wall / thin-wall
 /// pairs vertically FLIP. Pure — does not read the global convention.
+/// Delegates to the ONE implementation
+/// ([`ambition_engine_core::frame::map_vec_between`], CC5).
 pub fn portal_map_vec_reflection(v: Vec2, n_in: Vec2, n_out: Vec2) -> Vec2 {
-    let into = -v.dot(n_in);
-    let along = v.dot(portal_tangent(n_in));
-    into * n_out + along * portal_tangent(n_out)
+    ambition_engine_core::frame::map_vec_between(
+        v,
+        n_in,
+        n_out,
+        ambition_engine_core::frame::MapConvention::Reflection,
+    )
 }
 
 /// **Rotation** map (det +1): the bare rotation taking `−n_in` onto `n_out`;
@@ -102,10 +108,15 @@ pub fn portal_map_vec_reflection(v: Vec2, n_in: Vec2, n_out: Vec2) -> Vec2 {
 /// pairs become the IDENTITY (a door that looks "almost normal" — the far side
 /// just shifted by the portals' displacement = the wall thickness); floor↔floor
 /// reverses horizontal (a true 180° turn). Pure — does not read the global.
+/// Delegates to the ONE implementation
+/// ([`ambition_engine_core::frame::map_vec_between`], CC5).
 pub fn portal_map_vec_rotation(v: Vec2, n_in: Vec2, n_out: Vec2) -> Vec2 {
-    let into = -v.dot(n_in);
-    let along = v.dot(portal_tangent(n_in));
-    into * n_out - along * portal_tangent(n_out)
+    ambition_engine_core::frame::map_vec_between(
+        v,
+        n_in,
+        n_out,
+        ambition_engine_core::frame::MapConvention::Rotation,
+    )
 }
 
 #[cfg(test)]

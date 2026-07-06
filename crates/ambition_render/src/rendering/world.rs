@@ -403,7 +403,7 @@ pub fn spawn_block(
 ) {
     let size = block.aabb.half_size() * 2.0;
     let render = BVec2::new(size.x, size.y);
-    // IntGrid-derived blocks (named "ldtk *" by `int_grid_value_to_block`)
+    // IntGrid-derived blocks (`GeoSource::TileLayer` provenance)
     // can be arbitrary aspect ratios (1904×32 floors, 48×240 pillars, …).
     // Stretching the single 128-px entity-art textures across those
     // smears the texture's internal structure into a false repeat.
@@ -417,7 +417,9 @@ pub fn spawn_block(
     // (e.g. authored Solid rectangles outside the IntGrid layer) keep
     // the entity-art path because their footprints match the texture
     // aspect ratio.
-    let is_intgrid_block = block.name.starts_with("ldtk ");
+    // Provenance, not a name sniff (W2): the IR emission stamps tile-derived
+    // geometry with `GeoSource::TileLayer`; `name` is a display label only.
+    let is_intgrid_block = matches!(block.id.source, ae::GeoSource::TileLayer { .. });
     let sprite_key = if is_intgrid_block {
         game_assets::block_tile_sprite(block.kind)
     } else {

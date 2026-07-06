@@ -41,7 +41,15 @@ pub fn aabb_from_min_size(min: Vec2, size: Vec2) -> Aabb {
 /// footprint (feature geometry, pickups, triggers). It deliberately mirrors the
 /// `Aabb::new(center, half)` constructor convention so the two are trivially
 /// interchangeable.
-#[derive(bevy_ecs::component::Component, Clone, Copy, Debug, PartialEq)]
+#[derive(
+    bevy_ecs::component::Component,
+    Clone,
+    Copy,
+    Debug,
+    PartialEq,
+    serde::Serialize,
+    serde::Deserialize,
+)]
 pub struct CenteredAabb {
     pub center: Vec2,
     pub half_size: Vec2,

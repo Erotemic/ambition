@@ -33,8 +33,8 @@ fn intgrid_rect_merge_collapses_a_horizontal_run() {
         int_grid_csv: vec![1; 5],
         grid_tiles: Vec::new(),
     };
-    let blocks =
-        emit_collision_blocks_from_intgrid(&layer, ae::Vec2::ZERO).expect("merge succeeds");
+    let blocks = emit_collision_blocks_from_intgrid(&layer, ae::Vec2::ZERO, "test/Collision")
+        .expect("merge succeeds");
     assert_eq!(blocks.len(), 1, "horizontal run should merge to one block");
     let block = &blocks[0];
     assert!(matches!(block.kind, ae::BlockKind::Solid));
@@ -69,8 +69,8 @@ fn intgrid_rect_merge_does_not_collapse_columns_into_vertical_bars() {
         ],
         grid_tiles: Vec::new(),
     };
-    let blocks =
-        emit_collision_blocks_from_intgrid(&layer, ae::Vec2::ZERO).expect("merge succeeds");
+    let blocks = emit_collision_blocks_from_intgrid(&layer, ae::Vec2::ZERO, "test/Collision")
+        .expect("merge succeeds");
     assert_eq!(
         blocks.len(),
         3,
@@ -102,8 +102,8 @@ fn intgrid_rect_merge_separates_distinct_values() {
         ],
         grid_tiles: Vec::new(),
     };
-    let blocks =
-        emit_collision_blocks_from_intgrid(&layer, ae::Vec2::ZERO).expect("merge succeeds");
+    let blocks = emit_collision_blocks_from_intgrid(&layer, ae::Vec2::ZERO, "test/Collision")
+        .expect("merge succeeds");
     assert_eq!(blocks.len(), 3);
     assert!(matches!(blocks[0].kind, ae::BlockKind::Solid));
     assert!(matches!(blocks[1].kind, ae::BlockKind::OneWay));
@@ -216,4 +216,32 @@ fn climbable_intgrid_returns_empty_for_all_zero_layer() {
     let layer = super::intgrid_layer(CLIMBABLE_LAYER, 4, 4, vec![0; 16]);
     let regions = emit_climbable_regions_from_intgrid(&layer, ae::Vec2::ZERO).unwrap();
     assert!(regions.is_empty());
+}
+
+#[test]
+fn intgrid_blocks_carry_level_scoped_tile_layer_geo_ids() {
+    // §3.6: tile-derived geometry is durably named by the level-scoped layer
+    // key + the deterministic merge ordinal. Two separated runs on one layer
+    // must get distinct, stable ordinals in row-major merge order.
+    let layer = LdtkLayerInstance {
+        identifier: "Collision".to_string(),
+        layer_type: "IntGrid".to_string(),
+        c_wid: 3,
+        c_hei: 1,
+        grid_size: 16,
+        entity_instances: Vec::new(),
+        int_grid_csv: vec![1, 0, 1],
+        grid_tiles: Vec::new(),
+    };
+    let blocks = emit_collision_blocks_from_intgrid(&layer, ae::Vec2::ZERO, "wake_room/Collision")
+        .expect("merge succeeds");
+    assert_eq!(blocks.len(), 2);
+    assert_eq!(
+        blocks[0].id,
+        ae::GeoId::tile_layer("wake_room/Collision", 0)
+    );
+    assert_eq!(
+        blocks[1].id,
+        ae::GeoId::tile_layer("wake_room/Collision", 1)
+    );
 }

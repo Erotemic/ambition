@@ -169,12 +169,19 @@ pub(super) fn merge_intgrid_rects(
 pub(super) fn emit_collision_blocks_from_intgrid(
     layer: &LdtkLayerInstance,
     offset: ae::Vec2,
+    geo_layer_key: &str,
 ) -> Result<Vec<ae::Block>, String> {
     let rects = merge_intgrid_rects(layer, offset)?;
     let mut blocks = Vec::with_capacity(rects.len());
-    for (value, min, size) in rects {
-        let block = int_grid_value_to_block(value, min, size)
+    for (ordinal, (value, min, size)) in rects.into_iter().enumerate() {
+        let mut block = int_grid_value_to_block(value, min, size)
             .map_err(|message| format!("rect value={value} {size:?}: {message}"))?;
+        // Durable identity (collision-and-ccd.md §3.6): the merge is
+        // deterministic (row-major coalesce, then column stack), so the
+        // ordinal is stable for a given map. `geo_layer_key` is
+        // level-scoped ("{level}/{layer}") because an active area can span
+        // multiple levels that each carry this layer.
+        block.id = ae::GeoId::tile_layer(geo_layer_key, ordinal as u16);
         blocks.push(block);
     }
     Ok(blocks)

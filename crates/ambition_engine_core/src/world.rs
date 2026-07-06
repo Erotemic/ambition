@@ -7,7 +7,7 @@ use crate::geometry::{aabb_from_min_size, Aabb, AabbExt};
 use crate::Vec2;
 
 /// Upgrade tier required to blink through a blink wall.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum BlinkWallTier {
     /// Intended to be passable by an early blink-phasing upgrade.
     Soft,
@@ -16,7 +16,7 @@ pub enum BlinkWallTier {
 }
 
 /// Collision/gameplay meaning of a generated world block.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub enum BlockKind {
     /// Full collision on both axes, and also a hard blocker for blink pathing.
     Solid,
@@ -46,7 +46,7 @@ impl BlockKind {
 }
 
 /// One piece of generated room geometry.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Block {
     /// Durable geometry identity (collision-and-ccd.md §3.6). `name` stays the
     /// human label; `id` is what `WorldDelta` ops / the CC6 portal host ref /
@@ -151,7 +151,7 @@ impl Block {
 
 /// Authored water volume tuning. The simulation reads this when the
 /// player is inside the AABB.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct WaterVolumeSpec {
     /// Multiplier on gravity while submerged (1.0 = normal, 0.25 ≈
     /// "floaty"). Default 0.30.
@@ -182,7 +182,7 @@ impl Default for WaterVolumeSpec {
 /// source-agnostic: the runtime only cares about the kind for things
 /// like obscuring vision (Murky) or unique tuning. Authoring layer
 /// chooses entities or IntGrid per-room based on shape needs.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum WaterKind {
     /// Mostly transparent. Player and submerged geometry stay visible.
     Clear,
@@ -193,7 +193,7 @@ pub enum WaterKind {
 /// One axis-aligned water region on the world grid. Multiple regions
 /// may exist in the same room; queries return the first that contains
 /// the player AABB.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct WaterRegion {
     pub aabb: Aabb,
     pub kind: WaterKind,
@@ -227,7 +227,7 @@ pub struct WaterContact {
 /// source-agnostic: movement only reads `kind` for behavior tweaks
 /// (vine sway, ladder-rung snap). Authoring layer chooses entities or
 /// IntGrid per-room based on shape needs.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum ClimbableKind {
     /// Rigid ladder; vertical + minor horizontal movement allowed.
     Ladder,
@@ -242,7 +242,7 @@ pub enum ClimbableKind {
 /// Authored tuning for a climbable region. Mirrors `WaterVolumeSpec`
 /// so authoring layers can opt into per-region tuning when the
 /// default needs an override.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ClimbableSpec {
     /// Vertical climb speed (px/sec). Default 180 — slower than walk
     /// (≈ 360) so climbing reads as a deliberate movement choice.
@@ -265,7 +265,7 @@ impl Default for ClimbableSpec {
 /// One axis-aligned climbable region. Multiple regions may exist in
 /// the same room; queries return the first that contains the player
 /// AABB.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ClimbableRegion {
     pub aabb: Aabb,
     pub kind: ClimbableKind,
@@ -303,7 +303,7 @@ pub struct ClimbableContact {
 
 /// Gameplay meaning of a [`SurfaceChain`]. Deliberately tiny — semantics grow
 /// when content demands them (design-balance: knobs when use cases land).
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum SurfaceKind {
     /// A rideable ground surface (slopes, hills, loop tracks).
     Ground,
@@ -342,7 +342,7 @@ pub struct SurfaceFrame {
 /// - Chains are collision geometry ONLY for bodies that opt in (the
 ///   surface-momentum motion model). The axis-swept AABB path never sees
 ///   them — AABB stays the protected fast path.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct SurfaceChain {
     pub name: String,
     /// Polyline vertices. For a `closed` chain the last point connects back
@@ -575,7 +575,7 @@ fn segments_cross(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) -> bool {
 /// sandbox-side `RoomSpec` in per-family Vecs — see
 /// `crate::rooms::RoomSpec` in `ambition_gameplay_core`. The engine has no
 /// authored-entity IR.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct World {
     pub name: String,
     pub size: Vec2,

@@ -317,7 +317,10 @@ pub fn compile_surface(spec: &LdtkSurfaceSpec) -> Result<SurfaceCompiled, String
 
     match spec.breakability {
         SurfaceBreakability::Indestructible => {
-            if let Some(block) = compile_static_surface_block(spec)? {
+            if let Some(mut block) = compile_static_surface_block(spec)? {
+                // Durable identity (§3.6): entity-authored geometry is named
+                // by its placement (the LDtk iid); one block per surface.
+                block.id = ae::GeoId::placement(ae::PlacementId::new(spec.iid.clone()), 0);
                 blocks.push(block);
             }
         }

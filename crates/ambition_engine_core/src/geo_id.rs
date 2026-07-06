@@ -16,7 +16,7 @@
 /// synthesized `"{room}:{index}"`). The [W-d] record-layer id, lifted to
 /// engine_core because `GeoSource` (geometry vocabulary) names it and Tier-0/2
 /// both sit around this crate.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct PlacementId(pub String);
 
 impl PlacementId {
@@ -30,7 +30,7 @@ impl PlacementId {
 }
 
 /// WHERE a piece of geometry came from — the durable half of a [`GeoId`].
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum GeoSource {
     /// Entity-authored geometry (a Solid/OneWay/SurfaceChain LDtk entity, or any
     /// backend's placement): the placement id IS the identity.
@@ -55,7 +55,7 @@ pub enum GeoSource {
 
 /// Durable identity of one piece of ROOM geometry: WHERE it came from + its
 /// deterministic ordinal within that source's emission.
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct GeoId {
     pub source: GeoSource,
     pub index: u16,
@@ -101,7 +101,7 @@ impl Default for GeoId {
 ///
 /// AABB blocks use the four world-axis faces (`+y` grows DOWN, so `Top` is the
 /// `min.y` face). Chains/polygons use `Segment(k)` — the polyline segment index.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Face {
     Top,
     Bottom,
@@ -112,7 +112,7 @@ pub enum Face {
 
 /// A face + position on identified geometry — the "host face" vocabulary moving
 /// portals, deltas, and traces share (the CC6 `PortalHostRef`).
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct GeoFaceRef {
     pub geo: GeoId,
     pub face: Face,

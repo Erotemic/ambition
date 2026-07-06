@@ -226,7 +226,8 @@ impl LdtkProject {
             // collapses a typical floor of N cells into one block while
             // keeping the IntGrid as the authoring representation.
             if let Some(layer) = level.collision_layer() {
-                match emit_collision_blocks_from_intgrid(layer, offset) {
+                let geo_layer_key = format!("{}/{}", level.identifier, layer.identifier);
+                match emit_collision_blocks_from_intgrid(layer, offset, &geo_layer_key) {
                     Ok(layer_blocks) => blocks.extend(layer_blocks),
                     Err(message) => {
                         errors.push(format!("level '{}' Collision: {message}", level.identifier))

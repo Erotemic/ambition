@@ -10,7 +10,7 @@ use crate::Vec2;
 
 /// Declarative movement path for moving platforms, spike balls, patrol dummies,
 /// and later scripted boss hazards.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct KinematicPath {
     pub points: Vec<Vec2>,
     pub speed: f32,
@@ -34,7 +34,7 @@ impl KinematicPath {
 }
 
 /// Playback style for a kinematic path.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum KinematicPathMode {
     Once,
     Loop,

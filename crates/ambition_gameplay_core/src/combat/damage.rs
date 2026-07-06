@@ -593,7 +593,7 @@ pub fn apply_player_hit_events(
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     user_settings: Res<crate::persistence::settings::UserSettings>,
-    feature_ecs_overlay: Res<features::FeatureEcsWorldOverlay>,
+    feature_ecs_overlay: Res<crate::combat::overlay::FeatureEcsWorldOverlay>,
     mut sim_state: ResMut<SandboxSimState>,
     mut clock: ResMut<ClockState>,
     mut banner_requests: MessageWriter<GameplayBannerRequested>,

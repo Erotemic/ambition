@@ -22,12 +22,13 @@ use ambition_characters::brain::{ActorActionMessage, ActorControl, MeleeActionSp
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_vfx::vfx::{SlashKind, VfxMessage};
 
+use crate::combat::overlay::FeatureEcsWorldOverlay;
 use crate::combat::{
     attack_hitbox_from_view, attack_spec_from_view, resolve_attack_intent_from_view, AttackIntent,
     AttackPhase, AttackView,
 };
 use crate::dev::dev_tools::EditableMovementTuning;
-use crate::features::{self, FeatureEcsWorldOverlay};
+use crate::features;
 use crate::player::{BodyAnimFacts, BodyMelee};
 use crate::time::feel::SandboxFeelTuning;
 use crate::world::platforms::MovingPlatformState;

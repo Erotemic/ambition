@@ -421,8 +421,10 @@ committable slice; render-side reads become SimView fields):**
     post-sim observers anchor `.after(CoreSimulation)`, never in that
     set. AJ14's `observer_velocity` field rides the sim_view mint (the
     snapshot builder now lives sim-side, so it's a field addition).
-18. fx blink preview (`MovingPlatformSet` + composed world) → a
-    sim-computed `BlinkPreviewFact { target_point, valid }`.
+18. ✅ fx blink preview → `sim_view::BlinkPreviewFact { active, target,
+    precision, body_min_extent }`, resolved sim-side with the SAME
+    destination math the actual blink uses (fable 2026-07-06); render
+    only draws the ember ring.
 19. ✅ **DONE (fable 2026-07-06): the extraction systems moved
     sim-side.** `FeatureViewSyncSchedulePlugin` (already the
     observation-rebuild plugin, in the engine group) now owns

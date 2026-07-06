@@ -825,87 +825,27 @@ pub fn spawn_blink_effects(
 
 /// Live ring of orbiting embers showing where the next blink will land.
 ///
-/// Runs every frame while the blink button is held (or aim is engaged) and
-/// the player has the `blink` ability. Mirrors the destination resolution
-/// used by the engine and the `show_blink_preview` debug overlay so the
-/// preview can never disagree with the eventual teleport endpoint:
-/// precision aim uses `blink_destination_to_point` against the steered
-/// offset, quick-tap uses `blink_destination` along input/facing.
-///
-/// The blink button shares ground with menu input, so this honours the same
-/// gameplay-only gate as `draw_player_debug` — paused / dialog states do not
-/// light up the ring.
+/// Pure consumer of the sim-resolved
+/// [`ambition_gameplay_core::sim_view::BlinkPreviewFact`] (E4 slice 18):
+/// the destination is computed sim-side with the SAME resolution the actual
+/// blink uses, so the preview can never disagree with the eventual teleport
+/// endpoint. This system only draws the ember ring.
 #[cfg(feature = "input")]
 pub fn update_blink_preview(
     mut commands: Commands,
     time: Res<Time>,
     world: Res<ambition_engine_core::RoomGeometry>,
-    platform_set: Res<ambition_gameplay_core::MovingPlatformSet>,
-    mode: Res<State<ambition_gameplay_core::game_mode::GameMode>>,
-    scene: Res<ambition_platformer_primitives::lifecycle::SceneEntities>,
-    action_query: Query<
-        &leafwing_input_manager::prelude::ActionState<ambition_input::SandboxAction>,
-        bevy::prelude::With<ambition_platformer_primitives::lifecycle::PlayerVisual>,
-    >,
-    // The blink reticle previews from the CONTROLLED SUBJECT (the body carrying
-    // `Brain::Player(PRIMARY)`) — the body you are driving — not a `PrimaryPlayer`
-    // filter, so it follows a possessed body instead of hovering at the vacated
-    // home avatar. Both player and actor bodies carry these blink clusters.
-    controlled: Res<ambition_gameplay_core::abilities::traversal::possession::ControlledSubject>,
-    player_q: Query<(
-        &ambition_platformer_primitives::body::BodyKinematics,
-        &ambition_engine_core::BodyAbilities,
-        &ambition_engine_core::BodyBlinkState,
-    )>,
+    fact: Res<ambition_gameplay_core::sim_view::BlinkPreviewFact>,
     mut existing: Query<(Entity, &BlinkPreviewVisual, &mut Transform, &mut Sprite)>,
 ) {
-    use ambition_input::ControlFrame;
-
-    let Ok((kin, abilities, blink_state)) =
-        controlled.0.and_then(|e| player_q.get(e).ok()).ok_or(())
-    else {
-        for (entity, _, _, _) in &existing {
-            commands.entity(entity).despawn();
-        }
-        return;
-    };
-    let actions = if mode.get().allows_gameplay() {
-        action_query.get(scene.player).ok()
-    } else {
-        None
-    };
-    let controls = actions.map(ControlFrame::read_gameplay).unwrap_or_default();
-
-    let active = abilities.abilities.blink && (controls.blink_held || blink_state.aiming);
-
-    if !active {
+    if !fact.active {
         for (entity, _, _, _) in &existing {
             commands.entity(entity).despawn();
         }
         return;
     }
-
-    // Match the debug overlay's destination resolution exactly. The
-    // moving-platform-aware temporary world is what the actual blink
-    // resolves against, so the preview must use it too.
-    let blink_world = ambition_gameplay_core::world::platforms::world_with_moving_platforms(
-        &world.0,
-        &platform_set.0,
-    );
-    let target = if blink_state.aiming {
-        ae::blink_destination_to_point_clusters(
-            &blink_world,
-            kin,
-            abilities,
-            kin.pos + blink_state.aim_offset,
-        )
-    } else {
-        let aim = ae::Vec2::new(controls.axis_x, controls.axis_y)
-            .normalize_or(ae::Vec2::new(kin.facing, 0.0));
-        ae::blink_destination_clusters(&blink_world, kin, abilities, aim, ae::BLINK_DISTANCE)
-    };
-
-    let precision = blink_state.aiming;
+    let target = fact.target;
+    let precision = fact.precision;
     // Match the post-blink burst palette so the preview reads as
     // "this is what's about to happen here".
     let color = if precision {
@@ -915,10 +855,10 @@ pub fn update_blink_preview(
     };
 
     const RING_EMBERS: usize = 4;
-    let radius = kin.size.min_element() * 0.45;
+    let radius = fact.body_min_extent * 0.45;
     let spin = time.elapsed_secs() * 2.4;
     let pulse = 1.0 + 0.18 * (time.elapsed_secs() * 5.5).sin();
-    let ember_size = (kin.size.min_element() * 0.18) * pulse;
+    let ember_size = (fact.body_min_extent * 0.18) * pulse;
 
     let mut emitted = 0;
     for (_, ember, mut transform, mut sprite) in &mut existing {

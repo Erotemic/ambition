@@ -448,6 +448,100 @@ pub fn rebuild_dynamic_feature_views(
     }
 }
 
+/// The live blink-destination preview, resolved sim-side (E4 slice 18): the
+/// SAME destination resolution the actual blink uses (precision aim via
+/// `blink_destination_to_point_clusters`, quick-tap along input/facing, both
+/// against the moving-platform-composed world), so the preview can never
+/// disagree with the eventual teleport endpoint. Render draws the ember
+/// ring; it computes nothing.
+#[derive(Resource, Default, Clone, Copy, Debug)]
+pub struct BlinkPreviewFact {
+    /// Ring visible this tick (blink held / aiming, ability owned, gameplay
+    /// allowed).
+    pub active: bool,
+    /// Predicted landing point.
+    pub target: ae::Vec2,
+    /// Precision (steered) aim vs quick-tap — picks the ember palette.
+    pub precision: bool,
+    /// The blinking body's smaller AABB extent — ring radius + ember size
+    /// scale off it.
+    pub body_min_extent: f32,
+}
+
+/// Rebuild [`BlinkPreviewFact`] each tick. Mirrors the destination
+/// resolution used by the engine and the `show_blink_preview` debug overlay.
+/// The blink button shares ground with menu input, so this honours the same
+/// gameplay-only gate as `draw_player_debug` — paused / dialog states don't
+/// light up the ring.
+#[cfg(feature = "input")]
+#[allow(clippy::type_complexity)]
+pub fn rebuild_blink_preview_fact(
+    mut fact: ResMut<BlinkPreviewFact>,
+    world: Res<ambition_engine_core::RoomGeometry>,
+    platform_set: Res<crate::MovingPlatformSet>,
+    mode: Res<bevy::prelude::State<crate::game_mode::GameMode>>,
+    scene: Res<ambition_platformer_primitives::lifecycle::SceneEntities>,
+    action_query: Query<
+        &leafwing_input_manager::prelude::ActionState<ambition_input::SandboxAction>,
+        With<ambition_platformer_primitives::lifecycle::PlayerVisual>,
+    >,
+    // The blink reticle previews from the CONTROLLED SUBJECT (the body
+    // carrying `Brain::Player(PRIMARY)`) — the body you are driving — so it
+    // follows a possessed body instead of hovering at the vacated home
+    // avatar. Both player and actor bodies carry these blink clusters.
+    controlled: Res<ControlledSubject>,
+    player_q: Query<(
+        &BodyKinematics,
+        &ambition_engine_core::BodyAbilities,
+        &ambition_engine_core::BodyBlinkState,
+    )>,
+) {
+    use ambition_engine_core as ae;
+    use ambition_input::ControlFrame;
+
+    fact.active = false;
+    let Ok((kin, abilities, blink_state)) =
+        controlled.0.and_then(|e| player_q.get(e).ok()).ok_or(())
+    else {
+        return;
+    };
+    let actions = if mode.get().allows_gameplay() {
+        action_query.get(scene.player).ok()
+    } else {
+        None
+    };
+    let controls = actions.map(ControlFrame::read_gameplay).unwrap_or_default();
+
+    if !(abilities.abilities.blink && (controls.blink_held || blink_state.aiming)) {
+        return;
+    }
+
+    // Match the debug overlay's destination resolution exactly. The
+    // moving-platform-aware temporary world is what the actual blink
+    // resolves against, so the preview must use it too.
+    let blink_world =
+        crate::world::platforms::world_with_moving_platforms(&world.0, &platform_set.0);
+    let target = if blink_state.aiming {
+        ae::blink_destination_to_point_clusters(
+            &blink_world,
+            kin,
+            abilities,
+            kin.pos + blink_state.aim_offset,
+        )
+    } else {
+        let aim = ae::Vec2::new(controls.axis_x, controls.axis_y)
+            .normalize_or(ae::Vec2::new(kin.facing, 0.0));
+        ae::blink_destination_clusters(&blink_world, kin, abilities, aim, ae::BLINK_DISTANCE)
+    };
+
+    *fact = BlinkPreviewFact {
+        active: true,
+        target,
+        precision: blink_state.aiming,
+        body_min_extent: kin.size.min_element(),
+    };
+}
+
 /// Registers the observation-boundary view resources + their rebuilds in the
 /// sim tail. Owned here (anti-god rule 5): the plugin that rebuilds a view
 /// initializes it; presentation only reads.
@@ -463,7 +557,16 @@ impl Plugin for SimViewPlugin {
             .init_resource::<GravitySwitchesView>()
             .init_resource::<ShrinesView>()
             .init_resource::<WieldedGunSwordsView>()
-            .init_resource::<DynamicFeatureViews>();
+            .init_resource::<DynamicFeatureViews>()
+            .init_resource::<BlinkPreviewFact>();
+        // The blink-preview resolve reads device actions, so it exists only
+        // with the input layer; the FACT resource above is unconditional so
+        // consumers read an inert default headless.
+        #[cfg(feature = "input")]
+        app.add_systems(
+            Update,
+            rebuild_blink_preview_fact.in_set(crate::schedule::SandboxSet::FeatureViewSync),
+        );
         app.add_systems(
             Update,
             (

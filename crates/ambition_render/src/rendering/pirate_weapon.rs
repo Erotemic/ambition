@@ -18,13 +18,12 @@
 //! Despawn-and-respawn each tick — no per-entity lifecycle plumbing, the
 //! visual set always reflects the live rider set.
 
-use ambition_gameplay_core::features::rider_hand_world_pos;
 use bevy::math::Vec2;
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
-use ambition_gameplay_core::features::{FeatureId, HeldItem};
+use ambition_gameplay_core::sim_view::WieldedGunSwordsView;
 
 #[derive(Component)]
 pub struct PirateWeaponVisual;
@@ -87,50 +86,22 @@ pub fn sync_pirate_weapon_visuals(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     world: Res<ambition_engine_core::RoomGeometry>,
-    rider_actors: Query<(
-        &FeatureId,
-        &ambition_gameplay_core::features::ActorDisposition,
-        &HeldItem,
-        Option<&ambition_gameplay_core::features::BodyKinematics>,
-        Option<&ambition_characters::actor::BodyHealth>,
-    )>,
-    player_q: Query<
-        &ambition_platformer_primitives::body::BodyKinematics,
-        (
-            With<ambition_platformer_primitives::markers::PlayerEntity>,
-            With<ambition_platformer_primitives::markers::PrimaryPlayer>,
-        ),
-    >,
+    // Sim-built wielded-weapon read-model (E4 slices 1+11): hand position,
+    // aim target, and wielder height per live gun-sword rider.
+    gun_swords: Res<WieldedGunSwordsView>,
     existing: Query<Entity, With<PirateWeaponVisual>>,
     mut art: Local<Option<PirateWeaponVisualArt>>,
 ) {
     for entity in &existing {
         commands.entity(entity).despawn();
     }
-    let Ok(player) = player_q.single() else {
-        return;
-    };
     let art = art.get_or_insert_with(|| PirateWeaponVisualArt::load(&asset_server));
 
-    for (_id, disposition, held_item, kin, health) in &rider_actors {
-        if held_item.id() != "gun_sword" {
-            continue;
-        }
-        if disposition.is_peaceful() {
-            continue;
-        }
-        let (Some(kin), Some(health)) = (kin, health) else {
-            continue;
-        };
-        if !health.alive() {
-            continue;
-        }
-
-        let rider_height = kin.size.y;
-        let hand_world = rider_hand_world_pos(kin.pos, kin.facing, rider_height);
-        let aim_world = player.pos;
-        let dx = aim_world.x - hand_world.x;
-        let dy = aim_world.y - hand_world.y;
+    for fact in &gun_swords.0 {
+        let rider_height = fact.rider_height;
+        let hand_world = fact.hand_world;
+        let dx = fact.aim_world.x - hand_world.x;
+        let dy = fact.aim_world.y - hand_world.y;
         // World-Y grows downward in our sandbox, but Bevy-Y is up.
         // The sprite's canonical "forward" in image coords is +X
         // (sprite-Y is also image-Y, where down is +). Convert by
@@ -221,6 +192,7 @@ mod tests {
 
     #[test]
     fn hand_offset_flips_with_facing() {
+        use ambition_gameplay_core::features::rider_hand_world_pos;
         let pos = ambition_engine_core::Vec2::new(100.0, 50.0);
         let right = rider_hand_world_pos(pos, 1.0, 78.0);
         let left = rider_hand_world_pos(pos, -1.0, 78.0);

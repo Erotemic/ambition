@@ -9,7 +9,7 @@ use ambition_engine_core::RoomGeometry;
 use ambition_engine_core::{self as ae};
 use ambition_platformer_primitives::gravity::{GravityField, GravityZone};
 
-use ambition_gameplay_core::gravity::GravityFlipSwitch;
+use ambition_gameplay_core::sim_view::GravitySwitchesView;
 
 /// Marks the visual for a [`GravityZone`].
 #[derive(Component)]
@@ -79,7 +79,7 @@ pub fn sync_gravity_switch_visual(
     world: Res<RoomGeometry>,
     gravity: Option<Res<GravityField>>,
     visuals: Query<Entity, With<GravitySwitchVisual>>,
-    switches: Query<&GravityFlipSwitch>,
+    switches: Res<GravitySwitchesView>,
 ) {
     for entity in &visuals {
         commands.entity(entity).despawn();
@@ -90,7 +90,7 @@ pub fn sync_gravity_switch_visual(
     } else {
         Color::srgba(0.40, 0.90, 0.60, 0.65)
     };
-    for sw in &switches {
+    for sw in &switches.0 {
         let translation = ambition_engine_core::config::world_to_bevy(&world.0, sw.pos, 8.5);
         commands.spawn((
             GravitySwitchVisual,

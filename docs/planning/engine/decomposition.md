@@ -374,7 +374,9 @@ committable slice; render-side reads become SimView fields):**
    nameplates/boss/overlays) → `FeatureView.{alive, hit_flash_secs,
    hp_current, hp_max, training_dummy}` (fable 2026-07-06); the hud
    half rides slice 6.
-6. `BodyWallet` (hud) → a `PlayerHudFacts` view row.
+6. ✅ `BodyWallet`/`BodyHealth`/`BodyMana` (hud) → `sim_view::
+   PlayerHudFacts` (fable 2026-07-06); `regen_player_mana` moved
+   SIM-side (a mutator never lives in presentation).
 7. ✅ Boss internals (`BossConfig`/`BossClusterRef`/`BossPhase`/`Brain`/
    `BossAttackState`) → `BossFrameIndex` (fable 2026-07-06): per-boss
    `BossAnimState` + combat AABB + the sim-computed hazard-column lane
@@ -388,14 +390,19 @@ committable slice; render-side reads become SimView fields):**
    rows (the `ecs_*` accessors already point this way).
 10. Render-inserted `FeatureName` on props → sim inserts at room load
     (or a render-local `PropName`).
-11. `HeldItem`/`GroundItem`/`HeldProjectile` → `held_item_id` on the
-    view + a `GroundItemView` list.
-12. `ActorControl` read in item_visuals → `ActorRenderView.aim`.
+11. ✅ `HeldItem`/`GroundItem`/`HeldProjectile` → `sim_view::
+    {HeldItemView, GroundItemsView, HeldShotsView,
+    WieldedGunSwordsView}` (fable 2026-07-06) — pirate gun-sword hand/
+    aim resolved sim-side too.
+12. ✅ `ActorControl` read in item_visuals → `HeldItemFact.aim`
+    (fable 2026-07-06).
 13. `PlayerProjectileState`/`ProjectileVisualKind` →
     `ProjectileView { kind, charge_tier, charge_alpha }`.
-14. `PlayerMark` → a `MarkView`/presentation fact.
-15. `GravityFlipSwitch`, `HealShrine`/`ShrineActivationPulse` → view
-    rows.
+14. ✅ `PlayerMark` → `sim_view::MarkBeaconsView` (fable 2026-07-06).
+15. ✅ `GravityFlipSwitch`, `HealShrine` → `sim_view::
+    {GravitySwitchesView, ShrinesView}`; the `ShrineActivationPulse`
+    timer now ticks SIM-side (the render write is dead) and render
+    reads it read-only (fable 2026-07-06).
 16. `ControlledSubject` reads (camera/hud/fx/items/nameplates) →
     `SimView.controlled_body: Option<BodyId>` — ONE field, five
     call sites.

@@ -100,6 +100,9 @@ impl PluginGroup for PlatformerEnginePlugins {
             // Gameplay effects + feature view-sync schedules.
             .add(ambition_gameplay_core::features::GameplayEffectsSchedulePlugin)
             .add(ambition_gameplay_core::features::FeatureViewSyncSchedulePlugin)
+            // The observation-boundary view resources (E4): HUD facts, held
+            // items/shots, marks, shrines, gravity switches, gun-swords.
+            .add(ambition_gameplay_core::sim_view::SimViewPlugin)
             // Sandbox reset schedule.
             .add(ambition_gameplay_core::session::reset::SandboxResetSchedulePlugin)
             // Deterministic sim traces.

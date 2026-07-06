@@ -757,12 +757,13 @@ fn install_fx_and_hud_systems(app: &mut App) {
             .after(windowing::window_mode_hotkeys),
     )
     // Always-on player HUD overlay (health / mana / money bars). Spawns once
-    // a player exists, then mirrors the meters each frame. Mana regen is a
-    // gameplay system (sim dt), kept in this group for cohesion.
+    // a player exists, then mirrors the sim-built `PlayerHudFacts` each frame.
+    // Mana regen is a gameplay system (sim dt) — it lives SIM-side now
+    // (E4: no sim mutator in presentation), scheduled here at its old slot.
     .add_systems(
         Update,
         (
-            ambition_render::hud::regen_player_mana,
+            ambition_gameplay_core::player::regen_player_mana,
             ambition_render::hud::spawn_player_hud,
             ambition_render::hud::update_player_hud,
         )

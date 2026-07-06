@@ -5,24 +5,23 @@
 //! debug/quest text HUD (`app/hud.rs`) — this is the player-facing status
 //! widget that's always on screen.
 //!
-//! Mana is a real spendable resource: [`regen_player_mana`] refills the
-//! `BodyMana` meter over time so charge attacks / the fireball (which already
-//! spend it via the projectile spawner) draw it down and it recovers. Money is
-//! fed by `PickupKind::Currency` collection crediting [`ambition_characters::actor::BodyWallet`].
+//! Mana is a real spendable resource: the sim's
+//! `ambition_gameplay_core::player::regen_player_mana` refills the `BodyMana`
+//! meter over time so charge attacks / the fireball (which already spend it
+//! via the projectile spawner) draw it down and it recovers. Money is fed by
+//! `PickupKind::Currency` collection crediting the body wallet. This module
+//! is a pure consumer of the sim-built
+//! [`ambition_gameplay_core::sim_view::PlayerHudFacts`] snapshot (E4 slices
+//! 5+6+16) — it never queries live body clusters.
 
 use bevy::prelude::*;
 
-use ambition_characters::actor::BodyHealth;
-use ambition_characters::actor::BodyWallet;
-use ambition_engine_core::BodyMana;
-use ambition_gameplay_core::abilities::traversal::possession::ControlledSubject;
+use ambition_gameplay_core::sim_view::PlayerHudFacts;
 use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
 
 /// Bar width / height in logical px.
 const BAR_W: f32 = 168.0;
 const BAR_H: f32 = 13.0;
-/// Mana regenerated per second (clamped to the meter max).
-const MANA_REGEN_PER_SEC: f32 = 14.0;
 
 /// Root container for the player HUD overlay.
 #[derive(Component)]
@@ -43,46 +42,6 @@ pub struct ManaLabel;
 /// "$balance" money readout.
 #[derive(Component)]
 pub struct MoneyLabel;
-
-/// The body the local player is driving this frame: the [`ControlledSubject`]
-/// (home avatar during normal play, the possessed actor while possessing),
-/// falling back to the primary player for the startup frame before the subject
-/// resolver has run. HUD health/mana track THIS body, not a fixed
-/// `PrimaryPlayer` marker — the same read model the camera and nameplates use.
-fn controlled_body(
-    controlled: Option<&ControlledSubject>,
-    primary: &Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
-) -> Option<Entity> {
-    controlled
-        .and_then(|subject| subject.0)
-        .or_else(|| primary.single().ok())
-}
-
-/// Mana slowly regenerates so it's a genuine spendable resource. Uses
-/// `ResourceMeter::refill` (clamped) rather than the meter's own `regen_rate`
-/// field so we don't change `BodyMana::default` (and any test that relies on
-/// it). Scaled by sim dt, so bullet-time / pause slow it with the world.
-///
-/// Refills the *controlled subject's* mana — the body actually spending it on
-/// charge attacks / the fireball — so possessing an actor regenerates that
-/// actor's meter, not the vacated home avatar's.
-pub fn regen_player_mana(
-    time: Res<ambition_time::WorldTime>,
-    controlled: Option<Res<ControlledSubject>>,
-    mut manas: Query<&mut BodyMana>,
-    primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
-) {
-    let dt = time.sim_dt();
-    if dt <= 0.0 {
-        return;
-    }
-    let Some(subject) = controlled_body(controlled.as_deref(), &primary) else {
-        return;
-    };
-    if let Ok(mut mana) = manas.get_mut(subject) {
-        mana.meter.refill(MANA_REGEN_PER_SEC * dt);
-    }
-}
 
 /// Spawn the HUD overlay once, the first frame a primary player exists.
 pub fn spawn_player_hud(
@@ -188,9 +147,7 @@ pub fn spawn_player_hud(
 /// wallet is just another cluster the driven body may hold. It's `Option` only
 /// because not every body carries one yet; a body without a wallet reads `$0`.
 pub fn update_player_hud(
-    controlled: Option<Res<ControlledSubject>>,
-    bodies: Query<(&BodyHealth, &BodyMana, Option<&BodyWallet>)>,
-    primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    facts: Res<PlayerHudFacts>,
     mut fills: ParamSet<(
         Query<&mut Node, With<HealthFill>>,
         Query<&mut Node, With<ManaFill>>,
@@ -201,36 +158,31 @@ pub fn update_player_hud(
         Query<&mut Text, With<MoneyLabel>>,
     )>,
 ) {
-    let Some(subject) = controlled_body(controlled.as_deref(), &primary) else {
+    if !facts.present {
         return;
-    };
-    let Ok((health, mana, wallet)) = bodies.get(subject) else {
-        return;
-    };
-    let balance = wallet.map(|wallet| wallet.balance).unwrap_or(0);
-    let hp_frac = if health.max() > 0 {
-        (health.current() as f32 / health.max() as f32).clamp(0.0, 1.0)
+    }
+    let hp_frac = if facts.hp_max > 0 {
+        (facts.hp_current as f32 / facts.hp_max as f32).clamp(0.0, 1.0)
     } else {
         0.0
     };
-    let mp_frac = mana.meter.fraction();
     if let Ok(mut node) = fills.p0().single_mut() {
         node.width = Val::Percent(hp_frac * 100.0);
     }
     if let Ok(mut node) = fills.p1().single_mut() {
-        node.width = Val::Percent(mp_frac * 100.0);
+        node.width = Val::Percent(facts.mana_fraction * 100.0);
     }
     if let Ok(mut text) = labels.p0().single_mut() {
         set_text_if_changed(
             &mut text,
-            format!("HP {}/{}", health.current(), health.max()),
+            format!("HP {}/{}", facts.hp_current, facts.hp_max),
         );
     }
     if let Ok(mut text) = labels.p1().single_mut() {
-        set_text_if_changed(&mut text, format!("MP {}", mana.meter.current as i32));
+        set_text_if_changed(&mut text, format!("MP {}", facts.mana_current as i32));
     }
     if let Ok(mut text) = labels.p2().single_mut() {
-        set_text_if_changed(&mut text, format!("${balance}"));
+        set_text_if_changed(&mut text, format!("${}", facts.balance));
     }
 }
 
@@ -245,47 +197,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn wallet_add_clamps_and_spend_respects_balance() {
-        let mut wallet = BodyWallet::default();
-        assert_eq!(wallet.balance, 0);
-        wallet.add(50);
-        wallet.add(-100); // can't drive below zero
-        assert_eq!(wallet.balance, 0);
-        wallet.add(30);
-        assert!(wallet.try_spend(20));
-        assert_eq!(wallet.balance, 10);
-        assert!(!wallet.try_spend(99), "can't overspend");
-        assert_eq!(wallet.balance, 10);
-    }
-
-    #[test]
-    fn hud_tracks_the_controlled_body_for_every_stat_including_money() {
-        use ambition_characters::actor::Health;
-
+    fn hud_mirrors_the_sim_built_facts() {
         let mut app = App::new();
 
-        // Home avatar: full HP, a fat $42 purse. We should see NONE of this
-        // while driving another body.
-        app.world_mut().spawn((
-            PlayerEntity,
-            PrimaryPlayer,
-            BodyHealth::new(Health::new(20)),
-            BodyMana::default(),
-            BodyWallet { balance: 42 },
-        ));
-
-        // A possessed actor with ITS OWN economy: wounded 3/10 HP, $7 in pocket.
-        // Money is a body concern, so possessing it spends its purse, not ours.
-        let mut actor_hp = BodyHealth::new(Health::new(10));
-        actor_hp.damage(7);
-        let actor = app
-            .world_mut()
-            .spawn((actor_hp, BodyMana::default(), BodyWallet { balance: 7 }))
-            .id();
-
-        // The player is DRIVING the actor.
-        app.world_mut()
-            .insert_resource(ControlledSubject(Some(actor)));
+        // The sim already resolved the controlled body's meters into the
+        // read-model — the HUD is a pure consumer (E4).
+        app.insert_resource(PlayerHudFacts {
+            present: true,
+            hp_current: 3,
+            hp_max: 10,
+            mana_current: 12.0,
+            mana_fraction: 0.2,
+            balance: 7,
+        });
 
         // Minimal HUD widgets (just the labels this assertion reads).
         app.world_mut().spawn((HealthLabel, Text::new("")));
@@ -310,49 +234,19 @@ mod tests {
                 money_text = Some(text.as_str().to_string());
             }
         }
-        assert_eq!(
-            hp_text.as_deref(),
-            Some("HP 3/10"),
-            "HP bar must show the POSSESSED body's health, not the home avatar's"
-        );
-        assert_eq!(
-            money_text.as_deref(),
-            Some("$7"),
-            "money is a body stat: the HUD shows the driven body's purse, not the home avatar's"
-        );
+        assert_eq!(hp_text.as_deref(), Some("HP 3/10"));
+        assert_eq!(money_text.as_deref(), Some("$7"));
     }
 
     #[test]
-    fn mana_regenerates_over_time_but_clamps_to_max() {
+    fn hud_holds_last_state_when_no_body_resolved() {
         let mut app = App::new();
-        app.insert_resource(ambition_time::WorldTime {
-            raw_dt: 1.0,
-            scaled_dt: 1.0,
-        });
-        app.add_systems(Update, regen_player_mana);
-        let player = app
-            .world_mut()
-            .spawn((PlayerEntity, PrimaryPlayer, BodyMana::default()))
-            .id();
-        // Drain it, then let it tick back up.
-        app.world_mut()
-            .get_mut::<BodyMana>(player)
-            .unwrap()
-            .meter
-            .try_spend(60.0);
-        let before = app.world().get::<BodyMana>(player).unwrap().meter.current;
+        app.insert_resource(PlayerHudFacts::default()); // present: false
+        app.world_mut().spawn((HealthLabel, Text::new("HP 5/5")));
+        app.add_systems(Update, update_player_hud);
         app.update();
-        let after = app.world().get::<BodyMana>(player).unwrap().meter.current;
-        assert!(
-            after > before,
-            "mana should regenerate ({before} -> {after})"
-        );
-
-        // Many ticks can't exceed max.
-        for _ in 0..20 {
-            app.update();
-        }
-        let m = app.world().get::<BodyMana>(player).unwrap().meter;
-        assert!(m.current <= m.max + 1e-3, "mana clamps to max");
+        let mut labels = app.world_mut().query::<&Text>();
+        let text = labels.iter(app.world()).next().unwrap();
+        assert_eq!(text.as_str(), "HP 5/5", "startup frames hold the HUD");
     }
 }

@@ -5,7 +5,8 @@
 use super::sheet_atlas::{
     atlas_layout_from_record, row_duration, row_frame_count, row_start_index,
 };
-use ambition_gameplay_core::shrine::{HealShrine, ShrineActivationPulse};
+use ambition_gameplay_core::shrine::ShrineActivationPulse;
+use ambition_gameplay_core::sim_view::{ShrineFact, ShrinesView};
 use ambition_sprite_sheet::{SheetRecord, SheetRegistry};
 use bevy::prelude::*;
 use bevy::{image::TextureAtlas, image::TextureAtlasLayout};
@@ -75,7 +76,7 @@ pub fn sync_shrine_visual(
     mut transforms: Query<&mut Transform>,
     mut sprites: Query<&mut Sprite>,
     visuals: Query<(Entity, &ShrineVisualKey)>,
-    shrines: Query<&HealShrine>,
+    shrines: Res<ShrinesView>,
 ) {
     let source = shrine_visual_source(
         &asset_server,
@@ -89,7 +90,7 @@ pub fn sync_shrine_visual(
         visual_cache.insert(key.0, entity);
     }
 
-    for shrine in &shrines {
+    for shrine in &shrines.0 {
         let key = shrine_visual_key(shrine);
         present.insert(key);
         let translation = ambition_engine_core::config::world_to_bevy(&world.0, shrine.pos, 8.0);
@@ -164,16 +165,16 @@ pub fn sync_shrine_visual(
 
 pub fn animate_shrine_visuals(
     world_time: Res<ambition_time::WorldTime>,
-    mut activation: ResMut<ShrineActivationPulse>,
+    // Read-only: the pulse timer ticks SIM-side now
+    // (`sim_view::tick_shrine_activation_pulse`) — E4 killed the render
+    // write.
+    activation: Res<ShrineActivationPulse>,
     mut visuals: Query<
         (&mut Sprite, &mut ShrineVisualAnim, &ShrineVisualAtlas),
         With<ShrineVisual>,
     >,
 ) {
     let dt = world_time.scaled_dt;
-    if activation.remaining > 0.0 {
-        activation.remaining = (activation.remaining - dt).max(0.0);
-    }
     let active = activation.remaining > 0.0;
 
     for (mut sprite, mut anim, atlas) in &mut visuals {
@@ -301,7 +302,7 @@ fn shrine_visual_atlas(source: &ShrineVisualSource) -> ShrineVisualAtlas {
     }
 }
 
-fn shrine_visual_key(shrine: &HealShrine) -> u64 {
+fn shrine_visual_key(shrine: &ShrineFact) -> u64 {
     let mut hasher = DefaultHasher::new();
     shrine.pos.x.to_bits().hash(&mut hasher);
     shrine.pos.y.to_bits().hash(&mut hasher);

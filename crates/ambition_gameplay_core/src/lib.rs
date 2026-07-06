@@ -87,6 +87,7 @@ pub mod portal;
 pub mod projectile;
 pub mod session;
 pub mod shrine;
+pub mod sim_view;
 pub mod time;
 pub mod world;
 

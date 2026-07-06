@@ -205,10 +205,110 @@ pub fn apply_player_heal_requests(
     }
 }
 
+/// Mana regenerated per second (clamped to the meter max).
+const MANA_REGEN_PER_SEC: f32 = 14.0;
+
+/// Mana slowly regenerates so it's a genuine spendable resource. Uses
+/// `ResourceMeter::refill` (clamped) rather than the meter's own `regen_rate`
+/// field so we don't change `BodyMana::default` (and any test that relies on
+/// it). Scaled by sim dt, so bullet-time / pause slow it with the world.
+///
+/// Refills the *controlled subject's* mana — the body actually spending it on
+/// charge attacks / the fireball — so possessing an actor regenerates that
+/// actor's meter, not the vacated home avatar's. (Moved from the render HUD
+/// module, E4: a sim mutator never lives in presentation.)
+pub fn regen_player_mana(
+    time: Res<ambition_time::WorldTime>,
+    controlled: Option<Res<crate::abilities::traversal::possession::ControlledSubject>>,
+    mut manas: Query<&mut crate::actor::BodyMana>,
+    primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+) {
+    let dt = time.sim_dt();
+    if dt <= 0.0 {
+        return;
+    }
+    let Some(subject) = controlled
+        .as_deref()
+        .and_then(|subject| subject.0)
+        .or_else(|| primary.single().ok())
+    else {
+        return;
+    };
+    if let Ok(mut mana) = manas.get_mut(subject) {
+        mana.meter.refill(MANA_REGEN_PER_SEC * dt);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use ambition_characters::brain::ActorControl;
+
+    #[test]
+    fn mana_regenerates_over_time_but_clamps_to_max() {
+        let mut app = App::new();
+        app.insert_resource(ambition_time::WorldTime {
+            raw_dt: 1.0,
+            scaled_dt: 1.0,
+        });
+        app.add_systems(Update, regen_player_mana);
+        let player = app
+            .world_mut()
+            .spawn((
+                PlayerEntity,
+                PrimaryPlayer,
+                crate::actor::BodyMana::default(),
+            ))
+            .id();
+        // Drain it, then let it tick back up.
+        app.world_mut()
+            .get_mut::<crate::actor::BodyMana>(player)
+            .unwrap()
+            .meter
+            .try_spend(60.0);
+        let before = app
+            .world()
+            .get::<crate::actor::BodyMana>(player)
+            .unwrap()
+            .meter
+            .current;
+        app.update();
+        let after = app
+            .world()
+            .get::<crate::actor::BodyMana>(player)
+            .unwrap()
+            .meter
+            .current;
+        assert!(
+            after > before,
+            "mana should regenerate ({before} -> {after})"
+        );
+
+        // Many ticks can't exceed max.
+        for _ in 0..20 {
+            app.update();
+        }
+        let m = app
+            .world()
+            .get::<crate::actor::BodyMana>(player)
+            .unwrap()
+            .meter;
+        assert!(m.current <= m.max + 1e-3, "mana clamps to max");
+    }
+
+    #[test]
+    fn wallet_add_clamps_and_spend_respects_balance() {
+        let mut wallet = ambition_characters::actor::BodyWallet::default();
+        assert_eq!(wallet.balance, 0);
+        wallet.add(50);
+        wallet.add(-100); // can't drive below zero
+        assert_eq!(wallet.balance, 0);
+        wallet.add(30);
+        assert!(wallet.try_spend(20));
+        assert_eq!(wallet.balance, 10);
+        assert!(!wallet.try_spend(99), "can't overspend");
+        assert_eq!(wallet.balance, 10);
+    }
 
     /// Default player ActionSet derives from AbilitySet — when
     /// `attack` is on, the ActionSet has a Swipe melee; when off,

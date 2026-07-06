@@ -3,7 +3,7 @@
 //! sim-side `PlayerMark` from ambition_gameplay_core.
 
 use ambition_engine_core as ae;
-use ambition_gameplay_core::abilities::traversal::mark_recall::PlayerMark;
+use ambition_gameplay_core::sim_view::MarkBeaconsView;
 use bevy::prelude::*;
 
 /// Marks the persistent beacon sprite shown at a player's dropped recall mark.
@@ -25,15 +25,12 @@ pub fn sync_mark_beacon_visual(
     world: Res<ambition_engine_core::RoomGeometry>,
     asset_server: Res<AssetServer>,
     visuals: Query<Entity, With<MarkBeaconVisual>>,
-    marks: Query<&PlayerMark>,
+    marks: Res<MarkBeaconsView>,
 ) {
     for entity in &visuals {
         commands.entity(entity).despawn();
     }
-    for mark in &marks {
-        let Some(pos) = mark.pos else {
-            continue;
-        };
+    for &pos in &marks.0 {
         // +Y is down in world space, so "up" (toward the ceiling) is -Y.
         let translation = ambition_engine_core::config::world_to_bevy(
             &world.0,

@@ -1,12 +1,10 @@
 //! Item visuals (was `ambition_gameplay_core::items::pickup`'s presentation tail):
-//! ground-item quads, the held-item sprite, and held-projectile sprites. Render
-//! systems that read the item SIM state in `ambition_gameplay_core::items::pickup`.
+//! ground-item quads, the held-item sprite, and held-projectile sprites. Pure
+//! consumers of the sim-built `sim_view` item snapshots (E4 slices 11+12+16)
+//! — no live item/body queries.
 
-use ambition_characters::brain::ActorControl;
-use ambition_gameplay_core::abilities::traversal::possession::ControlledSubject;
-use ambition_gameplay_core::features::HeldItem;
-use ambition_gameplay_core::items::pickup::{GroundItem, HeldProjectile, FIREBALL_ID};
-use ambition_platformer_primitives::body::BodyKinematics;
+use ambition_gameplay_core::items::pickup::FIREBALL_ID;
+use ambition_gameplay_core::sim_view::{GroundItemsView, HeldItemView, HeldShotsView};
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
@@ -148,16 +146,16 @@ pub fn sync_ground_item_visuals(
     world: Res<ambition_engine_core::RoomGeometry>,
     art: Option<Res<ItemArt>>,
     visuals: Query<Entity, With<GroundItemVisual>>,
-    grounds: Query<&GroundItem>,
+    grounds: Res<GroundItemsView>,
 ) {
     for entity in &visuals {
         commands.entity(entity).despawn();
     }
-    for ground in &grounds {
+    for ground in &grounds.0 {
         let translation = ambition_engine_core::config::world_to_bevy(&world.0, ground.pos, 8.0);
         let sprite = art
             .as_ref()
-            .and_then(|a| item_sprite(a, ground.spec.id.as_str()))
+            .and_then(|a| item_sprite(a, ground.item_id.as_str()))
             .map(|(image, size)| Sprite {
                 image,
                 custom_size: Some(size),
@@ -192,32 +190,30 @@ pub fn sync_held_item_visual(
     mut commands: Commands,
     world: Res<ambition_engine_core::RoomGeometry>,
     art: Option<Res<ItemArt>>,
-    controlled: Res<ControlledSubject>,
+    held_view: Res<HeldItemView>,
     visuals: Query<Entity, With<HeldItemVisual>>,
-    bodies: Query<(&BodyKinematics, &HeldItem, &ActorControl)>,
 ) {
     for entity in &visuals {
         commands.entity(entity).despawn();
     }
-    let Ok((kin, held, control)) = controlled.0.and_then(|e| bodies.get(e).ok()).ok_or(()) else {
+    let Some(held) = held_view.0.as_ref() else {
         return;
     };
-    let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
+    let facing = if held.facing >= 0.0 { 1.0 } else { -1.0 };
     // In the subject's hand: just in front at hand height (y-down → small +y).
-    let hand = kin.pos + Vec2::new(facing * (kin.size.x * 0.45 + 4.0), kin.size.y * 0.06);
+    let hand = held.pos + Vec2::new(facing * (held.size.x * 0.45 + 4.0), held.size.y * 0.06);
     let translation = ambition_engine_core::config::world_to_bevy(&world.0, hand, 12.0);
 
     // A ranged held item (the gun-sword) points where you're AIMING — the same
     // direction it fires — just like the pirates' wielded gun-sword. Melee /
-    // thrown items keep the simple facing flip. Aim from the subject's
+    // thrown items keep the simple facing flip. Aim is the subject's
     // brain-resolved frame (screen-relative fallback to facing), so a possessed
     // body's item tracks ITS aim, not the home avatar's device stick.
-    let (rotation, flip_x, flip_y) = if held.spec.ranged.is_some() {
-        let f = control.0;
-        let aim = if f.aim.length_squared() > 1e-4 {
-            f.aim.normalize()
+    let (rotation, flip_x, flip_y) = if held.ranged {
+        let aim = if held.aim.length_squared() > 1e-4 {
+            held.aim.normalize()
         } else {
-            Vec2::new(kin.facing, 0.0)
+            Vec2::new(held.facing, 0.0)
         };
         // World is y-down, render space y-up. Aiming left flips vertically so
         // the gun stays upright instead of rotating upside-down.
@@ -229,7 +225,7 @@ pub fn sync_held_item_visual(
 
     let sprite = art
         .as_ref()
-        .and_then(|a| item_sprite(a, held.spec.id.as_str()))
+        .and_then(|a| item_sprite(a, held.item_id.as_str()))
         .map(|(image, size)| Sprite {
             image,
             custom_size: Some(size),
@@ -238,7 +234,7 @@ pub fn sync_held_item_visual(
             ..default()
         })
         .unwrap_or_else(|| {
-            let color = match held.spec.id.as_str() {
+            let color = match held.item_id.as_str() {
                 "axe" => Color::srgb(0.72, 0.52, 0.30),
                 "javelin" => Color::srgb(0.86, 0.84, 0.62),
                 _ => Color::srgb(0.82, 0.82, 0.82),
@@ -281,16 +277,16 @@ pub fn sync_held_projectile_visuals(
     asset_server: Res<AssetServer>,
     world: Res<ambition_engine_core::RoomGeometry>,
     visuals: Query<Entity, With<HeldProjectileVisual>>,
-    projectiles: Query<(&BodyKinematics, &HeldProjectile)>,
+    shots: Res<HeldShotsView>,
     mut art: Local<Option<HeldProjectileVisualArt>>,
 ) {
     for entity in &visuals {
         commands.entity(entity).despawn();
     }
     let art = art.get_or_insert_with(|| HeldProjectileVisualArt::load(&asset_server));
-    for (kin, proj) in &projectiles {
-        let translation = ambition_engine_core::config::world_to_bevy(&world.0, kin.pos, 9.5);
-        if proj.explode_half > 0.0 {
+    for shot in &shots.0 {
+        let translation = ambition_engine_core::config::world_to_bevy(&world.0, shot.pos, 9.5);
+        if shot.fireball {
             // Fireball: a glowing ball, sized a touch over the contact box so the
             // fire visibly fills the space that hits. No rotation — it's radial.
             commands.spawn((
@@ -306,7 +302,7 @@ pub fn sync_held_projectile_visuals(
             continue;
         }
         let (sprite, anchor, rotation) =
-            lasersword_projectile_sprite(art.lasersword.clone(), kin.vel);
+            lasersword_projectile_sprite(art.lasersword.clone(), shot.vel);
         commands.spawn((
             HeldProjectileVisual,
             sprite,

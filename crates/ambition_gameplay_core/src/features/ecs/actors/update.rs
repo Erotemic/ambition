@@ -1035,7 +1035,7 @@ pub fn apply_actor_contact_damage(
         else {
             continue;
         };
-        if !crate::combat::damage::body_vulnerable(offense, dodge, shield, combat) {
+        if !crate::combat::util::body_vulnerable(offense, dodge, shield, combat) {
             continue;
         }
         if let Some(damage) = attack.hit_event(attacker, target_entity, hurtbox.aabb(), is_player) {

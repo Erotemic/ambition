@@ -11,7 +11,7 @@
 
 use bevy::prelude::*;
 
-use ambition_gameplay_core::combat::attack::{advance_body_melee, start_body_melee};
+use ambition_gameplay_core::features::ecs::attack::{advance_body_melee, start_body_melee};
 use ambition_gameplay_core::schedule::{CombatSet, SandboxSet};
 use ambition_gameplay_core::session::game_mode::gameplay_allowed;
 
@@ -195,7 +195,7 @@ impl Plugin for CombatSchedulePlugin {
                 // hitbox bounces off world `PogoOrb` blocks (the collision-world
                 // orbs the flat player pogo used), now that the melee fold routes
                 // the down-air through the moveset (fable review R2.5).
-                ambition_gameplay_core::combat::attack::pogo_moveset_off_world_orbs
+                ambition_gameplay_core::features::ecs::attack::pogo_moveset_off_world_orbs
                     .run_if(gameplay_allowed),
                 ambition_gameplay_core::features::tick_and_despawn_hitboxes,
                 // Suppress combat damage during dialog / cutscene / pause: the

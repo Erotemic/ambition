@@ -44,7 +44,7 @@ pub mod banter;
 // Stable facade for boss attack geometry.
 pub use crate::boss_encounter::attack_geometry as boss_attack_geometry;
 pub mod bosses;
-mod ecs;
+pub mod ecs;
 pub use ecs::{rider_hand_world_pos, rider_hand_world_pos_in_frame};
 mod enemies;
 mod npcs;
@@ -54,8 +54,9 @@ pub use crate::combat::components;
 pub use crate::combat::events;
 pub use crate::combat::hazard_runtime as hazards;
 pub use crate::combat::path_motion;
-pub use crate::combat::{bus, util};
+pub use crate::combat::util;
 pub use crate::world::overlay_rebuild as world_overlay;
+pub use ecs::effect_bus as bus;
 
 pub use boss_attack_geometry::{
     active_attack_volumes, body_damage_aabb, bounding_aabb, collision_aabb, damageable_volumes,

@@ -35,44 +35,10 @@ use ambition_engine_core::RoomGeometry;
 use ambition_sfx::SfxMessage;
 use ambition_time::ClockState;
 
-/// THE one "can this body take a hit right now?" rule, shared by every damage
-/// EMITTER that needs an early-out (hazards, enemy hitboxes, boss volumes,
-/// body-contact, enemy projectiles). Fable review 2026-07-02 §A5: this
-/// predicate was copy-pasted at five emit sites and had already drifted
-/// (the projectile site dropped the parry term). i-frames / dodge-roll /
-/// parry / invincibility gate a PLAYER-side victim; the actor-side victim
-/// consumer applies its own (shield-directional) rule at consume time.
-pub fn body_vulnerable(
-    offense: &BodyOffense,
-    dodge: &BodyDodgeState,
-    shield: &BodyShieldState,
-    combat: &BodyCombat,
-) -> bool {
-    !offense.invincible && dodge.roll_timer <= 0.0 && !shield.parrying() && combat.vulnerable()
-}
-
-/// Whether a held shield blocks a hit coming from `hit_pos`: you can only guard
-/// the local side you face (a hit from behind still lands). A facing of exactly
-/// 0 (neutral) guards either side. Pure so the directional rule is unit-tested
-/// directly.
-pub fn shield_blocks_hit(
-    shield_held: bool,
-    facing: f32,
-    player_pos: ae::Vec2,
-    hit_pos: ae::Vec2,
-    gravity_dir: ae::Vec2,
-) -> bool {
-    if !shield_held {
-        return false;
-    }
-    if facing == 0.0 {
-        return true;
-    }
-    let frame = ae::AccelerationFrame::new(gravity_dir);
-    let local_side_delta = frame.to_local(hit_pos - player_pos).x;
-    // Same local-side sign => the hit is on the side the controlled body faces.
-    local_side_delta.signum() == facing.signum()
-}
+// `body_vulnerable` / `shield_blocks_hit` moved to `crate::combat::util`
+// (E2): they are the shared victim-gate predicates every damage EMITTER
+// reads — combat vocabulary, not victim-side application code.
+pub use crate::combat::util::{body_vulnerable, shield_blocks_hit};
 
 /// THE knockback-scaling law (CM1): the smash-percent growth term folded onto a
 /// hit's base knockback. A body that has accumulated more damage launches

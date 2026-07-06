@@ -18,7 +18,7 @@ use std::collections::HashSet;
 use bevy::prelude::*;
 
 use crate::boss_encounter::BossEncounterPhase;
-use crate::combat::boss_clusters::{BossConfig, BossEncounter};
+use crate::features::ecs::boss_clusters::{BossConfig, BossEncounter};
 use crate::features::FeatureSimEntity;
 
 /// Definition of an encounter entity: which members it orchestrates + how it
@@ -228,8 +228,10 @@ pub fn release_payloads_on_death(
 mod tests {
     use super::*;
     use crate::boss_encounter::PhaseTrigger;
-    use crate::combat::boss_clusters::test_support::{test_boss_config, test_boss_status_with};
-    use crate::combat::boss_clusters::{BossConfig, BossEncounter};
+    use crate::features::ecs::boss_clusters::test_support::{
+        test_boss_config, test_boss_status_with,
+    };
+    use crate::features::ecs::boss_clusters::{BossConfig, BossEncounter};
 
     fn awake_boss(
         name: &str,

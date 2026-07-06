@@ -134,7 +134,7 @@ pub(crate) fn apply_actor_hit(
         // frame-agnostic directional rule the player uses), damage, death
         // flag, and hit-flash/i-frame arming. Actors pass multiplier 1.0 —
         // difficulty scaling is player policy.
-        let resolution = crate::combat::damage::resolve_body_hit(
+        let resolution = crate::features::ecs::damage_apply::resolve_body_hit(
             combat,
             Some(&mut *em.health),
             em.shield.active,
@@ -145,14 +145,14 @@ pub(crate) fn apply_actor_hit(
             event.damage,
             1.0,
             caps.never_dies,
-            crate::combat::damage::BodyHitFeel {
+            crate::features::ecs::damage_apply::BodyHitFeel {
                 hit_flash: 0.16,
                 damage_invuln_time: super::super::actor_clusters::ACTOR_DAMAGE_IFRAME_S,
                 block_hit_flash: 0.16,
                 block_invuln_floor: super::super::actor_clusters::ACTOR_DAMAGE_IFRAME_S,
             },
         );
-        if resolution == crate::combat::damage::BodyHitResolution::Ignored {
+        if resolution == crate::features::ecs::damage_apply::BodyHitResolution::Ignored {
             return false;
         }
         if should_bark {
@@ -178,7 +178,7 @@ pub(crate) fn apply_actor_hit(
                 });
             }
         }
-        if resolution == crate::combat::damage::BodyHitResolution::Blocked {
+        if resolution == crate::features::ecs::damage_apply::BodyHitResolution::Blocked {
             // The guard costs nothing but consumes the hit: no damage, no
             // knockback, just a clang. A blocked hit still counts as "took the
             // hit" (returns true) so the caller plays the shared hitstop.
@@ -202,7 +202,7 @@ pub(crate) fn apply_actor_hit(
         // is suppressed. `HpDepleted` (the default) kills as before: parity.
         let killed = matches!(
             resolution,
-            crate::combat::damage::BodyHitResolution::Damaged { died: true, .. }
+            crate::features::ecs::damage_apply::BodyHitResolution::Damaged { died: true, .. }
         ) && em.config.tuning.death_policy.kills_at_max();
         // §A2 step 6 (FEEL-BLIND): a struck actor rides the SAME feel-tuned,
         // frame-agnostic knockback resolution the player does — side away from
@@ -233,7 +233,7 @@ pub(crate) fn apply_actor_hit(
             // actor staggers exactly like the player.
             let pos = em.kin.pos;
             let facing = em.kin.facing;
-            crate::combat::damage::apply_body_hit_reaction(
+            crate::features::ecs::damage_apply::apply_body_hit_reaction(
                 &mut em.kin.vel,
                 combat,
                 pos,

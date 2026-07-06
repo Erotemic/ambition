@@ -378,7 +378,7 @@ pub fn boss_phase_transition_feedback(
             &crate::features::FeatureId,
             &crate::features::BodyKinematics,
             &crate::features::CenteredAabb,
-            &crate::combat::boss_clusters::BossEncounter,
+            &crate::features::ecs::boss_clusters::BossEncounter,
         ),
         With<crate::features::BossConfig>,
     >,
@@ -441,8 +441,8 @@ pub fn boss_phase_transition_feedback(
 mod phase_feedback_tests {
     use super::*;
     use crate::boss_encounter::BossEncounterPhase;
-    use crate::combat::boss_clusters::test_support::{test_boss_config, test_boss_status};
-    use crate::combat::boss_clusters::BossEncounter;
+    use crate::features::ecs::boss_clusters::test_support::{test_boss_config, test_boss_status};
+    use crate::features::ecs::boss_clusters::BossEncounter;
     use crate::features::{BodyKinematics, CenteredAabb, FeatureId};
     use crate::time::camera_ease::CameraShakeState;
 
@@ -521,8 +521,10 @@ mod mount_death_bridge_tests {
     //! `PhaseTriggerCondition::External`'s first production caller.
     use super::*;
     use crate::boss_encounter::{BossEncounterPhase, PhaseTrigger};
-    use crate::combat::boss_clusters::test_support::{test_boss_config, test_boss_status_with};
-    use crate::combat::boss_clusters::BossEncounter;
+    use crate::features::ecs::boss_clusters::test_support::{
+        test_boss_config, test_boss_status_with,
+    };
+    use crate::features::ecs::boss_clusters::BossEncounter;
     use crate::features::MountDied;
 
     fn bridge_app() -> App {

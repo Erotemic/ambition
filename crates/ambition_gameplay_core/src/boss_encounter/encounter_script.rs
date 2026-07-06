@@ -26,7 +26,7 @@
 use bevy::prelude::*;
 
 use super::encounter_entity::EncounterDef;
-use crate::combat::boss_clusters::{BossClusterRef, BossEncounter};
+use crate::features::ecs::boss_clusters::{BossClusterRef, BossEncounter};
 use crate::features::CenteredAabb;
 use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
@@ -344,9 +344,9 @@ pub fn tick_falling_hazards(
 mod tests {
     use super::*;
     use crate::boss_encounter::BossEncounterPhase;
-    use crate::combat::boss_clusters::test_support::{test_boss_config, test_boss_status};
-    use crate::combat::boss_clusters::BossEncounter;
     use crate::encounter::BossEncounterMusicRequest;
+    use crate::features::ecs::boss_clusters::test_support::{test_boss_config, test_boss_status};
+    use crate::features::ecs::boss_clusters::BossEncounter;
     use crate::features::GameplayBanner;
     use ambition_time::WorldTime;
 
@@ -454,7 +454,7 @@ mod tests {
         assert!(q.single(app.world()).unwrap().done());
     }
 
-    fn boss_config() -> crate::combat::boss_clusters::BossConfig {
+    fn boss_config() -> crate::features::ecs::boss_clusters::BossConfig {
         test_boss_config("b", "B", "mockingbird")
     }
 

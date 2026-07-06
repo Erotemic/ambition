@@ -692,7 +692,7 @@ pub fn step_projectiles(
                 // The ONE vulnerability rule (§A5). This site had drifted (it
                 // dropped the parry term); behavior is unchanged because a
                 // parrying shield reflects + breaks above before reaching here.
-                if !crate::combat::damage::body_vulnerable(offense, dodge, shield, combat) {
+                if !crate::combat::util::body_vulnerable(offense, dodge, shield, combat) {
                     continue;
                 }
                 // Knockback side in the victim's LOCAL frame (fable review

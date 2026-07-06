@@ -269,7 +269,7 @@ pub fn ensure_perception(
             bevy::prelude::With<ambition_characters::brain::Brain>,
             bevy::prelude::With<crate::features::FeatureSimEntity>,
             bevy::prelude::Without<crate::actor::PlayerEntity>,
-            bevy::prelude::Without<crate::combat::boss_clusters::BossConfig>,
+            bevy::prelude::Without<crate::features::ecs::boss_clusters::BossConfig>,
             // Missing memory ⟺ missing perception (both attached together below), so
             // this one gate nets bodies that lack either.
             bevy::prelude::Without<PerceptionMemory>,

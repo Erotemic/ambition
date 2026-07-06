@@ -14,7 +14,7 @@ use super::super::{ae, GameplayBanner, HitEvent, HitSource};
 // Only the exploding-mite blast test pins this drop tuning constant; the drop
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.
-use crate::combat::boss_clusters::BossEncounter;
+use crate::features::ecs::boss_clusters::BossEncounter;
 use ambition_sfx::SfxMessage;
 use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
@@ -25,7 +25,7 @@ use super::*;
 /// HP on the shared `BodyHealth`, phase on `BossEncounter.encounter` — §A1).
 ///
 /// The health/death MECHANICS go through the ONE victim-side resolver
-/// [`crate::combat::damage::resolve_body_hit`] (fable review §A1 slice 2) — the
+/// [`crate::features::ecs::damage_apply::resolve_body_hit`] (fable review §A1 slice 2) — the
 /// same door every body's damage flows through (player, actor, and now boss).
 /// The invulnerable-PHASE gate stays boss POLICY (checked before the resolver):
 /// Intro / Transition / the `transition_lock` tell / Dormant / Death swallow the
@@ -55,7 +55,7 @@ pub(crate) fn apply_entity_boss_damage(
     }
     // THE shared victim-side mechanics. Shield args are inert (bosses carry no
     // `BodyShieldState`; `shield_active: false` short-circuits the block).
-    let resolution = crate::combat::damage::resolve_body_hit(
+    let resolution = crate::features::ecs::damage_apply::resolve_body_hit(
         combat,
         Some(health),
         false,
@@ -66,7 +66,7 @@ pub(crate) fn apply_entity_boss_damage(
         amount,
         1.0,
         false,
-        crate::combat::damage::BodyHitFeel {
+        crate::features::ecs::damage_apply::BodyHitFeel {
             hit_flash: 0.18,
             damage_invuln_time: 0.0,
             block_hit_flash: 0.0,
@@ -75,10 +75,10 @@ pub(crate) fn apply_entity_boss_damage(
     );
     match resolution {
         // Already dead (raced past the caller's liveness check) — no hit.
-        crate::combat::damage::BodyHitResolution::Ignored => (false, false),
+        crate::features::ecs::damage_apply::BodyHitResolution::Ignored => (false, false),
         // No shield component ⇒ the resolver never returns Blocked for a boss.
-        crate::combat::damage::BodyHitResolution::Blocked => (false, false),
-        crate::combat::damage::BodyHitResolution::Damaged { died, .. } => {
+        crate::features::ecs::damage_apply::BodyHitResolution::Blocked => (false, false),
+        crate::features::ecs::damage_apply::BodyHitResolution::Damaged { died, .. } => {
             if died {
                 if let Some(phase) = status.encounter.as_mut() {
                     let _ = phase.kill();
@@ -266,7 +266,7 @@ mod entity_damage_tests {
     //! phases swallow the hit.
     use super::*;
     use crate::boss_encounter::BossEncounterPhase;
-    use crate::combat::boss_clusters::test_support::test_boss_status;
+    use crate::features::ecs::boss_clusters::test_support::test_boss_status;
 
     fn boss(
         hp: i32,

@@ -356,7 +356,7 @@ pub fn player_attack_hitbox(
     gravity_dir: ae::Vec2,
 ) -> Option<ae::CombatVolume> {
     let animation = attack_intent_animation(intent);
-    super::authored_volumes::authored_attack_volume(
+    crate::combat::authored_volumes::authored_attack_volume(
         None,
         animation,
         view.pos,
@@ -445,7 +445,7 @@ pub fn advance_attack(
         // `spawn_melee_strike`), so they can never diverge.
         let spec_box = attack_hitbox_from_view(&view, attack_state.spec);
         let animation = attack_intent_animation(attack_state.spec.intent);
-        let manifest = super::authored_volumes::authored_attack_volume(
+        let manifest = crate::combat::authored_volumes::authored_attack_volume(
             sprite_cid,
             animation,
             view.pos,

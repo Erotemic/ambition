@@ -41,7 +41,7 @@ impl HazardRuntime {
         }
     }
 
-    pub(super) fn new_with_paths(
+    pub(crate) fn new_with_paths(
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: ae::Aabb,

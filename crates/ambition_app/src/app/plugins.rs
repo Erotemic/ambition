@@ -188,7 +188,7 @@ fn register_app_local_sim_systems(app: &mut App) {
             .after(
                 ambition_gameplay_core::abilities::traversal::possession::release_possession_if_target_lost,
             )
-            .before(ambition_gameplay_core::combat::damage::apply_player_hit_events),
+            .before(ambition_gameplay_core::features::ecs::damage_apply::apply_player_hit_events),
     );
 
     // ── The RoomTransition gap: the transition APPLY composer ─────────────

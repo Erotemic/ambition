@@ -310,7 +310,7 @@ impl<'a> ActorMut<'a> {
         // movement authority but preserves the attack verb. Applied after the
         // flight-axis override so a knocked flyer loses its steering too.
         let (hitstun_timer, recoil_lock_timer) = stagger;
-        crate::combat::attack::apply_post_hit_input_gates(
+        crate::features::ecs::attack::apply_post_hit_input_gates(
             &mut input,
             feel,
             hitstun_timer,

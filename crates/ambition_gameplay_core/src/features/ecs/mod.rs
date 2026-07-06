@@ -47,18 +47,25 @@ pub mod actor_tuning;
 mod actors;
 mod aggression;
 mod anim_helpers;
+pub mod attack;
+pub mod boss_clusters;
 mod bosses;
 mod brain_builders;
 mod brain_effects;
+pub mod chests;
 mod damage;
+pub mod damage_apply;
 mod damage_drops;
 mod damage_predicates;
+pub mod effect_bus;
 mod encounter_rewards;
 #[cfg(test)]
 mod fighter_harness;
 mod interact;
 mod mount;
 pub mod perception;
+pub mod pickups;
+pub mod spawn_static;
 pub use mount::{rider_hand_world_pos, rider_hand_world_pos_in_frame};
 mod reset;
 mod save_sync;
@@ -67,10 +74,10 @@ mod spawn_actors;
 mod target_volumes;
 
 // Combat-kit aliases keep `ecs::<module>` paths stable for callers.
-pub use crate::combat::boss_clusters;
+// (attack/boss_clusters/chests/damage_apply/effect_bus/pickups/spawn_static
+// are LOCAL modules now — the E2 glue re-home.)
 pub use crate::combat::{
-    banner, breakables, chests, falling_chest, hazards, held_items, hitbox, pickups, spawn_static,
-    targeting, variation,
+    banner, breakables, falling_chest, hazards, held_items, hitbox, targeting, variation,
 };
 
 pub use actors::{

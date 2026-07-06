@@ -37,15 +37,14 @@ const CHEST_FALL_GRAVITY: f32 = 1400.0;
 /// blast through the floor sweep before the sub-step kicks in.
 const CHEST_FALL_MAX_SPEED: f32 = 900.0;
 
-pub mod attack;
+// The feature-GLUE half of the old combat/ directory now lives under
+// `features::ecs` (E2 boundary): attack (legacy flat swing), damage_apply
+// (victim-side resolution, E7 material), effect_bus, pickups, chests,
+// spawn_static (room-load lowering), boss_clusters (E6).
 pub mod authored_volumes;
 pub mod banner;
-pub mod boss_clusters;
 pub mod breakables;
-pub mod bus;
-pub mod chests;
 pub mod components;
-pub mod damage;
 pub mod events;
 pub mod falling_chest;
 pub mod hazard_runtime;
@@ -55,8 +54,6 @@ pub mod hitbox;
 pub mod moveset;
 pub mod on_hit;
 pub mod path_motion;
-pub mod pickups;
-pub mod spawn_static;
 pub mod targeting;
 pub mod util;
 pub mod variation;

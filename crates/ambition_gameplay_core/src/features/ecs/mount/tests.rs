@@ -887,11 +887,12 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
     let rider_size = ae::Vec2::new(54.0, 96.0);
     let mut rider_actor = hostile("gnu_ton_rider", "gnu_ton_rider", rider_pos, rider_size);
     rider_actor.1 .5.gravity_scale = 0.0; // mounted → gravity off
-    let (boss_encounter, _hp) = crate::combat::boss_clusters::test_support::test_boss_status_with(
-        profile.encounter.max_hp,
-        BossEncounterPhase::Phase1,
-        triggers,
-    );
+    let (boss_encounter, _hp) =
+        crate::features::ecs::boss_clusters::test_support::test_boss_status_with(
+            profile.encounter.max_hp,
+            BossEncounterPhase::Phase1,
+            triggers,
+        );
     let boss_config = crate::features::BossConfig {
         id: "gnu_ton_rider".into(),
         name: profile.display_name.clone(),
@@ -1245,11 +1246,12 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
         &[],
     )
     .expect("the rider's authored strikes build a moveset");
-    let (boss_encounter, _hp) = crate::combat::boss_clusters::test_support::test_boss_status_with(
-        profile.encounter.max_hp,
-        BossEncounterPhase::Phase1,
-        PhaseTrigger::intrinsic_from_spec(&profile.encounter),
-    );
+    let (boss_encounter, _hp) =
+        crate::features::ecs::boss_clusters::test_support::test_boss_status_with(
+            profile.encounter.max_hp,
+            BossEncounterPhase::Phase1,
+            PhaseTrigger::intrinsic_from_spec(&profile.encounter),
+        );
     let mut rider_actor = hostile(
         "gnu_ton_rider",
         "gnu_ton_rider",

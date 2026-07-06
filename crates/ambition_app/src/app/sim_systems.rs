@@ -128,7 +128,7 @@ pub fn apply_room_replay_request_system(
     // Cut-rope boss placements in the room — R4 keys "cleared" by placement
     // (`config.id`), so the replay clears those keys (the respawned boss carries
     // the same LDtk id).
-    cut_rope_bosses: Query<&ambition_gameplay_core::combat::boss_clusters::BossConfig>,
+    cut_rope_bosses: Query<&ambition_gameplay_core::features::ecs::boss_clusters::BossConfig>,
     mut reset_room_features: MessageWriter<features::ResetRoomFeaturesEvent>,
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,

@@ -206,7 +206,7 @@ pub fn apply_hitbox_damage(
                     // (dodge roll, parry, i-frame window).
                     let (offense, dodge, shield, combat) = vuln;
                     let feedback = !is_player
-                        || crate::combat::damage::body_vulnerable(offense, dodge, shield, combat);
+                        || crate::combat::util::body_vulnerable(offense, dodge, shield, combat);
                     let impact = midpoint(victim_aabb.center, world_volume.center());
                     if feedback {
                         vfx.write(VfxMessage::Impact { pos: impact });
@@ -247,7 +247,7 @@ pub fn apply_hitbox_damage(
                     // strength unchanged — parity by construction.
                     let victim_damage_taken = victim_health.map(|h| h.damage_taken()).unwrap_or(0);
                     let victim_weight = victim_tuning.map(|ct| ct.weight).unwrap_or(1.0);
-                    let strength = crate::combat::damage::scaled_knockback(
+                    let strength = crate::features::ecs::damage_apply::scaled_knockback(
                         hitbox.knockback_strength,
                         hitbox.knockback_growth,
                         victim_damage_taken,
@@ -452,7 +452,7 @@ pub fn spawn_melee_strike(
         active_s,
         frame_down,
     );
-    crate::combat::attack::emit_melee_slash(
+    crate::features::ecs::attack::emit_melee_slash(
         vfx,
         world_box.center(),
         world_box.half_size(),

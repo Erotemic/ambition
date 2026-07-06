@@ -169,7 +169,7 @@ impl Plugin for PlayerSchedulePlugin {
                 ambition_gameplay_core::abilities::traversal::possession::possession_trigger_system
                     .run_if(gameplay_allowed),
                 ambition_gameplay_core::abilities::traversal::possession::release_possession_if_target_lost,
-                ambition_gameplay_core::combat::damage::apply_player_hit_events
+                ambition_gameplay_core::features::ecs::damage_apply::apply_player_hit_events
                     .run_if(gameplay_allowed),
             )
                 .chain()

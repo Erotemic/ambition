@@ -23,7 +23,7 @@ use bevy::prelude::*;
 
 use ambition_engine_core as ae;
 
-use crate::combat::attack::engine_input_from_actor_control;
+use crate::features::ecs::attack::engine_input_from_actor_control;
 use crate::features::{world_with_sandbox_solids, FeatureEcsWorldOverlay};
 use crate::time::feel::SandboxFeelTuning;
 use crate::world::platforms::MovingPlatformState;

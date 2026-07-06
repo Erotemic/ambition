@@ -450,7 +450,7 @@ pub(crate) fn draw_player_debug(
             // Draw the ACTUAL damage volume — the authored blade-arc poly (or the
             // hardcoded AABB fallback) the slash emits — not a separate preview
             // box, so the overlay matches what hits.
-            let volume = ambition_gameplay_core::combat::attack::player_attack_hitbox(
+            let volume = ambition_gameplay_core::features::ecs::attack::player_attack_hitbox(
                 &view,
                 attack_state.spec.intent,
                 gravity_dir,

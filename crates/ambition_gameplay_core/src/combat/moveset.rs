@@ -991,7 +991,7 @@ pub fn advance_move_playback(
                                 ambition_vfx::vfx::SlashKind::Arc
                             };
                             let b = hb.world_volume(kin.pos).bounds();
-                            crate::combat::attack::emit_melee_slash(
+                            crate::features::ecs::attack::emit_melee_slash(
                                 &mut vfx,
                                 b.center(),
                                 b.half_size(),

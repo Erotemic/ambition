@@ -2,6 +2,7 @@
 
 use super::*;
 use crate::features::SetFlagRequested;
+use ambition_sfx::SfxMessage;
 
 /// Range within which dropped loot drifts toward the player — a coin/loot magnet,
 /// so the coins + hearts this run drops come to you instead of needing a pixel-

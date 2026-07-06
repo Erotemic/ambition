@@ -26,7 +26,7 @@ use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use ambition_engine_core as ae;
 use ambition_entity_catalog::placements::BossBrain;
 use ambition_gameplay_core::actor::BodyKinematics;
-use ambition_gameplay_core::combat::boss_clusters::BossConfig;
+use ambition_gameplay_core::features::ecs::boss_clusters::BossConfig;
 use bevy::prelude::World;
 
 /// Read the live boss's body position (only the boss carries `BossConfig`, so this

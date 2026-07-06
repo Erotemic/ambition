@@ -143,6 +143,53 @@ found drift — update the table in the same commit. LOC ≈ `wc -l`.)*
 simulation. D-B then re-measures the `ambition_abilities` candidate
 (~4.5k) and stops there unless the numbers argue otherwise (U1).
 
+### The projected end-state sizes (measured 2026-07-06 night, 101.7k total)
+
+What the ledger above adds up to, so "how much does the monolith shrink"
+has a standing numeric answer (re-measure when the tree drifts):
+
+| Destination (carve) | From gameplay_core modules | ~LOC out |
+|---|---|---:|
+| `ambition_combat` (E2) | `combat/` | 12.8k |
+| `ambition_world` + `ambition_ldtk_map` (W3) | `world/` | 10.9k |
+| 3-way E6/E3/E-enc split | `boss_encounter/` | 6.8k |
+| `ambition_persistence` (E1a) | `persistence/ quest/ host/` | 5.2k |
+| `ambition_projectiles` (E2) | `projectile/ enemy_projectile/` | 4.4k |
+| `ambition_sprite_sheet` (E3) | `character_sprites/` | 4.3k |
+| `ambition_asset_manager` (E-assets) | `assets/` | 3.3k |
+| `ambition_menu` (E1e) | `menu/` | 3.2k |
+| `ambition_dev_tools` (E1d) | `dev/` | 3.0k |
+| `ambition_items` (E8) | `items/ inventory_ui/` | 2.7k |
+| `ambition_encounter` (E-enc) | `encounter/` + rewards | 2.9k |
+| `ambition_dialog` (E1c) | `dialog/` | 2.3k |
+| `ambition_audio` (E1b) | `audio/ music/` | 1.8k |
+| `ambition_runtime` (E5 tail) | `schedule/ platformer_runtime/` | 0.7k |
+| **total leaving** | | **≈ 64k (63%)** |
+
+**Residual [the sim heart] ≈ 35k** (`features/` 20.6k + `player/` 6.6k +
+`abilities/` 4.2k + `time/` 1.4k + `session/` 1.3k + `body_mode/` +
+portal glue + gravity + roster/shrine/cutscene misc), dropping to
+**≈ 31k** if D-B's abilities re-measurement carves `ambition_abilities`
+(~4.2k) — consistent with the ledger's ≈33k estimate. That residual is
+the DELIBERATE floor, not unfinished work: splitting spawn/tick/perceive/
+damage-routing apart would re-fork the actor unification (U1). Below the
+crate line, navigability is won by the D-B internal standard (every
+module ≤ ~1.5k lines, one concern, `MODULES.md`), not by more crates.
+End state: the largest engine crate is [the sim heart] at ~31–35k
+(≈ 2× engine_core/characters); nothing else exceeds ~13k.
+
+**Efficiency (why the split costs the game nothing):** crate boundaries
+are COMPILE-TIME structure — the same systems run in the same schedule
+(E5's carve was byte-parity-gated, the precedent). Rust inlines generics
+across crates and `#[inline]` covers the hot small fns; the kernels
+already live in engine_core; thin-LTO on release builds is the lever if
+a boundary ever shows in a profile (none expected). The costs that DO
+exist are paid deliberately: the E4 read-model copies view facts once
+per tick (bought: netcode/RL/render decoupling — Q32), and the win the
+split exists for is INCREMENTAL COMPILE (touch a combat file → rebuild
+~13k + dependents, not 101.7k + everything; the per-carve `--timings`
+receipts are the standing measurement).
+
 ### Why these pieces are THE pieces (the elegance argument)
 
 The crate boundaries follow the four real fault lines in the domain, not

@@ -94,6 +94,15 @@ pub struct FriendlyFire {
     pub enabled: bool,
 }
 
+/// Register the relational-targeting resources combat OWNS (rule 5): the
+/// default `FactionRelations` matrix + the `FriendlyFire` toggle. The
+/// WorldPrep schedule calls this instead of init-ing combat's resources from
+/// another module, so ownership travels with the types into `ambition_combat`.
+pub fn init_targeting_resources(app: &mut App) {
+    app.init_resource::<FactionRelations>();
+    app.init_resource::<FriendlyFire>();
+}
+
 /// Whether an `attacker`-faction hit may damage a `victim`-faction body. The
 /// engine rule (see [`FriendlyFire`]): damage lands on any DIFFERENT faction;
 /// same-faction is blocked unless friendly fire is enabled. Self-exclusion

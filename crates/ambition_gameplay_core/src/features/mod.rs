@@ -194,9 +194,9 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use bevy::prelude::{IntoScheduleConfigs, Update};
         // Relational targeting seam (default = today's behavior; stealth/bounty/
-        // alliance systems mutate it). `select_actor_targets` reads it.
-        app.init_resource::<FactionRelations>();
-        app.init_resource::<FriendlyFire>();
+        // alliance systems mutate it). `select_actor_targets` reads it. Combat
+        // owns these resources (rule 5); WorldPrep just invokes its registrar.
+        crate::combat::targeting::init_targeting_resources(app);
         // Accumulating sim-time for brain perception (reaction latency).
         app.init_resource::<GameplayElapsed>();
         // Hot-reload watcher state read by `poll_ldtk_file_changes` below.

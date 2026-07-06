@@ -42,7 +42,7 @@ use ambition_characters::brain::action_set::{
     ActionRequest, MeleeActionSpec, RangedActionSpec, SpecialActionSpec,
 };
 use ambition_characters::brain::{ActorActionMessage, ActorControl};
-use ambition_combat::DamageKind;
+use ambition_entity_catalog::placements::DamageKind;
 use ambition_sfx::{SfxId, SfxMessage};
 use ambition_time::WorldTime;
 

@@ -108,7 +108,7 @@ enum MovingPlatformMotion {
         dir: f32,
     },
     Path {
-        path: ambition_characters::actor::KinematicPath,
+        path: ambition_engine_core::KinematicPath,
         segment: usize,
         dir: i32,
     },
@@ -164,7 +164,7 @@ impl MovingPlatformState {
         id: impl Into<String>,
         name: impl Into<String>,
         size: ae::Vec2,
-        path: ambition_characters::actor::KinematicPath,
+        path: ambition_engine_core::KinematicPath,
     ) -> Self {
         let pos = path.points.first().copied().unwrap_or(ae::Vec2::ZERO);
         Self {
@@ -390,7 +390,7 @@ fn ledge_contact_matches_platform(
 }
 
 fn advance_path_position(
-    path: &ambition_characters::actor::KinematicPath,
+    path: &ambition_engine_core::KinematicPath,
     segment: &mut usize,
     dir: &mut i32,
     mut pos: ae::Vec2,
@@ -422,18 +422,18 @@ fn advance_path_position(
 }
 
 fn advance_path_segment(
-    path: &ambition_characters::actor::KinematicPath,
+    path: &ambition_engine_core::KinematicPath,
     segment: &mut usize,
     dir: &mut i32,
 ) {
     let last_segment = path.points.len().saturating_sub(2);
     match path.mode {
-        ambition_characters::actor::KinematicPathMode::Once => {
+        ambition_engine_core::KinematicPathMode::Once => {
             if *dir >= 0 && *segment < last_segment {
                 *segment += 1;
             }
         }
-        ambition_characters::actor::KinematicPathMode::Loop => {
+        ambition_engine_core::KinematicPathMode::Loop => {
             if *dir >= 0 {
                 *segment = if *segment >= last_segment {
                     0
@@ -446,7 +446,7 @@ fn advance_path_segment(
                 *segment -= 1;
             }
         }
-        ambition_characters::actor::KinematicPathMode::PingPong => {
+        ambition_engine_core::KinematicPathMode::PingPong => {
             if *dir >= 0 {
                 if *segment >= last_segment {
                     *dir = -1;

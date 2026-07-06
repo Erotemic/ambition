@@ -38,7 +38,7 @@ pub struct BossConfig {
     pub name: String,
     /// Authored spawn anchor; `reset` restores `kin.pos` to it.
     pub spawn: ae::Vec2,
-    pub brain: ambition_characters::actor::BossBrain,
+    pub brain: ambition_entity_catalog::placements::BossBrain,
     pub behavior: BossBehaviorProfile,
 }
 
@@ -291,7 +291,7 @@ impl BossClusterScratch {
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: ae::Aabb,
-        brain: ambition_characters::actor::BossBrain,
+        brain: ambition_entity_catalog::placements::BossBrain,
     ) -> Self {
         let name = name.into();
         // Behavior lookup prefers the brain's `PhaseScript:` id over the
@@ -435,7 +435,7 @@ pub(crate) mod test_support {
             id: id.into(),
             name: name.into(),
             spawn: ae::Vec2::ZERO,
-            brain: ambition_characters::actor::BossBrain::PhaseScript {
+            brain: ambition_entity_catalog::placements::BossBrain::PhaseScript {
                 script_id: script_id.to_string(),
             },
             behavior: BossBehaviorProfile::for_authored_boss(script_id),

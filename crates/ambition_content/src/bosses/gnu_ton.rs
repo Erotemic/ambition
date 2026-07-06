@@ -173,7 +173,7 @@ mod tests {
             "boss_gnu_ton",
             "GNU-ton",
             aabb,
-            ambition_characters::actor::BossBrain::Dormant,
+            ambition_entity_catalog::placements::BossBrain::Dormant,
         );
         scratch.config.behavior = behavior;
         scratch
@@ -191,7 +191,7 @@ mod tests {
             "boss_gnu_ton_rider",
             "GNU-ton",
             aabb,
-            ambition_characters::actor::BossBrain::Dormant,
+            ambition_entity_catalog::placements::BossBrain::Dormant,
         );
         scratch.config.behavior = behavior;
         scratch
@@ -335,7 +335,7 @@ mod tests {
     /// `mount_links` entry) end-to-end off the embedded sandbox.ldtk.
     #[test]
     fn arena_spawns_the_adr0020_linked_pair() {
-        use ambition_characters::actor::{BossBrain, CharacterBrain};
+        use ambition_entity_catalog::placements::{BossBrain, CharacterBrain};
         use ambition_gameplay_core::ldtk_world::LdtkProject;
 
         // `to_room_set` reads the world manifest + resolves spawn display names

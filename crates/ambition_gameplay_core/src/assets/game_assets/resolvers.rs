@@ -79,7 +79,7 @@ pub fn entity_sprite_for_interactable(
 }
 
 pub fn entity_sprite_for_enemy(
-    brain: &ambition_characters::actor::CharacterBrain,
+    brain: &ambition_entity_catalog::placements::CharacterBrain,
 ) -> Option<EntitySprite> {
     // Training dummies use a dedicated static sprite (authored
     // archetype data); other actors use animated spritesheets, not a
@@ -92,7 +92,7 @@ pub fn entity_sprite_for_enemy(
 }
 
 pub fn entity_sprite_for_boss(
-    _brain: &ambition_characters::actor::BossBrain,
+    _brain: &ambition_entity_catalog::placements::BossBrain,
 ) -> Option<EntitySprite> {
     Some(EntitySprite::BossCore)
 }

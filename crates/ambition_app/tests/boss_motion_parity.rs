@@ -23,8 +23,8 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
-use ambition_characters::actor::BossBrain;
 use ambition_engine_core as ae;
+use ambition_entity_catalog::placements::BossBrain;
 use ambition_gameplay_core::actor::BodyKinematics;
 use ambition_gameplay_core::combat::boss_clusters::BossConfig;
 use bevy::prelude::World;

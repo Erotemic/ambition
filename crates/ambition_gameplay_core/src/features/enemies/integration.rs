@@ -60,7 +60,7 @@ pub(crate) fn enemy_attack_aabb_dir(
 fn evaluate_enemy_ai_output(
     pos: ae::Vec2,
     target_pos: ae::Vec2,
-    brain: &ambition_characters::actor::CharacterBrain,
+    brain: &ambition_entity_catalog::placements::CharacterBrain,
     tuning: &crate::combat::ActorTuning,
     attack: &crate::features::BodyMelee,
     alive: bool,
@@ -72,8 +72,10 @@ fn evaluate_enemy_ai_output(
             0.0
         };
     let effective_aggro_radius = match brain {
-        ambition_characters::actor::CharacterBrain::Passive => 0.0,
-        ambition_characters::actor::CharacterBrain::Guard { leash_radius } => *leash_radius,
+        ambition_entity_catalog::placements::CharacterBrain::Passive => 0.0,
+        ambition_entity_catalog::placements::CharacterBrain::Guard { leash_radius } => {
+            *leash_radius
+        }
         _ => tuning.aggro_radius,
     };
     ambition_characters::actor::ai::evaluate_character_ai_output(
@@ -88,7 +90,10 @@ fn evaluate_enemy_ai_output(
             stun_remaining: 0.0,
             alive,
             patrol_enabled: !tuning.is_sandbag
-                && !matches!(brain, ambition_characters::actor::CharacterBrain::Passive),
+                && !matches!(
+                    brain,
+                    ambition_entity_catalog::placements::CharacterBrain::Passive
+                ),
         },
     )
 }
@@ -671,7 +676,7 @@ mod dash_tests {
     use super::*;
     use crate::features::ecs::actor_clusters::{ActorBody, ActorClusterSeed};
     use ambition_characters::actor::control::ActorControlFrame;
-    use ambition_characters::actor::CharacterBrain;
+    use ambition_entity_catalog::placements::CharacterBrain;
 
     /// A wide solid floor; bodies rest on its top face at y = 100.
     fn floored_world() -> ae::World {

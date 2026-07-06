@@ -7,22 +7,8 @@
 
 pub mod slots;
 
-use ambition_characters::actor::{DamageTeam, KinematicPath, RespawnPolicy};
-use ambition_engine_core::Vec2;
-use ambition_engine_core::{Aabb, AabbExt};
-
-/// The broad gameplay category of damage. This is intentionally separate from
-/// presentation so hazards, attacks, and projectiles can share damage handling.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum DamageKind {
-    Slash,
-    Pogo,
-    Contact,
-    Hazard,
-    Projectile,
-    Environmental,
-    Custom,
-}
+use ambition_engine_core::{Aabb, AabbExt, KinematicPath, Vec2};
+use ambition_entity_catalog::placements::{DamageKind, DamageTeam, HazardRespawn};
 
 /// Damage payload shared by hitboxes and persistent damage volumes.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -67,7 +53,7 @@ pub struct DamageVolume {
     pub id: String,
     pub aabb: Aabb,
     pub damage: Damage,
-    pub respawn: RespawnPolicy,
+    pub respawn: HazardRespawn,
     /// Optional reference to a room-level `KinematicPath` authored in LDtk.
     /// When present, sandbox feature runtime resolves this against
     /// `RoomSpec::kinematic_paths` and uses it instead of the inline
@@ -87,7 +73,7 @@ impl DamageVolume {
             id: id.into(),
             aabb,
             damage: Damage::new(amount, DamageKind::Hazard, DamageTeam::Environment),
-            respawn: RespawnPolicy::Never,
+            respawn: HazardRespawn::Never,
             path_id: None,
             motion: None,
             enabled: true,

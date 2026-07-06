@@ -42,8 +42,8 @@ pub struct RoomSpec {
     pub pickups: Vec<Authored<ambition_interaction::Pickup>>,
     pub chests: Vec<Authored<ambition_interaction::Chest>>,
     pub breakables: Vec<Authored<ambition_interaction::Breakable>>,
-    pub enemy_spawns: Vec<Authored<ambition_characters::actor::CharacterBrain>>,
-    pub boss_spawns: Vec<Authored<ambition_characters::actor::BossBrain>>,
+    pub enemy_spawns: Vec<Authored<ambition_entity_catalog::placements::CharacterBrain>>,
+    pub boss_spawns: Vec<Authored<ambition_entity_catalog::placements::BossBrain>>,
     pub debug_labels: Vec<Authored<crate::debug_label::DebugLabel>>,
     /// ADR 0020 authored mount links: `(rider_id, mount_id)` pairs. A rider
     /// `EnemySpawn` with a `mounted_on` entity-ref emits one; after the room's

@@ -15,7 +15,7 @@ pub use body::{BodyCombat, BodyHealth, BodyWallet};
 pub mod character_catalog;
 pub mod control;
 
-use ambition_engine_core::Vec2;
+use ambition_entity_catalog::placements::DamageTeam;
 
 /// Coarse category for room entities that have identity or behavior.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
@@ -30,35 +30,6 @@ pub enum ActorKind {
     Pickup,
     Breakable,
     Debug,
-}
-
-/// Damage/team relationship used by hitboxes and hurtboxes — the `can_damage`
-/// matrix that decides whether one side's hit may affect another.
-///
-/// Deliberately distinct from `ActorFaction` (this crate), which
-/// is a `#[derive(Component)]` actor-side tag (`is_player_side`/`is_hostile_side`,
-/// with `Npc`/`Boss` variants). This one is the *damage* relationship; that one
-/// is the *ECS actor* tag. They were both named `ActorFaction` and both in
-/// scope, which is exactly the footgun this rename removes (Refactor 2).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub enum DamageTeam {
-    Player,
-    Enemy,
-    Neutral,
-    Environment,
-}
-
-impl DamageTeam {
-    /// True when damage from `self` is allowed to affect `target` by default.
-    pub fn can_damage(self, target: Self) -> bool {
-        match (self, target) {
-            (Self::Player, Self::Enemy) => true,
-            (Self::Enemy, Self::Player) => true,
-            (Self::Environment, Self::Player | Self::Enemy | Self::Neutral) => true,
-            (Self::Neutral, _) => false,
-            _ => false,
-        }
-    }
 }
 
 /// Lightweight identity/name payload for authored actors.
@@ -137,75 +108,6 @@ impl Health {
     }
 }
 
-/// How temporary/destructible entities return after being consumed or killed.
-#[derive(Clone, Copy, Debug, PartialEq, Default)]
-pub enum RespawnPolicy {
-    /// Never respawn inside the current run/session.
-    #[default]
-    Never,
-    /// Respawn after a timer in simulation seconds.
-    AfterSeconds(f32),
-    /// Respawn when the room is re-entered.
-    OnRoomReload,
-    /// The object is persistent and controlled by story/save state.
-    Persistent,
-}
-
-/// Declarative movement path for moving platforms, spike balls, patrol dummies,
-/// and later scripted boss hazards.
-#[derive(Clone, Debug, PartialEq)]
-pub struct KinematicPath {
-    pub points: Vec<Vec2>,
-    pub speed: f32,
-    pub mode: KinematicPathMode,
-    pub start_offset_seconds: f32,
-}
-
-impl KinematicPath {
-    pub fn line(a: Vec2, b: Vec2, speed: f32) -> Self {
-        Self {
-            points: vec![a, b],
-            speed,
-            mode: KinematicPathMode::PingPong,
-            start_offset_seconds: 0.0,
-        }
-    }
-
-    pub fn is_valid(&self) -> bool {
-        self.points.len() >= 2 && self.speed > 0.0
-    }
-}
-
-/// Playback style for a kinematic path.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum KinematicPathMode {
-    Once,
-    Loop,
-    PingPong,
-}
-
-/// Authored enemy behavior tag. The sandbox maps `Custom(name)` to its
-/// own `CharacterArchetype` via `CharacterArchetype::from_brain`; the engine
-/// only carries this enum as a typed payload between LDtk authoring
-/// and sandbox dispatch.
-#[derive(Clone, Debug, PartialEq)]
-pub enum CharacterBrain {
-    Passive,
-    Patrol { path_id: Option<String> },
-    Guard { leash_radius: f32 },
-    Custom(String),
-}
-
-/// Authored boss behavior tag. Same shape and contract as
-/// `CharacterBrain`: the engine doesn't simulate against the variants;
-/// the sandbox decides per-boss behavior from the payload.
-#[derive(Clone, Debug, PartialEq)]
-pub enum BossBrain {
-    Dormant,
-    PhaseScript { script_id: String },
-    Custom(String),
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -217,33 +119,6 @@ mod tests {
         assert_eq!(health.current, 1);
         assert!(health.damage(1));
         assert!(!health.damage(1));
-    }
-
-    #[test]
-    fn environment_damage_affects_player_and_enemy() {
-        assert!(DamageTeam::Environment.can_damage(DamageTeam::Player));
-        assert!(DamageTeam::Environment.can_damage(DamageTeam::Enemy));
-        assert!(!DamageTeam::Player.can_damage(DamageTeam::Player));
-    }
-
-    #[test]
-    fn can_damage_matrix_encodes_the_friendly_fire_rules() {
-        use DamageTeam::{Enemy, Environment, Neutral, Player};
-        // The two combat loops cross faction lines.
-        assert!(Player.can_damage(Enemy), "player hits enemies");
-        assert!(Enemy.can_damage(Player), "enemies hit the player");
-        // No same-faction friendly fire.
-        assert!(!Player.can_damage(Player));
-        assert!(!Enemy.can_damage(Enemy));
-        // Environment (hazards) hits everything except itself.
-        assert!(Environment.can_damage(Neutral));
-        // Neutral never deals damage; nothing targets it offensively except
-        // the environment.
-        assert!(!Neutral.can_damage(Player));
-        assert!(!Neutral.can_damage(Enemy));
-        assert!(!Player.can_damage(Neutral));
-        assert!(!Enemy.can_damage(Neutral));
-        assert!(!Player.can_damage(Environment));
     }
 
     #[test]

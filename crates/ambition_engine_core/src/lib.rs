@@ -34,6 +34,7 @@ pub mod combat_volume;
 pub mod config;
 pub mod frame;
 pub mod geometry;
+pub mod kinematic_path;
 pub mod ledge_grab;
 pub mod movement;
 pub mod player_state;
@@ -56,6 +57,7 @@ pub use body_clusters::{
 };
 pub use combat_volume::CombatVolume;
 pub use geometry::{aabb_from_min_size, Aabb, AabbExt, CenteredAabb};
+pub use kinematic_path::{KinematicPath, KinematicPathMode};
 pub use ledge_grab::{
     probe_ledge_grab, LedgeContact, LedgeGetupKind, LedgeGrabState, LEDGE_CLIMB_TIME,
     LEDGE_GRAB_INVULN_TIME, LEDGE_MIN_CLIMB_DELAY, LEDGE_ROLL_OVERSHOOT, LEDGE_ROLL_TIME,

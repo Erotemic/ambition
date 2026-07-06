@@ -437,7 +437,7 @@ impl SandboxSim {
         name: impl Into<String>,
         pos: (f32, f32),
         half_size: (f32, f32),
-        brain: ambition_characters::actor::BossBrain,
+        brain: ambition_entity_catalog::placements::BossBrain,
     ) {
         self.spawn_boss_at_with(
             id,
@@ -459,7 +459,7 @@ impl SandboxSim {
         name: impl Into<String>,
         pos: (f32, f32),
         half_size: (f32, f32),
-        brain: ambition_characters::actor::BossBrain,
+        brain: ambition_entity_catalog::placements::BossBrain,
         overrides: ambition_gameplay_core::features::BossOverrides,
     ) {
         self.app
@@ -490,7 +490,7 @@ impl SandboxSim {
         name: impl Into<String>,
         pos: (f32, f32),
         half_size: (f32, f32),
-        brain: ambition_characters::actor::CharacterBrain,
+        brain: ambition_entity_catalog::placements::CharacterBrain,
     ) {
         self.app
             .world_mut()

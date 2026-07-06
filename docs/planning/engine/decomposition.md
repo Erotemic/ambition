@@ -618,14 +618,20 @@ execution. Do not reopen; deviations follow vision.md §7 (a genuine
 
 **OPUS-SAFE — the W execution queue (strict order; each step compiles +
 commits alone):**
-1. **W-a moves:** mint `ambition_entity_catalog::placements` with
-   `CharacterBrain` + `BossBrain` + `HazardRespawn` (renamed) +
-   `DamageKind` + `DamageTeam`; move `KinematicPath`/`KinematicPathMode`
-   to `ambition_engine_core` (the geometry vocabulary — verdict 2 above);
-   repoint every consumer (grep-driven; ~50 files name the brains, ~105
-   lines name KinematicPath); delete the old definitions. NO shims.
-   `DamageVolume`/`Damage` stay put for now (they dissolve in step 3 —
-   verdict 3 above).
+1. ✅ **W-a moves — DONE (opus 2026-07-06 night).**
+   `ambition_entity_catalog::placements` minted with `CharacterBrain` +
+   `BossBrain` + `HazardRespawn` (renamed from the actor `RespawnPolicy`) +
+   `DamageKind` (moved out of `ambition_combat`) + `DamageTeam` (with its
+   `can_damage` matrix + tests); `KinematicPath`/`KinematicPathMode` moved
+   to `ambition_engine_core::kinematic_path` beside the geometry vocabulary.
+   Every consumer repointed (grep-driven bulk sed of the full paths + the 5
+   grouped-brace `use` sites + the two `crate::combat::DamageKind` /
+   `ambition_combat::DamageKind` sites); old definitions deleted; NO shims.
+   `ambition_entity_catalog` added as a dep of combat/interaction/content/
+   sim_view/app. `DamageVolume`/`Damage` stayed put (they dissolve in step 3
+   — verdict 3). Gate green: entity_catalog/engine_core/characters/combat/
+   interaction unit suites, gameplay_core lib 1175, content 64, sim_view
+   boundary, app build clean.
 2. **W2 payload:** `RuntimeEntityEmission` → `RoomEmission` carrying
    `Vec<PlacementRecord>` (the [W-b] shape) + the S3 `chains` channel +
    `SpatialSource` provenance + plain-serde derives + the `ron-room`

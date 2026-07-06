@@ -21,7 +21,7 @@ fn make_enemy(brain_key: &str) -> ActorConfig {
         "test".to_string(),
         "test".to_string(),
         aabb,
-        ambition_characters::actor::CharacterBrain::Custom(brain_key.to_string()),
+        ambition_entity_catalog::placements::CharacterBrain::Custom(brain_key.to_string()),
         &[],
     )
     .config
@@ -40,7 +40,7 @@ fn encounter_mob_brain_is_per_archetype_melee_brute() {
             &mut commands,
             "test_encounter",
             "test_mob".to_string(),
-            ambition_characters::actor::CharacterBrain::Custom("medium_striker".into()),
+            ambition_entity_catalog::placements::CharacterBrain::Custom("medium_striker".into()),
             ae::Vec2::new(100.0, 100.0),
             ae::Vec2::new(20.0, 30.0),
         );
@@ -67,7 +67,7 @@ fn boss_spawn_attaches_brain_components() {
             id: "test_boss".to_string(),
             name: "Test Warden".to_string(),
             aabb: ae::Aabb::new(ae::Vec2::new(200.0, 100.0), ae::Vec2::new(40.0, 50.0)),
-            payload: ambition_characters::actor::BossBrain::Dormant,
+            payload: ambition_entity_catalog::placements::BossBrain::Dormant,
         };
         spawn_boss(&mut commands, &authored);
     });
@@ -150,7 +150,7 @@ fn encounter_mob_spawns_with_brain_components() {
             &mut commands,
             "test_encounter",
             "test_mob".to_string(),
-            ambition_characters::actor::CharacterBrain::Custom("medium_striker".into()),
+            ambition_entity_catalog::placements::CharacterBrain::Custom("medium_striker".into()),
             ae::Vec2::new(100.0, 100.0),
             ae::Vec2::new(20.0, 30.0),
         );

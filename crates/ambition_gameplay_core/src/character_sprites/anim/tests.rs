@@ -397,7 +397,7 @@ fn swing_with_intent(intent: crate::combat::AttackIntent) -> crate::MeleeSwing {
         hitbox_half_size: ae::Vec2::new(8.0, 8.0),
         self_impulse: ae::Vec2::ZERO,
         knockback: ae::Vec2::ZERO,
-        damage_kind: crate::combat::DamageKind::Slash,
+        damage_kind: ambition_entity_catalog::placements::DamageKind::Slash,
         can_pogo: false,
         damage_override: None,
     })

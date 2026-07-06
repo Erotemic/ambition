@@ -46,7 +46,7 @@ impl HazardRuntime {
         name: impl Into<String>,
         aabb: ae::Aabb,
         mut volume: crate::combat::DamageVolume,
-        paths: &[(String, ambition_characters::actor::KinematicPath)],
+        paths: &[(String, ambition_engine_core::KinematicPath)],
     ) -> Self {
         if let Some(path_id) = volume
             .path_id

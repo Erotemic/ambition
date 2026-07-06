@@ -65,7 +65,7 @@ pub(crate) fn hostile_spec_for_actor(
     name: &str,
     dialogue_id: Option<&str>,
 ) -> super::super::super::enemies::CharacterArchetypeSpec {
-    let brain = ambition_characters::actor::CharacterBrain::Custom(
+    let brain = ambition_entity_catalog::placements::CharacterBrain::Custom(
         hostile_brain_id_for_actor(id, name, dialogue_id).into(),
     );
     super::super::super::enemies::spec_for_brain(&brain)
@@ -146,7 +146,7 @@ pub(crate) fn provoke_actor_in_place(
     if disposition.is_peaceful() {
         let hostile_id = hostile_brain_id_for_actor(&em.config.id, &em.config.name, dialogue_id);
         let spec = super::super::super::enemies::spec_for_brain(
-            &ambition_characters::actor::CharacterBrain::Custom(hostile_id.into()),
+            &ambition_entity_catalog::placements::CharacterBrain::Custom(hostile_id.into()),
         );
         em.config.tuning = spec.tuning();
         // Re-sync the body's gravity to match the hostile archetype's locomotion
@@ -161,7 +161,8 @@ pub(crate) fn provoke_actor_in_place(
         // `velocity_target`.)
         em.surface.gravity_scale = if em.config.tuning.is_aerial { 0.0 } else { 1.0 };
         em.config.brain_spec = spec.brain_spec();
-        em.config.brain = ambition_characters::actor::CharacterBrain::Custom(hostile_id.into());
+        em.config.brain =
+            ambition_entity_catalog::placements::CharacterBrain::Custom(hostile_id.into());
         // Take on the hostile archetype's HP pool (the peaceful seed spawned with
         // health=1; a provoked actor should fight at full archetype HP).
         *em.health = ambition_characters::actor::BodyHealth::new(

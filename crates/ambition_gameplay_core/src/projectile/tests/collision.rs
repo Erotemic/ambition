@@ -23,7 +23,7 @@ fn fireball_damages_enemy_on_intersect() {
             &mut commands,
             "projectile_test",
             "test_enemy".into(),
-            ambition_characters::actor::CharacterBrain::Custom("medium_striker".into()),
+            ambition_entity_catalog::placements::CharacterBrain::Custom("medium_striker".into()),
             ae::Vec2::new(400.0, 300.0),
             ae::Vec2::new(28.0, 46.0),
         );

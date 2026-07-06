@@ -144,6 +144,7 @@ dependencies = [
  "ambition_content",
  "ambition_cutscene",
  "ambition_engine_core",
+ "ambition_entity_catalog",
  "ambition_gameplay_core",
  "ambition_host",
  "ambition_input",
@@ -221,6 +222,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_characters",
  "ambition_engine_core",
+ "ambition_entity_catalog",
  "bevy",
 ]
 
@@ -233,6 +235,7 @@ dependencies = [
  "ambition_characters",
  "ambition_cutscene",
  "ambition_engine_core",
+ "ambition_entity_catalog",
  "ambition_gameplay_core",
  "ambition_input",
  "ambition_interaction",
@@ -371,6 +374,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_characters",
  "ambition_engine_core",
+ "ambition_entity_catalog",
  "serde",
 ]
 
@@ -472,6 +476,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_characters",
  "ambition_engine_core",
+ "ambition_entity_catalog",
  "ambition_gameplay_core",
  "ambition_input",
  "ambition_interaction",

@@ -104,7 +104,7 @@ fn boss_spawn_hurtboxes_resolves_without_panicking() {
         "boss_gnu_ton",
         "GNU-ton",
         aabb,
-        ambition_characters::actor::BossBrain::Dormant,
+        ambition_entity_catalog::placements::BossBrain::Dormant,
     );
     assert!(!hbs.is_empty(), "a boss should expose at least one hurtbox");
 }
@@ -121,7 +121,7 @@ fn gnu_ton_metrics_come_from_per_animation_hurtboxes() {
         "boss_gnu_ton",
         "GNU-ton",
         ae::Aabb::new(pos, combat_size * 0.5),
-        ambition_characters::actor::BossBrain::Dormant,
+        ambition_entity_catalog::placements::BossBrain::Dormant,
     );
     boss.config.behavior = behavior;
 
@@ -182,7 +182,7 @@ fn mockingbird_resolves_a_body_hurtbox_from_the_baked_registry() {
         "boss_mockingbird",
         "Mockingbird",
         ae::Aabb::new(pos, combat_size * 0.5),
-        ambition_characters::actor::BossBrain::Dormant,
+        ambition_entity_catalog::placements::BossBrain::Dormant,
     );
     boss.config.behavior = behavior;
 

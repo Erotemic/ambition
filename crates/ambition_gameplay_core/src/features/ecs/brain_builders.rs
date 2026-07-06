@@ -258,7 +258,7 @@ pub(super) fn dismounted_rider_brain_and_action_set(
     let mut action_set = kit.to_action_set(held_item);
     if action_set.melee.is_none() {
         action_set.melee = super::super::enemies::spec_for_brain(
-            &ambition_characters::actor::CharacterBrain::Custom("pirate_raider".into()),
+            &ambition_entity_catalog::placements::CharacterBrain::Custom("pirate_raider".into()),
         )
         .melee_spec();
     }
@@ -383,7 +383,7 @@ mod tests {
             "e",
             "E",
             ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0)),
-            ambition_characters::actor::CharacterBrain::Custom(brain_key.into()),
+            ambition_entity_catalog::placements::CharacterBrain::Custom(brain_key.into()),
             &[],
         )
     }

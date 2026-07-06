@@ -393,10 +393,10 @@ impl CharacterRoster {
     /// unknown key or a non-`Custom` brain.
     pub(crate) fn spec_for_brain(
         &self,
-        brain: &ambition_characters::actor::CharacterBrain,
+        brain: &ambition_entity_catalog::placements::CharacterBrain,
     ) -> CharacterArchetypeSpec {
         let key = match brain {
-            ambition_characters::actor::CharacterBrain::Custom(name) => name.as_str(),
+            ambition_entity_catalog::placements::CharacterBrain::Custom(name) => name.as_str(),
             _ => "",
         };
         self.by_brain
@@ -539,7 +539,7 @@ fn enemy_roster() -> &'static CharacterRoster {
 /// string lookup against the installed [`CharacterRoster`]. The spawn path holds
 /// the returned spec; the roster enum never appears here.
 pub(crate) fn spec_for_brain(
-    brain: &ambition_characters::actor::CharacterBrain,
+    brain: &ambition_entity_catalog::placements::CharacterBrain,
 ) -> CharacterArchetypeSpec {
     enemy_roster().spec_for_brain(brain)
 }
@@ -551,9 +551,9 @@ pub(crate) fn spec_for_brain(
 /// game authors.
 #[cfg(test)]
 pub(crate) fn test_spec(brain_key: &str) -> CharacterArchetypeSpec {
-    spec_for_brain(&ambition_characters::actor::CharacterBrain::Custom(
-        brain_key.to_string(),
-    ))
+    spec_for_brain(
+        &ambition_entity_catalog::placements::CharacterBrain::Custom(brain_key.to_string()),
+    )
 }
 
 /// Every authored spawn brain key in the lib's fixture roster — the
@@ -697,7 +697,9 @@ impl CharacterArchetypeSpec {
 /// enemy/NPC/boss "kind" split was never a render type and collapsed into the
 /// single `FeatureVisualKind::Actor`; live depiction is name-first + a
 /// state-keyed fallback in `upgrade_actor_sprites`).
-pub fn enemy_spawn_is_sandbag(payload: &ambition_characters::actor::CharacterBrain) -> bool {
+pub fn enemy_spawn_is_sandbag(
+    payload: &ambition_entity_catalog::placements::CharacterBrain,
+) -> bool {
     spec_for_brain(payload).is_sandbag
 }
 
@@ -713,7 +715,7 @@ mod enemy_archetype_data_tests {
     /// locally so it doesn't touch the process-global override.
     #[test]
     fn enemy_roster_resolves_brain_keys_with_fallback() {
-        use ambition_characters::actor::CharacterBrain;
+        use ambition_entity_catalog::placements::CharacterBrain;
         let mut by_brain = std::collections::HashMap::new();
         by_brain.insert("pirate_heavy".to_string(), test_spec("pirate_heavy"));
         let roster = CharacterRoster::new(by_brain, test_spec("combatant"));
@@ -1167,7 +1169,7 @@ mod capability_tests {
 mod movement_tuning_tests {
     use super::{resolve_movement_for, CharacterRoster};
     use crate::combat::{BodyMovementPatch, BodyMovementTuning};
-    use ambition_characters::actor::CharacterBrain;
+    use ambition_entity_catalog::placements::CharacterBrain;
     use std::collections::HashMap;
 
     /// The composition primitive: `Some` knobs override, `None` knobs inherit.

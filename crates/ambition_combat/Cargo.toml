@@ -10,10 +10,11 @@ description = "Reusable, content-free combat MODEL: Damage / Hitbox / Hurtbox / 
 crate-type = ["rlib"]
 
 [dependencies]
-# Actor faction / damage-team / kinematic-path + the brain MeleeActionSpec the
-# attack specs reference.
+# The brain MeleeActionSpec the attack specs reference.
 ambition_characters = { path = "../ambition_characters" }
-# Geometry (Vec2 / Aabb / AabbExt).
+# Geometry (Vec2 / Aabb / AabbExt / KinematicPath).
 ambition_engine_core = { path = "../ambition_engine_core" }
+# Tier-0 authored-placement schema: DamageKind / DamageTeam / HazardRespawn.
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 # One Resource derive (the slot registry); ECS surface only.
 bevy = { version = "0.18.1", default-features = false }

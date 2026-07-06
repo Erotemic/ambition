@@ -530,7 +530,9 @@ mod conversion_tests {
             "shark_a",
             "Burning Flying Shark",
             aabb,
-            ambition_characters::actor::CharacterBrain::Custom("burning_flying_shark".into()),
+            ambition_entity_catalog::placements::CharacterBrain::Custom(
+                "burning_flying_shark".into(),
+            ),
             &[],
         );
         enemy.attack.cooldown = 0.0;
@@ -588,10 +590,10 @@ mod conversion_tests {
             ],
         );
         let aabb = enemy_aabb(ae::Vec2::new(100.0, 536.0));
-        let path = ambition_characters::actor::KinematicPath {
+        let path = ambition_engine_core::KinematicPath {
             points: vec![ae::Vec2::new(100.0, 536.0), ae::Vec2::new(400.0, 536.0)],
             speed: 120.0,
-            mode: ambition_characters::actor::KinematicPathMode::PingPong,
+            mode: ambition_engine_core::KinematicPathMode::PingPong,
             start_offset_seconds: 0.0,
         };
         let paths = vec![("skitter_path".to_string(), path)];
@@ -599,7 +601,7 @@ mod conversion_tests {
             "path_skitter",
             "path_skitter",
             aabb,
-            ambition_characters::actor::CharacterBrain::Patrol {
+            ambition_entity_catalog::placements::CharacterBrain::Patrol {
                 path_id: Some("skitter_path".into()),
             },
             &paths,
@@ -672,12 +674,12 @@ mod conversion_tests {
         );
         // Right edge (center.x + 14) touches the ground wall at x = 300.
         let aabb = enemy_aabb(ae::Vec2::new(286.0, 300.0));
-        let paths: Vec<(String, ambition_characters::actor::KinematicPath)> = vec![];
+        let paths: Vec<(String, ambition_engine_core::KinematicPath)> = vec![];
         let mut enemy = super::ecs::actor_clusters::ActorClusterSeed::new(
             "sideways_patroller",
             "sideways_patroller",
             aabb,
-            ambition_characters::actor::CharacterBrain::Patrol { path_id: None },
+            ambition_entity_catalog::placements::CharacterBrain::Patrol { path_id: None },
             &paths,
         );
         enemy.attack.cooldown = 0.0;
@@ -763,7 +765,7 @@ mod conversion_tests {
             "slug",
             "PuppySlug",
             aabb,
-            ambition_characters::actor::CharacterBrain::Passive,
+            ambition_entity_catalog::placements::CharacterBrain::Passive,
             &[],
         );
         // Force the surface-walker grounded state directly (independent of which
@@ -823,7 +825,7 @@ mod conversion_tests {
                 "walker",
                 "Goblin",
                 aabb,
-                ambition_characters::actor::CharacterBrain::Passive,
+                ambition_entity_catalog::placements::CharacterBrain::Passive,
                 &[],
             );
             // Spawn constant is (0,-1); the update must overwrite it with the

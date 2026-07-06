@@ -23,9 +23,9 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
-use ambition_characters::actor::CharacterBrain;
 use ambition_characters::brain::{ActorControl, Brain, PlayerSlot};
 use ambition_engine_core as ae;
+use ambition_entity_catalog::placements::CharacterBrain;
 use ambition_gameplay_core::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition_gameplay_core::features::FeatureId;
 use ambition_gameplay_core::features::{Mounted, PendingMountLinks, RidingOn};

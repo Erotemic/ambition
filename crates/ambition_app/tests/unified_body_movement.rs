@@ -13,7 +13,7 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
-use ambition_characters::actor::CharacterBrain;
+use ambition_entity_catalog::placements::CharacterBrain;
 use ambition_gameplay_core::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition_gameplay_core::features::FeatureId;
 use ambition_gameplay_core::player::PlayerInputFrame;

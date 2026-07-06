@@ -112,6 +112,7 @@ ambition_content = { path = "../ambition_content" }
 ambition_render = { path = "../ambition_render" }
 ambition_cutscene = { path = "../ambition_cutscene" }
 ambition_engine_core = { path = "../ambition_engine_core" }
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 ambition_characters = { path = "../ambition_characters" }
 ambition_input = { path = "../ambition_input" }
 # Touch/mobile input adapter — carved out of `src/host/mobile_input/` (app-thinness).

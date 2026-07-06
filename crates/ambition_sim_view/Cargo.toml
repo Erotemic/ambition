@@ -25,6 +25,7 @@ ambition_gameplay_core = { path = "../ambition_gameplay_core", default-features 
 ] }
 ambition_characters = { path = "../ambition_characters" }
 ambition_engine_core = { path = "../ambition_engine_core" }
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 ambition_interaction = { path = "../ambition_interaction" }
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 ambition_time = { path = "../ambition_time" }

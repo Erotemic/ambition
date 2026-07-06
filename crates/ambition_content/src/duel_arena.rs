@@ -57,7 +57,7 @@ pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
             faction: ActorFaction::Npc,
             grudge_against: Some(DUEL_ROBOT_ID.to_string()),
             kind: SpawnActorKind::Enemy {
-                brain: ambition_characters::actor::CharacterBrain::Custom(
+                brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                     "cellular_automaton_fighter".to_string(),
                 ),
             },
@@ -74,7 +74,7 @@ pub fn duel_spawn_requests(center: ae::Vec2) -> [SpawnActorRequest; 2] {
             faction: ActorFaction::Npc,
             grudge_against: Some(DUEL_PCA_ID.to_string()),
             kind: SpawnActorKind::Enemy {
-                brain: ambition_characters::actor::CharacterBrain::Custom(
+                brain: ambition_entity_catalog::placements::CharacterBrain::Custom(
                     "player_robot".to_string(),
                 ),
             },

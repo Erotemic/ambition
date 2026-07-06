@@ -226,7 +226,7 @@ fn synthetic_kinematic_path_reaches_room_spec_with_area_offset() {
     assert_eq!(spec.name, "patrol_alpha");
     assert_eq!(
         spec.path.mode,
-        ambition_characters::actor::KinematicPathMode::Loop
+        ambition_engine_core::KinematicPathMode::Loop
     );
     assert_eq!(spec.path.speed, 90.0);
     assert_eq!(
@@ -303,7 +303,7 @@ fn enemy_spawn_uses_room_spec_kinematic_path_aliases() {
         .enemy_spawns
         .iter()
         .find_map(|authored| match &authored.payload {
-            ambition_characters::actor::CharacterBrain::Patrol {
+            ambition_entity_catalog::placements::CharacterBrain::Patrol {
                 path_id: Some(path_id),
             } => Some(path_id.as_str()),
             _ => None,
@@ -320,10 +320,10 @@ fn enemy_spawn_uses_room_spec_kinematic_path_aliases() {
 
 #[test]
 fn moving_platform_path_id_resolves_through_kinematic_path_index() {
-    let path = ambition_characters::actor::KinematicPath {
+    let path = ambition_engine_core::KinematicPath {
         points: vec![ae::Vec2::new(32.0, 64.0), ae::Vec2::new(160.0, 64.0)],
         speed: 64.0,
-        mode: ambition_characters::actor::KinematicPathMode::PingPong,
+        mode: ambition_engine_core::KinematicPathMode::PingPong,
         start_offset_seconds: 0.0,
     };
     let path_spec = crate::rooms::KinematicPathSpec::new(

@@ -370,12 +370,12 @@ pub fn compile_surface(spec: &LdtkSurfaceSpec) -> Result<SurfaceCompiled, String
                 SurfaceBreakability::Indestructible => unreachable!(),
             };
             breakable.respawn = match spec.respawn {
-                SurfaceRespawn::Never => ambition_characters::actor::RespawnPolicy::Never,
+                SurfaceRespawn::Never => ambition_entity_catalog::placements::HazardRespawn::Never,
                 SurfaceRespawn::OnRoomReload => {
-                    ambition_characters::actor::RespawnPolicy::OnRoomReload
+                    ambition_entity_catalog::placements::HazardRespawn::OnRoomReload
                 }
                 SurfaceRespawn::AfterSeconds(seconds) => {
-                    ambition_characters::actor::RespawnPolicy::AfterSeconds(seconds)
+                    ambition_entity_catalog::placements::HazardRespawn::AfterSeconds(seconds)
                 }
             };
             breakable.pogo_refresh = pogo_orb_combo;

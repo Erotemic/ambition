@@ -28,7 +28,7 @@ fn hostile(
         id,
         id,
         aabb,
-        ambition_characters::actor::CharacterBrain::Custom(archetype_brain.into()),
+        ambition_entity_catalog::placements::CharacterBrain::Custom(archetype_brain.into()),
         &[],
     );
     enemy.kin.size = size;
@@ -286,7 +286,7 @@ fn boss_rider_keeps_its_brain_and_emits_mount_died_on_dismount() {
             id: "boss_rider".into(),
             name: "Boss Rider".into(),
             spawn: ae::Vec2::ZERO,
-            brain: ambition_characters::actor::BossBrain::Dormant,
+            brain: ambition_entity_catalog::placements::BossBrain::Dormant,
             behavior: crate::features::BossBehaviorProfile::generic("boss_rider"),
         },
         Brain::Player(PlayerSlot(0)),
@@ -895,7 +895,7 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
         id: "gnu_ton_rider".into(),
         name: profile.display_name.clone(),
         spawn: rider_pos,
-        brain: ambition_characters::actor::BossBrain::Dormant,
+        brain: ambition_entity_catalog::placements::BossBrain::Dormant,
         behavior: profile.behavior.clone(),
     };
     let rider = app
@@ -1057,7 +1057,7 @@ fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge()
                 id: "gnu_ton_rider".into(),
                 name: profile.display_name.clone(),
                 spawn: ae::Vec2::ZERO,
-                brain: ambition_characters::actor::BossBrain::Dormant,
+                brain: ambition_entity_catalog::placements::BossBrain::Dormant,
                 behavior: profile.behavior.clone(),
             },
             RidingOn { mount: giant },
@@ -1265,7 +1265,7 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
                 id: "gnu_ton_rider".into(),
                 name: profile.display_name.clone(),
                 spawn: rider_pos,
-                brain: ambition_characters::actor::BossBrain::Dormant,
+                brain: ambition_entity_catalog::placements::BossBrain::Dormant,
                 behavior: profile.behavior.clone(),
             },
             Brain::Player(PlayerSlot(0)),

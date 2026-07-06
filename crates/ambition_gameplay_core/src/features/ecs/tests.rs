@@ -103,7 +103,7 @@ fn overlay_uses_published_pogo_volumes_instead_of_boss_body_aabb() {
         "gnu_ton",
         "GNU-ton",
         boss_body,
-        ambition_characters::actor::BossBrain::Dormant,
+        ambition_entity_catalog::placements::BossBrain::Dormant,
     );
 
     let mut app = App::new();

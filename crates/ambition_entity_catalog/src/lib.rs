@@ -32,6 +32,8 @@ use std::collections::{BTreeMap, HashSet};
 
 use serde::{Deserialize, Serialize};
 
+pub mod placements;
+
 // ---------------------------------------------------------------------------
 // Ability vocabulary: the ONE effect reference + its opaque params.
 // ---------------------------------------------------------------------------

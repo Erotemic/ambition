@@ -34,7 +34,7 @@ fn boss_classifies_as_boss_not_the_actor_enemy_fallback() {
         "gnu_ton",
         "GNU-ton",
         boss_body,
-        ambition_characters::actor::BossBrain::Dormant,
+        ambition_entity_catalog::placements::BossBrain::Dormant,
     );
     let (identity, disposition, combat, intent, cooldowns) =
         ambition_gameplay_core::features::boss_component_snapshot(

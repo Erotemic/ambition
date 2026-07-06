@@ -262,7 +262,7 @@ fn burning_shark_enemy() -> super::actor_clusters::ActorClusterSeed {
         "burning_shark".to_string(),
         "Burning Shark".to_string(),
         aabb,
-        ambition_characters::actor::CharacterBrain::Custom("burning_flying_shark".into()),
+        ambition_entity_catalog::placements::CharacterBrain::Custom("burning_flying_shark".into()),
         &[],
     )
 }

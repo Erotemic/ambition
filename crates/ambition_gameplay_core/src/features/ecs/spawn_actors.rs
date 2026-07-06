@@ -69,13 +69,13 @@ pub enum SpawnActorKind {
     /// `overrides` applies the spawn "tweaks Z" (hp / size / phase triggers /
     /// encounter opt-out) — see [`BossOverrides`].
     Boss {
-        brain: ambition_characters::actor::BossBrain,
+        brain: ambition_entity_catalog::placements::BossBrain,
         overrides: BossOverrides,
     },
     /// A hostile enemy, resolved through `CharacterArchetype::from_brain` — the same
     /// path a room `EnemySpawn` takes.
     Enemy {
-        brain: ambition_characters::actor::CharacterBrain,
+        brain: ambition_entity_catalog::placements::CharacterBrain,
     },
 }
 
@@ -355,7 +355,7 @@ impl NpcActorSpawnPlan {
         name: impl Into<String>,
         spawn_aabb: ae::Aabb,
         interactable: ambition_interaction::Interactable,
-        paths: &[(String, ambition_characters::actor::KinematicPath)],
+        paths: &[(String, ambition_engine_core::KinematicPath)],
     ) -> Self {
         let id = id.into();
         let name = name.into();
@@ -514,7 +514,7 @@ impl NpcActorSpawnPlan {
 /// Spawn a boss with no spawn-time tweaks (room-load + the default seam path).
 pub(super) fn spawn_boss(
     commands: &mut Commands,
-    authored: &crate::rooms::Authored<ambition_characters::actor::BossBrain>,
+    authored: &crate::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
 ) {
     spawn_boss_with_overrides(commands, authored, &BossOverrides::default());
 }
@@ -585,7 +585,7 @@ fn boss_actor_cluster(
         // The boss's REAL brain is its `BossPattern` `Brain` component. This
         // integrator-facing `CharacterBrain` only feeds patrol-stall intent, which
         // a free-flying boss never uses, so it takes the inert `Passive` row.
-        brain: ambition_characters::actor::CharacterBrain::Passive,
+        brain: ambition_entity_catalog::placements::CharacterBrain::Passive,
         spawn: super::super::enemies::ActorSpawnState {
             pos: kin.pos,
             size: kin.size,
@@ -618,7 +618,7 @@ fn boss_actor_cluster(
 /// them); the encounter opt-out is honored by `sync_boss_encounter_entities`.
 pub(super) fn spawn_boss_with_overrides(
     commands: &mut Commands,
-    authored: &crate::rooms::Authored<ambition_characters::actor::BossBrain>,
+    authored: &crate::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
     overrides: &BossOverrides,
 ) {
     let mut boss = BossClusterScratch::new(
@@ -889,7 +889,7 @@ pub(crate) fn spawn_runtime_minion(
     let name = name.into();
     let encounter_id = encounter_id.into();
     let aabb = ae::Aabb::new(world_pos, half_size);
-    let brain = ambition_characters::actor::CharacterBrain::Custom(archetype_id.into());
+    let brain = ambition_entity_catalog::placements::CharacterBrain::Custom(archetype_id.into());
     let mut enemy =
         super::actor_clusters::ActorClusterSeed::new(id.clone(), name.clone(), aabb, brain, &[]);
     // `ActorClusterSeed::new` already sets HP from the resolved spec.
@@ -922,8 +922,8 @@ pub(crate) fn spawn_runtime_minion(
 
 pub(super) fn spawn_enemy(
     commands: &mut Commands,
-    authored: &crate::rooms::Authored<ambition_characters::actor::CharacterBrain>,
-    paths: &[(String, ambition_characters::actor::KinematicPath)],
+    authored: &crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
+    paths: &[(String, ambition_engine_core::KinematicPath)],
 ) {
     let _ = spawn_enemy_with_faction(commands, authored, paths, super::ActorFaction::Enemy);
 }
@@ -936,8 +936,8 @@ pub(super) fn spawn_enemy(
 /// for the composite mount/rider path (it fans out two of its own entities).
 pub(super) fn spawn_enemy_with_faction(
     commands: &mut Commands,
-    authored: &crate::rooms::Authored<ambition_characters::actor::CharacterBrain>,
-    paths: &[(String, ambition_characters::actor::KinematicPath)],
+    authored: &crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
+    paths: &[(String, ambition_engine_core::KinematicPath)],
     faction: super::ActorFaction,
 ) -> Option<bevy::ecs::entity::Entity> {
     let spec = super::super::enemies::spec_for_brain(&authored.payload);
@@ -1018,7 +1018,7 @@ fn spawn_giant_hand_limbs(
             hand_id.clone(),
             "Giant GNU Hand",
             aabb,
-            ambition_characters::actor::CharacterBrain::Custom("giant_gnu_hands".into()),
+            ambition_entity_catalog::placements::CharacterBrain::Custom("giant_gnu_hands".into()),
             &[],
         );
         let hand = spawn_solo_enemy(
@@ -1028,7 +1028,7 @@ fn spawn_giant_hand_limbs(
                 id: hand_id,
                 name: "Giant GNU Hand".to_string(),
                 aabb,
-                payload: ambition_characters::actor::CharacterBrain::Custom(
+                payload: ambition_entity_catalog::placements::CharacterBrain::Custom(
                     "giant_gnu_hands".into(),
                 ),
             },
@@ -1105,7 +1105,7 @@ fn attach_mount_role(
 pub(super) fn spawn_solo_enemy(
     commands: &mut Commands,
     enemy: super::actor_clusters::ActorClusterSeed,
-    authored: &crate::rooms::Authored<ambition_characters::actor::CharacterBrain>,
+    authored: &crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
     faction: super::ActorFaction,
 ) -> bevy::ecs::entity::Entity {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
@@ -1135,7 +1135,7 @@ pub(super) fn spawn_solo_enemy(
 pub(super) fn spawn_interactable(
     commands: &mut Commands,
     authored: &crate::rooms::Authored<ambition_interaction::Interactable>,
-    paths: &[(String, ambition_characters::actor::KinematicPath)],
+    paths: &[(String, ambition_engine_core::KinematicPath)],
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     let interactable = &authored.payload;
@@ -1177,7 +1177,7 @@ pub(super) fn spawn_encounter_mob(
     commands: &mut Commands,
     encounter_id: impl Into<String>,
     id: String,
-    brain: ambition_characters::actor::CharacterBrain,
+    brain: ambition_entity_catalog::placements::CharacterBrain,
     pos: ae::Vec2,
     size: ae::Vec2,
 ) {

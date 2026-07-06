@@ -4,8 +4,9 @@
 //! prompts and play animations, but the identity and gameplay semantics belong
 //! in the engine so later story crates can share them.
 
-use ambition_characters::actor::{Health, RespawnPolicy};
+use ambition_characters::actor::Health;
 use ambition_engine_core::Aabb;
+use ambition_entity_catalog::placements::HazardRespawn;
 
 /// A player-facing interaction trigger.
 #[derive(Clone, Debug, PartialEq)]
@@ -77,7 +78,7 @@ pub enum InteractionKind {
 pub struct Pickup {
     pub id: String,
     pub kind: PickupKind,
-    pub respawn: RespawnPolicy,
+    pub respawn: HazardRespawn,
     pub collected: bool,
 }
 
@@ -86,7 +87,7 @@ impl Pickup {
         Self {
             id: id.into(),
             kind,
-            respawn: RespawnPolicy::Never,
+            respawn: HazardRespawn::Never,
             collected: false,
         }
     }
@@ -192,7 +193,7 @@ pub struct Breakable {
     pub id: String,
     pub state: BreakableState,
     pub health: Health,
-    pub respawn: RespawnPolicy,
+    pub respawn: HazardRespawn,
     /// Collision shape contributed while the breakable is intact.
     pub collision: BreakableCollision,
     pub trigger: BreakableTrigger,
@@ -209,7 +210,7 @@ impl Breakable {
             id: id.into(),
             state: BreakableState::Intact,
             health: Health::new(max_hp),
-            respawn: RespawnPolicy::Never,
+            respawn: HazardRespawn::Never,
             collision: BreakableCollision::None,
             trigger: BreakableTrigger::OnHit,
             debris_cue: None,

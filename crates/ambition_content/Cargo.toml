@@ -44,6 +44,7 @@ ambition_audio = { path = "../ambition_audio", optional = true }
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 ambition_input = { path = "../ambition_input" }
 ambition_engine_core = { path = "../ambition_engine_core" }
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 ambition_characters = { path = "../ambition_characters" }
 ambition_interaction = { path = "../ambition_interaction" }
 bevy = { version = "0.18.1", default-features = false, features = ["ui_api"] }

@@ -75,7 +75,7 @@ pub struct ActorConfig {
     /// from the archetype at spawn so the runtime brain rebuilds
     /// reconstruct a brain without naming the roster enum.
     pub brain_spec: crate::combat::CharacterBrainSpec,
-    pub brain: ambition_characters::actor::CharacterBrain,
+    pub brain: ambition_entity_catalog::placements::CharacterBrain,
     pub spawn: ActorSpawnState,
     /// LDtk display name of the original NPC when this enemy was spawned
     /// by migrating a hostile NPC (keeps its own sprite sheet). `None`
@@ -380,8 +380,8 @@ impl ActorClusterSeed {
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: ae::Aabb,
-        brain: ambition_characters::actor::CharacterBrain,
-        paths: &[(String, ambition_characters::actor::KinematicPath)],
+        brain: ambition_entity_catalog::placements::CharacterBrain,
+        paths: &[(String, ambition_engine_core::KinematicPath)],
     ) -> Self {
         let spec = spec_for_brain(&brain);
         let name: String = name.into();
@@ -391,7 +391,7 @@ impl ActorClusterSeed {
         let sprite_character_id =
             crate::character_roster::character_id_for_display_name(&name).map(String::from);
         let motion = match &brain {
-            ambition_characters::actor::CharacterBrain::Patrol {
+            ambition_entity_catalog::placements::CharacterBrain::Patrol {
                 path_id: Some(path_id),
             } if !spec.is_sandbag => paths
                 .iter()
@@ -469,7 +469,7 @@ impl ActorClusterSeed {
         name: impl Into<String>,
         aabb: ae::Aabb,
         interactable: &ambition_interaction::Interactable,
-        paths: &[(String, ambition_characters::actor::KinematicPath)],
+        paths: &[(String, ambition_engine_core::KinematicPath)],
     ) -> (Self, Option<ae::Vec2>) {
         let (patrol_radius, patrol_path_id, motion) = match &interactable.kind {
             ambition_interaction::InteractionKind::Npc {
@@ -545,11 +545,11 @@ impl ActorClusterSeed {
             ..Default::default()
         };
         let config_brain = if has_patrol {
-            ambition_characters::actor::CharacterBrain::Patrol {
+            ambition_entity_catalog::placements::CharacterBrain::Patrol {
                 path_id: patrol_path_id,
             }
         } else {
-            ambition_characters::actor::CharacterBrain::Passive
+            ambition_entity_catalog::placements::CharacterBrain::Passive
         };
         let seed = Self {
             kin: BodyKinematics {
@@ -591,7 +591,7 @@ impl ActorClusterSeed {
             caps: crate::combat::CombatCapabilities::default(),
             // Inert: peaceful actors never spawn through the archetype path that
             // reads `spec`. `Passive` resolves to the roster's fallback row.
-            spec: spec_for_brain(&ambition_characters::actor::CharacterBrain::Passive),
+            spec: spec_for_brain(&ambition_entity_catalog::placements::CharacterBrain::Passive),
         };
         (seed, render_size)
     }

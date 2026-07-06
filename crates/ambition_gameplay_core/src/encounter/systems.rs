@@ -228,7 +228,7 @@ pub fn update_encounters_from_world(
             &mut commands,
             active_area.clone(),
             id,
-            ambition_characters::actor::CharacterBrain::Custom(kind),
+            ambition_entity_catalog::placements::CharacterBrain::Custom(kind),
             ae::Vec2::new(pos[0], pos[1]),
             ae::Vec2::new(size[0], size[1]),
         );

@@ -148,10 +148,11 @@ impl LdtkProject {
         let mut breakables: Vec<crate::rooms::Authored<ambition_interaction::Breakable>> =
             Vec::new();
         let mut enemy_spawns: Vec<
-            crate::rooms::Authored<ambition_characters::actor::CharacterBrain>,
+            crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
         > = Vec::new();
-        let mut boss_spawns: Vec<crate::rooms::Authored<ambition_characters::actor::BossBrain>> =
-            Vec::new();
+        let mut boss_spawns: Vec<
+            crate::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
+        > = Vec::new();
         let mut debug_labels: Vec<crate::rooms::Authored<crate::debug_label::DebugLabel>> =
             Vec::new();
         let mut mount_links: Vec<(String, String)> = Vec::new();
@@ -367,8 +368,9 @@ pub struct RuntimeEntityEmission {
     pub pickups: Vec<crate::rooms::Authored<ambition_interaction::Pickup>>,
     pub chests: Vec<crate::rooms::Authored<ambition_interaction::Chest>>,
     pub breakables: Vec<crate::rooms::Authored<ambition_interaction::Breakable>>,
-    pub enemy_spawns: Vec<crate::rooms::Authored<ambition_characters::actor::CharacterBrain>>,
-    pub boss_spawns: Vec<crate::rooms::Authored<ambition_characters::actor::BossBrain>>,
+    pub enemy_spawns:
+        Vec<crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>>,
+    pub boss_spawns: Vec<crate::rooms::Authored<ambition_entity_catalog::placements::BossBrain>>,
     pub debug_labels: Vec<crate::rooms::Authored<crate::debug_label::DebugLabel>>,
     /// ADR 0020 authored mount links: `(rider_id, mount_id)` pairs emitted by a
     /// rider `EnemySpawn` carrying a `mounted_on` entity-ref. Resolved into a
@@ -525,7 +527,7 @@ impl RuntimeEntityEmission {
     }
 
     pub fn enemy_spawn(
-        authored: crate::rooms::Authored<ambition_characters::actor::CharacterBrain>,
+        authored: crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
     ) -> Self {
         Self {
             enemy_spawns: vec![authored],
@@ -534,7 +536,7 @@ impl RuntimeEntityEmission {
     }
 
     pub fn boss_spawn(
-        authored: crate::rooms::Authored<ambition_characters::actor::BossBrain>,
+        authored: crate::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
     ) -> Self {
         Self {
             boss_spawns: vec![authored],

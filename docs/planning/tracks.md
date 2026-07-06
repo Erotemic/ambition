@@ -130,7 +130,7 @@ fable card. Ranked by how much they gate a fable task.
 | Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — E5 first slice `3c70d827`; **E5-finish steps 1–4 LANDED 2026-07-06** (sets+resources+combat schedule into the group; shared headless foundation; cut-rope de-woven via generic `RoomReplayRequested` + labeled slots; E4-prep: fx facade imports repointed, CameraViewState + cut-rope resources re-owned) | E5 step 5 (mint [the windowed host]) + step 6 (smoke shell) [opus]; W/E1/E2/E3/E6/E7/E8 open |
 | Decomposition D-B/D-C | same | queued behind D-A | mode-scope seam can land early (demos want it) |
 | Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | **CC1 COMPLETE + CC5 LANDED (fable) + CC2 COMPLETE (opus, 2026-07-06)** — engine_core::frame vocabulary + cast family registry real in code; CC2 first pass (hazards swept) + completion (§3.3 every reader classified: loading-zone Door/Walk/EdgeExit now swept via `transition_for_player`; water/climbable annotated discrete-OK + `thin_region_warnings` authoring validator; ledge audited; auto-collect N/A) parity suites green | CC3 fuzz rig (§6.1 oracle) [opus]; CC6 moving portals (§5-P2 spec) [opus] |
-| Combat stack | [engine/combat-model.md](engine/combat-model.md) | CM1+CM2+CM3+CM7+CM4+**CM5 (opus, 2026-07-06)** LANDED — per-move presentation is authored: `MoveEventKind::Vfx{effect}` + prefab `swing_sfx`/`swing_vfx` params (default None = parity) resolved through `move_vfx_kind`, typo-validated at `expand` | CM6 grab/throw/shield-stun (brings OnBlock) [opus, with SSB] |
+| Combat stack | [engine/combat-model.md](engine/combat-model.md) | CM1 (incl. **launch_dir consumption, fable 2026-07-06 evening** `c695cd9c`)+CM2+CM3+CM7+CM4+CM5 LANDED — per-move presentation authored; smash axes complete (growth, DI, charge, cancel tables, fixed launch angles) | CM6 grab/throw/shield-stun (brings OnBlock) [opus, with SSB] |
 | Netcode ladder | [engine/netcode.md](engine/netcode.md) | NEW | N0.2 input-stream type; N0.3 lint set [opus] |
 | Fighter brain | [engine/fighter-brain.md](engine/fighter-brain.md) | NEW | FB1 view audit [opus] (CM7 first) |
 | Boss pipeline | [engine/boss-design.md](engine/boss-design.md) | NEW | BD4 seed extraction [opus/sonnet]; BD1 after |
@@ -525,3 +525,16 @@ commits, each gate-green (`d5675f27`, `07a57205`, `68fd5534`,
   sim-state type (whole-identifier, comment-stripped). The full
   dep-flip (step 5) awaits E1/E3/E-assets/W (vocabulary+assets moves).
 Remaining E4-adjacent: slice 8 (`BossAnimator` insert) rides E6(a).
+
+## 2026-07-06 (fable, evening) — CM1 COMPLETE: authored launch angles (`c695cd9c`)
+Hard-problems #3 closed. `launch_dir` semantics pinned IN the resolver:
+direction-only (normalized), victim-gravity-frame, x mirrored
+away-from-source, y = up; the authored angle replaces the default feel
+diagonal while PRESERVING its speed (`hypot(knock_x, knock_y)·strength`),
+so an authored angle can never out-throw the feel launch. Threaded
+volume→Hitbox→HitKnockback; every other constructor is `None` =
+byte-parity. Composes with growth (strength, upstream) and DI (rotation,
+downstream). C4 conjugation + speed-invariant + mirror + degenerate-
+vector tests. With this, the fable window list is fully ✅ and the
+remaining open fable-tier item is E5 step 5 (gated on E1d/E1e) + the
+W3/E2 standing escalations.

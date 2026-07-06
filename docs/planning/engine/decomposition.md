@@ -535,10 +535,14 @@ execution. Do not reopen; deviations follow vision.md §7 (a genuine
   to registered interpreters one at a time (each its own commit).
 - **✅ RULED [W-c] — base + ordered DELTA OPS, named `WorldDelta`,
   reserved now, implemented at first need.** Representation: an ordered
-  op list per room (`enum WorldDeltaOp { RemoveBlock(BlockId),
-  AddBlock(Block), RemovePlacement(PlacementId), … }` — the op set grows
+  op list per room (`enum WorldDeltaOp { RemoveBlock(GeoId),
+  AddBlock(Block) /* minted GeoSource::Delta{op_index} */,
+  RemovePlacement(PlacementId), … }` — the op set grows
   variant-by-variant as features land), persisted into the save as a
-  patch, replayable. NOT a mutable world, NOT save-side geometry
+  patch, replayable. **Ops name geometry by `GeoId` — the durable
+  geometry-identity model ruled in collision-and-ccd.md §3.6** (authored
+  sources only; carve pieces/split blocks are DERIVED and can never be
+  named by an op). NOT a mutable world, NOT save-side geometry
   snapshots (ops are compact, serialize as events for netcode, and
   compose with replay). The effective room = base ⊕ delta, composited by
   the SAME derived-`CollisionWorld`-overlay path transient dynamics

@@ -102,6 +102,31 @@ Contract rules (each is a review-flag when violated):
    `delta_body − delta_target`) — the CC6 moving-portal rule, already
    documented on `aabb_path_contacts`.
 
+**Status (2026-07-06 night, pinned so nobody re-derives it from grep):
+`SweepSample` is NOT YET IN CODE — no type of this name or shape exists;
+it is a specced slice.** The nearest existing machinery: the portal
+tier's `PortalSweepAnchor` (single-consumer prev-position anchor — the
+lesson rule 1 encodes) and the CC2 hazard conversion's `vel·dt` delta
+(the documented rule-1 tolerance). Minting the type + the two kernel
+writers + the reset protocol is the FIRST task of CC2-completion, and
+CC6's relative sweep builds on it.
+
+**What the sample deliberately does NOT carry (asked and answered):**
+- *No kernel tag / body proxy beyond `half`.* Readers are kernel-agnostic
+  by design — that is the Contact-vocabulary rule (§2); a reader that
+  wants to know "which kernel" is mis-designed.
+- *No frame/chart context.* Samples are world-frame, one chart per frame
+  (rules 3–4); chart provenance on transfer frames lives in the transit
+  machine, and the reset protocol means readers never need it.
+- *No portal context.* A transfer RESETS the sample (rule 2); which
+  aperture was crossed is the transit machine's record (and the CC3
+  trace's event channel), not motion-record state.
+- *No geometry/contact context.* Contacts are the separate `Contact`
+  vocabulary (§2); the sample is the QUESTION (the path), contacts are
+  ANSWERS.
+Growth rule: a field joins `SweepSample` only when TWO independent swept
+readers need it (the same two-consumer discipline as every seam).
+
 Implementation home: the sample is engine_core vocabulary; kernels write it
 (the AABB kernel at step end; the momentum kernel after `resolve_surface`),
 the reset rule binds every teleporting system. CC2-completion carries the
@@ -247,6 +272,82 @@ What "a cast continues through a portal" means, exactly:
    test (centroid path vs. plane-within-opening). P3b/P4 revisit this; a
    cast API is not the vehicle.
 
+### 3.6 Geometry identity — `GeoId` (RULED, fable 2026-07-06 night; answers the GPT-5.5 identity questions)
+
+**The question this closes:** what durably names a piece of geometry — for
+`WorldDelta` ops, the CC6 portal host ref, save overlays, and debug
+traces? Today `Block.name` is an informal display string and nothing else
+exists. The ruling:
+
+```rust
+// ambition_engine_core (beside World/Block/SurfaceChain):
+
+/// Durable identity of one piece of ROOM geometry. Two-level: WHERE it
+/// came from + its deterministic ordinal within that source's emission.
+pub struct GeoId { pub source: GeoSource, pub index: u16 }
+
+pub enum GeoSource {
+    /// Entity-authored geometry (a Solid/OneWay/SurfaceChain LDtk entity,
+    /// or any backend's placement): the placement id IS the identity
+    /// (the [W-d] `PlacementId` — LDtk iid / bake-synth).
+    Placement(PlacementId),
+    /// Grid/tile-derived geometry (IntGrid merge → solid rects): keyed by
+    /// layer name; `index` = the merge ordinal. The merger MUST iterate
+    /// deterministically (row-major over the grid) so the same map always
+    /// yields the same ids — that determinism is part of this contract.
+    TileLayer { layer: String },
+    /// Output of a parameterized generator marker (`SurfaceLoop`,
+    /// `SurfaceRamp`): the MARKER's placement id + the emission ordinal
+    /// (segment k of the arc). Regenerating from the same marker params
+    /// yields the same ids.
+    Generator(PlacementId),
+    /// Geometry ADDED by a WorldDelta op (a dug tunnel's new wall): the
+    /// op's sequence number in the room's delta list is durable because
+    /// it is IN the save.
+    Delta { op_index: u32 },
+    /// Test/fixture geometry. The authoring pipeline NEVER emits this;
+    /// the delta/save layer REJECTS ops naming it (validator).
+    Anon,
+}
+
+/// A face + position on identified geometry — the "host face" vocabulary
+/// moving portals, deltas, and traces share.
+pub struct GeoFaceRef {
+    pub geo: GeoId,
+    pub face: Face,     // AABB blocks: Top/Bottom/Left/Right (world-axis,
+                        // +y-down: Top = the min.y face). Chains/polygons:
+                        // Face::Segment(u16) — the polyline segment index.
+    pub along: f32,     // px offset from the face's CENTER, tangent-signed.
+                        // (px, not normalized — geometry doesn't resize;
+                        // px is what placement math uses today.)
+}
+```
+
+**The rules that make it work:**
+
+1. **`Block` gains `id: GeoId`;** `name` stays the human label, derived
+   from the id (entity-id-matches-label). Constructors used by tests
+   default to `Anon` so the fixture surface doesn't churn; the
+   IR emission paths always assign real sources.
+2. **Only AUTHORED-tier geometry has durable identity.** Carve pieces,
+   split blocks, and every product of per-frame composition are DERIVED
+   state (the same rule as N3.1/W-c: derived is never persisted). Their
+   working identity is `(parent GeoId, derivation ordinal)` and is valid
+   for ONE frame only — nothing may store it across frames or into a
+   save. A `WorldDelta` op therefore names authored `GeoId`s
+   (`RemoveBlock(GeoId)`, `AddBlock { .. } → GeoSource::Delta`); the
+   composition then re-derives.
+3. **Runtime resolution is a lookup, not a pointer.** The composed
+   collision world carries each block/chain's `GeoId`; consumers resolve
+   `GeoId → &Block` per frame through the room's geometry index. Blocks
+   are NOT entities; `Entity` never appears in geometry identity (the
+   N3.1 rule generalizes).
+4. **Introduction is INCREMENTAL:** mint the types with CC6 (its host
+   ref is the first consumer, below); the `TileLayer`/`Generator`
+   sources land with the IR paths that emit them (W2); the validator
+   rule (no `Anon` in deltas) lands with the first delta op. Do not
+   sweep the codebase converting `name` usages speculatively.
+
 ## 4. Non-axis-aligned geometry
 
 The end state: **a room may be built from arbitrary polyline/polygon
@@ -310,13 +411,22 @@ carve is static per placement. The arc, with the object model pinned:
 
 - **P1 (=CC5). The `PortalFrame` type** — design in §7, execution-ready.
 - **P2 (=CC6). Moving portals (translation).** The object model, pinned:
-  - **Portals are HOST-ATTACHED apertures, never free entities.** A
-    `PlacedPortal` on a moving host records `(host block ref, local offset
-    on its face)`; the frame's `origin` derives from the host's pose each
-    frame and `velocity` IS the host's authoritative mover velocity (the
-    same `surface_velocity` the kernels read) — **never finite-differenced
-    from positions.** A portal cannot exist without a host face (placement
-    law already enforces this for static walls; it generalizes).
+  - **Portals are HOST-ATTACHED apertures, never free entities.** The
+    host ref is the §3.6 vocabulary, exactly: **`PortalHostRef =
+    GeoFaceRef { geo: GeoId, face, along }`** — the durable id of the
+    host block/chain, which face, and the px offset along it. NOT a
+    Bevy entity (blocks aren't entities), NOT a raw index into the
+    composed world (recomposed per frame), NOT a bare placement id (a
+    placement may emit several blocks; the portal needs the face). The
+    frame's `origin` re-derives each frame by resolving `geo → &Block`
+    in the composed world and evaluating `face + along`; `velocity` IS
+    the host block's authoritative `Block.velocity` (the same
+    `surface_velocity` the kernels read) — **never finite-differenced
+    from positions.** A portal cannot exist without a host face
+    (placement law already enforces this for static walls; it
+    generalizes). Static-wall portals get the same ref (their host
+    velocity is ZERO) — one representation, no static/moving split.
+    CC6 carries the `GeoId`/`GeoFaceRef` mint (§3.6 rule 4).
   - **Update order (one frame), pinned:** (1) hosts/platforms integrate;
     (2) portal frames re-derive (origin + velocity) from hosts; (3) carve
     re-composes (the overlay already re-composes per frame; the carve keys
@@ -368,6 +478,21 @@ Execution grades: CC5 [fable — landing now]; CC6 [opus, this spec]; P3a
 
 ### 6.1 The fuzz oracle (CC3) — exact illegal-state definition
 
+**Status vs. implementation (2026-07-06 night):** a PARTIAL oracle exists
+in code — `ambition_app/tests/collision_invariant_oracle.rs`, a seeded
+diagnostic over `SandboxSim` checking THREE things (naive embed-in-solid,
+out-of-bounds by side, single-tick teleport threshold), with a smoke test
++ an `#[ignore]`d full sweep that prints a repro catalog. **The CC3 slice
+is the DELTA from that harness to the six-invariant oracle below:** make
+the embed check carve-aware (invariant 1's carve subtraction + transit
+exemption), add invariants 2 (straddle-outside-carve), 5 (one Class-B
+remap per frame — needs the Class-B writers to emit a countable event),
+and 6 (one-way violation); fold invariant 4 (NaN — `fuzz_random_walker`
+already asserts it); extend the run matrix from the current room set to
+every shipped room; attach the §6.2 trace. Keep the existing
+diagnostic-only posture and the `(room, seed, tick)` repro-line format —
+they are already right.
+
 The rig (per shipped room: random spawns, random high-speed impulses incl.
 through portals, N seconds stepped headlessly) asserts, at the END of every
 stepped frame, per body:
@@ -408,6 +533,20 @@ kernel contacts, trigger events fired (hazard/pickup/zone), portal
 crossings (channel, TOI, mapped pos/vel), active transit/cooldown state,
 and the specific invariant number violated. The existing OOB trace hook is
 the implementation seed; CC3 adds the event channels.
+
+**The MINIMUM payload while CC3 stays diagnostic-only (pinned — ship this
+much even before the event channels exist, because it is already nearly
+free):** `(seed, room id, tick, invariant #, body SimId + archetype +
+MotionModel)` + the existing per-body `BodyKinematics` ring
+(`debug_traces/` OOB tooling — pos/vel history is already recorded) + the
+`GeoId` of the geometry involved where the invariant names one (the
+embedding block, the violated one-way). Each richer channel (sweep
+samples once §3.1 mints, Class-B events once invariant 5's counter
+exists, portal crossings) JOINS the dump in the same slice that creates
+it — the payload grows with the machinery, never speculatively. The
+format contract that must hold from v1: a dump reproduces from
+`(seed, room)` alone, and every field it names uses durable ids
+(SimId/GeoId), never `Entity` values.
 
 ### 6.3 Guard deletion + snap discipline
 
@@ -515,7 +654,7 @@ explicitly (portal-side policy), which is what it always meant.
 | CC3 | Fuzz invariant rig — the §6.1 oracle verbatim, §6.2 traces, seeded-reproducible. **DIAGNOSTIC-ONLY for now (Jon, 2026-07-06): it detects + reports illegal states + emits reproducible seeds/traces; it is NOT wired as a hard CI gate yet** (that would RED on the deferred embed/OOB bugs). SHAPE the seeds/traces so a staged hard gate can be switched on later without redesign (stable seed → replayable trace; a `--deny` mode is a flag flip, not a rewrite). | [opus — oracle written; no design freedom; the GATE-vs-diagnostic switch is Jon's, deferred] |
 | CC4 | Broadphase grid for chains+blocks casts (profile first) | [opus; NOT a CC1–CC3 precondition] |
 | CC5 | ✅ **LANDED (fable, 2026-07-06).** `engine_core::frame` minted (`PortalFrame {origin, normal, velocity}`, tangent DERIVED, `PortalAperture {frame, half_length}`, explicit `MapConvention`, `map_vec/map_point/map_velocity` incl. Galilean composition); platformer math delegates to the ONE implementation; `pieces::PortalFrame` REPLACED (no shim) — frame-only consumers take `&PortalFrame`, opening-aware take `&PortalAperture` (`PlacedPortal::{frame, aperture}`). Full parity suite green (portal 46, presentation 45, gameplay 1167, app rl_sim). CC6 may now read non-zero `velocity` | done |
-| CC6 | Moving portals: host-attached frames, §5-P2 update order + edge-case rulings, relative swept trigger, `map_velocity` composition, C4/portal conjugation tests | [opus — spec complete] |
+| CC6 | Moving portals: host-attached frames (`PortalHostRef = GeoFaceRef` — carries the §3.6 `GeoId`/`GeoFaceRef` mint), §5-P2 update order + edge-case rulings, relative swept trigger (on the §3.1 sample), `map_velocity` composition, C4/portal conjugation tests | [opus — spec complete] |
 | CC7 | P3a angled math/authoring → then P3b straddle-pieces + P4 dynamic straddle (post-demo, P3b gated on S3) | [opus] |
 | CC8 | AABB slope vocabulary (S2 rules, pinned) — only when a demo/content demands it | [opus] |
 

@@ -710,6 +710,40 @@ findings folded in:
   step-3 proof case).
 No `QUESTION FOR FABLE` markers remain anywhere in docs/planning.
 
+**GPT-5.5 FOLLOW-UP QUESTIONS RESOLVED (same night, fourth commit —
+geometry identity + collision-contract status).** Ten identity/status
+questions answered IN the docs:
+- **`GeoId` — the durable geometry-identity model is RULED**
+  (collision-and-ccd.md §3.6): two-level `{source, index}` with sources
+  Placement / TileLayer (row-major-deterministic merge ordinal) /
+  Generator (marker placement + emission ordinal) / Delta (op sequence
+  number) / Anon (fixtures only; rejected in deltas). `Block` gains
+  `id: GeoId` (name stays the label). Faces/local positions =
+  `GeoFaceRef { geo, face (Top/Bottom/Left/Right | Segment(k)), along:
+  px-from-face-center }`. Carve pieces/split blocks are DERIVED —
+  frame-local identity only, never persisted. Incremental introduction:
+  CC6 mints it; W2 adds the IR sources.
+- **CC6 `PortalHostRef` = `GeoFaceRef`** — explicitly NOT an entity,
+  NOT a composed-world index, NOT a bare placement id; static and
+  moving hosts share the one representation (§5-P2 updated).
+- **`WorldDelta` ops name authored `GeoId`s** (`RemoveBlock(GeoId)`;
+  `AddBlock` mints `GeoSource::Delta{op_index}`) — decomposition W-c +
+  architecture §5 updated.
+- **`SweepSample` status pinned:** NOT in code (spec-only; nearest
+  machinery = `PortalSweepAnchor` + the CC2 `vel·dt` tolerance);
+  CC2-completion mints it. Its fields are CLOSED (prev/curr/vel/half)
+  with an explicit does-NOT-carry list (no kernel tag, no chart/portal
+  context, no contact context) + the two-consumer growth rule.
+- **CC3 status pinned:** the 3-check diagnostic
+  (`collision_invariant_oracle.rs`) EXISTS; the CC3 slice is the
+  enumerated DELTA to the six-invariant oracle (carve-aware embed,
+  straddle rule, Class-B counter, one-way rule, all-rooms matrix).
+- **Minimum diagnostic trace payload pinned:** `(seed, room, tick,
+  invariant #, SimId+archetype+MotionModel)` + the existing
+  BodyKinematics ring + the involved `GeoId`; richer channels join with
+  the machinery that creates them; every field uses durable ids, never
+  `Entity`.
+
 **The last-chance register is CLOSED:** W-a…W-e all ruled (see
 decomposition.md W-track). Highlights: the Tier-0 catalog stays
 serde-only (NEVER deps engine_core — the HitVolume plain-fields idiom is

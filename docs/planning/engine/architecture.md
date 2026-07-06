@@ -242,7 +242,10 @@ in-place mutation of the authored `RoomGeometry`. (This generalizes the
 transient `CollisionWorld` overlay to PERSISTED change; representation is
 RULED — `WorldDelta` = ordered ops per room, save-persisted, SimView sees
 only the composited view + a `WorldGeometryVersion` bump: the [W-c] ruling
-in decomposition.md.) Authoring backends
+in decomposition.md. Ops name geometry by **`GeoId`**, the durable
+geometry-identity model — placement/tile-layer/generator/delta sources,
+faces via `GeoFaceRef` — ruled in collision-and-ccd.md §3.6; the CC6
+portal host ref uses the same vocabulary.) Authoring backends
 own SPACE; parameterized generator entities (`SurfaceLoop`, planned
 `SurfaceRamp` quarter-circle floor↔wall transitions — Q27 ruling) keep
 LDtk sufficient for non-axis-aligned content without a new backend.

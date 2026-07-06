@@ -23,6 +23,27 @@ pub enum ParticleKind {
     Shard,
 }
 
+/// High-level physics-debris recipe a gameplay event handler emits
+/// (breakable shatter, ragdoll burst). Pure data — the physics adapter owns
+/// the subscriber that spawns actual debris bodies (`ambition_gameplay_core::
+/// world::physics::physics_spawn_debris_messages`); headless builds omit it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PhysicsDebrisCue {
+    Impact,
+    Breakable,
+    EnemyRagdoll,
+    BossRagdoll,
+}
+
+/// Typed physics-debris message (the debris twin of [`VfxMessage`]).
+/// Bundled into the same `SandboxEventWriters` SystemParam as `SfxMessage`
+/// and `VfxMessage` to stay within Bevy's 16-system-param budget.
+#[derive(Message, Clone, Copy, Debug)]
+pub struct DebrisBurstMessage {
+    pub pos: ae::Vec2,
+    pub cue: PhysicsDebrisCue,
+}
+
 /// Which explosion to play. The variants are pure data; the render mapping
 /// (`explosion_anim` → spritesheet row) and audio mapping (`explosion_sfx` →
 /// packed-bank id) live in the presentation layer, keeping this enum free of a

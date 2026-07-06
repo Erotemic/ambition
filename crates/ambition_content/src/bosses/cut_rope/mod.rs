@@ -30,9 +30,9 @@ use ambition_gameplay_core::features::{
     HitEvent, HitSource, PogoPolicy, PogoTargetVolumes, PostBossNpc, ResetRoomFeaturesEvent,
 };
 use ambition_gameplay_core::rooms::{PropSpec, RoomSet};
-use ambition_gameplay_core::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 use ambition_render::rendering::PropVisual;
 use ambition_sfx::SfxMessage;
+use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
 use ambition_vfx::{ExplosionKind, ExplosionRequest, FireworksRequest, ParticleKind, VfxMessage};
 
 pub const CUT_ROPE_BOSS_ID: &str = "smirking_behemoth_boss";

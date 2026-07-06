@@ -92,12 +92,12 @@ mod breakable_tests {
     //! past BREAK_ON_STAND_SECONDS, collapses it; standing elsewhere does
     //! not. Drives sim time via a fixed WorldTime::scaled_dt.
     use super::*;
-    use crate::world::physics::DebrisBurstMessage;
     use ambition_engine_core::BodyBaseSize;
     use ambition_engine_core::BodyKinematics;
     use ambition_interaction::{Breakable, BreakableCollision, BreakableTrigger};
     use ambition_platformer_primitives::markers::PlayerEntity;
     use ambition_time::WorldTime;
+    use ambition_vfx::vfx::DebrisBurstMessage;
     use bevy::prelude::{App, Entity, Update};
 
     const THRESHOLD: f32 = BREAK_ON_STAND_SECONDS;

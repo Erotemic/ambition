@@ -18,11 +18,11 @@ use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
 use bevy::prelude::*;
 
-use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 use crate::world::platforms::MovingPlatformState;
 use ambition_platformer_primitives::lifecycle::RoomVisual;
 use ambition_sfx::SfxMessage;
 use ambition_time::WorldTime;
+use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
 /// Seconds a player must stand on a breakable before it shatters.

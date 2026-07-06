@@ -1417,8 +1417,8 @@ mod tests {
     use super::*;
     use crate::combat::events::HitEvent;
     use crate::combat::hitbox::apply_hitbox_damage;
-    use crate::world::physics::DebrisBurstMessage;
     use ambition_sfx::SfxMessage;
+    use ambition_vfx::vfx::DebrisBurstMessage;
     use ambition_vfx::vfx::VfxMessage;
     use bevy::prelude::*;
 

@@ -29,10 +29,10 @@ use super::*;
 // `super::*` glob no longer carries them since the `features` facade stopped
 // re-exporting the shared body vocabulary.
 use crate::platformer_runtime::lifecycle::RoomVisual;
-use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 use ambition_characters::actor::{BodyCombat, BodyHealth};
 #[cfg(test)]
 use ambition_sfx::SfxMessage;
+use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 use bevy::prelude::{
     Commands, Component, Entity, MessageReader, MessageWriter, NextState, Query, Res, ResMut,

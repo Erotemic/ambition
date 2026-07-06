@@ -20,9 +20,9 @@
 use bevy::prelude::*;
 
 use ambition_gameplay_core::session::data;
-use ambition_gameplay_core::world::physics::DebrisBurstMessage;
 use ambition_gameplay_core::ActorDiedMessage;
 use ambition_sfx::SfxMessage;
+use ambition_vfx::vfx::DebrisBurstMessage;
 use ambition_vfx::{ExplosionRequest, FireworksRequest, VfxMessage};
 
 /// Registers the engine sim messages and resource defaults (module docs).

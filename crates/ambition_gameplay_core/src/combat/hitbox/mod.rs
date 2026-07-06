@@ -36,9 +36,9 @@ use super::components::ActorFaction;
 use super::events::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
 use super::targeting::{damage_lands, effective_faction};
 use super::util::midpoint;
-use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 use ambition_sfx::SfxMessage;
 use ambition_time::WorldTime;
+use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
 // The hitbox COMPONENTS moved to the reusable `ambition_vfx` crate (the

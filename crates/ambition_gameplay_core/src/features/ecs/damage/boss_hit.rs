@@ -15,8 +15,8 @@ use super::super::{ae, GameplayBanner, HitEvent, HitSource};
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.
 use crate::combat::boss_clusters::BossEncounter;
-use crate::world::physics::{DebrisBurstMessage, PhysicsDebrisCue};
 use ambition_sfx::SfxMessage;
+use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
 use super::*;

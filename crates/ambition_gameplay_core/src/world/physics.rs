@@ -71,28 +71,10 @@ pub struct PhysicsDebris {
     pub lifetime: f32,
 }
 
-/// High-level debris recipe used by gameplay event handlers.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum PhysicsDebrisCue {
-    Impact,
-    Breakable,
-    EnemyRagdoll,
-    BossRagdoll,
-}
-
-/// Typed sandbox-side physics-debris message. Simulation systems push these
-/// into a per-frame `Vec<DebrisBurstMessage>`; the player tick drains the
-/// Vec into `Messages<DebrisBurstMessage>` and the presentation-side
-/// `physics_spawn_debris_messages` subscriber spawns the actual Avian2D
-/// debris bodies. Headless builds omit the subscriber.
-///
-/// Bundled into the same `SandboxEventWriters` SystemParam as `SfxMessage`
-/// and `VfxMessage` to stay within Bevy's 16-system-param budget.
-#[derive(Message, Clone, Copy, Debug)]
-pub struct DebrisBurstMessage {
-    pub pos: ae::Vec2,
-    pub cue: PhysicsDebrisCue,
-}
+// `PhysicsDebrisCue` / `DebrisBurstMessage` moved to `ambition_vfx::vfx`
+// (E2): they are effect vocabulary a sim system EMITS — same family as
+// `VfxMessage`. The Avian subscriber below stays here (the adapter half).
+use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
 
 /// Presentation-side subscriber. Reads `DebrisBurstMessage`s and spawns
 /// Avian2D debris bodies via the existing `spawn_debris_burst` helper.

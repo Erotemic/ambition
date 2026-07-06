@@ -31,8 +31,8 @@ use super::damage_predicates::target_is_ignored;
 #[cfg(test)]
 use super::PickupFeature;
 use crate::features::ActorStimulus;
-use crate::world::physics::DebrisBurstMessage;
 use ambition_sfx::SfxMessage;
+use ambition_vfx::vfx::DebrisBurstMessage;
 use ambition_vfx::vfx::VfxMessage;
 
 #[derive(SystemParam)]

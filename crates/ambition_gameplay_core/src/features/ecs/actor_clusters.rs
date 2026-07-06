@@ -182,6 +182,10 @@ impl ActorBody {
 /// the player's own query item does.
 pub struct ActorMut<'a> {
     pub kin: &'a mut BodyKinematics,
+    /// §3.1 motion record (optional — see `ae::SweepSample`); the shared
+    /// pipeline writes it via `clusters_mut()`, the surface-walker branch
+    /// writes it directly around its own step.
+    pub sweep: Option<&'a mut ae::SweepSample>,
     pub status: &'a mut ActorStatus,
     /// The body's shared health (the one `BodyHealth` component every actor
     /// carries) — the authoritative HP the damage / respawn / banter paths use.
@@ -222,6 +226,7 @@ impl<'a> ActorMut<'a> {
     pub fn clusters_mut(&mut self) -> ae::BodyClustersMut<'_> {
         ae::BodyClustersMut {
             kinematics: &mut *self.kin,
+            sweep: self.sweep.as_deref_mut(),
             abilities: &*self.abilities,
             base_size: &mut *self.base_size,
             ground: &mut *self.ground,
@@ -248,6 +253,7 @@ impl<'a> ActorMut<'a> {
 #[query_data(mutable)]
 pub struct ActorClusterQueryData {
     pub kin: &'static mut BodyKinematics,
+    pub sweep: Option<&'static mut ae::SweepSample>,
     pub status: &'static mut ActorStatus,
     pub health: &'static mut ambition_characters::actor::BodyHealth,
     pub surface: &'static mut ActorSurfaceState,
@@ -284,6 +290,7 @@ impl<'w, 's> ActorClusterQueryDataItem<'w, 's> {
     {
         ActorMut {
             kin: &mut self.kin,
+            sweep: self.sweep.as_deref_mut(),
             status: &mut self.status,
             health: &mut self.health,
             surface: &mut self.surface,
@@ -604,6 +611,10 @@ impl ActorClusterSeed {
         let body = &mut self.body.0;
         ActorMut {
             kin: &mut self.kin,
+            // The seed is the non-ECS pre-spawn/test scratchpad; like
+            // `BodyClusterScratch` it carries no motion record (spawned
+            // bodies get theirs from `AncillaryMovementBundle`).
+            sweep: None,
             status: &mut self.status,
             health: &mut self.health,
             surface: &mut self.surface,

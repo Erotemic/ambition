@@ -275,6 +275,11 @@ fn integrate_home_momentum(
     // below is this step's truth.
     let mut surface_normal = -tuning.gravity_dir;
     let mut events = ae::FrameEvents::default();
+    // §3.1 sample capture around the momentum step (this path skips the
+    // shared pipeline's kernel write). The hazard respawn below overwrites
+    // it with a zero-length record via `reset_body_clusters` — a respawn is
+    // a teleport, never path.
+    let sweep_entry = (clusters.kinematics.pos, clusters.kinematics.vel);
     events.contacts = crate::features::step_momentum_body(
         clusters.kinematics,
         &mut on_ground,
@@ -287,6 +292,14 @@ fn integrate_home_momentum(
         facing_intent,
         sim_dt,
     );
+    if let Some(sweep) = clusters.sweep.as_deref_mut() {
+        *sweep = ae::SweepSample {
+            prev: sweep_entry.0,
+            curr: clusters.kinematics.pos,
+            vel: sweep_entry.1,
+            half: clusters.kinematics.size * 0.5,
+        };
+    }
     clusters.ground.on_ground = on_ground;
 
     // Hazard / out-of-bounds parity with the axis-swept sim phase: the SAME

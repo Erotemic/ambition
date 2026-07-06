@@ -54,7 +54,7 @@ pub use body_clusters::{
     BodyClusterScratch, BodyClustersMut, BodyComboTrace, BodyDashState, BodyDodgeState,
     BodyEnvironmentContact, BodyFlightState, BodyGroundState, BodyJumpState, BodyKinematics,
     BodyLedgeState, BodyLifetime, BodyMana, BodyModeState, BodyOffense, BodyShieldState,
-    BodyWallState,
+    BodyWallState, SweepSample,
 };
 pub use combat_volume::CombatVolume;
 pub use geo_id::{Face, GeoFaceRef, GeoId, GeoSource, PlacementId};

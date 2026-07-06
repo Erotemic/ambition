@@ -58,6 +58,9 @@ pub use ambition_engine_core::{
 #[derive(bevy::prelude::Bundle)]
 pub struct AncillaryMovementBundle {
     pub abilities: BodyAbilities,
+    /// §3.1 motion record — spawned default (zero-length at origin) and
+    /// overwritten by the body's first simulation step.
+    pub sweep: ambition_engine_core::SweepSample,
     pub base_size: BodyBaseSize,
     pub ground: BodyGroundState,
     pub wall: BodyWallState,
@@ -105,6 +108,7 @@ impl AncillaryMovementBundle {
         } = scratch;
         Self {
             abilities,
+            sweep: Default::default(),
             base_size,
             ground,
             wall,

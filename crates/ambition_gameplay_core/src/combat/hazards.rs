@@ -17,6 +17,7 @@ pub fn update_ecs_hazards(
         (
             Entity,
             &crate::actor::BodyKinematics,
+            Option<&ae::SweepSample>,
             &CenteredAabb,
             &crate::actor::BodyOffense,
             &crate::actor::BodyDodgeState,
@@ -37,6 +38,7 @@ pub fn update_ecs_hazards(
             // `Option`: every real body carries kinematics (→ swept), but a bare
             // headless/test hurtbox without it falls back to the discrete check.
             Option<&crate::actor::BodyKinematics>,
+            Option<&ae::SweepSample>,
             &CenteredAabb,
             &crate::actor::BodyOffense,
             &crate::actor::BodyDodgeState,
@@ -83,17 +85,20 @@ pub fn update_ecs_hazards(
         // OVERNIGHT-TODO #17.8 (B-bucket iterate-all-players for
         // hazard hits). Single-player behavior preserved because the
         // iterator has exactly one entity today.
-        for (player_entity, kin, hurtbox, offense, dodge, shield, combat) in &player {
+        for (player_entity, kin, sweep, hurtbox, offense, dodge, shield, combat) in &player {
             // CC2 (the sweep law): a hazard touch is path-dependent — a fast body
-            // (blink, dash, Sanic run) must not tunnel through a thin spike
-            // between frames. Route through the ONE swept trigger primitive
-            // instead of a discrete endpoint overlap. Parity for slow/standing
-            // bodies (it subsumes the old `strict_intersects`).
+            // (dash, Sanic run) must not tunnel through a thin spike between
+            // frames. The path is the §3.1 SweepSample — the kernel's TRUE
+            // integrated segment, which excludes teleports (blink/respawn/
+            // portal) by construction, so a blink OVER spikes is not a graze.
+            // Bodies without a sample keep the historical `vel·dt`
+            // approximation (delete the fallback when every mover writes one).
+            let delta = sweep.map(|s| s.delta()).unwrap_or(kin.vel * dt);
             if !crate::combat::damage::body_vulnerable(offense, dodge, shield, combat)
                 || !ae::cast::aabb_path_contacts(
                     hurtbox.center,
                     hurtbox.half_size,
-                    kin.vel * dt,
+                    delta,
                     hazard.aabb(),
                 )
             {
@@ -142,10 +147,17 @@ pub fn update_ecs_hazards(
         // Non-player bodies: same hazard, same rule, pre-resolved victim.
         // Knockback is left to the victim consumer (actor knockback rides the
         // resolver, not the event — see §A2).
-        for (victim, kin, hurtbox, offense, dodge, shield, combat, health) in &actor_victims {
+        for (victim, kin, sweep, hurtbox, offense, dodge, shield, combat, health) in &actor_victims
+        {
             // CC2: every body sweeps the same way (relativity principle) — an
-            // actor lured onto spikes at speed can't tunnel them either.
-            let delta = kin.map(|k| k.vel * dt).unwrap_or(ae::Vec2::ZERO);
+            // actor lured onto spikes at speed can't tunnel them either. The
+            // §3.1 sample (the true integrated segment) wins; a body without
+            // one keeps the historical `vel·dt` approximation; a bare hurtbox
+            // stays discrete.
+            let delta = sweep
+                .map(|s| s.delta())
+                .or_else(|| kin.map(|k| k.vel * dt))
+                .unwrap_or(ae::Vec2::ZERO);
             if health.current() <= 0
                 || !crate::combat::damage::body_vulnerable(offense, dodge, shield, combat)
                 || !ae::cast::aabb_path_contacts(

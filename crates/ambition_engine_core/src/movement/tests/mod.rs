@@ -56,4 +56,5 @@ mod combat_actions;
 mod contacts;
 mod glide_and_air;
 mod ledge_grab;
+mod sweep_sample;
 mod wall_collision;

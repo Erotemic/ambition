@@ -186,7 +186,19 @@ impl<'a> ActorMut<'a> {
         let move_events = if is_surface_walker {
             // Surface-walkers don't run the input pipeline, so the stagger gate
             // doesn't apply — their hit reaction is the cling-detach pop.
+            // They also don't pass through the kernel's §3.1 sample write, so
+            // this branch records its own step segment (same capture rule:
+            // both endpoints inside the mover).
+            let sweep_entry = (self.kin.pos, self.kin.vel);
             self.step_surface_walker(world, nearest_neighbor, dt, gravity_dir);
+            if let Some(sweep) = self.sweep.as_deref_mut() {
+                *sweep = ae::SweepSample {
+                    prev: sweep_entry.0,
+                    curr: self.kin.pos,
+                    vel: sweep_entry.1,
+                    half: self.kin.size * 0.5,
+                };
+            }
             ae::FrameEvents::default()
         } else {
             // Grounded AND aerial bodies run the ONE shared movement pipeline; it

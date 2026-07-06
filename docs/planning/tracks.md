@@ -253,7 +253,34 @@ sandbag InPlace). ADR 0022 written. Original spec below for reference:
 | Portal gun should be a normal item (portal crate forgets the gun; one gun = one pair) | decontamination near A2/items; portal exposes `spawn portal of pair P on surface` primitive | [opus, low priority] |
 | Smells journal (dev/journals/code_smells.md) | C4-style sweep rides each related track; the journal stays the intake | — |
 
-## 🅿️ PARKED SLICE — DECISION BRIEF: SweepSample's ECS-integration seam (opus 2026-07-06 night)
+## ✅ RESOLVED + EXECUTED (fable 2026-07-07) — the SweepSample brief below
+
+The parked slice is LANDED. The ruling refined option (A) into something
+stronger than any of the three options: **the sample is the simulation
+phase's OWN integration segment, both endpoints captured INSIDE the
+kernel** (`prev` at sim-phase entry, `curr` at exit). Under those
+semantics the brief's core problems dissolve:
+- The **~20-site reset surface does not exist** — a position change
+  outside the sim window (blink, respawn wrapper, portal, mark-recall,
+  mount positioning, room transition) can never become path, so external
+  writers have NO protocol to violate. Provable completeness without
+  touching them.
+- **Blink is ruled a teleport, never path** (its design identity is
+  crossing gaps without traversing them) — and the control/sim phase
+  split enforces that for free, no kernel flag needed.
+- The **cluster-view widening is `Option<&mut SweepSample>`** — zero
+  scratch/seed/test churn (24 scratch literals untouched); spawned bodies
+  get the component via `AncillaryMovementBundle` (players AND actors,
+  one edit); non-pipeline movers (surface-walker branch, home momentum
+  path) write their own segments; `reset_body_clusters` leaves a
+  zero-length record.
+- The **hazard reader migrated** (both arms): `sample.delta()` with the
+  historical `vel·dt` fallback for sample-less bodies (bosses — same
+  effective behavior as before). 4 new engine contract tests; full gate
+  green. CC6's relative sweep now has its substrate.
+The original brief is preserved below for the reasoning record.
+
+## 🅿️ PARKED SLICE — DECISION BRIEF: SweepSample's ECS-integration seam (opus 2026-07-06 night) — ✅ RESOLVED ABOVE
 
 **Status: PARKED per the post-fable protocol.** The `SweepSample` §3.1 spec
 pins the TYPE, the four contract rules, and the does-NOT-carry list exactly —
@@ -885,3 +912,34 @@ cycle if moved into their Tier-1 target crates); each is a dedicated
 invert-then-move session, not a filler. Ledger rows corrected.
 Gate every commit: gameplay_core lib 1175, engine_core 252, content 64, full app
 rl_sim suite green (only the documented `unified_melee::a_hostile_actor` feel-RED).
+
+## 2026-07-07 (fable) — SweepSample RULED + LANDED (the parked slice closed; CC6 fully unblocked)
+Opus's decision brief was exactly right to park — and the ruling that closed
+it is stronger than any of its three options: **the sample is the simulation
+phase's OWN integration segment, both endpoints captured INSIDE the kernel**
+(`prev` at sim-phase entry, `curr` at exit, written by
+`update_body_simulation_with_clusters`'s wrapper). Consequences:
+- The ~20-site reset-protocol surface DOES NOT EXIST — teleports (blink,
+  respawn, portal, mark-recall, mounts, room transitions) happen outside the
+  sim window and can never become path. Provably complete with zero external
+  cooperation.
+- **Blink is ruled a teleport, never path** (crossing gaps without traversing
+  them IS blink); the control/sim phase split enforces it for free.
+- Plumbing: `engine_core::SweepSample` component; `Option<&mut>` members on
+  `BodyClustersMut`/`ActorClusterQueryData`/`ActorMut` (zero churn on the 24
+  scratch literals — scratch passes None; tests override the view field);
+  `AncillaryMovementBundle` carries the component for players AND actors (one
+  edit); the surface-walker branch + the home momentum path write their own
+  segments (rule 2); `reset_body_clusters` leaves a zero-length record.
+- The hazard reader (both victim arms) migrated to `sample.delta()` with the
+  historical `vel·dt` fallback for sample-less bodies (bosses:
+  `integrate_boss_bodies` is the known remaining mover — same effective
+  behavior as before, a small follow-up slice).
+- Tests: 4 new engine contract tests (segment recorded / zero-dt zero-length /
+  control-phase blink never path / respawn leaves zero-length-at-spawn).
+  Gate: engine_core 256, gameplay_core 1175, content green, app rl_sim 44
+  suites (only the documented `unified_melee` feel-RED), host + demo shell
+  green.
+**CC6 (moving portals) is now fully unblocked for opus** — both prerequisites
+(SweepSample §3.1 + GeoId §3.6) are in code; the relative swept trigger reads
+`sample` and the host ref is `GeoFaceRef`.

@@ -57,59 +57,79 @@ rectangular, not because privileged.
 
 ## 3. THE RUNTIME CONTRACTS (pinned 2026-07-06 — executors implement these, not their own readings)
 
-### 3.1 The canonical sweep sample
+### 3.1 The canonical sweep sample — ✅ LANDED (fable, 2026-07-07; the ECS seam RULED and executed)
 
 Every swept reader consumes ONE authoritative motion record per body per
-tick. There is exactly one source of truth for "where was this body and how
-was it moving":
+tick. **The seam question opus parked (the decision brief) is RULED and
+the ruling is IN CODE:** the sample is **the simulation phase's own
+integration segment, with BOTH endpoints captured INSIDE the kernel** —
+`prev` at sim-phase entry, `curr` at sim-phase exit
+(`update_body_simulation_with_clusters` wraps the inner step and writes
+it; `engine_core::SweepSample`, an `Option<&mut>` member of
+`BodyClustersMut`/`ActorMut` so adoption is incremental with zero
+scratch/test churn).
 
 ```rust
-/// engine_core: the per-tick motion record. Written ONCE per body per sim
-/// tick, after its kernel integrates; read by every path-dependent system.
+/// engine_core::body_clusters — Component on every spawned body
+/// (AncillaryMovementBundle carries it for players AND actors).
 pub struct SweepSample {
-    pub prev: Vec2,     // TRUE post-integration position of the PREVIOUS tick
-    pub curr: Vec2,     // post-integration position of THIS tick
+    pub prev: Vec2,     // position at simulation-phase ENTRY
+    pub curr: Vec2,     // position at simulation-phase EXIT (may differ from
+                        // the body's CURRENT pos on teleport frames — the
+                        // sample is the traveled path, not the endpoint)
     pub vel: Vec2,      // velocity at prev (the motion that produced the path)
-    pub half: Vec2,     // the body proxy: AABB half-extents (the momentum
-                        // kernel's circle proxy publishes its bounding half)
+    pub half: Vec2,     // the body proxy: AABB half-extents
 }
 ```
 
+**Why this shape kills the reset-protocol problem entirely:** a position
+change OUTSIDE the sim-phase window can never become path — blink
+(control phase), the player respawn wrapper (after sim returns), portal
+transfer / room transition / mark-recall / mount positioning (other
+systems) are all excluded BY CONSTRUCTION. The brief's "~20-site reset
+surface across 3 crates" does not exist under these semantics; there is
+no protocol for external writers to violate. The blink classification is
+thereby also ruled: **blink is a teleport, never path** — the body does
+not traverse the gap (that is blink's design identity: crossing
+BlinkWalls and pits), and the phase split enforces it for free.
+
 Contract rules (each is a review-flag when violated):
 
-1. **`prev` is recorded, never reconstructed.** `pos − vel·dt` is FORBIDDEN
-   as a path source: the integrator may already have stopped/zeroed the body
-   (the exact failure the sweep exists to catch — the portal
-   `PortalSweepAnchor` lesson). *Known v1 tolerance:* the CC2 hazard
-   conversion currently uses `vel·dt`; acceptable there only because the
-   discrete standing-in-it arm catches a stopped body — the CC2 completion
-   pass migrates it onto the sample. New readers start on the sample.
-2. **Non-ballistic position writes RESET the sample.** Portal transfer,
-   scripted teleport, respawn, room transition — the writer sets
-   `prev = curr = new_pos` (zero-length path) in the same frame. A reset
-   sample can never read as travel (this generalizes the portal tier's
-   `MAX_SWEPT_STEP_S` teleport guard from a heuristic into a protocol; the
-   heuristic stays as defense-in-depth until every writer conforms).
-3. **One frame, one chart.** The sample's segment lives entirely in one
-   coordinate chart. On a portal-transfer frame the post-transfer sample is
-   reset (rule 2), so readers never see a segment spanning two charts.
-   *Documented v1 bound:* the sub-frame emergence distance on the exit side
-   is unswept for that one frame; the future extension (if fuzzing ever
-   trips it) is a two-segment polyline sample, portal transfer APPENDING
-   instead of resetting — do not build it speculatively.
-4. **Reference frame:** samples are world-frame. A reader comparing against
-   a MOVING target subtracts the target's own frame motion (relative sweep,
-   `delta_body − delta_target`) — the CC6 moving-portal rule, already
-   documented on `aabb_path_contacts`.
+1. **`prev` is recorded inside the kernel, never reconstructed.**
+   `pos − vel·dt` is FORBIDDEN as a path source for readers that have a
+   sample. Readers keep a `vel·dt` FALLBACK only for bodies without the
+   component (bare test hurtboxes, movers not yet writing one — bosses'
+   `integrate_boss_bodies` is the known remaining mover); delete each
+   fallback when its mover writes samples.
+2. **Every mover writes its own segment.** The shared pipeline writes it
+   in the kernel; non-pipeline movers (the surface-walker branch, the
+   home momentum path) write theirs around their own step — same capture
+   rule, both endpoints inside the mover. `reset_body_clusters` leaves a
+   zero-length record at spawn (a respawn is a teleport, never path). A
+   zero-dt tick records a zero-length segment, never a stale one.
+3. **One frame, one chart.** The segment lives entirely in one coordinate
+   chart automatically: a transfer happens outside the sim window, so the
+   next segment starts in the new chart. *Documented v1 bound:* the
+   sub-frame emergence distance on a transfer frame's exit side is
+   unswept for that one frame; the future extension (if fuzzing trips it)
+   is a two-segment polyline — do not build it speculatively.
+4. **Reference frame:** samples are world-frame. A reader comparing
+   against a MOVING target subtracts the target's own frame motion
+   (relative sweep, `delta_body − delta_target`) — the CC6 moving-portal
+   rule.
 
-**Status (2026-07-06 night, pinned so nobody re-derives it from grep):
-`SweepSample` is NOT YET IN CODE — no type of this name or shape exists;
-it is a specced slice.** The nearest existing machinery: the portal
-tier's `PortalSweepAnchor` (single-consumer prev-position anchor — the
-lesson rule 1 encodes) and the CC2 hazard conversion's `vel·dt` delta
-(the documented rule-1 tolerance). Minting the type + the two kernel
-writers + the reset protocol is the FIRST task of CC2-completion, and
-CC6's relative sweep builds on it.
+Tests pinning the contract (engine lib, `movement/tests/sweep_sample.rs`):
+segment recorded; zero-dt = zero-length; a control-phase blink is never
+path; the respawn wrapper leaves a zero-length record at spawn. The
+hazard reader (both victim arms) consumes `sample.delta()` with the
+rule-1 fallback.
+
+**Status: IN CODE (fable, 2026-07-07).** Remaining adopters, each a
+small slice: `integrate_boss_bodies` (bosses currently hit the hazard
+fallback — effectively discrete, same as before), the portal transit
+trigger (still on `PortalSweepAnchor`; CC6 consumes the sample for the
+relative sweep and retires the anchor), and any future mover (write your
+own segment — rule 2).
 
 **What the sample deliberately does NOT carry (asked and answered):**
 - *No kernel tag / body proxy beyond `half`.* Readers are kernel-agnostic

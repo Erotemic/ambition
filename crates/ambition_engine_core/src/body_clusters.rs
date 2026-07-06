@@ -30,6 +30,12 @@ use crate::Vec2;
 pub struct BodyClustersMut<'a> {
     pub abilities: &'a BodyAbilities,
     pub kinematics: &'a mut BodyKinematics,
+    /// The §3.1 per-tick motion record, written by the simulation phase
+    /// itself (see [`SweepSample`]). `Option` so legacy bodies, scratch
+    /// tests, and non-pipeline movers opt in incrementally — an absent
+    /// sample means swept readers fall back to their historical
+    /// `vel·dt` approximation.
+    pub sweep: Option<&'a mut SweepSample>,
     pub base_size: &'a mut BodyBaseSize,
     pub ground: &'a mut BodyGroundState,
     pub wall: &'a mut BodyWallState,
@@ -57,6 +63,7 @@ pub struct BodyClustersMut<'a> {
 pub struct BodyClusterQueryData {
     pub abilities: &'static BodyAbilities,
     pub kinematics: &'static mut BodyKinematics,
+    pub sweep: Option<&'static mut SweepSample>,
     pub base_size: &'static mut BodyBaseSize,
     pub ground: &'static mut BodyGroundState,
     pub wall: &'static mut BodyWallState,
@@ -86,6 +93,7 @@ impl<'w, 's> BodyClusterQueryDataItem<'w, 's> {
         BodyClustersMut {
             abilities: &*self.abilities,
             kinematics: &mut *self.kinematics,
+            sweep: self.sweep.as_deref_mut(),
             base_size: &mut *self.base_size,
             ground: &mut *self.ground,
             wall: &mut *self.wall,
@@ -180,6 +188,41 @@ impl BodyKinematics {
     pub fn aabb_oriented(self, gravity_dir: crate::Vec2) -> crate::Aabb {
         let half = crate::AccelerationFrame::new(gravity_dir).to_world_half(self.size * 0.5);
         crate::Aabb::new(self.pos, half)
+    }
+}
+
+/// The canonical per-tick MOTION RECORD (collision doctrine §3.1) — the
+/// simulation phase's own integration segment, written by the kernel at
+/// the end of `update_body_simulation_with_clusters` (both endpoints
+/// captured INSIDE the kernel). Because `prev` is the position at
+/// sim-phase ENTRY, every teleport in the engine — blink (control
+/// phase), the player respawn wrapper (after sim), portal transfer /
+/// room transition / scripted warps (other systems) — is excluded from
+/// the record BY CONSTRUCTION: a position change outside the sim phase
+/// simply never becomes path. No reset protocol exists or is needed.
+///
+/// Swept readers (hazard touch, CC6's relative portal sweep) consume
+/// `prev → curr`; bodies without the component (legacy spawns, scratch
+/// tests, movers not yet writing it) fall back to the historical
+/// `vel·dt` approximation at the read site.
+#[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
+pub struct SweepSample {
+    /// Position at simulation-phase entry (the TRUE segment start).
+    pub prev: Vec2,
+    /// Position at simulation-phase exit. May differ from the body's
+    /// CURRENT `pos` on frames where a later system teleported it — the
+    /// sample is the traveled path, not the endpoint.
+    pub curr: Vec2,
+    /// Velocity at `prev` (the motion that produced the path).
+    pub vel: Vec2,
+    /// Body proxy at the time of the step: AABB half-extents.
+    pub half: Vec2,
+}
+
+impl SweepSample {
+    /// The segment's displacement (`curr − prev`).
+    pub fn delta(&self) -> Vec2 {
+        self.curr - self.prev
     }
 }
 
@@ -395,6 +438,17 @@ pub fn reset_body_clusters(clusters: &mut BodyClustersMut<'_>, spawn: Vec2) {
         size: body,
         facing: 1.0,
     };
+    // Zero-length record at the spawn point: a respawn is a teleport, never
+    // path (the next sim tick overwrites this; keeping it honest costs one
+    // write).
+    if let Some(sweep) = clusters.sweep.as_deref_mut() {
+        *sweep = SweepSample {
+            prev: spawn,
+            curr: spawn,
+            vel: Vec2::ZERO,
+            half: body * 0.5,
+        };
+    }
     *clusters.base_size = BodyBaseSize { base_size: body };
     *clusters.ground = BodyGroundState::default();
     *clusters.wall = BodyWallState::default();
@@ -657,6 +711,10 @@ impl BodyClusterScratch {
         BodyClustersMut {
             abilities: &self.abilities,
             kinematics: &mut self.kinematics,
+            // Scratch is the non-ECS test scratchpad; it carries no sample
+            // (tests that observe the sample set `clusters.sweep` on the
+            // borrowed view directly).
+            sweep: None,
             base_size: &mut self.base_size,
             ground: &mut self.ground,
             wall: &mut self.wall,

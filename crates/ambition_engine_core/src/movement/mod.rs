@@ -218,6 +218,34 @@ pub fn update_body_simulation_with_clusters(
     raw_dt: f32,
     tuning: MovementTuning,
 ) -> FrameEvents {
+    // §3.1 SweepSample: both endpoints are captured INSIDE the kernel —
+    // `prev` at sim-phase entry, `curr` at exit — so any position change
+    // outside this window (blink in the control phase, the player respawn
+    // wrapper after this returns, portal/room/scripted teleports in other
+    // systems) is excluded from the motion record BY CONSTRUCTION. Early
+    // returns still pass through the write below (a zero-dt tick records a
+    // zero-length segment, never a stale one).
+    let entry_pos = clusters.kinematics.pos;
+    let entry_vel = clusters.kinematics.vel;
+    let events = update_body_simulation_inner(world, clusters, input, raw_dt, tuning);
+    if let Some(sweep) = clusters.sweep.as_deref_mut() {
+        *sweep = crate::body_clusters::SweepSample {
+            prev: entry_pos,
+            curr: clusters.kinematics.pos,
+            vel: entry_vel,
+            half: clusters.kinematics.size * 0.5,
+        };
+    }
+    events
+}
+
+fn update_body_simulation_inner(
+    world: &World,
+    clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
+    input: InputState,
+    raw_dt: f32,
+    tuning: MovementTuning,
+) -> FrameEvents {
     let mut events = FrameEvents::default();
     if raw_dt <= 0.0 {
         return events;

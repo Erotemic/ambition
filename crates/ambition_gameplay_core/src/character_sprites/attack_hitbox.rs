@@ -366,4 +366,24 @@ mod tests {
         )
         .is_none());
     }
+
+    /// The seam-facing resolver resolves the REAL authored player blade for
+    /// `attack_side` (the assertion the combat-side moveset test delegates
+    /// here — combat tests the seam with a fixture; the DATA lives with the
+    /// sprites).
+    #[test]
+    fn seam_resolver_resolves_the_authored_player_blade() {
+        let volume = authored_attack_volume_resolver(
+            None,
+            "attack_side",
+            ae::Vec2::new(100.0, 100.0),
+            ae::Vec2::new(30.0, 48.0),
+            1.0,
+            ae::Vec2::new(0.0, 1.0),
+        );
+        assert!(
+            matches!(volume, Some(ae::CombatVolume::Convex { .. })),
+            "the player manifest authors a convex attack_side blade, got {volume:?}"
+        );
+    }
 }

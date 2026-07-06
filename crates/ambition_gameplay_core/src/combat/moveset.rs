@@ -1681,15 +1681,36 @@ mod tests {
 
     /// Headless sim harness: move playback + the REAL hitbox damage path,
     /// fixed 16ms sim ticks, a vulnerable player standing in reach.
+    /// Fixture seam resolver: a fixed convex blade for the `attack_side`
+    /// clip (what the player manifest authors), `None` for everything else.
+    fn test_blade_resolver(
+        _cid: Option<&str>,
+        animation: &str,
+        body_pos: ae::Vec2,
+        collision: ae::Vec2,
+        _facing: f32,
+        _gravity_dir: ae::Vec2,
+    ) -> Option<ae::CombatVolume> {
+        (animation == "attack_side").then(|| {
+            let hx = collision.x * 0.8;
+            let hy = collision.y * 0.4;
+            ae::CombatVolume::convex(vec![
+                body_pos + ae::Vec2::new(-hx, -hy),
+                body_pos + ae::Vec2::new(hx, -hy),
+                body_pos + ae::Vec2::new(hx * 1.4, 0.0),
+                body_pos + ae::Vec2::new(hx, hy),
+                body_pos + ae::Vec2::new(-hx, hy),
+            ])
+        })
+    }
+
     fn app_with_victim() -> (App, Entity) {
         // The authored-blade path resolves through the install seam exactly
-        // like production (the runtime plugin installs the same resolver).
-        // NOTE for the E2 atomic move: this line is the ONE gameplay_core
-        // coupling in the moveset tests — the blade INTEGRATION test travels
-        // to the features layer when moveset.rs moves crates.
-        super::super::authored_volumes::install_authored_attack_volumes(
-            crate::character_sprites::authored_attack_volume_resolver,
-        );
+        // like production. Tests install a FIXTURE resolver (a fixed convex
+        // blade for the `attack_side` clip) — the seam + convex plumbing is
+        // what combat owns; the REAL sprite-data resolution is asserted
+        // sprites-side (`character_sprites::attack_hitbox` tests).
+        super::super::authored_volumes::install_authored_attack_volumes(test_blade_resolver);
         let mut app = App::new();
         app.add_message::<HitEvent>();
         app.add_message::<SfxMessage>();

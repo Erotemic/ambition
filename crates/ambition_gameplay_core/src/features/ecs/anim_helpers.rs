@@ -418,6 +418,136 @@ pub fn ecs_boss_animation_frame_sample(
     )
 }
 
+/// One boss's hazard-column lane for this frame — the visible rectangle is
+/// computed sim-side from the SAME volume math as damage, so the visual and
+/// the hitbox are exactly coincident (E4 slice 7).
+#[derive(Clone, Copy, Debug)]
+pub struct HazardLaneFact {
+    /// `true` during the strike window (red solid); `false` during
+    /// telegraph (yellow pulsing).
+    pub striking: bool,
+    pub center: ambition_engine_core::Vec2,
+    pub size: ambition_engine_core::Vec2,
+}
+
+/// Materialized per-frame boss presentation facts, keyed by [`FeatureId`]:
+/// the resolved [`BossAnimState`] (facing / tint / row-selection facts), the
+/// boss's collision AABB, and the hazard-column lane when one is live. The
+/// MOVING half of the boss read-model — `BossRenderIndex` carries the static
+/// identity. Presentation reads this by id and never borrows the live boss
+/// clusters (E4 slice 7); rows are `Copy`, so the rebuild just overwrites.
+#[derive(Resource, Default, Clone, Debug)]
+pub struct BossFrameIndex {
+    frames: std::collections::HashMap<String, (BossFrameView, u64)>,
+    generation: u64,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct BossFrameView {
+    pub anim: crate::boss_encounter::sprites::BossAnimState,
+    /// The boss's combat AABB (debug health bars anchor here).
+    pub aabb: ambition_engine_core::Aabb,
+    pub hazard_lane: Option<HazardLaneFact>,
+}
+
+impl BossFrameIndex {
+    pub fn get(&self, id: &str) -> Option<BossFrameView> {
+        self.frames.get(id).map(|(frame, _)| *frame)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &BossFrameView)> {
+        self.frames
+            .iter()
+            .map(|(id, (frame, _))| (id.as_str(), frame))
+    }
+
+    pub fn len(&self) -> usize {
+        self.frames.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.frames.is_empty()
+    }
+
+    fn begin_rebuild(&mut self) {
+        self.generation = self.generation.wrapping_add(1);
+    }
+
+    fn end_rebuild(&mut self) {
+        let gen = self.generation;
+        self.frames.retain(|_, (_, g)| *g == gen);
+    }
+
+    fn insert(&mut self, id: &str, frame: BossFrameView) {
+        let gen = self.generation;
+        if let Some(slot) = self.frames.get_mut(id) {
+            slot.0 = frame;
+            slot.1 = gen;
+        } else {
+            self.frames.insert(id.to_string(), (frame, gen));
+        }
+    }
+}
+
+/// Rebuild [`BossFrameIndex`] from the live boss clusters — the same reads
+/// `animate_bosses` / `manage_gradient_lane_visual` used to make live from
+/// render, moved sim-side. Runs in `FeatureViewSync`.
+pub fn rebuild_boss_frame_index(
+    mut index: ResMut<BossFrameIndex>,
+    bosses: Query<(
+        &FeatureId,
+        super::boss_clusters::BossClusterRef,
+        &ambition_characters::actor::BodyHealth,
+        &ambition_characters::actor::BodyCombat,
+        &ambition_characters::brain::BossAttackState,
+        &ambition_characters::brain::Brain,
+    )>,
+) {
+    use ambition_characters::brain::BossAttackProfile;
+    index.begin_rebuild();
+    for (id, feature, health, combat, attack_state, brain) in &bosses {
+        let boss = feature.as_boss_ref();
+        let anim = boss_anim_state_for(boss, health.alive(), combat.hit_flash, attack_state, brain);
+        // Hazard-column lane: live only while an ALIVE boss telegraphs or
+        // strikes `hazard_column`; the rect reuses the damage volume math.
+        let in_telegraph = matches!(
+            &attack_state.telegraph_profile,
+            Some(p) if p.move_id() == "hazard_column"
+        );
+        let in_strike = matches!(
+            &attack_state.active_profile,
+            Some(p) if p.move_id() == "hazard_column"
+        );
+        let hazard_lane = if health.alive() && (in_telegraph || in_strike) {
+            let boss = feature.as_boss_ref();
+            crate::features::volumes_for_profile(
+                &BossAttackProfile::Strike("hazard_column".to_string()),
+                boss.kin.pos,
+                boss.combat_size(),
+                &boss.config.behavior,
+            )
+            .pop()
+            .map(|volume| HazardLaneFact {
+                striking: in_strike,
+                center: volume.center(),
+                size: volume.half_size() * 2.0,
+            })
+        } else {
+            None
+        };
+        let boss = feature.as_boss_ref();
+        index.insert(
+            id.as_str(),
+            BossFrameView {
+                anim,
+                aabb: boss.aabb(),
+                hazard_lane,
+            },
+        );
+    }
+    index.end_rebuild();
+}
+
 pub fn ecs_boss_anim_state(
     id: &str,
     bosses: &Query<(

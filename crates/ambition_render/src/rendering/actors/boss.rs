@@ -238,20 +238,13 @@ pub fn sync_boss_split_overlay(
 
 /// Per-frame state-driven animation for boss entities.
 pub fn animate_bosses(
-    // The boss read-model, for the facing flip + the attack-telegraph tint. The
-    // animation FRAME is no longer derived here (R1.3): the SIM owns it
+    // The boss frame read-model (E4 slice 7): facing flip + attack-telegraph
+    // tint facts resolved sim-side into `BossFrameIndex`. The animation FRAME
+    // is not derived here either (R1.3): the SIM owns it
     // (`drive_boss_animators` runs `request_for_phase` + `tick` and writes the
     // geometry sample), so this presentation system READS the already-driven
-    // animator and only draws — no more render→sim write-back.
-    ecs_bosses: Query<(
-        Entity,
-        &FeatureId,
-        BossClusterRef,
-        &ambition_characters::actor::BodyHealth,
-        &ambition_characters::actor::BodyCombat,
-        &ambition_characters::brain::BossAttackState,
-        &ambition_characters::brain::Brain,
-    )>,
+    // animator and only draws — no render→sim reads at all.
+    boss_frames: Res<ambition_gameplay_core::features::BossFrameIndex>,
     mut query: Query<
         (
             &FeatureVisual,
@@ -272,11 +265,8 @@ pub fn animate_bosses(
     // own animation while the world is frozen by its SimClock
     // request.
     for (visual, mut sprite, animator, anchor) in &mut query {
-        let Some((_boss_entity, state)): Option<(Entity, BossAnimState)> =
-            ambition_gameplay_core::features::ecs_boss_anim_state_and_entity(
-                &visual.id,
-                &ecs_bosses,
-            )
+        let Some(state): Option<BossAnimState> =
+            boss_frames.get(&visual.id).map(|frame| frame.anim)
         else {
             continue;
         };

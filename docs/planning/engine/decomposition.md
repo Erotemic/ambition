@@ -360,21 +360,27 @@ committable slice; render-side reads become SimView fields):**
    override, player hit-flash + debug health bar are pure consumers;
    `ShieldRingsView` pools every raised shield (player+actor). Actor-
    side kin reads in fx/items/pirate_weapon remain (slices 11–12, 18).
-2. The `ActorSpriteData` mega-QueryData (hit_flash, deep_dream; ~15
-   sim components) → collapse into `ActorRenderView`+`ActorAnimView`.
+2. ✅ The `ActorSpriteData` mega-QueryData in render is GONE (fable
+   2026-07-06): hit_flash reads `FeatureView.hit_flash_secs` (+
+   `BodyPoseView` for player bodies); deep_dream reads
+   `ActorRenderView.dream_seed` + name.
 3. ✅ `BodyAnimFacts`/`BodyMelee`/`PlayerBlinkCameraState`/`BodyCombat`/
    `Body*State` cluster reads: the actor half landed as slice 19
    (`ActorAnimIndex`); the PLAYER half landed with `BodyPoseView`
    (fable 2026-07-06) — `pick_player_anim` now runs sim-side only.
 4. ✅ `ActorRoll` → `BodyPoseView.roll_angle` (player; actors already
    rode `FeatureView.rotation_rad`).
-5. `BodyHealth`/`BodyCombat`/`Health` reads (health/hit_flash/
-   nameplates/boss/overlays/hud) → `{ hp_frac, alive, hit_flash_t }`.
+5. ✅ `BodyHealth`/`BodyCombat`/`Health` reads (health/hit_flash/
+   nameplates/boss/overlays) → `FeatureView.{alive, hit_flash_secs,
+   hp_current, hp_max, training_dummy}` (fable 2026-07-06); the hud
+   half rides slice 6.
 6. `BodyWallet` (hud) → a `PlayerHudFacts` view row.
-7. Boss internals (`BossConfig`/`BossClusterRef`/`BossPhase`/`Brain`/
-   `BossAttackState`/`BossAttackProfile`) → extend `BossRenderIndex`
-   (`phase, hp_frac, telegraph/strike move ids, hazard volumes`);
-   dissolves into the actor index at E6(b).
+7. ✅ Boss internals (`BossConfig`/`BossClusterRef`/`BossPhase`/`Brain`/
+   `BossAttackState`) → `BossFrameIndex` (fable 2026-07-06): per-boss
+   `BossAnimState` + combat AABB + the sim-computed hazard-column lane
+   (same volume math as damage); `animate_bosses`, the gradient-lane
+   visual, and the boss health bar are pure consumers. Dissolves into
+   the actor index at E6(b).
 8. The render-inserted `BossAnimator` → E6(a): sim-owned
    `BossAnimFrame`; render stops inserting.
 9. Live feature-marker queries (ActorDisposition, chest/breakable/

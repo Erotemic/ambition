@@ -31,6 +31,13 @@ impl FeatureViewIndex {
         self.views.get(id).map(|(view, _)| view)
     }
 
+    /// Iterate every `(id, view)` row. Presentation passes that render "one
+    /// thing per feature" (debug health bars, nameplates) walk the read-model
+    /// instead of declaring sim-component queries.
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &FeatureView)> {
+        self.views.iter().map(|(id, (view, _))| (id.as_str(), view))
+    }
+
     pub fn is_empty(&self) -> bool {
         self.views.is_empty()
     }
@@ -118,6 +125,7 @@ pub fn rebuild_feature_view_index(
         // Presentation reads alive / hit-flash from here instead of the
         // BossRuntime fields, the same component enemies/NPCs expose.
         &ambition_characters::actor::BodyCombat,
+        Option<&ambition_characters::actor::BodyHealth>,
         Option<&BossDeathAnimation>,
         Option<&BossPhase>,
         // Gravity-upright roll — the SAME `ActorRoll` the player / enemies / NPCs
@@ -139,6 +147,11 @@ pub fn rebuild_feature_view_index(
                 fighting: false,
                 switch_on: false,
                 rotation_rad: 0.0,
+                alive: true,
+                hit_flash_secs: 0.0,
+                hp_current: 0,
+                hp_max: 0,
+                training_dummy: false,
             },
         );
     }
@@ -154,6 +167,11 @@ pub fn rebuild_feature_view_index(
                 fighting: false,
                 switch_on: false,
                 rotation_rad: 0.0,
+                alive: true,
+                hit_flash_secs: 0.0,
+                hp_current: 0,
+                hp_max: 0,
+                training_dummy: false,
             },
         );
     }
@@ -169,6 +187,11 @@ pub fn rebuild_feature_view_index(
                 fighting: false,
                 switch_on: false,
                 rotation_rad: 0.0,
+                alive: !breakable.broken(),
+                hit_flash_secs: 0.0,
+                hp_current: breakable.breakable.health.current,
+                hp_max: breakable.breakable.health.max,
+                training_dummy: false,
             },
         );
     }
@@ -184,6 +207,11 @@ pub fn rebuild_feature_view_index(
                 fighting: false,
                 switch_on: switch_on.0,
                 rotation_rad: 0.0,
+                alive: true,
+                hit_flash_secs: 0.0,
+                hp_current: 0,
+                hp_max: 0,
+                training_dummy: false,
             },
         );
     }
@@ -237,6 +265,14 @@ pub fn rebuild_feature_view_index(
                 fighting: hostile,
                 switch_on: false,
                 rotation_rad,
+                // Liveness for presentation (nameplates, debug bars): dead if
+                // EITHER cluster says so; an actor with neither cluster reads
+                // alive (it has no pool to die from).
+                alive: !(combat.is_some_and(|c| !c.alive) || health.is_some_and(|h| !h.alive())),
+                hit_flash_secs: combat.map_or(0.0, |c| c.hit_flash),
+                hp_current: health.map_or(0, |h| h.current()),
+                hp_max: health.map_or(0, |h| h.max()),
+                training_dummy: combat.is_some_and(|c| c.training_dummy),
             },
         );
     }
@@ -252,10 +288,15 @@ pub fn rebuild_feature_view_index(
                 fighting: false,
                 switch_on: false,
                 rotation_rad: 0.0,
+                alive: hazard.hazard.active(),
+                hit_flash_secs: 0.0,
+                hp_current: 0,
+                hp_max: 0,
+                training_dummy: false,
             },
         );
     }
-    for (id, feature, attack_state, combat, death_anim, phase, roll) in &bosses {
+    for (id, feature, attack_state, combat, health, death_anim, phase, roll) in &bosses {
         let boss = feature.as_boss_ref();
         // `alive` reads the shared `BodyCombat` mirror; pos / size
         // still come from `BossRuntime` until the boss body migrates to
@@ -280,6 +321,13 @@ pub fn rebuild_feature_view_index(
                 fighting: true,
                 switch_on: false,
                 rotation_rad: roll.map_or(0.0, |r| r.angle),
+                alive: combat.alive && !phase.is_some_and(|p| p.is_defeated()),
+                // A boss corpse must not read as a lit silhouette — death
+                // rows are authored sprites (the old render-side rule).
+                hit_flash_secs: if combat.alive { combat.hit_flash } else { 0.0 },
+                hp_current: health.map_or(0, |h| h.current()),
+                hp_max: health.map_or(0, |h| h.max()),
+                training_dummy: false,
             },
         );
     }
@@ -303,6 +351,10 @@ pub struct ActorRenderView {
     pub sprite_override_name: Option<String>,
     pub is_sandbag: bool,
     pub render_size: Option<ae::Vec2>,
+    /// Authored deep-dream participation seed (`ActorTuning.dream_seed`) —
+    /// the surreal-overlay pass reads this identity fact by id instead of
+    /// borrowing the live actor clusters (E4 slice 2).
+    pub dream_seed: Option<f32>,
 }
 
 #[derive(Resource, Default, Clone, Debug)]
@@ -338,6 +390,7 @@ impl ActorRenderIndex {
     /// generation, allocating nothing; a new or genuinely-changed entry clones
     /// once. The comparison is by `&str`/value so no candidate `String` is built
     /// on the unchanged path.
+    #[allow(clippy::too_many_arguments)]
     fn upsert(
         &mut self,
         id: &str,
@@ -345,6 +398,7 @@ impl ActorRenderIndex {
         override_name: Option<&str>,
         is_sandbag: bool,
         render_size: Option<ae::Vec2>,
+        dream_seed: Option<f32>,
     ) {
         let gen = self.generation;
         if let Some(slot) = self.views.get_mut(id) {
@@ -352,7 +406,8 @@ impl ActorRenderIndex {
             let unchanged = v.name == name
                 && v.sprite_override_name.as_deref() == override_name
                 && v.is_sandbag == is_sandbag
-                && v.render_size == render_size;
+                && v.render_size == render_size
+                && v.dream_seed == dream_seed;
             if unchanged {
                 slot.1 = gen;
                 return;
@@ -362,6 +417,7 @@ impl ActorRenderIndex {
                 sprite_override_name: override_name.map(str::to_string),
                 is_sandbag,
                 render_size,
+                dream_seed,
             };
             slot.1 = gen;
             return;
@@ -374,6 +430,7 @@ impl ActorRenderIndex {
                     sprite_override_name: override_name.map(str::to_string),
                     is_sandbag,
                     render_size,
+                    dream_seed,
                 },
                 gen,
             ),
@@ -399,6 +456,7 @@ pub fn rebuild_actor_render_index(
             a.config.sprite_override_npc_name.as_deref(),
             a.config.tuning.is_sandbag,
             render_size.map(|s| s.0),
+            a.config.tuning.dream_seed,
         );
     }
     index.end_rebuild();
@@ -426,6 +484,12 @@ pub struct BossRenderIndex {
 impl BossRenderIndex {
     pub fn get(&self, id: &str) -> Option<&BossRenderView> {
         self.views.get(id).map(|(view, _)| view)
+    }
+
+    /// Iterate every `(id, view)` boss identity row — the "which ids are
+    /// bosses" oracle presentation passes join against `FeatureViewIndex`.
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &BossRenderView)> {
+        self.views.iter().map(|(id, (view, _))| (id.as_str(), view))
     }
 
     pub fn len(&self) -> usize {
@@ -491,6 +555,159 @@ pub fn rebuild_boss_render_index(
     index.end_rebuild();
 }
 
+/// One labeled actor's nameplate facts for this frame, resolved sim-side
+/// (E4 slices 5+16): the display label, the anchor geometry, and whether
+/// this is the body the local player is DRIVING (the controlled subject's
+/// own plate is suppressed). Door plates stay render-side (they are static
+/// presentation entities); this index carries the ACTOR half.
+#[derive(Clone, Debug, PartialEq)]
+pub struct NameplateFact {
+    pub label: String,
+    pub center: ae::Vec2,
+    pub size: ae::Vec2,
+    pub controlled: bool,
+}
+
+/// Per-frame nameplate rows for every eligible (alive, visible) labeled
+/// actor, keyed by [`FeatureId`]. Mark-and-sweep like the sibling indexes so
+/// surviving ids re-use their `String` allocations.
+#[derive(Resource, Default, Clone, Debug)]
+pub struct NameplateIndex {
+    rows: std::collections::HashMap<String, (NameplateFact, u64)>,
+    generation: u64,
+}
+
+impl NameplateIndex {
+    pub fn get(&self, id: &str) -> Option<&NameplateFact> {
+        self.rows.get(id).map(|(fact, _)| fact)
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &NameplateFact)> {
+        self.rows.iter().map(|(id, (fact, _))| (id.as_str(), fact))
+    }
+
+    pub fn contains(&self, id: &str) -> bool {
+        self.rows.contains_key(id)
+    }
+
+    pub fn len(&self) -> usize {
+        self.rows.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.rows.is_empty()
+    }
+
+    fn begin_rebuild(&mut self) {
+        self.generation = self.generation.wrapping_add(1);
+    }
+
+    fn end_rebuild(&mut self) {
+        let gen = self.generation;
+        self.rows.retain(|_, (_, g)| *g == gen);
+    }
+
+    fn upsert(
+        &mut self,
+        id: &str,
+        label: &str,
+        center: ae::Vec2,
+        size: ae::Vec2,
+        controlled: bool,
+    ) {
+        let gen = self.generation;
+        if let Some(slot) = self.rows.get_mut(id) {
+            let f = &slot.0;
+            if f.label == label
+                && f.center == center
+                && f.size == size
+                && f.controlled == controlled
+            {
+                slot.1 = gen;
+                return;
+            }
+            slot.0 = NameplateFact {
+                label: label.to_string(),
+                center,
+                size,
+                controlled,
+            };
+            slot.1 = gen;
+            return;
+        }
+        self.rows.insert(
+            id.to_string(),
+            (
+                NameplateFact {
+                    label: label.to_string(),
+                    center,
+                    size,
+                    controlled,
+                },
+                gen,
+            ),
+        );
+    }
+}
+
+/// Rebuild [`NameplateIndex`] from every identity-bearing sim actor — the
+/// same query + liveness rules render's nameplate pass used to declare,
+/// moved sim-side. Chains AFTER [`rebuild_feature_view_index`] (it prefers
+/// the view row's geometry/visibility over the raw AABB, exactly like the
+/// old render read).
+#[allow(clippy::type_complexity)]
+pub fn rebuild_nameplate_index(
+    mut index: ResMut<NameplateIndex>,
+    controlled: Option<Res<crate::abilities::traversal::possession::ControlledSubject>>,
+    primary_player: Query<Entity, ambition_platformer_primitives::markers::PrimaryPlayerOnly>,
+    views: Res<FeatureViewIndex>,
+    actors: Query<
+        (
+            Entity,
+            &FeatureId,
+            &ActorIdentity,
+            &CenteredAabb,
+            Option<&ambition_characters::actor::BodyCombat>,
+            Option<&ambition_characters::actor::BodyHealth>,
+            Option<&BossPhase>,
+        ),
+        With<FeatureSimEntity>,
+    >,
+) {
+    // The camera/HUD/nameplates all follow the CONTROLLED SUBJECT — the body
+    // carrying `Brain::Player(PRIMARY)` — with the primary-player fallback
+    // for the startup frame before the subject resolver has run.
+    let controlled_body = controlled
+        .as_deref()
+        .and_then(|subject| subject.0)
+        .or_else(|| primary_player.single().ok());
+    index.begin_rebuild();
+    for (entity, feature_id, identity, aabb, combat, health, boss_phase) in &actors {
+        // Dead actors carry no plate (defeated boss / drained pool).
+        if boss_phase.is_some_and(|phase| phase.is_defeated())
+            || combat.is_some_and(|combat| !combat.alive)
+            || health.is_some_and(|health| !health.alive())
+        {
+            continue;
+        }
+        let (center, size, visible) = views
+            .get(feature_id.as_str())
+            .map(|view| (view.pos, view.size, view.visible))
+            .unwrap_or_else(|| (aabb.center, aabb.size(), true));
+        if !visible {
+            continue;
+        }
+        index.upsert(
+            feature_id.as_str(),
+            identity.name(),
+            center,
+            size,
+            Some(entity) == controlled_body,
+        );
+    }
+    index.end_rebuild();
+}
+
 #[cfg(test)]
 mod view_index_tests {
     //! The FeatureViewIndex read-model. The load-bearing invariant is
@@ -510,6 +727,11 @@ mod view_index_tests {
             fighting: false,
             switch_on: false,
             rotation_rad: 0.0,
+            alive: true,
+            hit_flash_secs: 0.0,
+            hp_current: 0,
+            hp_max: 0,
+            training_dummy: false,
         }
     }
 
@@ -574,8 +796,15 @@ mod view_index_tests {
         let mut idx = ActorRenderIndex::default();
         // Frame 1: two actors materialized.
         idx.begin_rebuild();
-        idx.upsert("a", "Goblin", None, false, Some(ae::Vec2::new(10.0, 20.0)));
-        idx.upsert("b", "Dummy", Some("sandbag_sheet"), true, None);
+        idx.upsert(
+            "a",
+            "Goblin",
+            None,
+            false,
+            Some(ae::Vec2::new(10.0, 20.0)),
+            None,
+        );
+        idx.upsert("b", "Dummy", Some("sandbag_sheet"), true, None, None);
         idx.end_rebuild();
         assert_eq!(idx.len(), 2);
         let a = idx.get("a").expect("a present");
@@ -590,7 +819,14 @@ mod view_index_tests {
 
         // Frame 2: "a" survives UNCHANGED (refreshed in place); "b" despawns → swept.
         idx.begin_rebuild();
-        idx.upsert("a", "Goblin", None, false, Some(ae::Vec2::new(10.0, 20.0)));
+        idx.upsert(
+            "a",
+            "Goblin",
+            None,
+            false,
+            Some(ae::Vec2::new(10.0, 20.0)),
+            None,
+        );
         idx.end_rebuild();
         assert_eq!(idx.len(), 1, "the despawned 'b' is swept");
         assert!(idx.get("b").is_none());
@@ -598,7 +834,14 @@ mod view_index_tests {
 
         // Frame 3: "a"'s facts CHANGE (a hostile flip re-sizes it) → updated in place.
         idx.begin_rebuild();
-        idx.upsert("a", "Goblin", None, false, Some(ae::Vec2::new(30.0, 40.0)));
+        idx.upsert(
+            "a",
+            "Goblin",
+            None,
+            false,
+            Some(ae::Vec2::new(30.0, 40.0)),
+            None,
+        );
         idx.end_rebuild();
         assert_eq!(
             idx.get("a").and_then(|v| v.render_size),

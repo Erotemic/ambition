@@ -102,8 +102,9 @@ pub use ecs::{
     integrate_boss_bodies, integrate_sim_bodies, interact_ecs_actors_and_switches,
     magnetize_pickups, open_ecs_chests, project_boss_attack_state_from_move,
     rebuild_actor_anim_index, rebuild_actor_render_index, rebuild_body_pose_views,
-    rebuild_boss_render_index, rebuild_feature_ecs_world_overlay, rebuild_feature_view_index,
-    rebuild_shield_rings_view, refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
+    rebuild_boss_frame_index, rebuild_boss_render_index, rebuild_feature_ecs_world_overlay,
+    rebuild_feature_view_index, rebuild_nameplate_index, rebuild_shield_rings_view,
+    refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
     refresh_breakable_damageable_volumes, reset_ecs_room_features, resolve_pending_mount_links,
     route_boss_strikes_to_limbs, select_actor_targets, spawn_encounter_mob,
     spawn_enemy_projectiles_from_brain_actions, spawn_melee_hitbox, spawn_room_feature_entities,
@@ -115,13 +116,14 @@ pub use ecs::{
     tick_pending_challenges, trigger_boss_attack_moves, update_ecs_bosses, update_ecs_breakables,
     update_ecs_falling_chests, update_ecs_hazards, ActorAnimIndex, ActorRenderIndex,
     ActorRenderView, ActorSteering, BodyPoseView, BossClusterQueryData, BossClusterRef,
-    BossClusterScratch, BossConfig, BossEncounter, BossMut, BossOverrides, BossRef,
-    BossRenderIndex, BossRenderView, CanPilot, ControlGrant, FactionRelations,
-    FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex, FriendlyFire, HazardFeature,
-    HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime, Limb, LimbIntents, LimbRig,
-    LimbRouteState, LimbSlot, MountClass, MountDeathImpact, MountDied, MountSlot, Mountable,
-    Mounted, MountedBrainCache, MountedSize, PendingChallenge, PendingMountLinks, RidingOn,
-    ShieldRingFact, ShieldRingsView, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
+    BossClusterScratch, BossConfig, BossEncounter, BossFrameIndex, BossFrameView, BossMut,
+    BossOverrides, BossRef, BossRenderIndex, BossRenderView, CanPilot, ControlGrant,
+    FactionRelations, FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex, FriendlyFire,
+    HazardFeature, HazardLaneFact, HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime,
+    Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot, MountClass, MountDeathImpact, MountDied,
+    MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, NameplateFact, NameplateIndex,
+    PendingChallenge, PendingMountLinks, RidingOn, ShieldRingFact, ShieldRingsView, SpawnActorKind,
+    SpawnActorRequest, CHALLENGE_GRACE_S,
 };
 pub use ecs::{step_momentum_body, MomentumMotion, MotionModel};
 pub use ecs::{ActorAnimFrame, ActorSpriteData};
@@ -439,12 +441,17 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
         // initializes it; render only reads.
         app.init_resource::<ActorAnimIndex>();
         app.init_resource::<ShieldRingsView>();
+        app.init_resource::<BossFrameIndex>();
+        app.init_resource::<NameplateIndex>();
         app.add_systems(
             Update,
             (
-                rebuild_feature_view_index,
+                // The nameplate rows prefer the feature view's geometry, so
+                // they rebuild strictly after it (same-frame read).
+                (rebuild_feature_view_index, rebuild_nameplate_index).chain(),
                 rebuild_actor_render_index,
                 rebuild_boss_render_index,
+                rebuild_boss_frame_index,
                 // Overlay clocks advance right before their one reader
                 // rebuilds the pose snapshot (§A9 ordering, preserved).
                 (advance_actor_anim_overlays, rebuild_actor_anim_index).chain(),

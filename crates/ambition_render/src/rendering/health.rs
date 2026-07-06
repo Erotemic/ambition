@@ -9,10 +9,10 @@ use bevy::prelude::*;
 
 use super::primitives::HealthOverlayVisual;
 use crate::ui_fonts::{UiFontWeight, UiFonts};
-use ambition_characters::actor::{BodyCombat, BodyHealth};
+use ambition_characters::actor::Health;
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_gameplay_core::features::{
-    ActorDisposition, BossClusterRef, BossConfig, BreakableFeature, CenteredAabb, FeatureName,
+    ActorRenderIndex, BossRenderIndex, FeatureViewIndex, FeatureVisualKind,
 };
 
 #[derive(Component)]
@@ -24,20 +24,31 @@ pub struct BossHealthBarOverlayVisual;
 /// actor only when developer health bars are enabled. This system is the
 /// player-facing boss UI: if a live boss exists in the active room, show
 /// the boss name and HP fraction in the top-center HUD overlay.
+///
+/// Pure read-model consumer (E4 slice 5): boss identity rides
+/// `BossRenderIndex`, liveness + hp ride the boss's `FeatureView` row.
 pub fn sync_boss_health_bar_overlay(
     mut commands: Commands,
     overlays: Query<Entity, With<BossHealthBarOverlayVisual>>,
-    bosses: Query<(BossClusterRef, &BodyHealth)>,
+    boss_render: Res<BossRenderIndex>,
+    feature_views: Res<FeatureViewIndex>,
     ui_fonts: Option<Res<UiFonts>>,
 ) {
     for entity in overlays.iter() {
         commands.entity(entity).despawn();
     }
 
-    let Some((health, boss_name)) = bosses.iter().find_map(|(item, health)| {
-        let boss = item.as_boss_ref();
-        if health.alive() {
-            Some((health.health, boss.config.name.clone()))
+    let Some((health, boss_name)) = boss_render.iter().find_map(|(id, ident)| {
+        let view = feature_views.get(id)?;
+        if view.alive {
+            Some((
+                Health {
+                    current: view.hp_current,
+                    max: view.hp_max,
+                    invulnerable: false,
+                },
+                ident.name.clone(),
+            ))
         } else {
             None
         }
@@ -137,23 +148,17 @@ pub fn sync_health_overlays(
     dev_state: Res<ambition_gameplay_core::SandboxDevState>,
     developer_tools: Res<ambition_gameplay_core::dev::dev_tools::DeveloperTools>,
     overlays: Query<Entity, With<HealthOverlayVisual>>,
-    // Sim-built pose read-model (E4): geometry + hp facts, no live cluster reads.
+    // Pure read-model consumer (E4 slice 5): the player rides its
+    // `BodyPoseView`; actors/bosses/breakables ride their `FeatureView`
+    // rows (hp/alive/fighting facts) + the identity indexes for labels.
     player: Query<
         &ambition_gameplay_core::features::BodyPoseView,
         ambition_platformer_primitives::markers::PrimaryPlayerOnly,
     >,
-    ecs_breakables: Query<(&FeatureName, &CenteredAabb, &BreakableFeature)>,
-    ecs_actors: Query<
-        (
-            &FeatureName,
-            &CenteredAabb,
-            &ActorDisposition,
-            &BodyHealth,
-            &BodyCombat,
-        ),
-        Without<BossConfig>,
-    >,
-    ecs_bosses: Query<(&FeatureName, BossClusterRef, &BodyHealth)>,
+    feature_views: Res<FeatureViewIndex>,
+    actor_render: Res<ActorRenderIndex>,
+    boss_render: Res<BossRenderIndex>,
+    boss_frames: Res<ambition_gameplay_core::features::BossFrameIndex>,
 ) {
     for entity in overlays.iter() {
         commands.entity(entity).despawn();
@@ -169,7 +174,7 @@ pub fn sync_health_overlays(
             &world.0,
             "player",
             ae::Aabb::new(pose.pos, pose.size * 0.5),
-            ambition_characters::actor::Health {
+            Health {
                 current: pose.hp_current,
                 max: pose.hp_max,
                 invulnerable: false,
@@ -178,46 +183,58 @@ pub fn sync_health_overlays(
         );
     }
 
-    for (name, aabb, disposition, health, combat) in &ecs_actors {
-        if disposition.is_hostile() && combat.alive {
-            let color = if combat.training_dummy {
-                Color::srgba(1.00, 0.66, 0.24, 0.96)
-            } else {
-                Color::srgba(1.00, 0.20, 0.22, 0.96)
-            };
-            spawn_health_overlay(
-                &mut commands,
-                &world.0,
-                name.0.as_str(),
-                aabb.aabb(),
-                health.health,
-                color,
-            );
-        }
-    }
-    for (name, item, health) in &ecs_bosses {
-        let boss = item.as_boss_ref();
-        if health.alive() {
-            spawn_health_overlay(
-                &mut commands,
-                &world.0,
-                name.0.as_str(),
-                boss.aabb(),
-                health.health,
-                Color::srgba(1.00, 0.32, 0.92, 0.96),
-            );
-        }
-    }
-    for (name, aabb, breakable) in &ecs_breakables {
-        if !breakable.broken() {
-            spawn_health_overlay(
-                &mut commands,
-                &world.0,
-                name.0.as_str(),
-                aabb.aabb(),
-                breakable.breakable.health,
-                Color::srgba(1.00, 0.72, 0.24, 0.96),
-            );
+    for (id, view) in feature_views.iter() {
+        let hp = Health {
+            current: view.hp_current,
+            max: view.hp_max,
+            invulnerable: false,
+        };
+        match view.kind {
+            FeatureVisualKind::Actor => {
+                // Bosses share the Actor view kind; their bar anchors to the
+                // combat AABB (`BossFrameIndex`) and draws pink.
+                if let Some(frame) = boss_frames.get(id) {
+                    if view.alive {
+                        let label = boss_render.get(id).map(|b| b.name.as_str()).unwrap_or(id);
+                        spawn_health_overlay(
+                            &mut commands,
+                            &world.0,
+                            label,
+                            frame.aabb,
+                            hp,
+                            Color::srgba(1.00, 0.32, 0.92, 0.96),
+                        );
+                    }
+                } else if view.fighting && view.alive {
+                    let color = if view.training_dummy {
+                        Color::srgba(1.00, 0.66, 0.24, 0.96)
+                    } else {
+                        Color::srgba(1.00, 0.20, 0.22, 0.96)
+                    };
+                    let label = actor_render.get(id).map(|a| a.name.as_str()).unwrap_or(id);
+                    spawn_health_overlay(
+                        &mut commands,
+                        &world.0,
+                        label,
+                        ae::Aabb::new(view.pos, view.size * 0.5),
+                        hp,
+                        color,
+                    );
+                }
+            }
+            FeatureVisualKind::Breakable => {
+                if view.alive {
+                    spawn_health_overlay(
+                        &mut commands,
+                        &world.0,
+                        id,
+                        ae::Aabb::new(view.pos, view.size * 0.5),
+                        hp,
+                        Color::srgba(1.00, 0.72, 0.24, 0.96),
+                    );
+                }
+            }
+            _ => {}
         }
     }
 }
@@ -227,7 +244,7 @@ fn spawn_health_overlay(
     world: &ae::World,
     name: &str,
     aabb: ae::Aabb,
-    health: ambition_characters::actor::Health,
+    health: Health,
     fill_color: Color,
 ) {
     let width = aabb.width().max(56.0);

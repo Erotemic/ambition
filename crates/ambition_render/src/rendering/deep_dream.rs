@@ -98,7 +98,9 @@ pub fn attach_puppy_slug_deep_dream_overlays(
     mut materials: ResMut<Assets<PuppySlugDeepDreamMaterial>>,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
     images: Res<Assets<Image>>,
-    actors: Query<ambition_gameplay_core::features::ActorSpriteData>,
+    // Actor identity read-model (E4 slice 2): dream participation + name
+    // ride `ActorRenderView`, no live cluster reads.
+    actor_render: Res<ambition_gameplay_core::features::ActorRenderIndex>,
     candidates: Query<
         (Entity, &FeatureVisual, &Transform, &Sprite, Option<&Anchor>),
         (
@@ -109,7 +111,7 @@ pub fn attach_puppy_slug_deep_dream_overlays(
     >,
 ) {
     for (source_entity, visual, transform, sprite, anchor) in &candidates {
-        let Some(actor_seed) = puppy_slug_seed(&visual.id, &actors) else {
+        let Some(actor_seed) = puppy_slug_seed(&visual.id, &actor_render) else {
             continue;
         };
         let Some(render_size) = sprite.custom_size else {
@@ -286,28 +288,23 @@ pub fn cleanup_puppy_slug_deep_dream_overlays(
 
 fn puppy_slug_seed(
     id: &str,
-    actors: &Query<ambition_gameplay_core::features::ActorSpriteData>,
+    actor_render: &ambition_gameplay_core::features::ActorRenderIndex,
 ) -> Option<f32> {
-    actors.iter().find_map(|a| {
-        if a.feature_id.as_str() != id {
-            return None;
-        }
-        let c = a.config;
-        // Name + dream participation both come from the unified cluster.
-        // Peaceful actors carry the peaceful default tuning (dream_seed = None),
-        // so reading it directly already excludes them from the dream pass.
-        let name = c.name.as_str();
-        let dream_seed = c.tuning.dream_seed;
-        let name_lc = name.to_ascii_lowercase();
-        // Dream participation is authored data (the archetype's dream_seed) with
-        // the name heuristics kept as fallback.
-        let is_slug = dream_seed.is_some() || name_lc.contains("puppy") || name_lc.contains("slug");
-        if is_slug {
-            Some(seed_from_id(name) * 0.63 + dream_seed.unwrap_or(0.0))
-        } else {
-            None
-        }
-    })
+    let actor = actor_render.get(id)?;
+    // Name + dream participation both come from the identity read-model.
+    // Peaceful actors carry the peaceful default tuning (dream_seed = None),
+    // so reading it directly already excludes them from the dream pass.
+    let name = actor.name.as_str();
+    let dream_seed = actor.dream_seed;
+    let name_lc = name.to_ascii_lowercase();
+    // Dream participation is authored data (the archetype's dream_seed) with
+    // the name heuristics kept as fallback.
+    let is_slug = dream_seed.is_some() || name_lc.contains("puppy") || name_lc.contains("slug");
+    if is_slug {
+        Some(seed_from_id(name) * 0.63 + dream_seed.unwrap_or(0.0))
+    } else {
+        None
+    }
 }
 
 fn current_sprite_uv_rect(

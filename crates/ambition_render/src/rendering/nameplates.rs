@@ -9,14 +9,10 @@
 
 use std::collections::{HashMap, HashSet};
 
-use ambition_characters::actor::{BodyCombat, BodyHealth};
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_engine_core::{self as ae, AabbExt};
-use ambition_gameplay_core::features::{
-    ActorIdentity, BossPhase, CenteredAabb, FeatureId, FeatureSimEntity, FeatureViewIndex,
-};
+use ambition_gameplay_core::features::NameplateIndex;
 use ambition_gameplay_core::rooms::{ActiveRoomMetadata, RoomNameplatePolicy};
-use ambition_platformer_primitives::markers::PrimaryPlayerOnly;
 use bevy::prelude::*;
 
 use crate::ui_fonts::{UiFontWeight, UiFonts};
@@ -99,10 +95,12 @@ impl DoorNameplateSource {
     }
 }
 
-/// Marker on the root `Text2d` entity for a nameplate.
+/// Marker on the root `Text2d` entity for a nameplate. `owner_id` is the
+/// labeled source's STABLE id (an actor's feature id / a door's zone id) —
+/// the view identity, never a sim `Entity` (E4 slice 16).
 #[derive(Component, Clone, Debug)]
 pub struct ActorNameplateVisual {
-    pub owner: Entity,
+    pub owner_id: String,
     pub label: String,
 }
 
@@ -134,7 +132,7 @@ impl Plugin for ActorNameplatePresentationPlugin {
 
 #[derive(Clone, Debug)]
 struct NameplateCandidate {
-    owner: Entity,
+    owner_id: String,
     label: String,
     anchor_world: ae::Vec2,
     distance_sq: f32,
@@ -170,24 +168,11 @@ pub fn sync_actor_nameplates(
     settings: Res<ActorNameplateSettings>,
     active_metadata: Option<Res<ActiveRoomMetadata>>,
     camera: Option<Res<CameraViewState>>,
-    feature_views: Option<Res<FeatureViewIndex>>,
+    // Sim-built nameplate read-model (E4 slices 5+16): label / geometry /
+    // liveness / controlled-body facts per actor id. Doors stay render-side
+    // sources below.
+    nameplate_index: Option<Res<NameplateIndex>>,
     ui_fonts: Option<Res<UiFonts>>,
-    controlled: Option<
-        Res<ambition_gameplay_core::abilities::traversal::possession::ControlledSubject>,
-    >,
-    primary_player: Query<Entity, PrimaryPlayerOnly>,
-    actors: Query<
-        (
-            Entity,
-            &FeatureId,
-            &ActorIdentity,
-            &CenteredAabb,
-            Option<&BodyCombat>,
-            Option<&BodyHealth>,
-            Option<&BossPhase>,
-        ),
-        With<FeatureSimEntity>,
-    >,
     mut nameplate_queries: ParamSet<(
         Query<(Entity, &DoorNameplateSource, Option<&Visibility>)>,
         Query<(
@@ -212,29 +197,28 @@ pub fn sync_actor_nameplates(
             .as_deref()
             .map(|active| &active.0.nameplate_policy),
     );
-    let controlled_actor = camera_controlled_actor(controlled.as_deref(), &primary_player);
     let focus_world = camera
         .as_deref()
         .map_or(ae::Vec2::ZERO, |camera| camera.target_world);
-    let mut source_entities = HashSet::new();
+    let mut source_ids = HashSet::new();
     let mut candidates = Vec::new();
 
-    collect_actor_candidates(
-        &settings,
-        feature_views.as_deref(),
-        controlled_actor,
-        focus_world,
-        &actors,
-        &mut source_entities,
-        &mut candidates,
-    );
+    if let Some(index) = nameplate_index.as_deref() {
+        collect_actor_candidates(
+            &settings,
+            index,
+            focus_world,
+            &mut source_ids,
+            &mut candidates,
+        );
+    }
     {
         let door_sources = nameplate_queries.p0();
         collect_door_candidates(
             &settings,
             focus_world,
             &door_sources,
-            &mut source_entities,
+            &mut source_ids,
             &mut candidates,
         );
     }
@@ -246,10 +230,10 @@ pub fn sync_actor_nameplates(
     });
     apply_rank_opacity(rank_policy, &mut candidates);
 
-    let visible_candidates: HashMap<Entity, NameplateCandidate> = candidates
+    let visible_candidates: HashMap<String, NameplateCandidate> = candidates
         .into_iter()
         .take(rank_policy.fade_out_count)
-        .map(|candidate| (candidate.owner, candidate))
+        .map(|candidate| (candidate.owner_id.clone(), candidate))
         .collect();
 
     let mut existing_visible = HashSet::new();
@@ -259,7 +243,7 @@ pub fn sync_actor_nameplates(
         for (entity, plate, mut transform, mut visibility, mut text_color, children) in
             &mut nameplates
         {
-            if let Some(candidate) = visible_candidates.get(&plate.owner) {
+            if let Some(candidate) = visible_candidates.get(&plate.owner_id) {
                 if plate.label != candidate.label {
                     // Name changes are rare. Rebuild the small text subtree so
                     // the root and outline children stay identical without
@@ -267,7 +251,7 @@ pub fn sync_actor_nameplates(
                     commands.entity(entity).despawn();
                     continue;
                 }
-                existing_visible.insert(plate.owner);
+                existing_visible.insert(plate.owner_id.clone());
                 transform.translation = world_to_bevy(&world.0, candidate.anchor_world, settings.z);
                 let visible = candidate.opacity > 0.0;
                 *visibility = if visible {
@@ -279,7 +263,7 @@ pub fn sync_actor_nameplates(
                 for child in children.iter() {
                     outline_color_updates.push((child, candidate.opacity));
                 }
-            } else if source_entities.contains(&plate.owner) {
+            } else if source_ids.contains(plate.owner_id.as_str()) {
                 *visibility = Visibility::Hidden;
             } else {
                 commands.entity(entity).despawn();
@@ -298,7 +282,7 @@ pub fn sync_actor_nameplates(
 
     let font = nameplate_font(ui_fonts.as_deref(), settings.font_size);
     for candidate in visible_candidates.values() {
-        if !existing_visible.contains(&candidate.owner) {
+        if !existing_visible.contains(candidate.owner_id.as_str()) {
             spawn_actor_nameplate(&mut commands, &world.0, &settings, &font, candidate);
         }
     }
@@ -306,49 +290,26 @@ pub fn sync_actor_nameplates(
 
 fn collect_actor_candidates(
     settings: &ActorNameplateSettings,
-    feature_views: Option<&FeatureViewIndex>,
-    controlled_actor: Option<Entity>,
+    index: &NameplateIndex,
     focus_world: ae::Vec2,
-    actors: &Query<
-        (
-            Entity,
-            &FeatureId,
-            &ActorIdentity,
-            &CenteredAabb,
-            Option<&BodyCombat>,
-            Option<&BodyHealth>,
-            Option<&BossPhase>,
-        ),
-        With<FeatureSimEntity>,
-    >,
-    source_entities: &mut HashSet<Entity>,
+    source_ids: &mut HashSet<String>,
     candidates: &mut Vec<NameplateCandidate>,
 ) {
-    for (entity, feature_id, identity, aabb, combat, health, boss_phase) in actors.iter() {
-        source_entities.insert(entity);
-        if Some(entity) == controlled_actor {
+    for (id, fact) in index.iter() {
+        source_ids.insert(id.to_string());
+        // The controlled subject's own plate is suppressed (the body the
+        // local player is driving) — resolved sim-side into the fact.
+        if fact.controlled {
             continue;
         }
-        if !actor_nameplate_alive(combat, health, boss_phase) {
-            continue;
-        }
-
-        let (center, size, visible) = feature_views
-            .and_then(|index| index.get(feature_id.as_str()))
-            .map(|view| (view.pos, view.size, view.visible))
-            .unwrap_or_else(|| (aabb.center, aabb.size(), true));
-        if !visible {
-            continue;
-        }
-
         push_candidate_if_in_range(
             settings,
             focus_world,
             candidates,
-            entity,
-            identity.name().to_string(),
-            center,
-            size,
+            id.to_string(),
+            fact.label.clone(),
+            fact.center,
+            fact.size,
         );
     }
 }
@@ -357,11 +318,11 @@ fn collect_door_candidates(
     settings: &ActorNameplateSettings,
     focus_world: ae::Vec2,
     door_sources: &Query<(Entity, &DoorNameplateSource, Option<&Visibility>)>,
-    source_entities: &mut HashSet<Entity>,
+    source_ids: &mut HashSet<String>,
     candidates: &mut Vec<NameplateCandidate>,
 ) {
-    for (entity, source, visibility) in door_sources.iter() {
-        source_entities.insert(entity);
+    for (_entity, source, visibility) in door_sources.iter() {
+        source_ids.insert(source.id.clone());
         if visibility.is_some_and(|visibility| *visibility == Visibility::Hidden) {
             continue;
         }
@@ -373,7 +334,7 @@ fn collect_door_candidates(
             settings,
             focus_world,
             candidates,
-            entity,
+            source.id.clone(),
             source.label.clone(),
             source.center_world,
             source.size_world,
@@ -385,7 +346,7 @@ fn push_candidate_if_in_range(
     settings: &ActorNameplateSettings,
     focus_world: ae::Vec2,
     candidates: &mut Vec<NameplateCandidate>,
-    owner: Entity,
+    owner_id: String,
     label: String,
     center: ae::Vec2,
     size: ae::Vec2,
@@ -398,7 +359,7 @@ fn push_candidate_if_in_range(
     }
 
     candidates.push(NameplateCandidate {
-        owner,
+        owner_id,
         label,
         anchor_world: nameplate_anchor(center, size, settings.vertical_gap_px),
         distance_sq,
@@ -441,39 +402,6 @@ fn hide_all_nameplates(
     }
 }
 
-fn camera_controlled_actor(
-    controlled: Option<
-        &ambition_gameplay_core::abilities::traversal::possession::ControlledSubject,
-    >,
-    primary_player: &Query<Entity, PrimaryPlayerOnly>,
-) -> Option<Entity> {
-    // The main camera follows the CONTROLLED SUBJECT — the body carrying
-    // `Brain::Player(PRIMARY)` (the possessed actor while possessing, else the
-    // home avatar). The primary-player fallback covers the startup frame before
-    // the subject resolver has run. When the game gains per-camera associations,
-    // this resolver is the only place that should need to change.
-    controlled
-        .and_then(|subject| subject.0)
-        .or_else(|| primary_player.single().ok())
-}
-
-fn actor_nameplate_alive(
-    combat: Option<&BodyCombat>,
-    health: Option<&BodyHealth>,
-    boss_phase: Option<&BossPhase>,
-) -> bool {
-    if boss_phase.is_some_and(|phase| phase.is_defeated()) {
-        return false;
-    }
-    if combat.is_some_and(|combat| !combat.alive) {
-        return false;
-    }
-    if health.is_some_and(|health| !health.alive()) {
-        return false;
-    }
-    true
-}
-
 fn nameplate_anchor(center: ae::Vec2, size: ae::Vec2, vertical_gap_px: f32) -> ae::Vec2 {
     // Ambition world coordinates are +Y down. The label's anchor sits above the
     // rendered source box, so subtract half-height and the configured gap.
@@ -512,7 +440,7 @@ fn spawn_actor_nameplate(
                 Visibility::Hidden
             },
             ActorNameplateVisual {
-                owner: candidate.owner,
+                owner_id: candidate.owner_id.clone(),
                 label: text.clone(),
             },
             RoomVisual,

@@ -93,7 +93,8 @@ pub use aggression::{
 pub use anim_helpers::{
     advance_actor_anim_overlays, ecs_boss_anim_state, ecs_boss_anim_state_and_entity,
     ecs_boss_animation_frame_sample, ecs_breakable_state, ecs_chest_opened,
-    rebuild_actor_anim_index, ActorAnimFrame, ActorAnimIndex, ActorSpriteData,
+    rebuild_actor_anim_index, rebuild_boss_frame_index, ActorAnimFrame, ActorAnimIndex,
+    ActorSpriteData, BossFrameIndex, BossFrameView, HazardLaneFact,
 };
 pub use banner::{apply_gameplay_banner_requests, tick_gameplay_banner};
 pub use boss_clusters::{
@@ -160,7 +161,8 @@ pub use targeting::{
 };
 pub use view_index::{
     rebuild_actor_render_index, rebuild_boss_render_index, rebuild_feature_view_index,
-    ActorRenderIndex, ActorRenderView, BossRenderIndex, BossRenderView, FeatureViewIndex,
+    rebuild_nameplate_index, ActorRenderIndex, ActorRenderView, BossRenderIndex, BossRenderView,
+    FeatureViewIndex, NameplateFact, NameplateIndex,
 };
 
 // `FeatureSimEntity` is a generic entity-marker queried by the reusable

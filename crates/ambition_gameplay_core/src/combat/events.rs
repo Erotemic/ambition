@@ -72,6 +72,22 @@ pub struct FeatureView {
     /// reports 0.0 and renders axis-aligned. Uses the engine → Bevy
     /// rotation mapping shared by actor rendering.
     pub rotation_rad: f32,
+    /// Liveness fact (E4 slice 5): actors/bosses read their combat/health
+    /// clusters (+ boss defeat), breakables `!broken`, hazards `active`;
+    /// state-less kinds (pickup/chest/switch) report `true`. Presentation
+    /// (nameplates, debug bars) reads THIS, never the live clusters.
+    pub alive: bool,
+    /// Seconds remaining on the damage flash (actors + live bosses; `0.0`
+    /// for everything else, including a boss corpse — death rows are
+    /// authored sprites and must not read as a lit silhouette).
+    pub hit_flash_secs: f32,
+    /// Health facts for the kinds that carry a pool (actors, bosses,
+    /// breakables); `0/0` elsewhere. Debug overlays read these by id.
+    pub hp_current: i32,
+    pub hp_max: i32,
+    /// Actor rows only: the sandbag/training-dummy depiction flag the debug
+    /// health overlay colors by.
+    pub training_dummy: bool,
 }
 
 #[derive(Clone, Copy, Debug)]

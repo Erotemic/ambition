@@ -63,11 +63,11 @@ fn effective_hide_sprites(
 // visual's transform + color based on the live state.
 
 /// Marker for the HazardColumn column visual entity. Carries the
-/// owner boss entity so the manager system can find / remove the
-/// matching visual.
-#[derive(Component, Clone, Copy, Debug)]
+/// owner boss's FEATURE ID (the stable view identity — never a sim
+/// `Entity`) so the manager system can find / remove the matching visual.
+#[derive(Component, Clone, Debug)]
 pub struct GradientLaneVisual {
-    pub owner: Entity,
+    pub owner_id: String,
 }
 
 const GRADIENT_LANE_TELEGRAPH_COLOR: Color = Color::srgba(1.0, 0.85, 0.20, 0.45);
@@ -78,58 +78,34 @@ const GRADIENT_LANE_STRIKE_COLOR: Color = Color::srgba(1.0, 0.32, 0.20, 0.75);
 const GRADIENT_LANE_VISUAL_Z: f32 = 10.5;
 
 /// Spawn/update/despawn a vertical column visual for every boss
-/// currently telegraphing or striking `HazardColumn`. The column
-/// re-uses the volume AABB computed by `volumes_for_profile` so
-/// the visible rectangle always matches the damage geometry.
+/// currently telegraphing or striking `HazardColumn`. The lane rect is
+/// resolved SIM-side into `BossFrameIndex` from the same volume math as
+/// damage (E4 slice 7), so the visible rectangle always matches the
+/// damage geometry — this system only mirrors rows into sprites.
 pub fn manage_gradient_lane_visual(
     mut commands: Commands,
     world: Res<ambition_engine_core::RoomGeometry>,
-    bosses: Query<(
-        Entity,
-        BossClusterRef,
-        &ambition_characters::actor::BodyHealth,
-        &ambition_characters::brain::BossAttackState,
-    )>,
+    boss_frames: Res<ambition_gameplay_core::features::BossFrameIndex>,
     mut visuals: Query<(Entity, &GradientLaneVisual, &mut Transform, &mut Sprite)>,
 ) {
-    use ambition_characters::brain::BossAttackProfile;
-    let mut active: std::collections::HashMap<Entity, (bool, ae::Vec2, BVec2)> =
+    let mut active: std::collections::HashMap<&str, (bool, ae::Vec2, BVec2)> =
         std::collections::HashMap::new();
-    for (entity, item, health, attack_state) in &bosses {
-        let boss = item.as_boss_ref();
-        if !health.alive() {
-            continue;
+    for (id, frame) in boss_frames.iter() {
+        if let Some(lane) = frame.hazard_lane {
+            active.insert(
+                id,
+                (
+                    lane.striking,
+                    lane.center,
+                    BVec2::new(lane.size.x, lane.size.y),
+                ),
+            );
         }
-        let in_telegraph = matches!(
-            &attack_state.telegraph_profile,
-            Some(p) if p.move_id() == "hazard_column"
-        );
-        let in_strike = matches!(
-            &attack_state.active_profile,
-            Some(p) if p.move_id() == "hazard_column"
-        );
-        if !in_telegraph && !in_strike {
-            continue;
-        }
-        // Use the same volume math as damage so the visual and the
-        // hitbox are exactly coincident.
-        let mut volumes = ambition_gameplay_core::features::volumes_for_profile(
-            &BossAttackProfile::Strike("hazard_column".to_string()),
-            boss.kin.pos,
-            boss.combat_size(),
-            &boss.config.behavior,
-        );
-        let Some(volume) = volumes.pop() else {
-            continue;
-        };
-        let center = volume.center();
-        let size = volume.half_size() * 2.0;
-        active.insert(entity, (in_strike, center, BVec2::new(size.x, size.y)));
     }
 
     // Update existing visuals + remove stale ones.
     for (visual_entity, visual, mut transform, mut sprite) in &mut visuals {
-        if let Some((in_strike, center, size)) = active.remove(&visual.owner) {
+        if let Some((in_strike, center, size)) = active.remove(visual.owner_id.as_str()) {
             transform.translation = world_to_bevy(&world.0, center, GRADIENT_LANE_VISUAL_Z);
             sprite.custom_size = Some(size);
             sprite.color = if in_strike {
@@ -144,7 +120,7 @@ pub fn manage_gradient_lane_visual(
     }
 
     // Spawn visuals for bosses that newly entered HazardColumn.
-    for (owner, (in_strike, center, size)) in active {
+    for (owner_id, (in_strike, center, size)) in active {
         let color = if in_strike {
             GRADIENT_LANE_STRIKE_COLOR
         } else {
@@ -158,7 +134,9 @@ pub fn manage_gradient_lane_visual(
             },
             Transform::from_translation(world_to_bevy(&world.0, center, GRADIENT_LANE_VISUAL_Z)),
             super::super::primitives::RoomVisual,
-            GradientLaneVisual { owner },
+            GradientLaneVisual {
+                owner_id: owner_id.to_string(),
+            },
             Name::new("Gradient Lane visual"),
         ));
     }

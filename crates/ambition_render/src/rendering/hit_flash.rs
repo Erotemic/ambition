@@ -31,8 +31,6 @@ use bevy::{
 };
 
 use super::primitives::{FeatureVisual, PlayerVisual, PropVisual};
-use ambition_characters::actor::{BodyCombat, BodyHealth};
-use ambition_gameplay_core::features::{BossConfig, FeatureId};
 
 const SHADER_ASSET_PATH: &str = "shaders/hit_flash.wgsl";
 
@@ -220,10 +218,10 @@ pub fn sync_hit_flash_overlays(
     mut commands: Commands,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
     images: Res<Assets<Image>>,
-    actors: Query<ambition_gameplay_core::features::ActorSpriteData>,
-    bosses: Query<(&FeatureId, &BodyHealth, &BodyCombat), With<BossConfig>>,
-    // Sim-built pose read-model (E4): the player-bodied flash timer rides
-    // `BodyPoseView` on the SAME entity that carries the sprite.
+    // Sim-built read-models (E4 slices 2+5): a feature's flash timer rides
+    // its `FeatureView` row; the player-bodied timer rides `BodyPoseView`
+    // on the SAME entity that carries the sprite.
+    feature_views: Res<ambition_gameplay_core::features::FeatureViewIndex>,
     poses: Query<&ambition_gameplay_core::features::BodyPoseView>,
     sources: Query<
         (
@@ -264,7 +262,7 @@ pub fn sync_hit_flash_overlays(
         // into a single `HitFlash` component can collapse this to
         // one query without changing the overlay sync.
         let hit_flash_secs =
-            hit_flash_secs_for_source(source_entity, feature, player, &actors, &bosses, &poses);
+            hit_flash_secs_for_source(source_entity, feature, player, &feature_views, &poses);
         let intensity = hit_flash_secs.map(normalize_hit_flash).unwrap_or(0.0);
 
         let Ok((mut overlay_transform, material_handle, overlay)) =
@@ -342,8 +340,7 @@ fn hit_flash_secs_for_source(
     source_entity: Entity,
     feature: Option<&FeatureVisual>,
     player: Option<&PlayerVisual>,
-    actors: &Query<ambition_gameplay_core::features::ActorSpriteData>,
-    bosses: &Query<(&FeatureId, &BodyHealth, &BodyCombat), With<BossConfig>>,
+    feature_views: &ambition_gameplay_core::features::FeatureViewIndex,
     poses: &Query<&ambition_gameplay_core::features::BodyPoseView>,
 ) -> Option<f32> {
     // Player path: the entity that carries `PlayerVisual` is the same one
@@ -352,34 +349,12 @@ fn hit_flash_secs_for_source(
     if player.is_some() {
         return poses.get(source_entity).ok().map(|p| p.hit_flash_secs);
     }
-    let visual = feature?;
-    let id = visual.id.as_str();
-    // Feature path: cross-reference the visual entity's id against
-    // the sim entity's `FeatureId`. Tries the actor list first
-    // (every actor shares the unified cluster), then bosses.
-    if let Some(secs) = actors.iter().find_map(|a| {
-        if a.feature_id.as_str() != id {
-            return None;
-        }
-        // Damage-blink lives on the shared `BodyCombat` for every body now (the
-        // SAME field the player carries).
-        Some(a.combat.hit_flash)
-    }) {
-        return Some(secs);
-    }
-    bosses.iter().find_map(|(feature_id, health, combat)| {
-        if feature_id.as_str() != id {
-            return None;
-        }
-        if !health.alive() {
-            // Boss death rows are authored sprites. Do not keep the damage
-            // feedback material over a corpse; cut-rope/anvil deaths in
-            // particular set alive=false immediately and should not look like
-            // a permanently white silhouette.
-            return Some(0.0);
-        }
-        Some(combat.hit_flash)
-    })
+    // Feature path: the flash timer is a `FeatureView` fact (actors and
+    // bosses alike; the "no silhouette over a boss corpse" rule is applied
+    // at the rebuild site). Kinds without a timer carry 0.0.
+    feature_views
+        .get(feature?.id.as_str())
+        .map(|view| view.hit_flash_secs)
 }
 
 /// Map raw seconds-remaining into a [0, 1] intensity. Holds at 1.0

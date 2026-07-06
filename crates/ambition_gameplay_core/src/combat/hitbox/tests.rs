@@ -281,7 +281,7 @@ fn player_faction_hitbox_emits_an_attacker_side_feature_hit() {
 
 // ── S3e: relational actor-vs-actor melee ────────────────────────────────────
 
-use crate::features::FactionRelations;
+use crate::combat::targeting::FactionRelations;
 
 /// Spawn an Enemy-source hitbox at `center` (World anchor) dealing `damage`, plus
 /// an actor victim of `victim_faction` overlapping it. Returns (app, victim).
@@ -328,9 +328,9 @@ fn arena_hitbox_app(relations: FactionRelations, victim_faction: ActorFaction) -
             victim_faction,
             // Every body carries the vulnerability trio (§A1 slice 3) — the
             // victim query is no longer `Option` over them.
-            crate::actor::BodyOffense::default(),
-            crate::actor::BodyDodgeState::default(),
-            crate::actor::BodyShieldState::default(),
+            ambition_engine_core::BodyOffense::default(),
+            ambition_engine_core::BodyDodgeState::default(),
+            ambition_engine_core::BodyShieldState::default(),
             ambition_characters::actor::BodyCombat::default(),
         ))
         .id();
@@ -431,9 +431,9 @@ fn enemy_hitbox_over_player_app(relations: FactionRelations) -> (App, Entity) {
     let player = app
         .world_mut()
         .spawn((
-            crate::actor::PlayerEntity,
+            ambition_platformer_primitives::markers::PlayerEntity,
             ActorFaction::Player,
-            crate::actor::BodyKinematics {
+            ambition_engine_core::BodyKinematics {
                 pos: ae::Vec2::new(100.0, 100.0),
                 size: ae::Vec2::new(28.0, 46.0),
                 facing: 1.0,
@@ -444,9 +444,9 @@ fn enemy_hitbox_over_player_app(relations: FactionRelations) -> (App, Entity) {
                 ae::Vec2::new(100.0, 100.0),
                 ae::Vec2::new(28.0, 46.0),
             ),
-            crate::actor::BodyOffense::default(),
-            crate::actor::BodyDodgeState::default(),
-            crate::actor::BodyShieldState::default(),
+            ambition_engine_core::BodyOffense::default(),
+            ambition_engine_core::BodyDodgeState::default(),
+            ambition_engine_core::BodyShieldState::default(),
             ambition_characters::actor::BodyCombat::default(),
         ))
         .id();
@@ -562,12 +562,12 @@ fn player_followowner_melee_strike_emits_player_slash_with_knock_x() {
     let owner = app
         .world_mut()
         .spawn((
-            crate::actor::BodyKinematics {
+            ambition_engine_core::BodyKinematics {
                 pos: ae::Vec2::new(100.0, 100.0),
                 ..Default::default()
             },
-            crate::features::BodyMelee {
-                swing: Some(crate::features::MeleeSwing::new(spec)),
+            crate::combat::BodyMelee {
+                swing: Some(crate::combat::MeleeSwing::new(spec)),
                 ..Default::default()
             },
         ))
@@ -619,8 +619,8 @@ fn player_followowner_strike_without_a_swing_is_inert() {
     let owner = app
         .world_mut()
         .spawn((
-            crate::actor::BodyKinematics::default(),
-            crate::features::BodyMelee::default(), // swing = None
+            ambition_engine_core::BodyKinematics::default(),
+            crate::combat::BodyMelee::default(), // swing = None
         ))
         .id();
     app.world_mut().spawn((

@@ -15,12 +15,12 @@ pub fn open_ecs_chests(
     mut input_surface: Query<
         (Entity, &mut crate::player::BodyAnimFacts),
         (
-            With<crate::actor::PlayerEntity>,
-            With<crate::actor::PrimaryPlayer>,
+            With<ambition_platformer_primitives::markers::PlayerEntity>,
+            With<ambition_platformer_primitives::markers::PrimaryPlayer>,
         ),
     >,
     // The driven body's kinematics — reach is measured from the controlled subject.
-    bodies: Query<&crate::actor::BodyKinematics>,
+    bodies: Query<&ambition_engine_core::BodyKinematics>,
     chests: Query<
         (
             Entity,
@@ -103,10 +103,10 @@ mod chest_tests {
     //! `Opened`; an unbuffered player or a non-overlapping chest does not.
     use super::*;
     use crate::abilities::traversal::possession::ControlledSubject;
-    use crate::actor::BodyBaseSize;
-    use crate::actor::BodyKinematics;
-    use crate::actor::{PlayerEntity, PrimaryPlayer};
     use crate::player::{BodyAnimFacts, SlotInteractionState};
+    use ambition_engine_core::BodyBaseSize;
+    use ambition_engine_core::BodyKinematics;
+    use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
     use bevy::prelude::{App, Entity, Update};
 
     fn app() -> App {

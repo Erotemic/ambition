@@ -13,7 +13,7 @@ use ambition_characters::actor::BodyCombat;
 #[derive(Bundle)]
 pub struct FeatureLifecycleBundle {
     pub sim_entity: FeatureSimEntity,
-    pub room_scoped: crate::platformer_runtime::lifecycle::RoomScopedEntity,
+    pub room_scoped: ambition_platformer_primitives::lifecycle::RoomScopedEntity,
     pub id: FeatureId,
     pub name: FeatureName,
     pub aabb: CenteredAabb,
@@ -23,7 +23,7 @@ impl FeatureLifecycleBundle {
     pub fn new(id: impl Into<String>, name: impl Into<String>, aabb: CenteredAabb) -> Self {
         Self {
             sim_entity: FeatureSimEntity,
-            room_scoped: crate::platformer_runtime::lifecycle::RoomScopedEntity,
+            room_scoped: ambition_platformer_primitives::lifecycle::RoomScopedEntity,
             id: FeatureId(id.into()),
             name: FeatureName(name.into()),
             aabb,
@@ -39,14 +39,14 @@ impl FeatureLifecycleBundle {
 #[derive(Bundle)]
 pub struct FeatureRenderedBundle {
     pub lifecycle: FeatureLifecycleBundle,
-    pub room_visual: crate::platformer_runtime::lifecycle::RoomVisual,
+    pub room_visual: ambition_platformer_primitives::lifecycle::RoomVisual,
 }
 
 impl FeatureRenderedBundle {
     pub fn new(id: impl Into<String>, name: impl Into<String>, aabb: CenteredAabb) -> Self {
         Self {
             lifecycle: FeatureLifecycleBundle::new(id, name, aabb),
-            room_visual: crate::platformer_runtime::lifecycle::RoomVisual,
+            room_visual: ambition_platformer_primitives::lifecycle::RoomVisual,
         }
     }
 }

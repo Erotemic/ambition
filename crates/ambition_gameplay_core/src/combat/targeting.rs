@@ -15,9 +15,9 @@ use super::components::{
     ActorAggression, ActorFaction, ActorTarget, AggressionTarget, CenteredAabb,
 };
 use super::FeatureSimEntity;
-use crate::actor::BodyKinematics;
-use crate::actor::PlayerEntity;
 use ambition_characters::actor::BodyHealth;
+use ambition_engine_core::BodyKinematics;
+use ambition_platformer_primitives::markers::PlayerEntity;
 
 /// Number of [`ActorFaction`] variants (Player / Enemy / Npc / Boss / Neutral).
 /// The relations matrix is indexed by `faction as usize`.
@@ -347,11 +347,11 @@ fn distance_squared(a: ae::Vec2, b: ae::Vec2) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::actor::BodyKinematics;
-    use crate::actor::{PlayerEntity, PrimaryPlayer};
     use crate::combat::components::{ActorAggression, ActorFaction, ActorTarget, CenteredAabb};
     use crate::player::PlayerSlot;
     use ambition_characters::brain::{Brain, StateMachineCfg};
+    use ambition_engine_core::BodyKinematics;
+    use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
 
     /// Effective allegiance: a body carrying `Brain::Player` fights as `Player`
     /// regardless of its authored faction (that's why possession never mutates

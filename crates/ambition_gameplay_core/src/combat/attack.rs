@@ -23,13 +23,14 @@ use ambition_engine_core::{self as ae, AabbExt};
 use ambition_vfx::vfx::{SlashKind, VfxMessage};
 
 use crate::combat::overlay::FeatureEcsWorldOverlay;
+use crate::combat::BodyMelee;
 use crate::combat::{
     attack_hitbox_from_view, attack_spec_from_view, resolve_attack_intent_from_view, AttackIntent,
     AttackPhase, AttackView,
 };
 use crate::dev::dev_tools::EditableMovementTuning;
 use crate::features;
-use crate::player::{BodyAnimFacts, BodyMelee};
+use crate::player::BodyAnimFacts;
 use crate::time::feel::SandboxFeelTuning;
 use crate::world::platforms::MovingPlatformState;
 use crate::{physics, MeleeSwing, MovingPlatformSet};
@@ -160,7 +161,10 @@ pub fn pogo_moveset_off_world_orbs(
     gravity: physics::GravityCtx,
     hitboxes: Query<(&ambition_vfx::Hitbox, &crate::combat::on_hit::HitboxOnHit)>,
     boxes: Query<&ae::CenteredAabb>,
-    mut owners: Query<(&mut ae::BodyKinematics, &mut crate::actor::BodyGroundState)>,
+    mut owners: Query<(
+        &mut ae::BodyKinematics,
+        &mut ambition_engine_core::BodyGroundState,
+    )>,
     mut sfx: MessageWriter<SfxMessage>,
 ) {
     // The pogo hitboxes live this frame + where their volume covers.

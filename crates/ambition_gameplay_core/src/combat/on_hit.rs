@@ -104,7 +104,7 @@ pub fn dispatch_hitbox_on_hit(
         Has<PogoTarget>,
     )>,
     attacker_aggression: Query<&ActorAggression>,
-    friendly_fire: Option<Res<crate::features::FriendlyFire>>,
+    friendly_fire: Option<Res<crate::combat::targeting::FriendlyFire>>,
     mut out: MessageWriter<OnHitEffectMessage>,
 ) {
     let friendly_fire = friendly_fire.map(|r| *r).unwrap_or_default();
@@ -203,8 +203,11 @@ pub(crate) fn pogo_rise_from(effect: &EffectRef) -> f32 {
 pub fn apply_pogo_bounce(
     mut messages: MessageReader<OnHitEffectMessage>,
     pogo_targets: Query<(), With<PogoTarget>>,
-    gravity: crate::physics::GravityCtx,
-    mut owners: Query<(&mut ae::BodyKinematics, &mut crate::actor::BodyGroundState)>,
+    gravity: ambition_platformer_primitives::gravity::GravityCtx,
+    mut owners: Query<(
+        &mut ae::BodyKinematics,
+        &mut ambition_engine_core::BodyGroundState,
+    )>,
     mut sfx: MessageWriter<SfxMessage>,
 ) {
     for msg in messages.read() {
@@ -309,7 +312,7 @@ mod tests {
                     size: ae::Vec2::new(28.0, 46.0),
                     facing: 1.0,
                 },
-                crate::actor::BodyGroundState {
+                ambition_engine_core::BodyGroundState {
                     on_ground: true,
                     ..Default::default()
                 },
@@ -347,7 +350,7 @@ mod tests {
         );
         assert!(
             !app.world()
-                .get::<crate::actor::BodyGroundState>(owner)
+                .get::<ambition_engine_core::BodyGroundState>(owner)
                 .unwrap()
                 .on_ground,
             "the pogo un-grounds the owner",
@@ -389,7 +392,7 @@ mod tests {
                     size: ae::Vec2::new(28.0, 46.0),
                     facing: 1.0,
                 },
-                crate::actor::BodyGroundState {
+                ambition_engine_core::BodyGroundState {
                     on_ground: true,
                     ..Default::default()
                 },

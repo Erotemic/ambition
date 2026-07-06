@@ -120,7 +120,7 @@ pub(crate) fn spawn_shrine(commands: &mut Commands, spec: &crate::rooms::ShrineS
 pub(crate) fn spawn_gravity_zone(commands: &mut Commands, spec: &crate::rooms::GravityZoneSpec) {
     let mut entity = commands.spawn_room_scoped((
         Name::new(format!("Gravity zone: {}", spec.name)),
-        crate::physics::GravityZone {
+        ambition_platformer_primitives::gravity::GravityZone {
             aabb: ambition_engine_core::Aabb::new(spec.center, spec.half_extent),
             dir: spec.dir,
         },
@@ -128,7 +128,7 @@ pub(crate) fn spawn_gravity_zone(commands: &mut Commands, spec: &crate::rooms::G
     // A non-zero amplitude makes the column slide horizontally (the sliding
     // gravity demo); a static column omits the OscillatingZone.
     if spec.oscillate_amplitude > 0.0 {
-        entity.insert(crate::physics::OscillatingZone {
+        entity.insert(ambition_platformer_primitives::gravity::OscillatingZone {
             base_center: spec.center,
             half: spec.half_extent,
             amplitude_x: spec.oscillate_amplitude,

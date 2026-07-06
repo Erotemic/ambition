@@ -16,17 +16,20 @@ pub fn update_ecs_hazards(
     player: Query<
         (
             Entity,
-            &crate::actor::BodyKinematics,
+            &ambition_engine_core::BodyKinematics,
             Option<&ae::SweepSample>,
             &CenteredAabb,
-            &crate::actor::BodyOffense,
-            &crate::actor::BodyDodgeState,
-            &crate::actor::BodyShieldState,
+            &ambition_engine_core::BodyOffense,
+            &ambition_engine_core::BodyDodgeState,
+            &ambition_engine_core::BodyShieldState,
             &ambition_characters::actor::BodyCombat,
         ),
-        (With<crate::actor::PlayerEntity>, Without<FeatureSimEntity>),
+        (
+            With<ambition_platformer_primitives::markers::PlayerEntity>,
+            Without<FeatureSimEntity>,
+        ),
     >,
-    gravity: crate::physics::GravityCtx,
+    gravity: ambition_platformer_primitives::gravity::GravityCtx,
     // Every OTHER body with a published footprint burns too (fable review
     // 2026-07-02 §A4): hazards are relational-agnostic world danger — an NPC
     // in lava takes the hit, a boss can be lured into spikes. Deliberately NOT
@@ -37,18 +40,18 @@ pub fn update_ecs_hazards(
             Entity,
             // `Option`: every real body carries kinematics (→ swept), but a bare
             // headless/test hurtbox without it falls back to the discrete check.
-            Option<&crate::actor::BodyKinematics>,
+            Option<&ambition_engine_core::BodyKinematics>,
             Option<&ae::SweepSample>,
             &CenteredAabb,
-            &crate::actor::BodyOffense,
-            &crate::actor::BodyDodgeState,
-            &crate::actor::BodyShieldState,
+            &ambition_engine_core::BodyOffense,
+            &ambition_engine_core::BodyDodgeState,
+            &ambition_engine_core::BodyShieldState,
             &ambition_characters::actor::BodyCombat,
             &ambition_characters::actor::BodyHealth,
         ),
         (
             With<FeatureSimEntity>,
-            Without<crate::actor::PlayerEntity>,
+            Without<ambition_platformer_primitives::markers::PlayerEntity>,
             Without<HazardFeature>,
         ),
     >,
@@ -192,10 +195,10 @@ pub fn update_ecs_hazards(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::actor::BodyKinematics;
-    use crate::actor::PlayerEntity;
-    use crate::actor::{BodyBaseSize, BodyDodgeState, BodyOffense, BodyShieldState};
     use ambition_characters::actor::BodyCombat;
+    use ambition_engine_core::BodyKinematics;
+    use ambition_engine_core::{BodyBaseSize, BodyDodgeState, BodyOffense, BodyShieldState};
+    use ambition_platformer_primitives::markers::PlayerEntity;
     use bevy::prelude::{App, MessageReader, ResMut, Resource, Update};
 
     #[derive(Resource, Default)]
@@ -294,7 +297,7 @@ mod tests {
         let victim = app
             .world_mut()
             .spawn((
-                crate::features::FeatureSimEntity,
+                ambition_platformer_primitives::lifecycle::FeatureSimEntity,
                 ae::CenteredAabb::from_center_size(pos, ae::Vec2::new(24.0, 40.0)),
                 BodyOffense::default(),
                 BodyDodgeState::default(),

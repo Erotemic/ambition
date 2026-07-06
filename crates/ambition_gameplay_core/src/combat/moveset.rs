@@ -804,7 +804,7 @@ pub struct ActorMoveset(pub MovesetContract);
 pub fn advance_move_playback(
     mut commands: Commands,
     world_time: Res<WorldTime>,
-    gravity: crate::physics::GravityCtx,
+    gravity: ambition_platformer_primitives::gravity::GravityCtx,
     mut events: MessageWriter<MoveEventMessage>,
     // §7.2: a vfx-tagged volume draws its slash FROM the spawned hitbox
     // geometry — one box drives damage AND presentation, so they can never
@@ -1087,7 +1087,7 @@ pub(crate) fn attack_dir_from_axis(axis: ae::Vec2) -> AttackDir {
 /// resolves every direction to it — byte-identical to the pre-directional path.
 pub fn trigger_moveset_moves(
     mut commands: Commands,
-    gravity: crate::physics::GravityCtx,
+    gravity: ambition_platformer_primitives::gravity::GravityCtx,
     mut bodies: Query<(
         Entity,
         &ActorMoveset,
@@ -1098,7 +1098,7 @@ pub fn trigger_moveset_moves(
         // Grounded state selects tilt-vs-air variants. Absent on bare test
         // bodies → treated as grounded (immaterial: such bodies author only
         // the base `attack`, which every direction resolves to).
-        Option<&crate::actor::BodyGroundState>,
+        Option<&ambition_engine_core::BodyGroundState>,
         // The playing move, if any — the CM4 cancel seam. `None` = the plain
         // trigger path.
         Option<&mut MovePlayback>,
@@ -1717,9 +1717,9 @@ mod tests {
         let victim = app
             .world_mut()
             .spawn((
-                crate::actor::PlayerEntity,
+                ambition_platformer_primitives::markers::PlayerEntity,
                 ActorFaction::Player,
-                crate::actor::BodyKinematics {
+                ambition_engine_core::BodyKinematics {
                     pos: ae::Vec2::new(128.0, 100.0),
                     size: ae::Vec2::new(28.0, 46.0),
                     facing: -1.0,
@@ -1730,9 +1730,9 @@ mod tests {
                     ae::Vec2::new(128.0, 100.0),
                     ae::Vec2::new(28.0, 46.0),
                 ),
-                crate::actor::BodyOffense::default(),
-                crate::actor::BodyDodgeState::default(),
-                crate::actor::BodyShieldState::default(),
+                ambition_engine_core::BodyOffense::default(),
+                ambition_engine_core::BodyDodgeState::default(),
+                ambition_engine_core::BodyShieldState::default(),
                 ambition_characters::actor::BodyCombat::default(),
             ))
             .id();
@@ -1952,7 +1952,9 @@ mod tests {
         // and read the live `FollowOwner` hitbox's world-frame offset + half.
         fn spawn_and_read(gravity: ae::Vec2) -> (ae::Vec2, ae::Vec2) {
             let (mut app, _victim) = app_with_victim();
-            app.insert_resource(crate::physics::GravityField { dir: gravity });
+            app.insert_resource(ambition_platformer_primitives::gravity::GravityField {
+                dir: gravity,
+            });
             spawn_attacker(
                 &mut app,
                 ae::Vec2::new(100.0, 100.0),
@@ -2314,9 +2316,9 @@ mod tests {
                 .chain(),
         );
         app.world_mut().spawn((
-            crate::actor::PlayerEntity,
+            ambition_platformer_primitives::markers::PlayerEntity,
             ActorFaction::Player,
-            crate::actor::BodyKinematics {
+            ambition_engine_core::BodyKinematics {
                 pos: ae::Vec2::new(128.0, 100.0),
                 size: ae::Vec2::new(28.0, 46.0),
                 facing: -1.0,
@@ -2326,9 +2328,9 @@ mod tests {
                 ae::Vec2::new(128.0, 100.0),
                 ae::Vec2::new(28.0, 46.0),
             ),
-            crate::actor::BodyOffense::default(),
-            crate::actor::BodyDodgeState::default(),
-            crate::actor::BodyShieldState::default(),
+            ambition_engine_core::BodyOffense::default(),
+            ambition_engine_core::BodyDodgeState::default(),
+            ambition_engine_core::BodyShieldState::default(),
             ambition_characters::actor::BodyCombat::default(),
         ));
         // A body that OWNS a repertoire and is pressing `special` this frame — but

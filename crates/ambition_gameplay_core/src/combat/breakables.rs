@@ -9,7 +9,10 @@ use super::*;
 pub fn update_ecs_breakables(
     mut commands: Commands,
     world_time: Res<WorldTime>,
-    player_body_q: Query<&crate::actor::BodyKinematics, With<crate::actor::PlayerEntity>>,
+    player_body_q: Query<
+        &ambition_engine_core::BodyKinematics,
+        With<ambition_platformer_primitives::markers::PlayerEntity>,
+    >,
     mut banner: ResMut<GameplayBanner>,
     mut breakables: Query<
         (
@@ -89,11 +92,11 @@ mod breakable_tests {
     //! past BREAK_ON_STAND_SECONDS, collapses it; standing elsewhere does
     //! not. Drives sim time via a fixed WorldTime::scaled_dt.
     use super::*;
-    use crate::actor::BodyBaseSize;
-    use crate::actor::BodyKinematics;
-    use crate::actor::PlayerEntity;
     use crate::world::physics::DebrisBurstMessage;
+    use ambition_engine_core::BodyBaseSize;
+    use ambition_engine_core::BodyKinematics;
     use ambition_interaction::{Breakable, BreakableCollision, BreakableTrigger};
+    use ambition_platformer_primitives::markers::PlayerEntity;
     use ambition_time::WorldTime;
     use bevy::prelude::{App, Entity, Update};
 

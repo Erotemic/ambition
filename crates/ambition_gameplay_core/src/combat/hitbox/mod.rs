@@ -59,11 +59,11 @@ pub fn apply_hitbox_damage(
     owners: Query<&super::components::CenteredAabb>,
     // Owner-position fallback when the owner carries no `CenteredAabb`
     // (bare test bodies); every real body — player included — publishes one.
-    owner_kin: Query<&crate::actor::BodyKinematics>,
+    owner_kin: Query<&ambition_engine_core::BodyKinematics>,
     // Friendly-fire policy (the DAMAGE side; targeting is `FactionRelations`).
     // Optional so minimal headless tests that don't stand up the plugin still run
     // (fall back to the default: friendly fire OFF — same-faction allies safe).
-    friendly_fire: Option<Res<crate::features::FriendlyFire>>,
+    friendly_fire: Option<Res<crate::combat::targeting::FriendlyFire>>,
     // Non-player actor victims for the actor-vs-actor melee path: an Enemy/Boss
     // swing damages any DIFFERENT-faction actor it overlaps (e.g. a Boss vs an
     // Enemy in a duel); same-faction allies are spared unless friendly fire is on.
@@ -83,12 +83,12 @@ pub fn apply_hitbox_damage(
         &ActorFaction,
         Option<&ambition_characters::brain::Brain>,
         (
-            &crate::actor::BodyOffense,
-            &crate::actor::BodyDodgeState,
-            &crate::actor::BodyShieldState,
+            &ambition_engine_core::BodyOffense,
+            &ambition_engine_core::BodyDodgeState,
+            &ambition_engine_core::BodyShieldState,
             &ambition_characters::actor::BodyCombat,
         ),
-        bevy::prelude::Has<crate::actor::PlayerEntity>,
+        bevy::prelude::Has<ambition_platformer_primitives::markers::PlayerEntity>,
         // CM1 knockback scaling: the victim's accumulated-damage meter and its
         // archetype weight. Both `Option` — the player carries `BodyHealth` but
         // no `CombatTuning` (weight → reference `1.0`); a headless test body may
@@ -112,7 +112,7 @@ pub fn apply_hitbox_damage(
     // overlapping player independently. Single-player behavior is
     // preserved because the iterator has exactly one entity today.
     // The victim's gravity frame, for the local-frame knockback side (§B11).
-    gravity: crate::physics::GravityCtx,
+    gravity: ambition_platformer_primitives::gravity::GravityCtx,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,

@@ -82,10 +82,13 @@ geometry**, with axis-aligned tiles as the fast common case.
 - **S3. Combat and triggers are already free.** `CombatVolume` supports
   OBB/convex (parry) since the CombatVolume rewire; trigger volumes follow
   the cast library, which is shape-generic. Authoring: LDtk `SurfaceChain`
-  entities + generated markers (`SurfaceLoop`) exist; add `SurfacePolygon`
-  (closed solid region: boundary chain + interior solid flag → the IR emits
-  both the chain and a coarse AABB conservative hull for broadphase) when a
-  demo needs true rotated solids.
+  entities + generated markers (`SurfaceLoop`) exist; **`SurfaceRamp`**
+  (Q27 ruling, 2026-07-06) adds the quarter-circle floor↔wall transition
+  as another generated marker (radius, corner orientation, segments) —
+  parameterized generator entities are how LDtk stays sufficient without a
+  second backend. Add `SurfacePolygon` (closed solid region: boundary
+  chain + interior solid flag → the IR emits the chain + a conservative
+  AABB hull for broadphase) when a demo needs true rotated solids.
 - **S4. Broadphase honesty.** Casting against every segment in a big room is
   the momentum kernel's current behavior; before Sanic-scale zones land, add
   a uniform grid/interval index over `World.blocks + chains` keyed by the
@@ -152,7 +155,7 @@ P3/P4 [opus after P2, post-demo].
 
 Grounding: endpoints ALREADY expose `frame()` and the pair transform
 already routes through `pp::map_point(entry, &enter.frame(),
-&exit.frame())` + `portal_map_vec` (placement.rs:67-68) — the frame
+&exit.frame())` + `portal_map_vec` (see `raycast_through_portals` in `ambition_portal`'s `placement.rs`) — the frame
 concept half-exists in `ambition_platformer_primitives`. CC5 promotes it:
 
 ```rust

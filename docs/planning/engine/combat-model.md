@@ -131,7 +131,7 @@ that's an oracle-violation to file, not a quiet edit.
 ## 8. Design sketches (pre-solved; executors do not re-derive these)
 
 **CM1 field placement** (grounded in the live types): `HitVolume`
-(entity_catalog lib.rs:194) already carries `damage` + `knockback` (the
+(in [the authoring spine], `ambition_entity_catalog`) already carries `damage` + `knockback` (the
 flat magnitude). Add beside them, all `#[serde(default)]` so every
 existing RON row is untouched:
 
@@ -153,7 +153,7 @@ DI adjust (CM2), then existing knockback application unchanged.
 component, no parallel meter.
 
 **CM4 cancel algorithm** (grounded in `MoveSpec`/`MovePlayback`,
-moveset.rs:651): add to `MoveSpec`:
+`combat/moveset.rs`): add to `MoveSpec`:
 
 ```rust
 pub struct CancelRule {

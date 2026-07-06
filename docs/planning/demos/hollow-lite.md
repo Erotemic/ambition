@@ -11,12 +11,27 @@ pipeline produces a fight Jon rates as actually fun, authored by an
 opus-level agent** ([`../engine/boss-design.md`](../engine/boss-design.md)
 BD8 — this demo is that pipeline's acceptance test).
 
-**Depends on:** E5-finish; boss pipeline BD1–BD7 (vocabulary, seeds,
-validator, playtester rig, calibrated on the pilot re-author); fighter
-brain FB1–FB4 (the playtester); combat-model CM5 (per-move sfx/vfx);
-respawn-policy unification (dead-stays-dead + authored Mob respawn —
-this demo is the respawn policy's real consumer: mobs respawn on bench
-rest, the boss dies forever).
+## Consumes (by role) / Owns
+
+**Consumes:** [the sim assembly]+[the windowed host] · [the movement
+kernel] (axis-swept + pogo) · [the sim heart] (respawn policy: mobs
+respawn OnRest, the boss dies forever — this demo is ADR 0022's real
+consumer) · [the combat resolver] (melee/pogo/recoil, CM5 per-move
+presentation, the focus/heal channel technique seam) · [the actor
+vocabulary] (enemy brains; the boss pattern vocabulary + BD1 control-flow
+atoms) · [the set-piece kit] (arena beats, encounter/phase state) ·
+[the saved shapes] (bench saves, currency flags) · [the space IR]+[the
+LDtk backend] (its ~10-room world) · the boss pipeline BD1–BD7 as
+PROCESS (seeds, validator, playtester rig).
+
+**Owns (`hollow_content`):** the world (well, loop, shortcuts, bench,
+boss door), the rules plugin (currency, shade-drop-on-death, bench
+respawn policy — mode-scoped), the focus/heal technique registration,
+four enemy rows, the BOSS (authored through the pipeline — the BD8
+acceptance), HUD, title/results.
+
+**Engine prerequisites:** E5-finish; BD1–BD7; FB1–FB4; CM5; the respawn
+slice (tracks.md).
 
 ## Design (v1 scope)
 

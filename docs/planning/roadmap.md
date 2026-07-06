@@ -117,25 +117,30 @@ New (2026-07-05):
 - **Q1/Q3 (carried):** who is 1.0 for; engine name/repo split timing.
 - **Q2-name (carried):** endorse `ambition_actors` as the gameplay_core
   residue rename, or supply a name (E7 blocks on nothing else).
-- **Q4 (M20 confirmation):** determinism as a *same-build* contract with
-  fixed-tick as an option — confirmed? (Cross-platform bit-equality stays
-  a non-goal.)
+- **Q4 (OPEN — brief written):** determinism promise level. Jon asked for
+  more context (2026-07-06); the decision brief with the three levels and
+  their costs is [`engine/netcode.md`](engine/netcode.md) §Q4.
+  Recommendation: the same-build contract (level 2). Awaiting his call.
 - **Q5 (scoped):** online netcode stays post-1.0; local-N ships with SSB —
-  confirm.
-- **Q27 (new):** authoring backends — is a Tiled or Godot-scene importer
-  wanted as the SECOND backend (it would harden the W-carve IR seam), and
-  roughly when? ("Maybe we use some godot authoring tools" — your words;
-  the IR is being shaped so this is additive.)
-- **Q28 (new):** demo naming sign-off: *Super Mary-O*, *Sanic*, *Super
-  Smash Siblings*, *Hollow Lite* — and are parody names the permanent
-  policy for all demo content?
-- **Q29 (new):** the respawn default flip (dead-stays-dead) changes every
-  existing sandbox enemy to never respawn unless we author `OnRoomReenter`
-  per mob row. Plan: author trash mobs as Mob (respawn), leave named/
-  unique actors on the new default. Confirm the triage line (see the
-  respawn slice in tracks.md).
-- **Q30 (new):** for the fable-window priorities (top of tracks.md) —
-  reorder if your remaining fable days should go elsewhere.
+  confirm (implied by the 2026-07-06 SSB scope ruling: "no multiplayer on
+  the first round" = no ONLINE; up to 4 local fighters incl. a second
+  local controller when natural).
+
+### Answered 2026-07-06 (Jon)
+
+- **Q27 — authoring backends: DEFERRED** until truly needed. LDtk +
+  parameterized generator entities suffice: bake quarter-circle
+  **`SurfaceRamp`** entities for floor↔wall transitions of momentum
+  bodies (four could compose a loop; `SurfaceLoop` stays for real loops).
+  Slice lives in tracks.md; the W-carve still keeps the IR
+  backend-agnostic so a future importer stays additive.
+- **Q28 — parody names are POLICY** for all demo content. Names stand:
+  *Sanic, Super Mary-O, Super Smash Siblings, Hollow Lite*.
+- **Q29 — respawn triage line CONFIRMED** (trash mobs author respawn;
+  named/unique actors take dead-stays-dead).
+- **Q30 — fable-window order CONFIRMED**, with the addition (Jon): the
+  hardest decompositions themselves are fable work — E4 is re-graded
+  [★fable executes]; W3/E2 escalate to fable at the first ambiguity.
 
 ## Standing practices (unchanged)
 

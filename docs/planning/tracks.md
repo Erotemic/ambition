@@ -21,17 +21,20 @@ listed preconditions are DONE here.**
 
 ---
 
-## ⚡ THE FABLE WINDOW (spend remaining frontier days here, in order)
+## ⚡ THE FABLE WINDOW (order confirmed by Jon 2026-07-06 + his addition:
+## the hardest decompositions are fable EXECUTION work, not just design)
 
-1. **E4 design + the L5 message inversion** — the sim_view scout ruling
-   and read-model shape (decomposition.md E4). The riskiest cut.
-2. **`SimSnapshot` design** (netcode N3.1 design only) — shapes every
-   future sim component; cheap now, expensive to retrofit.
-3. **CM4 cancel-table advancer spec** (combat-model) — the one moveset
-   edit that wants frontier care.
-4. **CC5 `PortalFrame`** — or leave opus the parity-gated version.
-5. **FB6 rollout architecture note** — one page so opus can't
-   mis-build it later.
+1. **E4 — EXECUTE the observation-boundary carve** (steps 2–4 of the
+   card; opus can pre-land step 1, the vfx-message inversion). The
+   riskiest cut in the playbook.
+2. **`SimSnapshot` design** (netcode N3.1 — design written into the doc;
+   review/refine against code when implementing starts).
+3. **CM4 cancel-table advancer** — execute or pair-review opus's cut.
+4. **CC5 `PortalFrame`** — execute, or leave opus the parity-gated card.
+5. **FB6 rollout architecture** — sketch is in the doc; refine at
+   implementation time.
+Standing escalation: W3 (the world two-crate cut) and E2 (back-edge
+classification) escalate to fable at the FIRST ambiguous item.
 Everything else on this page is opus-or-below by design.
 
 ## Track index (status → next slice)
@@ -60,19 +63,20 @@ choice (`Mob`); the sandbag in-place timer folds into the same enum.
 Scouted 2026-07-05; exact edit points:
 
 1. **One authored field replaces two derived bools.** `EnemyRespawnPolicy`
-   (combat/components/mod.rs:457) grows `InPlace(f32)`; `#[default]`
-   flips `OnRoomReenter` → `Never` (rename the variant `DeadStaysDead`).
-   Archetype RON: replace `respawn_on_rest: bool` +
-   `respawn_in_place_seconds: Option<f32>` with `respawn:
-   RespawnPolicy` (serde default = DeadStaysDead); `respawn_policy()`
-   (features/enemies/mod.rs:630) becomes a field read. Sandbag rows
-   author `InPlace(0.85)`; `never_dies`/`is_sandbag` stay orthogonal.
-2. **One kill path.** Merge actor_hit.rs:254 (in-place timer) into the
-   :307 policy match; `DeadStaysDead` WRITES `enemy_{id}_dead` (today the
-   default writes nothing — that's the whole bug); `OnRest` keeps its
-   suffix flag; `OnRoomReenter` writes nothing (the Mob choice);
-   `InPlace` sets the timer (no flag).
-3. **Fix the peaceful-NPC fall-through** (save_sync.rs:69–107): a killed
+   (`combat/components`) grows `InPlace(f32)`; `#[default]` flips
+   `OnRoomReenter` → `DeadStaysDead` (rename of `Never`). Archetype RON:
+   replace `respawn_on_rest: bool` + `respawn_in_place_seconds:
+   Option<f32>` with one `respawn: RespawnPolicy` field (serde default =
+   DeadStaysDead); the derived `respawn_policy()` helper in
+   `features/enemies` becomes a field read. Sandbag rows author
+   `InPlace(0.85)`; `never_dies`/`is_sandbag` stay orthogonal.
+2. **One kill path.** In `features/ecs/damage/actor_hit.rs`, merge the
+   in-place-timer branch into the kill-flag policy match (the two death
+   paths become one match on the enum); `DeadStaysDead` WRITES
+   `enemy_{id}_dead` (today the default writes nothing — that's the whole
+   bug); `OnRest` keeps its suffix flag; `OnRoomReenter` writes nothing
+   (the Mob choice); `InPlace` sets the timer (no flag).
+3. **Fix the peaceful-NPC fall-through** (the two liveness branches of `sync_ecs_actors_from_save`, `features/ecs/save_sync.rs`): a killed
    unprovoked NPC matches NEITHER branch — restructure so `dead_on_load`
    zeroes HP for interaction-bearing actors regardless of the hostile
    flag. Add the missing liveness tests (there are none — that's why it
@@ -89,7 +93,8 @@ Scouted 2026-07-05; exact edit points:
 
 | Item | Home | Grade |
 |---|---|---|
-| Slash VFX renders as a black square | investigate under CM5's per-move presentation slice; root-cause first (see log note) | [opus] |
+| Slash VFX renders as a black square | DEPRIORITIZED (Jon 2026-07-06: leaf effect, likely a sprite-source read quirk) — fold into CM5's per-move presentation slice when it lands; root-cause there, no dedicated pass | [opus] |
+| `SurfaceRamp` quarter-circle marker entities (Q27 ruling): generated quarter-arc chain for floor↔wall momentum transitions; params radius/orientation/segments; same converter pattern as `SurfaceLoop` + LDtk entity def + validator row | [the space IR] converters / sanic demo | [opus/sonnet] |
 | Per-attack VFX/SFX (not one generic swing) | CM5 | [opus] |
 | Morph ball still draws the robot; generalize modal body morphs | E3 (mode→sprite-state row) | [opus] |
 | Shrine + glider sprites broken | E3 (rect drift; sprite pipeline) | [opus] |
@@ -135,11 +140,25 @@ occlusion, load-bearing landing rule); wear = possession semantics (no
 kit fallback); blink gated off momentum bodies. engine_core 236 /
 gameplay_core 1156 / app rl_sim 140 green. M14/M16 recorded.
 
-## 2026-07-05 (fable) — the planning consolidation (this commit)
+## 2026-07-05 (fable) — the planning consolidation
 docs/planning rebuilt as the single source of truth: vision,
 decision-principles (Jon's, relocated), roadmap, tracks (this file),
 engine/{decomposition, collision-and-ccd, combat-model, netcode,
 fighter-brain, boss-design, falling-sand}, demos/{README, sanic,
 super-mary-o, super-smash-siblings, hollow-lite}; reviews archived;
-docs/current retired. Slash-VFX black-square root-cause investigation
-was still in flight at consolidation time — its findings append here.
+docs/current retired. (`c8de27d5`)
+
+## 2026-07-06 (fable) — the refinement pass (Jon's rulings folded in)
+architecture.md rewritten as the crate set with EVERGREEN ROLE handles +
+the workspace push-target layout (crates/=engine, game/=ambition,
+demos/=demos) + [the sim heart]'s internal module map; decomposition.md
+role-anchored, de-duplicated, line numbers scrubbed for symbol anchors
+(evergreen-anchor rule added), E4 re-graded [★fable executes],
+workspace re-home added to E7; demos deepened with consumes-by-role /
+owns tables — SSB carries Jon's scope (roster: player-robot, goblin,
+PCA, mary-o, sanic; percent display; select screen; ≤4 fighters, all-CPU
+to 2-local-human; NO online round 1); Q4 decision brief written
+(netcode.md) for Jon's call; Q27 (backends deferred; SurfaceRamp
+quarter-circle entities instead) / Q28 (parody names = policy) / Q29
+(respawn triage) / Q30 (fable window + hardest-carves-are-fable)
+recorded; slash-VFX deprioritized into CM5.

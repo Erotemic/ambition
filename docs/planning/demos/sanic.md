@@ -14,8 +14,29 @@ area, chains channel + LDtk converters + debug overlay, swept portal
 transit at speed. Remaining: S4 proofs, the ball-dash special, the demo
 game itself (S5, gated on E5-finish).
 
-**Depends on:** E5-finish (runtime+host groups); CM5 (per-move sfx/vfx)
-nice-to-have; no other engine tracks.
+## Consumes (by role) / Owns
+
+**Consumes:** [the sim assembly]+[the windowed host] (app shell, mode
+scope) · [the movement kernel] (the surface follower — chains, loops,
+blocks-as-surfaces) · [the sim heart] (spawn, wear, MotionModel
+insertion) · [the space IR]+[the LDtk backend] (its own zone .ldtk; the
+`SurfaceChain`/`SurfaceLoop` converters, plus the planned **`SurfaceRamp`**
+quarter-circle marker — Q27 ruling: parameterized generator entities keep
+LDtk sufficient; a ramp = quarter-arc chain (params: radius, corner
+orientation, segments≈8) for floor↔wall transitions, same converter
+pattern as `SurfaceLoop`) · [the combat resolver] (rolling hit volume,
+on-hit bit-scatter) · [the observation boundary] (HUD reads) ·
+[the authoring spine]/[the sprite-geometry authority] (rows + sheets).
+
+**Owns (`sanic_content`):** the zone world (3 acts), the level rules
+plugin (bit count, act clear, timer — mode-scoped), the spin-dash
+technique registration, the bits pickup + drop-on-hit policy rows, the
+booster/spring entity rows, 2–3 patrol enemy rows, the goal-gate +
+results sequence, HUD.
+
+**Engine prerequisites:** E5-finish. Nice-to-have: CM5 (per-move
+sfx/vfx). Expected oracle-violations: speed-adaptive camera look-ahead
+knob; anything the spring/booster surfaces need beyond rebound blocks.
 
 ## Design (v1 scope)
 

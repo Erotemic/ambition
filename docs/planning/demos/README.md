@@ -5,7 +5,14 @@ acceptance suite ([`../vision.md`](../vision.md) §4–5). Four are written in
 stone — [Sanic](sanic.md), [Super Mary-O](super-mary-o.md),
 [Super Smash Siblings](super-smash-siblings.md),
 [Hollow Lite](hollow-lite.md) — with later matrix tiers gaining docs when
-their tier opens. Priorities may shuffle; the designs do not.
+their tier opens. **Parody names are policy** (Q28, Jon 2026-07-06): every
+demo name, character, and asset is a parody-original — homage in grammar,
+never a copy. Each demo doc carries a **Consumes (by role) / Owns** section:
+"consumes" lists engine crates by their [role handles]
+([`../engine/architecture.md`](../engine/architecture.md) §2); "owns" is what
+the demo builds for itself. If work appears that fits neither list, stop —
+it's either an oracle-violation (engine work, file it in tracks.md) or scope
+drift. Priorities may shuffle; the designs do not.
 
 ## The shape (every demo, no exceptions)
 

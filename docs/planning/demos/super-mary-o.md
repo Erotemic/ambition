@@ -9,8 +9,26 @@ worlds, powerups-as-equipment, scroll policy, and level-end sequencing —
 is pure data + content on the finished engine face. This is the "any
 1980s platformer is a weekend of authoring" proof.
 
-**Depends on:** E5-finish; A3 (equipment→params merge — lands WITH M1);
-C1 metadata (landed); cutscene kit (exists).
+## Consumes (by role) / Owns
+
+**Consumes:** [the sim assembly]+[the windowed host] · [the movement
+kernel] (axis-swept AABB ONLY — the demo must not touch the momentum
+path) · [the sim heart] (spawn, body size seam for the mushroom) ·
+[the stuff kit] (equipment rows + the armor-instead-of-HP policy) ·
+[the combat resolver] (stomp via pogo/on-hit vocabulary) · [the space
+IR]+[the LDtk backend] (its own 3-level world; pipes = LoadingZone Door)
+· `ambition_cutscene` (flag sequence) · [the observation boundary] (HUD).
+
+**Owns (`mary_o_content`):** the 3-level world, the level-rules plugin
+(lives/score/coins/timer, level-restart death policy — mode-scoped),
+powerup equipment rows (mushroom-analog: size + one-hit armor;
+flower-analog: `simple_ranged` grant), goomba/koopa-analog rows + the
+shell PROP (a brainless sliding hazard both sides can trigger —
+actors-vs-props exercised), the flagpole sequence, HUD, title/results.
+
+**Engine prerequisites:** E5-finish; A3 (equipment→params — M1 is its
+adjudicated consumer). Expected oracle-violations: the one-way forward
+scroll clamp (a `CameraZoneSpec` policy knob).
 
 ## Design (v1 scope)
 

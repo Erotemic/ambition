@@ -15,12 +15,52 @@ confirmed-state boundary rollback needs.
 
 ---
 
-## N0 — determinism becomes a MANAGED contract (the Q4 answer we act on)
+## Q4 — THE DECISION BRIEF (Jon: this is the context you asked for)
 
-Today determinism is a test canary. The ladder needs it as a **scoped
-guarantee**: *same build, same platform, same inputs ⇒ same sim states.*
-(Cross-platform float determinism is explicitly NOT promised — same-binary
-lockstep/rollback and replay/RL reproducibility don't need it.)
+**The question:** how strong a determinism promise does the ENGINE make?
+Determinism = "same inputs ⇒ same simulation states." The strength of the
+promise decides how much discipline every future sim system must carry.
+
+**Three levels, with what each buys and costs:**
+
+1. **Canary only (status quo).** Bit-identical replay tests exist but may
+   be re-baselined freely; nothing is promised.
+   *Buys:* zero ongoing discipline. *Costs:* rollback netcode, Braid-style
+   rewind, and reproducible RL training all become fragile or impossible —
+   each would need its own ad-hoc determinism audit later, against code
+   that was never held to the rule. Retrofitting is the expensive path.
+2. **Same-build contract (what M20 proposes).** Promise: the SAME binary,
+   on the SAME platform, fed the SAME per-tick input stream, produces
+   identical sim states — forever, enforced by CI (two sims, hash per
+   tick, first-divergence report). Requires: a fixed-tick sim option
+   (presentation interpolates), serializable per-tick input streams, and
+   the standing hygiene rules we already follow (stable iteration order,
+   no wall-clock/HashMap-order in sim). f32 math is FINE at this level —
+   floats are deterministic on one binary; we just can't reorder ops
+   between "runs," which same-binary guarantees.
+   *Buys:* replay/RL reproducibility as a product feature, desync
+   forensics, same-build online lockstep AND rollback (both peers run the
+   same binary — the normal case for an indie game), rewind mechanics,
+   and the fighter brain's forward rollouts. *Costs:* the N0 slices below
+   (~small), plus a permanent-but-light discipline tax on new sim code
+   (the lint set makes it mostly automatic).
+3. **Cross-platform bit-exact.** Same states across different OS/CPU/
+   compiler builds. Requires software-float or fixed-point math, no std
+   trig, audited transcendentals — a deep tax on every kernel.
+   *Buys over level 2:* only cross-platform lockstep between DIFFERENT
+   binaries and platform-independent replay files. *Not worth it* for
+   this engine's goals; explicitly a non-goal.
+
+**Recommendation (M20): level 2.** It is the knee of the curve — nearly
+all the value, small cost, and it must be chosen NOW because every sim
+system written after the choice either respects it cheaply or violates
+it expensively. **Jon: confirm level 2, or override.**
+
+## N0 — determinism becomes a MANAGED contract (pending Q4 confirmation)
+
+The ladder needs the level-2 **scoped guarantee**: *same build, same
+platform, same inputs ⇒ same sim states.* (Cross-platform float
+determinism is explicitly NOT promised.)
 
 Obligations (each a slice, all [opus]):
 

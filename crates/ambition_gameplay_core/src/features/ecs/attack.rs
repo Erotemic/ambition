@@ -311,38 +311,10 @@ pub fn slash_kind(intent: AttackIntent) -> SlashKind {
     }
 }
 
-/// On-screen size for the slash effect: a flourish a bit larger than the
-/// hitbox so the swing reads beyond the exact damage box. Takes the world
-/// hitbox half-extent. Tunable.
-fn slash_effect_size(hitbox_half_size: ae::Vec2) -> f32 {
-    const SLASH_EFFECT_SCALE: f32 = 2.0;
-    ((hitbox_half_size * 2.0).max_element() * SLASH_EFFECT_SCALE).max(24.0)
-}
-
-/// THE single melee-slash effect emit. EVERY body's melee — the player AND any
-/// brain-driven actor — draws its swing through this one function, so the slash
-/// visual has exactly ONE definition (size curve + message shape). `center` is the
-/// world hitbox center, `half_size` its half-extent, `dir` the gravity-relative
-/// body→strike offset (the renderer rotates the art along it).
-///
-/// ONE BODY, ONE PATH: do NOT add another `VfxMessage::Slash` site — call this. (The
-/// two melee STATE MACHINES that call it — `MeleeSwing` here and
-/// `BodyMelee` in `update_ecs_actors` — are the next fork to collapse; see
-/// the `BIFURCATION:` note in dev/journals/code_smells.md.)
-pub fn emit_melee_slash(
-    vfx: &mut MessageWriter<VfxMessage>,
-    center: ae::Vec2,
-    half_size: ae::Vec2,
-    kind: SlashKind,
-    dir: ae::Vec2,
-) {
-    vfx.write(VfxMessage::Slash {
-        center,
-        size: slash_effect_size(half_size),
-        kind,
-        dir,
-    });
-}
+// `emit_melee_slash` (+ its size curve) moved to `crate::combat::util`
+// (E2): the ONE slash-emit is shared by the moveset/hitbox strike paths
+// (combat) and this legacy flat path.
+pub use crate::combat::util::emit_melee_slash;
 
 /// Source the player's melee hitbox from the sprite manifest — the box authored
 /// and shown by `debug-hitboxes` — so the gameplay damage volume matches the

@@ -247,7 +247,7 @@ pub fn apply_hitbox_damage(
                     // strength unchanged — parity by construction.
                     let victim_damage_taken = victim_health.map(|h| h.damage_taken()).unwrap_or(0);
                     let victim_weight = victim_tuning.map(|ct| ct.weight).unwrap_or(1.0);
-                    let strength = crate::features::ecs::damage_apply::scaled_knockback(
+                    let strength = crate::combat::util::scaled_knockback(
                         hitbox.knockback_strength,
                         hitbox.knockback_growth,
                         victim_damage_taken,
@@ -452,7 +452,7 @@ pub fn spawn_melee_strike(
         active_s,
         frame_down,
     );
-    crate::features::ecs::attack::emit_melee_slash(
+    crate::combat::util::emit_melee_slash(
         vfx,
         world_box.center(),
         world_box.half_size(),

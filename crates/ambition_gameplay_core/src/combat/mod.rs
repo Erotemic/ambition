@@ -18,7 +18,6 @@ use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
 use bevy::prelude::*;
 
-use crate::world::platforms::MovingPlatformState;
 use ambition_platformer_primitives::lifecycle::RoomVisual;
 use ambition_sfx::SfxMessage;
 use ambition_time::WorldTime;

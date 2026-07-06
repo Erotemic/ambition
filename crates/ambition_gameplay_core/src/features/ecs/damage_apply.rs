@@ -40,31 +40,9 @@ use ambition_time::ClockState;
 // reads — combat vocabulary, not victim-side application code.
 pub use crate::combat::util::{body_vulnerable, shield_blocks_hit};
 
-/// THE knockback-scaling law (CM1): the smash-percent growth term folded onto a
-/// hit's base knockback. A body that has accumulated more damage launches
-/// farther under the same hit, scaled down by its weight. Pure and
-/// frame-agnostic so it is unit-tested directly and reused by every hit path.
-///
-/// `base` is the volume's flat knockback; `growth` is the authored `kb_growth`;
-/// `victim_damage_taken` is `BodyHealth::damage_taken()`; `victim_weight` is the
-/// archetype weight (reference `1.0`). PARITY: `growth == 0.0` returns `base`
-/// exactly, so every un-authored volume is byte-identical to today.
-pub fn scaled_knockback(
-    base: f32,
-    growth: f32,
-    victim_damage_taken: i32,
-    victim_weight: f32,
-) -> f32 {
-    if growth == 0.0 {
-        return base;
-    }
-    let weight = if victim_weight > 0.0 {
-        victim_weight
-    } else {
-        1.0
-    };
-    base + growth * victim_damage_taken.max(0) as f32 / weight
-}
+// `scaled_knockback` moved to `crate::combat::util` (E2): the CM1
+// knockback-scaling LAW is combat model vocabulary.
+pub use crate::combat::util::scaled_knockback;
 
 /// THE directional-influence law (CM2): the victim's held control rotates its
 /// OWN knockback launch, by at most `max_angle` radians. Pure and

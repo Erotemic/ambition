@@ -149,6 +149,8 @@ mod util_tests {
 
 use ambition_characters::actor::BodyCombat;
 use ambition_engine_core::{BodyDodgeState, BodyOffense, BodyShieldState};
+use ambition_vfx::vfx::{SlashKind, VfxMessage};
+use bevy::prelude::MessageWriter;
 
 /// THE one "can this body take a hit right now?" rule, shared by every damage
 /// EMITTER that needs an early-out (hazards, enemy hitboxes, boss volumes,
@@ -187,4 +189,63 @@ pub fn shield_blocks_hit(
     let local_side_delta = frame.to_local(hit_pos - player_pos).x;
     // Same local-side sign => the hit is on the side the controlled body faces.
     local_side_delta.signum() == facing.signum()
+}
+
+/// On-screen size for the slash effect: a flourish a bit larger than the
+/// hitbox so the swing reads beyond the exact damage box. Takes the world
+/// hitbox half-extent. Tunable.
+fn slash_effect_size(hitbox_half_size: ae::Vec2) -> f32 {
+    const SLASH_EFFECT_SCALE: f32 = 2.0;
+    ((hitbox_half_size * 2.0).max_element() * SLASH_EFFECT_SCALE).max(24.0)
+}
+
+/// THE single melee-slash effect emit. EVERY body's melee — the player AND any
+/// brain-driven actor — draws its swing through this one function, so the slash
+/// visual has exactly ONE definition (size curve + message shape). `center` is the
+/// world hitbox center, `half_size` its half-extent, `dir` the gravity-relative
+/// body→strike offset (the renderer rotates the art along it).
+///
+/// ONE BODY, ONE PATH: do NOT add another `VfxMessage::Slash` site — call this. (The
+/// two melee STATE MACHINES that call it — `MeleeSwing` here and
+/// `BodyMelee` in `update_ecs_actors` — are the next fork to collapse; see
+/// the `BIFURCATION:` note in dev/journals/code_smells.md.)
+pub fn emit_melee_slash(
+    vfx: &mut MessageWriter<VfxMessage>,
+    center: ae::Vec2,
+    half_size: ae::Vec2,
+    kind: SlashKind,
+    dir: ae::Vec2,
+) {
+    vfx.write(VfxMessage::Slash {
+        center,
+        size: slash_effect_size(half_size),
+        kind,
+        dir,
+    });
+}
+
+/// THE knockback-scaling law (CM1): the smash-percent growth term folded onto a
+/// hit's base knockback. A body that has accumulated more damage launches
+/// farther under the same hit, scaled down by its weight. Pure and
+/// frame-agnostic so it is unit-tested directly and reused by every hit path.
+///
+/// `base` is the volume's flat knockback; `growth` is the authored `kb_growth`;
+/// `victim_damage_taken` is `BodyHealth::damage_taken()`; `victim_weight` is the
+/// archetype weight (reference `1.0`). PARITY: `growth == 0.0` returns `base`
+/// exactly, so every un-authored volume is byte-identical to today.
+pub fn scaled_knockback(
+    base: f32,
+    growth: f32,
+    victim_damage_taken: i32,
+    victim_weight: f32,
+) -> f32 {
+    if growth == 0.0 {
+        return base;
+    }
+    let weight = if victim_weight > 0.0 {
+        victim_weight
+    } else {
+        1.0
+    };
+    base + growth * victim_damage_taken.max(0) as f32 / weight
 }

@@ -396,11 +396,11 @@ pub fn pickup_held_item_system(
     let mut input = input;
     for (ground_entity, ground) in &grounds {
         let ground_aabb = ae::Aabb::new(ground.pos, ground.half_extent);
-        // CC2 classification: DISCRETE-OK. This pickup is gated on a deliberate
-        // `melee_pressed` while overlapping (the button-press branch above), not
-        // a path-dependent auto-collect — you cannot fly THROUGH and grab it, so
-        // there is no tunnel to sweep. An auto-collect (touch-to-grab ring/coin)
-        // would instead route through `cast::aabb_path_contacts`.
+        // AMBITION_REVIEW(discrete_ok): CC2 §3.3 GroundItem pickup — gated on a
+        // deliberate `melee_pressed` while overlapping (the button-press branch
+        // above), not a path-dependent auto-collect. You cannot fly THROUGH and
+        // grab it, so there is no tunnel to sweep. An auto-collect (touch-to-grab
+        // ring/coin) would instead route through `cast::aabb_path_contacts`.
         if player_aabb.strict_intersects(ground_aabb) {
             commands
                 .entity(player)

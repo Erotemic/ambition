@@ -437,23 +437,15 @@ committable slice; render-side reads become SimView fields):**
     compute the pose read-model — that is the POINT (clip+phase is a
     SimView fact: netcode confirmation, brain move-phase reads,
     per-observer views).
-20. The portal glue systems render registers (`sync_portal_world_frame`,
-    `sync_portal_viewer`, `sync_portal_camera_continuity_focus`,
-    `sync_portal_debug_overlay_to_f1`, `tag_portal_scene_bodies`,
-    `portal_dev_toggle_system`, `portal_convention_toggle_system`, the
-    `load_portal_gun_art` startup) → the portal adapter side (with E7).
-    **Design pinned (fable 2026-07-06):** the blocker is the ordering
-    pins against render-internal labels (`PortalPresentationSet`,
-    `sync_visuals`, `animate_player`). The inversion: gameplay_core's
-    portal adapter declares a public sim-side `PortalObservationSet`,
-    registers the glue there in ITS plugin, and render keeps only ONE
-    set-to-set constraint (`PortalPresentationSet
-    .after(PortalObservationSet)`) — a label dependency, not system
-    registration. `tag_portal_scene_bodies`'s `.after(sync_visuals)`
-    pin means it reads render-spawned visuals: audit it first; if it
-    tags render entities it is PRESENTATION (stays, renamed); if it
-    tags sim bodies the pin is stale. [opus executes against this
-    paragraph]
+20. ✅ **DONE (fable 2026-07-06, executed as pinned):** the host
+    adapter's `PortalObservationPlugin` (host-added, portal_render-
+    gated) registers the glue in the public sim-side
+    `PortalObservationSet`; render keeps exactly ONE set-to-set
+    constraint (`PortalPresentationSet.after(PortalObservationSet)`).
+    The audit ruled `tag_portal_scene_bodies`'s `.after(sync_visuals)`
+    pin STALE (it tags SIM bodies — `PlayerVisual` + `PortalSceneBody`)
+    — dropped. `load_portal_gun_art` + F7/F10 dev toggles ride the same
+    plugin.
 
 **Step 4 — mint the crate:** `ambition_sim_view` takes
 `camera_snapshot.rs`, `view_index.rs`, the anim index, camera-ease;

@@ -706,6 +706,11 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
             // Read THIS tick's resolved snapshot, not last frame's.
             .after(ambition_gameplay_core::camera_snapshot::resolve_camera_observation),
     );
+    // The Ambition portal host-adapter observation glue (world-frame /
+    // viewer / focus / debug seam publishers, scene-body tagging, dev
+    // toggles, gun art) — sim-owned plugin, host-added (E4 slice 20).
+    #[cfg(feature = "portal_render")]
+    app.add_plugins(ambition_gameplay_core::portal::PortalObservationPlugin);
     #[cfg(feature = "portal_render")]
     app.add_systems(
         Update,

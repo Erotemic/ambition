@@ -154,6 +154,11 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
         {
             use ambition_portal_presentation::{PortalPresentationPlugin, PortalPresentationSet};
             app.add_plugins(PortalPresentationPlugin::default());
+            // The Ambition host-adapter glue (world-frame/viewer/focus/debug
+            // seam publishers, scene-body tagging, dev toggles, gun art) is
+            // `PortalObservationPlugin`, added by the HOST (E4 slice 20) —
+            // render holds exactly ONE label dependency on its set below,
+            // never a system registration.
             // Portal body-copy visuals must run after the player animator, not
             // only after `sync_visuals`: trimmed sprites can update
             // `Sprite::custom_size` and `Anchor` during animation, and the
@@ -162,29 +167,16 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                 Update,
                 PortalPresentationSet
                     .after(actors::animate_player)
-                    .after(camera::camera_follow),
+                    .after(camera::camera_follow)
+                    .after(ambition_gameplay_core::portal::PortalObservationSet),
             );
-            app.add_systems(Startup, ambition_gameplay_core::portal::load_portal_gun_art)
-                .add_systems(
-                    Update,
-                    (
-                        ambition_gameplay_core::portal::sync_portal_world_frame
-                            .before(PortalPresentationSet),
-                        ambition_gameplay_core::portal::sync_portal_viewer
-                            .before(PortalPresentationSet),
-                        ambition_gameplay_core::portal::sync_portal_camera_continuity_focus
-                            .before(PortalPresentationSet)
-                            .before(ambition_gameplay_core::portal::apply_portal_camera_continuity),
-                        ambition_gameplay_core::portal::sync_portal_debug_overlay_to_f1
-                            .before(PortalPresentationSet),
-                        ambition_gameplay_core::portal::tag_portal_scene_bodies
-                            .after(actors::sync_visuals),
-                        ambition_gameplay_core::portal::portal_dev_toggle_system,
-                        ambition_gameplay_core::portal::portal_convention_toggle_system,
-                        gravity_visuals::sync_gravity_switch_visual.after(actors::sync_visuals),
-                        gravity_visuals::sync_gravity_zone_visual.after(actors::sync_visuals),
-                    ),
-                );
+            app.add_systems(
+                Update,
+                (
+                    gravity_visuals::sync_gravity_switch_visual.after(actors::sync_visuals),
+                    gravity_visuals::sync_gravity_zone_visual.after(actors::sync_visuals),
+                ),
+            );
         }
     }
 }

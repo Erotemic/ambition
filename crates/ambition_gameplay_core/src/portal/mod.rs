@@ -700,6 +700,51 @@ mod host_adapter {
             if next { "rotation (det +1)" } else { "reflection (det -1)" }
         );
     }
+
+    /// Public sim-side label for the host-adapter observation glue (E4 slice
+    /// 20): everything that publishes sim facts into the portal-presentation
+    /// crate's seams runs in THIS set. Render keeps exactly ONE constraint —
+    /// `PortalPresentationSet.after(PortalObservationSet)` — a set-to-set
+    /// label dependency, never a system registration.
+    #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+    pub struct PortalObservationSet;
+
+    /// Registers the Ambition host-adapter glue in its OWN plugin (E4 slice
+    /// 20 — render used to register these sim-side systems, the exact
+    /// ownership inversion the observation boundary kills):
+    ///
+    /// - the presentation-seam publishers (`sync_portal_world_frame`,
+    ///   `sync_portal_viewer`, `sync_portal_camera_continuity_focus`,
+    ///   `sync_portal_debug_overlay_to_f1`) in [`PortalObservationSet`];
+    /// - `tag_portal_scene_bodies` too — the audit ruled its old
+    ///   `.after(sync_visuals)` pin STALE: it tags SIM bodies
+    ///   (`PlayerVisual` + `PortalSceneBody`), not render-spawned visuals;
+    /// - the `F7`/`F10` dev toggles (host input concerns, no set);
+    /// - `load_portal_gun_art` at startup (asset PATHS are Ambition content).
+    pub struct PortalObservationPlugin;
+
+    impl Plugin for PortalObservationPlugin {
+        fn build(&self, app: &mut App) {
+            app.add_systems(Startup, load_portal_gun_art).add_systems(
+                Update,
+                (
+                    (
+                        sync_portal_world_frame,
+                        sync_portal_viewer,
+                        // `.before(apply_portal_camera_continuity)` is enforced
+                        // by the host's registration of the APPLY side, so no
+                        // duplicate pin here.
+                        sync_portal_camera_continuity_focus,
+                        sync_portal_debug_overlay_to_f1,
+                        tag_portal_scene_bodies,
+                    )
+                        .in_set(PortalObservationSet),
+                    portal_dev_toggle_system,
+                    portal_convention_toggle_system,
+                ),
+            );
+        }
+    }
 }
 
 #[cfg(feature = "portal_render")]
@@ -707,5 +752,5 @@ pub use host_adapter::{
     apply_portal_camera_continuity, load_portal_gun_art, portal_convention_toggle_system,
     portal_dev_toggle_system, sync_portal_camera_continuity_focus, sync_portal_debug_overlay_to_f1,
     sync_portal_viewer, sync_portal_world_frame, tag_portal_camera_continuity_camera,
-    tag_portal_scene_bodies,
+    tag_portal_scene_bodies, PortalObservationPlugin, PortalObservationSet,
 };

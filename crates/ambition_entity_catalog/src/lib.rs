@@ -292,6 +292,15 @@ pub struct MoveWindow {
 pub enum MoveEventKind {
     /// Play a sound cue by key.
     Sfx { cue: String },
+    /// Emit a purely COSMETIC visual effect by id (CM5 per-move presentation).
+    /// Unlike [`Effect`](Self::Effect) (a gameplay technique) this changes only
+    /// what the move LOOKS like — the sim emits the fact, presentation resolves
+    /// the `effect` id against the content-registered cosmetic vocabulary
+    /// (`ambition_vfx::move_vfx_kind`) and spawns the burst at the owner. A typo
+    /// is a startup validation error (`MoveSpec::presentation_problems`), never
+    /// a silent no-op. This is how a jab, a smash, and a launcher look distinct
+    /// with zero code — each authors its own `Vfx { effect }`.
+    Vfx { effect: String },
     /// Emit a content-defined effect (the `Effect` vocabulary / technique seam
     /// resolves it), carrying its opaque params.
     Effect(EffectRef),
@@ -386,6 +395,37 @@ fn default_charge_mult() -> f32 {
 }
 
 impl MoveSpec {
+    /// CM5: validate this move's PRESENTATION event ids so a typo fails loudly
+    /// at load, never as a silent missing sound/effect. `vfx_known` is the
+    /// injected cosmetic-vfx vocabulary oracle (this crate does not depend on
+    /// `ambition_vfx`, so gameplay_core passes `|id| move_vfx_kind(id).is_some()`
+    /// at expansion time). Returns one human-readable problem per bad id:
+    /// - a `Vfx { effect }` whose id is not in the cosmetic vocabulary, and
+    /// - a `Sfx { cue }` with an empty cue (a blank cue resolves to silence).
+    /// Empty result = the move's presentation is resolvable.
+    pub fn presentation_problems(&self, vfx_known: impl Fn(&str) -> bool) -> Vec<String> {
+        let mut problems = Vec::new();
+        for ev in &self.events {
+            match &ev.kind {
+                MoveEventKind::Vfx { effect } if !vfx_known(effect) => {
+                    problems.push(format!(
+                        "move '{}': Vfx event names unknown cosmetic effect '{}' (not in \
+                         the move_vfx_kind vocabulary)",
+                        self.id, effect
+                    ));
+                }
+                MoveEventKind::Sfx { cue } if cue.is_empty() => {
+                    problems.push(format!(
+                        "move '{}': Sfx event has an empty cue (resolves to silence)",
+                        self.id
+                    ));
+                }
+                _ => {}
+            }
+        }
+        problems
+    }
+
     /// The windows carrying `tag`, in declaration order.
     pub fn windows_tagged(
         &self,

@@ -97,6 +97,27 @@ pub enum VfxMessage {
     },
 }
 
+/// The content-registered COSMETIC vfx vocabulary a move's `Vfx { effect }`
+/// event (CM5 per-move presentation) resolves against. A pure id→kind mapping
+/// (no render/audio dep): the moveset dispatcher turns the resolved kind into a
+/// [`VfxMessage::Explosion`] at the owner, and the startup validator
+/// (`MoveSpec::presentation_problems`) rejects any move naming an id NOT in this
+/// table — so a typo fails loudly at load, never as a silent missing effect.
+/// The burst vocabulary is deliberately the shared [`ExplosionKind`] set: a
+/// jab authors `"burst_round"`, a smash `"shockwave"`, a launcher `"starburst"`
+/// — distinct looks, zero new art plumbing. Add a row here when a move needs a
+/// look the current five can't express.
+pub fn move_vfx_kind(effect: &str) -> Option<ExplosionKind> {
+    Some(match effect {
+        "classic_burst" => ExplosionKind::ClassicBurst,
+        "burst_round" => ExplosionKind::BurstRound,
+        "shockwave" => ExplosionKind::Shockwave,
+        "smoke_burst" => ExplosionKind::SmokeBurst,
+        "starburst" => ExplosionKind::Starburst,
+        _ => return None,
+    })
+}
+
 /// Packed-bank SFX id an [`ExplosionKind`] plays. A pure id mapping (no bank
 /// loading), so it lives in the foundation with the request vocab — only the
 /// spritesheet-row mapping (`explosion_anim`) is render-specific and stays in

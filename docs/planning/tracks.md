@@ -82,7 +82,7 @@ fable card. Ranked by how much they gate a fable task.
 | Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — E5 first slice `3c70d827`; **E5-finish steps 1–4 LANDED 2026-07-06** (sets+resources+combat schedule into the group; shared headless foundation; cut-rope de-woven via generic `RoomReplayRequested` + labeled slots; E4-prep: fx facade imports repointed, CameraViewState + cut-rope resources re-owned) | E5 step 5 (mint [the windowed host]) + step 6 (smoke shell) [opus]; W/E1/E2/E3/E6/E7/E8 open |
 | Decomposition D-B/D-C | same | queued behind D-A | mode-scope seam can land early (demos want it) |
 | Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | **CC1 COMPLETE + CC5 LANDED (fable) + CC2 COMPLETE (opus, 2026-07-06)** — engine_core::frame vocabulary + cast family registry real in code; CC2 first pass (hazards swept) + completion (§3.3 every reader classified: loading-zone Door/Walk/EdgeExit now swept via `transition_for_player`; water/climbable annotated discrete-OK + `thin_region_warnings` authoring validator; ledge audited; auto-collect N/A) parity suites green | CC3 fuzz rig (§6.1 oracle) [opus]; CC6 moving portals (§5-P2 spec) [opus] |
-| Combat stack | [engine/combat-model.md](engine/combat-model.md) | CM1+CM2+CM3+CM7+**CM4 (fable, 2026-07-06)** LANDED — the full cancel/chain table rides the move timeline (`Cancelable{into, condition}`), parity-pinned, connect-fact wired through the real hit path | CM5 per-move sfx/vfx [opus]; CM6 grab/throw/shield-stun (brings OnBlock) [opus, with SSB] |
+| Combat stack | [engine/combat-model.md](engine/combat-model.md) | CM1+CM2+CM3+CM7+CM4+**CM5 (opus, 2026-07-06)** LANDED — per-move presentation is authored: `MoveEventKind::Vfx{effect}` + prefab `swing_sfx`/`swing_vfx` params (default None = parity) resolved through `move_vfx_kind`, typo-validated at `expand` | CM6 grab/throw/shield-stun (brings OnBlock) [opus, with SSB] |
 | Netcode ladder | [engine/netcode.md](engine/netcode.md) | NEW | N0.2 input-stream type; N0.3 lint set [opus] |
 | Fighter brain | [engine/fighter-brain.md](engine/fighter-brain.md) | NEW | FB1 view audit [opus] (CM7 first) |
 | Boss pipeline | [engine/boss-design.md](engine/boss-design.md) | NEW | BD4 seed extraction [opus/sonnet]; BD1 after |
@@ -141,7 +141,7 @@ sandbag InPlace). ADR 0022 written. Original spec below for reference:
 |---|---|---|
 | Slash VFX renders as a black square | DEPRIORITIZED (Jon 2026-07-06: leaf effect, likely a sprite-source read quirk) — fold into CM5's per-move presentation slice when it lands; root-cause there, no dedicated pass | [opus] |
 | `SurfaceRamp` quarter-circle marker entities (Q27 ruling): generated quarter-arc chain for floor↔wall momentum transitions; params radius/orientation/segments; same converter pattern as `SurfaceLoop` + LDtk entity def + validator row | [the space IR] converters / sanic demo | [opus/sonnet] |
-| Per-attack VFX/SFX (not one generic swing) | CM5 | [opus] |
+| Per-attack VFX/SFX (not one generic swing) | ✅ CM5 landed (opus 2026-07-06): `swing_sfx`/`swing_vfx` prefab params + `Vfx{effect}` timed event — each authored move sounds/looks distinct | done |
 | Morph ball still draws the robot; generalize modal body morphs | E3 (mode→sprite-state row) | [opus] |
 | Shrine + glider sprites broken | E3 (rect drift; sprite pipeline) | [opus] |
 | All bosses render the generic sheet | E3/E6 — needs a RUN with `boss_sprites.len()` logging; do NOT apply the disproven sprite_target dispatch | [opus] |
@@ -407,3 +407,21 @@ annotated at the probe. **N/A:** no auto-collect token pickup exists yet
 documented in `items/pickup/mod.rs` for whoever adds one. engine_core 249/249
 (+thin-region test), rooms 31/31 (+tunnel test), app rl_sim gate build clean.
 Next CC-ladder opus work: CC3 fuzz rig (§6.1 oracle), CC6 moving portals.
+
+## 2026-07-06 (opus) — CM5: per-move presentation, authored not hardcoded
+The jonnotes "one generic swing everywhere" is dead: presentation is DATA.
+`MoveEventKind::Vfx { effect }` (entity_catalog) is a timed COSMETIC burst
+resolved through the content-registered `ambition_vfx::move_vfx_kind`
+vocabulary (the shared `ExplosionKind` set — a jab authors `burst_round`, a
+smash `shockwave`, a launcher `starburst`). The `simple_melee`/`simple_charge`
+prefabs grew `swing_sfx: Option<String>` + `swing_vfx: Option<String>` params
+(default `None` → byte-parity; the authored-melee adapter keeps the engine
+default). Validation: `MoveSpec::presentation_problems(vfx_known)` — the vfx
+vocabulary oracle is INJECTED so entity_catalog stays render-free — runs inside
+`MovePrefabRegistry::expand`, so a typo'd cue/effect id fails at the SAME
+startup gate a bad prefab key hits (never a silent missing effect). The
+content-free dispatcher emits `VfxMessage::Explosion` at the owner. 3 new tests
+(authored-vs-parity, typo rejected, dispatch→burst); moveset 28/28,
+entity_catalog 14/14, vfx green, app rl_sim gate build clean. NOT closed: the
+slash-VFX black-square is a separate render-side sprite-source quirk needing a
+visual run. Next CM-ladder opus work: CM6 (grab/throw/shield-stun, with SSB).

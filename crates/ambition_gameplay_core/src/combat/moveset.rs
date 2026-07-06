@@ -90,6 +90,11 @@ pub fn attack_move_from_melee(spec: &MeleeActionSpec) -> MoveSpec {
         damage,
         reach_px: reach,
         knockback: 120.0,
+        // The authored-melee adapter keeps the engine-default swing presentation
+        // (byte-parity with the pre-CM5 path); per-move sfx/vfx is authored on
+        // the prefab RON rows, not synthesized here.
+        swing_sfx: None,
+        swing_vfx: None,
     })
 }
 
@@ -97,7 +102,7 @@ pub fn attack_move_from_melee(spec: &MeleeActionSpec) -> MoveSpec {
 /// as authored DATA. Every field defaults, so a roster prefab row omits what it
 /// doesn't tune (`prefab: "simple_melee"` with empty params = a default jab).
 /// `sword_slash` is literally this prefab + params, zero new code.
-#[derive(Debug, Clone, Copy, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct SimpleMeleeParams {
     #[serde(default = "smp_windup")]
     pub windup_s: f32,
@@ -111,6 +116,18 @@ pub struct SimpleMeleeParams {
     pub reach_px: f32,
     #[serde(default = "smp_knockback")]
     pub knockback: f32,
+    /// CM5: the SFX cue this swing fires at its Active edge. `None` = the engine
+    /// default (`SWING_SFX_CUE`), so an unauthored row is byte-parity; an
+    /// authored row makes the move sound distinct (a heavy smash thuds, a jab
+    /// snaps) with zero code.
+    #[serde(default)]
+    pub swing_sfx: Option<String>,
+    /// CM5: an OPTIONAL cosmetic burst id (`ambition_vfx::move_vfx_kind`
+    /// vocabulary) emitted at the Active edge on top of the slash arc — `None` =
+    /// no extra burst (parity). Lets a launcher `"starburst"`, a smash
+    /// `"shockwave"`. A typo is a startup validation error, never silent.
+    #[serde(default)]
+    pub swing_vfx: Option<String>,
 }
 
 fn smp_windup() -> f32 {
@@ -141,6 +158,8 @@ impl Default for SimpleMeleeParams {
             damage: smp_damage(),
             reach_px: smp_reach(),
             knockback: smp_knockback(),
+            swing_sfx: None,
+            swing_vfx: None,
         }
     }
 }
@@ -207,12 +226,29 @@ pub fn simple_melee(p: &SimpleMeleeParams) -> MoveSpec {
                 sustain_effect: None,
             },
         ],
-        events: vec![MoveEvent {
-            at_s: windup,
-            kind: MoveEventKind::Sfx {
-                cue: SWING_SFX_CUE.to_string(),
-            },
-        }],
+        events: {
+            // The swing SFX at the Active edge (authored cue or the engine
+            // default), plus — if the row authored one — a cosmetic burst at the
+            // same edge (CM5 per-move presentation).
+            let mut events = vec![MoveEvent {
+                at_s: windup,
+                kind: MoveEventKind::Sfx {
+                    cue: p
+                        .swing_sfx
+                        .clone()
+                        .unwrap_or_else(|| SWING_SFX_CUE.to_string()),
+                },
+            }];
+            if let Some(effect) = &p.swing_vfx {
+                events.push(MoveEvent {
+                    at_s: windup,
+                    kind: MoveEventKind::Vfx {
+                        effect: effect.clone(),
+                    },
+                });
+            }
+            events
+        },
         gates: Default::default(),
         start_impulse: None,
         smash_charge_mult: 1.0,
@@ -319,7 +355,7 @@ pub fn simple_ranged(p: &SimpleRangedParams) -> MoveSpec {
 /// heavy hit the demos need (SMB1's crouch-charge, a wind-up smash). The
 /// `charge_s` Startup window is the hold; the `active_s` Active window lands one
 /// forward Rect hit sized from `reach_px`, then `recover_s` settle.
-#[derive(Debug, Clone, Copy, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Deserialize)]
 pub struct SimpleChargeParams {
     #[serde(default = "scp_charge")]
     pub charge_s: f32,
@@ -338,6 +374,14 @@ pub struct SimpleChargeParams {
     /// `1.0` = no scaling (parity); a smash roster authors e.g. `2.0`.
     #[serde(default = "scp_charge_mult")]
     pub smash_charge_mult: f32,
+    /// CM5: the release SFX cue (`None` = engine default). See
+    /// [`SimpleMeleeParams::swing_sfx`].
+    #[serde(default)]
+    pub swing_sfx: Option<String>,
+    /// CM5: an optional cosmetic burst at the Active edge (`None` = parity). See
+    /// [`SimpleMeleeParams::swing_vfx`].
+    #[serde(default)]
+    pub swing_vfx: Option<String>,
 }
 
 fn scp_charge() -> f32 {
@@ -372,6 +416,8 @@ impl Default for SimpleChargeParams {
             reach_px: scp_reach(),
             knockback: scp_knockback(),
             smash_charge_mult: scp_charge_mult(),
+            swing_sfx: None,
+            swing_vfx: None,
         }
     }
 }
@@ -426,12 +472,26 @@ pub fn simple_charge(p: &SimpleChargeParams) -> MoveSpec {
                 sustain_effect: None,
             },
         ],
-        events: vec![MoveEvent {
-            at_s: charge,
-            kind: MoveEventKind::Sfx {
-                cue: SWING_SFX_CUE.to_string(),
-            },
-        }],
+        events: {
+            let mut events = vec![MoveEvent {
+                at_s: charge,
+                kind: MoveEventKind::Sfx {
+                    cue: p
+                        .swing_sfx
+                        .clone()
+                        .unwrap_or_else(|| SWING_SFX_CUE.to_string()),
+                },
+            }];
+            if let Some(effect) = &p.swing_vfx {
+                events.push(MoveEvent {
+                    at_s: charge,
+                    kind: MoveEventKind::Vfx {
+                        effect: effect.clone(),
+                    },
+                });
+            }
+            events
+        },
         gates: Default::default(),
         start_impulse: None,
         // CM3: the charge move's payoff — the authored release multiplier.
@@ -490,6 +550,15 @@ impl MovePrefabRegistry {
             .ok_or_else(|| format!("unknown move prefab '{key}'"))?;
         let mut spec = builder(params)?;
         spec.id = move_id.to_string();
+        // CM5: reject an unresolvable presentation id (a `Vfx`/`Sfx` typo) at
+        // expansion time — the SAME startup-validation gate a bad prefab key or
+        // param hits, so authored sound/vfx typos never survive to a silent
+        // missing effect. The cosmetic-vfx vocabulary lives in `ambition_vfx`;
+        // inject it (entity_catalog can't depend on the render-adjacent crate).
+        let problems = spec.presentation_problems(|id| ambition_vfx::move_vfx_kind(id).is_some());
+        if !problems.is_empty() {
+            return Err(problems.join("; "));
+        }
         Ok(spec)
     }
 
@@ -1179,6 +1248,7 @@ pub fn dispatch_move_events(
         &ActorControl,
     )>,
     mut sfx: MessageWriter<SfxMessage>,
+    mut vfx: MessageWriter<ambition_vfx::VfxMessage>,
     mut actions: MessageWriter<ActorActionMessage>,
 ) {
     for ev in events.read() {
@@ -1191,6 +1261,25 @@ pub fn dispatch_move_events(
                 sfx.write(SfxMessage::Play {
                     id: SfxId::new(cue),
                     pos,
+                });
+            }
+            MoveEventKind::Vfx { effect } => {
+                // CM5 per-move cosmetic burst: resolve the id against the
+                // content-registered vocabulary and spawn it at the owner. A
+                // typo can't reach here — `presentation_problems` rejects an
+                // unresolvable id at startup — but stay robust if it somehow
+                // does (skip, never panic on the RL-hot path).
+                let Some(kind) = ambition_vfx::move_vfx_kind(effect) else {
+                    continue;
+                };
+                let pos = positions
+                    .get(ev.owner)
+                    .map(|k| k.pos)
+                    .unwrap_or(ae::Vec2::ZERO);
+                vfx.write(ambition_vfx::VfxMessage::Explosion {
+                    pos,
+                    kind,
+                    scale: 1.0,
                 });
             }
             MoveEventKind::Effect(effect) => {
@@ -1372,6 +1461,131 @@ mod tests {
         assert!(reg.expand("simple_charge", &empty, "smash").is_ok());
     }
 
+    /// CM5: a prefab row authors its OWN swing sfx + a cosmetic burst, so the
+    /// move sounds and looks distinct with zero code. Parity when omitted.
+    #[test]
+    fn per_move_presentation_is_authored_on_the_prefab_row() {
+        let reg = MovePrefabRegistry::with_engine_prefabs();
+
+        // Default row: the engine-default swing cue, no cosmetic burst (parity).
+        let default = reg
+            .expand(
+                "simple_melee",
+                &ambition_entity_catalog::ParamValue::default(),
+                "jab",
+            )
+            .unwrap();
+        let sfx_cues: Vec<&str> = default
+            .events
+            .iter()
+            .filter_map(|e| match &e.kind {
+                MoveEventKind::Sfx { cue } => Some(cue.as_str()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(sfx_cues, vec![SWING_SFX_CUE], "default swing cue");
+        assert!(
+            !default
+                .events
+                .iter()
+                .any(|e| matches!(e.kind, MoveEventKind::Vfx { .. })),
+            "an unauthored row emits no cosmetic burst (parity)"
+        );
+
+        // Authored row: a heavy smash with its own thud + a shockwave burst.
+        let smash = reg
+            .expand(
+                "simple_melee",
+                &ambition_entity_catalog::ParamValue::parse(
+                    "(swing_sfx: Some(\"boss.slam\"), swing_vfx: Some(\"shockwave\"))",
+                )
+                .unwrap(),
+                "smash",
+            )
+            .expect("authored presentation expands");
+        assert!(
+            smash.events.iter().any(|e| matches!(
+                &e.kind,
+                MoveEventKind::Sfx { cue } if cue == "boss.slam"
+            )),
+            "the authored cue replaced the default"
+        );
+        assert!(
+            smash.events.iter().any(|e| matches!(
+                &e.kind,
+                MoveEventKind::Vfx { effect } if effect == "shockwave"
+            )),
+            "the authored cosmetic burst rides the timeline"
+        );
+    }
+
+    /// CM5: a typo'd cosmetic vfx id fails at expand (startup validation), the
+    /// same gate a bad prefab key hits — never a silent missing effect.
+    #[test]
+    fn a_typod_cosmetic_vfx_id_is_rejected_at_expansion() {
+        let reg = MovePrefabRegistry::with_engine_prefabs();
+        let bad =
+            ambition_entity_catalog::ParamValue::parse("(swing_vfx: Some(\"kaboom\"))").unwrap();
+        let err = reg
+            .expand("simple_melee", &bad, "x")
+            .expect_err("an unknown cosmetic id must fail validation");
+        assert!(
+            err.contains("kaboom") && err.contains("unknown cosmetic effect"),
+            "the error names the offending id: {err}"
+        );
+    }
+
+    /// CM5: the content-free dispatcher turns a `Vfx` event into an explosion
+    /// burst at the owner's position.
+    #[test]
+    fn move_event_dispatch_bridges_vfx_to_a_cosmetic_burst() {
+        use ambition_vfx::VfxMessage;
+        use bevy::prelude::*;
+
+        #[derive(Resource, Default)]
+        struct Seen(Option<ambition_vfx::ExplosionKind>);
+
+        fn capture(mut vfx: MessageReader<VfxMessage>, mut seen: ResMut<Seen>) {
+            for m in vfx.read() {
+                if let VfxMessage::Explosion { kind, .. } = m {
+                    seen.0 = Some(*kind);
+                }
+            }
+        }
+
+        let mut app = App::new();
+        app.add_message::<MoveEventMessage>();
+        app.add_message::<SfxMessage>();
+        app.add_message::<VfxMessage>();
+        app.add_message::<ActorActionMessage>();
+        app.init_resource::<Seen>();
+        let owner = app
+            .world_mut()
+            .spawn(ae::BodyKinematics {
+                pos: ae::Vec2::new(10.0, 20.0),
+                vel: ae::Vec2::ZERO,
+                size: ae::Vec2::new(16.0, 24.0),
+                facing: 1.0,
+            })
+            .id();
+        app.add_systems(Update, (dispatch_move_events, capture).chain());
+        app.world_mut()
+            .resource_mut::<Messages<MoveEventMessage>>()
+            .write(MoveEventMessage {
+                owner,
+                move_id: "smash".into(),
+                kind: MoveEventKind::Vfx {
+                    effect: "starburst".to_string(),
+                },
+            });
+        app.update();
+        assert_eq!(
+            app.world().resource::<Seen>().0,
+            Some(ambition_vfx::ExplosionKind::Starburst),
+            "the Vfx event resolved to a Starburst explosion burst",
+        );
+    }
+
     #[test]
     fn authored_melee_adapter_matches_the_simple_melee_prefab() {
         // The MeleeActionSpec path and the prefab produce the same move for the
@@ -1392,6 +1606,7 @@ mod tests {
             damage: 2,
             reach_px: 40.0,
             knockback: 120.0,
+            ..Default::default()
         });
         assert_eq!(via_adapter, via_prefab);
     }

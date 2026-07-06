@@ -21,7 +21,8 @@ use ambition_platformer_primitives::projectile::EnemyProjectileSpawn;
 
 pub mod vfx;
 pub use vfx::{
-    explosion_sfx, ExplosionKind, ExplosionRequest, FireworksRequest, ParticleKind, VfxMessage,
+    explosion_sfx, move_vfx_kind, ExplosionKind, ExplosionRequest, FireworksRequest, ParticleKind,
+    VfxMessage,
 };
 
 // ===================================================================

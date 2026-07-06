@@ -1,4 +1,4 @@
-//! Smash-brawl brain template — SSBM Subspace-Emissary feel.
+//! Smash-brawl brain template — SSBB Subspace-Emissary feel.
 //!
 //! Each tick the brain runs a 5-stage pipeline:
 //!

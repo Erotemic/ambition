@@ -11,6 +11,8 @@ use crate::session::data::{
 };
 use ambition_sfx::SfxMessage;
 use ambition_sfx::SfxProvider;
+use bevy::asset::{Assets, Handle};
+use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
 #[test]
 fn amplitude_to_decibels_silent_floor() {

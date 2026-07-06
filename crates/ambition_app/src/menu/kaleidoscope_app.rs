@@ -41,7 +41,7 @@ use ambition_input::MenuControlFrame;
 use ambition_sfx::SfxMessage;
 
 /// Play a one-shot UI sound for the cube menu: `Play { id, pos }` with `pos = ZERO`.
-/// `Play` is non-spatialized (see `audio::runtime::audio_play_sfx_messages` — it
+/// `Play` is non-spatialized (see `ambition_audio::audio_play_sfx_messages` — it
 /// looks the id up in the bank and plays it full-volume; the `pos` is unused for
 /// `Play`), so `Vec2::ZERO` keeps menu sounds audible at full volume. If the id
 /// isn't packed into the runtime bank yet the play just no-ops (safe).

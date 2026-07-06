@@ -15,12 +15,14 @@ use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
 use ambition_engine_core as ae;
 
+#[cfg(feature = "audio")]
+use ambition_audio::SfxBankResource;
 use ambition_engine_core::RoomGeometry;
 use ambition_gameplay_core::assets::game_assets::GameAssets;
 #[cfg(feature = "audio")]
 use ambition_gameplay_core::assets::sandbox_assets::{ids, SandboxAssetCatalog};
 #[cfg(feature = "audio")]
-use ambition_gameplay_core::audio::{AudioLibrary, MusicPlaybackState, SfxBankResource};
+use ambition_gameplay_core::audio::{AudioLibrary, MusicPlaybackState};
 use ambition_gameplay_core::character_sprites::{
     build_character_sprite_with_render_size, feet_anchor_for_render_size,
     player_placeholder_render_size, CharacterAnimator,

@@ -3,10 +3,19 @@
 Staged here while another agent works on the main tree. Nothing in this
 directory is referenced by `cargo`; it does not affect builds or tests.
 
+> 2026-07-06 E1b note: this staged patch targets the pre-extraction
+> gameplay-core audio runtime and is now obsolete as written. The reusable
+> playback library lives in
+> [crates/ambition_audio/src/library.rs](../../../crates/ambition_audio/src/library.rs),
+> while the SFX bank loader/drain lives in
+> [crates/ambition_audio/src/bank_asset.rs](../../../crates/ambition_audio/src/bank_asset.rs).
+> Re-measure the lazy-music slice against those files before applying any of
+> the snippets below.
+
 ## What this slice does
 
 Defers the eager `asset_server.load(...)` calls in `AudioLibrary::new`
-([crates/ambition_gameplay_core/src/audio/runtime.rs:284-302](../../../crates/ambition_gameplay_core/src/audio/runtime.rs#L284-L302))
+([crates/ambition_audio/src/library.rs](../../../crates/ambition_audio/src/library.rs))
 so file-backed music tracks load on first request instead of at startup.
 File-backed tracks total ~58 MB across 25 OGGs today; only the default
 track plus whatever the player switches to actually need to be live.
@@ -33,17 +42,16 @@ they're cheap, deterministic, and required by tests that don't have an
 - `README.md` — this file.
 - `changes.md` — file-by-file change manifest with before/after snippets
   for the small surgical edits.
-- `runtime_new.rs` — full proposed replacement for
-  [crates/ambition_gameplay_core/src/audio/runtime.rs](../../../crates/ambition_gameplay_core/src/audio/runtime.rs).
-  Heavy edits — easier to review as a complete file than as a hand-written
-  diff.
+- `runtime_new.rs` — obsolete full proposed replacement for the old
+  gameplay-core audio runtime. Heavy edits — easier to review as a complete
+  file than as a hand-written diff, but now requires a fresh port to
+  `ambition_audio`.
 
 ## How to apply when the other agent is done
 
 Mechanical, in order:
 
-1. Replace `crates/ambition_gameplay_core/src/audio/runtime.rs` with
-   `runtime_new.rs`.
+1. Re-port the staged idea to `crates/ambition_audio/src/library.rs`.
 2. Apply the surgical edits in `changes.md` to:
    - `crates/ambition_gameplay_core/src/audio/tests.rs`
    - `crates/ambition_gameplay_core/src/music/director.rs`

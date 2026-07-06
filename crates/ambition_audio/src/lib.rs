@@ -9,6 +9,8 @@ pub mod mix;
 pub mod spec;
 
 #[cfg(feature = "kira")]
+pub mod bank_asset;
+#[cfg(feature = "kira")]
 pub mod library;
 #[cfg(feature = "kira")]
 pub mod music;
@@ -18,3 +20,8 @@ pub mod render;
 pub mod web_unlock;
 
 pub use mix::MusicMix;
+
+#[cfg(feature = "kira")]
+pub use bank_asset::{
+    audio_play_sfx_messages, SfxBankAsset, SfxBankAssetPath, SfxBankAssetPlugin, SfxBankResource,
+};

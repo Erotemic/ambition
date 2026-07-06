@@ -23,16 +23,10 @@ use ambition_engine_core as ae;
 // SfxMessage` at its true home. The audio runtime submodules import it directly.
 #[cfg(all(test, feature = "audio"))]
 use ambition_sfx as sfx;
-use bevy::prelude::*;
-#[cfg(feature = "audio")]
-use bevy_kira_audio::prelude::{AudioChannel, AudioControl, AudioSource as KiraAudioSource};
 
-#[cfg(feature = "audio")]
-mod bank_asset;
 pub mod environment;
 #[cfg(feature = "audio")]
 mod plugin;
-mod runtime;
 
 #[cfg(all(test, feature = "audio"))]
 mod tests;
@@ -41,8 +35,6 @@ pub use environment::{AudioEnvironment, AudioEnvironmentMode};
 // SoundCue / SfxMessageCue / ORIGINAL_TRACK_ID live in `ambition_audio`
 // (Kira-gated); headless paths use `SoundCueKey` from the data schema.
 
-#[cfg(feature = "audio")]
-pub use bank_asset::{SfxBankAsset, SfxBankAssetPlugin, SfxBankResource};
 #[cfg(feature = "audio")]
 pub use environment::{
     apply_audio_environment, detect_audio_environment, smooth_audio_environment,
@@ -63,4 +55,6 @@ pub use ambition_audio::render::SfxBankHandleCache;
 #[cfg(feature = "audio")]
 pub use ambition_audio::web_unlock::{AudioUnlockState, WebAudioUnlockPlugin};
 #[cfg(feature = "audio")]
-pub use runtime::{apply_encounter_music, audio_play_sfx_messages};
+pub use ambition_audio::{
+    audio_play_sfx_messages, SfxBankAsset, SfxBankAssetPath, SfxBankAssetPlugin, SfxBankResource,
+};

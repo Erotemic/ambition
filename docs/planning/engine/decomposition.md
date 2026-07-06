@@ -117,7 +117,7 @@ found drift — update the table in the same commit. LOC ≈ `wc -l`.)*
 | `encounter/` | 2504 | `ambition_encounter` | E-enc | wave/lockdown kit |
 | `dialog/` | 2217 | **`ambition_dialog`** (runtime) | E1c | game bindings stay sim-side |
 | `time/` | 1431 | stays (measured: depends on player/combat/features); `camera_ease` rides E4 | E8 note | |
-| `audio/` + `music/` | 1791 | **`ambition_audio`** | E1b | |
+| `audio/` + `music/` | 1791 | **`ambition_audio`** | E1b | reusable SFX-bank loader/drain moved; sandbox adapters remain |
 | `session/` | 1245 | `ambition_actors` | E7 | lifecycle of the sim |
 | `body_mode/` | 807 | `ambition_actors` | E7 | mode→sprite-state seam lands in E3 but the MODE is sim |
 | `portal/` (glue) | 711 | `ambition_actors` glue or `ambition_portal` adapter | E7 | measure at rename time |
@@ -162,7 +162,7 @@ has a standing numeric answer (re-measure when the tree drifts):
 | `ambition_items` (E8) | `items/ inventory_ui/` | 2.7k |
 | `ambition_encounter` (E-enc) | `encounter/` + rewards | 2.9k |
 | `ambition_dialog` (E1c) | `dialog/` | 2.3k |
-| `ambition_audio` (E1b) | `audio/ music/` | 1.8k |
+| `ambition_audio` (E1b) | `audio/ music/` | reusable audio core + bank loader |
 | `ambition_runtime` (E5 tail) | `schedule/ platformer_runtime/` | 0.7k |
 | **total leaving** | | **≈ 64k (63%)** |
 
@@ -682,11 +682,17 @@ the facade, run the gate.
   `DeveloperTools` persistence stays behind for E1d. Exit locked by
   `architecture_boundaries_persistence_crate_owns_stored_shapes_only`
   (no menu/UI/game machinery imports).
-- **E1b `ambition_audio`** (audio/ + music/, 1.8k): **NOT mechanical
-  (opus 2026-07-06 re-measured):** `gameplay_core/src/{audio,music}` reaches
-  UP into `session`(2)/`persistence`(2)/`encounter`(2)/`rooms`(1)/`assets`(2)
-  — same D2 pattern (invert the upward reads first, then move into the existing
-  `ambition_audio` foundational crate, ~1k). A dedicated session, not a filler.
+- ✅ **E1b `ambition_audio` DONE (Codex, 2026-07-06):** the reusable
+  SFX-bank asset loader, `SfxBankResource`, and `audio_play_sfx_messages`
+  moved into the existing foundational crate behind the `kira` feature.
+  The app now supplies the catalog-resolved bank path through
+  `SfxBankAssetPath`, so `ambition_audio` does not name the sandbox asset
+  catalog. The old unscheduled `apply_encounter_music` fallback was deleted;
+  the neutral music-intent/director path is the only music application path.
+  Remaining `gameplay_core/src/{audio,music}` files are sandbox adapters:
+  environment/player-water mix, plugin/schedule assembly, settings-to-mix sync,
+  and encounter/room/radio intent mapping. Do not move those into the
+  foundational crate without first extracting their host-specific inputs.
 - **E1c `ambition_dialog`** (dialog/ 2.2k): runtime + lint machinery;
   the game's Yarn BINDINGS stay sim-side (they reference actor state).
 - **E1d `ambition_dev_tools`** (core dev/ 3.0k + app dev/ 2.7k): one

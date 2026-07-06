@@ -8,8 +8,8 @@ use super::*;
 /// Track the music identifier the active room would like to play.
 ///
 /// Written by `sync_room_music_request` from `ActiveRoomMetadata`,
-/// consumed by `audio::apply_encounter_music` as the "default track"
-/// when no encounter override is active. The encounter system retains
+/// consumed by the music-intent adapter as the "default track" when no
+/// encounter override is active. The encounter system retains
 /// priority — `EncounterMusicRequest::desired_track = Some(...)`
 /// overrides this resource the same way it overrides the sandbox-wide
 /// default music track. Empty/absent room music falls back to

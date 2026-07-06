@@ -2,16 +2,15 @@
 //! generic wave system) and `BossEncounterMusicRequest` (the separate
 //! `crate::boss_encounter` fight) are split so the per-frame encounter tick,
 //! which writes `desired_track` every frame (including `None`), can't clobber
-//! boss music; the audio backend prefers boss > encounter > room default.
+//! boss music; the music-intent adapter prefers boss > encounter > room
+//! default.
 
 use bevy::prelude::Resource;
 
 /// Music request from the encounter system to the audio backend.
 /// The encounter writes `desired_track` (Some(track_id) while an
 /// encounter is in flight, None when default music should resume);
-/// the audio-feature-gated `apply_encounter_music` system in
-/// `audio.rs` swaps the music channel only when the desired track
-/// changes.
+/// the music-intent adapter maps this into the neutral director request.
 #[derive(Resource, Default, Debug, Clone)]
 pub struct EncounterMusicRequest {
     pub desired_track: Option<String>,
@@ -32,7 +31,7 @@ pub struct EncounterMusicRequest {
 /// frame after the boss-encounter set its track, causing the
 /// audio backend to flip back to the room default.
 ///
-/// The audio backend (`apply_encounter_music`) prefers
+/// The music-intent adapter prefers
 /// `BossEncounterMusicRequest.desired_track` over
 /// `EncounterMusicRequest.desired_track` over the room default.
 #[derive(Resource, Default, Debug, Clone)]

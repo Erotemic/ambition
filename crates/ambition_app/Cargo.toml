@@ -89,7 +89,12 @@ android = [
 android_dev = ["android", "dev_tools"]
 
 ldtk_runtime = ["ambition_gameplay_core/ldtk_runtime", "dep:bevy_ecs_ldtk", "dep:bevy_asset_loader"]
-audio = ["ambition_gameplay_core/audio", "ambition_content/audio", "dep:bevy_kira_audio"]
+audio = [
+    "ambition_gameplay_core/audio",
+    "ambition_content/audio",
+    "ambition_audio/kira",
+    "dep:bevy_kira_audio",
+]
 ui = ["ambition_gameplay_core/ui", "ambition_content/ui", "dep:bevy_material_ui", "dep:bevy_yarnspinner"]
 physics_debris = ["ambition_gameplay_core/physics_debris"]
 input = ["ambition_gameplay_core/input", "ambition_render/input", "ambition_host/input", "dep:leafwing-input-manager"]
@@ -122,6 +127,7 @@ ambition_ui_nav = { path = "../ambition_ui_nav" }
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 ambition_persistence = { path = "../ambition_persistence" }
 ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy", "sfx"] }
+ambition_audio = { path = "../ambition_audio" }
 ambition_sfx = { path = "../ambition_sfx" }
 ambition_vfx = { path = "../ambition_vfx" }
 ambition_menu = { path = "../ambition_menu" }

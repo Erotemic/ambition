@@ -371,8 +371,8 @@ pub fn update_encounters_from_world(
     //    authored-immutable mid-room.
 
     // 8. Music: pick the first encounter currently in flight and
-    //    request its track; otherwise request the default. The
-    //    audio-feature-gated `apply_encounter_music` system reacts.
+    //    request its track; otherwise request the default. The music
+    //    intent adapter turns this into the neutral director request.
     let active_track = registry.encounters.iter().find_map(|(_, s)| {
         if matches!(
             s.phase,

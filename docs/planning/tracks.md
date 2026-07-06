@@ -181,7 +181,7 @@ fable card. Ranked by how much they gate a fable task.
 
 | Track | Doc | Status | Next |
 |---|---|---|---|
-| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — **E5-finish COMPLETE (fable 2026-07-06 night): step 5 executed (amended: shared sim wiring → `ambition_runtime` per-domain plugins; `ambition_host` = leafwing bindings + camera cluster) + step 6 executed (SimCoreResourcesPlugin split + the demo smoke shell PASSES) — THE DEMO GATE IS OPEN**; W1 STATE-inversion (opus); **W-a…W-e RULED — the 5-step OPUS-SAFE W queue is in decomposition.md**; **E2 back-edges PRE-CLASSIFIED (fable) — verdict list in the E2 card**; **W-queue step 1 DONE + E2 IN-PLACE VERDICTS DONE (opus 2026-07-06 night): entity_catalog::placements + engine_core::kinematic_path minted; all 7 E2 back-edge verdicts landed in-place (CombatTuning minted, banner→message, CenteredAabb/HitEvent/overlay repointed, FeatureSimEntity→lifecycle) — combat's atomic move is now near-mechanical**; **E1a persistence carve ✅ DONE (Codex 2026-07-06): `ambition_persistence` owns save/settings/quest stored shapes; gameplay-core retains only settings/menu IR + dev persistence adapters for E1e/E1d** | **W2 ✅ EXECUTED (fable 2026-07-07 — see the log; GeoSource subsumed SpatialSource)**; W queue steps 3–5 [opus]; **E2 combat carve ✅ EXECUTED (fable 2026-07-07 — the kit IS ambition_combat; see the log)**; projectiles mint = a dedicated de-weave session (census in the E2 card); E1b next E1 slice; E3/E6/E7/E8 open |
+| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — **E5-finish COMPLETE (fable 2026-07-06 night): step 5 executed (amended: shared sim wiring → `ambition_runtime` per-domain plugins; `ambition_host` = leafwing bindings + camera cluster) + step 6 executed (SimCoreResourcesPlugin split + the demo smoke shell PASSES) — THE DEMO GATE IS OPEN**; W1 STATE-inversion (opus); **W-a…W-e RULED — the 5-step OPUS-SAFE W queue is in decomposition.md**; **E2 back-edges PRE-CLASSIFIED (fable) — verdict list in the E2 card**; **W-queue step 1 DONE + E2 IN-PLACE VERDICTS DONE (opus 2026-07-06 night): entity_catalog::placements + engine_core::kinematic_path minted; all 7 E2 back-edge verdicts landed in-place (CombatTuning minted, banner→message, CenteredAabb/HitEvent/overlay repointed, FeatureSimEntity→lifecycle) — combat's atomic move is now near-mechanical**; **E1a persistence carve ✅ DONE (Codex 2026-07-06): `ambition_persistence` owns save/settings/quest stored shapes; gameplay-core retains only settings/menu IR + dev persistence adapters for E1e/E1d**; **E1b audio carve ✅ DONE (Codex 2026-07-06): reusable SFX-bank loader/drain moved to `ambition_audio`; dead encounter-music fallback deleted; remaining audio/music files are sandbox adapters** | **W2 ✅ EXECUTED (fable 2026-07-07 — see the log; GeoSource subsumed SpatialSource)**; W queue steps 3–5 [opus]; **E2 combat carve ✅ EXECUTED (fable 2026-07-07 — the kit IS ambition_combat; see the log)**; projectiles mint = a dedicated de-weave session (census in the E2 card); E1c next E1 slice; E3/E6/E7/E8 open |
 | Decomposition D-B/D-C | same | queued behind D-A | mode-scope seam can land early (demos want it) |
 | Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | **CC1 COMPLETE + CC5 LANDED (fable) + CC2 COMPLETE + §3.6 GeoId/GeoFaceRef SUBSTRATE MINTED (opus, 2026-07-06)** — SweepSample §3.1 PARKED (decision brief above); GeoId types + Block.id (Anon default, byte-parity) real in code, first consumer = CC6 — engine_core::frame vocabulary + cast family registry real in code; CC2 first pass (hazards swept) + completion (§3.3 every reader classified: loading-zone Door/Walk/EdgeExit now swept via `transition_for_player`; water/climbable annotated discrete-OK + `thin_region_warnings` authoring validator; ledge audited; auto-collect N/A) parity suites green | CC3 fuzz rig (§6.1 oracle) [opus]; CC6 moving portals (§5-P2 spec) [opus] |
 | Combat stack | [engine/combat-model.md](engine/combat-model.md) | CM1 (incl. **launch_dir consumption, fable 2026-07-06 evening** `c695cd9c`)+CM2+CM3+CM7+CM4+CM5 LANDED — per-move presentation authored; smash axes complete (growth, DI, charge, cancel tables, fixed launch angles) | CM6 grab/throw/shield-stun (brings OnBlock) [opus, with SSB] |
@@ -1054,4 +1054,25 @@ forbid menu/UI/game machinery imports in the new crate. Gate:
 `cargo check -p ambition_app --features rl_sim`; focused
 architecture-boundary test green; `python3 scripts/check_agent_kb.py`;
 `python3 scripts/check_doc_links.py`; `cargo run -p ambition_app --bin
+headless -- 120`.
+
+## 2026-07-06 (Codex) — E1b EXECUTED: `ambition_audio` owns the reusable SFX runtime
+
+Moved the reusable SFX-bank runtime out of `ambition_gameplay_core` and
+into the existing `ambition_audio` crate: the Bevy bank asset/loader,
+`SfxBankResource`, async promotion, handle-cache refresh, and
+`audio_play_sfx_messages` now live behind `ambition_audio/kira`. The app
+keeps the sandbox-specific catalog responsibility by resolving
+`audio.sfx_bank` during `init_sandbox_resources` and inserting
+`SfxBankAssetPath`; sync startup loading still inserts the same
+`SfxBankResource` type. Deleted the unscheduled `apply_encounter_music`
+fallback, leaving the neutral music-intent/director path as the only
+music application route. The remaining gameplay-core audio/music files
+are explicitly sandbox adapters (environment mix, schedule assembly,
+settings sync, encounter/room/radio intent). Gate: `cargo fmt`;
+`cargo test -p ambition_audio --features kira` (6);
+`cargo test -p ambition_gameplay_core --lib --features audio` (1029);
+`cargo check -p ambition_app --features "rl_sim audio"`;
+`cargo fmt --check`; `python3 scripts/check_doc_links.py`;
+`python3 scripts/check_agent_kb.py`; `cargo run -p ambition_app --bin
 headless -- 120`.

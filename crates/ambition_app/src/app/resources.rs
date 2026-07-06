@@ -75,6 +75,10 @@ pub fn init_sandbox_resources(app: &mut App) {
                 );
             },
         );
+    #[cfg(feature = "audio")]
+    let sfx_bank_asset_path = sandbox_catalog
+        .path_for(&ambition_gameplay_core::assets::sandbox_assets::ids::sfx_bank())
+        .map(ambition_audio::SfxBankAssetPath);
 
     let ldtk_project = match ldtk_world::LdtkProject::load_default(&sandbox_catalog) {
         Ok(project) => project,
@@ -194,4 +198,8 @@ pub fn init_sandbox_resources(app: &mut App) {
         // Mutated by the pause menu; read by audio/video/gameplay
         // systems and the input deadzone/hysteresis filter.
         .insert_resource(ambition_persistence::settings::UserSettings::default());
+    #[cfg(feature = "audio")]
+    if let Some(path) = sfx_bank_asset_path {
+        app.insert_resource(path);
+    }
 }

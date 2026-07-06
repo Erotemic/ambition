@@ -21,7 +21,7 @@ use bevy_kira_audio::prelude::{AudioApp, AudioPlugin as KiraAudioPlugin};
 use super::environment::{
     apply_audio_environment, detect_audio_environment, smooth_audio_environment, AudioEnvironment,
 };
-use super::runtime::audio_play_sfx_messages;
+use ambition_audio::audio_play_sfx_messages;
 use ambition_audio::library::{
     start_default_music_when_ready, DefaultMusicStarted, MusicChannel, SfxChannel,
 };
@@ -43,7 +43,7 @@ impl Plugin for SandboxAudioPlugin {
             // (web HTTP fetch, plain desktop loose FS without env override).
             // Idempotent against the sync path; both insert the same
             // `SfxBankResource` and the second writer no-ops.
-            .add_plugins(super::SfxBankAssetPlugin)
+            .add_plugins(ambition_audio::SfxBankAssetPlugin)
             // Browser AudioContext unlock telemetry. No-op on desktop
             // except the one-shot "audio unlocked" log; on wasm it also
             // emits the startup "audio locked until first gesture" line
@@ -51,7 +51,7 @@ impl Plugin for SandboxAudioPlugin {
             // before they click.
             .add_plugins(super::WebAudioUnlockPlugin)
             .init_resource::<super::RadioStationState>()
-            .init_resource::<super::SfxBankHandleCache>()
+            .init_resource::<ambition_audio::render::SfxBankHandleCache>()
             .init_resource::<AudioEnvironment>()
             .init_resource::<DefaultMusicStarted>()
             .add_audio_channel::<MusicChannel>()

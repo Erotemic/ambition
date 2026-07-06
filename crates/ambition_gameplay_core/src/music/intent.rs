@@ -61,9 +61,8 @@ pub fn compute_music_intent(
     );
 
     // Mirror the resolved priority winner back into the request resources'
-    // `last_applied` so the (currently unscheduled) `apply_encounter_music`
-    // fallback stays consistent if it is ever re-enabled. The director itself
-    // never touches these gameplay resources.
+    // `last_applied` for diagnostics and tests. The director itself never
+    // touches these gameplay resources.
     if let Some(top) = candidates.first().cloned() {
         encounter_music.last_applied = Some(top.clone());
         boss_music.last_applied = Some(top);

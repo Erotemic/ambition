@@ -152,32 +152,30 @@ DI adjust (CM2), then existing knockback application unchanged.
 `damage_taken()` is a method on the existing health cluster — no new
 component, no parallel meter.
 
-**CM4 cancel algorithm** (grounded in `MoveSpec`/`MovePlayback`,
-`combat/moveset.rs`): add to `MoveSpec`:
-
-```rust
-pub struct CancelRule {
-    pub window: (f32, f32),          // proper-time span, like MoveWindow
-    pub condition: CancelCondition,  // OnHit | OnBlock | OnWhiff | Always
-    pub into: CancelClass,           // Jump | Dash | Special | AnyAttack | Move(String)
-}
-// MoveSpec gains: #[serde(default)] pub cancels: Vec<CancelRule>,
-// MovePlayback gains: pub landed_hit: bool,  // set by the hitbox-connect path
-```
-
-Algorithm, inside the existing `trigger_moveset_moves` (the ONE
-entry point that starts moves — the cancel check is a pre-step, not a
-new system): when a verb edge arrives while `MovePlayback` exists,
-instead of today's reject: find the first `CancelRule` whose window
-contains `t`, whose condition matches (`landed_hit` / shield-contact
-fact / neither), and whose `into` class contains the requested
-verb/move; if found, remove the playback (despawning live boxes exactly
-as natural completion does — reuse that teardown path, do not
-duplicate it) and start the new move same-frame. No rule matched →
-today's behavior byte-identically (empty `cancels` == the status quo,
-which is the parity pin). Jump/dash cancels route the verb back to the
-normal locomotion/ability path after the removal — one early-return,
-not a second dispatcher.
+**CM4 cancel design — AS LANDED (refined at execution, 2026-07-06):**
+the sketch's parallel `cancels: Vec<CancelRule>` was replaced by
+extending the EXISTING timeline vocabulary — `WindowTag::Cancelable`
+grew `condition: CancelCondition` (serde-default `Always`, so existing
+rows parse unchanged) — because the timeline already IS the span
+structure and CM7's `frame_data()` already derived `CancelWindow` from
+it. One authoring surface, no parallel table. `CancelCondition` v1 =
+`{Always, OnHit, OnWhiff}`; **`OnBlock` deliberately waits for CM6**
+(the shield-contact fact doesn't exist yet — a parseable-but-never-
+firing variant is an authoring trap). `into` entries share ONE string
+namespace: literal move ids, verbs, and the classes in
+`CANCEL_CLASS_NAMES` (`any_attack`/`attack`/`special`/`ranged`/`jump`/
+`dash`) — the catalog validator accepts exactly declared ids + that
+set. `MovePlayback.landed_hit` is set by the real hit path
+(`mark_move_playback_landed_hits` after `apply_hitbox_damage` for
+pre-resolved victims; the volume resolver for player-effective
+strikes). The trigger seam (`trigger_moveset_moves`) checks
+`MoveSpec::cancel_permits(t, landed_hit, names)` on a verb edge during
+playback: permitted → tear down live boxes exactly as natural
+completion does and start the new move same-frame; `jump`/`dash`
+entries END the move on those edges (the locomotion path reading the
+same control frame performs the jump/dash — no second dispatcher). No
+`Cancelable` window ⇒ today's reject byte-identically (the parity pin,
+tested).
 
 **CM7 frame-data table**: a pure derivation, no storage —
 `fn frame_data(spec: &MoveSpec) -> MoveFrameData { startup, active
@@ -194,7 +192,7 @@ resolution).
 | CM1 | ✅ LANDED 2026-07-06. `HitVolume.{kb_growth,launch_dir}`, `ActorTuning.{weight,death_policy}` + archetype fields (serde-default → parity), `BodyHealth::damage_taken()`, pure `scaled_knockback()` helper applied victim-side at the moveset-hitbox overlap (the one growth-carrying path), `DeathPolicy::kills_at_max()` gating the actor kill path. `growth=0`/`HpDepleted`/`weight=1.0` defaults are byte-parity; C4 conjugation + scaling + parity tests green. `launch_dir` field authored, consumed by CM2. | done |
 | CM2 | ✅ LANDED 2026-07-06. Pure `combat::damage::di_adjust(launch, di_input_local, gravity_dir, max_angle)` rotates the victim's own launch toward its held `ActorControl.locomotion`, bounded by `SandboxFeelTuning.di_max_angle` (default `0.0` → DI off = parity; a fighter mode authors ≈0.31/18°). Reads the SAME gated input every system reads (player + brain + RL), wired via a localized `Option<&ActorControl>` on the two knockback-consumer SYSTEM queries (not the shared cluster views). Threaded through `resolved_body_knockback_velocity`/`apply_body_hit_reaction`/`apply_player_knockback`/`apply_actor_hit`. Tests: inert-at-zero parity, rotate-toward-bounded, cannot-DI-along-launch, C4 conjugation-under-gravity. RL survival-extension assertion deferred to the FB self-play rig (needs the headless ladder). `launch_dir` full directional launch deferred to CM3 (reworks the ±side launch model). | done |
 | CM3 | ✅ LANDED 2026-07-06. `MoveSpec.smash_charge_mult` (data, default 1.0 → parity) + `MoveSpec::charge_fraction_at(t)`/`charge_scale_at(t)` (charge state = the move's clock `MovePlayback.t`, no new component); `advance_move_playback` scales the spawned hitbox's damage + knockback by `charge_scale_at(t)`. `simple_charge` prefab exposes the mult param. Smash verb class = MORE VERBS (AJ1): the generic `verbs` map + `directional_verb_chain(base="smash")` already resolve smash verbs distinctly from tilt/`attack` (test proves it); the flick-vs-hold input distinction is per-game (SSB). Tests: charge scale interpolation + parity + no-startup + smash-verb resolution + a runtime charged-hitbox doubling. Partial-charge-on-EARLY-release awaits an `attack_held/released` control signal (input+feel, Jon's domain); the fraction already derives from `t`, so it's a small future add. | done |
-| CM4 | Cancel tables on `MoveSpec` + buffered-intent cancel path + frame-data read API | [fable-specced; the advancer edit wants care] |
+| CM4 | ✅ LANDED 2026-07-06 (fable). `WindowTag::Cancelable` grew `condition` (Always/OnHit/OnWhiff; OnBlock waits for CM6's shield fact); ONE cancel namespace (`CANCEL_CLASS_NAMES` + declared ids, validator-enforced); `MovePlayback.landed_hit` set by the real hit path; the trigger seam cancels via `MoveSpec::cancel_permits` — move-into-move replaces same-frame with the natural-completion teardown, jump/dash entries end the move early. Empty timeline = byte-parity reject (tested); 7 new tests incl. the real-hit-path connect fact. `frame_data().cancel_windows` carries conditions (FB2-ready) | done |
 | CM5 | Per-move sfx/vfx presentation events + prefab params + validation | [opus] — also closes jonnotes per-attack-vfx/sfx |
 | CM6 | Grab/throw/shield-stun vocabulary | [opus, lands with SSB demo] |
 | CM7 | ✅ LANDED 2026-07-06. `MoveSpec::frame_data() -> MoveFrameData { total_s, startup_s, active_spans, recovery_s, cancel_windows, reach }` — a PURE derivation from `windows`+`duration_s` (no storage), in `ambition_entity_catalog` so brain + boss validators reach it with no upward dep. Startup = first Active start; recovery = duration − last Active end; reach = farthest body-local `+x` extent over Active volumes; cancel windows from `WindowTag::Cancelable` (CM4's richer `CancelRule` folds into the same `CancelWindow` shape when it lands). Tests: full derivation + hitless-move. Consumers (FB2 option scorer, boss validator) wire it when they land. | done |

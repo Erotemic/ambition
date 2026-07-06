@@ -165,7 +165,18 @@ impl Plugin for CombatSchedulePlugin {
                 // actor/brain follow-up plan). `apply_hitbox_damage`
                 // resolves overlap → damage event; `tick_and_despawn_hitboxes`
                 // advances lifetimes and cleans expired entities.
-                ambition_gameplay_core::features::apply_hitbox_damage.run_if(gameplay_allowed),
+                // CM4: the attacker's playing move learns its strike CONNECTED
+                // (pre-resolved victim events; the volume resolver marks its own).
+                // Immediately after `apply_hitbox_damage` so this frame's overlaps
+                // mark this frame — an OnHit cancel window opens on the connect
+                // frame. (Inner tuple: the outer chain is at Bevy's tuple-size
+                // ceiling, and these two are one ordered unit anyway.)
+                (
+                    ambition_gameplay_core::features::apply_hitbox_damage,
+                    ambition_gameplay_core::combat::moveset::mark_move_playback_landed_hits,
+                )
+                    .chain()
+                    .run_if(gameplay_allowed),
                 // On-hit conditional techniques (fable AJ1): while hitboxes are
                 // still live, `dispatch_hitbox_on_hit` emits one `OnHitEffectMessage`
                 // per damage-valid victim an `on_hit` volume overlaps; the engine

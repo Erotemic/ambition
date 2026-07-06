@@ -24,7 +24,7 @@
 //! decomposability contract, pinned by the tests below.
 
 use bevy::prelude::{
-    Commands, Component, Entity, Message, MessageReader, MessageWriter, Query, Res, With, Without,
+    Commands, Component, Entity, Message, MessageReader, MessageWriter, Query, Res, With,
 };
 
 use ambition_engine_core as ae;
@@ -673,6 +673,10 @@ pub struct MovePlayback {
     pub facing: f32,
     /// Seconds of the OWNER'S proper time since move start.
     pub t: f32,
+    /// CM4: this move CONNECTED with a victim. Set by the hit-resolution side
+    /// (`mark_move_playback_landed_hits` + the volume resolver) and read by the
+    /// cancel conditions (`OnHit`/`OnWhiff`) — the combo-confirm fact.
+    pub landed_hit: bool,
     /// Live hitbox entity per entered-but-not-exited Active window index.
     live_boxes: Vec<(usize, Entity)>,
     /// Which timed events already fired (parallel to `spec.events`).
@@ -697,6 +701,7 @@ impl MovePlayback {
             spec,
             facing,
             t: t0,
+            landed_hit: false,
             live_boxes: Vec::new(),
             fired,
         }
@@ -993,9 +998,15 @@ pub(crate) fn attack_dir_from_axis(axis: ae::Vec2) -> AttackDir {
 /// `special_pressed` → the `"special"` verb, a `melee_pressed` → the DIRECTIONAL
 /// `"attack"` verb (resolved by aim + grounded state through the authored verb
 /// chain — `attack_air_down` → `attack_down` → `attack`), a ranged intent → the
-/// `"ranged"` verb. A body already playing a move (`With<MovePlayback>`) is
-/// excluded, so a move plays to completion before another starts — the move's own
-/// duration IS the fire-rate gate. Facing locks at trigger from the body's
+/// `"ranged"` verb. A body already playing a move refuses a new one — the move's
+/// own duration IS the fire-rate gate — UNLESS the playing move authors a
+/// `Cancelable` window covering this instant whose condition holds and whose
+/// `into` names the request (CM4): then the live boxes tear down exactly as
+/// natural completion does and the new move starts same-frame. `jump`/`dash`
+/// entries END the move early on those edges — the normal locomotion path
+/// (reading the SAME control frame this tick) performs the jump/dash itself;
+/// no second dispatcher. An empty cancel timeline is byte-identical to the
+/// pre-CM4 reject (the parity pin). Facing locks at trigger from the body's
 /// kinematics (the Smash convention — a committed swing doesn't re-aim).
 ///
 /// ONE trigger seam for every body (guardrail #1): the same system drives an
@@ -1005,27 +1016,29 @@ pub(crate) fn attack_dir_from_axis(axis: ae::Vec2) -> AttackDir {
 pub fn trigger_moveset_moves(
     mut commands: Commands,
     gravity: crate::physics::GravityCtx,
-    mut bodies: Query<
-        (
-            Entity,
-            &ActorMoveset,
-            &ActorControl,
-            // Mutable so a move's authored `start_impulse` (self-motion) lands at
-            // trigger — the move-start seam.
-            &mut ae::BodyKinematics,
-            // Grounded state selects tilt-vs-air variants. Absent on bare test
-            // bodies → treated as grounded (immaterial: such bodies author only
-            // the base `attack`, which every direction resolves to).
-            Option<&crate::actor::BodyGroundState>,
-        ),
-        Without<MovePlayback>,
-    >,
+    mut bodies: Query<(
+        Entity,
+        &ActorMoveset,
+        &ActorControl,
+        // Mutable so a move's authored `start_impulse` (self-motion) lands at
+        // trigger — the move-start seam.
+        &mut ae::BodyKinematics,
+        // Grounded state selects tilt-vs-air variants. Absent on bare test
+        // bodies → treated as grounded (immaterial: such bodies author only
+        // the base `attack`, which every direction resolves to).
+        Option<&crate::actor::BodyGroundState>,
+        // The playing move, if any — the CM4 cancel seam. `None` = the plain
+        // trigger path.
+        Option<&mut MovePlayback>,
+    )>,
 ) {
-    for (entity, moveset, control, mut kin, ground) in &mut bodies {
+    for (entity, moveset, control, mut kin, ground, playback) in &mut bodies {
         let frame = &control.0;
         let grounded = ground.map(|g| g.on_ground).unwrap_or(true);
-        let spec = if frame.special_pressed {
-            moveset.0.move_for_verb("special")
+        // Resolve the requested verb + the names the candidate answers to
+        // (verb, class, resolved move id — the ONE cancel namespace).
+        let (spec, verb_names): (_, &[&str]) = if frame.special_pressed {
+            (moveset.0.move_for_verb("special"), &["special"])
         } else if frame.melee_pressed || frame.pogo_pressed {
             // A dedicated pogo press IS a down-air (the move carrying the pogo
             // on-hit technique); a plain melee press resolves by aim. When only
@@ -1035,18 +1048,68 @@ pub fn trigger_moveset_moves(
             } else {
                 attack_dir_from_axis(frame.attack_axis)
             };
-            moveset
-                .0
-                .move_for_directional_verb(ATTACK_VERB, dir, grounded)
+            (
+                moveset
+                    .0
+                    .move_for_directional_verb(ATTACK_VERB, dir, grounded),
+                &[ATTACK_VERB, "any_attack"],
+            )
         } else if frame.fire.is_some() {
             // A ranged intent (`frame.fire = Some(dir)`) starts the body's `"ranged"`
             // move; its fire event spawns the projectile, sampling live aim. The move
             // plays to completion before another starts (its duration is a cadence
             // gate; the body-side refire cooldown remains the hard rate floor).
-            moveset.0.move_for_verb(RANGED_VERB)
+            (moveset.0.move_for_verb(RANGED_VERB), &[RANGED_VERB])
         } else {
-            continue;
+            (None, &[])
         };
+
+        if let Some(mut pb) = playback {
+            // CM4, locomotion escapes: a `jump`/`dash` edge inside a permitting
+            // cancel window ENDS the move (early recovery-cancel); the verb
+            // itself runs through the normal locomotion path this same tick.
+            let loco = if frame.jump_pressed {
+                Some("jump")
+            } else if frame.dash_pressed {
+                Some("dash")
+            } else {
+                None
+            };
+            if let Some(name) = loco {
+                if pb.spec.cancel_permits(pb.t, pb.landed_hit, &[name]) {
+                    for (_, e) in pb.live_boxes.drain(..) {
+                        commands.entity(e).despawn();
+                    }
+                    commands.entity(entity).remove::<MovePlayback>();
+                    continue;
+                }
+            }
+            // CM4, move-into-move: the requested move starts same-frame iff a
+            // cancel window covering `t` permits it under the hit-state
+            // condition. Otherwise: today's reject, byte-identically.
+            let Some(spec) = spec else { continue };
+            let mut names: Vec<&str> = verb_names.to_vec();
+            names.push(spec.id.as_str());
+            if !pb.spec.cancel_permits(pb.t, pb.landed_hit, &names) {
+                continue;
+            }
+            // Tear down exactly as natural completion does (the ONE teardown
+            // path), then replace the playback — insert overwrites.
+            for (_, e) in pb.live_boxes.drain(..) {
+                commands.entity(e).despawn();
+            }
+            if let Some((ix, iy)) = spec.start_impulse {
+                let local = ae::Vec2::new(ix * kin.facing, iy);
+                let world_impulse =
+                    ae::AccelerationFrame::new(gravity.dir_at(kin.pos)).to_world(local);
+                kin.vel += world_impulse;
+            }
+            commands
+                .entity(entity)
+                .insert(MovePlayback::new(spec.clone(), kin.facing));
+            continue;
+        }
+
         if let Some(spec) = spec {
             // Self-motion: a body-local impulse mirrored by facing and rotated
             // into the owner's gravity frame (a jab's lunge stays "forward"
@@ -1060,6 +1123,34 @@ pub fn trigger_moveset_moves(
             commands
                 .entity(entity)
                 .insert(MovePlayback::new(spec.clone(), kin.facing));
+        }
+    }
+}
+
+/// CM4: mark the attacker's playing move as CONNECTED when its strike resolves
+/// onto a concrete victim. Pre-resolved victim events (`HitTarget::Actor` /
+/// `HitTarget::Player`) are emitted only on physical overlap, so they ARE the
+/// landing fact; `Volume` events are emitted every active tick regardless of
+/// contact and are marked instead by the volume resolver
+/// (`apply_feature_hit_events`) when a victim actually takes the hit. Reads the
+/// shared `HitEvent` channel from its own reader position (the established
+/// multi-consumer pattern on this channel).
+pub fn mark_move_playback_landed_hits(
+    mut events: MessageReader<crate::features::HitEvent>,
+    mut playbacks: Query<&mut MovePlayback>,
+) {
+    for ev in events.read() {
+        let Some(attacker) = ev.attacker else {
+            continue;
+        };
+        if !matches!(
+            ev.target,
+            crate::features::HitTarget::Actor(_) | crate::features::HitTarget::Player(_)
+        ) {
+            continue;
+        }
+        if let Ok(mut pb) = playbacks.get_mut(attacker) {
+            pb.landed_hit = true;
         }
     }
 }
@@ -1394,7 +1485,15 @@ mod tests {
         app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
         app.add_systems(
             Update,
-            (advance_move_playback, apply_hitbox_damage, capture).chain(),
+            (
+                advance_move_playback,
+                apply_hitbox_damage,
+                // CM4: the connect fact for OnHit/OnWhiff cancels, in its
+                // production position (right after damage resolution).
+                mark_move_playback_landed_hits,
+                capture,
+            )
+                .chain(),
         );
         let victim = app
             .world_mut()
@@ -2388,6 +2487,219 @@ mod tests {
                 .swing
                 .is_some(),
             "the attack move still projects its swing read-model"
+        );
+    }
+
+    // -----------------------------------------------------------------------
+    // CM4 — cancel tables: the timeline IS the cancel table.
+    // -----------------------------------------------------------------------
+
+    use ambition_entity_catalog::{CancelCondition, MoveWindow};
+
+    /// A minimal trigger-only harness: the ONE trigger seam + a body holding a
+    /// verb on its control frame while a move plays.
+    fn trigger_app() -> App {
+        let mut app = App::new();
+        app.add_systems(Update, trigger_moveset_moves);
+        app
+    }
+
+    fn pressing_attack() -> ActorControl {
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::default();
+        frame.melee_pressed = true;
+        ActorControl(frame)
+    }
+
+    fn spawn_mover(app: &mut App, playing: MoveSpec, control: ActorControl) -> Entity {
+        app.world_mut()
+            .spawn((
+                ActorMoveset(swat_moveset()),
+                control,
+                ae::BodyKinematics {
+                    pos: ae::Vec2::new(100.0, 100.0),
+                    vel: ae::Vec2::ZERO,
+                    size: ae::Vec2::new(15.0, 24.0),
+                    facing: 1.0,
+                },
+                MovePlayback::new(playing, 1.0),
+            ))
+            .id()
+    }
+
+    /// A distinct playing move so the replacement is observable by id, with an
+    /// optional cancel window appended to its timeline.
+    fn playing_move(cancel: Option<MoveWindow>) -> MoveSpec {
+        let mut spec = swat();
+        spec.id = "first".to_string();
+        if let Some(w) = cancel {
+            spec.windows.push(w);
+        }
+        spec
+    }
+
+    fn cancel_window(into: &[&str], condition: CancelCondition) -> MoveWindow {
+        MoveWindow {
+            start_s: 0.0,
+            end_s: 0.68,
+            tag: WindowTag::Cancelable {
+                into: into.iter().map(|s| s.to_string()).collect(),
+                condition,
+            },
+            volumes: vec![],
+            sustain_effect: None,
+        }
+    }
+
+    /// PARITY PIN: with no `Cancelable` window authored, a verb press during a
+    /// playing move is rejected exactly as before CM4 — the playback keeps
+    /// playing the same move.
+    #[test]
+    fn no_cancel_window_rejects_a_new_move_byte_identically() {
+        let mut app = trigger_app();
+        let body = spawn_mover(&mut app, playing_move(None), pressing_attack());
+        app.update();
+        let pb = app
+            .world()
+            .get::<MovePlayback>(body)
+            .expect("still playing");
+        assert_eq!(pb.spec.id, "first", "the playing move is untouched");
+    }
+
+    /// A covering `Always` cancel window naming `any_attack` lets the pressed
+    /// attack REPLACE the playing move same-frame.
+    #[test]
+    fn cancel_window_starts_the_new_move_same_frame() {
+        let mut app = trigger_app();
+        let body = spawn_mover(
+            &mut app,
+            playing_move(Some(cancel_window(
+                &["any_attack"],
+                CancelCondition::Always,
+            ))),
+            pressing_attack(),
+        );
+        app.update();
+        let pb = app.world().get::<MovePlayback>(body).expect("playing");
+        assert_eq!(pb.spec.id, "swat", "canceled into the attack move");
+        assert_eq!(pb.t, 0.0, "the new move starts from its own zero");
+    }
+
+    /// A cancel window that names something ELSE (a specific other id) refuses
+    /// the attack — `into` membership is the gate, not the window's existence.
+    #[test]
+    fn cancel_window_gates_on_the_into_list() {
+        let mut app = trigger_app();
+        let body = spawn_mover(
+            &mut app,
+            playing_move(Some(cancel_window(&["jump"], CancelCondition::Always))),
+            pressing_attack(),
+        );
+        app.update();
+        let pb = app.world().get::<MovePlayback>(body).expect("playing");
+        assert_eq!(pb.spec.id, "first", "an attack is not a jump");
+    }
+
+    /// `OnHit` opens only after the move CONNECTED (the combo confirm); a whiff
+    /// stays locked, and setting the landed fact unlocks the same press.
+    #[test]
+    fn on_hit_cancel_requires_the_landed_fact() {
+        let mut app = trigger_app();
+        let body = spawn_mover(
+            &mut app,
+            playing_move(Some(cancel_window(&["any_attack"], CancelCondition::OnHit))),
+            pressing_attack(),
+        );
+        app.update();
+        assert_eq!(
+            app.world().get::<MovePlayback>(body).unwrap().spec.id,
+            "first",
+            "whiffing: OnHit stays locked"
+        );
+        app.world_mut()
+            .get_mut::<MovePlayback>(body)
+            .unwrap()
+            .landed_hit = true;
+        app.update();
+        assert_eq!(
+            app.world().get::<MovePlayback>(body).unwrap().spec.id,
+            "swat",
+            "the connect fact opens the combo"
+        );
+    }
+
+    /// `OnWhiff` is the inverse: open while the move has NOT connected, locked
+    /// once it has (a bail-out window, not a combo window).
+    #[test]
+    fn on_whiff_cancel_locks_after_a_connect() {
+        let mut app = trigger_app();
+        let body = spawn_mover(
+            &mut app,
+            playing_move(Some(cancel_window(
+                &["any_attack"],
+                CancelCondition::OnWhiff,
+            ))),
+            pressing_attack(),
+        );
+        app.world_mut()
+            .get_mut::<MovePlayback>(body)
+            .unwrap()
+            .landed_hit = true;
+        app.update();
+        assert_eq!(
+            app.world().get::<MovePlayback>(body).unwrap().spec.id,
+            "first",
+            "a connected move refuses its whiff escape"
+        );
+    }
+
+    /// A `jump` cancel entry ENDS the move on the jump edge — the playback is
+    /// removed (the locomotion path performs the jump itself from the same
+    /// frame); no new move starts.
+    #[test]
+    fn jump_cancel_ends_the_move_early() {
+        let mut app = trigger_app();
+        let mut frame = ambition_characters::actor::control::ActorControlFrame::default();
+        frame.jump_pressed = true;
+        let body = spawn_mover(
+            &mut app,
+            playing_move(Some(cancel_window(&["jump"], CancelCondition::Always))),
+            ActorControl(frame),
+        );
+        app.update();
+        assert!(
+            app.world().get::<MovePlayback>(body).is_none(),
+            "the jump edge ended the move"
+        );
+    }
+
+    /// The connect fact is set by the REAL hit path: an attacker whose Active
+    /// window overlaps a victim gets `landed_hit = true` the frame the hit
+    /// resolves (the harness runs `mark_move_playback_landed_hits` in its
+    /// production position).
+    #[test]
+    fn the_real_hit_path_sets_the_landed_fact() {
+        let (mut app, _victim) = app_with_victim();
+        let attacker = spawn_attacker(
+            &mut app,
+            ae::Vec2::new(100.0, 100.0),
+            ae::Vec2::new(15.0, 24.0),
+            swat(),
+        );
+        run_seconds(&mut app, 0.20);
+        assert!(
+            !app.world()
+                .get::<MovePlayback>(attacker)
+                .unwrap()
+                .landed_hit,
+            "startup: nothing connected yet"
+        );
+        run_seconds(&mut app, 0.12);
+        assert!(
+            app.world()
+                .get::<MovePlayback>(attacker)
+                .unwrap()
+                .landed_hit,
+            "the active-window connect set the fact"
         );
     }
 }

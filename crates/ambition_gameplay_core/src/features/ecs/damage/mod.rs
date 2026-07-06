@@ -158,6 +158,12 @@ pub fn apply_feature_hit_events(
         ),
     >,
     mut writers: FeatureHitWriters,
+    // CM4: the attacker's playing move learns its strike CONNECTED (the
+    // combo-confirm fact behind `OnHit`/`OnWhiff` cancel conditions). This
+    // resolver is the one place a `Volume`-target strike (a player-effective
+    // slash) is known to have actually landed on someone; pre-resolved
+    // victim events are marked by `mark_move_playback_landed_hits`.
+    mut attacker_moves: Query<&mut crate::combat::moveset::MovePlayback>,
     // R3: boss damage mutates the boss ENTITY directly (`apply_boss_hit` →
     // `apply_entity_boss_damage`), so this system no longer needs the boss
     // encounter resources — death save/quest/music resolution lives in
@@ -303,6 +309,11 @@ pub fn apply_feature_hit_events(
         if actor_hit_this_event || boss_hit_this_event {
             let target_attacker = event.attacker.or_else(|| primary_q.single().ok());
             if let Some(attacker) = target_attacker {
+                // CM4: the strike connected — the attacker's playing move
+                // learns it (combo-confirm for OnHit/OnWhiff cancels).
+                if let Ok(mut pb) = attacker_moves.get_mut(attacker) {
+                    pb.landed_hit = true;
+                }
                 let record_dedup = matches!(event.source, HitSource::PlayerSlash { .. });
                 for (entity, mut combat, active_attack) in &mut player_combat_q {
                     if entity != attacker {

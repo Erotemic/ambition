@@ -170,8 +170,42 @@ pub enum WindowTag {
     Invuln,
     /// The owner takes hits without hitstun.
     Armor,
-    /// The move may be canceled into the named moves.
-    Cancelable { into: Vec<String> },
+    /// The move may be canceled into the named moves (CM4). `into` entries
+    /// share one namespace: literal move ids (`"jab2"`), verbs (`"special"`,
+    /// `"attack"`), and classes (`"any_attack"`, `"jump"`, `"dash"`). The
+    /// timeline IS the cancel table — combo/chain design is authored as
+    /// windows, like everything else about a move.
+    Cancelable {
+        into: Vec<String>,
+        /// When the escape is legal. Default `Always` — the pre-CM4 meaning
+        /// of an authored `Cancelable` window (serde-default keeps existing
+        /// RON rows parsing unchanged).
+        #[serde(default)]
+        condition: CancelCondition,
+    },
+}
+
+/// The cancel-target CLASS namespace (CM4): names an authored `into` entry may
+/// use besides a literal move id. Verbs + classes the trigger seam resolves.
+pub const CANCEL_CLASS_NAMES: [&str; 6] =
+    ["any_attack", "attack", "special", "ranged", "jump", "dash"];
+
+/// When a [`WindowTag::Cancelable`] escape is legal (CM4).
+///
+/// `OnBlock` deliberately does NOT exist yet: the victim-shield-contact fact
+/// lands with CM6 (shield-stun); adding the variant now would parse and then
+/// silently never fire — an authoring trap.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub enum CancelCondition {
+    /// Any time the window is open.
+    #[default]
+    Always,
+    /// Only after this move CONNECTED with a victim (combo confirm — jab
+    /// chains into jab2 on hit).
+    OnHit,
+    /// Only while the move has NOT connected (whiff escape — bail out of a
+    /// missed heavy's recovery).
+    OnWhiff,
 }
 
 /// An axis-aligned or circular hit volume in ENTITY-LOCAL logical space
@@ -405,6 +439,32 @@ impl MoveSpec {
         1.0 + self.charge_fraction_at(t) * (self.smash_charge_mult - 1.0)
     }
 
+    /// CM4: may this move, at proper-time `t` with the given hit state, be
+    /// canceled into a candidate answering to any of `names`? The caller
+    /// supplies every name the candidate answers to — its verb (`"attack"`,
+    /// `"special"`, `"ranged"`), its resolved move id, and its classes
+    /// (`"any_attack"` for the attack family; `"jump"`/`"dash"` for the
+    /// locomotion escapes) — and an authored `into` entry matches any of
+    /// them. One namespace, no enum: content authors strings, the runtime
+    /// answers membership. An empty `cancels` timeline (no `Cancelable`
+    /// window) refuses everything — the pre-CM4 status quo, which is the
+    /// parity pin.
+    pub fn cancel_permits(&self, t: f32, landed_hit: bool, names: &[&str]) -> bool {
+        self.windows.iter().any(|w| match &w.tag {
+            WindowTag::Cancelable { into, condition } => {
+                w.start_s <= t
+                    && t < w.end_s
+                    && match condition {
+                        CancelCondition::Always => true,
+                        CancelCondition::OnHit => landed_hit,
+                        CancelCondition::OnWhiff => !landed_hit,
+                    }
+                    && into.iter().any(|entry| names.contains(&entry.as_str()))
+            }
+            _ => false,
+        })
+    }
+
     /// Derive this move's frame data (CM7): the startup / active / recovery /
     /// cancel windows and the strike's reach, as a queryable table. A PURE
     /// derivation from `windows` + `duration_s` — no storage, no new state. The
@@ -422,10 +482,11 @@ impl MoveSpec {
             .windows
             .iter()
             .filter_map(|w| match &w.tag {
-                WindowTag::Cancelable { into } => Some(CancelWindow {
+                WindowTag::Cancelable { into, condition } => Some(CancelWindow {
                     start_s: w.start_s,
                     end_s: w.end_s,
                     into: into.clone(),
+                    condition: *condition,
                 }),
                 _ => None,
             })
@@ -472,14 +533,14 @@ impl MoveSpec {
 }
 
 /// A move's cancel window (CM7): the proper-time span during which the move may
-/// be canceled into the named move classes/ids. Derived from a
-/// [`WindowTag::Cancelable`] window; CM4's richer `CancelRule` (per-condition)
-/// folds into this same shape when it lands.
+/// be canceled into the named move classes/ids, under [`CancelCondition`]
+/// (CM4). Derived from a [`WindowTag::Cancelable`] window.
 #[derive(Debug, Clone, PartialEq)]
 pub struct CancelWindow {
     pub start_s: f32,
     pub end_s: f32,
     pub into: Vec<String>,
+    pub condition: CancelCondition,
 }
 
 /// The queryable frame data of a move (CM7) — the introspection the fighter
@@ -831,9 +892,11 @@ impl EntityCatalogDoc {
                             });
                         }
                     }
-                    if let WindowTag::Cancelable { into } = &w.tag {
+                    if let WindowTag::Cancelable { into, .. } = &w.tag {
                         for target in into {
-                            if !declared.contains(target.as_str()) {
+                            if !declared.contains(target.as_str())
+                                && !CANCEL_CLASS_NAMES.contains(&target.as_str())
+                            {
                                 errors.push(CatalogError::UnknownCancelTarget {
                                     entity: entity.id.clone(),
                                     mv: mv.id.clone(),
@@ -1088,6 +1151,7 @@ mod tests {
                 end_s: 0.42,
                 tag: WindowTag::Cancelable {
                     into: vec!["jump".to_string(), "dash".to_string()],
+                    condition: CancelCondition::default(),
                 },
                 volumes: vec![],
                 sustain_effect: None,

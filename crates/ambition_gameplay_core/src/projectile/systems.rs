@@ -725,6 +725,7 @@ pub fn step_projectiles(
                         strength: 0.85,
                         source_pos: kin.pos,
                         impact_pos,
+                        launch_dir: None,
                     }),
                     ignored_targets: Vec::new(),
                 });

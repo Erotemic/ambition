@@ -462,7 +462,25 @@ pub(crate) fn resolved_body_knockback_velocity(
     } else {
         feel.enemy_knockback_y
     };
-    let launch = frame.to_world(ae::Vec2::new(dir * knock_x * strength, -knock_y * strength));
+    // CM1: a volume-authored launch DIRECTION (smash-style fixed angles)
+    // replaces the default feel diagonal while preserving its SPEED — the
+    // authored vector is normalized (direction only), `x` mirrored by the
+    // away-from-source side sign, `y` positive = up against gravity. The
+    // magnitude invariant: an authored direction matching the default
+    // diagonal reproduces today's launch bit-for-bit in spirit — same
+    // frame, same `|v|` (`hypot(knock_x, knock_y) * strength`).
+    let authored = knockback
+        .and_then(|k| k.launch_dir)
+        .filter(|ld| ld.length_squared() > 1e-6);
+    let local = match authored {
+        Some(ld) => {
+            let n = ld.normalize();
+            let speed = ae::Vec2::new(knock_x, knock_y).length() * strength;
+            ae::Vec2::new(dir * n.x * speed, -n.y * speed)
+        }
+        None => ae::Vec2::new(dir * knock_x * strength, -knock_y * strength),
+    };
+    let launch = frame.to_world(local);
     // CM2: the victim's held input rotates its own launch, bounded by the
     // authored DI budget. Inert at `di_max_angle == 0` (Ambition today).
     di_adjust(launch, di_input_local, gravity_dir, feel.di_max_angle)
@@ -1031,6 +1049,7 @@ mod tests {
                 strength: 1.0,
                 source_pos,
                 impact_pos: victim_pos,
+                launch_dir: None,
             };
             let vel = resolved_body_knockback_velocity(
                 victim_pos,
@@ -1101,6 +1120,7 @@ mod tests {
                 strength,
                 source_pos,
                 impact_pos: victim_pos,
+                launch_dir: None,
             };
             let vel = resolved_body_knockback_velocity(
                 victim_pos,
@@ -1117,6 +1137,166 @@ mod tests {
                 "growth-scaled knockback must conjugate for {gravity_dir:?}: {local_vel:?}"
             );
         }
+    }
+
+    // --- CM1: the authored launch DIRECTION (smash-style fixed angles) ---
+
+    #[test]
+    fn authored_launch_dir_sets_the_angle_and_keeps_the_default_speed() {
+        let feel = SandboxFeelTuning::default();
+        let victim_pos = ae::Vec2::new(100.0, 200.0);
+        let down = ae::Vec2::new(0.0, 1.0);
+        let source_pos = victim_pos - ae::Vec2::new(40.0, 0.0); // hit from local left
+        let default_speed = ae::Vec2::new(feel.enemy_knockback_x, feel.enemy_knockback_y).length();
+
+        // A pure up-launcher: (0, 1) launches straight against gravity.
+        let up = features::HitKnockback {
+            dir: 0.0,
+            strength: 1.0,
+            source_pos,
+            impact_pos: victim_pos,
+            launch_dir: Some(ae::Vec2::new(0.0, 1.0)),
+        };
+        let vel = resolved_body_knockback_velocity(
+            victim_pos,
+            1.0,
+            down,
+            false,
+            Some(&up),
+            ae::Vec2::ZERO,
+            feel,
+        );
+        assert!(
+            vel.x.abs() < 1e-3 && vel.y < 0.0,
+            "a (0,1) launcher throws straight up (world -y): {vel:?}"
+        );
+        assert!(
+            (vel.length() - default_speed).abs() < 1e-3,
+            "the authored angle keeps the feel-tuned SPEED: |{vel:?}| vs {default_speed}"
+        );
+
+        // The lateral component mirrors to point AWAY from the source: hit
+        // from the left ⇒ positive local x ⇒ world +x.
+        let diag = features::HitKnockback {
+            dir: 0.0,
+            strength: 1.0,
+            source_pos,
+            impact_pos: victim_pos,
+            launch_dir: Some(ae::Vec2::new(1.0, 1.0)),
+        };
+        let vel = resolved_body_knockback_velocity(
+            victim_pos,
+            1.0,
+            down,
+            false,
+            Some(&diag),
+            ae::Vec2::ZERO,
+            feel,
+        );
+        assert!(
+            vel.x > 0.0 && vel.y < 0.0,
+            "a (1,1) launcher throws up-and-away from the source: {vel:?}"
+        );
+        // Mirrored source ⇒ mirrored lateral, same rise.
+        let mirrored = features::HitKnockback {
+            source_pos: victim_pos + ae::Vec2::new(40.0, 0.0),
+            ..diag
+        };
+        let mvel = resolved_body_knockback_velocity(
+            victim_pos,
+            1.0,
+            down,
+            false,
+            Some(&mirrored),
+            ae::Vec2::ZERO,
+            feel,
+        );
+        assert!(
+            (mvel.x + vel.x).abs() < 1e-3 && (mvel.y - vel.y).abs() < 1e-3,
+            "the authored angle mirrors with the away-from-source side: {vel:?} vs {mvel:?}"
+        );
+    }
+
+    #[test]
+    fn authored_launch_dir_conjugates_under_rotated_gravity() {
+        // C4: the authored angle is a LOCAL-frame fact, so the resolved
+        // velocity is identical in the victim's side/down frame under every
+        // gravity — the same conjugation invariant the flat + growth paths pin.
+        let feel = SandboxFeelTuning::default();
+        let victim_pos = ae::Vec2::new(100.0, 200.0);
+        let speed = ae::Vec2::new(feel.enemy_knockback_x, feel.enemy_knockback_y).length();
+        let n = ae::Vec2::new(0.6, 0.8); // already unit-length
+        let local_expected = ae::Vec2::new(n.x * speed, -n.y * speed);
+        for gravity_dir in [
+            ae::Vec2::new(0.0, 1.0),
+            ae::Vec2::new(1.0, 0.0),
+            ae::Vec2::new(0.0, -1.0),
+            ae::Vec2::new(-1.0, 0.0),
+        ] {
+            let frame = ae::AccelerationFrame::new(gravity_dir);
+            let source_pos = victim_pos - frame.side * 40.0;
+            let knockback = features::HitKnockback {
+                dir: 0.0,
+                strength: 1.0,
+                source_pos,
+                impact_pos: victim_pos,
+                launch_dir: Some(n),
+            };
+            let vel = resolved_body_knockback_velocity(
+                victim_pos,
+                1.0,
+                gravity_dir,
+                false,
+                Some(&knockback),
+                ae::Vec2::ZERO,
+                feel,
+            );
+            let local_vel = ae::Vec2::new(vel.dot(frame.side), vel.dot(frame.down));
+            assert!(
+                (local_vel - local_expected).length() < 1e-3,
+                "authored launch must conjugate for {gravity_dir:?}: {local_vel:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn zero_length_launch_dir_falls_back_to_the_default_diagonal() {
+        // A degenerate authored vector (bad data) must not NaN the launch —
+        // it reads as un-authored.
+        let feel = SandboxFeelTuning::default();
+        let victim_pos = ae::Vec2::new(100.0, 200.0);
+        let down = ae::Vec2::new(0.0, 1.0);
+        let source_pos = victim_pos - ae::Vec2::new(40.0, 0.0);
+        let base = features::HitKnockback {
+            dir: 0.0,
+            strength: 1.0,
+            source_pos,
+            impact_pos: victim_pos,
+            launch_dir: None,
+        };
+        let degenerate = features::HitKnockback {
+            launch_dir: Some(ae::Vec2::ZERO),
+            ..base
+        };
+        let expected = resolved_body_knockback_velocity(
+            victim_pos,
+            1.0,
+            down,
+            false,
+            Some(&base),
+            ae::Vec2::ZERO,
+            feel,
+        );
+        let got = resolved_body_knockback_velocity(
+            victim_pos,
+            1.0,
+            down,
+            false,
+            Some(&degenerate),
+            ae::Vec2::ZERO,
+            feel,
+        );
+        assert_eq!(expected, got);
     }
 
     #[test]

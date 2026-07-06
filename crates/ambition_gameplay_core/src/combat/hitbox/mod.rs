@@ -257,6 +257,9 @@ pub fn apply_hitbox_damage(
                         strength,
                         source_pos: owner_pos,
                         impact_pos: impact,
+                        // CM1: the authored launch angle rides through to the
+                        // victim-side resolver.
+                        launch_dir: hitbox.launch_dir,
                     });
                     hit_events.write(HitEvent {
                         volume: world_volume.clone(),
@@ -396,6 +399,7 @@ pub fn spawn_melee_hitbox(
                 // Aggressor/player melee strikes are flat-knockback; percent
                 // growth is authored only on moveset volumes (CM1).
                 knockback_growth: 0.0,
+                launch_dir: None,
                 knock_x,
                 frame_down,
             },

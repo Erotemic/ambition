@@ -984,6 +984,9 @@ pub fn advance_move_playback(
                             // CM1: the smash-percent growth term rides the volume
                             // through to the victim-side scaling at overlap.
                             knockback_growth: volume.kb_growth,
+                            // CM1: the authored launch direction rides the
+                            // volume through to the victim-side resolver.
+                            launch_dir: volume.launch_dir.map(|(x, y)| ae::Vec2::new(x, y)),
                             knock_x: 0.0,
                             frame_down,
                         };

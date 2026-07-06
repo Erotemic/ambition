@@ -58,6 +58,13 @@ pub struct Hitbox {
     /// aggressor/player strike) is today's flat knockback exactly; only
     /// moveset volumes that author `kb_growth` carry a non-zero value.
     pub knockback_growth: f32,
+    /// Authored launch DIRECTION in the victim's gravity frame (CM1,
+    /// smash-style fixed launch angles): `x` = lateral, mirrored to point away
+    /// from the hit's source; `y` = upward against gravity. Direction only —
+    /// the resolver keeps the feel-tuned launch SPEED and replaces its
+    /// default diagonal with this angle. `None` (every un-authored volume) is
+    /// today's launch exactly.
+    pub launch_dir: Option<ae::Vec2>,
     /// Signed horizontal slash impulse (gravity-relative, victim-local x) carried
     /// by a Player-faction melee strike — the unified analogue of the old
     /// per-frame `HitSource::PlayerSlash { knock_x }`. `0.0` for aggressor strikes
@@ -160,8 +167,9 @@ pub fn spawn_damage_box(
             damage: dbox.damage,
             knockback_strength: dbox.knockback,
             // World-anchored damage boxes are flat-knockback hazards; percent
-            // growth is a moveset-volume concept only.
+            // growth + authored launch angles are moveset-volume concepts only.
             knockback_growth: 0.0,
+            launch_dir: None,
             knock_x: 0.0,
             // World-anchored volumes are authored in world space (arena
             // hazards); screen-down IS their frame.

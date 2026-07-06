@@ -134,6 +134,7 @@ pub fn update_ecs_hazards(
                     strength: 1.0,
                     source_pos: hazard.pos,
                     impact_pos: pos,
+                    launch_dir: None,
                 }),
                 ignored_targets: Vec::new(),
             });

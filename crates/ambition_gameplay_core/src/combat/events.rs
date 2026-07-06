@@ -144,6 +144,11 @@ pub struct HitKnockback {
     pub source_pos: ae::Vec2,
     /// World-space impact position — used for VFX position.
     pub impact_pos: ae::Vec2,
+    /// Authored launch DIRECTION in the victim's gravity frame (CM1): `x` =
+    /// lateral (mirrored to point away from the source by the resolver's
+    /// side sign), `y` = upward against gravity. `None` = the feel-tuned
+    /// default diagonal (today's launch exactly).
+    pub launch_dir: Option<ae::Vec2>,
 }
 
 /// Relationship/AI stimuli observed by actors.

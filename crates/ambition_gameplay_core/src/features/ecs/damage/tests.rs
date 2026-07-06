@@ -781,6 +781,7 @@ fn a_knockback_carrying_hit_launches_the_actor_like_a_player() {
             strength: 1.0,
             source_pos: ae::Vec2::new(-40.0, 0.0),
             impact_pos: ae::Vec2::ZERO,
+            launch_dir: None,
         }),
         ignored_targets: Vec::new(),
     });

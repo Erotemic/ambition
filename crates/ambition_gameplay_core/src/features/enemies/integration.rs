@@ -655,6 +655,7 @@ impl ContactAttack {
                 strength: self.strength,
                 source_pos: self.source_pos,
                 impact_pos: impact,
+                launch_dir: None,
             }),
             ignored_targets: Vec::new(),
         })

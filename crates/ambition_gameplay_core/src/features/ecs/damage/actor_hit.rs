@@ -220,6 +220,7 @@ pub(crate) fn apply_actor_hit(
                     strength: 1.0,
                     source_pos: event.volume.center(),
                     impact_pos: event.volume.center(),
+                    launch_dir: None,
                 })
             }
             _ => None,

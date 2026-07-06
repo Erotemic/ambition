@@ -112,13 +112,16 @@ fable card. Ranked by how much they gate a fable task.
    Neither is a blocker; both are one small authored change away and want Jon's
    feel eye.
 
-3. **CM1 `launch_dir` (authored directional launch) needs the ±side knockback
-   model reworked into arbitrary 2D launch angles.** `resolved_body_knockback_
-   velocity` currently launches along ±`frame.side` with a fixed rise; honoring a
-   volume's authored `launch_dir` (smash-style fixed launch angles) is a rework
-   of that resolver, not a field read. The field is authored + carried (CM1);
-   the consumption was deferred. Small but wants care (it's on the knockback path
-   Jon guards) — a fable/opus-with-parity call.
+3. ✅ **DONE (fable, 2026-07-06 evening)** — CM1 `launch_dir` is consumed:
+   the resolver honors a volume-authored launch DIRECTION (normalized,
+   victim-gravity-frame, `x` mirrored away-from-source, `y` = up) while
+   preserving the feel-tuned launch SPEED (`hypot(knock_x, knock_y) ·
+   strength`), so an authored angle can never out-throw the default. The
+   angle rides `Hitbox.launch_dir` → `HitKnockback.launch_dir` from the
+   moveset volume; every un-authored path stays `None` = byte-parity.
+   Composes with CM1 growth (scales `strength`) and CM2 DI (rotates the
+   result). Tests: fixed-angle + speed-invariant + side-mirror, C4
+   conjugation-under-gravity, degenerate-vector fallback.
 
 ## Track index (status → next slice)
 

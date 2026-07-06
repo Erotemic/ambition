@@ -124,12 +124,25 @@ path; the respawn wrapper leaves a zero-length record at spawn. The
 hazard reader (both victim arms) consumes `sample.delta()` with the
 rule-1 fallback.
 
-**Status: IN CODE (fable, 2026-07-07).** Remaining adopters, each a
-small slice: `integrate_boss_bodies` (bosses currently hit the hazard
-fallback — effectively discrete, same as before), the portal transit
-trigger (still on `PortalSweepAnchor`; CC6 consumes the sample for the
-relative sweep and retires the anchor), and any future mover (write your
-own segment — rule 2).
+**Status: IN CODE (fable, 2026-07-07).** Adopter audit (opus, 2026-07-06):
+- **Bosses are NOT a remaining adopter** — the "`integrate_boss_bodies` hits
+  the fallback" note was conservative. Bosses spawn AxisSwept
+  (`motion_model = None`), so `integrate_boss_bodies` → `integrate_actor_body`
+  → `ActorMut::update`'s else-branch → `integrate_body` →
+  `update_body_with_tuning_clusters` → `update_body_simulation_with_clusters`,
+  which writes the sample; the boss carries the component
+  (`AncillaryMovementBundle`) and the actor query plumbs it, so the hazard
+  reader already consumes the boss's real segment.
+- **The actual gap was the SurfaceMomentum ACTOR mover** — fixed (opus
+  2026-07-06). `integrate_actor_body`'s momentum dispatch calls
+  `step_momentum_body` and returns early, bypassing the kernel's sample write,
+  so a worn-momentum actor kept a stale zero-length sample → the hazard reader
+  saw no path → a fast momentum body tunneled spikes. It now writes its own
+  segment around the step (rule 2, mirroring the surface-walker branch + the
+  home momentum path).
+- **Remaining: the portal transit trigger** (still on `PortalSweepAnchor`; CC6
+  consumes the sample for the relative sweep and retires the anchor), and any
+  future mover (write your own segment — rule 2).
 
 **What the sample deliberately does NOT carry (asked and answered):**
 - *No kernel tag / body proxy beyond `half`.* Readers are kernel-agnostic

@@ -610,6 +610,13 @@ pub(crate) fn integrate_actor_body(
             .gravity;
         let mut on_ground = em.ground.on_ground;
         let mut normal = em.surface.surface_normal;
+        // §3.1 SweepSample (rule 2 — every mover owns its record): this momentum
+        // dispatch bypasses the kernel's sample write, so capture the segment
+        // around the step (both endpoints inside the mover, same rule the
+        // surface-walker branch and the home momentum path use). Without this a
+        // SurfaceMomentum actor keeps a stale zero-length sample, so the hazard
+        // reader reads no path and a fast momentum body tunnels spikes.
+        let sweep_entry = (em.kin.pos, em.kin.vel);
         super::motion::step_momentum_body(
             em.kin,
             &mut on_ground,
@@ -622,6 +629,14 @@ pub(crate) fn integrate_actor_body(
             brain_frame.facing,
             dt,
         );
+        if let Some(sweep) = em.sweep.as_deref_mut() {
+            *sweep = ae::SweepSample {
+                prev: sweep_entry.0,
+                curr: em.kin.pos,
+                vel: sweep_entry.1,
+                half: em.kin.size * 0.5,
+            };
+        }
         em.ground.on_ground = on_ground;
         em.surface.surface_normal = normal;
         // The SAME universal footprint publish + frame write-back tail the

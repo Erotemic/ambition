@@ -146,7 +146,7 @@ sandbag InPlace). ADR 0022 written. Original spec below for reference:
 | Shrine + glider sprites broken | E3 (rect drift; sprite pipeline) | [opus] |
 | All bosses render the generic sheet | E3/E6 — needs a RUN with `boss_sprites.len()` logging; do NOT apply the disproven sprite_target dispatch | [opus] |
 | NPCs infinitely respawn | ✅ FIXED — the respawn slice above (ADR 0022) | done |
-| Kernel-guide NPC should patrol a home base when peaceful | a `patrol` brain preset (waypoints/home-radius) in the brain vocabulary — small, body-generic | [opus] |
+| Kernel-guide NPC should patrol a home base when peaceful | ✅ ALREADY DONE (verified opus 2026-07-06 — stale item / TODO drift): the `patrol_peaceful` brain preset (`Patrol` radius 64 / speed 28 / **aggressiveness 0** = peaceful home-lane pacer) exists in the brain vocabulary; the kernel-guide catalog row defaults to it (`brain=None` in its central_hub NpcSpawn → catalog default), body-generic. Tests: `patrol_paces_horizontally_around_spawn`, `peaceful_patrol_in_talk_range_holds_and_faces_target`. | done |
 | Dialogs don't adapt to WHO is talking (possessed actor gets self-dialogue) | dialog context slice: the interact seam passes speaker/subject identities as Yarn variables; self-interaction gets a default branch | [opus, small design note first] |
 | Sanic ball-dash special | demos/sanic.md (the one new technique) | [opus] |
 | Portal gun should be a normal item (portal crate forgets the gun; one gun = one pair) | decontamination near A2/items; portal exposes `spawn portal of pair P on surface` primitive | [opus, low priority] |

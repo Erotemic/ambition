@@ -63,7 +63,7 @@ pub fn apply_hitbox_damage(
     // Friendly-fire policy (the DAMAGE side; targeting is `FactionRelations`).
     // Optional so minimal headless tests that don't stand up the plugin still run
     // (fall back to the default: friendly fire OFF — same-faction allies safe).
-    friendly_fire: Option<Res<crate::combat::targeting::FriendlyFire>>,
+    friendly_fire: Option<Res<crate::targeting::FriendlyFire>>,
     // Non-player actor victims for the actor-vs-actor melee path: an Enemy/Boss
     // swing damages any DIFFERENT-faction actor it overlaps (e.g. a Boss vs an
     // Enemy in a duel); same-faction allies are spared unless friendly fire is on.
@@ -205,8 +205,8 @@ pub fn apply_hitbox_damage(
                     // hit-landed sfx/burst for a hit the consumer will ignore
                     // (dodge roll, parry, i-frame window).
                     let (offense, dodge, shield, combat) = vuln;
-                    let feedback = !is_player
-                        || crate::combat::util::body_vulnerable(offense, dodge, shield, combat);
+                    let feedback =
+                        !is_player || crate::util::body_vulnerable(offense, dodge, shield, combat);
                     let impact = midpoint(victim_aabb.center, world_volume.center());
                     if feedback {
                         vfx.write(VfxMessage::Impact { pos: impact });
@@ -247,7 +247,7 @@ pub fn apply_hitbox_damage(
                     // strength unchanged — parity by construction.
                     let victim_damage_taken = victim_health.map(|h| h.damage_taken()).unwrap_or(0);
                     let victim_weight = victim_tuning.map(|ct| ct.weight).unwrap_or(1.0);
-                    let strength = crate::combat::util::scaled_knockback(
+                    let strength = crate::util::scaled_knockback(
                         hitbox.knockback_strength,
                         hitbox.knockback_growth,
                         victim_damage_taken,
@@ -452,7 +452,7 @@ pub fn spawn_melee_strike(
         active_s,
         frame_down,
     );
-    crate::combat::util::emit_melee_slash(
+    crate::util::emit_melee_slash(
         vfx,
         world_box.center(),
         world_box.half_size(),

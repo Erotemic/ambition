@@ -51,7 +51,7 @@ pub fn update_ecs_falling_chests(
 /// resting position. Used when a save says the boss reward is already
 /// looted — the chest spawns pre-settled so the player doesn't see a
 /// reward animation for an encounter they cleared in an earlier run.
-pub(crate) fn settled_chest_center(world: &ae::World, start: ae::Vec2, size: ae::Vec2) -> ae::Vec2 {
+pub fn settled_chest_center(world: &ae::World, start: ae::Vec2, size: ae::Vec2) -> ae::Vec2 {
     let mut center = start;
     let half_size = size * 0.5;
     let mut vel_y: f32 = 0.0;

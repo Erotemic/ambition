@@ -334,7 +334,7 @@ pub enum AggressionTarget {
 #[derive(Clone, Debug, PartialEq)]
 pub struct MeleeSwing {
     /// Resolved swing parameters in WORLD frame (timing, reach, knockback, art).
-    pub spec: crate::combat::AttackSpec,
+    pub spec: crate::AttackSpec,
     /// Seconds since the swing began.
     pub elapsed: f32,
     /// `prefix:id` keys of every target already struck this swing, so an
@@ -349,7 +349,7 @@ pub struct MeleeSwing {
 }
 
 impl MeleeSwing {
-    pub fn new(spec: crate::combat::AttackSpec) -> Self {
+    pub fn new(spec: crate::AttackSpec) -> Self {
         Self {
             spec,
             elapsed: 0.0,
@@ -359,7 +359,7 @@ impl MeleeSwing {
         }
     }
 
-    pub fn phase(&self) -> Option<crate::combat::AttackPhase> {
+    pub fn phase(&self) -> Option<crate::AttackPhase> {
         self.spec.phase_at(self.elapsed)
     }
 
@@ -399,27 +399,22 @@ pub struct BodyMelee {
 
 impl BodyMelee {
     /// Begin a swing: commit the world-frame `spec`, aim, and recovery floor.
-    pub fn begin(
-        &mut self,
-        spec: crate::combat::AttackSpec,
-        pending_axis: ae::Vec2,
-        cooldown: f32,
-    ) {
+    pub fn begin(&mut self, spec: crate::AttackSpec, pending_axis: ae::Vec2, cooldown: f32) {
         self.pending_axis = pending_axis;
         self.cooldown = cooldown.max(0.0);
         self.swing = Some(MeleeSwing::new(spec));
     }
 
-    pub fn phase(&self) -> Option<crate::combat::AttackPhase> {
+    pub fn phase(&self) -> Option<crate::AttackPhase> {
         self.swing.as_ref().and_then(|s| s.phase())
     }
 
     pub fn is_winding_up(&self) -> bool {
-        matches!(self.phase(), Some(crate::combat::AttackPhase::Startup))
+        matches!(self.phase(), Some(crate::AttackPhase::Startup))
     }
 
     pub fn is_active(&self) -> bool {
-        matches!(self.phase(), Some(crate::combat::AttackPhase::Active))
+        matches!(self.phase(), Some(crate::AttackPhase::Active))
     }
 
     /// True while ANY swing is in flight (startup, active, OR recovery) — the

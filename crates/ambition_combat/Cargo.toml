@@ -16,6 +16,13 @@ ambition_characters = { path = "../ambition_characters" }
 ambition_engine_core = { path = "../ambition_engine_core" }
 # Tier-0 authored-placement schema: DamageKind / DamageTeam / HazardRespawn.
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
+# The moved combat kit (E2): lifecycle/gravity markers, breakable payloads,
+# effect messages, and the shared sim clock.
+ambition_interaction = { path = "../ambition_interaction" }
+ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
+ambition_sfx = { path = "../ambition_sfx" }
+ambition_time = { path = "../ambition_time" }
+ambition_vfx = { path = "../ambition_vfx" }
 # Authored-hazard serde (the room-IR ron-room bake carries DamageVolume).
 serde = { version = "1", features = ["derive"] }
 # One Resource derive (the slot registry); ECS surface only.

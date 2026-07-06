@@ -104,7 +104,7 @@ pub fn dispatch_hitbox_on_hit(
         Has<PogoTarget>,
     )>,
     attacker_aggression: Query<&ActorAggression>,
-    friendly_fire: Option<Res<crate::combat::targeting::FriendlyFire>>,
+    friendly_fire: Option<Res<crate::targeting::FriendlyFire>>,
     mut out: MessageWriter<OnHitEffectMessage>,
 ) {
     let friendly_fire = friendly_fire.map(|r| *r).unwrap_or_default();
@@ -186,7 +186,7 @@ impl Default for PogoBounceParams {
 /// The rebound speed a `pogo_bounce` [`EffectRef`] carries — hydrated from its
 /// params, defaulting when absent/malformed. Shared by the entity pogo
 /// ([`apply_pogo_bounce`]) and the world-orb pogo (`pogo_moveset_off_world_orbs`).
-pub(crate) fn pogo_rise_from(effect: &EffectRef) -> f32 {
+pub fn pogo_rise_from(effect: &EffectRef) -> f32 {
     effect
         .params
         .hydrate::<PogoBounceParams>()
@@ -235,7 +235,7 @@ pub fn apply_pogo_bounce(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::combat::moveset::{advance_move_playback, MoveEventMessage, MovePlayback};
+    use crate::moveset::{advance_move_playback, MoveEventMessage, MovePlayback};
     use ambition_entity_catalog::{
         ClipBinding, HitVolume, MoveSpec, MoveWindow, VolumeShape, WindowTag,
     };

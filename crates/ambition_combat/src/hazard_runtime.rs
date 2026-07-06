@@ -12,7 +12,7 @@ pub struct HazardRuntime {
     pub name: String,
     pub pos: ae::Vec2,
     pub size: ae::Vec2,
-    pub volume: crate::combat::DamageVolume,
+    pub volume: crate::DamageVolume,
     pub motion: Option<PathMotion>,
     /// How a hit should resolve. Tile-grid hazards (`BlockKind::Hazard`)
     /// run through the engine's reset-to-spawn path and never reach
@@ -24,11 +24,11 @@ pub struct HazardRuntime {
 }
 
 impl HazardRuntime {
-    pub(super) fn new(
+    pub fn new(
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: ae::Aabb,
-        volume: crate::combat::DamageVolume,
+        volume: crate::DamageVolume,
     ) -> Self {
         Self {
             id: id.into(),
@@ -41,11 +41,11 @@ impl HazardRuntime {
         }
     }
 
-    pub(crate) fn new_with_paths(
+    pub fn new_with_paths(
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: ae::Aabb,
-        mut volume: crate::combat::DamageVolume,
+        mut volume: crate::DamageVolume,
         paths: &[(String, ambition_engine_core::KinematicPath)],
     ) -> Self {
         if let Some(path_id) = volume
@@ -66,7 +66,7 @@ impl HazardRuntime {
         hazard
     }
 
-    pub(crate) fn update(&mut self, dt: f32) {
+    pub fn update(&mut self, dt: f32) {
         if let Some(motion) = &mut self.motion {
             self.pos = motion.advance(self.pos, dt);
         }

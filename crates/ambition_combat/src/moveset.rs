@@ -37,7 +37,7 @@ use ambition_time::ProperTimeScale;
 
 use super::components::{ActorFaction, BodyMelee, MeleeSwing};
 use super::hitbox::{Hitbox, HitboxAnchor, HitboxHits};
-use crate::combat::{AttackIntent, AttackSpec};
+use crate::{AttackIntent, AttackSpec};
 use ambition_characters::brain::action_set::{
     ActionRequest, MeleeActionSpec, RangedActionSpec, SpecialActionSpec,
 };
@@ -630,7 +630,7 @@ fn directional_attack_variants(base: &MoveSpec) -> Vec<(String, MoveSpec)> {
                 if pogo {
                     // The down-air's landing pogo — an engine on-hit technique
                     // (fable review AJ1). Fires off any `PogoTarget` (enemy or orb).
-                    v.on_hit = Some(EffectRef::new(crate::combat::on_hit::POGO_BOUNCE_KEY));
+                    v.on_hit = Some(EffectRef::new(crate::on_hit::POGO_BOUNCE_KEY));
                 }
                 // The grounded down-tilt reads as a kneeling forward poke, not a
                 // sweep (mirrors the bespoke path's `slash_kind`: Down → Poke);
@@ -830,7 +830,7 @@ pub fn advance_move_playback(
     )>,
 ) {
     for (owner, mut playback, faction, brain, config, kin, scale) in &mut players {
-        let strike_faction = crate::combat::targeting::effective_faction(*faction, brain);
+        let strike_faction = crate::targeting::effective_faction(*faction, brain);
         // ADR 0011: entity dt collapses to sim dt when the actor carries no
         // ProperTimeScale — undilated actors are the identity case.
         let dt = world_time.entity_dt(scale.copied().unwrap_or_default());
@@ -991,7 +991,7 @@ pub fn advance_move_playback(
                                 ambition_vfx::vfx::SlashKind::Arc
                             };
                             let b = hb.world_volume(kin.pos).bounds();
-                            crate::combat::util::emit_melee_slash(
+                            crate::util::emit_melee_slash(
                                 &mut vfx,
                                 b.center(),
                                 b.half_size(),
@@ -1042,7 +1042,7 @@ pub fn advance_move_playback(
 /// — the same frame the move's volume offsets live in. A forward or neutral aim
 /// both read `Neutral` (the plain jab); an aim opposite facing reads `Back`.
 /// Vertical wins ties so a clear up/down aim beats slight horizontal drift.
-pub(crate) fn attack_dir_from_axis(axis: ae::Vec2) -> AttackDir {
+pub fn attack_dir_from_axis(axis: ae::Vec2) -> AttackDir {
     const DEADZONE: f32 = 0.5;
     if axis.y.abs() >= axis.x.abs() && axis.y.abs() > DEADZONE {
         if axis.y < 0.0 {
@@ -1199,7 +1199,7 @@ pub fn trigger_moveset_moves(
 /// shared `HitEvent` channel from its own reader position (the established
 /// multi-consumer pattern on this channel).
 pub fn mark_move_playback_landed_hits(
-    mut events: MessageReader<crate::combat::events::HitEvent>,
+    mut events: MessageReader<crate::events::HitEvent>,
     mut playbacks: Query<&mut MovePlayback>,
 ) {
     for ev in events.read() {
@@ -1208,8 +1208,7 @@ pub fn mark_move_playback_landed_hits(
         };
         if !matches!(
             ev.target,
-            crate::combat::events::HitTarget::Actor(_)
-                | crate::combat::events::HitTarget::Player(_)
+            crate::events::HitTarget::Actor(_) | crate::events::HitTarget::Player(_)
         ) {
             continue;
         }
@@ -1406,8 +1405,8 @@ fn synth_swing_from_move(pb: &MovePlayback) -> MeleeSwing {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::combat::events::HitEvent;
-    use crate::combat::hitbox::apply_hitbox_damage;
+    use crate::events::HitEvent;
+    use crate::hitbox::apply_hitbox_damage;
     use ambition_sfx::SfxMessage;
     use ambition_vfx::vfx::DebrisBurstMessage;
     use ambition_vfx::vfx::VfxMessage;

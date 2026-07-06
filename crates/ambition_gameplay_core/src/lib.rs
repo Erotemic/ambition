@@ -71,7 +71,9 @@ pub mod inventory_ui;
 pub mod items;
 // Stable facade for dialogue shop bindings.
 pub use items::shop;
-pub mod combat;
+// The combat kit is its own crate post-E2; the alias keeps `crate::combat::`
+// paths resolving until the features hub dissolves (E7/E8 repoints consumers).
+pub use ambition_combat as combat;
 pub mod gravity;
 pub mod music;
 // Unified menu content (model + concrete settings IR + Map tab). See

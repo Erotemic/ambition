@@ -15,7 +15,7 @@ pub struct PathMotion {
 }
 
 impl PathMotion {
-    pub(crate) fn new(path: ambition_engine_core::KinematicPath) -> Self {
+    pub fn new(path: ambition_engine_core::KinematicPath) -> Self {
         Self {
             path,
             segment: 0,
@@ -23,11 +23,11 @@ impl PathMotion {
         }
     }
 
-    pub(crate) fn start_pos(&self) -> Option<ae::Vec2> {
+    pub fn start_pos(&self) -> Option<ae::Vec2> {
         self.path.points.first().copied()
     }
 
-    pub(crate) fn advance(&mut self, mut pos: ae::Vec2, dt: f32) -> ae::Vec2 {
+    pub fn advance(&mut self, mut pos: ae::Vec2, dt: f32) -> ae::Vec2 {
         if !self.path.is_valid() || dt <= 0.0 {
             return pos;
         }
@@ -57,7 +57,7 @@ impl PathMotion {
         pos
     }
 
-    pub(crate) fn advance_segment(&mut self) {
+    pub fn advance_segment(&mut self) {
         let last_segment = self.path.points.len().saturating_sub(2);
         lookahead_advance(
             &mut self.segment,

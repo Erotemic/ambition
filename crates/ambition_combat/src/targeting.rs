@@ -347,7 +347,7 @@ fn distance_squared(a: ae::Vec2, b: ae::Vec2) -> f32 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::combat::components::{ActorAggression, ActorFaction, ActorTarget, CenteredAabb};
+    use crate::components::{ActorAggression, ActorFaction, ActorTarget, CenteredAabb};
     use ambition_characters::brain::PlayerSlot;
     use ambition_characters::brain::{Brain, StateMachineCfg};
     use ambition_engine_core::BodyKinematics;
@@ -580,7 +580,7 @@ mod tests {
     /// normally aggressive toward," driven by data, not a player hard-code.
     #[test]
     fn actor_targets_relationally_hostile_faction_when_no_player() {
-        use crate::combat::components::ActorFaction;
+        use crate::components::ActorFaction;
         let mut app = App::new();
         let mut relations = FactionRelations::default();
         relations.set_hostile(ActorFaction::Enemy, ActorFaction::Npc, true);
@@ -632,7 +632,7 @@ mod tests {
     /// proving the relational pool is opt-in and nothing regresses by default.
     #[test]
     fn no_relation_no_player_yields_no_target() {
-        use crate::combat::components::ActorFaction;
+        use crate::components::ActorFaction;
         let mut app = App::new();
         app.insert_resource(FactionRelations::default());
         let enemy = app
@@ -856,7 +856,7 @@ mod tests {
     /// at the corpse. Replaces the old manual pacify-on-death hack.
     #[test]
     fn a_dead_foe_is_dropped_so_the_fighter_goes_target_less() {
-        use crate::combat::components::ActorFaction;
+        use crate::components::ActorFaction;
         let mut app = App::new();
         let mut relations = FactionRelations::default();
         relations.set_hostile(ActorFaction::Enemy, ActorFaction::Boss, true);

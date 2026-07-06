@@ -5,7 +5,58 @@
 //! here lets tests and future headless validators reason about combat without a
 //! renderer.
 
+pub mod authored_volumes;
+pub mod banner;
+pub mod breakables;
+pub mod components;
+pub mod events;
+pub mod falling_chest;
+pub mod hazard_runtime;
+pub mod hazards;
+pub mod held_items;
+pub mod hitbox;
+pub mod moveset;
+pub mod on_hit;
+pub mod path_motion;
 pub mod slots;
+pub mod targeting;
+pub mod util;
+pub mod variation;
+
+pub use components::*;
+pub use events::*;
+// `FeatureSimEntity` is the generic entity-marker queried by the reusable
+// mechanics; its definition lives DOWN in
+// `ambition_platformer_primitives::lifecycle` (ADR 0019).
+pub use ambition_platformer_primitives::lifecycle::FeatureSimEntity;
+pub use hazard_runtime::*;
+pub use path_motion::*;
+
+/// Seconds a player must stand on a breakable before it shatters.
+const BREAK_ON_STAND_SECONDS: f32 = 0.85;
+
+/// Gravity (px/s²) used by the falling-chest tick. Lighter than the
+/// player's GRAVITY (2250) so a treasure chest reads as a heavy-but-
+/// floaty drop, not a brick. Tuned by feel against the mockingbird
+/// arena: at 1400 px/s² and 80 px of fall, the drop lands in ~0.34 s.
+const CHEST_FALL_GRAVITY: f32 = 1400.0;
+/// Terminal-velocity cap so a chest dropped from a tall arena doesn't
+/// blast through the floor sweep before the sub-step kicks in.
+const CHEST_FALL_MAX_SPEED: f32 = 900.0;
+
+// Shared imports the module tree reaches via `use super::*` (the historical
+// combat/mod.rs surface, kept so the moved files stay byte-similar).
+use ambition_engine_core as ae;
+#[allow(unused_imports)]
+use ambition_platformer_primitives::lifecycle::RoomVisual;
+#[allow(unused_imports)]
+use ambition_sfx::SfxMessage;
+#[allow(unused_imports)]
+use ambition_time::WorldTime;
+#[allow(unused_imports)]
+use ambition_vfx::vfx::{DebrisBurstMessage, ParticleKind, PhysicsDebrisCue, VfxMessage};
+#[allow(unused_imports)]
+use bevy::prelude::*;
 
 use ambition_engine_core::{Aabb, AabbExt, KinematicPath, Vec2};
 use ambition_entity_catalog::placements::{DamageKind, DamageTeam, HazardRespawn};

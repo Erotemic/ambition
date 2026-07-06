@@ -281,7 +281,7 @@ fn player_faction_hitbox_emits_an_attacker_side_feature_hit() {
 
 // ── S3e: relational actor-vs-actor melee ────────────────────────────────────
 
-use crate::combat::targeting::FactionRelations;
+use crate::targeting::FactionRelations;
 
 /// Spawn an Enemy-source hitbox at `center` (World anchor) dealing `damage`, plus
 /// an actor victim of `victim_faction` overlapping it. Returns (app, victim).
@@ -547,7 +547,7 @@ fn player_followowner_melee_strike_emits_player_slash_with_knock_x() {
     app.init_resource::<CapturedHits>();
     app.add_systems(Update, (apply_hitbox_damage, capture_hits).chain());
 
-    let view = crate::combat::AttackView {
+    let view = crate::AttackView {
         pos: ae::Vec2::new(100.0, 100.0),
         size: ae::Vec2::new(20.0, 40.0),
         facing: 1.0,
@@ -556,7 +556,7 @@ fn player_followowner_melee_strike_emits_player_slash_with_knock_x() {
         dash_timer: 0.0,
         abilities_directional_primary: true,
     };
-    let spec = crate::combat::attack_spec_from_view(&view, crate::combat::AttackIntent::Forward);
+    let spec = crate::attack_spec_from_view(&view, crate::AttackIntent::Forward);
 
     // Owner = a player-like body: BodyKinematics (NOT CenteredAabb) + armed swing.
     let owner = app
@@ -566,8 +566,8 @@ fn player_followowner_melee_strike_emits_player_slash_with_knock_x() {
                 pos: ae::Vec2::new(100.0, 100.0),
                 ..Default::default()
             },
-            crate::combat::BodyMelee {
-                swing: Some(crate::combat::MeleeSwing::new(spec)),
+            crate::BodyMelee {
+                swing: Some(crate::MeleeSwing::new(spec)),
                 ..Default::default()
             },
         ))
@@ -620,7 +620,7 @@ fn player_followowner_strike_without_a_swing_is_inert() {
         .world_mut()
         .spawn((
             ambition_engine_core::BodyKinematics::default(),
-            crate::combat::BodyMelee::default(), // swing = None
+            crate::BodyMelee::default(), // swing = None
         ))
         .id();
     app.world_mut().spawn((

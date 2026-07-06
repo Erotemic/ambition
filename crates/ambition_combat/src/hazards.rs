@@ -97,7 +97,7 @@ pub fn update_ecs_hazards(
             // Bodies without a sample keep the historical `vel·dt`
             // approximation (delete the fallback when every mover writes one).
             let delta = sweep.map(|s| s.delta()).unwrap_or(kin.vel * dt);
-            if !crate::combat::util::body_vulnerable(offense, dodge, shield, combat)
+            if !crate::util::body_vulnerable(offense, dodge, shield, combat)
                 || !ae::cast::aabb_path_contacts(
                     hurtbox.center,
                     hurtbox.half_size,
@@ -162,7 +162,7 @@ pub fn update_ecs_hazards(
                 .or_else(|| kin.map(|k| k.vel * dt))
                 .unwrap_or(ae::Vec2::ZERO);
             if health.current() <= 0
-                || !crate::combat::util::body_vulnerable(offense, dodge, shield, combat)
+                || !crate::util::body_vulnerable(offense, dodge, shield, combat)
                 || !ae::cast::aabb_path_contacts(
                     hurtbox.center,
                     hurtbox.half_size,
@@ -233,8 +233,7 @@ mod tests {
 
     fn spawn_hazard(app: &mut App, id: &str, pos: ae::Vec2) {
         let aabb = ae::Aabb::new(pos, ae::Vec2::new(16.0, 16.0));
-        let hazard =
-            HazardRuntime::new(id, id, aabb, crate::combat::DamageVolume::new(id, aabb, 1));
+        let hazard = HazardRuntime::new(id, id, aabb, crate::DamageVolume::new(id, aabb, 1));
         app.world_mut().spawn((
             FeatureSimEntity,
             FeatureName::new(id),

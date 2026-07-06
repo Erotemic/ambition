@@ -179,7 +179,7 @@ mod breakable_tests {
 /// Called from both `apply_feature_hit_events` (typed damage path) and
 /// `update_ecs_breakables` (stand-to-break path), so it lives here as a
 /// `pub(super)` helper rather than duplicating the policy check.
-pub(crate) fn begin_ecs_breakable_respawn(
+pub fn begin_ecs_breakable_respawn(
     commands: &mut Commands,
     entity: Entity,
     breakable: &ambition_interaction::Breakable,
@@ -192,7 +192,7 @@ pub(crate) fn begin_ecs_breakable_respawn(
 }
 
 /// Common VFX/SFX/debris emission when a breakable is destroyed by any path.
-pub(crate) fn emit_breakable_destroyed(
+pub fn emit_breakable_destroyed(
     pos: ae::Vec2,
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,

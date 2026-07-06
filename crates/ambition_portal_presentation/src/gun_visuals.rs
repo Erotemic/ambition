@@ -109,8 +109,10 @@ pub fn sync_portal_mode_indicator(
             find_portal(&all, transit.straddling.partner()),
         ) {
             let body = ae::Aabb::new(kin.pos, kin.size * 0.5);
-            let pieces =
-                pp::compute_body_pieces(body, Some((enter_portal.frame(), exit_portal.frame())));
+            let pieces = pp::compute_body_pieces(
+                body,
+                Some((enter_portal.aperture(), exit_portal.aperture())),
+            );
             if pieces.through.is_some() {
                 if let (Some(images), Some(layouts), Some(mut meshes), Some(mut materials)) =
                     (images, layouts, meshes, clip_materials)
@@ -121,12 +123,12 @@ pub fn sync_portal_mode_indicator(
                         ..default()
                     };
                     if let Some(basis) = sprite_frame_basis(&probe, &layouts, &images) {
-                        let (enter, exit) = (enter_portal.frame(), exit_portal.frame());
+                        let (enter, exit) = (enter_portal.aperture(), exit_portal.aperture());
                         let mesh = unit_mesh
                             .get_or_insert_with(|| meshes.add(Rectangle::default()))
                             .clone();
-                        let along = Vec2::new(-exit.normal.y, exit.normal.x);
-                        let aperture_half = exit.aperture_half();
+                        let along = exit.frame.tangent();
+                        let aperture_half = exit.half_length;
                         // The through chart: map the gun's world point and the
                         // aim vector through the pair — exact under the
                         // isometry, no facing/offset re-derivation.
@@ -136,18 +138,26 @@ pub fn sync_portal_mode_indicator(
                                 12.0,
                                 pos,
                                 aim,
-                                clip_plane_render(&frame, enter.pos, enter.normal),
+                                clip_plane_render(&frame, enter.frame.origin, enter.frame.normal),
                                 CLIP_PLANE_OFF,
                                 CLIP_PLANE_OFF,
                             ),
                             (
                                 "through",
                                 crate::PORTAL_EXIT_COPY_Z + 0.05,
-                                pp::map_point(pos, &enter, &exit),
-                                pp::portal_map_vec(aim, enter.normal, exit.normal),
-                                clip_plane_render(&frame, exit.pos, exit.normal),
-                                clip_plane_render(&frame, exit.pos - along * aperture_half, along),
-                                clip_plane_render(&frame, exit.pos + along * aperture_half, -along),
+                                pp::map_point(pos, &enter.frame, &exit.frame),
+                                pp::portal_map_vec(aim, enter.frame.normal, exit.frame.normal),
+                                clip_plane_render(&frame, exit.frame.origin, exit.frame.normal),
+                                clip_plane_render(
+                                    &frame,
+                                    exit.frame.origin - along * aperture_half,
+                                    along,
+                                ),
+                                clip_plane_render(
+                                    &frame,
+                                    exit.frame.origin + along * aperture_half,
+                                    -along,
+                                ),
                             ),
                         ];
                         for (chart, chart_z, chart_pos, chart_aim, clip0, clip1, clip2) in charts {

@@ -3,7 +3,7 @@
 
 use bevy::prelude::*;
 
-use crate::pieces::PortalFrame;
+use crate::pieces::{PortalAperture, PortalFrame};
 
 use super::color::PortalChannel;
 
@@ -28,13 +28,19 @@ pub struct PlacedPortal {
 }
 
 impl PlacedPortal {
-    /// The pure-geometry frame this portal presents to [`crate::pieces`]
-    /// (the Core invariant math: piece decomposition, carve, portal map).
+    /// The pure-geometry frame this portal presents to the portal map (the
+    /// engine-level CC5 type: origin + normal; velocity ZERO — static portals.
+    /// CC6 moving portals derive it from the host's pose + mover velocity).
     pub fn frame(&self) -> PortalFrame {
-        PortalFrame {
-            pos: self.pos,
-            normal: self.normal,
-            half_extent: self.half_extent,
+        PortalFrame::fixed(self.pos, self.normal)
+    }
+
+    /// Frame + opening extent — what the piece decomposition, straddle test,
+    /// carve, and (CC5) portal-aware casts consume.
+    pub fn aperture(&self) -> PortalAperture {
+        PortalAperture {
+            frame: self.frame(),
+            half_length: portal_opening_half(self.normal, self.half_extent),
         }
     }
 }

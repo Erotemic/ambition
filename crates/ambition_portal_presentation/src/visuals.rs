@@ -167,7 +167,10 @@ pub fn sync_portal_body_pieces(
     let body = ae::Aabb::new(kin.pos, kin.size * 0.5);
     // Decompose via the tested Core-invariant function so the pieces can never
     // drift from the collision / gameplay decomposition.
-    let pieces = pp::compute_body_pieces(body, Some((enter_portal.frame(), exit_portal.frame())));
+    let pieces = pp::compute_body_pieces(
+        body,
+        Some((enter_portal.aperture(), exit_portal.aperture())),
+    );
     let Some(through) = pieces.through else {
         // Touching a portal but nothing has crossed the plane yet.
         return;
@@ -178,8 +181,8 @@ pub fn sync_portal_body_pieces(
     // The through pose: the sprite emerging from the exit, placed by the BODY
     // map exactly. The active convention decides whether that map factors as a
     // pure rotation or as rotation plus one x-reflection.
-    let exit_center = pp::map_point(kin.pos, &enter, &exit);
-    let copy = copy_transform(&enter, &exit);
+    let exit_center = pp::map_point(kin.pos, &enter.frame, &exit.frame);
+    let copy = copy_transform(&enter.frame, &exit.frame);
     let exit_roll = base_roll + copy.roll;
     // `apply_character_frame` has already mirrored the anchor to match the
     // source sprite's current `flip_x` value. If the portal copy toggles the
@@ -228,7 +231,7 @@ pub fn sync_portal_body_pieces(
                     uv_rect: basis.uv_rect,
                     control: flip_flag(sprite.flip_x),
                     tint,
-                    clip0: clip_plane_render(&frame, enter.pos, enter.normal),
+                    clip0: clip_plane_render(&frame, enter.frame.origin, enter.frame.normal),
                     clip1: CLIP_PLANE_OFF,
                     clip2: CLIP_PLANE_OFF,
                     color_texture: sprite.image.clone(),
@@ -244,8 +247,8 @@ pub fn sync_portal_body_pieces(
                 rotation: Quat::from_rotation_z(exit_roll),
                 scale: source_transform.scale,
             };
-            let along = Vec2::new(-exit.normal.y, exit.normal.x);
-            let aperture_half = exit.aperture_half();
+            let along = Vec2::new(-exit.frame.normal.y, exit.frame.normal.x);
+            let aperture_half = exit.half_length;
             commands.spawn((
                 PortalBodyPiece,
                 Mesh2d(mesh),
@@ -253,9 +256,17 @@ pub fn sync_portal_body_pieces(
                     uv_rect: basis.uv_rect,
                     control: flip_flag(through_flip),
                     tint,
-                    clip0: clip_plane_render(&frame, exit.pos, exit.normal),
-                    clip1: clip_plane_render(&frame, exit.pos - along * aperture_half, along),
-                    clip2: clip_plane_render(&frame, exit.pos + along * aperture_half, -along),
+                    clip0: clip_plane_render(&frame, exit.frame.origin, exit.frame.normal),
+                    clip1: clip_plane_render(
+                        &frame,
+                        exit.frame.origin - along * aperture_half,
+                        along,
+                    ),
+                    clip2: clip_plane_render(
+                        &frame,
+                        exit.frame.origin + along * aperture_half,
+                        -along,
+                    ),
                     color_texture: sprite.image.clone(),
                 })),
                 clip_piece_transform(&through_base, through_anchor, basis.size),

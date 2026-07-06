@@ -165,8 +165,8 @@ pub(crate) struct ApertureLosRay {
     pub(crate) hit: Option<Vec2>,
 }
 
-fn aperture_tangent(enter: &PortalFrame) -> Vec2 {
-    let tangent = Vec2::new(-enter.normal.y, enter.normal.x);
+fn aperture_tangent(enter: &PortalAperture) -> Vec2 {
+    let tangent = Vec2::new(-enter.frame.normal.y, enter.frame.normal.x);
     if tangent.length_squared() > f32::EPSILON {
         tangent.normalize()
     } else {
@@ -174,13 +174,13 @@ fn aperture_tangent(enter: &PortalFrame) -> Vec2 {
     }
 }
 
-fn aperture_half_width(enter: &PortalFrame) -> f32 {
+fn aperture_half_width(enter: &PortalAperture) -> f32 {
     // Support radius of the axis-aligned portal AABB along the portal surface.
     // For the current cardinal portal frames this picks X for floors/ceilings
     // and Y for walls, while staying correct if a future frame stores a rotated
     // unit normal.
     let t = aperture_tangent(enter);
-    enter.half_extent.dot(Vec2::new(t.x.abs(), t.y.abs()))
+    enter.half_length
 }
 
 pub(crate) struct ApertureLosTargets {
@@ -195,10 +195,10 @@ impl ApertureLosTargets {
 }
 
 pub(crate) fn aperture_los_targets(
-    enter: &PortalFrame,
+    enter: &PortalAperture,
     quality: PortalApertureLosQuality,
 ) -> ApertureLosTargets {
-    let center = enter.pos + enter.normal * APERTURE_LOS_SURFACE_LIFT;
+    let center = enter.frame.origin + enter.frame.normal * APERTURE_LOS_SURFACE_LIFT;
     match quality {
         PortalApertureLosQuality::Low => ApertureLosTargets {
             points: [center, center, center],
@@ -253,7 +253,7 @@ pub(crate) fn aperture_los_ray_to(
 #[cfg(test)]
 pub(crate) fn aperture_los_ray(
     eye: Vec2,
-    enter: &PortalFrame,
+    enter: &PortalAperture,
     occluders: &[ae::Aabb],
 ) -> ApertureLosRay {
     let target = aperture_los_targets(enter, PortalApertureLosQuality::Low).as_slice()[0];
@@ -262,7 +262,7 @@ pub(crate) fn aperture_los_ray(
 
 pub(crate) fn aperture_los_rays(
     eye: Vec2,
-    enter: &PortalFrame,
+    enter: &PortalAperture,
     occluders: &[ae::Aabb],
     quality: PortalApertureLosQuality,
 ) -> Vec<ApertureLosRay> {
@@ -276,7 +276,7 @@ pub(crate) fn aperture_los_rays(
 
 pub(crate) fn aperture_visibility_fraction(
     eye: Vec2,
-    enter: &PortalFrame,
+    enter: &PortalAperture,
     occluders: &[ae::Aabb],
     quality: PortalApertureLosQuality,
 ) -> f32 {
@@ -311,7 +311,7 @@ pub(crate) fn inset_viewer_corners(eye: Vec2, half_size: Vec2) -> [Vec2; 4] {
 /// and the cast still stops short of the lifted point. Uses the original
 /// low-quality center ray for compatibility with existing tests.
 #[cfg(test)]
-pub(crate) fn aperture_occluded(eye: Vec2, enter: &PortalFrame, occluders: &[ae::Aabb]) -> bool {
+pub(crate) fn aperture_occluded(eye: Vec2, enter: &PortalAperture, occluders: &[ae::Aabb]) -> bool {
     aperture_visibility_fraction(eye, enter, occluders, PortalApertureLosQuality::Low) <= 0.0
 }
 
@@ -347,7 +347,7 @@ pub(crate) struct ConePlanDebug {
 struct VisibleEyeCandidate {
     wedge_eye: Vec2,
     los_origin: Vec2,
-    los_frame: PortalFrame,
+    los_frame: PortalAperture,
 }
 
 /// Per-portal, per-frame visibility-route evidence used by the debug dump.
@@ -380,11 +380,11 @@ fn push_unique_eye(eyes: &mut Vec<Vec2>, eye: Vec2) {
 
 fn visible_candidate_fraction(
     candidate: VisibleEyeCandidate,
-    enter: &PortalFrame,
+    enter: &PortalAperture,
     occluders: &[ae::Aabb],
     quality: PortalApertureLosQuality,
 ) -> Option<f32> {
-    if (candidate.wedge_eye - enter.pos).dot(enter.normal) <= 0.0 {
+    if (candidate.wedge_eye - enter.frame.origin).dot(enter.frame.normal) <= 0.0 {
         return None;
     }
     let fraction = aperture_visibility_fraction(
@@ -400,13 +400,14 @@ fn visible_candidate_fraction(
     }
 }
 
-fn body_edge_distance_to_aperture(viewer: &PortalViewer, frame: &PortalFrame) -> f32 {
-    let center_front = (viewer.eye - frame.pos).dot(frame.normal);
+fn body_edge_distance_to_aperture(viewer: &PortalViewer, frame: &PortalAperture) -> f32 {
+    let center_front = (viewer.eye - frame.frame.origin).dot(frame.frame.normal);
     let tangent = aperture_tangent(frame);
-    let center_lateral = (viewer.eye - frame.pos).dot(tangent).abs();
-    let normal_radius = viewer
-        .half_size
-        .dot(Vec2::new(frame.normal.x.abs(), frame.normal.y.abs()));
+    let center_lateral = (viewer.eye - frame.frame.origin).dot(tangent).abs();
+    let normal_radius = viewer.half_size.dot(Vec2::new(
+        frame.frame.normal.x.abs(),
+        frame.frame.normal.y.abs(),
+    ));
     let lateral_radius = viewer
         .half_size
         .dot(Vec2::new(tangent.x.abs(), tangent.y.abs()));
@@ -454,11 +455,11 @@ fn preview_proximity_alpha(edge_distance: f32, config: &PortalViewConeConfig) ->
 /// window depth clip, the transit rescue, and the carve all agree on where a
 /// wall ends.
 pub(crate) fn host_depth_limit(
-    enter: &PortalFrame,
+    enter: &PortalAperture,
     occluders: &[ae::Aabb],
     probe_depth: f32,
 ) -> f32 {
-    ambition_portal::measure_host_depth(occluders, enter, probe_depth)
+    ambition_portal::measure_host_depth(occluders, &enter.frame, probe_depth)
 }
 
 /// Effectively-unclamped lateral bound for the wedge rays. The wedge's far
@@ -479,8 +480,8 @@ pub(crate) fn visibility_route_summary(
     let Some(v) = viewer.filter(|v| v.present) else {
         return VisibilityRouteSummary::default();
     };
-    let enter = portal.frame();
-    let exit = partner.frame();
+    let enter = portal.aperture();
+    let exit = partner.aperture();
     let corners = inset_viewer_corners(v.eye, v.half_size);
     let mut summary = VisibilityRouteSummary::default();
     for &corner in &corners {
@@ -526,10 +527,10 @@ pub(crate) fn visibility_route_summary(
         }
 
         if config.visibility_mode.admit_exit_side(direct_fraction)
-            && (corner - exit.pos).dot(exit.normal) < 0.0
+            && (corner - exit.frame.origin).dot(exit.frame.normal) < 0.0
         {
             let candidate = VisibleEyeCandidate {
-                wedge_eye: ambition_portal::pieces::map_point(corner, &exit, &enter),
+                wedge_eye: ambition_portal::pieces::map_point(corner, &exit.frame, &enter.frame),
                 los_origin: corner,
                 los_frame: exit,
             };
@@ -569,8 +570,8 @@ pub(crate) fn compute_cone(
     viewer: Option<&PortalViewer>,
     world_size: Vec2,
 ) -> ConePlan {
-    let enter = portal.frame();
-    let exit = partner.frame();
+    let enter = portal.aperture();
+    let exit = partner.aperture();
     let closed = || {
         let min = view_cone(&enter, &exit, config.min_depth, config.min_spread);
         ConePlan {
@@ -655,10 +656,10 @@ pub(crate) fn compute_cone(
         }
 
         if config.visibility_mode.admit_exit_side(direct_fraction)
-            && (corner - exit.pos).dot(exit.normal) < 0.0
+            && (corner - exit.frame.origin).dot(exit.frame.normal) < 0.0
         {
             let candidate = VisibleEyeCandidate {
-                wedge_eye: ambition_portal::pieces::map_point(corner, &exit, &enter),
+                wedge_eye: ambition_portal::pieces::map_point(corner, &exit.frame, &enter.frame),
                 los_origin: corner,
                 los_frame: exit,
             };
@@ -694,8 +695,8 @@ pub(crate) fn compute_cone(
     // hide), and inside the slab the mapped capture reconstructs exactly the
     // occluded middle of whatever straddles the wall — while the body's
     // clipped pieces and the far side draw direct, crisp, exactly once.
-    let doorway_pair = enter.normal.dot(exit.normal) < -0.9
-        && enter.pos.distance(exit.pos) <= config.doorway_pair_max_gap;
+    let doorway_pair = enter.frame.normal.dot(exit.frame.normal) < -0.9
+        && enter.frame.origin.distance(exit.frame.origin) <= config.doorway_pair_max_gap;
     let host_limit = host_depth_limit(
         &enter,
         &v.occluders,
@@ -712,7 +713,7 @@ pub(crate) fn compute_cone(
     // to the nearer finite aperture, not the aperture's infinite host plane.
     // Being close in Y while far away laterally should still read as a cone,
     // not as the doorway half-plane limit.
-    let faced = if v.eye.distance(enter.pos) <= v.eye.distance(exit.pos) {
+    let faced = if v.eye.distance(enter.frame.origin) <= v.eye.distance(exit.frame.origin) {
         &enter
     } else {
         &exit
@@ -762,7 +763,7 @@ pub(crate) fn compute_cone(
         preview_half_plane_alpha(edge_distance, config) * los_target.clamp(0.0, 1.0);
     let mut half_plane_eyes = eyes.clone();
     if half_plane_alpha > 0.0 {
-        half_plane_eyes.push(enter.pos + enter.normal * 0.5);
+        half_plane_eyes.push(enter.frame.origin + enter.frame.normal * 0.5);
     }
     let half_wedge = if half_plane_alpha > 0.0 {
         aperture_wedge_multi(
@@ -824,8 +825,8 @@ pub(crate) fn vertex_uv(s: Vec2, source_min: Vec2, source_size: Vec2) -> [f32; 2
 /// leaves nothing or the source degenerates.
 pub(crate) fn cone_render(
     cone: &ViewCone,
-    enter: &PortalFrame,
-    exit: &PortalFrame,
+    enter: &PortalAperture,
+    exit: &PortalAperture,
     frame: &PortalWorldFrame,
     config: &PortalViewConeConfig,
     clip_min: Vec2,
@@ -846,7 +847,7 @@ pub(crate) fn cone_render(
     // Map the clipped vertices; their bounds are the capture rect.
     let mapped: Vec<Vec2> = poly
         .iter()
-        .map(|p| ambition_portal::pieces::map_point(*p, enter, exit))
+        .map(|p| ambition_portal::pieces::map_point(*p, &enter.frame, &exit.frame))
         .collect();
     let (mut smin, mut smax) = (mapped[0], mapped[0]);
     for m in &mapped[1..] {
@@ -896,7 +897,7 @@ pub(crate) fn cone_render(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_portal::pieces::PortalFrame;
+    use ambition_portal::pieces::{PortalAperture, PortalFrame};
     use ambition_portal::{PortalChannelColor, PortalGunColor};
 
     /// Pin the flip-free UV convention: the source-rect corner with MINIMAL
@@ -925,15 +926,13 @@ mod tests {
     /// for a 90° pair (the entry near edge maps onto the exit face → u = 1).
     #[test]
     fn cone_uvs_rotate_with_the_view_map() {
-        let enter = PortalFrame {
-            pos: Vec2::new(100.0, 300.0),
-            normal: Vec2::new(0.0, -1.0),
-            half_extent: Vec2::new(46.0, 9.0),
+        let enter = PortalAperture {
+            frame: PortalFrame::fixed(Vec2::new(100.0, 300.0), Vec2::new(0.0, -1.0)),
+            half_length: 46.0,
         };
-        let exit = PortalFrame {
-            pos: Vec2::new(400.0, 200.0),
-            normal: Vec2::new(-1.0, 0.0),
-            half_extent: Vec2::new(9.0, 46.0),
+        let exit = PortalAperture {
+            frame: PortalFrame::fixed(Vec2::new(400.0, 200.0), Vec2::new(-1.0, 0.0)),
+            half_length: 46.0,
         };
         let cone = view_cone(&enter, &exit, 120.0, 0.25);
         let size = cone.source.max - cone.source.min;
@@ -956,10 +955,9 @@ mod tests {
     /// clear of the segment does not.
     #[test]
     fn aperture_occlusion_tracks_a_blocking_wall() {
-        let enter = PortalFrame {
-            pos: Vec2::new(100.0, 300.0),
-            normal: Vec2::new(0.0, -1.0),
-            half_extent: Vec2::new(46.0, 9.0),
+        let enter = PortalAperture {
+            frame: PortalFrame::fixed(Vec2::new(100.0, 300.0), Vec2::new(0.0, -1.0)),
+            half_length: 46.0,
         };
         let eye = Vec2::new(100.0, 100.0); // 200px above the floor portal
                                            // Wall across the sight line, well in front of the surface.
@@ -974,10 +972,9 @@ mod tests {
 
     #[test]
     fn medium_aperture_los_sees_around_center_blockers() {
-        let enter = PortalFrame {
-            pos: Vec2::new(100.0, 300.0),
-            normal: Vec2::new(0.0, -1.0),
-            half_extent: Vec2::new(46.0, 9.0),
+        let enter = PortalAperture {
+            frame: PortalFrame::fixed(Vec2::new(100.0, 300.0), Vec2::new(0.0, -1.0)),
+            half_length: 46.0,
         };
         let eye = Vec2::new(100.0, 100.0);
         let center_blocker = ae::Aabb::new(Vec2::new(100.0, 200.0), Vec2::new(6.0, 8.0));
@@ -1004,10 +1001,9 @@ mod tests {
 
     #[test]
     fn medium_aperture_los_does_not_require_visible_endpoints() {
-        let enter = PortalFrame {
-            pos: Vec2::new(100.0, 300.0),
-            normal: Vec2::new(0.0, -1.0),
-            half_extent: Vec2::new(46.0, 9.0),
+        let enter = PortalAperture {
+            frame: PortalFrame::fixed(Vec2::new(100.0, 300.0), Vec2::new(0.0, -1.0)),
+            half_length: 46.0,
         };
         let eye = Vec2::new(100.0, 100.0);
         // Block the left/right endpoint rays near y=200 while leaving the center
@@ -1031,20 +1027,22 @@ mod tests {
     /// uses, and stays clear when nothing blocks the aperture.
     #[test]
     fn aperture_los_ray_reports_blockers_and_clear_paths() {
-        let enter = PortalFrame {
-            pos: Vec2::new(100.0, 300.0),
-            normal: Vec2::new(0.0, -1.0),
-            half_extent: Vec2::new(46.0, 9.0),
+        let enter = PortalAperture {
+            frame: PortalFrame::fixed(Vec2::new(100.0, 300.0), Vec2::new(0.0, -1.0)),
+            half_length: 46.0,
         };
         let eye = Vec2::new(100.0, 100.0);
         let wall = ae::Aabb::new(Vec2::new(100.0, 200.0), Vec2::new(40.0, 8.0));
         let blocked = aperture_los_ray(eye, &enter, &[wall]);
-        assert_eq!(blocked.target, enter.pos + enter.normal * 12.0);
+        assert_eq!(
+            blocked.target,
+            enter.frame.origin + enter.frame.normal * 12.0
+        );
         assert!(blocked.hit.is_some());
         assert!(aperture_occluded(eye, &enter, &[wall]));
 
         let clear = aperture_los_ray(eye, &enter, &[]);
-        assert_eq!(clear.target, enter.pos + enter.normal * 12.0);
+        assert_eq!(clear.target, enter.frame.origin + enter.frame.normal * 12.0);
         assert!(clear.hit.is_none());
         assert!(!aperture_occluded(eye, &enter, &[]));
     }
@@ -1150,8 +1148,8 @@ mod tests {
     }
 
     fn rendered_span_x(plan: &ConePlan, enter: &PlacedPortal, exit: &PlacedPortal) -> f32 {
-        let enter = enter.frame();
-        let exit = exit.frame();
+        let enter = enter.aperture();
+        let exit = exit.aperture();
         let cone = blend_cones(&plan.min, &plan.wedge, smooth01(plan.target), &enter, &exit);
         span_x(&cone)
     }
@@ -1202,8 +1200,8 @@ mod tests {
         let plan = compute_cone(&enter, &exit, &config, Some(&viewer), world);
         assert_eq!(plan.target, 1.0);
         assert_eq!(plan.debug.half_plane_preview_alpha, 1.0);
-        let enter_frame = enter.frame();
-        let exit_frame = exit.frame();
+        let enter_frame = enter.aperture();
+        let exit_frame = exit.aperture();
         let cone = blend_cones(
             &plan.min,
             &plan.wedge,
@@ -1370,8 +1368,8 @@ mod tests {
         assert_eq!(
             far_span,
             span_x(&view_cone(
-                &enter.frame(),
-                &exit.frame(),
+                &enter.aperture(),
+                &exit.aperture(),
                 config.min_depth,
                 config.min_spread
             ))
@@ -1716,10 +1714,9 @@ mod tests {
 
     #[test]
     fn host_depth_limit_measures_merged_material_and_stops_at_gaps() {
-        let face = PortalFrame {
-            pos: Vec2::new(500.0, 450.0),
-            normal: Vec2::new(-1.0, 0.0),
-            half_extent: Vec2::new(9.0, 46.0),
+        let face = PortalAperture {
+            frame: PortalFrame::fixed(Vec2::new(500.0, 450.0), Vec2::new(-1.0, 0.0)),
+            half_length: 46.0,
         };
         let wall = |x0: f32, x1: f32| {
             ae::Aabb::new(

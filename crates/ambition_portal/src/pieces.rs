@@ -17,20 +17,24 @@
 //!
 //! Current implementation note: gameplay pieces are still AABB-backed, so
 //! production use is restricted to cardinal floor / wall / ceiling portals. The
-//! frame math already names normals/tangents, but arbitrary-angle portals need
-//! polygon clipping and non-AABB body pieces before this can be a fully general
-//! standalone portal crate.
-//!
-//! FIXME(portal-api): promote an oriented `PortalFrame` / aperture basis as the
-//! public shape, then keep AABB helpers as Ambition-specific convenience paths.
+//! frame math (now `ambition_engine_core::frame` — the CC5 aperture
+//! vocabulary) is angle-general; arbitrary-angle portals need polygon clipping
+//! and non-AABB body pieces before this can be a fully general standalone
+//! portal crate (collision-and-ccd.md P3b).
 
 use ambition_engine_core::{self as ae, AabbExt};
 use bevy::math::Vec2;
 
+// The engine-level aperture vocabulary (CC5): the frame type and pair map live
+// in `ambition_engine_core::frame`; this module builds the AABB piece/carve
+// geometry ON them.
+pub use ambition_engine_core::frame::{PortalAperture, PortalFrame};
+
 // The pure portal-map vector math (orientation-between-two-normals transforms)
-// now lives in the content-free `ambition_platformer_primitives` crate. Re-export
-// it here so portal_pieces' AABB/piece geometry and every other in-sandbox user
-// (world_overlay, debug_overlay, portal/*) keep referencing
+// lives in the content-free `ambition_platformer_primitives` crate (delegating
+// to `engine_core::frame`), including the game-wide convention dispatch.
+// Re-export it here so portal_pieces' AABB/piece geometry and every other
+// in-sandbox user (world_overlay, debug_overlay, portal/*) keep referencing
 // `crate::pieces::{portal_rotation, rotate, portal_tangent,
 // portal_map_vec}` unchanged.
 pub use ambition_platformer_primitives::math::{
@@ -38,38 +42,13 @@ pub use ambition_platformer_primitives::math::{
     portal_rotation, portal_tangent, rotate, set_portal_map_rotation,
 };
 
-/// Portal frame as the piece math sees it: where the doorway is, the outward
-/// surface normal, and the current AABB-backed opening half-extent. Decoupled
-/// from the ECS `Portal` component so this module stays pure and testable.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct PortalFrame {
-    /// World-space center of the doorway, on the host surface.
-    pub pos: Vec2,
-    /// Unit outward normal, pointing into the room. Current gameplay collision
-    /// expects cardinal directions; future public API should permit arbitrary
-    /// normalized directions with an explicit tangent/aperture basis.
-    pub normal: Vec2,
-    /// AABB half-extent of the doorway (opening along the surface, thin through
-    /// it). This is an Ambition/cardinal convenience representation, not the
-    /// final expressive portal-shape API.
-    pub half_extent: Vec2,
-}
-
-impl PortalFrame {
-    /// Half-length of the opening *along* the surface (perpendicular to the
-    /// normal): a wall portal's half-height, a floor portal's half-width.
-    pub fn aperture_half(&self) -> f32 {
-        let along = Vec2::new(-self.normal.y, self.normal.x);
-        along.x.abs() * self.half_extent.x.abs() + along.y.abs() * self.half_extent.y.abs()
-    }
-}
-
 /// Map a world point near `enter` to the corresponding point near `exit`: the
 /// depth a point has sunk *into* the entry wall becomes the depth it emerges
-/// *out* of the exit portal (so `enter.pos` maps to `exit.pos`), and its
-/// along-surface offset is preserved (see [`portal_map_vec`]).
+/// *out* of the exit portal (so `enter.origin` maps to `exit.origin`), and its
+/// along-surface offset follows the game-wide convention (see
+/// [`portal_map_vec`]).
 pub fn map_point(p: Vec2, enter: &PortalFrame, exit: &PortalFrame) -> Vec2 {
-    exit.pos + portal_map_vec(p - enter.pos, enter.normal, exit.normal)
+    exit.origin + portal_map_vec(p - enter.origin, enter.normal, exit.normal)
 }
 
 /// Map an axis-aligned AABB through the portal pair. The map is axis-aligned for
@@ -103,6 +82,8 @@ fn aabb_mm(x0: f32, y0: f32, x1: f32, y1: f32) -> Option<ae::Aabb> {
 /// Keep the part of `b` on the side of the plane (through `point`, axis-aligned
 /// outward `dir`) that `dir` points toward. `None` if `b` is entirely on the far
 /// side. Used to clip a body to one side of a portal plane.
+///
+/// (Cardinal-only, like the whole AABB piece layer — P3b generalizes.)
 pub fn clip_halfspace(b: ae::Aabb, point: Vec2, dir: Vec2) -> Option<ae::Aabb> {
     let (mut x0, mut y0, mut x1, mut y1) = (b.min.x, b.min.y, b.max.x, b.max.y);
     if dir.x > 0.5 {
@@ -119,22 +100,22 @@ pub fn clip_halfspace(b: ae::Aabb, point: Vec2, dir: Vec2) -> Option<ae::Aabb> {
 
 /// Clip `b` laterally to a portal's opening span (so a body wider than the
 /// aperture only shows the slice that fits through the doorway).
-fn clip_to_aperture(b: ae::Aabb, frame: &PortalFrame) -> Option<ae::Aabb> {
-    let along = Vec2::new(-frame.normal.y, frame.normal.x);
-    let half = frame.aperture_half();
+fn clip_to_aperture(b: ae::Aabb, ap: &PortalAperture) -> Option<ae::Aabb> {
+    let along = ap.frame.tangent();
+    let half = ap.half_length;
     if along.x.abs() > 0.5 {
         aabb_mm(
-            b.min.x.max(frame.pos.x - half),
+            b.min.x.max(ap.frame.origin.x - half),
             b.min.y,
-            b.max.x.min(frame.pos.x + half),
+            b.max.x.min(ap.frame.origin.x + half),
             b.max.y,
         )
     } else {
         aabb_mm(
             b.min.x,
-            b.min.y.max(frame.pos.y - half),
+            b.min.y.max(ap.frame.origin.y - half),
             b.max.x,
-            b.max.y.min(frame.pos.y + half),
+            b.max.y.min(ap.frame.origin.y + half),
         )
     }
 }
@@ -145,9 +126,9 @@ pub struct ThroughPiece {
     /// The clipped piece on the EXIT side, in exit-local world space.
     pub aabb: ae::Aabb,
     /// The portal the body is sinking into (its plane clips `here`).
-    pub enter: PortalFrame,
+    pub enter: PortalAperture,
     /// The linked portal the piece emerges from.
-    pub exit: PortalFrame,
+    pub exit: PortalAperture,
 }
 
 /// The portal-aware decomposition of one body: always a `here` piece on the
@@ -173,22 +154,23 @@ impl BodyPieces {
     }
 }
 
-/// Does `body` straddle `frame`'s plane within the opening? True when the plane
+/// Does `body` straddle `ap`'s plane within the opening? True when the plane
 /// passes through the body's extent AND the body overlaps the aperture span.
-pub fn straddles(body: ae::Aabb, frame: &PortalFrame) -> bool {
-    let half = frame.aperture_half();
-    if frame.normal.x.abs() > 0.5 {
-        // Vertical-plane (wall) portal: plane is a vertical line at pos.x.
-        body.min.x < frame.pos.x
-            && body.max.x > frame.pos.x
-            && body.max.y > frame.pos.y - half
-            && body.min.y < frame.pos.y + half
+pub fn straddles(body: ae::Aabb, ap: &PortalAperture) -> bool {
+    let half = ap.half_length;
+    let origin = ap.frame.origin;
+    if ap.frame.normal.x.abs() > 0.5 {
+        // Vertical-plane (wall) portal: plane is a vertical line at origin.x.
+        body.min.x < origin.x
+            && body.max.x > origin.x
+            && body.max.y > origin.y - half
+            && body.min.y < origin.y + half
     } else {
         // Horizontal-plane (floor / ceiling) portal: plane is a horizontal line.
-        body.min.y < frame.pos.y
-            && body.max.y > frame.pos.y
-            && body.max.x > frame.pos.x - half
-            && body.min.x < frame.pos.x + half
+        body.min.y < origin.y
+            && body.max.y > origin.y
+            && body.max.x > origin.x - half
+            && body.min.x < origin.x + half
     }
 }
 
@@ -201,7 +183,10 @@ pub fn straddles(body: ae::Aabb, frame: &PortalFrame) -> bool {
 /// the entry side, trailing nothing) and after (body on the exit side, its
 /// trailing slice mapped back to the entry) — whichever plane it currently
 /// straddles is the "entry" for the decomposition.
-pub fn compute_body_pieces(body: ae::Aabb, pair: Option<(PortalFrame, PortalFrame)>) -> BodyPieces {
+pub fn compute_body_pieces(
+    body: ae::Aabb,
+    pair: Option<(PortalAperture, PortalAperture)>,
+) -> BodyPieces {
     let Some((a, b)) = pair else {
         return BodyPieces::whole(body);
     };
@@ -211,12 +196,12 @@ pub fn compute_body_pieces(body: ae::Aabb, pair: Option<(PortalFrame, PortalFram
         }
         // Front slice stays here (clipped at the plane so it never shows inside
         // the wall); the back slice is what has crossed.
-        let here = clip_halfspace(body, enter.pos, enter.normal).unwrap_or(body);
-        let through = clip_halfspace(body, enter.pos, -enter.normal)
-            .map(|back| map_aabb(back, &enter, &exit))
+        let here = clip_halfspace(body, enter.frame.origin, enter.frame.normal).unwrap_or(body);
+        let through = clip_halfspace(body, enter.frame.origin, -enter.frame.normal)
+            .map(|back| map_aabb(back, &enter.frame, &exit.frame))
             // The emerged piece shows only what is in front of the exit and
             // within its opening.
-            .and_then(|mapped| clip_halfspace(mapped, exit.pos, exit.normal))
+            .and_then(|mapped| clip_halfspace(mapped, exit.frame.origin, exit.frame.normal))
             .and_then(|mapped| clip_to_aperture(mapped, &exit))
             .map(|aabb| ThroughPiece { aabb, enter, exit });
         return BodyPieces { here, through };
@@ -226,9 +211,10 @@ pub fn compute_body_pieces(body: ae::Aabb, pair: Option<(PortalFrame, PortalFram
 
 /// Signed distance of `point` from `frame`'s plane along its outward normal:
 /// positive = in front (room side), negative = behind (into the wall). The
-/// centroid transfer fires when this changes sign.
+/// centroid transfer fires when this changes sign. (This IS
+/// `frame.to_local(point).y` — kept as the named domain verb.)
 pub fn front_distance(point: Vec2, frame: &PortalFrame) -> f32 {
-    (point - frame.pos).dot(frame.normal)
+    (point - frame.origin).dot(frame.normal)
 }
 
 // ---------------------------------------------------------------------------
@@ -276,8 +262,8 @@ pub const SURFACE_GRACE: f32 = 16.0;
 /// The carve hole for a portal: the opening width along the surface, cut from a
 /// little OUTWARD of the face ([`SURFACE_GRACE`], to clear any grid-snap lip)
 /// through [`CARVE_DEPTH`] inward.
-pub fn carve_hole(frame: &PortalFrame) -> ae::Aabb {
-    carve_hole_with_depth(frame, f32::INFINITY)
+pub fn carve_hole(ap: &PortalAperture) -> ae::Aabb {
+    carve_hole_with_depth(ap, f32::INFINITY)
 }
 
 /// [`carve_hole`] bounded by the MEASURED host material depth: the aperture
@@ -285,14 +271,14 @@ pub fn carve_hole(frame: &PortalFrame) -> ae::Aabb {
 /// reach into the open room behind it, and anything keying off "inside the
 /// hole" (the transit rescue, the carve engagement) would wrongly engage a
 /// body standing behind the wall.
-pub fn carve_hole_with_depth(frame: &PortalFrame, host_depth: f32) -> ae::Aabb {
+pub fn carve_hole_with_depth(ap: &PortalAperture, host_depth: f32) -> ae::Aabb {
     let depth = CARVE_DEPTH.min(host_depth.max(0.0));
-    let along = Vec2::new(-frame.normal.y, frame.normal.x);
-    let open = frame.aperture_half();
-    let n = frame.normal;
+    let along = ap.frame.tangent();
+    let open = ap.half_length;
+    let n = ap.frame.normal;
     // Span from `+SURFACE_GRACE` outward of the face to `depth` inward.
     let through = (SURFACE_GRACE + depth) * 0.5;
-    let center = frame.pos + n * (SURFACE_GRACE * 0.5) - n * (depth * 0.5);
+    let center = ap.frame.origin + n * (SURFACE_GRACE * 0.5) - n * (depth * 0.5);
     let half = Vec2::new(
         along.x.abs() * open + n.x.abs() * through,
         along.y.abs() * open + n.y.abs() * through,
@@ -305,20 +291,18 @@ mod tests {
     use super::*;
     use std::f32::consts::{FRAC_PI_2, PI};
 
-    fn floor(pos: Vec2) -> PortalFrame {
+    fn floor(pos: Vec2) -> PortalAperture {
         // Floor portal: normal points up (y-down world → up = -y).
-        PortalFrame {
-            pos,
-            normal: Vec2::new(0.0, -1.0),
-            half_extent: Vec2::new(46.0, 9.0),
+        PortalAperture {
+            frame: PortalFrame::fixed(pos, Vec2::new(0.0, -1.0)),
+            half_length: 46.0,
         }
     }
-    fn right_wall(pos: Vec2) -> PortalFrame {
+    fn right_wall(pos: Vec2) -> PortalAperture {
         // Right wall: normal points left.
-        PortalFrame {
-            pos,
-            normal: Vec2::new(-1.0, 0.0),
-            half_extent: Vec2::new(9.0, 46.0),
+        PortalAperture {
+            frame: PortalFrame::fixed(pos, Vec2::new(-1.0, 0.0)),
+            half_length: 46.0,
         }
     }
 
@@ -328,15 +312,15 @@ mod tests {
         let exit = right_wall(Vec2::new(400.0, 200.0));
         // A point sunk 10px below the floor plane (into the wall, +y) emerges
         // 10px out in front of the right wall (left of it, -x).
-        let p = map_point(Vec2::new(100.0, 310.0), &enter, &exit);
+        let p = map_point(Vec2::new(100.0, 310.0), &enter.frame, &exit.frame);
         assert!(
             (p.x - 390.0).abs() < 1e-3 && (p.y - 200.0).abs() < 1e-3,
             "got {p:?}"
         );
         // The portal centers map onto each other.
-        let c = map_point(enter.pos, &enter, &exit);
+        let c = map_point(enter.frame.origin, &enter.frame, &exit.frame);
         assert!(
-            (c - exit.pos).length() < 1e-3,
+            (c - exit.frame.origin).length() < 1e-3,
             "centers map together, got {c:?}"
         );
     }
@@ -346,7 +330,7 @@ mod tests {
         let enter = floor(Vec2::new(100.0, 300.0));
         let exit = right_wall(Vec2::new(400.0, 200.0));
         let b = ae::Aabb::new(Vec2::new(100.0, 305.0), Vec2::new(12.0, 6.0));
-        let m = map_aabb(b, &enter, &exit);
+        let m = map_aabb(b, &enter.frame, &exit.frame);
         // 90° turn → width/height swap.
         assert!(
             (m.half_size().x - 6.0).abs() < 1e-3,
@@ -436,11 +420,11 @@ mod tests {
     fn front_distance_signs() {
         let f = floor(Vec2::new(100.0, 300.0));
         assert!(
-            front_distance(Vec2::new(100.0, 280.0), &f) > 0.0,
+            front_distance(Vec2::new(100.0, 280.0), &f.frame) > 0.0,
             "above floor = front"
         );
         assert!(
-            front_distance(Vec2::new(100.0, 320.0), &f) < 0.0,
+            front_distance(Vec2::new(100.0, 320.0), &f.frame) < 0.0,
             "below floor = behind"
         );
     }
@@ -502,16 +486,8 @@ mod tests {
         // A 45° ramp face (normal up-left) paired with an ordinary floor.
         let n_in = Vec2::new(-inv_sqrt2, -inv_sqrt2);
         let n_out = Vec2::new(0.0, -1.0);
-        let enter = PortalFrame {
-            pos: Vec2::new(100.0, 300.0),
-            normal: n_in,
-            half_extent: Vec2::splat(46.0 * inv_sqrt2 + 9.0 * inv_sqrt2),
-        };
-        let exit = PortalFrame {
-            pos: Vec2::new(500.0, 200.0),
-            normal: n_out,
-            half_extent: Vec2::new(46.0, 9.0),
-        };
+        let enter = PortalFrame::fixed(Vec2::new(100.0, 300.0), n_in);
+        let exit = PortalFrame::fixed(Vec2::new(500.0, 200.0), n_out);
         for v in [Vec2::new(3.0, 7.0), Vec2::new(-120.0, 45.0), Vec2::X] {
             for map in [portal_map_vec_reflection, portal_map_vec_rotation] {
                 // Isometry: speed is exactly preserved at any angle.
@@ -530,11 +506,11 @@ mod tests {
         // map_point: depth behind the slanted entry becomes depth in front of
         // the exit, and mapping back through the swapped pair is the identity.
         for p in [
-            enter.pos - n_in * 12.0,
-            enter.pos + Vec2::new(10.0, -4.0),
-            enter.pos + n_in * 3.0,
+            enter.origin - n_in * 12.0,
+            enter.origin + Vec2::new(10.0, -4.0),
+            enter.origin + n_in * 3.0,
         ] {
-            let depth_behind = -(p - enter.pos).dot(n_in);
+            let depth_behind = -(p - enter.origin).dot(n_in);
             let mapped = map_point(p, &enter, &exit);
             assert!(
                 (front_distance(mapped, &exit) - depth_behind).abs() < 1e-3,

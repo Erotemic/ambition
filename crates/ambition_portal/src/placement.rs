@@ -252,7 +252,7 @@ pub fn measure_host_depth(occluders: &[ae::Aabb], frame: &PortalFrame, probe_dep
     let dir = -frame.normal;
     let mut intervals: Vec<(f32, f32)> = occluders
         .iter()
-        .filter_map(|a| ray_interval(frame.pos, dir, *a))
+        .filter_map(|a| ray_interval(frame.origin, dir, *a))
         .filter(|(near, far)| *far > 0.0 && *near < probe_depth)
         .collect();
     intervals.sort_by(|a, b| a.0.total_cmp(&b.0));
@@ -494,9 +494,9 @@ fn swept_crossing_step(
         if !portal_fits(size, enter) {
             continue;
         }
-        let ef = enter.frame();
-        let f0 = pp::front_distance(prev.pos, &ef);
-        let f1 = pp::front_distance(center, &ef);
+        let ap = enter.aperture();
+        let f0 = pp::front_distance(prev.pos, &ap.frame);
+        let f1 = pp::front_distance(center, &ap.frame);
         // Crossed the plane INTO the wall this step.
         if f0 <= 0.0 || f1 > 0.0 {
             continue;
@@ -505,9 +505,8 @@ fn swept_crossing_step(
         // point is within the opening.
         let t = f0 / (f0 - f1);
         let at = prev.pos + seg * t;
-        let along = Vec2::new(-ef.normal.y, ef.normal.x);
-        let offset = (at - ef.pos).dot(along).abs();
-        if offset <= ef.aperture_half() + TRANSIT_BEGIN_MARGIN {
+        let offset = (at - ap.frame.origin).dot(ap.frame.tangent()).abs();
+        if offset <= ap.half_length + TRANSIT_BEGIN_MARGIN {
             // Carry the velocity that PRODUCED the crossing: the live `vel`
             // when it still points into the portal (unobstructed fast
             // crossing), else the previous sample's (the integrator
@@ -588,12 +587,12 @@ pub fn transit_step_with_tuning(
                 if !portal_fits(size, enter) {
                     continue;
                 }
-                let ef = enter.frame();
+                let ap = enter.aperture();
                 // The hole is bounded by the measured host material: on a
                 // thin wall the aperture volume ends at the wall's far face,
                 // so a body in the open room BEHIND it is never grabbed.
-                let hole = pp::carve_hole_with_depth(&ef, host_depths.depth(enter.channel));
-                if pp::front_distance(center, &ef) <= 0.0
+                let hole = pp::carve_hole_with_depth(&ap, host_depths.depth(enter.channel));
+                if pp::front_distance(center, &ap.frame) <= 0.0
                     && body.strict_intersects(hole)
                     && vel.dot(enter.normal) < 0.0
                 {
@@ -707,7 +706,7 @@ pub fn transit_step_with_tuning(
             // straddles the exit plane (trailing edge not yet out). The cooldown
             // latch (set on transfer) stops a re-entry.
             let still_engaged = if t.crossed {
-                pp::straddles(body, &enter.frame())
+                pp::straddles(body, &enter.aperture())
             } else {
                 body.strict_intersects(capture_box(&enter))
             };

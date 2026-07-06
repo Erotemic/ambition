@@ -53,7 +53,7 @@ use std::fmt::Write as _;
 
 use ambition_engine_core::cast::{raycast_solids, SolidWorldQuery};
 use ambition_engine_core::{self as ae, AabbExt};
-use ambition_portal::pieces::PortalFrame;
+use ambition_portal::pieces::PortalAperture;
 use ambition_portal::view::{aperture_wedge_multi, blend_cones, view_cone, window_eye, ViewCone};
 use ambition_portal::{find_portal, PlacedPortal, PortalChannel};
 
@@ -689,12 +689,12 @@ fn portal_at_seam(viewer: Option<&PortalViewer>, portal_pos: Vec2) -> bool {
 /// camera center mapped through the pair. `None` when no host view exists.
 fn portal_parallax_anchor_world(
     host_view: Option<&PortalCameraContinuityHostView>,
-    enter: &PortalFrame,
-    exit: &PortalFrame,
+    enter: &PortalAperture,
+    exit: &PortalAperture,
 ) -> Option<Vec2> {
-    host_view
-        .filter(|v| v.initialized)
-        .map(|v| ambition_portal::pieces::map_point(v.current_center_world, enter, exit))
+    host_view.filter(|v| v.initialized).map(|v| {
+        ambition_portal::pieces::map_point(v.current_center_world, &enter.frame, &exit.frame)
+    })
 }
 
 fn portal_window_clip_rect(
@@ -717,8 +717,8 @@ fn portal_window_clip_rect(
 fn portal_capture_camera_frame(
     config: &PortalViewConeConfig,
     host_view: Option<&PortalCameraContinuityHostView>,
-    enter: &PortalFrame,
-    exit: &PortalFrame,
+    enter: &PortalAperture,
+    exit: &PortalAperture,
 ) -> Option<geometry::CaptureCameraFrame> {
     if config.capture_camera_mode != PortalCaptureCameraMode::MappedCameraSnapshot {
         return None;
@@ -734,7 +734,7 @@ fn portal_capture_camera_frame(
     // cardinal portals, and the mesh's entry polygon is clipped to this same
     // host rect, so every mapped vertex now lands inside the capture frame.
     let rect = ae::Aabb::new(host_view.current_center_world, host_view.visible_view * 0.5);
-    let mapped = ambition_portal::pieces::map_aabb(rect, enter, exit);
+    let mapped = ambition_portal::pieces::map_aabb(rect, &enter.frame, &exit.frame);
     Some(geometry::CaptureCameraFrame {
         center: mapped.center(),
         size: mapped.half_size() * 2.0,
@@ -823,7 +823,7 @@ pub fn sync_portal_view_cones(
             commands.entity(rig.cone).despawn();
             continue;
         };
-        let (enter, exit) = (portal.frame(), partner.frame());
+        let (enter, exit) = (portal.aperture(), partner.aperture());
         let capture_frame =
             portal_capture_camera_frame(&config, host_view.as_deref(), &enter, &exit);
         let rebuild = RebuildKey {
@@ -941,7 +941,7 @@ pub fn sync_portal_view_cones(
         if served.contains(&portal.channel) {
             continue;
         }
-        let (enter, exit) = (portal.frame(), partner.frame());
+        let (enter, exit) = (portal.aperture(), partner.aperture());
         let capture_frame =
             portal_capture_camera_frame(&config, host_view.as_deref(), &enter, &exit);
         let rebuild = RebuildKey {
@@ -1100,7 +1100,7 @@ pub fn sync_portal_view_cones(
                             .or_else(|| {
                                 render.as_ref().map(|r| (r.source_min + r.source_max) * 0.5)
                             })
-                            .unwrap_or(exit.pos),
+                            .unwrap_or(exit.frame.origin),
                         0.0,
                     )
                     .truncate(),
@@ -1431,8 +1431,8 @@ fn portal_view_cone_debug_dump_text(
         let _ = writeln!(out, "  partner_pos: {}", fmt_vec2(partner.pos));
         let _ = writeln!(out, "  partner_normal: {}", fmt_vec2(partner.normal));
 
-        let enter = portal.frame();
-        let exit = partner.frame();
+        let enter = portal.aperture();
+        let exit = partner.aperture();
         let capture_frame = portal_capture_camera_frame(config, host_view, &enter, &exit);
         let rebuild = RebuildKey {
             world_size: frame.size,
@@ -1825,8 +1825,8 @@ pub fn selected_portal_view_cone_debug_rows(
             ));
             continue;
         };
-        let enter = portal.frame();
-        let exit = partner.frame();
+        let enter = portal.aperture();
+        let exit = partner.aperture();
         let plan = compute_cone(portal, &partner, config, viewer, frame.size);
         rows.push(PortalViewConeDebugRow::new(
             format!("selected_pair.{name}.plan.target"),
@@ -2102,7 +2102,7 @@ pub fn debug_portal_view_zones(
         let Some(partner) = find_portal(&all, portal.channel.partner()) else {
             continue;
         };
-        let (enter, exit) = (portal.frame(), partner.frame());
+        let (enter, exit) = (portal.aperture(), partner.aperture());
         let plan = compute_cone(portal, &partner, &config, viewer, frame.size);
         let (_, core) = portal.channel.display();
 
@@ -2164,7 +2164,7 @@ pub fn debug_portal_view_zones(
                     }
                 }
                 if config.visibility_mode.admit_exit_side(direct_fraction)
-                    && (origin - exit.pos).dot(exit.normal) < 0.0
+                    && (origin - exit.frame.origin).dot(exit.frame.normal) < 0.0
                 {
                     candidate_rays.push(aperture_los_rays(
                         origin,

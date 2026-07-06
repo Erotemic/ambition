@@ -123,7 +123,7 @@ pub fn publish_portal_carves(
         if find_portal(&all, channel.partner()).is_none() {
             return;
         }
-        holes.push(pp::carve_hole(&enter.frame()));
+        holes.push(pp::carve_hole(&enter.aperture()));
         carved.push(channel);
     };
 
@@ -134,8 +134,8 @@ pub fn publish_portal_carves(
             if !portal_fits(kin.size, p) {
                 continue;
             }
-            let frame = p.frame();
-            let front = pp::front_distance(kin.pos, &frame);
+            let ap = p.aperture();
+            let front = pp::front_distance(kin.pos, &ap.frame);
             // FRONT-side engagement only: in the opening now (walk-in /
             // resting), or closing in fast enough that this frame's
             // integration may cross it. Without the front gate, a body
@@ -150,7 +150,7 @@ pub fn publish_portal_carves(
             // carve hole bounded by the measured host material, so the open
             // room behind a thin wall never counts.
             let hole = pp::carve_hole_with_depth(
-                &frame,
+                &ap,
                 depths.map_or(f32::INFINITY, |d| d.depth(p.channel)),
             );
             let falling_through = kin.vel.dot(p.normal) < 0.0 && body.strict_intersects(hole);

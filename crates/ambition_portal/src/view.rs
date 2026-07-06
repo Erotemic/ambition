@@ -29,7 +29,8 @@ use ambition_engine_core as ae;
 use bevy::math::Vec2;
 
 use crate::pieces::{
-    map_point, portal_map_vec, portal_map_vec_reflection, portal_map_vec_rotation, PortalFrame,
+    map_point, portal_map_vec, portal_map_vec_reflection, portal_map_vec_rotation, PortalAperture,
+    PortalFrame,
 };
 
 /// A 2D orthogonal transform factored the way Bevy sprites can draw it:
@@ -87,8 +88,8 @@ impl PortalViewMap {
         let col_y = lin(Vec2::Y);
         let factor = factor_orthogonal(col_x, col_y);
         Self {
-            enter_pos: enter.pos,
-            exit_pos: exit.pos,
+            enter_pos: enter.origin,
+            exit_pos: exit.origin,
             cos: factor.cos,
             sin: factor.sin,
             flip_x: factor.flip_x,
@@ -252,8 +253,12 @@ pub fn copy_roll(enter: &PortalFrame, exit: &PortalFrame) -> f32 {
 /// the corners through the body [`map_point`] (the transit map), the source
 /// rect their bounds. One place that defines the display map, shared by every
 /// cone constructor.
-fn from_entry_quad(entry_quad: [Vec2; 4], enter: &PortalFrame, exit: &PortalFrame) -> ViewCone {
-    let source_quad = entry_quad.map(|p| map_point(p, enter, exit));
+fn from_entry_quad(
+    entry_quad: [Vec2; 4],
+    enter: &PortalAperture,
+    exit: &PortalAperture,
+) -> ViewCone {
+    let source_quad = entry_quad.map(|p| map_point(p, &enter.frame, &exit.frame));
     let (mut min, mut max) = (source_quad[0], source_quad[0]);
     for p in &source_quad[1..] {
         min = min.min(*p);
@@ -270,17 +275,23 @@ fn from_entry_quad(entry_quad: [Vec2; 4], enter: &PortalFrame, exit: &PortalFram
 /// receding `depth` into the entry's host surface, widening by `spread` per px
 /// of depth. Viewer-independent — the "always show this much" baseline (also
 /// the minimum-cone floor; see [`blend_cones`]).
-pub fn view_cone(enter: &PortalFrame, exit: &PortalFrame, depth: f32, spread: f32) -> ViewCone {
-    let n = enter.normal;
-    let along = Vec2::new(-n.y, n.x);
-    let near_half = enter.aperture_half();
+pub fn view_cone(
+    enter: &PortalAperture,
+    exit: &PortalAperture,
+    depth: f32,
+    spread: f32,
+) -> ViewCone {
+    let n = enter.frame.normal;
+    let along = enter.frame.tangent();
+    let near_half = enter.half_length;
     let far_half = near_half + depth * spread;
+    let o = enter.frame.origin;
     from_entry_quad(
         [
-            enter.pos - along * near_half,
-            enter.pos + along * near_half,
-            enter.pos + along * far_half - n * depth,
-            enter.pos - along * far_half - n * depth,
+            o - along * near_half,
+            o + along * near_half,
+            o + along * far_half - n * depth,
+            o - along * far_half - n * depth,
         ],
         enter,
         exit,
@@ -310,13 +321,13 @@ const EYE_HANDOFF_BAND: f32 = 24.0;
 /// itself when cleanly in front, the just-in-front lift when dipped into the
 /// doorway (see [`window_eye`]'s in-doorway grace), `None` when genuinely
 /// behind the surface.
-fn resolve_end_front(end: &PortalFrame, eye: Vec2) -> Option<Vec2> {
-    let n = end.normal;
-    let t = Vec2::new(-n.y, n.x);
-    let v = eye - end.pos;
+fn resolve_end_front(end: &PortalAperture, eye: Vec2) -> Option<Vec2> {
+    let n = end.frame.normal;
+    let t = end.frame.tangent();
+    let v = eye - end.frame.origin;
     let (front, lat) = (v.dot(n), v.dot(t));
-    let in_doorway = lat.abs() <= end.aperture_half() + DOORWAY_LATERAL_GRACE
-        && front.abs() <= DOORWAY_DEPTH_GRACE;
+    let in_doorway =
+        lat.abs() <= end.half_length + DOORWAY_LATERAL_GRACE && front.abs() <= DOORWAY_DEPTH_GRACE;
     let front = if front >= MIN_FRONT {
         front
     } else if in_doorway {
@@ -326,7 +337,7 @@ fn resolve_end_front(end: &PortalFrame, eye: Vec2) -> Option<Vec2> {
     } else {
         return None;
     };
-    Some(end.pos + n * front + t * lat)
+    Some(end.frame.origin + n * front + t * lat)
 }
 
 /// The effective eye for looking into `enter`, given the controlled
@@ -357,9 +368,13 @@ fn resolve_end_front(end: &PortalFrame, eye: Vec2) -> Option<Vec2> {
 /// [`DOORWAY_DEPTH_GRACE`] of the plane is lifted to just in front of it —
 /// [`aperture_wedge`]'s small-front continuation then yields the half-plane
 /// limit. `None` only when the eye is behind both ends and in neither doorway.
-pub fn window_eye(enter: &PortalFrame, exit: &PortalFrame, eye: Vec2) -> Option<(Vec2, bool)> {
+pub fn window_eye(
+    enter: &PortalAperture,
+    exit: &PortalAperture,
+    eye: Vec2,
+) -> Option<(Vec2, bool)> {
     let direct = resolve_end_front(enter, eye);
-    let via = resolve_end_front(exit, eye).map(|r| view_point(r, exit, enter));
+    let via = resolve_end_front(exit, eye).map(|r| view_point(r, &exit.frame, &enter.frame));
     match (direct, via) {
         (None, None) => None,
         (Some(d), None) => Some((d, false)),
@@ -368,7 +383,7 @@ pub fn window_eye(enter: &PortalFrame, exit: &PortalFrame, eye: Vec2) -> Option<
             // 0 = all-direct, 1 = all-via-partner, 0.5 at equidistance. Both
             // inputs have front ≥ MIN_FRONT/2 of `enter`, and the front
             // coordinate is affine, so every blend stays cleanly in front.
-            let gap = eye.distance(enter.pos) - eye.distance(exit.pos);
+            let gap = eye.distance(enter.frame.origin) - eye.distance(exit.frame.origin);
             let t = (gap / EYE_HANDOFF_BAND * 0.5 + 0.5).clamp(0.0, 1.0);
             Some((d.lerp(v, t), t > 0.5))
         }
@@ -396,8 +411,8 @@ pub fn window_eye(enter: &PortalFrame, exit: &PortalFrame, eye: Vec2) -> Option<
 /// `None` if `eye` is behind the plane. Pure geometry — line-of-sight
 /// occlusion is the caller's check.
 pub fn aperture_wedge(
-    enter: &PortalFrame,
-    exit: &PortalFrame,
+    enter: &PortalAperture,
+    exit: &PortalAperture,
     eye: Vec2,
     max_depth: f32,
     max_lateral: f32,
@@ -419,18 +434,18 @@ pub fn aperture_wedge(
 /// longer hard-switches direct↔wormhole). Eyes behind the plane contribute
 /// nothing; `None` only when EVERY eye is behind.
 pub fn aperture_wedge_multi(
-    enter: &PortalFrame,
-    exit: &PortalFrame,
+    enter: &PortalAperture,
+    exit: &PortalAperture,
     eyes: &[Vec2],
     max_depth: f32,
     max_lateral: f32,
 ) -> Option<ViewCone> {
-    let n = enter.normal;
-    let t = Vec2::new(-n.y, n.x);
-    let h = enter.aperture_half();
+    let n = enter.frame.normal;
+    let t = enter.frame.tangent();
+    let h = enter.half_length;
     let (mut lo, mut hi) = (f32::INFINITY, f32::NEG_INFINITY);
     for &eye in eyes {
-        let v = eye - enter.pos;
+        let v = eye - enter.frame.origin;
         let front = v.dot(n);
         if front <= 0.0 {
             continue;
@@ -459,10 +474,11 @@ pub fn aperture_wedge_multi(
     if !lo.is_finite() {
         return None; // every eye behind the plane
     }
-    let a0 = enter.pos - t * h;
-    let a1 = enter.pos + t * h;
-    let f0 = enter.pos + t * lo - n * max_depth;
-    let f1 = enter.pos + t * hi - n * max_depth;
+    let o = enter.frame.origin;
+    let a0 = o - t * h;
+    let a1 = o + t * h;
+    let f0 = o + t * lo - n * max_depth;
+    let f1 = o + t * hi - n * max_depth;
     Some(from_entry_quad([a0, a1, f1, f0], enter, exit))
 }
 
@@ -470,8 +486,8 @@ pub fn aperture_wedge_multi(
 /// the in-doorway grace) then [`aperture_wedge`]. `None` only when the viewer
 /// is behind both ends and in neither doorway.
 pub fn visible_cone(
-    enter: &PortalFrame,
-    exit: &PortalFrame,
+    enter: &PortalAperture,
+    exit: &PortalAperture,
     eye: Vec2,
     max_depth: f32,
     max_lateral: f32,
@@ -488,8 +504,8 @@ pub fn blend_cones(
     a: &ViewCone,
     b: &ViewCone,
     t: f32,
-    enter: &PortalFrame,
-    exit: &PortalFrame,
+    enter: &PortalAperture,
+    exit: &PortalAperture,
 ) -> ViewCone {
     let t = t.clamp(0.0, 1.0);
     let entry_quad = std::array::from_fn(|i| a.entry_quad[i].lerp(b.entry_quad[i], t));
@@ -502,17 +518,19 @@ mod tests {
     use crate::pieces::{front_distance, map_point};
     use ambition_engine_core::AabbExt;
 
-    fn frame(pos: Vec2, normal: Vec2) -> PortalFrame {
-        PortalFrame {
-            pos,
-            normal,
-            half_extent: crate::portal_half_extent(normal),
+    fn frame(pos: Vec2, normal: Vec2) -> PortalAperture {
+        PortalAperture {
+            frame: PortalFrame::fixed(pos, normal),
+            half_length: crate::types::portal_opening_half(
+                normal,
+                crate::portal_half_extent(normal),
+            ),
         }
     }
-    fn floor(pos: Vec2) -> PortalFrame {
+    fn floor(pos: Vec2) -> PortalAperture {
         frame(pos, Vec2::new(0.0, -1.0))
     }
-    fn right_wall(pos: Vec2) -> PortalFrame {
+    fn right_wall(pos: Vec2) -> PortalAperture {
         frame(pos, Vec2::new(-1.0, 0.0))
     }
     fn size(b: ae::Aabb) -> Vec2 {
@@ -541,8 +559,11 @@ mod tests {
                 for n_out in normals {
                     let enter = frame(Vec2::new(100.0, 300.0), n_in);
                     let exit = frame(Vec2::new(700.0, 140.0), n_out);
-                    let m =
-                        PortalViewMap::between_for_convention(&enter, &exit, rotation_convention);
+                    let m = PortalViewMap::between_for_convention(
+                        &enter.frame,
+                        &exit.frame,
+                        rotation_convention,
+                    );
                     assert!(
                         (m.cos * m.cos + m.sin * m.sin - 1.0).abs() < 1e-4,
                         "unit factor for {n_in:?}→{n_out:?}: cos {} sin {}",
@@ -551,9 +572,9 @@ mod tests {
                     );
                     assert_eq!(m.flip_x, rotation_convention);
                     for v in [Vec2::X, Vec2::Y, Vec2::new(3.0, -2.0)] {
-                        let reflected = v - 2.0 * v.dot(enter.normal) * enter.normal;
-                        let expected = map_vec(reflected, enter.normal, exit.normal);
-                        let got = m.apply(enter.pos + v) - exit.pos;
+                        let reflected = v - 2.0 * v.dot(enter.frame.normal) * enter.frame.normal;
+                        let expected = map_vec(reflected, enter.frame.normal, exit.frame.normal);
+                        let got = m.apply(enter.frame.origin + v) - exit.frame.origin;
                         assert!(
                             (got - expected).length() < 1e-4,
                             "projection factor mismatch convention={rotation_convention} {n_in:?}→{n_out:?}: {got:?} vs {expected:?}"
@@ -571,9 +592,9 @@ mod tests {
         let enter = floor(Vec2::new(100.0, 300.0));
         let exit = right_wall(Vec2::new(400.0, 200.0));
         for s in [-30.0_f32, 0.0, 18.5, 46.0] {
-            let on_face = enter.pos + Vec2::new(s, 0.0); // floor face runs along x
-            let via_view = view_point(on_face, &enter, &exit);
-            let via_body = map_point(on_face, &enter, &exit);
+            let on_face = enter.frame.origin + Vec2::new(s, 0.0); // floor face runs along x
+            let via_view = view_point(on_face, &enter.frame, &exit.frame);
+            let via_body = map_point(on_face, &enter.frame, &exit.frame);
             assert!(
                 (via_view - via_body).length() < 1e-3,
                 "face continuity at s={s}: view {via_view:?} body {via_body:?}"
@@ -589,12 +610,12 @@ mod tests {
         let enter = floor(Vec2::new(100.0, 300.0));
         let exit = right_wall(Vec2::new(400.0, 200.0));
         for d in [0.0_f32, 5.0, 60.0, 240.0] {
-            let p = enter.pos + enter.normal * d;
-            let seen = view_point(p, &enter, &exit);
+            let p = enter.frame.origin + enter.frame.normal * d;
+            let seen = view_point(p, &enter.frame, &exit.frame);
             assert!(
-                (front_distance(seen, &exit) - d).abs() < 1e-3,
+                (front_distance(seen, &exit.frame) - d).abs() < 1e-3,
                 "depth {d} maps to front depth {}",
-                front_distance(seen, &exit)
+                front_distance(seen, &exit.frame)
             );
         }
     }
@@ -607,13 +628,13 @@ mod tests {
         let enter = floor(Vec2::new(100.0, 300.0));
         let exit = right_wall(Vec2::new(400.0, 200.0));
         // y-down world: 10px in FRONT of a floor portal is y=290.
-        let seen = view_point(Vec2::new(120.0, 290.0), &enter, &exit);
+        let seen = view_point(Vec2::new(120.0, 290.0), &enter.frame, &exit.frame);
         assert!(
             (seen - Vec2::new(390.0, 180.0)).length() < 1e-3,
             "got {seen:?}"
         );
         // The rotation angle is -90° (cos 0, sin -1) for this pair.
-        let m = PortalViewMap::between(&enter, &exit);
+        let m = PortalViewMap::between(&enter.frame, &exit.frame);
         assert!((m.cos).abs() < 1e-4 && (m.sin + 1.0).abs() < 1e-4, "{m:?}");
     }
 
@@ -638,7 +659,7 @@ mod tests {
             "depth extent {:?}",
             size(cone.source)
         );
-        let far_half = enter.aperture_half() + depth * spread;
+        let far_half = enter.half_length + depth * spread;
         assert!(
             (size(cone.source).y - 2.0 * far_half).abs() < 1e-3,
             "lateral extent {:?}",
@@ -650,7 +671,7 @@ mod tests {
         // Every source corner is the BODY-map image of its entry corner (the
         // window's display map IS the body map — one map for sight and transit).
         for (e, s) in cone.entry_quad.iter().zip(cone.source_quad.iter()) {
-            assert!((map_point(*e, &enter, &exit) - *s).length() < 1e-3);
+            assert!((map_point(*e, &enter.frame, &exit.frame) - *s).length() < 1e-3);
         }
     }
 
@@ -749,15 +770,13 @@ mod tests {
     /// between them.
     #[test]
     fn window_eye_is_continuous_through_a_thin_wall_doorway() {
-        let enter = PortalFrame {
-            pos: Vec2::new(500.0, 300.0),
-            normal: Vec2::new(-1.0, 0.0),
-            half_extent: Vec2::new(9.0, 46.0),
+        let enter = PortalAperture {
+            frame: PortalFrame::fixed(Vec2::new(500.0, 300.0), Vec2::new(-1.0, 0.0)),
+            half_length: 46.0,
         };
-        let exit = PortalFrame {
-            pos: Vec2::new(532.0, 300.0),
-            normal: Vec2::new(1.0, 0.0),
-            half_extent: Vec2::new(9.0, 46.0),
+        let exit = PortalAperture {
+            frame: PortalFrame::fixed(Vec2::new(532.0, 300.0), Vec2::new(1.0, 0.0)),
+            half_length: 46.0,
         };
         // Centered and off-center within the aperture.
         for y in [300.0, 310.0] {
@@ -818,8 +837,8 @@ mod tests {
             for p in cone.entry_quad.iter().chain(cone.source_quad.iter()) {
                 assert!(p.x.is_finite() && p.y.is_finite(), "finite corners");
                 assert!(
-                    (p.x - enter.pos.x).abs() <= max_lateral + 1e-2
-                        || (*p - exit.pos).length() <= max_lateral + 80.0 + 1e-2,
+                    (p.x - enter.frame.origin.x).abs() <= max_lateral + 1e-2
+                        || (*p - exit.frame.origin).length() <= max_lateral + 80.0 + 1e-2,
                     "within the clamp envelope: {p:?}"
                 );
             }
@@ -839,13 +858,13 @@ mod tests {
         let [_, _, f1, f0] = cone.entry_quad;
 
         assert!(
-            f0.x < enter.pos.x - enter.aperture_half()
-                && f1.x < enter.pos.x - enter.aperture_half(),
+            f0.x < enter.frame.origin.x - enter.half_length
+                && f1.x < enter.frame.origin.x - enter.half_length,
             "near-plane eye to the right of the aperture should see a left-skewed grazing cone, got {f0:?} {f1:?}",
         );
         assert!(
-            !((f0.x - (enter.pos.x - max_lateral)).abs() < 1e-3
-                && (f1.x - (enter.pos.x + max_lateral)).abs() < 1e-3),
+            !((f0.x - (enter.frame.origin.x - max_lateral)).abs() < 1e-3
+                && (f1.x - (enter.frame.origin.x + max_lateral)).abs() < 1e-3),
             "off-aperture near-plane eyes must not receive the centered full half-plane",
         );
     }
@@ -870,7 +889,7 @@ mod tests {
         assert!((f1.y - (300.0 + depth)).abs() < 1e-3, "{f1:?}");
         // Head-on ⇒ far edge centered on the aperture center (x=100) and wider
         // than the aperture by (1 + depth/front).
-        let h = enter.aperture_half();
+        let h = enter.half_length;
         assert!(((f0.x + f1.x) * 0.5 - 100.0).abs() < 1e-3, "centered");
         let far_half = (f1.x - f0.x).abs() * 0.5;
         assert!(
@@ -929,7 +948,8 @@ mod tests {
             for (n_in, n_out) in pairs {
                 let enter = frame(Vec2::new(100.0, 300.0), n_in);
                 let exit = frame(Vec2::new(500.0, 200.0), n_out);
-                let copy = copy_transform_for_convention(&enter, &exit, rotation_convention);
+                let copy =
+                    copy_transform_for_convention(&enter.frame, &exit.frame, rotation_convention);
                 assert_eq!(copy.flip_x, !rotation_convention);
                 // World-space rotation angle is the negated render roll.
                 let a = -copy.roll;
@@ -1013,7 +1033,7 @@ mod tests {
         let exit = floor(Vec2::new(500.0, 300.0));
         let cone = view_cone(&enter, &exit, 90.0, 0.0);
         assert!(
-            (size(cone.source).x - 2.0 * enter.aperture_half()).abs() < 1e-3,
+            (size(cone.source).x - 2.0 * enter.half_length).abs() < 1e-3,
             "{:?}",
             size(cone.source)
         );

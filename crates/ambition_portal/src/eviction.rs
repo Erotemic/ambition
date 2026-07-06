@@ -32,7 +32,7 @@ use ambition_engine_core as ae;
 use ambition_platformer_primitives::body::BodyKinematics;
 
 use crate::color::PortalChannel;
-use crate::pieces::{self as pp, PortalFrame};
+use crate::pieces::{self as pp, PortalAperture};
 use crate::transit::PortalBody;
 use crate::types::PlacedPortal;
 
@@ -41,7 +41,7 @@ use crate::types::PlacedPortal;
 /// VANISHED under a straddling body. Crate-owned; the [`PortalPlugin`](crate::PortalPlugin)
 /// initialises it.
 #[derive(Resource, Default)]
-pub struct PortalFrameHistory(HashMap<PortalChannel, PortalFrame>);
+pub struct PortalFrameHistory(HashMap<PortalChannel, PortalAperture>);
 
 /// Small clearance past the closing plane so the evicted body is unambiguously
 /// on one side (not resting exactly on it).
@@ -55,15 +55,16 @@ pub fn evict_straddlers_on_portal_change(
     portals: Query<&PlacedPortal>,
     mut bodies: Query<&mut BodyKinematics, With<PortalBody>>,
 ) {
-    let current: HashMap<PortalChannel, PortalFrame> =
-        portals.iter().map(|p| (p.channel, p.frame())).collect();
+    let current: HashMap<PortalChannel, PortalAperture> =
+        portals.iter().map(|p| (p.channel, p.aperture())).collect();
 
     for (channel, old) in history.0.iter() {
         // The plane is unchanged only if a portal of the same channel still
         // sits at the same pos + normal; otherwise its old plane is closing.
-        let unchanged = current
-            .get(channel)
-            .is_some_and(|now| now.pos.distance(old.pos) < 1.0 && now.normal == old.normal);
+        let unchanged = current.get(channel).is_some_and(|now| {
+            now.frame.origin.distance(old.frame.origin) < 1.0
+                && now.frame.normal == old.frame.normal
+        });
         if unchanged {
             continue;
         }
@@ -75,8 +76,11 @@ pub fn evict_straddlers_on_portal_change(
 
 /// Shove every [`PortalBody`] straddling `plane` to the side its centroid is
 /// on, just past the plane.
-fn evict_for_plane(plane: PortalFrame, bodies: &mut Query<&mut BodyKinematics, With<PortalBody>>) {
-    let n = plane.normal;
+fn evict_for_plane(
+    plane: PortalAperture,
+    bodies: &mut Query<&mut BodyKinematics, With<PortalBody>>,
+) {
+    let n = plane.frame.normal;
     for mut kin in bodies.iter_mut() {
         let body = ae::Aabb::new(kin.pos, kin.size * 0.5);
         if !pp::straddles(body, &plane) {
@@ -85,7 +89,7 @@ fn evict_for_plane(plane: PortalFrame, bodies: &mut Query<&mut BodyKinematics, W
         // Signed centroid distance (+ in front), and the body's half-extent
         // along the normal: push so the trailing edge clears the plane on the
         // centroid's side.
-        let d = pp::front_distance(kin.pos, &plane);
+        let d = pp::front_distance(kin.pos, &plane.frame);
         let half_n = (kin.size * 0.5).dot(n.abs());
         if d >= 0.0 {
             let push = half_n - d + EVICT_MARGIN;
@@ -159,7 +163,7 @@ mod tests {
         app.update();
         assert!(pp::straddles(
             ae::Aabb::new(Vec2::new(100.0, 290.0), Vec2::new(12.0, 20.0)),
-            &floor_portal(BLUE, Vec2::new(100.0, 300.0)).frame()
+            &floor_portal(BLUE, Vec2::new(100.0, 300.0)).aperture()
         ));
         // Portal vanishes; frame 2 evicts the straddler upward (centroid front).
         app.world_mut().entity_mut(portal).despawn();

@@ -1,0 +1,21 @@
+[package]
+name = "ambition_host"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The windowed-HOST face (decomposition E5 step 5): a `PlatformerHostPlugins` plugin group that assembles the per-frame player-input / room-transition / portal-schedule / camera wiring a VISIBLE platformer host needs on top of `PlatformerEnginePlugins`. MAY dep render/input/leafwing/gameplay_core; must NOT dep ambition_content (boundary-tested). SCAFFOLD minted 2026-07-06 (opus) so the E5-step-5 carve is a pure system-move — fable fills the group per the readiness brief in decomposition.md."
+
+[dependencies]
+# Only bevy_app is needed for the empty scaffold group. Fable adds the real
+# host deps as it moves systems in (per the E5-step-5 readiness brief): the
+# host MAY dep `ambition_gameplay_core`, `ambition_runtime`, `ambition_render`,
+# `ambition_input`, `leafwing-input-manager` — and must NEVER dep
+# `ambition_content` (the boundary test below enforces it).
+bevy = { version = "0.18.1", default-features = false }
+
+[features]
+# The host forwards the sim-relevant feature gates a windowed consumer opts
+# into (mirrors `ambition_runtime`). Kept empty for the scaffold; fable widens
+# these (`portal`, `input`, `portal_ldtk`) as the register-fn systems migrate.
+default = []

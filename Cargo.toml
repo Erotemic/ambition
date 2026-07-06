@@ -19,6 +19,7 @@ members = [
     "crates/ambition_portal_presentation",
     "crates/ambition_gameplay_core",
     "crates/ambition_runtime",
+    "crates/ambition_host",
     "crates/ambition_sfx",
     "crates/ambition_sim_view",
     "crates/ambition_sfx_bank",

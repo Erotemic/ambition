@@ -224,6 +224,85 @@ consumes `PlatformerEnginePlugins` inside `add_simulation_plugins`,
   and `add_input_plugins`. Preserve the landmines: the portal wiring
   pins sets against NAMED systems (`collect_gravity_zones`,
   `integrate_sim_bodies`, …) and must run after the sets plugin.
+
+  #### ✅ READINESS BRIEF FOR FABLE (opus investigation 2026-07-06 — corrects the stale "gated on E1d/E1e" accounting)
+
+  **E5 step 5 is NOT gated on the E1d/E1e crate mints.** `ambition_host`
+  MAY dep `gameplay_core`, so any host-set system living in gameplay_core
+  is a clean lift — no prior split needed. Investigated every system in
+  the five movable `register_*` fns (`ambition_app/src/app/plugins.rs`)
+  and classified it. The carve is a well-bounded lift; the ONLY careful
+  part is the portal-schedule ordering (fable's graded work).
+
+  **MOVES to `ambition_host` (all resolve to gameplay_core/render/input/
+  runtime, which host may dep):**
+  - `register_player_input_systems` — entire chain: `time::time_control::*`,
+    `refresh_world_time`, `mirror_sim_dt_into_runtime`,
+    `dev::sync_live_player_dev_edits_system` (gameplay_core::dev ✓),
+    `input_timer`/`interaction_input`, the controlled-subject chain,
+    `tick_player_brains`, `body_mode::update_body_mode`,
+    `sync_player_actor_poses`, the `ambition_characters::brain::*`
+    emitters, `apply_room_replay_request_system` (generic, de-woven step 4).
+  - `add_input_plugins` — the menu/gameplay input systems are ALL
+    `gameplay_core::schedule::input_systems`
+    (`populate_menu_control_frame_from_actions`,
+    `populate_control_frame_from_actions`,
+    `apply_menu_frame_to_cutscene_request`,
+    `toggle_player_trail_emission_from_actions`) + `ambition_input::*` +
+    `dialog::dialog_pointer_input` (gameplay_core::dialog ✓). **The
+    "menu entanglement" in the old accounting is a NON-ISSUE** — menu
+    INPUT is gameplay_core; the app menu crate (E1e) is irrelevant here.
+  - `register_room_transition_systems` — `rooms::detect_room_transition_system`
+    + `features::reset_ecs_room_features` (gameplay_core) MOVE; the two
+    APP wrappers below STAY.
+
+  **STAY app-side (the app registers these alongside the host group; host
+  leaves the slots — the card's "app-local pieces stay" made concrete):**
+  - `register_player_simulation_systems`: `crate::app::player_clone::*`
+    (already its own module), `apply_home_reset_policy`
+    (`app/player_tick.rs`), `sync_player_presentation` (`app/phases.rs`),
+    `apply_player_reset_input_system` (`app/sim_systems.rs`).
+  - `register_room_transition_systems`: `apply_room_transition_system` +
+    `ensure_requested_room_parallax_system` (both `app/world_flow/
+    room_flow.rs` — they call `load_room`/render spawns).
+  - `add_input_plugins`: `sync_preset_input_map` + `handle_debug_hotkeys`
+    (`app/dev_runtime.rs` — the ONLY genuinely app-local dev systems in the
+    whole set; two of them, not a blocker).
+
+  **THE ONE CAREFUL PART (fable-graded):** `wire_portal_schedule` (behind
+  the `portal` feature) pins three named-system ordering landmines that
+  must survive the move verbatim: **Carves** `.after(physics::
+  collect_gravity_zones).before(CoreSimulation)`; **InputWarp** `.after(
+  player::interaction_input_system).before(player::
+  sync_local_player_input_frame)`; **RoomReset** reset-time portal cleanup
+  in the room-transition phase. These reference gameplay_core systems (host
+  may dep), so the pins compile after the move — but the ORDER is the feel/
+  correctness contract; verify against the portal-continuity + gravity-zone
+  suites after the lift.
+
+  Net: mint `ambition_host`, move the MOVES set as per-domain plugins
+  (anti-god rule 2), keep the STAY set registered app-side, preserve the
+  three portal pins. No E1d/E1e prerequisite. Exit per below.
+
+  **SCAFFOLD ALREADY MINTED (opus 2026-07-06):** `crates/ambition_host`
+  exists — `PlatformerHostPlugins` (empty `PluginGroup` with a `HostSeamPlugin`
+  placeholder + the per-domain `.add(...)` skeleton commented in `build()`),
+  workspace-wired, `bevy`-only deps, and `tests/host_names_no_content.rs`
+  already LOCKS the no-content boundary. So fable's carve is a pure
+  system-move + dep-add, not crate ceremony: fill `PlatformerHostPlugins`
+  with the MOVES plugins, add the real deps (`ambition_gameplay_core`/
+  `_runtime`/`_render`/`_input`/`leafwing`), wire `add_plugins(
+  PlatformerHostPlugins)` into the app next to `PlatformerEnginePlugins`,
+  delete the moved app registrations + `HostSeamPlugin`.
+  **PARITY HARNESS ALREADY EXISTS — port boldly.** The portal ordering is
+  covered end-to-end by `ambition_app/tests/{portal_bridge_reachability,
+  portal_translation_camera_continuity, projectile_portal_transit,
+  held_projectile_portal_transit, portal_floor_bounce_no_fallthrough,
+  portal_reset_preserves_authored, portal_lab_usable}` and the gravity
+  carves by `{gravity_room_reachability, gravity_symmetry,
+  gravity_symmetry_room}`; `player_phase_split`/`actor_phase_split` pin the
+  phase seam. If the lift breaks a `wire_portal_schedule` pin, one of these
+  goes RED — no manual schedule inspection needed.
 - **Step 6 — the proof shell.** Create a demo-shell smoke test:
   foundation + `PlatformerEnginePlugins` + `PlatformerHostPlugins` + a
   ~20-line fixture content plugin → `app.update()` runs one frame

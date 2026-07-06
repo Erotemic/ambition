@@ -59,10 +59,13 @@ and found the surface is now uniformly **not** cleanly-opus. The accounting
   model (nameplates/hud/fx/items compare `entity == controlled.0`). Converting
   to stable-id views is the "riskiest cut" fable is graded for — escalated, not
   forced (matches Jon's "hardest decompositions are fable").
-- **E5 step 5** (mint `ambition_host`) — the movable set entangles
-  `dev_runtime` (E1d territory: `sync_preset_input_map`) + menu + the camera/
-  debug-overlay interleave + the portal-schedule NAMED-system landmines. A
-  clean cut needs the dev/menu split first — fable-tier.
+- **E5 step 5** (mint `ambition_host`) — ⚠️ **this bullet was DISPROVEN (opus
+  2026-07-06): NOT gated on the dev/menu split.** The menu-input systems are
+  `gameplay_core::schedule::input_systems` (host may dep gameplay_core → clean
+  lift), and the only app-local pieces are the ones the card already keeps
+  app-side + two `dev_runtime` systems. Scaffold + readiness brief landed; the
+  only careful part is the `wire_portal_schedule` ordering pins (fable-graded).
+  See the "E5 step-5 de-risked" execution-log entry below.
 - **Progression move-to-runtime-group** (the de-weave's follow-up) — blocked on
   a DEEPER de-weave: the engine chain still carries `menu::map` + `dev_tools`
   systems (E1d/E1e territory) that don't belong in the content-free engine
@@ -127,7 +130,7 @@ fable card. Ranked by how much they gate a fable task.
 
 | Track | Doc | Status | Next |
 |---|---|---|---|
-| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — E5 first slice `3c70d827`; **E5-finish steps 1–4 LANDED 2026-07-06** (sets+resources+combat schedule into the group; shared headless foundation; cut-rope de-woven via generic `RoomReplayRequested` + labeled slots; E4-prep: fx facade imports repointed, CameraViewState + cut-rope resources re-owned); **W1 STATE-inversion started (opus 2026-07-06): `rooms/load.rs` no longer names player/dialog/combat runtime state — the world→characters/combat VOCAB arrow escalated to fable (W-track feedback block in decomposition.md)** | E5 step 5 (mint [the windowed host]) + step 6 (smoke shell) [opus, blocked on E1d]; **W3 vocab-arrow ruling [fable] then W2/W3**; E1/E2/E3/E6/E7/E8 open |
+| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — E5 first slice `3c70d827`; **E5-finish steps 1–4 LANDED 2026-07-06** (sets+resources+combat schedule into the group; shared headless foundation; cut-rope de-woven via generic `RoomReplayRequested` + labeled slots; E4-prep: fx facade imports repointed, CameraViewState + cut-rope resources re-owned); **W1 STATE-inversion started (opus 2026-07-06): `rooms/load.rs` no longer names player/dialog/combat runtime state — the world→characters/combat VOCAB arrow escalated to fable (W-track feedback block in decomposition.md)** | **E5 step 5 (mint [the windowed host]) — UNBLOCKED (opus proved NOT gated on E1d/E1e, 2026-07-06); `ambition_host` scaffold + boundary test minted; readiness brief in decomposition.md ★fable executes** + step 6 (smoke shell); **W3 vocab-arrow ruling [fable] then W2/W3**; E1/E2/E3/E6/E7/E8 open |
 | Decomposition D-B/D-C | same | queued behind D-A | mode-scope seam can land early (demos want it) |
 | Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | **CC1 COMPLETE + CC5 LANDED (fable) + CC2 COMPLETE (opus, 2026-07-06)** — engine_core::frame vocabulary + cast family registry real in code; CC2 first pass (hazards swept) + completion (§3.3 every reader classified: loading-zone Door/Walk/EdgeExit now swept via `transition_for_player`; water/climbable annotated discrete-OK + `thin_region_warnings` authoring validator; ledge audited; auto-collect N/A) parity suites green | CC3 fuzz rig (§6.1 oracle) [opus]; CC6 moving portals (§5-P2 spec) [opus] |
 | Combat stack | [engine/combat-model.md](engine/combat-model.md) | CM1 (incl. **launch_dir consumption, fable 2026-07-06 evening** `c695cd9c`)+CM2+CM3+CM7+CM4+CM5 LANDED — per-move presentation authored; smash axes complete (growth, DI, charge, cancel tables, fixed launch angles) | CM6 grab/throw/shield-stun (brings OnBlock) [opus, with SSB] |
@@ -567,3 +570,26 @@ VOCABULARY (the genuine W3 classification).
   into decomposition.md's "W-track FEEDBACK FOR FABLE" block; W2 is blocked on
   this ruling. Also flagged: `rooms/systems.rs detect_room_transition_system` is
   a sim-tier system that MOVES at W3, not a W1 invert.
+
+## 2026-07-06 (opus) — E5 step-5 de-risked for fable: NOT gated on E1d/E1e + `ambition_host` scaffold
+"Do what you can to make fable's work easier." Investigated the E5-step-5 host
+mint (the DEMO GATE — the single most valuable fable carve, it unblocks all five
+demos) and found the accounting's "gated on E1d/E1e + menu entanglement" was
+STALE/overstated. Classified every system in the five movable `register_*` fns
+(`ambition_app/src/app/plugins.rs`): the menu-INPUT systems are
+`gameplay_core::schedule::input_systems` (host MAY dep gameplay_core → clean
+lift, NOT the app menu crate), and the only genuinely app-local systems are the
+handful the card already says "stay app-side" (`player_clone`/`home_reset`/
+`sync_player_presentation`/`parallax`/`apply` + two `app/dev_runtime.rs` dev
+systems). So E5 step 5 is a well-bounded lift with ONE careful part
+(`wire_portal_schedule`'s three named-system ordering pins). Landed to make it
+easier:
+- **`crates/ambition_host` scaffold** — `PlatformerHostPlugins` empty group +
+  `HostSeamPlugin` + the per-domain `.add(...)` skeleton commented in, workspace-
+  wired, `tests/host_names_no_content.rs` LOCKING the no-content boundary from
+  step 0. Builds green, boundary tests pass. Fable's carve is now a pure
+  system-move, not crate ceremony.
+- **Readiness brief** in decomposition.md (E5 step-5 card): the exact
+  host-generic vs app-local split per register-fn + the three portal pins to
+  preserve + the note that the parity harness ALREADY EXISTS (the portal/gravity/
+  continuity suites catch any ordering break — port boldly).

@@ -10,7 +10,6 @@
 // `MorphBallSprite` handle to a loaded asset and the same toggle logic
 // applies.
 
-use ambition_engine_core as ae;
 use bevy::asset::RenderAssetUsages;
 use bevy::image::Image;
 use bevy::prelude::*;
@@ -136,11 +135,10 @@ pub fn spawn_morph_ball_visual(
 pub fn sync_morph_ball_visual(
     world: Res<ambition_engine_core::RoomGeometry>,
     entities: Res<ambition_platformer_primitives::lifecycle::SceneEntities>,
+    // Sim-built pose read-model (E4): body-mode + geometry facts, no live
+    // cluster reads.
     player_q: Query<
-        (
-            &ambition_platformer_primitives::body::BodyKinematics,
-            &ambition_engine_core::BodyModeState,
-        ),
+        &ambition_gameplay_core::features::BodyPoseView,
         ambition_platformer_primitives::markers::PrimaryPlayerOnly,
     >,
     mut player_query: Query<
@@ -155,19 +153,19 @@ pub fn sync_morph_ball_visual(
     let Ok((mut transform, mut sprite, mut ball_visibility)) = ball_query.single_mut() else {
         return;
     };
-    let Ok((kin, body_mode)) = player_q.single() else {
+    let Ok(pose) = player_q.single() else {
         return;
     };
-    let in_morph = body_mode.body_mode == ae::BodyMode::MorphBall;
+    let in_morph = pose.morph_ball;
     if in_morph {
         transform.translation = ambition_engine_core::config::world_to_bevy(
             &world.0,
-            kin.pos,
+            pose.pos,
             ambition_engine_core::config::WORLD_Z_PLAYER + 0.05,
         );
         // Slightly larger than the AABB so the soft anti-aliased rim
         // reads as the ball's outline rather than as background.
-        let render = bevy::math::Vec2::new(kin.size.x * 1.10, kin.size.y * 1.10);
+        let render = bevy::math::Vec2::new(pose.size.x * 1.10, pose.size.y * 1.10);
         sprite.custom_size = Some(render);
         *ball_visibility = Visibility::Visible;
         if let Ok(mut player_vis) = player_query.get_mut(entities.player) {

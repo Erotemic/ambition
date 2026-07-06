@@ -195,12 +195,12 @@ pub fn apply_placeholder_sprites_override(
         Option<&SpriteOriginalState>,
         Option<&FeatureVisual>,
         Option<&PlayerVisual>,
-        Option<&ambition_platformer_primitives::body::BodyKinematics>,
+        Option<&ambition_gameplay_core::features::BodyPoseView>,
         Option<&ambition_gameplay_core::projectile::ProjectileVisualKind>,
     )>,
 ) {
     if developer_tools.placeholder_sprites {
-        for (entity, mut sprite, original, feature, player, player_body, proj_kind) in &mut sprites
+        for (entity, mut sprite, original, feature, player, player_pose, proj_kind) in &mut sprites
         {
             // Record original state once so we can restore on toggle-off.
             if original.is_none() {
@@ -231,8 +231,8 @@ pub fn apply_placeholder_sprites_override(
             sprite.image_mode = bevy::sprite::SpriteImageMode::Auto;
             if let Some(view) = feature_view {
                 sprite.custom_size = Some(BVec2::new(view.size.x, view.size.y));
-            } else if let Some(body) = player_body {
-                sprite.custom_size = Some(BVec2::new(body.size.x, body.size.y));
+            } else if let Some(pose) = player_pose {
+                sprite.custom_size = Some(BVec2::new(pose.size.x, pose.size.y));
             }
             sprite.color = placeholder_color;
         }

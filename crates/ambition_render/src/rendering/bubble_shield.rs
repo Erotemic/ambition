@@ -133,31 +133,27 @@ pub fn sync_bubble_shield_visual(
     mut commands: Commands,
     sprite: Option<Res<BubbleShieldSprite>>,
     world: Res<ambition_engine_core::RoomGeometry>,
-    bodies: Query<(
-        &ambition_platformer_primitives::body::BodyKinematics,
-        &ambition_engine_core::BodyShieldState,
-    )>,
+    // Every raised shield, resolved sim-side into the pooled-ring read-model
+    // (E4): render positions rings, it no longer queries the live clusters.
+    active: Res<ambition_gameplay_core::features::ShieldRingsView>,
     mut rings: Query<(&mut Transform, &mut Sprite, &mut Visibility), With<BubbleShieldVisual>>,
 ) {
-    // Every body (player + actor) whose shield is currently raised.
-    let active: Vec<_> = bodies
-        .iter()
-        .filter(|(_, shield)| shield.active)
-        .map(|(kin, shield)| (kin.pos, kin.size, shield.parrying()))
-        .collect();
-
+    let active = &active.0;
     let ring_count = rings.iter().count();
     let mut assigned = 0usize;
     for (mut transform, mut sprite, mut vis) in &mut rings {
-        if let Some((pos, size, parrying)) = active.get(assigned).copied() {
+        if let Some(ring) = active.get(assigned).copied() {
             transform.translation = ambition_engine_core::config::world_to_bevy(
                 &world.0,
-                pos,
+                ring.pos,
                 ambition_engine_core::config::WORLD_Z_PLAYER - 0.05,
             );
             // Slightly larger than the collider so it surrounds the body.
-            sprite.custom_size = Some(bevy::math::Vec2::new(size.x * 1.55, size.y * 1.25));
-            sprite.color = shield_ring_color(parrying);
+            sprite.custom_size = Some(bevy::math::Vec2::new(
+                ring.size.x * 1.55,
+                ring.size.y * 1.25,
+            ));
+            sprite.color = shield_ring_color(ring.parrying);
             *vis = Visibility::Visible;
             assigned += 1;
         } else {

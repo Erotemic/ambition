@@ -347,11 +347,10 @@ pub fn sync_projectile_visuals(
 pub fn sync_projectile_charge_visuals(
     mut commands: Commands,
     world: Res<ambition_engine_core::RoomGeometry>,
+    // Sim-built pose read-model (E4): charge tier + body geometry facts, no
+    // live cluster / projectile-state reads.
     player_q: Query<
-        (
-            &BodyKinematics,
-            &ambition_gameplay_core::projectile::PlayerProjectileState,
-        ),
+        &ambition_gameplay_core::features::BodyPoseView,
         With<ambition_platformer_primitives::markers::PlayerEntity>,
     >,
     existing_charge: Query<Entity, With<PlayerChargeVisual>>,
@@ -359,11 +358,10 @@ pub fn sync_projectile_charge_visuals(
     for entity in &existing_charge {
         commands.entity(entity).despawn();
     }
-    for (body, state) in &player_q {
-        let Some(hold) = state.charging else {
+    for pose in &player_q {
+        let Some(tier) = pose.charge_tier else {
             continue;
         };
-        let tier = state.charge_tuning.tier_for_hold(hold);
         let base = ProjectileKind::Fireball.half_extent();
         let (size_mult, alpha) = match tier {
             0 => (0.7, 0.55),
@@ -371,14 +369,14 @@ pub fn sync_projectile_charge_visuals(
             _ => (1.5, 0.95),
         };
         let render_size = Vec2::new(base.x * 2.0 * size_mult, base.y * 2.0 * size_mult);
-        let facing = if body.facing.abs() < f32::EPSILON {
+        let facing = if pose.facing.abs() < f32::EPSILON {
             1.0
         } else {
-            body.facing.signum()
+            pose.facing.signum()
         };
         let charge_pos = ambition_engine_core::Vec2::new(
-            body.pos.x + facing * (body.size.x * 0.5 + 6.0),
-            body.pos.y - body.size.y * 0.20,
+            pose.pos.x + facing * (pose.size.x * 0.5 + 6.0),
+            pose.pos.y - pose.size.y * 0.20,
         );
         commands.spawn((
             Sprite::from_color(

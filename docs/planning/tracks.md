@@ -25,10 +25,11 @@ listed preconditions are DONE here.**
 ## the hardest decompositions are fable EXECUTION work, not just design)
 
 1. **E4 — the observation-boundary carve** — ⏳ IN PROGRESS: slices 17
-   (camera seam) + **19 (pose read-model sim-side, fable 2026-07-06)**
-   done; slice 20's set-label inversion design pinned in the card
-   [opus]; slices 1–16 remain [opus with the card's table]; step 4
-   (mint `ambition_sim_view`) after.
+   (camera seam) + **19 (pose read-model sim-side)** + **the player
+   pose half of 1–4 (`BodyPoseView` + `ShieldRingsView`, fable
+   2026-07-06 evening)** done; slice 20's set-label inversion design
+   pinned in the card; remaining slices being executed fable-side this
+   session; step 4 (mint `ambition_sim_view`) after.
 2. ✅ **`SimSnapshot` design** — identity + scope pinned in netcode.md
    N3.1 (SimId vocabulary, include/exclude lists, derived-state rule),
    2026-07-06.

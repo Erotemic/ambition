@@ -41,15 +41,15 @@ pub fn sync_visuals(
     entities: Res<SceneEntities>,
     assets: Option<Res<GameAssets>>,
     feature_views: Res<FeatureViewIndex>,
+    // The sim-built pose read-model (E4): position / roll / stance / flash
+    // facts resolved in `FeatureViewSync`; render never touches the live
+    // `Body*` clusters.
     mut player_query: Query<
         (
             &mut Transform,
             &mut Sprite,
             Option<&PlayerSpriteBaseline>,
-            &ambition_platformer_primitives::body::BodyKinematics,
-            &ambition_engine_core::BodyBaseSize,
-            &ambition_characters::actor::BodyCombat,
-            Option<&ambition_gameplay_core::platformer_runtime::orientation::ActorRoll>,
+            &ambition_gameplay_core::features::BodyPoseView,
         ),
         With<PlayerVisual>,
     >,
@@ -60,22 +60,16 @@ pub fn sync_visuals(
     ecs_chest_states: Query<(&FeatureId, Option<&Opened>), With<ChestFeature>>,
     ecs_breakable_states: Query<(&FeatureId, &BreakableFeature)>,
 ) {
-    if let Ok((mut transform, mut sprite, baseline, body, base_size, player_combat, roll)) =
-        player_query.get_mut(entities.player)
-    {
-        transform.translation = world_to_bevy(&world.0, body.pos, WORLD_Z_PLAYER);
+    if let Ok((mut transform, mut sprite, baseline, pose)) = player_query.get_mut(entities.player) {
+        transform.translation = world_to_bevy(&world.0, pose.pos, WORLD_Z_PLAYER);
         // Aerial roll (portal somersault / future gravity-room orientation).
-        transform.rotation = Quat::from_rotation_z(roll.map_or(0.0, |r| r.angle));
+        transform.rotation = Quat::from_rotation_z(pose.roll_angle);
         if sprite.texture_atlas.is_none() && sprite.image == Handle::default() {
             // Colored-rectangle fallback only — stretch to the collision-box
             // size and tint by flash. Textured sprites (atlas OR plain image)
             // keep their authored size and are tinted in the animation system.
-            sprite.custom_size = Some(BVec2::new(body.size.x, body.size.y));
-            let alpha = if player_combat.hit_flash > 0.0 {
-                0.72
-            } else {
-                1.0
-            };
+            sprite.custom_size = Some(BVec2::new(pose.size.x, pose.size.y));
+            let alpha = if pose.hit_flash_secs > 0.0 { 0.72 } else { 1.0 };
             sprite.color = Color::srgba(0.80, 0.95, 1.0, alpha);
         } else if let Some(baseline) = baseline {
             // HACK(crouch-sprite-row): when the player crouches (or
@@ -91,10 +85,10 @@ pub fn sync_visuals(
             // startup collision so body-profile experiments remain visual.
             // Replace with authored body-profile rows once the generator emits
             // them — see PlayerSpriteBaseline doc.
-            let base_y = base_size.base_size.y.max(1.0);
-            let stance_ratio_y = (body.size.y / base_y).clamp(0.1, 1.0);
-            let scale_x = base_size.base_size.x / baseline.standing_collision.x.max(1.0);
-            let scale_y = base_size.base_size.y / baseline.standing_collision.y.max(1.0);
+            let base_y = pose.base_size.y.max(1.0);
+            let stance_ratio_y = (pose.size.y / base_y).clamp(0.1, 1.0);
+            let scale_x = pose.base_size.x / baseline.standing_collision.x.max(1.0);
+            let scale_y = pose.base_size.y / baseline.standing_collision.y.max(1.0);
             sprite.custom_size = Some(BVec2::new(
                 baseline.standing_render.x * scale_x,
                 baseline.standing_render.y * scale_y * stance_ratio_y,

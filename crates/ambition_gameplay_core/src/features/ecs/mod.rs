@@ -58,6 +58,7 @@ mod interact;
 mod mount;
 pub mod perception;
 pub use mount::{rider_hand_world_pos, rider_hand_world_pos_in_frame};
+mod pose_view;
 mod reset;
 mod save_sync;
 mod spawn;
@@ -135,6 +136,10 @@ pub use mount::{
 };
 pub use overlay::{rebuild_feature_ecs_world_overlay, FeatureEcsWorldOverlay};
 pub use pickups::{collect_ecs_pickups, magnetize_pickups};
+pub use pose_view::{
+    rebuild_body_pose_views, rebuild_shield_rings_view, BodyPoseView, ShieldRingFact,
+    ShieldRingsView,
+};
 pub use reset::reset_ecs_room_features;
 pub use save_sync::{
     sync_ecs_actors_with_save, sync_ecs_bosses_with_save, sync_ecs_switches_from_save,

@@ -101,9 +101,9 @@ pub use ecs::{
     ecs_hit_event_hits_breakable, enforce_mount_rider_link, fan_out_limb_intents,
     integrate_boss_bodies, integrate_sim_bodies, interact_ecs_actors_and_switches,
     magnetize_pickups, open_ecs_chests, project_boss_attack_state_from_move,
-    rebuild_actor_anim_index, rebuild_actor_render_index, rebuild_boss_render_index,
-    rebuild_feature_ecs_world_overlay, rebuild_feature_view_index,
-    refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
+    rebuild_actor_anim_index, rebuild_actor_render_index, rebuild_body_pose_views,
+    rebuild_boss_render_index, rebuild_feature_ecs_world_overlay, rebuild_feature_view_index,
+    rebuild_shield_rings_view, refresh_actor_damageable_volumes, refresh_boss_damageable_volumes,
     refresh_breakable_damageable_volumes, reset_ecs_room_features, resolve_pending_mount_links,
     route_boss_strikes_to_limbs, select_actor_targets, spawn_encounter_mob,
     spawn_enemy_projectiles_from_brain_actions, spawn_melee_hitbox, spawn_room_feature_entities,
@@ -114,14 +114,14 @@ pub use ecs::{
     tick_and_despawn_hitboxes, tick_boss_brains_system, tick_gameplay_banner, tick_npc_idle_barks,
     tick_pending_challenges, trigger_boss_attack_moves, update_ecs_bosses, update_ecs_breakables,
     update_ecs_falling_chests, update_ecs_hazards, ActorAnimIndex, ActorRenderIndex,
-    ActorRenderView, ActorSteering, BossClusterQueryData, BossClusterRef, BossClusterScratch,
-    BossConfig, BossEncounter, BossMut, BossOverrides, BossRef, BossRenderIndex, BossRenderView,
-    CanPilot, ControlGrant, FactionRelations, FeatureEcsWorldOverlay, FeatureSimEntity,
-    FeatureViewIndex, FriendlyFire, HazardFeature, HeldItem, Hitbox, HitboxAnchor, HitboxHits,
-    HitboxLifetime, Limb, LimbIntents, LimbRig, LimbRouteState, LimbSlot, MountClass,
-    MountDeathImpact, MountDied, MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize,
-    PendingChallenge, PendingMountLinks, RidingOn, SpawnActorKind, SpawnActorRequest,
-    CHALLENGE_GRACE_S,
+    ActorRenderView, ActorSteering, BodyPoseView, BossClusterQueryData, BossClusterRef,
+    BossClusterScratch, BossConfig, BossEncounter, BossMut, BossOverrides, BossRef,
+    BossRenderIndex, BossRenderView, CanPilot, ControlGrant, FactionRelations,
+    FeatureEcsWorldOverlay, FeatureSimEntity, FeatureViewIndex, FriendlyFire, HazardFeature,
+    HeldItem, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime, Limb, LimbIntents, LimbRig,
+    LimbRouteState, LimbSlot, MountClass, MountDeathImpact, MountDied, MountSlot, Mountable,
+    Mounted, MountedBrainCache, MountedSize, PendingChallenge, PendingMountLinks, RidingOn,
+    ShieldRingFact, ShieldRingsView, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
 };
 pub use ecs::{step_momentum_body, MomentumMotion, MotionModel};
 pub use ecs::{ActorAnimFrame, ActorSpriteData};
@@ -438,6 +438,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
         // Owned here (anti-god rule 5): the plugin that rebuilds the index
         // initializes it; render only reads.
         app.init_resource::<ActorAnimIndex>();
+        app.init_resource::<ShieldRingsView>();
         app.add_systems(
             Update,
             (
@@ -447,6 +448,10 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 // Overlay clocks advance right before their one reader
                 // rebuilds the pose snapshot (§A9 ordering, preserved).
                 (advance_actor_anim_overlays, rebuild_actor_anim_index).chain(),
+                // Player-bodied pose components + the pooled shield-ring rows —
+                // the per-body half of the pose read-model (E4 slices 1–4).
+                rebuild_body_pose_views,
+                rebuild_shield_rings_view,
             )
                 .in_set(crate::schedule::SandboxSet::FeatureViewSync),
         );

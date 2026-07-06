@@ -137,11 +137,9 @@ pub fn sync_health_overlays(
     dev_state: Res<ambition_gameplay_core::SandboxDevState>,
     developer_tools: Res<ambition_gameplay_core::dev::dev_tools::DeveloperTools>,
     overlays: Query<Entity, With<HealthOverlayVisual>>,
+    // Sim-built pose read-model (E4): geometry + hp facts, no live cluster reads.
     player: Query<
-        (
-            &ambition_platformer_primitives::body::BodyKinematics,
-            &ambition_characters::actor::BodyHealth,
-        ),
+        &ambition_gameplay_core::features::BodyPoseView,
         ambition_platformer_primitives::markers::PrimaryPlayerOnly,
     >,
     ecs_breakables: Query<(&FeatureName, &CenteredAabb, &BreakableFeature)>,
@@ -165,13 +163,17 @@ pub fn sync_health_overlays(
         return;
     }
 
-    if let Ok((body, health)) = player.single() {
+    if let Ok(pose) = player.single() {
         spawn_health_overlay(
             &mut commands,
             &world.0,
             "player",
-            body.aabb(),
-            health.health,
+            ae::Aabb::new(pose.pos, pose.size * 0.5),
+            ambition_characters::actor::Health {
+                current: pose.hp_current,
+                max: pose.hp_max,
+                invulnerable: false,
+            },
             Color::srgba(0.30, 0.92, 1.00, 0.96),
         );
     }

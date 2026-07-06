@@ -81,117 +81,46 @@ pub(crate) fn apply_character_frame(
 /// Drive the player sprite's animation state, atlas index, and facing flip.
 /// Runs every frame; no-op on color-rectangle fallbacks (no `CharacterAnimator`).
 ///
-/// Query items are split into nested tuples because Bevy 0.18's `Query`
-/// tuple impl caps at 15 entries and the picker now reads three more
-/// clusters (body_mode, env_contact, abilities) to cover crouch /
-/// crawl / slide / ladder / swim.
+/// The anim pick and every cluster read moved SIM-side (E4 slices 1–3):
+/// `rebuild_body_pose_views` resolves the pose in `FeatureViewSync` and this
+/// system is a pure consumer of [`BodyPoseView`] — it only ticks the
+/// animator by presentation dt and pushes the frame onto the sprite.
 pub fn animate_player(
     world_time: Res<ambition_time::WorldTime>,
-    gravity: Option<Res<ambition_platformer_primitives::gravity::GravityField>>,
     mut query: Query<
         (
-            (
-                &mut Sprite,
-                &mut CharacterAnimator,
-                &ambition_platformer_primitives::body::BodyKinematics,
-                &ambition_engine_core::BodyGroundState,
-                &ambition_engine_core::BodyWallState,
-                &ambition_engine_core::BodyBlinkState,
-                &ambition_engine_core::BodyFlightState,
-                &ambition_engine_core::BodyDashState,
-                &ambition_engine_core::BodyLedgeState,
-                &ambition_characters::actor::BodyCombat,
-                &ambition_gameplay_core::player::BodyAnimFacts,
-                &ambition_gameplay_core::player::PlayerBlinkCameraState,
-            ),
-            (
-                &ambition_engine_core::BodyModeState,
-                &ambition_engine_core::BodyEnvironmentContact,
-                &ambition_engine_core::BodyAbilities,
-                &ambition_engine_core::BodyDodgeState,
-                &ambition_engine_core::BodyShieldState,
-                Option<&ambition_gameplay_core::player::BodyMelee>,
-                Option<&ambition_time::ProperTimeScale>,
-                Option<&mut bevy::sprite::Anchor>,
-                // Base (standing) AABB — the denominator of the crouch stance ratio.
-                // Optional so a player-bodied clone that lacks it animates unchanged.
-                Option<&ambition_engine_core::BodyBaseSize>,
-            ),
+            &mut Sprite,
+            &mut CharacterAnimator,
+            &ambition_gameplay_core::features::BodyPoseView,
+            Option<&ambition_time::ProperTimeScale>,
+            Option<&mut bevy::sprite::Anchor>,
         ),
         With<PlayerVisual>,
     >,
 ) {
     // Iterate EVERY player-bodied visual, not just the primary: the human player
-    // and any brain-driven player clone animate through the identical picker. The
-    // active-attack swing is per-entity (`Option<&BodyMelee>`) — the
-    // primary carries one and gets its attack rows; a clone has None and animates
-    // from movement alone. (Generalized from a `get_mut(entities.player)` single
-    // lookup as part of the non-player-centric peel: the player body is not special
-    // to rendering, only the camera/HUD are.)
-    let player_gravity = gravity
-        .as_deref()
-        .map_or(ambition_engine_core::Vec2::Y, |g| g.dir);
-    for (
-        (
-            mut sprite,
-            mut animator,
-            kinematics,
-            ground,
-            wall,
-            blink,
-            flight,
-            dash,
-            ledge,
-            player_combat,
-            anim_state,
-            blink_cam,
-        ),
-        (body_mode, env_contact, abilities, dodge, shield, active_attack, scale, anchor, base_size),
-    ) in &mut query
-    {
-        // Stance compaction ratio: current AABB height / base standing height. The
-        // engine shrinks the AABB (and lowers `pos`) on crouch/crawl/slide/morph; the
-        // trimmed-sheet render must scale to match or the sprite sinks under the floor.
-        let stance_ratio_y = base_size
-            .map(|b| (kinematics.size.y / b.base_size.y.max(1.0)).clamp(0.1, 1.0))
-            .unwrap_or(1.0);
-        let attack_state = active_attack.and_then(|a| a.swing.as_ref());
-        let anim = ambition_gameplay_core::character_sprites::pick_player_anim(
-            anim_state,
-            player_combat,
-            blink_cam,
-            attack_state,
-            kinematics,
-            ground,
-            wall,
-            blink,
-            flight,
-            dash,
-            ledge,
-            body_mode,
-            env_contact,
-            abilities,
-            dodge,
-            shield,
-        );
+    // and any brain-driven player clone animate through the identical picker
+    // (sim-side, in the pose rebuild). The player body is not special to
+    // rendering, only the camera/HUD are.
+    for (mut sprite, mut animator, pose, scale, anchor) in &mut query {
         // ADR 0011 — `entity_dt` collapses to `sim_dt` when no ProperTimeScale is
         // set (SP default), so bullet-time / hitstop / pause still slow the
         // animation in lockstep.
         let dt = world_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale));
         // Hit feedback is drawn by the white-silhouette overlay in
         // `presentation::rendering::hit_flash` — a sibling mesh that samples this
-        // atlas frame and outputs pure white modulated by `BodyCombat::
-        // hit_flash`. The source sprite stays untinted (`WHITE`); the overlay flashes.
+        // atlas frame and outputs pure white modulated by the pose's flash fact.
+        // The source sprite stays untinted (`WHITE`); the overlay flashes.
         apply_character_frame(
             &mut sprite,
             &mut animator,
             anchor.map(|a| a.into_inner()),
-            anim,
+            pose.anim,
             dt,
-            kinematics.facing,
-            player_gravity,
+            pose.facing,
+            pose.gravity_dir,
             Color::WHITE,
-            stance_ratio_y,
+            pose.stance_ratio_y,
         );
     }
 }

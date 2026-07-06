@@ -222,10 +222,9 @@ pub fn sync_hit_flash_overlays(
     images: Res<Assets<Image>>,
     actors: Query<ambition_gameplay_core::features::ActorSpriteData>,
     bosses: Query<(&FeatureId, &BodyHealth, &BodyCombat), With<BossConfig>>,
-    player_state: Query<
-        &ambition_characters::actor::BodyCombat,
-        ambition_platformer_primitives::markers::PrimaryPlayerOnly,
-    >,
+    // Sim-built pose read-model (E4): the player-bodied flash timer rides
+    // `BodyPoseView` on the SAME entity that carries the sprite.
+    poses: Query<&ambition_gameplay_core::features::BodyPoseView>,
     sources: Query<
         (
             Entity,
@@ -265,7 +264,7 @@ pub fn sync_hit_flash_overlays(
         // into a single `HitFlash` component can collapse this to
         // one query without changing the overlay sync.
         let hit_flash_secs =
-            hit_flash_secs_for_source(feature, player, &actors, &bosses, &player_state);
+            hit_flash_secs_for_source(source_entity, feature, player, &actors, &bosses, &poses);
         let intensity = hit_flash_secs.map(normalize_hit_flash).unwrap_or(0.0);
 
         let Ok((mut overlay_transform, material_handle, overlay)) =
@@ -340,23 +339,18 @@ pub fn cleanup_hit_flash_overlays(
 /// | NPC    | `ActorStatus::hit_flash` (unified cluster) | actor damage paths |
 /// | boss   | `BossEncounter::hit_flash` (boss cluster)   | boss damage paths |
 fn hit_flash_secs_for_source(
+    source_entity: Entity,
     feature: Option<&FeatureVisual>,
     player: Option<&PlayerVisual>,
     actors: &Query<ambition_gameplay_core::features::ActorSpriteData>,
     bosses: &Query<(&FeatureId, &BodyHealth, &BodyCombat), With<BossConfig>>,
-    player_state: &Query<
-        &ambition_characters::actor::BodyCombat,
-        ambition_platformer_primitives::markers::PrimaryPlayerOnly,
-    >,
+    poses: &Query<&ambition_gameplay_core::features::BodyPoseView>,
 ) -> Option<f32> {
-    // Player path: the entity that carries `PlayerVisual` is the
-    // same one that carries `BodyCombat`, so the
-    // `PrimaryPlayerOnly` filter picks up the only matching state.
-    // Use `iter().next()` over `single()` so a future MP regime that
-    // adds a secondary local player won't crash the overlay sync
-    // — first match wins for SP today.
+    // Player path: the entity that carries `PlayerVisual` is the same one
+    // that carries the sim-built `BodyPoseView`, so read ITS flash timer —
+    // per-entity, so player clones flash independently.
     if player.is_some() {
-        return player_state.iter().next().map(|state| state.hit_flash);
+        return poses.get(source_entity).ok().map(|p| p.hit_flash_secs);
     }
     let visual = feature?;
     let id = visual.id.as_str();

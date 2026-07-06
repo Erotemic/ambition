@@ -352,15 +352,22 @@ committable slice; render-side reads become SimView fields):**
 
 1. `BodyKinematics` reads (sync_visuals/animation/camera/fx/items/
    projectiles/pirate_weapon) → `ActorRenderView { pos, velocity,
-   size, facing }` (AJ14 pos+velocity land here).
+   size, facing }` (AJ14 pos+velocity land here). ⏳ **player half DONE
+   (fable 2026-07-06): `BodyPoseView` component** (pos/vel/size/
+   base_size/facing/roll/stance/gravity/anim/flash/hp/morph/charge),
+   rebuilt in `FeatureViewSync` (`pose_view.rs`); sync_visuals player
+   branch, animate_player, morph_ball, charge indicator, placeholder
+   override, player hit-flash + debug health bar are pure consumers;
+   `ShieldRingsView` pools every raised shield (player+actor). Actor-
+   side kin reads in fx/items/pirate_weapon remain (slices 11–12, 18).
 2. The `ActorSpriteData` mega-QueryData (hit_flash, deep_dream; ~15
    sim components) → collapse into `ActorRenderView`+`ActorAnimView`.
-3. `BodyAnimFacts`/`BodyMelee`/`PlayerBlinkCameraState`/`BodyCombat`/
-   `Body*State` cluster reads in animate_characters →
-   `ActorAnimView { clip, phase, stance_ratio, facing, blink_flags }`;
-   the extraction (`rebuild_actor_anim_index`) moves sim-side, LAST in
-   tick.
-4. `ActorRoll` → `ActorRenderView.roll_angle`.
+3. ✅ `BodyAnimFacts`/`BodyMelee`/`PlayerBlinkCameraState`/`BodyCombat`/
+   `Body*State` cluster reads: the actor half landed as slice 19
+   (`ActorAnimIndex`); the PLAYER half landed with `BodyPoseView`
+   (fable 2026-07-06) — `pick_player_anim` now runs sim-side only.
+4. ✅ `ActorRoll` → `BodyPoseView.roll_angle` (player; actors already
+   rode `FeatureView.rotation_rad`).
 5. `BodyHealth`/`BodyCombat`/`Health` reads (health/hit_flash/
    nameplates/boss/overlays/hud) → `{ hp_frac, alive, hit_flash_t }`.
 6. `BodyWallet` (hud) → a `PlayerHudFacts` view row.

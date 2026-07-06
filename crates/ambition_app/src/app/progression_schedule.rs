@@ -27,6 +27,12 @@ impl Plugin for ProgressionSchedulePlugin {
         // frame) by `enforce_mount_rider_link`, consumed by
         // `notify_bosses_on_mount_death` at the head of the boss chain below.
         app.add_message::<ambition_gameplay_core::features::MountDied>();
+        // The ENGINE-generic Progression chain. Every content system that used
+        // to be wedged into this chain (cut-rope setup/victory, quest-completion
+        // rewards, the gnu-ton gate, the quest-registry populate) now hangs on a
+        // labeled slot anchored below, so this plugin names NO content (anti-god
+        // rule 3) — the E-track de-weave that lets the engine progression group
+        // move to the runtime face later.
         app.add_systems(
             Update,
             (
@@ -40,24 +46,24 @@ impl Plugin for ProgressionSchedulePlugin {
                     ambition_gameplay_core::boss_encounter::update_boss_encounters,
                     ambition_gameplay_core::boss_encounter::sync_boss_encounter_entities,
                     ambition_gameplay_core::boss_encounter::update_encounter_progress,
-                    ambition_content::bosses::setup_cut_rope_encounter,
+                    // ContentEncounterScriptSet slot (setup_cut_rope_encounter)
+                    // anchors between here and tick_falling_hazards.
                     ambition_gameplay_core::boss_encounter::tick_falling_hazards,
                     ambition_gameplay_core::boss_encounter::tick_encounter_scripts,
                     ambition_gameplay_core::boss_encounter::release_payloads_on_death,
                     ambition_gameplay_core::boss_encounter::boss_phase_transition_feedback,
                 )
                     .chain(),
-                // The boss-encounter group above (nested chain) runs first; the
-                // rest of the Progression chain follows. Victory NPC spawns after
-                // `release_payloads_on_death` so it sees the freed payload.
-                ambition_content::bosses::spawn_cut_rope_victory_npc,
+                // ContentEncounterVictorySet slot (spawn_cut_rope_victory_npc)
+                // anchors between the boss chain and the save mirrors below.
                 // One save-sync over the unified actor cluster (enemies +
                 // persisted-hostile NPCs flip in place).
                 ambition_gameplay_core::features::sync_ecs_actors_with_save,
                 ambition_gameplay_core::features::sync_ecs_bosses_with_save,
-                ambition_content::quest::push_room_entered_quest_events,
-                ambition_content::quest::apply_quest_advance_events,
-                ambition_content::quest::grant_quest_completion_rewards,
+                ambition_gameplay_core::quest::push_room_entered_quest_events,
+                ambition_gameplay_core::quest::apply_quest_advance_events,
+                // ContentQuestRewardSet slot (grant_quest_completion_rewards)
+                // anchors between the quest pump and the metadata sync below.
                 ambition_gameplay_core::rooms::sync_active_room_metadata,
                 ambition_gameplay_core::rooms::sync_room_music_request,
                 // Portal lifecycle: advance every registered portal's
@@ -76,32 +82,44 @@ impl Plugin for ProgressionSchedulePlugin {
                 .in_set(SandboxSet::Progression),
         );
 
-        // GNU-ton arena gate: a derived collision-overlay contributor (hides the
-        // retreat ladder while the boss is alive; opens the floor-gate on defeat).
-        // Runs in WorldPrep after the overlay rebuild clears the per-frame
-        // contributions and before the WorldPrep collision consumers — exactly
-        // like the encounter / intro lock-wall gates — so this frame's player /
-        // actor / projectile collision sees the derived geometry. A defeat is
-        // observed as `boss.alive = false` one frame after the boss runtime sets
-        // it (negligible, and it no longer mutates the authored RoomGeometry).
-        app.add_systems(
+        // Anchor the content slots into the engine chain at their exact former
+        // positions. Content plugins register `.in_set(the slot)`; ordering is
+        // preserved byte-for-byte because each slot pins the SAME `.after`/
+        // `.before` engine neighbors the wedged system had.
+        use ambition_gameplay_core::boss_encounter::{
+            ContentEncounterScriptSet, ContentEncounterVictorySet, ContentQuestRewardSet,
+        };
+        app.configure_sets(
             Update,
-            ambition_content::bosses::gate_gnu_ton_arena_ladder
-                .after(ambition_gameplay_core::features::rebuild_feature_ecs_world_overlay)
-                .before(ambition_gameplay_core::features::update_ecs_hazards)
-                .in_set(ambition_gameplay_core::schedule::SandboxSet::WorldPrep),
+            ContentEncounterScriptSet
+                .in_set(SandboxSet::Progression)
+                .after(ambition_gameplay_core::boss_encounter::update_encounter_progress)
+                .before(ambition_gameplay_core::boss_encounter::tick_falling_hazards),
+        );
+        app.configure_sets(
+            Update,
+            ContentEncounterVictorySet
+                .in_set(SandboxSet::Progression)
+                .after(ambition_gameplay_core::boss_encounter::boss_phase_transition_feedback)
+                .before(ambition_gameplay_core::features::sync_ecs_actors_with_save),
+        );
+        app.configure_sets(
+            Update,
+            ContentQuestRewardSet
+                .in_set(SandboxSet::Progression)
+                .after(ambition_gameplay_core::quest::apply_quest_advance_events)
+                .before(ambition_gameplay_core::rooms::sync_active_room_metadata),
         );
 
-        // Populate the encounter / quest / boss registries from the LDtk
-        // project + save. These run on Update (not Startup) with their
-        // existing `specs_loaded` / `initialized` short-circuits so the
-        // first tick populates them and the reset flow can flip the flags
-        // back to repopulate from a freshly-cleared save. Cost when already
-        // loaded is one ResMut + one bool check per registry per frame.
+        // Populate the encounter / boss registries from the LDtk project + save.
+        // These run on Update (not Startup) with their existing `specs_loaded` /
+        // `initialized` short-circuits so the first tick populates them and the
+        // reset flow can flip the flags back to repopulate from a freshly-cleared
+        // save. (The content quest-registry populate moved to
+        // `AmbitionQuestContentPlugin`.)
         app.add_systems(
             Update,
             (
-                ambition_content::quest::populate_quest_registry,
                 ambition_gameplay_core::boss_encounter::populate_boss_encounter_registry,
                 ambition_gameplay_core::encounter::populate_encounter_registry,
             )

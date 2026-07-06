@@ -425,3 +425,20 @@ content-free dispatcher emits `VfxMessage::Explosion` at the owner. 3 new tests
 entity_catalog 14/14, vfx green, app rl_sim gate build clean. NOT closed: the
 slash-VFX black-square is a separate render-side sprite-source quirk needing a
 visual run. Next CM-ladder opus work: CM6 (grab/throw/shield-stun, with SSB).
+
+## 2026-07-06 (opus) — App residue: the progression-schedule content de-weave
+`ProgressionSchedulePlugin` (app-side) was interleaving ENGINE boss-encounter/
+save/room systems with CONTENT (cut-rope setup+victory, quest-completion
+rewards, the gnu-ton arena gate, quest-registry populate). De-woven on the
+E5-step-4 pattern: three engine labeled slots minted in `boss_encounter`
+(`ContentEncounterScriptSet` mid-boss-tick, `ContentEncounterVictorySet` after
+the boss chain, `ContentQuestRewardSet` after the quest pump), host-anchored via
+`configure_sets` at the EXACT former positions; the content systems moved to
+`AmbitionBossContentPlugin` / `AmbitionQuestContentPlugin` and register
+`.in_set(slot)`. The engine chain now names NO content (anti-god rule 3). The
+quest event pump (push/apply) stayed engine — it was a `content::` RE-EXPORT of
+gameplay_core systems, not content. Ordering preserved byte-for-byte:
+replay-fixture determinism guard + boss_lifecycle 8/8 + all app integration
+tests green (only the documented `unified_melee::a_hostile_actor` feel-RED
+fails, unrelated); content 64/64, app lib 139/139, gate build clean. Follow-up
+(trivial): relocate the now-content-free engine plugin into the runtime group.

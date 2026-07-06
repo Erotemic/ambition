@@ -535,13 +535,24 @@ the `StartingCharacter` worn-sheet residue (`PLAYER_CHARACTER_ID` /
 `ambition_asset_manager`. Both are low-entanglement mechanical moves per
 the ledger; schedule them as fillers between the big carves.
 
-### App residue — the progression schedule split — [opus]
+### App residue — the progression schedule split — ✅ DE-WOVEN (opus 2026-07-06); move-to-group is the follow-up
 
-`ProgressionSchedulePlugin` interleaves engine boss-encounter systems
-with content quest/cut-rope systems — split into an engine progression
-group (→ `ambition_host` or the runtime group) + content attachments via
-labeled sets, same shape as the combat-schedule slots. (New finding from
-the 2026-07-05 inventory; previously untracked.)
+`ProgressionSchedulePlugin` interleaved engine boss-encounter systems with
+content quest/cut-rope systems. **Done:** the engine chain is now
+content-free — the five wedged content systems (`setup_cut_rope_encounter`,
+`spawn_cut_rope_victory_npc`, `grant_quest_completion_rewards`,
+`populate_quest_registry`, `gate_gnu_ton_arena_ladder`) hang on labeled
+slots (`ContentEncounterScriptSet` / `ContentEncounterVictorySet` /
+`ContentQuestRewardSet` in `boss_encounter`, host-anchored at the exact
+former positions) and are registered by `AmbitionBossContentPlugin` /
+`AmbitionQuestContentPlugin`, same shape as the combat-schedule
+(`ContentSpecials`/`ContentFlavor`) + reset slots. The quest EVENT pump
+(push/apply) stayed engine (it was never content — a content:: re-export).
+Ordering preserved byte-for-byte (replay-fixture determinism guard +
+boss_lifecycle 8/8 green). **Follow-up:** the now-content-free engine
+`ProgressionSchedulePlugin` can move from the app into the runtime group
+(`ambition_runtime`) — a trivial relocation now that it names no content
+("assemble with what exists; tighten as carves land").
 
 ## Phase D-B — the post-carve `ambition_actors` and the navigability standard
 

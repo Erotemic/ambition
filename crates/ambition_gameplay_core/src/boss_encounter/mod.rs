@@ -70,3 +70,33 @@ pub use systems::{
     boss_phase_transition_feedback, notify_bosses_on_mount_death, populate_boss_encounter_registry,
     update_boss_encounters,
 };
+
+// ── Progression-phase content slots (E-track de-weave) ──────────────────────
+//
+// The `SandboxSet::Progression` chain is ENGINE-generic (boss-encounter tick,
+// save mirrors, room metadata/music, portal phase, map visits). Named-game
+// CONTENT that must interleave with it hangs on these labeled slots; the host
+// anchors each slot into the engine chain via `configure_sets`, and content
+// plugins register their systems `.in_set(the slot)` — the engine chain never
+// names a content system (anti-god rule 3), same shape as the combat-schedule
+// (`CombatSet::ContentSpecials`/`ContentFlavor`) and reset (`ContentRoomResetSet`)
+// slots. Co-located here because Progression is the boss-encounter-dominated
+// phase (mirrors `session::reset` owning both of ITS content slots).
+
+/// Progression slot for content that sets up an encounter's scripted state
+/// MID boss-tick — after the engine advances encounter progress, before the
+/// scripted hazards/beats tick (e.g. the cut-rope arena's per-attempt setup).
+#[derive(bevy::ecs::schedule::SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ContentEncounterScriptSet;
+
+/// Progression slot for content that reacts to an encounter's RESOLUTION —
+/// after the boss chain finishes (payloads released, phase feedback), before
+/// the save mirrors run (e.g. spawning a victory NPC once the payload is free).
+#[derive(bevy::ecs::schedule::SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ContentEncounterVictorySet;
+
+/// Progression slot for content quest-completion effects — after the engine's
+/// quest advance pump, before room metadata/music sync (e.g. granting authored
+/// completion rewards).
+#[derive(bevy::ecs::schedule::SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub struct ContentQuestRewardSet;

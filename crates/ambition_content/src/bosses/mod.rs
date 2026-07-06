@@ -176,6 +176,39 @@ impl Plugin for AmbitionBossContentPlugin {
                 .in_set(ambition_gameplay_core::schedule::BossSteerSlot),
         );
 
+        // Content progression systems hang on the engine's labeled Progression
+        // slots — the host anchors each slot into the Progression chain at the
+        // exact former position; this plugin never depends on that position, only
+        // on the slot (E-track progression de-weave, same shape as the room-reset
+        // and combat-flavor slots above).
+        app.add_systems(
+            Update,
+            (
+                // Cut-rope arena per-attempt setup — MID boss-tick (after the
+                // engine advances encounter progress, before scripted hazards).
+                setup_cut_rope_encounter
+                    .in_set(ambition_gameplay_core::boss_encounter::ContentEncounterScriptSet),
+                // Victory NPC spawn — after the boss chain frees the payload,
+                // before the save mirrors run.
+                spawn_cut_rope_victory_npc
+                    .in_set(ambition_gameplay_core::boss_encounter::ContentEncounterVictorySet),
+            ),
+        );
+
+        // GNU-ton arena gate: a derived collision-overlay contributor (hides the
+        // retreat ladder while the boss is alive; opens the floor-gate on defeat).
+        // Runs in WorldPrep after the overlay rebuild clears the per-frame
+        // contributions and before the WorldPrep collision consumers — exactly
+        // like the encounter / intro lock-wall gates — so this frame's player /
+        // actor / projectile collision sees the derived geometry.
+        app.add_systems(
+            Update,
+            gate_gnu_ton_arena_ladder
+                .after(ambition_gameplay_core::features::rebuild_feature_ecs_world_overlay)
+                .before(ambition_gameplay_core::features::update_ecs_hazards)
+                .in_set(ambition_gameplay_core::schedule::SandboxSet::WorldPrep),
+        );
+
         // Cut-rope Yarn vocabulary: installed on the DialogueRunner via the
         // dialog runtime's content-bindings seam, plus the per-frame extras
         // feed (after the generic mirror refresh so the snapshot Yarn reads

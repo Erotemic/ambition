@@ -44,25 +44,15 @@ the clean path needed a fable-tier decision or touched the most-guarded code —
 opus stopped at the safe boundary rather than risk a regression or pre-empt a
 fable card. Ranked by how much they gate a fable task.
 
-1. **CC1→CC5 collision-cast consolidation is genuinely cross-crate + kernel-
-   tangled — the "one `cast` module" cannot own all four primitives without
-   fable's calls.** The four cast primitives live in THREE crates at different
-   layers: `sweep_hit`(AabbExt) + `first_body_sweep`(World) + `first_circle_hit`
-   (surface.rs, private) in engine_core; `raycast_solids`/`ray_aabb` in
-   `ambition_platformer_primitives` (generic over `SolidWorldQuery`);
-   `raycast_through_portals` in `ambition_portal` (needs `PlacedPortal`). Opus
-   landed the safe surface (`engine_core::cast` re-exports + `body_sweep` entry,
-   236/236 green). The REMAINING consolidation needs three fable rulings:
-   **(a)** does `first_circle_hit` extract from the momentum kernel, or does
-   `cast` re-export a kernel-owned primitive? (it's intimate with `SurfaceChain`/
-   `resolve_surface`; extraction risks behavior change on the no-pushout/OOB
-   path). **(b)** do `raycast_solids`/`ray_aabb` + `SolidWorldQuery` move DOWN
-   into engine_core (a cascade), or does `cast` stay a facade over the correctly-
-   layered homes? **(c)** the portal-aware cast can only live in `cast` once
-   engine_core owns an aperture type — **that IS CC5's `PortalFrame`**, so
-   CC2–CC4 arguably can't reach their clean end until CC5 lands first, inverting
-   the ladder order. Net: the CC ladder's "no system rolls its own cast" endgame
-   is a fable design call about crate layering, not a mechanical opus port.
+1. ✅ **RULED (fable, 2026-07-06)** — the CC1→CC5 cast-consolidation rulings
+   are written into collision-and-ccd.md §3.4: **(a)** `first_circle_hit` stays
+   kernel-private (no extraction, no re-export; a public swept-circle query
+   waits for a real external consumer); **(b)** `ray_aabb`/`raycast_solids`/
+   `SolidWorldQuery` move DOWN into `engine_core::cast` [opus, mechanical];
+   **(c)** the portal-aware cast lands in `cast` WITH CC5 — engine_core owns
+   aperture GEOMETRY (`PortalFrame`/`PortalAperture`), ambition_portal keeps
+   portal GAMEPLAY. CC5 conventions + migration steps are pinned in §7 of that
+   doc; CC1–CC3 explicitly do NOT wait on CC5 (§8 minimum-slice separation).
 
 2. **CM2 DI + CM3 charge each left a feel/input seam that is Jon's, not opus's.**
    DI (`di_max_angle`) defaults OFF — turning it on for a fighter is a feel
@@ -323,6 +313,28 @@ CM1's `launch_dir` resolver rework are all recorded there.
 STOP POINT (Jon): CM1/CM2/CM3/CM7 fully landed + CC1 partial; combat side of
 fable maximally unblocked (CM4 ready, FB2 fed); CC/E4/E5 remain and the CC
 endgame is now a documented fable call.
+
+## 2026-07-06 (fable) — THE RUNTIME-CONTRACT PASS (GPT-5.5 review folded in)
+collision-and-ccd.md REWRITTEN with the pinned contracts: §3.1 canonical
+`SweepSample` (true prev, reset-on-teleport protocol, one-chart rule; hazard
+`vel·dt` drift flagged for CC2-completion), §3.2 authority classes A/B/C +
+one-Class-B-per-frame ordering (death > transition > portal), §3.3 the
+per-trigger semantics table + `AMBITION_REVIEW(discrete_ok)` convention,
+§3.4 `cast` identity + family registry + the three CC1 rulings, §3.5
+portal-aware cast semantics, §4 SurfacePolygon per-consumer solidity + AABB
+slope rules pinned pre-implementation, §5 moving-portal object model
+(host-attached, authoritative velocity, update order, edge-case rulings) +
+angled-portal P3a/P3b scope split + piece-geometry ruling, §6 exact fuzz
+oracle (6 illegal states) + required traces, §7 CC5 exact frame conventions
+(tangent derived = rot90(normal); reflection map (s,d)→(s,−d), rotation
+(s,d)→(−s,−d); convention explicit at engine layer; zero-tolerance parity)
++ the PortalFrame/PortalAperture ownership-migration ruling, §8 minimum-slice
+separation. netcode.md N3.1 grew identity+scope pins (SimId vocabulary,
+include/exclude lists, derived-state rule); decomposition.md E4 sketch grew
+view identity/dedup/prop-ownership pins; boss-design.md grew calibration v0
+(bands, arena assumptions, error-vs-warning); fighter-brain.md grew the FB6
+budget contract (2ms cap, scratch-world seeding, weight-calibration
+instrument). HARD PROBLEM 1 → RULED.
 
 ## 2026-07-06 (opus) — CC2 first pass: the swept trigger primitive + hazards
 Added `cast::aabb_path_contacts(center, half, delta, target)` — THE trigger-tier

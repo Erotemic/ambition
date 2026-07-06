@@ -1,9 +1,10 @@
 # Collision & CCD — sweep everything, kill the OOB class, free the geometry
 
-**Authored by fable, 2026-07-05.** The doctrine that retires out-of-bounds
-bugs as a CLASS, makes non-axis-aligned geometry first-class, and takes
-portals from static wall decorations to movable physical objects. Companion:
-[`spatial-model.md`](spatial-model.md) (authoring/IR),
+**Authored by fable, 2026-07-05; runtime contracts pinned 2026-07-06 (fable),
+answering the GPT-5.5 contract review.** The doctrine that retires
+out-of-bounds bugs as a CLASS, makes non-axis-aligned geometry first-class,
+and takes portals from static wall decorations to movable physical objects.
+Companion: [`spatial-model.md`](spatial-model.md) (authoring/IR),
 [`frame-awareness.md`](frame-awareness.md) (the "relative to what?" review
 discipline). Binding rules inherited: **no pushout** (M10; sole exception:
 portal-close straddle eviction), no speed caps as bug fixes (Jon: "speedy
@@ -15,27 +16,23 @@ thing comes out" is sacred), frame-agnosticism (C4 harness for every rule).
 
 Every OOB/tunneling bug we have ever fixed had the same shape: **some check
 sampled positions discretely** while the mover was swept, or vice versa. The
-mockingbird clip (pushout-teleport), the portal high-speed embed (§7.6 of the
-07-05 plan — discrete transit trigger vs. swept solids), the historical ledge
-and wall-cling escapes — all instances of ONE disease: *mixed sampling
-disciplines within a single frame of motion.*
+mockingbird clip (pushout-teleport), the portal high-speed embed (discrete
+transit trigger vs. swept solids), the historical ledge and wall-cling
+escapes — all instances of ONE disease: *mixed sampling disciplines within a
+single frame of motion.*
 
 The cure is not more guards. It is a single rule:
 
 > **THE SWEEP LAW.** Anything that changes state as a function of a body's
 > path — solid contact, trigger volumes, portal transit, hazard touch, blink
 > destination validity, one-way admission, ledge grab, water/zone entry —
-> evaluates against the CONTINUOUS swept path `pos → pos + vel·dt`, never
-> against sampled endpoints. Discrete sampling is permitted only for state
-> that is genuinely positional (camera zones, ambient metadata, music
-> regions) where a one-frame late/early transition is imperceptible and
-> harmless.
+> evaluates against the CONTINUOUS swept path `prev → curr`, never against
+> sampled endpoints. Discrete sampling is permitted only where §3.3 grants it
+> explicitly, with the grep-able annotation.
 
 Both movement kernels already obey the law for SOLIDS (axis-swept AABB; the
 momentum circle's TOI casts). The remaining offenders are the TRIGGER-shaped
-readers. The §7.6 fix (swept portal transit, landed `31342e6f`) is the
-template: keep the cheap discrete check as the low-speed fast path where it
-is provably equivalent, add the segment/shape cast tier above it.
+readers; CC2 is converting them (hazards done).
 
 ## 2. The unification target: one contact vocabulary, two kernels, shared casts
 
@@ -43,28 +40,214 @@ We deliberately keep **two movement kernels** — the axis-swept AABB kernel
 (the protected classic-feel fast path) and the surface-momentum kernel
 (chains/blocks, circle proxy). What unifies them is BELOW and BESIDE them:
 
-- **Below — the cast library.** One module owns the primitive queries:
-  swept AABB vs. AABB, swept circle vs. segment/AABB (parry-backed), segment
-  raycast through the composited world, and **portal-aware casts**
-  (`raycast_through_portals` generalized: any cast can opt into continuing
-  through apertures). Both kernels and every trigger reader call THESE.
-  No system rolls its own overlap/step check. (Today the pieces exist —
-  `AabbExt::sweep_hit`, `first_body_sweep`, `first_circle_hit`,
-  `raycast_through_portals` — scattered; the slice work is consolidation
-  into `ambition_engine_core::cast` with the trigger-tier entry points.)
+- **Below — the cast library** (`ambition_engine_core::cast`, minted CC1):
+  the primitive queries both kernels and every trigger reader call. No system
+  rolls its own overlap/step check. The full family registry and ownership
+  rulings: §3.4.
 - **Beside — the `Contact` vocabulary.** Every contact from any kernel or
   cast reports the same `Contact { point, normal, toi, surface_velocity,
   source }` (landed 2026-07-05). Gameplay consumes contacts; it never asks
   "which kernel produced you?".
 
-**Blocks ARE surfaces** (landed with the Sanic fix, `0189338b`): a solid
-block's exterior boundary is a closed rectangular `SurfaceChain`
-(`Block::boundary_chain`), swept per-face and ridden by the momentum kernel
-with the same stick/joint rules as authored chains. This is the seed of the
-whole section-3 story: the AABB is now formally a special case of the
-polyline surface — cheap because rectangular, not because privileged.
+**Blocks ARE surfaces** (landed `0189338b`): a solid block's exterior
+boundary is a closed rectangular `SurfaceChain`, swept per-face and ridden by
+the momentum kernel with the same stick/joint rules as authored chains. The
+AABB is formally a special case of the polyline surface — cheap because
+rectangular, not because privileged.
 
-## 3. Non-axis-aligned geometry
+## 3. THE RUNTIME CONTRACTS (pinned 2026-07-06 — executors implement these, not their own readings)
+
+### 3.1 The canonical sweep sample
+
+Every swept reader consumes ONE authoritative motion record per body per
+tick. There is exactly one source of truth for "where was this body and how
+was it moving":
+
+```rust
+/// engine_core: the per-tick motion record. Written ONCE per body per sim
+/// tick, after its kernel integrates; read by every path-dependent system.
+pub struct SweepSample {
+    pub prev: Vec2,     // TRUE post-integration position of the PREVIOUS tick
+    pub curr: Vec2,     // post-integration position of THIS tick
+    pub vel: Vec2,      // velocity at prev (the motion that produced the path)
+    pub half: Vec2,     // the body proxy: AABB half-extents (the momentum
+                        // kernel's circle proxy publishes its bounding half)
+}
+```
+
+Contract rules (each is a review-flag when violated):
+
+1. **`prev` is recorded, never reconstructed.** `pos − vel·dt` is FORBIDDEN
+   as a path source: the integrator may already have stopped/zeroed the body
+   (the exact failure the sweep exists to catch — the portal
+   `PortalSweepAnchor` lesson). *Known v1 tolerance:* the CC2 hazard
+   conversion currently uses `vel·dt`; acceptable there only because the
+   discrete standing-in-it arm catches a stopped body — the CC2 completion
+   pass migrates it onto the sample. New readers start on the sample.
+2. **Non-ballistic position writes RESET the sample.** Portal transfer,
+   scripted teleport, respawn, room transition — the writer sets
+   `prev = curr = new_pos` (zero-length path) in the same frame. A reset
+   sample can never read as travel (this generalizes the portal tier's
+   `MAX_SWEPT_STEP_S` teleport guard from a heuristic into a protocol; the
+   heuristic stays as defense-in-depth until every writer conforms).
+3. **One frame, one chart.** The sample's segment lives entirely in one
+   coordinate chart. On a portal-transfer frame the post-transfer sample is
+   reset (rule 2), so readers never see a segment spanning two charts.
+   *Documented v1 bound:* the sub-frame emergence distance on the exit side
+   is unswept for that one frame; the future extension (if fuzzing ever
+   trips it) is a two-segment polyline sample, portal transfer APPENDING
+   instead of resetting — do not build it speculatively.
+4. **Reference frame:** samples are world-frame. A reader comparing against
+   a MOVING target subtracts the target's own frame motion (relative sweep,
+   `delta_body − delta_target`) — the CC6 moving-portal rule, already
+   documented on `aabb_path_contacts`.
+
+Implementation home: the sample is engine_core vocabulary; kernels write it
+(the AABB kernel at step end; the momentum kernel after `resolve_surface`),
+the reset rule binds every teleporting system. CC2-completion carries the
+mint (it is the first multi-reader consumer).
+
+### 3.2 Frame event ordering — the three authority classes
+
+What happens when one frame's path crosses several things (portal + hazard +
+pickup + door)? Every path consumer is one of three classes, and the classes
+have a pinned order:
+
+- **Class A — motion authority** (mutates pos/vel by physics): the two
+  movement kernels. Exactly ONE kernel owns a body (`MotionModel`); it
+  resolves solid contacts internally at TOI. The post-A position IS the
+  frame's sample.
+- **Class B — transit authority** (remaps pos/vel/chart): portal transit,
+  loading-zone room transitions, death/respawn, scripted teleports. Contract:
+  **at most one Class-B action applies per body per frame — the earliest by
+  TOI along the sample; ties break by fixed priority `death/reset >
+  room-transition > portal-transit`** (death ends the frame's story; a body
+  cannot die AND door-warp). Every Class-B application resets the sample
+  (§3.1 rule 2), which is what makes a second Class-B reader a no-op the
+  same frame — the protocol enforces the "one action" rule structurally,
+  not by inter-system negotiation. Schedule order today approximates this
+  (transit runs before zone checks); the CC3 fuzz rig asserts the invariant
+  ("no two Class-B remaps in one frame"), and violations are re-ordering
+  bugs, not tolerated races.
+- **Class C — observers** (read the path, never move the body): hazard
+  touch, pickups, water/climb entry, ledge, blink validity, camera/music
+  zones. Class-C readers are commutative — no ordering among them is
+  promised or needed. Ideal rule: a Class-C reader consumes the path only up
+  to the earliest Class-B TOI (you don't take spike damage from path you
+  never traversed because a door warped you first). *v1 tolerance:* readers
+  evaluate the whole segment; the over-read is bounded by one frame and only
+  on transit frames. The fuzz oracle does not police it in v1.
+
+### 3.3 Per-trigger semantics — every reader declares its verb
+
+"Make triggers swept" is not a spec. Each path-dependent reader declares ONE
+of these semantics (this table is the CC2-completion checklist; new readers
+add a row in the same commit):
+
+| Reader | Semantics | Status / ruling |
+|---|---|---|
+| Solid contact (both kernels) | FIRST-TOI resolve (Class A) | swept since forever |
+| Portal transit | FIRST-TOI ENTER, direction-gated (front→behind through the aperture), full state machine (`transit_step`) | swept (`31342e6f`) |
+| Hazard touch | ANY-HIT along path → damage event; repeat-contact suppressed by existing i-frames (STAY handled by re-arming, not by the sweep) | swept 2026-07-06 (CC2 first pass) |
+| Blink destination validity | full-path body sweep (`cast::body_sweep`) | already swept |
+| GroundItem pickup | DISCRETE-OK: button-gated (`melee_pressed`), a deliberate act at rest, not a path auto-collect | annotated in code |
+| Auto-collect tokens (coins/rings-analog) | ANY-HIT along path, each volume independent (order along the path irrelevant) | CC2-completion converts |
+| Mid-room Door loading zones | FIRST-TOI ENTER (Class B) | CC2-completion converts |
+| EdgeExit loading zones | DISCRETE-OK: the exit band sits at the room boundary backed by world edge; a tunnel "past" it is an OOB the CC3 oracle catches, not a silent miss | annotate |
+| Water / climbable region entry | ENTER/EXIT state edges, DISCRETE-OK for thick regions; the authoring validator flags any region thinner than `max_expected_speed · dt` (thin strips must thicken or the reader converts) — sweep the AUTHORING, not every frame | CC2-completion adds the validator rule |
+| Ledge grab | derives from kernel contacts (Class A output) — swept by construction; audit confirms no residual endpoint check | CC2-completion audits |
+| Camera / music / ambient zones | DISCRETE-OK: genuinely positional, one-frame slop imperceptible | blanket grant |
+
+**The discrete-OK convention (grep-able, mandatory):** any reader granted
+discrete sampling carries at its check site:
+
+```rust
+// AMBITION_REVIEW(discrete_ok): <one-line reason — why a one-frame miss is
+// harmless or impossible here>
+```
+
+Same review tier as `AMBITION_REVIEW(spatial)`. An unswept path-dependent
+reader WITHOUT the annotation is a flagged pattern in review; CI may grep
+for known trigger idioms later, but the convention is the contract now.
+(The existing GroundItem note gets the exact marker in the CC2-completion
+pass.)
+
+### 3.4 What `engine_core::cast` IS — identity + the family registry
+
+**Ruling: `cast` is the permanent naming and discovery surface for every
+path/overlap query in the engine — not a temporary facade.** Implementations
+live where their data intimacy demands; `cast` is where callers LOOK, and
+the only module allowed to re-export query entry points. Concretely, the
+three CC1 rulings (asked by opus 2026-07-06):
+
+- **(a) `first_circle_hit` stays kernel-private.** It is load-bearing
+  interior of the momentum kernel (`surface.rs`: `SurfaceChain` +
+  `resolve_surface` intimacy, on the no-pushout/OOB path). It is NOT
+  extracted and NOT re-exported. `cast`'s doc header names it as the
+  kernel's internal swept-circle tier; a PUBLIC swept-circle query is minted
+  in `cast` only when a consumer outside the kernel lands (AJ13 discipline:
+  real pressure, not symmetry-lust). Until then, "no system rolls its own
+  cast" is satisfied — no system outside the kernel needs a circle cast.
+- **(b) `ray_aabb` + `raycast_solids` + `SolidWorldQuery` move DOWN into
+  `engine_core::cast`.** They are pure geometry / world-query with zero
+  platformer semantics; `ambition_platformer_primitives` already depends on
+  engine_core, so the move is with-the-grain (and the orphan-rule note in
+  `world_query.rs` dissolves: the `impl SolidWorldQuery for World` lands
+  beside `World`). Consumers repoint in the same arc; no re-export shim
+  stays behind (D2 rule). [opus, mechanical]
+- **(c) The portal-aware cast lands in `cast` WITH CC5.** It needs the
+  engine-level aperture vocabulary (§7); once `PortalFrame`/`PortalAperture`
+  live in engine_core, `cast::ray_through_apertures` is correctly layered
+  and `ambition_portal`'s `raycast_through_portals` becomes the gameplay
+  wrapper that supplies apertures from `PlacedPortal`s (channels, tuning,
+  recursion budget stay portal-side). The dependency inversion GPT-5.5
+  flagged is broken exactly here: **engine_core owns the GEOMETRY of an
+  aperture pair; ambition_portal owns the GAMEPLAY of portals** (placement,
+  channels, cooldowns, carve policy, transit machine).
+
+The family registry (which APIs exist, where, and which slice needs them):
+
+| Family | API | Home | Needed by |
+|---|---|---|---|
+| Swept AABB vs AABB | `AabbExt::sweep_hit` | geometry, re-exported by cast | CC1 ✓ (exists) |
+| Swept AABB vs world | `cast::body_sweep(world, body, delta, predicate)` | cast (delegates to `World`'s privileged block access) | CC1 ✓ (exists) |
+| Trigger path contact | `cast::aabb_path_contacts(center, half, delta, target)` | cast | CC2 ✓ (exists) |
+| Segment ray vs AABB | `ray_aabb` | cast after ruling (b) | CC1-completion |
+| Ray vs solid world | `raycast_solids` over `SolidWorldQuery` | cast after ruling (b) | CC1-completion |
+| Portal-aware ray | `cast::ray_through_apertures` | cast, with CC5 | CC5 |
+| Swept circle vs surfaces | kernel-internal (`first_circle_hit`) | surface.rs, ruling (a) | — (public form: future-only) |
+| Swept trigger vs MOVING target | relative-sweep form of `aabb_path_contacts` | cast | CC6 (moving portals) |
+| Convex/OBB sweep | parry-backed shape cast | cast | future-only (P3b/P4, combat sweeps) |
+
+CC1's exit restates as: rulings (a)/(b) executed, the registry above true in
+code, `cast`'s module doc IS this table.
+
+### 3.5 Portal-aware cast semantics (pinned for CC5)
+
+What "a cast continues through a portal" means, exactly:
+
+1. **Continuation:** a ray that reaches an aperture's plane, within its
+   opening, entering from the FRONT (`dir · normal < 0`), before any solid
+   hit, re-anchors at the mapped point on the exit and continues along the
+   mapped direction. (This is today's behavior, kept.)
+2. **TOI/distance is cumulative:** one `max_dist` budget decremented across
+   hops; the recursion bound (`max_depth`) guards mutual-facing loops.
+3. **Chart of the result:** hit point + normal are returned in the FINAL
+   chart (where the ray landed). Callers that need the path's provenance
+   (which pairs were crossed) get it only when a consumer demands it —
+   v1 returns `(point, normal)` as today; do not speculatively grow the
+   return type.
+4. **Aperture clipping:** the crossing point must lie within
+   `aperture_half` along the tangent; a ray hitting the PLANE outside the
+   opening ignores the portal (hits whatever is behind).
+5. **Swept SHAPES through portals (AABB/circle/body) are NOT promised.**
+   Body transit is the transit machine's job (piece decomposition +
+   centroid transfer), not a cast-family feature. The only shape-through-
+   aperture query the engine commits to is the transit trigger's segment
+   test (centroid path vs. plane-within-opening). P3b/P4 revisit this; a
+   cast API is not the vehicle.
+
+## 4. Non-axis-aligned geometry
 
 The end state: **a room may be built from arbitrary polyline/polygon
 geometry**, with axis-aligned tiles as the fast common case.
@@ -72,134 +255,278 @@ geometry**, with axis-aligned tiles as the fast common case.
 - **S1. Chains are already the answer for actors on the momentum path.**
   `SurfaceChain` (open/closed, one-sided, validated winding) + the follower
   solver handle slopes, valleys, loops, moving surfaces. Nothing new needed.
-- **S2. The AABB kernel gets a bounded slope vocabulary, not a rewrite.**
-  Classic bodies (knight-likes) on gentle ramps is the deferred Q15; when it
-  opens, the shape is: chains tagged `walkable_by_aabb` project a ground
-  height under the body's feet within a slope-angle budget; the axis-swept
-  step treats that as a moving floor plane. The AABB kernel NEVER learns
-  general polygons — bodies that need loops ride the momentum kernel (that's
-  what `MotionModel` per-body policy is FOR).
-- **S3. Combat and triggers are already free.** `CombatVolume` supports
-  OBB/convex (parry) since the CombatVolume rewire; trigger volumes follow
-  the cast library, which is shape-generic. Authoring: LDtk `SurfaceChain`
-  entities + generated markers (`SurfaceLoop`) exist; **`SurfaceRamp`**
-  (Q27 ruling, 2026-07-06) adds the quarter-circle floor↔wall transition
-  as another generated marker (radius, corner orientation, segments) —
-  parameterized generator entities are how LDtk stays sufficient without a
-  second backend. Add `SurfacePolygon` (closed solid region: boundary
-  chain + interior solid flag → the IR emits the chain + a conservative
-  AABB hull for broadphase) when a demo needs true rotated solids.
+- **S2. The AABB kernel gets a bounded slope vocabulary, not a rewrite**
+  (CC8, gated on a demo needing it). Rules pinned BEFORE implementation:
+  - *Foot sampling:* two probe points on the feet edge (±0.5·half-width
+    minus a small inset), ground height = max of the two chain projections;
+    the body stands on the higher.
+  - *Support threshold:* surface slope ≤ 45° from the gravity-perpendicular
+    counts as ground; steeper reads as WALL (the axis-swept step treats it
+    as a side contact — no sliding pseudo-physics on the AABB kernel).
+  - *Snap distance:* downhill ground-follow snaps only within
+    `is_contact_range_snap` (the mockingbird rule) along gravity; never
+    lateral.
+  - *No-pushout guarantee:* rising ground under horizontal motion is
+    resolved by the SWEPT step as a ramp contact (the body rides up as part
+    of TOI resolution); if one frame's rise exceeds the step budget it is a
+    wall hit, never a lift-teleport.
+  - *One-way slopes:* admission by feet-side plane crossing, same rule as
+    flat one-ways (C4-tested).
+  - *Joints:* the chain's height function is continuous across segment
+    joints; the walker never sees a seam (reuse the follower solver's joint
+    rules).
+  - *Moving slopes:* inherit `surface_velocity` exactly like flat floors
+    (the Contact vocabulary already carries it).
+  The AABB kernel NEVER learns general polygons — bodies that need loops
+  ride the momentum kernel (that's what `MotionModel` per-body policy is
+  FOR).
+- **S3. `SurfacePolygon` — solidity defined per consumer** (mint when a demo
+  needs true rotated solids, not before). A closed, validated-winding
+  boundary chain + `solid: true`. What "solid polygon" means to each
+  consumer, pinned now so the mint is mechanical:
+  | Consumer | Meaning |
+  |---|---|
+  | Momentum kernel | rides the boundary chain (existing chain rules; the interior is unreachable because the boundary is one-sided solid) |
+  | AABB kernel | NOT support, NOT collision in v1 — a room mixing AABB-kernel bodies with polygon floors is an authoring-validator ERROR until CC8's slope vocabulary opens (then: ≤45° faces per S2) |
+  | Combat/triggers | parry convex decomposition (CombatVolume already speaks OBB/convex) |
+  | Blink/spawn validity | point-in-polygon (interior = invalid) + the existing body sweep against the boundary chain |
+  | Portal carving | polygon hosts REJECTED by the placement validator until P3b (carve is AABB subtraction today) |
+  | Broadphase | conservative AABB hull (the IR emits it alongside the chain) |
+  | OOB oracle | center strictly inside a solid polygon = illegal, same as blocks |
 - **S4. Broadphase honesty.** Casting against every segment in a big room is
   the momentum kernel's current behavior; before Sanic-scale zones land, add
   a uniform grid/interval index over `World.blocks + chains` keyed by the
   swept path's AABB. Bounded, mechanical, measured (profile first — the
-  current N is small).
+  current N is small). NOT a precondition for CC1–CC3.
 
-## 4. Portals become physical objects
+Authoring: LDtk `SurfaceChain` entities + generated markers (`SurfaceLoop`,
+`SurfaceRamp` — Q27) exist/planned; parameterized generator entities are how
+LDtk stays sufficient without a second backend.
 
-Today: portals are static wall-mounted apertures; transit is swept
-(`31342e6f`); the carve (host geometry subtraction) is static per placement;
-angled portals are post-1.0. The arc, in order:
+## 5. Portals become physical objects
 
-- **P1. The `PortalFrame` type.** The long-flagged `FIXME(portal-api)` arc:
-  a portal endpoint IS a frame (origin, tangent, normal, and now
-  **velocity**). The pair transform (`map_point`, `map_velocity`) becomes a
-  pure frame-to-frame map. This is the first consumer allowed to introduce a
-  shared frame TYPE (AJ13 ruling honored: built for a real pressure, not
-  speculatively). All existing cardinal logic re-expresses as the special
-  case `tangent ∈ {±x, ±y}`; byte-parity pinned on the existing suite.
-- **P2. Moving portals (translation).** A portal riding a moving platform or
-  path: the carve re-cuts as the host face moves (the overlay already
-  re-composes per frame; the carve keys off the host block + local offset,
-  not absolute position); the swept transit trigger tests the segment
-  against the aperture's SWEPT plane (relative sweep: body path minus
-  portal path — one subtraction, since both are linear over the frame);
-  `map_velocity` adds the frame-velocity delta so exiting a moving portal
-  imparts/removes the relative motion (Galilean composition — this is
-  frame-awareness made mechanical, and it is the physically correct "speedy
-  thing comes out" generalization).
-- **P3. Angled portals.** With P1 landed this is authoring + math, not new
-  structure: apertures at arbitrary tangents; transit maps the full frame
-  (position, velocity, gravity-relative orientation policy). The C4 harness
-  extends to arbitrary-angle conjugation tests (transit through a θ-portal ==
-  rotate, transit through cardinal, rotate back).
-- **P4. Portal-carried bodies & straddle.** The partial-piece machinery
-  (`portal_pieces.rs`, the Core invariant) already renders straddling
-  bodies; P2 makes the STRADDLE state dynamic (the aperture moves under a
-  straddling body). Rule: the piece map is re-evaluated per frame from the
-  frame transform; eviction stays the ONLY pushout in the engine and only on
-  CLOSE.
+Today: portals are static wall-mounted apertures; transit is swept; the
+carve is static per placement. The arc, with the object model pinned:
 
-Execution grades: P1 [fable — design + parity cut, or opus against this spec
-with the parity suite as the gate]; P2 [opus, fable-specced by P1's shapes];
-P3/P4 [opus after P2, post-demo].
+- **P1 (=CC5). The `PortalFrame` type** — design in §7, execution-ready.
+- **P2 (=CC6). Moving portals (translation).** The object model, pinned:
+  - **Portals are HOST-ATTACHED apertures, never free entities.** A
+    `PlacedPortal` on a moving host records `(host block ref, local offset
+    on its face)`; the frame's `origin` derives from the host's pose each
+    frame and `velocity` IS the host's authoritative mover velocity (the
+    same `surface_velocity` the kernels read) — **never finite-differenced
+    from positions.** A portal cannot exist without a host face (placement
+    law already enforces this for static walls; it generalizes).
+  - **Update order (one frame), pinned:** (1) hosts/platforms integrate;
+    (2) portal frames re-derive (origin + velocity) from hosts; (3) carve
+    re-composes (the overlay already re-composes per frame; the carve keys
+    off host + local offset); (4) body kernels sweep the re-composed world;
+    (5) transit trigger runs the RELATIVE sweep (body segment − portal
+    segment — one subtraction, both linear over the frame); (6) transfers
+    apply `map_velocity` (Galilean composition, §7); (7) pieces re-evaluate
+    from the new frame transform; (8) presentation reads. This is the CC6
+    schedule contract; the systems already exist in roughly this order —
+    CC6 pins it with explicit set labels.
+  - **Edge cases, ruled:** a portal sweeping over a STATIONARY body
+    transits it (the relative segment is nonzero — the aperture moved over
+    the body; this is correct physics and a designed capability, e.g. a
+    descending portal "scooping" a standing actor). `min_exit_speed`
+    composes in the EXIT FRAME's rest frame: the floor applies to
+    `v_out − exit.velocity` along the exit normal, THEN the frame velocity
+    adds back (otherwise a fast-moving exit portal could never satisfy or
+    always trivially satisfy the floor). Host ROTATION is out of P2 scope
+    (translation only; a rotating host needs angular terms in the frame —
+    explicitly deferred, revisit with P3). Carves recompute discretely per
+    frame — acceptable because the carve is a solidity assist sized with
+    reach margins; the RELATIVE swept trigger is the correctness backstop.
+- **P3. Angled portals — scope split (answering "not just authoring+math"):**
+  - **P3a (authoring + math):** apertures at arbitrary tangents for
+    point/ray/velocity mapping and CENTROID transit of fully-contained
+    bodies. The frame math (§7) is already angle-general; P3a relaxes the
+    cardinal restriction for the map, the transit trigger (plane test is
+    angle-general already), and placement/authoring. The C4 harness extends
+    to arbitrary-angle conjugation (transit through a θ-portal == rotate,
+    transit through cardinal, rotate back).
+  - **P3b (real geometry):** STRADDLING bodies at arbitrary angles. This is
+    where AABB pieces stop working: piece geometry becomes convex polygons.
+    Ruling on piece geometry: **render pieces = exact clipped convex
+    polygons; collision pieces = conservative AABB hulls of those polygons**
+    (collision correctness stays with the transit machine + carve, which
+    are plane-based and angle-general; the hull only feeds broadphase/
+    overlap queries). Angled CARVE needs polygon subtraction from hosts —
+    gated on `SurfacePolygon` (S3) landing. P3b is post-demo and does NOT
+    block P3a.
+- **P4. Portal-carried bodies & dynamic straddle.** P2 makes the straddle
+  state dynamic (aperture moves under a straddling body): the piece map
+  re-evaluates per frame from the frame transform; eviction stays the ONLY
+  pushout in the engine and only on CLOSE.
 
-## 5. The OOB endgame: guarantee, not vigilance
+Execution grades: CC5 [fable — landing now]; CC6 [opus, this spec]; P3a
+[opus after CC6]; P3b/P4 [opus, post-demo, gated on S3].
 
-- **The composed-world invariant test**: a headless fuzz rig (per room:
-  random spawns, random high-speed impulses incl. through portals, N seconds
-  stepped) asserting the standing invariant *no body center ever inside a
-  solid; no body outside the world AABB without a hazard/reset event*. Runs
-  in CI over every shipped room. The OOB trace tooling (debug_traces on OOB)
-  stays as the diagnostic when the rig trips.
+## 6. The OOB endgame: guarantee, not vigilance
+
+### 6.1 The fuzz oracle (CC3) — exact illegal-state definition
+
+The rig (per shipped room: random spawns, random high-speed impulses incl.
+through portals, N seconds stepped headlessly) asserts, at the END of every
+stepped frame, per body:
+
+**Illegal (any ⇒ failure):**
+1. Body CENTER strictly inside a `Solid`/`BlinkWall` block's AABB **after**
+   carve subtraction (the composed world is the truth — a carved hole is
+   not solid) — UNLESS the body carries an active `PortalTransit` (a
+   straddling body's center legitimately sits behind the plane inside the
+   carve; its legality is the pieces', tested by the next rule).
+2. A transit-straddling body whose center is NOT within the straddled
+   portal's carve volume (embedded outside the aperture = the §7.6 class).
+3. Body center outside the room's world AABB inflated by margin M (one body
+   height), without a death/reset/room-transition event for that body this
+   frame or the K=3 frames prior.
+4. `NaN`/`inf` in pos or vel.
+5. Two Class-B remaps applied to one body in one frame (§3.2 — the ordering
+   invariant, asserted structurally).
+6. One-way violation: a body that ended BELOW a one-way it was supported by
+   last frame without a drop-through intent or a Class-B remap (admission
+   is one-directional; silent fall-through is the historical bug).
+
+**Explicitly legal:** overlap with one-way blocks (always); the transfer
+frame's position jump (must still satisfy 1–4 at frame END); temporary
+hazard overlap (hazards damage, they don't eject); anything during the
+frames a body is dead/despawned.
+
+**Determinism note:** the rig is seeded; a failure REPRODUCES from
+`(seed, room)` alone. That property is load-bearing — it is what makes the
+trace (below) optional-to-read rather than the only evidence.
+
+### 6.2 Required failure trace
+
+On violation the rig dumps (reusing the `debug_traces/` OOB tooling — same
+format, extended): seed, room id, actor archetype + `MotionModel` kernel,
+and for the last ~120 frames per involved body: pos, vel, the sweep sample,
+kernel contacts, trigger events fired (hazard/pickup/zone), portal
+crossings (channel, TOI, mapped pos/vel), active transit/cooldown state,
+and the specific invariant number violated. The existing OOB trace hook is
+the implementation seed; CC3 adds the event channels.
+
+### 6.3 Guard deletion + snap discipline
+
 - **Delete the guards the law obsoletes.** Fixed "guard windows" sized to
   worst-case per-frame steps (`APPROACH_CARVE_REACH`, `CARVE_DEPTH`
   compensations) shrink to geometric truths once every trigger is swept;
   each deletion cites the sweeping slice that made it safe.
 - **`is_contact_range_snap` discipline** (the mockingbird lesson, twice):
-  landing snaps only within contact range along the contact normal — audited
-  as part of the cast-library consolidation; the cast module owns the ONE
-  implementation.
+  landing snaps only within contact range along the contact normal — the
+  cast module owns the ONE implementation; audited in CC1-completion.
 
-## 6. CC5 design sketch — `PortalFrame` (pre-solved)
+## 7. CC5 — `PortalFrame`: exact conventions (pre-solved; the parity gate is the spec)
 
-Grounding: endpoints ALREADY expose `frame()` and the pair transform
-already routes through `pp::map_point(entry, &enter.frame(),
-&exit.frame())` + `portal_map_vec` (see `raycast_through_portals` in `ambition_portal`'s `placement.rs`) — the frame
-concept half-exists in `ambition_platformer_primitives`. CC5 promotes it:
+**Ownership/migration ruling (answers the "two PortalFrame concepts"
+collision):** the code's existing `ambition_portal::pieces::PortalFrame
+{ pos, normal, half_extent }` is not a rival design — it is the frame PLUS
+aperture extent in cardinal-AABB clothing. CC5 SPLITS it and moves the
+split DOWN (reorganize-don't-adapt; no wrapper, no bridge):
 
 ```rust
+// ambition_engine_core::frame (new module; bevy_math only)
+
 /// A portal endpoint IS a frame. World-frame fields (AJ13 naming).
 pub struct PortalFrame {
-    pub origin: Vec2,
-    pub tangent: Vec2,   // unit, along the aperture
-    pub normal: Vec2,    // unit, out of the wall face (tangent ⟂ normal)
-    pub velocity: Vec2,  // the aperture's own motion, px/s (ZERO today)
+    pub origin: Vec2,    // world-space center of the doorway, on the host face
+    pub normal: Vec2,    // unit, OUT of the wall into the room
+    pub velocity: Vec2,  // the aperture's own motion, px/s (ZERO until CC6)
 }
 impl PortalFrame {
-    pub fn to_local(&self, p: Vec2) -> Vec2;   // (tangent·(p-origin), normal·(p-origin))
+    /// Tangent is DERIVED, never stored: normal rotated +90°
+    /// (`Vec2::new(-n.y, n.x)`) — the existing `portal_tangent`. Handedness
+    /// is thereby pinned; an inconsistent frame is unrepresentable.
+    pub fn tangent(&self) -> Vec2;
+    /// Local coords: (along, front) = (tangent·(p−origin), normal·(p−origin)).
+    /// front > 0 = room side (this IS `front_distance`).
+    pub fn to_local(&self, p: Vec2) -> Vec2;
     pub fn from_local(&self, l: Vec2) -> Vec2;
 }
-/// The pair map: local coords conjugate with a flip through the aperture.
-pub fn map_point(a: &PortalFrame, b: &PortalFrame, p: Vec2) -> Vec2;
-/// Galilean velocity composition — THE moving-portal rule (P2):
-/// v_out = R(v_in − a.velocity) + b.velocity, where R is the pair rotation.
-pub fn map_velocity(a: &PortalFrame, b: &PortalFrame, v: Vec2) -> Vec2;
+
+/// Frame + opening extent. THE aperture vocabulary the portal-aware cast
+/// consumes. Carve depth / capture margins are NOT here — they are
+/// ambition_portal gameplay policy.
+pub struct PortalAperture {
+    pub frame: PortalFrame,
+    pub half_length: f32,   // opening half-extent along tangent()
+}
+
+/// The pair map. `convention` is an EXPLICIT parameter at this layer —
+/// the global flag (`portal_map_rotation()`) is ambition_portal's wrapper
+/// concern, never engine_core's.
+pub enum MapConvention { Reflection /* det −1, today's default */, Rotation /* det +1 */ }
+pub fn map_point(a: &PortalFrame, b: &PortalFrame, c: MapConvention, p: Vec2) -> Vec2;
+pub fn map_vec(a: &PortalFrame, b: &PortalFrame, c: MapConvention, v: Vec2) -> Vec2;
+/// Galilean velocity composition — THE moving-portal rule (CC6):
+///   v_out = map_vec(a, b, c, v − a.velocity) + b.velocity
+pub fn map_velocity(a: &PortalFrame, b: &PortalFrame, c: MapConvention, v: Vec2) -> Vec2;
 ```
 
-Execution shape: introduce the type; re-express the existing cardinal
-`map_point`/`portal_map_vec`/orientation policy as `PortalFrame` calls
-with `velocity = ZERO` and tangents restricted to cardinals; the ENTIRE
-portal suite (46 tests) must pass byte-identically before any new
-capability is used — that parity gate is what makes this card
-opus-safe. Only THEN does P2 read non-zero `velocity` (relative sweep =
-cast the segment `(body_path − portal_path)` against the static
-aperture) and P3 relax the cardinal restriction.
+**The map, in local coordinates (pinned):** with entry-local `(s, d)` =
+`a.to_local(p)`, the image is `b.from_local(s', d')` where depth ALWAYS
+flips (`d' = −d`: depth sunk INTO the entry emerges OUT of the exit) and
+the along-aperture coordinate depends on convention: **Reflection
+(default): `s' = s`** (along-surface preserved — falling right through two
+floor portals exits still moving right); **Rotation: `s' = −s`** (the bare
+rotation taking `−a.normal` onto `b.normal`; opposite-facing thin-wall
+pairs become the identity map). These are exactly today's
+`portal_map_vec_reflection`/`_rotation` re-expressed; for CARDINAL normals
+every product is by 0/±1, so the frame formulation is bit-identical to the
+existing arithmetic — which is why the parity gate is achievable, not
+aspirational.
 
-## 7. Slices (executor-graded)
+**Parity tolerance: zero.** The ENTIRE portal suite passes byte-identically
+before any new capability is used. Cardinal fast-paths are not needed for
+this (see above), but if any test drifts, the resolution is exact-op
+matching, not tolerance-loosening.
+
+**Migration steps (each compiles + full suite green):**
+1. Mint `engine_core::frame` with the types above + unit tests (local
+   round-trip, map involution `map(a,b) ∘ map(b,a) = id`, conjugation).
+2. `ambition_platformer_primitives::math`'s `portal_map_vec*` re-express as
+   thin delegates to `frame::map_vec` (the global-convention dispatch stays
+   in math.rs); `portal_tangent` delegates to `PortalFrame::tangent`'s
+   free-function form.
+3. `ambition_portal::pieces::PortalFrame` is REPLACED by
+   `engine_core::frame::PortalAperture` (its `pos/normal/half_extent`
+   consumers repoint to `frame.origin`/`frame.normal`/`half_length`;
+   `aperture_half()` → `half_length`; `front_distance(p, f)` →
+   `f.frame.to_local(p).y`). `PlacedPortal::frame()` returns the new type.
+   Delete the old struct in the same arc — no shim.
+4. Portal suite byte-parity gate (all portal tests + the transit/pieces/
+   placement suites). Only THEN may CC6 read non-zero `velocity`.
+
+Aperture-geometry note: `half_extent: Vec2` (the AABB form) loses its
+through-thickness component in the split — audit shows the thin dimension
+was only ever used via `aperture_half()` and the capture box margin;
+the capture box builds from `half_length` + `TRANSIT_BEGIN_MARGIN`
+explicitly (portal-side policy), which is what it always meant.
+
+## 8. Slices (executor-graded)
 
 | # | Slice | Grade |
 |---|---|---|
-| CC1 | ⏳ PARTIAL LANDED 2026-07-06 (opus). `ambition_engine_core::cast` minted as THE swept-primitive API surface: re-exports `AabbExt`/`AabbSweepHit` + owns the public `body_sweep()` entry (delegates to `World::first_body_sweep`, which holds privileged block-set access); external caller (platformer `kinematic`) repointed; engine_core 236/236 green (no behavior change). **REMAINING (a genuine hard problem → see fable log below):** `first_circle_hit` is intimate with the momentum kernel's surface types and won't extract without behavior-change risk on the most-guarded code; `raycast_solids`/`ray_aabb` live in `ambition_platformer_primitives` (generic over `SolidWorldQuery`); and `raycast_through_portals` (`ambition_portal`) can't move into engine_core without the engine-level aperture type that **IS CC5's `PortalFrame`** — so the portal-cast absorption is fable's CC5, not opus's CC1. | [opus done to the safe boundary; **fable** owns the kernel-extraction + portal-tier absorption] |
-| CC2 | ⏳ FIRST PASS LANDED 2026-07-06 (opus; **fable reviews the classification below**). Added the trigger-tier swept primitive `cast::aabb_path_contacts(center, half, delta, target)` (preserves the discrete standing-in-it case exactly, adds the swept path — parity for slow bodies, catches tunnels; unit-tested). **Converted:** hazard touch (player + actor victims, both now sweep their path; tunneling test proves a fast body across a thin spike takes the hit). **Classification audit:** ⬇︎ hazards→SWEPT (done); blink-destination validity→ALREADY SWEPT (`first_body_sweep`, blink.rs); GroundItem pickup→DISCRETE-OK (button-gated `melee_pressed`, not a path auto-collect — annotated in code); solid movement (both kernels)→ALREADY SWEPT. **REMAINING to classify/convert (fable-reviewed): auto-collect coins/rings** (if touch-to-grab → SWEPT), **mid-room Door loading zones** (SWEPT) vs EdgeExit (DISCRETE-OK, at the boundary), **water/climbable region entry** (likely DISCRETE-OK — large regions, one-frame-late grab harmless — but a thin fast-crossed strip wants swept), **ledge grab** (contact-based; audit). Each remaining site gets its in-code classification note + conversion in the CC2 completion pass. | [opus first pass; fable reviews] |
-| CC3 | The composed-world fuzz invariant rig + CI wiring | [opus] |
-| CC4 | Broadphase grid for chains+blocks casts (profile first) | [opus] |
-| CC5 | `PortalFrame` (P1) + parity pins | [fable / opus-with-parity-gate] |
-| CC6 | Moving portals (P2): moving carve + relative swept trigger + velocity composition + C4/portal conjugation tests | [opus, fable-specced after CC5] |
-| CC7 | Angled portals (P3) + dynamic straddle (P4) | [opus, post-demo] |
-| CC8 | AABB slope vocabulary (S2, Q15) — only when a demo/content demands it | [opus, fable-specced] |
+| CC1 | ⏳ PARTIAL (opus, 2026-07-06): `cast` minted, `body_sweep` + re-exports, 236/236 green. **Completion now RULED (§3.4): (a) circle stays kernel-private; (b) move `ray_aabb`/`raycast_solids`/`SolidWorldQuery` down into `cast`; (c) portal cast rides CC5.** (b) is mechanical | [opus — execute §3.4(b); (c) after CC5] |
+| CC2 | ⏳ FIRST PASS (opus, 2026-07-06): `aabb_path_contacts` + hazards converted + tunneling test. **Completion = the §3.3 table:** auto-collect → ANY-HIT; mid-room Doors → FIRST-TOI; water/climb thin-region validator rule; ledge audit; the `AMBITION_REVIEW(discrete_ok)` markers; migrate hazard delta onto the §3.1 sample when it mints | [opus — the table is the checklist] |
+| CC3 | Fuzz invariant rig + CI wiring — the §6.1 oracle verbatim, §6.2 traces, seeded-reproducible | [opus — the oracle is written; no design freedom] |
+| CC4 | Broadphase grid for chains+blocks casts (profile first) | [opus; NOT a CC1–CC3 precondition] |
+| CC5 | `PortalFrame`/`PortalAperture` split + parity-pinned migration (§7) | [fable — IN EXECUTION 2026-07-06] |
+| CC6 | Moving portals: host-attached frames, §5-P2 update order + edge-case rulings, relative swept trigger, `map_velocity` composition, C4/portal conjugation tests | [opus — spec complete] |
+| CC7 | P3a angled math/authoring → then P3b straddle-pieces + P4 dynamic straddle (post-demo, P3b gated on S3) | [opus] |
+| CC8 | AABB slope vocabulary (S2 rules, pinned) — only when a demo/content demands it | [opus] |
+
+**The minimum-slice separation (explicit):** CC1–CC3 are the CCD doctrine's
+exit and depend on NOTHING in §4/§5 — not moving portals, not angled
+portals, not `SurfacePolygon`, not broadphase, not slopes. Those are
+capability tracks that BUILD ON the contracts; an executor on CC1–CC3 who
+finds themself blocked by one of them has mis-read a dependency — stop and
+re-check §3.
 
 Exit for the doctrine: CC1–CC3 landed and the fuzz rig green over all
 shipped rooms; §7.6-style bugs become impossible to write without failing
-review (an unswept path-dependent reader is a flagged pattern, same tier as
-`AMBITION_REVIEW(spatial)`).
+review (an unswept path-dependent reader without a `discrete_ok` marker is
+a flagged pattern, same tier as `AMBITION_REVIEW(spatial)`).

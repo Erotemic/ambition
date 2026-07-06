@@ -154,6 +154,38 @@ world can rebuild); (4) the fighter brain's rollouts call
 `take`/`restore` on a SCRATCH copy of the app's sim world (the headless
 `SandboxSim` embeds fine — it's the same App shape the RL path builds).
 
+**Identity & scope (pinned 2026-07-06, answering the contract review):**
+
+- **One identity vocabulary, shared with SimView.** Every
+  snapshot-registered entity carries a `SimId` — the EXISTING stable ids,
+  not a new system: actors use `ActorConfig.id` (== LDtk iid; placement
+  identity), player bodies use their slot, dynamically-spawned sim
+  entities (projectiles, dropped items, spawned adds) get a
+  deterministic sequence id minted at spawn (`(spawner SimId, per-spawner
+  counter)` — deterministic because the sim is; wall-clock/Entity-index
+  ids are forbidden). Snapshot blobs key by SimId; restore despawns every
+  registered entity and respawns from blobs, so an entity spawned AFTER
+  the snapshot simply ceases to exist on restore (correct), and one
+  despawned since is recreated (correct). `Entity` values never appear in
+  a blob.
+- **Included** (the registration checklist per sim crate): body kinematics
+  + transforms, health/combat/damage meters, move playbacks + cooldowns,
+  brain memory (habit models, timers), `WorldTime` + every sim clock,
+  portal placements + transit/cooldown state, flags/save-derived liveness,
+  active room + spawn state, falling-sand grids (ONE resource blob), and
+  every seeded RNG resource (sim randomness MUST be a registered seeded
+  resource — an unregistered RNG is a determinism bug N0.4 will catch).
+- **Excluded, structurally:** `SimView` and all view indexes (rebuilt every
+  tick by construction), the composed-world overlay + carve output
+  (derived — restore triggers the same recomposition that runs per frame),
+  asset handles, presentation entities (never registered), and caches.
+  Rule: DERIVED state is never snapshotted; if restoring something
+  requires a rebuild pass, the rebuild must be the SAME system that
+  maintains it per-frame (no special restore-only code paths).
+- **Presentation reconciliation is free by E4:** render rebuilds from
+  `SimView` each frame, so a restore that removes/revives sim entities
+  needs no render-side fixup protocol — the next view rebuild reflects it.
+
 ## Who does what, and when
 
 | Rung | When | Grade |

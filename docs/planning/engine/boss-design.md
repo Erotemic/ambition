@@ -81,6 +81,26 @@ Codified as an install-time/CI **fight validator** over the authored data
 5. **Readability floor:** distinct attacks must differ in telegraph
    (pose row OR cue) — no two attacks share an identical telegraph.
 
+**Calibration v0 (pinned 2026-07-06 — starting numbers, all per-game RON
+data; BD7's pilot re-calibrates them against Jon's verdict):** the sim
+steps at 60 Hz, so ticks below ≈ frames. *Telegraph bands:* light
+(≤ 8 dmg, single volume) ≥ 12 ticks; medium ≥ 20; heavy (one-shot-threat
+or arena-wide) ≥ 30. *Recovery/punish floors:* heavies ≥ 24 ticks of
+recovery (CM7 `frame_data().recovery_s` is the measured value), mediums
+≥ 12; `pressure`-tagged attacks exempt but capped at ≤ 10% victim HP per
+touch. *Arena assumptions the validator may rely on:* the encounter room
+declares its arena AABB + platform set; no single attack's active volumes
+may cover > 60% of the arena's walkable width in any tick (integrates
+with the simultaneity budget, N=3 concurrent threats default). *Worked
+example (acceptable):* `sweep(reach=180px, startup=22t, active=10t,
+recovery=26t, telegraph=pose+cue at t−22)` vs (rejected): the same sweep
+with `startup=8t` (heavy threat, light telegraph → ERROR). *Hard error
+vs warning:* missing telegraph event, empty `fair_counters`, unpunishable
+heavy, simultaneity budget exceeded = ERRORS (fight does not install);
+band deviations ≤ 20% = WARNINGS requiring an inline `// boss-tuning:`
+justification the validator prints; > 20% = ERROR. The bands live in ONE
+RON file per game so re-calibration is data, not code.
+
 ## 4. Measured quality (the playtester loop)
 
 Headless, deterministic, agent-runnable:

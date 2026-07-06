@@ -133,6 +133,24 @@ The perception delay-buffer is a `VecDeque<WorldView>` of length
 `reaction_ms / tick_ms` wrapped around the ONE view read — assert in
 tests that no L1/L2/L3 code path reads the live view directly.
 
+**FB6 budget contract (pinned 2026-07-06):** rollouts run on a SCRATCH
+sim world (never the live one), horizon 5–20 ticks, `top_k ≤ 4`, and a
+**wall-clock cap of 2 ms per decision tick** (decisions at 10–20 Hz, so
+≤ 4% of a 60 Hz frame worst-case); when the cap trips mid-evaluation the
+brain uses the best fully-evaluated option, and with `rollout_depth = 0`
+or N3.1 absent, L2 scores act alone — L3 is an upgrade, never a
+dependency. Rollout outcome score v1 = `Δ(their damage meter) − Δ(own
+meter) + KO_bonus − position_risk` with the same per-difficulty
+`utility_weights` as L2 (one weight vocabulary, two horizons). Allowed
+omniscience inside a rollout: NONE beyond the no-cheat contract — the
+scratch world is seeded from the DELAYED view's reconstruction, and the
+opponent is driven by the predicted policy, not their real controller.
+Scoring weights are NOT divined up front: v1 weights are authored
+starting values, then FB4's ladder self-play monotonicity gate is the
+calibration instrument (adjust until levels order correctly). Anything
+beyond that (learned weights, deeper search) is post-1.0 research, not
+this track.
+
 ## 6. Slices
 
 | # | Slice | Grade |

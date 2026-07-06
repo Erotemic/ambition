@@ -446,6 +446,18 @@ events flow through it; rollback dedups by tick); render never queries
 a sim component type — the boundary test greps `ambition_render` for
 gameplay-core/actors types and fails on any hit.
 
+**Identity & ownership (pinned 2026-07-06):** view rows key by the SAME
+stable-id vocabulary the snapshot registry uses (netcode N3.1: actor
+`config.id`, player slots, deterministic spawn ids) — one identity
+system, two consumers; render maps its presentation entities off those
+ids, never off sim `Entity` values. `PresentationFact` dedup identity is
+the triple `(tick, source SimId, kind)` — that is what resim suppression
+keys on. Render-spawned helper props are PRESENTATION CACHES keyed off
+view rows (despawn/respawn freely; never readable by sim); anything the
+sim reads must be a sim fact — a render-inserted component the sim
+queries (the old `BossAnimator` shape) is the boundary violation this
+carve exists to kill.
+
 #### D-C design sketch — the mode scope (pre-solved)
 
 ```rust

@@ -51,6 +51,12 @@ pub struct Hitbox {
     pub facing: f32,
     pub damage: i32,
     pub knockback_strength: f32,
+    /// Knockback GROWTH per point of the struck body's accumulated damage (CM1):
+    /// the applied strength becomes `knockback_strength + knockback_growth *
+    /// victim.damage_taken / victim.weight`. `0.0` (the default for every
+    /// aggressor/player strike) is today's flat knockback exactly; only
+    /// moveset volumes that author `kb_growth` carry a non-zero value.
+    pub knockback_growth: f32,
     /// Signed horizontal slash impulse (gravity-relative, victim-local x) carried
     /// by a Player-faction melee strike — the unified analogue of the old
     /// per-frame `HitSource::PlayerSlash { knock_x }`. `0.0` for aggressor strikes
@@ -152,6 +158,9 @@ pub fn spawn_damage_box(
             facing: 1.0,
             damage: dbox.damage,
             knockback_strength: dbox.knockback,
+            // World-anchored damage boxes are flat-knockback hazards; percent
+            // growth is a moveset-volume concept only.
+            knockback_growth: 0.0,
             knock_x: 0.0,
             // World-anchored volumes are authored in world space (arena
             // hazards); screen-down IS their frame.
@@ -269,6 +278,7 @@ mod hitbox_shape_tests {
             frame_down: ae::Vec2::new(0.0, 1.0),
             damage: 1,
             knockback_strength: 0.0,
+            knockback_growth: 0.0,
             knock_x: 0.0,
         };
         match hb.world_volume(ae::Vec2::new(100.0, 50.0)) {
@@ -296,6 +306,7 @@ mod hitbox_shape_tests {
             frame_down: ae::Vec2::new(0.0, 1.0),
             damage: 1,
             knockback_strength: 0.0,
+            knockback_growth: 0.0,
             knock_x: 0.0,
         };
         assert!(matches!(

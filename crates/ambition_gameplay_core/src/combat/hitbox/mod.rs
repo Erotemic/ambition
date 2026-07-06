@@ -89,6 +89,13 @@ pub fn apply_hitbox_damage(
             &ambition_characters::actor::BodyCombat,
         ),
         bevy::prelude::Has<crate::actor::PlayerEntity>,
+        // CM1 knockback scaling: the victim's accumulated-damage meter and its
+        // archetype weight. Both `Option` — the player carries `BodyHealth` but
+        // no `ActorConfig` (weight → reference `1.0`); a headless test body may
+        // carry neither (damage_taken → 0). Growth is inert unless the striking
+        // volume authored `kb_growth`, so this is parity-free by construction.
+        Option<&ambition_characters::actor::BodyHealth>,
+        Option<&crate::features::ActorConfig>,
     )>,
     // The attacker's grudge, looked up from the swing owner — the DAMAGE-side
     // per-entity override. Lets a hit land on a same-faction body the owner has a
@@ -158,8 +165,16 @@ pub fn apply_hitbox_damage(
                 // for every body (`resolve_body_hit`, §A2). Victim KIND picks
                 // only policy: a player victim gets the knockback payload and
                 // the richer feedback.
-                for (victim_entity, victim_aabb, victim_faction, victim_brain, vuln, is_player) in
-                    &victims
+                for (
+                    victim_entity,
+                    victim_aabb,
+                    victim_faction,
+                    victim_brain,
+                    vuln,
+                    is_player,
+                    victim_health,
+                    victim_cfg,
+                ) in &victims
                 {
                     if victim_entity == hitbox.owner {
                         continue;
@@ -224,9 +239,22 @@ pub fn apply_hitbox_damage(
                     } else {
                         -1.0
                     };
+                    // CM1: fold the smash-percent growth term onto the flat
+                    // knockback using THIS victim's accumulated damage + weight.
+                    // `growth == 0` (every un-authored volume) returns the flat
+                    // strength unchanged — parity by construction.
+                    let victim_damage_taken = victim_health.map(|h| h.damage_taken()).unwrap_or(0);
+                    let victim_weight = victim_cfg.map(|c| c.tuning.weight).unwrap_or(1.0);
+                    let strength = crate::combat::damage::scaled_knockback(
+                        hitbox.knockback_strength,
+                        hitbox.knockback_growth,
+                        victim_damage_taken,
+                        victim_weight,
+                    )
+                    .max(0.0);
                     let knockback = Some(HitKnockback {
                         dir,
-                        strength: hitbox.knockback_strength.max(0.0),
+                        strength,
                         source_pos: owner_pos,
                         impact_pos: impact,
                     });
@@ -365,6 +393,9 @@ pub fn spawn_melee_hitbox(
                 facing: 1.0,
                 damage,
                 knockback_strength,
+                // Aggressor/player melee strikes are flat-knockback; percent
+                // growth is authored only on moveset volumes (CM1).
+                knockback_growth: 0.0,
                 knock_x,
                 frame_down,
             },

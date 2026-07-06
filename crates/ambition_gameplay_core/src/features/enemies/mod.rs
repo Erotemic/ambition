@@ -143,6 +143,16 @@ pub(crate) struct CharacterArchetypeSpec {
     /// sandbags `InPlace(secs)`.
     #[serde(default)]
     pub respawn: crate::combat::RespawnPolicy,
+    /// Knockback weight (CM1): heavier bodies launch less under the growth term.
+    /// Default `1.0` (the reference body) keeps every un-authored archetype at
+    /// today's flat knockback.
+    #[serde(default = "default_weight")]
+    pub weight: f32,
+    /// Damage-meter death policy (CM1). DEFAULT `HpDepleted` (dies at pool max)
+    /// leaves Ambition unchanged; a smash-style fighter authors `Unbounded`
+    /// (death from the blast-zone, not the meter).
+    #[serde(default)]
+    pub death_policy: crate::combat::DeathPolicy,
     /// Deep-dream visual jitter seed (psychedelic shader pass);
     /// `None` = the archetype doesn't participate.
     #[serde(default)]
@@ -310,6 +320,12 @@ fn default_attack_cooldown_mult() -> f32 {
 }
 
 fn default_mass() -> f32 {
+    1.0
+}
+
+/// Serde default for [`CharacterArchetypeSpec::weight`] (CM1): the reference
+/// body, so knockback growth divides by 1.0 for every un-authored archetype.
+fn default_weight() -> f32 {
     1.0
 }
 
@@ -647,6 +663,8 @@ impl CharacterArchetypeSpec {
             // The ONE authored respawn policy (ADR 0022) — the kill hook and
             // the in-place revive tick both match on it.
             respawn: self.respawn,
+            weight: self.weight,
+            death_policy: self.death_policy,
             is_aerial: self.is_aerial,
             // Archetype flyers use smoothed accel flight; direct-velocity is a boss
             // opt-in (its brain commands exact velocities). See AS4.

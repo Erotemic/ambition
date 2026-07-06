@@ -44,7 +44,7 @@ Everything else on this page is opus-or-below by design.
 | Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — E5 first slice `3c70d827`; **E5-finish steps 1–4 LANDED 2026-07-06** (sets+resources+combat schedule into the group; shared headless foundation; cut-rope de-woven via generic `RoomReplayRequested` + labeled slots; E4-prep: fx facade imports repointed, CameraViewState + cut-rope resources re-owned) | E5 step 5 (mint [the windowed host]) + step 6 (smoke shell) [opus]; W/E1/E2/E3/E6/E7/E8 open |
 | Decomposition D-B/D-C | same | queued behind D-A | mode-scope seam can land early (demos want it) |
 | Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | NEW — §7.6 swept transit + blocks-as-surfaces landed | CC1 cast consolidation [opus] |
-| Combat stack | [engine/combat-model.md](engine/combat-model.md) | NEW | CM1 knockback growth (parity-pinned) [opus] |
+| Combat stack | [engine/combat-model.md](engine/combat-model.md) | CM1 LANDED 2026-07-06 (knockback growth + weight + DeathPolicy, parity-pinned) | CM2 launch DI [opus] |
 | Netcode ladder | [engine/netcode.md](engine/netcode.md) | NEW | N0.2 input-stream type; N0.3 lint set [opus] |
 | Fighter brain | [engine/fighter-brain.md](engine/fighter-brain.md) | NEW | FB1 view audit [opus] (CM7 first) |
 | Boss pipeline | [engine/boss-design.md](engine/boss-design.md) | NEW | BD4 seed extraction [opus/sonnet]; BD1 after |
@@ -207,3 +207,20 @@ config-blessed stale repo `target/` (13G) and >1-day-old `debug_traces/`
 `rm -rf $CARGO_TARGET_DIR/debug` to stop the target dir re-ballooning.
 The extension-crate ruling (kaleidoscope) is recorded in architecture.md
 Tier 6 + the E1e card.
+
+## 2026-07-06 (opus) — CM1: the knockback-scaling axis (parity-pinned)
+Goal: maximally unblock fable by walking the opus ladders (CM/CC/CM7/E4
+slices/E5-finish 5–6) so CM4/CC5/E4-flip flip to ready. First slice landed:
+CM1. `HitVolume` grew `kb_growth` + `launch_dir` (both serde-default); the
+archetype schema + `ActorTuning` grew `weight` (default 1.0) + `death_policy`
+(`DeathPolicy::{HpDepleted default, Unbounded}`); `BodyHealth::damage_taken()`
+exposes the smash-percent meter off the existing pool (no parallel state). The
+scaling is a pure `combat::damage::scaled_knockback(base, growth, damage_taken,
+weight)` applied VICTIM-SIDE at the moveset-hitbox overlap — the ONE
+growth-carrying path (aggressor/player/boss/hazard volumes stay flat), reading
+the victim's `BodyHealth` + `ActorConfig.tuning.weight` (both `Option` → player
+weight 1.0). `DeathPolicy::kills_at_max()` gates the actor kill path so an
+`Unbounded` body never dies from its meter. All defaults are byte-parity
+(`growth=0`, `HpDepleted`, `weight=1.0`); C4 conjugation-under-gravity + scaling
++ parity tests green. gameplay_core combat 104/104, vfx + entity_catalog green,
+app rl_sim gate build clean. Next: CM2 (launch DI off `ActorControl`).

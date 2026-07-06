@@ -194,10 +194,13 @@ pub(crate) fn apply_actor_hit(
             });
             return true;
         }
+        // CM1 death policy: an `Unbounded` (smash-percent) body never dies from
+        // its meter — the blast-zone/OOB gate owns its death — so a meter-kill
+        // is suppressed. `HpDepleted` (the default) kills as before: parity.
         let killed = matches!(
             resolution,
             crate::combat::damage::BodyHitResolution::Damaged { died: true, .. }
-        );
+        ) && em.config.tuning.death_policy.kills_at_max();
         // §A2 step 6 (FEEL-BLIND): a struck actor rides the SAME feel-tuned,
         // frame-agnostic knockback resolution the player does — side away from
         // the source, rise against ITS gravity — replacing the old inline

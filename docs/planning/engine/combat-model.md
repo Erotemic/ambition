@@ -191,7 +191,7 @@ resolution).
 
 | # | Slice | Grade |
 |---|---|---|
-| CM1 | Knockback scaling fields + weight + death-policy enum; `growth=0` parity pins; C4 rig | [opus, fable-specced — §1 is the spec] |
+| CM1 | ✅ LANDED 2026-07-06. `HitVolume.{kb_growth,launch_dir}`, `ActorTuning.{weight,death_policy}` + archetype fields (serde-default → parity), `BodyHealth::damage_taken()`, pure `scaled_knockback()` helper applied victim-side at the moveset-hitbox overlap (the one growth-carrying path), `DeathPolicy::kills_at_max()` gating the actor kill path. `growth=0`/`HpDepleted`/`weight=1.0` defaults are byte-parity; C4 conjugation + scaling + parity tests green. `launch_dir` field authored, consumed by CM2. | done |
 | CM2 | Launch DI off `ActorControl` + `di_max_angle` data + C4/RL tests | [opus, fable-specced — §2] |
 | CM3 | Smash/charge release scaling + verb-map smash class | [opus] |
 | CM4 | Cancel tables on `MoveSpec` + buffered-intent cancel path + frame-data read API | [fable-specced; the advancer edit wants care] |

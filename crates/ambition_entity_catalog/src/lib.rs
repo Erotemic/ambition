@@ -199,6 +199,20 @@ pub struct HitVolume {
     /// facing + contact by the combat runtime).
     #[serde(default)]
     pub knockback: f32,
+    /// Knockback GROWTH per point of the victim's accumulated damage (CM1, the
+    /// smash-percent axis): the applied knockback becomes
+    /// `knockback + kb_growth * victim.damage_taken() / victim.weight`. Default
+    /// `0.0` == today's flat knockback exactly (parity by construction); content
+    /// opts a row into growth to get percent-scaling launches.
+    #[serde(default)]
+    pub kb_growth: f32,
+    /// Body-local launch direction override `(+x = facing, +y = gravity-down)`.
+    /// `None` = today's facing+contact derivation. The runtime mirrors x by
+    /// facing and rotates into the owner's gravity frame (frame-correct under any
+    /// gravity), then applies DI (CM2). Authored on strong-directional smash
+    /// volumes that want a fixed launch angle instead of a contact-derived one.
+    #[serde(default)]
+    pub launch_dir: Option<(f32, f32)>,
     /// A conditional technique that fires WHEN this volume lands a hit, with
     /// the hit context (owner, victim, contact). The missing conditional
     /// primitive: pogo, lifesteal, on-hit status, launch modifiers. `None` for

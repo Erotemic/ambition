@@ -262,6 +262,8 @@ mod tests {
                     },
                     damage: 4,
                     knockback: 0.0,
+                    kb_growth: 0.0,
+                    launch_dir: None,
                     on_hit: Some(EffectRef::new(POGO_BOUNCE_KEY)),
                     vfx: None,
                 }],

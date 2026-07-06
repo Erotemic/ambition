@@ -273,6 +273,14 @@ pub struct ActorTuning {
     /// (finite training dummies); the flag-writing arms are consumed by
     /// the kill hook; DEFAULT: dead stays dead.
     pub respawn: RespawnPolicy,
+    /// Knockback weight (CM1): heavier bodies launch less under the same growth
+    /// term (`kb_growth * damage_taken / weight`). `1.0` is the reference body;
+    /// the default keeps every un-authored archetype at the reference.
+    pub weight: f32,
+    /// How this body's damage meter relates to death (CM1). `HpDepleted`
+    /// (default) dies at pool max; `Unbounded` is smash percent — death comes
+    /// from the blast-zone/OOB gate, not the meter.
+    pub death_policy: DeathPolicy,
     /// Flies: no gravity, aerial slot class.
     pub is_aerial: bool,
     /// Direct-velocity free-mover: the brain commands an EXACT velocity each tick
@@ -316,6 +324,10 @@ impl Default for ActorTuning {
             surface_walker: false,
             cling_breaks_on_hit: false,
             respawn: RespawnPolicy::default(),
+            // Reference body: the default tuning must not zero out the growth
+            // divisor, and every un-authored archetype dies at pool max.
+            weight: 1.0,
+            death_policy: DeathPolicy::default(),
             is_aerial: false,
             flight_direct_velocity: false,
             is_sandbag: false,
@@ -472,4 +484,30 @@ pub enum RespawnPolicy {
     /// Revives in place this many seconds after death, where it stood
     /// (training sandbags). No death drops, no flag.
     InPlace(f32),
+}
+
+/// How a body's accumulated-damage meter relates to death (CM1). Smash's
+/// percent and Ambition's HP are the SAME quantity read through two policies:
+/// the meter itself is `BodyHealth` (`damage_taken()`); this enum only decides
+/// whether reaching the pool max KILLS.
+#[derive(Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum DeathPolicy {
+    /// Dies when the meter reaches `max` — Ambition today. THE DEFAULT, so every
+    /// existing archetype is unchanged.
+    #[default]
+    HpDepleted,
+    /// The meter never kills on its own (`max` is a display normalizer only);
+    /// death comes from the WORLD — the blast-zone / OOB / fell-out gate the
+    /// engine already owns. This is smash percent, and it costs one enum.
+    Unbounded,
+}
+
+impl DeathPolicy {
+    /// Whether reaching the pool's max damage KILLS this body. `HpDepleted`
+    /// (the default) does, so every existing kill path is byte-unchanged;
+    /// `Unbounded` (smash percent) never dies from the meter — the blast-zone
+    /// gate owns its death.
+    pub fn kills_at_max(self) -> bool {
+        matches!(self, DeathPolicy::HpDepleted)
+    }
 }

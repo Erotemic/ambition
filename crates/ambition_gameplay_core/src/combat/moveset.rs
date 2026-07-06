@@ -164,6 +164,10 @@ pub fn simple_melee(p: &SimpleMeleeParams) -> MoveSpec {
         },
         damage: p.damage.max(1),
         knockback: p.knockback,
+        // Prefab swings are flat-knockback; percent growth is authored on
+        // explicit RON volumes (CM1) — a prefab growth param can follow.
+        kb_growth: 0.0,
+        launch_dir: None,
         // A plain swing lands no on-hit technique; directional variants (a
         // down-air pogo) author `on_hit` per-move (R2.5 player-melee fold).
         on_hit: None,
@@ -375,6 +379,8 @@ pub fn simple_charge(p: &SimpleChargeParams) -> MoveSpec {
         },
         damage: p.damage.max(1),
         knockback: p.knockback,
+        kb_growth: 0.0,
+        launch_dir: None,
         on_hit: None,
         // A charge is a bladed strike too — same slash + authored-blade rules.
         vfx: Some(SLASH_ARC_VFX.to_string()),
@@ -879,6 +885,9 @@ pub fn advance_move_playback(
                             facing: pb.facing,
                             damage: volume.damage,
                             knockback_strength: volume.knockback,
+                            // CM1: the smash-percent growth term rides the volume
+                            // through to the victim-side scaling at overlap.
+                            knockback_growth: volume.kb_growth,
                             knock_x: 0.0,
                             frame_down,
                         };

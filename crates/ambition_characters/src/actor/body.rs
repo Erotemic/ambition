@@ -67,6 +67,14 @@ impl BodyHealth {
         self.health.max
     }
 
+    /// Accumulated damage this body has taken — the smash-percent axis (CM1).
+    /// It is `max - current` read through the existing pool; no parallel meter.
+    /// Knockback growth scales off this so a heavily-damaged body launches
+    /// farther under the same hit.
+    pub fn damage_taken(self) -> i32 {
+        (self.health.max - self.health.current).max(0)
+    }
+
     pub fn heal(&mut self, amount: i32) {
         self.health.heal(amount);
     }

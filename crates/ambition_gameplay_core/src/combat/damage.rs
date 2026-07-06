@@ -74,6 +74,32 @@ pub fn shield_blocks_hit(
     local_side_delta.signum() == facing.signum()
 }
 
+/// THE knockback-scaling law (CM1): the smash-percent growth term folded onto a
+/// hit's base knockback. A body that has accumulated more damage launches
+/// farther under the same hit, scaled down by its weight. Pure and
+/// frame-agnostic so it is unit-tested directly and reused by every hit path.
+///
+/// `base` is the volume's flat knockback; `growth` is the authored `kb_growth`;
+/// `victim_damage_taken` is `BodyHealth::damage_taken()`; `victim_weight` is the
+/// archetype weight (reference `1.0`). PARITY: `growth == 0.0` returns `base`
+/// exactly, so every un-authored volume is byte-identical to today.
+pub fn scaled_knockback(
+    base: f32,
+    growth: f32,
+    victim_damage_taken: i32,
+    victim_weight: f32,
+) -> f32 {
+    if growth == 0.0 {
+        return base;
+    }
+    let weight = if victim_weight > 0.0 {
+        victim_weight
+    } else {
+        1.0
+    };
+    base + growth * victim_damage_taken.max(0) as f32 / weight
+}
+
 /// Per-body feel values for [`resolve_body_hit`] — how hard the hit reads on
 /// THIS body (blink length, i-frame window), not whether it lands. The player
 /// and actors pass different numbers; the rule is one.
@@ -940,5 +966,94 @@ mod tests {
                 "knockback should resolve in local side/down for {gravity_dir:?}: {local_vel:?}"
             );
         }
+    }
+
+    // --- CM1: knockback scaling (the smash-percent axis) ---
+
+    #[test]
+    fn scaled_knockback_is_parity_at_zero_growth() {
+        // growth == 0 returns the flat base for ANY damage/weight — the
+        // byte-parity pin that keeps every un-authored volume unchanged.
+        for dmg in [0, 5, 50, 999] {
+            for w in [0.5, 1.0, 4.0] {
+                assert_eq!(scaled_knockback(7.5, 0.0, dmg, w), 7.5);
+            }
+        }
+    }
+
+    #[test]
+    fn scaled_knockback_grows_with_damage_and_divides_by_weight() {
+        // base + growth * damage / weight.
+        assert_eq!(scaled_knockback(10.0, 2.0, 0, 1.0), 10.0);
+        assert_eq!(scaled_knockback(10.0, 2.0, 30, 1.0), 70.0);
+        // Twice the weight -> half the growth contribution.
+        assert_eq!(scaled_knockback(10.0, 2.0, 30, 2.0), 40.0);
+        // Monotonic in accumulated damage.
+        assert!(scaled_knockback(10.0, 2.0, 60, 1.0) > scaled_knockback(10.0, 2.0, 30, 1.0));
+        // Degenerate weight falls back to the reference body (never divides by 0).
+        assert_eq!(scaled_knockback(10.0, 2.0, 10, 0.0), 30.0);
+    }
+
+    #[test]
+    fn scaled_knockback_conjugates_under_rotated_gravity() {
+        // C4: a growth-scaled hit under rotated gravity produces the conjugated
+        // trajectory — the scalar scaling is frame-agnostic, so the resolved
+        // velocity stays identical in the victim's local frame under every
+        // gravity, exactly like the flat case.
+        let feel = SandboxFeelTuning::default();
+        let strength = scaled_knockback(1.0, 0.05, 80, 1.25); // == 4.2
+        let local_expected = ae::Vec2::new(
+            feel.enemy_knockback_x * strength,
+            -feel.enemy_knockback_y * strength,
+        );
+        let victim_pos = ae::Vec2::new(100.0, 200.0);
+        for gravity_dir in [
+            ae::Vec2::new(0.0, 1.0),
+            ae::Vec2::new(1.0, 0.0),
+            ae::Vec2::new(0.0, -1.0),
+            ae::Vec2::new(-1.0, 0.0),
+        ] {
+            let frame = ae::AccelerationFrame::new(gravity_dir);
+            let source_pos = victim_pos - frame.side * 40.0;
+            let knockback = features::HitKnockback {
+                dir: 0.0,
+                strength,
+                source_pos,
+                impact_pos: victim_pos,
+            };
+            let vel = resolved_body_knockback_velocity(
+                victim_pos,
+                1.0,
+                gravity_dir,
+                false,
+                Some(&knockback),
+                feel,
+            );
+            let local_vel = ae::Vec2::new(vel.dot(frame.side), vel.dot(frame.down));
+            assert!(
+                (local_vel - local_expected).length() < 1e-3,
+                "growth-scaled knockback must conjugate for {gravity_dir:?}: {local_vel:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn death_policy_gates_the_meter_kill() {
+        use crate::combat::DeathPolicy;
+        // HpDepleted (default) kills at the meter's max; Unbounded (smash
+        // percent) never does — its death comes from the blast-zone gate.
+        assert!(DeathPolicy::default().kills_at_max());
+        assert!(DeathPolicy::HpDepleted.kills_at_max());
+        assert!(!DeathPolicy::Unbounded.kills_at_max());
+    }
+
+    #[test]
+    fn damage_taken_is_the_accumulated_meter() {
+        let mut h = test_health(20);
+        assert_eq!(h.damage_taken(), 0);
+        h.damage(7);
+        assert_eq!(h.damage_taken(), 7);
+        h.damage(100); // clamps at the pool max
+        assert_eq!(h.damage_taken(), 20);
     }
 }

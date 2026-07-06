@@ -295,6 +295,7 @@ fn spec_with(meta: RoomMetadata, id: &str) -> RoomSpec {
         boss_spawns: Vec::new(),
         debug_labels: Vec::new(),
         mount_links: Vec::new(),
+        placements: Vec::new(),
     }
 }
 

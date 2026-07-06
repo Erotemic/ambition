@@ -50,6 +50,10 @@ pub struct RoomSpec {
     /// actors spawn, `resolve_pending_mount_links` matches each pair by
     /// `FeatureId` and installs the `RidingOn`/`MountSlot` link.
     pub mount_links: Vec<(String, String)>,
+    /// Authored placement RECORDS (the [W-b] schema-over-record channel).
+    /// Converters dual-emit into this alongside their legacy typed family
+    /// until W-queue step 3's lowering interpreters take over spawning.
+    pub placements: Vec<crate::world::placements::PlacementRecord>,
 }
 
 impl RoomSpec {
@@ -82,6 +86,7 @@ impl RoomSpec {
             boss_spawns: Vec::new(),
             debug_labels: Vec::new(),
             mount_links: Vec::new(),
+            placements: Vec::new(),
         }
     }
 }

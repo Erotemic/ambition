@@ -50,6 +50,7 @@ fn test_room_with_platforms(
         boss_spawns: Vec::new(),
         debug_labels: Vec::new(),
         mount_links: Vec::new(),
+        placements: Vec::new(),
     }
 }
 

@@ -8,6 +8,8 @@
 //! sim/content LOWERS these records into behavior at room-load; the arrow
 //! is always sim/content → catalog, never the reverse.
 
+use serde::{Deserialize, Serialize};
+
 /// Damage/team relationship used by hitboxes and hurtboxes — the `can_damage`
 /// matrix that decides whether one side's hit may affect another.
 ///
@@ -15,7 +17,7 @@
 /// is a `#[derive(Component)]` actor-side tag (`is_player_side`/`is_hostile_side`,
 /// with `Npc`/`Boss` variants). This one is the *damage* relationship; that one
 /// is the *ECS actor* tag.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum DamageTeam {
     Player,
     Enemy,
@@ -38,7 +40,7 @@ impl DamageTeam {
 
 /// The broad gameplay category of damage. This is intentionally separate from
 /// presentation so hazards, attacks, and projectiles can share damage handling.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum DamageKind {
     Slash,
     Pogo,
@@ -52,7 +54,7 @@ pub enum DamageKind {
 /// How temporary/destructible hazards/props return after being consumed or
 /// killed. (The ADR-0022 *actor* `RespawnPolicy` is a distinct enum — this one
 /// covers the authored hazard/prop lifecycle.)
-#[derive(Clone, Copy, Debug, PartialEq, Default)]
+#[derive(Clone, Copy, Debug, PartialEq, Default, Serialize, Deserialize)]
 pub enum HazardRespawn {
     /// Never respawn inside the current run/session.
     #[default]
@@ -69,7 +71,7 @@ pub enum HazardRespawn {
 /// own `CharacterArchetype` via `CharacterArchetype::from_brain`; the engine
 /// only carries this enum as a typed payload between LDtk authoring
 /// and sandbox dispatch.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum CharacterBrain {
     Passive,
     Patrol { path_id: Option<String> },
@@ -80,11 +82,42 @@ pub enum CharacterBrain {
 /// Authored boss behavior tag. Same shape and contract as
 /// `CharacterBrain`: the engine doesn't simulate against the variants;
 /// the sandbox decides per-boss behavior from the payload.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum BossBrain {
     Dormant,
     PhaseScript { script_id: String },
     Custom(String),
+}
+
+/// The authored hazard schema — what a `DamageVolume`-style placement SAYS,
+/// in plain pairs (the `HitVolume` idiom: `[f32; 2]`, never kernel types).
+/// The lowering interpreter (W-queue step 3) converts to `Vec2`/components
+/// once at room load; the legacy `DamageVolume` runtime type dissolves when
+/// that interpreter lands ([W-a] verdict 3).
+///
+/// NOTE for step 3: legacy hazards may still carry an INLINE motion path
+/// (`DamageVolume.motion`). The schema deliberately has `path_id` only —
+/// dissolution lifts inline paths into room-level `KinematicPath` entries.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct HazardSpec {
+    pub damage: i32,
+    pub knockback: [f32; 2],
+    pub kind: DamageKind,
+    pub team: DamageTeam,
+    pub hitstop_seconds: f32,
+    pub respawn: HazardRespawn,
+    /// Reference to a room-level `KinematicPath` (moving hazards).
+    pub path_id: Option<String>,
+}
+
+/// The CLOSED authored-placement schema (architecture.md §4b.3): everything an
+/// authored map may declare beyond geometry, as editor-visible plain data.
+/// Variants grow as W-queue step 3 converts hardcoded spawn branches into
+/// registered lowering interpreters; `PlacementKind` (the fieldless mirror
+/// keying the lowering registry) lands with the registry in that step.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum PlacementSchema {
+    Hazard(HazardSpec),
 }
 
 #[cfg(test)]

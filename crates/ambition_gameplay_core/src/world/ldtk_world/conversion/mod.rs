@@ -157,6 +157,7 @@ impl LdtkProject {
             Vec::new();
         let mut mount_links: Vec<(String, String)> = Vec::new();
         let mut chains: Vec<ae::SurfaceChain> = Vec::new();
+        let mut placements: Vec<crate::world::placements::PlacementRecord> = Vec::new();
         let mut metadata = crate::rooms::RoomMetadata::default();
         for level in levels {
             // First-non-empty wins so author intent is predictable when
@@ -211,6 +212,7 @@ impl LdtkProject {
                         debug_labels.extend(emission.debug_labels);
                         mount_links.extend(emission.mount_links);
                         chains.extend(emission.chains);
+                        placements.extend(emission.placements);
                     }
                     Err(error) => {
                         errors.push(format!("{} {}: {error}", entity.identifier, entity.iid))
@@ -307,6 +309,7 @@ impl LdtkProject {
             boss_spawns,
             debug_labels,
             mount_links,
+            placements,
         })
     }
 
@@ -383,6 +386,12 @@ pub struct RoomEmission {
     /// may emit many. Folded into `World::chains`; collision geometry ONLY
     /// for surface-momentum bodies.
     pub chains: Vec<ae::SurfaceChain>,
+    /// Authored placement RECORDS (the [W-b] shape): the schema-over-record
+    /// channel every family converges onto as W-queue step 3 converts spawn
+    /// branches to lowering interpreters. During the migration a converter
+    /// may DUAL-emit (its legacy typed family + the record); records are
+    /// inert until an interpreter is registered for their kind.
+    pub placements: Vec<crate::world::placements::PlacementRecord>,
     pub ignored: bool,
 }
 

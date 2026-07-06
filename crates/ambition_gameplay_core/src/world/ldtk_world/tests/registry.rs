@@ -238,3 +238,34 @@ fn unregistered_identifier_still_fails_validation() {
         report.errors
     );
 }
+
+/// The [W-b] record channel: a `DamageVolume` entity DUAL-emits — its legacy
+/// typed hazard (still what spawning consumes) plus an authored
+/// `PlacementRecord` carrying the closed Tier-0 `HazardSpec`, joined by the
+/// same placement id (the LDtk iid).
+#[test]
+fn damage_volume_dual_emits_a_hazard_placement_record() {
+    use ambition_entity_catalog::placements::{DamageKind, DamageTeam, PlacementSchema};
+
+    let project = synthetic_level(vec![super::make_entity_at(
+        "DamageVolume",
+        [96, 416],
+        [64, 32],
+        &[
+            ("damage", Value::Number(3.into())),
+            ("path_id", Value::String("spike_run".into())),
+        ],
+    )]);
+    let room_set = project.to_room_set().expect("hazard project composes");
+    let room = &room_set.rooms[0];
+    assert_eq!(room.hazards.len(), 1, "legacy channel still feeds spawning");
+    assert_eq!(room.placements.len(), 1, "record channel carries the twin");
+    let record = &room.placements[0];
+    assert_eq!(record.id.as_str(), room.hazards[0].id, "same placement id");
+    assert_eq!(record.aabb, room.hazards[0].aabb, "same authored footprint");
+    let PlacementSchema::Hazard(spec) = &record.schema;
+    assert_eq!(spec.damage, 3);
+    assert_eq!(spec.kind, DamageKind::Hazard);
+    assert_eq!(spec.team, DamageTeam::Environment);
+    assert_eq!(spec.path_id.as_deref(), Some("spike_run"));
+}

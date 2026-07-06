@@ -38,7 +38,6 @@ pub(crate) const MAX_ENEMY_AIR_JUMPS: u8 = 1;
 
 // Archetype data owns enemy speed/range tuning; keep only shared fallback
 // clocks here.
-pub(crate) const ENEMY_ATTACK_COOLDOWN: f32 = 1.05;
 // Boss/profile and combat-kit data own their own cooldown/timing constants.
 
 pub mod banter;

@@ -23,7 +23,6 @@ use crate::actor::{BodyDodgeState, BodyOffense, BodyShieldState};
 use crate::actor::{PlayerEntity, PrimaryPlayer, PrimaryPlayerOnly};
 use crate::combat::events::{GameplayBannerRequested, HitEvent as FeatureHitEvent, HitTarget};
 use crate::dev::dev_tools::EditableMovementTuning;
-use crate::features;
 use crate::player::{BodyAnimFacts, PlayerSafetyState};
 use crate::time::feel::SandboxFeelTuning;
 use crate::{
@@ -374,12 +373,12 @@ pub(crate) fn handle_player_damage_events(
             );
         }
         BodyHitResolution::Damaged { died: false, .. } => match damage.mode {
-            features::HitMode::SafeRespawn => {
+            crate::combat::HitMode::SafeRespawn => {
                 safe_respawn_player(
                     sfx, vfx, clusters, clock, safety, combat, tuning, feel, impact_pos,
                 );
             }
-            features::HitMode::Knockback => {
+            crate::combat::HitMode::Knockback => {
                 // Getting hit knocks you off a ledge grab — you fall with the
                 // knockback instead of hanging there immune.
                 clusters.ledge.knock_off_on_hit();
@@ -437,7 +436,7 @@ pub(crate) fn resolved_body_knockback_velocity(
     victim_facing: f32,
     gravity_dir: ae::Vec2,
     boss_hit: bool,
-    knockback: Option<&features::HitKnockback>,
+    knockback: Option<&crate::combat::HitKnockback>,
     // The victim's held control (local frame), for directional influence (CM2).
     // `ZERO` == no DI intent; the effect is also inert unless `feel.di_max_angle`
     // is nonzero, so this is parity-free by construction.
@@ -503,7 +502,7 @@ pub(crate) fn apply_body_hit_reaction(
     body_facing: f32,
     gravity_dir: ae::Vec2,
     boss_hit: bool,
-    knockback: Option<&features::HitKnockback>,
+    knockback: Option<&crate::combat::HitKnockback>,
     // The struck body's held control (local frame) for DI (CM2). `ZERO` = none.
     di_input_local: ae::Vec2,
     feel: SandboxFeelTuning,
@@ -544,7 +543,7 @@ pub(crate) fn apply_player_knockback(
 ) {
     let boss_hit = matches!(
         damage.source,
-        features::HitSource::BossBody | features::HitSource::BossAttack
+        crate::combat::HitSource::BossBody | crate::combat::HitSource::BossAttack
     );
     let knockback = damage.knockback.as_ref();
     let impact_pos = knockback
@@ -607,7 +606,7 @@ pub fn apply_player_hit_events(
     // on the player — including a duel's stray that the observer walked into. Only
     // a same-faction attacker (co-op ally) is spared, unless friendly fire is on.
     // Whether an actor AIMS at the player is the separate targeting concern.
-    friendly_fire: Option<Res<features::FriendlyFire>>,
+    friendly_fire: Option<Res<crate::combat::targeting::FriendlyFire>>,
     attacker_factions: Query<&crate::combat::components::ActorFaction>,
     mut player_q: Query<
         (
@@ -660,8 +659,11 @@ pub fn apply_player_hit_events(
         * assist_factor;
     let tuning = editable_tuning.as_engine();
     let feel = *feel_tuning;
-    let safe_world =
-        features::world_with_sandbox_solids(&world.0, &moving_platforms.0, &feature_ecs_overlay);
+    let safe_world = crate::combat::world_with_sandbox_solids(
+        &world.0,
+        &moving_platforms.0,
+        &feature_ecs_overlay,
+    );
 
     // Resolve every event to a concrete target entity once: events
     // with `HitTarget::Player(e)` route to that player; events with
@@ -1048,7 +1050,7 @@ mod tests {
         ] {
             let frame = ae::AccelerationFrame::new(gravity_dir);
             let source_pos = victim_pos - frame.side * 40.0;
-            let knockback = features::HitKnockback {
+            let knockback = crate::combat::HitKnockback {
                 dir: 0.0,
                 strength: 1.0,
                 source_pos,
@@ -1119,7 +1121,7 @@ mod tests {
         ] {
             let frame = ae::AccelerationFrame::new(gravity_dir);
             let source_pos = victim_pos - frame.side * 40.0;
-            let knockback = features::HitKnockback {
+            let knockback = crate::combat::HitKnockback {
                 dir: 0.0,
                 strength,
                 source_pos,
@@ -1154,7 +1156,7 @@ mod tests {
         let default_speed = ae::Vec2::new(feel.enemy_knockback_x, feel.enemy_knockback_y).length();
 
         // A pure up-launcher: (0, 1) launches straight against gravity.
-        let up = features::HitKnockback {
+        let up = crate::combat::HitKnockback {
             dir: 0.0,
             strength: 1.0,
             source_pos,
@@ -1181,7 +1183,7 @@ mod tests {
 
         // The lateral component mirrors to point AWAY from the source: hit
         // from the left ⇒ positive local x ⇒ world +x.
-        let diag = features::HitKnockback {
+        let diag = crate::combat::HitKnockback {
             dir: 0.0,
             strength: 1.0,
             source_pos,
@@ -1202,7 +1204,7 @@ mod tests {
             "a (1,1) launcher throws up-and-away from the source: {vel:?}"
         );
         // Mirrored source ⇒ mirrored lateral, same rise.
-        let mirrored = features::HitKnockback {
+        let mirrored = crate::combat::HitKnockback {
             source_pos: victim_pos + ae::Vec2::new(40.0, 0.0),
             ..diag
         };
@@ -1239,7 +1241,7 @@ mod tests {
         ] {
             let frame = ae::AccelerationFrame::new(gravity_dir);
             let source_pos = victim_pos - frame.side * 40.0;
-            let knockback = features::HitKnockback {
+            let knockback = crate::combat::HitKnockback {
                 dir: 0.0,
                 strength: 1.0,
                 source_pos,
@@ -1271,14 +1273,14 @@ mod tests {
         let victim_pos = ae::Vec2::new(100.0, 200.0);
         let down = ae::Vec2::new(0.0, 1.0);
         let source_pos = victim_pos - ae::Vec2::new(40.0, 0.0);
-        let base = features::HitKnockback {
+        let base = crate::combat::HitKnockback {
             dir: 0.0,
             strength: 1.0,
             source_pos,
             impact_pos: victim_pos,
             launch_dir: None,
         };
-        let degenerate = features::HitKnockback {
+        let degenerate = crate::combat::HitKnockback {
             launch_dir: Some(ae::Vec2::ZERO),
             ..base
         };

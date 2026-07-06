@@ -5,13 +5,29 @@
 //! This keeps the active ECS path readable without changing the entity shapes
 //! or scheduling surfaces that callers use.
 
-use crate::features::util::room_spec_paths;
 use bevy::prelude::{Commands, Entity, Query};
 
 pub(crate) use super::spawn_actors::spawn_runtime_minion;
 
 /// Spawn ECS-native feature entities for every authored static
 /// feature in a room. One loop per family.
+
+/// Flatten a room's authored `KinematicPathSpec`s into `(lookup key, path)`
+/// pairs (id first, name alias second). Lives spawn-side: `RoomSpec` is
+/// world-IR vocabulary the combat kit must not name (E2).
+pub(crate) fn room_spec_paths(
+    room: &crate::rooms::RoomSpec,
+) -> Vec<(String, ambition_engine_core::KinematicPath)> {
+    let mut paths: Vec<(String, ambition_engine_core::KinematicPath)> = Vec::new();
+    for spec in &room.kinematic_paths {
+        paths.push((spec.id.clone(), spec.path.clone()));
+        if spec.name != spec.id {
+            paths.push((spec.name.clone(), spec.path.clone()));
+        }
+    }
+    paths
+}
+
 pub fn spawn_room_feature_entities(commands: &mut Commands, room: &crate::rooms::RoomSpec) {
     let paths = room_spec_paths(room);
     for hazard in &room.hazards {

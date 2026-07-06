@@ -348,7 +348,7 @@ fn distance_squared(a: ae::Vec2, b: ae::Vec2) -> f32 {
 mod tests {
     use super::*;
     use crate::combat::components::{ActorAggression, ActorFaction, ActorTarget, CenteredAabb};
-    use crate::player::PlayerSlot;
+    use ambition_characters::brain::PlayerSlot;
     use ambition_characters::brain::{Brain, StateMachineCfg};
     use ambition_engine_core::BodyKinematics;
     use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};

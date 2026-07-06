@@ -3,8 +3,10 @@
 //! Collision predicates (`player_is_standing_on`, `approximately_same_aabb`),
 //! plain math (`approach` toward-target clamp, `midpoint`, the zero-safe
 //! `SignumOr`), keyword-based hazard SFX lookup (`hazard_sfx_id`), and
-//! `room_spec_paths` (RoomSpec → id/name → KinematicPath pairs). Grep here when
+//! keyword-based hazard SFX lookup. Grep here when
 //! a feature system needs a one-liner; no shared theme beyond that.
+//! (`room_spec_paths` moved to `features::ecs::spawn` — its only consumer;
+//! RoomSpec is world-IR vocabulary combat must not name.)
 
 use super::*;
 
@@ -13,19 +15,6 @@ pub(crate) fn player_is_standing_on(player: ae::Aabb, platform: ae::Aabb) -> boo
         player.right() > platform.left() + 2.0 && player.left() < platform.right() - 2.0;
     let near_top = (player.bottom() - platform.top()).abs() <= 8.0;
     horizontally_overlaps && near_top
-}
-
-pub(crate) fn room_spec_paths(
-    room: &crate::rooms::RoomSpec,
-) -> Vec<(String, ambition_engine_core::KinematicPath)> {
-    let mut paths: Vec<(String, ambition_engine_core::KinematicPath)> = Vec::new();
-    for spec in &room.kinematic_paths {
-        paths.push((spec.id.clone(), spec.path.clone()));
-        if spec.name != spec.id {
-            paths.push((spec.name.clone(), spec.path.clone()));
-        }
-    }
-    paths
 }
 
 // Note: the older `blocked` / `blocked_y` predicates lived here.

@@ -30,6 +30,10 @@ use crate::combat::{
 };
 use crate::dev::dev_tools::EditableMovementTuning;
 use crate::features;
+
+/// Baseline seconds between enemy contact attacks (scaled per-actor by
+/// `attack_cooldown_mult`). Combat-owned pacing tuning (E2).
+pub(crate) const ENEMY_ATTACK_COOLDOWN: f32 = 1.05;
 use crate::player::BodyAnimFacts;
 use crate::time::feel::SandboxFeelTuning;
 use crate::world::platforms::MovingPlatformState;
@@ -184,8 +188,11 @@ pub fn pogo_moveset_off_world_orbs(
     if pogo.is_empty() {
         return;
     }
-    let assembled =
-        features::world_with_sandbox_solids(&world.0, &moving_platforms.0, &feature_ecs_overlay);
+    let assembled = crate::combat::world_with_sandbox_solids(
+        &world.0,
+        &moving_platforms.0,
+        &feature_ecs_overlay,
+    );
     for (owner, world_box, rise) in pogo {
         if pogo_target_for_attack_hitbox(&assembled, world_box).is_none() {
             continue;
@@ -388,7 +395,7 @@ pub fn advance_attack(
     // (position-derived `knockback_strength`, hits the player). This is the ONLY
     // branch — a faction distinction the damage resolver already makes, not a
     // player-shaped one.
-    faction: features::ActorFaction,
+    faction: ambition_characters::actor::pose::ActorFaction,
     // The body's sprite catalog id, if any, so its authored per-animation melee
     // box drives the strike (the same data-driven lookup for player + actor).
     // `None` → the player's hardcoded manifest root.
@@ -473,8 +480,10 @@ pub fn advance_attack(
                 .damage_override
                 .unwrap_or_else(|| clusters.offense.damage_multiplier.max(1))
                 .max(1);
-            let (knock_x, knockback_strength) = if matches!(faction, features::ActorFaction::Player)
-            {
+            let (knock_x, knockback_strength) = if matches!(
+                faction,
+                ambition_characters::actor::pose::ActorFaction::Player
+            ) {
                 let kx = if attack_state.spec.knockback.x.abs() > 0.0 {
                     attack_state.spec.knockback.x
                 } else {
@@ -508,8 +517,11 @@ pub fn advance_attack(
             && attack_state.spec.can_pogo
             && !attack_state.pogo_applied
         {
-            let attack_world =
-                features::world_with_sandbox_solids(world, moving_platforms, feature_ecs_overlay);
+            let attack_world = crate::combat::world_with_sandbox_solids(
+                world,
+                moving_platforms,
+                feature_ecs_overlay,
+            );
             if let Some(orb_aabb) = pogo_target_for_attack_hitbox(&attack_world, world_box) {
                 ae::movement::set_jump_velocity(
                     &mut clusters.kinematics.vel,
@@ -528,10 +540,10 @@ pub fn advance_attack(
                 hit_events.write(crate::combat::events::HitEvent {
                     volume: orb_aabb.into(),
                     damage: 1,
-                    source: features::HitSource::PogoBounce,
+                    source: crate::combat::HitSource::PogoBounce,
                     attacker: Some(actor),
                     target: crate::combat::events::HitTarget::OrbMatch,
-                    mode: features::HitMode::Knockback,
+                    mode: crate::combat::HitMode::Knockback,
                     knockback: None,
                     ignored_targets: Vec::new(),
                 });
@@ -570,7 +582,7 @@ pub fn start_body_melee(
         &mut BodyMelee,
         &BodyCombat,
         &ActorControl,
-        Option<&features::HeldItem>,
+        Option<&crate::combat::held_items::HeldItem>,
         Option<&features::ActorConfig>,
         Option<&mut BodyAnimFacts>,
         Has<MovesetMelee>,
@@ -609,7 +621,7 @@ pub fn start_body_melee(
         // next swing; the player carries no `ActorConfig`, so it has none (its
         // re-swing is gated by the swing duration + recoil lock).
         let cooldown = config
-            .map(|c| features::ENEMY_ATTACK_COOLDOWN * c.tuning.attack_cooldown_mult)
+            .map(|c| ENEMY_ATTACK_COOLDOWN * c.tuning.attack_cooldown_mult)
             .unwrap_or(0.0);
         let gravity_dir = gravity.dir_at(cq.kinematics.pos);
         let mut clusters = cq.as_clusters_mut();
@@ -664,7 +676,7 @@ pub fn advance_body_melee(
         Entity,
         ae::BodyClusterQueryData,
         &mut BodyMelee,
-        &features::ActorFaction,
+        &ambition_characters::actor::pose::ActorFaction,
         Option<&ambition_characters::brain::Brain>,
         Option<&features::ActorConfig>,
         Option<&mut BodyAnimFacts>,

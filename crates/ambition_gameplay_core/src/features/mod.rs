@@ -79,16 +79,19 @@ pub use components::{
     ActorAggression, ActorCooldowns, ActorDisposition, ActorFaction, ActorIdentity, ActorIntent,
     ActorInteraction, ActorPose, ActorRenderSize, ActorTarget, AggressionMode, AggressionTarget,
     BodyMelee, BossDeathAnimation, BossPatternTimer, BossPhase, BossRewardChest, BreakableFeature,
-    CenteredAabb, ChestBundle, ChestFeature, Collected, CombatKit, DamageableVolumes, EncounterMob,
-    EncounterRewardChest, EnemyActorBundle, FallingChest, FeatureBaseBundle, FeatureId,
-    FeatureLifecycleBundle, FeatureName, FeatureRenderedBundle, MeleeSwing, Opened, PersistKey,
-    PickupBundle, PickupFeature, PogoPolicy, PogoTargetContributor, PogoTargetVolumes, PostBossNpc,
-    RespawnTimer, RuntimeStagedActor, SandboxSolidContributor, StandTimer,
+    CenteredAabb, ChestFeature, Collected, CombatKit, DamageableVolumes, EncounterMob,
+    EncounterRewardChest, FallingChest, FeatureId, FeatureName, MeleeSwing, Opened, PersistKey,
+    PickupFeature, PogoPolicy, PogoTargetContributor, PogoTargetVolumes, PostBossNpc, RespawnTimer,
+    RuntimeStagedActor, SandboxSolidContributor, StandTimer,
 };
 // Switch machinery + the quest-advance message live with their owning domains
 // (E2): the hub keeps the names importable until it dissolves (E7/E8).
 pub use crate::encounter::{SwitchActivated, SwitchFeature, SwitchOn};
 pub use crate::quest::QuestAdvanceRequested;
+pub use ecs::actor_bundles::{
+    ChestBundle, EnemyActorBundle, FeatureBaseBundle, FeatureLifecycleBundle,
+    FeatureRenderedBundle, PickupBundle,
+};
 pub use ecs::actor_clusters::{
     ActorClusterSeed, ActorConfig, ActorMotionPath, ActorMut, ActorStatus, BodyKinematics,
 };

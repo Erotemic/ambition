@@ -1,9 +1,15 @@
-//! Spawn bundles + enemy spawn-time data (capabilities, tuning, brain spec).
+//! Spawn bundles + enemy spawn-time data (moved out of the combat kit at
+//! E2: spawn machinery is features-side; the bundles compose combat
+//! components through the legal features → combat arrow).
 
-use super::super::*;
-use super::*;
+use bevy::prelude::*;
 
+use crate::combat::components::*;
+use crate::combat::*;
+use crate::features::ecs::actor_tuning::{ActorTuning, CharacterBrainSpec};
 use ambition_characters::actor::BodyCombat;
+use ambition_engine_core::CenteredAabb;
+use ambition_platformer_primitives::lifecycle::FeatureSimEntity;
 
 /// Simulation-only base for a feature entity: the marker that identifies it
 /// to feature-system queries, its room-scoped lifecycle, and its authored

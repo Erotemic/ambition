@@ -7,11 +7,12 @@ use super::*;
 
 mod actors;
 mod features;
-mod spawn;
+// spawn BUNDLES moved to `features::ecs::actor_bundles` (E2): spawn
+// machinery is features-side; the bundles reference combat components
+// through the legal features → combat arrow.
 
 pub use actors::*;
 pub use features::*;
-pub use spawn::*;
 
 #[cfg(test)]
 mod tests {

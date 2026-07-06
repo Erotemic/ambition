@@ -4,6 +4,7 @@
 //! feature remains "add a RoomSpec Vec + add one loop in spawn.rs".
 
 use super::*;
+use crate::features::{ChestBundle, PickupBundle};
 use crate::platformer_runtime::prelude::SpawnScopedExt;
 use bevy::prelude::Name;
 

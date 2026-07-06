@@ -46,6 +46,32 @@ Standing escalation: W3 (the world two-crate cut) and E2 (back-edge
 classification) escalate to fable at the FIRST ambiguous item.
 Everything else on this page is opus-or-below by design.
 
+### 📋 LAST-CHANCE FABLE QUESTION REGISTER (Jon: fable availability is ending — 2026-07-06)
+
+Every unresolved fable-owned DESIGN decision, consolidated. Jon's rulings
+(Q31–Q33, netcode Q4, CC3) resolved the big ones; what remains is
+implementation doctrine. **If fable's budget runs out, these fall to
+opus — break them down carefully against the nearest ruling; do NOT set
+doctrine that contradicts a ✅ ruling.** Marker convention: decomposition.md
+preamble.
+
+| Q | Where (canonical) | What it BLOCKS | Opus fallback if fable can't |
+|---|---|---|---|
+| **[W-a]** Tier-0 authored-schema home + the schema/runtime split line (per `CharacterBrain`/`BossBrain`/`DamageVolume`/`RespawnPolicy`) | decomposition W-track | W2 (`RoomEmission` payload shape), the schema relocations, E2 vocab classification | Default home `ambition_entity_catalog`; move whole enums that are already pure-data; split an authored spec only where the type carries runtime behavior. |
+| **[W-b]** lowering-interpreter registration API + the **two-stage seam** (backend parse → world RECORD → sim interpret) + **engine-vs-content interpreters** (hazard→combat is engine; spout→falling-sand is content — the registry must take both) | decomposition W-track + architecture §4b.4 | W3 crate cut, room-load lowering, falling-sand spout, hazard lowering | Generalize the EXISTING `ldtk_world/conversion` converter registry (don't add a second); make interpreter registration open to both engine and content crates. |
+| **[W-c]** mutable-world delta representation (base+overlay/delta vs mutable state vs save-patch) + **which layer SimView observes** (must be base+delta composited) + **does SimView carry world/geometry facts at all** (today it's actor/feature/camera only — permanent change forces a world-view fact) | architecture §4b.5 / §5 | permanent-world-change features, save deltas, SimView world-observation | RESERVE the seam only (name base+delta); do NOT implement; when first needed, SimView observes the composited view. |
+| **[W-d]** stable authored placement IDs: required-now / recommended-when-cheap / deferred | decomposition W-track | SimView identity, replay, fuzz traces, save deltas, deterministic spawn, editor diagnostics | Defer unless cheap; add the moment any one consumer above forces it. |
+| **[W-e]** unknown-placement policy (hard error vs mode-split warn+inert) | decomposition W-track | lowering error handling | Hard error (Jon: clarity > perfect dev policy). |
+
+**Opus-sequencing, NOT design questions (no fable needed):** the **E4 full
+dep-flip** (render drops gameplay_core) is now OPUS-SAFE-once-gated — Jon
+blessed the SimView churn (Q32), so it is pure sequencing behind E1/E3/
+E-assets/W, not a decision. **E5 step 5** (host mint) is OPUS/★fable
+execution, unblocked, brief in decomposition.md — the only judgment is the
+portal-ordering care, not a doctrine question. The `KinematicPath`→world
+move (part of the W ruling) is OPUS-SAFE and can proceed independently of
+[W-a].
+
 ### 🟢 OPUS SESSION 2026-07-06 (b) — where the CLEAN opus surface bottomed out
 
 A second opus session cleared the remaining *cleanly-unblocked, autonomously-

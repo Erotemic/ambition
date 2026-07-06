@@ -56,6 +56,17 @@ arrows listed here are legal (anti-god-structure rule 4).
 | `ambition_sfx_bank` | **[the sound format]** | `.sfxbank` reader | — |
 | `ambition_gameplay_trace` | **[the flight recorder]** | trace format + OOB dump vocabulary | — |
 
+**Authored SCHEMA vs runtime COMPONENT (Jon+GPT-5.5 ruling 2026-07-06).**
+Tier 0 owns the *authored-schema vocabulary* — the closed, editor-visible,
+serde-only set of "things that can be authored/placed" (a spawn-spec, a
+hazard-spec, a kinematic-path-spec, a spout-spec, a respawn-policy). This is
+DISTINCT from the runtime sim COMPONENT a higher tier builds from it (the live
+brain, the live hitbox). A Tier-0 schema carries NO systems and NO runtime
+behavior; it is the shared contract the authoring backend WRITES and a sim/
+content interpreter READS, so neither imports the other's runtime types. See
+§4b (the authored-placement model) — this distinction is what keeps [the space
+IR] pure while authored maps still declare rich content.
+
 ### Tier 1 — kernels *(pure simulation math; Bevy types only incidentally)*
 
 | Crate | ROLE | Owns | Must never contain |
@@ -72,7 +83,7 @@ arrows listed here are legal (anti-god-structure rule 4).
 | `ambition_characters` | **[the actor vocabulary]** | brains (universal `Brain::tick`, smash template, the fighter brain FB1–FB6), perception/`WorldView`, `ActionSet`, boss patterns/behavior profiles, control vocabulary | → catalog, kernels |
 | `ambition_combat` | **[the combat resolver]** | hit vocabulary (`HitEvent`, volumes, hitbox lifecycle), the ONE victim-side resolver, targeting, hazards, **the moveset runtime** (playback, cancels CM4, prefab expansion), knockback/DI math (CM1/CM2) | → catalog, characters, kernels. **Never imports [the sim heart]** |
 | `ambition_projectiles` | **[the projectile kit]** | pooled projectile stepping, both factions unified | → combat |
-| `ambition_world` | **[the space IR]** | rooms graph, `RoomSpec`/`RoomEmission`, the content-registered converter REGISTRY, geometry composition/overlay (write-map rules), `WorldManifest` install seam, `RoomMetadata` (incl. `mode`), baked `ron-room` | ZERO LDtk deps (dep-test enforced) |
+| `ambition_world` | **[the space IR]** | rooms graph, `RoomSpec`/`RoomEmission` (authored placement RECORDS over Tier-0 schemas — §4b), the content-registered converter/interpreter REGISTRY, geometry composition/overlay (write-map rules), `WorldManifest` install seam, `RoomMetadata` (incl. `mode`), baked `ron-room` | **PURE: zero runtime character/combat/projectile/demo deps AND zero LDtk deps** (dep-test enforced). Names Tier-0 authored schemas only, never runtime components. |
 | `ambition_ldtk_map` | **[the LDtk backend]** | LDtk parse/spine/entity converters; the ONLY crate that knows LDtk exists | → world. A future Tiled/Godot importer is a SIBLING (Q27: deferred until truly needed) |
 | `ambition_encounter` | **[the set-piece kit]** | waves, arena lockdown, encounter scripts/beats (boss-design BD2), rewards | → world, characters |
 | `ambition_items` | **[the stuff kit]** | item/inventory/equipment machinery + policies (equipment-as-armor, drop-on-hit), shop, inventory-UI state | → combat |
@@ -181,15 +192,57 @@ registers entity converters; core ships zero worlds. Rooms may carry
 `mode` for scoped game rules (M19). Classify every `OnceLock` as content
 registry (seam) or immutable asset cache (no seam).
 
-## 5. World-geometry rules (unchanged, binding)
+## 4b. The authored-placement model & the world→sim lowering seam
 
-`RoomGeometry` is authored, swapped at room boundaries, never mutated
-mid-room; mid-room dynamics compose through the derived `CollisionWorld`
-overlay (write-map enforced). Only collision readers see the composited
-view. Authoring backends own SPACE; parameterized generator entities
-(`SurfaceLoop`, planned `SurfaceRamp` quarter-circle floor↔wall
-transitions — Q27 ruling) keep LDtk sufficient for non-axis-aligned
-content without a new backend.
+**Ruling (Jon + GPT-5.5, 2026-07-06 — this CLOSES the W3 vocab-arrow
+question; future agents do NOT reopen the pure-world-IR decision.)** The
+executor-facing task breakdown + the open sub-questions live in
+[`decomposition.md`](decomposition.md) "W-track FEEDBACK FOR FABLE".
+
+1. **The world/spatial IR stays PURE.** `ambition_world` depends on ZERO
+   runtime character/combat/projectile/demo crates (not merely zero LDtk).
+   Dep-test enforced.
+2. **Authored maps MAY declare what spawns.** An LDtk (or any backend) file
+   absolutely may say "a goblin spawns here / a falling-sand spout is here /
+   this band is a hazard." The **falling-sand spout is the canonical
+   example**: a spout is an AUTHORED PLACEMENT in the map, not a hardcoded
+   runtime hack.
+3. **Placements are AUTHORED RECORDS over Tier-0 SCHEMAS, not runtime types.**
+   `RoomEmission` carries placement records whose vocabulary is the **Tier-0
+   authored-schema** set (§Tier-0 note). The schema is the CLOSED,
+   editor-visible vocabulary of "what can be placed"; the runtime component
+   the sim builds from it lives a tier up. Jon: **prefer the closed Tier-0
+   schema over a loose opaque/hybrid payload** — the author/editor should know
+   the full vocabulary; a hybrid opaque RON payload is acceptable ONLY where a
+   closed schema is genuinely infeasible (no strong case seen now).
+4. **The world→sim LOWERING seam.** World data says WHAT EXISTS; sim/content
+   systems INTERPRET it into behavior. Arrow: **sim/content → `ambition_world`,
+   never the reverse.** A content/sim crate registers a lowering INTERPRETER
+   keyed by schema id in [the space IR]'s converter registry (§4); lowering
+   runs at ROOM-LOAD. The Tier-0 schema is the contract both the backend
+   (writes) and the interpreter (reads) share without importing each other's
+   runtime types.
+5. **The world is NOT forever-immutable — the delta seam is RESERVED.**
+   Gameplay may PERMANENTLY change the world (a destroyed wall, a dug tunnel, a
+   permanently-opened gate). The architecture reserves a **base authored world
+   + runtime overlay/delta** (persistable into the save as a patch) — the base
+   emission/geometry is immutable input, a mutable delta layer expresses
+   permanent change on top. Do NOT design lowering or SimView as if authored
+   geometry is frozen for the session's life.
+
+## 5. World-geometry rules (binding; delta seam reserved 2026-07-06)
+
+`RoomGeometry` is authored and swapped at room boundaries. Transient
+mid-room dynamics compose through the derived `CollisionWorld` overlay
+(write-map enforced; only collision readers see the composited view).
+**PERMANENT gameplay-driven changes** ride the reserved base+delta seam
+(§4b.5) — a mutable overlay/delta on the immutable authored base, not an
+in-place mutation of the authored `RoomGeometry`. (This generalizes the
+transient `CollisionWorld` overlay to PERSISTED change; the concrete
+representation is [Q-FABLE W-c] in decomposition.md.) Authoring backends
+own SPACE; parameterized generator entities (`SurfaceLoop`, planned
+`SurfaceRamp` quarter-circle floor↔wall transitions — Q27 ruling) keep
+LDtk sufficient for non-axis-aligned content without a new backend.
 
 ## 6. Validation & discipline
 

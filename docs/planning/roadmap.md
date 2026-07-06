@@ -117,10 +117,13 @@ New (2026-07-05):
 - **Q1/Q3 (carried):** who is 1.0 for; engine name/repo split timing.
 - **Q2-name (carried):** endorse `ambition_actors` as the gameplay_core
   residue rename, or supply a name (E7 blocks on nothing else).
-- **Q4 (OPEN — brief written):** determinism promise level. Jon asked for
-  more context (2026-07-06); the decision brief with the three levels and
-  their costs is [`engine/netcode.md`](engine/netcode.md) §Q4.
-  Recommendation: the same-build contract (level 2). Awaiting his call.
+- **Q4 (✅ ANSWERED 2026-07-06):** determinism = **level 2, same-build
+  now, cross-platform later.** Same binary/platform/input-stream is
+  deterministic enough for tests/replay/desync canaries; cross-platform
+  bit-exactness is not promised now but the architecture must not preclude
+  it (guardrails: stable iteration, seeded RNG streams, no wall-clock in
+  sim, no hash-order semantics, portable snapshot/input formats). Recorded
+  in [`engine/netcode.md`](engine/netcode.md) §Q4-RESOLVED + N0.
 - **Q5 (scoped):** online netcode stays post-1.0; local-N ships with SSB —
   confirm (implied by the 2026-07-06 SSB scope ruling: "no multiplayer on
   the first round" = no ONLINE; up to 4 local fighters incl. a second
@@ -141,6 +144,25 @@ New (2026-07-05):
 - **Q30 — fable-window order CONFIRMED**, with the addition (Jon): the
   hardest decompositions themselves are fable work — E4 is re-graded
   [★fable executes]; W3/E2 escalate to fable at the first ambiguity.
+- **Q31 — the W3 vocab-arrow / authored-placement model RULED (Jon +
+  GPT-5.5).** World IR stays PURE (zero runtime character/combat/demo
+  deps); authored maps still declare content (spawns, the falling-sand
+  spout) as **authored placement RECORDS over closed Tier-0 SCHEMAS**
+  (preferred over opaque payloads); a **world→sim lowering seam**
+  interprets records into behavior (sim/content → world, never reverse);
+  the **base+delta seam for permanent world change is RESERVED** (the
+  world is not immutable). Canonical: [`engine/architecture.md`](engine/
+  architecture.md) §4b + Tier-0 note; executor tasking + the still-open
+  sub-questions [W-a..W-e]: [`engine/decomposition.md`](engine/
+  decomposition.md) W-track.
+- **Q32 — SimView IS the observation boundary (Jon).** Presentation
+  migrates toward SimView/observation facts, not raw sim reads;
+  architectural churn is ACCEPTED when it removes long-term coupling
+  (the long game). The E4 full dep-flip is blessed to proceed on this basis.
+- **Q33 — tuning is not a planning blocker (Jon).** DI/quality/slope/
+  brain-weight/visual-default values are knobs → data/playtest work,
+  shipped BLIND; escalate only if the KNOB is missing. Recorded as a
+  decision principle ([`decision-principles.md`](decision-principles.md)).
 
 ## Standing practices (unchanged)
 

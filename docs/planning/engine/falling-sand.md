@@ -41,6 +41,20 @@ rules + fixed-point test), FS3 (overlay compilation + atomic ownership
 transfer). All [opus] — the spec above is the contract; the current code is
 small and may be boldly restructured to meet it.
 
+**The SPOUT is the canonical authored-placement example (Jon, 2026-07-06).**
+A falling-sand spout (a source that emits matter) is an **authored PLACEMENT
+in the map**, not a hardcoded runtime spawn — it rides the same
+world→sim lowering seam as any other contentful placement (architecture
+§4b): the map author drops a `spout` placement (a Tier-0 authored schema:
+material, rate, direction), `ambition_world` carries it as an authored
+record, and the falling-sand CONTENT plugin registers the interpreter that
+lowers it into the runtime emitter at room-load. So the same-tier deps hold:
+`ambition_world` never names the falling-sand runtime; the content plugin
+depends on world + reads the schema. **QUESTION FOR FABLE:** whether the
+spout schema is a general "emitter" placement or a falling-sand-specific
+one rides [Q-FABLE W-a] (where authored schemas live + how specific they
+get) — do not invent it before that lands.
+
 ## 2. Oiler (ideas parked here deliberately — feel-pass era work)
 
 The character **Oiler** (Euler) weaponizes the module: a special that

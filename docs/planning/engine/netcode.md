@@ -54,13 +54,39 @@ promise decides how much discipline every future sim system must carry.
 **Recommendation (M20): level 2.** It is the knee of the curve — nearly
 all the value, small cost, and it must be chosen NOW because every sim
 system written after the choice either respects it cheaply or violates
-it expensively. **Jon: confirm level 2, or override.**
+it expensively.
 
-## N0 — determinism becomes a MANAGED contract (pending Q4 confirmation)
+### ✅ Q4 RESOLVED — "same-build now, cross-platform later" (Jon, 2026-07-06)
+
+**Level 2 (same-build) is ACCEPTED for now.** Same binary / platform /
+input stream ⇒ deterministic enough for tests, replay, and desync
+canaries. Cross-platform bit-exactness (level 3) is NOT promised now — but
+**do NOT code the architecture into a corner against eventual
+cross-platform determinism.** Concretely, every sim system carries these
+guardrails from now on (they cost ~nothing at level 2 and keep level 3
+reachable without a rewrite):
+
+- Stable, behavior-affecting iteration order (sort by stable id, never
+  `Entity`; no `HashMap`/`HashSet` iteration driving sim outcomes).
+- Deterministic, seeded RNG STREAMS (no global/thread RNG; per-owner or
+  per-tick seeded streams — a seed is reproducible and portable later).
+- No wall-clock reads in the sim (`WorldTime`/proper-time only — never
+  `Instant::now`/system time in a sim system).
+- No accidental hash-order semantics anywhere sim state depends on it.
+- Snapshot + input-stream FORMATS (N0.2, N3.1) chosen so they do not
+  preclude cross-platform determinism later (explicit field order, no
+  platform-width-dependent encoding, versioned).
+
+Stable authored/spawn IDs "where practical" (see decomposition [Q-FABLE
+W-d]) support this — they are the portable identity level 3 and rollback
+both want.
+
+## N0 — determinism is a MANAGED contract (Q4 CONFIRMED: level 2)
 
 The ladder needs the level-2 **scoped guarantee**: *same build, same
 platform, same inputs ⇒ same sim states.* (Cross-platform float
-determinism is explicitly NOT promised.)
+determinism is explicitly NOT promised — but the N0.2/N0.3/N3.1 formats +
+the guardrails above keep level 3 reachable.)
 
 Obligations (each a slice, all [opus]):
 

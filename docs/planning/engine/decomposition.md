@@ -17,6 +17,19 @@ name), never line numbers. If a named symbol has moved or been renamed,
 `rg` for it; if it's gone, that's drift — update the card in the same
 commit (living-plan discipline), don't guess.
 
+**Fable/opus handoff markers (convention, grep-stable).** Because fable's
+availability is ending (Jon, 2026-07-06), every unresolved design decision
+is tagged so a future opus agent knows exactly where it may NOT improvise:
+- **`QUESTION FOR FABLE [tag]`** — a design/doctrine decision fable owns.
+  Opus must NOT invent an answer that sets doctrine; if fable's budget runs
+  out first, opus breaks it down *carefully against the nearest ruling*
+  (Jon: "the rest of the plan will be on you… break them down carefully").
+  Each states what it blocks.
+- **`OPUS-SAFE`** — the doctrine is settled; the remaining work is
+  mechanical and opus executes it directly (no design freedom).
+When a `QUESTION FOR FABLE` is resolved, replace it with the ruling + flip
+the dependent work to `OPUS-SAFE` in the same commit.
+
 **Method rules (all carves):**
 
 - **Measure OUTWARD deps first.** "Names no content" ≠ "extractable"; a
@@ -368,60 +381,75 @@ Precondition: none (parallel-safe with E5). The four cards:
   its tree, and a fixture "second backend" test constructs a RoomSpec
   purely from IR calls.
 
-#### 🔴 W-track FEEDBACK FOR FABLE — the vocab-arrow classification (opus escalated 2026-07-06)
+#### ✅ W-track — the vocab-arrow question is RULED (Jon + GPT-5.5, 2026-07-06)
 
-The W1 STATE inverts are clean opus work (load.rs done above). But the
-W3 two-crate cut hits a **genuinely ambiguous design decision opus will
-NOT force** (the escalation rule: "W3 escalates to fable at the FIRST
-ambiguous item"). Pre-solved as far as opus can take it so fable executes
-without re-measuring:
+Opus escalated this; Jon + GPT-5.5 ruled it. **The doctrine is now in
+[`architecture.md`](architecture.md) §4b (canonical) + the Tier-0
+schema-vs-component note.** Summary of the ruling (do NOT reopen it):
 
-**The question.** `ambition_world` is Tier 2 (architecture.md), and its
-ONLY drawn arrow is "ZERO LDtk deps." The undrawn arrows
-`world → ambition_characters` and `world → ambition_combat` are what the
-`RoomEmission`/room-graph types currently REQUIRE, because they carry
-concrete authored vocabulary: `Authored<CharacterBrain>`,
-`Authored<BossBrain>`, `Authored<DamageVolume>`, `KinematicPath` (moving
-platforms + camera), `RespawnPolicy` (surfaces). Per anti-god rule 4
-(siblings import only along drawn arrows) this is a real violation the cut
-must resolve. **Note it does NOT resolve by "the parsers go to
-`ambition_ldtk_map`"** — `ldtk_map → world` only, so the backend can't
-name `CharacterBrain` either. So the authored-brain/hazard vocabulary has
-to land somewhere BOTH world and its backend may see, i.e. a tier at or
-below `ambition_world`.
+- **World IR stays PURE** — `ambition_world` names ZERO runtime
+  character/combat/projectile/demo types. (This RULES OUT the old option
+  "(b) draw the arrow".)
+- **Authored maps still declare content** — spawns, the falling-sand
+  SPOUT (the canonical example: an authored placement, not a runtime
+  hack), hazards. `RoomEmission` carries **authored placement RECORDS
+  over closed Tier-0 authored SCHEMAS** (old option "(c)"), NOT runtime
+  types and NOT a loose opaque payload (Jon prefers the closed,
+  editor-visible schema; hybrid only if a closed schema is infeasible —
+  no case seen).
+- **`KinematicPath`/`KinematicPathMode` are world/geometry vocabulary**
+  (moving-platform paths), mis-homed in `ambition_characters` by history
+  (old option "(d)", confirmed) → move to `ambition_world` or Tier-0.
+- **World→sim LOWERING seam:** sim/content INTERPRET world records into
+  behavior; the arrow is sim/content → world, never reverse; interpreters
+  register in [the space IR]'s converter registry; lowering runs at
+  room-load.
+- **The world is not immutable** — a base+delta seam for permanent
+  gameplay change is RESERVED (architecture §4b.5 / §5).
 
-**The options (opus recommends a hybrid — c+d — but it's fable's call):**
-- **(a) Opaque IR.** `RoomEmission` carries authored payloads as Tier-0
-  data (RON `Value`/strings/ids); the sim resolves them to
-  `CharacterBrain`/`DamageVolume` at spawn. Cleanest layering; costs a
-  resolve seam + loses compile-time schema checking at author time.
-- **(b) Draw the arrow.** Amend architecture.md to sanction
-  `world → characters + combat` (vocabulary-only). Cheapest diff;
-  weakens the "space IR is never a peer to the sim" invariant that makes
-  Tiled/Godot importers additive — a Godot importer would drag actor+
-  combat vocab. Opus's read: this erodes the property W exists to protect.
-- **(c) Sink the authored SPECS to Tier 0.** `CharacterBrain`/`BossBrain`/
-  `RespawnPolicy`/`DamageVolume` (as AUTHORED SCHEMAS, distinct from any
-  runtime component) move to a Tier-0 vocabulary crate (candidate:
-  `ambition_entity_catalog`, which already owns authored specs). Both
-  `ambition_world` and `ambition_characters`/`ambition_combat` then read
-  DOWN to it — no sideways arrow. Most work; best preserves the invariant.
-- **(d) `KinematicPath` is mis-homed.** A waypoint path + `PathMode` for a
-  MOVING PLATFORM is world/geometry vocabulary, not actor vocabulary — it
-  currently sits in `ambition_characters::actor` only by history. Moving
-  it to `ambition_world` (or Tier 0) resolves `world/platforms`,
-  `camera.rs`, and `ldtk_world/fields` path-parsing with zero sideways
-  arrow, independent of (a)/(b)/(c). Opus flags this as almost certainly
-  correct regardless of the brain/hazard call — a `git mv` of the type +
-  repoint `ambition_characters` consumers.
+**These implementation sub-questions remain fable's to rule (opus must NOT
+improvise the schema boundary — mark, do not invent):**
 
-**Also for fable at W3:** whichever of (a)/(c) is chosen dictates the
-`RoomEmission` payload shape, which W2 ("IR naming in place") should land
-FIRST — so W2 is blocked on this ruling. `encounter → world, characters`
-IS a drawn arrow, so if enemy/boss SPAWNS are re-homed to the encounter
-layer rather than the room emission, that arrow already covers them (a
-strong hint toward option (a): the space IR emits placements-with-opaque-
-payloads, the encounter/content layer interprets WHO spawns).
+- **QUESTION FOR FABLE [W-a] — the Tier-0 schema home + the schema/runtime
+  split.** Candidate home: `ambition_entity_catalog` ([the authoring
+  spine], already Tier-0). For each of `CharacterBrain`/`BossBrain`/
+  `DamageVolume`/`RespawnPolicy`: does the whole enum move to Tier-0 (it
+  may already be pure data), or does an authored SPEC split from the
+  runtime component/behavior? Draw the exact line. (`KinematicPath` is
+  already ruled → world/geometry.)
+- **QUESTION FOR FABLE [W-b] — the interpreter/converter registration
+  API.** The exact signature of a registered lowering interpreter
+  (`schema_id → fn(&Placement, &mut Commands, …)`), where the registry
+  lives, and the room-load call site. GENERALIZE the existing converter
+  registry; do not add a second.
+- **QUESTION FOR FABLE [W-c] — the mutable-world delta representation.**
+  base+overlay/delta vs mutable world state vs save-game patch layer.
+  Name the concept + reserve the seam now; full impl deferred. **Pin
+  which layer SimView observes** (must be base+delta composited).
+- **QUESTION FOR FABLE [W-d] — stable authored placement IDs.** Jon: good
+  if cheap, else DEFER — must not block the architecture. If deferred,
+  the future consumers that will want them: SimView identity, fuzz
+  traces, replay, save deltas, deterministic spawn identity, editor
+  diagnostics. Decide "required now / recommended-when-cheap / deferred"
+  and record which.
+- **QUESTION FOR FABLE [W-e] — unknown-placement policy.** Jon: a hard
+  error is probably fine (architectural clarity > perfect dev policy).
+  Optional refinement (only if cheap): hard-error for shipped/imported
+  content, warn+inert for dev/editor mode. Not a strong preference —
+  pick the simplest.
+
+**OPUS-SAFE once W-a/W-b are ruled:** the type moves (`KinematicPath`→
+world is already ruled and can proceed independently), the schema
+relocations, the dep-test (`ambition_world` names no runtime crate), the
+interpreter registration, and the room-load lowering wiring are mechanical
+opus work. W2 ("IR naming in place") depends on the [W-a] payload shape;
+`encounter → world, characters` is a drawn arrow, so enemy/boss spawn
+lowering can live in the encounter/content interpreter, not the IR.
+
+**⚠️ Jon's directive (2026-07-06): fable may run out of budget before
+ruling all of W-a…W-e. If so, these fall to opus — break them down
+carefully against this ruling + architecture §4b; do NOT invent doctrine
+that contradicts the pure-world-IR + Tier-0-schema decision above.**
 
 ### E1a–E1e — persistence → audio → dialog → dev_tools → menu — [opus; E1a fable-specced]
 
@@ -463,6 +491,12 @@ moves first; the TYPES move here).
    hit-event/volume types) → move combat-ward; (b) genuine sim facts →
    invert to parameters/read-model. No (c) — an unclassifiable ref goes
    to tracks.md as a design question, work continues on the rest.
+   **Note (Q31, 2026-07-06):** for any combat type that is BOTH an
+   authored placement schema AND a runtime component (`DamageVolume` is
+   the case — authored hazards vs the live hitbox), the AUTHORED-schema
+   half follows the Tier-0 ruling ([Q-FABLE W-a]); the runtime half moves
+   to `ambition_combat` here. Don't merge the two decisions — E2 owns the
+   runtime move, W-a owns the authored schema.
 3. Land (a)+(b) as compiling steps INSIDE gameplay_core (the cycle dies
    while iteration is cheap).
 4. Atomic moves: `combat/` (minus `world_overlay.rs` → W-track; minus
@@ -630,6 +664,15 @@ entirely) stays gated on E1 (menu/dev/persistence), E3
 (character_sprites), E-assets (GameAssets), and the rooms/world
 carve — those are the remaining render→gameplay_core imports, all
 vocabulary/assets, not sim state.
+**✅ SimView authority CONFIRMED (Jon, 2026-07-06, roadmap Q32):** SimView
+IS the presentation/observation boundary; presentation migrates toward
+SimView/observation facts, not raw sim reads, and architectural CHURN is
+ACCEPTED when it removes long-term coupling (the long game). So Step 5 is
+now **OPUS-SAFE sequencing, not a design question** — it proceeds
+mechanically as each gate (E1/E3/E-assets/W) lands; no fable ruling
+needed. (The one open SimView-adjacent design item is whether SimView also
+carries WORLD/geometry facts once permanent world change lands — that is
+[Q-FABLE W-c], tracked in the last-chance register.)
 
 #### E4 design sketch (pre-solved; do not re-derive)
 

@@ -21,6 +21,15 @@ directory wins.
    open questions.
 5. Then ONLY the engine/demo doc your task touches.
 
+**Fable availability is ending (2026-07-06).** Unresolved design decisions
+are tagged `QUESTION FOR FABLE [tag]` (opus must NOT improvise doctrine
+there) vs `OPUS-SAFE` (mechanical, execute freely) — convention in
+[`decomposition.md`](engine/decomposition.md) preamble. The consolidated
+**LAST-CHANCE FABLE QUESTION REGISTER** (what's open, what it blocks, the
+opus fallback for each) is at the top of [`tracks.md`](tracks.md). If a
+`QUESTION FOR FABLE` outlives fable, opus breaks it down carefully against
+the nearest ruling — it never invents a contradicting doctrine.
+
 ## The map
 
 - **`engine/`** — design docs, one per planned system:

@@ -512,7 +512,7 @@ explicitly (portal-side policy), which is what it always meant.
 |---|---|---|
 | CC1 | ✅ **COMPLETE (fable, 2026-07-06).** All three §3.4 rulings executed: (a) circle stays kernel-private (documented in cast's header); (b) `ray_aabb`/`raycast_solids`/`SolidWorldQuery` moved down into `cast`, `world_query.rs` deleted, consumers repointed; (c) `cast::ray_through_apertures` landed with CC5 — §3.5 segment semantics (incl. the flush-mount tie-break: `t == solid_t` → aperture wins), `raycast_through_portals` is now the gameplay wrapper supplying aperture pairs + the game-wide convention | done |
 | CC2 | ⏳ FIRST PASS (opus, 2026-07-06): `aabb_path_contacts` + hazards converted + tunneling test. **Completion = the §3.3 table:** auto-collect → ANY-HIT; mid-room Doors → FIRST-TOI; water/climb thin-region validator rule; ledge audit; the `AMBITION_REVIEW(discrete_ok)` markers; migrate hazard delta onto the §3.1 sample when it mints | [opus — the table is the checklist] |
-| CC3 | Fuzz invariant rig + CI wiring — the §6.1 oracle verbatim, §6.2 traces, seeded-reproducible | [opus — the oracle is written; no design freedom] |
+| CC3 | Fuzz invariant rig — the §6.1 oracle verbatim, §6.2 traces, seeded-reproducible. **DIAGNOSTIC-ONLY for now (Jon, 2026-07-06): it detects + reports illegal states + emits reproducible seeds/traces; it is NOT wired as a hard CI gate yet** (that would RED on the deferred embed/OOB bugs). SHAPE the seeds/traces so a staged hard gate can be switched on later without redesign (stable seed → replayable trace; a `--deny` mode is a flag flip, not a rewrite). | [opus — oracle written; no design freedom; the GATE-vs-diagnostic switch is Jon's, deferred] |
 | CC4 | Broadphase grid for chains+blocks casts (profile first) | [opus; NOT a CC1–CC3 precondition] |
 | CC5 | ✅ **LANDED (fable, 2026-07-06).** `engine_core::frame` minted (`PortalFrame {origin, normal, velocity}`, tangent DERIVED, `PortalAperture {frame, half_length}`, explicit `MapConvention`, `map_vec/map_point/map_velocity` incl. Galilean composition); platformer math delegates to the ONE implementation; `pieces::PortalFrame` REPLACED (no shim) — frame-only consumers take `&PortalFrame`, opening-aware take `&PortalAperture` (`PlacedPortal::{frame, aperture}`). Full parity suite green (portal 46, presentation 45, gameplay 1167, app rl_sim). CC6 may now read non-zero `velocity` | done |
 | CC6 | Moving portals: host-attached frames, §5-P2 update order + edge-case rulings, relative swept trigger, `map_velocity` composition, C4/portal conjugation tests | [opus — spec complete] |
@@ -526,7 +526,9 @@ capability tracks that BUILD ON the contracts; an executor on CC1–CC3 who
 finds themself blocked by one of them has mis-read a dependency — stop and
 re-check §3.
 
-Exit for the doctrine: CC1–CC3 landed and the fuzz rig green over all
-shipped rooms; §7.6-style bugs become impossible to write without failing
-review (an unswept path-dependent reader without a `discrete_ok` marker is
-a flagged pattern, same tier as `AMBITION_REVIEW(spatial)`).
+Exit for the doctrine: CC1–CC3 landed and the fuzz rig runs green over all
+shipped rooms **as a diagnostic** (Jon 2026-07-06 — hard CI gating is a
+deferred, deliberate switch, not a CC3 precondition); §7.6-style bugs
+become impossible to write without failing review (an unswept
+path-dependent reader without a `discrete_ok` marker is a flagged pattern,
+same tier as `AMBITION_REVIEW(spatial)`).

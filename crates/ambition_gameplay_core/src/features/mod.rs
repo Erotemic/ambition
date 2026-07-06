@@ -417,21 +417,36 @@ impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
     }
 }
 
-/// Rebuilds the presentation read-models once per frame: [`FeatureViewIndex`]
-/// (geometry/state for every feature) and [`ActorRenderIndex`] (the materialized
-/// per-actor identity facts the renderer binds sprites from). Both let
+/// Rebuilds the observation read-models once per frame, sim-side:
+/// [`FeatureViewIndex`] (geometry/state for every feature),
+/// [`ActorRenderIndex`] (the materialized per-actor identity facts the
+/// renderer binds sprites from), and — since E4 slice 19 — the per-actor
+/// POSE snapshot ([`ActorAnimIndex`]: overlay advance + anim pick). All let
 /// presentation read a snapshot instead of live-querying the sim's ECS.
+///
+/// The anim pair moving SIM-side (out of render's plugin) is the E4
+/// observation-boundary rule made real: clip+phase is a read-model fact
+/// (netcode confirmation, the fighter brain's move-phase reads, and
+/// per-observer views all consume it), so a headless build computes it
+/// too — extraction systems are functions of sim state that run LAST in
+/// the sim tail, and presentation is a pure consumer.
 pub struct FeatureViewSyncSchedulePlugin;
 
 impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use bevy::prelude::{IntoScheduleConfigs, Update};
+        // Owned here (anti-god rule 5): the plugin that rebuilds the index
+        // initializes it; render only reads.
+        app.init_resource::<ActorAnimIndex>();
         app.add_systems(
             Update,
             (
                 rebuild_feature_view_index,
                 rebuild_actor_render_index,
                 rebuild_boss_render_index,
+                // Overlay clocks advance right before their one reader
+                // rebuilds the pose snapshot (§A9 ordering, preserved).
+                (advance_actor_anim_overlays, rebuild_actor_anim_index).chain(),
             )
                 .in_set(crate::schedule::SandboxSet::FeatureViewSync),
         );

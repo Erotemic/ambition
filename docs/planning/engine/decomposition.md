@@ -399,11 +399,35 @@ committable slice; render-side reads become SimView fields):**
     snapshot builder now lives sim-side, so it's a field addition).
 18. fx blink preview (`MovingPlatformSet` + composed world) → a
     sim-computed `BlinkPreviewFact { target_point, valid }`.
-19. The extraction systems + `ActorAnimIndex` init move OUT of
-    render's plugin into sim_view's plugin (LAST in sim schedule).
-20. The nine portal glue systems registered by render's plugin →
-    the portal adapter/actors side (with E7); render keeps only
-    presentation.
+19. ✅ **DONE (fable 2026-07-06): the extraction systems moved
+    sim-side.** `FeatureViewSyncSchedulePlugin` (already the
+    observation-rebuild plugin, in the engine group) now owns
+    `ActorAnimIndex` + the `(advance_actor_anim_overlays,
+    rebuild_actor_anim_index)` chain in the `FeatureViewSync` tail;
+    render's `PresentationVisualAnimationPlugin` is a pure consumer
+    (its init + registrations deleted). Ordering preserved for free:
+    `PresentationVisualSync.after(FeatureViewSync)` already pins
+    `animate_characters` to same-frame reads. Headless builds now
+    compute the pose read-model — that is the POINT (clip+phase is a
+    SimView fact: netcode confirmation, brain move-phase reads,
+    per-observer views).
+20. The portal glue systems render registers (`sync_portal_world_frame`,
+    `sync_portal_viewer`, `sync_portal_camera_continuity_focus`,
+    `sync_portal_debug_overlay_to_f1`, `tag_portal_scene_bodies`,
+    `portal_dev_toggle_system`, `portal_convention_toggle_system`, the
+    `load_portal_gun_art` startup) → the portal adapter side (with E7).
+    **Design pinned (fable 2026-07-06):** the blocker is the ordering
+    pins against render-internal labels (`PortalPresentationSet`,
+    `sync_visuals`, `animate_player`). The inversion: gameplay_core's
+    portal adapter declares a public sim-side `PortalObservationSet`,
+    registers the glue there in ITS plugin, and render keeps only ONE
+    set-to-set constraint (`PortalPresentationSet
+    .after(PortalObservationSet)`) — a label dependency, not system
+    registration. `tag_portal_scene_bodies`'s `.after(sync_visuals)`
+    pin means it reads render-spawned visuals: audit it first; if it
+    tags render entities it is PRESENTATION (stays, renamed); if it
+    tags sim bodies the pin is stale. [opus executes against this
+    paragraph]
 
 **Step 4 — mint the crate:** `ambition_sim_view` takes
 `camera_snapshot.rs`, `view_index.rs`, the anim index, camera-ease;

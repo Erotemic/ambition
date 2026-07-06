@@ -210,9 +210,10 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
         use bevy::prelude::{IntoScheduleConfigs, Update};
         deep_dream::add_puppy_slug_deep_dream_material_plugin(app);
         hit_flash::add_hit_flash_material_plugin(app);
-        // The per-actor pose read-model lives (and is rebuilt) presentation-side, so
-        // a headless / RL build never computes poses it won't draw.
-        app.init_resource::<ambition_gameplay_core::features::ActorAnimIndex>();
+        // The per-actor pose read-model (`ActorAnimIndex`) is rebuilt SIM-side
+        // (E4 slice 19: `FeatureViewSyncSchedulePlugin` owns the resource and
+        // the overlay-advance + rebuild pair, in the FeatureViewSync tail this
+        // chain is ordered after) — presentation is a pure consumer.
         app.add_systems(
             Update,
             (
@@ -243,16 +244,6 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // — same world-space sync pattern as deep_dream.
                 hit_flash::attach_hit_flash_overlays,
                 actors::animate_player,
-                // One chain slot (keeps this tuple within Bevy's 20-system arity):
-                // advance actors' movement-driven anim overlays (landing /
-                // dash-startup) right before the pose rebuild reads them, so an AI
-                // fighter shows those poses like the player (§A9); then rebuild the
-                // per-actor pose snapshot the renderer consumes, reflecting this
-                // frame's clusters. Both presentation-only — headless/RL skips them.
-                (
-                    ambition_gameplay_core::features::advance_actor_anim_overlays,
-                    ambition_gameplay_core::features::rebuild_actor_anim_index,
-                ),
                 actors::animate_characters,
                 // Mirror the current atlas frame into the overlay after the
                 // character animator has advanced for this frame.

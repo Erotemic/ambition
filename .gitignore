@@ -131,3 +131,5 @@ crates/ambition_gameplay_core/assets/backgrounds/parallax_layers_potato/
 # Agent/worktree scratch (must never be committed)
 .worktrees/
 .tmp-ambition-agent-source-*/
+
+coverage-reports/

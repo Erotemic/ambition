@@ -149,6 +149,7 @@ dependencies = [
  "ambition_menu",
  "ambition_platformer_primitives",
  "ambition_render",
+ "ambition_runtime",
  "ambition_sfx",
  "ambition_time",
  "ambition_touch_input",
@@ -205,6 +206,7 @@ name = "ambition_characters"
 version = "0.1.0"
 dependencies = [
  "ambition_engine_core",
+ "ambition_entity_catalog",
  "ambition_input",
  "bevy",
  "ron 0.11.0",
@@ -410,6 +412,15 @@ dependencies = [
  "ambition_vfx",
  "bevy",
  "leafwing-input-manager",
+]
+
+[[package]]
+name = "ambition_runtime"
+version = "0.1.0"
+dependencies = [
+ "ambition_characters",
+ "ambition_gameplay_core",
+ "bevy",
 ]
 
 [[package]]

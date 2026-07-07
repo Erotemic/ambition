@@ -82,8 +82,8 @@ fn boss_strike_spawns_a_boss_hitbox_through_the_moveset() {
     let hb = hits[0];
     assert_eq!(
         hb.source,
-        crate::combat::components::ActorFaction::Boss,
-        "boss strike hitbox must carry the Boss faction so apply_hitbox_damage routes it"
+        ambition_vfx::HitSide::Boss,
+        "boss strike hitbox must carry the Boss side so apply_hitbox_damage routes it"
     );
     assert!(hb.damage >= 1, "strike hitbox should deal damage");
     // The hit volume (FloorSlam sits below the body) is non-degenerate.

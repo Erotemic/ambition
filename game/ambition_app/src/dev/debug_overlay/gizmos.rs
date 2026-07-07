@@ -850,11 +850,12 @@ pub(crate) fn draw_feature_debug(
         };
         let aabb = hitbox.world_aabb(owner_pos);
         let (color, tag) = match hitbox.source {
-            ambition_actors::features::ActorFaction::Player => (player_hitbox_color, "hit:player"),
-            ambition_actors::features::ActorFaction::Enemy => (enemy_hitbox_color, "hit:enemy"),
-            ambition_actors::features::ActorFaction::Boss => (boss_hitbox_color, "hit:boss"),
-            ambition_actors::features::ActorFaction::Npc
-            | ambition_actors::features::ActorFaction::Neutral => (npc_hitbox_color, "hit:npc"),
+            ambition_vfx::HitSide::Player => (player_hitbox_color, "hit:player"),
+            ambition_vfx::HitSide::Enemy => (enemy_hitbox_color, "hit:enemy"),
+            ambition_vfx::HitSide::Boss => (boss_hitbox_color, "hit:boss"),
+            ambition_vfx::HitSide::Npc | ambition_vfx::HitSide::Neutral => {
+                (npc_hitbox_color, "hit:npc")
+            }
         };
         draw_aabb_styled(gizmos, world, aabb, color, developer_tools);
         label_box(labels, aabb, tag, color, LabelSpot::TopRight);

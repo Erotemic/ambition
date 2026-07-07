@@ -904,13 +904,13 @@ fn architecture_boundaries_effects_crate_is_foundation_only() {
     );
     assert_manifest_has_no_deps(
         &crate_root,
-        &["ambition_actors"],
+        &["ambition_actors", "ambition_characters"],
         "ambition_vfx is the reusable effect substrate (Effect vocabulary + \
-         Hitbox + executor); it must never depend on the game lib",
+         Hitbox + executor); it must never depend on the game lib or cast crate",
     );
     assert_source_tree_has_no_code_refs(
         crate_root.join("src"),
-        &["ambition_actors"],
+        &["ambition_actors", "ambition_characters"],
         "ambition_vfx must stay content-free / foundation-only",
     );
 }

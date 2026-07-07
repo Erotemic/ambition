@@ -17,9 +17,6 @@ bevy = { version = "0.18.1", default-features = false }
 # Geometry (Vec2 / Aabb) — the pure-logic foundation.
 ambition_engine_core = { path = "../ambition_engine_core" }
 
-# ActorFaction (a hitbox / effect is faction-tagged).
-ambition_characters = { path = "../ambition_characters" }
-
 # The projectile substrate: ProjectileFaction + the EnemyProjectileSpawn request
 # carried by Effect::Projectiles.
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }

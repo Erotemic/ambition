@@ -36,6 +36,7 @@ use super::components::ActorFaction;
 use super::events::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
 use super::targeting::{damage_lands, effective_faction};
 use super::util::midpoint;
+use crate::{actor_faction_from_hit_side, hit_side_from_actor_faction};
 use ambition_sfx::SfxMessage;
 use ambition_time::WorldTime;
 use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
@@ -45,7 +46,7 @@ use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 // damage-box primitive). Re-exported here so `combat::hitbox::Hitbox`
 // (and `features::Hitbox`) paths are unchanged; the SYSTEMS below (damage
 // resolution, melee spawn, lifecycle) stay in the lib.
-pub use ambition_vfx::{Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime};
+pub use ambition_vfx::{HitSide, Hitbox, HitboxAnchor, HitboxHits, HitboxLifetime};
 
 /// Apply each live hitbox's damage to the right faction's targets.
 ///
@@ -135,6 +136,7 @@ pub fn apply_hitbox_damage(
         };
         let world_volume = hitbox.world_volume(owner_pos);
 
+        let source_faction = actor_faction_from_hit_side(hitbox.source);
         match hitbox.source {
             // Aggressor melee: Enemy, Boss, OR a PROVOKED Npc (a peaceful NPC turned
             // hostile keeps its Npc faction but fights like any aggressor). All three
@@ -142,8 +144,8 @@ pub fn apply_hitbox_damage(
             // physical rule; same-faction allies are spared via `can_damage`. (A
             // PEACEFUL NPC never reaches here — with no combat target it spawns no
             // hitbox.) Only `Neutral` is truly inert.
-            ActorFaction::Enemy | ActorFaction::Boss | ActorFaction::Npc => {
-                let source_kind = if matches!(hitbox.source, ActorFaction::Boss) {
+            HitSide::Enemy | HitSide::Boss | HitSide::Npc => {
+                let source_kind = if matches!(hitbox.source, HitSide::Boss) {
                     HitSource::BossAttack
                 } else {
                     HitSource::EnemyAttack
@@ -183,7 +185,7 @@ pub fn apply_hitbox_damage(
                     }
                     let victim_faction = effective_faction(*victim_faction, victim_brain);
                     if !damage_lands(
-                        hitbox.source,
+                        source_faction,
                         victim_faction,
                         friendly_fire,
                         owner_grudge,
@@ -293,7 +295,7 @@ pub fn apply_hitbox_damage(
             // only difference. Fires once per strike (the owner doubles as a
             // "already fired" sentinel in `HitboxHits`, harmless since a hitbox
             // never targets its own owner).
-            ActorFaction::Player => match hitbox.anchor {
+            HitSide::Player => match hitbox.anchor {
                 // A FollowOwner Player strike is a MELEE SWING (the player's slash,
                 // or a possessed actor's) — the unified counterpart of the old
                 // per-frame `advance_attack` Volume emit. Emit the Volume `HitEvent`
@@ -347,7 +349,7 @@ pub fn apply_hitbox_damage(
             },
             // Neutral never spawns a damaging hitbox (a provoked Npc is handled by
             // the aggressor branch above with its real faction).
-            ActorFaction::Neutral => {}
+            HitSide::Neutral => {}
         }
     }
 }
@@ -391,7 +393,7 @@ pub fn spawn_melee_hitbox(
         .spawn((
             Hitbox {
                 owner,
-                source,
+                source: hit_side_from_actor_faction(source),
                 anchor: HitboxAnchor::FollowOwner { local_offset },
                 half_extent,
                 shape: None,

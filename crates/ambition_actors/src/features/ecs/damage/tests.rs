@@ -564,8 +564,8 @@ fn exploding_mite_blast_is_a_player_damaging_enemy_hitbox() {
     assert_eq!(boxes.len(), 1, "the mite's death spawns one blast hitbox");
     assert_eq!(
         boxes[0].source,
-        crate::features::ActorFaction::Enemy,
-        "enemy-faction → the blast damages the player, not other mites (no chain)",
+        ambition_vfx::HitSide::Enemy,
+        "enemy side -> the blast damages the player, not other mites (no chain)",
     );
     assert_eq!(boxes[0].damage, EXPLODER_BLAST_DAMAGE);
     if let crate::features::HitboxAnchor::World { center } = boxes[0].anchor {

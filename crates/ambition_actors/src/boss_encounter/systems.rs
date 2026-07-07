@@ -410,14 +410,14 @@ pub fn boss_phase_transition_feedback(
             // The transition is a dodge-able GAMEPLAY beat, not just feel: the
             // boss emits a `DamageBox` effect through the SAME generic
             // `apply_effects` consumer the player's shockwave gauntlet uses.
-            // Resolved at the boss's own position + faction (`ActorFaction::Boss`),
+            // Resolved at the boss's own position + side (`HitSide::Boss`),
             // so the shared `apply_hitbox_damage` lands it on the player — the
             // literal "player and boss fire the same attack" unification, in-game.
             effects.write(ambition_vfx::EffectRequest {
                 owner: entity,
                 effect: ambition_vfx::Effect::DamageBox(ambition_vfx::DamageBoxEffect {
                     center: aabb.center,
-                    faction: crate::features::ActorFaction::Boss,
+                    faction: ambition_vfx::HitSide::Boss,
                     half_extent: ae::Vec2::new(170.0, 80.0),
                     damage: 2,
                     knockback: 1.6,

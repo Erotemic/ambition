@@ -99,7 +99,7 @@ pub fn spawn_seismic_stomp_from_special_messages(
                 owner: entity,
                 effect: Effect::DamageBox(ambition_vfx::DamageBoxEffect {
                     center,
-                    faction: ActorFaction::Boss,
+                    faction: ambition_vfx::HitSide::Boss,
                     half_extent: SEISMIC_HALF_EXTENT,
                     damage: SEISMIC_DAMAGE,
                     knockback: SEISMIC_KNOCKBACK,

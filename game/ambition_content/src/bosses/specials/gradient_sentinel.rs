@@ -539,7 +539,7 @@ pub fn spawn_minima_trap_from_special_messages(
             owner: entity,
             effect: ambition_vfx::Effect::DamageBox(ambition_vfx::DamageBoxEffect {
                 center: pit_center,
-                faction: ActorFaction::Boss,
+                faction: ambition_vfx::HitSide::Boss,
                 half_extent: ae::Vec2::new(hx, hy),
                 damage,
                 knockback: MINIMA_TRAP_KNOCKBACK,
@@ -591,7 +591,7 @@ pub fn spawn_minima_trap_from_special_messages(
                     half_size: MINIMA_TRAP_MINION_HALF_SIZE,
                     archetype_id: MINIMA_TRAP_MINION_ARCHETYPE.to_string(),
                     encounter_id,
-                    faction: ambition_actors::features::ActorFaction::Enemy,
+                    faction: ambition_vfx::HitSide::Enemy,
                 }),
             });
         }
@@ -700,7 +700,7 @@ pub fn spawn_saddle_point_from_special_messages(
             ambition_vfx::spawn_damage_box(
                 commands,
                 entity,
-                ActorFaction::Boss,
+                ambition_vfx::HitSide::Boss,
                 boss.kin.pos,
                 ambition_vfx::DamageBox {
                     half_extent: ae::Vec2::new(he_x, he_y),
@@ -847,7 +847,7 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
                     half_size: GRADIENT_CASCADE_MINION_HALF_SIZE,
                     archetype_id: GRADIENT_CASCADE_MINION_ARCHETYPE.to_string(),
                     encounter_id: encounter_id.clone(),
-                    faction: ambition_actors::features::ActorFaction::Enemy,
+                    faction: ambition_vfx::HitSide::Enemy,
                 }),
             });
         }

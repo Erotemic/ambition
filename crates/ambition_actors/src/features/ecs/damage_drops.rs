@@ -61,7 +61,7 @@ pub(super) fn spawn_death_explosion(commands: &mut Commands, owner: Entity, pos:
     ambition_vfx::spawn_damage_box(
         commands,
         owner,
-        crate::features::ActorFaction::Enemy,
+        ambition_vfx::HitSide::Enemy,
         pos,
         ambition_vfx::DamageBox {
             half_extent: ae::Vec2::splat(EXPLODER_BLAST_HALF),

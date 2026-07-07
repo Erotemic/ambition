@@ -13,7 +13,7 @@ fn dummy_entity() -> Entity {
 fn follow_owner_hitbox_aabb_tracks_owner_position() {
     let hitbox = Hitbox {
         owner: dummy_entity(),
-        source: ActorFaction::Enemy,
+        source: HitSide::Enemy,
         anchor: HitboxAnchor::FollowOwner {
             local_offset: ae::Vec2::new(-20.0, 0.0),
         },
@@ -41,7 +41,7 @@ fn follow_owner_hitbox_aabb_tracks_owner_position() {
 fn world_anchor_hitbox_ignores_owner_position() {
     let hitbox = Hitbox {
         owner: dummy_entity(),
-        source: ActorFaction::Boss,
+        source: HitSide::Boss,
         anchor: HitboxAnchor::World {
             center: ae::Vec2::new(500.0, 600.0),
         },
@@ -87,7 +87,7 @@ fn tick_and_despawn_drops_expired_hitboxes() {
         .spawn((
             Hitbox {
                 owner: dummy_entity(),
-                source: ActorFaction::Enemy,
+                source: HitSide::Enemy,
                 anchor: HitboxAnchor::FollowOwner {
                     local_offset: ae::Vec2::ZERO,
                 },
@@ -124,7 +124,7 @@ fn tick_and_despawn_keeps_live_hitboxes() {
         .spawn((
             Hitbox {
                 owner: dummy_entity(),
-                source: ActorFaction::Enemy,
+                source: HitSide::Enemy,
                 anchor: HitboxAnchor::FollowOwner {
                     local_offset: ae::Vec2::ZERO,
                 },
@@ -243,7 +243,7 @@ fn player_faction_hitbox_emits_an_attacker_side_feature_hit() {
     app.world_mut().spawn((
         Hitbox {
             owner,
-            source: ActorFaction::Player,
+            source: HitSide::Player,
             anchor: HitboxAnchor::World {
                 center: ae::Vec2::new(200.0, 80.0),
             },
@@ -304,7 +304,7 @@ fn arena_hitbox_app(relations: FactionRelations, victim_faction: ActorFaction) -
     app.world_mut().spawn((
         Hitbox {
             owner,
-            source: ActorFaction::Enemy,
+            source: HitSide::Enemy,
             anchor: HitboxAnchor::World {
                 center: ae::Vec2::new(100.0, 100.0),
             },
@@ -411,7 +411,7 @@ fn enemy_hitbox_over_player_app(relations: FactionRelations) -> (App, Entity) {
     app.world_mut().spawn((
         Hitbox {
             owner,
-            source: ActorFaction::Enemy,
+            source: HitSide::Enemy,
             anchor: HitboxAnchor::World {
                 center: ae::Vec2::new(100.0, 100.0),
             },
@@ -504,7 +504,7 @@ fn player_faction_hitbox_only_fires_once() {
     app.world_mut().spawn((
         Hitbox {
             owner,
-            source: ActorFaction::Player,
+            source: HitSide::Player,
             anchor: HitboxAnchor::World {
                 center: ae::Vec2::ZERO,
             },
@@ -575,7 +575,7 @@ fn player_followowner_melee_strike_emits_player_slash_with_knock_x() {
     app.world_mut().spawn((
         Hitbox {
             owner,
-            source: ActorFaction::Player,
+            source: HitSide::Player,
             anchor: HitboxAnchor::FollowOwner {
                 local_offset: ae::Vec2::new(30.0, 0.0),
             },
@@ -626,7 +626,7 @@ fn player_followowner_strike_without_a_swing_is_inert() {
     app.world_mut().spawn((
         Hitbox {
             owner,
-            source: ActorFaction::Player,
+            source: HitSide::Player,
             anchor: HitboxAnchor::FollowOwner {
                 local_offset: ae::Vec2::ZERO,
             },

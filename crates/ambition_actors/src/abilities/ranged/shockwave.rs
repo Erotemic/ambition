@@ -70,7 +70,7 @@ pub fn fire_shockwave_system(
             owner: entity,
             effect: ambition_vfx::Effect::DamageBox(ambition_vfx::DamageBoxEffect {
                 center: kin.pos,
-                faction: crate::features::ActorFaction::Player,
+                faction: ambition_vfx::HitSide::Player,
                 half_extent,
                 damage: SHOCKWAVE_DAMAGE,
                 knockback: SHOCKWAVE_KNOCKBACK,
@@ -133,8 +133,8 @@ mod tests {
         assert_eq!(boxes.len(), 1, "one shockwave AOE spawned");
         assert_eq!(
             boxes[0].source,
-            ActorFaction::Player,
-            "AOE carries the player's faction"
+            ambition_vfx::HitSide::Player,
+            "AOE carries the player's side"
         );
         assert_eq!(boxes[0].owner, player);
         assert!(
@@ -201,7 +201,7 @@ mod tests {
             owner: enemy,
             effect: ambition_vfx::Effect::DamageBox(ambition_vfx::DamageBoxEffect {
                 center: ae::Vec2::new(300.0, 80.0),
-                faction: ActorFaction::Enemy,
+                faction: ambition_vfx::HitSide::Enemy,
                 half_extent: ae::Vec2::new(60.0, 30.0),
                 damage: 3,
                 knockback: 1.0,
@@ -215,8 +215,8 @@ mod tests {
         assert_eq!(boxes.len(), 1, "the enemy's slam spawns one AOE");
         assert_eq!(
             boxes[0].source,
-            ActorFaction::Enemy,
-            "AOE carries the enemy's faction"
+            ambition_vfx::HitSide::Enemy,
+            "AOE carries the enemy's side"
         );
         assert_eq!(boxes[0].owner, enemy);
     }

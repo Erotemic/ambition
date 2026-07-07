@@ -1254,7 +1254,7 @@ pub fn apply_summon_effects(
                 s.half_size,
                 &s.archetype_id,
                 s.encounter_id.clone(),
-                s.faction,
+                crate::combat::actor_faction_from_hit_side(s.faction),
                 super::ActorAggression::hostile(),
             );
         }

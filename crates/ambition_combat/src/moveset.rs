@@ -37,7 +37,7 @@ use ambition_time::ProperTimeScale;
 
 use super::components::{ActorFaction, BodyMelee, MeleeSwing};
 use super::hitbox::{Hitbox, HitboxAnchor, HitboxHits};
-use crate::{AttackIntent, AttackSpec};
+use crate::{hit_side_from_actor_faction, AttackIntent, AttackSpec};
 use ambition_characters::brain::action_set::{
     ActionRequest, MeleeActionSpec, RangedActionSpec, SpecialActionSpec,
 };
@@ -962,7 +962,7 @@ pub fn advance_move_playback(
                         let half_extent = body_frame.to_world_half(half_extent);
                         let hb = Hitbox {
                             owner,
-                            source: strike_faction,
+                            source: hit_side_from_actor_faction(strike_faction),
                             anchor: HitboxAnchor::FollowOwner { local_offset },
                             half_extent,
                             shape,

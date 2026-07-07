@@ -50,11 +50,13 @@ prescription — log-once so E7/E8 executors don't re-derive:
    host adapter systems from `ambition_host::portal`; `ambition_actors` no
    longer depends on `ambition_portal_presentation`, and the boundary test
    ratchets against reintroducing the facade.
-3. **`ambition_vfx` → `ambition_characters` for ONE type (`ActorFaction`).**
-   The effect vocabulary crate pulls the whole cast crate for a tag it only
-   uses to pick a tint/side. **Prescription: the vfx message carries the
-   presentation-neutral fact it actually needs (a `HitSide`/tint enum owned
-   by vfx, mapped at the emit site); drop the dep.**
+3. ✅ **DONE (Codex 2026-07-07): `ambition_vfx` no longer depends on
+   `ambition_characters` for `ActorFaction`.** The effect vocabulary now owns
+   `HitSide`, and emitters store that presentation-neutral side on
+   `Hitbox`/`DamageBoxEffect`/`SummonSpec`. Combat maps `ActorFaction` ↔
+   `HitSide` at spawn/resolution edges, summon execution maps back when it
+   actually creates an actor, and the architecture boundary test now forbids
+   both `ambition_actors` and `ambition_characters` in `ambition_vfx`.
 4. **`GameMode` lives in `ambition_actors` and leaks it into host,
    touch_input, and (via schedule/run-conditions) render.** It is a tiny
    session-state enum. **Prescription: move `game_mode` DOWN (candidate: its

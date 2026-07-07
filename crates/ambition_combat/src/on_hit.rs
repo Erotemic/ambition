@@ -128,7 +128,13 @@ pub fn dispatch_hitbox_on_hit(
             let connects = match faction {
                 Some(f) => {
                     let vf = effective_faction(*f, brain);
-                    damage_lands(hitbox.source, vf, friendly_fire, owner_grudge, target)
+                    damage_lands(
+                        crate::actor_faction_from_hit_side(hitbox.source),
+                        vf,
+                        friendly_fire,
+                        owner_grudge,
+                        target,
+                    )
                 }
                 // Factionless world target: eligible iff pogo-able.
                 None => is_pogo_target,

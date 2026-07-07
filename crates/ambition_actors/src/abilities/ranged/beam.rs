@@ -24,7 +24,7 @@ use bevy::prelude::*;
 use crate::abilities::traversal::possession::ControlledSubject;
 use crate::actor::BodyKinematics;
 use crate::actor::BodyMana;
-use crate::features::{ActorFaction, HeldItem};
+use crate::features::HeldItem;
 use ambition_engine_core as ae;
 
 /// Held-item id of the focus-beam gauntlet.
@@ -120,7 +120,7 @@ pub fn fire_beam_system(
         owner: entity,
         effect: ambition_vfx::Effect::DamageBox(ambition_vfx::DamageBoxEffect {
             center: kin.pos + offset,
-            faction: ActorFaction::Player,
+            faction: ambition_vfx::HitSide::Player,
             half_extent,
             damage: BEAM_DAMAGE,
             knockback: BEAM_KNOCKBACK,
@@ -174,8 +174,8 @@ mod tests {
         assert_eq!(boxes.len(), 1, "one beam hitbox spawned");
         assert_eq!(
             boxes[0].source,
-            ActorFaction::Player,
-            "beam carries the player's faction so it damages enemies, not the player"
+            ambition_vfx::HitSide::Player,
+            "beam carries the player's side so it damages enemies, not the player"
         );
         assert_eq!(boxes[0].owner, player);
         // Default facing (+x), no directional hold → a forward HORIZONTAL lance:

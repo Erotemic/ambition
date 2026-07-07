@@ -15,7 +15,6 @@
 
 use bevy::prelude::*;
 
-use ambition_characters::actor::ActorFaction;
 use ambition_engine_core as ae;
 use ambition_platformer_primitives::projectile::EnemyProjectileSpawn;
 
@@ -29,6 +28,38 @@ pub use vfx::{
 // Hitbox — the world-anchored damage volume an effect spawns.
 // ===================================================================
 
+/// Presentation-neutral side tag carried by effect messages and hitboxes.
+///
+/// This intentionally mirrors the combat-facing actor faction vocabulary
+/// without depending on the character crate: effect producers map their richer
+/// game-side faction into this small fact at the emit site, and combat
+/// resolvers map it back when they need faction relations.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum HitSide {
+    /// Local or remote player-controlled side.
+    #[default]
+    Player,
+    /// Encounter-spawned hostile side.
+    Enemy,
+    /// Authored NPC side. Peaceful NPCs do not emit combat effects, but
+    /// provoked NPCs keep this side so personal-grudge combat stays expressible.
+    Npc,
+    /// Boss-tier hostile side.
+    Boss,
+    /// Inert/non-combatant side.
+    Neutral,
+}
+
+impl HitSide {
+    pub fn is_player_side(self) -> bool {
+        matches!(self, Self::Player)
+    }
+
+    pub fn is_hostile_side(self) -> bool {
+        matches!(self, Self::Enemy | Self::Boss)
+    }
+}
+
 /// One in-flight strike's damage volume. Spawned on the windup → active edge of
 /// an attack (or by a `DamageBox` effect); despawned when its [`HitboxLifetime`]
 /// expires. Damage resolution (`apply_hitbox_damage`) lives in the game lib.
@@ -38,7 +69,7 @@ pub struct Hitbox {
     /// anchor's world position each tick).
     pub owner: Entity,
     /// Whose attack is this? Picks the target query in damage resolution.
-    pub source: ActorFaction,
+    pub source: HitSide,
     /// `FollowOwner` re-resolves the AABB each tick from the owner's
     /// authoritative position; `World` is a fixed world-space rectangle.
     pub anchor: HitboxAnchor,
@@ -152,7 +183,7 @@ pub struct DamageBox {
 pub fn spawn_damage_box(
     commands: &mut Commands,
     owner: Entity,
-    source: ActorFaction,
+    source: HitSide,
     center: ae::Vec2,
     dbox: DamageBox,
 ) -> Entity {
@@ -195,7 +226,7 @@ pub fn spawn_damage_box(
 /// knows its faction, so the executor needs no actor queries.
 pub struct DamageBoxEffect {
     pub center: ae::Vec2,
-    pub faction: ActorFaction,
+    pub faction: HitSide,
     pub half_extent: ae::Vec2,
     pub damage: i32,
     pub knockback: f32,
@@ -214,7 +245,7 @@ pub struct SummonSpec {
     pub half_size: ae::Vec2,
     pub archetype_id: String,
     pub encounter_id: String,
-    pub faction: ActorFaction,
+    pub faction: HitSide,
 }
 
 /// A composable effect an actor *technique* emits. [`apply_effects`] executes
@@ -275,7 +306,7 @@ mod hitbox_shape_tests {
         // not the half_extent box.
         let hb = Hitbox {
             owner: Entity::PLACEHOLDER,
-            source: ActorFaction::Player,
+            source: HitSide::Player,
             anchor: HitboxAnchor::FollowOwner {
                 local_offset: ae::Vec2::new(20.0, 0.0),
             },
@@ -288,6 +319,7 @@ mod hitbox_shape_tests {
             damage: 1,
             knockback_strength: 0.0,
             knockback_growth: 0.0,
+            launch_dir: None,
             knock_x: 0.0,
         };
         match hb.world_volume(ae::Vec2::new(100.0, 50.0)) {
@@ -303,7 +335,7 @@ mod hitbox_shape_tests {
     fn unshaped_hitbox_falls_back_to_the_half_extent_box() {
         let hb = Hitbox {
             owner: Entity::PLACEHOLDER,
-            source: ActorFaction::Enemy,
+            source: HitSide::Enemy,
             anchor: HitboxAnchor::World {
                 center: ae::Vec2::new(5.0, 5.0),
             },
@@ -316,6 +348,7 @@ mod hitbox_shape_tests {
             damage: 1,
             knockback_strength: 0.0,
             knockback_growth: 0.0,
+            launch_dir: None,
             knock_x: 0.0,
         };
         assert!(matches!(

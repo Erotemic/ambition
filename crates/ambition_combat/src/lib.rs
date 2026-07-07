@@ -32,6 +32,30 @@ pub use ambition_platformer_primitives::lifecycle::FeatureSimEntity;
 pub use hazard_runtime::*;
 pub use path_motion::*;
 
+/// Convert the gameplay faction vocabulary into the presentation-neutral side
+/// tag carried by vfx effect messages and hitbox entities.
+pub fn hit_side_from_actor_faction(faction: ActorFaction) -> ambition_vfx::HitSide {
+    match faction {
+        ActorFaction::Player => ambition_vfx::HitSide::Player,
+        ActorFaction::Enemy => ambition_vfx::HitSide::Enemy,
+        ActorFaction::Npc => ambition_vfx::HitSide::Npc,
+        ActorFaction::Boss => ambition_vfx::HitSide::Boss,
+        ActorFaction::Neutral => ambition_vfx::HitSide::Neutral,
+    }
+}
+
+/// Convert the vfx-side hit tag back to combat's relationship vocabulary at the
+/// resolver edge.
+pub fn actor_faction_from_hit_side(side: ambition_vfx::HitSide) -> ActorFaction {
+    match side {
+        ambition_vfx::HitSide::Player => ActorFaction::Player,
+        ambition_vfx::HitSide::Enemy => ActorFaction::Enemy,
+        ambition_vfx::HitSide::Npc => ActorFaction::Npc,
+        ambition_vfx::HitSide::Boss => ActorFaction::Boss,
+        ambition_vfx::HitSide::Neutral => ActorFaction::Neutral,
+    }
+}
+
 /// Seconds a player must stand on a breakable before it shatters.
 const BREAK_ON_STAND_SECONDS: f32 = 0.85;
 

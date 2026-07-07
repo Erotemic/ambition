@@ -56,7 +56,7 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
     #[cfg(feature = "portal")]
     app.world_mut()
         .entity_mut(player)
-        .insert(crate::portal::PortalGun::default());
+        .insert(ambition_portal::PortalGun::default());
 
     // No reset queued → nothing changes.
     app.update();
@@ -95,7 +95,7 @@ fn sandbox_reset_clears_portals_held_items_and_summons() {
     #[cfg(feature = "portal")]
     assert!(
         app.world()
-            .get::<crate::portal::PortalGun>(player)
+            .get::<ambition_portal::PortalGun>(player)
             .is_none(),
         "portal gun removed from player"
     );

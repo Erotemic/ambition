@@ -1,10 +1,10 @@
 //! Gravity-zone mechanic plugin.
 //!
-//! Owns the registration that used to live inside `crate::portal` (Stage 6
+//! Owns the registration that used to live inside `ambition_portal` (Stage 6
 //! follow-up): the ambient-gravity resources, the per-frame gravity-zone
 //! snapshot (oscillate → collect), the room-reset gravity reset, and the
 //! ambient gravity-flip switch. This is a *gravity mechanic*, so it owns its own
-//! scheduling and must not depend on `crate::portal`.
+//! scheduling and must not depend on `ambition_portal`.
 //!
 //! Note: `crate::physics::BaseGravity` (the ambient-gravity resource) STAYS in
 //! `crate::physics` because it is read widely; this plugin only owns the

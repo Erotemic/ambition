@@ -1,7 +1,7 @@
 //! Gravity-zone lifecycle / room-reset policy and the ambient gravity-flip
-//! switch. Extracted from `crate::portal::lifecycle` (Stage 6 follow-up): these
+//! switch. Extracted from `ambition_portal::lifecycle` (Stage 6 follow-up): these
 //! are a *gravity mechanic*, not portal behavior, so they own their state here
-//! and must not depend on `crate::portal`.
+//! and must not depend on `ambition_portal`.
 
 use bevy::prelude::*;
 

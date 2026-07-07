@@ -9,7 +9,7 @@
 
 use bevy::prelude::*;
 
-use ambition_actors::portal::{
+use ambition_portal::{
     clear_portals_on_reset, portal_fire_system, portal_teleport_ground_items, portal_transit,
     publish_portal_carves, PortalSet,
 };
@@ -90,7 +90,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // Advance in-flight portal shots against the concrete `RoomGeometry` (the
         // world-seam adapter, Phase 2 Seam 2). Runs in the weapon set after the
         // core fire system, preserving the old `toggle → fire → step` order; the
-        // pure decision lives in `ambition_actors::portal::step_portal_shot`.
+        // pure decision lives in `ambition_portal::step_portal_shot`.
         app.add_systems(
             Update,
             portal_projectile_step
@@ -147,7 +147,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
             pickup_portal_gun_system
                 .run_if(ambition_actors::gameplay_allowed)
                 .in_set(ambition_actors::items::pickup::ItemPickupSet::CoreHeldItems)
-                .after(ambition_actors::portal::arm_portal_pickups),
+                .after(ambition_portal::arm_portal_pickups),
         );
 
         // The drop consumer touches Ambition item state (StashedActionSet), so
@@ -335,9 +335,9 @@ mod schedule_tests {
     use bevy::prelude::*;
 
     use ambition_actors::actor::{PlayerEntity, PrimaryPlayer};
-    use ambition_actors::portal::PlayerMovementIntent;
     use ambition_actors::schedule::{configure_sandbox_sets, SandboxSet};
     use ambition_input::ControlFrame;
+    use ambition_portal::PlayerMovementIntent;
 
     use super::super::ability_adapter::warp_portal_input;
     use super::super::transit_adapter::{
@@ -365,7 +365,7 @@ mod schedule_tests {
         configure_sandbox_sets(&mut app);
         app.init_resource::<ControlFrame>();
         app.init_resource::<PlayerMovementIntent>();
-        app.init_resource::<ambition_actors::portal::PortalTuning>();
+        app.init_resource::<ambition_portal::PortalTuning>();
         app.init_resource::<ConsumedAxis>();
         // A primary player so `warp_portal_input` runs its body.
         app.world_mut().spawn((PlayerEntity, PrimaryPlayer));

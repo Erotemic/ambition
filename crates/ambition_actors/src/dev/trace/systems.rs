@@ -137,7 +137,7 @@ pub fn record_frame_system(
         ),
         crate::actor::PrimaryPlayerOnly,
     >,
-    #[cfg(feature = "portal")] mut teleported: MessageReader<crate::portal::BodyTeleported>,
+    #[cfg(feature = "portal")] mut teleported: MessageReader<ambition_portal::BodyTeleported>,
 ) {
     // A portal jump is an intentional teleport — open a short suppression window
     // so neither the position-delta snap nor the exit-side inside-solid check

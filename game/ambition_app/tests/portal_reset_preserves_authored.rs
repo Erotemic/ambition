@@ -20,8 +20,8 @@ mod common;
 use common::{authored_portal_pairs, base, fixed_60hz_room_sim};
 
 use ambition_actors::features::{ResetRoomFeaturesEvent, RoomResetReason};
-use ambition_actors::portal::PlacedPortal;
 use ambition_app::SandboxSim;
+use ambition_portal::PlacedPortal;
 
 fn authored_count(sim: &mut SandboxSim) -> usize {
     let mut q = sim.world_mut().query::<&PlacedPortal>();

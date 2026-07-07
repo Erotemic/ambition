@@ -3,7 +3,7 @@
 //! These modules translate Ambition game concepts (the [`ControlFrame`] input
 //! channel and the [`OwnedItems`] inventory roster) into the reusable,
 //! content-agnostic portal intent/outcome messages exposed by
-//! [`ambition_actors::portal`]. The reusable portal mechanic never imports Ambition input
+//! [`ambition_portal`]. The reusable portal mechanic never imports Ambition input
 //! or inventory types; this boundary owns that glue.
 //!
 //! Gated behind the `portal` feature.

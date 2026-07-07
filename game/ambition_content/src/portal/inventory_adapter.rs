@@ -1,7 +1,7 @@
 //! Ambition inventory binding for the portal gun.
 //!
-//! Portal core owns the [`PortalGun`](ambition_actors::portal::PortalGun) component and the
-//! [`PortalGunPickup`](ambition_actors::portal::PortalGunPickup) body, but the *policy* of
+//! Portal core owns the [`PortalGun`](ambition_portal::PortalGun) component and the
+//! [`PortalGunPickup`](ambition_portal::PortalGunPickup) body, but the *policy* of
 //! how the Ambition player acquires / relinquishes the gun is content-specific:
 //!
 //! - equipping replaces the player's melee `Attack` (the same
@@ -24,12 +24,12 @@ use ambition_actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 use ambition_actors::features::HeldItem;
 use ambition_actors::items::pickup::StashedActionSet;
 use ambition_actors::platformer_runtime::prelude::SpawnScopedExt;
-use ambition_actors::portal::{
-    DropPortalGun, PickUpPortalGun, PortalGun, PortalGunEquipped, PortalGunPickup,
-};
 use ambition_characters::brain::ActionSet;
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_items::{Item, OwnedItems};
+use ambition_portal::{
+    DropPortalGun, PickUpPortalGun, PortalGun, PortalGunEquipped, PortalGunPickup,
+};
 
 /// Facade: the menu-driven equip/unequip pair moved to
 /// [`ambition_actors::items::pickup`] (their bodies are pure item-equip
@@ -171,7 +171,7 @@ pub fn pickup_portal_gun_system(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_actors::portal::arm_portal_pickups;
+    use ambition_portal::arm_portal_pickups;
 
     fn spawn_player(app: &mut App, pos: Vec2, facing: f32) -> Entity {
         app.world_mut()

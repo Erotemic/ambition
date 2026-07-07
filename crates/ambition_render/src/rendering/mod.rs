@@ -147,7 +147,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
         // disorientation / mode indicators) now live in the reusable
         // `ambition_portal_presentation` crate; the sandbox adds its plugin,
         // places its set, and bridges the host seams (world frame, scene-body
-        // tag, gun art — see `ambition_actors::portal::host_adapter`). Gravity visuals
+        // tag, gun art — see `ambition_portal::host_adapter`). Gravity visuals
         // and the F7 dev off-switch stay host-side. All of it only compiles
         // with the portal mechanic + its render feature.
         #[cfg(feature = "portal_render")]
@@ -168,7 +168,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                 PortalPresentationSet
                     .after(actors::animate_player)
                     .after(camera::camera_follow)
-                    .after(ambition_actors::portal::PortalObservationSet),
+                    .after(ambition_portal_presentation::PortalObservationSet),
             );
             app.add_systems(
                 Update,

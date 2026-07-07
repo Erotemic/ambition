@@ -1,7 +1,7 @@
 //! Gravity-zone / gravity-switch visuals (visible build only — registered by
-//! the presentation rendering plugin). Extracted from `ambition_actors::portal::presentation`
+//! the presentation rendering plugin). Extracted from `ambition_portal::presentation`
 //! (Stage 6 follow-up): these visualize a *gravity mechanic*, not a portal, and
-//! must not depend on `ambition_actors::portal`.
+//! must not depend on portal mechanics.
 
 use bevy::prelude::*;
 

@@ -22,11 +22,12 @@ pub(crate) struct DevToggleRead<'a> {
     // The Portal FX row's live effect (view cones / masks / off). Option so
     // fixtures without the resource still render the row (as "n/a").
     #[cfg(feature = "portal_render")]
-    pub(crate) portal_effect: Option<&'a ambition_actors::portal::PortalEffectSelection>,
+    pub(crate) portal_effect: Option<&'a ambition_portal_presentation::PortalEffectSelection>,
     // Portal camera continuity's live mode. Option so fixtures/non-portal
     // builds render the row as unavailable without storing a duplicate default.
     #[cfg(feature = "portal_render")]
-    pub(crate) portal_camera: Option<&'a ambition_actors::portal::PortalCameraContinuitySelection>,
+    pub(crate) portal_camera:
+        Option<&'a ambition_portal_presentation::PortalCameraContinuitySelection>,
     // The Gravity row's ambient direction (down/left/up/right). Option so
     // fixtures without the resource still render the row (as "n/a").
     pub(crate) base_gravity: Option<&'a ambition_actors::physics::BaseGravity>,
@@ -38,10 +39,10 @@ pub(crate) struct DevToggleWrite<'a> {
     pub(crate) ldtk_reload: &'a mut ambition_actors::ldtk_world::LdtkHotReloadState,
     pub(crate) backend: &'a mut InventoryUiBackend,
     #[cfg(feature = "portal_render")]
-    pub(crate) portal_effect: Option<&'a mut ambition_actors::portal::PortalEffectSelection>,
+    pub(crate) portal_effect: Option<&'a mut ambition_portal_presentation::PortalEffectSelection>,
     #[cfg(feature = "portal_render")]
     pub(crate) portal_camera:
-        Option<&'a mut ambition_actors::portal::PortalCameraContinuitySelection>,
+        Option<&'a mut ambition_portal_presentation::PortalCameraContinuitySelection>,
     pub(crate) base_gravity: Option<&'a mut ambition_actors::physics::BaseGravity>,
 }
 

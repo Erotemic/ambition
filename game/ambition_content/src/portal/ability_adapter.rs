@@ -23,8 +23,8 @@
 use bevy::prelude::*;
 
 use ambition_actors::actor::{PlayerEntity, PrimaryPlayer};
-use ambition_actors::portal::pieces::portal_map_vec;
-use ambition_actors::portal::{
+use ambition_portal::pieces::portal_map_vec;
+use ambition_portal::{
     PlayerMovementIntent, PortalEmission, PortalInputWarp, PortalTransit, PortalTuning,
 };
 
@@ -165,11 +165,11 @@ mod tests {
     use bevy::prelude::*;
 
     use ambition_actors::actor::{PlayerEntity, PrimaryPlayer};
-    use ambition_actors::portal::{
+    use ambition_input::ControlFrame;
+    use ambition_portal::{
         PlayerMovementIntent, PortalChannel, PortalEmission, PortalGunColor, PortalInputWarp,
         PortalTransit, PortalTuning,
     };
-    use ambition_input::ControlFrame;
 
     use super::{suppress_ledge_grab_during_transit, warp_portal_input};
 

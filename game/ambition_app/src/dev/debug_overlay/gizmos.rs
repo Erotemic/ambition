@@ -51,7 +51,7 @@ pub(crate) fn draw_held_projectiles<'a>(
 pub(crate) fn draw_portals<'a>(
     gizmos: &mut Gizmos,
     world: &ae::World,
-    portals: impl Iterator<Item = &'a ambition_actors::portal::PlacedPortal>,
+    portals: impl Iterator<Item = &'a ambition_portal::PlacedPortal>,
 ) {
     for portal in portals {
         let color = portal.channel.display().0.with_alpha(0.95);
@@ -69,7 +69,7 @@ pub(crate) fn draw_portals<'a>(
         // along the doorway). The portal map preserves this component, so it sets
         // whether your along-surface direction is kept or mirrored. Drawn in green
         // as a single-headed tick so its sign is visible.
-        let tangent = ambition_actors::portal::pieces::portal_tangent(portal.normal);
+        let tangent = ambition_portal::pieces::portal_tangent(portal.normal);
         gizmos.line_2d(
             base,
             w2(world, portal.pos + tangent * 18.0),

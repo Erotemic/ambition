@@ -255,7 +255,7 @@ fn presentation_world_inner(
     #[cfg(feature = "portal_render")]
     {
         main_camera_layers =
-            main_camera_layers.with(ambition_actors::portal::PORTAL_WINDOW_RENDER_LAYER);
+            main_camera_layers.with(ambition_portal_presentation::PORTAL_WINDOW_RENDER_LAYER);
     }
     let main_camera = commands
         .spawn((

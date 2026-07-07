@@ -51,6 +51,12 @@ pub use visuals::{
     PortalBodyPiece, PortalDisorientIndicator, PortalVisual,
 };
 
+/// Host-observation systems that publish data into this crate's presentation
+/// seams run in this set. Renderers can order presentation after it without
+/// depending on a concrete host crate.
+#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct PortalObservationSet;
+
 /// Portal composite z band — the ONE place the seam's front-to-back order is
 /// declared. A through-portal window shows a captured composite of the FAR
 /// side, so it draws OVER the exit body copy, which then reads as the single

@@ -335,17 +335,17 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
         .register_type::<EditableMovementTuning>()
         .register_type::<EditablePlayerStats>()
         .register_type::<SandboxFeelTuning>()
-        .register_type::<ambition_actors::portal::PortalConvention>()
-        .register_type::<ambition_actors::portal::PortalTuning>();
+        .register_type::<ambition_portal::PortalConvention>()
+        .register_type::<ambition_portal::PortalTuning>();
 
     #[cfg(feature = "portal_render")]
-    app.register_type::<ambition_actors::portal::PortalVisualEffect>()
-        .register_type::<ambition_actors::portal::PortalEffectSelection>()
-        .register_type::<ambition_actors::portal::PortalCameraTransitMode>()
-        .register_type::<ambition_actors::portal::PortalCameraContinuitySelection>()
-        .register_type::<ambition_actors::portal::PortalCameraContinuityConfig>()
-        .register_type::<ambition_actors::portal::PortalCameraContinuityState>()
-        .register_type::<ambition_actors::portal::PortalViewConeConfig>();
+    app.register_type::<ambition_portal_presentation::PortalVisualEffect>()
+        .register_type::<ambition_portal_presentation::PortalEffectSelection>()
+        .register_type::<ambition_portal_presentation::PortalCameraTransitMode>()
+        .register_type::<ambition_portal_presentation::PortalCameraContinuitySelection>()
+        .register_type::<ambition_portal_presentation::PortalCameraContinuityConfig>()
+        .register_type::<ambition_portal_presentation::PortalCameraContinuityState>()
+        .register_type::<ambition_portal_presentation::PortalViewConeConfig>();
 
     app.add_plugins(crate::host::platform::PlatformPlugin);
     app.add_plugins(ambition_render::screen_effects::ScreenEffectsPlugin);
@@ -470,7 +470,7 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
     )
         .chain()
         .after(camera_follow)
-        .after(ambition_actors::portal::tag_portal_camera_continuity_camera);
+        .after(ambition_host::portal::tag_portal_camera_continuity_camera);
     #[cfg(not(feature = "portal_render"))]
     let overlay = (
         debug_overlay::draw_debug_overlay,
@@ -531,7 +531,7 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     app.add_systems(
         Update,
         ambition_render::rendering::sync_portal_capture_parallax_layers
-            .after(ambition_actors::portal::PortalPresentationSet),
+            .after(ambition_portal_presentation::PortalPresentationSet),
     );
 
     app.add_systems(

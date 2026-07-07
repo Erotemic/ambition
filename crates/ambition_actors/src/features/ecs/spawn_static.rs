@@ -99,7 +99,7 @@ pub(crate) fn spawn_portal_gun_spawn(
 ) {
     commands.spawn_room_scoped((
         Name::new(format!("Portal gun pickup: {}", spec.name)),
-        crate::portal::PortalGunPickup {
+        ambition_portal::PortalGunPickup {
             pos: spec.pos,
             half_extent: spec.half_extent,
             // World-placed pickups spawn already armed (a just-dropped one delays).
@@ -115,12 +115,12 @@ pub(crate) fn spawn_portal(commands: &mut Commands, spec: &crate::rooms::PortalS
     // the loader re-spawns it; never gun-owned, so it persists without a gun.
     // Opening size: authored along-surface half-length if given, else default.
     let half_extent = match spec.half_length {
-        Some(h) => crate::portal::portal_half_extent_with_length(spec.normal, h),
-        None => crate::portal::portal_half_extent(spec.normal),
+        Some(h) => ambition_portal::portal_half_extent_with_length(spec.normal, h),
+        None => ambition_portal::portal_half_extent(spec.normal),
     };
     let mut entity = commands.spawn_room_scoped((
         Name::new(format!("Portal ({}): {}", spec.color.name(), spec.name)),
-        crate::portal::PlacedPortal {
+        ambition_portal::PlacedPortal {
             // Link-authored portals get a provisional channel; `resolve_portal_links`
             // assigns the real paired channel each frame. Color-authored keep
             // their legacy complementary channel.
@@ -131,7 +131,9 @@ pub(crate) fn spawn_portal(commands: &mut Commands, spec: &crate::rooms::PortalS
         },
     ));
     if let Some(link) = &spec.link {
-        entity.insert(crate::portal::PortalLink(crate::portal::link_hash(link)));
+        entity.insert(ambition_portal::PortalLink(ambition_portal::link_hash(
+            link,
+        )));
     }
 }
 

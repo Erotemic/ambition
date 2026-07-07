@@ -13,7 +13,7 @@ default = []
 # feature so a mismatched combination is a compile error, never a silent
 # missing-registration.
 portal = ["ambition_actors/portal"]
-portal_render = ["portal", "ambition_actors/portal_render"]
+portal_render = ["portal", "dep:ambition_portal_presentation"]
 ui = ["ambition_actors/ui", "dep:bevy_yarnspinner"]
 audio = ["ambition_actors/audio", "dep:ambition_audio"]
 # Embed the LDtk world JSON into the binary (web / Android / bundled builds
@@ -45,6 +45,8 @@ ambition_vfx = { path = "../../crates/ambition_vfx" }
 ambition_time = { path = "../../crates/ambition_time" }
 ambition_audio = { path = "../../crates/ambition_audio", optional = true }
 ambition_platformer_primitives = { path = "../../crates/ambition_platformer_primitives" }
+ambition_portal = { path = "../../crates/ambition_portal" }
+ambition_portal_presentation = { path = "../../crates/ambition_portal_presentation", optional = true }
 ambition_input = { path = "../../crates/ambition_input" }
 ambition_engine_core = { path = "../../crates/ambition_engine_core" }
 ambition_entity_catalog = { path = "../../crates/ambition_entity_catalog" }

@@ -19,7 +19,7 @@ impl Plugin for TraceSchedulePlugin {
         // so the trace works in apps that compile portal support without
         // adding `PortalPlugin` (e.g. the demo shell).
         #[cfg(feature = "portal")]
-        app.add_message::<crate::portal::BodyTeleported>();
+        app.add_message::<ambition_portal::BodyTeleported>();
         app.init_resource::<ambition_gameplay_trace::ActorTraceBuffer>()
             .add_systems(
                 Update,

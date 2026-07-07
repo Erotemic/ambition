@@ -95,7 +95,7 @@ pub fn compute_player_affordances(
             &crate::actor::BodyLedgeState,
             &crate::actor::BodyModeState,
             &crate::actor::BodyEnvironmentContact,
-            Option<&crate::portal::PortalGun>,
+            Option<&ambition_portal::PortalGun>,
         ),
         (
             With<crate::actor::PlayerEntity>,

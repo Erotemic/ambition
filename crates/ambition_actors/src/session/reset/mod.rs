@@ -217,9 +217,9 @@ pub fn clear_transient_on_sandbox_reset(
     #[cfg(feature = "portal")] transient: Query<
         Entity,
         Or<(
-            With<crate::portal::PlacedPortal>,
-            With<crate::portal::PortalShot>,
-            With<crate::portal::PortalGunPickup>,
+            With<ambition_portal::PlacedPortal>,
+            With<ambition_portal::PortalShot>,
+            With<ambition_portal::PortalGunPickup>,
             With<crate::items::pickup::GroundItem>,
             With<crate::abilities::thrown::puppy_slug_gun::PuppySlugAlly>,
         )>,
@@ -257,7 +257,9 @@ pub fn clear_transient_on_sandbox_reset(
             .entity(player)
             .remove::<crate::features::HeldItem>();
         #[cfg(feature = "portal")]
-        commands.entity(player).remove::<crate::portal::PortalGun>();
+        commands
+            .entity(player)
+            .remove::<ambition_portal::PortalGun>();
         // Clear any Mark/Recall mark too, so re-equipping after a reset can't
         // recall to a position from before the room was rebuilt.
         commands

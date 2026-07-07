@@ -148,7 +148,7 @@ pub(crate) fn apply_menu_action(
                     #[cfg(feature = "portal")]
                     commands
                         .entity(player)
-                        .remove::<ambition_actors::portal::PortalGun>();
+                        .remove::<ambition_portal::PortalGun>();
                 }
                 #[cfg(feature = "portal")]
                 if is_portal_gun {
@@ -174,7 +174,7 @@ pub(crate) fn apply_menu_action(
                 #[cfg(feature = "portal")]
                 commands
                     .entity(player)
-                    .remove::<ambition_actors::portal::PortalGun>();
+                    .remove::<ambition_portal::PortalGun>();
             }
             owned.set_equipped(None);
         }

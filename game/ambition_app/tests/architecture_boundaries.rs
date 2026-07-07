@@ -341,9 +341,9 @@ fn architecture_boundaries_platformer_runtime_stays_content_free() {
         "crate::app",
         "crate::dev",
         "crate::presentation",
-        "crate::portal::",
-        "crate::portal;",
-        "crate::portal}",
+        "ambition_portal::",
+        "ambition_portal;",
+        "ambition_portal}",
     ];
     let violations = scan_text_refs(&[crate_src().join("platformer_runtime")], &forbidden);
     assert!(
@@ -1057,9 +1057,9 @@ fn architecture_boundaries_app_plugins_does_not_reown_moved_subsystems() {
     let forbidden = [
         "fn register_portal_systems",
         "fn register_item_pickup_systems",
-        "ambition_actors::portal::portal_fire_system",
-        "ambition_actors::portal::portal_projectile_step",
-        "ambition_actors::portal::portal_transit",
+        "ambition_portal::portal_fire_system",
+        "ambition_portal::portal_projectile_step",
+        "ambition_portal::portal_transit",
         "ambition_actors::item_pickup::pickup_held_item_system",
         "ambition_actors::item_pickup::throw_held_item_system",
         "ambition_actors::item_pickup::ground_item_physics",
@@ -1153,7 +1153,7 @@ fn architecture_boundaries_non_portal_mechanics_use_runtime_raycast_seam() {
     for rel in checked_files {
         let path = src_root.join(rel);
         let text = fs::read_to_string(&path).expect("read source file");
-        if text.contains("crate::portal::raycast_solids") {
+        if text.contains("ambition_portal::raycast_solids") {
             violations.push(format!(
                 "{rel} still reaches into portal for a generic solid raycast; use ambition_actors::platformer_runtime::collision::raycast_solids"
             ));
@@ -1367,11 +1367,11 @@ fn architecture_boundaries_gravity_zone_mechanic_left_portal() {
     assert_code_refs_absent(
         &[src_root.join("gravity")],
         &[
-            "ambition_actors::portal::",
-            "ambition_actors::portal;",
-            "ambition_actors::portal}",
+            "ambition_portal::",
+            "ambition_portal;",
+            "ambition_portal}",
             "ambition_actors::portal,",
-            "ambition_actors::portal ",
+            "ambition_portal ",
         ],
         "gravity mechanic must be portal-independent",
     );
@@ -1469,7 +1469,7 @@ fn architecture_boundaries_abilities_live_under_abilities_layer() {
 }
 
 #[test]
-fn architecture_boundaries_portal_has_facade_plugin_and_schedule_files() {
+fn architecture_boundaries_portal_has_plugin_and_schedule_files_without_actor_facade() {
     let src_root = crate_src();
     let portal_crate_src = repo_root().join("crates/ambition_portal/src");
     assert_paths_exist(
@@ -1494,24 +1494,19 @@ fn architecture_boundaries_portal_has_facade_plugin_and_schedule_files() {
         ],
         "portal mechanic crate",
     );
-    assert_paths_exist(&src_root, &["portal/mod.rs"], "sandbox portal facade");
     assert_paths_absent(
         &src_root,
         &[
+            "portal/mod.rs",
             "portal/plugin.rs",
             "portal/transit.rs",
             "portal/gun.rs",
             "portal/presentation.rs",
             "portal.rs",
         ],
-        "sandbox portal facade after mechanic extraction",
+        "actor crate after portal facade deletion",
     );
 
-    let mod_text = fs::read_to_string(src_root.join("portal/mod.rs")).expect("read portal facade");
-    assert!(
-        mod_text.contains("pub use ambition_portal::*"),
-        "portal facade should re-export ambition_portal"
-    );
     let plugin_text =
         fs::read_to_string(portal_crate_src.join("plugin.rs")).expect("read portal plugin");
     assert!(
@@ -1559,10 +1554,11 @@ fn architecture_boundaries_portal_crate_is_extracted() {
             && plugin_text.contains("impl Plugin for PortalPlugin"),
         "ambition_portal should expose a drop-in PortalPlugin"
     );
-    let facade = fs::read_to_string(crate_src().join("portal/mod.rs")).expect("read portal facade");
     assert!(
-        facade.contains("pub use ambition_portal::*"),
-        "sandbox portal/mod.rs should re-export ambition_portal"
+        !fs::read_to_string(crate_src().join("lib.rs"))
+            .expect("read ambition_actors lib.rs")
+            .contains("pub mod portal"),
+        "ambition_actors must not reintroduce a portal facade; consumers import ambition_portal directly"
     );
 }
 
@@ -1615,10 +1611,11 @@ fn architecture_boundaries_portal_presentation_crate_is_extracted() {
         lib_text.contains("PortalPresentationPlugin"),
         "ambition_portal_presentation should expose a PortalPresentationPlugin"
     );
-    let facade = fs::read_to_string(crate_src().join("portal/mod.rs")).expect("read portal facade");
+    let actors_manifest = fs::read_to_string(root.join("crates/ambition_actors/Cargo.toml"))
+        .expect("read ambition_actors manifest");
     assert!(
-        facade.contains("pub use ambition_portal_presentation::*"),
-        "sandbox portal/mod.rs should re-export ambition_portal_presentation behind portal_render"
+        !actors_manifest.contains("ambition_portal_presentation"),
+        "ambition_actors must not depend on portal presentation now that the facade is gone"
     );
 }
 

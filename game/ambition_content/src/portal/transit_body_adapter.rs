@@ -9,15 +9,15 @@
 //! controller sees `PortalEmission` / `PortalInputWarp` on the same frame.
 //!
 //! [`BodyKinematics`]: ambition_actors::platformer_runtime::body::BodyKinematics
-//! [`PortalBody`]: ambition_actors::portal::PortalBody
-//! [`PortalPolicy`]: ambition_actors::portal::PortalPolicy
+//! [`PortalBody`]: ambition_portal::PortalBody
+//! [`PortalPolicy`]: ambition_portal::PortalPolicy
 
 use bevy::prelude::*;
 
 use ambition_actors::actor::{PlayerEntity, PrimaryPlayer};
 use ambition_actors::features::{BodyKinematics, BossConfig};
 use ambition_actors::player::trail::TrailContinuityBreak;
-use ambition_actors::portal::{
+use ambition_portal::{
     BodyTeleported, PlayerMovementIntent, PortalBody, PortalBodyTransited, PortalEmission,
     PortalInputWarp, PortalPolicy, PortalTuning,
 };
@@ -171,7 +171,7 @@ pub fn apply_portal_carried_momentum(
         &mut ambition_actors::actor::BodyFlightState,
     )>,
 ) {
-    use ambition_actors::portal::pieces::portal_map_vec;
+    use ambition_portal::pieces::portal_map_vec;
     let gravity_dir =
         ambition_actors::platformer_runtime::gravity::gravity_dir_or_default(gravity.as_deref());
     let side = ambition_engine_core::AccelerationFrame::new(gravity_dir).side;
@@ -255,7 +255,7 @@ mod projectile_transit_tests {
 
     use bevy::prelude::*;
 
-    use ambition_actors::portal::{
+    use ambition_portal::{
         portal_half_extent, portal_transit, PlacedPortal, PortalBody, PortalChannel, PortalGunColor,
     };
     use ambition_projectiles::ProjectileGameplay;
@@ -284,9 +284,9 @@ mod projectile_transit_tests {
     /// `ensure → transit` as in the real plugin.
     fn app_with_transit() -> App {
         let mut app = App::new();
-        app.add_message::<ambition_actors::portal::PortalBodyEntered>();
-        app.add_message::<ambition_actors::portal::PortalBodyTransited>();
-        app.init_resource::<ambition_actors::portal::PortalTuning>();
+        app.add_message::<ambition_portal::PortalBodyEntered>();
+        app.add_message::<ambition_portal::PortalBodyTransited>();
+        app.init_resource::<ambition_portal::PortalTuning>();
         app.add_systems(
             Update,
             (ensure_projectile_portal_bodies, portal_transit).chain(),
@@ -417,7 +417,7 @@ mod projectile_transit_tests {
         );
         assert!(
             app.world()
-                .get::<ambition_actors::portal::PortalTransit>(proj)
+                .get::<ambition_portal::PortalTransit>(proj)
                 .is_none(),
             "no PortalTransit latch should be set for a projectile away from portals",
         );

@@ -10,15 +10,17 @@
 mod enabled {
     use ambition_actors::dev::dev_tools::inspector_visible;
     #[cfg(feature = "portal_render")]
-    use ambition_actors::portal::{
-        selected_portal_view_cone_debug_rows, PlacedPortal, PortalApertureLosQuality,
+    use ambition_portal::PlacedPortal;
+    use ambition_portal::{PortalConvention, PortalTuning};
+    #[cfg(feature = "portal_render")]
+    use ambition_portal_presentation::{
+        selected_portal_view_cone_debug_rows, PortalApertureLosQuality,
         PortalCameraContinuityConfig, PortalCameraContinuityHostView,
         PortalCameraContinuitySelection, PortalCameraTransitMode, PortalCaptureCameraMode,
         PortalEffectSelection, PortalViewConeConfig, PortalViewConeDebugDumpRequest,
         PortalViewConeMode, PortalViewConeSourceClipPolicy, PortalViewConeVisibilityMode,
         PortalViewer, PortalVisualEffect, PortalWorldFrame,
     };
-    use ambition_actors::portal::{PortalConvention, PortalTuning};
     use bevy::prelude::*;
     use bevy_inspector_egui::bevy_egui::{
         egui, EguiContext, EguiPrimaryContextPass, PrimaryEguiContext,

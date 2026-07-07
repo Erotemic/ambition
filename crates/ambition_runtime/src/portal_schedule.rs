@@ -1,5 +1,5 @@
 //! Portal simulation assembly (E5 step 5, behind the `portal` feature):
-//! [`ambition_actors::portal::PortalPlugin`] plus the schedule
+//! [`ambition_portal::PortalPlugin`] plus the schedule
 //! placement for portal's internal sets — each mapped to its sandbox phase,
 //! cross-set ordering edge, and gameplay run condition.
 //!
@@ -15,8 +15,8 @@
 
 use bevy::prelude::*;
 
-use ambition_actors::portal::PortalSet;
 use ambition_actors::schedule::SandboxSet;
+use ambition_portal::PortalSet;
 
 /// Adds `PortalPlugin` and places its sets in the sandbox schedule. Part of
 /// [`crate::PlatformerEnginePlugins`] when the `portal` feature is on.
@@ -24,7 +24,7 @@ pub struct PortalSchedulePlugin;
 
 impl Plugin for PortalSchedulePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(ambition_actors::portal::PortalPlugin);
+        app.add_plugins(ambition_portal::PortalPlugin);
 
         // Carves publish after gravity-zone collection and before core
         // simulation.

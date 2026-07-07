@@ -80,8 +80,6 @@ pub mod music;
 pub mod menu;
 pub mod persistence;
 pub mod physics;
-#[cfg(feature = "portal")]
-pub mod portal;
 // The presentation layer was extracted to the `ambition_render` crate (the
 // sim/render seam is now a crate boundary). Consumers import `ambition_render::*`.
 pub mod projectile;

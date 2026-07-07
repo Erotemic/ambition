@@ -14,7 +14,7 @@ use bevy::prelude::*;
 
 use ambition_actors::abilities::traversal::possession::ControlledSubject;
 use ambition_actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
-use ambition_actors::portal::{FirePortalGun, PortalFireIntent, PortalGun};
+use ambition_portal::{FirePortalGun, PortalFireIntent, PortalGun};
 
 /// Resolve a [`FirePortalGun`] gesture into a generic [`PortalFireIntent`] fired
 /// from the body HOLDING the gun — the controlled subject. Origin = that body's

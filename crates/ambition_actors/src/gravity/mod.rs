@@ -1,9 +1,9 @@
 //! Gravity-zone mechanic.
 //!
 //! The zones/switches that flip the room's ambient gravity, plus their visuals.
-//! Extracted out of `crate::portal` (Stage 6 follow-up / ADR 0019): this is a
+//! Extracted out of `ambition_portal` (Stage 6 follow-up / ADR 0019): this is a
 //! *gravity mechanic*, not a portal helper, so it owns its own registration via
-//! [`GravityPlugin`] and must NOT depend on `crate::portal`.
+//! [`GravityPlugin`] and must NOT depend on `ambition_portal`.
 //!
 //! The underlying ambient-gravity types/resources ([`crate::physics::BaseGravity`],
 //! [`crate::physics::GravityField`], [`crate::physics::GravityZone`], the

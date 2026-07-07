@@ -10,10 +10,19 @@ description = "The windowed-HOST face (decomposition E5 step 5): a `PlatformerHo
 ambition_actors = { path = "../ambition_actors", default-features = false, features = [
     "headless",
 ] }
+ambition_engine_core = { path = "../ambition_engine_core" }
 ambition_input = { path = "../ambition_input" }
+ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
+ambition_portal = { path = "../ambition_portal", optional = true }
+ambition_portal_presentation = { path = "../ambition_portal_presentation", optional = true }
 ambition_render = { path = "../ambition_render" }
 ambition_sim_view = { path = "../ambition_sim_view" }
-bevy = { version = "0.18.1", default-features = false, features = ["bevy_state"] }
+bevy = { version = "0.18.1", default-features = false, features = [
+    "bevy_asset",
+    "bevy_image",
+    "bevy_input_focus",
+    "bevy_state",
+] }
 leafwing-input-manager = { version = "0.20", optional = true }
 
 [features]
@@ -28,10 +37,10 @@ input = [
     "dep:leafwing-input-manager",
 ]
 # Portal camera-continuity wiring inside HostCameraPlugin.
-portal = ["ambition_actors/portal"]
+portal = ["ambition_actors/portal", "dep:ambition_portal"]
 portal_render = [
     "portal",
-    "ambition_actors/portal_render",
+    "dep:ambition_portal_presentation",
     "ambition_render/portal_render",
 ]
 
@@ -39,4 +48,3 @@ portal_render = [
 # The demo-shell smoke test (E5 step 6) assembles foundation + engine group +
 # this host group + a fixture content plugin (which builds a one-room world).
 ambition_runtime = { path = "../ambition_runtime" }
-ambition_engine_core = { path = "../ambition_engine_core" }

@@ -1,4 +1,4 @@
-//! Portal mechanic facade + the Ambition host adapter for portal presentation.
+//! Ambition host adapter for portal presentation.
 //!
 //! The portal **mechanic** (the portal gun place/replace/channel, the one
 //! generic aperture transit over `PortalBody` + `PortalPolicy`, placement +
@@ -9,9 +9,8 @@
 //! and the portal **visuals** (placed-portal quads + labels, the held / pickup
 //! gun sprite, mid-transit body pieces, the disorientation indicator, the
 //! through-portal view cones) live in its reusable default renderer
-//! [`ambition_portal_presentation`]. This module is a thin FACADE that
-//! re-exports both so every inbound `crate::portal::…` path keeps resolving
-//! with zero churn, plus the Ambition-specific glue that is NOT reusable:
+//! [`ambition_portal_presentation`]. This module contains only the
+//! Ambition-specific glue that is NOT reusable:
 //!
 //! - the **presentation host adapter** (render-gated): sync the crate-owned
 //!   [`PortalWorldFrame`] from [`RoomGeometry`], tag [`PortalSceneBody`] on the
@@ -20,23 +19,12 @@
 //!   systems are the entire bridge.
 //! - the `F7` dev off-switch (raw keyboard = host input concern).
 //!
-//! The Ambition adapters that bridge the MECHANIC's seams to game concepts
-//! (input → fire intent, carve → collision overlay, room-reset → clear, sfx,
-//! player input / ability shaping, identity → policy tagging) live in
-//! [`crate::ambition_content::portal`]; the portal integration tests live in
-//! `ambition_content::portal::tests`.
+//! The Ambition content adapters that bridge the mechanic's seams to game
+//! concepts (input -> fire intent, carve -> collision overlay, room-reset ->
+//! clear, sfx, player input / ability shaping, identity -> policy tagging)
+//! live in `ambition_content::portal`; reusable portal types are imported
+//! directly from `ambition_portal` or `ambition_portal_presentation`.
 
-// The whole reusable mechanic, surfaced at the historic `crate::portal::…` paths.
-pub use ambition_portal::*;
-
-// The whole reusable default renderer, surfaced at the same historic paths
-// (`crate::portal::sync_portal_visuals`, `crate::portal::PortalAimHint`, …).
-// Render only — exclusively behind `portal_render`, so the portal *simulation*
-// builds without any render-facing systems or components.
-#[cfg(feature = "portal_render")]
-pub use ambition_portal_presentation::*;
-
-#[cfg(feature = "portal_render")]
 mod host_adapter {
     use bevy::prelude::*;
 
@@ -45,13 +33,14 @@ mod host_adapter {
         PortalCameraContinuityCamera, PortalCameraContinuityConfig, PortalCameraContinuityFocus,
         PortalCameraContinuityHostView, PortalCameraContinuitySelection,
         PortalCameraContinuityState, PortalCameraTransitMode, PortalDebugOverlay, PortalGunArt,
-        PortalSceneBody, PortalViewer, PortalWorldFrame,
+        PortalObservationSet, PortalSceneBody, PortalViewer, PortalWorldFrame,
     };
 
-    use crate::abilities::traversal::possession::ControlledSubject;
-    use crate::actor::{PlayerEntity, PrimaryPlayer};
-    use crate::platformer_runtime::body::BodyKinematics;
-    use crate::platformer_runtime::lifecycle::PlayerVisual;
+    use ambition_actors::abilities::traversal::possession::ControlledSubject;
+    use ambition_actors::actor::{PlayerEntity, PrimaryPlayer};
+    use ambition_actors::platformer_runtime::body::BodyKinematics;
+    use ambition_actors::platformer_runtime::lifecycle::PlayerVisual;
+    use ambition_actors::{CameraEaseState, SandboxDevState};
     use ambition_engine_core::RoomGeometry;
 
     /// Bridge the controlled character + the collision world → the crate-owned
@@ -126,7 +115,7 @@ mod host_adapter {
     /// `SandboxDevState.debug` flag, so the portal gizmos stay quiet unless the
     /// global debug overlay is on.
     pub fn sync_portal_debug_overlay_to_f1(
-        dev_state: Res<crate::SandboxDevState>,
+        dev_state: Res<SandboxDevState>,
         debug: Option<ResMut<PortalDebugOverlay>>,
     ) {
         if let Some(mut debug) = debug {
@@ -169,7 +158,7 @@ mod host_adapter {
         cameras: Query<
             Entity,
             (
-                With<crate::session::camera_layers::MainCamera>,
+                With<ambition_actors::session::camera_layers::MainCamera>,
                 Without<PortalCameraContinuityCamera>,
             ),
         >,
@@ -194,7 +183,7 @@ mod host_adapter {
         host_view: Option<Res<PortalCameraContinuityHostView>>,
         world_frame: Option<Res<PortalWorldFrame>>,
         state: Option<ResMut<PortalCameraContinuityState>>,
-        camera_state: Option<ResMut<crate::CameraEaseState>>,
+        camera_state: Option<ResMut<CameraEaseState>>,
         mut transited: MessageReader<ambition_portal::PortalBodyTransited>,
         gravity: Option<Res<ambition_platformer_primitives::gravity::GravityField>>,
         focus: Query<(), With<PortalCameraContinuityFocus>>,
@@ -701,14 +690,6 @@ mod host_adapter {
         );
     }
 
-    /// Public sim-side label for the host-adapter observation glue (E4 slice
-    /// 20): everything that publishes sim facts into the portal-presentation
-    /// crate's seams runs in THIS set. Render keeps exactly ONE constraint —
-    /// `PortalPresentationSet.after(PortalObservationSet)` — a set-to-set
-    /// label dependency, never a system registration.
-    #[derive(bevy::prelude::SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
-    pub struct PortalObservationSet;
-
     /// Registers the Ambition host-adapter glue in its OWN plugin (E4 slice
     /// 20 — render used to register these sim-side systems, the exact
     /// ownership inversion the observation boundary kills):
@@ -747,10 +728,9 @@ mod host_adapter {
     }
 }
 
-#[cfg(feature = "portal_render")]
 pub use host_adapter::{
     apply_portal_camera_continuity, load_portal_gun_art, portal_convention_toggle_system,
     portal_dev_toggle_system, sync_portal_camera_continuity_focus, sync_portal_debug_overlay_to_f1,
     sync_portal_viewer, sync_portal_world_frame, tag_portal_camera_continuity_camera,
-    tag_portal_scene_bodies, PortalObservationPlugin, PortalObservationSet,
+    tag_portal_scene_bodies, PortalObservationPlugin,
 };

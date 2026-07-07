@@ -373,9 +373,10 @@ pub(crate) struct SystemMenuParams<'w> {
     // Option: absent in non-portal personas / minimal fixtures — the row then
     // no-ops and reads "n/a".
     #[cfg(feature = "portal_render")]
-    portal_effect: Option<ResMut<'w, ambition_actors::portal::PortalEffectSelection>>,
+    portal_effect: Option<ResMut<'w, ambition_portal_presentation::PortalEffectSelection>>,
     #[cfg(feature = "portal_render")]
-    portal_camera: Option<ResMut<'w, ambition_actors::portal::PortalCameraContinuitySelection>>,
+    portal_camera:
+        Option<ResMut<'w, ambition_portal_presentation::PortalCameraContinuitySelection>>,
     // The Gravity cycle's target (ambient gravity). Option so the System nav stays
     // B0002-safe and fixtures without the resource render the row as "n/a".
     base_gravity: Option<ResMut<'w, ambition_actors::physics::BaseGravity>>,
@@ -585,9 +586,9 @@ pub(crate) struct SystemMenuSnapshotParams<'w> {
     ldtk_reload: Res<'w, ambition_actors::ldtk_world::LdtkHotReloadState>,
     backend: Res<'w, InventoryUiBackend>,
     #[cfg(feature = "portal_render")]
-    portal_effect: Option<Res<'w, ambition_actors::portal::PortalEffectSelection>>,
+    portal_effect: Option<Res<'w, ambition_portal_presentation::PortalEffectSelection>>,
     #[cfg(feature = "portal_render")]
-    portal_camera: Option<Res<'w, ambition_actors::portal::PortalCameraContinuitySelection>>,
+    portal_camera: Option<Res<'w, ambition_portal_presentation::PortalCameraContinuitySelection>>,
     base_gravity: Option<Res<'w, ambition_actors::physics::BaseGravity>>,
     #[cfg(feature = "audio")]
     library: Option<Res<'w, ambition_actors::audio::AudioLibrary>>,

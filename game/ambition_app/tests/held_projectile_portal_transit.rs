@@ -23,8 +23,8 @@ use common::{base, first_floor_authored_portal_pair, fixed_60hz_room_sim};
 
 use ambition_actors::items::pickup::HeldProjectile;
 use ambition_actors::platformer_runtime::body::BodyKinematics;
-use ambition_actors::portal::{PortalBody, PortalPolicy};
 use ambition_platformer_primitives::projectile::{ProjectileGameplay, WorldHitPolicy};
+use ambition_portal::{PortalBody, PortalPolicy};
 use bevy::prelude::*;
 
 #[test]

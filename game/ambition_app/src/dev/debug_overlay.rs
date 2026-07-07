@@ -107,7 +107,7 @@ pub fn draw_debug_overlay(
         ),
     >,
     feature_q: FeatureDebugQueries,
-    #[cfg(feature = "portal")] portals: Query<&ambition_actors::portal::PlacedPortal>,
+    #[cfg(feature = "portal")] portals: Query<&ambition_portal::PlacedPortal>,
 ) {
     if !dev_state.debug_enabled() || !developer_tools.gizmos_enabled {
         return;

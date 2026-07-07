@@ -17,14 +17,14 @@ use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::features::HeldItem;
 use crate::platformer_runtime::prelude::SpawnScopedExt;
 use crate::player::PlayerInputFrame;
-#[cfg(feature = "portal")]
-use crate::portal::PortalGun;
 use ambition_characters::brain::ActorControl;
 use ambition_characters::brain::{
     ActionSet, HeldItemSpec, HeldUseBehavior, MeleeActionSpec, SwipeSpec,
 };
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_input::ControlFrame;
+#[cfg(feature = "portal")]
+use ambition_portal::PortalGun;
 
 /// Public schedule labels for held-item and ground-item simulation.
 ///
@@ -94,7 +94,7 @@ impl Plugin for ItemPickupSimulationPlugin {
         #[cfg(feature = "portal")]
         app.add_systems(
             Update,
-            crate::portal::arm_portal_pickups
+            ambition_portal::arm_portal_pickups
                 // Parent `PlayerSimulation` already implied via
                 // `ItemPickupSet::CoreHeldItems` (configured above).
                 .in_set(ItemPickupSet::CoreHeldItems),
@@ -767,8 +767,8 @@ pub fn fire_held_ranged_system(
     // `reorient: false, carry_velocity: true` is the free-flying projectile policy.
     #[cfg(feature = "portal")]
     shot.insert((
-        crate::portal::PortalBody,
-        crate::portal::PortalPolicy {
+        ambition_portal::PortalBody,
+        ambition_portal::PortalPolicy {
             reorient: false,
             carry_velocity: true,
         },

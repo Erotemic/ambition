@@ -34,6 +34,9 @@
 use bevy::app::{App, Plugin, PluginGroup, PluginGroupBuilder};
 use bevy::prelude::*;
 
+#[cfg(feature = "portal_render")]
+pub mod portal;
+
 // Only the input bridge + portal continuity order against the sandbox phases.
 #[cfg(any(feature = "input", feature = "portal_render"))]
 use ambition_actors::schedule::SandboxSet;
@@ -166,18 +169,18 @@ impl Plugin for HostCameraPlugin {
         // toggles, gun art) — sim-owned plugin, host-added (E4 slice 20).
         #[cfg(feature = "portal_render")]
         {
-            app.add_plugins(ambition_actors::portal::PortalObservationPlugin);
+            app.add_plugins(crate::portal::PortalObservationPlugin);
             app.add_systems(
                 Update,
                 (
-                    ambition_actors::portal::apply_portal_camera_continuity
+                    crate::portal::apply_portal_camera_continuity
                         .after(SandboxSet::CoreSimulation)
-                        .after(ambition_actors::portal::sync_portal_camera_continuity_focus)
+                        .after(crate::portal::sync_portal_camera_continuity_focus)
                         .before(camera_follow),
                     // Same-frame pad into the sim resolve (E4-17): after the
                     // continuity update, before the observation resolves.
                     ambition_render::rendering::publish_portal_camera_clamp
-                        .after(ambition_actors::portal::apply_portal_camera_continuity)
+                        .after(crate::portal::apply_portal_camera_continuity)
                         .before(ambition_sim_view::camera_snapshot::resolve_camera_observation),
                 ),
             );
@@ -185,7 +188,7 @@ impl Plugin for HostCameraPlugin {
             // `.after(this system)` (the Ambition debug overlay does).
             app.add_systems(
                 Update,
-                ambition_actors::portal::tag_portal_camera_continuity_camera.after(camera_follow),
+                crate::portal::tag_portal_camera_continuity_camera.after(camera_follow),
             );
         }
     }

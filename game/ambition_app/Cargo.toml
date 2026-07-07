@@ -43,7 +43,7 @@ visible = [
 ]
 
 portal = ["ambition_actors/portal", "ambition_content/portal", "ambition_runtime/portal", "ambition_host/portal"]
-portal_render = ["portal", "ambition_actors/portal_render", "ambition_render/portal_render", "ambition_content/portal_render", "ambition_host/portal_render"]
+portal_render = ["portal", "ambition_render/portal_render", "ambition_content/portal_render", "ambition_host/portal_render"]
 portal_ldtk = ["portal", "ambition_actors/portal_ldtk"]
 
 desktop_platform = ["ambition_actors/desktop_platform"]
@@ -117,6 +117,8 @@ ambition_host = { path = "../../crates/ambition_host" }
 ambition_sim_view = { path = "../../crates/ambition_sim_view", features = ["input"] }
 ambition_content = { path = "../ambition_content" }
 ambition_render = { path = "../../crates/ambition_render" }
+ambition_portal = { path = "../../crates/ambition_portal" }
+ambition_portal_presentation = { path = "../../crates/ambition_portal_presentation" }
 ambition_combat = { path = "../../crates/ambition_combat" }
 ambition_cutscene = { path = "../../crates/ambition_cutscene" }
 ambition_engine_core = { path = "../../crates/ambition_engine_core" }

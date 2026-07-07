@@ -221,7 +221,7 @@ fn carve_portal_apertures(blocks: &mut Vec<ae::Block>, holes: &[ae::Aabb]) {
         for hole in holes {
             let mut next = Vec::with_capacity(pieces.len());
             for piece in pieces.drain(..) {
-                crate::portal::pieces::subtract_aabb(piece, *hole, &mut next);
+                ambition_portal::pieces::subtract_aabb(piece, *hole, &mut next);
             }
             pieces = next;
         }

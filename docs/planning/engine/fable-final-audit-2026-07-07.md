@@ -44,12 +44,12 @@ prescription — log-once so E7/E8 executors don't re-derive:
    no longer depends on `ambition_sfx`; RON-room loading also moved to
    `ambition_world`, and the world dependency allow-list test now ratchets
    the remaining legacy arrows.
-2. **`ambition_actors::portal` is a FACADE that re-exports
-   `ambition_portal_presentation::*`** — the sim crate structurally deps a
-   presentation crate to keep old `crate::portal::` paths alive.
-   **Prescription: repoint the (few) consumers to the two real crates and
-   delete the facade module + the Cargo dep.** A sim crate must never dep a
-   presentation crate, even for re-export.
+2. ✅ **DONE (Codex 2026-07-07): `ambition_actors::portal` facade deleted.**
+   Consumers now import portal mechanics from `ambition_portal`, presentation
+   resources/schedule labels from `ambition_portal_presentation`, and Ambition
+   host adapter systems from `ambition_host::portal`; `ambition_actors` no
+   longer depends on `ambition_portal_presentation`, and the boundary test
+   ratchets against reintroducing the facade.
 3. **`ambition_vfx` → `ambition_characters` for ONE type (`ActorFaction`).**
    The effect vocabulary crate pulls the whole cast crate for a tag it only
    uses to pick a tint/side. **Prescription: the vfx message carries the

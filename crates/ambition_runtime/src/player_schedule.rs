@@ -97,7 +97,7 @@ impl Plugin for PlayerSchedulePlugin {
                     .in_set(ambition_input::InputSet::Populate),
                 ambition_actors::player::interaction_input_system.run_if(gameplay_allowed),
                 // Portal-warped held movement input is registered by
-                // `ambition_actors::portal::PortalPlugin` so the portal
+                // `ambition_portal::PortalPlugin` so the portal
                 // subsystem owns its input seam.
                 // Controller-input setup, nested into one chained group:
                 // 1. Resolve the CONTROLLED SUBJECT — the body carrying

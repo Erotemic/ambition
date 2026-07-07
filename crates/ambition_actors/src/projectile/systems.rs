@@ -121,7 +121,7 @@ pub struct ProjectileCollisionWorld<'w, 's> {
     overlay: Res<'w, crate::features::FeatureEcsWorldOverlay>,
     // Folded in here (rather than as its own top-level param) because
     // `update_projectiles` is already at Bevy's 16-param ceiling.
-    portals: Query<'w, 's, &'static crate::portal::PlacedPortal>,
+    portals: Query<'w, 's, &'static ambition_portal::PlacedPortal>,
 }
 
 impl ProjectileCollisionWorld<'_, '_> {
@@ -140,7 +140,7 @@ impl ProjectileCollisionWorld<'_, '_> {
     }
 
     /// Snapshot the placed portals for the per-projectile transit test.
-    fn portal_list(&self) -> Vec<crate::portal::PlacedPortal> {
+    fn portal_list(&self) -> Vec<ambition_portal::PlacedPortal> {
         self.portals.iter().copied().collect()
     }
 }

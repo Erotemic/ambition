@@ -28,8 +28,10 @@ pub(super) fn desktop_asset_root() -> String {
     if std::env::var_os("BEVY_ASSET_ROOT").is_some() {
         return "assets".to_string();
     }
-    let dev_assets =
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../ambition_actors/assets");
+    // The app lives under `game/`, the machinery lib under `crates/` — the
+    // relative hop crosses the grouping directories (the E8 re-home).
+    let dev_assets = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../crates/ambition_actors/assets");
     match dev_assets.canonicalize() {
         Ok(path) if path.is_dir() => path.to_string_lossy().into_owned(),
         _ => "assets".to_string(),

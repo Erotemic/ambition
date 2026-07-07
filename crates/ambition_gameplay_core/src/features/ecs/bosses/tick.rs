@@ -377,6 +377,11 @@ pub fn drive_boss_animators(
 /// telegraph/strike read-model is projected SOLELY from the live `MovePlayback` by
 /// `project_boss_attack_state_from_move`, and the volume / damage / debug-overlay
 /// paths read that projected value.
+///
+/// E6(c): the autonomous boss arm builds the `BossPatternContext` directly from
+/// its selected target instead of laundering that target through
+/// `BrainSnapshot::target_pos`; player-possessed bosses still use the generic
+/// player-brain snapshot because controller input is the point of that path.
 pub fn tick_boss_brains_system(
     world_time: Res<WorldTime>,
     world: Res<ambition_engine_core::RoomGeometry>,
@@ -508,31 +513,37 @@ pub fn tick_boss_brains_system(
         let front_wall_clearance =
             boss_front_wall_clearance(&feature_world, &boss, target_pos, front_wall_standoff);
 
-        // §A1 slice 3c: the boss brain ticks through the UNIVERSAL `Brain::tick`
-        // path like every other body — no bespoke `tick_boss_pattern` call site.
-        // Fill the BossPattern fields onto the shared snapshot; the dispatcher
-        // routes to `tick_boss_pattern`, which writes the attack projection INTO
-        // `BossPatternState.attack_state`. Mirror that into the ECS component below.
-        let mut snapshot = ambition_characters::brain::BrainSnapshot::idle();
-        snapshot.actor_pos = boss.kin.pos;
-        // Omniscient perception (above): the global `ActorTarget`.
-        snapshot.target_pos = target_pos;
-        snapshot.dt = dt;
-        snapshot.boss_encounter_phase = Some(boss.status.encounter_phase);
-        snapshot.world_size = world.0.size;
-        snapshot.front_wall_clearance = front_wall_clearance;
         let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
-        brain.tick(&snapshot, &mut frame);
+        let attack_projection = match &mut *brain {
+            Brain::StateMachine(StateMachineCfg::BossPattern { cfg, state }) => {
+                let ctx = ambition_characters::brain::BossPatternContext {
+                    encounter_phase: boss.status.encounter_phase,
+                    actor_pos: boss.kin.pos,
+                    target_pos,
+                    world_size: world.0.size,
+                    front_wall_clearance,
+                    dt,
+                };
+                let mut attack_state = core::mem::take(&mut state.attack_state);
+                ambition_characters::brain::tick_boss_pattern(
+                    cfg,
+                    state,
+                    &ctx,
+                    &mut frame,
+                    &mut attack_state,
+                );
+                state.attack_state = attack_state;
+                &state.attack_state
+            }
+            _ => unreachable!("non-BossPattern brains returned above"),
+        };
+        control.0 = frame;
         // Publish the brain's fire INTENT for the trigger (§A1 split): the profile the
         // pattern wants this frame (telegraph edge → windup; strike → strike), read
         // STRAIGHT from the brain's freshly-ticked `BossPatternState.attack_state`. The
         // ECS `BossAttackState` component is no longer written here (§A1 slice 1b) — the
         // projection derives it from the move this intent starts.
-        if let Some(bps) = brain.boss_pattern_state() {
-            mirror_intent(&bps.attack_state, &mut intent);
-        } else {
-            intent.clear();
-        }
+        mirror_intent(attack_projection, &mut intent);
 
         // Boss specials run through the SHARED moveset now (fable review §A1): a
         // multi-special boss (the Gradient Sentinel authors four; GNU-ton its apple

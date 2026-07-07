@@ -1008,8 +1008,10 @@ not the 96-ref count (which was the STAYING steppers' upward refs):
   `architecture_boundaries_projectiles_crate_is_model_only`.
 Gate: `-p ambition_app --features rl_sim` build green; projectile_portal_transit
 + held_projectile_portal_transit + gameplay_core projectile (54) + gradient_nova
-content tests + the new boundary test all pass. **The steppers follow when E6
-(boss carve) / E7 (actors) / W3 (world overlay) land.**
+content tests + the new boundary test all pass. **Rechecked after W3/W4
+(Codex 2026-07-07): the world-IR/backend blocker is gone; the steppers still
+follow E6 (boss carve) / E7 (actors), because the surviving weave is
+boss/actor/victim-side sim state rather than projectile model vocabulary.**
 
 ## 2026-07-07 (fable, c) — E2 EXECUTED: the combat kit IS `ambition_combat`
 The reserved atomic move landed as eleven compiling commits

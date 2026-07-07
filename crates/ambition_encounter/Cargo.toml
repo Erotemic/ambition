@@ -1,0 +1,18 @@
+[package]
+name = "ambition_encounter"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Reusable encounter wave/lockdown vocabulary and headless state machine."
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+ambition_engine_core = { path = "../ambition_engine_core" }
+ambition_interaction = { path = "../ambition_interaction" }
+ambition_persistence = { path = "../ambition_persistence" }
+bevy = { version = "0.18.1", default-features = false }
+ron = "0.11"
+serde = { version = "1", features = ["derive"] }

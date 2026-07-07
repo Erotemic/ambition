@@ -99,7 +99,7 @@ found drift — update the table in the same commit. LOC ≈ `wc -l`.)*
 | `features/ecs/damage/` | 1914 | `ambition_actors` | E7 | victim-side resolution stays with the bodies it mutates; the HIT VOCABULARY moves with combat (E2 classification rule) |
 | `features/ecs/mount/` | 1969 | `ambition_actors` | E7 | mounts are sim (ADR 0020) |
 | `features/ecs/bosses/` | 1701 | `ambition_actors` (behavior residue → `ambition_characters` per E6d) | E6→E7 | shrinks as E6 folds the brain-tick |
-| `features/ecs/encounter_rewards.rs` | 365 | `ambition_encounter` | E-enc | with encounter/ below |
+| `features/ecs/encounter_rewards.rs` | 365 | `ambition_actors` adapter over `ambition_encounter` | E-enc→E7 | live ECS reward chest spawning mutates feature entities/save and stays with actor/feature sim until E7; reusable reward math moved to `ambition_encounter` |
 | `features/enemies/` | 2188 | `ambition_actors` (schema) — archetype DATA already content | E7 | respawn-policy slice edits here first |
 | `features/bosses.rs`, `npcs.rs`, `banter.rs` | ~1.3k | `ambition_actors` | E7 | |
 | `combat/` (moveset 2292, damage 944, targeting 892, attack 834, hitbox/, on_hit 430, events 432, components/, pickups 340, world_overlay 360, boss_clusters 444) | 11.5k | **`ambition_combat`** | **E2** | world_overlay → `ambition_world` (it's geometry composition); boss_clusters dissolves with E6 |
@@ -114,7 +114,7 @@ found drift — update the table in the same commit. LOC ≈ `wc -l`.)*
 | `menu/` | 3189 | **`ambition_menu`** | **E1e** | + app/menu (below); LAST of E1 |
 | `dev/` | 2975 | **`ambition_dev_tools`** | E1d | + app/dev |
 | `items/` + `inventory_ui/` | 2689 | **`ambition_items`** | E8 | |
-| `encounter/` | 2504 | `ambition_encounter` | E-enc | wave/lockdown kit |
+| `encounter/` | 2504 | **`ambition_encounter`** ✅ state slice | E-enc | wave/lockdown spec/state/events/registry/music/reward math moved 2026-07-07; gameplay-core keeps LDtk loader + ECS tick/lock-wall/switch adapters until W/E7 |
 | `dialog/` | 2217 | **`ambition_dialog`** (runtime) | E1c | game bindings stay sim-side |
 | `time/` | 1431 | stays (measured: depends on player/combat/features); `camera_ease` rides E4 | E8 note | |
 | `audio/` + `music/` | 1791 | **`ambition_audio`** | E1b | reusable SFX-bank loader/drain moved; sandbox adapters remain |
@@ -1250,8 +1250,21 @@ the `StartingCharacter` worn-sheet residue (`PLAYER_CHARACTER_ID` /
 
 ### E-enc / E-assets tail — the quiet absorbs — [opus/sonnet]
 
-`encounter/` (+ `features/ecs/encounter_rewards.rs`, + boss_encounter's
-`encounter_script`/`rewards` halves) → `ambition_encounter`.
+**E-enc state/vocabulary slice DONE (Codex 2026-07-07):**
+`ambition_encounter` now owns the reusable wave/lockdown authored data,
+headless state machine, registry resources, event vocabulary, music request
+resources, switch activation payload, and reward-position/save-flag math.
+Gameplay-core's `encounter::{events,music,registry,rewards,spec,state}` files
+are compatibility facades.
+
+Remaining E-enc residue is deliberately adapter-shaped: LDtk loading stays in
+gameplay-core until the world-backend adapter is inverted; the live encounter
+tick, lock-wall contribution, switch-index rebuild, and
+`features/ecs/encounter_rewards.rs` stay with the sim heart because they spawn
+mobs/chests, mutate feature entities/overlays, and write save/quest/banner
+state. Boss `encounter_script`/`rewards` halves move with E6's boss authority
+split.
+
 E-assets' catalog/source core is already in `ambition_asset_manager`; the
 remaining `game_assets` tail is not a standalone filler because it still names
 gameplay/presentation vocabulary and should shrink with E3/E6/E7.

@@ -615,6 +615,41 @@ fn architecture_boundaries_projectiles_crate_is_model_only() {
     );
 }
 
+/// `ambition_encounter` (E-enc) owns the reusable encounter wave/lockdown
+/// vocabulary and headless state machine. The LDtk loader, ECS mob spawning,
+/// feature overlay, banners, save/quest plumbing, and schedule adapters stay in
+/// gameplay-core until their owning domains move, so this crate must remain free
+/// of sim-heart, content, render, runtime, host, and app dependencies.
+#[test]
+fn architecture_boundaries_encounter_crate_is_state_only() {
+    let crate_root = repo_root().join("crates/ambition_encounter");
+    assert_workspace_contains_crate("ambition_encounter");
+    assert!(
+        crate_root.join("Cargo.toml").exists(),
+        "ambition_encounter crate should exist at crates/ambition_encounter"
+    );
+    let forbidden = [
+        "ambition_gameplay_core",
+        "ambition_characters",
+        "ambition_ldtk_map",
+        "ambition_sim_view",
+        "ambition_runtime",
+        "ambition_render",
+        "ambition_content",
+        "ambition_app",
+    ];
+    assert_manifest_has_no_deps(
+        &crate_root,
+        &forbidden,
+        "ambition_encounter is reusable encounter state/vocabulary; adapters stay above it",
+    );
+    assert_source_tree_has_no_code_refs(
+        crate_root.join("src"),
+        &forbidden,
+        "ambition_encounter source must not reach into sim/content/render/host crates",
+    );
+}
+
 /// `ambition_menu_kaleidoscope` is the FIRST engine extension crate (E1e): the
 /// bevy_lunex 3D cube renderer for the `ambition_menu` page model. It is
 /// optional for any game — a host installs it to draw the same backend-agnostic

@@ -7,10 +7,11 @@
 //! are defeated, player death resets/unlocks, all-defeated → cleared + exits
 //! unlock. Any number of encounters coexist via `EncounterRegistry`.
 //!
-//! Facade module. Data types + Bevy systems split by responsibility:
-//! `spec`/`state` (authored data + state machine), `loading` (LDtk + content
-//! wave book), `systems` (the per-frame ECS tick), `registry`, `switches`
-//! (arming gate), `lock_walls`, `music`, `rewards`, `events`.
+//! Facade module. Authored data, registry resources, event vocabulary, music
+//! request resources, reward math, and the headless state machine live in
+//! `ambition_encounter`. Gameplay-core keeps the adapters that still touch LDtk,
+//! ECS spawning, player/body queries, feature overlays, banners, save/quest
+//! plumbing, and schedule sets.
 
 mod events;
 mod loading;

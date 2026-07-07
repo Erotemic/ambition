@@ -10,6 +10,7 @@ members = [
     "crates/ambition_dev_tools",
     "crates/ambition_dialog",
     "crates/ambition_entity_catalog",
+    "crates/ambition_encounter",
     "crates/ambition_vfx",
     "crates/ambition_engine_core",
     "crates/ambition_input",

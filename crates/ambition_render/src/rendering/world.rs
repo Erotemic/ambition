@@ -17,9 +17,9 @@ use super::primitives::{
 use ambition_actors::assets::game_assets::{
     self, entity_sprite, entity_sprite_or_color, GameAssets,
 };
-use ambition_actors::features::FeatureVisualKind;
 use ambition_actors::rooms::{LoadingZone, LoadingZoneActivation, PropSpec};
 use ambition_actors::world::physics;
+use ambition_combat::events::FeatureVisualKind;
 use ambition_engine_core::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_PLAYER};
 use ambition_sprite_sheet::character::{
     build_character_sprite, feet_anchor_for, CharacterAnimator,

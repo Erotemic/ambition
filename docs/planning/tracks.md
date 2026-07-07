@@ -1473,6 +1473,15 @@ visual data and schedule labels.
 
 Gate: `cargo check -p ambition_render`. Pre-existing warnings remain.
 
+## 2026-07-07 (Codex) — E7 render combat-vocab facade cleanup
+
+Repointed render's `FeatureVisualKind` imports from the actor `features` facade
+to `ambition_combat::events`, which already owns that presentation-neutral
+taxonomy. Render still depends on actors for live ECS components/resources, but
+this removes another already-moved vocabulary read from the E7 facade.
+
+Gate: `cargo check -p ambition_render`. Pre-existing warnings remain.
+
 ## 2026-07-07 (Codex) — E4 render config helper cleanup
 
 Removed the last render import of `ambition_actors::config`: `fx` now keeps its

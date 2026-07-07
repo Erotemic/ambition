@@ -9,8 +9,8 @@ use bevy::prelude::*;
 
 use super::primitives::HealthOverlayVisual;
 use crate::ui_fonts::{UiFontWeight, UiFonts};
-use ambition_actors::features::FeatureVisualKind;
 use ambition_characters::actor::Health;
+use ambition_combat::events::FeatureVisualKind;
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_sim_view::{ActorRenderIndex, BossRenderIndex, FeatureViewIndex};
 

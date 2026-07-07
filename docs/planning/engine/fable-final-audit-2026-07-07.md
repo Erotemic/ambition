@@ -273,3 +273,34 @@ ron_room re-side + branch conversions) → F1.4 GameMode move-down (frees
 host/touch_input) → F1.5/F2.1 GameAssets move + render repoints (finishes
 E4's dep flip) → F2.3 facade burn-down → E9 umbrella + demo homes (F5.1/2)
 → projectiles dedicated session (already carded) → F2.2 glue splits.
+
+### F7 — Deep pass: the lowering seam had three real defects (FIXED); test-loss lesson
+
+1. **Lowered hazards lost their authored display names** — the record carried
+   `{id, schema, aabb}` only, so the interpreter labeled hazards by LDtk iid
+   (live cosmetic regression in basement_hazards et al). **RULING:
+   `PlacementRecord` gains a record-level `name: String`** (serde-default =
+   the id; the `PropSpec.name` precedent). Every future placement family gets
+   display names for free — do NOT put names inside schemas.
+2. **The inline-motion trap was armed:** the converter dual-emitted a record
+   for EVERY DamageVolume, the spawn guard skips lowered ids, and the hazard
+   interpreter hardcodes `motion: None` — so a legacy inline-`motion` hazard
+   would silently become STATIC. No live map trips it (audited all four
+   .ldtk files), but the fix is in: inline-motion hazards stay legacy-only
+   (no record) until dissolution lifts the path to a room-level
+   `KinematicPath`, and a test pins it.
+3. **The W3 carve dropped a cfg(test) fixture and, with it, FOUR ruled
+   contract tests** (the [W-b] dual-emission pin, the §3.6 tile-GeoId
+   determinism pin, the W2 sanic ron-room IR proof, the converter-registry
+   coverage). All restored in `ambition_ldtk_map`. **LESSON for every future
+   carve — add to the D2 template: `git log --stat` the source module's test
+   files and account for every `#[test]` by name in the moved crate; a carve
+   that can't run a test must MOVE its fixture, not delete the test.**
+
+Clean-verified in the same pass (worth recording as sound): hash-order
+iteration in sim is order-insensitive at both live sites; zero
+`partial_cmp().unwrap()` NaN-sorts; sim-path `unwrap()`s concentrate in
+tests; the engine-for-other-games oracle HOLDS (zero live core→content
+references — the one `include_str!` is the sanctioned cfg(test) fixture
+pattern); live-doc drift is nil (dead crate names appear only in
+planning/history docs).

@@ -564,8 +564,13 @@ fn architecture_boundaries_world_ir_and_ldtk_backend_are_split() {
         ],
         "ambition_ldtk_map converts into world IR without depending on the sim heart",
     );
-    assert_source_tree_has_no_code_refs(
-        ldtk_root.join("src"),
+    // The cfg(test) fixture manifest reads the GAME'S real world FILES via a
+    // filesystem path (the sanctioned cross-crate fixture pattern — see
+    // ldtk_map::manifest::test_fixture_manifest). A path string into
+    // game/…/assets is DATA access for tests, not a code dependency; the
+    // Cargo-manifest assertion above still forbids the real dep.
+    let violations = scan_code_refs(
+        &[ldtk_root.join("src")],
         &[
             "ambition_actors",
             "ambition_runtime",
@@ -573,7 +578,12 @@ fn architecture_boundaries_world_ir_and_ldtk_backend_are_split() {
             "ambition_content",
             "ambition_app",
         ],
-        "ambition_ldtk_map source must not reach upward into sim/app/render/content",
+        |_, line| line.contains("../../game/ambition_content/assets"),
+    );
+    assert!(
+        violations.is_empty(),
+        "ambition_ldtk_map source must not reach upward into sim/app/render/content:\n{}",
+        violations.join("\n")
     );
 }
 

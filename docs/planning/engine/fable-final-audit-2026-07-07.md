@@ -97,3 +97,54 @@ prescription — log-once so E7/E8 executors don't re-derive:
     through render helpers; acceptable (it IS presentation), but then its
     name is wrong-tier: it is a presentation adapter, not an input crate.
     Optional rename/re-home under a `presentation/` grouping someday. LOW.
+
+### F2 — `ambition_actors` (68k): what it still smuggles + the residual's true shape
+
+Module census (top): features 24.7k (ecs 19.8k — the REAL actor domain:
+actors/mount/damage/bosses/spawn/perception/attack/damage_apply), boss_encounter
+6.9k, player 6.6k, abilities 4.1k, character_sprites 2.8k, projectile 2.3k +
+enemy_projectile 0.7k, world 2.0k, dev 1.6k, assets 1.6k, encounter 1.6k,
+items 1.5k, time 1.4k, persistence 1.3k, session 1.3k, audio 1.1k, menu 1.0k,
+body_mode 0.8k, portal 0.76k, schedule 0.6k, dialog 0.5k, music 0.4k.
+
+**The actor DOMAIN itself (features+player+abilities+boss_encounter+body_mode
+≈ 43k) is legitimately here.** The rest divides into three disposition
+classes — log-once so the next sessions don't re-derive:
+
+1. **MISPLACED (move whole, mechanical):**
+   - `assets/` (GameAssets + sandbox_assets + loading) — an asset catalog in
+     the actor crate; it is also render's biggest reason to dep actors (F1.5).
+     Destination: `ambition_asset_manager` (catalog machinery) +
+     `ambition_sprite_sheet` (character-sprite-specific lookups).
+   - `character_sprites/` remainder (2.8k) — sheets/anim/animator modules are
+     ~50% facade re-exports of `ambition_sprite_sheet` already (8 facade
+     files); finish the absorb, delete the tree.
+   - `world/physics.rs` (avian adapter) + `world/overlay{,_rebuild}.rs` —
+     these stayed actors-side because the overlay REBUILD reads live feature
+     components. Correct interim home, but name the end-state: after W-queue
+     step-3 dissolution the rebuild's inputs become plain solids and the pair
+     joins `ambition_world`; physics.rs (debris/avian) is presentation-adjacent
+     and can join render/host side whenever.
+   - `projectile/` + `enemy_projectile/` ECS half (3k) — joins
+     `ambition_projectiles` in the carded dedicated session.
+2. **RESIDUAL GLUE for already-minted crates** (audio/menu/dialog/items/
+   encounter/persistence/music/dev modules, ~7k total): each is the actor-side
+   wiring for a carved crate. Per ADR 0019, the plugin/schedule wiring belongs
+   in `ambition_runtime`; actor-DOMAIN reactions stay. Treat each module as a
+   two-way split, one commit each — do NOT move them wholesale into runtime
+   (that would just relocate the god-hub).
+3. **FACADES (60 `pub use ambition_*` re-export sites in actors).** These are
+   the deliberate hub-continuity aliases. The dissolution ratchet: **a facade
+   may be deleted the moment `grep -rn "ambition_actors::<mod>"` outside
+   actors returns zero** — put that one-liner in the E7/E8 card as the
+   per-facade exit test, and burn them down opportunistically (each is a
+   5-minute repoint+delete).
+
+**North star for the residual (fold into unified-actors.md):** `player/`
+(6.6k) existing as a SIBLING of `features/ecs` is the last structural
+player-centrism — the fighter-unification S5/S6 endgame folds the player's
+remaining special-cased systems into the one actor pipeline (the single
+control seam already made the player "an actor wearing Brain::Player"). The
+right long-term shape is ONE `actors` module tree where player-ness is a
+brain + a slot, not a directory. Do not force this before S5/S6; DO stop
+adding new player-only systems (new work lands body-generic or brain-side).

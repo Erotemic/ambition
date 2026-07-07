@@ -38,6 +38,12 @@ the dependent work to `OPUS-SAFE` in the same commit.
   (compiling, committable steps), then ONE atomic move of the module to
   its crate, then repoint every consumer. Never a lasting facade; delete
   re-export shims in the same arc.
+- **Test accounting (fable final audit F7 — BINDING):** before the atomic
+  move, list every `#[test]` in the moved modules by name; after the move,
+  every name must exist somewhere (moved crate, or explicitly re-homed).
+  A test that can't run in the new crate gets its FIXTURE moved (the
+  cfg(test) fixture-manifest pattern), never deleted — the W3 carve
+  silently dropped four ruled contract tests this way.
 - **Compile-parity gates:** after each carve, `cargo build -p
   ambition_app --features rl_sim` + the suite trio (ambition_actors lib,
   content, app rl_sim) + the architecture-boundary tests. Schedule shape

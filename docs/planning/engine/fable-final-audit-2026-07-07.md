@@ -254,3 +254,22 @@ Corrections (log-once, all small):
    should be minted without a consumer that exists today. The crate count
    (38) is already at the top of the comfortable range; the value now is
    thinning `ambition_actors` and deleting facades, not adding boxes.
+
+### F6 — Final gate + close
+
+Full `cargo test -p ambition_app --features rl_sim` after the F4 fixes: **44
+suites green; the only failure is the documented `unified_melee::
+a_hostile_actor` feel-RED** (unchanged, feel-reserved for Jon). The
+decomposition landing is behaviorally sound.
+
+Ops note: the dev box hit 100% disk mid-audit; `~/ambition-target/debug/
+incremental` (149G of regenerable build cache) was deleted to recover.
+Consider `CARGO_INCREMENTAL=0` for CI-style full-gate runs, or a periodic
+`cargo clean` cron, so a full disk doesn't silently kill background gates.
+
+**Priority order for the next sessions (all opus-executable, most valuable
+first):** F4.3 clock-reset seam → F1.1/F3.1 world-purity ratchet (dep test +
+ron_room re-side + branch conversions) → F1.4 GameMode move-down (frees
+host/touch_input) → F1.5/F2.1 GameAssets move + render repoints (finishes
+E4's dep flip) → F2.3 facade burn-down → E9 umbrella + demo homes (F5.1/2)
+→ projectiles dedicated session (already carded) → F2.2 glue splits.

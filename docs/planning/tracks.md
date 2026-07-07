@@ -1124,3 +1124,47 @@ drift in `architecture_boundaries_input_crate_is_extracted` (the canonical
 `cargo check -p ambition_app --features rl_sim`;
 `cargo run -p ambition_app --bin headless -- 120` (clean);
 rustfmt on touched files.
+
+## 2026-07-07 (opus) — E1d EXECUTED: `ambition_dev_tools` owns the dev-tool state
+
+Minted `crates/ambition_dev_tools` (foundational) and moved the
+content-free half of `ambition_gameplay_core::dev` into it: the
+`DeveloperTools` debug/gizmo toggle resource + inspector-visibility run
+conditions, the reflected editable player-tuning / ability / stats
+resources + their engine conversions, the movement/debug profile enums,
+the `StartupProfiler` marks, `DeveloperTools` disk persistence
+(developer.ron — the resource `ambition_persistence` deliberately never
+took, left "for E1d" at E1a), and `sync_live_player_dev_edits_system`.
+
+The move is clean because every actor type the dev code touches is
+already foundational: `Body*` clusters in `ambition_engine_core`,
+`PrimaryPlayerOnly` in `ambition_platformer_primitives::markers`,
+`BodyHealth`/`Health` in `ambition_characters`. So the inline
+`crate::actor::Body*` / `crate::actor::PrimaryPlayerOnly` references in
+`editable.rs` + the live-edit system repoint straight to those crates; the
+new crate deps are `engine_core` + `characters` + `platformer_primitives`
++ `persistence` only (bevy with just `bevy_log` — no windowing, so it
+compiles headless in isolation).
+
+`gameplay_core::dev` is now a facade re-exporting `dev_tools` /
+`profiling` / `sync_live_player_dev_edits_system` on the historical
+`crate::dev::*` paths, so the WIDE consumer set (render, sim_view,
+runtime, app, menu, and audio's `phase_mark`) needs zero import edits. It
+keeps `pub mod trace` — the trace RECORDER samples sim-only state
+(`player`/`features`/`rooms`/`portal`/`game_mode`) and stays sim-side.
+
+**Deviation from the card** (recorded in decomposition.md): "one crate
+incl. app dev/ 2.7k; DevToolsPlugin moves whole" can't be done without a
+cycle — the dev STATE is consumed below app, so it must be foundational;
+the egui overlays need render/egui and are app-level. The overlays stay in
+`ambition_app::dev` (they read the STATE via the facade path, so no edits);
+only the reusable STATE moved down.
+
+Gate: `cargo test -p ambition_dev_tools` (9);
+`cargo test -p ambition_gameplay_core --lib --features "ui input"` (1002 =
+1011 − the 9 moved dev_tools tests);
+`cargo test -p ambition_app --test architecture_boundaries` (35 — added the
+dev_tools foundation test + updated the dev-overlays home test);
+`cargo check -p ambition_app --features rl_sim`;
+`cargo run -p ambition_app --bin headless -- 120` (clean);
+rustfmt on touched files.

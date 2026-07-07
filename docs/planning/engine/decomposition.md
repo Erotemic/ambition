@@ -712,8 +712,27 @@ the facade, run the gate.
   `architecture_boundaries_dialog_crate_is_runtime_only` (foundational deps
   only). "lint machinery" in the original card was stale — the Yarn
   validator already lives in `ambition_content::dialogue::yarn`.
-- **E1d `ambition_dev_tools`** (core dev/ 3.0k + app dev/ 2.7k): one
-  crate, feature-gated overlays; DevToolsPlugin moves whole.
+- ✅ **E1d `ambition_dev_tools` DONE (opus, 2026-07-07):** minted as a
+  FOUNDATIONAL crate holding the content-free dev-tool STATE + logic:
+  `DeveloperTools` + run conditions, the reflected editable player-tuning/
+  ability/stats resources + engine conversions, the profile enums, the
+  `StartupProfiler`, `DeveloperTools` disk persistence (developer.ron —
+  the E1a leave-behind), and `sync_live_player_dev_edits_system`. Every
+  actor type it touches (`Body*` clusters, `PrimaryPlayerOnly`, `BodyHealth`)
+  is already foundational (engine_core / platformer_primitives / characters),
+  so the crate deps are just those + `ambition_persistence`.
+  `gameplay_core::dev` is now a facade re-exporting `dev_tools`/`profiling`/
+  `sync_live_player_dev_edits_system` on the historical paths (render/
+  sim_view/runtime/app/menu/audio need no edits); it keeps `pub mod trace`.
+  **DEVIATION from the card (recorded):** the card's "one crate incl. app
+  dev/ 2.7k, DevToolsPlugin moves whole" is infeasible without a cycle —
+  the dev STATE is consumed *below* app (gameplay_core/render/sim_view/
+  runtime) so it must be foundational, while the egui overlays
+  (DevToolsPlugin, fps/debug/portal inspectors) need render/egui and are
+  app-level. So the overlays STAY in `ambition_app::dev` (they already
+  named the STATE via the facade path — zero edits); only the reusable
+  STATE moved down. Boundary test
+  `architecture_boundaries_dev_tools_crate_is_foundation_only`.
 - **E1e `ambition_menu`** (core menu/ 3.2k + app menu/ 10k) — a
   THREE-way split (amended 2026-07-06, the extension-crate ruling in
   architecture.md Tier 6): (1) menu model + settings IR + host stack +

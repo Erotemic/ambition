@@ -39,7 +39,8 @@ chaining `phase_mark(...)` between Startup systems in
 ```
 
 Code lives in
-[crates/ambition_gameplay_core/src/dev/profiling.rs](../../crates/ambition_gameplay_core/src/dev/profiling.rs).
+[crates/ambition_dev_tools/src/profiling.rs](../../crates/ambition_dev_tools/src/profiling.rs)
+(re-exported on the historical `ambition_gameplay_core::dev::profiling` path).
 
 ## 2a. cargo flamegraph (no-GUI flame graph SVG)
 

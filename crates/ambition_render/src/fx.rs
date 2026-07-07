@@ -8,7 +8,6 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 use std::f32::consts::TAU;
 
-use ambition_actors::config::rgba;
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_FX};
 use ambition_sfx::SfxMessage;
 use ambition_sprite_sheet::character::{
@@ -35,6 +34,10 @@ pub fn explosion_anim(kind: ExplosionKind) -> CharacterAnim {
         ExplosionKind::SmokeBurst => CharacterAnim::Hit,
         ExplosionKind::Starburst => CharacterAnim::Slash,
     }
+}
+
+fn rgba(r: f32, g: f32, b: f32, a: f32) -> Color {
+    Color::srgba(r, g, b, a.clamp(0.0, 1.0))
 }
 
 #[derive(Component)]

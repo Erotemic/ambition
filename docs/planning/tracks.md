@@ -1472,3 +1472,12 @@ final dep-flip blocker list; the remaining live blockers are GameAssets/world
 visual data and schedule labels.
 
 Gate: `cargo check -p ambition_render`. Pre-existing warnings remain.
+
+## 2026-07-07 (Codex) — E4 render config helper cleanup
+
+Removed the last render import of `ambition_actors::config`: `fx` now keeps its
+tiny alpha-clamping `rgba` helper locally. This is intentionally small, but it
+keeps the E4 dep-flip surface honest by deleting another actor edge that was
+only a utility reach-through, not live sim data.
+
+Gate: `cargo check -p ambition_render`. Pre-existing warnings remain.

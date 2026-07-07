@@ -1,7 +1,7 @@
 # The decomposition playbook — killing the monolith, carve by carve
 
 **Authored by fable, 2026-07-05; role-anchored 2026-07-06.** THE
-highest-priority engineering track (Jon, binding): `ambition_gameplay_core`
+highest-priority engineering track (Jon, binding): `ambition_actors`
 (~95k LOC) and the fat app must decompose into the crate set of
 [`architecture.md`](architecture.md) — referred to below BY ROLE (e.g.
 *[the sim heart]*, *[the space IR]*) — so that (a) small agents can
@@ -39,7 +39,7 @@ the dependent work to `OPUS-SAFE` in the same commit.
   its crate, then repoint every consumer. Never a lasting facade; delete
   re-export shims in the same arc.
 - **Compile-parity gates:** after each carve, `cargo build -p
-  ambition_app --features rl_sim` + the suite trio (gameplay_core lib,
+  ambition_app --features rl_sim` + the suite trio (ambition_actors lib,
   content, app rl_sim) + the architecture-boundary tests. Schedule shape
   is pinned by the rl_sim headless app tests (they caught the G3 cycle).
 - **Feature discipline:** `ambition_runtime` forwards
@@ -91,7 +91,7 @@ to you:
 execute against; an executor whose module doesn't match this table has
 found drift — update the table in the same commit. LOC ≈ `wc -l`.)*
 
-### `ambition_gameplay_core` (~95k) disposition
+### `ambition_actors` (~95k) disposition
 
 | Module | LOC | Destination crate | Carve | Notes |
 |---|---:|---|---|---|
@@ -690,7 +690,7 @@ the facade, run the gate.
   display-mode vocabulary, quest specs/events/registry, and the
   `PersistenceSchedulePlugin`. Consumers now name
   `ambition_persistence::{save, save_data, settings, quest}` directly;
-  `ambition_gameplay_core::persistence` is only an adapter for the
+  `ambition_actors::persistence` is only an adapter for the
   remaining settings/menu IR and `DeveloperTools` disk persistence.
   The settings **IR** (renders/pages/curates) stays behind for E1e;
   `DeveloperTools` persistence stays behind for E1d. Exit locked by
@@ -1234,17 +1234,16 @@ arena first).
 
 ### E7 / E8 — residue + the workspace re-home — [opus/sonnet]
 
-E7: the `ambition_actors` rename (pending Jon's Q2 — **default ruling
-so this never stalls: if Q2 is still unanswered at execution time,
-`ambition_actors` IS the name**; a later rename is one mechanical
-sweep), the features-hub
-facade dissolution, **and the workspace re-home** (architecture §1):
-`ambition_content` + `ambition_app` move from `crates/` to `game/`,
-demo pairs live under `demos/` — a mechanical `git mv` + workspace-
-members + CI-path slice that makes the engine/game/demo split visible
-in the filesystem (do it LAST in D-A; it touches every path reference
-once). E8: `inventory_ui/` → [the stuff kit]; the `time/` residue stays
-by measurement. Plus the remaining crit-3 slices: the
+E7: ✅ **rename slice DONE (Codex 2026-07-07):** the former
+`ambition_gameplay_core` package/path is now `ambition_actors`. Remaining
+E7 work is the features-hub facade dissolution, **and the workspace
+re-home** (architecture §1): `ambition_content` + `ambition_app` move from
+`crates/` to `game/`, demo pairs live under `demos/` — a mechanical
+`git mv` + workspace-members + CI-path slice that makes the
+engine/game/demo split visible in the filesystem (do it LAST in D-A; it
+touches every path reference once). E8: `inventory_ui/` → [the stuff
+kit]; the `time/` residue stays by measurement. Plus the remaining crit-3
+slices: the
 `dialog/speech_sfx.rs` voice table → a content voice-profile registry;
 the `StartingCharacter` worn-sheet residue (`PLAYER_CHARACTER_ID` /
 `PLAYER_FILE_ROOT` in `character_sprites/attack_hitbox.rs`).
@@ -1321,7 +1320,7 @@ room-scoped run-condition helper (`in_mode("sanic")`) + the mode field.
 
 ## Exit criteria (the whole playbook)
 
-1. `ambition_gameplay_core` no longer exists (renamed residue included);
+1. `ambition_actors` no longer exists (renamed residue included);
    every crate in architecture.md's stack is real with imports flowing
    downward (enforced by the boundary tests).
 2. The named-content grep over engine crates hits zero (test fixtures

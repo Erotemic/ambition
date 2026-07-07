@@ -5,10 +5,10 @@ use crate::menu::model::{build_inventory_pages, system_rows};
 use crate::menu::test_support::{
     click_control, pointer_location, spawn_control, trigger_move, trigger_press, trigger_release,
 };
+use ambition_actors::actor::BodyMana;
+use ambition_actors::actor::{PlayerEntity, PrimaryPlayer};
+use ambition_actors::game_mode::GameMode;
 use ambition_characters::brain::ActionSet;
-use ambition_gameplay_core::actor::BodyMana;
-use ambition_gameplay_core::actor::{PlayerEntity, PrimaryPlayer};
-use ambition_gameplay_core::game_mode::GameMode;
 
 /// The cube's System list wraps vertically (closed list); the Grid clamps (its
 /// rows sit below the tab bar, a real UP target). Pins `step_system_row` so a
@@ -59,14 +59,14 @@ fn base_kaleidoscope_test_app() -> App {
     app.init_resource::<CachedSystemMenu>();
     app.init_resource::<KaleidoscopePointerPress>();
     app.init_resource::<OwnedItems>();
-    app.init_resource::<ambition_gameplay_core::dev::dev_tools::DeveloperTools>();
-    app.init_resource::<ambition_gameplay_core::SandboxDevState>();
-    app.init_resource::<ambition_gameplay_core::ldtk_world::LdtkHotReloadState>();
-    app.init_resource::<ambition_gameplay_core::session::reset::SandboxResetRequested>();
-    app.init_resource::<ambition_gameplay_core::dev::dev_tools::EditableMovementTuning>();
+    app.init_resource::<ambition_actors::dev::dev_tools::DeveloperTools>();
+    app.init_resource::<ambition_actors::SandboxDevState>();
+    app.init_resource::<ambition_actors::ldtk_world::LdtkHotReloadState>();
+    app.init_resource::<ambition_actors::session::reset::SandboxResetRequested>();
+    app.init_resource::<ambition_actors::dev::dev_tools::EditableMovementTuning>();
     app.init_resource::<UserSettings>();
-    app.init_resource::<ambition_gameplay_core::inventory_ui::InventoryUiState>();
-    app.init_resource::<ambition_gameplay_core::menu::map::MapMenuState>();
+    app.init_resource::<ambition_actors::inventory_ui::InventoryUiState>();
+    app.init_resource::<ambition_actors::menu::map::MapMenuState>();
     app.init_resource::<MenuControlFrame>();
     app.add_message::<PlayerHealRequested>();
     app.add_message::<SfxMessage>();
@@ -76,7 +76,7 @@ fn base_kaleidoscope_test_app() -> App {
 
 fn set_kaleidoscope_visible(app: &mut App, visible: bool) {
     app.world_mut()
-        .resource_mut::<ambition_gameplay_core::inventory_ui::InventoryUiState>()
+        .resource_mut::<ambition_actors::inventory_ui::InventoryUiState>()
         .visible = visible;
 }
 
@@ -100,9 +100,9 @@ fn spawn_kaleidoscope_test_player(app: &mut App) -> Entity {
 /// `apply_dev_toggle` path so the cube and pause menu can't drift.
 #[test]
 fn extra_dev_toggles_flip_their_non_developer_resources() {
-    let mut dev = ambition_gameplay_core::dev::dev_tools::DeveloperTools::default();
-    let mut dev_state = ambition_gameplay_core::SandboxDevState::default();
-    let mut ldtk_reload = ambition_gameplay_core::ldtk_world::LdtkHotReloadState::default();
+    let mut dev = ambition_actors::dev::dev_tools::DeveloperTools::default();
+    let mut dev_state = ambition_actors::SandboxDevState::default();
+    let mut ldtk_reload = ambition_actors::ldtk_world::LdtkHotReloadState::default();
     let mut backend = InventoryUiBackend::default();
 
     let debug_before = dev_state.debug;
@@ -171,9 +171,9 @@ fn menu_backend_dev_row_cycles_inventory_backend() {
     assert!(DevToggleId::ALL.contains(&DevToggleId::MenuBackend));
     assert!(DevToggleId::MenuBackend.is_cycle());
 
-    let mut dev = ambition_gameplay_core::dev::dev_tools::DeveloperTools::default();
-    let mut dev_state = ambition_gameplay_core::SandboxDevState::default();
-    let mut ldtk_reload = ambition_gameplay_core::ldtk_world::LdtkHotReloadState::default();
+    let mut dev = ambition_actors::dev::dev_tools::DeveloperTools::default();
+    let mut dev_state = ambition_actors::SandboxDevState::default();
+    let mut ldtk_reload = ambition_actors::ldtk_world::LdtkHotReloadState::default();
     let mut backend = InventoryUiBackend::Grid;
 
     // The snapshot label reflects the live backend.
@@ -240,9 +240,9 @@ fn menu_backend_dev_row_cycles_inventory_backend() {
 /// snapshot reads `show_feature_hitboxes` (matching the pause menu's source).
 #[test]
 fn show_hitboxes_toggles_feature_and_player_fields_like_pause() {
-    let mut dev = ambition_gameplay_core::dev::dev_tools::DeveloperTools::default();
-    let mut dev_state = ambition_gameplay_core::SandboxDevState::default();
-    let mut ldtk_reload = ambition_gameplay_core::ldtk_world::LdtkHotReloadState::default();
+    let mut dev = ambition_actors::dev::dev_tools::DeveloperTools::default();
+    let mut dev_state = ambition_actors::SandboxDevState::default();
+    let mut ldtk_reload = ambition_actors::ldtk_world::LdtkHotReloadState::default();
     dev.show_feature_hitboxes = false;
     dev.show_player_hitbox = false;
     let mut backend = InventoryUiBackend::default();
@@ -645,7 +645,7 @@ fn clicking_a_radio_station_keeps_the_menu_open() {
     );
     assert!(
         app.world()
-            .resource::<ambition_gameplay_core::inventory_ui::InventoryUiState>()
+            .resource::<ambition_actors::inventory_ui::InventoryUiState>()
             .visible,
         "auditioning a station keeps the cube open"
     );
@@ -664,7 +664,7 @@ fn reset_sandbox_action_closes_and_unpauses() {
         .active = Some(MenuPage::System);
     // Open the menu from gameplay: paused, but NOT nested under the pause menu.
     app.world_mut()
-        .resource_mut::<ambition_gameplay_core::inventory_ui::InventoryUiState>()
+        .resource_mut::<ambition_actors::inventory_ui::InventoryUiState>()
         .opened_from_pause = false;
     app.world_mut()
         .resource_mut::<NextState<GameMode>>()
@@ -684,7 +684,7 @@ fn reset_sandbox_action_closes_and_unpauses() {
 
     assert!(
         !app.world()
-            .resource::<ambition_gameplay_core::inventory_ui::InventoryUiState>()
+            .resource::<ambition_actors::inventory_ui::InventoryUiState>()
             .visible,
         "Reset Sandbox hides the cube"
     );
@@ -726,7 +726,7 @@ fn reset_all_settings_action_resets_settings_and_closes() {
         .audio
         .master_volume = 0.123;
     app.world_mut()
-        .resource_mut::<ambition_gameplay_core::dev::dev_tools::DeveloperTools>()
+        .resource_mut::<ambition_actors::dev::dev_tools::DeveloperTools>()
         .inspector_visible = true;
 
     // Dispatch Reset All Settings through the real pointer release/dispatch path.
@@ -743,14 +743,14 @@ fn reset_all_settings_action_resets_settings_and_closes() {
     );
     assert!(
         !app.world()
-            .resource::<ambition_gameplay_core::dev::dev_tools::DeveloperTools>()
+            .resource::<ambition_actors::dev::dev_tools::DeveloperTools>()
             .inspector_visible,
         "Reset All Settings restores DeveloperTools to defaults"
     );
     // The cube folds shut (same close as Reset Sandbox).
     assert!(
         !app.world()
-            .resource::<ambition_gameplay_core::inventory_ui::InventoryUiState>()
+            .resource::<ambition_actors::inventory_ui::InventoryUiState>()
             .visible,
         "Reset All Settings closes the cube"
     );
@@ -775,7 +775,7 @@ fn quit_action_writes_app_exit_and_closes() {
     assert_eq!(
         model.entry(SystemMenuEntryId::Quit).map(|e| &e.target),
         Some(
-            &ambition_gameplay_core::persistence::settings::SystemMenuTarget::Action(
+            &ambition_actors::persistence::settings::SystemMenuTarget::Action(
                 SystemMenuAction::Quit
             )
         ),
@@ -801,7 +801,7 @@ fn quit_action_writes_app_exit_and_closes() {
     // The cube folds shut (same close as the other immediate actions).
     assert!(
         !app.world()
-            .resource::<ambition_gameplay_core::inventory_ui::InventoryUiState>()
+            .resource::<ambition_actors::inventory_ui::InventoryUiState>()
             .visible,
         "Quit closes the cube"
     );
@@ -848,7 +848,7 @@ fn system_row_horizontal_moves_to_the_edge_buttons() {
 fn pointer_motion_selects_a_kaleidoscope_control() {
     let mut app = open_app();
     app.world_mut()
-        .resource_mut::<ambition_gameplay_core::inventory_ui::InventoryUiState>()
+        .resource_mut::<ambition_actors::inventory_ui::InventoryUiState>()
         .visible = true;
     app.world_mut()
         .resource_mut::<ActiveMenuPages<MenuPage, MenuPageAction>>()
@@ -906,14 +906,14 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
     app.init_resource::<CachedSystemMenu>();
     app.init_resource::<KaleidoscopePointerPress>();
     app.init_resource::<OwnedItems>();
-    app.init_resource::<ambition_gameplay_core::dev::dev_tools::DeveloperTools>();
-    app.init_resource::<ambition_gameplay_core::SandboxDevState>();
-    app.init_resource::<ambition_gameplay_core::ldtk_world::LdtkHotReloadState>();
-    app.init_resource::<ambition_gameplay_core::session::reset::SandboxResetRequested>();
-    app.init_resource::<ambition_gameplay_core::dev::dev_tools::EditableMovementTuning>();
+    app.init_resource::<ambition_actors::dev::dev_tools::DeveloperTools>();
+    app.init_resource::<ambition_actors::SandboxDevState>();
+    app.init_resource::<ambition_actors::ldtk_world::LdtkHotReloadState>();
+    app.init_resource::<ambition_actors::session::reset::SandboxResetRequested>();
+    app.init_resource::<ambition_actors::dev::dev_tools::EditableMovementTuning>();
     app.init_resource::<UserSettings>();
-    app.init_resource::<ambition_gameplay_core::inventory_ui::InventoryUiState>();
-    app.init_resource::<ambition_gameplay_core::menu::map::MapMenuState>();
+    app.init_resource::<ambition_actors::inventory_ui::InventoryUiState>();
+    app.init_resource::<ambition_actors::menu::map::MapMenuState>();
     app.init_resource::<MenuControlFrame>();
     app.init_resource::<ambition_input::MenuInputState>();
     app.add_message::<PlayerHealRequested>();
@@ -921,7 +921,7 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
     app.add_systems(
         Update,
         (
-            ambition_gameplay_core::schedule::populate_menu_control_frame_from_actions,
+            ambition_actors::schedule::populate_menu_control_frame_from_actions,
             kaleidoscope_menu_open_routing,
             kaleidoscope_focus_nav,
         )
@@ -954,7 +954,7 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
     };
     let visible = |app: &App| {
         app.world()
-            .resource::<ambition_gameplay_core::inventory_ui::InventoryUiState>()
+            .resource::<ambition_actors::inventory_ui::InventoryUiState>()
             .visible
     };
 
@@ -1010,7 +1010,7 @@ fn opening_the_kaleidoscope_clears_stale_pointer_hover_state() {
         .last_pointer_focus = Some(MenuFocus::Item(7));
     app.world_mut().resource_mut::<MenuControlFrame>().start = true;
     app.world_mut()
-        .resource_mut::<ambition_gameplay_core::inventory_ui::InventoryUiState>()
+        .resource_mut::<ambition_actors::inventory_ui::InventoryUiState>()
         .visible = false;
     app.update();
 
@@ -1273,13 +1273,11 @@ fn scroll_total_rows(app: &App) -> usize {
     let settings = app.world().resource::<UserSettings>();
     let dev = app
         .world()
-        .resource::<ambition_gameplay_core::dev::dev_tools::DeveloperTools>();
-    let dev_state = app
-        .world()
-        .resource::<ambition_gameplay_core::SandboxDevState>();
+        .resource::<ambition_actors::dev::dev_tools::DeveloperTools>();
+    let dev_state = app.world().resource::<ambition_actors::SandboxDevState>();
     let ldtk_reload = app
         .world()
-        .resource::<ambition_gameplay_core::ldtk_world::LdtkHotReloadState>();
+        .resource::<ambition_actors::ldtk_world::LdtkHotReloadState>();
     let backend = *app.world().resource::<InventoryUiBackend>();
     let snap = dev_snapshot(DevToggleRead {
         dev,
@@ -1655,17 +1653,17 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
     let mut owned = OwnedItems::default();
     owned.grant(owned_item, 1);
     app.insert_resource(owned);
-    app.init_resource::<ambition_gameplay_core::dev::dev_tools::DeveloperTools>();
-    app.init_resource::<ambition_gameplay_core::SandboxDevState>();
-    app.init_resource::<ambition_gameplay_core::ldtk_world::LdtkHotReloadState>();
-    app.init_resource::<ambition_gameplay_core::session::reset::SandboxResetRequested>();
-    app.init_resource::<ambition_gameplay_core::dev::dev_tools::EditableMovementTuning>();
+    app.init_resource::<ambition_actors::dev::dev_tools::DeveloperTools>();
+    app.init_resource::<ambition_actors::SandboxDevState>();
+    app.init_resource::<ambition_actors::ldtk_world::LdtkHotReloadState>();
+    app.init_resource::<ambition_actors::session::reset::SandboxResetRequested>();
+    app.init_resource::<ambition_actors::dev::dev_tools::EditableMovementTuning>();
     app.init_resource::<UserSettings>();
-    app.init_resource::<ambition_gameplay_core::inventory_ui::InventoryUiState>();
+    app.init_resource::<ambition_actors::inventory_ui::InventoryUiState>();
     app.add_message::<SfxMessage>();
     *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::LunexKaleidoscope;
     app.world_mut()
-        .resource_mut::<ambition_gameplay_core::inventory_ui::InventoryUiState>()
+        .resource_mut::<ambition_actors::inventory_ui::InventoryUiState>()
         .visible = true;
 
     // The lib's ring root that `rebuild_cube_faces` parents faces under. We spawn
@@ -1965,7 +1963,7 @@ fn render_set_is_gated_off_under_the_grid_backend() {
         app.init_resource::<InventoryUiBackend>();
         app.init_resource::<RenderRan>();
         *app.world_mut().resource_mut::<InventoryUiBackend>() = backend;
-        let mut ui_state = ambition_gameplay_core::inventory_ui::InventoryUiState::default();
+        let mut ui_state = ambition_actors::inventory_ui::InventoryUiState::default();
         ui_state.visible = menu_visible;
         app.insert_resource(ui_state);
         // Exactly the host's gating from `install_kaleidoscope_menu`.

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Per-module #[test] count for the ambition_gameplay_core crate (the former
+# Per-module #[test] count for the ambition_actors crate (the former
 # standalone ambition_engine now lives under src/engine_core/).
 #
 # Quick reconnaissance tool: when picking a module to add tests to,
@@ -23,11 +23,11 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 case "${1:-both}" in
   engine)
-    targets=("$REPO_ROOT/crates/ambition_gameplay_core/src/engine_core")
+    targets=("$REPO_ROOT/crates/ambition_actors/src/engine_core")
     ;;
   sandbox|both|*)
     # One crate now; its src already contains engine_core/.
-    targets=("$REPO_ROOT/crates/ambition_gameplay_core/src")
+    targets=("$REPO_ROOT/crates/ambition_actors/src")
     ;;
 esac
 

@@ -23,14 +23,14 @@
 
 #![cfg(feature = "rl_sim")]
 
+use ambition_actors::actor::{BodyKinematics, PrimaryPlayerOnly};
+use ambition_actors::boss_encounter::{BossEncounterPhase, EncounterDef, EncounterProgress};
+use ambition_actors::combat::{HitEvent, HitSource};
+use ambition_actors::features::ecs::boss_clusters::BossConfig;
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use ambition_characters::actor::{BodyCombat, BodyHealth};
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_entity_catalog::placements::BossBrain;
-use ambition_gameplay_core::actor::{BodyKinematics, PrimaryPlayerOnly};
-use ambition_gameplay_core::boss_encounter::{BossEncounterPhase, EncounterDef, EncounterProgress};
-use ambition_gameplay_core::combat::{HitEvent, HitSource};
-use ambition_gameplay_core::features::ecs::boss_clusters::BossConfig;
 use bevy::ecs::message::Messages;
 use bevy::prelude::World;
 
@@ -549,7 +549,7 @@ fn face_tanking_player_swings_back_and_is_recoil_locked() {
 /// `docs/planning/boss-entity-local-refactor.md`.
 #[test]
 fn two_same_archetype_bosses_have_independent_encounter_state() {
-    use ambition_gameplay_core::features::ecs::boss_clusters::{BossConfig, BossEncounter};
+    use ambition_actors::features::ecs::boss_clusters::{BossConfig, BossEncounter};
 
     let mut sim =
         SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");

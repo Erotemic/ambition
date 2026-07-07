@@ -1,7 +1,7 @@
 //! Ambition world-seam adapter for the in-flight portal shot.
 //!
 //! Portal core's [`step_portal_shot`] is a pure helper over the reusable
-//! [`SolidWorldQuery`](ambition_gameplay_core::platformer_runtime::collision::SolidWorldQuery)
+//! [`SolidWorldQuery`](ambition_actors::platformer_runtime::collision::SolidWorldQuery)
 //! seam (+ world bounds): it decides whether a shot travels, places a portal, or
 //! fizzles, without ever reading the concrete `Res<RoomGeometry>`. This adapter owns
 //! the concrete world — it reads `Res<RoomGeometry>`, calls the helper per shot, and
@@ -10,11 +10,11 @@
 
 use bevy::prelude::*;
 
-use ambition_engine_core::RoomGeometry;
-use ambition_gameplay_core::platformer_runtime::prelude::SpawnScopedExt;
-use ambition_gameplay_core::portal::{
+use ambition_actors::platformer_runtime::prelude::SpawnScopedExt;
+use ambition_actors::portal::{
     portal_half_extent, step_portal_shot, PlacedPortal, PortalShot, PortalShotStep, PortalShotWorld,
 };
+use ambition_engine_core::RoomGeometry;
 
 /// Advance portal shots against the concrete collision world. For each shot,
 /// call the pure [`step_portal_shot`] over the `RoomGeometry`'s solids + bounds and

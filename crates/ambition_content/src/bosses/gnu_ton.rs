@@ -29,8 +29,8 @@
 use ambition_engine_core as ae;
 use bevy::prelude::*;
 
+use ambition_actors::features::{BossClusterRef, FeatureEcsWorldOverlay};
 use ambition_engine_core::RoomGeometry;
-use ambition_gameplay_core::features::{BossClusterRef, FeatureEcsWorldOverlay};
 
 /// LDtk level identifier of the arena room whose ladder this system
 /// gates. Held as a constant so it's grep-able alongside the matching
@@ -51,7 +51,7 @@ const FLOOR_GATE_BLOCK_NAME: &str = "ladder_floor_gate";
 /// recognize the rider id. The fused `gnu_ton` id is still matched so the gate
 /// keeps working against the (still-authored) fused profile and its regression
 /// tests until the fused teardown lands.
-fn boss_is_gnu_ton(boss: &ambition_gameplay_core::features::BossRef<'_>) -> bool {
+fn boss_is_gnu_ton(boss: &ambition_actors::features::BossRef<'_>) -> bool {
     boss.config.behavior.id == "gnu_ton"
         || boss.config.behavior.id == "gnu_ton_rider"
         || boss.config.name.eq_ignore_ascii_case("gnu_ton")
@@ -109,7 +109,7 @@ pub fn gate_gnu_ton_arena_ladder(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_gameplay_core::features::{
+    use ambition_actors::features::{
         rebuild_feature_ecs_world_overlay, world_with_sandbox_solids, BossBehaviorProfile,
         BossClusterScratch,
     };
@@ -211,18 +211,18 @@ mod tests {
 
         crate::bosses::install_boss_roster();
         let mut app = App::new();
-        app.add_plugins(ambition_gameplay_core::character_sprites::SheetRegistryPlugin);
+        app.add_plugins(ambition_actors::character_sprites::SheetRegistryPlugin);
         let entity = app
             .world_mut()
             .spawn((
-                ambition_gameplay_core::features::FeatureSimEntity,
+                ambition_actors::features::FeatureSimEntity,
                 spawn_gnu_ton_runtime().into_components(),
                 ambition_characters::brain::BossAttackState::default(),
             ))
             .id();
         app.add_systems(
             Update,
-            ambition_gameplay_core::features::derive_boss_sprite_metrics,
+            ambition_actors::features::derive_boss_sprite_metrics,
         );
         // First update runs Startup (loads the baked sprite registry)
         // then Update (derives the boss's sprite metrics from it).
@@ -230,7 +230,7 @@ mod tests {
 
         let status = app
             .world()
-            .get::<ambition_gameplay_core::features::BossEncounter>(entity)
+            .get::<ambition_actors::features::BossEncounter>(entity)
             .unwrap();
         assert!(
             status.sprite_metrics.is_some(),
@@ -242,40 +242,40 @@ mod tests {
             .unwrap();
         let kin = app
             .world()
-            .get::<ambition_gameplay_core::features::BodyKinematics>(entity)
+            .get::<ambition_actors::features::BodyKinematics>(entity)
             .unwrap();
         let config = app
             .world()
-            .get::<ambition_gameplay_core::features::BossConfig>(entity)
+            .get::<ambition_actors::features::BossConfig>(entity)
             .unwrap();
         let status = app
             .world()
-            .get::<ambition_gameplay_core::features::BossEncounter>(entity)
+            .get::<ambition_actors::features::BossEncounter>(entity)
             .unwrap();
-        let boss_ref = ambition_gameplay_core::features::BossRef {
+        let boss_ref = ambition_actors::features::BossRef {
             kin,
             config,
             status,
         };
-        let ctx = ambition_gameplay_core::features::BossVolumeContext::from_ref(boss_ref, attack);
-        let hurtboxes = ambition_gameplay_core::features::damageable_volumes(&ctx);
+        let ctx = ambition_actors::features::BossVolumeContext::from_ref(boss_ref, attack);
+        let hurtboxes = ambition_actors::features::damageable_volumes(&ctx);
         assert!(
             !hurtboxes.is_empty(),
             "gnu_ton should expose at least one damageable hurtbox at rest"
         );
         let kin = app
             .world()
-            .get::<ambition_gameplay_core::features::BodyKinematics>(entity)
+            .get::<ambition_actors::features::BodyKinematics>(entity)
             .unwrap();
         let config = app
             .world()
-            .get::<ambition_gameplay_core::features::BossConfig>(entity)
+            .get::<ambition_actors::features::BossConfig>(entity)
             .unwrap();
         let status = app
             .world()
-            .get::<ambition_gameplay_core::features::BossEncounter>(entity)
+            .get::<ambition_actors::features::BossEncounter>(entity)
             .unwrap();
-        let body = ambition_gameplay_core::features::BossRef {
+        let body = ambition_actors::features::BossRef {
             kin,
             config,
             status,
@@ -335,8 +335,8 @@ mod tests {
     /// `mount_links` entry) end-to-end off the embedded sandbox.ldtk.
     #[test]
     fn arena_spawns_the_adr0020_linked_pair() {
+        use ambition_actors::ldtk_world::LdtkProject;
         use ambition_entity_catalog::placements::{BossBrain, CharacterBrain};
-        use ambition_gameplay_core::ldtk_world::LdtkProject;
 
         // `to_room_set` reads the world manifest + resolves spawn display names
         // through the character roster; install both content seams before

@@ -8,8 +8,8 @@ aliases:
 implemented_by:
   - crates/ambition_asset_manager/src
   - crates/ambition_asset_manager/src/sandbox_assets
-  - crates/ambition_gameplay_core/src/assets/mod.rs
-  - crates/ambition_gameplay_core/assets/ambition/sandbox.ron
+  - crates/ambition_actors/src/assets/mod.rs
+  - crates/ambition_actors/assets/ambition/sandbox.ron
 related_docs:
   - docs/systems/asset-manager.md
   - docs/systems/asset-manager.md
@@ -49,6 +49,6 @@ vocabulary until the E3/E6/E7 carves move those dependencies.
 
 ```bash
 cargo test -p ambition_asset_manager
-cargo test -p ambition_gameplay_core --lib assets
+cargo test -p ambition_actors --lib assets
 cargo run -p ambition_app --bin headless
 ```

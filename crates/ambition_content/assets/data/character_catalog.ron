@@ -1,6 +1,6 @@
 // Character catalog — single source of truth for spawnable
 // characters in the sandbox. See
-// `crates/ambition_gameplay_core/src/content/character_catalog/` for the
+// `crates/ambition_actors/src/content/character_catalog/` for the
 // loader + resolver, and `TODO-character-catalog-and-hall.md` for
 // the architectural posture (Rust = behavior, RON = content, LDtk
 // = space).

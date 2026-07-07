@@ -16,15 +16,15 @@
 
 use bevy::prelude::*;
 
-use ambition_characters::brain::{Brain, PlayerSlot, SlotControls};
-use ambition_gameplay_core::abilities::traversal::possession::ControlledSubject;
-use ambition_gameplay_core::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
-use ambition_gameplay_core::player::affordances::{InteractVariant, NearestInteractable};
+use ambition_actors::abilities::traversal::possession::ControlledSubject;
+use ambition_actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use ambition_actors::player::affordances::{InteractVariant, NearestInteractable};
 #[cfg(feature = "portal_render")]
-use ambition_gameplay_core::portal::PortalAimHint;
-use ambition_gameplay_core::portal::{
+use ambition_actors::portal::PortalAimHint;
+use ambition_actors::portal::{
     DropPortalGun, FirePortalGun, PickUpPortalGun, PortalGun, TogglePortalGun,
 };
+use ambition_characters::brain::{Brain, PlayerSlot, SlotControls};
 use ambition_input::ControlFrame;
 
 /// Aim direction for a fired portal: right-stick aim, else movement axis, else

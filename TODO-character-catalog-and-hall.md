@@ -374,14 +374,14 @@ example, leaving the real phase schedules for follow-up work.
 Tool: `tools/ambition_ldtk_tools/ambition_ldtk_tools/codegen_character_catalog.py`
 
 Reads:
-- `crates/ambition_gameplay_core/src/character_sprites/assets.rs::NPC_SPRITE_REGISTRY` (parsed from Rust)
-- `crates/ambition_gameplay_core/src/features/ecs/spawn.rs::enemy_default_brain()` (parsed for archetype → preset mapping)
-- `crates/ambition_gameplay_core/src/brain/state_machine/mod.rs::*_DEFAULT` consts (parsed for preset values)
+- `crates/ambition_actors/src/character_sprites/assets.rs::NPC_SPRITE_REGISTRY` (parsed from Rust)
+- `crates/ambition_actors/src/features/ecs/spawn.rs::enemy_default_brain()` (parsed for archetype → preset mapping)
+- `crates/ambition_actors/src/brain/state_machine/mod.rs::*_DEFAULT` consts (parsed for preset values)
 - Renderer's `list-targets` output (cross-reference for missing sprites)
 
 Emits:
-- `crates/ambition_gameplay_core/assets/data/character_catalog.ron` (one entry per registered character + one entry per renderer target that wasn't registered, marked with `tags: ["needs_review"]`)
-- `crates/ambition_gameplay_core/assets/data/boss_encounters/<id>.ron` placeholders
+- `crates/ambition_actors/assets/data/character_catalog.ron` (one entry per registered character + one entry per renderer target that wasn't registered, marked with `tags: ["needs_review"]`)
+- `crates/ambition_actors/assets/data/boss_encounters/<id>.ron` placeholders
 
 One-shot script; output is committed; script is retired after the migration lands (kept in `dev/migration-scripts/` for reference).
 
@@ -425,7 +425,7 @@ Plugin registration in `app/plugins.rs`:
 app.add_plugins(crate::content::character_catalog::CharacterCatalogPlugin);
 ```
 
-The plugin lives in `ambition_gameplay_core` today; a future PR can lift
+The plugin lives in `ambition_actors` today; a future PR can lift
 it into a standalone `ambition_character_catalog` crate when a
 second Ambition game needs it.
 
@@ -439,7 +439,7 @@ phase if budget runs out.
 **Goal:** RON catalog loaded into a Bevy resource with load-time validation.
 
 **Files:**
-- New: `crates/ambition_gameplay_core/assets/data/character_catalog.ron` (codegen'd from current registry)
+- New: `crates/ambition_actors/assets/data/character_catalog.ron` (codegen'd from current registry)
 - New: `crates/ambition_content/src/character_catalog/{mod,entry,loader,resolver,validator}.rs`
 - New: `tools/ambition_ldtk_tools/ambition_ldtk_tools/codegen_character_catalog.py` (one-shot migration script)
 - Edit: `crates/ambition_app/src/app/plugins.rs` (register plugin)
@@ -451,7 +451,7 @@ phase if budget runs out.
 - Headless integration: `sim_validates_character_catalog_at_startup`
 
 **Exit criteria:**
-- `cargo test -p ambition_gameplay_core --lib content::character_catalog` green
+- `cargo test -p ambition_actors --lib content::character_catalog` green
 - `cargo run -p ambition_app --bin headless -- 60` clean
 - Catalog has one entry per character in `NPC_SPRITE_REGISTRY`
 - Loaded catalog matches the codegen'd RON (round-trip stable)
@@ -463,11 +463,11 @@ phase if budget runs out.
 **Goal:** LDtk NpcSpawns reference `character_id`; runtime resolves via catalog.
 
 **Files:**
-- Edit: `crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk` (NpcSpawn defs + every instance)
-- Edit: `crates/ambition_gameplay_core/assets/ambition/worlds/intro.ldtk` (same)
-- Edit: `crates/ambition_gameplay_core/src/world/ldtk_world/` (parser reads `character_id`)
-- Edit: `crates/ambition_gameplay_core/src/features/npcs.rs` (NpcRuntime construction)
-- Edit: `crates/ambition_gameplay_core/src/features/ecs/spawn.rs::spawn_interactable` (catalog lookup)
+- Edit: `crates/ambition_actors/assets/ambition/worlds/sandbox.ldtk` (NpcSpawn defs + every instance)
+- Edit: `crates/ambition_actors/assets/ambition/worlds/intro.ldtk` (same)
+- Edit: `crates/ambition_actors/src/world/ldtk_world/` (parser reads `character_id`)
+- Edit: `crates/ambition_actors/src/features/npcs.rs` (NpcRuntime construction)
+- Edit: `crates/ambition_actors/src/features/ecs/spawn.rs::spawn_interactable` (catalog lookup)
 - New: `tools/ambition_ldtk_tools/ambition_ldtk_tools/edit/rename_npc_field.py`
 
 **Tests:**
@@ -488,8 +488,8 @@ phase if budget runs out.
 **Goal:** Every renderer-registered character has a catalog entry.
 
 **Files:**
-- Edit: `crates/ambition_gameplay_core/assets/data/character_catalog.ron` (add ~25 entries)
-- Edit (potential): `crates/ambition_gameplay_core/assets/<sprite_folder>/` (run `python -m ambition_sprite2d_renderer install <name>` for each)
+- Edit: `crates/ambition_actors/assets/data/character_catalog.ron` (add ~25 entries)
+- Edit (potential): `crates/ambition_actors/assets/<sprite_folder>/` (run `python -m ambition_sprite2d_renderer install <name>` for each)
 
 Each new catalog entry: `character_id`, `display_name`, sprite/manifest paths, `tier`, `body_kind`, default brain/action-set, tags. No Rust changes.
 
@@ -528,7 +528,7 @@ Each new catalog entry: `character_id`, `display_name`, sprite/manifest paths, `
 **Files:**
 - New: `tools/ambition_ldtk_tools/ambition_ldtk_tools/generate_hall_of_characters.py`
 - New: `tools/ambition_ldtk_tools/specs/hall_of_characters_area.ron` (generator output, committed)
-- Edit: `crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk` (new level + door from central_hub_main)
+- Edit: `crates/ambition_actors/assets/ambition/worlds/sandbox.ldtk` (new level + door from central_hub_main)
 
 **Generator behavior:**
 - Read `character_catalog.ron`.
@@ -557,8 +557,8 @@ Each new catalog entry: `character_id`, `display_name`, sprite/manifest paths, `
 **Goal:** Single source of truth. Catalog wins; legacy registries delete.
 
 **Files (deletions):**
-- Delete: `NPC_SPRITE_REGISTRY` array in `crates/ambition_gameplay_core/src/character_sprites/assets.rs`
-- Delete: per-character `*_SHEET` `LazyLock<CharacterSheetSpec>` consts in `crates/ambition_gameplay_core/src/character_sprites/sheets.rs` (where the catalog now resolves the spec)
+- Delete: `NPC_SPRITE_REGISTRY` array in `crates/ambition_actors/src/character_sprites/assets.rs`
+- Delete: per-character `*_SHEET` `LazyLock<CharacterSheetSpec>` consts in `crates/ambition_actors/src/character_sprites/sheets.rs` (where the catalog now resolves the spec)
 - Delete: `sheet_consts_match_their_yaml_manifests` test (catalog validator replaces it)
 - Delete: `tests::npc_sprite_label` (now `character_id`)
 - Delete: YAML path in `area create` (RON only after phase 4)
@@ -595,12 +595,12 @@ Each new catalog entry: `character_id`, `display_name`, sprite/manifest paths, `
 ## Validation gates (between every phase)
 
 ```bash
-~/.cargo/bin/cargo check -p ambition_gameplay_core
-~/.cargo/bin/cargo check -p ambition_gameplay_core
-~/.cargo/bin/cargo test  -p ambition_gameplay_core  --lib
-~/.cargo/bin/cargo test  -p ambition_gameplay_core --lib
+~/.cargo/bin/cargo check -p ambition_actors
+~/.cargo/bin/cargo check -p ambition_actors
+~/.cargo/bin/cargo test  -p ambition_actors  --lib
+~/.cargo/bin/cargo test  -p ambition_actors --lib
 ~/.cargo/bin/cargo run   -p ambition_app --bin headless -- 100
-python3 -m ambition_ldtk_tools validate crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
+python3 -m ambition_ldtk_tools validate crates/ambition_actors/assets/ambition/worlds/sandbox.ldtk
 python3 scripts/check_doc_links.py
 ```
 
@@ -670,8 +670,8 @@ preserves them:
 - [`docs/recipes/extending-brains-and-action-sets.md`](docs/recipes/extending-brains-and-action-sets.md) — current "add a new brain" procedure
 - [`TODO-controllable-entity.md`](TODO-controllable-entity.md) — the previous overnight run's plan, same shape as this one
 - [`tools/ambition_ldtk_tools/specs/hall_of_bosses_area.yaml`](tools/ambition_ldtk_tools/specs/hall_of_bosses_area.yaml) — precedent hall room
-- [`crates/ambition_gameplay_core/src/character_sprites/assets.rs`](crates/ambition_gameplay_core/src/character_sprites/assets.rs) — current `NPC_SPRITE_REGISTRY` to be retired
-- [`crates/ambition_gameplay_core/src/brain/`](crates/ambition_gameplay_core/src/brain/) — brain module that the catalog references
+- [`crates/ambition_actors/src/character_sprites/assets.rs`](crates/ambition_actors/src/character_sprites/assets.rs) — current `NPC_SPRITE_REGISTRY` to be retired
+- [`crates/ambition_actors/src/brain/`](crates/ambition_actors/src/brain/) — brain module that the catalog references
 - ADR 0003 — data-driven specs and asset loading (catalog aligns with this)
 - ADR 0016 — actor unification (universal-brain section)
 - ADR 0017 — Rust = behavior, RON = content, LDtk = space (created in Phase 7)

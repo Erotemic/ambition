@@ -5,7 +5,7 @@
 A refactor overlay handoff recommended this command:
 
 ```bash
-cargo test -p ambition_gameplay_core inventory pause_menu
+cargo test -p ambition_actors inventory pause_menu
 ```
 
 Cargo rejected it because `cargo test` only accepts one positional test filter:
@@ -24,21 +24,21 @@ When handing off Rust validation commands, use exactly one positional `TESTNAME`
 ## Correct examples
 
 ```bash
-cargo test -p ambition_gameplay_core --lib inventory
-cargo test -p ambition_gameplay_core --lib pause_menu
+cargo test -p ambition_actors --lib inventory
+cargo test -p ambition_actors --lib pause_menu
 ```
 
 or:
 
 ```bash
-cargo test -p ambition_gameplay_core --lib
+cargo test -p ambition_actors --lib
 ```
 
 Keep integration regression checks explicit:
 
 ```bash
-cargo test -p ambition_gameplay_core --test repro_walls
-cargo test -p ambition_gameplay_core --test fuzz_random_walker
+cargo test -p ambition_actors --test repro_walls
+cargo test -p ambition_actors --test fuzz_random_walker
 ```
 
 ## Process adjustment

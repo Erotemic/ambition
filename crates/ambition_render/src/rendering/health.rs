@@ -9,9 +9,9 @@ use bevy::prelude::*;
 
 use super::primitives::HealthOverlayVisual;
 use crate::ui_fonts::{UiFontWeight, UiFonts};
+use ambition_actors::features::FeatureVisualKind;
 use ambition_characters::actor::Health;
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
-use ambition_gameplay_core::features::FeatureVisualKind;
 use ambition_sim_view::{ActorRenderIndex, BossRenderIndex, FeatureViewIndex};
 
 #[derive(Component)]
@@ -144,8 +144,8 @@ pub fn sync_boss_health_bar_overlay(
 pub fn sync_health_overlays(
     mut commands: Commands,
     world: Res<ambition_engine_core::RoomGeometry>,
-    dev_state: Res<ambition_gameplay_core::SandboxDevState>,
-    developer_tools: Res<ambition_gameplay_core::dev::dev_tools::DeveloperTools>,
+    dev_state: Res<ambition_actors::SandboxDevState>,
+    developer_tools: Res<ambition_actors::dev::dev_tools::DeveloperTools>,
     overlays: Query<Entity, With<HealthOverlayVisual>>,
     // Pure read-model consumer (E4 slice 5): the player rides its
     // `BodyPoseView`; actors/bosses/breakables ride their `FeatureView`

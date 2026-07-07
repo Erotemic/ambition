@@ -12,7 +12,7 @@ moment that line is shown:
 Inside `[name ...]`, after the tag name every whitespace-separated token must
 be a `key=value` property (or the tag ends in `]` / `/]`). A bare word makes
 the parser expect a `=` and fail. This is the authoritative Rust guard
-`ambition_gameplay_core::dialog_lint::no_malformed_yarn_markup_tags` ported to
+`ambition_actors::dialog_lint::no_malformed_yarn_markup_tags` ported to
 Python so `run_game.sh` can fail fast before a build + launch.
 
 Fixes: use `(parens)` for stage directions, escape literal brackets as

@@ -29,7 +29,7 @@ are larger composed labs.
 Room layout has migrated to LDtk (see ADR 0009). The engine still
 simulates a single `World` at a time; Bevy swaps the active `World`
 when the player enters a `LoadingZone` LDtk entity. The runtime spine
-in `crates/ambition_gameplay_core/src/ldtk_world.rs` keeps the engine
+in `crates/ambition_actors/src/ldtk_world.rs` keeps the engine
 collision world synchronized with LDtk entities.
 
 ## Future work (resolved items struck through)
@@ -37,7 +37,7 @@ collision world synchronized with LDtk entities.
 - ~~Promote room graphs into a serializable engine-side room/world model.~~ Resolved via LDtk + ADR 0009.
 - ~~Make loading zones typed: door, portal, theorem gate, story transition, debug warp.~~ Partly resolved: edge transitions vs door interactions are distinguished (see `room_graph_data_model.md`); theorem gate / debug warp remain future work if the story arc needs them.
 - Add per-room moving-platform specs instead of one generic time-reference platform.
-- ~~Add tests for room transitions after the room graph moves into the engine.~~ Covered by `crates/ambition_gameplay_core/tests/repro_walls.rs` and the LDtk runtime tests in `ldtk_world.rs`; deeper transition fuzz coverage is still future work.
+- ~~Add tests for room transitions after the room graph moves into the engine.~~ Covered by `crates/ambition_actors/tests/repro_walls.rs` and the LDtk runtime tests in `ldtk_world.rs`; deeper transition fuzz coverage is still future work.
 
 ## Door interaction while flying
 

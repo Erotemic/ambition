@@ -161,8 +161,8 @@ mod tests {
             }
             // The page images the spec names exist on disk where the asset
             // path says they are (desktop check; profile gating is separate).
-            let asset_owner_dir = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join("../ambition_gameplay_core");
+            let asset_owner_dir =
+                std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../ambition_actors");
             let page0 = asset_owner_dir
                 .join("assets")
                 .join(pack_page_path(tier, &spec.page_images[0]));

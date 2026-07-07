@@ -70,7 +70,7 @@ becomes engine work.
 
 ## 3. What "1.0" looks like (the goal state)
 
-- The crate map of `engine/architecture.md` is REAL: `ambition_gameplay_core`
+- The crate map of `engine/architecture.md` is REAL: `ambition_actors`
   no longer exists as a monolith; every crate is a well-scoped domain a small
   agent can navigate and modify safely. **This is the absolute highest
   priority** — extensibility, pluggability, and agent navigation come from

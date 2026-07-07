@@ -1003,7 +1003,7 @@ def main() -> None:
     parser.add_argument(
         "--asset-root",
         type=Path,
-        default=Path("crates/ambition_gameplay_core/assets"),
+        default=Path("crates/ambition_actors/assets"),
         help="gameplay-core asset root containing sprites/ and backgrounds/",
     )
     parser.add_argument("--sprites-only", action="store_true")

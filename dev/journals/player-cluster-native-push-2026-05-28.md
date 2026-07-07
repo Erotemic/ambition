@@ -60,7 +60,7 @@ headless bin) plus the engine-internal regression-test suite.
   `tick_camera_shake` decay + `hard_fall_shake_amplitude` pure helper
   triggered from `player_simulation_phase`. 11 unit tests pin the
   contract. (`4fcc5863`, `781ecf31`)
-- **`cargo test -p ambition_gameplay_core --lib` passes again** — 1132/1133
+- **`cargo test -p ambition_actors --lib` passes again** — 1132/1133
   tests green (was: doesn't compile). The recovery touched ~10 files
   and quarantined `body_mode/tests.rs` behind `#![cfg(any())]` so a
   future session can port its 10 PlayerMovementAuthority-shaped
@@ -153,7 +153,7 @@ headless bin) plus the engine-internal regression-test suite.
 
 - `cargo run --bin rl_smoke` → 42/42 rooms ok at every commit
   through the push (200 ticks each, 8400 frames per pass).
-- `cargo test -p ambition_gameplay_core --lib` → **1140/1140 green** (was
+- `cargo test -p ambition_actors --lib` → **1140/1140 green** (was
   "doesn't compile" at session start; ~25 lib-test logic / shape
   issues fixed along the way).
 - All integration tests green: `repro_walls` (6), `crouch_stability`,

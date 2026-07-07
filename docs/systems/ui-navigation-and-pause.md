@@ -11,16 +11,16 @@ GameMode
         ↓
 ambition_input menu vocabulary + app host bridge
         ↓
-ambition_gameplay_core menu IR/map + ambition_menu renderers + app menu stack
+ambition_actors menu IR/map + ambition_menu renderers + app menu stack
 ```
 
 Important paths:
 
-- `crates/ambition_gameplay_core/src/session/game_mode.rs` — coarse game mode and gameplay gating helpers.
+- `crates/ambition_actors/src/session/game_mode.rs` — coarse game mode and gameplay gating helpers.
 - `crates/ambition_input/src/menu.rs` — menu-facing input vocabulary.
 - `crates/ambition_ui_nav/src/` — shared list, pointer, and drag helpers.
-- `crates/ambition_gameplay_core/src/menu/ir/` — reusable menu item/page IR.
-- `crates/ambition_gameplay_core/src/menu/map/` — map-tab model, input, pointer, systems, and UI helpers.
+- `crates/ambition_actors/src/menu/ir/` — reusable menu item/page IR.
+- `crates/ambition_actors/src/menu/map/` — map-tab model, input, pointer, systems, and UI helpers.
 - `crates/ambition_menu/src/render/` — reusable Bevy-UI and kaleidoscope render backends.
 - `crates/ambition_app/src/menu/` — app-hosted menu state, dispatch, pointer tests, and renderer integration.
 
@@ -36,7 +36,7 @@ Important paths:
 
 ```bash
 cargo test -p ambition_input menu
-cargo test -p ambition_gameplay_core menu
+cargo test -p ambition_actors menu
 cargo test -p ambition_ui_nav
 cargo test -p ambition_menu
 cargo test -p ambition_app --tests --features "bevy_ui_menu kaleidoscope_menu input"

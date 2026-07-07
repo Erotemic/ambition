@@ -10,8 +10,8 @@ implemented_by:
   - tools/ambition_music_renderer
   - tools/ambition_sfx_renderer
   - tools/ambition_sfx_pack
-  - crates/ambition_gameplay_core/src/audio/mod.rs
-  - crates/ambition_gameplay_core/src/music/mod.rs
+  - crates/ambition_actors/src/audio/mod.rs
+  - crates/ambition_actors/src/music/mod.rs
   - crates/ambition_asset_manager/src
   - assets/
 related_docs:
@@ -51,7 +51,7 @@ For single-track music cues, the convention is:
 ```text
 source: tools/ambition_music_renderer/scores/active/<cue>.music.yaml
 runtime id: <cue>
-runtime path: crates/ambition_gameplay_core/assets/audio/music/generated/<cue>/full.ogg
+runtime path: crates/ambition_actors/assets/audio/music/generated/<cue>/full.ogg
 ```
 
 For SFX cues, the convention is:
@@ -60,7 +60,7 @@ For SFX cues, the convention is:
 source: tools/ambition_sfx_renderer/sounds/active/<cue>.sfx.yaml
 runtime id: <cue>
 staged output: tools/ambition_sfx_renderer/output/<cue>/<cue>.ogg
-runtime bank: crates/ambition_gameplay_core/assets/audio/sfx.bank
+runtime bank: crates/ambition_actors/assets/audio/sfx.bank
 ```
 
 Generated OGG/WAV outputs are ignored by default. Check in the source YAML,
@@ -76,7 +76,7 @@ renderer code, runtime catalog ids, and SFX constants; then regenerate locally.
 ## Validation
 
 ```bash
-cargo test -p ambition_gameplay_core --lib music
+cargo test -p ambition_actors --lib music
 ./regen_music.sh
 ./regen_sfx.sh
 cargo run -p ambition_app --bin headless

@@ -4,7 +4,7 @@ Date: 2026-05-19
 
 ## Prompt
 
-You are splitting `crates/ambition_gameplay_core/src/features/ecs/mod.rs`
+You are splitting `crates/ambition_actors/src/features/ecs/mod.rs`
 into focused submodules and need to keep the existing call sites in
 `app/plugins.rs`, `world_flow.rs`, etc. working without touching them.
 The original `mod.rs` had two `pub(crate) fn` helpers that several
@@ -31,7 +31,7 @@ pub use actors::{
 };
 ```
 
-Compile this with `cargo check -p ambition_gameplay_core --lib`. What does
+Compile this with `cargo check -p ambition_actors --lib`. What does
 the compiler say, and what's the minimum fix? Be specific about which
 item carries which visibility and why a `pub use` re-export differs
 from an inline declaration.

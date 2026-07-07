@@ -40,7 +40,7 @@ chaining `phase_mark(...)` between Startup systems in
 
 Code lives in
 [crates/ambition_dev_tools/src/profiling.rs](../../crates/ambition_dev_tools/src/profiling.rs)
-(re-exported on the historical `ambition_gameplay_core::dev::profiling` path).
+(re-exported on the historical `ambition_actors::dev::profiling` path).
 
 ## 2a. cargo flamegraph (no-GUI flame graph SVG)
 
@@ -58,7 +58,7 @@ sudo sysctl kernel.perf_event_paranoid=1
 # Optional, restart-persistent: echo "kernel.perf_event_paranoid=1" | sudo tee /etc/sysctl.d/local-perf.conf
 ```
 
-Add this to `crates/ambition_gameplay_core/Cargo.toml` for symbol-rich
+Add this to `crates/ambition_actors/Cargo.toml` for symbol-rich
 release builds (already there if you've enabled it elsewhere; safe
 to keep on for normal `cargo run --release`):
 
@@ -76,10 +76,10 @@ cargo build --release -p ambition_app --bin ambition_game_bin
 # BEVY_ASSET_ROOT is required: cargo-flamegraph runs the binary
 # directly (not via `cargo run`), so Bevy looks for assets relative
 # to the binary path (`target/release/assets/`) instead of the
-# package's `crates/ambition_gameplay_core/assets/`. Without this var, you
+# package's `crates/ambition_actors/assets/`. Without this var, you
 # get `Path not found: target/release/assets/...` for every asset
 # and bevy_yarnspinner panics on the missing dialogue/ folder.
-BEVY_ASSET_ROOT=$PWD/crates/ambition_gameplay_core \
+BEVY_ASSET_ROOT=$PWD/crates/ambition_actors \
 cargo flamegraph -p ambition_app --bin ambition_game_bin \
     --release \
     --output flamegraph_startup.svg \
@@ -165,7 +165,7 @@ scripts/profile_desktop.sh asset-run --duration 30
 
 With no arguments, the script does a `perf-run`.
 Attach modes look for the current desktop game process, `ambition_game_bin`,
-and also accept the historical `ambition_gameplay_core` name for older local
+and also accept the historical `ambition_actors` name for older local
 builds.
 
 ## 2c. Android native allocation profiling
@@ -196,7 +196,7 @@ heap-profile mappings back to the local `libambition_app.so` symbols.
 To verify the latest profile APK:
 
 ```bash
-readelf -n target/android/ambition_gameplay_core_android/app/src/main/jniLibs/arm64-v8a/libambition_app.so | grep -A1 "Build ID"
+readelf -n target/android/ambition_actors_android/app/src/main/jniLibs/arm64-v8a/libambition_app.so | grep -A1 "Build ID"
 ```
 
 If the capture reports heapprofd buffer overruns, rerun with a coarser

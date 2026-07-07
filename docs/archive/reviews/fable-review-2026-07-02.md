@@ -177,7 +177,7 @@ by reading code (no grep-only findings):
 1. **Actor unification forks** — remaining player/actor/boss bifurcations
 2. **Physics/gravity frame bugs** — relativity-principle violations
 3. **Engine/content separation** — what blocks the "second game as a content crate" oracle
-4. **Decomposition seams** — natural extractions inside the 95k-LOC `ambition_gameplay_core`
+4. **Decomposition seams** — natural extractions inside the 95k-LOC `ambition_actors`
 
 Cross-checked against `docs/planning/engine/unified-actors.md`,
 `docs/current/{state,next}.md`, and `dev/journals/code_smells.md` so already-known
@@ -1123,7 +1123,7 @@ those, remaining leaks are mostly one-file data migrations along existing seams.
 
 ---
 
-## D. Decomposition of `ambition_gameplay_core` (94.5k LOC)
+## D. Decomposition of `ambition_actors` (94.5k LOC)
 
 ### LOC map (top modules)
 | Module | LOC | What it is |
@@ -1169,7 +1169,7 @@ refs) — but ~90% of it re-exports engine_core Body* clusters; only three real 
 live there. Move them down and `crate::actor` becomes a pure facade → delete per D1.
 This one file is why "everything imports gameplay_core for vocabulary."
 
-### D3. Cut the `ambition_render → ambition_gameplay_core` edge (biggest compile-time win)
+### D3. Cut the `ambition_render → ambition_actors` edge (biggest compile-time win)
 Hot edits in `features/ecs` currently rebuild gameplay_core (95k) → render (10k) →
 portal_presentation → app. Render's imports are almost entirely read-model
 vocabulary: `actor` (dissolved by D2), `config`/`time` (dissolved by D1), and the
@@ -1343,7 +1343,7 @@ linearly on main; the tree is green (counts in the verify block below).
 **Verify before you start** (and after every change):
 ```bash
 ~/.cargo/bin/cargo test -p ambition_engine_core --lib      # 211, incl. the C4 harness
-~/.cargo/bin/cargo test -p ambition_gameplay_core --lib    # 1091
+~/.cargo/bin/cargo test -p ambition_actors --lib    # 1091
 ~/.cargo/bin/cargo test -p ambition_characters --lib       # 250 (now hosts BodyHealth/BodyCombat/BodyWallet)
 # Compile ALL test targets too — a word-boundary facade sed silently skips
 # multi-line grouped `use x::{\n A, Moved, B\n}` imports (D2b bit us twice):
@@ -1782,7 +1782,7 @@ its real sandbox code: `time_control` (the feel-tuned clock authority —
 `ambition_time::WorldTime` for its own `Res` param). `ambition_time` added as a
 direct dep of render + content (app already had it). Also fixed a
 docs-describe-moved-thing: `platformer_primitives/src/time.rs` pointed at
-`ambition_gameplay_core::WorldTime::sim_dt` (now `ambition_time::`).
+`ambition_actors::WorldTime::sim_dt` (now `ambition_time::`).
 Compiler-verified behavior-neutral: gameplay-core 1091, all four crates build,
 the nine app integration suites green.
 
@@ -1847,12 +1847,12 @@ ten app integration suites green.
 ### E22. D3 — render→gameplay_core edge: scoped the cut + landed the foundation-vocab slice ✅ (D3.1); plan below
 Jon picked D3 (the compile-time lever). **Key finding: the payoff is binary** —
 render's rebuild only drops out of the hot path when it FULLY stops depending on
-`ambition_gameplay_core`; partial type-moves are prep, not payoff. And render
+`ambition_actors`; partial type-moves are prep, not payoff. And render
 couples across ~30 distinct gameplay_core paths, so the full cut is multi-session.
 Landed the safe prep slice and mapped the rest precisely.
 > `[opus-4.8[1m]]` **fable should re-check** — the D3 audit says render's imports
 > are "**almost entirely read-model vocabulary**." My enumeration
-> (`grep -oE 'ambition_gameplay_core::\w+(::\w+)?' | sort | uniq -c`) shows render
+> (`grep -oE 'ambition_actors::\w+(::\w+)?' | sort | uniq -c`) shows render
 > also imports **world/room types** (`RoomGeometry` ×27 — the single biggest) and
 > a category the audit didn't call out: **presentation *systems* render registers**
 > (`portal::sync_*`, `abilities::traversal`, `dev::dev_tools`, `physics::GravityCtx`,
@@ -1919,7 +1919,7 @@ anim-state enums); gameplay_core's builder writes them, render reads them. →
 (D3.3) §D4 `ambition_world` for RoomGeometry + rooms (biggest single reducer). →
 (D3.4) §D6 `character_sprites` down. → (D3.5) settings/camera → move
 CameraSnapshot2d. → (D3.6) untangle category-D systems. → (D3.7) drop the
-`ambition_gameplay_core` dep from render's Cargo.toml — the lever fires. This is
+`ambition_actors` dep from render's Cargo.toml — the lever fires. This is
 the same "move a family to its leaf home, then redirect" template D2 proved.
 
 ### E23. D3.2a — `ambition_sim_view` crate created; pure-data read-model core moved ⟲ REVERTED (see E24)
@@ -2888,7 +2888,7 @@ Explore of the brain code confirmed they all read `target_pos` (directly or via
 
 ### E59. C4 app-thinness — 5 of 7 `sim_systems.rs` systems folded into owning gameplay_core plugins ✅
 The app binary held real gameplay-sim logic in `ambition_app::app::sim_systems` (7 systems). Moved the
-LOGIC down to its owning `ambition_gameplay_core` module; the host schedule
+LOGIC down to its owning `ambition_actors` module; the host schedule
 (`register_player_input_systems` / `register_presentation_sync_systems`) keeps owning the ordering +
 `run_if` gates and now references the moved `pub fn`s by their library path.
 - **Moved (render-free, app-only-free):** `apply_suspended_time_scale_system` →
@@ -2896,7 +2896,7 @@ LOGIC down to its owning `ambition_gameplay_core` module; the host schedule
   `time_control::tests`); `sync_live_player_dev_edits_system` → `gameplay_core::dev` (beside the dev
   STATE it reads); `input_timer_system` + `interaction_input_system` + `cleanup_timers_system` → a new
   `gameplay_core::player::input_systems` (+ the interaction-suppression tests). Mechanical, behavior-
-  preserving (`ambition_gameplay_core::` → `crate::` path rewrite only).
+  preserving (`ambition_actors::` → `crate::` path rewrite only).
 - **LEFT in the app (genuine host/reset concerns, cannot move):** `apply_player_reset_input_system` +
   `apply_cut_rope_room_replay_request_system` — both call the app-only `world_flow::reset_sandbox` AND
   write render `ambition_render::fx::VfxMessage`, and gameplay_core has NO render dep. The cut-rope one
@@ -2909,7 +2909,7 @@ LOGIC down to its owning `ambition_gameplay_core` module; the host schedule
   change snuck in).
 - **Pinned** by a new `architecture_boundaries_input_timer_systems_moved_to_gameplay_core` (mirrors the
   touch-input guard): `sim_systems.rs` no longer DEFINES the 5 moved systems, `plugins.rs` references
-  them via `ambition_gameplay_core::` paths, and the 2 host-bound ones DO stay defined in the app.
+  them via `ambition_actors::` paths, and the 2 host-bound ones DO stay defined in the app.
 - **Green:** gameplay_core --lib 1128; `architecture_boundaries`, `plugin_minimal_app`,
   `possession_end_to_end` all pass; app compiles `--all-targets`. **REMAINING C4:** the
   `PlatformerEnginePlugin` group (collect the ~30 engine plugins) — sprawly, deferred as noted in the

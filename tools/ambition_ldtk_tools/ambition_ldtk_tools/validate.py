@@ -630,7 +630,7 @@ def validate(
 
     # Build a `(activeArea, zone_id)` index over secondary world files so
     # cross-file `LoadingZone.target_room` references don't false-positive.
-    # See `crates/ambition_gameplay_core/src/ldtk_world/loading.rs::merge_secondary_worlds`
+    # See `crates/ambition_actors/src/ldtk_world/loading.rs::merge_secondary_worlds`
     # for the runtime side — it merges these files into the live
     # `LdtkProject` at load time, so target_room lookups succeed there.
     # The strict arrival-rect / solid-overlap checks are skipped for
@@ -1173,7 +1173,7 @@ def validate(
             # Classify by shape: wider-than-tall = top/bottom seam
             # (inset Y), taller-than-wide = left/right seam (inset X).
             # Must mirror `edge_arrival` in
-            # crates/ambition_gameplay_core/src/world/rooms/spawn.rs so
+            # crates/ambition_actors/src/world/rooms/spawn.rs so
             # the validator's arrival math matches what the runtime
             # actually computes.
             zw, zh = local_zone[2], local_zone[3]

@@ -1,6 +1,6 @@
 The LLM composed music can be good sometimes. 
 
-I think crates/ambition_gameplay_core/assets/audio/music/generated/burn_rate_bossa/full.ogg does sound a bit like existing music, but it works. 
+I think crates/ambition_actors/assets/audio/music/generated/burn_rate_bossa/full.ogg does sound a bit like existing music, but it works. 
 
 shareholder_ritual - sounds too much like tech bros disruption, but has a lot of cool elements to it. Some tweaks would make it good.
 

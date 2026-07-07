@@ -1,7 +1,7 @@
 # 2026-05-20: Bevy `ui_api` transitively re-enables `bevy_winit`, so moving render features off the base dep isn't enough for a true headless build
 
 OVERNIGHT-TODO #1 ("Make `headless` / minimal feature builds real") starts
-from the observation that `crates/ambition_gameplay_core/Cargo.toml` declares a
+from the observation that `crates/ambition_actors/Cargo.toml` declares a
 `headless = []` feature but `cargo check --no-default-features --features
 headless` fails to compile. This pass tried to lift the bevy rendering
 features (`2d_bevy_render`, `ui_bevy_render`, `scene`, `png`) off the
@@ -14,7 +14,7 @@ and a headless build no longer compiles the 2D render / UI render /
 scene / PNG loader. But it does **not** make headless actually build:
 
 ```text
-$ cargo check -p ambition_gameplay_core --no-default-features --features headless
+$ cargo check -p ambition_actors --no-default-features --features headless
 error: The platform you're compiling for is not supported by winit
 ```
 

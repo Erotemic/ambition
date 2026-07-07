@@ -267,7 +267,7 @@ pub fn charge_projectile_input(
             // Debug log on every fire-press so the player can see
             // exactly what the motion recognizer saw and why a given
             // press did or didn't upgrade to a Hadouken. Run with
-            // `RUST_LOG=ambition_gameplay_core::projectile=info` (or
+            // `RUST_LOG=ambition_actors::projectile=info` (or
             // `RUST_LOG=info` more broadly) to surface these.
             log_press_diagnostics(
                 &state.motion_buffer,

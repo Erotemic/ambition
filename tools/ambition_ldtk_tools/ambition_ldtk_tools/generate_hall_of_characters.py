@@ -4,7 +4,7 @@ catalog.
 
 Phase 5 of the character-catalog refactor (see
 `TODO-character-catalog-and-hall.md`). Reads
-`crates/ambition_gameplay_core/assets/data/character_catalog.ron`, lays out
+`crates/ambition_actors/assets/data/character_catalog.ron`, lays out
 one pedestal per character, and emits
 `tools/ambition_ldtk_tools/specs/hall_of_characters_area.ron`.
 

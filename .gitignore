@@ -62,8 +62,8 @@ tools/experimental/robot_sprite_component_tool/output
 tools/experimental/robot_sprite_component_tool/assets
 
 assets/fonts
-crates/ambition_gameplay_core/assets/fonts/
-crates/ambition_gameplay_core/assets/audio/
+crates/ambition_actors/assets/fonts/
+crates/ambition_actors/assets/audio/
 
 # Standalone tool projects: generated outputs and per-tool venvs/caches.
 target/generated-audio/
@@ -105,8 +105,8 @@ tools/ambition_sprite2d_renderer/.parity-baseline/
 # Generated sprite metadata. Existing tracked files require `git rm --cached`
 # before this ignore rule can prevent diffs; keep source-of-truth edits in
 # tools/ambition_sprite2d_renderer targets/configs instead.
-crates/ambition_gameplay_core/assets/sprites/*.ron
-crates/ambition_gameplay_core/assets/sprites/**/*.ron
+crates/ambition_actors/assets/sprites/*.ron
+crates/ambition_actors/assets/sprites/**/*.ron
 
 # Sprite renderer generated package outputs
 tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/generated/
@@ -117,16 +117,16 @@ tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/targets/generated/
 # intermediate (debug-hitbox overlay, gif exporter) — it's just never
 # tracked. All yaml under assets/sprites is generated output; authored
 # input yaml lives in tools/ambition_sprite2d_renderer/configs/.
-crates/ambition_gameplay_core/assets/sprites/*.yaml
-crates/ambition_gameplay_core/assets/sprites/**/*.yaml
-crates/ambition_gameplay_core/assets/sprites_0_5x/
-crates/ambition_gameplay_core/assets/sprites_0_25x/
-crates/ambition_gameplay_core/assets/sprites_potato/
+crates/ambition_actors/assets/sprites/*.yaml
+crates/ambition_actors/assets/sprites/**/*.yaml
+crates/ambition_actors/assets/sprites_0_5x/
+crates/ambition_actors/assets/sprites_0_25x/
+crates/ambition_actors/assets/sprites_potato/
 # Quality-tiered shared-page sprite packs (regen ultrapack step output).
-crates/ambition_gameplay_core/assets/sprite_packs/
-crates/ambition_gameplay_core/assets/backgrounds/parallax_layers_0_5x/
-crates/ambition_gameplay_core/assets/backgrounds/parallax_layers_0_25x/
-crates/ambition_gameplay_core/assets/backgrounds/parallax_layers_potato/
+crates/ambition_actors/assets/sprite_packs/
+crates/ambition_actors/assets/backgrounds/parallax_layers_0_5x/
+crates/ambition_actors/assets/backgrounds/parallax_layers_0_25x/
+crates/ambition_actors/assets/backgrounds/parallax_layers_potato/
 
 # Agent/worktree scratch (must never be committed)
 .worktrees/

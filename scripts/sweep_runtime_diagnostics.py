@@ -12,7 +12,7 @@ Diagnostics are MOVED, not deleted, into a staging diagnostics dir (default
 humans while never shipping in the game bundle.
 
 The diagnostic classification here MIRRORS the Rust source of truth in
-``crates/ambition_gameplay_core/src/asset_publish/classify.rs``. Keep the two in
+``crates/ambition_actors/src/asset_publish/classify.rs``. Keep the two in
 sync; the Rust ``shipped_runtime_roots_have_no_leaked_diagnostics`` test is what
 fails if a diagnostic survives under a runtime root, and this sweep is what
 keeps that test green after a regen.
@@ -27,10 +27,10 @@ from pathlib import Path
 # Runtime sprite roots relative to the repo root. Mirrors
 # asset_publish::RUNTIME_SPRITE_ROOTS.
 RUNTIME_SPRITE_ROOTS = (
-    "crates/ambition_gameplay_core/assets/sprites",
-    "crates/ambition_gameplay_core/assets/sprites_0_5x",
-    "crates/ambition_gameplay_core/assets/sprites_0_25x",
-    "crates/ambition_gameplay_core/assets/sprites_potato",
+    "crates/ambition_actors/assets/sprites",
+    "crates/ambition_actors/assets/sprites_0_5x",
+    "crates/ambition_actors/assets/sprites_0_25x",
+    "crates/ambition_actors/assets/sprites_potato",
 )
 
 # Filename suffixes that mark a visual diagnostic. Mirrors DIAGNOSTIC_SUFFIXES

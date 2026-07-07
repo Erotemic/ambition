@@ -12,7 +12,7 @@ fn system_row_count(
     system_nav: &KaleidoscopeSystemNav,
     settings: &UserSettings,
     snapshot: &SystemMenuSnapshotParams,
-    pending_quality: Option<ambition_gameplay_core::persistence::settings::VisualQualityProfile>,
+    pending_quality: Option<ambition_actors::persistence::settings::VisualQualityProfile>,
 ) -> usize {
     if pages.active != Some(MenuPage::System) {
         return 0;
@@ -33,7 +33,7 @@ fn system_row_count(
 /// the wheel. Mouse OR touchpad scroll both arrive as `MouseWheel`.
 pub(crate) fn kaleidoscope_scroll_wheel(
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Res<ambition_gameplay_core::inventory_ui::InventoryUiState>>,
+    ui_state: Option<Res<ambition_actors::inventory_ui::InventoryUiState>>,
     pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
@@ -92,7 +92,7 @@ pub(crate) fn kaleidoscope_scroll_wheel(
 /// host System-menu window. Selection is unchanged; only the visible rows move.
 pub(crate) fn kaleidoscope_apply_scroll_drag(
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Res<ambition_gameplay_core::inventory_ui::InventoryUiState>>,
+    ui_state: Option<Res<ambition_actors::inventory_ui::InventoryUiState>>,
     pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,

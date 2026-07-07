@@ -54,13 +54,13 @@ design fork, note it in the doc for fable and SKIP it — do not stop the run.
 
 ### 1. C4 — app-thinness: fold `sim_systems.rs` into owning library plugins
 `crates/ambition_app/src/app/sim_systems.rs` (7 systems, ~579 LOC) holds real gameplay-sim logic
-in the app binary. Move the LOGIC down to its owning `ambition_gameplay_core` module; the app's
+in the app binary. Move the LOGIC down to its owning `ambition_actors` module; the app's
 schedule registration (in `app/plugins.rs` — `register_player_input_systems` ~L245-342 and the
 `cleanup_timers_system` at ~L456) keeps owning the ordering but references the moved `pub fn`.
 - **Movable to `gameplay_core` (render-free, app-only-free):** `sync_live_player_dev_edits_system`
   → `gameplay_core::dev`; `apply_suspended_time_scale_system` → `gameplay_core::time::time_control`;
   `input_timer_system`, `interaction_input_system`, `cleanup_timers_system` → `gameplay_core::player`.
-  In each moved fn, rewrite `ambition_gameplay_core::` paths to `crate::`; `ambition_input::` /
+  In each moved fn, rewrite `ambition_actors::` paths to `crate::`; `ambition_input::` /
   `ambition_sfx::` stay (external to gameplay_core). Verify each still compiles — `gameplay_core`
   has NO `ambition_render` dep (checked), so a fn using `ambition_render::fx::VfxMessage` CANNOT move.
 - **Blocked-until-`reset_sandbox`-moves:** `apply_player_reset_input_system` +
@@ -135,7 +135,7 @@ projectile-spec chain (C5 — retire `ProjectileKind`) are the natural follow-on
 prep for a future second game; there IS no second-game consumer yet and that is fine (Jon's explicit call).
 
 ### 6. C6 — boss sheet-specs → RON (content out of core)
-`crates/ambition_gameplay_core/src/boss_encounter/sprites/mod.rs` holds hardcoded `pub const`
+`crates/ambition_actors/src/boss_encounter/sprites/mod.rs` holds hardcoded `pub const`
 `BossSheetSpec`s (`MOCKINGBIRD_SHEET`, `GNU_TON_SHEET`, …) with `rows: &'static [(BossAnim, AnimRow)]`.
 Make them RON-authorable so a content boss authors its sheet layout as data (same "out of core" as the
 E58 `StrikeRect` authored-override I just landed — use that as the pattern). This needs `&'static` →

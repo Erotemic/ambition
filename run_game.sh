@@ -106,7 +106,7 @@ require_positive_integer() {
 }
 
 run_ldtk_validation() {
-    local worlds_dir="$repo_root/crates/ambition_gameplay_core/assets/ambition/worlds"
+    local worlds_dir="$repo_root/crates/ambition_actors/assets/ambition/worlds"
     local sandbox_world="$worlds_dir/sandbox.ldtk"
     local intro_world="$worlds_dir/intro.ldtk"
     local cut_rope_world="$worlds_dir/you_have_to_cut_the_rope.ldtk"
@@ -135,7 +135,7 @@ run_dialogue_lint() {
     # Fast pre-flight: catch malformed Yarn markup (e.g. a `[STAGE DIRECTION]`
     # bracket the runtime parses as a tag and panics on at line delivery —
     # "Expected a = inside markup"). Mirrors the authoritative Rust guard
-    # `ambition_gameplay_core::dialog_lint::no_malformed_yarn_markup_tags`, but
+    # `ambition_actors::dialog_lint::no_malformed_yarn_markup_tags`, but
     # runs in milliseconds without a cargo build.
     echo "Linting Yarn dialogue..."
     print_cmd env "PYTHONPATH=$repo_root/tools/ambition_ldtk_tools" \

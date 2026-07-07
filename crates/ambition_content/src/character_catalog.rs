@@ -4,7 +4,7 @@
 //! The catalog SCHEMA + parser live in
 //! `ambition_characters::actor::character_catalog`; the engine-side parse
 //! cache + lookup helpers live in
-//! `ambition_gameplay_core::character_roster` and read whatever this
+//! `ambition_actors::character_roster` and read whatever this
 //! module installs. The RON stays a loose file here so the Python tools
 //! (`ambition_ldtk_tools.codegen_character_catalog`, the hall generator)
 //! keep reading it off disk.
@@ -17,10 +17,10 @@ pub const CHARACTER_CATALOG_RON: &str = include_str!("../assets/data/character_c
 /// app's sim-entry choke points and `AmbitionContentPlugin::build`; first
 /// install wins, so the multiple calls are harmless.
 pub fn install() {
-    ambition_gameplay_core::character_roster::install_character_catalog(CHARACTER_CATALOG_RON);
+    ambition_actors::character_roster::install_character_catalog(CHARACTER_CATALOG_RON);
     // Content owns which row is the default the home box wears with no override
     // (C2): the engine names no character, so inject `PLAYABLE_ROSTER[0]` here.
-    ambition_gameplay_core::character_roster::install_default_character_id(PLAYABLE_ROSTER[0]);
+    ambition_actors::character_roster::install_default_character_id(PLAYABLE_ROSTER[0]);
 }
 
 /// A curated cast of characters the player can start as. The character-select
@@ -51,7 +51,7 @@ pub fn next_playable(current: &str) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_gameplay_core::player::StartingCharacter;
+    use ambition_actors::player::StartingCharacter;
 
     #[test]
     fn every_playable_roster_id_is_a_real_catalog_character() {
@@ -61,8 +61,7 @@ mod tests {
         install();
         for id in PLAYABLE_ROSTER {
             assert!(
-                ambition_gameplay_core::character_roster::display_name_for_character_id(id)
-                    .is_some(),
+                ambition_actors::character_roster::display_name_for_character_id(id).is_some(),
                 "PLAYABLE_ROSTER id '{id}' has no character_catalog.ron row — the \
                  curated cast rotted; fix the roster or the catalog",
             );
@@ -78,7 +77,7 @@ mod tests {
         assert_eq!(PLAYABLE_ROSTER[0], "player");
         install();
         assert_eq!(
-            ambition_gameplay_core::character_roster::default_character_id(),
+            ambition_actors::character_roster::default_character_id(),
             PLAYABLE_ROSTER[0],
             "content install injects the default character id"
         );

@@ -8,9 +8,9 @@
 
 use bevy::prelude::*;
 
-use ambition_gameplay_core::items::{Item, OwnedItems};
+use ambition_actors::items::{Item, OwnedItems};
 
-pub use ambition_gameplay_core::quest::push_room_entered_quest_events;
+pub use ambition_actors::quest::push_room_entered_quest_events;
 /// Facade: the generic registry half moved to [`ambition_persistence::quest::registry`].
 /// Inbound `crate::quest::QuestRegistry` paths keep working.
 pub use ambition_persistence::quest::registry::{apply_quest_advance_events, QuestRegistry};
@@ -250,7 +250,7 @@ pub fn grant_quest_completion_rewards(
     registry: Res<QuestRegistry>,
     mut save: ResMut<ambition_persistence::save::SandboxSave>,
     mut inventory: ResMut<OwnedItems>,
-    mut banner_state: ResMut<ambition_gameplay_core::features::GameplayBanner>,
+    mut banner_state: ResMut<ambition_actors::features::GameplayBanner>,
 ) {
     let Some(state) = registry.quests.get("pirate_treasure") else {
         return;

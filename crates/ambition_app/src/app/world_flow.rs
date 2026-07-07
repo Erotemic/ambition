@@ -6,24 +6,24 @@
 //! - the [`room_flow`] submodule (sandbox reset, room load, transition apply).
 //!
 //! The attack-phase machine, victim-side damage resolution, and movement-event
-//! Sfx/Vfx emission moved DOWN into `ambition_gameplay_core::combat::{attack,
+//! Sfx/Vfx emission moved DOWN into `ambition_actors::combat::{attack,
 //! damage}` / `::player::movement_fx`; the sim half of room load moved into
-//! `ambition_gameplay_core::rooms`.
+//! `ambition_actors::rooms`.
 
 use bevy::prelude::ResMut;
 
+use ambition_actors::features::FeatureEcsWorldOverlay;
 use ambition_engine_core::{self as ae, AabbExt};
-use ambition_gameplay_core::features::FeatureEcsWorldOverlay;
 
 /// Bundle of the two room-reset clock/sim resources, so systems that
 /// already sit near Bevy's 16-SystemParam limit (e.g.
 /// [`apply_room_transition_system`]) can take both in one slot. The
 /// sim-clock `time_scale` (time-owned [`ambition_time::ClockState`])
-/// and the room-transition cooldown (sim-owned [`ambition_gameplay_core::SandboxSimState`])
+/// and the room-transition cooldown (sim-owned [`ambition_actors::SandboxSimState`])
 /// are reset together on every room load / death / respawn.
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct RoomClock<'w> {
-    pub sim_state: ResMut<'w, ambition_gameplay_core::SandboxSimState>,
+    pub sim_state: ResMut<'w, ambition_actors::SandboxSimState>,
     pub clock: ResMut<'w, ambition_time::ClockState>,
 }
 

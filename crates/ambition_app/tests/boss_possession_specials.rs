@@ -25,12 +25,12 @@
 
 #![cfg(feature = "rl_sim")]
 
+use ambition_actors::abilities::traversal::possession::PossessionState;
+use ambition_actors::actor::{BodyKinematics, PrimaryPlayerOnly};
+use ambition_actors::features::{ActorFaction, FeatureId};
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use ambition_characters::brain::{BossAttackProfile, BossAttackState, BossCapability, Brain};
 use ambition_entity_catalog::placements::BossBrain;
-use ambition_gameplay_core::abilities::traversal::possession::PossessionState;
-use ambition_gameplay_core::actor::{BodyKinematics, PrimaryPlayerOnly};
-use ambition_gameplay_core::features::{ActorFaction, FeatureId};
 use bevy::prelude::{Entity, World};
 
 const BOSS_ID: &str = "possess_boss";

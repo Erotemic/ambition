@@ -6,15 +6,15 @@
 mod common;
 use common::{base, hold_right};
 
-use ambition_app::app::{SandboxSet, SandboxSimulationPlugin, StartRoomOverride};
-use ambition_app::AgentAction;
-use ambition_gameplay_core::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
-use ambition_gameplay_core::game_mode::GameMode;
-use ambition_gameplay_core::portal::{
+use ambition_actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use ambition_actors::game_mode::GameMode;
+use ambition_actors::portal::{
     PlacedPortal, PortalCameraContinuityConfig, PortalCameraContinuityHostView,
     PortalCameraContinuitySelection, PortalCameraContinuityState, PortalTransit, PortalWorldFrame,
 };
-use ambition_gameplay_core::session::camera_layers::MainCamera;
+use ambition_actors::session::camera_layers::MainCamera;
+use ambition_app::app::{SandboxSet, SandboxSimulationPlugin, StartRoomOverride};
+use ambition_app::AgentAction;
 use ambition_input::ControlFrame;
 use ambition_render::rendering::{camera_follow, CameraViewState};
 use bevy::asset::AssetPlugin;
@@ -72,19 +72,19 @@ impl HeadlessCameraHarness {
         app.add_systems(
             Update,
             (
-                ambition_gameplay_core::portal::sync_portal_world_frame
-                    .before(ambition_gameplay_core::portal::apply_portal_camera_continuity),
-                ambition_gameplay_core::portal::sync_portal_camera_continuity_focus
-                    .before(ambition_gameplay_core::portal::apply_portal_camera_continuity),
-                ambition_gameplay_core::portal::apply_portal_camera_continuity
+                ambition_actors::portal::sync_portal_world_frame
+                    .before(ambition_actors::portal::apply_portal_camera_continuity),
+                ambition_actors::portal::sync_portal_camera_continuity_focus
+                    .before(ambition_actors::portal::apply_portal_camera_continuity),
+                ambition_actors::portal::apply_portal_camera_continuity
                     .after(SandboxSet::CoreSimulation)
                     .before(camera_follow),
                 // Same-frame clamp pad into the sim resolve, like the host.
                 ambition_render::rendering::publish_portal_camera_clamp
-                    .after(ambition_gameplay_core::portal::apply_portal_camera_continuity)
+                    .after(ambition_actors::portal::apply_portal_camera_continuity)
                     .before(ambition_sim_view::camera_snapshot::resolve_camera_observation),
                 camera_follow
-                    .after(ambition_gameplay_core::portal::apply_portal_camera_continuity)
+                    .after(ambition_actors::portal::apply_portal_camera_continuity)
                     .after(ambition_sim_view::camera_snapshot::resolve_camera_observation),
             ),
         );
@@ -141,8 +141,8 @@ impl HeadlessCameraHarness {
         kin.pos = pos;
         kin.vel = vel;
         kin.facing = if vel.x >= 0.0 { 1.0 } else { -1.0 };
-        *world.resource_mut::<ambition_gameplay_core::CameraEaseState>() =
-            ambition_gameplay_core::CameraEaseState::default();
+        *world.resource_mut::<ambition_actors::CameraEaseState>() =
+            ambition_actors::CameraEaseState::default();
         *world.resource_mut::<PortalCameraContinuityHostView>() =
             PortalCameraContinuityHostView::default();
         world.resource_mut::<PortalCameraContinuityState>().clear();
@@ -165,7 +165,7 @@ impl HeadlessCameraHarness {
 
     fn portal_by_channel(
         &mut self,
-        channel: ambition_gameplay_core::portal::PortalChannel,
+        channel: ambition_actors::portal::PortalChannel,
     ) -> PlacedPortal {
         let world = self.app.world_mut();
         let mut portals = world.query::<&PlacedPortal>();
@@ -214,7 +214,7 @@ fn c141_to_c140_preserves_screen_position_and_continues_right() {
         if jumped {
             let enter_frame = entry.frame();
             let exit_frame = exit.frame();
-            let body_before = ambition_gameplay_core::portal::pieces::map_point(
+            let body_before = ambition_actors::portal::pieces::map_point(
                 current.player_pos,
                 &exit_frame,
                 &enter_frame,
@@ -319,7 +319,7 @@ fn c135_to_c134_preserves_screen_position_and_keeps_falling() {
         if jumped {
             let enter_frame = entry.frame();
             let exit_frame = exit.frame();
-            let body_before = ambition_gameplay_core::portal::pieces::map_point(
+            let body_before = ambition_actors::portal::pieces::map_point(
                 current.player_pos,
                 &exit_frame,
                 &enter_frame,
@@ -458,7 +458,7 @@ fn thin_wall_walk_keeps_apparent_player_position_smooth() {
             crossed = true;
             // At the snap frame the AUTHORITATIVE screen offset jumps by
             // design; the visual invariant is map-aware continuity.
-            let body_before = ambition_gameplay_core::portal::pieces::map_point(
+            let body_before = ambition_actors::portal::pieces::map_point(
                 current.player_pos,
                 &exit.frame(),
                 &entry.frame(),

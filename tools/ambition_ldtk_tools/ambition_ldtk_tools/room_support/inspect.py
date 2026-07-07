@@ -21,11 +21,11 @@ from ambition_ldtk_tools.room_support.issues import room_issues
 
 def _find_repo_root() -> Path:
     cwd = Path.cwd().resolve()
-    if (cwd / "crates" / "ambition_gameplay_core").exists():
+    if (cwd / "crates" / "ambition_actors").exists():
         return cwd
     here = Path(__file__).resolve()
     for parent in [here.parent, *here.parents]:
-        if (parent / "crates" / "ambition_gameplay_core").exists():
+        if (parent / "crates" / "ambition_actors").exists():
             return parent
     # Fall back to the historical repo-relative layout used by installed tools;
     # callers can always pass --ldtk explicitly.
@@ -36,7 +36,7 @@ REPO_ROOT = _find_repo_root()
 DEFAULT_LDTK = (
     REPO_ROOT
     / "crates"
-    / "ambition_gameplay_core"
+    / "ambition_actors"
     / "assets"
     / "ambition"
     / "worlds"

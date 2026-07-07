@@ -38,7 +38,7 @@ Options:
   --compile-sdk API      Android compileSdk. Default: highest installed, else 35.
   --target-sdk API       Android targetSdk. Default: compileSdk.
   --features LIST        Cargo features to add. Default: android_dev.
-  --use-default-features Also enable ambition_gameplay_core default features. Off by default for Android.
+  --use-default-features Also enable ambition_actors default features. Off by default for Android.
   --no-default-features  Disable default features (default for Android builds).
   --static-map           Add static_map to the Android cargo features.
   --no-static-map        Remove static_map from the Android cargo features.
@@ -80,7 +80,7 @@ fatal() { printf '[android-build] error: %s\n' "$*" >&2; exit 1; }
 
 
 registered_character_sprite_filenames() {
-    local registry_src="$ROOT/crates/ambition_gameplay_core/src/character_sprites/assets.rs"
+    local registry_src="$ROOT/crates/ambition_actors/src/character_sprites/assets.rs"
     if [[ ! -f "$registry_src" ]]; then
         warn "character sprite registry source not found at $registry_src; skipping registered sprite presence check"
         return 0
@@ -95,7 +95,7 @@ registered_character_sprite_filenames() {
 }
 
 warn_missing_registered_character_sprites() {
-    local src_dir="$ROOT/crates/ambition_gameplay_core/assets/sprites"
+    local src_dir="$ROOT/crates/ambition_actors/assets/sprites"
     local apk_dir="$ASSETS_OUT/sprites"
     local -a missing_src=()
     local -a missing_apk=()
@@ -593,7 +593,7 @@ if [[ -n "$EMULATOR_NAME" ]]; then
     fi
 fi
 
-DEFAULT_SFX_BANK_PATH="$ROOT/crates/ambition_gameplay_core/assets/audio/sfx.bank"
+DEFAULT_SFX_BANK_PATH="$ROOT/crates/ambition_actors/assets/audio/sfx.bank"
 if [[ -n "${AMBITION_SFX_BANK_PATH:-}" ]]; then
     DEFAULT_SFX_BANK_PATH="$AMBITION_SFX_BANK_PATH"
 fi
@@ -645,7 +645,7 @@ fi
 RUST_TARGET=$(rust_target_for_abi "$TARGET_ABI")
 rustup target add "$RUST_TARGET" >/dev/null
 
-PROJECT_DIR="$ROOT/target/android/ambition_gameplay_core_android"
+PROJECT_DIR="$ROOT/target/android/ambition_actors_android"
 APP_DIR="$PROJECT_DIR/app"
 JNI_OUT="$APP_DIR/src/main/jniLibs"
 ASSETS_OUT="$APP_DIR/src/main/assets"
@@ -893,11 +893,11 @@ EOF
 
 log "copying runtime assets into generated Android project"
 rm -rf "$ASSETS_OUT"
-copy_tree_contents "$ROOT/crates/ambition_gameplay_core/assets" "$ASSETS_OUT"
+copy_tree_contents "$ROOT/crates/ambition_actors/assets" "$ASSETS_OUT"
 if [[ -d "$ASSETS_OUT/sprites" ]]; then
     sprite_png_count=$(find "$ASSETS_OUT/sprites" -type f -name '*.png' | wc -l | tr -d ' ')
     if [[ "$sprite_png_count" == "0" ]]; then
-        warn "no sprite PNGs were copied into the APK assets; the game will use colored-rectangle sprite fallbacks. Regenerate/copy sprites under crates/ambition_gameplay_core/assets/sprites before building Android."
+        warn "no sprite PNGs were copied into the APK assets; the game will use colored-rectangle sprite fallbacks. Regenerate/copy sprites under crates/ambition_actors/assets/sprites before building Android."
     else
         log "copied $sprite_png_count sprite PNGs into APK assets"
     fi
@@ -968,7 +968,7 @@ APK=$(find "$APK_DIR" -maxdepth 1 -type f -name '*.apk' | sort | tail -1)
 
 OUT_DIR="$ROOT/target/android/apks"
 mkdir -p "$OUT_DIR"
-OUT_APK="$OUT_DIR/ambition_gameplay_core-${APK_BUILD_TYPE}-${TARGET_ABI}.apk"
+OUT_APK="$OUT_DIR/ambition_actors-${APK_BUILD_TYPE}-${TARGET_ABI}.apk"
 cp "$APK" "$OUT_APK"
 
 log "APK: $OUT_APK"

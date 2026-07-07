@@ -2,13 +2,13 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
+use ambition_actors::dev::dev_tools::DeveloperTools;
+use ambition_actors::game_mode::GameMode;
+use ambition_actors::ldtk_world;
+use ambition_actors::rooms;
+use ambition_actors::SandboxDevState;
 use ambition_engine_core as ae;
 use ambition_engine_core::RoomGeometry;
-use ambition_gameplay_core::dev::dev_tools::DeveloperTools;
-use ambition_gameplay_core::game_mode::GameMode;
-use ambition_gameplay_core::ldtk_world;
-use ambition_gameplay_core::rooms;
-use ambition_gameplay_core::SandboxDevState;
 use ambition_render::rendering::{HudText, SceneEntities};
 
 use super::feedback::ProgressionResources;
@@ -21,33 +21,33 @@ pub(super) struct HudCameraParams<'w, 's> {
         'w,
         's,
         (
-            &'static ambition_gameplay_core::actor::BodyKinematics,
-            &'static ambition_gameplay_core::actor::BodyGroundState,
-            &'static ambition_gameplay_core::actor::BodyWallState,
-            &'static ambition_gameplay_core::actor::BodyDashState,
-            &'static ambition_gameplay_core::actor::BodyJumpState,
-            &'static ambition_gameplay_core::actor::BodyMana,
-            &'static ambition_gameplay_core::actor::BodyModeState,
-            &'static ambition_gameplay_core::actor::BodyLedgeState,
-            &'static ambition_gameplay_core::actor::BodyFlightState,
-            &'static ambition_gameplay_core::actor::BodyBlinkState,
-            &'static ambition_gameplay_core::actor::BodyComboTrace,
+            &'static ambition_actors::actor::BodyKinematics,
+            &'static ambition_actors::actor::BodyGroundState,
+            &'static ambition_actors::actor::BodyWallState,
+            &'static ambition_actors::actor::BodyDashState,
+            &'static ambition_actors::actor::BodyJumpState,
+            &'static ambition_actors::actor::BodyMana,
+            &'static ambition_actors::actor::BodyModeState,
+            &'static ambition_actors::actor::BodyLedgeState,
+            &'static ambition_actors::actor::BodyFlightState,
+            &'static ambition_actors::actor::BodyBlinkState,
+            &'static ambition_actors::actor::BodyComboTrace,
             &'static ambition_characters::actor::BodyHealth,
             &'static ambition_characters::actor::BodyCombat,
-            &'static ambition_gameplay_core::player::BodyMelee,
+            &'static ambition_actors::player::BodyMelee,
         ),
-        ambition_gameplay_core::actor::PrimaryPlayerOnly,
+        ambition_actors::actor::PrimaryPlayerOnly,
     >,
     ecs_actors: bevy::prelude::Query<
         'w,
         's,
         (
-            &'static ambition_gameplay_core::features::FeatureName,
-            &'static ambition_gameplay_core::features::ActorDisposition,
+            &'static ambition_actors::features::FeatureName,
+            &'static ambition_actors::features::ActorDisposition,
             &'static ambition_characters::actor::BodyHealth,
             &'static ambition_characters::actor::BodyCombat,
         ),
-        bevy::prelude::Without<ambition_gameplay_core::features::BossConfig>,
+        bevy::prelude::Without<ambition_actors::features::BossConfig>,
     >,
 }
 
@@ -71,8 +71,8 @@ pub(super) fn update_hud(
     // R2: the boss HUD is a view bound to ENCOUNTER ENTITY progress, not the
     // global `BossEncounterRegistry`. A boss with no encounter ⇒ no HUD line.
     boss_encounters: Query<(
-        &ambition_gameplay_core::boss_encounter::EncounterDef,
-        &ambition_gameplay_core::boss_encounter::EncounterProgress,
+        &ambition_actors::boss_encounter::EncounterDef,
+        &ambition_actors::boss_encounter::EncounterProgress,
     )>,
     mut query: Query<&mut Text, With<HudText>>,
 ) {
@@ -209,8 +209,8 @@ pub(super) fn update_hud(
         for (_id, state) in encounter_registry.encounters.iter() {
             if matches!(
                 state.phase,
-                ambition_gameplay_core::encounter::EncounterPhase::Starting { .. }
-                    | ambition_gameplay_core::encounter::EncounterPhase::Active { .. }
+                ambition_actors::encounter::EncounterPhase::Starting { .. }
+                    | ambition_actors::encounter::EncounterPhase::Active { .. }
             ) {
                 bits.push(state.hud_summary());
             }

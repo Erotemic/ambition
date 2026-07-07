@@ -48,7 +48,7 @@ def remove_line_stripped(text: str, stripped_line: str, label: str) -> tuple[str
 
 
 def patch_audio(repo: Path) -> bool:
-    path = repo / "crates" / "ambition_gameplay_core" / "src" / "audio.rs"
+    path = repo / "crates" / "ambition_actors" / "src" / "audio.rs"
     text = path.read_text(encoding="utf-8")
     old = """use ambition_engine as ae;\n#[cfg(feature = \"audio\")]\nuse ambition_sfx::{self as sfx, SfxId, SfxProvider};\n"""
     new = """use ambition_engine as ae;\nuse ambition_sfx::SfxId;\n#[cfg(feature = \"audio\")]\nuse ambition_sfx::{self as sfx, SfxProvider};\n"""
@@ -64,7 +64,7 @@ def patch_audio(repo: Path) -> bool:
 
 
 def patch_app(repo: Path) -> bool:
-    path = repo / "crates" / "ambition_gameplay_core" / "src" / "app.rs"
+    path = repo / "crates" / "ambition_actors" / "src" / "app.rs"
     text = path.read_text(encoding="utf-8")
     changed_any = False
 

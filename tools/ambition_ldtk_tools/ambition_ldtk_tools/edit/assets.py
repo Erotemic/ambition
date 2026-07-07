@@ -68,7 +68,7 @@ def classify_png(rel: str) -> str:
 
 def asset_catalog(project: dict, ldtk: Path, assets_root: Path | None = None) -> dict[str, Any]:
     repo = repo_root_from_ldtk(ldtk)
-    root = assets_root or (repo / "crates" / "ambition_gameplay_core" / "assets")
+    root = assets_root or (repo / "crates" / "ambition_actors" / "assets")
     pngs = []
     if root.exists():
         for path in sorted(root.rglob("*.png")):
@@ -194,7 +194,7 @@ def main(argv=None) -> int:
         # tileset PNGs); only the .ldtk wiring is tracked.
         icon_path = args.icons or (
             repo_root_from_ldtk(args.ldtk)
-            / "crates" / "ambition_gameplay_core" / "assets" / "sprites" / "editor_icons.png"
+            / "crates" / "ambition_actors" / "assets" / "sprites" / "editor_icons.png"
         )
         present = [e.get("identifier") for e in (project.get("defs", {}).get("entities") or [])]
         uncovered = [e for e in present if e not in DEFAULT_ENTITY_ICON_ORDER]
@@ -223,7 +223,7 @@ def main(argv=None) -> int:
         return 0
 
     if args.action == "suggest-manifest":
-        icon_path = args.icons or (repo_root_from_ldtk(args.ldtk) / "crates" / "ambition_gameplay_core" / "assets" / "sprites" / "editor_icons.png")
+        icon_path = args.icons or (repo_root_from_ldtk(args.ldtk) / "crates" / "ambition_actors" / "assets" / "sprites" / "editor_icons.png")
         data = default_icon_manifest(args.ldtk, icon_path, args.tile_size, args.include_entity or None)
         if args.out:
             save_manifest(args.out, data)

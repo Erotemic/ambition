@@ -6,7 +6,7 @@ During the `music/director.rs` split, a child module was created for cue loading
 
 ```text
 error: expected item after doc comment
-  --> crates/ambition_gameplay_core/src/music/director/loader.rs:34:1
+  --> crates/ambition_actors/src/music/director/loader.rs:34:1
 
 error[E0364]: `resolve_adaptive_directive` is private, and cannot be re-exported
 error[E0603]: function import `resolve_adaptive_directive` is private

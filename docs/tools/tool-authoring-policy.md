@@ -22,7 +22,7 @@ A tool should have a clear status before agents rely on it.
 
 ## Generated outputs
 
-Generated outputs are local by default. A tool must provide an explicit install/publish step before outputs should enter `crates/ambition_gameplay_core/assets/` or another runtime path.
+Generated outputs are local by default. A tool must provide an explicit install/publish step before outputs should enter `crates/ambition_actors/assets/` or another runtime path.
 
 ## Agent rule
 

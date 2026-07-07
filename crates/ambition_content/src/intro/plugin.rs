@@ -9,7 +9,7 @@
 //!   [`ambition_cutscene::RoomCutsceneBindings`] with the intro scripts
 //!   and room bindings from [`crate::intro::cutscene`].
 //! - [`load_intro_npc_sprites_system`] extends
-//!   [`ambition_gameplay_core::assets::game_assets::GameAssets`]`.characters.npcs` with the
+//!   [`ambition_actors::assets::game_assets::GameAssets`]`.characters.npcs` with the
 //!   intro placeholder sprite rows from [`crate::intro::sprites`].
 //!
 //! Both systems run after the sandbox's own startup systems insert the
@@ -22,12 +22,12 @@ use bevy::prelude::*;
 // `redirect_post_intro_dialog` ordering — the unified dialog redirect
 // system in the sandbox `dialog` module owns its own scheduling.
 use crate::banter::CombatBanterRegistry;
-use ambition_cutscene::{CutsceneLibrary, RoomCutsceneBindings};
-use ambition_gameplay_core::assets::game_assets::{GameAssetConfig, GameAssets};
-use ambition_gameplay_core::character_sprites::{
+use ambition_actors::assets::game_assets::{GameAssetConfig, GameAssets};
+use ambition_actors::character_sprites::{
     build_npc_sprite_asset, build_prop_sprite_asset, build_prop_sprite_asset_packed,
 };
-use ambition_gameplay_core::rooms::GatePortalRegistry;
+use ambition_actors::rooms::GatePortalRegistry;
+use ambition_cutscene::{CutsceneLibrary, RoomCutsceneBindings};
 use ambition_render::quality::ResolvedVisualQuality;
 
 use super::banter::install_intro_banter;
@@ -112,9 +112,9 @@ impl Plugin for IntroPlugin {
             .add_systems(
                 Update,
                 super::route_state::sync_intro_flag_gated_lock_walls
-                    .after(ambition_gameplay_core::features::rebuild_feature_ecs_world_overlay)
-                    .before(ambition_gameplay_core::features::update_ecs_hazards)
-                    .in_set(ambition_gameplay_core::schedule::SandboxSet::WorldPrep),
+                    .after(ambition_actors::features::rebuild_feature_ecs_world_overlay)
+                    .before(ambition_actors::features::update_ecs_hazards)
+                    .in_set(ambition_actors::schedule::SandboxSet::WorldPrep),
             );
         // Intro dialog redirects are handled by the unified
         // `dialog::redirect_post_quest_dialog` system. Its
@@ -196,7 +196,7 @@ pub(crate) fn load_intro_npc_sprites_system(
     asset_server: Option<Res<AssetServer>>,
     layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
     game_assets: Option<ResMut<GameAssets>>,
-    catalog: Option<Res<ambition_gameplay_core::assets::sandbox_assets::SandboxAssetCatalog>>,
+    catalog: Option<Res<ambition_actors::assets::sandbox_assets::SandboxAssetCatalog>>,
 ) {
     if installed.0 {
         return;
@@ -244,7 +244,7 @@ pub(crate) fn load_intro_prop_sprites_system(
     asset_server: Option<Res<AssetServer>>,
     layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
     game_assets: Option<ResMut<GameAssets>>,
-    catalog: Option<Res<ambition_gameplay_core::assets::sandbox_assets::SandboxAssetCatalog>>,
+    catalog: Option<Res<ambition_actors::assets::sandbox_assets::SandboxAssetCatalog>>,
     quality: Option<Res<ResolvedVisualQuality>>,
 ) {
     if installed.0 {

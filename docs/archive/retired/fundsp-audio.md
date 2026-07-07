@@ -3,7 +3,7 @@
 > **End-of-life note.** Ambition no longer uses FunDSP for runtime audio.
 > The procedural music generator and procedural SFX synthesizer have been
 > deleted from the runtime; the `fundsp` crate is no longer a dependency
-> of `ambition_gameplay_core`. This doc remains as historical context so future
+> of `ambition_actors`. This doc remains as historical context so future
 > readers can understand what the now-deleted `audio/render.rs` code did
 > and why it was retired.
 
@@ -27,12 +27,12 @@ to a short silent stub so playback never panics.
 
 The deleted code lived at:
 
-- `crates/ambition_gameplay_core/src/audio/render.rs::render_lofi_theme`
-- `crates/ambition_gameplay_core/src/audio/render.rs::render_sfx*`
-- `crates/ambition_gameplay_core/src/audio/runtime.rs::TrackSource::Procedural`
+- `crates/ambition_actors/src/audio/render.rs::render_lofi_theme`
+- `crates/ambition_actors/src/audio/render.rs::render_sfx*`
+- `crates/ambition_actors/src/audio/runtime.rs::TrackSource::Procedural`
 - `crates/ambition_app/src/bin/tune_preview.rs`
 - `crates/ambition_app/src/bin/music_track_report.rs`
-- the `fundsp` Cargo dependency on `ambition_gameplay_core`.
+- the `fundsp` Cargo dependency on `ambition_actors`.
 
 ## Why retired
 
@@ -45,7 +45,7 @@ The deleted code lived at:
 
 ## Realtime DSP/effects (status: ECS plumbed, real filter blocked)
 
-The ECS [`AudioEnvironment`](../../../crates/ambition_gameplay_core/src/audio/environment.rs)
+The ECS [`AudioEnvironment`](../../../crates/ambition_actors/src/audio/environment.rs)
 layer is in place: it reads the player's `WaterContact` (the same
 field the swim mechanics already write), smooths a `wetness` value
 on a wall-clock timer, and a single writer composes mixer-level
@@ -85,18 +85,18 @@ fork), not bringing back a parallel DSP engine.
 
 ## Where to look for runtime audio today
 
-- `crates/ambition_gameplay_core/src/audio/mod.rs` — module root + re-exports
-- `crates/ambition_gameplay_core/src/audio/runtime.rs` — `AudioLibrary`,
+- `crates/ambition_actors/src/audio/mod.rs` — module root + re-exports
+- `crates/ambition_actors/src/audio/runtime.rs` — `AudioLibrary`,
   music track table, `audio_play_sfx_messages` system, SFX cue handles
-- `crates/ambition_gameplay_core/src/audio/render.rs` — bank-clip → Kira
+- `crates/ambition_actors/src/audio/render.rs` — bank-clip → Kira
   `AudioSource` adapter + `SfxBankHandleCache` for ad-hoc
   `SfxMessage::Play { id }` lookups
-- `crates/ambition_gameplay_core/src/audio/bank_asset.rs` — Bevy `Asset` +
+- `crates/ambition_actors/src/audio/bank_asset.rs` — Bevy `Asset` +
   `AssetLoader` for the packed `.sfxbank`; promotes to
   `SfxBankResource` once decoded
-- `crates/ambition_gameplay_core/src/audio/web_unlock.rs` — telemetry around
+- `crates/ambition_actors/src/audio/web_unlock.rs` — telemetry around
   the browser AudioContext gesture unlock
-- `crates/ambition_gameplay_core/src/music/mod.rs` — the music director, layer
+- `crates/ambition_actors/src/music/mod.rs` — the music director, layer
   channels, adaptive cue catalog
-- `crates/ambition_gameplay_core/src/setup.rs::try_load_sfx_bank_via_catalog`
+- `crates/ambition_actors/src/setup.rs::try_load_sfx_bank_via_catalog`
   — sync bank load fast path (static embed + dev env override)

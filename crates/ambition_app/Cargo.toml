@@ -10,10 +10,10 @@ description = "Ambition app shell: assembly, binaries, host glue, headless/RL dr
 crate-type = ["rlib", "cdylib"]
 
 [features]
-# Personas mirror the pre-split ambition_gameplay_core graph; each forwards to the
-# machinery lib (ambition_gameplay_core) and the content crate so one selection
+# Personas mirror the pre-split ambition_actors graph; each forwards to the
+# machinery lib (ambition_actors) and the content crate so one selection
 # configures the whole stack. Command lines change from
-# `-p ambition_gameplay_core` to `-p ambition_app` and keep the same feature names.
+# `-p ambition_actors` to `-p ambition_app` and keep the same feature names.
 default = ["desktop_dev"]
 desktop_dev = [
     "visible",
@@ -25,7 +25,7 @@ desktop_dev = [
 ]
 
 visible = [
-    "ambition_gameplay_core/visible",
+    "ambition_actors/visible",
     "ambition_content/portal",
     "ambition_content/portal_render",
     "ambition_content/ui",
@@ -42,20 +42,20 @@ visible = [
     "kaleidoscope_menu",
 ]
 
-portal = ["ambition_gameplay_core/portal", "ambition_content/portal", "ambition_runtime/portal", "ambition_host/portal"]
-portal_render = ["portal", "ambition_gameplay_core/portal_render", "ambition_render/portal_render", "ambition_content/portal_render", "ambition_host/portal_render"]
-portal_ldtk = ["portal", "ambition_gameplay_core/portal_ldtk"]
+portal = ["ambition_actors/portal", "ambition_content/portal", "ambition_runtime/portal", "ambition_host/portal"]
+portal_render = ["portal", "ambition_actors/portal_render", "ambition_render/portal_render", "ambition_content/portal_render", "ambition_host/portal_render"]
+portal_ldtk = ["portal", "ambition_actors/portal_ldtk"]
 
-desktop_platform = ["ambition_gameplay_core/desktop_platform"]
-android_platform = ["ambition_gameplay_core/android_platform"]
+desktop_platform = ["ambition_actors/desktop_platform"]
+android_platform = ["ambition_actors/android_platform"]
 web_platform = [
-    "ambition_gameplay_core/web_platform",
+    "ambition_actors/web_platform",
     "dep:console_error_panic_hook",
     "dep:wasm-bindgen",
 ]
 
 visible_web_base = [
-    "ambition_gameplay_core/visible_web_base",
+    "ambition_actors/visible_web_base",
     "ambition_content/portal",
     "ambition_content/portal_render",
     "ldtk_runtime",
@@ -69,16 +69,16 @@ visible_web = ["visible_web_base", "static_core_assets"]
 visible_web_served = ["visible_web_base", "web_served", "web_audio"]
 web = ["visible_web", "web_platform"]
 web_served_assets = ["visible_web_served", "web_platform"]
-web_served = ["ambition_gameplay_core/web_served"]
-web_audio = ["audio", "ambition_gameplay_core/web_audio"]
+web_served = ["ambition_actors/web_served"]
+web_audio = ["audio", "ambition_actors/web_audio"]
 
-rl_sim = ["ambition_gameplay_core/rl_sim"]
-headless = ["ambition_gameplay_core/headless"]
-dev_tools = ["ambition_gameplay_core/dev_tools", "dep:bevy-inspector-egui"]
-dev_hot_reload = ["ambition_gameplay_core/dev_hot_reload"]
-static_map = ["ambition_gameplay_core/static_map", "ambition_content/static_map"]
-static_core_assets = ["ambition_gameplay_core/static_core_assets"]
-static_sfx_bank = ["ambition_gameplay_core/static_sfx_bank"]
+rl_sim = ["ambition_actors/rl_sim"]
+headless = ["ambition_actors/headless"]
+dev_tools = ["ambition_actors/dev_tools", "dep:bevy-inspector-egui"]
+dev_hot_reload = ["ambition_actors/dev_hot_reload"]
+static_map = ["ambition_actors/static_map", "ambition_content/static_map"]
+static_core_assets = ["ambition_actors/static_core_assets"]
+static_sfx_bank = ["ambition_actors/static_sfx_bank"]
 android = [
     "visible",
     "android_platform",
@@ -88,25 +88,25 @@ android = [
 ]
 android_dev = ["android", "dev_tools"]
 
-ldtk_runtime = ["ambition_gameplay_core/ldtk_runtime", "dep:bevy_ecs_ldtk", "dep:bevy_asset_loader"]
+ldtk_runtime = ["ambition_actors/ldtk_runtime", "dep:bevy_ecs_ldtk", "dep:bevy_asset_loader"]
 audio = [
-    "ambition_gameplay_core/audio",
+    "ambition_actors/audio",
     "ambition_content/audio",
     "ambition_audio/kira",
     "dep:bevy_kira_audio",
 ]
-ui = ["ambition_gameplay_core/ui", "ambition_content/ui", "dep:bevy_material_ui", "dep:bevy_yarnspinner"]
-physics_debris = ["ambition_gameplay_core/physics_debris"]
-input = ["ambition_gameplay_core/input", "ambition_render/input", "ambition_host/input", "dep:leafwing-input-manager"]
-mobile_touch = ["input", "ambition_gameplay_core/mobile_touch", "ambition_touch_input/mobile_touch"]
+ui = ["ambition_actors/ui", "ambition_content/ui", "dep:bevy_material_ui", "dep:bevy_yarnspinner"]
+physics_debris = ["ambition_actors/physics_debris"]
+input = ["ambition_actors/input", "ambition_render/input", "ambition_host/input", "dep:leafwing-input-manager"]
+mobile_touch = ["input", "ambition_actors/mobile_touch", "ambition_touch_input/mobile_touch"]
 falling_sand = ["ambition_content/falling_sand"]
-bevy_ui_menu = ["ambition_gameplay_core/bevy_ui_menu"]
-kaleidoscope_menu = ["ambition_gameplay_core/kaleidoscope_menu"]
-frame_pacing = ["ambition_gameplay_core/frame_pacing", "dep:bevy_framepace"]
-profile = ["ambition_gameplay_core/profile"]
+bevy_ui_menu = ["ambition_actors/bevy_ui_menu"]
+kaleidoscope_menu = ["ambition_actors/kaleidoscope_menu"]
+frame_pacing = ["ambition_actors/frame_pacing", "dep:bevy_framepace"]
+profile = ["ambition_actors/profile"]
 
 [dependencies]
-ambition_gameplay_core = { path = "../ambition_gameplay_core", default-features = false }
+ambition_actors = { path = "../ambition_actors", default-features = false }
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
 ambition_projectiles = { path = "../ambition_projectiles" }
 # The engine face (E5): the app assembles its sim from `PlatformerEnginePlugins`

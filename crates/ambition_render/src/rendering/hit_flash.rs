@@ -13,7 +13,7 @@
 //!
 //! - **Actor (NPC / enemy)**: `ActorStatus::hit_flash` on the unified
 //!   `hit_flash: f32` (seconds remaining).
-//! - **Boss**: [`ambition_gameplay_core::features::BossEncounter::hit_flash`].
+//! - **Boss**: [`ambition_actors::features::BossEncounter::hit_flash`].
 //! - **Player**: [`ambition_characters::actor::BodyCombat::hit_flash`].
 //!
 //! Replaces the pink multiplicative tint that

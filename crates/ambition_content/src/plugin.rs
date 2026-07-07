@@ -48,10 +48,8 @@ impl Plugin for AmbitionContentPlugin {
         // a content game re-authors an item by editing its row in `items.ron`.
         // Additive: absent rows / a content-less build fall back to the built-in
         // default, so this never gates a spawn on the install.
-        ambition_gameplay_core::items::install_item_catalog(
-            ambition_gameplay_core::items::ItemCatalog::from_ron(include_str!(
-                "../assets/data/items.ron"
-            )),
+        ambition_actors::items::install_item_catalog(
+            ambition_actors::items::ItemCatalog::from_ron(include_str!("../assets/data/items.ron")),
         );
 
         // Insert Ambition's authored music-cue catalog (the goblin adaptive tune
@@ -65,7 +63,7 @@ impl Plugin for AmbitionContentPlugin {
         // Install authored encounter wave timelines (goblin mob-lab, …) into the
         // machinery lib's wave book before the encounter loader runs — the engine
         // hard-codes no encounter's waves.
-        ambition_gameplay_core::encounter::install_encounter_waves(
+        ambition_actors::encounter::install_encounter_waves(
             ron::from_str(include_str!(
                 "../assets/data/encounters/goblin_encounter.ron"
             ))
@@ -80,10 +78,9 @@ impl Plugin for AmbitionContentPlugin {
         );
         #[cfg(feature = "ui")]
         {
-            app.init_resource::<ambition_gameplay_core::dialog::yarn_bindings::YarnContentBindings>();
+            app.init_resource::<ambition_actors::dialog::yarn_bindings::YarnContentBindings>();
             app.world_mut()
-                .resource_mut::<ambition_gameplay_core::dialog::yarn_bindings::YarnContentBindings>(
-                )
+                .resource_mut::<ambition_actors::dialog::yarn_bindings::YarnContentBindings>()
                 .installers
                 .push(super::duel_arena::install_duel_yarn_binding);
         }

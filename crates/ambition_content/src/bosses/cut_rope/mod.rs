@@ -11,22 +11,22 @@
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
-use ambition_characters::brain::ActorControl;
-use ambition_characters::brain::BossAttackState;
-use ambition_engine_core::config::world_to_bevy;
-use ambition_engine_core::{self as ae, AabbExt};
-use ambition_gameplay_core::assets::game_assets::GameAssets;
-use ambition_gameplay_core::boss_encounter::{
+use ambition_actors::assets::game_assets::GameAssets;
+use ambition_actors::boss_encounter::{
     BossEncounterRegistry, EncounterBeat, EncounterDef, EncounterEffect, EncounterScript,
     EncounterTrigger, ReleaseOnDeath,
 };
-use ambition_gameplay_core::features::BossConfig;
-use ambition_gameplay_core::features::{
+use ambition_actors::features::BossConfig;
+use ambition_actors::features::{
     ActorPose, BossClusterQueryData, BossClusterRef, BossRef, CenteredAabb, DamageableVolumes,
     EnemyActorBundle, FeatureBaseBundle, FeatureId, FeatureName, FeatureSimEntity, GameplayBanner,
     HitEvent, HitSource, PogoPolicy, PogoTargetVolumes, PostBossNpc, ResetRoomFeaturesEvent,
 };
-use ambition_gameplay_core::rooms::{PropSpec, RoomSet};
+use ambition_actors::rooms::{PropSpec, RoomSet};
+use ambition_characters::brain::ActorControl;
+use ambition_characters::brain::BossAttackState;
+use ambition_engine_core::config::world_to_bevy;
+use ambition_engine_core::{self as ae, AabbExt};
 use ambition_render::rendering::PropVisual;
 use ambition_sfx::SfxMessage;
 use ambition_sprite_sheet::character::{
@@ -126,20 +126,20 @@ impl CutRopeHeavyObjectCycle {
 }
 
 /// Convert a pending dialogue-authored replay into the ENGINE's generic
-/// [`RoomReplayRequested`](ambition_gameplay_core::session::reset::RoomReplayRequested)
+/// [`RoomReplayRequested`](ambition_actors::session::reset::RoomReplayRequested)
 /// after the final dialog line has been dismissed. Registered in the engine's
 /// `ContentDialogueFollowupSet` slot by `AmbitionBossContentPlugin`, so the
 /// host never names this system.
 pub fn emit_cut_rope_room_replay_after_dialogue_closes(
-    dialogue: Res<ambition_gameplay_core::dialog::DialogState>,
+    dialogue: Res<ambition_actors::dialog::DialogState>,
     mut pending: ResMut<PendingCutRopeRoomReplay>,
-    mut replay_requests: MessageWriter<ambition_gameplay_core::session::reset::RoomReplayRequested>,
+    mut replay_requests: MessageWriter<ambition_actors::session::reset::RoomReplayRequested>,
 ) {
     if !pending.requested || dialogue.active() {
         return;
     }
     pending.requested = false;
-    replay_requests.write(ambition_gameplay_core::session::reset::RoomReplayRequested);
+    replay_requests.write(ambition_actors::session::reset::RoomReplayRequested);
 }
 
 /// Reset the Smirking Behemoth encounter so the room can be replayed in-place.
@@ -156,7 +156,7 @@ pub fn emit_cut_rope_room_replay_after_dialogue_closes(
 pub fn reset_cut_rope_boss_attempt(
     registry: &BossEncounterRegistry,
     save: Option<&mut ambition_persistence::save::SandboxSave>,
-    music_request: Option<&mut ambition_gameplay_core::encounter::BossEncounterMusicRequest>,
+    music_request: Option<&mut ambition_actors::encounter::BossEncounterMusicRequest>,
     placement_ids: &[String],
 ) {
     let intro_track = registry

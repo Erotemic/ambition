@@ -6,7 +6,7 @@
 //! widget that's always on screen.
 //!
 //! Mana is a real spendable resource: the sim's
-//! `ambition_gameplay_core::player::regen_player_mana` refills the `BodyMana`
+//! `ambition_actors::player::regen_player_mana` refills the `BodyMana`
 //! meter over time so charge attacks / the fireball (which already spend it
 //! via the projectile spawner) draw it down and it recovers. Money is fed by
 //! `PickupKind::Currency` collection crediting the body wallet. This module

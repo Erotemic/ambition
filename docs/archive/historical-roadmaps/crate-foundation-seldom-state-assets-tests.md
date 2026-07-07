@@ -46,6 +46,6 @@ Future property tests should cover blink destination validity, room graph links,
 
 ## `bevy_asset_loader`
 
-`ambition_gameplay_core::loading` adds the first `SandboxAssetCollection` using `bevy_asset_loader`. It currently initializes the sandbox manifest handle with `init_collection`, while the embedded RON fallback remains the authoritative startup path.
+`ambition_actors::loading` adds the first `SandboxAssetCollection` using `bevy_asset_loader`. It currently initializes the sandbox manifest handle with `init_collection`, while the embedded RON fallback remains the authoritative startup path.
 
 This is deliberately conservative. A future patch can promote this into a real `BootState::Loading -> Ready` flow once the sandbox has enough assets to justify moving setup out of `Startup`.

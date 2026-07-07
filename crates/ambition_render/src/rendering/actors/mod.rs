@@ -14,15 +14,13 @@ use super::primitives::{
     feature_color, feature_z, switch_on_color, FeatureVisual, PlayerSpriteBaseline, PlayerVisual,
     PropVisual, SceneEntities,
 };
-use ambition_combat::events::BoundFeatureKind;
-use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
-use ambition_gameplay_core::assets::game_assets::{self, EntitySprite, GameAssets};
-use ambition_gameplay_core::boss_encounter::sprites::{
-    self, BossAnimFrame, BossAnimState, BossAnimator,
-};
-use ambition_gameplay_core::features::{
+use ambition_actors::assets::game_assets::{self, EntitySprite, GameAssets};
+use ambition_actors::boss_encounter::sprites::{self, BossAnimFrame, BossAnimState, BossAnimator};
+use ambition_actors::features::{
     ActorRenderSize, BreakableFeature, ChestFeature, FeatureId, FeatureVisualKind, Opened,
 };
+use ambition_combat::events::BoundFeatureKind;
+use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_persistence::settings::TextureResolutionScale;
 use ambition_sim_view::FeatureViewIndex;
 use ambition_sprite_sheet::character::{
@@ -165,13 +163,11 @@ fn state_aware_entity_sprite(
 ) -> Option<EntitySprite> {
     match kind {
         FeatureVisualKind::Breakable => {
-            ambition_gameplay_core::features::ecs_breakable_state(id, ecs_breakables)
+            ambition_actors::features::ecs_breakable_state(id, ecs_breakables)
                 .map(game_assets::breakable_state_sprite)
         }
-        FeatureVisualKind::Chest => {
-            ambition_gameplay_core::features::ecs_chest_opened(id, ecs_chests)
-                .map(game_assets::chest_state_sprite)
-        }
+        FeatureVisualKind::Chest => ambition_actors::features::ecs_chest_opened(id, ecs_chests)
+            .map(game_assets::chest_state_sprite),
         // Switch shows its on/off button sprite (armed = on, disabled = off)
         // instead of a flat colored block (#57).
         FeatureVisualKind::Switch => Some(if switch_on {
@@ -363,7 +359,7 @@ pub fn refresh_player_sprites_on_game_assets_change(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
-    starting_character: Option<Res<ambition_gameplay_core::player::StartingCharacter>>,
+    starting_character: Option<Res<ambition_actors::player::StartingCharacter>>,
     images: Res<Assets<Image>>,
     players: Query<
         (
@@ -387,7 +383,7 @@ pub fn refresh_player_sprites_on_game_assets_change(
     let start_id = starting_character
         .as_deref()
         .map(|s| s.effective_id())
-        .unwrap_or_else(|| ambition_gameplay_core::character_roster::default_character_id());
+        .unwrap_or_else(|| ambition_actors::character_roster::default_character_id());
     let Some(asset) = assets.characters.asset_for_character_id(start_id) else {
         return;
     };

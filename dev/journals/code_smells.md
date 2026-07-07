@@ -59,7 +59,7 @@ Entry format:
 - **Suggested fix / size:** S remaining (debug-overlay stat labels → controlled subject via a read-only sub-query); the player-facing win is done.
 
 ## 2026-06-26 Characters are defined by named `EnemyArchetype` rows, not by their movement kit
-- **Where:** `ambition_content/assets/data/enemy_archetypes.ron` + `EnemyArchetypeSpec` (`ambition_gameplay_core/src/features/enemies/mod.rs`); the spawn path resolves a string brain-key → a fixed archetype row that bundles HP + tuning + brain template + the capability flags (`smash_can_blink`, `smash_can_fly`, melee/ranged specs, …).
+- **Where:** `ambition_content/assets/data/enemy_archetypes.ron` + `EnemyArchetypeSpec` (`ambition_actors/src/features/enemies/mod.rs`); the spawn path resolves a string brain-key → a fixed archetype row that bundles HP + tuning + brain template + the capability flags (`smash_can_blink`, `smash_can_fly`, melee/ranged specs, …).
 - **Smell (Jon, 2026-06-26):** "There really shouldn't be archetypes; characters should be defined by what movements they have available to them." An archetype is a frozen bundle; the elegant model is a character = a **capability/kit set** (which verbs its body has: blink, fly, shield, dash, ledge, melee/ranged shapes, tilts, special) + tuning, composed freely, not picked from a closed roster of named rows. The S3 capability work is incrementally pushing this way (each verb is now a per-body `CombatCapabilities` flag projected from the spec into the body AND the brain), but the *source* is still a named archetype row rather than a kit the body simply HAS. The closed-archetype shape is the body-side analogue of the closed-`SpecialActionSpec`-enum tension already noted for the engine-for-other-games goal.
 - **Noticed while:** wiring blink (S3a) + fly (S3b) as body capabilities for the PCA — each verb needed a `smash_can_*` field threaded through the archetype row → spec → (brain cfg + body caps), which is the seam a kit-first model would make unnecessary.
 - **Suggested fix / size:** L, NOT now (explicitly deferred by Jon — "just a smell to log"). Direction: let a character author its capability set + tuning directly (data), drop the named-archetype indirection; the brain reads the kit, the body enforces it. Dovetails with the fighter-unification roadmap's "per-body capability set" and the engine-for-other-games keystone.
@@ -88,12 +88,12 @@ Entry format:
 - **Suggested fix / size:** S — grep docs for "RON room|world|manifest|level" prose, archive or rewrite.
 
 ## 2026-06-10 FeatureVisualKind::Sandbag variant in the generic kit
-- **Where:** crates/ambition_gameplay_core/src/mechanics/combat/events.rs (FeatureVisualKind)
+- **Where:** crates/ambition_actors/src/mechanics/combat/events.rs (FeatureVisualKind)
 - **Smell:** a named-ish variant in kit vocabulary (excluded from the combat-kit guard word list).
 - **Suggested fix / size:** S — rename to TrainingDummy, BUT it touches LDtk/content mapping, so do it with `ambition_ldtk_tools`, not a blind rename.
 
 ## 2026-06-10 Special-attack EFFECTS consumers are half-vocabulary (post de-name)
-- **Where:** crates/ambition_gameplay_core/src/features/ecs/brain_effects.rs (spawn_gnu_apple_rain_*, spawn_overfit_volley_*, LockOnBeam/PitTrap/RotatingCross/MinionCascade consumers); SpecialActionSpec docs in ambition_characters/src/brain/action_set.rs
+- **Where:** crates/ambition_actors/src/features/ecs/brain_effects.rs (spawn_gnu_apple_rain_*, spawn_overfit_volley_*, LockOnBeam/PitTrap/RotatingCross/MinionCascade consumers); SpecialActionSpec docs in ambition_characters/src/brain/action_set.rs
 - **Smell:** the BossAttackProfile de-name is honest at the key/schedule/geometry/param layers, but the consumer impls still bake content (apple art identity, gnu-named fns, "GNU-ton boss:" spec docs).
 - **Suggested fix / size:** M — lift baked constants + projectile-art identity into RON spec fields; rename consumers to the vocabulary. The active target of the Technique/Effects framework design (2026-06-13).
 
@@ -104,7 +104,7 @@ are now gravity-relative. These four remain world-Y-locked — each is a DESIGN 
 (should it be gravity-relative?), cheaply verifiable by adding a symmetry case:
 - **Directional attack hitbox offset** — `ambition_combat/src/lib.rs:446` (`view.pos + spec.hitbox_offset`): down/up/forward offsets are world-locked, so directional attacks are screen-relative.
 - **`ground_gap_below_feet`** — `ambition_app/src/app/world_flow.rs:63` probes world-down for landing feedback.
-- **Thrown ground-item physics** — `ambition_gameplay_core/src/items/pickup/mod.rs:169` (`GROUND_ITEM_GRAVITY`): thrown items fall world-down regardless of the gravity field.
+- **Thrown ground-item physics** — `ambition_actors/src/items/pickup/mod.rs:169` (`GROUND_ITEM_GRAVITY`): thrown items fall world-down regardless of the gravity field.
 - **Player knockback** — `apply_player_hit_events` builds `editable_tuning.as_engine()` without `apply_gravity_dir`; UNTESTED under a flip.
 
 ## 2026-06-21 Sprite-renderer path helpers duplicated + generated dir scattered
@@ -114,7 +114,7 @@ are now gravity-relative. These four remain world-Y-locked — each is a DESIGN 
 - Related: generated output lands in **three** dirs — `generated/`, `targets/generated/`, and the tool-root `generated/` (all gitignored now, so a consistency smell, not a git-hygiene problem). Pick one canonical generated root when doing the path dedup.
 
 ## 2026-06-23 `BrainSnapshot` test helpers rebuild full literals across crates (leave for now)
-- **Where:** per-module test helpers `snap_at` (`ambition_characters/src/brain/state_machine/tests.rs`), `snap_with_target_at_x` (`ambition_characters/src/brain/smash/mod.rs`), plus full `BrainSnapshot { .. }` literals in `ambition_gameplay_core` tests (`features/conversion_tests.rs`, `features/ecs/spawn/tests.rs`).
+- **Where:** per-module test helpers `snap_at` (`ambition_characters/src/brain/state_machine/tests.rs`), `snap_with_target_at_x` (`ambition_characters/src/brain/smash/mod.rs`), plus full `BrainSnapshot { .. }` literals in `ambition_actors` tests (`features/conversion_tests.rs`, `features/ecs/spawn/tests.rs`).
 - **Smell:** each rebuilds the whole `BrainSnapshot` literal instead of starting from the existing `BrainSnapshot::idle()` constructor + overriding the one or two fields each test cares about. A new field means touching all of them.
 - **Why left (not merged):** they span two crates and each helper parameterizes different fields (`target_x` vs `pos_x + target_x`); a single cross-crate shared fixture would be premature generalization. The cheaper, in-scope win is to have each helper build on `..BrainSnapshot::idle()` rather than a full literal — but `idle()`'s defaults may not match every test's intent, so it needs a per-helper check, not a blind sweep. Noticed during the boss de-bloat sweep (the boss fixtures WERE consolidated; these are the actor/brain analog).
 - **Suggested fix / size:** S per helper — reduce each to `BrainSnapshot { field: x, ..BrainSnapshot::idle() }` after confirming `idle()` matches its baseline. Production `BrainSnapshot { .. }` constructions (`actors/update.rs`, `player/systems.rs`) are distinct real builds — leave them.
@@ -216,7 +216,7 @@ are now gravity-relative. These four remain world-Y-locked — each is a DESIGN 
 - 2026-07-02 (pitch_stability tool limitation): `audit/pitch_stability` runs a monophonic pitch tracker over the rendered lead STEM, so it merges reverb-connected legato phrases into one "note" (observed note_seconds of 8.8s where the longest authored note is 2.9s) and reads the melody's own motion + sample vibrato as pitch "wobble". A verified-accepted cue (broken_transmitter, Sonatina violin lead) scores 23 wobbles/6 onsets up to 210 cents; between_objectives' flute scores 38/10 up to 400 cents at a fast melodic peak — same order of magnitude, i.e. normal for an expressive sustained SFZ lead, not a tuning defect. Real fix: segment the analysis on the MIDI note boundaries that `build_score` already emits (`_ambition_note_events` carry nominal_bar/nominal_beat/nominal_duration_beats) instead of re-detecting onsets from a reverberant stem. Until then, treat wobble_count as a guitar-scoop detector (sustained SINGLE notes bending), not a verdict on melodic leads.
 
 ## 2026-07-03 (fable-review T1 fallout) — entity-sprite generator emits dead `FeatureVisualKind::Npc/Boss` labels
-- **Where:** `tools/ambition_sprite2d_renderer/.../targets/props/entities.py` generates `crates/ambition_gameplay_core/assets/sprites/**/entity_manifest.yaml` with `category: FeatureVisualKind::Npc` / `::Boss`. After AD1-T1 (8cef2245) those variants no longer exist — the enum is `{ Actor, Hazard, Breakable, Chest, Pickup, Switch }`.
+- **Where:** `tools/ambition_sprite2d_renderer/.../targets/props/entities.py` generates `crates/ambition_actors/assets/sprites/**/entity_manifest.yaml` with `category: FeatureVisualKind::Npc` / `::Boss`. After AD1-T1 (8cef2245) those variants no longer exist — the enum is `{ Actor, Hazard, Breakable, Chest, Pickup, Switch }`.
 - **Why not fixed here:** the YAML is GENERATED (never hand-edit generated output), and the `category:` label is tooling metadata that no Rust code parses, so it doesn't break the build — but it names a dead variant. Fix belongs in the generator, not the output.
 - **Suggested fix / size:** XS — update `entities.py` to emit `FeatureVisualKind::Actor` for the actor rows (or drop the `FeatureVisualKind::`-prefixed label entirely, since nothing consumes it), then regen. Related: [fable-review E35].
 
@@ -227,7 +227,7 @@ are now gravity-relative. These four remain world-Y-locked — each is a DESIGN 
 - **Suggested fix / size:** M — trace the chase pipeline for an unsorted query/iteration; sort by a stable feature id. Confirm determinism by running the test across two clean builds and asserting identical enemy_x.
 
 ## 2026-07-03 — `control_frame_modes_from_settings` is an unwired settings→control-frame consumer
-- **Where:** `crates/ambition_gameplay_core/src/items/pickup/mod.rs:660` — `pub(crate) fn control_frame_modes_from_settings(settings) -> ae::ControlFrameModes` reads `UserSettings.gameplay.control_frame_modes()`, but has ZERO callers (a `never used` warning).
+- **Where:** `crates/ambition_actors/src/items/pickup/mod.rs:660` — `pub(crate) fn control_frame_modes_from_settings(settings) -> ae::ControlFrameModes` reads `UserSettings.gameplay.control_frame_modes()`, but has ZERO callers (a `never used` warning).
 - **Why it matters:** it's the read point for the user's control-frame preference (gravity-relative vs screen-relative joystick mapping) — an OPEN design (frame-of-reference.md). Either a dropped consumer (the setting isn't applied — a feature gap) or a pre-wiring point awaiting the reference-frame decision. Not just dead code to delete.
 - **Why not fixed here:** wiring it needs the open reference-frame design call; deleting it would remove the wiring point. Left in place, flagged. [[project_reference_frames]]
 - **Suggested fix / size:** S once the reference-frame design lands — wire it into the input→control-frame bridge; until then, keep it (or `#[allow(dead_code)]` with a pointer to frame-of-reference.md).
@@ -236,7 +236,7 @@ are now gravity-relative. These four remain world-Y-locked — each is a DESIGN 
 - **Where:** the fused `gnu_ton` profile in `crates/ambition_content/assets/data/boss_profiles.ron`; the split-overlay render (`sync_boss_split_overlay`, `BossOverlayLayer`, split z-consts, HAND_SLAM/HAND_SWEEP StrikeRect tables) in `crates/ambition_render/src/rendering/actors/boss.rs` + its schedule wiring in `rendering/mod.rs:275`.
 - **Context:** G4 reauthored `gnu_ton_arena` as the ADR-0020 linked pair (a `giant_gnu` EnemySpawn mount + a `gnu_ton_rider` BossSpawn rider), so the arena NO LONGER spawns the fused `gnu_ton` boss. The fused profile is now dead *content* (nothing authored spawns `PhaseScript:gnu_ton`).
 - **Why NOT torn down (deferred, deliberate):** the fused `gnu_ton` id/profile + `gnu_ton_boss` sprite are STILL referenced by non-arena code and would make the teardown large + risky:
-  - `ambition_gameplay_core/src/boss_encounter/behavior.rs:438` (`gnu_ton()` constructor → `from_data("gnu_ton")`), `profile.rs:173`, `sprites/mod.rs` (`GNU_TON_SHEET`, `"gnu_ton"` registration), `features/bosses.rs:224`, `features/ecs/bosses/sync.rs:157` (sprite-target routing `"gnu_ton_boss" | "gnu_ton" | ...`).
+  - `ambition_actors/src/boss_encounter/behavior.rs:438` (`gnu_ton()` constructor → `from_data("gnu_ton")`), `profile.rs:173`, `sprites/mod.rs` (`GNU_TON_SHEET`, `"gnu_ton"` registration), `features/bosses.rs:224`, `features/ecs/bosses/sync.rs:157` (sprite-target routing `"gnu_ton_boss" | "gnu_ton" | ...`).
   - Tests: `features/ecs/tests.rs`, `features/ecs/damage/tests.rs` (reward mapping), `boss_encounter/systems.rs:524`, `world/ldtk_world/fields.rs:352`; `ambition_app/tests/boss_possession_specials.rs`, `architecture_boundaries.rs` (×3).
   - The split-overlay render still drives the `gnu_ton_boss` hands page; it is the only split-render boss, but removing it means retargeting those suites.
 - **Suggested fix / size:** M–L follow-up (G6+). Migrate the fused-profile references/tests to the split pair (or to a generic fixture), delete the fused `gnu_ton` row + the `gnu_ton_boss` sheet registration, then delete `sync_boss_split_overlay`/`BossOverlayLayer` + the HAND_* StrikeRect tables. The arena-gate `boss_is_gnu_ton` (content-side) already recognizes BOTH ids; drop the `"gnu_ton"` arm once the fused profile is gone. Prefer this as its own commit with the boss suites retargeted, per "prefer a correct additive result over a risky teardown".

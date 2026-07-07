@@ -31,7 +31,7 @@ index f89bd015..00000000 100644
 -  with some ldtk placement. ldtk is the source of truth for the
 -  world layout."
 -  Root cause: `MovingPlatformState::time_reference(&world)` in
--  [platforms.rs:31](crates/ambition_gameplay_core/src/platforms.rs#L31)
+-  [platforms.rs:31](crates/ambition_actors/src/platforms.rs#L31)
 -  procedurally constructs ONE platform per room based on world size
 -  -- it never reads any authoring data. There's a `KinematicPath`
 -  entity def in the LDtk file (see line 2012) but it's not parsed

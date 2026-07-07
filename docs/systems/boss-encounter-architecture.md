@@ -78,7 +78,7 @@ encounter RON under `crates/ambition_content/assets/data/boss_encounters/<id>.ro
 `ambition_content::bosses::install_boss_roster` embeds and installs those specs
 into gameplay-core's generic holder during sandbox resource initialization.
 
-`ambition_gameplay_core` owns the reusable schema and encounter state machine.
+`ambition_actors` owns the reusable schema and encounter state machine.
 It does not own the named boss roster. Behavior/reward data comes from
 `crates/ambition_content/assets/data/boss_profiles.ron`; LDtk owns spatial
 placement. That is the current ADR 0017 split: Rust = reusable behavior/schema,

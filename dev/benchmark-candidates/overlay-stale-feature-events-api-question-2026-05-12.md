@@ -85,7 +85,7 @@ current code search result, not just the uploaded archive. Then run at least:
 
 ```bash
 cargo fmt --all
-cargo check -p ambition_gameplay_core
+cargo check -p ambition_actors
 ```
 
 If the environment cannot run Cargo, state that explicitly and still inspect the

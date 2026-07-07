@@ -18,17 +18,17 @@
 //! These tests stay tiny on purpose: they verify the *shape* of the
 //! simulation plugin, not gameplay behavior. Behavior tests live in
 //! `scripted_gameplay.rs` and the per-feature suites under
-//! `crates/ambition_gameplay_core/src/**/tests.rs`.
+//! `crates/ambition_actors/src/**/tests.rs`.
 
-use ambition_characters::actor::{BodyCombat, BodyHealth};
-use ambition_engine_core::RoomGeometry;
-use ambition_gameplay_core::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
-use ambition_gameplay_core::body_mode::BodyModeCapabilities;
-use ambition_gameplay_core::player::{
+use ambition_actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use ambition_actors::body_mode::BodyModeCapabilities;
+use ambition_actors::player::{
     BodyAnimFacts, LocalPlayer, PlayerBlinkCameraState, PlayerIdentityBundle, PlayerSlot,
 };
-use ambition_gameplay_core::rooms::RoomSet;
-use ambition_gameplay_core::{GameMode, MovingPlatformSet, SandboxSimState};
+use ambition_actors::rooms::RoomSet;
+use ambition_actors::{GameMode, MovingPlatformSet, SandboxSimState};
+use ambition_characters::actor::{BodyCombat, BodyHealth};
+use ambition_engine_core::RoomGeometry;
 use ambition_input::ControlFrame;
 use ambition_time::ClockState;
 use bevy::asset::AssetPlugin;

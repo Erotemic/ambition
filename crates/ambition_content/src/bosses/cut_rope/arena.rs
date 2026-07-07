@@ -14,7 +14,7 @@
 
 use super::*;
 
-use ambition_gameplay_core::boss_encounter::{EncounterGate, FallingHazard};
+use ambition_actors::boss_encounter::{EncounterGate, FallingHazard};
 
 /// Cut-rope VISUAL/FLAVOR state. The anvil's PHYSICS lives on the generic
 /// `FallingHazard` entity now; `anvil_center` / `awaiting_alignment` are mirrored

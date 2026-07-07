@@ -144,9 +144,9 @@ Estimated 1-2h. Mostly mechanical.
 
 ## Validation harness used
 
-- `cargo test -p ambition_gameplay_core --lib` — 792 tests, all green
+- `cargo test -p ambition_actors --lib` — 792 tests, all green
   at every commit boundary.
-- `cargo run -p ambition_gameplay_core --bin headless -- --ticks 60` —
+- `cargo run -p ambition_actors --bin headless -- --ticks 60` —
   smoked at each major commit, no panics.
 - Canary tests preserved:
   - `player_attack_press_emits_swipe_action_message_end_to_end`

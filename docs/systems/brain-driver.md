@@ -46,7 +46,7 @@ crates/ambition_characters/src/brain/
 └── smash/              # Smash-style experimental brain and observation/action types
 ```
 
-Sandbox-side consumers live under `crates/ambition_gameplay_core/src/features/ecs/`, especially `brain_effects.rs` for concrete world effects.
+Sandbox-side consumers live under `crates/ambition_actors/src/features/ecs/`, especially `brain_effects.rs` for concrete world effects.
 
 Sibling components on controllable entities:
 
@@ -71,7 +71,7 @@ This is no longer only a shadow or observation stream.
 | NPCs | Peaceful NPCs tick through `Brain::StateMachine(Patrol/StandStill)` and apply the resulting frame through the shared kinematic path. |
 | Enemy ranged | `spawn_enemy_projectiles_from_brain_actions` consumes `ActorActionMessage::Ranged` for hostile actors. |
 | Enemy melee | `start_enemy_melee_from_brain_actions` consumes `ActorActionMessage::Melee` and starts the enemy windup/cooldown; `update_ecs_actors` still owns the windup -> active hitbox edge because the runtime owns that state. |
-| Boss specials | GNU-ton apple rain and Gradient Sentinel special attacks consume `ActorActionMessage::Special` via focused systems in `crates/ambition_gameplay_core/src/features/ecs/brain_effects.rs`. |
+| Boss specials | GNU-ton apple rain and Gradient Sentinel special attacks consume `ActorActionMessage::Special` via focused systems in `crates/ambition_actors/src/features/ecs/brain_effects.rs`. |
 | Boss movement/patterns | Bosses carry `BossPattern` brains and `ActionSet`s; current authored specials are on the message stream, while some boss runtime/body state remains in sandbox feature components. |
 
 ## Current scheduling
@@ -148,9 +148,9 @@ commands.entity(goblin).insert(Brain::Player(PlayerSlot::PRIMARY));
 ## Validation anchors
 
 ```bash
-cargo test -p ambition_gameplay_core --lib actor_control
-cargo test -p ambition_gameplay_core --lib brain::
-cargo test -p ambition_gameplay_core --lib player::systems
-cargo test -p ambition_gameplay_core --lib features::ecs::brain_effects
+cargo test -p ambition_actors --lib actor_control
+cargo test -p ambition_actors --lib brain::
+cargo test -p ambition_actors --lib player::systems
+cargo test -p ambition_actors --lib features::ecs::brain_effects
 cargo run -p ambition_app --bin headless -- 30
 ```

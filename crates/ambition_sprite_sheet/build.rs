@@ -23,7 +23,7 @@ fn main() {
     // (`app::scene_setup`) lives in `ambition_app`.
 
     let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
-    let asset_owner_dir = manifest_dir.join("../ambition_gameplay_core");
+    let asset_owner_dir = manifest_dir.join("../ambition_actors");
 
     let sprite_dirs = [
         asset_owner_dir.join("assets/sprites"),

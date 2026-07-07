@@ -50,7 +50,7 @@ Historical notes under `docs/archive/` are evidence, not current authority. Gene
 - Prefer data-driven ECS flow: authored/generated data -> Bevy components/entities -> systems -> messages/effects.
 - LDtk owns world/level authoring. RON room manifests are historical; RON may still be used for tuning, save/settings, and other data where appropriate.
 - Preserve desktop, web, Android/mobile/touch, controller, and Steam Deck paths. iOS is deferred for hardware, not excluded.
-- **Crate layering:** foundations ← machinery (`ambition_gameplay_core`, being
+- **Crate layering:** foundations ← machinery (`ambition_actors`, being
   decomposed) ← presentation (`ambition_render`) ← content (`ambition_content`)
   ← app (`ambition_app`, the only crate naming both machinery and content;
   `architecture_boundaries` enforces it). The target stack and the teardown
@@ -119,7 +119,7 @@ lessons to `dev/benchmark-candidates/` + its index — never transient state.
 
 ```bash
 cargo fmt --check
-cargo test -p ambition_gameplay_core --lib
+cargo test -p ambition_actors --lib
 cargo test -p ambition_content --all-features
 cargo run -p ambition_app --bin headless
 python scripts/check_agent_kb.py

@@ -14,18 +14,18 @@ use super::primitives::{
     block_color, feature_color, feature_z, spawn_world_label, FeatureVisual, LockWallVisual,
     PropVisual, RoomVisual,
 };
-use ambition_engine_core::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_PLAYER};
-use ambition_gameplay_core::assets::game_assets::{
+use ambition_actors::assets::game_assets::{
     self, entity_sprite, entity_sprite_or_color, GameAssets,
 };
-use ambition_gameplay_core::features::FeatureVisualKind;
-use ambition_gameplay_core::rooms::{LoadingZone, LoadingZoneActivation, PropSpec};
-use ambition_gameplay_core::world::physics;
+use ambition_actors::features::FeatureVisualKind;
+use ambition_actors::rooms::{LoadingZone, LoadingZoneActivation, PropSpec};
+use ambition_actors::world::physics;
+use ambition_engine_core::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_PLAYER};
 use ambition_sprite_sheet::character::{
     build_character_sprite, feet_anchor_for, CharacterAnimator,
 };
 
-/// Presentation consumer of [`ambition_gameplay_core::session::RespawnRoomVisualsRequested`].
+/// Presentation consumer of [`ambition_actors::session::RespawnRoomVisualsRequested`].
 ///
 /// The sim (sandbox reset) emits the request after flipping the active room; this
 /// reads the active room from [`RoomSet`] and rebuilds its static visuals +
@@ -33,9 +33,9 @@ use ambition_sprite_sheet::character::{
 /// render layer, and a headless build (no presentation plugins) simply never runs
 /// this system — correct, since it needs no visuals.
 pub fn respawn_room_visuals_on_request(
-    mut requests: MessageReader<ambition_gameplay_core::session::RespawnRoomVisualsRequested>,
+    mut requests: MessageReader<ambition_actors::session::RespawnRoomVisualsRequested>,
     mut commands: Commands,
-    room_set: Res<ambition_gameplay_core::rooms::RoomSet>,
+    room_set: Res<ambition_actors::rooms::RoomSet>,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
     assets: Option<Res<GameAssets>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
@@ -57,7 +57,7 @@ pub fn respawn_room_visuals_on_request(
 
 pub fn spawn_room_visuals(
     commands: &mut Commands,
-    spec: &ambition_gameplay_core::rooms::RoomSpec,
+    spec: &ambition_actors::rooms::RoomSpec,
     physics_settings: physics::PhysicsSandboxSettings,
     assets: Option<&GameAssets>,
 ) {
@@ -375,7 +375,7 @@ pub fn refresh_entity_sprite_handles_on_game_assets_change(
         (&BoundEntitySprite, &mut Sprite),
         (
             Without<CharacterAnimator>,
-            Without<ambition_gameplay_core::boss_encounter::sprites::BossAnimator>,
+            Without<ambition_actors::boss_encounter::sprites::BossAnimator>,
         ),
     >,
 ) {
@@ -578,9 +578,7 @@ fn spawn_authored_basic(
 fn spawn_authored_hazard(
     commands: &mut Commands,
     world: &ae::World,
-    authored: &ambition_gameplay_core::rooms::Authored<
-        ambition_gameplay_core::combat::DamageVolume,
-    >,
+    authored: &ambition_actors::rooms::Authored<ambition_actors::combat::DamageVolume>,
     assets: Option<&GameAssets>,
 ) {
     spawn_authored_basic(
@@ -598,7 +596,7 @@ fn spawn_authored_hazard(
 fn spawn_authored_chest(
     commands: &mut Commands,
     world: &ae::World,
-    authored: &ambition_gameplay_core::rooms::Authored<ambition_interaction::Chest>,
+    authored: &ambition_actors::rooms::Authored<ambition_interaction::Chest>,
     assets: Option<&GameAssets>,
 ) {
     spawn_authored_basic(
@@ -625,7 +623,7 @@ fn spawn_authored_chest(
 fn spawn_authored_interactable(
     commands: &mut Commands,
     world: &ae::World,
-    authored: &ambition_gameplay_core::rooms::Authored<ambition_interaction::Interactable>,
+    authored: &ambition_actors::rooms::Authored<ambition_interaction::Interactable>,
     assets: Option<&GameAssets>,
 ) {
     let interactable = &authored.payload;
@@ -686,7 +684,7 @@ fn is_lock_wall_block(name: &str) -> bool {
 pub fn sync_lock_wall_visuals(
     mut commands: Commands,
     world: Res<ambition_engine_core::RoomGeometry>,
-    overlay: Res<ambition_gameplay_core::features::FeatureEcsWorldOverlay>,
+    overlay: Res<ambition_actors::features::FeatureEcsWorldOverlay>,
     assets: Option<Res<GameAssets>>,
     existing: Query<(Entity, &LockWallVisual)>,
 ) {
@@ -759,8 +757,8 @@ pub fn sync_lock_wall_visuals(
 #[cfg(test)]
 mod lock_wall_visual_tests {
     use super::*;
+    use ambition_actors::features::FeatureEcsWorldOverlay;
     use ambition_engine_core::RoomGeometry;
-    use ambition_gameplay_core::features::FeatureEcsWorldOverlay;
 
     fn room() -> RoomGeometry {
         RoomGeometry(ae::World::new(

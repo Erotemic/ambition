@@ -11,12 +11,12 @@ module-boundary work is tracked in `docs/planning/tracks.md` and
 | Layer | Crates | Responsibility |
 |---|---|---|
 | foundations | `ambition_engine_core`, `ambition_characters`, `ambition_platformer_primitives`, `ambition_portal`, `ambition_time`, `ambition_input`, `ambition_menu`, `ambition_audio`, `ambition_sfx[_bank]`, `ambition_asset_manager`, `ambition_gameplay_trace`, `ambition_cutscene`, `ambition_interaction`, `ambition_sprite_sheet`, `ambition_ui_nav`, `ambition_vfx` | Reusable/content-free vocabulary, data models, and low-level systems. |
-| machinery | `ambition_gameplay_core` (lib) | Content-free simulation systems, runtime state, world/LDtk integration, player/session systems, combat/items/encounter machinery, persistence, schedules, and compatibility facade re-exports. |
+| machinery | `ambition_actors` (lib) | Content-free simulation systems, runtime state, world/LDtk integration, player/session systems, combat/items/encounter machinery, persistence, schedules, and compatibility facade re-exports. |
 | presentation | `ambition_render`, `ambition_portal_presentation` | Bevy presentation: sprite/world sync, camera, parallax, HUD, screen-space effects, dialog/cutscene UI, fonts, and render-only visual systems. Reads gameplay state; does not own app entrypoints. |
 | content | `ambition_content` | Named game content: quests, bosses, enemy/item rosters, dialogue, intro, banter, portal adapters. |
 | app | `ambition_app` | Bevy assembly, host glue, ALL binaries (`ambition_game_bin`, `headless`, `trace_replay`, `rl_*`), menu host stack + `DevToolsPlugin`, full-stack integration tests. |
 
-## Machinery (`ambition_gameplay_core`) module shape
+## Machinery (`ambition_actors`) module shape
 
 ```text
 src/abilities/        player ability and weapon-kit systems
@@ -33,7 +33,7 @@ src/session/          game mode, reset, and session state
 ```
 
 Presentation modules that used to live under
-`ambition_gameplay_core::presentation` now live in `ambition_render`
+`ambition_actors::presentation` now live in `ambition_render`
 (`rendering/`, `hud`, `fx`, `dialog_ui`, `cutscene`, `screen_effects`,
 `ui_fonts`). App assembly and binaries live in `ambition_app`.
 
@@ -43,7 +43,7 @@ Presentation modules that used to live under
 ## Boundary rules
 
 - Reusable, dependency-clean mechanics → a foundation crate. Still-coupled
-  machinery stays in `ambition_gameplay_core` until its outward deps are inverted.
+  machinery stays in `ambition_actors` until its outward deps are inverted.
 - Named game content → `ambition_content`. App assembly / bins / host glue →
   `ambition_app`. The machinery lib must import neither (guard-enforced).
 - New gameplay subsystems are self-owning `Plugin`s (components-as-plugins).
@@ -63,7 +63,7 @@ Presentation modules that used to live under
 ```bash
 cargo fmt --check
 cargo test -p ambition_engine_core            # engine core unit tests (now its own crate)
-cargo test -p ambition_gameplay_core --lib          # machinery
+cargo test -p ambition_actors --lib          # machinery
 cargo test -p ambition_content --all-features  # named content
 cargo test -p ambition_app                    # assembly + integration suites (replay, boundaries, …)
 python scripts/generate_agent_index.py

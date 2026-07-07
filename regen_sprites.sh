@@ -6,13 +6,13 @@
 #     target (run `ambition_sprite2d_renderer list`) — the adapter rigs are
 #     driven by YAML in the renderer package's config dir
 #     tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/configs/*.yaml
-#     — straight into crates/ambition_gameplay_core/assets/sprites/.
+#     — straight into crates/ambition_actors/assets/sprites/.
 #   - Entity sprites (chest, breakable, door zone, etc.): re-rendered into
-#     crates/ambition_gameplay_core/assets/sprites/entities/.
+#     crates/ambition_actors/assets/sprites/entities/.
 #   - Standalone pirate sheets: rendered and published into
-#     crates/ambition_gameplay_core/assets/sprites/.
+#     crates/ambition_actors/assets/sprites/.
 #   - Tack-on targets (sandbag, mockingbird): rendered into the renderer's
-#     generated/ dir then installed into crates/ambition_gameplay_core/assets/sprites/.
+#     generated/ dir then installed into crates/ambition_actors/assets/sprites/.
 #
 # Usage:
 #   ./regen_sprites.sh                  # render + install everything (cache-skipped if fresh)
@@ -34,7 +34,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$repo_root"
 
 renderer_dir="$repo_root/tools/ambition_sprite2d_renderer"
-sprites_dir="$repo_root/crates/ambition_gameplay_core/assets/sprites"
+sprites_dir="$repo_root/crates/ambition_actors/assets/sprites"
 entities_dir="$sprites_dir/entities"
 
 select_python() {
@@ -792,7 +792,7 @@ fi
 #   AMBITION_ULTRAPACK=0        skip the pack step entirely (fast dev regen)
 #   AMBITION_ULTRAPACK_DEBUG=1  also emit per-page diagnostics into staging
 echo "==> Ultrapack: shared-page atlases per quality tier → runtime pack root:"
-pack_root="$repo_root/crates/ambition_gameplay_core/assets/sprite_packs"
+pack_root="$repo_root/crates/ambition_actors/assets/sprite_packs"
 pack_debug_root="$repo_root/target/ambition_publish/diagnostics/packs"
 if [ "${AMBITION_ULTRAPACK:-1}" = "0" ]; then
     echo "  (skipped — AMBITION_ULTRAPACK=0)"
@@ -920,7 +920,7 @@ then
     (cd "$renderer_dir" && "$python_bin" -m ambition_sprite2d_renderer \
         ldtk-manifest --out "$sprite_manifest") 2>&1 | sed 's/^/  /' || true
     for world in sandbox intro you_have_to_cut_the_rope; do
-        ldtk_path="$repo_root/crates/ambition_gameplay_core/assets/ambition/worlds/$world.ldtk"
+        ldtk_path="$repo_root/crates/ambition_actors/assets/ambition/worlds/$world.ldtk"
         [ -f "$ldtk_path" ] || continue
         PYTHONPATH="$repo_root/tools/ambition_ldtk_tools" "$python_bin" \
             -m ambition_ldtk_tools.edit.visual_manifest apply-manifest \

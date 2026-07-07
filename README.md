@@ -89,7 +89,7 @@ The demo suite exists to make that oracle executable.
 ## Current project shape
 
 The workspace is mid-decomposition. Some target crates already exist; some
-older machinery still lives in `ambition_gameplay_core` while the planning
+older machinery still lives in `ambition_actors` while the planning
 tracks carve it apart.
 
 Current high-level layers:
@@ -117,7 +117,7 @@ foundations / vocabulary
   ambition_portal
 
 simulation machinery
-  ambition_gameplay_core
+  ambition_actors
   ambition_runtime
 
 observation and presentation
@@ -138,7 +138,7 @@ platform and support
 
 Important current boundary notes:
 
-* `ambition_gameplay_core` is still a large machinery crate and compatibility
+* `ambition_actors` is still a large machinery crate and compatibility
   facade. Its decomposition is tracked in `docs/planning/engine/decomposition.md`
   and `docs/planning/tracks.md`.
 * `ambition_sim_view` is the observation boundary. Presentation should migrate
@@ -217,7 +217,7 @@ anchors:
 ```bash
 cargo fmt --check
 cargo test -p ambition_engine_core
-cargo test -p ambition_gameplay_core --lib
+cargo test -p ambition_actors --lib
 cargo test -p ambition_content --all-features
 cargo test -p ambition_app
 cargo run -p ambition_app --bin headless -- 30

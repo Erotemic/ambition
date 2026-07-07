@@ -118,7 +118,7 @@ fn solid_blocks(sim: &SandboxSim) -> Vec<ae::Aabb> {
 /// leaving through an opening, not clipping a solid boundary — the cross-check
 /// that turns the raw OOB-SIDE noise into "OOB through a wall with no exit".
 fn load_loading_zones() -> std::collections::HashMap<String, Vec<ae::Aabb>> {
-    use ambition_gameplay_core as sb;
+    use ambition_actors as sb;
     let mut map = std::collections::HashMap::new();
     let Ok(project) = load_project_for_test() else {
         return map;
@@ -528,8 +528,8 @@ fn collision_oracle_full_sweep() {
 /// Load the game's merged LDtk project the way a sim entry point does:
 /// install the content data (world manifest, character catalog) first —
 /// post-R3.2 the engine ships no worlds and panics without an install.
-fn load_project_for_test() -> Result<ambition_gameplay_core::ldtk_world::LdtkProject, String> {
+fn load_project_for_test() -> Result<ambition_actors::ldtk_world::LdtkProject, String> {
     ambition_content::worlds::install();
     ambition_content::character_catalog::install();
-    ambition_gameplay_core::ldtk_world::LdtkProject::load_default_for_dev()
+    ambition_actors::ldtk_world::LdtkProject::load_default_for_dev()
 }

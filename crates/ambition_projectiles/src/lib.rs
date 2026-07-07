@@ -21,7 +21,7 @@
 //! - [`diagnostics`] — motion-press logging helper.
 //!
 //! The victim-side hit routing and the player charge/anim INPUT stepper stay in
-//! the game's sim heart (`ambition_gameplay_core`) because they are woven with
+//! the game's sim heart (`ambition_actors`) because they are woven with
 //! un-carved boss/actor/player-anim/world state; they consume this crate.
 
 pub mod diagnostics;

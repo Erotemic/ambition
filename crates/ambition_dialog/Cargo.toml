@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Reusable dialogue runtime: the poll-based DialogState view model (typewriter reveal + option selection), the typewriter-SFX selection rules, the input/reveal Bevy systems, and the bevy_yarnspinner↔DialogState bridge plus the generic Yarn binding-installer seam. Content-free — a host's game-specific Yarn commands/functions register through the installer seam; the host maps DialogState.active onto its own session mode. Extracted from ambition_gameplay_core (E1c)."
+description = "Reusable dialogue runtime: the poll-based DialogState view model (typewriter reveal + option selection), the typewriter-SFX selection rules, the input/reveal Bevy systems, and the bevy_yarnspinner↔DialogState bridge plus the generic Yarn binding-installer seam. Content-free — a host's game-specific Yarn commands/functions register through the installer seam; the host maps DialogState.active onto its own session mode. Extracted from ambition_actors (E1c)."
 
 [lib]
 crate-type = ["rlib"]
@@ -31,7 +31,7 @@ ambition_sfx = { path = "../ambition_sfx" }
 ambition_persistence = { path = "../ambition_persistence" }
 # `ui_api` carries the windowing + time + ecs + observer surface the systems
 # and bridge use, transitively (ui_api -> default_app -> bevy_window). Matches
-# ambition_gameplay_core's base bevy dep so feature unification stays headless.
+# ambition_actors's base bevy dep so feature unification stays headless.
 # `x11` only affects isolated test/check builds of this crate: `ui_api` pulls
 # winit, which needs a display backend to compile at all (mirrors ambition_audio).
 bevy = { version = "0.18.1", default-features = false, features = ["ui_api", "x11"] }

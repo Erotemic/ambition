@@ -55,6 +55,6 @@ sandbox runtime is a one-way mirror. Damage routes through a single
 function that mutates engine state and returns an outcome the
 caller uses for immediate VFX / banner.
 
-**Reference**: see `crates/ambition_gameplay_core/src/boss_encounter/damage.rs`
+**Reference**: see `crates/ambition_actors/src/boss_encounter/damage.rs`
 for the `record_boss_damage` → `BossDamageOutcome` pattern and the
 unit tests that pin its four outcome paths.

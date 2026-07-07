@@ -81,7 +81,7 @@ PKG_DIR = Path(__file__).resolve().parents[1]
 SANDBOX_LDTK = (
     REPO_ROOT
     / "crates"
-    / "ambition_gameplay_core"
+    / "ambition_actors"
     / "assets"
     / "ambition"
     / "worlds"
@@ -91,7 +91,7 @@ VALIDATOR = PKG_DIR / "validate.py"
 RUNTIME_RS = (
     REPO_ROOT
     / "crates"
-    / "ambition_gameplay_core"
+    / "ambition_actors"
     / "src"
     / "world"
     / "ldtk_world"

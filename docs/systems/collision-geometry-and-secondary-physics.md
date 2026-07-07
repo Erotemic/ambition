@@ -51,10 +51,10 @@ rg -n "wall_cling|ledge|sweep|pogo|moving platform|collision|Avian|Parry" crates
 ## Validation anchors
 
 ```bash
-cargo test -p ambition_gameplay_core --lib engine_core::movement
-cargo test -p ambition_gameplay_core --lib kinematic
-cargo test -p ambition_gameplay_core --lib ldtk
-cargo test -p ambition_gameplay_core --test wall_cling_fuzz
+cargo test -p ambition_actors --lib engine_core::movement
+cargo test -p ambition_actors --lib kinematic
+cargo test -p ambition_actors --lib ldtk
+cargo test -p ambition_actors --test wall_cling_fuzz
 ```
 
 Use narrower filters if a concept page or benchmark candidate names the exact test.

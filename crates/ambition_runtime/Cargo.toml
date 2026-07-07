@@ -11,7 +11,7 @@ description = "The platformer ENGINE face (demo plan E5): a `PlatformerEnginePlu
 # the desktop/visible/devtools stack. A demo app layers its own presentation on
 # top. (Feature unification with a visible host app is fine — it only ever ADDS
 # rendering features the host already declares.)
-ambition_gameplay_core = { path = "../ambition_gameplay_core", default-features = false, features = [
+ambition_actors = { path = "../ambition_actors", default-features = false, features = [
     "headless",
     "input",
     "portal_ldtk",
@@ -45,4 +45,4 @@ bevy = { version = "0.18.1", default-features = false, features = [
 # Forward the sim-relevant feature gates so a consumer can opt into the same
 # optional subsystems the plugin group conditionally bundles. Kept minimal for
 # the first assembly; widened as more plugins migrate in.
-portal = ["ambition_gameplay_core/portal"]
+portal = ["ambition_actors/portal"]

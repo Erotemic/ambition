@@ -8,16 +8,16 @@
 //! primary player's input/trace side effects after a generic transit event so the
 //! controller sees `PortalEmission` / `PortalInputWarp` on the same frame.
 //!
-//! [`BodyKinematics`]: ambition_gameplay_core::platformer_runtime::body::BodyKinematics
-//! [`PortalBody`]: ambition_gameplay_core::portal::PortalBody
-//! [`PortalPolicy`]: ambition_gameplay_core::portal::PortalPolicy
+//! [`BodyKinematics`]: ambition_actors::platformer_runtime::body::BodyKinematics
+//! [`PortalBody`]: ambition_actors::portal::PortalBody
+//! [`PortalPolicy`]: ambition_actors::portal::PortalPolicy
 
 use bevy::prelude::*;
 
-use ambition_gameplay_core::actor::{PlayerEntity, PrimaryPlayer};
-use ambition_gameplay_core::features::{BodyKinematics, BossConfig};
-use ambition_gameplay_core::player::trail::TrailContinuityBreak;
-use ambition_gameplay_core::portal::{
+use ambition_actors::actor::{PlayerEntity, PrimaryPlayer};
+use ambition_actors::features::{BodyKinematics, BossConfig};
+use ambition_actors::player::trail::TrailContinuityBreak;
+use ambition_actors::portal::{
     BodyTeleported, PlayerMovementIntent, PortalBody, PortalBodyTransited, PortalEmission,
     PortalInputWarp, PortalPolicy, PortalTuning,
 };
@@ -164,17 +164,16 @@ pub fn ensure_projectile_portal_bodies(
 /// gravity-earned speed is world-imparted, so a genuine fling (fall in, wall
 /// out) still floors at full strength.
 pub fn apply_portal_carried_momentum(
-    gravity: Option<Res<ambition_gameplay_core::platformer_runtime::gravity::GravityField>>,
+    gravity: Option<Res<ambition_actors::platformer_runtime::gravity::GravityField>>,
     mut transited: MessageReader<PortalBodyTransited>,
     mut bodies: Query<(
         &BodyKinematics,
-        &mut ambition_gameplay_core::actor::BodyFlightState,
+        &mut ambition_actors::actor::BodyFlightState,
     )>,
 ) {
-    use ambition_gameplay_core::portal::pieces::portal_map_vec;
-    let gravity_dir = ambition_gameplay_core::platformer_runtime::gravity::gravity_dir_or_default(
-        gravity.as_deref(),
-    );
+    use ambition_actors::portal::pieces::portal_map_vec;
+    let gravity_dir =
+        ambition_actors::platformer_runtime::gravity::gravity_dir_or_default(gravity.as_deref());
     let side = ambition_engine_core::AccelerationFrame::new(gravity_dir).side;
     for ev in transited.read() {
         let Ok((kin, mut flight)) = bodies.get_mut(ev.body) else {
@@ -256,7 +255,7 @@ mod projectile_transit_tests {
 
     use bevy::prelude::*;
 
-    use ambition_gameplay_core::portal::{
+    use ambition_actors::portal::{
         portal_half_extent, portal_transit, PlacedPortal, PortalBody, PortalChannel, PortalGunColor,
     };
     use ambition_projectiles::ProjectileGameplay;
@@ -266,7 +265,7 @@ mod projectile_transit_tests {
     const BLUE: PortalChannel = PortalChannel::Gun(PortalGunColor::BLUE);
     const ORANGE: PortalChannel = PortalChannel::Gun(PortalGunColor::ORANGE);
 
-    use ambition_gameplay_core::platformer_runtime::body::BodyKinematics;
+    use ambition_actors::platformer_runtime::body::BodyKinematics;
 
     /// A straight-flying, gravity-free projectile gameplay half (Hadouken: no
     /// bounce, no arc) so the test isolates the portal velocity rotation.
@@ -285,9 +284,9 @@ mod projectile_transit_tests {
     /// `ensure → transit` as in the real plugin.
     fn app_with_transit() -> App {
         let mut app = App::new();
-        app.add_message::<ambition_gameplay_core::portal::PortalBodyEntered>();
-        app.add_message::<ambition_gameplay_core::portal::PortalBodyTransited>();
-        app.init_resource::<ambition_gameplay_core::portal::PortalTuning>();
+        app.add_message::<ambition_actors::portal::PortalBodyEntered>();
+        app.add_message::<ambition_actors::portal::PortalBodyTransited>();
+        app.init_resource::<ambition_actors::portal::PortalTuning>();
         app.add_systems(
             Update,
             (ensure_projectile_portal_bodies, portal_transit).chain(),
@@ -418,7 +417,7 @@ mod projectile_transit_tests {
         );
         assert!(
             app.world()
-                .get::<ambition_gameplay_core::portal::PortalTransit>(proj)
+                .get::<ambition_actors::portal::PortalTransit>(proj)
                 .is_none(),
             "no PortalTransit latch should be set for a projectile away from portals",
         );

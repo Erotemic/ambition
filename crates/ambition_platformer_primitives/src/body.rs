@@ -14,7 +14,7 @@ use bevy::prelude::*;
 /// Marks the single body whose position drives the room's live gravity
 /// resolution (the active player). The runtime's `resolve_active_gravity`
 /// queries `(&BodyKinematics, With<PrimaryBody>)` so it stays content-free; the
-/// host (`ambition_gameplay_core`) adds this marker to its primary player entity.
+/// host (`ambition_actors`) adds this marker to its primary player entity.
 ///
 /// Distinct from [`crate::markers::PrimaryPlayer`]: `PrimaryBody` is the
 /// gravity-relevant body, `PrimaryPlayer` is the presentation/HUD-followed

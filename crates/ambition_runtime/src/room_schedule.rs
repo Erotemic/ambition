@@ -12,8 +12,8 @@
 
 use bevy::prelude::*;
 
-use ambition_gameplay_core::game_mode::gameplay_allowed;
-use ambition_gameplay_core::schedule::SandboxSet;
+use ambition_actors::game_mode::gameplay_allowed;
+use ambition_actors::schedule::SandboxSet;
 
 /// Registers room-transition detection + the per-room feature reset, and
 /// anchors the content room-reset slot. Part of
@@ -25,11 +25,10 @@ impl Plugin for RoomTransitionSchedulePlugin {
         app.add_systems(
             Update,
             (
-                ambition_gameplay_core::rooms::detect_room_transition_system
-                    .run_if(gameplay_allowed),
+                ambition_actors::rooms::detect_room_transition_system.run_if(gameplay_allowed),
                 // One reset over the unified actor cluster (NPCs + enemies).
                 // The host's transition APPLY slots in between (module docs).
-                ambition_gameplay_core::features::reset_ecs_room_features,
+                ambition_actors::features::reset_ecs_room_features,
             )
                 .chain()
                 .in_set(SandboxSet::RoomTransition),
@@ -40,9 +39,9 @@ impl Plugin for RoomTransitionSchedulePlugin {
         // names a content system (E5-finish de-weave).
         app.configure_sets(
             Update,
-            ambition_gameplay_core::session::reset::ContentRoomResetSet
+            ambition_actors::session::reset::ContentRoomResetSet
                 .in_set(SandboxSet::RoomTransition)
-                .after(ambition_gameplay_core::features::reset_ecs_room_features),
+                .after(ambition_actors::features::reset_ecs_room_features),
         );
     }
 }

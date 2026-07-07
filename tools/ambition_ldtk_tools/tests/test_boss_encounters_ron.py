@@ -1,4 +1,4 @@
-"""Schema pins for `crates/ambition_gameplay_core/assets/data/boss_encounters/*.ron`.
+"""Schema pins for `crates/ambition_actors/assets/data/boss_encounters/*.ron`.
 
 These files mirror `ae::BossEncounterSpec` and are loaded at runtime by
 `load_boss_specs_from_disk` (per ADR 0017). The Rust side already pins
@@ -20,7 +20,7 @@ sys.path.insert(0, str(REPO_ROOT / "tools" / "ambition_ldtk_tools"))
 from ambition_ldtk_tools.ron_parse import load  # noqa: E402
 
 BOSS_DIR = (
-    REPO_ROOT / "crates" / "ambition_gameplay_core" / "assets" / "data" / "boss_encounters"
+    REPO_ROOT / "crates" / "ambition_actors" / "assets" / "data" / "boss_encounters"
 )
 
 REQUIRED_FIELDS = {

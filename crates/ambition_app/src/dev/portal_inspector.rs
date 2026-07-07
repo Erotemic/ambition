@@ -8,9 +8,9 @@
 
 #[cfg(all(feature = "dev_tools", feature = "portal"))]
 mod enabled {
-    use ambition_gameplay_core::dev::dev_tools::inspector_visible;
+    use ambition_actors::dev::dev_tools::inspector_visible;
     #[cfg(feature = "portal_render")]
-    use ambition_gameplay_core::portal::{
+    use ambition_actors::portal::{
         selected_portal_view_cone_debug_rows, PlacedPortal, PortalApertureLosQuality,
         PortalCameraContinuityConfig, PortalCameraContinuityHostView,
         PortalCameraContinuitySelection, PortalCameraTransitMode, PortalCaptureCameraMode,
@@ -18,7 +18,7 @@ mod enabled {
         PortalViewConeMode, PortalViewConeSourceClipPolicy, PortalViewConeVisibilityMode,
         PortalViewer, PortalVisualEffect, PortalWorldFrame,
     };
-    use ambition_gameplay_core::portal::{PortalConvention, PortalTuning};
+    use ambition_actors::portal::{PortalConvention, PortalTuning};
     use bevy::prelude::*;
     use bevy_inspector_egui::bevy_egui::{
         egui, EguiContext, EguiPrimaryContextPass, PrimaryEguiContext,

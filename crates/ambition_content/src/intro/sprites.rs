@@ -15,7 +15,7 @@
 
 use ambition_asset_manager::AssetId;
 
-use ambition_gameplay_core::character_sprites::sheet_for_character_id;
+use ambition_actors::character_sprites::sheet_for_character_id;
 use ambition_sprite_sheet::character::{try_load_spec_for_target, CharacterSheetSpec, SheetTuning};
 
 /// Default toon-NPC tuning the old intro `*_SHEET` statics carried.

@@ -22,11 +22,11 @@
 
 #![cfg(feature = "rl_sim")]
 
+use ambition_actors::actor::BodyKinematics;
+use ambition_actors::features::ecs::boss_clusters::BossConfig;
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use ambition_engine_core as ae;
 use ambition_entity_catalog::placements::BossBrain;
-use ambition_gameplay_core::actor::BodyKinematics;
-use ambition_gameplay_core::features::ecs::boss_clusters::BossConfig;
 use bevy::prelude::World;
 
 /// Read the live boss's body position (only the boss carries `BossConfig`, so this
@@ -39,7 +39,7 @@ fn read_boss_pos(world: &mut World) -> Option<ae::Vec2> {
 }
 
 fn read_player_pos(world: &mut World) -> ae::Vec2 {
-    use ambition_gameplay_core::actor::PrimaryPlayerOnly;
+    use ambition_actors::actor::PrimaryPlayerOnly;
     let mut q = world.query_filtered::<&BodyKinematics, PrimaryPlayerOnly>();
     q.single(world).expect("primary player exists").pos
 }

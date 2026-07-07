@@ -9,7 +9,7 @@
 //! reference frames, and the cluster components (`BodyKinematics`,
 //! `BodyGroundState`, …, `BodyComboTrace`) that make up an actor's ECS
 //! body (the player included). `ambition_characters` (minds/cast),
-//! `ambition_content` (named game content), and `ambition_gameplay_core`
+//! `ambition_content` (named game content), and `ambition_actors`
 //! (machinery) all sit above it.
 //!
 //! Top-level modules: [`abilities`] (capability flags), [`config`]

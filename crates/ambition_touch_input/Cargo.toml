@@ -16,8 +16,8 @@ crate-type = ["rlib"]
 # bridge / layout / exclusion helpers are `mobile_touch`-gated so desktop /
 # headless / RL builds pull neither `virtual_joystick` nor the touch systems.
 default = []
-input = ["ambition_gameplay_core/input", "ambition_render/input", "dep:leafwing-input-manager"]
-mobile_touch = ["input", "ambition_gameplay_core/mobile_touch", "dep:virtual_joystick"]
+input = ["ambition_actors/input", "ambition_render/input", "dep:leafwing-input-manager"]
+mobile_touch = ["input", "ambition_actors/mobile_touch", "dep:virtual_joystick"]
 
 [dependencies]
 # The device-side `ControlFrame` seam the pure fold writes (always needed).
@@ -27,7 +27,7 @@ ambition_engine_core = { path = "../ambition_engine_core" }
 # same as when this code lived in the app. Non-optional (matching the app's own
 # arrangement) so the crate builds in every feature config the host uses; only
 # `leafwing` + `virtual_joystick` are gated, exactly as the app gated them.
-ambition_gameplay_core = { path = "../ambition_gameplay_core", default-features = false }
+ambition_actors = { path = "../ambition_actors", default-features = false }
 ambition_render = { path = "../ambition_render" }
 ambition_cutscene = { path = "../ambition_cutscene" }
 ambition_ui_nav = { path = "../ambition_ui_nav" }

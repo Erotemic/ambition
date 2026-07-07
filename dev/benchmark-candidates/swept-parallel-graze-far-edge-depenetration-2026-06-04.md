@@ -103,7 +103,7 @@ boundary-spanning block *is* the world edge.
 Validation command:
 
 ```bash
-cargo test -p ambition_gameplay_core --lib ceiling_graze_x_sweep_does_not_teleport_body_to_the_far_edge
+cargo test -p ambition_actors --lib ceiling_graze_x_sweep_does_not_teleport_body_to_the_far_edge
 ```
 
 Tags: `game-physics`, `axis-separated-collision`, `shape-cast`, `edge-touching`,

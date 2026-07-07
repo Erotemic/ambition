@@ -6,7 +6,7 @@ fn items_face_wires_all_24_slots_from_our_catalog() {
     let spec = items_spec(&owned, None);
     assert_eq!(
         spec.cells.len(),
-        ambition_gameplay_core::items::ITEM_COUNT,
+        ambition_actors::items::ITEM_COUNT,
         "the cube's items face has one cell per inventory slot (24)"
     );
     // Slots are in grid order; labels are wrapped from our catalog.
@@ -324,8 +324,7 @@ fn system_page_drilled_into_video_shows_curated_options_and_back() {
     // past the first visible window (the full player-facing Video set leads the
     // screen), so verify the live label off the IR rather than the windowed page.
     let video_entry = sys_model.entry(SystemMenuEntryId::Video).unwrap();
-    let ambition_gameplay_core::menu::ir::system::SystemMenuTarget::Settings(opts) =
-        &video_entry.target
+    let ambition_actors::menu::ir::system::SystemMenuTarget::Settings(opts) = &video_entry.target
     else {
         panic!("video drills into a settings screen");
     };

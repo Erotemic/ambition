@@ -9,8 +9,8 @@ aliases:
   - touch controls
 implemented_by:
   - crates/ambition_input/src/lib.rs
-  - crates/ambition_gameplay_core/src/menu/map/mod.rs
-  - crates/ambition_gameplay_core/src/time/mod.rs
+  - crates/ambition_actors/src/menu/map/mod.rs
+  - crates/ambition_actors/src/time/mod.rs
 related_docs:
   - docs/systems/input-and-control-frame.md
   - docs/systems/ui-navigation-and-pause.md
@@ -47,8 +47,8 @@ Input and game modes cover semantic actions, control presets, menu/dialogue/cuts
 ## Validation
 
 ```bash
-cargo test -p ambition_gameplay_core --lib input
-cargo test -p ambition_gameplay_core --lib menu
+cargo test -p ambition_actors --lib input
+cargo test -p ambition_actors --lib menu
 cargo run -p ambition_app --bin headless
 ```
 

@@ -14,14 +14,14 @@
 //! envelope) rather than what they look like.
 //!
 //! Usage:
-//!   cargo run -p ambition_gameplay_core --example render_room_geometry -- [ROOM_ID] [OUT.png]
-//!   cargo run -p ambition_gameplay_core --example render_room_geometry -- capture <ROOM_ID> <X,Y> [OUT.png] [WIDTHxHEIGHT]
+//!   cargo run -p ambition_actors --example render_room_geometry -- [ROOM_ID] [OUT.png]
+//!   cargo run -p ambition_actors --example render_room_geometry -- capture <ROOM_ID> <X,Y> [OUT.png] [WIDTHxHEIGHT]
 //!
 //! With no ROOM_ID it lists every room id and exits. Default output is
 //! `/tmp/room_<id>.png`.
 
+use ambition_actors as sb;
 use ambition_engine_core::{self as ae, AabbExt};
-use ambition_gameplay_core as sb;
 use ambition_sim_view::camera_snapshot::{
     resolve_follow_camera_snapshot, CameraFocus2d, CameraSnapshot2d, CameraSnapshotResolveInput,
     CameraSnapshotResolveMode,

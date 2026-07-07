@@ -1,18 +1,18 @@
 # Architecture boundary guardrails
 
-Source-scanning tests keep the crate boundaries honest. The live boundaries are real crates — foundations ← machinery lib (`ambition_gameplay_core`)
+Source-scanning tests keep the crate boundaries honest. The live boundaries are real crates — foundations ← machinery lib (`ambition_actors`)
 ← content (`ambition_content`) ← app (`ambition_app`) — and the guards (~22) live
 in `crates/ambition_app/tests/architecture_boundaries.rs`. Not a substitute for
 rustc, but fast directional feedback.
 
 ## Current guardrails (representative)
 
-- **Machinery imports no content**: every `ambition_gameplay_core` dir is scanned for
+- **Machinery imports no content**: every `ambition_actors` dir is scanned for
 `crate::content::` / `ambition_content::` — none may appear. `crate::features`
 (the named actor/boss ECS world still in the lib) is the one tracked exception.
 - Foundation crates (`ambition_platformer_primitives`, `ambition_portal`,
 `ambition_time`, `ambition_input`, `ambition_menu`, `ambition_audio`) must not
-depend on `ambition_gameplay_core`/content/app or name game content.
+depend on `ambition_actors`/content/app or name game content.
 - The combat kit (`combat`) must name no archetype/boss content.
 - The enemy roster is content-owned DATA: the lib's persisted `EnemyConfig` +
 per-frame `EnemyMut` stay archetype-free (project `EnemyTuning` /

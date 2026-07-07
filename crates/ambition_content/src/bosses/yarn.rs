@@ -11,8 +11,8 @@ use bevy::prelude::*;
 use bevy_yarnspinner::prelude::DialogueRunner;
 use std::sync::Arc;
 
-use ambition_gameplay_core::dialog::yarn_bindings::{YarnStateMirror, YarnStateMirrorData};
-use ambition_gameplay_core::features::SetFlagRequested;
+use ambition_actors::dialog::yarn_bindings::{YarnStateMirror, YarnStateMirrorData};
+use ambition_actors::features::SetFlagRequested;
 use ambition_persistence::save::SandboxSave;
 
 use super::{CutRopeHeavyObjectCycle, PendingCutRopeRoomReplay};
@@ -28,7 +28,7 @@ const HEAVY_OBJECT_KEY: &str = "cut_rope_heavy_object";
 /// link and this command records the choice as a save flag for traceability.
 pub fn cmd_watch_cut_rope_video(mut effects: MessageWriter<SetFlagRequested>) {
     info!(
-        target: "ambition_gameplay_core::dialog::yarn",
+        target: "ambition_actors::dialog::yarn",
         "watch_cut_rope_video: TODO optional browser launch for https://www.youtube.com/watch?v=ucLGm27DDL0",
     );
     effects.write(SetFlagRequested {
@@ -46,12 +46,12 @@ pub fn cmd_watch_cut_rope_video(mut effects: MessageWriter<SetFlagRequested>) {
 pub fn cmd_reset_cut_rope_room(mut pending: ResMut<PendingCutRopeRoomReplay>) {
     pending.requested = true;
     info!(
-        target: "ambition_gameplay_core::dialog::yarn",
+        target: "ambition_actors::dialog::yarn",
         "reset_cut_rope_room: latched Smirking Behemoth room replay until dialogue closes",
     );
 }
 
-/// [`YarnContentBindings`](ambition_gameplay_core::dialog::yarn_bindings::YarnContentBindings)
+/// [`YarnContentBindings`](ambition_actors::dialog::yarn_bindings::YarnContentBindings)
 /// installer: register the cut-rope commands + the
 /// `cut_rope_heavy_object_is(id)` library function on the runner.
 pub fn install_cut_rope_yarn_bindings(

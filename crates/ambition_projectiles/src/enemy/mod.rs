@@ -12,7 +12,7 @@
 //! avoids a future "is this projectile mine?" flag on each body.
 //!
 //! The victim-side effect stepper (`apply_projectile_effects`) that damages the
-//! player stays in the game's sim heart (`ambition_gameplay_core`); this module
+//! player stays in the game's sim heart (`ambition_actors`); this module
 //! owns only the enemy-shot ENTITY marker + spawn state.
 
 pub mod entity;

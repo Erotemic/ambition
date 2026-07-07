@@ -10,7 +10,7 @@
 
 use bevy::prelude::*;
 
-use ambition_gameplay_core::schedule::SandboxSet;
+use ambition_actors::schedule::SandboxSet;
 
 /// Schedules the `SandboxSet::Progression` system chain plus the
 /// registry-populate systems that share the same set.
@@ -20,13 +20,13 @@ impl Plugin for ProgressionSchedulePlugin {
     fn build(&self, app: &mut App) {
         // R5 encounter-script messages: the named gate (rope cut / hazard impact
         // / cues) + the on-death payload-release signal.
-        app.add_message::<ambition_gameplay_core::boss_encounter::EncounterGate>();
-        app.add_message::<ambition_gameplay_core::boss_encounter::PayloadReleased>();
+        app.add_message::<ambition_actors::boss_encounter::EncounterGate>();
+        app.add_message::<ambition_actors::boss_encounter::PayloadReleased>();
         // ADR 0020 / Q19: mount dissolution → the rider boss's `mount_died`
         // external phase trigger. Written in the `Combat` set (earlier this
         // frame) by `enforce_mount_rider_link`, consumed by
         // `notify_bosses_on_mount_death` at the head of the boss chain below.
-        app.add_message::<ambition_gameplay_core::features::MountDied>();
+        app.add_message::<ambition_actors::features::MountDied>();
         // The ENGINE-generic Progression chain. Every content system that used
         // to be wedged into this chain (cut-rope setup/victory, quest-completion
         // rewards, the gnu-ton gate, the quest-registry populate) now hangs on a
@@ -42,30 +42,30 @@ impl Plugin for ProgressionSchedulePlugin {
                 (
                     // Mount-death → `mount_died` external phase trigger, ahead
                     // of the phase driver so the swap is same-frame (Q19).
-                    ambition_gameplay_core::boss_encounter::notify_bosses_on_mount_death,
-                    ambition_gameplay_core::boss_encounter::update_boss_encounters,
-                    ambition_gameplay_core::boss_encounter::sync_boss_encounter_entities,
-                    ambition_gameplay_core::boss_encounter::update_encounter_progress,
+                    ambition_actors::boss_encounter::notify_bosses_on_mount_death,
+                    ambition_actors::boss_encounter::update_boss_encounters,
+                    ambition_actors::boss_encounter::sync_boss_encounter_entities,
+                    ambition_actors::boss_encounter::update_encounter_progress,
                     // ContentEncounterScriptSet slot (setup_cut_rope_encounter)
                     // anchors between here and tick_falling_hazards.
-                    ambition_gameplay_core::boss_encounter::tick_falling_hazards,
-                    ambition_gameplay_core::boss_encounter::tick_encounter_scripts,
-                    ambition_gameplay_core::boss_encounter::release_payloads_on_death,
-                    ambition_gameplay_core::boss_encounter::boss_phase_transition_feedback,
+                    ambition_actors::boss_encounter::tick_falling_hazards,
+                    ambition_actors::boss_encounter::tick_encounter_scripts,
+                    ambition_actors::boss_encounter::release_payloads_on_death,
+                    ambition_actors::boss_encounter::boss_phase_transition_feedback,
                 )
                     .chain(),
                 // ContentEncounterVictorySet slot (spawn_cut_rope_victory_npc)
                 // anchors between the boss chain and the save mirrors below.
                 // One save-sync over the unified actor cluster (enemies +
                 // persisted-hostile NPCs flip in place).
-                ambition_gameplay_core::features::sync_ecs_actors_with_save,
-                ambition_gameplay_core::features::sync_ecs_bosses_with_save,
-                ambition_gameplay_core::quest::push_room_entered_quest_events,
+                ambition_actors::features::sync_ecs_actors_with_save,
+                ambition_actors::features::sync_ecs_bosses_with_save,
+                ambition_actors::quest::push_room_entered_quest_events,
                 ambition_persistence::quest::apply_quest_advance_events,
                 // ContentQuestRewardSet slot (grant_quest_completion_rewards)
                 // anchors between the quest pump and the metadata sync below.
-                ambition_gameplay_core::rooms::sync_active_room_metadata,
-                ambition_gameplay_core::rooms::sync_room_music_request,
+                ambition_actors::rooms::sync_active_room_metadata,
+                ambition_actors::rooms::sync_room_music_request,
                 // Portal lifecycle: advance every registered portal's
                 // phase from its switch state + per-phase timers.
                 // Pure state update; the visibility + ring-spin
@@ -73,10 +73,10 @@ impl Plugin for ProgressionSchedulePlugin {
                 // Progression set so the portal state is current
                 // before `detect_room_transition_system` runs (which
                 // is in CoreSimulation, ordered after Progression).
-                ambition_gameplay_core::rooms::tick_portal_phases_system,
-                ambition_gameplay_core::menu::map::track_room_visits,
-                ambition_gameplay_core::menu::map::sync_map_from_save,
-                ambition_gameplay_core::dev::dev_tools::sync_player_stats_with_inspector,
+                ambition_actors::rooms::tick_portal_phases_system,
+                ambition_actors::menu::map::track_room_visits,
+                ambition_actors::menu::map::sync_map_from_save,
+                ambition_actors::dev::dev_tools::sync_player_stats_with_inspector,
             )
                 .chain()
                 .in_set(SandboxSet::Progression),
@@ -86,29 +86,29 @@ impl Plugin for ProgressionSchedulePlugin {
         // positions. Content plugins register `.in_set(the slot)`; ordering is
         // preserved byte-for-byte because each slot pins the SAME `.after`/
         // `.before` engine neighbors the wedged system had.
-        use ambition_gameplay_core::boss_encounter::{
+        use ambition_actors::boss_encounter::{
             ContentEncounterScriptSet, ContentEncounterVictorySet, ContentQuestRewardSet,
         };
         app.configure_sets(
             Update,
             ContentEncounterScriptSet
                 .in_set(SandboxSet::Progression)
-                .after(ambition_gameplay_core::boss_encounter::update_encounter_progress)
-                .before(ambition_gameplay_core::boss_encounter::tick_falling_hazards),
+                .after(ambition_actors::boss_encounter::update_encounter_progress)
+                .before(ambition_actors::boss_encounter::tick_falling_hazards),
         );
         app.configure_sets(
             Update,
             ContentEncounterVictorySet
                 .in_set(SandboxSet::Progression)
-                .after(ambition_gameplay_core::boss_encounter::boss_phase_transition_feedback)
-                .before(ambition_gameplay_core::features::sync_ecs_actors_with_save),
+                .after(ambition_actors::boss_encounter::boss_phase_transition_feedback)
+                .before(ambition_actors::features::sync_ecs_actors_with_save),
         );
         app.configure_sets(
             Update,
             ContentQuestRewardSet
                 .in_set(SandboxSet::Progression)
                 .after(ambition_persistence::quest::apply_quest_advance_events)
-                .before(ambition_gameplay_core::rooms::sync_active_room_metadata),
+                .before(ambition_actors::rooms::sync_active_room_metadata),
         );
 
         // Populate the encounter / boss registries from the LDtk project + save.
@@ -120,8 +120,8 @@ impl Plugin for ProgressionSchedulePlugin {
         app.add_systems(
             Update,
             (
-                ambition_gameplay_core::boss_encounter::populate_boss_encounter_registry,
-                ambition_gameplay_core::encounter::populate_encounter_registry,
+                ambition_actors::boss_encounter::populate_boss_encounter_registry,
+                ambition_actors::encounter::populate_encounter_registry,
             )
                 .in_set(SandboxSet::Progression),
         );

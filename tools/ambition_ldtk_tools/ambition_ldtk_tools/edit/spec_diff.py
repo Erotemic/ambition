@@ -110,7 +110,7 @@ def main(argv=None) -> int:
         type=Path,
         default=REPO_ROOT
         / "crates"
-        / "ambition_gameplay_core"
+        / "ambition_actors"
         / "assets"
         / "ambition"
         / "worlds"

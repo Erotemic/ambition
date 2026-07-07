@@ -145,21 +145,21 @@ make_profile_dir() {
 find_game_pid() {
     if [[ -n "$pid" ]]; then printf '%s\n' "$pid"; return 0; fi
     local found="" candidate
-    for candidate in ambition_game_bin ambition_gameplay_core; do
+    for candidate in ambition_game_bin ambition_actors; do
         found="$(pgrep -n -x "$candidate" 2>/dev/null || true)"
         if [[ -n "$found" ]]; then
             printf '%s\n' "$found"
             return 0
         fi
     done
-    for candidate in ambition_game_bin ambition_gameplay_core; do
+    for candidate in ambition_game_bin ambition_actors; do
         found="$(pgrep -n -f "$candidate" 2>/dev/null || true)"
         if [[ -n "$found" ]]; then
             printf '%s\n' "$found"
             return 0
         fi
     done
-    fail "could not find ambition_game_bin or ambition_gameplay_core; pass --pid or use a *-run mode"
+    fail "could not find ambition_game_bin or ambition_actors; pass --pid or use a *-run mode"
 }
 
 mode_uses_launch() { case "$1" in perf-run|stat-run|asset-run) return 0 ;; *) return 1 ;; esac; }

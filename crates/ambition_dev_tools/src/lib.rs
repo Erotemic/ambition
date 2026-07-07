@@ -1,5 +1,5 @@
 //! Reusable developer-tooling state + logic (E1d carve out of
-//! `ambition_gameplay_core`).
+//! `ambition_actors`).
 //!
 //! Owns the content-free half of the old `dev/` module:
 //!
@@ -20,7 +20,7 @@
 //! overlays, portal inspector) is app-level presentation and stays in
 //! `ambition_app`. The gameplay `trace` recorder samples live sim state
 //! (`player`/`features`/`rooms`/`portal`/`game_mode`) and stays sim-side in
-//! `ambition_gameplay_core::dev::trace`.
+//! `ambition_actors::dev::trace`.
 
 pub mod dev_tools;
 pub mod persistence;

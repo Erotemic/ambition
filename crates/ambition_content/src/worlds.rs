@@ -18,8 +18,8 @@
 
 use std::path::Path;
 
+use ambition_actors::ldtk_world::{WorldManifest, WorldSource};
 use ambition_asset_manager::AssetId;
-use ambition_gameplay_core::ldtk_world::{WorldManifest, WorldSource};
 
 macro_rules! static_world_text {
     ($name:ident, $path:literal) => {
@@ -42,7 +42,7 @@ static_world_text!(HALL_LDTK_STATIC, "../assets/worlds/hall_of_characters.ldtk")
 /// the app's sim-entry choke points and `AmbitionContentPlugin::build`;
 /// first install wins.
 pub fn install() {
-    ambition_gameplay_core::ldtk_world::install_world_manifest(world_manifest());
+    ambition_actors::ldtk_world::install_world_manifest(world_manifest());
 }
 
 /// The game's world declaration. The first row (sandbox) is boot-critical

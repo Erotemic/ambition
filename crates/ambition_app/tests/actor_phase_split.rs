@@ -20,11 +20,11 @@
 
 #![cfg(feature = "rl_sim")]
 
+use ambition_actors::actor::{BodyKinematics, PrimaryPlayerOnly};
+use ambition_actors::features::FeatureId;
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use ambition_characters::brain::ActorControl;
 use ambition_entity_catalog::placements::CharacterBrain;
-use ambition_gameplay_core::actor::{BodyKinematics, PrimaryPlayerOnly};
-use ambition_gameplay_core::features::FeatureId;
 use bevy::prelude::{Entity, World};
 
 const ENEMY_ID: &str = "phase_split_enemy";

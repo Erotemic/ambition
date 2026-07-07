@@ -104,12 +104,12 @@ CONFIG = {
     'cargo_check_warnings_output': '.agent/reports/cargo-check-warnings.md',
     'cargo_modules_reports': [
         {
-            'output': '.agent/reports/module-tree-ambition_gameplay_core.md',
-            'command': ['cargo', 'modules', 'structure', '--package', 'ambition_gameplay_core', '--lib'],
+            'output': '.agent/reports/module-tree-ambition_actors.md',
+            'command': ['cargo', 'modules', 'structure', '--package', 'ambition_actors', '--lib'],
         },
         {
-            'output': '.agent/reports/module-dependencies-ambition_gameplay_core.md',
-            'command': ['cargo', 'modules', 'dependencies', '--package', 'ambition_gameplay_core', '--lib'],
+            'output': '.agent/reports/module-dependencies-ambition_actors.md',
+            'command': ['cargo', 'modules', 'dependencies', '--package', 'ambition_actors', '--lib'],
         },
     ],
 

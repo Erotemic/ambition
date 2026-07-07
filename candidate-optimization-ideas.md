@@ -10,7 +10,7 @@ Here’s a candidate design memo you can hand to another agent. It is intentiona
 
 This document proposes a possible long-term crate/module restructuring direction for `git@github.com:Erotemic/ambition.git`. It should not be treated as accepted architecture. The next agent should review the repository, compile locally, measure build times, and decide whether this direction is useful, excessive, premature, or missing something.
 
-The current workspace has two crates, `crates/ambition_engine` and `crates/ambition_gameplay_core`, using Cargo resolver 2.  The sandbox crate currently depends on Bevy 0.18.1 plus a broad set of runtime, authoring, audio, physics, inspector, UI, LDtk, input, RON/Serde, and graph dependencies.  The uploaded `cargo tree -e features` also shows the resulting dependency graph is large, including Bevy proc-macro machinery and broad Bevy/render/devtool feature activation. 
+The current workspace has two crates, `crates/ambition_engine` and `crates/ambition_actors`, using Cargo resolver 2.  The sandbox crate currently depends on Bevy 0.18.1 plus a broad set of runtime, authoring, audio, physics, inspector, UI, LDtk, input, RON/Serde, and graph dependencies.  The uploaded `cargo tree -e features` also shows the resulting dependency graph is large, including Bevy proc-macro machinery and broad Bevy/render/devtool feature activation. 
 
 ## Review Goal
 
@@ -28,7 +28,7 @@ This proposal assumes the project should remain Bevy-native where that is useful
 
 ## Current Architectural Pressure
 
-The likely issue is not simply “too few crates.” The issue is that `ambition_gameplay_core` appears to mix several axes:
+The likely issue is not simply “too few crates.” The issue is that `ambition_actors` appears to mix several axes:
 
 ```text
 visible app assembly
@@ -80,7 +80,7 @@ crates/
     rendering, sprites, camera, HUD, VFX, audio playback, inspector/devtools,
     physics debris visualization
 
-  ambition_gameplay_core/
+  ambition_actors/
     thin playable shell:
     sandbox content, app composition, feature labs, current vertical-slice experiments
 
@@ -92,7 +92,7 @@ This should be reviewed critically. It may be too many crates for the current pr
 
 ```text
 ambition_engine
-ambition_gameplay_core
+ambition_actors
 ```
 
 with better modules and features, followed later by:
@@ -111,10 +111,10 @@ only when the seams are clear.
 Before restructuring, run:
 
 ```bash
-cargo build --timings -p ambition_gameplay_core
-cargo check -p ambition_gameplay_core
-cargo check -p ambition_gameplay_core --no-default-features
-cargo tree -e features -p ambition_gameplay_core
+cargo build --timings -p ambition_actors
+cargo check -p ambition_actors
+cargo check -p ambition_actors --no-default-features
+cargo tree -e features -p ambition_actors
 cargo tree -d
 ```
 
@@ -296,7 +296,7 @@ Review questions:
 Can ambition_sim compile without bevy_render, bevy_window, audio, inspector, egui, Kira, or Avian?
 Does ambition_sim expose enough for visible app composition without making fields public everywhere?
 Does extracting this crate reduce rebuilds, or merely add friction?
-Would ambition_gameplay_core still be able to prototype quickly?
+Would ambition_actors still be able to prototype quickly?
 ```
 
 ### Phase 5: Consider Extracting LDtk Authoring
@@ -346,7 +346,7 @@ Extract presentation/devtools only after:
 A conservative sequence another agent could evaluate:
 
 ```text
-PR 1: Add feature groups and optional dependencies in ambition_gameplay_core.
+PR 1: Add feature groups and optional dependencies in ambition_actors.
       Preserve current default behavior.
 
 PR 2: Gate devtools/audio/UI/physics modules behind features.
@@ -389,12 +389,12 @@ This plan should **not**:
 The restructuring is useful only if it produces measurable improvements:
 
 ```text
-cargo check -p ambition_gameplay_core                 # still works for visible/default path
-cargo check -p ambition_gameplay_core --features dev_tools
-cargo check -p ambition_gameplay_core --no-default-features --features headless
+cargo check -p ambition_actors                 # still works for visible/default path
+cargo check -p ambition_actors --features dev_tools
+cargo check -p ambition_actors --no-default-features --features headless
 cargo test -p ambition_engine
-cargo test -p ambition_gameplay_core
-cargo build --timings -p ambition_gameplay_core       # compare before/after
+cargo test -p ambition_actors
+cargo build --timings -p ambition_actors       # compare before/after
 ```
 
 Functional success criteria:

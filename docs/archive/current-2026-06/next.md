@@ -8,8 +8,8 @@
 "hard-won rule" below (measure OUTWARD deps) remains binding wisdom.
 
 0. **Monolith breakup (active direction).** The Stage-20 bisection landed
-   (foundations ← machinery `ambition_gameplay_core` ← content `ambition_content` ←
-   app `ambition_app`); the work now is shrinking `ambition_gameplay_core` (~90k LOC).
+   (foundations ← machinery `ambition_actors` ← content `ambition_content` ←
+   app `ambition_app`); the work now is shrinking `ambition_actors` (~90k LOC).
 
    **Hard-won rule:** measure a module's *outward* dependency count, not its line
    size or content-guard status. "Names no content" (passes the guard) is NOT

@@ -14,9 +14,9 @@ use bevy::prelude::*;
 use std::collections::HashSet;
 
 use super::primitives::RoomVisual;
+use ambition_actors::assets::game_assets::{GameAssets, ParallaxLayerAsset, ParallaxTheme};
+use ambition_actors::rooms::RoomMetadata;
 use ambition_engine_core::config::{WINDOW_H, WINDOW_W};
-use ambition_gameplay_core::assets::game_assets::{GameAssets, ParallaxLayerAsset, ParallaxTheme};
-use ambition_gameplay_core::rooms::RoomMetadata;
 use ambition_persistence::settings::ParallaxBudget;
 
 #[derive(Component, Clone, Copy, Debug)]
@@ -120,9 +120,7 @@ pub fn spawn_parallax_layers(
                 theme,
                 asset: spec.asset,
             },
-            RenderLayers::layer(
-                ambition_gameplay_core::session::camera_layers::PARALLAX_BACKGROUND_LAYER,
-            ),
+            RenderLayers::layer(ambition_actors::session::camera_layers::PARALLAX_BACKGROUND_LAYER),
             RoomVisual,
             Name::new(format!(
                 "Background parallax layer: {} {}",
@@ -136,7 +134,7 @@ pub fn spawn_parallax_layers(
 pub fn refresh_parallax_layers_on_quality_change(
     mut commands: Commands,
     world: Res<ambition_engine_core::RoomGeometry>,
-    room_set: Res<ambition_gameplay_core::rooms::RoomSet>,
+    room_set: Res<ambition_actors::rooms::RoomSet>,
     assets: Option<Res<GameAssets>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
     layers: Query<
@@ -174,7 +172,7 @@ pub fn sync_parallax_layers(
     camera: Query<
         &Transform,
         (
-            With<ambition_gameplay_core::session::camera_layers::MainCamera>,
+            With<ambition_actors::session::camera_layers::MainCamera>,
             Without<ParallaxLayerVisual>,
         ),
     >,

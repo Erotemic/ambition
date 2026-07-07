@@ -74,7 +74,7 @@ pub use nameplates::{
 // Re-exported so simulation/effects code can place projectile-spawn
 // origins at the same hand position the visual lays the gun-sword on.
 // Keeps "where the muzzle is" defined in one module.
-pub use ambition_gameplay_core::features::rider_hand_world_pos;
+pub use ambition_actors::features::rider_hand_world_pos;
 #[cfg(feature = "portal_render")]
 pub use parallax::sync_portal_capture_parallax_layers;
 pub use parallax::{
@@ -147,7 +147,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
         // disorientation / mode indicators) now live in the reusable
         // `ambition_portal_presentation` crate; the sandbox adds its plugin,
         // places its set, and bridges the host seams (world frame, scene-body
-        // tag, gun art — see `ambition_gameplay_core::portal::host_adapter`). Gravity visuals
+        // tag, gun art — see `ambition_actors::portal::host_adapter`). Gravity visuals
         // and the F7 dev off-switch stay host-side. All of it only compiles
         // with the portal mechanic + its render feature.
         #[cfg(feature = "portal_render")]
@@ -168,7 +168,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
                 PortalPresentationSet
                     .after(actors::animate_player)
                     .after(camera::camera_follow)
-                    .after(ambition_gameplay_core::portal::PortalObservationSet),
+                    .after(ambition_actors::portal::PortalObservationSet),
             );
             app.add_systems(
                 Update,
@@ -182,7 +182,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
 }
 
 /// Module-local Bevy plugin: schedules the per-frame visual animation
-/// chain into [`ambition_gameplay_core::schedule::SandboxSet::PresentationVisualSync`].
+/// chain into [`ambition_actors::schedule::SandboxSet::PresentationVisualSync`].
 ///
 /// Spawns dynamic feature visuals first (so `sync_visuals` finds them
 /// the same frame), then mirrors transforms / sprite atlas indices,
@@ -271,8 +271,8 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 pirate_weapon::sync_pirate_weapon_visuals,
             )
                 .chain()
-                .in_set(ambition_gameplay_core::schedule::SandboxSet::PresentationVisualSync)
-                .after(ambition_gameplay_core::menu::map::handle_map_menu_hotkeys),
+                .in_set(ambition_actors::schedule::SandboxSet::PresentationVisualSync)
+                .after(ambition_actors::menu::map::handle_map_menu_hotkeys),
         );
 
         // Rebuild the active room's static visuals + parallax when the sim asks

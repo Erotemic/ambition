@@ -29,7 +29,7 @@ from ambition_ldtk_tools.edit.query import collect  # noqa: E402
 DEFAULT_LDTK = (
     REPO_ROOT
     / "crates"
-    / "ambition_gameplay_core"
+    / "ambition_actors"
     / "assets"
     / "ambition"
     / "worlds"

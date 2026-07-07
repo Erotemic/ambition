@@ -15,11 +15,11 @@ PYTHONPATH="$REPO/tools/ambition_ldtk_tools" \
 # Verify the distributable bundled fonts have been materialized locally.
 # Do not package assets/fonts/local; those are local-machine fallback fonts.
 for font_asset in \
-    crates/ambition_gameplay_core/assets/fonts/bundled/InterDisplay-Regular.otf \
-    crates/ambition_gameplay_core/assets/fonts/bundled/InterDisplay-SemiBold.otf \
-    crates/ambition_gameplay_core/assets/fonts/bundled/JetBrainsMono-Regular.ttf \
-    crates/ambition_gameplay_core/assets/fonts/bundled/licenses/Inter-4-1-OFL.txt \
-    crates/ambition_gameplay_core/assets/fonts/bundled/licenses/JetBrains-Mono-2-304-OFL.txt
+    crates/ambition_actors/assets/fonts/bundled/InterDisplay-Regular.otf \
+    crates/ambition_actors/assets/fonts/bundled/InterDisplay-SemiBold.otf \
+    crates/ambition_actors/assets/fonts/bundled/JetBrainsMono-Regular.ttf \
+    crates/ambition_actors/assets/fonts/bundled/licenses/Inter-4-1-OFL.txt \
+    crates/ambition_actors/assets/fonts/bundled/licenses/JetBrains-Mono-2-304-OFL.txt
  do
     test -f "$font_asset"
 done
@@ -30,12 +30,12 @@ cargo build -p ambition_app --bin ambition_game_bin --release --features static_
 ssh "$DECK" "mkdir -p '$APPDIR'"
 
 rsync -av --delete \
-    target/release/ambition_gameplay_core \
+    target/release/ambition_actors \
     "$DECK:$APPDIR/"
 
 rsync -av --delete \
     --exclude '/fonts/local/' \
-    crates/ambition_gameplay_core/assets/ \
+    crates/ambition_actors/assets/ \
     "$DECK:$APPDIR/assets/"
 
 # The game's CONTENT assets (worlds, dialogue, data, audio registries —
@@ -83,14 +83,14 @@ export BEVY_ASSET_ROOT="$APPDIR"
 export RUST_BACKTRACE=1
 export RUST_LOG="${RUST_LOG:-warn}"
 
-exec "$APPDIR/ambition_gameplay_core" "$@"
+exec "$APPDIR/ambition_actors" "$@"
 EOF_INNER
 
 # Remote sanity checks for both real files and compatibility paths.
 ssh "$DECK" "bash -s" <<EOF_CHECK
 set -euo pipefail
 APPDIR='$APPDIR'
-test -x "\$APPDIR/ambition_gameplay_core"
+test -x "\$APPDIR/ambition_actors"
 test -f "\$APPDIR/assets/sprites/robot_spritesheet.png"
 test -f "\$APPDIR/sprites/robot_spritesheet.png"
 test -f "\$APPDIR/assets/sprites/entities/chest_closed.png"

@@ -22,10 +22,8 @@
 
 use std::path::PathBuf;
 
+use ambition_actors::trace::{self, record_simulation_frame, DumpReason, GameplayTraceBuffer};
 use ambition_app::rl_sim::{SandboxSim, SandboxSimOptions, TimestepMode};
-use ambition_gameplay_core::trace::{
-    self, record_simulation_frame, DumpReason, GameplayTraceBuffer,
-};
 use ambition_input::ControlFrame;
 
 fn parse_max_ticks(args: &[String]) -> u32 {
@@ -76,10 +74,10 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
     // Idle inputs only -- the trace captures the deterministic gameplay
     // baseline; agents that want a richer trace can replay this binary
     // pattern from their own scripted policy.
+    use ambition_actors::game_mode::GameMode as GameModeState;
+    use ambition_actors::player::PlayerSafetyState;
+    use ambition_actors::rooms::RoomSet;
     use ambition_engine_core::RoomGeometry;
-    use ambition_gameplay_core::game_mode::GameMode as GameModeState;
-    use ambition_gameplay_core::player::PlayerSafetyState;
-    use ambition_gameplay_core::rooms::RoomSet;
     use bevy::state::state::State;
 
     for _ in 0..max_ticks {
@@ -96,8 +94,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
             let control_frame = *world_ref.resource::<ControlFrame>();
             let room_set = world_ref.resource::<RoomSet>();
             let game_mode = world_ref.resource::<State<GameModeState>>();
-            let moving_platforms =
-                world_ref.resource::<ambition_gameplay_core::MovingPlatformSet>();
+            let moving_platforms = world_ref.resource::<ambition_actors::MovingPlatformSet>();
             let game_world = world_ref.resource::<RoomGeometry>();
             let active_area = room_set.active_spec().id.clone();
             let mode_label = format!("{:?}", game_mode.get());
@@ -114,7 +111,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
         let safety = {
             let mut safety_q = sim
                 .world_mut()
-                .query_filtered::<&PlayerSafetyState, ambition_gameplay_core::actor::PrimaryPlayerOnly>();
+                .query_filtered::<&PlayerSafetyState, ambition_actors::actor::PrimaryPlayerOnly>();
             safety_q.single(sim.world()).copied().unwrap_or_default()
         };
 
@@ -124,7 +121,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
         let combat = {
             let mut combat_q = sim
                 .world_mut()
-                .query_filtered::<&ambition_characters::actor::BodyCombat, ambition_gameplay_core::actor::PrimaryPlayerOnly>();
+                .query_filtered::<&ambition_characters::actor::BodyCombat, ambition_actors::actor::PrimaryPlayerOnly>();
             combat_q.single(sim.world()).cloned().unwrap_or_default()
         };
 
@@ -133,7 +130,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
         // recorder can read them through a `BodyClustersMut` view.
         let mut cluster_q = sim
             .world_mut()
-            .query_filtered::<ambition_engine_core::BodyClusterQueryData, ambition_gameplay_core::actor::PrimaryPlayerOnly>();
+            .query_filtered::<ambition_engine_core::BodyClusterQueryData, ambition_actors::actor::PrimaryPlayerOnly>();
         let Ok(mut cluster_item) = cluster_q.single_mut(sim.world_mut()) else {
             continue;
         };

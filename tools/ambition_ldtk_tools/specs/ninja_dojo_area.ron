@@ -22,7 +22,7 @@
 //   +---------------------------------------------------+
 //
 // Music: `ninja_guild_shadow_kata` — already registered in
-// `crates/ambition_gameplay_core/assets/ambition/sandbox.ron`. The boss
+// `crates/ambition_actors/assets/ambition/sandbox.ron`. The boss
 // track swap to `how_to_kill_a_mockingbird` happens when the player
 // crosses the loading zone into the arena, identical to the cove.
 

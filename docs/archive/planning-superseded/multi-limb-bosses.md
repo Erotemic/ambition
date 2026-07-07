@@ -74,9 +74,9 @@ Research finding worth preserving — the seam cleanly separates *produce frame*
 per-entity with **no 1-brain-1-body assumption**:
 
 - `integrate_sim_bodies` / `integrate_actor_body`
-  (`ambition_gameplay_core/src/features/ecs/actors/update.rs:662`, `:522`) reads each
+  (`ambition_actors/src/features/ecs/actors/update.rs:662`, `:522`) reads each
   body's own `control.0` and drives the shared engine seam.
-- `advance_move_playback` (`ambition_gameplay_core/src/combat/moveset.rs:299`) spawns
+- `advance_move_playback` (`ambition_actors/src/combat/moveset.rs:299`) spawns
   a `Hitbox` with `anchor: HitboxAnchor::FollowOwner` — **re-resolves the AABB from the
   owner entity's position every tick** (`combat/hitbox/mod.rs:23`), so a hand's strike
   is correct with zero new plumbing.

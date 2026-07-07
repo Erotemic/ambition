@@ -11,11 +11,11 @@
 
 use bevy::prelude::*;
 
+use ambition_actors::abilities::traversal::possession::ControlledSubject;
+use ambition_actors::actor::{BodyKinematics, BodyMana, PlayerEntity, PrimaryPlayer};
 use ambition_characters::actor::{BodyHealth, BodyWallet};
 use ambition_characters::brain::ActorControl;
 use ambition_engine_core as ae;
-use ambition_gameplay_core::abilities::traversal::possession::ControlledSubject;
-use ambition_gameplay_core::actor::{BodyKinematics, BodyMana, PlayerEntity, PrimaryPlayer};
 
 /// The controlled body's HUD meters, resolved sim-side (E4 slices 5+6+16):
 /// health / mana / wallet follow the [`ControlledSubject`] — while
@@ -77,7 +77,7 @@ pub fn rebuild_held_item_view(
     controlled: Option<Res<ControlledSubject>>,
     bodies: Query<(
         &BodyKinematics,
-        &ambition_gameplay_core::features::HeldItem,
+        &ambition_actors::features::HeldItem,
         &ActorControl,
     )>,
 ) {
@@ -108,7 +108,7 @@ pub struct GroundItemFact {
 
 pub fn rebuild_ground_items_view(
     mut view: ResMut<GroundItemsView>,
-    grounds: Query<&ambition_gameplay_core::items::pickup::GroundItem>,
+    grounds: Query<&ambition_actors::items::pickup::GroundItem>,
 ) {
     view.0.clear();
     view.0.extend(grounds.iter().map(|ground| GroundItemFact {
@@ -135,7 +135,7 @@ pub fn rebuild_held_shots_view(
     mut view: ResMut<HeldShotsView>,
     projectiles: Query<(
         &BodyKinematics,
-        &ambition_gameplay_core::items::pickup::HeldProjectile,
+        &ambition_actors::items::pickup::HeldProjectile,
     )>,
 ) {
     view.0.clear();
@@ -153,7 +153,7 @@ pub struct MarkBeaconsView(pub Vec<ae::Vec2>);
 
 pub fn rebuild_mark_beacons_view(
     mut view: ResMut<MarkBeaconsView>,
-    marks: Query<&ambition_gameplay_core::abilities::traversal::mark_recall::PlayerMark>,
+    marks: Query<&ambition_actors::abilities::traversal::mark_recall::PlayerMark>,
 ) {
     view.0.clear();
     view.0.extend(marks.iter().filter_map(|mark| mark.pos));
@@ -171,7 +171,7 @@ pub struct GravitySwitchFact {
 
 pub fn rebuild_gravity_switches_view(
     mut view: ResMut<GravitySwitchesView>,
-    switches: Query<&ambition_gameplay_core::gravity::GravityFlipSwitch>,
+    switches: Query<&ambition_actors::gravity::GravityFlipSwitch>,
 ) {
     view.0.clear();
     view.0.extend(switches.iter().map(|sw| GravitySwitchFact {
@@ -192,7 +192,7 @@ pub struct ShrineFact {
 
 pub fn rebuild_shrines_view(
     mut view: ResMut<ShrinesView>,
-    shrines: Query<&ambition_gameplay_core::shrine::HealShrine>,
+    shrines: Query<&ambition_actors::shrine::HealShrine>,
 ) {
     view.0.clear();
     view.0.extend(shrines.iter().map(|shrine| ShrineFact {
@@ -206,7 +206,7 @@ pub fn rebuild_shrines_view(
 /// kills). Uses scaled time, so bullet-time slows the pulse with the world.
 pub fn tick_shrine_activation_pulse(
     world_time: Res<ambition_time::WorldTime>,
-    mut activation: ResMut<ambition_gameplay_core::shrine::ShrineActivationPulse>,
+    mut activation: ResMut<ambition_actors::shrine::ShrineActivationPulse>,
 ) {
     if activation.remaining > 0.0 {
         activation.remaining = (activation.remaining - world_time.scaled_dt).max(0.0);
@@ -230,8 +230,8 @@ pub struct GunSwordFact {
 pub fn rebuild_wielded_gun_swords_view(
     mut view: ResMut<WieldedGunSwordsView>,
     rider_actors: Query<(
-        &ambition_gameplay_core::features::ActorDisposition,
-        &ambition_gameplay_core::features::HeldItem,
+        &ambition_actors::features::ActorDisposition,
+        &ambition_actors::features::HeldItem,
         Option<&BodyKinematics>,
         Option<&BodyHealth>,
     )>,
@@ -253,7 +253,7 @@ pub fn rebuild_wielded_gun_swords_view(
         }
         let rider_height = kin.size.y;
         view.0.push(GunSwordFact {
-            hand_world: ambition_gameplay_core::features::rider_hand_world_pos(
+            hand_world: ambition_actors::features::rider_hand_world_pos(
                 kin.pos,
                 kin.facing,
                 rider_height,
@@ -331,11 +331,11 @@ pub struct DynamicFeatureFact {
     pub family: &'static str,
     pub pos: ae::Vec2,
     pub size: ae::Vec2,
-    pub visual_kind: ambition_gameplay_core::features::FeatureVisualKind,
+    pub visual_kind: ambition_actors::features::FeatureVisualKind,
     pub fighting: bool,
     /// The placeholder entity-sprite the spawn resolves to (from the actor's
     /// brain / the NPC's interactable / the chest payload).
-    pub sprite_key: Option<ambition_gameplay_core::assets::game_assets::EntitySprite>,
+    pub sprite_key: Option<ambition_actors::assets::game_assets::EntitySprite>,
 }
 
 #[derive(Resource, Default, Clone, Debug)]
@@ -346,47 +346,47 @@ pub fn rebuild_dynamic_feature_views(
     mut view: ResMut<DynamicFeatureViews>,
     ecs_mobs: Query<
         (
-            &ambition_gameplay_core::features::FeatureId,
-            &ambition_gameplay_core::features::CenteredAabb,
-            &ambition_gameplay_core::features::ActorDisposition,
-            Option<&ambition_gameplay_core::features::ActorConfig>,
+            &ambition_actors::features::FeatureId,
+            &ambition_actors::features::CenteredAabb,
+            &ambition_actors::features::ActorDisposition,
+            Option<&ambition_actors::features::ActorConfig>,
         ),
-        With<ambition_gameplay_core::features::EncounterMob>,
+        With<ambition_actors::features::EncounterMob>,
     >,
     staged_actors: Query<
         (
-            &ambition_gameplay_core::features::FeatureId,
-            &ambition_gameplay_core::features::CenteredAabb,
-            &ambition_gameplay_core::features::ActorDisposition,
-            Option<&ambition_gameplay_core::features::ActorConfig>,
+            &ambition_actors::features::FeatureId,
+            &ambition_actors::features::CenteredAabb,
+            &ambition_actors::features::ActorDisposition,
+            Option<&ambition_actors::features::ActorConfig>,
         ),
-        With<ambition_gameplay_core::features::RuntimeStagedActor>,
+        With<ambition_actors::features::RuntimeStagedActor>,
     >,
     post_boss_npcs: Query<
         (
-            &ambition_gameplay_core::features::FeatureId,
-            &ambition_gameplay_core::features::FeatureName,
-            &ambition_gameplay_core::features::CenteredAabb,
-            &ambition_gameplay_core::features::ActorDisposition,
-            Option<&ambition_gameplay_core::features::ActorConfig>,
-            Option<&ambition_gameplay_core::features::ActorInteraction>,
+            &ambition_actors::features::FeatureId,
+            &ambition_actors::features::FeatureName,
+            &ambition_actors::features::CenteredAabb,
+            &ambition_actors::features::ActorDisposition,
+            Option<&ambition_actors::features::ActorConfig>,
+            Option<&ambition_actors::features::ActorInteraction>,
         ),
-        With<ambition_gameplay_core::features::PostBossNpc>,
+        With<ambition_actors::features::PostBossNpc>,
     >,
     ecs_reward_chests: Query<
         (
-            &ambition_gameplay_core::features::FeatureId,
-            &ambition_gameplay_core::features::CenteredAabb,
-            &ambition_gameplay_core::features::ChestFeature,
+            &ambition_actors::features::FeatureId,
+            &ambition_actors::features::CenteredAabb,
+            &ambition_actors::features::ChestFeature,
         ),
         bevy::prelude::Or<(
-            With<ambition_gameplay_core::features::EncounterRewardChest>,
-            With<ambition_gameplay_core::features::BossRewardChest>,
+            With<ambition_actors::features::EncounterRewardChest>,
+            With<ambition_actors::features::BossRewardChest>,
         )>,
     >,
 ) {
-    use ambition_gameplay_core::assets::game_assets;
-    use ambition_gameplay_core::features::FeatureVisualKind;
+    use ambition_actors::assets::game_assets;
+    use ambition_actors::features::FeatureVisualKind;
     view.0.clear();
     for (id, aabb, disposition, config) in &ecs_mobs {
         // Encounter mobs are hostile by construction; skip any peaceful one.
@@ -489,8 +489,8 @@ pub struct BlinkPreviewFact {
 pub fn rebuild_blink_preview_fact(
     mut fact: ResMut<BlinkPreviewFact>,
     world: Res<ambition_engine_core::RoomGeometry>,
-    platform_set: Res<ambition_gameplay_core::MovingPlatformSet>,
-    mode: Res<bevy::prelude::State<ambition_gameplay_core::game_mode::GameMode>>,
+    platform_set: Res<ambition_actors::MovingPlatformSet>,
+    mode: Res<bevy::prelude::State<ambition_actors::game_mode::GameMode>>,
     scene: Res<ambition_platformer_primitives::lifecycle::SceneEntities>,
     action_query: Query<
         &leafwing_input_manager::prelude::ActionState<ambition_input::SandboxAction>,
@@ -530,10 +530,8 @@ pub fn rebuild_blink_preview_fact(
     // Match the debug overlay's destination resolution exactly. The
     // moving-platform-aware temporary world is what the actual blink
     // resolves against, so the preview must use it too.
-    let blink_world = ambition_gameplay_core::world::platforms::world_with_moving_platforms(
-        &world.0,
-        &platform_set.0,
-    );
+    let blink_world =
+        ambition_actors::world::platforms::world_with_moving_platforms(&world.0, &platform_set.0);
     let target = if blink_state.aiming {
         ae::blink_destination_to_point_clusters(
             &blink_world,
@@ -579,7 +577,7 @@ impl Plugin for SimViewPlugin {
         app.add_systems(
             Update,
             rebuild_blink_preview_fact
-                .in_set(ambition_gameplay_core::schedule::SandboxSet::FeatureViewSync),
+                .in_set(ambition_actors::schedule::SandboxSet::FeatureViewSync),
         );
         app.add_systems(
             Update,
@@ -596,7 +594,7 @@ impl Plugin for SimViewPlugin {
                 rebuild_projectile_views,
                 rebuild_dynamic_feature_views,
             )
-                .in_set(ambition_gameplay_core::schedule::SandboxSet::FeatureViewSync),
+                .in_set(ambition_actors::schedule::SandboxSet::FeatureViewSync),
         );
     }
 }
@@ -647,14 +645,12 @@ mod tests {
             raw_dt: 0.1,
             scaled_dt: 0.1,
         });
-        app.insert_resource(ambition_gameplay_core::shrine::ShrineActivationPulse {
-            remaining: 0.25,
-        });
+        app.insert_resource(ambition_actors::shrine::ShrineActivationPulse { remaining: 0.25 });
         app.add_systems(Update, tick_shrine_activation_pulse);
         app.update();
         let remaining = app
             .world()
-            .resource::<ambition_gameplay_core::shrine::ShrineActivationPulse>()
+            .resource::<ambition_actors::shrine::ShrineActivationPulse>()
             .remaining;
         assert!((remaining - 0.15).abs() < 1e-6);
         for _ in 0..5 {
@@ -662,7 +658,7 @@ mod tests {
         }
         assert_eq!(
             app.world()
-                .resource::<ambition_gameplay_core::shrine::ShrineActivationPulse>()
+                .resource::<ambition_actors::shrine::ShrineActivationPulse>()
                 .remaining,
             0.0,
             "pulse clamps at zero"

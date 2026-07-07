@@ -273,13 +273,13 @@ impl SandboxAssetCatalog {
     /// 2. `$BEVY_ASSET_ROOT/<rel>`
     /// 3. `$CWD/assets/<rel>`
     /// 4. `$CWD/<rel>`
-    /// 5. `$CARGO_MANIFEST_DIR/../ambition_gameplay_core/assets/<rel>`
+    /// 5. `$CARGO_MANIFEST_DIR/../ambition_actors/assets/<rel>`
     ///    (current dev fallback while runtime assets still live there)
     ///
     /// This is the **only** host-filesystem probe in the sandbox. The
     /// LDtk hot-reload watcher and the SFX bank byte loader both call
     /// through here — there is no duplicate candidate walk anywhere
-    /// else in `crates/ambition_gameplay_core/src/`.
+    /// else in `crates/ambition_actors/src/`.
     pub fn resolve_local_file_path(&self, rel: &str) -> Option<std::path::PathBuf> {
         if !matches!(
             self.profile,
@@ -318,7 +318,7 @@ fn desktop_candidate_roots(rel_path: &str) -> Vec<std::path::PathBuf> {
     }
     candidates.push(
         std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../ambition_gameplay_core/assets")
+            .join("../ambition_actors/assets")
             .join(rel),
     );
     candidates

@@ -14,6 +14,28 @@ use ambition_sfx::SfxProvider;
 use bevy::asset::{Assets, Handle};
 use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
+fn install_test_world_manifest() {
+    static ONCE: std::sync::Once = std::sync::Once::new();
+    ONCE.call_once(|| {
+        use crate::ldtk_world::{install_world_manifest, WorldManifest, WorldSource};
+        use ambition_asset_manager::AssetId;
+        let worlds_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../ambition_content/assets/worlds");
+        install_world_manifest(WorldManifest {
+            entry_room: "central_hub_complex".to_string(),
+            ron_rooms: Vec::new(),
+            worlds: vec![WorldSource {
+                id: AssetId::new("world.sandbox_ldtk"),
+                asset_path: "game://worlds/sandbox.ldtk".to_string(),
+                loose_path: Some(worlds_dir.join("sandbox.ldtk")),
+                embedded_text: None,
+                embedded_bevy_path: Some("ambition_content/worlds/sandbox.ldtk"),
+                required: true,
+            }],
+        });
+    });
+}
+
 #[test]
 fn amplitude_to_decibels_silent_floor() {
     assert_eq!(amplitude_to_decibels(0.0), -60.0);
@@ -291,7 +313,7 @@ fn no_runtime_references_to_retired_procedural_renderer() {
 /// before scanning so the existing "fundsp was retired" prose
 /// blocks pass.
 #[test]
-fn ambition_gameplay_core_cargo_toml_has_no_fundsp_dep() {
+fn ambition_actors_cargo_toml_has_no_fundsp_dep() {
     let manifest = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
     let contents = std::fs::read_to_string(&manifest)
         .unwrap_or_else(|e| panic!("read {}: {e}", manifest.display()));
@@ -316,7 +338,7 @@ fn ambition_gameplay_core_cargo_toml_has_no_fundsp_dep() {
     }
     assert!(
         violations.is_empty(),
-        "ambition_gameplay_core/Cargo.toml re-introduced `fundsp` outside \
+        "ambition_actors/Cargo.toml re-introduced `fundsp` outside \
          documentation comments:\n{}\n\n`fundsp` was retired as a \
          runtime audio backend. The new realtime DSP layer must go \
          through Kira (see docs/archive/retired/fundsp-audio.md).",
@@ -374,7 +396,7 @@ fn web_audio_feature_implies_audio_feature() {
 /// telemetry all live on the Kira side), so the only audio backend
 /// the sandbox is allowed to pull is `bevy_kira_audio`.
 #[test]
-fn ambition_gameplay_core_uses_only_bevy_kira_audio() {
+fn ambition_actors_uses_only_bevy_kira_audio() {
     let manifest = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("Cargo.toml");
     let contents = std::fs::read_to_string(&manifest).expect("read sandbox Cargo.toml");
     // Other Bevy audio integrations we want to refuse silently
@@ -411,6 +433,7 @@ fn every_live_music_track_resolves_under_web_served_assets() {
     use crate::assets::game_assets::GameAssetConfig;
     use ambition_asset_manager::AssetProfile;
 
+    install_test_world_manifest();
     let music = authored_music_registry().clone();
     let mut config = GameAssetConfig::default();
     config.asset_profile = AssetProfile::WebServedAssets;

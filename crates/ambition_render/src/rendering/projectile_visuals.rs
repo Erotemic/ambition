@@ -16,7 +16,7 @@ use bevy::math::{Rect, Vec2};
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
-use ambition_gameplay_core::assets::game_assets::{EntitySprite, GameAssets};
+use ambition_actors::assets::game_assets::{EntitySprite, GameAssets};
 use ambition_platformer_primitives::gravity::gravity_upright_angle;
 use ambition_platformer_primitives::gravity::GravityCtx;
 use ambition_projectiles::{

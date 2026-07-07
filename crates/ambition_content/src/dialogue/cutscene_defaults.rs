@@ -5,7 +5,7 @@
 //! play in. They were previously hosted by `ambition_render::cutscene`; they now
 //! live with the rest of the named dialogue content. The reusable runtime types
 //! ([`CutsceneLibrary`], [`RoomCutsceneBindings`]) live in `ambition_cutscene`;
-//! the playback systems live in `ambition_gameplay_core::cutscene`. The intro
+//! the playback systems live in `ambition_actors::cutscene`. The intro
 //! slice layers more scripts/bindings on top via `crate::intro`.
 
 use ambition_cutscene::{CutsceneBeat, CutsceneLibrary, CutsceneScript, RoomCutsceneBindings};

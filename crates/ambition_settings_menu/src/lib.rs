@@ -1,5 +1,5 @@
 //! The renderer-agnostic settings + system menu IR (E1e carve out of
-//! `ambition_gameplay_core::menu::ir`).
+//! `ambition_actors::menu::ir`).
 //!
 //! - [`settings`] — the shared settings model (`SettingsMenuModel` /
 //!   `SettingsOption` / `settings_menu_model` / `apply_settings_option`), built

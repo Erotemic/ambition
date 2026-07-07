@@ -8,7 +8,7 @@ crates/
   ambition_ldtk/
   ambition_bevy/
   ambition_devtools/
-  ambition_gameplay_core/
+  ambition_actors/
   ambition_game/
 ```
 
@@ -81,7 +81,7 @@ non-Euclidean seam semantics
 reachability validation
 ```
 
-The current repo has LDtk as the sandbox world source, but it also has active-area composition, transition repair, room graph validity, loading-zone semantics, and hot reload behavior. Those should not be duplicated in `ambition_gameplay_core` and `ambition_game`.
+The current repo has LDtk as the sandbox world source, but it also has active-area composition, transition repair, room graph validity, loading-zone semantics, and hot reload behavior. Those should not be duplicated in `ambition_actors` and `ambition_game`.
 
 ## 4. `ambition_ldtk`
 
@@ -106,7 +106,7 @@ The current state says the sandbox RON is no longer the room/world owner; LDtk i
 
 ## 5. `ambition_bevy`
 
-This is the shared Bevy frontend layer used by both `ambition_gameplay_core` and `ambition_game`.
+This is the shared Bevy frontend layer used by both `ambition_actors` and `ambition_game`.
 
 Owns reusable Bevy integration:
 
@@ -149,9 +149,9 @@ music/tune debug panels
 feature lab tools
 ```
 
-The current docs explicitly say debug overlays should stay presentation-only and out of `ambition_engine`; the Bevy adapter should decide how to visualize deterministic engine state.  That can remain in `ambition_gameplay_core` for now, then move to `ambition_devtools` when the full game wants dev builds without inheriting every sandbox lab.
+The current docs explicitly say debug overlays should stay presentation-only and out of `ambition_engine`; the Bevy adapter should decide how to visualize deterministic engine state.  That can remain in `ambition_actors` for now, then move to `ambition_devtools` when the full game wants dev builds without inheriting every sandbox lab.
 
-## 7. `ambition_gameplay_core`
+## 7. `ambition_actors`
 
 After the split, this becomes thinner:
 
@@ -194,14 +194,14 @@ It should not copy movement, input mapping, Kira setup, LDtk semantics, room gra
 Move only pure audio/data/rendering things.
 
 ```text
-from ambition_gameplay_core:
+from ambition_actors:
   data audio structs
   procedural music/SFX renderer
   WAV preview writer
   tune validation
   tune preview tests
 
-stay in ambition_gameplay_core:
+stay in ambition_actors:
   Kira AudioLibrary
   MusicChannel / SfxChannel
   pause menu track switching
@@ -256,6 +256,6 @@ camera/pause/settings foundations
 Then:
 
 ```text
-ambition_gameplay_core = lab content + debug UX
+ambition_actors = lab content + debug UX
 ambition_game    = campaign content + release UX
 ```

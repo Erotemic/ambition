@@ -3,7 +3,7 @@
 //! `ambition_asset_manager::sandbox_assets` owns catalog/resource/profile
 //! behavior. This module only gathers Ambition-game rows from gameplay/content
 //! registries and delegates to that crate, preserving the historical
-//! `ambition_gameplay_core::assets::sandbox_assets` import path while the
+//! `ambition_actors::assets::sandbox_assets` import path while the
 //! surrounding asset presentation code is still being carved.
 
 use ambition_asset_manager::sandbox_assets as core;

@@ -611,7 +611,7 @@ def main(argv=None) -> int:
         if not args.ldtk:
             raise SystemExit("suggest-manifest requires <ldtk>")
         repo = repo_root_from_ldtk(args.ldtk)
-        icon_path = args.icons or (repo / "crates" / "ambition_gameplay_core" / "assets" / "sprites" / "editor_icons.png")
+        icon_path = args.icons or (repo / "crates" / "ambition_actors" / "assets" / "sprites" / "editor_icons.png")
         data = default_icon_manifest(args.ldtk, icon_path, args.tile_size, args.entity or None)
         if args.out:
             save_manifest(args.out, data)

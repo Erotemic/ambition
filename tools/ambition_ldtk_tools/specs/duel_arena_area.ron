@@ -7,7 +7,7 @@
 // DIFFERENT factions so the physical-damage rule lets them hurt each other,
 // which an EnemySpawn (always `Enemy` faction) can't express. Instead the engine
 // auto-stages the duel the instant this room loads
-// (`ambition_gameplay_core::features::stage_room_duel`, keyed on this level id
+// (`ambition_actors::features::stage_room_duel`, keyed on this level id
 // `duel_arena`) — so the fight is already underway when the player walks in, no
 // trigger. This file is just the stage: a closed box, two perches for the flyer,
 // an entry door, and the reciprocal door in the basement door-gallery.

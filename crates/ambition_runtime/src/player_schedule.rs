@@ -23,9 +23,9 @@
 
 use bevy::prelude::*;
 
-use ambition_gameplay_core::game_mode::{gameplay_allowed, gameplay_suspended};
-use ambition_gameplay_core::player::PlayerBodyFrameOutput;
-use ambition_gameplay_core::schedule::SandboxSet;
+use ambition_actors::game_mode::{gameplay_allowed, gameplay_suspended};
+use ambition_actors::player::PlayerBodyFrameOutput;
+use ambition_actors::schedule::SandboxSet;
 
 /// Registers the engine-generic player frame (see module docs). Part of
 /// [`crate::PlatformerEnginePlugins`]; headless/RL builds run every system
@@ -37,11 +37,11 @@ impl Plugin for PlayerSchedulePlugin {
         // Every player body carries the movement→presentation hand-off the
         // movement phase writes and the presentation phase reads (required so
         // both phase queries always match the player + any clone).
-        app.register_required_components::<ambition_gameplay_core::actor::PlayerEntity, PlayerBodyFrameOutput>();
+        app.register_required_components::<ambition_actors::actor::PlayerEntity, PlayerBodyFrameOutput>();
         // Every player body publishes the same gravity-oriented combat
         // footprint an actor does (fable review 2026-07-02 §A6);
         // integrate_home_body writes it.
-        app.register_required_components_with::<ambition_gameplay_core::actor::PlayerEntity, ambition_engine_core::CenteredAabb>(
+        app.register_required_components_with::<ambition_actors::actor::PlayerEntity, ambition_engine_core::CenteredAabb>(
             || ambition_engine_core::CenteredAabb::new(ambition_engine_core::Vec2::ZERO, ambition_engine_core::Vec2::ZERO),
         );
 
@@ -62,13 +62,13 @@ impl Plugin for PlayerSchedulePlugin {
         app.add_systems(
             Update,
             (
-                ambition_gameplay_core::time::time_control::apply_suspended_time_scale_system
+                ambition_actors::time::time_control::apply_suspended_time_scale_system
                     .run_if(gameplay_suspended),
-                ambition_gameplay_core::time::time_control::emit_player_time_intent_system
+                ambition_actors::time::time_control::emit_player_time_intent_system
                     .run_if(gameplay_allowed),
-                ambition_gameplay_core::time::time_control::apply_clock_scale_requests
+                ambition_actors::time::time_control::apply_clock_scale_requests
                     .run_if(gameplay_allowed),
-                ambition_gameplay_core::time::time_control::smooth_sim_clock_toward_target_system
+                ambition_actors::time::time_control::smooth_sim_clock_toward_target_system
                     .run_if(gameplay_allowed),
                 // Unconditional: snapshot whichever path (suspended-zero or
                 // gameplay-smoothed) wrote `SandboxSimState::time_scale` this
@@ -78,8 +78,8 @@ impl Plugin for PlayerSchedulePlugin {
                 // the runtime crate's neutral `SimDt` so every downstream
                 // runtime system (gravity / zones / orient-roll) reads scaled
                 // dt without a sandbox dependency.
-                ambition_gameplay_core::mirror_sim_dt_into_runtime,
-                ambition_gameplay_core::dev::sync_live_player_dev_edits_system,
+                ambition_actors::mirror_sim_dt_into_runtime,
+                ambition_actors::dev::sync_live_player_dev_edits_system,
             )
                 .chain()
                 .in_set(SandboxSet::PlayerInput),
@@ -92,13 +92,12 @@ impl Plugin for PlayerSchedulePlugin {
         app.add_systems(
             Update,
             (
-                ambition_gameplay_core::player::input_timer_system
+                ambition_actors::player::input_timer_system
                     .run_if(gameplay_allowed)
                     .in_set(ambition_input::InputSet::Populate),
-                ambition_gameplay_core::player::interaction_input_system
-                    .run_if(gameplay_allowed),
+                ambition_actors::player::interaction_input_system.run_if(gameplay_allowed),
                 // Portal-warped held movement input is registered by
-                // `ambition_gameplay_core::portal::PortalPlugin` so the portal
+                // `ambition_actors::portal::PortalPlugin` so the portal
                 // subsystem owns its input seam.
                 // Controller-input setup, nested into one chained group:
                 // 1. Resolve the CONTROLLED SUBJECT — the body carrying
@@ -110,24 +109,24 @@ impl Plugin for PlayerSchedulePlugin {
                 //    PlayerInputFrame (gated on brain ownership: a vacated
                 //    avatar sees neutral input).
                 (
-                    ambition_gameplay_core::abilities::traversal::possession::resolve_controlled_subject,
-                    ambition_gameplay_core::player::populate_slot_controls,
-                    ambition_gameplay_core::player::sync_local_player_input_frame,
+                    ambition_actors::abilities::traversal::possession::resolve_controlled_subject,
+                    ambition_actors::player::populate_slot_controls,
+                    ambition_actors::player::sync_local_player_input_frame,
                 )
                     .chain(),
                 // Universal-brain seam: translate this frame's slot input into
                 // each controlled body's ActorControl frame.
-                ambition_gameplay_core::player::tick_player_brains,
+                ambition_actors::player::tick_player_brains,
                 // Body-mode policy (crouch / morph / climb) consumes the
                 // CONTROLLED body's freshly-produced ActorControl + its slot
                 // gestures, so it runs AFTER `tick_player_brains` and before
                 // WorldPrep movement consumes the resize/mode change.
-                ambition_gameplay_core::body_mode::update_body_mode,
-                ambition_gameplay_core::player::sync_player_actor_poses,
+                ambition_actors::body_mode::update_body_mode,
+                ambition_actors::player::sync_player_actor_poses,
             )
                 .chain()
                 .in_set(SandboxSet::PlayerInput)
-                .after(ambition_gameplay_core::dev::sync_live_player_dev_edits_system),
+                .after(ambition_actors::dev::sync_live_player_dev_edits_system),
         );
 
         // The content dialogue-followup slot lives in PlayerInput; the HOST
@@ -135,7 +134,7 @@ impl Plugin for PlayerSchedulePlugin {
         // the engine only gives the slot its phase home.
         app.configure_sets(
             Update,
-            ambition_gameplay_core::session::reset::ContentDialogueFollowupSet
+            ambition_actors::session::reset::ContentDialogueFollowupSet
                 .in_set(SandboxSet::PlayerInput),
         );
 
@@ -166,10 +165,10 @@ impl Plugin for PlayerSchedulePlugin {
         app.add_systems(
             Update,
             (
-                ambition_gameplay_core::abilities::traversal::possession::possession_trigger_system
+                ambition_actors::abilities::traversal::possession::possession_trigger_system
                     .run_if(gameplay_allowed),
-                ambition_gameplay_core::abilities::traversal::possession::release_possession_if_target_lost,
-                ambition_gameplay_core::features::ecs::damage_apply::apply_player_hit_events
+                ambition_actors::abilities::traversal::possession::release_possession_if_target_lost,
+                ambition_actors::features::ecs::damage_apply::apply_player_hit_events
                     .run_if(gameplay_allowed),
             )
                 .chain()
@@ -183,8 +182,8 @@ impl Plugin for PlayerSchedulePlugin {
         app.add_systems(
             Update,
             (
-                ambition_gameplay_core::player::write_player_ecs_components,
-                ambition_gameplay_core::player::cleanup_timers_system,
+                ambition_actors::player::write_player_ecs_components,
+                ambition_actors::player::cleanup_timers_system,
             )
                 .chain()
                 .in_set(SandboxSet::PresentationSync),

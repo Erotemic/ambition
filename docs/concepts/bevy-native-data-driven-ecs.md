@@ -13,8 +13,8 @@ related_adrs:
   - docs/adr/0009-world-composition-and-ldtk-authoring.md
 implemented_by:
   - crates/ambition_app/src/app/mod.rs
-  - crates/ambition_gameplay_core/src/world/mod.rs
-  - crates/ambition_gameplay_core/src/world/ldtk_world/mod.rs
+  - crates/ambition_actors/src/world/mod.rs
+  - crates/ambition_actors/src/world/ldtk_world/mod.rs
 related_docs:
   - docs/systems/architecture.md
   - docs/systems/ldtk-world-composition.md

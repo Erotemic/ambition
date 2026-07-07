@@ -7,8 +7,8 @@
 //! stuck). The `render_room_geometry -- report` example prints the same
 //! check for humans; this fails the build if a future room regresses.
 
+use ambition_actors as sb;
 use ambition_engine_core::{self as ae, AabbExt};
-use ambition_gameplay_core as sb;
 
 fn entity_aabbs(room: &sb::rooms::RoomSpec) -> Vec<(&'static str, ae::Aabb)> {
     let mut v: Vec<(&'static str, ae::Aabb)> = Vec::new();
@@ -94,8 +94,8 @@ fn no_room_has_out_of_bounds_entities_or_spawn_in_solid() {
 /// Load the game's merged LDtk project the way a sim entry point does:
 /// install the content data (world manifest, character catalog) first —
 /// post-R3.2 the engine ships no worlds and panics without an install.
-fn load_project_for_test() -> Result<ambition_gameplay_core::ldtk_world::LdtkProject, String> {
+fn load_project_for_test() -> Result<ambition_actors::ldtk_world::LdtkProject, String> {
     ambition_content::worlds::install();
     ambition_content::character_catalog::install();
-    ambition_gameplay_core::ldtk_world::LdtkProject::load_default_for_dev()
+    ambition_actors::ldtk_world::LdtkProject::load_default_for_dev()
 }

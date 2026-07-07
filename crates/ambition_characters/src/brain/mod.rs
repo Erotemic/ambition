@@ -404,7 +404,7 @@ pub struct ChargesProjectiles;
 
 /// Bevy system: emit one `ActorActionMessage::PlayerProjectileTick`
 /// per charge-capable actor per tick. The player projectile EFFECTS
-/// consumer (`update_projectiles` (ambition_gameplay_core)) drives its
+/// consumer (`update_projectiles` (ambition_actors)) drives its
 /// motion-recognition buffer + Fireball charge state machine from
 /// this stream instead of reading `PlayerInputFrame` directly.
 ///

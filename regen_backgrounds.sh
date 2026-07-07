@@ -13,7 +13,7 @@ repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$repo_root"
 
 renderer_dir="$repo_root/tools/ambition_parallax_renderer"
-background_dir="$repo_root/crates/ambition_gameplay_core/assets/backgrounds/parallax_layers"
+background_dir="$repo_root/crates/ambition_actors/assets/backgrounds/parallax_layers"
 
 select_python() {
     if [ -n "${PYTHON:-}" ]; then

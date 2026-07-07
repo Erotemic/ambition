@@ -1,5 +1,5 @@
 //! Portal simulation assembly (E5 step 5, behind the `portal` feature):
-//! [`ambition_gameplay_core::portal::PortalPlugin`] plus the schedule
+//! [`ambition_actors::portal::PortalPlugin`] plus the schedule
 //! placement for portal's internal sets — each mapped to its sandbox phase,
 //! cross-set ordering edge, and gameplay run condition.
 //!
@@ -15,8 +15,8 @@
 
 use bevy::prelude::*;
 
-use ambition_gameplay_core::portal::PortalSet;
-use ambition_gameplay_core::schedule::SandboxSet;
+use ambition_actors::portal::PortalSet;
+use ambition_actors::schedule::SandboxSet;
 
 /// Adds `PortalPlugin` and places its sets in the sandbox schedule. Part of
 /// [`crate::PlatformerEnginePlugins`] when the `portal` feature is on.
@@ -24,14 +24,14 @@ pub struct PortalSchedulePlugin;
 
 impl Plugin for PortalSchedulePlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(ambition_gameplay_core::portal::PortalPlugin);
+        app.add_plugins(ambition_actors::portal::PortalPlugin);
 
         // Carves publish after gravity-zone collection and before core
         // simulation.
         app.configure_sets(
             Update,
             PortalSet::Carves
-                .after(ambition_gameplay_core::physics::collect_gravity_zones)
+                .after(ambition_actors::physics::collect_gravity_zones)
                 .before(SandboxSet::CoreSimulation),
         );
 
@@ -42,9 +42,9 @@ impl Plugin for PortalSchedulePlugin {
             Update,
             PortalSet::InputWarp
                 .in_set(SandboxSet::PlayerInput)
-                .after(ambition_gameplay_core::player::interaction_input_system)
-                .before(ambition_gameplay_core::player::sync_local_player_input_frame)
-                .run_if(ambition_gameplay_core::gameplay_allowed),
+                .after(ambition_actors::player::interaction_input_system)
+                .before(ambition_actors::player::sync_local_player_input_frame)
+                .run_if(ambition_actors::gameplay_allowed),
         );
 
         // Weapon maintenance stays ungated for orphan cleanup / roll
@@ -53,7 +53,7 @@ impl Plugin for PortalSchedulePlugin {
             Update,
             PortalSet::WeaponAndProjectiles
                 .in_set(SandboxSet::PlayerSimulation)
-                .run_if(ambition_gameplay_core::gameplay_allowed),
+                .run_if(ambition_actors::gameplay_allowed),
         );
         app.configure_sets(
             Update,
@@ -66,7 +66,7 @@ impl Plugin for PortalSchedulePlugin {
             Update,
             PortalSet::RoomReset
                 .in_set(SandboxSet::RoomTransition)
-                .after(ambition_gameplay_core::session::reset::ContentRoomResetSet),
+                .after(ambition_actors::session::reset::ContentRoomResetSet),
         );
 
         // TransitGuards: suppress ledge-grab while transiting, BEFORE the
@@ -77,8 +77,8 @@ impl Plugin for PortalSchedulePlugin {
             Update,
             PortalSet::TransitGuards
                 .in_set(SandboxSet::WorldPrep)
-                .before(ambition_gameplay_core::features::integrate_sim_bodies)
-                .run_if(ambition_gameplay_core::gameplay_allowed),
+                .before(ambition_actors::features::integrate_sim_bodies)
+                .run_if(ambition_actors::gameplay_allowed),
         );
 
         // Transit: teleports run after body + ground-item integration so this
@@ -90,8 +90,8 @@ impl Plugin for PortalSchedulePlugin {
             Update,
             PortalSet::Transit
                 .in_set(SandboxSet::PlayerSimulation)
-                .after(ambition_gameplay_core::items::pickup::ItemPickupSet::CoreHeldItems)
-                .run_if(ambition_gameplay_core::gameplay_allowed),
+                .after(ambition_actors::items::pickup::ItemPickupSet::CoreHeldItems)
+                .run_if(ambition_actors::gameplay_allowed),
         );
     }
 }

@@ -12,7 +12,7 @@ Ambition is being developed through iterative patch zips. Some agent environment
 
 Before producing a patch, an agent should verify whether it has a full repo checkpoint. If it does not, it must say so in the response and keep changes narrowly scoped to inspected files.
 
-Patch zips may contain only modified files to save bandwidth, but they must preserve repo-relative paths exactly and include `patch` in the zip name. Crate-local files must stay under `crates/<workspace_member>/` (today: `ambition_gameplay_core`, `ambition_asset_manager`, `ambition_sfx`, `ambition_sfx_bank`); agents must not create duplicate top-level crate directories such as `ambition_gameplay_core/`. Documentation should normally live under `docs/`, except for the root `README.md`.
+Patch zips may contain only modified files to save bandwidth, but they must preserve repo-relative paths exactly and include `patch` in the zip name. Crate-local files must stay under `crates/<workspace_member>/` (today: `ambition_actors`, `ambition_asset_manager`, `ambition_sfx`, `ambition_sfx_bank`); agents must not create duplicate top-level crate directories such as `ambition_actors/`. Documentation should normally live under `docs/`, except for the root `README.md`.
 
 Because the standard apply command extracts files but does not remove stale paths, cleanup of accidentally created files or directories must be called out with explicit shell commands.
 

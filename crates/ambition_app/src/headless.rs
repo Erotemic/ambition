@@ -16,8 +16,8 @@ use std::fmt;
 use bevy::prelude::*;
 
 use crate::app::SandboxSimulationPlugin;
-use ambition_gameplay_core::ldtk_world;
-use ambition_gameplay_core::rooms::RoomSet;
+use ambition_actors::ldtk_world;
+use ambition_actors::rooms::RoomSet;
 
 /// Summary of a `run_headless` call. Used by tests, the headless binary, and
 /// future RL drivers to verify the simulation actually progressed instead of
@@ -146,7 +146,7 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
         .map(|r| r.quest_log_lines())
         .unwrap_or_default();
     let visited_rooms = world
-        .get_resource::<ambition_gameplay_core::menu::map::MapMenuState>()
+        .get_resource::<ambition_actors::menu::map::MapMenuState>()
         .map(|m| m.visited.iter().cloned().collect::<Vec<_>>())
         .unwrap_or_default();
 
@@ -314,8 +314,8 @@ mod tests {
     /// runs through the real Startup schedule.
     #[test]
     fn sim_spawns_player_with_brain_and_action_set() {
+        use ambition_actors::actor::PlayerEntity;
         use ambition_characters::brain::{ActionSet, ActorControl, Brain};
-        use ambition_gameplay_core::actor::PlayerEntity;
         let mut app = initialized_sandbox_sim_app();
         let mut q = app
             .world_mut()

@@ -8,7 +8,7 @@
 Two completed renames in this repo —
 `tools/audio/music_renderer/` → `tools/ambition_music_renderer/` and the
 `ambition_engine` crate collapsed into
-`crates/ambition_gameplay_core/src/engine_core/` — left **five dev tools broken
+`crates/ambition_actors/src/engine_core/` — left **five dev tools broken
 without anyone noticing**, because none of the stale references were in
 Rust source (which would have failed `cargo build`):
 
@@ -81,7 +81,7 @@ parser.add_argument("root", nargs="?", default=str(DEFAULT_ROOT))
 ```
 ```bash
 # test_coverage_report.sh — was: crates/ambition_engine/src
-engine) targets=("$REPO_ROOT/crates/ambition_gameplay_core/src/engine_core") ;;
+engine) targets=("$REPO_ROOT/crates/ambition_actors/src/engine_core") ;;
 ```
 
 ## Why this is a good benchmark question
@@ -99,7 +99,7 @@ The agent bias to resist: declaring victory at the green build.
 ## Compact question
 
 > The crate `ambition_engine` was just deleted and its code moved into
-> `crates/ambition_gameplay_core/src/engine_core/`. `cargo build` and
+> `crates/ambition_actors/src/engine_core/`. `cargo build` and
 > `cargo test` are green. List the categories of reference that a Rust
 > build will NOT catch but that are now broken, and write the grep that
 > finds them. Then fix `tools/test_coverage_report.sh`, which has

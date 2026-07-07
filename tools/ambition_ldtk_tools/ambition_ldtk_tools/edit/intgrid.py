@@ -325,7 +325,7 @@ def _add_shared_args(p: argparse.ArgumentParser) -> None:
         type=Path,
         default=REPO_ROOT
         / "crates"
-        / "ambition_gameplay_core"
+        / "ambition_actors"
         / "assets"
         / "ambition"
         / "worlds"

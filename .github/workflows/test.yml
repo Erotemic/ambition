@@ -37,14 +37,14 @@ jobs:
         # renamed to `ambition_engine_core` — the old `-p ambition_engine` errored.)
         #
         # ROT NOTE (2026-07-03): the per-crate jobs here miss leaf-crate unit
-        # tests — `-p ambition_gameplay_core --lib` / `-p ambition_app` build the
+        # tests — `-p ambition_actors --lib` / `-p ambition_app` build the
         # other crates' LIBS but not their `#[cfg(test)]` targets, so those rot
         # unseen (found: ambition_vfx, architecture_boundaries stale for many
         # commits). When re-enabling, add a `cargo test --workspace` gate.
         run: cargo test -p ambition_engine_core
 
   sandbox-headless-smoke:
-    name: ambition_gameplay_core headless smoke
+    name: ambition_actors headless smoke
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -56,16 +56,16 @@ jobs:
         # Bevy's default-features dragsalsa-bus-1 / wayland; the
         # `--features headless` build path of the sandbox doesn't need
         # them today, but the lib build does until subsystem gates are
-        # complete (see crates/ambition_gameplay_core/Cargo.toml).
+        # complete (see crates/ambition_actors/Cargo.toml).
         run: |
           sudo apt-get update
           sudo apt-get install -y libasound2-dev libudev-dev pkg-config \
             libwayland-dev libxkbcommon-dev
-      - name: cargo test -p ambition_gameplay_core --lib
+      - name: cargo test -p ambition_actors --lib
         # Library tests cover the headless module (run_headless ticks,
         # sim → presentation message seam) plus encounter/cutscene/quest
         # logic. Integration tests (repro_walls.rs) run as part of this.
-        run: cargo test -p ambition_gameplay_core --lib && cargo test -p ambition_content --all-features
+        run: cargo test -p ambition_actors --lib && cargo test -p ambition_content --all-features
       - name: cargo test -p ambition_app --test repro_walls
         run: cargo test -p ambition_app --test repro_walls
       - name: cargo run --bin headless (smoke 60 ticks)

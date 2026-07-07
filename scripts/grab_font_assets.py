@@ -29,7 +29,7 @@ except Exception:  # pragma: no cover - convenience fallback for fresh systems
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_OUT_DIR = (
-    REPO_ROOT / "crates" / "ambition_gameplay_core" / "assets" / "fonts" / "bundled"
+    REPO_ROOT / "crates" / "ambition_actors" / "assets" / "fonts" / "bundled"
 )
 DEFAULT_CACHE_DIR = REPO_ROOT / "target" / "font_download_cache"
 

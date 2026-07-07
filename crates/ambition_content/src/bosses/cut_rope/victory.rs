@@ -15,7 +15,7 @@ pub fn spawn_cut_rope_victory_npc(
     mut commands: Commands,
     room_set: Res<RoomSet>,
     save: Res<ambition_persistence::save::SandboxSave>,
-    mut released: MessageReader<ambition_gameplay_core::boss_encounter::PayloadReleased>,
+    mut released: MessageReader<ambition_actors::boss_encounter::PayloadReleased>,
     existing: Query<&FeatureId, With<SmirkingBehemothVictoryNpc>>,
     bosses: Query<(Entity, &FeatureId, &CenteredAabb, BossClusterRef), With<FeatureSimEntity>>,
 ) {
@@ -81,7 +81,7 @@ fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
     };
     // Peaceful actors are the SAME unified cluster as enemies now — build the
     // victory NPC through the shared peaceful seed.
-    let (mut seed, _render) = ambition_gameplay_core::features::ActorClusterSeed::new_peaceful_npc(
+    let (mut seed, _render) = ambition_actors::features::ActorClusterSeed::new_peaceful_npc(
         CUT_ROPE_VICTORY_NPC_ID,
         CUT_ROPE_VICTORY_NPC_NAME,
         aabb,
@@ -89,19 +89,19 @@ fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
         &[],
     );
     seed.kin.facing = -1.0;
-    let combat_kit = ambition_gameplay_core::features::CombatKit::default();
+    let combat_kit = ambition_actors::features::CombatKit::default();
     let facing = seed.kin.facing;
     // Dialogue is a SHARED actor capability — carried on `ActorInteraction` so the
     // interact / proximity systems (which key off the component, not an NPC type
     // tag) still offer "Talk" on this runtime-spawned victory NPC.
-    let interaction = ambition_gameplay_core::features::ActorInteraction {
+    let interaction = ambition_actors::features::ActorInteraction {
         interactable: interactable.clone(),
-        talk_radius: ambition_gameplay_core::features::NPC_TALK_RADIUS,
+        talk_radius: ambition_actors::features::NPC_TALK_RADIUS,
     };
     let (identity, disposition, combat, intent, cooldowns) =
-        ambition_gameplay_core::features::actor_component_snapshot(
+        ambition_actors::features::actor_component_snapshot(
             &seed,
-            ambition_gameplay_core::features::ActorDisposition::Peaceful,
+            ambition_actors::features::ActorDisposition::Peaceful,
         );
     let cluster_bundle = seed.into_components();
     commands
@@ -117,11 +117,11 @@ fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
                 ),
                 identity,
                 disposition,
-                faction: ambition_gameplay_core::features::ActorFaction::Npc,
-                target: ambition_gameplay_core::features::ActorTarget::default(),
+                faction: ambition_actors::features::ActorFaction::Npc,
+                target: ambition_actors::features::ActorTarget::default(),
                 pose: ActorPose::from_parts(aabb.center(), aabb.half_size(), facing),
                 combat_kit,
-                aggression: ambition_gameplay_core::features::ActorAggression::passive(),
+                aggression: ambition_actors::features::ActorAggression::passive(),
                 combat,
                 intent,
                 cooldowns,

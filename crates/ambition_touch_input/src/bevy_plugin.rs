@@ -143,7 +143,7 @@ impl Plugin for TouchControlsPlugin {
                     read_joystick_messages,
                     update_buttons_from_interactions,
                     fold_to_menu_control_frame
-                        .after(ambition_gameplay_core::schedule::populate_menu_control_frame_from_actions)
+                        .after(ambition_actors::schedule::populate_menu_control_frame_from_actions)
                         // Must run AFTER update_buttons_from_interactions so it
                         // reads this frame's MobileTouchState, not last frame's.
                         // Without this pin Bevy is free (based on conflict graph)
@@ -153,7 +153,7 @@ impl Plugin for TouchControlsPlugin {
                         // (added ActiveInputKind), which silently changed Bevy's
                         // implicit ordering and broke the menu Start button.
                         .after(update_buttons_from_interactions)
-                        .before(ambition_gameplay_core::schedule::apply_menu_frame_to_cutscene_request)
+                        .before(ambition_actors::schedule::apply_menu_frame_to_cutscene_request)
                         // Bug 2: the touch joystick must reach
                         // `MenuControlFrame.up/down/left/right` BEFORE the
                         // menu nav consumers read it, or the frame is consumed
@@ -161,7 +161,7 @@ impl Plugin for TouchControlsPlugin {
                         // so the on-screen joystick never moved either menu's
                         // cursor. Pin the fold ahead of BOTH backends' nav
                         // (Grid + cube) via the shared `MenuNavConsume` set.
-                        .before(ambition_gameplay_core::schedule::MenuNavConsume),
+                        .before(ambition_actors::schedule::MenuNavConsume),
                     fold_to_control_frame
                         // ControlFrame writer: join the input populate set so
                         // the schedule pins it before the consume boundary.
@@ -175,7 +175,7 @@ impl Plugin for TouchControlsPlugin {
                         // run AFTER fold_to_control_frame, which
                         // resets ControlFrame to defaults / leafwing's
                         // values and stomps the touch button merge.
-                        .after(ambition_gameplay_core::schedule::populate_control_frame_from_actions)
+                        .after(ambition_actors::schedule::populate_control_frame_from_actions)
                         // Same issue as fold_to_menu_control_frame above:
                         // must see this frame's button state.
                         .after(update_buttons_from_interactions)
@@ -195,13 +195,13 @@ impl Plugin for TouchControlsPlugin {
                         // touch state, masking the ordering bug.
                         // The consume boundary is `populate_slot_controls` (the
                         // first reader of the finalized `ControlFrame`).
-                        .before(ambition_gameplay_core::player::populate_slot_controls)
+                        .before(ambition_actors::player::populate_slot_controls)
                         // ALSO run before the unified menu's nav consumers so
                         // the touch Start press is in ControlFrame before the
                         // menu open-routing / nav reads it. The fold runs after
                         // populate; pinning `.before(MenuNavConsume)` wins the
                         // tie so the fold also runs before the menu consumes it.
-                        .before(ambition_gameplay_core::schedule::MenuNavConsume),
+                        .before(ambition_actors::schedule::MenuNavConsume),
                 )
                     .chain(),
             )
@@ -217,15 +217,12 @@ impl Plugin for TouchControlsPlugin {
             .add_systems(
                 Update,
                 (
-                    update_button_verb_from_affordances.after(
-                        ambition_gameplay_core::player::affordances::AffordancesSystemSet::Compute,
-                    ),
-                    update_button_glyph_from_active_input.after(
-                        ambition_gameplay_core::player::affordances::AffordancesSystemSet::Compute,
-                    ),
-                    update_button_pressed_from_actions.after(
-                        ambition_gameplay_core::player::affordances::AffordancesSystemSet::Compute,
-                    ),
+                    update_button_verb_from_affordances
+                        .after(ambition_actors::player::affordances::AffordancesSystemSet::Compute),
+                    update_button_glyph_from_active_input
+                        .after(ambition_actors::player::affordances::AffordancesSystemSet::Compute),
+                    update_button_pressed_from_actions
+                        .after(ambition_actors::player::affordances::AffordancesSystemSet::Compute),
                     render_touch_button_text
                         .after(update_button_verb_from_affordances)
                         .after(update_button_glyph_from_active_input)
@@ -378,12 +375,12 @@ fn spawn_frame_axis_glyphs(mut cmd: Commands, ui_fonts: Option<Res<UiFonts>>) {
 /// inverse mapping, so labels move only when the active mapping policy says that
 /// a different raw joystick direction now means local U/D/L/R.
 fn position_frame_axis_glyphs(
-    gravity: Option<Res<ambition_gameplay_core::physics::GravityField>>,
+    gravity: Option<Res<ambition_actors::physics::GravityField>>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     mut glyphs: Query<(&FrameAxisGlyph, &mut Node)>,
 ) {
     use ambition_engine_core::{AccelerationFrame, InputFrameMode};
-    let gdir = ambition_gameplay_core::physics::gravity_dir_or_default(gravity.as_deref());
+    let gdir = ambition_actors::physics::gravity_dir_or_default(gravity.as_deref());
     let mode = user_settings
         .as_deref()
         .map_or(InputFrameMode::DEFAULT_MOVEMENT, |s| {
@@ -768,7 +765,7 @@ pub struct TouchActionLabel(pub TouchActionButton);
 
 /// The verb-text to render under each touch button. Updated each
 /// frame by [`update_button_verb_from_affordances`] from the global
-/// [`ambition_gameplay_core::player::affordances::PlayerAffordances`] table. Held as
+/// [`ambition_actors::player::affordances::PlayerAffordances`] table. Held as
 /// component data (not computed inline in the render system) so
 /// independent concerns — verb, future glyph subtitle, future
 /// pressed-state highlight — each own their own component + update
@@ -802,10 +799,10 @@ impl ButtonVerb {
 /// (and, in later phases, the glyph / pressed-state components) into
 /// the actual `Text` node.
 pub fn update_button_verb_from_affordances(
-    affordances: Res<ambition_gameplay_core::player::affordances::PlayerAffordances>,
+    affordances: Res<ambition_actors::player::affordances::PlayerAffordances>,
     mut labels: Query<(&TouchActionLabel, &mut ButtonVerb)>,
 ) {
-    use ambition_gameplay_core::player::affordances::{InteractVariant, VariantLabel};
+    use ambition_actors::player::affordances::{InteractVariant, VariantLabel};
     for (TouchActionLabel(action), mut verb) in &mut labels {
         let next: Option<String> = match action {
             TouchActionButton::Jump => Some(affordances.jump.text().to_owned()),
@@ -918,7 +915,7 @@ fn touch_action_to_sandbox_action(action: TouchActionButton) -> SandboxAction {
 /// [`KeyboardPreset`] (from settings), so HUD glyphs follow a rebind
 /// instead of always showing the out-of-the-box Z/X/C keys.
 pub fn update_button_glyph_from_active_input(
-    active: Res<ambition_gameplay_core::player::affordances::ActiveInputMethod>,
+    active: Res<ambition_actors::player::affordances::ActiveInputMethod>,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     mut labels: Query<(&TouchActionLabel, &mut ButtonGlyph)>,
 ) {
@@ -930,7 +927,7 @@ pub fn update_button_glyph_from_active_input(
         .unwrap_or_else(KeyboardPreset::arrows_zxc);
     for (TouchActionLabel(touch_action), mut glyph) in &mut labels {
         let sa = touch_action_to_sandbox_action(*touch_action);
-        let next = ambition_gameplay_core::player::affordances::glyph_for(sa, &preset, active.0);
+        let next = ambition_actors::player::affordances::glyph_for(sa, &preset, active.0);
         if glyph.0 != next {
             glyph.0 = next;
         }
@@ -952,7 +949,7 @@ pub fn update_button_glyph_from_active_input(
 pub fn update_button_pressed_from_actions(
     actions_q: Query<
         &leafwing_input_manager::prelude::ActionState<SandboxAction>,
-        With<ambition_gameplay_core::actor::PrimaryPlayer>,
+        With<ambition_actors::actor::PrimaryPlayer>,
     >,
     touch_state: Res<MobileTouchState>,
     mut buttons: Query<(&TouchActionButton, &mut ButtonPressed)>,
@@ -1145,7 +1142,7 @@ fn set_button_held(edges: &mut TouchButtonEdges, action: TouchActionButton, held
 /// When a menu is open we return `false` and let `virtual_joystick`'s
 /// own `update_ui` keep the knob on the live touch / mouse drag, so
 /// the knob visibly follows the finger during menu navigation.
-pub fn axis_override_drives_knob(mode: ambition_gameplay_core::game_mode::GameMode) -> bool {
+pub fn axis_override_drives_knob(mode: ambition_actors::game_mode::GameMode) -> bool {
     // Only mirror the gameplay axis onto the knob while gameplay owns
     // input. `allows_gameplay()` is true only in `GameMode::Playing`;
     // `Paused` (pause menu, inventory grid, kaleidoscope cube) and
@@ -1177,7 +1174,7 @@ pub fn axis_override_drives_knob(mode: ambition_gameplay_core::game_mode::GameMo
 /// +Y-down convention, which matches Bevy UI's +Y-down `Node.top`
 /// axis, so no Y inversion is needed here.
 fn drive_joystick_knob_from_axis(
-    mode: Res<State<ambition_gameplay_core::game_mode::GameMode>>,
+    mode: Res<State<ambition_actors::game_mode::GameMode>>,
     control_frame: Res<ControlFrame>,
     joystick_q: Query<(&VirtualJoystickState, &Children), With<VirtualJoystickNode<MobileStick>>>,
     base_q: Query<&ComputedNode, With<VirtualJoystickUIBackground>>,

@@ -136,9 +136,70 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_actors"
+version = "0.2.0"
+dependencies = [
+ "ambition_asset_manager",
+ "ambition_audio",
+ "ambition_characters",
+ "ambition_combat",
+ "ambition_cutscene",
+ "ambition_dev_tools",
+ "ambition_dialog",
+ "ambition_encounter",
+ "ambition_engine_core",
+ "ambition_entity_catalog",
+ "ambition_gameplay_trace",
+ "ambition_input",
+ "ambition_interaction",
+ "ambition_ldtk_map",
+ "ambition_menu",
+ "ambition_persistence",
+ "ambition_platformer_primitives",
+ "ambition_portal",
+ "ambition_portal_presentation",
+ "ambition_projectiles",
+ "ambition_settings_menu",
+ "ambition_sfx",
+ "ambition_sim_view",
+ "ambition_sprite_sheet",
+ "ambition_time",
+ "ambition_ui_nav",
+ "ambition_vfx",
+ "ambition_world",
+ "avian2d",
+ "bevy",
+ "bevy-inspector-egui",
+ "bevy_asset_loader",
+ "bevy_common_assets",
+ "bevy_ecs",
+ "bevy_ecs_ldtk",
+ "bevy_framepace",
+ "bevy_kira_audio",
+ "bevy_material_ui",
+ "bevy_math",
+ "bevy_yarnspinner",
+ "console_error_panic_hook",
+ "image",
+ "insta",
+ "leafwing-input-manager",
+ "parry2d 0.26.0",
+ "petgraph",
+ "proptest",
+ "ron 0.11.0",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "virtual_joystick",
+ "wasm-bindgen",
+ "yarnspinner",
+]
+
+[[package]]
 name = "ambition_app"
 version = "0.1.0"
 dependencies = [
+ "ambition_actors",
  "ambition_asset_manager",
  "ambition_audio",
  "ambition_characters",
@@ -146,7 +207,6 @@ dependencies = [
  "ambition_cutscene",
  "ambition_engine_core",
  "ambition_entity_catalog",
- "ambition_gameplay_core",
  "ambition_host",
  "ambition_input",
  "ambition_menu",
@@ -241,13 +301,13 @@ dependencies = [
 name = "ambition_content"
 version = "0.1.0"
 dependencies = [
+ "ambition_actors",
  "ambition_asset_manager",
  "ambition_audio",
  "ambition_characters",
  "ambition_cutscene",
  "ambition_engine_core",
  "ambition_entity_catalog",
- "ambition_gameplay_core",
  "ambition_input",
  "ambition_interaction",
  "ambition_persistence",
@@ -333,66 +393,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ambition_gameplay_core"
-version = "0.2.0"
-dependencies = [
- "ambition_asset_manager",
- "ambition_audio",
- "ambition_characters",
- "ambition_combat",
- "ambition_cutscene",
- "ambition_dev_tools",
- "ambition_dialog",
- "ambition_encounter",
- "ambition_engine_core",
- "ambition_entity_catalog",
- "ambition_gameplay_trace",
- "ambition_input",
- "ambition_interaction",
- "ambition_ldtk_map",
- "ambition_menu",
- "ambition_persistence",
- "ambition_platformer_primitives",
- "ambition_portal",
- "ambition_portal_presentation",
- "ambition_projectiles",
- "ambition_settings_menu",
- "ambition_sfx",
- "ambition_sim_view",
- "ambition_sprite_sheet",
- "ambition_time",
- "ambition_ui_nav",
- "ambition_vfx",
- "ambition_world",
- "avian2d",
- "bevy",
- "bevy-inspector-egui",
- "bevy_asset_loader",
- "bevy_common_assets",
- "bevy_ecs",
- "bevy_ecs_ldtk",
- "bevy_framepace",
- "bevy_kira_audio",
- "bevy_material_ui",
- "bevy_math",
- "bevy_yarnspinner",
- "console_error_panic_hook",
- "image",
- "insta",
- "leafwing-input-manager",
- "parry2d 0.26.0",
- "petgraph",
- "proptest",
- "ron 0.11.0",
- "serde",
- "serde_json",
- "tempfile",
- "virtual_joystick",
- "wasm-bindgen",
- "yarnspinner",
-]
-
-[[package]]
 name = "ambition_gameplay_trace"
 version = "0.1.0"
 dependencies = [
@@ -407,8 +407,8 @@ dependencies = [
 name = "ambition_host"
 version = "0.1.0"
 dependencies = [
+ "ambition_actors",
  "ambition_engine_core",
- "ambition_gameplay_core",
  "ambition_input",
  "ambition_render",
  "ambition_runtime",
@@ -532,12 +532,12 @@ dependencies = [
 name = "ambition_render"
 version = "0.1.0"
 dependencies = [
+ "ambition_actors",
  "ambition_asset_manager",
  "ambition_characters",
  "ambition_combat",
  "ambition_cutscene",
  "ambition_engine_core",
- "ambition_gameplay_core",
  "ambition_input",
  "ambition_interaction",
  "ambition_persistence",
@@ -557,9 +557,9 @@ dependencies = [
 name = "ambition_runtime"
 version = "0.1.0"
 dependencies = [
+ "ambition_actors",
  "ambition_characters",
  "ambition_engine_core",
- "ambition_gameplay_core",
  "ambition_input",
  "ambition_persistence",
  "ambition_platformer_primitives",
@@ -601,10 +601,10 @@ dependencies = [
 name = "ambition_sim_view"
 version = "0.1.0"
 dependencies = [
+ "ambition_actors",
  "ambition_characters",
  "ambition_engine_core",
  "ambition_entity_catalog",
- "ambition_gameplay_core",
  "ambition_input",
  "ambition_interaction",
  "ambition_persistence",
@@ -638,9 +638,9 @@ dependencies = [
 name = "ambition_touch_input"
 version = "0.1.0"
 dependencies = [
+ "ambition_actors",
  "ambition_cutscene",
  "ambition_engine_core",
- "ambition_gameplay_core",
  "ambition_input",
  "ambition_persistence",
  "ambition_render",

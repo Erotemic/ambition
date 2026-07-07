@@ -7,7 +7,7 @@
 
 use bevy::prelude::Resource;
 
-use ambition_gameplay_core::persistence::settings::VisualQualityProfile;
+use ambition_actors::persistence::settings::VisualQualityProfile;
 
 /// App-local state for an in-flight visual-quality profile confirmation.
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]

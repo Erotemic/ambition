@@ -23,7 +23,7 @@ clusters instead of blindly.
 ## Field inventory (49 fields)
 
 Grouped by intended sibling component, with the count of read sites
-across `crates/ambition_gameplay_core/src`.
+across `crates/ambition_actors/src`.
 
 ### `PlayerVelocity` — movement (per-tick)
 - `pos: Vec2` (6)
@@ -194,7 +194,7 @@ Captured here so the next daytime session picks up cleanly.
 
 **Landed:**
 - ActorControlFrame extended with player verbs (`6d04715`).
-- crates/ambition_gameplay_core/src/brain/ scaffolded with Brain enum,
+- crates/ambition_actors/src/brain/ scaffolded with Brain enum,
   ActionSet, 7 brain templates, BrainSnapshot, player brain
   translator (`8e06032`).
 - NpcRuntime ticks through Brain::StateMachine — bespoke
@@ -291,7 +291,7 @@ unrelated to brain work.
 Session-end note: the dev environment hit EMFILE pressure during
 intense test-runner phases (parallel cargo test workers opening
 many bevy crate FDs). Mitigation: run `cargo test
--p ambition_gameplay_core --lib -- --test-threads=2` instead of
+-p ambition_actors --lib -- --test-threads=2` instead of
 default parallelism; documented in
 docs/recipes/extending-brains-and-action-sets.md.
 

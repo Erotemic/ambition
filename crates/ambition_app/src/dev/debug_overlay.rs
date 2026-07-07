@@ -11,12 +11,12 @@ use bevy::ecs::system::SystemParam;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
+use ambition_actors::dev::dev_tools::DeveloperTools;
+use ambition_actors::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
+use ambition_actors::world::platforms;
+use ambition_actors::{GameMode, SandboxDevState};
 use ambition_engine_core::config::world_to_bevy;
 use ambition_engine_core::RoomGeometry;
-use ambition_gameplay_core::dev::dev_tools::DeveloperTools;
-use ambition_gameplay_core::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
-use ambition_gameplay_core::world::platforms;
-use ambition_gameplay_core::{GameMode, SandboxDevState};
 use ambition_input::ControlFrame;
 #[cfg(feature = "input")]
 use ambition_input::SandboxAction;
@@ -77,10 +77,10 @@ pub fn draw_debug_overlay(
     mut gizmos: Gizmos,
     world: Res<RoomGeometry>,
     dev_state: Res<SandboxDevState>,
-    platform_set: Res<ambition_gameplay_core::MovingPlatformSet>,
+    platform_set: Res<ambition_actors::MovingPlatformSet>,
     developer_tools: Res<DeveloperTools>,
     room_set: Res<RoomSet>,
-    ldtk_spine_index: Res<ambition_gameplay_core::ldtk_world::LdtkRuntimeSpineIndex>,
+    ldtk_spine_index: Res<ambition_actors::ldtk_world::LdtkRuntimeSpineIndex>,
     camera_view: Res<CameraViewState>,
     mode: Res<State<GameMode>>,
     entities: Res<SceneEntities>,
@@ -93,7 +93,7 @@ pub fn draw_debug_overlay(
         (
             ae::BodyClusterQueryData,
             Option<&ambition_characters::actor::BodyHealth>,
-            &ambition_gameplay_core::player::BodyMelee,
+            &ambition_actors::player::BodyMelee,
         ),
         // The primary player never carries `FeatureSimEntity` (player vs
         // feature-sim entities are mutually exclusive — see the kinematics
@@ -102,12 +102,12 @@ pub fn draw_debug_overlay(
         // not conflict with the `bosses`/`actors` feature queries that read
         // `BodyKinematics` under `With<FeatureSimEntity>` (B0001).
         (
-            ambition_gameplay_core::actor::PrimaryPlayerOnly,
-            Without<ambition_gameplay_core::features::FeatureSimEntity>,
+            ambition_actors::actor::PrimaryPlayerOnly,
+            Without<ambition_actors::features::FeatureSimEntity>,
         ),
     >,
     feature_q: FeatureDebugQueries,
-    #[cfg(feature = "portal")] portals: Query<&ambition_gameplay_core::portal::PlacedPortal>,
+    #[cfg(feature = "portal")] portals: Query<&ambition_actors::portal::PlacedPortal>,
 ) {
     if !dev_state.debug_enabled() || !developer_tools.gizmos_enabled {
         return;
@@ -166,7 +166,7 @@ pub fn draw_debug_overlay(
         draw_moving_platform_debug(&mut gizmos, world, &platform_set.0);
     }
     let player_gravity =
-        ambition_gameplay_core::physics::gravity_dir_or_default(feature_q.gravity.as_deref());
+        ambition_actors::physics::gravity_dir_or_default(feature_q.gravity.as_deref());
     draw_player_debug(
         &mut gizmos,
         world,

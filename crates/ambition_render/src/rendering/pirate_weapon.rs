@@ -1,5 +1,5 @@
 //! Gun-sword (`lasersword_with_guns`) visual layered on top of any
-//! actor entity carrying a [`ambition_gameplay_core::features::HeldItem`] component.
+//! actor entity carrying a [`ambition_actors::features::HeldItem`] component.
 //! Mounted riders and dismounted pirates both keep the component while
 //! they still have the weapon, so this visual is item-driven rather
 //! than mount-state-driven.
@@ -29,7 +29,7 @@ use ambition_sim_view::WieldedGunSwordsView;
 pub struct PirateWeaponVisual;
 
 /// Filename of the wielded gun-sword spritesheet. Lives under
-/// `crates/ambition_gameplay_core/assets/sprites/` (installed by
+/// `crates/ambition_actors/assets/sprites/` (installed by
 /// `python3 -m ambition_sprite2d_renderer install lasersword_with_guns`).
 const WEAPON_SHEET_PATH: &str = "sprites/lasersword_with_guns_spritesheet.png";
 
@@ -192,7 +192,7 @@ mod tests {
 
     #[test]
     fn hand_offset_flips_with_facing() {
-        use ambition_gameplay_core::features::rider_hand_world_pos;
+        use ambition_actors::features::rider_hand_world_pos;
         let pos = ambition_engine_core::Vec2::new(100.0, 50.0);
         let right = rider_hand_world_pos(pos, 1.0, 78.0);
         let left = rider_hand_world_pos(pos, -1.0, 78.0);

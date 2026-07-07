@@ -21,4 +21,4 @@ Ambition should stay code-first, but it should not rebuild common infrastructure
 
 ## Crate roles
 
-`ambition_engine` should own reusable mechanics and can depend on Bevy math/geometry primitives. `ambition_gameplay_core` and future story crates should own content, data manifests, presentation, and input mappings.
+`ambition_engine` should own reusable mechanics and can depend on Bevy math/geometry primitives. `ambition_actors` and future story crates should own content, data manifests, presentation, and input mappings.

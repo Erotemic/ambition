@@ -14,7 +14,7 @@ use super::*;
 /// in morph-ball mode, etc.) and makes them flicker back to visible.
 /// UI uses `Node`/`ImageNode`, not `Sprite`, so HUD/menus are unaffected.
 pub fn apply_hide_sprites_override(
-    developer_tools: Res<ambition_gameplay_core::dev::dev_tools::DeveloperTools>,
+    developer_tools: Res<ambition_actors::dev::dev_tools::DeveloperTools>,
     mut prev_active: Local<bool>,
     mut sprites: Query<&mut Visibility, With<Sprite>>,
 ) {
@@ -36,7 +36,7 @@ pub fn apply_hide_sprites_override(
 }
 
 fn effective_hide_sprites(
-    developer_tools: &ambition_gameplay_core::dev::dev_tools::DeveloperTools,
+    developer_tools: &ambition_actors::dev::dev_tools::DeveloperTools,
 ) -> bool {
     // Placeholder art is a visible debug-art mode. If an old persisted or
     // inspector-mutated state leaves both booleans true, keep placeholders
@@ -165,7 +165,7 @@ pub struct SpriteOriginalState {
 /// falls back to the existing sprite color (kept as-is).
 pub fn apply_placeholder_sprites_override(
     mut commands: Commands,
-    developer_tools: Res<ambition_gameplay_core::dev::dev_tools::DeveloperTools>,
+    developer_tools: Res<ambition_actors::dev::dev_tools::DeveloperTools>,
     feature_views: Res<FeatureViewIndex>,
     mut sprites: Query<(
         Entity,
@@ -257,7 +257,7 @@ fn pick_placeholder_color(
 #[cfg(test)]
 mod tests {
     use super::effective_hide_sprites;
-    use ambition_gameplay_core::dev::dev_tools::{DebugArtMode, DeveloperTools};
+    use ambition_actors::dev::dev_tools::{DebugArtMode, DeveloperTools};
 
     #[test]
     fn placeholder_art_wins_over_stale_hide_flag() {

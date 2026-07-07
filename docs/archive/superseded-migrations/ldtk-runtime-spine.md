@@ -8,7 +8,7 @@ Original path: `docs/systems/ldtk-runtime-spine.md`
 
 # LDtk runtime-spine migration
 
-`ambition_gameplay_core` is moving from a custom LDtk JSON adapter toward
+`ambition_actors` is moving from a custom LDtk JSON adapter toward
 `bevy_ecs_ldtk` as the runtime spine. This file tracks promoted
 categories, the parity overlay, and what's left.
 
@@ -82,11 +82,11 @@ identifiers; the typed-component spawn handles all three so legacy
 maps with `HazardBlock` continue to register damage volumes.
 
 ```bash
-python tools/repair_ambition_ldtk.py --in-place crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
-python tools/check_ldtk_editor_roundtrip.py crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
-python tools/validate_ambition_ldtk.py crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
+python tools/repair_ambition_ldtk.py --in-place crates/ambition_actors/assets/ambition/worlds/sandbox.ldtk
+python tools/check_ldtk_editor_roundtrip.py crates/ambition_actors/assets/ambition/worlds/sandbox.ldtk
+python tools/validate_ambition_ldtk.py crates/ambition_actors/assets/ambition/worlds/sandbox.ldtk
 python tools/validate_ambition_ldtk.py \
   --schema tools/schemas/ldtk/JSON_SCHEMA.json \
   --require-schema \
-  crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk
+  crates/ambition_actors/assets/ambition/worlds/sandbox.ldtk
 ```

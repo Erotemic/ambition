@@ -50,9 +50,9 @@ from PIL import Image
 REPO_ROOT = Path(__file__).resolve().parents[1]
 LDTK_PATH = REPO_ROOT / "crates/ambition_content/assets/worlds/intro.ldtk"
 INTRO_LAB_PNG = (
-    REPO_ROOT / "crates/ambition_gameplay_core/assets/sprites/intro_lab_tileset.png"
+    REPO_ROOT / "crates/ambition_actors/assets/sprites/intro_lab_tileset.png"
 )
-TOWN_PNG = REPO_ROOT / "crates/ambition_gameplay_core/assets/sprites/town_tileset.png"
+TOWN_PNG = REPO_ROOT / "crates/ambition_actors/assets/sprites/town_tileset.png"
 
 NEW_TILE_GRID = 16
 LAYER_IDENTIFIER = "IntroLabTiles"

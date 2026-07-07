@@ -1,6 +1,6 @@
 //! Character AI vocabulary shared by enemies, hostile NPCs, and bosses.
 //!
-//! The seldom_state component vocabulary in `ambition_gameplay_core::state_machines`
+//! The seldom_state component vocabulary in `ambition_actors::state_machines`
 //! (`EnemyIdle`, `EnemyPatrol`, `EnemyTelegraph`, `EnemyAttack`,
 //! `EnemyRecover`, `EnemyStunned`, `EnemyDead`) describes the
 //! per-entity state. This module owns the *evaluation* shape — the

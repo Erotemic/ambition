@@ -21,9 +21,9 @@
 use ambition_engine_core as ae;
 use bevy::prelude::*;
 
-use ambition_gameplay_core::combat::components::ActorFaction;
-use ambition_gameplay_core::features::{SpawnActorKind, SpawnActorRequest};
-use ambition_gameplay_core::rooms::{RoomLoaded, RoomSet};
+use ambition_actors::combat::components::ActorFaction;
+use ambition_actors::features::{SpawnActorKind, SpawnActorRequest};
+use ambition_actors::rooms::{RoomLoaded, RoomSet};
 
 /// Feature id of the duel's PCA fighter.
 pub const DUEL_PCA_ID: &str = "duel_pca";
@@ -117,8 +117,8 @@ pub fn stage_duel_on_room_loaded(
 #[cfg(feature = "ui")]
 fn cmd_duel(
     player: Query<
-        &ambition_gameplay_core::actor::BodyKinematics,
-        ambition_gameplay_core::actor::PrimaryPlayerOnly,
+        &ambition_actors::actor::BodyKinematics,
+        ambition_actors::actor::PrimaryPlayerOnly,
     >,
     mut spawns: MessageWriter<SpawnActorRequest>,
 ) {
@@ -141,7 +141,7 @@ fn cmd_duel(
 pub fn install_duel_yarn_binding(
     commands: &mut Commands,
     runner: &mut bevy_yarnspinner::prelude::DialogueRunner,
-    _mirror: &ambition_gameplay_core::dialog::yarn_bindings::YarnStateMirror,
+    _mirror: &ambition_actors::dialog::yarn_bindings::YarnStateMirror,
 ) {
     let duel_id = commands.register_system(cmd_duel);
     runner.commands_mut().add_command("duel", duel_id);

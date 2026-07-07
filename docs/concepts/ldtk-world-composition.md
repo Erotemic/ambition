@@ -9,8 +9,8 @@ aliases:
   - IntGrid
   - sandbox.ldtk
 implemented_by:
-  - crates/ambition_gameplay_core/src/world/mod.rs
-  - crates/ambition_gameplay_core/src/world/ldtk_world/mod.rs
+  - crates/ambition_actors/src/world/mod.rs
+  - crates/ambition_actors/src/world/ldtk_world/mod.rs
 related_adrs:
   - docs/adr/0009-world-composition-and-ldtk-authoring.md
 related_docs:
@@ -36,5 +36,5 @@ LDtk is the current world/level authoring source. Old RON room manifests are his
 ```bash
 python -m ambition_ldtk_tools validate crates/ambition_content/assets/worlds/sandbox.ldtk
 python -m ambition_ldtk_tools repair crates/ambition_content/assets/worlds/sandbox.ldtk --in-place
-cargo test -p ambition_gameplay_core ldtk
+cargo test -p ambition_actors ldtk
 ```

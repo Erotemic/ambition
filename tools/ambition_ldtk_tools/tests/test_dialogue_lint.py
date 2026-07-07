@@ -1,7 +1,7 @@
 """Tests for the Yarn markup lint (`ambition_ldtk_tools dialogue lint`).
 
 The lint is the fast pre-flight twin of the authoritative Rust guard
-`ambition_gameplay_core::dialog_lint::no_malformed_yarn_markup_tags`; both
+`ambition_actors::dialog_lint::no_malformed_yarn_markup_tags`; both
 encode yarnspinner's open/self-close markup grammar so a bracketed stage
 direction (`[MULTIPLE VOICES]`) is caught before it panics the running game.
 """

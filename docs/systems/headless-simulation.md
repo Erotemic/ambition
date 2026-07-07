@@ -6,7 +6,7 @@ Ambition's runnable binaries live in `ambition_app`:
 - `cargo run -p ambition_app --bin ambition_game_bin -- --headless --headless-ticks 120` — visible binary's no-display fallback path.
 - `cargo run -p ambition_app --bin headless -- 120` — dedicated no-display simulation runner.
 
-`ambition_gameplay_core` is the gameplay core library used by those binaries. It
+`ambition_actors` is the gameplay core library used by those binaries. It
 is not the playable or headless package.
 
 ## Dedicated headless binary
@@ -72,7 +72,7 @@ Visible builds add that layer in addition to `SandboxSimulationPlugin`.
 cutscene state/schedule vocabulary, but it lives in the render crate today. Treat
 this as known boundary debt: it is allowed by the current source tree, but future
 cleanup should move neutral cutscene scheduling into `ambition_cutscene` or
-`ambition_gameplay_core` and leave only visual cutscene UI in `ambition_render`.
+`ambition_actors` and leave only visual cutscene UI in `ambition_render`.
 
 ## RL stepping API
 
@@ -129,7 +129,7 @@ or scripted runs that do not need the visible-binary fallback behavior.
 In a no-display development VM:
 
 ```bash
-cargo test -p ambition_gameplay_core --lib
+cargo test -p ambition_actors --lib
 cargo test -p ambition_app --test scripted_gameplay
 cargo run -p ambition_app --bin headless -- 30
 ```

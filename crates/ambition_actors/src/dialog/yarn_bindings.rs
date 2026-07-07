@@ -49,7 +49,7 @@ use ambition_persistence::save::SandboxSave;
 
 // Re-export the generic binding types from the reusable dialog crate so the
 // game bindings + content plugins keep naming
-// `ambition_gameplay_core::dialog::yarn_bindings::{...}`.
+// `ambition_actors::dialog::yarn_bindings::{...}`.
 pub use ambition_dialog::{
     clear_yarn_presentation_cue, YarnBindingInstaller, YarnContentBindings, YarnPresentationCue,
     YarnStateMirror, YarnStateMirrorData,
@@ -189,12 +189,12 @@ pub fn cmd_give_item(
     let granted = apply_give_item(&mut owned, &kind, count);
     if granted == 0 {
         warn!(
-            target: "ambition_gameplay_core::dialog::yarn",
+            target: "ambition_actors::dialog::yarn",
             "give_item: ignored kind={kind:?} count={count} (unknown item or non-positive count)",
         );
     } else {
         info!(
-            target: "ambition_gameplay_core::dialog::yarn",
+            target: "ambition_actors::dialog::yarn",
             "give_item: granted {granted}x {kind:?}",
         );
     }
@@ -212,7 +212,7 @@ pub fn cmd_buy_item(
     >,
 ) {
     let Some(item) = crate::items::Item::from_dialog_id(&id) else {
-        warn!(target: "ambition_gameplay_core::dialog::yarn", "buy_item: unknown item {id:?}");
+        warn!(target: "ambition_actors::dialog::yarn", "buy_item: unknown item {id:?}");
         return;
     };
     let Ok(mut wallet) = wallets.single_mut() else {
@@ -220,7 +220,7 @@ pub fn cmd_buy_item(
     };
     let outcome = crate::shop::buy(&mut wallet, &mut owned, item, price.max(0.0) as i32);
     info!(
-        target: "ambition_gameplay_core::dialog::yarn",
+        target: "ambition_actors::dialog::yarn",
         "buy_item: {id:?} @ {price} -> {outcome:?} (balance now {})", wallet.balance,
     );
 }
@@ -236,7 +236,7 @@ pub fn cmd_sell_item(
     >,
 ) {
     let Some(item) = crate::items::Item::from_dialog_id(&id) else {
-        warn!(target: "ambition_gameplay_core::dialog::yarn", "sell_item: unknown item {id:?}");
+        warn!(target: "ambition_actors::dialog::yarn", "sell_item: unknown item {id:?}");
         return;
     };
     let Ok(mut wallet) = wallets.single_mut() else {
@@ -244,7 +244,7 @@ pub fn cmd_sell_item(
     };
     let outcome = crate::shop::sell(&mut wallet, &mut owned, item, price.max(0.0) as i32);
     info!(
-        target: "ambition_gameplay_core::dialog::yarn",
+        target: "ambition_actors::dialog::yarn",
         "sell_item: {id:?} @ {price} -> {outcome:?} (balance now {})", wallet.balance,
     );
 }
@@ -271,7 +271,7 @@ fn apply_give_item(owned: &mut crate::items::OwnedItems, kind: &str, count: f32)
 /// data, not by dialogue. Wire when needed.
 pub fn cmd_spawn_chest(In(id): In<String>) {
     info!(
-        target: "ambition_gameplay_core::dialog::yarn",
+        target: "ambition_actors::dialog::yarn",
         "spawn_chest: id={id} (stub; chest spawn consumer pending)",
     );
 }
@@ -306,7 +306,7 @@ pub fn cmd_spawn_fireworks(
 /// resource lands.
 pub fn cmd_camera_zoom(In(factor): In<f32>) {
     info!(
-        target: "ambition_gameplay_core::dialog::yarn",
+        target: "ambition_actors::dialog::yarn",
         "camera_zoom: factor={factor:.2} (stub; cinematic zoom consumer pending)",
     );
 }

@@ -8,7 +8,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::data::MusicRegistry;
-use ambition_gameplay_core::ldtk_world::{field_string, LdtkProject};
+use ambition_actors::ldtk_world::{field_string, LdtkProject};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ContentValidationReport {
@@ -327,7 +327,7 @@ fn validate_quest_conditions(
         .map(|track| track.id.as_str())
         .collect::<BTreeSet<_>>();
 
-    let loaded_encounters = ambition_gameplay_core::encounter::load_encounter_specs_from_ldtk(
+    let loaded_encounters = ambition_actors::encounter::load_encounter_specs_from_ldtk(
         project,
         &ambition_persistence::save_data::SandboxSaveData::default(),
     );
@@ -408,7 +408,7 @@ fn validate_boss_music_tracks(music: &MusicRegistry, report: &mut ContentValidat
         .iter()
         .map(|track| track.id.as_str())
         .collect::<BTreeSet<_>>();
-    for spec in ambition_gameplay_core::boss_encounter::default_boss_specs() {
+    for spec in ambition_actors::boss_encounter::default_boss_specs() {
         for (field, track) in [
             ("music_intro", spec.music_intro.as_str()),
             ("music_phase1", spec.music_phase1.as_str()),
@@ -471,7 +471,9 @@ fn authored_boss_encounter_ids(project: &LdtkProject) -> BTreeSet<String> {
                     .map(|name| name.trim().to_string())
                     .filter(|name| !name.is_empty())
                     .unwrap_or_else(|| entity.iid.clone());
-                ids.insert(ambition_gameplay_core::boss_encounter::encounter_id_from_name(&name));
+                ids.insert(ambition_actors::boss_encounter::encounter_id_from_name(
+                    &name,
+                ));
             }
         }
     }
@@ -520,9 +522,9 @@ fn authored_flag_ids(project: &LdtkProject) -> BTreeSet<String> {
                     .filter(|id| !id.is_empty())
                     .unwrap_or_else(|| level.active_area());
                 flags.insert(format!("encounter_{encounter_id}_reward_dropped"));
-                flags.insert(
-                    ambition_gameplay_core::encounter::encounter_reward_looted_flag(&encounter_id),
-                );
+                flags.insert(ambition_actors::encounter::encounter_reward_looted_flag(
+                    &encounter_id,
+                ));
             }
             if entity.identifier == "Switch" {
                 if let Some(id) = field_string(entity, "id") {
@@ -550,7 +552,9 @@ fn authored_flag_ids(project: &LdtkProject) -> BTreeSet<String> {
     }
     for boss in authored_boss_encounter_ids(project) {
         flags.insert(format!("encounter_{boss}_reward_dropped"));
-        flags.insert(ambition_gameplay_core::encounter::encounter_reward_looted_flag(&boss));
+        flags.insert(ambition_actors::encounter::encounter_reward_looted_flag(
+            &boss,
+        ));
     }
     flags
 }

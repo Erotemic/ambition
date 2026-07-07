@@ -28,7 +28,7 @@
 //! headless runs it too (the E5 step-5 ruling; see decomposition.md).
 //!
 //! The host MAY dep `ambition_render` / `ambition_input` / `leafwing-input-
-//! manager` / `ambition_gameplay_core`; it must NEVER dep `ambition_content`
+//! manager` / `ambition_actors`; it must NEVER dep `ambition_content`
 //! (enforced by `tests/host_names_no_content.rs`).
 
 use bevy::app::{App, Plugin, PluginGroup, PluginGroupBuilder};
@@ -36,7 +36,7 @@ use bevy::prelude::*;
 
 // Only the input bridge + portal continuity order against the sandbox phases.
 #[cfg(any(feature = "input", feature = "portal_render"))]
-use ambition_gameplay_core::schedule::SandboxSet;
+use ambition_actors::schedule::SandboxSet;
 
 /// The windowed-host plugin group (see the crate docs).
 pub struct PlatformerHostPlugins;
@@ -62,8 +62,8 @@ pub struct HostInputBindingsPlugin;
 #[cfg(feature = "input")]
 impl Plugin for HostInputBindingsPlugin {
     fn build(&self, app: &mut App) {
-        use ambition_gameplay_core::dialog;
-        use ambition_gameplay_core::schedule::{
+        use ambition_actors::dialog;
+        use ambition_actors::schedule::{
             apply_menu_frame_to_cutscene_request, attach_player_input_components,
             populate_control_frame_from_actions, populate_menu_control_frame_from_actions,
             toggle_player_trail_emission_from_actions, SimulationSetupSet,
@@ -152,7 +152,7 @@ impl Plugin for HostCameraPlugin {
         app.add_systems(
             Update,
             (
-                ambition_gameplay_core::time::camera_ease::tick_camera_shake,
+                ambition_actors::time::camera_ease::tick_camera_shake,
                 camera_follow,
             )
                 .chain()
@@ -166,18 +166,18 @@ impl Plugin for HostCameraPlugin {
         // toggles, gun art) — sim-owned plugin, host-added (E4 slice 20).
         #[cfg(feature = "portal_render")]
         {
-            app.add_plugins(ambition_gameplay_core::portal::PortalObservationPlugin);
+            app.add_plugins(ambition_actors::portal::PortalObservationPlugin);
             app.add_systems(
                 Update,
                 (
-                    ambition_gameplay_core::portal::apply_portal_camera_continuity
+                    ambition_actors::portal::apply_portal_camera_continuity
                         .after(SandboxSet::CoreSimulation)
-                        .after(ambition_gameplay_core::portal::sync_portal_camera_continuity_focus)
+                        .after(ambition_actors::portal::sync_portal_camera_continuity_focus)
                         .before(camera_follow),
                     // Same-frame pad into the sim resolve (E4-17): after the
                     // continuity update, before the observation resolves.
                     ambition_render::rendering::publish_portal_camera_clamp
-                        .after(ambition_gameplay_core::portal::apply_portal_camera_continuity)
+                        .after(ambition_actors::portal::apply_portal_camera_continuity)
                         .before(ambition_sim_view::camera_snapshot::resolve_camera_observation),
                 ),
             );
@@ -185,8 +185,7 @@ impl Plugin for HostCameraPlugin {
             // `.after(this system)` (the Ambition debug overlay does).
             app.add_systems(
                 Update,
-                ambition_gameplay_core::portal::tag_portal_camera_continuity_camera
-                    .after(camera_follow),
+                ambition_actors::portal::tag_portal_camera_continuity_camera.after(camera_follow),
             );
         }
     }

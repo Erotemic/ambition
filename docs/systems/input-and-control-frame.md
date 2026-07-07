@@ -27,10 +27,10 @@ player brain, movement, attacks, dash, blink, menus, map, settings
 Important paths:
 
 - `crates/ambition_input/src/` — action vocabulary, control-frame normalization, keyboard/controller presets, menu input, and input tests.
-- `crates/ambition_gameplay_core/src/schedule/input_systems.rs` — gameplay-core systems that collect and sync local input into simulation frames; app-level host composition lives under `crates/ambition_app/src/app/`.
+- `crates/ambition_actors/src/schedule/input_systems.rs` — gameplay-core systems that collect and sync local input into simulation frames; app-level host composition lives under `crates/ambition_app/src/app/`.
 - `crates/ambition_app/src/host/mobile_input/` — touch layout and touch-to-control/menu bridge.
 - `crates/ambition_input/src/settings.rs` — persisted control settings, deadzones, trigger thresholds, dash-repeat policy, and controller profile defaults.
-- `crates/ambition_gameplay_core/src/player/components/mod.rs::PlayerInputFrame` — per-player input snapshot. The global `Res<ControlFrame>` is still the local primary-player source; `sync_local_player_input_frame` mirrors it onto the component each tick so actor systems can read per-entity input.
+- `crates/ambition_actors/src/player/components/mod.rs::PlayerInputFrame` — per-player input snapshot. The global `Res<ControlFrame>` is still the local primary-player source; `sync_local_player_input_frame` mirrors it onto the component each tick so actor systems can read per-entity input.
 
 ## Reader rules
 
@@ -51,7 +51,7 @@ Important paths:
 
 ```bash
 cargo test -p ambition_input
-cargo test -p ambition_gameplay_core input
+cargo test -p ambition_actors input
 cargo test -p ambition_app mobile_input
 ```
 

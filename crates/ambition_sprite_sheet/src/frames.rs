@@ -15,7 +15,7 @@
 //! Everything here is pure integer / `glam` geometry — no Bevy `TextureAtlasLayout`
 //! (that's a render-feature type), so this crate stays headless-reusable. A
 //! consumer turns an [`AtlasPage`]'s `rects` into a `TextureAtlasLayout` with a
-//! three-line loop (see `ambition_gameplay_core`'s `build_atlas_layout`).
+//! three-line loop (see `ambition_actors`'s `build_atlas_layout`).
 //!
 //! The key contract: [`SheetRecord::atlas_page`] and
 //! [`SheetRecord::flat_index_in_page`] walk rows in the SAME order and assign

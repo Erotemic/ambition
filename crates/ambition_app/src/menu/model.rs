@@ -1,7 +1,7 @@
 //! The data seam between Ambition's live 24-item inventory and the reusable
 //! `ambition_menu` 3D-cube OoT pause menu (#31).
 //!
-//! The game owns the item state (`ambition_gameplay_core::items`); this module builds the cube's
+//! The game owns the item state (`ambition_actors::items`); this module builds the cube's
 //! page MODELS from it via the lib's host-data seam (`ItemsOnlyPageSpec`, which is
 //! deliberately renderer-agnostic — it can feed the Lunex cube, a Bevy-UI grid
 //! fallback, or a test renderer). The cube RENDERER itself is the shared lib.
@@ -30,8 +30,8 @@ use ambition_menu::{
     MenuTextAlign,
 };
 
-use ambition_gameplay_core::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
-use ambition_gameplay_core::persistence::settings::{
+use ambition_actors::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
+use ambition_actors::persistence::settings::{
     DevSnapshot, RadioSnapshot, SettingsOption, SettingsOptionId, SettingsOptionKind,
     SystemMenuAction, SystemMenuEntryId, SystemMenuModel, SystemMenuTarget, SystemOptionId,
     UserSettings, VisualQualityProfile,
@@ -207,7 +207,7 @@ impl MenuFocus {
     /// report slot 0 so callers always have a valid item to describe.
     pub fn item_index(self) -> usize {
         match self {
-            MenuFocus::Item(idx) => idx.min(ambition_gameplay_core::items::ITEM_COUNT - 1),
+            MenuFocus::Item(idx) => idx.min(ambition_actors::items::ITEM_COUNT - 1),
             _ => 0,
         }
     }

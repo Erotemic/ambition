@@ -1,16 +1,16 @@
 use bevy::prelude::*;
 use bevy_ecs_ldtk::prelude::{IntGridRendering, LdtkSettings, LevelBackground};
 
-use ambition_content::content_validation;
-use ambition_engine_core::RoomGeometry;
-use ambition_gameplay_core::dev::dev_tools::{
+use ambition_actors::dev::dev_tools::{
     DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
 };
-use ambition_gameplay_core::ldtk_world;
-use ambition_gameplay_core::rooms;
-use ambition_gameplay_core::session::data;
-use ambition_gameplay_core::time::feel::SandboxFeelTuning;
-use ambition_gameplay_core::world::physics;
+use ambition_actors::ldtk_world;
+use ambition_actors::rooms;
+use ambition_actors::session::data;
+use ambition_actors::time::feel::SandboxFeelTuning;
+use ambition_actors::world::physics;
+use ambition_content::content_validation;
+use ambition_engine_core::RoomGeometry;
 use ambition_input::ControlFrame;
 
 use super::cli::cli_start_room_arg;
@@ -61,23 +61,22 @@ pub fn init_sandbox_resources(app: &mut App) {
     // catalog.
     let asset_config = app
         .world()
-        .get_resource::<ambition_gameplay_core::assets::game_assets::GameAssetConfig>()
+        .get_resource::<ambition_actors::assets::game_assets::GameAssetConfig>()
         .cloned()
         .unwrap_or_default();
-    let sandbox_catalog =
-        ambition_gameplay_core::assets::sandbox_assets::build_sandbox_catalog_with(
-            &asset_config,
-            &music_registry,
-            |manifest| {
-                ambition_content::intro::sprites::extend_with_intro_sprite_entries(
-                    manifest,
-                    &asset_config.sprite_folder,
-                );
-            },
-        );
+    let sandbox_catalog = ambition_actors::assets::sandbox_assets::build_sandbox_catalog_with(
+        &asset_config,
+        &music_registry,
+        |manifest| {
+            ambition_content::intro::sprites::extend_with_intro_sprite_entries(
+                manifest,
+                &asset_config.sprite_folder,
+            );
+        },
+    );
     #[cfg(feature = "audio")]
     let sfx_bank_asset_path = sandbox_catalog
-        .path_for(&ambition_gameplay_core::assets::sandbox_assets::ids::sfx_bank())
+        .path_for(&ambition_actors::assets::sandbox_assets::ids::sfx_bank())
         .map(ambition_audio::SfxBankAssetPath);
 
     let ldtk_project = match ldtk_world::LdtkProject::load_default(&sandbox_catalog) {
@@ -186,7 +185,7 @@ pub fn init_sandbox_resources(app: &mut App) {
         // state. Headless SandboxSim runs quest reward systems (which grant into
         // OwnedItems) without loading `add_presentation_plugins`, so the resource
         // must exist before the first Update tick.
-        .insert_resource(ambition_gameplay_core::items::OwnedItems::starter())
+        .insert_resource(ambition_actors::items::OwnedItems::starter())
         .insert_resource(editable_abilities)
         .insert_resource(editable_tuning)
         // Sim/presentation seam for input (ADR 0012): the sim reads

@@ -3,10 +3,10 @@
 What authored `.yarn` content can invoke at runtime. This is the
 author-facing companion to [ADR 0008](../adr/0008-dialogue-and-commerce-architecture.md);
 the implementation (and the single source of truth) is
-[`crates/ambition_gameplay_core/src/dialog/yarn_bindings.rs`](../../crates/ambition_gameplay_core/src/dialog/yarn_bindings.rs).
+[`crates/ambition_actors/src/dialog/yarn_bindings.rs`](../../crates/ambition_actors/src/dialog/yarn_bindings.rs).
 Keep this table in sync when you add or change a binding.
 
-`.yarn` files live under `crates/ambition_gameplay_core/assets/dialogue/`.
+`.yarn` files live under `crates/ambition_actors/assets/dialogue/`.
 The `kernel.yarn` "test menu" exercises most of these verbs live, so
 it doubles as a worked example.
 

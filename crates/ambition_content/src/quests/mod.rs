@@ -24,12 +24,12 @@ impl Plugin for AmbitionQuestContentPlugin {
         app.add_systems(
             Update,
             crate::quest::grant_quest_completion_rewards
-                .in_set(ambition_gameplay_core::boss_encounter::ContentQuestRewardSet),
+                .in_set(ambition_actors::boss_encounter::ContentQuestRewardSet),
         );
         app.add_systems(
             Update,
             crate::quest::populate_quest_registry
-                .in_set(ambition_gameplay_core::schedule::SandboxSet::Progression),
+                .in_set(ambition_actors::schedule::SandboxSet::Progression),
         );
     }
 }

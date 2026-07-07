@@ -1,6 +1,6 @@
 //! THE Ambition enemy roster — the named, authored enemy DATA.
 //!
-//! The machinery lib (`ambition_gameplay_core`) owns the generic spawn pipeline and
+//! The machinery lib (`ambition_actors`) owns the generic spawn pipeline and
 //! the `CharacterArchetypeSpec` schema, but the actual roster (which enemies exist,
 //! their HP / speeds / brain template / weapons) is named game content and
 //! lives here. The brain-keyed RON is installed into the lib's `CharacterRoster`
@@ -11,7 +11,7 @@
 //! the ordering is structural: resolution can never observe the lib's
 //! standalone fallback in a content build.
 
-use ambition_gameplay_core::features::{install_enemy_roster, CharacterRoster};
+use ambition_actors::features::{install_enemy_roster, CharacterRoster};
 
 /// The authored enemy roster, embedded at compile time. Top-level keys are the
 /// spawn brain keys a `LoadingZone` / encounter authors as `Brain::Custom("…")`;

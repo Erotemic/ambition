@@ -4,11 +4,11 @@
 
 use bevy::prelude::{Query, ResMut, Resource};
 
-use ambition_engine_core as ae;
-use ambition_engine_core::AabbExt;
-use ambition_gameplay_core::features::{
+use ambition_actors::features::{
     boss_anim_state_for, ActorConfig, ActorStatus, BodyKinematics, BodyMelee, FeatureId,
 };
+use ambition_engine_core as ae;
+use ambition_engine_core::AabbExt;
 
 /// Read-only query of the unified actor cluster every actor (was-NPC, was-enemy,
 /// encounter mob, mount/rider) carries — the SAME `Body*` movement/ability
@@ -16,7 +16,7 @@ use ambition_gameplay_core::features::{
 /// declare `Query<ActorSpriteData>`; the helpers take `&Query<ActorSpriteData>`.
 ///
 /// All fields are required (not `Option`): every spawned actor carries the full
-/// [`ambition_gameplay_core::actor::AncillaryMovementBundle`] (the same bundle the player nests)
+/// [`ambition_actors::actor::AncillaryMovementBundle`] (the same bundle the player nests)
 /// plus `ActorStatus` / `ActorConfig` / `BodyMelee`, so an entity that is missing
 /// any of them — a boss (its own cluster + anim path) or a prop — correctly does
 /// not match and is skipped, instead of half-resolving from a sparse read. This
@@ -31,22 +31,22 @@ pub struct ActorSpriteData {
     pub combat: &'static ambition_characters::actor::BodyCombat,
     pub config: &'static ActorConfig,
     pub attack: &'static BodyMelee,
-    pub ground: &'static ambition_gameplay_core::actor::BodyGroundState,
-    pub wall: &'static ambition_gameplay_core::actor::BodyWallState,
-    pub blink: &'static ambition_gameplay_core::actor::BodyBlinkState,
-    pub flight: &'static ambition_gameplay_core::actor::BodyFlightState,
-    pub dash: &'static ambition_gameplay_core::actor::BodyDashState,
-    pub ledge: &'static ambition_gameplay_core::actor::BodyLedgeState,
-    pub body_mode: &'static ambition_gameplay_core::actor::BodyModeState,
-    pub env_contact: &'static ambition_gameplay_core::actor::BodyEnvironmentContact,
-    pub abilities: &'static ambition_gameplay_core::actor::BodyAbilities,
-    pub dodge: &'static ambition_gameplay_core::actor::BodyDodgeState,
-    pub shield: &'static ambition_gameplay_core::actor::BodyShieldState,
+    pub ground: &'static ambition_actors::actor::BodyGroundState,
+    pub wall: &'static ambition_actors::actor::BodyWallState,
+    pub blink: &'static ambition_actors::actor::BodyBlinkState,
+    pub flight: &'static ambition_actors::actor::BodyFlightState,
+    pub dash: &'static ambition_actors::actor::BodyDashState,
+    pub ledge: &'static ambition_actors::actor::BodyLedgeState,
+    pub body_mode: &'static ambition_actors::actor::BodyModeState,
+    pub env_contact: &'static ambition_actors::actor::BodyEnvironmentContact,
+    pub abilities: &'static ambition_actors::actor::BodyAbilities,
+    pub dodge: &'static ambition_actors::actor::BodyDodgeState,
+    pub shield: &'static ambition_actors::actor::BodyShieldState,
     /// Movement-driven presentation overlays (wall-jump / dash-startup / landing /
     /// shoot poses), shared with the player. `Option` so an actor spawned without
     /// the component (a legacy / bespoke path) still animates its base ladder —
     /// it just shows no overlays (fable review §A9).
-    pub anim: Option<&'static ambition_gameplay_core::player::BodyAnimFacts>,
+    pub anim: Option<&'static ambition_actors::player::BodyAnimFacts>,
 }
 
 /// One actor's resolved animation frame for the renderer: the chosen anim plus
@@ -55,7 +55,7 @@ pub struct ActorSpriteData {
 /// is mid-swing (for the warm outgoing-attack tint).
 #[derive(Clone, Copy, Debug)]
 pub struct ActorAnimFrame {
-    pub anim: ambition_gameplay_core::character_sprites::CharacterAnim,
+    pub anim: ambition_actors::character_sprites::CharacterAnim,
     pub pos: ae::Vec2,
     pub facing: f32,
     pub attacking: bool,
@@ -116,7 +116,7 @@ impl ActorAnimIndex {
 
 /// Resolve EVERY brain-driven actor's animation frame from its REAL ECS clusters
 /// — the SAME `Body*` movement/ability clusters, and the SAME picker, the player
-/// uses ([`ambition_gameplay_core::character_sprites::pick_actor_anim`] → `body_view_from_clusters`).
+/// uses ([`ambition_actors::character_sprites::pick_actor_anim`] → `body_view_from_clusters`).
 /// One path, disposition-agnostic: an enemy and an NPC animate from identical
 /// reads. Whatever a brain (or an LLM) drives the actor's clusters into — a dash,
 /// a blink, flight, a shield, a ladder climb, a wall-grab, a dodge-roll, a
@@ -127,7 +127,7 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
     index.begin_rebuild();
     for a in &actors {
         let attacking = a.attack.is_active() || a.attack.is_winding_up();
-        let anim = ambition_gameplay_core::character_sprites::pick_actor_anim(
+        let anim = ambition_actors::character_sprites::pick_actor_anim(
             a.kin,
             a.ground,
             a.wall,
@@ -141,7 +141,7 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
             a.dodge,
             a.shield,
             a.attack.swing.as_ref(),
-            ambition_gameplay_core::character_sprites::ActorAnimState {
+            ambition_actors::character_sprites::ActorAnimState {
                 alive: a.health.alive(),
                 hit_flash: a.combat.hit_flash > 0.0,
                 // Gravity-free FLIGHT archetype (parrot / shark): the locomotion
@@ -196,7 +196,7 @@ pub struct BossFrameIndex {
 
 #[derive(Clone, Copy, Debug)]
 pub struct BossFrameView {
-    pub anim: ambition_gameplay_core::boss_encounter::sprites::BossAnimState,
+    pub anim: ambition_actors::boss_encounter::sprites::BossAnimState,
     /// The boss's combat AABB (debug health bars anchor here).
     pub aabb: ae::Aabb,
     pub hazard_lane: Option<HazardLaneFact>,
@@ -248,7 +248,7 @@ pub fn rebuild_boss_frame_index(
     mut index: ResMut<BossFrameIndex>,
     bosses: Query<(
         &FeatureId,
-        ambition_gameplay_core::features::BossClusterRef,
+        ambition_actors::features::BossClusterRef,
         &ambition_characters::actor::BodyHealth,
         &ambition_characters::actor::BodyCombat,
         &ambition_characters::brain::BossAttackState,
@@ -272,7 +272,7 @@ pub fn rebuild_boss_frame_index(
         );
         let hazard_lane = if health.alive() && (in_telegraph || in_strike) {
             let boss = feature.as_boss_ref();
-            ambition_gameplay_core::features::volumes_for_profile(
+            ambition_actors::features::volumes_for_profile(
                 &BossAttackProfile::Strike("hazard_column".to_string()),
                 boss.kin.pos,
                 boss.combat_size(),

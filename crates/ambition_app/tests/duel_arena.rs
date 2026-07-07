@@ -21,14 +21,14 @@
 
 #![cfg(feature = "rl_sim")]
 
+use ambition_actors::actor::{
+    BodyAbilities, BodyBlinkState, BodyDashState, BodyFlightState, BodyKinematics, BodyShieldState,
+};
+use ambition_actors::features::FeatureId;
 use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions, TimestepMode};
 use ambition_characters::actor::BodyHealth;
 use ambition_characters::brain::ActorControl;
 use ambition_content::duel_arena::{DUEL_PCA_ID, DUEL_ROBOT_ID};
-use ambition_gameplay_core::actor::{
-    BodyAbilities, BodyBlinkState, BodyDashState, BodyFlightState, BodyKinematics, BodyShieldState,
-};
-use ambition_gameplay_core::features::FeatureId;
 use bevy::prelude::World;
 
 /// Per-fighter behavior tally accumulated over the bout, plus spatial extent and
@@ -187,7 +187,7 @@ fn observe_abilities(world: &mut World, id: &str, log: &mut AbilityLog) {
 /// bodies in place.
 #[test]
 fn resetting_the_room_restages_the_duel_fighters_fresh() {
-    use ambition_gameplay_core::actor::BodyKinematics as Kin;
+    use ambition_actors::actor::BodyKinematics as Kin;
     let mut sim = SandboxSim::new_with_options(
         SandboxSimOptions::default()
             .with_timestep(TimestepMode::fixed_60hz())

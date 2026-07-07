@@ -13,7 +13,7 @@
   "tilesets": [
     {
       "identifier": "sprite_player_robot",
-      "path": "crates/ambition_gameplay_core/assets/sprites/player_robot_spritesheet.png",
+      "path": "crates/ambition_actors/assets/sprites/player_robot_spritesheet.png",
       "tags": [
         "sprite"
       ],

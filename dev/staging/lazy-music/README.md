@@ -53,12 +53,12 @@ Mechanical, in order:
 
 1. Re-port the staged idea to `crates/ambition_audio/src/library.rs`.
 2. Apply the surgical edits in `changes.md` to:
-   - `crates/ambition_gameplay_core/src/audio/tests.rs`
-   - `crates/ambition_gameplay_core/src/music/director.rs`
-   - `crates/ambition_gameplay_core/src/pause_menu.rs`
+   - `crates/ambition_actors/src/audio/tests.rs`
+   - `crates/ambition_actors/src/music/director.rs`
+   - `crates/ambition_actors/src/pause_menu.rs`
    (`audio.rs`'s re-exports list and `setup.rs` need NO changes.)
-3. `cd crates/ambition_gameplay_core && cargo check --features audio,input`.
-4. Run the audio tests: `cargo test -p ambition_gameplay_core --features audio
+3. `cd crates/ambition_actors && cargo check --features audio,input`.
+4. Run the audio tests: `cargo test -p ambition_actors --features audio
    --lib audio::`.
 5. Smoke-test in the sandbox: confirm music starts on boot and that
    switching radio tracks still works.

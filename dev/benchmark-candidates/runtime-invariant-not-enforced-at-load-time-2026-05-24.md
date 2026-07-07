@@ -145,7 +145,7 @@ Without seeing the panic, the agent has to know:
 ## Validation
 
 ```bash
-~/.cargo/bin/cargo test -p ambition_gameplay_core --lib \
+~/.cargo/bin/cargo test -p ambition_actors --lib \
     every_catalog_sprite_spec_has_idle_row_if_loaded
 ```
 

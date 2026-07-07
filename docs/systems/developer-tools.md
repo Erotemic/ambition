@@ -120,7 +120,7 @@ still discovering the right feel for Ambition.
 ## Notes
 
 Changes made through the inspector are runtime-only. The current persistent data
-source is still `crates/ambition_gameplay_core/assets/ambition/sandbox.ron`. Once a
+source is still `crates/ambition_actors/assets/ambition/sandbox.ron`. Once a
 tuned value feels good, copy it back to the RON manifest or promote it to a more
 formal editor/save workflow later.
 

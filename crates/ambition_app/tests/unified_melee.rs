@@ -20,10 +20,10 @@
 
 #![cfg(feature = "rl_sim")]
 
+use ambition_actors::actor::{BodyKinematics, PrimaryPlayerOnly};
+use ambition_actors::features::{BodyMelee, FeatureId, Hitbox};
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use ambition_entity_catalog::placements::CharacterBrain;
-use ambition_gameplay_core::actor::{BodyKinematics, PrimaryPlayerOnly};
-use ambition_gameplay_core::features::{BodyMelee, FeatureId, Hitbox};
 use bevy::prelude::{Entity, World};
 
 fn player_entity(world: &mut World) -> Entity {

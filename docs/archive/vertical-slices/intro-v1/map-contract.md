@@ -11,7 +11,7 @@ contract whenever a room is resized, renamed, or rewired.
 
 ## 1. Current intro room list (post-Task 08)
 
-Live JSON inspection (`crates/ambition_gameplay_core/assets/ambition/worlds/intro.ldtk`):
+Live JSON inspection (`crates/ambition_actors/assets/ambition/worlds/intro.ldtk`):
 
 ```text
 intro_wake_room          1024 x 384    world (0,        0)     biome=lab
@@ -229,7 +229,7 @@ Existing code surfaces (so Task 04 / Task 08 can wire to them rather than
 inventing parallel systems):
 
 ```text
-crates/ambition_gameplay_core/src/map_menu/model.rs
+crates/ambition_actors/src/map_menu/model.rs
   MapMenuState resource (open, minimap_enabled, visited:BTreeSet<String>,
                         rooms:Vec<MapRoomNode>, zoom).
   Auto-fills visited via push_room_entered_quest_events on RoomEntered.
@@ -272,25 +272,25 @@ choose the lightest mechanism that lets the slice ship.
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools list-metadata \
-  --ldtk crates/ambition_gameplay_core/assets/ambition/worlds/intro.ldtk
+  --ldtk crates/ambition_actors/assets/ambition/worlds/intro.ldtk
 # OK — prints biome/music per area.
 
 PYTHONPATH=tools/ambition_ldtk_tools python3 -m ambition_ldtk_tools doctor \
-  crates/ambition_gameplay_core/assets/ambition/worlds/intro.ldtk
+  crates/ambition_actors/assets/ambition/worlds/intro.ldtk
 # Fails (4 errors): LoadingZones in intro_wake_room and gate_stack_lower
 # target central_hub_complex which lives in sandbox.ldtk. doctor does not
 # accept --secondary-world.
 
 PYTHONPATH=tools/ambition_ldtk_tools python3 \
   tools/ambition_ldtk_tools/ambition_ldtk_tools/validate.py \
-  --secondary-world crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \
-  crates/ambition_gameplay_core/assets/ambition/worlds/intro.ldtk
+  --secondary-world crates/ambition_actors/assets/ambition/worlds/sandbox.ldtk \
+  crates/ambition_actors/assets/ambition/worlds/intro.ldtk
 # OK: 0 warnings. This is the correct validation incantation for intro.ldtk
 # whenever a LoadingZone crosses into central_hub_complex.
 ```
 
-`cargo fmt --check` / `cargo test -p ambition_gameplay_core --lib` / `cargo run
--p ambition_gameplay_core --bin headless` were not run as part of this task (no
+`cargo fmt --check` / `cargo test -p ambition_actors --lib` / `cargo run
+-p ambition_actors --bin headless` were not run as part of this task (no
 code edits). Task 02 should run them after the shaft rewrite.
 
 ## 10. Known tooling blockers / gotchas
@@ -307,7 +307,7 @@ code edits). Task 02 should run them after the shaft rewrite.
   Until that is fixed, always validate intro.ldtk with the explicit
   `validate.py --secondary-world ... sandbox.ldtk` form documented above.
 - `area create --dry-run` is supported on individual area YAMLs; pass
-  `--ldtk crates/ambition_gameplay_core/assets/ambition/worlds/intro.ldtk` so the
+  `--ldtk crates/ambition_actors/assets/ambition/worlds/intro.ldtk` so the
   add lands in the intro world, NOT in sandbox.ldtk (which is the CLI
   default).
 - `intro_escape_shaft_area.yaml` ships with `world_x: 104000` while the live
@@ -345,9 +345,9 @@ Concrete starting points for `task-02-vertical-escape-shaft.md`:
 4. Fix the spec drift on `intro_escape_shaft_area.yaml`: either update
    world_x/world_y to match the live position (2624, 0) before reshaping,
    or rewrite the spec from scratch as the source of truth and re-apply it
-   to intro.ldtk with `--ldtk crates/ambition_gameplay_core/assets/ambition/worlds/intro.ldtk`.
+   to intro.ldtk with `--ldtk crates/ambition_actors/assets/ambition/worlds/intro.ldtk`.
 5. After the shape lands, re-run the section-9 validate command and a quick
-   `cargo run -p ambition_gameplay_core --bin headless` smoke check. Update this
+   `cargo run -p ambition_actors --bin headless` smoke check. Update this
    contract's section 1 with the new pxWid/pxHei and update section 5's
    ownership note.
 

@@ -83,9 +83,9 @@ When adding a new enemy, boss behavior, or actor-controlled mechanic:
 ## Validation anchors
 
 ```bash
-cargo test -p ambition_gameplay_core --lib character_ai
-cargo test -p ambition_gameplay_core --lib actor_control
-cargo test -p ambition_gameplay_core --lib brain::
-cargo test -p ambition_gameplay_core --lib features::ecs::brain_effects
+cargo test -p ambition_actors --lib character_ai
+cargo test -p ambition_actors --lib actor_control
+cargo test -p ambition_actors --lib brain::
+cargo test -p ambition_actors --lib features::ecs::brain_effects
 cargo run -p ambition_app --bin headless -- 30
 ```

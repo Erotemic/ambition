@@ -1,8 +1,8 @@
 //! Ambition bridge: portal-owned carves → the host collision overlay.
 //!
-//! Portal core's [`publish_portal_carves`](ambition_gameplay_core::portal::publish_portal_carves)
+//! Portal core's [`publish_portal_carves`](ambition_actors::portal::publish_portal_carves)
 //! writes the aperture geometry into the portal-owned
-//! [`PortalCarves`](ambition_gameplay_core::portal::PortalCarves) resource. Portal core never
+//! [`PortalCarves`](ambition_actors::portal::PortalCarves) resource. Portal core never
 //! names `FeatureEcsWorldOverlay` — it owns the carve *geometry*, while Ambition
 //! owns how a carve alters its collision representation. This bridge copies the
 //! published carves into `FeatureEcsWorldOverlay.portal_carves` each frame,
@@ -11,12 +11,10 @@
 
 use bevy::prelude::*;
 
+use ambition_actors::features::FeatureEcsWorldOverlay;
+use ambition_actors::portal::{measure_host_depth, PlacedPortal, PortalCarves, PortalHostDepths};
 use ambition_engine_core::cast::SolidWorldQuery;
 use ambition_engine_core::RoomGeometry;
-use ambition_gameplay_core::features::FeatureEcsWorldOverlay;
-use ambition_gameplay_core::portal::{
-    measure_host_depth, PlacedPortal, PortalCarves, PortalHostDepths,
-};
 
 /// Copy this frame's portal-owned carves into the host collision overlay.
 ///
@@ -58,7 +56,7 @@ pub fn sync_portal_host_depths(
         let depth = measure_host_depth(
             &solids,
             &portal.frame(),
-            ambition_gameplay_core::portal::pieces::CARVE_DEPTH,
+            ambition_actors::portal::pieces::CARVE_DEPTH,
         );
         depths.0.push((portal.channel, depth));
     }

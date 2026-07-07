@@ -19,18 +19,18 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition_app::{AgentAction, SandboxSim, TimestepMode};
-use ambition_entity_catalog::placements::BossBrain;
-use ambition_gameplay_core::actor::{BodyKinematics, PrimaryPlayerOnly};
-use ambition_gameplay_core::boss_encounter::{
+use ambition_actors::actor::{BodyKinematics, PrimaryPlayerOnly};
+use ambition_actors::boss_encounter::{
     BossEncounterPhase, EncounterBeat, EncounterDef, EncounterEffect, EncounterGate,
     EncounterScript, EncounterTrigger,
 };
-use ambition_gameplay_core::encounter::BossEncounterMusicRequest;
-use ambition_gameplay_core::features::ecs::boss_clusters::{BossConfig, BossEncounter};
-use ambition_gameplay_core::features::{
+use ambition_actors::encounter::BossEncounterMusicRequest;
+use ambition_actors::features::ecs::boss_clusters::{BossConfig, BossEncounter};
+use ambition_actors::features::{
     BossOverrides, BossRewardChest, ResetRoomFeaturesEvent, RoomResetReason,
 };
+use ambition_app::{AgentAction, SandboxSim, TimestepMode};
+use ambition_entity_catalog::placements::BossBrain;
 use ambition_persistence::save::SandboxSave;
 use ambition_persistence::save_data::PersistedEncounterState;
 use bevy::prelude::World;

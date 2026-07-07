@@ -36,8 +36,8 @@ use crate::AssetProfile;
 ///
 /// `<include_bytes_path>` is interpreted relative to *this* source
 /// file (`assets/sandbox_assets/embedded.rs`), so
-/// `"../../../ambition_gameplay_core/assets/foo.png"` resolves to
-/// `crates/ambition_gameplay_core/assets/foo.png`.
+/// `"../../../ambition_actors/assets/foo.png"` resolves to
+/// `crates/ambition_actors/assets/foo.png`.
 macro_rules! embed_core_assets {
     (
         $( $name:ident => $url:literal @ $rel_path:literal ),* $(,)?
@@ -60,7 +60,7 @@ macro_rules! embed_core_assets {
         /// Insert every embedded core asset's bytes into Bevy's
         /// [`bevy::asset::io::embedded::EmbeddedAssetRegistry`]. Gated
         /// by `static_core_assets` because the bytes are pulled in via
-        /// `include_bytes!` from `crates/ambition_gameplay_core/assets/...`.
+        /// `include_bytes!` from `crates/ambition_actors/assets/...`.
         #[cfg(feature = "static_core_assets")]
         fn register_embedded_core_assets(app: &mut ::bevy::prelude::App) {
             use ::bevy::asset::io::embedded::EmbeddedAssetRegistry;
@@ -82,66 +82,66 @@ macro_rules! embed_core_assets {
 embed_core_assets! {
     // ── UI fonts ────────────────────────────────────────────────────
     FONT_DIALOG_REGULAR_URL =>
-        "ambition_gameplay_core/fonts/bundled/InterDisplay-Regular.otf"
-        @ "../../../ambition_gameplay_core/assets/fonts/bundled/InterDisplay-Regular.otf",
+        "ambition_actors/fonts/bundled/InterDisplay-Regular.otf"
+        @ "../../../ambition_actors/assets/fonts/bundled/InterDisplay-Regular.otf",
     FONT_DIALOG_SEMIBOLD_URL =>
-        "ambition_gameplay_core/fonts/bundled/InterDisplay-SemiBold.otf"
-        @ "../../../ambition_gameplay_core/assets/fonts/bundled/InterDisplay-SemiBold.otf",
+        "ambition_actors/fonts/bundled/InterDisplay-SemiBold.otf"
+        @ "../../../ambition_actors/assets/fonts/bundled/InterDisplay-SemiBold.otf",
     FONT_DEBUG_MONO_URL =>
-        "ambition_gameplay_core/fonts/bundled/JetBrainsMono-Regular.ttf"
-        @ "../../../ambition_gameplay_core/assets/fonts/bundled/JetBrainsMono-Regular.ttf",
+        "ambition_actors/fonts/bundled/JetBrainsMono-Regular.ttf"
+        @ "../../../ambition_actors/assets/fonts/bundled/JetBrainsMono-Regular.ttf",
 
     // ── Primary character spritesheets ──────────────────────────────
     SPRITE_PLAYER_URL =>
-        "ambition_gameplay_core/sprites/player_robot_spritesheet.png"
-        @ "../../../ambition_gameplay_core/assets/sprites/player_robot_spritesheet.png",
+        "ambition_actors/sprites/player_robot_spritesheet.png"
+        @ "../../../ambition_actors/assets/sprites/player_robot_spritesheet.png",
     SPRITE_ROBOT_URL =>
-        "ambition_gameplay_core/sprites/robot_spritesheet.png"
-        @ "../../../ambition_gameplay_core/assets/sprites/robot_spritesheet.png",
+        "ambition_actors/sprites/robot_spritesheet.png"
+        @ "../../../ambition_actors/assets/sprites/robot_spritesheet.png",
     SPRITE_GOBLIN_URL =>
-        "ambition_gameplay_core/sprites/goblin_spritesheet.png"
-        @ "../../../ambition_gameplay_core/assets/sprites/goblin_spritesheet.png",
+        "ambition_actors/sprites/goblin_spritesheet.png"
+        @ "../../../ambition_actors/assets/sprites/goblin_spritesheet.png",
     SPRITE_SANDBAG_URL =>
-        "ambition_gameplay_core/sprites/sandbag_spritesheet.png"
-        @ "../../../ambition_gameplay_core/assets/sprites/sandbag_spritesheet.png",
+        "ambition_actors/sprites/sandbag_spritesheet.png"
+        @ "../../../ambition_actors/assets/sprites/sandbag_spritesheet.png",
 
     // ── Core entity sprites ─────────────────────────────────────────
     SPRITE_CHEST_CLOSED_URL =>
-        "ambition_gameplay_core/sprites/entities/chest_closed.png"
-        @ "../../../ambition_gameplay_core/assets/sprites/entities/chest_closed.png",
+        "ambition_actors/sprites/entities/chest_closed.png"
+        @ "../../../ambition_actors/assets/sprites/entities/chest_closed.png",
     SPRITE_CHEST_OPEN_URL =>
-        "ambition_gameplay_core/sprites/entities/chest_open.png"
-        @ "../../../ambition_gameplay_core/assets/sprites/entities/chest_open.png",
+        "ambition_actors/sprites/entities/chest_open.png"
+        @ "../../../ambition_actors/assets/sprites/entities/chest_open.png",
     SPRITE_PICKUP_HEALTH_URL =>
-        "ambition_gameplay_core/sprites/entities/pickup_health.png"
-        @ "../../../ambition_gameplay_core/assets/sprites/entities/pickup_health.png",
+        "ambition_actors/sprites/entities/pickup_health.png"
+        @ "../../../ambition_actors/assets/sprites/entities/pickup_health.png",
     SPRITE_PICKUP_CURRENCY_URL =>
-        "ambition_gameplay_core/sprites/entities/pickup_currency.png"
-        @ "../../../ambition_gameplay_core/assets/sprites/entities/pickup_currency.png",
+        "ambition_actors/sprites/entities/pickup_currency.png"
+        @ "../../../ambition_actors/assets/sprites/entities/pickup_currency.png",
     SPRITE_PICKUP_ABILITY_URL =>
-        "ambition_gameplay_core/sprites/entities/pickup_ability.png"
-        @ "../../../ambition_gameplay_core/assets/sprites/entities/pickup_ability.png",
+        "ambition_actors/sprites/entities/pickup_ability.png"
+        @ "../../../ambition_actors/assets/sprites/entities/pickup_ability.png",
     SPRITE_DOOR_ZONE_URL =>
-        "ambition_gameplay_core/sprites/entities/door_zone.png"
-        @ "../../../ambition_gameplay_core/assets/sprites/entities/door_zone.png",
+        "ambition_actors/sprites/entities/door_zone.png"
+        @ "../../../ambition_actors/assets/sprites/entities/door_zone.png",
     SPRITE_EDGE_EXIT_URL =>
-        "ambition_gameplay_core/sprites/entities/edge_exit.png"
-        @ "../../../ambition_gameplay_core/assets/sprites/entities/edge_exit.png",
+        "ambition_actors/sprites/entities/edge_exit.png"
+        @ "../../../ambition_actors/assets/sprites/entities/edge_exit.png",
     SPRITE_PROJECTILE_ENERGY_URL =>
-        "ambition_gameplay_core/sprites/entities/projectile_energy.png"
-        @ "../../../ambition_gameplay_core/assets/sprites/entities/projectile_energy.png",
+        "ambition_actors/sprites/entities/projectile_energy.png"
+        @ "../../../ambition_actors/assets/sprites/entities/projectile_energy.png",
     SPRITE_SOLID_TILE_URL =>
-        "ambition_gameplay_core/sprites/entities/solid_tile.png"
-        @ "../../../ambition_gameplay_core/assets/sprites/entities/solid_tile.png",
+        "ambition_actors/sprites/entities/solid_tile.png"
+        @ "../../../ambition_actors/assets/sprites/entities/solid_tile.png",
     SPRITE_ONE_WAY_TILE_URL =>
-        "ambition_gameplay_core/sprites/entities/one_way_tile.png"
-        @ "../../../ambition_gameplay_core/assets/sprites/entities/one_way_tile.png",
+        "ambition_actors/sprites/entities/one_way_tile.png"
+        @ "../../../ambition_actors/assets/sprites/entities/one_way_tile.png",
     SPRITE_HAZARD_TILE_URL =>
-        "ambition_gameplay_core/sprites/entities/hazard_tile.png"
-        @ "../../../ambition_gameplay_core/assets/sprites/entities/hazard_tile.png",
+        "ambition_actors/sprites/entities/hazard_tile.png"
+        @ "../../../ambition_actors/assets/sprites/entities/hazard_tile.png",
     SPRITE_BOSS_CORE_URL =>
-        "ambition_gameplay_core/sprites/entities/boss_core.png"
-        @ "../../../ambition_gameplay_core/assets/sprites/entities/boss_core.png",
+        "ambition_actors/sprites/entities/boss_core.png"
+        @ "../../../ambition_actors/assets/sprites/entities/boss_core.png",
 }
 
 /// Bevy plugin that backs every URL the
@@ -155,7 +155,7 @@ embed_core_assets! {
 /// catalog authors from the same row — the pairing cannot drift.
 ///
 /// Adding more embedded assets (sprites, fonts, audio) is a recipe:
-/// 1. Add a `with_location(EmbeddedBinary, AssetLocation::embedded("ambition_gameplay_core/..."))`
+/// 1. Add a `with_location(EmbeddedBinary, AssetLocation::embedded("ambition_actors/..."))`
 ///    candidate to the catalog entry.
 /// 2. Add a matching `EmbeddedAssetRegistry::insert_asset(...,
 ///    include_bytes!(...))` call in [`register_embedded_assets`].
@@ -224,12 +224,12 @@ pub struct EmbeddedWorldAsset {
 ///   entity sprites (see [`embedded_core`] for the URL constants).
 ///
 /// Adding a new embedded asset is a three-line change:
-/// 1. add a `const FOO_URL: &str = "ambition_gameplay_core/..."` to
+/// 1. add a `const FOO_URL: &str = "ambition_actors/..."` to
 ///    [`embedded_core`] and append it to `ALL_URLS`;
 /// 2. add a matching `with_embedded_core_candidate(entry, FOO_URL)`
 ///    on the catalog entry;
 /// 3. add an `EmbeddedAssetRegistry::insert_asset(...,
-///    include_bytes!("../../../ambition_gameplay_core/assets/..."))` call in
+///    include_bytes!("../../../ambition_actors/assets/..."))` call in
 ///    [`register_embedded_core_assets`] above.
 ///
 /// The `embedded_core_paths_match_registration_constants` test fails

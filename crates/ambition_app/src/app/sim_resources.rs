@@ -16,7 +16,7 @@
 use bevy::prelude::*;
 
 use super::setup_systems::setup_simulation_system;
-use ambition_gameplay_core::session::data;
+use ambition_actors::session::data;
 
 pub struct SandboxSimulationResourcesPlugin;
 
@@ -33,21 +33,20 @@ impl Plugin for SandboxSimulationResourcesPlugin {
                 // here (idempotent, first-wins) so plugin-mount order can
                 // never make the read precede the install.
                 ambition_content::character_catalog::install();
-                ambition_gameplay_core::character_roster::character_roster_plugin()
+                ambition_actors::character_roster::character_roster_plugin()
             })
             .add_systems(
                 Startup,
                 (
-                    ambition_gameplay_core::dev::profiling::phase_mark("startup_begin"),
+                    ambition_actors::dev::profiling::phase_mark("startup_begin"),
                     data::load_data_asset_handle,
-                    ambition_gameplay_core::dev::profiling::phase_mark("after_load_data_handle"),
+                    ambition_actors::dev::profiling::phase_mark("after_load_data_handle"),
                     // `SimulationSetupSet` is the machinery-facing label for
                     // this slot: engine/host startup systems that need the sim
                     // world set up (e.g. the host's input-component attach)
                     // order `.after(the set)` instead of naming this system.
-                    setup_simulation_system
-                        .in_set(ambition_gameplay_core::schedule::SimulationSetupSet),
-                    ambition_gameplay_core::dev::profiling::phase_mark("after_setup_simulation"),
+                    setup_simulation_system.in_set(ambition_actors::schedule::SimulationSetupSet),
+                    ambition_actors::dev::profiling::phase_mark("after_setup_simulation"),
                 )
                     .chain(),
             )
@@ -59,8 +58,8 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             .add_systems(
                 PostStartup,
                 (
-                    ambition_gameplay_core::dev::profiling::phase_mark("post_startup_begin"),
-                    ambition_gameplay_core::dev::profiling::report_startup_phases,
+                    ambition_actors::dev::profiling::phase_mark("post_startup_begin"),
+                    ambition_actors::dev::profiling::report_startup_phases,
                 )
                     .chain(),
             );

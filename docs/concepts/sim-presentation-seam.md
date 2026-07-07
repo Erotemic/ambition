@@ -44,5 +44,5 @@ The sim/presentation seam separates reusable gameplay state and messages from sa
 ```bash
 cargo test -p ambition_app --test scripted_gameplay --features "rl_sim portal"
 cargo run -p ambition_app --bin headless
-cargo test -p ambition_gameplay_core --lib
+cargo test -p ambition_actors --lib
 ```

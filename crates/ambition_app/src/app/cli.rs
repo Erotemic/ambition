@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 use bevy::window::WindowResolution;
 
+use ambition_actors::assets::game_assets::GameAssetConfig;
 use ambition_engine_core::config::{WINDOW_H, WINDOW_W};
-use ambition_gameplay_core::assets::game_assets::GameAssetConfig;
 
 use super::plugins::{SandboxLdtkPlugin, SandboxPresentationPlugin, SandboxSimulationPlugin};
 
@@ -12,7 +12,7 @@ use super::plugins::{SandboxLdtkPlugin, SandboxPresentationPlugin, SandboxSimula
 /// `BEVY_ASSET_ROOT` / the RUNNING binary's `CARGO_MANIFEST_DIR` — which
 /// has been `crates/ambition_app/` since the Stage 20 / A3 bisection,
 /// while the asset tree stays with the machinery lib at
-/// `crates/ambition_gameplay_core/assets` (the lib's `include_str!` paths and
+/// `crates/ambition_actors/assets` (the lib's `include_str!` paths and
 /// the regen scripts anchor there). Under `cargo run` that default broke
 /// every AssetServer load (sprites, music OGGs, `.yarn` dialogue, menu
 /// icons) while direct-filesystem readers (SFX bank, LDtk) kept working.
@@ -29,7 +29,7 @@ pub(super) fn desktop_asset_root() -> String {
         return "assets".to_string();
     }
     let dev_assets =
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../ambition_gameplay_core/assets");
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../ambition_actors/assets");
     match dev_assets.canonicalize() {
         Ok(path) if path.is_dir() => path.to_string_lossy().into_owned(),
         _ => "assets".to_string(),
@@ -140,7 +140,7 @@ mod headless_arg_tests {
             root.is_absolute(),
             "dev checkout should resolve an absolute sandbox assets path, got {root:?}"
         );
-        assert!(root.ends_with("crates/ambition_gameplay_core/assets") || root.ends_with("assets"));
+        assert!(root.ends_with("crates/ambition_actors/assets") || root.ends_with("assets"));
         assert!(
             root.join("ambition/sandbox.ron").exists(),
             "asset root {root:?} must contain ambition/sandbox.ron"
@@ -248,7 +248,7 @@ pub fn run_visible() {
     // AssetSource registration runs LAST so EmbeddedAssetRegistry
     // (added by `AssetPlugin` inside `DefaultPlugins`) is already present.
     app.add_plugins(
-        ambition_gameplay_core::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(
+        ambition_actors::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(
             active_profile,
         ),
     );
@@ -272,7 +272,7 @@ fn insert_starting_character_override(app: &mut App) {
         return;
     }
     eprintln!("ambition_app: starting as character '{id}' (AMBITION_START_CHARACTER)");
-    app.insert_resource(ambition_gameplay_core::player::StartingCharacter::new(id));
+    app.insert_resource(ambition_actors::player::StartingCharacter::new(id));
 }
 
 /// Build + run the visible Bevy app for a browser (wasm32) target.
@@ -347,7 +347,7 @@ pub fn run_web() {
     // AssetSource registration runs LAST so EmbeddedAssetRegistry (added
     // by `AssetPlugin` inside `DefaultPlugins`) is already present.
     app.add_plugins(
-        ambition_gameplay_core::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(
+        ambition_actors::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(
             active_profile,
         ),
     );

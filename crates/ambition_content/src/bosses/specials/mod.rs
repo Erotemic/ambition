@@ -9,21 +9,19 @@
 //! [`super::AmbitionBossContentPlugin`] — so the machinery lib names no boss
 //! technique.
 //!
-//! Migrated from `ambition_gameplay_core::features::ecs::brain_effects` one Technique
+//! Migrated from `ambition_actors::features::ecs::brain_effects` one Technique
 //! at a time. First: the Smirking Behemoth eye beam.
 #![allow(unused_imports)]
 
 use bevy::prelude::*;
 
+use ambition_actors::actor::{BodyKinematics, PlayerEntity};
+use ambition_actors::features::{ActorFaction, ActorTarget, BossClusterRef, FeatureSimEntity};
 use ambition_characters::brain::{
     action_set::ActionRequest, ActorActionMessage, BossAttackProfile, BossAttackState,
     SpecialActionSpec,
 };
 use ambition_engine_core::{self as ae, AabbExt};
-use ambition_gameplay_core::actor::{BodyKinematics, PlayerEntity};
-use ambition_gameplay_core::features::{
-    ActorFaction, ActorTarget, BossClusterRef, FeatureSimEntity,
-};
 use ambition_projectiles::enemy::EnemyProjectileSpawn;
 use ambition_time::WorldTime;
 use ambition_vfx::{Effect, EffectRequest};
@@ -44,9 +42,9 @@ pub use mode_collapse::*;
 pub use overflow_flood::*;
 pub use seismic_stomp::*;
 
-use ambition_gameplay_core::features::BossConfig;
-use ambition_gameplay_core::schedule::CombatSet;
-use ambition_gameplay_core::session::game_mode::gameplay_allowed;
+use ambition_actors::features::BossConfig;
+use ambition_actors::schedule::CombatSet;
+use ambition_actors::session::game_mode::gameplay_allowed;
 
 /// Installs the named per-boss special-attack Techniques as a single
 /// self-contained content domain unit.

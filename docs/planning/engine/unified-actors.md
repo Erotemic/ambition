@@ -338,7 +338,7 @@ Enemies rise to the player; delete-heavy. Each step is gated on *it compiles* (i
      combatant role is faction DATA, not a special "boss" type (a hostile Enemy-faction
      player_robot IS the player-faces-its-own-kit demo); the kit itself was already pinned at
      the spec level.
-   - **C3 — convergence metric.** The `crate::player` importer SINK in `ambition_gameplay_core`
+   - **C3 — convergence metric.** The `crate::player` importer SINK in `ambition_actors`
      (non-player files) is **62 → 50 → 43** (−31% from the documented baseline); the remaining
      names are genuine controller/player concepts (`PlayerInputFrame`, `PlayerInteractionState`,
      `PlayerSlot`, camera/anim/composition), not body vocabulary. **8 parallel authorities
@@ -395,7 +395,7 @@ Enemies rise to the player; delete-heavy. Each step is gated on *it compiles* (i
      (they hold facing, then hunt their grudge).
    - 🟢 **B3 (de-player-center the control surface) DONE.** *Audit conclusion:* the stated
      violation — sim/body logic reading the **global** `Res<ControlFrame>` — was already
-     resolved by prior slices. Inside `ambition_gameplay_core` the ONLY `Res<ControlFrame>`
+     resolved by prior slices. Inside `ambition_actors` the ONLY `Res<ControlFrame>`
      holders are the two input-bridge **writers** (`populate_control_frame_from_actions`
      device→frame, `sync_local_player_input_frame` frame→`PlayerInputFrame`); every sim
      reader already consumes an **entity-local** component (`PlayerInputFrame` or

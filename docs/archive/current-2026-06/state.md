@@ -11,7 +11,7 @@ and 5 of the current 25 crates. For current truth read
 [`../reviews/fable-review-2026-07-04.md`](../reviews/fable-review-2026-07-04.md).
 
 The monolith was bisected into a layered crate
-graph (Stage 20); `ambition_gameplay_core` is now the **machinery library**, not the
+graph (Stage 20); `ambition_actors` is now the **machinery library**, not the
 playable shell. The remaining monolith-breakup backlog lives in
 [`next.md`](next.md).
 
@@ -39,7 +39,7 @@ Crate layers (low → high; lower must never import higher):
                ambition_asset_manager, ambition_gameplay_trace, ambition_cutscene,
                ambition_interaction, ambition_sprite_sheet, ambition_ui_nav,
                ambition_vfx.
-  machinery    ambition_gameplay_core (lib): content-free simulation systems,
+  machinery    ambition_actors (lib): content-free simulation systems,
                runtime state, world/LDtk integration, player/session systems,
                combat/items/encounter machinery, persistence, schedules, and
                compatibility facade re-exports.
@@ -134,7 +134,7 @@ Landed or scaffolded mechanics include:
 - LDtk-authored goblin encounter / encounter-style areas and transition validation;
 - character catalog and Hall of Characters content flow;
 - RON-authored boss encounter numeric specs with Rust behavior profiles;
-- universal-brain interface in `crates/ambition_characters/src/brain/`: every controllable entity carries `Brain` + `ActionSet` + `ActorControl` sibling components, with sandbox effect consumers such as `crates/ambition_gameplay_core/src/features/ecs/brain_effects.rs` translating resolved actor requests into world effects.
+- universal-brain interface in `crates/ambition_characters/src/brain/`: every controllable entity carries `Brain` + `ActionSet` + `ActorControl` sibling components, with sandbox effect consumers such as `crates/ambition_actors/src/features/ecs/brain_effects.rs` translating resolved actor requests into world effects.
 
 The actor/brain unification is live, not a shadow seam: player movement/control,
 melee-start gating, projectile tick/charge, enemy ranged + melee windups, and

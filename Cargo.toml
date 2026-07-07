@@ -24,7 +24,7 @@ members = [
     "crates/ambition_render",
     "crates/ambition_settings_menu",
     "crates/ambition_portal_presentation",
-    "crates/ambition_gameplay_core",
+    "crates/ambition_actors",
     "crates/ambition_runtime",
     "crates/ambition_host",
     "crates/ambition_sfx",

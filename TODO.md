@@ -113,7 +113,7 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [ ] **Contextual button-label follow-ups** `[V2/D2]` - Wire gamepad-kind detection once the Bevy gamepad API is verified, and add regression coverage so HUD glyphs and gameplay input resolvers cannot drift.
 
-- [ ] **Hazard ECS cluster conversion** `[V2/D3]` - Decompose `HazardRuntime` into ECS cluster components. Current path: `crates/ambition_gameplay_core/src/combat/hazard_runtime.rs`. Follow the boss pattern with `HazardKinematics` / `HazardConfig`, view helpers, and updated hazard systems.
+- [ ] **Hazard ECS cluster conversion** `[V2/D3]` - Decompose `HazardRuntime` into ECS cluster components. Current path: `crates/ambition_actors/src/combat/hazard_runtime.rs`. Follow the boss pattern with `HazardKinematics` / `HazardConfig`, view helpers, and updated hazard systems.
 
 ## S - Active blockers and high-signal defects
 

@@ -6,7 +6,7 @@
 #   "tree-sitter-rust>=0.24,<0.25",
 # ]
 # ///
-"""Build a static ECS inventory for the ambition_gameplay_core crate.
+"""Build a static ECS inventory for the ambition_actors crate.
 
 The inventory is intended to be good enough for refactor planning and CI diffs,
 not a replacement for rustc. It uses tree-sitter-rust for Rust syntax structure
@@ -1663,7 +1663,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo-root", type=pathlib.Path, default=pathlib.Path.cwd())
     parser.add_argument(
-        "--crate", type=pathlib.Path, default=pathlib.Path("crates/ambition_gameplay_core")
+        "--crate", type=pathlib.Path, default=pathlib.Path("crates/ambition_actors")
     )
     parser.add_argument(
         "--workspace",

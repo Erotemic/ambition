@@ -167,14 +167,13 @@ mod tests {
             schema_version: 1,
             profile: "dev".into(),
             generated_at: "fixture".into(),
-            runtime_roots: vec!["crates/ambition_gameplay_core/assets/sprites".into()],
+            runtime_roots: vec!["crates/ambition_actors/assets/sprites".into()],
             installed: vec![InstalledEntry {
                 logical_id: "sprite.goblin.high.sheet_record".into(),
                 kind: "sheet_record".into(),
                 quality: Quality::High,
                 source: "high/goblin_spritesheet.ron".into(),
-                destination: "crates/ambition_gameplay_core/assets/sprites/goblin_spritesheet.ron"
-                    .into(),
+                destination: "crates/ambition_actors/assets/sprites/goblin_spritesheet.ron".into(),
             }],
             diagnostics: vec![DiagnosticEntry {
                 kind: "preview_sheet".into(),

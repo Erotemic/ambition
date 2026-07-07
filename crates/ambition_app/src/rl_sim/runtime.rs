@@ -4,8 +4,8 @@ use bevy::time::TimeUpdateStrategy;
 use ambition_engine_core as ae;
 
 use crate::app::{SandboxSimulationPlugin, StartRoomOverride};
-use ambition_gameplay_core::ldtk_world;
-use ambition_gameplay_core::rooms::RoomSet;
+use ambition_actors::ldtk_world;
+use ambition_actors::rooms::RoomSet;
 use ambition_input::ControlFrame;
 
 use super::action::AgentAction;
@@ -193,35 +193,35 @@ impl SandboxSim {
         let mut cluster_query = self
             .app
             .world_mut()
-            .query_filtered::<ambition_engine_core::BodyClusterQueryData, ambition_gameplay_core::actor::PrimaryPlayerOnly>();
+            .query_filtered::<ambition_engine_core::BodyClusterQueryData, ambition_actors::actor::PrimaryPlayerOnly>();
         let mut combat_query = self
             .app
             .world_mut()
-            .query_filtered::<&ambition_characters::actor::BodyCombat, ambition_gameplay_core::actor::PrimaryPlayerOnly>(
+            .query_filtered::<&ambition_characters::actor::BodyCombat, ambition_actors::actor::PrimaryPlayerOnly>(
             );
         let mut health_query = self
             .app
             .world_mut()
-            .query_filtered::<&ambition_characters::actor::BodyHealth, ambition_gameplay_core::actor::PrimaryPlayerOnly>();
+            .query_filtered::<&ambition_characters::actor::BodyHealth, ambition_actors::actor::PrimaryPlayerOnly>();
         let mut safety_query = self
             .app
             .world_mut()
-            .query_filtered::<&ambition_gameplay_core::player::PlayerSafetyState, ambition_gameplay_core::actor::PrimaryPlayerOnly>(
+            .query_filtered::<&ambition_actors::player::PlayerSafetyState, ambition_actors::actor::PrimaryPlayerOnly>(
             );
         // World-side observability (enemies, pickups) for combat /
         // collection assertions. Read once per tick; cheap.
         let mut enemy_query = self.app.world_mut().query::<(
-            &ambition_gameplay_core::actor::BodyKinematics,
+            &ambition_actors::actor::BodyKinematics,
             &ambition_characters::actor::BodyHealth,
         )>();
         let mut pickup_query = self
             .app
             .world_mut()
-            .query::<&ambition_gameplay_core::items::pickup::GroundItem>();
+            .query::<&ambition_actors::items::pickup::GroundItem>();
 
         let world = self.app.world();
         let gravity_dir = world
-            .get_resource::<ambition_gameplay_core::physics::GravityField>()
+            .get_resource::<ambition_actors::physics::GravityField>()
             .map(|g| (g.dir.x, g.dir.y))
             .unwrap_or((0.0, 1.0));
         let enemies: Vec<EnemyObs> = enemy_query
@@ -363,7 +363,7 @@ impl SandboxSim {
         let mut base = self
             .app
             .world_mut()
-            .resource_mut::<ambition_gameplay_core::physics::BaseGravity>();
+            .resource_mut::<ambition_actors::physics::BaseGravity>();
         base.dir = ae::Vec2::new(dir.0, dir.1);
     }
 
@@ -387,7 +387,7 @@ impl SandboxSim {
         let mut q = self
             .app
             .world_mut()
-            .query_filtered::<&mut ambition_gameplay_core::actor::BodyKinematics, ambition_gameplay_core::actor::PrimaryPlayerOnly>();
+            .query_filtered::<&mut ambition_actors::actor::BodyKinematics, ambition_actors::actor::PrimaryPlayerOnly>();
         if let Ok(mut kin) = q.single_mut(self.app.world_mut()) {
             kin.pos = ae::Vec2::new(pos.0, pos.1);
             kin.vel = ae::Vec2::ZERO;
@@ -399,7 +399,7 @@ impl SandboxSim {
         let mut q = self
             .app
             .world_mut()
-            .query_filtered::<&mut ambition_gameplay_core::actor::BodyAbilities, ambition_gameplay_core::actor::PrimaryPlayerOnly>();
+            .query_filtered::<&mut ambition_actors::actor::BodyAbilities, ambition_actors::actor::PrimaryPlayerOnly>();
         if let Ok(mut abilities) = q.single_mut(self.app.world_mut()) {
             abilities.abilities.pogo = true;
         }
@@ -412,10 +412,9 @@ impl SandboxSim {
     /// own fly-toggle input, so it persists across steps.
     pub fn grant_flight(&mut self) {
         let mut q = self.app.world_mut().query_filtered::<(
-            &mut ambition_gameplay_core::actor::BodyAbilities,
-            &mut ambition_gameplay_core::actor::BodyFlightState,
-        ), ambition_gameplay_core::actor::PrimaryPlayerOnly>(
-        );
+            &mut ambition_actors::actor::BodyAbilities,
+            &mut ambition_actors::actor::BodyFlightState,
+        ), ambition_actors::actor::PrimaryPlayerOnly>();
         if let Ok((mut abilities, mut flight)) = q.single_mut(self.app.world_mut()) {
             abilities.abilities.fly = true;
             flight.fly_enabled = true;
@@ -445,12 +444,12 @@ impl SandboxSim {
             pos,
             half_size,
             brain,
-            ambition_gameplay_core::features::BossOverrides::default(),
+            ambition_actors::features::BossOverrides::default(),
         );
     }
 
     /// Like [`Self::spawn_boss_at`] but applies per-spawn "tweaks Z"
-    /// ([`BossOverrides`](ambition_gameplay_core::features::BossOverrides)): hp /
+    /// ([`BossOverrides`](ambition_actors::features::BossOverrides)): hp /
     /// combat size / phase triggers / encounter opt-out. The refactor's headline
     /// "spawn boss X with tweaks Z at Y and it just works" seam.
     pub fn spawn_boss_at_with(
@@ -460,19 +459,19 @@ impl SandboxSim {
         pos: (f32, f32),
         half_size: (f32, f32),
         brain: ambition_entity_catalog::placements::BossBrain,
-        overrides: ambition_gameplay_core::features::BossOverrides,
+        overrides: ambition_actors::features::BossOverrides,
     ) {
         self.app
             .world_mut()
-            .write_message(ambition_gameplay_core::features::SpawnActorRequest {
+            .write_message(ambition_actors::features::SpawnActorRequest {
                 id: id.into(),
                 name: name.into(),
                 pos: ae::Vec2::new(pos.0, pos.1),
                 half_size: ae::Vec2::new(half_size.0, half_size.1),
                 // Ignored for the Boss kind (always faction Boss); set for completeness.
-                faction: ambition_gameplay_core::features::ActorFaction::Boss,
+                faction: ambition_actors::features::ActorFaction::Boss,
                 grudge_against: None,
-                kind: ambition_gameplay_core::features::SpawnActorKind::Boss { brain, overrides },
+                kind: ambition_actors::features::SpawnActorKind::Boss { brain, overrides },
             });
         self.app.update();
     }
@@ -494,14 +493,14 @@ impl SandboxSim {
     ) {
         self.app
             .world_mut()
-            .write_message(ambition_gameplay_core::features::SpawnActorRequest {
+            .write_message(ambition_actors::features::SpawnActorRequest {
                 id: id.into(),
                 name: name.into(),
                 pos: ae::Vec2::new(pos.0, pos.1),
                 half_size: ae::Vec2::new(half_size.0, half_size.1),
-                faction: ambition_gameplay_core::features::ActorFaction::Enemy,
+                faction: ambition_actors::features::ActorFaction::Enemy,
                 grudge_against: None,
-                kind: ambition_gameplay_core::features::SpawnActorKind::Enemy { brain },
+                kind: ambition_actors::features::SpawnActorKind::Enemy { brain },
             });
         self.app.update();
     }

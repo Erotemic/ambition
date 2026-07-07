@@ -10,7 +10,7 @@ use bevy::window::PrimaryWindow;
 
 use super::primitives::RoomVisual;
 use ambition_engine_core::config::{world_to_bevy, WINDOW_H, WINDOW_W, WORLD_Z_FX};
-use ambition_gameplay_core::assets::game_assets::{
+use ambition_actors::assets::game_assets::{
     foreground_parallax_factor, foreground_parallax_sprite_for_biome, ForegroundParallaxSprite,
     GameAssets,
 };
@@ -31,7 +31,7 @@ pub struct ForegroundParallax {
 /// Spawn the active room's optional generated foreground layer.
 pub fn spawn_room_foreground_parallax(
     commands: &mut Commands,
-    spec: &ambition_gameplay_core::rooms::RoomSpec,
+    spec: &ambition_actors::rooms::RoomSpec,
     assets: Option<&GameAssets>,
 ) {
     let Some(assets) = assets else {
@@ -82,7 +82,7 @@ pub fn sync_foreground_parallax(
     camera: Query<
         (&Transform, &Projection),
         (
-            With<ambition_gameplay_core::session::camera_layers::MainCamera>,
+            With<ambition_actors::session::camera_layers::MainCamera>,
             Without<ForegroundParallax>,
         ),
     >,

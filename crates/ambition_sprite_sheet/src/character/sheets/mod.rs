@@ -525,7 +525,7 @@ fn spec_from_record(record: &SheetRecord, tuning: &SheetTuning) -> CharacterShee
 /// scarf and a sealed envelope". Matches the Alice review config
 /// (configs/review/alice.yaml) and the
 /// `alice_spritesheet.yaml`/`.png` pair that ships in
-/// `crates/ambition_gameplay_core/assets/sprites/`.
+/// `crates/ambition_actors/assets/sprites/`.
 
 /// Bob — field cartographer. Toon-side adapter render; the
 /// `bob_engineer` archetype is wider in the shoulders (engineer

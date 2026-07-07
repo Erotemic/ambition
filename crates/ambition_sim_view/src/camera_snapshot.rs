@@ -10,8 +10,8 @@ use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
 use bevy_math::UVec2;
 
-use ambition_gameplay_core::rooms::{CameraClampMode, CameraZoneSpec};
-use ambition_gameplay_core::{CameraEaseState, CameraEaseTuning};
+use ambition_actors::rooms::{CameraClampMode, CameraZoneSpec};
+use ambition_actors::{CameraEaseState, CameraEaseTuning};
 use ambition_persistence::settings::video::CameraFramingPreset;
 use ambition_persistence::settings::CameraAspectPolicy;
 
@@ -520,27 +520,27 @@ pub struct ResolvedCameraSnapshot {
 #[allow(clippy::too_many_arguments)]
 pub fn resolve_camera_observation(
     world: bevy::prelude::Res<ae::RoomGeometry>,
-    room_set: bevy::prelude::Res<ambition_gameplay_core::rooms::RoomSet>,
+    room_set: bevy::prelude::Res<ambition_actors::rooms::RoomSet>,
     time: bevy::prelude::Res<bevy::prelude::Time>,
-    developer_tools: bevy::prelude::Res<ambition_gameplay_core::dev::dev_tools::DeveloperTools>,
-    encounter_registry: bevy::prelude::Res<ambition_gameplay_core::encounter::EncounterRegistry>,
+    developer_tools: bevy::prelude::Res<ambition_actors::dev::dev_tools::DeveloperTools>,
+    encounter_registry: bevy::prelude::Res<ambition_actors::encounter::EncounterRegistry>,
     user_settings: bevy::prelude::Res<ambition_persistence::settings::UserSettings>,
     viewport: bevy::prelude::Res<CameraViewport>,
     extra_clamp: bevy::prelude::Res<CameraExtraClamp>,
-    ease_tuning: bevy::prelude::Res<ambition_gameplay_core::CameraEaseTuning>,
-    mut camera_state: bevy::prelude::ResMut<ambition_gameplay_core::CameraEaseState>,
+    ease_tuning: bevy::prelude::Res<ambition_actors::CameraEaseTuning>,
+    mut camera_state: bevy::prelude::ResMut<ambition_actors::CameraEaseState>,
     mut resolved: bevy::prelude::ResMut<ResolvedCameraSnapshot>,
     mut last_camera_room: bevy::prelude::Local<Option<String>>,
     player: bevy::prelude::Query<
         (
             &ambition_platformer_primitives::body::BodyKinematics,
             &ae::BodyBaseSize,
-            &ambition_gameplay_core::player::PlayerBlinkCameraState,
+            &ambition_actors::player::PlayerBlinkCameraState,
         ),
         ambition_platformer_primitives::markers::PrimaryPlayerOnly,
     >,
     controlled: bevy::prelude::Res<
-        ambition_gameplay_core::abilities::traversal::possession::ControlledSubject,
+        ambition_actors::abilities::traversal::possession::ControlledSubject,
     >,
     body_kinematics: bevy::prelude::Query<&ambition_platformer_primitives::body::BodyKinematics>,
 ) {
@@ -632,8 +632,7 @@ impl bevy::prelude::Plugin for CameraObservationPlugin {
         app.init_resource::<ResolvedCameraSnapshot>();
         app.add_systems(
             bevy::prelude::Update,
-            resolve_camera_observation
-                .after(ambition_gameplay_core::schedule::SandboxSet::CoreSimulation),
+            resolve_camera_observation.after(ambition_actors::schedule::SandboxSet::CoreSimulation),
         );
     }
 }

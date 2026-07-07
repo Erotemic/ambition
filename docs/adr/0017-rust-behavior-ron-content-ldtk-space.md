@@ -12,14 +12,14 @@ Each layer owns a single class of concern:
 | Layer | Owns | Examples |
 |---|---|---|
 | **Rust (behavior + plumbing)** | Algorithms, ECS systems, physics, brain variants, validators, Bevy plugins, generic schemas/holders | `brain::tick_melee_brute`, `step_kinematic`, `CharacterCatalogPlugin`, `BrainDriverPlugin`, generic boss/enemy registry types |
-| **RON / data files (authored content and tuning)** | Character catalog, brain cfgs, ActionSet specs, boss encounter numeric specs, enemy/boss rosters, dialogue trees, quest defs, tuning, area specs | `crates/ambition_gameplay_core/assets/data/character_catalog.ron`, `crates/ambition_content/assets/data/boss_encounters/<id>.ron`, `crates/ambition_content/assets/data/enemy_archetypes.ron` |
+| **RON / data files (authored content and tuning)** | Character catalog, brain cfgs, ActionSet specs, boss encounter numeric specs, enemy/boss rosters, dialogue trees, quest defs, tuning, area specs | `crates/ambition_actors/assets/data/character_catalog.ron`, `crates/ambition_content/assets/data/boss_encounters/<id>.ron`, `crates/ambition_content/assets/data/enemy_archetypes.ron` |
 | **LDtk (space)** | Level geometry, entity placement, world composition | `sandbox.ldtk`, `intro.ldtk`; `NpcSpawn` points at catalog ids |
 
 Rule of thumb:
 
 - A new **brain template** lives in Rust because it is behavior.
 - A new **character using existing behavior** is authored as data, currently in
-  `crates/ambition_gameplay_core/assets/data/character_catalog.ron` until the
+  `crates/ambition_actors/assets/data/character_catalog.ron` until the
   character catalog moves to `ambition_content`.
 - A new **named boss, enemy, quest, item roster entry, dialogue sequence, intro
   hook, or banter line** belongs in `ambition_content` data/modules.
@@ -35,7 +35,7 @@ in-lib content tables. The current architecture makes Rust own typed behavior
 and generic validation while authored game-specific data moves to the content
 layer. LDtk owns where authored ids appear in the world.
 
-The boss and enemy rosters now use the target shape: `ambition_gameplay_core`
+The boss and enemy rosters now use the target shape: `ambition_actors`
 owns generic schemas/holders and no named roster content; `ambition_content`
 embeds and installs the named data.
 
@@ -50,13 +50,13 @@ embeds and installs the named data.
 - Brain variants remain typed and exhaustive in Rust.
 - ADR 0016 actor unification and this ADR compose: catalog/roster data describes
   what to spawn; actor/brain ECS code describes how spawned entities behave.
-- Specific game content should not accumulate in `ambition_gameplay_core`; move
+- Specific game content should not accumulate in `ambition_actors`; move
   it to `ambition_content` when the generic schema/holder exists.
 
 ## Current implications for agents
 
 - **New character** → author data first. The current character catalog file is
-  `crates/ambition_gameplay_core/assets/data/character_catalog.ron`, but this is
+  `crates/ambition_actors/assets/data/character_catalog.ron`, but this is
   transitional; do not add new game-specific Rust tables in the gameplay core.
 - **New boss/enemy roster data or boss encounter numbers** → use
   `crates/ambition_content/assets/data/` and install through the content crate.

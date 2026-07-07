@@ -2,7 +2,7 @@
 """One-shot migration: rename `NpcSpawn.name` to `NpcSpawn.character_id`
 and map instance values via the legacy display-name → character_id
 table that lived in
-`crates/ambition_gameplay_core/src/presentation/character_sprites/assets.rs::npc_sprite_label`.
+`crates/ambition_actors/src/presentation/character_sprites/assets.rs::npc_sprite_label`.
 
 Part of Phase 2 of the character-catalog refactor (see
 `TODO-character-catalog-and-hall.md`). After this script runs, LDtk
@@ -16,8 +16,8 @@ human-facing label.
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools \\
 python -m ambition_ldtk_tools.edit.rename_npc_field \\
-    crates/ambition_gameplay_core/assets/ambition/worlds/sandbox.ldtk \\
-    crates/ambition_gameplay_core/assets/ambition/worlds/intro.ldtk
+    crates/ambition_actors/assets/ambition/worlds/sandbox.ldtk \\
+    crates/ambition_actors/assets/ambition/worlds/intro.ldtk
 ```
 
 The script is idempotent — running it again on an already-migrated
@@ -34,7 +34,7 @@ import sys
 from pathlib import Path
 
 # Mirror of
-# crates/ambition_gameplay_core/src/presentation/character_sprites/assets.rs::npc_sprite_label
+# crates/ambition_actors/src/presentation/character_sprites/assets.rs::npc_sprite_label
 # This is the legacy display-name → character_id table.
 LEGACY_NAME_TO_CHARACTER_ID = {
     "General": "npc_general",

@@ -7,14 +7,14 @@
 //! `SpawnPlayerCloneRequest` resource, steps the real schedule, and asserts the
 //! clone runs, leaves the ground, and rises — driven entirely by its brain, with
 //! no human input. Complements the engine-level proof in
-//! `ambition_gameplay_core::player::clone_probe_tests`.
+//! `ambition_actors::player::clone_probe_tests`.
 
 mod common;
 use common::base;
 
+use ambition_actors::actor::BodyGroundState;
+use ambition_actors::actor::BodyKinematics;
 use ambition_app::app::{PlayerClone, SpawnPlayerCloneRequest};
-use ambition_gameplay_core::actor::BodyGroundState;
-use ambition_gameplay_core::actor::BodyKinematics;
 use bevy::prelude::{With, World};
 
 /// (x, y, on_ground) of the single player clone, if it exists.

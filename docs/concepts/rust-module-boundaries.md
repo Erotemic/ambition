@@ -8,7 +8,7 @@ aliases:
   - attribute drift
 implemented_by:
   - crates/ambition_engine_core/src
-  - crates/ambition_gameplay_core/src
+  - crates/ambition_actors/src
 related_memory:
   - dev/journals/rust-module-split-import-visibility-lessons-2026-05-11.md
   - dev/journals/movement-refactor-lessons-2026-05-11.md
@@ -44,8 +44,8 @@ Rust module-boundary work includes splitting large facade files into private chi
 
 ```bash
 cargo fmt --check
-cargo test -p ambition_gameplay_core
-cargo test -p ambition_gameplay_core --lib
+cargo test -p ambition_actors
+cargo test -p ambition_actors --lib
 ```
 
 Use narrower package/module tests while iterating, then run the package-level checks before handoff.

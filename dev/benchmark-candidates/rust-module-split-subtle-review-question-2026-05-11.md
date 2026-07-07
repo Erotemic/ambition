@@ -7,9 +7,9 @@ Date: 2026-05-11
 You are given a proposed behavior-preserving Rust refactor for a Bevy game crate.
 The patch splits three large files into facade modules plus child modules:
 
-- `crates/ambition_gameplay_core/src/body_mode.rs`
-- `crates/ambition_gameplay_core/src/mobile_input.rs`
-- `crates/ambition_gameplay_core/src/map_menu.rs`
+- `crates/ambition_actors/src/body_mode.rs`
+- `crates/ambition_actors/src/mobile_input.rs`
+- `crates/ambition_actors/src/map_menu.rs`
 
 The intended design is:
 
@@ -39,12 +39,12 @@ modules can keep referring to helper functions by their old paths.
 
 Review the refactor before it is handed to a developer to run. Focus on issues
 that are likely to be caught by `cargo fmt --all` or `cargo test -p
-ambition_gameplay_core --lib ...`, not on subjective architecture preferences.
+ambition_actors --lib ...`, not on subjective architecture preferences.
 
 The changed code includes these representative fragments:
 
 ```rust
-// crates/ambition_gameplay_core/src/map_menu.rs
+// crates/ambition_actors/src/map_menu.rs
 mod input;
 mod model;
 mod pointer;
@@ -57,7 +57,7 @@ pub(super) use ui::short_room_label;
 ```
 
 ```rust
-// crates/ambition_gameplay_core/src/map_menu/ui.rs
+// crates/ambition_actors/src/map_menu/ui.rs
 use super::*;
 
 fn short_room_label(label: &str) -> String {
@@ -66,7 +66,7 @@ fn short_room_label(label: &str) -> String {
 ```
 
 ```rust
-// crates/ambition_gameplay_core/src/body_mode/tests.rs
+// crates/ambition_actors/src/body_mode/tests.rs
 use super::*;
 
 fn body_app(world: ae::World) -> App {
@@ -79,7 +79,7 @@ fn body_app(world: ae::World) -> App {
 ```
 
 ```rust
-// crates/ambition_gameplay_core/src/body_mode.rs
+// crates/ambition_actors/src/body_mode.rs
 use bevy::prelude::*;
 
 mod mechanics;

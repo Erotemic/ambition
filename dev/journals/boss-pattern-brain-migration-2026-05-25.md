@@ -61,7 +61,7 @@ holding across the actor/brain migration series.
 
 ### Files
 
-* `crates/ambition_gameplay_core/src/brain/boss_pattern.rs` (NEW, 681 lines):
+* `crates/ambition_actors/src/brain/boss_pattern.rs` (NEW, 681 lines):
   - Vocabulary moved from `content/features/bosses.rs`:
     `BossMovementProfile`, `BossPatternStep`, `BossPattern`,
     `BossAttackPattern`, `BossAttackProfile`, `step_duration`.
@@ -86,11 +86,11 @@ holding across the actor/brain migration series.
     gnu apple-rain special intent, cycle-mode phase advancement,
     peaceful gate.
 
-* `crates/ambition_gameplay_core/src/brain/mod.rs`: re-exports
+* `crates/ambition_actors/src/brain/mod.rs`: re-exports
   `boss_pattern::*` (BossPatternCfg/State/Context/AttackState +
   vocabulary + tick fn).
 
-* `crates/ambition_gameplay_core/src/brain/state_machine.rs`: placeholder
+* `crates/ambition_actors/src/brain/state_machine.rs`: placeholder
   `BossPatternCfg`/`State`/`tick_boss_pattern` deleted. The
   `StateMachineCfg::BossPattern` variant now carries
   `super::BossPatternCfg`/`State` (the re-exports). The generic
@@ -99,7 +99,7 @@ holding across the actor/brain migration series.
   bosses bypass the generic dispatcher via the boss tick system,
   and a dispatch race would be a bug.
 
-* `crates/ambition_gameplay_core/src/features/bosses.rs`:
+* `crates/ambition_actors/src/features/bosses.rs`:
   vocabulary `pub use`-re-exported from `crate::brain::boss_pattern`.
   Deleted: `BossMovementProfile`/`BossPatternStep`/`BossPattern`/
   `BossAttackPattern`/`BossAttackProfile` definitions,
@@ -111,14 +111,14 @@ holding across the actor/brain migration series.
   `telegraph_profile` / `attack_timer` / `attack_windup_timer`
   survive as brain-written mirrors.
 
-* `crates/ambition_gameplay_core/src/features/ecs/bosses.rs`:
+* `crates/ambition_actors/src/features/ecs/bosses.rs`:
   rewritten. New `sync_boss_encounter_phase` + `tick_boss_brains_system`
   systems; `update_ecs_bosses` is integration-only and does not
   call `boss.update(...)` or overwrite `ActorControl`. The boss
   tick chain runs in `WorldPrep`: `sync_boss_encounter_phase` →
   `tick_boss_brains_system` → `update_ecs_bosses`.
 
-* `crates/ambition_gameplay_core/src/features/ecs/spawn.rs`:
+* `crates/ambition_actors/src/features/ecs/spawn.rs`:
   boss spawn populates the full `BossPatternCfg` (pattern,
   movement, spawn, combat_size, cycle timings, apple-rain dodge)
   from `BossBehaviorProfile` and attaches `BossAttackState::default()`.

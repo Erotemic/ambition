@@ -218,7 +218,7 @@ mod tests {
         // Proves the effect is actually hooked up: the sheet is in the baked
         // registry and exposes the arc (side) + poke (down) rows the attack
         // maps onto.
-        let registry = ambition_gameplay_core::character_sprites::baked_sheet_registry();
+        let registry = ambition_actors::character_sprites::baked_sheet_registry();
         let record = registry
             .get(SLASH_SHEET)
             .expect("robot_slash sheet must be baked into the registry");

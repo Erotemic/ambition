@@ -3,7 +3,7 @@
 //! Owns the install of the default [`BossEncounterRegistry`] so the named
 //! boss roster is constructed in one content-owned place. The general boss
 //! machinery (profiles, specs, encounter registry/system, patterns) still
-//! lives in `ambition_gameplay_core::boss_encounter`; this module owns the bespoke per-boss
+//! lives in `ambition_actors::boss_encounter`; this module owns the bespoke per-boss
 //! *behavior* and *bark content* that names individual bosses:
 //!
 //! - [`gnu_ton`] — GNU-ton's bespoke arena gating (retreat-ladder reveal +
@@ -38,8 +38,8 @@ pub use gnu_ton::gate_gnu_ton_arena_ladder;
 /// full app. First install wins (idempotent across the test binary).
 pub fn install_boss_roster() {
     // Per-boss behavior (movement / attacks / rewards).
-    ambition_gameplay_core::boss_encounter::install_boss_profiles(
-        ambition_gameplay_core::boss_encounter::BossProfileRegistry::from_ron(include_str!(
+    ambition_actors::boss_encounter::install_boss_profiles(
+        ambition_actors::boss_encounter::BossProfileRegistry::from_ron(include_str!(
             "../../assets/data/boss_profiles.ron"
         )),
     );
@@ -49,8 +49,8 @@ pub fn install_boss_roster() {
     // `boss_sheets_ron_matches_builtin_defaults`), so shipped bosses render
     // unchanged; content re-authors a boss's sheet by editing its row in
     // `boss_sheets.ron` with no Rust change.
-    ambition_gameplay_core::boss_encounter::sprites::install_boss_sheets(
-        ambition_gameplay_core::boss_encounter::sprites::BossSheetRegistry::from_ron(include_str!(
+    ambition_actors::boss_encounter::sprites::install_boss_sheets(
+        ambition_actors::boss_encounter::sprites::BossSheetRegistry::from_ron(include_str!(
             "../../assets/data/boss_sheets.ron"
         )),
     );
@@ -73,17 +73,17 @@ pub fn install_boss_roster() {
     let specs = BOSS_ENCOUNTER_RONS
         .iter()
         .map(|text| {
-            ron::from_str::<ambition_gameplay_core::boss_encounter::BossEncounterSpec>(text)
+            ron::from_str::<ambition_actors::boss_encounter::BossEncounterSpec>(text)
                 .expect("boss_encounters/*.ron should parse as BossEncounterSpec")
         })
         .collect();
-    ambition_gameplay_core::boss_encounter::install_boss_encounter_specs(specs);
+    ambition_actors::boss_encounter::install_boss_encounter_specs(specs);
 
     // Telegraph anim rows for each content boss-special key. The engine ships
     // no anim row for content specials (it names none); this is where the
     // key→sprite-row mapping lives. `apple_rain` damages via projectile bodies
     // and has no body-mounted telegraph row, so it's simply absent (→ no row).
-    ambition_gameplay_core::boss_encounter::install_boss_special_anim_keys(
+    ambition_actors::boss_encounter::install_boss_special_anim_keys(
         std::collections::HashMap::from([
             (
                 "overfit_volley".to_string(),
@@ -114,9 +114,7 @@ impl Plugin for AmbitionBossContentPlugin {
         // the lib embeds no boss data in production. Mirrors the enemy roster.
         install_boss_roster();
 
-        app.insert_resource(
-            ambition_gameplay_core::boss_encounter::BossEncounterRegistry::default(),
-        );
+        app.insert_resource(ambition_actors::boss_encounter::BossEncounterRegistry::default());
 
         // Cut-rope arena state is CONTENT state — owned and initialized here,
         // never by the host's sim plugin (anti-god rule 5).
@@ -139,9 +137,9 @@ impl Plugin for AmbitionBossContentPlugin {
             Update,
             (
                 reset_cut_rope_boss_arena_on_room_reset
-                    .in_set(ambition_gameplay_core::session::reset::ContentRoomResetSet),
+                    .in_set(ambition_actors::session::reset::ContentRoomResetSet),
                 emit_cut_rope_room_replay_after_dialogue_closes
-                    .in_set(ambition_gameplay_core::session::reset::ContentDialogueFollowupSet),
+                    .in_set(ambition_actors::session::reset::ContentDialogueFollowupSet),
             ),
         );
 
@@ -155,13 +153,12 @@ impl Plugin for AmbitionBossContentPlugin {
             Update,
             (
                 detect_cut_rope_rope_cut
-                    .run_if(ambition_gameplay_core::session::game_mode::gameplay_allowed),
-                tick_cut_rope_flavor
-                    .run_if(ambition_gameplay_core::session::game_mode::gameplay_allowed),
+                    .run_if(ambition_actors::session::game_mode::gameplay_allowed),
+                tick_cut_rope_flavor.run_if(ambition_actors::session::game_mode::gameplay_allowed),
                 sync_cut_rope_boss_arena_prop_visuals,
             )
                 .chain()
-                .in_set(ambition_gameplay_core::schedule::CombatSet::ContentFlavor),
+                .in_set(ambition_actors::schedule::CombatSet::ContentFlavor),
         );
 
         // Generic "lured movement" steering: any boss carrying a `CommandedMove`
@@ -172,8 +169,8 @@ impl Plugin for AmbitionBossContentPlugin {
         // chain) — exactly where the old cut-rope-specific steering ran.
         app.add_systems(
             Update,
-            ambition_gameplay_core::boss_encounter::tick_commanded_moves
-                .in_set(ambition_gameplay_core::schedule::BossSteerSlot),
+            ambition_actors::boss_encounter::tick_commanded_moves
+                .in_set(ambition_actors::schedule::BossSteerSlot),
         );
 
         // Content progression systems hang on the engine's labeled Progression
@@ -187,11 +184,11 @@ impl Plugin for AmbitionBossContentPlugin {
                 // Cut-rope arena per-attempt setup — MID boss-tick (after the
                 // engine advances encounter progress, before scripted hazards).
                 setup_cut_rope_encounter
-                    .in_set(ambition_gameplay_core::boss_encounter::ContentEncounterScriptSet),
+                    .in_set(ambition_actors::boss_encounter::ContentEncounterScriptSet),
                 // Victory NPC spawn — after the boss chain frees the payload,
                 // before the save mirrors run.
                 spawn_cut_rope_victory_npc
-                    .in_set(ambition_gameplay_core::boss_encounter::ContentEncounterVictorySet),
+                    .in_set(ambition_actors::boss_encounter::ContentEncounterVictorySet),
             ),
         );
 
@@ -204,9 +201,9 @@ impl Plugin for AmbitionBossContentPlugin {
         app.add_systems(
             Update,
             gate_gnu_ton_arena_ladder
-                .after(ambition_gameplay_core::features::rebuild_feature_ecs_world_overlay)
-                .before(ambition_gameplay_core::features::update_ecs_hazards)
-                .in_set(ambition_gameplay_core::schedule::SandboxSet::WorldPrep),
+                .after(ambition_actors::features::rebuild_feature_ecs_world_overlay)
+                .before(ambition_actors::features::update_ecs_hazards)
+                .in_set(ambition_actors::schedule::SandboxSet::WorldPrep),
         );
 
         // Cut-rope Yarn vocabulary: installed on the DialogueRunner via the
@@ -215,17 +212,15 @@ impl Plugin for AmbitionBossContentPlugin {
         // is consistent within the tick).
         #[cfg(feature = "ui")]
         {
-            app.init_resource::<ambition_gameplay_core::dialog::yarn_bindings::YarnContentBindings>();
+            app.init_resource::<ambition_actors::dialog::yarn_bindings::YarnContentBindings>();
             app.world_mut()
-                .resource_mut::<ambition_gameplay_core::dialog::yarn_bindings::YarnContentBindings>(
-                )
+                .resource_mut::<ambition_actors::dialog::yarn_bindings::YarnContentBindings>()
                 .installers
                 .push(yarn::install_cut_rope_yarn_bindings);
             app.add_systems(
                 Update,
-                yarn::mirror_cut_rope_heavy_object.after(
-                    ambition_gameplay_core::dialog::yarn_bindings::refresh_yarn_state_mirror,
-                ),
+                yarn::mirror_cut_rope_heavy_object
+                    .after(ambition_actors::dialog::yarn_bindings::refresh_yarn_state_mirror),
             );
         }
     }

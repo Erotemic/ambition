@@ -25,7 +25,7 @@
 //! the type belongs next to the brains, the *construction* (which reads the ECS
 //! world) belongs in the gameplay layer. So this module owns the headless,
 //! controller-neutral **value** and its pure tactical queries (line-of-fire,
-//! reachability); `ambition_gameplay_core` owns the body-generic **builder** that
+//! reachability); `ambition_actors` owns the body-generic **builder** that
 //! fills it from real solids / actors / projectiles. Zero rendering dependency
 //! (invariant I5) and zero Bevy-world dependency here — just plain data over
 //! [`ambition_engine_core`] geometry, so it is replay-deterministic and trivially

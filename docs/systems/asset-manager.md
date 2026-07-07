@@ -59,7 +59,7 @@ Use targeted checks first:
 
 ```bash
 cargo test -p ambition_asset_manager
-cargo test -p ambition_gameplay_core --lib asset
+cargo test -p ambition_actors --lib asset
 python scripts/check_agent_kb.py
 ```
 

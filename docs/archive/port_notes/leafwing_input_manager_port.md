@@ -8,7 +8,7 @@ that engine input frame is built.
 ## Why this boundary
 
 - `ambition_engine` remains backend-neutral and testable.
-- `ambition_gameplay_core` owns Bevy plugins, physical key/gamepad bindings, preset
+- `ambition_actors` owns Bevy plugins, physical key/gamepad bindings, preset
   cycling, debug hotkeys, HUD text, and other presentation concerns.
 - Future rebinding can replace the player's `InputMap<SandboxAction>` without
   rewriting movement, combat, doors, blink, fly, or room transition code.

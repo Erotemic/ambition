@@ -11,9 +11,9 @@
 
 use bevy::prelude::*;
 
+use ambition_actors::rooms::{RoomSet, RoomSpec};
 use ambition_engine_core as ae;
 use ambition_engine_core::RoomGeometry;
-use ambition_gameplay_core::rooms::{RoomSet, RoomSpec};
 
 /// The demo content plugin: one empty room + the engine's own sim-world
 /// setup (spawns the player box). This is the shape every demo app copies.
@@ -41,7 +41,7 @@ const FIXTURE_CATALOG_RON: &str = r#"(
 
 impl Plugin for FixtureContentPlugin {
     fn build(&self, app: &mut App) {
-        ambition_gameplay_core::character_roster::install_character_catalog(FIXTURE_CATALOG_RON);
+        ambition_actors::character_roster::install_character_catalog(FIXTURE_CATALOG_RON);
         let world = ae::World::new(
             "fixture_room",
             ae::Vec2::new(640.0, 480.0),
@@ -50,11 +50,11 @@ impl Plugin for FixtureContentPlugin {
         );
         let room = RoomSpec::new("fixture_room", world.clone());
         app.insert_resource(RoomGeometry(world));
-        app.insert_resource(ambition_gameplay_core::rooms::ActiveRoomMetadata::default());
+        app.insert_resource(ambition_actors::rooms::ActiveRoomMetadata::default());
         app.insert_resource(RoomSet::from_parts("fixture_room", vec![room], Vec::new()));
         app.add_systems(
             Startup,
-            fixture_setup.in_set(ambition_gameplay_core::schedule::SimulationSetupSet),
+            fixture_setup.in_set(ambition_actors::schedule::SimulationSetupSet),
         );
     }
 }
@@ -66,15 +66,15 @@ fn fixture_setup(
     mut commands: Commands,
     world: Res<RoomGeometry>,
     room_set: Res<RoomSet>,
-    ldtk_index: Res<ambition_gameplay_core::ldtk_world::LdtkRuntimeIndex>,
-    editable_abilities: Res<ambition_gameplay_core::dev::dev_tools::EditableAbilitySet>,
-    editable_tuning: Res<ambition_gameplay_core::dev::dev_tools::EditableMovementTuning>,
-    starting_character: Res<ambition_gameplay_core::player::StartingCharacter>,
+    ldtk_index: Res<ambition_actors::ldtk_world::LdtkRuntimeIndex>,
+    editable_abilities: Res<ambition_actors::dev::dev_tools::EditableAbilitySet>,
+    editable_tuning: Res<ambition_actors::dev::dev_tools::EditableMovementTuning>,
+    starting_character: Res<ambition_actors::player::StartingCharacter>,
     asset_server: Res<AssetServer>,
 ) {
-    ambition_gameplay_core::session::setup::simulation_world(
+    ambition_actors::session::setup::simulation_world(
         &mut commands,
-        ambition_gameplay_core::session::setup::SimulationSetup {
+        ambition_actors::session::setup::SimulationSetup {
             world: &world,
             room_set: &room_set,
             ldtk_index: &ldtk_index,

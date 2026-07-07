@@ -1,11 +1,11 @@
-//! Shrine visuals (was the render tail of ambition_gameplay_core::shrine): the obelisk
+//! Shrine visuals (was the render tail of ambition_actors::shrine): the obelisk
 //! sprite sync + activation-pulse animation. Reads the sim shrine state
-//! (HealShrine, ShrineActivationPulse) from ambition_gameplay_core.
+//! (HealShrine, ShrineActivationPulse) from ambition_actors.
 
 use super::sheet_atlas::{
     atlas_layout_from_record, row_duration, row_frame_count, row_start_index,
 };
-use ambition_gameplay_core::shrine::ShrineActivationPulse;
+use ambition_actors::shrine::ShrineActivationPulse;
 use ambition_sim_view::{ShrineFact, ShrinesView};
 use ambition_sprite_sheet::{SheetRecord, SheetRegistry};
 use bevy::prelude::*;
@@ -316,7 +316,7 @@ mod tests {
     use super::*;
     #[test]
     fn shrine_sheet_exposes_idle_then_activate_rows() {
-        let registry = ambition_gameplay_core::character_sprites::baked_sheet_registry();
+        let registry = ambition_actors::character_sprites::baked_sheet_registry();
         let record = registry.get("shrine").expect("shrine sheet record");
         assert_eq!(record.rows.len(), 2);
         assert_eq!(row_start_index(record, "idle"), Some(0));

@@ -65,7 +65,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 // overlay ADVANCE mutates sim components, so it stays defined
                 // in the sim heart; this plugin only schedules it.
                 (
-                    ambition_gameplay_core::features::advance_actor_anim_overlays,
+                    ambition_actors::features::advance_actor_anim_overlays,
                     rebuild_actor_anim_index,
                 )
                     .chain(),
@@ -74,7 +74,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 rebuild_body_pose_views,
                 rebuild_shield_rings_view,
             )
-                .in_set(ambition_gameplay_core::schedule::SandboxSet::FeatureViewSync),
+                .in_set(ambition_actors::schedule::SandboxSet::FeatureViewSync),
         );
     }
 }

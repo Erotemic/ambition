@@ -34,7 +34,7 @@ Options:
   --skip-build          Skip the cargo build (re-run wasm-bindgen against an existing artifact).
   --served              Build the served-assets browser persona:
                         switches the default feature to `web_served_assets`,
-                        symlinks crates/ambition_gameplay_core/assets into
+                        symlinks crates/ambition_actors/assets into
                         crates/ambition_app/web/assets/ so the page-served
                         `/assets/...` URLs Bevy's wasm HTTP reader fetches
                         actually resolve. Selects `AssetProfile::WebServedAssets`
@@ -305,7 +305,7 @@ fi
 # without symlink support) the sandbox `assets/` directory into
 # `web/assets/` so `python3 -m http.server` exposes it at
 # `http://localhost:<port>/assets/...`.
-SANDBOX_ASSETS="$ROOT/crates/ambition_gameplay_core/assets"
+SANDBOX_ASSETS="$ROOT/crates/ambition_actors/assets"
 SERVED_ASSETS_LINK="$WEB_DIR/assets"
 if [[ "$SERVED_MODE" == true ]]; then
     [[ -d "$SANDBOX_ASSETS" ]] || fatal "$SANDBOX_ASSETS not found; cannot wire --served"

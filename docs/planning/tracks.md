@@ -9,7 +9,7 @@ Append execution-log entries at the bottom; keep statuses current; Jon
 can only read, not ask.
 
 Standing verification gate: `cargo build -p ambition_app --features
-rl_sim` + gameplay_core lib + content + app rl_sim suites + boundary
+rl_sim` + ambition_actors lib + content + app rl_sim suites + boundary
 tests. Known feel-reserved RED: `unified_melee::a_hostile_actor…`.
 
 **Living-plan discipline (README.md, binding): every work commit updates
@@ -181,7 +181,7 @@ fable card. Ranked by how much they gate a fable task.
 
 | Track | Doc | Status | Next |
 |---|---|---|---|
-| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — **E5-finish COMPLETE (fable 2026-07-06 night): step 5 executed (amended: shared sim wiring → `ambition_runtime` per-domain plugins; `ambition_host` = leafwing bindings + camera cluster) + step 6 executed (SimCoreResourcesPlugin split + the demo smoke shell PASSES) — THE DEMO GATE IS OPEN**; W1 STATE-inversion (opus); **W-a…W-e RULED — the 5-step OPUS-SAFE W queue is in decomposition.md**; **E2 back-edges PRE-CLASSIFIED (fable) — verdict list in the E2 card**; **W-queue step 1 DONE + E2 IN-PLACE VERDICTS DONE (opus 2026-07-06 night): entity_catalog::placements + engine_core::kinematic_path minted; all 7 E2 back-edge verdicts landed in-place (CombatTuning minted, banner→message, CenteredAabb/HitEvent/overlay repointed, FeatureSimEntity→lifecycle) — combat's atomic move is now near-mechanical**; **E1a persistence carve ✅ DONE (Codex 2026-07-06): `ambition_persistence` owns save/settings/quest stored shapes; gameplay-core retains only settings/menu IR + dev persistence adapters for E1e/E1d**; **E1b audio carve ✅ DONE (Codex 2026-07-06): reusable SFX-bank loader/drain moved to `ambition_audio`; dead encounter-music fallback deleted; remaining audio/music files are sandbox adapters**; **E-assets catalog/source carve ✅ DONE (Codex 2026-07-07): `ambition_asset_manager::sandbox_assets` owns `SandboxAssetCatalog`, ids, catalog builders, and embedded-source plugin; gameplay-core keeps only input assembly + `game_assets` presentation tail**; **W step 3 lowering-registry proof ✅ DONE (Codex 2026-07-07): `PlacementKind`/`LoweringCtx`/registry + [W-e] hard error landed; hazards lower through the registry while legacy channels dissolve branch-by-branch**; **W3/W4 crate split + ratchet ✅ DONE first cut (Codex 2026-07-07): `ambition_world` owns room IR/platform math/placements, `ambition_ldtk_map` owns LDtk, ADR 0021 + boundary test landed; legacy typed family lists remain as explicit placement-dissolution residue**; **E3 character sprite-sheet slice ✅ DONE (Codex 2026-07-07): `ambition_sprite_sheet::character` owns `CharacterAnim`, sheet specs/geometry, animator, baked RON/pack tables; gameplay-core keeps roster-aware loader + body-state pickers**; **E-enc state/vocabulary slice ✅ DONE (Codex 2026-07-07): `ambition_encounter` owns wave specs/state/events/registry/music/reward math; gameplay-core keeps ECS/LDtk adapters**; **E6 boss tail ✅ CLOSED (Codex 2026-07-07): sim-side frame + direct target context landed; BossAnim row fold and the two deep folds closed by code-site policy comments** | **W2 ✅ EXECUTED (fable 2026-07-07 — see the log; GeoSource subsumed SpatialSource)**; W cleanup = legacy typed family dissolution through placement registry; **E2 combat carve ✅ EXECUTED (fable 2026-07-07 — the kit IS ambition_combat; see the log)**; **projectiles model ✅ DONE (opus 2026-07-07 — `ambition_projectiles` owns the shot vocabulary; the victim/world/anim steppers stay in the sim heart blocked on boss types E6, see the log)**; E4 dep-flip next, then E7/E8 (deferred boss split-overlay teardown rides E7/E8 cleanup) |
+| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — **E5-finish COMPLETE (fable 2026-07-06 night): step 5 executed (amended: shared sim wiring → `ambition_runtime` per-domain plugins; `ambition_host` = leafwing bindings + camera cluster) + step 6 executed (SimCoreResourcesPlugin split + the demo smoke shell PASSES) — THE DEMO GATE IS OPEN**; W1 STATE-inversion (opus); **W-a…W-e RULED — the 5-step OPUS-SAFE W queue is in decomposition.md**; **E2 back-edges PRE-CLASSIFIED (fable) — verdict list in the E2 card**; **W-queue step 1 DONE + E2 IN-PLACE VERDICTS DONE (opus 2026-07-06 night): entity_catalog::placements + engine_core::kinematic_path minted; all 7 E2 back-edge verdicts landed in-place (CombatTuning minted, banner→message, CenteredAabb/HitEvent/overlay repointed, FeatureSimEntity→lifecycle) — combat's atomic move is now near-mechanical**; **E1a persistence carve ✅ DONE (Codex 2026-07-06): `ambition_persistence` owns save/settings/quest stored shapes; actor sim retains only settings/menu IR + dev persistence adapters for E1e/E1d**; **E1b audio carve ✅ DONE (Codex 2026-07-06): reusable SFX-bank loader/drain moved to `ambition_audio`; dead encounter-music fallback deleted; remaining audio/music files are sandbox adapters**; **E-assets catalog/source carve ✅ DONE (Codex 2026-07-07): `ambition_asset_manager::sandbox_assets` owns `SandboxAssetCatalog`, ids, catalog builders, and embedded-source plugin; actor sim keeps only input assembly + `game_assets` presentation tail**; **W step 3 lowering-registry proof ✅ DONE (Codex 2026-07-07): `PlacementKind`/`LoweringCtx`/registry + [W-e] hard error landed; hazards lower through the registry while legacy channels dissolve branch-by-branch**; **W3/W4 crate split + ratchet ✅ DONE first cut (Codex 2026-07-07): `ambition_world` owns room IR/platform math/placements, `ambition_ldtk_map` owns LDtk, ADR 0021 + boundary test landed; legacy typed family lists remain as explicit placement-dissolution residue**; **E3 character sprite-sheet slice ✅ DONE (Codex 2026-07-07): `ambition_sprite_sheet::character` owns `CharacterAnim`, sheet specs/geometry, animator, baked RON/pack tables; actor sim keeps roster-aware loader + body-state pickers**; **E-enc state/vocabulary slice ✅ DONE (Codex 2026-07-07): `ambition_encounter` owns wave specs/state/events/registry/music/reward math; actor sim keeps ECS/LDtk adapters**; **E6 boss tail ✅ CLOSED (Codex 2026-07-07): sim-side frame + direct target context landed; BossAnim row fold and the two deep folds closed by code-site policy comments**; **E7 rename slice ✅ DONE (Codex 2026-07-07): `ambition_gameplay_core` package/path renamed to `ambition_actors` and workspace/import references repointed** | **W2 ✅ EXECUTED (fable 2026-07-07 — see the log; GeoSource subsumed SpatialSource)**; W cleanup = legacy typed family dissolution through placement registry; **E2 combat carve ✅ EXECUTED (fable 2026-07-07 — the kit IS ambition_combat; see the log)**; **projectiles model ✅ DONE (opus 2026-07-07 — `ambition_projectiles` owns the shot vocabulary; the victim/world/anim steppers stay in the sim heart blocked on boss types E6, see the log)**; E7 workspace re-home, then E8 (deferred boss split-overlay teardown rides E7/E8 cleanup) |
 | Decomposition D-B/D-C | same | queued behind D-A | mode-scope seam can land early (demos want it) |
 | Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | **CC1 COMPLETE + CC5 LANDED (fable) + CC2 COMPLETE + §3.6 GeoId/GeoFaceRef SUBSTRATE MINTED (opus, 2026-07-06)** — SweepSample §3.1 PARKED (decision brief above); GeoId types + Block.id (Anon default, byte-parity) real in code, first consumer = CC6 — engine_core::frame vocabulary + cast family registry real in code; CC2 first pass (hazards swept) + completion (§3.3 every reader classified: loading-zone Door/Walk/EdgeExit now swept via `transition_for_player`; water/climbable annotated discrete-OK + `thin_region_warnings` authoring validator; ledge audited; auto-collect N/A) parity suites green | CC3 fuzz rig (§6.1 oracle) [opus]; CC6 moving portals (§5-P2 spec) [opus] |
 | Combat stack | [engine/combat-model.md](engine/combat-model.md) | CM1 (incl. **launch_dir consumption, fable 2026-07-06 evening** `c695cd9c`)+CM2+CM3+CM7+CM4+CM5 LANDED — per-move presentation authored; smash axes complete (growth, DI, charge, cancel tables, fixed launch angles) | CM6 grab/throw/shield-stun (brings OnBlock) [opus, with SSB] |
@@ -984,7 +984,7 @@ slice; W3's cut now builds on a landed, fable-verified shape.**
 
 
 ## 2026-07-07 (opus, d) — E2 tail: `ambition_projectiles` (the projectile MODEL)
-Carved the projectile vocabulary out of `ambition_gameplay_core` as two
+Carved the projectile vocabulary out of `ambition_actors` as two
 compiling commits (`feat(E2): mint ambition_projectiles` +
 `refactor(E2): repoint projectile-model consumers`). The de-weave
 re-measured fable's census and found the real split is model-vs-stepper,
@@ -1066,7 +1066,7 @@ this exact arc (census + order in the E2 card), not a tail item.**
 ## 2026-07-06 (Codex) — E1a EXECUTED: `ambition_persistence` owns saved shapes
 
 Minted `crates/ambition_persistence` and moved the persistence-owned
-surface out of `ambition_gameplay_core`: `SandboxSaveData`/`SandboxSave`
+surface out of `ambition_actors`: `SandboxSaveData`/`SandboxSave`
 I/O, typed `UserSettings` + settings I/O, display-mode vocabulary, and
 quest specs/events/registry/save mirroring. Runtime/content/render/app/
 touch/sim-view consumers now name `ambition_persistence` directly, so
@@ -1079,7 +1079,7 @@ adapter over the generic quest event. Added the boundary test
 `architecture_boundaries_persistence_crate_owns_stored_shapes_only` to
 forbid menu/UI/game machinery imports in the new crate. Gate:
 `cargo fmt --check`; `cargo test -p ambition_persistence` (66);
-`cargo test -p ambition_gameplay_core --lib` (1029);
+`cargo test -p ambition_actors --lib` (1029);
 `cargo test -p ambition_content --all-features` (102+4+1+1);
 `cargo check -p ambition_app --features rl_sim`; focused
 architecture-boundary test green; `python3 scripts/check_agent_kb.py`;
@@ -1088,7 +1088,7 @@ headless -- 120`.
 
 ## 2026-07-06 (Codex) — E1b EXECUTED: `ambition_audio` owns the reusable SFX runtime
 
-Moved the reusable SFX-bank runtime out of `ambition_gameplay_core` and
+Moved the reusable SFX-bank runtime out of `ambition_actors` and
 into the existing `ambition_audio` crate: the Bevy bank asset/loader,
 `SfxBankResource`, async promotion, handle-cache refresh, and
 `audio_play_sfx_messages` now live behind `ambition_audio/kira`. The app
@@ -1101,7 +1101,7 @@ music application route. The remaining gameplay-core audio/music files
 are explicitly sandbox adapters (environment mix, schedule assembly,
 settings sync, encounter/room/radio intent). Gate: `cargo fmt`;
 `cargo test -p ambition_audio --features kira` (6);
-`cargo test -p ambition_gameplay_core --lib --features audio` (1029);
+`cargo test -p ambition_actors --lib --features audio` (1029);
 `cargo check -p ambition_app --features "rl_sim audio"`;
 `cargo fmt --check`; `python3 scripts/check_doc_links.py`;
 `python3 scripts/check_agent_kb.py`; `cargo run -p ambition_app --bin
@@ -1110,7 +1110,7 @@ headless -- 120`.
 ## 2026-07-06 (opus) — E1c EXECUTED: `ambition_dialog` owns the dialogue runtime
 
 Minted `crates/ambition_dialog` and moved the engine-side dialogue
-machinery out of `ambition_gameplay_core`: the `DialogState` view model +
+machinery out of `ambition_actors`: the `DialogState` view model +
 typewriter/options reveal state machines, `DialogChoice`, the
 typewriter-SFX selection rules, the input/reveal Bevy systems, the
 `bevy_yarnspinner`↔`DialogState` bridge, and the generic Yarn binding
@@ -1135,7 +1135,7 @@ Two seams make the runtime reusable and content-free:
    the new `install_game_bindings`.
 
 `gameplay_core::dialog` is now a facade: it re-exports the runtime on the
-historical `ambition_gameplay_core::dialog::*` path (render/content/app/
+historical `ambition_actors::dialog::*` path (render/content/app/
 host need no import edits) and owns the two sim-side plugins
 (`YarnBindingsPlugin`/`YarnBridgePlugin` wrap the reusable ones + schedule
 the refresh/installer/sync) and `sync_dialogue_game_mode`. Content keeps
@@ -1148,7 +1148,7 @@ deps only; no game/actor/menu/UI code refs), and fixed pre-existing E1a
 drift in `architecture_boundaries_input_crate_is_extracted` (the canonical
 `controls` re-export moved into `ambition_persistence` at E1a). Gate:
 `cargo test -p ambition_dialog --features "ui input"` (18);
-`cargo test -p ambition_gameplay_core --lib --features "ui input"` (1011);
+`cargo test -p ambition_actors --lib --features "ui input"` (1011);
 `cargo test -p ambition_app --test architecture_boundaries` (34);
 `cargo check -p ambition_content --all-features`;
 `cargo check -p ambition_app --features rl_sim`;
@@ -1158,7 +1158,7 @@ rustfmt on touched files.
 ## 2026-07-07 (opus) — E1d EXECUTED: `ambition_dev_tools` owns the dev-tool state
 
 Minted `crates/ambition_dev_tools` (foundational) and moved the
-content-free half of `ambition_gameplay_core::dev` into it: the
+content-free half of `ambition_actors::dev` into it: the
 `DeveloperTools` debug/gizmo toggle resource + inspector-visibility run
 conditions, the reflected editable player-tuning / ability / stats
 resources + their engine conversions, the movement/debug profile enums,
@@ -1191,7 +1191,7 @@ the egui overlays need render/egui and are app-level. The overlays stay in
 only the reusable STATE moved down.
 
 Gate: `cargo test -p ambition_dev_tools` (9);
-`cargo test -p ambition_gameplay_core --lib --features "ui input"` (1002 =
+`cargo test -p ambition_actors --lib --features "ui input"` (1002 =
 1011 − the 9 moved dev_tools tests);
 `cargo test -p ambition_app --test architecture_boundaries` (35 — added the
 dev_tools foundation test + updated the dev-overlays home test);
@@ -1245,7 +1245,7 @@ in-game character-select menu exists; "wear" is spawn-time possession
 re-parametrization, not a menu.
 
 Gate (slice 1): `cargo test -p ambition_settings_menu --features dev_tools`
-(16); `cargo test -p ambition_gameplay_core --lib --features "ui input
+(16); `cargo test -p ambition_actors --lib --features "ui input
 dev_tools"` (986 = 1002 − 16 moved IR tests). Gate (slice 2):
 `cargo test -p ambition_menu` (14, lunex-free); `cargo test -p
 ambition_menu_kaleidoscope` (9); `cargo test -p ambition_app --features
@@ -1271,15 +1271,15 @@ plain `SandboxCatalogInputs` rows assembled by a thin gameplay-core adapter;
 the adapter also supplies embedded LDtk bytes to the moved source plugin.
 
 The runtime asset root fallback was corrected after the move so desktop
-catalog probes still fall back to `../ambition_gameplay_core/assets`.
+catalog probes still fall back to `../ambition_actors/assets`.
 `assets/game_assets` intentionally remains in gameplay-core for now because it
 owns Bevy image handles plus gameplay/presentation vocabulary; the next real
 shrinks there ride E3/E6/E7 rather than making `ambition_asset_manager` import
 upward.
 
 Gate: `cargo check -p ambition_asset_manager --features bevy,static_core_assets,static_map`;
-`cargo check -p ambition_gameplay_core --lib`; `cargo test -p
-ambition_asset_manager` (62); `cargo test -p ambition_gameplay_core --lib
+`cargo check -p ambition_actors --lib`; `cargo test -p
+ambition_asset_manager` (62); `cargo test -p ambition_actors --lib
 assets` (20); `cargo test -p ambition_app --test architecture_boundaries`
 (38). Checks are green with pre-existing unused/private-interface warnings in
 gameplay-core/sim-view/app and one pre-existing portal-presentation unused-variable
@@ -1306,7 +1306,7 @@ legacy typed family lists on `RoomSpec` dissolve branch-by-branch through the
 placement registry.
 
 Gate: `cargo test -p ambition_world` (23); `cargo test -p ambition_ldtk_map`
-(21); `cargo check -p ambition_gameplay_core --lib`; `cargo test -p
+(21); `cargo check -p ambition_actors --lib`; `cargo test -p
 ambition_app --test architecture_boundaries` (39); `cargo check -p
 ambition_app --features rl_sim`; `python3 scripts/check_doc_links.py`.
 
@@ -1332,9 +1332,9 @@ with E6, and `assets/game_assets` keeps the Bevy handle bundle until the
 E3/E6/E7 visual vocabulary tails stop naming gameplay-side types.
 
 Gate: `cargo check -p ambition_sprite_sheet`; `cargo check -p
-ambition_gameplay_core --lib`; `cargo check -p ambition_render`; `cargo check
+ambition_actors --lib`; `cargo check -p ambition_render`; `cargo check
 -p ambition_content --all-features`; `cargo test -p ambition_sprite_sheet`
-(21); `cargo test -p ambition_gameplay_core --lib character_sprites` (46);
+(21); `cargo test -p ambition_actors --lib character_sprites` (46);
 `python3 scripts/check_doc_links.py`. Checks are green with pre-existing
 unused warnings in portal-presentation, gameplay-core, sim-view, render, and
 dialog.
@@ -1359,7 +1359,7 @@ Those dissolve with W/E7 rather than by pulling the sim heart into
 `ambition_encounter`.
 
 Gate: `cargo test -p ambition_encounter` (16); `cargo test -p
-ambition_gameplay_core --lib encounter` (118); `cargo test -p ambition_app
+ambition_actors --lib encounter` (118); `cargo test -p ambition_app
 --test architecture_boundaries architecture_boundaries_encounter_crate_is_state_only`
 (1). The LDtk-backed encounter tests now install their own minimal world
 manifest fixture, matching the W3 rule that the LDtk backend ships no hidden
@@ -1379,7 +1379,7 @@ render-inserted `BossAnimator` to drive boss geometry. Remaining E6 work is the
 non-gnuton `BossAnim` vocabulary decision, `BrainSnapshot.target_pos`
 retirement, and the bounded deep-fold attempts.
 
-Gate: `cargo test -p ambition_gameplay_core --lib boss` (121); `cargo check -p
+Gate: `cargo test -p ambition_actors --lib boss` (121); `cargo check -p
 ambition_render`; `cargo check -p ambition_app --features rl_sim`; `python3
 scripts/check_doc_links.py`.
 
@@ -1392,7 +1392,7 @@ the `BossPatternContext` directly from the already-selected `ActorTarget`, runs
 `BossAttackIntent` as before. Possessed bosses still use the player-brain
 snapshot path because controller input is the point of that branch.
 
-Gate: `cargo test -p ambition_gameplay_core --lib boss` (121).
+Gate: `cargo test -p ambition_actors --lib boss` (121).
 
 ## 2026-07-07 (Codex) — E6(b/d) boss tail policy closures
 
@@ -1408,7 +1408,7 @@ move-intent / boss-brain fold misses for the same reason on the brain side:
 non-swarm profile intent and possession→special mapping. Permanent policy
 comments now live at the enum and both fold sites.
 
-Gate: `cargo fmt`; `cargo test -p ambition_gameplay_core --lib boss` (121);
+Gate: `cargo fmt`; `cargo test -p ambition_actors --lib boss` (121);
 `python3 scripts/check_doc_links.py`.
 
 ## 2026-07-07 (Codex) — E4 dep-flip cleanup: moved-vocabulary render imports

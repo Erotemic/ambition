@@ -3,11 +3,11 @@
 //! rebuilds, and the dev-dependency cycle means gameplay_core's own test
 //! build sees a different type universe than the one this crate links).
 
-use ambition_engine_core as ae;
-use ambition_gameplay_core::features::{
+use ambition_actors::features::{
     CenteredAabb, ChestFeature, Collected, FeatureId, FeatureName, FeatureSimEntity,
     FeatureVisualKind, PickupFeature,
 };
+use ambition_engine_core as ae;
 use ambition_sim_view::{rebuild_feature_view_index, FeatureViewIndex};
 use bevy::prelude::{App, Commands, Entity, IntoScheduleConfigs, Query, Update, With};
 
@@ -16,8 +16,8 @@ fn boss_classifies_as_boss_not_the_actor_enemy_fallback() {
     // External test build: gameplay_core's cfg(test) profile fixture doesn't
     // apply here, so install content's authoritative registry explicitly
     // (same seam AmbitionContentPlugin uses at build time).
-    ambition_gameplay_core::boss_encounter::install_boss_profiles(
-        ambition_gameplay_core::boss_encounter::BossProfileRegistry::from_ron(include_str!(
+    ambition_actors::boss_encounter::install_boss_profiles(
+        ambition_actors::boss_encounter::BossProfileRegistry::from_ron(include_str!(
             "../../ambition_content/assets/data/boss_profiles.ron"
         )),
     );
@@ -30,14 +30,14 @@ fn boss_classifies_as_boss_not_the_actor_enemy_fallback() {
     // boss sheet. This pins the exclusion that the deleted `ActorRuntime` tag
     // used to provide implicitly.
     let boss_body = ae::Aabb::new(ae::Vec2::new(500.0, 500.0), ae::Vec2::new(80.0, 120.0));
-    let boss = ambition_gameplay_core::features::BossClusterScratch::new(
+    let boss = ambition_actors::features::BossClusterScratch::new(
         "gnu_ton",
         "GNU-ton",
         boss_body,
         ambition_entity_catalog::placements::BossBrain::Dormant,
     );
     let (identity, disposition, combat, intent, cooldowns) =
-        ambition_gameplay_core::features::boss_component_snapshot(
+        ambition_actors::features::boss_component_snapshot(
             boss.as_ref(),
             &ambition_characters::brain::BossAttackState::default(),
             &boss.health,
@@ -64,7 +64,7 @@ fn boss_classifies_as_boss_not_the_actor_enemy_fallback() {
         .expect("the boss must have a feature view");
     assert_eq!(
         view.kind,
-        ambition_gameplay_core::features::FeatureVisualKind::Actor,
+        ambition_actors::features::FeatureVisualKind::Actor,
         "a boss is an actor like every other (got {:?})",
         view.kind,
     );
@@ -183,7 +183,7 @@ fn feature_view_index_first_write_wins_on_duplicate_ids() {
 /// pin the ordering.
 #[test]
 fn feature_view_index_reflects_same_frame_reset_spawn() {
-    use ambition_gameplay_core::schedule::{configure_sandbox_sets, SandboxSet};
+    use ambition_actors::schedule::{configure_sandbox_sets, SandboxSet};
 
     fn fake_reset_system(mut commands: Commands, existing: Query<Entity, With<FeatureSimEntity>>) {
         for entity in &existing {

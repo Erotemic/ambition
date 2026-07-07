@@ -1,6 +1,6 @@
 # ECS inventory tool
 
-`scripts/ecs_inventory.py` builds a static inventory of the `ambition_gameplay_core` Bevy ECS surface.
+`scripts/ecs_inventory.py` builds a static inventory of the `ambition_actors` Bevy ECS surface.
 It is meant for refactor planning and code-review diffs, not as a replacement for `cargo check`.
 
 ## Usage

@@ -26,9 +26,9 @@ Still-direct paths include:
 
 1. **Brain template** (`crates/ambition_characters/src/brain/state_machine/mod.rs`) — when an actor needs a new policy or state graph. Add a new `StateMachineCfg` variant only when existing templates cannot express the behavior.
 2. **ActionSet spec** (`crates/ambition_characters/src/brain/action_set/mod.rs`) — when an actor needs a new concrete capability: melee, ranged, move style, or special.
-3. **Effect consumer** (`crates/ambition_gameplay_core/src/features/ecs/brain_effects.rs` or another focused module) — when an `ActionRequest` is emitted but not yet translated into hitboxes, projectiles, VFX/SFX, boss hazards, or other world effects.
+3. **Effect consumer** (`crates/ambition_actors/src/features/ecs/brain_effects.rs` or another focused module) — when an `ActionRequest` is emitted but not yet translated into hitboxes, projectiles, VFX/SFX, boss hazards, or other world effects.
 
-Per-entity brain construction usually lives in `crates/ambition_gameplay_core/src/features/ecs/brain_builders.rs` or the relevant boss/profile setup code.
+Per-entity brain construction usually lives in `crates/ambition_actors/src/features/ecs/brain_builders.rs` or the relevant boss/profile setup code.
 
 ## Adding a new brain template
 
@@ -137,16 +137,16 @@ Some behavior is really hit/damage metadata, not a new message stream. If the fe
 After every brain/action change:
 
 ```bash
-cargo check -p ambition_gameplay_core
-cargo test -p ambition_gameplay_core --lib engine_core
-cargo test -p ambition_gameplay_core --lib brain::
-cargo test -p ambition_gameplay_core --lib features::ecs::brain_effects
-cargo test -p ambition_gameplay_core --lib
+cargo check -p ambition_actors
+cargo test -p ambition_actors --lib engine_core
+cargo test -p ambition_actors --lib brain::
+cargo test -p ambition_actors --lib features::ecs::brain_effects
+cargo test -p ambition_actors --lib
 cargo run -p ambition_app --bin headless -- 30
 ```
 
 If the full sandbox lib test hits EMFILE under high parallelism on shared dev VMs, run single-threaded:
 
 ```bash
-cargo test -p ambition_gameplay_core --lib -- --test-threads=2
+cargo test -p ambition_actors --lib -- --test-threads=2
 ```

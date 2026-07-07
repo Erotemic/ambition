@@ -14,7 +14,7 @@ pub use ambition_persistence::host::windowing::{DisplayModeKind, DisplayModeStat
 /// Runtime display-mode hotkeys (developer convenience).
 ///
 /// The primary user-facing surface is the pause menu's Settings page
-/// (`ambition_gameplay_core::pause_menu`), which exposes Display Mode as a row that
+/// (`ambition_actors::pause_menu`), which exposes Display Mode as a row that
 /// cycles Windowed / Borderless / Fullscreen with Left/Right and
 /// Confirm. These F-keys remain as a dev shortcut so you can flip
 /// between modes without going through the menu while iterating:
@@ -23,7 +23,7 @@ pub use ambition_persistence::host::windowing::{DisplayModeKind, DisplayModeStat
 /// - `F7`: borderless fullscreen
 ///
 /// `F8` is reserved for the gameplay trace recorder dump (see
-/// `ambition_gameplay_core::trace::handle_trace_hotkey`). Exclusive fullscreen used to
+/// `ambition_actors::trace::handle_trace_hotkey`). Exclusive fullscreen used to
 /// be on `F8` but is rarely useful for sandbox dev; the menu remains
 /// the way to reach it.
 ///

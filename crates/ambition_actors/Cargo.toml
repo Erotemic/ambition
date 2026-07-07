@@ -1,5 +1,5 @@
 [package]
-name = "ambition_gameplay_core"
+name = "ambition_actors"
 version = "0.2.0"
 edition.workspace = true
 license.workspace = true
@@ -160,7 +160,7 @@ visible_web_served = ["visible_web_base", "web_served", "web_audio"]
 web = ["visible_web", "web_platform"]
 
 # Browser persona — served assets. Use with `./build_for_web.sh --served`
-# (which symlinks/copies `crates/ambition_gameplay_core/assets/` into
+# (which symlinks/copies `crates/ambition_actors/assets/` into
 # `crates/ambition_app/web/assets/` so the served pages can reach
 # them under `/assets/...`). Full media: visuals + authored audio.
 web_served_assets = ["visible_web_served", "web_platform"]
@@ -224,7 +224,7 @@ static_core_assets = ["ambition_asset_manager/static_core_assets"]
 
 # Opt-in static SFX bank embedding. This is mainly for Android until the
 # synchronous SFX-bank loader can read from APK assets. The build script enables
-# this automatically when crates/ambition_gameplay_core/assets/audio/sfx.bank exists
+# this automatically when crates/ambition_actors/assets/audio/sfx.bank exists
 # and passes AMBITION_STATIC_SFX_BANK_PATH for include_bytes!.
 static_sfx_bank = []
 

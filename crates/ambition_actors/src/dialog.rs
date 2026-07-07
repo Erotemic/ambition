@@ -16,7 +16,7 @@
 //!   This system maps "dialogue ended" back onto `GameMode::Playing`.
 //!
 //! The runtime types are re-exported here so existing
-//! `ambition_gameplay_core::dialog::*` paths (render, content, app, host) keep
+//! `ambition_actors::dialog::*` paths (render, content, app, host) keep
 //! resolving without a churn of import edits.
 
 pub use ambition_dialog::{

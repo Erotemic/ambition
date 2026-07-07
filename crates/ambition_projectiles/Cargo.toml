@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Reusable, content-free projectile MODEL: the player/enemy faction shot vocabulary (ProjectileKind / visual-kind art descriptors / PlayerProjectileState charge machine), the ECS shot components (LiveProjectile / ProjectileOwner / ProjectileSeq), the SpawnProjectile pool message + player-pool spawner, and the pure portal-aperture transit. Pure logic over the projectile-physics primitive; the game's ECS steppers (victim-side hit routing, charge input) consume it. Extracted from ambition_gameplay_core (E2)."
+description = "Reusable, content-free projectile MODEL: the player/enemy faction shot vocabulary (ProjectileKind / visual-kind art descriptors / PlayerProjectileState charge machine), the ECS shot components (LiveProjectile / ProjectileOwner / ProjectileSeq), the SpawnProjectile pool message + player-pool spawner, and the pure portal-aperture transit. Pure logic over the projectile-physics primitive; the game's ECS steppers (victim-side hit routing, charge input) consume it. Extracted from ambition_actors (E2)."
 
 [lib]
 crate-type = ["rlib"]

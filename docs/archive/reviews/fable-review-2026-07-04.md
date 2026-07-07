@@ -73,7 +73,7 @@ QUEUE deferred-tuning items remain Jon's feel pass, unchanged.
 
 ## 2. THE STATE, measured (2026-07-04)
 
-- 25 workspace crates. `ambition_gameplay_core` = **~99.5k LOC** — half the
+- 25 workspace crates. `ambition_actors` = **~99.5k LOC** — half the
   workspace, 5× the next crate. `ambition_app` = 21k, of which **10k is a
   misplaced menu host stack** and 2.7k dev tools. `ambition_characters` 17k,
   `ambition_engine_core` 13.7k, `ambition_content` 10.6k, `ambition_render` 9.9k.
@@ -713,7 +713,7 @@ focused effort; a fresh context should take them one at a time. The
 groundwork:
 
 - **The exit criterion is measurable.** `rg 'Without<.*BossConfig>'
-  crates/ambition_gameplay_core/src` (excl. tests) = **17 carve-outs / 11
+  crates/ambition_actors/src` (excl. tests) = **17 carve-outs / 11
   files** today. The three LOAD-BEARING ones are the actor-tick systems the
   boss is excluded from only because it has parallel systems:
   `features/ecs/actors/update.rs:177` (`tick_actor_brains`), `:701`
@@ -1005,7 +1005,7 @@ panic; core tests read the game's real worlds via the cross-crate fixture.
 - **Gate:** full workspace --all-targets green except the documented
   unified_melee feel-red; static_map configs check; the REAL headless
   binary boots the moved worlds end-to-end.
-- `rg 'ambition/worlds' crates/ambition_gameplay_core/src` → zero. The
+- `rg 'ambition/worlds' crates/ambition_actors/src` → zero. The
   engine ships no worlds.
 
 ### R3.3 — room mechanics split by kind ✅ (`1b9b34b4`, `a0c1118a`)
@@ -1154,7 +1154,7 @@ special is a new key + a content system — NEITHER edits this enum.
 mapping surfaced — the geometry-vs-special distinction is read by the brain
 (`boss_pattern/tick.rs`: `is_special()` routes `special_pressed` vs
 `melee_pressed`), which lives in `ambition_characters`, BELOW the geometry table
-in `ambition_gameplay_core`. A pure newtype would force "special ⇔ no geometry
+in `ambition_actors`. A pure newtype would force "special ⇔ no geometry
 entry" — a table lookup the brain can't do without a layering violation. Keeping
 `Strike`/`Special` as variants makes the distinction structural + brain-visible
 (no table needed), while still collapsing the 11 named geometry variants into

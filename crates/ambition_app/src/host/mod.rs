@@ -10,5 +10,5 @@
 pub mod framepace;
 pub mod platform;
 // `windowing` (display-mode vocabulary) stays in the machinery lib
-// (`ambition_gameplay_core::host::windowing`) — the settings model reads it.
-pub use ambition_gameplay_core::host::windowing;
+// (`ambition_actors::host::windowing`) — the settings model reads it.
+pub use ambition_actors::host::windowing;

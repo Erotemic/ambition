@@ -53,7 +53,7 @@ Daytime continuation #3 in [`TODO-controllable-entity.md`](../../TODO-controllab
 
 ### Enemy bypass — `EnemyRuntime::update`
 
-**File:** `crates/ambition_gameplay_core/src/features/enemies.rs`
+**File:** `crates/ambition_actors/src/features/enemies.rs`
 
 - `EnemyRuntime::update` (line ~891) is a 600+-line tick that bakes
   AI + choreography + projectile spawn into a single method. The
@@ -83,8 +83,8 @@ QA, exercises projectile spawn + recoil.
 ### Boss bypass — `BossRuntime` + bespoke pattern state-machine
 
 **Files:**
-- `crates/ambition_gameplay_core/src/features/bosses.rs`
-- `crates/ambition_gameplay_core/src/features/ecs/bosses.rs`
+- `crates/ambition_actors/src/features/bosses.rs`
+- `crates/ambition_actors/src/features/ecs/bosses.rs`
 
 Boss attack patterns drive themselves through `BossBehaviorProfile`
 + per-boss runtime state (e.g. `apple_rain`, `spike_halo`, head-
@@ -103,8 +103,8 @@ schedule is the second half).
 ### Player ledge/swim sub-ticks — also call `update_player_*`
 
 **Files:**
-- `crates/ambition_gameplay_core/src/player/ledge_grab.rs:41,51,65`
-- `crates/ambition_gameplay_core/src/player/swim.rs:47,70,73,97,122`
+- `crates/ambition_actors/src/player/ledge_grab.rs:41,51,65`
+- `crates/ambition_actors/src/player/swim.rs:47,70,73,97,122`
 
 These are sub-tick simulations (`0.016` literal) inside the player
 modules — used for probing what would happen if the player swims

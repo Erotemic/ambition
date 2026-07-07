@@ -14,7 +14,7 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 
 use crate::banter::CombatBanterRegistry;
-use ambition_gameplay_core::features::BossClusterRef;
+use ambition_actors::features::BossClusterRef;
 use ambition_vfx::VfxMessage;
 
 /// Register hit-bark + idle-bark lines for all boss encounters.
@@ -157,9 +157,9 @@ pub fn tick_boss_idle_barks(
         }
         if !matches!(
             boss.status.encounter_phase,
-            ambition_gameplay_core::boss_encounter::BossEncounterPhase::Phase1
-                | ambition_gameplay_core::boss_encounter::BossEncounterPhase::Phase2
-                | ambition_gameplay_core::boss_encounter::BossEncounterPhase::Enrage
+            ambition_actors::boss_encounter::BossEncounterPhase::Phase1
+                | ambition_actors::boss_encounter::BossEncounterPhase::Phase2
+                | ambition_actors::boss_encounter::BossEncounterPhase::Enrage
         ) {
             continue;
         }

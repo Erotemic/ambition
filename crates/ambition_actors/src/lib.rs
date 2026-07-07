@@ -11,7 +11,7 @@
 //! - above it, `ambition_content` provides the named game DATA (rooms, bosses,
 //!   rosters) and `ambition_app` does final wiring + the binaries.
 //!
-//! Despite the historical `ambition_gameplay_core` name, it is content-light: concrete
+//! Despite the historical `ambition_actors` name, it is content-light: concrete
 //! content has been migrated out to `ambition_content`. Foundation crates
 //! (`ambition_combat`, `ambition_input`, `ambition_engine_core`, `ambition_characters`,
 //! `ambition_render`, …) are imported directly by their canonical crate paths; the
@@ -283,7 +283,7 @@ impl SandboxDevState {
 /// The state of one in-flight player melee swing is now the unified
 /// [`crate::features::MeleeSwing`] — the SAME swing every brain-driven actor
 /// carries (the player is an actor). Re-exported at the crate root so existing
-/// `crate::MeleeSwing` / `ambition_gameplay_core::MeleeSwing` paths resolve.
+/// `crate::MeleeSwing` / `ambition_actors::MeleeSwing` paths resolve.
 pub use crate::features::MeleeSwing;
 
 /// Record the current player position as "the last known safe spot"

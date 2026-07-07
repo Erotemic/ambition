@@ -78,8 +78,8 @@ pickups, chests, breakables, hazards, doors, spawn) to a PNG you can open
 or inspect:
 
 ```bash
-cargo run -p ambition_gameplay_core --example render_room_geometry            # list rooms
-cargo run -p ambition_gameplay_core --example render_room_geometry -- <ROOM_ID>  # -> /tmp/room_<id>.png
+cargo run -p ambition_actors --example render_room_geometry            # list rooms
+cargo run -p ambition_actors --example render_room_geometry -- <ROOM_ID>  # -> /tmp/room_<id>.png
 ```
 
 Filled boxes are collision (gray=Solid, blue=OneWay, red=Hazard,

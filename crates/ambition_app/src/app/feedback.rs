@@ -36,10 +36,10 @@ pub struct CombatRoomReset<'w, 's> {
     // them instead of clearing a Vec.
     pub enemy_projectiles:
         Query<'w, 's, Entity, With<ambition_projectiles::enemy::EnemyProjectile>>,
-    pub slot_board: ResMut<'w, ambition_gameplay_core::combat::slots::CombatSlotsRes>,
-    pub feature_overlay: Res<'w, ambition_gameplay_core::features::FeatureEcsWorldOverlay>,
-    pub gravity: ResMut<'w, ambition_gameplay_core::physics::GravityField>,
-    pub base_gravity: ResMut<'w, ambition_gameplay_core::physics::BaseGravity>,
+    pub slot_board: ResMut<'w, ambition_actors::combat::slots::CombatSlotsRes>,
+    pub feature_overlay: Res<'w, ambition_actors::features::FeatureEcsWorldOverlay>,
+    pub gravity: ResMut<'w, ambition_actors::physics::GravityField>,
+    pub base_gravity: ResMut<'w, ambition_actors::physics::BaseGravity>,
 }
 
 impl<'w, 's> CombatRoomReset<'w, 's> {
@@ -54,8 +54,8 @@ impl<'w, 's> CombatRoomReset<'w, 's> {
             self.commands.entity(entity).despawn();
         }
         self.slot_board.0.clear_assignments();
-        *self.gravity = ambition_gameplay_core::physics::GravityField::default();
-        *self.base_gravity = ambition_gameplay_core::physics::BaseGravity::default();
+        *self.gravity = ambition_actors::physics::GravityField::default();
+        *self.base_gravity = ambition_actors::physics::BaseGravity::default();
     }
 }
 
@@ -78,16 +78,15 @@ pub struct SandboxQueues<'w> {
     /// Single canonical channel for attacker-direction hits (player
     /// slash, player projectile, pogo bounce). Replaced the prior
     /// split `DamageEvent` + `PogoBounceEvent` writers.
-    pub hit_events: MessageWriter<'w, ambition_gameplay_core::features::HitEvent>,
-    pub reset_room_features:
-        MessageWriter<'w, ambition_gameplay_core::features::ResetRoomFeaturesEvent>,
-    pub feature_ecs_overlay: Res<'w, ambition_gameplay_core::features::FeatureEcsWorldOverlay>,
-    pub dialogue: ResMut<'w, ambition_gameplay_core::dialog::DialogState>,
-    pub physics_settings: Res<'w, ambition_gameplay_core::world::physics::PhysicsSandboxSettings>,
-    pub moving_platforms: ResMut<'w, ambition_gameplay_core::MovingPlatformSet>,
-    pub sim_state: ResMut<'w, ambition_gameplay_core::SandboxSimState>,
+    pub hit_events: MessageWriter<'w, ambition_actors::features::HitEvent>,
+    pub reset_room_features: MessageWriter<'w, ambition_actors::features::ResetRoomFeaturesEvent>,
+    pub feature_ecs_overlay: Res<'w, ambition_actors::features::FeatureEcsWorldOverlay>,
+    pub dialogue: ResMut<'w, ambition_actors::dialog::DialogState>,
+    pub physics_settings: Res<'w, ambition_actors::world::physics::PhysicsSandboxSettings>,
+    pub moving_platforms: ResMut<'w, ambition_actors::MovingPlatformSet>,
+    pub sim_state: ResMut<'w, ambition_actors::SandboxSimState>,
     pub clock: ResMut<'w, ambition_time::ClockState>,
-    pub dev_state: ResMut<'w, ambition_gameplay_core::SandboxDevState>,
+    pub dev_state: ResMut<'w, ambition_actors::SandboxDevState>,
 }
 
 /// Read-only progression-state bundle for the HUD and pause menu.
@@ -99,14 +98,14 @@ pub struct SandboxQueues<'w> {
 /// behind a single param both keeps the budget headroom and documents
 /// the intentional read-only contract: HUD systems must not mutate
 /// progression state. Mutators live in the producer side
-/// (the player tick, `ambition_gameplay_core::quest`, `ambition_gameplay_core::boss_encounter`, etc.).
+/// (the player tick, `ambition_actors::quest`, `ambition_actors::boss_encounter`, etc.).
 #[derive(SystemParam)]
 pub struct ProgressionResources<'w> {
     pub quests: Res<'w, ambition_content::quest::QuestRegistry>,
     pub cutscene: Res<'w, ambition_cutscene::ActiveCutscene>,
     pub cutscene_request: Res<'w, ambition_cutscene::CutsceneAdvanceRequest>,
-    pub bosses: Res<'w, ambition_gameplay_core::boss_encounter::BossEncounterRegistry>,
-    pub encounters: Res<'w, ambition_gameplay_core::encounter::EncounterRegistry>,
-    pub map: Res<'w, ambition_gameplay_core::menu::map::MapMenuState>,
-    pub banner: Res<'w, ambition_gameplay_core::features::GameplayBanner>,
+    pub bosses: Res<'w, ambition_actors::boss_encounter::BossEncounterRegistry>,
+    pub encounters: Res<'w, ambition_actors::encounter::EncounterRegistry>,
+    pub map: Res<'w, ambition_actors::menu::map::MapMenuState>,
+    pub banner: Res<'w, ambition_actors::features::GameplayBanner>,
 }

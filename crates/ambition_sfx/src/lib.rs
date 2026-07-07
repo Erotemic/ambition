@@ -390,7 +390,7 @@ mod tests {
     fn const_ids_resolve_in_real_bank() {
         let path = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
             .join("..")
-            .join("ambition_gameplay_core")
+            .join("ambition_actors")
             .join("assets")
             .join("audio")
             .join("sfx.bank");

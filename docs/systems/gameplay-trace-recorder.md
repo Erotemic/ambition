@@ -5,8 +5,8 @@ The gameplay trace recorder captures recent control frames, simulation messages,
 ## Current paths
 
 ```text
-crates/ambition_gameplay_core/src/dev/trace.rs
-crates/ambition_gameplay_core/src/dev/trace/
+crates/ambition_actors/src/dev/trace.rs
+crates/ambition_actors/src/dev/trace/
   buffer.rs
   detect.rs
   dump.rs
@@ -16,7 +16,7 @@ crates/ambition_gameplay_core/src/dev/trace/
 crates/ambition_app/src/bin/trace_replay.rs
 ```
 
-The crate root re-exports `dev::trace` as `ambition_gameplay_core::trace` for compatibility. Prefer the `src/dev/trace/` path in new docs.
+The crate root re-exports `dev::trace` as `ambition_actors::trace` for compatibility. Prefer the `src/dev/trace/` path in new docs.
 
 ## What it captures
 
@@ -159,7 +159,7 @@ Use traces for bugs involving:
 ## Validation anchors
 
 ```bash
-cargo test -p ambition_gameplay_core trace
+cargo test -p ambition_actors trace
 cargo run -p ambition_app --bin trace_replay -- --help
 ```
 

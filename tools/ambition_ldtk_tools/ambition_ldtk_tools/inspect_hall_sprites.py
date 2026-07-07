@@ -7,9 +7,9 @@ The Hall lives in its own secondary-world `.ldtk` file (regenerated
 wholesale from the catalog), not in sandbox.ldtk.
 
 Reads:
-  - `crates/ambition_gameplay_core/assets/data/character_catalog.ron`
+  - `crates/ambition_actors/assets/data/character_catalog.ron`
   - `crates/ambition_content/assets/worlds/hall_of_characters.ldtk`
-  - `crates/ambition_gameplay_core/assets/sprites/`
+  - `crates/ambition_actors/assets/sprites/`
 
 For each NpcSpawn in `hall_of_characters`:
   - "ok"          — catalog entry + manifest on disk (sheet will load)
@@ -43,7 +43,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 CATALOG_PATH = (
     REPO_ROOT
     / "crates"
-    / "ambition_gameplay_core"
+    / "ambition_actors"
     / "assets"
     / "data"
     / "character_catalog.ron"
@@ -51,17 +51,17 @@ CATALOG_PATH = (
 LDTK_PATH = (
     REPO_ROOT
     / "crates"
-    / "ambition_gameplay_core"
+    / "ambition_actors"
     / "assets"
     / "ambition"
     / "worlds"
     / "hall_of_characters.ldtk"
 )
-SPRITES_DIR = REPO_ROOT / "crates" / "ambition_gameplay_core" / "assets" / "sprites"
+SPRITES_DIR = REPO_ROOT / "crates" / "ambition_actors" / "assets" / "sprites"
 
 # Mirror of the Rust `CharacterAnim::from_name` Idle-equivalent
 # aliases. Keep in sync with
-# `crates/ambition_gameplay_core/src/presentation/character_sprites/anim.rs`.
+# `crates/ambition_actors/src/presentation/character_sprites/anim.rs`.
 IDLE_ALIASES = {"idle", "opening", "rest", "front_idle", "side_idle"}
 
 

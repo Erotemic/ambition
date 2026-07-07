@@ -5,7 +5,7 @@
 During a Rust refactor handoff, the assistant recommended:
 
 ```bash
-cargo test -p ambition_gameplay_core inventory pause_menu
+cargo test -p ambition_actors inventory pause_menu
 ```
 
 Cargo rejected this with:
@@ -20,12 +20,12 @@ The assistant had made the same mistake earlier with an engine command that trie
 
 ## Benchmark question
 
-You are preparing validation commands for a Rust workspace after splitting two modules, `inventory` and `pause_menu`, inside the package `ambition_gameplay_core`.
+You are preparing validation commands for a Rust workspace after splitting two modules, `inventory` and `pause_menu`, inside the package `ambition_actors`.
 
 A proposed command is:
 
 ```bash
-cargo test -p ambition_gameplay_core inventory pause_menu
+cargo test -p ambition_actors inventory pause_menu
 ```
 
 Is this valid? If not, provide a corrected validation sequence that runs both targeted filters and preserves the broader integration regression checks.
@@ -38,19 +38,19 @@ A corrected sequence is:
 
 ```bash
 cargo fmt --all
-cargo test -p ambition_gameplay_core --lib inventory
-cargo test -p ambition_gameplay_core --lib pause_menu
-cargo test -p ambition_gameplay_core --test repro_walls
-cargo test -p ambition_gameplay_core --test fuzz_random_walker
+cargo test -p ambition_actors --lib inventory
+cargo test -p ambition_actors --lib pause_menu
+cargo test -p ambition_actors --test repro_walls
+cargo test -p ambition_actors --test fuzz_random_walker
 ```
 
 A broader but simpler alternative is:
 
 ```bash
 cargo fmt --all
-cargo test -p ambition_gameplay_core --lib
-cargo test -p ambition_gameplay_core --test repro_walls
-cargo test -p ambition_gameplay_core --test fuzz_random_walker
+cargo test -p ambition_actors --lib
+cargo test -p ambition_actors --test repro_walls
+cargo test -p ambition_actors --test fuzz_random_walker
 ```
 
 ## What this tests

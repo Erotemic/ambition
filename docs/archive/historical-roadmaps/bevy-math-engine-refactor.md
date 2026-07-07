@@ -12,7 +12,7 @@ The intended layering is now:
 ambition_engine
   reusable Bevy-native mechanics, movement, collision semantics, abilities, combat, enemies, audio/music specs
 
-ambition_gameplay_core / future story crates
+ambition_actors / future story crates
   data manifests, presentation, Bevy app wiring, input bindings, story-specific content
 ```
 

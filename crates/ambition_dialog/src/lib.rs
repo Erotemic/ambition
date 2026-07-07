@@ -1,4 +1,4 @@
-//! Reusable dialogue runtime (E1c carve out of `ambition_gameplay_core`).
+//! Reusable dialogue runtime (E1c carve out of `ambition_actors`).
 //!
 //! Owns the engine-side dialogue machinery, content-free:
 //!

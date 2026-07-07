@@ -23,7 +23,7 @@ def default_sandbox_ldtk(anchor: Path | None = None) -> Path:
         root = Path(__file__).resolve().parents[4]
     else:
         root = repo_root_from_ldtk(anchor)
-    return root / "crates" / "ambition_gameplay_core" / "assets" / "ambition" / "worlds" / "sandbox.ldtk"
+    return root / "crates" / "ambition_actors" / "assets" / "ambition" / "worlds" / "sandbox.ldtk"
 
 
 def rel_to_ldtk(ldtk: Path, path: Path) -> str:

@@ -13,10 +13,10 @@
 
 #![cfg(feature = "rl_sim")]
 
+use ambition_actors::actor::PrimaryPlayerOnly;
 use ambition_app::app::PlayerBodyFrameOutput;
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use ambition_engine_core::MovementOp;
-use ambition_gameplay_core::actor::PrimaryPlayerOnly;
 use bevy::prelude::{Entity, World};
 
 fn primary_player(world: &mut World) -> Entity {

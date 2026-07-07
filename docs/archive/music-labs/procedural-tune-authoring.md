@@ -68,16 +68,16 @@ To avoid monotonous loops, author 8 to 16 bars for short previews, vary the last
 Render a tune to a WAV file:
 
 ```bash
-cargo run -p ambition_gameplay_core --bin tune_preview -- \
-    --track crates/ambition_gameplay_core/assets/ambition/tune_examples/example_drift.ron \
+cargo run -p ambition_actors --bin tune_preview -- \
+    --track crates/ambition_actors/assets/ambition/tune_examples/example_drift.ron \
     --out /tmp/ambition_tune_preview.wav
 ```
 
 Optional sample rate:
 
 ```bash
-cargo run -p ambition_gameplay_core --bin tune_preview -- \
-    --track crates/ambition_gameplay_core/assets/ambition/tune_examples/example_drift.ron \
+cargo run -p ambition_actors --bin tune_preview -- \
+    --track crates/ambition_actors/assets/ambition/tune_examples/example_drift.ron \
     --out /tmp/ambition_tune_preview.wav \
     --sample-rate 44100
 ```
@@ -89,7 +89,7 @@ The CLI accepts either a full `MusicTrackSpec` or a bare `MusicSpec` arrangement
 To add a tune to the sandbox, paste the full `MusicTrackSpec` into `audio.music_tracks` in:
 
 ```text
-crates/ambition_gameplay_core/assets/ambition/sandbox.ron
+crates/ambition_actors/assets/ambition/sandbox.ron
 ```
 
 To make it the startup tune, change:

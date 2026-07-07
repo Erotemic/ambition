@@ -95,7 +95,7 @@ is not part of the current feature graph.
 
 The earlier monolith has since been split into focused crates. Reusable engine
 semantics live in `crates/ambition_engine_core/`; content-free gameplay systems
-and runtime state live in `crates/ambition_gameplay_core/`; presentation lives
+and runtime state live in `crates/ambition_actors/`; presentation lives
 in `crates/ambition_render/`; named authored content lives in
 `crates/ambition_content/`; and runnable binaries/app assembly live in
 `crates/ambition_app/`. Keep new dependencies at the lowest layer that actually
@@ -128,7 +128,7 @@ machines. It is significantly faster than `cargo test` and integrates
 cleanly with CI.
 
 ```bash
-cargo nextest run -p ambition_gameplay_core
+cargo nextest run -p ambition_actors
 ```
 
 ### Periodic audits

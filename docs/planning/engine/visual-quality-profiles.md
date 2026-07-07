@@ -199,7 +199,7 @@ Runtime-switchable, per Jon's choice. Two halves: **generate** the variants, the
 ### Installed layout
 
 ```
-crates/ambition_gameplay_core/assets/
+crates/ambition_actors/assets/
   sprites/                          # Full  (current path, unchanged)
   sprites_0_5x/                     # Half
   sprites_0_25x/                    # Quarter (optional first pass; Half is the priority)
@@ -212,7 +212,7 @@ crates/ambition_gameplay_core/assets/
 
 ### Landmine: `build.rs` embed scope
 
-`crates/ambition_gameplay_core/build.rs` embeds every `*_spritesheet.ron` from
+`crates/ambition_actors/build.rs` embeds every `*_spritesheet.ron` from
 `assets/sprites/` **plus one level of subdirectories**. Sibling variant folders
 (`sprites_0_5x/…`) are **not embedded** unless `build.rs` is taught about them. This is
 the first thing to get right or Android (which trusts the embedded/packaged manifest set
@@ -453,11 +453,11 @@ clamp and the path resolver are both pure and unit-testable without a GPU.
 
 ```
 cargo fmt --check
-cargo check -p ambition_gameplay_core
+cargo check -p ambition_actors
 cargo check -p ambition_render
 cargo check -p ambition_portal_presentation --features effect_view_cones
 cargo check -p ambition_app --features desktop_dev
-cargo test  -p ambition_gameplay_core -p ambition_render -p ambition_portal_presentation
+cargo test  -p ambition_actors -p ambition_render -p ambition_portal_presentation
 cd tools/ambition_sprite2d_renderer && uv run pytest tests/test_render_scale.py tests/test_core_pipeline.py tests/test_packer.py
 ```
 

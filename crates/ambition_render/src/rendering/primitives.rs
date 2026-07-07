@@ -4,8 +4,8 @@
 use ambition_engine_core as ae;
 use bevy::prelude::*;
 
+use ambition_actors::features::FeatureVisualKind;
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_BLOCK, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
-use ambition_gameplay_core::features::FeatureVisualKind;
 
 // Runtime-owned room lifecycle markers. Re-exported so presentation systems +
 // existing `presentation::rendering::RoomVisual` call sites keep resolving; the

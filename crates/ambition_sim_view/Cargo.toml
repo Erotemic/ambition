@@ -13,12 +13,12 @@ crate-type = ["rlib"]
 default = []
 # The blink-preview fact reads device actions, so it exists only with the
 # input layer; forwarded so a mismatched combination is a compile error.
-input = ["ambition_gameplay_core/input"]
+input = ["ambition_actors/input"]
 
 [dependencies]
 # The sim this crate observes (Tier 3 → Tier 4 arrow; render depends on THIS
 # crate for views instead of querying the sim heart).
-ambition_gameplay_core = { path = "../ambition_gameplay_core", default-features = false, features = [
+ambition_actors = { path = "../ambition_actors", default-features = false, features = [
     "ldtk_runtime",
     "input",
     "portal",

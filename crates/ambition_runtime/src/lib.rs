@@ -67,16 +67,16 @@ impl Plugin for SandboxSetsPlugin {
     fn build(&self, app: &mut App) {
         // Declare the canonical simulation-phase ordering. System
         // registrations elsewhere only need `.in_set(SandboxSet::X)`.
-        ambition_gameplay_core::schedule::configure_sandbox_sets(app);
+        ambition_actors::schedule::configure_sandbox_sets(app);
         // Shrine activation pulse (interaction → save flash).
-        app.init_resource::<ambition_gameplay_core::shrine::ShrineActivationPulse>();
+        app.init_resource::<ambition_actors::shrine::ShrineActivationPulse>();
         // Slot-keyed gesture/buffer authority (double-tap, interact buffer).
         // Local input publishes it; body mode / interaction / transitions
         // consume it for the controlled body's slot.
-        app.init_resource::<ambition_gameplay_core::player::SlotInteractionState>();
+        app.init_resource::<ambition_actors::player::SlotInteractionState>();
         // Which character the local player spawns as (empty = the
         // content-installed default). Hosts pre-insert to override.
-        app.init_resource::<ambition_gameplay_core::player::StartingCharacter>();
+        app.init_resource::<ambition_actors::player::StartingCharacter>();
     }
 }
 
@@ -92,37 +92,37 @@ impl PluginGroup for PlatformerEnginePlugins {
             // hosts override by insert-before-add (init never clobbers).
             .add(SimCoreResourcesPlugin)
             // The world-prep phase (body integration, gravity collection, etc.).
-            .add(ambition_gameplay_core::features::WorldPrepSchedulePlugin)
+            .add(ambition_actors::features::WorldPrepSchedulePlugin)
             // Universal-brain messages/resources (player/NPC/enemy/boss).
             .add(ambition_characters::brain::BrainPlugin)
             // Traversal ability/weapon kit + shared app state.
-            .add(ambition_gameplay_core::abilities::AmbitionAbilitiesPlugin)
+            .add(ambition_actors::abilities::AmbitionAbilitiesPlugin)
             // The emitted player trail substrate.
-            .add(ambition_gameplay_core::player::trail::PlayerTrailPlugin)
+            .add(ambition_actors::player::trail::PlayerTrailPlugin)
             // Gravity zones/switches + the ambient-gravity snapshot.
-            .add(ambition_gameplay_core::gravity::GravityPlugin)
+            .add(ambition_actors::gravity::GravityPlugin)
             // Item pickup simulation.
-            .add(ambition_gameplay_core::items::pickup::ItemPickupSimulationPlugin)
+            .add(ambition_actors::items::pickup::ItemPickupSimulationPlugin)
             // Feature (room-entity) collection + interaction schedules.
-            .add(ambition_gameplay_core::features::FeatureCollectionSchedulePlugin)
-            .add(ambition_gameplay_core::features::FeatureInteractionSchedulePlugin)
+            .add(ambition_actors::features::FeatureCollectionSchedulePlugin)
+            .add(ambition_actors::features::FeatureInteractionSchedulePlugin)
             // LDtk runtime spine (room load/transition spine).
-            .add(ambition_gameplay_core::ldtk_world::LdtkRuntimeSpinePlugin)
+            .add(ambition_actors::ldtk_world::LdtkRuntimeSpinePlugin)
             // Encounter + cutscene simulation schedules.
-            .add(ambition_gameplay_core::encounter::EncounterSimulationSchedulePlugin)
-            .add(ambition_gameplay_core::cutscene::CutsceneSchedulePlugin)
+            .add(ambition_actors::encounter::EncounterSimulationSchedulePlugin)
+            .add(ambition_actors::cutscene::CutsceneSchedulePlugin)
             // Gameplay effects + feature view-sync schedules.
-            .add(ambition_gameplay_core::features::GameplayEffectsSchedulePlugin)
+            .add(ambition_actors::features::GameplayEffectsSchedulePlugin)
             .add(ambition_sim_view::FeatureViewSyncSchedulePlugin)
             // The observation-boundary view resources (E4): HUD facts, held
             // items/shots, marks, shrines, gravity switches, gun-swords.
             .add(ambition_sim_view::SimViewPlugin)
             // Sandbox reset schedule.
-            .add(ambition_gameplay_core::session::reset::SandboxResetSchedulePlugin)
+            .add(ambition_actors::session::reset::SandboxResetSchedulePlugin)
             // Deterministic sim traces.
-            .add(ambition_gameplay_core::trace::TraceSchedulePlugin)
+            .add(ambition_actors::trace::TraceSchedulePlugin)
             // Per-frame affordance table (what would each verb do right now).
-            .add(ambition_gameplay_core::player::affordances::AffordancesPlugin)
+            .add(ambition_actors::player::affordances::AffordancesPlugin)
             // The camera OBSERVATION seam (E4-17): the sim resolves ONE
             // follow-camera snapshot per tick (the only CameraEaseState
             // writer); presentation consumes it. Headless/RL readers too.
@@ -155,7 +155,7 @@ impl PluginGroup for PlatformerEnginePlugins {
 /// state). One call site per app instead of a copy-pasted `init_state`.
 pub fn init_engine_states(app: &mut App) {
     use bevy::state::app::AppExtStates as _;
-    app.init_state::<ambition_gameplay_core::game_mode::GameMode>();
+    app.init_state::<ambition_actors::game_mode::GameMode>();
 }
 
 /// The minimal Bevy foundation for a HEADLESS engine app (tests, RL, trace

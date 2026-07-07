@@ -7,7 +7,7 @@
 use bevy::prelude::*;
 
 use super::primitives::{LoadingZoneVisual, PortalSprite, PropVisual};
-use ambition_gameplay_core::rooms::{GatePortalPhase, GatePortalRegistry};
+use ambition_actors::rooms::{GatePortalPhase, GatePortalRegistry};
 use ambition_sprite_sheet::character::{CharacterAnim, CharacterAnimator};
 use ambition_time::WorldTime;
 

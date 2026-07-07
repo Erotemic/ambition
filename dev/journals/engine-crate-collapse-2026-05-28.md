@@ -1,8 +1,8 @@
 # ambition_engine crate collapse (2026-05-28)
 
 The standalone `ambition_engine` crate was deleted. Its modules now
-live under `crates/ambition_gameplay_core/src/engine_core/` as an intra-
-crate module of `ambition_gameplay_core`.
+live under `crates/ambition_actors/src/engine_core/` as an intra-
+crate module of `ambition_actors`.
 
 ## Trigger
 
@@ -29,16 +29,16 @@ Concrete frictions had piled up:
 Two final pre-collapse moves:
 
 1. `actor.rs` (292 lines: `Actor`, `Health`, `KinematicPath`,
-   `RespawnPolicy`, …) → `crates/ambition_gameplay_core/src/actor.rs`
+   `RespawnPolicy`, …) → `crates/ambition_actors/src/actor.rs`
    (commit `d30cb3d4`).
 2. `combat.rs` (499 lines: damage volumes, hit semantics) →
-   `crates/ambition_gameplay_core/src/combat.rs` (earlier in branch).
+   `crates/ambition_actors/src/combat.rs` (earlier in branch).
 
 Then the big bang (commit `696a4835`):
 
 - All remaining engine modules (`abilities`, `geometry`,
   `ledge_grab`, `movement` + `movement/`, `player_clusters`,
-  `player_state`, `world`) → `crates/ambition_gameplay_core/src/engine_core/`.
+  `player_state`, `world`) → `crates/ambition_actors/src/engine_core/`.
   `engine/lib.rs` became `engine_core/mod.rs`.
 - Inside the moved files, `crate::X` references were rewritten to
   `crate::engine_core::X` (sed). Because the files now live under
@@ -47,7 +47,7 @@ Then the big bang (commit `696a4835`):
 - Sandbox-wide, `use ambition_engine as ae;` → `use crate::engine_core as ae;`,
   and `ambition_engine::Foo` → `crate::engine_core::Foo` (sed, ~133
   files).
-- `crates/ambition_gameplay_core/Cargo.toml` inherited the engine's
+- `crates/ambition_actors/Cargo.toml` inherited the engine's
   `bevy_math`, `bevy_ecs`, `parry2d` deps and `insta` + `proptest`
   dev-deps.
 - `crates/ambition_engine/` deleted.
@@ -69,7 +69,7 @@ Aftermath:
 
 - **`src/bin/*.rs` are separate compilation units.** Inside a bin,
   `crate::` resolves to the bin itself, not the lib. The headless
-  bin had to use `ambition_gameplay_core::engine_core::*` while every
+  bin had to use `ambition_actors::engine_core::*` while every
   other file uses `crate::engine_core::*`.
 - **`use crate::ae;` was never valid.** A handful of test files
   used that form; they were broken before the big bang too, because

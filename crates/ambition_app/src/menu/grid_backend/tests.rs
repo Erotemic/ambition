@@ -1,11 +1,11 @@
 use super::*;
 use crate::menu::model::{build_inventory_pages, system_rows, SystemRow};
+use ambition_actors::actor::BodyMana;
+use ambition_actors::actor::{PlayerEntity, PrimaryPlayer};
+use ambition_actors::items::Item;
+use ambition_actors::persistence::settings::{SystemMenuEntryId, SystemMenuModel};
+use ambition_actors::session::game_mode::GameMode;
 use ambition_characters::brain::ActionSet;
-use ambition_gameplay_core::actor::BodyMana;
-use ambition_gameplay_core::actor::{PlayerEntity, PrimaryPlayer};
-use ambition_gameplay_core::items::Item;
-use ambition_gameplay_core::persistence::settings::{SystemMenuEntryId, SystemMenuModel};
-use ambition_gameplay_core::session::game_mode::GameMode;
 
 /// Switching the inventory frontend mid-session lands you on the SAME page in the
 /// new frontend (not back on Inventory). The cube stores the page in
@@ -16,7 +16,7 @@ fn backend_switch_carries_the_active_page() {
     let mut app = grid_app();
     app.add_systems(Update, sync_menu_page_across_backend_switch);
     app.world_mut()
-        .resource_mut::<ambition_gameplay_core::inventory_ui::InventoryUiState>()
+        .resource_mut::<ambition_actors::inventory_ui::InventoryUiState>()
         .visible = true;
 
     // Open on the cube, System page; the first update snapshots the current page.
@@ -65,14 +65,14 @@ fn grid_app() -> App {
     app.init_resource::<KaleidoscopeCursor>();
     app.init_resource::<KaleidoscopeSystemNav>();
     app.init_resource::<OwnedItems>();
-    app.init_resource::<ambition_gameplay_core::dev::dev_tools::DeveloperTools>();
-    app.init_resource::<ambition_gameplay_core::SandboxDevState>();
-    app.init_resource::<ambition_gameplay_core::ldtk_world::LdtkHotReloadState>();
-    app.init_resource::<ambition_gameplay_core::session::reset::SandboxResetRequested>();
-    app.init_resource::<ambition_gameplay_core::dev::dev_tools::EditableMovementTuning>();
+    app.init_resource::<ambition_actors::dev::dev_tools::DeveloperTools>();
+    app.init_resource::<ambition_actors::SandboxDevState>();
+    app.init_resource::<ambition_actors::ldtk_world::LdtkHotReloadState>();
+    app.init_resource::<ambition_actors::session::reset::SandboxResetRequested>();
+    app.init_resource::<ambition_actors::dev::dev_tools::EditableMovementTuning>();
     app.init_resource::<UserSettings>();
-    app.init_resource::<ambition_gameplay_core::inventory_ui::InventoryUiState>();
-    app.init_resource::<ambition_gameplay_core::menu::map::MapMenuState>();
+    app.init_resource::<ambition_actors::inventory_ui::InventoryUiState>();
+    app.init_resource::<ambition_actors::menu::map::MapMenuState>();
     app.init_resource::<MenuControlFrame>();
     app.init_resource::<GridMenuTabState>();
     app.init_resource::<GridPointerPress>();
@@ -105,7 +105,7 @@ fn active_tab(app: &App) -> MenuPage {
 
 fn is_open(app: &App) -> bool {
     app.world()
-        .resource::<ambition_gameplay_core::inventory_ui::InventoryUiState>()
+        .resource::<ambition_actors::inventory_ui::InventoryUiState>()
         .visible
 }
 
@@ -350,7 +350,7 @@ fn back_closes_and_respects_opened_from_pause() {
     assert!(is_open(&app));
     assert!(
         app.world()
-            .resource::<ambition_gameplay_core::inventory_ui::InventoryUiState>()
+            .resource::<ambition_actors::inventory_ui::InventoryUiState>()
             .opened_from_pause,
         "opened while already Paused records opened_from_pause"
     );
@@ -839,7 +839,7 @@ fn hover_control(app: &mut App, action: MenuPageAction) {
 /// rebuilt the menu → fired `Over` → snapped the cursor back to the mouse.
 #[test]
 fn hover_is_gated_on_active_input_being_mouse() {
-    use ambition_gameplay_core::items::Item;
+    use ambition_actors::items::Item;
     use ambition_input::ActiveInputKind;
 
     let mut app = grid_app();
@@ -890,7 +890,7 @@ fn scroll_grid_app() -> App {
     );
     // Open on the System tab, drilled into Developer (the long, scrollable list).
     app.world_mut()
-        .resource_mut::<ambition_gameplay_core::inventory_ui::InventoryUiState>()
+        .resource_mut::<ambition_actors::inventory_ui::InventoryUiState>()
         .visible = true;
     {
         let mut ts = app.world_mut().resource_mut::<GridMenuTabState>();

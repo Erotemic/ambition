@@ -8,8 +8,8 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 use std::f32::consts::TAU;
 
+use ambition_actors::config::rgba;
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_FX};
-use ambition_gameplay_core::config::rgba;
 use ambition_sfx::SfxMessage;
 use ambition_sprite_sheet::character::{
     build_character_sprite_with_render_size, CharacterAnim, CharacterAnimator,
@@ -245,7 +245,7 @@ pub fn vfx_spawn_messages(
     mut commands: Commands,
     mut messages: MessageReader<VfxMessage>,
     world: Res<ambition_engine_core::RoomGeometry>,
-    assets: Option<Res<ambition_gameplay_core::assets::game_assets::GameAssets>>,
+    assets: Option<Res<ambition_actors::assets::game_assets::GameAssets>>,
     mut speech_bubbles: Query<(&mut SpeechBubbleVisual, &mut Transform, &mut TextColor)>,
 ) {
     let world = &world.0;
@@ -318,7 +318,7 @@ pub fn vfx_spawn_messages(
 fn spawn_explosion(
     commands: &mut Commands,
     world: &ae::World,
-    assets: Option<&ambition_gameplay_core::assets::game_assets::GameAssets>,
+    assets: Option<&ambition_actors::assets::game_assets::GameAssets>,
     pos: ae::Vec2,
     kind: ExplosionKind,
     scale: f32,

@@ -214,11 +214,11 @@ sprite metadata schema.
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset generate-editor-icons \
-  --out crates/ambition_gameplay_core/assets/sprites/editor_icons.png --tile-size 32
+  --out crates/ambition_actors/assets/sprites/editor_icons.png --tile-size 32
 
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset suggest-manifest \
   crates/ambition_content/assets/worlds/sandbox.ldtk \
-  --icons crates/ambition_gameplay_core/assets/sprites/editor_icons.png \
+  --icons crates/ambition_actors/assets/sprites/editor_icons.png \
   --out tools/ambition_ldtk_tools/manifests/sandbox_visuals.json
 
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset apply-manifest \

@@ -6,7 +6,7 @@
 //! synchronous bootstrap path until the sandbox grows a loading state.
 //!
 //! Bevy resolves `ambition/sandbox.ron` relative to the sandbox crate asset
-//! root (`crates/ambition_gameplay_core/assets`) when this package is run through
+//! root (`crates/ambition_actors/assets`) when this package is run through
 //! Cargo, so the embedded copy intentionally lives there too. World/room
 //! authoring has moved to LDtk; this RON asset intentionally owns only
 //! non-spatial sandbox tuning. Audio lives in its own sibling registries

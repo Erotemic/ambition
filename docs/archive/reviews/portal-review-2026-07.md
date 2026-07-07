@@ -1,7 +1,7 @@
 # Portal crates review — findings, fixes, and design decisions (2026-07-02)
 
 Scope: `ambition_portal` (backend), `ambition_portal_presentation` (renderer),
-the Ambition adapters (`ambition_gameplay_core::portal`,
+the Ambition adapters (`ambition_actors::portal`,
 `ambition_content::portal`), and the movement-integration seams portals depend
 on. Goal per Jon: seamless portals, a reusable Bevy package with a natural
 parameterization, and the classic fall-through/re-enter fling puzzle working.

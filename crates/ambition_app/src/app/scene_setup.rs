@@ -3,7 +3,7 @@
 //! `presentation_world` spawns the cameras, the player sprite, the HUD/quest-panel
 //! text, the static room visuals + parallax, and wires the audio library / SFX
 //! bank. It is the render+audio composition that pairs with
-//! `ambition_gameplay_core::session::setup::simulation_world` (which stays sim-only).
+//! `ambition_actors::session::setup::simulation_world` (which stays sim-only).
 //! Moved out of the machinery crate so the sim never imports the render layer —
 //! the app, as the composition root, owns the wiring that crosses the seam.
 #![allow(clippy::too_many_arguments)]
@@ -15,20 +15,20 @@ use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
 use ambition_engine_core as ae;
 
+use ambition_actors::assets::game_assets::GameAssets;
+#[cfg(feature = "audio")]
+use ambition_actors::assets::sandbox_assets::{ids, SandboxAssetCatalog};
+#[cfg(feature = "audio")]
+use ambition_actors::audio::{AudioLibrary, MusicPlaybackState};
+use ambition_actors::platformer_runtime::lifecycle::SceneEntities;
+use ambition_actors::rooms::RoomSet;
+#[cfg(feature = "audio")]
+use ambition_actors::session::data::{MusicRegistry, SfxRegistry};
+use ambition_actors::world::physics::PhysicsSandboxSettings;
+use ambition_actors::world::platforms;
 #[cfg(feature = "audio")]
 use ambition_audio::SfxBankResource;
 use ambition_engine_core::RoomGeometry;
-use ambition_gameplay_core::assets::game_assets::GameAssets;
-#[cfg(feature = "audio")]
-use ambition_gameplay_core::assets::sandbox_assets::{ids, SandboxAssetCatalog};
-#[cfg(feature = "audio")]
-use ambition_gameplay_core::audio::{AudioLibrary, MusicPlaybackState};
-use ambition_gameplay_core::platformer_runtime::lifecycle::SceneEntities;
-use ambition_gameplay_core::rooms::RoomSet;
-#[cfg(feature = "audio")]
-use ambition_gameplay_core::session::data::{MusicRegistry, SfxRegistry};
-use ambition_gameplay_core::world::physics::PhysicsSandboxSettings;
-use ambition_gameplay_core::world::platforms;
 use ambition_render::rendering::{
     spawn_parallax_layers, spawn_room_visuals, HudText, PlayerSpriteBaseline, QuestPanelText,
 };
@@ -49,8 +49,8 @@ pub struct PresentationSetup<'a> {
     pub quality: Option<&'a ambition_render::quality::ResolvedVisualQuality>,
     /// Which catalog character the player wears — selects its sprite sheet so
     /// the home avatar draws as the chosen character
-    /// ([`ambition_gameplay_core::player::StartingCharacter`]).
-    pub starting_character: &'a ambition_gameplay_core::player::StartingCharacter,
+    /// ([`ambition_actors::player::StartingCharacter`]).
+    pub starting_character: &'a ambition_actors::player::StartingCharacter,
     #[cfg(feature = "audio")]
     pub music_registry: &'a MusicRegistry,
     #[cfg(feature = "audio")]
@@ -84,7 +84,9 @@ pub fn presentation_world(
     // library stores catalog-blessed paths (the generic library takes a
     // resolver closure instead of naming the catalog type).
     let resolve_track_path = |id: &str| {
-        catalog.path_for(&ambition_gameplay_core::assets::sandbox_assets::ids::music_track(id))
+        catalog.path_for(&ambition_actors::assets::sandbox_assets::ids::music_track(
+            id,
+        ))
     };
     let audio_library = AudioLibrary::new(
         audio_sources,
@@ -153,7 +155,7 @@ fn try_load_static_sfx_bank() -> Option<BankProvider> {
 }
 
 /// Resolve the SFX bank through the
-/// [`ambition_gameplay_core::assets::sandbox_assets::SandboxAssetCatalog`] and synchronously
+/// [`ambition_actors::assets::sandbox_assets::SandboxAssetCatalog`] and synchronously
 /// load its bytes into a [`BankProvider`]. Fall-through order:
 ///
 /// 1. the statically packed bank (`static_sfx_bank` feature),
@@ -249,16 +251,16 @@ fn presentation_world_inner(
     // explicitly retargeted back to this camera (see
     // `lunex_kaleidoscope_app::spawn_kaleidoscope_scrim`) so it stays BEHIND the cube.
     let mut main_camera_layers = bevy::camera::visibility::RenderLayers::layer(0)
-        .with(ambition_gameplay_core::session::camera_layers::PARALLAX_BACKGROUND_LAYER);
+        .with(ambition_actors::session::camera_layers::PARALLAX_BACKGROUND_LAYER);
     #[cfg(feature = "portal_render")]
     {
         main_camera_layers =
-            main_camera_layers.with(ambition_gameplay_core::portal::PORTAL_WINDOW_RENDER_LAYER);
+            main_camera_layers.with(ambition_actors::portal::PORTAL_WINDOW_RENDER_LAYER);
     }
     let main_camera = commands
         .spawn((
             Camera2d,
-            ambition_gameplay_core::session::camera_layers::MainCamera,
+            ambition_actors::session::camera_layers::MainCamera,
             main_camera_layers,
             ambition_render::screen_effects::ScreenEffectSettings::default(),
             Name::new("Main Camera"),
@@ -279,17 +281,17 @@ fn presentation_world_inner(
             clear_color: ClearColorConfig::None,
             ..default()
         },
-        ambition_gameplay_core::session::camera_layers::FrontHudCamera,
+        ambition_actors::session::camera_layers::FrontHudCamera,
         IsDefaultUiCamera,
         bevy::camera::visibility::RenderLayers::layer(
-            ambition_gameplay_core::session::camera_layers::FRONT_HUD_LAYER,
+            ambition_actors::session::camera_layers::FRONT_HUD_LAYER,
         ),
         Name::new("Front HUD Camera"),
     ));
 
-    commands.insert_resource(
-        ambition_gameplay_core::session::camera_layers::MainCameraEntity(main_camera),
-    );
+    commands.insert_resource(ambition_actors::session::camera_layers::MainCameraEntity(
+        main_camera,
+    ));
 
     // `Instant::now()` is unsupported under `wasm32-unknown-unknown`
     // (panics with "time not implemented on this platform"). Gate the

@@ -6,14 +6,14 @@ fn repo_root() -> PathBuf {
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .ancestors()
         .nth(2)
-        .expect("crate lives under <repo>/crates/ambition_gameplay_core")
+        .expect("crate lives under <repo>/crates/ambition_actors")
         .to_path_buf()
 }
 
 /// The machinery lib's source root (most boundaries guard the
-/// `ambition_gameplay_core` lib; this test crate lives in `ambition_app`).
+/// `ambition_actors` lib; this test crate lives in `ambition_app`).
 fn crate_src() -> PathBuf {
-    repo_root().join("crates/ambition_gameplay_core/src")
+    repo_root().join("crates/ambition_actors/src")
 }
 
 /// The app-assembly crate's source root.
@@ -305,7 +305,7 @@ fn read_spawn_allowlist() -> BTreeMap<String, usize> {
 }
 
 /// The `ambition_render` crate is the sandbox's renderer; the sim machinery
-/// (`ambition_gameplay_core`) must NOT depend on it. The render layer reads the sim,
+/// (`ambition_actors`) must NOT depend on it. The render layer reads the sim,
 /// never the reverse — so a render change never rebuilds the machinery, and the
 /// sim/render seam is a hard crate boundary, not a convention. Presentation
 /// modules migrate into `ambition_render` incrementally; this guard ensures the
@@ -313,7 +313,7 @@ fn read_spawn_allowlist() -> BTreeMap<String, usize> {
 #[test]
 fn architecture_boundaries_sandbox_does_not_depend_on_render() {
     assert_workspace_contains_crate("ambition_render");
-    let sandbox_root = repo_root().join("crates/ambition_gameplay_core");
+    let sandbox_root = repo_root().join("crates/ambition_actors");
     assert_manifest_has_no_deps(
         &sandbox_root,
         &["ambition_render"],
@@ -323,7 +323,7 @@ fn architecture_boundaries_sandbox_does_not_depend_on_render() {
     assert_source_tree_has_no_code_refs(
         sandbox_root.join("src"),
         &["ambition_render"],
-        "ambition_gameplay_core must not reference the render crate",
+        "ambition_actors must not reference the render crate",
     );
 }
 
@@ -380,7 +380,7 @@ fn architecture_boundaries_platformer_runtime_crate_is_extracted() {
     );
     assert_manifest_has_no_deps(
         &crate_root,
-        &["ambition_gameplay_core"],
+        &["ambition_actors"],
         "ambition_platformer_primitives must remain reusable and content-free",
     );
 
@@ -422,11 +422,11 @@ fn architecture_boundaries_platformer_runtime_crate_is_extracted() {
     let physics_facade = fs::read_to_string(crate_src().join("physics.rs")).expect("read physics");
     assert!(
         physics_facade.contains("ambition_platformer_primitives::gravity"),
-        "ambition_gameplay_core::physics should re-export the extracted gravity module"
+        "ambition_actors::physics should re-export the extracted gravity module"
     );
 }
 
-/// Pure simulation/gameplay code in `ambition_gameplay_core` must not import the
+/// Pure simulation/gameplay code in `ambition_actors` must not import the
 /// presentation layer. The render layer depends on the sim — never the reverse —
 /// so that `presentation/` can be lifted into a standalone render crate without
 /// dragging gameplay logic along.
@@ -478,12 +478,12 @@ fn architecture_boundaries_menu_crate_stays_content_free() {
     );
     assert_manifest_has_no_deps(
         &crate_root,
-        &["ambition_gameplay_core"],
+        &["ambition_actors"],
         "ambition_menu is the reusable renderer; the game owns menu content",
     );
     assert_source_tree_has_no_code_refs(
         crate_root.join("src"),
-        &["ambition_gameplay_core"],
+        &["ambition_actors"],
         "ambition_menu must stay content-free",
     );
 }
@@ -497,7 +497,7 @@ fn architecture_boundaries_persistence_crate_owns_stored_shapes_only() {
         "ambition_persistence crate should exist at crates/ambition_persistence"
     );
     let forbidden = [
-        "ambition_gameplay_core",
+        "ambition_actors",
         "ambition_menu",
         "ambition_render",
         "ambition_content",
@@ -538,7 +538,7 @@ fn architecture_boundaries_world_ir_and_ldtk_backend_are_split() {
         &world_root,
         &[
             "ambition_ldtk_map",
-            "ambition_gameplay_core",
+            "ambition_actors",
             "ambition_runtime",
             "ambition_render",
             "ambition_content",
@@ -556,7 +556,7 @@ fn architecture_boundaries_world_ir_and_ldtk_backend_are_split() {
     assert_manifest_has_no_deps(
         &ldtk_root,
         &[
-            "ambition_gameplay_core",
+            "ambition_actors",
             "ambition_runtime",
             "ambition_render",
             "ambition_content",
@@ -567,7 +567,7 @@ fn architecture_boundaries_world_ir_and_ldtk_backend_are_split() {
     assert_source_tree_has_no_code_refs(
         ldtk_root.join("src"),
         &[
-            "ambition_gameplay_core",
+            "ambition_actors",
             "ambition_runtime",
             "ambition_render",
             "ambition_content",
@@ -583,7 +583,7 @@ fn architecture_boundaries_world_ir_and_ldtk_backend_are_split() {
 /// primitive / portal / trace / input foundations, never the sim heart, the
 /// combat kit, character brains, or any host/content/render machinery. The
 /// victim-side hit routing + charge-input steppers that DO need those stay in
-/// `ambition_gameplay_core` and consume this crate (the legal sim → model arrow).
+/// `ambition_actors` and consume this crate (the legal sim → model arrow).
 #[test]
 fn architecture_boundaries_projectiles_crate_is_model_only() {
     let crate_root = repo_root().join("crates/ambition_projectiles");
@@ -593,7 +593,7 @@ fn architecture_boundaries_projectiles_crate_is_model_only() {
         "ambition_projectiles crate should exist at crates/ambition_projectiles"
     );
     let forbidden = [
-        "ambition_gameplay_core",
+        "ambition_actors",
         "ambition_combat",
         "ambition_characters",
         "ambition_sim_view",
@@ -606,7 +606,7 @@ fn architecture_boundaries_projectiles_crate_is_model_only() {
         &crate_root,
         &forbidden,
         "ambition_projectiles is the projectile MODEL — no sim-heart / combat / \
-         brain / host / content coupling (the woven steppers stay in gameplay_core)",
+         brain / host / content coupling (the woven steppers stay in ambition_actors)",
     );
     assert_source_tree_has_no_code_refs(
         crate_root.join("src"),
@@ -618,7 +618,7 @@ fn architecture_boundaries_projectiles_crate_is_model_only() {
 /// `ambition_encounter` (E-enc) owns the reusable encounter wave/lockdown
 /// vocabulary and headless state machine. The LDtk loader, ECS mob spawning,
 /// feature overlay, banners, save/quest plumbing, and schedule adapters stay in
-/// gameplay-core until their owning domains move, so this crate must remain free
+/// `ambition_actors` until their owning domains move, so this crate must remain free
 /// of sim-heart, content, render, runtime, host, and app dependencies.
 #[test]
 fn architecture_boundaries_encounter_crate_is_state_only() {
@@ -629,7 +629,7 @@ fn architecture_boundaries_encounter_crate_is_state_only() {
         "ambition_encounter crate should exist at crates/ambition_encounter"
     );
     let forbidden = [
-        "ambition_gameplay_core",
+        "ambition_actors",
         "ambition_characters",
         "ambition_ldtk_map",
         "ambition_sim_view",
@@ -677,7 +677,7 @@ fn architecture_boundaries_kaleidoscope_is_an_engine_extension() {
     assert_source_tree_has_no_code_refs(
         crate_root.join("src"),
         &[
-            "ambition_gameplay_core",
+            "ambition_actors",
             "ambition_render",
             "ambition_content",
             "ambition_app",
@@ -715,7 +715,7 @@ fn architecture_boundaries_settings_menu_ir_is_foundation_only() {
     assert_source_tree_has_no_code_refs(
         crate_root.join("src"),
         &[
-            "ambition_gameplay_core",
+            "ambition_actors",
             "ambition_menu",
             "ambition_render",
             "ambition_content",
@@ -755,7 +755,7 @@ fn architecture_boundaries_dev_tools_crate_is_foundation_only() {
     assert_source_tree_has_no_code_refs(
         crate_root.join("src"),
         &[
-            "ambition_gameplay_core",
+            "ambition_actors",
             "ambition_menu",
             "ambition_render",
             "ambition_content",
@@ -796,7 +796,7 @@ fn architecture_boundaries_dialog_crate_is_runtime_only() {
     assert_source_tree_has_no_code_refs(
         crate_root.join("src"),
         &[
-            "ambition_gameplay_core",
+            "ambition_actors",
             "ambition_menu",
             "ambition_render",
             "ambition_content",
@@ -810,7 +810,7 @@ fn architecture_boundaries_dialog_crate_is_runtime_only() {
 /// `ambition_interaction` is a reusable, content-free foundation crate: the
 /// interactive-world-object MODEL (Interactable / InteractionKind / Pickup / Chest
 /// / Breakable + state enums) over the actor + geometry foundations. It must not
-/// depend on the game machinery (`ambition_gameplay_core`) or name any game content, so
+/// depend on the game machinery (`ambition_actors`) or name any game content, so
 /// another platformer reuses the interaction vocabulary by depending on it.
 #[test]
 fn architecture_boundaries_interaction_crate_is_foundation_only() {
@@ -822,7 +822,7 @@ fn architecture_boundaries_interaction_crate_is_foundation_only() {
     assert_manifest_has_no_deps(
         &crate_root,
         &[
-            "ambition_gameplay_core",
+            "ambition_actors",
             "ambition_content",
             "ambition_render",
             "bevy",
@@ -832,7 +832,7 @@ fn architecture_boundaries_interaction_crate_is_foundation_only() {
     assert_source_tree_has_no_code_refs(
         crate_root.join("src"),
         &[
-            "ambition_gameplay_core",
+            "ambition_actors",
             "ambition_content",
             "gnu_ton",
             "gradient_sentinel",
@@ -850,13 +850,13 @@ fn architecture_boundaries_effects_crate_is_foundation_only() {
     );
     assert_manifest_has_no_deps(
         &crate_root,
-        &["ambition_gameplay_core"],
+        &["ambition_actors"],
         "ambition_vfx is the reusable effect substrate (Effect vocabulary + \
          Hitbox + executor); it must never depend on the game lib",
     );
     assert_source_tree_has_no_code_refs(
         crate_root.join("src"),
-        &["ambition_gameplay_core"],
+        &["ambition_actors"],
         "ambition_vfx must stay content-free / foundation-only",
     );
 }
@@ -880,7 +880,7 @@ fn architecture_boundaries_input_crate_is_extracted() {
     );
     assert_manifest_has_no_deps(
         &crate_root,
-        &["ambition_gameplay_core"],
+        &["ambition_actors"],
         "ambition_input must stay decoupled from sandbox content",
     );
     assert_paths_absent(
@@ -892,11 +892,11 @@ fn architecture_boundaries_input_crate_is_extracted() {
     let lib = fs::read_to_string(crate_src().join("lib.rs")).expect("read sandbox lib.rs");
     assert!(
         !lib.contains("pub use ambition_input as input"),
-        "the ambition_gameplay_core::input compat shim was removed; \
-         import ambition_input by its canonical path, not via gameplay_core"
+        "the ambition_actors::input compat shim was removed; \
+         import ambition_input by its canonical path, not via ambition_actors"
     );
     // The canonical `controls` re-export moved into `ambition_persistence`
-    // during E1a; gameplay-core's settings mod now surfaces it transitively.
+    // during E1a; ambition_actors' settings mod now surfaces it transitively.
     // Assert both links so the input-settings vocabulary stays single-sourced.
     let persistence_settings =
         fs::read_to_string(repo_root().join("crates/ambition_persistence/src/settings/mod.rs"))
@@ -909,14 +909,14 @@ fn architecture_boundaries_input_crate_is_extracted() {
         .expect("read persistence settings mod.rs");
     assert!(
         settings_mod.contains("controls"),
-        "gameplay-core persistence::settings should re-surface `controls` \
+        "ambition_actors persistence::settings should re-surface `controls` \
          from ambition_persistence (the E1a layering)"
     );
 }
 
 /// App-thinness (ADR 0019): the mobile / touch input adapter is a sibling ENGINE
 /// crate (`ambition_touch_input`), not host code inside the app binary. It carries
-/// no app-only coupling (only the `ambition_input`/`gameplay_core`/`render`/`ui_nav`/
+/// no app-only coupling (only the `ambition_input`/`ambition_actors`/`render`/`ui_nav`/
 /// `cutscene` library seams), so a second platformer host can reuse touch controls by
 /// adding the crate — the "second game" oracle. This guards the extraction: the app
 /// must WIRE the plugin from the crate, never re-own the adapter under `src/host/`.
@@ -1003,12 +1003,12 @@ fn architecture_boundaries_app_plugins_does_not_reown_moved_subsystems() {
     let forbidden = [
         "fn register_portal_systems",
         "fn register_item_pickup_systems",
-        "ambition_gameplay_core::portal::portal_fire_system",
-        "ambition_gameplay_core::portal::portal_projectile_step",
-        "ambition_gameplay_core::portal::portal_transit",
-        "ambition_gameplay_core::item_pickup::pickup_held_item_system",
-        "ambition_gameplay_core::item_pickup::throw_held_item_system",
-        "ambition_gameplay_core::item_pickup::ground_item_physics",
+        "ambition_actors::portal::portal_fire_system",
+        "ambition_actors::portal::portal_projectile_step",
+        "ambition_actors::portal::portal_transit",
+        "ambition_actors::item_pickup::pickup_held_item_system",
+        "ambition_actors::item_pickup::throw_held_item_system",
+        "ambition_actors::item_pickup::ground_item_physics",
     ];
 
     let violations = forbidden
@@ -1024,9 +1024,9 @@ fn architecture_boundaries_app_plugins_does_not_reown_moved_subsystems() {
 }
 
 #[test]
-fn architecture_boundaries_input_timer_systems_moved_to_gameplay_core() {
+fn architecture_boundaries_input_timer_systems_moved_to_actors() {
     // C4 app-thinness: the body-generic input/timer/dev systems that used to live
-    // in `app/sim_systems.rs` now live in their owning `ambition_gameplay_core`
+    // in `app/sim_systems.rs` now live in their owning `ambition_actors`
     // modules. The app must NOT re-DEFINE them (it only references the moved
     // `pub fn`s from the library), so the schedule ordering stays app-owned while
     // the gameplay logic lives down in the library.
@@ -1050,16 +1050,16 @@ fn architecture_boundaries_input_timer_systems_moved_to_gameplay_core() {
 
     // The engine schedule (E5 step 5: the shared player-frame wiring lives in
     // `ambition_runtime::PlayerSchedulePlugin`) references the moved systems
-    // by their gameplay_core paths.
+    // by their ambition_actors paths.
     let engine_schedule =
         fs::read_to_string(repo_root().join("crates/ambition_runtime/src/player_schedule.rs"))
             .expect("read ambition_runtime/src/player_schedule.rs");
     for needle in [
-        "ambition_gameplay_core::dev::sync_live_player_dev_edits_system",
-        "ambition_gameplay_core::time::time_control::apply_suspended_time_scale_system",
-        "ambition_gameplay_core::player::input_timer_system",
-        "ambition_gameplay_core::player::interaction_input_system",
-        "ambition_gameplay_core::player::cleanup_timers_system",
+        "ambition_actors::dev::sync_live_player_dev_edits_system",
+        "ambition_actors::time::time_control::apply_suspended_time_scale_system",
+        "ambition_actors::player::input_timer_system",
+        "ambition_actors::player::interaction_input_system",
+        "ambition_actors::player::cleanup_timers_system",
     ] {
         assert!(
             engine_schedule.contains(needle),
@@ -1101,7 +1101,7 @@ fn architecture_boundaries_non_portal_mechanics_use_runtime_raycast_seam() {
         let text = fs::read_to_string(&path).expect("read source file");
         if text.contains("crate::portal::raycast_solids") {
             violations.push(format!(
-                "{rel} still reaches into portal for a generic solid raycast; use ambition_gameplay_core::platformer_runtime::collision::raycast_solids"
+                "{rel} still reaches into portal for a generic solid raycast; use ambition_actors::platformer_runtime::collision::raycast_solids"
             ));
         }
     }
@@ -1119,7 +1119,7 @@ fn architecture_boundaries_portal_orders_against_item_set_not_function() {
         .expect("read portal plugin source");
     let names_item_set_in_code = portal_text.lines().any(|raw| {
         let line = raw.trim();
-        !is_comment_line(line) && line.contains("ambition_gameplay_core::items::pickup")
+        !is_comment_line(line) && line.contains("ambition_actors::items::pickup")
     });
     assert!(
         !names_item_set_in_code,
@@ -1132,11 +1132,11 @@ fn architecture_boundaries_portal_orders_against_item_set_not_function() {
         fs::read_to_string(repo_root().join("crates/ambition_runtime/src/portal_schedule.rs"))
             .expect("read ambition_runtime/src/portal_schedule.rs");
     assert!(
-        !wiring.contains("after(ambition_gameplay_core::items::pickup::ground_item_physics)"),
+        !wiring.contains("after(ambition_actors::items::pickup::ground_item_physics)"),
         "portal wiring should order PortalSet::Transit against ItemPickupSet, not a concrete function"
     );
     assert!(
-        wiring.contains("ambition_gameplay_core::items::pickup::ItemPickupSet::CoreHeldItems"),
+        wiring.contains("ambition_actors::items::pickup::ItemPickupSet::CoreHeldItems"),
         "portal wiring should order PortalSet::Transit on the held-item/ground-item simulation set"
     );
 }
@@ -1149,19 +1149,19 @@ fn architecture_boundaries_portal_core_does_not_import_ambition_content_roster()
         crate_src().join("portal"),
     ];
     let forbidden = [
-        "ambition_gameplay_core::items",
+        "ambition_actors::items",
         "Item::PortalGun",
         "OwnedItems",
-        "ambition_gameplay_core::inventory_ui",
-        "ambition_gameplay_core::menu::effects",
+        "ambition_actors::inventory_ui",
+        "ambition_actors::menu::effects",
         "StashedActionSet",
-        "ambition_gameplay_core::content",
-        "ambition_gameplay_core::quest",
-        "ambition_gameplay_core::ldtk_world",
-        "ambition_gameplay_core::world::ldtk_world",
-        "ambition_gameplay_core::persistence",
+        "ambition_actors::content",
+        "ambition_actors::quest",
+        "ambition_actors::ldtk_world",
+        "ambition_actors::world::ldtk_world",
+        "ambition_actors::persistence",
         "ambition_input::ControlFrame",
-        "ambition_gameplay_core::items::pickup::GroundItem",
+        "ambition_actors::items::pickup::GroundItem",
     ];
     let violations = scan_code_refs_filtered(
         &roots,
@@ -1169,9 +1169,9 @@ fn architecture_boundaries_portal_core_does_not_import_ambition_content_roster()
         |_| true,
         |file, line| {
             let is_test = file.file_name().and_then(|n| n.to_str()) == Some("tests.rs");
-            line.contains("ambition_gameplay_core::items::pickup::ItemPickupSet")
-                || line.contains("ambition_gameplay_core::items::pickup::axe_spec")
-                || (is_test && line.contains("ambition_gameplay_core::items::pickup::GroundItem"))
+            line.contains("ambition_actors::items::pickup::ItemPickupSet")
+                || line.contains("ambition_actors::items::pickup::axe_spec")
+                || (is_test && line.contains("ambition_actors::items::pickup::GroundItem"))
                 || (is_test && line.contains("ambition_input::ControlFrame"))
         },
     );
@@ -1192,13 +1192,13 @@ fn architecture_boundaries_portal_core_does_not_name_host_world_or_reset() {
     assert_code_refs_filtered(
         &[root],
         &[
-            "ambition_gameplay_core::features",
+            "ambition_actors::features",
             "ambition_engine_core::RoomGeometry",
             "Res<RoomGeometry>",
             "FeatureEcsWorldOverlay",
             "ResetRoomFeaturesEvent",
             "ambition_input::ControlFrame",
-            "ambition_gameplay_core::player",
+            "ambition_actors::player",
         ],
         |file| {
             let name = file.file_name().and_then(|n| n.to_str()).unwrap_or("");
@@ -1280,7 +1280,7 @@ fn architecture_boundaries_named_content_registers_through_content_plugin() {
         "app/sim_resources.rs still constructs named content inline: {violations:?}"
     );
     assert!(
-        !plugins_text.contains("ambition_gameplay_core::items::OwnedItems::starter()"),
+        !plugins_text.contains("ambition_actors::items::OwnedItems::starter()"),
         "app/plugins.rs should install the item roster through the content plugin"
     );
 }
@@ -1313,11 +1313,11 @@ fn architecture_boundaries_gravity_zone_mechanic_left_portal() {
     assert_code_refs_absent(
         &[src_root.join("gravity")],
         &[
-            "ambition_gameplay_core::portal::",
-            "ambition_gameplay_core::portal;",
-            "ambition_gameplay_core::portal}",
-            "ambition_gameplay_core::portal,",
-            "ambition_gameplay_core::portal ",
+            "ambition_actors::portal::",
+            "ambition_actors::portal;",
+            "ambition_actors::portal}",
+            "ambition_actors::portal,",
+            "ambition_actors::portal ",
         ],
         "gravity mechanic must be portal-independent",
     );
@@ -1337,7 +1337,7 @@ fn architecture_boundaries_gravity_zone_mechanic_left_portal() {
         |_| true,
         |file, line| {
             file.file_name().and_then(|n| n.to_str()) == Some("tests.rs")
-                && line.contains("ambition_gameplay_core::gravity")
+                && line.contains("ambition_actors::gravity")
         },
     );
     assert!(
@@ -1409,7 +1409,7 @@ fn architecture_boundaries_abilities_live_under_abilities_layer() {
     let runtime_text = fs::read_to_string(repo_root().join("crates/ambition_runtime/src/lib.rs"))
         .expect("read ambition_runtime/src/lib.rs");
     assert!(
-        runtime_text.contains("ambition_gameplay_core::abilities::AmbitionAbilitiesPlugin"),
+        runtime_text.contains("ambition_actors::abilities::AmbitionAbilitiesPlugin"),
         "PlatformerEnginePlugins should compose abilities through AmbitionAbilitiesPlugin"
     );
 }
@@ -1478,7 +1478,7 @@ fn architecture_boundaries_portal_crate_is_extracted() {
     assert_manifest_has_no_deps(
         &crate_root,
         &[
-            "ambition_gameplay_core",
+            "ambition_actors",
             "ambition_content",
             "ambition_input",
             "ambition_sfx",
@@ -1493,7 +1493,7 @@ fn architecture_boundaries_portal_crate_is_extracted() {
     );
     assert_code_refs_absent(
         &[crate_root.join("src")],
-        &["ambition_gameplay_core"],
+        &["ambition_actors"],
         "ambition_portal source must stay content-free",
     );
 
@@ -1525,7 +1525,7 @@ fn architecture_boundaries_portal_presentation_crate_is_extracted() {
     assert_manifest_has_no_deps(
         &crate_root,
         &[
-            "ambition_gameplay_core",
+            "ambition_actors",
             "ambition_content",
             "ambition_input",
             "ambition_sfx",
@@ -1551,7 +1551,7 @@ fn architecture_boundaries_portal_presentation_crate_is_extracted() {
     );
     assert_code_refs_absent(
         &[crate_root.join("src")],
-        &["ambition_gameplay_core", "ambition_content"],
+        &["ambition_actors", "ambition_content"],
         "ambition_portal_presentation source must stay host-free",
     );
 
@@ -1579,12 +1579,12 @@ fn architecture_boundaries_time_crate_is_extracted() {
     assert_workspace_contains_crate("ambition_time");
     assert_manifest_has_no_deps(
         &crate_root,
-        &["ambition_gameplay_core"],
+        &["ambition_actors"],
         "ambition_time is the reusable time layer",
     );
     assert_code_refs_absent(
         &[crate_root.join("src")],
-        &["ambition_gameplay_core"],
+        &["ambition_actors"],
         "ambition_time source must stay content-free",
     );
 
@@ -1828,7 +1828,7 @@ fn architecture_boundaries_actor_crate_is_content_free_and_foundation_clean() {
     assert_code_refs_absent(
         &[repo_root().join("crates/ambition_characters/src")],
         &[
-            "ambition_gameplay_core",
+            "ambition_actors",
             "ambition_content",
             "ambition_app",
             "GnuTon",

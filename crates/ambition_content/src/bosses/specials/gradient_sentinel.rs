@@ -6,10 +6,10 @@
 use super::*;
 
 // ===================================================================
-// Migrated boss-special Techniques (from ambition_gameplay_core brain_effects).
+// Migrated boss-special Techniques (from ambition_actors brain_effects).
 // Each owns its key + per-boss state + params + behavior; the engine
 // names none of them. Tuning consts (APPLE_RAIN_*, OVERFIT_VOLLEY_*, …)
-// still live in ambition_gameplay_core::features::bosses for now (just numbers).
+// still live in ambition_actors::features::bosses for now (just numbers).
 // ===================================================================
 
 const APPLE_RAIN_KEY: &str = "apple_rain";
@@ -226,7 +226,7 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
 // the variant, advance/reset state from the message stream + the
 // boss's live `BossAttackState`. The brain emits the Special
 // messages directly from `tick_boss_brains_system` via
-// `boss_special_for_profile` (see `ambition_gameplay_core::features::bosses`).
+// `boss_special_for_profile` (see `ambition_actors::features::bosses`).
 
 /// Per-boss state for MemorizedVolley. Sampled positions are
 /// memorized during the telegraph window; the strike edge fires one
@@ -290,7 +290,7 @@ pub struct GradientCascadeState {
 /// the consumer doesn't need to round-trip through the spec on every
 /// telegraph tick (the spec only arrives via the strike-tick
 /// message; sampling happens during telegraph too). Tuning lives in
-/// `ambition_gameplay_core::features::bosses` — these are local mirrors.
+/// `ambition_actors::features::bosses` — these are local mirrors.
 const OVERFIT_VOLLEY_BOLT_HALF_EXTENT: ae::Vec2 = ae::Vec2::new(8.0, 8.0);
 const OVERFIT_VOLLEY_BOLT_LIFETIME: f32 = 2.4;
 const OVERFIT_VOLLEY_OWNER_PREFIX: &str = "gradient_sentinel_overfit";
@@ -321,8 +321,8 @@ pub fn spawn_overfit_volley_from_special_messages(
     // system multi-player ready — single-player behavior is preserved
     // because there's only one player today.
     player_query: Query<
-        &ambition_gameplay_core::actor::BodyKinematics,
-        With<ambition_gameplay_core::actor::PlayerEntity>,
+        &ambition_actors::actor::BodyKinematics,
+        With<ambition_actors::actor::PlayerEntity>,
     >,
     mut bosses: Query<
         (
@@ -331,7 +331,7 @@ pub fn spawn_overfit_volley_from_special_messages(
             &ambition_characters::actor::BodyHealth,
             &BossAttackState,
             &mut OverfitVolleyState,
-            Option<&ambition_gameplay_core::features::ActorTarget>,
+            Option<&ambition_actors::features::ActorTarget>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -479,8 +479,8 @@ pub fn spawn_minima_trap_from_special_messages(
     // `select_actor_targets`); same multi-player-ready pattern as
     // the overfit-volley consumer above.
     player_query: Query<
-        &ambition_gameplay_core::actor::BodyKinematics,
-        With<ambition_gameplay_core::actor::PlayerEntity>,
+        &ambition_actors::actor::BodyKinematics,
+        With<ambition_actors::actor::PlayerEntity>,
     >,
     mut bosses: Query<
         (
@@ -488,7 +488,7 @@ pub fn spawn_minima_trap_from_special_messages(
             BossClusterRef,
             &ambition_characters::actor::BodyHealth,
             &mut MinimaTrapState,
-            Option<&ambition_gameplay_core::features::ActorTarget>,
+            Option<&ambition_actors::features::ActorTarget>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -591,7 +591,7 @@ pub fn spawn_minima_trap_from_special_messages(
                     half_size: MINIMA_TRAP_MINION_HALF_SIZE,
                     archetype_id: MINIMA_TRAP_MINION_ARCHETYPE.to_string(),
                     encounter_id,
-                    faction: ambition_gameplay_core::features::ActorFaction::Enemy,
+                    faction: ambition_actors::features::ActorFaction::Enemy,
                 }),
             });
         }
@@ -847,7 +847,7 @@ pub fn spawn_gradient_cascade_minions_from_special_messages(
                     half_size: GRADIENT_CASCADE_MINION_HALF_SIZE,
                     archetype_id: GRADIENT_CASCADE_MINION_ARCHETYPE.to_string(),
                     encounter_id: encounter_id.clone(),
-                    faction: ambition_gameplay_core::features::ActorFaction::Enemy,
+                    faction: ambition_actors::features::ActorFaction::Enemy,
                 }),
             });
         }

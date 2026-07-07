@@ -60,7 +60,7 @@ pub enum InteractionKind {
         /// moving target.
         ///
         /// Engine model only — the actual movement / gravity / collision lives
-        /// in `ambition_gameplay_core::features::NpcRuntime`.
+        /// in `ambition_actors::features::NpcRuntime`.
         patrol_radius: f32,
         /// Optional authored `KinematicPathSpec` lookup id used by the sandbox
         /// runtime to drive peaceful NPC patrols. When set, it takes

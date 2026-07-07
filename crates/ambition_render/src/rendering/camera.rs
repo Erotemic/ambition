@@ -107,7 +107,7 @@ pub fn camera_follow(
     resolved: Res<ResolvedCameraSnapshot>,
     world: Res<ambition_engine_core::RoomGeometry>,
     mut view_state: ResMut<CameraViewState>,
-    shake: Res<ambition_gameplay_core::time::camera_ease::CameraShakeState>,
+    shake: Res<ambition_actors::time::camera_ease::CameraShakeState>,
     mut extra_clamp: ResMut<CameraExtraClamp>,
     #[cfg(feature = "portal_render")] mut portal_continuity: PortalCameraContinuityParams,
     // `With<MainCamera>` (not the broad `With<Camera2d>`): besides the #31 cube
@@ -117,7 +117,7 @@ pub fn camera_follow(
     mut query: Query<
         (&mut Transform, &mut Projection),
         (
-            With<ambition_gameplay_core::session::camera_layers::MainCamera>,
+            With<ambition_actors::session::camera_layers::MainCamera>,
             Without<PlayerVisual>,
         ),
     >,

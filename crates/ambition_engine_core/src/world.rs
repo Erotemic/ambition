@@ -573,7 +573,7 @@ fn segments_cross(a1: Vec2, a2: Vec2, b1: Vec2, b2: Vec2) -> bool {
 /// nominal size / spawn / display name. Authored entities (hazards, pickups,
 /// chests, enemies, bosses, NPCs, switches, labels) live on the
 /// sandbox-side `RoomSpec` in per-family Vecs — see
-/// `crate::rooms::RoomSpec` in `ambition_gameplay_core`. The engine has no
+/// `crate::rooms::RoomSpec` in `ambition_actors`. The engine has no
 /// authored-entity IR.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct World {
@@ -813,7 +813,7 @@ pub const MIN_STATE_REGION_THICKNESS: f32 = MAX_EXPECTED_BODY_SPEED / 60.0;
 /// mid-room. The collision the simulation actually sweeps against is a per-frame
 /// derived *view* over this base plus dynamic overlay contributions (moving
 /// platforms, ECS solids, portal carves) — built sandbox-side by the world
-/// overlay (`world_with_sandbox_solids` in `ambition_gameplay_core`).
+/// overlay (`world_with_sandbox_solids` in `ambition_actors`).
 /// `RoomGeometry` is the geometry; the view is what you collide against.
 #[derive(bevy_ecs::resource::Resource, Clone)]
 pub struct RoomGeometry(pub World);

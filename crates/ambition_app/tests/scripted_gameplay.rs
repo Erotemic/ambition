@@ -10,7 +10,7 @@
 //! seam without any visible plugin (AudioPlugin / RenderPlugin /
 //! InputPlugin / inspector / Avian2D).
 
-use ambition_gameplay_core::GameMode;
+use ambition_actors::GameMode;
 use ambition_input::ControlFrame;
 use ambition_sfx::SfxMessage;
 use bevy::asset::AssetPlugin;

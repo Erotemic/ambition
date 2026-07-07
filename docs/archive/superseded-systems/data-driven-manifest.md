@@ -8,7 +8,7 @@ Original path: `docs/systems/data-driven-manifest.md`
 
 # Data-driven sandbox manifest
 
-The sandbox now has one top-level RON manifest at `crates/ambition_gameplay_core/assets/ambition/sandbox.ron`. It is loaded in two ways:
+The sandbox now has one top-level RON manifest at `crates/ambition_actors/assets/ambition/sandbox.ron`. It is loaded in two ways:
 
 1. synchronously through `SandboxDataSpec::load_embedded()` so the current one-state prototype can boot immediately; and
 2. as a Bevy asset through `bevy_common_assets::ron::RonAssetPlugin`, which gives us the asset-loading path we will use once the sandbox grows a loading screen or hot-reload workflow.

@@ -11,7 +11,7 @@ files:
 
 ### 1. Add the catalog entry
 
-Edit `crates/ambition_gameplay_core/assets/data/character_catalog.ron`.
+Edit `crates/ambition_actors/assets/data/character_catalog.ron`.
 Pick a stable `character_id` (snake_case, `npc_` prefix for NPCs).
 Reference an existing brain preset and action-set preset.
 
@@ -48,13 +48,13 @@ python -m ambition_sprite2d_renderer install dock_inspector
 ```
 
 (`install` renders the sheet + writes it under
-`crates/ambition_gameplay_core/assets/sprites/`. `regen_sprites.sh` does
+`crates/ambition_actors/assets/sprites/`. `regen_sprites.sh` does
 the same in bulk for every registered target.)
 
 ### 4. Verify
 
 ```bash
-~/.cargo/bin/cargo test -p ambition_gameplay_core --lib content::character_catalog
+~/.cargo/bin/cargo test -p ambition_actors --lib content::character_catalog
 ~/.cargo/bin/cargo run -p ambition_app --bin headless -- 100
 ```
 
@@ -74,7 +74,7 @@ for the full brain-extension recipe. The short version:
 1. Add a variant to `StateMachineCfg` in `crates/ambition_characters/src/brain/state_machine/mod.rs` only when the existing templates are not enough.
 2. Add a `tick_<your_brain>` function and dispatch on the enum.
 3. Add a `BrainPreset::<YourBrain>` mirror to
-   `crates/ambition_characters/src/actor/character_catalog/entry.rs`; keep authored catalog data in `crates/ambition_gameplay_core/assets/data/character_catalog.ron`.
+   `crates/ambition_characters/src/actor/character_catalog/entry.rs`; keep authored catalog data in `crates/ambition_actors/assets/data/character_catalog.ron`.
 4. Extend `brain_from_preset` in `resolver.rs` to construct your
    variant from the preset.
 5. Register a preset in `character_catalog.ron` (`brain_presets:

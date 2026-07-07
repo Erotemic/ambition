@@ -13,37 +13,36 @@ use super::*;
 /// which aggregates the same three. Bundled so [`dev_snapshot`] /
 /// [`apply_dev_toggle`] stay single-source for every Developer row.
 pub(crate) struct DevToggleRead<'a> {
-    pub(crate) dev: &'a ambition_gameplay_core::dev::dev_tools::DeveloperTools,
-    pub(crate) dev_state: &'a ambition_gameplay_core::SandboxDevState,
-    pub(crate) ldtk_reload: &'a ambition_gameplay_core::ldtk_world::LdtkHotReloadState,
+    pub(crate) dev: &'a ambition_actors::dev::dev_tools::DeveloperTools,
+    pub(crate) dev_state: &'a ambition_actors::SandboxDevState,
+    pub(crate) ldtk_reload: &'a ambition_actors::ldtk_world::LdtkHotReloadState,
     // The Menu Backend row mirrors the `\` hotkey; its value label is the active
     // frontend (Grid / Cube), read from `InventoryUiBackend`.
     pub(crate) backend: InventoryUiBackend,
     // The Portal FX row's live effect (view cones / masks / off). Option so
     // fixtures without the resource still render the row (as "n/a").
     #[cfg(feature = "portal_render")]
-    pub(crate) portal_effect: Option<&'a ambition_gameplay_core::portal::PortalEffectSelection>,
+    pub(crate) portal_effect: Option<&'a ambition_actors::portal::PortalEffectSelection>,
     // Portal camera continuity's live mode. Option so fixtures/non-portal
     // builds render the row as unavailable without storing a duplicate default.
     #[cfg(feature = "portal_render")]
-    pub(crate) portal_camera:
-        Option<&'a ambition_gameplay_core::portal::PortalCameraContinuitySelection>,
+    pub(crate) portal_camera: Option<&'a ambition_actors::portal::PortalCameraContinuitySelection>,
     // The Gravity row's ambient direction (down/left/up/right). Option so
     // fixtures without the resource still render the row (as "n/a").
-    pub(crate) base_gravity: Option<&'a ambition_gameplay_core::physics::BaseGravity>,
+    pub(crate) base_gravity: Option<&'a ambition_actors::physics::BaseGravity>,
 }
 
 pub(crate) struct DevToggleWrite<'a> {
-    pub(crate) dev: &'a mut ambition_gameplay_core::dev::dev_tools::DeveloperTools,
-    pub(crate) dev_state: &'a mut ambition_gameplay_core::SandboxDevState,
-    pub(crate) ldtk_reload: &'a mut ambition_gameplay_core::ldtk_world::LdtkHotReloadState,
+    pub(crate) dev: &'a mut ambition_actors::dev::dev_tools::DeveloperTools,
+    pub(crate) dev_state: &'a mut ambition_actors::SandboxDevState,
+    pub(crate) ldtk_reload: &'a mut ambition_actors::ldtk_world::LdtkHotReloadState,
     pub(crate) backend: &'a mut InventoryUiBackend,
     #[cfg(feature = "portal_render")]
-    pub(crate) portal_effect: Option<&'a mut ambition_gameplay_core::portal::PortalEffectSelection>,
+    pub(crate) portal_effect: Option<&'a mut ambition_actors::portal::PortalEffectSelection>,
     #[cfg(feature = "portal_render")]
     pub(crate) portal_camera:
-        Option<&'a mut ambition_gameplay_core::portal::PortalCameraContinuitySelection>,
-    pub(crate) base_gravity: Option<&'a mut ambition_gameplay_core::physics::BaseGravity>,
+        Option<&'a mut ambition_actors::portal::PortalCameraContinuitySelection>,
+    pub(crate) base_gravity: Option<&'a mut ambition_actors::physics::BaseGravity>,
 }
 
 /// Read every developer toggle/cycle into a [`DevSnapshot`] for the SYSTEM IR. The

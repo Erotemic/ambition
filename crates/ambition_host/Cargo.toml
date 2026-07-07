@@ -7,7 +7,7 @@ authors.workspace = true
 description = "The windowed-HOST face (decomposition E5 step 5): a `PlatformerHostPlugins` plugin group that assembles the wiring only a VISIBLE platformer host needs on top of `PlatformerEnginePlugins` — the leafwing input bindings/bridge and the camera follow/shake cluster. MAY dep render/input/leafwing/gameplay_core; must NOT dep ambition_content (boundary-tested). The shared per-frame SIM wiring lives in `ambition_runtime` (headless/RL runs it too)."
 
 [dependencies]
-ambition_gameplay_core = { path = "../ambition_gameplay_core", default-features = false, features = [
+ambition_actors = { path = "../ambition_actors", default-features = false, features = [
     "headless",
 ] }
 ambition_input = { path = "../ambition_input" }
@@ -21,17 +21,17 @@ default = []
 # The leafwing input bindings + the device→ControlFrame bridge
 # (HostInputBindingsPlugin). Mirrors the app's `input` persona feature.
 input = [
-    "ambition_gameplay_core/input",
+    "ambition_actors/input",
     "ambition_input/input",
     "ambition_render/input",
     "ambition_sim_view/input",
     "dep:leafwing-input-manager",
 ]
 # Portal camera-continuity wiring inside HostCameraPlugin.
-portal = ["ambition_gameplay_core/portal"]
+portal = ["ambition_actors/portal"]
 portal_render = [
     "portal",
-    "ambition_gameplay_core/portal_render",
+    "ambition_actors/portal_render",
     "ambition_render/portal_render",
 ]
 

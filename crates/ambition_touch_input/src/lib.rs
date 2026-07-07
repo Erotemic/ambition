@@ -11,7 +11,7 @@
 //! reusable touch-input infrastructure any platformer host would want, so it
 //! lives beside `ambition_input` as a sibling engine layer rather than inside the
 //! app binary. The module has no app-only coupling — it reads/writes only the
-//! `ambition_input` / `ambition_gameplay_core` / `ambition_render` / `ambition_ui_nav`
+//! `ambition_input` / `ambition_actors` / `ambition_render` / `ambition_ui_nav`
 //! / `ambition_cutscene` library seams.
 //!
 //! Two layers:

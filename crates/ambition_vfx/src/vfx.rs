@@ -25,7 +25,7 @@ pub enum ParticleKind {
 
 /// High-level physics-debris recipe a gameplay event handler emits
 /// (breakable shatter, ragdoll burst). Pure data — the physics adapter owns
-/// the subscriber that spawns actual debris bodies (`ambition_gameplay_core::
+/// the subscriber that spawns actual debris bodies (`ambition_actors::
 /// world::physics::physics_spawn_debris_messages`); headless builds omit it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum PhysicsDebrisCue {

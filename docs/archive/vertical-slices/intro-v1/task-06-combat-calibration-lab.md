@@ -12,7 +12,7 @@ Build the first deliberate combat training room, formalizing or annotating the f
 
 ## Files likely to change
 
-- `crates/ambition_gameplay_core/assets/ambition/worlds/intro.ldtk`
+- `crates/ambition_actors/assets/ambition/worlds/intro.ldtk`
 - `tools/ambition_ldtk_tools/specs/combat_calibration_lab_area.yaml`
 
 
@@ -149,7 +149,7 @@ For LDtk edits, run from the repository root:
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools doctor \
-  crates/ambition_gameplay_core/assets/ambition/worlds/intro.ldtk
+  crates/ambition_actors/assets/ambition/worlds/intro.ldtk
 ```
 
 If the area spec changed, use the relevant `area create --dry-run` command first
@@ -161,8 +161,8 @@ When code or dialogue changes are made, also run the narrowest relevant checks:
 
 ```bash
 cargo fmt --check
-cargo test -p ambition_gameplay_core --lib
-cargo run -p ambition_gameplay_core --bin headless
+cargo test -p ambition_actors --lib
+cargo run -p ambition_actors --bin headless
 ```
 
 If a command fails for a known pre-existing reason, record the exact command and

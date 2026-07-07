@@ -9,7 +9,7 @@ implemented_by:
   - crates/ambition_engine_core/src/movement
   - crates/ambition_app/tests
   - crates/ambition_content/src
-  - crates/ambition_gameplay_core/src
+  - crates/ambition_actors/src
   - .github/workflows
 related_docs:
   - docs/systems/testing-strategy.md
@@ -46,8 +46,8 @@ Testing and validation are part of the knowledge system. Every non-trivial patch
 
 ```bash
 cargo fmt --check
-cargo test -p ambition_gameplay_core
-cargo test -p ambition_gameplay_core --lib
+cargo test -p ambition_actors
+cargo test -p ambition_actors --lib
 cargo run -p ambition_app --bin headless
 ```
 

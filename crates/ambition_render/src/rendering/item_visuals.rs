@@ -1,9 +1,9 @@
-//! Item visuals (was `ambition_gameplay_core::items::pickup`'s presentation tail):
+//! Item visuals (was `ambition_actors::items::pickup`'s presentation tail):
 //! ground-item quads, the held-item sprite, and held-projectile sprites. Pure
 //! consumers of the sim-built `sim_view` item snapshots (E4 slices 11+12+16)
 //! — no live item/body queries.
 
-use ambition_gameplay_core::items::pickup::FIREBALL_ID;
+use ambition_actors::items::pickup::FIREBALL_ID;
 use ambition_sim_view::{GroundItemsView, HeldItemView, HeldShotsView};
 use bevy::prelude::*;
 use bevy::sprite::Anchor;

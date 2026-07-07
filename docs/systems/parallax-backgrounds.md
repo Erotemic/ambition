@@ -19,7 +19,7 @@ tools/ambition_background_renderer/
 and publishes generated PNGs to the Bevy package-local asset root:
 
 ```text
-crates/ambition_gameplay_core/assets/backgrounds/<profile>/
+crates/ambition_actors/assets/backgrounds/<profile>/
 ```
 
 The generated art is intentionally simple. It provides deterministic placeholder
@@ -91,4 +91,4 @@ The default generated layers are intentionally higher contrast than final art an
 
 ## Asset root note
 
-Bevy resolves `asset_server.load("backgrounds/default/sky.png")` relative to the active package asset root for `ambition_gameplay_core`, which is `crates/ambition_gameplay_core/assets/` when running the sandbox package. Do not publish runtime sandbox assets only to the repository-level `assets/` directory; those files are useful for shared design references, but the sandbox binary will not load them through the package-local `AssetServer` path.
+Bevy resolves `asset_server.load("backgrounds/default/sky.png")` relative to the active package asset root for `ambition_actors`, which is `crates/ambition_actors/assets/` when running the sandbox package. Do not publish runtime sandbox assets only to the repository-level `assets/` directory; those files are useful for shared design references, but the sandbox binary will not load them through the package-local `AssetServer` path.

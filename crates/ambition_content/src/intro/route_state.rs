@@ -23,7 +23,7 @@
 
 use bevy::prelude::*;
 
-use ambition_gameplay_core::features::SetFlagRequested;
+use ambition_actors::features::SetFlagRequested;
 
 /// `(trigger_flag, target_flag)` — when the trigger lands in the save
 /// layer, the system emits a SetFlag for the target. Targets are listed
@@ -104,7 +104,7 @@ pub const INTRO_FLAG_GATED_LOCK_WALLS: &[(&str, &str)] = &[
 /// as `intro_lock:<id>` blocks this frame. Extracted so the Bevy
 /// system can be tested without spinning up a full ECS world.
 pub fn compute_intro_flag_gated_lock_walls(
-    project: &ambition_gameplay_core::world::ldtk_world::LdtkProject,
+    project: &ambition_actors::world::ldtk_world::LdtkProject,
     active_room_id: &str,
     save: &ambition_persistence::save_data::SandboxSaveData,
 ) -> Vec<(
@@ -125,8 +125,7 @@ pub fn compute_intro_flag_gated_lock_walls(
             if entity.identifier != "LockWall" {
                 continue;
             }
-            let Some(id) = ambition_gameplay_core::world::ldtk_world::field_string(entity, "id")
-            else {
+            let Some(id) = ambition_actors::world::ldtk_world::field_string(entity, "id") else {
                 continue;
             };
             let id_trim = id.trim();
@@ -160,10 +159,10 @@ pub fn compute_intro_flag_gated_lock_walls(
 /// consumers. The `intro_lock:<id>` block name lets the render layer surface
 /// each wall as a `LockWallVisual`, same as encounter lock walls.
 pub fn sync_intro_flag_gated_lock_walls(
-    project: Option<Res<ambition_gameplay_core::world::ldtk_world::SandboxLdtkProject>>,
-    room_set: Option<Res<ambition_gameplay_core::rooms::RoomSet>>,
+    project: Option<Res<ambition_actors::world::ldtk_world::SandboxLdtkProject>>,
+    room_set: Option<Res<ambition_actors::rooms::RoomSet>>,
     save: Option<Res<ambition_persistence::save::SandboxSave>>,
-    overlay: Option<ResMut<ambition_gameplay_core::features::FeatureEcsWorldOverlay>>,
+    overlay: Option<ResMut<ambition_actors::features::FeatureEcsWorldOverlay>>,
 ) {
     let (Some(project), Some(room_set), Some(save), Some(mut overlay)) =
         (project, room_set, save, overlay)
@@ -208,8 +207,8 @@ mod tests {
     /// Hand-build a minimal LdtkProject with a single level whose
     /// activeArea = "alice_relay" and one LockWall entity matching a
     /// known intro gated lock id.
-    fn synthetic_alice_relay_project() -> ambition_gameplay_core::world::ldtk_world::LdtkProject {
-        use ambition_gameplay_core::world::ldtk_world::{
+    fn synthetic_alice_relay_project() -> ambition_actors::world::ldtk_world::LdtkProject {
+        use ambition_actors::world::ldtk_world::{
             LdtkEntityInstance, LdtkFieldInstance, LdtkLayerInstance, LdtkLevel, LdtkProject,
         };
         use serde_json::Value;
@@ -304,7 +303,7 @@ mod tests {
     /// LockWall in the project.
     #[test]
     fn lock_wall_compute_ignores_unregistered_ids() {
-        use ambition_gameplay_core::world::ldtk_world::LdtkFieldInstance;
+        use ambition_actors::world::ldtk_world::LdtkFieldInstance;
         let mut project = synthetic_alice_relay_project();
         // Mutate the one entity's `id` field to something not in
         // INTRO_FLAG_GATED_LOCK_WALLS.
@@ -349,8 +348,8 @@ mod tests {
     #[test]
     fn emit_chains_promotes_bob_survey_to_private_marks() {
         use crate::quest::QuestRegistry;
-        use ambition_gameplay_core::features::apply_flag_effects;
-        use ambition_gameplay_core::features::SetFlagRequested;
+        use ambition_actors::features::apply_flag_effects;
+        use ambition_actors::features::SetFlagRequested;
         use ambition_persistence::save::SandboxSave;
         use bevy::app::{App, Update};
 
@@ -392,8 +391,8 @@ mod tests {
     #[test]
     fn cartography_quest_advances_through_alice_bob_p5() {
         use crate::quest::{apply_quest_advance_events, default_quest_specs, QuestRegistry};
-        use ambition_gameplay_core::features::{apply_flag_effects, apply_quest_effects};
-        use ambition_gameplay_core::features::{QuestAdvanceRequested, SetFlagRequested};
+        use ambition_actors::features::{apply_flag_effects, apply_quest_effects};
+        use ambition_actors::features::{QuestAdvanceRequested, SetFlagRequested};
         use ambition_persistence::save::SandboxSave;
         use bevy::app::{App, Update};
 
@@ -494,8 +493,8 @@ mod tests {
     #[test]
     fn emit_chains_promotes_p5_to_route_memory() {
         use crate::quest::QuestRegistry;
-        use ambition_gameplay_core::features::apply_flag_effects;
-        use ambition_gameplay_core::features::SetFlagRequested;
+        use ambition_actors::features::apply_flag_effects;
+        use ambition_actors::features::SetFlagRequested;
         use ambition_persistence::save::SandboxSave;
         use bevy::app::{App, Update};
 

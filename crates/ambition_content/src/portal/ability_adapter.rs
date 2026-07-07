@@ -8,7 +8,7 @@
 //! - [`suppress_ledge_grab_during_transit`] — while a body carries the
 //!   portal-owned [`PortalTransit`] latch, suppress the player's wall abilities
 //!   (ledge-grab / cling / wall-jump / wall-climb) so they don't grab the carved
-//!   aperture edges. Touches `ambition_gameplay_core::actor::BodyAbilities`, so it is Ambition
+//!   aperture edges. Touches `ambition_actors::actor::BodyAbilities`, so it is Ambition
 //!   glue, not crate core.
 //! - [`warp_portal_input`] — apply the portal-owned [`PortalInputWarp`] /
 //!   [`PortalEmission`] guards (both inserted by
@@ -22,9 +22,9 @@
 
 use bevy::prelude::*;
 
-use ambition_gameplay_core::actor::{PlayerEntity, PrimaryPlayer};
-use ambition_gameplay_core::portal::pieces::portal_map_vec;
-use ambition_gameplay_core::portal::{
+use ambition_actors::actor::{PlayerEntity, PrimaryPlayer};
+use ambition_actors::portal::pieces::portal_map_vec;
+use ambition_actors::portal::{
     PlayerMovementIntent, PortalEmission, PortalInputWarp, PortalTransit, PortalTuning,
 };
 
@@ -68,7 +68,7 @@ pub fn suppress_ledge_grab_during_transit(
     tuning: Res<PortalTuning>,
     mut players: Query<
         (
-            &mut ambition_gameplay_core::actor::BodyAbilities,
+            &mut ambition_actors::actor::BodyAbilities,
             Option<&PortalTransit>,
         ),
         (With<PlayerEntity>, With<PrimaryPlayer>),
@@ -164,8 +164,8 @@ mod tests {
     //! drive the REAL adapters + the portal-owned marker components.
     use bevy::prelude::*;
 
-    use ambition_gameplay_core::actor::{PlayerEntity, PrimaryPlayer};
-    use ambition_gameplay_core::portal::{
+    use ambition_actors::actor::{PlayerEntity, PrimaryPlayer};
+    use ambition_actors::portal::{
         PlayerMovementIntent, PortalChannel, PortalEmission, PortalGunColor, PortalInputWarp,
         PortalTransit, PortalTuning,
     };
@@ -245,7 +245,7 @@ mod tests {
 
     #[test]
     fn wall_ability_suppression_reapplies_every_frame_against_the_loadout_reset() {
-        use ambition_gameplay_core::actor::BodyAbilities;
+        use ambition_actors::actor::BodyAbilities;
         let mut app = App::new();
         app.init_resource::<PortalTuning>();
         // Stand in for the per-frame loadout reset that clobbered the old

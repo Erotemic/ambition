@@ -9,7 +9,7 @@ aliases:
   - controller support
   - iOS deferred
 implemented_by:
-  - crates/ambition_gameplay_core/Cargo.toml
+  - crates/ambition_actors/Cargo.toml
   - build_for_web.sh
   - build_for_android.sh
   - deploy_to_steamdeck.sh
@@ -46,7 +46,7 @@ Do not make a subsystem desktop-only by accident. If a feature touches input, as
 
 When changing platform-sensitive code:
 
-1. Check feature flags in `crates/ambition_gameplay_core/Cargo.toml`.
+1. Check feature flags in `crates/ambition_actors/Cargo.toml`.
 2. Check the relevant recipe (`web-build`, `android-build`, mobile touch, asset manager).
 3. Preserve headless/minimal test paths where possible.
 4. Avoid assuming host filesystem access on web/Android.

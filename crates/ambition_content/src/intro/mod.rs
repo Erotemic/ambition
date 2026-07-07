@@ -6,7 +6,7 @@
 //! them into live sandbox resources.
 //!
 //! Keeping intro content isolated here preserves the sandbox/game split: generic
-//! machinery stays in `ambition_gameplay_core`, while narrative content lives in the game
+//! machinery stays in `ambition_actors`, while narrative content lives in the game
 //! content layer.
 
 pub mod banter;

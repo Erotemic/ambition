@@ -733,18 +733,52 @@ the facade, run the gate.
   named the STATE via the facade path — zero edits); only the reusable
   STATE moved down. Boundary test
   `architecture_boundaries_dev_tools_crate_is_foundation_only`.
-- **E1e `ambition_menu`** (core menu/ 3.2k + app menu/ 10k) — a
-  THREE-way split (amended 2026-07-06, the extension-crate ruling in
-  architecture.md Tier 6): (1) menu model + settings IR + host stack +
-  the plain GRID backend → [the menu stack] (deps
-  `ambition_persistence` — the layering that dissolves the god-dep);
-  (2) the lunex **kaleidoscope backend** → `game/
-  ambition_menu_kaleidoscope`, the FIRST extension crate (engine-only
-  deps, boundary-tested, optional for any game incl. Ambition);
-  (3) Ambition's menu content stays content-side. The
-  `ambition_touch_input` upward-dep inversion rides this card; C3
-  (in-game character select over the wear seam) lands here or is
-  explicitly closed.
+- ✅ **E1e DONE (opus, 2026-07-07) — executed in 2 slices + dispositions:**
+  - ✅ **Slice 1 — the settings-IR god-dep (`ambition_settings_menu`):**
+    core `menu/ir/{settings,system}` → a new FOUNDATIONAL crate. It is
+    pure logic (no bevy, no renderer) built from
+    `ambition_persistence::settings::UserSettings` + `ambition_input`
+    (KeyboardPreset count) — the two backends render the same model. The
+    two `next/prev_display_mode` helpers moved down beside `DisplayModeKind`
+    in `ambition_persistence::host::windowing` to keep the move cycle-free.
+    `gameplay_core::menu::ir` is a facade (persistence::settings IR
+    re-export + app-menu hosts unchanged). This IS "the layering that
+    dissolves the god-dep." Boundary:
+    `architecture_boundaries_settings_menu_ir_is_foundation_only`.
+  - ✅ **Slice 2 — the FIRST extension crate (`game/ambition_menu_kaleidoscope`):**
+    the lunex cube renderer split out of `ambition_menu`; the base menu crate
+    is now bevy_lunex-FREE (grid + page model only). The neutral scroll-drag
+    channel (`MenuScrollDragged`/`ScrollbarDragState`) moved DOWN into the
+    shared `ambition_menu` (both renderers publish it). App host repoints
+    `ambition_menu::kaleidoscope::*` → `ambition_menu_kaleidoscope::*`.
+    Boundary: `architecture_boundaries_kaleidoscope_is_an_engine_extension`.
+  - **DISPOSITIONS (the graph rules out the rest as literal moves; recorded):**
+    - The **host stack + grid backend** cannot be foundational (they couple
+      up to `items`/`player`/`sfx`) — same rule as the E1d overlays. They
+      STAY in `ambition_app::menu` (already app-side; only the two neutral
+      scroll types + the kaleidoscope path repointed). The "menu stack"
+      bucket = the settings IR (the movable, god-dep half); the host is the
+      app-side consumer of it.
+    - `menu/map` is **sim-tier, not content**: `ambition_render` +
+      `ambition_runtime` consume it (init `MapMenuState`, schedule
+      `track_room_visits`/`sync_map_from_save`, order render hotkeys), and
+      neither deps `ambition_content` → moving map to content would CYCLE.
+      It stays in `gameplay_core::menu::map`. `app/menu/effects.rs`
+      (Equip/UseConsumable semantics) is app-side host glue, already OUT of
+      the reusable crates. So bucket (3) "menu content stays content-side"
+      holds in place — the game content is not in the reusable crates.
+    - **`ambition_touch_input` inversion — RE-SCOPED, not on the menu path.**
+      The menu stack is now IR-only and needs nothing from touch. Touch's
+      remaining upward `gameplay_core` dep is `bevy_plugin.rs` (affordances/
+      physics/schedule) + `menu_bridge.rs`'s `GameMode` gate — a separate,
+      larger inversion the map flagged as "not the menu path." Deferred to a
+      dedicated touch-inversion session (tracked here, not blocking E1e).
+    - **C3 (in-game character select) — EXPLICITLY CLOSED.** No in-game
+      character-select menu exists (grep of app/menu, gameplay_core/menu,
+      ambition_menu found none); "wear" is a spawn-time possession
+      re-parametrization (`starting_character.rs` / `character_roster.rs`),
+      not a menu. Building a select surface is net-new gameplay, not a
+      decomposition step.
 
 ### E2 — the combat/projectiles carve — [opus; back-edges PRE-CLASSIFIED by fable]
 

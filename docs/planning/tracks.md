@@ -1168,3 +1168,62 @@ dev_tools foundation test + updated the dev-overlays home test);
 `cargo check -p ambition_app --features rl_sim`;
 `cargo run -p ambition_app --bin headless -- 120` (clean);
 rustfmt on touched files.
+
+## 2026-07-07 (opus) — E1e EXECUTED: settings-IR crate + the first extension crate
+
+Executed the E1e menu carve as two crate mints plus recorded dispositions
+for the pieces the dependency graph rules out as literal moves.
+
+**Slice 1 — `ambition_settings_menu` (the god-dep dissolution).** Moved
+core `menu/ir/{settings,system}` into a new FOUNDATIONAL crate: the
+renderer-agnostic `SettingsMenuModel` / `SettingsOption` /
+`apply_settings_option` + the System-menu layer, built from
+`ambition_persistence::settings::UserSettings`. It is pure logic — no bevy,
+no renderer, no game state — so the flat grid and the lunex cube render the
+same model; that is exactly the layering that stops the settings IR from
+being the god-dep that forced menu presentation to reach back into
+gameplay-core. To keep the move cycle-free, the two pure
+`next/prev_display_mode` helpers moved down to
+`ambition_persistence::host::windowing` beside `DisplayModeKind` (gameplay
+model re-exports them). `gameplay_core::menu::ir` is a facade re-export, so
+the `persistence::settings` IR re-export + the app-menu hosts need no edits.
+
+**Slice 2 — `game/ambition_menu_kaleidoscope` (the FIRST extension crate).**
+Split the bevy_lunex 3D cube renderer out of `ambition_menu`; the base menu
+crate is now bevy_lunex-FREE (flat grid + page model). The neutral
+scroll-drag channel (`MenuScrollDragged` + `ScrollbarDragState`) was
+mis-homed inside the cube module but is shared by both renderers — it moved
+DOWN into `ambition_menu`. Two `pub(crate)` scrollbar helpers widened to
+`pub`. The app's kaleidoscope host + grid backend repoint
+`ambition_menu::kaleidoscope::*` → `ambition_menu_kaleidoscope::*`; the app
+gains the extension dep. Two independent renderers now drive one page model
+— the extension seam works.
+
+**Dispositions (recorded in decomposition.md).** The host stack + grid
+backend couple up to items/player/sfx, so like the E1d overlays they stay
+app-side (only the neutral scroll types + the kaleidoscope path repointed).
+`menu/map` is sim-tier (render + runtime consume `MapMenuState` /
+`track_room_visits` / `sync_map_from_save`; neither deps content), so a
+move to content would cycle — it stays in `gameplay_core::menu::map`, and
+`app/menu/effects.rs` is app-side host glue already out of the reusable
+crates, so bucket (3) "menu content stays content-side" holds in place. The
+`ambition_touch_input` inversion is re-scoped: the menu stack is IR-only now
+and needs nothing from touch; touch's remaining upward gameplay-core dep
+(bevy_plugin affordances/physics + the menu_bridge GameMode gate) is a
+separate, larger inversion, deferred. **C3 is explicitly closed** — no
+in-game character-select menu exists; "wear" is spawn-time possession
+re-parametrization, not a menu.
+
+Gate (slice 1): `cargo test -p ambition_settings_menu --features dev_tools`
+(16); `cargo test -p ambition_gameplay_core --lib --features "ui input
+dev_tools"` (986 = 1002 − 16 moved IR tests). Gate (slice 2):
+`cargo test -p ambition_menu` (14, lunex-free); `cargo test -p
+ambition_menu_kaleidoscope` (9); `cargo test -p ambition_app --features
+"bevy_ui_menu kaleidoscope_menu" --lib menu::` (90). Both slices:
+`cargo test -p ambition_app --test architecture_boundaries` (37 — added the
+settings-IR + kaleidoscope-extension boundary tests);
+`cargo check -p ambition_app --features rl_sim`;
+`cargo run -p ambition_app --bin headless -- 120` (clean); rustfmt touched.
+
+**E1 COMPLETE:** E1a (persistence) + E1b (audio) + E1c (dialog) + E1d
+(dev_tools) + E1e (settings IR + kaleidoscope extension) all executed.

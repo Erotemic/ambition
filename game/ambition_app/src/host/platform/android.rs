@@ -30,7 +30,7 @@ use bevy::prelude::*;
 use bevy::window::{AppLifecycle, WindowFocused, WindowOccluded};
 
 #[cfg(target_os = "android")]
-use ambition_actors::game_mode::GameMode;
+use ambition_platformer_primitives::schedule::GameMode;
 
 // Bevy's CosmicFontSystem is initialized with an empty fontdb (no system
 // fonts loaded). On Android, /system/fonts/ holds Roboto etc., which

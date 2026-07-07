@@ -10,7 +10,7 @@ use ambition_actors::dev::dev_tools::{
     MovementProfile, PlayerBodyProfile,
 };
 use ambition_actors::dialog;
-use ambition_actors::game_mode::gameplay_allowed;
+use ambition_platformer_primitives::schedule::gameplay_allowed;
 use ambition_actors::ldtk_world;
 use ambition_actors::rooms;
 use ambition_actors::schedule::SandboxSet;

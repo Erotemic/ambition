@@ -572,8 +572,8 @@ impl SystemMenuParams<'_> {
 /// [`close_kaleidoscope_menu`] via [`Self::mode`] + [`Self::next_mode`].
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct GameModeIo<'w> {
-    state: Res<'w, State<ambition_actors::session::game_mode::GameMode>>,
-    next: ResMut<'w, NextState<ambition_actors::session::game_mode::GameMode>>,
+    state: Res<'w, State<ambition_platformer_primitives::schedule::GameMode>>,
+    next: ResMut<'w, NextState<ambition_platformer_primitives::schedule::GameMode>>,
 }
 
 /// Resources `republish_kaleidoscope_pages` reads (immutably) to snapshot the radio + dev
@@ -949,8 +949,8 @@ pub(crate) fn system_focus_nav(
     system_nav: &mut KaleidoscopeSystemNav,
     pages: &mut ActiveMenuPages<MenuPage, MenuPageAction>,
     overlay: &mut ambition_items::inventory_ui::InventoryUiState,
-    mode: &ambition_actors::session::game_mode::GameMode,
-    next_mode: &mut NextState<ambition_actors::session::game_mode::GameMode>,
+    mode: &ambition_platformer_primitives::schedule::GameMode,
+    next_mode: &mut NextState<ambition_platformer_primitives::schedule::GameMode>,
     settings: &mut UserSettings,
     quality_confirm: &mut VisualQualityConfirmState,
     active_page: MenuPage,
@@ -1456,8 +1456,8 @@ pub(crate) use pointer::*;
 fn kaleidoscope_menu_open_routing(
     mut menu: ResMut<MenuControlFrame>,
     mut overlay: ResMut<ambition_items::inventory_ui::InventoryUiState>,
-    mode: Res<State<ambition_actors::session::game_mode::GameMode>>,
-    mut next_mode: ResMut<NextState<ambition_actors::session::game_mode::GameMode>>,
+    mode: Res<State<ambition_platformer_primitives::schedule::GameMode>>,
+    mut next_mode: ResMut<NextState<ambition_platformer_primitives::schedule::GameMode>>,
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
@@ -1467,7 +1467,7 @@ fn kaleidoscope_menu_open_routing(
     // Tracks last frame's `menu.start` so we only act on its RISING edge (below).
     mut last_start: Local<bool>,
 ) {
-    use ambition_actors::session::game_mode::GameMode;
+    use ambition_platformer_primitives::schedule::GameMode;
 
     // pause / Esc: toggle the cube on the System page.
     //
@@ -1584,14 +1584,14 @@ fn kaleidoscope_menu_open_routing(
 fn open_kaleidoscope_menu(
     page: MenuPage,
     overlay: &mut ambition_items::inventory_ui::InventoryUiState,
-    mode: &ambition_actors::session::game_mode::GameMode,
-    next_mode: &mut NextState<ambition_actors::session::game_mode::GameMode>,
+    mode: &ambition_platformer_primitives::schedule::GameMode,
+    next_mode: &mut NextState<ambition_platformer_primitives::schedule::GameMode>,
     pages: &mut ActiveMenuPages<MenuPage, MenuPageAction>,
     cursor: &mut KaleidoscopeCursor,
     system_nav: &mut KaleidoscopeSystemNav,
     map: &mut ambition_actors::menu::map::MapMenuState,
 ) {
-    use ambition_actors::session::game_mode::GameMode;
+    use ambition_platformer_primitives::schedule::GameMode;
     overlay.visible = true;
     overlay.opened_from_pause = matches!(mode, GameMode::Paused);
     pages.active = Some(page);
@@ -1616,10 +1616,10 @@ fn open_kaleidoscope_menu(
 /// `kaleidoscope_pointer_release`) so an action-triggered close unpauses identically.
 fn close_kaleidoscope_menu(
     overlay: &mut ambition_items::inventory_ui::InventoryUiState,
-    mode: &ambition_actors::session::game_mode::GameMode,
-    next_mode: &mut NextState<ambition_actors::session::game_mode::GameMode>,
+    mode: &ambition_platformer_primitives::schedule::GameMode,
+    next_mode: &mut NextState<ambition_platformer_primitives::schedule::GameMode>,
 ) {
-    use ambition_actors::session::game_mode::GameMode;
+    use ambition_platformer_primitives::schedule::GameMode;
     let opened_from_pause = overlay.opened_from_pause;
     overlay.visible = false;
     if !opened_from_pause && matches!(mode, GameMode::Paused) {

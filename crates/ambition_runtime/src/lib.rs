@@ -155,7 +155,7 @@ impl PluginGroup for PlatformerEnginePlugins {
 /// state). One call site per app instead of a copy-pasted `init_state`.
 pub fn init_engine_states(app: &mut App) {
     use bevy::state::app::AppExtStates as _;
-    app.init_state::<ambition_actors::game_mode::GameMode>();
+    app.init_state::<ambition_platformer_primitives::schedule::GameMode>();
 }
 
 /// The minimal Bevy foundation for a HEADLESS engine app (tests, RL, trace

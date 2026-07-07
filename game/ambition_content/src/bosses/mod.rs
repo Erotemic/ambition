@@ -13,6 +13,7 @@
 //!   installed next to its dialogue registration.
 
 use bevy::prelude::*;
+use ambition_platformer_primitives::schedule::gameplay_allowed;
 
 pub mod banter;
 pub mod cut_rope;
@@ -153,8 +154,8 @@ impl Plugin for AmbitionBossContentPlugin {
             Update,
             (
                 detect_cut_rope_rope_cut
-                    .run_if(ambition_actors::session::game_mode::gameplay_allowed),
-                tick_cut_rope_flavor.run_if(ambition_actors::session::game_mode::gameplay_allowed),
+                    .run_if(gameplay_allowed),
+                tick_cut_rope_flavor.run_if(gameplay_allowed),
                 sync_cut_rope_boss_arena_prop_visuals,
             )
                 .chain()

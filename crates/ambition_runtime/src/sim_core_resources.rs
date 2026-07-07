@@ -56,7 +56,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_actors::time::time_control::RegimePolicy>()
             .init_resource::<ambition_actors::time::time_control::RequestedClockScale>()
             .init_resource::<ambition_time::ClockState>()
-            .register_type::<ambition_actors::game_mode::GameMode>()
+            .register_type::<ambition_platformer_primitives::schedule::GameMode>()
             // Startup wall-clock profiler (the PostStartup report is the
             // app's; the resource is engine so phase_mark works anywhere).
             .init_resource::<ambition_actors::dev::profiling::StartupProfiler>()

@@ -670,6 +670,7 @@ dependencies = [
  "ambition_engine_core",
  "ambition_input",
  "ambition_persistence",
+ "ambition_platformer_primitives",
  "ambition_render",
  "ambition_ui_nav",
  "bevy",

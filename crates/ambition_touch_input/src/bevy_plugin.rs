@@ -4,6 +4,7 @@ use bevy::input::mouse::MouseButton;
 use bevy::input::touch::Touches;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
+use ambition_platformer_primitives::schedule::GameMode;
 use virtual_joystick::*;
 
 use super::layout::{
@@ -1142,7 +1143,7 @@ fn set_button_held(edges: &mut TouchButtonEdges, action: TouchActionButton, held
 /// When a menu is open we return `false` and let `virtual_joystick`'s
 /// own `update_ui` keep the knob on the live touch / mouse drag, so
 /// the knob visibly follows the finger during menu navigation.
-pub fn axis_override_drives_knob(mode: ambition_actors::game_mode::GameMode) -> bool {
+pub fn axis_override_drives_knob(mode: GameMode) -> bool {
     // Only mirror the gameplay axis onto the knob while gameplay owns
     // input. `allows_gameplay()` is true only in `GameMode::Playing`;
     // `Paused` (pause menu, inventory grid, kaleidoscope cube) and
@@ -1174,7 +1175,7 @@ pub fn axis_override_drives_knob(mode: ambition_actors::game_mode::GameMode) -> 
 /// +Y-down convention, which matches Bevy UI's +Y-down `Node.top`
 /// axis, so no Y inversion is needed here.
 fn drive_joystick_knob_from_axis(
-    mode: Res<State<ambition_actors::game_mode::GameMode>>,
+    mode: Res<State<GameMode>>,
     control_frame: Res<ControlFrame>,
     joystick_q: Query<(&VirtualJoystickState, &Children), With<VirtualJoystickNode<MobileStick>>>,
     base_q: Query<&ComputedNode, With<VirtualJoystickUIBackground>>,

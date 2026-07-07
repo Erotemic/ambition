@@ -17,6 +17,7 @@ use bevy::prelude::*;
 
 use ambition_actors::schedule::SandboxSet;
 use ambition_portal::PortalSet;
+use ambition_platformer_primitives::schedule::gameplay_allowed;
 
 /// Adds `PortalPlugin` and places its sets in the sandbox schedule. Part of
 /// [`crate::PlatformerEnginePlugins`] when the `portal` feature is on.
@@ -44,7 +45,7 @@ impl Plugin for PortalSchedulePlugin {
                 .in_set(SandboxSet::PlayerInput)
                 .after(ambition_actors::player::interaction_input_system)
                 .before(ambition_actors::player::sync_local_player_input_frame)
-                .run_if(ambition_actors::gameplay_allowed),
+                .run_if(gameplay_allowed),
         );
 
         // Weapon maintenance stays ungated for orphan cleanup / roll
@@ -53,7 +54,7 @@ impl Plugin for PortalSchedulePlugin {
             Update,
             PortalSet::WeaponAndProjectiles
                 .in_set(SandboxSet::PlayerSimulation)
-                .run_if(ambition_actors::gameplay_allowed),
+                .run_if(gameplay_allowed),
         );
         app.configure_sets(
             Update,
@@ -78,7 +79,7 @@ impl Plugin for PortalSchedulePlugin {
             PortalSet::TransitGuards
                 .in_set(SandboxSet::WorldPrep)
                 .before(ambition_actors::features::integrate_sim_bodies)
-                .run_if(ambition_actors::gameplay_allowed),
+                .run_if(gameplay_allowed),
         );
 
         // Transit: teleports run after body + ground-item integration so this
@@ -91,7 +92,7 @@ impl Plugin for PortalSchedulePlugin {
             PortalSet::Transit
                 .in_set(SandboxSet::PlayerSimulation)
                 .after(ambition_actors::items::pickup::ItemPickupSet::CoreHeldItems)
-                .run_if(ambition_actors::gameplay_allowed),
+                .run_if(gameplay_allowed),
         );
     }
 }

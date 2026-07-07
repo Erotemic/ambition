@@ -23,7 +23,7 @@
 
 use bevy::prelude::*;
 
-use ambition_actors::game_mode::{gameplay_allowed, gameplay_suspended};
+use ambition_platformer_primitives::schedule::{gameplay_allowed, gameplay_suspended};
 use ambition_actors::player::PlayerBodyFrameOutput;
 use ambition_actors::schedule::SandboxSet;
 

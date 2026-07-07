@@ -7,7 +7,7 @@ mod common;
 use common::{base, hold_right};
 
 use ambition_actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
-use ambition_actors::game_mode::GameMode;
+use ambition_platformer_primitives::schedule::GameMode;
 use ambition_actors::session::camera_layers::MainCamera;
 use ambition_app::app::{SandboxSet, SandboxSimulationPlugin, StartRoomOverride};
 use ambition_app::AgentAction;

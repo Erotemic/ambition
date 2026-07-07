@@ -11,7 +11,7 @@ use super::state::{apply_deadzone, fold_touch_into_control_frame, TouchButton, T
 fn fold_system_touch_down_sets_menu_down_and_active_touch() {
     use super::bevy_plugin::{MenuTouchGestureState, MobileTouchState};
     use super::menu_bridge::fold_to_menu_control_frame;
-    use ambition_actors::game_mode::GameMode;
+    use ambition_platformer_primitives::schedule::GameMode;
     use ambition_input::{ActiveInputKind, MenuControlFrame};
     use bevy::input::touch::Touches;
     use bevy::input::ButtonInput;
@@ -225,7 +225,7 @@ fn axis_override_drives_knob_only_during_gameplay() {
     // drags it to navigate the menu. During gameplay the override DOES
     // run so the knob mirrors the move axis.
     use super::bevy_plugin::axis_override_drives_knob;
-    use ambition_actors::game_mode::GameMode;
+    use ambition_platformer_primitives::schedule::GameMode;
 
     assert!(
         axis_override_drives_knob(GameMode::Playing),
@@ -252,7 +252,7 @@ fn touch_drag_folds_into_menu_frame_while_kaleidoscope_paused() {
     // mode is covered by the menu-active gate (no separate state to
     // miss).
     use super::menu_bridge::{menu_move_active, touch_move_to_menu_dir};
-    use ambition_actors::game_mode::GameMode;
+    use ambition_platformer_primitives::schedule::GameMode;
     use ambition_input::MenuDir;
 
     // Kaleidoscope (and grid) open in Paused -> menu fold is active.
@@ -277,7 +277,7 @@ fn touch_joystick_drag_down_drives_debounced_menu_down() {
     // `fold_to_menu_control_frame` runs: touch stick -> MenuDir ->
     // `MenuInputState::step` -> `MenuControlFrame::from_menu_input`.
     use super::menu_bridge::{menu_move_active, touch_move_to_menu_dir};
-    use ambition_actors::game_mode::GameMode;
+    use ambition_platformer_primitives::schedule::GameMode;
     use ambition_input::{MenuControlFrame, MenuInputState};
 
     assert!(menu_move_active(GameMode::Paused));

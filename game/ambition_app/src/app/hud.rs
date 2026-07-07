@@ -3,7 +3,7 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 use ambition_actors::dev::dev_tools::DeveloperTools;
-use ambition_actors::game_mode::GameMode;
+use ambition_platformer_primitives::schedule::GameMode;
 use ambition_actors::ldtk_world;
 use ambition_actors::rooms;
 use ambition_actors::SandboxDevState;

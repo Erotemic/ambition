@@ -23,6 +23,7 @@ mobile_touch = ["input", "ambition_actors/mobile_touch", "dep:virtual_joystick"]
 # The device-side `ControlFrame` seam the pure fold writes (always needed).
 ambition_input = { path = "../ambition_input" }
 ambition_engine_core = { path = "../ambition_engine_core" }
+ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 # The gated plugin/menu-bridge reach the sim + render + nav + cutscene layers,
 # same as when this code lived in the app. Non-optional (matching the app's own
 # arrangement) so the crate builds in every feature config the host uses; only
@@ -32,6 +33,6 @@ ambition_render = { path = "../ambition_render" }
 ambition_cutscene = { path = "../ambition_cutscene" }
 ambition_ui_nav = { path = "../ambition_ui_nav" }
 ambition_persistence = { path = "../ambition_persistence" }
-bevy = { version = "0.18.1", default-features = false, features = ["ui_api"] }
+bevy = { version = "0.18.1", default-features = false, features = ["ui_api", "bevy_state"] }
 leafwing-input-manager = { version = "0.20", optional = true }
 virtual_joystick = { version = "2.7.2", default-features = false, optional = true }

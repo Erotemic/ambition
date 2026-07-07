@@ -21,6 +21,7 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 use super::bevy_plugin::{MenuTouchGestureState, MobileTouchState};
+use ambition_platformer_primitives::schedule::GameMode;
 use super::exclusion::{touch_exclusion_contains, TouchExclusionZone};
 use super::state::{fold_touch_into_control_frame, touch_state_is_active, TouchInputState};
 use ambition_input::{ControlFrame, MenuControlFrame, MenuInputState};
@@ -47,7 +48,7 @@ use ambition_input::{ControlFrame, MenuControlFrame, MenuInputState};
 /// frame passes through unchanged. UI modes consume touch
 /// stick/button intent via [`fold_to_menu_control_frame`] instead.
 pub fn fold_to_control_frame(
-    mode: Res<State<ambition_actors::game_mode::GameMode>>,
+    mode: Res<State<GameMode>>,
     cutscene: Res<ambition_cutscene::ActiveCutscene>,
     state: Res<MobileTouchState>,
     mut frame: ResMut<ControlFrame>,
@@ -133,7 +134,7 @@ pub fn fold_to_control_frame(
 #[allow(clippy::too_many_arguments)]
 pub fn fold_to_menu_control_frame(
     time: Res<Time>,
-    mode: Res<State<ambition_actors::game_mode::GameMode>>,
+    mode: Res<State<GameMode>>,
     state: Res<MobileTouchState>,
     touches: Res<Touches>,
     mouse_buttons: Res<ButtonInput<MouseButton>>,
@@ -226,11 +227,11 @@ pub fn fold_to_menu_control_frame(
 /// has no separate game mode — it opens in `Paused` exactly like the
 /// grid — so keying on `Paused` here is what lets the on-screen
 /// joystick drive the cube's cursor the same way it drives the grid.
-pub fn menu_move_active(mode: ambition_actors::game_mode::GameMode) -> bool {
+pub fn menu_move_active(mode: GameMode) -> bool {
     matches!(
         mode,
-        ambition_actors::game_mode::GameMode::Dialogue
-            | ambition_actors::game_mode::GameMode::Paused
+        GameMode::Dialogue
+            | GameMode::Paused
     )
 }
 

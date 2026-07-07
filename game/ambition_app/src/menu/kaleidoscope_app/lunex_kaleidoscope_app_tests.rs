@@ -7,7 +7,7 @@ use crate::menu::test_support::{
 };
 use ambition_actors::actor::BodyMana;
 use ambition_actors::actor::{PlayerEntity, PrimaryPlayer};
-use ambition_actors::game_mode::GameMode;
+use ambition_platformer_primitives::schedule::GameMode;
 use ambition_characters::brain::ActionSet;
 
 /// The cube's System list wraps vertically (closed list); the Grid clamps (its

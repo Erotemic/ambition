@@ -5,7 +5,7 @@ The menu layer is a gameplay-mode boundary. Pausing should stop ordinary gamepla
 ## Current shape
 
 ```text
-GameMode
+ambition_platformer_primitives::schedule::GameMode
   Playing
   Paused / menu-facing modes
         ↓
@@ -16,7 +16,7 @@ ambition_actors menu IR/map + ambition_menu renderers + app menu stack
 
 Important paths:
 
-- `crates/ambition_actors/src/session/game_mode.rs` — coarse game mode and gameplay gating helpers.
+- `crates/ambition_platformer_primitives/src/schedule.rs` — coarse game mode and gameplay gating helpers, colocated with schedule labels.
 - `crates/ambition_input/src/menu.rs` — menu-facing input vocabulary.
 - `crates/ambition_ui_nav/src/` — shared list, pointer, and drag helpers.
 - `crates/ambition_actors/src/menu/ir/` — reusable menu item/page IR.

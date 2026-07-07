@@ -57,16 +57,16 @@ prescription — log-once so E7/E8 executors don't re-derive:
    `HitSide` at spawn/resolution edges, summon execution maps back when it
    actually creates an actor, and the architecture boundary test now forbids
    both `ambition_actors` and `ambition_characters` in `ambition_vfx`.
-4. **`GameMode` lives in `ambition_actors` and leaks it into host,
-   touch_input, and (via schedule/run-conditions) render.** It is a tiny
-   session-state enum. **Prescription: move `game_mode` DOWN (candidate: its
-   own ~50-line `ambition_session_state` crate, or into
-   `platformer_primitives::schedule` next to the schedule labels — states and
-   labels are the same kind of vocabulary). This single move, plus schedule
-   labels already being in primitives, frees host + touch_input from
-   `ambition_actors` almost entirely** (host's remaining reads are dialog +
-   camera_ease ticks — camera_ease is presentation-side time easing and can
-   move to host/render; dialog is `ambition_dialog` already, repoint).
+4. ✅ **DONE (Codex 2026-07-07): `GameMode` moved down into
+   `ambition_platformer_primitives::schedule`.** The coarse session-state enum
+   now lives next to `PlatformerRuntimeSet`; `gameplay_allowed` /
+   `gameplay_suspended` run conditions moved with it. Runtime, sim-view,
+   content, and touch-input callers name the lower crate directly, while
+   `ambition_actors::session::game_mode` remains only as a temporary facade for
+   actor-internal and legacy paths. This removes the session-state vocabulary
+   reason for host/touch/render-side code to name `ambition_actors`; remaining
+   arrows are concrete machinery/presentation seams and can be burned down
+   independently.
 5. **`ambition_render` → `ambition_actors` (the E4 dep-flip blocker), now
    precisely enumerable:** rooms (11 — REPOINT to `ambition_world::rooms`,
    actors::rooms is a facade), features (9 — live ECS components; these are

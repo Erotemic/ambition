@@ -14,7 +14,7 @@ use bevy::prelude::*;
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::ActionState;
 
-use crate::game_mode::GameMode;
+use ambition_platformer_primitives::schedule::GameMode;
 #[cfg(feature = "input")]
 use crate::platformer_runtime::lifecycle::PlayerVisual;
 use crate::SandboxDevState;

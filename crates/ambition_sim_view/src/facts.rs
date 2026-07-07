@@ -490,7 +490,7 @@ pub fn rebuild_blink_preview_fact(
     mut fact: ResMut<BlinkPreviewFact>,
     world: Res<ambition_engine_core::RoomGeometry>,
     platform_set: Res<ambition_actors::MovingPlatformSet>,
-    mode: Res<bevy::prelude::State<ambition_actors::game_mode::GameMode>>,
+    mode: Res<bevy::prelude::State<ambition_platformer_primitives::schedule::GameMode>>,
     scene: Res<ambition_platformer_primitives::lifecycle::SceneEntities>,
     action_query: Query<
         &leafwing_input_manager::prelude::ActionState<ambition_input::SandboxAction>,

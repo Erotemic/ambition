@@ -13,6 +13,7 @@ use ambition_portal::{
     clear_portals_on_reset, portal_fire_system, portal_teleport_ground_items, portal_transit,
     publish_portal_carves, PortalSet,
 };
+use ambition_platformer_primitives::schedule::gameplay_allowed;
 
 use super::ability_adapter::{suppress_ledge_grab_during_transit, warp_portal_input};
 use super::carve_adapter::{bridge_portal_carves, sync_portal_host_depths};
@@ -94,7 +95,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             Update,
             portal_projectile_step
-                .run_if(ambition_actors::gameplay_allowed)
+                .run_if(gameplay_allowed)
                 .in_set(PortalSet::WeaponAndProjectiles)
                 .after(portal_fire_system),
         );
@@ -115,7 +116,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             Update,
             portal_input_adapter_system
-                .run_if(ambition_actors::gameplay_allowed)
+                .run_if(gameplay_allowed)
                 .in_set(PortalSet::InputAdapter)
                 .in_set(ambition_actors::schedule::SandboxSet::PlayerSimulation),
         );
@@ -130,7 +131,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             Update,
             resolve_portal_fire_intent
-                .run_if(ambition_actors::gameplay_allowed)
+                .run_if(gameplay_allowed)
                 .in_set(PortalSet::InputAdapter)
                 .in_set(ambition_actors::schedule::SandboxSet::PlayerSimulation)
                 .after(portal_input_adapter_system),
@@ -145,7 +146,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             Update,
             pickup_portal_gun_system
-                .run_if(ambition_actors::gameplay_allowed)
+                .run_if(gameplay_allowed)
                 .in_set(ambition_actors::items::pickup::ItemPickupSet::CoreHeldItems)
                 .after(ambition_portal::arm_portal_pickups),
         );
@@ -156,7 +157,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             Update,
             drop_portal_gun_system
-                .run_if(ambition_actors::gameplay_allowed)
+                .run_if(gameplay_allowed)
                 // `PortalSet::WeaponAndProjectiles` is wired
                 // `.in_set(PlayerSimulation)` in `wire_portal_schedule`, so the
                 // parent placement is already implied — a direct
@@ -189,7 +190,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             Update,
             sync_movement_intent_from_control
-                .run_if(ambition_actors::gameplay_allowed)
+                .run_if(gameplay_allowed)
                 // `PortalSet::InputWarp` is wired `.in_set(PlayerInput)` (and
                 // `.before(sync_local_player_input_frame)`) in
                 // `wire_portal_schedule`, so the parent placement + consume window
@@ -201,7 +202,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             Update,
             apply_movement_intent_to_control
-                .run_if(ambition_actors::gameplay_allowed)
+                .run_if(gameplay_allowed)
                 // `PortalSet::InputWarp` already places this in `PlayerInput`
                 // (see `wire_portal_schedule`), so a direct
                 // `.in_set(PlayerInput)` would be a redundant hierarchy edge.
@@ -220,7 +221,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             Update,
             sync_movement_intent_from_control
-                .run_if(ambition_actors::gameplay_allowed)
+                .run_if(gameplay_allowed)
                 .in_set(PortalSet::Transit)
                 .before(portal_transit),
         );
@@ -233,7 +234,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             Update,
             ensure_portal_bodies
-                .run_if(ambition_actors::gameplay_allowed)
+                .run_if(gameplay_allowed)
                 .in_set(PortalSet::Transit)
                 .before(portal_transit),
         );
@@ -265,7 +266,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             Update,
             ensure_projectile_portal_bodies
-                .run_if(ambition_actors::gameplay_allowed)
+                .run_if(gameplay_allowed)
                 .in_set(PortalSet::Transit)
                 .before(portal_transit),
         );
@@ -276,7 +277,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             Update,
             portal_player_input_adapter
-                .run_if(ambition_actors::gameplay_allowed)
+                .run_if(gameplay_allowed)
                 .in_set(PortalSet::Transit)
                 .after(portal_transit),
         );
@@ -287,7 +288,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             Update,
             apply_portal_carried_momentum
-                .run_if(ambition_actors::gameplay_allowed)
+                .run_if(gameplay_allowed)
                 .in_set(PortalSet::Transit)
                 .after(portal_transit),
         );
@@ -299,14 +300,14 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             Update,
             sync_ground_items_to_transitable
-                .run_if(ambition_actors::gameplay_allowed)
+                .run_if(gameplay_allowed)
                 .in_set(PortalSet::Transit)
                 .before(portal_teleport_ground_items),
         );
         app.add_systems(
             Update,
             sync_transitable_to_ground_items
-                .run_if(ambition_actors::gameplay_allowed)
+                .run_if(gameplay_allowed)
                 .in_set(PortalSet::Transit)
                 .after(portal_teleport_ground_items),
         );

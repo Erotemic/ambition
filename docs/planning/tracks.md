@@ -1584,3 +1584,21 @@ Gate: `cargo fmt --check`; `cargo test -p ambition_vfx`; `cargo test -p
 ambition_app --test architecture_boundaries` (41); `cargo test -p
 ambition_actors --lib` (789); `cargo build -p ambition_app --features
 rl_sim`. Pre-existing warnings remain.
+
+## 2026-07-07 (Codex) — F1.4 EXECUTED: `GameMode` moved down to primitive schedule vocabulary
+
+Moved the coarse session-state enum and gameplay gating run conditions from
+`ambition_actors::session::game_mode` into
+`ambition_platformer_primitives::schedule`, next to `PlatformerRuntimeSet`.
+Runtime, content, sim-view, and touch-input schedule/run-condition callers now
+name the lower crate directly; `ambition_actors::game_mode` remains a thin
+compatibility facade for actor-internal and legacy paths while the residual
+actor hub dissolves. Updated the F1 audit item and UI navigation doc so future
+callers treat `GameMode` as shared runtime vocabulary, not actor machinery.
+
+Gate in overlay sandbox: `cargo`/`rustfmt` unavailable, so validation was
+limited to static source greps, Python syntax-free rewrite checks, and
+`git diff --check`. Recipient should run `cargo fmt --all`,
+`cargo test -p ambition_platformer_primitives`, `cargo test -p ambition_actors --lib`,
+`cargo test -p ambition_touch_input`, and the app/content checks listed in the
+overlay response.

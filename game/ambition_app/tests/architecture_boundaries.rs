@@ -968,12 +968,57 @@ fn architecture_boundaries_input_crate_is_extracted() {
     );
 }
 
+#[test]
+fn architecture_boundaries_game_mode_lives_with_schedule_vocabulary() {
+    let schedule = fs::read_to_string(
+        repo_root().join("crates/ambition_platformer_primitives/src/schedule.rs"),
+    )
+    .expect("read platformer primitives schedule");
+    assert!(
+        schedule.contains("pub enum GameMode")
+            && schedule.contains("pub fn gameplay_allowed")
+            && schedule.contains("pub fn gameplay_suspended"),
+        "GameMode and its gameplay run conditions should live beside the primitive schedule labels"
+    );
+
+    let actors_facade = fs::read_to_string(crate_src().join("session/game_mode.rs"))
+        .expect("read actors game_mode facade");
+    assert!(
+        actors_facade.contains("pub use ambition_platformer_primitives::schedule"),
+        "ambition_actors::session::game_mode should be only a facade over the lower vocabulary"
+    );
+    assert!(
+        !actors_facade.contains("pub enum GameMode"),
+        "ambition_actors must not own GameMode after F1.4"
+    );
+
+    assert_code_refs_absent(
+        &[
+            repo_root().join("crates/ambition_runtime/src"),
+            repo_root().join("crates/ambition_sim_view/src"),
+            repo_root().join("crates/ambition_touch_input/src"),
+            repo_root().join("crates/ambition_render/src"),
+            content_src(),
+            app_src(),
+        ],
+        &[
+            "ambition_actors::GameMode",
+            "ambition_actors::game_mode",
+            "ambition_actors::session::game_mode",
+            "ambition_actors::gameplay_allowed",
+            "ambition_actors::gameplay_suspended",
+        ],
+        "host/runtime/render/content/touch/app code should name GameMode through ambition_platformer_primitives::schedule",
+    );
+}
+
 /// App-thinness (ADR 0019): the mobile / touch input adapter is a sibling ENGINE
 /// crate (`ambition_touch_input`), not host code inside the app binary. It carries
-/// no app-only coupling (only the `ambition_input`/`ambition_actors`/`render`/`ui_nav`/
-/// `cutscene` library seams), so a second platformer host can reuse touch controls by
-/// adding the crate — the "second game" oracle. This guards the extraction: the app
-/// must WIRE the plugin from the crate, never re-own the adapter under `src/host/`.
+/// no app-only coupling (only the `ambition_input`/`ambition_platformer_primitives`/
+/// `ambition_actors`/`render`/`ui_nav`/`cutscene` library seams), so a second
+/// platformer host can reuse touch controls by adding the crate — the "second game"
+/// oracle. This guards the extraction: the app must WIRE the plugin from the crate,
+/// never re-own the adapter under `src/host/`.
 #[test]
 fn architecture_boundaries_touch_input_crate_is_extracted() {
     let crate_root = repo_root().join("crates/ambition_touch_input");

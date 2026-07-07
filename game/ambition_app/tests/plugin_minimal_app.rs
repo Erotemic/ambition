@@ -26,7 +26,8 @@ use ambition_actors::player::{
     BodyAnimFacts, LocalPlayer, PlayerBlinkCameraState, PlayerIdentityBundle, PlayerSlot,
 };
 use ambition_actors::rooms::RoomSet;
-use ambition_actors::{GameMode, MovingPlatformSet, SandboxSimState};
+use ambition_actors::{MovingPlatformSet, SandboxSimState};
+use ambition_platformer_primitives::schedule::GameMode;
 use ambition_characters::actor::{BodyCombat, BodyHealth};
 use ambition_engine_core::RoomGeometry;
 use ambition_input::ControlFrame;

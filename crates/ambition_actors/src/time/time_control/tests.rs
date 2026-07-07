@@ -458,7 +458,7 @@ fn world_time_sim_dt_respects_time_scale() {
 /// by it ticks one extra frame after pause lands.
 #[test]
 fn suspended_frame_zeros_world_time_scaled_dt() {
-    use crate::game_mode::{gameplay_suspended, GameMode};
+    use ambition_platformer_primitives::schedule::{gameplay_suspended, GameMode};
     use ambition_time::WorldTime;
     use bevy::state::app::StatesPlugin;
 
@@ -519,7 +519,7 @@ fn suspended_frame_zeros_world_time_scaled_dt() {
 /// `scaled_dt`.
 #[test]
 fn gameplay_frame_preserves_world_time_scaled_dt() {
-    use crate::game_mode::{gameplay_suspended, GameMode};
+    use ambition_platformer_primitives::schedule::{gameplay_suspended, GameMode};
     use ambition_time::WorldTime;
     use bevy::state::app::StatesPlugin;
 

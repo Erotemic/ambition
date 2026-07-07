@@ -433,7 +433,7 @@ mod dispatch_parity {
     use ambition_actors::menu::backend::InventoryUiBackend;
     use ambition_actors::persistence::settings::{SystemMenuEntryId, UserSettings};
     use ambition_actors::player::PlayerHealRequested;
-    use ambition_actors::session::game_mode::GameMode;
+    use ambition_platformer_primitives::schedule::GameMode;
     use ambition_characters::brain::ActionSet;
     use ambition_input::MenuControlFrame;
     use ambition_items::inventory_ui::InventoryUiState;

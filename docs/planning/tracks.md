@@ -1473,6 +1473,17 @@ visual data and schedule labels.
 
 Gate: `cargo check -p ambition_render`. Pre-existing warnings remain.
 
+## 2026-07-07 (Codex) — E7 runtime combat-message facade cleanup
+
+`SimCoreResourcesPlugin` now registers combat-owned messages/resources
+(`SetFlagRequested`, `GameplaySfxRequested`, `HitEvent`,
+`ResetRoomFeaturesEvent`, `GameplayBannerRequested`, `GameplayBanner`) through
+`ambition_combat` instead of the actor `features` facade. Actor/domain-specific
+messages (`ActorStimulus`, switch activation, quest advance) stay on their
+current owning paths.
+
+Gate: `cargo check -p ambition_runtime`. Pre-existing warnings remain.
+
 ## 2026-07-07 (Codex) — E7 render combat-vocab facade cleanup
 
 Repointed render's `FeatureVisualKind` imports from the actor `features` facade

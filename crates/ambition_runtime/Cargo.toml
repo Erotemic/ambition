@@ -17,6 +17,7 @@ ambition_actors = { path = "../ambition_actors", default-features = false, featu
     "portal_ldtk",
 ] }
 ambition_projectiles = { path = "../ambition_projectiles" }
+ambition_combat = { path = "../ambition_combat" }
 ambition_characters = { path = "../ambition_characters" }
 ambition_sim_view = { path = "../ambition_sim_view", features = ["input"] }
 # The combat-phase chain's effect seam (`EffectRequest`/`apply_effects`) —

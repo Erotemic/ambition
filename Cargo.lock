@@ -698,11 +698,11 @@ dependencies = [
  "ambition_entity_catalog",
  "ambition_interaction",
  "ambition_portal",
- "ambition_sfx",
  "ambition_time",
  "bevy_app",
  "bevy_ecs",
  "petgraph",
+ "ron 0.11.0",
  "serde",
 ]
 

@@ -115,6 +115,20 @@ pub struct RoomTransition {
     pub arrival: ae::Vec2,
 }
 
+/// Presentation-neutral SFX cue reference carried by room IR and room messages.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct RoomSfxId(String);
+
+impl RoomSfxId {
+    pub fn new(id: impl Into<String>) -> Self {
+        Self(id.into())
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
 /// Bevy message emitted when a room transition is triggered (player walks through
 /// a loading zone or door). The actual `load_room` call happens in
 /// `apply_room_transition_system`, which runs after the player tick in the
@@ -127,11 +141,11 @@ pub struct RoomTransition {
 pub struct RoomTransitionRequested {
     pub transition: RoomTransition,
     /// SFX id to play at the new player position after the room loads.
-    pub zone_sfx: Option<ambition_sfx::SfxId>,
+    pub zone_sfx: Option<RoomSfxId>,
 }
 
 impl RoomTransitionRequested {
-    pub fn new(transition: RoomTransition, zone_sfx: Option<ambition_sfx::SfxId>) -> Self {
+    pub fn new(transition: RoomTransition, zone_sfx: Option<RoomSfxId>) -> Self {
         Self {
             transition,
             zone_sfx,

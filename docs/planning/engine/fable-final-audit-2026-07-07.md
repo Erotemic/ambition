@@ -39,9 +39,11 @@ prescription — log-once so E7/E8 executors don't re-derive:
    Cargo dep from ambition_world"** — hazards → drop combat; interactables/
    pickups/chests/breakables → drop interaction; portals → drop portal
    (portal placement becomes a Tier-0 schema variant: color/link/normal are
-   plain data). `zone_sfx: Option<ambition_sfx::SfxId>` on the room graph is
-   the same disease in miniature — an authored sfx REFERENCE should be a
-   plain string/id newtype in the IR (Tier-0 idiom), killing world → sfx.
+   plain data). ✅ **First ratchet landed (Codex 2026-07-07):**
+   `zone_sfx` now carries a world-owned plain cue id, so `ambition_world`
+   no longer depends on `ambition_sfx`; RON-room loading also moved to
+   `ambition_world`, and the world dependency allow-list test now ratchets
+   the remaining legacy arrows.
 2. **`ambition_actors::portal` is a FACADE that re-exports
    `ambition_portal_presentation::*`** — the sim crate structurally deps a
    presentation crate to keep old `crate::portal::` paths alive.
@@ -161,28 +163,21 @@ Verified green:
 - **W4/ADR 0021 first cut recorded**; `ambition_world` has no LDtk dep. ✓
 
 Corrections (log-once, all small):
-1. **`ron_room` landed on the WRONG side of the W3 cut.** The serialized-IR
+1. ✅ **DONE (Codex 2026-07-07): `ron_room` moved to the world side.** The serialized-IR
    loader (`RonRoomDoc`, `room_doc_from_ron`, `load_manifest_ron_rooms`) and
-   the `WorldManifest.ron_rooms` rows live in `ambition_ldtk_map` — the LDtk
+   the `WorldManifest.ron_rooms` rows lived in `ambition_ldtk_map` — the LDtk
    BACKEND crate. Its entire purpose is "a room enters the graph with no LDtk
-   anywhere in the path", so a RON-only app currently needs the LDtk crate to
-   load a serde room. **Prescription: move `ron_room.rs` (+ `RonRoomSource`,
-   or a backend-neutral manifest seam for it) into `ambition_world`;
-   `ldtk_map::to_room_set` keeps calling it (backend → IR is the legal
-   arrow). Make the W4 "second backend" fixture test live in
-   `ambition_world`'s own tests to pin it.**
+   anywhere in the path"; the parser/serializer/source row and pure generated-
+   room fixture now live in `ambition_world::ron_room`, while LDtk composition
+   calls `load_ron_rooms` as a backend → IR consumer.
 2. **`integrate_boss_bodies` still hasn't adopted `SweepSample`** (the §3.1
    known-remaining mover) and **`PortalSweepAnchor` still exists** (retired by
    CC6's relative swept trigger). Both were carded — RE-CONFIRMING they are
    still open so the CC6 executor doesn't assume otherwise.
-3. **`ambition_world` still contains no dep-direction regression TEST.** The
-   Cargo graph is clean today, but the ruled invariants ("world names zero
-   LDtk", "world names zero runtime crates" — the second currently
-   VIOLATED-by-design via legacy families, see F1.1) have no enforcement.
-   **Prescription: add a tiny build-graph test (parse `cargo metadata` or
-   just grep Cargo.toml in a unit test) asserting ambition_world's dep list
-   against an explicit allow-list, so step-3 branch conversions RATCHET
-   (removing combat/interaction/portal from the allow-list one at a time).**
+3. ✅ **DONE (Codex 2026-07-07): `ambition_world` now has a dep-direction
+   regression test.** It asserts the explicit allow-list and deliberately
+   leaves combat/interaction/portal as named legacy family residue to delete
+   one at a time as W step-3 branch conversions land.
 
 ### F4 — Correctness findings: two REAL regressions FIXED in-session + three logged hazards
 
@@ -268,11 +263,13 @@ Consider `CARGO_INCREMENTAL=0` for CI-style full-gate runs, or a periodic
 `cargo clean` cron, so a full disk doesn't silently kill background gates.
 
 **Priority order for the next sessions (all opus-executable, most valuable
-first):** F4.3 clock-reset seam → F1.1/F3.1 world-purity ratchet (dep test +
-ron_room re-side + branch conversions) → F1.4 GameMode move-down (frees
-host/touch_input) → F1.5/F2.1 GameAssets move + render repoints (finishes
-E4's dep flip) → F2.3 facade burn-down → E9 umbrella + demo homes (F5.1/2)
-→ projectiles dedicated session (already carded) → F2.2 glue splits.
+first):** F4.3 clock-reset seam → F1.1 remaining branch conversions
+(hazards/interactables/portals through placement records, deleting
+combat/interaction/portal from `ambition_world`'s allow-list one at a time)
+→ F1.4 GameMode move-down (frees host/touch_input) → F1.5/F2.1 GameAssets move
++ render repoints (finishes E4's dep flip) → F2.3 facade burn-down → E9
+umbrella + demo homes (F5.1/2) → projectiles dedicated session (already
+carded) → F2.2 glue splits.
 
 ### F7 — Deep pass: the lowering seam had three real defects (FIXED); test-loss lesson
 

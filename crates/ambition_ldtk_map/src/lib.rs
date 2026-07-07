@@ -40,7 +40,6 @@ mod intgrid;
 mod loading;
 mod manifest;
 mod project;
-mod ron_room;
 mod surfaces;
 
 pub use bevy_runtime::*;
@@ -53,14 +52,17 @@ pub use conversion::{
 pub use hot_reload::{poll_ldtk_file_changes, LdtkHotReloadState};
 // The WorldManifest install seam (JD4): a game declares its LDtk worlds +
 // entry room; the engine ships zero worlds and hardcodes no start room.
+pub use ambition_world::ron_room::{
+    load_ron_rooms, room_doc_from_ron, room_doc_to_ron, RonRoomDoc,
+};
 pub use manifest::{
-    install_world_manifest, world_bevy_asset_path, world_manifest, WorldManifest, WorldSource,
+    install_world_manifest, world_bevy_asset_path, world_manifest, RonRoomSource, WorldManifest,
+    WorldSource,
 };
 pub use project::{
     LdtkEntityInstance, LdtkFieldInstance, LdtkLayerInstance, LdtkLevel, LdtkProject,
     SandboxLdtkProject,
 };
-pub use ron_room::{load_manifest_ron_rooms, room_doc_from_ron, room_doc_to_ron, RonRoomDoc};
 pub use surfaces::{
     compile_surface, LdtkSurfaceSpec, SurfaceBreakability, SurfaceCollision, SurfaceCompiled,
     SurfaceContact, SurfaceRespawn,

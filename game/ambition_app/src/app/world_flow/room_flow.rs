@@ -327,9 +327,9 @@ pub(crate) fn apply_room_transition_system(
         // Play the zone-entry SFX at the pre-load body position so it sounds
         // like it originates from the door/edge the body walked through.
         let pos_before = clusters.kinematics.pos;
-        if let Some(sfx_id) = request.zone_sfx {
+        if let Some(sfx_id) = &request.zone_sfx {
             event_writers.sfx.write(SfxMessage::Play {
-                id: sfx_id,
+                id: ambition_sfx::SfxId::new(sfx_id.as_str()),
                 pos: pos_before,
             });
         }

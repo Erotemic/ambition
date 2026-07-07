@@ -11,7 +11,7 @@ use bevy::prelude::{Entity, MessageWriter, Query, Res, ResMut};
 
 use super::{
     tick_gate_portal_phase, ActiveRoomMetadata, GatePortalRegistry, LoadingZoneActivation,
-    RoomMusicRequest, RoomSet, RoomTransitionRequested,
+    RoomMusicRequest, RoomSet, RoomSfxId, RoomTransitionRequested,
 };
 use ambition_engine_core as ae;
 use ambition_time::WorldTime;
@@ -123,12 +123,12 @@ pub fn detect_room_transition_system(
         return;
     }
     let zone_sfx = match zone.zone.activation {
-        LoadingZoneActivation::Door => Some(ambition_sfx::ids::WORLD_DOOR_OPEN),
+        LoadingZoneActivation::Door => Some(RoomSfxId::new("world.door.open")),
         // Walk-through zones (mid-room portals and side-edge exits)
         // both use the portal-enter sfx — the door-open sound only
         // fits the discrete interact door beat.
         LoadingZoneActivation::EdgeExit | LoadingZoneActivation::Walk => {
-            Some(ambition_sfx::ids::WORLD_PORTAL_ENTER)
+            Some(RoomSfxId::new("world.portal.enter"))
         }
     };
     // Clear the interact buffer so the same press doesn't re-trigger

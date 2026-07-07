@@ -16,6 +16,7 @@ use std::path::PathBuf;
 use std::sync::OnceLock;
 
 use ambition_asset_manager::AssetId;
+pub use ambition_world::ron_room::RonRoomSource;
 
 /// One LDtk world a game ships. The FIRST row of a manifest is the primary
 /// (boot-critical, hot-reload-watched) world; later rows are secondaries the
@@ -43,23 +44,6 @@ pub struct WorldSource {
     /// Required worlds abort the boot when unresolvable
     /// (`MissingAssetPolicy::Error`); optional ones warn and are skipped so
     /// a partial checkout still boots.
-    pub required: bool,
-}
-
-/// One baked `ron-room` a game ships (W2): a serialized `RoomSpec` doc the
-/// loader appends to the composed room set — generated rooms/fixtures only;
-/// authored space stays backend files. See `crate::world::ron_room`.
-#[derive(Clone, Debug)]
-pub struct RonRoomSource {
-    /// Row identity for diagnostics (`ron_room.*` by convention).
-    pub id: AssetId,
-    /// Absolute desktop-dev file path (same contract as
-    /// [`WorldSource::loose_path`]).
-    pub loose_path: Option<PathBuf>,
-    /// The doc's RON text embedded into the binary (bundled builds).
-    pub embedded_text: Option<&'static str>,
-    /// Required rooms abort composition when unresolvable; optional ones
-    /// warn and are skipped (the secondary-world tolerance contract).
     pub required: bool,
 }
 

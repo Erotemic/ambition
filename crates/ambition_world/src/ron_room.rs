@@ -1,24 +1,40 @@
-//! The `ron-room` loader — rooms as serialized IR (W2, decomposition.md).
+//! The `ron-room` loader: rooms as serialized world IR.
 //!
-//! A `ron-room` is a [`RoomSpec`] (+ its graph links) serialized as RON:
-//! the room IR itself, with no authoring backend behind it. It exists for
-//! GENERATED rooms and fixtures — a bake tool or generator emits the doc,
-//! the loader appends it to the composed [`ambition_world::rooms::RoomSet`] next to
-//! the LDtk-composed rooms. Authored space stays in backend files (LDtk);
-//! this is deliberately NOT an alternative authoring format.
-//!
-//! This is the IR proof for W3: a room can enter the runtime graph through
-//! serde alone, so the composition tier demonstrably has no LDtk
-//! dependency in its data path. The manifest rows
-//! ([`crate::RonRoomSource`]) let a game ship baked rooms;
-//! the pure functions below are the seam generators and tests use.
+//! A `ron-room` is a [`RoomSpec`] plus its graph links serialized as RON.
+//! It is a backend-neutral path for generated rooms and fixtures: a bake
+//! tool emits room IR, and the loader appends it beside rooms produced by
+//! an authoring backend such as LDtk.
 
-use ambition_world::rooms::{RoomLink, RoomSpec};
+use std::path::PathBuf;
 
-/// One serialized room document: the spec plus the graph links it
-/// contributes. Links live on the doc (not the spec) because a link is a
-/// property of the room GRAPH — the LDtk path collects them across levels
-/// the same way.
+use crate::rooms::{RoomLink, RoomSpec};
+
+/// One baked `ron-room` a game ships.
+#[derive(Clone, Debug)]
+pub struct RonRoomSource {
+    /// Row identity for diagnostics (`ron_room.*` by convention).
+    pub id: String,
+    /// Absolute desktop-dev file path.
+    pub loose_path: Option<PathBuf>,
+    /// The doc's RON text embedded into the binary.
+    pub embedded_text: Option<&'static str>,
+    /// Required rooms abort composition when unresolvable; optional ones
+    /// warn and are skipped.
+    pub required: bool,
+}
+
+impl RonRoomSource {
+    pub fn new(id: impl Into<String>) -> Self {
+        Self {
+            id: id.into(),
+            loose_path: None,
+            embedded_text: None,
+            required: true,
+        }
+    }
+}
+
+/// One serialized room document: the spec plus the graph links it contributes.
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct RonRoomDoc {
     pub spec: RoomSpec,
@@ -26,8 +42,7 @@ pub struct RonRoomDoc {
     pub links: Vec<RoomLink>,
 }
 
-/// Serialize a room doc to RON text (the bake half; pretty so generated
-/// fixtures diff sanely).
+/// Serialize a room doc to RON text.
 pub fn room_doc_to_ron(doc: &RonRoomDoc) -> Result<String, String> {
     ron::ser::to_string_pretty(doc, ron::ser::PrettyConfig::default())
         .map_err(|error| format!("could not serialize ron-room: {error}"))
@@ -38,15 +53,11 @@ pub fn room_doc_from_ron(text: &str) -> Result<RonRoomDoc, String> {
     ron::from_str(text).map_err(|error| format!("could not parse ron-room: {error}"))
 }
 
-/// Load every `ron-room` the installed [`WorldManifest`] declares, under the
-/// manifest tolerance contract: a REQUIRED row that fails to resolve or parse
-/// is a composition error; an optional one warns and is skipped.
-///
-/// [`WorldManifest`]: crate::WorldManifest
-pub fn load_manifest_ron_rooms() -> Result<Vec<RonRoomDoc>, Vec<String>> {
+/// Load every declared `ron-room` under the manifest tolerance contract.
+pub fn load_ron_rooms(rows: &[RonRoomSource]) -> Result<Vec<RonRoomDoc>, Vec<String>> {
     let mut docs = Vec::new();
     let mut errors = Vec::new();
-    for row in &crate::world_manifest().ron_rooms {
+    for row in rows {
         let text = match (&row.loose_path, row.embedded_text) {
             (Some(path), embedded) => match std::fs::read_to_string(path) {
                 Ok(text) => Some(text),
@@ -83,12 +94,10 @@ pub fn load_manifest_ron_rooms() -> Result<Vec<RonRoomDoc>, Vec<String>> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ambition_engine_core as ae;
 
-    /// A ron-room built from a PURE IR value (no backend anywhere): the
-    /// "second backend" seed for W4's fixture test.
     #[test]
     fn a_generated_room_spec_bakes_and_reloads_without_any_backend() {
-        use ambition_engine_core as ae;
         let world = ae::World::new(
             "generated: twin chamber",
             ae::Vec2::new(640.0, 480.0),

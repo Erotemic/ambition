@@ -16,9 +16,9 @@ ambition_engine_core = { path = "../ambition_engine_core" }
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 ambition_interaction = { path = "../ambition_interaction" }
 ambition_portal = { path = "../ambition_portal", optional = true }
-ambition_sfx = { path = "../ambition_sfx" }
 ambition_time = { path = "../ambition_time" }
 bevy_app = { version = "0.18.1", default-features = false }
 bevy_ecs = { version = "0.18.1", default-features = false }
 petgraph = "0.8"
+ron = "0.11"
 serde = { version = "1", features = ["derive"] }

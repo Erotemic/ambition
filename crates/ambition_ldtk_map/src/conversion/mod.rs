@@ -76,7 +76,9 @@ impl LdtkProject {
         }
         // Baked `ron-room` docs (W2): rooms that enter the graph as
         // serialized IR, no authoring backend behind them.
-        for doc in crate::ron_room::load_manifest_ron_rooms()? {
+        for doc in
+            ambition_world::ron_room::load_ron_rooms(&super::manifest::world_manifest().ron_rooms)?
+        {
             links.extend(doc.links);
             rooms.push(doc.spec);
         }
@@ -909,13 +911,13 @@ mod tests {
             !sanic.world.chains.is_empty(),
             "fixture: the sanic area exercises the chains channel"
         );
-        let doc = crate::ron_room::RonRoomDoc {
+        let doc = ambition_world::ron_room::RonRoomDoc {
             spec: sanic.clone(),
             links: Vec::new(),
         };
-        let baked = crate::ron_room::room_doc_to_ron(&doc).expect("bakes");
-        let reloaded = crate::ron_room::room_doc_from_ron(&baked).expect("parses");
-        let rebaked = crate::ron_room::room_doc_to_ron(&reloaded).expect("re-bakes");
+        let baked = ambition_world::ron_room::room_doc_to_ron(&doc).expect("bakes");
+        let reloaded = ambition_world::ron_room::room_doc_from_ron(&baked).expect("parses");
+        let rebaked = ambition_world::ron_room::room_doc_to_ron(&reloaded).expect("re-bakes");
         assert_eq!(baked, rebaked, "serialize∘parse is a fixed point");
         let twin_set = ambition_world::rooms::RoomSet::from_parts(
             reloaded.spec.id.clone(),

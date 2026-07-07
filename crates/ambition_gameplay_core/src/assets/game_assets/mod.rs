@@ -319,7 +319,7 @@ impl ParallaxLayerSet {
                 .and_then(|q| {
                     catalog.try_quality_path_for_load(
                         &id,
-                        q.backgrounds.resolution_scale,
+                        q.backgrounds.resolution_scale.asset_id_suffix(),
                         q.backgrounds.prefer_scaled_variants,
                     )
                 })
@@ -455,7 +455,7 @@ fn load_entity_sprites(
             .and_then(|q| {
                 catalog.try_quality_path_for_load(
                     &id,
-                    q.sprites.resolution_scale,
+                    q.sprites.resolution_scale.asset_id_suffix(),
                     q.sprites.prefer_scaled_variants,
                 )
             })

@@ -22,6 +22,11 @@ default = []
 # resource, AssetServer load helpers, and AssetPath generation.
 bevy = ["dep:bevy"]
 
+# Optional embedded bundles consumed by the sandbox catalog/source plugin.
+# The consuming game crate forwards these from its platform persona features.
+static_map = ["bevy"]
+static_core_assets = ["bevy"]
+
 # Optional small adapter that resolves `audio.sfx_bank` through the
 # manifest and hands the bytes (when available) to
 # `ambition_sfx::BankProvider::from_bytes`. Has no audio backend deps.

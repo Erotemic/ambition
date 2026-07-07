@@ -121,7 +121,7 @@ impl LdtkProject {
     /// in via [`Self::load_default`]; this helper is the equivalent
     /// for entry points that don't have a Bevy `World` yet.
     pub fn load_default_for_dev() -> Result<Self, String> {
-        let catalog = SandboxAssetCatalog::for_desktop_dev_default();
+        let catalog = crate::assets::sandbox_assets::desktop_dev_default_catalog();
         Self::load_default(&catalog)
     }
 

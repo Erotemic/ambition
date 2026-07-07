@@ -7,6 +7,7 @@ aliases:
   - platform assets
 implemented_by:
   - crates/ambition_asset_manager/src
+  - crates/ambition_asset_manager/src/sandbox_assets
   - crates/ambition_gameplay_core/src/assets/mod.rs
   - crates/ambition_gameplay_core/assets/ambition/sandbox.ron
 related_docs:
@@ -15,7 +16,7 @@ related_docs:
   - docs/planning/engine/architecture.md
 related_memory:
   - dev/journals/lessons_learned.md
-last_verified: 2026-05-17
+last_verified: 2026-07-07
 ---
 
 # Asset management
@@ -23,6 +24,12 @@ last_verified: 2026-05-17
 ## Definition
 
 Asset management covers logical asset IDs, manifests, preload/profile policy, platform-aware resolution, and the bridge from generated/source assets into Bevy runtime handles.
+
+`ambition_asset_manager::sandbox_assets` owns the sandbox catalog/resource,
+stable ids, manifest builders, and embedded-source plugin. Gameplay-core's
+`assets` module is now an adapter/handle-loading tail: it assembles game rows
+for the catalog and keeps Bevy image handles plus gameplay presentation
+vocabulary until the E3/E6/E7 carves move those dependencies.
 
 ## Core invariants
 

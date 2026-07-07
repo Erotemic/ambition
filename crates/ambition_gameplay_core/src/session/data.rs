@@ -43,7 +43,7 @@ impl SandboxDataSpec {
 ///
 /// §5 classification: **content registry** — install-once seam, immutable
 /// after install, read from pure catalog-building code
-/// (`SandboxAssetCatalog::for_desktop_dev_default`) with no `World` in
+/// (`assets::sandbox_assets::desktop_dev_default_catalog`) with no `World` in
 /// hand. First install wins.
 static MUSIC_REGISTRY_OVERRIDE: std::sync::OnceLock<MusicRegistry> = std::sync::OnceLock::new();
 static SFX_REGISTRY_OVERRIDE: std::sync::OnceLock<SfxRegistry> = std::sync::OnceLock::new();

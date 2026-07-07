@@ -6,7 +6,7 @@
 //! helper here stays generic because music ids come from the RON
 //! catalog at runtime.
 
-use ambition_asset_manager::AssetId;
+use crate::AssetId;
 
 pub const SANDBOX_LDTK: &str = "world.sandbox_ldtk";
 pub const INTRO_LDTK: &str = "world.intro_ldtk";
@@ -46,19 +46,16 @@ pub fn font_debug_mono() -> AssetId {
     AssetId::new(FONT_DEBUG_MONO)
 }
 
-/// `music.track.<id>` where `id` is the
-/// [`crate::session::data::MusicTrack::id`] registered in
-/// `music_registry.ron`. The runtime registers one catalog entry per
-/// track and looks them up by this id.
+/// `music.track.<id>` where `id` is the game-provided music-track id
+/// registered in `music_registry.ron`. The runtime registers one catalog entry
+/// per track and looks them up by this id.
 pub fn music_track(track_id: &str) -> AssetId {
     AssetId::new(format!("music.track.{track_id}"))
 }
 
-/// `sprite.character.<name>` for a character spritesheet. `name` is
-/// the sandbox-side label used by
-/// `crate::character_sprites::assets` (e.g. `player`,
-/// `robot`, `goblin`, or an NPC sprite key derived from the LDtk
-/// `NpcSpawn.name` field).
+/// `sprite.character.<name>` for a character spritesheet. `name` is the
+/// game-provided sprite label (e.g. `player`, `robot`, `goblin`, or an NPC
+/// sprite key derived from the LDtk `NpcSpawn.name` field).
 pub fn character_sprite(name: &str) -> AssetId {
     AssetId::new(format!("sprite.character.{name}"))
 }

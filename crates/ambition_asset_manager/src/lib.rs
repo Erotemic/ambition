@@ -33,6 +33,9 @@ pub mod resolver;
 #[cfg(feature = "bevy")]
 pub mod bevy_integration;
 
+#[cfg(feature = "bevy")]
+pub mod sandbox_assets;
+
 #[cfg(feature = "sfx")]
 pub mod sfx_integration;
 

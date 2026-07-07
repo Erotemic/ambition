@@ -19,9 +19,11 @@
 //! edit to the matching submodule rather than scrolling through one
 //! 300-line `builders.rs`.
 
-use ambition_asset_manager::AssetEntry;
+use crate::{AssetEntry, AssetId, AssetKind, AssetManifest, MissingAssetPolicy, PreloadGroup};
 #[cfg(feature = "static_core_assets")]
-use ambition_asset_manager::{AssetLocation, AssetSourceProfile};
+use crate::{AssetLocation, AssetSourceProfile};
+
+use super::{scaled_asset_id, AssetScaleVariant};
 
 mod audio;
 mod visuals;
@@ -55,4 +57,21 @@ pub(super) fn with_embedded_core_candidate(
     _embedded_url: &'static str,
 ) -> AssetEntry {
     entry
+}
+
+pub(super) fn insert_scaled_image_entry(
+    manifest: &mut AssetManifest,
+    base_id: &AssetId,
+    logical_path: &str,
+    scale: &AssetScaleVariant,
+    preload_group: PreloadGroup,
+) {
+    let Some(id) = scaled_asset_id(base_id, Some(scale.asset_id_suffix)) else {
+        return;
+    };
+    manifest.insert(
+        AssetEntry::new(id, AssetKind::Image, logical_path)
+            .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
+            .with_preload_group(preload_group),
+    );
 }

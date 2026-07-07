@@ -1,0 +1,371 @@
+//! Sandbox-side aggregator for the [`ambition_asset_manager`] catalog.
+//!
+//! This module builds the single [`SandboxAssetCatalog`] resource used by visible
+//! sandbox systems to resolve Bevy asset paths: sprites, parallax, character and
+//! boss sheets, fonts, LDtk world/data, SFX bank, and music tracks.
+//!
+//! Construction starts from a caller-provided image manifest, extends it with
+//! caller-provided content rows (worlds, music, sprite registries), and wraps the
+//! result with the active [`AssetProfile`]. Consumers ask the catalog for a path
+//! and pass it to Bevy's `AssetServer`; the catalog itself performs no IO.
+
+use std::path::PathBuf;
+
+use bevy::prelude::Resource;
+
+use crate::{
+    AmbitionAssetCatalog, AssetId, AssetManifest, AssetProfile, AssetResolutionError,
+    AssetSourceProfile, ResolvedAsset,
+};
+
+// The `tests` module reaches for several `ambition_asset_manager` types
+// through `use super::*`. Re-import them under `#[cfg(test)]` so the
+// prod `lib` build doesn't flag them as unused, while the test build
+// still sees them at this module's path.
+#[cfg(test)]
+use crate::{AssetKind, AssetLocation, MissingAssetPolicy, PreloadGroup};
+
+mod builders;
+mod embedded;
+pub mod ids;
+
+use builders::{
+    extend_with_boss_entries, extend_with_character_entries, extend_with_data_entries,
+    extend_with_font_entries, extend_with_music_entries, extend_with_sfx_bank_entry,
+    extend_with_sprite_pack_entries, extend_with_world_entries,
+};
+pub use embedded::embedded_core;
+pub use embedded::{AmbitionAssetSourcePlugin, EmbeddedWorldAsset};
+
+/// Runtime asset-profile/config values needed by the sandbox catalog builder.
+#[derive(Clone, Debug)]
+pub struct SandboxAssetConfig {
+    pub sprite_folder: String,
+    pub asset_profile: AssetProfile,
+}
+
+/// One optional scaled asset tier registered beside full-resolution images.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct AssetScaleVariant {
+    pub asset_id_suffix: &'static str,
+    pub sprite_subdir_suffix: &'static str,
+    pub parallax_subdir: &'static str,
+}
+
+/// Filename row for a character spritesheet.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct CharacterSpriteCatalogRow {
+    pub name: String,
+    pub filename: String,
+}
+
+/// Filename row for a boss spritesheet.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BossSpriteCatalogRow {
+    pub name: String,
+    pub filename: String,
+}
+
+/// Music row reduced to the asset-catalog data needed by this crate.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct MusicCatalogRow {
+    pub id: String,
+    pub asset_path: String,
+}
+
+/// World row reduced to the asset-catalog data needed by this crate.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct WorldCatalogRow {
+    pub id: AssetId,
+    pub asset_path: String,
+    pub required: bool,
+    pub loose_path: Option<PathBuf>,
+    pub embedded_bevy_path: Option<&'static str>,
+}
+
+/// Caller-provided catalog rows that would otherwise force this foundational
+/// crate to import gameplay/session/content modules.
+#[derive(Clone, Debug, Default)]
+pub struct SandboxCatalogInputs {
+    pub scale_variants: Vec<AssetScaleVariant>,
+    pub character_sprites: Vec<CharacterSpriteCatalogRow>,
+    pub boss_sprites: Vec<BossSpriteCatalogRow>,
+    pub music_tracks: Vec<MusicCatalogRow>,
+    pub worlds: Vec<WorldCatalogRow>,
+}
+
+/// Wrapped [`AmbitionAssetCatalog`] + active [`AssetProfile`].
+///
+/// One instance per app session, installed as a Bevy `Resource` by
+/// [`crate::schedule::init_sandbox_resources`]. Every subsystem that loads
+/// an asset goes through this; nothing else owns asset-source policy.
+///
+/// Cheap to clone (the underlying manifest is wrapped in an `Arc`-like
+/// shared shape inside [`AmbitionAssetCatalog`]'s `Clone` impl).
+#[derive(Resource, Clone, Debug)]
+pub struct SandboxAssetCatalog {
+    catalog: AmbitionAssetCatalog,
+    profile: AssetProfile,
+}
+
+impl SandboxAssetCatalog {
+    /// Construct from a fully-built [`AmbitionAssetCatalog`] + the
+    /// active profile. Prefer [`build_sandbox_catalog`] from
+    /// production code; this is the seam for unit tests that author
+    /// a partial manifest.
+    pub fn new(catalog: AmbitionAssetCatalog, profile: AssetProfile) -> Self {
+        Self { catalog, profile }
+    }
+
+    pub fn catalog(&self) -> &AmbitionAssetCatalog {
+        &self.catalog
+    }
+
+    pub fn profile(&self) -> AssetProfile {
+        self.profile
+    }
+
+    pub fn path_for(&self, id: &AssetId) -> Option<String> {
+        self.catalog.path_for(id, self.profile)
+    }
+
+    pub fn resolve(&self, id: &AssetId) -> Result<ResolvedAsset, AssetResolutionError> {
+        self.catalog.resolve(id, self.profile)
+    }
+
+    /// Local filesystem path the LDtk hot-reload watcher should poll,
+    /// when both the active profile and the resolved location support
+    /// it. `None` everywhere else (bundled / web / no-assets).
+    pub fn hot_reload_local_path(&self, id: &AssetId) -> Option<PathBuf> {
+        let resolved = self.resolve(id).ok()?;
+        if !resolved.supports_hot_reload() {
+            return None;
+        }
+        resolved.location.as_local_path().map(|p| p.to_path_buf())
+    }
+
+    /// Resolve `id` and apply the per-profile load gate in one call.
+    ///
+    /// Returns `Some(path)` when the loader should hand the path to
+    /// Bevy's `AssetServer::load`; `None` when the loader should fall
+    /// back (colored rectangle, silent SFX, Bevy default font, etc.).
+    ///
+    /// This is the **only** function loaders need to call — it combines:
+    /// - `path_for(id)` (resolver),
+    /// - the per-profile "is this asset actually available?" gate
+    ///   ([`Self::should_attempt_resolved_load`]).
+    ///
+    /// Consumers that need the local on-disk path (the SFX bank byte
+    /// loader, the LDtk hot-reload watcher) go through
+    /// [`Self::resolve_local_file_path`] / [`Self::hot_reload_local_path`].
+    pub fn try_path_for_load(&self, id: &AssetId) -> Option<String> {
+        let resolved = self.resolve(id).ok()?;
+        let path = resolved.bevy_asset_path()?;
+        if self.should_attempt_resolved_load(&resolved, &path) {
+            Some(path)
+        } else {
+            None
+        }
+    }
+
+    /// Resolve a scaled visual variant first, then silently fall back to the
+    /// canonical full-resolution asset id. This is the runtime quality-profile
+    /// seam for optional images and spritesheets.
+    pub fn try_quality_path_for_load(
+        &self,
+        id: &AssetId,
+        scale_asset_id_suffix: Option<&str>,
+        prefer_scaled_variant: bool,
+    ) -> Option<String> {
+        if prefer_scaled_variant {
+            if let Some(variant_id) = scaled_asset_id(id, scale_asset_id_suffix) {
+                if let Some(path) = self.try_path_for_load(&variant_id) {
+                    return Some(path);
+                }
+            }
+        }
+        self.try_path_for_load(id)
+    }
+
+    /// Per-profile load gate keyed on a fully-resolved entry.
+    ///
+    /// - Desktop (DevLoose / Installed / SteamDeck): pre-check the host
+    ///   filesystem via the candidate-roots walker
+    ///   ([`desktop_candidate_roots`]) so missing optional art falls back
+    ///   to colored rectangles / Bevy's default font before Bevy logs a
+    ///   load failure. Required assets always attempt the load so the
+    ///   `MissingAssetPolicy::Error` path can surface a useful error.
+    /// - Android / iOS bundle: trust the packager; let Bevy's platform
+    ///   `AssetReader` try the load.
+    /// - Web / BundledStatic: attempt the load when the entry has an
+    ///   **authored** embedded candidate (the bytes are packaged via
+    ///   `embedded_asset!`); skip otherwise to preserve colored-rectangle
+    ///   fallback.
+    /// - WebHttp: attempt only when the entry has an authored
+    ///   `HttpRemote` candidate. Optional images today have none, so they
+    ///   fall back to placeholders.
+    /// - IpfsGatewayPlaceholder: attempt when an authored `IpfsGateway`
+    ///   candidate is present.
+    /// - NoAssets / Headless: never attempt (catalog already returned
+    ///   None for `path_for`; this is exhaustive-match insurance).
+    pub fn should_attempt_resolved_load(&self, resolved: &ResolvedAsset, path: &str) -> bool {
+        match self.profile {
+            AssetProfile::DesktopDevLoose
+            | AssetProfile::DesktopInstalled
+            | AssetProfile::SteamDeckInstalled => {
+                resolved.missing_policy.is_required()
+                    || self.resolve_local_file_path(path).is_some()
+            }
+            AssetProfile::AndroidBundle | AssetProfile::IosBundle => true,
+            AssetProfile::WebStatic | AssetProfile::BundledStatic => {
+                resolved.authored_candidate
+                    && matches!(
+                        resolved.source_used,
+                        Some(AssetSourceProfile::EmbeddedBinary)
+                    )
+            }
+            // WebServedAssets attempts every resolution that produces
+            // a Bevy-pathable URL: either an authored `Embedded`
+            // candidate (delivered from `EmbeddedAssetRegistry`) or
+            // the synthesized `BevyPath` from `logical_path` (which
+            // Bevy's wasm HTTP reader fetches from `/assets/<path>`).
+            // Missing files surface as Bevy load-failure logs + the
+            // renderer's existing placeholder fallbacks; we cannot
+            // pre-check the host filesystem from the browser, so the
+            // "trust Bevy to fetch" stance matches Android/iOS.
+            AssetProfile::WebServedAssets => {
+                matches!(
+                    resolved.source_used,
+                    Some(AssetSourceProfile::EmbeddedBinary)
+                        | Some(AssetSourceProfile::InstalledFilesystem)
+                )
+            }
+            AssetProfile::WebHttp => {
+                resolved.authored_candidate
+                    && matches!(resolved.source_used, Some(AssetSourceProfile::HttpRemote))
+            }
+            AssetProfile::IpfsGatewayPlaceholder => {
+                resolved.authored_candidate
+                    && matches!(resolved.source_used, Some(AssetSourceProfile::IpfsGateway))
+            }
+            AssetProfile::NoAssets | AssetProfile::Headless => false,
+        }
+    }
+
+    /// Same gate, but for **required** assets. Required entries with
+    /// no host-filesystem precheck always attempt the load; the
+    /// resolver's `Disabled` path is what consults
+    /// [`MissingAssetPolicy::Error`].
+    pub fn should_attempt_required_load(&self, _path: &str) -> bool {
+        !matches!(
+            self.profile,
+            AssetProfile::NoAssets | AssetProfile::Headless
+        )
+    }
+
+    /// Locate the absolute on-disk path for a Bevy-relative asset path
+    /// under the current profile, when one is available. Returns
+    /// `None` for non-desktop profiles or when the file simply isn't
+    /// there. Walks the same candidate roots Bevy's file `AssetReader`
+    /// consults at runtime, in this order:
+    ///
+    /// 1. `$BEVY_ASSET_ROOT/assets/<rel>`
+    /// 2. `$BEVY_ASSET_ROOT/<rel>`
+    /// 3. `$CWD/assets/<rel>`
+    /// 4. `$CWD/<rel>`
+    /// 5. `$CARGO_MANIFEST_DIR/../ambition_gameplay_core/assets/<rel>`
+    ///    (current dev fallback while runtime assets still live there)
+    ///
+    /// This is the **only** host-filesystem probe in the sandbox. The
+    /// LDtk hot-reload watcher and the SFX bank byte loader both call
+    /// through here — there is no duplicate candidate walk anywhere
+    /// else in `crates/ambition_gameplay_core/src/`.
+    pub fn resolve_local_file_path(&self, rel: &str) -> Option<std::path::PathBuf> {
+        if !matches!(
+            self.profile,
+            AssetProfile::DesktopDevLoose
+                | AssetProfile::DesktopInstalled
+                | AssetProfile::SteamDeckInstalled
+        ) {
+            return None;
+        }
+        desktop_candidate_roots(rel)
+            .into_iter()
+            .find(|p| p.exists())
+    }
+}
+
+pub fn scaled_asset_id(id: &AssetId, scale_asset_id_suffix: Option<&str>) -> Option<AssetId> {
+    scale_asset_id_suffix.map(|suffix| AssetId::new(format!("{}.{}", id.as_str(), suffix)))
+}
+
+/// Build the ordered candidate roots for `rel_path` on desktop / Steam
+/// Deck profiles. The only candidate-roots walker in the sandbox;
+/// [`SandboxAssetCatalog::resolve_local_file_path`] (and through it
+/// `should_attempt_optional_load` / `try_path_for_load`) are the sole
+/// callers.
+fn desktop_candidate_roots(rel_path: &str) -> Vec<std::path::PathBuf> {
+    let rel = std::path::Path::new(rel_path);
+    let mut candidates = Vec::with_capacity(5);
+    if let Some(root) = std::env::var_os("BEVY_ASSET_ROOT") {
+        let root = std::path::PathBuf::from(root);
+        candidates.push(root.join("assets").join(rel));
+        candidates.push(root.join(rel));
+    }
+    if let Ok(cwd) = std::env::current_dir() {
+        candidates.push(cwd.join("assets").join(rel));
+        candidates.push(cwd.join(rel));
+    }
+    candidates.push(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../ambition_gameplay_core/assets")
+            .join(rel),
+    );
+    candidates
+}
+
+/// Build the full sandbox catalog: every visible-sandbox asset id +
+/// the active profile. Called once during `init_sandbox_resources`.
+///
+/// `inputs.music_tracks` carries the already-loaded music registry rows so
+/// music-track ids land in the catalog at startup; the catalog doesn't depend
+/// on disk-resident files for bootstrap.
+pub fn build_sandbox_catalog(
+    config: &SandboxAssetConfig,
+    image_manifest: AssetManifest,
+    inputs: &SandboxCatalogInputs,
+) -> SandboxAssetCatalog {
+    build_sandbox_catalog_with(config, image_manifest, inputs, |_| {})
+}
+
+/// [`build_sandbox_catalog`] with a content-extension hook: the app
+/// assembly passes the content layer's extra manifest entries (e.g.
+/// the intro sprite rows) so this machinery module names no content.
+pub fn build_sandbox_catalog_with(
+    config: &SandboxAssetConfig,
+    image_manifest: AssetManifest,
+    inputs: &SandboxCatalogInputs,
+    extend: impl FnOnce(&mut AssetManifest),
+) -> SandboxAssetCatalog {
+    let mut manifest = image_manifest;
+    extend_with_world_entries(&mut manifest, &inputs.worlds);
+    extend_with_data_entries(&mut manifest);
+    extend_with_sfx_bank_entry(&mut manifest);
+    extend_with_font_entries(&mut manifest);
+    extend_with_sprite_pack_entries(&mut manifest);
+    extend_with_character_entries(
+        &mut manifest,
+        &config.sprite_folder,
+        &inputs.character_sprites,
+        &inputs.scale_variants,
+    );
+    extend_with_boss_entries(
+        &mut manifest,
+        &config.sprite_folder,
+        &inputs.boss_sprites,
+        &inputs.scale_variants,
+    );
+    extend_with_music_entries(&mut manifest, &inputs.music_tracks);
+    extend(&mut manifest);
+    SandboxAssetCatalog::new(AmbitionAssetCatalog::new(manifest), config.asset_profile)
+}

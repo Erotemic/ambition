@@ -1,14 +1,11 @@
 //! Visual asset builders: UI fonts + character / boss / intro
 //! spritesheets.
 
-use ambition_asset_manager::{
-    AssetEntry, AssetId, AssetKind, AssetManifest, MissingAssetPolicy, PreloadGroup,
-};
+use crate::{AssetEntry, AssetId, AssetKind, AssetManifest, MissingAssetPolicy, PreloadGroup};
 
 use super::super::{embedded_core, ids};
-use super::with_embedded_core_candidate;
-use crate::assets::game_assets::insert_scaled_image_entry;
-use crate::persistence::settings::TextureResolutionScale;
+use super::super::{AssetScaleVariant, BossSpriteCatalogRow, CharacterSpriteCatalogRow};
+use super::{insert_scaled_image_entry, with_embedded_core_candidate};
 
 /// UI font entries — the bundled fonts that ship with the sandbox
 /// (Inter Display + JetBrains Mono) plus the legacy `font.*.legacy`
@@ -89,8 +86,10 @@ pub(in super::super) fn extend_with_font_entries(manifest: &mut AssetManifest) {
 pub(in super::super) fn extend_with_character_entries(
     manifest: &mut AssetManifest,
     sprite_folder: &str,
+    rows: &[CharacterSpriteCatalogRow],
+    scale_variants: &[AssetScaleVariant],
 ) {
-    for (name, filename) in crate::character_sprites::all_character_sprite_filenames() {
+    for CharacterSpriteCatalogRow { name, filename } in rows {
         let id = ids::character_sprite(&name);
         let logical_path = format!("{sprite_folder}/{filename}");
         let mut entry = AssetEntry::new(id, AssetKind::Image, logical_path)
@@ -100,11 +99,14 @@ pub(in super::super) fn extend_with_character_entries(
             entry = with_embedded_core_candidate(entry, embedded_url);
         }
         manifest.insert(entry);
-        for scale in TextureResolutionScale::MANIFEST_VARIANTS {
+        for scale in scale_variants {
             insert_scaled_image_entry(
                 manifest,
                 &ids::character_sprite(&name),
-                &format!("{}/{}", scale.asset_subdir(sprite_folder), filename),
+                &format!(
+                    "{}_{}/{}",
+                    sprite_folder, scale.sprite_subdir_suffix, filename
+                ),
                 scale,
                 PreloadGroup::SandboxCore,
             );
@@ -129,8 +131,10 @@ fn character_sprite_embedded_url(name: &str) -> Option<&'static str> {
 pub(in super::super) fn extend_with_boss_entries(
     manifest: &mut AssetManifest,
     sprite_folder: &str,
+    rows: &[BossSpriteCatalogRow],
+    scale_variants: &[AssetScaleVariant],
 ) {
-    for (name, filename) in crate::boss_encounter::sprites::all_boss_sprite_filenames() {
+    for BossSpriteCatalogRow { name, filename } in rows {
         let id = ids::boss_sprite(name);
         let logical_path = format!("{sprite_folder}/{filename}");
         manifest.insert(
@@ -138,11 +142,14 @@ pub(in super::super) fn extend_with_boss_entries(
                 .with_missing_policy(MissingAssetPolicy::SilentPlaceholder)
                 .with_preload_group(PreloadGroup::SandboxCore),
         );
-        for scale in TextureResolutionScale::MANIFEST_VARIANTS {
+        for scale in scale_variants {
             insert_scaled_image_entry(
                 manifest,
                 &ids::boss_sprite(name),
-                &format!("{}/{}", scale.asset_subdir(sprite_folder), filename),
+                &format!(
+                    "{}_{}/{}",
+                    sprite_folder, scale.sprite_subdir_suffix, filename
+                ),
                 scale,
                 PreloadGroup::SandboxCore,
             );

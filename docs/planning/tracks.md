@@ -181,7 +181,7 @@ fable card. Ranked by how much they gate a fable task.
 
 | Track | Doc | Status | Next |
 |---|---|---|---|
-| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — **E5-finish COMPLETE (fable 2026-07-06 night): step 5 executed (amended: shared sim wiring → `ambition_runtime` per-domain plugins; `ambition_host` = leafwing bindings + camera cluster) + step 6 executed (SimCoreResourcesPlugin split + the demo smoke shell PASSES) — THE DEMO GATE IS OPEN**; W1 STATE-inversion (opus); **W-a…W-e RULED — the 5-step OPUS-SAFE W queue is in decomposition.md**; **E2 back-edges PRE-CLASSIFIED (fable) — verdict list in the E2 card**; **W-queue step 1 DONE + E2 IN-PLACE VERDICTS DONE (opus 2026-07-06 night): entity_catalog::placements + engine_core::kinematic_path minted; all 7 E2 back-edge verdicts landed in-place (CombatTuning minted, banner→message, CenteredAabb/HitEvent/overlay repointed, FeatureSimEntity→lifecycle) — combat's atomic move is now near-mechanical**; **E1a persistence carve ✅ DONE (Codex 2026-07-06): `ambition_persistence` owns save/settings/quest stored shapes; gameplay-core retains only settings/menu IR + dev persistence adapters for E1e/E1d**; **E1b audio carve ✅ DONE (Codex 2026-07-06): reusable SFX-bank loader/drain moved to `ambition_audio`; dead encounter-music fallback deleted; remaining audio/music files are sandbox adapters** | **W2 ✅ EXECUTED (fable 2026-07-07 — see the log; GeoSource subsumed SpatialSource)**; W queue steps 3–5 [opus]; **E2 combat carve ✅ EXECUTED (fable 2026-07-07 — the kit IS ambition_combat; see the log)**; **projectiles model ✅ DONE (opus 2026-07-07 — `ambition_projectiles` owns the shot vocabulary; the victim/world/anim steppers stay in the sim heart blocked on boss types E6, see the log)**; E1c next E1 slice; E3/E6/E7/E8 open |
+| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — **E5-finish COMPLETE (fable 2026-07-06 night): step 5 executed (amended: shared sim wiring → `ambition_runtime` per-domain plugins; `ambition_host` = leafwing bindings + camera cluster) + step 6 executed (SimCoreResourcesPlugin split + the demo smoke shell PASSES) — THE DEMO GATE IS OPEN**; W1 STATE-inversion (opus); **W-a…W-e RULED — the 5-step OPUS-SAFE W queue is in decomposition.md**; **E2 back-edges PRE-CLASSIFIED (fable) — verdict list in the E2 card**; **W-queue step 1 DONE + E2 IN-PLACE VERDICTS DONE (opus 2026-07-06 night): entity_catalog::placements + engine_core::kinematic_path minted; all 7 E2 back-edge verdicts landed in-place (CombatTuning minted, banner→message, CenteredAabb/HitEvent/overlay repointed, FeatureSimEntity→lifecycle) — combat's atomic move is now near-mechanical**; **E1a persistence carve ✅ DONE (Codex 2026-07-06): `ambition_persistence` owns save/settings/quest stored shapes; gameplay-core retains only settings/menu IR + dev persistence adapters for E1e/E1d**; **E1b audio carve ✅ DONE (Codex 2026-07-06): reusable SFX-bank loader/drain moved to `ambition_audio`; dead encounter-music fallback deleted; remaining audio/music files are sandbox adapters**; **E-assets catalog/source carve ✅ DONE (Codex 2026-07-07): `ambition_asset_manager::sandbox_assets` owns `SandboxAssetCatalog`, ids, catalog builders, and embedded-source plugin; gameplay-core keeps only input assembly + `game_assets` presentation tail** | **W2 ✅ EXECUTED (fable 2026-07-07 — see the log; GeoSource subsumed SpatialSource)**; W queue steps 3–5 [opus]; **E2 combat carve ✅ EXECUTED (fable 2026-07-07 — the kit IS ambition_combat; see the log)**; **projectiles model ✅ DONE (opus 2026-07-07 — `ambition_projectiles` owns the shot vocabulary; the victim/world/anim steppers stay in the sim heart blocked on boss types E6, see the log)**; E1c next E1 slice; E3/E6/E7/E8 open |
 | Decomposition D-B/D-C | same | queued behind D-A | mode-scope seam can land early (demos want it) |
 | Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | **CC1 COMPLETE + CC5 LANDED (fable) + CC2 COMPLETE + §3.6 GeoId/GeoFaceRef SUBSTRATE MINTED (opus, 2026-07-06)** — SweepSample §3.1 PARKED (decision brief above); GeoId types + Block.id (Anon default, byte-parity) real in code, first consumer = CC6 — engine_core::frame vocabulary + cast family registry real in code; CC2 first pass (hazards swept) + completion (§3.3 every reader classified: loading-zone Door/Walk/EdgeExit now swept via `transition_for_player`; water/climbable annotated discrete-OK + `thin_region_warnings` authoring validator; ledge audited; auto-collect N/A) parity suites green | CC3 fuzz rig (§6.1 oracle) [opus]; CC6 moving portals (§5-P2 spec) [opus] |
 | Combat stack | [engine/combat-model.md](engine/combat-model.md) | CM1 (incl. **launch_dir consumption, fable 2026-07-06 evening** `c695cd9c`)+CM2+CM3+CM7+CM4+CM5 LANDED — per-move presentation authored; smash axes complete (growth, DI, charge, cancel tables, fixed launch angles) | CM6 grab/throw/shield-stun (brings OnBlock) [opus, with SSB] |
@@ -1255,3 +1255,31 @@ settings-IR + kaleidoscope-extension boundary tests);
 
 **E1 COMPLETE:** E1a (persistence) + E1b (audio) + E1c (dialog) + E1d
 (dev_tools) + E1e (settings IR + kaleidoscope extension) all executed.
+
+## 2026-07-07 (Codex) — E-assets catalog/source carve executed
+
+Carved the reusable sandbox asset catalog/source layer out of
+`gameplay_core::assets::sandbox_assets` into
+`ambition_asset_manager::sandbox_assets`: `SandboxAssetCatalog`, stable
+`ids`, catalog builders, scaled-id helper, embedded-core URL table, and
+`AmbitionAssetSourcePlugin` now live with the asset-manager resolver/profile
+vocabulary. The former upward reads (`MusicRegistry`, world manifest,
+character/boss sprite registries, texture-scale variants) are inverted into
+plain `SandboxCatalogInputs` rows assembled by a thin gameplay-core adapter;
+the adapter also supplies embedded LDtk bytes to the moved source plugin.
+
+The runtime asset root fallback was corrected after the move so desktop
+catalog probes still fall back to `../ambition_gameplay_core/assets`.
+`assets/game_assets` intentionally remains in gameplay-core for now because it
+owns Bevy image handles plus gameplay/presentation vocabulary; the next real
+shrinks there ride E3/E6/E7 rather than making `ambition_asset_manager` import
+upward.
+
+Gate: `cargo check -p ambition_asset_manager --features bevy,static_core_assets,static_map`;
+`cargo check -p ambition_gameplay_core --lib`; `cargo test -p
+ambition_asset_manager` (62); `cargo test -p ambition_gameplay_core --lib
+assets` (20); `cargo test -p ambition_app --test architecture_boundaries`
+(38). Checks are green with pre-existing unused/private-interface warnings in
+gameplay-core/sim-view/app and one pre-existing portal-presentation unused-variable
+warning; boundary grep confirmed no production
+`ambition_asset_manager::sandbox_assets` references to gameplay modules.

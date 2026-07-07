@@ -110,7 +110,7 @@ found drift — update the table in the same commit. LOC ≈ `wc -l`.)*
 | `persistence/` + `host/` + `quest/` | 5173 | **`ambition_persistence`** | **E1a** | owns stored-shape only; settings IR stays for E1e |
 | `character_sprites/` | 4335 | **`ambition_sprite_sheet`** | **E3** | + the asset-root flip |
 | `abilities/` + `ability_cooldown.rs` | 4211 | `ambition_actors`; **D-B carve candidate `ambition_abilities`** | E7→D-B | traversal kit reads controlled-subject + kinematics; carve iff outward-dep measurement is clean |
-| `assets/` | 3324 | `ambition_asset_manager` | E-assets | **NOT a mechanical absorb (opus 2026-07-06 re-measured):** `gameplay_core/src/assets/` reaches UP into `session`(7)/`persistence`(4)/`features`(3)/`character_sprites`(3)/`rooms`(2)/`boss_encounter`(2)/`combat`(1) — moving it into the Tier-1 `ambition_asset_manager` would cycle. D2: invert/relocate those upward reads FIRST (dedicated session), then absorb. `ambition_asset_manager` already holds the foundational vocab (id/kind/location/manifest/policy/resolver/profile/preload, ~2.2k) |
+| `assets/` | 3324 | `ambition_asset_manager` | E-assets | ✅ **catalog/source carve DONE (Codex 2026-07-07):** `SandboxAssetCatalog`, `ids`, catalog builders, and `AmbitionAssetSourcePlugin` moved to `ambition_asset_manager::sandbox_assets`; the former upward reads are explicit `SandboxCatalogInputs` assembled by a thin gameplay-core adapter. Remaining tail: `game_assets` still owns Bevy image handles + gameplay/presentation vocabulary (`features`, `rooms`, `combat`, `character_sprites`, `boss_encounter`) and should move only with E3/E6/E7 presentation/actor carves, not by reintroducing asset-manager upward deps. |
 | `menu/` | 3189 | **`ambition_menu`** | **E1e** | + app/menu (below); LAST of E1 |
 | `dev/` | 2975 | **`ambition_dev_tools`** | E1d | + app/dev |
 | `items/` + `inventory_ui/` | 2689 | **`ambition_items`** | E8 | |
@@ -156,7 +156,7 @@ has a standing numeric answer (re-measure when the tree drifts):
 | `ambition_persistence` (E1a) | `persistence/ quest/ host/` | 5.2k |
 | `ambition_projectiles` (E2) | `projectile/ enemy_projectile/` | 4.4k |
 | `ambition_sprite_sheet` (E3) | `character_sprites/` | 4.3k |
-| `ambition_asset_manager` (E-assets) | `assets/` | 3.3k |
+| `ambition_asset_manager` (E-assets) | `assets/sandbox_assets` catalog/source core ✅; `assets/game_assets` presentation tail remains gated on E3/E6/E7 | 3.3k |
 | `ambition_menu` (E1e) | `menu/` | 3.2k |
 | `ambition_dev_tools` (E1d) | `dev/` | 3.0k |
 | `ambition_items` (E8) | `items/ inventory_ui/` | 2.7k |
@@ -1219,12 +1219,13 @@ by measurement. Plus the remaining crit-3 slices: the
 the `StartingCharacter` worn-sheet residue (`PLAYER_CHARACTER_ID` /
 `PLAYER_FILE_ROOT` in `character_sprites/attack_hitbox.rs`).
 
-### E-enc / E-assets — the quiet absorbs — [opus/sonnet]
+### E-enc / E-assets tail — the quiet absorbs — [opus/sonnet]
 
 `encounter/` (+ `features/ecs/encounter_rewards.rs`, + boss_encounter's
-`encounter_script`/`rewards` halves) → `ambition_encounter`; `assets/` →
-`ambition_asset_manager`. Both are low-entanglement mechanical moves per
-the ledger; schedule them as fillers between the big carves.
+`encounter_script`/`rewards` halves) → `ambition_encounter`.
+E-assets' catalog/source core is already in `ambition_asset_manager`; the
+remaining `game_assets` tail is not a standalone filler because it still names
+gameplay/presentation vocabulary and should shrink with E3/E6/E7.
 
 ### App residue — the progression schedule split — ✅ DE-WOVEN (opus 2026-07-06); move-to-group is the follow-up
 

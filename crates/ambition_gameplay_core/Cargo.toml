@@ -208,7 +208,7 @@ dev_hot_reload = ["bevy/file_watcher"]
 # assets/ambition/worlds/sandbox.ldtk from disk so LDtk edits and modded maps do
 # not require recompiling Rust. Enabling this feature also embeds the checked-in
 # map and falls back to it if the external map cannot be read or parsed.
-static_map = []
+static_map = ["ambition_asset_manager/static_map"]
 
 # Embed a bounded "core visual" subset (UI fonts + primary character sheets +
 # core entity sprite PNGs) into the binary via `include_bytes!`, and register
@@ -220,7 +220,7 @@ static_map = []
 # Composes with `static_map`: `static_map` embeds the LDtk world JSON,
 # `static_core_assets` embeds the visual layer. The `web` composite feature
 # enables both.
-static_core_assets = []
+static_core_assets = ["ambition_asset_manager/static_core_assets"]
 
 # Opt-in static SFX bank embedding. This is mainly for Android until the
 # synchronous SFX-bank loader can read from APK assets. The build script enables

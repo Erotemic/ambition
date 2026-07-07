@@ -1,12 +1,12 @@
 //! Audio builders: packed SFX bank + per-track music entries.
 
-use ambition_asset_manager::{
+use crate::{
     AssetEntry, AssetKind, AssetLocation, AssetManifest, AssetSourceProfile, MissingAssetPolicy,
     PreloadGroup,
 };
 
 use super::super::ids;
-use crate::session::data::MusicRegistry;
+use super::super::MusicCatalogRow;
 
 /// Packed SFX bank entry. `WarnAndPlaceholder` matches the current
 /// runtime contract: a missing bank degrades to procedural / silent
@@ -28,10 +28,9 @@ pub(in super::super) fn extend_with_sfx_bank_entry(manifest: &mut AssetManifest)
     manifest.insert(entry);
 }
 
-/// Music track entries — one per [`crate::session::data::MusicTrack`] in
-/// the music registry. Each resolves to a pre-rendered OGG via
-/// [`crate::session::data::MusicTrack::resolved_asset_path`] (the explicit
-/// `asset_path` override, else `audio/music/generated/<id>/full.ogg`). A
+/// Music track entries — one per game-provided music row. Each resolves to a
+/// pre-rendered OGG path (the explicit `asset_path` override, else the game's
+/// generated `audio/music/generated/<id>/full.ogg` convention). A
 /// genuinely missing OGG degrades to a placeholder at load time; the
 /// procedural fundsp music generator was retired (see
 /// `docs/archive/retired/fundsp-audio.md`). Author cues via
@@ -39,12 +38,12 @@ pub(in super::super) fn extend_with_sfx_bank_entry(manifest: &mut AssetManifest)
 /// `scripts/regen_music_registry.py`.
 pub(in super::super) fn extend_with_music_entries(
     manifest: &mut AssetManifest,
-    music: &MusicRegistry,
+    music: &[MusicCatalogRow],
 ) {
-    for track in &music.tracks {
+    for track in music {
         let id = ids::music_track(&track.id);
         manifest.insert(
-            AssetEntry::new(id, AssetKind::AudioClip, track.resolved_asset_path())
+            AssetEntry::new(id, AssetKind::AudioClip, track.asset_path.clone())
                 .with_missing_policy(MissingAssetPolicy::WarnAndPlaceholder)
                 .with_preload_group(PreloadGroup::SandboxCore),
         );

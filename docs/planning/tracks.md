@@ -1521,3 +1521,18 @@ keeps the E4 dep-flip surface honest by deleting another actor edge that was
 only a utility reach-through, not live sim data.
 
 Gate: `cargo check -p ambition_render`. Pre-existing warnings remain.
+
+
+## 2026-07-07 (fable, FINAL) — whole-repo audit → [engine/fable-final-audit-2026-07-07.md](engine/fable-final-audit-2026-07-07.md)
+The last fable pass audited the full post-decomposition repo. **READ THAT FILE
+FIRST when planning any structural work — it supersedes older card details
+where they conflict.** Headlines: DAG sound, 11 arrows enumerated with
+prescriptions (F1); ambition_actors 68k = 43k real actor domain + misplaced/
+glue/facades with disposition classes (F2); lowering/GeoId/Tier-0 rulings
+verified green, ron_room landed on the wrong side of W3 + the world-purity
+ratchet test is missing (F3); TWO rename-fallout regressions found and FIXED
+(desktop asset root silently degraded — game ran with no assets; music-tool
+repo probe dead) plus clock-reset seam + determinism hazards logged (F4); the
+`ambition` umbrella crate (E9) + demo-game homes proposed as the oracle made
+concrete (F5); final gate 44 suites green, only the documented feel-RED (F6).
+The priority-ordered next-session queue is at the end of the audit file.

@@ -1062,21 +1062,12 @@ impl SettingsItem {
     }
 }
 
-pub fn next_display_mode(current: DisplayModeKind) -> DisplayModeKind {
-    match current {
-        DisplayModeKind::Windowed => DisplayModeKind::Borderless,
-        DisplayModeKind::Borderless => DisplayModeKind::Fullscreen,
-        DisplayModeKind::Fullscreen => DisplayModeKind::Windowed,
-    }
-}
-
-pub fn prev_display_mode(current: DisplayModeKind) -> DisplayModeKind {
-    match current {
-        DisplayModeKind::Windowed => DisplayModeKind::Fullscreen,
-        DisplayModeKind::Borderless => DisplayModeKind::Windowed,
-        DisplayModeKind::Fullscreen => DisplayModeKind::Borderless,
-    }
-}
+// `next_display_mode` / `prev_display_mode` moved to
+// `ambition_persistence::host::windowing` (beside `DisplayModeKind`) at E1e so
+// the settings-menu IR crate can step the modes without reaching up into
+// gameplay-core. Re-exported so `crate::persistence::settings::model::*` callers
+// and the model logic tests keep resolving.
+pub use ambition_persistence::host::windowing::{next_display_mode, prev_display_mode};
 
 /// Apply a `DisplayModeKind` to the primary window. Shared between the
 /// settings menu and `crate::host::windowing::window_mode_hotkeys` so both

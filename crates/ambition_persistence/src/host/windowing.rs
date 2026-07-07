@@ -26,6 +26,26 @@ impl DisplayModeKind {
     }
 }
 
+/// Cycle to the next display mode (Windowed → Borderless → Fullscreen → …).
+/// Pure over the vocabulary so the settings-menu IR + the window-mode hotkey
+/// path both step through the modes the same way.
+pub fn next_display_mode(current: DisplayModeKind) -> DisplayModeKind {
+    match current {
+        DisplayModeKind::Windowed => DisplayModeKind::Borderless,
+        DisplayModeKind::Borderless => DisplayModeKind::Fullscreen,
+        DisplayModeKind::Fullscreen => DisplayModeKind::Windowed,
+    }
+}
+
+/// Cycle to the previous display mode (inverse of [`next_display_mode`]).
+pub fn prev_display_mode(current: DisplayModeKind) -> DisplayModeKind {
+    match current {
+        DisplayModeKind::Windowed => DisplayModeKind::Fullscreen,
+        DisplayModeKind::Borderless => DisplayModeKind::Windowed,
+        DisplayModeKind::Fullscreen => DisplayModeKind::Borderless,
+    }
+}
+
 /// Tracks the display mode we last requested.
 #[derive(Resource, Clone, Copy, Debug)]
 pub struct DisplayModeState {

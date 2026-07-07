@@ -2,15 +2,17 @@
 //! from `UserSettings`. Split out of the settings IR god-module.
 
 use super::*;
-use crate::persistence::settings::audio::AudioSettings;
-use crate::persistence::settings::video::CameraZoomPreset;
+use ambition_persistence::settings::audio::AudioSettings;
+use ambition_persistence::settings::video::CameraZoomPreset;
 use ambition_persistence::settings::UserSettings;
 
 pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
-    use crate::host::windowing::DisplayModeKind;
-    use crate::persistence::settings::controls::{ControllerProfileId, DashInputMode, MenuTapMode};
-    use crate::persistence::settings::gameplay::Difficulty;
-    use crate::persistence::settings::video::{
+    use ambition_persistence::host::windowing::DisplayModeKind;
+    use ambition_persistence::settings::controls::{
+        ControllerProfileId, DashInputMode, MenuTapMode,
+    };
+    use ambition_persistence::settings::gameplay::Difficulty;
+    use ambition_persistence::settings::video::{
         CameraAspectPolicy, CameraFramingPreset, ColorblindMode, FlashIntensity, FramePaceCap,
         VisualQualityProfile,
     };
@@ -131,7 +133,7 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
     // Each row is a slider with the SAME step the pause menu nudges by
     // (UNIT_STEP 0.10 / FINE_STEP 0.05; grain size/fps use their own ranges) and
     // the SAME value label (`ScreenShaderSettings::percent`, or `px` / `fps`).
-    use crate::persistence::settings::video::ScreenShaderSettings as Shdr;
+    use ambition_persistence::settings::video::ScreenShaderSettings as Shdr;
     let s = &v.shaders;
     let shader_options: Vec<SettingsOption> = vec![
         shader_unit_slider(
@@ -472,7 +474,7 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                 "Assist",
                 matches!(
                     g.assist,
-                    crate::persistence::settings::gameplay::AssistMode::On
+                    ambition_persistence::settings::gameplay::AssistMode::On
                 ),
                 "Aim/traversal assists for accessibility.",
             ),
@@ -482,7 +484,7 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                 g.player_damage_multiplier,
                 0.25,
                 4.0,
-                crate::persistence::settings::gameplay::GameplaySettings::DAMAGE_STEP,
+                ambition_persistence::settings::gameplay::GameplaySettings::DAMAGE_STEP,
                 format!("x{:.2}", g.player_damage_multiplier),
                 "Scale the damage the player deals.",
             ),
@@ -521,7 +523,7 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                 cycle(
                     SettingsOptionId::MovementFrameMode,
                     "Movement Frame",
-                    crate::persistence::settings::gameplay::GameplaySettings::frame_mode_label(
+                    ambition_persistence::settings::gameplay::GameplaySettings::frame_mode_label(
                         g.movement_frame_mode,
                     ),
                     i,
@@ -535,7 +537,7 @@ pub fn settings_menu_model(settings: &UserSettings) -> SettingsMenuModel {
                 cycle(
                     SettingsOptionId::AimFrameMode,
                     "Aim Frame",
-                    crate::persistence::settings::gameplay::GameplaySettings::frame_mode_label(
+                    ambition_persistence::settings::gameplay::GameplaySettings::frame_mode_label(
                         g.aim_frame_mode,
                     ),
                     i,

@@ -515,6 +515,39 @@ fn architecture_boundaries_persistence_crate_owns_stored_shapes_only() {
     );
 }
 
+/// `ambition_settings_menu` is the renderer-agnostic settings + system menu IR
+/// (E1e). It is pure logic over `ambition_persistence::settings` + the keyboard
+/// presets — no bevy, no renderer, no game state — so both menu backends render
+/// the same model and the settings IR stops being the god-dep that forced menu
+/// presentation to reach back into gameplay-core.
+#[test]
+fn architecture_boundaries_settings_menu_ir_is_foundation_only() {
+    let crate_root = repo_root().join("crates/ambition_settings_menu");
+    assert_workspace_contains_crate("ambition_settings_menu");
+    assert!(
+        crate_root.join("Cargo.toml").exists(),
+        "ambition_settings_menu crate should exist at crates/ambition_settings_menu"
+    );
+    assert_manifest_path_deps_only(
+        &crate_root,
+        &["ambition_persistence", "ambition_input"],
+        "ambition_settings_menu is the pure settings IR; no renderer/game deps",
+    );
+    assert_source_tree_has_no_code_refs(
+        crate_root.join("src"),
+        &[
+            "ambition_gameplay_core",
+            "ambition_menu",
+            "ambition_render",
+            "ambition_content",
+            "ambition_app",
+            "bevy_lunex",
+            "bevy::",
+        ],
+        "ambition_settings_menu must stay a pure, renderer-agnostic model",
+    );
+}
+
 /// `ambition_dev_tools` is the reusable developer-tooling STATE + logic (E1d):
 /// `DeveloperTools`, the reflected editable player-tuning / ability / stats
 /// resources, the profile enums, the startup profiler, `DeveloperTools` disk

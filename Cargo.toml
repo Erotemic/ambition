@@ -19,6 +19,7 @@ members = [
     "crates/ambition_platformer_primitives",
     "crates/ambition_portal",
     "crates/ambition_render",
+    "crates/ambition_settings_menu",
     "crates/ambition_portal_presentation",
     "crates/ambition_gameplay_core",
     "crates/ambition_runtime",

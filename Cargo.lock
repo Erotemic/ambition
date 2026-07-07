@@ -336,6 +336,7 @@ dependencies = [
  "ambition_platformer_primitives",
  "ambition_portal",
  "ambition_portal_presentation",
+ "ambition_settings_menu",
  "ambition_sfx",
  "ambition_sim_view",
  "ambition_sprite_sheet",
@@ -505,6 +506,14 @@ dependencies = [
  "ambition_vfx",
  "bevy",
  "bevy_common_assets",
+]
+
+[[package]]
+name = "ambition_settings_menu"
+version = "0.1.0"
+dependencies = [
+ "ambition_input",
+ "ambition_persistence",
 ]
 
 [[package]]

@@ -2,7 +2,7 @@
 //! response to a settings-option nudge. Split out of the settings IR god-module.
 
 use super::*;
-use crate::persistence::settings::video::CameraZoomPreset;
+use ambition_persistence::settings::video::CameraZoomPreset;
 use ambition_persistence::settings::UserSettings;
 
 pub fn close_menu_option() -> SettingsOption {
@@ -23,10 +23,12 @@ pub fn close_menu_option() -> SettingsOption {
 /// so the caller can fold the menu shut (the only outcome a renderer can't
 /// express by re-reading the model).
 pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut UserSettings) -> bool {
-    use crate::host::windowing::DisplayModeKind;
-    use crate::persistence::settings::controls::{ControllerProfileId, DashInputMode, MenuTapMode};
-    use crate::persistence::settings::gameplay::Difficulty;
-    use crate::persistence::settings::video::{
+    use ambition_persistence::host::windowing::DisplayModeKind;
+    use ambition_persistence::settings::controls::{
+        ControllerProfileId, DashInputMode, MenuTapMode,
+    };
+    use ambition_persistence::settings::gameplay::Difficulty;
+    use ambition_persistence::settings::video::{
         CameraAspectPolicy, CameraFramingPreset, ColorblindMode, FlashIntensity, FramePaceCap,
         ScreenShaderSettings, SerializableDisplayMode, VisualQualityProfile,
     };
@@ -54,9 +56,9 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
         SettingsOptionId::DisplayMode => {
             let cur = DisplayModeKind::from(settings.video.display_mode);
             let next = if dir < 0 {
-                crate::persistence::settings::model::prev_display_mode(cur)
+                ambition_persistence::host::windowing::prev_display_mode(cur)
             } else {
-                crate::persistence::settings::model::next_display_mode(cur)
+                ambition_persistence::host::windowing::next_display_mode(cur)
             };
             settings.video.display_mode = SerializableDisplayMode::from(next);
         }
@@ -231,7 +233,7 @@ pub fn apply_settings_option(id: SettingsOptionId, dir: i32, settings: &mut User
             settings.gameplay.assist = settings.gameplay.assist.toggle();
         }
         SettingsOptionId::PlayerDamage => settings.gameplay.nudge_player_damage(
-            s * crate::persistence::settings::gameplay::GameplaySettings::DAMAGE_STEP,
+            s * ambition_persistence::settings::gameplay::GameplaySettings::DAMAGE_STEP,
         ),
         SettingsOptionId::DebugHud => tog!(settings.gameplay.debug_hud_visible),
         SettingsOptionId::QuestHud => tog!(settings.gameplay.quest_hud_visible),

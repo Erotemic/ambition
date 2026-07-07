@@ -193,7 +193,7 @@ headless = []
 # ("Failed to create file watcher … Too many open files"). Opt into
 # the hot-reload watcher explicitly with `--features dev_hot_reload`
 # when you actually want to iterate on assets live.
-dev_tools = ["dep:bevy-inspector-egui"]
+dev_tools = ["dep:bevy-inspector-egui", "ambition_settings_menu/dev_tools"]
 
 # Opt-in Bevy file watcher for live asset hot-reload. Off by default
 # in the desktop persona because the cost (inotify quota / open fds)
@@ -401,6 +401,9 @@ ambition_dialog = { path = "../ambition_dialog" }
 # DeveloperTools disk persistence, and the live-edit sync system. gameplay-core
 # re-exports these on the historical `crate::dev::*` paths.
 ambition_dev_tools = { path = "../ambition_dev_tools" }
+# The renderer-agnostic settings + system menu IR (E1e). Re-exported on the
+# historical `crate::menu::ir::*` + `crate::persistence::settings::*` paths.
+ambition_settings_menu = { path = "../ambition_settings_menu" }
 # Logical asset catalog + per-profile source resolution. Bevy + sfx
 # features so the sandbox can format `AssetPath` strings through the
 # catalog and (in a follow-up) route the SFX bank bytes through the

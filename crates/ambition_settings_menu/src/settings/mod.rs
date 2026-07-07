@@ -14,7 +14,7 @@
 //! The settings menu used to be re-authored independently by each surface (a
 //! since-removed bevy-UI pause menu and the OoT cube's System face), so the two
 //! drifted. This IR is now the single source of truth every renderer reads from
-//! — the cube's System face ([`crate::menu::ir::system`]) and the bevy-UI grid
+//! — the cube's System face (the `system` module) and the bevy-UI grid
 //! both build from this one model, so they cannot drift again.
 //!
 //! ## Persistence
@@ -25,7 +25,7 @@
 //! helpers (`audio.nudge_*`, `CameraZoomPreset::next`/`prev`, the bool toggles)
 //! are reused verbatim — this module adds no parallel persistence path.
 
-use crate::persistence::settings::audio::AudioSettings;
+use ambition_persistence::settings::audio::AudioSettings;
 
 /// Stable identity of a settings category. `Copy` so it can ride inside a
 /// renderer's selection cursor / dispatched action without allocation.
@@ -273,7 +273,7 @@ pub(super) fn percent_label(value: f32) -> String {
 pub(super) fn shader_percent_label(value: f32) -> String {
     format!(
         "{}%",
-        crate::persistence::settings::video::ScreenShaderSettings::percent(value)
+        ambition_persistence::settings::video::ScreenShaderSettings::percent(value)
     )
 }
 

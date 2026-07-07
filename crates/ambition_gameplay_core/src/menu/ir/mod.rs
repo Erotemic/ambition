@@ -1,12 +1,10 @@
-//! Ambition's concrete settings IR.
+//! Ambition's concrete settings IR — carved into `ambition_settings_menu` (E1e).
 //!
-//! - [`settings`] — the shared, renderer-agnostic settings model
-//!   (`SettingsMenuModel` / `SettingsOption` / `apply_settings_option`); built
-//!   from `ambition_persistence::settings::UserSettings`. (Was
-//!   `crate::persistence::settings::menu`.)
-//! - [`system`] — the System-menu layer that sits on top of [`settings`]
-//!   (Radio / Video / Audio / Controls / Gameplay / Language / Reset* / Quit /
-//!   Developer). (Was `crate::persistence::settings::system_menu`.)
+//! The settings model (`SettingsMenuModel` / `SettingsOption` /
+//! `apply_settings_option`) and the System-menu layer on top of it are now a
+//! standalone foundational crate that depends only on
+//! `ambition_persistence::settings`. They are re-exported here on the historical
+//! `crate::menu::ir::{settings, system}` paths so the `persistence::settings`
+//! facade + the app-menu hosts need no import edits.
 
-pub mod settings;
-pub mod system;
+pub use ambition_settings_menu::{settings, system};

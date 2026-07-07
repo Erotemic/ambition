@@ -1,0 +1,23 @@
+[package]
+name = "ambition_settings_menu"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The renderer-agnostic settings + system menu IR (E1e): SettingsMenuModel / SettingsOption / apply_settings_option built from ambition_persistence::settings::UserSettings, and the System-menu layer (Radio / Video / Audio / Controls / Gameplay / Language / Reset / Quit / Developer) on top of it. Pure logic — no bevy, no renderer — so both the bevy-UI grid and the lunex cube render the same model. Depends only on the persistence settings vocabulary. Carved out of ambition_gameplay_core (dissolves the settings-IR god-dep)."
+
+[lib]
+crate-type = ["rlib"]
+
+[features]
+default = []
+# Gates the Developer system-menu entry (the `DEV_BUILD` const) — forwarded
+# from the host's `dev_tools` feature so release builds hide the dev row.
+dev_tools = []
+
+[dependencies]
+# UserSettings + the settings vocabulary (audio/video/controls/gameplay) +
+# host::windowing::{DisplayModeKind, next/prev_display_mode} that the IR reads.
+ambition_persistence = { path = "../ambition_persistence" }
+# KeyboardPreset::presets() — the keyboard-preset count the Controls option cycles.
+ambition_input = { path = "../ambition_input" }

@@ -216,3 +216,41 @@ Corrections (log-once, all small):
 5. **The full app gate** re-ran clean after fix (1): all suites green except
    the two documented REDs (`unified_melee::a_hostile_actor` feel-RED;
    verify gnu_ton in the final run below).
+
+### F5 — Elegance directions the new structure makes visible (NOT yet in any card)
+
+1. **Mint the `ambition` UMBRELLA CRATE — the engine-for-other-games keystone
+   made concrete.** `game/ambition_app` currently declares ~26 `ambition_*`
+   deps; a second game would copy that wall. The oracle ("another platformer
+   by ADDING a content crate without editing core") wants: one `ambition`
+   facade crate that deps the engine face (runtime, host, world, ldtk_map,
+   combat, actors, render, sim_view, …) and exposes (a) the plugin groups a
+   game composes and (b) a curated prelude. A NEW game then deps `ambition`
+   + its own content crate, PERIOD. This crate is also where the old
+   "framework spine" doc-comments in actors/world already point. Cheap to
+   mint (it is re-exports + plugin-group structs), and it RATCHETS: once the
+   demo apps compile against it, any core-editing regression shows up as an
+   umbrella-surface change. Suggested card: **E9 — the `ambition` facade
+   crate**; exit = `game/ambition_app/Cargo.toml` lists ≤ 4 ambition deps.
+2. **The Sanic/SMB1 demo games ARE the oracle test — give them their homes
+   now.** `game/ambition_demo_sanic/`, `game/ambition_demo_smb1/`, each
+   depping ONLY the umbrella + (optionally) `ambition_content`-style data of
+   their own. The demo-game matrix in roadmap.md becomes three Cargo.tomls
+   you can grep. Do this WITH E9, not before.
+3. **At the S5/S6 player-fold, rename `features/` away.** The module name is
+   pre-decomposition residue ("content features" that are now just the actor
+   ECS). When player/ folds in (F2 north star), the tree becomes
+   `ambition_actors::{bodies, brains, spawn, damage, mount, perception,
+   bosses}` — names that say what they are. Do not rename before the fold
+   (one churn, not two).
+4. **Tests should travel with their subject:** `features/conversion_tests.rs`
+   (849 lines) tests LDtk conversion that now lives in `ambition_ldtk_map`;
+   actors' `world/rooms/tests.rs` (602) tests the room graph that lives in
+   `ambition_world`. Moving them tightens both crates' change-detection
+   (a conversion regression should fail IN the backend crate).
+5. **Anti-goal (Jon's tiny-crate skepticism, restated for the tail):** the
+   remaining wins are MOVES and DELETIONS, not new crates. Beyond E9 + the
+   demo crates + possibly `ambition_session_state` (F1.4), no new crate
+   should be minted without a consumer that exists today. The crate count
+   (38) is already at the top of the comfortable range; the value now is
+   thinning `ambition_actors` and deleting facades, not adding boxes.

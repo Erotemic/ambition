@@ -383,6 +383,7 @@ ambition_cutscene = { path = "../ambition_cutscene" }
 ambition_vfx = { path = "../ambition_vfx" }
 ambition_engine_core = { path = "../ambition_engine_core" }
 ambition_interaction = { path = "../ambition_interaction" }
+ambition_items = { path = "../ambition_items" }
 ambition_ldtk_map = { path = "../ambition_ldtk_map", default-features = false }
 # Device -> ControlFrame input layer (SandboxAction / ControlFrame / presets /
 # input-domain settings). Re-exported as `crate::input` from lib.rs (ADR 0019);

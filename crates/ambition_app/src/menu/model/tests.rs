@@ -6,7 +6,7 @@ fn items_face_wires_all_24_slots_from_our_catalog() {
     let spec = items_spec(&owned, None);
     assert_eq!(
         spec.cells.len(),
-        ambition_actors::items::ITEM_COUNT,
+        ambition_items::ITEM_COUNT,
         "the cube's items face has one cell per inventory slot (24)"
     );
     // Slots are in grid order; labels are wrapped from our catalog.

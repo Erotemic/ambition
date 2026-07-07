@@ -152,6 +152,7 @@ dependencies = [
  "ambition_gameplay_trace",
  "ambition_input",
  "ambition_interaction",
+ "ambition_items",
  "ambition_ldtk_map",
  "ambition_menu",
  "ambition_persistence",
@@ -209,6 +210,7 @@ dependencies = [
  "ambition_entity_catalog",
  "ambition_host",
  "ambition_input",
+ "ambition_items",
  "ambition_menu",
  "ambition_menu_kaleidoscope",
  "ambition_persistence",
@@ -310,6 +312,7 @@ dependencies = [
  "ambition_entity_catalog",
  "ambition_input",
  "ambition_interaction",
+ "ambition_items",
  "ambition_persistence",
  "ambition_platformer_primitives",
  "ambition_projectiles",
@@ -435,6 +438,18 @@ dependencies = [
  "ambition_characters",
  "ambition_engine_core",
  "ambition_entity_catalog",
+ "serde",
+]
+
+[[package]]
+name = "ambition_items"
+version = "0.1.0"
+dependencies = [
+ "ambition_characters",
+ "ambition_persistence",
+ "ambition_ui_nav",
+ "bevy",
+ "ron 0.12.1",
  "serde",
 ]
 

@@ -10,9 +10,9 @@ use ambition_actors::actor::{PlayerEntity, PrimaryPlayer};
 use ambition_actors::items::pickup::{
     equip_held_spec, held_spec_for_item, unequip_held, StashedActionSet,
 };
-use ambition_actors::items::{Item, ItemCategory, OwnedItems};
 use ambition_actors::player::PlayerHealRequested;
 use ambition_characters::brain::ActionSet;
+use ambition_items::{Item, ItemCategory, OwnedItems};
 
 /// One health cell restores this much HP; one mana cell this much mana. Sandbox
 /// values — a real balance pass is just a number change.

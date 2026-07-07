@@ -11,7 +11,6 @@ use ambition_actors::dev::dev_tools::{
 };
 use ambition_actors::dialog;
 use ambition_actors::game_mode::gameplay_allowed;
-use ambition_actors::inventory_ui;
 use ambition_actors::ldtk_world;
 use ambition_actors::rooms;
 use ambition_actors::schedule::SandboxSet;
@@ -20,6 +19,7 @@ use ambition_actors::time::feel::SandboxFeelTuning;
 use ambition_actors::world::physics;
 #[cfg(feature = "physics_debris")]
 use ambition_actors::world::physics::physics_spawn_debris_messages;
+use ambition_items::inventory_ui;
 use ambition_render::fx::{self, vfx_spawn_messages};
 use ambition_render::rendering::{camera_follow, sync_visuals};
 use ambition_render::ui_fonts;

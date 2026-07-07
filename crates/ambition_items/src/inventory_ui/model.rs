@@ -2,12 +2,12 @@
 //! scroll/focus) + the [`InventoryTab`] enum (Items / Map / Quests).
 //!
 //! This is menu-NAVIGATION state only — it holds no items. The actual item
-//! store is the `OwnedItems` catalog in [`crate::items`]; this struct just
+//! store is the `OwnedItems` catalog in [`crate`]; this struct just
 //! tracks where the cursor is in the unified menu's inventory view.
 
 // The legacy adventure-menu UI that consumed the per-entity inventory component
 // markers was deleted in Phase D2; the unified menu reads the data model
-// (`InventoryUiState`) + the `OwnedItems` catalog (`crate::items`) directly. The
+// (`InventoryUiState`) + the `OwnedItems` catalog (`crate`) directly. The
 // dead markers and the legacy 3-kind `ItemKind`/`PlayerInventory` bag were
 // removed once `OwnedItems` became the single item store. What remains is the
 // live menu-navigation state.

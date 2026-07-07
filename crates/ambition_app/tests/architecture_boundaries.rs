@@ -650,6 +650,50 @@ fn architecture_boundaries_encounter_crate_is_state_only() {
     );
 }
 
+/// `ambition_items` (E8) owns the reusable item catalog, shop primitives, and
+/// inventory UI state. Live pickup/throw/projectile systems stay in
+/// `ambition_actors::items::pickup` because they mutate actor bodies, gravity,
+/// portals, abilities, and hit events; the item kit itself must stay below the
+/// sim heart and presentation.
+#[test]
+fn architecture_boundaries_items_crate_is_catalog_and_ui_state_only() {
+    let crate_root = repo_root().join("crates/ambition_items");
+    assert_workspace_contains_crate("ambition_items");
+    assert!(
+        crate_root.join("Cargo.toml").exists(),
+        "ambition_items crate should exist at crates/ambition_items"
+    );
+    assert_manifest_has_no_deps(
+        &crate_root,
+        &[
+            "ambition_actors",
+            "ambition_render",
+            "ambition_content",
+            "ambition_app",
+        ],
+        "ambition_items owns reusable catalog/UI state; live sim adapters stay above it",
+    );
+    assert_source_tree_has_no_code_refs(
+        crate_root.join("src"),
+        &[
+            "ambition_actors",
+            "ambition_render",
+            "ambition_content",
+            "ambition_app",
+        ],
+        "ambition_items source must not reach into actor/content/render/app crates",
+    );
+    assert_paths_absent(
+        &crate_src(),
+        &[
+            "inventory_ui",
+            "inventory_ui/mod.rs",
+            "inventory_ui/model.rs",
+        ],
+        "actor-sim inventory UI module after E8",
+    );
+}
+
 /// `ambition_menu_kaleidoscope` is the FIRST engine extension crate (E1e): the
 /// bevy_lunex 3D cube renderer for the `ambition_menu` page model. It is
 /// optional for any game — a host installs it to draw the same backend-agnostic
@@ -1152,7 +1196,7 @@ fn architecture_boundaries_portal_core_does_not_import_ambition_content_roster()
         "ambition_actors::items",
         "Item::PortalGun",
         "OwnedItems",
-        "ambition_actors::inventory_ui",
+        "ambition_items::inventory_ui",
         "ambition_actors::menu::effects",
         "StashedActionSet",
         "ambition_actors::content",
@@ -1280,7 +1324,7 @@ fn architecture_boundaries_named_content_registers_through_content_plugin() {
         "app/sim_resources.rs still constructs named content inline: {violations:?}"
     );
     assert!(
-        !plugins_text.contains("ambition_actors::items::OwnedItems::starter()"),
+        !plugins_text.contains("ambition_items::OwnedItems::starter()"),
         "app/plugins.rs should install the item roster through the content plugin"
     );
 }

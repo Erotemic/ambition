@@ -122,6 +122,7 @@ ambition_engine_core = { path = "../ambition_engine_core" }
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 ambition_characters = { path = "../ambition_characters" }
 ambition_input = { path = "../ambition_input" }
+ambition_items = { path = "../ambition_items" }
 # Touch/mobile input adapter — carved out of `src/host/mobile_input/` (app-thinness).
 # Its `mobile_touch` feature (forwarded below) gates the virtual-joystick plugin.
 ambition_touch_input = { path = "../ambition_touch_input" }

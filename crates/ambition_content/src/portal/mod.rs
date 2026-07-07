@@ -9,7 +9,7 @@
 //! Gated behind the `portal` feature.
 //!
 //! [`ControlFrame`]: ambition_input::ControlFrame
-//! [`OwnedItems`]: ambition_actors::items::OwnedItems
+//! [`OwnedItems`]: ambition_items::OwnedItems
 
 mod ability_adapter;
 mod carve_adapter;

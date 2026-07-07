@@ -23,13 +23,13 @@ use ambition_actors::actor::BodyBaseSize;
 use ambition_actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 use ambition_actors::features::HeldItem;
 use ambition_actors::items::pickup::StashedActionSet;
-use ambition_actors::items::{Item, OwnedItems};
 use ambition_actors::platformer_runtime::prelude::SpawnScopedExt;
 use ambition_actors::portal::{
     DropPortalGun, PickUpPortalGun, PortalGun, PortalGunEquipped, PortalGunPickup,
 };
 use ambition_characters::brain::ActionSet;
 use ambition_engine_core::{self as ae, AabbExt};
+use ambition_items::{Item, OwnedItems};
 
 /// Facade: the menu-driven equip/unequip pair moved to
 /// [`ambition_actors::items::pickup`] (their bodies are pure item-equip

@@ -48,9 +48,9 @@ impl Plugin for AmbitionContentPlugin {
         // a content game re-authors an item by editing its row in `items.ron`.
         // Additive: absent rows / a content-less build fall back to the built-in
         // default, so this never gates a spawn on the install.
-        ambition_actors::items::install_item_catalog(
-            ambition_actors::items::ItemCatalog::from_ron(include_str!("../assets/data/items.ron")),
-        );
+        ambition_items::install_item_catalog(ambition_items::ItemCatalog::from_ron(include_str!(
+            "../assets/data/items.ron"
+        )));
 
         // Insert Ambition's authored music-cue catalog (the goblin adaptive tune
         // + its encounter binding) so the reusable ambition_audio director plays

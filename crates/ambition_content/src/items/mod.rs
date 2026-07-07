@@ -22,6 +22,6 @@ impl Plugin for AmbitionItemRosterPlugin {
     fn build(&self, app: &mut App) {
         // The 24-item catalog ownership model is always-on core state (pickups
         // and dialogue read/write it regardless of which menu renders it).
-        app.insert_resource(ambition_actors::items::OwnedItems::starter());
+        app.insert_resource(ambition_items::OwnedItems::starter());
     }
 }

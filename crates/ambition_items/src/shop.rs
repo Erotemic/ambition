@@ -2,13 +2,13 @@
 //! [`BodyWallet`] and the 24-item [`OwnedItems`] catalog.
 //!
 //! Kept ECS-free and pure so they're unit-testable; the Yarn `<<buy_item>>` /
-//! `<<sell_item>>` commands ([`crate::dialog::yarn_bindings`]) wrap these with a
+//! `<<sell_item>>` commands wrap these with a
 //! player-wallet query, which is the design-intended shape for shops in Ambition
 //! (the `merchant_seed` node + Vault Keeper dialogue call for "a dialogue node
 //! with inventory, prices, requirements, consequences"). A bespoke shop overlay
 //! UI can later wrap the same primitives.
 
-use crate::items::{Item, OwnedItems};
+use crate::{Item, OwnedItems};
 use ambition_characters::actor::BodyWallet;
 
 /// Outcome of a buy/sell attempt, for logging + (future) UI feedback.

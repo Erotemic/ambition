@@ -185,7 +185,7 @@ pub fn init_sandbox_resources(app: &mut App) {
         // state. Headless SandboxSim runs quest reward systems (which grant into
         // OwnedItems) without loading `add_presentation_plugins`, so the resource
         // must exist before the first Update tick.
-        .insert_resource(ambition_actors::items::OwnedItems::starter())
+        .insert_resource(ambition_items::OwnedItems::starter())
         .insert_resource(editable_abilities)
         .insert_resource(editable_tuning)
         // Sim/presentation seam for input (ADR 0012): the sim reads

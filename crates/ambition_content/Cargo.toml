@@ -50,6 +50,7 @@ ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 ambition_characters = { path = "../ambition_characters" }
 ambition_persistence = { path = "../ambition_persistence" }
 ambition_interaction = { path = "../ambition_interaction" }
+ambition_items = { path = "../ambition_items" }
 bevy = { version = "0.18.1", default-features = false, features = ["ui_api"] }
 bevy_yarnspinner = { version = "0.8", optional = true }
 # Drop bevy_falling_sand's default `physics` feature: it bundles its OWN

@@ -30,12 +30,12 @@ use ambition_menu::{
     MenuTextAlign,
 };
 
-use ambition_actors::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use ambition_actors::persistence::settings::{
     DevSnapshot, RadioSnapshot, SettingsOption, SettingsOptionId, SettingsOptionKind,
     SystemMenuAction, SystemMenuEntryId, SystemMenuModel, SystemMenuTarget, SystemOptionId,
     UserSettings, VisualQualityProfile,
 };
+use ambition_items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 
 /// Edge page-turn buttons flank the page in the side margins (NOT over the grid),
 /// matching the demo's `add_edge_buttons` rects (`crates/ambition_mock_demo/src/
@@ -207,7 +207,7 @@ impl MenuFocus {
     /// report slot 0 so callers always have a valid item to describe.
     pub fn item_index(self) -> usize {
         match self {
-            MenuFocus::Item(idx) => idx.min(ambition_actors::items::ITEM_COUNT - 1),
+            MenuFocus::Item(idx) => idx.min(ambition_items::ITEM_COUNT - 1),
             _ => 0,
         }
     }

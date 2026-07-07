@@ -13,7 +13,7 @@ use super::*;
 pub(crate) fn kaleidoscope_pointer_press(
     press: On<Pointer<Press>>,
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Res<ambition_actors::inventory_ui::InventoryUiState>>,
+    ui_state: Option<Res<ambition_items::inventory_ui::InventoryUiState>>,
     controls: Query<&AmbitionMenuControl<MenuPageAction>>,
     mut state: ResMut<KaleidoscopePointerPress>,
 ) {
@@ -121,7 +121,7 @@ pub(crate) fn kaleidoscope_pointer_move(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn kaleidoscope_pointer_release(
     _release: On<Pointer<Release>>,
-    mut ui_state: Option<ResMut<ambition_actors::inventory_ui::InventoryUiState>>,
+    mut ui_state: Option<ResMut<ambition_items::inventory_ui::InventoryUiState>>,
     // A close-via-action (e.g. Reset Sandbox) must restore `GameMode::Playing` exactly
     // like the canonical Esc-close — so route the close through `close_kaleidoscope_menu`.
     // Bundled into one `SystemParam` to stay under Bevy's 16-param ceiling.

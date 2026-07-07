@@ -29,11 +29,11 @@ use crate::menu::model::{
     SYSTEM_VISIBLE_ROWS,
 };
 use crate::menu::quality_confirm::VisualQualityConfirmState;
-use ambition_actors::items::{OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use ambition_actors::menu::backend::{InventoryUiBackend, BEVY_UI_MENU_BACKEND_ENABLED};
 use ambition_actors::persistence::settings::{SystemMenuModel, UserSettings, VisualQualityProfile};
 use ambition_actors::player::PlayerHealRequested;
 use ambition_input::MenuControlFrame;
+use ambition_items::{OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use ambition_sfx::SfxMessage;
 
 /// The effect/dispatch resources shared by [`grid_menu_nav`] and
@@ -206,7 +206,7 @@ fn tab_index_of(page: MenuPage) -> usize {
 /// page on the switch frame (no Inventory flash).
 pub(crate) fn sync_menu_page_across_backend_switch(
     backend: Res<InventoryUiBackend>,
-    overlay: Res<ambition_actors::inventory_ui::InventoryUiState>,
+    overlay: Res<ambition_items::inventory_ui::InventoryUiState>,
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
     mut tab_state: ResMut<GridMenuTabState>,
     mut last: Local<Option<InventoryUiBackend>>,
@@ -310,7 +310,7 @@ fn cursor_focus_key(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn grid_menu_open_routing(
     mut menu: ResMut<MenuControlFrame>,
-    mut overlay: ResMut<ambition_actors::inventory_ui::InventoryUiState>,
+    mut overlay: ResMut<ambition_items::inventory_ui::InventoryUiState>,
     mode: Res<State<ambition_actors::session::game_mode::GameMode>>,
     mut next_mode: ResMut<NextState<ambition_actors::session::game_mode::GameMode>>,
     mut tab_state: ResMut<GridMenuTabState>,
@@ -402,7 +402,7 @@ pub(crate) fn grid_menu_open_routing(
 #[cfg(feature = "input")]
 fn open_grid_unified_menu(
     active_tab: usize,
-    overlay: &mut ambition_actors::inventory_ui::InventoryUiState,
+    overlay: &mut ambition_items::inventory_ui::InventoryUiState,
     mode: &ambition_actors::session::game_mode::GameMode,
     next_mode: &mut NextState<ambition_actors::session::game_mode::GameMode>,
     cursor: &mut KaleidoscopeCursor,
@@ -431,7 +431,7 @@ fn seed_cursor_for_tab(active_tab: usize, cursor: &mut KaleidoscopeCursor) {
 /// from gameplay (respecting `opened_from_pause`). Same contract as
 /// `close_kaleidoscope_menu`.
 pub(crate) fn close_grid_unified_menu(
-    overlay: &mut ambition_actors::inventory_ui::InventoryUiState,
+    overlay: &mut ambition_items::inventory_ui::InventoryUiState,
     mode: &ambition_actors::session::game_mode::GameMode,
     next_mode: &mut NextState<ambition_actors::session::game_mode::GameMode>,
 ) {
@@ -456,7 +456,7 @@ pub(crate) fn grid_menu_nav(
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
-    mut overlay: ResMut<ambition_actors::inventory_ui::InventoryUiState>,
+    mut overlay: ResMut<ambition_items::inventory_ui::InventoryUiState>,
     mode: Res<State<ambition_actors::session::game_mode::GameMode>>,
     mut next_mode: ResMut<NextState<ambition_actors::session::game_mode::GameMode>>,
     mut fx: MenuDispatchParams,
@@ -691,7 +691,7 @@ fn move_items_cursor(focus: MenuFocus, dx: i32, dy: i32) -> MenuFocus {
 /// the Grid and cube draw the SAME model. Despawn + respawn only on a dirty key.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn grid_menu_republish_view(
-    overlay: Res<ambition_actors::inventory_ui::InventoryUiState>,
+    overlay: Res<ambition_items::inventory_ui::InventoryUiState>,
     pages: Res<ActiveMenuPages<MenuPage, MenuPageAction>>,
     owned: Res<OwnedItems>,
     cursor: Res<KaleidoscopeCursor>,
@@ -872,7 +872,7 @@ fn grid_system_row_count(
 /// the cursor. Only a scrollable System list reacts; a short list ignores the wheel.
 #[cfg(feature = "input")]
 pub(crate) fn grid_menu_scroll_wheel(
-    overlay: Res<ambition_actors::inventory_ui::InventoryUiState>,
+    overlay: Res<ambition_items::inventory_ui::InventoryUiState>,
     mut tab_state: ResMut<GridMenuTabState>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
@@ -928,7 +928,7 @@ pub(crate) fn grid_menu_scroll_wheel(
 /// the scrollable range to a window-start row. Selection-independent, like the wheel.
 #[cfg(feature = "input")]
 pub(crate) fn grid_menu_apply_scroll_drag(
-    overlay: Res<ambition_actors::inventory_ui::InventoryUiState>,
+    overlay: Res<ambition_items::inventory_ui::InventoryUiState>,
     mut tab_state: ResMut<GridMenuTabState>,
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
@@ -972,7 +972,7 @@ pub(crate) struct GridPointerPress {
 pub(crate) fn grid_menu_pointer_press(
     press: On<Pointer<Press>>,
     backend: Res<InventoryUiBackend>,
-    overlay: Res<ambition_actors::inventory_ui::InventoryUiState>,
+    overlay: Res<ambition_items::inventory_ui::InventoryUiState>,
     controls: Query<&AmbitionMenuControl<MenuPageAction>>,
     tabs: Query<&BevyUiMenuTab>,
     mut state: ResMut<GridPointerPress>,
@@ -1009,7 +1009,7 @@ pub(crate) fn grid_menu_pointer_release(
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
-    mut overlay: ResMut<ambition_actors::inventory_ui::InventoryUiState>,
+    mut overlay: ResMut<ambition_items::inventory_ui::InventoryUiState>,
     mode: Res<State<ambition_actors::session::game_mode::GameMode>>,
     mut next_mode: ResMut<NextState<ambition_actors::session::game_mode::GameMode>>,
     mut fx: MenuDispatchParams,
@@ -1078,7 +1078,7 @@ pub(crate) fn grid_menu_pointer_release(
 /// through the press/release observers), so click-to-select keeps working.
 pub(crate) fn grid_menu_pointer_hover(
     over: On<Pointer<Over>>,
-    overlay: Res<ambition_actors::inventory_ui::InventoryUiState>,
+    overlay: Res<ambition_items::inventory_ui::InventoryUiState>,
     active_input: Res<ambition_input::ActiveInputKind>,
     controls: Query<&AmbitionMenuControl<MenuPageAction>>,
     settings: Res<UserSettings>,

@@ -27,7 +27,6 @@ use crate::menu::model::{
     SystemRow, SYSTEM_VISIBLE_ROWS,
 };
 use crate::menu::quality_confirm::VisualQualityConfirmState;
-use ambition_actors::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use ambition_actors::persistence::settings::{
     apply_settings_option, settings_menu_model, DevSnapshot, DevToggleId, RadioSnapshot,
     SettingsOptionId, SettingsOptionKind, SystemMenuAction, SystemMenuEntryId, SystemMenuModel,
@@ -36,6 +35,7 @@ use ambition_actors::persistence::settings::{
 use ambition_actors::player::PlayerHealRequested;
 use ambition_engine_core::Vec2;
 use ambition_input::MenuControlFrame;
+use ambition_items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use ambition_sfx::SfxMessage;
 
 /// Play a one-shot UI sound for the cube menu: `Play { id, pos }` with `pos = ZERO`.
@@ -86,7 +86,7 @@ fn kaleidoscope_backend_active(backend: Res<InventoryUiBackend>) -> bool {
 /// they must run while closed so they can open the menu and keep the camera off.
 fn kaleidoscope_menu_visible(
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Res<ambition_actors::inventory_ui::InventoryUiState>>,
+    ui_state: Option<Res<ambition_items::inventory_ui::InventoryUiState>>,
 ) -> bool {
     KALEIDOSCOPE_MENU_BACKEND_ENABLED
         && backend.effective() == InventoryUiBackend::LunexKaleidoscope
@@ -100,7 +100,7 @@ fn kaleidoscope_menu_visible(
 /// off the close animation — including the close triggered by SWITCHING backends.
 fn kaleidoscope_render_needed(
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Res<ambition_actors::inventory_ui::InventoryUiState>>,
+    ui_state: Option<Res<ambition_items::inventory_ui::InventoryUiState>>,
     open_state: Option<Res<ambition_menu_kaleidoscope::KaleidoscopeOpenState>>,
 ) -> bool {
     let (target, amount) = open_state
@@ -677,7 +677,7 @@ fn kaleidoscope_focus_nav(
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
     // Single mutable access to the overlay state — also read `.visible` from it (a
     // separate `Res<InventoryUiState>` would be a B0002 conflict with this `ResMut`).
-    mut overlay: ResMut<ambition_actors::inventory_ui::InventoryUiState>,
+    mut overlay: ResMut<ambition_items::inventory_ui::InventoryUiState>,
     // A close-via-action (e.g. Reset Sandbox) must restore `GameMode::Playing` exactly
     // like the canonical Esc-close — so thread the game mode through to
     // `close_kaleidoscope_menu` instead of bare `overlay.visible = false`. Bundled into
@@ -947,7 +947,7 @@ pub(crate) fn system_focus_nav(
     cursor: &mut KaleidoscopeCursor,
     system_nav: &mut KaleidoscopeSystemNav,
     pages: &mut ActiveMenuPages<MenuPage, MenuPageAction>,
-    overlay: &mut ambition_actors::inventory_ui::InventoryUiState,
+    overlay: &mut ambition_items::inventory_ui::InventoryUiState,
     mode: &ambition_actors::session::game_mode::GameMode,
     next_mode: &mut NextState<ambition_actors::session::game_mode::GameMode>,
     settings: &mut UserSettings,
@@ -1454,7 +1454,7 @@ pub(crate) use pointer::*;
 #[allow(clippy::too_many_arguments)]
 fn kaleidoscope_menu_open_routing(
     mut menu: ResMut<MenuControlFrame>,
-    mut overlay: ResMut<ambition_actors::inventory_ui::InventoryUiState>,
+    mut overlay: ResMut<ambition_items::inventory_ui::InventoryUiState>,
     mode: Res<State<ambition_actors::session::game_mode::GameMode>>,
     mut next_mode: ResMut<NextState<ambition_actors::session::game_mode::GameMode>>,
     mut pages: ResMut<ActiveMenuPages<MenuPage, MenuPageAction>>,
@@ -1582,7 +1582,7 @@ fn kaleidoscope_menu_open_routing(
 #[allow(clippy::too_many_arguments)]
 fn open_kaleidoscope_menu(
     page: MenuPage,
-    overlay: &mut ambition_actors::inventory_ui::InventoryUiState,
+    overlay: &mut ambition_items::inventory_ui::InventoryUiState,
     mode: &ambition_actors::session::game_mode::GameMode,
     next_mode: &mut NextState<ambition_actors::session::game_mode::GameMode>,
     pages: &mut ActiveMenuPages<MenuPage, MenuPageAction>,
@@ -1614,7 +1614,7 @@ fn open_kaleidoscope_menu(
 /// close-via-action paths (`kaleidoscope_focus_nav` / `system_focus_nav` /
 /// `kaleidoscope_pointer_release`) so an action-triggered close unpauses identically.
 fn close_kaleidoscope_menu(
-    overlay: &mut ambition_actors::inventory_ui::InventoryUiState,
+    overlay: &mut ambition_items::inventory_ui::InventoryUiState,
     mode: &ambition_actors::session::game_mode::GameMode,
     next_mode: &mut NextState<ambition_actors::session::game_mode::GameMode>,
 ) {
@@ -1649,7 +1649,7 @@ fn cycle_dev_gravity(
 /// selected). Off otherwise → the lower-order game cameras render normally.
 fn gate_kaleidoscope_menu(
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Res<ambition_actors::inventory_ui::InventoryUiState>>,
+    ui_state: Option<Res<ambition_items::inventory_ui::InventoryUiState>>,
     mut open_state: ResMut<ambition_menu_kaleidoscope::KaleidoscopeOpenState>,
     mut cameras: Query<(
         &mut Camera,

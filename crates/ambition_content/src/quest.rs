@@ -8,7 +8,7 @@
 
 use bevy::prelude::*;
 
-use ambition_actors::items::{Item, OwnedItems};
+use ambition_items::{Item, OwnedItems};
 
 pub use ambition_actors::quest::push_room_entered_quest_events;
 /// Facade: the generic registry half moved to [`ambition_persistence::quest::registry`].

@@ -113,7 +113,7 @@ found drift — update the table in the same commit. LOC ≈ `wc -l`.)*
 | `assets/` | 3324 | `ambition_asset_manager` | E-assets | ✅ **catalog/source carve DONE (Codex 2026-07-07):** `SandboxAssetCatalog`, `ids`, catalog builders, and `AmbitionAssetSourcePlugin` moved to `ambition_asset_manager::sandbox_assets`; the former upward reads are explicit `SandboxCatalogInputs` assembled by a thin gameplay-core adapter. Remaining tail: `game_assets` still owns Bevy image handles + gameplay/presentation vocabulary (`features`, `rooms`, `combat`, `character_sprites`, `boss_encounter`) and should move only with E3/E6/E7 presentation/actor carves, not by reintroducing asset-manager upward deps. |
 | `menu/` | 3189 | **`ambition_menu`** | **E1e** | + app/menu (below); LAST of E1 |
 | `dev/` | 2975 | **`ambition_dev_tools`** | E1d | + app/dev |
-| `items/` + `inventory_ui/` | 2689 | **`ambition_items`** | E8 | |
+| `items/` + `inventory_ui/` | 2689 | **`ambition_items`** ✅ catalog/UI slice | E8 | `Item`/`OwnedItems`/catalog install, shop primitives, and `InventoryUiState` moved 2026-07-07; actor-sim keeps `items::{pickup,persist}` adapters because they mutate bodies/gravity/portals/abilities/hit events |
 | `encounter/` | 2504 | **`ambition_encounter`** ✅ state slice | E-enc | wave/lockdown spec/state/events/registry/music/reward math moved 2026-07-07; gameplay-core keeps LDtk loader + ECS tick/lock-wall/switch adapters until W/E7 |
 | `dialog/` | 2217 | **`ambition_dialog`** (runtime) | E1c | game bindings stay sim-side |
 | `time/` | 1431 | stays (measured: depends on player/combat/features); `camera_ease` rides E4 | E8 note | |
@@ -1241,9 +1241,11 @@ re-home** (architecture §1): `ambition_content` + `ambition_app` move from
 `crates/` to `game/`, demo pairs live under `demos/` — a mechanical
 `git mv` + workspace-members + CI-path slice that makes the
 engine/game/demo split visible in the filesystem (do it LAST in D-A; it
-touches every path reference once). E8: `inventory_ui/` → [the stuff
-kit]; the `time/` residue stays by measurement. Plus the remaining crit-3
-slices: the
+touches every path reference once). E8: ✅ **catalog/UI slice DONE (Codex
+2026-07-07):** `ambition_items` owns the finite item catalog, shop
+primitives, and `InventoryUiState`; `ambition_actors::items::{pickup,persist}`
+remain actor-sim adapters by authority. The `time/` residue stays by
+measurement. Plus the remaining crit-3 slices: the
 `dialog/speech_sfx.rs` voice table → a content voice-profile registry;
 the `StartingCharacter` worn-sheet residue (`PLAYER_CHARACTER_ID` /
 `PLAYER_FILE_ROOT` in `character_sprites/attack_hitbox.rs`).

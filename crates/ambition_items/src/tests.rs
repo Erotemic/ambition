@@ -173,32 +173,6 @@ fn held_item_id_round_trips_through_reverse_lookup() {
     assert_eq!(Item::from_held_item_id("nonexistent"), None);
 }
 
-/// C1 fixture-vs-const: the content-authored `items.ron` deserializes to item
-/// rows BYTE-IDENTICAL to the engine's built-in default table. This is what makes
-/// the install safe — content owns the item flavor/wiring data, but the shipped
-/// items read unchanged until someone deliberately edits a row.
-#[test]
-fn items_ron_matches_builtin_defaults() {
-    let catalog = ItemCatalog::from_ron(include_str!(
-        "../../../ambition_content/assets/data/items.ron"
-    ));
-    for (index, builtin) in ITEM_META.iter().enumerate() {
-        let authored = catalog
-            .row(index)
-            .unwrap_or_else(|| panic!("items.ron is missing grid slot {index}"));
-        assert_eq!(
-            authored, builtin,
-            "authored item row {index} ({}) drifted from the built-in default",
-            builtin.dialog_id
-        );
-    }
-    assert_eq!(
-        catalog.rows.len(),
-        ITEM_COUNT,
-        "items.ron authors all 24 slots"
-    );
-}
-
 /// C1: a content-authored row REPLACES the built-in for that slot — the point of
 /// the override seam. Uses the catalog directly (not the process-global install)
 /// so the test carries no global state.

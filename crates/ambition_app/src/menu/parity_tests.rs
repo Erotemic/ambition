@@ -22,11 +22,11 @@
 //!    `MenuPageAction::ChangePage` edge page-turn controls which the Grid strips.
 
 use super::model::{build_inventory_pages, MenuFocus, MenuPage, MenuPageAction};
-use ambition_actors::items::{Item, OwnedItems};
 use ambition_actors::persistence::settings::{
     settings_menu_model, DevSnapshot, RadioSnapshot, SettingsOptionId, SystemMenuEntryId,
     SystemMenuModel, SystemMenuTarget, UserSettings,
 };
+use ambition_items::{Item, OwnedItems};
 
 // ---------------------------------------------------------------------------
 // Part 1a — no-drift exhaustiveness (settings IR + System model)
@@ -430,13 +430,13 @@ mod dispatch_parity {
     use crate::menu::test_support::click_control as click;
     use ambition_actors::actor::BodyMana;
     use ambition_actors::actor::{PlayerEntity, PrimaryPlayer};
-    use ambition_actors::inventory_ui::InventoryUiState;
     use ambition_actors::menu::backend::InventoryUiBackend;
     use ambition_actors::persistence::settings::{SystemMenuEntryId, UserSettings};
     use ambition_actors::player::PlayerHealRequested;
     use ambition_actors::session::game_mode::GameMode;
     use ambition_characters::brain::ActionSet;
     use ambition_input::MenuControlFrame;
+    use ambition_items::inventory_ui::InventoryUiState;
     use ambition_sfx::SfxMessage;
 
     /// Build a menu app for one backend, with every resource/observer the shared

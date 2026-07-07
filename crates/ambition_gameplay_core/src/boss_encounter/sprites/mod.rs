@@ -16,6 +16,13 @@ use crate::character_sprites::{RenderBasis, SheetRecord};
 use ambition_persistence::settings::VisualQualityBudget;
 
 /// Boss animation rows in the order the generator emits them.
+///
+/// E6(b) policy: keep this boss-domain vocabulary for authored boss sheets
+/// instead of forcing non-GNU-ton rows through
+/// [`CharacterAnim`](ambition_sprite_sheet::character::CharacterAnim). Boss rows name
+/// attack-geometry verbs (`floor_slam`, `side_sweep`, `spike_halo`,
+/// `dash_echo`) that are also keys into hurtbox/hitbox metadata; mapping them to
+/// character locomotion/melee rows would be an adapter, not canonicalization.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum BossAnim {
     Rest = 0,

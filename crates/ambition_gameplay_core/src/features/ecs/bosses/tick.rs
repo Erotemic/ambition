@@ -655,10 +655,13 @@ pub(crate) fn horizontal_front_wall_clearance(
 /// and its stagger timers are always zero (the boss victim path arms none), so
 /// every extra thing `integrate_actor_body` does is a no-op here.
 ///
-/// (Merging this into `integrate_sim_bodies`' actor query with NO boss arm is a
-/// later slice — it needs the chain-2 movement phase reordered ahead of the
-/// chain-1 boss presentation systems, a schedule change kept separate from this
-/// integrator-sharing one.)
+/// E6(d) no-boss-arm fold verdict (Codex 2026-07-07): do NOT merge this into
+/// `integrate_sim_bodies` by adding a boss branch. The cheap bound fails because
+/// the fold requires a schedule move (chain-2 body movement ahead of chain-1 boss
+/// presentation), boss-only query inputs (`BossConfig` + `BodyEnvelope` +
+/// combat-size self-heal), and no-FX/no-mount policy skips. That would be a new
+/// adapter branch, not deletion of a path. The shared seam is
+/// `integrate_actor_body`; keep this as the boss orchestrator around that seam.
 pub fn integrate_boss_bodies(
     world_time: Res<WorldTime>,
     world: Res<ambition_engine_core::RoomGeometry>,

@@ -1221,19 +1221,16 @@ geometry samples, and render mirrors the sim cursor into its draw-only
 animator. **E6(c) DONE (Codex 2026-07-07)** — the production autonomous
 boss tick builds `BossPatternContext` directly from its selected
 `ActorTarget`; it no longer routes the boss target through
-`BrainSnapshot.target_pos`. Remaining: (b) remaining `BossAnim` rows →
-`CharacterAnim` for non-gnuton bosses (BLIND visuals, frame-sample
-pins); (d) DECIDE the two recorded deep folds (the
-no-boss-arm integrate fold; `BossAttackIntent` → general move-intent
-folding the boss brain-tick into `tick_actor_brains`) — **"cheap" is now
-BOUNDED (fable): attempt each fold on a branch, time-boxed to half a
-session; it counts as cheap iff the diff stays ≤ ~200 LOC net, adds NO
-new seam/adapter types, and the boss suites pass unmodified. Miss any
-bound → revert and write the permanent-policy comment at the code site
-naming which bound failed.** Either closes the item. Plus the deferred
-teardown: fused `gnu_ton` profile + `sync_boss_split_overlay` +
-`BossOverlayLayer` + split z-consts (retarget the referencing tests to
-the linked-pair arena first).
+`BrainSnapshot.target_pos`. **E6(b) CLOSED (Codex 2026-07-07)** — no
+`BossAnim`→`CharacterAnim` fold: the remaining boss rows are
+attack-geometry verbs keyed by authored hurtbox/hitbox metadata, so
+forcing them through character locomotion/melee names would be an
+adapter. **E6(d) CLOSED (Codex 2026-07-07)** — both recorded deep folds
+miss the bounded cheap test; permanent policy comments now live at
+`integrate_boss_bodies` and `tick_actor_brains`. Deferred teardown only:
+fused `gnu_ton` profile + `sync_boss_split_overlay` + `BossOverlayLayer`
+and split z-consts (retarget the referencing tests to the linked-pair
+arena first).
 
 ### E7 / E8 — residue + the workspace re-home — [opus/sonnet]
 

@@ -184,15 +184,16 @@ pub fn tick_actor_brains(
         // loop ON TOP of their own `tick_boss_brains_system` — a double brain
         // tick. The deleted `ActorRuntime` tag used to keep them out implicitly.
         //
-        // POLICY, not a fold target (R1.5): this is a SWARM system — per-target
-        // slot-board arbitration + anti-clump crowding — which a boss doesn't
-        // participate in. So a boss's separate `tick_boss_brains_system` is
-        // legitimate NON-SWARM orchestration (boss-only snapshot fields,
-        // `BossAttackIntent` output, possession→special mapping), the same way the
-        // player's own `integrate_home_body` arm is separate — not a parallel system
-        // to merge. Folding it in would add a boss branch that SKIPS all the swarm
-        // machinery (an adapter, not canonicalization). The boss brain LOGIC is
-        // already unified (the universal `Brain::tick`).
+        // POLICY, not a fold target (E6(d), Codex 2026-07-07): this is a SWARM
+        // system — per-target slot-board arbitration, sighted-perception memory,
+        // and anti-clump crowding — which a boss doesn't participate in. The
+        // bounded `BossAttackIntent → general move-intent` / boss-brain fold fails
+        // the cheap test because it would add a boss branch that SKIPS that swarm
+        // machinery while also translating boss-profile fire intent and
+        // possession→special mapping. That is an adapter, not deletion of a path.
+        // Keep `tick_boss_brains_system` as the non-swarm boss orchestrator; the
+        // shared seams are `ActorControlFrame`, `ActorMoveset`, and the move
+        // playback projection.
         (
             With<FeatureSimEntity>,
             Without<crate::actor::PlayerEntity>,

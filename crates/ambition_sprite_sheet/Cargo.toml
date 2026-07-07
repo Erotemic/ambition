@@ -12,7 +12,9 @@ crate-type = ["rlib"]
 [dependencies]
 # ECS surface only (Resource / Component / App via prelude) + logging macros.
 # No render/audio/windowing — this crate stays reusable and headless.
-bevy = { version = "0.18.1", default-features = false }
+bevy = { version = "0.18.1", default-features = false, features = [
+    "2d_bevy_render",
+] }
 
 # RON manifest schema + parsing of the baked sheet table.
 serde = { version = "1", features = ["derive"] }

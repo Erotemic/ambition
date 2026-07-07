@@ -30,34 +30,15 @@ use bevy::prelude::*;
 
 use ambition_asset_manager::AssetId;
 
-use super::registry::BodyMetrics;
-use super::sheets::CharacterSheetSpec;
 use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
 use crate::character_roster::catalog;
 use ambition_engine_core as ae;
 use ambition_persistence::settings::VisualQualityBudget;
-
-/// One page image of a (possibly split) character sheet: its texture handle
-/// plus the [`TextureAtlasLayout`] addressing only that page's frames.
-#[derive(Clone)]
-pub struct CharacterSpritePage {
-    pub texture: Handle<Image>,
-    pub layout: Handle<TextureAtlasLayout>,
-}
-
-#[derive(Clone)]
-pub struct CharacterSpriteAsset {
-    /// Page-0 texture. Kept as the canonical handle the initial `Sprite` is
-    /// built from (the Idle row is always on page 0); equals `pages[0].texture`.
-    pub texture: Handle<Image>,
-    /// Page-0 atlas layout; equals `pages[0].layout`.
-    pub layout: Handle<TextureAtlasLayout>,
-    pub spec: CharacterSheetSpec,
-    /// One entry per page image. Length 1 for the common single-PNG sheet.
-    /// The animator carries a clone so it can swap the `Sprite`'s image +
-    /// layout when the playing animation lives on a different page.
-    pub pages: Vec<CharacterSpritePage>,
-}
+use ambition_sprite_sheet::character::{
+    CharacterSheetSpec, CharacterSpriteAsset, CharacterSpritePage,
+    TextureResolutionScale as SpriteTextureResolutionScale,
+};
+use ambition_sprite_sheet::BodyMetrics;
 
 /// Holds optional spritesheet handles. A missing PNG produces a
 /// `None` (or absent map entry); callers fall back to colored
@@ -171,7 +152,13 @@ pub fn sheet_for_character_id(character_id: &str) -> Option<CharacterSheetSpec> 
         if let Some(target) = entry.manifest_target() {
             let tuning = entry
                 .sprite_tuning
-                .map(super::sheets::SheetTuning::from_spec)
+                .map(|spec| {
+                    super::sheets::SheetTuning::from_parts(
+                        spec.collision_scale,
+                        spec.frame_sample_inset,
+                        spec.feet_anchor_y,
+                    )
+                })
                 .unwrap_or_default();
             if let Some(spec) = super::sheets::try_load_spec_for_target(target, &tuning) {
                 return Some(spec);
@@ -199,7 +186,13 @@ fn character_variant_tuning(cid: &str) -> Option<(&'static str, super::sheets::S
     let target = entry.manifest_target()?;
     let tuning = entry
         .sprite_tuning
-        .map(super::sheets::SheetTuning::from_spec)
+        .map(|spec| {
+            super::sheets::SheetTuning::from_parts(
+                spec.collision_scale,
+                spec.frame_sample_inset,
+                spec.feet_anchor_y,
+            )
+        })
         .unwrap_or_default();
     Some((target, tuning))
 }
@@ -300,6 +293,25 @@ pub fn all_character_sprite_filenames() -> Vec<(String, String)> {
         out.push((cid.clone(), filename));
     }
     out
+}
+
+fn sprite_texture_scale(
+    scale: crate::persistence::settings::TextureResolutionScale,
+) -> SpriteTextureResolutionScale {
+    match scale {
+        crate::persistence::settings::TextureResolutionScale::Potato => {
+            SpriteTextureResolutionScale::Potato
+        }
+        crate::persistence::settings::TextureResolutionScale::Quarter => {
+            SpriteTextureResolutionScale::Quarter
+        }
+        crate::persistence::settings::TextureResolutionScale::Half => {
+            SpriteTextureResolutionScale::Half
+        }
+        crate::persistence::settings::TextureResolutionScale::Full => {
+            SpriteTextureResolutionScale::Full
+        }
+    }
 }
 
 /// Probe the sandbox `assets/<sprite_folder>/` directory for spritesheets.
@@ -432,9 +444,11 @@ fn resolve_variant_pair(
                     crate::assets::sandbox_assets::scaled_asset_id(base_id, scale)
                 {
                     if catalog.try_path_for_load(&variant_id).is_some() {
-                        if let Some(spec) =
-                            super::sheets::try_load_spec_for_target_scaled(target, tuning, scale)
-                        {
+                        if let Some(spec) = super::sheets::try_load_spec_for_target_scaled(
+                            target,
+                            tuning,
+                            sprite_texture_scale(scale),
+                        ) {
                             return (spec, variant_id);
                         }
                     }
@@ -569,7 +583,8 @@ pub fn build_prop_sprite_asset_packed(
         .map(|q| q.sprites.resolution_scale)
         .unwrap_or(crate::persistence::settings::TextureResolutionScale::Full);
     let tuning = base_spec.tuning();
-    let (spec, tier) = super::sheets::try_load_pack_spec_for_target(target, &tuning, scale)?;
+    let (spec, tier) =
+        super::sheets::try_load_pack_spec_for_target(target, &tuning, sprite_texture_scale(scale))?;
     // Profile-gate page 0 through the sandbox catalog like every other
     // sprite; sibling pages resolve from the spec's page_images against
     // page 0's directory (the pack pages all share the tier dir).

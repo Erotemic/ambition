@@ -30,6 +30,10 @@ use tracing::{info, warn};
 mod frames;
 pub use frames::{trimmed_render, AtlasPage, FrameTrim};
 
+pub mod baked_sheet_rons;
+pub mod character;
+pub mod sprite_packs;
+
 pub mod pack;
 pub use pack::{PackCatalogError, PackFrame, PackTarget, ResolvedFrame, SpritePackCatalog};
 

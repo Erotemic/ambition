@@ -107,6 +107,7 @@ profile = ["ambition_gameplay_core/profile"]
 
 [dependencies]
 ambition_gameplay_core = { path = "../ambition_gameplay_core", default-features = false }
+ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
 ambition_projectiles = { path = "../ambition_projectiles" }
 # The engine face (E5): the app assembles its sim from `PlatformerEnginePlugins`
 # — the same group a demo app uses — plus its app-local host wiring.

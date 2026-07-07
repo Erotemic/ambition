@@ -7,6 +7,8 @@
 //! requires brittle hand-written spawn coordinates.
 
 #![allow(unused_imports)]
+use ambition_engine_core as ae;
+
 mod load;
 mod systems;
 #[cfg(test)]

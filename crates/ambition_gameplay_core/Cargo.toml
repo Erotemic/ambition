@@ -33,7 +33,7 @@ desktop_dev = ["visible", "desktop_platform", "dev_tools", "mobile_touch", "rl_s
 #                   When `portal_ldtk` is OFF, the LDtk converter fails loudly on
 #                   a `Portal` / `PortalGunSpawn` entity rather than silently
 #                   dropping it.
-portal = []
+portal = ["ambition_ldtk_map/portal"]
 # `portal_render` does NOT force `visible` on, so the web backbone
 # (`visible_web_base`, which mirrors `visible` rather than enabling it) can opt
 # into portal visuals without dragging in the desktop-only audio/ui/physics

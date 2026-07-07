@@ -20,9 +20,6 @@ use ambition_gameplay_core::boss_encounter::{
     BossEncounterRegistry, EncounterBeat, EncounterDef, EncounterEffect, EncounterScript,
     EncounterTrigger, ReleaseOnDeath,
 };
-use ambition_gameplay_core::character_sprites::{
-    build_character_sprite, feet_anchor_for, CharacterAnimator,
-};
 use ambition_gameplay_core::features::BossConfig;
 use ambition_gameplay_core::features::{
     ActorPose, BossClusterQueryData, BossClusterRef, BossRef, CenteredAabb, DamageableVolumes,
@@ -32,6 +29,9 @@ use ambition_gameplay_core::features::{
 use ambition_gameplay_core::rooms::{PropSpec, RoomSet};
 use ambition_render::rendering::PropVisual;
 use ambition_sfx::SfxMessage;
+use ambition_sprite_sheet::character::{
+    build_character_sprite, feet_anchor_for, CharacterAnimator,
+};
 use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
 use ambition_vfx::{ExplosionKind, ExplosionRequest, FireworksRequest, ParticleKind, VfxMessage};
 

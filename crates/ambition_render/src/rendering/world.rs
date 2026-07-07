@@ -18,12 +18,12 @@ use ambition_engine_core::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORL
 use ambition_gameplay_core::assets::game_assets::{
     self, entity_sprite, entity_sprite_or_color, GameAssets,
 };
-use ambition_gameplay_core::character_sprites::{
-    build_character_sprite, feet_anchor_for, CharacterAnimator,
-};
 use ambition_gameplay_core::features::FeatureVisualKind;
 use ambition_gameplay_core::rooms::{LoadingZone, LoadingZoneActivation, PropSpec};
 use ambition_gameplay_core::world::physics;
+use ambition_sprite_sheet::character::{
+    build_character_sprite, feet_anchor_for, CharacterAnimator,
+};
 
 /// Presentation consumer of [`ambition_gameplay_core::session::RespawnRoomVisualsRequested`].
 ///

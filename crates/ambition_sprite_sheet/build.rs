@@ -23,12 +23,13 @@ fn main() {
     // (`app::scene_setup`) lives in `ambition_app`.
 
     let manifest_dir = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap());
+    let asset_owner_dir = manifest_dir.join("../ambition_gameplay_core");
 
     let sprite_dirs = [
-        manifest_dir.join("assets/sprites"),
-        manifest_dir.join("assets/sprites_0_5x"),
-        manifest_dir.join("assets/sprites_0_25x"),
-        manifest_dir.join("assets/sprites_potato"),
+        asset_owner_dir.join("assets/sprites"),
+        asset_owner_dir.join("assets/sprites_0_5x"),
+        asset_owner_dir.join("assets/sprites_0_25x"),
+        asset_owner_dir.join("assets/sprites_potato"),
     ];
 
     // Re-run if the directory contents shift. Cargo watches recursively
@@ -74,7 +75,7 @@ fn main() {
 
     fs::write(&out_path, body).expect("write baked_sheet_rons.rs");
 
-    bake_pack_catalogs(&manifest_dir, &out_dir);
+    bake_pack_catalogs(&asset_owner_dir, &out_dir);
 }
 
 /// Embed each quality tier's ultrapack catalog (`assets/sprite_packs/<tier>/
@@ -83,8 +84,8 @@ fn main() {
 /// `TextureResolutionScale` vocabulary (`full` / `half` / `quarter` /
 /// `potato`). The table is empty on a checkout that never ran regen — the
 /// pack consumer then falls back to the per-target sheet path.
-fn bake_pack_catalogs(manifest_dir: &Path, out_dir: &Path) {
-    let packs_dir = manifest_dir.join("assets/sprite_packs");
+fn bake_pack_catalogs(asset_owner_dir: &Path, out_dir: &Path) {
+    let packs_dir = asset_owner_dir.join("assets/sprite_packs");
     println!("cargo:rerun-if-changed={}", packs_dir.display());
 
     let mut tiers: Vec<(String, PathBuf)> = Vec::new();

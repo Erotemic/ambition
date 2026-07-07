@@ -23,10 +23,6 @@ use ambition_gameplay_core::assets::game_assets::GameAssets;
 use ambition_gameplay_core::assets::sandbox_assets::{ids, SandboxAssetCatalog};
 #[cfg(feature = "audio")]
 use ambition_gameplay_core::audio::{AudioLibrary, MusicPlaybackState};
-use ambition_gameplay_core::character_sprites::{
-    build_character_sprite_with_render_size, feet_anchor_for_render_size,
-    player_placeholder_render_size, CharacterAnimator,
-};
 use ambition_gameplay_core::platformer_runtime::lifecycle::SceneEntities;
 use ambition_gameplay_core::rooms::RoomSet;
 #[cfg(feature = "audio")]
@@ -39,6 +35,10 @@ use ambition_render::rendering::{
 use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 #[cfg(feature = "audio")]
 use ambition_sfx::BankProvider;
+use ambition_sprite_sheet::character::{
+    build_character_sprite_with_render_size, feet_anchor_for_render_size,
+    player_placeholder_render_size, CharacterAnimator,
+};
 
 /// Borrowed inputs for `presentation_world`.
 pub struct PresentationSetup<'a> {

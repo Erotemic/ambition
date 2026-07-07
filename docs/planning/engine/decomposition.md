@@ -108,7 +108,7 @@ found drift — update the table in the same commit. LOC ≈ `wc -l`.)*
 | `boss_encounter/` (behavior, registry, sprites, attack_geometry, encounter_script, rewards) | 6750 | behavior/registry → `ambition_characters`; sprites/attack_geometry → `ambition_sprite_sheet`; encounter_script/rewards → `ambition_encounter` | E6 + E3 + E-enc | the three-way split the plan always intended |
 | `player/` (body_integration, bundles, starting_character, trail, affordances) | 6511 | `ambition_actors` | E7 | the home body is A BODY; no player crate — that would re-fork the unification |
 | `persistence/` + `host/` + `quest/` | 5173 | **`ambition_persistence`** | **E1a** | owns stored-shape only; settings IR stays for E1e |
-| `character_sprites/` | 4335 | **`ambition_sprite_sheet`** | **E3** | + the asset-root flip |
+| `character_sprites/` | 4335 | **`ambition_sprite_sheet`** ✅ first slice | **E3** | `CharacterAnim`, `CharacterSheetSpec`/geometry, `CharacterAnimator`, baked RON/pack tables moved 2026-07-07; gameplay-core keeps roster-aware sprite loading, body-state animation pickers, and melee hitbox adapters until E6/E7 dissolve their upward reads |
 | `abilities/` + `ability_cooldown.rs` | 4211 | `ambition_actors`; **D-B carve candidate `ambition_abilities`** | E7→D-B | traversal kit reads controlled-subject + kinematics; carve iff outward-dep measurement is clean |
 | `assets/` | 3324 | `ambition_asset_manager` | E-assets | ✅ **catalog/source carve DONE (Codex 2026-07-07):** `SandboxAssetCatalog`, `ids`, catalog builders, and `AmbitionAssetSourcePlugin` moved to `ambition_asset_manager::sandbox_assets`; the former upward reads are explicit `SandboxCatalogInputs` assembled by a thin gameplay-core adapter. Remaining tail: `game_assets` still owns Bevy image handles + gameplay/presentation vocabulary (`features`, `rooms`, `combat`, `character_sprites`, `boss_encounter`) and should move only with E3/E6/E7 presentation/actor carves, not by reintroducing asset-manager upward deps. |
 | `menu/` | 3189 | **`ambition_menu`** | **E1e** | + app/menu (below); LAST of E1 |
@@ -969,6 +969,21 @@ moves first; the TYPES move here).
    new crate.
 
 ### E3 — `ambition_sprite_sheet` absorb + the asset-root flip — [opus]
+
+**First slice DONE (Codex 2026-07-07):** `ambition_sprite_sheet::character`
+now owns the character animation row vocabulary (`CharacterAnim`), runtime
+sheet specs/atlas geometry, `CharacterAnimator`, Bevy sprite construction
+helpers, and the baked sheet/pack build script. Gameplay-core's
+`character_sprites::{animator,sheets,baked_sheet_rons,sprite_packs}` modules
+are compatibility facades; its remaining local code is the sim/roster adapter
+(`assets`, body-state animation pickers, authored melee hitbox resolution).
+Render/app/content import sprite vocabulary and animator types directly from
+`ambition_sprite_sheet` where they no longer need gameplay-core.
+
+**Remaining E3/E6 residue:** boss sheet statics + boss attack geometry still
+live in `boss_encounter` and move with E6's boss authority split; the
+`game_assets` presentation tail still names gameplay/presentation vocabulary
+and shrinks as E3/E6/E7 finish rather than by adding upward asset-manager deps.
 
 Precondition: G1 landed (it did). Moves `character_sprites/` (4.3k) +
 `boss_encounter::{sprites, attack_geometry}` into the existing

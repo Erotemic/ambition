@@ -17,16 +17,16 @@ use super::primitives::{
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_gameplay_core::assets::game_assets::{self, EntitySprite, GameAssets};
 use ambition_gameplay_core::boss_encounter::sprites::{self, BossAnimState, BossAnimator};
-use ambition_gameplay_core::character_sprites::{
-    build_character_sprite, build_character_sprite_with_render_size, feet_anchor_for,
-    feet_anchor_for_render_size, player_placeholder_render_size, CharacterAnimator,
-};
 use ambition_gameplay_core::combat::BoundFeatureKind;
 use ambition_gameplay_core::features::{
     ActorRenderSize, BreakableFeature, ChestFeature, FeatureId, FeatureVisualKind, Opened,
 };
 use ambition_persistence::settings::TextureResolutionScale;
 use ambition_sim_view::FeatureViewIndex;
+use ambition_sprite_sheet::character::{
+    build_character_sprite, build_character_sprite_with_render_size, feet_anchor_for,
+    feet_anchor_for_render_size, player_placeholder_render_size, CharacterAnimator,
+};
 
 mod animation;
 mod boss;

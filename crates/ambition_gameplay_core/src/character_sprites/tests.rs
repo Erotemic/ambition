@@ -25,7 +25,7 @@ use super::sheets::{
 /// the runtime half of the variant pipeline; it no-ops on a fresh clone.
 #[test]
 fn scaled_variant_specs_pair_smaller_geometry_when_generated() {
-    use crate::persistence::settings::TextureResolutionScale;
+    use ambition_sprite_sheet::character::TextureResolutionScale;
     let mut checked = 0usize;
     for target in [
         "player_robot_spritesheet",

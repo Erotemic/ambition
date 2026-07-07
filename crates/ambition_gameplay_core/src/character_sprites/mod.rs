@@ -12,18 +12,17 @@
 //! - [`anim`] — `CharacterAnim` enum, the one shared `pick_body_anim` priority
 //!   ladder over a `BodyAnimView`, and the thin per-body adapters that build it
 //!   (`pick_player_anim`, `pick_actor_anim` + `ActorAnimState`).
-//! - [`sheets`] — `CharacterSheetSpec`, `AnimRow`, atlas/geometry
-//!   helpers (`sprite_render_size`, `feet_anchor_for`,
-//!   `build_character_sprite`); the `*_SHEET` constants now come from
-//!   the catalog-keyed spec resolver, not in-file statics.
+//! - [`sheets`] — compatibility re-exports for the lower
+//!   `ambition_sprite_sheet::character::sheets` authority
+//!   (`CharacterSheetSpec`, atlas/geometry helpers, baked manifest lookup).
 //! - [`assets`] — `CharacterSpriteAsset`, `CharacterSpriteAssets`
 //!   resource, `load_character_sprites_in`, `sheet_for_character_id`.
 //! - [`animator`] — the `CharacterAnimator` per-entity cursor component.
 //! - [`registry`] — host wiring for the reusable `ambition_sprite_sheet`
-//!   `SheetRegistry` (plugin + headless builder from the baked table).
-//! - [`baked_sheet_rons`] — `build.rs`-generated `(root, ron_text)`
-//!   table of every `*_spritesheet.ron` (so non-desktop builds carry
-//!   the metadata without reading disk).
+//!   `SheetRegistry` (plugin + headless builder from the lower crate's baked
+//!   table).
+//! - [`baked_sheet_rons`] — compatibility re-export for the lower crate's
+//!   `build.rs`-generated `(root, ron_text)` table.
 
 mod anim;
 mod animator;
@@ -53,6 +52,7 @@ pub use registry::{baked_sheet_registry, SheetRegistryPlugin};
 // they're already loaded at startup by SheetRegistryPlugin. Re-export
 // gated to silence the unused-import warning until something outside
 // the registry module actually queries them.
+pub use ambition_sprite_sheet::character::{CharacterSpriteAsset, CharacterSpritePage};
 #[allow(
     unused_imports,
     reason = "sheet_for_character_id is the public catalog→spec entry; consumed by tests under content::character_catalog::tests (not by non-test crate code today). Public surface for future spawn-site callers."

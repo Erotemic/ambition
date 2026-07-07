@@ -22,11 +22,11 @@ use ambition_characters::brain::{ActorControl, Brain, BrainSnapshot, StateMachin
 use ambition_engine_core as ae;
 use ambition_engine_core::RoomGeometry;
 use ambition_gameplay_core::assets::game_assets::GameAssets;
-use ambition_gameplay_core::character_sprites::{
+use ambition_render::rendering::{PlayerSpriteBaseline, PlayerVisual};
+use ambition_sprite_sheet::character::{
     build_character_sprite_with_render_size, feet_anchor_for_render_size,
     player_placeholder_render_size, CharacterAnimator,
 };
-use ambition_render::rendering::{PlayerSpriteBaseline, PlayerVisual};
 
 /// Marks a brain-driven player-body clone (NOT the human player).
 #[derive(Component)]

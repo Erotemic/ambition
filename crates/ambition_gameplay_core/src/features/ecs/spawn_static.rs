@@ -6,6 +6,7 @@
 use super::*;
 use crate::features::{ChestBundle, PickupBundle};
 use crate::platformer_runtime::prelude::SpawnScopedExt;
+use ambition_entity_catalog::placements::PlacementSchema;
 use bevy::prelude::Name;
 
 pub(crate) fn spawn_hazard(
@@ -29,6 +30,32 @@ pub(crate) fn spawn_hazard(
         CenteredAabb::from_center_size(hazard.pos, hazard.size),
         HazardFeature::new(hazard),
     ));
+}
+
+pub(crate) fn lower_hazard_placement(
+    record: &crate::world::placements::PlacementRecord,
+    ctx: &mut crate::world::placements::LoweringCtx<'_, '_, '_>,
+) {
+    let PlacementSchema::Hazard(spec) = &record.schema;
+    let mut damage = crate::combat::Damage::new(spec.damage, spec.kind, spec.team);
+    damage.knockback = ambition_engine_core::Vec2::new(spec.knockback[0], spec.knockback[1]);
+    damage.hitstop_seconds = spec.hitstop_seconds;
+    let volume = crate::combat::DamageVolume {
+        id: record.id.as_str().to_string(),
+        aabb: record.aabb,
+        damage,
+        respawn: spec.respawn,
+        path_id: spec.path_id.clone(),
+        motion: None,
+        enabled: true,
+    };
+    let authored = crate::rooms::Authored {
+        id: record.id.as_str().to_string(),
+        name: record.id.as_str().to_string(),
+        aabb: record.aabb,
+        payload: volume,
+    };
+    spawn_hazard(ctx.commands, &authored, ctx.paths);
 }
 
 pub(crate) fn spawn_pickup(

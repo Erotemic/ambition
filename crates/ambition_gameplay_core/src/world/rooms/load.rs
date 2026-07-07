@@ -62,6 +62,7 @@ pub fn load_room_geometry(
     sim_state: &mut SandboxSimState,
     clock: &mut ClockState,
     moving_platforms: &mut Vec<MovingPlatformState>,
+    placement_lowering: &crate::world::placements::PlacementLoweringRegistry,
     world: &mut RoomGeometry,
     room_set: &mut RoomSet,
     room_visuals: &Query<(Entity, Option<&PhysicsRoomEntity>), With<RoomScopedEntity>>,
@@ -112,7 +113,7 @@ pub fn load_room_geometry(
     }
     clock.time_scale = 1.0;
     *moving_platforms = platforms::moving_platforms_for_room(&spec);
-    features::spawn_room_feature_entities(commands, &spec);
+    features::spawn_room_feature_entities_with_registry(commands, &spec, placement_lowering);
     // This guard prevents immediate backtracking when arriving inside/near a
     // paired zone. It should not feel like frozen input, so keep it short and
     // rely on validated arrivals to do most of the safety work.

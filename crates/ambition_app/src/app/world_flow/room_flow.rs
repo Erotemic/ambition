@@ -122,6 +122,7 @@ pub(crate) fn load_room(
     blink_cam: Option<&mut ambition_gameplay_core::player::PlayerBlinkCameraState>,
     world: &mut RoomGeometry,
     room_set: &mut rooms::RoomSet,
+    placement_lowering: &ambition_gameplay_core::world::placements::PlacementLoweringRegistry,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     // The transiting body, exempt from the old-room despawn so it rides along.
     carry_body: Option<Entity>,
@@ -147,6 +148,7 @@ pub(crate) fn load_room(
         sim_state,
         clock,
         moving_platforms,
+        placement_lowering,
         world,
         room_set,
         room_visuals,
@@ -277,7 +279,8 @@ pub(crate) fn apply_room_transition_system(
     feel_tuning: Res<SandboxFeelTuning>,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
     // Bundled into one tuple param to stay within Bevy's 16-param system limit.
-    visual_assets: (
+    load_resources: (
+        Res<ambition_gameplay_core::world::placements::PlacementLoweringRegistry>,
         Option<Res<ambition_gameplay_core::assets::game_assets::GameAssets>>,
         Option<Res<ambition_render::quality::ResolvedVisualQuality>>,
     ),
@@ -347,14 +350,15 @@ pub(crate) fn apply_room_transition_system(
             blink_opt.as_deref_mut(),
             &mut world,
             &mut room_set,
+            &load_resources.0,
             &room_visuals,
             carry_body,
             request.transition.clone(),
             editable_tuning.as_engine(),
             *feel_tuning,
             *physics_settings,
-            visual_assets.0.as_deref(),
-            visual_assets.1.as_deref(),
+            load_resources.1.as_deref(),
+            load_resources.2.as_deref(),
         );
         log_room_transition_landing(
             target_room,

@@ -6,6 +6,7 @@
 //! or scheduling surfaces that callers use.
 
 use bevy::prelude::{Commands, Entity, Query};
+use std::collections::HashSet;
 
 pub(crate) use super::spawn_actors::spawn_runtime_minion;
 
@@ -29,8 +30,43 @@ pub(crate) fn room_spec_paths(
 }
 
 pub fn spawn_room_feature_entities(commands: &mut Commands, room: &crate::rooms::RoomSpec) {
+    let mut registry = crate::world::placements::PlacementLoweringRegistry::default();
+    registry.register(
+        ambition_entity_catalog::placements::PlacementKind::Hazard,
+        super::spawn_static::lower_hazard_placement,
+    );
+    spawn_room_feature_entities_with_registry(commands, room, &registry);
+}
+
+pub fn spawn_room_feature_entities_with_registry(
+    commands: &mut Commands,
+    room: &crate::rooms::RoomSpec,
+    registry: &crate::world::placements::PlacementLoweringRegistry,
+) {
     let paths = room_spec_paths(room);
+    for record in &room.placements {
+        let mut ctx = crate::world::placements::LoweringCtx {
+            commands,
+            room_id: &room.id,
+            paths: &paths,
+        };
+        registry.lower(record, &mut ctx);
+    }
+    let lowered_hazard_ids: HashSet<&str> = room
+        .placements
+        .iter()
+        .filter(|record| {
+            matches!(
+                record.schema,
+                ambition_entity_catalog::placements::PlacementSchema::Hazard(_)
+            )
+        })
+        .map(|record| record.id.as_str())
+        .collect();
     for hazard in &room.hazards {
+        if lowered_hazard_ids.contains(hazard.id.as_str()) {
+            continue;
+        }
         super::spawn_static::spawn_hazard(commands, hazard, &paths);
     }
     for boss in &room.boss_spawns {

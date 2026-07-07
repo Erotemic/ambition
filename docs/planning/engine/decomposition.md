@@ -469,10 +469,11 @@ Precondition: none (parallel-safe with E5). The four cards:
   `PlacementRecord`/`PlacementSchema`/`HazardSpec` are IN CODE
   (`world/placements.rs` + `entity_catalog::placements`), and
   `convert_damage_volume` DUAL-emits (legacy hazard family + record
-  twin, same placement id). Step 3 still owns: `PlacementKind`, the
-  lowering registry + [W-e] hard error, branch conversion, and deleting
-  the legacy channel (inline `motion` hazards: lift the path into a
-  room-level `KinematicPath` at dissolution — see the `HazardSpec` doc
+  twin, same placement id). Step 3 then landed `PlacementKind`, the
+  lowering registry + [W-e] hard error, and the hazard lowering proof.
+  Remaining cleanup: convert/delete the legacy hardcoded room-feature
+  channels branch-by-branch (inline `motion` hazards: lift the path into
+  a room-level `KinematicPath` at dissolution — see the `HazardSpec` doc
   note).
 - **W3 — the two-crate cut.** `ambition_world` = IR + rooms graph +
   composition + converter REGISTRY (no LDtk dep anywhere in it —
@@ -653,12 +654,15 @@ commits alone):**
    provenance ruling changed (`GeoSource`, no `SpatialSource`) — see the
    amended W2 card above. `PlacementSchema`/`HazardSpec` came early
    (they're the record's type); step 3 keeps the registry half.
-3. **Lowering registry:** land `PlacementKind`/`LoweringCtx`/the
-   registry (`PlacementSchema`/`HazardSpec` already landed with W2) +
-   the [W-e] hard error; convert ONE
-   hardcoded spawn branch (the falling-sand spout is the canonical first,
-   or hazards if the spout is blocked) as the proof; convert the rest
-   branch-by-branch.
+3. ✅ **Lowering registry proof — DONE (Codex 2026-07-07).**
+   `PlacementKind`, `LoweringCtx`, `PlacementLoweringRegistry`, and the
+   app registration extension landed in `world::placements`; duplicate
+   registration and unknown placement kinds hard-error with the [W-e]
+   room/id/kind diagnostics. The first hardcoded branch is converted:
+   authored hazard records lower through the registry during room load
+   while the legacy hazard list is skipped by placement id during the
+   transition. Remaining W3/W4 cleanup converts/deletes the rest of the
+   legacy room-feature channels branch-by-branch.
 4. **W3 cut** (card above): `ambition_world` + `ambition_ldtk_map`;
    `detect_room_transition_system` moves to the sim heart (it is a
    sim-tier system, W1 finding); dep-tests (`ambition_world` names zero

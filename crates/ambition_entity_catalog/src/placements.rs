@@ -120,6 +120,22 @@ pub enum PlacementSchema {
     Hazard(HazardSpec),
 }
 
+/// Fieldless key for [`PlacementSchema`], used by the room-load lowering
+/// registry. This stays beside the schema so a new authored placement variant
+/// cannot forget to expose its registry key.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum PlacementKind {
+    Hazard,
+}
+
+impl PlacementSchema {
+    pub const fn kind(&self) -> PlacementKind {
+        match self {
+            Self::Hazard(_) => PlacementKind::Hazard,
+        }
+    }
+}
+
 /// Authored rule for when a defeated actor reappears (ADR 0022) — ONE
 /// enum for every reappearance mechanic, authored per archetype row
 /// (`respawn:` in `character_archetypes.ron`); a future EnemySpawn LDtk

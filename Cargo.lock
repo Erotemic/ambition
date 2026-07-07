@@ -552,6 +552,7 @@ dependencies = [
  "ambition_characters",
  "ambition_combat",
  "ambition_cutscene",
+ "ambition_dialog",
  "ambition_engine_core",
  "ambition_input",
  "ambition_interaction",

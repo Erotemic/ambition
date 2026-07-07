@@ -13,7 +13,7 @@
 
 pub mod cutscene;
 /// The dialog-box overlay UI (was `ambition_actors::dialog::ui`). Render-only;
-/// reads the sim-side dialog state in `ambition_actors::dialog`.
+/// reads the reusable dialog state in `ambition_dialog`.
 pub mod dialog_ui;
 pub mod fx;
 /// The in-world HUD overlay: health/mana bars, ability pips, banner text.

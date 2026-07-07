@@ -117,6 +117,7 @@ ambition_host = { path = "../../crates/ambition_host" }
 ambition_sim_view = { path = "../../crates/ambition_sim_view", features = ["input"] }
 ambition_content = { path = "../ambition_content" }
 ambition_render = { path = "../../crates/ambition_render" }
+ambition_combat = { path = "../../crates/ambition_combat" }
 ambition_cutscene = { path = "../../crates/ambition_cutscene" }
 ambition_engine_core = { path = "../../crates/ambition_engine_core" }
 ambition_entity_catalog = { path = "../../crates/ambition_entity_catalog" }

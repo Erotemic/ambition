@@ -19,12 +19,13 @@ use ambition_actors::boss_encounter::{
 use ambition_actors::features::BossConfig;
 use ambition_actors::features::{
     ActorPose, BossClusterQueryData, BossClusterRef, BossRef, CenteredAabb, DamageableVolumes,
-    EnemyActorBundle, FeatureBaseBundle, FeatureId, FeatureName, FeatureSimEntity, GameplayBanner,
-    HitEvent, HitSource, PogoPolicy, PogoTargetVolumes, PostBossNpc, ResetRoomFeaturesEvent,
+    EnemyActorBundle, FeatureBaseBundle, FeatureId, FeatureName, FeatureSimEntity, PogoPolicy,
+    PogoTargetVolumes, PostBossNpc,
 };
 use ambition_actors::rooms::{PropSpec, RoomSet};
 use ambition_characters::brain::ActorControl;
 use ambition_characters::brain::BossAttackState;
+use ambition_combat::{GameplayBanner, HitEvent, HitSource, ResetRoomFeaturesEvent};
 use ambition_engine_core::config::world_to_bevy;
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_render::rendering::PropVisual;

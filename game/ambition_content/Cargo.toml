@@ -37,6 +37,7 @@ ambition_actors = { path = "../../crates/ambition_actors", default-features = fa
 ambition_sprite_sheet = { path = "../../crates/ambition_sprite_sheet" }
 ambition_projectiles = { path = "../../crates/ambition_projectiles" }
 ambition_render = { path = "../../crates/ambition_render" }
+ambition_combat = { path = "../../crates/ambition_combat" }
 ambition_cutscene = { path = "../../crates/ambition_cutscene" }
 ambition_asset_manager = { path = "../../crates/ambition_asset_manager", features = ["bevy", "sfx"] }
 ambition_sfx = { path = "../../crates/ambition_sfx" }

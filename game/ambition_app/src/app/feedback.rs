@@ -1,6 +1,7 @@
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
+use ambition_combat::{GameplayBanner, HitEvent, ResetRoomFeaturesEvent};
 use ambition_sfx::SfxMessage;
 use ambition_vfx::VfxMessage;
 
@@ -78,8 +79,8 @@ pub struct SandboxQueues<'w> {
     /// Single canonical channel for attacker-direction hits (player
     /// slash, player projectile, pogo bounce). Replaced the prior
     /// split `DamageEvent` + `PogoBounceEvent` writers.
-    pub hit_events: MessageWriter<'w, ambition_actors::features::HitEvent>,
-    pub reset_room_features: MessageWriter<'w, ambition_actors::features::ResetRoomFeaturesEvent>,
+    pub hit_events: MessageWriter<'w, HitEvent>,
+    pub reset_room_features: MessageWriter<'w, ResetRoomFeaturesEvent>,
     pub feature_ecs_overlay: Res<'w, ambition_actors::features::FeatureEcsWorldOverlay>,
     pub dialogue: ResMut<'w, ambition_actors::dialog::DialogState>,
     pub physics_settings: Res<'w, ambition_actors::world::physics::PhysicsSandboxSettings>,
@@ -107,5 +108,5 @@ pub struct ProgressionResources<'w> {
     pub bosses: Res<'w, ambition_actors::boss_encounter::BossEncounterRegistry>,
     pub encounters: Res<'w, ambition_actors::encounter::EncounterRegistry>,
     pub map: Res<'w, ambition_actors::menu::map::MapMenuState>,
-    pub banner: Res<'w, ambition_actors::features::GameplayBanner>,
+    pub banner: Res<'w, GameplayBanner>,
 }

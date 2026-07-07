@@ -12,7 +12,7 @@ use bevy_yarnspinner::prelude::DialogueRunner;
 use std::sync::Arc;
 
 use ambition_actors::dialog::yarn_bindings::{YarnStateMirror, YarnStateMirrorData};
-use ambition_actors::features::SetFlagRequested;
+use ambition_combat::SetFlagRequested;
 use ambition_persistence::save::SandboxSave;
 
 use super::{CutRopeHeavyObjectCycle, PendingCutRopeRoomReplay};

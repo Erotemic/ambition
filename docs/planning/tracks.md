@@ -1484,6 +1484,16 @@ current owning paths.
 
 Gate: `cargo check -p ambition_runtime`. Pre-existing warnings remain.
 
+## 2026-07-07 (Codex) — E7 app/content combat-message facade cleanup
+
+App and content code now import combat-owned message/resource types directly
+from `ambition_combat`: hit events, room-feature reset events/reasons, set-flag
+requests, and the gameplay banner resource. The actor `features` facade remains
+for live actor ECS components and systems only.
+
+Gate: `cargo check -p ambition_content --all-features`; `cargo check -p
+ambition_app --features rl_sim`. Pre-existing warnings remain.
+
 ## 2026-07-07 (Codex) — E7 render combat-vocab facade cleanup
 
 Repointed render's `FeatureVisualKind` imports from the actor `features` facade

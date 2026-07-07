@@ -23,7 +23,7 @@
 
 use bevy::prelude::*;
 
-use ambition_actors::features::SetFlagRequested;
+use ambition_combat::SetFlagRequested;
 
 /// `(trigger_flag, target_flag)` — when the trigger lands in the save
 /// layer, the system emits a SetFlag for the target. Targets are listed
@@ -349,7 +349,7 @@ mod tests {
     fn emit_chains_promotes_bob_survey_to_private_marks() {
         use crate::quest::QuestRegistry;
         use ambition_actors::features::apply_flag_effects;
-        use ambition_actors::features::SetFlagRequested;
+        use ambition_combat::SetFlagRequested;
         use ambition_persistence::save::SandboxSave;
         use bevy::app::{App, Update};
 
@@ -494,7 +494,7 @@ mod tests {
     fn emit_chains_promotes_p5_to_route_memory() {
         use crate::quest::QuestRegistry;
         use ambition_actors::features::apply_flag_effects;
-        use ambition_actors::features::SetFlagRequested;
+        use ambition_combat::SetFlagRequested;
         use ambition_persistence::save::SandboxSave;
         use bevy::app::{App, Update};
 

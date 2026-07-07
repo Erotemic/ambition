@@ -24,9 +24,9 @@ use ambition_engine_core as ae;
 use bevy::prelude::*;
 
 use ambition_actors::dev::dev_tools::EditableMovementTuning;
-use ambition_actors::features;
 use ambition_actors::time::feel::SandboxFeelTuning;
 use ambition_actors::SandboxSimState;
+use ambition_combat::{ResetRoomFeaturesEvent, RoomResetReason};
 use ambition_engine_core::RoomGeometry;
 use ambition_input::ControlFrame;
 use ambition_sfx::SfxMessage;
@@ -55,7 +55,7 @@ pub fn apply_player_reset_input_system(
     feel_tuning: Res<SandboxFeelTuning>,
     mut sim_state: ResMut<SandboxSimState>,
     mut clock: ResMut<ambition_time::ClockState>,
-    mut reset_room_features: MessageWriter<features::ResetRoomFeaturesEvent>,
+    mut reset_room_features: MessageWriter<ResetRoomFeaturesEvent>,
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,
     mut player_q: Query<
@@ -103,8 +103,8 @@ pub fn apply_player_reset_input_system(
         editable_tuning.as_engine(),
         *feel_tuning,
     );
-    reset_room_features.write(features::ResetRoomFeaturesEvent {
-        reason: features::RoomResetReason::Manual,
+    reset_room_features.write(ResetRoomFeaturesEvent {
+        reason: RoomResetReason::Manual,
     });
 }
 
@@ -129,7 +129,7 @@ pub fn apply_room_replay_request_system(
     // (`config.id`), so the replay clears those keys (the respawned boss carries
     // the same LDtk id).
     cut_rope_bosses: Query<&ambition_actors::features::ecs::boss_clusters::BossConfig>,
-    mut reset_room_features: MessageWriter<features::ResetRoomFeaturesEvent>,
+    mut reset_room_features: MessageWriter<ResetRoomFeaturesEvent>,
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,
     mut player_q: Query<
@@ -163,8 +163,8 @@ pub fn apply_room_replay_request_system(
     let Ok((mut cluster_item, mut anim, mut combat, mut blink_cam, mut attack, mut safety)) =
         player_q.single_mut()
     else {
-        reset_room_features.write(features::ResetRoomFeaturesEvent {
-            reason: features::RoomResetReason::Manual,
+        reset_room_features.write(ResetRoomFeaturesEvent {
+            reason: RoomResetReason::Manual,
         });
         return;
     };
@@ -186,7 +186,7 @@ pub fn apply_room_replay_request_system(
         editable_tuning.as_engine(),
         *feel_tuning,
     );
-    reset_room_features.write(features::ResetRoomFeaturesEvent {
-        reason: features::RoomResetReason::Manual,
+    reset_room_features.write(ResetRoomFeaturesEvent {
+        reason: RoomResetReason::Manual,
     });
 }

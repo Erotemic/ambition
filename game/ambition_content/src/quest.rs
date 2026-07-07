@@ -8,6 +8,7 @@
 
 use bevy::prelude::*;
 
+use ambition_combat::GameplayBanner;
 use ambition_items::{Item, OwnedItems};
 
 pub use ambition_actors::quest::push_room_entered_quest_events;
@@ -250,7 +251,7 @@ pub fn grant_quest_completion_rewards(
     registry: Res<QuestRegistry>,
     mut save: ResMut<ambition_persistence::save::SandboxSave>,
     mut inventory: ResMut<OwnedItems>,
-    mut banner_state: ResMut<ambition_actors::features::GameplayBanner>,
+    mut banner_state: ResMut<GameplayBanner>,
 ) {
     let Some(state) = registry.quests.get("pirate_treasure") else {
         return;

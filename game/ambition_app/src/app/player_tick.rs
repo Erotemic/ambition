@@ -19,9 +19,9 @@
 use bevy::prelude::*;
 
 use ambition_actors::dev::dev_tools::EditableMovementTuning;
-use ambition_actors::features;
 use ambition_actors::player::PlayerBodyFrameOutput;
 use ambition_actors::time::feel::SandboxFeelTuning;
+use ambition_combat::{ResetRoomFeaturesEvent, RoomResetReason};
 use ambition_engine_core as ae;
 use ambition_engine_core::RoomGeometry;
 
@@ -43,7 +43,7 @@ pub(crate) fn apply_home_reset_policy(
     gravity_field: Option<Res<ambition_actors::physics::GravityField>>,
     mut event_writers: SandboxEventWriters,
     mut room_clock: RoomClock,
-    mut reset_room_features: MessageWriter<features::ResetRoomFeaturesEvent>,
+    mut reset_room_features: MessageWriter<ResetRoomFeaturesEvent>,
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
@@ -96,8 +96,8 @@ pub(crate) fn apply_home_reset_policy(
         tuning,
         *feel_tuning,
     );
-    reset_room_features.write(features::ResetRoomFeaturesEvent {
-        reason: features::RoomResetReason::PlayerDeath,
+    reset_room_features.write(ResetRoomFeaturesEvent {
+        reason: RoomResetReason::PlayerDeath,
     });
 }
 

@@ -32,7 +32,7 @@ Important paths:
 | `crates/ambition_actors/src/player/affordances/interactable_proximity.rs` | Nearest interactable classification. |
 | `crates/ambition_actors/src/player/affordances/pogo_proximity.rs` | Downward pogo-target proximity; aerial down-attack can label as `Pogo` when a pogo target is below. |
 | `crates/ambition_actors/src/player/affordances/devices.rs` | Active input method and glyph lookup. |
-| `crates/ambition_app/src/host/mobile_input/bevy_plugin.rs` | HUD consumer for touch/control prompt buttons. |
+| `game/ambition_app/src/host/mobile_input/bevy_plugin.rs` | HUD consumer for touch/control prompt buttons. |
 
 ## Current variants
 

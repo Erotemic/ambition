@@ -125,11 +125,11 @@ holding across the actor/brain migration series.
   Bundle split into outer + inner tuple (Bevy 15-arity Bundle
   limit).
 
-* `crates/ambition_content/src/features.rs`: re-exports
+* `game/ambition_content/src/features.rs`: re-exports
   `sync_boss_encounter_phase` + `tick_boss_brains_system`;
   `WorldPrepSchedulePlugin` chains them in.
 
-* `crates/ambition_content/src/character_catalog/resolver.rs`:
+* `game/ambition_content/src/character_catalog/resolver.rs`:
   catalog-preview `BossPattern` brain construction uses
   `BossPatternCfg::neutral_test()` as a baseline (real spawn-time
   bosses build their full cfg in `spawn.rs`).

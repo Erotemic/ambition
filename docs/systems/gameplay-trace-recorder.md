@@ -13,7 +13,7 @@ crates/ambition_actors/src/dev/trace/
   model.rs
   systems.rs
   tests.rs
-crates/ambition_app/src/bin/trace_replay.rs
+game/ambition_app/src/bin/trace_replay.rs
 ```
 
 The crate root re-exports `dev::trace` as `ambition_actors::trace` for compatibility. Prefer the `src/dev/trace/` path in new docs.

@@ -2026,7 +2026,7 @@ actor loop off `Without<BossConfig>`. Verified: gameplay_core 1091; boss_lifecyc
 8 / boss_contact_iframes 4 / boss_possession_specials 1.
 
 ### E28. A1 slice 3 — motion+float parity net for the driver fold ✅ (`a556281d`)
-"Parity harness first, then port boldly." `crates/ambition_app/tests/
+"Parity harness first, then port boldly." `game/ambition_app/tests/
 boss_motion_parity.rs` (rl_sim) pins the two invariants the integration fold most
 threatens and NOTHING else covers: a boss FLOATS (never gravity-falls) and, once
 woken, MOVES. The fold swaps the bespoke `step_floating_body` for the shared actor

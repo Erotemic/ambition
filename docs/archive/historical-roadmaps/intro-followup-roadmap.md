@@ -6,6 +6,6 @@ Current references:
 
 - `docs/current/state.md`
 - `docs/systems/architecture.md`
-- `crates/ambition_content/src/intro/`
+- `game/ambition_content/src/intro/`
 
 Use git history for the original long roadmap.

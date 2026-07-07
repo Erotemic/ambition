@@ -15,7 +15,7 @@ Per [[feedback-ldtk-tools-only]]: never hand-edit `sandbox.ldtk` or
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools \\
 python -m ambition_ldtk_tools.edit.space_debug_labels \\
-    crates/ambition_content/assets/worlds/intro.ldtk \\
+    game/ambition_content/assets/worlds/intro.ldtk \\
     --in-place
 ```
 

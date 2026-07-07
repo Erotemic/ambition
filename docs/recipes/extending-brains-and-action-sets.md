@@ -73,7 +73,7 @@ Use this when an `ActorActionMessage` is already emitted and the missing part is
 6. Schedule after `emit_brain_action_messages` and before the downstream tick that should observe the effect.
 7. Add a focused integration test in the consumer module.
 
-Current scheduling examples are in `crates/ambition_app/src/app/plugins.rs::register_combat_systems`.
+Current scheduling examples are in `game/ambition_app/src/app/plugins.rs::register_combat_systems`.
 
 ### Consumer skeleton
 

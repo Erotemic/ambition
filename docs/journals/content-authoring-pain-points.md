@@ -147,7 +147,7 @@ this run.
   body driven through the player-brain→ActorControl path (it moves + attacks).
 
 **P9 — the pain: every player sim system is `single_mut()`-keyed to the one player.**
-- `crates/ambition_app/src/app/sim_systems.rs` runs ~8 systems (movement, abilities,
+- `game/ambition_app/src/app/sim_systems.rs` runs ~8 systems (movement, abilities,
   attack, dash-cam, …) via `player_q.single_mut()` with `With<PlayerEntity>`. The
   integration FUNCTION is generic, but nothing ITERATES player-bodied entities — so a
   second player-clustered entity is simply never driven.
@@ -192,7 +192,7 @@ was aiming at.
   ready; the systems aren't.
 
 ### UPDATE 2 — the LIVE in-game clone works (press K)
-- `crates/ambition_app/src/app/player_clone.rs`: a `PlayerClone` is a non-player
+- `game/ambition_app/src/app/player_clone.rs`: a `PlayerClone` is a non-player
   entity carrying all 18 player movement clusters + a `PlayerDemo` brain + an
   `ActorControl`. `drive_player_clones` ticks its brain → `ActorControl` and runs
   the SHARED `update_player_with_tuning_clusters` (the exact human-player movement

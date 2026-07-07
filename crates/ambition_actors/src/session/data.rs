@@ -105,7 +105,7 @@ pub fn authored_sfx_registry() -> &'static SfxRegistry {
 static TEST_FIXTURE_MUSIC_REGISTRY: std::sync::LazyLock<MusicRegistry> =
     std::sync::LazyLock::new(|| {
         ron::from_str(include_str!(
-            "../../../ambition_content/assets/audio/music_registry.ron"
+            "../../../../game/ambition_content/assets/audio/music_registry.ron"
         ))
         .expect("ambition_content music_registry.ron should parse")
     });
@@ -114,7 +114,7 @@ static TEST_FIXTURE_MUSIC_REGISTRY: std::sync::LazyLock<MusicRegistry> =
 static TEST_FIXTURE_SFX_REGISTRY: std::sync::LazyLock<SfxRegistry> =
     std::sync::LazyLock::new(|| {
         ron::from_str(include_str!(
-            "../../../ambition_content/assets/audio/sfx_registry.ron"
+            "../../../../game/ambition_content/assets/audio/sfx_registry.ron"
         ))
         .expect("ambition_content sfx_registry.ron should parse")
     });

@@ -10,7 +10,7 @@ use super::plugins::{SandboxLdtkPlugin, SandboxPresentationPlugin, SandboxSimula
 ///
 /// Bevy's `FileAssetReader` anchors relative asset paths at
 /// `BEVY_ASSET_ROOT` / the RUNNING binary's `CARGO_MANIFEST_DIR` — which
-/// has been `crates/ambition_app/` since the Stage 20 / A3 bisection,
+/// has been `game/ambition_app/` since the Stage 20 / A3 bisection,
 /// while the asset tree stays with the machinery lib at
 /// `crates/ambition_actors/assets` (the lib's `include_str!` paths and
 /// the regen scripts anchor there). Under `cargo run` that default broke
@@ -300,7 +300,7 @@ pub fn run_web() {
         primary_window: Some(Window {
             title: "Ambition - Tangent Space Sandbox (Web)".into(),
             // The canvas selector matches `<canvas id="bevy">` in
-            // `crates/ambition_app/web/index.html`. Without this Bevy
+            // `game/ambition_app/web/index.html`. Without this Bevy
             // would mint its own canvas and append it to <body>; pinning
             // the selector lets the page own layout / sizing / focus.
             canvas: Some("#bevy".to_string()),

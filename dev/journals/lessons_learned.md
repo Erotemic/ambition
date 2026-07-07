@@ -214,18 +214,18 @@ So a sheet whose body fills the frame ends up near `1.0`, while one with lots of
 
 ## 2026-05-10: Bevy `add_systems` tuple chains cap at 20 systems
 
-Adding `upgrade_npc_sprites` to the big presentation tuple in [crates/ambition_app/src/app/plugins.rs](../../crates/ambition_app/src/app/plugins.rs) (the chain that runs after `sandbox_update`) pushed it from 20 to 21 systems and produced this error:
+Adding `upgrade_npc_sprites` to the big presentation tuple in [game/ambition_app/src/app/plugins.rs](../../game/ambition_app/src/app/plugins.rs) (the chain that runs after `sandbox_update`) pushed it from 20 to 21 systems and produced this error:
 
 ```text
 error[E0599]: the method `chain` exists for tuple `(..., ..., ..., …)`, but its trait bounds were not satisfied
-   --> crates/ambition_app/src/app/plugins.rs:355:18
+   --> game/ambition_app/src/app/plugins.rs:355:18
 355 |                 .chain()
     |                 ^^^^^ method cannot be called due to unsatisfied trait bounds
 ```
 
 `IntoSystemConfigs` (and the `chain()` extension) is implemented for tuples up to **20** elements in Bevy 0.18. There is no compile-time message about the cap; you only see the trait-bound failure on `.chain()`. Several earlier comments in this file said "16-system tuple budget" — that was right for older Bevy versions and is now stale.
 
-The established pattern in [plugins.rs](../../crates/ambition_app/src/app/plugins.rs) is **not** to subdivide the chain (which would silently change ordering) but to pull the new system out into its own `add_systems(Update, sys.after(prev))` call. `sync_health_overlays`, `map_menu_pointer_dismiss`, and `update_quest_panel` are already wired this way; `upgrade_npc_sprites` joins them.
+The established pattern in [plugins.rs](../../game/ambition_app/src/app/plugins.rs) is **not** to subdivide the chain (which would silently change ordering) but to pull the new system out into its own `add_systems(Update, sys.after(prev))` call. `sync_health_overlays`, `map_menu_pointer_dismiss`, and `update_quest_panel` are already wired this way; `upgrade_npc_sprites` joins them.
 
 Why this beats splitting into two chained tuples:
 
@@ -560,7 +560,7 @@ Three coordinated invariants:
    `ControlFrame` is left intact.
 
 Regression tests live in
-[`crates/ambition_actors/tests/crouch_stability.rs`](../../crates/ambition_app/tests/crouch_stability.rs)
+[`crates/ambition_actors/tests/crouch_stability.rs`](../../game/ambition_app/tests/crouch_stability.rs)
 (held Down for 30 frames must stay Crouching with per-frame `pos.y`
 delta < 5 px) and
 `fold_held_down_without_edge_flag_does_not_fire_down_pressed` (historical path: `crates/ambition_actors/src/mobile_input.rs`)

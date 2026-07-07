@@ -33,7 +33,7 @@ import sys
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-LDTK_PATH = REPO_ROOT / "crates/ambition_content/assets/worlds/intro.ldtk"
+LDTK_PATH = REPO_ROOT / "game/ambition_content/assets/worlds/intro.ldtk"
 
 # Intro slice levels that should play the tech_bros_disruption track.
 # `pirate_sky_arena` is intentionally NOT in this list — it's a sky

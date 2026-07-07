@@ -28,7 +28,7 @@ brain run (commits `c41997b`, `32c37e3`, `506b06c`, etc.).
 
 ### Player bypass — `sandbox_update` / `update_player_*`
 
-**File:** `crates/ambition_app/src/app/phases.rs`
+**File:** `game/ambition_app/src/app/phases.rs`
 
 - `player_control_phase` (line ~63) calls
   `ae::update_player_control_with_tuning(&control_world, player, input, ...)`

@@ -97,8 +97,8 @@ The earlier monolith has since been split into focused crates. Reusable engine
 semantics live in `crates/ambition_engine_core/`; content-free gameplay systems
 and runtime state live in `crates/ambition_actors/`; presentation lives
 in `crates/ambition_render/`; named authored content lives in
-`crates/ambition_content/`; and runnable binaries/app assembly live in
-`crates/ambition_app/`. Keep new dependencies at the lowest layer that actually
+`game/ambition_content/`; and runnable binaries/app assembly live in
+`game/ambition_app/`. Keep new dependencies at the lowest layer that actually
 needs them.
 
 ### Macro and generics discipline

@@ -25,7 +25,7 @@ of the project's `worldGridWidth` (would land off-grid). Pass
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools \\
 python -m ambition_ldtk_tools world repack \\
-    crates/ambition_content/assets/worlds/intro.ldtk \\
+    game/ambition_content/assets/worlds/intro.ldtk \\
     --start-x 0 --start-y 0 \\
     --in-place
 ```

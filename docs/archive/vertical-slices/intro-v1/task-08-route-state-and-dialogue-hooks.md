@@ -21,7 +21,7 @@ survey annotations, and route memory.
 ## Files likely to change
 
 - `crates/ambition_engine/src/save.rs`
-- `crates/ambition_content/src/quest.rs`
+- `game/ambition_content/src/quest.rs`
 - `crates/ambition_actors/src/dialog/content.rs`
 - `crates/ambition_actors/src/intro/dialog.rs`
 - `crates/ambition_actors/assets/ambition/worlds/intro.ldtk`

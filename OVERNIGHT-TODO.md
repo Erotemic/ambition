@@ -253,7 +253,7 @@ other refactor and gives a fast simulation/test target.
 
 `crates/ambition_actors/src/app/update.rs` still has a large `sandbox_update`
 system that takes many resources and delegates to big phase functions.
-`crates/ambition_app/src/app/feedback.rs` has `SandboxEventWriters`,
+`game/ambition_app/src/app/feedback.rs` has `SandboxEventWriters`,
 `SandboxQueues`, and `ProgressionResources` wrappers partly to stay under
 Bevy's system-param limit. Parameter-limit management is shaping architecture.
 
@@ -279,7 +279,7 @@ or two systems while preserving tests and behavior.
 
 ### 6. Move subsystem registration into real Bevy plugins
 
-`crates/ambition_app/src/app/plugins.rs` is around 1,200 lines. It already
+`game/ambition_app/src/app/plugins.rs` is around 1,200 lines. It already
 has helper registration functions, but it still centralizes ownership of
 simulation messages/resources, progression chains, encounter simulation,
 gameplay effects, pause / menu / input / mobile / audio.

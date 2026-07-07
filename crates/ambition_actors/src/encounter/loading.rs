@@ -43,7 +43,7 @@ pub fn install_encounter_waves(book: HashMap<String, Vec<EncounterWaveSpec>>) {
 static ENCOUNTER_WAVE_BOOK_FIXTURE: std::sync::LazyLock<HashMap<String, Vec<EncounterWaveSpec>>> =
     std::sync::LazyLock::new(|| {
         ron::from_str(include_str!(
-            "../../../ambition_content/assets/data/encounters/goblin_encounter.ron"
+            "../../../../game/ambition_content/assets/data/encounters/goblin_encounter.ron"
         ))
         .expect("goblin_encounter.ron should parse as an encounter wave book")
     });

@@ -67,7 +67,7 @@ pub fn catalog_ron() -> &'static str {
         {
             // Test fixture = the game's REAL catalog, read cross-crate from
             // ambition_content (the install_enemy_roster fixture pattern).
-            include_str!("../../ambition_content/assets/data/character_catalog.ron")
+            include_str!("../../../game/ambition_content/assets/data/character_catalog.ron")
         }
         #[cfg(not(test))]
         {

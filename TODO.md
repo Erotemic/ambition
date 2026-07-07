@@ -227,7 +227,7 @@ When you wake up here, pick the next task from this list and work on it without 
 
 - [ ] **Time-domain consistency sweep** `[V4/D2]` - Route gameplay timers and state-machine progression through `WorldTime::sim_dt()` where they should slow/freeze with sim time. Leave genuinely wall-clock systems alone. Also audit direct `clock.time_scale` mutation versus `ClockScaleRequest` routing.
 
-- [ ] **Move boss special-attack tunings into `boss_profiles.ron`** `[V3/D2]` - Move special-attack numeric tunings out of Rust constants in `crates/ambition_content/src/bosses/specials/` and into authored boss data. Keep the Rust code as the behavior implementation, but make existing special tuning changes data-only.
+- [ ] **Move boss special-attack tunings into `boss_profiles.ron`** `[V3/D2]` - Move special-attack numeric tunings out of Rust constants in `game/ambition_content/src/bosses/specials/` and into authored boss data. Keep the Rust code as the behavior implementation, but make existing special tuning changes data-only.
 
 - [ ] **Boss-encounter plugin seam** `[V4/D4]` - Make adding a boss/encounter require as little core-code editing as possible. Move encounter-level metadata into data where appropriate, and give bespoke set-pieces stable spawn, damage/kill-condition, dialog, and encounter hooks so core systems do not grow one branch per encounter.
 

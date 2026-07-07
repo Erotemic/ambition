@@ -74,13 +74,13 @@ when test fixtures don't install the boss machine). Unit tests in
 
 The encounter's numeric fields (HP, phase thresholds, timings,
 music ids) are content rather than Rust constants. Each authored boss ships an
-encounter RON under `crates/ambition_content/assets/data/boss_encounters/<id>.ron`.
+encounter RON under `game/ambition_content/assets/data/boss_encounters/<id>.ron`.
 `ambition_content::bosses::install_boss_roster` embeds and installs those specs
 into gameplay-core's generic holder during sandbox resource initialization.
 
 `ambition_actors` owns the reusable schema and encounter state machine.
 It does not own the named boss roster. Behavior/reward data comes from
-`crates/ambition_content/assets/data/boss_profiles.ron`; LDtk owns spatial
+`game/ambition_content/assets/data/boss_profiles.ron`; LDtk owns spatial
 placement. That is the current ADR 0017 split: Rust = reusable behavior/schema,
 RON in `ambition_content` = named game content, LDtk = space.
 

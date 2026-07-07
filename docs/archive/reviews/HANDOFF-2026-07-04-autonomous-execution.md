@@ -53,7 +53,7 @@ C7. But use judgment; none blocks another except where noted. If an item turns o
 design fork, note it in the doc for fable and SKIP it — do not stop the run.
 
 ### 1. C4 — app-thinness: fold `sim_systems.rs` into owning library plugins
-`crates/ambition_app/src/app/sim_systems.rs` (7 systems, ~579 LOC) holds real gameplay-sim logic
+`game/ambition_app/src/app/sim_systems.rs` (7 systems, ~579 LOC) holds real gameplay-sim logic
 in the app binary. Move the LOGIC down to its owning `ambition_actors` module; the app's
 schedule registration (in `app/plugins.rs` — `register_player_input_systems` ~L245-342 and the
 `cleanup_timers_system` at ~L456) keeps owning the ordering but references the moved `pub fn`.
@@ -72,7 +72,7 @@ schedule registration (in `app/plugins.rs` — `register_player_input_systems` ~
   `ambition_content::bosses`, not the app. Moving it is a content-out-of-core win IF the schedule
   hook can be expressed content-side; if that needs the rooms world-hook seam (JD4, fable-reserved),
   leave it and note it. Don't build the rooms seam here.
-- Extend `crates/ambition_app/tests/architecture_boundaries.rs` (mirror
+- Extend `game/ambition_app/tests/architecture_boundaries.rs` (mirror
   `architecture_boundaries_touch_input_crate_is_extracted`) to pin that the moved systems are no
   longer DEFINED in the app.
 - The `PlatformerEnginePlugin` group (collect the ~30 engine plugins in `plugins.rs`) is a nice-to-have

@@ -16,7 +16,7 @@ without re-creating the entity from scratch and losing references.
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools \\
 python -m ambition_ldtk_tools def update-entity Actor \\
-    crates/ambition_content/assets/worlds/sandbox.ldtk \\
+    game/ambition_content/assets/worlds/sandbox.ldtk \\
     --add-field aggression:String:Peaceful \\
     --add-field dialogue_id:String: \\
     --add-field brain:String: \\

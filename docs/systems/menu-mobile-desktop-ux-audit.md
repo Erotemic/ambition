@@ -8,8 +8,8 @@ Status: historical UX audit kept as risk context, not current system ownership d
 - `crates/ambition_ui_nav/src/` contains shared list, pointer, and drag helpers.
 - `crates/ambition_actors/src/menu/ir/` and `crates/ambition_actors/src/menu/map/` own sandbox menu data and map-tab behavior.
 - `crates/ambition_menu/src/render/` owns reusable Bevy-UI/kaleidoscope renderers.
-- `crates/ambition_app/src/menu/` owns app menu state, dispatch, pointer integration, and renderer wiring.
-- `crates/ambition_app/src/host/mobile_input/menu_bridge.rs` folds touch/drag input into menu intent.
+- `game/ambition_app/src/menu/` owns app menu state, dispatch, pointer integration, and renderer wiring.
+- `game/ambition_app/src/host/mobile_input/menu_bridge.rs` folds touch/drag input into menu intent.
 
 ## Remaining UX risks
 

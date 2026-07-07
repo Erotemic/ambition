@@ -161,7 +161,7 @@ web = ["visible_web", "web_platform"]
 
 # Browser persona — served assets. Use with `./build_for_web.sh --served`
 # (which symlinks/copies `crates/ambition_actors/assets/` into
-# `crates/ambition_app/web/assets/` so the served pages can reach
+# `game/ambition_app/web/assets/` so the served pages can reach
 # them under `/assets/...`). Full media: visuals + authored audio.
 web_served_assets = ["visible_web_served", "web_platform"]
 

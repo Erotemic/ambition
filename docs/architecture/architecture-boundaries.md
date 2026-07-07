@@ -2,7 +2,7 @@
 
 Source-scanning tests keep the crate boundaries honest. The live boundaries are real crates — foundations ← machinery lib (`ambition_actors`)
 ← content (`ambition_content`) ← app (`ambition_app`) — and the guards (~22) live
-in `crates/ambition_app/tests/architecture_boundaries.rs`. Not a substitute for
+in `game/ambition_app/tests/architecture_boundaries.rs`. Not a substitute for
 rustc, but fast directional feedback.
 
 ## Current guardrails (representative)

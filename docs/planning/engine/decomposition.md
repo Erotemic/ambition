@@ -1235,14 +1235,14 @@ arena first).
 ### E7 / E8 — residue + the workspace re-home — [opus/sonnet]
 
 E7: ✅ **rename slice DONE (Codex 2026-07-07):** the former
-`ambition_gameplay_core` package/path is now `ambition_actors`. Remaining
-E7 work is the features-hub facade dissolution, **and the workspace
-re-home** (architecture §1): `ambition_content` + `ambition_app` move from
-`crates/` to `game/`, demo pairs live under `demos/` — a mechanical
-`git mv` + workspace-members + CI-path slice that makes the
-engine/game/demo split visible in the filesystem (do it LAST in D-A; it
-touches every path reference once). E8: ✅ **catalog/UI slice DONE (Codex
-2026-07-07):** `ambition_items` owns the finite item catalog, shop
+`ambition_gameplay_core` package/path is now `ambition_actors`. ✅
+**workspace re-home DONE (Codex 2026-07-07):** `ambition_content` +
+`ambition_app` moved from `crates/` to `game/`, with workspace members,
+relative path dependencies, fixtures, docs, scripts, and tooling references
+repointed. Demo pairs already live outside `crates/` when minted; no demo
+crate move was needed in this slice. Remaining E7 work is the features-hub
+facade dissolution. E8: ✅ **catalog/UI slice DONE (Codex 2026-07-07):**
+`ambition_items` owns the finite item catalog, shop
 primitives, and `InventoryUiState`; `ambition_actors::items::{pickup,persist}`
 remain actor-sim adapters by authority. The `time/` residue stays by
 measurement. Plus the remaining crit-3 slices: the

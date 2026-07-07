@@ -10,7 +10,7 @@ Run from the repo root with:
 
     PYTHONPATH=tools/ambition_ldtk_tools \
     python -m ambition_ldtk_tools roundtrip \
-      crates/ambition_content/assets/worlds/sandbox.ldtk
+      game/ambition_content/assets/worlds/sandbox.ldtk
 """
 
 from __future__ import annotations

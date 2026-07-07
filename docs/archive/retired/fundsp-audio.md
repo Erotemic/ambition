@@ -30,8 +30,8 @@ The deleted code lived at:
 - `crates/ambition_actors/src/audio/render.rs::render_lofi_theme`
 - `crates/ambition_actors/src/audio/render.rs::render_sfx*`
 - `crates/ambition_actors/src/audio/runtime.rs::TrackSource::Procedural`
-- `crates/ambition_app/src/bin/tune_preview.rs`
-- `crates/ambition_app/src/bin/music_track_report.rs`
+- `game/ambition_app/src/bin/tune_preview.rs`
+- `game/ambition_app/src/bin/music_track_report.rs`
 - the `fundsp` Cargo dependency on `ambition_actors`.
 
 ## Why retired

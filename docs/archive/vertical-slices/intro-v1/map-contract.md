@@ -243,7 +243,7 @@ crates/ambition_engine/src/quest.rs
   QuestStepCondition::FlagSet(String)
   Quest registry persists changed_ids into SandboxSave.
 
-crates/ambition_content/src/quest.rs
+game/ambition_content/src/quest.rs
   push_room_entered_quest_events fires RoomEntered when active room flips.
   apply_quest_advance_events drains pending events into the registry.
   Existing flag usage: 'met_any_hub_npc', 'test_switch_toggled',

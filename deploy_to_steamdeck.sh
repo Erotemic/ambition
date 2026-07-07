@@ -10,7 +10,7 @@ cd "$REPO"
 # Optional but useful: fail before deploying a bad map.
 PYTHONPATH="$REPO/tools/ambition_ldtk_tools" \
     python -m ambition_ldtk_tools validate \
-    crates/ambition_content/assets/worlds/sandbox.ldtk
+    game/ambition_content/assets/worlds/sandbox.ldtk
 
 # Verify the distributable bundled fonts have been materialized locally.
 # Do not package assets/fonts/local; those are local-machine fallback fonts.
@@ -43,7 +43,7 @@ rsync -av --delete \
 # assets/ dir; the app's `game://` asset source roots there under
 # BEVY_ASSET_ROOT.
 rsync -av \
-    crates/ambition_content/assets/ \
+    game/ambition_content/assets/ \
     "$DECK:$APPDIR/assets/"
 
 # Ensure old local-only fonts from previous deploys do not linger on the Deck.

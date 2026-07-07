@@ -13,8 +13,8 @@ use ambition_persistence::save_data::PersistedEncounterState;
 fn install_test_world_manifest() {
     use crate::ldtk_world::{install_world_manifest, WorldManifest, WorldSource};
     use ambition_asset_manager::AssetId;
-    let worlds_dir =
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../ambition_content/assets/worlds");
+    let worlds_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../game/ambition_content/assets/worlds");
     install_world_manifest(WorldManifest {
         entry_room: "central_hub_complex".to_string(),
         ron_rooms: Vec::new(),

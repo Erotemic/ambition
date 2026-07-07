@@ -7,8 +7,8 @@ aliases:
   - property tests
 implemented_by:
   - crates/ambition_engine_core/src/movement
-  - crates/ambition_app/tests
-  - crates/ambition_content/src
+  - game/ambition_app/tests
+  - game/ambition_content/src
   - crates/ambition_actors/src
   - .github/workflows
 related_docs:

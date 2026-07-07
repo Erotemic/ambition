@@ -23,7 +23,7 @@ fn app_src() -> PathBuf {
 
 /// The named-content crate's source root.
 fn content_src() -> PathBuf {
-    repo_root().join("crates/ambition_content/src")
+    repo_root().join("game/ambition_content/src")
 }
 
 fn collect_rs_files(root: &Path) -> Vec<PathBuf> {
@@ -981,7 +981,7 @@ fn architecture_boundaries_touch_input_crate_is_extracted() {
         "ambition_touch_input extracted crate",
     );
     // The old in-app location is gone — the app no longer OWNS the touch adapter.
-    let app_src = repo_root().join("crates/ambition_app/src");
+    let app_src = repo_root().join("game/ambition_app/src");
     assert_paths_absent(
         &app_src,
         &["host/mobile_input", "host/mobile_input/mod.rs"],

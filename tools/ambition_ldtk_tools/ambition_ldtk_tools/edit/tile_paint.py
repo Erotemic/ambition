@@ -27,7 +27,7 @@ tiles in-game.
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools \\
 python -m ambition_ldtk_tools tileset paint \\
-    crates/ambition_content/assets/worlds/intro.ldtk \\
+    game/ambition_content/assets/worlds/intro.ldtk \\
     intro_wake_room \\
     IntroLabTiles \\
     --from-intgrid Collision \\

@@ -6,8 +6,8 @@ Progression is the set of save-backed facts that change what the player can do o
 
 ```text
 crates/ambition_actors/src/quest/                 # generic quest runtime and state
-crates/ambition_content/src/quest.rs               # shipped quest specs and payouts
-crates/ambition_content/src/quests/                # authored quest registration/content
+game/ambition_content/src/quest.rs               # shipped quest specs and payouts
+game/ambition_content/src/quests/                # authored quest registration/content
 crates/ambition_actors/src/persistence/save.rs    # durable save facts
 crates/ambition_actors/src/dialog/                # dialogue runtime/read model
 crates/ambition_actors/src/encounter/             # encounter progression hooks

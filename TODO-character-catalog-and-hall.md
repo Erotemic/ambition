@@ -409,7 +409,7 @@ accept `.ron` natively; the YAML path is retired in the same commit.
 
 ## Bevy plugin shape
 
-`crates/ambition_content/src/character_catalog/`:
+`game/ambition_content/src/character_catalog/`:
 
 - `mod.rs` — `CharacterCatalogPlugin`, `CharacterCatalog` resource, public API.
 - `entry.rs` — `CharacterCatalogEntry` struct, `BrainPreset` / `ActionSetPreset` enums (deserialized RON shapes).
@@ -440,9 +440,9 @@ phase if budget runs out.
 
 **Files:**
 - New: `crates/ambition_actors/assets/data/character_catalog.ron` (codegen'd from current registry)
-- New: `crates/ambition_content/src/character_catalog/{mod,entry,loader,resolver,validator}.rs`
+- New: `game/ambition_content/src/character_catalog/{mod,entry,loader,resolver,validator}.rs`
 - New: `tools/ambition_ldtk_tools/ambition_ldtk_tools/codegen_character_catalog.py` (one-shot migration script)
-- Edit: `crates/ambition_app/src/app/plugins.rs` (register plugin)
+- Edit: `game/ambition_app/src/app/plugins.rs` (register plugin)
 
 **Tests:**
 - `character_catalog::tests::catalog_loads_without_panic`

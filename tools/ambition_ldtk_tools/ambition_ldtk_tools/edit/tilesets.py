@@ -21,7 +21,7 @@ tool unblocks. The intended call sequence is:
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools \\
 python -m ambition_ldtk_tools tileset add \\
-    crates/ambition_content/assets/worlds/intro.ldtk \\
+    game/ambition_content/assets/worlds/intro.ldtk \\
     crates/ambition_actors/assets/sprites/intro_lab_tileset.png \\
     16 \\
     --identifier intro_lab \\

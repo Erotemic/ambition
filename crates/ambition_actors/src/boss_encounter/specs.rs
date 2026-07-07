@@ -66,7 +66,7 @@ pub(super) fn boss_encounter_specs() -> Vec<BossEncounterSpec> {
 #[cfg(test)]
 fn boss_encounter_specs_fallback() -> Vec<BossEncounterSpec> {
     let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../ambition_content/assets/data/boss_encounters");
+        .join("../../game/ambition_content/assets/data/boss_encounters");
     let Ok(entries) = std::fs::read_dir(&dir) else {
         return Vec::new();
     };

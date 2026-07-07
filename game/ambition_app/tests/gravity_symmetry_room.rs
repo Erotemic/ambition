@@ -225,7 +225,7 @@ fn sample_json(sample: &LocalSample) -> serde_json::Value {
 }
 
 fn repo_root() -> PathBuf {
-    // In an integration test, CARGO_MANIFEST_DIR is crates/ambition_app.
+    // In an integration test, CARGO_MANIFEST_DIR is game/ambition_app.
     Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../..")
         .components()

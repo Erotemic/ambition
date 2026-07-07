@@ -29,28 +29,28 @@ falling_sand = ["dep:bevy_falling_sand"]
 # Baseline machinery features: the sandbox lib was never built fully bare
 # (ldtk/input/portal code is not end-to-end cfg-gated), so the content crate
 # pins the same always-on baseline every persona used pre-split.
-ambition_actors = { path = "../ambition_actors", default-features = false, features = [
+ambition_actors = { path = "../../crates/ambition_actors", default-features = false, features = [
     "ldtk_runtime",
     "input",
     "portal",
 ] }
-ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
-ambition_projectiles = { path = "../ambition_projectiles" }
-ambition_render = { path = "../ambition_render" }
-ambition_cutscene = { path = "../ambition_cutscene" }
-ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy", "sfx"] }
-ambition_sfx = { path = "../ambition_sfx" }
-ambition_vfx = { path = "../ambition_vfx" }
-ambition_time = { path = "../ambition_time" }
-ambition_audio = { path = "../ambition_audio", optional = true }
-ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
-ambition_input = { path = "../ambition_input" }
-ambition_engine_core = { path = "../ambition_engine_core" }
-ambition_entity_catalog = { path = "../ambition_entity_catalog" }
-ambition_characters = { path = "../ambition_characters" }
-ambition_persistence = { path = "../ambition_persistence" }
-ambition_interaction = { path = "../ambition_interaction" }
-ambition_items = { path = "../ambition_items" }
+ambition_sprite_sheet = { path = "../../crates/ambition_sprite_sheet" }
+ambition_projectiles = { path = "../../crates/ambition_projectiles" }
+ambition_render = { path = "../../crates/ambition_render" }
+ambition_cutscene = { path = "../../crates/ambition_cutscene" }
+ambition_asset_manager = { path = "../../crates/ambition_asset_manager", features = ["bevy", "sfx"] }
+ambition_sfx = { path = "../../crates/ambition_sfx" }
+ambition_vfx = { path = "../../crates/ambition_vfx" }
+ambition_time = { path = "../../crates/ambition_time" }
+ambition_audio = { path = "../../crates/ambition_audio", optional = true }
+ambition_platformer_primitives = { path = "../../crates/ambition_platformer_primitives" }
+ambition_input = { path = "../../crates/ambition_input" }
+ambition_engine_core = { path = "../../crates/ambition_engine_core" }
+ambition_entity_catalog = { path = "../../crates/ambition_entity_catalog" }
+ambition_characters = { path = "../../crates/ambition_characters" }
+ambition_persistence = { path = "../../crates/ambition_persistence" }
+ambition_interaction = { path = "../../crates/ambition_interaction" }
+ambition_items = { path = "../../crates/ambition_items" }
 bevy = { version = "0.18.1", default-features = false, features = ["ui_api"] }
 bevy_yarnspinner = { version = "0.8", optional = true }
 # Drop bevy_falling_sand's default `physics` feature: it bundles its OWN

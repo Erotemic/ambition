@@ -106,38 +106,38 @@ frame_pacing = ["ambition_actors/frame_pacing", "dep:bevy_framepace"]
 profile = ["ambition_actors/profile"]
 
 [dependencies]
-ambition_actors = { path = "../ambition_actors", default-features = false }
-ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
-ambition_projectiles = { path = "../ambition_projectiles" }
+ambition_actors = { path = "../../crates/ambition_actors", default-features = false }
+ambition_sprite_sheet = { path = "../../crates/ambition_sprite_sheet" }
+ambition_projectiles = { path = "../../crates/ambition_projectiles" }
 # The engine face (E5): the app assembles its sim from `PlatformerEnginePlugins`
 # — the same group a demo app uses — plus its app-local host wiring.
-ambition_runtime = { path = "../ambition_runtime" }
+ambition_runtime = { path = "../../crates/ambition_runtime" }
 # The windowed-host face (E5 step 5): leafwing bindings + camera cluster.
-ambition_host = { path = "../ambition_host" }
-ambition_sim_view = { path = "../ambition_sim_view", features = ["input"] }
+ambition_host = { path = "../../crates/ambition_host" }
+ambition_sim_view = { path = "../../crates/ambition_sim_view", features = ["input"] }
 ambition_content = { path = "../ambition_content" }
-ambition_render = { path = "../ambition_render" }
-ambition_cutscene = { path = "../ambition_cutscene" }
-ambition_engine_core = { path = "../ambition_engine_core" }
-ambition_entity_catalog = { path = "../ambition_entity_catalog" }
-ambition_characters = { path = "../ambition_characters" }
-ambition_input = { path = "../ambition_input" }
-ambition_items = { path = "../ambition_items" }
+ambition_render = { path = "../../crates/ambition_render" }
+ambition_cutscene = { path = "../../crates/ambition_cutscene" }
+ambition_engine_core = { path = "../../crates/ambition_engine_core" }
+ambition_entity_catalog = { path = "../../crates/ambition_entity_catalog" }
+ambition_characters = { path = "../../crates/ambition_characters" }
+ambition_input = { path = "../../crates/ambition_input" }
+ambition_items = { path = "../../crates/ambition_items" }
 # Touch/mobile input adapter — carved out of `src/host/mobile_input/` (app-thinness).
 # Its `mobile_touch` feature (forwarded below) gates the virtual-joystick plugin.
-ambition_touch_input = { path = "../ambition_touch_input" }
-ambition_ui_nav = { path = "../ambition_ui_nav" }
-ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
-ambition_persistence = { path = "../ambition_persistence" }
-ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy", "sfx"] }
-ambition_audio = { path = "../ambition_audio" }
-ambition_sfx = { path = "../ambition_sfx" }
-ambition_vfx = { path = "../ambition_vfx" }
-ambition_menu = { path = "../ambition_menu" }
+ambition_touch_input = { path = "../../crates/ambition_touch_input" }
+ambition_ui_nav = { path = "../../crates/ambition_ui_nav" }
+ambition_platformer_primitives = { path = "../../crates/ambition_platformer_primitives" }
+ambition_persistence = { path = "../../crates/ambition_persistence" }
+ambition_asset_manager = { path = "../../crates/ambition_asset_manager", features = ["bevy", "sfx"] }
+ambition_audio = { path = "../../crates/ambition_audio" }
+ambition_sfx = { path = "../../crates/ambition_sfx" }
+ambition_vfx = { path = "../../crates/ambition_vfx" }
+ambition_menu = { path = "../../crates/ambition_menu" }
 # The bevy_lunex cube renderer — the first engine extension crate (E1e). The
 # app's kaleidoscope_app host installs it to render the menu page model as a cube.
-ambition_menu_kaleidoscope = { path = "../../game/ambition_menu_kaleidoscope" }
-ambition_time = { path = "../ambition_time" }
+ambition_menu_kaleidoscope = { path = "../ambition_menu_kaleidoscope" }
+ambition_time = { path = "../../crates/ambition_time" }
 bevy = { version = "0.18.1", default-features = false, features = ["ui_api"] }
 bevy_common_assets = { version = "0.15", features = ["ron"] }
 bevy_yarnspinner = { version = "0.8", optional = true }

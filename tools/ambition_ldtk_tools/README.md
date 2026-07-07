@@ -13,26 +13,26 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools <subcommand> 
 ```bash
 # Validate gameplay/editor contracts without mutating the file.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools validate \
-  crates/ambition_content/assets/worlds/sandbox.ldtk
+  game/ambition_content/assets/worlds/sandbox.ldtk
 
 # Check whether the package repair pass would change the file.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools roundtrip \
-  crates/ambition_content/assets/worlds/sandbox.ldtk
+  game/ambition_content/assets/worlds/sandbox.ldtk
 
 # Run roundtrip + validate.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools doctor \
-  crates/ambition_content/assets/worlds/sandbox.ldtk
+  game/ambition_content/assets/worlds/sandbox.ldtk
 
 # Repair in place, then inspect the diff before committing.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools repair \
-  crates/ambition_content/assets/worlds/sandbox.ldtk \
+  game/ambition_content/assets/worlds/sandbox.ldtk \
   --in-place
-git diff -- crates/ambition_content/assets/worlds/sandbox.ldtk
+git diff -- game/ambition_content/assets/worlds/sandbox.ldtk
 
 # Schema helpers.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools schema fetch
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools schema validate \
-  crates/ambition_content/assets/worlds/sandbox.ldtk \
+  game/ambition_content/assets/worlds/sandbox.ldtk \
   --schema tools/ambition_ldtk_tools/schemas/ldtk/JSON_SCHEMA.json \
   --require-schema
 
@@ -70,12 +70,12 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools portal pair \
 # SVG reports before writing.
 for strategy in greedy layered clustered; do
   PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools world auto-layout \
-    crates/ambition_content/assets/worlds/sandbox.ldtk \
+    game/ambition_content/assets/worlds/sandbox.ldtk \
     --start central_hub_main --origin 0,0 --dry-run \
     --strategy "$strategy" --svg-report "/tmp/sandbox-layout-$strategy.svg"
 done
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools world auto-layout \
-  crates/ambition_content/assets/worlds/sandbox.ldtk \
+  game/ambition_content/assets/worlds/sandbox.ldtk \
   --start central_hub_main --origin 0,0 --strategy layered --padding 128 \
   --report /tmp/sandbox-layout.txt --svg-report /tmp/sandbox-layout.svg --in-place
 # Strategies: greedy = legacy door-near packing, layered = Sugiyama-style ranks,
@@ -126,19 +126,19 @@ unchanged while making LDtk editing saner.
 ```bash
 # Move CameraZones in one room.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity change-layer \
-  crates/ambition_content/assets/worlds/sandbox.ldtk \
+  game/ambition_content/assets/worlds/sandbox.ldtk \
   --level symmetry_room --identifier CameraZone \
   --from-layer Ambition --to-layer AmbitionCameras --in-place
 
 # Make LDtk enforce the convention via entity tags and layer filters.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools layer apply-entity-rules \
-  crates/ambition_content/assets/worlds/sandbox.ldtk \
+  game/ambition_content/assets/worlds/sandbox.ldtk \
   --type CameraZone --to-layer AmbitionCameras --from-layer Ambition \
   --tag Camera --in-place
 
 # Check placement convention in CI/agent preflight.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools layer check-entity-rules \
-  crates/ambition_content/assets/worlds/sandbox.ldtk
+  game/ambition_content/assets/worlds/sandbox.ldtk
 ```
 
 Layer relocation writes editor-style JSON directly and does not run full
@@ -166,7 +166,7 @@ changes.
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools policy check \
-  crates/ambition_content/assets/worlds/sandbox.ldtk
+  game/ambition_content/assets/worlds/sandbox.ldtk
 ```
 
 Default policy includes `CameraZone=AmbitionCameras`. Add project-specific rules
@@ -177,10 +177,10 @@ layer moves.
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools camera audit \
-  crates/ambition_content/assets/worlds/sandbox.ldtk --level symmetry_room
+  game/ambition_content/assets/worlds/sandbox.ldtk --level symmetry_room
 
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools camera auto-cover \
-  crates/ambition_content/assets/worlds/sandbox.ldtk \
+  game/ambition_content/assets/worlds/sandbox.ldtk \
   --level symmetry_room --margin 64 --create --in-place
 ```
 
@@ -191,10 +191,10 @@ collision play envelope, expanded by `--margin`.
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset catalog \
-  crates/ambition_content/assets/worlds/sandbox.ldtk
+  game/ambition_content/assets/worlds/sandbox.ldtk
 
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset link-entity-tile \
-  crates/ambition_content/assets/worlds/sandbox.ldtk \
+  game/ambition_content/assets/worlds/sandbox.ldtk \
   --entity PlayerStart --tileset my_tiles --tile 0,0,16,16 --in-place
 ```
 
@@ -208,7 +208,7 @@ rectangles.
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools room compile-spec \
-  specs/my_room_patch.json --ldtk crates/ambition_content/assets/worlds/sandbox.ldtk \
+  specs/my_room_patch.json --ldtk game/ambition_content/assets/worlds/sandbox.ldtk \
   --dry-run
 ```
 
@@ -230,23 +230,23 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset generat
 
 # Draft a manifest that maps common editor entities to that sheet.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset suggest-manifest \
-  crates/ambition_content/assets/worlds/sandbox.ldtk \
+  game/ambition_content/assets/worlds/sandbox.ldtk \
   --icons crates/ambition_actors/assets/sprites/editor_icons.png \
   --out tools/ambition_ldtk_tools/manifests/sandbox_visuals.json
 
 # Apply or validate LDtk-side visual refs. This mutates only LDtk defs: tilesets
 # and entity editor tileRect/uiTileRect references.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset apply-manifest \
-  crates/ambition_content/assets/worlds/sandbox.ldtk \
+  game/ambition_content/assets/worlds/sandbox.ldtk \
   tools/ambition_ldtk_tools/manifests/sandbox_visuals.json \
   --in-place
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset validate-manifest \
-  crates/ambition_content/assets/worlds/sandbox.ldtk \
+  game/ambition_content/assets/worlds/sandbox.ldtk \
   tools/ambition_ldtk_tools/manifests/sandbox_visuals.json
 
 # Generate a compact HTML preview for human review.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset preview-manifest \
-  crates/ambition_content/assets/worlds/sandbox.ldtk \
+  game/ambition_content/assets/worlds/sandbox.ldtk \
   tools/ambition_ldtk_tools/manifests/sandbox_visuals.json \
   --out /tmp/sandbox_visuals.html
 ```

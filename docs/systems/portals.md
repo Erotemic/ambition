@@ -12,7 +12,7 @@ document here. As of this writing there are two gameplay-feel accommodations
 (input warp + auto-orientation) plus a couple of smaller stability/robustness
 ones — all listed below.
 
-Code: `crates/ambition_portal/src/pieces.rs` owns the pure math — the Core invariant. `crates/ambition_portal/src/transit.rs`, `placement.rs`, `gun.rs`, `pickup.rs`, and `plugin.rs` own reusable portal ECS. Content/app adapters live under `crates/ambition_content/src/portal/`, while presentation-only body pieces and view cones live under `crates/ambition_portal_presentation/src/`. The test lab is the LDtk-authored `portal_lab` room.
+Code: `crates/ambition_portal/src/pieces.rs` owns the pure math — the Core invariant. `crates/ambition_portal/src/transit.rs`, `placement.rs`, `gun.rs`, `pickup.rs`, and `plugin.rs` own reusable portal ECS. Content/app adapters live under `game/ambition_content/src/portal/`, while presentation-only body pieces and view cones live under `crates/ambition_portal_presentation/src/`. The test lab is the LDtk-authored `portal_lab` room.
 
 ---
 
@@ -271,7 +271,7 @@ rewrite.
 | Transit state machine | `crates/ambition_portal/src/transit.rs`: `transit_step`, `PortalTransit`, `TransitStep`; ECS scheduling via `plugin.rs` |
 | Host-surface carve | `crates/ambition_portal/src/placement.rs::publish_portal_carves` → content carve adapter/world overlay |
 | Partial render (feet in / feet out) | `crates/ambition_portal_presentation/src/visuals.rs::sync_portal_body_pieces` |
-| Accommodation: input warp | `crates/ambition_content/src/portal/ability_adapter.rs::warp_portal_input`, driven by portal-owned `PortalInputWarp` / `PortalEmission` |
+| Accommodation: input warp | `game/ambition_content/src/portal/ability_adapter.rs::warp_portal_input`, driven by portal-owned `PortalInputWarp` / `PortalEmission` |
 | Accommodation: auto-orientation | `ambition_portal` roll helpers plus `ambition_platformer_primitives::orientation::{ActorRoll, update_actor_roll}` |
 | Recursive ray | `crates/ambition_portal/src/transit.rs::raycast_through_portals` |
 | Linked portal identity | `crates/ambition_portal/src/link.rs` and authored LDtk link ids; colors remain presentation/authoring vocabulary |

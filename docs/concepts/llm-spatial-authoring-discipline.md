@@ -11,7 +11,7 @@ implemented_by:
   - tools/ambition_ldtk_tools/ambition_ldtk_tools/edit/entities.py
   - tools/ambition_ldtk_tools/ambition_ldtk_tools/edit/measure.py
   - tools/ambition_ldtk_tools/ambition_ldtk_tools/edit/gates.py
-  - crates/ambition_content/src/bosses/gnu_ton.rs
+  - game/ambition_content/src/bosses/gnu_ton.rs
 related_docs:
   - docs/concepts/ldtk-world-composition.md
   - docs/recipes/ldtk-authoring.md

@@ -439,7 +439,7 @@ fn gnu_ton_side_sweep_resolves_to_itself() {
 #[test]
 fn boss_sheets_ron_matches_builtin_defaults() {
     let registry = BossSheetRegistry::from_ron(include_str!(
-        "../../../../ambition_content/assets/data/boss_sheets.ron"
+        "../../../../../game/ambition_content/assets/data/boss_sheets.ron"
     ));
     for (key, builtin) in super::builtin_boss_sheets() {
         let authored = registry

@@ -12,7 +12,7 @@ Each layer owns a single class of concern:
 | Layer | Owns | Examples |
 |---|---|---|
 | **Rust (behavior + plumbing)** | Algorithms, ECS systems, physics, brain variants, validators, Bevy plugins, generic schemas/holders | `brain::tick_melee_brute`, `step_kinematic`, `CharacterCatalogPlugin`, `BrainDriverPlugin`, generic boss/enemy registry types |
-| **RON / data files (authored content and tuning)** | Character catalog, brain cfgs, ActionSet specs, boss encounter numeric specs, enemy/boss rosters, dialogue trees, quest defs, tuning, area specs | `crates/ambition_actors/assets/data/character_catalog.ron`, `crates/ambition_content/assets/data/boss_encounters/<id>.ron`, `crates/ambition_content/assets/data/enemy_archetypes.ron` |
+| **RON / data files (authored content and tuning)** | Character catalog, brain cfgs, ActionSet specs, boss encounter numeric specs, enemy/boss rosters, dialogue trees, quest defs, tuning, area specs | `crates/ambition_actors/assets/data/character_catalog.ron`, `game/ambition_content/assets/data/boss_encounters/<id>.ron`, `game/ambition_content/assets/data/enemy_archetypes.ron` |
 | **LDtk (space)** | Level geometry, entity placement, world composition | `sandbox.ldtk`, `intro.ldtk`; `NpcSpawn` points at catalog ids |
 
 Rule of thumb:
@@ -59,7 +59,7 @@ embeds and installs the named data.
   `crates/ambition_actors/assets/data/character_catalog.ron`, but this is
   transitional; do not add new game-specific Rust tables in the gameplay core.
 - **New boss/enemy roster data or boss encounter numbers** → use
-  `crates/ambition_content/assets/data/` and install through the content crate.
+  `game/ambition_content/assets/data/` and install through the content crate.
 - **New behavior** → add Rust only when existing brain/action templates cannot
   express the mechanic.
 - **New room or arena** → edit LDtk through `ambition_ldtk_tools`, not by

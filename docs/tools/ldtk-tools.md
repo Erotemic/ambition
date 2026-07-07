@@ -11,9 +11,9 @@ Run from the repo root:
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools --help
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools doctor \
-  crates/ambition_content/assets/worlds/sandbox.ldtk
+  game/ambition_content/assets/worlds/sandbox.ldtk
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools repair \
-  crates/ambition_content/assets/worlds/sandbox.ldtk \
+  game/ambition_content/assets/worlds/sandbox.ldtk \
   --in-place
 ```
 
@@ -23,10 +23,10 @@ Area/entity specs live under `tools/ambition_ldtk_tools/specs/`.
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools validate \
-  crates/ambition_content/assets/worlds/sandbox.ldtk
+  game/ambition_content/assets/worlds/sandbox.ldtk
 
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools roundtrip \
-  crates/ambition_content/assets/worlds/sandbox.ldtk
+  game/ambition_content/assets/worlds/sandbox.ldtk
 
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools area create \
   tools/ambition_ldtk_tools/specs/goblin_encounter_area.yaml \
@@ -66,7 +66,7 @@ Three layout strategies are available:
 # Compare strategies visually. These passes do not mutate the LDtk file.
 for strategy in greedy layered clustered; do
   PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools world auto-layout \
-    crates/ambition_content/assets/worlds/sandbox.ldtk \
+    game/ambition_content/assets/worlds/sandbox.ldtk \
     --start central_hub_main --origin 0,0 --dry-run \
     --strategy "$strategy" --svg-report "/tmp/sandbox-layout-$strategy.svg"
 done
@@ -75,7 +75,7 @@ done
 # control minimum clearance between packed groups, and --lock to keep a level
 # or activeArea at its current editor coordinates while packing around it.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools world auto-layout \
-  crates/ambition_content/assets/worlds/sandbox.ldtk \
+  game/ambition_content/assets/worlds/sandbox.ldtk \
   --start central_hub_main --origin 0,0 \
   --strategy layered --padding 128 --lock central_hub_complex \
   --report /tmp/sandbox-layout.txt --svg-report /tmp/sandbox-layout.svg \
@@ -133,19 +133,19 @@ camera volumes on the gameplay interaction layer.
 ```bash
 # Inspect the current camera zone placement in a room.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity query \
-  --ldtk crates/ambition_content/assets/worlds/sandbox.ldtk \
+  --ldtk game/ambition_content/assets/worlds/sandbox.ldtk \
   --level symmetry_room --identifier CameraZone
 
 # Move one room's CameraZone instances from Ambition to AmbitionCameras.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools entity change-layer \
-  crates/ambition_content/assets/worlds/sandbox.ldtk \
+  game/ambition_content/assets/worlds/sandbox.ldtk \
   --level symmetry_room --identifier CameraZone \
   --from-layer Ambition --to-layer AmbitionCameras \
   --in-place
 
 # Or migrate all CameraZones currently on Ambition in the file.
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools layer split-entities \
-  crates/ambition_content/assets/worlds/sandbox.ldtk \
+  game/ambition_content/assets/worlds/sandbox.ldtk \
   --type CameraZone --from-layer Ambition --to-layer AmbitionCameras \
   --in-place
 ```
@@ -161,7 +161,7 @@ camera layer and hides them from the normal Ambition layer:
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools layer apply-entity-rules \
-  crates/ambition_content/assets/worlds/sandbox.ldtk \
+  game/ambition_content/assets/worlds/sandbox.ldtk \
   --type CameraZone --to-layer AmbitionCameras --from-layer Ambition \
   --tag Camera --in-place
 ```
@@ -170,7 +170,7 @@ For CI or agent preflight, validate the convention without mutating the file:
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools layer check-entity-rules \
-  crates/ambition_content/assets/worlds/sandbox.ldtk
+  game/ambition_content/assets/worlds/sandbox.ldtk
 ```
 
 Layer relocation writes editor-style JSON directly and does not run full
@@ -217,16 +217,16 @@ PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset generat
   --out crates/ambition_actors/assets/sprites/editor_icons.png --tile-size 32
 
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset suggest-manifest \
-  crates/ambition_content/assets/worlds/sandbox.ldtk \
+  game/ambition_content/assets/worlds/sandbox.ldtk \
   --icons crates/ambition_actors/assets/sprites/editor_icons.png \
   --out tools/ambition_ldtk_tools/manifests/sandbox_visuals.json
 
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset apply-manifest \
-  crates/ambition_content/assets/worlds/sandbox.ldtk \
+  game/ambition_content/assets/worlds/sandbox.ldtk \
   tools/ambition_ldtk_tools/manifests/sandbox_visuals.json --in-place
 
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools asset validate-manifest \
-  crates/ambition_content/assets/worlds/sandbox.ldtk \
+  game/ambition_content/assets/worlds/sandbox.ldtk \
   tools/ambition_ldtk_tools/manifests/sandbox_visuals.json
 ```
 

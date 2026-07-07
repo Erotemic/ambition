@@ -22,7 +22,7 @@ Important paths:
 - `crates/ambition_actors/src/menu/ir/` — reusable menu item/page IR.
 - `crates/ambition_actors/src/menu/map/` — map-tab model, input, pointer, systems, and UI helpers.
 - `crates/ambition_menu/src/render/` — reusable Bevy-UI and kaleidoscope render backends.
-- `crates/ambition_app/src/menu/` — app-hosted menu state, dispatch, pointer tests, and renderer integration.
+- `game/ambition_app/src/menu/` — app-hosted menu state, dispatch, pointer tests, and renderer integration.
 
 ## Rules
 

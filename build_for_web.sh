@@ -6,7 +6,7 @@ set -euo pipefail
 # This is the web-build counterpart to ./build_for_android.sh. It
 # compiles the sandbox crate for `wasm32-unknown-unknown` with the
 # `web` feature composite, runs `wasm-bindgen --target web` to emit
-# the JS/wasm pair into `crates/ambition_app/web/pkg/`, and
+# the JS/wasm pair into `game/ambition_app/web/pkg/`, and
 # optionally serves the directory so a browser can load it.
 #
 # Default: Rust release build + wasm-bindgen output, no auto-serve.
@@ -29,17 +29,17 @@ Options:
   --bindgen-target T    Pass-through to wasm-bindgen --target. Default: web
                         Other supported values: bundler, no-modules, nodejs, deno.
   --out-dir DIR         Where wasm-bindgen writes the JS/wasm pair.
-                        Default: crates/ambition_app/web/pkg
+                        Default: game/ambition_app/web/pkg
   --skip-bindgen        Compile the wasm but skip the wasm-bindgen step.
   --skip-build          Skip the cargo build (re-run wasm-bindgen against an existing artifact).
   --served              Build the served-assets browser persona:
                         switches the default feature to `web_served_assets`,
                         symlinks crates/ambition_actors/assets into
-                        crates/ambition_app/web/assets/ so the page-served
+                        game/ambition_app/web/assets/ so the page-served
                         `/assets/...` URLs Bevy's wasm HTTP reader fetches
                         actually resolve. Selects `AssetProfile::WebServedAssets`
                         at runtime via the `web_served` feature.
-  --serve [PORT]        After building, serve `crates/ambition_app/web/` on PORT (default 8000).
+  --serve [PORT]        After building, serve `game/ambition_app/web/` on PORT (default 8000).
   --open                Open the served URL in the default browser. Implies --serve.
   --clean               Delete the wasm-bindgen output dir before building.
   --doctor              Check tools/environment and print what would be used.
@@ -185,7 +185,7 @@ CARGO_CMD=${CARGO:-cargo}
 WASM_BINDGEN_CMD=${WASM_BINDGEN:-wasm-bindgen}
 SERVE_PORT=${SERVE_PORT:-${AMBITION_WEB_PORT:-8000}}
 
-WEB_DIR="$ROOT/crates/ambition_app/web"
+WEB_DIR="$ROOT/game/ambition_app/web"
 if [[ -z "$OUT_DIR" ]]; then
     OUT_DIR="$WEB_DIR/pkg"
 fi

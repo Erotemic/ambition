@@ -91,7 +91,7 @@ brain split (one resolver, `Brain` component authoritative).
   `player` / `atk`). Label color matches the box color; each box *type* uses a
   distinct corner so overlapping boxes don't stack illegibly.
   - **TEXT SIZE KNOB:** one const — `DEBUG_LABEL_FONT_PX` in
-    [crates/ambition_app/src/dev/debug_overlay/prims.rs](crates/ambition_app/src/dev/debug_overlay/prims.rs)
+    [game/ambition_app/src/dev/debug_overlay/prims.rs](game/ambition_app/src/dev/debug_overlay/prims.rs)
     (it's near the top of the "debug box labels" section). Bump it up/down to
     scale every label; nothing else to touch. (World-space `Text2d`, so it also
     scales with camera zoom.)

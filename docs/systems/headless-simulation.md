@@ -14,9 +14,9 @@ is not the playable or headless package.
 The current dedicated entry point is:
 
 ```text
-crates/ambition_app/src/bin/headless.rs
+game/ambition_app/src/bin/headless.rs
   -> ambition_app::run_headless(max_ticks)
-  -> crates/ambition_app/src/headless.rs
+  -> game/ambition_app/src/headless.rs
   -> builds a Bevy App with MinimalPlugins + minimal asset/image/transform/state plugins
   -> installs SandboxSimulationPlugin
 ```
@@ -76,7 +76,7 @@ cleanup should move neutral cutscene scheduling into `ambition_cutscene` or
 
 ## RL stepping API
 
-`crates/ambition_app/src/rl_sim/` contains the Rust stepping API used by the
+`game/ambition_app/src/rl_sim/` contains the Rust stepping API used by the
 headless binary's trace-dump path and experimental RL drivers:
 
 - `AgentAction` — sparse per-tick intent struct converted to `ControlFrame`.
@@ -96,7 +96,7 @@ until that feature combination is fixed and validated.
 
 ## Trace replay
 
-`crates/ambition_app/src/bin/trace_replay.rs` reads a `GameplayTraceBuffer` JSON
+`game/ambition_app/src/bin/trace_replay.rs` reads a `GameplayTraceBuffer` JSON
 dump and drives a fresh `SandboxSim` with the recorded `ControlFrame` sequence at
 fixed-60Hz timestep. Use it for:
 

@@ -9,7 +9,7 @@ Fetch the schema when you want strict editor-format validation:
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools schema fetch
 uv pip install jsonschema
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools schema validate \
-    crates/ambition_content/assets/worlds/sandbox.ldtk \
+    game/ambition_content/assets/worlds/sandbox.ldtk \
     --schema tools/ambition_ldtk_tools/schemas/ldtk/JSON_SCHEMA.json \
     --require-schema
 ```
@@ -18,7 +18,7 @@ You can also use the round-trip checker with the schema:
 
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools python -m ambition_ldtk_tools roundtrip \
-    crates/ambition_content/assets/worlds/sandbox.ldtk \
+    game/ambition_content/assets/worlds/sandbox.ldtk \
     --schema tools/ambition_ldtk_tools/schemas/ldtk/JSON_SCHEMA.json \
     --require-schema
 ```

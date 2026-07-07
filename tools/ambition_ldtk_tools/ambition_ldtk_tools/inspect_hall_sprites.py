@@ -8,7 +8,7 @@ wholesale from the catalog), not in sandbox.ldtk.
 
 Reads:
   - `crates/ambition_actors/assets/data/character_catalog.ron`
-  - `crates/ambition_content/assets/worlds/hall_of_characters.ldtk`
+  - `game/ambition_content/assets/worlds/hall_of_characters.ldtk`
   - `crates/ambition_actors/assets/sprites/`
 
 For each NpcSpawn in `hall_of_characters`:

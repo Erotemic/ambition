@@ -340,7 +340,7 @@ static ENEMY_ARCHETYPE_REGISTRY: std::sync::LazyLock<
     std::collections::HashMap<String, CharacterArchetypeSpec>,
 > = std::sync::LazyLock::new(|| {
     const ENEMY_ARCHETYPES_RON: &str =
-        include_str!("../../../../ambition_content/assets/data/character_archetypes.ron");
+        include_str!("../../../../../game/ambition_content/assets/data/character_archetypes.ron");
     ron::from_str(ENEMY_ARCHETYPES_RON).unwrap_or_else(|err| {
         panic!("ambition_content character_archetypes.ron failed to deserialize: {err}")
     })

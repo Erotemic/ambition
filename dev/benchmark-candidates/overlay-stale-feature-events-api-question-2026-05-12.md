@@ -3,7 +3,7 @@
 ## Context
 
 An overlay for Ambition added generated foreground parallax layers and touched
-`crates/ambition_app/src/app/world_flow.rs` to play switch and generic SFX
+`game/ambition_app/src/app/world_flow.rs` to play switch and generic SFX
 from `FeatureEvents`.
 
 The patch was prepared from an older source archive where `FeatureEvents` still

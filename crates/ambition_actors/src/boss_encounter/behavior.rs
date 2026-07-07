@@ -369,7 +369,7 @@ fn special_anim_keys(key: &str) -> &'static [&'static str] {
 static BOSS_PROFILE_FIXTURE: std::sync::LazyLock<BossProfileRegistry> =
     std::sync::LazyLock::new(|| {
         BossProfileRegistry::from_ron(include_str!(
-            "../../../ambition_content/assets/data/boss_profiles.ron"
+            "../../../../game/ambition_content/assets/data/boss_profiles.ron"
         ))
     });
 

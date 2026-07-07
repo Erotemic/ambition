@@ -40,7 +40,7 @@ Diff `world_x` / `world_y` between the spec and the live LDtk before applying `-
 ```bash
 python3 - <<'EOF'
 import json
-d = json.load(open("crates/ambition_content/assets/worlds/intro.ldtk"))
+d = json.load(open("game/ambition_content/assets/worlds/intro.ldtk"))
 for lvl in d["levels"]:
     print(f"  {lvl['identifier']}: {lvl['pxWid']}x{lvl['pxHei']} at ({lvl['worldX']},{lvl['worldY']})")
 EOF

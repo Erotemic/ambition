@@ -1,7 +1,7 @@
 //! Multi-frame scripted-gameplay integration test.
 //!
 //! Companion to the per-system slice tests in
-//! `crates/ambition_app/src/headless.rs`. This test drives the
+//! `game/ambition_app/src/headless.rs`. This test drives the
 //! sim through a sequence of `ControlFrame`s across several
 //! `app.update()` calls and asserts on the cumulative event timeline.
 //!

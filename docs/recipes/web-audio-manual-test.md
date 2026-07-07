@@ -6,7 +6,7 @@
 
 ## What changed since the last attempt (Jon reported silent web)
 
-1. **JS AudioContext-unlock shim** in `crates/ambition_app/web/index.html`.
+1. **JS AudioContext-unlock shim** in `game/ambition_app/web/index.html`.
    Patches `window.AudioContext` to track every context cpal creates,
    then calls `ctx.resume()` from a real DOM `pointerdown` / `keydown`
    / `touchstart` / `click` handler. Without this, cpal's webaudio
@@ -53,7 +53,7 @@ With `--served`, you should see:
 
 `--served` builds with `--features web_served_assets`, which includes
 `web_audio` (so `bevy_kira_audio` is in the wasm) and auto-symlinks
-`crates/ambition_actors/assets/` to `crates/ambition_app/web/assets/`
+`crates/ambition_actors/assets/` to `game/ambition_app/web/assets/`
 so the served URLs resolve.
 
 ### First sanity check after page load

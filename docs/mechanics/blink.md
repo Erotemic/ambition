@@ -13,7 +13,7 @@ Blink is the short-range teleport / phase movement family. It is powerful enough
 
 - `crates/ambition_engine_core/src/movement/mod.rs` and related engine mechanics for movement vocabulary.
 - `crates/ambition_actors/src/player/` for player ECS state and blink-adjacent player behavior.
-- `crates/ambition_app/src/app/sim_systems.rs`, `crates/ambition_actors/src/player/`, and focused systems for gameplay integration.
+- `game/ambition_app/src/app/sim_systems.rs`, `crates/ambition_actors/src/player/`, and focused systems for gameplay integration.
 - `crates/ambition_actors/src/dev/trace/` for trace-backed validation of edge cases.
 
 ## Validation anchors

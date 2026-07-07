@@ -18,7 +18,7 @@ fn boss_classifies_as_boss_not_the_actor_enemy_fallback() {
     // (same seam AmbitionContentPlugin uses at build time).
     ambition_actors::boss_encounter::install_boss_profiles(
         ambition_actors::boss_encounter::BossProfileRegistry::from_ron(include_str!(
-            "../../ambition_content/assets/data/boss_profiles.ron"
+            "../../../game/ambition_content/assets/data/boss_profiles.ron"
         )),
     );
     // Regression: bosses carry the shared actor read-models (`ActorDisposition`,

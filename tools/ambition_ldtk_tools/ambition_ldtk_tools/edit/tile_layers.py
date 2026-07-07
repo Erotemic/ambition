@@ -25,7 +25,7 @@ recipe).
 ```bash
 PYTHONPATH=tools/ambition_ldtk_tools \\
 python -m ambition_ldtk_tools tileset add-layer \\
-    crates/ambition_content/assets/worlds/intro.ldtk \\
+    game/ambition_content/assets/worlds/intro.ldtk \\
     intro_lab \\
     --layer-identifier IntroLabTiles \\
     --in-place

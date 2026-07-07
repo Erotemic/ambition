@@ -1,0 +1,27 @@
+[package]
+name = "ambition_projectiles"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Reusable, content-free projectile MODEL: the player/enemy faction shot vocabulary (ProjectileKind / visual-kind art descriptors / PlayerProjectileState charge machine), the ECS shot components (LiveProjectile / ProjectileOwner / ProjectileSeq), the SpawnProjectile pool message + player-pool spawner, and the pure portal-aperture transit. Pure logic over the projectile-physics primitive; the game's ECS steppers (victim-side hit routing, charge input) consume it. Extracted from ambition_gameplay_core (E2)."
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+# Geometry (Vec2 / Aabb / AabbExt / World) + the shared BodyKinematics body.
+ambition_engine_core = { path = "../ambition_engine_core" }
+# The generic projectile-physics primitive (spec / body / collision) the model
+# steps through, plus lifecycle/gravity/marker vocabulary.
+ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
+# Portal-aperture transit hooks (PlacedPortal + transit math).
+ambition_portal = { path = "../ambition_portal" }
+# The flight-recorder event schema PlayerProjectileState emits into.
+ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }
+# Motion-gesture recognition (Hadouken input buffer) — pure input logic.
+ambition_input = { path = "../ambition_input" }
+# Serde derives on the shot kind + visual-kind art descriptors (ron-room bake).
+serde = { version = "1", features = ["derive"] }
+# ECS component/message/resource derives.
+bevy = { version = "0.18.1", default-features = false }

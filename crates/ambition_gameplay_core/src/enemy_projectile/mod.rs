@@ -1,22 +1,16 @@
-//! Enemy-fired projectiles (pirate volleys etc).
+//! Enemy-fired projectile glue (pirate volleys etc).
 //!
-//! Distinct from `crate::projectile`, which is the *player* projectile
-//! system (fireball / hadouken). Enemy projectiles:
-//!
-//! - Are spawned by actor/brain action requests, not by player input.
-//! - Damage the *player* on contact (not enemies / breakables).
-//! - Use the same `crate::projectile::ProjectileBody` engine primitive for physics,
-//!   collision, and lifetime — only the routing is faction-flipped.
-//!
-//! Splitting the state keeps the player-vs-enemy faction explicit and
-//! avoids a future "is this projectile mine?" flag on each body.
+//! The enemy-shot MODEL — the `EnemyProjectile` marker + `EnemyProjectileState`/
+//! `EnemyProjectileSpawn` — now lives in [`ambition_projectiles::enemy`] (E2
+//! carve) and is re-exported below so `crate::enemy_projectile::*` paths resolve
+//! unchanged. What STAYS here is the victim-side effect stepper
+//! ([`systems::apply_projectile_effects`], which damages the player) — sim-heart
+//! material that consumes the model crate.
 
-mod entity;
-mod state;
-mod systems;
+pub use ambition_projectiles::enemy::*;
+
+pub mod systems;
+pub use systems::apply_projectile_effects;
+
 #[cfg(test)]
 pub(crate) mod test_support;
-
-pub use entity::EnemyProjectile;
-pub use state::{EnemyProjectileSpawn, EnemyProjectileState};
-pub use systems::apply_projectile_effects;

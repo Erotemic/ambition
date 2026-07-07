@@ -6,7 +6,7 @@
 
 use bevy::prelude::*;
 
-use crate::projectile::{InFlightProjectile, ProjectileKind};
+use crate::{InFlightProjectile, ProjectileKind};
 
 /// Which in-flight pool a spawned projectile belongs to. The two pools have
 /// different storage (the player pool is a per-entity component, the enemy
@@ -14,11 +14,11 @@ use crate::projectile::{InFlightProjectile, ProjectileKind};
 /// on this tag.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ProjectilePool {
-    /// The firing player's [`crate::projectile::PlayerProjectileState::bodies`].
+    /// The firing player's [`crate::PlayerProjectileState::bodies`].
     /// `owner` names which player entity's pool receives the body (co-op /
     /// possession safe).
     Player { owner: Entity },
-    /// The global [`crate::enemy_projectile::EnemyProjectileState::bodies`]
+    /// The global [`crate::enemy::EnemyProjectileState::bodies`]
     /// (pirate volleys, boss bolts, apple rain, wielded ranged attacks).
     Enemy,
 }

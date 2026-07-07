@@ -350,6 +350,9 @@ ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 # carve bridge / room-reset / sfx / ability) on top. ADR 0019; Stage 19. See
 # docs/current/state.md and docs/systems/architecture.md.
 ambition_portal = { path = "../ambition_portal" }
+# The reusable projectile MODEL (E2): shot vocabulary + components + spawn pool +
+# portal transit. The sim heart retains only the victim/world/anim-woven steppers.
+ambition_projectiles = { path = "../ambition_projectiles" }
 # The reusable default renderer for the portal mechanic (quads/labels, held
 # gun, body pieces, disorientation, view cones). Optional: only the
 # `portal_render` feature pulls it in; the sandbox keeps a thin host adapter in

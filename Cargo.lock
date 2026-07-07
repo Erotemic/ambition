@@ -337,6 +337,7 @@ dependencies = [
  "ambition_platformer_primitives",
  "ambition_portal",
  "ambition_portal_presentation",
+ "ambition_projectiles",
  "ambition_settings_menu",
  "ambition_sfx",
  "ambition_sim_view",
@@ -474,6 +475,19 @@ dependencies = [
  "ambition_portal",
  "bevy",
  "naga",
+]
+
+[[package]]
+name = "ambition_projectiles"
+version = "0.1.0"
+dependencies = [
+ "ambition_engine_core",
+ "ambition_gameplay_trace",
+ "ambition_input",
+ "ambition_platformer_primitives",
+ "ambition_portal",
+ "bevy",
+ "serde",
 ]
 
 [[package]]

@@ -1,6 +1,6 @@
 //! Spawn-request → body mapping for enemy-fired projectiles.
 //!
-//! The in-flight bodies are ECS entities (`crate::enemy_projectile::entity`),
+//! The in-flight bodies are ECS entities (`crate::enemy::entity`),
 //! mirroring the player pool. `EnemyProjectileState` is a field-less resource:
 //! it owns no in-flight storage, but it keeps the canonical request→body builder
 //! (`build`) that both the `SpawnProjectile` message path and the direct test
@@ -28,18 +28,18 @@ impl EnemyProjectileState {
     /// Build (but do not store) the in-flight projectile for `request`.
     /// The single place the spawn-request → body mapping lives;
     /// the fire paths emit it inside a
-    /// [`crate::projectile::SpawnProjectile`] message that
+    /// [`crate::SpawnProjectile`] message that
     /// `apply_projectile_effects` later spawns as an entity, and
     /// tests build it directly. The mapping is unchanged from the pre-entity
     /// pool.
-    pub fn build(request: EnemyProjectileSpawn) -> crate::projectile::InFlightProjectile {
+    pub fn build(request: EnemyProjectileSpawn) -> crate::InFlightProjectile {
         let speed = request.speed.max(1.0);
         let dir = if request.dir.length() < 1.0e-4 {
             ae::Vec2::new(1.0, 0.0)
         } else {
             request.dir / request.dir.length()
         };
-        let spec = crate::projectile::ProjectileSpec {
+        let spec = crate::ProjectileSpec {
             origin: request.origin,
             direction: dir,
             damage: request.damage.max(1),
@@ -52,11 +52,11 @@ impl EnemyProjectileState {
             // the path). Authored on the spec, firer-agnostic — a per-ability
             // bouncing pool shot is now expressible by setting these differently.
             bounces: 0,
-            world_hit: crate::projectile::WorldHitPolicy::ExpireOnContact,
+            world_hit: crate::WorldHitPolicy::ExpireOnContact,
             charge_tier: 0,
         };
-        let body = crate::projectile::ProjectileBody::from_spec(spec);
-        crate::projectile::InFlightProjectile {
+        let body = crate::ProjectileBody::from_spec(spec);
+        crate::InFlightProjectile {
             body,
             owner_id: request.owner_id,
         }

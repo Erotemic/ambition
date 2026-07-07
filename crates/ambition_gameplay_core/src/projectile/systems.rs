@@ -6,10 +6,7 @@ use ambition_engine_core::AabbExt;
 use bevy::prelude::*;
 
 use super::diagnostics::log_press_diagnostics;
-use super::entity::{
-    LiveProjectile, PlayerProjectile, ProjectileOwner, ProjectileOwnerId, ProjectileSeq,
-    ProjectileSeqCounter,
-};
+use super::entity::{LiveProjectile, ProjectileOwner, ProjectileOwnerId, ProjectileSeq};
 use super::spawn_message::{ProjectilePool, SpawnProjectile};
 use super::state::{PlayerProjectileState, ProjectileTraceEvent};
 use super::{resolve_world_collision, WorldHitOutcome};
@@ -385,46 +382,6 @@ fn try_fire_projectile(
             false
         }
         Err(crate::projectile::SpawnFailure::Cooldown) => false,
-    }
-}
-
-/// Consume player-pool [`SpawnProjectile`] messages and spawn one projectile
-/// entity per message. Scheduled after `update_projectiles` so new player
-/// projectiles exist this frame but first tick next frame. Enemy-pool messages
-/// are ignored here and consumed by the enemy-projectile system.
-pub fn apply_player_spawn_projectile_messages(
-    mut commands: Commands,
-    mut seq: ResMut<ProjectileSeqCounter>,
-    mut spawn_projectiles: MessageReader<SpawnProjectile>,
-) {
-    for msg in spawn_projectiles.read() {
-        let ProjectilePool::Player { owner } = msg.pool else {
-            continue;
-        };
-        let body = &msg.projectile.body;
-        let mut entity = commands.spawn((
-            body.kin,
-            body.game,
-            ProjectileOwner(owner),
-            seq.next(),
-            ProjectileOwnerId(msg.projectile.owner_id.clone()),
-            crate::projectile::LiveProjectile,
-            PlayerProjectile,
-            Name::new("Player projectile (sim)"),
-        ));
-        // Named kind rides as its own component (the engine body is generic):
-        // combat attribution, trace, and render read it off the entity. Every
-        // player shot also carries a visual identity (a kind-less shot — which
-        // shouldn't happen for the player — reads as a fireball), so player +
-        // enemy shots share ONE kind→art selection path in the render layer.
-        let visual = msg
-            .kind
-            .map(crate::projectile::ProjectileVisualKind::from)
-            .unwrap_or(crate::projectile::ProjectileVisualKind::Fireball);
-        entity.insert(visual);
-        if let Some(kind) = msg.kind {
-            entity.insert(kind);
-        }
     }
 }
 

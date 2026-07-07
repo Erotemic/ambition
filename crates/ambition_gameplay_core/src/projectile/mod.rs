@@ -1,78 +1,27 @@
-//! Sandbox PLAYER-faction projectile (Fireball / Hadouken) — one of two
-//! near-duplicate faction faces of the same idea, the other being
-//! `crate::enemy_projectile` (enemy volleys). The reusable projectile PHYSICS
-//! (spec / body / per-frame tick / world collision) is SHARED: it lives in
-//! `ambition_platformer_primitives::projectile` and is re-exported below, so both
-//! factions step through identical motion. This module owns only the
-//! player-specific seam: charge/motion-gesture firing, input sampling, and
-//! per-player state. Behavior is faction-routed in one unified `step_projectiles`
-//! (see [`entity::LiveProjectile`]); the `PlayerProjectile`/`EnemyProjectile`
-//! tags only select which renderer draws the shot.
+//! Sandbox PLAYER-faction projectile glue.
 //!
-//! Damage routes through `HitEvent` messages — same path as slashes, pogo
-//! bounces, and any future damage volume.
+//! The reusable projectile MODEL — shot vocabulary (`ProjectileKind` / visual
+//! kinds), the ECS components, `PlayerProjectileState`, the `SpawnProjectile`
+//! pool + player-pool spawner, and pure portal transit — now lives in the
+//! [`ambition_projectiles`] crate (E2 carve) and is re-exported below so
+//! `crate::projectile::*` paths resolve unchanged for every sandbox consumer.
 //!
-//! ## Submodule layout
-//!
-//! - [`state`] — `PlayerProjectileState` (per-player charge machine + motion
-//!   buffer + unlocks) and `ProjectileTraceEvent`.
-//! - [`entity`] — the per-projectile ECS components (`LiveProjectile`,
-//!   `PlayerProjectile`, `ProjectileOwner`, `ProjectileSeq`, …).
-//! - [`systems`] — `step_projectiles` (the unified stepper),
-//!   `charge_projectile_input`, and the spawn-message consumer.
-//! - [`spawn`] — `ProjectileSpawner`: cooldown + resource-meter gating.
-//! - [`spawn_message`] — `SpawnProjectile` / `ProjectilePool`: decouples fire
-//!   sites from per-pool storage.
-//! - [`portal_transit`] — pure portal-aperture transit shared by both factions.
-//! - [`diagnostics`] — motion-press logging helper.
+//! What STAYS here is the victim/world/anim-woven sim STEPPERS that cannot leave
+//! until the boss/actor/player domains carve (E6/E7) and the world overlay lands
+//! in `ambition_world` (W3): the unified [`systems::step_projectiles`] (queries
+//! bosses/breakables/actors, emits `HitEvent`, parry-heals the player), the
+//! [`systems::charge_projectile_input`] player-input/anim driver, and the
+//! [`systems::ProjectileCollisionWorld`] param that reads the ECS world overlay.
+//! They CONSUME the model crate — the legal sim → model direction.
 
-mod diagnostics;
-mod entity;
-mod kind;
-mod portal_transit;
-mod spawn;
-mod spawn_message;
-mod state;
-mod systems;
-mod visual_kind;
+pub use ambition_projectiles::*;
+
+pub mod systems;
+pub use systems::{charge_projectile_input, step_projectiles, ProjectileCollisionWorld};
 
 #[cfg(test)]
 mod tests;
 
-pub use entity::{
-    LiveProjectile, PlayerProjectile, ProjectileOwner, ProjectileOwnerId, ProjectileSeq,
-    ProjectileSeqCounter,
-};
-pub use kind::{FireballChargeTuning, ProjectileKind};
-pub use spawn_message::{ProjectilePool, SpawnProjectile};
-pub use state::PlayerProjectileState;
-pub use systems::{
-    apply_player_spawn_projectile_messages, charge_projectile_input, step_projectiles,
-};
-pub use visual_kind::{
-    ProjectileArt, ProjectileArtSource, ProjectileRenderSize, ProjectileRotation,
-    ProjectileVisualKind,
-};
 #[allow(unused_imports)]
 #[cfg(test)]
 mod engine_tests;
-
-// The generic projectile-physics primitive (spec / body / collision) lives in
-// `ambition_platformer_primitives::projectile` (Stage 18 T2). Re-export it here so
-// `crate::projectile::ProjectileBody` etc. resolve unchanged for every sandbox
-// call site, and so `crate::enemy_projectile` consumes the same reusable
-// primitive through this facade. The brain-coupled SPAWN (`systems`) stays in
-// sandbox as a thin consumer.
-pub use ambition_platformer_primitives::projectile::{
-    resolve_world_collision, InFlightProjectile, ProjectileBody, ProjectileGameplay,
-    ProjectileSolidHit, ProjectileSpec, WorldHitOutcome, WorldHitPolicy,
-};
-
-// Sandbox-specific spawn helpers (player input gesture buffer + cooldown meter)
-// stay in the sandbox.
-// Motion-gesture recognition moved to the `ambition_input` crate (it is pure
-// input logic, reusable beyond projectiles). Re-exported so existing
-// `crate::projectile::MotionInputBuffer` paths keep resolving.
-pub use ambition_input::{MotionDirection, MotionInputBuffer};
-pub use portal_transit::try_projectile_portal_transit;
-pub use spawn::{ProjectileSpawner, SpawnFailure};

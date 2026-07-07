@@ -12,12 +12,12 @@ use bevy::prelude::info;
 /// `Down → Right` (or mirror), the player's input wasn't reaching
 /// the recognizer and tuning the gate won't help — it's an input-
 /// pipeline issue.
-pub(super) fn log_press_diagnostics(
-    buffer: &crate::projectile::MotionInputBuffer,
+pub fn log_press_diagnostics(
+    buffer: &crate::MotionInputBuffer,
     super_qcf: Option<f32>,
     half_circle: Option<f32>,
     grace_qcf: Option<f32>,
-    motion_kind: Option<crate::projectile::ProjectileKind>,
+    motion_kind: Option<crate::ProjectileKind>,
 ) {
     // Compact recent-direction trail: at most the last 8 distinct
     // samples (collapse runs of the same direction so a long press
@@ -40,9 +40,9 @@ pub(super) fn log_press_diagnostics(
         trail[start..].join(" → ")
     };
     let verdict = match motion_kind {
-        Some(crate::projectile::ProjectileKind::HadoukenSuper) => "HadoukenSuper",
-        Some(crate::projectile::ProjectileKind::Hadouken) => "Hadouken (grace)",
-        Some(crate::projectile::ProjectileKind::Fireball) => "Fireball (motion)",
+        Some(crate::ProjectileKind::HadoukenSuper) => "HadoukenSuper",
+        Some(crate::ProjectileKind::Hadouken) => "Hadouken (grace)",
+        Some(crate::ProjectileKind::Fireball) => "Fireball (motion)",
         None => "no motion → fireball charge",
     };
     info!(
@@ -51,16 +51,16 @@ pub(super) fn log_press_diagnostics(
     );
 }
 
-pub(super) fn motion_label(dir: crate::projectile::MotionDirection) -> &'static str {
+pub fn motion_label(dir: crate::MotionDirection) -> &'static str {
     match dir {
-        crate::projectile::MotionDirection::Neutral => "·",
-        crate::projectile::MotionDirection::Up => "Up",
-        crate::projectile::MotionDirection::Down => "Down",
-        crate::projectile::MotionDirection::Left => "Left",
-        crate::projectile::MotionDirection::Right => "Right",
-        crate::projectile::MotionDirection::UpLeft => "UpLeft",
-        crate::projectile::MotionDirection::UpRight => "UpRight",
-        crate::projectile::MotionDirection::DownLeft => "DownLeft",
-        crate::projectile::MotionDirection::DownRight => "DownRight",
+        crate::MotionDirection::Neutral => "·",
+        crate::MotionDirection::Up => "Up",
+        crate::MotionDirection::Down => "Down",
+        crate::MotionDirection::Left => "Left",
+        crate::MotionDirection::Right => "Right",
+        crate::MotionDirection::UpLeft => "UpLeft",
+        crate::MotionDirection::UpRight => "UpRight",
+        crate::MotionDirection::DownLeft => "DownLeft",
+        crate::MotionDirection::DownRight => "DownRight",
     }
 }

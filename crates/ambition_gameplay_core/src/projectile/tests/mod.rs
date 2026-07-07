@@ -97,7 +97,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
             // shot fired this frame first ticks next frame), then feature hits.
             step_projectiles,
             charge_projectile_input,
-            super::systems::apply_player_spawn_projectile_messages,
+            ambition_projectiles::apply_player_spawn_projectile_messages,
             crate::features::apply_feature_hit_events,
         )
             .chain(),

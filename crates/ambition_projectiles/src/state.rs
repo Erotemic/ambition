@@ -4,7 +4,7 @@
 
 use bevy::prelude::Component;
 
-use crate::trace::GameplayTraceEvent;
+use ambition_gameplay_trace::GameplayTraceEvent;
 
 /// Per-player projectile controller state: spawner cooldowns +
 /// motion-input buffer + charge accumulator. Attached to each player
@@ -13,12 +13,12 @@ use crate::trace::GameplayTraceEvent;
 /// projectiles are separate ECS entities owned by this player.
 #[derive(Component)]
 pub struct PlayerProjectileState {
-    pub spawner: crate::projectile::ProjectileSpawner,
-    pub motion_buffer: crate::projectile::MotionInputBuffer,
+    pub spawner: crate::ProjectileSpawner,
+    pub motion_buffer: crate::MotionInputBuffer,
     /// Time since first sample, in monotonic seconds.
     pub clock: f32,
     pub unlocked: ProjectileUnlocks,
-    pub charge_tuning: crate::projectile::FireballChargeTuning,
+    pub charge_tuning: crate::FireballChargeTuning,
     /// Hold-time accumulator for the fireball charge mechanic.
     /// `Some(t)` while the player is holding the fire button without
     /// having consumed the press for a Hadouken / HadoukenSuper.
@@ -55,11 +55,11 @@ impl Default for ProjectileUnlocks {
 impl Default for PlayerProjectileState {
     fn default() -> Self {
         Self {
-            spawner: crate::projectile::ProjectileSpawner::new(8.0, 1.5),
-            motion_buffer: crate::projectile::MotionInputBuffer::new(0.45),
+            spawner: crate::ProjectileSpawner::new(8.0, 1.5),
+            motion_buffer: crate::MotionInputBuffer::new(0.45),
             clock: 0.0,
             unlocked: ProjectileUnlocks::default(),
-            charge_tuning: crate::projectile::FireballChargeTuning::DEFAULT,
+            charge_tuning: crate::FireballChargeTuning::DEFAULT,
             charging: None,
         }
     }
@@ -68,19 +68,19 @@ impl Default for PlayerProjectileState {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ProjectileTraceEvent {
     Fired {
-        kind: crate::projectile::ProjectileKind,
+        kind: crate::ProjectileKind,
     },
     BlockedByResource {
-        kind: crate::projectile::ProjectileKind,
+        kind: crate::ProjectileKind,
     },
     Hit {
         /// `None` for kind-less (enemy) shots in the unified step loop.
-        kind: Option<crate::projectile::ProjectileKind>,
+        kind: Option<crate::ProjectileKind>,
         damage: i32,
     },
     Expired {
         /// `None` for kind-less (enemy) shots in the unified step loop.
-        kind: Option<crate::projectile::ProjectileKind>,
+        kind: Option<crate::ProjectileKind>,
     },
 }
 

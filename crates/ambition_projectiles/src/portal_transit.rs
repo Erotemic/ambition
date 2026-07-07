@@ -13,8 +13,8 @@
 //! skips collision for the tick (so it neither explodes on the entry face nor
 //! double-tests a hit).
 
-use crate::portal::{find_portal, portal_transform_velocity, PlacedPortal};
 use ambition_engine_core::{self as ae, AabbExt};
+use ambition_portal::{find_portal, portal_transform_velocity, PlacedPortal};
 
 /// Margin (px) past the exit face so a transited shot clears the thin portal
 /// plane and isn't immediately re-tested as "entering" the exit. Matches the
@@ -61,7 +61,7 @@ pub fn try_projectile_portal_transit(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::portal::{PortalChannel, PortalGunColor};
+    use ambition_portal::{PortalChannel, PortalGunColor};
 
     fn kin(pos: ae::Vec2, vel: ae::Vec2) -> ae::BodyKinematics {
         ae::BodyKinematics {

@@ -3,9 +3,9 @@
 //! The player projectile pool moved off `PlayerProjectileState::bodies: Vec`
 //! onto real entities. Each in-flight player projectile is one entity carrying:
 //!
-//! - [`crate::projectile::ProjectileGameplay`] — the projectile gameplay marker
+//! - [`crate::ProjectileGameplay`] — the projectile gameplay marker
 //!   + state (kind / faction / lifetime / gravity / damage / bounces).
-//! - [`crate::actor::BodyKinematics`] — the SHARED kinematic body. Carrying the
+//! - [`ambition_engine_core::BodyKinematics`] — the SHARED kinematic body. Carrying the
 //!   exact component the player / enemy / boss carry is what lets Phase 4 plug
 //!   projectiles into the generic portal-transit machine "tag + go".
 //! - [`ProjectileOwner`] — the firing player entity (attacker attribution +

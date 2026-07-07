@@ -239,17 +239,16 @@ pub fn sync_boss_split_overlay(
 /// Per-frame state-driven animation for boss entities.
 pub fn animate_bosses(
     // The boss frame read-model (E4 slice 7): facing flip + attack-telegraph
-    // tint facts resolved sim-side into `BossFrameIndex`. The animation FRAME
-    // is not derived here either (R1.3): the SIM owns it
-    // (`drive_boss_animators` runs `request_for_phase` + `tick` and writes the
-    // geometry sample), so this presentation system READS the already-driven
-    // animator and only draws — no render→sim reads at all.
+    // tint facts resolved sim-side into `BossFrameIndex`. The animation frame is
+    // not derived here either: the SIM owns `BossAnimFrame`, so this presentation
+    // system mirrors that cursor into the draw-only animator and renders it.
     boss_frames: Res<ambition_sim_view::BossFrameIndex>,
     mut query: Query<
         (
             &FeatureVisual,
             &mut Sprite,
-            &BossAnimator,
+            &BossAnimFrame,
+            &mut BossAnimator,
             Option<&mut bevy::sprite::Anchor>,
         ),
         Without<PlayerVisual>,
@@ -264,15 +263,14 @@ pub fn animate_bosses(
     // here: a boss with ProperTimeScale > 1.0 keeps tickling its
     // own animation while the world is frozen by its SimClock
     // request.
-    for (visual, mut sprite, animator, anchor) in &mut query {
+    for (visual, mut sprite, frame, mut animator, anchor) in &mut query {
         let Some(state): Option<BossAnimState> =
             boss_frames.get(&visual.id).map(|frame| frame.anim)
         else {
             continue;
         };
-        // R1.3: the frame is driven SIM-side by `drive_boss_animators` (it ran
-        // `request_for_phase` + `tick` and wrote the geometry sample this frame);
-        // read the current flat index to draw, so the drawn pose and the strike
+        animator.mirror_frame(frame);
+        // Read the current flat index to draw, so the drawn pose and the strike
         // geometry share the ONE sim-owned frame.
         let index = animator.current_flat_index();
         // Split sheets: select the page image the active frame draws from

@@ -16,7 +16,9 @@ use super::primitives::{
 };
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_gameplay_core::assets::game_assets::{self, EntitySprite, GameAssets};
-use ambition_gameplay_core::boss_encounter::sprites::{self, BossAnimState, BossAnimator};
+use ambition_gameplay_core::boss_encounter::sprites::{
+    self, BossAnimFrame, BossAnimState, BossAnimator,
+};
 use ambition_gameplay_core::combat::BoundFeatureKind;
 use ambition_gameplay_core::features::{
     ActorRenderSize, BreakableFeature, ChestFeature, FeatureId, FeatureVisualKind, Opened,

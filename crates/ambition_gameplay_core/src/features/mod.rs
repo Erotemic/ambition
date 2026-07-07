@@ -281,9 +281,8 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // R1.3: the SIM owns the boss animation frame + writes the geometry sample
         // (retiring the render→sim write-back in `animate_bosses`). Runs after the
         // `BossAttackState` projection so it picks this frame's anim, and before the
-        // renderer's presentation `animate_bosses` (a later schedule), which now only
-        // READS the sim-driven frame. A no-op headless (the `BossAnimator` is
-        // render-inserted), so it never touches the headless boss suites.
+        // renderer's presentation `animate_bosses` (a later schedule), which mirrors
+        // the sim-driven frame into its draw-only animator.
         app.add_systems(
             Update,
             drive_boss_animators.after(project_boss_attack_state_from_move),

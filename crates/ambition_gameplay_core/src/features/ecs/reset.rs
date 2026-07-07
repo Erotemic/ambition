@@ -48,6 +48,7 @@ pub fn reset_ecs_room_features(
             &mut ambition_characters::brain::Brain,
             &mut ambition_characters::brain::BossAttackState,
             &mut ambition_characters::brain::ActorControl,
+            &mut crate::boss_encounter::sprites::BossAnimFrame,
         ),
         With<FeatureSimEntity>,
     >,
@@ -140,8 +141,15 @@ pub fn reset_ecs_room_features(
             &mut cooldowns,
         );
     }
-    for (mut feature, mut health, mut combat, mut brain, mut attack_state, mut control) in
-        &mut bosses
+    for (
+        mut feature,
+        mut health,
+        mut combat,
+        mut brain,
+        mut attack_state,
+        mut control,
+        mut anim_frame,
+    ) in &mut bosses
     {
         // Full revive (pos / facing / health / hit_flash + clear the entity-local
         // encounter so it re-seeds fresh next frame). One definition on `BossMut`
@@ -164,6 +172,7 @@ pub fn reset_ecs_room_features(
         }
         attack_state.clear();
         control.0 = ambition_characters::actor::control::ActorControlFrame::neutral();
+        anim_frame.reset();
     }
     for mut hazard_feature in &mut hazards {
         let spawn = hazard_feature.spawn;

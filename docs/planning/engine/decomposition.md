@@ -1214,9 +1214,11 @@ two plugins). Mode resources live on a mode-owner entity carrying
 
 ### E6 — the boss tail — [opus]
 
-Precondition: E3 (sprite moves) recommended first. Fully enumerated:
-(a) sim-side `BossAnimFrame` (the sim stops reading a render-inserted
-animator component); (b) remaining `BossAnim` rows → `CharacterAnim`
+Precondition: E3 (sprite moves) recommended first. Progress:
+**E6(a) DONE (Codex 2026-07-07)** — `BossAnimFrame` is sim-side now; the
+sim no longer reads a render-inserted `BossAnimator` to publish boss
+geometry samples, and render mirrors the sim cursor into its draw-only
+animator. Remaining: (b) remaining `BossAnim` rows → `CharacterAnim`
 for non-gnuton bosses (BLIND visuals, frame-sample pins); (c)
 `BrainSnapshot.target_pos` retirement (the boss brain consumes its
 view/target directly); (d) DECIDE the two recorded deep folds (the

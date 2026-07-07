@@ -134,6 +134,16 @@ pub fn boss_sheet_override(key: &str) -> Option<BossSheetSpec> {
     BOSS_SHEET_OVERRIDE.get().and_then(|r| r.get(key).cloned())
 }
 
+/// Resolve the sim-side sheet timing for a boss key. The renderer may bind a
+/// split body/overlay sheet, but gameplay only needs the row timing.
+pub fn boss_sheet_for_key(key: &str) -> BossSheetSpec {
+    boss_sheet_override(key)
+        .or_else(|| builtin_boss_sheets().remove(key))
+        .unwrap_or_else(|| {
+            boss_sheet_override("gradient_sentinel").unwrap_or_else(|| BOSS_SHEET.clone())
+        })
+}
+
 // `feet_anchor_y` matches the body-metrics measurement for the current
 // generator output. Resync after regenerating the boss sheet by checking
 // the manifest's `body_metrics.feet_anchor_norm.y`.
@@ -1264,6 +1274,14 @@ impl BossAnimator {
         }
         self.flat_index(self.current, self.frame)
     }
+
+    pub fn mirror_frame(&mut self, frame: &BossAnimFrame) {
+        self.current = frame.current;
+        self.drive_phase = frame.drive_phase;
+        self.frame = frame.frame;
+        self.elapsed = frame.elapsed;
+        self.clip_held = frame.clip_held;
+    }
 }
 
 fn non_looping(anim: BossAnim) -> bool {
@@ -1292,6 +1310,75 @@ pub enum BossAnimDrivePhase {
     Active,
     Hit,
     Death,
+}
+
+/// Sim-owned boss animation frame cursor.
+///
+/// Gameplay geometry reads the derived frame sample this cursor publishes;
+/// render-side [`BossAnimator`] only carries texture handles and mirrors this
+/// state to draw the same frame.
+#[derive(Component, Clone, Debug)]
+pub struct BossAnimFrame {
+    pub spec: BossSheetSpec,
+    pub current: BossAnim,
+    pub drive_phase: BossAnimDrivePhase,
+    pub frame: usize,
+    pub elapsed: f32,
+    pub clip_held: bool,
+}
+
+impl BossAnimFrame {
+    pub fn new(spec: BossSheetSpec) -> Self {
+        Self {
+            spec,
+            current: BossAnim::Rest,
+            drive_phase: BossAnimDrivePhase::Rest,
+            frame: 0,
+            elapsed: 0.0,
+            clip_held: false,
+        }
+    }
+
+    pub fn request_for_phase(&mut self, anim: BossAnim, drive_phase: BossAnimDrivePhase) {
+        if self.current == anim && self.drive_phase == drive_phase {
+            return;
+        }
+        self.current = anim;
+        self.drive_phase = drive_phase;
+        self.frame = 0;
+        self.elapsed = 0.0;
+        self.clip_held = false;
+    }
+
+    pub fn reset(&mut self) {
+        self.request_for_phase(BossAnim::Rest, BossAnimDrivePhase::Rest);
+    }
+
+    pub fn tick(&mut self, dt: f32) -> usize {
+        let row = self.spec.row(self.current);
+        if row.frame_count == 0 || row.duration_secs <= 0.0 {
+            return self.frame;
+        }
+        if self.clip_held {
+            return self.frame;
+        }
+        self.elapsed += dt;
+        while self.elapsed >= row.duration_secs {
+            self.elapsed -= row.duration_secs;
+            if self.frame + 1 >= row.frame_count {
+                if non_looping(self.current) {
+                    self.frame = row.frame_count - 1;
+                    self.clip_held = true;
+                    break;
+                } else {
+                    self.frame = 0;
+                }
+            } else {
+                self.frame += 1;
+            }
+        }
+        self.frame
+    }
 }
 
 /// Snapshot of boss state used to drive its animation. Pulled from

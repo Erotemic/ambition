@@ -673,6 +673,10 @@ pub(super) fn spawn_boss_with_overrides(
     // apple-rain self-dodge (and any future per-encounter
     // overrides) to the right boss.
     let encounter_id = boss.config.behavior.id.clone();
+    let boss_sheet_key = encounter_id.to_ascii_lowercase().replace('-', "_");
+    let boss_anim_frame = crate::boss_encounter::sprites::BossAnimFrame::new(
+        crate::boss_encounter::sprites::boss_sheet_for_key(&boss_sheet_key),
+    );
     let combat_tuning = crate::time::feel::SandboxFeelTuning::default().feature_combat_tuning();
     let cycle_attack_active = boss
         .config
@@ -772,6 +776,7 @@ pub(super) fn spawn_boss_with_overrides(
         // `update_ecs_bosses`. Initial value is 0.0 because the brain
         // state defaults to a fresh `BossPatternState`.
         BossPatternTimer(0.0),
+        boss_anim_frame,
         BossDeathAnimation::default(),
         initial_phase,
         super::ActorFaction::Boss,

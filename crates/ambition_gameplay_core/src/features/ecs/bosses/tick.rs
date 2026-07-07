@@ -317,18 +317,10 @@ pub fn project_boss_attack_state_from_move(
 /// PHASE (presentation, SIM-side) — drive each boss's animation frame and publish
 /// the per-frame [`crate::features::BossAnimationFrameSample`] the boss GEOMETRY
 /// reads (fable-review-2026-07-04 R1.3). This retires the render→sim WRITE-BACK:
-/// `animate_bosses` (render) used to `tick` the [`BossAnimator`] AND insert the
-/// sample onto the sim entity — render writing sim state. Now the SIM owns the
-/// frame: it picks the anim from the projected `BossAttackState`, advances the
-/// animator, and writes the sample; the renderer only READS the animator's frame
-/// to draw, so the drawn pose and the geometry share ONE sim-owned frame.
-///
-/// The [`BossAnimator`] is still inserted by the renderer (`upgrade_boss_sprites`,
-/// it holds the loaded sheet asset), so this is a no-op headless (no animator ⇒ no
-/// sample ⇒ the geometry keeps its elapsed-time fallback, byte-identical to today's
-/// headless tests, which never had a render sample). Fully moving the frame STATE
-/// sim-side (a `BodyEnvelope`-style split of `BossAnimator` into frame-state +
-/// draw-only) is the follow-up that drops the render-inserted-component read.
+/// render no longer owns or writes the frame. Now the SIM owns the cursor: it
+/// picks the anim from the projected `BossAttackState`, advances the frame, and
+/// writes the sample; the renderer mirrors that cursor into its draw-only
+/// [`BossAnimator`](crate::boss_encounter::sprites::BossAnimator).
 /// Runs after `project_boss_attack_state_from_move` (so `BossAttackState` is this
 /// frame's) and before the renderer's `animate_bosses`.
 pub fn drive_boss_animators(
@@ -343,14 +335,14 @@ pub fn drive_boss_animators(
         &BossAttackState,
         &Brain,
     )>,
-    mut animators: Query<(
+    mut frames: Query<(
         Entity,
         &crate::features::FeatureId,
-        &mut crate::boss_encounter::sprites::BossAnimator,
+        &mut crate::boss_encounter::sprites::BossAnimFrame,
         Option<&ambition_time::ProperTimeScale>,
     )>,
 ) {
-    for (entity, feature_id, mut animator, scale) in &mut animators {
+    for (entity, feature_id, mut frame, scale) in &mut frames {
         let dt = world_time.entity_dt(ambition_time::ProperTimeScale::or_default(scale));
         let Some((_, state)) =
             crate::features::ecs_boss_anim_state_and_entity(feature_id.as_str(), &ecs_bosses)
@@ -358,13 +350,13 @@ pub fn drive_boss_animators(
             continue;
         };
         let anim = crate::boss_encounter::sprites::pick_boss_anim(state);
-        animator.request_for_phase(anim, state.drive_phase());
-        animator.tick(dt);
+        frame.request_for_phase(anim, state.drive_phase());
+        frame.tick(dt);
         match crate::features::ecs_boss_animation_frame_sample(
             feature_id.as_str(),
             &ecs_bosses,
             anim,
-            animator.frame,
+            frame.frame,
         ) {
             Some((sample_entity, sample)) => {
                 commands.entity(sample_entity).insert(sample);

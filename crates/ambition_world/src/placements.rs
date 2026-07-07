@@ -25,6 +25,12 @@ use std::collections::HashMap;
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct PlacementRecord {
     pub id: ae::PlacementId,
+    /// Authored display label (editor-facing / entity naming / nameplates —
+    /// the `PropSpec.name` precedent). Defaults to the id when a bake has no
+    /// name. RULING (fable final audit F7): record-level metadata like `id`,
+    /// NOT schema data — lowering must not fall back to iids for labels.
+    #[serde(default)]
+    pub name: String,
     /// The closed Tier-0 authored schema (§4b.3).
     pub schema: PlacementSchema,
     /// Authored footprint (pos + size).
@@ -33,8 +39,10 @@ pub struct PlacementRecord {
 
 impl PlacementRecord {
     pub fn new(id: impl Into<String>, schema: PlacementSchema, aabb: ae::Aabb) -> Self {
+        let id = ae::PlacementId::new(id);
         Self {
-            id: ae::PlacementId::new(id),
+            name: id.as_str().to_string(),
+            id,
             schema,
             aabb,
         }

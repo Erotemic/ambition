@@ -70,7 +70,23 @@ pub(super) fn convert_damage_volume(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmiss
     // family (still what spawning consumes) + the authored placement RECORD
     // (the [W-b] schema-over-record shape). W-queue step 3 registers the
     // hazard lowering interpreter and deletes the legacy channel.
-    let record = ambition_world::placements::PlacementRecord::new(
+    // A legacy INLINE-motion hazard cannot be represented by `HazardSpec`
+    // (`path_id` only — the pinned Tier-0 shape); emitting a record would make
+    // the lowering path win the dual-spawn guard and silently DROP the motion.
+    // Keep such hazards legacy-only until dissolution lifts the inline path
+    // into a room-level `KinematicPath` (see the HazardSpec doc note).
+    if volume.motion.is_some() {
+        return Ok(RoomEmission {
+            hazards: vec![ambition_world::rooms::Authored::new(
+                entity.iid.clone(),
+                name,
+                aabb,
+                volume,
+            )],
+            ..Default::default()
+        });
+    }
+    let mut record = ambition_world::placements::PlacementRecord::new(
         entity.iid.clone(),
         PlacementSchema::Hazard(HazardSpec {
             damage: volume.damage.amount,
@@ -83,6 +99,7 @@ pub(super) fn convert_damage_volume(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmiss
         }),
         aabb,
     );
+    record.name = name.clone();
     Ok(RoomEmission {
         hazards: vec![ambition_world::rooms::Authored::new(
             entity.iid.clone(),

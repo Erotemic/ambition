@@ -346,4 +346,27 @@ mod intgrid_tests {
         }
         assert!(int_grid_value_to_block(99, min, size).is_err());
     }
+
+    /// §3.6 determinism contract (restored — dropped in the W3 carve):
+    /// tile-derived geometry is durably named by the level-scoped layer key +
+    /// the row-major merge ordinal; two separated runs get distinct, stable
+    /// ids.
+    #[test]
+    fn intgrid_blocks_carry_level_scoped_tile_layer_geo_ids() {
+        let blocks = emit_collision_blocks_from_intgrid(
+            &layer(3, 1, vec![1, 0, 1]),
+            ae::Vec2::ZERO,
+            "wake_room/Collision",
+        )
+        .expect("merge succeeds");
+        assert_eq!(blocks.len(), 2);
+        assert_eq!(
+            blocks[0].id,
+            ae::GeoId::tile_layer("wake_room/Collision", 0)
+        );
+        assert_eq!(
+            blocks[1].id,
+            ae::GeoId::tile_layer("wake_room/Collision", 1)
+        );
+    }
 }

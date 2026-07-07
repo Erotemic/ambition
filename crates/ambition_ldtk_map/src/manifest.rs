@@ -105,13 +105,55 @@ pub fn install_world_manifest(manifest: WorldManifest) {
 /// The active manifest. Public READ view — the app assembly iterates the rows
 /// to spawn one tile-render world root per world.
 pub fn world_manifest() -> &'static WorldManifest {
-    WORLD_MANIFEST.get().unwrap_or_else(|| {
-        panic!(
-            "world manifest not installed — the game's content must call \
-             install_world_manifest() before any world load \
-             (AmbitionContentPlugin / the app's sim-entry choke points do)"
-        )
-    })
+    #[cfg(test)]
+    {
+        // Test fixture = the game's REAL worlds, read cross-crate (the
+        // install_enemy_roster fixture pattern) so this crate's conversion /
+        // ron-room contract tests exercise real data without shipping any.
+        // Restored by the fable final audit (F7): the W3 carve dropped it,
+        // which is what orphaned the ruled contract tests.
+        WORLD_MANIFEST.get_or_init(test_fixture_manifest)
+    }
+    #[cfg(not(test))]
+    {
+        WORLD_MANIFEST.get().unwrap_or_else(|| {
+            panic!(
+                "world manifest not installed — the game's content must call \
+                 install_world_manifest() before any world load \
+                 (AmbitionContentPlugin / the app's sim-entry choke points do)"
+            )
+        })
+    }
+}
+
+/// The cross-crate test fixture: the game's real worlds under
+/// `game/ambition_content/assets/worlds`, entry room = the hub.
+#[cfg(test)]
+fn test_fixture_manifest() -> WorldManifest {
+    let worlds_dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../game/ambition_content/assets/worlds");
+    let source = |id: &str, file: &str, required: bool| WorldSource {
+        id: AssetId::new(id),
+        asset_path: format!("game://worlds/{file}"),
+        loose_path: Some(worlds_dir.join(file)),
+        embedded_text: None,
+        embedded_bevy_path: None,
+        required,
+    };
+    WorldManifest {
+        entry_room: "central_hub_complex".to_string(),
+        ron_rooms: Vec::new(),
+        worlds: vec![
+            source("world.sandbox_ldtk", "sandbox.ldtk", true),
+            source("world.intro_ldtk", "intro.ldtk", false),
+            source(
+                "world.cut_rope_ldtk",
+                "you_have_to_cut_the_rope.ldtk",
+                false,
+            ),
+            source("world.hall_ldtk", "hall_of_characters.ldtk", false),
+        ],
+    }
 }
 
 /// The Bevy `AssetPath` string the tile-render spine loads for a manifest

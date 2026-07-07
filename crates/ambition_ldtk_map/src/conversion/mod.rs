@@ -768,6 +768,162 @@ use entity_converters::*;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::project::{LdtkFieldInstance, LdtkLayerInstance, LdtkLevel, LdtkProject};
+    use serde_json::Value;
+
+    // ---- Restored ruled-contract tests (fable final audit F7): these were
+    // dropped in the W3 carve. They pin [W-b] dual emission, the §3.6 tile
+    // GeoId determinism contract, the W2 sanic IR proof, and the F7 fixes
+    // (record display name; inline-motion hazards stay legacy-only).
+
+    fn entity_at(
+        identifier: &str,
+        px: [i32; 2],
+        size: [i32; 2],
+        fields: &[(&str, Value)],
+    ) -> crate::project::LdtkEntityInstance {
+        crate::project::LdtkEntityInstance {
+            iid: format!("{identifier}-test-{}-{}", px[0], px[1]),
+            identifier: identifier.to_string(),
+            pivot: vec![0.0, 0.0],
+            px,
+            width: size[0],
+            height: size[1],
+            field_instances: fields
+                .iter()
+                .map(|(name, value)| LdtkFieldInstance {
+                    identifier: name.to_string(),
+                    value: value.clone(),
+                    real_editor_values: vec![Value::Null],
+                })
+                .collect(),
+        }
+    }
+
+    fn synthetic_level(entities: Vec<crate::project::LdtkEntityInstance>) -> LdtkProject {
+        let mut instances = vec![entity_at("PlayerStart", [32, 400], [16, 32], &[])];
+        instances.extend(entities);
+        LdtkProject {
+            json_version: "1.5.3".into(),
+            levels: vec![LdtkLevel {
+                iid: "level-iid".into(),
+                identifier: "registry_lab".into(),
+                world_x: 0,
+                world_y: 0,
+                px_wid: 640,
+                px_hei: 480,
+                field_instances: vec![LdtkFieldInstance {
+                    identifier: "activeArea".into(),
+                    value: Value::String("registry_lab".into()),
+                    real_editor_values: vec![],
+                }],
+                layer_instances: vec![LdtkLayerInstance {
+                    identifier: "Ambition".into(),
+                    layer_type: "Entities".into(),
+                    c_wid: 40,
+                    c_hei: 30,
+                    grid_size: 16,
+                    entity_instances: instances,
+                    int_grid_csv: Vec::new(),
+                    grid_tiles: Vec::new(),
+                }],
+            }],
+        }
+    }
+
+    /// [W-b]: a `DamageVolume` DUAL-emits — the legacy typed hazard plus the
+    /// `PlacementRecord` twin, joined by the same placement id AND carrying
+    /// the authored display name (F7: lowering must not label hazards by iid).
+    #[test]
+    fn damage_volume_dual_emits_a_named_hazard_placement_record() {
+        use ambition_entity_catalog::placements::{DamageKind, DamageTeam, PlacementSchema};
+        let project = synthetic_level(vec![entity_at(
+            "DamageVolume",
+            [96, 416],
+            [64, 32],
+            &[
+                ("damage", Value::Number(3.into())),
+                ("name", Value::String("Spike Run".into())),
+                ("path_id", Value::String("spike_run".into())),
+            ],
+        )]);
+        let room_set = project.to_room_set().expect("hazard project composes");
+        let room = &room_set.rooms[0];
+        assert_eq!(room.hazards.len(), 1, "legacy channel still feeds spawning");
+        assert_eq!(room.placements.len(), 1, "record channel carries the twin");
+        let record = &room.placements[0];
+        assert_eq!(record.id.as_str(), room.hazards[0].id, "same placement id");
+        assert_eq!(
+            record.name, "Spike Run",
+            "authored display name rides the record"
+        );
+        assert_eq!(record.aabb, room.hazards[0].aabb, "same authored footprint");
+        let PlacementSchema::Hazard(spec) = &record.schema;
+        assert_eq!(spec.damage, 3);
+        assert_eq!(spec.kind, DamageKind::Hazard);
+        assert_eq!(spec.team, DamageTeam::Environment);
+        assert_eq!(spec.path_id.as_deref(), Some("spike_run"));
+    }
+
+    /// F7: a legacy INLINE-motion hazard cannot be represented by
+    /// `HazardSpec` — it must NOT emit a record (else the lowering path wins
+    /// the dual-spawn guard and silently drops the motion).
+    #[test]
+    fn inline_motion_hazards_stay_legacy_only() {
+        let project = synthetic_level(vec![entity_at(
+            "DamageVolume",
+            [96, 416],
+            [64, 32],
+            &[
+                ("damage", Value::Number(2.into())),
+                ("path_points", Value::String("0,0; 100,0".into())),
+            ],
+        )]);
+        let room_set = project.to_room_set().expect("composes");
+        let room = &room_set.rooms[0];
+        assert_eq!(room.hazards.len(), 1);
+        assert!(
+            room.hazards[0].payload.motion.is_some(),
+            "fixture: the inline path parsed"
+        );
+        assert!(
+            room.placements.is_empty(),
+            "an inline-motion hazard must not emit a record until dissolution \
+             lifts the path to a room-level KinematicPath"
+        );
+    }
+
+    /// THE W2 IR PROOF, restored: the sanic area (richest IR surface — the
+    /// chains channel) round-trips serialize∘parse as a string fixed point
+    /// and re-enters a RoomSet with no LDtk in the second path.
+    #[test]
+    fn the_sanic_area_round_trips_as_a_ron_room() {
+        let project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
+        let room_set = project.to_room_set().expect("sandbox composes");
+        let sanic = room_set
+            .rooms
+            .iter()
+            .find(|room| room.id == "sanic_sandbox")
+            .expect("the sanic area exists in the sandbox world");
+        assert!(
+            !sanic.world.chains.is_empty(),
+            "fixture: the sanic area exercises the chains channel"
+        );
+        let doc = crate::ron_room::RonRoomDoc {
+            spec: sanic.clone(),
+            links: Vec::new(),
+        };
+        let baked = crate::ron_room::room_doc_to_ron(&doc).expect("bakes");
+        let reloaded = crate::ron_room::room_doc_from_ron(&baked).expect("parses");
+        let rebaked = crate::ron_room::room_doc_to_ron(&reloaded).expect("re-bakes");
+        assert_eq!(baked, rebaked, "serialize∘parse is a fixed point");
+        let twin_set = ambition_world::rooms::RoomSet::from_parts(
+            reloaded.spec.id.clone(),
+            vec![reloaded.spec],
+            reloaded.links,
+        );
+        assert_eq!(twin_set.active_spec().id, "sanic_sandbox");
+    }
 
     #[test]
     fn compact_path_name_slugifies_and_strips_path_noise() {

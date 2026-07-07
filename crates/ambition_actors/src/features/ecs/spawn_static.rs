@@ -51,7 +51,7 @@ pub(crate) fn lower_hazard_placement(
     };
     let authored = crate::rooms::Authored {
         id: record.id.as_str().to_string(),
-        name: record.id.as_str().to_string(),
+        name: record.name.clone(),
         aabb: record.aabb,
         payload: volume,
     };

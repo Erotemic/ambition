@@ -331,7 +331,7 @@ pub struct DynamicFeatureFact {
     pub family: &'static str,
     pub pos: ae::Vec2,
     pub size: ae::Vec2,
-    pub visual_kind: ambition_actors::features::FeatureVisualKind,
+    pub visual_kind: ambition_combat::FeatureVisualKind,
     pub fighting: bool,
     /// The placeholder entity-sprite the spawn resolves to (from the actor's
     /// brain / the NPC's interactable / the chest payload).
@@ -386,7 +386,7 @@ pub fn rebuild_dynamic_feature_views(
     >,
 ) {
     use ambition_actors::assets::game_assets;
-    use ambition_actors::features::FeatureVisualKind;
+    use ambition_combat::FeatureVisualKind;
     view.0.clear();
     for (id, aabb, disposition, config) in &ecs_mobs {
         // Encounter mobs are hostile by construction; skip any peaceful one.

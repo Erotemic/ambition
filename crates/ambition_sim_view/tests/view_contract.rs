@@ -64,7 +64,7 @@ fn boss_classifies_as_boss_not_the_actor_enemy_fallback() {
         .expect("the boss must have a feature view");
     assert_eq!(
         view.kind,
-        ambition_actors::features::FeatureVisualKind::Actor,
+        ambition_combat::FeatureVisualKind::Actor,
         "a boss is an actor like every other (got {:?})",
         view.kind,
     );

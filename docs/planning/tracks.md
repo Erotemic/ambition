@@ -1494,6 +1494,16 @@ for live actor ECS components and systems only.
 Gate: `cargo check -p ambition_content --all-features`; `cargo check -p
 ambition_app --features rl_sim`. Pre-existing warnings remain.
 
+## 2026-07-07 (Codex) — E7 sim-view combat-vocab facade cleanup
+
+`ambition_sim_view` now imports `FeatureVisualKind` directly from
+`ambition_combat` instead of through `ambition_actors::features`. This clears
+the last easy combat-vocabulary facade hits outside the actor crate; remaining
+features-facade references are live actor ECS components/systems, schedule
+labels, boss glue, or debug/sim-view query inputs.
+
+Gate: `cargo check -p ambition_sim_view`. Pre-existing warnings remain.
+
 ## 2026-07-07 (Codex) — E7 render combat-vocab facade cleanup
 
 Repointed render's `FeatureVisualKind` imports from the actor `features` facade

@@ -27,11 +27,11 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_lunex::prelude::*;
 
-use crate::{
+use ambition_menu::{
     scrollbar_thumb_layout, ActiveMenuPages, AmbitionMenuControl, AmbitionMenuPage,
     AmbitionMenuRoot, MenuColor, MenuControlKind, MenuCubeGeometry, MenuDynamicText,
     MenuDynamicTextContent, MenuFocusKey, MenuNode, MenuOpenCloseStyle, MenuPageModel, MenuRect,
-    MenuTextAlign, MenuVisualState, ScrollThumb,
+    MenuScrollDragged, MenuTextAlign, MenuVisualState, ScrollThumb, ScrollbarDragState,
 };
 
 // Depth bands on each Lunex face (more negative = closer to the pause camera).
@@ -156,21 +156,6 @@ pub struct KaleidoscopeFade {
     pub base_alpha: f32,
 }
 
-/// Backend-agnostic scroll-drag channel (Feature C).
-///
-/// The lib renders a draggable scrollbar control (a `MenuControlKind::Scrollbar`
-/// node) and, when a pointer presses + drags on it, emits [`MenuScrollDragged`]
-/// carrying a NEUTRAL fraction in `0..=1` (0 = top of the track, 1 = bottom). The
-/// lib has NO notion of "scroll position" — the host interprets the fraction
-/// against its own scrollable range (e.g. maps it to a window-start row). This
-/// mirrors the [`crate::MenuDynamicTextContent`] content-channel pattern: the lib
-/// exposes a neutral signal, the host applies the meaning.
-#[derive(bevy::prelude::Message, Clone, Copy, Debug, PartialEq)]
-pub struct MenuScrollDragged {
-    /// Drag position along the track, `0.0` (top) .. `1.0` (bottom).
-    pub fraction: f32,
-}
-
 /// Marks a draggable scrollbar TRACK control + the screen-space extent the drag
 /// observer maps the pointer onto (Feature C). The lib keeps `track_top_y` /
 /// `track_height` updated each frame by projecting the track plane through the
@@ -184,28 +169,6 @@ pub struct MenuScrollbar {
     /// a headless test may set it directly).
     pub track_top_y: f32,
     /// Track height in screen pixels (must be > 0 for the drag to map).
-    pub track_height: f32,
-}
-
-/// Which pointer (if any) is mid-drag on a menu scrollbar. Held in a RESOURCE,
-/// NOT on the scrollbar entity, because changing the scroll position triggers the
-/// host's per-step republish, which DESPAWNS + respawns the scrollbar entity each
-/// frame — a per-entity held flag would reset to `None` after the very first step
-/// and the drag would die. Keyed on the persistent `PointerId`, so the drag
-/// survives any number of respawns. Set on `Pointer<Press>`, cleared on
-/// `Pointer<Release>`; the manual `scrollbar_press_drag` tracker reads it and
-/// emits [`MenuScrollDragged`] for the held pointer's live position each frame.
-/// Shared by BOTH renderers (only one menu is active at a time).
-#[derive(Resource, Default)]
-pub struct ScrollbarDragState {
-    pub pressed_by: Option<PointerId>,
-    /// Track screen rect (top edge + height, logical px) CACHED at press time.
-    /// The track never moves during a drag (only the pointer does), and the grid
-    /// track's `ComputedNode`/`GlobalTransform` read as ZERO on the frame it is
-    /// respawned by the per-step republish — so the manual tracker maps the live
-    /// pointer against this cached rect rather than the (possibly just-respawned)
-    /// entity's geometry. Set on press, when the pressed track's geometry is valid.
-    pub track_top_y: f32,
     pub track_height: f32,
 }
 
@@ -504,7 +467,7 @@ fn setup_cube(mut commands: Commands, config: Res<KaleidoscopeMenuConfig>) {
         // the camera distance from (instead of relying on Bevy's default happening to
         // be 45°), so the framing margin stays correct if that default ever changes.
         Projection::Perspective(PerspectiveProjection {
-            fov: crate::MenuCubeGeometry::CAMERA_FOV_RADIANS,
+            fov: ambition_menu::MenuCubeGeometry::CAMERA_FOV_RADIANS,
             ..default()
         }),
         // NO explicit Msaa: a Camera3d overlaying a Camera2d on the same window must
@@ -1117,7 +1080,7 @@ fn project_scrollbar_tracks(
 /// measured height yet (the projection has not run). Shared by the DragStart +
 /// Drag observers so a press and a drag map identically.
 fn scrollbar_fraction(bar: &MenuScrollbar, pointer_y: f32) -> Option<f32> {
-    crate::scrollbar_fraction_from_rect(bar.track_top_y, bar.track_height, pointer_y)
+    ambition_menu::scrollbar_fraction_from_rect(bar.track_top_y, bar.track_height, pointer_y)
 }
 
 /// Feature C: a press that lands on the scrollbar immediately jumps the scroll to
@@ -1168,7 +1131,7 @@ fn scrollbar_press(
         // the resource by `project_scrollbar_tracks` (the entity's own geometry can
         // still be zero on the press frame right after a respawn).
         drag.pressed_by = Some(press.pointer_id);
-        if let Some(fraction) = crate::scrollbar_fraction_from_rect(
+        if let Some(fraction) = ambition_menu::scrollbar_fraction_from_rect(
             drag.track_top_y,
             drag.track_height,
             press.pointer_location.position.y,
@@ -1208,9 +1171,11 @@ fn scrollbar_press_drag(
     };
     // Map the live pointer onto the CACHED track rect (constant during a drag, and
     // valid across the respawn that zeroes a fresh entity's geometry).
-    if let Some(fraction) =
-        crate::scrollbar_fraction_from_rect(drag.track_top_y, drag.track_height, loc.position.y)
-    {
+    if let Some(fraction) = ambition_menu::scrollbar_fraction_from_rect(
+        drag.track_top_y,
+        drag.track_height,
+        loc.position.y,
+    ) {
         out.write(MenuScrollDragged { fraction });
     }
 }

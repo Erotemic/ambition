@@ -1,5 +1,5 @@
-use crate::scrollbar_thumb_layout;
-use crate::ScrollThumb;
+use ambition_menu::scrollbar_thumb_layout;
+use ambition_menu::ScrollThumb;
 
 /// Fix 1: the lib maps the host's thumb fractions onto a track-relative
 /// `(y, size)`: size = visible fraction (floored grabbable), y rides the

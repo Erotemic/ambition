@@ -8,7 +8,6 @@ publish = false
 
 [dependencies]
 bevy = "0.18.1"
-# 3D OoT-style cube renderer (`kaleidoscope.rs`, #31). Pulls bevy_rich_text3d /
-# Text3d transitively. Sourced from crates.io 0.6 (de-vendored from the
-# ambition_menu submodule, which now only carries demos).
-bevy_lunex = "0.6"
+# The bevy_lunex cube renderer moved to the `ambition_menu_kaleidoscope`
+# extension crate (E1e); this crate is now bevy_lunex-free (the flat bevy_ui
+# grid renderer + the renderer-agnostic page model).

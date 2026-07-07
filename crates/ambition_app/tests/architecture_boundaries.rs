@@ -515,6 +515,50 @@ fn architecture_boundaries_persistence_crate_owns_stored_shapes_only() {
     );
 }
 
+/// `ambition_menu_kaleidoscope` is the FIRST engine extension crate (E1e): the
+/// bevy_lunex 3D cube renderer for the `ambition_menu` page model. It is
+/// optional for any game — a host installs it to draw the same backend-agnostic
+/// model as a cube — so it must name only engine deps (ambition_menu + bevy +
+/// bevy_lunex) and no game/app/content machinery.
+#[test]
+fn architecture_boundaries_kaleidoscope_is_an_engine_extension() {
+    let crate_root = repo_root().join("game/ambition_menu_kaleidoscope");
+    let workspace_manifest =
+        fs::read_to_string(repo_root().join("Cargo.toml")).expect("read workspace manifest");
+    assert!(
+        workspace_manifest.contains("game/ambition_menu_kaleidoscope"),
+        "ambition_menu_kaleidoscope must be a registered workspace member (in game/)"
+    );
+    assert!(
+        crate_root.join("Cargo.toml").exists(),
+        "ambition_menu_kaleidoscope should exist at game/ambition_menu_kaleidoscope"
+    );
+    // Only the reusable menu model — no game/app/content/gameplay deps.
+    assert_manifest_path_deps_only(
+        &crate_root,
+        &["ambition_menu"],
+        "ambition_menu_kaleidoscope is an engine extension over the menu model",
+    );
+    assert_source_tree_has_no_code_refs(
+        crate_root.join("src"),
+        &[
+            "ambition_gameplay_core",
+            "ambition_render",
+            "ambition_content",
+            "ambition_app",
+            "ambition_settings_menu",
+        ],
+        "the kaleidoscope extension must name no game/app/content machinery",
+    );
+    // The base menu crate must stay bevy_lunex-free now that the cube left.
+    let menu_manifest = fs::read_to_string(repo_root().join("crates/ambition_menu/Cargo.toml"))
+        .expect("read ambition_menu manifest");
+    assert!(
+        !menu_manifest.contains("bevy_lunex ="),
+        "ambition_menu should be bevy_lunex-free; the cube renderer is the extension crate"
+    );
+}
+
 /// `ambition_settings_menu` is the renderer-agnostic settings + system menu IR
 /// (E1e). It is pure logic over `ambition_persistence::settings` + the keyboard
 /// presets — no bevy, no renderer, no game state — so both menu backends render

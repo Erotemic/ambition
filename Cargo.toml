@@ -32,6 +32,7 @@ members = [
     "crates/ambition_gameplay_trace",
     "crates/ambition_touch_input",
     "crates/ambition_ui_nav",
+    "game/ambition_menu_kaleidoscope",
 ]
 resolver = "2"
 

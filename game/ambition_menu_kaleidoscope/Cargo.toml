@@ -1,0 +1,18 @@
+[package]
+name = "ambition_menu_kaleidoscope"
+version = "0.1.0"
+edition = "2021"
+description = "The bevy_lunex 3D OoT-style cube renderer for the ambition_menu page model — the FIRST engine extension crate (E1e). Optional for any game: a host installs KaleidoscopeMenuPlugin to render the same backend-agnostic MenuPageModel as a rotating cube instead of the flat bevy_ui grid. Engine-only deps (ambition_menu + bevy + bevy_lunex); names no game content."
+license = "MIT OR Apache-2.0"
+publish = false
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+# The backend-agnostic page model this renderer draws (MenuPageModel + the
+# AmbitionMenu* control/page/root vocabulary + scrollbar layout helpers).
+ambition_menu = { path = "../../crates/ambition_menu" }
+bevy = "0.18.1"
+# The 3D cube UI toolkit (pulls bevy_rich_text3d / Text3d transitively).
+bevy_lunex = "0.6"

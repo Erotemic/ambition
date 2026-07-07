@@ -150,6 +150,7 @@ dependencies = [
  "ambition_host",
  "ambition_input",
  "ambition_menu",
+ "ambition_menu_kaleidoscope",
  "ambition_persistence",
  "ambition_platformer_primitives",
  "ambition_render",
@@ -421,6 +422,14 @@ dependencies = [
 name = "ambition_menu"
 version = "0.1.0"
 dependencies = [
+ "bevy",
+]
+
+[[package]]
+name = "ambition_menu_kaleidoscope"
+version = "0.1.0"
+dependencies = [
+ "ambition_menu",
  "bevy",
  "bevy_lunex",
 ]

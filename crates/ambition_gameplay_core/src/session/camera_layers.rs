@@ -6,7 +6,7 @@
 //!   default `RenderLayers::layer(0)`) plus camera-relative parallax sprites on
 //!   [`PARALLAX_BACKGROUND_LAYER`], plus the cube's dim-scrim (explicitly
 //!   retargeted to it via `UiTargetCamera`).
-//! * order 8  — the cube-menu `Camera3d` (`ambition_menu::kaleidoscope::KaleidoscopePauseCamera`).
+//! * order 8  — the cube-menu `Camera3d` (`ambition_menu_kaleidoscope::KaleidoscopePauseCamera`).
 //! * order 9  — [`FrontHudCamera`] (`Camera2d`, `clear_color: None`): the DEFAULT UI
 //!   camera, so the HUD / FPS / debug / control overlays draw IN FRONT of the cube.
 //!

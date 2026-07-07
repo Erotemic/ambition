@@ -99,7 +99,7 @@ pub(crate) fn kaleidoscope_apply_scroll_drag(
     snapshot: SystemMenuSnapshotParams,
     quality_confirm: Res<VisualQualityConfirmState>,
     mut scroll: ResMut<KaleidoscopeScroll>,
-    mut dragged: MessageReader<ambition_menu::kaleidoscope::MenuScrollDragged>,
+    mut dragged: MessageReader<ambition_menu::MenuScrollDragged>,
 ) {
     let open = ui_state.map(|s| s.visible).unwrap_or(false);
     if backend.effective() != InventoryUiBackend::LunexKaleidoscope || !open {

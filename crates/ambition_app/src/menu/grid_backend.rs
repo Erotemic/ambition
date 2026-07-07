@@ -924,7 +924,7 @@ pub(crate) fn grid_menu_scroll_wheel(
 }
 
 /// Feature C (Grid): apply the engine's backend-agnostic scrollbar-drag signal
-/// (`ambition_menu::render::kaleidoscope::MenuScrollDragged`, emitted by the
+/// (`ambition_menu::MenuScrollDragged`, emitted by the
 /// `bevy_ui` scrollbar observers) to the Grid's scroll override — the mirror of the
 /// cube's `kaleidoscope_apply_scroll_drag`. The neutral `0..=1` fraction maps across
 /// the scrollable range to a window-start row. Selection-independent, like the wheel.
@@ -936,7 +936,7 @@ pub(crate) fn grid_menu_apply_scroll_drag(
     settings: Res<UserSettings>,
     quality_confirm: Res<VisualQualityConfirmState>,
     system: SystemMenuParams,
-    mut dragged: MessageReader<ambition_menu::render::kaleidoscope::MenuScrollDragged>,
+    mut dragged: MessageReader<ambition_menu::MenuScrollDragged>,
 ) {
     // Backend read from `system` (it owns the resource); a separate `Res` would
     // B0002-conflict with that `ResMut`.

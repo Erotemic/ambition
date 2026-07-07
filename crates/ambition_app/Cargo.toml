@@ -131,6 +131,9 @@ ambition_audio = { path = "../ambition_audio" }
 ambition_sfx = { path = "../ambition_sfx" }
 ambition_vfx = { path = "../ambition_vfx" }
 ambition_menu = { path = "../ambition_menu" }
+# The bevy_lunex cube renderer — the first engine extension crate (E1e). The
+# app's kaleidoscope_app host installs it to render the menu page model as a cube.
+ambition_menu_kaleidoscope = { path = "../../game/ambition_menu_kaleidoscope" }
 ambition_time = { path = "../ambition_time" }
 bevy = { version = "0.18.1", default-features = false, features = ["ui_api"] }
 bevy_common_assets = { version = "0.15", features = ["ron"] }

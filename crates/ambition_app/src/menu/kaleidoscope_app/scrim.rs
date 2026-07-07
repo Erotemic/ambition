@@ -67,7 +67,7 @@ pub(crate) fn retarget_kaleidoscope_scrim(
 /// Fade the dim-scrim's alpha with the cube's eased open `amount`, so the world
 /// dims in/out exactly with the fold. Fully transparent when the cube is shut.
 pub(crate) fn fade_kaleidoscope_scrim(
-    open_state: Res<ambition_menu::kaleidoscope::KaleidoscopeOpenState>,
+    open_state: Res<ambition_menu_kaleidoscope::KaleidoscopeOpenState>,
     mut scrim: Query<&mut BackgroundColor, With<KaleidoscopeScrim>>,
 ) {
     let alpha = open_state.amount.clamp(0.0, 1.0) * SCRIM_PEAK_ALPHA;

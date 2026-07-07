@@ -1,5 +1,5 @@
 //! Game-side hookup for the 3D-cube OoT pause menu (#31): adds the lib's reusable
-//! cube renderer ([`ambition_menu::kaleidoscope::KaleidoscopeMenuPlugin`]) and feeds it our
+//! cube renderer ([`ambition_menu_kaleidoscope::KaleidoscopeMenuPlugin`]) and feeds it our
 //! live 24-item inventory (via [`crate::menu::model`]). Runtime-toggleable vs the
 //! existing Bevy-UI grid through [`InventoryUiBackend`].
 //!
@@ -11,13 +11,13 @@
 use ambition_gameplay_core::menu::backend::{
     InventoryUiBackend, KALEIDOSCOPE_MENU_BACKEND_ENABLED,
 };
-use ambition_menu::kaleidoscope::{
-    rebuild_cube_faces, KaleidoscopeActiveFaceControl, KaleidoscopeFocusVisuals,
-    KaleidoscopeMenuConfig, KaleidoscopeMenuPlugin, KaleidoscopeRender, KaleidoscopeRenderPre,
-};
 use ambition_menu::{
     ActiveMenuPages, AmbitionInventoryUiPlugin, AmbitionMenuControl, MenuDynamicText,
     MenuDynamicTextContent, MenuVisualState,
+};
+use ambition_menu_kaleidoscope::{
+    rebuild_cube_faces, KaleidoscopeActiveFaceControl, KaleidoscopeFocusVisuals,
+    KaleidoscopeMenuConfig, KaleidoscopeMenuPlugin, KaleidoscopeRender, KaleidoscopeRenderPre,
 };
 use bevy::prelude::*;
 
@@ -103,7 +103,7 @@ fn kaleidoscope_menu_visible(
 fn kaleidoscope_render_needed(
     backend: Res<InventoryUiBackend>,
     ui_state: Option<Res<ambition_gameplay_core::inventory_ui::InventoryUiState>>,
-    open_state: Option<Res<ambition_menu::kaleidoscope::KaleidoscopeOpenState>>,
+    open_state: Option<Res<ambition_menu_kaleidoscope::KaleidoscopeOpenState>>,
 ) -> bool {
     let (target, amount) = open_state
         .map(|s| (s.target, s.amount))
@@ -343,7 +343,7 @@ pub(crate) struct KaleidoscopePointerPress {
 /// Host-owned, SELECTION-INDEPENDENT scroll position for the System face's windowed
 /// list (Features C/D). `None` = the window follows the keyboard/pointer cursor
 /// (the historical behaviour); `Some(start)` = an explicit scroll override set by a
-/// scrollbar DRAG (Feature C, via the lib's neutral [`ambition_menu::kaleidoscope::MenuScrollDragged`]
+/// scrollbar DRAG (Feature C, via the lib's neutral [`ambition_menu::MenuScrollDragged`]
 /// signal) or the MOUSE WHEEL (Feature D). Keyboard navigation clears the override so
 /// the window resumes following the cursor. This is the host-side meaning of the
 /// lib's backend-agnostic scroll signal — the lib never knows about rows/window_start.
@@ -1656,12 +1656,12 @@ fn cycle_dev_gravity(
 fn gate_kaleidoscope_menu(
     backend: Res<InventoryUiBackend>,
     ui_state: Option<Res<ambition_gameplay_core::inventory_ui::InventoryUiState>>,
-    mut open_state: ResMut<ambition_menu::kaleidoscope::KaleidoscopeOpenState>,
+    mut open_state: ResMut<ambition_menu_kaleidoscope::KaleidoscopeOpenState>,
     mut cameras: Query<(
         &mut Camera,
-        Has<ambition_menu::kaleidoscope::KaleidoscopePauseCamera>,
+        Has<ambition_menu_kaleidoscope::KaleidoscopePauseCamera>,
     )>,
-    mut rings: Query<&mut Visibility, With<ambition_menu::kaleidoscope::MenuRing>>,
+    mut rings: Query<&mut Visibility, With<ambition_menu_kaleidoscope::MenuRing>>,
     mut last_show: Local<Option<bool>>,
 ) {
     let open = ui_state.map(|s| s.visible).unwrap_or(false);

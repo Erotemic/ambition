@@ -883,7 +883,7 @@ fn hover_is_gated_on_active_input_being_mouse() {
 fn scroll_grid_app() -> App {
     let mut app = grid_app();
     app.add_message::<bevy::input::mouse::MouseWheel>();
-    app.add_message::<ambition_menu::render::kaleidoscope::MenuScrollDragged>();
+    app.add_message::<ambition_menu::MenuScrollDragged>();
     app.add_systems(
         Update,
         (grid_menu_scroll_wheel, grid_menu_apply_scroll_drag).before(grid_menu_nav),
@@ -1043,8 +1043,8 @@ fn grid_scrollbar_drag_fraction_sets_window_start_proportionally() {
 
     // Drag to the BOTTOM of the track (fraction 1.0) → window_start == max.
     app.world_mut()
-        .resource_mut::<Messages<ambition_menu::render::kaleidoscope::MenuScrollDragged>>()
-        .write(ambition_menu::render::kaleidoscope::MenuScrollDragged { fraction: 1.0 });
+        .resource_mut::<Messages<ambition_menu::MenuScrollDragged>>()
+        .write(ambition_menu::MenuScrollDragged { fraction: 1.0 });
     app.update();
     assert_eq!(
         grid_window_start(&app),
@@ -1054,8 +1054,8 @@ fn grid_scrollbar_drag_fraction_sets_window_start_proportionally() {
 
     // Drag to the MIDDLE (fraction 0.5) → ~half the range.
     app.world_mut()
-        .resource_mut::<Messages<ambition_menu::render::kaleidoscope::MenuScrollDragged>>()
-        .write(ambition_menu::render::kaleidoscope::MenuScrollDragged { fraction: 0.5 });
+        .resource_mut::<Messages<ambition_menu::MenuScrollDragged>>()
+        .write(ambition_menu::MenuScrollDragged { fraction: 0.5 });
     app.update();
     assert_eq!(
         grid_window_start(&app),

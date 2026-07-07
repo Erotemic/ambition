@@ -5,10 +5,10 @@
 //! Hosts build generic [`MenuPageModel`] / [`ItemsOnlyPageSpec`] values from
 //! their own resources, then translate the [`MenuActionActivated`] /
 //! [`MenuClosedRequested`] messages this crate emits back into gameplay events;
-//! it never names `OwnedItems`, health, or player components. The two real
-//! renderers live in [`render`]: [`render::kaleidoscope`] (the bevy_lunex 3D
-//! OoT-style cube) and [`render::bevy_ui`] (a flat tabbed `bevy_ui` view) — both
-//! consume the same page model, which is what validates the seam.
+//! it never names `OwnedItems`, health, or player components. This crate ships
+//! the flat tabbed [`render::bevy_ui`] renderer; the bevy_lunex 3D OoT-style
+//! cube renderer is the optional `ambition_menu_kaleidoscope` extension crate
+//! (E1e) — both consume the same page model, which is what validates the seam.
 //!
 //! [`AmbitionInventoryUiPlugin`] installs only the renderer-agnostic
 //! resources/messages, so a host can keep it even with no renderer enabled.
@@ -16,11 +16,6 @@
 use bevy::prelude::{App, Component, Message, Plugin, Resource};
 
 pub mod render;
-
-/// Back-compat re-export: the cube renderer moved to [`render::kaleidoscope`]
-/// during the Phase-0 restructure. Existing `ambition_menu::kaleidoscope::*`
-/// import paths keep resolving through this shim.
-pub use render::kaleidoscope;
 
 /// A normalized page-space rectangle.
 ///
@@ -164,7 +159,7 @@ pub struct ScrollThumb {
 /// own mathematically-equivalent copy and had begun to drift cosmetically. The
 /// height is floored grabbable (min 8% of the track) and the thumb travels the
 /// remaining `1 - height`.
-pub(crate) fn scrollbar_thumb_layout(thumb: ScrollThumb) -> (f32, f32) {
+pub fn scrollbar_thumb_layout(thumb: ScrollThumb) -> (f32, f32) {
     let start = thumb.start.clamp(0.0, 1.0);
     let size = thumb.size.clamp(0.08, 1.0);
     let travel = (1.0 - size).max(0.0);
@@ -176,7 +171,7 @@ pub(crate) fn scrollbar_thumb_layout(thumb: ScrollThumb) -> (f32, f32) {
 /// Single source of truth shared by both renderers (the cube extracts the track
 /// rect from its `MenuScrollbar` component; the grid reads its measured node
 /// rect) — the division used to be copied into each.
-pub(crate) fn scrollbar_fraction_from_rect(
+pub fn scrollbar_fraction_from_rect(
     track_top_y: f32,
     track_height: f32,
     pointer_y: f32,
@@ -185,6 +180,39 @@ pub(crate) fn scrollbar_fraction_from_rect(
         return None;
     }
     Some(((pointer_y - track_top_y) / track_height).clamp(0.0, 1.0))
+}
+
+/// Backend-agnostic scroll-drag channel (Feature C).
+///
+/// A renderer emits [`MenuScrollDragged`] carrying a NEUTRAL fraction in
+/// `0..=1` (0 = top of the track, 1 = bottom). Neither renderer has any notion
+/// of "scroll position" — the host interprets the fraction against its own
+/// scrollable range. Both the bevy_ui grid and the `ambition_menu_kaleidoscope`
+/// cube publish through this one message, so it lives in the shared model.
+#[derive(Message, Clone, Copy, Debug, PartialEq)]
+pub struct MenuScrollDragged {
+    /// Drag position along the track, `0.0` (top) .. `1.0` (bottom).
+    pub fraction: f32,
+}
+
+/// Which pointer (if any) is mid-drag on a menu scrollbar. Held in a RESOURCE,
+/// NOT on the scrollbar entity, because changing the scroll position triggers
+/// the host's per-step republish, which DESPAWNS + respawns the scrollbar entity
+/// each frame — a per-entity held flag would reset to `None` after the first step
+/// and the drag would die. Keyed on the persistent `PointerId`, so the drag
+/// survives any number of respawns. Shared by BOTH renderers (only one menu is
+/// active at a time), so it lives in the shared model.
+#[derive(Resource, Default)]
+pub struct ScrollbarDragState {
+    pub pressed_by: Option<bevy::picking::pointer::PointerId>,
+    /// Track screen rect (top edge + height, logical px) CACHED at press time.
+    /// The track never moves during a drag (only the pointer does), and the grid
+    /// track's `ComputedNode`/`GlobalTransform` read as ZERO on the frame it is
+    /// respawned by the per-step republish — so the manual tracker maps the live
+    /// pointer against this cached rect rather than the just-respawned entity's
+    /// geometry. Set on press, when the pressed track's geometry is valid.
+    pub track_top_y: f32,
+    pub track_height: f32,
 }
 
 impl<Action> MenuNode<Action> {

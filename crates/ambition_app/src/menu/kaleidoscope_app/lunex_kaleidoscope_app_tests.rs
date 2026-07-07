@@ -1243,7 +1243,7 @@ fn bug2_system_row_click_survives_a_hover_republish() {
 fn scroll_app() -> App {
     let mut app = base_kaleidoscope_test_app();
     app.add_message::<bevy::input::mouse::MouseWheel>();
-    app.add_message::<ambition_menu::kaleidoscope::MenuScrollDragged>();
+    app.add_message::<ambition_menu::MenuScrollDragged>();
     app.add_systems(
         Update,
         (
@@ -1358,8 +1358,8 @@ fn scrollbar_drag_fraction_sets_window_start_proportionally() {
 
     // Drag to the BOTTOM of the track (fraction 1.0) -> window_start == max.
     app.world_mut()
-        .resource_mut::<Messages<ambition_menu::kaleidoscope::MenuScrollDragged>>()
-        .write(ambition_menu::kaleidoscope::MenuScrollDragged { fraction: 1.0 });
+        .resource_mut::<Messages<ambition_menu::MenuScrollDragged>>()
+        .write(ambition_menu::MenuScrollDragged { fraction: 1.0 });
     app.update();
     assert_eq!(
         app.world()
@@ -1371,8 +1371,8 @@ fn scrollbar_drag_fraction_sets_window_start_proportionally() {
 
     // Drag to the MIDDLE (fraction 0.5) -> ~half the range.
     app.world_mut()
-        .resource_mut::<Messages<ambition_menu::kaleidoscope::MenuScrollDragged>>()
-        .write(ambition_menu::kaleidoscope::MenuScrollDragged { fraction: 0.5 });
+        .resource_mut::<Messages<ambition_menu::MenuScrollDragged>>()
+        .write(ambition_menu::MenuScrollDragged { fraction: 0.5 });
     app.update();
     let expected_mid = (0.5 * max as f32).round() as usize;
     assert_eq!(
@@ -1632,7 +1632,7 @@ fn highlight_app(owned_item: Item) -> App {
 /// the writer raises is consumed one frame too late — and the writer is
 /// change-detection-gated, so it never re-raises it. The highlight never shows.
 fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
-    use ambition_menu::kaleidoscope::{sync_control_focus_visuals, sync_selection_corner_visuals};
+    use ambition_menu_kaleidoscope::{sync_control_focus_visuals, sync_selection_corner_visuals};
     // The icon asset loads (`AssetServer::load`) need the IO task pool.
     bevy::tasks::IoTaskPool::get_or_init(Default::default);
     let mut app = App::new();
@@ -1673,7 +1673,7 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
     // need headlessly).
     app.world_mut().spawn((
         ambition_menu::AmbitionMenuRoot,
-        ambition_menu::kaleidoscope::MenuRing,
+        ambition_menu_kaleidoscope::MenuRing,
         Transform::default(),
         Visibility::Visible,
     ));
@@ -1691,7 +1691,7 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
     // scheduled BEFORE the writer (the regression hazard).
     app.add_systems(
         Update,
-        ambition_menu::kaleidoscope::rebuild_cube_faces::<MenuPage, MenuPageAction>,
+        ambition_menu_kaleidoscope::rebuild_cube_faces::<MenuPage, MenuPageAction>,
     );
     if writer_first {
         // The FIX: republish + the host focus writer run AFTER the lib rebuild (so
@@ -1707,7 +1707,7 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
                 kaleidoscope_sync_focus_visuals,
             )
                 .chain()
-                .after(ambition_menu::kaleidoscope::rebuild_cube_faces::<MenuPage, MenuPageAction>),
+                .after(ambition_menu_kaleidoscope::rebuild_cube_faces::<MenuPage, MenuPageAction>),
         );
         app.add_systems(
             Update,

@@ -304,3 +304,17 @@ tests; the engine-for-other-games oracle HOLDS (zero live core→content
 references — the one `include_str!` is the sanctioned cfg(test) fixture
 pattern); live-doc drift is nil (dead crate names appear only in
 planning/history docs).
+
+### F8 — Deep-pass certification
+
+After the F7 fixes: `ambition_ldtk_map` 25 green (contract tests restored),
+`ambition_actors` lib 789 green, and the FULL app rl_sim gate = **44 suites
+green with only the documented `unified_melee` feel-RED**. The boundary test
+now explicitly allows the fixture's DATA path while still forbidding the
+Cargo dep (the distinction is written into the test). The D2 template carries
+the BINDING test-accounting rule so no future carve can silently drop pinned
+contracts again.
+
+This closes the fable audit. The repo is structurally sound, behaviorally
+green, and every remaining item is enumerated with a prescription in F1–F7 —
+the priority queue at F6 stands, with F7's lowering fixes already landed.

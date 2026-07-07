@@ -14,7 +14,7 @@
 //! whole story here; if an effect ever needs paging/trim it graduates to the
 //! `CharacterAnimator` path that already drives both.
 
-use ambition_gameplay_core::character_sprites::build_atlas_layout;
+use ambition_sprite_sheet::character::build_atlas_layout;
 use ambition_sprite_sheet::SheetRecord;
 use bevy::image::TextureAtlasLayout;
 

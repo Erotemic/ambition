@@ -1410,3 +1410,16 @@ comments now live at the enum and both fold sites.
 
 Gate: `cargo fmt`; `cargo test -p ambition_gameplay_core --lib boss` (121);
 `python3 scripts/check_doc_links.py`.
+
+## 2026-07-07 (Codex) — E4 dep-flip cleanup: moved-vocabulary render imports
+
+Started the final render dep-flip by deleting stale render imports whose
+destination crates already exist: UI font loading now reads
+`ambition_asset_manager::sandbox_assets` directly, effect atlas layout uses
+`ambition_sprite_sheet::character::build_atlas_layout`, and render imports
+`BoundFeatureKind` from `ambition_combat` instead of the gameplay-core facade.
+This does not remove render's gameplay-core dependency yet; the remaining
+references are live presentation data / scheduling / E7-E8 residue rather than
+already-moved vocabulary.
+
+Gate: `cargo fmt`; `cargo check -p ambition_render`.

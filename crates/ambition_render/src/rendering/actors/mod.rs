@@ -14,12 +14,12 @@ use super::primitives::{
     feature_color, feature_z, switch_on_color, FeatureVisual, PlayerSpriteBaseline, PlayerVisual,
     PropVisual, SceneEntities,
 };
+use ambition_combat::events::BoundFeatureKind;
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_gameplay_core::assets::game_assets::{self, EntitySprite, GameAssets};
 use ambition_gameplay_core::boss_encounter::sprites::{
     self, BossAnimFrame, BossAnimState, BossAnimator,
 };
-use ambition_gameplay_core::combat::BoundFeatureKind;
 use ambition_gameplay_core::features::{
     ActorRenderSize, BreakableFeature, ChestFeature, FeatureId, FeatureVisualKind, Opened,
 };

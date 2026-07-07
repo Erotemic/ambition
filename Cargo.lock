@@ -534,6 +534,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_asset_manager",
  "ambition_characters",
+ "ambition_combat",
  "ambition_cutscene",
  "ambition_engine_core",
  "ambition_gameplay_core",

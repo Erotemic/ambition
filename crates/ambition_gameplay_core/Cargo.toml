@@ -396,6 +396,11 @@ ambition_persistence = { path = "../ambition_persistence" }
 # input systems + the bevy_yarnspinner bridge and binding-installer seam. The
 # game-specific Yarn bindings + GameMode sync stay in `src/dialog`.
 ambition_dialog = { path = "../ambition_dialog" }
+# Reusable developer-tooling state + logic (E1d): DeveloperTools, the editable
+# player-tuning/ability/stats resources, profile enums, startup profiler,
+# DeveloperTools disk persistence, and the live-edit sync system. gameplay-core
+# re-exports these on the historical `crate::dev::*` paths.
+ambition_dev_tools = { path = "../ambition_dev_tools" }
 # Logical asset catalog + per-profile source resolution. Bevy + sfx
 # features so the sandbox can format `AssetPath` strings through the
 # catalog and (in a follow-up) route the SFX bank bytes through the

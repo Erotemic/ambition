@@ -1,22 +1,23 @@
-//! Disk persistence for gameplay-core developer tools.
+//! Disk persistence for the [`DeveloperTools`] resource (developer.ron).
 //!
-//! User settings and sandbox save I/O live in `ambition_persistence`; this
-//! module stays here until E1d because the stored developer state is the
-//! `DeveloperTools` resource owned by gameplay-core's dev tooling.
+//! User settings and sandbox save I/O live in `ambition_persistence`; the
+//! developer-only switches live here (E1d) beside the `DeveloperTools`
+//! resource this crate owns. The on-disk root is resolved through
+//! `ambition_persistence::settings::platform_paths`.
 
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use bevy::prelude::*;
 
-use crate::dev::dev_tools::DeveloperTools;
+use crate::dev_tools::DeveloperTools;
 
 /// Companion file holding developer-only switches. Kept separate from
 /// `settings.ron` so clearing dev knobs does not reset player-facing tuning.
 pub const DEVELOPER_FILE: &str = "ambition/developer.ron";
 
 pub fn developer_path() -> PathBuf {
-    developer_path_under(&crate::persistence::settings::platform_paths::data_dir_root())
+    developer_path_under(&ambition_persistence::settings::platform_paths::data_dir_root())
 }
 
 pub fn developer_path_under(root: &Path) -> PathBuf {
@@ -132,7 +133,7 @@ mod tests {
         let root = temp_root("legacy_art");
         let path = root.join("developer.ron");
         let mut developer = DeveloperTools::default();
-        developer.debug_art_mode = crate::dev::dev_tools::DebugArtMode::Normal;
+        developer.debug_art_mode = crate::dev_tools::DebugArtMode::Normal;
         developer.hide_sprites = true;
         developer.placeholder_sprites = true;
         save_developer(&path, &developer).unwrap();
@@ -140,7 +141,7 @@ mod tests {
         let restored = load_developer(&path);
         assert_eq!(
             restored.debug_art_mode,
-            crate::dev::dev_tools::DebugArtMode::Placeholder
+            crate::dev_tools::DebugArtMode::Placeholder
         );
         assert!(restored.placeholder_sprites);
         assert!(!restored.hide_sprites);

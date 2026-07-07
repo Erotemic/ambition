@@ -15,7 +15,8 @@ pub use ambition_persistence::settings::{
 };
 
 pub mod model;
-pub mod persistence;
+// `DeveloperTools` disk persistence moved to `ambition_dev_tools` (E1d);
+// reach it at `ambition_dev_tools::persistence`.
 
 // Public IR surface used by renderers (the cube today; the pause menu migrates
 // onto it next). The IR still lives in `crate::menu::ir` until E1e.

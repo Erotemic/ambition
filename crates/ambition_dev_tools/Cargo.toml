@@ -1,0 +1,25 @@
+[package]
+name = "ambition_dev_tools"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Reusable developer-tooling STATE + logic (E1d): the DeveloperTools debug/gizmo toggle resource, the reflected editable player-tuning / ability / stats resources and their engine conversions, the movement/debug profile enums, the startup profiler marks, DeveloperTools disk persistence, and the live-edit sync systems that push inspector edits onto the authoritative player body. Content-free — it names only the foundational body/marker/health vocabulary, so any platformer can wire an inspector against it. The egui overlay UI (DevToolsPlugin) stays app-side; the sim trace recorder stays sim-side."
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+# Body* clusters + MovementTuning + refresh helpers + Vec2 (the reflected
+# editable resources mirror these engine value types).
+ambition_engine_core = { path = "../ambition_engine_core" }
+# BodyHealth / Health for the player-stats inspector sync.
+ambition_characters = { path = "../ambition_characters" }
+# PrimaryPlayerOnly (With<PlayerEntity> + With<PrimaryPlayer>) query filter.
+ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
+# platform_paths::data_dir_root for the developer.ron on-disk location.
+ambition_persistence = { path = "../ambition_persistence" }
+# Reflect + Resource + ECS + logging. No windowing/UI — the overlays are app-side.
+bevy = { version = "0.18.1", default-features = false, features = ["bevy_log"] }
+serde = { version = "1", features = ["derive"] }
+ron = "0.11"

@@ -272,6 +272,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "ambition_dev_tools"
+version = "0.1.0"
+dependencies = [
+ "ambition_characters",
+ "ambition_engine_core",
+ "ambition_persistence",
+ "ambition_platformer_primitives",
+ "bevy",
+ "ron 0.11.0",
+ "serde",
+]
+
+[[package]]
 name = "ambition_dialog"
 version = "0.1.0"
 dependencies = [
@@ -311,6 +324,7 @@ dependencies = [
  "ambition_characters",
  "ambition_combat",
  "ambition_cutscene",
+ "ambition_dev_tools",
  "ambition_dialog",
  "ambition_engine_core",
  "ambition_entity_catalog",

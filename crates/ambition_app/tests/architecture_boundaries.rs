@@ -515,6 +515,45 @@ fn architecture_boundaries_persistence_crate_owns_stored_shapes_only() {
     );
 }
 
+/// `ambition_dev_tools` is the reusable developer-tooling STATE + logic (E1d):
+/// `DeveloperTools`, the reflected editable player-tuning / ability / stats
+/// resources, the profile enums, the startup profiler, `DeveloperTools` disk
+/// persistence, and the live-edit sync systems. It names only the foundational
+/// body/marker/health vocabulary, so another platformer can wire an inspector
+/// against it. The egui overlay UI (`DevToolsPlugin`) stays app-side and the
+/// sim `trace` recorder stays sim-side — neither may leak into this crate.
+#[test]
+fn architecture_boundaries_dev_tools_crate_is_foundation_only() {
+    let crate_root = repo_root().join("crates/ambition_dev_tools");
+    assert_workspace_contains_crate("ambition_dev_tools");
+    assert!(
+        crate_root.join("Cargo.toml").exists(),
+        "ambition_dev_tools crate should exist at crates/ambition_dev_tools"
+    );
+    assert_manifest_path_deps_only(
+        &crate_root,
+        &[
+            "ambition_engine_core",
+            "ambition_characters",
+            "ambition_platformer_primitives",
+            "ambition_persistence",
+        ],
+        "ambition_dev_tools is foundational dev-tool state; overlays/sim stay out",
+    );
+    assert_source_tree_has_no_code_refs(
+        crate_root.join("src"),
+        &[
+            "ambition_gameplay_core",
+            "ambition_menu",
+            "ambition_render",
+            "ambition_content",
+            "ambition_app",
+            "bevy_inspector_egui",
+        ],
+        "ambition_dev_tools must stay free of game/menu/render/app/egui machinery",
+    );
+}
+
 /// `ambition_dialog` is the reusable dialogue runtime (E1c): the `DialogState`
 /// view model, typewriter reveal + input systems, and the `bevy_yarnspinner`
 /// bridge + binding-installer seam. It must name no game/actor/menu/UI content —
@@ -1548,10 +1587,22 @@ fn architecture_boundaries_dev_overlays_live_in_app() {
         &["debug_overlay.rs", "fps_overlay.rs"],
         "presentation-only dev overlays should live in ambition_app::dev",
     );
+    // E1d: the dev-tool STATE + startup profiler moved into the foundational
+    // `ambition_dev_tools` crate. Only the sim-coupled trace recorder stays.
+    assert_paths_absent(
+        &lib_dev,
+        &["dev_tools", "profiling.rs"],
+        "dev-tool state + profiling moved to ambition_dev_tools (E1d)",
+    );
     assert_paths_exist(
         &lib_dev,
-        &["dev_tools", "profiling.rs", "trace.rs"],
-        "lib-coupled dev state/profiling/trace",
+        &["trace.rs", "trace"],
+        "sim-coupled trace recorder stays sim-side",
+    );
+    assert_paths_exist(
+        &repo_root().join("crates/ambition_dev_tools/src"),
+        &["dev_tools", "profiling.rs", "persistence.rs"],
+        "ambition_dev_tools owns the dev-tool state, profiler, and developer persistence",
     );
     assert_paths_exist(
         &app_src().join("dev"),

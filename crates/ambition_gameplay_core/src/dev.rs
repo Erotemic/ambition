@@ -1,49 +1,19 @@
-//! Developer-facing tooling that stays in the machinery lib: the dev
-//! STATE (`dev_tools`: DeveloperTools + editable profiles, read by
-//! persistence + presentation), the gameplay `trace` recorder (written
-//! by sim code), and the startup `profiling` marks (read by audio).
+//! Developer-facing tooling.
+//!
+//! The dev-tool STATE + logic — `DeveloperTools`, the reflected editable
+//! player-tuning / ability / stats resources, the profile enums, the startup
+//! profiler, `DeveloperTools` disk persistence, and the live-edit sync system —
+//! was carved into the foundational `ambition_dev_tools` crate (E1d). They are
+//! re-exported here on the historical `crate::dev::*` paths so the wide set of
+//! consumers (render, sim_view, runtime, app, menu) need no import edits.
+//!
+//! What stays sim-side: the gameplay `trace` recorder, which samples live
+//! `player`/`features`/`rooms`/`portal`/`game_mode` state and therefore cannot
+//! live in a foundational crate.
 
-pub mod dev_tools;
-pub mod profiling;
+pub use ambition_dev_tools::{dev_tools, profiling, sync_live_player_dev_edits_system};
+
+/// Sim-side gameplay trace recorder (written by projectile/encounter/etc.
+/// systems). The trace FORMAT lives in `ambition_gameplay_trace`; the
+/// recording SYSTEMS stay here because they read sim-only state.
 pub mod trace;
-
-use bevy::prelude::*;
-
-use crate::actor::{
-    BodyAbilities, BodyBlinkState, BodyDashState, BodyFlightState, BodyJumpState, PrimaryPlayerOnly,
-};
-use dev_tools::{EditableAbilitySet, EditableMovementTuning};
-
-/// Push live dev-tools ability/tuning edits onto the authoritative player.
-///
-/// Registered by the host to run even while gameplay is suspended so the F3
-/// inspector stays responsive; the logic is body-state mutation and lives here
-/// beside the dev STATE it reads.
-pub fn sync_live_player_dev_edits_system(
-    editable_tuning: Res<EditableMovementTuning>,
-    editable_abilities: Res<EditableAbilitySet>,
-    mut player_q: Query<
-        (
-            &mut BodyAbilities,
-            &mut BodyFlightState,
-            &mut BodyBlinkState,
-            &mut BodyDashState,
-            &mut BodyJumpState,
-        ),
-        PrimaryPlayerOnly,
-    >,
-) {
-    let Ok((mut abilities, mut flight, mut blink, mut dash, mut jump)) = player_q.single_mut()
-    else {
-        return;
-    };
-    dev_tools::sync_live_ability_edits_clusters(
-        &mut abilities,
-        &mut flight,
-        &mut blink,
-        &mut dash,
-        &mut jump,
-        editable_abilities.as_engine(),
-        editable_tuning.as_engine(),
-    );
-}

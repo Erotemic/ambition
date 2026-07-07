@@ -7,6 +7,7 @@ members = [
     "crates/ambition_combat",
     "crates/ambition_content",
     "crates/ambition_cutscene",
+    "crates/ambition_dev_tools",
     "crates/ambition_dialog",
     "crates/ambition_entity_catalog",
     "crates/ambition_vfx",

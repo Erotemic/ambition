@@ -310,10 +310,10 @@ pub fn sync_developer_body_profile(
     developer: Res<DeveloperTools>,
     mut player_q: Query<
         (
-            &mut crate::actor::BodyKinematics,
-            &mut crate::actor::BodyBaseSize,
+            &mut ambition_engine_core::BodyKinematics,
+            &mut ambition_engine_core::BodyBaseSize,
         ),
-        crate::actor::PrimaryPlayerOnly,
+        ambition_platformer_primitives::markers::PrimaryPlayerOnly,
     >,
 ) {
     let desired = developer.player_body_profile.size();
@@ -338,7 +338,7 @@ pub fn sync_developer_body_profile(
 /// [`sync_developer_body_profile`], which runs every frame, so the menu caller
 /// does not need to hold a `&mut BodyBaseSize`.
 pub fn apply_player_body_profile(
-    kinematics: &mut crate::actor::BodyKinematics,
+    kinematics: &mut ambition_engine_core::BodyKinematics,
     profile: PlayerBodyProfile,
 ) {
     let new_size = profile.size();
@@ -357,9 +357,9 @@ pub fn apply_movement_profile(
     editable_tuning: &mut EditableMovementTuning,
     profile: MovementProfile,
     live_movement_refs: Option<(
-        &crate::actor::BodyAbilities,
-        &mut crate::actor::BodyDashState,
-        &mut crate::actor::BodyJumpState,
+        &ambition_engine_core::BodyAbilities,
+        &mut ambition_engine_core::BodyDashState,
+        &mut ambition_engine_core::BodyJumpState,
     )>,
 ) {
     let tuning = profile.tuning();
@@ -374,11 +374,11 @@ pub fn apply_movement_profile(
 /// Mutates `BodyAbilities` + side-effects on `BodyFlightState`,
 /// `BodyBlinkState`, `BodyDashState`, and `BodyJumpState` directly.
 pub fn sync_live_ability_edits_clusters(
-    abilities: &mut crate::actor::BodyAbilities,
-    flight: &mut crate::actor::BodyFlightState,
-    blink: &mut crate::actor::BodyBlinkState,
-    dash: &mut crate::actor::BodyDashState,
-    jump: &mut crate::actor::BodyJumpState,
+    abilities: &mut ambition_engine_core::BodyAbilities,
+    flight: &mut ambition_engine_core::BodyFlightState,
+    blink: &mut ambition_engine_core::BodyBlinkState,
+    dash: &mut ambition_engine_core::BodyDashState,
+    jump: &mut ambition_engine_core::BodyJumpState,
     desired: ae::AbilitySet,
     tuning: ae::MovementTuning,
 ) {
@@ -472,12 +472,15 @@ pub fn sync_player_stats_with_inspector(
     mut stats: ResMut<EditablePlayerStats>,
     mut snapshot: Local<PlayerStatsSyncSnapshot>,
     mut player_q: Query<
-        (&mut crate::actor::BodyMana, &mut crate::actor::BodyOffense),
-        crate::actor::PrimaryPlayerOnly,
+        (
+            &mut ambition_engine_core::BodyMana,
+            &mut ambition_engine_core::BodyOffense,
+        ),
+        ambition_platformer_primitives::markers::PrimaryPlayerOnly,
     >,
     mut health_q: Query<
         &mut ambition_characters::actor::BodyHealth,
-        crate::actor::PrimaryPlayerOnly,
+        ambition_platformer_primitives::markers::PrimaryPlayerOnly,
     >,
 ) {
     if !snapshot.initialized {

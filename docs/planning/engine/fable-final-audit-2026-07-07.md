@@ -148,3 +148,38 @@ control seam already made the player "an actor wearing Brain::Player"). The
 right long-term shape is ONE `actors` module tree where player-ness is a
 brain + a slot, not a directory. Do not force this before S5/S6; DO stop
 adding new player-only systems (new work lands body-generic or brain-side).
+
+### F3 — Ruling-compliance spot checks: four green, THREE corrections
+
+Verified green:
+- **[W-e]/[W-b] lowering registry** — `ambition_world::placements` has the
+  duplicate-registration panic AND the unknown-kind hard error, both pinned by
+  `#[should_panic]` tests. Exactly as ruled.
+- **§3.6 GeoId stamping survived the W3 move** — `ambition_ldtk_map::intgrid`
+  still stamps level-scoped `TileLayer` ids with the merge ordinal.
+- **Tier-0 purity** — `ambition_entity_catalog` still deps NOTHING. ✓
+- **W4/ADR 0021 first cut recorded**; `ambition_world` has no LDtk dep. ✓
+
+Corrections (log-once, all small):
+1. **`ron_room` landed on the WRONG side of the W3 cut.** The serialized-IR
+   loader (`RonRoomDoc`, `room_doc_from_ron`, `load_manifest_ron_rooms`) and
+   the `WorldManifest.ron_rooms` rows live in `ambition_ldtk_map` — the LDtk
+   BACKEND crate. Its entire purpose is "a room enters the graph with no LDtk
+   anywhere in the path", so a RON-only app currently needs the LDtk crate to
+   load a serde room. **Prescription: move `ron_room.rs` (+ `RonRoomSource`,
+   or a backend-neutral manifest seam for it) into `ambition_world`;
+   `ldtk_map::to_room_set` keeps calling it (backend → IR is the legal
+   arrow). Make the W4 "second backend" fixture test live in
+   `ambition_world`'s own tests to pin it.**
+2. **`integrate_boss_bodies` still hasn't adopted `SweepSample`** (the §3.1
+   known-remaining mover) and **`PortalSweepAnchor` still exists** (retired by
+   CC6's relative swept trigger). Both were carded — RE-CONFIRMING they are
+   still open so the CC6 executor doesn't assume otherwise.
+3. **`ambition_world` still contains no dep-direction regression TEST.** The
+   Cargo graph is clean today, but the ruled invariants ("world names zero
+   LDtk", "world names zero runtime crates" — the second currently
+   VIOLATED-by-design via legacy families, see F1.1) have no enforcement.
+   **Prescription: add a tiny build-graph test (parse `cargo metadata` or
+   just grep Cargo.toml in a unit test) asserting ambition_world's dep list
+   against an explicit allow-list, so step-3 branch conversions RATCHET
+   (removing combat/interaction/portal from the allow-list one at a time).**

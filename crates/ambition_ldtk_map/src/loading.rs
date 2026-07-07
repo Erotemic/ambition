@@ -32,7 +32,11 @@
 use std::fs;
 use std::path::Path;
 
-use crate::assets::sandbox_assets::SandboxAssetCatalog;
+use ambition_asset_manager::sandbox_assets::{
+    build_sandbox_catalog, SandboxAssetCatalog, SandboxAssetConfig, SandboxCatalogInputs,
+    WorldCatalogRow,
+};
+use ambition_asset_manager::{AssetManifest, AssetProfile};
 
 use super::manifest::{world_manifest, WorldSource};
 use super::project::LdtkProject;
@@ -44,7 +48,7 @@ impl LdtkProject {
     /// - Filesystem-resident location: reads the file at the catalog's
     ///   `LocalPath` candidate, falling back to the row's embedded text if
     ///   disk IO fails. Hot reload remains armed via
-    ///   [`crate::ldtk_world::LdtkHotReloadState`].
+    ///   [`crate::LdtkHotReloadState`].
     /// - Embedded / Bevy-path-only locations (Android, iOS, web, bundled):
     ///   parses the row's `embedded_text`.
     /// - `NoAssets` / `Headless`: returns the required-asset error
@@ -121,7 +125,25 @@ impl LdtkProject {
     /// in via [`Self::load_default`]; this helper is the equivalent
     /// for entry points that don't have a Bevy `World` yet.
     pub fn load_default_for_dev() -> Result<Self, String> {
-        let catalog = crate::assets::sandbox_assets::desktop_dev_default_catalog();
+        let config = SandboxAssetConfig {
+            sprite_folder: "sprites".to_string(),
+            asset_profile: AssetProfile::DesktopDevLoose,
+        };
+        let inputs = SandboxCatalogInputs {
+            worlds: world_manifest()
+                .worlds
+                .iter()
+                .map(|source| WorldCatalogRow {
+                    id: source.id.clone(),
+                    asset_path: source.asset_path.clone(),
+                    required: source.required,
+                    loose_path: source.loose_path.clone(),
+                    embedded_bevy_path: source.embedded_bevy_path,
+                })
+                .collect(),
+            ..Default::default()
+        };
+        let catalog = build_sandbox_catalog(&config, AssetManifest::new(), &inputs);
         Self::load_default(&catalog)
     }
 

@@ -45,7 +45,7 @@ portal = []
 # in and the sandbox keeps only the thin host adapter (world-frame sync,
 # scene-body tagging, gun-art loading, F7 dev toggle) in `src/portal/mod.rs`.
 portal_render = ["portal", "dep:ambition_portal_presentation"]
-portal_ldtk = ["portal", "ldtk_runtime"]
+portal_ldtk = ["portal", "ldtk_runtime", "ambition_ldtk_map/portal_ldtk"]
 
 
 # Desktop platform support mirrors Bevy's default platform collection: windowing,
@@ -208,7 +208,7 @@ dev_hot_reload = ["bevy/file_watcher"]
 # assets/ambition/worlds/sandbox.ldtk from disk so LDtk edits and modded maps do
 # not require recompiling Rust. Enabling this feature also embeds the checked-in
 # map and falls back to it if the external map cannot be read or parsed.
-static_map = ["ambition_asset_manager/static_map"]
+static_map = ["ambition_asset_manager/static_map", "ambition_ldtk_map/static_map"]
 
 # Embed a bounded "core visual" subset (UI fonts + primary character sheets +
 # core entity sprite PNGs) into the binary via `include_bytes!`, and register
@@ -247,7 +247,11 @@ android_dev = ["android", "dev_tools"]
 # inside these subsystems is not yet cfg-gated end-to-end, so disabling
 # them today only works when paired with `--features visible` (where
 # they're all enabled).
-ldtk_runtime = ["dep:bevy_ecs_ldtk", "dep:bevy_asset_loader"]
+ldtk_runtime = [
+    "dep:bevy_ecs_ldtk",
+    "dep:bevy_asset_loader",
+    "ambition_ldtk_map/ldtk_runtime",
+]
 # The runtime audio subsystem. Composes `authored_audio`: Kira playback
 # of authored OGG/WAV music + the packed SFX bank loaded through the
 # asset manager catalog. There is no runtime DSP/effects backend today;
@@ -378,6 +382,7 @@ ambition_cutscene = { path = "../ambition_cutscene" }
 ambition_vfx = { path = "../ambition_vfx" }
 ambition_engine_core = { path = "../ambition_engine_core" }
 ambition_interaction = { path = "../ambition_interaction" }
+ambition_ldtk_map = { path = "../ambition_ldtk_map", default-features = false }
 # Device -> ControlFrame input layer (SandboxAction / ControlFrame / presets /
 # input-domain settings). Re-exported as `crate::input` from lib.rs (ADR 0019);
 # `crate::persistence::settings` re-exports its `settings` module so existing
@@ -389,6 +394,7 @@ ambition_input = { path = "../ambition_input" }
 # scroll). Extracted leaf; the sandbox `input` feature forwards to its `input`
 # feature (the MenuInputFrame scroll helper). Re-exported as `crate::ui_nav`.
 ambition_ui_nav = { path = "../ambition_ui_nav" }
+ambition_world = { path = "../ambition_world" }
 # 3D-cube OoT inventory/pause UI (bevy_lunex). The unified menu (cube + grid) is
 # the one menu, compiled unconditionally (Phase D2); runtime-toggleable cube vs
 # the Bevy-UI grid (#31). De-vendored from the submodule into a normal repo crate

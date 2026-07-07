@@ -1,6 +1,6 @@
 //! LDtk → Ambition runtime conversion.
 //!
-//! Materializes the typed [`crate::rooms::RoomSet`] graph from a
+//! Materializes the typed [`ambition_world::rooms::RoomSet`] graph from a
 //! validated [`super::project::LdtkProject`]. Per-entity routing goes
 //! through the [`LdtkEntityConverter`] REGISTRY (ADR 0009): the engine
 //! registers the standard vocabulary (`Solid`, `LoadingZone`, `Portal`,
@@ -28,7 +28,7 @@ use super::project::{LdtkEntityInstance, LdtkLevel, LdtkProject};
 use super::surfaces::{
     compile_surface, parse_surface_spec, SurfaceCompiled, SURFACE_LIKE_IDENTIFIERS,
 };
-use crate::rooms::{
+use ambition_world::rooms::{
     CameraClampMode, CameraZoneSpec, KinematicPathSpec, LoadingZone, LoadingZoneActivation,
     PropSpec, RoomLink, RoomSet, RoomSpec,
 };
@@ -76,7 +76,7 @@ impl LdtkProject {
         }
         // Baked `ron-room` docs (W2): rooms that enter the graph as
         // serialized IR, no authoring backend behind them.
-        for doc in crate::world::ron_room::load_manifest_ron_rooms()? {
+        for doc in crate::ron_room::load_manifest_ron_rooms()? {
             links.extend(doc.links);
             rooms.push(doc.spec);
         }
@@ -132,39 +132,44 @@ impl LdtkProject {
         let mut loading_zones = Vec::new();
         let mut water_regions = Vec::new();
         let mut climbable_regions = Vec::new();
-        let mut moving_platforms: Vec<crate::world::platforms::MovingPlatformSpec> = Vec::new();
+        let mut moving_platforms: Vec<ambition_world::platforms::MovingPlatformSpec> = Vec::new();
         let mut camera_zones: Vec<CameraZoneSpec> = Vec::new();
         let mut kinematic_paths: Vec<KinematicPathSpec> = Vec::new();
         let mut props: Vec<PropSpec> = Vec::new();
-        let mut ground_items: Vec<crate::rooms::GroundItemSpec> = Vec::new();
+        let mut ground_items: Vec<ambition_world::rooms::GroundItemSpec> = Vec::new();
         #[cfg(feature = "portal")]
-        let mut portal_gun_spawns: Vec<crate::rooms::PortalGunSpawnSpec> = Vec::new();
+        let mut portal_gun_spawns: Vec<ambition_world::rooms::PortalGunSpawnSpec> = Vec::new();
         #[cfg(feature = "portal")]
-        let mut portals: Vec<crate::rooms::PortalSpec> = Vec::new();
-        let mut shrines: Vec<crate::rooms::ShrineSpec> = Vec::new();
-        let mut gravity_zones: Vec<crate::rooms::GravityZoneSpec> = Vec::new();
+        let mut portals: Vec<ambition_world::rooms::PortalSpec> = Vec::new();
+        let mut shrines: Vec<ambition_world::rooms::ShrineSpec> = Vec::new();
+        let mut gravity_zones: Vec<ambition_world::rooms::GravityZoneSpec> = Vec::new();
         // Per-family authored entity lists. Each LDtk entity emits into
         // exactly one of these (or into one of the non-authored Vecs
         // above).
-        let mut hazards: Vec<crate::rooms::Authored<crate::combat::DamageVolume>> = Vec::new();
-        let mut interactables: Vec<crate::rooms::Authored<ambition_interaction::Interactable>> =
+        let mut hazards: Vec<ambition_world::rooms::Authored<ambition_combat::DamageVolume>> =
             Vec::new();
-        let mut pickups: Vec<crate::rooms::Authored<ambition_interaction::Pickup>> = Vec::new();
-        let mut chests: Vec<crate::rooms::Authored<ambition_interaction::Chest>> = Vec::new();
-        let mut breakables: Vec<crate::rooms::Authored<ambition_interaction::Breakable>> =
+        let mut interactables: Vec<
+            ambition_world::rooms::Authored<ambition_interaction::Interactable>,
+        > = Vec::new();
+        let mut pickups: Vec<ambition_world::rooms::Authored<ambition_interaction::Pickup>> =
+            Vec::new();
+        let mut chests: Vec<ambition_world::rooms::Authored<ambition_interaction::Chest>> =
+            Vec::new();
+        let mut breakables: Vec<ambition_world::rooms::Authored<ambition_interaction::Breakable>> =
             Vec::new();
         let mut enemy_spawns: Vec<
-            crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
+            ambition_world::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
         > = Vec::new();
         let mut boss_spawns: Vec<
-            crate::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
+            ambition_world::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
         > = Vec::new();
-        let mut debug_labels: Vec<crate::rooms::Authored<crate::debug_label::DebugLabel>> =
-            Vec::new();
+        let mut debug_labels: Vec<
+            ambition_world::rooms::Authored<ambition_world::debug_label::DebugLabel>,
+        > = Vec::new();
         let mut mount_links: Vec<(String, String)> = Vec::new();
         let mut chains: Vec<ae::SurfaceChain> = Vec::new();
-        let mut placements: Vec<crate::world::placements::PlacementRecord> = Vec::new();
-        let mut metadata = crate::rooms::RoomMetadata::default();
+        let mut placements: Vec<ambition_world::placements::PlacementRecord> = Vec::new();
+        let mut metadata = ambition_world::rooms::RoomMetadata::default();
         for level in levels {
             // First-non-empty wins so author intent is predictable when
             // an active area spans multiple levels (e.g. central hub +
@@ -349,7 +354,7 @@ pub struct RoomEmission {
     /// Most entities emit zero platforms; `MovingPlatform` emits one. The room
     /// composer concatenates these so active areas can own multiple authored
     /// moving solids.
-    pub moving_platforms: Vec<crate::world::platforms::MovingPlatformSpec>,
+    pub moving_platforms: Vec<ambition_world::platforms::MovingPlatformSpec>,
     pub camera_zones: Vec<CameraZoneSpec>,
     pub kinematic_paths: Vec<KinematicPathSpec>,
     /// LDtk-authored decorative props emitted by this entity. Most
@@ -357,31 +362,32 @@ pub struct RoomEmission {
     /// [`PropSpec`].
     pub props: Vec<PropSpec>,
     /// LDtk-authored ground held-items emitted by this entity. Most emit
-    /// zero; `GroundItem` emits one. See [`crate::rooms::GroundItemSpec`].
-    pub ground_items: Vec<crate::rooms::GroundItemSpec>,
+    /// zero; `GroundItem` emits one. See [`ambition_world::rooms::GroundItemSpec`].
+    pub ground_items: Vec<ambition_world::rooms::GroundItemSpec>,
     /// LDtk-authored portal-gun pickups. Most emit zero; `PortalGunSpawn` emits
-    /// one. See [`crate::rooms::PortalGunSpawnSpec`].
+    /// one. See [`ambition_world::rooms::PortalGunSpawnSpec`].
     #[cfg(feature = "portal")]
-    pub portal_gun_spawns: Vec<crate::rooms::PortalGunSpawnSpec>,
+    pub portal_gun_spawns: Vec<ambition_world::rooms::PortalGunSpawnSpec>,
     /// LDtk-authored static portals. Most emit zero; `Portal` emits one. See
-    /// [`crate::rooms::PortalSpec`].
+    /// [`ambition_world::rooms::PortalSpec`].
     #[cfg(feature = "portal")]
-    pub portals: Vec<crate::rooms::PortalSpec>,
+    pub portals: Vec<ambition_world::rooms::PortalSpec>,
     /// LDtk-authored heal/save shrines. Most emit zero; `ShrineSpawn` emits one.
-    pub shrines: Vec<crate::rooms::ShrineSpec>,
+    pub shrines: Vec<ambition_world::rooms::ShrineSpec>,
     /// LDtk-authored localized-gravity zones. Most emit zero; `GravityZone` emits
-    /// one. See [`crate::rooms::GravityZoneSpec`].
-    pub gravity_zones: Vec<crate::rooms::GravityZoneSpec>,
+    /// one. See [`ambition_world::rooms::GravityZoneSpec`].
+    pub gravity_zones: Vec<ambition_world::rooms::GravityZoneSpec>,
     // --- Per-family authored entity emissions:
-    pub hazards: Vec<crate::rooms::Authored<crate::combat::DamageVolume>>,
-    pub interactables: Vec<crate::rooms::Authored<ambition_interaction::Interactable>>,
-    pub pickups: Vec<crate::rooms::Authored<ambition_interaction::Pickup>>,
-    pub chests: Vec<crate::rooms::Authored<ambition_interaction::Chest>>,
-    pub breakables: Vec<crate::rooms::Authored<ambition_interaction::Breakable>>,
+    pub hazards: Vec<ambition_world::rooms::Authored<ambition_combat::DamageVolume>>,
+    pub interactables: Vec<ambition_world::rooms::Authored<ambition_interaction::Interactable>>,
+    pub pickups: Vec<ambition_world::rooms::Authored<ambition_interaction::Pickup>>,
+    pub chests: Vec<ambition_world::rooms::Authored<ambition_interaction::Chest>>,
+    pub breakables: Vec<ambition_world::rooms::Authored<ambition_interaction::Breakable>>,
     pub enemy_spawns:
-        Vec<crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>>,
-    pub boss_spawns: Vec<crate::rooms::Authored<ambition_entity_catalog::placements::BossBrain>>,
-    pub debug_labels: Vec<crate::rooms::Authored<crate::debug_label::DebugLabel>>,
+        Vec<ambition_world::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>>,
+    pub boss_spawns:
+        Vec<ambition_world::rooms::Authored<ambition_entity_catalog::placements::BossBrain>>,
+    pub debug_labels: Vec<ambition_world::rooms::Authored<ambition_world::debug_label::DebugLabel>>,
     /// ADR 0020 authored mount links: `(rider_id, mount_id)` pairs emitted by a
     /// rider `EnemySpawn` carrying a `mounted_on` entity-ref. Resolved into a
     /// `RidingOn`/`MountSlot` link after both actors spawn (`FeatureId` match).
@@ -397,7 +403,7 @@ pub struct RoomEmission {
     /// branches to lowering interpreters. During the migration a converter
     /// may DUAL-emit (its legacy typed family + the record); records are
     /// inert until an interpreter is registered for their kind.
-    pub placements: Vec<crate::world::placements::PlacementRecord>,
+    pub placements: Vec<ambition_world::placements::PlacementRecord>,
     pub ignored: bool,
 }
 
@@ -437,7 +443,7 @@ impl RoomEmission {
         }
     }
 
-    pub fn moving_platform(spec: crate::world::platforms::MovingPlatformSpec) -> Self {
+    pub fn moving_platform(spec: ambition_world::platforms::MovingPlatformSpec) -> Self {
         Self {
             moving_platforms: vec![spec],
             ..Self::default()
@@ -458,7 +464,7 @@ impl RoomEmission {
         }
     }
 
-    pub fn ground_item(spec: crate::rooms::GroundItemSpec) -> Self {
+    pub fn ground_item(spec: ambition_world::rooms::GroundItemSpec) -> Self {
         Self {
             ground_items: vec![spec],
             ..Self::default()
@@ -466,7 +472,7 @@ impl RoomEmission {
     }
 
     #[cfg(feature = "portal_ldtk")]
-    pub fn portal_gun_spawn(spec: crate::rooms::PortalGunSpawnSpec) -> Self {
+    pub fn portal_gun_spawn(spec: ambition_world::rooms::PortalGunSpawnSpec) -> Self {
         Self {
             portal_gun_spawns: vec![spec],
             ..Self::default()
@@ -474,21 +480,21 @@ impl RoomEmission {
     }
 
     #[cfg(feature = "portal_ldtk")]
-    pub fn portal(spec: crate::rooms::PortalSpec) -> Self {
+    pub fn portal(spec: ambition_world::rooms::PortalSpec) -> Self {
         Self {
             portals: vec![spec],
             ..Self::default()
         }
     }
 
-    pub fn shrine(spec: crate::rooms::ShrineSpec) -> Self {
+    pub fn shrine(spec: ambition_world::rooms::ShrineSpec) -> Self {
         Self {
             shrines: vec![spec],
             ..Self::default()
         }
     }
 
-    pub fn gravity_zone(spec: crate::rooms::GravityZoneSpec) -> Self {
+    pub fn gravity_zone(spec: ambition_world::rooms::GravityZoneSpec) -> Self {
         Self {
             gravity_zones: vec![spec],
             ..Self::default()
@@ -512,7 +518,9 @@ impl RoomEmission {
 
     // Per-family typed emitters. The conversion sites use these instead of
     // wrapping payloads in a generic `RoomObject { kind: ... }`.
-    pub fn hazard(authored: crate::rooms::Authored<crate::combat::DamageVolume>) -> Self {
+    pub fn hazard(
+        authored: ambition_world::rooms::Authored<ambition_combat::DamageVolume>,
+    ) -> Self {
         Self {
             hazards: vec![authored],
             ..Self::default()
@@ -520,7 +528,7 @@ impl RoomEmission {
     }
 
     pub fn interactable(
-        authored: crate::rooms::Authored<ambition_interaction::Interactable>,
+        authored: ambition_world::rooms::Authored<ambition_interaction::Interactable>,
     ) -> Self {
         Self {
             interactables: vec![authored],
@@ -528,14 +536,14 @@ impl RoomEmission {
         }
     }
 
-    pub fn pickup(authored: crate::rooms::Authored<ambition_interaction::Pickup>) -> Self {
+    pub fn pickup(authored: ambition_world::rooms::Authored<ambition_interaction::Pickup>) -> Self {
         Self {
             pickups: vec![authored],
             ..Self::default()
         }
     }
 
-    pub fn chest(authored: crate::rooms::Authored<ambition_interaction::Chest>) -> Self {
+    pub fn chest(authored: ambition_world::rooms::Authored<ambition_interaction::Chest>) -> Self {
         Self {
             chests: vec![authored],
             ..Self::default()
@@ -543,7 +551,9 @@ impl RoomEmission {
     }
 
     pub fn enemy_spawn(
-        authored: crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
+        authored: ambition_world::rooms::Authored<
+            ambition_entity_catalog::placements::CharacterBrain,
+        >,
     ) -> Self {
         Self {
             enemy_spawns: vec![authored],
@@ -552,7 +562,7 @@ impl RoomEmission {
     }
 
     pub fn boss_spawn(
-        authored: crate::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
+        authored: ambition_world::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
     ) -> Self {
         Self {
             boss_spawns: vec![authored],
@@ -560,7 +570,9 @@ impl RoomEmission {
         }
     }
 
-    pub fn debug_label(authored: crate::rooms::Authored<crate::debug_label::DebugLabel>) -> Self {
+    pub fn debug_label(
+        authored: ambition_world::rooms::Authored<ambition_world::debug_label::DebugLabel>,
+    ) -> Self {
         Self {
             debug_labels: vec![authored],
             ..Self::default()

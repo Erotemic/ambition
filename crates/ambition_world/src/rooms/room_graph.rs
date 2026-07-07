@@ -19,7 +19,7 @@ pub struct RoomSpec {
     /// LDtk-authored moving platforms for this area. This is the
     /// complete platform set for gameplay: empty means the room has
     /// no moving platforms.
-    pub moving_platforms: Vec<crate::world::platforms::MovingPlatformState>,
+    pub moving_platforms: Vec<crate::platforms::MovingPlatformState>,
     /// LDtk-authored decorative props. Render-only — see [`PropSpec`].
     pub props: Vec<PropSpec>,
     /// LDtk-authored ground held-items (gauntlet / weapon pickups). See
@@ -37,7 +37,7 @@ pub struct RoomSpec {
     pub gravity_zones: Vec<GravityZoneSpec>,
 
     // --- Per-family authored entity lists; each family spawns through ECS.
-    pub hazards: Vec<Authored<crate::combat::DamageVolume>>,
+    pub hazards: Vec<Authored<ambition_combat::DamageVolume>>,
     pub interactables: Vec<Authored<ambition_interaction::Interactable>>,
     pub pickups: Vec<Authored<ambition_interaction::Pickup>>,
     pub chests: Vec<Authored<ambition_interaction::Chest>>,
@@ -53,7 +53,7 @@ pub struct RoomSpec {
     /// Authored placement RECORDS (the [W-b] schema-over-record channel).
     /// Converters dual-emit into this alongside their legacy typed family
     /// until W-queue step 3's lowering interpreters take over spawning.
-    pub placements: Vec<crate::world::placements::PlacementRecord>,
+    pub placements: Vec<crate::placements::PlacementRecord>,
 }
 
 impl RoomSpec {

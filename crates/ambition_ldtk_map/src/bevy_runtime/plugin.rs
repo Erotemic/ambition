@@ -15,7 +15,6 @@ use super::components::{
     AmbitionLdtkEntity, AmbitionLdtkMarkerBundle, LdtkDamageVolume, LdtkOneWayPlatform, LdtkSolid,
 };
 use super::indices::LdtkRuntimeSpineStats;
-use crate::schedule::SandboxSet;
 
 pub struct AmbitionLdtkRegistrationPlugin;
 
@@ -63,8 +62,7 @@ impl Plugin for LdtkRuntimeSpinePlugin {
                 super::systems::rebuild_ldtk_runtime_damage_index,
                 super::parity::check_ldtk_runtime_spine_parity,
             )
-                .chain()
-                .in_set(SandboxSet::LdtkRuntimeSpine),
+                .chain(),
         );
     }
 }

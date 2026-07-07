@@ -515,6 +515,68 @@ fn architecture_boundaries_persistence_crate_owns_stored_shapes_only() {
     );
 }
 
+/// W3/W4: `ambition_world` owns backend-agnostic room/placement IR, while
+/// `ambition_ldtk_map` owns the LDtk backend. The world crate must never import
+/// LDtk/runtime/app machinery; the backend converts downward into the world IR
+/// and must not depend back on gameplay-core.
+#[test]
+fn architecture_boundaries_world_ir_and_ldtk_backend_are_split() {
+    let world_root = repo_root().join("crates/ambition_world");
+    let ldtk_root = repo_root().join("crates/ambition_ldtk_map");
+    assert_workspace_contains_crate("ambition_world");
+    assert_workspace_contains_crate("ambition_ldtk_map");
+    assert!(
+        world_root.join("Cargo.toml").exists(),
+        "ambition_world crate should exist at crates/ambition_world"
+    );
+    assert!(
+        ldtk_root.join("Cargo.toml").exists(),
+        "ambition_ldtk_map crate should exist at crates/ambition_ldtk_map"
+    );
+
+    assert_manifest_has_no_deps(
+        &world_root,
+        &[
+            "ambition_ldtk_map",
+            "ambition_gameplay_core",
+            "ambition_runtime",
+            "ambition_render",
+            "ambition_content",
+            "ambition_app",
+            "bevy_ecs_ldtk",
+        ],
+        "ambition_world is the backend-agnostic world IR",
+    );
+    assert_source_tree_has_no_code_refs(
+        world_root.join("src"),
+        &["ambition_ldtk_map", "bevy_ecs_ldtk"],
+        "ambition_world source must stay free of backend code imports",
+    );
+
+    assert_manifest_has_no_deps(
+        &ldtk_root,
+        &[
+            "ambition_gameplay_core",
+            "ambition_runtime",
+            "ambition_render",
+            "ambition_content",
+            "ambition_app",
+        ],
+        "ambition_ldtk_map converts into world IR without depending on the sim heart",
+    );
+    assert_source_tree_has_no_code_refs(
+        ldtk_root.join("src"),
+        &[
+            "ambition_gameplay_core",
+            "ambition_runtime",
+            "ambition_render",
+            "ambition_content",
+            "ambition_app",
+        ],
+        "ambition_ldtk_map source must not reach upward into sim/app/render/content",
+    );
+}
+
 /// `ambition_projectiles` (E2) owns the reusable projectile MODEL — shot
 /// vocabulary, ECS components, the spawn pool + player-pool spawner, and pure
 /// portal transit. It is a FOUNDATIONAL crate: it may name only the geometry /

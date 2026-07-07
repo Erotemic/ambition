@@ -118,7 +118,7 @@ impl LdtkSurfaceSpec {
 #[derive(Clone, Debug, Default)]
 pub struct SurfaceCompiled {
     pub blocks: Vec<ae::Block>,
-    pub breakables: Vec<crate::rooms::Authored<ambition_interaction::Breakable>>,
+    pub breakables: Vec<ambition_world::rooms::Authored<ambition_interaction::Breakable>>,
 }
 
 /// LDtk identifiers that lower into the typed runtime "surface" conversion
@@ -313,7 +313,8 @@ pub fn compile_surface(spec: &LdtkSurfaceSpec) -> Result<SurfaceCompiled, String
     }
 
     let mut blocks = Vec::new();
-    let mut breakables: Vec<crate::rooms::Authored<ambition_interaction::Breakable>> = Vec::new();
+    let mut breakables: Vec<ambition_world::rooms::Authored<ambition_interaction::Breakable>> =
+        Vec::new();
 
     match spec.breakability {
         SurfaceBreakability::Indestructible => {
@@ -382,7 +383,7 @@ pub fn compile_surface(spec: &LdtkSurfaceSpec) -> Result<SurfaceCompiled, String
                 }
             };
             breakable.pogo_refresh = pogo_orb_combo;
-            breakables.push(crate::rooms::Authored::new(
+            breakables.push(ambition_world::rooms::Authored::new(
                 spec.iid.clone(),
                 spec.name.clone(),
                 ae::aabb_from_min_size(spec.min, spec.size),

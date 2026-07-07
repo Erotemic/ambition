@@ -112,7 +112,7 @@ impl LdtkLevel {
     /// Read the optional biome metadata level fields. Empty/None values
     /// stay None so the active-area-merge in `compose_runtime_area`
     /// only takes the first non-empty value per active area.
-    pub fn level_metadata(&self) -> crate::rooms::RoomMetadata {
+    pub fn level_metadata(&self) -> ambition_world::rooms::RoomMetadata {
         let take = |name: &str| {
             self.field_string(name)
                 .map(|s| s.trim().to_string())
@@ -123,19 +123,19 @@ impl LdtkLevel {
                 .filter(|value| *value >= 0)
                 .map(|value| value as usize)
         };
-        crate::rooms::RoomMetadata {
+        ambition_world::rooms::RoomMetadata {
             biome: take("biome"),
             music_track: take("music_track"),
             ambient_profile: take("ambient_profile"),
             visual_theme: take("visual_theme"),
-            visual_profile: crate::rooms::RoomVisualProfile {
+            visual_profile: ambition_world::rooms::RoomVisualProfile {
                 id: take("visual_profile").or_else(|| take("visual_profile_id")),
                 parallax_theme: take("parallax_theme"),
                 palette: take("palette"),
                 lighting_hint: take("lighting_hint"),
                 foreground_treatment: take("foreground_treatment"),
             },
-            nameplate_policy: crate::rooms::RoomNameplatePolicy {
+            nameplate_policy: ambition_world::rooms::RoomNameplatePolicy {
                 full_opacity_count: take_count("nameplate_full_opacity_count"),
                 fade_out_count: take_count("nameplate_fade_out_count"),
             },

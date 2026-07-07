@@ -7,38 +7,17 @@
 //! requires brittle hand-written spawn coordinates.
 
 #![allow(unused_imports)]
-use ambition_engine_core as ae;
-use bevy::prelude::{Message, Resource};
-use petgraph::graph::{Graph, NodeIndex};
-
-mod graph;
 mod load;
-mod spawn;
 mod systems;
 #[cfg(test)]
 mod tests;
 
+pub use ambition_world::rooms::*;
 pub use load::{load_room_geometry, RoomLoadResult};
-pub use spawn::validated_spawn;
 pub use systems::{
     detect_room_transition_system, sync_active_room_metadata, sync_room_music_request,
     tick_portal_phases_system,
 };
-
-// --- data-type submodules (split out 2026-06-15; re-exported below) ---
-mod camera;
-mod gate_portal;
-mod loading_zone;
-mod metadata;
-mod room_graph;
-mod specs;
-
-pub use camera::*;
-pub use gate_portal::*;
-pub use loading_zone::*;
-pub use metadata::*;
-pub use room_graph::*;
-pub use specs::*;
 
 #[cfg(test)]
 mod rooms_unit_tests {

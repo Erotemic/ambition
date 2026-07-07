@@ -104,7 +104,7 @@ found drift — update the table in the same commit. LOC ≈ `wc -l`.)*
 | `features/bosses.rs`, `npcs.rs`, `banter.rs` | ~1.3k | `ambition_actors` | E7 | |
 | `combat/` (moveset 2292, damage 944, targeting 892, attack 834, hitbox/, on_hit 430, events 432, components/, pickups 340, world_overlay 360, boss_clusters 444) | 11.5k | **`ambition_combat`** | **E2** | world_overlay → `ambition_world` (it's geometry composition); boss_clusters dissolves with E6 |
 | `projectile/` + `enemy_projectile/` | 4412 | **`ambition_projectiles`** ✅ (model DONE 2026-07-07; steppers stay → E6/E7) | E2 | visual-kind content names leave in E3 |
-| `world/` | 10933 | **`ambition_world`** (IR) + **`ambition_ldtk_map`** (backend) | **W1–W4** | the two-crate cut; converter registry is the keystone |
+| `world/` | 10933 | **`ambition_world`** (IR) + **`ambition_ldtk_map`** (backend) | **W1–W4** | ✅ crate split landed (Codex 2026-07-07): room graph/placements/debug labels/platform math live in `ambition_world`; LDtk parse/validation/loading/runtime-spine live in `ambition_ldtk_map`; gameplay-core keeps sim load/systems + compatibility facades. Remaining residue: legacy typed family lists on `RoomSpec` dissolve branch-by-branch through placement lowering. |
 | `boss_encounter/` (behavior, registry, sprites, attack_geometry, encounter_script, rewards) | 6750 | behavior/registry → `ambition_characters`; sprites/attack_geometry → `ambition_sprite_sheet`; encounter_script/rewards → `ambition_encounter` | E6 + E3 + E-enc | the three-way split the plan always intended |
 | `player/` (body_integration, bundles, starting_character, trail, affordances) | 6511 | `ambition_actors` | E7 | the home body is A BODY; no player crate — that would re-fork the unification |
 | `persistence/` + `host/` + `quest/` | 5173 | **`ambition_persistence`** | **E1a** | owns stored-shape only; settings IR stays for E1e |
@@ -475,18 +475,23 @@ Precondition: none (parallel-safe with E5). The four cards:
   channels branch-by-branch (inline `motion` hazards: lift the path into
   a room-level `KinematicPath` at dissolution — see the `HazardSpec` doc
   note).
-- **W3 — the two-crate cut.** `ambition_world` = IR + rooms graph +
-  composition + converter REGISTRY (no LDtk dep anywhere in it —
-  enforce with a dep test); `ambition_ldtk_map` = the LDtk backend
-  (parser, spine, converters that read LDtk types) depending on
-  `ambition_world`. Atomic move per the D2 template; every consumer
-  repoints in the same arc. Record compile timings before/after.
-- **W4 — the ratchet + ADR 0021.** Encounter loading → emissions;
-  menu-map/session/settings inversions; schedule-set rename; write ADR
-  0021 (authoring-backend-agnostic space) citing spatial-model.md +
-  frame-awareness.md. Exit: `ambition_world` builds with zero LDtk in
-  its tree, and a fixture "second backend" test constructs a RoomSpec
-  purely from IR calls.
+- ✅ **W3 — the two-crate cut — DONE first cut (Codex 2026-07-07).**
+  `ambition_world` owns room graph/metadata/loading zones, placement
+  records/lowering registry, debug labels, moving-platform math, and the
+  generated `ron-room` IR proof. `ambition_ldtk_map` owns LDtk parse,
+  validation, manifest/file loading, hot-reload state, conversion, and the
+  `bevy_ecs_ldtk` runtime spine. Gameplay-core now consumes both crates and
+  keeps only sim-side room load/systems plus compatibility facades. The
+  old duplicate source files were deleted. **Residue explicitly carried:**
+  `RoomSpec` still has legacy typed family lists until the remaining
+  hardcoded spawn branches dissolve into placement records.
+- ✅ **W4 — the ratchet + ADR 0021 — DONE first cut (Codex 2026-07-07).**
+  `architecture_boundaries_world_ir_and_ldtk_backend_are_split` enforces
+  `ambition_world` has no LDtk/backend/app/render/runtime/content deps and
+  `ambition_ldtk_map` does not depend upward on gameplay-core/app/render/
+  runtime/content. ADR 0021 records the authoring-backend-agnostic world IR
+  decision. The second-backend seed is the `ron-room` generated `RoomSpec`
+  bake/reload test in `ambition_ldtk_map`.
 
 #### ✅ W-track — the vocab-arrow question is RULED (Jon + GPT-5.5, 2026-07-06)
 
@@ -663,11 +668,16 @@ commits alone):**
    while the legacy hazard list is skipped by placement id during the
    transition. Remaining W3/W4 cleanup converts/deletes the rest of the
    legacy room-feature channels branch-by-branch.
-4. **W3 cut** (card above): `ambition_world` + `ambition_ldtk_map`;
-   `detect_room_transition_system` moves to the sim heart (it is a
-   sim-tier system, W1 finding); dep-tests (`ambition_world` names zero
-   runtime crates AND zero LDtk).
-5. **W4 ratchet + ADR 0021** (card above).
+4. ✅ **W3 cut — DONE first cut (Codex 2026-07-07).** `ambition_world`
+   + `ambition_ldtk_map` are workspace crates; room IR/platform math/
+   placements moved down, LDtk moved to the backend crate, gameplay-core
+   keeps sim load/systems as adapters. `detect_room_transition_system`
+   remains in gameplay-core's sim room systems (the W1 finding), not in
+   the world IR.
+5. ✅ **W4 ratchet + ADR 0021 — DONE first cut (Codex 2026-07-07).**
+   Boundary test + ADR 0021 landed; generated `ron-room` bake/reload is
+   the backend-free room fixture. Remaining W cleanup is the legacy
+   typed-family dissolution through the placement registry.
 
 ### E1a–E1e — persistence → audio → dialog → dev_tools → menu — [opus; E1a fable-specced]
 

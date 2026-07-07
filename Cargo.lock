@@ -334,6 +334,7 @@ dependencies = [
  "ambition_gameplay_trace",
  "ambition_input",
  "ambition_interaction",
+ "ambition_ldtk_map",
  "ambition_menu",
  "ambition_persistence",
  "ambition_platformer_primitives",
@@ -347,6 +348,7 @@ dependencies = [
  "ambition_time",
  "ambition_ui_nav",
  "ambition_vfx",
+ "ambition_world",
  "avian2d",
  "bevy",
  "bevy-inspector-egui",
@@ -419,6 +421,25 @@ dependencies = [
  "ambition_engine_core",
  "ambition_entity_catalog",
  "serde",
+]
+
+[[package]]
+name = "ambition_ldtk_map"
+version = "0.1.0"
+dependencies = [
+ "ambition_asset_manager",
+ "ambition_combat",
+ "ambition_engine_core",
+ "ambition_entity_catalog",
+ "ambition_interaction",
+ "ambition_portal",
+ "ambition_world",
+ "bevy",
+ "bevy_asset_loader",
+ "bevy_ecs_ldtk",
+ "ron 0.11.0",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -630,6 +651,23 @@ dependencies = [
  "ambition_platformer_primitives",
  "ambition_sfx",
  "bevy",
+]
+
+[[package]]
+name = "ambition_world"
+version = "0.1.0"
+dependencies = [
+ "ambition_combat",
+ "ambition_engine_core",
+ "ambition_entity_catalog",
+ "ambition_interaction",
+ "ambition_portal",
+ "ambition_sfx",
+ "ambition_time",
+ "bevy_app",
+ "bevy_ecs",
+ "petgraph",
+ "serde",
 ]
 
 [[package]]

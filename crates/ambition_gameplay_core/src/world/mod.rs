@@ -13,5 +13,4 @@ pub mod overlay_rebuild;
 pub mod physics;
 pub mod placements;
 pub mod platforms;
-pub mod ron_room;
 pub mod rooms;

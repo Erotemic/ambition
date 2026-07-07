@@ -1,52 +1,6 @@
-//! Generic room-object label for debug overlays and editor selection.
+//! Compatibility facade for room debug labels.
 //!
-//! DebugLabel is a sandbox concern — rendering of labels lives in the
-//! Bevy adapter, and the meaning is authored with the room data so
-//! debug overlays, inspectors, and future editor tools share the same
-//! source of truth. (Moved here from the engine when the
-//! former `ambition_engine` workspace crate was collapsed into
-//! `ambition_engine_core` on 2026-05-28.)
+//! W3 moved the authored label vocabulary to `ambition_world`; gameplay-core
+//! keeps this path until LDtk and debug-overlay call sites are repointed.
 
-use ambition_engine_core::Vec2;
-
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct DebugLabel {
-    pub text: String,
-    pub position: Vec2,
-    pub category: DebugLabelKind,
-}
-
-impl DebugLabel {
-    pub fn new(text: impl Into<String>, position: Vec2, category: DebugLabelKind) -> Self {
-        Self {
-            text: text.into(),
-            position,
-            category,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
-pub enum DebugLabelKind {
-    Room,
-    LoadingZone,
-    Hazard,
-    Enemy,
-    Boss,
-    Interactable,
-    Pickup,
-    Custom,
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn debug_label_new_clones_text() {
-        let label = DebugLabel::new("hello", Vec2::new(10.0, 20.0), DebugLabelKind::Hazard);
-        assert_eq!(label.text, "hello");
-        assert_eq!(label.position, Vec2::new(10.0, 20.0));
-        assert_eq!(label.category, DebugLabelKind::Hazard);
-    }
-}
+pub use ambition_world::debug_label::*;

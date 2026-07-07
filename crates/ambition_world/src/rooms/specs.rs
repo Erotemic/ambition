@@ -62,7 +62,7 @@ pub struct GroundItemSpec {
 }
 
 /// LDtk-authored portal-gun pickup. Resolves to a
-/// [`crate::portal::PortalGunPickup`] (already armed, `arm_timer = 0`) at room
+/// [`ambition_portal::PortalGunPickup`] (already armed, `arm_timer = 0`) at room
 /// load — the authored-placement home for the debug
 /// `spawn_debug_portal_gun_pickup_once`.
 #[cfg(feature = "portal")]
@@ -78,7 +78,7 @@ pub struct PortalGunSpawnSpec {
     pub half_extent: ae::Vec2,
 }
 
-/// LDtk-authored static portal. Resolves to a [`crate::portal::PlacedPortal`] at room
+/// LDtk-authored static portal. Resolves to a [`ambition_portal::PlacedPortal`] at room
 /// load — pre-placed linked pairs (by complementary color) for the portal test
 /// lab, independent of the portal gun. The half-extent is the standard portal
 /// opening (derived from the normal), not the LDtk box size.
@@ -92,8 +92,8 @@ pub struct PortalSpec {
     /// Authored channel color (its partner color is the linked exit). Authored
     /// portals are never gun colors — only [`PortalChannelColor`] is authorable.
     ///
-    /// [`PortalChannelColor`]: crate::portal::PortalChannelColor
-    pub color: crate::portal::PortalChannelColor,
+    /// [`PortalChannelColor`]: ambition_portal::PortalChannelColor
+    pub color: ambition_portal::PortalChannelColor,
     /// World-space center of the portal face (on the host surface).
     pub pos: ae::Vec2,
     /// Outward surface normal (axis-aligned), pointing into the room.

@@ -102,97 +102,16 @@ pub fn install_world_manifest(manifest: WorldManifest) {
     let _ = WORLD_MANIFEST.set(manifest);
 }
 
-/// The active manifest: the installed one; core tests fall back to the
-/// game's real worlds (cross-crate fixture); production without an install
-/// is a loud startup bug. Public READ view — the app assembly iterates the
-/// rows to spawn one tile-render world root per world.
+/// The active manifest. Public READ view — the app assembly iterates the rows
+/// to spawn one tile-render world root per world.
 pub fn world_manifest() -> &'static WorldManifest {
-    #[cfg(test)]
-    {
-        WORLD_MANIFEST.get_or_init(test_fixture_manifest)
-    }
-    #[cfg(not(test))]
-    {
-        WORLD_MANIFEST.get().unwrap_or_else(|| {
-            panic!(
-                "world manifest not installed — the game's content must call \
-                 install_world_manifest() before any world load \
-                 (AmbitionContentPlugin / the app's sim-entry choke points do)"
-            )
-        })
-    }
-}
-
-/// Test fixture = the game's REAL worlds, read cross-crate from
-/// `ambition_content` (the `install_enemy_roster` fixture pattern), so
-/// core's loader/catalog/room tests exercise real data without core
-/// shipping it. Mirrors `ambition_content::worlds::world_manifest()` —
-/// core cannot depend on the content crate, so the rows are restated here.
-#[cfg(test)]
-fn test_fixture_manifest() -> WorldManifest {
-    macro_rules! static_world_text {
-        ($path:literal) => {{
-            #[cfg(feature = "static_map")]
-            {
-                Some(include_str!(concat!(
-                    "../../../../ambition_content/assets/worlds/",
-                    $path
-                )))
-            }
-            #[cfg(not(feature = "static_map"))]
-            {
-                None
-            }
-        }};
-    }
-    let worlds_dir =
-        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../ambition_content/assets/worlds");
-    let source = |id: &str,
-                  file: &str,
-                  embedded_text: Option<&'static str>,
-                  embedded_bevy_path: &'static str,
-                  required: bool| WorldSource {
-        id: AssetId::new(id),
-        asset_path: format!("game://worlds/{file}"),
-        loose_path: Some(worlds_dir.join(file)),
-        embedded_text,
-        embedded_bevy_path: Some(embedded_bevy_path),
-        required,
-    };
-    WorldManifest {
-        entry_room: "central_hub_complex".to_string(),
-        ron_rooms: Vec::new(),
-        worlds: vec![
-            source(
-                "world.sandbox_ldtk",
-                "sandbox.ldtk",
-                static_world_text!("sandbox.ldtk"),
-                "ambition_content/worlds/sandbox.ldtk",
-                true,
-            ),
-            source(
-                "world.intro_ldtk",
-                "intro.ldtk",
-                static_world_text!("intro.ldtk"),
-                "ambition_content/worlds/intro.ldtk",
-                false,
-            ),
-            source(
-                "world.cut_rope_ldtk",
-                "you_have_to_cut_the_rope.ldtk",
-                static_world_text!("you_have_to_cut_the_rope.ldtk"),
-                "ambition_content/worlds/you_have_to_cut_the_rope.ldtk",
-                false,
-            ),
-            source(
-                "world.hall_ldtk",
-                "hall_of_characters.ldtk",
-                static_world_text!("hall_of_characters.ldtk"),
-                "ambition_content/worlds/hall_of_characters.ldtk",
-                false,
-            ),
-        ],
-    }
+    WORLD_MANIFEST.get().unwrap_or_else(|| {
+        panic!(
+            "world manifest not installed — the game's content must call \
+             install_world_manifest() before any world load \
+             (AmbitionContentPlugin / the app's sim-entry choke points do)"
+        )
+    })
 }
 
 /// The Bevy `AssetPath` string the tile-render spine loads for a manifest
@@ -210,48 +129,43 @@ pub fn world_bevy_asset_path(source: &WorldSource) -> String {
 mod tests {
     use super::*;
 
-    // NOTE: no test here calls `install_world_manifest` — the OnceLock is
-    // process-global and an install would clobber the fixture the rest of
-    // this test binary (embedded_project, catalog identity) relies on.
-    // Install semantics are exercised by the content crate + app, which
-    // install for real.
-
-    #[test]
-    fn fixture_manifest_declares_the_sandbox_worlds() {
-        let manifest = test_fixture_manifest();
-        assert_eq!(manifest.entry_room, "central_hub_complex");
-        assert_eq!(manifest.worlds.len(), 4);
-        assert!(
-            manifest.primary().required,
-            "primary world is boot-critical"
-        );
-        assert_eq!(manifest.primary().id.as_str(), "world.sandbox_ldtk");
-        assert!(
-            manifest.secondaries().all(|source| !source.required),
-            "secondaries are tolerated missing"
-        );
-        for source in &manifest.worlds {
-            assert!(
-                source
-                    .loose_path
-                    .as_ref()
-                    .is_some_and(|path| path.is_file()),
-                "fixture world file missing on disk: {:?}",
-                source.loose_path
-            );
+    fn sample_manifest() -> WorldManifest {
+        let source = |id: &str, file: &str, required: bool| WorldSource {
+            id: AssetId::new(id),
+            asset_path: format!("game://worlds/{file}"),
+            loose_path: None,
+            embedded_text: None,
+            embedded_bevy_path: None,
+            required,
+        };
+        WorldManifest {
+            entry_room: "start".to_string(),
+            ron_rooms: Vec::new(),
+            worlds: vec![
+                source("world.primary", "primary.ldtk", true),
+                source("world.side_a", "side_a.ldtk", false),
+                source("world.side_b", "side_b.ldtk", false),
+            ],
         }
     }
 
     #[test]
+    fn primary_is_the_first_row() {
+        let manifest = sample_manifest();
+        assert_eq!(manifest.primary().id.as_str(), "world.primary");
+        assert!(manifest.primary().required);
+    }
+
+    #[test]
     fn primary_is_the_first_row_and_secondaries_keep_order() {
-        let manifest = test_fixture_manifest();
+        let manifest = sample_manifest();
         let secondary_ids: Vec<_> = manifest
             .secondaries()
             .map(|source| source.id.as_str().to_string())
             .collect();
         assert_eq!(
             secondary_ids,
-            vec!["world.intro_ldtk", "world.cut_rope_ldtk", "world.hall_ldtk"],
+            vec!["world.side_a", "world.side_b"],
             "declaration order is merge order"
         );
     }

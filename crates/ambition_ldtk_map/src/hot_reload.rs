@@ -11,7 +11,7 @@ use std::time::SystemTime;
 
 use bevy::prelude::{Res, ResMut, Resource, Time};
 
-use crate::assets::sandbox_assets::SandboxAssetCatalog;
+use ambition_asset_manager::sandbox_assets::SandboxAssetCatalog;
 
 #[derive(Resource, Clone, Debug)]
 pub struct LdtkHotReloadState {
@@ -77,7 +77,7 @@ impl LdtkHotReloadState {
                 state.last_status = error;
             }
         }
-        state.watch_path = Some(path);
+        state.watch_path = Some(path.to_path_buf());
         state
     }
 

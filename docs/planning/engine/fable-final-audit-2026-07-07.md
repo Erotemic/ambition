@@ -183,3 +183,36 @@ Corrections (log-once, all small):
    just grep Cargo.toml in a unit test) asserting ambition_world's dep list
    against an explicit allow-list, so step-3 branch conversions RATCHET
    (removing combat/interaction/portal from the allow-list one at a time).**
+
+### F4 — Correctness findings: two REAL regressions FIXED in-session + three logged hazards
+
+**Fixed in this audit (commits on main):**
+1. **The `game/` re-home broke desktop asset-root resolution** —
+   `desktop_asset_root()` + `capture_scene` hopped `../ambition_actors/assets`
+   from `game/ambition_app` (lands in `game/`, not `crates/`); the silent
+   fallback to exe-relative `assets` reproduces "game runs but nothing
+   renders / no music". Fixed to `../../crates/…`; caught by the
+   (well-written) cli test. Every other `CARGO_MANIFEST_DIR` hop audited —
+   correct.
+2. **The `gameplay_core → ambition_actors` rename broke the music tools** —
+   `_paths.py` repo-root probe + cli/bundle/audit registry paths pointed at
+   the dead crate dir (submodule commit + bump). The regen shell scripts were
+   already updated.
+
+**Logged hazards (small, opus-executable):**
+3. **`WorldClock.time_scale` is written DIRECTLY outside the time-control
+   owner** — `features/ecs/damage_apply.rs:207,369` and
+   `world/rooms/load.rs:114` hard-set `time_scale = 1.0` (respawn/transition
+   resets), bypassing the ADR 0010/0011 `ClockScaleRequest` seam. A reset
+   racing a live bullet-time/hitstop request silently clobbers it.
+   **Prescription: replace with a `ClockScaleRequest::reset()` (or a
+   dedicated ResetClock message) handled by the one owner in
+   `time/time_control`.**
+4. **Non-deterministic player pick under multiplayer:**
+   `save_sync.rs:79` and `actors/update.rs:227` use `query.iter().next()`
+   as a "the player" fallback. Single-player-safe; with slots (the RL/
+   multiplayer target) query order is unstable — pick by lowest
+   `PlayerSlot` instead. Tag both with `AMBITION_REVIEW(determinism)`.
+5. **The full app gate** re-ran clean after fix (1): all suites green except
+   the two documented REDs (`unified_melee::a_hostile_actor` feel-RED;
+   verify gnu_ton in the final run below).

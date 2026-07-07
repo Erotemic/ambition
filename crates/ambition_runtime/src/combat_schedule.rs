@@ -119,7 +119,7 @@ impl Plugin for CombatSchedulePlugin {
                 ambition_gameplay_core::projectile::charge_projectile_input,
                 // Phase 3b player-pool spawn consumer: materializes player-fired
                 // bodies AFTER the step, so the new body first ticks next frame.
-                ambition_gameplay_core::projectile::apply_player_spawn_projectile_messages,
+                ambition_projectiles::apply_player_spawn_projectile_messages,
                 // Data-driven move TRIGGER: a body carrying an `ActorMoveset`
                 // repertoire whose control frame presses a verb edge starts the
                 // matching move (inserts `MovePlayback`). Before `advance` so a move

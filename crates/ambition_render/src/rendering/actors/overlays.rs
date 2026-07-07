@@ -174,7 +174,7 @@ pub fn apply_placeholder_sprites_override(
         Option<&FeatureVisual>,
         Option<&PlayerVisual>,
         Option<&ambition_sim_view::BodyPoseView>,
-        Option<&ambition_gameplay_core::projectile::ProjectileVisualKind>,
+        Option<&ambition_projectiles::ProjectileVisualKind>,
     )>,
 ) {
     if developer_tools.placeholder_sprites {
@@ -236,7 +236,7 @@ pub fn apply_placeholder_sprites_override(
 fn pick_placeholder_color(
     feature: Option<(FeatureVisualKind, bool)>,
     is_player: bool,
-    proj_kind: Option<ambition_gameplay_core::projectile::ProjectileVisualKind>,
+    proj_kind: Option<ambition_projectiles::ProjectileVisualKind>,
 ) -> Color {
     if is_player {
         return Color::srgba(0.55, 0.85, 1.00, 1.0);

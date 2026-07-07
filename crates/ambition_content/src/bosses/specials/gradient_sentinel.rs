@@ -194,8 +194,7 @@ pub fn spawn_gnu_apple_rain_from_special_messages(
                         // The apple-rain fruit renders as the generated apple
                         // sprite (kept upright vs gravity) — keyed by kind, not
                         // by the owner-id substring the visuals layer once read.
-                        visual_tag: ambition_gameplay_core::projectile::ProjectileVisualKind::Apple
-                            .to_tag(),
+                        visual_tag: ambition_projectiles::ProjectileVisualKind::Apple.to_tag(),
                     }],
                 },
             });

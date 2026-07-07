@@ -35,7 +35,7 @@ pub struct CombatRoomReset<'w, 's> {
     // In-flight enemy projectiles are ECS entities now (Phase 3c-iii); despawn
     // them instead of clearing a Vec.
     pub enemy_projectiles:
-        Query<'w, 's, Entity, With<ambition_gameplay_core::enemy_projectile::EnemyProjectile>>,
+        Query<'w, 's, Entity, With<ambition_projectiles::enemy::EnemyProjectile>>,
     pub slot_board: ResMut<'w, ambition_gameplay_core::combat::slots::CombatSlotsRes>,
     pub feature_overlay: Res<'w, ambition_gameplay_core::features::FeatureEcsWorldOverlay>,
     pub gravity: ResMut<'w, ambition_gameplay_core::physics::GravityField>,

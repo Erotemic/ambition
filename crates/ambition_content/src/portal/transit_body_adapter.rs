@@ -21,7 +21,7 @@ use ambition_gameplay_core::portal::{
     BodyTeleported, PlayerMovementIntent, PortalBody, PortalBodyTransited, PortalEmission,
     PortalInputWarp, PortalPolicy, PortalTuning,
 };
-use ambition_gameplay_core::projectile::ProjectileGameplay;
+use ambition_projectiles::ProjectileGameplay;
 
 /// Ensure every body that transited before the unification carries the portal
 /// transit opt-in. Maps Ambition identity → behavioral [`PortalPolicy`]:
@@ -47,7 +47,7 @@ pub fn ensure_portal_bodies(
             Without<PortalBody>,
             // Projectiles are not actors; a dedicated adapter opts them into transit
             // with projectile-specific policy.
-            Without<ambition_gameplay_core::projectile::ProjectileGameplay>,
+            Without<ambition_projectiles::ProjectileGameplay>,
         ),
     >,
     players: Query<(), (With<PlayerEntity>, With<PrimaryPlayer>)>,
@@ -259,7 +259,7 @@ mod projectile_transit_tests {
     use ambition_gameplay_core::portal::{
         portal_half_extent, portal_transit, PlacedPortal, PortalBody, PortalChannel, PortalGunColor,
     };
-    use ambition_gameplay_core::projectile::ProjectileGameplay;
+    use ambition_projectiles::ProjectileGameplay;
 
     use super::ensure_projectile_portal_bodies;
 
@@ -277,7 +277,7 @@ mod projectile_transit_tests {
             gravity: 0.0,
             damage: 1,
             bounces_remaining: 0,
-            world_hit: ambition_gameplay_core::projectile::WorldHitPolicy::ExpireOnContact,
+            world_hit: ambition_projectiles::WorldHitPolicy::ExpireOnContact,
         }
     }
 

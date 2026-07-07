@@ -17,7 +17,7 @@
 //! ## Submodules
 //! - [`spec`] — the generic, content-free [`ProjectileSpec`] (authored intent).
 //!   Named projectile kinds + their stat tables are a *game's* concern (for
-//!   Ambition: `ambition_gameplay_core::projectile::kind`); the engine never
+//!   Ambition: `ambition_projectiles::kind`); the engine never
 //!   names them.
 //! - [`body`] — the kinematic/gameplay split: [`ProjectileGameplay`]
 //!   (per-frame motion + solid/one-way resolution over a

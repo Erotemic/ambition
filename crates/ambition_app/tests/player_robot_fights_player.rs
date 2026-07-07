@@ -20,9 +20,9 @@ use ambition_engine_core as ae;
 use ambition_entity_catalog::placements::CharacterBrain;
 use ambition_gameplay_core::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition_gameplay_core::combat::components::{ActorDisposition, ActorTarget};
-use ambition_gameplay_core::enemy_projectile::EnemyProjectile;
 use ambition_gameplay_core::features::FeatureId;
 use ambition_gameplay_core::player::BodyMelee;
+use ambition_projectiles::enemy::EnemyProjectile;
 use bevy::prelude::World;
 
 const ROBOT_ID: &str = "player_robot_boss";

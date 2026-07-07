@@ -27,6 +27,7 @@ ambition_gameplay_core = { path = "../ambition_gameplay_core", default-features 
     "input",
     "portal",
 ] }
+ambition_projectiles = { path = "../ambition_projectiles" }
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 ambition_input = { path = "../ambition_input" }
 ambition_engine_core = { path = "../ambition_engine_core" }

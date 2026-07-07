@@ -170,7 +170,7 @@ pub struct FeatureDebugQueries<'w, 's> {
         's,
         &'static ambition_gameplay_core::actor::BodyKinematics,
         (
-            With<ambition_gameplay_core::projectile::PlayerProjectile>,
+            With<ambition_projectiles::PlayerProjectile>,
             Without<ambition_gameplay_core::actor::PlayerEntity>,
         ),
     >,
@@ -180,7 +180,7 @@ pub struct FeatureDebugQueries<'w, 's> {
         's,
         &'static ambition_gameplay_core::actor::BodyKinematics,
         (
-            With<ambition_gameplay_core::enemy_projectile::EnemyProjectile>,
+            With<ambition_projectiles::enemy::EnemyProjectile>,
             Without<ambition_gameplay_core::actor::PlayerEntity>,
         ),
     >,

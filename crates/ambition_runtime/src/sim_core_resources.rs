@@ -33,7 +33,7 @@ impl Plugin for SimCoreResourcesPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<SfxMessage>()
             .add_message::<VfxMessage>()
-            .add_message::<ambition_gameplay_core::projectile::SpawnProjectile>()
+            .add_message::<ambition_projectiles::SpawnProjectile>()
             .add_message::<ExplosionRequest>()
             .add_message::<FireworksRequest>()
             .add_message::<DebrisBurstMessage>()
@@ -76,10 +76,10 @@ impl Plugin for SimCoreResourcesPlugin {
             >::new(&["ron"]))
             // In-flight player projectiles are ECS entities; their monotonic
             // spawn-id source is this global counter.
-            .init_resource::<ambition_gameplay_core::projectile::ProjectileSeqCounter>()
+            .init_resource::<ambition_projectiles::ProjectileSeqCounter>()
             // Enemy projectiles (pirate volleys etc) — separate from player
             // projectiles so faction routing stays explicit.
-            .init_resource::<ambition_gameplay_core::enemy_projectile::EnemyProjectileState>()
+            .init_resource::<ambition_projectiles::enemy::EnemyProjectileState>()
             // Anti-clump attack slot arbitration.
             .init_resource::<ambition_gameplay_core::combat::slots::CombatSlotsRes>()
             // Encounter system: the live multi-encounter store is

@@ -270,7 +270,7 @@ pub fn rebuild_wielded_gun_swords_view(
 /// `BodyKinematics`. Removed when a pooled projectile stops being live.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct ProjectileView {
-    pub kind: ambition_gameplay_core::projectile::ProjectileVisualKind,
+    pub kind: ambition_projectiles::ProjectileVisualKind,
     pub pos: ae::Vec2,
     pub vel: ae::Vec2,
     pub size: ae::Vec2,
@@ -283,10 +283,10 @@ pub fn rebuild_projectile_views(
         (
             Entity,
             &BodyKinematics,
-            &ambition_gameplay_core::projectile::ProjectileVisualKind,
+            &ambition_projectiles::ProjectileVisualKind,
             Option<&mut ProjectileView>,
         ),
-        With<ambition_gameplay_core::projectile::LiveProjectile>,
+        With<ambition_projectiles::LiveProjectile>,
     >,
     // Pooled projectiles: a reused entity that is no longer live must drop
     // its view so render despawns the visual instead of drawing a corpse.
@@ -294,7 +294,7 @@ pub fn rebuild_projectile_views(
         Entity,
         (
             With<ProjectileView>,
-            Without<ambition_gameplay_core::projectile::LiveProjectile>,
+            Without<ambition_projectiles::LiveProjectile>,
         ),
     >,
 ) {

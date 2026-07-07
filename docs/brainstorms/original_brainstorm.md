@@ -635,3 +635,14 @@ architecture. My guess is that our version 1.0 won't get to the full beautiful
 system I want, but if a large subset of our crates are reusable to make writing
 new games easier, that is a win.
 
+
+----
+
+Oiler's Shop could be called The Kernel, and maybe a parody of Carl Runge and
+Martin Kutta try to take it over, they are stronger than Oiler, but Oiler is
+faster could be a story bit. It works because our motion kernel runs Euler
+integration.
+
+Note: RK may not be stronger for the game even if we can afford it because of
+the game discontinuities which require swweeping a path. Although you could do
+the motion sweep with RK it would be more expensive.

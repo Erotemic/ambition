@@ -17,12 +17,12 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
 use ambition_gameplay_core::assets::game_assets::{EntitySprite, GameAssets};
-use ambition_gameplay_core::projectile::{
+use ambition_platformer_primitives::gravity::gravity_upright_angle;
+use ambition_platformer_primitives::gravity::GravityCtx;
+use ambition_projectiles::{
     ProjectileArtSource, ProjectileKind, ProjectileRenderSize, ProjectileRotation,
     ProjectileVisualKind,
 };
-use ambition_platformer_primitives::gravity::gravity_upright_angle;
-use ambition_platformer_primitives::gravity::GravityCtx;
 use ambition_sim_view::ProjectileView;
 use ambition_sprite_sheet::SheetRegistry;
 

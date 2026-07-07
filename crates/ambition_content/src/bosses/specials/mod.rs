@@ -21,10 +21,10 @@ use ambition_characters::brain::{
 };
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_gameplay_core::actor::{BodyKinematics, PlayerEntity};
-use ambition_gameplay_core::enemy_projectile::EnemyProjectileSpawn;
 use ambition_gameplay_core::features::{
     ActorFaction, ActorTarget, BossClusterRef, FeatureSimEntity,
 };
+use ambition_projectiles::enemy::EnemyProjectileSpawn;
 use ambition_time::WorldTime;
 use ambition_vfx::{Effect, EffectRequest};
 

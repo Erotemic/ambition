@@ -1,7 +1,7 @@
 //! Generic per-shot projectile spec — fully self-describing, content-free.
 //!
 //! The foundation carries no named projectile vocabulary. A game's content (for
-//! Ambition: `ambition_gameplay_core::projectile::kind`) authors named kinds and
+//! Ambition: `ambition_projectiles::kind`) authors named kinds and
 //! lowers them into this generic [`ProjectileSpec`]; the primitive body steps it
 //! purely from the data fields here (no `match kind` anywhere in the engine).
 
@@ -69,7 +69,7 @@ pub struct EnemyProjectileSpawn {
     /// Opaque visual-kind tag, carried for the render layer only. The physics
     /// never interprets it (exactly like `ProjectileSpec::charge_tier`): a
     /// game's content maps its named projectile look to/from this `u16` (in
-    /// Ambition, `ambition_gameplay_core::projectile::ProjectileVisualKind`).
+    /// Ambition, `ambition_projectiles::ProjectileVisualKind`).
     /// `0` is the unspecified / generic default.
     pub visual_tag: u16,
 }

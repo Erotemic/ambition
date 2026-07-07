@@ -117,7 +117,7 @@ pub fn rebuild_body_pose_views(
                 Option<&ambition_engine_core::BodyBaseSize>,
                 Option<&BodyHealth>,
                 Option<&ambition_gameplay_core::platformer_runtime::orientation::ActorRoll>,
-                Option<&ambition_gameplay_core::projectile::PlayerProjectileState>,
+                Option<&ambition_projectiles::PlayerProjectileState>,
                 Option<&mut BodyPoseView>,
             ),
         ),

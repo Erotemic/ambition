@@ -386,7 +386,7 @@ fn architecture_boundaries_platformer_runtime_crate_is_extracted() {
 
     // The generic projectile primitive must NOT name a game's projectile kinds.
     // The named Fireball/Hadouken vocabulary + stat tables live in
-    // `ambition_gameplay_core::projectile::kind`; the engine carries only generic
+    // `ambition_projectiles::kind`; the engine carries only generic
     // `ProjectileSpec` data (bounces/gravity/half_extent/…). Guard against the
     // named-content leak creeping back into the foundation crate.
     let projectile_dir = crate_root.join("src/projectile");
@@ -398,7 +398,7 @@ fn architecture_boundaries_platformer_runtime_crate_is_extracted() {
                 !text.contains(needle),
                 "ambition_platformer_primitives/src/projectile/{file} must stay content-free, \
                  but names `{needle}` — named projectile kinds belong in \
-                 ambition_gameplay_core::projectile::kind"
+                 ambition_projectiles::kind"
             );
         }
     }
@@ -512,6 +512,44 @@ fn architecture_boundaries_persistence_crate_owns_stored_shapes_only() {
         crate_root.join("src"),
         &forbidden,
         "ambition_persistence must stay free of menu/UI/game machinery imports",
+    );
+}
+
+/// `ambition_projectiles` (E2) owns the reusable projectile MODEL — shot
+/// vocabulary, ECS components, the spawn pool + player-pool spawner, and pure
+/// portal transit. It is a FOUNDATIONAL crate: it may name only the geometry /
+/// primitive / portal / trace / input foundations, never the sim heart, the
+/// combat kit, character brains, or any host/content/render machinery. The
+/// victim-side hit routing + charge-input steppers that DO need those stay in
+/// `ambition_gameplay_core` and consume this crate (the legal sim → model arrow).
+#[test]
+fn architecture_boundaries_projectiles_crate_is_model_only() {
+    let crate_root = repo_root().join("crates/ambition_projectiles");
+    assert_workspace_contains_crate("ambition_projectiles");
+    assert!(
+        crate_root.join("Cargo.toml").exists(),
+        "ambition_projectiles crate should exist at crates/ambition_projectiles"
+    );
+    let forbidden = [
+        "ambition_gameplay_core",
+        "ambition_combat",
+        "ambition_characters",
+        "ambition_sim_view",
+        "ambition_runtime",
+        "ambition_render",
+        "ambition_content",
+        "ambition_app",
+    ];
+    assert_manifest_has_no_deps(
+        &crate_root,
+        &forbidden,
+        "ambition_projectiles is the projectile MODEL — no sim-heart / combat / \
+         brain / host / content coupling (the woven steppers stay in gameplay_core)",
+    );
+    assert_source_tree_has_no_code_refs(
+        crate_root.join("src"),
+        &forbidden,
+        "ambition_projectiles must stay a reusable model free of sim/combat/host imports",
     );
 }
 

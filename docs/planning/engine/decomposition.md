@@ -103,7 +103,7 @@ found drift — update the table in the same commit. LOC ≈ `wc -l`.)*
 | `features/enemies/` | 2188 | `ambition_actors` (schema) — archetype DATA already content | E7 | respawn-policy slice edits here first |
 | `features/bosses.rs`, `npcs.rs`, `banter.rs` | ~1.3k | `ambition_actors` | E7 | |
 | `combat/` (moveset 2292, damage 944, targeting 892, attack 834, hitbox/, on_hit 430, events 432, components/, pickups 340, world_overlay 360, boss_clusters 444) | 11.5k | **`ambition_combat`** | **E2** | world_overlay → `ambition_world` (it's geometry composition); boss_clusters dissolves with E6 |
-| `projectile/` + `enemy_projectile/` | 4412 | **`ambition_projectiles`** | E2 | visual-kind content names leave in E3 |
+| `projectile/` + `enemy_projectile/` | 4412 | **`ambition_projectiles`** ✅ (model DONE 2026-07-07; steppers stay → E6/E7) | E2 | visual-kind content names leave in E3 |
 | `world/` | 10933 | **`ambition_world`** (IR) + **`ambition_ldtk_map`** (backend) | **W1–W4** | the two-crate cut; converter registry is the keystone |
 | `boss_encounter/` (behavior, registry, sprites, attack_geometry, encounter_script, rewards) | 6750 | behavior/registry → `ambition_characters`; sprites/attack_geometry → `ambition_sprite_sheet`; encounter_script/rewards → `ambition_encounter` | E6 + E3 + E-enc | the three-way split the plan always intended |
 | `player/` (body_integration, bundles, starting_character, trail, affordances) | 6511 | `ambition_actors` | E7 | the home body is A BODY; no player crate — that would re-fork the unification |
@@ -914,15 +914,42 @@ moves first; the TYPES move here).
      — all stay); **`HitSource::PlayerProjectile.kind` is DROPPED** (no
      reader ever destructures it; writers hardcode Fireball; pre-release
      no-compat) so combat sheds `ProjectileKind`.
-   `projectile/` + `enemy_projectile/` → `ambition_projectiles` (deps:
-   combat) — **MEASURED (fable 2026-07-07): 96 upward refs (features 40,
-   actor 19, player 14, trace 8, portal 4, physics 3, persistence 3) —
-   a dedicated de-weave session, NOT a tail item. Execute it EXACTLY like
-   combat's arc (E2.8–E2.18): mechanical repoint of re-export residue
-   first (actor/physics are mostly `ae::`/primitives paths), then
-   per-symbol verdicts (trace = dev-tooling seam; portal = transit hooks;
-   player = ownership/heal messages), then leave-behind re-home, then the
-   move. The combat commits are the worked example.**
+   `projectile/` + `enemy_projectile/` → **✅ `ambition_projectiles` DONE
+   (opus 2026-07-07, commits `feat(E2): mint ambition_projectiles` +
+   `refactor(E2): repoint projectile-model consumers`).** The de-weave
+   re-measured the card and found the split falls along model-vs-stepper,
+   NOT along the 96-ref census — the census counted the STAYING steppers'
+   upward refs. What happened:
+   - **MOVED (deps: engine_core + platformer_primitives + portal +
+     gameplay_trace + input + serde + bevy — the card's "deps: combat"
+     was WRONG; the model files name ZERO combat vocab):** the shot
+     vocabulary (`ProjectileKind`/`FireballChargeTuning`, the visual-kind
+     art descriptors, `PlayerProjectileState`), the ECS components
+     (`LiveProjectile`/`PlayerProjectile`/`ProjectileOwner`/`ProjectileSeq`
+     {,`Counter`}/`EnemyProjectile` + enemy spawn state), the
+     `SpawnProjectile` pool + the pure player-pool spawner
+     (`apply_player_spawn_projectile_messages`), pure portal transit, and
+     the motion-press diagnostics. Internal refs repointed at the move
+     (trace → `ambition_gameplay_trace`, portal → `ambition_portal`, self
+     → crate root) — the card's "trace = dev-tooling seam; portal =
+     transit hooks" verdicts, executed.
+   - **STAYS in the sim heart (the reason combat left `damage_apply`
+     behind — victim/world/anim weave):** `step_projectiles` (queries
+     `BossConfig`/`BossClusterRef`/`BossAnimationFrameSample` = E6,
+     breakables/actors, emits `HitEvent`, parry-heals via
+     `PlayerHealRequested`), `charge_projectile_input` (`BodyAnimFacts` +
+     brain input), the `ProjectileCollisionWorld` overlay param, the enemy
+     `apply_projectile_effects` stepper. The BOSS types are the hard
+     blocker — the step cannot move until E6 carves boss_clusters.
+     `gameplay_core::{projectile,enemy_projectile}` are now thin facades
+     (`pub use ambition_projectiles::{*, enemy::*}`) — the ONE documented
+     transition re-export, the `pub use ambition_combat as combat`
+     precedent; internal `crate::projectile::*` paths resolve unchanged.
+   - The "player = ownership/heal messages" verdict did NOT need
+     execution: `PlayerHealRequested` + `BodyAnimFacts` are read only by
+     the STAYING steppers, so no heal/anim inversion was required for the
+     model move. They travel with `step_projectiles`/`charge_input` at
+     E7. Boundary: `architecture_boundaries_projectiles_crate_is_model_only`.
    Direction ruled: **features → combat, never the reverse.**
 4. Only after the move: further combat-model slices (CM6+) land in the
    new crate.

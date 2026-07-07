@@ -181,7 +181,7 @@ fable card. Ranked by how much they gate a fable task.
 
 | Track | Doc | Status | Next |
 |---|---|---|---|
-| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — **E5-finish COMPLETE (fable 2026-07-06 night): step 5 executed (amended: shared sim wiring → `ambition_runtime` per-domain plugins; `ambition_host` = leafwing bindings + camera cluster) + step 6 executed (SimCoreResourcesPlugin split + the demo smoke shell PASSES) — THE DEMO GATE IS OPEN**; W1 STATE-inversion (opus); **W-a…W-e RULED — the 5-step OPUS-SAFE W queue is in decomposition.md**; **E2 back-edges PRE-CLASSIFIED (fable) — verdict list in the E2 card**; **W-queue step 1 DONE + E2 IN-PLACE VERDICTS DONE (opus 2026-07-06 night): entity_catalog::placements + engine_core::kinematic_path minted; all 7 E2 back-edge verdicts landed in-place (CombatTuning minted, banner→message, CenteredAabb/HitEvent/overlay repointed, FeatureSimEntity→lifecycle) — combat's atomic move is now near-mechanical**; **E1a persistence carve ✅ DONE (Codex 2026-07-06): `ambition_persistence` owns save/settings/quest stored shapes; gameplay-core retains only settings/menu IR + dev persistence adapters for E1e/E1d**; **E1b audio carve ✅ DONE (Codex 2026-07-06): reusable SFX-bank loader/drain moved to `ambition_audio`; dead encounter-music fallback deleted; remaining audio/music files are sandbox adapters** | **W2 ✅ EXECUTED (fable 2026-07-07 — see the log; GeoSource subsumed SpatialSource)**; W queue steps 3–5 [opus]; **E2 combat carve ✅ EXECUTED (fable 2026-07-07 — the kit IS ambition_combat; see the log)**; projectiles mint = a dedicated de-weave session (census in the E2 card); E1c next E1 slice; E3/E6/E7/E8 open |
+| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | ACTIVE — **E5-finish COMPLETE (fable 2026-07-06 night): step 5 executed (amended: shared sim wiring → `ambition_runtime` per-domain plugins; `ambition_host` = leafwing bindings + camera cluster) + step 6 executed (SimCoreResourcesPlugin split + the demo smoke shell PASSES) — THE DEMO GATE IS OPEN**; W1 STATE-inversion (opus); **W-a…W-e RULED — the 5-step OPUS-SAFE W queue is in decomposition.md**; **E2 back-edges PRE-CLASSIFIED (fable) — verdict list in the E2 card**; **W-queue step 1 DONE + E2 IN-PLACE VERDICTS DONE (opus 2026-07-06 night): entity_catalog::placements + engine_core::kinematic_path minted; all 7 E2 back-edge verdicts landed in-place (CombatTuning minted, banner→message, CenteredAabb/HitEvent/overlay repointed, FeatureSimEntity→lifecycle) — combat's atomic move is now near-mechanical**; **E1a persistence carve ✅ DONE (Codex 2026-07-06): `ambition_persistence` owns save/settings/quest stored shapes; gameplay-core retains only settings/menu IR + dev persistence adapters for E1e/E1d**; **E1b audio carve ✅ DONE (Codex 2026-07-06): reusable SFX-bank loader/drain moved to `ambition_audio`; dead encounter-music fallback deleted; remaining audio/music files are sandbox adapters** | **W2 ✅ EXECUTED (fable 2026-07-07 — see the log; GeoSource subsumed SpatialSource)**; W queue steps 3–5 [opus]; **E2 combat carve ✅ EXECUTED (fable 2026-07-07 — the kit IS ambition_combat; see the log)**; **projectiles model ✅ DONE (opus 2026-07-07 — `ambition_projectiles` owns the shot vocabulary; the victim/world/anim steppers stay in the sim heart blocked on boss types E6, see the log)**; E1c next E1 slice; E3/E6/E7/E8 open |
 | Decomposition D-B/D-C | same | queued behind D-A | mode-scope seam can land early (demos want it) |
 | Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | **CC1 COMPLETE + CC5 LANDED (fable) + CC2 COMPLETE + §3.6 GeoId/GeoFaceRef SUBSTRATE MINTED (opus, 2026-07-06)** — SweepSample §3.1 PARKED (decision brief above); GeoId types + Block.id (Anon default, byte-parity) real in code, first consumer = CC6 — engine_core::frame vocabulary + cast family registry real in code; CC2 first pass (hazards swept) + completion (§3.3 every reader classified: loading-zone Door/Walk/EdgeExit now swept via `transition_for_player`; water/climbable annotated discrete-OK + `thin_region_warnings` authoring validator; ledge audited; auto-collect N/A) parity suites green | CC3 fuzz rig (§6.1 oracle) [opus]; CC6 moving portals (§5-P2 spec) [opus] |
 | Combat stack | [engine/combat-model.md](engine/combat-model.md) | CM1 (incl. **launch_dir consumption, fable 2026-07-06 evening** `c695cd9c`)+CM2+CM3+CM7+CM4+CM5 LANDED — per-move presentation authored; smash axes complete (growth, DI, charge, cancel tables, fixed launch angles) | CM6 grab/throw/shield-stun (brings OnBlock) [opus, with SSB] |
@@ -982,6 +982,34 @@ builds + full suite green (only the documented `unified_melee` feel-RED).
 **W-queue state: steps 1–2 ✅; step 3 (lowering registry) is the next opus
 slice; W3's cut now builds on a landed, fable-verified shape.**
 
+
+## 2026-07-07 (opus, d) — E2 tail: `ambition_projectiles` (the projectile MODEL)
+Carved the projectile vocabulary out of `ambition_gameplay_core` as two
+compiling commits (`feat(E2): mint ambition_projectiles` +
+`refactor(E2): repoint projectile-model consumers`). The de-weave
+re-measured fable's census and found the real split is model-vs-stepper,
+not the 96-ref count (which was the STAYING steppers' upward refs):
+- **MOVED** (deps: engine_core + platformer_primitives + portal +
+  gameplay_trace + input + serde + bevy — **NOT combat**; the model names
+  zero combat vocab): shot kinds + visual-kind art + `PlayerProjectileState`,
+  the ECS components + enemy spawn state, the `SpawnProjectile` pool + the
+  pure player-pool spawner, pure portal transit, diagnostics.
+- **STAYS** (victim/world/anim weave — combat's `damage_apply` precedent):
+  `step_projectiles` (BOSS types `BossConfig`/`BossClusterRef`/
+  `BossAnimationFrameSample` = the E6 blocker, + breakables/actors/`HitEvent`/
+  parry-heal), `charge_projectile_input` (`BodyAnimFacts`), the
+  `ProjectileCollisionWorld` overlay param, enemy `apply_projectile_effects`.
+  `gameplay_core::{projectile,enemy_projectile}` are thin facades
+  (`pub use ambition_projectiles::{*,enemy::*}`, the `ambition_combat as
+  combat` transition-alias precedent).
+- The "player = heal/anim" verdict needed NO execution — `PlayerHealRequested`
+  + `BodyAnimFacts` are read only by the staying steppers, so they travel at
+  E7, not now. Boundary test
+  `architecture_boundaries_projectiles_crate_is_model_only`.
+Gate: `-p ambition_app --features rl_sim` build green; projectile_portal_transit
++ held_projectile_portal_transit + gameplay_core projectile (54) + gradient_nova
+content tests + the new boundary test all pass. **The steppers follow when E6
+(boss carve) / E7 (actors) / W3 (world overlay) land.**
 
 ## 2026-07-07 (fable, c) — E2 EXECUTED: the combat kit IS `ambition_combat`
 The reserved atomic move landed as eleven compiling commits

@@ -59,7 +59,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .register_type::<ambition_platformer_primitives::schedule::GameMode>()
             // Startup wall-clock profiler (the PostStartup report is the
             // app's; the resource is engine so phase_mark works anywhere).
-            .init_resource::<ambition_actors::dev::profiling::StartupProfiler>()
+            .init_resource::<ambition_dev_tools::profiling::StartupProfiler>()
             .init_resource::<ambition_actors::trace::GameplayTraceBuffer>()
             .init_resource::<ambition_actors::dialog::DialogState>()
             .init_resource::<ambition_actors::MovingPlatformSet>()
@@ -119,10 +119,10 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_actors::world::physics::PhysicsSandboxSettings>()
             // Dev-editable tuning mirrors (read by the dev-edit sync in the
             // player frame). Ownership moves to the dev-tools carve (E1d).
-            .init_resource::<ambition_actors::dev::dev_tools::DeveloperTools>()
-            .init_resource::<ambition_actors::dev::dev_tools::EditablePlayerStats>()
-            .init_resource::<ambition_actors::dev::dev_tools::EditableMovementTuning>()
-            .init_resource::<ambition_actors::dev::dev_tools::EditableAbilitySet>()
+            .init_resource::<ambition_dev_tools::dev_tools::DeveloperTools>()
+            .init_resource::<ambition_dev_tools::dev_tools::EditablePlayerStats>()
+            .init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>()
+            .init_resource::<ambition_dev_tools::dev_tools::EditableAbilitySet>()
             // Engine-typed settings/inventory defaults; games pre-insert
             // their authored starters.
             .init_resource::<ambition_persistence::settings::UserSettings>()

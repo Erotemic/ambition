@@ -7,7 +7,7 @@ use bevy::prelude::{
     AssetServer, Commands, Entity, MessageReader, MessageWriter, Query, Res, ResMut, With,
 };
 
-use ambition_actors::dev::dev_tools::EditableMovementTuning;
+use ambition_dev_tools::dev_tools::EditableMovementTuning;
 use ambition_actors::platformer_runtime::lifecycle::RoomScopedEntity;
 use ambition_actors::rooms;
 use ambition_actors::time::feel::SandboxFeelTuning;

@@ -177,7 +177,11 @@ classes — log-once so the next sessions don't re-derive:
    2026-07-08) applied that rule to projectiles first: runtime owns the schedule
    facade for the remaining actor-side projectile steppers; the model stays in
    `ambition_projectiles`, and the actor-domain victim/charge logic has not been
-   moved wholesale.**
+   moved wholesale. **A follow-on residual-glue slice (Codex 2026-07-08)
+   also burned down the developer-tools facade: app/runtime/sim-view now import
+   `ambition_dev_tools::{dev_tools,profiling,sync_live_player_dev_edits_system}`
+   directly, while `ambition_actors::dev` keeps only the sim-coupled trace
+   recorder.**
 3. **FACADES (60 `pub use ambition_*` re-export sites in actors).** These are
    the deliberate hub-continuity aliases. The dissolution ratchet: **a facade
    may be deleted the moment `grep -rn "ambition_actors::<mod>"` outside

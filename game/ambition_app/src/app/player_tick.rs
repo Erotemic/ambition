@@ -18,7 +18,7 @@
 
 use bevy::prelude::*;
 
-use ambition_actors::dev::dev_tools::EditableMovementTuning;
+use ambition_dev_tools::dev_tools::EditableMovementTuning;
 use ambition_actors::player::PlayerBodyFrameOutput;
 use ambition_actors::time::feel::SandboxFeelTuning;
 use ambition_combat::{ResetRoomFeaturesEvent, RoomResetReason};

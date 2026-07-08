@@ -93,7 +93,7 @@ pub fn process_sandbox_reset_request(
     mut play_state: ResetPlayState<'_>,
     mut room_set: ResMut<RoomSet>,
     mut world: ResMut<ambition_engine_core::RoomGeometry>,
-    tuning: Res<crate::dev::dev_tools::EditableMovementTuning>,
+    tuning: Res<ambition_dev_tools::dev_tools::EditableMovementTuning>,
     mut respawn_visuals: MessageWriter<crate::session::RespawnRoomVisualsRequested>,
     mut commands: Commands,
     mut banner: ResMut<crate::features::GameplayBanner>,

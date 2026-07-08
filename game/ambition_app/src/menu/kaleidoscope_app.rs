@@ -361,7 +361,7 @@ pub(crate) struct KaleidoscopeScroll {
 /// copies (`SystemMenuSnapshotParams`) in a third system.
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct SystemMenuParams<'w> {
-    dev_tools: ResMut<'w, ambition_actors::dev::dev_tools::DeveloperTools>,
+    dev_tools: ResMut<'w, ambition_dev_tools::dev_tools::DeveloperTools>,
     // The Developer screen also reaches the F1/F2 global flags + F12 LDtk
     // auto-reload, which live on these two resources (not `DeveloperTools`).
     dev_state: ResMut<'w, ambition_dev_tools::SandboxDevState>,
@@ -384,7 +384,7 @@ pub(crate) struct SystemMenuParams<'w> {
     // Movement tuning is derived from the active movement profile, so a
     // Reset All Settings must restore it to match the reset DeveloperTools
     // defaults (mirrors the pause menu's `ResetAllSettings`).
-    editable_tuning: ResMut<'w, ambition_actors::dev::dev_tools::EditableMovementTuning>,
+    editable_tuning: ResMut<'w, ambition_dev_tools::dev_tools::EditableMovementTuning>,
     // The radio resources are `Option`-wrapped so the System nav stays B0002-safe
     // and never panics when audio is off / a fixture omits them: a missing radio
     // resource simply disables station audition (the rows still render). Gated on
@@ -522,8 +522,8 @@ impl SystemMenuParams<'_> {
     /// it has no live player to poke); the persisted resources still reset fully.
     pub(crate) fn reset_all_settings(&mut self, settings: &mut UserSettings) {
         *settings = UserSettings::default();
-        *self.dev_tools = ambition_actors::dev::dev_tools::DeveloperTools::default();
-        ambition_actors::dev::dev_tools::apply_movement_profile(
+        *self.dev_tools = ambition_dev_tools::dev_tools::DeveloperTools::default();
+        ambition_dev_tools::dev_tools::apply_movement_profile(
             &mut self.editable_tuning,
             self.dev_tools.movement_profile,
             None,
@@ -581,7 +581,7 @@ pub(crate) struct GameModeIo<'w> {
 /// mutable `SystemMenuParams` (different systems).
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct SystemMenuSnapshotParams<'w> {
-    dev_tools: Res<'w, ambition_actors::dev::dev_tools::DeveloperTools>,
+    dev_tools: Res<'w, ambition_dev_tools::dev_tools::DeveloperTools>,
     dev_state: Res<'w, ambition_dev_tools::SandboxDevState>,
     ldtk_reload: Res<'w, ambition_actors::ldtk_world::LdtkHotReloadState>,
     backend: Res<'w, InventoryUiBackend>,

@@ -38,15 +38,15 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             .add_systems(
                 Startup,
                 (
-                    ambition_actors::dev::profiling::phase_mark("startup_begin"),
+                    ambition_dev_tools::profiling::phase_mark("startup_begin"),
                     data::load_data_asset_handle,
-                    ambition_actors::dev::profiling::phase_mark("after_load_data_handle"),
+                    ambition_dev_tools::profiling::phase_mark("after_load_data_handle"),
                     // `SimulationSetupSet` is the machinery-facing label for
                     // this slot: engine/host startup systems that need the sim
                     // world set up (e.g. the host's input-component attach)
                     // order `.after(the set)` instead of naming this system.
                     setup_simulation_system.in_set(ambition_actors::schedule::SimulationSetupSet),
-                    ambition_actors::dev::profiling::phase_mark("after_setup_simulation"),
+                    ambition_dev_tools::profiling::phase_mark("after_setup_simulation"),
                 )
                     .chain(),
             )
@@ -58,8 +58,8 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             .add_systems(
                 PostStartup,
                 (
-                    ambition_actors::dev::profiling::phase_mark("post_startup_begin"),
-                    ambition_actors::dev::profiling::report_startup_phases,
+                    ambition_dev_tools::profiling::phase_mark("post_startup_begin"),
+                    ambition_dev_tools::profiling::report_startup_phases,
                 )
                     .chain(),
             );

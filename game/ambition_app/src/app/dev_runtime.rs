@@ -3,7 +3,7 @@ use bevy::prelude::*;
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::{ActionState, InputMap};
 
-use ambition_actors::dev::dev_tools::{DeveloperTools, EditableMovementTuning};
+use ambition_dev_tools::dev_tools::{DeveloperTools, EditableMovementTuning};
 use ambition_actors::features;
 use ambition_actors::ldtk_world;
 use ambition_actors::platformer_runtime::lifecycle::RoomScopedEntity;

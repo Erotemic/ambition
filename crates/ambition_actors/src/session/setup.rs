@@ -18,7 +18,7 @@ use ambition_engine_core as ae;
 use bevy::prelude::*;
 
 use crate::assets::loading::SandboxAssetCollection;
-use crate::dev::dev_tools::{EditableAbilitySet, EditableMovementTuning};
+use ambition_dev_tools::dev_tools::{EditableAbilitySet, EditableMovementTuning};
 use crate::ldtk_world::LdtkRuntimeIndex;
 use crate::platformer_runtime::lifecycle::{PlayerVisual, SceneEntities};
 use crate::rooms::RoomSet;

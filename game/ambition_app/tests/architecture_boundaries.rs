@@ -1590,7 +1590,7 @@ fn architecture_boundaries_input_timer_systems_moved_to_actors() {
         fs::read_to_string(repo_root().join("crates/ambition_runtime/src/player_schedule.rs"))
             .expect("read ambition_runtime/src/player_schedule.rs");
     for needle in [
-        "ambition_actors::dev::sync_live_player_dev_edits_system",
+        "ambition_dev_tools::sync_live_player_dev_edits_system",
         "ambition_actors::time::time_control::apply_suspended_time_scale_system",
         "ambition_actors::player::input_timer_system",
         "ambition_actors::player::interaction_input_system",
@@ -2357,6 +2357,20 @@ fn architecture_boundaries_dev_overlays_live_in_app() {
         &app_src().join("dev"),
         &["debug_overlay.rs", "fps_overlay.rs"],
         "app dev overlay files",
+    );
+
+    assert_code_refs_absent(
+        &[
+            app_src(),
+            repo_root().join("crates/ambition_runtime/src"),
+            repo_root().join("crates/ambition_sim_view/src"),
+        ],
+        &[
+            "ambition_actors::dev::dev_tools",
+            "ambition_actors::dev::profiling",
+            "ambition_actors::dev::sync_live_player_dev_edits_system",
+        ],
+        "external consumers must name ambition_dev_tools directly; ambition_actors::dev keeps only trace",
     );
 }
 

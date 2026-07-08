@@ -79,7 +79,7 @@ impl Plugin for PlayerSchedulePlugin {
                 // runtime system (gravity / zones / orient-roll) reads scaled
                 // dt without a sandbox dependency.
                 ambition_actors::mirror_sim_dt_into_runtime,
-                ambition_actors::dev::sync_live_player_dev_edits_system,
+                ambition_dev_tools::sync_live_player_dev_edits_system,
             )
                 .chain()
                 .in_set(SandboxSet::PlayerInput),
@@ -126,7 +126,7 @@ impl Plugin for PlayerSchedulePlugin {
             )
                 .chain()
                 .in_set(SandboxSet::PlayerInput)
-                .after(ambition_actors::dev::sync_live_player_dev_edits_system),
+                .after(ambition_dev_tools::sync_live_player_dev_edits_system),
         );
 
         // The content dialogue-followup slot lives in PlayerInput; the HOST

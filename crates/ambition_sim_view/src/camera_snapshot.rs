@@ -522,7 +522,7 @@ pub fn resolve_camera_observation(
     world: bevy::prelude::Res<ae::RoomGeometry>,
     room_set: bevy::prelude::Res<ambition_actors::rooms::RoomSet>,
     time: bevy::prelude::Res<bevy::prelude::Time>,
-    developer_tools: bevy::prelude::Res<ambition_actors::dev::dev_tools::DeveloperTools>,
+    developer_tools: bevy::prelude::Res<ambition_dev_tools::dev_tools::DeveloperTools>,
     encounter_registry: bevy::prelude::Res<ambition_actors::encounter::EncounterRegistry>,
     user_settings: bevy::prelude::Res<ambition_persistence::settings::UserSettings>,
     viewport: bevy::prelude::Res<CameraViewport>,

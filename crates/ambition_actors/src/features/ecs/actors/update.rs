@@ -781,7 +781,7 @@ pub fn integrate_sim_bodies(
     feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,
     overlay: Res<FeatureEcsWorldOverlay>,
     steering: Res<ActorSteering>,
-    editable_tuning: Res<crate::dev::dev_tools::EditableMovementTuning>,
+    editable_tuning: Res<ambition_dev_tools::dev_tools::EditableMovementTuning>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,

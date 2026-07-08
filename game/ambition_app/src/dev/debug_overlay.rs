@@ -11,7 +11,7 @@ use bevy::ecs::system::SystemParam;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
-use ambition_actors::dev::dev_tools::DeveloperTools;
+use ambition_dev_tools::dev_tools::DeveloperTools;
 use ambition_actors::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
 use ambition_actors::world::platforms;
 use ambition_dev_tools::SandboxDevState;

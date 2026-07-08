@@ -5,7 +5,7 @@ use bevy_ecs_ldtk::prelude::LdtkPlugin;
 use bevy_material_ui::MaterialUiPlugin;
 
 use ambition_actors::assets::loading;
-use ambition_actors::dev::dev_tools::{
+use ambition_dev_tools::dev_tools::{
     self, DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
     MovementProfile, PlayerBodyProfile,
 };
@@ -116,7 +116,7 @@ fn register_app_local_sim_systems(app: &mut App) {
         )
             .chain()
             .in_set(SandboxSet::PlayerInput)
-            .after(ambition_actors::dev::sync_live_player_dev_edits_system)
+            .after(ambition_dev_tools::sync_live_player_dev_edits_system)
             .before(ambition_actors::player::input_timer_system),
     );
     // Content dialogue-followup emitters (e.g. cut-rope "try again") run
@@ -410,16 +410,16 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
         .add_systems(
             Startup,
             (
-                ambition_actors::dev::profiling::phase_mark("before_setup_presentation"),
+                ambition_dev_tools::profiling::phase_mark("before_setup_presentation"),
                 // `PresentationSetupSet` is the machinery-facing label for
                 // this slot: audio init (and any future machinery startup
                 // work) orders `.after(the set)` instead of naming this
                 // app system.
                 setup_presentation_system.in_set(ambition_actors::schedule::PresentationSetupSet),
-                ambition_actors::dev::profiling::phase_mark("after_setup_presentation"),
+                ambition_dev_tools::profiling::phase_mark("after_setup_presentation"),
                 ambition_actors::menu::map::populate_map_rooms,
                 ambition_actors::menu::map::spawn_map_menu,
-                ambition_actors::dev::profiling::phase_mark("after_map_menu_spawn"),
+                ambition_dev_tools::profiling::phase_mark("after_map_menu_spawn"),
             )
                 .chain()
                 .after(setup_simulation_system)

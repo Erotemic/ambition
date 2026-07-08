@@ -2,7 +2,7 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
-use ambition_actors::dev::dev_tools::DeveloperTools;
+use ambition_dev_tools::dev_tools::DeveloperTools;
 use ambition_platformer_primitives::schedule::GameMode;
 use ambition_actors::ldtk_world;
 use ambition_actors::rooms;

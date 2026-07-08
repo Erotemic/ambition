@@ -8,7 +8,7 @@
 
 #[cfg(all(feature = "dev_tools", feature = "portal"))]
 mod enabled {
-    use ambition_actors::dev::dev_tools::inspector_visible;
+    use ambition_dev_tools::dev_tools::inspector_visible;
     #[cfg(feature = "portal_render")]
     use ambition_portal::PlacedPortal;
     use ambition_portal::{PortalConvention, PortalTuning};

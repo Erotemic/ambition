@@ -76,7 +76,7 @@ impl Plugin for ProgressionSchedulePlugin {
                 ambition_actors::rooms::tick_portal_phases_system,
                 ambition_actors::menu::map::track_room_visits,
                 ambition_actors::menu::map::sync_map_from_save,
-                ambition_actors::dev::dev_tools::sync_player_stats_with_inspector,
+                ambition_dev_tools::dev_tools::sync_player_stats_with_inspector,
             )
                 .chain()
                 .in_set(SandboxSet::Progression),

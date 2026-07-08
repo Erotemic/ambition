@@ -71,9 +71,9 @@ impl Plugin for SandboxAudioPlugin {
             .add_systems(
                 Startup,
                 (
-                    crate::dev::profiling::phase_mark("before_audio_init"),
+                    ambition_dev_tools::profiling::phase_mark("before_audio_init"),
                     crate::music::load_music_cues,
-                    crate::dev::profiling::phase_mark("after_audio_init"),
+                    ambition_dev_tools::profiling::phase_mark("after_audio_init"),
                 )
                     .chain()
                     .after(crate::schedule::PresentationSetupSet),

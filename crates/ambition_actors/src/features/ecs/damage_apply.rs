@@ -22,7 +22,7 @@ use ambition_vfx::vfx::VfxMessage;
 use crate::actor::{BodyDodgeState, BodyOffense, BodyShieldState};
 use crate::actor::{PlayerEntity, PrimaryPlayer, PrimaryPlayerOnly};
 use crate::combat::events::{GameplayBannerRequested, HitEvent as FeatureHitEvent, HitTarget};
-use crate::dev::dev_tools::EditableMovementTuning;
+use ambition_dev_tools::dev_tools::EditableMovementTuning;
 use crate::player::{BodyAnimFacts, PlayerSafetyState};
 use crate::time::feel::SandboxFeelTuning;
 use crate::{

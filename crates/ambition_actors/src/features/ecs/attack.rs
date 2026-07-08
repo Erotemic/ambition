@@ -27,7 +27,7 @@ use crate::combat::{
     attack_hitbox_from_view, attack_spec_from_view, resolve_attack_intent_from_view, AttackIntent,
     AttackPhase, AttackView,
 };
-use crate::dev::dev_tools::EditableMovementTuning;
+use ambition_dev_tools::dev_tools::EditableMovementTuning;
 use crate::features;
 use crate::world::overlay::FeatureEcsWorldOverlay;
 

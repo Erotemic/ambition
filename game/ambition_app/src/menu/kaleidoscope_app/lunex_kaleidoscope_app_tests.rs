@@ -59,11 +59,11 @@ fn base_kaleidoscope_test_app() -> App {
     app.init_resource::<CachedSystemMenu>();
     app.init_resource::<KaleidoscopePointerPress>();
     app.init_resource::<OwnedItems>();
-    app.init_resource::<ambition_actors::dev::dev_tools::DeveloperTools>();
+    app.init_resource::<ambition_dev_tools::dev_tools::DeveloperTools>();
     app.init_resource::<ambition_dev_tools::SandboxDevState>();
     app.init_resource::<ambition_actors::ldtk_world::LdtkHotReloadState>();
     app.init_resource::<ambition_actors::session::reset::SandboxResetRequested>();
-    app.init_resource::<ambition_actors::dev::dev_tools::EditableMovementTuning>();
+    app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
     app.init_resource::<UserSettings>();
     app.init_resource::<ambition_inventory_ui::InventoryUiState>();
     app.init_resource::<ambition_actors::menu::map::MapMenuState>();
@@ -100,7 +100,7 @@ fn spawn_kaleidoscope_test_player(app: &mut App) -> Entity {
 /// `apply_dev_toggle` path so the cube and pause menu can't drift.
 #[test]
 fn extra_dev_toggles_flip_their_non_developer_resources() {
-    let mut dev = ambition_actors::dev::dev_tools::DeveloperTools::default();
+    let mut dev = ambition_dev_tools::dev_tools::DeveloperTools::default();
     let mut dev_state = ambition_dev_tools::SandboxDevState::default();
     let mut ldtk_reload = ambition_actors::ldtk_world::LdtkHotReloadState::default();
     let mut backend = InventoryUiBackend::default();
@@ -171,7 +171,7 @@ fn menu_backend_dev_row_cycles_inventory_backend() {
     assert!(DevToggleId::ALL.contains(&DevToggleId::MenuBackend));
     assert!(DevToggleId::MenuBackend.is_cycle());
 
-    let mut dev = ambition_actors::dev::dev_tools::DeveloperTools::default();
+    let mut dev = ambition_dev_tools::dev_tools::DeveloperTools::default();
     let mut dev_state = ambition_dev_tools::SandboxDevState::default();
     let mut ldtk_reload = ambition_actors::ldtk_world::LdtkHotReloadState::default();
     let mut backend = InventoryUiBackend::Grid;
@@ -240,7 +240,7 @@ fn menu_backend_dev_row_cycles_inventory_backend() {
 /// snapshot reads `show_feature_hitboxes` (matching the pause menu's source).
 #[test]
 fn show_hitboxes_toggles_feature_and_player_fields_like_pause() {
-    let mut dev = ambition_actors::dev::dev_tools::DeveloperTools::default();
+    let mut dev = ambition_dev_tools::dev_tools::DeveloperTools::default();
     let mut dev_state = ambition_dev_tools::SandboxDevState::default();
     let mut ldtk_reload = ambition_actors::ldtk_world::LdtkHotReloadState::default();
     dev.show_feature_hitboxes = false;
@@ -726,7 +726,7 @@ fn reset_all_settings_action_resets_settings_and_closes() {
         .audio
         .master_volume = 0.123;
     app.world_mut()
-        .resource_mut::<ambition_actors::dev::dev_tools::DeveloperTools>()
+        .resource_mut::<ambition_dev_tools::dev_tools::DeveloperTools>()
         .inspector_visible = true;
 
     // Dispatch Reset All Settings through the real pointer release/dispatch path.
@@ -743,7 +743,7 @@ fn reset_all_settings_action_resets_settings_and_closes() {
     );
     assert!(
         !app.world()
-            .resource::<ambition_actors::dev::dev_tools::DeveloperTools>()
+            .resource::<ambition_dev_tools::dev_tools::DeveloperTools>()
             .inspector_visible,
         "Reset All Settings restores DeveloperTools to defaults"
     );
@@ -906,11 +906,11 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
     app.init_resource::<CachedSystemMenu>();
     app.init_resource::<KaleidoscopePointerPress>();
     app.init_resource::<OwnedItems>();
-    app.init_resource::<ambition_actors::dev::dev_tools::DeveloperTools>();
+    app.init_resource::<ambition_dev_tools::dev_tools::DeveloperTools>();
     app.init_resource::<ambition_dev_tools::SandboxDevState>();
     app.init_resource::<ambition_actors::ldtk_world::LdtkHotReloadState>();
     app.init_resource::<ambition_actors::session::reset::SandboxResetRequested>();
-    app.init_resource::<ambition_actors::dev::dev_tools::EditableMovementTuning>();
+    app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
     app.init_resource::<UserSettings>();
     app.init_resource::<ambition_inventory_ui::InventoryUiState>();
     app.init_resource::<ambition_actors::menu::map::MapMenuState>();
@@ -1273,7 +1273,7 @@ fn scroll_total_rows(app: &App) -> usize {
     let settings = app.world().resource::<UserSettings>();
     let dev = app
         .world()
-        .resource::<ambition_actors::dev::dev_tools::DeveloperTools>();
+        .resource::<ambition_dev_tools::dev_tools::DeveloperTools>();
     let dev_state = app.world().resource::<ambition_dev_tools::SandboxDevState>();
     let ldtk_reload = app
         .world()
@@ -1653,11 +1653,11 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
     let mut owned = OwnedItems::default();
     owned.grant(owned_item, 1);
     app.insert_resource(owned);
-    app.init_resource::<ambition_actors::dev::dev_tools::DeveloperTools>();
+    app.init_resource::<ambition_dev_tools::dev_tools::DeveloperTools>();
     app.init_resource::<ambition_dev_tools::SandboxDevState>();
     app.init_resource::<ambition_actors::ldtk_world::LdtkHotReloadState>();
     app.init_resource::<ambition_actors::session::reset::SandboxResetRequested>();
-    app.init_resource::<ambition_actors::dev::dev_tools::EditableMovementTuning>();
+    app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
     app.init_resource::<UserSettings>();
     app.init_resource::<ambition_inventory_ui::InventoryUiState>();
     app.add_message::<SfxMessage>();

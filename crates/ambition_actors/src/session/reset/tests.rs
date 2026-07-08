@@ -2,7 +2,7 @@
 //! request/consume edge behavior, and the post-reset gameplay-state rebuild.
 
 use super::*;
-use crate::dev::dev_tools::EditableMovementTuning;
+use ambition_dev_tools::dev_tools::EditableMovementTuning;
 use crate::player::PlayerBlinkCameraState;
 use ambition_engine_core::RoomGeometry;
 

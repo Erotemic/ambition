@@ -13,7 +13,7 @@ use super::*;
 /// which aggregates the same three. Bundled so [`dev_snapshot`] /
 /// [`apply_dev_toggle`] stay single-source for every Developer row.
 pub(crate) struct DevToggleRead<'a> {
-    pub(crate) dev: &'a ambition_actors::dev::dev_tools::DeveloperTools,
+    pub(crate) dev: &'a ambition_dev_tools::dev_tools::DeveloperTools,
     pub(crate) dev_state: &'a ambition_dev_tools::SandboxDevState,
     pub(crate) ldtk_reload: &'a ambition_actors::ldtk_world::LdtkHotReloadState,
     // The Menu Backend row mirrors the `\` hotkey; its value label is the active
@@ -34,7 +34,7 @@ pub(crate) struct DevToggleRead<'a> {
 }
 
 pub(crate) struct DevToggleWrite<'a> {
-    pub(crate) dev: &'a mut ambition_actors::dev::dev_tools::DeveloperTools,
+    pub(crate) dev: &'a mut ambition_dev_tools::dev_tools::DeveloperTools,
     pub(crate) dev_state: &'a mut ambition_dev_tools::SandboxDevState,
     pub(crate) ldtk_reload: &'a mut ambition_actors::ldtk_world::LdtkHotReloadState,
     pub(crate) backend: &'a mut InventoryUiBackend,

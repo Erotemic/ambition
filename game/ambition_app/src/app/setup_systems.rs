@@ -6,7 +6,7 @@ use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 use ambition_actors::assets::game_assets as actor_game_assets;
 use ambition_sprite_sheet::game_assets::{self, GameAssetConfig};
 use ambition_actors::assets::loading;
-use ambition_actors::dev::dev_tools::{EditableAbilitySet, EditableMovementTuning};
+use ambition_dev_tools::dev_tools::{EditableAbilitySet, EditableMovementTuning};
 use ambition_actors::ldtk_world;
 use ambition_actors::rooms;
 use ambition_actors::session::{data, setup};
@@ -79,7 +79,7 @@ pub(crate) fn setup_presentation_system(
     ui_fonts: Option<Res<ui_fonts::UiFonts>>,
     quality: Option<Res<ambition_render::quality::ResolvedVisualQuality>>,
     starting_character: Res<ambition_actors::player::StartingCharacter>,
-    mut profiler: ResMut<ambition_actors::dev::profiling::StartupProfiler>,
+    mut profiler: ResMut<ambition_dev_tools::profiling::StartupProfiler>,
 ) {
     // `std::time::Instant::now()` panics on `wasm32-unknown-unknown`
     // with "time not implemented on this platform". Gate the per-step

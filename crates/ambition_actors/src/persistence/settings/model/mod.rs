@@ -12,7 +12,7 @@ use bevy::window::{MonitorSelection, VideoModeSelection, WindowMode};
 
 use super::video::FlashIntensity;
 use super::UserSettings;
-use crate::dev::dev_tools::{
+use ambition_dev_tools::dev_tools::{
     apply_movement_profile, apply_player_body_profile, DebugArtMode, DebugViewMode, DeveloperTools,
     EditableMovementTuning,
 };
@@ -550,8 +550,8 @@ pub struct DevToggleSnapshot {
     pub fill_debug_boxes: bool,
     pub micro_grid: bool,
     pub camera_frame: bool,
-    pub player_body_profile: crate::dev::dev_tools::PlayerBodyProfile,
-    pub movement_profile: crate::dev::dev_tools::MovementProfile,
+    pub player_body_profile: ambition_dev_tools::dev_tools::PlayerBodyProfile,
+    pub movement_profile: ambition_dev_tools::dev_tools::MovementProfile,
     pub ldtk_auto_apply: bool,
 }
 

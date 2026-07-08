@@ -32,6 +32,7 @@ ambition_interaction = { path = "../ambition_interaction" }
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 ambition_time = { path = "../ambition_time" }
 ambition_persistence = { path = "../ambition_persistence" }
+ambition_dev_tools = { path = "../ambition_dev_tools" }
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
 ambition_input = { path = "../ambition_input", features = ["input"] }
 leafwing-input-manager = "0.20"

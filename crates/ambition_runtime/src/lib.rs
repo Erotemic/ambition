@@ -80,7 +80,7 @@ pub mod host_seams {
 /// a direct `ambition_actors` dependency.
 pub mod demo_fixture {
     pub use ambition_actors::character_roster::install_character_catalog;
-    pub use ambition_actors::dev::dev_tools::{EditableAbilitySet, EditableMovementTuning};
+    pub use ambition_dev_tools::dev_tools::{EditableAbilitySet, EditableMovementTuning};
     pub use ambition_actors::ldtk_world::LdtkRuntimeIndex;
     pub use ambition_actors::player::StartingCharacter;
     pub use ambition_actors::rooms::{ActiveRoomMetadata, RoomSet, RoomSpec};

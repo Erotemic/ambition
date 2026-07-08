@@ -1,17 +1,10 @@
-//! Developer-facing tooling.
+//! Sim-side developer tooling that still samples actor-domain state.
 //!
-//! The dev-tool STATE + logic — `DeveloperTools`, the reflected editable
-//! player-tuning / ability / stats resources, the profile enums, the startup
-//! profiler, `DeveloperTools` disk persistence, and the live-edit sync system —
-//! was carved into the foundational `ambition_dev_tools` crate (E1d). They are
-//! re-exported here on the historical `crate::dev::*` paths so the wide set of
-//! consumers (render, sim_view, runtime, app, menu) need no import edits.
-//!
-//! What stays sim-side: the gameplay `trace` recorder, which samples live
-//! `player`/`features`/`rooms`/`portal`/`game_mode` state and therefore cannot
-//! live in a foundational crate.
-
-pub use ambition_dev_tools::{dev_tools, profiling, sync_live_player_dev_edits_system};
+//! The reusable developer-tool state, profiles, startup profiler, persistence,
+//! and live-edit sync system live in `ambition_dev_tools`. Actor internals and
+//! external consumers name that crate directly now; this module keeps only the
+//! gameplay trace recorder because it reads live actor/world/portal/session
+//! state.
 
 /// Sim-side gameplay trace recorder (written by projectile/encounter/etc.
 /// systems). The trace FORMAT lives in `ambition_gameplay_trace`; the

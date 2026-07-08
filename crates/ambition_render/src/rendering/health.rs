@@ -144,8 +144,8 @@ pub fn sync_boss_health_bar_overlay(
 pub fn sync_health_overlays(
     mut commands: Commands,
     world: Res<ambition_engine_core::RoomGeometry>,
-    dev_state: Res<ambition_actors::SandboxDevState>,
-    developer_tools: Res<ambition_actors::dev::dev_tools::DeveloperTools>,
+    dev_state: Res<ambition_dev_tools::SandboxDevState>,
+    developer_tools: Res<ambition_dev_tools::dev_tools::DeveloperTools>,
     overlays: Query<Entity, With<HealthOverlayVisual>>,
     // Pure read-model consumer (E4 slice 5): the player rides its
     // `BodyPoseView`; actors/bosses/breakables ride their `FeatureView`

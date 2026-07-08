@@ -29,24 +29,7 @@ const DEBRIS_Z: f32 = WORLD_Z_FX - 2.0;
 #[cfg(feature = "physics_debris")]
 const PHYSICS_DESPAWN_GRACE: f32 = 0.25;
 
-/// Runtime switch/tuning for secondary physics. It intentionally does not
-/// affect the custom player controller.
-#[derive(Resource, Clone, Copy, Debug)]
-pub struct PhysicsSandboxSettings {
-    pub debris_enabled: bool,
-    pub static_room_colliders: bool,
-    pub default_lifetime: f32,
-}
-
-impl Default for PhysicsSandboxSettings {
-    fn default() -> Self {
-        Self {
-            debris_enabled: true,
-            static_room_colliders: true,
-            default_lifetime: 4.2,
-        }
-    }
-}
+pub use ambition_platformer_primitives::physics::PhysicsSandboxSettings;
 
 /// Marker for room-owned Avian entities so room transitions can retire them
 /// through the physics-safe path instead of despawning active bodies immediately.

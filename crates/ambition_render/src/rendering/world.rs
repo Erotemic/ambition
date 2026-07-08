@@ -14,11 +14,10 @@ use super::primitives::{
     block_color, feature_color, feature_z, spawn_world_label, FeatureVisual, LockWallVisual,
     PropVisual, RoomVisual,
 };
-use ambition_actors::assets::game_assets::{
+use ambition_sprite_sheet::game_assets::{
     self, entity_sprite, entity_sprite_or_color, GameAssets,
 };
 use ambition_world::rooms::{LoadingZone, LoadingZoneActivation, PropSpec};
-use ambition_actors::world::physics;
 use ambition_combat::events::FeatureVisualKind;
 use ambition_engine_core::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_PLAYER};
 use ambition_sprite_sheet::character::{
@@ -36,7 +35,7 @@ pub fn respawn_room_visuals_on_request(
     mut requests: MessageReader<ambition_world::rooms::RespawnRoomVisualsRequested>,
     mut commands: Commands,
     room_set: Res<ambition_world::rooms::RoomSet>,
-    physics_settings: Res<physics::PhysicsSandboxSettings>,
+    physics_settings: Res<ambition_platformer_primitives::physics::PhysicsSandboxSettings>,
     assets: Option<Res<GameAssets>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
 ) {
@@ -58,7 +57,7 @@ pub fn respawn_room_visuals_on_request(
 pub fn spawn_room_visuals(
     commands: &mut Commands,
     spec: &ambition_world::rooms::RoomSpec,
-    physics_settings: physics::PhysicsSandboxSettings,
+    physics_settings: ambition_platformer_primitives::physics::PhysicsSandboxSettings,
     assets: Option<&GameAssets>,
 ) {
     let world = &spec.world;
@@ -375,7 +374,7 @@ pub fn refresh_entity_sprite_handles_on_game_assets_change(
         (&BoundEntitySprite, &mut Sprite),
         (
             Without<CharacterAnimator>,
-            Without<ambition_actors::boss_encounter::sprites::BossAnimator>,
+            Without<ambition_sprite_sheet::boss::BossAnimator>,
         ),
     >,
 ) {
@@ -398,7 +397,7 @@ pub fn spawn_block(
     commands: &mut Commands,
     world: &ae::World,
     block: &ae::Block,
-    physics_settings: physics::PhysicsSandboxSettings,
+    physics_settings: ambition_platformer_primitives::physics::PhysicsSandboxSettings,
     assets: Option<&GameAssets>,
 ) {
     let size = block.aabb.half_size() * 2.0;
@@ -463,7 +462,17 @@ pub fn spawn_block(
     if let Some(key) = sprite_key {
         entity.insert(BoundEntitySprite::new(key));
     }
-    physics::spawn_static_collider_for_block(commands, world, block, physics_settings);
+    spawn_static_collider_for_block(commands, world, block, physics_settings);
+}
+
+fn spawn_static_collider_for_block(
+    _commands: &mut Commands,
+    _world: &ae::World,
+    _block: &ae::Block,
+    _settings: ambition_platformer_primitives::physics::PhysicsSandboxSettings,
+) {
+    // Static physics colliders are installed by the sim/physics adapter when
+    // that feature is enabled. Render only spawns visual block entities.
 }
 
 /// Width-to-height aspect of the authored `door_zone.png` (published with
@@ -684,7 +693,7 @@ fn is_lock_wall_block(name: &str) -> bool {
 pub fn sync_lock_wall_visuals(
     mut commands: Commands,
     world: Res<ambition_engine_core::RoomGeometry>,
-    overlay: Res<ambition_actors::features::FeatureEcsWorldOverlay>,
+    overlay: Res<ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay>,
     assets: Option<Res<GameAssets>>,
     existing: Query<(Entity, &LockWallVisual)>,
 ) {
@@ -757,7 +766,7 @@ pub fn sync_lock_wall_visuals(
 #[cfg(test)]
 mod lock_wall_visual_tests {
     use super::*;
-    use ambition_actors::features::FeatureEcsWorldOverlay;
+    use ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay;
     use ambition_engine_core::RoomGeometry;
 
     fn room() -> RoomGeometry {

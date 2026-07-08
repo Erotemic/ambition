@@ -14,11 +14,8 @@ use super::primitives::{
     feature_color, feature_z, switch_on_color, FeatureVisual, PlayerSpriteBaseline, PlayerVisual,
     PropVisual, SceneEntities,
 };
-use ambition_actors::assets::game_assets::{self, EntitySprite, GameAssets};
-use ambition_actors::boss_encounter::sprites::{self, BossAnimFrame, BossAnimState, BossAnimator};
-use ambition_actors::features::{
-    ActorRenderSize, BreakableFeature, ChestFeature, FeatureId, Opened,
-};
+use ambition_sprite_sheet::game_assets::{self, EntitySprite, GameAssets};
+use ambition_sprite_sheet::boss::{self as sprites, BossAnimFrame, BossAnimState, BossAnimator};
 use ambition_combat::events::{BoundFeatureKind, FeatureVisualKind};
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_persistence::settings::TextureResolutionScale;
@@ -57,8 +54,6 @@ pub fn sync_visuals(
         (&FeatureVisual, &mut Transform, &mut Sprite, &mut Visibility),
         Without<PlayerVisual>,
     >,
-    ecs_chest_states: Query<(&FeatureId, Option<&Opened>), With<ChestFeature>>,
-    ecs_breakable_states: Query<(&FeatureId, &BreakableFeature)>,
 ) {
     if let Ok((mut transform, mut sprite, baseline, pose)) = player_query.get_mut(entities.player) {
         transform.translation = world_to_bevy(&world.0, pose.pos, WORLD_Z_PLAYER);
@@ -113,13 +108,7 @@ pub fn sync_visuals(
         // chosen at spawn time and never change kind. Enemies are animated
         // through the character spritesheet path.
         if let Some(assets) = assets.as_deref() {
-            if let Some(target_key) = state_aware_entity_sprite(
-                &visual.id,
-                view.kind,
-                view.switch_on,
-                &ecs_chest_states,
-                &ecs_breakable_states,
-            ) {
+            if let Some(target_key) = state_aware_entity_sprite(view) {
                 if let Some(handle) = assets.entities.get(target_key) {
                     if sprite.image != *handle {
                         sprite.image = handle.clone();
@@ -154,23 +143,13 @@ pub fn sync_visuals(
     }
 }
 
-fn state_aware_entity_sprite(
-    id: &str,
-    kind: FeatureVisualKind,
-    switch_on: bool,
-    ecs_chests: &Query<(&FeatureId, Option<&Opened>), With<ChestFeature>>,
-    ecs_breakables: &Query<(&FeatureId, &BreakableFeature)>,
-) -> Option<EntitySprite> {
-    match kind {
-        FeatureVisualKind::Breakable => {
-            ambition_actors::features::ecs_breakable_state(id, ecs_breakables)
-                .map(game_assets::breakable_state_sprite)
-        }
-        FeatureVisualKind::Chest => ambition_actors::features::ecs_chest_opened(id, ecs_chests)
-            .map(game_assets::chest_state_sprite),
+fn state_aware_entity_sprite(view: &ambition_combat::events::FeatureView) -> Option<EntitySprite> {
+    match view.kind {
+        FeatureVisualKind::Breakable => view.breakable_state.map(game_assets::breakable_state_sprite),
+        FeatureVisualKind::Chest => Some(game_assets::chest_state_sprite(view.chest_opened)),
         // Switch shows its on/off button sprite (armed = on, disabled = off)
         // instead of a flat colored block (#57).
-        FeatureVisualKind::Switch => Some(if switch_on {
+        FeatureVisualKind::Switch => Some(if view.switch_on {
             EntitySprite::SwitchArmed
         } else {
             EntitySprite::SwitchDisabled
@@ -186,6 +165,15 @@ fn state_aware_entity_sprite(
 #[derive(Component, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct BoundSpriteQuality {
     pub scale: TextureResolutionScale,
+}
+
+/// Render-owned record of which catalog character id the controlled-body sprite
+/// was bound from at presentation startup. The app writes it while crossing the
+/// sim/render seam; quality reloads then preserve the same sheet without render
+/// depending on the actor-side starting-character resource.
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
+pub struct PlayerSpriteCharacter {
+    pub id: String,
 }
 
 fn active_sprite_scale(
@@ -359,13 +347,13 @@ pub fn refresh_player_sprites_on_game_assets_change(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
-    starting_character: Option<Res<ambition_actors::player::StartingCharacter>>,
     images: Res<Assets<Image>>,
     players: Query<
         (
             Entity,
             &ambition_sim_view::BodyPoseView,
             Option<&BoundSpriteQuality>,
+            Option<&PlayerSpriteCharacter>,
         ),
         With<PlayerVisual>,
     >,
@@ -377,20 +365,17 @@ pub fn refresh_player_sprites_on_game_assets_change(
         return;
     }
     let scale = active_sprite_scale(quality.as_deref());
-    // Rebind the sheet of whichever character the player wears, NOT a hardcoded
-    // `player` — otherwise this first-frame refresh clobbers the starting-
-    // character sprite that `scene_setup` bound (see StartingCharacter).
-    let start_id = starting_character
-        .as_deref()
-        .map(|s| s.effective_id())
-        .unwrap_or_else(|| ambition_actors::character_roster::default_character_id());
-    let Some(asset) = assets.characters.asset_for_character_id(start_id) else {
-        return;
-    };
-    if images.get(&asset.texture).is_none() {
-        return;
-    }
-    for (entity, pose, bound_quality) in &players {
+    for (entity, pose, bound_quality, character) in &players {
+        // Rebind the sheet of whichever character the sprite was originally
+        // bound from. If an old test fixture lacks the marker, fall back to the
+        // content default id used by the base sandbox catalog.
+        let start_id = character.map(|c| c.id.as_str()).unwrap_or("player");
+        let Some(asset) = assets.characters.asset_for_character_id(start_id) else {
+            continue;
+        };
+        if images.get(&asset.texture).is_none() {
+            continue;
+        }
         if bound_quality.is_some_and(|q| q.scale == scale) {
             continue;
         }

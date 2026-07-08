@@ -88,13 +88,7 @@ pub fn heal_save_shrine_system(
     bevy::log::info!(target: "ambition::shrine", "shrine: healed to full + saved");
 }
 
-// ---------------------------------------------------------------------------
-// Presentation (visible build only).
-
-#[derive(Resource, Default)]
-pub struct ShrineActivationPulse {
-    pub remaining: f32,
-}
+pub use ambition_platformer_primitives::shrine::ShrineActivationPulse;
 
 #[cfg(test)]
 mod tests {

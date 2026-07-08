@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Ambition's Bevy presentation layer: the sandbox's default renderer (sprite/world sync, parallax, HUD overlay, screen-space FX, cutscene UI, fonts). Reads the sim machinery in ambition_actors; never mutates it. Extracted so the sim->render seam is a crate boundary the sandbox lib cannot cross."
+description = "Ambition's Bevy presentation layer: the sandbox's default renderer (sprite/world sync, parallax, HUD overlay, screen-space FX, cutscene UI, fonts). Consumes sim read-models and lower presentation vocabulary; never depends on or mutates actor machinery."
 
 [lib]
 crate-type = ["rlib"]
@@ -12,21 +12,14 @@ crate-type = ["rlib"]
 [features]
 default = []
 # Forwarders: cfg(feature = "...") gates inside this crate key off OUR feature
-# names; each forwards to the matching ambition_actors machinery feature so a
-# mismatched combination is a compile error, never a silent missing system.
-input = ["dep:leafwing-input-manager", "ambition_actors/input", "ambition_sim_view/input"]
+# names; app/content composition chooses the matching producer-side features so
+# mismatched combinations are a compile error, never a silent missing system.
+input = ["dep:leafwing-input-manager", "ambition_sim_view/input"]
 # The reusable portal renderer the world-sync code installs when portals draw.
 portal_render = ["dep:ambition_portal_presentation"]
 
 [dependencies]
-# The machinery this crate renders. Same always-on baseline every persona used
-# pre-split (ldtk/input/portal are not end-to-end cfg-gated in the sandbox).
 ambition_sim_view = { path = "../ambition_sim_view" }
-ambition_actors = { path = "../ambition_actors", default-features = false, features = [
-    "ldtk_runtime",
-    "input",
-    "portal",
-] }
 ambition_combat = { path = "../ambition_combat" }
 ambition_projectiles = { path = "../ambition_projectiles" }
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
@@ -42,6 +35,7 @@ ambition_vfx = { path = "../ambition_vfx" }
 ambition_sfx = { path = "../ambition_sfx" }
 ambition_time = { path = "../ambition_time" }
 ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
+ambition_dev_tools = { path = "../ambition_dev_tools" }
 # The cutscene format + live state the cutscene UI plays back.
 ambition_cutscene = { path = "../ambition_cutscene" }
 # Font id resolution for the UI font loader (`ui_fonts`).

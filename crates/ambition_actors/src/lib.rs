@@ -117,7 +117,6 @@ pub use world::platforms::MovingPlatformState;
 use ambition_engine_core as ae;
 use bevy::prelude::{Message, Resource};
 
-use ambition_input::KeyboardPreset;
 
 /// Sandbox-side actor-death notification. Emitted from `death_respawn_player`
 /// the frame a controlled actor's HP drops to zero and it respawns at the room
@@ -245,37 +244,7 @@ impl Default for SandboxSimState {
     }
 }
 
-/// Developer/debug state: keyboard preset selection and debug flags.
-#[derive(Resource)]
-pub struct SandboxDevState {
-    pub debug: bool,
-    pub slowmo: bool,
-    pub presets: Vec<KeyboardPreset>,
-    pub preset_index: usize,
-    pub preset_flash: f32,
-}
-
-impl Default for SandboxDevState {
-    fn default() -> Self {
-        Self {
-            debug: !cfg!(target_os = "android"),
-            slowmo: false,
-            presets: KeyboardPreset::presets().to_vec(),
-            preset_index: 0,
-            preset_flash: 1.2,
-        }
-    }
-}
-
-impl SandboxDevState {
-    pub fn preset(&self) -> KeyboardPreset {
-        self.presets[self.preset_index]
-    }
-
-    pub fn debug_enabled(&self) -> bool {
-        self.debug
-    }
-}
+pub use ambition_dev_tools::SandboxDevState;
 
 /// The state of one in-flight player melee swing is now the unified
 /// [`crate::features::MeleeSwing`] — the SAME swing every brain-driven actor

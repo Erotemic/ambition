@@ -40,95 +40,7 @@ use ambition_sprite_sheet::character::{
 };
 use ambition_sprite_sheet::BodyMetrics;
 
-/// Holds optional spritesheet handles. A missing PNG produces a
-/// `None` (or absent map entry); callers fall back to colored
-/// rectangles.
-#[derive(Resource, Default, Clone)]
-pub struct CharacterSpriteAssets {
-    /// Player-specific compact robot sheet. Preferred for the player
-    /// entity; `setup.rs` falls back to `robot` when this is missing
-    /// so debug builds without the regenerated sheet still render.
-    pub player: Option<CharacterSpriteAsset>,
-    /// Base "cute scout" robot sheet. Kept around for future robot-target
-    /// callers that want the original proportions; the player itself now
-    /// uses `player` above.
-    pub robot: Option<CharacterSpriteAsset>,
-    pub goblin: Option<CharacterSpriteAsset>,
-    pub sandbag: Option<CharacterSpriteAsset>,
-    /// Per-NPC sprite sheets keyed by the NPC's display name (which
-    /// is `Authored.name` post-Phase-2 — the LDtk parser translates
-    /// `NpcSpawn.character_id` to `display_name` via the catalog,
-    /// then downstream consumers look up sprites by display name).
-    /// Phase-7+ work can flip this to `character_id` keys to drop
-    /// the display-name indirection.
-    pub npcs: HashMap<String, CharacterSpriteAsset>,
-    /// Per-prop sprite sheets keyed by the LDtk `Prop.kind` field
-    /// (e.g. `intro_cart`, `lab_genesis_vat`, `gate_ring`,
-    /// `gate_portal`). Story-content plugins extend this via
-    /// `build_prop_sprite_asset` — the sandbox itself doesn't ship
-    /// any props in its base registry.
-    pub props: HashMap<String, CharacterSpriteAsset>,
-}
-
-impl CharacterSpriteAssets {
-    /// Generic fallback sheet for an actor that resolved no *named* sprite, keyed
-    /// off its STATE (the surviving home of the deleted `visual_kind` derivation):
-    /// a sandbag renders the sandbag sheet (falling back to the goblin body if no
-    /// sandbag sheet is wired), a fighting actor the generic enemy body, and a
-    /// peaceful un-registered actor gets `None` — the caller keeps its
-    /// terminal-rectangle placeholder.
-    pub fn actor_fallback_asset(
-        &self,
-        is_sandbag: bool,
-        fighting: bool,
-    ) -> Option<&CharacterSpriteAsset> {
-        if is_sandbag {
-            self.sandbag.as_ref().or(self.goblin.as_ref())
-        } else if fighting {
-            self.goblin.as_ref()
-        } else {
-            None
-        }
-    }
-
-    /// Pick a character spritesheet for an NPC by its authored name.
-    /// Returns `None` for NPCs that have no registered sprite —
-    /// those keep the default `EntitySprite::NpcTerminal` rectangle.
-    pub fn npc_asset_for_name(&self, name: &str) -> Option<&CharacterSpriteAsset> {
-        self.npcs.get(name)
-    }
-
-    /// Pick a prop spritesheet by its `Prop.kind` registry key.
-    /// Returns `None` for kinds that have no registered sheet — the
-    /// prop renderer falls back to a colored placeholder rectangle.
-    pub fn prop_asset_for_kind(&self, kind: &str) -> Option<&CharacterSpriteAsset> {
-        self.props.get(kind)
-    }
-
-    /// Resolve the loaded sprite asset for a catalog `character_id`, covering
-    /// both the base named slots (`player` / `robot` / `goblin` / `sandbag`)
-    /// and the per-character [`Self::npcs`] map (keyed by display name — the
-    /// LDtk join key). Returns `None` when no sheet is loaded for the id; the
-    /// caller keeps its colored-rectangle placeholder.
-    ///
-    /// This is the presentation join behind the starting-character selection:
-    /// the player box binds whichever character's sheet is chosen (see
-    /// [`crate::player::StartingCharacter`]).
-    pub fn asset_for_character_id(&self, character_id: &str) -> Option<&CharacterSpriteAsset> {
-        match character_id {
-            // `player` prefers the compact robot sheet, falling back to the base
-            // robot — the SAME preference the pre-selection spawn hardcoded.
-            "player" => self.player.as_ref().or(self.robot.as_ref()),
-            "robot" => self.robot.as_ref(),
-            "goblin" => self.goblin.as_ref(),
-            "sandbag" => self.sandbag.as_ref(),
-            _ => {
-                let display = crate::character_roster::display_name_for_character_id(character_id)?;
-                self.npcs.get(display)
-            }
-        }
-    }
-}
+pub use ambition_sprite_sheet::character::CharacterSpriteAssets;
 
 /// Look up the [`CharacterSheetSpec`] for a catalog `character_id` —
 /// fully DATA-driven (Stage 20 / B3):
@@ -373,22 +285,27 @@ pub fn load_character_sprites_in(
                 // `npc_asset_for_name`. This double-keying applies
                 // to every base character that ships its own typed
                 // slot.
+                out.npcs.insert(cid.clone(), asset.clone());
                 out.npcs.insert(entry.display_name.clone(), asset.clone());
                 out.player = Some(asset);
             }
             "robot" => {
+                out.npcs.insert(cid.clone(), asset.clone());
                 out.npcs.insert(entry.display_name.clone(), asset.clone());
                 out.robot = Some(asset);
             }
             "goblin" => {
+                out.npcs.insert(cid.clone(), asset.clone());
                 out.npcs.insert(entry.display_name.clone(), asset.clone());
                 out.goblin = Some(asset);
             }
             "sandbag" => {
+                out.npcs.insert(cid.clone(), asset.clone());
                 out.npcs.insert(entry.display_name.clone(), asset.clone());
                 out.sandbag = Some(asset);
             }
             _ => {
+                out.npcs.insert(cid.clone(), asset.clone());
                 out.npcs.insert(entry.display_name.clone(), asset);
             }
         }

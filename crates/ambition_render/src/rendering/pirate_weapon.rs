@@ -1,5 +1,5 @@
 //! Gun-sword (`lasersword_with_guns`) visual layered on top of any
-//! actor entity carrying a [`ambition_actors::features::HeldItem`] component.
+//! actor entity carrying the item read-model facts.
 //! Mounted riders and dismounted pirates both keep the component while
 //! they still have the weapon, so this visual is item-driven rather
 //! than mount-state-driven.
@@ -29,7 +29,7 @@ use ambition_sim_view::WieldedGunSwordsView;
 pub struct PirateWeaponVisual;
 
 /// Filename of the wielded gun-sword spritesheet. Lives under
-/// `crates/ambition_actors/assets/sprites/` (installed by
+/// the actor asset sprite folder (installed by
 /// `python3 -m ambition_sprite2d_renderer install lasersword_with_guns`).
 const WEAPON_SHEET_PATH: &str = "sprites/lasersword_with_guns_spritesheet.png";
 

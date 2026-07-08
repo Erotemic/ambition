@@ -9,6 +9,14 @@ description = "Reusable, content-free sprite-sheet metadata vocabulary: the Shee
 [lib]
 crate-type = ["rlib"]
 
+[features]
+default = []
+# Select WebServedAssets as the wasm default in GameAssetConfig. Forwarded by
+# the app/actor composition features that serve loose assets over HTTP.
+web_served = []
+# Enable authored embedded-core image candidates in the game-asset manifest.
+static_core_assets = ["ambition_asset_manager/static_core_assets"]
+
 [dependencies]
 # ECS surface only (Resource / Component / App via prelude) + logging macros.
 # No render/audio/windowing — this crate stays reusable and headless.
@@ -22,6 +30,16 @@ ron = "0.11"
 # The ultrapack SpritePackCatalog is emitted as JSON by the Python packer
 # (drift-free interchange — Python-authored RON parses looser than Rust's ron).
 serde_json = "1"
+
+
+# Render-facing asset resource/model helpers moved below ambition_render.
+ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy"] }
+ambition_combat = { path = "../ambition_combat" }
+ambition_engine_core = { path = "../ambition_engine_core" }
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
+ambition_interaction = { path = "../ambition_interaction" }
+ambition_persistence = { path = "../ambition_persistence" }
+ambition_world = { path = "../ambition_world" }
 
 # Logging facade (bevy logs through tracing); used for the load diagnostics.
 tracing = "0.1"

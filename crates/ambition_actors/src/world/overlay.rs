@@ -11,58 +11,7 @@ use bevy::prelude::*;
 
 use crate::combat::*;
 
-/// Collision contribution from ECS-owned breakables. Rebuilt before the main
-/// sandbox tick and consumed by `world_with_sandbox_solids` anywhere the engine
-/// needs the augmented collision world.
-#[derive(Resource, Default, Clone, Debug)]
-pub struct FeatureEcsWorldOverlay {
-    pub blocks: Vec<ae::Block>,
-    /// Authored-equivalent static solids contributed by per-frame *gates*
-    /// (encounter lock walls, intro flag gates) instead of being mutated into
-    /// the authored [`ambition_engine_core::RoomGeometry`] base. Unlike `blocks` — which carry
-    /// moving-platform semantics that projectiles pass through — gate solids are
-    /// composited into EVERY collision read-path (player, projectile, traversal)
-    /// AND surfaced to the render layer, so a lock wall collides and draws
-    /// exactly as it did when it lived in the base. This is what keeps the base
-    /// authored-immutable mid-room (the resolved RoomGeometry decision): a gate
-    /// is a derived per-frame contribution, not a base edit. Cleared by
-    /// [`rebuild_feature_ecs_world_overlay`] each frame, then re-extended by the
-    /// gate contributor systems that run after it in `WorldPrep`. Also carries
-    /// other per-frame additive statics that want full collision composition but
-    /// no lock-wall sprite (falling-sand settled tiles); the render reconcile
-    /// filters to `lockwall:` / `intro_lock:` names, so non-gate solids here are
-    /// collision-only.
-    pub gate_solids: Vec<ae::Block>,
-    /// Portal apertures to carve OUT of the host surface: the floor / wall a
-    /// portal sits on becomes non-solid inside the opening so a body can sink
-    /// in (the "feet in, feet out" transit). Filled each frame by
-    /// `portal::publish_portal_carves`; consumed by `world_with_sandbox_solids`.
-    pub portal_carves: Vec<ae::Aabb>,
-    /// Authored blocks (by `Block::name`) to REMOVE from the collision view this
-    /// frame — a content gate *opening* an authored solid without mutating the
-    /// immutable [`ambition_engine_core::RoomGeometry`] base. The inverse of `gate_solids`:
-    /// `gate_solids` ADD derived statics, this SUBTRACTS authored ones (gnu_ton's
-    /// `ladder_floor_gate` drops out on boss defeat so the player can climb out).
-    /// Composited into every collision read-path (player/actor/item/traversal via
-    /// `world_with_sandbox_solids`, projectiles via the gate view). Cleared each
-    /// frame by [`rebuild_feature_ecs_world_overlay`], re-extended by the WorldPrep
-    /// gate contributors — same clean-slate-per-frame contract as `gate_solids`.
-    pub removed_block_names: Vec<String>,
-    /// Authored climbable regions to SUPPRESS this frame: any base climbable
-    /// region intersecting one of these AABBs is dropped from the view. Same
-    /// immutable-base inversion as `removed_block_names` for ladders/vines (gnu_ton
-    /// hides the arena retreat ladder while the boss is alive). Climbable-only —
-    /// projectiles never read climbable — so it composites in
-    /// `world_with_sandbox_solids` alone.
-    pub climbable_carves: Vec<ae::Aabb>,
-    /// Additive water/liquid regions contributed per-frame (falling-sand settled
-    /// pools), composited into the player/actor view alongside the base water.
-    /// Water-only — projectiles don't read water — so it composites in
-    /// `world_with_sandbox_solids` alone. The additive counterpart to `gate_solids`
-    /// for liquid, keeping the authored base immutable mid-room. Cleared + re-
-    /// extended each frame like the other contributions.
-    pub water_regions: Vec<ae::WaterRegion>,
-}
+pub use ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay;
 
 /// Rebuild the transient collision blocks contributed by ECS-owned features.
 pub fn rebuild_feature_ecs_world_overlay(

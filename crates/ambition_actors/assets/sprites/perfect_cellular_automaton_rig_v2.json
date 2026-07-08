@@ -1,0 +1,27 @@
+{
+  "generator": "scripts/generate_perfect_cellular_automaton_spritesheet.py",
+  "bone_tool": "tools/experimental/robot_sprite_component_tool/tools/robot_rig_sheet.py",
+  "job": "tools/experimental/robot_sprite_component_tool/perfect_cellular_automaton/perfect_cellular_automaton_rig_job.yaml",
+  "metadata": "tools/experimental/robot_sprite_component_tool/perfect_cellular_automaton/metadata/perfect_cellular_automaton_components.refined.yaml",
+  "slices": "tools/experimental/robot_sprite_component_tool/perfect_cellular_automaton/slices",
+  "tool_manifest": "tools/experimental/robot_sprite_component_tool/perfect_cellular_automaton/output/perfect_cellular_automaton_tool_spritesheet.yaml",
+  "runtime_rows": [
+    {
+      "tool_animation": "idle",
+      "runtime_animation": "idle"
+    },
+    {
+      "tool_animation": "walk",
+      "runtime_animation": "walk"
+    },
+    {
+      "tool_animation": "slash",
+      "runtime_animation": "slash"
+    },
+    {
+      "tool_animation": "dash",
+      "runtime_animation": "fly"
+    }
+  ],
+  "qa_warnings": []
+}

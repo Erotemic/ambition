@@ -248,7 +248,7 @@ pub fn vfx_spawn_messages(
     mut commands: Commands,
     mut messages: MessageReader<VfxMessage>,
     world: Res<ambition_engine_core::RoomGeometry>,
-    assets: Option<Res<ambition_actors::assets::game_assets::GameAssets>>,
+    assets: Option<Res<ambition_sprite_sheet::game_assets::GameAssets>>,
     mut speech_bubbles: Query<(&mut SpeechBubbleVisual, &mut Transform, &mut TextColor)>,
 ) {
     let world = &world.0;
@@ -321,7 +321,7 @@ pub fn vfx_spawn_messages(
 fn spawn_explosion(
     commands: &mut Commands,
     world: &ae::World,
-    assets: Option<&ambition_actors::assets::game_assets::GameAssets>,
+    assets: Option<&ambition_sprite_sheet::game_assets::GameAssets>,
     pos: ae::Vec2,
     kind: ExplosionKind,
     scale: f32,

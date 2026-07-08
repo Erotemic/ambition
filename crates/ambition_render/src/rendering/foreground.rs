@@ -10,7 +10,7 @@ use bevy::window::PrimaryWindow;
 
 use super::primitives::RoomVisual;
 use ambition_engine_core::config::{world_to_bevy, WINDOW_H, WINDOW_W, WORLD_Z_FX};
-use ambition_actors::assets::game_assets::{
+use ambition_sprite_sheet::game_assets::{
     foreground_parallax_factor, foreground_parallax_sprite_for_biome, ForegroundParallaxSprite,
     GameAssets,
 };

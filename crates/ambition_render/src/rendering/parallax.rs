@@ -14,7 +14,7 @@ use bevy::prelude::*;
 use std::collections::HashSet;
 
 use super::primitives::RoomVisual;
-use ambition_actors::assets::game_assets::{GameAssets, ParallaxLayerAsset, ParallaxTheme};
+use ambition_sprite_sheet::game_assets::{GameAssets, ParallaxLayerAsset, ParallaxTheme};
 use ambition_world::rooms::RoomMetadata;
 use ambition_engine_core::config::{WINDOW_H, WINDOW_W};
 use ambition_persistence::settings::ParallaxBudget;

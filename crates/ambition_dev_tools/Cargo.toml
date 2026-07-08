@@ -13,6 +13,7 @@ crate-type = ["rlib"]
 # Body* clusters + MovementTuning + refresh helpers + Vec2 (the reflected
 # editable resources mirror these engine value types).
 ambition_engine_core = { path = "../ambition_engine_core" }
+ambition_input = { path = "../ambition_input" }
 # BodyHealth / Health for the player-stats inspector sync.
 ambition_characters = { path = "../ambition_characters" }
 # PrimaryPlayerOnly (With<PlayerEntity> + With<PrimaryPlayer>) query filter.

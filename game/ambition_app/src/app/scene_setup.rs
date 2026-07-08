@@ -30,7 +30,8 @@ use ambition_actors::world::platforms;
 use ambition_audio::SfxBankResource;
 use ambition_engine_core::RoomGeometry;
 use ambition_render::rendering::{
-    spawn_parallax_layers, spawn_room_visuals, HudText, PlayerSpriteBaseline, QuestPanelText,
+    spawn_parallax_layers, spawn_room_visuals, HudText, PlayerSpriteBaseline, PlayerSpriteCharacter,
+    QuestPanelText,
 };
 use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
 #[cfg(feature = "audio")]
@@ -347,11 +348,16 @@ fn presentation_world_inner(
                 standing_render: player_render,
                 standing_collision: player_collision,
             },
+            PlayerSpriteCharacter {
+                id: starting_character.effective_id().to_string(),
+            },
         ));
     } else {
-        commands.entity(player).insert(Sprite::from_color(
-            Color::srgba(0.80, 0.95, 1.0, 1.0),
-            player_collision,
+        commands.entity(player).insert((
+            Sprite::from_color(Color::srgba(0.80, 0.95, 1.0, 1.0), player_collision),
+            PlayerSpriteCharacter {
+                id: starting_character.effective_id().to_string(),
+            },
         ));
     }
 

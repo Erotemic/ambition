@@ -8,10 +8,12 @@
 use bevy::prelude::*;
 
 pub mod anim;
+mod assets;
 pub mod animator;
 pub mod sheets;
 
 pub use anim::{non_looping, CharacterAnim};
+pub use assets::CharacterSpriteAssets;
 pub use animator::{CharacterAnimator, RenderBasis};
 pub use sheets::*;
 

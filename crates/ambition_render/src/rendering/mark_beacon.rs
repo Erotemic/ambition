@@ -1,6 +1,6 @@
 //! The recall-mark beacon visual (was in abilities/traversal/mark_recall) — a
 //! glowing beacon sprite at the player's dropped mark. Render-only; reads the
-//! sim-side `PlayerMark` from ambition_actors.
+//! sim-side mark read-model.
 
 use ambition_engine_core as ae;
 use ambition_sim_view::MarkBeaconsView;

@@ -12,7 +12,7 @@ use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
 use super::primitives::{feature_color, feature_z, FeatureVisual, RoomVisual};
-use ambition_actors::assets::game_assets::{entity_sprite_or_color, GameAssets};
+use ambition_sprite_sheet::game_assets::{entity_sprite_or_color, GameAssets};
 use ambition_engine_core::config::world_to_bevy;
 use ambition_sim_view::DynamicFeatureViews;
 

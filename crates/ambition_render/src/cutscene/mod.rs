@@ -4,7 +4,7 @@
 //! [`ambition_cutscene`] (pure data + logic, plus the live playback-state
 //! resources `ActiveCutscene` / `CutsceneAdvanceRequest`). The gameplay-side
 //! player that drives them — triggers, queue drain, tick, save-flag effects —
-//! lives in [`ambition_actors::cutscene`]. The authored scripts/bindings
+//! lives in the cutscene runtime seam. The authored scripts/bindings
 //! are content (`ambition_content`).
 //!
 //! This module is presentation only: it reads `ActiveCutscene` and draws the

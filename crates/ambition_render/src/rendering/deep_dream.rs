@@ -172,7 +172,7 @@ pub fn attach_puppy_slug_deep_dream_overlays(
 pub fn sync_puppy_slug_deep_dream_overlays(
     world_time: Res<ambition_time::WorldTime>,
     mut elapsed: Local<f32>,
-    developer_tools: Res<ambition_actors::dev::dev_tools::DeveloperTools>,
+    developer_tools: Res<ambition_dev_tools::dev_tools::DeveloperTools>,
     texture_layouts: Res<Assets<TextureAtlasLayout>>,
     images: Res<Assets<Image>>,
     mut sources: Query<

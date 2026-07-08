@@ -164,7 +164,7 @@ web_served_assets = ["visible_web_served", "web_platform"]
 # Marker feature read by `crate::game_assets::default_asset_profile`
 # to flip the wasm default to `AssetProfile::WebServedAssets`. No deps
 # of its own — composing it pulls in the right sandbox behavior.
-web_served = []
+web_served = ["ambition_sprite_sheet/web_served"]
 
 # RL / programmatic-input adapter. The `rl_sim` module + `SandboxSim`
 # stepping API + `AgentAction` / `AgentObservation` shapes. Enabled
@@ -216,7 +216,7 @@ static_map = ["ambition_asset_manager/static_map", "ambition_ldtk_map/static_map
 # Composes with `static_map`: `static_map` embeds the LDtk world JSON,
 # `static_core_assets` embeds the visual layer. The `web` composite feature
 # enables both.
-static_core_assets = ["ambition_asset_manager/static_core_assets"]
+static_core_assets = ["ambition_asset_manager/static_core_assets", "ambition_sprite_sheet/static_core_assets"]
 
 # Opt-in static SFX bank embedding. This is mainly for Android until the
 # synchronous SFX-bank loader can read from APK assets. The build script enables

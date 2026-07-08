@@ -67,3 +67,35 @@ pub fn sync_live_player_dev_edits_system(
         editable_tuning.as_engine(),
     );
 }
+
+/// Developer/debug state: keyboard preset selection and debug flags.
+#[derive(Resource)]
+pub struct SandboxDevState {
+    pub debug: bool,
+    pub slowmo: bool,
+    pub presets: Vec<ambition_input::KeyboardPreset>,
+    pub preset_index: usize,
+    pub preset_flash: f32,
+}
+
+impl Default for SandboxDevState {
+    fn default() -> Self {
+        Self {
+            debug: !cfg!(target_os = "android"),
+            slowmo: false,
+            presets: ambition_input::KeyboardPreset::presets().to_vec(),
+            preset_index: 0,
+            preset_flash: 1.2,
+        }
+    }
+}
+
+impl SandboxDevState {
+    pub fn preset(&self) -> ambition_input::KeyboardPreset {
+        self.presets[self.preset_index]
+    }
+
+    pub fn debug_enabled(&self) -> bool {
+        self.debug
+    }
+}

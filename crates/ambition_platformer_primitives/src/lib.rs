@@ -18,3 +18,9 @@ pub mod camera_layers;
 pub mod schedule;
 pub mod time;
 pub mod transit;
+
+pub mod feature_overlay;
+
+pub mod physics;
+
+pub mod shrine;

@@ -304,26 +304,35 @@ fn read_spawn_allowlist() -> BTreeMap<String, usize> {
     allowlist
 }
 
-/// The `ambition_render` crate is the sandbox's renderer; the sim machinery
-/// (`ambition_actors`) must NOT depend on it. The render layer reads the sim,
-/// never the reverse — so a render change never rebuilds the machinery, and the
-/// sim/render seam is a hard crate boundary, not a convention. Presentation
-/// modules migrate into `ambition_render` incrementally; this guard ensures the
-/// dependency only ever points render -> sandbox.
+/// The `ambition_render` crate is the sandbox's renderer. The sim machinery
+/// (`ambition_actors`) must not depend on it, and after F1.5 render must not
+/// depend back on the machinery either. Both crates meet only through lower
+/// vocabulary/read-model crates selected by the app composition root.
 #[test]
-fn architecture_boundaries_sandbox_does_not_depend_on_render() {
+fn architecture_boundaries_render_and_actor_crates_are_decoupled() {
     assert_workspace_contains_crate("ambition_render");
     let sandbox_root = repo_root().join("crates/ambition_actors");
+    let render_root = repo_root().join("crates/ambition_render");
     assert_manifest_has_no_deps(
         &sandbox_root,
         &["ambition_render"],
-        "the sim machinery must not depend on its renderer (render depends on sim, not the reverse)",
+        "the sim machinery must not depend on its renderer",
     );
-    // And no source file smuggles the crate in past the manifest.
+    assert_manifest_has_no_deps(
+        &render_root,
+        &["ambition_actors"],
+        "F1.5 complete: render must read lower view/vocabulary crates, not actor machinery",
+    );
+    // And no source file smuggles either crate in past the manifest.
     assert_source_tree_has_no_code_refs(
         sandbox_root.join("src"),
         &["ambition_render"],
         "ambition_actors must not reference the render crate",
+    );
+    assert_source_tree_has_no_code_refs(
+        render_root.join("src"),
+        &["ambition_actors"],
+        "ambition_render must not reference the actor machinery crate after F1.5",
     );
 }
 

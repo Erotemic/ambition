@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Device -> ControlFrame input layer for ambition: SandboxAction (leafwing), the per-frame ControlFrame / MenuControlFrame seams, keyboard/gamepad presets, and the input-domain settings (deadzones / trigger hysteresis / dash mode). The upper-sibling input abstraction (ADR 0019); decoupled from sandbox content so the input-ordering bug class cannot silently recur. See docs/current/state.md and docs/systems/architecture.md."
+description = "Device -> engine-owned ControlFrame input adapter for ambition: SandboxAction (leafwing), MenuControlFrame, keyboard/gamepad presets, active-input-kind tracking, and input-domain settings (deadzones / trigger hysteresis / dash mode). The upper-sibling input abstraction (ADR 0019); decoupled from sandbox content and reusable character brains so the input-ordering bug class cannot silently recur. See docs/current/state.md and docs/systems/architecture.md."
 
 [lib]
 # rlib only: a library consumed by ambition_actors. Packaging is the
@@ -45,8 +45,8 @@ bevy_window = { version = "0.18.1", default-features = false }
 leafwing-input-manager = { version = "0.20", optional = true }
 
 # The content-free pure-logic foundation. Input maps the device-side
-# `ControlFrame` into `engine_core::InputState` (`ControlFrame::engine_input`),
-# so it depends DOWN on the foundation — never on ambition_actors.
+# device input into the engine-owned `ControlFrame`, so it depends DOWN on the
+# foundation — never on ambition_actors or ambition_characters.
 ambition_engine_core = { path = "../ambition_engine_core" }
 
 serde = { version = "1", features = ["derive"] }

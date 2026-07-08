@@ -508,7 +508,7 @@ pub fn rebuild_blink_preview_fact(
     )>,
 ) {
     use ambition_engine_core as ae;
-    use ambition_input::ControlFrame;
+    use ambition_input::read_gameplay_control_frame;
 
     fact.active = false;
     let Ok((kin, abilities, blink_state)) =
@@ -521,7 +521,7 @@ pub fn rebuild_blink_preview_fact(
     } else {
         None
     };
-    let controls = actions.map(ControlFrame::read_gameplay).unwrap_or_default();
+    let controls = actions.map(read_gameplay_control_frame).unwrap_or_default();
 
     if !(abilities.abilities.blink && (controls.blink_held || blink_state.aiming)) {
         return;

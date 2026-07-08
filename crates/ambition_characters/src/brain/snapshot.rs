@@ -129,7 +129,7 @@ pub struct BrainSnapshot {
     /// fills this from the actor entity's `PlayerInputFrame`; the
     /// player brain reads it to populate jump / dash / fire / etc.
     /// edges of the control frame.
-    pub player_input: Option<ambition_input::ControlFrame>,
+    pub player_input: Option<ambition_engine_core::ControlFrame>,
 
     /// Per-tick crowding signal — same-faction + non-faction
     /// nearby-actor counts, the averaged "away" direction, and
@@ -288,7 +288,7 @@ mod tests {
     fn snapshot_player_input_roundtrips() {
         // Snapshot must round-trip player_input correctly so the
         // player brain reads the same values the driver set.
-        let mut input = ambition_input::ControlFrame::default();
+        let mut input = ambition_engine_core::ControlFrame::default();
         input.axis_x = 0.6;
         input.jump_pressed = true;
         let mut snap = BrainSnapshot::idle();

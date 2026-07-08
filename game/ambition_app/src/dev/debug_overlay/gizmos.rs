@@ -435,7 +435,7 @@ pub(crate) fn draw_player_debug(
     // Combat preview: an ACTIVE swing draws its real phase hitbox (startup =
     // yellow, active = red, recovery = gray). `controls` also feeds the blink-aim
     // debug below.
-    let controls = actions.map(ControlFrame::read_gameplay).unwrap_or_default();
+    let controls = actions.map(read_gameplay_control_frame).unwrap_or_default();
     if gameplay_active && developer_tools.show_combat_preview {
         let view = ambition_actors::combat::AttackView {
             pos,

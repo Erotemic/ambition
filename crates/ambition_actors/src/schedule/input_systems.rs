@@ -19,7 +19,9 @@ use ambition_platformer_primitives::schedule::GameMode;
 use crate::platformer_runtime::lifecycle::PlayerVisual;
 use crate::SandboxDevState;
 #[cfg(feature = "input")]
-use ambition_input::SandboxAction;
+use ambition_input::{
+    read_gameplay_control_frame_with_settings, read_menu_control_frame, SandboxAction,
+};
 use ambition_input::{
     analog_to_dir, ControlFrame, KeyboardPreset, MenuControlFrame, MenuInputState,
     PlayerDashTriggerState,
@@ -178,7 +180,7 @@ pub fn populate_control_frame_from_actions(
     *frame = match player_input.single() {
         Ok(action_state) => {
             if mode.get().allows_gameplay() {
-                let (next_frame, next_state) = ControlFrame::read_gameplay_with_settings(
+                let (next_frame, next_state) = read_gameplay_control_frame_with_settings(
                     action_state,
                     &user_settings.controls,
                     dash_state.edge,
@@ -190,7 +192,7 @@ pub fn populate_control_frame_from_actions(
                 // dash trigger state so the post-pause re-press starts
                 // from a clean Released edge.
                 dash_state.edge = crate::persistence::settings::TriggerEdgeState::default();
-                ControlFrame::read_menu(action_state)
+                read_menu_control_frame(action_state)
             }
         }
         Err(_) => ControlFrame::default(),

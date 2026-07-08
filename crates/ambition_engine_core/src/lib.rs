@@ -32,6 +32,7 @@ pub mod cast;
 pub mod collision_semantics;
 pub mod combat_volume;
 pub mod config;
+pub mod control_frame;
 pub mod frame;
 pub mod geo_id;
 pub mod geometry;
@@ -57,6 +58,7 @@ pub use body_clusters::{
     BodyWallState, SweepSample,
 };
 pub use combat_volume::CombatVolume;
+pub use control_frame::ControlFrame;
 pub use geo_id::{Face, GeoFaceRef, GeoId, GeoSource, PlacementId};
 pub use geometry::{aabb_from_min_size, Aabb, AabbExt, CenteredAabb};
 pub use kinematic_path::{KinematicPath, KinematicPathMode};

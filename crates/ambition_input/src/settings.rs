@@ -2,7 +2,7 @@
 //!
 //! Holds controller deadzones, trigger thresholds, hysteresis, dash
 //! input behavior, and which keyboard / controller profile is active.
-//! The values flow into `crate::input` filtering before the `ControlFrame`
+//! The values flow into input filtering before the engine-owned `ControlFrame`
 //! is built so gameplay sees clean edges instead of analog jitter.
 
 use serde::{Deserialize, Serialize};

@@ -1,14 +1,15 @@
-//! Device -> `ControlFrame` input layer for the sandbox.
+//! Device -> engine-owned `ControlFrame` input adapter layer for the sandbox.
 //!
 //! Physical inputs are bound to `SandboxAction` with Leafwing Input Manager.
-//! The engine still consumes a compact `ControlFrame`, which keeps movement
-//! physics independent from keyboards, gamepads, UI rebinding, or replay input.
+//! The engine-owned compact `ControlFrame` keeps movement physics independent
+//! from keyboards, gamepads, UI rebinding, or replay input.
 //!
 //! This is the upper-sibling input abstraction (ADR 0019): it depends DOWN on
-//! `ambition_engine_core` (to map a `ControlFrame` into `engine_core::InputState`)
-//! and on the input-domain `settings` (deadzones / trigger hysteresis / dash
-//! mode), but NEVER on `ambition_actors`. Consumers import it by its
-//! canonical path, `ambition_input::{ControlFrame, SandboxAction, …}`.
+//! `ambition_engine_core` for the `ControlFrame` vocabulary and on the
+//! input-domain `settings` (deadzones / trigger hysteresis / dash mode), but
+//! NEVER on `ambition_actors` or `ambition_characters`. The legacy
+//! `ambition_input::ControlFrame` path remains as a re-export for app/input
+//! adapters; reusable brains import the lower engine-core vocabulary directly.
 
 use ambition_engine_core as ae;
 use bevy::prelude::*;
@@ -34,7 +35,13 @@ pub use motion_input::{MotionDirection, MotionInputBuffer};
 #[cfg(feature = "input")]
 pub use actions::SandboxAction;
 pub use active_input::{update_active_input_kind, ActiveInputKind};
-pub use control::{ControlFrame, PlayerDashTriggerState};
+pub use ambition_engine_core::ControlFrame;
+pub use control::PlayerDashTriggerState;
+#[cfg(feature = "input")]
+pub use control::{
+    read_gameplay_control_frame, read_gameplay_control_frame_with_settings,
+    read_menu_control_frame,
+};
 
 /// Schedule contract for the per-frame [`ControlFrame`] input window.
 ///

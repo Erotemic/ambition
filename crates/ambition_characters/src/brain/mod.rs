@@ -94,7 +94,7 @@ impl PlayerSlot {
 /// no input-copy component, no possession-specific override.
 #[derive(bevy::ecs::resource::Resource, Clone, Copy, Debug, Default)]
 pub struct SlotControls {
-    slots: [ambition_input::ControlFrame; Self::MAX_SLOTS],
+    slots: [ambition_engine_core::ControlFrame; Self::MAX_SLOTS],
 }
 
 impl SlotControls {
@@ -102,12 +102,12 @@ impl SlotControls {
     pub const MAX_SLOTS: usize = 4;
 
     /// This slot's current controller frame (neutral for an unfilled slot).
-    pub fn get(&self, slot: PlayerSlot) -> ambition_input::ControlFrame {
+    pub fn get(&self, slot: PlayerSlot) -> ambition_engine_core::ControlFrame {
         self.slots.get(slot.0 as usize).copied().unwrap_or_default()
     }
 
     /// Publish a slot's controller frame. Out-of-range slots are ignored.
-    pub fn set(&mut self, slot: PlayerSlot, frame: ambition_input::ControlFrame) {
+    pub fn set(&mut self, slot: PlayerSlot, frame: ambition_engine_core::ControlFrame) {
         if let Some(entry) = self.slots.get_mut(slot.0 as usize) {
             *entry = frame;
         }

@@ -85,13 +85,13 @@ prescription — log-once so E7/E8 executors don't re-derive:
    resource (`InventoryUiState`, `InventoryTab`, `MenuFocusState` ownership) now
    lives in `ambition_inventory_ui`. App/menu callers import the UI-state crate
    directly, while `ambition_items` remains the lower item-model crate.
-7. **`ambition_characters` → `ambition_input` for `ControlFrame`** — the
-   two-port body means brains EMIT control frames, so the dep direction is
-   defensible; but `ControlFrame` being input-crate vocabulary while
-   `InputState` is engine_core vocabulary is a SPLIT-BRAIN worth one look
-   when netcode lands (N-track): the brain-facing control vocabulary should
-   probably live with the body contract (engine_core or primitives), making
-   ambition_input purely a device-adapter crate. NOT urgent.
+7. ✅ **DONE (Codex 2026-07-08): `ControlFrame` moved down into
+   `ambition_engine_core`.** The brain-facing control vocabulary now lives with
+   the body/input-state contract, beside `InputState` and reference-frame
+   helpers. `ambition_characters` consumes `ambition_engine_core::ControlFrame`
+   and no longer depends on `ambition_input`; `ambition_input` is now the device
+   adapter that builds engine-owned frames from Leafwing/settings and keeps
+   `ambition_input::ControlFrame` only as a compatibility re-export.
 8. **`ambition_asset_manager` → `ambition_sfx`** — only for `SfxId` +
    `BankProvider` adapter. Acceptable today; if asset_manager is ever meant
    to be engine-generic, the sfx adapter is a feature-gated module. LOW.

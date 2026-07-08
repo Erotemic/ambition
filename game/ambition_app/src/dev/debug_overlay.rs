@@ -18,7 +18,7 @@ use ambition_actors::SandboxDevState;
 use ambition_platformer_primitives::schedule::GameMode;
 use ambition_engine_core::config::world_to_bevy;
 use ambition_engine_core::RoomGeometry;
-use ambition_input::ControlFrame;
+use ambition_input::{read_gameplay_control_frame, ControlFrame};
 #[cfg(feature = "input")]
 use ambition_input::SandboxAction;
 #[cfg(feature = "input")]

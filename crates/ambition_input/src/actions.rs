@@ -20,7 +20,7 @@ use super::*;
 /// these actions) instead of touching `SandboxAction` directly.
 ///
 /// Gated behind `input`: this type pulls in leafwing's `Actionlike` trait.
-/// Sim-only builds use `ControlFrame` (always-available) on the seam instead.
+/// Sim-only builds use engine-core `ControlFrame` (re-exported here) on the seam instead.
 #[cfg(feature = "input")]
 #[derive(Actionlike, Clone, Copy, Debug, Hash, PartialEq, Eq, Reflect)]
 pub enum SandboxAction {

@@ -1653,3 +1653,18 @@ old `ambition_items::inventory_ui` path is gone. The architecture boundary test
 now checks both halves: items must not depend on UI navigation or contain an
 `inventory_ui` module, while inventory-ui is a small leaf over `ambition_ui_nav`
 and must not import the item catalog, actor sim, render, content, or app tiers.
+
+## 2026-07-08 (Codex) — F1.7 ControlFrame moved to engine core
+
+Finished F1.7 by moving the device-agnostic `ControlFrame` vocabulary out of
+`ambition_input` and into `ambition_engine_core`, next to `InputState` and the
+reference-frame helpers. `ambition_characters` now stores/reads
+`ambition_engine_core::ControlFrame` for slot controls and player-brain
+snapshots, so reusable character brains no longer depend on the input adapter.
+
+`ambition_input` still owns the device/Leafwing/settings adapter logic: it
+exports `read_gameplay_control_frame*` / `read_menu_control_frame`, keeps
+`PlayerDashTriggerState`, and re-exports `ambition_engine_core::ControlFrame`
+for legacy app/test import paths. The architecture boundary test now ratchets
+that split: `ambition_characters` must not depend on or name `ambition_input`,
+while `ambition_input` must not depend upward on reusable character brains.

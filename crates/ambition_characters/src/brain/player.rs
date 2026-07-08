@@ -18,7 +18,7 @@
 use ambition_engine_core as ae;
 
 use super::PlayerSlot;
-use ambition_input::ControlFrame;
+use ambition_engine_core::ControlFrame;
 
 use super::snapshot::BrainSnapshot;
 
@@ -177,7 +177,7 @@ pub fn tick_player_brain_from_control(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_input::ControlFrame;
+    use ambition_engine_core::ControlFrame;
 
     fn input_with<F: FnOnce(&mut ControlFrame)>(mut_fn: F) -> ControlFrame {
         let mut c = ControlFrame::default();

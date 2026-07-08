@@ -986,8 +986,8 @@ fn architecture_boundaries_input_crate_is_extracted() {
     );
     assert_manifest_has_no_deps(
         &crate_root,
-        &["ambition_actors"],
-        "ambition_input must stay decoupled from sandbox content",
+        &["ambition_actors", "ambition_characters"],
+        "ambition_input must stay decoupled from sandbox content and reusable character brains",
     );
     assert_paths_absent(
         &crate_src(),
@@ -1017,6 +1017,45 @@ fn architecture_boundaries_input_crate_is_extracted() {
         settings_mod.contains("controls"),
         "ambition_actors persistence::settings should re-surface `controls` \
          from ambition_persistence (the E1a layering)"
+    );
+}
+
+
+#[test]
+fn architecture_boundaries_control_frame_lives_with_engine_body_contract() {
+    let engine_root = repo_root().join("crates/ambition_engine_core");
+    let characters_root = repo_root().join("crates/ambition_characters");
+    let input_root = repo_root().join("crates/ambition_input");
+
+    assert_paths_exist(
+        &engine_root,
+        &["src/control_frame.rs"],
+        "engine-owned ControlFrame vocabulary",
+    );
+    let engine_lib = fs::read_to_string(engine_root.join("src/lib.rs"))
+        .expect("read ambition_engine_core lib.rs");
+    assert!(
+        engine_lib.contains("pub mod control_frame")
+            && engine_lib.contains("pub use control_frame::ControlFrame"),
+        "ControlFrame should be exported from ambition_engine_core beside InputState/reference-frame vocabulary"
+    );
+
+    assert_manifest_has_no_deps(
+        &characters_root,
+        &["ambition_input"],
+        "ambition_characters brains consume engine-owned control vocabulary; input is only a device adapter",
+    );
+    assert_source_tree_has_no_code_refs(
+        characters_root.join("src"),
+        &["ambition_input", "ambition_input::ControlFrame"],
+        "ambition_characters should not depend on the input adapter for brain-facing ControlFrame",
+    );
+
+    let input_lib = fs::read_to_string(input_root.join("src/lib.rs"))
+        .expect("read ambition_input lib.rs");
+    assert!(
+        input_lib.contains("pub use ambition_engine_core::ControlFrame"),
+        "ambition_input may keep the old import path as a compatibility re-export over engine_core::ControlFrame"
     );
 }
 

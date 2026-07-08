@@ -54,6 +54,39 @@ pub use progression_schedule::ProgressionSchedulePlugin;
 pub use room_schedule::RoomTransitionSchedulePlugin;
 pub use sim_core_resources::SimCoreResourcesPlugin;
 
+/// Host-facing input seams that are implemented by the simulation heart but
+/// scheduled by a visible host. Keeping this tiny facade here lets
+/// `ambition_host` wire leafwing/device input without depending directly on
+/// `ambition_actors`.
+pub mod host_input {
+    pub use ambition_actors::dialog::dialog_pointer_input;
+    pub use ambition_actors::schedule::{
+        apply_menu_frame_to_cutscene_request, attach_player_input_components,
+        populate_control_frame_from_actions, populate_menu_control_frame_from_actions,
+        toggle_player_trail_emission_from_actions, SimulationSetupSet,
+    };
+}
+
+/// Host-facing presentation seams that still originate in lower sim/foundation
+/// crates. This records the intentional runtime facade used to keep the windowed
+/// host out of the actor-systems crate.
+pub mod host_seams {
+    pub use ambition_actors::SandboxDevState;
+}
+
+/// Fixture/demo support re-exported from the runtime composition tier so the
+/// `ambition_host` smoke shell can assemble a tiny content plugin without taking
+/// a direct `ambition_actors` dependency.
+pub mod demo_fixture {
+    pub use ambition_actors::character_roster::install_character_catalog;
+    pub use ambition_actors::dev::dev_tools::{EditableAbilitySet, EditableMovementTuning};
+    pub use ambition_actors::ldtk_world::LdtkRuntimeIndex;
+    pub use ambition_actors::player::StartingCharacter;
+    pub use ambition_actors::rooms::{ActiveRoomMetadata, RoomSet, RoomSpec};
+    pub use ambition_actors::session::setup::{simulation_world, SimulationSetup};
+    pub use ambition_platformer_primitives::schedule::SimulationSetupSet;
+}
+
 /// The canonical simulation-phase SETS + the engine resources every consumer
 /// needs before any `.in_set(SandboxSet::…)` registration or host override.
 ///

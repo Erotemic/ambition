@@ -797,6 +797,102 @@ fn architecture_boundaries_asset_manager_is_backend_generic() {
     );
 }
 
+#[test]
+fn architecture_boundaries_runtime_is_headless_composition_tier() {
+    let crate_root = repo_root().join("crates/ambition_runtime");
+    assert_workspace_contains_crate("ambition_runtime");
+    assert!(
+        crate_root.join("Cargo.toml").exists(),
+        "ambition_runtime crate should exist at crates/ambition_runtime"
+    );
+
+    let manifest = fs::read_to_string(crate_root.join("Cargo.toml"))
+        .expect("read ambition_runtime manifest");
+    for required in [
+        "ambition_actors",
+        "ambition_combat",
+        "ambition_projectiles",
+    ] {
+        assert!(
+            manifest_depends_on(&manifest, required),
+            "F1.9: ambition_runtime is the headless sim composition tier, so its              direct dependency on {required} is intentional and should be              documented rather than chased as an inversion bug"
+        );
+    }
+
+    assert_manifest_path_deps_only(
+        &crate_root,
+        &[
+            "ambition_actors",
+            "ambition_projectiles",
+            "ambition_combat",
+            "ambition_characters",
+            "ambition_portal",
+            "ambition_sim_view",
+            "ambition_vfx",
+            "ambition_time",
+            "ambition_input",
+            "ambition_engine_core",
+            "ambition_sfx",
+            "ambition_persistence",
+            "ambition_platformer_primitives",
+        ],
+        "F1.9: ambition_runtime composes the headless engine/sim surface; it may          name sim/mechanic/model crates but not app, content, host, or renderer crates",
+    );
+
+    assert_manifest_has_no_deps(
+        &crate_root,
+        &[
+            "ambition_app",
+            "ambition_content",
+            "ambition_host",
+            "ambition_render",
+            "ambition_touch_input",
+            "ambition_menu",
+            "ambition_inventory_ui",
+            "ambition_ldtk_map",
+            "bevy_ecs_ldtk",
+        ],
+        "ambition_runtime is headless composition, not app/content/host/render/backend ownership",
+    );
+    assert_code_refs_absent(
+        &[crate_root.join("src")],
+        &[
+            "ambition_render::",
+            "ambition_host::",
+            "ambition_content::",
+            "ambition_app::",
+            "ambition_touch_input::",
+            "ambition_menu::",
+            "ambition_inventory_ui::",
+            "ambition_ldtk_map::",
+            "bevy_ecs_ldtk::",
+        ],
+        "runtime source should compose headless sim/mechanic crates without reaching into          app/content/host/render tiers",
+    );
+}
+
+
+#[test]
+fn architecture_boundaries_host_does_not_depend_on_actors() {
+    let crate_root = repo_root().join("crates/ambition_host");
+    assert_workspace_contains_crate("ambition_host");
+    assert!(
+        crate_root.join("Cargo.toml").exists(),
+        "ambition_host crate should exist at crates/ambition_host"
+    );
+
+    assert_manifest_has_no_deps(
+        &crate_root,
+        &["ambition_actors"],
+        "F1.10: the windowed host wires presentation/input/runtime seams, not the actor-systems crate",
+    );
+    assert_code_refs_absent(
+        &[crate_root.join("src"), crate_root.join("tests")],
+        &["ambition_actors::"],
+        "F1.10: host source and smoke fixtures should reach actor-owned setup only through runtime facades",
+    );
+}
+
 /// `ambition_menu_kaleidoscope` is the FIRST engine extension crate (E1e): the
 /// bevy_lunex 3D cube renderer for the `ambition_menu` page model. It is
 /// optional for any game — a host installs it to draw the same backend-agnostic

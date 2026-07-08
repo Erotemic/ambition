@@ -30,6 +30,8 @@ use bevy::prelude::*;
 
 use ambition_characters::brain::{ActorControl, Brain, PlayerSlot};
 
+pub use ambition_platformer_primitives::markers::ControlledSubject;
+
 use crate::actor::BodyKinematics;
 use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::features::{CenteredAabb, FeatureSimEntity};
@@ -51,16 +53,6 @@ pub struct PossessionState {
     /// The possessed actor's brain before transfer, restored on release.
     pub restore_brain: Option<Brain>,
 }
-
-/// The entity carrying `Brain::Player(PlayerSlot::PRIMARY)` this frame — the body
-/// the local player is driving. Derived from ECS brain state each frame by
-/// [`resolve_controlled_subject`]; the camera, portal viewer, nameplate resolver,
-/// and player melee lifecycle read THIS, not `PrimaryPlayer` + a possession
-/// override.
-///
-/// `None` only in the startup window before any player brain exists.
-#[derive(Resource, Default, Clone, Copy)]
-pub struct ControlledSubject(pub Option<Entity>);
 
 /// Derive [`ControlledSubject`] from the ECS: the entity carrying
 /// `Brain::Player(PRIMARY)`. Runs early each frame; there is exactly one such

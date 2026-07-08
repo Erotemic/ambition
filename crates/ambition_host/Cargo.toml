@@ -4,18 +4,16 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "The windowed-HOST face (decomposition E5 step 5): a `PlatformerHostPlugins` plugin group that assembles the wiring only a VISIBLE platformer host needs on top of `PlatformerEnginePlugins` — the leafwing input bindings/bridge and the camera follow/shake cluster. MAY dep render/input/leafwing/gameplay_core; must NOT dep ambition_content (boundary-tested). The shared per-frame SIM wiring lives in `ambition_runtime` (headless/RL runs it too)."
+description = "The windowed-HOST face (decomposition E5 step 5): a `PlatformerHostPlugins` plugin group that assembles the wiring only a VISIBLE platformer host needs on top of `PlatformerEnginePlugins` — the leafwing input bindings/bridge and the camera follow/shake cluster. MAY dep render/input/runtime/sim_view/leafwing; must NOT dep ambition_actors or ambition_content (boundary-tested). The shared per-frame SIM wiring lives in `ambition_runtime` (headless/RL runs it too)."
 
 [dependencies]
-ambition_actors = { path = "../ambition_actors", default-features = false, features = [
-    "headless",
-] }
 ambition_engine_core = { path = "../ambition_engine_core" }
 ambition_input = { path = "../ambition_input" }
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 ambition_portal = { path = "../ambition_portal", optional = true }
 ambition_portal_presentation = { path = "../ambition_portal_presentation", optional = true }
 ambition_render = { path = "../ambition_render" }
+ambition_runtime = { path = "../ambition_runtime" }
 ambition_sim_view = { path = "../ambition_sim_view" }
 bevy = { version = "0.18.1", default-features = false, features = [
     "bevy_asset",
@@ -30,14 +28,13 @@ default = []
 # The leafwing input bindings + the device→ControlFrame bridge
 # (HostInputBindingsPlugin). Mirrors the app's `input` persona feature.
 input = [
-    "ambition_actors/input",
     "ambition_input/input",
     "ambition_render/input",
     "ambition_sim_view/input",
     "dep:leafwing-input-manager",
 ]
 # Portal camera-continuity wiring inside HostCameraPlugin.
-portal = ["ambition_actors/portal", "dep:ambition_portal"]
+portal = ["dep:ambition_portal"]
 portal_render = [
     "portal",
     "dep:ambition_portal_presentation",
@@ -47,4 +44,3 @@ portal_render = [
 [dev-dependencies]
 # The demo-shell smoke test (E5 step 6) assembles foundation + engine group +
 # this host group + a fixture content plugin (which builds a one-room world).
-ambition_runtime = { path = "../ambition_runtime" }

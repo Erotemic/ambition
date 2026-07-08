@@ -21,6 +21,15 @@ use bevy::prelude::*;
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct PlayerEntity;
 
+/// The entity currently driven by the primary local control authority.
+///
+/// `None` is only expected during startup/load frames before the primary player
+/// brain has been resolved. This lives with the content-free player markers so
+/// presentation/host adapters can follow the controlled body without depending
+/// on the sandbox actor-systems crate.
+#[derive(Resource, Default, Clone, Copy, Debug, PartialEq, Eq)]
+pub struct ControlledSubject(pub Option<Entity>);
+
 /// Marks the **home avatar** / respawn identity — the ORIGINAL body, its save
 /// identity, respawn anchor, and inventory owner. Exactly one entity carries it.
 ///

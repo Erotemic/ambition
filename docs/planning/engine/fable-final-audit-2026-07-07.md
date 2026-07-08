@@ -99,10 +99,19 @@ prescription — log-once so E7/E8 executors don't re-derive:
    `BankProvider` from that location. The architecture boundary test now
    forbids `ambition_sfx`/`ambition_audio` deps, the old `sfx` feature, and the
    removed `sfx_integration.rs` module.
-9. **`ambition_runtime` → actors/combat/projectiles/etc.** — correct BY
-   DESIGN (runtime is the composition tier).
-10. **`ambition_host` → render + actors** — see 4; after GameMode/camera_ease
-    move, host should dep only input/render/runtime/sim_view (its charter).
+9. ✅ **DONE (Codex 2026-07-08): `ambition_runtime`'s actor/combat/
+   projectile edges are intentional.** F1.9 is a no-move ruling, now ratcheted
+   by an architecture boundary test: `ambition_runtime` is the headless sim
+   composition tier and may directly name sim/mechanic/model crates such as
+   `ambition_actors`, `ambition_combat`, and `ambition_projectiles`, but it must
+   not drift upward into app/content/host/render/touch/menu/backend ownership.
+10. ✅ **DONE (Codex 2026-07-08): `ambition_host` no longer depends on
+    `ambition_actors`.** The host now schedules actor-owned input bridges
+    through the `ambition_runtime::host_input` facade, reads camera-shake and
+    controlled-subject vocabulary from lower runtime primitives, and uses
+    runtime demo-fixture seams in its smoke test. Its remaining direct deps are
+    host/presentation/runtime seams (`input`, `render`, `runtime`, `sim_view`,
+    plus optional portal presentation), not the actor-systems crate.
 11. **`ambition_touch_input` → render** — touch draws its own overlay quads
     through render helpers; acceptable (it IS presentation), but then its
     name is wrong-tier: it is a presentation adapter, not an input crate.

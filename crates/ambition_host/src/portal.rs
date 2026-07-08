@@ -29,6 +29,7 @@ mod host_adapter {
     use bevy::prelude::*;
 
     use ambition_engine_core::cast::SolidWorldQuery;
+    use ambition_engine_core::BodyKinematics;
     use ambition_portal_presentation::{
         PortalCameraContinuityCamera, PortalCameraContinuityConfig, PortalCameraContinuityFocus,
         PortalCameraContinuityHostView, PortalCameraContinuitySelection,
@@ -36,12 +37,13 @@ mod host_adapter {
         PortalObservationSet, PortalSceneBody, PortalViewer, PortalWorldFrame,
     };
 
-    use ambition_actors::abilities::traversal::possession::ControlledSubject;
-    use ambition_actors::actor::{PlayerEntity, PrimaryPlayer};
-    use ambition_actors::platformer_runtime::body::BodyKinematics;
-    use ambition_actors::platformer_runtime::lifecycle::PlayerVisual;
-    use ambition_actors::{CameraEaseState, SandboxDevState};
     use ambition_engine_core::RoomGeometry;
+    use ambition_platformer_primitives::camera_ease::CameraEaseState;
+    use ambition_platformer_primitives::lifecycle::PlayerVisual;
+    use ambition_platformer_primitives::markers::{
+        ControlledSubject, PlayerEntity, PrimaryPlayer,
+    };
+    use ambition_runtime::host_seams::SandboxDevState;
 
     /// Bridge the controlled character + the collision world → the crate-owned
     /// [`PortalViewer`] seam, so each portal window is the wedge that character

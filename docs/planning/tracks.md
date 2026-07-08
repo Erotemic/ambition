@@ -1685,3 +1685,27 @@ to static boundary greps, doc checks, and `git diff --check`. Recipient should
 run `cargo fmt --all`, `cargo test -p ambition_asset_manager`, `cargo test -p
 ambition_app --test architecture_boundaries`, and `cargo check -p ambition_app
 --features "rl_sim input mobile_touch"`.
+
+## 2026-07-08 (Codex) — F1.9 runtime composition edge ratcheted
+
+Finished F1.9 as an explicit no-move ruling. The `ambition_runtime` edges to
+`ambition_actors`, `ambition_combat`, `ambition_projectiles`, and adjacent
+headless sim/model crates are correct by design because runtime is the engine
+composition tier, not a foundational model crate. The new architecture boundary
+test records the allowed headless composition surface and forbids upward drift
+into app/content/host/render/touch/menu/backend ownership.
+
+This prevents future cleanups from re-chasing the intentional runtime → sim
+arrows while still catching real tier leaks.
+
+## 2026-07-08 (Codex) — F1.10 host actor edge removed
+
+Closed the final F1 host blocker: `ambition_host` no longer depends on
+`ambition_actors`. The visible host wires input through the runtime-owned
+`host_input` facade, uses lower primitive camera/controlled-subject vocabulary
+for portal camera continuity, and its demo smoke fixture reaches actor setup
+through `ambition_runtime::demo_fixture` rather than taking an actor-crate edge.
+
+The architecture boundary now pins both decisions: F1.9 records
+`ambition_runtime` as the intentional headless sim composition tier, and F1.10
+forbids `ambition_host -> ambition_actors` from regressing.

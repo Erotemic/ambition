@@ -28,7 +28,8 @@
 //! headless runs it too (the E5 step-5 ruling; see decomposition.md).
 //!
 //! The host MAY dep `ambition_render` / `ambition_input` / `leafwing-input-
-//! manager` / `ambition_actors`; it must NEVER dep `ambition_content`
+//! manager` / `ambition_runtime`; it must NEVER dep `ambition_actors` or
+//! `ambition_content`
 //! (enforced by `tests/host_names_no_content.rs`).
 
 use bevy::app::{App, Plugin, PluginGroup, PluginGroupBuilder};
@@ -65,11 +66,11 @@ pub struct HostInputBindingsPlugin;
 #[cfg(feature = "input")]
 impl Plugin for HostInputBindingsPlugin {
     fn build(&self, app: &mut App) {
-        use ambition_actors::dialog;
-        use ambition_actors::schedule::{
+        use ambition_runtime::host_input::{
             apply_menu_frame_to_cutscene_request, attach_player_input_components,
-            populate_control_frame_from_actions, populate_menu_control_frame_from_actions,
-            toggle_player_trail_emission_from_actions, SimulationSetupSet,
+            dialog_pointer_input, populate_control_frame_from_actions,
+            populate_menu_control_frame_from_actions, toggle_player_trail_emission_from_actions,
+            SimulationSetupSet,
         };
         use ambition_input::{
             MenuControlFrame, MenuInputState, PlayerDashTriggerState, SandboxAction,
@@ -118,7 +119,7 @@ impl Plugin for HostInputBindingsPlugin {
                     populate_control_frame_from_actions.in_set(ambition_input::InputSet::Populate),
                     toggle_player_trail_emission_from_actions,
                     apply_menu_frame_to_cutscene_request,
-                    dialog::dialog_pointer_input,
+                    dialog_pointer_input,
                 )
                     .chain()
                     .before(SandboxSet::CoreSimulation),
@@ -155,7 +156,7 @@ impl Plugin for HostCameraPlugin {
         app.add_systems(
             Update,
             (
-                ambition_actors::time::camera_ease::tick_camera_shake,
+                ambition_platformer_primitives::camera_ease::tick_camera_shake,
                 camera_follow,
             )
                 .chain()

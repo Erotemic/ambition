@@ -1742,3 +1742,5 @@ new code cannot reintroduce actor paths for the moved vocabulary.
 Gate: `cargo fmt --all`; `cargo test -p ambition_actors --lib`; `cargo test -p
 ambition_app --test architecture_boundaries`; `cargo check -p ambition_app
 --features "rl_sim input mobile_touch"`.
+
+- 2026-07-08 — F2 misplaced character-sprites absorb: moved canonical `SheetRegistryPlugin` into `ambition_sprite_sheet`, repointed app/content plugin installs there, and removed actor-side pure facade modules for `animator`, `baked_sheet_rons`, `registry`, `sheets`, and `sprite_packs`. The remaining `ambition_actors::character_sprites` surface is now the actor/content join that still reads actor facts or character catalog data.

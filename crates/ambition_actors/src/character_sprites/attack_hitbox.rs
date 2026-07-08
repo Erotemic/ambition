@@ -12,7 +12,8 @@
 //! Facing mirrors the box's forward offset.
 
 use ambition_engine_core as ae;
-use ambition_sprite_sheet::{SheetRecord, SheetRegistry};
+use ambition_sprite_sheet::{baked_sheet_rons, SheetRecord, SheetRegistry};
+use ambition_sprite_sheet::character::sheets;
 use std::sync::OnceLock;
 
 /// The player's sprite manifest file root. Both `robot` (enemy) and
@@ -33,7 +34,7 @@ const PLAYER_CHARACTER_ID: &str = "player";
 fn file_root_registry() -> &'static SheetRegistry {
     static REG: OnceLock<SheetRegistry> = OnceLock::new();
     REG.get_or_init(|| {
-        SheetRegistry::from_baked_table_by_file_root(super::baked_sheet_rons::BAKED_SHEET_RONS)
+        SheetRegistry::from_baked_table_by_file_root(baked_sheet_rons::BAKED_SHEET_RONS)
     })
 }
 
@@ -122,11 +123,11 @@ pub fn manifest_attack_hitbox_world(
 /// §5 classification: **immutable asset cache** — the resolved sheet spec is
 /// derived once from baked metadata; an `OnceLock`, no override seam.
 fn player_render_size(collision: ae::Vec2) -> Option<ae::Vec2> {
-    static SPEC: OnceLock<Option<super::sheets::CharacterSheetSpec>> = OnceLock::new();
+    static SPEC: OnceLock<Option<sheets::CharacterSheetSpec>> = OnceLock::new();
     let spec = SPEC
         .get_or_init(|| super::assets::sheet_for_character_id(PLAYER_CHARACTER_ID))
         .as_ref()?;
-    Some(super::sheets::player_placeholder_render_size(
+    Some(sheets::player_placeholder_render_size(
         spec, collision,
     ))
 }

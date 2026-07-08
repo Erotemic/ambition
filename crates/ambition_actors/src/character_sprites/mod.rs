@@ -12,32 +12,24 @@
 //! - [`anim`] — `CharacterAnim` enum, the one shared `pick_body_anim` priority
 //!   ladder over a `BodyAnimView`, and the thin per-body adapters that build it
 //!   (`pick_player_anim`, `pick_actor_anim` + `ActorAnimState`).
-//! - [`sheets`] — compatibility re-exports for the lower
-//!   `ambition_sprite_sheet::character::sheets` authority
-//!   (`CharacterSheetSpec`, atlas/geometry helpers, baked manifest lookup).
-//! - [`assets`] — `CharacterSpriteAsset`, `CharacterSpriteAssets`
-//!   resource, `load_character_sprites_in`, `sheet_for_character_id`.
-//! - [`animator`] — the `CharacterAnimator` per-entity cursor component.
-//! - [`registry`] — host wiring for the reusable `ambition_sprite_sheet`
-//!   `SheetRegistry` (plugin + headless builder from the lower crate's baked
-//!   table).
-//! - [`baked_sheet_rons`] — compatibility re-export for the lower crate's
-//!   `build.rs`-generated `(root, ron_text)` table.
+//! - `ambition_sprite_sheet::character::sheets` — lower authority for
+//!   `CharacterSheetSpec`, atlas/geometry helpers, baked manifest lookup, and
+//!   the `SheetRegistryPlugin` installed by app/content crates.
+//! - [`assets`] — actor/content join for `load_character_sprites_in`,
+//!   `sheet_for_character_id`, catalog-driven body collision, and prop sprite
+//!   construction.
+//! - `ambition_sprite_sheet::character::animator` — lower authority for the
+//!   `CharacterAnimator` per-entity cursor component.
 
 mod anim;
-mod animator;
 mod assets;
 mod attack_hitbox;
-mod baked_sheet_rons;
-pub mod registry;
-mod sheets;
-pub mod sprite_packs;
 
 #[cfg(test)]
 mod tests;
 
 pub use anim::{pick_actor_anim, pick_player_anim, ActorAnimState, CharacterAnim};
-pub use animator::{CharacterAnimator, RenderBasis};
+pub use ambition_sprite_sheet::character::{CharacterAnimator, RenderBasis};
 #[allow(
     unused_imports,
     reason = "manifest_attack_hitbox_world is the reusable core; player_attack_hitbox_world is the live consumer (ambition_app advance_attack)."
@@ -46,7 +38,7 @@ pub use attack_hitbox::{
     actor_attack_hitbox_world, authored_attack_volume_resolver, manifest_attack_hitbox_world,
     player_attack_hitbox_world,
 };
-pub use registry::{baked_sheet_registry, SheetRegistryPlugin};
+pub use ambition_sprite_sheet::{baked_sheet_registry, SheetRegistryPlugin};
 // SheetRecord and SheetRegistry are kept in the module's public surface
 // for future consumers that want per-frame anchors / body bbox queries;
 // they're already loaded at startup by SheetRegistryPlugin. Re-export
@@ -63,12 +55,12 @@ pub use assets::{
     sprite_body_collision_for_character_id, CharacterSpriteAssets, SpriteBodyCollision,
 };
 #[allow(unused_imports)]
-pub use registry::{SheetRecord, SheetRegistry};
+pub use ambition_sprite_sheet::{SheetRecord, SheetRegistry};
 #[allow(
     unused_imports,
     reason = "Public sheet constants are consumed by tests and future spawn-site callers."
 )]
-pub use sheets::{
+pub use ambition_sprite_sheet::character::sheets::{
     build_atlas_layout, build_character_sprite, build_character_sprite_with_render_size,
     feet_anchor_for, feet_anchor_for_render_size, player_placeholder_render_size,
     record_for_target, sprite_render_size, try_load_spec_for_target, CharacterSheetSpec,

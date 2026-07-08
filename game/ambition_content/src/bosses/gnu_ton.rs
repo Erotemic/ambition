@@ -211,7 +211,7 @@ mod tests {
 
         crate::bosses::install_boss_roster();
         let mut app = App::new();
-        app.add_plugins(ambition_actors::character_sprites::SheetRegistryPlugin);
+        app.add_plugins(ambition_sprite_sheet::SheetRegistryPlugin);
         let entity = app
             .world_mut()
             .spawn((

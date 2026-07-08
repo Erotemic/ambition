@@ -350,7 +350,7 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     app.add_plugins(crate::host::platform::PlatformPlugin);
     app.add_plugins(ambition_render::screen_effects::ScreenEffectsPlugin);
     // Loads baked `*_spritesheet.ron` manifests for runtime sheet metadata.
-    app.add_plugins(ambition_actors::character_sprites::SheetRegistryPlugin);
+    app.add_plugins(ambition_sprite_sheet::SheetRegistryPlugin);
     app.add_plugins(crate::dev::DevToolsPlugin);
     add_physics_debris_plugins(app);
     add_ui_plugins(app);

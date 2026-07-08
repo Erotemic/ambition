@@ -139,7 +139,13 @@ classes — log-once so the next sessions don't re-derive:
      `ambition_sprite_sheet` (character-sprite-specific lookups).
    - `character_sprites/` remainder (2.8k) — sheets/anim/animator modules are
      ~50% facade re-exports of `ambition_sprite_sheet` already (8 facade
-     files); finish the absorb, delete the tree.
+     files); finish the absorb, delete the tree. **F2 misplaced-pass slice
+     (Codex 2026-07-08) moved the `SheetRegistryPlugin` home into
+     `ambition_sprite_sheet` and deleted the pure facade modules
+     (`animator`, `baked_sheet_rons`, `registry`, `sheets`, `sprite_packs`);
+     the remaining actor-side `character_sprites` code is now the real
+     actor/content join: animation fact adapters, authored hitbox resolver,
+     and character-catalog-aware sprite loading/body collision.**
    - `world/physics.rs` (avian adapter) + `world/overlay{,_rebuild}.rs` —
      these stayed actors-side because the overlay REBUILD reads live feature
      components. Correct interim home, but name the end-state: after W-queue

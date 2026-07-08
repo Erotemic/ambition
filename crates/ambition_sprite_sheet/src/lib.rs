@@ -469,6 +469,26 @@ pub fn baked_sheet_registry() -> SheetRegistry {
     SheetRegistry::from_baked_table(baked_sheet_rons::BAKED_SHEET_RONS)
 }
 
+/// Bevy plugin that installs and populates the baked character sheet registry.
+///
+/// This used to live behind `ambition_actors::character_sprites::registry`, but
+/// it is pure sprite-sheet presentation vocabulary: the data source is the
+/// baked `*_spritesheet.ron` table owned by this crate, and the installed
+/// resource is [`SheetRegistry`]. Keeping the plugin here lets apps/content
+/// install sheet metadata without routing through the actor crate.
+pub struct SheetRegistryPlugin;
+
+impl Plugin for SheetRegistryPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<SheetRegistry>()
+            .add_systems(Startup, init_sheet_registry);
+    }
+}
+
+fn init_sheet_registry(mut registry: ResMut<SheetRegistry>) {
+    *registry = baked_sheet_registry();
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

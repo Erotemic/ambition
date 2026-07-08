@@ -9,11 +9,11 @@ use super::anim::CharacterAnim;
 use super::assets::sheet_for_character_id;
 
 /// Data-path stand-in for the deleted `ROBOT_SHEET` static.
-fn robot_sheet() -> super::sheets::CharacterSheetSpec {
+fn robot_sheet() -> ambition_sprite_sheet::character::sheets::CharacterSheetSpec {
     sheet_for_character_id("robot").expect("robot catalog row resolves a sheet")
 }
-use super::registry::SheetRecord;
-use super::sheets::{
+use ambition_sprite_sheet::SheetRecord;
+use ambition_sprite_sheet::character::sheets::{
     record_for_target, sprite_render_size, try_load_spec_for_target,
     try_load_spec_for_target_scaled, SheetTuning,
 };

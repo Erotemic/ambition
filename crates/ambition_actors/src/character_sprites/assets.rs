@@ -38,6 +38,7 @@ use ambition_sprite_sheet::character::{
     CharacterSheetSpec, CharacterSpriteAsset, CharacterSpritePage,
     TextureResolutionScale as SpriteTextureResolutionScale,
 };
+use ambition_sprite_sheet::character::sheets;
 use ambition_sprite_sheet::BodyMetrics;
 
 pub use ambition_sprite_sheet::character::CharacterSpriteAssets;
@@ -51,7 +52,7 @@ pub use ambition_sprite_sheet::character::CharacterSpriteAssets;
 ///    the gameplay tuning (`sprite_tuning`: collision_scale /
 ///    frame_sample_inset / feet-anchor override).
 /// 2. Ids without a catalog row fall back to the manifest-by-id load
-///    with default tuning (`super::sheets::try_load_spec_for_character_id`).
+///    with default tuning (`sheets::try_load_spec_for_character_id`).
 ///
 /// The old hardcoded `*_SHEET` statics + named match are gone — adding
 /// a character's bespoke tuning is a `character_catalog.ron` edit.
@@ -65,19 +66,19 @@ pub fn sheet_for_character_id(character_id: &str) -> Option<CharacterSheetSpec> 
             let tuning = entry
                 .sprite_tuning
                 .map(|spec| {
-                    super::sheets::SheetTuning::from_parts(
+                    sheets::SheetTuning::from_parts(
                         spec.collision_scale,
                         spec.frame_sample_inset,
                         spec.feet_anchor_y,
                     )
                 })
                 .unwrap_or_default();
-            if let Some(spec) = super::sheets::try_load_spec_for_target(target, &tuning) {
+            if let Some(spec) = sheets::try_load_spec_for_target(target, &tuning) {
                 return Some(spec);
             }
         }
     }
-    let spec = super::sheets::try_load_spec_for_character_id(character_id);
+    let spec = sheets::try_load_spec_for_character_id(character_id);
     if spec.is_none() {
         bevy::log::debug!(
             target: "ambition::character_sprites",
@@ -93,13 +94,13 @@ pub fn sheet_for_character_id(character_id: &str) -> Option<CharacterSheetSpec> 
 /// [`build_optional_via_catalog`] needs to fetch the **scaled-variant** record
 /// keyed `<target>.<suffix>`. `None` for ids resolved through the manifest-by-id
 /// fallback (they stay at base resolution — acceptable, they render fine).
-fn character_variant_tuning(cid: &str) -> Option<(&'static str, super::sheets::SheetTuning)> {
+fn character_variant_tuning(cid: &str) -> Option<(&'static str, sheets::SheetTuning)> {
     let entry = catalog().characters.get(cid)?;
     let target = entry.manifest_target()?;
     let tuning = entry
         .sprite_tuning
         .map(|spec| {
-            super::sheets::SheetTuning::from_parts(
+            sheets::SheetTuning::from_parts(
                 spec.collision_scale,
                 spec.frame_sample_inset,
                 spec.feet_anchor_y,
@@ -168,13 +169,13 @@ pub fn sprite_body_collision_for_character_id(
     let entry = catalog().characters.get(character_id)?;
     let target = entry.manifest_target()?;
     let spec = sheet_for_character_id(character_id)?;
-    let record = super::sheets::record_for_target(target)?;
+    let record = sheets::record_for_target(target)?;
     let metrics = record.body_metrics.as_ref()?;
     let (body_w, body_h) = body_pixel_extent(metrics)?;
     let frame_w = record.frame_width.max(1) as f32;
     let frame_h = record.frame_height.max(1) as f32;
     // The size the renderer draws today: full frame scaled to the LDtk box.
-    let render = super::sheets::sprite_render_size(
+    let render = sheets::sprite_render_size(
         &spec,
         bevy::math::Vec2::new(ldtk_collision.x, ldtk_collision.y),
     );
@@ -350,7 +351,7 @@ fn resolve_variant_pair(
     catalog: &SandboxAssetCatalog,
     base_id: &AssetId,
     base_spec: &CharacterSheetSpec,
-    variant: Option<(&str, &super::sheets::SheetTuning)>,
+    variant: Option<(&str, &sheets::SheetTuning)>,
     quality: Option<&VisualQualityBudget>,
 ) -> (CharacterSheetSpec, AssetId) {
     if let (Some((target, tuning)), Some(q)) = (variant, quality) {
@@ -361,7 +362,7 @@ fn resolve_variant_pair(
                     crate::assets::sandbox_assets::scaled_asset_id(base_id, scale)
                 {
                     if catalog.try_path_for_load(&variant_id).is_some() {
-                        if let Some(spec) = super::sheets::try_load_spec_for_target_scaled(
+                        if let Some(spec) = sheets::try_load_spec_for_target_scaled(
                             target,
                             tuning,
                             sprite_texture_scale(scale),
@@ -382,7 +383,7 @@ fn build_optional_via_catalog(
     layouts: &mut Assets<TextureAtlasLayout>,
     base_id: &AssetId,
     base_spec: &CharacterSheetSpec,
-    variant: Option<(&str, &super::sheets::SheetTuning)>,
+    variant: Option<(&str, &sheets::SheetTuning)>,
     log_label: Option<&str>,
     quality: Option<&VisualQualityBudget>,
 ) -> Option<CharacterSpriteAsset> {
@@ -501,7 +502,7 @@ pub fn build_prop_sprite_asset_packed(
         .unwrap_or(crate::persistence::settings::TextureResolutionScale::Full);
     let tuning = base_spec.tuning();
     let (spec, tier) =
-        super::sheets::try_load_pack_spec_for_target(target, &tuning, sprite_texture_scale(scale))?;
+        sheets::try_load_pack_spec_for_target(target, &tuning, sprite_texture_scale(scale))?;
     // Profile-gate page 0 through the sandbox catalog like every other
     // sprite; sibling pages resolve from the spec's page_images against
     // page 0's directory (the pack pages all share the tier dir).
@@ -523,7 +524,7 @@ pub fn build_prop_sprite_asset(
 #[cfg(test)]
 mod sprite_body_collision_tests {
     use super::*;
-    use crate::character_sprites::registry::{BodyMetrics, NamedPixelRect, PixelRect};
+    use ambition_sprite_sheet::{BodyMetrics, NamedPixelRect, PixelRect};
 
     fn metrics_with_bbox(bbox: Option<PixelRect>, parts: Vec<NamedPixelRect>) -> BodyMetrics {
         BodyMetrics {
@@ -613,7 +614,7 @@ mod sprite_body_collision_tests {
         let entry = catalog().characters.get(cid).unwrap();
         let target = entry.manifest_target().unwrap();
         let spec = sheet_for_character_id(cid).unwrap();
-        let record = super::super::sheets::record_for_target(target).unwrap();
+        let record = sheets::record_for_target(target).unwrap();
         let metrics = record.body_metrics.as_ref().unwrap();
         let (body_w, body_h) = body_pixel_extent(metrics).unwrap();
         let frame_w = record.frame_width.max(1) as f32;
@@ -621,7 +622,7 @@ mod sprite_body_collision_tests {
 
         // (1) render == legacy sprite_render_size(spec, ldtk).
         let legacy =
-            super::super::sheets::sprite_render_size(&spec, bevy::math::Vec2::new(ldtk.x, ldtk.y));
+            sheets::sprite_render_size(&spec, bevy::math::Vec2::new(ldtk.x, ldtk.y));
         assert!((derived.render_size.x - legacy.x).abs() < 1e-3);
         assert!((derived.render_size.y - legacy.y).abs() < 1e-3);
 

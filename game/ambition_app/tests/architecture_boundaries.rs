@@ -1282,6 +1282,67 @@ fn architecture_boundaries_touch_input_crate_is_extracted() {
     );
 }
 
+
+/// F1.11 ruling: the touch crate is a small presentation/input adapter, not a
+/// pure input-model crate. Its direct render dependency is intentional because
+/// it owns the on-screen joystick/action-button HUD and keeps the rendered
+/// overlay aligned with the raw-touch hit regions. The ratchet is not "remove
+/// render"; it is "do not let this adapter grow upward into app/content/host or
+/// backend ownership". A future rename/re-home under a presentation grouping can
+/// update this test, but the current dependency is accepted.
+#[test]
+fn architecture_boundaries_touch_input_render_edge_is_intentional() {
+    let crate_root = repo_root().join("crates/ambition_touch_input");
+    assert_workspace_contains_crate("ambition_touch_input");
+
+    let manifest = fs::read_to_string(crate_root.join("Cargo.toml"))
+        .expect("read ambition_touch_input manifest");
+    assert!(
+        manifest_depends_on(&manifest, "ambition_render"),
+        "F1.11: ambition_touch_input owns a visible touch HUD, so its render edge is an intentional presentation-adapter dependency"
+    );
+
+    assert_manifest_path_deps_only(
+        &crate_root,
+        &[
+            "ambition_input",
+            "ambition_engine_core",
+            "ambition_platformer_primitives",
+            "ambition_actors",
+            "ambition_render",
+            "ambition_cutscene",
+            "ambition_ui_nav",
+            "ambition_persistence",
+        ],
+        "F1.11: ambition_touch_input is a reusable touch presentation/input adapter; it may name input/render/nav/cutscene/sim seams but not app/content/host/backend crates",
+    );
+
+    assert_manifest_has_no_deps(
+        &crate_root,
+        &[
+            "ambition_app",
+            "ambition_content",
+            "ambition_host",
+            "ambition_ldtk_map",
+            "ambition_asset_manager",
+            "bevy_ecs_ldtk",
+        ],
+        "ambition_touch_input should remain a reusable presentation/input adapter rather than app/content/host/backend ownership",
+    );
+
+    assert_code_refs_absent(
+        &[crate_root.join("src")],
+        &[
+            "ambition_app::",
+            "ambition_content::",
+            "ambition_host::",
+            "ambition_ldtk_map::",
+            "bevy_ecs_ldtk::",
+        ],
+        "touch presentation adapter source should stay out of app/content/host/backend implementation details",
+    );
+}
+
 #[test]
 fn architecture_boundaries_room_feature_spawns_do_not_add_raw_spawns() {
     let src_root = crate_src();

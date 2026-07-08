@@ -112,10 +112,15 @@ prescription — log-once so E7/E8 executors don't re-derive:
     runtime demo-fixture seams in its smoke test. Its remaining direct deps are
     host/presentation/runtime seams (`input`, `render`, `runtime`, `sim_view`,
     plus optional portal presentation), not the actor-systems crate.
-11. **`ambition_touch_input` → render** — touch draws its own overlay quads
-    through render helpers; acceptable (it IS presentation), but then its
-    name is wrong-tier: it is a presentation adapter, not an input crate.
-    Optional rename/re-home under a `presentation/` grouping someday. LOW.
+11. ✅ **DONE (Codex 2026-07-08): `ambition_touch_input` → render is an
+    accepted presentation-adapter edge.** The crate owns the on-screen touch HUD
+    overlay and folds those virtual controls into input frames, so its direct
+    render dependency is not a dep-flip blocker. The remaining issue is naming /
+    placement only: keep the current crate name for now, document it as a
+    presentation/input adapter, and leave a future optional rename/re-home under
+    a `presentation/` grouping as LOW priority. The architecture boundary test
+    now ratchets this ruling by allowing `ambition_render` specifically while
+    forbidding app/content/host/backend drift.
 
 ### F2 — `ambition_actors` (68k): what it still smuggles + the residual's true shape
 

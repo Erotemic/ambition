@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Mobile / touch input adapter for ambition: on-screen virtual joysticks + touch buttons folded into the SAME ControlFrame the desktop leafwing pipeline produces. Extracted from ambition_app for app-thinness (ADR 0019) — a reusable engine layer, not host glue. Two layers: an always-built pure fold helper (state) and the mobile_touch-gated Bevy plugin (virtual_joystick UI + systems)."
+description = "Mobile / touch presentation-input adapter for ambition: on-screen virtual joysticks + touch buttons rendered as a HUD and folded into the SAME ControlFrame the desktop leafwing pipeline produces. Extracted from ambition_app for app-thinness (ADR 0019) — reusable presentation adapter code, not host glue. Two layers: an always-built pure fold helper (state) and the mobile_touch-gated Bevy plugin (virtual_joystick UI + systems)."
 
 [lib]
 # rlib only: consumed by the ambition_app host. Packaging is the binary's job.

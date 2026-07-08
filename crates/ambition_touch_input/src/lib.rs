@@ -1,18 +1,19 @@
-//! Mobile / touch input adapter for the Android demo path.
+//! Mobile / touch presentation-input adapter for the Android demo path.
 //!
 //! Goal: a sideloadable Pixel-class APK where the sandbox is playable
-//! with on-screen joysticks + controller-like touch buttons. The
-//! Leafwing keyboard/gamepad pipeline is the canonical desktop input
-//! surface; this crate translates touch joystick + virtual buttons
-//! into the same `ControlFrame` resource the simulator already
-//! consumes.
+//! with on-screen joysticks + controller-like touch buttons. This crate owns
+//! both the rendered touch HUD and the fold from touch joystick / virtual button
+//! state into the same `ControlFrame` resource consumed by the simulator. The
+//! Leafwing keyboard/gamepad pipeline remains the canonical desktop input
+//! surface.
 //!
 //! Extracted from `ambition_app::host::mobile_input` (app-thinness, ADR 0019):
-//! reusable touch-input infrastructure any platformer host would want, so it
-//! lives beside `ambition_input` as a sibling engine layer rather than inside the
-//! app binary. The module has no app-only coupling — it reads/writes only the
-//! `ambition_input` / `ambition_actors` / `ambition_render` / `ambition_ui_nav`
-//! / `ambition_cutscene` library seams.
+//! reusable touch presentation/input infrastructure any platformer host would
+//! want, so it lives beside the input/render seams rather than inside the app
+//! binary. The direct `ambition_render` edge is intentional: the crate draws its
+//! own overlay quads and text. The module has no app-only coupling — it
+//! reads/writes only the `ambition_input` / `ambition_actors` /
+//! `ambition_render` / `ambition_ui_nav` / `ambition_cutscene` library seams.
 //!
 //! Two layers:
 //!

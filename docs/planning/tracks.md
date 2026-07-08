@@ -1709,3 +1709,17 @@ through `ambition_runtime::demo_fixture` rather than taking an actor-crate edge.
 The architecture boundary now pins both decisions: F1.9 records
 `ambition_runtime` as the intentional headless sim composition tier, and F1.10
 forbids `ambition_host -> ambition_actors` from regressing.
+
+## 2026-07-08 (Codex) — F1.11 touch overlay render edge accepted
+
+Closed F1.11 as a no-move ruling. `ambition_touch_input` still has a direct
+`ambition_render` dependency because it owns the visible touch HUD: joystick,
+action-button text, glyph overlays, z-ordering, and render-aligned touch hit
+regions live together so the on-screen controls and the Android raw-touch path
+cannot drift. That means the crate is not a pure input crate; it is a small
+presentation/input adapter with a legacy name.
+
+The architecture boundary now records that decision: the touch adapter may depend
+on `ambition_render`, but it stays out of app/content/host/backend ownership. A
+future rename or re-home under a `presentation/` grouping is still allowed, but it
+is LOW priority and not a blocker for closing the F1 dep-graph audit.

@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Reusable item catalog, shop primitives, and inventory UI state for Ambition-style platformers."
+description = "Reusable item catalog and shop primitives for Ambition-style platformers."
 
 [lib]
 crate-type = ["rlib"]
@@ -12,7 +12,6 @@ crate-type = ["rlib"]
 [dependencies]
 ambition_characters = { path = "../ambition_characters" }
 ambition_persistence = { path = "../ambition_persistence" }
-ambition_ui_nav = { path = "../ambition_ui_nav" }
 bevy = { version = "0.18.1", default-features = false, features = ["bevy_state"] }
 ron = "0.12"
 serde = { version = "1", features = ["derive"] }

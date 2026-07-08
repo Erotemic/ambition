@@ -69,11 +69,16 @@ pub fn sync_live_player_dev_edits_system(
 }
 
 /// Developer/debug state: keyboard preset selection and debug flags.
+///
+/// This crate stores only the preset index, not the input crate's
+/// `KeyboardPreset` table. Input-owning callers map the index through
+/// `ambition_input::KeyboardPreset::by_index` when they need an input map or
+/// HUD glyphs. Keeping this state as an index preserves `ambition_dev_tools` as
+/// foundational dev-tool state instead of pulling the input layer underneath it.
 #[derive(Resource)]
 pub struct SandboxDevState {
     pub debug: bool,
     pub slowmo: bool,
-    pub presets: Vec<ambition_input::KeyboardPreset>,
     pub preset_index: usize,
     pub preset_flash: f32,
 }
@@ -83,7 +88,6 @@ impl Default for SandboxDevState {
         Self {
             debug: !cfg!(target_os = "android"),
             slowmo: false,
-            presets: ambition_input::KeyboardPreset::presets().to_vec(),
             preset_index: 0,
             preset_flash: 1.2,
         }
@@ -91,10 +95,6 @@ impl Default for SandboxDevState {
 }
 
 impl SandboxDevState {
-    pub fn preset(&self) -> ambition_input::KeyboardPreset {
-        self.presets[self.preset_index]
-    }
-
     pub fn debug_enabled(&self) -> bool {
         self.debug
     }

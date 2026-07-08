@@ -669,13 +669,13 @@ fn architecture_boundaries_encounter_crate_is_state_only() {
     );
 }
 
-/// `ambition_items` (E8) owns the reusable item catalog, shop primitives, and
-/// inventory UI state. Live pickup/throw/projectile systems stay in
+/// `ambition_items` (E8/F1.6) owns the reusable item catalog and shop
+/// primitives only. Live pickup/throw/projectile systems stay in
 /// `ambition_actors::items::pickup` because they mutate actor bodies, gravity,
-/// portals, abilities, and hit events; the item kit itself must stay below the
-/// sim heart and presentation.
+/// portals, abilities, and hit events; menu-navigation state lives in
+/// `ambition_inventory_ui` so the item model stays below UI navigation.
 #[test]
-fn architecture_boundaries_items_crate_is_catalog_and_ui_state_only() {
+fn architecture_boundaries_items_crate_is_catalog_and_shop_only() {
     let crate_root = repo_root().join("crates/ambition_items");
     assert_workspace_contains_crate("ambition_items");
     assert!(
@@ -689,8 +689,10 @@ fn architecture_boundaries_items_crate_is_catalog_and_ui_state_only() {
             "ambition_render",
             "ambition_content",
             "ambition_app",
+            "ambition_ui_nav",
+            "ambition_inventory_ui",
         ],
-        "ambition_items owns reusable catalog/UI state; live sim adapters stay above it",
+        "ambition_items owns reusable catalog/shop data; UI state lives in ambition_inventory_ui",
     );
     assert_source_tree_has_no_code_refs(
         crate_root.join("src"),
@@ -699,8 +701,19 @@ fn architecture_boundaries_items_crate_is_catalog_and_ui_state_only() {
             "ambition_render",
             "ambition_content",
             "ambition_app",
+            "ambition_ui_nav",
+            "ambition_inventory_ui",
         ],
-        "ambition_items source must not reach into actor/content/render/app crates",
+        "ambition_items source must not reach into actor/content/render/app/UI crates",
+    );
+    assert_paths_absent(
+        &crate_root.join("src"),
+        &[
+            "inventory_ui",
+            "inventory_ui/mod.rs",
+            "inventory_ui/model.rs",
+        ],
+        "ambition_items after F1.6 inventory UI split",
     );
     assert_paths_absent(
         &crate_src(),
@@ -710,6 +723,36 @@ fn architecture_boundaries_items_crate_is_catalog_and_ui_state_only() {
             "inventory_ui/model.rs",
         ],
         "actor-sim inventory UI module after E8",
+    );
+}
+
+/// `ambition_inventory_ui` (F1.6) owns only inventory menu-navigation state:
+/// selected slot, tab, scroll, pointer confirm/armed state, and
+/// `MenuFocusState`. It may depend on UI navigation vocabulary, but not on the
+/// item catalog or any app/render/sim/content tier.
+#[test]
+fn architecture_boundaries_inventory_ui_crate_is_menu_state_only() {
+    let crate_root = repo_root().join("crates/ambition_inventory_ui");
+    assert_workspace_contains_crate("ambition_inventory_ui");
+    assert!(
+        crate_root.join("Cargo.toml").exists(),
+        "ambition_inventory_ui crate should exist at crates/ambition_inventory_ui"
+    );
+    assert_manifest_path_deps_only(
+        &crate_root,
+        &["ambition_ui_nav"],
+        "ambition_inventory_ui is reusable menu-navigation state, not item catalog/sim/presentation",
+    );
+    assert_source_tree_has_no_code_refs(
+        crate_root.join("src"),
+        &[
+            "ambition_items::",
+            "ambition_actors",
+            "ambition_render",
+            "ambition_content",
+            "ambition_app",
+        ],
+        "ambition_inventory_ui source must stay a small UI-state leaf over ambition_ui_nav",
     );
 }
 
@@ -1260,7 +1303,7 @@ fn architecture_boundaries_portal_core_does_not_import_ambition_content_roster()
         "ambition_actors::items",
         "Item::PortalGun",
         "OwnedItems",
-        "ambition_items::inventory_ui",
+        "ambition_inventory_ui",
         "ambition_actors::menu::effects",
         "StashedActionSet",
         "ambition_actors::content",

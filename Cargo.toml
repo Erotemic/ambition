@@ -16,6 +16,7 @@ members = [
     "crates/ambition_input",
     "crates/ambition_interaction",
     "crates/ambition_items",
+    "crates/ambition_inventory_ui",
     "crates/ambition_ldtk_map",
     "crates/ambition_menu",
     "crates/ambition_persistence",

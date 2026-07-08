@@ -13,7 +13,7 @@ use ambition_actors::SandboxDevState;
 use ambition_engine_core as ae;
 use ambition_engine_core::RoomGeometry;
 #[cfg(feature = "input")]
-use ambition_input::SandboxAction;
+use ambition_input::{KeyboardPreset, SandboxAction};
 use ambition_render::rendering::{spawn_room_visuals, PlayerVisual, SceneEntities};
 
 /// Presentation-side debug hotkey reader.
@@ -69,7 +69,7 @@ pub(super) fn sync_preset_input_map(
         return;
     }
     if let Ok((mut action_state, mut input_map)) = player_input.get_mut(entities.player) {
-        *input_map = dev_state.preset().input_map();
+        *input_map = KeyboardPreset::by_index(dev_state.preset_index).input_map();
         action_state.reset_all();
     }
     *last_preset = Some(current);

@@ -126,6 +126,7 @@ ambition_entity_catalog = { path = "../../crates/ambition_entity_catalog" }
 ambition_characters = { path = "../../crates/ambition_characters" }
 ambition_input = { path = "../../crates/ambition_input" }
 ambition_items = { path = "../../crates/ambition_items" }
+ambition_inventory_ui = { path = "../../crates/ambition_inventory_ui" }
 # Touch/mobile input adapter — carved out of `src/host/mobile_input/` (app-thinness).
 # Its `mobile_touch` feature (forwarded below) gates the virtual-joystick plugin.
 ambition_touch_input = { path = "../../crates/ambition_touch_input" }

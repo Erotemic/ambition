@@ -9,6 +9,7 @@ use ambition_actors::rooms;
 use ambition_actors::SandboxDevState;
 use ambition_engine_core as ae;
 use ambition_engine_core::RoomGeometry;
+use ambition_input::KeyboardPreset;
 use ambition_render::rendering::{HudText, SceneEntities};
 
 use super::feedback::ProgressionResources;
@@ -91,7 +92,7 @@ pub(super) fn update_hud(
         **text = "F1 debug | F3 inspector".to_string();
         return;
     }
-    let preset = dev_state.preset();
+    let preset = KeyboardPreset::by_index(dev_state.preset_index);
     let enemy_health = camera_params
         .ecs_actors
         .iter()

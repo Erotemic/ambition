@@ -436,7 +436,7 @@ mod dispatch_parity {
     use ambition_platformer_primitives::schedule::GameMode;
     use ambition_characters::brain::ActionSet;
     use ambition_input::MenuControlFrame;
-    use ambition_items::inventory_ui::InventoryUiState;
+    use ambition_inventory_ui::InventoryUiState;
     use ambition_sfx::SfxMessage;
 
     /// Build a menu app for one backend, with every resource/observer the shared

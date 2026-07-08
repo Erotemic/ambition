@@ -119,7 +119,7 @@ found drift — update the table in the same commit. LOC ≈ `wc -l`.)*
 | `assets/` | 3324 | `ambition_asset_manager` | E-assets | ✅ **catalog/source carve DONE (Codex 2026-07-07):** `SandboxAssetCatalog`, `ids`, catalog builders, and `AmbitionAssetSourcePlugin` moved to `ambition_asset_manager::sandbox_assets`; the former upward reads are explicit `SandboxCatalogInputs` assembled by a thin gameplay-core adapter. Remaining tail: `game_assets` still owns Bevy image handles + gameplay/presentation vocabulary (`features`, `rooms`, `combat`, `character_sprites`, `boss_encounter`) and should move only with E3/E6/E7 presentation/actor carves, not by reintroducing asset-manager upward deps. |
 | `menu/` | 3189 | **`ambition_menu`** | **E1e** | + app/menu (below); LAST of E1 |
 | `dev/` | 2975 | **`ambition_dev_tools`** | E1d | + app/dev |
-| `items/` + `inventory_ui/` | 2689 | **`ambition_items`** ✅ catalog/UI slice | E8 | `Item`/`OwnedItems`/catalog install, shop primitives, and `InventoryUiState` moved 2026-07-07; actor-sim keeps `items::{pickup,persist}` adapters because they mutate bodies/gravity/portals/abilities/hit events |
+| `items/` | 2689 | **`ambition_items`** ✅ catalog/shop slice; **`ambition_inventory_ui`** ✅ UI-state split | E8/F1.6 | `Item`/`OwnedItems`/catalog install and shop primitives live in `ambition_items`; `InventoryUiState` lives in `ambition_inventory_ui` after F1.6 so the item model no longer depends on UI navigation; actor-sim keeps `items::{pickup,persist}` adapters because they mutate bodies/gravity/portals/abilities/hit events |
 | `encounter/` | 2504 | **`ambition_encounter`** ✅ state slice | E-enc | wave/lockdown spec/state/events/registry/music/reward math moved 2026-07-07; gameplay-core keeps LDtk loader + ECS tick/lock-wall/switch adapters until W/E7 |
 | `dialog/` | 2217 | **`ambition_dialog`** (runtime) | E1c | game bindings stay sim-side |
 | `time/` | 1431 | stays (measured: depends on player/combat/features); `camera_ease` rides E4 | E8 note | |
@@ -165,7 +165,7 @@ has a standing numeric answer (re-measure when the tree drifts):
 | `ambition_asset_manager` (E-assets) | `assets/sandbox_assets` catalog/source core ✅; `assets/game_assets` presentation tail remains gated on E3/E6/E7 | 3.3k |
 | `ambition_menu` (E1e) | `menu/` | 3.2k |
 | `ambition_dev_tools` (E1d) | `dev/` | 3.0k |
-| `ambition_items` (E8) | `items/ inventory_ui/` | 2.7k |
+| `ambition_items` (E8/F1.6) | `items/` | catalog/shop |
 | `ambition_encounter` (E-enc) | `encounter/` + rewards | 2.9k |
 | `ambition_dialog` (E1c) | `dialog/` | 2.3k |
 | `ambition_audio` (E1b) | `audio/ music/` | reusable audio core + bank loader |

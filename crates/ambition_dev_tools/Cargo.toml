@@ -4,7 +4,7 @@ version = "0.1.0"
 edition.workspace = true
 license.workspace = true
 authors.workspace = true
-description = "Reusable developer-tooling STATE + logic (E1d): the DeveloperTools debug/gizmo toggle resource, the reflected editable player-tuning / ability / stats resources and their engine conversions, the movement/debug profile enums, the startup profiler marks, DeveloperTools disk persistence, and the live-edit sync systems that push inspector edits onto the authoritative player body. Content-free — it names only the foundational body/marker/health vocabulary, so any platformer can wire an inspector against it. The egui overlay UI (DevToolsPlugin) stays app-side; the sim trace recorder stays sim-side."
+description = "Reusable developer-tooling STATE + logic (E1d): the DeveloperTools debug/gizmo toggle resource, keyboard-preset index, reflected editable player-tuning / ability / stats resources and their engine conversions, the movement/debug profile enums, the startup profiler marks, DeveloperTools disk persistence, and the live-edit sync systems that push inspector edits onto the authoritative player body. Content-free — it names only the foundational body/marker/health vocabulary, so any platformer can wire an inspector against it. The egui overlay UI (DevToolsPlugin) stays app-side; input preset interpretation stays in input-owning callers; the sim trace recorder stays sim-side."
 
 [lib]
 crate-type = ["rlib"]
@@ -13,7 +13,6 @@ crate-type = ["rlib"]
 # Body* clusters + MovementTuning + refresh helpers + Vec2 (the reflected
 # editable resources mirror these engine value types).
 ambition_engine_core = { path = "../ambition_engine_core" }
-ambition_input = { path = "../ambition_input" }
 # BodyHealth / Health for the player-stats inspector sync.
 ambition_characters = { path = "../ambition_characters" }
 # PrimaryPlayerOnly (With<PlayerEntity> + With<PrimaryPlayer>) query filter.

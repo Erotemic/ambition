@@ -19,7 +19,7 @@ use ambition_actors::time::feel::SandboxFeelTuning;
 use ambition_actors::world::physics;
 #[cfg(feature = "physics_debris")]
 use ambition_actors::world::physics::physics_spawn_debris_messages;
-use ambition_items::inventory_ui;
+use ambition_inventory_ui as inventory_ui;
 use ambition_render::fx::{self, vfx_spawn_messages};
 use ambition_render::rendering::{camera_follow, sync_visuals};
 use ambition_render::ui_fonts;

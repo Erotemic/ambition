@@ -18,7 +18,7 @@
 //! old `crate::{input,engine_core,…}` compat re-exports have been removed.
 //!
 //! Top-level modules group coherent slices: `world`, `player`, `abilities`,
-//! `combat`, `gravity`, `items`/`inventory_ui`, `dialog`, `menu`, `music`,
+//! `combat`, `gravity`, `items`, `dialog`, `menu`, `music`,
 //! `persistence`, `projectile`, `enemy_projectile`, `boss_encounter`,
 //! `quest`, plus the `schedule`/`host`/`session` assembly and `dev` tooling.
 //!

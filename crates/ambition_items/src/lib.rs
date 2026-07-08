@@ -22,7 +22,6 @@
 //! shows "every item you could ever have," OoT-style, with un-acquired entries
 //! dimmed.
 
-pub mod inventory_ui;
 pub mod shop;
 
 use bevy::prelude::Resource;

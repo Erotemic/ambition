@@ -1642,3 +1642,14 @@ actor crate.
 
 Gate: `cargo fmt --all`; `cargo test -p ambition_render --test observation_boundary`;
 `cargo check -p ambition_render`; `cargo check -p ambition_app --features "rl_sim input mobile_touch"`.
+
+## 2026-07-08 (Codex) — F1.6 inventory UI split complete
+
+Finished F1.6 by splitting the menu-navigation state out of `ambition_items` and
+into the new `ambition_inventory_ui` crate. `ambition_items` now owns the item
+catalog and shop primitives only, and drops the `ambition_ui_nav` dependency.
+The app/menu code imports `InventoryUiState` from `ambition_inventory_ui`; the
+old `ambition_items::inventory_ui` path is gone. The architecture boundary test
+now checks both halves: items must not depend on UI navigation or contain an
+`inventory_ui` module, while inventory-ui is a small leaf over `ambition_ui_nav`
+and must not import the item catalog, actor sim, render, content, or app tiers.

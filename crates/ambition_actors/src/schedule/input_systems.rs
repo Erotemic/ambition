@@ -21,7 +21,8 @@ use crate::SandboxDevState;
 #[cfg(feature = "input")]
 use ambition_input::SandboxAction;
 use ambition_input::{
-    analog_to_dir, ControlFrame, MenuControlFrame, MenuInputState, PlayerDashTriggerState,
+    analog_to_dir, ControlFrame, KeyboardPreset, MenuControlFrame, MenuInputState,
+    PlayerDashTriggerState,
 };
 
 /// Item 3 (optional guard): whether input should be SUPPRESSED this frame because
@@ -69,7 +70,7 @@ pub fn attach_player_input_components(
     dev_state: Res<SandboxDevState>,
     scene: Res<crate::platformer_runtime::lifecycle::SceneEntities>,
 ) {
-    let input_map = dev_state.preset().input_map();
+    let input_map = KeyboardPreset::by_index(dev_state.preset_index).input_map();
     commands
         .entity(scene.player)
         .insert((ActionState::<SandboxAction>::default(), input_map));

@@ -79,10 +79,12 @@ prescription — log-once so E7/E8 executors don't re-derive:
    `ambition_dev_tools`) and `Cargo.toml` has no actor dependency. The render
    boundary test is upgraded from an allowed-residue count to a zero-dependency
    assertion.
-6. **`ambition_items` contains `inventory_ui`** (deps ui_nav for
-   `MenuFocusState`). The item MODEL and the inventory UI are different
-   tiers. **Prescription: split inventory_ui out (menu-side or its own
-   `ambition_inventory_ui`); items drops ui_nav.**
+6. ✅ **DONE (Codex 2026-07-08): `inventory_ui` split out of
+   `ambition_items`.** The reusable item model now owns only catalog + shop
+   primitives and no longer depends on `ambition_ui_nav`; the menu-navigation
+   resource (`InventoryUiState`, `InventoryTab`, `MenuFocusState` ownership) now
+   lives in `ambition_inventory_ui`. App/menu callers import the UI-state crate
+   directly, while `ambition_items` remains the lower item-model crate.
 7. **`ambition_characters` → `ambition_input` for `ControlFrame`** — the
    two-port body means brains EMIT control frames, so the dep direction is
    defensible; but `ControlFrame` being input-crate vocabulary while

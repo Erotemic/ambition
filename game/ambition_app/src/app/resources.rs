@@ -61,7 +61,7 @@ pub fn init_sandbox_resources(app: &mut App) {
     // catalog.
     let asset_config = app
         .world()
-        .get_resource::<ambition_actors::assets::game_assets::GameAssetConfig>()
+        .get_resource::<ambition_sprite_sheet::game_assets::GameAssetConfig>()
         .cloned()
         .unwrap_or_default();
     let sandbox_catalog = ambition_actors::assets::sandbox_assets::build_sandbox_catalog_with(
@@ -76,7 +76,7 @@ pub fn init_sandbox_resources(app: &mut App) {
     );
     #[cfg(feature = "audio")]
     let sfx_bank_asset_path = sandbox_catalog
-        .path_for(&ambition_actors::assets::sandbox_assets::ids::sfx_bank())
+        .path_for(&ambition_asset_manager::sandbox_assets::ids::sfx_bank())
         .map(ambition_audio::SfxBankAssetPath);
 
     let ldtk_project = match ldtk_world::LdtkProject::load_default(&sandbox_catalog) {

@@ -15,9 +15,9 @@ use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
 use ambition_engine_core as ae;
 
-use ambition_actors::assets::game_assets::GameAssets;
+use ambition_sprite_sheet::game_assets::GameAssets;
 #[cfg(feature = "audio")]
-use ambition_actors::assets::sandbox_assets::{ids, SandboxAssetCatalog};
+use ambition_asset_manager::sandbox_assets::{ids, SandboxAssetCatalog};
 #[cfg(feature = "audio")]
 use ambition_actors::audio::{AudioLibrary, MusicPlaybackState};
 use ambition_actors::platformer_runtime::lifecycle::SceneEntities;
@@ -85,7 +85,7 @@ pub fn presentation_world(
     // library stores catalog-blessed paths (the generic library takes a
     // resolver closure instead of naming the catalog type).
     let resolve_track_path = |id: &str| {
-        catalog.path_for(&ambition_actors::assets::sandbox_assets::ids::music_track(
+        catalog.path_for(&ambition_asset_manager::sandbox_assets::ids::music_track(
             id,
         ))
     };
@@ -156,7 +156,7 @@ fn try_load_static_sfx_bank() -> Option<BankProvider> {
 }
 
 /// Resolve the SFX bank through the
-/// [`ambition_actors::assets::sandbox_assets::SandboxAssetCatalog`] and synchronously
+/// [`ambition_asset_manager::sandbox_assets::SandboxAssetCatalog`] and synchronously
 /// load its bytes into a [`BankProvider`]. Fall-through order:
 ///
 /// 1. the statically packed bank (`static_sfx_bank` feature),

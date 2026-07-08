@@ -1689,10 +1689,11 @@ ambition_app --test architecture_boundaries`, and `cargo check -p ambition_app
 ## 2026-07-08 (Codex) — F1.9 runtime composition edge ratcheted
 
 Finished F1.9 as an explicit no-move ruling. The `ambition_runtime` edges to
-`ambition_actors`, `ambition_combat`, `ambition_projectiles`, and adjacent
-headless sim/model crates are correct by design because runtime is the engine
-composition tier, not a foundational model crate. The new architecture boundary
-test records the allowed headless composition surface and forbids upward drift
+`ambition_actors`, `ambition_combat`, `ambition_projectiles`, adjacent
+headless sim/model crates, and the foundational `ambition_dev_tools` state seam
+are correct by design because runtime is the engine composition tier, not a
+foundational model crate. The architecture boundary test records the allowed
+headless composition surface and forbids upward drift
 into app/content/host/render/touch/menu/backend ownership.
 
 This prevents future cleanups from re-chasing the intentional runtime → sim
@@ -1744,3 +1745,5 @@ ambition_app --test architecture_boundaries`; `cargo check -p ambition_app
 --features "rl_sim input mobile_touch"`.
 
 - 2026-07-08 — F2 misplaced character-sprites absorb: moved canonical `SheetRegistryPlugin` into `ambition_sprite_sheet`, repointed app/content plugin installs there, and removed actor-side pure facade modules for `animator`, `baked_sheet_rons`, `registry`, `sheets`, and `sprite_packs`. The remaining `ambition_actors::character_sprites` surface is now the actor/content join that still reads actor facts or character catalog data.
+
+- 2026-07-08 — F2 misplaced assets consumer repoint: app/content/sim-view callers now use `ambition_sprite_sheet::game_assets` for `GameAssetConfig`, `GameAssets`, and entity sprite keys, and `ambition_asset_manager::sandbox_assets` for `SandboxAssetCatalog` / catalog ids. The actor `assets/` module remains only as the game-specific adapter that joins authored content registries, embedded world rows, and character/boss sprite loading.

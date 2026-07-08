@@ -91,7 +91,7 @@ pub(super) fn handle_ldtk_hot_reload(
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     // Bundled into one tuple param to stay within Bevy's 16-param system limit.
     visual_assets: (
-        Option<Res<ambition_actors::assets::game_assets::GameAssets>>,
+        Option<Res<ambition_sprite_sheet::game_assets::GameAssets>>,
         Option<Res<ambition_render::quality::ResolvedVisualQuality>>,
     ),
     mut player_q: Query<
@@ -104,7 +104,7 @@ pub(super) fn handle_ldtk_hot_reload(
         // validated spawn — a single-player dev flow.
         ambition_actors::actor::PrimaryPlayerOnly,
     >,
-    catalog: Res<ambition_actors::assets::sandbox_assets::SandboxAssetCatalog>,
+    catalog: Res<ambition_asset_manager::sandbox_assets::SandboxAssetCatalog>,
 ) {
     if keys.just_pressed(KeyCode::F12) {
         ldtk_reload.auto_apply = !ldtk_reload.auto_apply;
@@ -186,7 +186,7 @@ pub(super) struct LdtkReloadTransaction {
 
 pub(super) fn prepare_ldtk_reload_transaction(
     watch_path: &std::path::Path,
-    catalog: &ambition_actors::assets::sandbox_assets::SandboxAssetCatalog,
+    catalog: &ambition_asset_manager::sandbox_assets::SandboxAssetCatalog,
     current_room_id: &str,
     preserved_pos: ae::Vec2,
     player_size: ae::Vec2,
@@ -248,10 +248,10 @@ pub(super) fn reload_ldtk_world_from_disk(
     physics_settings: physics::PhysicsSandboxSettings,
     moving_platforms: &mut Vec<ambition_actors::world::platforms::MovingPlatformState>,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
-    assets: Option<&ambition_actors::assets::game_assets::GameAssets>,
+    assets: Option<&ambition_sprite_sheet::game_assets::GameAssets>,
     quality: Option<&ambition_render::quality::ResolvedVisualQuality>,
     watch_path: &std::path::Path,
-    catalog: &ambition_actors::assets::sandbox_assets::SandboxAssetCatalog,
+    catalog: &ambition_asset_manager::sandbox_assets::SandboxAssetCatalog,
 ) -> Result<String, Vec<String>> {
     let current_room_id = room_set.active_spec().id.clone();
     let preserved_pos = clusters.kinematics.pos;

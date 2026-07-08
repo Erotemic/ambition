@@ -11,7 +11,7 @@
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
-use ambition_actors::assets::game_assets::GameAssets;
+use ambition_sprite_sheet::game_assets::GameAssets;
 use ambition_actors::boss_encounter::{
     BossEncounterRegistry, EncounterBeat, EncounterDef, EncounterEffect, EncounterScript,
     EncounterTrigger, ReleaseOnDeath,

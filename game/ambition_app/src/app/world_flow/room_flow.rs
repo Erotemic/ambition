@@ -130,7 +130,7 @@ pub(crate) fn load_room(
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     physics_settings: physics::PhysicsSandboxSettings,
-    assets: Option<&ambition_actors::assets::game_assets::GameAssets>,
+    assets: Option<&ambition_sprite_sheet::game_assets::GameAssets>,
     quality: Option<&ambition_render::quality::ResolvedVisualQuality>,
 ) {
     // Runtime half: swap geometry, reset the body, rebuild platforms, spawn
@@ -213,9 +213,9 @@ pub(crate) fn load_room(
 /// other post-sim systems run in the same frame.
 pub fn ensure_requested_room_parallax_system(
     mut requests: MessageReader<rooms::RoomTransitionRequested>,
-    mut game_assets: Option<ResMut<ambition_actors::assets::game_assets::GameAssets>>,
+    mut game_assets: Option<ResMut<ambition_sprite_sheet::game_assets::GameAssets>>,
     room_set: Res<rooms::RoomSet>,
-    sandbox_catalog: Res<ambition_actors::assets::sandbox_assets::SandboxAssetCatalog>,
+    sandbox_catalog: Res<ambition_asset_manager::sandbox_assets::SandboxAssetCatalog>,
     asset_server: Res<AssetServer>,
     quality: Option<Res<ambition_render::quality::ResolvedVisualQuality>>,
 ) {
@@ -224,7 +224,7 @@ pub fn ensure_requested_room_parallax_system(
     };
     for request in requests.read() {
         if let Some(target_spec) = room_set.rooms.get(request.transition.target_room) {
-            ambition_actors::assets::game_assets::ensure_parallax_layers_for_room(
+            ambition_sprite_sheet::game_assets::ensure_parallax_layers_for_room(
                 assets,
                 &sandbox_catalog,
                 &asset_server,
@@ -280,7 +280,7 @@ pub(crate) fn apply_room_transition_system(
     // Bundled into one tuple param to stay within Bevy's 16-param system limit.
     load_resources: (
         Res<ambition_actors::world::placements::PlacementLoweringRegistry>,
-        Option<Res<ambition_actors::assets::game_assets::GameAssets>>,
+        Option<Res<ambition_sprite_sheet::game_assets::GameAssets>>,
         Option<Res<ambition_render::quality::ResolvedVisualQuality>>,
     ),
     mut combat_reset: super::super::feedback::CombatRoomReset,

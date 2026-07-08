@@ -16,7 +16,7 @@
 
 use std::path::{Path, PathBuf};
 
-use ambition_actors::assets::game_assets::GameAssetConfig;
+use ambition_sprite_sheet::game_assets::GameAssetConfig;
 use ambition_platformer_primitives::schedule::GameMode;
 use ambition_platformer_primitives::camera_layers::{FrontHudCamera, MainCamera};
 use ambition_app::app::{

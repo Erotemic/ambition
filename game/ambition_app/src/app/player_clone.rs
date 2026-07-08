@@ -18,7 +18,7 @@
 
 use bevy::prelude::*;
 
-use ambition_actors::assets::game_assets::GameAssets;
+use ambition_sprite_sheet::game_assets::GameAssets;
 use ambition_characters::brain::{ActorControl, Brain, BrainSnapshot, StateMachineCfg};
 use ambition_engine_core as ae;
 use ambition_engine_core::RoomGeometry;

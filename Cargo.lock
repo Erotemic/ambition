@@ -642,6 +642,7 @@ dependencies = [
  "ambition_persistence",
  "ambition_platformer_primitives",
  "ambition_projectiles",
+ "ambition_sprite_sheet",
  "ambition_time",
  "bevy",
  "bevy_math",

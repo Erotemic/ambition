@@ -844,8 +844,9 @@ fn architecture_boundaries_runtime_is_headless_composition_tier() {
             "ambition_sfx",
             "ambition_persistence",
             "ambition_platformer_primitives",
+            "ambition_dev_tools",
         ],
-        "F1.9: ambition_runtime composes the headless engine/sim surface; it may          name sim/mechanic/model crates but not app, content, host, or renderer crates",
+        "F1.9: ambition_runtime composes the headless engine/sim surface; it may          name sim/mechanic/model/dev-state crates but not app, content, host, or renderer crates",
     );
 
     assert_manifest_has_no_deps(
@@ -1308,6 +1309,26 @@ fn architecture_boundaries_f2_actor_facades_burned_down() {
             "ambition_actors::features::FeatureEcsWorldOverlay",
         ],
         "F2.1 consumers should use the canonical lower crates instead of actor compatibility facades",
+    );
+}
+
+#[test]
+fn architecture_boundaries_f2_asset_vocab_consumers_use_lower_crates() {
+    assert_code_refs_absent(
+        &[
+            repo_root().join("crates/ambition_sim_view/src"),
+            content_src(),
+            repo_root().join("game/ambition_content/tests"),
+            app_src(),
+        ],
+        &[
+            "ambition_actors::assets::game_assets::GameAssetConfig",
+            "ambition_actors::assets::game_assets::GameAssets",
+            "ambition_actors::assets::game_assets::EntitySprite",
+            "ambition_actors::assets::sandbox_assets::SandboxAssetCatalog",
+            "ambition_actors::assets::sandbox_assets::ids",
+        ],
+        "F2 assets pass: pure asset vocabulary is owned by ambition_sprite_sheet / ambition_asset_manager; actor assets may only remain as game-specific loader/catalog adapter seams",
     );
 }
 

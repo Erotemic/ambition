@@ -100,8 +100,10 @@ prescription — log-once so E7/E8 executors don't re-derive:
    projectile edges are intentional.** F1.9 is a no-move ruling, now ratcheted
    by an architecture boundary test: `ambition_runtime` is the headless sim
    composition tier and may directly name sim/mechanic/model crates such as
-   `ambition_actors`, `ambition_combat`, and `ambition_projectiles`, but it must
-   not drift upward into app/content/host/render/touch/menu/backend ownership.
+   `ambition_actors`, `ambition_combat`, `ambition_projectiles`, and the
+   foundational `ambition_dev_tools` state seam used by headless sim/dev wiring,
+   but it must not drift upward into app/content/host/render/touch/menu/backend
+   ownership.
 10. ✅ **DONE (Codex 2026-07-08): `ambition_host` no longer depends on
     `ambition_actors`.** The host now schedules actor-owned input bridges
     through the `ambition_runtime::host_input` facade, reads camera-shake and
@@ -134,9 +136,16 @@ classes — log-once so the next sessions don't re-derive:
 
 1. **MISPLACED (move whole, mechanical):**
    - `assets/` (GameAssets + sandbox_assets + loading) — an asset catalog in
-     the actor crate; it is also render's biggest reason to dep actors (F1.5).
+     the actor crate; it was also render's biggest reason to dep actors (F1.5).
      Destination: `ambition_asset_manager` (catalog machinery) +
-     `ambition_sprite_sheet` (character-sprite-specific lookups).
+     `ambition_sprite_sheet` (character-sprite-specific lookups). **F2
+     misplaced-pass slice (Codex 2026-07-08) repointed external consumers of
+     the pure asset vocabulary (`GameAssetConfig`, `GameAssets`,
+     `EntitySprite`, `SandboxAssetCatalog`, and catalog `ids`) to those lower
+     crates directly. The remaining actor-side asset surface is now the
+     adapter that joins content registries, embedded world rows, and the
+     character/boss sprite loaders (`load_game_assets`,
+     `build_sandbox_catalog_with`, `AmbitionAssetSourcePlugin`).**
    - `character_sprites/` remainder (2.8k) — sheets/anim/animator modules are
      ~50% facade re-exports of `ambition_sprite_sheet` already (8 facade
      files); finish the absorb, delete the tree. **F2 misplaced-pass slice

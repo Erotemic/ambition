@@ -9,7 +9,7 @@
 //!   [`ambition_cutscene::RoomCutsceneBindings`] with the intro scripts
 //!   and room bindings from [`crate::intro::cutscene`].
 //! - [`load_intro_npc_sprites_system`] extends
-//!   [`ambition_actors::assets::game_assets::GameAssets`]`.characters.npcs` with the
+//!   [`ambition_sprite_sheet::game_assets::GameAssets`]`.characters.npcs` with the
 //!   intro placeholder sprite rows from [`crate::intro::sprites`].
 //!
 //! Both systems run after the sandbox's own startup systems insert the
@@ -22,7 +22,7 @@ use bevy::prelude::*;
 // `redirect_post_intro_dialog` ordering — the unified dialog redirect
 // system in the sandbox `dialog` module owns its own scheduling.
 use crate::banter::CombatBanterRegistry;
-use ambition_actors::assets::game_assets::{GameAssetConfig, GameAssets};
+use ambition_sprite_sheet::game_assets::{GameAssetConfig, GameAssets};
 use ambition_actors::character_sprites::{
     build_npc_sprite_asset, build_prop_sprite_asset, build_prop_sprite_asset_packed,
 };
@@ -196,7 +196,7 @@ pub(crate) fn load_intro_npc_sprites_system(
     asset_server: Option<Res<AssetServer>>,
     layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
     game_assets: Option<ResMut<GameAssets>>,
-    catalog: Option<Res<ambition_actors::assets::sandbox_assets::SandboxAssetCatalog>>,
+    catalog: Option<Res<ambition_asset_manager::sandbox_assets::SandboxAssetCatalog>>,
 ) {
     if installed.0 {
         return;
@@ -244,7 +244,7 @@ pub(crate) fn load_intro_prop_sprites_system(
     asset_server: Option<Res<AssetServer>>,
     layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
     game_assets: Option<ResMut<GameAssets>>,
-    catalog: Option<Res<ambition_actors::assets::sandbox_assets::SandboxAssetCatalog>>,
+    catalog: Option<Res<ambition_asset_manager::sandbox_assets::SandboxAssetCatalog>>,
     quality: Option<Res<ResolvedVisualQuality>>,
 ) {
     if installed.0 {

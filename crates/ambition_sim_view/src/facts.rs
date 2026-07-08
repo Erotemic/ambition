@@ -335,7 +335,7 @@ pub struct DynamicFeatureFact {
     pub fighting: bool,
     /// The placeholder entity-sprite the spawn resolves to (from the actor's
     /// brain / the NPC's interactable / the chest payload).
-    pub sprite_key: Option<ambition_actors::assets::game_assets::EntitySprite>,
+    pub sprite_key: Option<ambition_sprite_sheet::game_assets::EntitySprite>,
 }
 
 #[derive(Resource, Default, Clone, Debug)]
@@ -385,7 +385,7 @@ pub fn rebuild_dynamic_feature_views(
         )>,
     >,
 ) {
-    use ambition_actors::assets::game_assets;
+    use ambition_sprite_sheet::game_assets;
     use ambition_combat::FeatureVisualKind;
     view.0.clear();
     for (id, aabb, disposition, config) in &ecs_mobs {

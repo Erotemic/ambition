@@ -3,7 +3,8 @@ use bevy::prelude::*;
 #[cfg(feature = "audio")]
 use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
-use ambition_actors::assets::game_assets::{self, GameAssetConfig};
+use ambition_actors::assets::game_assets as actor_game_assets;
+use ambition_sprite_sheet::game_assets::{self, GameAssetConfig};
 use ambition_actors::assets::loading;
 use ambition_actors::dev::dev_tools::{EditableAbilitySet, EditableMovementTuning};
 use ambition_actors::ldtk_world;
@@ -68,7 +69,7 @@ pub(crate) fn setup_presentation_system(
     room_set: Res<rooms::RoomSet>,
     music_registry: Res<data::MusicRegistry>,
     sfx_registry: Res<data::SfxRegistry>,
-    sandbox_catalog: Res<ambition_actors::assets::sandbox_assets::SandboxAssetCatalog>,
+    sandbox_catalog: Res<ambition_asset_manager::sandbox_assets::SandboxAssetCatalog>,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
     mut audio_sources: ResMut<Assets<KiraAudioSource>>,
     asset_server: Res<AssetServer>,
@@ -86,7 +87,7 @@ pub(crate) fn setup_presentation_system(
     // browser devtools (see docs/recipes/web-build.md).
     #[cfg(not(target_arch = "wasm32"))]
     let t0 = std::time::Instant::now();
-    let game_assets = game_assets::load_game_assets(
+    let game_assets = actor_game_assets::load_game_assets(
         &asset_config,
         &sandbox_catalog,
         &asset_server,
@@ -160,7 +161,7 @@ pub(crate) fn setup_presentation_system(
 pub(crate) fn reload_visual_quality_assets_on_scale_change(
     quality: Res<ambition_render::quality::ResolvedVisualQuality>,
     asset_config: Res<GameAssetConfig>,
-    sandbox_catalog: Res<ambition_actors::assets::sandbox_assets::SandboxAssetCatalog>,
+    sandbox_catalog: Res<ambition_asset_manager::sandbox_assets::SandboxAssetCatalog>,
     asset_server: Res<AssetServer>,
     room_set: Res<rooms::RoomSet>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
@@ -182,7 +183,7 @@ pub(crate) fn reload_visual_quality_assets_on_scale_change(
     let Some(game_assets) = game_assets.as_deref_mut() else {
         return;
     };
-    *game_assets = game_assets::load_game_assets(
+    *game_assets = actor_game_assets::load_game_assets(
         &asset_config,
         &sandbox_catalog,
         &asset_server,
@@ -197,7 +198,7 @@ pub(crate) fn setup_presentation_system(
     mut commands: Commands,
     world: Res<RoomGeometry>,
     room_set: Res<rooms::RoomSet>,
-    sandbox_catalog: Res<ambition_actors::assets::sandbox_assets::SandboxAssetCatalog>,
+    sandbox_catalog: Res<ambition_asset_manager::sandbox_assets::SandboxAssetCatalog>,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
     asset_server: Res<AssetServer>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
@@ -206,7 +207,7 @@ pub(crate) fn setup_presentation_system(
     quality: Option<Res<ambition_render::quality::ResolvedVisualQuality>>,
     starting_character: Res<ambition_actors::player::StartingCharacter>,
 ) {
-    let game_assets = game_assets::load_game_assets(
+    let game_assets = actor_game_assets::load_game_assets(
         &asset_config,
         &sandbox_catalog,
         &asset_server,

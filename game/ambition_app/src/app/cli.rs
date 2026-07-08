@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use bevy::window::WindowResolution;
 
-use ambition_actors::assets::game_assets::GameAssetConfig;
+use ambition_sprite_sheet::game_assets::GameAssetConfig;
 use ambition_engine_core::config::{WINDOW_H, WINDOW_W};
 
 use super::plugins::{SandboxLdtkPlugin, SandboxPresentationPlugin, SandboxSimulationPlugin};

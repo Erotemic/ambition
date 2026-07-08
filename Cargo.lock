@@ -280,7 +280,6 @@ version = "0.1.0"
 dependencies = [
  "ambition_engine_core",
  "ambition_entity_catalog",
- "ambition_input",
  "bevy",
  "ron 0.11.0",
  "serde",

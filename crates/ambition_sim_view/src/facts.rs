@@ -425,7 +425,7 @@ pub fn rebuild_dynamic_feature_views(
         // interactable; a hostile one (provoked) from its archetype brain.
         let sprite_key = if disposition.is_peaceful() {
             match interaction {
-                Some(i) => game_assets::entity_sprite_for_interactable(&i.interactable),
+                Some(i) => game_assets::entity_sprite_for_runtime_interactable(&i.interactable),
                 None => continue,
             }
         } else {
@@ -454,7 +454,7 @@ pub fn rebuild_dynamic_feature_views(
             size: aabb.size(),
             visual_kind: FeatureVisualKind::Chest,
             fighting: false,
-            sprite_key: game_assets::entity_sprite_for_chest(&chest.chest),
+            sprite_key: game_assets::entity_sprite_for_runtime_chest(&chest.chest),
         });
     }
 }

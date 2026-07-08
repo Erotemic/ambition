@@ -1723,3 +1723,5 @@ The architecture boundary now records that decision: the touch adapter may depen
 on `ambition_render`, but it stays out of app/content/host/backend ownership. A
 future rename or re-home under a `presentation/` grouping is still allowed, but it
 is LOW priority and not a blocker for closing the F1 dep-graph audit.
+
+- 2026-07-08: F1.1 closed. `ambition_world` dropped its remaining runtime-family deps (`ambition_combat`, `ambition_interaction`, `ambition_portal`) by converting the legacy RoomSpec payload families to world-owned plain specs and moving runtime lowering to actor/portal edges.

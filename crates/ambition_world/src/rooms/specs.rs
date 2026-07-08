@@ -61,11 +61,8 @@ pub struct GroundItemSpec {
     pub half_extent: ae::Vec2,
 }
 
-/// LDtk-authored portal-gun pickup. Resolves to a
-/// [`ambition_portal::PortalGunPickup`] (already armed, `arm_timer = 0`) at room
-/// load — the authored-placement home for the debug
-/// `spawn_debug_portal_gun_pickup_once`.
-#[cfg(feature = "portal")]
+/// LDtk-authored portal-gun pickup. Pure room IR; the Ambition portal adapter
+/// lowers it to a runtime `PortalGunPickup` at room load.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct PortalGunSpawnSpec {
     /// LDtk iid — stable across rebuilds for save/debug joins.
@@ -78,22 +75,81 @@ pub struct PortalGunSpawnSpec {
     pub half_extent: ae::Vec2,
 }
 
-/// LDtk-authored static portal. Resolves to a [`ambition_portal::PlacedPortal`] at room
-/// load — pre-placed linked pairs (by complementary color) for the portal test
-/// lab, independent of the portal gun. The half-extent is the standard portal
-/// opening (derived from the normal), not the LDtk box size.
-#[cfg(feature = "portal")]
+/// Authored/runtime portal channel color carried by room IR.
+///
+/// This mirrors the Ambition portal crate's current color vocabulary but keeps
+/// `ambition_world` from depending on portal runtime types. Portal lowerings map
+/// it back to their runtime channel at the presentation/sim edge.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+pub enum PortalChannelColorSpec {
+    Purple,
+    Yellow,
+    Teal,
+    Red,
+    Green,
+    Magenta,
+    Cyan,
+    Rose,
+    Indexed(u8),
+}
+
+impl PortalChannelColorSpec {
+    pub fn partner(self) -> Self {
+        use PortalChannelColorSpec::*;
+        match self {
+            Purple => Yellow,
+            Yellow => Purple,
+            Teal => Red,
+            Red => Teal,
+            Green => Magenta,
+            Magenta => Green,
+            Cyan => Rose,
+            Rose => Cyan,
+            Indexed(n) => Indexed(n ^ 1),
+        }
+    }
+
+    pub fn name(self) -> String {
+        use PortalChannelColorSpec::*;
+        match self {
+            Purple => "purple".into(),
+            Yellow => "yellow".into(),
+            Teal => "teal".into(),
+            Red => "red".into(),
+            Green => "green".into(),
+            Magenta => "magenta".into(),
+            Cyan => "cyan".into(),
+            Rose => "rose".into(),
+            Indexed(n) => format!("c{n}"),
+        }
+    }
+
+    pub fn from_name(s: &str) -> Option<Self> {
+        use PortalChannelColorSpec::*;
+        Some(match s.trim().to_ascii_lowercase().as_str() {
+            "purple" => Purple,
+            "yellow" => Yellow,
+            "teal" => Teal,
+            "red" => Red,
+            "green" => Green,
+            "magenta" => Magenta,
+            "cyan" => Cyan,
+            "rose" => Rose,
+            other => Indexed(other.strip_prefix('c')?.parse::<u8>().ok()?),
+        })
+    }
+}
+
+/// LDtk-authored static portal. Pure room IR; the Ambition portal adapter
+/// lowers it to a runtime `PlacedPortal` at room load.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct PortalSpec {
     /// LDtk iid — stable across rebuilds for save/debug joins.
     pub id: String,
     /// LDtk display name (editor-facing / entity naming only).
     pub name: String,
-    /// Authored channel color (its partner color is the linked exit). Authored
-    /// portals are never gun colors — only [`PortalChannelColor`] is authorable.
-    ///
-    /// [`PortalChannelColor`]: ambition_portal::PortalChannelColor
-    pub color: ambition_portal::PortalChannelColor,
+    /// Authored channel color (its partner color is the linked exit).
+    pub color: PortalChannelColorSpec,
     /// World-space center of the portal face (on the host surface).
     pub pos: ae::Vec2,
     /// Outward surface normal (axis-aligned), pointing into the room.
@@ -164,4 +220,195 @@ impl<T> Authored<T> {
             payload,
         }
     }
+}
+
+
+/// Pure authored damage-volume payload carried by [`RoomSpec`]. Runtime combat
+/// crates lower this to their live `DamageVolume`; the world IR only stores
+/// plain data.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct HazardVolumeSpec {
+    pub damage: i32,
+    pub knockback: [f32; 2],
+    pub kind: ambition_entity_catalog::placements::DamageKind,
+    pub team: ambition_entity_catalog::placements::DamageTeam,
+    pub hitstop_seconds: f32,
+    pub respawn: ambition_entity_catalog::placements::HazardRespawn,
+    pub path_id: Option<String>,
+    pub motion: Option<ae::KinematicPath>,
+    pub enabled: bool,
+}
+
+impl HazardVolumeSpec {
+    pub fn new(amount: i32) -> Self {
+        Self {
+            damage: amount,
+            knockback: [0.0, 0.0],
+            kind: ambition_entity_catalog::placements::DamageKind::Hazard,
+            team: ambition_entity_catalog::placements::DamageTeam::Environment,
+            hitstop_seconds: 0.0,
+            respawn: ambition_entity_catalog::placements::HazardRespawn::Never,
+            path_id: None,
+            motion: None,
+            enabled: true,
+        }
+    }
+}
+
+/// Pure authored interaction payload. Runtime interaction crates lower this to
+/// their component state at room load.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct InteractableSpec {
+    pub prompt: String,
+    pub kind: InteractionKindSpec,
+    pub requires_facing: bool,
+    pub enabled: bool,
+}
+
+impl InteractableSpec {
+    pub fn new(prompt: impl Into<String>, kind: InteractionKindSpec) -> Self {
+        Self {
+            prompt: prompt.into(),
+            kind,
+            requires_facing: false,
+            enabled: true,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum InteractionKindSpec {
+    Door { target: Option<String> },
+    Npc {
+        character_id: Option<String>,
+        dialogue_id: Option<String>,
+        patrol_radius: f32,
+        patrol_path_id: Option<String>,
+    },
+    Chest,
+    Pickup,
+    Breakable,
+    Custom(String),
+}
+
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct PickupSpec {
+    pub kind: PickupKindSpec,
+    pub respawn: ambition_entity_catalog::placements::HazardRespawn,
+    pub collected: bool,
+}
+
+impl PickupSpec {
+    pub fn new(kind: PickupKindSpec) -> Self {
+        Self {
+            kind,
+            respawn: ambition_entity_catalog::placements::HazardRespawn::Never,
+            collected: false,
+        }
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub enum PickupKindSpec {
+    Health { amount: i32 },
+    Currency { amount: i32 },
+    Ability { ability_id: String },
+    StoryFlag { flag: String },
+    Custom(String),
+}
+
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct ChestSpec {
+    pub state: ChestStateSpec,
+    pub reward: Option<PickupKindSpec>,
+    pub persistent: bool,
+}
+
+impl ChestSpec {
+    pub fn new(reward: Option<PickupKindSpec>) -> Self {
+        Self {
+            state: ChestStateSpec::Closed,
+            reward,
+            persistent: true,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum ChestStateSpec {
+    Closed,
+    Opening,
+    Opened,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+pub enum BreakableTriggerSpec {
+    #[default]
+    OnHit,
+    OnStand,
+    Either,
+}
+
+impl BreakableTriggerSpec {
+    pub fn allows_hit(self) -> bool {
+        matches!(self, BreakableTriggerSpec::OnHit | BreakableTriggerSpec::Either)
+    }
+
+    pub fn allows_stand(self) -> bool {
+        matches!(self, BreakableTriggerSpec::OnStand | BreakableTriggerSpec::Either)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
+pub enum BreakableCollisionSpec {
+    #[default]
+    None,
+    Solid,
+    OneWayUp,
+}
+
+impl BreakableCollisionSpec {
+    pub fn blocks_movement(self) -> bool {
+        !matches!(self, BreakableCollisionSpec::None)
+    }
+
+    pub fn is_solid(self) -> bool {
+        matches!(self, BreakableCollisionSpec::Solid)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct BreakableSpec {
+    pub state: BreakableStateSpec,
+    pub health_current: i32,
+    pub health_max: i32,
+    pub respawn: ambition_entity_catalog::placements::HazardRespawn,
+    pub collision: BreakableCollisionSpec,
+    pub trigger: BreakableTriggerSpec,
+    pub debris_cue: Option<String>,
+    pub pogo_refresh: bool,
+}
+
+impl BreakableSpec {
+    pub fn new(max_hp: i32) -> Self {
+        let max_hp = max_hp.max(1);
+        Self {
+            state: BreakableStateSpec::Intact,
+            health_current: max_hp,
+            health_max: max_hp,
+            respawn: ambition_entity_catalog::placements::HazardRespawn::Never,
+            collision: BreakableCollisionSpec::None,
+            trigger: BreakableTriggerSpec::OnHit,
+            debris_cue: None,
+            pogo_refresh: false,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum BreakableStateSpec {
+    Intact,
+    Cracking,
+    Broken,
+    Respawning,
 }

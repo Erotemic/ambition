@@ -142,27 +142,27 @@ pub(super) fn parse_optional_path(
     })
 }
 
-pub(super) fn parse_pickup_kind(value: &str) -> ambition_interaction::PickupKind {
+pub(super) fn parse_pickup_kind(value: &str) -> ambition_world::rooms::PickupKindSpec {
     if let Some(amount) = value
         .strip_prefix("health:")
         .and_then(|text| text.parse::<i32>().ok())
     {
-        ambition_interaction::PickupKind::Health { amount }
+        ambition_world::rooms::PickupKindSpec::Health { amount }
     } else if let Some(amount) = value
         .strip_prefix("currency:")
         .and_then(|text| text.parse::<i32>().ok())
     {
-        ambition_interaction::PickupKind::Currency { amount }
+        ambition_world::rooms::PickupKindSpec::Currency { amount }
     } else if let Some(ability_id) = value.strip_prefix("ability:") {
-        ambition_interaction::PickupKind::Ability {
+        ambition_world::rooms::PickupKindSpec::Ability {
             ability_id: ability_id.to_string(),
         }
     } else if let Some(flag) = value.strip_prefix("flag:") {
-        ambition_interaction::PickupKind::StoryFlag {
+        ambition_world::rooms::PickupKindSpec::StoryFlag {
             flag: flag.to_string(),
         }
     } else {
-        ambition_interaction::PickupKind::Custom(value.to_string())
+        ambition_world::rooms::PickupKindSpec::Custom(value.to_string())
     }
 }
 
@@ -219,7 +219,7 @@ mod tests {
     use super::*;
     use ambition_engine_core::KinematicPathMode;
     use ambition_entity_catalog::placements::{BossBrain, CharacterBrain};
-    use ambition_interaction::PickupKind;
+    use ambition_world::rooms::PickupKindSpec as PickupKind;
 
     #[test]
     fn parse_points_reads_semicolon_pairs_and_skips_malformed() {

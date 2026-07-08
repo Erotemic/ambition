@@ -11,16 +11,13 @@ default = ["ldtk_runtime", "portal_ldtk"]
 dev_hot_reload = []
 static_map = ["ambition_asset_manager/static_map"]
 ldtk_runtime = ["dep:bevy_asset_loader", "dep:bevy_ecs_ldtk"]
-portal = ["dep:ambition_portal", "ambition_world/portal"]
+portal = []
 portal_ldtk = ["portal", "ldtk_runtime"]
 
 [dependencies]
 ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy"] }
-ambition_combat = { path = "../ambition_combat" }
 ambition_engine_core = { path = "../ambition_engine_core" }
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
-ambition_interaction = { path = "../ambition_interaction" }
-ambition_portal = { path = "../ambition_portal", optional = true }
 ambition_world = { path = "../ambition_world", default-features = false }
 bevy = { version = "0.18.1", default-features = false }
 bevy_asset_loader = { version = "0.26", optional = true }

@@ -47,31 +47,55 @@ pub fn entity_sprite_or_color(
 /// Per-family entity-sprite resolvers. Stateless choices — the
 /// runtime sync system swaps the sprite later for state-driven kinds
 /// (chest open, breakable cracked).
-pub fn entity_sprite_for_hazard(_volume: &ambition_combat::DamageVolume) -> Option<EntitySprite> {
+pub fn entity_sprite_for_hazard(_volume: &ambition_world::rooms::HazardVolumeSpec) -> Option<EntitySprite> {
     Some(EntitySprite::HazardSpikes)
 }
 
-pub fn entity_sprite_for_pickup(pickup: &ambition_interaction::Pickup) -> Option<EntitySprite> {
+pub fn entity_sprite_for_pickup(pickup: &ambition_world::rooms::PickupSpec) -> Option<EntitySprite> {
     Some(pickup_sprite(&pickup.kind))
 }
 
-pub fn entity_sprite_for_chest(_chest: &ambition_interaction::Chest) -> Option<EntitySprite> {
+pub fn entity_sprite_for_chest(_chest: &ambition_world::rooms::ChestSpec) -> Option<EntitySprite> {
+    Some(EntitySprite::ChestClosed)
+}
+
+/// Runtime chest resolver used by sim-view facts after authored room specs
+/// have been lowered into interaction components. Keep this in the sprite
+/// resolver layer so sim-view does not rebuild fake world specs just to pick
+/// the same entity art.
+pub fn entity_sprite_for_runtime_chest(
+    _chest: &ambition_interaction::Chest,
+) -> Option<EntitySprite> {
     Some(EntitySprite::ChestClosed)
 }
 
 pub fn entity_sprite_for_breakable(
-    _breakable: &ambition_interaction::Breakable,
+    _breakable: &ambition_world::rooms::BreakableSpec,
 ) -> Option<EntitySprite> {
     Some(EntitySprite::BreakableIntact)
 }
 
 pub fn entity_sprite_for_interactable(
-    interactable: &ambition_interaction::Interactable,
+    interactable: &ambition_world::rooms::InteractableSpec,
 ) -> Option<EntitySprite> {
     if matches!(
         interactable.kind,
-        ambition_interaction::InteractionKind::Npc { .. }
+        ambition_world::rooms::InteractionKindSpec::Npc { .. }
     ) {
+        Some(EntitySprite::NpcTerminal)
+    } else {
+        None
+    }
+}
+
+/// Runtime interactable resolver used by sim-view facts after authored room
+/// specs have been lowered into interaction components. This mirrors
+/// [`entity_sprite_for_interactable`] without forcing sim-view to depend on
+/// authored-spec reconstruction.
+pub fn entity_sprite_for_runtime_interactable(
+    interactable: &ambition_interaction::Interactable,
+) -> Option<EntitySprite> {
+    if matches!(interactable.kind, ambition_interaction::InteractionKind::Npc { .. }) {
         Some(EntitySprite::NpcTerminal)
     } else {
         None
@@ -107,11 +131,11 @@ pub fn entity_sprite_for_boss(
     Some(EntitySprite::BossCore)
 }
 
-fn pickup_sprite(kind: &ambition_interaction::PickupKind) -> EntitySprite {
+fn pickup_sprite(kind: &ambition_world::rooms::PickupKindSpec) -> EntitySprite {
     match kind {
-        ambition_interaction::PickupKind::Health { .. } => EntitySprite::PickupHealth,
-        ambition_interaction::PickupKind::Currency { .. } => EntitySprite::PickupCurrency,
-        ambition_interaction::PickupKind::Ability { .. } => EntitySprite::PickupAbility,
+        ambition_world::rooms::PickupKindSpec::Health { .. } => EntitySprite::PickupHealth,
+        ambition_world::rooms::PickupKindSpec::Currency { .. } => EntitySprite::PickupCurrency,
+        ambition_world::rooms::PickupKindSpec::Ability { .. } => EntitySprite::PickupAbility,
         // StoryFlag and Custom fall back to the ability look until they
         // get dedicated art.
         _ => EntitySprite::PickupAbility,

@@ -118,7 +118,7 @@ impl LdtkSurfaceSpec {
 #[derive(Clone, Debug, Default)]
 pub struct SurfaceCompiled {
     pub blocks: Vec<ae::Block>,
-    pub breakables: Vec<ambition_world::rooms::Authored<ambition_interaction::Breakable>>,
+    pub breakables: Vec<ambition_world::rooms::Authored<ambition_world::rooms::BreakableSpec>>,
 }
 
 /// LDtk identifiers that lower into the typed runtime "surface" conversion
@@ -313,7 +313,7 @@ pub fn compile_surface(spec: &LdtkSurfaceSpec) -> Result<SurfaceCompiled, String
     }
 
     let mut blocks = Vec::new();
-    let mut breakables: Vec<ambition_world::rooms::Authored<ambition_interaction::Breakable>> =
+    let mut breakables: Vec<ambition_world::rooms::Authored<ambition_world::rooms::BreakableSpec>> =
         Vec::new();
 
     match spec.breakability {
@@ -342,9 +342,9 @@ pub fn compile_surface(spec: &LdtkSurfaceSpec) -> Result<SurfaceCompiled, String
                 ));
             }
             let collision = match spec.collision {
-                SurfaceCollision::None => ambition_interaction::BreakableCollision::None,
-                SurfaceCollision::Solid => ambition_interaction::BreakableCollision::Solid,
-                SurfaceCollision::OneWayUp => ambition_interaction::BreakableCollision::OneWayUp,
+                SurfaceCollision::None => ambition_world::rooms::BreakableCollisionSpec::None,
+                SurfaceCollision::Solid => ambition_world::rooms::BreakableCollisionSpec::Solid,
+                SurfaceCollision::OneWayUp => ambition_world::rooms::BreakableCollisionSpec::OneWayUp,
                 SurfaceCollision::BlinkSoft | SurfaceCollision::BlinkHard => {
                     return Err(format!(
                         "Surface {} cannot mix BlinkWall collision with breakability yet",
@@ -361,15 +361,15 @@ pub fn compile_surface(spec: &LdtkSurfaceSpec) -> Result<SurfaceCompiled, String
                 ));
             }
             let max_hp = spec.max_hp.max(1);
-            let mut breakable = ambition_interaction::Breakable::new(spec.iid.clone(), max_hp);
+            let mut breakable = ambition_world::rooms::BreakableSpec::new(max_hp);
             breakable.collision = collision;
             breakable.trigger = match breakable_kind {
-                SurfaceBreakability::BreakOnHit => ambition_interaction::BreakableTrigger::OnHit,
+                SurfaceBreakability::BreakOnHit => ambition_world::rooms::BreakableTriggerSpec::OnHit,
                 SurfaceBreakability::BreakOnStand => {
-                    ambition_interaction::BreakableTrigger::OnStand
+                    ambition_world::rooms::BreakableTriggerSpec::OnStand
                 }
                 SurfaceBreakability::BreakOnHitOrStand => {
-                    ambition_interaction::BreakableTrigger::Either
+                    ambition_world::rooms::BreakableTriggerSpec::Either
                 }
                 SurfaceBreakability::Indestructible => unreachable!(),
             };

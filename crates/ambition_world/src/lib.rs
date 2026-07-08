@@ -44,11 +44,8 @@ mod dependency_tests {
         }
 
         let allowed = BTreeSet::from([
-            "ambition_combat".to_string(), // legacy typed hazards; W-step branch residue
             "ambition_engine_core".to_string(),
             "ambition_entity_catalog".to_string(),
-            "ambition_interaction".to_string(), // legacy typed interactables/pickups/chests/breakables
-            "ambition_portal".to_string(),      // legacy typed static portal schema
             "ambition_time".to_string(),
         ]);
         assert_eq!(

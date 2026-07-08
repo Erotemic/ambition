@@ -26,10 +26,8 @@ pub struct RoomSpec {
     /// [`GroundItemSpec`].
     pub ground_items: Vec<GroundItemSpec>,
     /// LDtk-authored portal-gun pickups. See [`PortalGunSpawnSpec`].
-    #[cfg(feature = "portal")]
     pub portal_gun_spawns: Vec<PortalGunSpawnSpec>,
     /// LDtk-authored static portals (pre-placed linked pairs). See [`PortalSpec`].
-    #[cfg(feature = "portal")]
     pub portals: Vec<PortalSpec>,
     /// LDtk-authored heal/save shrines. See [`ShrineSpec`].
     pub shrines: Vec<ShrineSpec>,
@@ -37,11 +35,11 @@ pub struct RoomSpec {
     pub gravity_zones: Vec<GravityZoneSpec>,
 
     // --- Per-family authored entity lists; each family spawns through ECS.
-    pub hazards: Vec<Authored<ambition_combat::DamageVolume>>,
-    pub interactables: Vec<Authored<ambition_interaction::Interactable>>,
-    pub pickups: Vec<Authored<ambition_interaction::Pickup>>,
-    pub chests: Vec<Authored<ambition_interaction::Chest>>,
-    pub breakables: Vec<Authored<ambition_interaction::Breakable>>,
+    pub hazards: Vec<Authored<HazardVolumeSpec>>,
+    pub interactables: Vec<Authored<InteractableSpec>>,
+    pub pickups: Vec<Authored<PickupSpec>>,
+    pub chests: Vec<Authored<ChestSpec>>,
+    pub breakables: Vec<Authored<BreakableSpec>>,
     pub enemy_spawns: Vec<Authored<ambition_entity_catalog::placements::CharacterBrain>>,
     pub boss_spawns: Vec<Authored<ambition_entity_catalog::placements::BossBrain>>,
     pub debug_labels: Vec<Authored<crate::debug_label::DebugLabel>>,
@@ -71,9 +69,7 @@ impl RoomSpec {
             moving_platforms: Vec::new(),
             props: Vec::new(),
             ground_items: Vec::new(),
-            #[cfg(feature = "portal")]
             portal_gun_spawns: Vec::new(),
-            #[cfg(feature = "portal")]
             portals: Vec::new(),
             shrines: Vec::new(),
             gravity_zones: Vec::new(),

@@ -51,9 +51,7 @@ pub(super) fn convert_damage_volume(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmiss
     let (entity, name, min, size) = ctx.parts();
     let offset = ctx.offset;
     let aabb = object_aabb(min, size);
-    let mut volume = ambition_combat::DamageVolume::new(
-        entity.iid.clone(),
-        aabb,
+    let mut volume = ambition_world::rooms::HazardVolumeSpec::new(
         field_i32(entity, "damage").unwrap_or(1),
     );
     volume.path_id = field_string(entity, "path_id")
@@ -66,15 +64,14 @@ pub(super) fn convert_damage_volume(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmiss
         path.points = offset_points(path.points, offset);
         path
     });
-    // DUAL emission during the W-track migration: the legacy typed hazard
+    // DUAL emission during the W-track migration: the world-owned plain hazard
     // family (still what spawning consumes) + the authored placement RECORD
-    // (the [W-b] schema-over-record shape). W-queue step 3 registers the
-    // hazard lowering interpreter and deletes the legacy channel.
+    // (the [W-b] schema-over-record shape).
     // A legacy INLINE-motion hazard cannot be represented by `HazardSpec`
     // (`path_id` only — the pinned Tier-0 shape); emitting a record would make
     // the lowering path win the dual-spawn guard and silently DROP the motion.
-    // Keep such hazards legacy-only until dissolution lifts the inline path
-    // into a room-level `KinematicPath` (see the HazardSpec doc note).
+    // Keep such hazards on the plain hazard channel until dissolution lifts the
+    // inline path into a room-level `KinematicPath` (see the HazardSpec doc note).
     if volume.motion.is_some() {
         return Ok(RoomEmission {
             hazards: vec![ambition_world::rooms::Authored::new(
@@ -89,11 +86,11 @@ pub(super) fn convert_damage_volume(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmiss
     let mut record = ambition_world::placements::PlacementRecord::new(
         entity.iid.clone(),
         PlacementSchema::Hazard(HazardSpec {
-            damage: volume.damage.amount,
-            knockback: [volume.damage.knockback.x, volume.damage.knockback.y],
-            kind: volume.damage.kind,
-            team: volume.damage.source,
-            hitstop_seconds: volume.damage.hitstop_seconds,
+            damage: volume.damage,
+            knockback: volume.knockback,
+            kind: volume.kind,
+            team: volume.team,
+            hitstop_seconds: volume.hitstop_seconds,
             respawn: volume.respawn,
             path_id: volume.path_id.clone(),
         }),
@@ -244,15 +241,13 @@ pub(super) fn convert_npc_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission,
     } else {
         character_id.clone()
     };
-    let interactable = ambition_interaction::Interactable::new(
-        entity.iid.clone(),
+    let interactable = ambition_world::rooms::InteractableSpec::new(
         field_string(entity, "prompt").unwrap_or_else(|| "Talk".to_string()),
-        object_aabb(min, size),
-        ambition_interaction::InteractionKind::Npc {
+        ambition_world::rooms::InteractionKindSpec::Npc {
             character_id: (!character_id.is_empty()).then(|| character_id.clone()),
             dialogue_id: field_string(entity, "dialogue_id"),
             // Optional `patrol_radius` field on NpcSpawn. 0 (or unset)
-            // → static NPC unless `path_id` is set.
+            // -> static NPC unless `path_id` is set.
             patrol_radius: field_f32(entity, "patrol_radius").unwrap_or(0.0),
             patrol_path_id: field_string(entity, "path_id")
                 .or_else(|| field_string(entity, "patrol_path_id")),
@@ -266,10 +261,9 @@ pub(super) fn convert_npc_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission,
 
 pub(super) fn convert_pickup_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, name, min, size) = ctx.parts();
-    let pickup = ambition_interaction::Pickup::new(
-        entity.iid.clone(),
-        parse_pickup_kind(&field_string(entity, "kind").unwrap_or_else(|| "health:1".to_string())),
-    );
+    let pickup = ambition_world::rooms::PickupSpec::new(parse_pickup_kind(
+        &field_string(entity, "kind").unwrap_or_else(|| "health:1".to_string()),
+    ));
     let (id, name, aabb) = authored_triple(entity, name, min, size);
     Ok(RoomEmission::pickup(ambition_world::rooms::Authored::new(
         id, name, aabb, pickup,
@@ -328,7 +322,7 @@ pub(super) fn convert_portal(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, St
     // surface the portal sits on (up = floor, down = ceiling, left = right-wall,
     // right = left-wall — y is down in world space). The box center is the face.
     let color_str = field_string(entity, "color").unwrap_or_default();
-    let color = ambition_portal::PortalChannelColor::from_name(&color_str)
+    let color = ambition_world::rooms::PortalChannelColorSpec::from_name(&color_str)
         .ok_or_else(|| format!("Portal '{name}' has unknown color '{color_str}'"))?;
     let normal = match field_string(entity, "normal").as_deref().map(str::trim) {
         Some("down") => ae::Vec2::new(0.0, 1.0),
@@ -422,8 +416,7 @@ pub(super) fn convert_gravity_zone(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissi
 
 pub(super) fn convert_chest_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, name, min, size) = ctx.parts();
-    let chest = ambition_interaction::Chest::new(
-        entity.iid.clone(),
+    let chest = ambition_world::rooms::ChestSpec::new(
         field_string(entity, "reward").map(|value| parse_pickup_kind(&value)),
     );
     let (id, name, aabb) = authored_triple(entity, name, min, size);
@@ -577,7 +570,7 @@ pub(super) fn convert_camera_zone(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
     }))
 }
 
-/// Convert an LDtk `Switch` entity into a runtime [`ambition_interaction::Interactable`]
+/// Convert an LDtk `Switch` entity into a room-owned interaction spec
 /// carrying the wire-format custom payload.
 ///
 /// The `SwitchFeature` spawn path re-parses the payload into a typed
@@ -589,11 +582,9 @@ pub(super) fn convert_switch(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, St
     let action = field_string(entity, "action").unwrap_or_else(|| "ResetEncounter".into());
     let target_encounter = field_string(entity, "target_encounter").unwrap_or_default();
     let aabb = object_aabb(min, size);
-    let interactable = ambition_interaction::Interactable::new(
-        id.clone(),
+    let interactable = ambition_world::rooms::InteractableSpec::new(
         field_string(entity, "prompt").unwrap_or_else(|| "Activate".into()),
-        aabb,
-        ambition_interaction::InteractionKind::Custom(format!(
+        ambition_world::rooms::InteractionKindSpec::Custom(format!(
             "switch:{id}:{action}:{target_encounter}"
         )),
     );

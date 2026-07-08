@@ -552,14 +552,23 @@ fn architecture_boundaries_world_ir_and_ldtk_backend_are_split() {
             "ambition_render",
             "ambition_content",
             "ambition_app",
+            "ambition_combat",
+            "ambition_interaction",
+            "ambition_portal",
             "bevy_ecs_ldtk",
         ],
         "ambition_world is the backend-agnostic world IR",
     );
     assert_source_tree_has_no_code_refs(
         world_root.join("src"),
-        &["ambition_ldtk_map", "bevy_ecs_ldtk"],
-        "ambition_world source must stay free of backend code imports",
+        &[
+            "ambition_ldtk_map",
+            "ambition_combat",
+            "ambition_interaction",
+            "ambition_portal",
+            "bevy_ecs_ldtk",
+        ],
+        "ambition_world source must stay free of backend and runtime-family code imports",
     );
 
     assert_manifest_has_no_deps(

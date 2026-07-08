@@ -1150,11 +1150,12 @@ pub(super) fn spawn_solo_enemy(
 }
 pub(super) fn spawn_interactable(
     commands: &mut Commands,
-    authored: &crate::rooms::Authored<ambition_interaction::Interactable>,
+    authored: &crate::rooms::Authored<crate::rooms::InteractableSpec>,
     paths: &[(String, ambition_engine_core::KinematicPath)],
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
-    let interactable = &authored.payload;
+    let interactable = super::spawn_static::interactable_from_authored(authored);
+    let interactable = &interactable;
     if matches!(
         interactable.kind,
         ambition_interaction::InteractionKind::Npc { .. }

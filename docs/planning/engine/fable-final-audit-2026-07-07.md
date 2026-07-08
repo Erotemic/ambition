@@ -30,20 +30,16 @@ characters/combat/primitives sit above engine_core, `game/` sits on top.
 The arrows below are the full remaining cleanup list, each with its
 prescription — log-once so E7/E8 executors don't re-derive:
 
-1. **`ambition_world` → combat + interaction + portal (VIOLATES the §4b
-   "world IR names ZERO runtime types" ruling — transitionally).** Cause: the
-   legacy `Authored<DamageVolume>` / `Authored<Interactable/Pickup/Chest/
-   Breakable>` / `PortalSpec` families still ride `RoomSpec`. This is EXACTLY
-   what [W-b] record-over-schema dissolution removes. **Prescription: each
-   W-queue step-3 branch conversion's exit test is "delete the corresponding
-   Cargo dep from ambition_world"** — hazards → drop combat; interactables/
-   pickups/chests/breakables → drop interaction; portals → drop portal
-   (portal placement becomes a Tier-0 schema variant: color/link/normal are
-   plain data). ✅ **First ratchet landed (Codex 2026-07-07):**
-   `zone_sfx` now carries a world-owned plain cue id, so `ambition_world`
-   no longer depends on `ambition_sfx`; RON-room loading also moved to
-   `ambition_world`, and the world dependency allow-list test now ratchets
-   the remaining legacy arrows.
+1. ✅ **DONE (Codex 2026-07-08): `ambition_world` no longer depends on
+   combat, interaction, or portal runtime crates.** The remaining legacy typed
+   RoomSpec families were converted to world-owned plain authored payloads:
+   hazards carry `HazardVolumeSpec`, interaction/pickup/chest/breakable rows
+   carry `*Spec` data, and static portal authoring carries
+   `PortalChannelColorSpec` + plain geometry/link fields. Runtime/presentation
+   crates now lower those records at their own edge, while `ambition_world`'s
+   manifest allow-list contains only engine/catalog/time foundations. The app
+   architecture boundary test now forbids reintroducing `ambition_combat`,
+   `ambition_interaction`, or `ambition_portal` in the world IR.
 2. ✅ **DONE (Codex 2026-07-07): `ambition_actors::portal` facade deleted.**
    Consumers now import portal mechanics from `ambition_portal`, presentation
    resources/schedule labels from `ambition_portal_presentation`, and Ambition

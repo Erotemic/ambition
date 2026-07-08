@@ -471,11 +471,8 @@ name = "ambition_ldtk_map"
 version = "0.1.0"
 dependencies = [
  "ambition_asset_manager",
- "ambition_combat",
  "ambition_engine_core",
  "ambition_entity_catalog",
- "ambition_interaction",
- "ambition_portal",
  "ambition_world",
  "bevy",
  "bevy_asset_loader",
@@ -713,11 +710,8 @@ dependencies = [
 name = "ambition_world"
 version = "0.1.0"
 dependencies = [
- "ambition_combat",
  "ambition_engine_core",
  "ambition_entity_catalog",
- "ambition_interaction",
- "ambition_portal",
  "ambition_time",
  "bevy_app",
  "bevy_ecs",

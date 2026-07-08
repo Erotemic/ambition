@@ -7,15 +7,11 @@ authors.workspace = true
 description = "Backend-agnostic authored world IR: room graph, placement records, moving-platform math, and room metadata."
 
 [features]
-default = ["portal"]
-portal = ["dep:ambition_portal"]
+default = []
 
 [dependencies]
-ambition_combat = { path = "../ambition_combat" }
 ambition_engine_core = { path = "../ambition_engine_core" }
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
-ambition_interaction = { path = "../ambition_interaction" }
-ambition_portal = { path = "../ambition_portal", optional = true }
 ambition_time = { path = "../ambition_time" }
 bevy_app = { version = "0.18.1", default-features = false }
 bevy_ecs = { version = "0.18.1", default-features = false }

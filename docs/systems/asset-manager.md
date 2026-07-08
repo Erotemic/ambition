@@ -34,7 +34,7 @@ AssetId
   -> Bevy AssetServer or non-Bevy byte consumer
 ```
 
-The asset manager answers the catalog question. The caller still decides whether it needs a Bevy handle, an SFX bank byte provider, a filesystem path for a tool, or a skip/fallback path.
+The asset manager answers the catalog question. The caller still decides whether it needs a Bevy handle, an audio/SFX provider built by the audio layer, a filesystem path for a tool, or a skip/fallback path.
 
 ## Edit protocol
 

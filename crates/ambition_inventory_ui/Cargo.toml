@@ -1,0 +1,14 @@
+[package]
+name = "ambition_inventory_ui"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Reusable inventory menu-navigation state for Ambition-style platformers."
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+ambition_ui_nav = { path = "../ambition_ui_nav" }
+bevy = { version = "0.18.1", default-features = false, features = ["bevy_state"] }

@@ -1668,3 +1668,20 @@ exports `read_gameplay_control_frame*` / `read_menu_control_frame`, keeps
 for legacy app/test import paths. The architecture boundary test now ratchets
 that split: `ambition_characters` must not depend on or name `ambition_input`,
 while `ambition_input` must not depend upward on reusable character brains.
+
+
+## 2026-07-08 (Codex) — F1.8 asset-manager/SFX adapter edge removed
+
+Finished F1.8 by deleting the unused `ambition_asset_manager::sfx_integration`
+adapter and removing the optional `ambition_sfx` dependency/`sfx` feature from
+`ambition_asset_manager`. The asset manager is now backend-generic again: it
+resolves logical ids such as `audio.sfx_bank` to `AssetLocation`, while the
+audio/app layer owns `BankProvider` construction from local paths, embedded
+bytes, or async loader paths. The app crate no longer enables an asset-manager
+`sfx` feature, and the architecture boundary test ratchets the split.
+
+Gate in overlay sandbox: `cargo`/`rustfmt` unavailable; validation was limited
+to static boundary greps, doc checks, and `git diff --check`. Recipient should
+run `cargo fmt --all`, `cargo test -p ambition_asset_manager`, `cargo test -p
+ambition_app --test architecture_boundaries`, and `cargo check -p ambition_app
+--features "rl_sim input mobile_touch"`.

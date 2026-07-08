@@ -92,9 +92,13 @@ prescription — log-once so E7/E8 executors don't re-derive:
    and no longer depends on `ambition_input`; `ambition_input` is now the device
    adapter that builds engine-owned frames from Leafwing/settings and keeps
    `ambition_input::ControlFrame` only as a compatibility re-export.
-8. **`ambition_asset_manager` → `ambition_sfx`** — only for `SfxId` +
-   `BankProvider` adapter. Acceptable today; if asset_manager is ever meant
-   to be engine-generic, the sfx adapter is a feature-gated module. LOW.
+8. ✅ **DONE (Codex 2026-07-08): `ambition_asset_manager` no longer
+   depends on `ambition_sfx`.** The unused SFX-bank provider adapter was
+   deleted instead of feature-gated: the asset manager resolves the logical
+   `audio.sfx_bank` id to an `AssetLocation`, and the audio/app layer constructs
+   `BankProvider` from that location. The architecture boundary test now
+   forbids `ambition_sfx`/`ambition_audio` deps, the old `sfx` feature, and the
+   removed `sfx_integration.rs` module.
 9. **`ambition_runtime` → actors/combat/projectiles/etc.** — correct BY
    DESIGN (runtime is the composition tier).
 10. **`ambition_host` → render + actors** — see 4; after GameMode/camera_ease

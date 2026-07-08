@@ -13,9 +13,8 @@
 //! that turns resolved locations into `AssetServer::load` calls.
 //!
 //! For non-Bevy byte consumers (the SFX bank, manifest preload, raw
-//! shader bytes) [`sfx_integration`] and friends provide small synchronous
-//! adapters that consult the resolver and return bytes ready for the
-//! consuming subsystem.
+//! shader bytes), callers resolve a logical id here and construct their
+//! backend-specific provider in the owning subsystem.
 //!
 //! See `docs/systems/asset-manager.md` for the full per-profile contract,
 //! hot-reload availability, and Bevy `AssetSource` wiring recommendations.
@@ -36,9 +35,6 @@ pub mod bevy_integration;
 #[cfg(feature = "bevy")]
 pub mod sandbox_assets;
 
-#[cfg(feature = "sfx")]
-pub mod sfx_integration;
-
 pub use id::AssetId;
 pub use kind::AssetKind;
 pub use location::{ipfs_gateway_url, AssetLocation};
@@ -51,9 +47,4 @@ pub use resolver::{resolve, resolve_all, AssetResolutionError, ResolvedAsset};
 #[cfg(feature = "bevy")]
 pub use bevy_integration::{
     path_for_active, AmbitionAssetCatalog, AmbitionAssetManagerPlugin, AmbitionAssetProfile,
-};
-
-#[cfg(feature = "sfx")]
-pub use sfx_integration::{
-    build_provider_from_path, build_provider_from_resolved, SfxBankResolveError,
 };

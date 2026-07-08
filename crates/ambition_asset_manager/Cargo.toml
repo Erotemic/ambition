@@ -27,10 +27,9 @@ bevy = ["dep:bevy"]
 static_map = ["bevy"]
 static_core_assets = ["bevy"]
 
-# Optional small adapter that resolves `audio.sfx_bank` through the
-# manifest and hands the bytes (when available) to
-# `ambition_sfx::BankProvider::from_bytes`. Has no audio backend deps.
-sfx = ["dep:ambition_sfx"]
+# The asset manager stays backend-generic. Audio/SFX consumers resolve the
+# logical `audio.sfx_bank` id here, then construct their provider in the audio
+# layer rather than through an asset-manager feature.
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
@@ -44,7 +43,6 @@ bevy = { version = "0.18.1", default-features = false, features = [
     "bevy_asset",
     "bevy_state",
 ], optional = true }
-ambition_sfx = { path = "../ambition_sfx", optional = true }
 
 [dev-dependencies]
 # Tests exercise the core layer without Bevy by default; a small set

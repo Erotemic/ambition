@@ -756,6 +756,47 @@ fn architecture_boundaries_inventory_ui_crate_is_menu_state_only() {
     );
 }
 
+
+/// `ambition_asset_manager` (F1.8) owns logical asset catalog/profile
+/// resolution only. Concrete backend providers — including SFX-bank
+/// `BankProvider` construction — live in the owning audio/app layer after a
+/// caller resolves an `AssetId` to a location.
+#[test]
+fn architecture_boundaries_asset_manager_is_backend_generic() {
+    let crate_root = repo_root().join("crates/ambition_asset_manager");
+    assert_workspace_contains_crate("ambition_asset_manager");
+    assert!(
+        crate_root.join("Cargo.toml").exists(),
+        "ambition_asset_manager crate should exist at crates/ambition_asset_manager"
+    );
+
+    assert_manifest_has_no_deps(
+        &crate_root,
+        &["ambition_sfx", "ambition_audio"],
+        "asset manager resolves logical locations; audio/SFX providers stay in their owning layer",
+    );
+    assert_code_refs_absent(
+        &[crate_root.join("src")],
+        &["ambition_sfx::", "BankProvider", "SfxBankResolveError"],
+        "asset manager source must not construct audio/SFX backend providers",
+    );
+    assert_paths_absent(
+        &crate_root.join("src"),
+        &["sfx_integration.rs"],
+        "F1.8 removes the asset-manager SFX adapter instead of feature-gating an upward dependency",
+    );
+
+    let manifest = fs::read_to_string(crate_root.join("Cargo.toml"))
+        .expect("read ambition_asset_manager manifest");
+    assert!(
+        !manifest.contains("dep:ambition_sfx")
+            && !manifest
+                .lines()
+                .any(|line| line.trim().starts_with("sfx =")),
+        "asset manager should not expose an `sfx` feature that reintroduces an audio backend edge"
+    );
+}
+
 /// `ambition_menu_kaleidoscope` is the FIRST engine extension crate (E1e): the
 /// bevy_lunex 3D cube renderer for the `ambition_menu` page model. It is
 /// optional for any game — a host installs it to draw the same backend-agnostic

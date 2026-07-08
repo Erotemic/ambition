@@ -66,9 +66,9 @@ impl AssetKind {
     }
 
     /// Whether Bevy's typed asset pipeline natively understands this
-    /// kind. `AudioBank` is `false` because it's an Ambition-specific
-    /// container — its bytes flow through a non-Bevy adapter
-    /// (see [`crate::sfx_integration`]).
+    /// kind. `AudioBank` is `false` because it is an Ambition-specific
+    /// packed container whose resolved location is consumed by the audio
+    /// layer rather than by Bevy's typed asset pipeline.
     pub fn bevy_native(self) -> bool {
         !matches!(self, Self::AudioBank | Self::Binary | Self::Directory)
     }

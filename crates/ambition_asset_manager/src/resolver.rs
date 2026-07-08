@@ -1,9 +1,9 @@
 //! Resolve `(AssetId, AssetProfile) -> ResolvedAsset`.
 //!
 //! The resolver is the seam between Ambition's logical catalog
-//! ([`crate::manifest`]) and the runtime asset backend
-//! (Bevy `AssetServer` for Bevy-native kinds, [`crate::sfx_integration`]
-//! and similar tiny adapters for non-Bevy bytes).
+//! ([`crate::manifest`]) and the runtime asset backend. Bevy callers feed
+//! resolved locations to `AssetServer`; non-Bevy consumers feed them to their
+//! owning subsystem's byte/provider loader.
 //!
 //! ## Resolution algorithm
 //!

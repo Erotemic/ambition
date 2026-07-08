@@ -29,8 +29,8 @@ impl AssetId {
         Self(value.into())
     }
 
-    /// Construct from a `'static` literal. Same behavior as `new`; here
-    /// for symmetry with `ambition_sfx::SfxId::from_static`.
+    /// Construct from a `'static` literal. Same behavior as `new`, but useful
+    /// for stable catalog ids declared as constants.
     pub fn from_static(value: &'static str) -> Self {
         Self(value.to_string())
     }

@@ -350,6 +350,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_characters",
  "ambition_engine_core",
+ "ambition_input",
  "ambition_persistence",
  "ambition_platformer_primitives",
  "bevy",
@@ -555,11 +556,11 @@ dependencies = [
 name = "ambition_render"
 version = "0.1.0"
 dependencies = [
- "ambition_actors",
  "ambition_asset_manager",
  "ambition_characters",
  "ambition_combat",
  "ambition_cutscene",
+ "ambition_dev_tools",
  "ambition_dialog",
  "ambition_engine_core",
  "ambition_input",
@@ -648,6 +649,13 @@ dependencies = [
 name = "ambition_sprite_sheet"
 version = "0.1.0"
 dependencies = [
+ "ambition_asset_manager",
+ "ambition_combat",
+ "ambition_engine_core",
+ "ambition_entity_catalog",
+ "ambition_interaction",
+ "ambition_persistence",
+ "ambition_world",
  "bevy",
  "ron 0.11.0",
  "serde",

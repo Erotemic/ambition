@@ -1621,3 +1621,24 @@ limited to static source greps, Python syntax-free rewrite checks, and
 `cargo test -p ambition_platformer_primitives`, `cargo test -p ambition_actors --lib`,
 `cargo test -p ambition_touch_input`, and the app/content checks listed in the
 overlay response.
+
+## 2026-07-08 (Codex) — F1.5 render→actors dep flip complete
+
+Finished the F1.5 blocker after the first-cut ratchet compiled: `ambition_render`
+no longer depends on `ambition_actors`. The remaining render-facing vocabulary
+was lowered to reusable crates: `ambition_sprite_sheet::game_assets` owns the
+`GameAssets` resource shape, entity/parallax asset ids, and static image loader
+helpers; `ambition_sprite_sheet::boss` owns boss animation/sheet render types;
+`ambition_platformer_primitives` owns the shared physics settings, feature
+overlay resource, and shrine pulse resource; and `ambition_dev_tools` owns
+`SandboxDevState`. Render-side feature visuals now use the `FeatureView`
+read-model instead of live ECS feature components, and controlled-body sprite
+quality reloads preserve the selected character through a render-owned marker
+written by the app composition seam.
+
+The F1.5 observation test is now a zero-dependency boundary: the render manifest
+must not depend on `ambition_actors`, and render source code must not name the
+actor crate.
+
+Gate: `cargo fmt --all`; `cargo test -p ambition_render --test observation_boundary`;
+`cargo check -p ambition_render`; `cargo check -p ambition_app --features "rl_sim input mobile_touch"`.

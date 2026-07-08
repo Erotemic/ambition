@@ -67,22 +67,18 @@ prescription — log-once so E7/E8 executors don't re-derive:
    reason for host/touch/render-side code to name `ambition_actors`; remaining
    arrows are concrete machinery/presentation seams and can be burned down
    independently.
-5. **F1.5 FIRST CUT DONE (Codex 2026-07-07): `ambition_render` →
-   `ambition_actors` is ratcheted to the true residue.** Render now imports room
-   IR/metadata/gate-portal state from `ambition_world::rooms`; camera layer
-   markers, concrete sandbox schedule labels, and camera shake/ease state moved
-   down to `ambition_platformer_primitives`; `RespawnRoomVisualsRequested` moved
-   to `ambition_world::rooms`; baked sheet registry calls read
-   `ambition_sprite_sheet`; and the fireball prop id is local render art
-   vocabulary. The previous rooms/session/schedule/time/menu/items/
-   character_sprites/combat reach-throughs are gone from render. A render
-   boundary ratchet now counts the remaining actor-prefix references exactly:
-   assets (8), features (5), dev/SandboxDevState (7), boss_encounter (2),
-   shrine (1), world physics settings (1), player starting-character resource
-   (1), and character_roster fallback id (1). Next F1.5/F2.1 slice: move
-   `GameAssets` / image-handle catalog ownership out of the actor crate; then
-   convert the remaining live ECS/dev/shrine/player reads to SimView or
-   presentation-owned resources.
+5. ✅ **DONE (Codex 2026-07-08): `ambition_render` no longer depends on
+   `ambition_actors`.** F1.5's first cut enumerated the true residue; the finish
+   pass burned it down by moving render-facing asset vocabulary (`GameAssets`,
+   entity sprites, parallax ids, and boss sprite animation/types) into
+   `ambition_sprite_sheet`, moving camera/physics/shrine/dev/read-only session
+   resources into lower vocabulary crates, and making controlled-body sprite
+   rebinding use a render-owned `PlayerSpriteCharacter` marker supplied by the
+   app seam. Render now reads lower model/view crates (`ambition_sim_view`,
+   `ambition_world`, `ambition_sprite_sheet`, `ambition_platformer_primitives`,
+   `ambition_dev_tools`) and `Cargo.toml` has no actor dependency. The render
+   boundary test is upgraded from an allowed-residue count to a zero-dependency
+   assertion.
 6. **`ambition_items` contains `inventory_ui`** (deps ui_nav for
    `MenuFocusState`). The item MODEL and the inventory UI are different
    tiers. **Prescription: split inventory_ui out (menu-side or its own

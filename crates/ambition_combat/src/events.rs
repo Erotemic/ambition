@@ -55,6 +55,13 @@ pub struct FeatureView {
     pub kind: FeatureVisualKind,
     pub visible: bool,
     pub flash: bool,
+    /// For `FeatureVisualKind::Breakable`: the current authored breakable
+    /// state, so presentation can select intact/cracked/broken art without
+    /// querying live ECS feature components. `None` for every other kind.
+    pub breakable_state: Option<ambition_interaction::BreakableState>,
+    /// For `FeatureVisualKind::Chest`: true once the chest has been opened.
+    /// Ignored for every other kind.
+    pub chest_opened: bool,
     /// For `FeatureVisualKind::Actor`: true when the actor is in the FIGHTING
     /// state (a fact about the actor itself — NOT "hostile to the player";
     /// relativity principle). A STATE flag exactly like `flash`: a provoked NPC

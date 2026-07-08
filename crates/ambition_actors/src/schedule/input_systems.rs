@@ -17,7 +17,7 @@ use leafwing_input_manager::prelude::ActionState;
 use ambition_platformer_primitives::schedule::GameMode;
 #[cfg(feature = "input")]
 use crate::platformer_runtime::lifecycle::PlayerVisual;
-use crate::SandboxDevState;
+use ambition_dev_tools::SandboxDevState;
 #[cfg(feature = "input")]
 use ambition_input::{
     read_gameplay_control_frame_with_settings, read_menu_control_frame, SandboxAction,

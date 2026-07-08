@@ -9,6 +9,7 @@ use crate::ldtk_world::LdtkProject;
 use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
 use ambition_persistence::save_data::PersistedEncounterState;
+use ambition_world::rooms::InteractionKindSpec;
 
 fn install_test_world_manifest() {
     use crate::ldtk_world::{install_world_manifest, WorldManifest, WorldSource};
@@ -312,10 +313,10 @@ fn ldtk_switch_runtime_id_matches_activation_payload() {
     let switch_object = goblin_encounter
         .interactables
         .iter()
-        .find(|authored| matches!(&authored.payload.kind, ambition_interaction::InteractionKind::Custom(s) if s.starts_with("switch:")))
+        .find(|authored| matches!(&authored.payload.kind, InteractionKindSpec::Custom(s) if s.starts_with("switch:")))
         .expect("goblin_encounter has a switch interactable");
     let payload = match &switch_object.payload.kind {
-        ambition_interaction::InteractionKind::Custom(s) => s.clone(),
+        InteractionKindSpec::Custom(s) => s.clone(),
         _ => panic!("switch kind"),
     };
     let activation = SwitchActivation::parse_custom(&payload).expect("parse");

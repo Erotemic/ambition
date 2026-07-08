@@ -26,7 +26,7 @@ fn spawn_player(app: &mut App, pos: Vec2) -> Entity {
         .id();
     // `fire_held_ranged_system` keys on the controlled subject; in tests the
     // spawned player IS the controlled body.
-    app.insert_resource(crate::abilities::traversal::possession::ControlledSubject(
+    app.insert_resource(ambition_platformer_primitives::markers::ControlledSubject(
         Some(entity),
     ));
     entity
@@ -225,7 +225,7 @@ fn pickup_targets_the_controlled_subject_not_a_primary_player_marker() {
             ambition_characters::brain::ActorControl::default(),
         ))
         .id();
-    app.insert_resource(crate::abilities::traversal::possession::ControlledSubject(
+    app.insert_resource(ambition_platformer_primitives::markers::ControlledSubject(
         Some(body),
     ));
     app.world_mut().spawn(GroundItem {

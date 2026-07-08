@@ -683,7 +683,7 @@ impl NameplateIndex {
 #[allow(clippy::type_complexity)]
 pub fn rebuild_nameplate_index(
     mut index: ResMut<NameplateIndex>,
-    controlled: Option<Res<ambition_actors::abilities::traversal::possession::ControlledSubject>>,
+    controlled: Option<Res<ambition_platformer_primitives::markers::ControlledSubject>>,
     primary_player: Query<Entity, ambition_platformer_primitives::markers::PrimaryPlayerOnly>,
     views: Res<FeatureViewIndex>,
     actors: Query<

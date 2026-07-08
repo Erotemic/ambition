@@ -71,7 +71,7 @@ pub fn record_actor_oob_frame_system(
     platform_set: Res<crate::MovingPlatformSet>,
     feature_ecs_overlay: Res<crate::features::FeatureEcsWorldOverlay>,
     rooms: Option<Res<crate::rooms::RoomSet>>,
-    mode: Res<State<crate::game_mode::GameMode>>,
+    mode: Res<State<ambition_platformer_primitives::schedule::GameMode>>,
     bodies_q: Query<(
         Entity,
         &ae::BodyKinematics,

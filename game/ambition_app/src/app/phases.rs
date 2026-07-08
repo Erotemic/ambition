@@ -28,7 +28,7 @@ pub(super) fn sync_player_presentation(
     anim: &mut ambition_actors::player::BodyAnimFacts,
     sfx_writer: &mut MessageWriter<SfxMessage>,
     vfx_writer: &mut MessageWriter<VfxMessage>,
-    shake: &mut ambition_actors::time::camera_ease::CameraShakeState,
+    shake: &mut ambition_platformer_primitives::camera_ease::CameraShakeState,
     is_primary: bool,
 ) {
     if frame_out.reset {
@@ -38,7 +38,7 @@ pub(super) fn sync_player_presentation(
     // Hard-fall screen shake: pure trigger in `time::camera_ease`. Saturates above
     // terminal velocity via `kick()`'s cap. `pre_sim_fall_speed` is the
     // along-gravity fall speed that entered the movement tick.
-    let shake_amplitude = ambition_actors::time::camera_ease::hard_fall_shake_amplitude(
+    let shake_amplitude = ambition_platformer_primitives::camera_ease::hard_fall_shake_amplitude(
         was_grounded,
         clusters.ground.on_ground,
         frame_out.pre_sim_fall_speed,

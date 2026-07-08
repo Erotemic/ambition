@@ -14,7 +14,7 @@ use bevy::prelude::*;
 use ambition_actors::dev::dev_tools::DeveloperTools;
 use ambition_actors::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
 use ambition_actors::world::platforms;
-use ambition_actors::SandboxDevState;
+use ambition_dev_tools::SandboxDevState;
 use ambition_platformer_primitives::schedule::GameMode;
 use ambition_engine_core::config::world_to_bevy;
 use ambition_engine_core::RoomGeometry;

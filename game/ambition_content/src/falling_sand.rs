@@ -862,7 +862,7 @@ fn project_particles_to_movement_world(
     room_set: Res<ambition_actors::rooms::RoomSet>,
     state: Res<FallingSandRoomState>,
     world: Res<ambition_engine_core::RoomGeometry>,
-    mut overlay: ResMut<ambition_actors::features::FeatureEcsWorldOverlay>,
+    mut overlay: ResMut<ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay>,
     particles: Query<(&GridPosition, &Particle)>,
     visuals: Query<(Entity, &FallingSandMaterialVisual)>,
     mut scratch: Local<ProjectionScratch>,

@@ -90,7 +90,7 @@ pub fn detect_room_transition_system(
     // avatar or possessed actor) enters an exit/door, THAT body transitions. Future
     // door restrictions gate on body properties (size/shape/locomotion), never on
     // "is this the home avatar". Falls back to the primary player at startup.
-    controlled: Option<Res<crate::abilities::traversal::possession::ControlledSubject>>,
+    controlled: Option<Res<ambition_platformer_primitives::markers::ControlledSubject>>,
     mut slot_gestures: ResMut<crate::player::SlotInteractionState>,
     bodies: Query<&crate::actor::BodyKinematics>,
     primary_q: Query<Entity, crate::actor::PrimaryPlayerOnly>,

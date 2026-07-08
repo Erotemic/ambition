@@ -18,7 +18,7 @@ use crate::dev::dev_tools::{
 };
 use crate::host::windowing::{DisplayModeKind, DisplayModeState};
 use crate::ldtk_world::LdtkHotReloadState;
-use crate::SandboxDevState;
+use ambition_dev_tools::SandboxDevState;
 
 /// Top-level settings page. The pause menu starts at `Top` (the
 /// category list) and pushes onto a small stack when the user

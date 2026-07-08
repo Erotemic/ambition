@@ -11,7 +11,7 @@ use ambition_engine_core::AabbExt;
 use bevy_math::UVec2;
 
 use ambition_actors::rooms::{CameraClampMode, CameraZoneSpec};
-use ambition_actors::{CameraEaseState, CameraEaseTuning};
+use ambition_platformer_primitives::camera_ease::{CameraEaseState, CameraEaseTuning};
 use ambition_persistence::settings::video::CameraFramingPreset;
 use ambition_persistence::settings::CameraAspectPolicy;
 
@@ -527,8 +527,8 @@ pub fn resolve_camera_observation(
     user_settings: bevy::prelude::Res<ambition_persistence::settings::UserSettings>,
     viewport: bevy::prelude::Res<CameraViewport>,
     extra_clamp: bevy::prelude::Res<CameraExtraClamp>,
-    ease_tuning: bevy::prelude::Res<ambition_actors::CameraEaseTuning>,
-    mut camera_state: bevy::prelude::ResMut<ambition_actors::CameraEaseState>,
+    ease_tuning: bevy::prelude::Res<ambition_platformer_primitives::camera_ease::CameraEaseTuning>,
+    mut camera_state: bevy::prelude::ResMut<ambition_platformer_primitives::camera_ease::CameraEaseState>,
     mut resolved: bevy::prelude::ResMut<ResolvedCameraSnapshot>,
     mut last_camera_room: bevy::prelude::Local<Option<String>>,
     player: bevy::prelude::Query<
@@ -540,7 +540,7 @@ pub fn resolve_camera_observation(
         ambition_platformer_primitives::markers::PrimaryPlayerOnly,
     >,
     controlled: bevy::prelude::Res<
-        ambition_actors::abilities::traversal::possession::ControlledSubject,
+        ambition_platformer_primitives::markers::ControlledSubject,
     >,
     body_kinematics: bevy::prelude::Query<&ambition_platformer_primitives::body::BodyKinematics>,
 ) {

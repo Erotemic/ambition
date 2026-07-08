@@ -23,7 +23,7 @@
 //! `quest`, plus the `schedule`/`host`/`session` assembly and `dev` tooling.
 //!
 //! This crate owns the module graph and the cross-cutting types (`RoomGeometry`,
-//! `SandboxSimState`, `SandboxDevState`) that submodules reference via `crate::*`.
+//! `SandboxSimState`) that submodules reference through the actor crate.
 //! It is a library only; the playable app, the headless entry point
 //! (`run_headless`), and all binaries live in `ambition_app`.
 //!
@@ -91,7 +91,6 @@ pub mod world;
 // Public re-exports double as the external API for bins, tests, and docs.
 pub mod features;
 pub use dev::trace;
-pub use session::game_mode;
 pub use world::{ldtk_world, rooms};
 
 // Crate-root types/consts whose definitions live in themed modules of this
@@ -99,14 +98,8 @@ pub use world::{ldtk_world, rooms};
 // `ProperTimeScale`, `refresh_world_time` — lives in `ambition_time`; name it
 // there directly. Only the sandbox-owned `mirror_sim_dt_into_runtime` bridge
 // still surfaces at the crate root.)
-pub use time::camera_ease::{
-    CameraEaseState, CameraEaseTuning, DEFAULT_CAMERA_ZOOM_IN_RATE, DEFAULT_CAMERA_ZOOM_OUT_RATE,
-    DEFAULT_CAMERA_ZOOM_SNAP_EPSILON,
-};
 pub use time::move_toward;
 pub use time::world_time::mirror_sim_dt_into_runtime;
-
-pub use game_mode::{gameplay_allowed, GameMode};
 
 // `MovingPlatformState` leaks through the public `MovingPlatformSet.0`
 // signature, so it must be nameable via a pub path even though
@@ -244,7 +237,6 @@ impl Default for SandboxSimState {
     }
 }
 
-pub use ambition_dev_tools::SandboxDevState;
 
 /// The state of one in-flight player melee swing is now the unified
 /// [`crate::features::MeleeSwing`] — the SAME swing every brain-driven actor

@@ -66,7 +66,7 @@ fn grid_app() -> App {
     app.init_resource::<KaleidoscopeSystemNav>();
     app.init_resource::<OwnedItems>();
     app.init_resource::<ambition_actors::dev::dev_tools::DeveloperTools>();
-    app.init_resource::<ambition_actors::SandboxDevState>();
+    app.init_resource::<ambition_dev_tools::SandboxDevState>();
     app.init_resource::<ambition_actors::ldtk_world::LdtkHotReloadState>();
     app.init_resource::<ambition_actors::session::reset::SandboxResetRequested>();
     app.init_resource::<ambition_actors::dev::dev_tools::EditableMovementTuning>();

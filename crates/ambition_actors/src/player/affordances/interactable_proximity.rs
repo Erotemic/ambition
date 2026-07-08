@@ -17,7 +17,7 @@ use ambition_engine_core::AabbExt;
 use bevy::prelude::*;
 
 use super::variants::InteractVariant;
-use crate::abilities::traversal::possession::ControlledSubject;
+use ambition_platformer_primitives::markers::ControlledSubject;
 use crate::features::{
     ActorDisposition, ActorInteraction, CenteredAabb, ChestFeature, FeatureSimEntity, Opened,
     SwitchFeature,

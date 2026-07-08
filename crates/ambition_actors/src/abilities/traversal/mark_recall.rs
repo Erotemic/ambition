@@ -24,7 +24,7 @@
 
 use bevy::prelude::*;
 
-use super::possession::ControlledSubject;
+use ambition_platformer_primitives::markers::ControlledSubject;
 use crate::actor::BodyKinematics;
 use crate::features::HeldItem;
 use ambition_characters::brain::ActorControl;

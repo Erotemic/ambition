@@ -109,7 +109,7 @@ pub(crate) fn apply_home_reset_policy(
 /// (the reset-policy phase already reset the presentation state).
 pub fn sync_player_presentation(
     mut event_writers: SandboxEventWriters,
-    mut shake: ResMut<ambition_actors::time::camera_ease::CameraShakeState>,
+    mut shake: ResMut<ambition_platformer_primitives::camera_ease::CameraShakeState>,
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,

@@ -32,7 +32,7 @@ fn spawn_interaction_player(app: &mut App, player_pos: ae::Vec2) {
         .primary_mut()
         .interact_buffer_timer = 0.15;
     app.world_mut()
-        .insert_resource(crate::abilities::traversal::possession::ControlledSubject(
+        .insert_resource(ambition_platformer_primitives::markers::ControlledSubject(
             Some(entity),
         ));
 }
@@ -280,7 +280,7 @@ fn interact_buffered_starts_npc_dialogue() {
     let center = ae::Vec2::new(100.0, 100.0);
     let mut app = App::new();
     app.add_plugins(StatesPlugin);
-    app.init_state::<crate::GameMode>();
+    app.init_state::<ambition_platformer_primitives::schedule::GameMode>();
 
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(crate::dialog::DialogState::default());

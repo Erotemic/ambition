@@ -5,6 +5,7 @@
 
 use super::*;
 use crate::features::FeatureVisualKind;
+use ambition_asset_manager::AssetProfile;
 
 fn args(slice: &[&str]) -> Vec<String> {
     slice.iter().map(|s| s.to_string()).collect()

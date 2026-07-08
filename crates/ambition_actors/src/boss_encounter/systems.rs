@@ -371,7 +371,7 @@ pub fn boss_phase_transition_feedback(
     >,
     mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
     // Optional: a headless / camera-less build may not insert the shake resource.
-    mut shake: Option<ResMut<crate::time::camera_ease::CameraShakeState>>,
+    mut shake: Option<ResMut<ambition_platformer_primitives::camera_ease::CameraShakeState>>,
     // Boss entities — phase read from the entity-local state + the actor that
     // emits the phase-transition shockwave.
     bosses: Query<
@@ -446,7 +446,7 @@ mod phase_feedback_tests {
     use crate::features::ecs::boss_clusters::test_support::{test_boss_config, test_boss_status};
     use crate::features::ecs::boss_clusters::BossEncounter;
     use crate::features::{BodyKinematics, CenteredAabb, FeatureId};
-    use crate::time::camera_ease::CameraShakeState;
+    use ambition_platformer_primitives::camera_ease::CameraShakeState;
 
     fn spawn_boss(app: &mut App, phase: BossEncounterPhase) -> Entity {
         let config = test_boss_config("gradient_sentinel", "Gradient Sentinel", "clockwork_warden");

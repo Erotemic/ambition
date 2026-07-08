@@ -12,7 +12,7 @@
 
 use bevy::prelude::ResMut;
 
-use ambition_actors::features::FeatureEcsWorldOverlay;
+use ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay;
 use ambition_engine_core::{self as ae, AabbExt};
 
 /// Bundle of the two room-reset clock/sim resources, so systems that

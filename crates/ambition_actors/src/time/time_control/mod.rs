@@ -19,7 +19,7 @@ use bevy::prelude::*;
 
 use crate::player::components::{PlayerSlot, PrimaryPlayer};
 use crate::time::feel::SandboxFeelTuning;
-use crate::SandboxDevState;
+use ambition_dev_tools::SandboxDevState;
 use ambition_characters::actor::BodyCombat;
 use ambition_time::ClockDomain;
 use ambition_time::ClockState;

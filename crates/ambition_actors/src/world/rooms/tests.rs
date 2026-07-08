@@ -90,7 +90,7 @@ fn empty_world(name: &str) -> ae::World {
 /// transition capability is body-generic and inherited by possession.
 #[test]
 fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
-    use crate::abilities::traversal::possession::ControlledSubject;
+    use ambition_platformer_primitives::markers::ControlledSubject;
     use crate::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
     use crate::player::SlotInteractionState;
     use bevy::prelude::*;

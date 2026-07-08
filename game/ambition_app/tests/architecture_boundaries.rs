@@ -1218,19 +1218,21 @@ fn architecture_boundaries_game_mode_lives_with_schedule_vocabulary() {
         "GameMode and its gameplay run conditions should live beside the primitive schedule labels"
     );
 
-    let actors_facade = fs::read_to_string(crate_src().join("session/game_mode.rs"))
-        .expect("read actors game_mode facade");
-    assert!(
-        actors_facade.contains("pub use ambition_platformer_primitives::schedule"),
-        "ambition_actors::session::game_mode should be only a facade over the lower vocabulary"
+    assert_paths_absent(
+        &crate_src(),
+        &["session/game_mode.rs"],
+        "F2.1 deletes the actor-side GameMode compatibility facade once consumers name the lower schedule vocabulary",
     );
+    let actors_lib = fs::read_to_string(crate_src().join("lib.rs")).expect("read actors lib");
     assert!(
-        !actors_facade.contains("pub enum GameMode"),
-        "ambition_actors must not own GameMode after F1.4"
+        !actors_lib.contains("pub use session::game_mode")
+            && !actors_lib.contains("pub use game_mode"),
+        "ambition_actors must not re-export GameMode or its run conditions after the F2.1 facade burn-down"
     );
 
     assert_code_refs_absent(
         &[
+            crate_src(),
             repo_root().join("crates/ambition_runtime/src"),
             repo_root().join("crates/ambition_sim_view/src"),
             repo_root().join("crates/ambition_touch_input/src"),
@@ -1244,8 +1246,68 @@ fn architecture_boundaries_game_mode_lives_with_schedule_vocabulary() {
             "ambition_actors::session::game_mode",
             "ambition_actors::gameplay_allowed",
             "ambition_actors::gameplay_suspended",
+            "crate::GameMode",
+            "crate::gameplay_allowed",
+            "crate::game_mode",
+            "crate::session::game_mode",
         ],
-        "host/runtime/render/content/touch/app code should name GameMode through ambition_platformer_primitives::schedule",
+        "all code should name GameMode through ambition_platformer_primitives::schedule",
+    );
+}
+
+#[test]
+fn architecture_boundaries_f2_actor_facades_burned_down() {
+    assert_paths_absent(
+        &crate_src(),
+        &[
+            "session/camera_layers.rs",
+            "session/game_mode.rs",
+            "time/camera_ease.rs",
+        ],
+        "F2.1 removes F1-era actor compatibility facades once consumers name the canonical lower crates",
+    );
+
+    let actors_lib = fs::read_to_string(crate_src().join("lib.rs")).expect("read actors lib");
+    for needle in [
+        "pub use session::game_mode",
+        "pub use game_mode",
+        "CameraEaseState",
+        "CameraEaseTuning",
+        "SandboxDevState",
+    ] {
+        assert!(
+            !actors_lib.contains(needle),
+            "ambition_actors crate root should not keep F1 compatibility facade `{needle}`"
+        );
+    }
+
+    let possession = fs::read_to_string(
+        crate_src().join("abilities/traversal/possession.rs"),
+    )
+    .expect("read possession module");
+    assert!(
+        !possession.contains("pub use ambition_platformer_primitives::markers::ControlledSubject"),
+        "possession keeps possession behavior; ControlledSubject is named from ambition_platformer_primitives::markers"
+    );
+
+    assert_code_refs_absent(
+        &[
+            repo_root().join("crates/ambition_runtime/src"),
+            repo_root().join("crates/ambition_sim_view/src"),
+            repo_root().join("crates/ambition_render/src"),
+            content_src(),
+            app_src(),
+        ],
+        &[
+            "ambition_actors::SandboxDevState",
+            "ambition_actors::CameraEaseState",
+            "ambition_actors::CameraEaseTuning",
+            "ambition_actors::time::camera_ease",
+            "ambition_actors::session::camera_layers",
+            "ambition_actors::abilities::traversal::possession::ControlledSubject",
+            "ambition_actors::features::FeatureEcsWorldOverlay",
+        ],
+        "F2.1 consumers should use the canonical lower crates instead of actor compatibility facades",
     );
 }
 
@@ -2009,8 +2071,13 @@ fn architecture_boundaries_time_crate_is_extracted() {
     );
     assert_paths_exist(
         &sandbox_time,
-        &["time_control", "camera_ease.rs", "feel.rs"],
-        "sandbox game-specific time policy/presentation",
+        &["time_control", "feel.rs"],
+        "sandbox game-specific time policy",
+    );
+    assert_paths_absent(
+        &sandbox_time,
+        &["camera_ease.rs"],
+        "camera ease/shake is primitive presentation vocabulary after F2.1 facade burn-down",
     );
 }
 

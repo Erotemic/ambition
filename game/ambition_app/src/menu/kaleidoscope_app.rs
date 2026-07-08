@@ -364,7 +364,7 @@ pub(crate) struct SystemMenuParams<'w> {
     dev_tools: ResMut<'w, ambition_actors::dev::dev_tools::DeveloperTools>,
     // The Developer screen also reaches the F1/F2 global flags + F12 LDtk
     // auto-reload, which live on these two resources (not `DeveloperTools`).
-    dev_state: ResMut<'w, ambition_actors::SandboxDevState>,
+    dev_state: ResMut<'w, ambition_dev_tools::SandboxDevState>,
     ldtk_reload: ResMut<'w, ambition_actors::ldtk_world::LdtkHotReloadState>,
     // The active menu frontend, mutated by the Developer "Menu Backend" row (the
     // in-menu `\` toggle). Always present (inserted at startup).
@@ -582,7 +582,7 @@ pub(crate) struct GameModeIo<'w> {
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct SystemMenuSnapshotParams<'w> {
     dev_tools: Res<'w, ambition_actors::dev::dev_tools::DeveloperTools>,
-    dev_state: Res<'w, ambition_actors::SandboxDevState>,
+    dev_state: Res<'w, ambition_dev_tools::SandboxDevState>,
     ldtk_reload: Res<'w, ambition_actors::ldtk_world::LdtkHotReloadState>,
     backend: Res<'w, InventoryUiBackend>,
     #[cfg(feature = "portal_render")]

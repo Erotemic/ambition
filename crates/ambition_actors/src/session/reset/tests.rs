@@ -160,7 +160,7 @@ fn min_app() -> App {
     app.insert_resource(crate::MovingPlatformSet::default());
     app.insert_resource(crate::SandboxSimState::default());
     app.insert_resource(ambition_time::ClockState::default());
-    app.insert_resource(crate::SandboxDevState::default());
+    app.insert_resource(ambition_dev_tools::SandboxDevState::default());
     app.insert_resource(RoomGeometry(world.clone()));
     // Construct a minimal RoomSet with one room so `start` and
     // `active` are both valid indices.

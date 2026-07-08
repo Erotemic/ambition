@@ -82,10 +82,10 @@ impl Plugin for YarnBridgePlugin {
 #[cfg(feature = "ui")]
 fn sync_dialogue_game_mode(
     dialogue: Res<DialogState>,
-    mode: Res<State<crate::game_mode::GameMode>>,
-    mut next_mode: ResMut<NextState<crate::game_mode::GameMode>>,
+    mode: Res<State<ambition_platformer_primitives::schedule::GameMode>>,
+    mut next_mode: ResMut<NextState<ambition_platformer_primitives::schedule::GameMode>>,
 ) {
-    if matches!(mode.get(), crate::game_mode::GameMode::Dialogue) && !dialogue.active() {
-        next_mode.set(crate::game_mode::GameMode::Playing);
+    if matches!(mode.get(), ambition_platformer_primitives::schedule::GameMode::Dialogue) && !dialogue.active() {
+        next_mode.set(ambition_platformer_primitives::schedule::GameMode::Playing);
     }
 }

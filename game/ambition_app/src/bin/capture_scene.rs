@@ -303,7 +303,7 @@ fn apply_capture_snapshot(
     world: Res<ambition_engine_core::RoomGeometry>,
     room_set: Res<ambition_actors::rooms::RoomSet>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
-    ease_tuning: Res<ambition_actors::CameraEaseTuning>,
+    ease_tuning: Res<ambition_platformer_primitives::camera_ease::CameraEaseTuning>,
     mut view_state: ResMut<CameraViewState>,
     player_q: Query<
         &ambition_platformer_primitives::body::BodyKinematics,

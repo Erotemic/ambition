@@ -101,7 +101,7 @@ pub fn interaction_input_system(
     control_frame: Res<ControlFrame>,
     gravity_field: Option<Res<crate::physics::GravityField>>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
-    controlled: Option<Res<crate::abilities::traversal::possession::ControlledSubject>>,
+    controlled: Option<Res<ambition_platformer_primitives::markers::ControlledSubject>>,
     mut slot_gestures: ResMut<crate::player::SlotInteractionState>,
     // Hit-stun gate reads the CONTROLLED body's reaction state — the body actually
     // being driven, home avatar or possessed actor.
@@ -166,7 +166,7 @@ pub fn interaction_input_system(
 /// `input_timer_system`.
 pub fn cleanup_timers_system(
     time: Res<Time>,
-    mut dev_state: ResMut<crate::SandboxDevState>,
+    mut dev_state: ResMut<ambition_dev_tools::SandboxDevState>,
     mut player_q: Query<
         (
             &crate::actor::BodyKinematics,

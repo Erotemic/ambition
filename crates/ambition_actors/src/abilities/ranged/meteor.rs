@@ -19,7 +19,7 @@
 
 use bevy::prelude::*;
 
-use crate::abilities::traversal::possession::ControlledSubject;
+use ambition_platformer_primitives::markers::ControlledSubject;
 use crate::actor::BodyKinematics;
 use crate::actor::BodyMana;
 use crate::enemy_projectile::EnemyProjectileSpawn;

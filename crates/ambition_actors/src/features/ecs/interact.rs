@@ -21,9 +21,9 @@ use super::*;
 /// play the two are the same entity, so single-player behavior is unchanged.
 pub fn interact_ecs_actors_and_switches(
     mut dialogue: ResMut<crate::dialog::DialogState>,
-    mut next_mode: ResMut<NextState<crate::GameMode>>,
+    mut next_mode: ResMut<NextState<ambition_platformer_primitives::schedule::GameMode>>,
     mut banner: ResMut<GameplayBanner>,
-    controlled: Option<Res<crate::abilities::traversal::possession::ControlledSubject>>,
+    controlled: Option<Res<ambition_platformer_primitives::markers::ControlledSubject>>,
     // The local controller's buffered interact lives on its SLOT, published from the
     // device even while the home avatar is vacated — the right source for "the local
     // player wants to interact" independent of which body is being driven.
@@ -109,7 +109,7 @@ pub fn interact_ecs_actors_and_switches(
         // Record which actor we're talking to so dialogue commands like
         // `<<challenge>>` can provoke THIS NPC into a fight.
         dialogue.set_speaker_entity(actor_entity);
-        next_mode.set(crate::GameMode::Dialogue);
+        next_mode.set(ambition_platformer_primitives::schedule::GameMode::Dialogue);
         quest_advance.write(QuestAdvanceRequested(
             ambition_persistence::quest::QuestAdvanceEvent::NpcTalked(identity.id.clone()),
         ));
@@ -186,7 +186,7 @@ mod tests {
         let mut app = App::new();
         app.insert_resource(GameplayBanner::default());
         app.insert_resource(crate::dialog::DialogState::default());
-        app.insert_resource(NextState::<crate::GameMode>::default());
+        app.insert_resource(NextState::<ambition_platformer_primitives::schedule::GameMode>::default());
         app.add_message::<SetFlagRequested>();
         app.add_message::<QuestAdvanceRequested>();
         app.add_message::<SwitchActivated>();
@@ -220,7 +220,7 @@ mod tests {
 
     #[test]
     fn interact_lands_on_the_controlled_subject_not_the_vacated_home_avatar() {
-        use crate::abilities::traversal::possession::ControlledSubject;
+        use ambition_platformer_primitives::markers::ControlledSubject;
         use crate::actor::BodyKinematics;
 
         let home_pos = ae::Vec2::new(0.0, 0.0);
@@ -229,7 +229,7 @@ mod tests {
         let mut app = App::new();
         app.insert_resource(GameplayBanner::default());
         app.insert_resource(crate::dialog::DialogState::default());
-        app.insert_resource(NextState::<crate::GameMode>::default());
+        app.insert_resource(NextState::<ambition_platformer_primitives::schedule::GameMode>::default());
         app.add_message::<SetFlagRequested>();
         app.add_message::<QuestAdvanceRequested>();
         app.add_message::<SwitchActivated>();

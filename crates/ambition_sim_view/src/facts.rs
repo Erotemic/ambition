@@ -11,7 +11,7 @@
 
 use bevy::prelude::*;
 
-use ambition_actors::abilities::traversal::possession::ControlledSubject;
+use ambition_platformer_primitives::markers::ControlledSubject;
 use ambition_actors::actor::{BodyKinematics, BodyMana, PlayerEntity, PrimaryPlayer};
 use ambition_characters::actor::{BodyHealth, BodyWallet};
 use ambition_characters::brain::ActorControl;

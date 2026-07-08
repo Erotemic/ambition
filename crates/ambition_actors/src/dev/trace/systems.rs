@@ -125,7 +125,7 @@ pub fn record_frame_system(
     world: Res<RoomGeometry>,
     time: Res<Time>,
     rooms: Option<Res<crate::rooms::RoomSet>>,
-    mode: Res<State<crate::game_mode::GameMode>>,
+    mode: Res<State<ambition_platformer_primitives::schedule::GameMode>>,
     feature_ecs_overlay: Res<crate::features::FeatureEcsWorldOverlay>,
     mut player_q: Query<
         (

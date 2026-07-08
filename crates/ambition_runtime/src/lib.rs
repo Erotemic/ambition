@@ -71,7 +71,7 @@ pub mod host_input {
 /// crates. This records the intentional runtime facade used to keep the windowed
 /// host out of the actor-systems crate.
 pub mod host_seams {
-    pub use ambition_actors::SandboxDevState;
+    pub use ambition_dev_tools::SandboxDevState;
 }
 
 /// Fixture/demo support re-exported from the runtime composition tier so the

@@ -64,9 +64,9 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_actors::dialog::DialogState>()
             .init_resource::<ambition_actors::MovingPlatformSet>()
             .init_resource::<ambition_actors::SandboxSimState>()
-            .init_resource::<ambition_actors::SandboxDevState>()
+            .init_resource::<ambition_dev_tools::SandboxDevState>()
             .init_resource::<ambition_combat::GameplayBanner>()
-            .init_resource::<ambition_actors::features::FeatureEcsWorldOverlay>()
+            .init_resource::<ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay>()
             .init_resource::<ambition_sim_view::FeatureViewIndex>()
             .init_resource::<ambition_sim_view::ActorRenderIndex>()
             .init_resource::<ambition_sim_view::BossRenderIndex>()
@@ -105,9 +105,9 @@ impl Plugin for SimCoreResourcesPlugin {
             // Portal registry — per-portal lifecycle state machine.
             .init_resource::<ambition_actors::rooms::GatePortalRegistry>()
             .init_resource::<ambition_actors::menu::map::MapMenuState>()
-            .init_resource::<ambition_actors::CameraEaseState>()
-            .init_resource::<ambition_actors::CameraEaseTuning>()
-            .init_resource::<ambition_actors::time::camera_ease::CameraShakeState>()
+            .init_resource::<ambition_platformer_primitives::camera_ease::CameraEaseState>()
+            .init_resource::<ambition_platformer_primitives::camera_ease::CameraEaseTuning>()
+            .init_resource::<ambition_platformer_primitives::camera_ease::CameraShakeState>()
             .init_resource::<ambition_actors::session::reset::SandboxResetRequested>()
             // The always-available input seam (RL/headless writes it
             // programmatically; the windowed host's bridge fills it from

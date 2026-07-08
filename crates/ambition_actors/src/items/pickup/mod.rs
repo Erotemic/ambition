@@ -66,17 +66,17 @@ impl Plugin for ItemPickupSimulationPlugin {
             (
                 // Held-items, the portal gun, the heal/save shrine, and localized
                 // gravity zones are LDtk-authored room entities.
-                crate::shrine::heal_save_shrine_system.run_if(crate::gameplay_allowed),
+                crate::shrine::heal_save_shrine_system.run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
                 // Resolve the live GravityField from zones + ambient after the
                 // FlipGravity switch and before ground_item_physics reads it.
                 crate::physics::resolve_active_gravity,
-                pickup_held_item_system.run_if(crate::gameplay_allowed),
-                fire_held_ranged_system.run_if(crate::gameplay_allowed),
-                held_projectile_step.run_if(crate::gameplay_allowed),
+                pickup_held_item_system.run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
+                fire_held_ranged_system.run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
+                held_projectile_step.run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
                 crate::abilities::thrown::puppy_slug_gun::fire_puppy_slug_gun_system
-                    .run_if(crate::gameplay_allowed),
-                throw_held_item_system.run_if(crate::gameplay_allowed),
-                ground_item_physics.run_if(crate::gameplay_allowed),
+                    .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
+                throw_held_item_system.run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
+                ground_item_physics.run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
             )
                 .chain()
                 // `ItemPickupSet::CoreHeldItems` is configured
@@ -104,13 +104,13 @@ impl Plugin for ItemPickupSimulationPlugin {
         app.add_systems(
             Update,
             (
-                crate::abilities::ranged::bomb::arm_thrown_bombs.run_if(crate::gameplay_allowed),
-                crate::abilities::ranged::bomb::tick_bomb_fuses.run_if(crate::gameplay_allowed),
+                crate::abilities::ranged::bomb::arm_thrown_bombs.run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
+                crate::abilities::ranged::bomb::tick_bomb_fuses.run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
                 crate::abilities::thrown::gravity_grenade::arm_thrown_gravity_grenades
-                    .run_if(crate::gameplay_allowed),
+                    .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
                 crate::abilities::thrown::gravity_grenade::tick_gravity_grenade_fuses
-                    .run_if(crate::gameplay_allowed),
-                crate::physics::tick_temporary_zones.run_if(crate::gameplay_allowed),
+                    .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
+                crate::physics::tick_temporary_zones.run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
             )
                 .chain()
                 // Parent `PlayerSimulation` already implied via
@@ -124,25 +124,25 @@ impl Plugin for ItemPickupSimulationPlugin {
             Update,
             (
                 crate::abilities::traversal::mark_recall::mark_recall_system
-                    .run_if(crate::gameplay_allowed),
-                crate::abilities::traversal::blink::blink_system.run_if(crate::gameplay_allowed),
+                    .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
+                crate::abilities::traversal::blink::blink_system.run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
                 crate::abilities::traversal::grapple::grapple_system
-                    .run_if(crate::gameplay_allowed),
+                    .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
                 crate::abilities::ranged::shockwave::fire_shockwave_system
-                    .run_if(crate::gameplay_allowed),
+                    .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
                 crate::abilities::ranged::volley::fire_volley_system
-                    .run_if(crate::gameplay_allowed),
-                crate::abilities::ranged::beam::fire_beam_system.run_if(crate::gameplay_allowed),
+                    .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
+                crate::abilities::ranged::beam::fire_beam_system.run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
                 crate::abilities::ranged::vortex::fire_vortex_system
-                    .run_if(crate::gameplay_allowed),
+                    .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
                 crate::abilities::ranged::vortex::update_vortex_wells
-                    .run_if(crate::gameplay_allowed),
+                    .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
                 crate::abilities::ranged::sentry::fire_sentry_system
-                    .run_if(crate::gameplay_allowed),
-                crate::abilities::ranged::sentry::update_sentries.run_if(crate::gameplay_allowed),
-                crate::abilities::traversal::dive::fire_dive_system.run_if(crate::gameplay_allowed),
+                    .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
+                crate::abilities::ranged::sentry::update_sentries.run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
+                crate::abilities::traversal::dive::fire_dive_system.run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
                 crate::abilities::ranged::meteor::fire_meteor_system
-                    .run_if(crate::gameplay_allowed),
+                    .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
                 crate::ability_cooldown::tick_ability_cooldown,
             )
                 .chain()
@@ -352,7 +352,7 @@ pub fn unequip_portal_gun(
 /// stash the current action set, overlay the item's verbs, attach `HeldItem`.
 ///
 /// SUBJECT-GENERIC (like `fire_held_ranged_system`): it acts on the
-/// [`ControlledSubject`](crate::abilities::traversal::possession::ControlledSubject)
+/// [`ControlledSubject`](ambition_platformer_primitives::markers::ControlledSubject)
 /// — the body you are DRIVING physically grabs the item — reading that body's own
 /// `ActorControl` (brain output), NOT `PlayerInputFrame` + `PrimaryPlayer`. The
 /// held item is EXPLICITLY owned by the controlled body; the catalog grant lands
@@ -360,7 +360,7 @@ pub fn unequip_portal_gun(
 /// holding an item (or the portal gun) can't grab another.
 pub fn pickup_held_item_system(
     mut commands: Commands,
-    controlled: Res<crate::abilities::traversal::possession::ControlledSubject>,
+    controlled: Res<ambition_platformer_primitives::markers::ControlledSubject>,
     mut bodies: Query<(
         &mut ActorControl,
         &BodyKinematics,
@@ -443,12 +443,12 @@ pub fn pickup_held_item_system(
 /// for any item, or on a plain `Attack` for a pure throwable (throw-on-use).
 ///
 /// SUBJECT-GENERIC: acts on the
-/// [`ControlledSubject`](crate::abilities::traversal::possession::ControlledSubject)
+/// [`ControlledSubject`](ambition_platformer_primitives::markers::ControlledSubject)
 /// — the body you drive throws the item it holds — reading that body's own
 /// `ActorControl`, not `PlayerInputFrame` + `PrimaryPlayer`.
 pub fn throw_held_item_system(
     mut commands: Commands,
-    controlled: Res<crate::abilities::traversal::possession::ControlledSubject>,
+    controlled: Res<ambition_platformer_primitives::markers::ControlledSubject>,
     mut bodies: Query<(
         &ActorControl,
         &BodyKinematics,
@@ -687,7 +687,7 @@ pub fn fire_held_ranged_system(
     // that body's OWN `ActorControl` (brain output) + `HeldItem`. No
     // `With<PlayerEntity>` filter, no `PlayerInputFrame` — a possessed body firing
     // its held gun works exactly like the home avatar.
-    controlled: Res<crate::abilities::traversal::possession::ControlledSubject>,
+    controlled: Res<ambition_platformer_primitives::markers::ControlledSubject>,
     bodies: Query<(&ActorControl, &BodyKinematics, &HeldItem)>,
     mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
 ) {

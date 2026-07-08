@@ -156,6 +156,7 @@ pub struct GameplayEffectsSchedulePlugin;
 impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use bevy::prelude::{IntoScheduleConfigs, Update};
+        use ambition_platformer_primitives::schedule::gameplay_allowed;
         app.add_systems(
             Update,
             (
@@ -165,7 +166,7 @@ impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
                 // Deferred-challenge grace runs only in `Playing` (after the dialog
                 // box closes), then emits the `Challenged` stimulus the next system
                 // consumes.
-                ecs::tick_pending_challenges.run_if(crate::session::game_mode::gameplay_allowed),
+                ecs::tick_pending_challenges.run_if(gameplay_allowed),
                 ecs::apply_actor_stimuli,
                 bus::apply_gameplay_sfx_effects,
             )
@@ -201,6 +202,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use crate::world::placements::PlacementLoweringAppExt;
         use bevy::prelude::{IntoScheduleConfigs, Update};
+        use ambition_platformer_primitives::schedule::gameplay_allowed;
         // Relational targeting seam (default = today's behavior; stealth/bounty/
         // alliance systems mutate it). `select_actor_targets` reads it. Combat
         // owns these resources (rule 5); WorldPrep just invokes its registrar.
@@ -391,6 +393,7 @@ pub struct FeatureCollectionSchedulePlugin;
 impl bevy::prelude::Plugin for FeatureCollectionSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use bevy::prelude::{IntoScheduleConfigs, Update};
+        use ambition_platformer_primitives::schedule::gameplay_allowed;
         app.add_systems(
             Update,
             (
@@ -412,6 +415,7 @@ pub struct FeatureInteractionSchedulePlugin;
 impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use bevy::prelude::{IntoScheduleConfigs, Update};
+        use ambition_platformer_primitives::schedule::gameplay_allowed;
         app.add_systems(
             Update,
             (

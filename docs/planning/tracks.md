@@ -1121,7 +1121,7 @@ depends only on the foundations (`engine_core`, `ui_nav`, `input`, `sfx`,
 
 Two seams make the runtime reusable and content-free:
 1. **GameMode decoupling.** The runtime flips `DialogState.active` and
-   names no host session mode. All `crate::game_mode::GameMode` reads/writes
+   names no host session mode. All `ambition_platformer_primitives::schedule::GameMode` reads/writes
    left the bridge + input systems; the sim-side `sync_dialogue_game_mode`
    maps active→`GameMode::Playing` when a conversation ends. Entering
    `Dialogue` stays the interaction system's job (every old `set(Playing)`
@@ -1725,3 +1725,20 @@ future rename or re-home under a `presentation/` grouping is still allowed, but 
 is LOW priority and not a blocker for closing the F1 dep-graph audit.
 
 - 2026-07-08: F1.1 closed. `ambition_world` dropped its remaining runtime-family deps (`ambition_combat`, `ambition_interaction`, `ambition_portal`) by converting the legacy RoomSpec payload families to world-owned plain specs and moving runtime lowering to actor/portal edges.
+
+## 2026-07-08 (Codex) — F2.1 actor compatibility facade burn-down
+
+Burned down the first safe batch of post-F1 `ambition_actors` compatibility
+facades now that their consumers name the lower crates directly. The actor crate
+no longer exposes actor-side facades for `GameMode`, camera layer markers,
+camera ease/shake state, `SandboxDevState`, or `ControlledSubject`; external
+`FeatureEcsWorldOverlay` reads also name `ambition_platformer_primitives`
+directly. Runtime/app now depend on `ambition_dev_tools` where they need the dev
+state instead of reaching through `ambition_actors`.
+
+Added/updated architecture ratchets so the deleted facade files stay gone and
+new code cannot reintroduce actor paths for the moved vocabulary.
+
+Gate: `cargo fmt --all`; `cargo test -p ambition_actors --lib`; `cargo test -p
+ambition_app --test architecture_boundaries`; `cargo check -p ambition_app
+--features "rl_sim input mobile_touch"`.

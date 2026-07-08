@@ -38,7 +38,7 @@ pub struct CombatRoomReset<'w, 's> {
     pub enemy_projectiles:
         Query<'w, 's, Entity, With<ambition_projectiles::enemy::EnemyProjectile>>,
     pub slot_board: ResMut<'w, ambition_actors::combat::slots::CombatSlotsRes>,
-    pub feature_overlay: Res<'w, ambition_actors::features::FeatureEcsWorldOverlay>,
+    pub feature_overlay: Res<'w, ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay>,
     pub gravity: ResMut<'w, ambition_actors::physics::GravityField>,
     pub base_gravity: ResMut<'w, ambition_actors::physics::BaseGravity>,
 }
@@ -81,13 +81,13 @@ pub struct SandboxQueues<'w> {
     /// split `DamageEvent` + `PogoBounceEvent` writers.
     pub hit_events: MessageWriter<'w, HitEvent>,
     pub reset_room_features: MessageWriter<'w, ResetRoomFeaturesEvent>,
-    pub feature_ecs_overlay: Res<'w, ambition_actors::features::FeatureEcsWorldOverlay>,
+    pub feature_ecs_overlay: Res<'w, ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay>,
     pub dialogue: ResMut<'w, ambition_actors::dialog::DialogState>,
     pub physics_settings: Res<'w, ambition_actors::world::physics::PhysicsSandboxSettings>,
     pub moving_platforms: ResMut<'w, ambition_actors::MovingPlatformSet>,
     pub sim_state: ResMut<'w, ambition_actors::SandboxSimState>,
     pub clock: ResMut<'w, ambition_time::ClockState>,
-    pub dev_state: ResMut<'w, ambition_actors::SandboxDevState>,
+    pub dev_state: ResMut<'w, ambition_dev_tools::SandboxDevState>,
 }
 
 /// Read-only progression-state bundle for the HUD and pause menu.

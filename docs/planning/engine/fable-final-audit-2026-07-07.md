@@ -57,10 +57,11 @@ prescription — log-once so E7/E8 executors don't re-derive:
    `ambition_platformer_primitives::schedule`.** The coarse session-state enum
    now lives next to `PlatformerRuntimeSet`; `gameplay_allowed` /
    `gameplay_suspended` run conditions moved with it. Runtime, sim-view,
-   content, and touch-input callers name the lower crate directly, while
-   `ambition_actors::session::game_mode` remains only as a temporary facade for
-   actor-internal and legacy paths. This removes the session-state vocabulary
-   reason for host/touch/render-side code to name `ambition_actors`; remaining
+   content, and touch-input callers name the lower crate directly. **F2.1 follow-up
+   burned down the actor-side `session::game_mode` compatibility facade as well**,
+   so actor-internal code now names the primitive schedule vocabulary directly.
+   This removes the session-state vocabulary reason for host/touch/render-side
+   code to name `ambition_actors`; remaining
    arrows are concrete machinery/presentation seams and can be burned down
    independently.
 5. ✅ **DONE (Codex 2026-07-08): `ambition_render` no longer depends on
@@ -158,7 +159,11 @@ classes — log-once so the next sessions don't re-derive:
    may be deleted the moment `grep -rn "ambition_actors::<mod>"` outside
    actors returns zero** — put that one-liner in the E7/E8 card as the
    per-facade exit test, and burn them down opportunistically (each is a
-   5-minute repoint+delete).
+   5-minute repoint+delete). **F2.1 first burn-down (Codex 2026-07-08) removed
+   the F1-era compatibility facades for `GameMode`, camera layers/ease/shake,
+   `SandboxDevState`, `ControlledSubject`, and external `FeatureEcsWorldOverlay`
+   reads; consumers now name `ambition_platformer_primitives` /
+   `ambition_dev_tools` directly.**
 
 **North star for the residual (fold into unified-actors.md):** `player/`
 (6.6k) existing as a SIBLING of `features/ecs` is the last structural
@@ -281,13 +286,10 @@ Consider `CARGO_INCREMENTAL=0` for CI-style full-gate runs, or a periodic
 `cargo clean` cron, so a full disk doesn't silently kill background gates.
 
 **Priority order for the next sessions (all opus-executable, most valuable
-first):** F4.3 clock-reset seam → F1.1 remaining branch conversions
-(hazards/interactables/portals through placement records, deleting
-combat/interaction/portal from `ambition_world`'s allow-list one at a time)
-→ F1.4 GameMode move-down (frees host/touch_input) → F1.5/F2.1 GameAssets move
-+ render repoints (finishes E4's dep flip) → F2.3 facade burn-down → E9
-umbrella + demo homes (F5.1/2) → projectiles dedicated session (already
-carded) → F2.2 glue splits.
+first):** F4.3 clock-reset seam → F4.4 deterministic `PlayerSlot` fallback →
+F3.2 `SweepSample` / `PortalSweepAnchor` cleanup → F2.2 residual actor glue
+splits → F2.3 remaining facade burn-down → E9 umbrella + demo homes (F5.1/2)
+→ projectiles dedicated session (already carded).
 
 ### F7 — Deep pass: the lowering seam had three real defects (FIXED); test-loss lesson
 

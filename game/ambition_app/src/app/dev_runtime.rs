@@ -9,7 +9,7 @@ use ambition_actors::ldtk_world;
 use ambition_actors::platformer_runtime::lifecycle::RoomScopedEntity;
 use ambition_actors::rooms;
 use ambition_actors::world::{physics, platforms};
-use ambition_actors::SandboxDevState;
+use ambition_dev_tools::SandboxDevState;
 use ambition_engine_core as ae;
 use ambition_engine_core::RoomGeometry;
 #[cfg(feature = "input")]

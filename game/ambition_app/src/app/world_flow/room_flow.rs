@@ -111,7 +111,7 @@ pub(crate) fn load_room(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
     clusters: &mut ae::BodyClustersMut<'_>,
-    dev_state: &mut ambition_actors::SandboxDevState,
+    dev_state: &mut ambition_dev_tools::SandboxDevState,
     sim_state: &mut ambition_actors::SandboxSimState,
     clock: &mut ambition_time::ClockState,
     // Home-only presentation state (None when a possessed actor transits).
@@ -247,7 +247,7 @@ pub fn ensure_requested_room_parallax_system(
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct TransitBodies<'w, 's> {
     controlled:
-        Option<Res<'w, ambition_actors::abilities::traversal::possession::ControlledSubject>>,
+        Option<Res<'w, ambition_platformer_primitives::markers::ControlledSubject>>,
     clusters: Query<'w, 's, ae::BodyClusterQueryData>,
     combat: Query<'w, 's, &'static mut ambition_characters::actor::BodyCombat>,
     presentation: Query<
@@ -269,7 +269,7 @@ pub(crate) fn apply_room_transition_system(
     mut transit: TransitBodies,
     mut world: ResMut<RoomGeometry>,
     mut room_set: ResMut<rooms::RoomSet>,
-    mut dev_state: ResMut<ambition_actors::SandboxDevState>,
+    mut dev_state: ResMut<ambition_dev_tools::SandboxDevState>,
     mut room_clock: RoomClock,
     mut moving_platforms: ResMut<ambition_actors::MovingPlatformSet>,
     mut dialogue: ResMut<ambition_actors::dialog::DialogState>,
@@ -392,7 +392,7 @@ fn log_room_transition_landing(
     pos: ae::Vec2,
     size: ae::Vec2,
     world: &ae::World,
-    feature_overlay: &ambition_actors::features::FeatureEcsWorldOverlay,
+    feature_overlay: &ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay,
 ) {
     let target_id = room_set
         .rooms

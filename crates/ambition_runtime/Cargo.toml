@@ -34,6 +34,7 @@ ambition_engine_core = { path = "../ambition_engine_core" }
 ambition_sfx = { path = "../ambition_sfx" }
 ambition_persistence = { path = "../ambition_persistence" }
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
+ambition_dev_tools = { path = "../ambition_dev_tools" }
 bevy_common_assets = { version = "0.15", features = ["ron"] }
 bevy = { version = "0.18.1", default-features = false, features = [
     # add_headless_foundation: asset/image registries + states for a

@@ -17,7 +17,7 @@
 
 use bevy::prelude::*;
 
-use ambition_actors::abilities::traversal::possession::ControlledSubject;
+use ambition_platformer_primitives::markers::ControlledSubject;
 #[cfg(test)]
 use ambition_actors::actor::BodyBaseSize;
 use ambition_actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};

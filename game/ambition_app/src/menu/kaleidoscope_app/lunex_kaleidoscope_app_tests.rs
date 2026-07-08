@@ -60,7 +60,7 @@ fn base_kaleidoscope_test_app() -> App {
     app.init_resource::<KaleidoscopePointerPress>();
     app.init_resource::<OwnedItems>();
     app.init_resource::<ambition_actors::dev::dev_tools::DeveloperTools>();
-    app.init_resource::<ambition_actors::SandboxDevState>();
+    app.init_resource::<ambition_dev_tools::SandboxDevState>();
     app.init_resource::<ambition_actors::ldtk_world::LdtkHotReloadState>();
     app.init_resource::<ambition_actors::session::reset::SandboxResetRequested>();
     app.init_resource::<ambition_actors::dev::dev_tools::EditableMovementTuning>();
@@ -101,7 +101,7 @@ fn spawn_kaleidoscope_test_player(app: &mut App) -> Entity {
 #[test]
 fn extra_dev_toggles_flip_their_non_developer_resources() {
     let mut dev = ambition_actors::dev::dev_tools::DeveloperTools::default();
-    let mut dev_state = ambition_actors::SandboxDevState::default();
+    let mut dev_state = ambition_dev_tools::SandboxDevState::default();
     let mut ldtk_reload = ambition_actors::ldtk_world::LdtkHotReloadState::default();
     let mut backend = InventoryUiBackend::default();
 
@@ -172,7 +172,7 @@ fn menu_backend_dev_row_cycles_inventory_backend() {
     assert!(DevToggleId::MenuBackend.is_cycle());
 
     let mut dev = ambition_actors::dev::dev_tools::DeveloperTools::default();
-    let mut dev_state = ambition_actors::SandboxDevState::default();
+    let mut dev_state = ambition_dev_tools::SandboxDevState::default();
     let mut ldtk_reload = ambition_actors::ldtk_world::LdtkHotReloadState::default();
     let mut backend = InventoryUiBackend::Grid;
 
@@ -241,7 +241,7 @@ fn menu_backend_dev_row_cycles_inventory_backend() {
 #[test]
 fn show_hitboxes_toggles_feature_and_player_fields_like_pause() {
     let mut dev = ambition_actors::dev::dev_tools::DeveloperTools::default();
-    let mut dev_state = ambition_actors::SandboxDevState::default();
+    let mut dev_state = ambition_dev_tools::SandboxDevState::default();
     let mut ldtk_reload = ambition_actors::ldtk_world::LdtkHotReloadState::default();
     dev.show_feature_hitboxes = false;
     dev.show_player_hitbox = false;
@@ -907,7 +907,7 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
     app.init_resource::<KaleidoscopePointerPress>();
     app.init_resource::<OwnedItems>();
     app.init_resource::<ambition_actors::dev::dev_tools::DeveloperTools>();
-    app.init_resource::<ambition_actors::SandboxDevState>();
+    app.init_resource::<ambition_dev_tools::SandboxDevState>();
     app.init_resource::<ambition_actors::ldtk_world::LdtkHotReloadState>();
     app.init_resource::<ambition_actors::session::reset::SandboxResetRequested>();
     app.init_resource::<ambition_actors::dev::dev_tools::EditableMovementTuning>();
@@ -1274,7 +1274,7 @@ fn scroll_total_rows(app: &App) -> usize {
     let dev = app
         .world()
         .resource::<ambition_actors::dev::dev_tools::DeveloperTools>();
-    let dev_state = app.world().resource::<ambition_actors::SandboxDevState>();
+    let dev_state = app.world().resource::<ambition_dev_tools::SandboxDevState>();
     let ldtk_reload = app
         .world()
         .resource::<ambition_actors::ldtk_world::LdtkHotReloadState>();
@@ -1654,7 +1654,7 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
     owned.grant(owned_item, 1);
     app.insert_resource(owned);
     app.init_resource::<ambition_actors::dev::dev_tools::DeveloperTools>();
-    app.init_resource::<ambition_actors::SandboxDevState>();
+    app.init_resource::<ambition_dev_tools::SandboxDevState>();
     app.init_resource::<ambition_actors::ldtk_world::LdtkHotReloadState>();
     app.init_resource::<ambition_actors::session::reset::SandboxResetRequested>();
     app.init_resource::<ambition_actors::dev::dev_tools::EditableMovementTuning>();

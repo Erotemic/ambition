@@ -219,7 +219,7 @@ const MANA_REGEN_PER_SEC: f32 = 14.0;
 /// module, E4: a sim mutator never lives in presentation.)
 pub fn regen_player_mana(
     time: Res<ambition_time::WorldTime>,
-    controlled: Option<Res<crate::abilities::traversal::possession::ControlledSubject>>,
+    controlled: Option<Res<ambition_platformer_primitives::markers::ControlledSubject>>,
     mut manas: Query<&mut crate::actor::BodyMana>,
     primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
 ) {

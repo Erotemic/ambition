@@ -48,6 +48,6 @@ impl Plugin for AmbitionAbilitiesPlugin {
         // *systems* remain chained with the player tick in
         // `register_player_simulation_systems`.
         app.init_resource::<traversal::possession::PossessionState>();
-        app.init_resource::<traversal::possession::ControlledSubject>();
+        app.init_resource::<ambition_platformer_primitives::markers::ControlledSubject>();
     }
 }

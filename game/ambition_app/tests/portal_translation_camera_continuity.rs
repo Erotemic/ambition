@@ -8,7 +8,7 @@ use common::{base, hold_right};
 
 use ambition_actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 use ambition_platformer_primitives::schedule::GameMode;
-use ambition_actors::session::camera_layers::MainCamera;
+use ambition_platformer_primitives::camera_layers::MainCamera;
 use ambition_app::app::{SandboxSet, SandboxSimulationPlugin, StartRoomOverride};
 use ambition_app::AgentAction;
 use ambition_input::ControlFrame;
@@ -141,8 +141,8 @@ impl HeadlessCameraHarness {
         kin.pos = pos;
         kin.vel = vel;
         kin.facing = if vel.x >= 0.0 { 1.0 } else { -1.0 };
-        *world.resource_mut::<ambition_actors::CameraEaseState>() =
-            ambition_actors::CameraEaseState::default();
+        *world.resource_mut::<ambition_platformer_primitives::camera_ease::CameraEaseState>() =
+            ambition_platformer_primitives::camera_ease::CameraEaseState::default();
         *world.resource_mut::<PortalCameraContinuityHostView>() =
             PortalCameraContinuityHostView::default();
         world.resource_mut::<PortalCameraContinuityState>().clear();

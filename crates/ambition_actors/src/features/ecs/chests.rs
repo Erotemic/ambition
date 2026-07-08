@@ -8,7 +8,7 @@ use ambition_sfx::SfxMessage;
 pub fn open_ecs_chests(
     mut commands: Commands,
     mut banner: ResMut<GameplayBanner>,
-    controlled: Option<Res<crate::abilities::traversal::possession::ControlledSubject>>,
+    controlled: Option<Res<ambition_platformer_primitives::markers::ControlledSubject>>,
     // The local controller's buffered interact (published from the device onto its
     // slot); consumed for whatever body it currently drives.
     mut slot_gestures: ResMut<crate::player::SlotInteractionState>,
@@ -103,7 +103,7 @@ mod chest_tests {
     //! a buffered interact over an overlapping, unopened chest inserts
     //! `Opened`; an unbuffered player or a non-overlapping chest does not.
     use super::*;
-    use crate::abilities::traversal::possession::ControlledSubject;
+    use ambition_platformer_primitives::markers::ControlledSubject;
     use crate::player::{BodyAnimFacts, SlotInteractionState};
     use ambition_engine_core::BodyBaseSize;
     use ambition_engine_core::BodyKinematics;

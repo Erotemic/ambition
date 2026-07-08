@@ -119,7 +119,7 @@ impl BossSheetRegistry {
         Self { by_key }
     }
 
-    fn get(&self, key: &str) -> Option<&BossSheetSpec> {
+    pub fn get(&self, key: &str) -> Option<&BossSheetSpec> {
         self.by_key.get(key)
     }
 }

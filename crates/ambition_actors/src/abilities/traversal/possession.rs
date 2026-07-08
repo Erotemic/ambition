@@ -30,7 +30,7 @@ use bevy::prelude::*;
 
 use ambition_characters::brain::{ActorControl, Brain, PlayerSlot};
 
-pub use ambition_platformer_primitives::markers::ControlledSubject;
+use ambition_platformer_primitives::markers::ControlledSubject;
 
 use crate::actor::BodyKinematics;
 use crate::actor::{PlayerEntity, PrimaryPlayer};

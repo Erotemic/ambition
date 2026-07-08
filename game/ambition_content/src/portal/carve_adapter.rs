@@ -11,7 +11,7 @@
 
 use bevy::prelude::*;
 
-use ambition_actors::features::FeatureEcsWorldOverlay;
+use ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay;
 use ambition_engine_core::cast::SolidWorldQuery;
 use ambition_engine_core::RoomGeometry;
 use ambition_portal::{measure_host_depth, PlacedPortal, PortalCarves, PortalHostDepths};

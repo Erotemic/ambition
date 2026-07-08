@@ -6,7 +6,7 @@ use ambition_actors::dev::dev_tools::DeveloperTools;
 use ambition_platformer_primitives::schedule::GameMode;
 use ambition_actors::ldtk_world;
 use ambition_actors::rooms;
-use ambition_actors::SandboxDevState;
+use ambition_dev_tools::SandboxDevState;
 use ambition_engine_core as ae;
 use ambition_engine_core::RoomGeometry;
 use ambition_input::KeyboardPreset;

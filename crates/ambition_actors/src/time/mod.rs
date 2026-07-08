@@ -1,12 +1,7 @@
 //! Time domain plumbing: clocks (ADR 0010/0011), time-control authority,
-//! per-entity proper-time scale, game-feel tuning, and the smoothed camera
-//! ease state.
-//!
-//! `world_time` + `camera_ease` are the types that used to live at the
-//! crate root; they're surfaced here so future framework extraction can
-//! pull a single coherent `time/` module without untangling lib.rs.
+//! per-entity proper-time scale, and game-feel tuning. Camera ease/shake
+//! vocabulary lives in `ambition_platformer_primitives::camera_ease`.
 
-pub mod camera_ease;
 pub mod feel;
 pub mod time_control;
 pub mod world_time;

@@ -4,7 +4,7 @@
 //! action set, held item, and mana. Keeping that bundle here lets each ability
 //! test focus on the behavior it is asserting instead of repeating spawn wiring.
 
-use crate::abilities::traversal::possession::ControlledSubject;
+use ambition_platformer_primitives::markers::ControlledSubject;
 use crate::actor::BodyKinematics;
 use crate::actor::{BodyBaseSize, BodyMana};
 use crate::actor::{PlayerEntity, PrimaryPlayer};

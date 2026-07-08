@@ -74,7 +74,6 @@ pub use nameplates::{
 // Re-exported so simulation/effects code can place projectile-spawn
 // origins at the same hand position the visual lays the gun-sword on.
 // Keeps "where the muzzle is" defined in one module.
-pub use ambition_actors::features::rider_hand_world_pos;
 #[cfg(feature = "portal_render")]
 pub use parallax::sync_portal_capture_parallax_layers;
 pub use parallax::{
@@ -182,7 +181,7 @@ impl bevy::prelude::Plugin for PlayerVisualSchedulePlugin {
 }
 
 /// Module-local Bevy plugin: schedules the per-frame visual animation
-/// chain into [`ambition_actors::schedule::SandboxSet::PresentationVisualSync`].
+/// chain into [`ambition_platformer_primitives::schedule::SandboxSet::PresentationVisualSync`].
 ///
 /// Spawns dynamic feature visuals first (so `sync_visuals` finds them
 /// the same frame), then mirrors transforms / sprite atlas indices,
@@ -271,8 +270,7 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 pirate_weapon::sync_pirate_weapon_visuals,
             )
                 .chain()
-                .in_set(ambition_actors::schedule::SandboxSet::PresentationVisualSync)
-                .after(ambition_actors::menu::map::handle_map_menu_hotkeys),
+                .in_set(ambition_platformer_primitives::schedule::SandboxSet::PresentationVisualSync),
         );
 
         // Rebuild the active room's static visuals + parallax when the sim asks

@@ -18,7 +18,7 @@ use bevy::prelude::*;
 /// Bevy `App`), for tools/tests that need sprite metrics (boss hurtbox math, the
 /// geometry-debug renderer) without spinning up [`SheetRegistryPlugin`].
 pub fn baked_sheet_registry() -> SheetRegistry {
-    SheetRegistry::from_baked_table(super::baked_sheet_rons::BAKED_SHEET_RONS)
+    ambition_sprite_sheet::baked_sheet_registry()
 }
 
 /// Bevy plugin that installs the registry resource and a Startup system to

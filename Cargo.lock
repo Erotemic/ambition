@@ -573,6 +573,7 @@ dependencies = [
  "ambition_sprite_sheet",
  "ambition_time",
  "ambition_vfx",
+ "ambition_world",
  "bevy",
  "leafwing-input-manager",
 ]

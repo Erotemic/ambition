@@ -22,3 +22,12 @@ pub use metadata::*;
 pub use room_graph::*;
 pub use spawn::validated_spawn;
 pub use specs::*;
+
+/// Request to (re)spawn the active room's static visuals + parallax layers.
+///
+/// Simulation emits this after it has flipped the active room; presentation
+/// consumes it and rebuilds visual entities from [`RoomSet`]. The message lives
+/// with room vocabulary so render does not depend on the actor-domain crate just
+/// to hear that room visuals are stale.
+#[derive(Message, Clone, Copy, Debug, Default)]
+pub struct RespawnRoomVisualsRequested;

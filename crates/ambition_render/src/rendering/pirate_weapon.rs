@@ -192,13 +192,28 @@ mod tests {
 
     #[test]
     fn hand_offset_flips_with_facing() {
-        use ambition_actors::features::rider_hand_world_pos;
         let pos = ambition_engine_core::Vec2::new(100.0, 50.0);
-        let right = rider_hand_world_pos(pos, 1.0, 78.0);
-        let left = rider_hand_world_pos(pos, -1.0, 78.0);
+        let right = test_rider_hand_world_pos(pos, 1.0, 78.0);
+        let left = test_rider_hand_world_pos(pos, -1.0, 78.0);
         assert!(right.x > pos.x, "right-facing hand should be to the right");
         assert!(left.x < pos.x, "left-facing hand should be to the left");
         // Y is the same regardless of facing.
         assert!((right.y - left.y).abs() < 1.0e-5);
+    }
+
+    fn test_rider_hand_world_pos(
+        rider_pos: ambition_engine_core::Vec2,
+        facing: f32,
+        rider_height: f32,
+    ) -> ambition_engine_core::Vec2 {
+        const HAND_OFFSET_NORM: ambition_engine_core::Vec2 =
+            ambition_engine_core::Vec2::new(0.18, -0.05);
+        let facing_sign = if facing >= 0.0 { 1.0 } else { -1.0 };
+        let hand_local = ambition_engine_core::Vec2::new(
+            HAND_OFFSET_NORM.x * rider_height * facing_sign,
+            HAND_OFFSET_NORM.y * rider_height,
+        );
+        rider_pos + ambition_engine_core::AccelerationFrame::new(ambition_engine_core::Vec2::new(0.0, 1.0))
+            .to_world(hand_local)
     }
 }

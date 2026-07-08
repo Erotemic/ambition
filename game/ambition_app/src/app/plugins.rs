@@ -13,7 +13,7 @@ use ambition_actors::dialog;
 use ambition_platformer_primitives::schedule::gameplay_allowed;
 use ambition_actors::ldtk_world;
 use ambition_actors::rooms;
-use ambition_actors::schedule::SandboxSet;
+use ambition_platformer_primitives::schedule::SandboxSet;
 use ambition_actors::time::feel::SandboxFeelTuning;
 #[cfg(feature = "physics_debris")]
 use ambition_actors::world::physics;

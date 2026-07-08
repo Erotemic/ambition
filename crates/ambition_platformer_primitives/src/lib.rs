@@ -13,6 +13,8 @@ pub mod math;
 pub mod orientation;
 pub mod prelude;
 pub mod projectile;
+pub mod camera_ease;
+pub mod camera_layers;
 pub mod schedule;
 pub mod time;
 pub mod transit;

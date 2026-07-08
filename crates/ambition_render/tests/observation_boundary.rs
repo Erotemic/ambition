@@ -145,3 +145,57 @@ fn render_never_names_live_sim_state() {
         violations.join("\n")
     );
 }
+
+#[test]
+fn render_actor_dependency_is_precisely_enumerated_f15_ratchet() {
+    let src = Path::new(env!("CARGO_MANIFEST_DIR")).join("src");
+    let mut files = Vec::new();
+    rust_sources(&src, &mut files);
+    assert!(!files.is_empty(), "found no render sources under {src:?}");
+
+    let mut counts = std::collections::BTreeMap::<String, usize>::new();
+    let mut locations = Vec::new();
+    for file in &files {
+        let text = std::fs::read_to_string(file).expect("readable source");
+        for (i, line) in text.lines().enumerate() {
+            let mut rest = code_only(line);
+            while let Some(pos) = rest.find("ambition_actors::") {
+                let after = &rest[pos + "ambition_actors::".len()..];
+                let segment = after
+                    .split(|c: char| !(c == '_' || c.is_ascii_alphanumeric()))
+                    .next()
+                    .unwrap_or_default();
+                if !segment.is_empty() {
+                    *counts.entry(segment.to_string()).or_insert(0) += 1;
+                    locations.push(format!(
+                        "{}:{}: ambition_actors::{}",
+                        file.display(),
+                        i + 1,
+                        segment,
+                    ));
+                }
+                rest = &after[segment.len()..];
+            }
+        }
+    }
+
+    let expected = std::collections::BTreeMap::from([
+        ("SandboxDevState".to_string(), 1usize),
+        ("assets".to_string(), 8usize),
+        ("boss_encounter".to_string(), 2usize),
+        ("character_roster".to_string(), 1usize),
+        ("dev".to_string(), 6usize),
+        ("features".to_string(), 5usize),
+        ("player".to_string(), 1usize),
+        ("shrine".to_string(), 1usize),
+        ("world".to_string(), 1usize),
+    ]);
+    assert_eq!(
+        counts,
+        expected,
+        "F1.5 ratchet: render may only depend on the remaining precisely \
+         enumerated actor blockers. Delete an expected entry/count when a \
+         follow-up move-down lands; investigate any new entry. Locations:\n{}",
+        locations.join("\n"),
+    );
+}

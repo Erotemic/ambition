@@ -316,7 +316,7 @@ mod tests {
     use super::*;
     #[test]
     fn shrine_sheet_exposes_idle_then_activate_rows() {
-        let registry = ambition_actors::character_sprites::baked_sheet_registry();
+        let registry = ambition_sprite_sheet::baked_sheet_registry();
         let record = registry.get("shrine").expect("shrine sheet record");
         assert_eq!(record.rows.len(), 2);
         assert_eq!(row_start_index(record, "idle"), Some(0));

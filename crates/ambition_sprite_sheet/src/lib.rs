@@ -459,6 +459,14 @@ impl SheetRegistry {
     }
 }
 
+/// Build a [`SheetRegistry`] from the build-script baked RON table.
+///
+/// This is headless-friendly and keeps render/tooling callers from depending on
+/// the actor crate just to inspect generated sprite metadata.
+pub fn baked_sheet_registry() -> SheetRegistry {
+    SheetRegistry::from_baked_table(baked_sheet_rons::BAKED_SHEET_RONS)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

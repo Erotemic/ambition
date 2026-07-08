@@ -39,7 +39,7 @@ pub mod portal;
 
 // Only the input bridge + portal continuity order against the sandbox phases.
 #[cfg(any(feature = "input", feature = "portal_render"))]
-use ambition_actors::schedule::SandboxSet;
+use ambition_platformer_primitives::schedule::SandboxSet;
 
 /// The windowed-host plugin group (see the crate docs).
 pub struct PlatformerHostPlugins;

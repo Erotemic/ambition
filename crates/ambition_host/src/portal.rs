@@ -158,7 +158,7 @@ mod host_adapter {
         cameras: Query<
             Entity,
             (
-                With<ambition_actors::session::camera_layers::MainCamera>,
+                With<ambition_platformer_primitives::camera_layers::MainCamera>,
                 Without<PortalCameraContinuityCamera>,
             ),
         >,

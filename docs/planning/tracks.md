@@ -1523,6 +1523,25 @@ only a utility reach-through, not live sim data.
 Gate: `cargo check -p ambition_render`. Pre-existing warnings remain.
 
 
+
+## 2026-07-07 (Codex) — F1.5 render→actors first-cut ratchet
+
+Burned down the already-moved vocabulary side of the E4 render dep-flip blocker:
+`ambition_render` now reads rooms/metadata/gate portals and the respawn-visuals
+message from `ambition_world`, camera layer markers + `SandboxSet` labels +
+camera shake/ease state from `ambition_platformer_primitives`, baked sheet
+registry data from `ambition_sprite_sheet`, and its fireball prop-art id locally.
+The actor `schedule`, `session::camera_layers`, `session::RespawnRoomVisualsRequested`,
+and `time::camera_ease` modules are compatibility facades over the lower crates.
+
+Added a render-side F1.5 ratchet that counts the remaining `ambition_actors::`
+references exactly. The residue is now the real work: `GameAssets`/image-handle
+catalog ownership, live feature ECS inputs, dev-tool presentation toggles, boss
+animator tail, shrine pulse, physics settings, and starting-character fallback.
+
+Gate: `cargo fmt --all`; `cargo test -p ambition_render --test observation_boundary`;
+`cargo check -p ambition_render`.
+
 ## 2026-07-07 (fable, FINAL) — whole-repo audit → [engine/fable-final-audit-2026-07-07.md](engine/fable-final-audit-2026-07-07.md)
 The last fable pass audited the full post-decomposition repo. **READ THAT FILE
 FIRST when planning any structural work — it supersedes older card details

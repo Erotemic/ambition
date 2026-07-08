@@ -18,7 +18,7 @@ use std::path::{Path, PathBuf};
 
 use ambition_actors::assets::game_assets::GameAssetConfig;
 use ambition_platformer_primitives::schedule::GameMode;
-use ambition_actors::session::camera_layers::{FrontHudCamera, MainCamera};
+use ambition_platformer_primitives::camera_layers::{FrontHudCamera, MainCamera};
 use ambition_app::app::{
     PresentationSetupSet, SandboxLdtkPlugin, SandboxPresentationPlugin, SandboxSimulationPlugin,
     StartRoomOverride,

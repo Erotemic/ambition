@@ -67,18 +67,22 @@ prescription — log-once so E7/E8 executors don't re-derive:
    reason for host/touch/render-side code to name `ambition_actors`; remaining
    arrows are concrete machinery/presentation seams and can be burned down
    independently.
-5. **`ambition_render` → `ambition_actors` (the E4 dep-flip blocker), now
-   precisely enumerable:** rooms (11 — REPOINT to `ambition_world::rooms`,
-   actors::rooms is a facade), features (9 — live ECS components; these are
-   the true E4 stragglers: convert to SimView facts or repoint to combat),
-   assets (8 — **`GameAssets` is an ASSET CATALOG living in the actor crate;
-   move it to `ambition_asset_manager`/`ambition_sprite_sheet` side**),
-   session (6 — messages like RespawnRoomVisualsRequested: move the message
-   defs to a crate both can see, e.g. sim_view or world), dev (6 — debug
-   overlay reads; gate behind dev_tools), portal (4 — the facade above),
-   shrine/player/items/schedule (2 each — repoint/move-down leftovers).
-   None of these is the hard identity work (that landed in E4 slices); they
-   are moves + repoints.
+5. **F1.5 FIRST CUT DONE (Codex 2026-07-07): `ambition_render` →
+   `ambition_actors` is ratcheted to the true residue.** Render now imports room
+   IR/metadata/gate-portal state from `ambition_world::rooms`; camera layer
+   markers, concrete sandbox schedule labels, and camera shake/ease state moved
+   down to `ambition_platformer_primitives`; `RespawnRoomVisualsRequested` moved
+   to `ambition_world::rooms`; baked sheet registry calls read
+   `ambition_sprite_sheet`; and the fireball prop id is local render art
+   vocabulary. The previous rooms/session/schedule/time/menu/items/
+   character_sprites/combat reach-throughs are gone from render. A render
+   boundary ratchet now counts the remaining actor-prefix references exactly:
+   assets (8), features (5), dev/SandboxDevState (7), boss_encounter (2),
+   shrine (1), world physics settings (1), player starting-character resource
+   (1), and character_roster fallback id (1). Next F1.5/F2.1 slice: move
+   `GameAssets` / image-handle catalog ownership out of the actor crate; then
+   convert the remaining live ECS/dev/shrine/player reads to SimView or
+   presentation-owned resources.
 6. **`ambition_items` contains `inventory_ui`** (deps ui_nav for
    `MenuFocusState`). The item MODEL and the inventory UI are different
    tiers. **Prescription: split inventory_ui out (menu-side or its own

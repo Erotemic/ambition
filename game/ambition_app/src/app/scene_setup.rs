@@ -251,7 +251,7 @@ fn presentation_world_inner(
     // explicitly retargeted back to this camera (see
     // `lunex_kaleidoscope_app::spawn_kaleidoscope_scrim`) so it stays BEHIND the cube.
     let mut main_camera_layers = bevy::camera::visibility::RenderLayers::layer(0)
-        .with(ambition_actors::session::camera_layers::PARALLAX_BACKGROUND_LAYER);
+        .with(ambition_platformer_primitives::camera_layers::PARALLAX_BACKGROUND_LAYER);
     #[cfg(feature = "portal_render")]
     {
         main_camera_layers =
@@ -260,7 +260,7 @@ fn presentation_world_inner(
     let main_camera = commands
         .spawn((
             Camera2d,
-            ambition_actors::session::camera_layers::MainCamera,
+            ambition_platformer_primitives::camera_layers::MainCamera,
             main_camera_layers,
             ambition_render::screen_effects::ScreenEffectSettings::default(),
             Name::new("Main Camera"),
@@ -281,15 +281,15 @@ fn presentation_world_inner(
             clear_color: ClearColorConfig::None,
             ..default()
         },
-        ambition_actors::session::camera_layers::FrontHudCamera,
+        ambition_platformer_primitives::camera_layers::FrontHudCamera,
         IsDefaultUiCamera,
         bevy::camera::visibility::RenderLayers::layer(
-            ambition_actors::session::camera_layers::FRONT_HUD_LAYER,
+            ambition_platformer_primitives::camera_layers::FRONT_HUD_LAYER,
         ),
         Name::new("Front HUD Camera"),
     ));
 
-    commands.insert_resource(ambition_actors::session::camera_layers::MainCameraEntity(
+    commands.insert_resource(ambition_platformer_primitives::camera_layers::MainCameraEntity(
         main_camera,
     ));
 

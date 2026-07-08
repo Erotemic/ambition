@@ -31,7 +31,7 @@ pub struct ForegroundParallax {
 /// Spawn the active room's optional generated foreground layer.
 pub fn spawn_room_foreground_parallax(
     commands: &mut Commands,
-    spec: &ambition_actors::rooms::RoomSpec,
+    spec: &ambition_world::rooms::RoomSpec,
     assets: Option<&GameAssets>,
 ) {
     let Some(assets) = assets else {
@@ -82,7 +82,7 @@ pub fn sync_foreground_parallax(
     camera: Query<
         (&Transform, &Projection),
         (
-            With<ambition_actors::session::camera_layers::MainCamera>,
+            With<ambition_platformer_primitives::camera_layers::MainCamera>,
             Without<ForegroundParallax>,
         ),
     >,

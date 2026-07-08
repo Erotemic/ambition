@@ -107,19 +107,19 @@ impl Plugin for CombatSchedulePlugin {
                 // sentry / meteor / volley) into EnemyProjectileState.bodies
                 // BEFORE the step below, so a body spawned this tick advances
                 // one step this frame — identical to the old direct push.
-                ambition_actors::enemy_projectile::apply_projectile_effects
+                crate::projectile_schedule::apply_enemy_projectile_effects
                     .run_if(gameplay_allowed),
                 // Unified projectile step (player + enemy, faction-routed). Runs
                 // AFTER the enemy spawn consumer (so an enemy body spawned this
                 // tick advances one step this frame) and BEFORE the player input +
                 // spawn below (so a player shot FIRED this frame first ticks next
                 // frame — the old asymmetric spawn timing, preserved).
-                ambition_actors::projectile::step_projectiles.run_if(gameplay_allowed),
+                crate::projectile_schedule::step_projectiles.run_if(gameplay_allowed),
                 // Player projectile INPUT: charge / Hadouken / fire → SpawnProjectile.
-                ambition_actors::projectile::charge_projectile_input,
+                crate::projectile_schedule::charge_projectile_input,
                 // Phase 3b player-pool spawn consumer: materializes player-fired
                 // bodies AFTER the step, so the new body first ticks next frame.
-                ambition_projectiles::apply_player_spawn_projectile_messages,
+                crate::projectile_schedule::apply_player_spawn_projectile_messages,
                 // Data-driven move TRIGGER: a body carrying an `ActorMoveset`
                 // repertoire whose control frame presses a verb edge starts the
                 // matching move (inserts `MovePlayback`). Before `advance` so a move

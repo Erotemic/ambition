@@ -806,6 +806,61 @@ fn architecture_boundaries_asset_manager_is_backend_generic() {
     );
 }
 
+
+#[test]
+fn architecture_boundaries_projectile_schedule_wiring_lives_in_runtime() {
+    let runtime_root = repo_root().join("crates/ambition_runtime");
+    assert_paths_exist(
+        &runtime_root.join("src"),
+        &["projectile_schedule.rs"],
+        "F2 projectile residual scheduling facade",
+    );
+
+    let facade = fs::read_to_string(runtime_root.join("src/projectile_schedule.rs"))
+        .expect("read runtime projectile schedule facade");
+    assert!(
+        facade.contains("ambition_actors::projectile")
+            && facade.contains("ambition_actors::enemy_projectile")
+            && facade.contains("ambition_projectiles::apply_player_spawn_projectile_messages"),
+        "runtime should own the explicit projectile schedule facade over the remaining actor-side steppers"
+    );
+
+    assert_code_refs_absent(
+        &[app_src()],
+        &[
+            "ambition_actors::projectile::",
+            "ambition_actors::enemy_projectile::",
+        ],
+        "F2: app composition should schedule projectile steppers through ambition_runtime::projectile_schedule",
+    );
+
+    assert_code_refs_filtered(
+        &[content_src()],
+        &[
+            "ambition_actors::projectile::",
+            "ambition_actors::enemy_projectile::",
+        ],
+        |path| !is_test_file(path),
+        |_, line| line.contains("use ambition_actors::enemy_projectile::apply_projectile_effects"),
+        "F2: production content should emit projectile effects/model messages, not reach actor projectile steppers directly;          the one public-API content test may still drive the actor stepper fixture directly",
+    );
+
+    assert_code_refs_filtered(
+        &[runtime_root.join("src")],
+        &[
+            "ambition_actors::projectile::",
+            "ambition_actors::enemy_projectile::",
+        ],
+        |path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                != Some("projectile_schedule.rs")
+        },
+        |_, _| false,
+        "F2: the remaining actor-side projectile stepper edge should be centralized in runtime::projectile_schedule",
+    );
+}
+
 #[test]
 fn architecture_boundaries_runtime_is_headless_composition_tier() {
     let crate_root = repo_root().join("crates/ambition_runtime");

@@ -619,9 +619,9 @@ fn install_projectile_and_vfx_systems(app: &mut App) {
             // One unified, kind-driven visual pass for ALL projectiles (player +
             // enemy); the charge indicator is its own player-only pass.
             ambition_render::rendering::projectile_visuals::sync_projectile_visuals
-                .after(ambition_actors::projectile::step_projectiles),
+                .after(ambition_runtime::projectile_schedule::step_projectiles),
             ambition_render::rendering::projectile_visuals::sync_projectile_charge_visuals
-                .after(ambition_actors::projectile::step_projectiles),
+                .after(ambition_runtime::projectile_schedule::step_projectiles),
         ),
     )
     // VFX + debris subscribe on the visible binary only. Audio's

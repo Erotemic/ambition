@@ -43,6 +43,7 @@ mod player_schedule;
 #[cfg(feature = "portal")]
 mod portal_schedule;
 mod progression_schedule;
+pub mod projectile_schedule;
 mod room_schedule;
 mod sim_core_resources;
 

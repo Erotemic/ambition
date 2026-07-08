@@ -162,13 +162,22 @@ classes — log-once so the next sessions don't re-derive:
      joins `ambition_world`; physics.rs (debris/avian) is presentation-adjacent
      and can join render/host side whenever.
    - `projectile/` + `enemy_projectile/` ECS half (3k) — joins
-     `ambition_projectiles` in the carded dedicated session.
+     `ambition_projectiles` in the carded dedicated session. **F2 residual-glue
+     slice (Codex 2026-07-08) centralized the remaining actor-side projectile
+     steppers behind `ambition_runtime::projectile_schedule`; app/content
+     production code no longer schedules through `ambition_actors::projectile`
+     directly. The actual victim-routing/charge steppers still stay actor-side
+     until the boss/player/world inputs are split.**
 2. **RESIDUAL GLUE for already-minted crates** (audio/menu/dialog/items/
    encounter/persistence/music/dev modules, ~7k total): each is the actor-side
    wiring for a carved crate. Per ADR 0019, the plugin/schedule wiring belongs
    in `ambition_runtime`; actor-DOMAIN reactions stay. Treat each module as a
    two-way split, one commit each — do NOT move them wholesale into runtime
-   (that would just relocate the god-hub).
+   (that would just relocate the god-hub). **F2 residual-glue slice (Codex
+   2026-07-08) applied that rule to projectiles first: runtime owns the schedule
+   facade for the remaining actor-side projectile steppers; the model stays in
+   `ambition_projectiles`, and the actor-domain victim/charge logic has not been
+   moved wholesale.**
 3. **FACADES (60 `pub use ambition_*` re-export sites in actors).** These are
    the deliberate hub-continuity aliases. The dissolution ratchet: **a facade
    may be deleted the moment `grep -rn "ambition_actors::<mod>"` outside

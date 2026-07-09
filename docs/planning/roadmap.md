@@ -15,30 +15,36 @@ core?*
 
 ---
 
-## Where we are (2026-07-05, measured)
+## Where we are (2026-07-09, measured)
 
-25 workspace crates. The unification arc (P1) is COMPLETE: one body
-pipeline, one damage resolver, bosses are actors, movesets subsume all
-attack paths, the ability model is three-tier complete, the G-track
-(mounted giant, limb actors, possession-drives-limbs) landed end-to-end,
-the momentum kernel rides chains AND ordinary blocks, `ambition_runtime`
-exists with the engine plugin group. The monolith (`gameplay_core`,
-~95k) is measured, mapped, and mid-carve. The two review-era docs that
-tracked this are archived; their every open item is re-homed in
-[`tracks.md`](tracks.md) (the porting audit is in that doc's header).
+42 workspace crates. **P1 (unification) and the P2 decomposition are both
+COMPLETE.** One body pipeline, one damage resolver, bosses are actors,
+movesets subsume all attack paths, the G-track landed end-to-end, the
+momentum kernel rides chains AND ordinary blocks. The monolith is gone:
+`ambition_runtime` (headless sim assembly) + `ambition_host` (windowed
+wiring) + the `ambition` umbrella crate are real, `ambition_render` no
+longer depends on the actor sim, `placements` is the sole authored-entity
+channel, and two demo crates dep only the umbrella. Gate: 44/44 suites
+green.
+
+**What P2 still owes:** the netcode ladder (N0–N1) has *zero* slices in
+code; collision CC3 (the fuzz oracle delta) is open; the D-B `MODULES.md`
+standard and the D-C mode-scope seam are unstarted; and two playbook exits
+need attention (a demo binary is interactive work; the exit-5 compile
+baseline was never recorded). Details + drift findings:
+[`tracks.md`](tracks.md).
 
 ## The phases
 
 - **P1 — unification.** DONE (2026-07-05). The record lives in the
   archived reviews.
-- **P2 — decomposition + doctrines (ACTIVE).** Execute
-  [`engine/decomposition.md`](engine/decomposition.md) (E5-finish, E4+W,
-  E1–E3, E6–E8, host/app split, navigability standard) alongside the
-  doctrine slices that demos will need:
-  [collision CC1–CC4](engine/collision-and-ccd.md),
-  [combat CM1–CM5/CM7](engine/combat-model.md),
-  [netcode N0–N1](engine/netcode.md). Exit = decomposition playbook
-  exits 1–5.
+- **P2 — decomposition + doctrines (ACTIVE; decomposition DONE).**
+  [`engine/decomposition.md`](engine/decomposition.md) is executed through
+  E9 + the F-queue; what remains are the doctrine slices the demos need:
+  [collision CC1–CC4](engine/collision-and-ccd.md) (CC1/CC2 done; **CC3
+  open**), [combat CM1–CM5/CM7](engine/combat-model.md) (all done), and
+  [netcode N0–N1](engine/netcode.md) (**untouched — the biggest remaining
+  piece of P2**), plus D-B/D-C. Exit = decomposition playbook exits 1–5.
 - **P3 — demo wave 1: [Sanic](demos/sanic.md) + [Super
   Mary-O](demos/super-mary-o.md).** **UNBLOCKED — E5-finish landed
   2026-07-06 night (the demo gate is open; the shell smoke test is the
@@ -157,10 +163,9 @@ New (2026-07-05):
   interprets records into behavior (sim/content → world, never reverse);
   the **base+delta seam for permanent world change is RESERVED** (the
   world is not immutable). Canonical: [`engine/architecture.md`](engine/
-  architecture.md) §4b + Tier-0 note; executor tasking: [`engine/
-  decomposition.md`](engine/decomposition.md) W-track — the [W-a..W-e]
-  sub-questions are ALL RULED there (2026-07-06 night) with a 5-step
-  OPUS-SAFE execution queue.
+  architecture.md) §4b + Tier-0 note. The [W-a..W-e] sub-questions were
+  all ruled 2026-07-06 night and the W-track is EXECUTED; `placements` is
+  now the sole authored-entity channel (the F9.2 arc, 2026-07-09).
 - **Q32 — SimView IS the observation boundary (Jon).** Presentation
   migrates toward SimView/observation facts, not raw sim reads;
   architectural churn is ACCEPTED when it removes long-term coupling

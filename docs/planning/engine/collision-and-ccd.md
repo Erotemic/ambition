@@ -459,46 +459,35 @@ LDtk stays sufficient without a second backend.
 Today: portals are static wall-mounted apertures; transit is swept; the
 carve is static per placement. The arc, with the object model pinned:
 
-- **P1 (=CC5). The `PortalFrame` type** — design in §7, execution-ready.
-- **P2 (=CC6). Moving portals (translation).** The object model, pinned:
-  - **Portals are HOST-ATTACHED apertures, never free entities.** The
-    host ref is the §3.6 vocabulary, exactly: **`PortalHostRef =
-    GeoFaceRef { geo: GeoId, face, along }`** — the durable id of the
-    host block/chain, which face, and the px offset along it. NOT a
-    Bevy entity (blocks aren't entities), NOT a raw index into the
-    composed world (recomposed per frame), NOT a bare placement id (a
-    placement may emit several blocks; the portal needs the face). The
-    frame's `origin` re-derives each frame by resolving `geo → &Block`
-    in the composed world and evaluating `face + along`; `velocity` IS
-    the host block's authoritative `Block.velocity` (the same
-    `surface_velocity` the kernels read) — **never finite-differenced
-    from positions.** A portal cannot exist without a host face
-    (placement law already enforces this for static walls; it
-    generalizes). Static-wall portals get the same ref (their host
-    velocity is ZERO) — one representation, no static/moving split.
-    CC6 carries the `GeoId`/`GeoFaceRef` mint (§3.6 rule 4).
-  - **Update order (one frame), pinned:** (1) hosts/platforms integrate;
-    (2) portal frames re-derive (origin + velocity) from hosts; (3) carve
-    re-composes (the overlay already re-composes per frame; the carve keys
-    off host + local offset); (4) body kernels sweep the re-composed world;
-    (5) transit trigger runs the RELATIVE sweep (body segment − portal
-    segment — one subtraction, both linear over the frame); (6) transfers
-    apply `map_velocity` (Galilean composition, §7); (7) pieces re-evaluate
-    from the new frame transform; (8) presentation reads. This is the CC6
-    schedule contract; the systems already exist in roughly this order —
-    CC6 pins it with explicit set labels.
-  - **Edge cases, ruled:** a portal sweeping over a STATIONARY body
-    transits it (the relative segment is nonzero — the aperture moved over
-    the body; this is correct physics and a designed capability, e.g. a
-    descending portal "scooping" a standing actor). `min_exit_speed`
-    composes in the EXIT FRAME's rest frame: the floor applies to
-    `v_out − exit.velocity` along the exit normal, THEN the frame velocity
-    adds back (otherwise a fast-moving exit portal could never satisfy or
-    always trivially satisfy the floor). Host ROTATION is out of P2 scope
-    (translation only; a rotating host needs angular terms in the frame —
-    explicitly deferred, revisit with P3). Carves recompute discretely per
-    frame — acceptable because the carve is a solidity assist sized with
-    reach margins; the RELATIVE swept trigger is the correctness backstop.
+- **P1 (=CC5). The `PortalFrame` type** — ✅ landed; conventions in §7.
+- **P2 (=CC6). Moving portals (translation).** ✅ **LANDED 2026-07-09.** The
+  object model, as built:
+  - **Portals are HOST-ATTACHED apertures, never free entities.** The host ref
+    is the §3.6 vocabulary exactly: `GeoFaceRef { geo: GeoId, face, along }` —
+    NOT a Bevy entity (blocks aren't entities), NOT a raw index into the
+    composed world (recomposed per frame), NOT a bare placement id (a placement
+    may emit several blocks; the portal needs the face). The frame's `origin`
+    re-derives each frame by resolving `geo → &Block` and evaluating `face +
+    along`; `velocity` IS the host block's authoritative `Block.velocity` —
+    **never finite-differenced from positions.** Static-wall portals get the
+    same ref with zero host velocity: one representation, no static/moving
+    split.
+  - **Update order (one frame), pinned:** (1) hosts/platforms integrate; (2)
+    portal frames re-derive from hosts; (3) carve re-composes; (4) body kernels
+    sweep the re-composed world; (5) the transit trigger runs the RELATIVE
+    sweep (body segment − portal segment — one subtraction, both linear over
+    the frame); (6) transfers apply `map_velocity` (Galilean composition, §7);
+    (7) pieces re-evaluate from the new frame transform; (8) presentation reads.
+  - **Edge cases, ruled:** a portal sweeping over a STATIONARY body transits it
+    (the relative segment is nonzero — the aperture moved over the body; this
+    is correct physics and a designed capability: a descending portal "scoops" a
+    standing actor). `min_exit_speed` composes in the EXIT FRAME's rest frame —
+    the floor applies to `v_out − exit.velocity` along the exit normal, THEN the
+    frame velocity adds back (otherwise a fast-moving exit portal could never
+    satisfy, or would trivially satisfy, the floor). Host ROTATION is out of
+    scope (translation only). Carves recompute discretely per frame — acceptable
+    because the carve is a solidity assist sized with reach margins; the
+    RELATIVE swept trigger is the correctness backstop.
 - **P3. Angled portals — scope split (answering "not just authoring+math"):**
   - **P3a (authoring + math):** apertures at arbitrary tangents for
     point/ray/velocity mapping and CENTROID transit of fully-contained
@@ -631,13 +620,12 @@ format contract that must hold from v1: a dump reproduces from
   landing snaps only within contact range along the contact normal — the
   cast module owns the ONE implementation; audited in CC1-completion.
 
-## 7. CC5 — `PortalFrame`: exact conventions (pre-solved; the parity gate is the spec)
+## 7. `PortalFrame` — the exact conventions (CC5, ✅ landed; this is what the code does)
 
-**Ownership/migration ruling (answers the "two PortalFrame concepts"
-collision):** the code's existing `ambition_portal::pieces::PortalFrame
-{ pos, normal, half_extent }` is not a rival design — it is the frame PLUS
-aperture extent in cardinal-AABB clothing. CC5 SPLITS it and moves the
-split DOWN (reorganize-don't-adapt; no wrapper, no bridge):
+The old `ambition_portal::pieces::PortalFrame { pos, normal, half_extent }` was
+the frame PLUS aperture extent in cardinal-AABB clothing. CC5 SPLIT it and moved
+the split DOWN (reorganize-don't-adapt; no wrapper, no bridge — the old struct
+was deleted in the same arc). The shapes below are live vocabulary:
 
 ```rust
 // ambition_engine_core::frame (new module; bevy_math only)
@@ -691,32 +679,14 @@ every product is by 0/±1, so the frame formulation is bit-identical to the
 existing arithmetic — which is why the parity gate is achievable, not
 aspirational.
 
-**Parity tolerance: zero.** The ENTIRE portal suite passes byte-identically
-before any new capability is used. Cardinal fast-paths are not needed for
-this (see above), but if any test drifts, the resolution is exact-op
-matching, not tolerance-loosening.
+**Parity tolerance was zero** and the entire portal suite passed
+byte-identically. If a future change drifts a portal test, the resolution is
+exact-op matching, **not** tolerance-loosening.
 
-**Migration steps (each compiles + full suite green):**
-1. Mint `engine_core::frame` with the types above + unit tests (local
-   round-trip, map involution `map(a,b) ∘ map(b,a) = id`, conjugation).
-2. `ambition_platformer_primitives::math`'s `portal_map_vec*` re-express as
-   thin delegates to `frame::map_vec` (the global-convention dispatch stays
-   in math.rs); `portal_tangent` delegates to `PortalFrame::tangent`'s
-   free-function form.
-3. `ambition_portal::pieces::PortalFrame` is REPLACED by
-   `engine_core::frame::PortalAperture` (its `pos/normal/half_extent`
-   consumers repoint to `frame.origin`/`frame.normal`/`half_length`;
-   `aperture_half()` → `half_length`; `front_distance(p, f)` →
-   `f.frame.to_local(p).y`). `PlacedPortal::frame()` returns the new type.
-   Delete the old struct in the same arc — no shim.
-4. Portal suite byte-parity gate (all portal tests + the transit/pieces/
-   placement suites). Only THEN may CC6 read non-zero `velocity`.
-
-Aperture-geometry note: `half_extent: Vec2` (the AABB form) loses its
-through-thickness component in the split — audit shows the thin dimension
-was only ever used via `aperture_half()` and the capture box margin;
-the capture box builds from `half_length` + `TRANSIT_BEGIN_MARGIN`
-explicitly (portal-side policy), which is what it always meant.
+Carve depth and capture margins are deliberately NOT in the aperture type —
+they are `ambition_portal` gameplay policy. The capture box builds from
+`half_length` + `TRANSIT_BEGIN_MARGIN` explicitly, which is what the old
+`half_extent`'s through-thickness component always meant.
 
 ## 8. Slices (executor-graded)
 

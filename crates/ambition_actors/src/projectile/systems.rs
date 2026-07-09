@@ -90,22 +90,6 @@ fn player_projectile_muzzle_local_offset(
     }
 }
 
-/// A timed-out or wall-killed **lasersword** detonates with a rendered
-/// explosion (keyed on the projectile's visual KIND, not its owner id). Returns
-/// `None` for any other projectile. VFX-only — replay-neutral.
-fn lasersword_detonation(
-    visual_kind: crate::projectile::ProjectileVisualKind,
-    pos: ae::Vec2,
-) -> Option<VfxMessage> {
-    (visual_kind == crate::projectile::ProjectileVisualKind::Lasersword).then_some(
-        VfxMessage::Explosion {
-            pos,
-            kind: ambition_vfx::vfx::ExplosionKind::ClassicBurst,
-            scale: 0.7,
-        },
-    )
-}
-
 /// The portal-carved collision world a projectile collides against. Bundled as a
 /// [`SystemParam`] so [`update_projectiles`] can build the carved world without
 /// adding two more top-level params (it is already at Bevy's 16-param ceiling).
@@ -547,7 +531,7 @@ pub fn step_projectiles(
         // Expired trace event.
         let gravity_dir = gravity.dir_at(kin.pos);
         if !game.tick(&mut kin, dt, gravity_dir) {
-            if let Some(boom) = lasersword_detonation(visual_kind, kin.pos) {
+            if let Some(boom) = visual_kind.expiry_vfx(kin.pos) {
                 vfx.write(boom);
                 sfx.write(SfxMessage::Play {
                     id: ambition_sfx::ids::WORLD_EXPLOSION,
@@ -783,7 +767,7 @@ pub fn step_projectiles(
                 sfx.write(SfxMessage::Hit { pos });
             }
             WorldHitOutcome::Expired { pos } => {
-                match lasersword_detonation(visual_kind, pos) {
+                match visual_kind.expiry_vfx(pos) {
                     Some(boom) => {
                         vfx.write(boom);
                         sfx.write(SfxMessage::Play {

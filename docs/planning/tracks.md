@@ -991,17 +991,19 @@ re-measured fable's census and found the real split is model-vs-stepper,
 not the 96-ref count (which was the STAYING steppers' upward refs):
 - **MOVED** (deps: engine_core + platformer_primitives + portal +
   gameplay_trace + input + serde + bevy — **NOT combat**; the model names
-  zero combat vocab): shot kinds + visual-kind art + `PlayerProjectileState`,
-  the ECS components + enemy spawn state, the `SpawnProjectile` pool + the
-  pure player-pool spawner, pure portal transit, diagnostics.
+  zero combat vocab): shot kinds + visual-kind art, kind-specific expiry VFX
+  cues, `PlayerProjectileState`, the ECS components + enemy spawn state, the
+  `SpawnProjectile` pool + the pure player-pool spawner, pure portal transit,
+  diagnostics. Later projectile follow-ups also moved the substrate-only
+  enemy-pool `Effect::Projectiles` spawn executor into
+  `ambition_projectiles::enemy`.
 - **STAYS** (victim/world/anim weave — combat's `damage_apply` precedent):
   `step_projectiles` (BOSS types `BossConfig`/`BossClusterRef`/
   `BossAnimationFrameSample` = the E6 blocker, + breakables/actors/`HitEvent`/
-  parry-heal), `charge_projectile_input` (`BodyAnimFacts`), the
-  `ProjectileCollisionWorld` overlay param, enemy `apply_projectile_effects`.
-  `gameplay_core::{projectile,enemy_projectile}` are thin facades
-  (`pub use ambition_projectiles::{*,enemy::*}`, the `ambition_combat as
-  combat` transition-alias precedent).
+  parry-heal), `charge_projectile_input` (`BodyAnimFacts`), and the
+  `ProjectileCollisionWorld` overlay param. `gameplay_core::{projectile,
+  enemy_projectile}` are thin facades (`pub use ambition_projectiles::{*,enemy::*}`,
+  the `ambition_combat as combat` transition-alias precedent).
 - The "player = heal/anim" verdict needed NO execution — `PlayerHealRequested`
   + `BodyAnimFacts` are read only by the staying steppers, so they travel at
   E7, not now. Boundary test
@@ -1783,3 +1785,5 @@ ambition_app --test architecture_boundaries`; `cargo check -p ambition_app
 - 2026-07-09 — unified-melee moveset observation top-up: the hostile half of `unified_melee` now serializes its two sandbox simulations and observes both accepted swing authorities: the legacy/flat `BodyMelee` projection and the moveset-backed `MovePlayback` that now owns actor melee timing. This keeps the already-green `enemy_attacks_player` test as the enemy-AI regression oracle while making `unified_melee` a convergence test for the post-E9 combat read-model.
 
 - 2026-07-09 — projectile residual-glue substrate spawn slice: moved the canonical enemy/boss `Effect::Projectiles` drain into `ambition_projectiles::enemy::apply_enemy_projectile_effect_requests`, where it only materializes projectile entities, stamps shared sequence/owner/visual components, and consumes effect vocabulary. `ambition_runtime::projectile_schedule` still owns the scheduling name, but now routes the enemy-pool spawn executor through `ambition_projectiles`; the actor-side projectile residue is narrowed to the still-woven charge input and victim/world routing stepper.
+
+- 2026-07-09 — projectile visual-kind expiry cue slice: moved the lasersword detonation VFX policy out of `ambition_actors::projectile::systems` and into `ambition_projectiles::visual_kind` as `ProjectileVisualKind::expiry_vfx`. The actor stepper still decides when a projectile times out or hits a solid and still owns victim/world routing, but projectile-kind-specific presentation cues now live next to the projectile art descriptor and are ratcheted by the architecture boundary test.

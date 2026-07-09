@@ -264,6 +264,25 @@ impl ProjectileVisualKind {
     pub fn label(self) -> &'static str {
         self.art().label
     }
+
+    /// VFX emitted when this projectile expires because it timed out or hit a
+    /// solid. Most projectiles use the generic impact supplied by the sim
+    /// stepper; special projectile visual identities own their special death
+    /// presentation here, next to the rest of the projectile-kind art policy.
+    ///
+    /// This remains replay-neutral presentation vocabulary: the gameplay stepper
+    /// decides *when* a projectile expires, then asks the visual kind whether that
+    /// expiry has a custom VFX cue.
+    pub fn expiry_vfx(
+        self,
+        pos: ambition_engine_core::Vec2,
+    ) -> Option<ambition_vfx::vfx::VfxMessage> {
+        (self == Self::Lasersword).then_some(ambition_vfx::vfx::VfxMessage::Explosion {
+            pos,
+            kind: ambition_vfx::vfx::ExplosionKind::ClassicBurst,
+            scale: 0.7,
+        })
+    }
 }
 
 impl From<ProjectileKind> for ProjectileVisualKind {
@@ -334,6 +353,40 @@ mod tests {
             ),
             "lasersword projectile clips a single frame; it does not cycle"
         );
+    }
+
+    #[test]
+    fn lasersword_owns_its_custom_expiry_vfx() {
+        let pos = ambition_engine_core::Vec2::new(12.0, -3.0);
+        let Some(ambition_vfx::vfx::VfxMessage::Explosion {
+            pos: got,
+            kind,
+            scale,
+        }) = ProjectileVisualKind::Lasersword.expiry_vfx(pos)
+        else {
+            panic!("lasersword expiry should emit the authored explosion cue");
+        };
+        assert_eq!(got, pos);
+        assert_eq!(kind, ambition_vfx::vfx::ExplosionKind::ClassicBurst);
+        assert_eq!(scale, 0.7);
+    }
+
+    #[test]
+    fn ordinary_projectiles_have_no_custom_expiry_vfx() {
+        let pos = ambition_engine_core::Vec2::new(1.0, 2.0);
+        for kind in [
+            ProjectileVisualKind::Fireball,
+            ProjectileVisualKind::Hadouken,
+            ProjectileVisualKind::HadoukenSuper,
+            ProjectileVisualKind::Apple,
+            ProjectileVisualKind::Glider,
+            ProjectileVisualKind::EnemyDefault,
+        ] {
+            assert!(
+                kind.expiry_vfx(pos).is_none(),
+                "{kind:?} should use the sim stepper's generic impact fallback"
+            );
+        }
     }
 
     #[test]

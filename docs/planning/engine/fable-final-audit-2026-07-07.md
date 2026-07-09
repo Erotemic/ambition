@@ -169,12 +169,15 @@ classes — log-once so the next sessions don't re-derive:
      slice (Codex 2026-07-08) centralized the remaining actor-side projectile
      steppers behind `ambition_runtime::projectile_schedule`; app/content
      production code no longer schedules through `ambition_actors::projectile`
-     directly. **A projectile-dedicated follow-up (Codex 2026-07-09) moved the
+     directly. A projectile-dedicated follow-up (Codex 2026-07-09) moved the
      enemy/boss projectile effect-request spawn executor into
      `ambition_projectiles::enemy`; runtime still schedules it through
      `ambition_runtime::projectile_schedule`, but no longer reaches through
-     `ambition_actors::enemy_projectile` for that substrate-only spawn step. The
-     actual victim-routing/charge steppers still stay actor-side until the
+     `ambition_actors::enemy_projectile` for that substrate-only spawn step.
+     The next follow-up moved projectile-kind-specific expiry VFX
+     (`ProjectileVisualKind::expiry_vfx`, currently the lasersword detonation)
+     into `ambition_projectiles::visual_kind`. The actual victim-routing,
+     charge-input, and world-collision steppers still stay actor-side until the
      boss/player/world inputs are split.**
 2. **RESIDUAL GLUE for already-minted crates** (audio/menu/dialog/items/
    encounter/persistence/music/dev modules, ~7k total): each is the actor-side
@@ -189,7 +192,11 @@ classes — log-once so the next sessions don't re-derive:
    identified the enemy-pool `Effect::Projectiles` drain as substrate-only and
    moved its canonical implementation into `ambition_projectiles::enemy`, leaving
    runtime as the schedule facade and actor-side projectile code focused on the
-   still-woven charge/victim/world stepper.** **A follow-on residual-glue slice (Codex 2026-07-08)
+   still-woven charge/victim/world stepper. A follow-up moved the kind-specific
+   projectile expiry VFX cue (`ProjectileVisualKind::expiry_vfx`, currently the
+   lasersword detonation) next to the visual-kind art policy in
+   `ambition_projectiles`, so the actor stepper decides when a projectile expires
+   but no longer owns projectile-kind-specific presentation policy.** **A follow-on residual-glue slice (Codex 2026-07-08)
    also burned down the developer-tools facade: app/runtime/sim-view now import
    `ambition_dev_tools::{dev_tools,profiling,sync_live_player_dev_edits_system}`
    directly, while `ambition_actors::dev` keeps only the sim-coupled trace
@@ -399,6 +406,9 @@ Consider `CARGO_INCREMENTAL=0` for CI-style full-gate runs, or a periodic
 **Priority order for the next sessions (all opus-executable, most valuable
 first):** continue the projectiles dedicated session by splitting the remaining
 actor-side charge/victim/world inputs only when their dependencies are explicit.
+The first two safe projectile follow-ups are now landed: enemy-pool
+`Effect::Projectiles` spawn requests live in `ambition_projectiles::enemy`, and
+projectile-kind-specific expiry VFX lives in `ProjectileVisualKind::expiry_vfx`.
 F2 is closed for audit cleanup; F3.2, F4.3, F4.4, and E9 are closed
 correctness/ruling/facade seams; deeper actor decomposition is tracked by the
 later world/plain-input, projectile, and unified-actor cards.

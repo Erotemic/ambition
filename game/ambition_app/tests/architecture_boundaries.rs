@@ -792,6 +792,26 @@ fn architecture_boundaries_projectiles_crate_is_model_only() {
         &forbidden,
         "ambition_projectiles must stay a reusable model free of sim/combat/host imports",
     );
+
+    let actor_projectile_stepper = fs::read_to_string(
+        repo_root().join("crates/ambition_actors/src/projectile/systems.rs"),
+    )
+    .expect("read actor projectile stepper");
+    assert!(
+        !actor_projectile_stepper.contains("fn lasersword_detonation")
+            && !actor_projectile_stepper.contains("ExplosionKind::ClassicBurst"),
+        concat!(
+            "projectile-kind-specific expiry VFX policy belongs in ",
+            "ambition_projectiles::visual_kind; the actor stepper should only ",
+            "ask the visual kind for its optional expiry cue"
+        )
+    );
+    let visual_kind = fs::read_to_string(crate_root.join("src/visual_kind.rs"))
+        .expect("read projectile visual-kind policy");
+    assert!(
+        visual_kind.contains("pub fn expiry_vfx"),
+        "ambition_projectiles::visual_kind should own the custom projectile expiry VFX seam"
+    );
 }
 
 /// `ambition_encounter` (E-enc) owns the reusable encounter wave/lockdown

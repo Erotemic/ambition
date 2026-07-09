@@ -73,13 +73,7 @@ mod tests {
     }
 
     fn portal(channel: PortalChannel, pos: ae::Vec2, normal: ae::Vec2) -> PlacedPortal {
-        PlacedPortal {
-            channel,
-            pos,
-            normal,
-            // A body-height opening on a vertical wall (tall, thin).
-            half_extent: ae::Vec2::new(6.0, 40.0),
-        }
+        PlacedPortal::fixed(channel, pos, normal, ae::Vec2::new(6.0, 40.0))
     }
 
     // Physical convention: a portal's `normal` points OUT of the wall into the

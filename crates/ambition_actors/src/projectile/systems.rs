@@ -125,7 +125,7 @@ impl ProjectileCollisionWorld<'_, '_> {
 
     /// Snapshot the placed portals for the per-projectile transit test.
     fn portal_list(&self) -> Vec<ambition_portal::PlacedPortal> {
-        self.portals.iter().copied().collect()
+        self.portals.iter().cloned().collect()
     }
 }
 

@@ -63,12 +63,7 @@ pub fn portal_projectile_step(
                     }
                 }
                 commands.spawn_room_scoped((
-                    PlacedPortal {
-                        channel,
-                        pos,
-                        normal,
-                        half_extent: portal_half_extent(normal),
-                    },
+                    PlacedPortal::fixed(channel, pos, normal, portal_half_extent(normal)),
                     Name::new(format!("Portal: {}", channel.name())),
                     // Portals are per-room: a room transition despawns them, so
                     // they don't linger and reappear when you leave and come back

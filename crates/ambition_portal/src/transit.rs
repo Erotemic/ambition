@@ -106,7 +106,7 @@ pub fn publish_portal_carves(
     use super::placement::{approach_box, capture_box, portal_fits};
 
     carves.holes.clear();
-    let all: Vec<PlacedPortal> = portals.iter().copied().collect();
+    let all: Vec<PlacedPortal> = portals.iter().cloned().collect();
     if all.is_empty() {
         return;
     }
@@ -275,7 +275,7 @@ pub fn portal_transit(
     mut entered: MessageWriter<super::messages::PortalBodyEntered>,
     mut transited: MessageWriter<PortalBodyTransited>,
 ) {
-    let all: Vec<PlacedPortal> = portals.iter().copied().collect();
+    let all: Vec<PlacedPortal> = portals.iter().cloned().collect();
     if all.is_empty() {
         return;
     }
@@ -449,7 +449,7 @@ pub fn portal_teleport_ground_items(
     portals: Query<&PlacedPortal>,
     mut items: Query<&mut PortalTransitable>,
 ) {
-    let all: Vec<PlacedPortal> = portals.iter().copied().collect();
+    let all: Vec<PlacedPortal> = portals.iter().cloned().collect();
     if all.is_empty() {
         return;
     }

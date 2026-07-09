@@ -1118,12 +1118,12 @@ mod tests {
     }
 
     fn placed(channel: ambition_portal::PortalChannel, pos: Vec2, normal: Vec2) -> PlacedPortal {
-        PlacedPortal {
+        PlacedPortal::fixed(
             channel,
             pos,
             normal,
-            half_extent: ambition_portal::portal_half_extent(normal),
-        }
+            ambition_portal::portal_half_extent(normal),
+        )
     }
 
     fn span_x(cone: &ViewCone) -> f32 {
@@ -1756,7 +1756,7 @@ mod tests {
             Vec2::new(524.0, 450.0),
             Vec2::new(1.0, 0.0),
         );
-        let all = [a, b];
+        let all = [a.clone(), b.clone()];
         let own = portal_window_self_layer(a.channel);
         let other = portal_window_self_layer(b.channel);
         assert_ne!(own, other);

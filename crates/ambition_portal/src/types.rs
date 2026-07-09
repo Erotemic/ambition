@@ -1,6 +1,7 @@
 //! Shared portal types, geometry constants, and small helpers used across the
 //! portal submodules (placement, transit, presentation, …).
 
+use ambition_engine_core as ae;
 use bevy::prelude::*;
 
 use crate::pieces::{PortalAperture, PortalFrame};
@@ -14,10 +15,13 @@ use super::color::PortalChannel;
 /// standalone crate should expose a less-opinionated portal descriptor that can
 /// represent authored/static portals, runtime-opened portals, moving portals,
 /// arbitrary aperture bases, and host-defined link keys.
-#[derive(Component, Clone, Copy, Debug)]
+#[derive(Component, Clone, Debug)]
 pub struct PlacedPortal {
     pub channel: PortalChannel,
-    /// World-space center (on the hit surface).
+    /// World-space center (on the hit surface). For a HOSTED portal this is a
+    /// per-frame derived cache — the host refresh re-derives it from
+    /// [`Self::host`] each frame (§5-P2); for an unhosted portal it is the
+    /// placement value, unchanged forever.
     pub pos: Vec2,
     /// Unit surface normal, pointing out of the host surface into the room.
     /// Current collision/render helpers are cardinal-first; future APIs should
@@ -25,6 +29,54 @@ pub struct PlacedPortal {
     pub normal: Vec2,
     /// Half-extent of the portal's overlap region.
     pub half_extent: Vec2,
+    /// CC6 host attachment: the durable face this aperture rides
+    /// (`PortalHostRef = GeoFaceRef` — §3.6). `None` = an unhosted STATIC
+    /// aperture (fixtures, worlds without identified geometry): frame velocity
+    /// zero, byte-identical to the pre-CC6 portal. Attribution is lazy — the
+    /// host adapter attaches placed portals to identified faces; a hosted
+    /// portal whose face disappears from the composed world CLOSES.
+    pub host: Option<ae::GeoFaceRef>,
+    /// The placement's authored lift of `pos` off the host face along
+    /// `normal` (the gun places 2px proud of the wall). Recorded at
+    /// attachment so the per-frame re-derivation preserves it exactly.
+    pub host_lift: f32,
+    /// The aperture's own velocity in px/s (`PortalFrame::velocity` — feeds
+    /// the Galilean transfer map). ZERO for unhosted/static portals; the host
+    /// refresh derives it from the host block's authoritative velocity.
+    pub vel: Vec2,
+    /// `pos` at the START of this frame — the aperture's own sweep sample.
+    /// `pos - prev_pos` is the exact frame displacement the RELATIVE swept
+    /// transit trigger subtracts (§5-P2 step 5). Maintained by the host
+    /// refresh; equal to `pos` for unhosted portals.
+    pub prev_pos: Vec2,
+}
+
+impl PlacedPortal {
+    /// A static (unhosted) portal — the pre-CC6 shape. Fixtures and
+    /// placement sites construct through this; the host adapter may attach
+    /// a host afterward.
+    pub fn fixed(channel: PortalChannel, pos: Vec2, normal: Vec2, half_extent: Vec2) -> Self {
+        Self {
+            channel,
+            pos,
+            normal,
+            half_extent,
+            host: None,
+            host_lift: 0.0,
+            vel: Vec2::ZERO,
+            prev_pos: pos,
+        }
+    }
+
+    /// The aperture's own displacement THIS frame (§5-P2 relative sweep
+    /// term). Zero for unhosted portals by construction.
+    pub fn frame_delta(&self) -> Vec2 {
+        if self.host.is_some() {
+            self.pos - self.prev_pos
+        } else {
+            Vec2::ZERO
+        }
+    }
 }
 
 impl PlacedPortal {
@@ -32,7 +84,11 @@ impl PlacedPortal {
     /// engine-level CC5 type: origin + normal; velocity ZERO — static portals.
     /// CC6 moving portals derive it from the host's pose + mover velocity).
     pub fn frame(&self) -> PortalFrame {
-        PortalFrame::fixed(self.pos, self.normal)
+        PortalFrame {
+            origin: self.pos,
+            normal: self.normal,
+            velocity: self.vel,
+        }
     }
 
     /// Frame + opening extent — what the piece decomposition, straddle test,
@@ -50,7 +106,7 @@ pub fn find_portal<'a>(
     portals: impl IntoIterator<Item = &'a PlacedPortal>,
     channel: PortalChannel,
 ) -> Option<PlacedPortal> {
-    portals.into_iter().find(|p| p.channel == channel).copied()
+    portals.into_iter().find(|p| p.channel == channel).cloned()
 }
 
 /// A portal opening is the SAME size in every orientation: a doorway

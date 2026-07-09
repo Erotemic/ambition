@@ -297,18 +297,18 @@ mod projectile_transit_tests {
     /// Place a left-wall portal (normal +x) and a right-wall portal (normal -x),
     /// the same pair the actor transit unit test uses.
     fn place_wall_pair(app: &mut App) {
-        app.world_mut().spawn(PlacedPortal {
-            channel: BLUE,
-            pos: Vec2::new(20.0, 200.0),
-            normal: Vec2::new(1.0, 0.0),
-            half_extent: portal_half_extent(Vec2::new(1.0, 0.0)),
-        });
-        app.world_mut().spawn(PlacedPortal {
-            channel: ORANGE,
-            pos: Vec2::new(380.0, 200.0),
-            normal: Vec2::new(-1.0, 0.0),
-            half_extent: portal_half_extent(Vec2::new(1.0, 0.0)),
-        });
+        app.world_mut().spawn(PlacedPortal::fixed(
+            BLUE,
+            Vec2::new(20.0, 200.0),
+            Vec2::new(1.0, 0.0),
+            portal_half_extent(Vec2::new(1.0, 0.0)),
+        ));
+        app.world_mut().spawn(PlacedPortal::fixed(
+            ORANGE,
+            Vec2::new(380.0, 200.0),
+            Vec2::new(-1.0, 0.0),
+            portal_half_extent(Vec2::new(1.0, 0.0)),
+        ));
     }
 
     #[test]

@@ -140,12 +140,12 @@ mod tests {
     use crate::types::portal_half_extent;
 
     fn floor(pos: Vec2) -> PlacedPortal {
-        PlacedPortal {
-            channel: PortalChannel::Authored(PortalChannelColor::Indexed(0)),
+        PlacedPortal::fixed(
+            PortalChannel::Authored(PortalChannelColor::Indexed(0)),
             pos,
-            normal: Vec2::new(0.0, -1.0),
-            half_extent: portal_half_extent(Vec2::new(0.0, -1.0)),
-        }
+            Vec2::new(0.0, -1.0),
+            portal_half_extent(Vec2::new(0.0, -1.0)),
+        )
     }
 
     fn app() -> App {
@@ -205,7 +205,7 @@ mod tests {
         app.update();
         let all: Vec<PlacedPortal> = {
             let mut q = app.world_mut().query::<&PlacedPortal>();
-            q.iter(app.world()).copied().collect()
+            q.iter(app.world()).cloned().collect()
         };
         for e in es.iter().chain(std::iter::once(&lone)) {
             let c = app.world().get::<PlacedPortal>(*e).unwrap().channel;

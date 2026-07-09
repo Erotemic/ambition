@@ -14,6 +14,7 @@
 mod ability_adapter;
 mod carve_adapter;
 mod fire_adapter;
+mod host_adapter;
 mod input_adapter;
 mod inventory_adapter;
 mod plugin;

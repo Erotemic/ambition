@@ -550,7 +550,7 @@ mod enabled {
                 let frame = world.get_resource::<PortalWorldFrame>().copied();
                 let host_view = world.get_resource::<PortalCameraContinuityHostView>().cloned();
                 let portals: Vec<PlacedPortal> =
-                    world.query::<&PlacedPortal>().iter(world).copied().collect();
+                    world.query::<&PlacedPortal>().iter(world).cloned().collect();
                 if let Some(frame) = frame {
                     ui.collapsing("Debug Selected Pair", |ui| {
                         egui::Grid::new("portal_view_cones_selected_pair_debug_grid")

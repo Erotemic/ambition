@@ -40,9 +40,7 @@ mod host_adapter {
     use ambition_engine_core::RoomGeometry;
     use ambition_platformer_primitives::camera_ease::CameraEaseState;
     use ambition_platformer_primitives::lifecycle::PlayerVisual;
-    use ambition_platformer_primitives::markers::{
-        ControlledSubject, PlayerEntity, PrimaryPlayer,
-    };
+    use ambition_platformer_primitives::markers::{ControlledSubject, PlayerEntity, PrimaryPlayer};
     use ambition_runtime::host_seams::SandboxDevState;
 
     /// Bridge the controlled character + the collision world → the crate-owned
@@ -265,7 +263,7 @@ mod host_adapter {
 
         let gravity_dir =
             ambition_platformer_primitives::gravity::gravity_dir_or_default(gravity.as_deref());
-        let portal_list: Vec<ambition_portal::PlacedPortal> = portals.iter().copied().collect();
+        let portal_list: Vec<ambition_portal::PlacedPortal> = portals.iter().cloned().collect();
         let mut camera_state = camera_state;
         for ev in transited.read() {
             if focus.get(ev.body).is_err() {

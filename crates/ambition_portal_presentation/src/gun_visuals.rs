@@ -103,7 +103,7 @@ pub fn sync_portal_mode_indicator(
     // Mid-transit with a through slice: the gun exists in both charts, like
     // the body. Decompose against the same pair, from the same Core function.
     if let Some(transit) = transit {
-        let all: Vec<PlacedPortal> = portals.iter().copied().collect();
+        let all: Vec<PlacedPortal> = portals.iter().cloned().collect();
         if let (Some(enter_portal), Some(exit_portal)) = (
             find_portal(&all, transit.straddling),
             find_portal(&all, transit.straddling.partner()),
@@ -292,19 +292,19 @@ mod tests {
             orange: handle,
         });
 
-        let left = PlacedPortal {
-            channel: PortalChannel::Authored(ambition_portal::PortalChannelColor::Purple),
-            pos: Vec2::new(500.0, 300.0),
-            normal: Vec2::new(-1.0, 0.0),
-            half_extent: Vec2::new(9.0, 46.0),
-        };
-        let right = PlacedPortal {
-            channel: PortalChannel::Authored(ambition_portal::PortalChannelColor::Yellow),
-            pos: Vec2::new(532.0, 300.0),
-            normal: Vec2::new(1.0, 0.0),
-            half_extent: Vec2::new(9.0, 46.0),
-        };
-        app.world_mut().spawn(left);
+        let left = PlacedPortal::fixed(
+            PortalChannel::Authored(ambition_portal::PortalChannelColor::Purple),
+            Vec2::new(500.0, 300.0),
+            Vec2::new(-1.0, 0.0),
+            Vec2::new(9.0, 46.0),
+        );
+        let right = PlacedPortal::fixed(
+            PortalChannel::Authored(ambition_portal::PortalChannelColor::Yellow),
+            Vec2::new(532.0, 300.0),
+            Vec2::new(1.0, 0.0),
+            Vec2::new(9.0, 46.0),
+        );
+        app.world_mut().spawn(left.clone());
         app.world_mut().spawn(right);
         app.world_mut().spawn((
             PlayerEntity,

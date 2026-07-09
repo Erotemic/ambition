@@ -53,12 +53,12 @@ mod reset_tests {
 
     fn portal(channel: PortalChannel) -> PlacedPortal {
         let normal = Vec2::new(1.0, 0.0);
-        PlacedPortal {
+        PlacedPortal::fixed(
             channel,
-            pos: Vec2::new(0.0, 0.0),
+            Vec2::new(0.0, 0.0),
             normal,
-            half_extent: portal_half_extent(normal),
-        }
+            portal_half_extent(normal),
+        )
     }
 
     #[test]

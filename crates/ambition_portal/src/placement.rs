@@ -367,12 +367,20 @@ fn transfer_step(
 ) -> TransitStep {
     let ef = enter.frame();
     let xf = exit.frame();
-    let mut vel_out = portal_transform_velocity(vel, enter.normal, exit.normal);
+    // Galilean composition (CC6, §7): map the body's velocity RELATIVE to the
+    // entry aperture, then ride out on the exit aperture's own motion —
+    // v_out = map(v − v_enter) + v_exit. Static portals (both velocities
+    // zero) reduce to the pre-CC6 arithmetic exactly.
+    let mut vel_out =
+        portal_transform_velocity(vel - ef.velocity, enter.normal, exit.normal) + xf.velocity;
     // Floor the exit speed along the exit normal so a slow walk-in still emerges
-    // instead of stalling in the opening.
-    if vel_out.dot(exit.normal) < tuning.min_exit_speed {
-        let tangential = vel_out - vel_out.dot(exit.normal) * exit.normal;
-        vel_out = tangential + exit.normal * tuning.min_exit_speed;
+    // instead of stalling in the opening. The floor applies in the EXIT
+    // aperture's REST frame (§5-P2): a moving exit must neither trivially
+    // satisfy nor never satisfy it on frame velocity alone.
+    let rel_out = vel_out - xf.velocity;
+    if rel_out.dot(exit.normal) < tuning.min_exit_speed {
+        let tangential = rel_out - rel_out.dot(exit.normal) * exit.normal;
+        vel_out = tangential + exit.normal * tuning.min_exit_speed + xf.velocity;
     }
     TransitStep::Transfer {
         pos: pp::map_point(center, &ef, &xf),
@@ -465,8 +473,10 @@ fn swept_crossing_step(
     let seg = center - prev.pos;
     let seg_len = seg.length();
     // One frame of ballistic motion, or a teleport? (See MAX_SWEPT_STEP_S.)
+    // The guard reads the BODY segment only — a moving aperture sweeping over
+    // a stationary body is legitimate relative motion, not a teleport.
     let max_step = prev.vel.length() * MAX_SWEPT_STEP_S * 1.5 + TRANSIT_BEGIN_MARGIN;
-    if seg_len <= 1e-3 || seg_len > max_step {
+    if seg_len > max_step {
         return None;
     }
     for enter in portals {
@@ -476,17 +486,30 @@ fn swept_crossing_step(
         if !portal_fits(size, enter) {
             continue;
         }
+        // THE RELATIVE SWEEP (§5-P2 step 5): both the body and the aperture
+        // are linear over the frame, so the crossing test is one subtraction —
+        // shift the body's start-of-frame sample by the aperture's own frame
+        // displacement and test the shifted segment against the aperture's
+        // END-of-frame plane. Static portals (delta zero) reduce to the
+        // pre-CC6 segment exactly; a moving aperture sweeping over a
+        // stationary body produces a nonzero relative segment and transits it
+        // (the designed "scoop").
+        let rel_prev = prev.pos + enter.frame_delta();
+        let rel_seg = center - rel_prev;
+        if rel_seg.length_squared() <= 1e-6 {
+            continue;
+        }
         let ap = enter.aperture();
-        let f0 = pp::front_distance(prev.pos, &ap.frame);
+        let f0 = pp::front_distance(rel_prev, &ap.frame);
         let f1 = pp::front_distance(center, &ap.frame);
         // Crossed the plane INTO the wall this step.
         if f0 <= 0.0 || f1 > 0.0 {
             continue;
         }
-        // Where along the segment the plane was crossed, and whether that
-        // point is within the opening.
+        // Where along the (relative) segment the plane was crossed, and
+        // whether that point is within the opening.
         let t = f0 / (f0 - f1);
-        let at = prev.pos + seg * t;
+        let at = rel_prev + rel_seg * t;
         let offset = (at - ap.frame.origin).dot(ap.frame.tangent()).abs();
         if offset <= ap.half_length + TRANSIT_BEGIN_MARGIN {
             // Carry the velocity that PRODUCED the crossing: the live `vel`
@@ -502,7 +525,7 @@ fn swept_crossing_step(
             return Some(transfer_step(
                 center,
                 carried,
-                *enter,
+                enter.clone(),
                 exit,
                 gravity_dir,
                 tuning,
@@ -580,7 +603,7 @@ pub fn transit_step_with_tuning(
                 {
                     let exit = find_portal(portals, enter.channel.partner())
                         .expect("partner checked above");
-                    return transfer_step(center, vel, *enter, exit, gravity_dir, tuning);
+                    return transfer_step(center, vel, enter.clone(), exit, gravity_dir, tuning);
                 }
             }
             // SWEPT crossing (CCD — the §7.6 high-speed tier, runs EVEN on
@@ -708,16 +731,175 @@ mod tests {
     use crate::types::portal_half_extent;
 
     fn floor(channel: PortalChannel, pos: Vec2) -> PlacedPortal {
-        PlacedPortal {
+        PlacedPortal::fixed(
             channel,
             pos,
-            normal: Vec2::new(0.0, -1.0),
-            half_extent: portal_half_extent(Vec2::new(0.0, -1.0)),
-        }
+            Vec2::new(0.0, -1.0),
+            portal_half_extent(Vec2::new(0.0, -1.0)),
+        )
     }
 
     const PURPLE: PortalChannel = PortalChannel::Authored(PortalChannelColor::Purple);
     const YELLOW: PortalChannel = PortalChannel::Authored(PortalChannelColor::Yellow);
+
+    /// Give a fixture portal CC6 host motion: it moved by `delta` this frame
+    /// and carries `vel` px/s. (The machine only reads `host.is_some()` +
+    /// the pos/prev_pos/vel caches; resolution is the adapter's concern.)
+    fn hosted_moving(mut portal: PlacedPortal, delta: Vec2, vel: Vec2) -> PlacedPortal {
+        portal.host = Some(ae::GeoFaceRef::new(ae::GeoId::anon(), ae::Face::Top, 0.0));
+        portal.prev_pos = portal.pos - delta;
+        portal.vel = vel;
+        portal
+    }
+
+    /// §5-P2 "scoop": a moving aperture sweeping over a STATIONARY body
+    /// transits it — the relative segment is nonzero because the aperture
+    /// moved over the body. The body's own sweep sample shows no motion.
+    #[test]
+    fn a_moving_portal_scoops_a_stationary_body() {
+        // A RISING floor aperture (elevator floor, portal in it) sweeps up
+        // past a stationary body's center: in the aperture's frame the body
+        // crossed front -> behind through the opening this frame.
+        let enter = hosted_moving(
+            floor(PURPLE, Vec2::new(100.0, 288.0)), // rose from y=300
+            Vec2::new(0.0, -12.0),
+            Vec2::new(0.0, -720.0),
+        );
+        let exit = floor(YELLOW, Vec2::new(500.0, 600.0));
+        let portals = [enter, exit];
+        let center = Vec2::new(100.0, 294.0); // stationary body, plane rose past it
+        let step = transit_step_with_tuning(
+            center,
+            Vec2::new(24.0, 40.0),
+            Vec2::ZERO,
+            Some(SweptSample {
+                pos: center,
+                vel: Vec2::ZERO,
+            }), // no body motion
+            None,
+            None,
+            &portals,
+            Vec2::new(0.0, 1.0),
+            &super::super::types::PortalHostDepths::default(),
+            &PortalTuning::default(),
+        );
+        match step {
+            TransitStep::Transfer { pos, vel, .. } => {
+                // Emerges at the exit's image of the crossing, riding OUT of
+                // the exit face: the Galilean map hands the stationary body
+                // the aperture-relative approach speed.
+                assert!((pos.x - 500.0).abs() < 60.0, "exit x, got {pos:?}");
+                assert!(
+                    vel.dot(Vec2::new(0.0, -1.0)) > 0.0,
+                    "exits OUT of the exit face, got {vel:?}"
+                );
+            }
+            other => panic!("expected the scoop to Transfer, got {other:?}"),
+        }
+    }
+
+    /// A body CO-MOVING with its aperture (standing on the same host) has a
+    /// zero relative segment — no spurious swept transfer, ever.
+    #[test]
+    fn a_body_co_moving_with_the_aperture_never_swept_transfers() {
+        let delta = Vec2::new(0.0, 12.0);
+        let enter = hosted_moving(
+            floor(PURPLE, Vec2::new(100.0, 300.0)),
+            delta,
+            Vec2::new(0.0, 720.0),
+        );
+        let exit = floor(YELLOW, Vec2::new(500.0, 600.0));
+        let portals = [enter, exit];
+        // Body 60px above the opening (outside the capture box), riding the
+        // same host: it moved by exactly the aperture's delta this frame.
+        let center = Vec2::new(100.0, 240.0);
+        let step = transit_step_with_tuning(
+            center,
+            Vec2::new(24.0, 40.0),
+            Vec2::new(0.0, 720.0),
+            Some(SweptSample {
+                pos: center - delta,
+                vel: Vec2::new(0.0, 720.0),
+            }),
+            None,
+            None,
+            &portals,
+            Vec2::new(0.0, 1.0),
+            &super::super::types::PortalHostDepths::default(),
+            &PortalTuning::default(),
+        );
+        assert!(
+            matches!(step, TransitStep::Idle),
+            "co-moving body must not transit, got {step:?}"
+        );
+    }
+
+    /// The Galilean transfer (§7): velocity maps RELATIVE to the entry
+    /// aperture and composes with the exit aperture's motion; the
+    /// min-exit-speed floor applies in the exit's REST frame.
+    #[test]
+    fn transfer_velocity_composes_galilean_and_floors_in_the_exit_rest_frame() {
+        let tuning = PortalTuning::default();
+        // Entry aperture rising to meet a slowly falling body.
+        let enter = hosted_moving(
+            floor(PURPLE, Vec2::new(100.0, 300.0)),
+            Vec2::new(0.0, -2.0),
+            Vec2::new(0.0, -120.0),
+        );
+        // Exit aperture itself moving along +x at 90 px/s.
+        let exit = hosted_moving(
+            floor(YELLOW, Vec2::new(500.0, 600.0)),
+            Vec2::new(1.5, 0.0),
+            Vec2::new(90.0, 0.0),
+        );
+        // Approach at 180 px/s down: relative approach = 300 px/s into the
+        // entry (the aperture rises 120 to meet it). The mapped rest-frame
+        // exit speed (300) clears the default floor (220); the exit's own +x
+        // motion rides on top.
+        let vel_out = match transfer_step(
+            Vec2::new(100.0, 301.0),
+            Vec2::new(0.0, 180.0),
+            enter.clone(),
+            exit.clone(),
+            Vec2::new(0.0, 1.0),
+            &tuning,
+        ) {
+            TransitStep::Transfer { vel, .. } => vel,
+            other => panic!("expected Transfer, got {other:?}"),
+        };
+        let exit_normal = Vec2::new(0.0, -1.0);
+        let rest_frame_out = (vel_out - exit.vel).dot(exit_normal);
+        assert!(
+            (rest_frame_out - 300.0).abs() < 1e-3,
+            "rest-frame exit speed should be the relative approach speed, got {rest_frame_out}"
+        );
+        assert!(
+            (vel_out.x - exit.vel.x).abs() < 1e-3,
+            "the exit aperture's own motion rides on top, got {vel_out:?}"
+        );
+
+        // A dead-slow approach (5 px/s relative) floors to min_exit_speed IN
+        // THE REST FRAME — the exit's frame velocity must not satisfy the
+        // floor on the aperture's behalf.
+        let slow_enter = floor(PURPLE, Vec2::new(100.0, 300.0));
+        let vel_out = match transfer_step(
+            Vec2::new(100.0, 301.0),
+            Vec2::new(0.0, 5.0),
+            slow_enter,
+            exit.clone(),
+            Vec2::new(0.0, 1.0),
+            &tuning,
+        ) {
+            TransitStep::Transfer { vel, .. } => vel,
+            other => panic!("expected Transfer, got {other:?}"),
+        };
+        let rest_frame_out = (vel_out - exit.vel).dot(exit_normal);
+        assert!(
+            (rest_frame_out - tuning.min_exit_speed).abs() < 1e-3,
+            "rest-frame floor, got {rest_frame_out} (floor {})",
+            tuning.min_exit_speed
+        );
+    }
 
     /// A fast fall can cross the whole straddle window between two sampled
     /// frames (1900 px/s terminal ≈ 63 px at the 1/30 s sim-step clamp vs a
@@ -753,12 +935,7 @@ mod tests {
     }
 
     fn wall_portal(channel: PortalChannel, pos: Vec2, normal: Vec2) -> PlacedPortal {
-        PlacedPortal {
-            channel,
-            pos,
-            normal,
-            half_extent: portal_half_extent(normal),
-        }
+        PlacedPortal::fixed(channel, pos, normal, portal_half_extent(normal))
     }
 
     /// Thin-wall geometric guard: with the host wall measured at 24px, the
@@ -887,12 +1064,12 @@ mod tests {
     }
 
     fn ceiling(channel: PortalChannel, pos: Vec2) -> PlacedPortal {
-        PlacedPortal {
+        PlacedPortal::fixed(
             channel,
             pos,
-            normal: Vec2::new(0.0, 1.0),
-            half_extent: portal_half_extent(Vec2::new(0.0, 1.0)),
-        }
+            Vec2::new(0.0, 1.0),
+            portal_half_extent(Vec2::new(0.0, 1.0)),
+        )
     }
 
     /// §7.6 — the swept (CCD) transit tier, on the exact failing configuration:

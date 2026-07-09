@@ -803,7 +803,7 @@ pub fn sync_portal_view_cones(
     if frame.size == Vec2::ZERO {
         return;
     }
-    let all: Vec<PlacedPortal> = portals.iter().copied().collect();
+    let all: Vec<PlacedPortal> = portals.iter().cloned().collect();
     let viewer = viewer.as_deref();
     let (clip_min, clip_max) = portal_window_clip_rect(&frame, host_view.as_deref());
     let effective = effective_portal_capture_budget(&config, &quality);
@@ -816,8 +816,10 @@ pub fn sync_portal_view_cones(
     // gone / it needs a full rebuild.
     let mut served: Vec<PortalChannel> = Vec::new();
     for (entity, mut rig, mut cam_tf, mut proj, mut cam, mut layers) in &mut rigs {
-        let portal = all.iter().find(|p| p.channel == rig.channel).copied();
-        let partner = portal.and_then(|p| find_portal(&all, p.channel.partner()));
+        let portal = all.iter().find(|p| p.channel == rig.channel).cloned();
+        let partner = portal
+            .as_ref()
+            .and_then(|p| find_portal(&all, p.channel.partner()));
         let (Some(portal), Some(partner)) = (portal, partner) else {
             commands.entity(entity).despawn();
             commands.entity(rig.cone).despawn();
@@ -1228,7 +1230,7 @@ fn portal_view_cone_debug_dump_text(
     screen_scale: f32,
 ) -> String {
     let mut out = String::new();
-    let all: Vec<PlacedPortal> = portals.iter().copied().collect();
+    let all: Vec<PlacedPortal> = portals.iter().cloned().collect();
     let (clip_min, clip_max) = portal_window_clip_rect(frame, host_view);
     let effective = effective_portal_capture_budget(config, quality);
 
@@ -1919,7 +1921,7 @@ fn selected_portals_for_dump(all: &[PlacedPortal], filter: &str) -> Vec<PlacedPo
     else {
         return Vec::new();
     };
-    let mut selected = vec![*portal];
+    let mut selected = vec![portal.clone()];
     if let Some(partner) = find_portal(all, portal.channel.partner()) {
         if partner.channel != portal.channel {
             selected.push(partner);
@@ -2095,7 +2097,7 @@ pub fn debug_portal_view_zones(
     {
         return;
     }
-    let all: Vec<PlacedPortal> = portals.iter().copied().collect();
+    let all: Vec<PlacedPortal> = portals.iter().cloned().collect();
     let viewer = viewer.as_deref();
     let to_render = |p: Vec2| frame.to_render(p, 0.0).truncate();
     for portal in &all {

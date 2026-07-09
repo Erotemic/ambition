@@ -121,6 +121,34 @@ pub struct GeoFaceRef {
     pub along: f32,
 }
 
+impl Face {
+    /// Outward unit normal of this face in world axes (`+y` grows DOWN, so
+    /// `Top` — the `min.y` face — points `(0, -1)`). `Segment` faces have no
+    /// axis-aligned normal at this vocabulary level (chains resolve their own
+    /// tangents); they return `None`.
+    pub fn normal(self) -> Option<crate::Vec2> {
+        match self {
+            Face::Top => Some(crate::Vec2::new(0.0, -1.0)),
+            Face::Bottom => Some(crate::Vec2::new(0.0, 1.0)),
+            Face::Left => Some(crate::Vec2::new(-1.0, 0.0)),
+            Face::Right => Some(crate::Vec2::new(1.0, 0.0)),
+            Face::Segment(_) => None,
+        }
+    }
+
+    /// The AABB face whose outward normal is the given CARDINAL direction.
+    /// Non-cardinal directions (diagonals, zero) resolve to `None`.
+    pub fn of_normal(n: crate::Vec2) -> Option<Face> {
+        match (n.x, n.y) {
+            (x, y) if x == 0.0 && y == -1.0 => Some(Face::Top),
+            (x, y) if x == 0.0 && y == 1.0 => Some(Face::Bottom),
+            (x, y) if x == -1.0 && y == 0.0 => Some(Face::Left),
+            (x, y) if x == 1.0 && y == 0.0 => Some(Face::Right),
+            _ => None,
+        }
+    }
+}
+
 impl GeoFaceRef {
     pub fn new(geo: GeoId, face: Face, along: f32) -> Self {
         Self { geo, face, along }
@@ -170,5 +198,19 @@ mod tests {
             f.geo.source,
             GeoSource::Placement(PlacementId::new("iid-9"))
         );
+    }
+
+    #[test]
+    fn face_normals_are_cardinal_and_involutive() {
+        use crate::Vec2;
+        for face in [Face::Top, Face::Bottom, Face::Left, Face::Right] {
+            let n = face.normal().expect("AABB faces have normals");
+            assert_eq!(Face::of_normal(n), Some(face));
+            assert!((n.length() - 1.0).abs() < 1e-6);
+        }
+        // +y grows DOWN: Top (the min.y face) points up-screen = (0, -1).
+        assert_eq!(Face::Top.normal(), Some(Vec2::new(0.0, -1.0)));
+        assert_eq!(Face::of_normal(Vec2::new(0.5, 0.5)), None);
+        assert!(Face::Segment(3).normal().is_none());
     }
 }

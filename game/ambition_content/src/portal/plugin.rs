@@ -9,11 +9,11 @@
 
 use bevy::prelude::*;
 
+use ambition_platformer_primitives::schedule::gameplay_allowed;
 use ambition_portal::{
     clear_portals_on_reset, portal_fire_system, portal_teleport_ground_items, portal_transit,
     publish_portal_carves, PortalSet,
 };
-use ambition_platformer_primitives::schedule::gameplay_allowed;
 
 use super::ability_adapter::{suppress_ledge_grab_during_transit, warp_portal_input};
 use super::carve_adapter::{bridge_portal_carves, sync_portal_host_depths};
@@ -65,6 +65,24 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         app.add_systems(
             Update,
             suppress_ledge_grab_during_transit.in_set(PortalSet::TransitGuards),
+        );
+
+        // CC6 host attachment: attribute placed portals to the identified
+        // face they sit on, then re-derive each hosted aperture's frame from
+        // its host every frame (§5-P2 step 2). Runs at the FRONT of
+        // `PortalSet::Transit`, before the crate's link/evict/transit chain
+        // (eviction must see the post-move apertures + their frame deltas),
+        // and `Transit` is ordered after the platform sync via the encounter
+        // schedule's chain, so the aperture reads this frame's host pose.
+        app.add_systems(
+            Update,
+            (
+                crate::portal::host_adapter::attach_portal_hosts,
+                crate::portal::host_adapter::refresh_hosted_portal_frames,
+            )
+                .chain()
+                .in_set(PortalSet::Transit)
+                .before(ambition_portal::resolve_portal_links),
         );
 
         // Bridge portal-owned carves → the host collision overlay. Runs in
@@ -337,8 +355,8 @@ mod schedule_tests {
 
     use ambition_actors::actor::{PlayerEntity, PrimaryPlayer};
     use ambition_actors::schedule::configure_sandbox_sets;
-    use ambition_platformer_primitives::schedule::SandboxSet;
     use ambition_input::ControlFrame;
+    use ambition_platformer_primitives::schedule::SandboxSet;
     use ambition_portal::PlayerMovementIntent;
 
     use super::super::ability_adapter::warp_portal_input;

@@ -106,18 +106,18 @@ mod tests {
     /// The c136/c137 shape: a thin-wall doorway pair, opposed faces 32px
     /// apart (material midpoint x = 516).
     fn thin_wall_pair() -> (PlacedPortal, PlacedPortal) {
-        let left = PlacedPortal {
-            channel: PortalChannel::Authored(PortalChannelColor::Purple),
-            pos: Vec2::new(500.0, 300.0),
-            normal: Vec2::new(-1.0, 0.0),
-            half_extent: Vec2::new(9.0, 46.0),
-        };
-        let right = PlacedPortal {
-            channel: PortalChannel::Authored(PortalChannelColor::Yellow),
-            pos: Vec2::new(532.0, 300.0),
-            normal: Vec2::new(1.0, 0.0),
-            half_extent: Vec2::new(9.0, 46.0),
-        };
+        let left = PlacedPortal::fixed(
+            PortalChannel::Authored(PortalChannelColor::Purple),
+            Vec2::new(500.0, 300.0),
+            Vec2::new(-1.0, 0.0),
+            Vec2::new(9.0, 46.0),
+        );
+        let right = PlacedPortal::fixed(
+            PortalChannel::Authored(PortalChannelColor::Yellow),
+            Vec2::new(532.0, 300.0),
+            Vec2::new(1.0, 0.0),
+            Vec2::new(9.0, 46.0),
+        );
         (left, right)
     }
 
@@ -225,18 +225,18 @@ mod tests {
     #[test]
     fn same_plane_pair_still_orders_by_proximity() {
         let up = Vec2::new(0.0, -1.0);
-        let a = PlacedPortal {
-            channel: PortalChannel::Authored(PortalChannelColor::Purple),
-            pos: Vec2::new(254.0, 880.0),
-            normal: up,
-            half_extent: Vec2::new(46.0, 9.0),
-        };
-        let b = PlacedPortal {
-            channel: PortalChannel::Authored(PortalChannelColor::Yellow),
-            pos: Vec2::new(554.0, 880.0),
-            normal: up,
-            half_extent: Vec2::new(46.0, 9.0),
-        };
+        let a = PlacedPortal::fixed(
+            PortalChannel::Authored(PortalChannelColor::Purple),
+            Vec2::new(254.0, 880.0),
+            up,
+            Vec2::new(46.0, 9.0),
+        );
+        let b = PlacedPortal::fixed(
+            PortalChannel::Authored(PortalChannelColor::Yellow),
+            Vec2::new(554.0, 880.0),
+            up,
+            Vec2::new(46.0, 9.0),
+        );
         let eye = Vec2::new(300.0, 840.0);
         assert!(
             pane_dominance(&a, &b, eye).abs() < 1e-4,

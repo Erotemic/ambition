@@ -89,8 +89,12 @@ fn breakable_collision_from_spec(
     collision: crate::rooms::BreakableCollisionSpec,
 ) -> ambition_interaction::BreakableCollision {
     match collision {
-        crate::rooms::BreakableCollisionSpec::None => ambition_interaction::BreakableCollision::None,
-        crate::rooms::BreakableCollisionSpec::Solid => ambition_interaction::BreakableCollision::Solid,
+        crate::rooms::BreakableCollisionSpec::None => {
+            ambition_interaction::BreakableCollision::None
+        }
+        crate::rooms::BreakableCollisionSpec::Solid => {
+            ambition_interaction::BreakableCollision::Solid
+        }
         crate::rooms::BreakableCollisionSpec::OneWayUp => {
             ambition_interaction::BreakableCollision::OneWayUp
         }
@@ -105,7 +109,9 @@ fn breakable_trigger_from_spec(
         crate::rooms::BreakableTriggerSpec::OnStand => {
             ambition_interaction::BreakableTrigger::OnStand
         }
-        crate::rooms::BreakableTriggerSpec::Either => ambition_interaction::BreakableTrigger::Either,
+        crate::rooms::BreakableTriggerSpec::Either => {
+            ambition_interaction::BreakableTrigger::Either
+        }
     }
 }
 
@@ -114,7 +120,9 @@ fn breakable_state_from_spec(
 ) -> ambition_interaction::BreakableState {
     match state {
         crate::rooms::BreakableStateSpec::Intact => ambition_interaction::BreakableState::Intact,
-        crate::rooms::BreakableStateSpec::Cracking => ambition_interaction::BreakableState::Cracking,
+        crate::rooms::BreakableStateSpec::Cracking => {
+            ambition_interaction::BreakableState::Cracking
+        }
         crate::rooms::BreakableStateSpec::Broken => ambition_interaction::BreakableState::Broken,
         crate::rooms::BreakableStateSpec::Respawning => {
             ambition_interaction::BreakableState::Respawning
@@ -141,10 +149,14 @@ fn breakable_from_authored(
     }
 }
 
-fn interaction_kind_from_spec(kind: &crate::rooms::InteractionKindSpec) -> ambition_interaction::InteractionKind {
+fn interaction_kind_from_spec(
+    kind: &crate::rooms::InteractionKindSpec,
+) -> ambition_interaction::InteractionKind {
     match kind {
         crate::rooms::InteractionKindSpec::Door { target } => {
-            ambition_interaction::InteractionKind::Door { target: target.clone() }
+            ambition_interaction::InteractionKind::Door {
+                target: target.clone(),
+            }
         }
         crate::rooms::InteractionKindSpec::Npc {
             character_id,
@@ -159,7 +171,9 @@ fn interaction_kind_from_spec(kind: &crate::rooms::InteractionKindSpec) -> ambit
         },
         crate::rooms::InteractionKindSpec::Chest => ambition_interaction::InteractionKind::Chest,
         crate::rooms::InteractionKindSpec::Pickup => ambition_interaction::InteractionKind::Pickup,
-        crate::rooms::InteractionKindSpec::Breakable => ambition_interaction::InteractionKind::Breakable,
+        crate::rooms::InteractionKindSpec::Breakable => {
+            ambition_interaction::InteractionKind::Breakable
+        }
         crate::rooms::InteractionKindSpec::Custom(value) => {
             ambition_interaction::InteractionKind::Custom(value.clone())
         }
@@ -180,17 +194,23 @@ pub(super) fn interactable_from_authored(
 }
 
 #[cfg(feature = "portal")]
-fn portal_color_from_spec(color: crate::rooms::PortalChannelColorSpec) -> ambition_portal::PortalChannelColor {
+fn portal_color_from_spec(
+    color: crate::rooms::PortalChannelColorSpec,
+) -> ambition_portal::PortalChannelColor {
     match color {
         crate::rooms::PortalChannelColorSpec::Purple => ambition_portal::PortalChannelColor::Purple,
         crate::rooms::PortalChannelColorSpec::Yellow => ambition_portal::PortalChannelColor::Yellow,
         crate::rooms::PortalChannelColorSpec::Teal => ambition_portal::PortalChannelColor::Teal,
         crate::rooms::PortalChannelColorSpec::Red => ambition_portal::PortalChannelColor::Red,
         crate::rooms::PortalChannelColorSpec::Green => ambition_portal::PortalChannelColor::Green,
-        crate::rooms::PortalChannelColorSpec::Magenta => ambition_portal::PortalChannelColor::Magenta,
+        crate::rooms::PortalChannelColorSpec::Magenta => {
+            ambition_portal::PortalChannelColor::Magenta
+        }
         crate::rooms::PortalChannelColorSpec::Cyan => ambition_portal::PortalChannelColor::Cyan,
         crate::rooms::PortalChannelColorSpec::Rose => ambition_portal::PortalChannelColor::Rose,
-        crate::rooms::PortalChannelColorSpec::Indexed(n) => ambition_portal::PortalChannelColor::Indexed(n),
+        crate::rooms::PortalChannelColorSpec::Indexed(n) => {
+            ambition_portal::PortalChannelColor::Indexed(n)
+        }
     }
 }
 
@@ -303,15 +323,12 @@ pub(crate) fn spawn_portal(commands: &mut Commands, spec: &crate::rooms::PortalS
     };
     let mut entity = commands.spawn_room_scoped((
         Name::new(format!("Portal ({}): {}", spec.color.name(), spec.name)),
-        ambition_portal::PlacedPortal {
-            // Link-authored portals get a provisional channel; `resolve_portal_links`
-            // assigns the real paired channel each frame. Color-authored keep
-            // their legacy complementary channel.
-            channel: portal_color_from_spec(spec.color).channel(),
-            pos: spec.pos,
-            normal: spec.normal,
+        ambition_portal::PlacedPortal::fixed(
+            portal_color_from_spec(spec.color).channel(),
+            spec.pos,
+            spec.normal,
             half_extent,
-        },
+        ),
     ));
     if let Some(link) = &spec.link {
         entity.insert(ambition_portal::PortalLink(ambition_portal::link_hash(

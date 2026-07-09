@@ -7,17 +7,17 @@ mod common;
 use common::{base, hold_right};
 
 use ambition::actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
-use ambition::platformer::schedule::GameMode;
-use ambition::platformer::camera_layers::MainCamera;
-use ambition_app::app::{SandboxSet, SandboxSimulationPlugin, StartRoomOverride};
-use ambition_app::AgentAction;
 use ambition::input::ControlFrame;
+use ambition::platformer::camera_layers::MainCamera;
+use ambition::platformer::schedule::GameMode;
 use ambition::portal::{PlacedPortal, PortalTransit};
 use ambition::portal_presentation::{
-    PortalCameraContinuityConfig, PortalCameraContinuityHostView,
-    PortalCameraContinuitySelection, PortalCameraContinuityState, PortalWorldFrame,
+    PortalCameraContinuityConfig, PortalCameraContinuityHostView, PortalCameraContinuitySelection,
+    PortalCameraContinuityState, PortalWorldFrame,
 };
 use ambition::render::rendering::{camera_follow, CameraViewState};
+use ambition_app::app::{SandboxSet, SandboxSimulationPlugin, StartRoomOverride};
+use ambition_app::AgentAction;
 use bevy::asset::AssetPlugin;
 use bevy::image::ImagePlugin;
 use bevy::prelude::*;
@@ -154,7 +154,7 @@ impl HeadlessCameraHarness {
         let mut portals = world.query::<&PlacedPortal>();
         portals
             .iter(world)
-            .copied()
+            .cloned()
             .filter(|p| !p.channel.is_gun_pair())
             .min_by(|a, b| {
                 a.pos
@@ -169,7 +169,7 @@ impl HeadlessCameraHarness {
         let mut portals = world.query::<&PlacedPortal>();
         portals
             .iter(world)
-            .copied()
+            .cloned()
             .find(|p| p.channel == channel)
             .expect("linked portal partner")
     }
@@ -406,7 +406,7 @@ fn thin_wall_walk_keeps_apparent_player_position_smooth() {
         let mut portals = world.query::<&PlacedPortal>();
         let all: Vec<PlacedPortal> = portals
             .iter(world)
-            .copied()
+            .cloned()
             .filter(|p| !p.channel.is_gun_pair())
             .collect();
         let mut found = None;
@@ -416,7 +416,7 @@ fn thin_wall_walk_keeps_apparent_player_position_smooth() {
                 let thin = p.pos.distance(q.pos) <= 48.0;
                 // Walk left-to-right: entry face points left (-x).
                 if opposed && thin && p.normal.x < -0.9 {
-                    found = Some((*p, *q));
+                    found = Some((p.clone(), q.clone()));
                     break;
                 }
             }

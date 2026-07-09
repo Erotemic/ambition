@@ -55,14 +55,22 @@ pub fn evict_straddlers_on_portal_change(
     portals: Query<&PlacedPortal>,
     mut bodies: Query<&mut BodyKinematics, With<PortalBody>>,
 ) {
-    let current: HashMap<PortalChannel, PortalAperture> =
-        portals.iter().map(|p| (p.channel, p.aperture())).collect();
+    // A HOSTED aperture riding its face (CC6) is the same portal in motion,
+    // not a close: compare against where host-carried motion says it should
+    // be. Unhosted portals have zero frame_delta, so this is byte-identical
+    // to the pre-CC6 rule for them. A refire/teleport still evicts — its
+    // displacement never matches the host delta.
+    let current: HashMap<PortalChannel, (PortalAperture, Vec2)> = portals
+        .iter()
+        .map(|p| (p.channel, (p.aperture(), p.frame_delta())))
+        .collect();
 
     for (channel, old) in history.0.iter() {
         // The plane is unchanged only if a portal of the same channel still
-        // sits at the same pos + normal; otherwise its old plane is closing.
-        let unchanged = current.get(channel).is_some_and(|now| {
-            now.frame.origin.distance(old.frame.origin) < 1.0
+        // sits at the same pos + normal (host-carried motion included);
+        // otherwise its old plane is closing.
+        let unchanged = current.get(channel).is_some_and(|(now, delta)| {
+            now.frame.origin.distance(old.frame.origin + *delta) < 1.0
                 && now.frame.normal == old.frame.normal
         });
         if unchanged {
@@ -71,7 +79,7 @@ pub fn evict_straddlers_on_portal_change(
         evict_for_plane(*old, &mut bodies);
     }
 
-    history.0 = current;
+    history.0 = current.into_iter().map(|(c, (ap, _))| (c, ap)).collect();
 }
 
 /// Shove every [`PortalBody`] straddling `plane` to the side its centroid is
@@ -113,12 +121,12 @@ mod tests {
     use crate::types::portal_half_extent;
 
     fn floor_portal(channel: PortalChannel, pos: Vec2) -> PlacedPortal {
-        PlacedPortal {
+        PlacedPortal::fixed(
             channel,
             pos,
-            normal: Vec2::new(0.0, -1.0),
-            half_extent: portal_half_extent(Vec2::new(0.0, -1.0)),
-        }
+            Vec2::new(0.0, -1.0),
+            portal_half_extent(Vec2::new(0.0, -1.0)),
+        )
     }
 
     fn app() -> App {
@@ -205,5 +213,36 @@ mod tests {
             (stable.y - 290.0).abs() < 1e-3,
             "PURPLE straddler untouched: {stable:?}"
         );
+    }
+
+    /// CC6: a HOSTED aperture riding its face is the same portal in motion,
+    /// not a close — a straddling body must NOT be evicted (the dynamic
+    /// straddle re-evaluates; eviction stays a CLOSE-only pushout). A
+    /// teleport of the same channel still evicts (covered above).
+    #[test]
+    fn host_carried_motion_does_not_evict_a_straddler() {
+        let mut app = app();
+        let portal = app
+            .world_mut()
+            .spawn(floor_portal(BLUE, Vec2::new(100.0, 300.0)))
+            .id();
+        let body = straddling_body(&mut app, Vec2::new(100.0, 290.0));
+        app.update(); // history primes
+
+        // The host refresh carried the aperture up 8px this frame.
+        {
+            let mut p = app.world_mut().get_mut::<PlacedPortal>(portal).unwrap();
+            p.host = Some(ambition_engine_core::GeoFaceRef::new(
+                ambition_engine_core::GeoId::anon(),
+                ambition_engine_core::Face::Top,
+                0.0,
+            ));
+            p.prev_pos = p.pos;
+            p.pos += Vec2::new(0.0, -8.0);
+        }
+        let before = app.world().get::<BodyKinematics>(body).unwrap().pos;
+        app.update();
+        let after = app.world().get::<BodyKinematics>(body).unwrap().pos;
+        assert_eq!(before, after, "host-carried motion is not a close");
     }
 }

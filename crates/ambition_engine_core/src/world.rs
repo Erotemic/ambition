@@ -607,7 +607,102 @@ pub struct SweepHit<'a> {
     pub normal1: Vec2,
 }
 
+/// A resolved host-face anchor: where an identified face IS this frame.
+/// The world-frame triple a host-attached aperture re-derives from
+/// (collision-and-ccd.md §5-P2).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct FaceAnchor {
+    /// World point on the face at the reference's (clamped) `along`.
+    pub origin: Vec2,
+    /// Outward unit face normal.
+    pub normal: Vec2,
+    /// The host block's authoritative velocity (kernel `surface_velocity`
+    /// convention: the per-tick displacement the movers publish).
+    pub velocity: Vec2,
+}
+
+/// Center + tangent half-extent of an AABB face (`+y` grows DOWN: `Top` is the
+/// `min.y` face). `Segment` faces are chain vocabulary — not AABB geometry.
+fn face_geometry(aabb: Aabb, face: crate::Face) -> Option<(Vec2, f32)> {
+    let c = aabb.center();
+    let h = aabb.half_size();
+    match face {
+        crate::Face::Top => Some((Vec2::new(c.x, aabb.min.y), h.x)),
+        crate::Face::Bottom => Some((Vec2::new(c.x, aabb.max.y), h.x)),
+        crate::Face::Left => Some((Vec2::new(aabb.min.x, c.y), h.y)),
+        crate::Face::Right => Some((Vec2::new(aabb.max.x, c.y), h.y)),
+        crate::Face::Segment(_) => None,
+    }
+}
+
 impl World {
+    /// Resolve a durable [`GeoId`](crate::GeoId) to its block in THIS view of
+    /// the world (§3.6 rule 3: a lookup, not a pointer — composed views are
+    /// re-derived per frame, so consumers re-resolve per frame). Anonymous ids
+    /// never resolve: fixture/derived geometry has no durable identity.
+    pub fn block_by_id(&self, id: &crate::GeoId) -> Option<&Block> {
+        if matches!(id.source, crate::GeoSource::Anon) {
+            return None;
+        }
+        self.blocks.iter().find(|b| &b.id == id)
+    }
+
+    /// Resolve a host-face reference to its live world-frame anchor: the face
+    /// point at (clamped) `along`, the outward face normal, and the host
+    /// block's authoritative `velocity` (the same `surface_velocity` the
+    /// kernels read — NEVER finite-differenced from positions). `None` when
+    /// the host geometry is gone from this view or the face is not an AABB
+    /// face (chains carry no `GeoId` yet).
+    pub fn resolve_face(&self, face_ref: &crate::GeoFaceRef) -> Option<FaceAnchor> {
+        let block = self.block_by_id(&face_ref.geo)?;
+        let normal = face_ref.face.normal()?;
+        let (center, half) = face_geometry(block.aabb, face_ref.face)?;
+        let tangent = crate::frame::tangent_of(normal);
+        let along = face_ref.along.clamp(-half, half);
+        Some(FaceAnchor {
+            origin: center + tangent * along,
+            normal,
+            velocity: block.velocity,
+        })
+    }
+
+    /// Attribute a world point + outward CARDINAL normal to the identified
+    /// block face it lies on (within `max_dist` of the face plane, inside the
+    /// face extent) — the inverse of [`Self::resolve_face`], used to attach a
+    /// just-placed portal to its host. Anonymous (fixture/derived) blocks are
+    /// skipped: only durably-identified geometry can host. Ties resolve to the
+    /// smallest plane distance.
+    pub fn attribute_face(
+        &self,
+        point: Vec2,
+        normal: Vec2,
+        max_dist: f32,
+    ) -> Option<crate::GeoFaceRef> {
+        let face = crate::Face::of_normal(normal)?;
+        let tangent = crate::frame::tangent_of(normal);
+        let mut best: Option<(f32, crate::GeoFaceRef)> = None;
+        for block in &self.blocks {
+            if matches!(block.id.source, crate::GeoSource::Anon) {
+                continue;
+            }
+            let Some((center, half)) = face_geometry(block.aabb, face) else {
+                continue;
+            };
+            let plane_dist = (point - center).dot(normal).abs();
+            let along = (point - center).dot(tangent);
+            if plane_dist > max_dist || along.abs() > half + 1e-3 {
+                continue;
+            }
+            if best.as_ref().is_none_or(|(d, _)| plane_dist < *d) {
+                best = Some((
+                    plane_dist,
+                    crate::GeoFaceRef::new(block.id.clone(), face, along),
+                ));
+            }
+        }
+        best.map(|(_, r)| r)
+    }
+
     pub fn new(name: impl Into<String>, size: Vec2, spawn: Vec2, blocks: Vec<Block>) -> Self {
         Self {
             name: name.into(),
@@ -1209,5 +1304,89 @@ mod pogo_policy_tests {
         assert!(!BlockKind::OneWay.is_pogo_target());
         assert!(!blink_wall.is_pogo_target());
         assert!(!BlockKind::Hazard.is_pogo_target());
+    }
+}
+
+#[cfg(test)]
+mod face_anchor_tests {
+    use super::*;
+    use crate::{Face, GeoFaceRef, GeoId, PlacementId};
+
+    fn hosted_block() -> Block {
+        let mut b = Block::solid("host", Vec2::new(100.0, 200.0), Vec2::new(80.0, 40.0));
+        b.id = GeoId::placement(PlacementId::new("host-iid"), 0);
+        b.velocity = Vec2::new(3.0, 0.0);
+        b
+    }
+
+    fn world_with(block: Block) -> World {
+        let mut w = World::new("t", Vec2::new(640.0, 480.0), Vec2::ZERO, Vec::new());
+        w.blocks.push(block);
+        w
+    }
+
+    /// attribute ∘ resolve round-trips on every AABB face, carries the host
+    /// velocity, and clamps `along` to the face extent.
+    #[test]
+    fn attribute_then_resolve_round_trips_each_face() {
+        let w = world_with(hosted_block());
+        // (probe point, outward normal, expected along)
+        let cases = [
+            (Vec2::new(150.0, 199.0), Vec2::new(0.0, -1.0), 10.0), // Top
+            (Vec2::new(150.0, 241.0), Vec2::new(0.0, 1.0), -10.0), // Bottom (tangent flips)
+            (Vec2::new(99.0, 215.0), Vec2::new(-1.0, 0.0), 5.0),   // Left
+            (Vec2::new(181.0, 215.0), Vec2::new(1.0, 0.0), -5.0),  // Right
+        ];
+        for (probe, normal, along) in cases {
+            let r = w
+                .attribute_face(probe, normal, 4.0)
+                .unwrap_or_else(|| panic!("face under {normal:?} attributes"));
+            assert_eq!(r.geo, GeoId::placement(PlacementId::new("host-iid"), 0));
+            assert!(
+                (r.along - along).abs() < 1e-4,
+                "{normal:?}: along {} != {along}",
+                r.along
+            );
+            let a = w.resolve_face(&r).expect("resolves");
+            assert_eq!(a.normal, normal);
+            assert_eq!(a.velocity, Vec2::new(3.0, 0.0));
+            // The anchor sits ON the face plane at the probe's tangent offset.
+            assert!(
+                (a.origin - probe)
+                    .dot(crate::frame::tangent_of(normal))
+                    .abs()
+                    < 1e-4
+            );
+            assert!((a.origin - probe).dot(normal).abs() <= 4.0);
+        }
+    }
+
+    #[test]
+    fn anon_blocks_never_host_and_missing_ids_do_not_resolve() {
+        let mut anon = hosted_block();
+        anon.id = GeoId::anon();
+        let w = world_with(anon);
+        assert!(w
+            .attribute_face(Vec2::new(150.0, 199.0), Vec2::new(0.0, -1.0), 4.0)
+            .is_none());
+        let r = GeoFaceRef::new(
+            GeoId::placement(PlacementId::new("gone"), 0),
+            Face::Top,
+            0.0,
+        );
+        assert!(w.resolve_face(&r).is_none());
+    }
+
+    #[test]
+    fn resolve_clamps_along_to_the_face_extent() {
+        let w = world_with(hosted_block());
+        let r = GeoFaceRef::new(
+            GeoId::placement(PlacementId::new("host-iid"), 0),
+            Face::Top,
+            999.0,
+        );
+        let a = w.resolve_face(&r).expect("resolves");
+        // Face runs x ∈ [100, 180]; clamped along = +40 → x = 180.
+        assert_eq!(a.origin, Vec2::new(180.0, 200.0));
     }
 }

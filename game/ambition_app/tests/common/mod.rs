@@ -84,7 +84,7 @@ pub fn authored_portal_pairs(sim: &mut SandboxSim) -> Vec<(PlacedPortal, PlacedP
     let mut portals: Vec<PlacedPortal> = q
         .iter(world)
         .filter(|p| !p.channel.is_gun_pair())
-        .copied()
+        .cloned()
         .collect();
     portals.sort_by(|a, b| {
         a.pos
@@ -100,7 +100,7 @@ pub fn authored_portal_pairs(sim: &mut SandboxSim) -> Vec<(PlacedPortal, PlacedP
             .iter()
             .find(|candidate| candidate.channel == entry.channel.partner())
         {
-            pairs.push((*entry, *exit));
+            pairs.push((entry.clone(), exit.clone()));
         }
     }
     pairs

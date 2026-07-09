@@ -157,7 +157,7 @@ pub fn sync_portal_body_pieces(
     let Some(transit) = transit else {
         return;
     };
-    let all: Vec<PlacedPortal> = portals.iter().copied().collect();
+    let all: Vec<PlacedPortal> = portals.iter().cloned().collect();
     let (Some(enter_portal), Some(exit_portal)) = (
         find_portal(&all, transit.straddling),
         find_portal(&all, transit.straddling.partner()),
@@ -327,7 +327,7 @@ pub fn sync_portal_visuals(
     }
     gun_visuals::spawn_portal_shot_visuals(&mut commands, &frame, &projectiles);
     gun_visuals::spawn_portal_gun_pickup_visuals(&mut commands, &frame, art.as_deref(), &pickups);
-    let all_portals: Vec<PlacedPortal> = portals.iter().copied().collect();
+    let all_portals: Vec<PlacedPortal> = portals.iter().cloned().collect();
     for portal in &all_portals {
         let partner = find_portal(&all_portals, portal.channel.partner());
         // Frame z rides the PANE-DOMINANCE decision (the rig's sticky winner,
@@ -447,18 +447,18 @@ mod tests {
     /// A thin-wall door pair (the c136/c137 shape): two wall portals 32px
     /// apart on opposite faces, apertures aligned.
     fn thin_wall_pair() -> (PlacedPortal, PlacedPortal) {
-        let left = PlacedPortal {
-            channel: ambition_portal::PortalChannel::Authored(PortalChannelColor::Purple),
-            pos: Vec2::new(500.0, 300.0),
-            normal: Vec2::new(-1.0, 0.0),
-            half_extent: Vec2::new(9.0, 46.0),
-        };
-        let right = PlacedPortal {
-            channel: ambition_portal::PortalChannel::Authored(PortalChannelColor::Yellow),
-            pos: Vec2::new(532.0, 300.0),
-            normal: Vec2::new(1.0, 0.0),
-            half_extent: Vec2::new(9.0, 46.0),
-        };
+        let left = PlacedPortal::fixed(
+            ambition_portal::PortalChannel::Authored(PortalChannelColor::Purple),
+            Vec2::new(500.0, 300.0),
+            Vec2::new(-1.0, 0.0),
+            Vec2::new(9.0, 46.0),
+        );
+        let right = PlacedPortal::fixed(
+            ambition_portal::PortalChannel::Authored(PortalChannelColor::Yellow),
+            Vec2::new(532.0, 300.0),
+            Vec2::new(1.0, 0.0),
+            Vec2::new(9.0, 46.0),
+        );
         (left, right)
     }
 

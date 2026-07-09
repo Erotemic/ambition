@@ -227,7 +227,10 @@ impl MovingPlatformState {
 
     pub fn as_collision_block(&self) -> ae::Block {
         ae::Block {
-            id: ae::GeoId::anon(),
+            // The platform's LDtk iid IS its durable identity (§3.6
+            // `GeoSource::Placement`) — the CC6 portal host ref resolves
+            // moving hosts through it per frame.
+            id: ae::GeoId::placement(ae::PlacementId::new(self.id.clone()), 0),
             name: self.name.clone(),
             aabb: self.aabb(),
             // This frame's displacement — the collision sweep carries any body

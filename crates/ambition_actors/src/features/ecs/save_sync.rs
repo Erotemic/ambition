@@ -15,15 +15,12 @@ use super::*;
 pub fn sync_ecs_actors_with_save(
     mut commands: Commands,
     save: Res<ambition_persistence::save::SandboxSave>,
-    // A persisted-hostile NPC re-establishes its grudge against the current primary
-    // player on load (the original attacker entity doesn't survive a save round-trip;
-    // single-player has exactly one player to be angry at).
-    primary_player: Query<
-        Entity,
-        (
-            With<crate::actor::PlayerEntity>,
-            With<crate::actor::PrimaryPlayer>,
-        ),
+    // A persisted-hostile NPC re-establishes its grudge against a stable player
+    // slot on load (the original attacker entity doesn't survive a save round-trip;
+    // single-player has exactly one slot to be angry at).
+    players: Query<
+        (Entity, &crate::player::PlayerSlot),
+        With<crate::actor::PlayerEntity>,
     >,
     mut actors: Query<
         (
@@ -45,6 +42,13 @@ pub fn sync_ecs_actors_with_save(
     >,
 ) {
     let data = save.data();
+    // AMBITION_REVIEW(determinism): Bevy query iteration order is not a stable
+    // multiplayer fallback. When the persisted attacker entity cannot be restored,
+    // anchor hostility to the lowest PlayerSlot so save-load behavior is replay-safe.
+    let stable_player_grudge = players
+        .iter()
+        .min_by_key(|(_, slot)| **slot)
+        .map(|(entity, _)| entity);
     for (
         entity,
         mut identity,
@@ -76,7 +80,7 @@ pub fn sync_ecs_actors_with_save(
                 _ => None,
             });
             aggression.mode = AggressionMode::Hostile;
-            aggression.grudge = primary_player.iter().next();
+            aggression.grudge = stable_player_grudge;
             let mut em = cq.as_actor_mut();
             super::actors::provoke_actor_in_place(
                 &mut commands,

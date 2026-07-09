@@ -2395,6 +2395,31 @@ fn architecture_boundaries_clock_resets_use_time_control_owner() {
 }
 
 #[test]
+fn architecture_boundaries_player_fallbacks_are_slot_ordered() {
+    let roots = [
+        repo_root().join("crates/ambition_actors/src/features/ecs/save_sync.rs"),
+        repo_root().join("crates/ambition_actors/src/features/ecs/actors/update.rs"),
+    ];
+    let violations = scan_code_refs(&roots, &["primary_player.iter().next()", "player_query.iter().next()"], |_, _| false);
+    assert!(
+        violations.is_empty(),
+        "F4.4: player fallbacks must be deterministic by PlayerSlot, not raw Bevy query order:
+{}",
+        violations.join("
+")
+    );
+
+    for path in roots {
+        let text = fs::read_to_string(&path).expect("read player fallback site");
+        assert!(
+            text.contains("PlayerSlot") && text.contains("AMBITION_REVIEW(determinism)"),
+            "F4.4: {} must document the deterministic PlayerSlot fallback",
+            path.display()
+        );
+    }
+}
+
+#[test]
 fn architecture_boundaries_machinery_does_not_import_content() {
     let machinery_dirs = [
         "abilities",

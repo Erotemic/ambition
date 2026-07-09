@@ -100,6 +100,7 @@ pub fn tick_actor_brains(
     player_query: Query<
         (
             bevy::prelude::Entity,
+            &crate::player::PlayerSlot,
             &crate::actor::BodyKinematics,
             &ambition_characters::actor::BodyHealth,
         ),
@@ -219,13 +220,15 @@ pub fn tick_actor_brains(
             s.gameplay.control_frame_modes()
         });
     // Pick the slot-board anchor: the primary player by default, or
-    // fall back to the first available player so combat slot
-    // assignment still works on a multi-player non-primary build.
+    // fall back to the lowest available PlayerSlot so combat slot
+    // assignment stays deterministic on a multi-player non-primary build.
+    // AMBITION_REVIEW(determinism): never use raw `Query::iter().next()` as
+    // a player fallback here; Bevy entity iteration order is not the player order.
     let primary_entity = primary_q.single().ok();
     let slot_anchor_pos = primary_entity
         .and_then(|e| player_query.get(e).ok())
-        .or_else(|| player_query.iter().next())
-        .map(|(_, kin, _)| kin.pos);
+        .or_else(|| player_query.iter().min_by_key(|(_, slot, _, _)| **slot))
+        .map(|(_, _, kin, _)| kin.pos);
     let Some(player_pos) = slot_anchor_pos else {
         return;
     };
@@ -258,7 +261,7 @@ pub fn tick_actor_brains(
         std::collections::HashMap::new();
     let mut target_entity_by_id: std::collections::HashMap<String, Entity> =
         std::collections::HashMap::new();
-    for (entity, _, health) in &player_query {
+    for (entity, _, _, health) in &player_query {
         alive_by_entity.insert(entity, health.current() > 0);
     }
     for (entity, _, _, disposition, _, _, _, target, _, _, _, _, (clusters, faction, _, _, _)) in

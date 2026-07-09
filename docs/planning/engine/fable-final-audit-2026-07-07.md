@@ -308,11 +308,12 @@ Corrections (log-once, all small):
    directly. `time/time_control` owns the handler and snaps both the live
    sim clock and `RequestedClockScale` back to neutral, preserving the old
    reset behavior without bypassing the ADR 0010/0011 authority seam.
-4. **Non-deterministic player pick under multiplayer:**
-   `save_sync.rs:79` and `actors/update.rs:227` use `query.iter().next()`
-   as a "the player" fallback. Single-player-safe; with slots (the RL/
-   multiplayer target) query order is unstable — pick by lowest
-   `PlayerSlot` instead. Tag both with `AMBITION_REVIEW(determinism)`.
+4. ✅ **DONE (Codex 2026-07-09): deterministic `PlayerSlot` fallback.**
+   The save-load hostile-grudge fallback and actor slot-board anchor fallback
+   no longer use raw Bevy query order. Both sites now choose the lowest
+   available `PlayerSlot` when a primary entity cannot be resolved, and both
+   carry `AMBITION_REVIEW(determinism)` comments so future multiplayer/RL work
+   sees the intentional ordering seam.
 5. **The full app gate** re-ran clean after fix (1): all suites green except
    the two documented REDs (`unified_melee::a_hostile_actor` feel-RED;
    verify gnu_ton in the final run below).
@@ -368,9 +369,9 @@ Consider `CARGO_INCREMENTAL=0` for CI-style full-gate runs, or a periodic
 `cargo clean` cron, so a full disk doesn't silently kill background gates.
 
 **Priority order for the next sessions (all opus-executable, most valuable
-first):** F4.4 deterministic `PlayerSlot` fallback → F3.2 `SweepSample` /
-`PortalSweepAnchor` cleanup → E9 umbrella + demo homes (F5.1/2) → projectiles
-dedicated session (already carded). F2 is closed for audit cleanup; deeper
+first):** F3.2 `SweepSample` / `PortalSweepAnchor` cleanup → E9 umbrella +
+demo homes (F5.1/2) → projectiles dedicated session (already carded). F2 is
+closed for audit cleanup; F4.3 and F4.4 are closed correctness seams; deeper
 actor decomposition is tracked by the later world/plain-input, projectile, and
 unified-actor cards.
 

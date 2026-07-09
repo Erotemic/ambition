@@ -179,7 +179,6 @@ fn aperture_half_width(enter: &PortalAperture) -> f32 {
     // For the current cardinal portal frames this picks X for floors/ceilings
     // and Y for walls, while staying correct if a future frame stores a rotated
     // unit normal.
-    let t = aperture_tangent(enter);
     enter.half_length
 }
 

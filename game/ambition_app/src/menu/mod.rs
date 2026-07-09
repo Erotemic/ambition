@@ -1,7 +1,7 @@
 //! Game-side menu host stack: backend-agnostic page model, dispatcher, item
 //! effects, and the flat-grid / 3D-cube presentation hosts.
 //!
-//! `ambition_actors::menu` keeps the lib-coupled settings IR, Map tab, and
+//! `ambition::actors::menu` keeps the lib-coupled settings IR, Map tab, and
 //! backend selector; this crate owns app-level wiring and effects.
 
 pub mod dispatch;

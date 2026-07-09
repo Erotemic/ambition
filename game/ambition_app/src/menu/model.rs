@@ -1,7 +1,7 @@
 //! The data seam between Ambition's live 24-item inventory and the reusable
-//! `ambition_menu` 3D-cube OoT pause menu (#31).
+//! `ambition::menu` 3D-cube OoT pause menu (#31).
 //!
-//! The game owns the item state (`ambition_actors::items`); this module builds the cube's
+//! The game owns the item state (`ambition::actors::items`); this module builds the cube's
 //! page MODELS from it via the lib's host-data seam (`ItemsOnlyPageSpec`, which is
 //! deliberately renderer-agnostic — it can feed the Lunex cube, a Bevy-UI grid
 //! fallback, or a test renderer). The cube RENDERER itself is the shared lib.
@@ -25,18 +25,18 @@
 //! * the L/R page-turn buttons live in the *side margins* ([`EDGE_LEFT_RECT`] /
 //!   [`EDGE_RIGHT_RECT`]) OUTSIDE the grid, exactly like the demo.
 
-use ambition_menu::{
+use ambition::menu::{
     InventoryItemNode, ItemsOnlyPageSpec, MenuColor, MenuControlKind, MenuPageModel, MenuRect,
     MenuTextAlign,
 };
 
-use ambition_persistence::settings::{UserSettings, VisualQualityProfile};
-use ambition_settings_menu::settings::{SettingsOption, SettingsOptionId, SettingsOptionKind};
-use ambition_settings_menu::system::{
+use ambition::persistence::settings::{UserSettings, VisualQualityProfile};
+use ambition::settings_menu::settings::{SettingsOption, SettingsOptionId, SettingsOptionKind};
+use ambition::settings_menu::system::{
     DevSnapshot, RadioSnapshot, SystemMenuAction, SystemMenuEntryId, SystemMenuModel,
     SystemMenuTarget, SystemOptionId,
 };
-use ambition_items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
+use ambition::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 
 /// Edge page-turn buttons flank the page in the side margins (NOT over the grid),
 /// matching the demo's `add_edge_buttons` rects (`crates/ambition_mock_demo/src/
@@ -208,7 +208,7 @@ impl MenuFocus {
     /// report slot 0 so callers always have a valid item to describe.
     pub fn item_index(self) -> usize {
         match self {
-            MenuFocus::Item(idx) => idx.min(ambition_items::ITEM_COUNT - 1),
+            MenuFocus::Item(idx) => idx.min(ambition::items::ITEM_COUNT - 1),
             _ => 0,
         }
     }
@@ -806,7 +806,7 @@ pub fn system_window_start(rows: &[SystemRow], focus: MenuFocus) -> usize {
     if rows.len() <= SYSTEM_VISIBLE_ROWS {
         return 0;
     }
-    ambition_ui_nav::visible_window_start(focused, rows.len(), SYSTEM_VISIBLE_ROWS)
+    ambition::ui_nav::visible_window_start(focused, rows.len(), SYSTEM_VISIBLE_ROWS)
 }
 
 /// The EFFECTIVE scroll-window START for the System face (Features C/D).

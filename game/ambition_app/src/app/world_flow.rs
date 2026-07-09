@@ -6,14 +6,14 @@
 //! - the [`room_flow`] submodule (sandbox reset, room load, transition apply).
 //!
 //! The attack-phase machine, victim-side damage resolution, and movement-event
-//! Sfx/Vfx emission moved DOWN into `ambition_actors::combat::{attack,
+//! Sfx/Vfx emission moved DOWN into `ambition::actors::combat::{attack,
 //! damage}` / `::player::movement_fx`; the sim half of room load moved into
-//! `ambition_actors::rooms`.
+//! `ambition::actors::rooms`.
 
 use bevy::prelude::{MessageWriter, ResMut};
 
-use ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay;
-use ambition_engine_core::{self as ae, AabbExt};
+use ambition::platformer::feature_overlay::FeatureEcsWorldOverlay;
+use ambition::engine_core::{self as ae, AabbExt};
 
 /// Bundle of room-reset sim resources, so systems that already sit near Bevy's
 /// 16-SystemParam limit (e.g. [`apply_room_transition_system`]) can request a
@@ -21,8 +21,8 @@ use ambition_engine_core::{self as ae, AabbExt};
 /// reset is emitted as data and consumed by the time-control owner.
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct RoomClock<'w> {
-    pub sim_state: ResMut<'w, ambition_actors::SandboxSimState>,
-    pub clock_resets: MessageWriter<'w, ambition_actors::time::time_control::ClockResetRequest>,
+    pub sim_state: ResMut<'w, ambition::actors::SandboxSimState>,
+    pub clock_resets: MessageWriter<'w, ambition::actors::time::time_control::ClockResetRequest>,
 }
 
 mod room_flow;

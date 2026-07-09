@@ -202,7 +202,6 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use crate::world::placements::PlacementLoweringAppExt;
         use bevy::prelude::{IntoScheduleConfigs, Update};
-        use ambition_platformer_primitives::schedule::gameplay_allowed;
         // Relational targeting seam (default = today's behavior; stealth/bounty/
         // alliance systems mutate it). `select_actor_targets` reads it. Combat
         // owns these resources (rule 5); WorldPrep just invokes its registrar.
@@ -393,7 +392,6 @@ pub struct FeatureCollectionSchedulePlugin;
 impl bevy::prelude::Plugin for FeatureCollectionSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use bevy::prelude::{IntoScheduleConfigs, Update};
-        use ambition_platformer_primitives::schedule::gameplay_allowed;
         app.add_systems(
             Update,
             (
@@ -415,7 +413,6 @@ pub struct FeatureInteractionSchedulePlugin;
 impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
         use bevy::prelude::{IntoScheduleConfigs, Update};
-        use ambition_platformer_primitives::schedule::gameplay_allowed;
         app.add_systems(
             Update,
             (

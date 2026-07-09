@@ -11,7 +11,7 @@
 mod common;
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions};
-use ambition_engine_core::{Block, Vec2};
+use ambition::engine_core::{Block, Vec2};
 
 fn base() -> AgentAction {
     AgentAction::default()

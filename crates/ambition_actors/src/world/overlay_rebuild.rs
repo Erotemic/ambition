@@ -13,7 +13,6 @@
 //! property), never the bare geometry.
 
 use super::overlay::FeatureEcsWorldOverlay;
-use crate::combat::*;
 use crate::world::platforms::MovingPlatformState;
 use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;

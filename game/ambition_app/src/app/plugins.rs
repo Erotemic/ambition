@@ -4,23 +4,23 @@ use bevy_ecs_ldtk::prelude::LdtkPlugin;
 #[cfg(feature = "ui")]
 use bevy_material_ui::MaterialUiPlugin;
 
-use ambition_actors::assets::loading;
-use ambition_dev_tools::dev_tools::{
+use ambition::actors::assets::loading;
+use ambition::dev_tools::dev_tools::{
     self, DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
     MovementProfile, PlayerBodyProfile,
 };
-use ambition_actors::ldtk_world;
-use ambition_actors::rooms;
-use ambition_platformer_primitives::schedule::{gameplay_allowed, PresentationSetupSet, SandboxSet};
-use ambition_actors::time::feel::SandboxFeelTuning;
+use ambition::actors::ldtk_world;
+use ambition::actors::rooms;
+use ambition::platformer::schedule::{gameplay_allowed, PresentationSetupSet, SandboxSet};
+use ambition::actors::time::feel::SandboxFeelTuning;
 #[cfg(feature = "physics_debris")]
-use ambition_actors::world::physics;
+use ambition::actors::world::physics;
 #[cfg(feature = "physics_debris")]
-use ambition_actors::world::physics::physics_spawn_debris_messages;
-use ambition_inventory_ui as inventory_ui;
-use ambition_render::fx::{self, vfx_spawn_messages};
-use ambition_render::rendering::{camera_follow, sync_visuals};
-use ambition_render::ui_fonts;
+use ambition::actors::world::physics::physics_spawn_debris_messages;
+use ambition::inventory_ui as inventory_ui;
+use ambition::render::fx::{self, vfx_spawn_messages};
+use ambition::render::rendering::{camera_follow, sync_visuals};
+use ambition::render::ui_fonts;
 
 use crate::dev::debug_overlay;
 use crate::host::windowing;
@@ -46,7 +46,7 @@ use super::world_flow::{apply_room_transition_system, ensure_requested_room_para
 pub fn add_simulation_plugins(app: &mut App) {
     // AmbitionPhysicsPlugin (Avian2D) is intentionally NOT here. Per
     // ADR 0007 Avian is secondary physics for debris/ragdoll visuals;
-    // the player controller is custom via parry2d in ambition_engine_core.
+    // the player controller is custom via parry2d in ambition::engine_core.
     // Avian's collider backend needs `SceneSpawner` (from ScenePlugin in
     // DefaultPlugins), which headless doesn't have. Until Avian's debris
     // role is migrated to presentation events end-to-end (or Avian gains
@@ -54,7 +54,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     // `add_presentation_plugins`.
 
     // The canonical simulation-phase sets + engine resources now live in
-    // `ambition_runtime::SandboxSetsPlugin` (first in the engine group below).
+    // `ambition::runtime::SandboxSetsPlugin` (first in the engine group below).
     // Hosts still override StartingCharacter etc. by inserting BEFORE
     // `add_simulation_plugins` runs — init_resource never clobbers.
 
@@ -70,8 +70,8 @@ pub fn add_simulation_plugins(app: &mut App) {
     #[cfg(feature = "ui")]
     {
         app.add_plugins(ambition_content::dialogue::yarn_spinner_plugin());
-        app.add_plugins(ambition_actors::dialog::YarnBridgePlugin);
-        app.add_plugins(ambition_actors::dialog::YarnBindingsPlugin);
+        app.add_plugins(ambition::actors::dialog::YarnBridgePlugin);
+        app.add_plugins(ambition::actors::dialog::YarnBindingsPlugin);
     }
 
     // The content-free engine SIMULATION plugins (E5): the SAME
@@ -81,7 +81,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     // collection/interaction/effects/view-sync, room reset, traces,
     // affordances, and the combat-phase chain. Ordering is set-based, so
     // group membership does not change the resolved schedule.
-    app.add_plugins(ambition_runtime::PlatformerEnginePlugins);
+    app.add_plugins(ambition::runtime::PlatformerEnginePlugins);
 
     // App-LOCAL residue the E5 step-5 carve deliberately left behind. The
     // engine group above registers the shared per-frame wiring (player input
@@ -89,14 +89,14 @@ pub fn add_simulation_plugins(app: &mut App) {
     // schedule, progression); these systems wrap app-only concerns
     // (`reset_sandbox`, `load_room` + render spawns, the player clone) and
     // pin themselves into the documented ordering SLOTS between engine
-    // systems (see `ambition_runtime::PlayerSchedulePlugin` /
+    // systems (see `ambition::runtime::PlayerSchedulePlugin` /
     // `RoomTransitionSchedulePlugin` module docs).
     register_app_local_sim_systems(app);
 }
 
 /// The app-LOCAL per-frame systems, pinned into the ordering SLOTS the engine
 /// chains leave for the host (E5 step 5). Everything engine-generic that used
-/// to be registered here lives in `ambition_runtime::{PlayerSchedulePlugin,
+/// to be registered here lives in `ambition::runtime::{PlayerSchedulePlugin,
 /// RoomTransitionSchedulePlugin, PortalSchedulePlugin,
 /// ProgressionSchedulePlugin}`.
 fn register_app_local_sim_systems(app: &mut App) {
@@ -114,8 +114,8 @@ fn register_app_local_sim_systems(app: &mut App) {
         )
             .chain()
             .in_set(SandboxSet::PlayerInput)
-            .after(ambition_dev_tools::sync_live_player_dev_edits_system)
-            .before(ambition_actors::player::input_timer_system),
+            .after(ambition::dev_tools::sync_live_player_dev_edits_system)
+            .before(ambition::actors::player::input_timer_system),
     );
     // Content dialogue-followup emitters (e.g. cut-rope "try again") run
     // before the replay consumer that drains their requests the same frame.
@@ -123,7 +123,7 @@ fn register_app_local_sim_systems(app: &mut App) {
     // ours because the consumer is ours.
     app.configure_sets(
         Update,
-        ambition_actors::session::reset::ContentDialogueFollowupSet
+        ambition::actors::session::reset::ContentDialogueFollowupSet
             .before(apply_room_replay_request_system),
     );
 
@@ -162,7 +162,7 @@ fn register_app_local_sim_systems(app: &mut App) {
             Update,
             crate::app::player_clone::despawn_player_clones_on_reset
                 .in_set(SandboxSet::ResetProcessing)
-                .before(ambition_actors::session::reset::process_sandbox_reset_request),
+                .before(ambition::actors::session::reset::process_sandbox_reset_request),
         );
 
     // ── The PlayerSimulation gap: home reset policy + home presentation ───
@@ -184,9 +184,9 @@ fn register_app_local_sim_systems(app: &mut App) {
             .chain()
             .in_set(SandboxSet::PlayerSimulation)
             .after(
-                ambition_actors::abilities::traversal::possession::release_possession_if_target_lost,
+                ambition::actors::abilities::traversal::possession::release_possession_if_target_lost,
             )
-            .before(ambition_actors::features::ecs::damage_apply::apply_player_hit_events),
+            .before(ambition::actors::features::ecs::damage_apply::apply_player_hit_events),
     );
 
     // ── The RoomTransition gap: the transition APPLY composer ─────────────
@@ -203,8 +203,8 @@ fn register_app_local_sim_systems(app: &mut App) {
         )
             .chain()
             .in_set(SandboxSet::RoomTransition)
-            .after(ambition_actors::rooms::detect_room_transition_system)
-            .before(ambition_actors::features::reset_ecs_room_features),
+            .after(ambition::actors::rooms::detect_room_transition_system)
+            .before(ambition::actors::features::reset_ecs_room_features),
     );
 }
 
@@ -303,19 +303,19 @@ pub fn add_presentation_plugins(app: &mut App) {
     // camera follow/shake cluster (+ portal camera continuity). The SAME
     // group a windowed demo adds; the app-local presentation below layers
     // Ambition's HUD/menu/dev stack on top.
-    app.add_plugins(ambition_host::PlatformerHostPlugins);
+    app.add_plugins(ambition::host::PlatformerHostPlugins);
     install_presentation_resources_and_subplugins(app);
     app.add_plugins((
-        ambition_persistence::PersistenceSchedulePlugin,
-        ambition_dev_tools::DeveloperPersistenceSchedulePlugin,
+        ambition::persistence::PersistenceSchedulePlugin,
+        ambition::dev_tools::DeveloperPersistenceSchedulePlugin,
     ));
     install_menu_setup_and_hotkeys(app);
-    app.add_plugins(ambition_render::rendering::PresentationVisualAnimationPlugin);
+    app.add_plugins(ambition::render::rendering::PresentationVisualAnimationPlugin);
     install_camera_and_debug_overlay_systems(app);
-    app.add_plugins(ambition_render::rendering::ActorNameplatePresentationPlugin);
+    app.add_plugins(ambition::render::rendering::ActorNameplatePresentationPlugin);
     install_fx_and_hud_systems(app);
     install_misc_visual_sync_systems(app);
-    app.add_plugins(ambition_render::rendering::PlayerVisualSchedulePlugin);
+    app.add_plugins(ambition::render::rendering::PlayerVisualSchedulePlugin);
     install_projectile_and_vfx_systems(app);
 }
 
@@ -324,7 +324,7 @@ pub fn add_presentation_plugins(app: &mut App) {
 /// FPS overlay, font loader).
 fn install_presentation_resources_and_subplugins(app: &mut App) {
     app.insert_resource(ClearColor(Color::srgb(0.020, 0.024, 0.035)))
-        .init_resource::<ambition_render::quality::ResolvedVisualQuality>()
+        .init_resource::<ambition::render::quality::ResolvedVisualQuality>()
         .insert_resource(windowing::DisplayModeState::default())
         .register_type::<DeveloperTools>()
         .register_type::<PlayerBodyProfile>()
@@ -333,26 +333,26 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
         .register_type::<EditableMovementTuning>()
         .register_type::<EditablePlayerStats>()
         .register_type::<SandboxFeelTuning>()
-        .register_type::<ambition_portal::PortalConvention>()
-        .register_type::<ambition_portal::PortalTuning>();
+        .register_type::<ambition::portal::PortalConvention>()
+        .register_type::<ambition::portal::PortalTuning>();
 
     #[cfg(feature = "portal_render")]
-    app.register_type::<ambition_portal_presentation::PortalVisualEffect>()
-        .register_type::<ambition_portal_presentation::PortalEffectSelection>()
-        .register_type::<ambition_portal_presentation::PortalCameraTransitMode>()
-        .register_type::<ambition_portal_presentation::PortalCameraContinuitySelection>()
-        .register_type::<ambition_portal_presentation::PortalCameraContinuityConfig>()
-        .register_type::<ambition_portal_presentation::PortalCameraContinuityState>()
-        .register_type::<ambition_portal_presentation::PortalViewConeConfig>();
+    app.register_type::<ambition::portal_presentation::PortalVisualEffect>()
+        .register_type::<ambition::portal_presentation::PortalEffectSelection>()
+        .register_type::<ambition::portal_presentation::PortalCameraTransitMode>()
+        .register_type::<ambition::portal_presentation::PortalCameraContinuitySelection>()
+        .register_type::<ambition::portal_presentation::PortalCameraContinuityConfig>()
+        .register_type::<ambition::portal_presentation::PortalCameraContinuityState>()
+        .register_type::<ambition::portal_presentation::PortalViewConeConfig>();
 
     app.add_plugins(crate::host::platform::PlatformPlugin);
-    app.add_plugins(ambition_render::screen_effects::ScreenEffectsPlugin);
+    app.add_plugins(ambition::render::screen_effects::ScreenEffectsPlugin);
     // Loads baked `*_spritesheet.ron` manifests for runtime sheet metadata.
-    app.add_plugins(ambition_sprite_sheet::SheetRegistryPlugin);
+    app.add_plugins(ambition::sprite_sheet::SheetRegistryPlugin);
     app.add_plugins(crate::dev::DevToolsPlugin);
     add_physics_debris_plugins(app);
     add_ui_plugins(app);
-    // Input bindings/bridge live in `ambition_host::HostInputBindingsPlugin`
+    // Input bindings/bridge live in `ambition::host::HostInputBindingsPlugin`
     // (E5 step 5). The app-local residue: the dev preset-input-map sync.
     #[cfg(feature = "input")]
     app.add_systems(
@@ -372,15 +372,15 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
     app.add_systems(
         Update,
         (
-            ambition_render::quality::sync_resolved_visual_quality,
+            ambition::render::quality::sync_resolved_visual_quality,
             reload_visual_quality_assets_on_scale_change,
-            ambition_render::rendering::refresh_entity_sprite_handles_on_game_assets_change,
-            ambition_render::rendering::refresh_parallax_layers_on_quality_change,
+            ambition::render::rendering::refresh_entity_sprite_handles_on_game_assets_change,
+            ambition::render::rendering::refresh_parallax_layers_on_quality_change,
         )
             .chain(),
     );
     #[cfg(feature = "portal_render")]
-    app.add_systems(Update, ambition_render::quality::sync_portal_quality_budget);
+    app.add_systems(Update, ambition::render::quality::sync_portal_quality_budget);
 }
 
 /// Pause menu, inventory, map menu, presentation startup, dev/dialog
@@ -389,35 +389,35 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
     // Starter item-ownership roster (the 24-item catalog default set).
     app.add_plugins(ambition_content::items::AmbitionItemRosterPlugin);
     app.insert_resource(inventory_ui::InventoryUiState::default())
-        .init_resource::<ambition_actors::items::persist::InventoryRestored>()
+        .init_resource::<ambition::actors::items::persist::InventoryRestored>()
         // Persist the inventory + wallet across save/load: restore the saved set
         // once the player exists, then mirror live changes back into the save
         // (the existing autosave writes the dirtied save to disk).
         .add_systems(
             Update,
             (
-                ambition_actors::items::persist::restore_inventory_from_save,
-                ambition_actors::items::persist::persist_inventory_to_save,
+                ambition::actors::items::persist::restore_inventory_from_save,
+                ambition::actors::items::persist::persist_inventory_to_save,
             )
                 .chain(),
         )
         .add_systems(
             Update,
-            (ambition_actors::menu::map::sync_map_menu,).after(SandboxSet::CoreSimulation),
+            (ambition::actors::menu::map::sync_map_menu,).after(SandboxSet::CoreSimulation),
         )
         .add_systems(
             Startup,
             (
-                ambition_dev_tools::profiling::phase_mark("before_setup_presentation"),
+                ambition::dev_tools::profiling::phase_mark("before_setup_presentation"),
                 // `PresentationSetupSet` is the machinery-facing label for
                 // this slot: audio init (and any future machinery startup
                 // work) orders `.after(the set)` instead of naming this
                 // app system.
                 setup_presentation_system.in_set(PresentationSetupSet),
-                ambition_dev_tools::profiling::phase_mark("after_setup_presentation"),
-                ambition_actors::menu::map::populate_map_rooms,
-                ambition_actors::menu::map::spawn_map_menu,
-                ambition_dev_tools::profiling::phase_mark("after_map_menu_spawn"),
+                ambition::dev_tools::profiling::phase_mark("after_setup_presentation"),
+                ambition::actors::menu::map::populate_map_rooms,
+                ambition::actors::menu::map::spawn_map_menu,
+                ambition::dev_tools::profiling::phase_mark("after_map_menu_spawn"),
             )
                 .chain()
                 .after(setup_simulation_system)
@@ -426,12 +426,12 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
         .add_systems(
             Update,
             (
-                ambition_dialog::dialog_input,
+                ambition::dialog::dialog_input,
                 handle_ldtk_hot_reload,
                 handle_debug_hotkeys,
                 dev_tools::sync_developer_body_profile,
-                ambition_actors::trace::handle_trace_hotkey,
-                ambition_actors::menu::map::handle_map_menu_hotkeys,
+                ambition::actors::trace::handle_trace_hotkey,
+                ambition::actors::menu::map::handle_map_menu_hotkeys,
             )
                 .chain()
                 .after(SandboxSet::CoreSimulation),
@@ -442,18 +442,18 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
     // platform-neutral so desktop and Android stay in sync unless a build profile
     // intentionally opts out of a backend.
     crate::menu::kaleidoscope_app::install_unified_menu_shared(app);
-    if ambition_menu::backend::KALEIDOSCOPE_MENU_BACKEND_ENABLED {
+    if ambition::menu::backend::KALEIDOSCOPE_MENU_BACKEND_ENABLED {
         crate::menu::kaleidoscope_app::install_kaleidoscope_menu_backend(app);
     }
     #[cfg(feature = "bevy_ui_menu")]
-    if ambition_menu::backend::BEVY_UI_MENU_BACKEND_ENABLED {
+    if ambition::menu::backend::BEVY_UI_MENU_BACKEND_ENABLED {
         crate::menu::grid_backend::install_grid_unified_menu(app);
     }
 }
 
 fn install_camera_and_debug_overlay_systems(app: &mut App) {
     // The camera cluster itself (viewport publish, shake, follow, portal
-    // continuity) is `ambition_host::HostCameraPlugin` (E5 step 5). What
+    // continuity) is `ambition::host::HostCameraPlugin` (E5 step 5). What
     // stays here is the Ambition DEBUG OVERLAY, drawn once the camera has
     // landed this frame.
     app.init_resource::<debug_overlay::DebugOverlayLabels>();
@@ -468,7 +468,7 @@ fn install_camera_and_debug_overlay_systems(app: &mut App) {
     )
         .chain()
         .after(camera_follow)
-        .after(ambition_host::portal::tag_portal_camera_continuity_camera);
+        .after(ambition::host::portal::tag_portal_camera_continuity_camera);
     #[cfg(not(feature = "portal_render"))]
     let overlay = (
         debug_overlay::draw_debug_overlay,
@@ -497,10 +497,10 @@ fn install_fx_and_hud_systems(app: &mut App) {
         Update,
         (
             update_hud,
-            ambition_render::rendering::sync_boss_health_bar_overlay,
-            ambition_dialog::dialog_reveal_tick,
-            ambition_render::dialog_ui::sync_dialog_ui,
-            ambition_render::cutscene::sync_cutscene_ui,
+            ambition::render::rendering::sync_boss_health_bar_overlay,
+            ambition::dialog::dialog_reveal_tick,
+            ambition::render::dialog_ui::sync_dialog_ui,
+            ambition::render::cutscene::sync_cutscene_ui,
         )
             .chain()
             .after(windowing::window_mode_hotkeys),
@@ -512,9 +512,9 @@ fn install_fx_and_hud_systems(app: &mut App) {
     .add_systems(
         Update,
         (
-            ambition_actors::player::regen_player_mana,
-            ambition_render::hud::spawn_player_hud,
-            ambition_render::hud::update_player_hud,
+            ambition::actors::player::regen_player_mana,
+            ambition::render::hud::spawn_player_hud,
+            ambition::render::hud::update_player_hud,
         )
             .chain(),
     );
@@ -528,13 +528,13 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     #[cfg(feature = "portal_render")]
     app.add_systems(
         Update,
-        ambition_render::rendering::sync_portal_capture_parallax_layers
-            .after(ambition_portal_presentation::PortalPresentationSet),
+        ambition::render::rendering::sync_portal_capture_parallax_layers
+            .after(ambition::portal_presentation::PortalPresentationSet),
     );
 
     app.add_systems(
         Update,
-        ambition_render::rendering::sync_health_overlays.after(sync_visuals),
+        ambition::render::rendering::sync_health_overlays.after(sync_visuals),
     )
     // Idle barks fire on a 5-10s cadence while the boss is in an
     // attacking phase, so the scholar feels alive between strikes.
@@ -549,16 +549,16 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     .add_systems(
         Update,
         (
-            ambition_render::rendering::gate_portal_visuals::sync_portal_sprite_visibility,
-            ambition_render::rendering::gate_portal_visuals::sync_portal_sprite_animation,
-            ambition_render::rendering::gate_portal_visuals::sync_portal_ring_rotation_system,
-            ambition_render::rendering::gate_portal_visuals::hide_portal_loading_zone_visuals,
+            ambition::render::rendering::gate_portal_visuals::sync_portal_sprite_visibility,
+            ambition::render::rendering::gate_portal_visuals::sync_portal_sprite_animation,
+            ambition::render::rendering::gate_portal_visuals::sync_portal_ring_rotation_system,
+            ambition::render::rendering::gate_portal_visuals::hide_portal_loading_zone_visuals,
         )
             .after(sync_visuals),
     )
     .add_systems(
         Update,
-        ambition_render::rendering::sync_parallax_layers.after(camera_follow),
+        ambition::render::rendering::sync_parallax_layers.after(camera_follow),
     )
     // Encounter / intro LockWall visuals. Reconciles `LockWallVisual`
     // Bevy entities against the collision overlay's `gate_solids` (the
@@ -569,8 +569,8 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     // after the WorldPrep contributor has populated `gate_solids`.
     .add_systems(
         Update,
-        ambition_render::rendering::sync_lock_wall_visuals
-            .after(ambition_actors::encounter::update_encounters_from_world),
+        ambition::render::rendering::sync_lock_wall_visuals
+            .after(ambition::actors::encounter::update_encounters_from_world),
     )
     // Dev "hide sprites" / "placeholder sprites" overrides — must run
     // after every other visibility- or sprite-setting system so they
@@ -584,21 +584,21 @@ fn install_misc_visual_sync_systems(app: &mut App) {
     .add_systems(
         Update,
         (
-            ambition_render::rendering::apply_placeholder_sprites_override,
-            ambition_render::rendering::apply_hide_sprites_override,
+            ambition::render::rendering::apply_placeholder_sprites_override,
+            ambition::render::rendering::apply_hide_sprites_override,
         )
             .chain()
             .after(sync_visuals)
-            .after(ambition_render::rendering::morph_ball::sync_morph_ball_visual)
-            .after(ambition_render::rendering::bubble_shield::sync_bubble_shield_visual)
-            .after(ambition_render::rendering::projectile_visuals::sync_projectile_visuals),
+            .after(ambition::render::rendering::morph_ball::sync_morph_ball_visual)
+            .after(ambition::render::rendering::bubble_shield::sync_bubble_shield_visual)
+            .after(ambition::render::rendering::projectile_visuals::sync_projectile_visuals),
     )
     // Mouse / touch dismissal for the map menu.
-    .add_systems(Update, ambition_actors::menu::map::map_menu_pointer_dismiss)
+    .add_systems(Update, ambition::actors::menu::map::map_menu_pointer_dismiss)
     // Quest panel runs alongside the verbose HUD.
     .add_systems(
         Update,
-        update_quest_panel.after(ambition_render::dialog_ui::sync_dialog_ui),
+        update_quest_panel.after(ambition::render::dialog_ui::sync_dialog_ui),
     );
 }
 
@@ -616,10 +616,10 @@ fn install_projectile_and_vfx_systems(app: &mut App) {
         (
             // One unified, kind-driven visual pass for ALL projectiles (player +
             // enemy); the charge indicator is its own player-only pass.
-            ambition_render::rendering::projectile_visuals::sync_projectile_visuals
-                .after(ambition_runtime::projectile_schedule::step_projectiles),
-            ambition_render::rendering::projectile_visuals::sync_projectile_charge_visuals
-                .after(ambition_runtime::projectile_schedule::step_projectiles),
+            ambition::render::rendering::projectile_visuals::sync_projectile_visuals
+                .after(ambition::runtime::projectile_schedule::step_projectiles),
+            ambition::render::rendering::projectile_visuals::sync_projectile_charge_visuals
+                .after(ambition::runtime::projectile_schedule::step_projectiles),
         ),
     )
     // VFX + debris subscribe on the visible binary only. Audio's
@@ -669,7 +669,7 @@ pub(super) fn add_physics_debris_plugins(app: &mut App) {
 pub(super) fn add_physics_debris_plugins(_app: &mut App) {}
 
 /// Install UI-shell plugins: bevy_material_ui's styling layer. The
-/// dialogue overlay (`ambition_render::dialog_ui::sync_dialog_ui`) draws with Bevy's
+/// dialogue overlay (`ambition::render::dialog_ui::sync_dialog_ui`) draws with Bevy's
 /// core UI primitives and stays installed unconditionally; only
 /// the optional plugins live behind `ui`.
 ///
@@ -686,15 +686,15 @@ pub(super) fn add_ui_plugins(app: &mut App) {
 pub(super) fn add_ui_plugins(_app: &mut App) {}
 
 // The leafwing input bindings + the device→ControlFrame bridge moved to
-// `ambition_host::HostInputBindingsPlugin` (E5 step 5). The touch fold below
+// `ambition::host::HostInputBindingsPlugin` (E5 step 5). The touch fold below
 // still runs ALONGSIDE it (both write the same `ControlFrame` seam), and the
 // dev preset-input-map sync stays registered app-side (dev_runtime).
 
-/// Register the [`TouchControlsPlugin`](ambition_touch_input::TouchControlsPlugin)
+/// Register the [`TouchControlsPlugin`](ambition::touch_input::TouchControlsPlugin)
 /// (`virtual_joystick` sticks + on-screen action buttons that fold into
-/// ControlFrame). The touch adapter lives in the sibling `ambition_touch_input`
+/// ControlFrame). The touch adapter lives in the sibling `ambition::touch_input`
 /// crate now (app-thinness); the app's `mobile_touch` feature forwards to
-/// `ambition_touch_input/mobile_touch`, which pulls the optional
+/// `ambition::touch_input/mobile_touch`, which pulls the optional
 /// `virtual_joystick` dep. Added UNCONDITIONALLY whenever `mobile_touch` is
 /// compiled — no runtime boolean gates it. To rip the touch controls out, remove
 /// the single `add_plugins(TouchControlsPlugin)` line below. On builds compiled
@@ -711,7 +711,7 @@ pub(super) fn add_ui_plugins(_app: &mut App) {}
 /// inactive folder.
 #[cfg(feature = "mobile_touch")]
 pub(super) fn add_mobile_touch_plugin(app: &mut App) {
-    app.add_plugins(ambition_touch_input::TouchControlsPlugin);
+    app.add_plugins(ambition::touch_input::TouchControlsPlugin);
 }
 
 #[cfg(not(feature = "mobile_touch"))]
@@ -723,7 +723,7 @@ pub(super) fn add_mobile_touch_plugin(_app: &mut App) {}
 /// per the ADR 0012 seam.
 #[cfg(feature = "audio")]
 pub(super) fn add_audio_plugins(app: &mut App) {
-    app.add_plugins(ambition_actors::audio::SandboxAudioPlugin);
+    app.add_plugins(ambition::actors::audio::SandboxAudioPlugin);
 }
 
 #[cfg(not(feature = "audio"))]

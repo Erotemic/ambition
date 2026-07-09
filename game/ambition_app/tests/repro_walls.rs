@@ -2,8 +2,8 @@
 //! collision routines.
 
 use ae::{AbilitySet, Block, BodyClusterScratch, InputState, World, DEFAULT_TUNING};
-use ambition_actors as sb;
-use ambition_engine_core as ae;
+use ambition::actors as sb;
+use ambition::engine_core as ae;
 
 fn scratch_at(spawn: ae::Vec2) -> BodyClusterScratch {
     sb::player::primary_player_scratch(spawn, AbilitySet::sandbox_all())
@@ -758,8 +758,8 @@ fn goblin_encounter_real_walljump_repro() {
 /// Load the game's merged LDtk project the way a sim entry point does:
 /// install the content data (world manifest, character catalog) first —
 /// post-R3.2 the engine ships no worlds and panics without an install.
-fn load_project_for_test() -> Result<ambition_actors::ldtk_world::LdtkProject, String> {
+fn load_project_for_test() -> Result<ambition::actors::ldtk_world::LdtkProject, String> {
     ambition_content::worlds::install();
     ambition_content::character_catalog::install();
-    ambition_actors::ldtk_world::LdtkProject::load_default_for_dev()
+    ambition::actors::ldtk_world::LdtkProject::load_default_for_dev()
 }

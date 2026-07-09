@@ -13,7 +13,7 @@ use super::*;
 pub(crate) fn kaleidoscope_pointer_press(
     press: On<Pointer<Press>>,
     backend: Res<InventoryUiBackend>,
-    ui_state: Option<Res<ambition_inventory_ui::InventoryUiState>>,
+    ui_state: Option<Res<ambition::inventory_ui::InventoryUiState>>,
     controls: Query<&AmbitionMenuControl<MenuPageAction>>,
     mut state: ResMut<KaleidoscopePointerPress>,
 ) {
@@ -52,7 +52,7 @@ pub(crate) fn kaleidoscope_pointer_move(
     system_nav: Res<KaleidoscopeSystemNav>,
     settings: Res<UserSettings>,
     quality_confirm: Res<VisualQualityConfirmState>,
-    active_input: Res<ambition_input::ActiveInputKind>,
+    active_input: Res<ambition::input::ActiveInputKind>,
     snapshot: SystemMenuSnapshotParams,
     mut cursor: ResMut<KaleidoscopeCursor>,
     // Feature E: a press in flight is cancelled (no click) once the pointer drags
@@ -76,7 +76,7 @@ pub(crate) fn kaleidoscope_pointer_move(
     // every keyboard/gamepad/touch directional move. A real mouse move sets
     // active=Mouse (see `update_active_input_kind`) so hovering still works; clicks
     // are unaffected (separate press/release observers).
-    if *active_input != ambition_input::ActiveInputKind::Mouse {
+    if *active_input != ambition::input::ActiveInputKind::Mouse {
         return;
     }
     let Some(active_page) = pages.active else {
@@ -107,7 +107,7 @@ pub(crate) fn kaleidoscope_pointer_move(
                 cursor.owner = FocusSource::Pointer;
                 // The move landed on a genuinely different control: play the move
                 // sound, matching the keyboard nav path.
-                play_ui(&mut sfx, ambition_sfx::ids::UI_MENU_MOVE);
+                play_ui(&mut sfx, ambition::sfx::ids::UI_MENU_MOVE);
             }
         }
     }
@@ -121,7 +121,7 @@ pub(crate) fn kaleidoscope_pointer_move(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn kaleidoscope_pointer_release(
     _release: On<Pointer<Release>>,
-    mut ui_state: Option<ResMut<ambition_inventory_ui::InventoryUiState>>,
+    mut ui_state: Option<ResMut<ambition::inventory_ui::InventoryUiState>>,
     // A close-via-action (e.g. Reset Sandbox) must restore `GameMode::Playing` exactly
     // like the canonical Esc-close — so route the close through `close_kaleidoscope_menu`.
     // Bundled into one `SystemParam` to stay under Bevy's 16-param ceiling.

@@ -11,14 +11,14 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition_actors::actor::{BodyKinematics, PrimaryPlayerOnly};
-use ambition_actors::combat::components::{ActorDisposition, ActorTarget};
-use ambition_actors::features::FeatureId;
-use ambition_actors::player::BodyMelee;
+use ambition::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
+use ambition::actors::combat::components::{ActorDisposition, ActorTarget};
+use ambition::actors::features::FeatureId;
+use ambition::actors::player::BodyMelee;
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
-use ambition_characters::brain::{ActionSet, ActorControl};
-use ambition_engine_core as ae;
-use ambition_entity_catalog::placements::CharacterBrain;
+use ambition::characters::brain::{ActionSet, ActorControl};
+use ambition::engine_core as ae;
+use ambition::entity_catalog::placements::CharacterBrain;
 use bevy::prelude::World;
 
 const ENEMY_ID: &str = "test_aggressor";

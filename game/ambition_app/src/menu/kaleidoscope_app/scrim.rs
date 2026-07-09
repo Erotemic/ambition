@@ -42,7 +42,7 @@ pub(crate) fn spawn_kaleidoscope_scrim(mut commands: Commands) {
 /// B0002-safe and never panics on an uninserted resource.
 pub(crate) fn retarget_kaleidoscope_scrim(
     mut commands: Commands,
-    main_camera: Option<Res<ambition_platformer_primitives::camera_layers::MainCameraEntity>>,
+    main_camera: Option<Res<ambition::platformer::camera_layers::MainCameraEntity>>,
     scrim: Query<Entity, (With<KaleidoscopeScrim>, Without<UiTargetCamera>)>,
     mut done: Local<bool>,
 ) {

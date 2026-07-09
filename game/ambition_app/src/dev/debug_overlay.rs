@@ -5,25 +5,25 @@
 //! state for tuning and feel work.
 
 #![allow(unused_imports)]
-use ambition_engine_core as ae;
-use ambition_engine_core::AabbExt;
+use ambition::engine_core as ae;
+use ambition::engine_core::AabbExt;
 use bevy::ecs::system::SystemParam;
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
-use ambition_dev_tools::dev_tools::DeveloperTools;
-use ambition_actors::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
-use ambition_actors::world::platforms;
-use ambition_dev_tools::SandboxDevState;
-use ambition_platformer_primitives::schedule::GameMode;
-use ambition_engine_core::config::world_to_bevy;
-use ambition_engine_core::RoomGeometry;
-use ambition_input::{read_gameplay_control_frame, ControlFrame};
+use ambition::dev_tools::dev_tools::DeveloperTools;
+use ambition::actors::rooms::{LoadingZone, LoadingZoneActivation, RoomSet};
+use ambition::actors::world::platforms;
+use ambition::dev_tools::SandboxDevState;
+use ambition::platformer::schedule::GameMode;
+use ambition::engine_core::config::world_to_bevy;
+use ambition::engine_core::RoomGeometry;
+use ambition::input::{read_gameplay_control_frame, ControlFrame};
 #[cfg(feature = "input")]
-use ambition_input::SandboxAction;
+use ambition::input::SandboxAction;
 #[cfg(feature = "input")]
-use ambition_render::rendering::PlayerVisual;
-use ambition_render::rendering::{CameraViewState, SceneEntities};
+use ambition::render::rendering::PlayerVisual;
+use ambition::render::rendering::{CameraViewState, SceneEntities};
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::ActionState;
 
@@ -41,7 +41,7 @@ pub struct DebugOverlayLabel;
 /// and respawns this frame's — debug-only and a handful of labels, so the spawn
 /// churn is negligible and avoids pool bookkeeping. Empties the buffer every
 /// frame, so toggling the overlay off (no pushes) clears the labels next frame.
-pub fn render_debug_overlay_labels(
+pub(crate) fn render_debug_overlay_labels(
     mut commands: Commands,
     world: Res<RoomGeometry>,
     mut labels: ResMut<DebugOverlayLabels>,
@@ -71,17 +71,17 @@ pub fn render_debug_overlay_labels(
 /// gizmos that don't need input are also skipped to keep the chain
 /// signature stable across feature combinations.
 #[cfg(not(feature = "input"))]
-pub fn draw_debug_overlay() {}
+pub(crate) fn draw_debug_overlay() {}
 
 #[cfg(feature = "input")]
-pub fn draw_debug_overlay(
+pub(crate) fn draw_debug_overlay(
     mut gizmos: Gizmos,
     world: Res<RoomGeometry>,
     dev_state: Res<SandboxDevState>,
-    platform_set: Res<ambition_actors::MovingPlatformSet>,
+    platform_set: Res<ambition::actors::MovingPlatformSet>,
     developer_tools: Res<DeveloperTools>,
     room_set: Res<RoomSet>,
-    ldtk_spine_index: Res<ambition_actors::ldtk_world::LdtkRuntimeSpineIndex>,
+    ldtk_spine_index: Res<ambition::actors::ldtk_world::LdtkRuntimeSpineIndex>,
     camera_view: Res<CameraViewState>,
     mode: Res<State<GameMode>>,
     entities: Res<SceneEntities>,
@@ -93,8 +93,8 @@ pub fn draw_debug_overlay(
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
-            Option<&ambition_characters::actor::BodyHealth>,
-            &ambition_actors::player::BodyMelee,
+            Option<&ambition::characters::actor::BodyHealth>,
+            &ambition::actors::player::BodyMelee,
         ),
         // The primary player never carries `FeatureSimEntity` (player vs
         // feature-sim entities are mutually exclusive — see the kinematics
@@ -103,12 +103,12 @@ pub fn draw_debug_overlay(
         // not conflict with the `bosses`/`actors` feature queries that read
         // `BodyKinematics` under `With<FeatureSimEntity>` (B0001).
         (
-            ambition_actors::actor::PrimaryPlayerOnly,
-            Without<ambition_actors::features::FeatureSimEntity>,
+            ambition::actors::actor::PrimaryPlayerOnly,
+            Without<ambition::actors::features::FeatureSimEntity>,
         ),
     >,
     feature_q: FeatureDebugQueries,
-    #[cfg(feature = "portal")] portals: Query<&ambition_portal::PlacedPortal>,
+    #[cfg(feature = "portal")] portals: Query<&ambition::portal::PlacedPortal>,
 ) {
     if !dev_state.debug_enabled() || !developer_tools.gizmos_enabled {
         return;
@@ -167,7 +167,7 @@ pub fn draw_debug_overlay(
         draw_moving_platform_debug(&mut gizmos, world, &platform_set.0);
     }
     let player_gravity =
-        ambition_actors::physics::gravity_dir_or_default(feature_q.gravity.as_deref());
+        ambition::actors::physics::gravity_dir_or_default(feature_q.gravity.as_deref());
     draw_player_debug(
         &mut gizmos,
         world,

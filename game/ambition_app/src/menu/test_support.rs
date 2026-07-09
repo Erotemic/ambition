@@ -6,7 +6,7 @@ use bevy::picking::events::{Move, Over, Pointer, Press, Release};
 use bevy::picking::pointer::{Location, PointerButton, PointerId};
 use bevy::prelude::*;
 
-use ambition_menu::{AmbitionMenuControl, MenuControlKind, MenuFocusKey};
+use ambition::menu::{AmbitionMenuControl, MenuControlKind, MenuFocusKey};
 
 use crate::menu::model::MenuPageAction;
 

@@ -396,6 +396,64 @@ fn architecture_boundaries_umbrella_crate_and_demo_homes_exist() {
     }
 }
 
+/// E9: the sandbox app is still the full-product assembly shell, but it should
+/// exercise the same umbrella engine surface that downstream games receive.
+/// Keep app-local content and renderer-extension deps direct; route reusable
+/// engine/model/render vocabulary through `ambition`.
+#[test]
+fn architecture_boundaries_app_uses_umbrella_manifest_surface() {
+    let root = repo_root();
+    let app_root = root.join("game/ambition_app");
+    assert_manifest_ambition_deps_only(
+        &app_root,
+        &["ambition", "ambition_content", "ambition_menu_kaleidoscope"],
+        "ambition_app should use the umbrella plus app-local content/extension crates",
+    );
+
+    let direct_lower_refs = [
+        "ambition_actors::",
+        "ambition_runtime::",
+        "ambition_render::",
+        "ambition_host::",
+        "ambition_sim_view::",
+        "ambition_engine_core::",
+        "ambition_platformer_primitives::",
+        "ambition_sprite_sheet::",
+        "ambition_asset_manager::",
+        "ambition_audio::",
+        "ambition_sfx::",
+        "ambition_vfx::",
+        "ambition_menu::",
+        "ambition_settings_menu::",
+        "ambition_persistence::",
+        "ambition_dialog::",
+        "ambition_encounter::",
+        "ambition_projectiles::",
+        "ambition_portal::",
+        "ambition_portal_presentation::",
+        "ambition_characters::",
+        "ambition_input::",
+        "ambition_touch_input::",
+        "ambition_items::",
+        "ambition_inventory_ui::",
+        "ambition_combat::",
+        "ambition_cutscene::",
+        "ambition_time::",
+        "ambition_entity_catalog::",
+        "ambition_world::",
+        "ambition_ldtk_map::",
+        "ambition_interaction::",
+        "ambition_ui_nav::",
+    ];
+    assert_code_refs_filtered(
+        &[app_root.join("src"), app_root.join("tests")],
+        &direct_lower_refs,
+        |path| path.file_name().and_then(|name| name.to_str()) != Some("architecture_boundaries.rs"),
+        |_, line| line.contains("ambition_content::") || line.contains("ambition_menu_kaleidoscope::"),
+        "ambition_app code should reach reusable lower crates through the ambition facade",
+    );
+}
+
 /// The `ambition_render` crate is the sandbox's renderer. The sim machinery
 /// (`ambition_actors`) must not depend on it, and after F1.5 render must not
 /// depend back on the machinery either. Both crates meet only through lower
@@ -1725,8 +1783,8 @@ fn architecture_boundaries_touch_input_crate_is_extracted() {
     // The app WIRES the plugin from the crate, not from a local module path.
     let plugins = fs::read_to_string(app_src.join("app/plugins.rs")).expect("read plugins.rs");
     assert!(
-        plugins.contains("ambition_touch_input::TouchControlsPlugin"),
-        "the app adds the touch plugin from the ambition_touch_input crate"
+        plugins.contains("ambition::touch_input::TouchControlsPlugin"),
+        "the app adds the touch plugin through the ambition umbrella touch_input facade"
     );
     assert!(
         !plugins.contains("crate::host::mobile_input"),
@@ -2193,7 +2251,7 @@ fn architecture_boundaries_gravity_zone_mechanic_left_portal() {
 
 #[test]
 fn architecture_boundaries_abilities_live_under_abilities_layer() {
-    let src_root = crate_src();
+    let src_root = repo_root().join("crates/ambition_actors/src");
     let abilities: [(&str, &str); 14] = [
         ("blink", "traversal"),
         ("dive", "traversal"),
@@ -2236,15 +2294,15 @@ fn architecture_boundaries_abilities_live_under_abilities_layer() {
     );
 
     // The app composes the engine simulation — abilities included — through the
-    // `ambition_runtime::PlatformerEnginePlugins` group (E5, the demo gate). The
+    // umbrella-facing `PlatformerEnginePlugins` group (E5/E9, the demo gate). The
     // abilities are still assembled via `AmbitionAbilitiesPlugin`, now INSIDE
     // that group, so a demo app gets the same ability kit without touching the
     // app.
     let plugins_text =
         fs::read_to_string(app_src().join("app/plugins.rs")).expect("read app/plugins.rs");
     assert!(
-        plugins_text.contains("ambition_runtime::PlatformerEnginePlugins"),
-        "app/plugins.rs should compose the engine sim through PlatformerEnginePlugins"
+        plugins_text.contains("ambition::runtime::PlatformerEnginePlugins"),
+        "app/plugins.rs should compose the engine sim through the umbrella PlatformerEnginePlugins"
     );
     let runtime_text = fs::read_to_string(repo_root().join("crates/ambition_runtime/src/lib.rs"))
         .expect("read ambition_runtime/src/lib.rs");

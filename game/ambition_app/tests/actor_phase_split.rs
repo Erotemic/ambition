@@ -20,16 +20,16 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition_actors::actor::{BodyKinematics, PrimaryPlayerOnly};
-use ambition_actors::features::FeatureId;
+use ambition::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
+use ambition::actors::features::FeatureId;
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
-use ambition_characters::brain::ActorControl;
-use ambition_entity_catalog::placements::CharacterBrain;
+use ambition::characters::brain::ActorControl;
+use ambition::entity_catalog::placements::CharacterBrain;
 use bevy::prelude::{Entity, World};
 
 const ENEMY_ID: &str = "phase_split_enemy";
 
-fn player_pos(world: &mut World) -> ambition_engine_core::Vec2 {
+fn player_pos(world: &mut World) -> ambition::engine_core::Vec2 {
     let mut q = world.query_filtered::<&BodyKinematics, PrimaryPlayerOnly>();
     q.single(world).expect("primary player").pos
 }

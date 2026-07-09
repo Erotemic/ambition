@@ -1,17 +1,17 @@
 //! Home body PRESENTATION phase helper.
 //!
 //! Movement integration and the ledge-platform carry moved DOWN into
-//! `ambition_actors::player::body_integration` (called by the unified
+//! `ambition::actors::player::body_integration` (called by the unified
 //! `integrate_sim_bodies` phase). What remains here is the presentation HOOK the
 //! app-side `sync_player_presentation` system calls: it reads the
 //! [`PlayerBodyFrameOutput`] hand-off and emits screen-facing feedback.
 
 use bevy::prelude::*;
 
-use ambition_actors::player::{handle_player_events, PlayerBodyFrameOutput};
-use ambition_engine_core as ae;
-use ambition_sfx::SfxMessage;
-use ambition_vfx::VfxMessage;
+use ambition::actors::player::{handle_player_events, PlayerBodyFrameOutput};
+use ambition::engine_core as ae;
+use ambition::sfx::SfxMessage;
+use ambition::vfx::VfxMessage;
 
 /// PHASE — sync player presentation. Reads the [`PlayerBodyFrameOutput`] the
 /// movement phase wrote and emits the screen-facing feedback: the hard-fall screen
@@ -23,12 +23,12 @@ use ambition_vfx::VfxMessage;
 pub(super) fn sync_player_presentation(
     frame_out: &PlayerBodyFrameOutput,
     clusters: &ae::BodyClustersMut<'_>,
-    combat: &mut ambition_characters::actor::BodyCombat,
-    blink_cam: &mut ambition_actors::player::PlayerBlinkCameraState,
-    anim: &mut ambition_actors::player::BodyAnimFacts,
+    combat: &mut ambition::characters::actor::BodyCombat,
+    blink_cam: &mut ambition::actors::player::PlayerBlinkCameraState,
+    anim: &mut ambition::actors::player::BodyAnimFacts,
     sfx_writer: &mut MessageWriter<SfxMessage>,
     vfx_writer: &mut MessageWriter<VfxMessage>,
-    shake: &mut ambition_platformer_primitives::camera_ease::CameraShakeState,
+    shake: &mut ambition::platformer::camera_ease::CameraShakeState,
     is_primary: bool,
 ) {
     if frame_out.reset {
@@ -38,7 +38,7 @@ pub(super) fn sync_player_presentation(
     // Hard-fall screen shake: pure trigger in `time::camera_ease`. Saturates above
     // terminal velocity via `kick()`'s cap. `pre_sim_fall_speed` is the
     // along-gravity fall speed that entered the movement tick.
-    let shake_amplitude = ambition_platformer_primitives::camera_ease::hard_fall_shake_amplitude(
+    let shake_amplitude = ambition::platformer::camera_ease::hard_fall_shake_amplitude(
         was_grounded,
         clusters.ground.on_ground,
         frame_out.pre_sim_fall_speed,
@@ -46,7 +46,7 @@ pub(super) fn sync_player_presentation(
     if is_primary && shake_amplitude > 0.0 {
         shake.kick(shake_amplitude);
         sfx_writer.write(SfxMessage::Play {
-            id: ambition_sfx::ids::PLAYER_LAND,
+            id: ambition::sfx::ids::PLAYER_LAND,
             pos: clusters.kinematics.pos,
         });
     }

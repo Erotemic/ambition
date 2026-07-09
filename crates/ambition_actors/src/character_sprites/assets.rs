@@ -24,8 +24,6 @@
 //! of `display_name` and on-disk path, while `sheet_for_character_id`
 //! is the only place that pairs a catalog id with its sheet const.
 
-use std::collections::HashMap;
-
 use bevy::prelude::*;
 
 use ambition_asset_manager::AssetId;

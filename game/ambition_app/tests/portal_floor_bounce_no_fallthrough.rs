@@ -201,7 +201,7 @@ fn floor_portal_bounce_survives_variable_frame_rate() {
 /// dt-independent approach-box carve removes the whole class.
 #[test]
 fn floor_portal_bounce_conserves_momentum_per_transit_under_variable_dt() {
-    use ambition_actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+    use ambition::actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
     use bevy::prelude::*;
 
     const SMALL_DT: f32 = 0.008; // ~120 FPS baseline

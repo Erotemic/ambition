@@ -2,53 +2,53 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
-use ambition_dev_tools::dev_tools::DeveloperTools;
-use ambition_platformer_primitives::schedule::GameMode;
-use ambition_actors::ldtk_world;
-use ambition_actors::rooms;
-use ambition_dev_tools::SandboxDevState;
-use ambition_engine_core as ae;
-use ambition_engine_core::RoomGeometry;
-use ambition_input::KeyboardPreset;
-use ambition_render::rendering::{HudText, SceneEntities};
+use ambition::dev_tools::dev_tools::DeveloperTools;
+use ambition::platformer::schedule::GameMode;
+use ambition::actors::ldtk_world;
+use ambition::actors::rooms;
+use ambition::dev_tools::SandboxDevState;
+use ambition::engine_core as ae;
+use ambition::engine_core::RoomGeometry;
+use ambition::input::KeyboardPreset;
+use ambition::render::rendering::{HudText, SceneEntities};
 
 use super::feedback::ProgressionResources;
 use crate::host::windowing;
 
 #[derive(SystemParam)]
 pub(super) struct HudCameraParams<'w, 's> {
-    user_settings: Res<'w, ambition_persistence::settings::UserSettings>,
+    user_settings: Res<'w, ambition::persistence::settings::UserSettings>,
     player: bevy::prelude::Query<
         'w,
         's,
         (
-            &'static ambition_actors::actor::BodyKinematics,
-            &'static ambition_actors::actor::BodyGroundState,
-            &'static ambition_actors::actor::BodyWallState,
-            &'static ambition_actors::actor::BodyDashState,
-            &'static ambition_actors::actor::BodyJumpState,
-            &'static ambition_actors::actor::BodyMana,
-            &'static ambition_actors::actor::BodyModeState,
-            &'static ambition_actors::actor::BodyLedgeState,
-            &'static ambition_actors::actor::BodyFlightState,
-            &'static ambition_actors::actor::BodyBlinkState,
-            &'static ambition_actors::actor::BodyComboTrace,
-            &'static ambition_characters::actor::BodyHealth,
-            &'static ambition_characters::actor::BodyCombat,
-            &'static ambition_actors::player::BodyMelee,
+            &'static ambition::actors::actor::BodyKinematics,
+            &'static ambition::actors::actor::BodyGroundState,
+            &'static ambition::actors::actor::BodyWallState,
+            &'static ambition::actors::actor::BodyDashState,
+            &'static ambition::actors::actor::BodyJumpState,
+            &'static ambition::actors::actor::BodyMana,
+            &'static ambition::actors::actor::BodyModeState,
+            &'static ambition::actors::actor::BodyLedgeState,
+            &'static ambition::actors::actor::BodyFlightState,
+            &'static ambition::actors::actor::BodyBlinkState,
+            &'static ambition::actors::actor::BodyComboTrace,
+            &'static ambition::characters::actor::BodyHealth,
+            &'static ambition::characters::actor::BodyCombat,
+            &'static ambition::actors::player::BodyMelee,
         ),
-        ambition_actors::actor::PrimaryPlayerOnly,
+        ambition::actors::actor::PrimaryPlayerOnly,
     >,
     ecs_actors: bevy::prelude::Query<
         'w,
         's,
         (
-            &'static ambition_actors::features::FeatureName,
-            &'static ambition_actors::features::ActorDisposition,
-            &'static ambition_characters::actor::BodyHealth,
-            &'static ambition_characters::actor::BodyCombat,
+            &'static ambition::actors::features::FeatureName,
+            &'static ambition::actors::features::ActorDisposition,
+            &'static ambition::characters::actor::BodyHealth,
+            &'static ambition::characters::actor::BodyCombat,
         ),
-        bevy::prelude::Without<ambition_actors::features::BossConfig>,
+        bevy::prelude::Without<ambition::actors::features::BossConfig>,
     >,
 }
 
@@ -72,8 +72,8 @@ pub(super) fn update_hud(
     // R2: the boss HUD is a view bound to ENCOUNTER ENTITY progress, not the
     // global `BossEncounterRegistry`. A boss with no encounter ⇒ no HUD line.
     boss_encounters: Query<(
-        &ambition_actors::boss_encounter::EncounterDef,
-        &ambition_actors::boss_encounter::EncounterProgress,
+        &ambition::actors::boss_encounter::EncounterDef,
+        &ambition::actors::boss_encounter::EncounterProgress,
     )>,
     mut query: Query<&mut Text, With<HudText>>,
 ) {
@@ -155,7 +155,7 @@ pub(super) fn update_hud(
         String::new()
     };
     // Cutscene UI lives in the dedicated overlay
-    // (`ambition_render::cutscene::sync_cutscene_ui`) — a proper Bevy Node panel
+    // (`ambition::render::cutscene::sync_cutscene_ui`) — a proper Bevy Node panel
     // with speaker / body / continue prompt and a skip-hold progress
     // bar. The debug HUD just notes that one is active so testers
     // can correlate skip-hold state with the floating overlay; the
@@ -210,8 +210,8 @@ pub(super) fn update_hud(
         for (_id, state) in encounter_registry.encounters.iter() {
             if matches!(
                 state.phase,
-                ambition_encounter::EncounterPhase::Starting { .. }
-                    | ambition_encounter::EncounterPhase::Active { .. }
+                ambition::encounter::EncounterPhase::Starting { .. }
+                    | ambition::encounter::EncounterPhase::Active { .. }
             ) {
                 bits.push(state.hud_summary());
             }
@@ -325,9 +325,9 @@ pub(super) fn update_hud(
 /// quests, which collapses the panel visually.
 pub fn update_quest_panel(
     quests: Res<ambition_content::quest::QuestRegistry>,
-    user_settings: Res<ambition_persistence::settings::UserSettings>,
+    user_settings: Res<ambition::persistence::settings::UserSettings>,
     entities: Res<SceneEntities>,
-    mut query: Query<&mut Text, With<ambition_render::rendering::QuestPanelText>>,
+    mut query: Query<&mut Text, With<ambition::render::rendering::QuestPanelText>>,
 ) {
     if entities.quest_panel == Entity::PLACEHOLDER {
         return;

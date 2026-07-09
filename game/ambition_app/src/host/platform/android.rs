@@ -30,7 +30,7 @@ use bevy::prelude::*;
 use bevy::window::{AppLifecycle, WindowFocused, WindowOccluded};
 
 #[cfg(target_os = "android")]
-use ambition_platformer_primitives::schedule::GameMode;
+use ambition::platformer::schedule::GameMode;
 
 // Bevy's CosmicFontSystem is initialized with an empty fontdb (no system
 // fonts loaded). On Android, /system/fonts/ holds Roboto etc., which
@@ -204,8 +204,8 @@ mod audio_lifecycle {
     /// silence as immediate.
     pub(super) fn apply_android_suspend_to_audio(
         state: Res<AndroidSuspendState>,
-        music: Option<Res<AudioChannel<ambition_audio::library::MusicChannel>>>,
-        sfx: Option<Res<AudioChannel<ambition_audio::library::SfxChannel>>>,
+        music: Option<Res<AudioChannel<ambition::audio::library::MusicChannel>>>,
+        sfx: Option<Res<AudioChannel<ambition::audio::library::SfxChannel>>>,
     ) {
         if !state.just_changed {
             return;

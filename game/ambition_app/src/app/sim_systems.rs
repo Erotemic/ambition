@@ -1,10 +1,10 @@
 //! Host-bound simulation systems that CANNOT move down to a library plugin.
 //!
 //! The body-generic input/timer/dev systems that used to live here folded into
-//! their owning `ambition_actors` modules (C4): `input_timer_system`,
-//! `interaction_input_system`, `cleanup_timers_system` → `ambition_actors::player`;
-//! `sync_live_player_dev_edits_system` → `ambition_actors::dev`;
-//! `apply_suspended_time_scale_system` → `ambition_actors::time::time_control`.
+//! their owning `ambition::actors` modules (C4): `input_timer_system`,
+//! `interaction_input_system`, `cleanup_timers_system` → `ambition::actors::player`;
+//! `sync_live_player_dev_edits_system` → `ambition::actors::dev`;
+//! `apply_suspended_time_scale_system` → `ambition::actors::time::time_control`.
 //! The host schedule (`super::plugins::register_player_input_systems`) still owns
 //! their ordering + `run_if` gates and references those moved `pub fn`s.
 //!
@@ -20,18 +20,18 @@
 //! [`super::schedule::configure_sandbox_sets`]. Cross-set ordering lives in the
 //! schedule; intra-set ordering is expressed by `.chain()` where registered.
 
-use ambition_engine_core as ae;
+use ambition::engine_core as ae;
 use bevy::prelude::*;
 
-use ambition_dev_tools::dev_tools::EditableMovementTuning;
-use ambition_actors::time::feel::SandboxFeelTuning;
-use ambition_actors::time::time_control::ClockResetRequest;
-use ambition_actors::SandboxSimState;
-use ambition_combat::{ResetRoomFeaturesEvent, RoomResetReason};
-use ambition_engine_core::RoomGeometry;
-use ambition_input::ControlFrame;
-use ambition_sfx::SfxMessage;
-use ambition_vfx::VfxMessage;
+use ambition::dev_tools::dev_tools::EditableMovementTuning;
+use ambition::actors::time::feel::SandboxFeelTuning;
+use ambition::actors::time::time_control::ClockResetRequest;
+use ambition::actors::SandboxSimState;
+use ambition::combat::{ResetRoomFeaturesEvent, RoomResetReason};
+use ambition::engine_core::RoomGeometry;
+use ambition::input::ControlFrame;
+use ambition::sfx::SfxMessage;
+use ambition::vfx::VfxMessage;
 
 /// Detect a player-pressed reset (the Reset button / `controls.reset_pressed`)
 /// and execute the full sandbox reset before the rest of the gameplay
@@ -62,17 +62,17 @@ pub fn apply_player_reset_input_system(
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
-            &mut ambition_actors::player::BodyAnimFacts,
-            &mut ambition_characters::actor::BodyCombat,
-            &mut ambition_actors::player::PlayerBlinkCameraState,
-            &mut ambition_actors::player::BodyMelee,
-            &mut ambition_actors::player::PlayerSafetyState,
+            &mut ambition::actors::player::BodyAnimFacts,
+            &mut ambition::characters::actor::BodyCombat,
+            &mut ambition::actors::player::PlayerBlinkCameraState,
+            &mut ambition::actors::player::BodyMelee,
+            &mut ambition::actors::player::PlayerSafetyState,
         ),
-        ambition_actors::actor::PrimaryPlayerOnly,
+        ambition::actors::actor::PrimaryPlayerOnly,
     >,
     // Reset zeroes the local controller's slot gestures (reset/save identity is a
     // sanctioned PrimaryPlayer concern).
-    mut slot_gestures: ResMut<ambition_actors::player::SlotInteractionState>,
+    mut slot_gestures: ResMut<ambition::actors::player::SlotInteractionState>,
 ) {
     if !control_frame.reset_pressed {
         return;
@@ -117,34 +117,34 @@ pub fn apply_player_reset_input_system(
 /// input is suspended by dialogue, so relying on the input frame would make the
 /// reset timing depend on UI/game-mode scheduling.
 pub fn apply_room_replay_request_system(
-    mut replay_requests: MessageReader<ambition_actors::session::reset::RoomReplayRequested>,
+    mut replay_requests: MessageReader<ambition::actors::session::reset::RoomReplayRequested>,
     world: Res<RoomGeometry>,
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     mut sim_state: ResMut<SandboxSimState>,
     mut clock_resets: MessageWriter<ClockResetRequest>,
-    boss_registry: Res<ambition_actors::boss_encounter::BossEncounterRegistry>,
-    mut save: Option<ResMut<ambition_persistence::save::SandboxSave>>,
-    mut boss_music: Option<ResMut<ambition_encounter::BossEncounterMusicRequest>>,
+    boss_registry: Res<ambition::actors::boss_encounter::BossEncounterRegistry>,
+    mut save: Option<ResMut<ambition::persistence::save::SandboxSave>>,
+    mut boss_music: Option<ResMut<ambition::encounter::BossEncounterMusicRequest>>,
     // Cut-rope boss placements in the room — R4 keys "cleared" by placement
     // (`config.id`), so the replay clears those keys (the respawned boss carries
     // the same LDtk id).
-    cut_rope_bosses: Query<&ambition_actors::features::ecs::boss_clusters::BossConfig>,
+    cut_rope_bosses: Query<&ambition::actors::features::ecs::boss_clusters::BossConfig>,
     mut reset_room_features: MessageWriter<ResetRoomFeaturesEvent>,
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
-            &mut ambition_actors::player::BodyAnimFacts,
-            &mut ambition_characters::actor::BodyCombat,
-            &mut ambition_actors::player::PlayerBlinkCameraState,
-            &mut ambition_actors::player::BodyMelee,
-            &mut ambition_actors::player::PlayerSafetyState,
+            &mut ambition::actors::player::BodyAnimFacts,
+            &mut ambition::characters::actor::BodyCombat,
+            &mut ambition::actors::player::PlayerBlinkCameraState,
+            &mut ambition::actors::player::BodyMelee,
+            &mut ambition::actors::player::PlayerSafetyState,
         ),
-        ambition_actors::actor::PrimaryPlayerOnly,
+        ambition::actors::actor::PrimaryPlayerOnly,
     >,
-    mut slot_gestures: ResMut<ambition_actors::player::SlotInteractionState>,
+    mut slot_gestures: ResMut<ambition::actors::player::SlotInteractionState>,
 ) {
     if replay_requests.read().count() == 0 {
         return;

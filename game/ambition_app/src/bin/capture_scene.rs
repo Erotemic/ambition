@@ -1,7 +1,7 @@
 //! Faithful Bevy scene capture for a camera-follow snapshot.
 //!
 //! This is the render-stack counterpart to
-//! `ambition_actors/examples/render_room_geometry.rs capture`: it runs
+//! `ambition::actors/examples/render_room_geometry.rs capture`: it runs
 //! the real presentation plugins, forces the main camera to the same
 //! `CameraSnapshot2d` policy for an arbitrary focus point, renders into an
 //! offscreen image target, and asks Bevy's screenshot pipeline to write that
@@ -16,16 +16,16 @@
 
 use std::path::{Path, PathBuf};
 
-use ambition_sprite_sheet::game_assets::GameAssetConfig;
-use ambition_platformer_primitives::schedule::GameMode;
-use ambition_platformer_primitives::camera_layers::{FrontHudCamera, MainCamera};
+use ambition::sprite_sheet::game_assets::GameAssetConfig;
+use ambition::platformer::schedule::GameMode;
+use ambition::platformer::camera_layers::{FrontHudCamera, MainCamera};
 use ambition_app::app::{
     PresentationSetupSet, SandboxLdtkPlugin, SandboxPresentationPlugin, SandboxSimulationPlugin,
     StartRoomOverride,
 };
-use ambition_engine_core as ae;
-use ambition_render::rendering::{camera_follow, sync_parallax_layers, CameraViewState};
-use ambition_sim_view::camera_snapshot::{
+use ambition::engine_core as ae;
+use ambition::render::rendering::{camera_follow, sync_parallax_layers, CameraViewState};
+use ambition::sim_view::camera_snapshot::{
     resolve_follow_camera_snapshot, CameraFocus2d, CameraSnapshotResolveInput,
     CameraSnapshotResolveMode,
 };
@@ -133,7 +133,7 @@ fn main() {
     // plugin so its `init_resource::<StartingCharacter>()` leaves it in place.
     if let Some(character_id) = config.character.clone() {
         eprintln!("capture_scene: player wears character '{character_id}'");
-        app.insert_resource(ambition_actors::player::StartingCharacter::new(
+        app.insert_resource(ambition::actors::player::StartingCharacter::new(
             character_id,
         ));
     }
@@ -145,7 +145,7 @@ fn main() {
         SandboxPresentationPlugin,
     ));
     app.add_plugins(
-        ambition_actors::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(
+        ambition::actors::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(
             active_profile,
         ),
     );
@@ -300,20 +300,20 @@ fn setup_capture_target(
 
 fn apply_capture_snapshot(
     config: Res<SceneCaptureConfig>,
-    world: Res<ambition_engine_core::RoomGeometry>,
-    room_set: Res<ambition_actors::rooms::RoomSet>,
-    user_settings: Res<ambition_persistence::settings::UserSettings>,
-    ease_tuning: Res<ambition_platformer_primitives::camera_ease::CameraEaseTuning>,
+    world: Res<ambition::engine_core::RoomGeometry>,
+    room_set: Res<ambition::actors::rooms::RoomSet>,
+    user_settings: Res<ambition::persistence::settings::UserSettings>,
+    ease_tuning: Res<ambition::platformer::camera_ease::CameraEaseTuning>,
     mut view_state: ResMut<CameraViewState>,
     player_q: Query<
-        &ambition_platformer_primitives::body::BodyKinematics,
-        With<ambition_render::rendering::PlayerVisual>,
+        &ambition::platformer::body::BodyKinematics,
+        With<ambition::render::rendering::PlayerVisual>,
     >,
     mut cameras: Query<
         (&mut Transform, &mut Projection),
         (
             With<MainCamera>,
-            Without<ambition_render::rendering::PlayerVisual>,
+            Without<ambition::render::rendering::PlayerVisual>,
         ),
     >,
 ) {
@@ -496,7 +496,7 @@ fn desktop_asset_root() -> String {
         return "assets".to_string();
     }
     let dev_assets =
-        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../crates/ambition_actors/assets");
+        Path::new(env!("CARGO_MANIFEST_DIR")).join("../../crates/ambition::actors/assets");
     match dev_assets.canonicalize() {
         Ok(path) if path.is_dir() => path.to_string_lossy().into_owned(),
         _ => "assets".to_string(),

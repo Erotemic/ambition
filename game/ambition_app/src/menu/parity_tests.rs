@@ -2,7 +2,7 @@
 //!
 //! The unified menu has ONE content model
 //! ([`crate::menu::model::build_inventory_pages`] + the settings IR in
-//! [`ambition_settings_menu`]) rendered by TWO presentations (the flat Grid
+//! [`ambition::settings_menu`]) rendered by TWO presentations (the flat Grid
 //! [`crate::menu::grid_backend`] and the 3D cube [`crate::menu::kaleidoscope_app`]),
 //! dispatched through ONE [`crate::menu::dispatch::dispatch_menu_action`]. The
 //! tests here LOCK that the two presentations can never silently drift:
@@ -22,12 +22,12 @@
 //!    `MenuPageAction::ChangePage` edge page-turn controls which the Grid strips.
 
 use super::model::{build_inventory_pages, MenuFocus, MenuPage, MenuPageAction};
-use ambition_persistence::settings::UserSettings;
-use ambition_settings_menu::settings::{settings_menu_model, SettingsOptionId};
-use ambition_settings_menu::system::{
+use ambition::persistence::settings::UserSettings;
+use ambition::settings_menu::settings::{settings_menu_model, SettingsOptionId};
+use ambition::settings_menu::system::{
     DevSnapshot, RadioSnapshot, SystemMenuEntryId, SystemMenuModel, SystemMenuTarget,
 };
-use ambition_items::{Item, OwnedItems};
+use ambition::items::{Item, OwnedItems};
 
 // ---------------------------------------------------------------------------
 // Part 1a — no-drift exhaustiveness (settings IR + System model)
@@ -313,7 +313,7 @@ fn every_settings_option_is_curated_into_the_system_model() {
 /// The actions the CUBE renders for a page: every node's action (the cube draws
 /// the page model verbatim, including the `ChangePage` edge page-turn controls).
 fn cube_actions(
-    page: &ambition_menu::MenuPageModel<MenuPage, MenuPageAction>,
+    page: &ambition::menu::MenuPageModel<MenuPage, MenuPageAction>,
 ) -> Vec<MenuPageAction> {
     page.nodes
         .iter()
@@ -327,7 +327,7 @@ fn cube_actions(
 /// mirrors the backend's real `page.nodes.retain(...)`, so the test tracks the
 /// one documented divergence rather than reimplementing layout.
 fn grid_actions(
-    page: &ambition_menu::MenuPageModel<MenuPage, MenuPageAction>,
+    page: &ambition::menu::MenuPageModel<MenuPage, MenuPageAction>,
 ) -> Vec<MenuPageAction> {
     cube_actions(page)
         .into_iter()
@@ -418,7 +418,7 @@ mod dispatch_parity {
     use super::*;
     use bevy::prelude::*;
 
-    use ambition_menu::ActiveMenuPages;
+    use ambition::menu::ActiveMenuPages;
 
     use crate::menu::grid_backend::{
         grid_menu_pointer_press, grid_menu_pointer_release, GridMenuTabState, GridPointerPress,
@@ -429,17 +429,17 @@ mod dispatch_parity {
     };
     use crate::menu::model::{MenuPage, MenuPageAction};
     use crate::menu::test_support::click_control as click;
-    use ambition_actors::actor::BodyMana;
-    use ambition_actors::actor::{PlayerEntity, PrimaryPlayer};
-    use ambition_menu::backend::InventoryUiBackend;
-    use ambition_persistence::settings::UserSettings;
-    use ambition_settings_menu::system::SystemMenuEntryId;
-    use ambition_actors::player::PlayerHealRequested;
-    use ambition_platformer_primitives::schedule::GameMode;
-    use ambition_characters::brain::ActionSet;
-    use ambition_input::MenuControlFrame;
-    use ambition_inventory_ui::InventoryUiState;
-    use ambition_sfx::SfxMessage;
+    use ambition::actors::actor::BodyMana;
+    use ambition::actors::actor::{PlayerEntity, PrimaryPlayer};
+    use ambition::menu::backend::InventoryUiBackend;
+    use ambition::persistence::settings::UserSettings;
+    use ambition::settings_menu::system::SystemMenuEntryId;
+    use ambition::actors::player::PlayerHealRequested;
+    use ambition::platformer::schedule::GameMode;
+    use ambition::characters::brain::ActionSet;
+    use ambition::input::MenuControlFrame;
+    use ambition::inventory_ui::InventoryUiState;
+    use ambition::sfx::SfxMessage;
 
     /// Build a menu app for one backend, with every resource/observer the shared
     /// cursor/dispatch path touches. Mirrors the per-backend harnesses in
@@ -458,16 +458,16 @@ mod dispatch_parity {
         app.init_resource::<GridPointerPress>();
         app.init_resource::<GridMenuTabState>();
         app.init_resource::<OwnedItems>();
-        app.init_resource::<ambition_dev_tools::dev_tools::DeveloperTools>();
-        app.init_resource::<ambition_dev_tools::SandboxDevState>();
-        app.init_resource::<ambition_actors::ldtk_world::LdtkHotReloadState>();
-        app.init_resource::<ambition_actors::session::reset::SandboxResetRequested>();
-        app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
+        app.init_resource::<ambition::dev_tools::dev_tools::DeveloperTools>();
+        app.init_resource::<ambition::dev_tools::SandboxDevState>();
+        app.init_resource::<ambition::actors::ldtk_world::LdtkHotReloadState>();
+        app.init_resource::<ambition::actors::session::reset::SandboxResetRequested>();
+        app.init_resource::<ambition::dev_tools::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
         app.init_resource::<InventoryUiState>();
-        app.init_resource::<ambition_menu::map::MapMenuState>();
+        app.init_resource::<ambition::menu::map::MapMenuState>();
         app.init_resource::<MenuControlFrame>();
-        app.init_resource::<ambition_input::ActiveInputKind>();
+        app.init_resource::<ambition::input::ActiveInputKind>();
         app.add_message::<PlayerHealRequested>();
         app.add_message::<SfxMessage>();
         app.add_message::<bevy::app::AppExit>();

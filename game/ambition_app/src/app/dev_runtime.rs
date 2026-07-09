@@ -3,18 +3,18 @@ use bevy::prelude::*;
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::{ActionState, InputMap};
 
-use ambition_dev_tools::dev_tools::{DeveloperTools, EditableMovementTuning};
-use ambition_actors::features;
-use ambition_actors::ldtk_world;
-use ambition_actors::platformer_runtime::lifecycle::RoomScopedEntity;
-use ambition_actors::rooms;
-use ambition_actors::world::{physics, platforms};
-use ambition_dev_tools::SandboxDevState;
-use ambition_engine_core as ae;
-use ambition_engine_core::RoomGeometry;
+use ambition::dev_tools::dev_tools::{DeveloperTools, EditableMovementTuning};
+use ambition::actors::features;
+use ambition::actors::ldtk_world;
+use ambition::actors::platformer_runtime::lifecycle::RoomScopedEntity;
+use ambition::actors::rooms;
+use ambition::actors::world::{physics, platforms};
+use ambition::dev_tools::SandboxDevState;
+use ambition::engine_core as ae;
+use ambition::engine_core::RoomGeometry;
 #[cfg(feature = "input")]
-use ambition_input::{KeyboardPreset, SandboxAction};
-use ambition_render::rendering::{spawn_room_visuals, PlayerVisual, SceneEntities};
+use ambition::input::{KeyboardPreset, SandboxAction};
+use ambition::render::rendering::{spawn_room_visuals, PlayerVisual, SceneEntities};
 
 /// Presentation-side debug hotkey reader.
 ///
@@ -81,30 +81,30 @@ pub(super) fn handle_ldtk_hot_reload(
     mut world: ResMut<RoomGeometry>,
     mut room_set: ResMut<rooms::RoomSet>,
     mut dev_state: ResMut<SandboxDevState>,
-    mut sim_state: ResMut<ambition_actors::SandboxSimState>,
-    mut dialogue: ResMut<ambition_dialog::DialogState>,
+    mut sim_state: ResMut<ambition::actors::SandboxSimState>,
+    mut dialogue: ResMut<ambition::dialog::DialogState>,
     mut ldtk_index: ResMut<ldtk_world::LdtkRuntimeIndex>,
     mut ldtk_reload: ResMut<ldtk_world::LdtkHotReloadState>,
     editable_tuning: Res<EditableMovementTuning>,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
-    mut platform_set: ResMut<ambition_actors::MovingPlatformSet>,
+    mut platform_set: ResMut<ambition::actors::MovingPlatformSet>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     // Bundled into one tuple param to stay within Bevy's 16-param system limit.
     visual_assets: (
-        Option<Res<ambition_sprite_sheet::game_assets::GameAssets>>,
-        Option<Res<ambition_render::quality::ResolvedVisualQuality>>,
+        Option<Res<ambition::sprite_sheet::game_assets::GameAssets>>,
+        Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
     ),
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
-            &mut ambition_characters::actor::BodyCombat,
-            &mut ambition_actors::player::PlayerSafetyState,
+            &mut ambition::characters::actor::BodyCombat,
+            &mut ambition::actors::player::PlayerSafetyState,
         ),
         // PRIMARY-only: LDtk hot-reload repositions the camera body to the
         // validated spawn — a single-player dev flow.
-        ambition_actors::actor::PrimaryPlayerOnly,
+        ambition::actors::actor::PrimaryPlayerOnly,
     >,
-    catalog: Res<ambition_asset_manager::sandbox_assets::SandboxAssetCatalog>,
+    catalog: Res<ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>,
 ) {
     if keys.just_pressed(KeyCode::F12) {
         ldtk_reload.auto_apply = !ldtk_reload.auto_apply;
@@ -186,7 +186,7 @@ pub(super) struct LdtkReloadTransaction {
 
 pub(super) fn prepare_ldtk_reload_transaction(
     watch_path: &std::path::Path,
-    catalog: &ambition_asset_manager::sandbox_assets::SandboxAssetCatalog,
+    catalog: &ambition::asset_manager::sandbox_assets::SandboxAssetCatalog,
     current_room_id: &str,
     preserved_pos: ae::Vec2,
     player_size: ae::Vec2,
@@ -239,19 +239,19 @@ pub(super) fn reload_ldtk_world_from_disk(
     room_set: &mut rooms::RoomSet,
     clusters: &mut ae::BodyClustersMut<'_>,
     dev_state: &mut SandboxDevState,
-    sim_state: &mut ambition_actors::SandboxSimState,
-    safety: &mut ambition_actors::player::PlayerSafetyState,
-    dialogue: &mut ambition_dialog::DialogState,
-    combat: &mut ambition_characters::actor::BodyCombat,
+    sim_state: &mut ambition::actors::SandboxSimState,
+    safety: &mut ambition::actors::player::PlayerSafetyState,
+    dialogue: &mut ambition::dialog::DialogState,
+    combat: &mut ambition::characters::actor::BodyCombat,
     ldtk_index: &mut ldtk_world::LdtkRuntimeIndex,
     tuning: ae::MovementTuning,
     physics_settings: physics::PhysicsSandboxSettings,
-    moving_platforms: &mut Vec<ambition_actors::world::platforms::MovingPlatformState>,
+    moving_platforms: &mut Vec<ambition::actors::world::platforms::MovingPlatformState>,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
-    assets: Option<&ambition_sprite_sheet::game_assets::GameAssets>,
-    quality: Option<&ambition_render::quality::ResolvedVisualQuality>,
+    assets: Option<&ambition::sprite_sheet::game_assets::GameAssets>,
+    quality: Option<&ambition::render::quality::ResolvedVisualQuality>,
     watch_path: &std::path::Path,
-    catalog: &ambition_asset_manager::sandbox_assets::SandboxAssetCatalog,
+    catalog: &ambition::asset_manager::sandbox_assets::SandboxAssetCatalog,
 ) -> Result<String, Vec<String>> {
     let current_room_id = room_set.active_spec().id.clone();
     let preserved_pos = clusters.kinematics.pos;
@@ -298,7 +298,7 @@ pub(super) fn reload_ldtk_world_from_disk(
 
     ldtk_index.replace_from_project(&transaction.project, active_room.clone());
 
-    ambition_render::rendering::spawn_parallax_layers(
+    ambition::render::rendering::spawn_parallax_layers(
         commands,
         &world.0,
         &room_set.active_spec().metadata,

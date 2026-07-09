@@ -13,16 +13,16 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition_actors::actor::{BodyKinematics, PrimaryPlayerOnly};
-use ambition_actors::combat::components::{ActorDisposition, ActorTarget};
-use ambition_actors::features::FeatureId;
-use ambition_actors::player::BodyMelee;
+use ambition::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
+use ambition::actors::combat::components::{ActorDisposition, ActorTarget};
+use ambition::actors::features::FeatureId;
+use ambition::actors::player::BodyMelee;
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
-use ambition_characters::actor::BodyHealth;
-use ambition_characters::brain::ActorControl;
-use ambition_engine_core as ae;
-use ambition_entity_catalog::placements::CharacterBrain;
-use ambition_projectiles::enemy::EnemyProjectile;
+use ambition::characters::actor::BodyHealth;
+use ambition::characters::brain::ActorControl;
+use ambition::engine_core as ae;
+use ambition::entity_catalog::placements::CharacterBrain;
+use ambition::projectiles::enemy::EnemyProjectile;
 use bevy::prelude::World;
 
 const ROBOT_ID: &str = "player_robot_boss";

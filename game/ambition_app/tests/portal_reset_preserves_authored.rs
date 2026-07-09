@@ -13,15 +13,15 @@
 //!
 //! Driven through the real app: `portal_lab`'s authored portals must survive BOTH
 //! a player-death reset and a manual reset (the gun-pair clear-on-manual is unit-
-//! tested in `ambition_portal::lifecycle` and the host bridge, since a gun pair is
+//! tested in `ambition::portal::lifecycle` and the host bridge, since a gun pair is
 //! auto-despawned here when the player holds no portal gun).
 
 mod common;
 use common::{authored_portal_pairs, base, fixed_60hz_room_sim};
 
-use ambition_actors::features::{ResetRoomFeaturesEvent, RoomResetReason};
+use ambition::actors::features::{ResetRoomFeaturesEvent, RoomResetReason};
 use ambition_app::SandboxSim;
-use ambition_portal::PlacedPortal;
+use ambition::portal::PlacedPortal;
 
 fn authored_count(sim: &mut SandboxSim) -> usize {
     let mut q = sim.world_mut().query::<&PlacedPortal>();

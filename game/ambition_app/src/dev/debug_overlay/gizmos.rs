@@ -20,13 +20,13 @@ pub(crate) fn draw_held_projectiles<'a>(
     world: &ae::World,
     projectiles: impl Iterator<
         Item = (
-            &'a ambition_actors::actor::BodyKinematics,
-            &'a ambition_actors::items::pickup::HeldProjectile,
+            &'a ambition::actors::actor::BodyKinematics,
+            &'a ambition::actors::items::pickup::HeldProjectile,
         ),
     >,
     developer_tools: &DeveloperTools,
 ) {
-    use ambition_actors::items::pickup::HeldProjectile;
+    use ambition::actors::items::pickup::HeldProjectile;
     let contact_color = Color::srgba(0.35, 0.85, 1.00, 0.90); // light blue (player-side)
     let splash_color = Color::srgba(1.00, 0.55, 0.20, 0.45); // faint orange (AOE)
     for (kin, proj) in projectiles {
@@ -51,7 +51,7 @@ pub(crate) fn draw_held_projectiles<'a>(
 pub(crate) fn draw_portals<'a>(
     gizmos: &mut Gizmos,
     world: &ae::World,
-    portals: impl Iterator<Item = &'a ambition_portal::PlacedPortal>,
+    portals: impl Iterator<Item = &'a ambition::portal::PlacedPortal>,
 ) {
     for portal in portals {
         let color = portal.channel.display().0.with_alpha(0.95);
@@ -69,7 +69,7 @@ pub(crate) fn draw_portals<'a>(
         // along the doorway). The portal map preserves this component, so it sets
         // whether your along-surface direction is kept or mirrored. Drawn in green
         // as a single-headed tick so its sign is visible.
-        let tangent = ambition_portal::pieces::portal_tangent(portal.normal);
+        let tangent = ambition::portal::pieces::portal_tangent(portal.normal);
         gizmos.line_2d(
             base,
             w2(world, portal.pos + tangent * 18.0),
@@ -85,49 +85,49 @@ pub struct FeatureDebugQueries<'w, 's> {
         'w,
         's,
         (
-            ambition_actors::features::BossClusterRef,
-            &'static ambition_characters::actor::BodyHealth,
-            &'static ambition_characters::brain::BossAttackState,
-            Option<&'static ambition_actors::features::BossAnimationFrameSample>,
+            ambition::actors::features::BossClusterRef,
+            &'static ambition::characters::actor::BodyHealth,
+            &'static ambition::characters::brain::BossAttackState,
+            Option<&'static ambition::actors::features::BossAnimationFrameSample>,
         ),
-        With<ambition_actors::features::FeatureSimEntity>,
+        With<ambition::actors::features::FeatureSimEntity>,
     >,
     pub actors: Query<
         'w,
         's,
         (
-            &'static ambition_actors::features::ActorDisposition,
-            &'static ambition_actors::features::ActorAggression,
-            &'static ambition_actors::features::CenteredAabb,
-            Option<&'static ambition_actors::features::BodyKinematics>,
-            Option<&'static ambition_actors::features::BodyMelee>,
-            Option<&'static ambition_actors::features::ActorSurfaceState>,
+            &'static ambition::actors::features::ActorDisposition,
+            &'static ambition::actors::features::ActorAggression,
+            &'static ambition::actors::features::CenteredAabb,
+            Option<&'static ambition::actors::features::BodyKinematics>,
+            Option<&'static ambition::actors::features::BodyMelee>,
+            Option<&'static ambition::actors::features::ActorSurfaceState>,
         ),
-        With<ambition_actors::features::FeatureSimEntity>,
+        With<ambition::actors::features::FeatureSimEntity>,
     >,
     pub breakables: Query<
         'w,
         's,
-        &'static ambition_actors::features::CenteredAabb,
+        &'static ambition::actors::features::CenteredAabb,
         (
-            With<ambition_actors::features::FeatureSimEntity>,
-            With<ambition_actors::features::BreakableFeature>,
+            With<ambition::actors::features::FeatureSimEntity>,
+            With<ambition::actors::features::BreakableFeature>,
         ),
     >,
     pub chests: Query<
         'w,
         's,
-        &'static ambition_actors::features::CenteredAabb,
+        &'static ambition::actors::features::CenteredAabb,
         (
-            With<ambition_actors::features::FeatureSimEntity>,
-            With<ambition_actors::features::ChestFeature>,
+            With<ambition::actors::features::FeatureSimEntity>,
+            With<ambition::actors::features::ChestFeature>,
         ),
     >,
     pub hazards: Query<
         'w,
         's,
-        &'static ambition_actors::features::HazardFeature,
-        With<ambition_actors::features::FeatureSimEntity>,
+        &'static ambition::actors::features::HazardFeature,
+        With<ambition::actors::features::FeatureSimEntity>,
     >,
     /// All live `Hitbox` entities (melee swings, World-anchored
     /// hazards like the Gradient Sentinel's PitTrap pit /
@@ -135,11 +135,11 @@ pub struct FeatureDebugQueries<'w, 's> {
     /// view answers "what just hit me?" — without this pass the
     /// World-anchored boss specials are invisible even though they
     /// deal damage.
-    pub hitboxes: Query<'w, 's, &'static ambition_actors::features::Hitbox>,
+    pub hitboxes: Query<'w, 's, &'static ambition::actors::features::Hitbox>,
     /// CenteredAabb lookup for resolving `FollowOwner` hitboxes to
     /// their current world-space rectangle. World-anchored
     /// hitboxes don't need this — their AABB is fixed at spawn.
-    pub hitbox_owners: Query<'w, 's, &'static ambition_actors::features::CenteredAabb>,
+    pub hitbox_owners: Query<'w, 's, &'static ambition::actors::features::CenteredAabb>,
     /// In-flight held-item shots (gun-sword bolt / Fireball). Their
     /// contact + splash boxes were previously undrawn, so a Fireball
     /// read as "hitting before it touches the visible box". Lives in
@@ -151,16 +151,16 @@ pub struct FeatureDebugQueries<'w, 's> {
         'w,
         's,
         (
-            &'static ambition_actors::actor::BodyKinematics,
-            &'static ambition_actors::items::pickup::HeldProjectile,
+            &'static ambition::actors::actor::BodyKinematics,
+            &'static ambition::actors::items::pickup::HeldProjectile,
         ),
-        Without<ambition_actors::actor::PlayerEntity>,
+        Without<ambition::actors::actor::PlayerEntity>,
     >,
     /// The player's resolved gravity, so the player debug box can rotate to
     /// match its (now gravity-oriented) collision box + sprite. Lives in this
     /// bundle (not a top-level param) to keep `draw_debug_overlay` under Bevy's
     /// 16-system-param ceiling.
-    pub gravity: Option<Res<'w, ambition_actors::physics::GravityField>>,
+    pub gravity: Option<Res<'w, ambition::actors::physics::GravityField>>,
     /// In-flight player projectiles (ECS entities). Bundled here (rather than a
     /// top-level param) so `draw_debug_overlay` has a slot free for the
     /// debug-label buffer while staying under the 16-param ceiling.
@@ -168,20 +168,20 @@ pub struct FeatureDebugQueries<'w, 's> {
     pub player_projectiles: Query<
         'w,
         's,
-        &'static ambition_actors::actor::BodyKinematics,
+        &'static ambition::actors::actor::BodyKinematics,
         (
-            With<ambition_projectiles::PlayerProjectile>,
-            Without<ambition_actors::actor::PlayerEntity>,
+            With<ambition::projectiles::PlayerProjectile>,
+            Without<ambition::actors::actor::PlayerEntity>,
         ),
     >,
     /// In-flight enemy projectiles (ECS entities); see `player_projectiles`.
     pub enemy_projectiles: Query<
         'w,
         's,
-        &'static ambition_actors::actor::BodyKinematics,
+        &'static ambition::actors::actor::BodyKinematics,
         (
-            With<ambition_projectiles::enemy::EnemyProjectile>,
-            Without<ambition_actors::actor::PlayerEntity>,
+            With<ambition::projectiles::enemy::EnemyProjectile>,
+            Without<ambition::actors::actor::PlayerEntity>,
         ),
     >,
 }
@@ -295,10 +295,10 @@ pub(crate) fn draw_surface_chains(gizmos: &mut Gizmos, world: &ae::World) {
 
 /// Lightweight coarse grid drawn straight through gizmos. Used when
 /// `hide_sprites` strips the authored sprite grid so the player still
-/// has a spatial reference. Spacing matches `ambition_engine_core::config::GRID_STEP`
+/// has a spatial reference. Spacing matches `ambition::engine_core::config::GRID_STEP`
 /// (the same step the sprite grid spawned in `spawn_grid` uses).
 pub(crate) fn draw_world_grid(gizmos: &mut Gizmos, world: &ae::World) {
-    let step = ambition_engine_core::config::GRID_STEP;
+    let step = ambition::engine_core::config::GRID_STEP;
     if step <= 0.0 {
         return;
     }
@@ -340,26 +340,26 @@ pub(crate) fn draw_loading_zones(gizmos: &mut Gizmos, world: &ae::World, zones: 
 pub(crate) fn draw_ldtk_runtime_spine(
     gizmos: &mut Gizmos,
     world: &ae::World,
-    spine_index: &ambition_actors::ldtk_world::LdtkRuntimeSpineIndex,
+    spine_index: &ambition::actors::ldtk_world::LdtkRuntimeSpineIndex,
 ) {
     for entity in &spine_index.entities {
         let color = match entity.role {
-            ambition_actors::ldtk_world::LdtkRuntimeRole::PlayerStart => green(),
-            ambition_actors::ldtk_world::LdtkRuntimeRole::LoadingZone => {
+            ambition::actors::ldtk_world::LdtkRuntimeRole::PlayerStart => green(),
+            ambition::actors::ldtk_world::LdtkRuntimeRole::LoadingZone => {
                 Color::srgba(1.0, 1.0, 1.0, 0.70)
             }
-            ambition_actors::ldtk_world::LdtkRuntimeRole::DebugLabel => magenta(),
-            ambition_actors::ldtk_world::LdtkRuntimeRole::CameraZone => blue(),
+            ambition::actors::ldtk_world::LdtkRuntimeRole::DebugLabel => magenta(),
+            ambition::actors::ldtk_world::LdtkRuntimeRole::CameraZone => blue(),
             // Solid runtime rects are drawn by the dedicated Solid index pass
             // so they can be color-keyed against the JSON-derived collision
             // blocks during the Step 2 raw-vs-runtime overlay work.
-            ambition_actors::ldtk_world::LdtkRuntimeRole::Solid => continue,
+            ambition::actors::ldtk_world::LdtkRuntimeRole::Solid => continue,
             // OneWayPlatform / DamageVolume have their own dedicated runtime
             // indices and overlay passes; skip them in the generic spine
             // overlay so colors don't double-stamp.
-            ambition_actors::ldtk_world::LdtkRuntimeRole::OneWayPlatform => continue,
-            ambition_actors::ldtk_world::LdtkRuntimeRole::DamageVolume => continue,
-            ambition_actors::ldtk_world::LdtkRuntimeRole::Other => continue,
+            ambition::actors::ldtk_world::LdtkRuntimeRole::OneWayPlatform => continue,
+            ambition::actors::ldtk_world::LdtkRuntimeRole::DamageVolume => continue,
+            ambition::actors::ldtk_world::LdtkRuntimeRole::Other => continue,
         };
         draw_aabb(gizmos, world, entity.aabb(), color);
     }
@@ -371,8 +371,8 @@ pub(crate) fn draw_player_debug(
     gizmos: &mut Gizmos,
     world: &ae::World,
     clusters: &ae::BodyClustersMut<'_>,
-    moving_platforms: &[ambition_actors::world::platforms::MovingPlatformState],
-    attack: Option<&ambition_actors::MeleeSwing>,
+    moving_platforms: &[ambition::actors::world::platforms::MovingPlatformState],
+    attack: Option<&ambition::actors::MeleeSwing>,
     actions: Option<&ActionState<SandboxAction>>,
     gameplay_active: bool,
     developer_tools: &DeveloperTools,
@@ -390,8 +390,8 @@ pub(crate) fn draw_player_debug(
     // damage resolution, enemies, and bosses use (`collision_aabb`), so the
     // overlay provably draws the gameplay hurtbox by construction rather than a
     // parallel computation that could drift. Identity under vertical gravity.
-    let body = ambition_actors::features::collision_aabb(
-        &ambition_actors::features::SimpleActorGeometry {
+    let body = ambition::actors::features::collision_aabb(
+        &ambition::actors::features::SimpleActorGeometry {
             pos: clusters.kinematics.pos,
             size: clusters.kinematics.size,
             facing: clusters.kinematics.facing,
@@ -437,7 +437,7 @@ pub(crate) fn draw_player_debug(
     // debug below.
     let controls = actions.map(read_gameplay_control_frame).unwrap_or_default();
     if gameplay_active && developer_tools.show_combat_preview {
-        let view = ambition_actors::combat::AttackView {
+        let view = ambition::actors::combat::AttackView {
             pos,
             size,
             facing,
@@ -450,18 +450,18 @@ pub(crate) fn draw_player_debug(
             // Draw the ACTUAL damage volume — the authored blade-arc poly (or the
             // hardcoded AABB fallback) the slash emits — not a separate preview
             // box, so the overlay matches what hits.
-            let volume = ambition_actors::features::ecs::attack::player_attack_hitbox(
+            let volume = ambition::actors::features::ecs::attack::player_attack_hitbox(
                 &view,
                 attack_state.spec.intent,
                 gravity_dir,
             )
             .unwrap_or_else(|| {
-                ambition_actors::combat::attack_hitbox_from_view(&view, attack_state.spec).into()
+                ambition::actors::combat::attack_hitbox_from_view(&view, attack_state.spec).into()
             });
             let color = match attack_state.phase() {
-                Some(ambition_actors::combat::AttackPhase::Startup) => yellow(),
-                Some(ambition_actors::combat::AttackPhase::Active) => red(),
-                Some(ambition_actors::combat::AttackPhase::Recovery) => gray(),
+                Some(ambition::actors::combat::AttackPhase::Startup) => yellow(),
+                Some(ambition::actors::combat::AttackPhase::Active) => red(),
+                Some(ambition::actors::combat::AttackPhase::Recovery) => gray(),
                 None => gray(),
             };
             draw_combat_volume(gizmos, world, &volume, color);
@@ -563,7 +563,7 @@ pub(crate) fn draw_player_debug(
 pub(crate) fn draw_moving_platform_debug(
     gizmos: &mut Gizmos,
     world: &ae::World,
-    moving_platforms: &[ambition_actors::world::platforms::MovingPlatformState],
+    moving_platforms: &[ambition::actors::world::platforms::MovingPlatformState],
 ) {
     for platform in moving_platforms {
         let aabb = platform.aabb();
@@ -577,7 +577,7 @@ pub(crate) fn draw_health_bars(
     gizmos: &mut Gizmos,
     world: &ae::World,
     player_aabb: ae::Aabb,
-    player_health: Option<&ambition_characters::actor::BodyHealth>,
+    player_health: Option<&ambition::characters::actor::BodyHealth>,
 ) {
     let ratio = player_health.map_or(1.0, |h| h.health.ratio());
     draw_health_bar(gizmos, world, player_aabb, ratio, cyan());
@@ -675,13 +675,13 @@ pub(crate) fn draw_feature_debug(
                 // Forward-swing hitbox geometry (matches
                 // ActorMut::attack_aabb): offset by facing.
                 let center = kin.pos
-                    + ambition_engine_core::Vec2::new(
+                    + ambition::engine_core::Vec2::new(
                         kin.facing * (kin.size.x * 0.55 + 24.0),
                         -4.0,
                     );
-                let attack_box = ambition_engine_core::Aabb::new(
+                let attack_box = ambition::engine_core::Aabb::new(
                     center,
-                    ambition_engine_core::Vec2::new(34.0, 28.0),
+                    ambition::engine_core::Vec2::new(34.0, 28.0),
                 );
                 if attack.is_active() {
                     draw_aabb_styled(gizmos, world, attack_box, active_color, developer_tools);
@@ -731,7 +731,7 @@ pub(crate) fn draw_feature_debug(
             continue;
         }
         let ctx =
-            ambition_actors::features::BossVolumeContext::from_ref(bf.as_boss_ref(), attack_state)
+            ambition::actors::features::BossVolumeContext::from_ref(bf.as_boss_ref(), attack_state)
                 .with_animation_frame(animation_frame);
         draw_aabb_styled(gizmos, world, boss.aabb(), boss_color, developer_tools);
         label_box(
@@ -765,7 +765,7 @@ pub(crate) fn draw_feature_debug(
                 LabelSpot::BottomRight,
             );
         }
-        for hurtbox in ambition_actors::features::damageable_volumes(&ctx) {
+        for hurtbox in ambition::actors::features::damageable_volumes(&ctx) {
             draw_aabb_styled(gizmos, world, hurtbox, hurtbox_color, developer_tools);
             label_box(
                 labels,
@@ -775,7 +775,7 @@ pub(crate) fn draw_feature_debug(
                 LabelSpot::TopLeft,
             );
         }
-        for vol in ambition_actors::features::active_attack_volumes(&ctx) {
+        for vol in ambition::actors::features::active_attack_volumes(&ctx) {
             draw_aabb_styled(gizmos, world, vol, active_color, developer_tools);
             label_box(labels, vol, "active", active_color, LabelSpot::Center);
         }
@@ -844,16 +844,16 @@ pub(crate) fn draw_feature_debug(
         let owner_pos = match (owner_pos, hitbox.anchor) {
             (Some(p), _) => p,
             // World-anchored: center is fixed at spawn, owner pos unused.
-            (None, ambition_actors::features::HitboxAnchor::World { .. }) => ae::Vec2::ZERO,
+            (None, ambition::actors::features::HitboxAnchor::World { .. }) => ae::Vec2::ZERO,
             // FollowOwner with a dead/unknown owner: don't draw a ghost at origin.
-            (None, ambition_actors::features::HitboxAnchor::FollowOwner { .. }) => continue,
+            (None, ambition::actors::features::HitboxAnchor::FollowOwner { .. }) => continue,
         };
         let aabb = hitbox.world_aabb(owner_pos);
         let (color, tag) = match hitbox.source {
-            ambition_vfx::HitSide::Player => (player_hitbox_color, "hit:player"),
-            ambition_vfx::HitSide::Enemy => (enemy_hitbox_color, "hit:enemy"),
-            ambition_vfx::HitSide::Boss => (boss_hitbox_color, "hit:boss"),
-            ambition_vfx::HitSide::Npc | ambition_vfx::HitSide::Neutral => {
+            ambition::vfx::HitSide::Player => (player_hitbox_color, "hit:player"),
+            ambition::vfx::HitSide::Enemy => (enemy_hitbox_color, "hit:enemy"),
+            ambition::vfx::HitSide::Boss => (boss_hitbox_color, "hit:boss"),
+            ambition::vfx::HitSide::Npc | ambition::vfx::HitSide::Neutral => {
                 (npc_hitbox_color, "hit:npc")
             }
         };
@@ -869,8 +869,8 @@ pub(crate) fn draw_feature_debug(
 pub(crate) fn draw_projectile_debug<'a>(
     gizmos: &mut Gizmos,
     world: &ae::World,
-    player_bodies: impl IntoIterator<Item = &'a ambition_actors::actor::BodyKinematics>,
-    enemy_bodies: impl IntoIterator<Item = &'a ambition_actors::actor::BodyKinematics>,
+    player_bodies: impl IntoIterator<Item = &'a ambition::actors::actor::BodyKinematics>,
+    enemy_bodies: impl IntoIterator<Item = &'a ambition::actors::actor::BodyKinematics>,
     developer_tools: &DeveloperTools,
 ) {
     let player_color = Color::srgba(1.00, 0.74, 0.30, 0.92);

@@ -195,7 +195,7 @@ pub(crate) struct DebugLabel {
 /// Per-frame scratch buffer of debug-box labels. Filled by the overlay draw
 /// calls, drained by [`render_debug_overlay_labels`].
 #[derive(Resource, Default)]
-pub struct DebugOverlayLabels(pub Vec<DebugLabel>);
+pub(crate) struct DebugOverlayLabels(pub Vec<DebugLabel>);
 
 /// Queue a label for `aabb`, anchored at the `spot` corner (inset a few px so
 /// it sits just inside the line). World y is DOWN, so "top" = the smaller y.

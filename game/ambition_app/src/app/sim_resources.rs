@@ -1,7 +1,7 @@
 //! App-side simulation-resource residue (E5 step 6 slimmed this file).
 //!
 //! The engine-generic sim messages + resource defaults moved to
-//! `ambition_runtime::SimCoreResourcesPlugin` (in the engine group), so a
+//! `ambition::runtime::SimCoreResourcesPlugin` (in the engine group), so a
 //! demo app gets a bootable sim without this crate. What remains here is
 //! genuinely Ambition-assembly:
 //!
@@ -16,8 +16,8 @@
 use bevy::prelude::*;
 
 use super::setup_systems::setup_simulation_system;
-use ambition_actors::session::data;
-use ambition_platformer_primitives::schedule::SimulationSetupSet;
+use ambition::actors::session::data;
+use ambition::platformer::schedule::SimulationSetupSet;
 
 pub struct SandboxSimulationResourcesPlugin;
 
@@ -27,27 +27,27 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             // CharacterCatalogPlugin installs the parsed character
             // catalog as a Bevy resource and runs a Startup validator
             // that panics on broken references. See
-            // `ambition_characters::actor::character_catalog` and ADR 0017
+            // `ambition::characters::actor::character_catalog` and ADR 0017
             // (Rust = behavior, RON = content, LDtk = space).
             .add_plugins({
                 // The plugin ctor reads the installed catalog RON — install
                 // here (idempotent, first-wins) so plugin-mount order can
                 // never make the read precede the install.
                 ambition_content::character_catalog::install();
-                ambition_actors::character_roster::character_roster_plugin()
+                ambition::actors::character_roster::character_roster_plugin()
             })
             .add_systems(
                 Startup,
                 (
-                    ambition_dev_tools::profiling::phase_mark("startup_begin"),
+                    ambition::dev_tools::profiling::phase_mark("startup_begin"),
                     data::load_data_asset_handle,
-                    ambition_dev_tools::profiling::phase_mark("after_load_data_handle"),
+                    ambition::dev_tools::profiling::phase_mark("after_load_data_handle"),
                     // `SimulationSetupSet` is the machinery-facing label for
                     // this slot: engine/host startup systems that need the sim
                     // world set up (e.g. the host's input-component attach)
                     // order `.after(the set)` instead of naming this system.
                     setup_simulation_system.in_set(SimulationSetupSet),
-                    ambition_dev_tools::profiling::phase_mark("after_setup_simulation"),
+                    ambition::dev_tools::profiling::phase_mark("after_setup_simulation"),
                 )
                     .chain(),
             )
@@ -59,8 +59,8 @@ impl Plugin for SandboxSimulationResourcesPlugin {
             .add_systems(
                 PostStartup,
                 (
-                    ambition_dev_tools::profiling::phase_mark("post_startup_begin"),
-                    ambition_dev_tools::profiling::report_startup_phases,
+                    ambition::dev_tools::profiling::phase_mark("post_startup_begin"),
+                    ambition::dev_tools::profiling::report_startup_phases,
                 )
                     .chain(),
             );

@@ -28,8 +28,8 @@
 mod common;
 use common::{base, first_authored_portal_pair, fixed_60hz_room_sim};
 
-use ambition_actors::platformer_runtime::body::BodyKinematics;
-use ambition_portal::{PortalBody, PortalPolicy};
+use ambition::actors::platformer_runtime::body::BodyKinematics;
+use ambition::portal::{PortalBody, PortalPolicy};
 use bevy::prelude::*;
 
 #[test]

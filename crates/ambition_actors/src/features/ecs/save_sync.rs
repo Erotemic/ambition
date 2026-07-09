@@ -19,7 +19,7 @@ pub fn sync_ecs_actors_with_save(
     // slot on load (the original attacker entity doesn't survive a save round-trip;
     // single-player has exactly one slot to be angry at).
     players: Query<
-        (Entity, &crate::player::PlayerSlot),
+        (Entity, Option<&crate::player::PlayerSlot>),
         With<crate::actor::PlayerEntity>,
     >,
     mut actors: Query<
@@ -47,7 +47,7 @@ pub fn sync_ecs_actors_with_save(
     // anchor hostility to the lowest PlayerSlot so save-load behavior is replay-safe.
     let stable_player_grudge = players
         .iter()
-        .min_by_key(|(_, slot)| **slot)
+        .min_by_key(|(_, slot)| slot.copied().unwrap_or(crate::player::PlayerSlot::PRIMARY))
         .map(|(entity, _)| entity);
     for (
         entity,

@@ -18,20 +18,20 @@
 //! These tests stay tiny on purpose: they verify the *shape* of the
 //! simulation plugin, not gameplay behavior. Behavior tests live in
 //! `scripted_gameplay.rs` and the per-feature suites under
-//! `crates/ambition_actors/src/**/tests.rs`.
+//! `crates/ambition::actors/src/**/tests.rs`.
 
-use ambition_actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
-use ambition_actors::body_mode::BodyModeCapabilities;
-use ambition_actors::player::{
+use ambition::actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use ambition::actors::body_mode::BodyModeCapabilities;
+use ambition::actors::player::{
     BodyAnimFacts, LocalPlayer, PlayerBlinkCameraState, PlayerIdentityBundle, PlayerSlot,
 };
-use ambition_actors::rooms::RoomSet;
-use ambition_actors::{MovingPlatformSet, SandboxSimState};
-use ambition_platformer_primitives::schedule::GameMode;
-use ambition_characters::actor::{BodyCombat, BodyHealth};
-use ambition_engine_core::RoomGeometry;
-use ambition_input::ControlFrame;
-use ambition_time::ClockState;
+use ambition::actors::rooms::RoomSet;
+use ambition::actors::{MovingPlatformSet, SandboxSimState};
+use ambition::platformer::schedule::GameMode;
+use ambition::characters::actor::{BodyCombat, BodyHealth};
+use ambition::engine_core::RoomGeometry;
+use ambition::input::ControlFrame;
+use ambition::time::ClockState;
 use bevy::asset::AssetPlugin;
 use bevy::image::ImagePlugin;
 use bevy::prelude::*;

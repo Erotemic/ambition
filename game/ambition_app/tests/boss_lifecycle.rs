@@ -19,20 +19,20 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition_actors::actor::{BodyKinematics, PrimaryPlayerOnly};
-use ambition_actors::boss_encounter::{
+use ambition::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
+use ambition::actors::boss_encounter::{
     BossEncounterPhase, EncounterBeat, EncounterDef, EncounterEffect, EncounterGate,
     EncounterScript, EncounterTrigger,
 };
-use ambition_encounter::BossEncounterMusicRequest;
-use ambition_actors::features::ecs::boss_clusters::{BossConfig, BossEncounter};
-use ambition_actors::features::{
+use ambition::encounter::BossEncounterMusicRequest;
+use ambition::actors::features::ecs::boss_clusters::{BossConfig, BossEncounter};
+use ambition::actors::features::{
     BossOverrides, BossRewardChest, ResetRoomFeaturesEvent, RoomResetReason,
 };
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
-use ambition_entity_catalog::placements::BossBrain;
-use ambition_persistence::save::SandboxSave;
-use ambition_persistence::save_data::PersistedEncounterState;
+use ambition::entity_catalog::placements::BossBrain;
+use ambition::persistence::save::SandboxSave;
+use ambition::persistence::save_data::PersistedEncounterState;
 use bevy::prelude::World;
 
 const MOCKINGBIRD_TRACK: &str = "how_to_kill_a_mockingbird";
@@ -64,7 +64,7 @@ fn force_kill_boss(sim: &mut SandboxSim, runtime_id: &str) {
     let mut q = world.query::<(
         &BossConfig,
         &mut BossEncounter,
-        &mut ambition_characters::actor::BodyHealth,
+        &mut ambition::characters::actor::BodyHealth,
     )>();
     for (config, mut status, mut health) in q.iter_mut(world) {
         if config.id == runtime_id {
@@ -98,7 +98,7 @@ fn boss_cleared(sim: &SandboxSim, placement_id: &str) -> bool {
 }
 
 fn boss_alive(world: &mut World, placement_id: &str) -> Option<bool> {
-    let mut q = world.query::<(&BossConfig, &ambition_characters::actor::BodyHealth)>();
+    let mut q = world.query::<(&BossConfig, &ambition::characters::actor::BodyHealth)>();
     q.iter(world)
         .find(|(config, _)| config.id == placement_id)
         .map(|(_, health)| health.alive())
@@ -112,14 +112,14 @@ fn boss_phase(world: &mut World, placement_id: &str) -> Option<BossEncounterPhas
 }
 
 fn boss_max_hp(world: &mut World, placement_id: &str) -> Option<i32> {
-    let mut q = world.query::<(&BossConfig, &ambition_characters::actor::BodyHealth)>();
+    let mut q = world.query::<(&BossConfig, &ambition::characters::actor::BodyHealth)>();
     q.iter(world)
         .find(|(config, _)| config.id == placement_id)
         .map(|(_, health)| health.max())
 }
 
 fn set_boss_hp(world: &mut World, placement_id: &str, hp: i32) {
-    let mut q = world.query::<(&BossConfig, &mut ambition_characters::actor::BodyHealth)>();
+    let mut q = world.query::<(&BossConfig, &mut ambition::characters::actor::BodyHealth)>();
     for (config, mut health) in q.iter_mut(world) {
         if config.id == placement_id {
             health.health.current = hp;

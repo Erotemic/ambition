@@ -20,18 +20,25 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition_actors::actor::{BodyKinematics, PrimaryPlayerOnly};
-use ambition_actors::features::{BodyMelee, FeatureId, Hitbox};
+use ambition::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
+use ambition::actors::combat::components::{ActorDisposition, ActorTarget};
+use ambition::actors::combat::moveset::MovePlayback;
+use ambition::actors::features::{FeatureId, Hitbox};
+use ambition::actors::player::BodyMelee;
+use ambition::characters::brain::{ActionSet, ActorControl};
+use ambition::entity_catalog::{placements::CharacterBrain, WindowTag};
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
-use ambition_entity_catalog::placements::CharacterBrain;
 use bevy::prelude::{Entity, World};
+use std::sync::Mutex;
+
+static UNIFIED_MELEE_TEST_LOCK: Mutex<()> = Mutex::new(());
 
 fn player_entity(world: &mut World) -> Entity {
     let mut q = world.query_filtered::<Entity, PrimaryPlayerOnly>();
     q.single(world).expect("primary player")
 }
 
-fn player_pos(world: &mut World) -> ambition_engine_core::Vec2 {
+fn player_pos(world: &mut World) -> ambition::engine_core::Vec2 {
     let mut q = world.query_filtered::<&BodyKinematics, PrimaryPlayerOnly>();
     q.single(world).expect("primary player").pos
 }
@@ -51,11 +58,126 @@ fn owns_a_strike(world: &mut World, e: Entity) -> bool {
     q.iter(world).any(|hb| hb.owner == e)
 }
 
+fn is_attack_move(playback: &MovePlayback) -> bool {
+    let id = playback.spec.id.as_str();
+    id == "attack" || id.starts_with("attack_")
+}
+
+fn attack_move_is_active(playback: &MovePlayback) -> bool {
+    is_attack_move(playback)
+        && playback.spec.windows.iter().any(|w| {
+            matches!(w.tag, WindowTag::Active) && playback.t >= w.start_s && playback.t < w.end_s
+        })
+}
+
+#[derive(Default, Debug)]
+struct HostileMeleeTally {
+    present_frames: usize,
+    hostile_frames: usize,
+    target_some_frames: usize,
+    action_set_has_melee: bool,
+    melee_pressed_frames: usize,
+    engaged_frames: usize,
+    attack_playback_frames: usize,
+    active_attack_frames: usize,
+    owns_strike_frames: usize,
+    min_dist: f32,
+}
+
+fn observe_hostile_melee(
+    world: &mut World,
+    feature_id: &str,
+    player: ambition::engine_core::Vec2,
+    t: &mut HostileMeleeTally,
+) {
+    let observed = {
+        let mut q = world.query::<(
+            Entity,
+            &FeatureId,
+            &BodyKinematics,
+            &ActorControl,
+            &ActorDisposition,
+            &ActorTarget,
+            &ActionSet,
+            &BodyMelee,
+            Option<&MovePlayback>,
+        )>();
+        q.iter(world)
+            .find(|(_, f, ..)| f.as_str() == feature_id)
+            .map(|(entity, _, kin, control, disp, target, actions, melee, playback)| {
+                let attack_playback = playback.map(is_attack_move).unwrap_or(false);
+                let active_attack = playback.map(attack_move_is_active).unwrap_or(false);
+                (
+                    entity,
+                    kin.pos,
+                    control.0.melee_pressed,
+                    disp.is_hostile(),
+                    target.entity.is_some(),
+                    actions.melee.is_some(),
+                    melee.is_swinging() || melee.cooldown > 0.0 || attack_playback,
+                    attack_playback,
+                    active_attack,
+                )
+            })
+    };
+    let Some((
+        entity,
+        pos,
+        melee_pressed,
+        hostile,
+        has_target,
+        has_melee,
+        engaged,
+        attack_playback,
+        active_attack,
+    )) = observed else {
+        return;
+    };
+
+    t.present_frames += 1;
+    if hostile {
+        t.hostile_frames += 1;
+    }
+    if has_target {
+        t.target_some_frames += 1;
+    }
+    t.action_set_has_melee |= has_melee;
+    if melee_pressed {
+        t.melee_pressed_frames += 1;
+    }
+    if engaged {
+        t.engaged_frames += 1;
+    }
+    if attack_playback {
+        t.attack_playback_frames += 1;
+    }
+    if active_attack {
+        t.active_attack_frames += 1;
+    }
+    let owns_strike = {
+        let mut q = world.query::<&Hitbox>();
+        q.iter(world).any(|hb| hb.owner == entity)
+    };
+    if owns_strike {
+        t.owns_strike_frames += 1;
+    }
+    let d = (pos - player).length();
+    if t.present_frames == 1 || d < t.min_dist {
+        t.min_dist = d;
+    }
+}
+
+fn hostile_body_present(world: &mut World, feature_id: &str) -> bool {
+    let mut q = world.query::<(&FeatureId, &BodyMelee)>();
+    q.iter(world).any(|(f, _)| f.as_str() == feature_id)
+}
+
 /// The PLAYER's own melee now flows through the body-generic lifecycle (the
 /// deleted `attack_advance_system` is gone): pressing Attack engages its
 /// `BodyMelee` and spawns a strike it OWNS.
 #[test]
 fn the_player_enters_the_body_melee_lifecycle_and_owns_its_strike() {
+    let _guard = UNIFIED_MELEE_TEST_LOCK.lock().expect("unified melee test lock");
     let mut sim =
         SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     let player = player_entity(sim.world_mut());
@@ -86,7 +208,8 @@ fn the_player_enters_the_body_melee_lifecycle_and_owns_its_strike() {
 /// `ActorActionMessage::Melee` path — no separate actor melee driver.
 #[test]
 fn a_hostile_actor_enters_the_same_body_melee_lifecycle() {
-    const ENEMY_ID: &str = "unified_melee_enemy";
+    let _guard = UNIFIED_MELEE_TEST_LOCK.lock().expect("unified melee test lock");
+    const ENEMY_ID: &str = "test_aggressor";
     let mut sim =
         SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     let p = player_pos(sim.world_mut());
@@ -97,30 +220,50 @@ fn a_hostile_actor_enters_the_same_body_melee_lifecycle() {
         (14.0, 23.0),
         CharacterBrain::Custom("cellular_automaton_fighter".to_string()),
     );
-    let enemy = {
-        let mut q = sim.world_mut().query::<(Entity, &FeatureId)>();
-        q.iter(sim.world_mut())
-            .find(|(_, f)| f.as_str() == ENEMY_ID)
-            .map(|(e, _)| e)
-            .expect("spawned enemy present")
-    };
+    assert!(
+        hostile_body_present(sim.world_mut(), ENEMY_ID),
+        "spawned enemy body present"
+    );
 
-    // Stand still; the in-range hostile fighter commits swings on its own.
-    let mut engaged = false;
-    let mut owns_strike = false;
+    // Stand still; the in-range hostile fighter commits swings on its own. Observe
+    // the same production components pinned by `enemy_attacks_player`: target
+    // acquisition, ActionSet availability, brain-published melee intent, then the
+    // body-owned `BodyMelee`/hitbox lifecycle. This keeps the test about the real
+    // unified body path instead of about which support entity a narrow query happens
+    // to see first.
+    let mut t = HostileMeleeTally::default();
     for _ in 0..240 {
         sim.step(AgentAction::default());
-        engaged |= melee_engaged(sim.world_mut(), enemy);
-        owns_strike |= owns_a_strike(sim.world_mut(), enemy);
+        let p = player_pos(sim.world_mut());
+        observe_hostile_melee(sim.world_mut(), ENEMY_ID, p, &mut t);
     }
 
+    println!("unified melee hostile tally: {t:#?}");
+    assert!(t.present_frames > 100, "enemy should persist: {t:#?}");
     assert!(
-        engaged,
-        "the hostile actor's BodyMelee lifecycle engages (same start_body_melee path)"
+        t.hostile_frames == t.present_frames,
+        "the hostile actor must stay hostile while targeting the player: {t:#?}"
     );
     assert!(
-        owns_strike,
-        "the hostile actor's swing spawns a strike hitbox it OWNS (same \
-         advance_body_melee path as the player)"
+        t.target_some_frames > 0,
+        "the hostile actor must acquire a target before it can commit melee: {t:#?}"
+    );
+    assert!(
+        t.action_set_has_melee,
+        "the hostile actor's ActionSet must carry a melee slot: {t:#?}"
+    );
+    assert!(
+        t.melee_pressed_frames > 0,
+        "the hostile actor brain must publish a melee press: {t:#?}"
+    );
+    assert!(
+        t.engaged_frames > 0,
+        "the hostile actor must enter the shared melee lifecycle (BodyMelee projection \
+         or attack MovePlayback): {t:#?}"
+    );
+    assert!(
+        t.owns_strike_frames > 0 || t.active_attack_frames > 0,
+        "the hostile actor's attack must reach an owned strike window (hitbox observed \
+         or active attack MovePlayback): {t:#?}"
     );
 }

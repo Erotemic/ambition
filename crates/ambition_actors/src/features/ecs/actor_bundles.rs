@@ -5,8 +5,6 @@
 use bevy::prelude::*;
 
 use crate::combat::components::*;
-use crate::combat::*;
-use crate::features::ecs::actor_tuning::{ActorTuning, CharacterBrainSpec};
 use ambition_characters::actor::BodyCombat;
 use ambition_engine_core::CenteredAabb;
 use ambition_platformer_primitives::lifecycle::FeatureSimEntity;

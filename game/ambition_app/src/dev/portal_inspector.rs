@@ -8,12 +8,12 @@
 
 #[cfg(all(feature = "dev_tools", feature = "portal"))]
 mod enabled {
-    use ambition_dev_tools::dev_tools::inspector_visible;
+    use ambition::dev_tools::dev_tools::inspector_visible;
     #[cfg(feature = "portal_render")]
-    use ambition_portal::PlacedPortal;
-    use ambition_portal::{PortalConvention, PortalTuning};
+    use ambition::portal::PlacedPortal;
+    use ambition::portal::{PortalConvention, PortalTuning};
     #[cfg(feature = "portal_render")]
-    use ambition_portal_presentation::{
+    use ambition::portal_presentation::{
         selected_portal_view_cone_debug_rows, PortalApertureLosQuality,
         PortalCameraContinuityConfig, PortalCameraContinuityHostView,
         PortalCameraContinuitySelection, PortalCameraTransitMode, PortalCaptureCameraMode,

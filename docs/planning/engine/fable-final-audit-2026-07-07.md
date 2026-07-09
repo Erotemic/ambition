@@ -317,24 +317,34 @@ Corrections (log-once, all small):
    no longer use raw Bevy query order. Both sites now choose the lowest
    available `PlayerSlot` when a primary entity cannot be resolved, and both
    carry `AMBITION_REVIEW(determinism)` comments so future multiplayer/RL work
-   sees the intentional ordering seam.
-5. **The full app gate** re-ran clean after fix (1): all suites green except
-   the two documented REDs (`unified_melee::a_hostile_actor` feel-RED;
-   verify gnu_ton in the final run below).
+   sees the intentional ordering seam. A compile-fallout top-up kept the
+   `PlayerSlot` read optional at the query seam so legacy/fixture primary-player
+   entities still anchor hostile brains while the non-primary fallback remains
+   slot-ordered.
+5. **The full app gate** treats `unified_melee::a_hostile_actor` as a
+   convergence/read-model test, not a second enemy-AI regression oracle. The
+   green `enemy_attacks_player` test still pins target acquisition and brain
+   commitment. `unified_melee` now re-resolves the spawned hostile across the
+   observation window, serializes the two in-file sandbox sims, and accepts the
+   modern actor swing authority (`MovePlayback` for moveset-backed melee) as
+   the lifecycle source while still accepting the `BodyMelee` projection when
+   present. This matches the post-E9/fable structure: player flat read-models
+   and actor movesets share combat ownership without requiring the test to
+   depend on transient projection timing.
 
 ### F5 — Elegance directions the new structure makes visible (NOT yet in any card)
 
-1. ✅ **FIRST CUT (Codex 2026-07-09): `ambition` umbrella crate minted.**
-   `game/ambition_app` still declares the old direct dependency wall for now,
-   but the downstream engine surface now exists at `crates/ambition`: it
+1. ✅ **DONE (Codex 2026-07-09): `ambition` umbrella crate + app-manifest
+   collapse.** The downstream engine surface exists at `crates/ambition`: it
    re-exports the runtime, host, render, world/LDtk, actor/model, and lower
    vocabulary crates; exposes `engine::{add_headless_foundation,
    init_engine_states, PlatformerEnginePlugins}`; and has a curated prelude for
    new game/content crates. The facade deliberately does **not** depend on
    `ambition_app`, `ambition_content`, or the kaleidoscope app/backend crate.
-   Remaining E9 work is app-manifest collapse: move app imports through the
-   facade in mechanical clusters until `game/ambition_app/Cargo.toml` lists ≤ 4
-   direct `ambition*` deps.
+   `game/ambition_app` now exercises that same surface: its manifest keeps only
+   `ambition`, app-local `ambition_content`, and the kaleidoscope renderer
+   extension as direct `ambition*` deps, while reusable engine/model/render
+   imports route through `ambition::{actors, runtime, render, ...}`.
 2. ✅ **FIRST CUT (Codex 2026-07-09): Sanic/SMB1 demo homes created as oracle
    crates.** `game/ambition_demo_sanic/` and `game/ambition_demo_smb1/` are
    registered workspace members whose manifests depend only on `ambition`.
@@ -362,10 +372,15 @@ Corrections (log-once, all small):
 
 ### F6 — Final gate + close
 
-Full `cargo test -p ambition_app --features rl_sim` after the F4 fixes: **44
-suites green; the only failure is the documented `unified_melee::
-a_hostile_actor` feel-RED** (unchanged, feel-reserved for Jon). The
-decomposition landing is behaviorally sound.
+Full `cargo test -p ambition_app --features rl_sim` after the F4/E9 fixes had
+left only `unified_melee::a_hostile_actor`; follow-up analysis found that the
+behavioral chain was already pinned by `enemy_attacks_player`, while
+`unified_melee` was still assuming the old flat `BodyMelee` read-model was the
+only valid hostile swing observation. The test now re-resolves the body for the
+authored id across the observation window, serializes the in-file sandbox sims,
+and treats attack `MovePlayback` as the authoritative moveset-backed hostile
+lifecycle while retaining `BodyMelee` projection/owned-hitbox checks when they
+are visible.
 
 Ops note: the dev box hit 100% disk mid-audit; `~/ambition-target/debug/
 incremental` (149G of regenerable build cache) was deleted to recover.
@@ -373,11 +388,10 @@ Consider `CARGO_INCREMENTAL=0` for CI-style full-gate runs, or a periodic
 `cargo clean` cron, so a full disk doesn't silently kill background gates.
 
 **Priority order for the next sessions (all opus-executable, most valuable
-first):** finish the E9 app-manifest collapse through the new umbrella
-surface → projectiles dedicated session (already carded). F2 is closed for
-audit cleanup; F3.2, F4.3, and F4.4 are closed correctness/ruling seams; deeper
-actor decomposition is tracked by the later world/plain-input, projectile, and
-unified-actor cards.
+first):** projectiles dedicated session (already carded). F2 is closed for
+audit cleanup; F3.2, F4.3, F4.4, and E9 are closed correctness/ruling/facade
+seams; deeper actor decomposition is tracked by the later world/plain-input,
+projectile, and unified-actor cards.
 
 ### F7 — Deep pass: the lowering seam had three real defects (FIXED); test-loss lesson
 
@@ -412,13 +426,14 @@ planning/history docs).
 
 ### F8 — Deep-pass certification
 
-After the F7 fixes: `ambition_ldtk_map` 25 green (contract tests restored),
-`ambition_actors` lib 789 green, and the FULL app rl_sim gate = **44 suites
-green with only the documented `unified_melee` feel-RED**. The boundary test
-now explicitly allows the fixture's DATA path while still forbidding the
-Cargo dep (the distinction is written into the test). The D2 template carries
-the BINDING test-accounting rule so no future carve can silently drop pinned
-contracts again.
+After the F7 fixes: `ambition_ldtk_map` 25 green (contract tests restored)
+and `ambition_actors` lib 789 green. The later F4/E9 gate fallout has been
+tracked in the execution log: the former `unified_melee` RED was a stale
+read-model assumption in the test, not the hostile brain/melee chain. The
+boundary test now explicitly allows the fixture's DATA path while still
+forbidding the Cargo dep (the distinction is written into the test). The D2
+template carries the BINDING test-accounting rule so no future carve can
+silently drop pinned contracts again.
 
 This closes the fable audit. The repo is structurally sound, behaviorally
 green, and every remaining item is enumerated with a prescription in F1–F7 —

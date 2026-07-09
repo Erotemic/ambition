@@ -3,7 +3,7 @@
 //! This is a thin shim around `ambition_app::app::run_visible`. App-builder
 //! logic now lives in the `ambition_app` library so the visible binary,
 //! browser entry point, and headless drivers share the same composition layer.
-//! Gameplay simulation systems live in `ambition_actors`.
+//! Gameplay simulation systems live in `ambition::actors`.
 //!
 //! Web (`wasm32-unknown-unknown`) builds skip this `fn main()` entirely.
 //! The browser entry point is the `#[wasm_bindgen(start)]` shim exported

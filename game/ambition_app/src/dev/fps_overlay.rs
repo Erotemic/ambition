@@ -6,7 +6,7 @@
 //!
 //! **Visible by default on every platform** — desktop, browser,
 //! Android. Toggle via the **Video settings page → "FPS Overlay"** row
-//! (persisted across sessions via `ambition_persistence::settings::persistence`), or
+//! (persisted across sessions via `ambition::persistence::settings::persistence`), or
 //! press `F3` for an in-session keyboard toggle that mutates the same
 //! setting.
 //!
@@ -23,8 +23,8 @@
 use bevy::diagnostic::{DiagnosticsStore, FrameTimeDiagnosticsPlugin};
 use bevy::prelude::*;
 
-use ambition_persistence::settings::UserSettings;
-use ambition_render::ui_fonts::{UiFontWeight, UiFonts};
+use ambition::persistence::settings::UserSettings;
+use ambition::render::ui_fonts::{UiFontWeight, UiFonts};
 
 const FPS_OVERLAY_REFRESH_SECONDS: f32 = 0.25;
 
@@ -123,7 +123,7 @@ fn spawn_fps_overlay(
 /// F3 toggles the FPS overlay by writing to
 /// [`UserSettings::video::show_fps`]. The next
 /// `sync_fps_overlay_state_from_settings` tick mirrors the change into
-/// `FpsOverlayState`, and `ambition_persistence::settings::persistence` autosaves the
+/// `FpsOverlayState`, and `ambition::persistence::settings::persistence` autosaves the
 /// new value so the toggle survives a restart.
 fn toggle_fps_overlay_on_f3(keys: Res<ButtonInput<KeyCode>>, mut settings: ResMut<UserSettings>) {
     if keys.just_pressed(KeyCode::F3) {

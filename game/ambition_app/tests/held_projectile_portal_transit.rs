@@ -21,10 +21,10 @@
 mod common;
 use common::{base, first_floor_authored_portal_pair, fixed_60hz_room_sim};
 
-use ambition_actors::items::pickup::HeldProjectile;
-use ambition_actors::platformer_runtime::body::BodyKinematics;
-use ambition_platformer_primitives::projectile::{ProjectileGameplay, WorldHitPolicy};
-use ambition_portal::{PortalBody, PortalPolicy};
+use ambition::actors::items::pickup::HeldProjectile;
+use ambition::actors::platformer_runtime::body::BodyKinematics;
+use ambition::platformer::projectile::{ProjectileGameplay, WorldHitPolicy};
+use ambition::portal::{PortalBody, PortalPolicy};
 use bevy::prelude::*;
 
 #[test]

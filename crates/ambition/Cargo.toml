@@ -8,15 +8,37 @@ description = "Facade crate for composing Ambition-derived platformer games from
 
 [features]
 default = []
-# Window/input presentation forwarders for downstream game crates. The facade
-# keeps these features narrow: games opt into the same engine/host/render gates
-# without copying every lower crate into their manifests.
+# Window/input/presentation forwarders for downstream game crates and for the
+# app-shell collapse. Games opt into the same engine/host/render/actor gates
+# through one facade instead of copying every lower crate into their manifests.
+visible = ["ambition_actors/visible"]
+visible_web_base = ["ambition_actors/visible_web_base"]
+desktop_platform = ["ambition_actors/desktop_platform"]
+android_platform = ["ambition_actors/android_platform"]
+web_platform = ["ambition_actors/web_platform"]
+web_served = ["ambition_actors/web_served"]
+web_audio = ["ambition_actors/web_audio"]
+rl_sim = ["ambition_actors/rl_sim"]
+headless = ["ambition_actors/headless"]
+dev_tools = ["ambition_actors/dev_tools"]
+dev_hot_reload = ["ambition_actors/dev_hot_reload"]
+static_map = ["ambition_actors/static_map"]
+static_core_assets = ["ambition_actors/static_core_assets"]
+static_sfx_bank = ["ambition_actors/static_sfx_bank"]
+ldtk_runtime = ["ambition_actors/ldtk_runtime"]
+physics_debris = ["ambition_actors/physics_debris"]
+frame_pacing = ["ambition_actors/frame_pacing"]
+profile = ["ambition_actors/profile"]
+portal_ldtk = ["ambition_actors/portal_ldtk"]
 input = [
+    "ambition_actors/input",
     "ambition_host/input",
     "ambition_render/input",
     "ambition_sim_view/input",
 ]
+mobile_touch = ["ambition_actors/mobile_touch", "ambition_touch_input/mobile_touch"]
 portal = [
+    "ambition_actors/portal",
     "ambition_runtime/portal",
     "ambition_host/portal",
 ]
@@ -25,6 +47,10 @@ portal_render = [
     "ambition_host/portal_render",
     "ambition_render/portal_render",
 ]
+audio = ["ambition_actors/audio", "ambition_audio/kira"]
+ui = ["ambition_actors/ui"]
+bevy_ui_menu = ["ambition_actors/bevy_ui_menu", "ambition_menu/bevy_ui_menu"]
+kaleidoscope_menu = ["ambition_actors/kaleidoscope_menu", "ambition_menu/kaleidoscope_menu"]
 
 [dependencies]
 ambition_actors = { path = "../ambition_actors", default-features = false }

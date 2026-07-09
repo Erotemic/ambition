@@ -6,7 +6,7 @@ fn items_face_wires_all_24_slots_from_our_catalog() {
     let spec = items_spec(&owned, None);
     assert_eq!(
         spec.cells.len(),
-        ambition_items::ITEM_COUNT,
+        ambition::items::ITEM_COUNT,
         "the cube's items face has one cell per inventory slot (24)"
     );
     // Slots are in grid order; labels are wrapped from our catalog.
@@ -60,7 +60,7 @@ fn item_cells_carry_a_sprite_icon_when_one_exists_else_fall_back_to_text() {
         .nodes
         .iter()
         .filter_map(|n| match n {
-            ambition_menu::MenuNode::Control {
+            ambition::menu::MenuNode::Control {
                 kind: MenuControlKind::Item,
                 icon,
                 ..
@@ -94,7 +94,7 @@ fn items_page_has_one_detail_panel_not_per_cell_descriptions() {
     let owned = OwnedItems::default();
     let page = build_items_page(&owned, None);
     for node in &page.nodes {
-        if let ambition_menu::MenuNode::Control {
+        if let ambition::menu::MenuNode::Control {
             detail: Some(d),
             kind,
             ..
@@ -115,7 +115,7 @@ fn items_page_has_one_detail_panel_not_per_cell_descriptions() {
     let has_dynamic_slots = page
         .nodes
         .iter()
-        .filter(|n| matches!(n, ambition_menu::MenuNode::DynamicText { .. }))
+        .filter(|n| matches!(n, ambition::menu::MenuNode::DynamicText { .. }))
         .count();
     assert!(
         has_dynamic_slots >= ITEMS_DETAIL_BODY_LINES as usize,
@@ -154,7 +154,7 @@ fn system_page_top_level_shows_entry_list() {
         .filter(|n| {
             matches!(
                 n,
-                ambition_menu::MenuNode::Control {
+                ambition::menu::MenuNode::Control {
                     action: Some(MenuPageAction::OpenSystemEntry(_)),
                     ..
                 }
@@ -176,7 +176,7 @@ fn system_page_top_level_shows_entry_list() {
     let has_setting = page.nodes.iter().any(|n| {
         matches!(
             n,
-            ambition_menu::MenuNode::Control {
+            ambition::menu::MenuNode::Control {
                 action: Some(MenuPageAction::System(_)),
                 ..
             }
@@ -187,7 +187,7 @@ fn system_page_top_level_shows_entry_list() {
     let has_edges = page.nodes.iter().any(|n| {
         matches!(
             n,
-            ambition_menu::MenuNode::Control {
+            ambition::menu::MenuNode::Control {
                 action: Some(MenuPageAction::ChangePage(_)),
                 ..
             }
@@ -214,7 +214,7 @@ fn value_rows_get_decrease_and_increase_click_zones() {
         .nodes
         .iter()
         .filter_map(|n| match n {
-            ambition_menu::MenuNode::Control {
+            ambition::menu::MenuNode::Control {
                 action: Some(MenuPageAction::SystemStep(o, dir)),
                 ..
             } => Some((*o, *dir)),
@@ -285,7 +285,7 @@ fn system_page_drilled_into_video_shows_curated_options_and_back() {
         .nodes
         .iter()
         .filter_map(|n| match n {
-            ambition_menu::MenuNode::Control {
+            ambition::menu::MenuNode::Control {
                 action: Some(MenuPageAction::System(o)),
                 ..
             } => Some(*o),
@@ -355,7 +355,7 @@ fn system_page_drilled_into_video_shows_curated_options_and_back() {
     let has_back = page_end.nodes.iter().any(|n| {
         matches!(
             n,
-            ambition_menu::MenuNode::Control {
+            ambition::menu::MenuNode::Control {
                 action: Some(MenuPageAction::CloseSystemEntry),
                 ..
             }
@@ -399,7 +399,7 @@ fn map_and_quest_edge_buttons_are_focusable() {
             .filter(|n| {
                 matches!(
                     n,
-                    ambition_menu::MenuNode::Control {
+                    ambition::menu::MenuNode::Control {
                         kind: MenuControlKind::Action,
                         action: Some(MenuPageAction::ChangePage(_)),
                         ..
@@ -412,7 +412,7 @@ fn map_and_quest_edge_buttons_are_focusable() {
         let any_baked_selected = model.nodes.iter().any(|n| {
             matches!(
                 n,
-                ambition_menu::MenuNode::Control {
+                ambition::menu::MenuNode::Control {
                     selected: true,
                     action: Some(MenuPageAction::ChangePage(_)),
                     ..
@@ -504,7 +504,7 @@ fn long_system_page_renders_only_a_window_of_clickable_rows() {
         .filter(|n| {
             matches!(
                 n,
-                ambition_menu::MenuNode::Control {
+                ambition::menu::MenuNode::Control {
                     action: Some(MenuPageAction::SystemOption(_)),
                     ..
                 }
@@ -521,7 +521,7 @@ fn long_system_page_renders_only_a_window_of_clickable_rows() {
     let has_focused = page.nodes.iter().any(|n| {
         matches!(
             n,
-            ambition_menu::MenuNode::Control {
+            ambition::menu::MenuNode::Control {
                 action: Some(MenuPageAction::SystemOption(SystemOptionId::Radio(13))),
                 ..
             }
@@ -589,7 +589,7 @@ fn long_system_page_emits_one_scrollbar_node_with_thumb() {
         .nodes
         .iter()
         .filter_map(|n| match n {
-            ambition_menu::MenuNode::Control {
+            ambition::menu::MenuNode::Control {
                 kind: MenuControlKind::Scrollbar,
                 thumb: Some(t),
                 ..
@@ -623,7 +623,7 @@ fn long_system_page_emits_one_scrollbar_node_with_thumb() {
     let any_scrollbar = short_page.nodes.iter().any(|n| {
         matches!(
             n,
-            ambition_menu::MenuNode::Control {
+            ambition::menu::MenuNode::Control {
                 kind: MenuControlKind::Scrollbar,
                 ..
             }
@@ -641,7 +641,7 @@ fn viewer_left_button_turns_to_the_right_neighbor() {
     let owned = OwnedItems::default();
     let page = build_items_page(&owned, None);
     let left = page.nodes.iter().find_map(|n| match n {
-        ambition_menu::MenuNode::Control {
+        ambition::menu::MenuNode::Control {
             action: Some(MenuPageAction::ChangePage(p)),
             rect,
             ..

@@ -4,7 +4,6 @@
 //! and HUD readouts instead of re-scanning every feature family per visual.
 
 use ambition_engine_core as ae;
-use ambition_engine_core::AabbExt;
 use bevy::prelude::{Entity, Query, Res, ResMut, Resource, With, Without};
 
 use crate::anim_index::ActorSpriteData;

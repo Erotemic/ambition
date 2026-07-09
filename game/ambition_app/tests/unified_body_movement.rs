@@ -12,11 +12,11 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition_actors::actor::{BodyKinematics, PrimaryPlayerOnly};
-use ambition_actors::features::FeatureId;
-use ambition_actors::player::PlayerInputFrame;
+use ambition::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
+use ambition::actors::features::FeatureId;
+use ambition::actors::player::PlayerInputFrame;
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
-use ambition_entity_catalog::placements::CharacterBrain;
+use ambition::entity_catalog::placements::CharacterBrain;
 use bevy::prelude::{Entity, World};
 
 const ENEMY_ID: &str = "unified_move_enemy";
@@ -135,7 +135,7 @@ fn player_body_tick_is_not_the_gameplay_movement_route() {
 /// NOT move it; driving the SLOT (real input) does.
 #[test]
 fn player_input_frame_is_not_brain_player_authority() {
-    use ambition_input::ControlFrame;
+    use ambition::input::ControlFrame;
 
     let mut sim =
         SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");

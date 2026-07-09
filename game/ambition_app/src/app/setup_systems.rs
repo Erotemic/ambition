@@ -3,22 +3,22 @@ use bevy::prelude::*;
 #[cfg(feature = "audio")]
 use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
-use ambition_actors::assets::game_assets as actor_game_assets;
-use ambition_sprite_sheet::game_assets::{self, GameAssetConfig};
-use ambition_actors::assets::loading;
-use ambition_dev_tools::dev_tools::{EditableAbilitySet, EditableMovementTuning};
-use ambition_actors::ldtk_world;
-use ambition_actors::rooms;
-use ambition_actors::session::{data, setup};
-use ambition_actors::world::physics;
-use ambition_engine_core::RoomGeometry;
-use ambition_persistence::settings::TextureResolutionScale;
-use ambition_render::rendering::SceneEntities;
-use ambition_render::ui_fonts;
+use ambition::actors::assets::game_assets as actor_game_assets;
+use ambition::sprite_sheet::game_assets::{self, GameAssetConfig};
+use ambition::actors::assets::loading;
+use ambition::dev_tools::dev_tools::{EditableAbilitySet, EditableMovementTuning};
+use ambition::actors::ldtk_world;
+use ambition::actors::rooms;
+use ambition::actors::session::{data, setup};
+use ambition::actors::world::physics;
+use ambition::engine_core::RoomGeometry;
+use ambition::persistence::settings::TextureResolutionScale;
+use ambition::render::rendering::SceneEntities;
+use ambition::render::ui_fonts;
 
 use super::scene_setup;
 
-/// Sim-only startup. Calls `ambition_actors::session::setup::simulation_world` to spawn the
+/// Sim-only startup. Calls `ambition::actors::session::setup::simulation_world` to spawn the
 /// LdtkWorldBundle and the player entity (with gameplay-essential components
 /// but no Sprite). Inserts SceneEntities with `hud: Entity::PLACEHOLDER`;
 /// the presentation startup system later overwrites that with the real HUD entity.
@@ -32,8 +32,8 @@ pub(super) fn setup_simulation_system(
     ldtk_index: Res<ldtk_world::LdtkRuntimeIndex>,
     editable_tuning: Res<EditableMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
-    starting_character: Res<ambition_actors::player::StartingCharacter>,
-    mut platform_set: ResMut<ambition_actors::MovingPlatformSet>,
+    starting_character: Res<ambition::actors::player::StartingCharacter>,
+    mut platform_set: ResMut<ambition::actors::MovingPlatformSet>,
 ) {
     let _player = setup::simulation_world(
         &mut commands,
@@ -50,11 +50,11 @@ pub(super) fn setup_simulation_system(
         },
     );
     platform_set.0 =
-        ambition_actors::world::platforms::moving_platforms_for_room(room_set.active_spec());
+        ambition::actors::world::platforms::moving_platforms_for_room(room_set.active_spec());
     // `PlayerSafetyState::last_safe_pos` is initialized by the player
     // bundle to the player's spawn position (which is `world.0.spawn`),
     // so we don't need to overwrite it here. See
-    // `ambition_actors::player::PlayerSimulationBundle::new`.
+    // `ambition::actors::player::PlayerSimulationBundle::new`.
 }
 
 /// Presentation startup. Runs after `setup_simulation_system` so the
@@ -69,7 +69,7 @@ pub(crate) fn setup_presentation_system(
     room_set: Res<rooms::RoomSet>,
     music_registry: Res<data::MusicRegistry>,
     sfx_registry: Res<data::SfxRegistry>,
-    sandbox_catalog: Res<ambition_asset_manager::sandbox_assets::SandboxAssetCatalog>,
+    sandbox_catalog: Res<ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
     mut audio_sources: ResMut<Assets<KiraAudioSource>>,
     asset_server: Res<AssetServer>,
@@ -77,9 +77,9 @@ pub(crate) fn setup_presentation_system(
     asset_config: Res<GameAssetConfig>,
     scene_entities: Res<SceneEntities>,
     ui_fonts: Option<Res<ui_fonts::UiFonts>>,
-    quality: Option<Res<ambition_render::quality::ResolvedVisualQuality>>,
-    starting_character: Res<ambition_actors::player::StartingCharacter>,
-    mut profiler: ResMut<ambition_dev_tools::profiling::StartupProfiler>,
+    quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
+    starting_character: Res<ambition::actors::player::StartingCharacter>,
+    mut profiler: ResMut<ambition::dev_tools::profiling::StartupProfiler>,
 ) {
     // `std::time::Instant::now()` panics on `wasm32-unknown-unknown`
     // with "time not implemented on this platform". Gate the per-step
@@ -134,7 +134,7 @@ pub(crate) fn setup_presentation_system(
     {
         // Wasm path: no per-step timing, no profiler marks (the
         // wasm `StartupProfiler` doesn't take Instants — see
-        // `ambition_actors::profiling`). The presentation world still spawns.
+        // `ambition::actors::profiling`). The presentation world still spawns.
         let _ = &profiler; // silence unused-resource warning
         scene_setup::presentation_world(
             &mut commands,
@@ -159,9 +159,9 @@ pub(crate) fn setup_presentation_system(
 }
 
 pub(crate) fn reload_visual_quality_assets_on_scale_change(
-    quality: Res<ambition_render::quality::ResolvedVisualQuality>,
+    quality: Res<ambition::render::quality::ResolvedVisualQuality>,
     asset_config: Res<GameAssetConfig>,
-    sandbox_catalog: Res<ambition_asset_manager::sandbox_assets::SandboxAssetCatalog>,
+    sandbox_catalog: Res<ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>,
     asset_server: Res<AssetServer>,
     room_set: Res<rooms::RoomSet>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
@@ -198,14 +198,14 @@ pub(crate) fn setup_presentation_system(
     mut commands: Commands,
     world: Res<RoomGeometry>,
     room_set: Res<rooms::RoomSet>,
-    sandbox_catalog: Res<ambition_asset_manager::sandbox_assets::SandboxAssetCatalog>,
+    sandbox_catalog: Res<ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
     asset_server: Res<AssetServer>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     asset_config: Res<GameAssetConfig>,
     scene_entities: Res<SceneEntities>,
-    quality: Option<Res<ambition_render::quality::ResolvedVisualQuality>>,
-    starting_character: Res<ambition_actors::player::StartingCharacter>,
+    quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
+    starting_character: Res<ambition::actors::player::StartingCharacter>,
 ) {
     let game_assets = actor_game_assets::load_game_assets(
         &asset_config,

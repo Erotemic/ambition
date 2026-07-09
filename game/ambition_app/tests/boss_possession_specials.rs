@@ -25,17 +25,18 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition_actors::abilities::traversal::possession::PossessionState;
-use ambition_actors::actor::{BodyKinematics, PrimaryPlayerOnly};
-use ambition_actors::features::{ActorFaction, FeatureId};
+use ambition::actors::abilities::traversal::possession::PossessionState;
+use ambition::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
+use ambition::actors::features::{ActorFaction, FeatureId};
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
-use ambition_characters::brain::{BossAttackProfile, BossAttackState, BossCapability, Brain};
-use ambition_entity_catalog::placements::BossBrain;
+use ambition::characters::brain::{BossAttackProfile, BossAttackState, BossCapability, Brain};
+use ambition::entity_catalog::placements::BossBrain;
+use ambition::vfx::HitSide;
 use bevy::prelude::{Entity, World};
 
 const BOSS_ID: &str = "possess_boss";
 
-fn player_pos(world: &mut World) -> ambition_engine_core::Vec2 {
+fn player_pos(world: &mut World) -> ambition::engine_core::Vec2 {
     let mut q = world.query_filtered::<&BodyKinematics, PrimaryPlayerOnly>();
     q.single(world).expect("primary player").pos
 }
@@ -174,23 +175,23 @@ fn possessed_boss_commands_its_authored_specials_and_release_restores_the_patter
     // the boss's former allies, not the player. This is the load-bearing correctness
     // of routing the strike through the shared moveset instead of suppressing it.
     {
-        // `ActorFaction` is already imported at the top of this file.
-        let mut q = sim.world_mut().query::<&ambition_vfx::Hitbox>();
-        let strike_factions: Vec<ActorFaction> = q
+        // `HitSide` is the presentation-neutral side carried by vfx hitboxes.
+        let mut q = sim.world_mut().query::<&ambition::vfx::Hitbox>();
+        let strike_sides: Vec<HitSide> = q
             .iter(sim.world_mut())
             .filter(|h| h.owner == boss)
             .map(|h| h.source)
             .collect();
         assert!(
-            !strike_factions.is_empty(),
+            !strike_sides.is_empty(),
             "the possessed geometry strike spawned a hitbox"
         );
         assert!(
-            strike_factions
+            strike_sides
                 .iter()
-                .all(|f| matches!(f, ActorFaction::Player)),
+                .all(|side| matches!(side, HitSide::Player)),
             "the possessed boss's strike hitbox carries the possessor's effective faction \
-             (Player), not the authored Boss: {strike_factions:?}"
+             (Player), not the authored Boss: {strike_sides:?}"
         );
     }
 

@@ -1,4 +1,4 @@
-use ambition_input::ControlFrame;
+use ambition::input::ControlFrame;
 
 /// Action emitted by an RL agent / scripted driver every tick.
 ///

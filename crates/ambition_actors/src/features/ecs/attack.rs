@@ -28,7 +28,6 @@ use crate::combat::{
     AttackPhase, AttackView,
 };
 use ambition_dev_tools::dev_tools::EditableMovementTuning;
-use crate::features;
 use crate::world::overlay::FeatureEcsWorldOverlay;
 
 /// Baseline seconds between enemy contact attacks (scaled per-actor by

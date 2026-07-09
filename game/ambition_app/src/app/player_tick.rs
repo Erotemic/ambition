@@ -1,11 +1,11 @@
 //! Home/player body HOME-POLICY + PRESENTATION phases.
 //!
 //! Movement integration for the home body is NO LONGER here. It moved DOWN into
-//! the unified `ambition_actors::features::integrate_sim_bodies` phase
+//! the unified `ambition::actors::features::integrate_sim_bodies` phase
 //! (`WorldPrep`), which integrates every non-boss sim body — home and actor — in
 //! ONE scheduled system through the same engine entry. There is no `player_body_tick`
 //! gameplay-movement route anymore. What remains here are the two HOME-specific
-//! phases that read the [`ambition_actors::player::PlayerBodyFrameOutput`]
+//! phases that read the [`ambition::actors::player::PlayerBodyFrameOutput`]
 //! hand-off the movement phase writes:
 //!
 //! - [`apply_home_reset_policy`] — HOME RESET POLICY. On a flagged body reset
@@ -18,12 +18,12 @@
 
 use bevy::prelude::*;
 
-use ambition_dev_tools::dev_tools::EditableMovementTuning;
-use ambition_actors::player::PlayerBodyFrameOutput;
-use ambition_actors::time::feel::SandboxFeelTuning;
-use ambition_combat::{ResetRoomFeaturesEvent, RoomResetReason};
-use ambition_engine_core as ae;
-use ambition_engine_core::RoomGeometry;
+use ambition::dev_tools::dev_tools::EditableMovementTuning;
+use ambition::actors::player::PlayerBodyFrameOutput;
+use ambition::actors::time::feel::SandboxFeelTuning;
+use ambition::combat::{ResetRoomFeaturesEvent, RoomResetReason};
+use ambition::engine_core as ae;
+use ambition::engine_core::RoomGeometry;
 
 use super::feedback::SandboxEventWriters;
 use super::phases::sync_player_presentation as sync_player_presentation_phase;
@@ -40,26 +40,26 @@ pub(crate) fn apply_home_reset_policy(
     world: Res<RoomGeometry>,
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
-    gravity_field: Option<Res<ambition_actors::physics::GravityField>>,
+    gravity_field: Option<Res<ambition::actors::physics::GravityField>>,
     mut event_writers: SandboxEventWriters,
     mut room_clock: RoomClock,
     mut reset_room_features: MessageWriter<ResetRoomFeaturesEvent>,
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
-            &mut ambition_actors::player::BodyAnimFacts,
-            &mut ambition_characters::actor::BodyCombat,
-            &mut ambition_actors::player::PlayerBlinkCameraState,
-            &mut ambition_actors::player::BodyMelee,
-            &mut ambition_actors::player::PlayerSafetyState,
+            &mut ambition::actors::player::BodyAnimFacts,
+            &mut ambition::characters::actor::BodyCombat,
+            &mut ambition::actors::player::PlayerBlinkCameraState,
+            &mut ambition::actors::player::BodyMelee,
+            &mut ambition::actors::player::PlayerSafetyState,
             &PlayerBodyFrameOutput,
         ),
         (
-            With<ambition_actors::actor::PlayerEntity>,
-            With<ambition_actors::actor::PrimaryPlayer>,
+            With<ambition::actors::actor::PlayerEntity>,
+            With<ambition::actors::actor::PrimaryPlayer>,
         ),
     >,
-    mut slot_gestures: ResMut<ambition_actors::player::SlotInteractionState>,
+    mut slot_gestures: ResMut<ambition::actors::player::SlotInteractionState>,
 ) {
     let Ok((
         mut cluster_item,
@@ -78,8 +78,8 @@ pub(crate) fn apply_home_reset_policy(
     }
     let mut clusters = cluster_item.as_clusters_mut();
     let mut tuning = editable_tuning.as_engine();
-    let gdir = ambition_actors::physics::gravity_dir_or_default(gravity_field.as_deref());
-    ambition_actors::physics::apply_gravity_dir(&mut tuning, gdir);
+    let gdir = ambition::actors::physics::gravity_dir_or_default(gravity_field.as_deref());
+    ambition::actors::physics::apply_gravity_dir(&mut tuning, gdir);
     reset_sandbox(
         &world.0,
         &mut event_writers.sfx,
@@ -109,17 +109,17 @@ pub(crate) fn apply_home_reset_policy(
 /// (the reset-policy phase already reset the presentation state).
 pub fn sync_player_presentation(
     mut event_writers: SandboxEventWriters,
-    mut shake: ResMut<ambition_platformer_primitives::camera_ease::CameraShakeState>,
+    mut shake: ResMut<ambition::platformer::camera_ease::CameraShakeState>,
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
-            &mut ambition_actors::player::BodyAnimFacts,
-            &mut ambition_characters::actor::BodyCombat,
-            &mut ambition_actors::player::PlayerBlinkCameraState,
+            &mut ambition::actors::player::BodyAnimFacts,
+            &mut ambition::characters::actor::BodyCombat,
+            &mut ambition::actors::player::PlayerBlinkCameraState,
             &PlayerBodyFrameOutput,
-            Option<&ambition_actors::actor::PrimaryPlayer>,
+            Option<&ambition::actors::actor::PrimaryPlayer>,
         ),
-        With<ambition_actors::actor::PlayerEntity>,
+        With<ambition::actors::actor::PlayerEntity>,
     >,
 ) {
     for (mut cluster_item, mut anim, mut combat, mut blink_cam, frame_out, primary) in &mut player_q

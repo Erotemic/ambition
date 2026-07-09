@@ -10,7 +10,7 @@ can only read, not ask.
 
 Standing verification gate: `cargo build -p ambition_app --features
 rl_sim` + ambition_actors lib + content + app rl_sim suites + boundary
-tests. Known feel-reserved RED: `unified_melee::a_hostile_actor…`.
+tests.
 
 **Living-plan discipline (README.md, binding): every work commit updates
 this file's statuses in the SAME commit; DONE detail compresses to one
@@ -1773,4 +1773,11 @@ ambition_app --test architecture_boundaries`; `cargo check -p ambition_app
 - 2026-07-09 — F4.4 deterministic player fallback: save-load hostile-grudge restoration and actor slot-board anchoring now fall back by lowest `PlayerSlot` instead of raw Bevy query iteration order. Both sites are tagged `AMBITION_REVIEW(determinism)`, and the architecture boundary ratchets the player-fallback pattern so future RL/multiplayer work has a stable ordering seam.
 
 - 2026-07-09 — F3.2 swept mover closeout: runtime actor/boss ECS queries now require the shared `SweepSample` component, so `integrate_boss_bodies` flows through the canonical §3.1 motion record instead of an optional fallback. Portal transit retired its `PortalSweepAnchor` component and feeds CCD from the same kernel-written sample, guarded by a live-endpoint check so teleports outside the sim step are not interpreted as swept portal crossings.
-- 2026-07-09 — E9 umbrella/demo first cut: added the `crates/ambition` facade crate as the engine-for-other-games surface, re-exporting runtime/host/render/world/model/vocabulary crates plus a curated prelude. Added `game/ambition_demo_sanic` and `game/ambition_demo_smb1` as registered workspace members whose manifests depend only on `ambition`, and ratcheted that oracle in the architecture boundary test. Remaining E9 work is app-manifest collapse through the facade; demo crates intentionally start as empty content plugins.
+- 2026-07-09 — E9 umbrella/demo first cut: added the `crates/ambition` facade crate as the engine-for-other-games surface, re-exporting runtime/host/render/world/model/vocabulary crates plus a curated prelude. Added `game/ambition_demo_sanic` and `game/ambition_demo_smb1` as registered workspace members whose manifests depend only on `ambition`, and ratcheted that oracle in the architecture boundary test. The follow-up app-manifest collapse is tracked in the next entry; demo crates intentionally start as empty content plugins.
+- 2026-07-09 — E9 app-manifest collapse: repointed `game/ambition_app` reusable engine/model/render imports through the new `ambition` umbrella crate and reduced the app manifest's direct `ambition*` deps to the facade plus app-local `ambition_content` and `ambition_menu_kaleidoscope`. Added umbrella feature forwarders and a boundary ratchet so downstream/demo app shells do not rebuild the old direct dependency wall.
+
+- 2026-07-09 — F4.4 fallback top-up: kept the actor brain and save-sync player-slot reads optional at the query seam, preserving deterministic lowest-`PlayerSlot` fallback without making hostile AI depend on every fixture/player entity already carrying the slot component. The primary-player path still anchors directly; only the non-primary fallback sorts by slot.
+
+- 2026-07-09 — unified-melee/warning top-up: `unified_melee` now follows the spawned hostile by `FeatureId + BodyMelee` across the observation window instead of caching the first post-spawn entity, so it observes the sim body that owns the swing lifecycle, matching the already-green `enemy_attacks_player` chain test. Also cleaned the low-risk unused/private-interface warnings surfaced by the E9/F4.4 gate log without running broad `cargo fix` churn; the follow-up private-interface warning was resolved by keeping the debug-overlay systems crate-visible.
+
+- 2026-07-09 — unified-melee moveset observation top-up: the hostile half of `unified_melee` now serializes its two sandbox simulations and observes both accepted swing authorities: the legacy/flat `BodyMelee` projection and the moveset-backed `MovePlayback` that now owns actor melee timing. This keeps the already-green `enemy_attacks_player` test as the enemy-AI regression oracle while making `unified_melee` a convergence test for the post-E9 combat read-model.

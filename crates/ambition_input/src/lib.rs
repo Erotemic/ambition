@@ -11,7 +11,6 @@
 //! `ambition_input::ControlFrame` path remains as a re-export for app/input
 //! adapters; reusable brains import the lower engine-core vocabulary directly.
 
-use ambition_engine_core as ae;
 use bevy::prelude::*;
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::*;

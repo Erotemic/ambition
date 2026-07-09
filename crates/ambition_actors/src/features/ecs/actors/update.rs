@@ -100,7 +100,7 @@ pub fn tick_actor_brains(
     player_query: Query<
         (
             bevy::prelude::Entity,
-            &crate::player::PlayerSlot,
+            Option<&crate::player::PlayerSlot>,
             &crate::actor::BodyKinematics,
             &ambition_characters::actor::BodyHealth,
         ),
@@ -224,10 +224,17 @@ pub fn tick_actor_brains(
     // assignment stays deterministic on a multi-player non-primary build.
     // AMBITION_REVIEW(determinism): never use raw `Query::iter().next()` as
     // a player fallback here; Bevy entity iteration order is not the player order.
+    // The slot read is optional so legacy/fixture primary-player entities that
+    // have not yet been stamped with a `PlayerSlot` still anchor enemy brains;
+    // only the non-primary fallback depends on slot ordering.
     let primary_entity = primary_q.single().ok();
     let slot_anchor_pos = primary_entity
         .and_then(|e| player_query.get(e).ok())
-        .or_else(|| player_query.iter().min_by_key(|(_, slot, _, _)| **slot))
+        .or_else(|| {
+            player_query.iter().min_by_key(|(_, slot, _, _)| {
+                slot.copied().unwrap_or(crate::player::PlayerSlot::PRIMARY)
+            })
+        })
         .map(|(_, _, kin, _)| kin.pos);
     let Some(player_pos) = slot_anchor_pos else {
         return;

@@ -1,5 +1,5 @@
 use super::*;
-use ambition_input::ControlFrame;
+use ambition::input::ControlFrame;
 
 #[test]
 fn sim_constructs_and_returns_initial_observation() {

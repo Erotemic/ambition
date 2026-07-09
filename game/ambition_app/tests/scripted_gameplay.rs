@@ -10,9 +10,9 @@
 //! seam without any visible plugin (AudioPlugin / RenderPlugin /
 //! InputPlugin / inspector / Avian2D).
 
-use ambition_platformer_primitives::schedule::GameMode;
-use ambition_input::ControlFrame;
-use ambition_sfx::SfxMessage;
+use ambition::platformer::schedule::GameMode;
+use ambition::input::ControlFrame;
+use ambition::sfx::SfxMessage;
 use bevy::asset::AssetPlugin;
 use bevy::ecs::message::Messages;
 use bevy::image::ImagePlugin;

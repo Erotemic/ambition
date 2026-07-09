@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 use bevy::window::WindowResolution;
 
-use ambition_sprite_sheet::game_assets::GameAssetConfig;
-use ambition_engine_core::config::{WINDOW_H, WINDOW_W};
+use ambition::sprite_sheet::game_assets::GameAssetConfig;
+use ambition::engine_core::config::{WINDOW_H, WINDOW_W};
 
 use super::plugins::{SandboxLdtkPlugin, SandboxPresentationPlugin, SandboxSimulationPlugin};
 
@@ -235,7 +235,7 @@ pub fn run_visible() {
             }),
     );
     // DefaultPlugins installs StatesPlugin, so initialize GameMode after it.
-    ambition_runtime::init_engine_states(&mut app);
+    ambition::runtime::init_engine_states(&mut app);
     let active_profile = asset_config.asset_profile;
     app.insert_resource(asset_config);
     // Launch-time "choose your character": inserted BEFORE the plugins so the
@@ -250,7 +250,7 @@ pub fn run_visible() {
     // AssetSource registration runs LAST so EmbeddedAssetRegistry
     // (added by `AssetPlugin` inside `DefaultPlugins`) is already present.
     app.add_plugins(
-        ambition_actors::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(
+        ambition::actors::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(
             active_profile,
         ),
     );
@@ -274,7 +274,7 @@ fn insert_starting_character_override(app: &mut App) {
         return;
     }
     eprintln!("ambition_app: starting as character '{id}' (AMBITION_START_CHARACTER)");
-    app.insert_resource(ambition_actors::player::StartingCharacter::new(id));
+    app.insert_resource(ambition::actors::player::StartingCharacter::new(id));
 }
 
 /// Build + run the visible Bevy app for a browser (wasm32) target.
@@ -319,7 +319,7 @@ pub fn run_web() {
         ..default()
     }));
     // DefaultPlugins installs StatesPlugin, so initialize GameMode after it.
-    ambition_runtime::init_engine_states(&mut app);
+    ambition::runtime::init_engine_states(&mut app);
     // GameAssetConfig defaults match the no-args desktop path — no
     // `std::env::args` parsing on the web because the browser provides
     // none and the helper hits stdlib paths that don't exist on wasm.
@@ -349,7 +349,7 @@ pub fn run_web() {
     // AssetSource registration runs LAST so EmbeddedAssetRegistry (added
     // by `AssetPlugin` inside `DefaultPlugins`) is already present.
     app.add_plugins(
-        ambition_actors::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(
+        ambition::actors::assets::sandbox_assets::AmbitionAssetSourcePlugin::for_profile(
             active_profile,
         ),
     );

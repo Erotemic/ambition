@@ -164,6 +164,28 @@ fn wall_clock_grant_does_not_mutate_target() {
     assert!((target.sim_clock - 1.0).abs() < 1e-6);
 }
 
+#[test]
+fn reset_request_snaps_current_and_requested_clock_scale() {
+    let mut app = App::new();
+    app.add_message::<ClockResetRequest>()
+        .insert_resource(RegimePolicy::default())
+        .insert_resource(RequestedClockScale { sim_clock: 0.125 })
+        .insert_resource(ClockState { time_scale: 0.125 })
+        .add_systems(Update, apply_clock_reset_requests);
+
+    app.world_mut().write_message(ClockResetRequest::sim_clock(
+        ClockRequester::Engine,
+        "reset_test",
+    ));
+
+    app.update();
+
+    let target = app.world().resource::<RequestedClockScale>();
+    let clock = app.world().resource::<ClockState>();
+    assert!((target.sim_clock - 1.0).abs() < 1e-6);
+    assert!((clock.time_scale - 1.0).abs() < 1e-6);
+}
+
 /// End-to-end: a SimClock grant + the smoother together actually
 /// move time_scale. After ~10 frames at default ramp rates the
 /// time_scale should be well below 1.0 (heading toward 0.125).

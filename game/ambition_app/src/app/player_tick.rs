@@ -86,7 +86,7 @@ pub(crate) fn apply_home_reset_policy(
         &mut event_writers.vfx,
         &mut clusters,
         &mut room_clock.sim_state,
-        &mut room_clock.clock,
+        &mut room_clock.clock_resets,
         &mut safety,
         &mut attack.swing,
         &mut anim,

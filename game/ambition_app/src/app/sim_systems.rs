@@ -25,6 +25,7 @@ use bevy::prelude::*;
 
 use ambition_dev_tools::dev_tools::EditableMovementTuning;
 use ambition_actors::time::feel::SandboxFeelTuning;
+use ambition_actors::time::time_control::ClockResetRequest;
 use ambition_actors::SandboxSimState;
 use ambition_combat::{ResetRoomFeaturesEvent, RoomResetReason};
 use ambition_engine_core::RoomGeometry;
@@ -54,7 +55,7 @@ pub fn apply_player_reset_input_system(
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     mut sim_state: ResMut<SandboxSimState>,
-    mut clock: ResMut<ambition_time::ClockState>,
+    mut clock_resets: MessageWriter<ClockResetRequest>,
     mut reset_room_features: MessageWriter<ResetRoomFeaturesEvent>,
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,
@@ -93,7 +94,7 @@ pub fn apply_player_reset_input_system(
         &mut vfx_writer,
         &mut clusters,
         &mut sim_state,
-        &mut clock,
+        &mut clock_resets,
         &mut safety,
         &mut attack.swing,
         &mut anim,
@@ -121,7 +122,7 @@ pub fn apply_room_replay_request_system(
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     mut sim_state: ResMut<SandboxSimState>,
-    mut clock: ResMut<ambition_time::ClockState>,
+    mut clock_resets: MessageWriter<ClockResetRequest>,
     boss_registry: Res<ambition_actors::boss_encounter::BossEncounterRegistry>,
     mut save: Option<ResMut<ambition_persistence::save::SandboxSave>>,
     mut boss_music: Option<ResMut<ambition_encounter::BossEncounterMusicRequest>>,
@@ -176,7 +177,7 @@ pub fn apply_room_replay_request_system(
         &mut vfx_writer,
         &mut clusters,
         &mut sim_state,
-        &mut clock,
+        &mut clock_resets,
         &mut safety,
         &mut attack.swing,
         &mut anim,

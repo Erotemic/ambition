@@ -57,6 +57,10 @@ impl Plugin for PlayerSchedulePlugin {
         //   `time_scale` back from the zero the suspended fallback just
         //   wrote. On the first re-resumed frame they run again and the
         //   smoother ramps back up from 0 to 1.0 at the authored rate.
+        // * Reset/respawn/transition requests snap the live sim clock back to
+        //   1.0 only while gameplay is allowed. While suspended, the request
+        //   stays queued and the suspended-zero path keeps pause/dialogue/room
+        //   transition frames frozen.
         // * `refresh_world_time` then snapshots whichever path won this
         //   frame, so downstream systems always see a coherent `scaled_dt`.
         app.add_systems(
@@ -69,6 +73,8 @@ impl Plugin for PlayerSchedulePlugin {
                 ambition_actors::time::time_control::apply_clock_scale_requests
                     .run_if(gameplay_allowed),
                 ambition_actors::time::time_control::smooth_sim_clock_toward_target_system
+                    .run_if(gameplay_allowed),
+                ambition_actors::time::time_control::apply_clock_reset_requests
                     .run_if(gameplay_allowed),
                 // Unconditional: snapshot whichever path (suspended-zero or
                 // gameplay-smoothed) wrote `SandboxSimState::time_scale` this

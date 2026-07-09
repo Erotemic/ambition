@@ -23,7 +23,7 @@ use ambition_dev_tools::SandboxDevState;
 use ambition_engine_core as ae;
 use ambition_engine_core::RoomGeometry;
 use ambition_sfx::SfxMessage;
-use ambition_time::ClockState;
+use crate::time::time_control::{ClockRequester, ClockResetRequest};
 
 /// What [`load_room_geometry`] hands back to the composition layer so the host
 /// can spawn parallax/room visuals + arrival VFX and apply the cross-domain
@@ -61,7 +61,7 @@ pub fn load_room_geometry(
     clusters: &mut ae::BodyClustersMut<'_>,
     dev_state: &mut SandboxDevState,
     sim_state: &mut SandboxSimState,
-    clock: &mut ClockState,
+    clock_resets: &mut MessageWriter<ClockResetRequest>,
     moving_platforms: &mut Vec<MovingPlatformState>,
     placement_lowering: &crate::world::placements::PlacementLoweringRegistry,
     world: &mut RoomGeometry,
@@ -112,7 +112,10 @@ pub fn load_room_geometry(
     if edge_exit {
         clusters.kinematics.vel = old_velocity;
     }
-    clock.time_scale = 1.0;
+    clock_resets.write(ClockResetRequest::sim_clock(
+        ClockRequester::Engine,
+        "room_transition",
+    ));
     *moving_platforms = platforms::moving_platforms_for_room(&spec);
     features::spawn_room_feature_entities_with_registry(commands, &spec, placement_lowering);
     // This guard prevents immediate backtracking when arriving inside/near a

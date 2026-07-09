@@ -58,7 +58,7 @@ use ambition_persistence::save::SandboxSave;
 #[derive(SystemParam)]
 pub struct ResetPlayState<'w> {
     sim_state: ResMut<'w, crate::SandboxSimState>,
-    clock: ResMut<'w, ambition_time::ClockState>,
+    clock_resets: MessageWriter<'w, crate::time::time_control::ClockResetRequest>,
     moving_platforms: ResMut<'w, crate::MovingPlatformSet>,
 }
 
@@ -155,7 +155,10 @@ pub fn process_sandbox_reset_request(
     world.0 = start_spec.world.clone();
 
     // 6. Reset the player to the start room's spawn point.
-    play_state.clock.time_scale = 1.0;
+    play_state.clock_resets.write(crate::time::time_control::ClockResetRequest::sim_clock(
+        crate::time::time_control::ClockRequester::Engine,
+        "sandbox_reset",
+    ));
     play_state.sim_state.room_transition_cooldown = 0.0;
     // Reset the ECS authority directly so the next player tick frame
     // starts from the spawn position. Also zero animation state so post-reset

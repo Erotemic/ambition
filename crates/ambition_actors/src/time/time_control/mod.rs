@@ -1,11 +1,11 @@
 //! ADR 0010 — time-control authority as data.
 //!
-//! Gameplay code never mutates [`crate::SandboxSimState::time_scale`]
+//! Gameplay code never mutates [`ambition_time::ClockState::time_scale`]
 //! (or any future per-domain clock) directly. Instead it writes a
-//! [`ClockScaleRequest`] message naming the [`ClockDomain`] it wants
-//! to affect, the requested `scale`, and the [`ClockRequester`] doing
-//! the asking. [`apply_clock_scale_requests`] consults the active
-//! [`RegimePolicy`] and either grants, denies, rebinds, or broadcasts
+//! [`ClockScaleRequest`] or [`ClockResetRequest`] message naming the
+//! [`ClockDomain`] it wants to affect, the requested `scale`, and the
+//! [`ClockRequester`] doing the asking. [`apply_clock_scale_requests`] consults
+//! the active [`RegimePolicy`] and either grants, denies, rebinds, or broadcasts
 //! the request.
 //!
 //! In the default [`Regime::Solo`] regime — single-player —
@@ -116,7 +116,7 @@ impl RegimePolicy {
 
 /// A request to scale a named clock. Written by gameplay systems
 /// that want to bend time (bullet-time, hitstop, cutscene pause,
-/// boss freeze) instead of mutating [`SandboxSimState::time_scale`]
+/// boss freeze) instead of mutating [`ClockState::time_scale`]
 /// directly. Consumed by [`apply_clock_scale_requests`].
 ///
 /// `reason` is a short static label for telemetry and debug overlays
@@ -133,7 +133,33 @@ pub struct ClockScaleRequest {
     pub reason: &'static str,
 }
 
-/// Target scale per-domain — the value [`SandboxSimState::time_scale`]
+/// A request to snap a named clock back to its neutral scale. This is separate
+/// from [`ClockScaleRequest`] because reset/respawn/room-transition semantics
+/// historically snapped the current sim clock to `1.0`; routing those events
+/// through the regular scale target would make the smoother ramp up over later
+/// frames instead. Gameplay callers emit this intent and the time-control owner
+/// mutates both the requested target and the live [`ClockState`].
+#[derive(Message, Copy, Clone, Debug)]
+pub struct ClockResetRequest {
+    pub domain: ClockDomain,
+    pub requester: ClockRequester,
+    /// Telemetry/debug label only. Keep labels short and grep-able.
+    #[allow(dead_code)]
+    pub reason: &'static str,
+}
+
+impl ClockResetRequest {
+    /// Snap the sim clock back to real-time pace (`1.0`).
+    pub const fn sim_clock(requester: ClockRequester, reason: &'static str) -> Self {
+        Self {
+            domain: ClockDomain::SimClock,
+            requester,
+            reason,
+        }
+    }
+}
+
+/// Target scale per-domain — the value [`ClockState::time_scale`]
 /// is currently smoothing toward. Written by [`apply_clock_scale_requests`]
 /// (the policy-aware sink of [`ClockScaleRequest`] messages) and read
 /// by [`smooth_sim_clock_toward_target_system`] (the per-frame ramp).
@@ -161,7 +187,7 @@ impl Default for RequestedClockScale {
 /// the active [`RegimePolicy`], and store the granted scales in
 /// [`RequestedClockScale`].
 ///
-/// This system DOES NOT mutate [`SandboxSimState::time_scale`]
+/// This system DOES NOT mutate [`ClockState::time_scale`]
 /// directly — that's the smoother's job. The split exists so the
 /// policy table sees every requester (auditability, telemetry) and
 /// so multiple per-frame requesters can land in a sensible order
@@ -189,6 +215,36 @@ pub fn apply_clock_scale_requests(
                 write_target(&mut target, ClockDomain::SimClock, req.scale);
             }
         }
+    }
+}
+
+/// Drain pending [`ClockResetRequest`] messages through the same policy table as
+/// scale requests, then snap the granted clock domain back to neutral. This is
+/// the sole write owner for reset/respawn/transition `time_scale = 1.0` behavior.
+pub fn apply_clock_reset_requests(
+    mut requests: MessageReader<ClockResetRequest>,
+    policy: Res<RegimePolicy>,
+    mut target: ResMut<RequestedClockScale>,
+    mut clock: ResMut<ClockState>,
+) {
+    for req in requests.read() {
+        let permission = policy.permission_for(req.requester, req.domain);
+        match permission {
+            Permission::Grant => reset_domain(&mut target, &mut clock, req.domain),
+            Permission::Deny => continue,
+            Permission::Rebind(other) => reset_domain(&mut target, &mut clock, other),
+            Permission::Broadcast => reset_domain(&mut target, &mut clock, ClockDomain::SimClock),
+        }
+    }
+}
+
+fn reset_domain(target: &mut RequestedClockScale, clock: &mut ClockState, domain: ClockDomain) {
+    match domain {
+        ClockDomain::SimClock | ClockDomain::PlayerClock(_) => {
+            target.sim_clock = 1.0;
+            clock.time_scale = 1.0;
+        }
+        ClockDomain::WallClock => { /* wall clock is never scaled */ }
     }
 }
 
@@ -267,7 +323,7 @@ pub fn emit_player_time_intent_system(
     });
 }
 
-/// Smooth [`SandboxSimState::time_scale`] toward
+/// Smooth [`ClockState::time_scale`] toward
 /// [`RequestedClockScale::sim_clock`] at feel-tuned rates.
 ///
 /// Replaces the imperative `crate::update_time_scale` helper. The

@@ -192,17 +192,20 @@ classes — log-once so the next sessions don't re-derive:
    detector that still joins actor contacts, settings, schedule, and music
    intent.** **A menu-backend slice (Codex 2026-07-08) moved
    `InventoryUiBackend` and backend-availability constants to
-   `ambition_menu::backend`; a follow-on closeout slice moved the
+   `ambition_menu::backend`; follow-on closeout slices moved the
    renderer-agnostic map/minimap state (`MapMenuState`, `MapRoomNode`, and zoom
-   constants) to `ambition_menu::map`. `ambition_actors::menu` now owns only the
-   room/save hydration, hotkeys, and Bevy-UI map/settings adapter systems, not
+   constants) to `ambition_menu::map`, repointed the runtime resource init to
+   that canonical home, and deleted the actor-side map model facade. `ambition_actors::menu` now owns only the
+   room/save hydration, hotkeys, and Bevy-UI map adapter systems, not
    presentation-backend or reusable map-state vocabulary.**
    **A settings/menu-IR facade slice (Codex 2026-07-08) repointed app menu
    hosts/tests to import stored settings from `ambition_persistence::settings`
    and renderer-agnostic menu IR from `ambition_settings_menu` directly; the
-   remaining actor-side `persistence::settings` and `menu::ir` surfaces are
-   compatibility residue for actor-local pause-menu/model code, not the app
-   host's canonical vocabulary path.** **An encounter-vocabulary slice (Codex
+   final closeout repointed actor-local settings compatibility helpers to
+   `ambition_settings_menu` directly and deleted the actor-side `menu::ir`
+   facade. The actor-side `persistence::settings` module now keeps only the
+   pause-menu compatibility controller/model that still reads actor/dev/window
+   state.** **An encounter-vocabulary slice (Codex
    2026-07-08) repointed app/content/runtime/sim-view consumers of pure
    encounter state, music-request, registry, phase, and reward helper vocabulary
    to `ambition_encounter`; the actor-side encounter module now remains the
@@ -234,7 +237,8 @@ classes — log-once so the next sessions don't re-derive:
    remains only for the concrete actor-owned schedule installer and input bridge
    systems.** **F2 closeout (Codex 2026-07-08) removed the remaining safe
    pure-vocabulary facades found in this pass: map/minimap state is owned by
-   `ambition_menu::map`, actor dialog no longer re-exports reusable
+   `ambition_menu::map` with no actor-side model facade, actor menu no longer
+   has a settings/System IR facade, actor dialog no longer re-exports reusable
    `ambition_dialog` state/input/Yarn-binding vocabulary, and actor persistence
    no longer aliases dev-tools persistence. The remaining external
    `ambition_actors` references found by the closeout sweep are documented
@@ -298,14 +302,12 @@ Corrections (log-once, all small):
    already updated.
 
 **Logged hazards (small, opus-executable):**
-3. **`WorldClock.time_scale` is written DIRECTLY outside the time-control
-   owner** — `features/ecs/damage_apply.rs:207,369` and
-   `world/rooms/load.rs:114` hard-set `time_scale = 1.0` (respawn/transition
-   resets), bypassing the ADR 0010/0011 `ClockScaleRequest` seam. A reset
-   racing a live bullet-time/hitstop request silently clobbers it.
-   **Prescription: replace with a `ClockScaleRequest::reset()` (or a
-   dedicated ResetClock message) handled by the one owner in
-   `time/time_control`.**
+3. ✅ **DONE (Codex 2026-07-09): clock-reset seam.** Respawn, room
+   transition, sandbox reset, and replay reset code now emit
+   `ClockResetRequest` instead of writing `ClockState.time_scale = 1.0`
+   directly. `time/time_control` owns the handler and snaps both the live
+   sim clock and `RequestedClockScale` back to neutral, preserving the old
+   reset behavior without bypassing the ADR 0010/0011 authority seam.
 4. **Non-deterministic player pick under multiplayer:**
    `save_sync.rs:79` and `actors/update.rs:227` use `query.iter().next()`
    as a "the player" fallback. Single-player-safe; with slots (the RL/
@@ -366,10 +368,11 @@ Consider `CARGO_INCREMENTAL=0` for CI-style full-gate runs, or a periodic
 `cargo clean` cron, so a full disk doesn't silently kill background gates.
 
 **Priority order for the next sessions (all opus-executable, most valuable
-first):** F4.3 clock-reset seam → F4.4 deterministic `PlayerSlot` fallback →
-F3.2 `SweepSample` / `PortalSweepAnchor` cleanup → F2.2 residual actor glue
-splits → F2.3 remaining facade burn-down → E9 umbrella + demo homes (F5.1/2)
-→ projectiles dedicated session (already carded).
+first):** F4.4 deterministic `PlayerSlot` fallback → F3.2 `SweepSample` /
+`PortalSweepAnchor` cleanup → E9 umbrella + demo homes (F5.1/2) → projectiles
+dedicated session (already carded). F2 is closed for audit cleanup; deeper
+actor decomposition is tracked by the later world/plain-input, projectile, and
+unified-actor cards.
 
 ### F7 — Deep pass: the lowering seam had three real defects (FIXED); test-loss lesson
 

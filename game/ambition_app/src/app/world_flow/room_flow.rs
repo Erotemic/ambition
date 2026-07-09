@@ -11,6 +11,7 @@ use ambition_dev_tools::dev_tools::EditableMovementTuning;
 use ambition_actors::platformer_runtime::lifecycle::RoomScopedEntity;
 use ambition_actors::rooms;
 use ambition_actors::time::feel::SandboxFeelTuning;
+use ambition_actors::time::time_control::{ClockRequester, ClockResetRequest};
 use ambition_actors::world::physics;
 use ambition_engine_core::RoomGeometry;
 use ambition_engine_core::{self as ae, AabbExt};
@@ -27,7 +28,7 @@ pub(crate) fn reset_sandbox(
     vfx: &mut MessageWriter<VfxMessage>,
     clusters: &mut ae::BodyClustersMut<'_>,
     sim_state: &mut ambition_actors::SandboxSimState,
-    clock: &mut ambition_time::ClockState,
+    clock_resets: &mut MessageWriter<ClockResetRequest>,
     safety: &mut ambition_actors::player::PlayerSafetyState,
     attack: &mut Option<ambition_actors::MeleeSwing>,
     anim: &mut ambition_actors::player::BodyAnimFacts,
@@ -47,7 +48,10 @@ pub(crate) fn reset_sandbox(
     );
     clusters.mana.meter.refill_full();
     safety.last_safe_pos = world.spawn;
-    clock.time_scale = 1.0;
+    clock_resets.write(ClockResetRequest::sim_clock(
+        ClockRequester::Engine,
+        "sandbox_reset",
+    ));
     sim_state.room_transition_cooldown = 0.0;
     *attack = None;
     anim.reset();
@@ -113,7 +117,7 @@ pub(crate) fn load_room(
     clusters: &mut ae::BodyClustersMut<'_>,
     dev_state: &mut ambition_dev_tools::SandboxDevState,
     sim_state: &mut ambition_actors::SandboxSimState,
-    clock: &mut ambition_time::ClockState,
+    clock_resets: &mut MessageWriter<ClockResetRequest>,
     // Home-only presentation state (None when a possessed actor transits).
     safety: Option<&mut ambition_actors::player::PlayerSafetyState>,
     moving_platforms: &mut Vec<ambition_actors::world::platforms::MovingPlatformState>,
@@ -146,7 +150,7 @@ pub(crate) fn load_room(
         clusters,
         dev_state,
         sim_state,
-        clock,
+        clock_resets,
         moving_platforms,
         placement_lowering,
         world,
@@ -341,7 +345,7 @@ pub(crate) fn apply_room_transition_system(
             &mut clusters,
             &mut dev_state,
             &mut room_clock.sim_state,
-            &mut room_clock.clock,
+            &mut room_clock.clock_resets,
             safety_opt.as_deref_mut(),
             &mut moving_platforms.0,
             &mut dialogue,

@@ -33,7 +33,7 @@ use ambition_characters::actor::BodyCombat;
 use ambition_characters::actor::BodyHealth;
 use ambition_engine_core::RoomGeometry;
 use ambition_sfx::SfxMessage;
-use ambition_time::ClockState;
+use crate::time::time_control::{ClockRequester, ClockResetRequest};
 
 // `body_vulnerable` / `shield_blocks_hit` moved to `crate::combat::util`
 // (E2): they are the shared victim-gate predicates every damage EMITTER
@@ -183,7 +183,7 @@ pub(crate) fn death_respawn_player(
     died: &mut MessageWriter<ActorDiedMessage>,
     clusters: &mut ae::BodyClustersMut<'_>,
     sim_state: &mut SandboxSimState,
-    clock: &mut ClockState,
+    clock_resets: &mut MessageWriter<ClockResetRequest>,
     safety: &mut PlayerSafetyState,
     banner_requests: &mut MessageWriter<GameplayBannerRequested>,
     player_health: Option<&mut BodyHealth>,
@@ -204,7 +204,10 @@ pub(crate) fn death_respawn_player(
     );
     clusters.mana.meter.refill_full();
     safety.last_safe_pos = world.spawn;
-    clock.time_scale = 1.0;
+    clock_resets.write(ClockResetRequest::sim_clock(
+        ClockRequester::Engine,
+        "death_respawn",
+    ));
     sim_state.room_transition_cooldown = 0.0;
     anim.reset();
     combat.reset();
@@ -230,7 +233,7 @@ pub(crate) fn handle_player_damage_events(
     died: &mut MessageWriter<ActorDiedMessage>,
     clusters: &mut ae::BodyClustersMut<'_>,
     sim_state: &mut SandboxSimState,
-    clock: &mut ClockState,
+    clock_resets: &mut MessageWriter<ClockResetRequest>,
     safety: &mut PlayerSafetyState,
     banner_requests: &mut MessageWriter<GameplayBannerRequested>,
     mut player_health: Option<&mut BodyHealth>,
@@ -304,7 +307,7 @@ pub(crate) fn handle_player_damage_events(
                 died,
                 clusters,
                 sim_state,
-                clock,
+                clock_resets,
                 safety,
                 banner_requests,
                 player_health,
@@ -319,7 +322,7 @@ pub(crate) fn handle_player_damage_events(
         BodyHitResolution::Damaged { died: false, .. } => match damage.mode {
             crate::combat::HitMode::SafeRespawn => {
                 safe_respawn_player(
-                    sfx, vfx, clusters, clock, safety, combat, tuning, feel, impact_pos,
+                    sfx, vfx, clusters, clock_resets, safety, combat, tuning, feel, impact_pos,
                 );
             }
             crate::combat::HitMode::Knockback => {
@@ -346,7 +349,7 @@ pub(crate) fn safe_respawn_player(
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
     clusters: &mut ae::BodyClustersMut<'_>,
-    clock: &mut ClockState,
+    clock_resets: &mut MessageWriter<ClockResetRequest>,
     safety: &PlayerSafetyState,
     combat: &mut BodyCombat,
     tuning: ae::MovementTuning,
@@ -366,7 +369,10 @@ pub(crate) fn safe_respawn_player(
     combat.recoil_lock_timer = 0.0;
     combat.hitstop_timer = 0.0;
     combat.hit_flash = feel.reset_flash_time;
-    clock.time_scale = 1.0;
+    clock_resets.write(ClockResetRequest::sim_clock(
+        ClockRequester::Engine,
+        "safe_respawn",
+    ));
     sfx.write(SfxMessage::Reset { pos: to });
     vfx.write(VfxMessage::ResetEffects { from, to });
 }
@@ -538,7 +544,7 @@ pub fn apply_player_hit_events(
     user_settings: Res<ambition_persistence::settings::UserSettings>,
     feature_ecs_overlay: Res<crate::world::overlay::FeatureEcsWorldOverlay>,
     mut sim_state: ResMut<SandboxSimState>,
-    mut clock: ResMut<ClockState>,
+    mut clock_resets: MessageWriter<ClockResetRequest>,
     mut banner_requests: MessageWriter<GameplayBannerRequested>,
     mut hit_events: MessageReader<FeatureHitEvent>,
     mut died_writer: MessageWriter<ActorDiedMessage>,
@@ -655,7 +661,7 @@ pub fn apply_player_hit_events(
             &mut died_writer,
             &mut clusters,
             &mut sim_state,
-            &mut clock,
+            &mut clock_resets,
             &mut safety,
             &mut banner_requests,
             player_health.map(|h| h.into_inner()),

@@ -2371,6 +2371,30 @@ fn architecture_boundaries_time_crate_is_extracted() {
 }
 
 #[test]
+fn architecture_boundaries_clock_resets_use_time_control_owner() {
+    let roots = [crate_src(), app_src()];
+    let violations = scan_code_refs(&roots, &["time_scale = 1.0", "time_scale=1.0"], |file, _| {
+        let rel = file.strip_prefix(repo_root()).unwrap_or(file);
+        rel == Path::new("crates/ambition_actors/src/time/time_control/mod.rs")
+            || rel == Path::new("crates/ambition_actors/src/time/time_control/tests.rs")
+    });
+    assert!(
+        violations.is_empty(),
+        "F4.3: reset/respawn/transition code must emit ClockResetRequest; \
+         only the time-control owner snaps ClockState.time_scale to 1.0:\n{}",
+        violations.join("\n")
+    );
+
+    let runtime_schedule = fs::read_to_string(repo_root().join("crates/ambition_runtime/src/player_schedule.rs"))
+        .expect("read player_schedule.rs");
+    assert!(
+        runtime_schedule.contains("apply_clock_reset_requests")
+            && runtime_schedule.contains("run_if(gameplay_allowed)"),
+        "F4.3: the runtime time-control chain must apply queued ClockResetRequest messages"
+    );
+}
+
+#[test]
 fn architecture_boundaries_machinery_does_not_import_content() {
     let machinery_dirs = [
         "abilities",

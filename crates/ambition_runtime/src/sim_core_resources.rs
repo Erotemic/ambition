@@ -51,8 +51,9 @@ impl Plugin for SimCoreResourcesPlugin {
             // Staging fact: a room's contents finished spawning (JD4).
             .add_message::<ambition_actors::rooms::RoomLoaded>()
             // ADR 0010 — time-control vocabulary. Gameplay code writes
-            // ClockScaleRequest instead of mutating time_scale directly.
+            // time-control messages instead of mutating time_scale directly.
             .add_message::<ambition_actors::time::time_control::ClockScaleRequest>()
+            .add_message::<ambition_actors::time::time_control::ClockResetRequest>()
             .init_resource::<ambition_actors::time::time_control::RegimePolicy>()
             .init_resource::<ambition_actors::time::time_control::RequestedClockScale>()
             .init_resource::<ambition_time::ClockState>()

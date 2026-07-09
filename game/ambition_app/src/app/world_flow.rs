@@ -1,7 +1,7 @@
 //! Room-flow + player-tick presentation glue that stays in the app host.
 //!
 //! What remains here after the world-runtime / combat-runtime drains:
-//! - [`RoomClock`] — a two-resource bundle for the room-transition apply system.
+//! - [`RoomClock`] — a sim-state plus clock-reset bundle for room-transition systems.
 //! - [`ground_gap_below_feet`] — the room-transition landing diagnostic helper.
 //! - the [`room_flow`] submodule (sandbox reset, room load, transition apply).
 //!
@@ -10,21 +10,19 @@
 //! damage}` / `::player::movement_fx`; the sim half of room load moved into
 //! `ambition_actors::rooms`.
 
-use bevy::prelude::ResMut;
+use bevy::prelude::{MessageWriter, ResMut};
 
 use ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay;
 use ambition_engine_core::{self as ae, AabbExt};
 
-/// Bundle of the two room-reset clock/sim resources, so systems that
-/// already sit near Bevy's 16-SystemParam limit (e.g.
-/// [`apply_room_transition_system`]) can take both in one slot. The
-/// sim-clock `time_scale` (time-owned [`ambition_time::ClockState`])
-/// and the room-transition cooldown (sim-owned [`ambition_actors::SandboxSimState`])
-/// are reset together on every room load / death / respawn.
+/// Bundle of room-reset sim resources, so systems that already sit near Bevy's
+/// 16-SystemParam limit (e.g. [`apply_room_transition_system`]) can request a
+/// clock reset and mutate room-transition cooldown through one slot. The clock
+/// reset is emitted as data and consumed by the time-control owner.
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct RoomClock<'w> {
     pub sim_state: ResMut<'w, ambition_actors::SandboxSimState>,
-    pub clock: ResMut<'w, ambition_time::ClockState>,
+    pub clock_resets: MessageWriter<'w, ambition_actors::time::time_control::ClockResetRequest>,
 }
 
 mod room_flow;

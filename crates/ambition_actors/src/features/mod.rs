@@ -226,6 +226,11 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             ambition_entity_catalog::placements::PlacementKind::Breakable,
             crate::features::ecs::spawn_static::lower_breakable_placement,
         );
+        #[cfg(feature = "portal")]
+        app.register_placement_interpreter(
+            ambition_entity_catalog::placements::PlacementKind::Portal,
+            crate::features::ecs::spawn_static::lower_portal_placement,
+        );
         // Accumulating sim-time for brain perception (reaction latency).
         app.init_resource::<GameplayElapsed>();
         // Hot-reload watcher state read by `poll_ldtk_file_changes` below.

@@ -343,15 +343,22 @@ pub(super) fn convert_portal(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, St
     // to the normal). Floor/ceiling (vertical normal) → width; wall → height.
     let along = if normal.x.abs() > 0.5 { size.y } else { size.x };
     let half_length = (along > 1.0).then_some(along * 0.5);
-    Ok(RoomEmission::portal(ambition_world::rooms::PortalSpec {
-        id: authored_id(entity),
-        name,
-        color,
-        pos: min + size * 0.5,
-        normal,
-        link,
-        half_length,
-    }))
+    // The face center (`pos = min + size*0.5`) is exactly the placement record's
+    // `aabb.center()`, so the Tier-0 mirror stores only `normal` (+ color/link/
+    // half_length) and the actor lowering derives `pos` from the record aabb.
+    let aabb = object_aabb(min, size);
+    let mut record = ambition_world::placements::PlacementRecord::new(
+        authored_id(entity),
+        PlacementSchema::Portal(ambition_entity_catalog::placements::PortalSchema {
+            color,
+            normal: [normal.x, normal.y],
+            link,
+            half_length,
+        }),
+        aabb,
+    );
+    record.name = name;
+    Ok(RoomEmission::placement(record))
 }
 
 // Portal-authored entities require the `portal_ldtk` feature. Per the

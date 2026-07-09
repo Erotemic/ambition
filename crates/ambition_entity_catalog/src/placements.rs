@@ -301,6 +301,89 @@ pub enum BreakableStateSpec {
     Respawning,
 }
 
+/// Authored/runtime portal channel color. A pure enum (mirrors the Ambition
+/// portal crate's color vocabulary) so it lives in the Tier-0 catalog; portal
+/// lowerings map it to their runtime channel at the sim edge. Moved down from
+/// `ambition_world::rooms` (fable audit F9.2).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum PortalChannelColorSpec {
+    Purple,
+    Yellow,
+    Teal,
+    Red,
+    Green,
+    Magenta,
+    Cyan,
+    Rose,
+    Indexed(u8),
+}
+
+impl PortalChannelColorSpec {
+    pub fn partner(self) -> Self {
+        use PortalChannelColorSpec::*;
+        match self {
+            Purple => Yellow,
+            Yellow => Purple,
+            Teal => Red,
+            Red => Teal,
+            Green => Magenta,
+            Magenta => Green,
+            Cyan => Rose,
+            Rose => Cyan,
+            Indexed(n) => Indexed(n ^ 1),
+        }
+    }
+
+    pub fn name(self) -> String {
+        use PortalChannelColorSpec::*;
+        match self {
+            Purple => "purple".into(),
+            Yellow => "yellow".into(),
+            Teal => "teal".into(),
+            Red => "red".into(),
+            Green => "green".into(),
+            Magenta => "magenta".into(),
+            Cyan => "cyan".into(),
+            Rose => "rose".into(),
+            Indexed(n) => format!("c{n}"),
+        }
+    }
+
+    pub fn from_name(s: &str) -> Option<Self> {
+        use PortalChannelColorSpec::*;
+        Some(match s.trim().to_ascii_lowercase().as_str() {
+            "purple" => Purple,
+            "yellow" => Yellow,
+            "teal" => Teal,
+            "red" => Red,
+            "green" => Green,
+            "magenta" => Magenta,
+            "cyan" => Cyan,
+            "rose" => Rose,
+            other => Indexed(other.strip_prefix('c')?.parse::<u8>().ok()?),
+        })
+    }
+}
+
+/// The authored static-portal schema (the Tier-0 MIRROR of the runtime-facing
+/// `ambition_world::rooms::PortalSpec`). Unlike the other placement families,
+/// the runtime spec carries `Vec2` (`pos`/`normal`) and cannot itself live in
+/// Tier-0, so this plain mirror stores `normal` as a pair and DERIVES the face
+/// center from the placement record's `aabb.center()` at lowering time (the
+/// converter sets `pos = box center = aabb.center()`). `half_length` is the
+/// authored along-surface half-extent (also derivable from the aabb + normal,
+/// stored explicitly to preserve the authored value exactly).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PortalSchema {
+    pub color: PortalChannelColorSpec,
+    /// Outward axis-aligned surface normal, pointing into the room.
+    pub normal: [f32; 2],
+    /// Explicit link id (`None` ⇒ legacy color pairing).
+    pub link: Option<String>,
+    /// Authored along-surface half-length (opening size); `None` ⇒ default.
+    pub half_length: Option<f32>,
+}
+
 /// The CLOSED authored-placement schema (architecture.md §4b.3): everything an
 /// authored map may declare beyond geometry, as editor-visible plain data.
 /// Variants grow as W-queue step 3 converts hardcoded spawn branches into
@@ -313,6 +396,7 @@ pub enum PlacementSchema {
     Pickup(PickupSpec),
     Chest(ChestSpec),
     Breakable(BreakableSpec),
+    Portal(PortalSchema),
 }
 
 /// Fieldless key for [`PlacementSchema`], used by the room-load lowering
@@ -325,6 +409,7 @@ pub enum PlacementKind {
     Pickup,
     Chest,
     Breakable,
+    Portal,
 }
 
 impl PlacementSchema {
@@ -335,6 +420,7 @@ impl PlacementSchema {
             Self::Pickup(_) => PlacementKind::Pickup,
             Self::Chest(_) => PlacementKind::Chest,
             Self::Breakable(_) => PlacementKind::Breakable,
+            Self::Portal(_) => PlacementKind::Portal,
         }
     }
 }

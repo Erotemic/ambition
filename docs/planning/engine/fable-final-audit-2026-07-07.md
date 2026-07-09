@@ -614,32 +614,32 @@ Tier-0 catalog, so it needs a plain-pair (`[f32;2]`) mirror rather than a move.
 That is the one family where the split-brain END STATE (Vec deletion) requires
 new mirror types instead of a move — assess separately.
 
-**F9.2 ARC STATUS after the 2026-07-09 Opus session (4 families landed):** the
-four Vec2-free families (interactables, pickups, chests, breakables) are now
-placements-ONLY — their `RoomSpec` Vecs, `RoomEmission` fields, and emitter
-helpers are deleted, both the sim spawn path and the render authored-visual path
-read `spec.placements`, and each has a registered `lower_*_placement`
-interpreter. The dual-emit GUARD in `spawn_room_feature_entities_with_registry`
-is NOT yet deletable — it is hazard-specific and its removal is gated on the
-TWO remaining hard-tail items:
-1. **Portals → placements.** Needs a Tier-0 `PortalSchema` MIRROR (not a move):
-   move `PortalChannelColorSpec` down (already a pure enum), and represent
-   `pos`/`normal` as `[f32;2]` (or derive `pos` from the record `aabb.center()`
-   and store only `normal: [f32;2]`). Register a `#[cfg(feature = "portal")]`
-   `lower_portal_placement`; convert the `Portal` LDtk converter + the render
-   portal visual to placements; delete `RoomSpec.portals`. VERIFY with
-   `--features portal` (the default gate skips it). CAUTION: there is
-   uncommitted CC6 moving-portal work in the tree (`host_adapter.rs`) — land
-   that first or coordinate so the portal spawn/lowering path is not churned
-   underneath it.
-2. **Hazards → placements-only.** Hazards already have `lower_hazard_placement`
-   and dual-emit, but their typed Vec cannot be deleted while a hazard may carry
-   an INLINE `motion: KinematicPath` (F7): such hazards stay legacy-Vec-only.
-   Deleting the hazard Vec + the guard requires first lifting inline hazard
-   motion to a room-level `KinematicPath` (the F7 dissolution note), then the
-   converter can emit a placement for every hazard.
-Only after BOTH land does the guard delete and `placements` become the sole
-channel (the arc's exit). Everything else in the six-family list is done.
+**F9.2 ARC STATUS after the 2026-07-09 Opus session:** FIVE families landed as
+placements-ONLY — interactables, pickups, chests, breakables (Tier-0 moves), and
+now **✅ portals (Opus 2026-07-09)**. Portals were the deliberate exception and
+were done as a Tier-0 `PortalSchema` MIRROR (the runtime-facing `PortalSpec`
+keeps its `Vec2`): `PortalChannelColorSpec` moved down (pure enum), the schema
+stores `normal: [f32;2]` + color/link/half_length, and the actor lowering
+DERIVES the face center from the record `aabb.center()` (the converter set
+`pos = box center`). `#[cfg(feature="portal")] lower_portal_placement` registered
+(default + app registries); the `Portal` LDtk converter emits a `PlacementRecord`;
+`RoomSpec.portals` / `RoomEmission.portals` / the `portal` helper deleted.
+Verified: content portal suite 101 green, `ambition_app --features rl_sim` exit 0,
+`ambition_actors --features portal,portal_ldtk --all-targets` green, and the
+non-portal build (`ldtk_map --no-default-features`) green. (The CC6
+`host_adapter.rs` tail operates on the runtime `PlacedPortal`/`RoomGeometry`, not
+`PortalSpec`/the lowering path — no conflict, confirmed by inspection.)
+
+The dual-emit GUARD in `spawn_room_feature_entities_with_registry` is the arc's
+FINAL step and is gated on the ONE remaining item:
+- **Hazards → placements-only.** Hazards already have `lower_hazard_placement`
+  and dual-emit, but their typed Vec cannot be deleted while a hazard may carry
+  an INLINE `motion: KinematicPath`: such hazards stay legacy-Vec-only. The lift
+  is behavior-preserving (verified: `HazardRuntime::new_with_paths` resolves a
+  `path_id` to a room `KinematicPath` and sets `volume.motion` — identical to the
+  inline case), so the converter can synthesize a room-level `KinematicPath` from
+  the inline motion, reference it by `path_id`, and emit a placement for EVERY
+  hazard; then the hazard Vec + the guard delete. (Being done next in-session.)
 
 **The next-phase queue (in order):**
 1. **Demo content** — fill `ambition_demo_sanic` (movement identity showcase)
@@ -647,9 +647,9 @@ channel (the arc's exit). Everything else in the six-family list is done.
    profiles. This is the umbrella's real test and the first BUILD (not
    restructure) item; it will surface every remaining engine leak.
 2. **IR consolidation branch conversions** (the ruling above) — opus-sized,
-   one family each. **interactables + pickups + chests + breakables: DONE (2026-07-09).**
-   Only portals remain (see the ruling above; `PortalSpec` carries `Vec2`, so
-   it needs a plain-pair mirror rather than a Tier-0 move).
+   one family each. **interactables + pickups + chests + breakables + portals: DONE (2026-07-09).**
+   Arc EXIT (delete the dual-emit guard) is gated only on hazards becoming
+   placements-only (the F7 inline-motion KinematicPath lift), being done next.
 3. **Projectile remaining steppers** — stay actor-side until their inputs are
    plain (the blockers are correctly enumerated in the follow-up checklist);
    do NOT force this seam.

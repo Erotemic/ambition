@@ -51,6 +51,11 @@ pub fn spawn_room_feature_entities(commands: &mut Commands, room: &crate::rooms:
         ambition_entity_catalog::placements::PlacementKind::Breakable,
         super::spawn_static::lower_breakable_placement,
     );
+    #[cfg(feature = "portal")]
+    registry.register(
+        ambition_entity_catalog::placements::PlacementKind::Portal,
+        super::spawn_static::lower_portal_placement,
+    );
     spawn_room_feature_entities_with_registry(commands, room, &registry);
 }
 
@@ -96,10 +101,8 @@ pub fn spawn_room_feature_entities_with_registry(
     for portal_gun in &room.portal_gun_spawns {
         super::spawn_static::spawn_portal_gun_spawn(commands, portal_gun);
     }
-    #[cfg(feature = "portal")]
-    for portal in &room.portals {
-        super::spawn_static::spawn_portal(commands, portal);
-    }
+    // Static portals now lower through the `placements` channel above (fable
+    // audit F9.2) via the cfg(portal) `lower_portal_placement` interpreter.
     for shrine in &room.shrines {
         super::spawn_static::spawn_shrine(commands, shrine);
     }

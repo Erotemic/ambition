@@ -27,8 +27,6 @@ pub struct RoomSpec {
     pub ground_items: Vec<GroundItemSpec>,
     /// LDtk-authored portal-gun pickups. See [`PortalGunSpawnSpec`].
     pub portal_gun_spawns: Vec<PortalGunSpawnSpec>,
-    /// LDtk-authored static portals (pre-placed linked pairs). See [`PortalSpec`].
-    pub portals: Vec<PortalSpec>,
     /// LDtk-authored heal/save shrines. See [`ShrineSpec`].
     pub shrines: Vec<ShrineSpec>,
     /// LDtk-authored localized-gravity zones. See [`GravityZoneSpec`].
@@ -69,7 +67,6 @@ impl RoomSpec {
             props: Vec::new(),
             ground_items: Vec::new(),
             portal_gun_spawns: Vec::new(),
-            portals: Vec::new(),
             shrines: Vec::new(),
             gravity_zones: Vec::new(),
             hazards: Vec::new(),

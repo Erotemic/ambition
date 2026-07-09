@@ -140,7 +140,6 @@ impl LdtkProject {
         let mut props: Vec<PropSpec> = Vec::new();
         let mut ground_items: Vec<ambition_world::rooms::GroundItemSpec> = Vec::new();
         let mut portal_gun_spawns: Vec<ambition_world::rooms::PortalGunSpawnSpec> = Vec::new();
-        let mut portals: Vec<ambition_world::rooms::PortalSpec> = Vec::new();
         let mut shrines: Vec<ambition_world::rooms::ShrineSpec> = Vec::new();
         let mut gravity_zones: Vec<ambition_world::rooms::GravityZoneSpec> = Vec::new();
         // Per-family authored entity lists. Each LDtk entity emits into
@@ -200,7 +199,6 @@ impl LdtkProject {
                         props.extend(emission.props);
                         ground_items.extend(emission.ground_items);
                         portal_gun_spawns.extend(emission.portal_gun_spawns);
-                        portals.extend(emission.portals);
                         shrines.extend(emission.shrines);
                         gravity_zones.extend(emission.gravity_zones);
                         hazards.extend(emission.hazards);
@@ -292,7 +290,6 @@ impl LdtkProject {
             props,
             ground_items,
             portal_gun_spawns,
-            portals,
             shrines,
             gravity_zones,
             hazards,
@@ -347,9 +344,6 @@ pub struct RoomEmission {
     /// LDtk-authored portal-gun pickups. Most emit zero; `PortalGunSpawn` emits
     /// one. See [`ambition_world::rooms::PortalGunSpawnSpec`].
     pub portal_gun_spawns: Vec<ambition_world::rooms::PortalGunSpawnSpec>,
-    /// LDtk-authored static portals. Most emit zero; `Portal` emits one. See
-    /// [`ambition_world::rooms::PortalSpec`].
-    pub portals: Vec<ambition_world::rooms::PortalSpec>,
     /// LDtk-authored heal/save shrines. Most emit zero; `ShrineSpawn` emits one.
     pub shrines: Vec<ambition_world::rooms::ShrineSpec>,
     /// LDtk-authored localized-gravity zones. Most emit zero; `GravityZone` emits
@@ -450,14 +444,6 @@ impl RoomEmission {
     pub fn portal_gun_spawn(spec: ambition_world::rooms::PortalGunSpawnSpec) -> Self {
         Self {
             portal_gun_spawns: vec![spec],
-            ..Self::default()
-        }
-    }
-
-    #[cfg(feature = "portal_ldtk")]
-    pub fn portal(spec: ambition_world::rooms::PortalSpec) -> Self {
-        Self {
-            portals: vec![spec],
             ..Self::default()
         }
     }

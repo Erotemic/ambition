@@ -346,6 +346,33 @@ pub(crate) fn spawn_portal_gun_spawn(
 }
 
 #[cfg(feature = "portal")]
+pub(crate) fn lower_portal_placement(
+    record: &crate::world::placements::PlacementRecord,
+    ctx: &mut crate::world::placements::LoweringCtx<'_, '_, '_>,
+) {
+    let PlacementSchema::Portal(schema) = &record.schema else {
+        return;
+    };
+    // Reconstruct the runtime-facing spec: the face center is the record's
+    // authored footprint center (the converter set `pos = box center`), and the
+    // Tier-0 mirror carries the axis-aligned normal / link / half-length.
+    let center = ambition_engine_core::Vec2::new(
+        (record.aabb.min.x + record.aabb.max.x) * 0.5,
+        (record.aabb.min.y + record.aabb.max.y) * 0.5,
+    );
+    let spec = crate::rooms::PortalSpec {
+        id: record.id.as_str().to_string(),
+        name: record.name.clone(),
+        color: schema.color,
+        pos: center,
+        normal: ambition_engine_core::Vec2::new(schema.normal[0], schema.normal[1]),
+        link: schema.link.clone(),
+        half_length: schema.half_length,
+    };
+    spawn_portal(ctx.commands, &spec);
+}
+
+#[cfg(feature = "portal")]
 pub(crate) fn spawn_portal(commands: &mut Commands, spec: &crate::rooms::PortalSpec) {
     // Authored static portal: the same `Portal` component the gun fires, but
     // pre-placed and color-paired. Room-scoped so a transition despawns it and

@@ -75,73 +75,17 @@ pub struct PortalGunSpawnSpec {
     pub half_extent: ae::Vec2,
 }
 
-/// Authored/runtime portal channel color carried by room IR.
-///
-/// This mirrors the Ambition portal crate's current color vocabulary but keeps
-/// `ambition_world` from depending on portal runtime types. Portal lowerings map
-/// it back to their runtime channel at the presentation/sim edge.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
-pub enum PortalChannelColorSpec {
-    Purple,
-    Yellow,
-    Teal,
-    Red,
-    Green,
-    Magenta,
-    Cyan,
-    Rose,
-    Indexed(u8),
-}
+/// Authored/runtime portal channel color — now owned by the Tier-0 catalog and
+/// re-exported here so `rooms::PortalChannelColorSpec` paths stay stable (fable
+/// audit F9.2). See [`ambition_entity_catalog::placements::PortalChannelColorSpec`].
+pub use ambition_entity_catalog::placements::PortalChannelColorSpec;
 
-impl PortalChannelColorSpec {
-    pub fn partner(self) -> Self {
-        use PortalChannelColorSpec::*;
-        match self {
-            Purple => Yellow,
-            Yellow => Purple,
-            Teal => Red,
-            Red => Teal,
-            Green => Magenta,
-            Magenta => Green,
-            Cyan => Rose,
-            Rose => Cyan,
-            Indexed(n) => Indexed(n ^ 1),
-        }
-    }
-
-    pub fn name(self) -> String {
-        use PortalChannelColorSpec::*;
-        match self {
-            Purple => "purple".into(),
-            Yellow => "yellow".into(),
-            Teal => "teal".into(),
-            Red => "red".into(),
-            Green => "green".into(),
-            Magenta => "magenta".into(),
-            Cyan => "cyan".into(),
-            Rose => "rose".into(),
-            Indexed(n) => format!("c{n}"),
-        }
-    }
-
-    pub fn from_name(s: &str) -> Option<Self> {
-        use PortalChannelColorSpec::*;
-        Some(match s.trim().to_ascii_lowercase().as_str() {
-            "purple" => Purple,
-            "yellow" => Yellow,
-            "teal" => Teal,
-            "red" => Red,
-            "green" => Green,
-            "magenta" => Magenta,
-            "cyan" => Cyan,
-            "rose" => Rose,
-            other => Indexed(other.strip_prefix('c')?.parse::<u8>().ok()?),
-        })
-    }
-}
-
-/// LDtk-authored static portal. Pure room IR; the Ambition portal adapter
-/// lowers it to a runtime `PlacedPortal` at room load.
+/// LDtk-authored static portal — the runtime-facing spec carrying kernel `Vec2`
+/// (`pos`/`normal`). The Tier-0 MIRROR carried on the `placements` channel is
+/// [`ambition_entity_catalog::placements::PortalSchema`]; the actor portal
+/// lowering reconstructs this from a placement record (fable audit F9.2). Pure
+/// room IR; the Ambition portal adapter lowers it to a runtime `PlacedPortal` at
+/// room load.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct PortalSpec {
     /// LDtk iid — stable across rebuilds for save/debug joins.

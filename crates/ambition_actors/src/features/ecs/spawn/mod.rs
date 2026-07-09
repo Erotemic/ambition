@@ -6,7 +6,6 @@
 //! or scheduling surfaces that callers use.
 
 use bevy::prelude::{Commands, Entity, Query};
-use std::collections::HashSet;
 
 pub(crate) use super::spawn_actors::spawn_runtime_minion;
 
@@ -73,23 +72,11 @@ pub fn spawn_room_feature_entities_with_registry(
         };
         registry.lower(record, &mut ctx);
     }
-    let lowered_hazard_ids: HashSet<&str> = room
-        .placements
-        .iter()
-        .filter(|record| {
-            matches!(
-                record.schema,
-                ambition_entity_catalog::placements::PlacementSchema::Hazard(_)
-            )
-        })
-        .map(|record| record.id.as_str())
-        .collect();
-    for hazard in &room.hazards {
-        if lowered_hazard_ids.contains(hazard.id.as_str()) {
-            continue;
-        }
-        super::spawn_static::spawn_hazard(commands, hazard, &paths);
-    }
+    // Fable audit F9.2 arc EXIT: EVERY authored placement family (hazards,
+    // interactables, pickups, chests, breakables, portals) now flows through the
+    // single `placements` channel above — there is no second typed-Vec spawn
+    // path and no dual-emit guard. Hazards with inline motion are lifted to a
+    // room-level `KinematicPath` at conversion and resolved by `path_id`.
     for boss in &room.boss_spawns {
         super::spawn_actors::spawn_boss(commands, boss);
     }

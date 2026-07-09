@@ -142,12 +142,6 @@ impl LdtkProject {
         let mut portal_gun_spawns: Vec<ambition_world::rooms::PortalGunSpawnSpec> = Vec::new();
         let mut shrines: Vec<ambition_world::rooms::ShrineSpec> = Vec::new();
         let mut gravity_zones: Vec<ambition_world::rooms::GravityZoneSpec> = Vec::new();
-        // Per-family authored entity lists. Each LDtk entity emits into
-        // exactly one of these (or into one of the non-authored Vecs
-        // above).
-        let mut hazards: Vec<
-            ambition_world::rooms::Authored<ambition_world::rooms::HazardVolumeSpec>,
-        > = Vec::new();
         let mut enemy_spawns: Vec<
             ambition_world::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
         > = Vec::new();
@@ -201,7 +195,6 @@ impl LdtkProject {
                         portal_gun_spawns.extend(emission.portal_gun_spawns);
                         shrines.extend(emission.shrines);
                         gravity_zones.extend(emission.gravity_zones);
-                        hazards.extend(emission.hazards);
                         enemy_spawns.extend(emission.enemy_spawns);
                         boss_spawns.extend(emission.boss_spawns);
                         debug_labels.extend(emission.debug_labels);
@@ -292,7 +285,6 @@ impl LdtkProject {
             portal_gun_spawns,
             shrines,
             gravity_zones,
-            hazards,
             enemy_spawns,
             boss_spawns,
             debug_labels,
@@ -350,7 +342,6 @@ pub struct RoomEmission {
     /// one. See [`ambition_world::rooms::GravityZoneSpec`].
     pub gravity_zones: Vec<ambition_world::rooms::GravityZoneSpec>,
     // --- Per-family authored entity emissions:
-    pub hazards: Vec<ambition_world::rooms::Authored<ambition_world::rooms::HazardVolumeSpec>>,
     // interactables migrated to the `placements` channel (fable audit F9.2).
     pub enemy_spawns:
         Vec<ambition_world::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>>,
@@ -501,17 +492,6 @@ impl RoomEmission {
         Self {
             blocks: compiled.blocks,
             placements,
-            ..Self::default()
-        }
-    }
-
-    // Per-family typed emitters. The conversion sites use these instead of
-    // wrapping payloads in a generic `RoomObject { kind: ... }`.
-    pub fn hazard(
-        authored: ambition_world::rooms::Authored<ambition_world::rooms::HazardVolumeSpec>,
-    ) -> Self {
-        Self {
-            hazards: vec![authored],
             ..Self::default()
         }
     }
@@ -797,11 +777,11 @@ mod tests {
         }
     }
 
-    /// [W-b]: a `DamageVolume` DUAL-emits — the plain hazard spawn payload plus
-    /// the `PlacementRecord` twin, joined by the same placement id AND carrying
-    /// the authored display name (F7: lowering must not label hazards by iid).
+    /// [W-b] / F9.2 arc exit: a `DamageVolume` emits a single `PlacementRecord`
+    /// (the ONLY channel now — no typed hazard Vec), carrying the authored
+    /// display name (F7: lowering must not label hazards by iid).
     #[test]
-    fn damage_volume_dual_emits_a_named_hazard_placement_record() {
+    fn damage_volume_emits_a_named_hazard_placement_record() {
         use ambition_entity_catalog::placements::{DamageKind, DamageTeam, PlacementSchema};
         let project = synthetic_level(vec![entity_at(
             "DamageVolume",
@@ -816,18 +796,15 @@ mod tests {
         let room_set = project.to_room_set().expect("hazard project composes");
         let room = &room_set.rooms[0];
         assert_eq!(
-            room.hazards.len(),
+            room.placements.len(),
             1,
-            "plain hazard channel still feeds spawning"
+            "the placements channel is the only hazard spawn path"
         );
-        assert_eq!(room.placements.len(), 1, "record channel carries the twin");
         let record = &room.placements[0];
-        assert_eq!(record.id.as_str(), room.hazards[0].id, "same placement id");
         assert_eq!(
             record.name, "Spike Run",
             "authored display name rides the record"
         );
-        assert_eq!(record.aabb, room.hazards[0].aabb, "same authored footprint");
         let PlacementSchema::Hazard(spec) = &record.schema else {
             panic!("expected a hazard placement schema");
         };
@@ -837,31 +814,43 @@ mod tests {
         assert_eq!(spec.path_id.as_deref(), Some("spike_run"));
     }
 
-    /// F7: an INLINE-motion hazard cannot be represented by
-    /// `HazardSpec` — it must NOT emit a record (else the lowering path wins
-    /// the dual-spawn guard and silently drops the motion).
+    /// F7 dissolution (F9.2 arc exit): an INLINE-motion hazard is LIFTED to a
+    /// room-level `KinematicPath` at conversion — it emits a normal hazard
+    /// placement whose `path_id` references the synthesized path, so the
+    /// lowering resolves the motion instead of silently dropping it.
     #[test]
-    fn inline_motion_hazards_stay_legacy_only() {
+    fn inline_motion_hazards_lift_to_a_room_kinematic_path() {
+        use ambition_entity_catalog::placements::PlacementSchema;
         let project = synthetic_level(vec![entity_at(
             "DamageVolume",
             [96, 416],
             [64, 32],
             &[
+                ("id", Value::String("spikes".into())),
                 ("damage", Value::Number(2.into())),
                 ("path_points", Value::String("0,0; 100,0".into())),
             ],
         )]);
         let room_set = project.to_room_set().expect("composes");
         let room = &room_set.rooms[0];
-        assert_eq!(room.hazards.len(), 1);
-        assert!(
-            room.hazards[0].payload.motion.is_some(),
-            "fixture: the inline path parsed"
+        // Exactly one hazard placement, no typed hazard Vec (deleted).
+        assert_eq!(
+            room.placements.len(),
+            1,
+            "inline-motion hazard emits a record"
         );
+        let PlacementSchema::Hazard(spec) = &room.placements[0].schema else {
+            panic!("expected a hazard placement schema");
+        };
+        let path_id = spec
+            .path_id
+            .as_deref()
+            .expect("inline motion lifted to a path_id reference");
+        // The synthesized room-level KinematicPath exists and is what path_id
+        // points at, so `new_with_paths` will resolve the motion.
         assert!(
-            room.placements.is_empty(),
-            "an inline-motion hazard must not emit a record until dissolution \
-             lifts the path to a room-level KinematicPath"
+            room.kinematic_paths.iter().any(|p| p.id == path_id),
+            "the lifted room KinematicPath '{path_id}' is present in the room"
         );
     }
 

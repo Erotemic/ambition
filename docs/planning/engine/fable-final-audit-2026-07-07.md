@@ -630,16 +630,26 @@ non-portal build (`ldtk_map --no-default-features`) green. (The CC6
 `host_adapter.rs` tail operates on the runtime `PlacedPortal`/`RoomGeometry`, not
 `PortalSpec`/the lowering path — no conflict, confirmed by inspection.)
 
-The dual-emit GUARD in `spawn_room_feature_entities_with_registry` is the arc's
-FINAL step and is gated on the ONE remaining item:
-- **Hazards → placements-only.** Hazards already have `lower_hazard_placement`
-  and dual-emit, but their typed Vec cannot be deleted while a hazard may carry
-  an INLINE `motion: KinematicPath`: such hazards stay legacy-Vec-only. The lift
-  is behavior-preserving (verified: `HazardRuntime::new_with_paths` resolves a
-  `path_id` to a room `KinematicPath` and sets `volume.motion` — identical to the
-  inline case), so the converter can synthesize a room-level `KinematicPath` from
-  the inline motion, reference it by `path_id`, and emit a placement for EVERY
-  hazard; then the hazard Vec + the guard delete. (Being done next in-session.)
+✅ **ARC COMPLETE (Opus 2026-07-09): hazards placements-only + the dual-emit
+guard DELETED.** The final family landed: `convert_damage_volume` LIFTS a legacy
+inline `motion: KinematicPath` to a synthesized room-level `KinematicPath`
+(keyed `{iid}__inline_motion`) referenced by `path_id`, so EVERY hazard emits a
+normal placement record — behavior-preserving because
+`HazardRuntime::new_with_paths` resolves that `path_id` back to the room path and
+sets `volume.motion` (identical to the old inline case; the two F7 contract tests
+were rewritten to pin the lift). `RoomSpec.hazards` / `RoomEmission.hazards` /
+the `hazard` helper are deleted, render's hazard visual reads `spec.placements`,
+and the `lowered_hazard_ids` dedup + the `for hazard in &room.hazards` fallback
+loop — THE DUAL-EMIT GUARD — are GONE. `placements` is now the SOLE authored-
+entity channel; there are zero typed per-family Vecs on `RoomSpec` and zero
+typed spawn loops. Verified: `ambition_app --features rl_sim` exit 0 (loads the
+real `basement_hazards` et al. rooms), content portal suite 101, and the full
+targeted suites green.
+
+**The F9.2 record-over-schema arc is CLOSED** — the two-channel split-brain the
+F1.1 ruling flagged (dual-emit guard, F7 name-loss bug class, two spawn paths)
+is dissolved. Any future authored placement family adds ONE `PlacementSchema`
+variant + one lowering interpreter; there is no second channel to keep in sync.
 
 **The next-phase queue (in order):**
 1. **Demo content** — fill `ambition_demo_sanic` (movement identity showcase)
@@ -647,9 +657,10 @@ FINAL step and is gated on the ONE remaining item:
    profiles. This is the umbrella's real test and the first BUILD (not
    restructure) item; it will surface every remaining engine leak.
 2. **IR consolidation branch conversions** (the ruling above) — opus-sized,
-   one family each. **interactables + pickups + chests + breakables + portals: DONE (2026-07-09).**
-   Arc EXIT (delete the dual-emit guard) is gated only on hazards becoming
-   placements-only (the F7 inline-motion KinematicPath lift), being done next.
+   one family each. **DONE -- ARC CLOSED (2026-07-09).** All six families (hazards,
+   interactables, pickups, chests, breakables, portals) are placements-only and
+   the dual-emit guard is deleted; `placements` is the sole authored-entity
+   channel.
 3. **Projectile remaining steppers** — stay actor-side until their inputs are
    plain (the blockers are correctly enumerated in the follow-up checklist);
    do NOT force this seam.

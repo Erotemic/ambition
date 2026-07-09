@@ -308,8 +308,11 @@ fn render_room_projected(
     ) {
         overlay_aabb(&mut img, proj, br_aabb, Rgba([150, 190, 240, 255])); // light blue
     }
-    for hz in &room.hazards {
-        overlay_aabb(&mut img, proj, hz.aabb, Rgba([235, 80, 220, 255])); // magenta
+    for hz_aabb in placement_aabbs(
+        room,
+        ambition_entity_catalog::placements::PlacementKind::Hazard,
+    ) {
+        overlay_aabb(&mut img, proj, hz_aabb, Rgba([235, 80, 220, 255])); // magenta
     }
     for lz in &room.loading_zones {
         overlay_aabb(&mut img, proj, lz.aabb, Rgba([230, 230, 235, 255])); // white (door/exit)
@@ -416,7 +419,14 @@ fn run_anomaly_report(room_set: &sb::rooms::RoomSet) {
             .into_iter()
             .map(|a| ("breakable", a)),
         );
-        families.extend(room.hazards.iter().map(|h| ("hazard", h.aabb)));
+        families.extend(
+            placement_aabbs(
+                room,
+                ambition_entity_catalog::placements::PlacementKind::Hazard,
+            )
+            .into_iter()
+            .map(|a| ("hazard", a)),
+        );
         families.extend(room.loading_zones.iter().map(|z| ("loading_zone", z.aabb)));
         for (label, aabb) in families {
             let c = aabb.center();
@@ -640,7 +650,7 @@ fn main() {
         placement_aabbs(room, ambition_entity_catalog::placements::PlacementKind::Pickup).len(),
         placement_aabbs(room, ambition_entity_catalog::placements::PlacementKind::Chest).len(),
         placement_aabbs(room, ambition_entity_catalog::placements::PlacementKind::Breakable).len(),
-        room.hazards.len(),
+        placement_aabbs(room, ambition_entity_catalog::placements::PlacementKind::Hazard).len(),
         room.loading_zones.len(),
         room.moving_platforms.len(),
         room.kinematic_paths.len(),

@@ -177,7 +177,6 @@ fn min_app() -> App {
         portal_gun_spawns: Vec::new(),
         shrines: Vec::new(),
         gravity_zones: Vec::new(),
-        hazards: Vec::new(),
         enemy_spawns: Vec::new(),
         boss_spawns: Vec::new(),
         debug_labels: Vec::new(),

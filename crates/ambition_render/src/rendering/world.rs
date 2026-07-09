@@ -74,8 +74,20 @@ pub fn spawn_room_visuals(
     }
     // Per-family authored visuals. Each family carries an Authored<T>
     // payload; spawn_authored_visual builds the sprite + label.
-    for hazard in &spec.hazards {
-        spawn_authored_hazard(commands, world, hazard, assets);
+    // Hazards lower through the single `placements` channel (fable audit F9.2).
+    // The visual only needs the footprint + the constant hazard sprite, so a
+    // minimal `HazardVolumeSpec` reconstruction is sufficient here.
+    for record in &spec.placements {
+        if let ambition_entity_catalog::placements::PlacementSchema::Hazard(hazard) = &record.schema
+        {
+            let authored = ambition_world::rooms::Authored {
+                id: record.id.as_str().to_string(),
+                name: record.name.clone(),
+                aabb: record.aabb,
+                payload: ambition_world::rooms::HazardVolumeSpec::new(hazard.damage),
+            };
+            spawn_authored_hazard(commands, world, &authored, assets);
+        }
     }
     // Pickups lower through the single `placements` channel (fable audit F9.2).
     for record in &spec.placements {

@@ -59,29 +59,32 @@ pub(super) fn convert_damage_volume(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmiss
             let trimmed = value.trim();
             (!trimmed.is_empty()).then(|| trimmed.to_string())
         });
-    volume.motion = parse_optional_path(entity).map(|mut path| {
+    let inline_motion = parse_optional_path(entity).map(|mut path| {
         path.points = offset_points(path.points, offset);
         path
     });
-    // DUAL emission during the W-track migration: the world-owned plain hazard
-    // family (still what spawning consumes) + the authored placement RECORD
-    // (the [W-b] schema-over-record shape).
-    // A legacy INLINE-motion hazard cannot be represented by `HazardSpec`
-    // (`path_id` only — the pinned Tier-0 shape); emitting a record would make
-    // the lowering path win the dual-spawn guard and silently DROP the motion.
-    // Keep such hazards on the plain hazard channel until dissolution lifts the
-    // inline path into a room-level `KinematicPath` (see the HazardSpec doc note).
-    if volume.motion.is_some() {
-        return Ok(RoomEmission {
-            hazards: vec![ambition_world::rooms::Authored::new(
-                entity.iid.clone(),
-                name,
-                aabb,
-                volume,
-            )],
-            ..Default::default()
+    // Hazards flow through the single `placements` channel (fable audit F9.2 arc
+    // exit). The Tier-0 `HazardSpec` carries `path_id` only, so a legacy INLINE
+    // motion path is LIFTED here to a room-level `KinematicPath`: synthesize a
+    // path entry keyed by `{iid}__inline_motion`, reference it via `path_id`, and
+    // emit a normal hazard placement. This is behavior-preserving —
+    // `HazardRuntime::new_with_paths` resolves `path_id` to that room path and
+    // sets `volume.motion`, identical to the old inline case. (No live map
+    // authored inline-motion hazards — F7 audited all four .ldtk files — so this
+    // is the F7 dissolution completing, not a live behavior change.)
+    let mut kinematic_paths = Vec::new();
+    let path_id = if let Some(motion) = inline_motion {
+        let synth_id = format!("{}__inline_motion", entity.iid);
+        kinematic_paths.push(KinematicPathSpec {
+            id: synth_id.clone(),
+            name: synth_id.clone(),
+            aabb,
+            path: motion,
         });
-    }
+        Some(synth_id)
+    } else {
+        volume.path_id.clone()
+    };
     let mut record = ambition_world::placements::PlacementRecord::new(
         entity.iid.clone(),
         PlacementSchema::Hazard(HazardSpec {
@@ -91,19 +94,14 @@ pub(super) fn convert_damage_volume(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmiss
             team: volume.team,
             hitstop_seconds: volume.hitstop_seconds,
             respawn: volume.respawn,
-            path_id: volume.path_id.clone(),
+            path_id,
         }),
         aabb,
     );
     record.name = name.clone();
     Ok(RoomEmission {
-        hazards: vec![ambition_world::rooms::Authored::new(
-            entity.iid.clone(),
-            name,
-            aabb,
-            volume,
-        )],
         placements: vec![record],
+        kinematic_paths,
         ..Default::default()
     })
 }

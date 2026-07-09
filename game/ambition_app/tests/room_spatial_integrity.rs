@@ -37,7 +37,7 @@ fn entity_aabbs(room: &sb::rooms::RoomSpec) -> Vec<(&'static str, ae::Aabb)> {
     v.extend(placement_aabbs(room, "pickup", PlacementKind::Pickup));
     v.extend(placement_aabbs(room, "chest", PlacementKind::Chest));
     v.extend(placement_aabbs(room, "breakable", PlacementKind::Breakable));
-    v.extend(room.hazards.iter().map(|h| ("hazard", h.aabb)));
+    v.extend(placement_aabbs(room, "hazard", PlacementKind::Hazard));
     v.extend(room.loading_zones.iter().map(|z| ("loading_zone", z.aabb)));
     v
 }

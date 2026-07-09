@@ -614,6 +614,33 @@ Tier-0 catalog, so it needs a plain-pair (`[f32;2]`) mirror rather than a move.
 That is the one family where the split-brain END STATE (Vec deletion) requires
 new mirror types instead of a move — assess separately.
 
+**F9.2 ARC STATUS after the 2026-07-09 Opus session (4 families landed):** the
+four Vec2-free families (interactables, pickups, chests, breakables) are now
+placements-ONLY — their `RoomSpec` Vecs, `RoomEmission` fields, and emitter
+helpers are deleted, both the sim spawn path and the render authored-visual path
+read `spec.placements`, and each has a registered `lower_*_placement`
+interpreter. The dual-emit GUARD in `spawn_room_feature_entities_with_registry`
+is NOT yet deletable — it is hazard-specific and its removal is gated on the
+TWO remaining hard-tail items:
+1. **Portals → placements.** Needs a Tier-0 `PortalSchema` MIRROR (not a move):
+   move `PortalChannelColorSpec` down (already a pure enum), and represent
+   `pos`/`normal` as `[f32;2]` (or derive `pos` from the record `aabb.center()`
+   and store only `normal: [f32;2]`). Register a `#[cfg(feature = "portal")]`
+   `lower_portal_placement`; convert the `Portal` LDtk converter + the render
+   portal visual to placements; delete `RoomSpec.portals`. VERIFY with
+   `--features portal` (the default gate skips it). CAUTION: there is
+   uncommitted CC6 moving-portal work in the tree (`host_adapter.rs`) — land
+   that first or coordinate so the portal spawn/lowering path is not churned
+   underneath it.
+2. **Hazards → placements-only.** Hazards already have `lower_hazard_placement`
+   and dual-emit, but their typed Vec cannot be deleted while a hazard may carry
+   an INLINE `motion: KinematicPath` (F7): such hazards stay legacy-Vec-only.
+   Deleting the hazard Vec + the guard requires first lifting inline hazard
+   motion to a room-level `KinematicPath` (the F7 dissolution note), then the
+   converter can emit a placement for every hazard.
+Only after BOTH land does the guard delete and `placements` become the sole
+channel (the arc's exit). Everything else in the six-family list is done.
+
 **The next-phase queue (in order):**
 1. **Demo content** — fill `ambition_demo_sanic` (movement identity showcase)
    and `ambition_demo_smb1` (level 1-1 style slice) with real rooms +

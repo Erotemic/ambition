@@ -459,6 +459,10 @@ fn resolve_movement_inheritance(
             )
         })
         .collect();
+    // AMBITION_REVIEW(determinism): hash-order iteration is safe here. Each step
+    // writes only its OWN key's `movement_resolved` from an already-resolved
+    // lookup, so the pass is commutative — the map's contents after it are
+    // identical for every visit order, and nothing observes the order itself.
     for (k, spec) in specs.iter_mut() {
         if let Some(tuning) = resolved.get(k) {
             spec.movement_resolved = *tuning;

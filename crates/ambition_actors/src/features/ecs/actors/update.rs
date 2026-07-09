@@ -1130,10 +1130,12 @@ pub(crate) fn compute_holding_positions(
     requests: &[(String, ae::Vec2, crate::combat::slots::SlotKind)],
     player_pos: ae::Vec2,
 ) -> std::collections::HashMap<String, ae::Vec2> {
-    let mut unassigned_by_kind: std::collections::HashMap<
+    // BTreeMap, not HashMap: the outer loop below assigns round-robin slot ranks,
+    // so its iteration order is part of the output (N0.3 — no hash order in sim).
+    let mut unassigned_by_kind: std::collections::BTreeMap<
         crate::combat::slots::SlotKind,
         Vec<&str>,
-    > = std::collections::HashMap::new();
+    > = std::collections::BTreeMap::new();
     for (id, _pos, kind) in requests {
         if board.slot_for(id).is_none() {
             unassigned_by_kind

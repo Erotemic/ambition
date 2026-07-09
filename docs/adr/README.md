@@ -34,3 +34,4 @@ Use an ADR when a decision:
 - [0020: Mounts and vehicles — two linked actors, control-deferral, independent hurtboxes](0020-mounts-and-vehicles.md)
 - 0021: reserved (authoring-backend-agnostic space — lands with the W4 world-carve slice)
 - [0022: Respawn policy — dead stays dead by default; respawning is authored](0022-respawn-policy.md)
+- [0023: Same-build determinism is a contract, enforced by lints](0023-same-build-determinism.md)

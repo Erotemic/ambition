@@ -29,7 +29,10 @@
 use ambition_engine_core::Vec2;
 
 /// What family of slot this is.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+///
+/// `Ord` so callers can key a `BTreeMap` on it and iterate deterministically
+/// (N0.3: no hash order in the sim).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SlotKind {
     /// On-the-ground attack slot — melee ring around the target.
     Melee,

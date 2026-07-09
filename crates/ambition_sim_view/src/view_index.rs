@@ -45,6 +45,11 @@ impl FeatureViewIndex {
     /// thing per feature" (debug health bars, nameplates) walk the read-model
     /// instead of declaring sim-component queries.
     pub fn iter(&self) -> impl Iterator<Item = (&str, &FeatureView)> {
+        // AMBITION_REVIEW(determinism): hash-order iteration is safe here.
+        // `SimView` is DERIVED state — rebuilt from the sim every tick, structurally
+        // excluded from `SimSnapshot` and from the N0.4 state hash (netcode.md
+        // §Excluded). Every consumer of this iterator is presentation. No sim state
+        // reads it, so its order can never enter a trajectory.
         self.views.iter().map(|(id, (view, _))| (id.as_str(), view))
     }
 
@@ -513,6 +518,11 @@ impl BossRenderIndex {
     /// Iterate every `(id, view)` boss identity row — the "which ids are
     /// bosses" oracle presentation passes join against `FeatureViewIndex`.
     pub fn iter(&self) -> impl Iterator<Item = (&str, &BossRenderView)> {
+        // AMBITION_REVIEW(determinism): hash-order iteration is safe here.
+        // `SimView` is DERIVED state — rebuilt from the sim every tick, structurally
+        // excluded from `SimSnapshot` and from the N0.4 state hash (netcode.md
+        // §Excluded). Every consumer of this iterator is presentation. No sim state
+        // reads it, so its order can never enter a trajectory.
         self.views.iter().map(|(id, (view, _))| (id.as_str(), view))
     }
 
@@ -607,6 +617,11 @@ impl NameplateIndex {
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (&str, &NameplateFact)> {
+        // AMBITION_REVIEW(determinism): hash-order iteration is safe here.
+        // `SimView` is DERIVED state — rebuilt from the sim every tick, structurally
+        // excluded from `SimSnapshot` and from the N0.4 state hash (netcode.md
+        // §Excluded). Every consumer of this iterator is presentation. No sim state
+        // reads it, so its order can never enter a trajectory.
         self.rows.iter().map(|(id, (fact, _))| (id.as_str(), fact))
     }
 
@@ -748,8 +763,8 @@ mod view_index_tests {
             kind: FeatureVisualKind::Switch,
             visible,
             flash: false,
-                breakable_state: None,
-                chest_opened: false,
+            breakable_state: None,
+            chest_opened: false,
             fighting: false,
             switch_on: false,
             rotation_rad: 0.0,

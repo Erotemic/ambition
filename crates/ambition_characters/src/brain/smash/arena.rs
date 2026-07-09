@@ -156,7 +156,10 @@ impl Stage {
 }
 
 /// One verb a brain emitted on a tick — the alphabet the variety metric counts.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+///
+/// `Ord` so the variety metric's counts live in a `BTreeMap` and its ranking
+/// breaks ties on the verb itself rather than on hash order (N0.3).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum Verb {
     WalkLeft,
     WalkRight,
@@ -648,7 +651,8 @@ pub fn analyze_fighter(stage: &Stage, name: &'static str, samples: &[Sample]) ->
     let mut y_min = f32::MAX;
     let mut y_max = f32::MIN;
     let mut path_len = 0.0_f32;
-    let mut verb_counts: std::collections::HashMap<Verb, usize> = std::collections::HashMap::new();
+    let mut verb_counts: std::collections::BTreeMap<Verb, usize> =
+        std::collections::BTreeMap::new();
     let mut prev_x: Option<f32> = None;
 
     for s in samples {
@@ -693,7 +697,8 @@ pub fn analyze_fighter(stage: &Stage, name: &'static str, samples: &[Sample]) ->
 
     let x_bins_visited = visited.iter().filter(|v| **v).count();
     let mut verbs: Vec<(Verb, usize)> = verb_counts.into_iter().collect();
-    verbs.sort_by_key(|(_, c)| std::cmp::Reverse(*c));
+    // Total order: ties on count break on the verb, never on iteration order.
+    verbs.sort_by_key(|(v, c)| (std::cmp::Reverse(*c), *v));
     // "Distinct verbs" counts only meaningfully-used verbs (>= a few ticks), so a
     // single stray frame doesn't inflate variety.
     let distinct_verbs = verbs

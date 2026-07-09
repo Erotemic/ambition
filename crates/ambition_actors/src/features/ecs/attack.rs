@@ -27,8 +27,8 @@ use crate::combat::{
     attack_hitbox_from_view, attack_spec_from_view, resolve_attack_intent_from_view, AttackIntent,
     AttackPhase, AttackView,
 };
-use ambition_dev_tools::dev_tools::EditableMovementTuning;
 use crate::world::overlay::FeatureEcsWorldOverlay;
+use ambition_dev_tools::dev_tools::EditableMovementTuning;
 
 /// Baseline seconds between enemy contact attacks (scaled per-actor by
 /// `attack_cooldown_mult`). Combat-owned pacing tuning (E2).
@@ -551,11 +551,22 @@ pub fn start_body_melee(
         Has<MovesetMelee>,
     )>,
 ) {
-    // The resolver can emit the same body once per frame; collect the requesters.
-    let melee_actors: std::collections::HashSet<Entity> = brain_actions
+    // The resolver can emit the same body once per frame; collect the requesters
+    // ONCE EACH, in message order.
+    //
+    // DETERMINISM (N0.3): this loop spawns strike entities and writes sfx / vfx /
+    // hit messages, so the order it visits bodies in is observable — in entity
+    // ids, in message order, and therefore in every replay and state hash. It used
+    // to iterate a `std::collections::HashSet<Entity>`, whose order is seeded per
+    // PROCESS: two runs of the same binary on the same inputs could swing two
+    // bodies in opposite orders. Message arrival order is deterministic; the set
+    // is now a membership filter and is never iterated.
+    let mut requested = std::collections::HashSet::new();
+    let melee_actors: Vec<Entity> = brain_actions
         .read()
         .filter(|m| m.is_melee())
         .map(|m| m.actor)
+        .filter(|actor| requested.insert(*actor))
         .collect();
     for actor in melee_actors {
         let Ok((mut cq, mut melee, combat, control, held, config, mut anim, moveset_melee)) =

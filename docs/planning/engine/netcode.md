@@ -194,9 +194,23 @@ Obligations (each a slice, all [opus]):
 - **N0.2 Input-stream capture as a first-class type.** `SlotControls`
   per-tick, serializable, versioned — the SAME artifact serves replay
   fixtures, RL trajectories, desync forensics, and the wire format later.
-- **N0.3 Determinism lint set.** Codify the known rules (stable iteration
-  order — sort by stable id, never `Entity`; no `HashMap` iteration in sim;
-  no wall-clock reads in sim) as clippy-style greps in CI + a doc page.
+- **N0.3 Determinism lint set — ✅ LANDED (opus, 2026-07-09).** The four rules
+  (no ambient randomness; no wall-clock reads; no std-hash-order semantics; no
+  `Entity` as an ordering key) are greps over every non-test source in the sim
+  crates, in `crates/ambition_runtime/tests/determinism_lints.rs`, with an
+  auditable `AMBITION_REVIEW(determinism)` escape hatch. The doc page is
+  **ADR 0023**. Each lint is poison-tested (a violation injected into a real sim
+  source makes it fail), so none of them passes vacuously.
+
+  It did not merely codify accidentally-true properties — it found a REAL
+  violation: `features::ecs::attack::start_body_melee` iterated a
+  `std::collections::HashSet<Entity>` and, inside that loop, spawned strike
+  entities and wrote sfx/vfx/hit messages. `RandomState` is seeded per PROCESS,
+  so two runs of the same binary on the same inputs could swing two bodies in
+  opposite orders — a level-2 violation on the hottest combat path. Fixed by
+  deduping in message order. Two commutative-but-hash-ordered sites became
+  `BTreeMap`s (`compute_holding_positions`, the smash variety metric), and four
+  genuinely-unobservable ones carry the marker.
 - **N0.4 Desync canary rig.** Two sims, same input stream, state-hash per
   tick (hash = the snapshot serialization of N3.1 — build them together),
   first-divergence report. This is the tool that keeps N0 true forever.

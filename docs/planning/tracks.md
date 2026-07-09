@@ -73,11 +73,12 @@ player-visible bugs, and the untouched determinism ladder.
    remainders (presentation interpolation, `wall_dt` semantics, one-frame
    device latency). N0.2 and N0.4 are unblocked.
 
-4. **N0.3 — the determinism lint set.** [opus, cheap] Four of its properties
-   are ALREADY true (measured 2026-07-09: no `rand` dep in any sim crate, no
-   `HashMap` iteration in `ambition_actors`, no wall-clock reads in the sim
-   path, F4.4's sorted `PlayerSlot` fallbacks). This slice converts
-   accidentally-true into stays-true.
+4. ~~**N0.3 — the determinism lint set.**~~ **✅ DONE (opus, 2026-07-09).** Four
+   greps over the sim crates + **ADR 0023** + an auditable
+   `AMBITION_REVIEW(determinism)` escape hatch; every lint poison-tested.
+   **The "already true" measurement was wrong**: `start_body_melee` iterated a
+   `std::collections::HashSet<Entity>` and spawned strikes + wrote messages from
+   that loop — per-process hash order on the hottest combat path. Fixed.
 
 5. **The dialog speaker-context slice.** [opus] Player-facing, design pinned
    in the bug queue below.
@@ -111,7 +112,7 @@ CC4 (profile first); CC7 P3a.
 | Decomposition D-C | same | **NOT STARTED** — the mode-scope seam (`RoomMetadata.mode` + `in_mode("sanic")` run-condition). Demos want it; it can land early | the room-scoped run-condition helper [opus] |
 | Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | CC1 + CC2 + CC5 + CC6 (moving portals) LANDED | **CC3** — the enumerated delta from the 3-check diagnostic to the six-invariant oracle (§6.1); diagnostic-only, Jon defers hard gating [opus]. Then CC4 (profile first; NOT a CC1–CC3 precondition), CC7 P3a angled math |
 | Combat stack | [engine/combat-model.md](engine/combat-model.md) | CM1–CM5 + CM7 LANDED — smash axes complete (growth, DI, charge, cancel tables, launch angles, per-move presentation) | CM6 grab/throw/shield-stun (brings OnBlock) [opus, with SSB — a P4 slice, not a P2 exit] |
-| Netcode ladder | [engine/netcode.md](engine/netcode.md) | **N0.1 LANDED** (2026-07-09): `SimSchedule` seam, `fixed_tick` knob, `SimTick` timeline, `ControlFrameLatch`; exit check green both ways | N0.3 lint set → N0.2 input-stream type → N0.4 desync canary; then N1.1–N1.3. (Presentation interpolation rides the first fixed-tick *windowed* app) |
+| Netcode ladder | [engine/netcode.md](engine/netcode.md) | **N0.1 + N0.3 LANDED** (2026-07-09): `SimSchedule` seam, `fixed_tick` knob, `SimTick` timeline, `ControlFrameLatch`, exit check green both ways; determinism lints + ADR 0023 | N0.2 input-stream type → N0.4 desync canary; then N1.1–N1.3. (Presentation interpolation rides the first fixed-tick *windowed* app) |
 | Fighter brain | [engine/fighter-brain.md](engine/fighter-brain.md) | NEW (CM7 fed it) | FB1 view audit [opus] |
 | Boss pipeline | [engine/boss-design.md](engine/boss-design.md) | NEW | BD4 seed extraction [opus/sonnet]; BD1 after |
 | Falling sand | [engine/falling-sand.md](engine/falling-sand.md) | NEW; low priority | FS1 single-owner + conservation [opus] |

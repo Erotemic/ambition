@@ -11,6 +11,7 @@
 //! camera transform/projection. Render never mutates sim camera state.
 
 use ambition_engine_core as ae;
+#[cfg(feature = "portal_render")]
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
@@ -126,6 +127,7 @@ pub fn camera_follow(
     // read-only here.
     #[cfg_attr(not(feature = "portal_render"), allow(unused_mut))]
     let mut snapshot = resolved.snapshot.clone();
+    #[cfg(feature = "portal_render")]
     let follow_world = resolved.follow_world;
 
     #[cfg(not(feature = "portal_render"))]

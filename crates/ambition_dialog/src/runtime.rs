@@ -122,6 +122,10 @@ pub struct DialogState {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+// The shout/whisper variants are constructed by the Yarn bridge when the
+// `ui` feature is enabled. Default headless/dialog-model builds still match
+// on them from the SFX selector, but do not construct them.
+#[cfg_attr(not(feature = "ui"), allow(dead_code))]
 pub(crate) enum DialogSpeechStyle {
     #[default]
     Normal,
@@ -130,6 +134,7 @@ pub(crate) enum DialogSpeechStyle {
 }
 
 impl DialogSpeechStyle {
+    #[cfg_attr(not(feature = "ui"), allow(dead_code))]
     pub(crate) fn from_markup(shout: bool, whisper: bool) -> Self {
         if shout {
             Self::Shout
@@ -262,6 +267,9 @@ impl DialogState {
         }
     }
 
+    // Called by the Yarn bridge when the `ui` feature is enabled; default
+    // headless/dialog-model builds start from already-populated state in tests.
+    #[cfg_attr(not(feature = "ui"), allow(dead_code))]
     pub(crate) fn start_revealing_line(&mut self, text: String) {
         self.current_line = text;
         self.line_reveal = LineRevealState::from_line(&self.current_line);
@@ -283,6 +291,7 @@ impl DialogState {
         }
     }
 
+    #[cfg_attr(not(feature = "ui"), allow(dead_code))]
     pub(crate) fn set_speech_style(&mut self, style: DialogSpeechStyle) {
         self.speech_style = style;
     }
@@ -303,6 +312,7 @@ impl DialogState {
         self.line_reveal.visible_line(&self.current_line)
     }
 
+    #[cfg_attr(not(feature = "ui"), allow(dead_code))]
     pub(crate) fn set_line_last_before_options(&mut self, is_last: bool) {
         self.line_last_before_options = is_last;
     }
@@ -386,6 +396,7 @@ impl DialogState {
 }
 
 impl LineRevealState {
+    #[cfg_attr(not(feature = "ui"), allow(dead_code))]
     fn from_line(line: &str) -> Self {
         // Precompute safe byte ends for each revealed character.
         // Unicode grapheme segmentation would be better long-term,

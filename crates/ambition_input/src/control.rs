@@ -10,6 +10,7 @@ use bevy::prelude::Resource;
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::ActionState;
 
+#[cfg(feature = "input")]
 use ambition_engine_core::ControlFrame;
 
 #[cfg(feature = "input")]

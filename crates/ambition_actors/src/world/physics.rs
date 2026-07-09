@@ -57,6 +57,7 @@ pub struct PhysicsDebris {
 // `PhysicsDebrisCue` / `DebrisBurstMessage` moved to `ambition_vfx::vfx`
 // (E2): they are effect vocabulary a sim system EMITS — same family as
 // `VfxMessage`. The Avian subscriber below stays here (the adapter half).
+#[cfg(any(test, feature = "physics_debris"))]
 use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
 
 /// Presentation-side subscriber. Reads `DebrisBurstMessage`s and spawns

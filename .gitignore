@@ -133,3 +133,4 @@ crates/ambition_actors/assets/backgrounds/parallax_layers_potato/
 .tmp-ambition-agent-source-*/
 
 coverage-reports/
+untracked

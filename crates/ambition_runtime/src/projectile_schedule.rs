@@ -1,0 +1,14 @@
+//! Projectile schedule seams owned by the runtime composition tier.
+//!
+//! The projectile MODEL lives in `ambition_projectiles`. The victim-routing and
+//! charge-input steppers still live in the actor sim heart because they touch
+//! un-carved actor/player/boss/world state. Callers outside `ambition_runtime`
+//! should schedule against these runtime names rather than reaching through
+//! `ambition_actors::{projectile, enemy_projectile}`; this keeps the F2 residual
+//! glue enumerable while the remaining actor-side projectile steppers are split.
+
+pub use ambition_actors::enemy_projectile::apply_projectile_effects as apply_enemy_projectile_effects;
+pub use ambition_actors::projectile::{
+    charge_projectile_input, step_projectiles, ProjectileCollisionWorld,
+};
+pub use ambition_projectiles::apply_player_spawn_projectile_messages;

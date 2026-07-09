@@ -848,11 +848,11 @@ questions answered IN the docs:
 - **`WorldDelta` ops name authored `GeoId`s** (`RemoveBlock(GeoId)`;
   `AddBlock` mints `GeoSource::Delta{op_index}`) — decomposition W-c +
   architecture §5 updated.
-- **`SweepSample` status pinned:** NOT in code (spec-only; nearest
-  machinery = `PortalSweepAnchor` + the CC2 `vel·dt` tolerance);
-  CC2-completion mints it. Its fields are CLOSED (prev/curr/vel/half)
-  with an explicit does-NOT-carry list (no kernel tag, no chart/portal
-  context, no contact context) + the two-consumer growth rule.
+- **`SweepSample` status pinned:** IN CODE. Its fields are CLOSED
+  (prev/curr/vel/half) with an explicit does-NOT-carry list (no kernel tag,
+  no chart/portal context, no contact context) + the two-consumer growth rule.
+  The old portal-local anchor has been retired; portal CCD consumes the shared
+  sample when its live endpoint still matches the body.
 - **CC3 status pinned:** the 3-check diagnostic
   (`collision_invariant_oracle.rs`) EXISTS; the CC3 slice is the
   enumerated DELTA to the six-invariant oracle (carve-aware embed,
@@ -1771,3 +1771,5 @@ ambition_app --test architecture_boundaries`; `cargo check -p ambition_app
 - 2026-07-09 — F4.3 clock-reset seam: added `ClockResetRequest` to the time-control authority path, registered and scheduled its owner handler, and repointed respawn/transition/sandbox-reset call sites to emit reset intent instead of writing `ClockState.time_scale = 1.0` directly. The handler snaps both live `ClockState` and `RequestedClockScale` to neutral so reset behavior stays immediate while the authority boundary stays centralized.
 
 - 2026-07-09 — F4.4 deterministic player fallback: save-load hostile-grudge restoration and actor slot-board anchoring now fall back by lowest `PlayerSlot` instead of raw Bevy query iteration order. Both sites are tagged `AMBITION_REVIEW(determinism)`, and the architecture boundary ratchets the player-fallback pattern so future RL/multiplayer work has a stable ordering seam.
+
+- 2026-07-09 — F3.2 swept mover closeout: runtime actor/boss ECS queries now require the shared `SweepSample` component, so `integrate_boss_bodies` flows through the canonical §3.1 motion record instead of an optional fallback. Portal transit retired its `PortalSweepAnchor` component and feeds CCD from the same kernel-written sample, guarded by a live-endpoint check so teleports outside the sim step are not interpreted as swept portal crossings.

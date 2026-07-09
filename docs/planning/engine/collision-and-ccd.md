@@ -140,9 +140,11 @@ rule-1 fallback.
   saw no path → a fast momentum body tunneled spikes. It now writes its own
   segment around the step (rule 2, mirroring the surface-walker branch + the
   home momentum path).
-- **Remaining: the portal transit trigger** (still on `PortalSweepAnchor`; CC6
-  consumes the sample for the relative sweep and retires the anchor), and any
-  future mover (write your own segment — rule 2).
+- **Portal transit trigger adopted the sample** (Codex 2026-07-09). The
+  portal-local `PortalSweepAnchor` is gone; `portal_transit` feeds its swept CCD
+  tier from the canonical `SweepSample`, guarded by a live-endpoint check so a
+  post-sim teleport cannot become fake aperture travel. Future movers still
+  follow rule 2: write your own segment around any non-kernel motion.
 
 **What the sample deliberately does NOT carry (asked and answered):**
 - *No kernel tag / body proxy beyond `half`.* Readers are kernel-agnostic

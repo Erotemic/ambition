@@ -390,12 +390,12 @@ fn transfer_step(
     }
 }
 
-/// The body's PREVIOUS authoritative sample for the swept (CCD) transit tier:
-/// where it was last frame and how fast it was moving then. The caller (the
-/// transit system's `PortalSweepAnchor`) records the TRUE last-frame position —
-/// not `pos - vel * dt` — because the very failure the sweep exists to fix
-/// (a high-speed fall stopped/grounded at the carve bottom) zeroes the body's
-/// live velocity, which would erase a reconstructed segment.
+/// The body's authoritative movement-kernel sample for the swept (CCD) transit
+/// tier: where the sim step started and how fast the body was moving then. The
+/// caller feeds this from the shared `SweepSample`, never from `pos - vel * dt`,
+/// because the very failure the sweep exists to fix (a high-speed fall
+/// stopped/grounded at the carve bottom) zeroes the body's live velocity, which
+/// would erase a reconstructed segment.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct SweptSample {
     /// Authoritative body center at the previous transit step.

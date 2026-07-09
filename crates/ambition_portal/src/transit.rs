@@ -174,18 +174,24 @@ pub fn publish_portal_carves(
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct PortalBody;
 
-/// The body's previous authoritative transit sample — the anchor for the SWEPT
-/// (CCD) transit tier (§7.6). [`portal_transit`] maintains it: reads it as the
-/// [`SweptSample`] fed to `transit_step`, then overwrites it with this frame's
-/// post-step position + velocity (post-transfer, so a teleport never reads as a
-/// swept segment next frame). Inserted lazily on a body's first transit step —
-/// its first frame simply has no sweep, which is the correct degenerate case.
-#[derive(Component, Clone, Copy, Debug)]
-pub struct PortalSweepAnchor {
-    /// Body center at the end of the previous `portal_transit` run.
-    pub pos: Vec2,
-    /// Body velocity at the end of the previous `portal_transit` run.
-    pub vel: Vec2,
+/// Convert the canonical movement-kernel sample into the portal crate's swept
+/// transit input. The sample is only valid for portal CCD when its recorded
+/// post-sim endpoint still matches the body's live position at this system: if
+/// some earlier post-sim system teleported the body, the movement record remains
+/// correct, but it is no longer the segment ending at `kin.pos` and must not be
+/// interpreted as travel through an aperture.
+fn portal_sweep_sample(
+    kin: &BodyKinematics,
+    sweep: Option<&ae::SweepSample>,
+) -> Option<SweptSample> {
+    let sweep = sweep?;
+    if (sweep.curr - kin.pos).length_squared() > 1.0 {
+        return None;
+    }
+    Some(SweptSample {
+        pos: sweep.prev,
+        vel: sweep.vel,
+    })
 }
 
 /// HOW a body participates in transit — behavioral, never identity. The core
@@ -259,7 +265,7 @@ pub fn portal_transit(
             Option<&mut PortalTransit>,
             Option<&mut ActorRoll>,
             Option<&PortalTransitCooldown>,
-            Option<&mut PortalSweepAnchor>,
+            Option<&ae::SweepSample>,
         ),
         With<PortalBody>,
     >,
@@ -276,21 +282,19 @@ pub fn portal_transit(
     let gravity_dir =
         ambition_platformer_primitives::gravity::gravity_dir_or_default(gravity.as_deref());
 
-    for (entity, mut kin, policy, mut transit, mut roll, cooldown, mut anchor) in &mut bodies {
+    for (entity, mut kin, policy, mut transit, mut roll, cooldown, sweep) in &mut bodies {
         // The transit cooldown is a BODY latch (`PortalTransitCooldown`),
         // ticked by `tick_portal_cooldowns` and scoped to the PAIR the body
         // just crossed; gun-independent so nothing can ping-pong back through
         // an authored pair, while a different pair stays enterable.
         let cooldown_pair = cooldown.map(|c| c.pair);
         let default_depths = PortalHostDepths::default();
-        // The swept (CCD) tier's segment start: the body's TRUE position last
-        // run (not `pos - vel * dt` — a body the integrator already stopped at
-        // the carve bottom has zeroed velocity, which is the very case the
-        // sweep exists to catch).
-        let sweep = anchor.as_deref().map(|a| SweptSample {
-            pos: a.pos,
-            vel: a.vel,
-        });
+        // The swept (CCD) tier's segment start comes from the movement kernel's
+        // §3.1 `SweepSample`: the TRUE sim-phase entry point and the velocity
+        // that produced it. No portal-local anchor is maintained here; teleports
+        // outside the sim phase never become swept travel because the sample is
+        // used only when its `curr` still equals this body's live `kin.pos`.
+        let sweep = portal_sweep_sample(&*kin, sweep);
         let step = transit_step_with_tuning(
             kin.pos,
             kin.size,
@@ -375,21 +379,6 @@ pub fn portal_transit(
             }
             TransitStep::Clear => {
                 commands.entity(entity).remove::<PortalTransit>();
-            }
-        }
-        // Refresh the sweep anchor with this frame's POST-step sample: after a
-        // Transfer the recorded pos is the exit-side one, so the teleport can
-        // never read as a swept segment next frame.
-        match anchor.as_deref_mut() {
-            Some(a) => {
-                a.pos = kin.pos;
-                a.vel = kin.vel;
-            }
-            None => {
-                commands.entity(entity).insert(PortalSweepAnchor {
-                    pos: kin.pos,
-                    vel: kin.vel,
-                });
             }
         }
     }
@@ -501,5 +490,48 @@ pub fn tick_portal_cooldowns(
         if cooldown.remaining <= 0.0 {
             commands.entity(entity).remove::<PortalTransitCooldown>();
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn portal_sweep_sample_uses_kernel_segment_when_live_endpoint_matches() {
+        let kin = BodyKinematics {
+            pos: Vec2::new(10.0, 20.0),
+            vel: Vec2::new(0.0, 30.0),
+            size: Vec2::new(24.0, 40.0),
+            facing: 1.0,
+        };
+        let sweep = ae::SweepSample {
+            prev: Vec2::new(10.0, 12.0),
+            curr: kin.pos,
+            vel: Vec2::new(0.0, 240.0),
+            half: kin.size * 0.5,
+        };
+
+        let sample = portal_sweep_sample(&kin, Some(&sweep)).expect("matching sample is valid");
+        assert_eq!(sample.pos, sweep.prev);
+        assert_eq!(sample.vel, sweep.vel);
+    }
+
+    #[test]
+    fn portal_sweep_sample_rejects_post_sim_teleport_gap() {
+        let kin = BodyKinematics {
+            pos: Vec2::new(1000.0, 1000.0),
+            vel: Vec2::ZERO,
+            size: Vec2::new(24.0, 40.0),
+            facing: 1.0,
+        };
+        let sweep = ae::SweepSample {
+            prev: Vec2::new(10.0, 12.0),
+            curr: Vec2::new(10.0, 20.0),
+            vel: Vec2::new(0.0, 240.0),
+            half: Vec2::new(12.0, 20.0),
+        };
+
+        assert_eq!(portal_sweep_sample(&kin, Some(&sweep)), None);
     }
 }

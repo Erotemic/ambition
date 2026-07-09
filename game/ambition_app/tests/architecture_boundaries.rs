@@ -2371,6 +2371,45 @@ fn architecture_boundaries_time_crate_is_extracted() {
 }
 
 #[test]
+fn architecture_boundaries_f3_2_swept_movers_use_kernel_sweep_sample() {
+    let actor_clusters = fs::read_to_string(
+        repo_root().join("crates/ambition_actors/src/features/ecs/actor_clusters.rs"),
+    )
+    .expect("read actor_clusters.rs");
+    assert!(
+        actor_clusters.contains("pub sweep: &'static mut ae::SweepSample"),
+        "F3.2: ECS ActorClusterQueryData must require the shared SweepSample component; \
+         boss integration uses this query data, so an optional sweep would silently \
+         leave boss bodies on the old fallback path"
+    );
+    assert!(
+        !actor_clusters.contains("pub sweep: Option<&'static mut ae::SweepSample>"),
+        "F3.2: runtime actor/boss queries should not make SweepSample optional"
+    );
+
+    let portal_transit = fs::read_to_string(
+        repo_root().join("crates/ambition_portal/src/transit.rs"),
+    )
+    .expect("read portal transit.rs");
+    assert!(
+        portal_transit.contains("Option<&ae::SweepSample>")
+            && portal_transit.contains("portal_sweep_sample"),
+        "F3.2: portal transit CCD should consume the canonical movement-kernel SweepSample"
+    );
+    assert!(
+        !portal_transit.contains("PortalSweepAnchor"),
+        "F3.2: portal-local sweep anchors were retired by the shared SweepSample path"
+    );
+
+    let portal_lib = fs::read_to_string(repo_root().join("crates/ambition_portal/src/lib.rs"))
+        .expect("read portal lib.rs");
+    assert!(
+        !portal_lib.contains("PortalSweepAnchor"),
+        "F3.2: PortalSweepAnchor should not remain part of the portal public surface"
+    );
+}
+
+#[test]
 fn architecture_boundaries_clock_resets_use_time_control_owner() {
     let roots = [crate_src(), app_src()];
     let violations = scan_code_refs(&roots, &["time_scale = 1.0", "time_scale=1.0"], |file, _| {

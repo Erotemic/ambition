@@ -182,9 +182,10 @@ impl ActorBody {
 /// the player's own query item does.
 pub struct ActorMut<'a> {
     pub kin: &'a mut BodyKinematics,
-    /// §3.1 motion record (optional — see `ae::SweepSample`); the shared
-    /// pipeline writes it via `clusters_mut()`, the surface-walker branch
-    /// writes it directly around its own step.
+    /// §3.1 motion record (optional only for owned scratch tests — ECS-spawned
+    /// bodies carry the real component); the shared pipeline writes it via
+    /// `clusters_mut()`, the surface-walker branch writes it directly around
+    /// its own step.
     pub sweep: Option<&'a mut ae::SweepSample>,
     pub status: &'a mut ActorStatus,
     /// The body's shared health (the one `BodyHealth` component every actor
@@ -253,7 +254,10 @@ impl<'a> ActorMut<'a> {
 #[query_data(mutable)]
 pub struct ActorClusterQueryData {
     pub kin: &'static mut BodyKinematics,
-    pub sweep: Option<&'static mut ae::SweepSample>,
+    /// §3.1 motion record. Runtime actor/boss entities are spawned with the
+    /// shared [`crate::actor::AncillaryMovementBundle`], so this is required at
+    /// the ECS query seam; only the owned scratch harness keeps an optional slot.
+    pub sweep: &'static mut ae::SweepSample,
     pub status: &'static mut ActorStatus,
     pub health: &'static mut ambition_characters::actor::BodyHealth,
     pub surface: &'static mut ActorSurfaceState,
@@ -290,7 +294,7 @@ impl<'w, 's> ActorClusterQueryDataItem<'w, 's> {
     {
         ActorMut {
             kin: &mut self.kin,
-            sweep: self.sweep.as_deref_mut(),
+            sweep: Some(&mut *self.sweep),
             status: &mut self.status,
             health: &mut self.health,
             surface: &mut self.surface,

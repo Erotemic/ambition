@@ -277,10 +277,14 @@ Corrections (log-once, all small):
    anywhere in the path"; the parser/serializer/source row and pure generated-
    room fixture now live in `ambition_world::ron_room`, while LDtk composition
    calls `load_ron_rooms` as a backend → IR consumer.
-2. **`integrate_boss_bodies` still hasn't adopted `SweepSample`** (the §3.1
-   known-remaining mover) and **`PortalSweepAnchor` still exists** (retired by
-   CC6's relative swept trigger). Both were carded — RE-CONFIRMING they are
-   still open so the CC6 executor doesn't assume otherwise.
+2. ✅ **DONE (Codex 2026-07-09): `SweepSample` adoption / portal anchor cleanup.**
+   Runtime actor/boss ECS queries now require the shared `SweepSample` component
+   spawned by `AncillaryMovementBundle`, so `integrate_boss_bodies` cannot
+   silently run without the canonical §3.1 motion record. Portal transit now
+   consumes that same kernel-written sample for CCD and retired the portal-local
+   `PortalSweepAnchor`; the adapter only uses a sample whose `curr` still
+   matches the live body position, so a post-sim teleport cannot become fake
+   swept travel.
 3. ✅ **DONE (Codex 2026-07-07): `ambition_world` now has a dep-direction
    regression test.** It asserts the explicit allow-list and deliberately
    leaves combat/interaction/portal as named legacy family residue to delete
@@ -369,11 +373,10 @@ Consider `CARGO_INCREMENTAL=0` for CI-style full-gate runs, or a periodic
 `cargo clean` cron, so a full disk doesn't silently kill background gates.
 
 **Priority order for the next sessions (all opus-executable, most valuable
-first):** F3.2 `SweepSample` / `PortalSweepAnchor` cleanup → E9 umbrella +
-demo homes (F5.1/2) → projectiles dedicated session (already carded). F2 is
-closed for audit cleanup; F4.3 and F4.4 are closed correctness seams; deeper
-actor decomposition is tracked by the later world/plain-input, projectile, and
-unified-actor cards.
+first):** E9 umbrella + demo homes (F5.1/2) → projectiles dedicated session
+(already carded). F2 is closed for audit cleanup; F3.2, F4.3, and F4.4 are
+closed correctness/ruling seams; deeper actor decomposition is tracked by the
+later world/plain-input, projectile, and unified-actor cards.
 
 ### F7 — Deep pass: the lowering seam had three real defects (FIXED); test-loss lesson
 

@@ -31,6 +31,74 @@ where they conflict, and its tail carries the next-phase queue.
 
 ---
 
+## ▶ NEXT UP (priority order, 2026-07-09)
+
+P2's decomposition and combat stack are DONE. What's left divides into one
+arc that closes the last agent-closable playbook exit, a handful of
+player-visible bugs, and the untouched determinism ladder.
+
+1. **The demo-shell arc — D-C mode scope + a runnable `ambition_demo_sanic`.**
+   [opus] The single highest-leverage item: it closes playbook **exit 3** (the
+   oracle, executable) and lands D-C, the last decomposition artifact. The
+   mode-scope seam is pre-solved in
+   [engine/decomposition.md](engine/decomposition.md) §D-C; the reference
+   assembly is `crates/ambition_host/tests/demo_shell_smoke.rs` (already
+   passing). `ambition_demo_sanic` already authors `sanic_speedway` through
+   the umbrella.
+   **Counter-argument to fable's F9.1 ruling, per vision §7 (make the case,
+   don't silently drift):** fable ruled the demo binary "a fundamentally
+   interactive build" and deferred it. That conflates the SHELL with the
+   FEEL. The shell is architecture and ships now; the momentum tuning is a
+   knob whose value ships BLIND in a marked commit for Jon's pass
+   (decision-principles: "do not let TUNING block architecture"; Jon's
+   standing rules: don't pause for feel, always ship the visual). Build the
+   binary, author reasonable defaults, mark the commit `blind fix:`.
+   Same shape afterward for `ambition_demo_smb1`'s 1-1 geometry [sonnet].
+
+2. **The visible sprite bugs (E3/E6 tail).** [opus] Three player-facing
+   regressions in the bug queue below: all bosses render the generic sheet,
+   shrine + glider sprites are broken, morph ball still draws the robot.
+   Diagnosis path is already written — do a RUN with `boss_sprites.len()`
+   logging, and do NOT apply the disproven `sprite_target` dispatch. Ship the
+   visual; never defer to "an interactive pass".
+
+3. **N0.1 — fixed-tick sim mode.** [opus, fable-specced] Mechanical: thread an
+   `InternedScheduleLabel` (default `Update`) through each engine schedule
+   plugin so `PlatformerEnginePlugins` gains a `fixed_tick: bool` knob. The
+   two-clocks design is RULED in [engine/netcode.md](engine/netcode.md) N0.1 —
+   do not re-derive it. Exit check is written (parameterize one rl_sim
+   schedule-shape suite over `Update`/`FixedUpdate`). Unblocks N0.2/N0.4 and
+   is SSB's prerequisite. **Today every engine schedule runs in `Update`.**
+
+4. **N0.3 — the determinism lint set.** [opus, cheap] Four of its properties
+   are ALREADY true (measured 2026-07-09: no `rand` dep in any sim crate, no
+   `HashMap` iteration in `ambition_actors`, no wall-clock reads in the sim
+   path, F4.4's sorted `PlayerSlot` fallbacks). This slice converts
+   accidentally-true into stays-true.
+
+5. **The dialog speaker-context slice.** [opus] Player-facing, design pinned
+   in the bug queue below.
+
+6. **N0.2 — the input-stream type.** [opus] Mostly promotion, not invention:
+   `game/ambition_app/tests/replay_fixture_regression.rs` already replays a
+   recorded per-tick `ControlFrame` sequence with zero divergence. Give it a
+   versioned typed home so replay fixtures, RL trajectories, desync forensics,
+   and the eventual wire format share ONE artifact.
+
+7. **CC3 — the fuzz-oracle delta** (§6.1). [opus] The collision doctrine's
+   exit. Diagnostic-only by Jon's ruling; a 3-check harness already exists, so
+   this is an enumerated delta, not a new rig. Ranked below the above because
+   it is a test rig, not a feature.
+
+8. **Bookkeeping** [sonnet]: re-baseline the ledger (or rule that the adapter
+   floor IS the floor); reconstruct or rewrite playbook exit 5; write
+   `MODULES.md` per crate (D-B).
+
+**Deliberately NOT next:** CM6 and N1 (both land with the SSB demo, P4);
+projectile steppers (blocked by design until their inputs are plain); the
+S5/S6 player fold + `features/` rename (deferred until unified-actor work);
+CC4 (profile first); CC7 P3a.
+
 ## Track index (status → next slice)
 
 | Track | Doc | Status | Next |

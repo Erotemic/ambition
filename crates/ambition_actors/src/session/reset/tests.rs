@@ -179,7 +179,6 @@ fn min_app() -> App {
         shrines: Vec::new(),
         gravity_zones: Vec::new(),
         hazards: Vec::new(),
-        pickups: Vec::new(),
         chests: Vec::new(),
         breakables: Vec::new(),
         enemy_spawns: Vec::new(),

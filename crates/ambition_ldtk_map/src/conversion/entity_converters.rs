@@ -268,9 +268,10 @@ pub(super) fn convert_pickup_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissi
         &field_string(entity, "kind").unwrap_or_else(|| "health:1".to_string()),
     ));
     let (id, name, aabb) = authored_triple(entity, name, min, size);
-    Ok(RoomEmission::pickup(ambition_world::rooms::Authored::new(
-        id, name, aabb, pickup,
-    )))
+    let mut record =
+        ambition_world::placements::PlacementRecord::new(id, PlacementSchema::Pickup(pickup), aabb);
+    record.name = name;
+    Ok(RoomEmission::placement(record))
 }
 
 pub(super) fn convert_ground_item(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {

@@ -156,6 +156,39 @@ pub enum InteractionKindSpec {
     Custom(String),
 }
 
+/// The authored pickup schema — a collectible's reward category, respawn
+/// policy, and collected flag. Fully plain data; the interaction runtime lowers
+/// it to a live pickup component at room load. Moved down from
+/// `ambition_world::rooms` (fable audit F9.2) so the schema and world IR share
+/// ONE pure type carried on the single `PlacementRecord` channel.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct PickupSpec {
+    pub kind: PickupKindSpec,
+    pub respawn: HazardRespawn,
+    pub collected: bool,
+}
+
+impl PickupSpec {
+    pub fn new(kind: PickupKindSpec) -> Self {
+        Self {
+            kind,
+            respawn: HazardRespawn::Never,
+            collected: false,
+        }
+    }
+}
+
+/// The authored reward category carried by [`PickupSpec`] (and a [`ChestSpec`]
+/// reward).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum PickupKindSpec {
+    Health { amount: i32 },
+    Currency { amount: i32 },
+    Ability { ability_id: String },
+    StoryFlag { flag: String },
+    Custom(String),
+}
+
 /// The CLOSED authored-placement schema (architecture.md §4b.3): everything an
 /// authored map may declare beyond geometry, as editor-visible plain data.
 /// Variants grow as W-queue step 3 converts hardcoded spawn branches into
@@ -165,6 +198,7 @@ pub enum InteractionKindSpec {
 pub enum PlacementSchema {
     Hazard(HazardSpec),
     Interactable(InteractableSpec),
+    Pickup(PickupSpec),
 }
 
 /// Fieldless key for [`PlacementSchema`], used by the room-load lowering
@@ -174,6 +208,7 @@ pub enum PlacementSchema {
 pub enum PlacementKind {
     Hazard,
     Interactable,
+    Pickup,
 }
 
 impl PlacementSchema {
@@ -181,6 +216,7 @@ impl PlacementSchema {
         match self {
             Self::Hazard(_) => PlacementKind::Hazard,
             Self::Interactable(_) => PlacementKind::Interactable,
+            Self::Pickup(_) => PlacementKind::Pickup,
         }
     }
 }

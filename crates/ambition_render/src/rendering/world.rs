@@ -77,17 +77,21 @@ pub fn spawn_room_visuals(
     for hazard in &spec.hazards {
         spawn_authored_hazard(commands, world, hazard, assets);
     }
-    for pickup in &spec.pickups {
-        spawn_authored_basic(
-            commands,
-            world,
-            &pickup.id,
-            &pickup.name,
-            pickup.aabb,
-            FeatureVisualKind::Pickup,
-            game_assets::entity_sprite_for_pickup(&pickup.payload),
-            assets,
-        );
+    // Pickups lower through the single `placements` channel (fable audit F9.2).
+    for record in &spec.placements {
+        if let ambition_entity_catalog::placements::PlacementSchema::Pickup(pickup) = &record.schema
+        {
+            spawn_authored_basic(
+                commands,
+                world,
+                record.id.as_str(),
+                &record.name,
+                record.aabb,
+                FeatureVisualKind::Pickup,
+                game_assets::entity_sprite_for_pickup(pickup),
+                assets,
+            );
+        }
     }
     for chest in &spec.chests {
         spawn_authored_chest(commands, world, chest, assets);

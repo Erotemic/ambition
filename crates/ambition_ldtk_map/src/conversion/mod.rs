@@ -149,8 +149,6 @@ impl LdtkProject {
         let mut hazards: Vec<
             ambition_world::rooms::Authored<ambition_world::rooms::HazardVolumeSpec>,
         > = Vec::new();
-        let mut pickups: Vec<ambition_world::rooms::Authored<ambition_world::rooms::PickupSpec>> =
-            Vec::new();
         let mut chests: Vec<ambition_world::rooms::Authored<ambition_world::rooms::ChestSpec>> =
             Vec::new();
         let mut breakables: Vec<
@@ -211,7 +209,6 @@ impl LdtkProject {
                         shrines.extend(emission.shrines);
                         gravity_zones.extend(emission.gravity_zones);
                         hazards.extend(emission.hazards);
-                        pickups.extend(emission.pickups);
                         chests.extend(emission.chests);
                         breakables.extend(emission.breakables);
                         enemy_spawns.extend(emission.enemy_spawns);
@@ -306,7 +303,6 @@ impl LdtkProject {
             shrines,
             gravity_zones,
             hazards,
-            pickups,
             chests,
             breakables,
             enemy_spawns,
@@ -371,7 +367,6 @@ pub struct RoomEmission {
     // --- Per-family authored entity emissions:
     pub hazards: Vec<ambition_world::rooms::Authored<ambition_world::rooms::HazardVolumeSpec>>,
     // interactables migrated to the `placements` channel (fable audit F9.2).
-    pub pickups: Vec<ambition_world::rooms::Authored<ambition_world::rooms::PickupSpec>>,
     pub chests: Vec<ambition_world::rooms::Authored<ambition_world::rooms::ChestSpec>>,
     pub breakables: Vec<ambition_world::rooms::Authored<ambition_world::rooms::BreakableSpec>>,
     pub enemy_spawns:
@@ -524,15 +519,6 @@ impl RoomEmission {
     ) -> Self {
         Self {
             hazards: vec![authored],
-            ..Self::default()
-        }
-    }
-
-    pub fn pickup(
-        authored: ambition_world::rooms::Authored<ambition_world::rooms::PickupSpec>,
-    ) -> Self {
-        Self {
-            pickups: vec![authored],
             ..Self::default()
         }
     }

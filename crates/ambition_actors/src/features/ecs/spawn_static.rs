@@ -279,6 +279,22 @@ pub(crate) fn lower_interactable_placement(
     super::spawn_actors::spawn_interactable(ctx.commands, &authored, ctx.paths);
 }
 
+pub(crate) fn lower_pickup_placement(
+    record: &crate::world::placements::PlacementRecord,
+    ctx: &mut crate::world::placements::LoweringCtx<'_, '_, '_>,
+) {
+    let PlacementSchema::Pickup(spec) = &record.schema else {
+        return;
+    };
+    let authored = crate::rooms::Authored {
+        id: record.id.as_str().to_string(),
+        name: record.name.clone(),
+        aabb: record.aabb,
+        payload: spec.clone(),
+    };
+    spawn_pickup(ctx.commands, &authored);
+}
+
 pub(crate) fn spawn_pickup(
     commands: &mut Commands,
     authored: &crate::rooms::Authored<crate::rooms::PickupSpec>,

@@ -259,31 +259,10 @@ impl HazardVolumeSpec {
 /// here so `rooms::InteractableSpec` paths stay stable for authoring/lowering.
 pub use ambition_entity_catalog::placements::{InteractableSpec, InteractionKindSpec};
 
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct PickupSpec {
-    pub kind: PickupKindSpec,
-    pub respawn: ambition_entity_catalog::placements::HazardRespawn,
-    pub collected: bool,
-}
-
-impl PickupSpec {
-    pub fn new(kind: PickupKindSpec) -> Self {
-        Self {
-            kind,
-            respawn: ambition_entity_catalog::placements::HazardRespawn::Never,
-            collected: false,
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-pub enum PickupKindSpec {
-    Health { amount: i32 },
-    Currency { amount: i32 },
-    Ability { ability_id: String },
-    StoryFlag { flag: String },
-    Custom(String),
-}
+/// Authored pickup payload — now owned by the Tier-0 catalog and carried
+/// through the single `PlacementRecord` channel (fable audit F9.2). Re-exported
+/// here so `rooms::PickupSpec` / `rooms::PickupKindSpec` paths stay stable.
+pub use ambition_entity_catalog::placements::{PickupKindSpec, PickupSpec};
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct ChestSpec {

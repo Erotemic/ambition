@@ -39,6 +39,10 @@ pub fn spawn_room_feature_entities(commands: &mut Commands, room: &crate::rooms:
         ambition_entity_catalog::placements::PlacementKind::Interactable,
         super::spawn_static::lower_interactable_placement,
     );
+    registry.register(
+        ambition_entity_catalog::placements::PlacementKind::Pickup,
+        super::spawn_static::lower_pickup_placement,
+    );
     spawn_room_feature_entities_with_registry(commands, room, &registry);
 }
 
@@ -76,9 +80,7 @@ pub fn spawn_room_feature_entities_with_registry(
     for boss in &room.boss_spawns {
         super::spawn_actors::spawn_boss(commands, boss);
     }
-    for pickup in &room.pickups {
-        super::spawn_static::spawn_pickup(commands, pickup);
-    }
+    // Pickups now lower through the `placements` channel above (fable audit F9.2).
     for ground_item in &room.ground_items {
         super::spawn_static::spawn_ground_item(commands, ground_item);
     }

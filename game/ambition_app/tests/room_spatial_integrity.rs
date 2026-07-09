@@ -10,23 +10,31 @@
 use ambition::actors as sb;
 use ambition::engine_core::{self as ae, AabbExt};
 
+/// Footprints of placement records of a given kind (families migrated to the
+/// single `placements` channel — fable audit F9.2).
+fn placement_aabbs(
+    room: &sb::rooms::RoomSpec,
+    label: &'static str,
+    kind: ambition::entity_catalog::placements::PlacementKind,
+) -> Vec<(&'static str, ae::Aabb)> {
+    room.placements
+        .iter()
+        .filter(|r| r.kind() == kind)
+        .map(|r| (label, r.aabb))
+        .collect()
+}
+
 fn entity_aabbs(room: &sb::rooms::RoomSpec) -> Vec<(&'static str, ae::Aabb)> {
+    use ambition::entity_catalog::placements::PlacementKind;
     let mut v: Vec<(&'static str, ae::Aabb)> = Vec::new();
     v.extend(room.enemy_spawns.iter().map(|e| ("enemy", e.aabb)));
     v.extend(room.boss_spawns.iter().map(|b| ("boss", b.aabb)));
-    // Interactables now live on the single `placements` channel (fable audit F9.2).
-    v.extend(
-        room.placements
-            .iter()
-            .filter(|r| {
-                matches!(
-                    r.schema,
-                    ambition::entity_catalog::placements::PlacementSchema::Interactable(_)
-                )
-            })
-            .map(|r| ("interactable", r.aabb)),
-    );
-    v.extend(room.pickups.iter().map(|p| ("pickup", p.aabb)));
+    v.extend(placement_aabbs(
+        room,
+        "interactable",
+        PlacementKind::Interactable,
+    ));
+    v.extend(placement_aabbs(room, "pickup", PlacementKind::Pickup));
     v.extend(room.chests.iter().map(|c| ("chest", c.aabb)));
     v.extend(room.breakables.iter().map(|b| ("breakable", b.aabb)));
     v.extend(room.hazards.iter().map(|h| ("hazard", h.aabb)));
@@ -79,7 +87,11 @@ fn no_room_has_out_of_bounds_entities_or_spawn_in_solid() {
         // are excluded to avoid false positives.
         let mut embeddable: Vec<(&'static str, ae::Aabb)> = Vec::new();
         embeddable.extend(room.enemy_spawns.iter().map(|e| ("enemy", e.aabb)));
-        embeddable.extend(room.pickups.iter().map(|p| ("pickup", p.aabb)));
+        embeddable.extend(placement_aabbs(
+            room,
+            "pickup",
+            ambition::entity_catalog::placements::PlacementKind::Pickup,
+        ));
         embeddable.extend(room.chests.iter().map(|c| ("chest", c.aabb)));
         embeddable.extend(room.breakables.iter().map(|b| ("breakable", b.aabb)));
         for (label, aabb) in embeddable {

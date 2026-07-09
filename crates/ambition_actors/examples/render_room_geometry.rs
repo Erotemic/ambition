@@ -23,17 +23,16 @@
 use ambition_actors as sb;
 use ambition_engine_core::{self as ae, AabbExt};
 
-/// Interactable footprints, read from the single `placements` channel
-/// (fable audit F9.2 — interactables no longer have a typed `RoomSpec` list).
-fn interactable_aabbs(room: &sb::rooms::RoomSpec) -> Vec<ae::Aabb> {
+/// Footprints of placement records of a given kind, read from the single
+/// `placements` channel (fable audit F9.2 — these families no longer have a
+/// typed `RoomSpec` list).
+fn placement_aabbs(
+    room: &sb::rooms::RoomSpec,
+    kind: ambition_entity_catalog::placements::PlacementKind,
+) -> Vec<ae::Aabb> {
     room.placements
         .iter()
-        .filter(|r| {
-            matches!(
-                r.schema,
-                ambition_entity_catalog::placements::PlacementSchema::Interactable(_)
-            )
-        })
+        .filter(|r| r.kind() == kind)
         .map(|r| r.aabb)
         .collect()
 }
@@ -285,11 +284,17 @@ fn render_room_projected(
             overlay_aabb(&mut img, proj, hb, Rgba([60, 240, 255, 255]));
         }
     }
-    for it_aabb in interactable_aabbs(room) {
+    for it_aabb in placement_aabbs(
+        room,
+        ambition_entity_catalog::placements::PlacementKind::Interactable,
+    ) {
         overlay_aabb(&mut img, proj, it_aabb, Rgba([70, 230, 120, 255])); // green (NPC/switch)
     }
-    for p in &room.pickups {
-        overlay_aabb(&mut img, proj, p.aabb, Rgba([90, 210, 230, 255])); // cyan
+    for p_aabb in placement_aabbs(
+        room,
+        ambition_entity_catalog::placements::PlacementKind::Pickup,
+    ) {
+        overlay_aabb(&mut img, proj, p_aabb, Rgba([90, 210, 230, 255])); // cyan
     }
     for c in &room.chests {
         overlay_aabb(&mut img, proj, c.aabb, Rgba([240, 205, 70, 255])); // gold
@@ -374,11 +379,21 @@ fn run_anomaly_report(room_set: &sb::rooms::RoomSet) {
         families.extend(room.enemy_spawns.iter().map(|e| ("enemy", e.aabb)));
         families.extend(room.boss_spawns.iter().map(|b| ("boss", b.aabb)));
         families.extend(
-            interactable_aabbs(room)
-                .into_iter()
-                .map(|a| ("interactable", a)),
+            placement_aabbs(
+                room,
+                ambition_entity_catalog::placements::PlacementKind::Interactable,
+            )
+            .into_iter()
+            .map(|a| ("interactable", a)),
         );
-        families.extend(room.pickups.iter().map(|p| ("pickup", p.aabb)));
+        families.extend(
+            placement_aabbs(
+                room,
+                ambition_entity_catalog::placements::PlacementKind::Pickup,
+            )
+            .into_iter()
+            .map(|a| ("pickup", a)),
+        );
         families.extend(room.chests.iter().map(|c| ("chest", c.aabb)));
         families.extend(room.breakables.iter().map(|b| ("breakable", b.aabb)));
         families.extend(room.hazards.iter().map(|h| ("hazard", h.aabb)));
@@ -412,7 +427,14 @@ fn run_anomaly_report(room_set: &sb::rooms::RoomSet) {
         }
         let mut embeddable: Vec<(&str, ae::Aabb)> = Vec::new();
         embeddable.extend(room.enemy_spawns.iter().map(|e| ("enemy", e.aabb)));
-        embeddable.extend(room.pickups.iter().map(|p| ("pickup", p.aabb)));
+        embeddable.extend(
+            placement_aabbs(
+                room,
+                ambition_entity_catalog::placements::PlacementKind::Pickup,
+            )
+            .into_iter()
+            .map(|a| ("pickup", a)),
+        );
         embeddable.extend(room.chests.iter().map(|c| ("chest", c.aabb)));
         embeddable.extend(room.breakables.iter().map(|b| ("breakable", b.aabb)));
         for (label, aabb) in embeddable {
@@ -580,8 +602,8 @@ fn main() {
         room.world.blocks.len(),
         room.enemy_spawns.len(),
         room.boss_spawns.len(),
-        interactable_aabbs(room).len(),
-        room.pickups.len(),
+        placement_aabbs(room, ambition_entity_catalog::placements::PlacementKind::Interactable).len(),
+        placement_aabbs(room, ambition_entity_catalog::placements::PlacementKind::Pickup).len(),
         room.chests.len(),
         room.breakables.len(),
         room.hazards.len(),

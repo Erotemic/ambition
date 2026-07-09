@@ -576,14 +576,25 @@ Tier-0 without a plain-pair mirror. When all families are placements-only, the
 hazard dual-emit guard becomes the arc's final deletion (hazards keeps its Vec
 + inline-motion legacy path until its `KinematicPath` lifts to room level).
 
+✅ **DONE (Opus 2026-07-09): pickups consolidated to placements-only.** Family 2
+followed the interactables pattern exactly: `PickupSpec`/`PickupKindSpec` moved
+into `ambition_entity_catalog::placements` as the `PlacementSchema::Pickup`
+payload; `RoomSpec.pickups`/`RoomEmission.pickups`/the `pickup` helper deleted;
+the LDtk `PickupSpawn` converter emits a `PlacementRecord` only; actor sim
+lowers via `lower_pickup_placement`; render reads pickups off `spec.placements`.
+The spatial-integrity test and the geometry-debug example gained a shared
+`placement_aabbs(room, kind)` helper (using `PlacementRecord::kind()`) so
+family lookups stay one-liners. Gate green. Remaining: chests → breakables →
+portals.
+
 **The next-phase queue (in order):**
 1. **Demo content** — fill `ambition_demo_sanic` (movement identity showcase)
    and `ambition_demo_smb1` (level 1-1 style slice) with real rooms +
    profiles. This is the umbrella's real test and the first BUILD (not
    restructure) item; it will surface every remaining engine leak.
 2. **IR consolidation branch conversions** (the ruling above) — opus-sized,
-   one family each. **interactables: DONE (2026-07-09).** Remaining order:
-   pickups → chests → breakables → portals (portals last — Vec2 payload).
+   one family each. **interactables + pickups: DONE (2026-07-09).** Remaining
+   order: chests → breakables → portals (portals last — Vec2 payload).
 3. **Projectile remaining steppers** — stay actor-side until their inputs are
    plain (the blockers are correctly enumerated in the follow-up checklist);
    do NOT force this seam.

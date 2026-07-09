@@ -155,8 +155,8 @@ pub struct GameplayEffectsSchedulePlugin;
 
 impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        use bevy::prelude::{IntoScheduleConfigs, Update};
         use ambition_platformer_primitives::schedule::gameplay_allowed;
+        use bevy::prelude::{IntoScheduleConfigs, Update};
         app.add_systems(
             Update,
             (
@@ -213,6 +213,10 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.register_placement_interpreter(
             ambition_entity_catalog::placements::PlacementKind::Interactable,
             crate::features::ecs::spawn_static::lower_interactable_placement,
+        );
+        app.register_placement_interpreter(
+            ambition_entity_catalog::placements::PlacementKind::Pickup,
+            crate::features::ecs::spawn_static::lower_pickup_placement,
         );
         // Accumulating sim-time for brain perception (reaction latency).
         app.init_resource::<GameplayElapsed>();

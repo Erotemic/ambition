@@ -29,7 +29,7 @@ impl Plugin for AmbitionQuestContentPlugin {
         app.add_systems(
             Update,
             crate::quest::populate_quest_registry
-                .in_set(ambition_actors::schedule::SandboxSet::Progression),
+                .in_set(ambition_platformer_primitives::schedule::SandboxSet::Progression),
         );
     }
 }

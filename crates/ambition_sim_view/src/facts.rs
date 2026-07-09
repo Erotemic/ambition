@@ -577,7 +577,7 @@ impl Plugin for SimViewPlugin {
         app.add_systems(
             Update,
             rebuild_blink_preview_fact
-                .in_set(ambition_actors::schedule::SandboxSet::FeatureViewSync),
+                .in_set(ambition_platformer_primitives::schedule::SandboxSet::FeatureViewSync),
         );
         app.add_systems(
             Update,
@@ -594,7 +594,7 @@ impl Plugin for SimViewPlugin {
                 rebuild_projectile_views,
                 rebuild_dynamic_feature_views,
             )
-                .in_set(ambition_actors::schedule::SandboxSet::FeatureViewSync),
+                .in_set(ambition_platformer_primitives::schedule::SandboxSet::FeatureViewSync),
         );
     }
 }

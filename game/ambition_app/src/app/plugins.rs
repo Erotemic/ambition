@@ -10,10 +10,9 @@ use ambition_dev_tools::dev_tools::{
     MovementProfile, PlayerBodyProfile,
 };
 use ambition_actors::dialog;
-use ambition_platformer_primitives::schedule::gameplay_allowed;
 use ambition_actors::ldtk_world;
 use ambition_actors::rooms;
-use ambition_platformer_primitives::schedule::SandboxSet;
+use ambition_platformer_primitives::schedule::{gameplay_allowed, PresentationSetupSet, SandboxSet};
 use ambition_actors::time::feel::SandboxFeelTuning;
 #[cfg(feature = "physics_debris")]
 use ambition_actors::world::physics;
@@ -415,7 +414,7 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
                 // this slot: audio init (and any future machinery startup
                 // work) orders `.after(the set)` instead of naming this
                 // app system.
-                setup_presentation_system.in_set(ambition_actors::schedule::PresentationSetupSet),
+                setup_presentation_system.in_set(PresentationSetupSet),
                 ambition_dev_tools::profiling::phase_mark("after_setup_presentation"),
                 ambition_actors::menu::map::populate_map_rooms,
                 ambition_actors::menu::map::spawn_map_menu,

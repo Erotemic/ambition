@@ -74,7 +74,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
                 rebuild_body_pose_views,
                 rebuild_shield_rings_view,
             )
-                .in_set(ambition_actors::schedule::SandboxSet::FeatureViewSync),
+                .in_set(ambition_platformer_primitives::schedule::SandboxSet::FeatureViewSync),
         );
     }
 }

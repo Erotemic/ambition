@@ -187,7 +187,7 @@ impl Plugin for FallingSandRoomPlugin {
                     // collision overlay, which the rebuild clears each frame —
                     // so run after it (the same WorldPrep contract the gates use).
                     .after(ambition_actors::features::rebuild_feature_ecs_world_overlay)
-                    .in_set(ambition_actors::schedule::SandboxSet::WorldPrep),
+                    .in_set(ambition_platformer_primitives::schedule::SandboxSet::WorldPrep),
             )
             .add_systems(
                 Update,
@@ -201,7 +201,7 @@ impl Plugin for FallingSandRoomPlugin {
                     sync_falling_sand_switch_visuals,
                 )
                     .chain()
-                    .in_set(ambition_actors::schedule::SandboxSet::GameplayEffects),
+                    .in_set(ambition_platformer_primitives::schedule::SandboxSet::GameplayEffects),
             )
             // Diagnostic: once per second while in the falling-sand room,
             // dump per-type particle counts and Y-distribution. Lets us

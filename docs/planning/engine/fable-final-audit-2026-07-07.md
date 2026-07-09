@@ -193,11 +193,16 @@ classes — log-once so the next sessions don't re-derive:
    may be deleted the moment `grep -rn "ambition_actors::<mod>"` outside
    actors returns zero** — put that one-liner in the E7/E8 card as the
    per-facade exit test, and burn them down opportunistically (each is a
-   5-minute repoint+delete). **F2.1 first burn-down (Codex 2026-07-08) removed
+   5-minute repoint+delete). **F2 first burn-down (Codex 2026-07-08) removed
    the F1-era compatibility facades for `GameMode`, camera layers/ease/shake,
    `SandboxDevState`, `ControlledSubject`, and external `FeatureEcsWorldOverlay`
    reads; consumers now name `ambition_platformer_primitives` /
-   `ambition_dev_tools` directly.**
+   `ambition_dev_tools` directly. A follow-on schedule-label pass repointed
+   runtime/content/app/sim-view consumers of `SandboxSet`, `CombatSet`,
+   `BossSteerSlot`, `PresentationSetupSet`, and `SimulationSetupSet` to
+   `ambition_platformer_primitives::schedule`; `ambition_actors::schedule` now
+   remains only for the concrete actor-owned schedule installer and input bridge
+   systems.**
 
 **North star for the residual (fold into unified-actors.md):** `player/`
 (6.6k) existing as a SIBLING of `features/ecs` is the last structural

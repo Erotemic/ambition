@@ -183,7 +183,8 @@ fn feature_view_index_first_write_wins_on_duplicate_ids() {
 /// pin the ordering.
 #[test]
 fn feature_view_index_reflects_same_frame_reset_spawn() {
-    use ambition_actors::schedule::{configure_sandbox_sets, SandboxSet};
+    use ambition_actors::schedule::configure_sandbox_sets;
+    use ambition_platformer_primitives::schedule::SandboxSet;
 
     fn fake_reset_system(mut commands: Commands, existing: Query<Entity, With<FeatureSimEntity>>) {
         for entity in &existing {

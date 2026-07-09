@@ -632,7 +632,7 @@ impl bevy::prelude::Plugin for CameraObservationPlugin {
         app.init_resource::<ResolvedCameraSnapshot>();
         app.add_systems(
             bevy::prelude::Update,
-            resolve_camera_observation.after(ambition_actors::schedule::SandboxSet::CoreSimulation),
+            resolve_camera_observation.after(ambition_platformer_primitives::schedule::SandboxSet::CoreSimulation),
         );
     }
 }

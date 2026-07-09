@@ -43,7 +43,7 @@ pub use overflow_flood::*;
 pub use seismic_stomp::*;
 
 use ambition_actors::features::BossConfig;
-use ambition_actors::schedule::CombatSet;
+use ambition_platformer_primitives::schedule::CombatSet;
 use ambition_platformer_primitives::schedule::gameplay_allowed;
 
 /// Installs the named per-boss special-attack Techniques as a single

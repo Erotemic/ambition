@@ -25,7 +25,7 @@ use bevy::prelude::*;
 
 use ambition_platformer_primitives::schedule::{gameplay_allowed, gameplay_suspended};
 use ambition_actors::player::PlayerBodyFrameOutput;
-use ambition_actors::schedule::SandboxSet;
+use ambition_platformer_primitives::schedule::SandboxSet;
 
 /// Registers the engine-generic player frame (see module docs). Part of
 /// [`crate::PlatformerEnginePlugins`]; headless/RL builds run every system

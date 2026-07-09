@@ -15,7 +15,7 @@
 
 use bevy::prelude::*;
 
-use ambition_actors::schedule::SandboxSet;
+use ambition_platformer_primitives::schedule::SandboxSet;
 use ambition_portal::PortalSet;
 use ambition_platformer_primitives::schedule::gameplay_allowed;
 

@@ -1368,6 +1368,27 @@ fn architecture_boundaries_f2_actor_facades_burned_down() {
 }
 
 #[test]
+fn architecture_boundaries_f2_schedule_labels_use_primitive_home() {
+    assert_code_refs_absent(
+        &[
+            repo_root().join("crates/ambition_runtime/src"),
+            repo_root().join("crates/ambition_sim_view/src"),
+            repo_root().join("crates/ambition_sim_view/tests"),
+            content_src(),
+            app_src(),
+        ],
+        &[
+            "ambition_actors::schedule::SandboxSet",
+            "ambition_actors::schedule::CombatSet",
+            "ambition_actors::schedule::BossSteerSlot",
+            "ambition_actors::schedule::PresentationSetupSet",
+            "ambition_actors::schedule::SimulationSetupSet",
+        ],
+        "F2 schedule-label pass: pure schedule labels live in ambition_platformer_primitives::schedule; ambition_actors::schedule keeps only the concrete schedule installer and input bridge systems",
+    );
+}
+
+#[test]
 fn architecture_boundaries_f2_asset_vocab_consumers_use_lower_crates() {
     assert_code_refs_absent(
         &[

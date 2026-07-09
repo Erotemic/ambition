@@ -12,8 +12,7 @@
 use bevy::prelude::*;
 
 use ambition_actors::features::ecs::attack::{advance_body_melee, start_body_melee};
-use ambition_actors::schedule::{CombatSet, SandboxSet};
-use ambition_platformer_primitives::schedule::gameplay_allowed;
+use ambition_platformer_primitives::schedule::{gameplay_allowed, CombatSet, SandboxSet};
 
 /// Schedules the `SandboxSet::Combat` system chain.
 pub struct CombatSchedulePlugin;

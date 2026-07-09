@@ -17,6 +17,7 @@ use bevy::prelude::*;
 
 use super::setup_systems::setup_simulation_system;
 use ambition_actors::session::data;
+use ambition_platformer_primitives::schedule::SimulationSetupSet;
 
 pub struct SandboxSimulationResourcesPlugin;
 
@@ -45,7 +46,7 @@ impl Plugin for SandboxSimulationResourcesPlugin {
                     // this slot: engine/host startup systems that need the sim
                     // world set up (e.g. the host's input-component attach)
                     // order `.after(the set)` instead of naming this system.
-                    setup_simulation_system.in_set(ambition_actors::schedule::SimulationSetupSet),
+                    setup_simulation_system.in_set(SimulationSetupSet),
                     ambition_dev_tools::profiling::phase_mark("after_setup_simulation"),
                 )
                     .chain(),

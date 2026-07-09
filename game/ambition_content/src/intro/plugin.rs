@@ -114,7 +114,7 @@ impl Plugin for IntroPlugin {
                 super::route_state::sync_intro_flag_gated_lock_walls
                     .after(ambition_actors::features::rebuild_feature_ecs_world_overlay)
                     .before(ambition_actors::features::update_ecs_hazards)
-                    .in_set(ambition_actors::schedule::SandboxSet::WorldPrep),
+                    .in_set(ambition_platformer_primitives::schedule::SandboxSet::WorldPrep),
             );
         // Intro dialog redirects are handled by the unified
         // `dialog::redirect_post_quest_dialog` system. Its

@@ -13,7 +13,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer_primitives::schedule::gameplay_allowed;
-use ambition_actors::schedule::SandboxSet;
+use ambition_platformer_primitives::schedule::SandboxSet;
 
 /// Registers room-transition detection + the per-room feature reset, and
 /// anchors the content room-reset slot. Part of

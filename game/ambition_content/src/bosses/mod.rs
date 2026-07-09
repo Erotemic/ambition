@@ -159,7 +159,7 @@ impl Plugin for AmbitionBossContentPlugin {
                 sync_cut_rope_boss_arena_prop_visuals,
             )
                 .chain()
-                .in_set(ambition_actors::schedule::CombatSet::ContentFlavor),
+                .in_set(ambition_platformer_primitives::schedule::CombatSet::ContentFlavor),
         );
 
         // Generic "lured movement" steering: any boss carrying a `CommandedMove`
@@ -171,7 +171,7 @@ impl Plugin for AmbitionBossContentPlugin {
         app.add_systems(
             Update,
             ambition_actors::boss_encounter::tick_commanded_moves
-                .in_set(ambition_actors::schedule::BossSteerSlot),
+                .in_set(ambition_platformer_primitives::schedule::BossSteerSlot),
         );
 
         // Content progression systems hang on the engine's labeled Progression
@@ -204,7 +204,7 @@ impl Plugin for AmbitionBossContentPlugin {
             gate_gnu_ton_arena_ladder
                 .after(ambition_actors::features::rebuild_feature_ecs_world_overlay)
                 .before(ambition_actors::features::update_ecs_hazards)
-                .in_set(ambition_actors::schedule::SandboxSet::WorldPrep),
+                .in_set(ambition_platformer_primitives::schedule::SandboxSet::WorldPrep),
         );
 
         // Cut-rope Yarn vocabulary: installed on the DialogueRunner via the

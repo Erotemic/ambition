@@ -502,3 +502,70 @@ Still open, in priority order:
 - [ ] Avoid new crates unless there is a present consumer and a real dependency
   inversion; the remaining fable work should mostly be moves, deletions, and
   ratchets.
+
+### F9 — 2026-07-09 fable verification of the executed queue + the next-phase ruling
+
+The F1–F6 priority queue was executed by follow-up agents (~40 commits,
+2026-07-08/09). This section is an INDEPENDENT verification — checked against
+manifests/source, not the execution log:
+
+- **F1 arrows: ALL closed.** render→actors = 0; host deps = exactly its
+  charter (engine_core/input/primitives/portal*/render/runtime/sim_view);
+  vfx→characters gone (vfx owns its hit-side vocabulary); items→ui_nav gone;
+  the actors::portal facade deleted; `GameMode` lives in
+  platformer_primitives; `ControlFrame` moved to engine_core (the F1.7
+  split-brain resolved ahead of schedule).
+- **World purity: DONE, by a different (accepted) route** — see the ruling
+  below. `ambition_world` deps = engine_core + entity_catalog + time ONLY,
+  and the allow-list ratchet test
+  (`ambition_world_dependency_allowlist_ratchets_world_ir_purity`) exists
+  with dissolution instructions in its failure message. `ron_room` was
+  re-sided into `ambition_world` (F3.1) with ldtk_map re-exporting — the
+  legal direction.
+- **F3.2 closed:** ECS actors/bosses REQUIRE `SweepSample`;
+  `PortalSweepAnchor` retired; portal CCD feeds from the kernel sample with
+  a live-endpoint guard against teleport-as-crossing.
+- **F4.3/F4.4 closed:** `ClockResetRequest` through the one owner;
+  lowest-`PlayerSlot` fallbacks, ratcheted.
+- **E9 exit MET:** app manifest = `ambition` + ambition_content +
+  ambition_menu_kaleidoscope (3 ≤ 4); `crates/ambition` umbrella + prelude
+  exist; `game/ambition_demo_sanic` / `game/ambition_demo_smb1` are
+  registered workspace members depping ONLY the umbrella, oracle-ratcheted.
+  (They are intentionally empty content plugins — filling them is a BUILD
+  item, below.)
+- **Gate: 44/44 suites green, ZERO failures.** The former `unified_melee`
+  feel-RED was diagnosed as a stale read-model assumption in the TEST (it
+  now follows the hostile by `FeatureId + BodyMelee` and accepts both swing
+  authorities); the enemy-AI oracle (`enemy_attacks_player`) was already
+  green. `ambition_actors` is down to 63.4k.
+
+**RULING on the F1.1 route (accept + follow through):** purity was achieved
+by making the family spec types IR-NATIVE (`HazardVolumeSpec`,
+`InteractableSpec`, `PickupSpec`, `ChestSpec`, `BreakableSpec`, IR
+`PortalSpec`) with actor-side lowering to runtime components — rather than
+by dissolving the typed lists into `PlacementRecord`. This is a legitimate,
+arguably better sequencing: the dep payoff arrived without waiting for six
+branch conversions. ACCEPTED. But the two-channel IR (typed lists +
+placements) is now an INTERNAL split-brain with a real tax — the dual-emit
+guard, the F7 name-loss class of bug, two spawn paths. The record-over-schema
+consolidation therefore CONTINUES, now as pure IR-internal cleanup: convert
+one family per session (interactables → pickups → chests → breakables →
+portals; hazards are done), each ending with that family's `Vec` deleted
+from `RoomSpec` and its lowering registered. Exit for the whole arc: the
+dual-emit guard in `spawn_room_feature_entities_with_registry` DELETES
+(placements become the only channel).
+
+**The next-phase queue (in order):**
+1. **Demo content** — fill `ambition_demo_sanic` (movement identity showcase)
+   and `ambition_demo_smb1` (level 1-1 style slice) with real rooms +
+   profiles. This is the umbrella's real test and the first BUILD (not
+   restructure) item; it will surface every remaining engine leak.
+2. **IR consolidation branch conversions** (the ruling above) — opus-sized,
+   one family each.
+3. **Projectile remaining steppers** — stay actor-side until their inputs are
+   plain (the blockers are correctly enumerated in the follow-up checklist);
+   do NOT force this seam.
+4. **S5/S6 player fold + the features/ rename** — deferred by design until
+   unified-actor work is ready.
+5. Standing: no new crates without a present consumer; facade re-adds are
+   ratcheted.

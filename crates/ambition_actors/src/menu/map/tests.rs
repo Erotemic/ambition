@@ -1,6 +1,7 @@
 //! Unit tests for map state: zoom clamping and the short-room-label helper.
 
 use super::*;
+use ambition_menu::map::{MapMenuState, MAP_ZOOM_MAX, MAP_ZOOM_MIN};
 
 #[test]
 fn map_zoom_in_clamps_to_max() {

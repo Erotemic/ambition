@@ -878,6 +878,7 @@ fn architecture_boundaries_runtime_is_headless_composition_tier() {
         "ambition_projectiles",
         "ambition_encounter",
         "ambition_dialog",
+        "ambition_menu",
     ] {
         assert!(
             manifest_depends_on(&manifest, required),
@@ -902,6 +903,7 @@ fn architecture_boundaries_runtime_is_headless_composition_tier() {
             "ambition_engine_core",
             "ambition_sfx",
             "ambition_persistence",
+            "ambition_menu",
             "ambition_platformer_primitives",
             "ambition_dev_tools",
         ],
@@ -916,7 +918,6 @@ fn architecture_boundaries_runtime_is_headless_composition_tier() {
             "ambition_host",
             "ambition_render",
             "ambition_touch_input",
-            "ambition_menu",
             "ambition_inventory_ui",
             "ambition_ldtk_map",
             "bevy_ecs_ldtk",
@@ -931,12 +932,11 @@ fn architecture_boundaries_runtime_is_headless_composition_tier() {
             "ambition_content::",
             "ambition_app::",
             "ambition_touch_input::",
-            "ambition_menu::",
             "ambition_inventory_ui::",
             "ambition_ldtk_map::",
             "bevy_ecs_ldtk::",
         ],
-        "runtime source should compose headless sim/mechanic crates without reaching into          app/content/host/render tiers",
+        "runtime source should compose headless sim/mechanic/menu-model crates without reaching into          app/content/host/render tiers",
     );
 }
 
@@ -1474,8 +1474,13 @@ fn architecture_boundaries_menu_backend_vocab_consumers_use_menu_crate() {
 
 #[test]
 fn architecture_boundaries_app_menu_settings_vocab_consumers_use_lower_crates() {
+    assert_paths_absent(
+        &crate_src().join("menu"),
+        &["ir"],
+        "F2 settings/menu IR closeout deletes the actor-side IR facade once actor persistence names ambition_settings_menu directly",
+    );
     assert_code_refs_absent(
-        &[app_src()],
+        &[app_src(), crate_src()],
         &[
             "ambition_actors::persistence::settings",
             "ambition_actors::menu::ir",
@@ -1493,14 +1498,17 @@ fn architecture_boundaries_map_state_consumers_use_menu_crate() {
         menu_map.exists(),
         "F2 map-state pass: renderer-agnostic MapMenuState should live in ambition_menu::map"
     );
-    let actor_model = fs::read_to_string(crate_src().join("menu/map/model.rs"))
-        .expect("read actor map model facade");
-    assert!(
-        actor_model.contains("pub use ambition_menu::map::*"),
-        "actor map model should be only a compatibility re-export over ambition_menu::map"
+    assert_paths_absent(
+        &crate_src().join("menu/map"),
+        &["model.rs"],
+        "F2 map-state closeout deletes the actor-side model facade once runtime/app consumers name ambition_menu::map directly",
     );
     assert_code_refs_absent(
-        &[app_src(), repo_root().join("crates/ambition_sim_view/src")],
+        &[
+            app_src(),
+            repo_root().join("crates/ambition_sim_view/src"),
+            repo_root().join("crates/ambition_runtime/src"),
+        ],
         &["ambition_actors::menu::map::MapMenuState"],
         "F2 map-state pass: app/presentation/read-model consumers name ambition_menu::map::MapMenuState; actor menu keeps only the room/save hydration + Bevy-UI adapter systems",
     );
@@ -2524,8 +2532,8 @@ fn architecture_boundaries_lib_menu_keeps_only_the_coupled_pieces() {
     );
     assert_paths_exist(
         &menu_dir,
-        &["ir", "map"],
-        "lib menu map/settings compatibility pieces",
+        &["map"],
+        "lib menu keeps only map hydration/UI adapters after settings IR moved to ambition_settings_menu",
     );
     assert_paths_exist(
         &app_src().join("menu"),

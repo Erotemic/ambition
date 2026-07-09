@@ -10,10 +10,8 @@
 //!
 //! Submodules:
 //! - backend selection (`InventoryUiBackend`) now lives in `ambition_menu::backend`.
-//! - [`ir`] — Ambition's concrete settings IR: the shared `SettingsOption`
-//!   model ([`ir::settings`]) and the System-menu layer ([`ir::system`]) that
-//!   the cube System face renders. Reads `crate::persistence::settings`.
-//! - [`map`] — the Map tab content (map / minimap state, hydration, and UI).
+//! - settings / System-menu IR lives in `ambition_settings_menu`; actor
+//!   persistence keeps only pause-menu compatibility helpers.
+//! - [`map`] — the Map tab content (save/room hydration and Bevy UI adapters).
 
-pub mod ir;
 pub mod map;

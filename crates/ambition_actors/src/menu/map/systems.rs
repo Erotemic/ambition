@@ -5,7 +5,7 @@
 
 use bevy::prelude::*;
 
-use super::model::{MapMenuState, MapRoomNode};
+use ambition_menu::map::{MapMenuState, MapRoomNode};
 
 pub fn track_room_visits(
     room_set: Res<crate::rooms::RoomSet>,

@@ -19,12 +19,14 @@ pub mod model;
 // reach it at `ambition_dev_tools::persistence`.
 
 // Public IR surface used by renderers (the cube today; the pause menu migrates
-// onto it next). The IR still lives in `crate::menu::ir` until E1e.
-pub use crate::menu::ir::settings::{
+// onto it next). The canonical renderer-agnostic IR lives in
+// `ambition_settings_menu`; this actor-local module only re-surfaces it for the
+// remaining pause-menu compatibility model.
+pub use ambition_settings_menu::settings::{
     apply_settings_option, settings_menu_model, SettingsOption, SettingsOptionId,
     SettingsOptionKind,
 };
-pub use crate::menu::ir::system::{
+pub use ambition_settings_menu::system::{
     DevSnapshot, DevToggleId, RadioSnapshot, SystemMenuAction, SystemMenuEntryId, SystemMenuModel,
     SystemMenuTarget, SystemOptionId,
 };

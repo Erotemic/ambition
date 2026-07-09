@@ -7,7 +7,7 @@ use std::collections::{BTreeSet, HashMap, HashSet};
 
 use bevy::prelude::*;
 
-use super::model::{MapMenuState, MapRoomNode, MAP_ZOOM_MAX, MAP_ZOOM_MIN};
+use ambition_menu::map::{MapMenuState, MapRoomNode, MAP_ZOOM_MAX, MAP_ZOOM_MIN};
 
 const MAP_PANEL_WIDTH: f32 = 720.0;
 const MAP_PANEL_HEIGHT: f32 = 480.0;

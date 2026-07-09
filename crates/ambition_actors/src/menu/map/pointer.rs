@@ -4,7 +4,7 @@
 
 use bevy::prelude::*;
 
-use super::model::MapMenuState;
+use ambition_menu::map::MapMenuState;
 use super::ui::MapMenuRoot;
 
 #[cfg(feature = "input")]

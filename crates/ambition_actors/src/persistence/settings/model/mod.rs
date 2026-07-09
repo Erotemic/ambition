@@ -161,10 +161,10 @@ impl SettingsItem {
     /// Map a pause-menu row to its shared-IR option, if the option is one the
     /// IR models. This is the single bridge between the pause menu's
     /// `SettingsItem` vocabulary and the renderer-agnostic
-    /// [`SettingsOptionId`](crate::menu::ir::settings::SettingsOptionId): rows that map are
+    /// [`SettingsOptionId`](ambition_settings_menu::settings::SettingsOptionId): rows that map are
     /// labelled / valued / applied through the shared IR
-    /// ([`settings_menu_model`](crate::menu::ir::settings::settings_menu_model) /
-    /// [`apply_settings_option`](crate::menu::ir::settings::apply_settings_option)) so the
+    /// ([`settings_menu_model`](ambition_settings_menu::settings::settings_menu_model) /
+    /// [`apply_settings_option`](ambition_settings_menu::settings::apply_settings_option)) so the
     /// pause menu and the 3D cube cannot drift on the surface they share.
     ///
     /// Rows that return `None` are pause-menu-specific (the IR does not model
@@ -181,8 +181,8 @@ impl SettingsItem {
     /// (The whole `Video > Shaders` subpage, `KeyboardPreset`, and
     /// `ResetControlFiltering` ALL map to the IR now — added in stage 3b — so
     /// they are no longer in the `None` set.)
-    pub fn shared_option_id(self) -> Option<crate::menu::ir::settings::SettingsOptionId> {
-        use crate::menu::ir::settings::SettingsOptionId as Id;
+    pub fn shared_option_id(self) -> Option<ambition_settings_menu::settings::SettingsOptionId> {
+        use ambition_settings_menu::settings::SettingsOptionId as Id;
         Some(match self {
             // Video.
             Self::DisplayMode => Id::DisplayMode,
@@ -462,16 +462,16 @@ impl SettingsItem {
     }
 }
 
-/// Find a built [`SettingsOption`](crate::menu::ir::settings::SettingsOption) by id in the
+/// Find a built [`SettingsOption`](ambition_settings_menu::settings::SettingsOption) by id in the
 /// live shared-IR model. The id space is exhaustively built by
-/// [`settings_menu_model`](crate::menu::ir::settings::settings_menu_model) for every
+/// [`settings_menu_model`](ambition_settings_menu::settings::settings_menu_model) for every
 /// category option, so any id a [`SettingsItem`] maps to is present (the only
 /// id not produced by the model is `Close`, which no pause row maps to).
 fn shared_option(
-    id: crate::menu::ir::settings::SettingsOptionId,
+    id: ambition_settings_menu::settings::SettingsOptionId,
     settings: &UserSettings,
-) -> crate::menu::ir::settings::SettingsOption {
-    let model = crate::menu::ir::settings::settings_menu_model(settings);
+) -> ambition_settings_menu::settings::SettingsOption {
+    let model = ambition_settings_menu::settings::settings_menu_model(settings);
     model
         .categories
         .iter()
@@ -487,10 +487,10 @@ fn shared_option(
 /// option's `kind` so cycle/slider rows still read "Label: value  < / >" and
 /// toggle/action rows read "Label: value", matching the menu's UX shape.
 pub(crate) fn pause_label_from_shared(
-    id: crate::menu::ir::settings::SettingsOptionId,
+    id: ambition_settings_menu::settings::SettingsOptionId,
     settings: &UserSettings,
 ) -> String {
-    use crate::menu::ir::settings::SettingsOptionKind;
+    use ambition_settings_menu::settings::SettingsOptionKind;
     let opt = shared_option(id, settings);
     match opt.kind {
         SettingsOptionKind::Cycle { .. } | SettingsOptionKind::Slider { .. } => {
@@ -750,8 +750,8 @@ pub fn apply_action(
     // needs the live primary-window poke, which the pause menu still owns and
     // runs after the field update.
     if let Some(id) = item.shared_option_id() {
-        crate::menu::ir::settings::apply_settings_option(id, settings_dir(action), settings);
-        if matches!(id, crate::menu::ir::settings::SettingsOptionId::DisplayMode) {
+        ambition_settings_menu::settings::apply_settings_option(id, settings_dir(action), settings);
+        if matches!(id, ambition_settings_menu::settings::SettingsOptionId::DisplayMode) {
             let mode: DisplayModeKind = settings.video.display_mode.into();
             apply_display_mode(mode, display_state, windows);
         }

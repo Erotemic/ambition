@@ -104,7 +104,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_platformer_primitives::time::SimDt>()
             // Portal registry — per-portal lifecycle state machine.
             .init_resource::<ambition_actors::rooms::GatePortalRegistry>()
-            .init_resource::<ambition_actors::menu::map::MapMenuState>()
+            .init_resource::<ambition_menu::map::MapMenuState>()
             .init_resource::<ambition_platformer_primitives::camera_ease::CameraEaseState>()
             .init_resource::<ambition_platformer_primitives::camera_ease::CameraEaseTuning>()
             .init_resource::<ambition_platformer_primitives::camera_ease::CameraShakeState>()

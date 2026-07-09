@@ -6,7 +6,7 @@
 
 use bevy::prelude::*;
 
-use super::model::MapMenuState;
+use ambition_menu::map::MapMenuState;
 
 #[cfg(feature = "input")]
 use ambition_input::MenuControlFrame;

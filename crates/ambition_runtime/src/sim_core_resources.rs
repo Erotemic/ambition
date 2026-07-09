@@ -84,14 +84,14 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_actors::combat::slots::CombatSlotsRes>()
             // Encounter system: the live multi-encounter store is
             // `EncounterRegistry`, populated from the installed world.
-            .init_resource::<ambition_actors::encounter::EncounterState>()
-            .init_resource::<ambition_actors::encounter::EncounterRegistry>()
+            .init_resource::<ambition_encounter::EncounterState>()
+            .init_resource::<ambition_encounter::EncounterRegistry>()
             .init_resource::<ambition_actors::encounter::SwitchActivationQueue>()
             .init_resource::<ambition_actors::encounter::EncounterSwitchIndex>()
-            .init_resource::<ambition_actors::encounter::EncounterMusicRequest>()
+            .init_resource::<ambition_encounter::EncounterMusicRequest>()
             // Boss music routes through its own resource so the regular
             // encounter tick can't clobber the boss's MusicRequested events.
-            .init_resource::<ambition_actors::encounter::BossEncounterMusicRequest>()
+            .init_resource::<ambition_encounter::BossEncounterMusicRequest>()
             .init_resource::<ambition_actors::rooms::RoomMusicRequest>()
             // Sandbox save (encounter defeat + switch state). Loaded from
             // disk by the presentation half only — headless/RL never touch

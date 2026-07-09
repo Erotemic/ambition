@@ -154,7 +154,10 @@ classes — log-once so the next sessions don't re-derive:
      (`animator`, `baked_sheet_rons`, `registry`, `sheets`, `sprite_packs`);
      the remaining actor-side `character_sprites` code is now the real
      actor/content join: animation fact adapters, authored hitbox resolver,
-     and character-catalog-aware sprite loading/body collision.**
+     and character-catalog-aware sprite loading/body collision. **A follow-up
+     slice (Codex 2026-07-08) repointed SimView's pure `CharacterAnim` read-model
+     fields to `ambition_sprite_sheet::character::CharacterAnim`; only the
+     actor-state animation pickers still route through the actor-side adapter.**
    - `world/physics.rs` (avian adapter) + `world/overlay{,_rebuild}.rs` —
      these stayed actors-side because the overlay REBUILD reads live feature
      components. Correct interim home, but name the end-state: after W-queue
@@ -177,17 +180,17 @@ classes — log-once so the next sessions don't re-derive:
    2026-07-08) applied that rule to projectiles first: runtime owns the schedule
    facade for the remaining actor-side projectile steppers; the model stays in
    `ambition_projectiles`, and the actor-domain victim/charge logic has not been
-   moved wholesale. **A follow-on residual-glue slice (Codex 2026-07-08)
+   moved wholesale.** **A follow-on residual-glue slice (Codex 2026-07-08)
    also burned down the developer-tools facade: app/runtime/sim-view now import
    `ambition_dev_tools::{dev_tools,profiling,sync_live_player_dev_edits_system}`
    directly, while `ambition_actors::dev` keeps only the sim-coupled trace
-   recorder. **A later audio-facade slice (Codex 2026-07-08) repointed app
+   recorder.** **A later audio-facade slice (Codex 2026-07-08) repointed app
    radio/menu/android consumers of pure playback vocabulary (`AudioLibrary`,
    `MusicPlaybackState`, `RadioStationState`, `MusicChannel`, `SfxChannel`,
    and `set_radio_track`) to `ambition_audio::library`; the actor-side
    `audio` residue is now the sandbox `SandboxAudioPlugin` and environment
    detector that still joins actor contacts, settings, schedule, and music
-   intent. **A menu-backend slice (Codex 2026-07-08) moved
+   intent.** **A menu-backend slice (Codex 2026-07-08) moved
    `InventoryUiBackend` and backend-availability constants to
    `ambition_menu::backend`; `ambition_actors::menu` now owns only the Map tab
    and settings/map adapter residue, not presentation-backend vocabulary.**
@@ -196,7 +199,13 @@ classes — log-once so the next sessions don't re-derive:
    and renderer-agnostic menu IR from `ambition_settings_menu` directly; the
    remaining actor-side `persistence::settings` and `menu::ir` surfaces are
    compatibility residue for actor-local pause-menu/model code, not the app
-   host's canonical vocabulary path.**
+   host's canonical vocabulary path.** **An encounter-vocabulary slice (Codex
+   2026-07-08) repointed app/content/runtime/sim-view consumers of pure
+   encounter state, music-request, registry, phase, and reward helper vocabulary
+   to `ambition_encounter`; the actor-side encounter module now remains the
+   LDtk/ECS/schedule adapter surface (`load_encounter_specs_from_ldtk`,
+   `install_encounter_waves`, `populate_encounter_registry`, switch queues, and
+   lock-wall contribution).**
 3. **FACADES (60 `pub use ambition_*` re-export sites in actors).** These are
    the deliberate hub-continuity aliases. The dissolution ratchet: **a facade
    may be deleted the moment `grep -rn "ambition_actors::<mod>"` outside

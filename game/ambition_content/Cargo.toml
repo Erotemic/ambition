@@ -38,6 +38,7 @@ ambition_sprite_sheet = { path = "../../crates/ambition_sprite_sheet" }
 ambition_projectiles = { path = "../../crates/ambition_projectiles" }
 ambition_render = { path = "../../crates/ambition_render" }
 ambition_combat = { path = "../../crates/ambition_combat" }
+ambition_encounter = { path = "../../crates/ambition_encounter" }
 ambition_cutscene = { path = "../../crates/ambition_cutscene" }
 ambition_asset_manager = { path = "../../crates/ambition_asset_manager", features = ["bevy"] }
 ambition_sfx = { path = "../../crates/ambition_sfx" }

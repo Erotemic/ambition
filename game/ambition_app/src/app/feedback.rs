@@ -106,7 +106,7 @@ pub struct ProgressionResources<'w> {
     pub cutscene: Res<'w, ambition_cutscene::ActiveCutscene>,
     pub cutscene_request: Res<'w, ambition_cutscene::CutsceneAdvanceRequest>,
     pub bosses: Res<'w, ambition_actors::boss_encounter::BossEncounterRegistry>,
-    pub encounters: Res<'w, ambition_actors::encounter::EncounterRegistry>,
+    pub encounters: Res<'w, ambition_encounter::EncounterRegistry>,
     pub map: Res<'w, ambition_actors::menu::map::MapMenuState>,
     pub banner: Res<'w, GameplayBanner>,
 }

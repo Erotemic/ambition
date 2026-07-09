@@ -9,6 +9,7 @@ use ambition_actors::features::{
 };
 use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
+use ambition_sprite_sheet::character::CharacterAnim;
 
 /// Read-only query of the unified actor cluster every actor (was-NPC, was-enemy,
 /// encounter mob, mount/rider) carries — the SAME `Body*` movement/ability
@@ -55,7 +56,7 @@ pub struct ActorSpriteData {
 /// is mid-swing (for the warm outgoing-attack tint).
 #[derive(Clone, Copy, Debug)]
 pub struct ActorAnimFrame {
-    pub anim: ambition_actors::character_sprites::CharacterAnim,
+    pub anim: CharacterAnim,
     pub pos: ae::Vec2,
     pub facing: f32,
     pub attacking: bool,

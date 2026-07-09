@@ -18,6 +18,7 @@ ambition_actors = { path = "../ambition_actors", default-features = false, featu
 ] }
 ambition_projectiles = { path = "../ambition_projectiles" }
 ambition_combat = { path = "../ambition_combat" }
+ambition_encounter = { path = "../ambition_encounter" }
 ambition_characters = { path = "../ambition_characters" }
 ambition_portal = { path = "../ambition_portal" }
 ambition_sim_view = { path = "../ambition_sim_view", features = ["input"] }

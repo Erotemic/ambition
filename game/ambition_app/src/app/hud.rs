@@ -210,8 +210,8 @@ pub(super) fn update_hud(
         for (_id, state) in encounter_registry.encounters.iter() {
             if matches!(
                 state.phase,
-                ambition_actors::encounter::EncounterPhase::Starting { .. }
-                    | ambition_actors::encounter::EncounterPhase::Active { .. }
+                ambition_encounter::EncounterPhase::Starting { .. }
+                    | ambition_encounter::EncounterPhase::Active { .. }
             ) {
                 bits.push(state.hud_summary());
             }

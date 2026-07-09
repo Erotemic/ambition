@@ -1758,3 +1758,7 @@ ambition_app --test architecture_boundaries`; `cargo check -p ambition_app
 - F2 menu-backend facade slice: `InventoryUiBackend` and backend availability constants moved to `ambition_menu::backend`; app menu consumers no longer name `ambition_actors::menu::backend`.
 
 - 2026-07-08 — F2 settings/menu-IR facade repoint: app menu hosts/tests now import persisted settings vocabulary from `ambition_persistence::settings` and the shared renderer-agnostic settings/System IR from `ambition_settings_menu` instead of reaching through `ambition_actors::persistence::settings` or `ambition_actors::menu::ir`. Added a boundary ratchet so app menu code cannot reintroduce those actor facade paths.
+
+- 2026-07-08 — F2 character animation vocabulary repoint: SimView read-model fields now name `ambition_sprite_sheet::character::CharacterAnim` directly instead of using the actor `character_sprites` facade. The actor-side character-sprites module remains only for real actor/content adapters: stateful animation pickers, authored hitbox resolution, and catalog-aware sprite loading/body collision.
+
+- 2026-07-08 — F2 encounter vocabulary repoint: app/content/runtime/sim-view consumers now name pure encounter state/spec/music/reward vocabulary from `ambition_encounter` instead of actor encounter facades. Actor encounter remains the adapter home for LDtk loading, ECS spawning, switch queues/indexes, lock-wall contribution, and concrete schedule systems.

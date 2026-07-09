@@ -876,6 +876,7 @@ fn architecture_boundaries_runtime_is_headless_composition_tier() {
         "ambition_actors",
         "ambition_combat",
         "ambition_projectiles",
+        "ambition_encounter",
     ] {
         assert!(
             manifest_depends_on(&manifest, required),
@@ -889,6 +890,7 @@ fn architecture_boundaries_runtime_is_headless_composition_tier() {
             "ambition_actors",
             "ambition_projectiles",
             "ambition_combat",
+            "ambition_encounter",
             "ambition_characters",
             "ambition_portal",
             "ambition_sim_view",
@@ -1405,6 +1407,49 @@ fn architecture_boundaries_f2_asset_vocab_consumers_use_lower_crates() {
             "ambition_actors::assets::sandbox_assets::ids",
         ],
         "F2 assets pass: pure asset vocabulary is owned by ambition_sprite_sheet / ambition_asset_manager; actor assets may only remain as game-specific loader/catalog adapter seams",
+    );
+}
+
+#[test]
+fn architecture_boundaries_f2_character_anim_vocab_consumers_use_sprite_sheet() {
+    assert_code_refs_absent(
+        &[
+            repo_root().join("crates/ambition_sim_view/src"),
+            repo_root().join("crates/ambition_render/src"),
+            content_src(),
+            app_src(),
+        ],
+        &["ambition_actors::character_sprites::CharacterAnim"],
+        "F2 character-sprites pass: pure character animation row vocabulary lives in ambition_sprite_sheet; actor character_sprites keeps only adapters that read actor facts or content catalogs",
+    );
+}
+
+#[test]
+fn architecture_boundaries_f2_encounter_vocab_consumers_use_encounter_crate() {
+    assert_code_refs_absent(
+        &[
+            repo_root().join("crates/ambition_runtime/src"),
+            repo_root().join("crates/ambition_sim_view/src"),
+            content_src(),
+            app_src(),
+            repo_root().join("game/ambition_app/tests/boss_lifecycle.rs"),
+        ],
+        &[
+            "ambition_actors::encounter::EncounterEvent",
+            "ambition_actors::encounter::EncounterMobSpec",
+            "ambition_actors::encounter::EncounterMusicRequest",
+            "ambition_actors::encounter::BossEncounterMusicRequest",
+            "ambition_actors::encounter::EncounterPhase",
+            "ambition_actors::encounter::EncounterRegistry",
+            "ambition_actors::encounter::EncounterRun",
+            "ambition_actors::encounter::EncounterSpec",
+            "ambition_actors::encounter::EncounterState",
+            "ambition_actors::encounter::EncounterWaveSpec",
+            "ambition_actors::encounter::LockWallSpec",
+            "ambition_actors::encounter::encounter_reward_chest_pos",
+            "ambition_actors::encounter::encounter_reward_looted_flag",
+        ],
+        "F2 encounter vocabulary pass: pure encounter state/spec/music/reward vocabulary lives in ambition_encounter; actor encounter keeps LDtk/ECS/schedule adapters",
     );
 }
 

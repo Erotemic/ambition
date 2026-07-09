@@ -9,6 +9,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::data::MusicRegistry;
 use ambition_actors::ldtk_world::{field_string, LdtkProject};
+use ambition_encounter::encounter_reward_looted_flag;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ContentValidationReport {
@@ -522,7 +523,7 @@ fn authored_flag_ids(project: &LdtkProject) -> BTreeSet<String> {
                     .filter(|id| !id.is_empty())
                     .unwrap_or_else(|| level.active_area());
                 flags.insert(format!("encounter_{encounter_id}_reward_dropped"));
-                flags.insert(ambition_actors::encounter::encounter_reward_looted_flag(
+                flags.insert(encounter_reward_looted_flag(
                     &encounter_id,
                 ));
             }
@@ -552,7 +553,7 @@ fn authored_flag_ids(project: &LdtkProject) -> BTreeSet<String> {
     }
     for boss in authored_boss_encounter_ids(project) {
         flags.insert(format!("encounter_{boss}_reward_dropped"));
-        flags.insert(ambition_actors::encounter::encounter_reward_looted_flag(
+        flags.insert(encounter_reward_looted_flag(
             &boss,
         ));
     }

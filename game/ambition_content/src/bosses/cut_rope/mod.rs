@@ -157,7 +157,7 @@ pub fn emit_cut_rope_room_replay_after_dialogue_closes(
 pub fn reset_cut_rope_boss_attempt(
     registry: &BossEncounterRegistry,
     save: Option<&mut ambition_persistence::save::SandboxSave>,
-    music_request: Option<&mut ambition_actors::encounter::BossEncounterMusicRequest>,
+    music_request: Option<&mut ambition_encounter::BossEncounterMusicRequest>,
     placement_ids: &[String],
 ) {
     let intro_track = registry

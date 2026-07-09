@@ -24,7 +24,7 @@ use ambition_actors::boss_encounter::{
     BossEncounterPhase, EncounterBeat, EncounterDef, EncounterEffect, EncounterGate,
     EncounterScript, EncounterTrigger,
 };
-use ambition_actors::encounter::BossEncounterMusicRequest;
+use ambition_encounter::BossEncounterMusicRequest;
 use ambition_actors::features::ecs::boss_clusters::{BossConfig, BossEncounter};
 use ambition_actors::features::{
     BossOverrides, BossRewardChest, ResetRoomFeaturesEvent, RoomResetReason,

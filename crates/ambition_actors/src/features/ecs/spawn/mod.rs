@@ -47,6 +47,10 @@ pub fn spawn_room_feature_entities(commands: &mut Commands, room: &crate::rooms:
         ambition_entity_catalog::placements::PlacementKind::Chest,
         super::spawn_static::lower_chest_placement,
     );
+    registry.register(
+        ambition_entity_catalog::placements::PlacementKind::Breakable,
+        super::spawn_static::lower_breakable_placement,
+    );
     spawn_room_feature_entities_with_registry(commands, room, &registry);
 }
 
@@ -103,9 +107,7 @@ pub fn spawn_room_feature_entities_with_registry(
         super::spawn_static::spawn_gravity_zone(commands, gravity_zone);
     }
     // Chests now lower through the `placements` channel above (fable audit F9.2).
-    for breakable in &room.breakables {
-        super::spawn_static::spawn_breakable(commands, breakable);
-    }
+    // Breakables now lower through the `placements` channel above (fable audit F9.2).
     for enemy in &room.enemy_spawns {
         super::spawn_actors::spawn_enemy(commands, enemy, &paths);
     }

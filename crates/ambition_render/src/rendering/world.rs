@@ -105,17 +105,22 @@ pub fn spawn_room_visuals(
             spawn_authored_chest(commands, world, &authored, assets);
         }
     }
-    for breakable in &spec.breakables {
-        spawn_authored_basic(
-            commands,
-            world,
-            &breakable.id,
-            &breakable.name,
-            breakable.aabb,
-            FeatureVisualKind::Breakable,
-            game_assets::entity_sprite_for_breakable(&breakable.payload),
-            assets,
-        );
+    // Breakables lower through the single `placements` channel (fable audit F9.2).
+    for record in &spec.placements {
+        if let ambition_entity_catalog::placements::PlacementSchema::Breakable(breakable) =
+            &record.schema
+        {
+            spawn_authored_basic(
+                commands,
+                world,
+                record.id.as_str(),
+                &record.name,
+                record.aabb,
+                FeatureVisualKind::Breakable,
+                game_assets::entity_sprite_for_breakable(breakable),
+                assets,
+            );
+        }
     }
     for enemy in &spec.enemy_spawns {
         // ONE actor kind — the sandbag/enemy depiction is resolved by the actor

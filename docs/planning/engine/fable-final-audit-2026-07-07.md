@@ -596,14 +596,33 @@ converter emits a `PlacementRecord`; actor sim lowers via
 `lower_chest_placement`; render reads chests off `spec.placements`. Gate green.
 Remaining: breakables → portals.
 
+✅ **DONE (Opus 2026-07-09): breakables consolidated to placements-only.** Family
+4 — all four types (`BreakableSpec`, `BreakableStateSpec`, `BreakableTriggerSpec`,
+`BreakableCollisionSpec`, with their impls) moved into
+`ambition_entity_catalog::placements` as `PlacementSchema::Breakable`. The one
+twist vs. the other families: breakables enter via the SURFACE-compile pipeline
+(`BreakablePlatform`/`BreakablePogoOrb` → `compile_surface` →
+`SurfaceCompiled.breakables`), not a dedicated converter — so the placement
+conversion happens in `RoomEmission::from_compiled`, which now maps each typed
+`Authored<BreakableSpec>` into a `PlacementRecord` at the emission edge
+(`SurfaceCompiled` keeps its internal typed field). `RoomSpec.breakables`,
+`RoomEmission.breakables` deleted; actor sim lowers via
+`lower_breakable_placement`; render reads breakables off `spec.placements`. Gate
+green. **Only portals remain** — and portals are the deliberate exception:
+`PortalSpec` carries `ae::Vec2` (`pos`, `normal`), which cannot live in the
+Tier-0 catalog, so it needs a plain-pair (`[f32;2]`) mirror rather than a move.
+That is the one family where the split-brain END STATE (Vec deletion) requires
+new mirror types instead of a move — assess separately.
+
 **The next-phase queue (in order):**
 1. **Demo content** — fill `ambition_demo_sanic` (movement identity showcase)
    and `ambition_demo_smb1` (level 1-1 style slice) with real rooms +
    profiles. This is the umbrella's real test and the first BUILD (not
    restructure) item; it will surface every remaining engine leak.
 2. **IR consolidation branch conversions** (the ruling above) — opus-sized,
-   one family each. **interactables + pickups + chests: DONE (2026-07-09).** Remaining
-   order: breakables → portals (portals last — Vec2 payload).
+   one family each. **interactables + pickups + chests + breakables: DONE (2026-07-09).**
+   Only portals remain (see the ruling above; `PortalSpec` carries `Vec2`, so
+   it needs a plain-pair mirror rather than a Tier-0 move).
 3. **Projectile remaining steppers** — stay actor-side until their inputs are
    plain (the blockers are correctly enumerated in the follow-up checklist);
    do NOT force this seam.

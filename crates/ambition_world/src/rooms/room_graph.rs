@@ -36,10 +36,9 @@ pub struct RoomSpec {
 
     // --- Per-family authored entity lists; each family spawns through ECS.
     pub hazards: Vec<Authored<HazardVolumeSpec>>,
-    // NOTE: interactables, pickups, and chests migrated to the single
-    // `placements` channel (fable audit F9.2); they lower via
-    // `PlacementSchema::{Interactable, Pickup, Chest}`.
-    pub breakables: Vec<Authored<BreakableSpec>>,
+    // NOTE: interactables, pickups, chests, and breakables migrated to the
+    // single `placements` channel (fable audit F9.2); they lower via
+    // `PlacementSchema::{Interactable, Pickup, Chest, Breakable}`.
     pub enemy_spawns: Vec<Authored<ambition_entity_catalog::placements::CharacterBrain>>,
     pub boss_spawns: Vec<Authored<ambition_entity_catalog::placements::BossBrain>>,
     pub debug_labels: Vec<Authored<crate::debug_label::DebugLabel>>,
@@ -74,7 +73,6 @@ impl RoomSpec {
             shrines: Vec::new(),
             gravity_zones: Vec::new(),
             hazards: Vec::new(),
-            breakables: Vec::new(),
             enemy_spawns: Vec::new(),
             boss_spawns: Vec::new(),
             debug_labels: Vec::new(),

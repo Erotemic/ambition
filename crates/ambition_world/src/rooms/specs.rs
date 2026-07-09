@@ -269,80 +269,9 @@ pub use ambition_entity_catalog::placements::{PickupKindSpec, PickupSpec};
 /// `rooms::ChestSpec` / `rooms::ChestStateSpec` paths stay stable.
 pub use ambition_entity_catalog::placements::{ChestSpec, ChestStateSpec};
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
-pub enum BreakableTriggerSpec {
-    #[default]
-    OnHit,
-    OnStand,
-    Either,
-}
-
-impl BreakableTriggerSpec {
-    pub fn allows_hit(self) -> bool {
-        matches!(
-            self,
-            BreakableTriggerSpec::OnHit | BreakableTriggerSpec::Either
-        )
-    }
-
-    pub fn allows_stand(self) -> bool {
-        matches!(
-            self,
-            BreakableTriggerSpec::OnStand | BreakableTriggerSpec::Either
-        )
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
-pub enum BreakableCollisionSpec {
-    #[default]
-    None,
-    Solid,
-    OneWayUp,
-}
-
-impl BreakableCollisionSpec {
-    pub fn blocks_movement(self) -> bool {
-        !matches!(self, BreakableCollisionSpec::None)
-    }
-
-    pub fn is_solid(self) -> bool {
-        matches!(self, BreakableCollisionSpec::Solid)
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct BreakableSpec {
-    pub state: BreakableStateSpec,
-    pub health_current: i32,
-    pub health_max: i32,
-    pub respawn: ambition_entity_catalog::placements::HazardRespawn,
-    pub collision: BreakableCollisionSpec,
-    pub trigger: BreakableTriggerSpec,
-    pub debris_cue: Option<String>,
-    pub pogo_refresh: bool,
-}
-
-impl BreakableSpec {
-    pub fn new(max_hp: i32) -> Self {
-        let max_hp = max_hp.max(1);
-        Self {
-            state: BreakableStateSpec::Intact,
-            health_current: max_hp,
-            health_max: max_hp,
-            respawn: ambition_entity_catalog::placements::HazardRespawn::Never,
-            collision: BreakableCollisionSpec::None,
-            trigger: BreakableTriggerSpec::OnHit,
-            debris_cue: None,
-            pogo_refresh: false,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum BreakableStateSpec {
-    Intact,
-    Cracking,
-    Broken,
-    Respawning,
-}
+/// Authored breakable payload + its state/trigger/collision enums — now owned by
+/// the Tier-0 catalog and carried through the single `PlacementRecord` channel
+/// (fable audit F9.2). Re-exported here so `rooms::Breakable*` paths stay stable.
+pub use ambition_entity_catalog::placements::{
+    BreakableCollisionSpec, BreakableSpec, BreakableStateSpec, BreakableTriggerSpec,
+};

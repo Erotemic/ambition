@@ -149,9 +149,6 @@ impl LdtkProject {
         let mut hazards: Vec<
             ambition_world::rooms::Authored<ambition_world::rooms::HazardVolumeSpec>,
         > = Vec::new();
-        let mut breakables: Vec<
-            ambition_world::rooms::Authored<ambition_world::rooms::BreakableSpec>,
-        > = Vec::new();
         let mut enemy_spawns: Vec<
             ambition_world::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
         > = Vec::new();
@@ -207,7 +204,6 @@ impl LdtkProject {
                         shrines.extend(emission.shrines);
                         gravity_zones.extend(emission.gravity_zones);
                         hazards.extend(emission.hazards);
-                        breakables.extend(emission.breakables);
                         enemy_spawns.extend(emission.enemy_spawns);
                         boss_spawns.extend(emission.boss_spawns);
                         debug_labels.extend(emission.debug_labels);
@@ -300,7 +296,6 @@ impl LdtkProject {
             shrines,
             gravity_zones,
             hazards,
-            breakables,
             enemy_spawns,
             boss_spawns,
             debug_labels,
@@ -363,7 +358,6 @@ pub struct RoomEmission {
     // --- Per-family authored entity emissions:
     pub hazards: Vec<ambition_world::rooms::Authored<ambition_world::rooms::HazardVolumeSpec>>,
     // interactables migrated to the `placements` channel (fable audit F9.2).
-    pub breakables: Vec<ambition_world::rooms::Authored<ambition_world::rooms::BreakableSpec>>,
     pub enemy_spawns:
         Vec<ambition_world::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>>,
     pub boss_spawns:
@@ -500,9 +494,27 @@ impl RoomEmission {
     }
 
     pub fn from_compiled(compiled: SurfaceCompiled) -> Self {
+        // Breakables lower through the single `placements` channel (fable audit
+        // F9.2). The surface compiler still yields typed `Authored<BreakableSpec>`
+        // internally; convert each to a placement record here at the emission edge.
+        let placements = compiled
+            .breakables
+            .into_iter()
+            .map(|authored| {
+                let mut record = ambition_world::placements::PlacementRecord::new(
+                    authored.id,
+                    ambition_entity_catalog::placements::PlacementSchema::Breakable(
+                        authored.payload,
+                    ),
+                    authored.aabb,
+                );
+                record.name = authored.name;
+                record
+            })
+            .collect();
         Self {
             blocks: compiled.blocks,
-            breakables: compiled.breakables,
+            placements,
             ..Self::default()
         }
     }

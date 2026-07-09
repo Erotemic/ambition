@@ -36,7 +36,7 @@ fn entity_aabbs(room: &sb::rooms::RoomSpec) -> Vec<(&'static str, ae::Aabb)> {
     ));
     v.extend(placement_aabbs(room, "pickup", PlacementKind::Pickup));
     v.extend(placement_aabbs(room, "chest", PlacementKind::Chest));
-    v.extend(room.breakables.iter().map(|b| ("breakable", b.aabb)));
+    v.extend(placement_aabbs(room, "breakable", PlacementKind::Breakable));
     v.extend(room.hazards.iter().map(|h| ("hazard", h.aabb)));
     v.extend(room.loading_zones.iter().map(|z| ("loading_zone", z.aabb)));
     v
@@ -97,7 +97,11 @@ fn no_room_has_out_of_bounds_entities_or_spawn_in_solid() {
             "chest",
             ambition::entity_catalog::placements::PlacementKind::Chest,
         ));
-        embeddable.extend(room.breakables.iter().map(|b| ("breakable", b.aabb)));
+        embeddable.extend(placement_aabbs(
+            room,
+            "breakable",
+            ambition::entity_catalog::placements::PlacementKind::Breakable,
+        ));
         for (label, aabb) in embeddable {
             if point_in_solid(aabb.center()) {
                 anomalies.push(format!(

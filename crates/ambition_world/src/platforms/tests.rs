@@ -40,7 +40,6 @@ fn test_room_with_platforms(
         shrines: Vec::new(),
         gravity_zones: Vec::new(),
         hazards: Vec::new(),
-        breakables: Vec::new(),
         enemy_spawns: Vec::new(),
         boss_spawns: Vec::new(),
         debug_labels: Vec::new(),

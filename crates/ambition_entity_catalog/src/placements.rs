@@ -217,6 +217,90 @@ pub enum ChestStateSpec {
     Opened,
 }
 
+/// When a breakable's break is triggered (on hit, on being stood on, or either).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum BreakableTriggerSpec {
+    #[default]
+    OnHit,
+    OnStand,
+    Either,
+}
+
+impl BreakableTriggerSpec {
+    pub fn allows_hit(self) -> bool {
+        matches!(
+            self,
+            BreakableTriggerSpec::OnHit | BreakableTriggerSpec::Either
+        )
+    }
+
+    pub fn allows_stand(self) -> bool {
+        matches!(
+            self,
+            BreakableTriggerSpec::OnStand | BreakableTriggerSpec::Either
+        )
+    }
+}
+
+/// How a breakable collides while intact.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum BreakableCollisionSpec {
+    #[default]
+    None,
+    Solid,
+    OneWayUp,
+}
+
+impl BreakableCollisionSpec {
+    pub fn blocks_movement(self) -> bool {
+        !matches!(self, BreakableCollisionSpec::None)
+    }
+
+    pub fn is_solid(self) -> bool {
+        matches!(self, BreakableCollisionSpec::Solid)
+    }
+}
+
+/// The authored breakable schema — destructible platform/orb with health,
+/// collision, trigger, and debris cue. Fully plain data; lowered to a live
+/// breakable at room load. Moved down from `ambition_world::rooms` (fable audit
+/// F9.2) onto the single `PlacementRecord` channel.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct BreakableSpec {
+    pub state: BreakableStateSpec,
+    pub health_current: i32,
+    pub health_max: i32,
+    pub respawn: HazardRespawn,
+    pub collision: BreakableCollisionSpec,
+    pub trigger: BreakableTriggerSpec,
+    pub debris_cue: Option<String>,
+    pub pogo_refresh: bool,
+}
+
+impl BreakableSpec {
+    pub fn new(max_hp: i32) -> Self {
+        let max_hp = max_hp.max(1);
+        Self {
+            state: BreakableStateSpec::Intact,
+            health_current: max_hp,
+            health_max: max_hp,
+            respawn: HazardRespawn::Never,
+            collision: BreakableCollisionSpec::None,
+            trigger: BreakableTriggerSpec::OnHit,
+            debris_cue: None,
+            pogo_refresh: false,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum BreakableStateSpec {
+    Intact,
+    Cracking,
+    Broken,
+    Respawning,
+}
+
 /// The CLOSED authored-placement schema (architecture.md §4b.3): everything an
 /// authored map may declare beyond geometry, as editor-visible plain data.
 /// Variants grow as W-queue step 3 converts hardcoded spawn branches into
@@ -228,6 +312,7 @@ pub enum PlacementSchema {
     Interactable(InteractableSpec),
     Pickup(PickupSpec),
     Chest(ChestSpec),
+    Breakable(BreakableSpec),
 }
 
 /// Fieldless key for [`PlacementSchema`], used by the room-load lowering
@@ -239,6 +324,7 @@ pub enum PlacementKind {
     Interactable,
     Pickup,
     Chest,
+    Breakable,
 }
 
 impl PlacementSchema {
@@ -248,6 +334,7 @@ impl PlacementSchema {
             Self::Interactable(_) => PlacementKind::Interactable,
             Self::Pickup(_) => PlacementKind::Pickup,
             Self::Chest(_) => PlacementKind::Chest,
+            Self::Breakable(_) => PlacementKind::Breakable,
         }
     }
 }

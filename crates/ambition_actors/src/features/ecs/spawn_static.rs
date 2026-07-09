@@ -434,6 +434,22 @@ pub(crate) fn spawn_chest(
     ));
 }
 
+pub(crate) fn lower_breakable_placement(
+    record: &crate::world::placements::PlacementRecord,
+    ctx: &mut crate::world::placements::LoweringCtx<'_, '_, '_>,
+) {
+    let PlacementSchema::Breakable(spec) = &record.schema else {
+        return;
+    };
+    let authored = crate::rooms::Authored {
+        id: record.id.as_str().to_string(),
+        name: record.name.clone(),
+        aabb: record.aabb,
+        payload: spec.clone(),
+    };
+    spawn_breakable(ctx.commands, &authored);
+}
+
 pub(crate) fn spawn_breakable(
     commands: &mut Commands,
     authored: &crate::rooms::Authored<crate::rooms::BreakableSpec>,

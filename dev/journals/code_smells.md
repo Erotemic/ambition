@@ -261,3 +261,14 @@ sprite_sheet owns real logic (boss sprite-metric derivation, entity-sprite
 resolvers) with no crate-local unit tests — worth adding sprite_sheet-side
 coverage rather than only testing through the actors adapter. Lesson reinforces
 F7: a carve that adds `mod tests;` must MOVE the fixture in the same commit.
+
+## 2026-07-09 — `ambition_actors::features::conversion_tests` is misnamed
+
+`crates/ambition_actors/src/features/conversion_tests.rs` (+ its inner
+`mod conversion_tests`) contains "headless movement + collision tests for the
+actor simulation" (NPC patrol/gravity/possession, enemy AI, archetype tuning) —
+NOT LDtk conversion tests. The name misled the fable audit F5.4 into listing it
+as a test-travel candidate for `ambition_ldtk_map`; on inspection it is
+correctly actor-side and stays. RENAME opportunity: `actor_movement_tests.rs`
+(and drop the redundant inner `mod conversion_tests` wrapper). Low-risk; deferred
+to avoid churn during the F9.2 arc.

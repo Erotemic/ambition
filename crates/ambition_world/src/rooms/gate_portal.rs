@@ -168,3 +168,85 @@ pub fn tick_gate_portal_phase(phase: &mut GatePortalPhase, switch_on: bool, dt: 
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    //! Gate-portal PHASE-transition unit tests. These pin the pure world-owned
+    //! state machine (`tick_gate_portal_phase` + `GatePortalPhase`); they
+    //! travelled here from `ambition_actors::world::rooms::tests` (fable audit
+    //! F5.4 test-travel) so a gate-portal regression fails IN this crate.
+    use super::*;
+
+    #[test]
+    fn portal_phase_default_is_off() {
+        assert_eq!(GatePortalPhase::default(), GatePortalPhase::Off);
+    }
+
+    #[test]
+    fn portal_phase_off_transitions_to_opening_when_switch_turns_on() {
+        let mut phase = GatePortalPhase::Off;
+        tick_gate_portal_phase(&mut phase, true, 0.01);
+        assert!(matches!(phase, GatePortalPhase::Opening { .. }));
+    }
+
+    #[test]
+    fn portal_phase_opening_completes_to_on_after_duration() {
+        let mut phase = GatePortalPhase::Opening { elapsed: 0.0 };
+        tick_gate_portal_phase(&mut phase, true, PORTAL_OPENING_DURATION_SECS + 0.01);
+        assert_eq!(phase, GatePortalPhase::On);
+    }
+
+    #[test]
+    fn portal_phase_on_transitions_to_closing_when_switch_turns_off() {
+        let mut phase = GatePortalPhase::On;
+        tick_gate_portal_phase(&mut phase, false, 0.01);
+        assert!(matches!(phase, GatePortalPhase::Closing { .. }));
+    }
+
+    #[test]
+    fn portal_phase_closing_completes_to_off_after_duration() {
+        let mut phase = GatePortalPhase::Closing { elapsed: 0.0 };
+        tick_gate_portal_phase(&mut phase, false, PORTAL_CLOSING_DURATION_SECS + 0.01);
+        assert_eq!(phase, GatePortalPhase::Off);
+    }
+
+    #[test]
+    fn portal_phase_mid_open_interruption_resumes_close_from_same_visual_progress() {
+        // Half-open: opening at elapsed = 0.32s (50% of 0.64s).
+        let mut phase = GatePortalPhase::Opening {
+            elapsed: PORTAL_OPENING_DURATION_SECS * 0.5,
+        };
+        // Switch flips off mid-open.
+        tick_gate_portal_phase(&mut phase, false, 0.0);
+        // Should be closing with elapsed = 50% of closing duration (so the
+        // remaining close time is half — symmetric with the open progress).
+        if let GatePortalPhase::Closing { elapsed } = phase {
+            let close_progress_remaining =
+                (PORTAL_CLOSING_DURATION_SECS - elapsed) / PORTAL_CLOSING_DURATION_SECS;
+            // Should be ~0.5 (half a close still to go, matching the
+            // half-open visual we interrupted).
+            assert!(
+                (close_progress_remaining - 0.5).abs() < 0.01,
+                "close-remaining should be ~0.5; got {close_progress_remaining}"
+            );
+        } else {
+            panic!("expected Closing after interrupted Opening; got {phase:?}");
+        }
+    }
+
+    #[test]
+    fn portal_phase_only_on_allows_traversal() {
+        assert!(!GatePortalPhase::Off.allows_traversal());
+        assert!(!GatePortalPhase::Opening { elapsed: 0.0 }.allows_traversal());
+        assert!(GatePortalPhase::On.allows_traversal());
+        assert!(!GatePortalPhase::Closing { elapsed: 0.0 }.allows_traversal());
+    }
+
+    #[test]
+    fn portal_phase_portal_sprite_visible_only_when_not_off() {
+        assert!(!GatePortalPhase::Off.portal_sprite_visible());
+        assert!(GatePortalPhase::Opening { elapsed: 0.0 }.portal_sprite_visible());
+        assert!(GatePortalPhase::On.portal_sprite_visible());
+        assert!(GatePortalPhase::Closing { elapsed: 0.0 }.portal_sprite_visible());
+    }
+}

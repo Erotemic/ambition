@@ -381,11 +381,20 @@ Corrections (log-once, all small):
    `ambition_actors::{bodies, brains, spawn, damage, mount, perception,
    bosses}` — names that say what they are. Do not rename before the fold
    (one churn, not two).
-4. **Tests should travel with their subject:** `features/conversion_tests.rs`
-   (849 lines) tests LDtk conversion that now lives in `ambition_ldtk_map`;
-   actors' `world/rooms/tests.rs` (602) tests the room graph that lives in
-   `ambition_world`. Moving them tightens both crates' change-detection
-   (a conversion regression should fail IN the backend crate).
+4. **Tests should travel with their subject.** ✅ **AUDITED + acted (Opus
+   2026-07-09).** Two corrections to the original hunch (which went by filename,
+   not content — exactly why the checklist said "check current contents first"):
+   - `features/conversion_tests.rs` is MISNAMED. Despite the name + the
+     `mod conversion_tests` wrapper, its actual content is *"headless movement +
+     collision tests for the actor simulation"* (NPC patrol/gravity/possession,
+     enemy AI, archetype tuning) using `crate::features::{npcs,enemies,ecs}`. It
+     is NOT LDtk-conversion — it stays in `ambition_actors`. (The misleading
+     filename is a rename opportunity, logged as a smell.)
+   - `world/rooms/tests.rs` is MIXED: the 8 `portal_phase_*` tests exercise the
+     pure `ambition_world::rooms::gate_portal` state machine and TRAVELLED to a
+     `#[cfg(test)] mod tests` there (world 25→33); the remaining tests are
+     actor-woven (possession-aware room transitions, fast-body walk-zone
+     tunneling, and `sync_*` metadata systems) and correctly stay actor-side.
 5. **Anti-goal (Jon's tiny-crate skepticism, restated for the tail):** the
    remaining wins are MOVES and DELETIONS, not new crates. Beyond E9 + the
    demo crates + possibly `ambition_session_state` (F1.4), no new crate
@@ -489,11 +498,10 @@ Still open, in priority order:
   live feature overlay and portal-carve snapshot.
 - [ ] Continue the world/plain-input follow-up before moving
   `ProjectileCollisionWorld`; the carved solids are not a plain world input yet.
-- [ ] Audit test-travel opportunities individually before moving them. The
-  doc-visible candidates are `features/conversion_tests.rs` and
-  `world/rooms/tests.rs`, but the current contents should be checked first so
-  only pure backend/world tests move; actor-simulation tests should stay with
-  `ambition_actors`.
+- [x] Audit test-travel opportunities (DONE 2026-07-09). `conversion_tests.rs`
+  is misnamed actor-sim tests -> stays; `world/rooms/tests.rs` gate-portal phase
+  tests -> moved to `ambition_world::rooms::gate_portal` (world 25->33); the rest
+  is actor-woven and stays. See F5.4.
 - [ ] Defer the S5/S6 player fold and the eventual `features/` rename until the
   unified-actor work is ready; do not churn the module tree first.
 - [ ] Keep the E9 umbrella narrow. New app/demo/content code should import

@@ -38,6 +38,9 @@ pub mod spawn_systems;
 pub mod state;
 pub mod visual_kind;
 
+#[cfg(test)]
+mod engine_tests;
+
 pub use entity::{
     LiveProjectile, PlayerProjectile, ProjectileOwner, ProjectileOwnerId, ProjectileSeq,
     ProjectileSeqCounter,

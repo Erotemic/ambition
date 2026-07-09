@@ -176,9 +176,13 @@ classes — log-once so the next sessions don't re-derive:
      `ambition_actors::enemy_projectile` for that substrate-only spawn step.
      The next follow-up moved projectile-kind-specific expiry VFX
      (`ProjectileVisualKind::expiry_vfx`, currently the lasersword detonation)
-     into `ambition_projectiles::visual_kind`. The actual victim-routing,
-     charge-input, and world-collision steppers still stay actor-side until the
-     boss/player/world inputs are split.**
+     into `ambition_projectiles::visual_kind`. A test-travel follow-up moved the
+     pure projectile primitive tests (motion gestures, spawner gates, kind
+     tuning, and projectile-body collision) out of the actor facade and into
+     `ambition_projectiles`; actor-side projectile tests now cover only the
+     woven sim steppers. The actual victim-routing, charge-input, and
+     world-collision steppers still stay actor-side until the boss/player/world
+     inputs are split.**
 2. **RESIDUAL GLUE for already-minted crates** (audio/menu/dialog/items/
    encounter/persistence/music/dev modules, ~7k total): each is the actor-side
    wiring for a carved crate. Per ADR 0019, the plugin/schedule wiring belongs
@@ -196,7 +200,10 @@ classes — log-once so the next sessions don't re-derive:
    projectile expiry VFX cue (`ProjectileVisualKind::expiry_vfx`, currently the
    lasersword detonation) next to the visual-kind art policy in
    `ambition_projectiles`, so the actor stepper decides when a projectile expires
-   but no longer owns projectile-kind-specific presentation policy.** **A follow-on residual-glue slice (Codex 2026-07-08)
+   but no longer owns projectile-kind-specific presentation policy. A test-travel
+   follow-up moved the pure projectile primitive tests into `ambition_projectiles`,
+   leaving `ambition_actors::projectile` with only actor-woven stepper coverage.**
+   **A follow-on residual-glue slice (Codex 2026-07-08)
    also burned down the developer-tools facade: app/runtime/sim-view now import
    `ambition_dev_tools::{dev_tools,profiling,sync_live_player_dev_edits_system}`
    directly, while `ambition_actors::dev` keeps only the sim-coupled trace
@@ -406,12 +413,13 @@ Consider `CARGO_INCREMENTAL=0` for CI-style full-gate runs, or a periodic
 **Priority order for the next sessions (all opus-executable, most valuable
 first):** continue the projectiles dedicated session by splitting the remaining
 actor-side charge/victim/world inputs only when their dependencies are explicit.
-The first two safe projectile follow-ups are now landed: enemy-pool
-`Effect::Projectiles` spawn requests live in `ambition_projectiles::enemy`, and
-projectile-kind-specific expiry VFX lives in `ProjectileVisualKind::expiry_vfx`.
-F2 is closed for audit cleanup; F3.2, F4.3, F4.4, and E9 are closed
-correctness/ruling/facade seams; deeper actor decomposition is tracked by the
-later world/plain-input, projectile, and unified-actor cards.
+The first projectile follow-ups are now landed: enemy-pool
+`Effect::Projectiles` spawn requests live in `ambition_projectiles::enemy`,
+projectile-kind-specific expiry VFX lives in `ProjectileVisualKind::expiry_vfx`,
+and pure projectile primitive tests live with `ambition_projectiles` rather than
+under the actor facade. F2 is closed for audit cleanup; F3.2, F4.3, F4.4, and E9
+are closed correctness/ruling/facade seams; deeper actor decomposition is tracked
+by the later world/plain-input, projectile, and unified-actor cards.
 
 ### F7 — Deep pass: the lowering seam had three real defects (FIXED); test-loss lesson
 
@@ -458,3 +466,39 @@ silently drop pinned contracts again.
 This closes the fable audit. The repo is structurally sound, behaviorally
 green, and every remaining item is enumerated with a prescription in F1–F7 —
 the priority queue at F6 stands, with F7's lowering fixes already landed.
+
+
+## Follow-up checklist after the fable audit
+
+Completed in the projectile tail after F8:
+
+- [x] Move the substrate-only enemy/boss `Effect::Projectiles` spawn executor
+  from `ambition_actors::enemy_projectile` to `ambition_projectiles::enemy`.
+- [x] Move projectile-kind-specific expiry VFX policy into
+  `ProjectileVisualKind::expiry_vfx`.
+- [x] Move pure projectile primitive tests to `ambition_projectiles`; leave the
+  actor crate with only actor-woven projectile stepper tests.
+
+Still open, in priority order:
+
+- [ ] Split another projectile seam only when the dependency boundary is
+  explicit. Current blockers are: charge input still reads brain action
+  messages, `UserSettings`, gravity, and optional player animation facts;
+  victim routing still emits `HitEvent`/player heal/SFX/VFX and queries bosses,
+  actors, breakables, shields, and owner combat; world collision still needs the
+  live feature overlay and portal-carve snapshot.
+- [ ] Continue the world/plain-input follow-up before moving
+  `ProjectileCollisionWorld`; the carved solids are not a plain world input yet.
+- [ ] Audit test-travel opportunities individually before moving them. The
+  doc-visible candidates are `features/conversion_tests.rs` and
+  `world/rooms/tests.rs`, but the current contents should be checked first so
+  only pure backend/world tests move; actor-simulation tests should stay with
+  `ambition_actors`.
+- [ ] Defer the S5/S6 player fold and the eventual `features/` rename until the
+  unified-actor work is ready; do not churn the module tree first.
+- [ ] Keep the E9 umbrella narrow. New app/demo/content code should import
+  engine/model vocabulary through `ambition::*`, while app-local extensions such
+  as kaleidoscope stay direct.
+- [ ] Avoid new crates unless there is a present consumer and a real dependency
+  inversion; the remaining fable work should mostly be moves, deletions, and
+  ratchets.

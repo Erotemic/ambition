@@ -1,15 +1,17 @@
-//! Unit tests for the shared projectile primitives as seen from the player
-//! facade: motion-buffer gesture recognition (quarter/half-circle), the
-//! `ProjectileSpawner` cooldown/resource gate, and `ProjectileBody` flight +
-//! world-collision behavior re-exported from
-//! `ambition_platformer_primitives::projectile`.
+//! Unit tests for the reusable projectile primitives.
+//!
+//! These used to live under `ambition_actors::projectile::engine_tests` when the
+//! actor crate was also the projectile facade.  Their subject is the projectile
+//! kit itself now: motion-buffer gesture recognition, spawner cooldown/resource
+//! gating, kind tuning, and `ProjectileBody` flight + world-collision behavior
+//! re-exported from `ambition_platformer_primitives::projectile`.
 
 use ambition_engine_core::Vec2;
 
-use super::spawn::{ProjectileSpawner, SpawnFailure};
-use super::{FireballChargeTuning, ProjectileKind, ProjectileSpec};
-use super::{MotionDirection, MotionInputBuffer};
-use super::{ProjectileBody, ProjectileSolidHit};
+use crate::spawn::{ProjectileSpawner, SpawnFailure};
+use crate::{FireballChargeTuning, ProjectileKind};
+use crate::{MotionDirection, MotionInputBuffer};
+use crate::{ProjectileBody, ProjectileSolidHit};
 use ambition_engine_core::{aabb_from_min_size, Aabb, AabbExt};
 
 #[test]

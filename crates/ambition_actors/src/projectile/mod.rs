@@ -21,7 +21,3 @@ pub use systems::{charge_projectile_input, step_projectiles, ProjectileCollision
 
 #[cfg(test)]
 mod tests;
-
-#[allow(unused_imports)]
-#[cfg(test)]
-mod engine_tests;

@@ -812,6 +812,25 @@ fn architecture_boundaries_projectiles_crate_is_model_only() {
         visual_kind.contains("pub fn expiry_vfx"),
         "ambition_projectiles::visual_kind should own the custom projectile expiry VFX seam"
     );
+
+    assert_paths_exist(
+        &crate_root.join("src"),
+        &["engine_tests.rs"],
+        "projectile model tests should travel with the projectile kit",
+    );
+    assert_paths_absent(
+        &repo_root().join("crates/ambition_actors/src/projectile"),
+        &["engine_tests.rs"],
+        "pure projectile primitive tests should not live under the actor facade",
+    );
+    let actor_projectile_mod = fs::read_to_string(
+        repo_root().join("crates/ambition_actors/src/projectile/mod.rs"),
+    )
+    .expect("read actor projectile module");
+    assert!(
+        !actor_projectile_mod.contains("engine_tests"),
+        "ambition_actors::projectile should expose only the actor-woven projectile steppers; pure primitive tests live in ambition_projectiles"
+    );
 }
 
 /// `ambition_encounter` (E-enc) owns the reusable encounter wave/lockdown

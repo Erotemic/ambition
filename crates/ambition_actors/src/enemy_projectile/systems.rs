@@ -1,64 +1,20 @@
-//! Enemy-projectile spawn executor. `apply_projectile_effects` materializes
-//! one entity per `ambition_vfx::Effect::Projectiles` request (enemy / boss
-//! volleys). The per-tick advance + world collision is NOT here: it shares the
-//! unified, faction-routed `crate::projectile::step_projectiles` with the
-//! player pool. In-flight bodies are ECS entities (mirroring the player pool),
-//! sorted by the shared `ProjectileSeq` for deterministic order.
+//! Legacy actor-side name for the enemy-projectile effect-request spawn executor.
+//!
+//! The canonical implementation now lives in
+//! [`ambition_projectiles::enemy::apply_enemy_projectile_effect_requests`]. It
+//! materializes `ambition_vfx::Effect::Projectiles` requests as enemy-pool
+//! projectile entities and does not inspect actor/player/victim state. This
+//! module keeps the old `crate::enemy_projectile::apply_projectile_effects` name
+//! for actor-internal tests and transitional call sites while runtime scheduling
+//! routes through `ambition_runtime::projectile_schedule`.
 
+#[cfg(test)]
 use bevy::prelude::*;
 
-use super::entity::EnemyProjectile;
-use crate::projectile::{ProjectileOwner, ProjectileOwnerId, ProjectileSeqCounter};
+#[cfg(test)]
+use crate::projectile::ProjectileSeqCounter;
 
-/// Materialize enemy-pool projectiles from [`ambition_vfx::Effect::Projectiles`]
-/// requests — one projectile ENTITY per shot. Scheduled BEFORE
-/// `update_enemy_projectiles` so a body spawned this tick advances one step this
-/// frame. Non-projectile effects (DamageBox / Summon) are handled by
-/// `ambition_vfx::apply_effects`; this executor lives next to the projectile
-/// substrate so the shared [`ProjectileSeq`] is assigned in emission order (its
-/// sort then reproduces the historical push order).
-///
-/// Each entity carries the SHARED [`crate::actor::BodyKinematics`] body + the
-/// [`ProjectileGameplay`] marker/state + the [`ProjectileOwnerId`] string + the
-/// monotonic [`ProjectileSeq`]. When the request names a real firing actor
-/// (`req.owner != Entity::PLACEHOLDER`) the entity also carries
-/// [`ProjectileOwner`] so a kill attributes back to that actor — the
-/// `step_projectiles` player-faction branch reads it for `HitEvent::attacker`
-/// (player-wielded volley/meteor, a possessed actor's player-faction shots).
-/// The enemy-faction branch attributes `None` independently, so an unowned or
-/// enemy shot is unaffected.
-pub fn apply_projectile_effects(
-    mut commands: Commands,
-    mut seq: ResMut<ProjectileSeqCounter>,
-    mut requests: MessageReader<ambition_vfx::EffectRequest>,
-) {
-    for req in requests.read() {
-        let ambition_vfx::Effect::Projectiles { shots } = &req.effect else {
-            continue;
-        };
-        for shot in shots {
-            let owner_id = shot.owner_id.clone();
-            // Decode the opaque visual tag the firing site stamped into the
-            // shot's visual identity. The render layer reads THIS component —
-            // not the owner-id string — to pick the projectile's art.
-            let visual_kind = crate::projectile::ProjectileVisualKind::from_tag(shot.visual_tag);
-            let projectile = crate::enemy_projectile::EnemyProjectileState::build(shot.clone());
-            let mut entity = commands.spawn((
-                projectile.body.kin,
-                projectile.body.game,
-                seq.next(),
-                ProjectileOwnerId(owner_id),
-                visual_kind,
-                crate::projectile::LiveProjectile,
-                EnemyProjectile,
-                Name::new("Enemy projectile (sim)"),
-            ));
-            if req.owner != Entity::PLACEHOLDER {
-                entity.insert(ProjectileOwner(req.owner));
-            }
-        }
-    }
-}
+pub use ambition_projectiles::enemy::apply_enemy_projectile_effect_requests as apply_projectile_effects;
 
 #[cfg(test)]
 mod tests {

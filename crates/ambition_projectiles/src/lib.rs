@@ -17,6 +17,9 @@
 //!   sites from per-pool storage.
 //! - [`spawn_systems`] — [`apply_player_spawn_projectile_messages`], the
 //!   player-pool spawn consumer (pure: reads the pool message, spawns entities).
+//! - [`enemy::apply_enemy_projectile_effect_requests`] — the enemy-pool
+//!   `Effect::Projectiles` spawn consumer (pure: reads effect vocabulary,
+//!   spawns projectile entities).
 //! - [`portal_transit`] — pure portal-aperture transit shared by both factions.
 //! - [`diagnostics`] — motion-press logging helper.
 //!

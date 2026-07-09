@@ -169,8 +169,13 @@ classes — log-once so the next sessions don't re-derive:
      slice (Codex 2026-07-08) centralized the remaining actor-side projectile
      steppers behind `ambition_runtime::projectile_schedule`; app/content
      production code no longer schedules through `ambition_actors::projectile`
-     directly. The actual victim-routing/charge steppers still stay actor-side
-     until the boss/player/world inputs are split.**
+     directly. **A projectile-dedicated follow-up (Codex 2026-07-09) moved the
+     enemy/boss projectile effect-request spawn executor into
+     `ambition_projectiles::enemy`; runtime still schedules it through
+     `ambition_runtime::projectile_schedule`, but no longer reaches through
+     `ambition_actors::enemy_projectile` for that substrate-only spawn step. The
+     actual victim-routing/charge steppers still stay actor-side until the
+     boss/player/world inputs are split.**
 2. **RESIDUAL GLUE for already-minted crates** (audio/menu/dialog/items/
    encounter/persistence/music/dev modules, ~7k total): each is the actor-side
    wiring for a carved crate. Per ADR 0019, the plugin/schedule wiring belongs
@@ -180,7 +185,11 @@ classes — log-once so the next sessions don't re-derive:
    2026-07-08) applied that rule to projectiles first: runtime owns the schedule
    facade for the remaining actor-side projectile steppers; the model stays in
    `ambition_projectiles`, and the actor-domain victim/charge logic has not been
-   moved wholesale.** **A follow-on residual-glue slice (Codex 2026-07-08)
+   moved wholesale.** **A projectile-dedicated follow-up (Codex 2026-07-09)
+   identified the enemy-pool `Effect::Projectiles` drain as substrate-only and
+   moved its canonical implementation into `ambition_projectiles::enemy`, leaving
+   runtime as the schedule facade and actor-side projectile code focused on the
+   still-woven charge/victim/world stepper.** **A follow-on residual-glue slice (Codex 2026-07-08)
    also burned down the developer-tools facade: app/runtime/sim-view now import
    `ambition_dev_tools::{dev_tools,profiling,sync_live_player_dev_edits_system}`
    directly, while `ambition_actors::dev` keeps only the sim-coupled trace
@@ -388,10 +397,11 @@ Consider `CARGO_INCREMENTAL=0` for CI-style full-gate runs, or a periodic
 `cargo clean` cron, so a full disk doesn't silently kill background gates.
 
 **Priority order for the next sessions (all opus-executable, most valuable
-first):** projectiles dedicated session (already carded). F2 is closed for
-audit cleanup; F3.2, F4.3, F4.4, and E9 are closed correctness/ruling/facade
-seams; deeper actor decomposition is tracked by the later world/plain-input,
-projectile, and unified-actor cards.
+first):** continue the projectiles dedicated session by splitting the remaining
+actor-side charge/victim/world inputs only when their dependencies are explicit.
+F2 is closed for audit cleanup; F3.2, F4.3, F4.4, and E9 are closed
+correctness/ruling/facade seams; deeper actor decomposition is tracked by the
+later world/plain-input, projectile, and unified-actor cards.
 
 ### F7 — Deep pass: the lowering seam had three real defects (FIXED); test-loss lesson
 

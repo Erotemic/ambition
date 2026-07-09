@@ -21,6 +21,8 @@ ambition_portal = { path = "../ambition_portal" }
 ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }
 # Motion-gesture recognition (Hadouken input buffer) — pure input logic.
 ambition_input = { path = "../ambition_input" }
+# Effect-request vocabulary consumed by the enemy-pool projectile spawn executor.
+ambition_vfx = { path = "../ambition_vfx" }
 # Serde derives on the shot kind + visual-kind art descriptors (ron-room bake).
 serde = { version = "1", features = ["derive"] }
 # ECS component/message/resource derives.

@@ -11,12 +11,14 @@
 //! Splitting the state keeps the player-vs-enemy faction explicit and
 //! avoids a future "is this projectile mine?" flag on each body.
 //!
-//! The victim-side effect stepper (`apply_projectile_effects`) that damages the
-//! player stays in the game's sim heart (`ambition_actors`); this module
-//! owns only the enemy-shot ENTITY marker + spawn state.
+//! The effect-request spawn executor lives here too: it is pure substrate work
+//! that turns `ambition_vfx::Effect::Projectiles` requests into enemy projectile
+//! entities. Victim-side hit routing still stays in the game's sim heart.
 
+pub mod effect_spawn_systems;
 pub mod entity;
 pub mod state;
 
+pub use effect_spawn_systems::apply_enemy_projectile_effect_requests;
 pub use entity::EnemyProjectile;
 pub use state::{EnemyProjectileSpawn, EnemyProjectileState};

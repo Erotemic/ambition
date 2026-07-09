@@ -581,6 +581,7 @@ dependencies = [
  "ambition_input",
  "ambition_platformer_primitives",
  "ambition_portal",
+ "ambition_vfx",
  "bevy",
  "serde",
 ]

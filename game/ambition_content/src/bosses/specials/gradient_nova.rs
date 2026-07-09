@@ -115,7 +115,7 @@ mod tests {
     /// so no engine `test-support` plumbing is needed.
     #[test]
     fn gradient_nova_consumer_materializes_a_full_burst_of_projectiles() {
-        use ambition_actors::enemy_projectile::apply_projectile_effects;
+        use ambition_projectiles::enemy::apply_enemy_projectile_effect_requests;
         use ambition_actors::features::BossClusterScratch;
         use ambition_entity_catalog::placements::BossBrain;
         use ambition_projectiles::enemy::{EnemyProjectile, EnemyProjectileState};
@@ -142,7 +142,7 @@ mod tests {
             Update,
             (
                 spawn_gradient_nova_from_special_messages,
-                apply_projectile_effects,
+                apply_enemy_projectile_effect_requests,
             )
                 .chain(),
         );

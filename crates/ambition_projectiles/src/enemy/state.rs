@@ -29,7 +29,8 @@ impl EnemyProjectileState {
     /// The single place the spawn-request → body mapping lives;
     /// the fire paths emit it inside a
     /// [`crate::SpawnProjectile`] message that
-    /// `apply_projectile_effects` later spawns as an entity, and
+    /// [`super::apply_enemy_projectile_effect_requests`] later spawns as an
+    /// entity, and
     /// tests build it directly. The mapping is unchanged from the pre-entity
     /// pool.
     pub fn build(request: EnemyProjectileSpawn) -> crate::InFlightProjectile {

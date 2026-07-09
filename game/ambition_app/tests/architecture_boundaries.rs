@@ -756,12 +756,13 @@ fn architecture_boundaries_world_ir_and_ldtk_backend_are_split() {
 }
 
 /// `ambition_projectiles` (E2) owns the reusable projectile MODEL — shot
-/// vocabulary, ECS components, the spawn pool + player-pool spawner, and pure
-/// portal transit. It is a FOUNDATIONAL crate: it may name only the geometry /
-/// primitive / portal / trace / input foundations, never the sim heart, the
-/// combat kit, character brains, or any host/content/render machinery. The
-/// victim-side hit routing + charge-input steppers that DO need those stay in
-/// `ambition_actors` and consume this crate (the legal sim → model arrow).
+/// vocabulary, ECS components, the spawn pools, substrate spawn executors, and
+/// pure portal transit. It is a FOUNDATIONAL crate: it may name only the geometry
+/// / primitive / portal / trace / input/effect vocabulary foundations, never the
+/// sim heart, the combat kit, character brains, or any host/content/render
+/// machinery. The victim-side hit routing + charge-input steppers that DO need
+/// those stay in `ambition_actors` and consume this crate (the legal sim → model
+/// arrow).
 #[test]
 fn architecture_boundaries_projectiles_crate_is_model_only() {
     let crate_root = repo_root().join("crates/ambition_projectiles");
@@ -970,9 +971,13 @@ fn architecture_boundaries_projectile_schedule_wiring_lives_in_runtime() {
         .expect("read runtime projectile schedule facade");
     assert!(
         facade.contains("ambition_actors::projectile")
-            && facade.contains("ambition_actors::enemy_projectile")
+            && facade.contains("ambition_projectiles::enemy::apply_enemy_projectile_effect_requests")
             && facade.contains("ambition_projectiles::apply_player_spawn_projectile_messages"),
-        "runtime should own the explicit projectile schedule facade over the remaining actor-side steppers"
+        "runtime should own the projectile schedule facade: actor-side victim/charge steppers stay explicit, while substrate spawn executors come from ambition_projectiles"
+    );
+    assert!(
+        !facade.contains("ambition_actors::enemy_projectile"),
+        "enemy-pool effect-request spawning is substrate-owned by ambition_projectiles; runtime should not schedule it through ambition_actors"
     );
 
     assert_code_refs_absent(
@@ -991,8 +996,8 @@ fn architecture_boundaries_projectile_schedule_wiring_lives_in_runtime() {
             "ambition_actors::enemy_projectile::",
         ],
         |path| !is_test_file(path),
-        |_, line| line.contains("use ambition_actors::enemy_projectile::apply_projectile_effects"),
-        "F2: production content should emit projectile effects/model messages, not reach actor projectile steppers directly;          the one public-API content test may still drive the actor stepper fixture directly",
+        |_, _| false,
+        "F2: production content should emit projectile effects/model messages, not reach actor projectile steppers directly",
     );
 
     assert_code_refs_filtered(

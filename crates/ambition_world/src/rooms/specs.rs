@@ -264,29 +264,10 @@ pub use ambition_entity_catalog::placements::{InteractableSpec, InteractionKindS
 /// here so `rooms::PickupSpec` / `rooms::PickupKindSpec` paths stay stable.
 pub use ambition_entity_catalog::placements::{PickupKindSpec, PickupSpec};
 
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct ChestSpec {
-    pub state: ChestStateSpec,
-    pub reward: Option<PickupKindSpec>,
-    pub persistent: bool,
-}
-
-impl ChestSpec {
-    pub fn new(reward: Option<PickupKindSpec>) -> Self {
-        Self {
-            state: ChestStateSpec::Closed,
-            reward,
-            persistent: true,
-        }
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum ChestStateSpec {
-    Closed,
-    Opening,
-    Opened,
-}
+/// Authored chest payload — now owned by the Tier-0 catalog and carried through
+/// the single `PlacementRecord` channel (fable audit F9.2). Re-exported here so
+/// `rooms::ChestSpec` / `rooms::ChestStateSpec` paths stay stable.
+pub use ambition_entity_catalog::placements::{ChestSpec, ChestStateSpec};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default, serde::Serialize, serde::Deserialize)]
 pub enum BreakableTriggerSpec {

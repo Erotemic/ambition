@@ -43,6 +43,10 @@ pub fn spawn_room_feature_entities(commands: &mut Commands, room: &crate::rooms:
         ambition_entity_catalog::placements::PlacementKind::Pickup,
         super::spawn_static::lower_pickup_placement,
     );
+    registry.register(
+        ambition_entity_catalog::placements::PlacementKind::Chest,
+        super::spawn_static::lower_chest_placement,
+    );
     spawn_room_feature_entities_with_registry(commands, room, &registry);
 }
 
@@ -98,9 +102,7 @@ pub fn spawn_room_feature_entities_with_registry(
     for gravity_zone in &room.gravity_zones {
         super::spawn_static::spawn_gravity_zone(commands, gravity_zone);
     }
-    for chest in &room.chests {
-        super::spawn_static::spawn_chest(commands, chest);
-    }
+    // Chests now lower through the `placements` channel above (fable audit F9.2).
     for breakable in &room.breakables {
         super::spawn_static::spawn_breakable(commands, breakable);
     }

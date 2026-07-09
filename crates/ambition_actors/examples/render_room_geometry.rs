@@ -296,8 +296,11 @@ fn render_room_projected(
     ) {
         overlay_aabb(&mut img, proj, p_aabb, Rgba([90, 210, 230, 255])); // cyan
     }
-    for c in &room.chests {
-        overlay_aabb(&mut img, proj, c.aabb, Rgba([240, 205, 70, 255])); // gold
+    for c_aabb in placement_aabbs(
+        room,
+        ambition_entity_catalog::placements::PlacementKind::Chest,
+    ) {
+        overlay_aabb(&mut img, proj, c_aabb, Rgba([240, 205, 70, 255])); // gold
     }
     for br in &room.breakables {
         overlay_aabb(&mut img, proj, br.aabb, Rgba([150, 190, 240, 255])); // light blue
@@ -394,7 +397,14 @@ fn run_anomaly_report(room_set: &sb::rooms::RoomSet) {
             .into_iter()
             .map(|a| ("pickup", a)),
         );
-        families.extend(room.chests.iter().map(|c| ("chest", c.aabb)));
+        families.extend(
+            placement_aabbs(
+                room,
+                ambition_entity_catalog::placements::PlacementKind::Chest,
+            )
+            .into_iter()
+            .map(|a| ("chest", a)),
+        );
         families.extend(room.breakables.iter().map(|b| ("breakable", b.aabb)));
         families.extend(room.hazards.iter().map(|h| ("hazard", h.aabb)));
         families.extend(room.loading_zones.iter().map(|z| ("loading_zone", z.aabb)));
@@ -435,7 +445,14 @@ fn run_anomaly_report(room_set: &sb::rooms::RoomSet) {
             .into_iter()
             .map(|a| ("pickup", a)),
         );
-        embeddable.extend(room.chests.iter().map(|c| ("chest", c.aabb)));
+        embeddable.extend(
+            placement_aabbs(
+                room,
+                ambition_entity_catalog::placements::PlacementKind::Chest,
+            )
+            .into_iter()
+            .map(|a| ("chest", a)),
+        );
         embeddable.extend(room.breakables.iter().map(|b| ("breakable", b.aabb)));
         for (label, aabb) in embeddable {
             if point_in_solid(aabb.center()) {
@@ -604,7 +621,7 @@ fn main() {
         room.boss_spawns.len(),
         placement_aabbs(room, ambition_entity_catalog::placements::PlacementKind::Interactable).len(),
         placement_aabbs(room, ambition_entity_catalog::placements::PlacementKind::Pickup).len(),
-        room.chests.len(),
+        placement_aabbs(room, ambition_entity_catalog::placements::PlacementKind::Chest).len(),
         room.breakables.len(),
         room.hazards.len(),
         room.loading_zones.len(),

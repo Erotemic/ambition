@@ -285,7 +285,6 @@ fn spec_with(meta: RoomMetadata, id: &str) -> RoomSpec {
         shrines: Vec::new(),
         gravity_zones: Vec::new(),
         hazards: Vec::new(),
-        chests: Vec::new(),
         breakables: Vec::new(),
         enemy_spawns: Vec::new(),
         boss_spawns: Vec::new(),

@@ -93,8 +93,17 @@ pub fn spawn_room_visuals(
             );
         }
     }
-    for chest in &spec.chests {
-        spawn_authored_chest(commands, world, chest, assets);
+    // Chests lower through the single `placements` channel (fable audit F9.2).
+    for record in &spec.placements {
+        if let ambition_entity_catalog::placements::PlacementSchema::Chest(chest) = &record.schema {
+            let authored = ambition_world::rooms::Authored {
+                id: record.id.as_str().to_string(),
+                name: record.name.clone(),
+                aabb: record.aabb,
+                payload: chest.clone(),
+            };
+            spawn_authored_chest(commands, world, &authored, assets);
+        }
     }
     for breakable in &spec.breakables {
         spawn_authored_basic(

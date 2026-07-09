@@ -402,6 +402,22 @@ pub(crate) fn spawn_gravity_zone(commands: &mut Commands, spec: &crate::rooms::G
     }
 }
 
+pub(crate) fn lower_chest_placement(
+    record: &crate::world::placements::PlacementRecord,
+    ctx: &mut crate::world::placements::LoweringCtx<'_, '_, '_>,
+) {
+    let PlacementSchema::Chest(spec) = &record.schema else {
+        return;
+    };
+    let authored = crate::rooms::Authored {
+        id: record.id.as_str().to_string(),
+        name: record.name.clone(),
+        aabb: record.aabb,
+        payload: spec.clone(),
+    };
+    spawn_chest(ctx.commands, &authored);
+}
+
 pub(crate) fn spawn_chest(
     commands: &mut Commands,
     authored: &crate::rooms::Authored<crate::rooms::ChestSpec>,

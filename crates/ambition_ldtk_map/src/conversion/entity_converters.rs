@@ -424,9 +424,10 @@ pub(super) fn convert_chest_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
         field_string(entity, "reward").map(|value| parse_pickup_kind(&value)),
     );
     let (id, name, aabb) = authored_triple(entity, name, min, size);
-    Ok(RoomEmission::chest(ambition_world::rooms::Authored::new(
-        id, name, aabb, chest,
-    )))
+    let mut record =
+        ambition_world::placements::PlacementRecord::new(id, PlacementSchema::Chest(chest), aabb);
+    record.name = name;
+    Ok(RoomEmission::placement(record))
 }
 
 pub(super) fn convert_enemy_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {

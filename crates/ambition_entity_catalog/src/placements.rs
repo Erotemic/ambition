@@ -189,6 +189,34 @@ pub enum PickupKindSpec {
     Custom(String),
 }
 
+/// The authored chest schema — open/closed state, an optional reward, and a
+/// persistence flag. Fully plain data; the interaction runtime lowers it to a
+/// live chest at room load. Moved down from `ambition_world::rooms` (fable audit
+/// F9.2) onto the single `PlacementRecord` channel.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct ChestSpec {
+    pub state: ChestStateSpec,
+    pub reward: Option<PickupKindSpec>,
+    pub persistent: bool,
+}
+
+impl ChestSpec {
+    pub fn new(reward: Option<PickupKindSpec>) -> Self {
+        Self {
+            state: ChestStateSpec::Closed,
+            reward,
+            persistent: true,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ChestStateSpec {
+    Closed,
+    Opening,
+    Opened,
+}
+
 /// The CLOSED authored-placement schema (architecture.md §4b.3): everything an
 /// authored map may declare beyond geometry, as editor-visible plain data.
 /// Variants grow as W-queue step 3 converts hardcoded spawn branches into
@@ -199,6 +227,7 @@ pub enum PlacementSchema {
     Hazard(HazardSpec),
     Interactable(InteractableSpec),
     Pickup(PickupSpec),
+    Chest(ChestSpec),
 }
 
 /// Fieldless key for [`PlacementSchema`], used by the room-load lowering
@@ -209,6 +238,7 @@ pub enum PlacementKind {
     Hazard,
     Interactable,
     Pickup,
+    Chest,
 }
 
 impl PlacementSchema {
@@ -217,6 +247,7 @@ impl PlacementSchema {
             Self::Hazard(_) => PlacementKind::Hazard,
             Self::Interactable(_) => PlacementKind::Interactable,
             Self::Pickup(_) => PlacementKind::Pickup,
+            Self::Chest(_) => PlacementKind::Chest,
         }
     }
 }

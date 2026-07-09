@@ -5,19 +5,21 @@ use bevy_ecs_ldtk::prelude::LdtkPlugin;
 use bevy_material_ui::MaterialUiPlugin;
 
 use ambition::actors::assets::loading;
-use ambition::dev_tools::dev_tools::{
-    self, DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
-    MovementProfile, PlayerBodyProfile,
-};
 use ambition::actors::ldtk_world;
 use ambition::actors::rooms;
-use ambition::platformer::schedule::{gameplay_allowed, PresentationSetupSet, SandboxSet};
 use ambition::actors::time::feel::SandboxFeelTuning;
 #[cfg(feature = "physics_debris")]
 use ambition::actors::world::physics;
 #[cfg(feature = "physics_debris")]
 use ambition::actors::world::physics::physics_spawn_debris_messages;
-use ambition::inventory_ui as inventory_ui;
+use ambition::dev_tools::dev_tools::{
+    self, DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
+    MovementProfile, PlayerBodyProfile,
+};
+use ambition::inventory_ui;
+use ambition::platformer::schedule::{
+    gameplay_allowed, PresentationSetupSet, SandboxSet, SimScheduleExt,
+};
 use ambition::render::fx::{self, vfx_spawn_messages};
 use ambition::render::rendering::{camera_follow, sync_visuals};
 use ambition::render::ui_fonts;
@@ -58,6 +60,13 @@ pub fn add_simulation_plugins(app: &mut App) {
     // Hosts still override StartingCharacter etc. by inserting BEFORE
     // `add_simulation_plugins` runs — init_resource never clobbers.
 
+    // The sim-schedule mode (netcode N0.1) must be chosen before the FIRST sim
+    // plugin builds — content is added below, ahead of the engine group, and it
+    // registers into `SimSchedule` too. A caller opts into fixed tick by
+    // `app.set_sim_schedule(FixedUpdate)` before calling this; we read the
+    // choice back so the engine group installs `Time<Fixed>` to match.
+    let fixed_tick = app.sim_is_fixed_tick();
+
     app.add_plugins(super::sim_resources::SandboxSimulationResourcesPlugin);
 
     // Named Ambition game content: quests, bosses, dialogue/cutscenes, intro
@@ -81,7 +90,7 @@ pub fn add_simulation_plugins(app: &mut App) {
     // collection/interaction/effects/view-sync, room reset, traces,
     // affordances, and the combat-phase chain. Ordering is set-based, so
     // group membership does not change the resolved schedule.
-    app.add_plugins(ambition::runtime::PlatformerEnginePlugins);
+    app.add_plugins(ambition::runtime::PlatformerEnginePlugins { fixed_tick });
 
     // App-LOCAL residue the E5 step-5 carve deliberately left behind. The
     // engine group above registers the shared per-frame wiring (player input
@@ -100,6 +109,7 @@ pub fn add_simulation_plugins(app: &mut App) {
 /// RoomTransitionSchedulePlugin, PortalSchedulePlugin,
 /// ProgressionSchedulePlugin}`.
 fn register_app_local_sim_systems(app: &mut App) {
+    let sim = app.sim_schedule();
     // ── The PlayerInput gap: the Ambition reset/replay consumers ──────────
     //
     // Both call the app-only `world_flow::reset_sandbox`, and the replay
@@ -107,7 +117,7 @@ fn register_app_local_sim_systems(app: &mut App) {
     // app-side, slotted after the dev-edit sync and before the input timer
     // (the exact position they held in the old inline chain).
     app.add_systems(
-        Update,
+        sim,
         (
             apply_player_reset_input_system.run_if(gameplay_allowed),
             apply_room_replay_request_system,
@@ -122,7 +132,7 @@ fn register_app_local_sim_systems(app: &mut App) {
     // The engine anchors the slot's PHASE (PlayerInput); the consumer edge is
     // ours because the consumer is ours.
     app.configure_sets(
-        Update,
+        sim,
         ambition::actors::session::reset::ContentDialogueFollowupSet
             .before(apply_room_replay_request_system),
     );
@@ -139,7 +149,7 @@ fn register_app_local_sim_systems(app: &mut App) {
     app.init_resource::<crate::app::player_clone::PlayerCloneClock>()
         .init_resource::<crate::app::player_clone::SpawnPlayerCloneRequest>()
         .add_systems(
-            Update,
+            sim,
             (
                 crate::app::player_clone::request_player_clone_on_key,
                 crate::app::player_clone::spawn_requested_player_clone,
@@ -148,18 +158,18 @@ fn register_app_local_sim_systems(app: &mut App) {
                 .in_set(SandboxSet::WorldPrep),
         )
         .add_systems(
-            Update,
+            sim,
             crate::app::player_clone::tick_player_clone_brains
                 .run_if(gameplay_allowed)
                 .in_set(SandboxSet::PlayerInput),
         )
         .add_systems(
-            Update,
+            sim,
             crate::app::player_clone::sync_player_clone_transform
                 .in_set(SandboxSet::PresentationSync),
         )
         .add_systems(
-            Update,
+            sim,
             crate::app::player_clone::despawn_player_clones_on_reset
                 .in_set(SandboxSet::ResetProcessing)
                 .before(ambition::actors::session::reset::process_sandbox_reset_request),
@@ -170,7 +180,7 @@ fn register_app_local_sim_systems(app: &mut App) {
     // Slotted between the possession release and the hit-event drain (the
     // exact position they held in the old inline chain).
     app.add_systems(
-        Update,
+        sim,
         (
             // HOME RESET POLICY. Movement already integrated the home body in
             // `WorldPrep` and flagged any reset in `PlayerBodyFrameOutput`;
@@ -196,7 +206,7 @@ fn register_app_local_sim_systems(app: &mut App) {
     // arrival resets (the W1 composition tier); the engine's
     // `reset_ecs_room_features` then tears down per-room ECS state.
     app.add_systems(
-        Update,
+        sim,
         (
             ensure_requested_room_parallax_system,
             apply_room_transition_system,
@@ -380,7 +390,10 @@ fn install_presentation_resources_and_subplugins(app: &mut App) {
             .chain(),
     );
     #[cfg(feature = "portal_render")]
-    app.add_systems(Update, ambition::render::quality::sync_portal_quality_budget);
+    app.add_systems(
+        Update,
+        ambition::render::quality::sync_portal_quality_budget,
+    );
 }
 
 /// Pause menu, inventory, map menu, presentation startup, dev/dialog
@@ -594,7 +607,10 @@ fn install_misc_visual_sync_systems(app: &mut App) {
             .after(ambition::render::rendering::projectile_visuals::sync_projectile_visuals),
     )
     // Mouse / touch dismissal for the map menu.
-    .add_systems(Update, ambition::actors::menu::map::map_menu_pointer_dismiss)
+    .add_systems(
+        Update,
+        ambition::actors::menu::map::map_menu_pointer_dismiss,
+    )
     // Quest panel runs alongside the verbose HUD.
     .add_systems(
         Update,

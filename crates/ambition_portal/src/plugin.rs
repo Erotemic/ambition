@@ -18,6 +18,7 @@ use super::{
     PortalBodyTransited, PortalCarves, PortalTuning,
 };
 use ambition_platformer_primitives::orientation::{ensure_actor_roll, update_actor_roll};
+use ambition_platformer_primitives::schedule::SimScheduleExt;
 
 /// Top-level portal mechanic plugin.
 ///
@@ -41,6 +42,7 @@ pub struct PortalSimulationPlugin;
 
 impl Plugin for PortalSimulationPlugin {
     fn build(&self, app: &mut App) {
+        let sim = app.sim_schedule();
         app.add_message::<BodyTeleported>();
         // Emitted by the generic `portal_transit` core on every Transfer; the
         // Host input adapters read it to reproduce the transiting body's
@@ -94,7 +96,7 @@ impl Plugin for PortalSimulationPlugin {
         // PlacedPortal carves are published with the same early-world snapshot
         // cadence as the gravity-zone snapshot (`collect_gravity_zones` before
         // `CoreSimulation`); that cross-set placement is declared sandbox-side.
-        app.add_systems(Update, publish_portal_carves.in_set(PortalSet::Carves));
+        app.add_systems(sim, publish_portal_carves.in_set(PortalSet::Carves));
 
         // The host input warp (`warp_portal_input`) is an INPUT-shaping adapter
         // and lives in the host portal adapter
@@ -107,11 +109,11 @@ impl Plugin for PortalSimulationPlugin {
         // consumers see the intents the same frame. The drop consumer lives in
         // the inventory adapter while it touches host item state.
         app.configure_sets(
-            Update,
+            sim,
             PortalSet::InputAdapter.before(PortalSet::WeaponAndProjectiles),
         );
         app.add_systems(
-            Update,
+            sim,
             sync_portal_tuning_convention.in_set(PortalSet::InputAdapter),
         );
 
@@ -119,20 +121,20 @@ impl Plugin for PortalSimulationPlugin {
         // `gameplay_allowed`; the maintenance set below stays ungated (matching
         // the pre-extraction per-system gating) and chains after it.
         app.configure_sets(
-            Update,
+            sim,
             PortalSet::WeaponMaintenance.after(PortalSet::WeaponAndProjectiles),
         );
         // Host adapters run their world-reading shot stepper after
         // `portal_fire_system`; core keeps only the pure `step_portal_shot`
         // helper over `SolidWorldQuery`.
         app.add_systems(
-            Update,
+            sim,
             (portal_toggle_system, portal_fire_system)
                 .chain()
                 .in_set(PortalSet::WeaponAndProjectiles),
         );
         app.add_systems(
-            Update,
+            sim,
             (
                 // Portals must not outlive their gun (the "destroyed" case).
                 despawn_orphaned_portals,
@@ -143,7 +145,7 @@ impl Plugin for PortalSimulationPlugin {
                 .in_set(PortalSet::WeaponMaintenance),
         );
 
-        app.add_systems(Update, clear_portals_on_reset.in_set(PortalSet::RoomReset));
+        app.add_systems(sim, clear_portals_on_reset.in_set(PortalSet::RoomReset));
 
         // Ledge-grab suppression while transiting mutates host ability state, so
         // it remains a host ability adapter registered in `PortalSet::TransitGuards`.
@@ -153,7 +155,7 @@ impl Plugin for PortalSimulationPlugin {
         // integrated body positions are what cross the portal.
         app.init_resource::<crate::PortalFrameHistory>();
         app.add_systems(
-            Update,
+            sim,
             (
                 // Explicit link-id authoring → channel pairs, then shrink each
                 // pair's opening to the MIN (centered, no scaling). First, so

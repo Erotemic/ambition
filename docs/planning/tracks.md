@@ -62,13 +62,16 @@ player-visible bugs, and the untouched determinism ladder.
    logging, and do NOT apply the disproven `sprite_target` dispatch. Ship the
    visual; never defer to "an interactive pass".
 
-3. **N0.1 — fixed-tick sim mode.** [opus, fable-specced] Mechanical: thread an
-   `InternedScheduleLabel` (default `Update`) through each engine schedule
-   plugin so `PlatformerEnginePlugins` gains a `fixed_tick: bool` knob. The
-   two-clocks design is RULED in [engine/netcode.md](engine/netcode.md) N0.1 —
-   do not re-derive it. Exit check is written (parameterize one rl_sim
-   schedule-shape suite over `Update`/`FixedUpdate`). Unblocks N0.2/N0.4 and
-   is SSB's prerequisite. **Today every engine schedule runs in `Update`.**
+3. ~~**N0.1 — fixed-tick sim mode.**~~ **✅ DONE (opus, 2026-07-09).** The sim
+   registers into a `SimSchedule` label (default `Update`, byte-parity);
+   `PlatformerEnginePlugins::fixed_tick()` hosts it in `FixedUpdate` on
+   `Time<Fixed>` at 60 Hz. `SimTick` is the canonical timeline;
+   `ControlFrameLatch` is the device-owned frame→tick input latch. Exit check
+   met both ways, plus a split-brain guard. **Deviation from the ruled
+   plumbing (resource, not per-plugin field) argued in
+   [engine/netcode.md](engine/netcode.md) N0.1**, along with three recorded
+   remainders (presentation interpolation, `wall_dt` semantics, one-frame
+   device latency). N0.2 and N0.4 are unblocked.
 
 4. **N0.3 — the determinism lint set.** [opus, cheap] Four of its properties
    are ALREADY true (measured 2026-07-09: no `rand` dep in any sim crate, no
@@ -108,7 +111,7 @@ CC4 (profile first); CC7 P3a.
 | Decomposition D-C | same | **NOT STARTED** — the mode-scope seam (`RoomMetadata.mode` + `in_mode("sanic")` run-condition). Demos want it; it can land early | the room-scoped run-condition helper [opus] |
 | Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | CC1 + CC2 + CC5 + CC6 (moving portals) LANDED | **CC3** — the enumerated delta from the 3-check diagnostic to the six-invariant oracle (§6.1); diagnostic-only, Jon defers hard gating [opus]. Then CC4 (profile first; NOT a CC1–CC3 precondition), CC7 P3a angled math |
 | Combat stack | [engine/combat-model.md](engine/combat-model.md) | CM1–CM5 + CM7 LANDED — smash axes complete (growth, DI, charge, cancel tables, launch angles, per-move presentation) | CM6 grab/throw/shield-stun (brings OnBlock) [opus, with SSB — a P4 slice, not a P2 exit] |
-| Netcode ladder | [engine/netcode.md](engine/netcode.md) | **NOTHING LANDED — zero of seven slices exist in code** (verified 2026-07-09). This is P2's largest remaining piece | N0.1 fixed-tick (fable-specced, mechanical threading) → N0.2 input-stream type → N0.3 lint set → N0.4 desync canary; then N1.1–N1.3 |
+| Netcode ladder | [engine/netcode.md](engine/netcode.md) | **N0.1 LANDED** (2026-07-09): `SimSchedule` seam, `fixed_tick` knob, `SimTick` timeline, `ControlFrameLatch`; exit check green both ways | N0.3 lint set → N0.2 input-stream type → N0.4 desync canary; then N1.1–N1.3. (Presentation interpolation rides the first fixed-tick *windowed* app) |
 | Fighter brain | [engine/fighter-brain.md](engine/fighter-brain.md) | NEW (CM7 fed it) | FB1 view audit [opus] |
 | Boss pipeline | [engine/boss-design.md](engine/boss-design.md) | NEW | BD4 seed extraction [opus/sonnet]; BD1 after |
 | Falling sand | [engine/falling-sand.md](engine/falling-sand.md) | NEW; low priority | FS1 single-owner + conservation [opus] |
@@ -232,3 +235,18 @@ violation gets a row here + a slice in the right doc.)*
 - **fable** — **the F9.2 IR-consolidation arc, families 1–6, CLOSED.** Interactables → pickups → chests → breakables were Tier-0 MOVES into `entity_catalog::placements` (one pure type, no schema/world mirror). Portals were the deliberate `Vec2` exception, done as a Tier-0 `PortalSchema` mirror whose lowering DERIVES the face center from the record's `aabb.center()`. Hazards closed the arc: `convert_damage_volume` now LIFTS a legacy inline `motion: KinematicPath` to a synthesized room-level path (`{iid}__inline_motion`) referenced by `path_id`, behavior-preserving. **`RoomSpec` carries zero typed per-family Vecs, there are zero typed spawn loops, and the dual-emit guard is DELETED — `placements` is the sole authored-entity channel.** A future authored family adds ONE `PlacementSchema` variant + one lowering interpreter.
 - **fable** — F9.1: `ambition_demo_sanic` authors a real momentum showcase room (`sanic_speedway` — long solid floor + a rideable loop as an interior-winding `SurfaceChain`) built entirely through the `ambition` umbrella, with a headless test that composes it and runs the engine's own chain validator. **The oracle held — nothing was missing from the re-exports.** RULING: the FEEL half (momentum tuning to a Sanic identity, a playable binary, character art) is a fundamentally interactive build and cannot be responsibly completed headlessly.
 - **Jon** — the CC6 content-side host adapter committed. (`c9ef23d8`)
+- **opus** — **N0.1 FIXED-TICK LANDED.** The sim no longer names a schedule: it
+  registers into `SimSchedule` (`platformer_primitives::schedule`, default
+  `Update`), which `PlatformerEnginePlugins::fixed_tick()` swaps for
+  `FixedUpdate` on `Time<Fixed>` at 60 Hz. `SimTick` (`ambition_time`) is the
+  canonical timeline; `ControlFrameLatch` (`engine_core`) folds device samples
+  into one per-tick frame (axes latest, edges OR) and is owned by the DEVICE
+  layer, so headless/RL/replay drivers keep authoring `ControlFrame` directly.
+  Bullet-time composes inside the tick for free — `run_fixed_main_schedule`
+  swaps the generic `Time` to the fixed clock, so `refresh_world_time` yields
+  `TICK_DT × time_scale` with no fixed-tick special case. Exit met: the rl_sim
+  phase-split suites pass both ways, and a schedule-graph guard fails if any
+  sim system is stranded in `Update` under fixed tick. **The label is sealed on
+  first read** — a late mode change panics instead of silently splitting the
+  graph. Executor deviation (resource vs. per-plugin field) argued in
+  [engine/netcode.md](engine/netcode.md).

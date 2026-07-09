@@ -12,6 +12,7 @@
 use bevy::prelude::*;
 
 use ambition_actors::features::ecs::attack::{advance_body_melee, start_body_melee};
+use ambition_platformer_primitives::schedule::SimScheduleExt;
 use ambition_platformer_primitives::schedule::{gameplay_allowed, CombatSet, SandboxSet};
 
 /// Schedules the `SandboxSet::Combat` system chain.
@@ -19,6 +20,7 @@ pub struct CombatSchedulePlugin;
 
 impl Plugin for CombatSchedulePlugin {
     fn build(&self, app: &mut App) {
+        let sim = app.sim_schedule();
         // The authored attack-volume seam: the strike paths resolve artist-
         // authored hit polygons through an installed resolver instead of
         // naming the sprite-metadata pipeline (E2). First install wins.
@@ -42,11 +44,11 @@ impl Plugin for CombatSchedulePlugin {
         // deliberately UNGATED so a scene-setup spawn applies in any `GameMode`.
         app.add_message::<ambition_actors::features::SpawnActorRequest>();
         app.add_systems(
-            Update,
+            sim,
             ambition_actors::features::apply_spawn_actor_requests.in_set(SandboxSet::Combat),
         );
         app.add_systems(
-            Update,
+            sim,
             (
                 // ONE body-generic melee lifecycle for EVERY body (player,
                 // possessed actor, autonomous hostile). `advance_body_melee` ticks
@@ -106,8 +108,7 @@ impl Plugin for CombatSchedulePlugin {
                 // sentry / meteor / volley) into EnemyProjectileState.bodies
                 // BEFORE the step below, so a body spawned this tick advances
                 // one step this frame — identical to the old direct push.
-                crate::projectile_schedule::apply_enemy_projectile_effects
-                    .run_if(gameplay_allowed),
+                crate::projectile_schedule::apply_enemy_projectile_effects.run_if(gameplay_allowed),
                 // Unified projectile step (player + enemy, faction-routed). Runs
                 // AFTER the enemy spawn consumer (so an enemy body spawned this
                 // tick advances one step this frame) and BEFORE the player input +
@@ -230,7 +231,7 @@ impl Plugin for CombatSchedulePlugin {
         // observes this frame's alive-flag transitions) and before the
         // mount/rider bookkeeping — the cut-rope block's former position.
         app.configure_sets(
-            Update,
+            sim,
             (
                 CombatSet::ContentSpecials
                     .after(start_body_melee)

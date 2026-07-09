@@ -11,9 +11,10 @@ use ambition_engine_core::AabbExt;
 use bevy_math::UVec2;
 
 use ambition_actors::rooms::{CameraClampMode, CameraZoneSpec};
-use ambition_platformer_primitives::camera_ease::{CameraEaseState, CameraEaseTuning};
 use ambition_persistence::settings::video::CameraFramingPreset;
 use ambition_persistence::settings::CameraAspectPolicy;
+use ambition_platformer_primitives::camera_ease::{CameraEaseState, CameraEaseTuning};
+use ambition_platformer_primitives::schedule::SimScheduleExt;
 
 /// Upper bound on `dt` for camera scale + target easing.
 ///
@@ -528,7 +529,9 @@ pub fn resolve_camera_observation(
     viewport: bevy::prelude::Res<CameraViewport>,
     extra_clamp: bevy::prelude::Res<CameraExtraClamp>,
     ease_tuning: bevy::prelude::Res<ambition_platformer_primitives::camera_ease::CameraEaseTuning>,
-    mut camera_state: bevy::prelude::ResMut<ambition_platformer_primitives::camera_ease::CameraEaseState>,
+    mut camera_state: bevy::prelude::ResMut<
+        ambition_platformer_primitives::camera_ease::CameraEaseState,
+    >,
     mut resolved: bevy::prelude::ResMut<ResolvedCameraSnapshot>,
     mut last_camera_room: bevy::prelude::Local<Option<String>>,
     player: bevy::prelude::Query<
@@ -539,9 +542,7 @@ pub fn resolve_camera_observation(
         ),
         ambition_platformer_primitives::markers::PrimaryPlayerOnly,
     >,
-    controlled: bevy::prelude::Res<
-        ambition_platformer_primitives::markers::ControlledSubject,
-    >,
+    controlled: bevy::prelude::Res<ambition_platformer_primitives::markers::ControlledSubject>,
     body_kinematics: bevy::prelude::Query<&ambition_platformer_primitives::body::BodyKinematics>,
 ) {
     // Dev tools can temporarily replace the authored/default camera view.
@@ -626,13 +627,15 @@ pub struct CameraObservationPlugin;
 
 impl bevy::prelude::Plugin for CameraObservationPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
+        let sim = app.sim_schedule();
         use bevy::prelude::IntoScheduleConfigs as _;
         app.init_resource::<CameraViewport>();
         app.init_resource::<CameraExtraClamp>();
         app.init_resource::<ResolvedCameraSnapshot>();
         app.add_systems(
-            bevy::prelude::Update,
-            resolve_camera_observation.after(ambition_platformer_primitives::schedule::SandboxSet::CoreSimulation),
+            sim,
+            resolve_camera_observation
+                .after(ambition_platformer_primitives::schedule::SandboxSet::CoreSimulation),
         );
     }
 }

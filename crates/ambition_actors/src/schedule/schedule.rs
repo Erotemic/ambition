@@ -15,7 +15,7 @@ use bevy::prelude::*;
 // runtime, host, content, sim-view, and render can order systems without
 // depending on `ambition_actors`. This module keeps only the concrete ordering
 // function because it still refers to actor-system anchors.
-use ambition_platformer_primitives::schedule::SandboxSet;
+use ambition_platformer_primitives::schedule::{SandboxSet, SimScheduleExt};
 
 /// Configure the chained ordering between [`SandboxSet`] variants.
 ///
@@ -32,7 +32,19 @@ use ambition_platformer_primitives::schedule::SandboxSet;
 /// `ResetProcessing` and `Trace` are tail consumers — they observe
 /// state after the main sim has resolved, so they're each configured
 /// `.after(CoreSimulation)` without joining the chain.
+///
+/// Every set here is a SIM phase, so the whole ordering is declared in the
+/// app's sim schedule ([`SimSchedule`] — `Update` when frame-stepped,
+/// `FixedUpdate` when fixed-tick). `PresentationVisualSync` is the one
+/// presentation-side set in the list; it is configured alongside the sim so
+/// that in frame-stepped mode it keeps its `.after(FeatureViewSync)` edge. In
+/// fixed-tick mode the render systems that join it live in `Update` and need no
+/// such edge — the read-model they consume was published by the last tick.
+///
+/// [`SimSchedule`]: ambition_platformer_primitives::schedule::SimSchedule
 pub fn configure_sandbox_sets(app: &mut App) {
+    let sim = app.sim_schedule();
+
     // Sub-sets inside CoreSimulation, ordered.
     //
     // CONTROL-SEAM ORDERING: `PlayerInput` runs BEFORE `WorldPrep`. This is the
@@ -45,7 +57,7 @@ pub fn configure_sandbox_sets(app: &mut App) {
     // `register_player_input_systems`) so they observe both the player's and the
     // actors' freshly-ticked `ActorControl`.
     app.configure_sets(
-        Update,
+        sim,
         (
             SandboxSet::PlayerInput,
             SandboxSet::WorldPrep,
@@ -68,7 +80,7 @@ pub fn configure_sandbox_sets(app: &mut App) {
     // the post-reset feature set on the reset frame, not one frame
     // later.
     app.configure_sets(
-        Update,
+        sim,
         (
             SandboxSet::CoreSimulation,
             SandboxSet::FeatureCollection,
@@ -86,7 +98,7 @@ pub fn configure_sandbox_sets(app: &mut App) {
         )
             .chain(),
     )
-    .configure_sets(Update, SandboxSet::Trace.after(SandboxSet::CoreSimulation))
+    .configure_sets(sim, SandboxSet::Trace.after(SandboxSet::CoreSimulation))
     // Presentation visual chain: must observe this frame's
     // FeatureViewIndex rebuild. Owning the ordering at the set level
     // means every system added to `PresentationVisualSync` inherits
@@ -94,7 +106,7 @@ pub fn configure_sandbox_sets(app: &mut App) {
     // — and a test can hang a probe in the set to verify the
     // ordering survives.
     .configure_sets(
-        Update,
+        sim,
         SandboxSet::PresentationVisualSync.after(SandboxSet::FeatureViewSync),
     );
 
@@ -113,7 +125,7 @@ pub fn configure_sandbox_sets(app: &mut App) {
     // float past the consume and stamp stale input over the fresh frame — the
     // Move-axis regression this contract exists to prevent.
     app.configure_sets(
-        Update,
+        sim,
         ambition_input::InputSet::Populate.before(crate::player::populate_slot_controls),
     );
 }

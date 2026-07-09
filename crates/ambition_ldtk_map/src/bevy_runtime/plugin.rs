@@ -7,7 +7,7 @@
 //! live in sibling `components`, rebuild systems in `systems`.
 
 use bevy::prelude::{
-    Added, App, Commands, Entity, IntoScheduleConfigs, Name, Plugin, Query, ResMut, Update,
+    Added, App, Commands, Entity, IntoScheduleConfigs, Name, Plugin, Query, ResMut,
 };
 use bevy_ecs_ldtk::prelude::{EntityInstance as PluginEntityInstance, LdtkEntityAppExt};
 
@@ -15,6 +15,7 @@ use super::components::{
     AmbitionLdtkEntity, AmbitionLdtkMarkerBundle, LdtkDamageVolume, LdtkOneWayPlatform, LdtkSolid,
 };
 use super::indices::LdtkRuntimeSpineStats;
+use ambition_platformer_primitives::schedule::SimScheduleExt;
 
 pub struct AmbitionLdtkRegistrationPlugin;
 
@@ -42,6 +43,7 @@ pub struct LdtkRuntimeSpinePlugin;
 
 impl Plugin for LdtkRuntimeSpinePlugin {
     fn build(&self, app: &mut App) {
+        let sim = app.sim_schedule();
         // The spine's own index/stat resources (anti-god rule 5: the owner
         // initializes). Empty defaults; the rebuild chain below fills them
         // from whatever LDtk entities exist (none, in a RON-only demo).
@@ -53,7 +55,7 @@ impl Plugin for LdtkRuntimeSpinePlugin {
         app.init_resource::<super::indices::LdtkRuntimeDamageIndex>();
         app.init_resource::<super::parity::LdtkRuntimeSpineParity>();
         app.add_systems(
-            Update,
+            sim,
             (
                 sync_plugin_spawned_ambition_entities,
                 super::systems::rebuild_ldtk_runtime_spine_index,

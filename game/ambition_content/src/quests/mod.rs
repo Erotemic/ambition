@@ -6,6 +6,7 @@
 //! still live in `crate::quest`; this module only owns the
 //! decision to register the default roster as a sandbox resource.
 
+use ambition_platformer_primitives::schedule::SimScheduleExt;
 use bevy::prelude::*;
 
 /// Installs the default Ambition quest registry resource.
@@ -13,6 +14,7 @@ pub struct AmbitionQuestContentPlugin;
 
 impl Plugin for AmbitionQuestContentPlugin {
     fn build(&self, app: &mut App) {
+        let sim = app.sim_schedule();
         app.insert_resource(crate::quest::QuestRegistry::default());
 
         // Content quest progression, de-woven from the app's Progression chain
@@ -22,12 +24,12 @@ impl Plugin for AmbitionQuestContentPlugin {
         // rides the Progression set with its own `initialized` short-circuit.
         // The engine quest EVENT PUMP (push/apply) stays engine-side.
         app.add_systems(
-            Update,
+            sim,
             crate::quest::grant_quest_completion_rewards
                 .in_set(ambition_actors::boss_encounter::ContentQuestRewardSet),
         );
         app.add_systems(
-            Update,
+            sim,
             crate::quest::populate_quest_registry
                 .in_set(ambition_platformer_primitives::schedule::SandboxSet::Progression),
         );

@@ -20,6 +20,7 @@ use ambition_cutscene::{
 };
 
 use crate::cutscene_trigger::CutsceneTriggerQueue;
+use ambition_platformer_primitives::schedule::SimScheduleExt;
 
 /// Bevy system: when the active room changes, queue up a cutscene if
 /// the new room has a binding and the cutscene hasn't been seen.
@@ -159,6 +160,7 @@ pub struct CutsceneSchedulePlugin;
 
 impl Plugin for CutsceneSchedulePlugin {
     fn build(&self, app: &mut App) {
+        let sim = app.sim_schedule();
         // The cutscene state channels + empty library/bindings (anti-god
         // rule 5: the domain plugin owns its init). Content POPULATES the
         // library/bindings; a game that pre-inserts them wins (init never
@@ -169,7 +171,7 @@ impl Plugin for CutsceneSchedulePlugin {
         app.init_resource::<ActiveCutscene>();
         app.init_resource::<CutsceneAdvanceRequest>();
         app.add_systems(
-            Update,
+            sim,
             (
                 auto_trigger_room_cutscenes,
                 drain_cutscene_triggers,

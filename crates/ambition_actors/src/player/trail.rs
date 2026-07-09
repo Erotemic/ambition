@@ -15,6 +15,7 @@
 //! raw input gestures.
 
 use ambition_engine_core as ae;
+use ambition_platformer_primitives::schedule::SimScheduleExt;
 use bevy::prelude::*;
 
 /// Minimum distance the player must move before the trail records another fixed
@@ -680,14 +681,17 @@ pub struct PlayerTrailPlugin;
 
 impl Plugin for PlayerTrailPlugin {
     fn build(&self, app: &mut App) {
+        let sim = app.sim_schedule();
         app.init_resource::<PlayerTrailEnabled>();
         app.add_message::<TrailContinuityBreak>();
         app.add_systems(
-            Update,
+            sim,
             (ensure_player_trail, update_player_trail)
                 .chain()
                 .in_set(crate::schedule::SandboxSet::PresentationSync),
         );
+        // The gizmo draw is the FEEL clock: it paints whatever the last sim tick
+        // emitted, once per rendered frame.
         app.add_systems(
             Update,
             render_player_trail.run_if(resource_exists::<bevy::gizmos::config::GizmoConfigStore>),

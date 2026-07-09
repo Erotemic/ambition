@@ -15,9 +15,10 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer_primitives::schedule::SandboxSet;
-use ambition_portal::PortalSet;
 use ambition_platformer_primitives::schedule::gameplay_allowed;
+use ambition_platformer_primitives::schedule::SandboxSet;
+use ambition_platformer_primitives::schedule::SimScheduleExt;
+use ambition_portal::PortalSet;
 
 /// Adds `PortalPlugin` and places its sets in the sandbox schedule. Part of
 /// [`crate::PlatformerEnginePlugins`] when the `portal` feature is on.
@@ -25,12 +26,13 @@ pub struct PortalSchedulePlugin;
 
 impl Plugin for PortalSchedulePlugin {
     fn build(&self, app: &mut App) {
+        let sim = app.sim_schedule();
         app.add_plugins(ambition_portal::PortalPlugin);
 
         // Carves publish after gravity-zone collection and before core
         // simulation.
         app.configure_sets(
-            Update,
+            sim,
             PortalSet::Carves
                 .after(ambition_actors::physics::collect_gravity_zones)
                 .before(SandboxSet::CoreSimulation),
@@ -40,7 +42,7 @@ impl Plugin for PortalSchedulePlugin {
         // interaction input and before the player input frame is synced (the
         // Move-axis-fix window), gated to gameplay.
         app.configure_sets(
-            Update,
+            sim,
             PortalSet::InputWarp
                 .in_set(SandboxSet::PlayerInput)
                 .after(ambition_actors::player::interaction_input_system)
@@ -51,20 +53,20 @@ impl Plugin for PortalSchedulePlugin {
         // Weapon maintenance stays ungated for orphan cleanup / roll
         // readiness.
         app.configure_sets(
-            Update,
+            sim,
             PortalSet::WeaponAndProjectiles
                 .in_set(SandboxSet::PlayerSimulation)
                 .run_if(gameplay_allowed),
         );
         app.configure_sets(
-            Update,
+            sim,
             PortalSet::WeaponMaintenance.in_set(SandboxSet::PlayerSimulation),
         );
 
         // RoomReset: reset-time portal cleanup in the room-transition phase,
         // after the content layer's room-reset work (e.g. a boss-arena reset).
         app.configure_sets(
-            Update,
+            sim,
             PortalSet::RoomReset
                 .in_set(SandboxSet::RoomTransition)
                 .after(ambition_actors::session::reset::ContentRoomResetSet),
@@ -75,7 +77,7 @@ impl Plugin for PortalSchedulePlugin {
         // (`integrate_sim_bodies`), so the guard runs there too, ahead of it.
         // Gated to gameplay.
         app.configure_sets(
-            Update,
+            sim,
             PortalSet::TransitGuards
                 .in_set(SandboxSet::WorldPrep)
                 .before(ambition_actors::features::integrate_sim_bodies)
@@ -88,7 +90,7 @@ impl Plugin for PortalSchedulePlugin {
         // it, so membership + the CoreHeldItems edge are enough. Gated to
         // gameplay.
         app.configure_sets(
-            Update,
+            sim,
             PortalSet::Transit
                 .in_set(SandboxSet::PlayerSimulation)
                 .after(ambition_actors::items::pickup::ItemPickupSet::CoreHeldItems)

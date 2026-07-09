@@ -12,8 +12,9 @@
 //!   ([`banter::install_boss_banter`] / [`banter::tick_boss_idle_barks`]),
 //!   installed next to its dialogue registration.
 
-use bevy::prelude::*;
 use ambition_platformer_primitives::schedule::gameplay_allowed;
+use ambition_platformer_primitives::schedule::SimScheduleExt;
+use bevy::prelude::*;
 
 pub mod banter;
 pub mod cut_rope;
@@ -109,6 +110,7 @@ pub struct AmbitionBossContentPlugin;
 
 impl Plugin for AmbitionBossContentPlugin {
     fn build(&self, app: &mut App) {
+        let sim = app.sim_schedule();
         // Install the named boss-behavior roster into the machinery lib's
         // holder at plugin-build time (before any boss spawn / profile clone),
         // so `BossBehaviorProfile::from_data` resolves against content data —
@@ -135,7 +137,7 @@ impl Plugin for AmbitionBossContentPlugin {
         // - dialogue followup: the "try again" beat emits the engine's
         //   generic `RoomReplayRequested` once the dialog closes.
         app.add_systems(
-            Update,
+            sim,
             (
                 reset_cut_rope_boss_arena_on_room_reset
                     .in_set(ambition_actors::session::reset::ContentRoomResetSet),
@@ -151,10 +153,9 @@ impl Plugin for AmbitionBossContentPlugin {
         // in the combat chain is configured by the app's `CombatSchedulePlugin`.
         // Grouped into a `.chain()` to preserve the former inline ordering.
         app.add_systems(
-            Update,
+            sim,
             (
-                detect_cut_rope_rope_cut
-                    .run_if(gameplay_allowed),
+                detect_cut_rope_rope_cut.run_if(gameplay_allowed),
                 tick_cut_rope_flavor.run_if(gameplay_allowed),
                 sync_cut_rope_boss_arena_prop_visuals,
             )
@@ -169,7 +170,7 @@ impl Plugin for AmbitionBossContentPlugin {
         // `tick_boss_brains_system` and `update_ecs_bosses` in the WorldPrep boss
         // chain) — exactly where the old cut-rope-specific steering ran.
         app.add_systems(
-            Update,
+            sim,
             ambition_actors::boss_encounter::tick_commanded_moves
                 .in_set(ambition_platformer_primitives::schedule::BossSteerSlot),
         );
@@ -180,7 +181,7 @@ impl Plugin for AmbitionBossContentPlugin {
         // on the slot (E-track progression de-weave, same shape as the room-reset
         // and combat-flavor slots above).
         app.add_systems(
-            Update,
+            sim,
             (
                 // Cut-rope arena per-attempt setup — MID boss-tick (after the
                 // engine advances encounter progress, before scripted hazards).
@@ -200,7 +201,7 @@ impl Plugin for AmbitionBossContentPlugin {
         // like the encounter / intro lock-wall gates — so this frame's player /
         // actor / projectile collision sees the derived geometry.
         app.add_systems(
-            Update,
+            sim,
             gate_gnu_ton_arena_ladder
                 .after(ambition_actors::features::rebuild_feature_ecs_world_overlay)
                 .before(ambition_actors::features::update_ecs_hazards)

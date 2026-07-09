@@ -22,9 +22,9 @@
 
 use ambition::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition::actors::features::FeatureId;
-use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use ambition::characters::brain::ActorControl;
 use ambition::entity_catalog::placements::CharacterBrain;
+use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions, TimestepMode};
 use bevy::prelude::{Entity, World};
 
 const ENEMY_ID: &str = "phase_split_enemy";
@@ -45,10 +45,19 @@ fn enemy_entity(world: &mut World) -> Entity {
 /// A hostile actor's brain publishes movement intent into its `ActorControl`
 /// (the brain phase's only output), and the movement phase turns that same
 /// `ActorControl` into position change — the brain→body seam across the split.
-#[test]
-fn brain_intent_lands_in_actor_control_and_the_movement_phase_consumes_it() {
-    let mut sim =
-        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+///
+/// **This is half of netcode N0.1's exit check.** The body runs twice: once with
+/// the sim hosted frame-stepped in `Update`, once fixed-tick in `FixedUpdate`.
+/// Every sim plugin registers into `SimSchedule` rather than naming a schedule,
+/// so the graph is the same graph and the phase seam must hold identically. If
+/// threading the label broke an ordering edge, exactly one of these two fails.
+fn brain_intent_seam_holds(fixed_tick: bool) {
+    let mut sim = SandboxSim::new_with_options(
+        SandboxSimOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_fixed_tick(fixed_tick),
+    )
+    .expect("sandbox sim builds");
     // Drop the enemy a stride to the player's RIGHT; a chasing brain wants to move
     // LEFT toward the player, so its intent has a definite sign we can assert.
     let p = player_pos(sim.world_mut());
@@ -87,4 +96,15 @@ fn brain_intent_lands_in_actor_control_and_the_movement_phase_consumes_it() {
         "the movement phase turned the brain's ActorControl intent into leftward \
          position change: x {x_before} -> {x_after}",
     );
+}
+
+#[test]
+fn brain_intent_lands_in_actor_control_and_the_movement_phase_consumes_it() {
+    brain_intent_seam_holds(false);
+}
+
+/// The same seam, with the whole sim threaded into `FixedUpdate` (N0.1).
+#[test]
+fn brain_intent_seam_holds_under_fixed_tick() {
+    brain_intent_seam_holds(true);
 }

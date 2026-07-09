@@ -52,7 +52,7 @@ impl SandboxSim {
     pub fn new_with_timestep(timestep: TimestepMode) -> Result<Self, String> {
         Self::new_with_options(SandboxSimOptions {
             timestep,
-            start_room: None,
+            ..SandboxSimOptions::default()
         })
     }
 
@@ -84,6 +84,16 @@ impl SandboxSim {
         // The shared engine foundation — one definition in ambition::runtime.
         ambition::runtime::add_headless_foundation(&mut app);
 
+        // Netcode N0.1: choose the sim schedule BEFORE the first sim plugin
+        // builds. `SandboxSimulationPlugin` adds CONTENT ahead of the engine
+        // group, and content registers into `SimSchedule` too — a late choice
+        // would split the sim graph across two schedules, which
+        // `set_sim_schedule` panics on rather than allow.
+        if options.fixed_tick {
+            use ambition::platformer::schedule::SimScheduleExt as _;
+            app.set_sim_schedule(bevy::app::FixedUpdate);
+        }
+
         // Programmatic start-room override: insert before SandboxSimulationPlugin
         // builds (which calls init_sandbox_resources and consumes the override).
         if let Some(room_id) = options.start_room.clone() {
@@ -103,14 +113,33 @@ impl SandboxSim {
         // contract on tick 0. `Time::advance_by` does not survive
         // Bevy's First-schedule time_system run; the strategy resource
         // is the documented seam for headless / deterministic stepping.
+        //
+        // Under `fixed_tick` the frame dt must equal the `Time<Fixed>` timestep
+        // EXACTLY (same `Duration`, so integer nanos, so no drift): the
+        // accumulator then expends precisely once per `app.update()` and one
+        // `step()` is one tick — forever, not just for the first few thousand.
         if let TimestepMode::Fixed { dt } = timestep {
-            app.insert_resource(TimeUpdateStrategy::ManualDuration(
-                std::time::Duration::from_secs_f32(dt),
-            ));
+            let frame_dt = if options.fixed_tick {
+                app.world()
+                    .resource::<bevy::time::Time<bevy::time::Fixed>>()
+                    .timestep()
+            } else {
+                std::time::Duration::from_secs_f32(dt)
+            };
+            app.insert_resource(TimeUpdateStrategy::ManualDuration(frame_dt));
         }
         // First tick runs Startup so the player entity exists before
         // the caller's first `observation()` reads it.
         app.update();
+        // Bevy's first frame has `dt == 0`, so under `fixed_tick` the fixed
+        // accumulator expends nothing and that Startup frame ran no sim step.
+        // One more frame puts a fixed-tick sim in the same state a
+        // frame-stepped one reaches at construction: exactly one step executed.
+        // Without this, every parameterized suite would be off by one step in
+        // one of the two modes.
+        if options.fixed_tick {
+            app.update();
+        }
 
         Ok(Self {
             app,

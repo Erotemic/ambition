@@ -14,9 +14,9 @@
 #![cfg(feature = "rl_sim")]
 
 use ambition::actors::actor::PrimaryPlayerOnly;
-use ambition_app::app::PlayerBodyFrameOutput;
-use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use ambition::engine_core::MovementOp;
+use ambition_app::app::PlayerBodyFrameOutput;
+use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions, TimestepMode};
 use bevy::prelude::{Entity, World};
 
 fn primary_player(world: &mut World) -> Entity {
@@ -28,10 +28,16 @@ fn primary_player(world: &mut World) -> Entity {
 /// phase publishes this frame's `FrameEvents` into it (here: a Jump op from a
 /// jump press) — the exact data the separate PRESENTATION phase consumes. Proves
 /// the two player phases are joined by an explicit seam, not fused.
-#[test]
-fn player_movement_phase_hands_off_frame_events_to_presentation() {
-    let mut sim =
-        SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
+///
+/// **This is half of netcode N0.1's exit check** — see `actor_phase_split.rs`.
+/// The body runs both frame-stepped (`Update`) and fixed-tick (`FixedUpdate`).
+fn player_handoff_seam_holds(fixed_tick: bool) {
+    let mut sim = SandboxSim::new_with_options(
+        SandboxSimOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_fixed_tick(fixed_tick),
+    )
+    .expect("sandbox sim builds");
     let player = primary_player(sim.world_mut());
 
     // The hand-off component exists on the player (a required component of every
@@ -68,4 +74,15 @@ fn player_movement_phase_hands_off_frame_events_to_presentation() {
         "the player MOVEMENT phase published a Jump event into PlayerBodyFrameOutput \
          for the PRESENTATION phase to consume — the movement→presentation seam is live"
     );
+}
+
+#[test]
+fn player_movement_phase_hands_off_frame_events_to_presentation() {
+    player_handoff_seam_holds(false);
+}
+
+/// The same seam, with the whole sim threaded into `FixedUpdate` (N0.1).
+#[test]
+fn player_handoff_seam_holds_under_fixed_tick() {
+    player_handoff_seam_holds(true);
 }

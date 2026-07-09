@@ -31,18 +31,20 @@ use super::transit_body_adapter::{
     apply_portal_carried_momentum, ensure_portal_bodies, ensure_projectile_portal_bodies,
     portal_player_input_adapter, sync_portal_reorient_from_settings,
 };
+use ambition_platformer_primitives::schedule::SimScheduleExt;
 
 /// Installs the Ambition-specific portal input/inventory adapters.
 pub struct AmbitionPortalAdaptersPlugin;
 
 impl Plugin for AmbitionPortalAdaptersPlugin {
     fn build(&self, app: &mut App) {
+        let sim = app.sim_schedule();
         // Input-shaping warp: apply the portal-owned `PortalInputWarp` /
         // `PortalEmission` guards to the player's movement intent. INPUT is not a
         // crate concern (Stage 19 Phase 5a) — registered here in the same
         // `PortalSet::InputWarp` slot the core used; `app/plugins.rs` still wires
         // that set into `PlayerInput` and the intent brackets around it.
-        app.add_systems(Update, warp_portal_input.in_set(PortalSet::InputWarp));
+        app.add_systems(sim, warp_portal_input.in_set(PortalSet::InputWarp));
 
         // Play the portal audio cues from the portal-owned signals (Stage 19
         // Phase 5a — the crate emits `PortalShotFired` / `PortalBodyEntered` /
@@ -51,7 +53,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // emitted this frame are played the same frame; the FIRE signal from
         // `portal_fire_system` (an earlier set in the frame) is read here too.
         app.add_systems(
-            Update,
+            sim,
             play_portal_sfx
                 .in_set(PortalSet::Transit)
                 .after(portal_transit),
@@ -63,7 +65,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // Phase 5a), registered in the same `PortalSet::TransitGuards` slot the
         // core used.
         app.add_systems(
-            Update,
+            sim,
             suppress_ledge_grab_during_transit.in_set(PortalSet::TransitGuards),
         );
 
@@ -75,7 +77,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // and `Transit` is ordered after the platform sync via the encounter
         // schedule's chain, so the aperture reads this frame's host pose.
         app.add_systems(
-            Update,
+            sim,
             (
                 crate::portal::host_adapter::attach_portal_hosts,
                 crate::portal::host_adapter::refresh_hosted_portal_frames,
@@ -90,7 +92,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // `publish_portal_carves` fills `PortalCarves`, so the overlay sees the
         // same carves the same frame the in-core write used to produce.
         app.add_systems(
-            Update,
+            sim,
             bridge_portal_carves
                 .in_set(PortalSet::Carves)
                 .after(publish_portal_carves),
@@ -100,7 +102,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // the portal-owned PortalHostDepths seam) BEFORE the carve publish and
         // the transit consume it this frame — the thin-wall geometric guard.
         app.add_systems(
-            Update,
+            sim,
             sync_portal_host_depths
                 .in_set(PortalSet::Carves)
                 .before(publish_portal_carves),
@@ -111,7 +113,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // core fire system, preserving the old `toggle → fire → step` order; the
         // pure decision lives in `ambition_portal::step_portal_shot`.
         app.add_systems(
-            Update,
+            sim,
             portal_projectile_step
                 .run_if(gameplay_allowed)
                 .in_set(PortalSet::WeaponAndProjectiles)
@@ -122,7 +124,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // signal (Phase 2 Seam 4), before `clear_portals_on_reset` consumes it in
         // the same `PortalSet::RoomReset` frame.
         app.add_systems(
-            Update,
+            sim,
             bridge_room_reset_to_clear_portals
                 .in_set(PortalSet::RoomReset)
                 .before(clear_portals_on_reset),
@@ -132,7 +134,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // core weapon/projectile consumers (ordered via PortalSet::InputAdapter
         // in the portal plugin).
         app.add_systems(
-            Update,
+            sim,
             portal_input_adapter_system
                 .run_if(gameplay_allowed)
                 .in_set(PortalSet::InputAdapter)
@@ -147,7 +149,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // (where `portal_fire_system` reads the intent) — same frame, identical
         // behavior to the old in-core player+gun read.
         app.add_systems(
-            Update,
+            sim,
             resolve_portal_fire_intent
                 .run_if(gameplay_allowed)
                 .in_set(PortalSet::InputAdapter)
@@ -162,7 +164,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // and after `portal_fire` (via the set order) so grabbing the gun
         // does not also fire on the same Attack press.
         app.add_systems(
-            Update,
+            sim,
             pickup_portal_gun_system
                 .run_if(gameplay_allowed)
                 .in_set(ambition_actors::items::pickup::ItemPickupSet::CoreHeldItems)
@@ -173,7 +175,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // it lives in the content adapter. It reads DropPortalGun, so order it
         // with the rest of the portal weapon systems.
         app.add_systems(
-            Update,
+            sim,
             drop_portal_gun_system
                 .run_if(gameplay_allowed)
                 // `PortalSet::WeaponAndProjectiles` is wired
@@ -206,7 +208,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // write-back then stamps a STALE intent over the fresh axis, which reads
         // as a dead / sticky Move axis.
         app.add_systems(
-            Update,
+            sim,
             sync_movement_intent_from_control
                 .run_if(gameplay_allowed)
                 // `PortalSet::InputWarp` is wired `.in_set(PlayerInput)` (and
@@ -218,7 +220,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .before(warp_portal_input),
         );
         app.add_systems(
-            Update,
+            sim,
             apply_movement_intent_to_control
                 .run_if(gameplay_allowed)
                 // `PortalSet::InputWarp` already places this in `PlayerInput`
@@ -237,7 +239,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // transit core (and thus before the input adapter) so the anchor matches
         // the live held direction (as it did when transit read `ControlFrame`).
         app.add_systems(
-            Update,
+            sim,
             sync_movement_intent_from_control
                 .run_if(gameplay_allowed)
                 .in_set(PortalSet::Transit)
@@ -250,7 +252,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // `portal_transit` core runs, so the SET of bodies that transit is
         // identical to the old player + actor split.
         app.add_systems(
-            Update,
+            sim,
             ensure_portal_bodies
                 .run_if(gameplay_allowed)
                 .in_set(PortalSet::Transit)
@@ -260,7 +262,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // `PortalTuning::reorient_facing` knob each frame, before the transit core
         // reads it, so the toggle takes effect live.
         app.add_systems(
-            Update,
+            sim,
             sync_portal_reorient_from_settings
                 .in_set(PortalSet::Transit)
                 .before(portal_transit),
@@ -282,7 +284,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // aperture/centroid latch, so the one-frame sampling cadence is correct;
         // what matters is that it is consistent, which the set chain guarantees.
         app.add_systems(
-            Update,
+            sim,
             ensure_projectile_portal_bodies
                 .run_if(gameplay_allowed)
                 .in_set(PortalSet::Transit)
@@ -293,7 +295,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // `PortalBodyTransited` event, AFTER transit, so they exist the same
         // frame the controller runs — exactly as the old inline insertion did.
         app.add_systems(
-            Update,
+            sim,
             portal_player_input_adapter
                 .run_if(gameplay_allowed)
                 .in_set(PortalSet::Transit)
@@ -304,7 +306,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // tight ordinary control). Actor-generic — after portal_transit so
         // `BodyKinematics::vel` is already the exit velocity.
         app.add_systems(
-            Update,
+            sim,
             apply_portal_carried_momentum
                 .run_if(gameplay_allowed)
                 .in_set(PortalSet::Transit)
@@ -316,14 +318,14 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // adapters attach it to `GroundItem`s and mirror it around
         // `portal_teleport_ground_items`.
         app.add_systems(
-            Update,
+            sim,
             sync_ground_items_to_transitable
                 .run_if(gameplay_allowed)
                 .in_set(PortalSet::Transit)
                 .before(portal_teleport_ground_items),
         );
         app.add_systems(
-            Update,
+            sim,
             sync_transitable_to_ground_items
                 .run_if(gameplay_allowed)
                 .in_set(PortalSet::Transit)

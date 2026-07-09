@@ -505,6 +505,7 @@ dependencies = [
  "ambition_asset_manager",
  "ambition_engine_core",
  "ambition_entity_catalog",
+ "ambition_platformer_primitives",
  "ambition_world",
  "bevy",
  "bevy_asset_loader",

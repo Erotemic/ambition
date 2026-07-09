@@ -22,17 +22,18 @@ use bevy::prelude::*;
 // `redirect_post_intro_dialog` ordering — the unified dialog redirect
 // system in the sandbox `dialog` module owns its own scheduling.
 use crate::banter::CombatBanterRegistry;
-use ambition_sprite_sheet::game_assets::{GameAssetConfig, GameAssets};
 use ambition_actors::character_sprites::{
     build_npc_sprite_asset, build_prop_sprite_asset, build_prop_sprite_asset_packed,
 };
 use ambition_actors::rooms::GatePortalRegistry;
 use ambition_cutscene::{CutsceneLibrary, RoomCutsceneBindings};
 use ambition_render::quality::ResolvedVisualQuality;
+use ambition_sprite_sheet::game_assets::{GameAssetConfig, GameAssets};
 
 use super::banter::install_intro_banter;
 use super::cutscene::{install_intro_cutscenes, intro_room_cutscene_bindings};
 use super::sprites::{intro_npc_sprite_rows, intro_prop_sprite_rows};
+use ambition_platformer_primitives::schedule::SimScheduleExt;
 
 /// Intro portal IDs. The gate stack room places:
 /// - `LoadingZone` id `intro_portal_zone` (activation: Door) at
@@ -81,6 +82,7 @@ pub struct IntroPlugin;
 
 impl Plugin for IntroPlugin {
     fn build(&self, app: &mut App) {
+        let sim = app.sim_schedule();
         app.init_resource::<IntroSpritesInstalled>()
             .init_resource::<IntroPropSpritesInstalled>()
             .init_resource::<IntroCutscenesInstalled>()
@@ -110,7 +112,7 @@ impl Plugin for IntroPlugin {
             // the WorldPrep collision consumers — exactly like the encounter
             // lock-wall contributor.
             .add_systems(
-                Update,
+                sim,
                 super::route_state::sync_intro_flag_gated_lock_walls
                     .after(ambition_actors::features::rebuild_feature_ecs_world_overlay)
                     .before(ambition_actors::features::update_ecs_hazards)

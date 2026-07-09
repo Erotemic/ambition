@@ -15,6 +15,7 @@
 use bevy::prelude::*;
 
 use super::lifecycle::reset_gravity_on_room_reset;
+use ambition_platformer_primitives::schedule::SimScheduleExt;
 
 /// Gravity-mechanic schedule labels, local to the gravity subsystem.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
@@ -33,6 +34,7 @@ pub struct GravityPlugin;
 
 impl Plugin for GravityPlugin {
     fn build(&self, app: &mut App) {
+        let sim = app.sim_schedule();
         // Shared ambient-gravity resources. `BaseGravity`/`GravityField` live in
         // `crate::physics` (read widely) but the gravity mechanic owns making
         // sure they (and the per-frame `GravityZones` snapshot) exist.
@@ -46,7 +48,7 @@ impl Plugin for GravityPlugin {
         // is byte-identical to the pre-extraction `PortalSet::GravityAndCarves`
         // chain.
         app.add_systems(
-            Update,
+            sim,
             (
                 crate::physics::oscillate_gravity_zones,
                 crate::physics::collect_gravity_zones,
@@ -67,7 +69,7 @@ impl Plugin for GravityPlugin {
         // content layer's room-reset work (named boss arenas), ordered
         // against the SET label so this generic plugin names no content.
         app.add_systems(
-            Update,
+            sim,
             reset_gravity_on_room_reset
                 .in_set(GravitySet::RoomReset)
                 .in_set(crate::schedule::SandboxSet::RoomTransition)

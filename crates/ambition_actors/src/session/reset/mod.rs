@@ -52,6 +52,7 @@ use crate::world::physics;
 use crate::world::platforms;
 use ambition_persistence::quest::QuestRegistry;
 use ambition_persistence::save::SandboxSave;
+use ambition_platformer_primitives::schedule::SimScheduleExt;
 
 /// Bundles sim-state resources so `process_sandbox_reset_request`
 /// stays within Bevy's 16-SystemParam limit.
@@ -155,10 +156,12 @@ pub fn process_sandbox_reset_request(
     world.0 = start_spec.world.clone();
 
     // 6. Reset the player to the start room's spawn point.
-    play_state.clock_resets.write(crate::time::time_control::ClockResetRequest::sim_clock(
-        crate::time::time_control::ClockRequester::Engine,
-        "sandbox_reset",
-    ));
+    play_state
+        .clock_resets
+        .write(crate::time::time_control::ClockResetRequest::sim_clock(
+            crate::time::time_control::ClockRequester::Engine,
+            "sandbox_reset",
+        ));
     play_state.sim_state.room_transition_cooldown = 0.0;
     // Reset the ECS authority directly so the next player tick frame
     // starts from the spawn position. Also zero animation state so post-reset
@@ -276,10 +279,11 @@ pub struct SandboxResetSchedulePlugin;
 
 impl Plugin for SandboxResetSchedulePlugin {
     fn build(&self, app: &mut App) {
+        let sim = app.sim_schedule();
         app.add_message::<crate::session::RespawnRoomVisualsRequested>();
         app.add_message::<RoomReplayRequested>();
         app.add_systems(
-            Update,
+            sim,
             // Clear transient portals/held-items/summons BEFORE the request flag
             // is consumed by the main reset processor.
             (

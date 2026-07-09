@@ -17,7 +17,7 @@
 //! ```ignore
 //! let mut app = App::new();
 //! ambition_runtime::add_headless_foundation(&mut app); // or DefaultPlugins
-//! app.add_plugins(ambition_runtime::PlatformerEnginePlugins)
+//! app.add_plugins(ambition_runtime::PlatformerEnginePlugins::default())
 //!    .add_plugins(ambition_host::PlatformerHostPlugins)   // <- this group
 //!    .add_plugins(my_content::MyGameContentPlugin);
 //! ```
@@ -40,7 +40,7 @@ pub mod portal;
 
 // Only the input bridge + portal continuity order against the sandbox phases.
 #[cfg(any(feature = "input", feature = "portal_render"))]
-use ambition_platformer_primitives::schedule::SandboxSet;
+use ambition_platformer_primitives::schedule::{SandboxSet, SimScheduleExt as _};
 
 /// The windowed-host plugin group (see the crate docs).
 pub struct PlatformerHostPlugins;
@@ -66,16 +66,44 @@ pub struct HostInputBindingsPlugin;
 #[cfg(feature = "input")]
 impl Plugin for HostInputBindingsPlugin {
     fn build(&self, app: &mut App) {
+        use ambition_input::{
+            MenuControlFrame, MenuInputState, PlayerDashTriggerState, SandboxAction,
+        };
         use ambition_runtime::host_input::{
             apply_menu_frame_to_cutscene_request, attach_player_input_components,
             dialog_pointer_input, populate_control_frame_from_actions,
             populate_menu_control_frame_from_actions, toggle_player_trail_emission_from_actions,
             SimulationSetupSet,
         };
-        use ambition_input::{
-            MenuControlFrame, MenuInputState, PlayerDashTriggerState, SandboxAction,
-        };
         use leafwing_input_manager::prelude::InputManagerPlugin;
+
+        // ── The frame→tick input latch (netcode N0.1) ─────────────────────
+        //
+        // A device samples on the FEEL clock, once per rendered frame. When the
+        // sim runs on the TICK clock the two diverge, and every device sample
+        // between two ticks has to reach the sim as ONE control frame: axes
+        // take the latest, press/release edges OR together so a sub-tick tap is
+        // never swallowed and a single tap never fires twice.
+        //
+        // This lives in the DEVICE plugin, not the engine group: headless, RL,
+        // and replay drivers have no device and author the per-tick
+        // `ControlFrame` themselves. Frame-stepped hosts skip it too — one
+        // frame IS one tick, so there is nothing to bridge.
+        if app.sim_is_fixed_tick() {
+            let sim = app.sim_schedule();
+            app.init_resource::<ambition_engine_core::ControlFrameLatch>();
+            app.add_systems(
+                Update,
+                ambition_engine_core::accumulate_control_frame_latch
+                    .after(ambition_input::InputSet::Populate),
+            );
+            app.add_systems(
+                sim,
+                ambition_engine_core::publish_latched_control_frame
+                    .in_set(SandboxSet::PlayerInput)
+                    .before(ambition_input::InputSet::Populate),
+            );
+        }
 
         app.init_resource::<MenuInputState>()
             .init_resource::<MenuControlFrame>()

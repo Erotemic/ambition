@@ -11,11 +11,12 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer_primitives::markers::ControlledSubject;
 use ambition_actors::actor::{BodyKinematics, BodyMana, PlayerEntity, PrimaryPlayer};
 use ambition_characters::actor::{BodyHealth, BodyWallet};
 use ambition_characters::brain::ActorControl;
 use ambition_engine_core as ae;
+use ambition_platformer_primitives::markers::ControlledSubject;
+use ambition_platformer_primitives::schedule::SimScheduleExt;
 
 /// The controlled body's HUD meters, resolved sim-side (E4 slices 5+6+16):
 /// health / mana / wallet follow the [`ControlledSubject`] — while
@@ -385,8 +386,8 @@ pub fn rebuild_dynamic_feature_views(
         )>,
     >,
 ) {
-    use ambition_sprite_sheet::game_assets;
     use ambition_combat::FeatureVisualKind;
+    use ambition_sprite_sheet::game_assets;
     view.0.clear();
     for (id, aabb, disposition, config) in &ecs_mobs {
         // Encounter mobs are hostile by construction; skip any peaceful one.
@@ -560,6 +561,7 @@ pub struct SimViewPlugin;
 
 impl Plugin for SimViewPlugin {
     fn build(&self, app: &mut App) {
+        let sim = app.sim_schedule();
         app.init_resource::<PlayerHudFacts>()
             .init_resource::<HeldItemView>()
             .init_resource::<GroundItemsView>()
@@ -575,12 +577,12 @@ impl Plugin for SimViewPlugin {
         // consumers read an inert default headless.
         #[cfg(feature = "input")]
         app.add_systems(
-            Update,
+            sim,
             rebuild_blink_preview_fact
                 .in_set(ambition_platformer_primitives::schedule::SandboxSet::FeatureViewSync),
         );
         app.add_systems(
-            Update,
+            sim,
             (
                 rebuild_player_hud_facts,
                 rebuild_held_item_view,

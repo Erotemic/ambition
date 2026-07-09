@@ -28,6 +28,7 @@
 use std::collections::{HashMap, HashSet};
 
 use ambition_engine_core as ae;
+use ambition_platformer_primitives::schedule::SimScheduleExt;
 use bevy::prelude::*;
 use bevy_falling_sand::prelude::*;
 
@@ -164,6 +165,7 @@ pub struct FallingSandRoomPlugin;
 
 impl Plugin for FallingSandRoomPlugin {
     fn build(&self, app: &mut App) {
+        let sim = app.sim_schedule();
         app.init_resource::<FallingSandRoomState>()
             .add_plugins(
                 FallingSandPlugin::default()
@@ -172,7 +174,7 @@ impl Plugin for FallingSandRoomPlugin {
             )
             .add_systems(Startup, setup_particle_types)
             .add_systems(
-                Update,
+                sim,
                 (
                     sync_falling_sand_room_state,
                     seed_falling_sand_room_boundaries,
@@ -190,7 +192,7 @@ impl Plugin for FallingSandRoomPlugin {
                     .in_set(ambition_platformer_primitives::schedule::SandboxSet::WorldPrep),
             )
             .add_systems(
-                Update,
+                sim,
                 (
                     capture_falling_sand_switch_interactions,
                     // Visual sync must run *after* the toggle handler so

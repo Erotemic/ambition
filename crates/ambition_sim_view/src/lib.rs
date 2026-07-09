@@ -12,6 +12,7 @@
 //! heart's live components (the boundary test in `ambition_render` pins
 //! that).
 
+use ambition_platformer_primitives::schedule::SimScheduleExt;
 mod anim_index;
 pub mod camera_snapshot;
 mod facts;
@@ -44,7 +45,8 @@ pub struct FeatureViewSyncSchedulePlugin;
 
 impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        use bevy::prelude::{IntoScheduleConfigs, Update};
+        let sim = app.sim_schedule();
+        use bevy::prelude::IntoScheduleConfigs;
         // Owned here (anti-god rule 5): the plugin that rebuilds the index
         // initializes it; consumers only read.
         app.init_resource::<ActorAnimIndex>();
@@ -52,7 +54,7 @@ impl bevy::prelude::Plugin for FeatureViewSyncSchedulePlugin {
         app.init_resource::<BossFrameIndex>();
         app.init_resource::<NameplateIndex>();
         app.add_systems(
-            Update,
+            sim,
             (
                 // The nameplate rows prefer the feature view's geometry, so
                 // they rebuild strictly after it (same-frame read).

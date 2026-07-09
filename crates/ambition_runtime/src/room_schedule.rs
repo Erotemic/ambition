@@ -14,6 +14,7 @@ use bevy::prelude::*;
 
 use ambition_platformer_primitives::schedule::gameplay_allowed;
 use ambition_platformer_primitives::schedule::SandboxSet;
+use ambition_platformer_primitives::schedule::SimScheduleExt;
 
 /// Registers room-transition detection + the per-room feature reset, and
 /// anchors the content room-reset slot. Part of
@@ -22,8 +23,9 @@ pub struct RoomTransitionSchedulePlugin;
 
 impl Plugin for RoomTransitionSchedulePlugin {
     fn build(&self, app: &mut App) {
+        let sim = app.sim_schedule();
         app.add_systems(
-            Update,
+            sim,
             (
                 ambition_actors::rooms::detect_room_transition_system.run_if(gameplay_allowed),
                 // One reset over the unified actor cluster (NPCs + enemies).
@@ -38,7 +40,7 @@ impl Plugin for RoomTransitionSchedulePlugin {
         // plugins (gravity, portal RoomReset) order after the SET — nobody
         // names a content system (E5-finish de-weave).
         app.configure_sets(
-            Update,
+            sim,
             ambition_actors::session::reset::ContentRoomResetSet
                 .in_set(SandboxSet::RoomTransition)
                 .after(ambition_actors::features::reset_ecs_room_features),

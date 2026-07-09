@@ -90,8 +90,69 @@ the guardrails above keep level 3 reachable.)
 
 Obligations (each a slice, all [opus]):
 
-- **N0.1 Fixed-tick sim mode — ✅ the two-clocks review is RULED (fable,
-  2026-07-06 night). Opus executes; do not re-derive:**
+- **N0.1 Fixed-tick sim mode — ✅ LANDED (opus, 2026-07-09).** The two-clocks
+  design below was ruled by fable and is implemented as ruled. What shipped:
+  `SimSchedule` + `App::sim_schedule()` in `platformer_primitives::schedule`;
+  every engine sim plugin, `configure_sandbox_sets`, the content plugins, and
+  the app-local sim residue register into it; `PlatformerEnginePlugins {
+  fixed_tick }` hosts the sim in `FixedUpdate` on `Time<Fixed>` at
+  `SIM_TICK_HZ = 60`; `SimTick` (in `ambition_time`) is the canonical timeline;
+  `ControlFrameLatch` (in `engine_core`) is the frame→tick input latch, owned
+  by the DEVICE layer (`ambition_host`). Exit check met: the rl_sim
+  `player_phase_split` / `actor_phase_split` suites pass with the label
+  threaded BOTH ways, plus a split-brain guard in
+  `ambition_host/tests/demo_shell_smoke.rs` that fails if any sim system is
+  stranded in `Update` under fixed tick.
+
+  **Executor deviation from the ruled mechanism (vision §7 — the case, not a
+  silent drift).** Fable ruled: *"each engine-group schedule plugin (and
+  `configure_sandbox_sets`) gains a `schedule: InternedScheduleLabel` field
+  defaulting to `Update`; `PlatformerEnginePlugins` becomes a struct with a
+  `fixed_tick: bool` knob that threads the label to every member."* The plugin
+  group's knob shipped exactly as ruled. The per-plugin FIELD did not: plugins
+  read the label from a `SimSchedule` resource via `app.sim_schedule()`
+  instead. Why:
+  1. **The field is viral past the engine group.** ~14 of the ~25 sim
+     registrations that must move are NOT engine-group members — they are
+     content (`ambition_content`: bosses, falling sand, intro, portal adapters,
+     quests) and the app-local residue. A field-threaded label makes every
+     downstream game's content plugin grow a `schedule` field and every demo
+     crate re-thread it. That is a tax on the reusability oracle ("could
+     another platformer be built by ADDING a content crate without editing
+     core?"). The resource is one call, `app.sim_schedule()`, from anywhere.
+  2. **Content builds BEFORE the group** in Ambition's own app, so a field on
+     the group could never have reached content anyway. Some app-level channel
+     was always required; having two mechanisms is worse than having the one.
+  3. **The implicit-read hazard is closed structurally, not by documentation.**
+     `SimSchedule` seals on first read: changing the label after any plugin has
+     committed systems panics, naming both labels. The failure mode the field
+     was protecting against (half the sim in `Update`, half in `FixedUpdate`)
+     is now a startup panic and a schedule-graph guard test, not a silent
+     ordering loss.
+
+  Everything else is as ruled — the two clocks, bullet-time inside the tick,
+  per-tick input latching, `FixedUpdate` hosting, and the exit check.
+
+  **Known remainder (not blocking N0.2/N0.4), recorded honestly:**
+  - *Presentation interpolation is not implemented.* Under fixed tick,
+    presentation reads the last completed tick's read-model with no overstep
+    interpolation. Nothing ships fixed-tick with a window yet, so this is dead
+    code today; it lands with the first fixed-tick visible app (velocity
+    extrapolation from `BodyPoseView`, per the mechanism note below).
+  - *`WorldTime::wall_dt()` means "unscaled SIM dt", not wall dt.* Under fixed
+    tick `refresh_world_time` runs inside the tick, so `raw_dt == TICK_DT`.
+    For sim readers that is correct and MORE deterministic (possession's
+    hold timer, the OOB trace). For the three presentation readers
+    (`render::fx`, `render::deep_dream`, `actors::audio::environment`) it is
+    wrong at any refresh rate ≠ 60 Hz. Splitting a real `wall_dt` field off
+    `WorldTime` is the fix; it only bites a fixed-tick *windowed* app.
+  - *One frame of device→tick input latency.* `RunFixedMainLoop` runs before
+    `Update` in Bevy's `Main`, so a device sample taken in `Update` reaches the
+    tick on the next frame. Standard for fixed-tick, and the latch is what
+    makes it lossless. Moving the device→latch bridge to `PreUpdate` would
+    remove it if it ever matters.
+
+  **The ruled design (fable, 2026-07-06 night) — do not re-derive:**
   - **The two clocks are:** (1) the **SIM TICK** clock — fixed 60 Hz, the
     only clock sim systems advance on in fixed-tick mode; the tick COUNT
     is the canonical timeline (N0.2 streams and N0.4 hashes key on it);
@@ -116,15 +177,20 @@ Obligations (each a slice, all [opus]):
     engine-group schedule plugin (and `configure_sandbox_sets`) gains a
     `schedule: InternedScheduleLabel` field defaulting to `Update` —
     `PlatformerEnginePlugins` becomes a struct with a `fixed_tick: bool`
-    knob that threads the label to every member plugin. Default stays
+    knob that threads the label to every member plugin. *(Executed as a
+    `SimSchedule` resource read by `app.sim_schedule()` instead of a
+    per-plugin field — see the deviation case above. The group's knob is
+    as ruled.)* Default stays
     frame-stepped (Ambition today, byte-parity); SSB/demos opt in.
     Presentation interpolation reads previous+current tick pose from the
     read-model (BodyPoseView carries pos+vel — velocity extrapolation is
     the cheap v1; a two-tick pose buffer is the v2 if extrapolation
-    visibly jitters).
+    visibly jitters). **Not yet implemented** — see the remainder above.
   - **Ordering guard:** the rl_sim schedule-shape tests must pass with
     the label threaded BOTH ways (parameterize one suite run over
-    Update/FixedUpdate) — that's the exit check.
+    Update/FixedUpdate) — that's the exit check. ✅ met: `SandboxSimOptions
+    ::with_fixed_tick` parameterizes `player_phase_split` and
+    `actor_phase_split`.
 - **N0.2 Input-stream capture as a first-class type.** `SlotControls`
   per-tick, serializable, versioned — the SAME artifact serves replay
   fixtures, RL trajectories, desync forensics, and the wire format later.

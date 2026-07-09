@@ -9,11 +9,13 @@
 use bevy::prelude::*;
 
 use crate::schedule::SandboxSet;
+use ambition_platformer_primitives::schedule::SimScheduleExt;
 
 pub struct TraceSchedulePlugin;
 
 impl Plugin for TraceSchedulePlugin {
     fn build(&self, app: &mut App) {
+        let sim = app.sim_schedule();
         // `record_frame_system` reads the portal teleport fact when the
         // feature is compiled in; register the message here too (idempotent)
         // so the trace works in apps that compile portal support without
@@ -22,7 +24,7 @@ impl Plugin for TraceSchedulePlugin {
         app.add_message::<ambition_portal::BodyTeleported>();
         app.init_resource::<ambition_gameplay_trace::ActorTraceBuffer>()
             .add_systems(
-                Update,
+                sim,
                 (
                     super::record_frame_system,
                     super::flush_pending_dump.after(super::record_frame_system),

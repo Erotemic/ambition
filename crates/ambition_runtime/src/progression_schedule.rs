@@ -11,6 +11,7 @@
 use bevy::prelude::*;
 
 use ambition_platformer_primitives::schedule::SandboxSet;
+use ambition_platformer_primitives::schedule::SimScheduleExt;
 
 /// Schedules the `SandboxSet::Progression` system chain plus the
 /// registry-populate systems that share the same set.
@@ -18,6 +19,7 @@ pub struct ProgressionSchedulePlugin;
 
 impl Plugin for ProgressionSchedulePlugin {
     fn build(&self, app: &mut App) {
+        let sim = app.sim_schedule();
         // R5 encounter-script messages: the named gate (rope cut / hazard impact
         // / cues) + the on-death payload-release signal.
         app.add_message::<ambition_actors::boss_encounter::EncounterGate>();
@@ -34,7 +36,7 @@ impl Plugin for ProgressionSchedulePlugin {
         // rule 3) — the E-track de-weave that lets the engine progression group
         // move to the runtime face later.
         app.add_systems(
-            Update,
+            sim,
             (
                 // Boss-encounter chain (grouped into a nested `.chain()` to keep
                 // the outer tuple under Bevy's 20-element limit; internal order
@@ -90,21 +92,21 @@ impl Plugin for ProgressionSchedulePlugin {
             ContentEncounterScriptSet, ContentEncounterVictorySet, ContentQuestRewardSet,
         };
         app.configure_sets(
-            Update,
+            sim,
             ContentEncounterScriptSet
                 .in_set(SandboxSet::Progression)
                 .after(ambition_actors::boss_encounter::update_encounter_progress)
                 .before(ambition_actors::boss_encounter::tick_falling_hazards),
         );
         app.configure_sets(
-            Update,
+            sim,
             ContentEncounterVictorySet
                 .in_set(SandboxSet::Progression)
                 .after(ambition_actors::boss_encounter::boss_phase_transition_feedback)
                 .before(ambition_actors::features::sync_ecs_actors_with_save),
         );
         app.configure_sets(
-            Update,
+            sim,
             ContentQuestRewardSet
                 .in_set(SandboxSet::Progression)
                 .after(ambition_persistence::quest::apply_quest_advance_events)
@@ -118,7 +120,7 @@ impl Plugin for ProgressionSchedulePlugin {
         // save. (The content quest-registry populate moved to
         // `AmbitionQuestContentPlugin`.)
         app.add_systems(
-            Update,
+            sim,
             (
                 ambition_actors::boss_encounter::populate_boss_encounter_registry,
                 ambition_actors::encounter::populate_encounter_registry,

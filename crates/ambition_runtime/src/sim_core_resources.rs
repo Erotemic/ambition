@@ -101,6 +101,9 @@ impl Plugin for SimCoreResourcesPlugin {
             // World-clock dt mirror — `WorldTime::scaled_dt` is the
             // bullet-time-respecting delta for gameplay timers.
             .init_resource::<ambition_time::WorldTime>()
+            // The canonical timeline (N0.1): the index of the sim step now
+            // running. Input streams and state hashes key on it.
+            .init_resource::<ambition_time::SimTick>()
             // Neutral runtime mirror of `WorldTime::sim_dt()`.
             .init_resource::<ambition_platformer_primitives::time::SimDt>()
             // Portal registry — per-portal lifecycle state machine.

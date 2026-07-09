@@ -13,6 +13,7 @@
 //! ECS spawning, player/body queries, feature overlays, banners, save/quest
 //! plumbing, and schedule sets.
 
+use ambition_platformer_primitives::schedule::SimScheduleExt;
 mod events;
 mod loading;
 mod lock_walls;
@@ -24,8 +25,8 @@ mod state;
 mod switches;
 mod systems;
 
-pub use events::EncounterEvent;
 pub use ambition_encounter::install_encounter_waves;
+pub use events::EncounterEvent;
 pub use loading::load_encounter_specs_from_ldtk;
 pub use lock_walls::contribute_encounter_lock_walls;
 pub use music::{BossEncounterMusicRequest, EncounterMusicRequest};
@@ -54,9 +55,10 @@ pub struct EncounterSimulationSchedulePlugin;
 
 impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        use bevy::prelude::{IntoScheduleConfigs, Update};
+        let sim = app.sim_schedule();
+        use bevy::prelude::IntoScheduleConfigs;
         app.add_systems(
-            Update,
+            sim,
             (
                 crate::world::platforms::sync_moving_platform,
                 update_encounters_from_world,
@@ -73,7 +75,7 @@ impl bevy::prelude::Plugin for EncounterSimulationSchedulePlugin {
         // walls are present for this frame's collision exactly as the old
         // base-resident blocks were, without mutating the authored base.
         app.add_systems(
-            Update,
+            sim,
             contribute_encounter_lock_walls
                 .after(crate::features::rebuild_feature_ecs_world_overlay)
                 .before(crate::features::update_ecs_hazards)

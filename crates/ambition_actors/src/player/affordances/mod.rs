@@ -34,6 +34,7 @@
 //! the enum; the HUD updates for free because it just renders the
 //! variant's `VariantLabel::text`.
 
+use ambition_platformer_primitives::schedule::SimScheduleExt;
 use bevy::prelude::*;
 
 pub mod devices;
@@ -176,13 +177,14 @@ pub struct AffordancesPlugin;
 
 impl Plugin for AffordancesPlugin {
     fn build(&self, app: &mut App) {
+        let sim = app.sim_schedule();
         app.init_resource::<PlayerIntent>()
             .init_resource::<NearestInteractable>()
             .init_resource::<PogoTargetBelow>()
             .init_resource::<PlayerAffordances>()
             .init_resource::<ActiveInputMethod>()
             .add_systems(
-                Update,
+                sim,
                 (
                     compute_controlled_actor_intent,
                     update_nearest_interactable,

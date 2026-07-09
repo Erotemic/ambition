@@ -59,6 +59,11 @@ pub use body_clusters::{
 };
 pub use combat_volume::CombatVolume;
 pub use control_frame::ControlFrame;
+/// The frame→tick input latch (netcode N0.1) and its two systems. Separate from
+/// the `ControlFrame` vocabulary above because only the DEVICE layer installs it.
+pub use control_frame::{
+    accumulate_control_frame_latch, publish_latched_control_frame, ControlFrameLatch,
+};
 pub use geo_id::{Face, GeoFaceRef, GeoId, GeoSource, PlacementId};
 pub use geometry::{aabb_from_min_size, Aabb, AabbExt, CenteredAabb};
 pub use kinematic_path::{KinematicPath, KinematicPathMode};

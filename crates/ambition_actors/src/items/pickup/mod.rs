@@ -23,6 +23,7 @@ use ambition_characters::brain::{
 };
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_input::ControlFrame;
+use ambition_platformer_primitives::schedule::SimScheduleExt;
 #[cfg(feature = "portal")]
 use ambition_portal::PortalGun;
 
@@ -50,8 +51,9 @@ pub struct ItemPickupSimulationPlugin;
 
 impl Plugin for ItemPickupSimulationPlugin {
     fn build(&self, app: &mut App) {
+        let sim = app.sim_schedule();
         app.configure_sets(
-            Update,
+            sim,
             (
                 ItemPickupSet::CoreHeldItems,
                 ItemPickupSet::ThrownItemEffects,
@@ -62,21 +64,27 @@ impl Plugin for ItemPickupSimulationPlugin {
         );
 
         app.add_systems(
-            Update,
+            sim,
             (
                 // Held-items, the portal gun, the heal/save shrine, and localized
                 // gravity zones are LDtk-authored room entities.
-                crate::shrine::heal_save_shrine_system.run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
+                crate::shrine::heal_save_shrine_system
+                    .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
                 // Resolve the live GravityField from zones + ambient after the
                 // FlipGravity switch and before ground_item_physics reads it.
                 crate::physics::resolve_active_gravity,
-                pickup_held_item_system.run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
-                fire_held_ranged_system.run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
-                held_projectile_step.run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
+                pickup_held_item_system
+                    .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
+                fire_held_ranged_system
+                    .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
+                held_projectile_step
+                    .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
                 crate::abilities::thrown::puppy_slug_gun::fire_puppy_slug_gun_system
                     .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
-                throw_held_item_system.run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
-                ground_item_physics.run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
+                throw_held_item_system
+                    .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
+                ground_item_physics
+                    .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
             )
                 .chain()
                 // `ItemPickupSet::CoreHeldItems` is configured
@@ -93,7 +101,7 @@ impl Plugin for ItemPickupSimulationPlugin {
         // is preserved without this generic module naming content.
         #[cfg(feature = "portal")]
         app.add_systems(
-            Update,
+            sim,
             ambition_portal::arm_portal_pickups
                 // Parent `PlayerSimulation` already implied via
                 // `ItemPickupSet::CoreHeldItems` (configured above).
@@ -102,15 +110,18 @@ impl Plugin for ItemPickupSimulationPlugin {
 
         // Bombs and gravity grenades run after the held-item throw/physics group.
         app.add_systems(
-            Update,
+            sim,
             (
-                crate::abilities::ranged::bomb::arm_thrown_bombs.run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
-                crate::abilities::ranged::bomb::tick_bomb_fuses.run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
+                crate::abilities::ranged::bomb::arm_thrown_bombs
+                    .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
+                crate::abilities::ranged::bomb::tick_bomb_fuses
+                    .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
                 crate::abilities::thrown::gravity_grenade::arm_thrown_gravity_grenades
                     .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
                 crate::abilities::thrown::gravity_grenade::tick_gravity_grenade_fuses
                     .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
-                crate::physics::tick_temporary_zones.run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
+                crate::physics::tick_temporary_zones
+                    .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
             )
                 .chain()
                 // Parent `PlayerSimulation` already implied via
@@ -121,26 +132,30 @@ impl Plugin for ItemPickupSimulationPlugin {
         // Wielded movement/combat items live in their own group to avoid the
         // chained tuple arity cap in the core held-item group.
         app.add_systems(
-            Update,
+            sim,
             (
                 crate::abilities::traversal::mark_recall::mark_recall_system
                     .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
-                crate::abilities::traversal::blink::blink_system.run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
+                crate::abilities::traversal::blink::blink_system
+                    .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
                 crate::abilities::traversal::grapple::grapple_system
                     .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
                 crate::abilities::ranged::shockwave::fire_shockwave_system
                     .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
                 crate::abilities::ranged::volley::fire_volley_system
                     .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
-                crate::abilities::ranged::beam::fire_beam_system.run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
+                crate::abilities::ranged::beam::fire_beam_system
+                    .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
                 crate::abilities::ranged::vortex::fire_vortex_system
                     .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
                 crate::abilities::ranged::vortex::update_vortex_wells
                     .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
                 crate::abilities::ranged::sentry::fire_sentry_system
                     .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
-                crate::abilities::ranged::sentry::update_sentries.run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
-                crate::abilities::traversal::dive::fire_dive_system.run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
+                crate::abilities::ranged::sentry::update_sentries
+                    .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
+                crate::abilities::traversal::dive::fire_dive_system
+                    .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
                 crate::abilities::ranged::meteor::fire_meteor_system
                     .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
                 crate::ability_cooldown::tick_ability_cooldown,

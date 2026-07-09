@@ -67,6 +67,42 @@ impl Default for ClockState {
     }
 }
 
+/// **The canonical timeline** (netcode N0.1): the index of the simulation step
+/// currently executing, counting from `0`.
+///
+/// This is the clock that identifies a moment of simulation — not a wall-clock
+/// instant and not a rendered frame. N0.2 input streams are keyed by it, N0.4
+/// hashes sim state per value of it, and rollback rewinds to one.
+///
+/// It advances once per sim step in **both** schedule modes: frame-stepped
+/// (one step per rendered frame) and fixed-tick (one step per `Time<Fixed>`
+/// expenditure, which may be zero or several per frame). It advances even while
+/// gameplay is suspended — a paused world still has a timeline; its `sim_dt` is
+/// simply zero.
+#[derive(Resource, Default, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct SimTick(pub u64);
+
+impl SimTick {
+    #[inline]
+    pub fn get(self) -> u64 {
+        self.0
+    }
+}
+
+/// Advance [`SimTick`] at the head of each sim step.
+///
+/// The first executed step is tick `0`, so the counter names *the step now
+/// running* rather than the number of steps completed — that is the index a
+/// recorded input frame and a post-step state hash must agree on. `first_step`
+/// is what buys that off-by-one: the head of step 0 must not increment.
+pub fn advance_sim_tick(mut tick: ResMut<SimTick>, mut first_step: Local<bool>) {
+    if *first_step {
+        tick.0 = tick.0.wrapping_add(1);
+    } else {
+        *first_step = true;
+    }
+}
+
 /// ADR 0011 — per-entity proper-time scale. `1.0` means
 /// [`WorldTime::entity_dt`] returns sim dt unchanged.
 ///

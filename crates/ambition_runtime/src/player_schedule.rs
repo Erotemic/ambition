@@ -23,9 +23,10 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer_primitives::schedule::{gameplay_allowed, gameplay_suspended};
 use ambition_actors::player::PlayerBodyFrameOutput;
 use ambition_platformer_primitives::schedule::SandboxSet;
+use ambition_platformer_primitives::schedule::SimScheduleExt;
+use ambition_platformer_primitives::schedule::{gameplay_allowed, gameplay_suspended};
 
 /// Registers the engine-generic player frame (see module docs). Part of
 /// [`crate::PlatformerEnginePlugins`]; headless/RL builds run every system
@@ -34,6 +35,7 @@ pub struct PlayerSchedulePlugin;
 
 impl Plugin for PlayerSchedulePlugin {
     fn build(&self, app: &mut App) {
+        let sim = app.sim_schedule();
         // Every player body carries the movement→presentation hand-off the
         // movement phase writes and the presentation phase reads (required so
         // both phase queries always match the player + any clone).
@@ -64,8 +66,13 @@ impl Plugin for PlayerSchedulePlugin {
         // * `refresh_world_time` then snapshots whichever path won this
         //   frame, so downstream systems always see a coherent `scaled_dt`.
         app.add_systems(
-            Update,
+            sim,
             (
+                // THE TIMELINE, first thing in the step: every system below
+                // this line — and every hash or recorded input frame — belongs
+                // to the tick this names. Unconditional: a suspended world
+                // still advances its timeline, it just moves zero sim seconds.
+                ambition_time::advance_sim_tick,
                 ambition_actors::time::time_control::apply_suspended_time_scale_system
                     .run_if(gameplay_suspended),
                 ambition_actors::time::time_control::emit_player_time_intent_system
@@ -96,7 +103,7 @@ impl Plugin for PlayerSchedulePlugin {
         // Ordered after part A's tail (`sync_live_player_dev_edits_system`).
         // The host's reset/replay pair slots into the A→B gap (module docs).
         app.add_systems(
-            Update,
+            sim,
             (
                 ambition_actors::player::input_timer_system
                     .run_if(gameplay_allowed)
@@ -139,7 +146,7 @@ impl Plugin for PlayerSchedulePlugin {
         // adds the consumer-relative edge (`.before(its replay consumer)`) —
         // the engine only gives the slot its phase home.
         app.configure_sets(
-            Update,
+            sim,
             ambition_actors::session::reset::ContentDialogueFollowupSet
                 .in_set(SandboxSet::PlayerInput),
         );
@@ -149,7 +156,7 @@ impl Plugin for PlayerSchedulePlugin {
         // WorldPrep), and before `PlayerSimulation`/`Combat` where the
         // consumers spawn hitboxes/projectiles, same frame.
         app.add_systems(
-            Update,
+            sim,
             (
                 ambition_characters::brain::emit_brain_action_messages,
                 ambition_characters::brain::emit_player_projectile_tick_messages,
@@ -169,7 +176,7 @@ impl Plugin for PlayerSchedulePlugin {
         // between `release_possession_if_target_lost` and
         // `apply_player_hit_events` (module docs).
         app.add_systems(
-            Update,
+            sim,
             (
                 ambition_actors::abilities::traversal::possession::possession_trigger_system
                     .run_if(gameplay_allowed),
@@ -186,7 +193,7 @@ impl Plugin for PlayerSchedulePlugin {
         // Runs unconditionally so paused / dialogue modes still wind down
         // flash and landing-pose timers.
         app.add_systems(
-            Update,
+            sim,
             (
                 ambition_actors::player::write_player_ecs_components,
                 ambition_actors::player::cleanup_timers_system,

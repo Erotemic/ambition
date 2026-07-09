@@ -43,8 +43,9 @@ pub use overflow_flood::*;
 pub use seismic_stomp::*;
 
 use ambition_actors::features::BossConfig;
-use ambition_platformer_primitives::schedule::CombatSet;
 use ambition_platformer_primitives::schedule::gameplay_allowed;
+use ambition_platformer_primitives::schedule::CombatSet;
+use ambition_platformer_primitives::schedule::SimScheduleExt;
 
 /// Installs the named per-boss special-attack Techniques as a single
 /// self-contained content domain unit.
@@ -67,6 +68,7 @@ pub struct BossSpecialContentPlugin;
 
 impl Plugin for BossSpecialContentPlugin {
     fn build(&self, app: &mut App) {
+        let sim = app.sim_schedule();
         // Per-boss Technique state, attached to every boss via required
         // components (registered at plugin-build time, before any boss
         // spawns). The machinery lib's spawn names no boss Technique.
@@ -91,7 +93,7 @@ impl Plugin for BossSpecialContentPlugin {
         // independent (disjoint per-boss state), so no inter-system order
         // is imposed within the slot.
         app.add_systems(
-            Update,
+            sim,
             (
                 spawn_gnu_apple_rain_from_special_messages,
                 spawn_overfit_volley_from_special_messages,

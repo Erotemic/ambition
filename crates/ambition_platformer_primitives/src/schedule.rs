@@ -4,7 +4,137 @@
 //! the future crate-level concepts and give new runtime modules names that do
 //! not depend on app assembly details.
 
+use core::sync::atomic::{AtomicBool, Ordering};
+
+use bevy::app::{App, FixedUpdate, Update};
+use bevy::ecs::schedule::{InternedScheduleLabel, ScheduleLabel};
 use bevy::prelude::*;
+
+/// **Which Bevy schedule the SIMULATION runs in** (netcode N0.1, the two clocks).
+///
+/// The engine has two clocks: the **sim tick** (the canonical timeline — N0.2
+/// input streams and N0.4 state hashes key on its count) and the **frame/feel**
+/// clock (raw render dt, driving presentation, device sampling, and per-player
+/// feel-time effects). This resource names the schedule the *tick* clock lives
+/// in, and it has exactly two legal values:
+///
+/// - [`Update`] (**default**) — *frame-stepped*: one sim step per rendered
+///   frame, dt = the frame's dt. This is Ambition today.
+/// - [`FixedUpdate`] — *fixed-tick*: the sim advances on Bevy's `Time<Fixed>`
+///   accumulator at a pinned rate; presentation stays in `Update`. Demos, Super
+///   Smash Siblings, lockstep, and rollback need this.
+///
+/// Bullet-time composes **inside** the tick, never with the tick rate: in
+/// fixed-tick mode `WorldTime::scaled_dt == TICK_DT × time_scale` while the
+/// cadence stays pinned. Nothing ever scales the accumulator.
+///
+/// # Reading it
+///
+/// Every plugin that registers a SIM system asks the app, rather than naming a
+/// schedule literal:
+///
+/// ```ignore
+/// impl Plugin for MySimPlugin {
+///     fn build(&self, app: &mut App) {
+///         let sim = app.sim_schedule();
+///         app.add_systems(sim, my_system.in_set(SandboxSet::WorldPrep));
+///     }
+/// }
+/// ```
+///
+/// Presentation, input-device, audio, and HUD plugins keep naming [`Update`]
+/// literally — they are the feel clock, and that is the point of the split.
+///
+/// # The seal
+///
+/// The value is **sealed on first read**: once any plugin has asked for the
+/// label, changing it panics rather than silently splitting the schedule graph
+/// in half (some sim systems in `Update`, the rest in `FixedUpdate` — a
+/// split-brain whose symptom is systems mysteriously never ordering against one
+/// another). Set the mode BEFORE adding any sim plugin, or let
+/// `PlatformerEnginePlugins` set it as its first act.
+#[derive(Resource, Debug)]
+pub struct SimSchedule {
+    label: InternedScheduleLabel,
+    /// Set once some plugin has committed systems to `label`.
+    observed: AtomicBool,
+}
+
+impl Default for SimSchedule {
+    fn default() -> Self {
+        Self::new(Update)
+    }
+}
+
+impl SimSchedule {
+    pub fn new(label: impl ScheduleLabel) -> Self {
+        Self {
+            label: label.intern(),
+            observed: AtomicBool::new(false),
+        }
+    }
+
+    /// The sim schedule label, marking it sealed.
+    pub fn label(&self) -> InternedScheduleLabel {
+        self.observed.store(true, Ordering::Relaxed);
+        self.label
+    }
+
+    /// Peek without sealing — for assertions and mode-dependent wiring.
+    pub fn peek(&self) -> InternedScheduleLabel {
+        self.label
+    }
+
+    /// True when the sim advances on `Time<Fixed>` rather than the render frame.
+    pub fn is_fixed_tick(&self) -> bool {
+        self.label == FixedUpdate.intern()
+    }
+}
+
+/// App-level accessors for [`SimSchedule`]. See that type for the contract.
+pub trait SimScheduleExt {
+    /// The schedule SIM systems register into. Seals the value.
+    fn sim_schedule(&mut self) -> InternedScheduleLabel;
+
+    /// Choose the sim schedule. Panics if some plugin already read a different
+    /// one — see [`SimSchedule`]'s seal.
+    fn set_sim_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self;
+
+    /// True when the sim advances on `Time<Fixed>`. Does not seal.
+    fn sim_is_fixed_tick(&self) -> bool;
+}
+
+impl SimScheduleExt for App {
+    fn sim_schedule(&mut self) -> InternedScheduleLabel {
+        self.init_resource::<SimSchedule>();
+        self.world().resource::<SimSchedule>().label()
+    }
+
+    fn set_sim_schedule(&mut self, label: impl ScheduleLabel) -> &mut Self {
+        let label = label.intern();
+        if let Some(existing) = self.world().get_resource::<SimSchedule>() {
+            assert!(
+                !(existing.observed.load(Ordering::Relaxed) && existing.label != label),
+                "sim schedule already sealed as {:?}; cannot change it to {:?} after a sim \
+                 plugin has registered systems (that would split the sim schedule graph). \
+                 Call set_sim_schedule before adding any sim plugin.",
+                existing.label,
+                label,
+            );
+        }
+        self.insert_resource(SimSchedule {
+            label,
+            observed: AtomicBool::new(false),
+        });
+        self
+    }
+
+    fn sim_is_fixed_tick(&self) -> bool {
+        self.world()
+            .get_resource::<SimSchedule>()
+            .is_some_and(SimSchedule::is_fixed_tick)
+    }
+}
 
 /// Generic platformer runtime phases.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
@@ -22,7 +152,6 @@ pub enum PlatformerRuntimeSet {
     /// Publish simulation state to presentation-facing mirrors/caches.
     PresentationSync,
 }
-
 
 /// Startup-phase slot for the app's presentation setup (camera, root
 /// UI scaffolding). Machinery that must initialize after presentation

@@ -9,6 +9,18 @@ pub struct SandboxSimOptions {
     /// `RoomSet::room_index_by_id`; if not found, a warning is printed
     /// and the LDtk-authored start room stays active.
     pub start_room: Option<String>,
+    /// Run the SIM in `FixedUpdate` on `Time<Fixed>` (netcode N0.1) instead of
+    /// frame-stepped in `Update`.
+    ///
+    /// The schedule GRAPH is identical either way — every sim plugin registers
+    /// into `SimSchedule` rather than naming a literal — so this flag exists to
+    /// prove exactly that: a suite parameterized over both modes is N0.1's exit
+    /// check.
+    ///
+    /// When set, each `SandboxSim::step` advances exactly one sim tick: the
+    /// frame dt handed to Bevy is pinned to the `Time<Fixed>` timestep, so the
+    /// accumulator expends once and only once.
+    pub fixed_tick: bool,
 }
 
 impl SandboxSimOptions {
@@ -21,6 +33,12 @@ impl SandboxSimOptions {
     /// Builder: set the starting room id.
     pub fn with_start_room(mut self, room_id: impl Into<String>) -> Self {
         self.start_room = Some(room_id.into());
+        self
+    }
+
+    /// Builder: host the sim in `FixedUpdate` (see [`Self::fixed_tick`]).
+    pub fn with_fixed_tick(mut self, fixed_tick: bool) -> Self {
+        self.fixed_tick = fixed_tick;
         self
     }
 }

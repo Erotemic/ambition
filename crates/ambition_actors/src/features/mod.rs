@@ -18,6 +18,7 @@
 
 use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
+use ambition_platformer_primitives::schedule::SimScheduleExt;
 use bevy::prelude::*;
 
 // Movement physics (gravity / fall cap / run accel / jump / double-jump) used to
@@ -155,10 +156,11 @@ pub struct GameplayEffectsSchedulePlugin;
 
 impl bevy::prelude::Plugin for GameplayEffectsSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
+        let sim = app.sim_schedule();
         use ambition_platformer_primitives::schedule::gameplay_allowed;
-        use bevy::prelude::{IntoScheduleConfigs, Update};
+        use bevy::prelude::IntoScheduleConfigs;
         app.add_systems(
-            Update,
+            sim,
             (
                 bus::apply_flag_effects,
                 bus::apply_quest_effects,
@@ -200,8 +202,9 @@ pub struct WorldPrepSchedulePlugin;
 
 impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
+        let sim = app.sim_schedule();
         use crate::world::placements::PlacementLoweringAppExt;
-        use bevy::prelude::{IntoScheduleConfigs, Update};
+        use bevy::prelude::IntoScheduleConfigs;
         // Relational targeting seam (default = today's behavior; stealth/bounty/
         // alliance systems mutate it). `select_actor_targets` reads it. Combat
         // owns these resources (rule 5); WorldPrep just invokes its registrar.
@@ -238,7 +241,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // `from_catalog` value before the engine group (init never clobbers).
         app.init_resource::<crate::ldtk_world::LdtkHotReloadState>();
         app.add_systems(
-            Update,
+            sim,
             (
                 crate::ldtk_world::poll_ldtk_file_changes,
                 // Sprite-driven boss metrics must be available before
@@ -295,7 +298,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // separately (not in the chain above) only because that tuple is already
         // at Bevy's chain-length ceiling; the `.before` keeps the ordering exact.
         app.add_systems(
-            Update,
+            sim,
             advance_gameplay_elapsed
                 .before(select_actor_targets)
                 .in_set(crate::schedule::SandboxSet::WorldPrep),
@@ -306,7 +309,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // renderer's presentation `animate_bosses` (a later schedule), which mirrors
         // the sim-driven frame into its draw-only animator.
         app.add_systems(
-            Update,
+            sim,
             drive_boss_animators.after(project_boss_attack_state_from_move),
         );
         // The decomposed per-actor pipeline: brain → intent, movement integration,
@@ -319,7 +322,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         app.init_resource::<crate::features::ecs::perception::PerceptionPeers>();
         app.init_resource::<crate::features::ecs::perception::PerceptionProjectiles>();
         app.add_systems(
-            Update,
+            sim,
             (
                 // §A7: grant every brained non-boss actor SIGHTED perception
                 // (`Perception::Sighted` + a `PerceptionMemory` belief store) before the
@@ -361,7 +364,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // (revives as a normal NPC). Registered separately — the WorldPrep chain tuple
         // is already at Bevy's chain-length ceiling — with `.before` to keep the order.
         app.add_systems(
-            Update,
+            sim,
             dissolve_settled_grudges
                 .before(select_actor_targets)
                 .in_set(crate::schedule::SandboxSet::WorldPrep),
@@ -388,7 +391,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
         // Registered separately — the WorldPrep chain tuple is already at Bevy's
         // chain-length ceiling.
         app.add_systems(
-            Update,
+            sim,
             (route_boss_strikes_to_limbs, fan_out_limb_intents)
                 .chain()
                 .after(steer_mount_from_rider)
@@ -396,7 +399,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 .in_set(crate::schedule::SandboxSet::WorldPrep),
         );
         app.configure_sets(
-            Update,
+            sim,
             crate::schedule::BossSteerSlot
                 .after(tick_boss_brains_system)
                 .before(update_ecs_bosses)
@@ -412,9 +415,10 @@ pub struct FeatureCollectionSchedulePlugin;
 
 impl bevy::prelude::Plugin for FeatureCollectionSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        use bevy::prelude::{IntoScheduleConfigs, Update};
+        let sim = app.sim_schedule();
+        use bevy::prelude::IntoScheduleConfigs;
         app.add_systems(
-            Update,
+            sim,
             (
                 // Pull nearby loot toward the player, then collect on overlap.
                 magnetize_pickups,
@@ -433,9 +437,10 @@ pub struct FeatureInteractionSchedulePlugin;
 
 impl bevy::prelude::Plugin for FeatureInteractionSchedulePlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        use bevy::prelude::{IntoScheduleConfigs, Update};
+        let sim = app.sim_schedule();
+        use bevy::prelude::IntoScheduleConfigs;
         app.add_systems(
-            Update,
+            sim,
             (
                 interact_ecs_actors_and_switches,
                 open_ecs_chests,

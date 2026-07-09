@@ -22,6 +22,21 @@
 
 use ambition_actors as sb;
 use ambition_engine_core::{self as ae, AabbExt};
+
+/// Interactable footprints, read from the single `placements` channel
+/// (fable audit F9.2 — interactables no longer have a typed `RoomSpec` list).
+fn interactable_aabbs(room: &sb::rooms::RoomSpec) -> Vec<ae::Aabb> {
+    room.placements
+        .iter()
+        .filter(|r| {
+            matches!(
+                r.schema,
+                ambition_entity_catalog::placements::PlacementSchema::Interactable(_)
+            )
+        })
+        .map(|r| r.aabb)
+        .collect()
+}
 use ambition_sim_view::camera_snapshot::{
     resolve_follow_camera_snapshot, CameraFocus2d, CameraSnapshot2d, CameraSnapshotResolveInput,
     CameraSnapshotResolveMode,
@@ -270,8 +285,8 @@ fn render_room_projected(
             overlay_aabb(&mut img, proj, hb, Rgba([60, 240, 255, 255]));
         }
     }
-    for it in &room.interactables {
-        overlay_aabb(&mut img, proj, it.aabb, Rgba([70, 230, 120, 255])); // green (NPC/switch)
+    for it_aabb in interactable_aabbs(room) {
+        overlay_aabb(&mut img, proj, it_aabb, Rgba([70, 230, 120, 255])); // green (NPC/switch)
     }
     for p in &room.pickups {
         overlay_aabb(&mut img, proj, p.aabb, Rgba([90, 210, 230, 255])); // cyan
@@ -337,7 +352,7 @@ fn resolve_headless_snapshot(
             dt: 0.0,
             mode: CameraSnapshotResolveMode::Instant,
             extra_clamp_center_world: None,
-            ease_tuning: sb::CameraEaseTuning::default(),
+            ease_tuning: ambition_platformer_primitives::camera_ease::CameraEaseTuning::default(),
         },
         None,
     )
@@ -358,7 +373,11 @@ fn run_anomaly_report(room_set: &sb::rooms::RoomSet) {
         let mut families: Vec<(&str, ae::Aabb)> = Vec::new();
         families.extend(room.enemy_spawns.iter().map(|e| ("enemy", e.aabb)));
         families.extend(room.boss_spawns.iter().map(|b| ("boss", b.aabb)));
-        families.extend(room.interactables.iter().map(|i| ("interactable", i.aabb)));
+        families.extend(
+            interactable_aabbs(room)
+                .into_iter()
+                .map(|a| ("interactable", a)),
+        );
         families.extend(room.pickups.iter().map(|p| ("pickup", p.aabb)));
         families.extend(room.chests.iter().map(|c| ("chest", c.aabb)));
         families.extend(room.breakables.iter().map(|b| ("breakable", b.aabb)));
@@ -561,7 +580,7 @@ fn main() {
         room.world.blocks.len(),
         room.enemy_spawns.len(),
         room.boss_spawns.len(),
-        room.interactables.len(),
+        interactable_aabbs(room).len(),
         room.pickups.len(),
         room.chests.len(),
         room.breakables.len(),

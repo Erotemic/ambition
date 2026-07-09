@@ -90,9 +90,9 @@ fn empty_world(name: &str) -> ae::World {
 /// transition capability is body-generic and inherited by possession.
 #[test]
 fn a_possessed_actor_triggers_a_room_transition_through_a_walk_zone() {
-    use ambition_platformer_primitives::markers::ControlledSubject;
     use crate::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
     use crate::player::SlotInteractionState;
+    use ambition_platformer_primitives::markers::ControlledSubject;
     use bevy::prelude::*;
 
     #[derive(Resource, Default)]
@@ -285,7 +285,6 @@ fn spec_with(meta: RoomMetadata, id: &str) -> RoomSpec {
         shrines: Vec::new(),
         gravity_zones: Vec::new(),
         hazards: Vec::new(),
-        interactables: Vec::new(),
         pickups: Vec::new(),
         chests: Vec::new(),
         breakables: Vec::new(),

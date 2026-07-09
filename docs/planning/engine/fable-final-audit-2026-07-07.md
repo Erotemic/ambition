@@ -555,13 +555,35 @@ from `RoomSpec` and its lowering registered. Exit for the whole arc: the
 dual-emit guard in `spawn_room_feature_entities_with_registry` DELETES
 (placements become the only channel).
 
+✅ **DONE (Opus 2026-07-09): interactables consolidated to placements-only.**
+The first branch conversion landed and went FURTHER than the hazard exemplar:
+because `InteractableSpec`/`InteractionKindSpec` are fully Tier-0-pure (no
+kernel `Vec2`, unlike `HazardVolumeSpec`'s inline `KinematicPath`), they were
+MOVED DOWN into `ambition_entity_catalog::placements` and reused directly as
+the `PlacementSchema::Interactable` payload — so there is ONE pure type, not a
+schema/world mirror with a mapping. `RoomSpec.interactables`,
+`RoomEmission.interactables`, and the `RoomEmission::interactable` helper are
+DELETED; the LDtk npc/switch converters emit a `PlacementRecord` only; the
+actor sim path lowers via a registered `lower_interactable_placement`; and the
+render authored-visual path reads the same records (both consumers now share
+the single channel). No dual-emit guard was added for interactables — the
+family flows through placements exclusively. `ambition_world::rooms` re-exports
+the moved types so `rooms::InteractableSpec` paths stayed stable. Gate green
+(`ambition_app --features rl_sim`, actors lib 748, ldtk_map 24, world 25).
+Pattern to reuse for pickups/chests/breakables: same Tier-0 move (all four are
+Vec2-free); portals stay LAST because `PortalSpec` carries `Vec2` and cannot go
+Tier-0 without a plain-pair mirror. When all families are placements-only, the
+hazard dual-emit guard becomes the arc's final deletion (hazards keeps its Vec
++ inline-motion legacy path until its `KinematicPath` lifts to room level).
+
 **The next-phase queue (in order):**
 1. **Demo content** — fill `ambition_demo_sanic` (movement identity showcase)
    and `ambition_demo_smb1` (level 1-1 style slice) with real rooms +
    profiles. This is the umbrella's real test and the first BUILD (not
    restructure) item; it will surface every remaining engine leak.
 2. **IR consolidation branch conversions** (the ruling above) — opus-sized,
-   one family each.
+   one family each. **interactables: DONE (2026-07-09).** Remaining order:
+   pickups → chests → breakables → portals (portals last — Vec2 payload).
 3. **Projectile remaining steppers** — stay actor-side until their inputs are
    plain (the blockers are correctly enumerated in the follow-up checklist);
    do NOT force this seam.

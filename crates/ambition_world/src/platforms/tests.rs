@@ -40,7 +40,6 @@ fn test_room_with_platforms(
         shrines: Vec::new(),
         gravity_zones: Vec::new(),
         hazards: Vec::new(),
-        interactables: Vec::new(),
         pickups: Vec::new(),
         chests: Vec::new(),
         breakables: Vec::new(),

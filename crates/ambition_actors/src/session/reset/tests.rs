@@ -2,8 +2,8 @@
 //! request/consume edge behavior, and the post-reset gameplay-state rebuild.
 
 use super::*;
-use ambition_dev_tools::dev_tools::EditableMovementTuning;
 use crate::player::PlayerBlinkCameraState;
+use ambition_dev_tools::dev_tools::EditableMovementTuning;
 use ambition_engine_core::RoomGeometry;
 
 /// Pin the request resource's defaults: a fresh app starts with
@@ -179,7 +179,6 @@ fn min_app() -> App {
         shrines: Vec::new(),
         gravity_zones: Vec::new(),
         hazards: Vec::new(),
-        interactables: Vec::new(),
         pickups: Vec::new(),
         chests: Vec::new(),
         breakables: Vec::new(),

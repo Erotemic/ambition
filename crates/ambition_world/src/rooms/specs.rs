@@ -222,7 +222,6 @@ impl<T> Authored<T> {
     }
 }
 
-
 /// Pure authored damage-volume payload carried by [`RoomSpec`]. Runtime combat
 /// crates lower this to their live `DamageVolume`; the world IR only stores
 /// plain data.
@@ -255,41 +254,10 @@ impl HazardVolumeSpec {
     }
 }
 
-/// Pure authored interaction payload. Runtime interaction crates lower this to
-/// their component state at room load.
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-pub struct InteractableSpec {
-    pub prompt: String,
-    pub kind: InteractionKindSpec,
-    pub requires_facing: bool,
-    pub enabled: bool,
-}
-
-impl InteractableSpec {
-    pub fn new(prompt: impl Into<String>, kind: InteractionKindSpec) -> Self {
-        Self {
-            prompt: prompt.into(),
-            kind,
-            requires_facing: false,
-            enabled: true,
-        }
-    }
-}
-
-#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
-pub enum InteractionKindSpec {
-    Door { target: Option<String> },
-    Npc {
-        character_id: Option<String>,
-        dialogue_id: Option<String>,
-        patrol_radius: f32,
-        patrol_path_id: Option<String>,
-    },
-    Chest,
-    Pickup,
-    Breakable,
-    Custom(String),
-}
+/// Authored interaction payload — now owned by the Tier-0 catalog and carried
+/// through the single `PlacementRecord` channel (fable audit F9.2). Re-exported
+/// here so `rooms::InteractableSpec` paths stay stable for authoring/lowering.
+pub use ambition_entity_catalog::placements::{InteractableSpec, InteractionKindSpec};
 
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct PickupSpec {
@@ -351,11 +319,17 @@ pub enum BreakableTriggerSpec {
 
 impl BreakableTriggerSpec {
     pub fn allows_hit(self) -> bool {
-        matches!(self, BreakableTriggerSpec::OnHit | BreakableTriggerSpec::Either)
+        matches!(
+            self,
+            BreakableTriggerSpec::OnHit | BreakableTriggerSpec::Either
+        )
     }
 
     pub fn allows_stand(self) -> bool {
-        matches!(self, BreakableTriggerSpec::OnStand | BreakableTriggerSpec::Either)
+        matches!(
+            self,
+            BreakableTriggerSpec::OnStand | BreakableTriggerSpec::Either
+        )
     }
 }
 

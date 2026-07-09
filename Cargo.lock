@@ -597,6 +597,7 @@ dependencies = [
  "ambition_dev_tools",
  "ambition_dialog",
  "ambition_engine_core",
+ "ambition_entity_catalog",
  "ambition_input",
  "ambition_interaction",
  "ambition_persistence",

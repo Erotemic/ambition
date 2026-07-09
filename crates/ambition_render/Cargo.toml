@@ -25,6 +25,7 @@ ambition_projectiles = { path = "../ambition_projectiles" }
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 ambition_input = { path = "../ambition_input" }
 ambition_engine_core = { path = "../ambition_engine_core" }
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 ambition_world = { path = "../ambition_world" }
 ambition_characters = { path = "../ambition_characters" }
 ambition_dialog = { path = "../ambition_dialog" }

@@ -35,6 +35,10 @@ pub fn spawn_room_feature_entities(commands: &mut Commands, room: &crate::rooms:
         ambition_entity_catalog::placements::PlacementKind::Hazard,
         super::spawn_static::lower_hazard_placement,
     );
+    registry.register(
+        ambition_entity_catalog::placements::PlacementKind::Interactable,
+        super::spawn_static::lower_interactable_placement,
+    );
     spawn_room_feature_entities_with_registry(commands, room, &registry);
 }
 
@@ -106,9 +110,8 @@ pub fn spawn_room_feature_entities_with_registry(
     // have spawned (deferred commands flush first). A fresh room overwrites
     // any prior room's pending links.
     commands.insert_resource(crate::features::PendingMountLinks(room.mount_links.clone()));
-    for interactable in &room.interactables {
-        super::spawn_actors::spawn_interactable(commands, interactable, &paths);
-    }
+    // Interactables now lower through the `placements` channel above
+    // (fable audit F9.2), so there is no typed `room.interactables` loop.
     // DebugLabel and DestinationLabel are presentation-only and don't
     // spawn ECS feature entities today. The presentation layer reads
     // them off `RoomSpec` directly.

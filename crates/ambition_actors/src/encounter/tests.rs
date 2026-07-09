@@ -8,6 +8,7 @@ use crate::encounter::switches::{EncounterSwitchIndex, EncounterSwitchLink};
 use crate::ldtk_world::LdtkProject;
 use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
+use ambition_entity_catalog::placements::PlacementSchema;
 use ambition_persistence::save_data::PersistedEncounterState;
 use ambition_world::rooms::InteractionKindSpec;
 
@@ -310,18 +311,28 @@ fn ldtk_switch_runtime_id_matches_activation_payload() {
         .iter()
         .find(|r| r.id == "goblin_encounter")
         .expect("goblin_encounter room");
+    // Interactables lower through the single `placements` channel (fable audit
+    // F9.2); the switch is authored as an `Interactable` placement record.
     let switch_object = goblin_encounter
-        .interactables
+        .placements
         .iter()
-        .find(|authored| matches!(&authored.payload.kind, InteractionKindSpec::Custom(s) if s.starts_with("switch:")))
-        .expect("goblin_encounter has a switch interactable");
-    let payload = match &switch_object.payload.kind {
-        InteractionKindSpec::Custom(s) => s.clone(),
-        _ => panic!("switch kind"),
+        .find(|record| matches!(
+            &record.schema,
+            PlacementSchema::Interactable(spec)
+                if matches!(&spec.kind, InteractionKindSpec::Custom(s) if s.starts_with("switch:"))
+        ))
+        .expect("goblin_encounter has a switch interactable placement");
+    let payload = match &switch_object.schema {
+        PlacementSchema::Interactable(spec) => match &spec.kind {
+            InteractionKindSpec::Custom(s) => s.clone(),
+            _ => panic!("switch kind"),
+        },
+        _ => panic!("switch placement schema"),
     };
     let activation = SwitchActivation::parse_custom(&payload).expect("parse");
     assert_eq!(
-        switch_object.id, activation.id,
+        switch_object.id.as_str(),
+        activation.id,
         "Authored switch id must equal the SwitchActivation.id so set_switch_on works"
     );
 }

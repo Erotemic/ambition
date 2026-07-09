@@ -110,6 +110,52 @@ pub struct HazardSpec {
     pub path_id: Option<String>,
 }
 
+/// The authored interaction schema — what an interactable placement SAYS
+/// (an NPC to talk to, a door, a chest/pickup/breakable prompt, or a
+/// game-specific `Custom` payload). Fully plain data (no `Vec2`, no runtime
+/// components) so it lives in the Tier-0 catalog; the interaction runtime
+/// lowers it into live components at room load.
+///
+/// Moved down from `ambition_world::rooms` (fable audit F9.2 IR consolidation):
+/// interactables now flow through the single `PlacementRecord` channel, so the
+/// schema payload and the world IR share ONE pure type instead of a mirror.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct InteractableSpec {
+    pub prompt: String,
+    pub kind: InteractionKindSpec,
+    pub requires_facing: bool,
+    pub enabled: bool,
+}
+
+impl InteractableSpec {
+    pub fn new(prompt: impl Into<String>, kind: InteractionKindSpec) -> Self {
+        Self {
+            prompt: prompt.into(),
+            kind,
+            requires_facing: false,
+            enabled: true,
+        }
+    }
+}
+
+/// The authored interaction category carried by [`InteractableSpec`].
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub enum InteractionKindSpec {
+    Door {
+        target: Option<String>,
+    },
+    Npc {
+        character_id: Option<String>,
+        dialogue_id: Option<String>,
+        patrol_radius: f32,
+        patrol_path_id: Option<String>,
+    },
+    Chest,
+    Pickup,
+    Breakable,
+    Custom(String),
+}
+
 /// The CLOSED authored-placement schema (architecture.md §4b.3): everything an
 /// authored map may declare beyond geometry, as editor-visible plain data.
 /// Variants grow as W-queue step 3 converts hardcoded spawn branches into
@@ -118,6 +164,7 @@ pub struct HazardSpec {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub enum PlacementSchema {
     Hazard(HazardSpec),
+    Interactable(InteractableSpec),
 }
 
 /// Fieldless key for [`PlacementSchema`], used by the room-load lowering
@@ -126,12 +173,14 @@ pub enum PlacementSchema {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum PlacementKind {
     Hazard,
+    Interactable,
 }
 
 impl PlacementSchema {
     pub const fn kind(&self) -> PlacementKind {
         match self {
             Self::Hazard(_) => PlacementKind::Hazard,
+            Self::Interactable(_) => PlacementKind::Interactable,
         }
     }
 }

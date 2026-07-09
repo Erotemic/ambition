@@ -51,9 +51,8 @@ pub(super) fn convert_damage_volume(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmiss
     let (entity, name, min, size) = ctx.parts();
     let offset = ctx.offset;
     let aabb = object_aabb(min, size);
-    let mut volume = ambition_world::rooms::HazardVolumeSpec::new(
-        field_i32(entity, "damage").unwrap_or(1),
-    );
+    let mut volume =
+        ambition_world::rooms::HazardVolumeSpec::new(field_i32(entity, "damage").unwrap_or(1));
     volume.path_id = field_string(entity, "path_id")
         .or_else(|| field_string(entity, "patrol_path_id"))
         .and_then(|value| {
@@ -254,9 +253,13 @@ pub(super) fn convert_npc_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission,
         },
     );
     let (id, name, aabb) = authored_triple(entity, display_name, min, size);
-    Ok(RoomEmission::interactable(
-        ambition_world::rooms::Authored::new(id, name, aabb, interactable),
-    ))
+    let mut record = ambition_world::placements::PlacementRecord::new(
+        id,
+        PlacementSchema::Interactable(interactable),
+        aabb,
+    );
+    record.name = name;
+    Ok(RoomEmission::placement(record))
 }
 
 pub(super) fn convert_pickup_spawn(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
@@ -593,7 +596,11 @@ pub(super) fn convert_switch(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, St
     // SwitchActivation id. The entity.iid would default to something
     // like "Switch-4072"; that mismatch silently no-op'd switch state
     // updates and left the switch sprite stuck red.
-    Ok(RoomEmission::interactable(
-        ambition_world::rooms::Authored::new(id, name, aabb, interactable),
-    ))
+    let mut record = ambition_world::placements::PlacementRecord::new(
+        id,
+        PlacementSchema::Interactable(interactable),
+        aabb,
+    );
+    record.name = name;
+    Ok(RoomEmission::placement(record))
 }

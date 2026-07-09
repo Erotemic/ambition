@@ -146,17 +146,16 @@ impl LdtkProject {
         // Per-family authored entity lists. Each LDtk entity emits into
         // exactly one of these (or into one of the non-authored Vecs
         // above).
-        let mut hazards: Vec<ambition_world::rooms::Authored<ambition_world::rooms::HazardVolumeSpec>> =
-            Vec::new();
-        let mut interactables: Vec<
-            ambition_world::rooms::Authored<ambition_world::rooms::InteractableSpec>,
+        let mut hazards: Vec<
+            ambition_world::rooms::Authored<ambition_world::rooms::HazardVolumeSpec>,
         > = Vec::new();
         let mut pickups: Vec<ambition_world::rooms::Authored<ambition_world::rooms::PickupSpec>> =
             Vec::new();
         let mut chests: Vec<ambition_world::rooms::Authored<ambition_world::rooms::ChestSpec>> =
             Vec::new();
-        let mut breakables: Vec<ambition_world::rooms::Authored<ambition_world::rooms::BreakableSpec>> =
-            Vec::new();
+        let mut breakables: Vec<
+            ambition_world::rooms::Authored<ambition_world::rooms::BreakableSpec>,
+        > = Vec::new();
         let mut enemy_spawns: Vec<
             ambition_world::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
         > = Vec::new();
@@ -212,7 +211,6 @@ impl LdtkProject {
                         shrines.extend(emission.shrines);
                         gravity_zones.extend(emission.gravity_zones);
                         hazards.extend(emission.hazards);
-                        interactables.extend(emission.interactables);
                         pickups.extend(emission.pickups);
                         chests.extend(emission.chests);
                         breakables.extend(emission.breakables);
@@ -308,7 +306,6 @@ impl LdtkProject {
             shrines,
             gravity_zones,
             hazards,
-            interactables,
             pickups,
             chests,
             breakables,
@@ -373,7 +370,7 @@ pub struct RoomEmission {
     pub gravity_zones: Vec<ambition_world::rooms::GravityZoneSpec>,
     // --- Per-family authored entity emissions:
     pub hazards: Vec<ambition_world::rooms::Authored<ambition_world::rooms::HazardVolumeSpec>>,
-    pub interactables: Vec<ambition_world::rooms::Authored<ambition_world::rooms::InteractableSpec>>,
+    // interactables migrated to the `placements` channel (fable audit F9.2).
     pub pickups: Vec<ambition_world::rooms::Authored<ambition_world::rooms::PickupSpec>>,
     pub chests: Vec<ambition_world::rooms::Authored<ambition_world::rooms::ChestSpec>>,
     pub breakables: Vec<ambition_world::rooms::Authored<ambition_world::rooms::BreakableSpec>>,
@@ -502,6 +499,16 @@ impl RoomEmission {
         }
     }
 
+    /// Emit a single authored placement RECORD (the [W-b] schema-over-record
+    /// channel). Families migrated off their typed `RoomSpec` list (fable audit
+    /// F9.2 — interactables so far) emit through here only.
+    pub fn placement(record: ambition_world::placements::PlacementRecord) -> Self {
+        Self {
+            placements: vec![record],
+            ..Self::default()
+        }
+    }
+
     pub fn from_compiled(compiled: SurfaceCompiled) -> Self {
         Self {
             blocks: compiled.blocks,
@@ -521,23 +528,18 @@ impl RoomEmission {
         }
     }
 
-    pub fn interactable(
-        authored: ambition_world::rooms::Authored<ambition_world::rooms::InteractableSpec>,
+    pub fn pickup(
+        authored: ambition_world::rooms::Authored<ambition_world::rooms::PickupSpec>,
     ) -> Self {
-        Self {
-            interactables: vec![authored],
-            ..Self::default()
-        }
-    }
-
-    pub fn pickup(authored: ambition_world::rooms::Authored<ambition_world::rooms::PickupSpec>) -> Self {
         Self {
             pickups: vec![authored],
             ..Self::default()
         }
     }
 
-    pub fn chest(authored: ambition_world::rooms::Authored<ambition_world::rooms::ChestSpec>) -> Self {
+    pub fn chest(
+        authored: ambition_world::rooms::Authored<ambition_world::rooms::ChestSpec>,
+    ) -> Self {
         Self {
             chests: vec![authored],
             ..Self::default()
@@ -843,7 +845,11 @@ mod tests {
         )]);
         let room_set = project.to_room_set().expect("hazard project composes");
         let room = &room_set.rooms[0];
-        assert_eq!(room.hazards.len(), 1, "plain hazard channel still feeds spawning");
+        assert_eq!(
+            room.hazards.len(),
+            1,
+            "plain hazard channel still feeds spawning"
+        );
         assert_eq!(room.placements.len(), 1, "record channel carries the twin");
         let record = &room.placements[0];
         assert_eq!(record.id.as_str(), room.hazards[0].id, "same placement id");
@@ -852,7 +858,9 @@ mod tests {
             "authored display name rides the record"
         );
         assert_eq!(record.aabb, room.hazards[0].aabb, "same authored footprint");
-        let PlacementSchema::Hazard(spec) = &record.schema;
+        let PlacementSchema::Hazard(spec) = &record.schema else {
+            panic!("expected a hazard placement schema");
+        };
         assert_eq!(spec.damage, 3);
         assert_eq!(spec.kind, DamageKind::Hazard);
         assert_eq!(spec.team, DamageTeam::Environment);

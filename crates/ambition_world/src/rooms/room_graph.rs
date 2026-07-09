@@ -36,7 +36,8 @@ pub struct RoomSpec {
 
     // --- Per-family authored entity lists; each family spawns through ECS.
     pub hazards: Vec<Authored<HazardVolumeSpec>>,
-    pub interactables: Vec<Authored<InteractableSpec>>,
+    // NOTE: interactables migrated to the single `placements` channel
+    // (fable audit F9.2). They lower via `PlacementSchema::Interactable`.
     pub pickups: Vec<Authored<PickupSpec>>,
     pub chests: Vec<Authored<ChestSpec>>,
     pub breakables: Vec<Authored<BreakableSpec>>,
@@ -74,7 +75,6 @@ impl RoomSpec {
             shrines: Vec::new(),
             gravity_zones: Vec::new(),
             hazards: Vec::new(),
-            interactables: Vec::new(),
             pickups: Vec::new(),
             chests: Vec::new(),
             breakables: Vec::new(),

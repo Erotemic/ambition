@@ -241,7 +241,9 @@ pub(crate) fn lower_hazard_placement(
     record: &crate::world::placements::PlacementRecord,
     ctx: &mut crate::world::placements::LoweringCtx<'_, '_, '_>,
 ) {
-    let PlacementSchema::Hazard(spec) = &record.schema;
+    let PlacementSchema::Hazard(spec) = &record.schema else {
+        return;
+    };
     let authored = crate::rooms::Authored {
         id: record.id.as_str().to_string(),
         name: record.name.clone(),
@@ -259,6 +261,22 @@ pub(crate) fn lower_hazard_placement(
         },
     };
     spawn_hazard(ctx.commands, &authored, ctx.paths);
+}
+
+pub(crate) fn lower_interactable_placement(
+    record: &crate::world::placements::PlacementRecord,
+    ctx: &mut crate::world::placements::LoweringCtx<'_, '_, '_>,
+) {
+    let PlacementSchema::Interactable(spec) = &record.schema else {
+        return;
+    };
+    let authored = crate::rooms::Authored {
+        id: record.id.as_str().to_string(),
+        name: record.name.clone(),
+        aabb: record.aabb,
+        payload: spec.clone(),
+    };
+    super::spawn_actors::spawn_interactable(ctx.commands, &authored, ctx.paths);
 }
 
 pub(crate) fn spawn_pickup(

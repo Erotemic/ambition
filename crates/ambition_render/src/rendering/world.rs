@@ -14,15 +14,13 @@ use super::primitives::{
     block_color, feature_color, feature_z, spawn_world_label, FeatureVisual, LockWallVisual,
     PropVisual, RoomVisual,
 };
-use ambition_sprite_sheet::game_assets::{
-    self, entity_sprite, entity_sprite_or_color, GameAssets,
-};
-use ambition_world::rooms::{LoadingZone, LoadingZoneActivation, PropSpec};
 use ambition_combat::events::FeatureVisualKind;
 use ambition_engine_core::config::{world_to_bevy, GRID_STEP, WORLD_Z_BLOCK, WORLD_Z_PLAYER};
 use ambition_sprite_sheet::character::{
     build_character_sprite, feet_anchor_for, CharacterAnimator,
 };
+use ambition_sprite_sheet::game_assets::{self, entity_sprite, entity_sprite_or_color, GameAssets};
+use ambition_world::rooms::{LoadingZone, LoadingZoneActivation, PropSpec};
 
 /// Presentation consumer of [`ambition_world::rooms::RespawnRoomVisualsRequested`].
 ///
@@ -136,8 +134,20 @@ pub fn spawn_room_visuals(
             assets,
         );
     }
-    for interactable in &spec.interactables {
-        spawn_authored_interactable(commands, world, interactable, assets);
+    // Interactables lower through the single `placements` channel (fable audit
+    // F9.2); the presentation visual reads the same records.
+    for record in &spec.placements {
+        if let ambition_entity_catalog::placements::PlacementSchema::Interactable(spec_i) =
+            &record.schema
+        {
+            let authored = ambition_world::rooms::Authored {
+                id: record.id.as_str().to_string(),
+                name: record.name.clone(),
+                aabb: record.aabb,
+                payload: spec_i.clone(),
+            };
+            spawn_authored_interactable(commands, world, &authored, assets);
+        }
     }
     for label in &spec.debug_labels {
         spawn_world_label(
@@ -766,8 +776,8 @@ pub fn sync_lock_wall_visuals(
 #[cfg(test)]
 mod lock_wall_visual_tests {
     use super::*;
-    use ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay;
     use ambition_engine_core::RoomGeometry;
+    use ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay;
 
     fn room() -> RoomGeometry {
         RoomGeometry(ae::World::new(

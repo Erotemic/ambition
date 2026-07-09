@@ -210,6 +210,10 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
             ambition_entity_catalog::placements::PlacementKind::Hazard,
             crate::features::ecs::spawn_static::lower_hazard_placement,
         );
+        app.register_placement_interpreter(
+            ambition_entity_catalog::placements::PlacementKind::Interactable,
+            crate::features::ecs::spawn_static::lower_interactable_placement,
+        );
         // Accumulating sim-time for brain perception (reaction latency).
         app.init_resource::<GameplayElapsed>();
         // Hot-reload watcher state read by `poll_ldtk_file_changes` below.

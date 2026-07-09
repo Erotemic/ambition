@@ -14,7 +14,18 @@ fn entity_aabbs(room: &sb::rooms::RoomSpec) -> Vec<(&'static str, ae::Aabb)> {
     let mut v: Vec<(&'static str, ae::Aabb)> = Vec::new();
     v.extend(room.enemy_spawns.iter().map(|e| ("enemy", e.aabb)));
     v.extend(room.boss_spawns.iter().map(|b| ("boss", b.aabb)));
-    v.extend(room.interactables.iter().map(|i| ("interactable", i.aabb)));
+    // Interactables now live on the single `placements` channel (fable audit F9.2).
+    v.extend(
+        room.placements
+            .iter()
+            .filter(|r| {
+                matches!(
+                    r.schema,
+                    ambition::entity_catalog::placements::PlacementSchema::Interactable(_)
+                )
+            })
+            .map(|r| ("interactable", r.aabb)),
+    );
     v.extend(room.pickups.iter().map(|p| ("pickup", p.aabb)));
     v.extend(room.chests.iter().map(|c| ("chest", c.aabb)));
     v.extend(room.breakables.iter().map(|b| ("breakable", b.aabb)));

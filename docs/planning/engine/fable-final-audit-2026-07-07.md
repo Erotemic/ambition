@@ -191,6 +191,12 @@ classes — log-once so the next sessions don't re-derive:
    `InventoryUiBackend` and backend-availability constants to
    `ambition_menu::backend`; `ambition_actors::menu` now owns only the Map tab
    and settings/map adapter residue, not presentation-backend vocabulary.**
+   **A settings/menu-IR facade slice (Codex 2026-07-08) repointed app menu
+   hosts/tests to import stored settings from `ambition_persistence::settings`
+   and renderer-agnostic menu IR from `ambition_settings_menu` directly; the
+   remaining actor-side `persistence::settings` and `menu::ir` surfaces are
+   compatibility residue for actor-local pause-menu/model code, not the app
+   host's canonical vocabulary path.**
 3. **FACADES (60 `pub use ambition_*` re-export sites in actors).** These are
    the deliberate hub-continuity aliases. The dissolution ratchet: **a facade
    may be deleted the moment `grep -rn "ambition_actors::<mod>"` outside

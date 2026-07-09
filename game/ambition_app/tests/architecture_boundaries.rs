@@ -1423,6 +1423,19 @@ fn architecture_boundaries_menu_backend_vocab_consumers_use_menu_crate() {
     );
 }
 
+
+#[test]
+fn architecture_boundaries_app_menu_settings_vocab_consumers_use_lower_crates() {
+    assert_code_refs_absent(
+        &[app_src()],
+        &[
+            "ambition_actors::persistence::settings",
+            "ambition_actors::menu::ir",
+        ],
+        "F2 settings/menu IR facade pass: app menu hosts import stored settings from ambition_persistence and renderer-agnostic menu IR from ambition_settings_menu, not through ambition_actors",
+    );
+}
+
 #[test]
 fn architecture_boundaries_audio_facade_consumers_use_audio_crate() {
     assert_code_refs_absent(
@@ -2366,13 +2379,14 @@ fn architecture_boundaries_lib_menu_keeps_only_the_coupled_pieces() {
             "effects.rs",
             "grid_backend.rs",
             "kaleidoscope_app.rs",
+            "backend.rs",
         ],
-        "lib menu should not regain app-host menu files",
+        "lib menu should not regain app-host/backend menu files",
     );
     assert_paths_exist(
         &menu_dir,
-        &["backend.rs", "ir", "map"],
-        "lib menu persistence/presentation-coupled pieces",
+        &["ir", "map"],
+        "lib menu map/settings compatibility pieces",
     );
     assert_paths_exist(
         &app_src().join("menu"),

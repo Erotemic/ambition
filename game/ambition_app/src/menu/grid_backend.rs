@@ -30,7 +30,8 @@ use crate::menu::model::{
 };
 use crate::menu::quality_confirm::VisualQualityConfirmState;
 use ambition_menu::backend::{InventoryUiBackend, BEVY_UI_MENU_BACKEND_ENABLED};
-use ambition_actors::persistence::settings::{SystemMenuModel, UserSettings, VisualQualityProfile};
+use ambition_persistence::settings::{UserSettings, VisualQualityProfile};
+use ambition_settings_menu::system::{SystemMenuEntryId, SystemMenuModel};
 use ambition_actors::player::PlayerHealRequested;
 use ambition_input::MenuControlFrame;
 use ambition_items::{OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
@@ -119,7 +120,7 @@ impl Default for GridMenuTabState {
 #[derive(Clone, Copy, PartialEq, Eq)]
 struct ViewKey {
     tab: usize,
-    open_entry: Option<ambition_actors::persistence::settings::SystemMenuEntryId>,
+    open_entry: Option<SystemMenuEntryId>,
     focus: MenuFocus,
     version: u64,
     /// Fix 4: the focus zone is part of the key so moving onto / off the tab bar
@@ -282,7 +283,7 @@ fn cursor_focus_key(
     active_page: MenuPage,
     cursor: MenuFocus,
     model: &SystemMenuModel,
-    open_entry: Option<ambition_actors::persistence::settings::SystemMenuEntryId>,
+    open_entry: Option<SystemMenuEntryId>,
     pending_quality: Option<VisualQualityProfile>,
 ) -> Option<MenuFocusKey> {
     for node in &page.nodes {
@@ -659,7 +660,7 @@ pub(crate) fn grid_menu_nav(
 fn cursor_on_top_row(
     page: MenuPage,
     focus: MenuFocus,
-    open_entry: Option<ambition_actors::persistence::settings::SystemMenuEntryId>,
+    open_entry: Option<SystemMenuEntryId>,
 ) -> bool {
     match page {
         MenuPage::Items => match focus {

@@ -27,10 +27,13 @@ use crate::menu::model::{
     SystemRow, SYSTEM_VISIBLE_ROWS,
 };
 use crate::menu::quality_confirm::VisualQualityConfirmState;
-use ambition_actors::persistence::settings::{
-    apply_settings_option, settings_menu_model, DevSnapshot, DevToggleId, RadioSnapshot,
-    SettingsOptionId, SettingsOptionKind, SystemMenuAction, SystemMenuEntryId, SystemMenuModel,
-    SystemOptionId, UserSettings,
+use ambition_persistence::settings::{UserSettings, VisualQualityProfile};
+use ambition_settings_menu::settings::{
+    apply_settings_option, settings_menu_model, SettingsOptionId, SettingsOptionKind,
+};
+use ambition_settings_menu::system::{
+    DevSnapshot, DevToggleId, RadioSnapshot, SystemMenuAction, SystemMenuEntryId,
+    SystemMenuModel, SystemMenuTarget, SystemOptionId,
 };
 use ambition_actors::player::PlayerHealRequested;
 use ambition_engine_core::Vec2;
@@ -1117,7 +1120,7 @@ pub(crate) fn system_row_action_for(
 ) -> Option<MenuPageAction> {
     match row {
         SystemRow::Entry(id) => match model.entry(id).map(|e| &e.target) {
-            Some(ambition_actors::persistence::settings::SystemMenuTarget::Action(action)) => {
+            Some(SystemMenuTarget::Action(action)) => {
                 Some(MenuPageAction::SystemAction(*action))
             }
             _ => Some(MenuPageAction::OpenSystemEntry(id)),
@@ -1372,7 +1375,7 @@ pub(crate) fn focus_for_action(
     active_page: MenuPage,
     model: &SystemMenuModel,
     open_entry: Option<SystemMenuEntryId>,
-    pending_quality: Option<ambition_actors::persistence::settings::VisualQualityProfile>,
+    pending_quality: Option<VisualQualityProfile>,
 ) -> MenuFocus {
     // System rows are positional: the focus index is the action's row in the
     // currently-displayed System row list (the entry list, or an open entry's

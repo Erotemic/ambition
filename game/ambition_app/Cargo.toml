@@ -134,6 +134,7 @@ ambition_ui_nav = { path = "../../crates/ambition_ui_nav" }
 ambition_platformer_primitives = { path = "../../crates/ambition_platformer_primitives" }
 ambition_dev_tools = { path = "../../crates/ambition_dev_tools" }
 ambition_persistence = { path = "../../crates/ambition_persistence" }
+ambition_settings_menu = { path = "../../crates/ambition_settings_menu" }
 ambition_asset_manager = { path = "../../crates/ambition_asset_manager", features = ["bevy"] }
 ambition_audio = { path = "../../crates/ambition_audio" }
 ambition_sfx = { path = "../../crates/ambition_sfx" }

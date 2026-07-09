@@ -775,7 +775,7 @@ fn quit_action_writes_app_exit_and_closes() {
     assert_eq!(
         model.entry(SystemMenuEntryId::Quit).map(|e| &e.target),
         Some(
-            &ambition_actors::persistence::settings::SystemMenuTarget::Action(
+            &SystemMenuTarget::Action(
                 SystemMenuAction::Quit
             )
         ),

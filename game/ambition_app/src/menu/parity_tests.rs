@@ -2,7 +2,7 @@
 //!
 //! The unified menu has ONE content model
 //! ([`crate::menu::model::build_inventory_pages`] + the settings IR in
-//! [`ambition_actors::menu::ir`]) rendered by TWO presentations (the flat Grid
+//! [`ambition_settings_menu`]) rendered by TWO presentations (the flat Grid
 //! [`crate::menu::grid_backend`] and the 3D cube [`crate::menu::kaleidoscope_app`]),
 //! dispatched through ONE [`crate::menu::dispatch::dispatch_menu_action`]. The
 //! tests here LOCK that the two presentations can never silently drift:
@@ -22,9 +22,10 @@
 //!    `MenuPageAction::ChangePage` edge page-turn controls which the Grid strips.
 
 use super::model::{build_inventory_pages, MenuFocus, MenuPage, MenuPageAction};
-use ambition_actors::persistence::settings::{
-    settings_menu_model, DevSnapshot, RadioSnapshot, SettingsOptionId, SystemMenuEntryId,
-    SystemMenuModel, SystemMenuTarget, UserSettings,
+use ambition_persistence::settings::UserSettings;
+use ambition_settings_menu::settings::{settings_menu_model, SettingsOptionId};
+use ambition_settings_menu::system::{
+    DevSnapshot, RadioSnapshot, SystemMenuEntryId, SystemMenuModel, SystemMenuTarget,
 };
 use ambition_items::{Item, OwnedItems};
 
@@ -431,7 +432,8 @@ mod dispatch_parity {
     use ambition_actors::actor::BodyMana;
     use ambition_actors::actor::{PlayerEntity, PrimaryPlayer};
     use ambition_menu::backend::InventoryUiBackend;
-    use ambition_actors::persistence::settings::{SystemMenuEntryId, UserSettings};
+    use ambition_persistence::settings::UserSettings;
+    use ambition_settings_menu::system::SystemMenuEntryId;
     use ambition_actors::player::PlayerHealRequested;
     use ambition_platformer_primitives::schedule::GameMode;
     use ambition_characters::brain::ActionSet;

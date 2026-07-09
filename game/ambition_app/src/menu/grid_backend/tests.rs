@@ -2,7 +2,7 @@ use super::*;
 use crate::menu::model::{build_inventory_pages, system_rows, SystemRow};
 use ambition_actors::actor::BodyMana;
 use ambition_actors::actor::{PlayerEntity, PrimaryPlayer};
-use ambition_actors::persistence::settings::{SystemMenuEntryId, SystemMenuModel};
+use ambition_settings_menu::system::{SystemMenuEntryId, SystemMenuModel};
 use ambition_platformer_primitives::schedule::GameMode;
 use ambition_characters::brain::ActionSet;
 use ambition_items::Item;

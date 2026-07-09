@@ -324,7 +324,7 @@ fn system_page_drilled_into_video_shows_curated_options_and_back() {
     // past the first visible window (the full player-facing Video set leads the
     // screen), so verify the live label off the IR rather than the windowed page.
     let video_entry = sys_model.entry(SystemMenuEntryId::Video).unwrap();
-    let ambition_actors::menu::ir::system::SystemMenuTarget::Settings(opts) = &video_entry.target
+    let SystemMenuTarget::Settings(opts) = &video_entry.target
     else {
         panic!("video drills into a settings screen");
     };

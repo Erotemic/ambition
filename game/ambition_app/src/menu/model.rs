@@ -30,10 +30,11 @@ use ambition_menu::{
     MenuTextAlign,
 };
 
-use ambition_actors::persistence::settings::{
-    DevSnapshot, RadioSnapshot, SettingsOption, SettingsOptionId, SettingsOptionKind,
-    SystemMenuAction, SystemMenuEntryId, SystemMenuModel, SystemMenuTarget, SystemOptionId,
-    UserSettings, VisualQualityProfile,
+use ambition_persistence::settings::{UserSettings, VisualQualityProfile};
+use ambition_settings_menu::settings::{SettingsOption, SettingsOptionId, SettingsOptionKind};
+use ambition_settings_menu::system::{
+    DevSnapshot, RadioSnapshot, SystemMenuAction, SystemMenuEntryId, SystemMenuModel,
+    SystemMenuTarget, SystemOptionId,
 };
 use ambition_items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 

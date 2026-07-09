@@ -23,7 +23,7 @@ pub(crate) struct CachedSystemMenu {
     pub(crate) radio: RadioSnapshot,
     pub(crate) dev: DevSnapshot,
     /// Pending visual-quality profile, if the Video screen is asking for confirmation.
-    pub(crate) quality: Option<ambition_actors::persistence::settings::VisualQualityProfile>,
+    pub(crate) quality: Option<VisualQualityProfile>,
 }
 
 /// Build the System model + radio/dev snapshots ONCE per frame (front of the visible
@@ -171,5 +171,5 @@ pub(crate) struct RebuildKey {
     open_entry: Option<SystemMenuEntryId>,
     radio: RadioSnapshot,
     dev: DevSnapshot,
-    quality: Option<ambition_actors::persistence::settings::VisualQualityProfile>,
+    quality: Option<VisualQualityProfile>,
 }

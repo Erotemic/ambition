@@ -1756,3 +1756,5 @@ ambition_app --test architecture_boundaries`; `cargo check -p ambition_app
 - 2026-07-08 — F2 schedule-label facade repoint: runtime/content/app/sim-view consumers now name canonical schedule labels (`SandboxSet`, `CombatSet`, `BossSteerSlot`, `PresentationSetupSet`, `SimulationSetupSet`) from `ambition_platformer_primitives::schedule` instead of `ambition_actors::schedule`. The actor schedule module remains only for the concrete sandbox set installer and input bridge systems.
 
 - F2 menu-backend facade slice: `InventoryUiBackend` and backend availability constants moved to `ambition_menu::backend`; app menu consumers no longer name `ambition_actors::menu::backend`.
+
+- 2026-07-08 — F2 settings/menu-IR facade repoint: app menu hosts/tests now import persisted settings vocabulary from `ambition_persistence::settings` and the shared renderer-agnostic settings/System IR from `ambition_settings_menu` instead of reaching through `ambition_actors::persistence::settings` or `ambition_actors::menu::ir`. Added a boundary ratchet so app menu code cannot reintroduce those actor facade paths.

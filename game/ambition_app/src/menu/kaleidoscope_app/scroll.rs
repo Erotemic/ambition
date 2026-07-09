@@ -12,7 +12,7 @@ fn system_row_count(
     system_nav: &KaleidoscopeSystemNav,
     settings: &UserSettings,
     snapshot: &SystemMenuSnapshotParams,
-    pending_quality: Option<ambition_actors::persistence::settings::VisualQualityProfile>,
+    pending_quality: Option<VisualQualityProfile>,
 ) -> usize {
     if pages.active != Some(MenuPage::System) {
         return 0;

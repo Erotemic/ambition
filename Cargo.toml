@@ -1,7 +1,10 @@
 [workspace]
 members = [
+    "crates/ambition",
     "crates/ambition_characters",
     "game/ambition_app",
+    "game/ambition_demo_smb1",
+    "game/ambition_demo_sanic",
     "crates/ambition_asset_manager",
     "crates/ambition_audio",
     "crates/ambition_combat",

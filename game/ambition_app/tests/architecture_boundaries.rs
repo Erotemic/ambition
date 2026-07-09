@@ -172,6 +172,39 @@ fn manifest_path_deps(manifest: &str) -> Vec<String> {
         .collect()
 }
 
+
+fn manifest_ambition_deps_including_facade(manifest: &str) -> Vec<String> {
+    manifest
+        .lines()
+        .filter_map(|line| {
+            let line = line.trim();
+            if line.starts_with('#') || line.starts_with("//") {
+                return None;
+            }
+            let name = line.split([' ', '=', '.']).next().unwrap_or("");
+            if name == "ambition" || name.starts_with("ambition_") {
+                Some(name.to_string())
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+fn assert_manifest_ambition_deps_only(crate_root: &Path, allowed: &[&str], context: &str) {
+    let manifest = fs::read_to_string(crate_root.join("Cargo.toml")).expect("read crate manifest");
+    let violations = manifest_ambition_deps_including_facade(&manifest)
+        .into_iter()
+        .filter(|dep| !allowed.contains(&dep.as_str()))
+        .collect::<Vec<_>>();
+    assert!(
+        violations.is_empty(),
+        "{context} may only depend on {:?}, found {:?}",
+        allowed,
+        violations
+    );
+}
+
 fn assert_manifest_path_deps_only(crate_root: &Path, allowed: &[&str], context: &str) {
     let manifest = fs::read_to_string(crate_root.join("Cargo.toml")).expect("read crate manifest");
     let violations = manifest_path_deps(&manifest)
@@ -302,6 +335,65 @@ fn read_spawn_allowlist() -> BTreeMap<String, usize> {
         allowlist.insert(rel.trim().to_string(), count);
     }
     allowlist
+}
+
+
+/// E9: downstream game/content crates should depend on one engine facade instead
+/// of copying the app shell's direct dependency wall. The Sanic/SMB1 demo homes
+/// are intentionally empty at first; their value is the manifest oracle.
+#[test]
+fn architecture_boundaries_umbrella_crate_and_demo_homes_exist() {
+    let root = repo_root();
+    let workspace_manifest = fs::read_to_string(root.join("Cargo.toml"))
+        .expect("read workspace manifest");
+    for member in [
+        "crates/ambition",
+        "game/ambition_demo_sanic",
+        "game/ambition_demo_smb1",
+    ] {
+        assert!(
+            workspace_manifest.contains(&format!("\"{member}\"")),
+            "workspace must register {member}"
+        );
+    }
+
+    let umbrella_root = root.join("crates/ambition");
+    assert_manifest_has_no_deps(
+        &umbrella_root,
+        &["ambition_app", "ambition_content", "ambition_menu_kaleidoscope"],
+        "the ambition facade is an engine surface, not an app/content shell",
+    );
+    let umbrella_lib = fs::read_to_string(umbrella_root.join("src/lib.rs"))
+        .expect("read ambition facade lib.rs");
+    for required in [
+        "PlatformerEnginePlugins",
+        "PlatformerHostPlugins",
+        "pub use ambition_runtime as runtime",
+        "pub use ambition_render as render",
+        "pub use ambition_world as world",
+    ] {
+        assert!(
+            umbrella_lib.contains(required),
+            "ambition facade should expose `{required}`"
+        );
+    }
+
+    for (rel, label) in [
+        ("game/ambition_demo_sanic", "Sanic demo home"),
+        ("game/ambition_demo_smb1", "SMB1 demo home"),
+    ] {
+        let crate_root = root.join(rel);
+        assert_manifest_ambition_deps_only(
+            &crate_root,
+            &["ambition"],
+            &format!("{label} should depend on the umbrella plus its own content only"),
+        );
+        assert_source_tree_has_no_code_refs(
+            crate_root.join("src"),
+            &["ambition_actors::", "ambition_runtime::", "ambition_render::", "ambition_app::"],
+            &format!("{label} should reach the engine through the ambition facade"),
+        );
+    }
 }
 
 /// The `ambition_render` crate is the sandbox's renderer. The sim machinery

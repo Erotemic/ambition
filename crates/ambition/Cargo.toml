@@ -1,0 +1,70 @@
+[package]
+name = "ambition"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Facade crate for composing Ambition-derived platformer games from one engine surface."
+
+[features]
+default = []
+# Window/input presentation forwarders for downstream game crates. The facade
+# keeps these features narrow: games opt into the same engine/host/render gates
+# without copying every lower crate into their manifests.
+input = [
+    "ambition_host/input",
+    "ambition_render/input",
+    "ambition_sim_view/input",
+]
+portal = [
+    "ambition_runtime/portal",
+    "ambition_host/portal",
+]
+portal_render = [
+    "portal",
+    "ambition_host/portal_render",
+    "ambition_render/portal_render",
+]
+
+[dependencies]
+ambition_actors = { path = "../ambition_actors", default-features = false }
+ambition_asset_manager = { path = "../ambition_asset_manager", features = ["bevy"] }
+ambition_audio = { path = "../ambition_audio" }
+ambition_characters = { path = "../ambition_characters" }
+ambition_combat = { path = "../ambition_combat" }
+ambition_cutscene = { path = "../ambition_cutscene" }
+ambition_dev_tools = { path = "../ambition_dev_tools" }
+ambition_dialog = { path = "../ambition_dialog", features = ["input"] }
+ambition_encounter = { path = "../ambition_encounter" }
+ambition_engine_core = { path = "../ambition_engine_core" }
+ambition_entity_catalog = { path = "../ambition_entity_catalog" }
+ambition_host = { path = "../ambition_host" }
+ambition_input = { path = "../ambition_input" }
+ambition_interaction = { path = "../ambition_interaction" }
+ambition_inventory_ui = { path = "../ambition_inventory_ui" }
+ambition_items = { path = "../ambition_items" }
+ambition_ldtk_map = { path = "../ambition_ldtk_map" }
+ambition_menu = { path = "../ambition_menu" }
+ambition_persistence = { path = "../ambition_persistence" }
+ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
+ambition_portal = { path = "../ambition_portal" }
+ambition_portal_presentation = { path = "../ambition_portal_presentation" }
+ambition_projectiles = { path = "../ambition_projectiles" }
+ambition_render = { path = "../ambition_render" }
+ambition_runtime = { path = "../ambition_runtime" }
+ambition_settings_menu = { path = "../ambition_settings_menu" }
+ambition_sfx = { path = "../ambition_sfx" }
+ambition_sfx_bank = { path = "../ambition_sfx_bank" }
+ambition_sim_view = { path = "../ambition_sim_view", features = ["input"] }
+ambition_sprite_sheet = { path = "../ambition_sprite_sheet" }
+ambition_time = { path = "../ambition_time" }
+ambition_touch_input = { path = "../ambition_touch_input" }
+ambition_ui_nav = { path = "../ambition_ui_nav" }
+ambition_vfx = { path = "../ambition_vfx" }
+ambition_world = { path = "../ambition_world" }
+bevy = { version = "0.18.1", default-features = false, features = [
+    "bevy_asset",
+    "bevy_image",
+    "bevy_state",
+    "ui_api",
+] }

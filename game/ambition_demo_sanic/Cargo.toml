@@ -1,0 +1,10 @@
+[package]
+name = "ambition_demo_sanic"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Tiny Sanic-style demo content home used as an oracle for the Ambition facade crate."
+
+[dependencies]
+ambition = { path = "../../crates/ambition", default-features = false }

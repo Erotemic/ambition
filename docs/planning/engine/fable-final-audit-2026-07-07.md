@@ -324,24 +324,24 @@ Corrections (log-once, all small):
 
 ### F5 — Elegance directions the new structure makes visible (NOT yet in any card)
 
-1. **Mint the `ambition` UMBRELLA CRATE — the engine-for-other-games keystone
-   made concrete.** `game/ambition_app` currently declares ~26 `ambition_*`
-   deps; a second game would copy that wall. The oracle ("another platformer
-   by ADDING a content crate without editing core") wants: one `ambition`
-   facade crate that deps the engine face (runtime, host, world, ldtk_map,
-   combat, actors, render, sim_view, …) and exposes (a) the plugin groups a
-   game composes and (b) a curated prelude. A NEW game then deps `ambition`
-   + its own content crate, PERIOD. This crate is also where the old
-   "framework spine" doc-comments in actors/world already point. Cheap to
-   mint (it is re-exports + plugin-group structs), and it RATCHETS: once the
-   demo apps compile against it, any core-editing regression shows up as an
-   umbrella-surface change. Suggested card: **E9 — the `ambition` facade
-   crate**; exit = `game/ambition_app/Cargo.toml` lists ≤ 4 ambition deps.
-2. **The Sanic/SMB1 demo games ARE the oracle test — give them their homes
-   now.** `game/ambition_demo_sanic/`, `game/ambition_demo_smb1/`, each
-   depping ONLY the umbrella + (optionally) `ambition_content`-style data of
-   their own. The demo-game matrix in roadmap.md becomes three Cargo.tomls
-   you can grep. Do this WITH E9, not before.
+1. ✅ **FIRST CUT (Codex 2026-07-09): `ambition` umbrella crate minted.**
+   `game/ambition_app` still declares the old direct dependency wall for now,
+   but the downstream engine surface now exists at `crates/ambition`: it
+   re-exports the runtime, host, render, world/LDtk, actor/model, and lower
+   vocabulary crates; exposes `engine::{add_headless_foundation,
+   init_engine_states, PlatformerEnginePlugins}`; and has a curated prelude for
+   new game/content crates. The facade deliberately does **not** depend on
+   `ambition_app`, `ambition_content`, or the kaleidoscope app/backend crate.
+   Remaining E9 work is app-manifest collapse: move app imports through the
+   facade in mechanical clusters until `game/ambition_app/Cargo.toml` lists ≤ 4
+   direct `ambition*` deps.
+2. ✅ **FIRST CUT (Codex 2026-07-09): Sanic/SMB1 demo homes created as oracle
+   crates.** `game/ambition_demo_sanic/` and `game/ambition_demo_smb1/` are
+   registered workspace members whose manifests depend only on `ambition`.
+   Their first content plugins are intentionally empty: the value is the
+   boundary ratchet that a second platformer starts from the umbrella surface,
+   not by copying `game/ambition_app`'s dependency wall. Later demo work fills
+   actual movement/content data without changing the engine crates.
 3. **At the S5/S6 player-fold, rename `features/` away.** The module name is
    pre-decomposition residue ("content features" that are now just the actor
    ECS). When player/ folds in (F2 north star), the tree becomes
@@ -373,10 +373,11 @@ Consider `CARGO_INCREMENTAL=0` for CI-style full-gate runs, or a periodic
 `cargo clean` cron, so a full disk doesn't silently kill background gates.
 
 **Priority order for the next sessions (all opus-executable, most valuable
-first):** E9 umbrella + demo homes (F5.1/2) → projectiles dedicated session
-(already carded). F2 is closed for audit cleanup; F3.2, F4.3, and F4.4 are
-closed correctness/ruling seams; deeper actor decomposition is tracked by the
-later world/plain-input, projectile, and unified-actor cards.
+first):** finish the E9 app-manifest collapse through the new umbrella
+surface → projectiles dedicated session (already carded). F2 is closed for
+audit cleanup; F3.2, F4.3, and F4.4 are closed correctness/ruling seams; deeper
+actor decomposition is tracked by the later world/plain-input, projectile, and
+unified-actor cards.
 
 ### F7 — Deep pass: the lowering seam had three real defects (FIXED); test-loss lesson
 

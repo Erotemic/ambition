@@ -664,6 +664,19 @@ variant + one lowering interpreter; there is no second channel to keep in sync.
    and `ambition_demo_smb1` (level 1-1 style slice) with real rooms +
    profiles. This is the umbrella's real test and the first BUILD (not
    restructure) item; it will surface every remaining engine leak.
+   **ADVANCED (Opus 2026-07-09):** `ambition_demo_sanic` now authors a real
+   momentum SHOWCASE ROOM (`sanic_speedway` — a long solid floor + a rideable
+   Sonic loop built as a `SurfaceChain`) through the `ambition` umbrella surface
+   ALONE, with a headless test that composes it and runs the engine's own chain
+   validator. The oracle held: nothing was missing from the umbrella
+   re-exports. RULING on the rest: the FEEL half (momentum-body tuning to a
+   Sanic movement identity, a playable demo binary/app shell, character art) is
+   a fundamentally interactive build — it needs playtesting to dial in and CANNOT
+   be responsibly completed in a headless autonomous pass (per Jon's
+   "don't-pause-for-feel" + "always-visual" directives). So the umbrella
+   AUTHORING oracle is advanced+verified here; the movement-feel + binary remain
+   the interactive demo build. `ambition_demo_smb1` is untouched (same shape when
+   its level-1-1 geometry is authored).
 2. **IR consolidation branch conversions** (the ruling above) — opus-sized,
    one family each. **DONE -- ARC CLOSED (2026-07-09).** All six families (hazards,
    interactables, pickups, chests, breakables, portals) are placements-only and

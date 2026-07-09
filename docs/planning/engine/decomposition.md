@@ -46,7 +46,10 @@ the dependent work to `OPUS-SAFE` in the same commit.
   silently dropped four ruled contract tests this way.
 - **Compile-parity gates:** after each carve, `cargo build -p
   ambition_app --features rl_sim` + the suite trio (ambition_actors lib,
-  content, app rl_sim) + the architecture-boundary tests. Schedule shape
+  content, app rl_sim) + the architecture-boundary tests. **The content
+  suite must run with `--features portal`** (CC6 discovery: the portal
+  adapter tests are feature-gated and the bare `-p ambition_content`
+  gate silently skips them). Schedule shape
   is pinned by the rl_sim headless app tests (they caught the G3 cycle).
 - **Feature discipline:** `ambition_runtime` forwards
   `headless`+`input`+`portal_ldtk`; new crates declare features

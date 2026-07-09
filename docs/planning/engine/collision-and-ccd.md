@@ -521,8 +521,31 @@ carve is static per placement. The arc, with the object model pinned:
   re-evaluates per frame from the frame transform; eviction stays the ONLY
   pushout in the engine and only on CLOSE.
 
-Execution grades: CC5 [fable — landing now]; CC6 [opus, this spec]; P3a
-[opus after CC6]; P3b/P4 [opus, post-demo, gated on S3].
+**§5-P2a — CC6 as-built amendments (fable, 2026-07-09):**
+- **`host` is `Option<GeoFaceRef>`, attribution is LAZY.** The placement law
+  ("a portal cannot exist without a host face") is enforced where geometry is
+  identified: the content adapter attributes every placed portal one-shot
+  against the UNCARVED authored+movers view (never the carved composition —
+  carve pieces are derived/anon). `None` remains the fixture tier (anon
+  geometry can't host) and is byte-identical to the pre-CC6 static portal.
+  This kept ~40 fixture sites honest instead of inventing fake host refs.
+- **Units, pinned:** `Block.velocity` is the kernels' PER-TICK displacement
+  convention (platform carry applies it undtd). `PlacedPortal.vel` is px/s
+  (derived at refresh as `anchor.velocity / scaled_dt`) and feeds the frame
+  map; the relative trigger uses `pos − prev_pos` (exact displacement, no
+  dt round-trip).
+- **P4 partially emerges free:** host-carried motion under a straddler does
+  NOT evict (the eviction diff allows displacement == the host's frame
+  delta), and pieces already re-evaluate per frame from the live aperture.
+  Dynamic-straddle piece correctness at speed remains P4's to verify.
+- **Host rotation stays out (translation only)** per the P2 ruling.
+- **Gate discovery:** the content portal suite compiles only under
+  `--features portal` — the default `cargo test -p ambition_content` does
+  NOT run it. The parity-gate suite list must name
+  `-p ambition_content --features portal` explicitly (D2 gate list updated).
+
+Execution grades: CC5 [fable — landed]; CC6 [fable — landed 2026-07-09];
+P3a [opus after CC6]; P3b/P4 [opus, post-demo, gated on S3].
 
 ## 6. The OOB endgame: guarantee, not vigilance
 
@@ -704,7 +727,7 @@ explicitly (portal-side policy), which is what it always meant.
 | CC3 | Fuzz invariant rig — the §6.1 oracle verbatim, §6.2 traces, seeded-reproducible. **DIAGNOSTIC-ONLY for now (Jon, 2026-07-06): it detects + reports illegal states + emits reproducible seeds/traces; it is NOT wired as a hard CI gate yet** (that would RED on the deferred embed/OOB bugs). SHAPE the seeds/traces so a staged hard gate can be switched on later without redesign (stable seed → replayable trace; a `--deny` mode is a flag flip, not a rewrite). | [opus — oracle written; no design freedom; the GATE-vs-diagnostic switch is Jon's, deferred] |
 | CC4 | Broadphase grid for chains+blocks casts (profile first) | [opus; NOT a CC1–CC3 precondition] |
 | CC5 | ✅ **LANDED (fable, 2026-07-06).** `engine_core::frame` minted (`PortalFrame {origin, normal, velocity}`, tangent DERIVED, `PortalAperture {frame, half_length}`, explicit `MapConvention`, `map_vec/map_point/map_velocity` incl. Galilean composition); platformer math delegates to the ONE implementation; `pieces::PortalFrame` REPLACED (no shim) — frame-only consumers take `&PortalFrame`, opening-aware take `&PortalAperture` (`PlacedPortal::{frame, aperture}`). Full parity suite green (portal 46, presentation 45, gameplay 1167, app rl_sim). CC6 may now read non-zero `velocity` | done |
-| CC6 | Moving portals: host-attached frames (`PortalHostRef = GeoFaceRef` — carries the §3.6 `GeoId`/`GeoFaceRef` mint), §5-P2 update order + edge-case rulings, relative swept trigger (on the §3.1 sample), `map_velocity` composition, C4/portal conjugation tests | [opus — spec complete] |
+| CC6 | ✅ **LANDED (fable, 2026-07-09).** Host-attached frames (`PlacedPortal.host: Option<GeoFaceRef>` + `host_lift`/`vel`/`prev_pos` — the aperture's own sweep sample), engine_core `FaceAnchor` + `World::{block_by_id, resolve_face, attribute_face}`, platforms stamp `GeoSource::Placement`, the RELATIVE swept trigger (body sample shifted by the aperture's frame delta — the scoop works), Galilean `map(v−v_enter)+v_exit` with the min-exit floor in the EXIT REST frame, host-carried motion exempt from eviction (close-only pushout preserved), lazy content-side attribution + per-frame re-derivation (portal closes with its host face). Full parity gate green incl. the `--features portal` content suite. **Amendments recorded below (§5-P2a).** | done |
 | CC7 | P3a angled math/authoring → then P3b straddle-pieces + P4 dynamic straddle (post-demo, P3b gated on S3) | [opus] |
 | CC8 | AABB slope vocabulary (S2 rules, pinned) — only when a demo/content demands it | [opus] |
 

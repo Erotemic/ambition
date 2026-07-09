@@ -74,7 +74,7 @@ pub(crate) fn reset_sandbox(
 #[allow(clippy::too_many_arguments)]
 fn apply_room_transition_resets(
     safety: Option<&mut ambition_actors::player::PlayerSafetyState>,
-    dialogue: &mut ambition_actors::dialog::DialogState,
+    dialogue: &mut ambition_dialog::DialogState,
     combat: &mut ambition_characters::actor::BodyCombat,
     blink_cam: Option<&mut ambition_actors::player::PlayerBlinkCameraState>,
     arrival_pos: ae::Vec2,
@@ -117,7 +117,7 @@ pub(crate) fn load_room(
     // Home-only presentation state (None when a possessed actor transits).
     safety: Option<&mut ambition_actors::player::PlayerSafetyState>,
     moving_platforms: &mut Vec<ambition_actors::world::platforms::MovingPlatformState>,
-    dialogue: &mut ambition_actors::dialog::DialogState,
+    dialogue: &mut ambition_dialog::DialogState,
     combat: &mut ambition_characters::actor::BodyCombat,
     blink_cam: Option<&mut ambition_actors::player::PlayerBlinkCameraState>,
     world: &mut RoomGeometry,
@@ -272,7 +272,7 @@ pub(crate) fn apply_room_transition_system(
     mut dev_state: ResMut<ambition_dev_tools::SandboxDevState>,
     mut room_clock: RoomClock,
     mut moving_platforms: ResMut<ambition_actors::MovingPlatformSet>,
-    mut dialogue: ResMut<ambition_actors::dialog::DialogState>,
+    mut dialogue: ResMut<ambition_dialog::DialogState>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,

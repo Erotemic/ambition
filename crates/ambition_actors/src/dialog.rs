@@ -1,37 +1,24 @@
 //! Sim-side dialogue glue.
 //!
-//! The reusable dialogue runtime — the [`DialogState`] view model, the
-//! typewriter reveal + input systems, and the `bevy_yarnspinner` bridge — was
-//! carved into the `ambition_dialog` crate (E1c). This module keeps only what
-//! is genuinely game-side:
+//! The reusable dialogue runtime — the [`ambition_dialog::DialogState`] view
+//! model, typewriter reveal/input systems, and the `bevy_yarnspinner` bridge —
+//! lives in the `ambition_dialog` crate. This module keeps only what is genuinely
+//! Ambition-side:
 //!
 //! - [`yarn_bindings`] — Ambition's Yarn *commands* (`<<give_item>>`,
 //!   `<<challenge>>`, shop verbs) and *functions* (`<<if boss_cleared("x")>>`),
 //!   plus the per-frame [`yarn_bindings::refresh_yarn_state_mirror`] that fills
 //!   the shared mirror from `SandboxSave`. These reference actor/save state, so
-//!   they can't live in the reusable crate; they register onto the runtime
-//!   through the [`ambition_dialog::YarnContentBindings`] installer seam.
+//!   they register onto the reusable runtime through the
+//!   [`ambition_dialog::YarnContentBindings`] installer seam.
 //! - [`sync_dialogue_game_mode`] — the one host↔runtime coupling: the dialogue
-//!   runtime owns no session `GameMode`, it just flips [`DialogState::active`].
-//!   This system maps "dialogue ended" back onto `GameMode::Playing`.
-//!
-//! The runtime types are re-exported here so existing
-//! `ambition_actors::dialog::*` paths (render, content, app, host) keep
-//! resolving without a churn of import edits.
+//!   runtime owns no session `GameMode`, it just flips
+//!   [`ambition_dialog::DialogState::active`]. This system maps "dialogue ended"
+//!   back onto `GameMode::Playing`.
 
-pub use ambition_dialog::{
-    dialog_input, dialog_pointer_input, dialog_reveal_tick, DialogChoice, DialogChoiceSlot,
-    DialogState,
-};
-
-/// Ambition's game-specific Yarn vocabulary + the mirror refresh. Also
-/// re-exports the generic binding types (`YarnStateMirror`, `YarnContentBindings`,
-/// …) from `ambition_dialog` so content plugins keep the same import path.
+/// Ambition's game-specific Yarn vocabulary + the mirror refresh.
 #[cfg(feature = "ui")]
 pub mod yarn_bindings;
-
-#[cfg(feature = "ui")]
-pub use ambition_dialog::DialogueRunnerEntity;
 
 #[cfg(feature = "ui")]
 use bevy::prelude::*;
@@ -77,15 +64,18 @@ impl Plugin for YarnBridgePlugin {
 /// Map the reusable runtime's `DialogState.active` onto Ambition's session
 /// `GameMode`. Entering `Dialogue` stays the interaction system's job (it sets
 /// the mode when it starts a conversation); this closes the loop by returning
-/// to `Playing` the moment the conversation ends — reproducing the transitions
-/// the old bridge made inline before the GameMode coupling was lifted out.
+/// to `Playing` the moment the conversation ends.
 #[cfg(feature = "ui")]
 fn sync_dialogue_game_mode(
-    dialogue: Res<DialogState>,
+    dialogue: Res<ambition_dialog::DialogState>,
     mode: Res<State<ambition_platformer_primitives::schedule::GameMode>>,
     mut next_mode: ResMut<NextState<ambition_platformer_primitives::schedule::GameMode>>,
 ) {
-    if matches!(mode.get(), ambition_platformer_primitives::schedule::GameMode::Dialogue) && !dialogue.active() {
+    if matches!(
+        mode.get(),
+        ambition_platformer_primitives::schedule::GameMode::Dialogue
+    ) && !dialogue.active()
+    {
         next_mode.set(ambition_platformer_primitives::schedule::GameMode::Playing);
     }
 }

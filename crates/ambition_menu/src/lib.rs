@@ -16,6 +16,7 @@
 use bevy::prelude::{App, Component, Message, Plugin, Resource};
 
 pub mod backend;
+pub mod map;
 pub mod render;
 
 /// A normalized page-space rectangle.

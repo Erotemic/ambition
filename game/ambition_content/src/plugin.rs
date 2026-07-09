@@ -63,7 +63,7 @@ impl Plugin for AmbitionContentPlugin {
         // Install authored encounter wave timelines (goblin mob-lab, …) into the
         // machinery lib's wave book before the encounter loader runs — the engine
         // hard-codes no encounter's waves.
-        ambition_actors::encounter::install_encounter_waves(
+        ambition_encounter::install_encounter_waves(
             ron::from_str(include_str!(
                 "../assets/data/encounters/goblin_encounter.ron"
             ))
@@ -78,9 +78,9 @@ impl Plugin for AmbitionContentPlugin {
         );
         #[cfg(feature = "ui")]
         {
-            app.init_resource::<ambition_actors::dialog::yarn_bindings::YarnContentBindings>();
+            app.init_resource::<ambition_dialog::YarnContentBindings>();
             app.world_mut()
-                .resource_mut::<ambition_actors::dialog::yarn_bindings::YarnContentBindings>()
+                .resource_mut::<ambition_dialog::YarnContentBindings>()
                 .installers
                 .push(super::duel_arena::install_duel_yarn_binding);
         }

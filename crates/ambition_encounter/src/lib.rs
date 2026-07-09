@@ -16,5 +16,8 @@ pub use events::EncounterEvent;
 pub use music::{BossEncounterMusicRequest, EncounterMusicRequest};
 pub use registry::{EncounterRegistry, SwitchActivation};
 pub use rewards::{encounter_reward_chest_pos, encounter_reward_looted_flag};
-pub use spec::{EncounterMobSpec, EncounterSpec, EncounterWaveSpec, LockWallSpec};
+pub use spec::{
+    authored_encounter_waves, install_encounter_waves, EncounterMobSpec, EncounterSpec,
+    EncounterWaveSpec, LockWallSpec,
+};
 pub use state::{EncounterPhase, EncounterRun, EncounterState, ENCOUNTER_INTER_WAVE_DELAY_SECONDS};

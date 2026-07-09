@@ -14,7 +14,7 @@ default = []
 # missing-registration.
 portal = ["ambition_actors/portal"]
 portal_render = ["portal", "dep:ambition_portal_presentation"]
-ui = ["ambition_actors/ui", "dep:bevy_yarnspinner"]
+ui = ["ambition_actors/ui", "ambition_dialog/ui", "dep:bevy_yarnspinner"]
 audio = ["ambition_actors/audio", "dep:ambition_audio"]
 # Embed the LDtk world JSON into the binary (web / Android / bundled builds
 # + the desktop disk-failure fallback). Forwards to the machinery feature so
@@ -29,6 +29,7 @@ falling_sand = ["dep:bevy_falling_sand"]
 # Baseline machinery features: the sandbox lib was never built fully bare
 # (ldtk/input/portal code is not end-to-end cfg-gated), so the content crate
 # pins the same always-on baseline every persona used pre-split.
+ambition_dialog = { path = "../../crates/ambition_dialog", default-features = false }
 ambition_actors = { path = "../../crates/ambition_actors", default-features = false, features = [
     "ldtk_runtime",
     "input",

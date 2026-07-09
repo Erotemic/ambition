@@ -61,7 +61,7 @@ impl Plugin for SimCoreResourcesPlugin {
             // app's; the resource is engine so phase_mark works anywhere).
             .init_resource::<ambition_dev_tools::profiling::StartupProfiler>()
             .init_resource::<ambition_actors::trace::GameplayTraceBuffer>()
-            .init_resource::<ambition_actors::dialog::DialogState>()
+            .init_resource::<ambition_dialog::DialogState>()
             .init_resource::<ambition_actors::MovingPlatformSet>()
             .init_resource::<ambition_actors::SandboxSimState>()
             .init_resource::<ambition_dev_tools::SandboxDevState>()

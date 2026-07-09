@@ -107,6 +107,7 @@ profile = ["ambition_actors/profile"]
 
 [dependencies]
 ambition_actors = { path = "../../crates/ambition_actors", default-features = false }
+ambition_dialog = { path = "../../crates/ambition_dialog", features = ["input"] }
 ambition_sprite_sheet = { path = "../../crates/ambition_sprite_sheet" }
 ambition_projectiles = { path = "../../crates/ambition_projectiles" }
 # The engine face (E5): the app assembles its sim from `PlatformerEnginePlugins`

@@ -141,7 +141,7 @@ fn cmd_duel(
 pub fn install_duel_yarn_binding(
     commands: &mut Commands,
     runner: &mut bevy_yarnspinner::prelude::DialogueRunner,
-    _mirror: &ambition_actors::dialog::yarn_bindings::YarnStateMirror,
+    _mirror: &ambition_dialog::YarnStateMirror,
 ) {
     let duel_id = commands.register_system(cmd_duel);
     runner.commands_mut().add_command("duel", duel_id);

@@ -26,6 +26,8 @@ pub mod dev_tools;
 pub mod persistence;
 pub mod profiling;
 
+pub use persistence::DeveloperPersistenceSchedulePlugin;
+
 use bevy::prelude::*;
 
 use ambition_engine_core::{

@@ -11,7 +11,7 @@ use bevy::prelude::*;
 use bevy_yarnspinner::prelude::DialogueRunner;
 use std::sync::Arc;
 
-use ambition_actors::dialog::yarn_bindings::{YarnStateMirror, YarnStateMirrorData};
+use ambition_dialog::{YarnStateMirror, YarnStateMirrorData};
 use ambition_combat::SetFlagRequested;
 use ambition_persistence::save::SandboxSave;
 
@@ -51,7 +51,7 @@ pub fn cmd_reset_cut_rope_room(mut pending: ResMut<PendingCutRopeRoomReplay>) {
     );
 }
 
-/// [`YarnContentBindings`](ambition_actors::dialog::yarn_bindings::YarnContentBindings)
+/// [`YarnContentBindings`](ambition_dialog::YarnContentBindings)
 /// installer: register the cut-rope commands + the
 /// `cut_rope_heavy_object_is(id)` library function on the runner.
 pub fn install_cut_rope_yarn_bindings(

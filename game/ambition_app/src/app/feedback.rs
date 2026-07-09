@@ -82,7 +82,7 @@ pub struct SandboxQueues<'w> {
     pub hit_events: MessageWriter<'w, HitEvent>,
     pub reset_room_features: MessageWriter<'w, ResetRoomFeaturesEvent>,
     pub feature_ecs_overlay: Res<'w, ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay>,
-    pub dialogue: ResMut<'w, ambition_actors::dialog::DialogState>,
+    pub dialogue: ResMut<'w, ambition_dialog::DialogState>,
     pub physics_settings: Res<'w, ambition_actors::world::physics::PhysicsSandboxSettings>,
     pub moving_platforms: ResMut<'w, ambition_actors::MovingPlatformSet>,
     pub sim_state: ResMut<'w, ambition_actors::SandboxSimState>,
@@ -107,6 +107,6 @@ pub struct ProgressionResources<'w> {
     pub cutscene_request: Res<'w, ambition_cutscene::CutsceneAdvanceRequest>,
     pub bosses: Res<'w, ambition_actors::boss_encounter::BossEncounterRegistry>,
     pub encounters: Res<'w, ambition_encounter::EncounterRegistry>,
-    pub map: Res<'w, ambition_actors::menu::map::MapMenuState>,
+    pub map: Res<'w, ambition_menu::map::MapMenuState>,
     pub banner: Res<'w, GameplayBanner>,
 }

@@ -105,6 +105,18 @@ pub fn load_developer_at_startup(_developer: ResMut<DeveloperTools>) {}
 #[cfg(target_arch = "wasm32")]
 pub fn save_developer_on_change(_developer: Res<DeveloperTools>) {}
 
+/// Schedules developer-tool persistence. User-facing settings and sandbox save
+/// I/O stay in `ambition_persistence::PersistenceSchedulePlugin`; this plugin
+/// owns only the developer-only `developer.ron` resource this crate defines.
+pub struct DeveloperPersistenceSchedulePlugin;
+
+impl Plugin for DeveloperPersistenceSchedulePlugin {
+    fn build(&self, app: &mut App) {
+        app.add_systems(Startup, load_developer_at_startup)
+            .add_systems(Update, save_developer_on_change);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

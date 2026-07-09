@@ -213,9 +213,9 @@ impl Plugin for AmbitionBossContentPlugin {
         // is consistent within the tick).
         #[cfg(feature = "ui")]
         {
-            app.init_resource::<ambition_actors::dialog::yarn_bindings::YarnContentBindings>();
+            app.init_resource::<ambition_dialog::YarnContentBindings>();
             app.world_mut()
-                .resource_mut::<ambition_actors::dialog::yarn_bindings::YarnContentBindings>()
+                .resource_mut::<ambition_dialog::YarnContentBindings>()
                 .installers
                 .push(yarn::install_cut_rope_yarn_bindings);
             app.add_systems(

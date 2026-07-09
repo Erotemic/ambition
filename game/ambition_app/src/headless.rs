@@ -146,7 +146,7 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
         .map(|r| r.quest_log_lines())
         .unwrap_or_default();
     let visited_rooms = world
-        .get_resource::<ambition_actors::menu::map::MapMenuState>()
+        .get_resource::<ambition_menu::map::MapMenuState>()
         .map(|m| m.visited.iter().cloned().collect::<Vec<_>>())
         .unwrap_or_default();
 

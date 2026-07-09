@@ -25,7 +25,8 @@ mod switches;
 mod systems;
 
 pub use events::EncounterEvent;
-pub use loading::{install_encounter_waves, load_encounter_specs_from_ldtk};
+pub use ambition_encounter::install_encounter_waves;
+pub use loading::load_encounter_specs_from_ldtk;
 pub use lock_walls::contribute_encounter_lock_walls;
 pub use music::{BossEncounterMusicRequest, EncounterMusicRequest};
 pub use registry::{EncounterRegistry, SwitchActivation};

@@ -20,7 +20,7 @@ use super::*;
 /// standing next to, not whatever the vacated home avatar is next to. In normal
 /// play the two are the same entity, so single-player behavior is unchanged.
 pub fn interact_ecs_actors_and_switches(
-    mut dialogue: ResMut<crate::dialog::DialogState>,
+    mut dialogue: ResMut<ambition_dialog::DialogState>,
     mut next_mode: ResMut<NextState<ambition_platformer_primitives::schedule::GameMode>>,
     mut banner: ResMut<GameplayBanner>,
     controlled: Option<Res<ambition_platformer_primitives::markers::ControlledSubject>>,
@@ -185,7 +185,7 @@ mod tests {
         let center = ae::Vec2::new(100.0, 100.0);
         let mut app = App::new();
         app.insert_resource(GameplayBanner::default());
-        app.insert_resource(crate::dialog::DialogState::default());
+        app.insert_resource(ambition_dialog::DialogState::default());
         app.insert_resource(NextState::<ambition_platformer_primitives::schedule::GameMode>::default());
         app.add_message::<SetFlagRequested>();
         app.add_message::<QuestAdvanceRequested>();
@@ -228,7 +228,7 @@ mod tests {
 
         let mut app = App::new();
         app.insert_resource(GameplayBanner::default());
-        app.insert_resource(crate::dialog::DialogState::default());
+        app.insert_resource(ambition_dialog::DialogState::default());
         app.insert_resource(NextState::<ambition_platformer_primitives::schedule::GameMode>::default());
         app.add_message::<SetFlagRequested>();
         app.add_message::<QuestAdvanceRequested>();

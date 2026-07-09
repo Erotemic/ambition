@@ -2,39 +2,18 @@
 //!
 //! `load_encounter_specs_from_ldtk` scans `EncounterTrigger`/`LockWall` markers
 //! and builds one spec per area. Authored multi-wave timelines live in content
-//! (`ambition_content/.../encounters/*.ron`) and are installed via
-//! `install_encounter_waves` into the `ENCOUNTER_WAVE_BOOK`, keyed by trigger
-//! id; any unbooked encounter falls back to a single wave from its `EnemySpawn`
-//! markers. The loader names no specific encounter — that's the content seam.
+//! (`ambition_content/.../encounters/*.ron`) and are installed into
+//! `ambition_encounter`'s wave book, keyed by trigger id; any unbooked
+//! encounter falls back to a single wave from its `EnemySpawn` markers. The
+//! loader names no specific encounter — that's the content seam.
 
 use ambition_persistence::save_data::PersistedEncounterState;
+#[cfg(test)]
+use std::collections::HashMap;
 
 use crate::ldtk_world::LdtkProject;
 
 use super::{EncounterMobSpec, EncounterSpec, EncounterWaveSpec, LockWallSpec};
-
-use std::collections::HashMap;
-
-/// Content-installed encounter wave timelines, keyed by trigger id. An encounter
-/// whose id is in this book gets its authored multi-wave sequence; any other
-/// encounter falls back to one wave assembled from its LDtk `EnemySpawn`
-/// markers. This is the seam that keeps the engine's encounter loader from
-/// naming any specific encounter — the goblin (and future) wave data is content
-/// (`ambition_content/assets/data/encounters/*.ron`).
-///
-/// §5 classification (restructuring-blueprint): **content registry** —
-/// install-once seam, immutable after install, read from the pure
-/// `authored_encounter_waves` helper. Deliberately a process-global `OnceLock`,
-/// not a Bevy `Resource` (the reader is the non-system LDtk loader);
-/// `install_encounter_waves` + the `cfg(test)` fixture ARE the test-override.
-static ENCOUNTER_WAVE_BOOK: std::sync::OnceLock<HashMap<String, Vec<EncounterWaveSpec>>> =
-    std::sync::OnceLock::new();
-
-/// Install the authored encounter wave timelines — `ambition_content` calls this
-/// at plugin-build time (before the first `load_encounter_specs_from_ldtk`).
-pub fn install_encounter_waves(book: HashMap<String, Vec<EncounterWaveSpec>>) {
-    let _ = ENCOUNTER_WAVE_BOOK.set(book);
-}
 
 /// Test fixture: the lib's own loader tests read content's authoritative
 /// `encounters/goblin_encounter.ron` at compile time (cfg(test) only —
@@ -50,10 +29,11 @@ static ENCOUNTER_WAVE_BOOK_FIXTURE: std::sync::LazyLock<HashMap<String, Vec<Enco
 
 /// The authored multi-wave timeline for a trigger id, or `None` to fall back to
 /// one wave from the level's LDtk `EnemySpawn` markers. Production reads the
-/// content install; lib tests read content's authored RON via the fixture.
+/// content-installed encounter wave book in `ambition_encounter`; lib tests
+/// fall back to content's authored RON fixture when no book is installed.
 fn authored_encounter_waves(id: &str) -> Option<Vec<EncounterWaveSpec>> {
-    if let Some(book) = ENCOUNTER_WAVE_BOOK.get() {
-        return book.get(id).cloned();
+    if let Some(waves) = ambition_encounter::authored_encounter_waves(id) {
+        return Some(waves);
     }
     #[cfg(test)]
     {

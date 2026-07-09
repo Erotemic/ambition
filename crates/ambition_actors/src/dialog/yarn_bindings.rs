@@ -19,7 +19,7 @@
 //!
 //! **Markup cues** (`Speaker: [shout]LINE[/shout]` inline). The
 //! bridge's `on_present_line` observer scans `LocalizedLine.attributes`
-//! and writes [`YarnPresentationCue`] resource entries that the
+//! and writes [`ambition_dialog::YarnPresentationCue`] resource entries that the
 //! camera and audio layers consume. Authored dialogue uses these to
 //! *spice* the presentation.
 //!
@@ -31,8 +31,8 @@
 //! `GameplayEffect`, etc. — that's the bridge's whole job.
 
 //! The generic binding machinery (the [`YarnStateMirror`] shape, the
-//! [`YarnPresentationCue`], the [`YarnContentBindings`] installer seam, and
-//! [`YarnBindingsPlugin`]) lives in the reusable `ambition_dialog` crate (E1c).
+//! [`ambition_dialog::YarnPresentationCue`], the [`ambition_dialog::YarnContentBindings`] installer seam, and
+//! [`ambition_dialog::YarnBindingsPlugin`]) lives in the reusable `ambition_dialog` crate (E1c).
 //! This module keeps only Ambition's game-specific vocabulary — the commands
 //! and functions that touch actor/save state — and the per-frame refresh that
 //! fills the mirror from `SandboxSave`. It registers on the runtime through the
@@ -47,17 +47,11 @@ use bevy_yarnspinner::prelude::DialogueRunner;
 use crate::features::SetFlagRequested;
 use ambition_persistence::save::SandboxSave;
 
-// Re-export the generic binding types from the reusable dialog crate so the
-// game bindings + content plugins keep naming
-// `ambition_actors::dialog::yarn_bindings::{...}`.
-pub use ambition_dialog::{
-    clear_yarn_presentation_cue, YarnBindingInstaller, YarnContentBindings, YarnPresentationCue,
-    YarnStateMirror, YarnStateMirrorData,
-};
+use ambition_dialog::{YarnStateMirror, YarnStateMirrorData};
 
 /// The host installer: registers Ambition's generic Yarn vocabulary
 /// (commands + functions) on the runner. Pushed into
-/// [`YarnContentBindings`] by [`crate::dialog::YarnBindingsPlugin`] so the
+/// [`ambition_dialog::YarnContentBindings`] by [`crate::dialog::YarnBindingsPlugin`] so the
 /// reusable bridge names no concrete game command.
 pub fn install_game_bindings(
     commands: &mut Commands,
@@ -156,7 +150,7 @@ pub fn cmd_clear_flag(In(name): In<String>, mut effects: MessageWriter<SetFlagRe
 /// arms a boss/duel by authoring this one command on a choice; no Rust per-NPC
 /// branch. Logs and no-ops if there's no in-world speaker (scripted dialogue).
 pub fn cmd_challenge(
-    dialogue: Res<crate::dialog::DialogState>,
+    dialogue: Res<ambition_dialog::DialogState>,
     player: Query<Entity, With<crate::actor::PlayerEntity>>,
     mut commands: Commands,
 ) {
@@ -314,7 +308,7 @@ pub fn cmd_camera_zoom(In(factor): In<f32>) {
 // The cut-rope boss commands (`watch_cut_rope_video`,
 // `reset_cut_rope_room`) and the `cut_rope_heavy_object_is` function
 // moved to `ambition_content::bosses::yarn` (the content crate) — installed via
-// [`YarnContentBindings`] so this generic module names no content.
+// [`ambition_dialog::YarnContentBindings`] so this generic module names no content.
 
 // ===== Functions ================================================
 //
@@ -411,7 +405,7 @@ fn normalize_item_id(raw: &str) -> String {
 
 /// Register the generic custom dialogue commands on the runner. Called
 /// from `spawn_dialogue_runner`; content commands are installed right
-/// after via [`YarnContentBindings`]. Each command name maps to a
+/// after via [`ambition_dialog::YarnContentBindings`]. Each command name maps to a
 /// Bevy system registered against the `World`.
 pub fn register_commands(commands: &mut Commands, runner: &mut DialogueRunner) {
     let set_flag_id = commands.register_system(cmd_set_flag);

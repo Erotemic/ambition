@@ -192,8 +192,11 @@ classes — log-once so the next sessions don't re-derive:
    detector that still joins actor contacts, settings, schedule, and music
    intent.** **A menu-backend slice (Codex 2026-07-08) moved
    `InventoryUiBackend` and backend-availability constants to
-   `ambition_menu::backend`; `ambition_actors::menu` now owns only the Map tab
-   and settings/map adapter residue, not presentation-backend vocabulary.**
+   `ambition_menu::backend`; a follow-on closeout slice moved the
+   renderer-agnostic map/minimap state (`MapMenuState`, `MapRoomNode`, and zoom
+   constants) to `ambition_menu::map`. `ambition_actors::menu` now owns only the
+   room/save hydration, hotkeys, and Bevy-UI map/settings adapter systems, not
+   presentation-backend or reusable map-state vocabulary.**
    **A settings/menu-IR facade slice (Codex 2026-07-08) repointed app menu
    hosts/tests to import stored settings from `ambition_persistence::settings`
    and renderer-agnostic menu IR from `ambition_settings_menu` directly; the
@@ -204,8 +207,17 @@ classes — log-once so the next sessions don't re-derive:
    encounter state, music-request, registry, phase, and reward helper vocabulary
    to `ambition_encounter`; the actor-side encounter module now remains the
    LDtk/ECS/schedule adapter surface (`load_encounter_specs_from_ldtk`,
-   `install_encounter_waves`, `populate_encounter_registry`, switch queues, and
-   lock-wall contribution).**
+   `populate_encounter_registry`, switch queues, and lock-wall contribution);
+   the content-installed encounter wave book now lives in `ambition_encounter`
+   with the rest of the pure encounter vocabulary.** **A dialog/developer-persistence tail slice (Codex
+   2026-07-08) repointed app/content/runtime users of reusable dialog
+   vocabulary (`DialogState`, reveal/input systems, and Yarn binding/mirror
+   types) to `ambition_dialog`, while keeping Ambition's game-specific Yarn
+   bindings and `GameMode` sync plugins actor-side. The same slice moved the
+   `DeveloperPersistenceSchedulePlugin` home to `ambition_dev_tools`; the F2
+   closeout removed the actor-side dev-persistence alias after consumers named
+   `ambition_dev_tools` directly. Actor persistence now keeps only the real
+   save/runtime persistence surface plus actor-local settings compatibility.**
 3. **FACADES (60 `pub use ambition_*` re-export sites in actors).** These are
    the deliberate hub-continuity aliases. The dissolution ratchet: **a facade
    may be deleted the moment `grep -rn "ambition_actors::<mod>"` outside
@@ -220,7 +232,18 @@ classes — log-once so the next sessions don't re-derive:
    `BossSteerSlot`, `PresentationSetupSet`, and `SimulationSetupSet` to
    `ambition_platformer_primitives::schedule`; `ambition_actors::schedule` now
    remains only for the concrete actor-owned schedule installer and input bridge
-   systems.**
+   systems.** **F2 closeout (Codex 2026-07-08) removed the remaining safe
+   pure-vocabulary facades found in this pass: map/minimap state is owned by
+   `ambition_menu::map`, actor dialog no longer re-exports reusable
+   `ambition_dialog` state/input/Yarn-binding vocabulary, and actor persistence
+   no longer aliases dev-tools persistence. The remaining external
+   `ambition_actors` references found by the closeout sweep are documented
+   adapter seams: asset catalog/loader assembly, LDtk encounter loading and ECS
+   registry update, Ambition-specific Yarn binding refresh/plugins, item pickup
+   and held-projectile simulation components, concrete schedule/resource
+   installers, and map UI/hydration systems. Treat F2 as closed for audit
+   cleanup; deeper decomposition of those actor-domain systems belongs to the
+   later world/plain-input, projectile, and unified-actor cards.**
 
 **North star for the residual (fold into unified-actors.md):** `player/`
 (6.6k) existing as a SIBLING of `features/ecs` is the last structural

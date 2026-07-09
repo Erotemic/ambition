@@ -877,6 +877,7 @@ fn architecture_boundaries_runtime_is_headless_composition_tier() {
         "ambition_combat",
         "ambition_projectiles",
         "ambition_encounter",
+        "ambition_dialog",
     ] {
         assert!(
             manifest_depends_on(&manifest, required),
@@ -891,6 +892,7 @@ fn architecture_boundaries_runtime_is_headless_composition_tier() {
             "ambition_projectiles",
             "ambition_combat",
             "ambition_encounter",
+            "ambition_dialog",
             "ambition_characters",
             "ambition_portal",
             "ambition_sim_view",
@@ -1448,6 +1450,7 @@ fn architecture_boundaries_f2_encounter_vocab_consumers_use_encounter_crate() {
             "ambition_actors::encounter::LockWallSpec",
             "ambition_actors::encounter::encounter_reward_chest_pos",
             "ambition_actors::encounter::encounter_reward_looted_flag",
+            "ambition_actors::encounter::install_encounter_waves",
         ],
         "F2 encounter vocabulary pass: pure encounter state/spec/music/reward vocabulary lives in ambition_encounter; actor encounter keeps LDtk/ECS/schedule adapters",
     );
@@ -1478,6 +1481,97 @@ fn architecture_boundaries_app_menu_settings_vocab_consumers_use_lower_crates() 
             "ambition_actors::menu::ir",
         ],
         "F2 settings/menu IR facade pass: app menu hosts import stored settings from ambition_persistence and renderer-agnostic menu IR from ambition_settings_menu, not through ambition_actors",
+    );
+}
+
+
+
+#[test]
+fn architecture_boundaries_map_state_consumers_use_menu_crate() {
+    let menu_map = repo_root().join("crates/ambition_menu/src/map.rs");
+    assert!(
+        menu_map.exists(),
+        "F2 map-state pass: renderer-agnostic MapMenuState should live in ambition_menu::map"
+    );
+    let actor_model = fs::read_to_string(crate_src().join("menu/map/model.rs"))
+        .expect("read actor map model facade");
+    assert!(
+        actor_model.contains("pub use ambition_menu::map::*"),
+        "actor map model should be only a compatibility re-export over ambition_menu::map"
+    );
+    assert_code_refs_absent(
+        &[app_src(), repo_root().join("crates/ambition_sim_view/src")],
+        &["ambition_actors::menu::map::MapMenuState"],
+        "F2 map-state pass: app/presentation/read-model consumers name ambition_menu::map::MapMenuState; actor menu keeps only the room/save hydration + Bevy-UI adapter systems",
+    );
+}
+
+#[test]
+fn architecture_boundaries_actor_dialog_keeps_only_game_bindings() {
+    let dialog = fs::read_to_string(crate_src().join("dialog.rs")).expect("read actor dialog.rs");
+    for forbidden in [
+        "pub use ambition_dialog",
+        "DialogChoice",
+        "DialogChoiceSlot",
+        "dialog_input",
+        "dialog_pointer_input",
+        "dialog_reveal_tick",
+        "DialogueRunnerEntity",
+    ] {
+        assert!(
+            !dialog.contains(forbidden),
+            "actor dialog should not re-export reusable dialog runtime vocabulary after F2 closeout: {forbidden}"
+        );
+    }
+    let yarn = fs::read_to_string(crate_src().join("dialog/yarn_bindings.rs"))
+        .expect("read actor dialog/yarn_bindings.rs");
+    assert!(
+        !yarn.contains("pub use ambition_dialog"),
+        "actor Yarn bindings should not re-export generic Yarn binding vocabulary; content names ambition_dialog directly"
+    );
+}
+
+#[test]
+fn architecture_boundaries_actor_persistence_keeps_no_dev_tools_alias() {
+    let persistence = fs::read_to_string(crate_src().join("persistence/mod.rs"))
+        .expect("read actor persistence mod.rs");
+    assert!(
+        !persistence.contains("DeveloperPersistenceSchedulePlugin"),
+        "actor persistence should not keep the dev-tools persistence compatibility alias after consumers use ambition_dev_tools directly"
+    );
+}
+
+#[test]
+fn architecture_boundaries_dialog_vocab_consumers_use_dialog_crate() {
+    assert_code_refs_absent(
+        &[
+            repo_root().join("crates/ambition_runtime/src"),
+            content_src(),
+            app_src(),
+        ],
+        &[
+            "ambition_actors::dialog::DialogState",
+            "ambition_actors::dialog::DialogChoice",
+            "ambition_actors::dialog::DialogChoiceSlot",
+            "ambition_actors::dialog::dialog_input",
+            "ambition_actors::dialog::dialog_pointer_input",
+            "ambition_actors::dialog::dialog_reveal_tick",
+            "ambition_actors::dialog::yarn_bindings::YarnContentBindings",
+            "ambition_actors::dialog::yarn_bindings::YarnStateMirror",
+            "ambition_actors::dialog::yarn_bindings::YarnStateMirrorData",
+            "ambition_actors::dialog::yarn_bindings::YarnPresentationCue",
+            "ambition_actors::dialog::yarn_bindings::clear_yarn_presentation_cue",
+        ],
+        "F2 dialog facade pass: reusable dialog state/input/Yarn-binding vocabulary lives in ambition_dialog; actor dialog keeps only Ambition game bindings and GameMode sync plugins",
+    );
+}
+
+#[test]
+fn architecture_boundaries_developer_persistence_uses_dev_tools_crate() {
+    assert_code_refs_absent(
+        &[app_src()],
+        &["ambition_actors::persistence::DeveloperPersistenceSchedulePlugin"],
+        "F2 developer-persistence pass: DeveloperTools disk persistence is scheduled through ambition_dev_tools, not the actor persistence facade",
     );
 }
 

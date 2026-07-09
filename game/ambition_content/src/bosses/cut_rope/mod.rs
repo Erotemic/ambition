@@ -132,7 +132,7 @@ impl CutRopeHeavyObjectCycle {
 /// `ContentDialogueFollowupSet` slot by `AmbitionBossContentPlugin`, so the
 /// host never names this system.
 pub fn emit_cut_rope_room_replay_after_dialogue_closes(
-    dialogue: Res<ambition_actors::dialog::DialogState>,
+    dialogue: Res<ambition_dialog::DialogState>,
     mut pending: ResMut<PendingCutRopeRoomReplay>,
     mut replay_requests: MessageWriter<ambition_actors::session::reset::RoomReplayRequested>,
 ) {

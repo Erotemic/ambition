@@ -60,7 +60,7 @@ pub use sim_core_resources::SimCoreResourcesPlugin;
 /// `ambition_host` wire leafwing/device input without depending directly on
 /// `ambition_actors`.
 pub mod host_input {
-    pub use ambition_actors::dialog::dialog_pointer_input;
+    pub use ambition_dialog::dialog_pointer_input;
     pub use ambition_actors::schedule::{
         apply_menu_frame_to_cutscene_request, attach_player_input_components,
         populate_control_frame_from_actions, populate_menu_control_frame_from_actions,

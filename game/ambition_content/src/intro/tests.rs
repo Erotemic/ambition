@@ -7,7 +7,7 @@
 use super::cutscene::{install_intro_cutscenes, intro_room_cutscene_bindings};
 use super::dialog::intro_dialogue_ids;
 use super::sprites::intro_npc_sprite_rows;
-use ambition_actors::dialog::DialogState;
+use ambition_dialog::DialogState;
 use ambition_cutscene::CutsceneLibrary;
 
 #[test]

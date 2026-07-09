@@ -9,7 +9,6 @@ use ambition_dev_tools::dev_tools::{
     self, DeveloperTools, EditableAbilitySet, EditableMovementTuning, EditablePlayerStats,
     MovementProfile, PlayerBodyProfile,
 };
-use ambition_actors::dialog;
 use ambition_actors::ldtk_world;
 use ambition_actors::rooms;
 use ambition_platformer_primitives::schedule::{gameplay_allowed, PresentationSetupSet, SandboxSet};
@@ -308,7 +307,7 @@ pub fn add_presentation_plugins(app: &mut App) {
     install_presentation_resources_and_subplugins(app);
     app.add_plugins((
         ambition_persistence::PersistenceSchedulePlugin,
-        ambition_actors::persistence::DeveloperPersistenceSchedulePlugin,
+        ambition_dev_tools::DeveloperPersistenceSchedulePlugin,
     ));
     install_menu_setup_and_hotkeys(app);
     app.add_plugins(ambition_render::rendering::PresentationVisualAnimationPlugin);
@@ -427,7 +426,7 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
         .add_systems(
             Update,
             (
-                dialog::dialog_input,
+                ambition_dialog::dialog_input,
                 handle_ldtk_hot_reload,
                 handle_debug_hotkeys,
                 dev_tools::sync_developer_body_profile,
@@ -499,7 +498,7 @@ fn install_fx_and_hud_systems(app: &mut App) {
         (
             update_hud,
             ambition_render::rendering::sync_boss_health_bar_overlay,
-            dialog::dialog_reveal_tick,
+            ambition_dialog::dialog_reveal_tick,
             ambition_render::dialog_ui::sync_dialog_ui,
             ambition_render::cutscene::sync_cutscene_ui,
         )

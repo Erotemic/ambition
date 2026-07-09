@@ -66,7 +66,7 @@ fn base_kaleidoscope_test_app() -> App {
     app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
     app.init_resource::<UserSettings>();
     app.init_resource::<ambition_inventory_ui::InventoryUiState>();
-    app.init_resource::<ambition_actors::menu::map::MapMenuState>();
+    app.init_resource::<ambition_menu::map::MapMenuState>();
     app.init_resource::<MenuControlFrame>();
     app.add_message::<PlayerHealRequested>();
     app.add_message::<SfxMessage>();
@@ -913,7 +913,7 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
     app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
     app.init_resource::<UserSettings>();
     app.init_resource::<ambition_inventory_ui::InventoryUiState>();
-    app.init_resource::<ambition_actors::menu::map::MapMenuState>();
+    app.init_resource::<ambition_menu::map::MapMenuState>();
     app.init_resource::<MenuControlFrame>();
     app.init_resource::<ambition_input::MenuInputState>();
     app.add_message::<PlayerHealRequested>();

@@ -4,9 +4,34 @@
 //! reward. The lib's `loading.rs` builds these from LDtk + the content wave
 //! book; the `state.rs` machine consumes them. Pure data — no behavior here.
 
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 use ambition_engine_core as ae;
+
+/// Content-installed encounter wave timelines, keyed by trigger id.
+///
+/// The LDtk adapter asks this crate for an authored multi-wave sequence before
+/// falling back to marker-derived enemy spawns. Keeping the install seam here
+/// makes the wave book part of the reusable encounter vocabulary instead of an
+/// actor-crate facade; it still names no specific encounter content.
+static ENCOUNTER_WAVE_BOOK: std::sync::OnceLock<HashMap<String, Vec<EncounterWaveSpec>>> =
+    std::sync::OnceLock::new();
+
+/// Install authored encounter wave timelines. Content crates call this during
+/// plugin build, before the LDtk adapter populates the live encounter registry.
+pub fn install_encounter_waves(book: HashMap<String, Vec<EncounterWaveSpec>>) {
+    let _ = ENCOUNTER_WAVE_BOOK.set(book);
+}
+
+/// Look up an authored multi-wave timeline for a trigger id.
+///
+/// `None` means the adapter should fall back to one wave assembled from the
+/// level's own spawn markers.
+pub fn authored_encounter_waves(id: &str) -> Option<Vec<EncounterWaveSpec>> {
+    ENCOUNTER_WAVE_BOOK.get().and_then(|book| book.get(id).cloned())
+}
 
 /// One mob to spawn during a wave.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

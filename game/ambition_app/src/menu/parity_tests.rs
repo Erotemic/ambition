@@ -465,7 +465,7 @@ mod dispatch_parity {
         app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
         app.init_resource::<UserSettings>();
         app.init_resource::<InventoryUiState>();
-        app.init_resource::<ambition_actors::menu::map::MapMenuState>();
+        app.init_resource::<ambition_menu::map::MapMenuState>();
         app.init_resource::<MenuControlFrame>();
         app.init_resource::<ambition_input::ActiveInputKind>();
         app.add_message::<PlayerHealRequested>();

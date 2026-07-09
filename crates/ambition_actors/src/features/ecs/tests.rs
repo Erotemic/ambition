@@ -283,7 +283,7 @@ fn interact_buffered_starts_npc_dialogue() {
     app.init_state::<ambition_platformer_primitives::schedule::GameMode>();
 
     app.insert_resource(GameplayBanner::default());
-    app.insert_resource(crate::dialog::DialogState::default());
+    app.insert_resource(ambition_dialog::DialogState::default());
     app.add_message::<SetFlagRequested>();
     app.add_message::<QuestAdvanceRequested>();
     app.add_message::<SwitchActivated>();
@@ -330,7 +330,7 @@ fn interact_buffered_starts_npc_dialogue() {
     app.add_systems(Update, interact_ecs_actors_and_switches);
     app.update();
 
-    let dialogue = app.world().resource::<crate::dialog::DialogState>();
+    let dialogue = app.world().resource::<ambition_dialog::DialogState>();
     assert!(
         dialogue.active(),
         "dialogue should be active after NPC interact"

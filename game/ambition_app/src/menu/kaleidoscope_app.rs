@@ -1465,7 +1465,7 @@ fn kaleidoscope_menu_open_routing(
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
     mut quality_confirm: ResMut<VisualQualityConfirmState>,
-    mut map: ResMut<ambition_actors::menu::map::MapMenuState>,
+    mut map: ResMut<ambition_menu::map::MapMenuState>,
     mut sfx: MessageWriter<SfxMessage>,
     // Tracks last frame's `menu.start` so we only act on its RISING edge (below).
     mut last_start: Local<bool>,
@@ -1592,7 +1592,7 @@ fn open_kaleidoscope_menu(
     pages: &mut ActiveMenuPages<MenuPage, MenuPageAction>,
     cursor: &mut KaleidoscopeCursor,
     system_nav: &mut KaleidoscopeSystemNav,
-    map: &mut ambition_actors::menu::map::MapMenuState,
+    map: &mut ambition_menu::map::MapMenuState,
 ) {
     use ambition_platformer_primitives::schedule::GameMode;
     overlay.visible = true;

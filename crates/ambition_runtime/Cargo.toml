@@ -16,6 +16,7 @@ ambition_actors = { path = "../ambition_actors", default-features = false, featu
     "input",
     "portal_ldtk",
 ] }
+ambition_dialog = { path = "../ambition_dialog", features = ["input"] }
 ambition_projectiles = { path = "../ambition_projectiles" }
 ambition_combat = { path = "../ambition_combat" }
 ambition_encounter = { path = "../ambition_encounter" }

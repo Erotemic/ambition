@@ -457,10 +457,12 @@ pub fn ensure_parallax_layers_for_room(
 // packaging, web/static profiles skip optional PNGs, and headless/no-assets have
 // already returned `None` upstream.
 
-/// Build a `Sprite` for the given entity-sprite key, falling back to the
-/// supplied colored-rectangle if the handle is missing. Render size always
-/// equals `size`, so block/feature spawns can pass through their authored
-/// AABB without rewriting.
-
-#[cfg(test)]
-mod tests;
+// NOTE (fable audit follow-up): the game-assets unit tests were NOT carved over
+// from `ambition_actors` in cdf21e0b — the monolithic test file spanned code
+// that the carve split across `ambition_asset_manager` (config/profile/sandbox
+// catalog) and this crate (entity sprites), and it still lives (compiled) at
+// `ambition_actors::assets::game_assets::tests`. The dangling `mod tests;`
+// placeholder pointed at a `game_assets/tests.rs` that never existed and left
+// this crate's lib-test target uncompilable; removed here. Splitting
+// sprite-side coverage into this crate is a separate opportunity
+// (dev/journals/code_smells.md).

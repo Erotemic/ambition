@@ -245,3 +245,19 @@ are now gravity-relative. These four remain world-Y-locked — each is a DESIGN 
 - **Where:** `game/ambition_app/src/app/sim_systems.rs::apply_room_replay_request_system` — calls `ambition_content::bosses::{is_cut_rope_boss, reset_cut_rope_boss_attempt}` inline before the generic room replay.
 - **Context:** the E5-finish step-4 de-weave made the MESSAGE generic (`session::reset::RoomReplayRequested`, content emits from `ContentDialogueFollowupSet`), but the CONSUMER still hard-names cut-rope resets. That's why this system had to stay app-side in the E5 step-5 carve (the app may name content; the engine/host may not) — the readiness brief's "generic, de-woven" claim was only half true.
 - **Suggested fix / size:** S — mint a `ContentRoomReplayResetSet` slot (same pattern as `ContentRoomResetSet`): content registers a `reset_cut_rope_attempt_on_replay` system reading the same `RoomReplayRequested` message; the app consumer drops the `ambition_content` import. Then the replay consumer is host-generic and can move wherever the reset/world-flow concern lands.
+
+## 2026-07-09 — sprite_sheet lib-test never compiled (carve dropped test placeholders)
+
+`ambition_sprite_sheet` shipped two dangling `#[cfg(test)] mod tests;`
+declarations (`boss.rs`, `game_assets/mod.rs`) added by the F1.5 carve
+(cdf21e0b) that pointed at test files which were NEVER created — so the crate's
+lib-test target failed to compile from that commit onward (only surfaced under
+`cargo test --all-targets`, which the default gate doesn't run). No coverage was
+lost: the boss-sprite tests still live at
+`ambition_actors::boss_encounter::sprites::tests` and the game-assets tests at
+`ambition_actors::assets::game_assets::tests` (the config/profile/sandbox half
+went to `ambition_asset_manager`). Removed the orphan declarations. OPPORTUNITY:
+sprite_sheet owns real logic (boss sprite-metric derivation, entity-sprite
+resolvers) with no crate-local unit tests — worth adding sprite_sheet-side
+coverage rather than only testing through the actors adapter. Lesson reinforces
+F7: a carve that adds `mod tests;` must MOVE the fixture in the same commit.

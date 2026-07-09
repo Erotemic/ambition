@@ -1459,5 +1459,10 @@ pub fn pick_boss_anim(state: BossAnimState) -> BossAnim {
     BossAnim::Rest
 }
 
-#[cfg(test)]
-mod tests;
+// NOTE (fable audit follow-up): the boss-sprite unit tests were NOT carved
+// over from `ambition_actors` in cdf21e0b — they still live at
+// `ambition_actors::boss_encounter::sprites::tests` (testing the same
+// derivation). The dangling `mod tests;` placeholder that shipped with the
+// carve pointed at a `boss/tests.rs` that never existed and left this crate's
+// lib-test target uncompilable; removed here. Adding sprite_sheet-local boss
+// coverage is a separate opportunity (dev/journals/code_smells.md).

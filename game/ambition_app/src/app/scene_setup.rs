@@ -19,7 +19,7 @@ use ambition_sprite_sheet::game_assets::GameAssets;
 #[cfg(feature = "audio")]
 use ambition_asset_manager::sandbox_assets::{ids, SandboxAssetCatalog};
 #[cfg(feature = "audio")]
-use ambition_actors::audio::{AudioLibrary, MusicPlaybackState};
+use ambition_audio::library::{AudioLibrary, MusicPlaybackState};
 use ambition_actors::platformer_runtime::lifecycle::SceneEntities;
 use ambition_actors::rooms::RoomSet;
 #[cfg(feature = "audio")]

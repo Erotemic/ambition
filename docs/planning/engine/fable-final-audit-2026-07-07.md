@@ -181,7 +181,13 @@ classes — log-once so the next sessions don't re-derive:
    also burned down the developer-tools facade: app/runtime/sim-view now import
    `ambition_dev_tools::{dev_tools,profiling,sync_live_player_dev_edits_system}`
    directly, while `ambition_actors::dev` keeps only the sim-coupled trace
-   recorder.**
+   recorder. **A later audio-facade slice (Codex 2026-07-08) repointed app
+   radio/menu/android consumers of pure playback vocabulary (`AudioLibrary`,
+   `MusicPlaybackState`, `RadioStationState`, `MusicChannel`, `SfxChannel`,
+   and `set_radio_track`) to `ambition_audio::library`; the actor-side
+   `audio` residue is now the sandbox `SandboxAudioPlugin` and environment
+   detector that still joins actor contacts, settings, schedule, and music
+   intent.**
 3. **FACADES (60 `pub use ambition_*` re-export sites in actors).** These are
    the deliberate hub-continuity aliases. The dissolution ratchet: **a facade
    may be deleted the moment `grep -rn "ambition_actors::<mod>"` outside

@@ -204,8 +204,8 @@ mod audio_lifecycle {
     /// silence as immediate.
     pub(super) fn apply_android_suspend_to_audio(
         state: Res<AndroidSuspendState>,
-        music: Option<Res<AudioChannel<ambition_actors::audio::MusicChannel>>>,
-        sfx: Option<Res<AudioChannel<ambition_actors::audio::SfxChannel>>>,
+        music: Option<Res<AudioChannel<ambition_audio::library::MusicChannel>>>,
+        sfx: Option<Res<AudioChannel<ambition_audio::library::SfxChannel>>>,
     ) {
         if !state.just_changed {
             return;

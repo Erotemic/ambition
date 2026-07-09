@@ -390,16 +390,16 @@ pub(crate) struct SystemMenuParams<'w> {
     // resource simply disables station audition (the rows still render). Gated on
     // `audio` so non-audio builds carry none of the types.
     #[cfg(feature = "audio")]
-    library: Option<ResMut<'w, ambition_actors::audio::AudioLibrary>>,
+    library: Option<ResMut<'w, ambition_audio::library::AudioLibrary>>,
     #[cfg(feature = "audio")]
     asset_server: Option<Res<'w, AssetServer>>,
     #[cfg(feature = "audio")]
-    music_state: Option<ResMut<'w, ambition_actors::audio::MusicPlaybackState>>,
+    music_state: Option<ResMut<'w, ambition_audio::library::MusicPlaybackState>>,
     #[cfg(feature = "audio")]
-    radio: Option<ResMut<'w, ambition_actors::audio::RadioStationState>>,
+    radio: Option<ResMut<'w, ambition_audio::library::RadioStationState>>,
     #[cfg(feature = "audio")]
     music_channel: Option<
-        Res<'w, bevy_kira_audio::prelude::AudioChannel<ambition_actors::audio::MusicChannel>>,
+        Res<'w, bevy_kira_audio::prelude::AudioChannel<ambition_audio::library::MusicChannel>>,
     >,
 }
 
@@ -435,7 +435,7 @@ impl SystemMenuParams<'_> {
                     self.music_channel.as_deref(),
                 ) {
                     if let Some(track_id) = library.track_at(index).map(|t| t.id.clone()) {
-                        ambition_actors::audio::set_radio_track(
+                        ambition_audio::library::set_radio_track(
                             library,
                             asset_server,
                             radio,
@@ -591,11 +591,11 @@ pub(crate) struct SystemMenuSnapshotParams<'w> {
     portal_camera: Option<Res<'w, ambition_portal_presentation::PortalCameraContinuitySelection>>,
     base_gravity: Option<Res<'w, ambition_actors::physics::BaseGravity>>,
     #[cfg(feature = "audio")]
-    library: Option<Res<'w, ambition_actors::audio::AudioLibrary>>,
+    library: Option<Res<'w, ambition_audio::library::AudioLibrary>>,
     #[cfg(feature = "audio")]
-    music_state: Option<Res<'w, ambition_actors::audio::MusicPlaybackState>>,
+    music_state: Option<Res<'w, ambition_audio::library::MusicPlaybackState>>,
     #[cfg(feature = "audio")]
-    radio: Option<Res<'w, ambition_actors::audio::RadioStationState>>,
+    radio: Option<Res<'w, ambition_audio::library::RadioStationState>>,
 }
 
 impl SystemMenuSnapshotParams<'_> {
@@ -631,9 +631,9 @@ impl SystemMenuSnapshotParams<'_> {
 /// single place that maps the audio runtime onto the SYSTEM IR's station list.
 #[cfg(feature = "audio")]
 fn radio_snapshot_from(
-    library: &ambition_actors::audio::AudioLibrary,
-    music_state: &ambition_actors::audio::MusicPlaybackState,
-    radio: Option<&ambition_actors::audio::RadioStationState>,
+    library: &ambition_audio::library::AudioLibrary,
+    music_state: &ambition_audio::library::MusicPlaybackState,
+    radio: Option<&ambition_audio::library::RadioStationState>,
 ) -> RadioSnapshot {
     let active_id = radio
         .and_then(|r| r.selected_track())

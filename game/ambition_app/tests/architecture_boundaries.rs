@@ -1387,6 +1387,23 @@ fn architecture_boundaries_f2_asset_vocab_consumers_use_lower_crates() {
     );
 }
 
+#[test]
+fn architecture_boundaries_audio_facade_consumers_use_audio_crate() {
+    assert_code_refs_absent(
+        &[app_src(), repo_root().join("crates/ambition_runtime/src")],
+        &[
+            "ambition_actors::audio::AudioLibrary",
+            "ambition_actors::audio::MusicPlaybackState",
+            "ambition_actors::audio::RadioStationState",
+            "ambition_actors::audio::MusicChannel",
+            "ambition_actors::audio::SfxChannel",
+            "ambition_actors::audio::set_radio_track",
+        ],
+        "F2 audio pass: pure playback vocabulary is owned by ambition_audio::library; \
+         ambition_actors::audio keeps only the sandbox audio plugin/environment adapter",
+    );
+}
+
 /// App-thinness (ADR 0019): the mobile / touch input adapter is a sibling ENGINE
 /// crate (`ambition_touch_input`), not host code inside the app binary. It carries
 /// no app-only coupling (only the `ambition_input`/`ambition_platformer_primitives`/

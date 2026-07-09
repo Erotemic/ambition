@@ -443,11 +443,11 @@ fn install_menu_setup_and_hotkeys(app: &mut App) {
     // platform-neutral so desktop and Android stay in sync unless a build profile
     // intentionally opts out of a backend.
     crate::menu::kaleidoscope_app::install_unified_menu_shared(app);
-    if ambition_actors::menu::backend::KALEIDOSCOPE_MENU_BACKEND_ENABLED {
+    if ambition_menu::backend::KALEIDOSCOPE_MENU_BACKEND_ENABLED {
         crate::menu::kaleidoscope_app::install_kaleidoscope_menu_backend(app);
     }
     #[cfg(feature = "bevy_ui_menu")]
-    if ambition_actors::menu::backend::BEVY_UI_MENU_BACKEND_ENABLED {
+    if ambition_menu::backend::BEVY_UI_MENU_BACKEND_ENABLED {
         crate::menu::grid_backend::install_grid_unified_menu(app);
     }
 }

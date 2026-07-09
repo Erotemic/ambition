@@ -8,7 +8,7 @@
 //! during play. Routing nav/selection input to it is the next step — see
 //! `dev/journals/oot-cube-integration-plan.md`.
 
-use ambition_actors::menu::backend::{InventoryUiBackend, KALEIDOSCOPE_MENU_BACKEND_ENABLED};
+use ambition_menu::backend::{InventoryUiBackend, KALEIDOSCOPE_MENU_BACKEND_ENABLED};
 use ambition_menu::{
     ActiveMenuPages, AmbitionInventoryUiPlugin, AmbitionMenuControl, MenuDynamicText,
     MenuDynamicTextContent, MenuVisualState,

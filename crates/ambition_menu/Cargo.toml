@@ -6,6 +6,11 @@ description = "Reusable Bevy inventory/menu UI data model and interaction primit
 license = "MIT OR Apache-2.0"
 publish = false
 
+[features]
+default = []
+bevy_ui_menu = ["bevy/ui_picking"]
+kaleidoscope_menu = []
+
 [dependencies]
 bevy = "0.18.1"
 # The bevy_lunex cube renderer moved to the `ambition_menu_kaleidoscope`

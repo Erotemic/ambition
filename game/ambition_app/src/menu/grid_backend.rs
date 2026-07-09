@@ -29,7 +29,7 @@ use crate::menu::model::{
     SYSTEM_VISIBLE_ROWS,
 };
 use crate::menu::quality_confirm::VisualQualityConfirmState;
-use ambition_actors::menu::backend::{InventoryUiBackend, BEVY_UI_MENU_BACKEND_ENABLED};
+use ambition_menu::backend::{InventoryUiBackend, BEVY_UI_MENU_BACKEND_ENABLED};
 use ambition_actors::persistence::settings::{SystemMenuModel, UserSettings, VisualQualityProfile};
 use ambition_actors::player::PlayerHealRequested;
 use ambition_input::MenuControlFrame;

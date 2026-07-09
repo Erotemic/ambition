@@ -9,13 +9,11 @@
 //! §10 for the full plan.
 //!
 //! Submodules:
-//! - [`backend`] — the `InventoryUiBackend` vocabulary that picks which compiled
-//!   frontend (Grid / cube) renders, collapsing to an available one per build.
+//! - backend selection (`InventoryUiBackend`) now lives in `ambition_menu::backend`.
 //! - [`ir`] — Ambition's concrete settings IR: the shared `SettingsOption`
 //!   model ([`ir::settings`]) and the System-menu layer ([`ir::system`]) that
 //!   the cube System face renders. Reads `crate::persistence::settings`.
 //! - [`map`] — the Map tab content (map / minimap state, hydration, and UI).
 
-pub mod backend;
 pub mod ir;
 pub mod map;

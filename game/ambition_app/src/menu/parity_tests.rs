@@ -430,7 +430,7 @@ mod dispatch_parity {
     use crate::menu::test_support::click_control as click;
     use ambition_actors::actor::BodyMana;
     use ambition_actors::actor::{PlayerEntity, PrimaryPlayer};
-    use ambition_actors::menu::backend::InventoryUiBackend;
+    use ambition_menu::backend::InventoryUiBackend;
     use ambition_actors::persistence::settings::{SystemMenuEntryId, UserSettings};
     use ambition_actors::player::PlayerHealRequested;
     use ambition_platformer_primitives::schedule::GameMode;

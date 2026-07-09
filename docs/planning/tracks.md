@@ -1754,3 +1754,5 @@ ambition_app --test architecture_boundaries`; `cargo check -p ambition_app
 - 2026-07-08 — F2 audio residual-glue facade burn-down: app menu/radio and Android lifecycle consumers now import pure playback vocabulary (`AudioLibrary`, `MusicPlaybackState`, `RadioStationState`, `MusicChannel`, `SfxChannel`, `set_radio_track`) from `ambition_audio::library` instead of `ambition_actors::audio`. The remaining actor-side audio surface is the sandbox composition plugin/environment detector, which still bridges actor water-contact facts, settings, schedule, and music intent.
 
 - 2026-07-08 — F2 schedule-label facade repoint: runtime/content/app/sim-view consumers now name canonical schedule labels (`SandboxSet`, `CombatSet`, `BossSteerSlot`, `PresentationSetupSet`, `SimulationSetupSet`) from `ambition_platformer_primitives::schedule` instead of `ambition_actors::schedule`. The actor schedule module remains only for the concrete sandbox set installer and input bridge systems.
+
+- F2 menu-backend facade slice: `InventoryUiBackend` and backend availability constants moved to `ambition_menu::backend`; app menu consumers no longer name `ambition_actors::menu::backend`.

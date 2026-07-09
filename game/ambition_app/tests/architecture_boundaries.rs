@@ -1408,6 +1408,21 @@ fn architecture_boundaries_f2_asset_vocab_consumers_use_lower_crates() {
     );
 }
 
+
+#[test]
+fn architecture_boundaries_menu_backend_vocab_consumers_use_menu_crate() {
+    assert_code_refs_absent(
+        &[app_src(), repo_root().join("crates/ambition_actors/src")],
+        &[
+            "ambition_actors::menu::backend",
+            "crate::menu::backend::InventoryUiBackend",
+            "crate::menu::backend::BEVY_UI_MENU_BACKEND_ENABLED",
+            "crate::menu::backend::KALEIDOSCOPE_MENU_BACKEND_ENABLED",
+        ],
+        "F2 menu-backend pass: InventoryUiBackend and backend availability constants live in ambition_menu::backend; actor menu keeps only map/settings adapter residue",
+    );
+}
+
 #[test]
 fn architecture_boundaries_audio_facade_consumers_use_audio_crate() {
     assert_code_refs_absent(

@@ -187,7 +187,10 @@ classes — log-once so the next sessions don't re-derive:
    and `set_radio_track`) to `ambition_audio::library`; the actor-side
    `audio` residue is now the sandbox `SandboxAudioPlugin` and environment
    detector that still joins actor contacts, settings, schedule, and music
-   intent.**
+   intent. **A menu-backend slice (Codex 2026-07-08) moved
+   `InventoryUiBackend` and backend-availability constants to
+   `ambition_menu::backend`; `ambition_actors::menu` now owns only the Map tab
+   and settings/map adapter residue, not presentation-backend vocabulary.**
 3. **FACADES (60 `pub use ambition_*` re-export sites in actors).** These are
    the deliberate hub-continuity aliases. The dissolution ratchet: **a facade
    may be deleted the moment `grep -rn "ambition_actors::<mod>"` outside

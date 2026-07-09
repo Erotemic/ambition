@@ -20,11 +20,11 @@ pub fn handle_map_menu_hotkeys(
     // Map page (`lunex_kaleidoscope_app::kaleidoscope_menu_open_routing`) instead of this standalone
     // panel, so suppress the `menu.map` open here. The `M`/`N`/zoom keys still drive
     // the panel directly for users who toggle back to the Grid backend.
-    kaleidoscope_backend: Option<Res<crate::menu::backend::InventoryUiBackend>>,
+    kaleidoscope_backend: Option<Res<ambition_menu::backend::InventoryUiBackend>>,
 ) {
     use bevy::input::keyboard::KeyCode;
     let kaleidoscope = kaleidoscope_backend
-        .map(|b| b.effective() == crate::menu::backend::InventoryUiBackend::LunexKaleidoscope)
+        .map(|b| b.effective() == ambition_menu::backend::InventoryUiBackend::LunexKaleidoscope)
         .unwrap_or(false);
     // The `menu.map` intent routes to the cube under the Cube backend; the `M` key
     // keeps toggling the standalone panel so it stays reachable for debugging.

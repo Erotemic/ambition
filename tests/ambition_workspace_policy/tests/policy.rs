@@ -33,7 +33,7 @@ fn engine_policies() {
     // Custom engine scanners share the compiled runner and the same Report.
     custom::module_size::run(&ws, &mut report);
     custom::determinism::run(&ws, Scope::Engine, &mut report);
-    // (control-frame appended in Task 8.)
+    custom::control_frame::run(&ws, Scope::Engine, &mut report);
     report.assert_ok();
 }
 
@@ -42,9 +42,10 @@ fn game_policies() {
     let ws = Workspace::discover();
     let mut report = Report::new(Scope::Game);
     run_declarative(&ws, Scope::Game, &mut report);
-    // The determinism scanner's game-scope roots (content + demo rules) run here,
-    // independently of the engine scope, though they share the compiled runner.
+    // The determinism + control-frame scanners' game-scope roots (content + demo
+    // rules) run here, independently of the engine scope.
     custom::determinism::run(&ws, Scope::Game, &mut report);
+    custom::control_frame::run(&ws, Scope::Game, &mut report);
     report.assert_ok();
 }
 
@@ -90,6 +91,8 @@ fn policy_runner_self_tests() {
     // Custom scanners' own poison.
     custom::module_size::poison_reacts(&Workspace::discover());
     custom::determinism::poison_self_tests();
+    custom::control_frame::poison_self_tests();
+    custom::control_frame::allowlist_is_justified();
 
     // The architecture-migration matrix is complete and honest.
     let ws = Workspace::discover();

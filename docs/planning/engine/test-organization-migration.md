@@ -172,6 +172,35 @@ rule 3; a real-config poison (`thread_rng()` injected into `ambition_engine_core
 reddens `engine.determinism` with file:line, confirming the shape real code uses.
 Old file deleted after parity.
 
+### Task 8 — custom ControlFrame scanner (LANDED)
+
+`crates/ambition_runtime/tests/control_frame_lint.rs` → `custom:control_frame`
+(scanner `src/custom/control_frame.rs`, config `policies/control_frame.toml`). The
+holder detection (`Res<…ControlFrame>`/`ResMut`/`World` access, enclosing-fn
+attribution, whole-word matching, `#[cfg(test)]` skipping) stays Rust; the
+justified allowlist (file + fn + bridge category + reason), scoped roots, excluded
+subpaths, and review marker moved to data. Bidirectional (unlisted holder AND
+stale allowlist entry fail) and scope-split (engine crates/* + game
+ambition_content run independently). A failure names the policy ID, owning crate,
+source path:line, enclosing fn, and the review mechanism.
+
+| old test fn (control_frame_lint.rs) | destination |
+| --- | --- |
+| `control_frame_holders_match_the_allowlist` | custom:`control_frame::run` (bidirectional) |
+| `every_allowlist_entry_is_justified` | custom:`control_frame::allowlist_is_justified` (why>40, Slot0Gesture ⇒ MULTIPLAYER TODO) |
+| `the_lint_catches_an_injected_sim_reader` | custom:`control_frame::poison_self_tests` |
+| `the_lint_catches_a_reader_written_through_any_import_path` | custom:`control_frame::poison_self_tests` |
+| `the_lint_ignores_near_misses` | custom:`control_frame::poison_self_tests` |
+| `the_lint_skips_cfg_test_modules` | custom:`control_frame::poison_self_tests` |
+| `the_review_marker_suppresses_a_holder` | custom:`control_frame::poison_self_tests` |
+| `reviewed_control_frame_exceptions_are_listed` | **removed** — println inventory of markers + Slot0Gesture entries; the Slot0Gesture-must-say-TODO check survives in `allowlist_is_justified` |
+
+Real-config poison: an unlisted `Res<ControlFrame>` holder injected into
+`ambition_actors` reddens `engine.control-frame` with fn + file:line + the fix.
+Determinism + control-frame are kept SEPARATE scanners (not merged into one generic
+parser) — the merge would not reduce code or preserve clarity. Old file deleted
+after parity.
+
 <!-- MIGRATION-MATRIX-END -->
 
 ## Commands (target model)

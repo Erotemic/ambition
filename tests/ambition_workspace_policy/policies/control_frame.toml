@@ -1,0 +1,131 @@
+# ControlFrame allowlist configuration (unified-actors step 5 / R6c guardrail).
+#
+# The invariant: the global `ControlFrame` is ONE player's device frame; only the
+# INPUT LAYER may hold it. A body/sim system that reads it is silently slot-0-only
+# (possession, co-op, netcode slot routing all break quietly).
+#
+# The SCANNER is Rust (src/custom/control_frame.rs) — the Res<>/ResMut<>/World
+# holder detection, enclosing-fn attribution, whole-word matching, and cfg(test)
+# skipping are too semantic for a generic rule. Only CONFIGURATION lives here: the
+# scoped sim roots, excluded subpaths, the review marker, and the justified
+# allowlist of holders (file + fn + bridge category + reason).
+#
+# Bidirectional, like the determinism lints: an unlisted holder fails, AND an
+# allowlist entry matching no holder fails (that is exactly how unified-actors.md
+# B3's holder list rotted). Roots are scoped so engine_policies (crates/*) and
+# game_policies (game/ambition_content) run independently off one scanner.
+
+source_doc = "docs/planning/engine/unified-actors.md"
+rationale = "ControlFrame allowlist: only the input layer may hold the global device frame; a body/sim holder is silently slot-0-only and breaks possession/co-op/netcode slot routing (N1). Every allowed holder is a justified input-layer bridge or a named multiplayer TODO."
+review_marker = "AMBITION_REVIEW(control_frame)"
+non_sim_subpaths = ["menu/", "dev/", "audio/", "assets/", "persistence"]
+
+# ── scoped sim roots ──────────────────────────────────────────────────────────
+[[root]]
+path = "crates/ambition_engine_core"
+scope = "engine"
+[[root]]
+path = "crates/ambition_platformer_primitives"
+scope = "engine"
+[[root]]
+path = "crates/ambition_time"
+scope = "engine"
+[[root]]
+path = "crates/ambition_entity_catalog"
+scope = "engine"
+[[root]]
+path = "crates/ambition_world"
+scope = "engine"
+[[root]]
+path = "crates/ambition_characters"
+scope = "engine"
+[[root]]
+path = "crates/ambition_combat"
+scope = "engine"
+[[root]]
+path = "crates/ambition_projectiles"
+scope = "engine"
+[[root]]
+path = "crates/ambition_portal"
+scope = "engine"
+[[root]]
+path = "crates/ambition_encounter"
+scope = "engine"
+[[root]]
+path = "crates/ambition_items"
+scope = "engine"
+[[root]]
+path = "crates/ambition_cutscene"
+scope = "engine"
+[[root]]
+path = "crates/ambition_interaction"
+scope = "engine"
+[[root]]
+path = "crates/ambition_sim_view"
+scope = "engine"
+[[root]]
+path = "crates/ambition_actors"
+scope = "engine"
+[[root]]
+path = "crates/ambition_runtime"
+scope = "engine"
+[[root]]
+path = "game/ambition_content"
+scope = "game"
+
+# ── the justified global-ControlFrame holders ─────────────────────────────────
+# bridge ∈ { device-to-frame, latch, frame-to-slot, intent-bridge, slot0-gesture }
+
+[[allow]]
+file = "crates/ambition_engine_core/src/control_frame.rs"
+func = "accumulate_control_frame_latch"
+bridge = "latch"
+why = "FEEL clock: folds this render frame's device sample into the tick latch. Runs in Update after every writer."
+
+[[allow]]
+file = "crates/ambition_engine_core/src/control_frame.rs"
+func = "publish_latched_control_frame"
+bridge = "latch"
+why = "TICK clock: publishes the latched frame as THIS tick's ControlFrame, at the head of the sim input phase, before any reader."
+
+[[allow]]
+file = "crates/ambition_actors/src/schedule/input_systems.rs"
+func = "populate_control_frame_from_actions"
+bridge = "device-to-frame"
+why = "THE device→frame bridge: leafwing ActionState → ControlFrame. If any system may hold this resource, it is this one."
+
+[[allow]]
+file = "crates/ambition_actors/src/control/input_systems.rs"
+func = "input_timer_system"
+bridge = "device-to-frame"
+why = "Derives edge/timer facts (dash double-tap window, buffered jump) from the raw device frame and writes them back into it. Still the input layer: it refines the frame before any body reads a slot."
+
+[[allow]]
+file = "crates/ambition_actors/src/control/input_systems.rs"
+func = "interaction_input_system"
+bridge = "frame-to-slot"
+why = "frame→slot bridge: recognizes the interact/double-tap-up gestures and writes SlotInteractionState, which is what bodies actually read."
+
+[[allow]]
+file = "crates/ambition_actors/src/control/slots.rs"
+func = "populate_slot_controls"
+bridge = "frame-to-slot"
+why = "THE frame→slot bridge: copies the one device frame into SlotControls[0]. N1 replaces this body with a per-slot fan-in; every downstream reader already speaks slots, which is why that change stays local."
+
+[[allow]]
+file = "crates/ambition_actors/src/abilities/traversal/possession.rs"
+func = "possession_trigger_system"
+bridge = "slot0-gesture"
+why = "MULTIPLAYER TODO (N1). A SIM system reading the device frame directly. The possession gesture (hold Down+Interact ~2s) is authored as slot 0's, which makes possession local-player-only: a second player could never possess anything. The fix is to read SlotInteractionState/SlotControls for the acting slot, exactly as interaction_input_system already does. Left as-is because rewriting the gesture is a behavior change, not a refactor; enumerated here so N1 has a checklist entry instead of a surprise."
+
+[[allow]]
+file = "game/ambition_content/src/portal/transit_adapter.rs"
+func = "sync_movement_intent_from_control"
+bridge = "intent-bridge"
+why = "frame→intent: copies the held movement axes into PlayerMovementIntent so ambition_portal's core never names ControlFrame. Runs in the input phase, before warp_portal_input."
+
+[[allow]]
+file = "game/ambition_content/src/portal/transit_adapter.rs"
+func = "apply_movement_intent_to_control"
+bridge = "intent-bridge"
+why = "intent→frame: writes the portal-warped axes back, so the brain and the movement pipeline see the adjusted stick exactly as they did when portal core mutated ControlFrame directly. Still the input phase."

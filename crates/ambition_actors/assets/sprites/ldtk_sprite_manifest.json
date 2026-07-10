@@ -1,24 +1,4 @@
 {
-  "entity_icons": {
-    "PlayerStart": {
-      "tile": [
-        0,
-        0,
-        256,
-        256
-      ],
-      "tileset": "sprite_player_robot"
-    }
-  },
-  "tilesets": [
-    {
-      "identifier": "sprite_player_robot",
-      "path": "crates/ambition_actors/assets/sprites/player_robot_spritesheet.png",
-      "tags": [
-        "sprite"
-      ],
-      "tile_height": 256,
-      "tile_width": 256
-    }
-  ]
+  "entity_icons": {},
+  "tilesets": []
 }

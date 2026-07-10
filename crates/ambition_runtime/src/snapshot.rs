@@ -620,9 +620,15 @@ impl SnapshotRegistry {
     }
 
     fn push(&mut self, name: &'static str, kind: EntryKind) {
-        debug_assert!(
+        // Identity invariant (audit H2/M3), enforced in EVERY build, not just debug:
+        // a duplicate registry name makes every by-name lookup in `take`/`restore`
+        // (`entries.iter().find(|e| e.name == ..)`) silently pick the FIRST match, so
+        // one of the two codecs never runs. Registration happens once at startup, so
+        // an unconditional check is free.
+        assert!(
             !self.entries.iter().any(|e| e.name == name),
-            "sim-state entry `{name}` registered twice"
+            "sim-state entry `{name}` registered twice — a duplicate registry name \
+             makes restore silently use only the first codec (audit H2)"
         );
         self.entries.push(StateEntry { name, kind });
     }
@@ -850,6 +856,25 @@ impl SimSnapshot {
         out
     }
 
+    /// `SimId`s that appear on more than one row of a single component — an ambiguous
+    /// roster. `sim_ids()` silently `dedup`s these away; this surfaces them so
+    /// `restore` can refuse a snapshot whose identity is not unique (audit H2). A
+    /// well-formed snapshot, taken from a world with unique identity, returns empty.
+    pub fn duplicate_ids(&self) -> Vec<String> {
+        let mut dups = std::collections::BTreeSet::new();
+        for (_, blob) in &self.entries {
+            if let EntryBlob::Component(rows) = blob {
+                let mut seen = std::collections::BTreeSet::new();
+                for (k, _) in rows {
+                    if !seen.insert(k.as_str()) {
+                        dups.insert(k.clone());
+                    }
+                }
+            }
+        }
+        dups.into_iter().collect()
+    }
+
     /// Total bytes of state. A rollback window is a memory budget.
     pub fn size_bytes(&self) -> usize {
         self.entries
@@ -888,6 +913,24 @@ pub fn take(world: &World, registry: &SnapshotRegistry) -> SimSnapshot {
         }
     }
     SimSnapshot { tick, entries }
+}
+
+/// **Every `SimId` carried by more than one live entity, with its count, sorted.**
+///
+/// This is the single identity-roster check the audit (H2) asked for. Identity MUST be
+/// unique: a duplicate means a spawn site minted the same id twice, and every by-id
+/// lookup — `restore`, the ledgers — would otherwise pick one entity arbitrarily and
+/// silently. `restore` calls this and refuses a world where it is non-empty; the SimId
+/// ledger can call it to catch a duplicating spawner before a rewind ever runs. Empty
+/// is the healthy case.
+pub fn duplicate_live_ids(world: &mut World) -> Vec<(String, usize)> {
+    let mut counts: std::collections::BTreeMap<String, usize> = std::collections::BTreeMap::new();
+    if let Some(mut q) = world.try_query::<&SimId>() {
+        for id in q.iter(world) {
+            *counts.entry(id.as_str().to_string()).or_insert(0) += 1;
+        }
+    }
+    counts.into_iter().filter(|(_, n)| *n > 1).collect()
 }
 
 /// What `restore` did, and what it could not rewind.
@@ -1034,10 +1077,28 @@ pub fn restore(
 ) -> RestoreReport {
     let stale_components = registry.unclaimed_components(world);
 
-    // Index the live world by identity. `SimId` is unique by construction; a
-    // duplicate means a spawn site minted the same id twice, and the later entity
-    // wins here exactly as it would win any other lookup — a bug to find upstream,
-    // not to paper over with a merge rule.
+    // **Identity invariant (audit H2), enforced BEFORE any lookup map is built.**
+    // A `SimId` carried by two live entities, or two snapshot rows, makes every by-id
+    // lookup pick one arbitrarily — the exact silent corruption N3.1 depends on not
+    // happening. The old code indexed into a map where "later wins" and delegated the
+    // bug upstream; it is a bug, so restore refuses it here rather than patch a coin-flip.
+    let live_dups = duplicate_live_ids(world);
+    assert!(
+        live_dups.is_empty(),
+        "restore: {} SimId(s) carried by more than one live entity — identity is not \
+         unique and no lookup can be trusted. Fix the spawn site (a duplicated \
+         `SimId::spawned`/placement id). Collisions (id, count): {live_dups:?}",
+        live_dups.len(),
+    );
+    let snap_dups = snapshot.duplicate_ids();
+    assert!(
+        snap_dups.is_empty(),
+        "restore: the snapshot's roster is ambiguous — these SimId(s) appear on more \
+         than one row of a component: {snap_dups:?}. It was taken from a world whose \
+         identity was already not unique.",
+    );
+
+    // Now the map is unambiguous: every id appears once, so no insert overwrites.
     let mut live: std::collections::BTreeMap<String, Entity> = std::collections::BTreeMap::new();
     if let Some(mut q) = world.try_query::<(Entity, &SimId)>() {
         for (entity, id) in q.iter(world) {
@@ -3277,6 +3338,56 @@ mod tests {
         assert!(
             !ids.contains(&"ghost".to_string()),
             "the future was forgotten"
+        );
+    }
+
+    /// **Identity is unique, and restore refuses a world where it is not** (audit H2).
+    ///
+    /// Two live entities carrying one `SimId` make every by-id lookup pick one at
+    /// random — the silent corruption the old "later wins" map delegated upstream.
+    /// `duplicate_live_ids` names the collision, and `restore` refuses (panics in every
+    /// build) rather than patch an arbitrary one. Poison test for the identity
+    /// invariant, in the same commit as the enforcement (poison-test atomicity rule).
+    #[test]
+    fn restore_refuses_a_world_with_two_entities_of_one_identity() {
+        let reg = engine_registry();
+        let mut world = sim_world();
+        let snap = take(&world, &reg);
+
+        // A SECOND entity claims an id that already exists.
+        world.spawn((SimId::placement("boss-1"), kin(Vec2::ZERO, Vec2::ZERO)));
+
+        // The detector names the collision precisely...
+        assert_eq!(
+            duplicate_live_ids(&mut world),
+            vec![("placement:boss-1".to_string(), 2)],
+            "the identity-roster check must name the duplicated id and its count"
+        );
+
+        // ...and restore refuses rather than corrupt. Suppress the backtrace: this
+        // panic is expected, and an alarming trace on a passing test is noise.
+        let prev = std::panic::take_hook();
+        std::panic::set_hook(Box::new(|_| {}));
+        let refused = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            restore(&mut world, &snap, &reg)
+        }));
+        std::panic::set_hook(prev);
+        assert!(
+            refused.is_err(),
+            "restore must refuse a duplicated identity, not silently patch one of the two"
+        );
+    }
+
+    /// The snapshot's own roster must be unambiguous: `duplicate_ids` surfaces the
+    /// duplicates `sim_ids` dedups away, so restore can refuse a malformed snapshot.
+    #[test]
+    fn a_snapshot_roster_surfaces_its_duplicate_ids() {
+        let reg = engine_registry();
+        let world = sim_world();
+        let good = take(&world, &reg);
+        assert!(
+            good.duplicate_ids().is_empty(),
+            "a snapshot of a unique-identity world has no duplicate rows"
         );
     }
 

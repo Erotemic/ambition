@@ -98,6 +98,8 @@ const SANIC_CATALOG_RON: &str = r#"(
     },
 )"#;
 
+pub mod ball_dash;
+
 /// Content plugin for the Sanic movement demo: installs the roster, the world,
 /// and the engine's own sim-world setup. This is the shape
 /// `crates/ambition_host/tests/demo_shell_smoke.rs` prescribes, built through the
@@ -193,15 +195,24 @@ impl Plugin for SanicRulesPlugin {
     fn build(&self, app: &mut App) {
         use bevy::prelude::IntoScheduleConfigs;
         let sim = ambition::platformer::schedule::SimScheduleExt::sim_schedule(app);
+        app.init_resource::<ball_dash::BallDashTuning>();
+        // The ball dash is a RULE, not world content: it exists while the Sanic
+        // mode is live and nowhere else, exactly like the act clock. Ordered
+        // before `tick_rolling` so a launch and its un-balling can never share a
+        // frame — a body that just launched is above `exit_speed` by definition,
+        // but the ordering says so rather than relying on the tuning.
+        let rules = (
+            spawn_sanic_mode_owner,
+            tick_sanic_act,
+            ball_dash::attach_ball_dash,
+            ball_dash::tick_ball_dash,
+            ball_dash::tick_rolling,
+        )
+            .chain();
         if self.hosted {
-            app.add_systems(
-                sim,
-                (spawn_sanic_mode_owner, tick_sanic_act)
-                    .chain()
-                    .run_if(ambition::runtime::in_mode(SANIC_MODE)),
-            );
+            app.add_systems(sim, rules.run_if(ambition::runtime::in_mode(SANIC_MODE)));
         } else {
-            app.add_systems(sim, (spawn_sanic_mode_owner, tick_sanic_act).chain());
+            app.add_systems(sim, rules);
         }
     }
 }

@@ -327,6 +327,25 @@ fn step_riding(
     }
 }
 
+/// Is `s` clamped to an OPEN chain's endpoint with the body's tangential velocity
+/// pointing off it?
+///
+/// `SurfaceChain::project` clamps arc length into `[0, total_length]`, so a body
+/// that is physically past the end still projects TO the end. Landing there
+/// re-attaches it at the last vertex, the ride step launches it off the same
+/// vertex next tick, and the pair form a two-frame limit cycle: the body hovers
+/// at the lip with its position frozen. Closed chains (and every block boundary)
+/// have no ends and are never affected.
+fn leaving_an_open_end(chain: &SurfaceChain, s: f32, v_t: f32) -> bool {
+    if chain.closed {
+        return false;
+    }
+    // A body landing exactly on an endpoint with v_t pointing INWARD (or at rest)
+    // is a legitimate landing at the tip of a ramp, and must still attach.
+    const END_EPS: f32 = 1e-3;
+    (s <= END_EPS && v_t < 0.0) || (s >= chain.total_length() - END_EPS && v_t > 0.0)
+}
+
 /// Leave the surface with the tangent momentum (plus the chain's own motion).
 fn shed(body: &mut SurfaceBody, chain: &SurfaceChain, tangent: Vec2, v_t: f32, dt: f32) {
     body.vel = v_t * tangent + per_frame_to_per_sec(chain.velocity, dt);
@@ -454,8 +473,12 @@ fn step_airborne(
     body.vel += gravity * dt;
     let run = inputs.run.clamp(-1.0, 1.0);
     if run.abs() > 0.1 {
-        let g_dir = gravity.normalize_or_zero();
-        let side = Vec2::new(-g_dir.y, g_dir.x);
+        // The local side axis is the along-surface tangent of the FLOOR a body
+        // would be standing on, and a floor's normal is `-gravity`. Using
+        // `tangent_of(gravity)` here — the exact negation — mirrored air control
+        // for every momentum body. `AccelerationFrame::new(gravity).side` is the
+        // same vector; `tangent_of` names why.
+        let side = crate::frame::tangent_of(-gravity.normalize_or_zero());
         let along = body.vel.dot(side);
         let target = run * params.top_speed;
         // Equilibrium steering: accelerate toward the held direction up to
@@ -487,11 +510,20 @@ fn step_airborne(
                 let surface = surface.as_ref();
                 let (s, _) = surface.project(body.pos);
                 let f = surface.frame_at(s);
-                body.pos = f.point + f.normal * body.radius;
                 let rel = body.vel - per_frame_to_per_sec(surface.velocity, dt);
                 let v_t = rel.dot(f.tangent);
-                body.motion = SurfaceMotion::Riding { on, s, v_t };
-                body.vel = v_t * f.tangent + per_frame_to_per_sec(surface.velocity, dt);
+                if leaving_an_open_end(surface, s, v_t) {
+                    // The body already walked off this chain's end and is moving
+                    // AWAY from it. `project` clamps `s` to the end, so attaching
+                    // here would snap it back onto the last vertex — from which
+                    // the ride step immediately launches it again, at the same
+                    // point, forever. A body hovering in place at the lip of a
+                    // ledge is what that looks like on screen. Fall.
+                } else {
+                    body.pos = f.point + f.normal * body.radius;
+                    body.motion = SurfaceMotion::Riding { on, s, v_t };
+                    body.vel = v_t * f.tangent + per_frame_to_per_sec(surface.velocity, dt);
+                }
             } else {
                 // Deflect: kill the into-surface velocity component; the
                 // remainder of this frame's motion is dropped (one swept
@@ -694,6 +726,22 @@ mod tests {
         SurfaceChain::open(
             "valley",
             vec![
+                Vec2::new(0.0, 0.0),
+                Vec2::new(400.0, 300.0),
+                Vec2::new(800.0, 300.0),
+                Vec2::new(1200.0, 0.0),
+            ],
+        )
+    }
+
+    /// [`valley`] with its left ramp extended 500px further up the SAME line, so a
+    /// body braking back up it never reaches the chain's open end. Only the C4
+    /// symmetry rig needs this; the open-end launch has its own tests.
+    fn long_valley() -> SurfaceChain {
+        SurfaceChain::open(
+            "valley-long",
+            vec![
+                Vec2::new(-400.0, -300.0), // collinear with (0,0)->(400,300)
                 Vec2::new(0.0, 0.0),
                 Vec2::new(400.0, 300.0),
                 Vec2::new(800.0, 300.0),
@@ -1155,7 +1203,17 @@ mod tests {
         let rot = |p: Vec2| Vec2::new(p.y, -p.x) + Vec2::new(0.0, 2000.0);
         let rot_v = |p: Vec2| Vec2::new(p.y, -p.x);
 
-        let chain_a = valley();
+        // The valley with 500px of extra runway PREPENDED along the same line as
+        // its left ramp — geometrically identical where the body travels, and
+        // `ride(.., 510.0, ..)` starts it at the exact world point `s = 10` named
+        // on the bare `valley()`. The runway exists because the braking phase
+        // below used to park the body on the chain's OPEN LEFT END, where whether
+        // it sheds this frame or next is decided by f32 rounding. A symmetry test
+        // must not straddle a discrete knife edge: the two rotated runs would
+        // disagree by a whole frame of state, which says nothing about symmetry.
+        // (Found when the airborne air-control sign was corrected below; the old
+        // mirrored sign happened to shove the body back onto the ramp.)
+        let chain_a = long_valley();
         let chain_b = SurfaceChain::open(
             "valley-rot",
             chain_a.points.iter().map(|&p| rot(p)).collect(),
@@ -1166,8 +1224,8 @@ mod tests {
         let g_a = G;
         let g_b = rot_v(G);
 
-        let mut a = ride(0, 10.0, 0.0, &world_a, 14.0);
-        let mut b = ride(0, 10.0, 0.0, &world_b, 14.0);
+        let mut a = ride(0, 510.0, 0.0, &world_a, 14.0);
+        let mut b = ride(0, 510.0, 0.0, &world_b, 14.0);
         for frame in 0..600 {
             let input = SurfaceInputs {
                 // Scripted input: run right for 2s, coast, then brake.
@@ -1446,5 +1504,164 @@ mod tests {
             y0,
             body.pos.y
         );
+    }
+
+    /// **Air control must push the way the stick points.** `tangent_of` is the ONE
+    /// handedness definition in the engine: the along-surface axis of a FLOOR is
+    /// `tangent_of(floor_normal)`, and a floor's normal is `-gravity`. The airborne
+    /// branch built its side axis from `tangent_of(gravity)` instead — the exact
+    /// negation — so holding right in mid-air accelerated a momentum body LEFT.
+    ///
+    /// Nothing caught it because no test held a direction in the air: every
+    /// airborne test here is ballistic or a landing. Sanic's ball dash is what
+    /// finally read the airborne side axis (demos/sanic.md), and it read it wrong
+    /// on purpose, to match the kernel — which is how the kernel got audited.
+    #[test]
+    fn airborne_air_control_pushes_toward_the_held_direction() {
+        let world = world_with_chains(vec![]);
+        let params = MomentumParams::default();
+        let gravity = Vec2::new(0.0, 900.0); // +y is down
+
+        for (run, expect_sign) in [(1.0_f32, 1.0_f32), (-1.0, -1.0)] {
+            let mut body = SurfaceBody::new(Vec2::new(0.0, 0.0), 14.0);
+            for _ in 0..30 {
+                step_surface_body(
+                    &mut body,
+                    &world,
+                    &params,
+                    gravity,
+                    SurfaceInputs {
+                        run,
+                        jump_pressed: false,
+                    },
+                    1.0 / 60.0,
+                    None,
+                );
+            }
+            assert!(
+                body.vel.x * expect_sign > 0.0,
+                "held run={run}, drifted vel.x={} — air control is mirrored",
+                body.vel.x
+            );
+        }
+    }
+
+    /// The same statement, frame-agnostically: under rotated gravity the side axis
+    /// is still `tangent_of(-gravity)`, so `run` means "toward the body's own
+    /// local right", never "toward screen +x".
+    #[test]
+    fn airborne_air_control_is_gravity_relative() {
+        let world = world_with_chains(vec![]);
+        let params = MomentumParams::default();
+        // Gravity points LEFT: local "down" is -x, so local "right" is -y (up-screen).
+        let gravity = Vec2::new(-900.0, 0.0);
+        let expected_side = crate::frame::tangent_of(-gravity.normalize());
+
+        let mut body = SurfaceBody::new(Vec2::ZERO, 14.0);
+        for _ in 0..30 {
+            step_surface_body(
+                &mut body,
+                &world,
+                &params,
+                gravity,
+                SurfaceInputs {
+                    run: 1.0,
+                    jump_pressed: false,
+                },
+                1.0 / 60.0,
+                None,
+            );
+        }
+        assert!(
+            body.vel.dot(expected_side) > 0.0,
+            "vel={:?} should have a positive component along the local side axis {expected_side:?}",
+            body.vel
+        );
+    }
+
+    /// **A body that runs off the end of a flat chain must FALL, not hover.**
+    ///
+    /// The launch places it exactly at the end vertex, one radius above the
+    /// surface, moving horizontally. `project` clamps arc length to the chain, so
+    /// the next airborne sweep re-attached it at that same vertex, from which the
+    /// ride step launched it again — a two-frame limit cycle with the position
+    /// frozen at the lip. Nothing caught it because the ONE flat-chain-end
+    /// scenario in the suite ran a MIRRORED air-control sign (fixed above) that
+    /// shoved the body back over the chain instead of off it. Two bugs holding
+    /// each other up.
+    #[test]
+    fn running_off_a_flat_chains_end_falls_instead_of_hovering_at_the_lip() {
+        let floor = SurfaceChain::open(
+            "floor",
+            vec![Vec2::new(0.0, 600.0), Vec2::new(1500.0, 600.0)],
+        );
+        let world = world_with_chains(vec![floor]);
+        let params = MomentumParams::default();
+        // Riding at the top speed the params allow, one tick from the end.
+        let mut body = ride(0, 1480.0, params.top_speed, &world, 15.0);
+
+        let mut left_the_chain_at = None;
+        for frame in 0..240 {
+            step_surface_body(
+                &mut body,
+                &world,
+                &params,
+                Vec2::new(0.0, 1450.0),
+                SurfaceInputs {
+                    run: 1.0,
+                    jump_pressed: false,
+                },
+                DT,
+                None,
+            );
+            if !body.riding() && left_the_chain_at.is_none() {
+                left_the_chain_at = Some(frame);
+            }
+        }
+        let launched = left_the_chain_at.expect("must leave the chain");
+        assert!(launched < 10, "left the chain at frame {launched}");
+        assert!(!body.riding(), "and it never re-attaches to the lip");
+        assert!(
+            body.pos.x > 1500.0,
+            "it carried its momentum past the end: x={}",
+            body.pos.x
+        );
+        assert!(
+            body.pos.y > 600.0,
+            "and gravity took it BELOW the floor plane rather than pinning it at \
+             the lip: y={}",
+            body.pos.y
+        );
+    }
+
+    /// The guard is one-directional: a body landing on a chain's last vertex while
+    /// moving back ONTO the chain still attaches. Otherwise every ramp tip would
+    /// become un-standable.
+    #[test]
+    fn landing_on_the_tip_of_a_ramp_while_moving_inward_still_attaches() {
+        let floor = SurfaceChain::open(
+            "floor",
+            vec![Vec2::new(0.0, 600.0), Vec2::new(1500.0, 600.0)],
+        );
+        let world = world_with_chains(vec![floor]);
+        let params = MomentumParams::default();
+        // Falling onto the very end of the chain, drifting LEFT (back onto it).
+        let mut body = SurfaceBody::new(Vec2::new(1499.0, 560.0), 15.0);
+        body.vel = Vec2::new(-50.0, 200.0);
+        for _ in 0..30 {
+            step_surface_body(
+                &mut body,
+                &world,
+                &params,
+                Vec2::new(0.0, 1450.0),
+                SurfaceInputs {
+                    run: 0.0,
+                    jump_pressed: false,
+                },
+                DT,
+                None,
+            );
+        }
+        assert!(body.riding(), "a landing at the tip is a landing");
     }
 }

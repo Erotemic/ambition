@@ -105,9 +105,11 @@ player-visible bugs, and the untouched determinism ladder.
    this is an enumerated delta, not a new rig. Ranked below the above because
    it is a test rig, not a feature.
 
-8. **Bookkeeping** [sonnet]: re-baseline the ledger (or rule that the adapter
-   floor IS the floor); reconstruct or rewrite playbook exit 5; write
-   `MODULES.md` per crate (D-B).
+8. **Bookkeeping** [sonnet]: ~~re-baseline the ledger~~ **DONE** (the alarm was a
+   counting error — production is 36.3k, at the projected floor; the adapter
+   floor IS the floor); ~~reconstruct or rewrite playbook exit 5~~ **DONE**
+   (rewritten as four measured, ratchetable rebuild loops); write `MODULES.md`
+   per crate (D-B) — **still open**.
 
 **Deliberately NOT next:** CM6 and N1 (both land with the SSB demo, P4);
 projectile steppers (blocked by design until their inputs are plain); the
@@ -118,7 +120,7 @@ CC4 (profile first); CC7 P3a.
 
 | Track | Doc | Status | Next |
 |---|---|---|---|
-| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | **COMPLETE** — E1–E9, W1–W4, and the F1–F9 audit queue all executed; the demo gate is open, the umbrella crate exists, `placements` is the sole authored-entity channel | ledger drift (below); then D-B/D-C |
+| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | **COMPLETE** — E1–E9, W1–W4, and the F1–F9 audit queue all executed; the demo gate is open, the umbrella crate exists, `placements` is the sole authored-entity channel. **Ledger re-baselined + exit 5 rewritten (2026-07-09): playbook exits 1, 2, 4, 5 all met; only exit 3 (a demo binary) is open** | D-C mode scope; D-B `MODULES.md` |
 | Decomposition D-B | same | navigability standard: no module >1.5k ✅, hub globs dissolved ✅, **`MODULES.md` missing in every crate** | write `MODULES.md` per crate [sonnet] |
 | Decomposition D-C | same | **NOT STARTED** — the mode-scope seam (`RoomMetadata.mode` + `in_mode("sanic")` run-condition). Demos want it; it can land early | the room-scoped run-condition helper [opus] |
 | Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | CC1 + CC2 + CC5 + CC6 (moving portals) LANDED | **CC3** — the enumerated delta from the 3-check diagnostic to the six-invariant oracle (§6.1); diagnostic-only, Jon defers hard gating [opus]. Then CC4 (profile first; NOT a CC1–CC3 precondition), CC7 P3a angled math |
@@ -138,19 +140,26 @@ Jon's open questions (Q1/Q2/Q3/Q5) live in [`roadmap.md`](roadmap.md).
 
 ## Drift findings (the plan vs. the measured code)
 
-- **The residual ledger is wrong.** [decomposition.md](engine/decomposition.md)
-  projects `ambition_actors` bottoming out at ≈31–35k and calls that "the
-  DELIBERATE floor". Measured 2026-07-09: **63.5k src**. Only ~31k of the
-  projected ~64k actually left. Each carve moved the pure half and left an
-  adapter shell (`boss_encounter/` 5.5k, `character_sprites/` 2.7k,
-  `world/` 1.8k, `projectile/` 1.8k, `dev/` 1.6k, `items/` 1.5k,
-  `encounter/` 1.5k), and `features/` grew to 25k against a projected
-  20.6k. Needs either a re-measured ledger or an explicit ruling that the
-  adapter floor IS the floor.
-- **Playbook exit 5 cannot be met as written.** It requires a hot-path
-  incremental rebuild "measurably below the monolith baseline recorded
-  before D-A" — that baseline was never recorded. Reconstruct it or
-  rewrite the criterion.
+- ~~**The residual ledger is wrong.**~~ **RESOLVED (opus, 2026-07-09): the
+  ALARM was wrong, not the ledger.** The "63.5k" figure counted TEST code as
+  residual. `ambition_actors` is 64.0k lines of which **27.8k are tests**
+  (`tests.rs`, `tests/`, and inline `#[cfg(test)] mod` blocks); production is
+  **36.3k**, landing on the projected 31–35k floor. `features/` is 15.0k
+  production against a 20.6k projection — under, not over. **RULING: the adapter
+  floor IS the floor.** No further carve is owed by the ledger; `abilities/`
+  (2.1k prod) stays a discretionary D-B candidate on its own merits.
+  **Standing rule: every LOC ledger splits production from test lines** — this
+  crate is 43% test code, and a table that hides that mis-prices every carve
+  decision made against it, as this one did.
+- ~~**Playbook exit 5 cannot be met as written.**~~ **REWRITTEN and met (opus,
+  2026-07-09).** A relative criterion against a baseline nobody recorded is not
+  a criterion, and a pre-D-A checkout would now time a different Bevy. Replaced
+  with four measured, absolute, ratchetable rebuild loops (see
+  [decomposition.md](engine/decomposition.md) exit 5). The headline: editing
+  CONTENT rebuilds the app in **9.4 s** — the decomposition's actual payoff —
+  editing a leaf sim module rebuilds `ambition_actors` in **3.2 s**, and the
+  full play loop after a sim edit is **104 s**, which is the residual cost of
+  everything above `ambition_actors` relinking.
 - **Playbook exit 3 is Jon-gated, not agent-gated.** A demo app building
   from runtime+host+content with zero engine edits needs a demo binary;
   fable ruled the feel half interactive.
@@ -247,6 +256,13 @@ violation gets a row here + a slice in the right doc.)*
 - **fable** — **the F9.2 IR-consolidation arc, families 1–6, CLOSED.** Interactables → pickups → chests → breakables were Tier-0 MOVES into `entity_catalog::placements` (one pure type, no schema/world mirror). Portals were the deliberate `Vec2` exception, done as a Tier-0 `PortalSchema` mirror whose lowering DERIVES the face center from the record's `aabb.center()`. Hazards closed the arc: `convert_damage_volume` now LIFTS a legacy inline `motion: KinematicPath` to a synthesized room-level path (`{iid}__inline_motion`) referenced by `path_id`, behavior-preserving. **`RoomSpec` carries zero typed per-family Vecs, there are zero typed spawn loops, and the dual-emit guard is DELETED — `placements` is the sole authored-entity channel.** A future authored family adds ONE `PlacementSchema` variant + one lowering interpreter.
 - **fable** — F9.1: `ambition_demo_sanic` authors a real momentum showcase room (`sanic_speedway` — long solid floor + a rideable loop as an interior-winding `SurfaceChain`) built entirely through the `ambition` umbrella, with a headless test that composes it and runs the engine's own chain validator. **The oracle held — nothing was missing from the re-exports.** RULING: the FEEL half (momentum tuning to a Sanic identity, a playable binary, character art) is a fundamentally interactive build and cannot be responsibly completed headlessly.
 - **Jon** — the CC6 content-side host adapter committed. (`c9ef23d8`)
+- **opus** — bookkeeping, two of three: **the residual-ledger alarm was a counting
+  error** (63.5k counted 27.8k of test code; production is 36.3k, on the projected
+  floor) — the adapter floor IS the floor, and every future ledger splits
+  production from test lines. **Playbook exit 5 rewritten** from a comparison
+  against a lost baseline into four measured, absolute, ratchetable rebuild
+  loops; content authoring rebuilds the app in 9.4 s. `MODULES.md` per crate
+  remains open.
 - **opus** — **N0.2 INPUT STREAM.** `engine_core::InputStream` is the one per-tick
   input artifact (versioned, serde, `SimTick`-keyed, contiguous, validated), and
   `runtime::InputStreamRecorder` the one capture path — recording the frame the

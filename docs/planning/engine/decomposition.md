@@ -76,37 +76,51 @@ violating them is wrong even when it compiles and reads cleaner to you:
 
 ---
 
-## THE LEDGER — measured 2026-07-09 (supersedes the 2026-07-06 projection)
+## THE LEDGER — RE-BASELINED 2026-07-09 (the "63.5k" alarm was a counting error)
 
-Every carve landed. Every carve also left an adapter shell behind, and the
-2026-07-06 projection did not model that. **The old numbers said the residual
-would bottom out at ≈31–35k and called it "the deliberate floor". It is
-63.5k.** Only ~31k of the projected ~64k actually left `ambition_actors`.
+**The open question below is CLOSED, and the 2026-07-06 projection was right.**
+The 2026-07-09 alarm — "the residual should have bottomed out at ≈31–35k, it is
+63.5k" — counted TEST code as residual. `ambition_actors` is 64.0k lines of
+which **27.8k are tests** (files named `tests.rs`, `tests/` directories, and
+inline `#[cfg(test)] mod` blocks). Its **production code is 36.3k**, which lands
+on the projected floor, not at twice it. Only the adapter shells overshoot, and
+each by ~1k, not by 3k.
+
+**Standing rule for every future ledger: split production from test lines.**
+`ambition_actors` is 43% test code. Any LOC table that does not say so will
+mis-price every carve decision made against it — as this one did, and as the
+"is there a real carve left in `features/` 25k?" question did (there is 15.0k of
+production code in `features/`, against a 20.6k projection: it is UNDER).
 
 `ambition_actors` src, by subdirectory:
 
-| Subdir | LOC | Shape |
-|---|---:|---|
-| `features/` | 25.0k | the real actor domain (spawn/tick/perception/damage-routing/mount/bosses) + the surviving glue |
-| `player/` | 6.6k | the last structural player-centrism; folds at S5/S6 |
-| `boss_encounter/` | 5.5k | adapter residue after the E6 three-way split |
-| `abilities/` | 4.1k | D-B carve candidate (`ambition_abilities`), iff measurement is clean |
-| `character_sprites/` | 2.7k | actor/content join: animation pickers, authored hitbox resolution, catalog-aware loading |
-| `world/` | 1.8k | overlay rebuild (reads live feature components) + the avian physics adapter |
-| `projectile/` | 1.8k | the three woven steppers (charge input, victim routing, world collision) |
-| `dev/` `items/` `encounter/` | 4.6k | sim-coupled adapters for their carved crates |
-| rest | ~11k | time, session, body_mode, portal glue, gravity, roster, shrine, cutscene, assets tail |
+| Subdir | prod | test | Shape |
+|---|---:|---:|---|
+| `features/` | 15.0k | 10.4k | the real actor domain (spawn/tick/perception/damage-routing/mount/bosses) + the surviving glue |
+| `player/` | 4.3k | 2.4k | the last structural player-centrism; folds at S5/S6 |
+| `boss_encounter/` | 2.9k | 2.5k | adapter residue after the E6 three-way split |
+| `abilities/` | 2.1k | 1.9k | D-B carve candidate (`ambition_abilities`), iff measurement is clean |
+| `character_sprites/` | 1.3k | 1.4k | actor/content join: animation pickers, authored hitbox resolution, catalog-aware loading |
+| `persistence/` | 1.2k | 0.1k | save-adjacent adapter |
+| `world/` | 1.1k | 0.8k | overlay rebuild (reads live feature components) + the avian physics adapter |
+| `items/` `dev/` | 2.1k | 1.1k | sim-coupled adapters for their carved crates |
+| `encounter/` `projectile/` | 1.6k | 1.5k | wave adapter; the three woven steppers |
+| rest | ~4.7k | ~5.7k | time, session, body_mode, portal glue, gravity, roster, shrine, cutscene, assets tail, menu |
+| **total** | **36.3k** | **27.8k** | |
 
-Destination crates today: `engine_core` 17.5k, `characters` 17.0k, `combat`
-9.5k, `render` 9.4k, `portal_presentation` 6.5k, `sprite_sheet` 6.0k, `portal`
-5.3k, `ldtk_map` 5.0k, `primitives` 4.1k, `asset_manager` 4.0k, `persistence`
-3.7k, `world` 2.9k, `audio` 2.9k, `sim_view` 2.8k, `menu` 2.4k; nothing else
-exceeds ~2.3k. `game/ambition_app` is 20.7k (its `menu/` stayed app-side by the
-E1e ruling — the host stack + grid backend couple up to items/player/sfx).
+Destination crates today (unsplit, 2026-07-06 measure): `engine_core` 17.5k,
+`characters` 17.0k, `combat` 9.5k, `render` 9.4k, `portal_presentation` 6.5k,
+`sprite_sheet` 6.0k, `portal` 5.3k, `ldtk_map` 5.0k, `primitives` 4.1k,
+`asset_manager` 4.0k, `persistence` 3.7k, `world` 2.9k, `audio` 2.9k, `sim_view`
+2.8k, `menu` 2.4k; nothing else exceeds ~2.3k. `game/ambition_app` is 20.7k (its
+`menu/` stayed app-side by the E1e ruling — the host stack + grid backend couple
+up to items/player/sfx).
 
-**Open question for the next structural session:** is the adapter floor THE
-floor (in which case re-baseline the ledger and say so), or is there a real
-carve left in `features/` 25k? Do not pre-commit — re-measure (U1).
+**RULING: the adapter floor IS the floor.** No further carve is owed by the
+ledger. `abilities/` (2.1k production) remains a *discretionary* D-B candidate on
+its own merits, not because a number demands it. The remaining `features/` work
+is the S5/S6 player fold and the unified-actor track, which are structural, not
+size-driven.
 
 **Efficiency (why the split costs the game nothing):** crate boundaries are
 COMPILE-TIME structure — the same systems run in the same schedule (E5's carve
@@ -255,7 +269,32 @@ plugins). Mode resources live on a mode-owner entity carrying
    ruled interactive work (feel cannot ship headless).
 4. ✅ Workspace green: `cargo test --workspace --all-targets --features
    rl_sim` — 44/44 suites, zero failures as of 2026-07-09.
-5. ❌ **Cannot be met as written.** It requires a hot-path incremental rebuild
-   "measurably below the monolith baseline recorded before D-A" — that
-   baseline was never recorded. Reconstruct it (check out a pre-D-A commit and
-   time it) or rewrite the criterion.
+5. ✅ **REWRITTEN and met (opus, 2026-07-09).** The old criterion compared the
+   hot-path rebuild against "the monolith baseline recorded before D-A" — a
+   baseline that was never recorded, and which could no longer be reconstructed
+   honestly anyway (the dependency tree has moved on; a pre-D-A checkout would
+   time a different Bevy).
+
+   A relative criterion against a lost number is not a criterion. What it was
+   reaching for is *absolute and forward-checkable*: **does an edit reach a test
+   quickly, and does authoring content cost less than editing the engine?**
+   Measured on this machine, warm incremental, `dev` profile:
+
+   | Loop | Edit | Rebuild | Wall |
+   |---|---|---|---:|
+   | A. sim TDD | leaf module in `ambition_actors` | `-p ambition_actors` | **3.2 s** |
+   | B. foundation blast radius | `engine_core::geometry` | `-p ambition_actors` | **5.4 s** |
+   | C. play loop | leaf module in `ambition_actors` | `-p ambition_app` | **104 s** |
+   | D. **authoring loop** | module in `ambition_content` | `-p ambition_app` | **9.4 s** |
+
+   **D is the decomposition's payoff, and it is the number to protect.** Content
+   sits near the top of the DAG, so authoring a quest, a boss, or a room rebuilds
+   in nine seconds rather than the whole game. C is the residual cost: everything
+   above `ambition_actors` — sim_view, render, host, content, the umbrella, the
+   app — must relink, and that is what shrinking `ambition_actors` further would
+   buy. B shows the foundation is cheap to touch, which is why `engine_core` can
+   keep absorbing vocabulary.
+
+   **The criterion, going forward:** D stays under ~15 s and A under ~5 s. Both
+   are ratchets — re-measure when a crate boundary moves, and record the new
+   numbers here rather than deleting the old ones.

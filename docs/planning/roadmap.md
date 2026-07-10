@@ -27,11 +27,13 @@ longer depends on the actor sim, `placements` is the sole authored-entity
 channel, and two demo crates dep only the umbrella. Gate: 44/44 suites
 green.
 
-**What P2 still owes:** the netcode ladder (N0–N1) has *zero* slices in
-code; collision CC3 (the fuzz oracle delta) is open; the D-B `MODULES.md`
-standard and the D-C mode-scope seam are unstarted; and two playbook exits
-need attention (a demo binary is interactive work; the exit-5 compile
-baseline was never recorded). Details + drift findings:
+**What P2 still owes:** the netcode ladder's N0 rungs are DONE (N0.1 fixed
+tick, N0.2 input stream, N0.3 determinism lints — 2026-07-09); N0.4 (the
+desync canary) and N1 remain; collision CC3 (the fuzz oracle delta) is open;
+the D-B `MODULES.md`
+standard and the D-C mode-scope seam are unstarted; and one playbook exit
+remains (exit 3 — a demo binary, which fable ruled interactive work). Details
++ drift findings:
 [`tracks.md`](tracks.md).
 
 ## The phases

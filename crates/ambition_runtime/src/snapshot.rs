@@ -797,7 +797,80 @@ impl SnapshotRegistry {
         out.dedup_by(|a, b| a.sort_key() == b.sort_key());
         out
     }
+
+    /// **Genuine sim-state resource debt: [`unclaimed_resources`] MINUS the named
+    /// exclusions.** (audit S2.8.)
+    ///
+    /// `unclaimed_resources` counts every unregistered `ambition_*` resource — but many
+    /// are presentation, derived, or authored content that a rollback must NOT restore
+    /// (`ActorRenderIndex` is rebuilt every frame; `SandboxLdtkProject` is immutable
+    /// authored content; `CameraShakeState` is camera feel). Counting those as debt makes
+    /// `lossless()` unachievable forever. The exclusions are named in
+    /// [`SIM_RESOURCE_EXCLUSIONS`], each with a reason — an exclusion is a review event,
+    /// not a silent gap. What remains is the sim state that genuinely must be registered.
+    ///
+    /// `lossless()` measures THIS, not the raw total.
+    ///
+    /// [`unclaimed_resources`]: SnapshotRegistry::unclaimed_resources
+    pub fn unclaimed_sim_resources(&self, world: &World) -> Vec<UnclaimedComponent> {
+        self.unclaimed_resources(world)
+            .into_iter()
+            .filter(|c| {
+                !SIM_RESOURCE_EXCLUSIONS
+                    .iter()
+                    .any(|(needle, _)| c.name.contains(needle))
+            })
+            .collect()
+    }
 }
+
+/// **Named exclusions from the sim-state resource universe** (audit S2.8).
+///
+/// A resource whose type name contains one of these is intentionally NOT sim state — it
+/// is presentation, derived-per-frame, authored-immutable, or engine plumbing — so it
+/// does not deny `lossless()`. Each entry carries the reason it is excluded; an exclusion
+/// is a review event, not a silent gap. `contains` (not `starts_with`) is deliberate, so
+/// a `Messages<ambition_sim_view::..>` channel is caught by its payload's namespace.
+///
+/// **Everything NOT matched here is genuine sim-state debt** and must be registered for a
+/// room to become exactly restorable. Shrink this list only by proving a class is not
+/// sim state; grow it only with a reason that survives review.
+pub const SIM_RESOURCE_EXCLUSIONS: &[(&str, &str)] = &[
+    (
+        "ambition_sim_view::",
+        "presentation view — derived from sim state every frame, never part of a state hash",
+    ),
+    (
+        "ambition_platformer_primitives::camera_ease::",
+        "camera feel (shake/ease) — presentation, runs on the feel clock",
+    ),
+    (
+        "ambition_ldtk_map::",
+        "loaded map project and derived runtime render/collision indices — authored \
+         content and per-room derivations, restored by room-load, not by rollback",
+    ),
+    ("ambition_menu::", "menu / map UI state — presentation"),
+    (
+        "ambition_persistence::",
+        "save / user-settings / quest-registry I/O — out of sim-tick scope",
+    ),
+    (
+        "ambition_platformer_primitives::schedule::",
+        "the sim schedule resource — engine plumbing, not sim state",
+    ),
+    (
+        "ambition_platformer_primitives::physics::PhysicsSandboxSettings",
+        "authored physics tuning — immutable for the room's life",
+    ),
+    (
+        "ambition_portal::tuning::",
+        "authored portal tuning — immutable",
+    ),
+    (
+        "ambition_platformer_primitives::camera_ease::CameraEaseTuning",
+        "authored camera tuning — immutable",
+    ),
+];
 
 /// One `Messages<M>` buffer the rollback has to reckon with.
 struct MessageChannel {
@@ -3668,7 +3741,7 @@ mod tests {
         assert_eq!(report.respawned, 0);
         // Not lossless: an unregistered component survives, stale. (Resource coverage is
         // 0 here — resource names need `bevy_ecs/debug`, absent in this crate's tests.)
-        assert!(!report.lossless(reg.unclaimed_resources(&world).len()));
+        assert!(!report.lossless(reg.unclaimed_sim_resources(&world).len()));
         assert_eq!(report.stale_components, unclaimed);
 
         // It SURVIVED — and it is stale, still reading the tick we rewound FROM.
@@ -3742,7 +3815,7 @@ mod tests {
         let report = restore(&mut world, &snap, &reg).unwrap();
         assert_eq!(report.unidentified_survivors, 1);
         assert!(
-            !report.lossless(reg.unclaimed_resources(&world).len()),
+            !report.lossless(reg.unclaimed_sim_resources(&world).len()),
             "a restore that leaves a body standing did not restore the world"
         );
         assert!(

@@ -307,6 +307,66 @@ fn the_coverage_ledger_reacts_to_a_new_unregistered_resource() {
     );
 }
 
+/// **The sim-resource universe excludes presentation via a NAMED policy** (audit S2.8).
+///
+/// `lossless()` measures sim-state resource DEBT, not the raw unregistered total — most
+/// of the ~181 unregistered resources are presentation, derived-per-frame, or authored
+/// content that a rollback must not restore. This proves the `SIM_RESOURCE_EXCLUSIONS`
+/// policy has teeth in BOTH directions: it drops known presentation/authored classes AND
+/// keeps genuine sim state. A policy that excluded nothing would make `lossless()`
+/// unachievable forever; one that excluded too much would make it vacuously true.
+#[test]
+fn the_sim_resource_universe_excludes_presentation_but_keeps_sim_state() {
+    let mut s = sim("mockingbird_arena");
+    let reg = registry_of(&mut s);
+    for _ in 0..20 {
+        s.step(RandomWalkPolicy::traversal_stress(7).act());
+    }
+
+    let total: Vec<String> = reg
+        .unclaimed_resources(s.world())
+        .into_iter()
+        .map(|c| c.name)
+        .collect();
+    let sim_only: Vec<String> = reg
+        .unclaimed_sim_resources(s.world())
+        .into_iter()
+        .map(|c| c.name)
+        .collect();
+
+    assert!(
+        sim_only.len() < total.len(),
+        "the exclusion policy dropped nothing ({} == {}) — it is not being applied",
+        sim_only.len(),
+        total.len()
+    );
+
+    // Dropped: clear presentation / authored content. (Each must be in the total first,
+    // or the exclusion is untested.)
+    for excluded in [
+        "ambition_sim_view::",
+        "ambition_ldtk_map::",
+        "camera_ease::CameraShakeState",
+    ] {
+        assert!(
+            total.iter().any(|n| n.contains(excluded)),
+            "`{excluded}` is not in the unregistered total — its exclusion is untested"
+        );
+        assert!(
+            !sim_only.iter().any(|n| n.contains(excluded)),
+            "the sim-resource universe still contains presentation `{excluded}` (S2.8)"
+        );
+    }
+
+    // Kept: genuine sim state must still count as debt.
+    assert!(
+        sim_only
+            .iter()
+            .any(|n| n.contains("ambition_time::ClockState")),
+        "the policy dropped genuine sim state (`ClockState`) — it excludes too much: {sim_only:?}"
+    );
+}
+
 /// **The SimId migration, measured.**
 ///
 /// N3.1: *"every snapshot-registered entity carries a `SimId`."* Today
@@ -854,7 +914,7 @@ fn a_restore_of_a_real_room_is_exact_where_it_is_registered_and_honest_where_it_
         report.unidentified_survivors, 0,
         "an unidentified body walked out of the rollback"
     );
-    let unregistered_resources = reg.unclaimed_resources(s.world()).len();
+    let unregistered_resources = reg.unclaimed_sim_resources(s.world()).len();
     assert!(
         !report.stale_components.is_empty() && !report.lossless(unregistered_resources),
         "restore is lossless on a real room — the coverage ledger has reached zero. \

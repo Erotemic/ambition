@@ -271,8 +271,10 @@ recognizable:
   faction for damage, already there).
 - **Player-robot as an actor — exists** (`player_robot` archetype, full kit). Building
   it is what *forced* the player kit to become `CombatCapabilities`.
-- **Naming — still player-centric.** `enemy_archetypes.ron` / `EnemyArchetypeSpec` /
-  `EnemyBrain` are misnomers (these are *character* archetypes).
+- ~~**Naming — still player-centric.**~~ 🟢 **DONE.** The rename landed:
+  `character_archetypes.ron` / `CharacterArchetypeSpec` / the brain-key map. Zero
+  `EnemyArchetypeSpec` / `EnemyBrain` / `enemy_archetypes.ron` remain in code or
+  assets (verified 2026-07-09).
 
 ## Where we are (shipped foundation)
 
@@ -436,9 +438,12 @@ Enemies rise to the player; delete-heavy. Each step is gated on *it compiles* (i
      grudge keyed by **faction** (simplest, correct single-player; over-generalizes in
      MP — provoking one NPC angers it at all Player-faction bodies) vs by **entity**
      (precise, but the player-victim gate is faction-based so it needs a small bridge).
-6. **Rename off type-names** — `enemy_archetypes.ron` / `EnemyArchetypeSpec` /
-   `EnemyBrain` → *character* archetypes. A mechanical pass on its own; update the
-   `architecture_boundaries` guard test if it asserts names.
+6. **Rename off type-names** 🟢 **DONE.** `character_archetypes.ron` /
+   `CharacterArchetypeSpec`; the named-archetype ENUM is gone entirely (only the
+   spec STRUCT + the brain-key `CharacterRoster` map remain). The
+   `architecture_boundaries` guard asserts no archetype names, so it needed no
+   change. *Residual (docs only):* eight doc comments still call methods on the
+   removed `CharacterArchetype` enum — see `dev/journals/code_smells.md`.
 
 ### Deferred (on purpose — not blocked, just not now)
 

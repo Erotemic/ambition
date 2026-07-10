@@ -747,6 +747,12 @@ pub struct MovePlayback {
     /// cancel conditions (`OnHit`/`OnWhiff`) — the combo-confirm fact.
     pub landed_hit: bool,
     /// Live hitbox entity per entered-but-not-exited Active window index.
+    ///
+    /// A CACHE, not the authority. Its authority is `(t, window)`: the box exists
+    /// exactly while the owner's clock is inside the window, and
+    /// [`retire_orphaned_strike_volumes`] enforces that against the world every
+    /// frame. That matters because a rollback (`ambition_runtime::snapshot`) rebuilds
+    /// this component from a blob, and a blob cannot carry an `Entity`.
     live_boxes: Vec<(usize, Entity)>,
     /// Which timed events already fired (parallel to `spec.events`).
     fired: Vec<bool>,
@@ -763,6 +769,23 @@ impl MovePlayback {
     /// window`, so its Active window is live immediately and the projected
     /// `active_elapsed` still folds in the telegraph offset (E53). Events with
     /// `at_s <= t0` are pre-marked fired so seeking past them doesn't retro-fire.
+    /// **Resume a move mid-flight**, for `ambition_runtime::snapshot`'s
+    /// `SnapshotResolve`.
+    ///
+    /// The blob carries the CHOICE — which move, how far in, did it land — and the
+    /// `MoveSpec` is resolved back out of the owner's authored `ActorMoveset`. The
+    /// `live_boxes` cache comes back empty, which is exactly right: a blob cannot
+    /// carry an `Entity` (N3.1 decision 2), and it does not have to.
+    /// [`retire_orphaned_strike_volumes`] despawns the boxes the rewound tick left
+    /// standing, and the window's own `(inside, not-live)` arm re-spawns whatever the
+    /// restored clock says should exist. The box's existence is DERIVED from
+    /// `(t, window)`, so restoring `t` restores the box.
+    pub fn resumed(spec: MoveSpec, facing: f32, t: f32, landed_hit: bool) -> Self {
+        let mut pb = Self::new_at(spec, facing, t);
+        pb.landed_hit = landed_hit;
+        pb
+    }
+
     pub fn new_at(spec: MoveSpec, facing: f32, t0: f32) -> Self {
         let t0 = t0.clamp(0.0, spec.duration_s);
         let fired: Vec<bool> = spec.events.iter().map(|ev| ev.at_s <= t0).collect();
@@ -798,6 +821,56 @@ impl MovePlayback {
 /// dispatch — a boss is an actor whose repertoire happens to be large.
 #[derive(Component, Debug, Clone)]
 pub struct ActorMoveset(pub MovesetContract);
+
+/// Which move window a spawned strike volume belongs to.
+///
+/// The volume's existence is DERIVED from `(owner's playback t, window)`. This marker
+/// is what lets [`retire_orphaned_strike_volumes`] check that derivation against the
+/// world without reading `MovePlayback`'s private cache — and without which a rollback
+/// that rebuilds `MovePlayback` from a blob would strand every live box forever.
+#[derive(bevy::prelude::Component, Clone, Copy, Debug)]
+pub struct StrikeVolume {
+    pub owner: Entity,
+    pub window: usize,
+}
+
+/// **Despawn every strike volume whose owner's clock says it should not exist.**
+///
+/// Runs every frame, before [`advance_move_playback`], and is a no-op in the ordinary
+/// case: the window's exit edge already despawned the box and dropped it from
+/// `live_boxes`. It earns its keep when the two disagree, which happens when
+/// `MovePlayback` is REPLACED rather than advanced:
+///
+/// - `ambition_runtime::snapshot::restore` rebuilds it from a blob (`MovePlayback::resumed`)
+///   with an empty `live_boxes`. Without this system the boxes alive at the rewound-from
+///   tick would leak, and `advance_move_playback` would spawn a second one beside each.
+/// - Any future code that swaps a playback mid-move.
+///
+/// N3.1's rule, honoured: *"if restoring something requires a rebuild pass, the rebuild
+/// must be the SAME system that maintains it per-frame (no restore-only code paths)."*
+/// This is that system, and it runs whether or not anyone ever rolls back.
+pub fn retire_orphaned_strike_volumes(
+    mut commands: Commands,
+    volumes: Query<(Entity, &StrikeVolume)>,
+    owners: Query<&MovePlayback>,
+) {
+    // Sorted by entity-independent key: this despawns, and despawn order is not
+    // observable, but the ITERATION must not depend on archetype layout for any
+    // future side effect. `(owner index, window)` is stable within a tick.
+    for (volume, mark) in &volumes {
+        let alive = owners.get(mark.owner).is_ok_and(|pb| {
+            pb.spec
+                .windows
+                .get(mark.window)
+                .is_some_and(|w| w.start_s <= pb.t && pb.t < w.end_s)
+        }) && owners
+            .get(mark.owner)
+            .is_ok_and(|pb| pb.live_boxes.iter().any(|(_, e)| *e == volume));
+        if !alive {
+            commands.entity(volume).despawn();
+        }
+    }
+}
 
 /// Advance every playing move by its owner's proper time; manage
 /// window-scoped hitboxes; fire timed events; retire finished moves.
@@ -1002,7 +1075,14 @@ pub fn advance_move_playback(
                         // NO HitboxLifetime on purpose: the window's exit
                         // edge (owner proper time) is the despawn authority,
                         // not a wall-clock countdown.
-                        let mut ec = commands.spawn((hb, HitboxHits::default()));
+                        let mut ec = commands.spawn((
+                            hb,
+                            HitboxHits::default(),
+                            StrikeVolume {
+                                owner,
+                                window: w_idx,
+                            },
+                        ));
                         // Conditional on-hit technique (pogo, lifesteal, …): a
                         // volume authoring `on_hit` gets the sidecar the
                         // `dispatch_hitbox_on_hit` primitive reads (fable AJ1).

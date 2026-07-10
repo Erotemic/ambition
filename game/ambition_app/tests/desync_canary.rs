@@ -293,7 +293,7 @@ fn the_snapshot_coverage_ledger() {
     // Today's debt, pinned. Lower it by registering a component or by declaring it
     // structurally derived — both are claims, and `declare_derived` is the one that
     // promises a per-frame system rebuilds it.
-    const KNOWN_DEBT: usize = 84;
+    const KNOWN_DEBT: usize = 83;
     assert!(
         worst <= KNOWN_DEBT,
         "{worst} component types on SimId entities are neither registered as sim \
@@ -451,4 +451,78 @@ fn a_restore_of_a_real_room_is_exact_where_it_is_registered_and_honest_where_it_
          Un-ignore `a_restored_sim_replays_the_future_it_was_rewound_from`, which is \
          N3.1's real exit oracle, and delete this assertion."
     );
+}
+
+/// **A move in flight rewinds to its clock, not to its hitboxes.**
+///
+/// `MovePlayback` embeds a whole authored `MoveSpec` and a private
+/// `live_boxes: Vec<(usize, Entity)>`. The blob carries only the CHOICE — which move,
+/// how far in, did it land — and `SnapshotResolve` rebuilds the spec out of the
+/// owner's surviving `ActorMoveset`. The box cache comes back empty, because a blob
+/// cannot carry an `Entity` (N3.1 decision 2), and it does not have to: a strike
+/// volume's existence is DERIVED from `(t, window)`, and
+/// `retire_orphaned_strike_volumes` maintains that derivation every frame.
+///
+/// This test lives in `ambition_app` rather than beside the codec because
+/// `ambition_runtime` may not name `ambition_entity_catalog` — F1.9's headless-tier
+/// boundary, which caught the dev-dependency that would have quietly widened it.
+#[test]
+fn a_move_in_flight_rewinds_to_its_clock_and_not_to_its_hitboxes() {
+    use ambition::combat::moveset::{ActorMoveset, MovePlayback};
+    use ambition::entity_catalog::{ClipBinding, MoveSpec, MovesetContract};
+    use ambition::platformer::sim_id::SimId;
+    use ambition::runtime::snapshot::{restore, take};
+
+    let spec = MoveSpec {
+        id: "smash".into(),
+        clip: ClipBinding {
+            clip: "attack".into(),
+            fallbacks: Vec::new(),
+        },
+        duration_s: 1.0,
+        windows: Vec::new(),
+        events: Vec::new(),
+        gates: Default::default(),
+        start_impulse: None,
+        smash_charge_mult: 1.0,
+    };
+
+    let reg = registry();
+    let Some(mut s) = sim("gap_run") else { return };
+    for _ in 0..10 {
+        s.step(RandomWalkPolicy::traversal_stress(3).act());
+    }
+
+    let player = {
+        let mut q = s
+            .world_mut()
+            .query_filtered::<ambition::bevy::prelude::Entity, ambition::bevy::prelude::With<SimId>>();
+        let w = s.world();
+        q.iter(w).next().expect("a simulated body")
+    };
+    s.world_mut().entity_mut(player).insert((
+        ActorMoveset(MovesetContract {
+            verbs: Default::default(),
+            moves: vec![spec.clone()],
+        }),
+        MovePlayback::resumed(spec, 1.0, 0.25, true),
+    ));
+
+    let snap = take(s.world(), &reg);
+    let before = reg.hash_world(s.world());
+
+    // The move ends.
+    s.world_mut().entity_mut(player).remove::<MovePlayback>();
+    assert_ne!(reg.hash_world(s.world()), before, "removal must be visible");
+
+    restore(s.world_mut(), &snap, &reg);
+    let pb = s
+        .world()
+        .entity(player)
+        .get::<MovePlayback>()
+        .expect("the move came back");
+    assert_eq!(pb.spec.id, "smash", "the spec resolved out of the moveset");
+    assert_eq!(pb.t, 0.25, "the clock rewound");
+    assert!(pb.landed_hit, "the combo-confirm fact rewound");
+    assert_eq!(reg.hash_world(s.world()), before);
 }

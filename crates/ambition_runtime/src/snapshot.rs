@@ -1027,14 +1027,9 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     registry.register_component::<ambition_combat::components::ActorIntent>("actor_intent");
     registry.register_cursor::<ambition_combat::components::ActorTarget>("actor_target");
 
-    // `MovePlayback` is NOT here, and the reason is a finding rather than an omission.
-    // It holds a private `live_boxes: Vec<(usize, Entity)>` — spawned hitbox entities,
-    // and N3.1 decision (2)'s THIRD forbidden `Entity` reference — plus a private
-    // `fired: Vec<bool>` parallel to `spec.events`. `MovePlayback::new_at(spec, facing,
-    // t)` already pre-marks events with `at_s <= t` as fired, which is most of a
-    // `resolve`; what it cannot do is decide what happens to a hitbox that was live at
-    // the snapshot tick. That is a slice in `ambition_combat`, whose systems own those
-    // entities. See netcode.md N3.1.
+    // A move in flight. The `MoveSpec` is authored and stays on the entity; the blob
+    // carries the CHOICE — which move, how far in, did it land.
+    registry.register_resolved::<ambition_combat::moveset::MovePlayback>("move_playback");
 
     registry
         .register_component::<ambition_combat::components::BossPatternTimer>("boss_pattern_timer");
@@ -1376,6 +1371,41 @@ impl SnapshotState for ambition_characters::actor::BodyHealth {
 /// `entity` is rebuilt every tick by `select_actor_targets`; `pos` survives the frame
 /// where no candidate exists, and a chasing brain aims at it. So `pos` rewinds and
 /// `entity` does not.
+/// The blob is `(move id, facing, t, landed_hit)`; the `MoveSpec` comes back out of the
+/// entity's own `ActorMoveset`, which a patched entity still carries.
+///
+/// `live_boxes` comes back empty and `fired` is rebuilt from `t` — both by
+/// `MovePlayback::resumed`. That is sound because a strike volume's existence is
+/// DERIVED from `(t, window)` and `retire_orphaned_strike_volumes` maintains that
+/// derivation every frame, so the rewound clock re-creates exactly the boxes it should.
+///
+/// A move id the moveset no longer knows resolves to `None`, and the component is left
+/// off. That is a content change between snapshot and restore — impossible in a
+/// rollback, and a loud, correct failure in a save file.
+impl SnapshotResolve for ambition_combat::moveset::MovePlayback {
+    fn encode_ref(&self, out: &mut Vec<u8>) {
+        put_str(out, &self.spec.id);
+        put_f32(out, self.facing);
+        put_f32(out, self.t);
+        put_bool(out, self.landed_hit);
+    }
+
+    fn resolve(entity: &bevy::ecs::world::EntityWorldMut<'_>, r: &mut Reader<'_>) -> Option<Self> {
+        let id = r.str()?;
+        let spec = entity
+            .get::<ambition_combat::moveset::ActorMoveset>()?
+            .0
+            .move_by_id(id)?
+            .clone();
+        Some(ambition_combat::moveset::MovePlayback::resumed(
+            spec,
+            r.f32()?,
+            r.f32()?,
+            r.bool()?,
+        ))
+    }
+}
+
 impl SnapshotCursor for ambition_combat::components::ActorTarget {
     fn encode_cursor(&self, out: &mut Vec<u8>) {
         put_vec2(out, self.pos);

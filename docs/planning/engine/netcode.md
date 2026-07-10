@@ -365,12 +365,12 @@ snapshots needed. Needs N0 complete, plus:
 
   | room | component types a rewind leaves stale | rewind is exact? |
   |---|---|---|
-  | `gap_run` | 35 | ✅ **yes** |
-  | `portal_lab` | 65 | no |
+  | `gap_run` | 34 | ✅ **yes** |
+  | `portal_lab` | 64 | no |
   | `mockingbird_arena` | 71 | no |
-  | `gnu_ton_arena` | **84** | no |
+  | `gnu_ton_arena` | **83** | no |
 
-  Pinned at 84 — the **peak over the run**, not the count at its end. The first
+  Pinned at 83 — the **peak over the run**, not the count at its end. The first
   version of this ledger measured once, after 120 ticks, by which time the arena
   bosses were dead and despawned; `gnu_ton_arena` duly reported the same 35 types as
   `gap_run`, which is the count of a world containing only the player. The debt was
@@ -429,7 +429,7 @@ snapshots needed. Needs N0 complete, plus:
   meant to look at.
 
   This is the general shape of the authored/mutable split, and it is why the coverage
-  ledger is an upper bound rather than a debt: many of the 84 want a *cursor*, not a
+  ledger is an upper bound rather than a debt: many of the 83 want a *cursor*, not a
   codec.
 
   ### The three named blockers between here and a clean arena
@@ -512,21 +512,34 @@ snapshots needed. Needs N0 complete, plus:
   add and drop it, which `register_cursor` cannot. A name the content no longer knows
   leaves the component OFF rather than resolving to a plausible neighbour.
 
-  **`MovePlayback` is NOT mechanical, and I was wrong to say it was.** It carries two
-  private fields the sketch above did not know about:
+  **`MovePlayback` cost a combat slice, and it is done** (2026-07-10). Trying to write
+  its codec found two private fields:
 
   - `live_boxes: Vec<(usize, Entity)>` — the spawned hitbox entity per entered-but-not-
     exited Active window. **Decision (2)'s third forbidden `Entity` reference**, after
     `ActorTarget` and the mount cluster.
   - `fired: Vec<bool>` — which timed events already fired, parallel to `spec.events`.
 
-  `MovePlayback::new_at(spec, facing, t)` already pre-marks events with `at_s <= t` as
-  fired, so it is most of a `resolve`. What no code in `ambition_runtime` can decide is
-  what happens to a hitbox that was **live** at the snapshot tick: rewinding into the
-  middle of an Active window with `live_boxes` empty means the box is never re-entered,
-  because entry already happened. **That is a slice in `ambition_combat`**, whose
-  systems own those entities — most likely by making window entry idempotent on `t`
-  rather than edge-triggered, which is the shape a rollback wants anyway.
+  I first guessed the fix was "make window entry idempotent on `t` rather than
+  edge-triggered". **Reading the code showed it already is**: the arm is
+  `match (inside, live_slot)`, so a box is spawned whenever the clock is inside a
+  window and no box is live. The real hazard was narrower and worse — `live_boxes` was
+  the *only handle* on those entities, so a `MovePlayback` rebuilt from a blob would
+  strand every live box forever and spawn a duplicate beside it.
+
+  So `live_boxes` is now documented as a **cache**, whose authority is `(t, window)`,
+  and `retire_orphaned_strike_volumes` enforces that against the world every frame. It
+  is a no-op in the ordinary case. A new `StrikeVolume { owner, window }` marker is what
+  lets it check the derivation without reading the cache. `MovePlayback::resumed(spec,
+  facing, t, landed_hit)` rebuilds the rest — `new_at` already pre-marks events with
+  `at_s <= t` as fired.
+
+  N3.1's own rule, honoured rather than quoted: *"if restoring something requires a
+  rebuild pass, the rebuild must be the SAME system that maintains it per-frame (no
+  restore-only code paths)."* `retire_orphaned_strike_volumes` runs whether or not
+  anyone ever rolls back.
+
+  The rest of the boss table stands:
 
   The rest of the boss table stands:
 
@@ -534,7 +547,7 @@ snapshots needed. Needs N0 complete, plus:
   |---|---|---|---|
   | `BossPatternTimer` | component | one `f32` | ✅ registered |
   | `BossPhase` | component | `snapshot_unit_enum!` | ✅ registered |
-  | `MovePlayback` | resolve | `(move_id, facing, t, landed_hit)` | ⛔ blocked on `live_boxes` |
+  | `MovePlayback` | resolve | `(move_id, facing, t, landed_hit)` | ✅ registered |
   | `BossAttackState` | component | profiles as `(tag, key)`, four `f32` clocks, telegraph spec by key | todo |
   | `BossAttackIntent` | component | two optional `(tag, key)` | todo |
   | `Perception` | component | `Omniscient` / `Sighted { viewport_half }` — not a unit enum | todo |

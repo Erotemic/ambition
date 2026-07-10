@@ -138,7 +138,16 @@ impl Plugin for CombatSchedulePlugin {
                 // manages window-scoped hit volumes, fires MoveEventMessages.
                 // Before apply_hitbox_damage so a window entered this tick
                 // resolves its hits this tick.
-                ambition_actors::combat::moveset::advance_move_playback.run_if(gameplay_allowed),
+                // A strike volume's existence is DERIVED from `(owner's move clock,
+                // window)`. This enforces that against the world before the clock
+                // moves — a no-op every ordinary frame, and the thing that keeps a
+                // rollback from stranding the boxes it rewound past.
+                (
+                    ambition_actors::combat::moveset::retire_orphaned_strike_volumes,
+                    ambition_actors::combat::moveset::advance_move_playback,
+                )
+                    .chain()
+                    .run_if(gameplay_allowed),
                 // Data-driven move EFFECT dispatch: resolve `MoveEventMessage`s —
                 // `Sfx{cue}` → play at the owner; `Effect{key}` → bridge to the SAME
                 // `ActorActionMessage::Special` the brain special path emits, so a

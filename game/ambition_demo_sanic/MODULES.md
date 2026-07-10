@@ -6,8 +6,9 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`ball_dash`](src/ball_dash.rs) | **The ball dash (spin dash)** — Track S's one new verb. |
 
-_0 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_1 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

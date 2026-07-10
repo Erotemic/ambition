@@ -555,39 +555,53 @@ snapshots needed. Needs N0 complete, plus:
   not an `Entity`). Neither moved tick 21. `ProperTimeScale` was registered on the way,
   too. A falsified hypothesis is the cheapest thing a later reader can be handed.
 
-  ### `portal_lab`: corrected diagnosis — cross-room ownership, not a fourth spawner arm
+  ### `portal_lab`: CONFIRMED diagnosis — a rollback window that spans a room transition (NOT a leak)
 
-  `placement:NpcSpawn-0017` is authored by **`central_hub_main`**, not by
-  `portal_lab`. Both levels are among the sixty levels in the same
-  `sandbox.ldtk`, loaded by one sim. Its appearance in a `portal_lab` snapshot
-  therefore proves that the snapshot roster or room-lifetime machinery spans
-  active-room ownership incorrectly. It does **not** prove that `RoomSpec` has a
-  missing fourth authored list.
+  Traced (S2.2, 2026-07-10), and it overturns the earlier "cross-room leak"
+  hypothesis. **There is no `central_hub_main` → `portal_lab` entity leak.**
 
-  The previously proposed fix — add another arm to `respawn_authored_entity` —
-  would paper over the defect by rebuilding another room's entity against the
-  wrong active `RoomSpec`. Do not do that.
+  - `central_hub_main` is the LDtk *level* id; `central_hub_complex` is that
+    level's runtime `activeArea` / room id.
+  - `NpcSpawn-0017` is authored by `central_hub_complex` (via its
+    `boss_spawns`/`placements`/`enemy_spawns` — a boss uses `boss_spawns`, an NPC a
+    placement, but both carry a `placement:<iid>` id), and it is alive **only while
+    that room is active**: the traversal policy bounces the player through a shared
+    loading zone between `portal_lab` and `central_hub_complex`, and the NPC is
+    despawned the instant the player transitions away.
+  - A per-tick check (`every_placement_entity_is_owned_by_the_active_room_every_tick`)
+    proves the roster is healthy: no `placement:<iid>` is ever alive while a room that
+    does *not* author it is active. The leak hypothesis is permanently dead.
 
-  The discriminating observation is that `gap_run`, `mockingbird_arena`, and
-  `gnu_ton_arena` replay clean under the same registry and all-levels-loaded
-  world. The violation is therefore likely produced during `portal_lab`'s
-  60-tick behavior, not merely at initial load. Confirm or refute that before
-  writing the invariant. Probe in this order:
+  The defect is **temporal**: the snapshot is taken while `central_hub_complex` is
+  active (so it captures `NpcSpawn-0017`, correctly), execution transitions to
+  `portal_lab`, and restore leaves `portal_lab` active. `respawn_from_the_room` then
+  reconciles against the wrong current `RoomSpec`. **The active-room context is
+  omitted from snapshot state.**
 
-  1. room transition and teardown;
-  2. per-tick snapshot-roster construction;
-  3. initial roster construction.
+  Fixing this by restoring only `RoomSet.active` + `RoomGeometry` would be *worse*
+  than the current failure: a room transition also tears down and rebuilds
+  room-scoped entities, moving platforms, and clocks, so a partial cursor restore
+  produces a more internally-inconsistent world than a clean refusal. Two valid
+  outcomes:
 
-  Then enforce the invariant at every captured tick:
+  1. **Support rollback across transitions** by atomically restoring the complete
+     room context *before* entity reconciliation.
+  2. **Define room transitions as rollback boundaries**: record the snapshot's active
+     room, and make restore explicitly REJECT a cross-room snapshot rather than
+     partially restore it.
 
-  > Every `placement:<iid>` in a room snapshot is authored by the active room,
-  > unless the entity is explicitly classified as carried/persistent state.
+  **S2.3 lands (2) as the honest boundary** (`SimSnapshot::active_room` +
+  `RestoreError::CrossRoomBoundary`, detected before reconciliation). Outcome (1) —
+  the full atomic room transaction — is the bounded-window work below, and is what
+  moves `portal_lab` to CLEAN.
 
-  The other unresolved case, unchanged: a dynamically-spawned entity
-  (`SimId::spawned(spawner, n)`) has no authored record and so no route back through the
-  room. It needs a spawn recipe registered alongside its codec, or a rollback window that
-  does not span its birth (`RestoreReport::respawned` is already the number, and N3.2's
-  bounded window is where that constraint gets paid). No room in the suite exercises it.
+  A separate, un-conflated case surfaced by the ownership invariant: a
+  dynamically-spawned child (`giant_gnu_hand_left_7`, a boss hand) receives a
+  `FeatureId`, so `ensure_sim_id` promotes it into the `placement:` namespace even
+  though **no room authors it** and its entity-index-derived name is not a
+  deterministic authored identity. That is dynamic-spawn identity debt, not a room
+  leak: the hands should mint `SimId::spawned(parent_giant_sim_id, counter)` at spawn.
+  Routed to the dynamic-spawn slice below.
 
   The landed N3.1 keystone currently contains 60 registry entries across five kinds (component,
   cursor, resolved, resource, resource-cursor), four message channels, three declared
@@ -606,9 +620,15 @@ snapshots needed. Needs N0 complete, plus:
   1. **Identity invariant:** reject duplicate live/snapshot `SimId`s and duplicate
      registry names before constructing lookup maps. Land the duplicate-`SimId`
      poison test in the same commit.
-  2. **Active-room ownership:** trace transition/teardown and roster construction,
-     fix the `central_hub_main` → `portal_lab` leak, then enforce per-tick authored
-     ownership with explicit carried/persistent exceptions.
+  2. **Active-room ownership + room boundary:** DONE in part (S2.2/S2.3). Traced the
+     mechanism — no leak; the rollback window spans a room transition and the active
+     room is omitted from snapshot state. Enforced per-tick authored ownership (proves
+     the roster is healthy); captured `SimSnapshot::active_room`; and made restore
+     REJECT a cross-room snapshot (`RestoreError::CrossRoomBoundary`) before
+     reconciliation. REMAINING: the full atomic room-context restore (entities +
+     platforms + clocks), which moves `portal_lab` to CLEAN — see the bounded-window
+     item. Dynamic children wrongly in the `placement:` namespace (boss hands) route to
+     the dynamic-spawn item.
   3. **Reconciliation ordering:** reconcile first; only then compute stale
      components and unidentified survivors against the post-reconciliation roster.
   4. **Codec failure semantics:** registered decode failures are restore errors in

@@ -829,6 +829,15 @@ pub struct SimSnapshot {
     /// The `SimTick` this was taken at. Not derived from the entries: a caller
     /// comparing two snapshots wants the tick before it wants the bytes.
     pub tick: u64,
+    /// The room active when the snapshot was taken, by its `RoomSpec` id. The active
+    /// room is sim state that `restore` does not yet restore, so a rollback window that
+    /// spans a room transition would reconcile the snapshot's entities against the
+    /// wrong `RoomSpec`. `restore` compares this against the world's current active room
+    /// and REFUSES a mismatch (`RestoreError::CrossRoomBoundary`) rather than partially
+    /// restore — a room transition also rebuilds room-scoped entities, platforms, and
+    /// clocks, so a partial restore is more inconsistent than a refusal (netcode.md N3.2).
+    /// `None` for a headless world with no `RoomSet` (the unit-test fixtures).
+    pub active_room: Option<String>,
     entries: Vec<(&'static str, EntryBlob)>,
 }
 
@@ -898,6 +907,11 @@ pub fn take(world: &World, registry: &SnapshotRegistry) -> SimSnapshot {
     let tick = world
         .get_resource::<ambition_time::SimTick>()
         .map_or(0, |t| t.0);
+    // The active room is captured so `restore` can refuse a window that spans a
+    // transition. `respawn_from_the_room` already reaches `RoomSet`, so `take` may too.
+    let active_room = world
+        .get_resource::<ambition_world::rooms::RoomSet>()
+        .map(|rs| rs.active_spec().id.clone());
     let mut entries = Vec::new();
     for entry in &registry.entries {
         match &entry.kind {
@@ -912,7 +926,11 @@ pub fn take(world: &World, registry: &SnapshotRegistry) -> SimSnapshot {
             EntryKind::Diagnostic { .. } => {}
         }
     }
-    SimSnapshot { tick, entries }
+    SimSnapshot {
+        tick,
+        active_room,
+        entries,
+    }
 }
 
 /// **Every `SimId` carried by more than one live entity, with its count, sorted.**
@@ -979,6 +997,45 @@ impl RestoreReport {
         self.stale_components.is_empty() && self.unidentified_survivors == 0 && self.respawned == 0
     }
 }
+
+/// **Why a `restore` refused.**
+///
+/// Distinct from the identity-invariant PANICS (a duplicate `SimId` or registry name is
+/// a bug that makes ALL rollback impossible — see `duplicate_live_ids`): a
+/// `RestoreError` is a VALID world asking for a rollback that is not supported, so
+/// restore returns rather than corrupts. The caller decides — a test `.expect()`s it, a
+/// future netcode boundary logs it and refuses the rewind.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum RestoreError {
+    /// The snapshot was taken while one room was active and the world is now in another
+    /// — the rollback window spans a room transition. Reconciling would rebuild the
+    /// snapshot's entities against the WRONG `RoomSpec`. The active room is not yet
+    /// restored sim state, and a room transition rebuilds room-scoped entities, moving
+    /// platforms, and clocks that a partial restore cannot reproduce, so restore refuses
+    /// rather than produce a world more inconsistent than the one it started from
+    /// (netcode.md N3.2: room transitions are rollback boundaries).
+    CrossRoomBoundary {
+        snapshot_room: String,
+        active_room: String,
+    },
+}
+
+impl std::fmt::Display for RestoreError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RestoreError::CrossRoomBoundary {
+                snapshot_room,
+                active_room,
+            } => write!(
+                f,
+                "cross-room rollback boundary: snapshot taken in `{snapshot_room}`, world \
+                 is now in `{active_room}` — a rollback window may not span a room transition"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for RestoreError {}
 
 /// Ask the active room to rebuild one authored entity, by the id its `SimId` already is.
 ///
@@ -1074,7 +1131,28 @@ pub fn restore(
     world: &mut World,
     snapshot: &SimSnapshot,
     registry: &SnapshotRegistry,
-) -> RestoreReport {
+) -> Result<RestoreReport, RestoreError> {
+    // **Room-transition boundary (audit item 2 / reviewer), checked BEFORE any entity
+    // is touched.** The active room is not yet restored sim state, so a snapshot taken
+    // in one room cannot be reconciled against another: `respawn_from_the_room` would
+    // consult the wrong `RoomSpec`. Refuse rather than partially restore — restoring
+    // only `RoomSet.active` + geometry, but not the room-scoped entities/platforms/
+    // clocks a transition rebuilds, would leave a world more inconsistent than this
+    // clean refusal. The full atomic room transaction is the bounded-window work.
+    if let Some(snap_room) = &snapshot.active_room {
+        if let Some(active) = world
+            .get_resource::<ambition_world::rooms::RoomSet>()
+            .map(|rs| rs.active_spec().id.clone())
+        {
+            if *snap_room != active {
+                return Err(RestoreError::CrossRoomBoundary {
+                    snapshot_room: snap_room.clone(),
+                    active_room: active,
+                });
+            }
+        }
+    }
+
     let stale_components = registry.unclaimed_components(world);
 
     // **Identity invariant (audit H2), enforced BEFORE any lookup map is built.**
@@ -1194,7 +1272,7 @@ pub fn restore(
         Some(mut q) => q.iter(world).count(),
         None => 0,
     };
-    report
+    Ok(report)
 }
 
 /// Hash a set of `(stable_key, payload)` pairs, sorted by key.
@@ -3249,7 +3327,7 @@ mod tests {
             .insert((bc::BodyGroundState::default(), bc::BodyDashState::default()));
         assert_ne!(reg.hash_world(&world), before);
 
-        restore(&mut world, &snap, &reg);
+        restore(&mut world, &snap, &reg).unwrap();
         assert_eq!(reg.hash_world(&world), before);
         let ground = *world.entity(id).get::<bc::BodyGroundState>().unwrap();
         assert_eq!(ground.coyote_timer, 0.125, "the timer came back");
@@ -3296,7 +3374,7 @@ mod tests {
         ));
 
         assert_ne!(reg.hash_world(&world), before, "the wreck must be visible");
-        let report = restore(&mut world, &snap, &reg);
+        let report = restore(&mut world, &snap, &reg).unwrap();
         assert_eq!(reg.hash_world(&world), before, "restore did not restore");
         assert_eq!(report.patched, 2, "both snapshot entities were still there");
         assert_eq!(report.despawned, 1, "the body spawned after the snapshot");
@@ -3320,7 +3398,7 @@ mod tests {
         world.despawn(doomed[0]);
         world.spawn((SimId::placement("ghost"), kin(Vec2::ZERO, Vec2::ZERO)));
 
-        let report = restore(&mut world, &snap, &reg);
+        let report = restore(&mut world, &snap, &reg).unwrap();
         assert_eq!(report.despawned, 1, "the ghost");
         assert_eq!(report.respawned, 1, "the one we killed");
         assert_eq!(report.patched, 1, "the survivor was patched, not rebuilt");
@@ -3398,7 +3476,7 @@ mod tests {
         let reg = engine_registry();
         let mut world = sim_world();
         let snap = take(&world, &reg);
-        restore(&mut world, &snap, &reg);
+        restore(&mut world, &snap, &reg).unwrap();
         assert_eq!(take(&world, &reg), snap);
     }
 
@@ -3437,7 +3515,7 @@ mod tests {
         let mut e = world.entity_mut(boss);
         e.insert(UnregisteredThing(9));
 
-        let report = restore(&mut world, &snap, &reg);
+        let report = restore(&mut world, &snap, &reg).unwrap();
         assert_eq!(report.patched, 2, "both entities survived and were patched");
         assert_eq!(report.respawned, 0);
         assert!(!report.lossless());
@@ -3484,7 +3562,7 @@ mod tests {
         }));
         assert_ne!(reg.hash_world(&world), before);
 
-        restore(&mut world, &snap, &reg);
+        restore(&mut world, &snap, &reg).unwrap();
         assert_eq!(
             reg.hash_world(&world),
             before,
@@ -3511,7 +3589,7 @@ mod tests {
         let snap = take(&world, &reg);
         world.spawn(kin(Vec2::splat(5.0), Vec2::ZERO)); // no SimId: a ghost
 
-        let report = restore(&mut world, &snap, &reg);
+        let report = restore(&mut world, &snap, &reg).unwrap();
         assert_eq!(report.unidentified_survivors, 1);
         assert!(
             !report.lossless(),
@@ -3546,7 +3624,7 @@ mod tests {
         );
 
         world.entity_mut(boss).get_mut::<Patrol>().unwrap().segment = 2;
-        restore(&mut world, &snap, &reg);
+        restore(&mut world, &snap, &reg).unwrap();
 
         let patrol = world.entity(boss).get::<Patrol>().unwrap();
         assert_eq!(patrol.segment, 1, "the cursor rewound");
@@ -3573,7 +3651,7 @@ mod tests {
         let snap = take(&world, &reg);
 
         world.despawn(boss);
-        let report = restore(&mut world, &snap, &reg);
+        let report = restore(&mut world, &snap, &reg).unwrap();
         assert_eq!(report.respawned, 1);
 
         let back = *live_ids(&mut world).get("placement:boss-1").unwrap();
@@ -3698,7 +3776,7 @@ mod tests {
 
         // The move ends. The component goes away.
         world.entity_mut(boss).remove::<Playing>();
-        restore(&mut world, &snap, &reg);
+        restore(&mut world, &snap, &reg).unwrap();
         assert_eq!(
             world.entity(boss).get::<Playing>(),
             Some(&Playing {
@@ -3717,7 +3795,7 @@ mod tests {
         });
         let empty = take(&world, &reg);
         world.entity_mut(boss).remove::<Playing>();
-        restore(&mut world, &empty, &reg);
+        restore(&mut world, &empty, &reg).unwrap();
         assert!(world.entity(boss).get::<Playing>().is_some());
     }
 
@@ -3741,7 +3819,7 @@ mod tests {
 
         // The content changed under us.
         world.entity_mut(boss).insert(Catalog(vec![]));
-        restore(&mut world, &snap, &reg);
+        restore(&mut world, &snap, &reg).unwrap();
         assert!(world.entity(boss).get::<Playing>().is_none());
     }
 
@@ -3795,7 +3873,7 @@ mod tests {
         }
         assert_ne!(reg.hash_world(&world), before, "the fight must have moved");
 
-        restore(&mut world, &snap, &reg);
+        restore(&mut world, &snap, &reg).unwrap();
         let brain = world.entity(boss).get::<Brain>().unwrap();
         let s = brain.boss_pattern_state().unwrap();
         assert_eq!(s.rng_seed, 0xDEAD_BEEF_CAFE_F00D, "the seed rewound");
@@ -3833,7 +3911,7 @@ mod tests {
         );
 
         world.spawn(kin(Vec2::ZERO, Vec2::ZERO)); // no SimId
-        restore(&mut world, &snap, &reg);
+        restore(&mut world, &snap, &reg).unwrap();
         assert_ne!(
             reg.hash_world(&world),
             clean,

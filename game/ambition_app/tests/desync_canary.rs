@@ -515,6 +515,189 @@ fn the_snapshot_coverage_ledger() {
     );
 }
 
+/// **The active-room ownership invariant** (audit item 2, N3.2).
+///
+/// At every tick, every live `placement:<iid>` entity is authored by the THEN-active
+/// room. A `placement` the active room does not author would be a cross-room leak — a
+/// `central_hub_main` NPC alive while `portal_lab` is the world.
+///
+/// This test is the audit's item-2 enforcement, and its result REFUTES the leak
+/// hypothesis: it PASSES. `portal_lab`'s rewind dirtiness is **not** a leak. The
+/// traversal policy bounces the player through a shared loading zone between
+/// `portal_lab` and `central_hub_complex`; while `central_hub_complex` is active its
+/// `NpcSpawn-0017` is legitimately alive, and it is despawned the instant the player
+/// transitions away (confirmed by trace: it lives only while its room is active). What
+/// makes the *rewind* dirty is separate: the 60-tick rollback window SPANS a room
+/// transition, and `restore` does not yet restore the active room, so it reconstructs
+/// against the wrong `RoomSpec`. That exact fix — the active room is sim state — is the
+/// bounded-window/room-restore work (netcode.md N3.2). See there.
+///
+/// The invariant is precise: a live `placement:<iid>` that some room authors must be
+/// authored by the ACTIVE room. A `placement:<iid>` that NO room authors is a
+/// dynamically-spawned child (a boss's `giant_gnu_hand_left_7`, spawned by the boss,
+/// not the room) — that is an identity-vocabulary concern (its id should be
+/// `spawned(..)`; netcode.md N3.2 dynamic-spawn), not a cross-room leak, so it is
+/// exempt here. `slot:` (the player) is carried/persistent and exempt.
+#[test]
+fn every_placement_entity_is_owned_by_the_active_room_every_tick() {
+    use std::collections::{BTreeMap, BTreeSet};
+
+    for room in [
+        "gap_run",
+        "portal_lab",
+        "mockingbird_arena",
+        "gnu_ton_arena",
+    ] {
+        let mut s = sim(room);
+
+        // Which rooms author each authored id? Built once — it is the same RoomSet
+        // every tick. An id maps to a room via ANY of the three authored lists
+        // (`placements`, `enemy_spawns`, `boss_spawns`) — the same three arms
+        // `respawn_authored_entity` reconstructs from.
+        let authored_by: BTreeMap<String, BTreeSet<String>> = {
+            let rs = s
+                .world()
+                .get_resource::<ambition::world::rooms::RoomSet>()
+                .expect("a RoomSet");
+            let mut map: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
+            for spec in &rs.rooms {
+                let ids = spec
+                    .placements
+                    .iter()
+                    .map(|p| p.id.0.clone())
+                    .chain(spec.enemy_spawns.iter().map(|e| e.id.clone()))
+                    .chain(spec.boss_spawns.iter().map(|b| b.id.clone()));
+                for iid in ids {
+                    map.entry(iid).or_default().insert(spec.id.clone());
+                }
+            }
+            map
+        };
+
+        // The no-room category, reported separately (reviewer): a `placement:<id>` no
+        // room authors is a dynamically-spawned child promoted into the placement
+        // namespace because `ensure_sim_id` gave it a `FeatureId`. Its name is derived
+        // from an entity index, so it is not a deterministic authored identity — it is
+        // dynamic-spawn identity debt (netcode.md N3.2 dynamic-spawn / S2.9), not a
+        // room leak. Collected here so the debt is visible, not silently skipped.
+        let mut dynamic_debt: BTreeSet<String> = BTreeSet::new();
+
+        let mut policy = RandomWalkPolicy::traversal_stress(3);
+        for tick in 0..120u32 {
+            s.step(policy.act());
+
+            let active_id = {
+                let rs = s
+                    .world()
+                    .get_resource::<ambition::world::rooms::RoomSet>()
+                    .expect("a RoomSet");
+                rs.active_spec().id.clone()
+            };
+            let live: Vec<String> = {
+                let mut q = s
+                    .world_mut()
+                    .query::<&ambition::platformer::sim_id::SimId>();
+                let w = s.world();
+                q.iter(w).map(|id| id.as_str().to_string()).collect()
+            };
+
+            for id in live {
+                let Some(iid) = id.strip_prefix("placement:") else {
+                    continue; // slot: is carried
+                };
+                match authored_by.get(iid) {
+                    // Authored by the active room: valid.
+                    Some(rooms) if rooms.contains(&active_id) => {}
+                    // Authored EXCLUSIVELY by another room: a real cross-room leak.
+                    Some(rooms) => panic!(
+                        "OWNERSHIP VIOLATION in `{room}` at tick {tick}: `placement:{iid}` \
+                         is alive while `{active_id}` is active, but it is authored by \
+                         {rooms:?}, not the active room — a cross-room leak (audit item 2)."
+                    ),
+                    // Authored by NO room: dynamic-spawn identity debt, not a leak.
+                    None => {
+                        dynamic_debt.insert(iid.to_string());
+                    }
+                }
+            }
+        }
+
+        if !dynamic_debt.is_empty() {
+            eprintln!(
+                "  [{room}] dynamic-spawn identity debt (placement: ids no room authors, \
+                 should be SimId::spawned(..) — netcode.md N3.2): {dynamic_debt:?}"
+            );
+        }
+    }
+}
+
+/// The active room's `RoomSpec` id.
+fn active_room(s: &SandboxSim) -> String {
+    s.world()
+        .get_resource::<ambition::world::rooms::RoomSet>()
+        .map(|rs| rs.active_spec().id.clone())
+        .unwrap_or_default()
+}
+
+/// **A rollback window may not span a room transition** (audit item 2 / reviewer).
+///
+/// The active room is not restored sim state, so a snapshot taken while one room was
+/// active cannot be reconciled against another — `respawn_from_the_room` would rebuild
+/// the snapshot's entities against the wrong `RoomSpec`. `restore` captures the active
+/// room in the snapshot and REFUSES the mismatch (`CrossRoomBoundary`) before touching a
+/// single entity, rather than produce a world more inconsistent than a clean refusal (a
+/// transition also rebuilds room-scoped entities, platforms, and clocks). This is the
+/// honest rollback boundary; the full atomic room restore is the bounded-window work.
+///
+/// `portal_lab`'s traversal bounces the player through a shared loading zone with
+/// `central_hub_complex`, which is exactly how a window comes to span a transition.
+#[test]
+fn restore_refuses_a_snapshot_that_spans_a_room_transition() {
+    use ambition::runtime::snapshot::{restore, take, RestoreError};
+
+    let mut s = sim("portal_lab");
+    let reg = registry_of(&mut s);
+    let mut policy = RandomWalkPolicy::traversal_stress(3);
+
+    // Step until the player has bounced OUT of portal_lab, and snapshot there.
+    let mut snap = None;
+    for _ in 0..400 {
+        s.step(policy.act());
+        if active_room(&s) != "portal_lab" {
+            snap = Some((take(s.world(), &reg), active_room(&s)));
+            break;
+        }
+    }
+    let (snap, snap_room) = snap.expect("the traversal never left portal_lab in 400 ticks");
+
+    // Step until back in portal_lab, so the window now spans a transition.
+    let mut returned = false;
+    for _ in 0..400 {
+        s.step(policy.act());
+        if active_room(&s) == "portal_lab" {
+            returned = true;
+            break;
+        }
+    }
+    assert!(returned, "the traversal never returned to portal_lab");
+
+    match restore(s.world_mut(), &snap, &reg) {
+        Err(RestoreError::CrossRoomBoundary {
+            snapshot_room,
+            active_room,
+        }) => {
+            assert_eq!(snapshot_room, snap_room);
+            assert_eq!(active_room, "portal_lab");
+            assert_ne!(snapshot_room, active_room);
+        }
+        Ok(_) => panic!(
+            "restore reconciled a cross-room snapshot (taken in `{snap_room}`, world now \
+             in `portal_lab`) instead of refusing — it rebuilt entities against the wrong \
+             RoomSpec (audit item 2)."
+        ),
+    }
+}
+
 /// **N3.1's exit oracle: rewind, replay, and land in the same place.**
 ///
 /// Run the sim, take a snapshot, run K ticks recording each hash, restore, replay
@@ -544,9 +727,15 @@ fn a_restored_sim_replays_the_future_it_was_rewound_from() {
     /// `encounter_phase` mirror is rewinding a thermometer. **Two boss fights rewind and
     /// replay bit for bit.**
     const CLEAN: &[&str] = &["gap_run", "gnu_ton_arena", "mockingbird_arena"];
-    /// Rooms whose unregistered mutable state still leaks across a rewind. `portal_lab`
-    /// is the only room where `restore` reports `respawned > 0`, and a respawned entity
-    /// comes back carrying only its registered components.
+    /// Rooms whose rewind is not yet exact. `portal_lab` is DIRTY for a precise,
+    /// confirmed reason (audit item 2, traced in
+    /// `every_placement_entity_is_owned_by_the_active_room_every_tick`): its 60-tick
+    /// window SPANS a room transition. The snapshot is taken while `central_hub_complex`
+    /// is active — which authors `NpcSpawn-0017` — but the replay ends with `portal_lab`
+    /// active, and `restore` does not yet restore the active room, so it reconstructs
+    /// `NpcSpawn-0017` against the wrong `RoomSpec` (`respawned = 1`). It is NOT a
+    /// cross-room leak. It joins CLEAN when the active room becomes restored sim state
+    /// (netcode.md N3.2 room-restore / bounded window).
     const DIRTY: &[&str] = &["portal_lab"];
 
     for room in CLEAN {
@@ -593,7 +782,7 @@ fn replay_after_rewind(room: &str) {
         })
         .collect();
 
-    let report = restore(s.world_mut(), &snap, &reg);
+    let report = restore(s.world_mut(), &snap, &reg).expect("same-room restore");
     assert_eq!(
         reg.hash_world(s.world()),
         at_snapshot,
@@ -650,7 +839,7 @@ fn a_restore_of_a_real_room_is_exact_where_it_is_registered_and_honest_where_it_
         "the sim must actually have moved, or this proves nothing"
     );
 
-    let report = restore(s.world_mut(), &snap, &reg);
+    let report = restore(s.world_mut(), &snap, &reg).expect("same-room restore");
     assert_eq!(
         reg.hash_world(s.world()),
         at_snapshot,
@@ -735,7 +924,7 @@ fn a_move_in_flight_rewinds_to_its_clock_and_not_to_its_hitboxes() {
     s.world_mut().entity_mut(player).remove::<MovePlayback>();
     assert_ne!(reg.hash_world(s.world()), before, "removal must be visible");
 
-    restore(s.world_mut(), &snap, &reg);
+    restore(s.world_mut(), &snap, &reg).expect("same-room restore");
     let pb = s
         .world()
         .entity(player)
@@ -825,7 +1014,7 @@ fn a_rewind_empties_the_message_channels_it_registered() {
     );
 
     let snap = take(s.world(), &reg);
-    let report = restore(s.world_mut(), &snap, &reg);
+    let report = restore(s.world_mut(), &snap, &reg).expect("same-room restore");
     assert_eq!(report.messages_cleared, 4);
     assert!(
         reg.pending_messages(s.world()).is_empty(),

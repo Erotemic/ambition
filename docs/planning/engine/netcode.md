@@ -385,12 +385,12 @@ snapshots needed. Needs N0 complete, plus:
 
   | room | component types a rewind leaves stale | rewind is exact? |
   |---|---|---|
-  | `gap_run` | 29 | ✅ **yes** |
-  | `portal_lab` | 55 | no |
-  | `mockingbird_arena` | 51 | no |
-  | `gnu_ton_arena` | **61** | no |
+  | `gap_run` | 28 | ✅ **yes** |
+  | `portal_lab` | 54 | no |
+  | `mockingbird_arena` | 50 | no |
+  | `gnu_ton_arena` | **60** | no |
 
-  Pinned at 61 — the **peak over the run**, not the count at its end. The first
+  Pinned at 60 — the **peak over the run**, not the count at its end. The first
   version of this ledger measured once, after 120 ticks, by which time the arena
   bosses were dead and despawned; `gnu_ton_arena` duly reported the same 35 types as
   `gap_run`, which is the count of a world containing only the player. The debt was
@@ -434,6 +434,30 @@ snapshots needed. Needs N0 complete, plus:
   a world and demands its hash back; the exit oracle runs the sim forward and notices
   what a hash cannot.
 
+  ### The ledger had a blind spot the size of a `Resource`
+
+  `unclaimed_components` walks entities. **A `Resource` sits on no entity**, so for the
+  whole of this chain the ledger never saw one, and `restore` never touched one — while
+  this section's own checklist names them explicitly: *"`WorldTime` + every sim clock"*,
+  *"every seeded RNG resource"*, *"active room + spawn state"*, *"falling-sand grids
+  (ONE resource blob)"*.
+
+  `SnapshotRegistry::unclaimed_resources` now measures it, filtered to `ambition_*`
+  types (Bevy's asset servers and render device state are not sim state and never will
+  be). **It reads 135**, and it is pinned. Most of that is presentation or derived —
+  `ActorRenderIndex`, `CameraShakeState`, `DeveloperTools` — and comes off with
+  `declare_derived`. Some of it is not:
+
+  - `ambition_encounter::state::EncounterState` — the live encounter phase, the wave
+    run, the spawn counter. **This is why `mockingbird_arena` still diverges** after
+    every component on the boss rewinds correctly.
+  - `ambition_projectiles::enemy::state::EnemyProjectileState`.
+  - `ambition_actors::encounter::switches::SwitchActivationQueue`.
+
+  *What the canary cannot see, it cannot defend* — and for one whole chain of commits,
+  it could not see a resource. The number is the point: it was zero because nothing
+  looked, not because nothing was there.
+
   ### `SnapshotCursor` — a component that is half authored, half mutable
 
   `ActorMotionPath` owns a patrol path (authored, immutable, large) and a
@@ -449,7 +473,7 @@ snapshots needed. Needs N0 complete, plus:
   meant to look at.
 
   This is the general shape of the authored/mutable split, and it is why the coverage
-  ledger is an upper bound rather than a debt: many of the 61 want a *cursor*, not a
+  ledger is an upper bound rather than a debt: many of the 60 want a *cursor*, not a
   codec.
 
   ### The three named blockers between here and a clean arena

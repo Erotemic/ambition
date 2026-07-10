@@ -329,6 +329,7 @@ enum EntryKind {
     },
     /// A single blob. `restore` puts it back.
     Resource {
+        type_id: std::any::TypeId,
         bytes: Box<dyn Fn(&World) -> Vec<u8> + Send + Sync>,
         load: Box<dyn Fn(&mut World, &[u8]) + Send + Sync>,
     },
@@ -493,6 +494,7 @@ impl SnapshotRegistry {
         self.push(
             name,
             EntryKind::Resource {
+                type_id: std::any::TypeId::of::<R>(),
                 bytes: Box::new(|world: &World| {
                     world
                         .get_resource::<R>()
@@ -626,6 +628,49 @@ impl SnapshotRegistry {
                 }
             }
         }
+        out.sort_by(|a, b| a.sort_key().cmp(&b.sort_key()));
+        out.dedup_by(|a, b| a.sort_key() == b.sort_key());
+        out
+    }
+    /// **The ledger's other half: sim RESOURCES nobody registered.**
+    ///
+    /// `unclaimed_components` walks entities. A `Resource` sits on no entity, so it was
+    /// invisible to the ledger entirely — `EncounterState`, with its live phase and
+    /// wave run, was never counted, and `restore` never touched it.
+    ///
+    /// Filtered to types owned by this project, because Bevy's own resources (asset
+    /// servers, schedules, render device state) are not sim state and never will be:
+    /// the sim crates are the ones the determinism lints police. A name that does not
+    /// start with `ambition_` is somebody else's problem; a name that does, and is not
+    /// registered, is ours.
+    ///
+    /// Needs `bevy_ecs/debug` for the names, like `unclaimed_components`. Without it
+    /// the list is empty rather than wrong, which is why the ledger test that reads it
+    /// lives in `ambition_app`.
+    pub fn unclaimed_resources(&self, world: &World) -> Vec<UnclaimedComponent> {
+        let claimed: Vec<std::any::TypeId> = self
+            .entries
+            .iter()
+            .filter_map(|e| match &e.kind {
+                EntryKind::Resource { type_id, .. } => Some(*type_id),
+                _ => None,
+            })
+            .chain(self.derived.iter().map(|(id, _)| *id))
+            .collect();
+
+        let mut out: Vec<UnclaimedComponent> = world
+            .iter_resources()
+            .map(|(info, _)| info)
+            .filter(|info| {
+                let name = info.name().to_string();
+                name.starts_with("ambition_")
+                    && info.type_id().is_none_or(|id| !claimed.contains(&id))
+            })
+            .map(|info| UnclaimedComponent {
+                type_id: info.type_id(),
+                name: info.name().to_string(),
+            })
+            .collect();
         out.sort_by(|a, b| a.sort_key().cmp(&b.sort_key()));
         out.dedup_by(|a, b| a.sort_key() == b.sort_key());
         out
@@ -1109,6 +1154,7 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     registry.register_component::<ambition_combat::components::BodyEnvelope>("body_envelope");
     registry.register_component::<bc::BodyLedgeState>("body_ledge_state");
     registry.register_component::<bc::BodyComboTrace>("body_combo_trace");
+    registry.register_component::<ambition_characters::brain::ActorControl>("actor_control");
 
     // ── Structurally derived: rebuilt every tick by the system that maintains it ──
     //
@@ -2018,6 +2064,118 @@ impl SnapshotCursor for ambition_characters::brain::Brain {
         s.interrupt_timers = interrupt_timers;
         s.last_hp = last_hp;
         Some(())
+    }
+}
+
+snapshot_unit_enum!(ambition_engine_core::reference_frame::GameplayFramePolicy {
+    ControlledBodyLocal = 0,
+    AccelerationFrame = 1,
+    WorldSpace = 2,
+    ScreenSpace = 3,
+});
+
+/// **The brain's last-tick intent**, which the sim reads on the NEXT tick — the
+/// `brain/README.md` calls it exactly that. So it is state, not a per-frame scratchpad,
+/// and a rewind that leaves it stale hands the body an input it never chose.
+///
+/// Every field, in declaration order. There is no clever half of this component.
+impl SnapshotState for ambition_characters::brain::ActorControl {
+    fn encode(&self, out: &mut Vec<u8>) {
+        let f = &self.0;
+        put_vec2(out, f.locomotion);
+        put_vec2(out, f.velocity_target);
+        put_bool(out, f.drop_through);
+        put_f32(out, f.facing);
+        put_bool(out, f.melee_pressed);
+        match &f.fire {
+            None => put_bool(out, false),
+            Some(fire) => {
+                put_bool(out, true);
+                put_vec2(out, fire.dir);
+                fire.dir_policy.encode(out);
+                put_f32(out, fire.speed);
+            }
+        }
+        put_vec2(out, f.attack_axis);
+        for b in [
+            f.jump_pressed,
+            f.jump_held,
+            f.jump_released,
+            f.dash_pressed,
+            f.interact_pressed,
+            f.body_contact_damage_enabled,
+            f.shield_held,
+            f.special_pressed,
+            f.pogo_pressed,
+            f.fast_fall_pressed,
+            f.fly_toggle_pressed,
+            f.projectile_pressed,
+            f.projectile_held,
+            f.projectile_released,
+            f.blink_pressed,
+            f.blink_held,
+            f.blink_released,
+        ] {
+            put_bool(out, b);
+        }
+        put_vec2(out, f.blink_quick_dir);
+        put_vec2(out, f.blink_aim_step);
+        put_vec2(out, f.aim);
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        use ambition_characters::actor::control::{ActorControlFrame, ActorFireRequest};
+        use ambition_engine_core::reference_frame::GameplayFramePolicy;
+        let locomotion = r.vec2()?;
+        let velocity_target = r.vec2()?;
+        let drop_through = r.bool()?;
+        let facing = r.f32()?;
+        let melee_pressed = r.bool()?;
+        let fire = if r.bool()? {
+            Some(ActorFireRequest {
+                dir: r.vec2()?,
+                dir_policy: GameplayFramePolicy::decode(r)?,
+                speed: r.f32()?,
+            })
+        } else {
+            None
+        };
+        let attack_axis = r.vec2()?;
+        let mut flags = [false; 17];
+        for f in flags.iter_mut() {
+            *f = r.bool()?;
+        }
+        Some(ambition_characters::brain::ActorControl(
+            ActorControlFrame {
+                locomotion,
+                velocity_target,
+                drop_through,
+                facing,
+                melee_pressed,
+                fire,
+                attack_axis,
+                jump_pressed: flags[0],
+                jump_held: flags[1],
+                jump_released: flags[2],
+                dash_pressed: flags[3],
+                interact_pressed: flags[4],
+                body_contact_damage_enabled: flags[5],
+                shield_held: flags[6],
+                special_pressed: flags[7],
+                pogo_pressed: flags[8],
+                fast_fall_pressed: flags[9],
+                fly_toggle_pressed: flags[10],
+                projectile_pressed: flags[11],
+                projectile_held: flags[12],
+                projectile_released: flags[13],
+                blink_pressed: flags[14],
+                blink_held: flags[15],
+                blink_released: flags[16],
+                blink_quick_dir: r.vec2()?,
+                blink_aim_step: r.vec2()?,
+                aim: r.vec2()?,
+            },
+        ))
     }
 }
 

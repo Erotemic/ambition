@@ -298,15 +298,52 @@ fn the_snapshot_coverage_ledger() {
         }
     }
     eprintln!("\n=== N3.1 snapshot coverage ledger ===\n{report}");
+
+    // **The other half of the ledger.** `unclaimed_components` walks entities; a
+    // `Resource` sits on none, so it was invisible. netcode.md's N3.1 checklist names
+    // resources explicitly — "`WorldTime` + every sim clock", "every seeded RNG
+    // resource", "active room + spawn state", "falling-sand grids (ONE resource blob)".
+    // None of that was being measured.
+    let mut resources = Vec::new();
+    if let Some(mut s) = sim("mockingbird_arena") {
+        let reg = registry_of(&mut s);
+        for _ in 0..40 {
+            s.step(RandomWalkPolicy::traversal_stress(7).act());
+        }
+        resources = reg.unclaimed_resources(s.world());
+    }
+    eprintln!(
+        "=== N3.1 unregistered sim RESOURCES ({}) ===\n{}\n",
+        resources.len(),
+        resources
+            .iter()
+            .map(|r| format!("  {r}"))
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
     eprintln!(
         "  (component NAMES need bevy's `debug` feature; the counts key on TypeId \
          and are exact either way)\n"
     );
 
+    // The resource half, pinned too. It is LARGE and most of it is presentation or
+    // derived — `ActorRenderIndex`, `CameraShakeState`, `DeveloperTools`. But
+    // `EncounterState` is in there, holding a live encounter phase and wave run, and
+    // so is `EnemyProjectileState`. `declare_derived` is how the presentation half
+    // comes off; a codec is how the rest does.
+    const KNOWN_RESOURCE_DEBT: usize = 135;
+    assert!(
+        resources.len() <= KNOWN_RESOURCE_DEBT,
+        "{} unregistered `ambition_*` resources, up from the pinned \
+         {KNOWN_RESOURCE_DEBT}. A resource sits on no entity, so `unclaimed_components` \
+         never saw one and `restore` never touched one. See netcode.md N3.1.",
+        resources.len()
+    );
+
     // Today's debt, pinned. Lower it by registering a component or by declaring it
     // structurally derived — both are claims, and `declare_derived` is the one that
     // promises a per-frame system rebuilds it.
-    const KNOWN_DEBT: usize = 61;
+    const KNOWN_DEBT: usize = 60;
     assert!(
         worst <= KNOWN_DEBT,
         "{worst} component types on SimId entities are neither registered as sim \

@@ -45,3 +45,17 @@ pub use observation::AgentObservation;
 pub use options::{SandboxSimOptions, TimestepMode};
 pub use random_policy::{Lcg, RandomWalkPolicy, RandomWalkTuning};
 pub use runtime::SandboxSim;
+
+/// **A DELIBERATELY-unregistered mutable sim resource, for the coverage-sensitivity
+/// poison test only** (`desync_canary::the_coverage_ledger_reacts_to_a_new_unregistered_resource`).
+///
+/// The snapshot coverage ledger pins the *number* of unregistered `ambition_`
+/// resources. A count-only pin is only trustworthy if the count actually moves when
+/// real debt is added (audit M10). This type exists so the poison test can add exactly
+/// that debt: it lives in *this* crate so its type name contains `ambition_` — the
+/// exact `SnapshotRegistry::unclaimed_resources` filter — because that is the shape of
+/// a real sim resource shipped without a codec. It is never inserted by any system and
+/// only reachable under the `rl_sim` feature that the sim harness itself requires.
+#[doc(hidden)]
+#[derive(bevy::prelude::Resource, Default)]
+pub struct CoveragePoisonResource;

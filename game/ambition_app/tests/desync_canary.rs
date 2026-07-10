@@ -245,6 +245,68 @@ fn a_missing_required_room_is_a_hard_failure_not_a_skip() {
     );
 }
 
+/// **The coverage ledger reacts to new sim debt — it is not a count-only false green.**
+/// (Audit M10 / Series 1: the coverage-sensitivity poison test.)
+///
+/// `the_snapshot_coverage_ledger` pins the *number* of unregistered `ambition_`
+/// resources. A count pin is only trustworthy if the count actually MOVES when real
+/// debt is added. This inserts a deliberately-unregistered, `ambition_`-namespaced
+/// resource into a live world and proves `unclaimed_resources` grows by exactly it — so
+/// a pin trips on the addition rather than preserve a false green. The `ambition_`
+/// namespace matters: a resource named otherwise is invisible to the filter, which is
+/// why the poison fixture lives in `ambition_app` and not in this test crate.
+///
+/// It also pins the *other* half of why the resource ledger exists: a
+/// `Messages<ambition_..>` buffer is named `bevy_ecs::message::Messages<..>`, and the
+/// filter is `contains("ambition_")` — not `starts_with` — precisely so that class is
+/// not hidden behind Bevy's own module path. At least one such buffer must be observed.
+#[test]
+fn the_coverage_ledger_reacts_to_a_new_unregistered_resource() {
+    use ambition_app::rl_sim::CoveragePoisonResource;
+
+    let mut s = sim("mockingbird_arena");
+    let reg = registry_of(&mut s);
+    for _ in 0..20 {
+        s.step(RandomWalkPolicy::traversal_stress(7).act());
+    }
+
+    let before: Vec<String> = reg
+        .unclaimed_resources(s.world())
+        .into_iter()
+        .map(|c| c.name)
+        .collect();
+
+    // The `Messages<T>` class the `contains` filter exists to catch is really present —
+    // a regression to `starts_with("ambition_")` would hide every one of them.
+    assert!(
+        before
+            .iter()
+            .any(|n| n.contains("Messages<") && n.contains("ambition_")),
+        "no `Messages<ambition_..>` in the coverage set — the `contains(\"ambition_\")` \
+         filter that unhid an entire message class has regressed. Saw: {before:?}"
+    );
+
+    // Add real debt: a mutable sim resource nobody registered.
+    s.world_mut().insert_resource(CoveragePoisonResource);
+    let after: Vec<String> = reg
+        .unclaimed_resources(s.world())
+        .into_iter()
+        .map(|c| c.name)
+        .collect();
+
+    assert_eq!(
+        after.len(),
+        before.len() + 1,
+        "adding one unregistered `ambition_`-namespaced resource must grow the coverage \
+         ledger by exactly one. If it does not, the ledger is blind to new sim debt and \
+         its count pin is a false green (audit M10)."
+    );
+    assert!(
+        after.iter().any(|n| n.contains("CoveragePoisonResource")),
+        "the ledger grew, but not by the resource we added: {after:?}"
+    );
+}
+
 /// **The SimId migration, measured.**
 ///
 /// N3.1: *"every snapshot-registered entity carries a `SimId`."* Today

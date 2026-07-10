@@ -1011,10 +1011,37 @@ pub struct RestoreReport {
 }
 
 impl RestoreReport {
-    /// Nothing survived that should not have, and nothing stale was left behind.
-    /// Only then is a restored world the world that was taken.
-    pub fn lossless(&self) -> bool {
-        self.stale_components.is_empty() && self.unidentified_survivors == 0 && self.respawned == 0
+    /// **The positive completeness contract** (audit H3). A restore is lossless only if
+    /// EVERY exactness condition holds — not merely the absence of the three defect
+    /// classes the old method happened to check.
+    ///
+    /// Two conditions are guaranteed by this report *existing at all*, so they are not
+    /// re-checked here:
+    /// - **unique identity** — `restore` panics on a duplicate live/snapshot `SimId`
+    ///   (S2.1), so a report is only produced for a world whose identity is unique;
+    /// - **successful decode** — `restore` returns `Err(DecodeFailed)` on a codec failure
+    ///   (S2.5), so a report means every registered blob decoded.
+    ///
+    /// The rest are checked here:
+    /// - **no unaccounted stale component** on a surviving entity (`stale_components`);
+    /// - **every survivor carries an identity** (`unidentified_survivors == 0`);
+    /// - **no naked reconstruction** — nothing came back from blobs alone, outside an
+    ///   accepted policy (`respawned == 0`);
+    /// - **complete mutable-RESOURCE coverage** (`unregistered_sim_resources == 0`). This
+    ///   is the condition the old `lossless()` omitted, and it is why H3 flagged it: a
+    ///   `Resource` sits on no entity, so `stale_components` never saw one, and the method
+    ///   returned `true` while ~181 sim resources went unrestored. The caller measures it
+    ///   with `SnapshotRegistry::unclaimed_resources(world).len()` — which needs
+    ///   `bevy_ecs/debug` for the resource names, and is `0` where they are unavailable.
+    ///
+    /// Message-channel coverage is not a separate argument: `restore` clears every
+    /// REGISTERED channel, and an UN-registered `Messages<ambition_..>` is counted by
+    /// `unclaimed_resources` (it is a resource), so it already lands in the argument above.
+    pub fn lossless(&self, unregistered_sim_resources: usize) -> bool {
+        self.stale_components.is_empty()
+            && self.unidentified_survivors == 0
+            && self.respawned == 0
+            && unregistered_sim_resources == 0
     }
 }
 
@@ -3639,7 +3666,9 @@ mod tests {
         let report = restore(&mut world, &snap, &reg).unwrap();
         assert_eq!(report.patched, 2, "both entities survived and were patched");
         assert_eq!(report.respawned, 0);
-        assert!(!report.lossless());
+        // Not lossless: an unregistered component survives, stale. (Resource coverage is
+        // 0 here — resource names need `bevy_ecs/debug`, absent in this crate's tests.)
+        assert!(!report.lossless(reg.unclaimed_resources(&world).len()));
         assert_eq!(report.stale_components, unclaimed);
 
         // It SURVIVED — and it is stale, still reading the tick we rewound FROM.
@@ -3713,7 +3742,7 @@ mod tests {
         let report = restore(&mut world, &snap, &reg).unwrap();
         assert_eq!(report.unidentified_survivors, 1);
         assert!(
-            !report.lossless(),
+            !report.lossless(reg.unclaimed_resources(&world).len()),
             "a restore that leaves a body standing did not restore the world"
         );
         assert!(

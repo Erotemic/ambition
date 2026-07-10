@@ -819,7 +819,7 @@ fn replay_after_rewind(room: &str) {
 /// `assert!(!lossless)` is what tells you that day has come.
 #[test]
 fn a_restore_of_a_real_room_is_exact_where_it_is_registered_and_honest_where_it_is_not() {
-    use ambition::runtime::snapshot::{restore, take};
+    use ambition::runtime::snapshot::{restore, take, RestoreReport};
 
     let mut s = sim("gap_run");
     let reg = registry_of(&mut s);
@@ -854,11 +854,26 @@ fn a_restore_of_a_real_room_is_exact_where_it_is_registered_and_honest_where_it_
         report.unidentified_survivors, 0,
         "an unidentified body walked out of the rollback"
     );
+    let unregistered_resources = reg.unclaimed_resources(s.world()).len();
     assert!(
-        !report.stale_components.is_empty() && !report.lossless(),
+        !report.stale_components.is_empty() && !report.lossless(unregistered_resources),
         "restore is lossless on a real room — the coverage ledger has reached zero. \
          Un-ignore `a_restored_sim_replays_the_future_it_was_rewound_from`, which is \
          N3.1's real exit oracle, and delete this assertion."
+    );
+    // H3: losslessness now REQUIRES resource coverage. gap_run leaves ~181 sim resources
+    // unrestored, so restore is not lossless even where the ENTITY state is exact — a
+    // fact the old parameterless `lossless()` could not see. Prove the resource term has
+    // teeth: were entity state perfectly exact, unregistered resources alone would still
+    // deny losslessness.
+    assert!(
+        unregistered_resources > 0,
+        "no unregistered sim resources on gap_run — the H3 resource term is untested here"
+    );
+    assert!(
+        !RestoreReport::default().lossless(unregistered_resources),
+        "an all-zero entity report is STILL not lossless while sim resources go \
+         unrestored — this is exactly the false green H3 flagged"
     );
 }
 

@@ -1064,6 +1064,7 @@ impl bevy::app::Plugin for SnapshotRegistryPlugin {
 pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     registry.register_resource::<ambition_time::SimTick>("sim_tick");
     registry.register_resource::<ambition_time::WorldTime>("world_time");
+    registry.register_resource::<ambition_actors::features::GameplayElapsed>("gameplay_elapsed");
     registry.register_component::<BodyKinematics>("body_kinematics");
     registry.register_component::<ambition_characters::actor::BodyHealth>("body_health");
 
@@ -2190,6 +2191,19 @@ impl SnapshotState for ambition_combat::components::BossPatternTimer {
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         Some(ambition_combat::components::BossPatternTimer(r.f32()?))
+    }
+}
+
+/// **An accumulating sim clock**, and netcode.md's N3.1 checklist names it: *"`WorldTime`
+/// + every sim clock"*. A brain stamps `RememberedActor.last_seen` with it, so a rewind
+/// that leaves it running makes every memory look older than it is — which is exactly
+/// how `gnu_ton_arena` diverged on `perception_memory` and nothing else.
+impl SnapshotState for ambition_actors::features::GameplayElapsed {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_f32(out, self.0);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(ambition_actors::features::GameplayElapsed(r.f32()?))
     }
 }
 

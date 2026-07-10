@@ -331,7 +331,7 @@ fn the_snapshot_coverage_ledger() {
     // `EncounterState` is in there, holding a live encounter phase and wave run, and
     // so is `EnemyProjectileState`. `declare_derived` is how the presentation half
     // comes off; a codec is how the rest does.
-    const KNOWN_RESOURCE_DEBT: usize = 135;
+    const KNOWN_RESOURCE_DEBT: usize = 134;
     assert!(
         resources.len() <= KNOWN_RESOURCE_DEBT,
         "{} unregistered `ambition_*` resources, up from the pinned \
@@ -375,9 +375,13 @@ fn the_snapshot_coverage_ledger() {
 #[test]
 fn a_restored_sim_replays_the_future_it_was_rewound_from() {
     /// Rooms where a rewind is exact. This list may grow. It may not shrink.
-    const CLEAN: &[&str] = &["gap_run"];
+    ///
+    /// `gnu_ton_arena` joined it the day `GameplayElapsed` — an accumulating sim clock
+    /// a brain stamps its memories with — was registered. **A boss fight rewinds and
+    /// replays bit for bit.**
+    const CLEAN: &[&str] = &["gap_run", "gnu_ton_arena"];
     /// Rooms whose unregistered mutable state still leaks across a rewind.
-    const DIRTY: &[&str] = &["portal_lab", "mockingbird_arena", "gnu_ton_arena"];
+    const DIRTY: &[&str] = &["portal_lab", "mockingbird_arena"];
 
     for room in CLEAN {
         replay_after_rewind(room);
@@ -626,4 +630,3 @@ fn the_content_crate_registers_its_own_boss_special_state() {
         );
     }
 }
-

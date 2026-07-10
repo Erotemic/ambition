@@ -388,7 +388,12 @@ snapshots needed. Needs N0 complete, plus:
   | `gap_run` | 28 | ✅ **yes** |
   | `portal_lab` | 54 | no |
   | `mockingbird_arena` | 50 | no |
-  | `gnu_ton_arena` | **60** | no |
+  | `gnu_ton_arena` | **60** | ✅ **yes** |
+
+  **`gnu_ton_arena` carries the LARGEST stale count of any room and rewinds exactly.**
+  That is the ledger's own disclaimer, demonstrated: for an immutable authored fact,
+  stale and correct are the same thing. The number is an upper bound on the debt, and
+  the exit oracle is the only thing that measures the debt.
 
   Pinned at 60 — the **peak over the run**, not the count at its end. The first
   version of this ledger measured once, after 120 ticks, by which time the arena
@@ -483,24 +488,30 @@ snapshots needed. Needs N0 complete, plus:
 
   | room | first divergence | what restore did | remaining cause |
   |---|---|---|---|
+  | `gnu_ton_arena` | — | all patched | ✅ **CLEAN** |
   | `mockingbird_arena` | tick **21** | all patched | the boss's `timeline` re-resolved |
-  | `gnu_ton_arena` | tick 0 | all patched | `PerceptionPeers`, a RESOURCE |
   | `portal_lab` | tick 0 | 1 **respawned** | a naked respawn |
 
-  **Each of the three is a cause this document already named**, which is the point at
-  which a debt stops being a mystery and becomes a schedule:
+  **`gnu_ton_arena` — a boss fight — rewinds and replays bit for bit.** It diverged on
+  `perception_memory` and nothing else, and the cause was `GameplayElapsed`: an
+  accumulating sim clock that a brain stamps `RememberedActor.last_seen` with. A rewind
+  that left it running made every memory look older than it was. This section's checklist
+  said *"`WorldTime` + every sim clock"* and I had registered exactly one of the two.
+  Resources were invisible to the ledger until the section above; the moment they were
+  not, the room fell in a single commit.
 
-  1. `mockingbird_arena` diverges on `move_playback` / `boss_attack_state` / `brain` at
-     tick **21** — not tick 0. It replays exactly for twenty ticks, then the boss's
+  The other two are causes this document already named:
+
+  1. `mockingbird_arena` replays exactly for **twenty ticks** and breaks at 21 on
+     `move_playback` / `boss_attack_state` / `brain`. The boss's
      `BossPatternState.timeline` is *re-resolved* inside the window, and the `Brain`
-     cursor deliberately does not rewind it. **That is the "a rollback window must not
-     span a pattern re-resolve" constraint, observed.**
-  2. `gnu_ton_arena` diverges on `perception_memory` **alone**. The memory rewinds
-     exactly; what feeds it does not — `PerceptionPeers` is a **resource**, and
-     resources were invisible to the ledger until the section above.
-  3. `portal_lab` is the only room where `restore` reports `respawned > 0`, and its
-     divergence is everything at once on the first tick: a respawned entity comes back
-     carrying only its registered components.
+     cursor deliberately does not rewind it — encoding it would serialize authored
+     content by value. **This is the "a rollback window must not span a pattern
+     re-resolve" constraint, observed rather than predicted.** N3.2's bounded window is
+     where it gets paid.
+  2. `portal_lab` is the only room where `restore` reports `respawned > 0`, and its
+     divergence is everything at once on tick 0: a respawned entity comes back carrying
+     only its registered components.
 
   So the remaining work, in order:
 

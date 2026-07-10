@@ -894,6 +894,7 @@ fn boss_pattern_via_state_machine_matches_the_direct_tick() {
         world_size,
         front_wall_clearance: None,
         dt,
+        ..Default::default()
     };
     tick_boss_pattern(
         &cfg,

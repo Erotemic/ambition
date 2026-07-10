@@ -176,15 +176,107 @@ pub enum BossPatternStep {
     },
     /// No volume. Pure breathing room so the player can reposition or punish.
     Rest { duration: f32 },
+    /// **BD1 — conditional selection.** Roll ONCE, the moment the timeline is
+    /// resolved, and splice the winning arm's steps in place of this one. Arms
+    /// with a `when` bucket that does not hold this tick are ineligible; among the
+    /// rest the roll is weighted. Zero duration: control flow, not a beat.
+    ///
+    /// The roll happens at RESOLUTION, not at the cursor, so a fight's timeline is
+    /// a concrete list of beats before the first tick of it runs. That is what
+    /// lets BD5's validator integrate a pass's threat, and what keeps the ticker's
+    /// cursor arithmetic honest — a zero-duration step at the cursor is a foot-gun.
+    Select { table: Vec<WeightedArm> },
+    /// **BD1 — stance entry.** Jump to the named stance's steps, remembering where
+    /// to come back to. Zero duration. Reaching the end of a stance returns to the
+    /// step after the `Stance` that entered it.
+    Stance { id: String },
 }
 
-/// A full attack script for one boss phase. Loops when it reaches the end.
-#[derive(Clone, Debug, Default, PartialEq, serde::Deserialize)]
-pub struct BossPattern {
+/// One arm of a [`BossPatternStep::Select`] table.
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+pub struct WeightedArm {
+    /// Relative weight among the ELIGIBLE arms. `<= 0` never wins.
+    pub weight: f32,
+    /// `None` = always eligible. `Some(bucket)` = eligible only while the bucket
+    /// holds. A table whose arms are all ineligible resolves to nothing (the
+    /// `Select` becomes zero beats), which is a legal, deliberate "do nothing here".
+    #[serde(default)]
+    pub when: Option<SituationBucket>,
+    /// The sub-sequence spliced in when this arm wins. May itself contain
+    /// `Select`/`Stance` steps; resolution recurses, depth-limited.
     pub steps: Vec<BossPatternStep>,
 }
 
+/// The CLOSED situation vocabulary a `Select` arm can gate on, computed from the
+/// boss's existing context (`BossPatternContext`) — never from a private query.
+///
+/// Closed on purpose (`docs/planning/engine/boss-design.md` §1 BD1: *"No scripting
+/// language — three enum arms"*). A bucket an authoring agent cannot name is a
+/// bucket BD5's validator cannot reason about.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+pub enum SituationBucket {
+    /// The target is within [`PLAYER_NEAR_PX`] of the boss.
+    PlayerNear,
+    /// The target is beyond [`PLAYER_NEAR_PX`].
+    PlayerFar,
+    /// The target is above the boss in the world frame (`+y` is down).
+    PlayerAbove,
+    /// The target is on the side the boss is NOT facing.
+    PlayerBehind,
+    /// The boss's own health fraction (`0..=1`) is below this.
+    HpBelow(f32),
+}
+
+/// The near/far split, in world px. A per-game tuning number that lives here as a
+/// const until a SECOND game needs a different one — grow, don't mint (§4b.3).
+/// 220px is a little over two body-widths of the shipped bosses: close enough that
+/// a sweep reaches, far enough that a rain has somewhere to land.
+pub const PLAYER_NEAR_PX: f32 = 220.0;
+
+/// What makes an [`InterruptRule`] fire.
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
+pub enum InterruptTrigger {
+    /// The boss took at least `min_damage` in one tick.
+    OnHitTaken { min_damage: i32 },
+    /// The encounter just entered this phase (a rising edge, once per entry).
+    OnPhaseEnter { phase: BossEncounterPhase },
+    /// Every `every_s` seconds of pattern time.
+    OnTimer { every_s: f32 },
+}
+
+/// A rule that yanks the boss out of its timeline and into a named stance.
+#[derive(Clone, Debug, PartialEq, serde::Deserialize)]
+pub struct InterruptRule {
+    pub on: InterruptTrigger,
+    /// Minimum seconds between two firings of THIS rule. `0` means every chance.
+    pub cooldown_s: f32,
+    /// The stance id to enter. An id with no stance is a no-op and warns once at
+    /// validation time (BD5); the ticker ignores it rather than panicking mid-fight.
+    pub enter: String,
+}
+
+/// A full attack script for one boss phase. Loops when it reaches the end.
+///
+/// `stances` and `interrupts` are `#[serde(default)]`, so **every existing
+/// `boss_profiles.ron` row parses unchanged** (byte-parity, as BD1's sketch
+/// requires). A pattern with neither behaves exactly as it did before BD1.
+#[derive(Clone, Debug, Default, PartialEq, serde::Deserialize)]
+pub struct BossPattern {
+    pub steps: Vec<BossPatternStep>,
+    /// Named sub-sequences, entered via [`BossPatternStep::Stance`] or an
+    /// [`InterruptRule`]. A `BTreeMap`, not the sketch's `HashMap`: the ticker
+    /// only ever `get`s by id, but a validator and a trace both WALK it, and
+    /// ADR 0023 bans std-hash iteration anywhere the sim can observe the order.
+    #[serde(default)]
+    pub stances: std::collections::BTreeMap<String, Vec<BossPatternStep>>,
+    #[serde(default)]
+    pub interrupts: Vec<InterruptRule>,
+}
+
 impl BossPattern {
+    /// Total time of the phase's OWN steps, with control-flow steps counting zero
+    /// and `Select` counting its heaviest arm — the worst case a designer should
+    /// budget against. Stances are not included: they are entered, not scheduled.
     pub fn total_duration(&self) -> f32 {
         self.steps.iter().map(step_duration).sum()
     }
@@ -340,11 +432,20 @@ impl BossAttackProfile {
 
 /// Free function used by both `BossPattern::total_duration` and the
 /// brain's cursor advancement.
+/// A step's authored duration. Control-flow steps (`Select`, `Stance`) take no
+/// time; `Select` reports its HEAVIEST arm so `total_duration` is a worst-case
+/// budget rather than a lie. The ticker never sees either — `resolve_timeline`
+/// removes `Select` and `Stance` is consumed as a jump.
 pub fn step_duration(step: &BossPatternStep) -> f32 {
     match step {
         BossPatternStep::Telegraph { duration, .. }
         | BossPatternStep::Strike { duration, .. }
         | BossPatternStep::Rest { duration } => *duration,
+        BossPatternStep::Stance { .. } => 0.0,
+        BossPatternStep::Select { table } => table
+            .iter()
+            .map(|arm| arm.steps.iter().map(step_duration).sum::<f32>())
+            .fold(0.0, f32::max),
     }
 }
 
@@ -604,6 +705,43 @@ pub struct BossPatternState {
     /// the boss tick. Lives here (not just on the component) so the universal
     /// `Brain::tick` path can produce it — see the struct docs.
     pub attack_state: BossAttackState,
+
+    // ── BD1: control flow ────────────────────────────────────────────────────
+    /// The RESOLVED timeline the cursor walks: the active step list with every
+    /// `Select` already rolled away. Rebuilt on phase change, on stance
+    /// enter/leave, and each time the cursor loops — so a `Select` rolls once per
+    /// pass, which is what "roll once when reached" means for a looping script.
+    ///
+    /// Empty until the first tick resolves it.
+    pub timeline: Vec<BossPatternStep>,
+    /// Where to come back to. Pushed on `Stance` entry or an interrupt; popped
+    /// when the stance's timeline runs out. A stack, not a slot, so a stance may
+    /// enter another stance without losing the way home.
+    pub stance_stack: Vec<StanceReturn>,
+    /// The stance the boss is inside, `None` at the phase's own timeline.
+    pub stance: Option<String>,
+    /// Seconds until each `interrupts[i]` may fire again. Parallel to the rule
+    /// list; resized on phase change.
+    pub interrupt_cooldowns: Vec<f32>,
+    /// Seconds accumulated toward each `OnTimer` rule's `every_s`.
+    pub interrupt_timers: Vec<f32>,
+    /// The boss's HP as of the previous tick, so `OnHitTaken` can read the drop.
+    /// `None` before the first tick — a boss cannot have been hit before it existed.
+    pub last_hp: Option<i32>,
+}
+
+/// A saved cursor: where a `Stance` (or an interrupt) interrupted the timeline.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct StanceReturn {
+    /// The timeline to restore.
+    pub timeline: Vec<BossPatternStep>,
+    /// The stance name that timeline belonged to (`None` = the phase's own).
+    pub stance: Option<String>,
+    /// The step to resume AT (already advanced past the `Stance` marker).
+    pub step_index: usize,
+    /// Elapsed within that step. An interrupt keeps it, so a boss yanked out of a
+    /// telegraph resumes the telegraph where it left off rather than restarting.
+    pub step_elapsed: f32,
 }
 
 /// Three-state cycle-mode attack lifecycle.
@@ -776,7 +914,7 @@ impl BossMacroTuning {
 
 /// Per-tick read-only inputs to [`tick_boss_pattern`]. The boss tick
 /// system builds this from the boss entity's components.
-#[derive(Clone, Copy, Debug)]
+#[derive(Default, Clone, Copy, Debug)]
 pub struct BossPatternContext {
     /// Boss encounter phase this tick (forwarded by the system from
     /// `BossEncounterRegistry`). Drives pattern selection + the
@@ -799,6 +937,28 @@ pub struct BossPatternContext {
     /// Scaled sim dt for this tick. The cursor + clocks all advance
     /// by this value.
     pub dt: f32,
+    /// The boss's own facing (`+1` right, `-1` left). BD1's
+    /// [`SituationBucket::PlayerBehind`] reads it; `0.0` means "no opinion", and
+    /// the bucket then never holds.
+    pub actor_facing: f32,
+    /// The boss's live HP. BD1's [`SituationBucket::HpBelow`] reads the fraction,
+    /// and [`InterruptTrigger::OnHitTaken`] reads the DROP since last tick — which
+    /// the brain remembers itself (`BossPatternState::last_hp`) rather than asking
+    /// the damage system for a per-tick channel that does not exist. A boss's own
+    /// health is the only evidence of a hit it actually needs.
+    pub hp_current: i32,
+    pub hp_max: i32,
+}
+
+impl BossPatternContext {
+    /// `hp_current / hp_max`, clamped to `0..=1`. `1.0` when max is unknown, so a
+    /// context that never learned the boss's health never trips `HpBelow`.
+    pub fn hp_frac(&self) -> f32 {
+        if self.hp_max <= 0 {
+            return 1.0;
+        }
+        (self.hp_current as f32 / self.hp_max as f32).clamp(0.0, 1.0)
+    }
 }
 
 /// Component-side mirror of the brain's live attack decision. Written by the
@@ -928,6 +1088,10 @@ impl BossCapability {
 
 mod tick;
 pub use tick::*;
+
+/// BD1's three authored-logic atoms as pure functions: bucket evaluation,
+/// weighted `Select` resolution, stance push/pop, and interrupt bookkeeping.
+pub mod control_flow;
 
 /// The boss SEED LIBRARY vocabulary (boss-design.md §2, slice BD4): attack
 /// archetypes with a written design intent, fair-counter set, and measured

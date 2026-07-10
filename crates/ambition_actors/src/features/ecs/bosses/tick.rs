@@ -524,6 +524,12 @@ pub fn tick_boss_brains_system(
                     world_size: world.0.size,
                     front_wall_clearance,
                     dt,
+                    // BD1's situation buckets + `OnHitTaken`. The brain remembers
+                    // its own last HP, so a hit is a DROP in this pool — no
+                    // per-tick damage channel exists and none is invented.
+                    actor_facing: boss.kin.facing,
+                    hp_current: health.current(),
+                    hp_max: health.max(),
                 };
                 let mut attack_state = core::mem::take(&mut state.attack_state);
                 ambition_characters::brain::tick_boss_pattern(

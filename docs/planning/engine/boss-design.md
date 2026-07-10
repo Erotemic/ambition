@@ -196,7 +196,7 @@ Jon rates as *actually fun*.
 
 | # | Slice | Grade |
 |---|---|---|
-| BD1 | Pattern control-flow atoms (weighted selection buckets, interrupts, stances) | [opus, fable-specced — §1] |
+| BD1 | ~~Pattern control-flow atoms~~ ✅ **DONE 2026-07-10** — see §8 | [opus] |
 | BD2 | Arena beats from encounter spec (waves/spawns/terrain via existing buses) | [opus] |
 | BD3 | Telegraph event channel (rides CM5) | [opus] |
 | BD4 | ~~Seed library v1~~ ✅ **DONE 2026-07-10** — see §7 | [opus] |
@@ -282,3 +282,75 @@ that ignored the `Cycle` bosses would have been a lie about half the roster.
 per-fight verb union — are already there, ordered and tested. `MoveSeed::threat`
 is rule 1's tier. What BD5 still owes: the per-game calibration RON, the
 occurrence-level recovery measurement (finding 1), and the simultaneity integral.
+
+---
+
+## 8. BD1 — the three atoms, landed (opus, 2026-07-10)
+
+`ambition_characters::brain::boss_pattern::{control_flow, …}`. **Byte-parity**:
+`stances` and `interrupts` are `#[serde(default)]`, so every row
+`boss_profiles.ron` already carries parses unchanged, and BD4's measured seed
+bands are bit-identical after the change.
+
+### What was built
+
+- **`BossPatternStep::Select { table: Vec<WeightedArm> }`** — a weighted table
+  gated on a CLOSED `SituationBucket` (`PlayerNear`, `PlayerFar`, `PlayerAbove`,
+  `PlayerBehind`, `HpBelow(f32)`), each computed from the boss's existing context.
+- **`BossPatternStep::Stance { id }`** + `BossPattern::stances` — a named
+  sub-sequence, entered as a jump with a saved return point.
+- **`BossPattern::interrupts: Vec<InterruptRule>`** — `OnHitTaken { min_damage }`,
+  `OnPhaseEnter { phase }`, `OnTimer { every_s }`, each with a `cooldown_s`, each
+  entering a stance.
+
+### Four rulings the sketch left open
+
+1. **A `Select` rolls at RESOLUTION, not at the cursor.** The timeline the ticker
+   walks (`BossPatternState::timeline`) is resolved on phase change, on stance
+   enter/leave, and each time the cursor loops — so for a looping script "roll
+   once when reached" and "roll once per pass" are the same statement. Two
+   reasons: the cursor advances by step DURATION, and a zero-duration step at the
+   cursor is one authoring mistake away from an unbounded advance loop; and BD5's
+   validator wants to integrate a pass's total threat, which it cannot do against
+   a step meaning *"and then, maybe, some other steps."* The resolved timeline
+   contains no `Select` at all, and a test says so.
+
+2. **Ineligible arms leave the DENOMINATOR, not just the draw.** A table that is
+   half far-range arms would otherwise silently under-weight its near-range ones
+   the moment the player closed in — the bug a "roll then filter" order has. But a
+   `Select` still consumes exactly one draw whether or not an arm wins, so two
+   bosses that diverge in position stay in lockstep on the RNG stream itself.
+
+3. **`OnHitTaken` needed no damage channel.** The brain remembers its own HP
+   (`BossPatternState::last_hp`); a drop since last tick IS a hit, and a heal is
+   not one. Inventing a per-tick damage message would have been a second
+   representation of a fact the boss already carries.
+
+4. **`stances` is a `BTreeMap`, not the sketch's `HashMap`.** The ticker only
+   `get`s by id, but a validator and a trace both WALK it, and ADR 0023 bans
+   std-hash iteration anywhere the sim can observe the order.
+
+### Two traps, each with a test named after it
+
+- **A timer behind a long cooldown must not bank its firings.** The `OnTimer`
+  accumulator resets when the trigger CONDITION holds, not when the interrupt is
+  *allowed* to fire. Otherwise a 1s timer behind a 5s cooldown fires five times in
+  a row at t=5.
+- **An interrupt resumes the beat it stole, elapsed and all.** A boss yanked out
+  of a telegraph comes back to that telegraph rather than restarting it, so the
+  punish window the player was already reading stays where it was.
+
+An unknown stance id is a no-op, not a panic: BD5 rejects it at install time, and
+a fight already running must not die of a typo. A self-referencing `Select` bottoms
+out at a depth limit rather than hanging the sim.
+
+### What BD1 did NOT do
+
+**No shipped boss uses an atom yet.** BD1 is vocabulary + runtime; re-authoring a
+fight through it is BD7's pilot, which is where the numbers get a taste pass. The
+atoms are tested through the real ticker (7 integration tests) and as pure
+functions (21 unit tests), so BD7 starts from machinery that works rather than
+machinery that compiles.
+
+BD4's seed-library oracle now walks `Select` arms and stance bodies, so the
+catalog cannot go partial the moment a fight uses one.

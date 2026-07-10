@@ -1238,6 +1238,13 @@ fn tick_boss_pattern_via_state_machine(
         world_size: snapshot.world_size,
         front_wall_clearance: snapshot.front_wall_clearance,
         dt: snapshot.dt,
+        // BD1's situation buckets. The snapshot carries a health FRACTION, not a
+        // pool, so hp is expressed on a 0..100 scale here: `HpBelow` reads the
+        // ratio, and `OnHitTaken`'s min_damage is then in percent-of-max on this
+        // path. The ECS boss tick below passes the real pool.
+        actor_facing: snapshot.actor_facing,
+        hp_current: (snapshot.health_fraction.clamp(0.0, 1.0) * 100.0).round() as i32,
+        hp_max: 100,
     };
     // The attack-state projection lives IN the pattern state; take it out to
     // satisfy `tick_boss_pattern`'s separate `&mut`, then put it back. The boss

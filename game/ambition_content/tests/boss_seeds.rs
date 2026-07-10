@@ -21,7 +21,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use ambition_actors::features::BossBehaviorProfile;
 use ambition_characters::brain::boss_pattern::{
-    seeds::SeedLibrary, BossAttackPattern, BossAttackProfile, BossPattern, BossPatternStep,
+    seeds::SeedLibrary, BossAttackPattern, BossAttackProfile, BossPatternStep,
 };
 use ambition_content::bosses::{seed_library, BOSS_PROFILES_RON};
 
@@ -66,7 +66,13 @@ fn occurrences_by_move_key() -> BTreeMap<String, Vec<Occurrence>> {
                 enrage,
             } => {
                 for pattern in [intro, phase1, transition, phase2, enrage] {
-                    collect_scripted(&pattern, &mut out);
+                    collect_scripted(&pattern.steps, &mut out);
+                    // BD1: a stance's beats are beats. They are entered, not
+                    // scheduled, but they still telegraph and still strike, so the
+                    // seed library must describe them or the catalog is partial.
+                    for stance in pattern.stances.values() {
+                        collect_scripted(stance, &mut out);
+                    }
                 }
             }
         }
@@ -78,9 +84,9 @@ fn occurrences_by_move_key() -> BTreeMap<String, Vec<Occurrence>> {
 /// profile that follows it. Authored beats always come in that order (a `Strike`
 /// with no `Telegraph` would be a §3 rule-1 error, and none exist), so pairing by
 /// "the pending telegraph for this key" is exact rather than heuristic.
-fn collect_scripted(pattern: &BossPattern, out: &mut BTreeMap<String, Vec<Occurrence>>) {
+fn collect_scripted(steps: &[BossPatternStep], out: &mut BTreeMap<String, Vec<Occurrence>>) {
     let mut pending: BTreeMap<String, f32> = BTreeMap::new();
-    for step in &pattern.steps {
+    for step in steps {
         match step {
             BossPatternStep::Telegraph { profile, duration } => {
                 pending.insert(move_key(profile).to_string(), *duration);
@@ -99,6 +105,16 @@ fn collect_scripted(pattern: &BossPattern, out: &mut BTreeMap<String, Vec<Occurr
                 });
             }
             BossPatternStep::Rest { .. } => {}
+            // BD1 control flow. A `Select` arm's beats are real beats the fight can
+            // play, so they are occurrences; each arm gets its own telegraph
+            // pairing, because arms are alternatives, not a sequence. A `Stance`
+            // marker is a jump — its beats are walked from `pattern.stances`.
+            BossPatternStep::Select { table } => {
+                for arm in table {
+                    collect_scripted(&arm.steps, out);
+                }
+            }
+            BossPatternStep::Stance { .. } => {}
         }
     }
 }

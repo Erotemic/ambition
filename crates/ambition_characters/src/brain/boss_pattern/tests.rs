@@ -13,6 +13,7 @@ fn scripted_two_step_phase1(strike_profile: BossAttackProfile) -> BossAttackPatt
             },
             BossPatternStep::Rest { duration: 0.3 },
         ],
+        ..Default::default()
     };
     BossAttackPattern::Scripted {
         intro: BossPattern::default(),
@@ -31,6 +32,11 @@ fn ctx(phase: BossEncounterPhase, dt: f32) -> BossPatternContext {
         world_size: ae::Vec2::new(2_000.0, 2_000.0),
         front_wall_clearance: None,
         dt,
+        // A healthy boss facing right. BD1's buckets and `OnHitTaken` read these;
+        // the default `0/0` pool would make every "took damage" read as a heal.
+        actor_facing: 1.0,
+        hp_current: 100,
+        hp_max: 100,
     }
 }
 
@@ -561,6 +567,7 @@ fn macro_ctx(actor_pos: ae::Vec2, target_pos: ae::Vec2, dt: f32) -> BossPatternC
         world_size: ae::Vec2::new(1_280.0, 768.0),
         front_wall_clearance: None,
         dt,
+        ..Default::default()
     }
 }
 
@@ -816,6 +823,7 @@ fn idle_attack_chance_can_gate_rest_into_eye_beam() {
                 duration: 0.25,
             },
         ],
+        ..Default::default()
     };
     let mut cfg = cfg_with(BossAttackPattern::Scripted {
         intro: BossPattern::default(),
@@ -915,6 +923,7 @@ fn scripted_repertoire_dedups_strike_profiles_in_first_seen_order() {
                 duration: 0.4,
             },
         ],
+        ..Default::default()
     };
     let phase2 = BossPattern {
         steps: vec![
@@ -927,6 +936,7 @@ fn scripted_repertoire_dedups_strike_profiles_in_first_seen_order() {
                 duration: 0.4,
             },
         ],
+        ..Default::default()
     };
     let mut cfg = cfg_with(BossAttackPattern::Scripted {
         intro: BossPattern::default(),
@@ -1029,4 +1039,311 @@ fn move_id_round_trips() {
             "{profile:?} must round-trip through its move id",
         );
     }
+}
+
+// ── BD1: the atoms, driven through the REAL ticker ───────────────────────────
+
+fn bd1_strike(id: &str, duration: f32) -> BossPatternStep {
+    BossPatternStep::Strike {
+        profile: BossAttackProfile::Strike(id.to_string()),
+        duration,
+    }
+}
+
+fn bd1_active_key(attack_state: &BossAttackState) -> Option<String> {
+    attack_state
+        .active_profile
+        .as_ref()
+        .map(|p| p.move_id().to_string())
+}
+
+fn bd1_tick(
+    cfg: &BossPatternCfg,
+    state: &mut BossPatternState,
+    c: &BossPatternContext,
+) -> BossAttackState {
+    let mut frame = crate::actor::control::ActorControlFrame::neutral();
+    let mut attack_state = core::mem::take(&mut state.attack_state);
+    tick_boss_pattern(cfg, state, c, &mut frame, &mut attack_state);
+    state.attack_state = attack_state.clone();
+    attack_state
+}
+
+fn bd1_pattern(phase1: BossPattern) -> BossAttackPattern {
+    BossAttackPattern::Scripted {
+        intro: BossPattern::default(),
+        phase1,
+        transition: BossPattern::default(),
+        phase2: BossPattern::default(),
+        enrage: BossPattern::default(),
+    }
+}
+
+/// **`Select`, through the ticker.** The player is NEAR, so only the near arm is
+/// eligible, and the boss plays it — whatever the roll. The cursor never sees a
+/// `Select`: resolution removed it before the first tick of the pass.
+#[test]
+fn bd1_a_select_plays_the_only_eligible_arm_and_the_cursor_never_sees_the_select() {
+    let phase1 = BossPattern {
+        steps: vec![BossPatternStep::Select {
+            table: vec![
+                WeightedArm {
+                    weight: 1.0,
+                    when: Some(SituationBucket::PlayerFar),
+                    steps: vec![bd1_strike("rain", 1.0)],
+                },
+                WeightedArm {
+                    weight: 1.0,
+                    when: Some(SituationBucket::PlayerNear),
+                    steps: vec![bd1_strike("sweep", 1.0)],
+                },
+            ],
+        }],
+        ..Default::default()
+    };
+    let cfg = cfg_with(bd1_pattern(phase1));
+    let mut state = BossPatternState::default();
+    let mut c = ctx(BossEncounterPhase::Phase1, 1.0 / 60.0);
+    c.target_pos = ae::Vec2::new(50.0, 0.0); // inside PLAYER_NEAR_PX
+
+    let attack = bd1_tick(&cfg, &mut state, &c);
+    assert_eq!(bd1_active_key(&attack).as_deref(), Some("sweep"));
+    assert!(
+        !state
+            .timeline
+            .iter()
+            .any(|s| matches!(s, BossPatternStep::Select { .. })),
+        "the resolved timeline is beats only"
+    );
+}
+
+/// The far arm is what a far player gets — the bucket, not the roll, decides.
+#[test]
+fn bd1_moving_the_player_out_of_range_changes_the_arm_on_the_next_pass() {
+    let phase1 = BossPattern {
+        steps: vec![BossPatternStep::Select {
+            table: vec![
+                WeightedArm {
+                    weight: 1.0,
+                    when: Some(SituationBucket::PlayerFar),
+                    steps: vec![bd1_strike("rain", 0.2)],
+                },
+                WeightedArm {
+                    weight: 1.0,
+                    when: Some(SituationBucket::PlayerNear),
+                    steps: vec![bd1_strike("sweep", 0.2)],
+                },
+            ],
+        }],
+        ..Default::default()
+    };
+    let cfg = cfg_with(bd1_pattern(phase1));
+    let mut state = BossPatternState::default();
+    let mut c = ctx(BossEncounterPhase::Phase1, 0.1);
+    c.target_pos = ae::Vec2::new(50.0, 0.0);
+    assert_eq!(
+        bd1_active_key(&bd1_tick(&cfg, &mut state, &c)).as_deref(),
+        Some("sweep")
+    );
+
+    // Walk away, then let the single-beat pass loop: the re-resolve re-rolls.
+    c.target_pos = ae::Vec2::new(1_500.0, 0.0);
+    let mut saw_rain = false;
+    for _ in 0..10 {
+        if bd1_active_key(&bd1_tick(&cfg, &mut state, &c)).as_deref() == Some("rain") {
+            saw_rain = true;
+            break;
+        }
+    }
+    assert!(
+        saw_rain,
+        "the loop re-resolves, so a new situation opens a new arm"
+    );
+}
+
+/// **`Stance`, through the ticker.** A zero-duration jump is consumed as control
+/// flow, not advanced-past by time — and the stance returns to the step AFTER the
+/// marker rather than replaying it.
+#[test]
+fn bd1_a_stance_step_jumps_and_returns_to_the_beat_after_it() {
+    let mut stances = std::collections::BTreeMap::new();
+    stances.insert("flourish".to_string(), vec![bd1_strike("flourish", 0.2)]);
+    let phase1 = BossPattern {
+        steps: vec![
+            bd1_strike("opener", 0.2),
+            BossPatternStep::Stance {
+                id: "flourish".to_string(),
+            },
+            bd1_strike("closer", 0.2),
+        ],
+        stances,
+        interrupts: Vec::new(),
+    };
+    let cfg = cfg_with(bd1_pattern(phase1));
+    let mut state = BossPatternState::default();
+    let c = ctx(BossEncounterPhase::Phase1, 0.1);
+
+    let mut seen = Vec::new();
+    for _ in 0..8 {
+        if let Some(key) = bd1_active_key(&bd1_tick(&cfg, &mut state, &c)) {
+            if seen.last() != Some(&key) {
+                seen.push(key);
+            }
+        }
+    }
+    assert_eq!(
+        &seen[..3],
+        [
+            "opener".to_string(),
+            "flourish".to_string(),
+            "closer".to_string()
+        ],
+        "the stance runs between the two beats, once, and control returns"
+    );
+    // ...and the phase timeline then LOOPS, as it always has. The stance is not
+    // re-entered by the loop's re-resolution — it is entered by its marker, again.
+    assert_eq!(seen[3], "opener");
+}
+
+/// **An interrupt, through the ticker.** Hitting the boss hard enough yanks it
+/// into its panic stance mid-telegraph, and the telegraph resumes where it was —
+/// so the punish window the player was already reading survives.
+#[test]
+fn bd1_an_on_hit_interrupt_steals_the_beat_and_gives_it_back() {
+    let mut stances = std::collections::BTreeMap::new();
+    // Half a second of burst: several ticks at dt=0.1, so the stance is observable
+    // rather than entered and popped inside one tick.
+    stances.insert("panic".to_string(), vec![bd1_strike("panic_burst", 0.5)]);
+    let phase1 = BossPattern {
+        steps: vec![bd1_strike("slow_slam", 2.0)],
+        stances,
+        interrupts: vec![InterruptRule {
+            on: InterruptTrigger::OnHitTaken { min_damage: 5 },
+            cooldown_s: 10.0,
+            enter: "panic".to_string(),
+        }],
+    };
+    let cfg = cfg_with(bd1_pattern(phase1));
+    let mut state = BossPatternState::default();
+    let mut c = ctx(BossEncounterPhase::Phase1, 0.1);
+
+    // Two undamaged ticks: the slam is running, 0.2s in.
+    bd1_tick(&cfg, &mut state, &c);
+    let attack = bd1_tick(&cfg, &mut state, &c);
+    assert_eq!(bd1_active_key(&attack).as_deref(), Some("slow_slam"));
+    let elapsed_before = state.step_elapsed;
+    assert!(elapsed_before > 0.0);
+
+    // Take 20 damage. `damage_taken` is the DROP the brain remembers.
+    c.hp_current = 80;
+    let attack = bd1_tick(&cfg, &mut state, &c);
+    assert_eq!(
+        bd1_active_key(&attack).as_deref(),
+        Some("panic_burst"),
+        "the interrupt entered its stance on THIS tick, not the next"
+    );
+    assert_eq!(state.stance.as_deref(), Some("panic"));
+
+    // Let the burst finish; the slam resumes where it was interrupted.
+    for _ in 0..6 {
+        bd1_tick(&cfg, &mut state, &c);
+    }
+    assert_eq!(state.stance, None, "the stance popped");
+    assert_eq!(
+        bd1_active_key(&state.attack_state).as_deref(),
+        Some("slow_slam")
+    );
+    assert!(
+        state.step_elapsed >= elapsed_before,
+        "the slam resumed at {}, not from zero (was {elapsed_before})",
+        state.step_elapsed
+    );
+}
+
+/// A phase change drops the resolved timeline, unwinds the stance stack, and
+/// clears interrupt bookkeeping — a new phase is a new script.
+#[test]
+fn bd1_a_phase_change_unwinds_every_stance_and_resolves_afresh() {
+    let mut stances = std::collections::BTreeMap::new();
+    stances.insert("panic".to_string(), vec![bd1_strike("panic_burst", 5.0)]);
+    let phase1 = BossPattern {
+        steps: vec![bd1_strike("p1", 5.0)],
+        stances,
+        interrupts: vec![InterruptRule {
+            on: InterruptTrigger::OnHitTaken { min_damage: 1 },
+            cooldown_s: 0.0,
+            enter: "panic".to_string(),
+        }],
+    };
+    let phase2 = BossPattern {
+        steps: vec![bd1_strike("p2", 5.0)],
+        ..Default::default()
+    };
+    let cfg = cfg_with(BossAttackPattern::Scripted {
+        intro: BossPattern::default(),
+        phase1,
+        transition: BossPattern::default(),
+        phase2,
+        enrage: BossPattern::default(),
+    });
+    let mut state = BossPatternState::default();
+    let mut c = ctx(BossEncounterPhase::Phase1, 0.1);
+    bd1_tick(&cfg, &mut state, &c);
+    c.hp_current = 50;
+    bd1_tick(&cfg, &mut state, &c);
+    assert_eq!(state.stance.as_deref(), Some("panic"));
+
+    c.encounter_phase = BossEncounterPhase::Phase2;
+    let attack = bd1_tick(&cfg, &mut state, &c);
+    assert_eq!(bd1_active_key(&attack).as_deref(), Some("p2"));
+    assert!(state.stance.is_none());
+    assert!(state.stance_stack.is_empty());
+}
+
+/// **Byte-parity.** `stances` and `interrupts` are `#[serde(default)]`, so every
+/// row that `boss_profiles.ron` already carries parses unchanged. This is BD1's
+/// stated requirement, not a nice-to-have: a vocabulary extension that forces a
+/// content migration is a different, larger slice.
+#[test]
+fn bd1_a_pre_bd1_pattern_ron_still_parses_and_behaves_identically() {
+    let before: BossPattern = ron::from_str(
+        r#"(steps: [
+            Telegraph(profile: Strike("floor_slam"), duration: 1.2),
+            Strike(profile: Strike("floor_slam"), duration: 0.4),
+            Rest(duration: 1.4),
+        ])"#,
+    )
+    .expect("a pre-BD1 pattern parses with no `stances` and no `interrupts`");
+    assert_eq!(before.steps.len(), 3);
+    assert!(before.stances.is_empty());
+    assert!(before.interrupts.is_empty());
+    assert!((before.total_duration() - 3.0).abs() < 1e-5);
+}
+
+/// And the new atoms parse from RON, so an authoring agent can write them.
+#[test]
+fn bd1_the_new_atoms_parse_from_authored_ron() {
+    let pattern: BossPattern = ron::from_str(
+        r#"(
+            steps: [
+                Select(table: [
+                    (weight: 3.0, when: Some(PlayerNear), steps: [Rest(duration: 0.5)]),
+                    (weight: 1.0, steps: [Rest(duration: 0.2)]),
+                ]),
+                Stance(id: "flourish"),
+            ],
+            stances: { "flourish": [Rest(duration: 0.3)] },
+            interrupts: [
+                (on: OnHitTaken(min_damage: 12), cooldown_s: 6.0, enter: "flourish"),
+                (on: OnPhaseEnter(phase: Enrage), cooldown_s: 0.0, enter: "flourish"),
+                (on: OnTimer(every_s: 8.0), cooldown_s: 8.0, enter: "flourish"),
+            ],
+        )"#,
+    )
+    .expect("BD1's atoms parse");
+    assert_eq!(pattern.steps.len(), 2);
+    assert_eq!(pattern.stances.len(), 1);
+    assert_eq!(pattern.interrupts.len(), 3);
+    // `total_duration` budgets a `Select` at its heaviest arm, not its lightest.
+    assert!((pattern.total_duration() - 0.5).abs() < 1e-5);
 }

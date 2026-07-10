@@ -35,7 +35,7 @@ pub fn tick_boss_pattern(
     // Phase change → reset the scripted cursor. Scripted patterns
     // anchor on step 0 of the new phase rather than carrying the
     // old phase's cursor in mid-step.
-    if state.last_phase != Some(ctx.encounter_phase) {
+    let phase_entered = if state.last_phase != Some(ctx.encounter_phase) {
         state.step_index = 0;
         state.step_elapsed = 0.0;
         state.cycle_phase = CyclePhase::Cooldown;
@@ -45,7 +45,19 @@ pub fn tick_boss_pattern(
         // doesn't carry stale duration across the music swap.
         state.macro_state = BossMacroState::Engage;
         state.engage_timer = 0.0;
-    }
+        // BD1: a new phase is a new script. Drop the resolved timeline, unwind any
+        // stance the old phase was inside, and let this tick re-resolve. Interrupt
+        // bookkeeping goes with it — a rule that sat on cooldown through phase 1
+        // gets to fire on the phase-2 beat it was authored for.
+        state.timeline.clear();
+        state.stance_stack.clear();
+        state.stance = None;
+        state.interrupt_cooldowns.clear();
+        state.interrupt_timers.clear();
+        Some(ctx.encounter_phase)
+    } else {
+        None
+    };
 
     // Advance the chase/engage/retreat macro state machine BEFORE
     // emitting desired_vel so the movement override (Approach
@@ -85,7 +97,7 @@ pub fn tick_boss_pattern(
 
     match &cfg.pattern {
         BossAttackPattern::Scripted { .. } => {
-            advance_scripted(cfg, state, ctx, attack_state);
+            advance_scripted(cfg, state, ctx, attack_state, phase_entered);
         }
         BossAttackPattern::Cycle => {
             advance_cycle(cfg, state, ctx, attack_state);
@@ -111,46 +123,158 @@ pub fn tick_boss_pattern(
     emit_desired_vel(cfg, state, ctx, out, attack_state);
 }
 
-/// Scripted-pattern cursor advancement.
+/// The boss's one deterministic random stream (ADR 0023: no ambient RNG). A
+/// value type so the ticker can hand `&mut` to `resolve_timeline` and to
+/// `enter_stance` without also handing them the whole `BossPatternState` twice.
+/// Seeded from the encounter id, checkpointed back into `state.rng_seed`.
+pub(super) struct PatternRng(u64);
+
+impl PatternRng {
+    fn seeded(cfg: &BossPatternCfg, state: &BossPatternState) -> Self {
+        if state.rng_seed != 0 {
+            return Self(state.rng_seed);
+        }
+        Self(
+            hash_boss_pattern_seed(&cfg.encounter_id)
+                ^ 0x9E37_79B9_7F4A_7C15
+                ^ ((state.step_index as u64) << 32),
+        )
+    }
+
+    /// One uniform in `[0, 1)`.
+    pub(super) fn unit(&mut self) -> f32 {
+        self.0 = self
+            .0
+            .wrapping_mul(6_364_136_223_846_793_005)
+            .wrapping_add(1_442_695_040_888_963_407);
+        let n = (self.0 >> 33) as u32;
+        n as f32 / (1u64 << 31) as f32
+    }
+}
+
+/// Guard against an authored cycle of zero-duration control flow (a stance that
+/// only enters itself). Far above any real script; it exists so a typo cannot
+/// hang the sim, not because 65 would be wrong.
+const MAX_CURSOR_STEPS_PER_TICK: u32 = 64;
+
+/// Scripted-pattern cursor advancement, with BD1's control flow.
+///
+/// The cursor walks `state.timeline` — the RESOLVED step list, every `Select`
+/// already rolled away. Three things happen here that did not before BD1:
+///
+/// - **Interrupts fire before the cursor moves**, so a rule triggered this tick
+///   enters its stance on this tick's beat rather than one late.
+/// - **`Stance` markers are consumed as jumps**, never advanced-past by time. A
+///   zero-duration step at the cursor would otherwise spin against
+///   `duration.max(0.01)`.
+/// - **Running off the end pops a stance, or re-resolves the phase's timeline.**
+///   Re-resolution is what makes a `Select` roll once per pass of a looping
+///   script — which is what "roll once when reached" means for a loop.
 fn advance_scripted(
     cfg: &BossPatternCfg,
     state: &mut BossPatternState,
     ctx: &BossPatternContext,
     attack_state: &mut BossAttackState,
+    phase_entered: Option<BossEncounterPhase>,
 ) {
-    let steps: Vec<BossPatternStep> = match cfg.pattern.pattern_for(ctx.encounter_phase) {
-        Some(pattern) if !pattern.steps.is_empty() => pattern.steps.clone(),
+    let pattern = match cfg.pattern.pattern_for(ctx.encounter_phase) {
+        Some(pattern) if !pattern.steps.is_empty() => pattern.clone(),
         _ => {
             attack_state.clear();
             return;
         }
     };
+    let mut rng = PatternRng::seeded(cfg, state);
 
-    state.step_elapsed += ctx.dt;
-    // Wrap the cursor if a phase transition shrunk the script under
-    // our feet, then advance through any completed steps this frame.
-    if state.step_index >= steps.len() {
+    if state.timeline.is_empty() {
+        state.timeline = control_flow::resolve_timeline(&pattern.steps, ctx, &mut || rng.unit());
         state.step_index = 0;
         state.step_elapsed = 0.0;
     }
-    loop {
-        let current = &steps[state.step_index];
-        let duration = step_duration(current).max(0.01);
-        if state.step_elapsed < duration {
-            break;
-        }
-        if !scripted_step_ready_to_advance(cfg, state, ctx, current, duration) {
-            break;
-        }
-        state.step_elapsed -= duration;
-        state.step_index = (state.step_index + 1) % steps.len();
+    if state.timeline.is_empty() {
+        // Every arm of every `Select` was ineligible — an authored "do nothing in
+        // this situation". Emit no attack and retry next tick, when the player may
+        // have moved into a bucket that opens one.
+        attack_state.clear();
+        state.rng_seed = rng.0;
+        return;
     }
 
-    let current = &steps[state.step_index];
-    let current_duration = step_duration(current).max(0.01);
+    // The brain remembers its own health, so `OnHitTaken` needs no damage channel:
+    // a drop since last tick IS a hit, and a heal is not one.
+    let damage_taken = state
+        .last_hp
+        .map_or(0, |before| (before - ctx.hp_current).max(0));
+    state.last_hp = Some(ctx.hp_current);
+
+    if let Some(rule) =
+        control_flow::tick_interrupts(&pattern.interrupts, state, ctx, phase_entered, damage_taken)
+    {
+        let enter = pattern.interrupts[rule].enter.clone();
+        // An interrupt resumes the step it left, elapsed and all: a boss yanked out
+        // of a telegraph comes back to that telegraph rather than restarting it, so
+        // the punish window the player was already reading stays where it was.
+        let resume = (state.step_index, state.step_elapsed);
+        control_flow::enter_stance(&pattern, state, ctx, &enter, resume, &mut || rng.unit());
+    }
+
+    state.step_elapsed += ctx.dt;
+    let mut guard = 0u32;
+    loop {
+        guard += 1;
+        if guard > MAX_CURSOR_STEPS_PER_TICK {
+            break;
+        }
+        match state.timeline.get(state.step_index).cloned() {
+            Some(BossPatternStep::Stance { id }) => {
+                let resume = (state.step_index + 1, 0.0);
+                if !control_flow::enter_stance(&pattern, state, ctx, &id, resume, &mut || {
+                    rng.unit()
+                }) {
+                    // Unknown or empty stance: step over the marker. BD5 rejects it
+                    // at install time; mid-fight it must not panic or stall.
+                    state.step_index += 1;
+                }
+            }
+            Some(current) => {
+                let duration = step_duration(&current).max(0.01);
+                if state.step_elapsed < duration {
+                    break;
+                }
+                if !scripted_step_ready_to_advance(cfg, state, ctx, &current, duration, &mut rng) {
+                    break;
+                }
+                state.step_elapsed -= duration;
+                state.step_index += 1;
+            }
+            None => {
+                // Off the end. A stance returns to whoever entered it; the phase's
+                // own timeline loops, re-rolling its `Select`s for the new pass.
+                if control_flow::leave_stance(state) {
+                    continue;
+                }
+                state.timeline =
+                    control_flow::resolve_timeline(&pattern.steps, ctx, &mut || rng.unit());
+                state.step_index = 0;
+                if state.timeline.is_empty() {
+                    attack_state.clear();
+                    state.rng_seed = rng.0;
+                    return;
+                }
+            }
+        }
+    }
+    state.rng_seed = rng.0;
+
+    let steps = &state.timeline;
+    let Some(current) = steps.get(state.step_index).cloned() else {
+        attack_state.clear();
+        return;
+    };
+    let current_duration = step_duration(&current).max(0.01);
     let elapsed = state.step_elapsed.clamp(0.0, current_duration);
     let remaining = (current_duration - elapsed).max(0.0);
-    match current {
+    match &current {
         BossPatternStep::Telegraph { profile, .. } => {
             attack_state.telegraph_profile = Some(profile.clone());
             attack_state.telegraph_remaining = remaining;
@@ -178,7 +302,11 @@ fn advance_scripted(
             attack_state.active_remaining = remaining;
             attack_state.active_elapsed = previous_telegraph_elapsed + elapsed;
         }
-        BossPatternStep::Rest { .. } => attack_state.clear(),
+        // A cursor that ends a tick on control flow means the guard tripped; draw
+        // nothing rather than a stale volume.
+        BossPatternStep::Rest { .. }
+        | BossPatternStep::Stance { .. }
+        | BossPatternStep::Select { .. } => attack_state.clear(),
     }
 }
 
@@ -188,6 +316,7 @@ fn scripted_step_ready_to_advance(
     ctx: &BossPatternContext,
     current: &BossPatternStep,
     duration: f32,
+    rng: &mut PatternRng,
 ) -> bool {
     let chance_per_second = cfg.macro_tuning.idle_attack_chance_per_second.max(0.0);
     if chance_per_second <= 0.0 || !matches!(current, BossPatternStep::Rest { .. }) {
@@ -200,7 +329,7 @@ fn scripted_step_ready_to_advance(
     // "idle, then maybe eye-beam" feel without making every scripted
     // boss probabilistic.
     let chance_this_tick = (chance_per_second * ctx.dt.max(0.0)).clamp(0.0, 1.0);
-    if chance_this_tick >= 1.0 || roll_boss_pattern_chance(cfg, state, chance_this_tick) {
+    if chance_this_tick >= 1.0 || rng.unit() < chance_this_tick {
         true
     } else {
         // Keep retrying the gate next tick without accumulating an
@@ -208,25 +337,6 @@ fn scripted_step_ready_to_advance(
         state.step_elapsed = duration;
         false
     }
-}
-
-fn roll_boss_pattern_chance(
-    cfg: &BossPatternCfg,
-    state: &mut BossPatternState,
-    chance: f32,
-) -> bool {
-    if state.rng_seed == 0 {
-        state.rng_seed = hash_boss_pattern_seed(&cfg.encounter_id)
-            ^ 0x9E37_79B9_7F4A_7C15
-            ^ ((state.step_index as u64) << 32);
-    }
-    state.rng_seed = state
-        .rng_seed
-        .wrapping_mul(6_364_136_223_846_793_005)
-        .wrapping_add(1_442_695_040_888_963_407);
-    let n = (state.rng_seed >> 33) as u32;
-    let unit = n as f32 / (u32::MAX >> 1) as f32;
-    unit < chance.clamp(0.0, 1.0)
 }
 
 fn hash_boss_pattern_seed(id: &str) -> u64 {

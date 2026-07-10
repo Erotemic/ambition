@@ -117,12 +117,13 @@ The accepted placement is:
 
 ## Execution evidence (Series 1 + Series 2, 2026-07-10)
 
-> **First pass.** A second-pass re-audit (see [Re-audit response](#re-audit-response-second-pass-2026-07-10) below)
-> refined several of these: `UnsupportedDynamicBirth` was renamed
-> `UnsupportedDynamicReconstruction`, `lossless()` became argless and self-measured, the
-> active room was added to the hash, and the identity roster and codec preflight were made
-> robust. Where a name below differs from current code, the second-pass section is
-> authoritative.
+> **First pass.** Two further re-audit passes refined these — see [second pass](#re-audit-response-second-pass-2026-07-10)
+> and [third pass](#re-audit-response-third-pass-2026-07-10) below. Among the changes: the
+> identity `roster` became AUTHORITATIVE and HASHED, a mutation-free `validate_snapshot` phase
+> was added, cursor/resolved codecs report an `ApplyOutcome` (so `lossless()` denies unapplied
+> rows), resource cursors gained a presence tag, the cross-room refusal compares the full
+> `Option`, and the coverage ledger is pinned by TYPE NAME. Where a name below differs from
+> current code, the later re-audit sections are authoritative.
 
 Executed by Opus 4.8. Every slice is one commit, green before commit, with its poison
 test's red-before/green-after demonstration recorded in the commit message.
@@ -202,3 +203,43 @@ semantics transactional for the ordinary path with the resolved path a named res
 losslessness self-measured and reliable; dynamic reconstruction a single enforced refusal,
 not a general window bound. The full atomic room restore, per-spawner recipes, boss-hand
 identity, and the resolved-codec Result contract remain named above.
+
+## Re-audit response (third pass, 2026-07-10)
+
+The third-pass re-audit accepted the six second-pass fixes as closed but withheld "N3.2
+substrate LANDED," naming six further exactness gaps — most of them exposed by the new
+identity roster the second pass had introduced but not yet made authoritative. All six are
+fixed. The code (findings 1–6, runtime substrate + the app coverage-ledger gate — coupled
+through the `CrossRoomBoundary` API change, so they land together to keep every commit green)
+is one commit, `9e0365e5`, with a per-finding red-before demonstration in the message; this
+documentation is a second. Executed by Opus 4.8.
+
+| # | Third-pass finding | Fix |
+|---|---|---|
+| 1 | `roster` captured but restore and the hash still derived existence from component ROWS — a zero-component `SimId` entity was despawned if it survived, dropped if it died, and invisible to the hash | `sim_ids()` reads the authoritative `roster`; restore reconciles against it (no other change needed); `roster` added as a named hash pseudo-entry in `hash_world` + `hash_by_entry` |
+| 2 | "Robust to a deserialized snapshot" overstated — `duplicate_ids` assumed a sorted roster; unknown entries and kind mismatches were silently skipped | order-robust `duplicate_ids` (sorts a clone); mutation-free `validate_snapshot` establishes canonical order, registry/kind agreement, unique rows, roster membership, and no-missing-entry BEFORE the first despawn → `RestoreError::MalformedSnapshot` |
+| 3 | Cursor and resolved codecs returned bare `true` when they applied NOTHING (no live target / vanished content) → false `lossless()` | `insert` returns `ApplyOutcome::{Applied, DecodeFailed, Unapplied}`; restore counts `unapplied_rows`; `lossless()` denies any unapplied row |
+| 4 | Resource cursor encoded absence and an empty cursor identically as `[]`; `CombatSlotsRes::apply_cursor` silently zipped mismatched shapes | presence-tagged resource-cursor blob (`Some`/`None`); apply reports `ApplyOutcome`; an absent-tagged resource is removed to match; a shape mismatch refuses loudly (`None` → `DecodeFailed`) |
+| 5 | Cross-room refusal only fired when BOTH sides carried a `RoomSet` | `CrossRoomBoundary` carries `Option<String>`; restore compares the full options, so a `Some`/`None` presence mismatch is refused |
+| 6 | Coverage gate was count-only (`resources.len() <= 181`, `worst <= 59`) — a substitution that holds the count constant passes | debt pinned by TYPE NAME against reviewed inventory files (`tests/known_{resource,component}_debt.txt`); a subset check makes a new type a review event; counts kept as summaries |
+
+**Red-before demonstrations:**
+
+- (1) restore off the component-derived set → the zero-component ghost is despawned as a future birth, and the hash does not move when it is added → `a_zero_component_sim_id_entity_is_covered_by_the_roster` FAILS.
+- (2) `duplicate_ids` without the sort → the split `["dup", "other", "dup"]` roster returns empty → FAILS; a component blob placed under a resource entry is skipped → `restore_refuses_a_snapshot_with_a_kind_mismatched_entry` FAILS.
+- (3) bare-`true` resolved insert → the dropped `Playing` row reports lossless → `a_resolved_component_that_names_missing_content_is_dropped_and_denies_lossless` FAILS.
+- (4) untagged empty blob → an absent-at-snapshot resource survives, and a present-at-snapshot / absent-now cursor passes → `a_resource_cursor_tags_presence_and_reports_an_absent_target` FAILS.
+- (5) both-`Some` guard → a `Some`/`None` presence mismatch is not refused (the runtime `Option` comparison is the fix; the existing `Some`/`Some` app test still refuses).
+- (6) empty inventory → the current 177 resource / 70 component debt names are all "new" → the subset assertion FAILS. (This is literally how the reviewed inventories were captured — from the failing run's `--nocapture` dump.)
+
+**Revised status after the third pass:** N0.3 = LANDED. N0.4 = LANDED as the canary mechanism
+(the stale skip-path paragraph in netcode.md is corrected). Identity substrate = the roster is
+now AUTHORITATIVE and HASHED, and `validate_snapshot` guards the deserialized path. Ordinary
+codec preflight = LANDED. Cursor/resolved codec semantics = report an `ApplyOutcome` and deny
+`lossless()` on any unapplied row; RESIDUAL: `SnapshotResolve::resolve` → `Result` to separate
+a resolved decode failure from authored absence. Losslessness = self-measured, census-gated,
+and denies unapplied rows / unresolved cursors. Room-boundary refusal = compares the full
+`Option`. Dynamic reconstruction = one explicit refusal. **N3.2 overall is still OPEN**: the
+full atomic room-context restore (→ `portal_lab` CLEAN), per-spawner reconstruction recipes,
+the `resolve` → `Result` contract, and the boss-hand `SimId::spawned` identity remain named,
+not hidden.

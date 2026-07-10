@@ -264,7 +264,7 @@ Obligations (each a slice, all [opus]):
   crate was silently skipped, and the dependency scan read ZERO manifests while passing
   green. Fixed: `root.join(krate)`, PANIC on an unreadable listed manifest, and an assert
   that one manifest is read per listed crate. N0.3 is now LANDED.
-- **N0.4 Desync canary rig — 🟡 PARTIAL (audit correction 2026-07-10).**
+- **N0.4 Desync canary rig — 🟢 LANDED as the canary mechanism (2026-07-10).**
   `game/ambition_app/tests/desync_canary.rs`: two `SandboxSim`s, one seeded input
   stream, the registered sim state hashed every tick, first-divergence report that
   names the offending REGISTRY ENTRY (a desync you cannot name is a desync you
@@ -272,15 +272,17 @@ Obligations (each a slice, all [opus]):
   different input stream must diverge, and moving one body must change the hash —
   because a canary that cannot cry proves nothing.
 
+  **Fixture-coverage correction — DONE (2026-07-10).** Required-room construction no
+  longer skips. `try_sim` returns `Result` and refuses a room that fails to build OR
+  silently falls back to another room; `sim()` is `unwrap_or_else(panic!)`, a HARD
+  failure that takes the gate down rather than passing vacuously; and
+  `a_missing_required_room_is_a_hard_failure_not_a_skip` is the poison test that pins
+  it. The earlier skip/return paths that collapsed measured peak debt to zero are gone.
 
-  **Fixture-coverage correction.** Required-room construction currently uses
-  skip/return paths. A room that loads is still checked: the canary/replay asserts
-  the full tick count and hash equality. The defect is narrower but serious:
-  **required rooms can disappear from the gate; loaded rooms do not silently pass
-  incorrect canary/replay results.** The SimId and resource ledgers are more
-  exposed because all-room load failure can collapse measured peak debt to zero.
-  Make fixture construction return `Result`, `expect` every required room with its
-  name, and land the missing-room poison test in the same commit.
+  The canary MECHANISM is landed and defended. What it can PROVE is still bounded by
+  the registered set (decision (1)) and by N3.2's exact-restore work — the two are
+  built together, so the canary strengthens as `SimId` and the codecs reach the rest
+  of the sim. That is the honest reading of decision (1), not a loophole.
 
   Built on N3.1's registration seam, as this section required
   (`ambition_runtime::snapshot`). The hash is FNV-1a, never
@@ -624,44 +626,64 @@ snapshots needed. Needs N0 complete, plus:
   fighter brain's FB6 rollouts all want it — and all three want `lossless()` first.
 - **N3.2 Exact-restore substrate + resim discipline — OPEN, ordered.**
 
-  1. **Identity invariant:** reject duplicate live/snapshot `SimId`s and duplicate
-     registry names before constructing lookup maps. Land the duplicate-`SimId`
-     poison test in the same commit.
-  2. **Active-room ownership + room boundary:** DONE in part (S2.2/S2.3). Traced the
-     mechanism — no leak; the rollback window spans a room transition and the active
-     room is omitted from snapshot state. Enforced per-tick authored ownership (proves
-     the roster is healthy); captured `SimSnapshot::active_room` AND folded it into
-     `hash_world`/`hash_by_entry`/`size_bytes` (re-audit finding 2 — the snapshot must not
-     carry state the N0.4 hash omits); and made restore REJECT a cross-room snapshot
-     (`RestoreError::CrossRoomBoundary`) before reconciliation. Also: the snapshot now
-     carries a full identity `roster` (every live `SimId`), so `duplicate_ids` catches a
-     collision across disjoint components, and `take` enforces uniqueness at capture
-     (finding 3). REMAINING: the full atomic room-context restore (entities +
-     platforms + clocks), which moves `portal_lab` to CLEAN — see the bounded-window
-     item. Dynamic children wrongly in the `placement:` namespace (boss hands) route to
-     the dynamic-spawn item.
+  1. **Identity invariant + snapshot validation:** DONE (S2.1; third-pass findings 1 + 2).
+     Reject duplicate live/snapshot `SimId`s and duplicate registry names before any lookup
+     map. The live-identity check is a PANIC (a running world with a duplicate id is a
+     spawn-site bug); the SNAPSHOT check is a mutation-free `validate_snapshot` phase that
+     runs before the first despawn and RETURNS `RestoreError::MalformedSnapshot` (corrupt
+     wire input, not a program bug). It establishes canonical order, registry/kind agreement,
+     unique rows, and roster membership — everything restore's `binary_search`es assume — and
+     `duplicate_ids` now sorts before scanning, so a non-adjacent collision in an unsorted
+     deserialized roster no longer evades it. Duplicate-`SimId` and kind-mismatch poison
+     tests landed with it.
+  2. **Active-room ownership + room boundary + authoritative roster:** DONE (S2.2/S2.3;
+     third-pass findings 1 + 5). Traced the mechanism — no leak; the rollback window spans a
+     room transition and the active room is omitted from snapshot state. Enforced per-tick
+     authored ownership (proves the roster is healthy); captured `SimSnapshot::active_room`
+     AND folded it into `hash_world`/`hash_by_entry`/`size_bytes`; and made restore REJECT a
+     cross-room snapshot (`RestoreError::CrossRoomBoundary`) before reconciliation —
+     comparing the FULL `Option<String>` on both sides, so a `Some`/`None` presence mismatch
+     is refused, not just two different ids (third-pass finding 5). The identity `roster` is
+     now AUTHORITATIVE and HASHED (third-pass finding 1): restore reconciles against the full
+     roster, not the component-derived id set, so a `SimId` entity with zero registered
+     components is preserved/reconstructed rather than silently despawned/dropped; and the
+     roster is a named hash pseudo-entry, so two worlds differing only by such an entity no
+     longer hash equal. REMAINING: the full atomic room-context restore (entities +
+     platforms + clocks), which moves `portal_lab` to CLEAN — see the bounded-window item.
+     Dynamic children wrongly in the `placement:` namespace (boss hands) route to the
+     dynamic-spawn item.
   3. **Reconciliation ordering:** DONE (S2.4). Stale components and unidentified
      survivors are computed AFTER reconciliation, over the final restored roster.
-  4. **Codec failure semantics:** DONE for the ordinary path, TRANSACTIONALLY (S2.5;
-     re-audit finding 5). `restore` returns `RestoreError::DecodeFailed` in every build.
-     Standalone codecs (plain component, plain resource) carry a decode `probe` and are
-     validated in a mutation-free preflight BEFORE the first despawn, so a corrupt ordinary
-     blob refuses with the world untouched (a would-be-despawned future entity is asserted
-     to survive). RESIDUAL: cursor/resolved codecs decode into a live target, cannot be
-     probed standalone, and their failure can still surface mid-reconciliation — and a
-     resolved codec cannot even distinguish decode failure from authored absence (its
-     `resolve` returns `None` for both). Making `SnapshotResolve::resolve` return a `Result`
-     is the remaining work.
-  5. **Positive, self-measured losslessness:** DONE (S2.6/S2.7/S2.8; re-audit finding 6).
-     `lossless()` is argless: `restore` MEASURES the resource term itself
-     (`unregistered_sim_resources`), so the caller can no longer claim `lossless(0)` against
-     a world with debt. It requires `resource_census_reliable` (resource names need
-     `bevy_ecs/debug`; without them the count is a spurious 0), so it cannot succeed blind.
-     Registered `Messages<M>` channels are CLAIMED (restore clears them), not counted as
-     false debt. Resource cursors whose target is absent are counted, not silently passed.
-     The sim-resource universe is a NAMED exclusion policy (`SIM_RESOURCE_EXCLUSIONS`),
-     per-TYPE for mixed-purpose crates (`ambition_ldtk_map`) so a new resource there is a
-     review event, namespace-form only for wholly-presentation subtrees.
+  4. **Codec failure semantics:** DONE for the ordinary path TRANSACTIONALLY, and every
+     codec now reports an OUTCOME rather than a bare success (S2.5; third-pass findings 3 + 4).
+     `restore` returns `RestoreError::DecodeFailed` in every build. Standalone codecs (plain
+     component, plain resource) carry a decode `probe` and are validated in a mutation-free
+     preflight BEFORE the first despawn, so a corrupt ordinary blob refuses with the world
+     untouched (a would-be-despawned future entity is asserted to survive). Cursor and
+     resolved component codecs now return `ApplyOutcome::{Applied, DecodeFailed, Unapplied}`:
+     a cursor with no live target and a resolve whose content vanished report `Unapplied`
+     (counted, `lossless()` denies it) instead of the old bare `true`. Resource cursors carry
+     a PRESENCE TAG (`Some`/`None`), so absence and an empty cursor no longer encode
+     identically, and a shape mismatch (`CombatSlotsRes`) refuses loudly rather than silently
+     zipping. RESIDUAL: cursor/resolved codecs decode into a live target, cannot be probed
+     standalone, so a genuine decode failure can still surface mid-reconciliation; and a
+     resolved codec still cannot DISTINGUISH decode failure from authored absence (`resolve`
+     returns `None` for both) — both now deny `lossless()`, but making `SnapshotResolve::`
+     `resolve` return a `Result` to separate the two is the remaining work.
+  5. **Positive, self-measured losslessness:** DONE (S2.6/S2.7/S2.8; third-pass findings 3 + 4
+     + 6). `lossless()` is argless: `restore` MEASURES the resource term itself
+     (`unregistered_sim_resources`), so the caller can no longer claim `lossless(0)` against a
+     world with debt. It requires `resource_census_reliable` (resource names need
+     `bevy_ecs/debug`; without them the count is a spurious 0), so it cannot succeed blind. It
+     now ALSO denies any restore with an unapplied component row (`unapplied_rows`) or an
+     unresolved resource cursor (`resource_cursors_unresolved`) — the false-success the old
+     bare-`true` insert produced. Registered `Messages<M>` channels are CLAIMED (restore
+     clears them), not counted as false debt. The sim-resource universe is a NAMED exclusion
+     policy (`SIM_RESOURCE_EXCLUSIONS`), per-TYPE for mixed-purpose crates (`ambition_ldtk_map`)
+     so a new resource there is a review event, namespace-form only for wholly-presentation
+     subtrees. The coverage ledger pins the debt by TYPE NAME against reviewed inventory files
+     (`tests/known_{resource,component}_debt.txt`), not just by count, so a substitution that
+     holds the count constant is a review event (third-pass finding 6).
   6. **Dynamic reconstruction refusal (NOT a general bounded window):** ONE refusal enforced
      (S2.9/S2.10; re-audit finding 4). `restore` refuses `RestoreError::UnsupportedDynamic`
      `Reconstruction` when a `SimId::spawned(..)` entity (id contains `/`) is in the

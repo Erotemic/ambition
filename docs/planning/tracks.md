@@ -37,9 +37,10 @@ P2's decomposition and combat stack are DONE. What's left divides into one
 arc that closes the last agent-closable playbook exit, a handful of
 player-visible bugs, and the untouched determinism ladder.
 
-1. **The demo-shell arc — D-C mode scope + a runnable `ambition_demo_sanic`.**
-   [opus] The single highest-leverage item: it closes playbook **exit 3** (the
-   oracle, executable) and lands D-C, the last decomposition artifact. The
+1. **The demo-shell arc — a runnable `ambition_demo_sanic`.**
+   [opus] It closes playbook **exit 3** (the oracle, executable). **D-C, its
+   engine-side half, is now R1 of [refactor-chain.md](engine/refactor-chain.md)
+   — do it there, not here; this item is the BINARY.** The
    mode-scope seam is pre-solved in
    [engine/decomposition.md](engine/decomposition.md) §D-C; the reference
    assembly is `crates/ambition_host/tests/demo_shell_smoke.rs` (already
@@ -55,14 +56,43 @@ player-visible bugs, and the untouched determinism ladder.
    binary, author reasonable defaults, mark the commit `blind fix:`.
    Same shape afterward for `ambition_demo_smb1`'s 1-1 geometry [sonnet].
 
-2. **The visible sprite bugs (E3/E6 tail).** [opus] Three player-facing
+2. **The refactor chain — [engine/refactor-chain.md](engine/refactor-chain.md).**
+   [opus] Six slices in dependency order, all verified, written 2026-07-10 after
+   the ledger ruling: **R1** D-C mode-scope seam (unblocked, pre-solved, closes
+   the last decomposition artifact) → **R2** E6 teardown (dissolves
+   `boss_encounter/`, the biggest shell at 5.5k, and unblocks R4's victim
+   stepper) → **R3** the overlay split (`CollisionWorld` → `ambition_world`; the
+   precondition fable named has already been met, unnoticed — verified) → **R4**
+   re-check the projectile steppers (two of their three blockers die with R2/R3;
+   charge input survives and folds into R6) → **R5** the `ControlFrame` allowlist
+   lint (= unified-actors step 5's Phase C, newly defined; B3's "two holders" has
+   drifted to four, unguarded) → **R6** the player fold + the `features/` rename.
+
+3. **The visible sprite bugs (E3/E6 tail).** [opus] Three player-facing
    regressions in the bug queue below: all bosses render the generic sheet,
    shrine + glider sprites are broken, morph ball still draws the robot.
    Diagnosis path is already written — do a RUN with `boss_sprites.len()`
    logging, and do NOT apply the disproven `sprite_target` dispatch. Ship the
    visual; never defer to "an interactive pass".
 
-3. ~~**N0.1 — fixed-tick sim mode.**~~ **✅ DONE (opus, 2026-07-09).** The sim
+4. **CC3 — the fuzz-oracle delta** (§6.1). [opus] The collision doctrine's
+   exit. Diagnostic-only by Jon's ruling; a 3-check harness already exists, so
+   this is an enumerated delta, not a new rig. Ranked below the above because
+   it is a test rig, not a feature.
+
+5. **Bookkeeping**: ~~re-baseline the ledger~~ **RULED 2026-07-10** — the adapter
+   floor IS the floor, on evidence (nine shells, no compile-time win from a
+   further carve). ~~reconstruct or rewrite playbook exit 5~~ **DONE** (four
+   measured, ratchetable rebuild loops). Write `MODULES.md` per crate (D-B) —
+   still open [sonnet]; it is now the LAST unmet piece of D-B's navigability
+   standard, and the ruling leans on that standard.
+
+**Deliberately NOT next:** CM6 and N1 (both land with the SSB demo, P4);
+projectile steppers (blocked by design until their inputs are plain); the
+S5/S6 player fold + `features/` rename (deferred until unified-actor work);
+CC4 (profile first); CC7 P3a.
+
+6. ~~**N0.1 — fixed-tick sim mode.**~~ **✅ DONE (opus, 2026-07-09).** The sim
    registers into a `SimSchedule` label (default `Update`, byte-parity);
    `PlatformerEnginePlugins::fixed_tick()` hosts it in `FixedUpdate` on
    `Time<Fixed>` at 60 Hz. `SimTick` is the canonical timeline;
@@ -73,14 +103,14 @@ player-visible bugs, and the untouched determinism ladder.
    remainders (presentation interpolation, `wall_dt` semantics, one-frame
    device latency). N0.2 and N0.4 are unblocked.
 
-4. ~~**N0.3 — the determinism lint set.**~~ **✅ DONE (opus, 2026-07-09).** Four
+7. ~~**N0.3 — the determinism lint set.**~~ **✅ DONE (opus, 2026-07-09).** Four
    greps over the sim crates + **ADR 0023** + an auditable
    `AMBITION_REVIEW(determinism)` escape hatch; every lint poison-tested.
    **The "already true" measurement was wrong**: `start_body_melee` iterated a
    `std::collections::HashSet<Entity>` and spawned strikes + wrote messages from
    that loop — per-process hash order on the hottest combat path. Fixed.
 
-5. ~~**The dialog speaker-context slice.**~~ **✅ DONE (opus, 2026-07-09).**
+8. ~~**The dialog speaker-context slice.**~~ **✅ DONE (opus, 2026-07-09).**
    `$speaker_id` / `$listener_id` / `$speaker_is_self` published into Yarn
    variable storage at dispatch (the FIRST Yarn-variable write path in the
    codebase — everything else content reads is a library function over the state
@@ -90,7 +120,7 @@ player-visible bugs, and the untouched determinism ladder.
    player pedestal IS `player`, so `hall_player__self` — the mirror scene — is
    authored, and a content test guards that it must be.
 
-6. ~~**N0.2 — the input-stream type.**~~ **✅ DONE (opus, 2026-07-09).**
+9. ~~**N0.2 — the input-stream type.**~~ **✅ DONE (opus, 2026-07-09).**
    `engine_core::InputStream` (versioned, serde, per-tick `SlotControls` keyed by
    `SimTick`, contiguous, validated) + `runtime::InputStreamRecorder`, the one
    capture path. `SandboxSim::step_frame` drives raw `ControlFrame`s, so replay
@@ -100,28 +130,11 @@ player-visible bugs, and the untouched determinism ladder.
    moving session, round-trips it through JSON, and replays it into a fresh sim
    with zero divergence. N0.4 is now a state-hash away.
 
-7. **CC3 — the fuzz-oracle delta** (§6.1). [opus] The collision doctrine's
-   exit. Diagnostic-only by Jon's ruling; a 3-check harness already exists, so
-   this is an enumerated delta, not a new rig. Ranked below the above because
-   it is a test rig, not a feature.
-
-8. **Bookkeeping**: re-baseline the ledger (or rule that the adapter floor IS the
-   floor) — **STILL OPEN**; an opus pass tried and got it backwards by comparing
-   production-only lines against a total-lines projection. The ledger now states
-   its units. ~~reconstruct or rewrite playbook exit 5~~ **DONE** (rewritten as
-   four measured, ratchetable rebuild loops). Write `MODULES.md` per crate (D-B)
-   — still open [sonnet].
-
-**Deliberately NOT next:** CM6 and N1 (both land with the SSB demo, P4);
-projectile steppers (blocked by design until their inputs are plain); the
-S5/S6 player fold + `features/` rename (deferred until unified-actor work);
-CC4 (profile first); CC7 P3a.
-
 ## Track index (status → next slice)
 
 | Track | Doc | Status | Next |
 |---|---|---|---|
-| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | **COMPLETE** — E1–E9, W1–W4, and the F1–F9 audit queue all executed; the demo gate is open, the umbrella crate exists, `placements` is the sole authored-entity channel. **Exit 5 rewritten (2026-07-09): playbook exits 1, 2, 4, 5 all met; only exit 3 (a demo binary) is open.** The ledger drift is STILL OPEN (below) | ledger ruling; D-C mode scope; D-B `MODULES.md` |
+| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | **COMPLETE** — E1–E9, W1–W4, F1–F9 executed; demo gate open; umbrella crate real; `placements` the sole authored-entity channel. **Exit 5 rewritten + the ledger RULED (adapter floor IS the floor, 2026-07-10).** Playbook exits 1, 2, 4, 5 met; only exit 3 (a demo binary) is open | the shell-dissolution chain: [refactor-chain.md](engine/refactor-chain.md) |
 | Decomposition D-B | same | navigability standard: no module >1.5k ✅, hub globs dissolved ✅, **`MODULES.md` missing in every crate** | write `MODULES.md` per crate [sonnet] |
 | Decomposition D-C | same | **NOT STARTED** — the mode-scope seam (`RoomMetadata.mode` + `in_mode("sanic")` run-condition). Demos want it; it can land early | the room-scoped run-condition helper [opus] |
 | Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | CC1 + CC2 + CC5 + CC6 (moving portals) LANDED | **CC3** — the enumerated delta from the 3-check diagnostic to the six-invariant oracle (§6.1); diagnostic-only, Jon defers hard gating [opus]. Then CC4 (profile first; NOT a CC1–CC3 precondition), CC7 P3a angled math |
@@ -141,23 +154,27 @@ Jon's open questions (Q1/Q2/Q3/Q5) live in [`roadmap.md`](roadmap.md).
 
 ## Drift findings (the plan vs. the measured code)
 
-- **The residual ledger is wrong.** [decomposition.md](engine/decomposition.md)
-  projects `ambition_actors` bottoming out at ≈31–35k and calls that "the
-  DELIBERATE floor". Measured 2026-07-09: **64.0k src**. Roughly half of the
-  projected ~64k actually left. Each carve moved the pure half and left an
-  adapter shell (`boss_encounter/` 5.5k, `character_sprites/` 2.7k, `world/`
-  1.9k, `projectile/` 1.8k, `dev/` `items/` `encounter/` 4.7k), and `features/`
-  grew to 25.4k against a projected 20.6k. Needs either a re-measured ledger or
-  an explicit ruling that the adapter floor IS the floor.
-  **UNITS (2026-07-09, the hard-won part):** all these figures — and the
-  projection's — are TOTAL src lines INCLUDING TESTS. An opus attempt to
-  re-baseline in production-only lines concluded the alarm was a counting error
-  and **was itself the error**; it is retracted. The projection's baseline
-  (101.7k) is exactly the monolith's total src at that commit, and its residual
-  breakdown (`player/` 6.6k, `abilities/` 4.2k) matches today's TOTALS. The one
-  durable finding: `ambition_actors` is 43% test code (27.8k of 64.0k), which is
-  worth knowing when SCOPING a carve but is not the comparison. **State the
-  units in every ledger.**
+- ~~**The residual ledger is wrong.**~~ **RULED (Jon, 2026-07-10): the adapter
+  floor IS the floor.** The alarm's number was right — `ambition_actors` is
+  **64.0k total src lines** (units matter: TOTAL, incl. tests) against a
+  projected 31–35k. But the gap is not one missing carve. Three measurements
+  ([decomposition.md](engine/decomposition.md) THE LEDGER): (1) the crate has
+  SHRUNK 4.2k since the F8 audit closed, so 64.0k is the true post-carve floor,
+  not new code; (2) the missing ~30k is **nine adapter shells** between 0.8k and
+  5.5k (`boss_encounter/` 5.5k is the biggest; `combat/` left cleanly at 0),
+  each gated on a different technical precondition — there is no 25k carve in
+  `features/`; (3) a further carve buys **no compile time** — touching a leaf in
+  actors rebuilds the app in 104 s, touching `ambition_render` (which sits ABOVE
+  actors) rebuilds it in 72 s, so the tower dominates and no carve of actors
+  touches it. This confirms fable's own stated reason for a floor. The residual
+  now shrinks by dissolving shells, sequenced in
+  [engine/refactor-chain.md](engine/refactor-chain.md).
+  **The units lesson (recorded, hard-won):** an opus pass tried to re-baseline
+  this ledger in production-only lines, compared them against a total-lines
+  projection, and concluded the alarm was a counting error — the opposite of the
+  truth. Retracted. The durable finding is that `ambition_actors` is 43% test
+  code (27.8k of 64.0k), useful when SCOPING a carve, not as the comparison.
+  **State the units in every ledger.**
 - ~~**Playbook exit 5 cannot be met as written.**~~ **REWRITTEN and met (opus,
   2026-07-09).** A relative criterion against a baseline nobody recorded is not
   a criterion, and a pre-D-A checkout would now time a different Bevy. Replaced
@@ -266,11 +283,18 @@ violation gets a row here + a slice in the right doc.)*
 - **opus** — bookkeeping. **Playbook exit 5 rewritten** from a comparison against a
   never-recorded baseline into four measured, absolute, ratchetable rebuild loops;
   content authoring rebuilds the app in 9.4 s. **The ledger re-baseline was
-  attempted and RETRACTED**: it argued the "63.5k" alarm was a counting error
-  because 27.8k of that is test code — but the 2026-07-06 projection was itself in
-  total lines (its 101.7k baseline is the monolith's total src; its residual
-  breakdown matches today's totals). The alarm stands, the open question reopens,
-  and the ledger now states its units. `MODULES.md` per crate remains open.
+  attempted, RETRACTED, then re-argued from evidence and RULED by Jon**: the first
+  attempt claimed the "63.5k" alarm was a counting error because 27.8k of it is
+  test code — but the 2026-07-06 projection was itself in total lines, so it
+  compared unlike numbers and reached the opposite of the truth. Re-measured: the
+  crate has shrunk since the audit closed, the gap is nine adapter shells rather
+  than one carve, and a further carve buys no compile time (the 104 s play loop is
+  ≥72 s tower above actors). Ruling: the adapter floor IS the floor. Shells now
+  dissolve one precondition at a time via `refactor-chain.md`.
+- **opus** — **step 5's Phase C DEFINED** (it had no referent, and was silently
+  gating the player fold): it is the `ControlFrame` allowlist lint. B3's claim
+  ("only two `Res<ControlFrame>` holders") has drifted to four, unguarded. Write
+  the lint before the fold.
 - **opus** — **N0.2 INPUT STREAM.** `engine_core::InputStream` is the one per-tick
   input artifact (versioned, serde, `SimTick`-keyed, contiguous, validated), and
   `runtime::InputStreamRecorder` the one capture path — recording the frame the

@@ -119,11 +119,65 @@ Destination crates today (2026-07-06 measure, same units): `engine_core` 17.5k,
 `menu/` stayed app-side by the E1e ruling — the host stack + grid backend couple
 up to items/player/sfx).
 
-**Open question for the next structural session:** is the adapter floor THE
-floor (in which case re-baseline the ledger and say so), or is there a real
-carve left in `features/` 25.4k? Do not pre-commit — re-measure (U1). Note that
-`features/` GREW against its 20.6k projection, and that only ~15.0k of it is
-production code; both facts belong in the answer.
+### RULING (Jon, 2026-07-10): the adapter floor IS the floor
+
+The open question — "adapter floor, or a real carve left in `features/`?" — is
+CLOSED, on evidence, per fable's own instruction to re-measure (U1) rather than
+pre-commit. Three measurements decided it.
+
+**1. The 64.0k is the true post-carve floor, not new code.** `ambition_actors`
+was 68.0k total at the F8 audit close (2026-07-07, `3bdbef26`) and is 63.8k
+today. It has SHRUNK 4.2k since the carves finished. The gap against the
+projected 31–35k is genuine residue.
+
+**2. The missing ~30k is not one carve. It is nine shells.** Projected "LOC out"
+versus what actually stayed:
+
+| Subdir | projected out | still resident | the shell |
+|---|---:|---:|---|
+| `combat/` | 12.8k | **0** | fully left ✅ — the proof a clean carve is possible |
+| `world/` | 10.9k | 1.9k | overlay rebuild + the avian adapter |
+| `boss_encounter/` | 6.8k | **5.5k** | the BIGGEST shell (E6 deferred teardown) |
+| `persistence/` | 5.2k | 1.3k | save-adjacent adapter |
+| `projectile/` | 4.4k | 1.8k | the three woven steppers |
+| `character_sprites/` | 4.3k | 2.7k | the actor/content join |
+| `dev/` `items/` `encounter/` | 8.6k | 4.7k | sim-coupled adapters |
+| `menu/` | 3.2k | 0.8k | map UI hydration |
+
+Plus `features/` overshooting its 20.6k projection by ~4.8k. **There is no 25k
+carve hiding in `features/`.** There are nine adapter shells between 0.8k and
+5.5k, each gated on a DIFFERENT technical precondition. Dissolving them is the
+enumerated residue queue below, not a new decomposition phase.
+
+**3. A further carve of `ambition_actors` buys no compile time.** Every
+app-facing crate sits above it (`ambition` umbrella, `content`, `runtime`,
+`sim_view`; then `render`, `host`, `touch_input`; then `app` and both demos).
+Measured warm-incremental (single sample; read the ratio, not the constants):
+
+- touch a leaf in `ambition_actors` → rebuild `ambition_app`: **104 s**
+- touch `ambition_render`, which sits ABOVE actors → rebuild `ambition_app`: **72 s**
+
+So ≥72 of those 104 seconds are the tower above `ambition_actors`, which no carve
+of actors touches. And carving `abilities/` out is strictly worse: `app` would
+depend on both crates and `actors` on `abilities`, so editing `abilities`
+rebuilds abilities, then actors, then the whole tower.
+
+**This confirms fable's own stated reason for a floor** (2026-07-06): *"splitting
+spawn/tick/perceive/damage-routing apart would re-fork the actor unification
+(U1)… Below the crate line, navigability is won by the D-B internal standard
+(every module ≤ ~1.5k lines, one concern, `MODULES.md`), not by more crates."*
+That standard already holds — no module in `ambition_actors` exceeds 1.5k. The
+one unmet piece of it is `MODULES.md`.
+
+**Consequences.**
+- No further crate split is owed by the ledger. `abilities/` is a *discretionary*
+  candidate on navigability grounds only; the numbers do not ask for it.
+- The residual shrinks by DISSOLVING SHELLS, one precondition at a time — see
+  the residue queue below and
+  [`refactor-chain.md`](refactor-chain.md), which sequences them.
+- The compile-time lever is the tower (`render` 9.4k, `app` 20.7k, `host`), not
+  `ambition_actors`. Do not carve actors expecting a rebuild win.
+- Re-baseline this table whenever a shell leaves. **State the units.**
 
 **Efficiency (why the split costs the game nothing):** crate boundaries are
 COMPILE-TIME structure — the same systems run in the same schedule (E5's carve
@@ -212,9 +266,28 @@ The carve relocated and SEALED the view types; the rules it fixed still bind:
   lock-wall contribution, switch-index rebuild, and
   `features/ecs/encounter_rewards.rs` spawn mobs/chests and write
   save/quest/banner state.
-- **`world/overlay{,_rebuild}.rs`** join `ambition_world` once the rebuild's
-  inputs become plain solids; `world/physics.rs` (debris/avian) is
-  presentation-adjacent and can join the render/host side whenever.
+- **`world/overlay.rs` and `world/overlay_rebuild.rs` are TWO modules with
+  OPPOSITE status** (measured 2026-07-10; they were previously one bullet, which
+  hid this):
+  - `overlay.rs` is the REBUILD side. It queries breakables and pogo-target
+    volumes and imports `crate::combat::*`. Actor-domain. **It stays.**
+  - `overlay_rebuild.rs` is the CONSUMPTION side — it owns `CollisionWorld`, the
+    single collision read-API. **Its inputs already became plain**, satisfying
+    the condition this bullet always named: it touches `crate::` exactly three
+    times, all for `MovingPlatformSet` / `MovingPlatformState` /
+    `world_with_moving_platforms` — and the latter two ALREADY live in
+    `ambition_world` (`world/platforms/mod.rs` is a `pub use` facade plus visual
+    systems). `FeatureEcsWorldOverlay` already lives in
+    `ambition_platformer_primitives`. Its inline tests use only `super::*` and
+    bevy. `platformer_primitives` depends on nothing but `engine_core`, so
+    `ambition_world → platformer_primitives` is acyclic. The only actor-local
+    input left is the one-line `MovingPlatformSet` newtype
+    (`ambition_actors/src/lib.rs`), which wraps an `ambition_world` type.
+    NOT yet proven: that the move compiles once its consumers repoint. Spike it.
+    This unblocks `ProjectileCollisionWorld` (see the projectile blockers in
+    [`fable-final-audit-2026-07-07.md`](fable-final-audit-2026-07-07.md) F2).
+  - `world/physics.rs` (debris/avian) is presentation-adjacent and can join the
+    render/host side whenever.
 
 ---
 

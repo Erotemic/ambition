@@ -1,0 +1,276 @@
+# The refactor chain — dissolving the adapter shells, then folding the player
+
+**Status:** NOT STARTED (written 2026-07-10). Six slices, in dependency order.
+Each is committable on its own; each states its own exit check.
+
+This doc exists because the 2026-07-10 ledger ruling changed what "finish the
+decomposition" means. The residual `ambition_actors` is **64.0k total src lines**
+(units: TOTAL, incl. tests) against a projected 31–35k — and the gap is **nine
+adapter shells, not one missing carve**. No further crate split is owed, and none
+would buy compile time. The residue shrinks by dissolving shells, one technical
+precondition at a time. See [`decomposition.md`](decomposition.md) THE LEDGER for
+the ruling and the evidence.
+
+**Anchor style (evergreen):** cite `path` + SYMBOL, never line numbers. If a
+named symbol has moved, `rg` for it; if it's gone, that's drift — update this doc
+in the same commit, don't guess.
+
+---
+
+## Standing rules for this chain
+
+- **Delete, don't bridge.** Pre-release, zero external dependents. A full
+  replacement in one commit beats a facade plus a follow-up that never lands.
+  Never leave a compatibility re-export "for now".
+- **State the units** in any LOC figure you write down. The ledger's numbers are
+  total src lines including tests. An earlier pass compared production-only lines
+  against a total-lines projection and concluded the opposite of the truth.
+- **The gate** (run before every commit; all must be green):
+  ```
+  cargo test -p ambition_actors --lib
+  cargo test -p ambition_engine_core -p ambition_runtime -p ambition_host \
+             -p ambition_dialog -p ambition_sim_view -p ambition_combat \
+             -p ambition_characters
+  cargo test -p ambition_content --features portal
+  cargo test -p ambition_content --features ui --test yarn_compile
+  cargo test -p ambition_app --features rl_sim
+  ```
+- **Formatting:** `rustfmt --edition 2021` on the exact files you touched, never
+  `cargo fmt`. **Running rustfmt on a `mod.rs` or `lib.rs` formats the whole
+  module tree beneath it** — snapshot `git status --porcelain` before and after,
+  and revert only files that are newly dirty *and* that you did not edit. (A
+  careless revert of that "collateral" once ate a real fix.)
+- **Living-plan discipline:** when a slice lands, update this doc and
+  `tracks.md` in the SAME commit. When you find drift, fix the doc in the same
+  commit as the code that proves it.
+- **Do not disagree with fable silently.** Fable's rulings are pre-solved
+  designs. If evidence contradicts one, make the case in the doc (vision §7),
+  then proceed — but say so, out loud, in the commit message.
+
+---
+
+## R1 — D-C: the mode-scope seam
+
+**Unblocked. No dependencies. Closes the last decomposition artifact.**
+
+Vision §5 forces the **scoped game-mode pattern**: a demo's rules crate exposes
+`<Demo>RulesPlugin` whose systems are gated on an area/room tag, not on global
+state. Fully pre-solved in [`decomposition.md`](decomposition.md) §"Phase D-C":
+
+```rust
+// ambition_world (RoomMetadata):   pub mode: Option<String>,  // merge: first Some wins
+// ambition_runtime:
+pub fn in_mode(name: &'static str) -> impl Condition { /* reads ActiveRoomMetadata */ }
+#[derive(Component)] pub struct ModeScopedEntity(pub String); // despawned when the mode deactivates
+```
+
+**Anchors.** `ambition_world/src/rooms/metadata.rs` → `RoomMetadata` (verified
+2026-07-10: it has `biome`, `music_track`, `visual_theme`, … and **no `mode`
+field yet** — this slice adds it). The mode-owner cleanup sweep must GENERALIZE
+the existing `RoomScopedEntity` sweep, not duplicate it. The reference assembly
+is `ambition_host/tests/demo_shell_smoke.rs` (already passing).
+`game/ambition_demo_sanic` already authors `sanic_speedway` through the umbrella.
+
+**A rules crate** attaches `.run_if(in_mode("sanic"))` when hosted, or runs
+unconditionally when standalone — the app chooses via `SanicRulesPlugin::hosted()`
+vs `::global()`. A constructor flag, **not two plugins**.
+
+**Exit check.** A headless test in which two mode-scoped rules plugins coexist:
+systems tagged `in_mode("a")` do not run while room metadata says mode `b`, and
+`ModeScopedEntity` entities for mode `a` are despawned when the active room's
+mode changes. Plus `demo_shell_smoke.rs` still passes.
+
+---
+
+## R2 — E6 teardown: the biggest shell
+
+**Unblocked. Precondition is internal and mechanical.**
+`boss_encounter/` is **5.5k** — the largest single adapter shell in the crate,
+against a 6.8k projected-out. Dissolving it is the biggest measurable win in this
+chain, and it unblocks R4's victim-routing stepper (`tracks.md` names boss types
+as that blocker).
+
+**What dies:** the fused `gnu_ton` profile, `sync_boss_split_overlay`,
+`BossOverlayLayer`, and the split z-consts.
+
+**Anchors.** `ambition_render/src/rendering/actors/boss.rs` →
+`BossOverlayLayer`, `sync_boss_split_overlay`; registered in
+`ambition_render/src/rendering/mod.rs`. Verified 2026-07-10: those two symbols
+appear in **exactly those two files** and have **zero test references**. The fused
+profile lives under `ambition_actors/src/boss_encounter/` (`profile.rs`,
+`specs.rs`, `behavior.rs`) and its test surface is NOT yet enumerated — do that
+first.
+
+**Order (the stated precondition):** retarget the tests that reference the fused
+profile onto the **linked-pair arena** first, then delete. A two-part boss is now
+two linked actors (ADR 0020's mount/vehicle shape), not one fused profile with an
+overlay layer.
+
+**Exit check.** `grep -rn 'BossOverlayLayer\|sync_boss_split_overlay'` over
+`crates/ game/` returns zero. gnu_ton still fights correctly: `boss_lifecycle.rs`,
+`boss_motion_parity.rs`, `boss_possession_specials.rs`, `boss_contact_iframes.rs`
+green. Record the new `boss_encounter/` LOC in the ledger table, with units.
+
+---
+
+## R3 — the overlay split: `CollisionWorld` joins `ambition_world`
+
+**Unblocked — the precondition fable named has already been met, unnoticed.**
+
+`decomposition.md`'s residue list used to say "`world/overlay{,_rebuild}.rs` join
+`ambition_world` once the rebuild's inputs become plain solids." Those are **two
+modules with opposite status**:
+
+- `ambition_actors/src/world/overlay.rs` — the REBUILD side. Queries breakables
+  and pogo-target volumes; imports `crate::combat::*`. Actor-domain. **Stays.**
+- `ambition_actors/src/world/overlay_rebuild.rs` — the CONSUMPTION side. Owns
+  `CollisionWorld` (a `SystemParam`), `world_with_sandbox_solids`,
+  `world_with_portal_carves`, `carve_portal_apertures`. **Its inputs are already
+  plain.**
+
+**Why it's ready (all verified 2026-07-10):**
+- `overlay_rebuild.rs` touches `crate::` exactly three times, all for
+  `MovingPlatformSet`, `MovingPlatformState`, `world_with_moving_platforms`.
+- `MovingPlatformState` and `world_with_moving_platforms` **already live in
+  `ambition_world::platforms`**. `ambition_actors/src/world/platforms/mod.rs` is
+  a `pub use` facade plus visual systems (`spawn_moving_platform`,
+  `sync_moving_platform`) that pull `RoomVisual` / `RoomSet` — those stay.
+- `FeatureEcsWorldOverlay` **already lives in
+  `ambition_platformer_primitives::feature_overlay`**; `world/overlay.rs`
+  re-exports it. Its `portal_carves` field is a plain `Vec<Aabb>`.
+- `overlay_rebuild.rs`'s inline tests use only `super::*` and bevy.
+- `ambition_platformer_primitives` depends on **nothing but `engine_core`**, so
+  adding `ambition_world → ambition_platformer_primitives` is **acyclic**.
+
+**So the only actor-local input is the one-line `MovingPlatformSet` newtype** in
+`ambition_actors/src/lib.rs`, which wraps an `ambition_world` type and belongs
+there anyway.
+
+**Do this:** (1) spike it — move the file, repoint, see if it compiles, *before*
+promising anything; (2) move `MovingPlatformSet` down; (3) add the
+`platformer_primitives` dep to `ambition_world`; (4) move `overlay_rebuild.rs`;
+(5) repoint consumers. The consumer list (verified) spans `features/ecs/*`,
+`abilities/traversal/{blink,dive,grapple}.rs`, `body_mode/mechanics/`,
+`items/pickup/`, `projectile/`, `dev/trace/`, `player/body_integration.rs`,
+`ambition_runtime/src/projectile_schedule.rs`,
+`game/ambition_content/src/portal/carve_adapter.rs`.
+
+**Exit check.** `CollisionWorld` is importable from `ambition_world`;
+`ambition_actors` has no `overlay_rebuild` module; the full gate is green. This
+unblocks `ProjectileCollisionWorld` (R4).
+
+---
+
+## R4 — projectile steppers: re-check, don't force
+
+**Blocked until R2 and R3 land. Fable: "Do NOT force this seam."**
+
+The three actor-woven steppers and their stated blockers
+([`fable-final-audit-2026-07-07.md`](fable-final-audit-2026-07-07.md) §F2 —
+the list IS there, in the "Projectiles — why the remaining steppers stay put"
+paragraph):
+
+| Stepper | Blocker as written | After R2/R3 |
+|---|---|---|
+| victim routing | queries bosses, actors, breakables, shields, owner combat; emits `HitEvent`/heal/SFX/VFX | boss types settle with **R2** |
+| world collision | needs the live feature overlay + the portal-carve snapshot; `ProjectileCollisionWorld` waits on the world follow-up | **R3** is that follow-up |
+| charge input | reads brain action messages, `UserSettings`, gravity, optional player ANIMATION facts | still blocked — and it folds into **R6** anyway |
+
+**Anchors.** `ambition_actors/src/projectile/systems.rs` →
+`charge_projectile_input`, `step_projectiles`, `try_fire_projectile`;
+`ambition_actors/src/projectile/mod.rs`. The model already lives in
+`ambition_projectiles`.
+
+**Do this:** after R2 and R3, re-read the blocker paragraph and move ONLY what is
+now plain. If a blocker survives, say so in this doc and stop. Charge input is
+expected to survive — do not chase it here.
+
+---
+
+## R5 — the `ControlFrame` allowlist lint (= step 5's Phase C)
+
+**Unblocked. Small. This is the gate on R6 — write it BEFORE the fold.**
+
+[`unified-actors.md`](unified-actors.md) step 5 said "Phase C (payoff
+verification) remains" and never defined it. Defined 2026-07-10: it is this lint.
+
+**Why it's needed, not ceremony.** B3's audit conclusion claims the only
+`Res<ControlFrame>` holders inside `ambition_actors` are "the two input-bridge
+writers (`populate_control_frame_from_actions`, `sync_local_player_input_frame`)".
+Measured: there are **four** —
+`schedule/input_systems.rs::populate_control_frame_from_actions`,
+`player/input_systems.rs` (two sites, incl. `interaction_input_system`), and
+`player/systems.rs::populate_slot_controls` — and `sync_local_player_input_frame`
+is **not among them**. Stale in both directions, and nothing guards it:
+`architecture_boundaries.rs` asserts only that `ControlFrame` lives in
+`engine_core`.
+
+All four still look like input-layer bridges, so the invariant is probably
+intact. But it moved once, unnoticed. It is also a **multiplayer bug in waiting**:
+the global `ControlFrame` is ONE player's frame, so a body system reading it is
+silently slot-0-only.
+
+**Build it like the determinism lints.** `ambition_runtime/tests/determinism_lints.rs`
+(ADR 0023) is the template: a grep over the sim crates' non-test sources, an
+explicit allowlist with a justifying comment per entry ("device→frame bridge",
+"frame→slot bridge"), a failure message naming file, line, and fix, and an
+`AMBITION_REVIEW(control_frame)` escape hatch printed by a companion test.
+
+**Poison-test it.** Inject a fake sim reader into a real sim source and confirm
+the lint goes red. A grep lint that cannot fail is worse than no lint — the
+determinism pass proved this by finding a real `HashSet<Entity>` bug that the
+"already true" measurement had missed.
+
+**Exit check.** The lint is green, the allowlist has four entries each with a
+reason, and the poison test confirms it fails on a violation. Update
+`unified-actors.md` B3's stale sentence in the same commit.
+
+---
+
+## R6 — the player fold (S5/S6) + the `features/` rename
+
+**Gated on R5. The big one. `player/` is 6.7k total / 4.3k production.**
+
+`player/` existing as a SIBLING of `features/ecs` is the last structural
+player-centrism. The endgame is ONE `actors` tree where **player-ness is a brain
+and a slot, not a directory**. Fable deferred this "until the unified-actor work
+is ready"; step 4 is done, step 5's B1/B2/B3 are done, step 6 (the
+`Enemy*`→`Character*` rename) landed, and R5 discharges step 5's Phase C. The
+gate opens.
+
+**The fold is not a purge.** ~15 genuine `With<PlayerEntity>` /
+`With<PrimaryPlayer>` filters remain in the actors sim (a raw grep says 26; a
+third are comments *explaining* a system deliberately has no such filter).
+Several are legitimately slot-0-scoped **by design** and must SURVIVE, renamed to
+say so: possession's `home_q` (the "home avatar" is a real concept), the shrine's
+heal+checkpoint (`shrine.rs`), the wallet save (`items/persist.rs`). Fold
+candidates cluster in `player/systems.rs`, `abilities/ability_cooldown.rs`,
+`items/pickup/`.
+
+**Explicitly deferred inside this slice, by prior ruling:** folding the player's
+`ProjectileSpawner` (cooldown + mana meter + charge state machine) onto
+`try_fire_ranged`. It changes player FEEL, rides the differential trace, and
+never ships blind. Leave it; note it in this doc when you get there.
+
+**Guardrails** (from `unified-actors.md`): add no new `"player"`-string couplings
+or `Player*`-only clusters; body-generic CONSUMERS, not just body-generic state;
+this is a checkpointed refactor, not a blind rewrite — the parity harness first.
+
+**Exit check.** `crates/ambition_actors/src/player/` no longer exists as a
+sibling of `features/`; every surviving slot-0 filter carries a comment saying
+why it is slot-scoped; R5's lint is still green (this is the whole point of
+ordering it first); the full gate is green; `player_clone_live.rs`,
+`possession_end_to_end.rs`, `unified_melee.rs`, `unified_body_movement.rs`,
+`duel_arena.rs` all pass unchanged. Then do the `features/` rename.
+
+---
+
+## What this chain does NOT do
+
+- **No new crates.** The ledger ruling says no further crate split is owed, and
+  none buys compile time (≥72 s of the 104 s play loop is the tower ABOVE
+  `ambition_actors`). `abilities/` remains a *discretionary* candidate on
+  navigability grounds only. Do not carve it as part of this chain.
+- **No `features/` split.** Fable: splitting spawn/tick/perceive/damage-routing
+  apart would re-fork the actor unification (U1).
+- **No module-tree churn before R6.** The `features/` rename rides the fold.

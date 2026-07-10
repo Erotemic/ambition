@@ -31,9 +31,11 @@ green.
 tick, N0.2 input stream, N0.3 determinism lints — 2026-07-09); N0.4 (the
 desync canary) and N1 remain; collision CC3 (the fuzz oracle delta) is open;
 the D-B `MODULES.md`
-standard and the D-C mode-scope seam are unstarted; one playbook exit remains
-(exit 3 — a demo binary, which fable ruled interactive work); and the residual
-ledger still needs its re-baseline or its ruling. Details + drift findings:
+standard and the D-C mode-scope seam are unstarted; and one playbook exit
+remains (exit 3 — a demo binary, which fable ruled interactive work). The
+residual ledger was RULED 2026-07-10: the adapter floor IS the floor, and the
+residue now dissolves shell-by-shell via
+[`engine/refactor-chain.md`](engine/refactor-chain.md). Details + drift findings:
 [`tracks.md`](tracks.md).
 
 ## The phases

@@ -271,6 +271,14 @@ recognizable:
   faction for damage, already there).
 - **Player-robot as an actor — exists** (`player_robot` archetype, full kit). Building
   it is what *forced* the player kit to become `CombatCapabilities`.
+- **Residual player-centrism, measured (2026-07-10):** ~15 genuine
+  `With<PlayerEntity>` / `With<PrimaryPlayer>` filters remain in the actors sim
+  (a raw grep says 26; a third of those are comments *explaining* that a system
+  deliberately has NO such filter). Not all 15 are residue — possession's
+  `home_q` (the "home avatar" is a real concept), the shrine's heal+checkpoint,
+  and the wallet save are legitimately slot-0-scoped. The fold is "move the
+  directory, KEEP the handful that are genuinely slot-scoped, and name them as
+  such" — not "delete all fifteen". `player/` is 6.7k total / 4.3k production.
 - ~~**Naming — still player-centric.**~~ 🟢 **DONE.** The rename landed:
   `character_archetypes.ron` / `CharacterArchetypeSpec` / the brain-key map. Zero
   `EnemyArchetypeSpec` / `EnemyBrain` / `enemy_archetypes.ron` remain in code or
@@ -356,7 +364,45 @@ Enemies rise to the player; delete-heavy. Each step is gated on *it compiles* (i
      fact, importer sink shrinking), not a smaller line count. **Step 4 / the keystone is DONE.**
    See [`architecture.md`](architecture.md) for the component buckets.
 5. **De-player-center the remaining surface** — decisions settled with Jon (2026-06-30);
-   **B1 (incl. duel reframe) + B2 + B3 DONE; phase-B complete, Phase C (payoff verification) remains**:
+   **B1 (incl. duel reframe) + B2 + B3 DONE; phase-B complete.**
+
+   **Phase C (payoff verification) — DEFINED (Jon, 2026-07-10). It is ONE LINT,
+   and it is the gate on the S5/S6 player fold.** Step 4's Phase C was two named
+   end-to-end tests (C1/C2 below); step 5's had no definition at all, and the
+   ambiguity was blocking the fold. Most of step 5's payoff is in fact ALREADY
+   pinned by tests that exist: `duel_arena.rs` (the B1 grudge reframe — two
+   ordinary `Npc`s, no hostile faction), `unified_melee.rs`,
+   `unified_body_movement.rs`, `player_clone_live.rs`.
+
+   What is NOT pinned is **B3**, and it has already drifted. B3's audit
+   conclusion (below) states that inside `ambition_actors` the only
+   `Res<ControlFrame>` holders are "the two input-bridge writers
+   (`populate_control_frame_from_actions`, `sync_local_player_input_frame`)".
+   Measured 2026-07-10: there are **FOUR** holders —
+   `schedule/input_systems.rs::populate_control_frame_from_actions`,
+   `player/input_systems.rs` (two sites, incl. `interaction_input_system`), and
+   `player/systems.rs::populate_slot_controls` — and `sync_local_player_input_frame`
+   is not among them. The sentence is stale in both directions. Nothing guards
+   it: `architecture_boundaries.rs` asserts only that `ControlFrame` lives in
+   `engine_core`.
+
+   All four current holders still look like input-layer bridges, so the
+   INVARIANT is probably intact — but it is unverified, it moved once unnoticed,
+   and it is the exact invariant the unification exists to protect. It is also a
+   multiplayer bug in waiting: the global `ControlFrame` is ONE player's frame,
+   so a body system reading it is silently slot-0-only.
+
+   **C-step5 — the `ControlFrame` allowlist lint.** Pin the set of
+   `Res<ControlFrame>` / `ResMut<ControlFrame>` holders in the SIM crates to a
+   named allowlist, one justifying comment per entry ("this is a device→frame
+   bridge", "this is a frame→slot bridge"). Same shape and same file family as
+   `ambition_runtime/tests/determinism_lints.rs` (ADR 0023) — poison-test it:
+   inject a fake sim reader and confirm the lint fails. An afternoon. **Write it
+   BEFORE the fold**, not after: it is the guardrail that tells you whether
+   moving 4.3k production lines out of `player/` quietly re-introduced
+   player-centrism.
+
+   The B1/B2/B3 record:
    - 🟢 **B2a (projectile world-hit) DONE** — `WorldHitPolicy` is on the projectile spec
      (firer-agnostic; variants de-player-cased to `Bouncing`/`ExpireOnContact`).
    - 🟢 **B2b-core (projectile damage) DONE** — damage routes off the FIRER's real

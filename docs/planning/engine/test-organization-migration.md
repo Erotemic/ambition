@@ -145,6 +145,33 @@ Batch 1 (5 crate-purity tests migrated, 67→62 remaining in legacy):
 
 Remaining 62 architecture tests: `legacy-pending` (Tasks 7–9).
 
+### Task 7 — custom determinism scanner (LANDED)
+
+`crates/ambition_runtime/tests/determinism_lints.rs` → `custom:determinism`
+(scanner `src/custom/determinism.rs`, config `policies/determinism.toml`). The
+semantic analysis (bare-vs-FQ `HashMap`, Bevy-hasher discrimination, binding
+tracking) stays Rust; only configuration moved to data: sim roots (each SCOPED so
+`engine_policies` scans `crates/*` and `game_policies` scans `game/*` content +
+demo rules — independently runnable), excluded subpaths, the
+`AMBITION_REVIEW(determinism)` marker, forbidden RNG crates/calls, wall-clock
+reads, and the source doc.
+
+| old test fn (determinism_lints.rs) | destination |
+| --- | --- |
+| `sim_crates_pull_in_no_ambient_rng` | custom:`determinism` (rule 1a, manifest read directly from workspace-relative root — no doubled `crates/`) |
+| `sim_sources_call_no_global_rng` | custom:`determinism` (rule 1b) |
+| `sim_sources_read_no_wall_clock` | custom:`determinism` (rule 2) |
+| `sim_sources_never_iterate_a_std_hash_container` | custom:`determinism` (rule 3) |
+| `sim_sources_never_sort_by_entity` | custom:`determinism` (rule 4) |
+| `rule_three_sees_a_bare_hashmap_and_not_a_bevy_one` | custom:`determinism::poison_self_tests` (bare-std detected, Bevy not a false positive) |
+| `reviewed_determinism_exceptions_are_listed` | **removed** — a pure `println!` inventory, not a guard; the marker itself is exercised by the poison self-test |
+
+Improved over the original: poison self-tests now cover EVERY rule (global RNG,
+wall-clock, std-hash iteration, entity sort, review-marker suppression), not just
+rule 3; a real-config poison (`thread_rng()` injected into `ambition_engine_core`)
+reddens `engine.determinism` with file:line, confirming the shape real code uses.
+Old file deleted after parity.
+
 <!-- MIGRATION-MATRIX-END -->
 
 ## Commands (target model)

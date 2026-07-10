@@ -1,0 +1,99 @@
+# Determinism-lint configuration (netcode N0.3 / ADR 0023).
+#
+# The SCANNER is Rust (src/custom/determinism.rs) — the source analysis is too
+# semantic for a generic rule. Only CONFIGURATION lives here: sim-bearing roots
+# (each scoped so engine_policies and game_policies each run their own), excluded
+# presentation/test subpaths, the reviewed-exception marker, the forbidden RNG
+# crates + call patterns + wall-clock reads, and the source doc.
+#
+# The level-2 contract: the SAME binary, SAME platform, SAME per-tick input →
+# identical sim states. Roots are FULL workspace-relative paths so crates/* and
+# game/* mix (manifests are read directly from these — never reconstructed by
+# prepending another `crates/`).
+
+source_doc = "docs/adr/0023-same-build-determinism.md"
+rationale = "N0.3 determinism lints: no ambient randomness, no wall-clock reads, no std-hash-order semantics, and Entity is never an ordering key — the standing enforcement that keeps level-2 same-build determinism true."
+review_marker = "AMBITION_REVIEW(determinism)"
+
+# Rule 1 — ambient RNG crates a sim manifest must not depend on.
+rng_crates = ["rand", "fastrand", "oorandom", "nanorand", "getrandom"]
+# Rule 2 — wall-clock reads forbidden in sim code.
+wall_clock = ["Instant::now", "SystemTime::now", "UNIX_EPOCH"]
+
+# Paths inside a sim crate that are NOT sim (presentation / feel clock / IO).
+non_sim_subpaths = ["menu/", "dev/", "audio/", "assets/", "persistence", "ldtk_world/hot_reload.rs"]
+
+# Rule 1 — global-RNG call patterns forbidden in sim sources.
+[[banned_rng_call]]
+needle = "thread_rng"
+why = "thread-local RNG, seeded from the OS"
+[[banned_rng_call]]
+needle = "rand::random"
+why = "global RNG"
+[[banned_rng_call]]
+needle = "fastrand::"
+why = "global RNG"
+[[banned_rng_call]]
+needle = "getrandom"
+why = "OS entropy"
+
+# ── engine sim roots ──────────────────────────────────────────────────────────
+[[root]]
+path = "crates/ambition_engine_core"
+scope = "engine"
+[[root]]
+path = "crates/ambition_platformer_primitives"
+scope = "engine"
+[[root]]
+path = "crates/ambition_time"
+scope = "engine"
+[[root]]
+path = "crates/ambition_entity_catalog"
+scope = "engine"
+[[root]]
+path = "crates/ambition_world"
+scope = "engine"
+[[root]]
+path = "crates/ambition_characters"
+scope = "engine"
+[[root]]
+path = "crates/ambition_combat"
+scope = "engine"
+[[root]]
+path = "crates/ambition_projectiles"
+scope = "engine"
+[[root]]
+path = "crates/ambition_portal"
+scope = "engine"
+[[root]]
+path = "crates/ambition_encounter"
+scope = "engine"
+[[root]]
+path = "crates/ambition_items"
+scope = "engine"
+[[root]]
+path = "crates/ambition_cutscene"
+scope = "engine"
+[[root]]
+path = "crates/ambition_interaction"
+scope = "engine"
+[[root]]
+path = "crates/ambition_sim_view"
+scope = "engine"
+[[root]]
+path = "crates/ambition_actors"
+scope = "engine"
+[[root]]
+path = "crates/ambition_runtime"
+scope = "engine"
+
+# ── game sim roots (content + demo rules that drive BodyKinematics) ────────────
+[[root]]
+path = "game/ambition_content"
+scope = "game"
+[[root]]
+path = "game/ambition_demo_sanic"
+scope = "game"
+[[root]]
+path = "game/ambition_demo_smb1"
+scope = "game"

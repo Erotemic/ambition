@@ -10,5 +10,6 @@
 //!
 //! Populated as the custom scanners migrate (Tasks 5, 7, 8, 9).
 
+pub mod determinism;
 pub mod migration_matrix;
 pub mod module_size;

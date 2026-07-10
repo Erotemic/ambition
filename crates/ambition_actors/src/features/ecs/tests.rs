@@ -6,7 +6,7 @@
 //! file focused on systems.
 
 use super::*;
-use bevy::prelude::{App, IntoScheduleConfigs, Update, With};
+use bevy::prelude::{App, IntoScheduleConfigs, Update};
 
 /// Spawn the canonical player entity used by interaction system tests.
 ///
@@ -28,7 +28,7 @@ fn spawn_interaction_player(app: &mut App, player_pos: ae::Vec2) {
     // The interact buffer is SLOT state now; prime the primary controller slot and
     // point the controlled subject at this body.
     app.world_mut()
-        .get_resource_or_insert_with(crate::player::SlotInteractionState::default)
+        .get_resource_or_insert_with(crate::control::SlotInteractionState::default)
         .primary_mut()
         .interact_buffer_timer = 0.15;
     app.world_mut()
@@ -196,7 +196,7 @@ fn interact_buffered_opens_adjacent_chest() {
     );
     assert!(
         !app.world()
-            .resource::<crate::player::SlotInteractionState>()
+            .resource::<crate::control::SlotInteractionState>()
             .primary()
             .buffered(),
         "interact buffer should be cleared after opening chest"

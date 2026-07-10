@@ -152,7 +152,7 @@ impl Plugin for SandboxSetsPlugin {
         // Slot-keyed gesture/buffer authority (double-tap, interact buffer).
         // Local input publishes it; body mode / interaction / transitions
         // consume it for the controlled body's slot.
-        app.init_resource::<ambition_actors::player::SlotInteractionState>();
+        app.init_resource::<ambition_actors::control::SlotInteractionState>();
         // Which character the local player spawns as (empty = the
         // content-installed default). Hosts pre-insert to override.
         app.init_resource::<ambition_actors::player::StartingCharacter>();

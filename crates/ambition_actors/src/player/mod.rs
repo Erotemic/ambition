@@ -27,11 +27,9 @@ pub mod bundles;
 mod clone_probe_tests;
 pub mod components;
 pub mod events;
-pub mod input_systems;
 pub mod ledge_grab;
 pub mod movement_components;
 pub mod movement_fx;
-pub mod queries;
 pub mod starting_character;
 pub mod swim;
 pub mod systems;
@@ -50,19 +48,13 @@ pub use starting_character::{apply_worn_motion_model, StartingCharacter};
 // `crate::actor`. Keeping them off the `crate::player` surface enforces the
 // dependency direction (non-player code imports body state from `crate::actor`,
 // never through the player module). The genuinely player-only state stays below.
-pub use components::{
-    LocalPlayer, PlayerBlinkCameraState, PlayerInputFrame, PlayerSafetyState, PlayerSlot,
-    SlotGestures, SlotInteractionState,
-};
+pub use components::{PlayerBlinkCameraState, PlayerSafetyState};
 pub use events::PlayerHealRequested;
-pub use input_systems::{cleanup_timers_system, input_timer_system, interaction_input_system};
 pub use movement_fx::{
     advance_body_anim_overlays, arm_movement_anim_overlays, emit_movement_fx, handle_player_events,
 };
-pub use queries::{primary_player_entity, sort_players_by_slot};
 pub use systems::{
-    apply_player_heal_requests, populate_slot_controls, regen_player_mana,
-    sync_local_player_input_frame, sync_player_actor_poses, tick_player_brains,
+    apply_player_heal_requests, regen_player_mana, sync_player_actor_poses, tick_player_brains,
     write_player_ecs_components,
 };
 

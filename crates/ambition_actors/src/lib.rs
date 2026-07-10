@@ -42,6 +42,9 @@
 // can tell us what's actually depended on from outside.
 pub mod audio;
 pub mod character_roster;
+/// The local control seam: device frame -> slot -> the body carrying that slot's
+/// player brain. See `control/mod.rs`.
+pub mod control;
 pub mod debug_label;
 pub mod host;
 pub mod platformer_runtime;
@@ -470,7 +473,7 @@ mod safe_pos_tests {
 
     #[test]
     fn register_down_tap_returns_true_on_double_tap_within_window() {
-        let mut interaction = crate::player::SlotGestures::default();
+        let mut interaction = crate::control::SlotGestures::default();
         // First tap: returns false, opens the window.
         assert!(!interaction.register_down_tap(true, 0.0, 0.25));
         // Tap again before window expires: returns true.
@@ -479,7 +482,7 @@ mod safe_pos_tests {
 
     #[test]
     fn register_down_tap_window_closes_on_idle_frames() {
-        let mut interaction = crate::player::SlotGestures::default();
+        let mut interaction = crate::control::SlotGestures::default();
         assert!(!interaction.register_down_tap(true, 0.0, 0.25));
         // Many idle frames — tap timer drains.
         for _ in 0..20 {
@@ -491,14 +494,14 @@ mod safe_pos_tests {
 
     #[test]
     fn register_up_tap_mirrors_down_tap_semantics() {
-        let mut interaction = crate::player::SlotGestures::default();
+        let mut interaction = crate::control::SlotGestures::default();
         assert!(!interaction.register_up_tap(true, 0.0, 0.30));
         assert!(interaction.register_up_tap(true, 0.05, 0.30));
     }
 
     #[test]
     fn buffered_interact_holds_for_window_seconds() {
-        let mut interaction = crate::player::SlotGestures::default();
+        let mut interaction = crate::control::SlotGestures::default();
         // Press once → buffer holds for `window` seconds.
         assert!(interaction.buffered_interact(true, 0.0, 0.12));
         // Subsequent frames within the window also report true.
@@ -510,7 +513,7 @@ mod safe_pos_tests {
 
     #[test]
     fn clear_interact_buffer_drops_buffer_immediately() {
-        let mut interaction = crate::player::SlotGestures::default();
+        let mut interaction = crate::control::SlotGestures::default();
         let _ = interaction.buffered_interact(true, 0.0, 1.0);
         // Without the clear, next frame would still report true.
         interaction.clear();

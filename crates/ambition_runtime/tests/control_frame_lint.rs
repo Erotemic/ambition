@@ -30,6 +30,11 @@
 //! over the sim crates' non-test sources, an explicit allowlist with a justifying
 //! reason per entry, and a failure message naming the file, the line, and the fix.
 //!
+//! It has already earned its keep: R6c moved three of these holders into
+//! `crate::control`, and this lint went red on all three — as an unlisted-holder
+//! failure AND, because it is bidirectional, as a stale-entry failure. The entries
+//! below carry the new homes; not one reason changed.
+//!
 //! Escape hatch: `AMBITION_REVIEW(control_frame)` on the offending line or in the
 //! comment block directly above it. `reviewed_control_frame_exceptions_are_listed`
 //! prints every one so an auditor reads the whole set at once.
@@ -121,7 +126,7 @@ const ALLOWLIST: &[(&str, &str, Bridge, &str)] = &[
          system may hold this resource, it is this one.",
     ),
     (
-        "crates/ambition_actors/src/player/input_systems.rs",
+        "crates/ambition_actors/src/control/input_systems.rs",
         "input_timer_system",
         Bridge::DeviceToFrame,
         "Derives edge/timer facts (dash double-tap window, buffered jump) from the \
@@ -129,14 +134,14 @@ const ALLOWLIST: &[(&str, &str, Bridge, &str)] = &[
          refines the frame before any body reads a slot.",
     ),
     (
-        "crates/ambition_actors/src/player/input_systems.rs",
+        "crates/ambition_actors/src/control/input_systems.rs",
         "interaction_input_system",
         Bridge::FrameToSlot,
         "frame→slot bridge: recognizes the interact/double-tap-up gestures and \
          writes SlotInteractionState, which is what bodies actually read.",
     ),
     (
-        "crates/ambition_actors/src/player/systems.rs",
+        "crates/ambition_actors/src/control/slots.rs",
         "populate_slot_controls",
         Bridge::FrameToSlot,
         "THE frame→slot bridge: copies the one device frame into SlotControls[0]. \

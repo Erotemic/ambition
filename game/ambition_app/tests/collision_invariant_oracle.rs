@@ -118,7 +118,6 @@ fn solid_blocks(sim: &SandboxSim) -> Vec<ae::Aabb> {
 /// leaving through an opening, not clipping a solid boundary — the cross-check
 /// that turns the raw OOB-SIDE noise into "OOB through a wall with no exit".
 fn load_loading_zones() -> std::collections::HashMap<String, Vec<ae::Aabb>> {
-    use ambition::actors as sb;
     let mut map = std::collections::HashMap::new();
     let Ok(project) = load_project_for_test() else {
         return map;

@@ -1,7 +1,8 @@
 # The refactor chain — dissolving the adapter shells, then folding the player
 
 **Status:** R1, R2, R3, R5 DONE; R4 re-checked and STOPPED as ruled; R6 IN PROGRESS
-(R6a + R6b landed; R6c — dissolving the `player/` directory — remains). 2026-07-10.
+(R6a/R6b/R6c landed; R6d — the rest of `player/` + the `features/` rename —
+remains). 2026-07-10.
 Six slices, in dependency order.
 Each is committable on its own; each states its own exit check.
 
@@ -543,21 +544,32 @@ One is marked **SLOT-0 SCOPE, NOT BY DESIGN**: `items/pickup/mod.rs`'s
 should key off `ControlledSubject`. Retargeting a thrown bolt's owner changes hit
 attribution — feel — and that never ships blind. Left with the reason in the code.
 
-### ⏳ R6c — `player/` itself (NOT DONE)
+### ✅ R6c — the control seam leaves `player/` (committed)
 
-The directory still exists. What is left to place, by concern:
+`crate::control` now owns the device→slot→body path: `components` (`LocalPlayer`,
+`PlayerInputFrame`, `SlotGestures`, `SlotInteractionState`, and the `PlayerSlot`
+re-export), `input_systems`, `slots` (the two bridges), `queries`. This is not
+player-centrism — it is the wire between a human and a body — and naming it is
+most of what "player-ness is a brain and a slot, not a directory" means.
 
-- **the control seam** → a `control/` module: `input_systems.rs`,
-  `systems.rs::{populate_slot_controls, sync_local_player_input_frame}`,
-  `queries.rs`, and the components `PlayerInputFrame` / `LocalPlayer` /
-  `SlotGestures` / `SlotInteractionState`. (`PlayerSlot` and `SlotControls`
-  already live in `ambition_characters::brain`.) This is not player-centrism — it
-  is the device→slot→body path — and naming it so is most of the fold.
+**R5's lint caught this move, which is the entire reason it was written first.**
+Three of its nine allowlisted holders changed file. It went red as an
+UNLISTED-HOLDER failure and, because it is bidirectional, would have gone red as a
+STALE-ENTRY failure too. Not one reason changed — only the homes. A pre-existing
+sibling lint (`gameplay_systems_must_not_read_res_time_directly`) fired on the same
+move for the same reason. Two guardrails, two true positives, zero surprises.
+
+Measured: the `crate::player` importer sink is **31 → 26 (R6a) → 21 (R6c)**
+non-player files. `player/` is 6632 → 5685 total src lines (units: TOTAL, incl.
+tests); `control/` is 962.
+
+### ⏳ R6d — what is still under `player/`
+
 - **body mechanics** → the actor tree: `body_integration.rs`, `movement_fx.rs`,
   `trail.rs`, `swim.rs`, `ledge_grab.rs`, `affordances/`.
-- **home-avatar POLICY** (genuinely slot-0) → its own module: `bundles.rs`,
-  `starting_character.rs`, `events.rs`, `PlayerSafetyState`,
-  `PlayerBlinkCameraState`.
+- **home-avatar POLICY** (genuinely slot-0, and correctly named): `bundles.rs`,
+  `starting_character.rs`, `events.rs`, `components/` (`PlayerSafetyState`,
+  `PlayerBlinkCameraState`), `systems.rs`'s remainder.
 
 Then the `features/` rename (508 internal + 199 external references), which the
 original plan says rides the fold.

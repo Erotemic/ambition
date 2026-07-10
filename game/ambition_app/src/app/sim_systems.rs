@@ -72,7 +72,7 @@ pub fn apply_player_reset_input_system(
     >,
     // Reset zeroes the local controller's slot gestures (reset/save identity is a
     // sanctioned PrimaryPlayer concern).
-    mut slot_gestures: ResMut<ambition::actors::player::SlotInteractionState>,
+    mut slot_gestures: ResMut<ambition::actors::control::SlotInteractionState>,
 ) {
     if !control_frame.reset_pressed {
         return;
@@ -144,7 +144,7 @@ pub fn apply_room_replay_request_system(
         ),
         ambition::actors::actor::PrimaryPlayerOnly,
     >,
-    mut slot_gestures: ResMut<ambition::actors::player::SlotInteractionState>,
+    mut slot_gestures: ResMut<ambition::actors::control::SlotInteractionState>,
 ) {
     if replay_requests.read().count() == 0 {
         return;

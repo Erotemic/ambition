@@ -142,7 +142,7 @@ pub fn compute_controlled_actor_intent(
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     player_q: Query<
         (
-            &crate::player::PlayerInputFrame,
+            &crate::control::PlayerInputFrame,
             &crate::actor::BodyKinematics,
         ),
         (

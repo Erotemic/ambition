@@ -105,10 +105,10 @@ impl Plugin for PlayerSchedulePlugin {
         app.add_systems(
             sim,
             (
-                ambition_actors::player::input_timer_system
+                ambition_actors::control::input_timer_system
                     .run_if(gameplay_allowed)
                     .in_set(ambition_input::InputSet::Populate),
-                ambition_actors::player::interaction_input_system.run_if(gameplay_allowed),
+                ambition_actors::control::interaction_input_system.run_if(gameplay_allowed),
                 // Portal-warped held movement input is registered by
                 // `ambition_portal::PortalPlugin` so the portal
                 // subsystem owns its input seam.
@@ -123,13 +123,13 @@ impl Plugin for PlayerSchedulePlugin {
                 //    avatar sees neutral input).
                 (
                     ambition_actors::abilities::traversal::possession::resolve_controlled_subject,
-                    ambition_actors::player::populate_slot_controls,
+                    ambition_actors::control::populate_slot_controls,
                     // N0.2: capture the input the SIM consumes, which is not the
                     // input the device produced — gestures, portal warp, and the
                     // fixed-tick latch all rewrite the frame on the way here.
                     crate::input_stream::record_input_stream
                         .run_if(crate::input_stream::input_stream_recording),
-                    ambition_actors::player::sync_local_player_input_frame,
+                    ambition_actors::control::sync_local_player_input_frame,
                 )
                     .chain(),
                 // Universal-brain seam: translate this frame's slot input into
@@ -201,7 +201,7 @@ impl Plugin for PlayerSchedulePlugin {
             sim,
             (
                 ambition_actors::player::write_player_ecs_components,
-                ambition_actors::player::cleanup_timers_system,
+                ambition_actors::control::cleanup_timers_system,
             )
                 .chain()
                 .in_set(SandboxSet::PresentationSync),

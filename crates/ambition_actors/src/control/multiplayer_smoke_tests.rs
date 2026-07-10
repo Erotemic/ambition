@@ -5,6 +5,7 @@
 use super::*;
 use crate::actor::BodyMelee;
 use crate::actor::PrimaryPlayerOnly;
+use crate::player::PlayerSafetyState;
 use ambition_engine_core as ae;
 
 fn dummy_attack_spec() -> crate::combat::AttackSpec {

@@ -207,7 +207,7 @@ impl Plugin for TouchControlsPlugin {
                         // touch state, masking the ordering bug.
                         // The consume boundary is `populate_slot_controls` (the
                         // first reader of the finalized `ControlFrame`).
-                        .before(ambition_actors::player::populate_slot_controls)
+                        .before(ambition_actors::control::populate_slot_controls)
                         // ALSO run before the unified menu's nav consumers so
                         // the touch Start press is in ControlFrame before the
                         // menu open-routing / nav reads it. The fold runs after

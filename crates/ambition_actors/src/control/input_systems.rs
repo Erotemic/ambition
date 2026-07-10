@@ -32,7 +32,7 @@ pub fn input_timer_system(
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     mut sim_state: ResMut<crate::SandboxSimState>,
     mut control_frame: ResMut<ControlFrame>,
-    mut slot_gestures: ResMut<crate::player::SlotInteractionState>,
+    mut slot_gestures: ResMut<crate::control::SlotInteractionState>,
     // Home/player bodies tick their OWN reaction timers here (they aren't in the
     // actor tick). Iterates every player body so a co-op / clone body ticks its own.
     mut home_feel_q: Query<
@@ -102,7 +102,7 @@ pub fn interaction_input_system(
     gravity_field: Option<Res<crate::physics::GravityField>>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     controlled: Option<Res<ambition_platformer_primitives::markers::ControlledSubject>>,
-    mut slot_gestures: ResMut<crate::player::SlotInteractionState>,
+    mut slot_gestures: ResMut<crate::control::SlotInteractionState>,
     // Hit-stun gate reads the CONTROLLED body's reaction state — the body actually
     // being driven, home avatar or possessed actor.
     combat_q: Query<&ambition_characters::actor::BodyCombat>,
@@ -204,7 +204,7 @@ pub fn cleanup_timers_system(
 mod interaction_suppression_tests {
     use super::*;
     use crate::actor::{PlayerEntity, PrimaryPlayer};
-    use crate::player::SlotInteractionState;
+    use crate::control::SlotInteractionState;
     use crate::time::feel::SandboxFeelTuning;
     use ambition_characters::actor::BodyCombat;
 

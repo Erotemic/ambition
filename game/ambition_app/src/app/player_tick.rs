@@ -59,7 +59,7 @@ pub(crate) fn apply_home_reset_policy(
             With<ambition::actors::actor::PrimaryPlayer>,
         ),
     >,
-    mut slot_gestures: ResMut<ambition::actors::player::SlotInteractionState>,
+    mut slot_gestures: ResMut<ambition::actors::control::SlotInteractionState>,
 ) {
     let Ok((
         mut cluster_item,

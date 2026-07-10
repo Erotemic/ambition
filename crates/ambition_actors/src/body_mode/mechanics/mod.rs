@@ -43,7 +43,7 @@ pub fn update_body_mode(
     gravity_field: Option<Res<crate::physics::GravityField>>,
     // Slot gestures (double-tap-down → morph) keyed by the controlling slot. The
     // body reads ITS controller's gesture, never a privileged home avatar's.
-    mut slot_gestures: ResMut<crate::player::SlotInteractionState>,
+    mut slot_gestures: ResMut<crate::control::SlotInteractionState>,
     // Every CONTROLLED body (carrying `Brain::Player(slot)`) that has body-mode
     // capability + posture clusters. Not `With<PlayerEntity>`: a possessed actor with
     // the capability body-modes through the same system; a vacated home body has no

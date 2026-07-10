@@ -91,7 +91,7 @@ pub fn detect_room_transition_system(
     // door restrictions gate on body properties (size/shape/locomotion), never on
     // "is this the home avatar". Falls back to the primary player at startup.
     controlled: Option<Res<ambition_platformer_primitives::markers::ControlledSubject>>,
-    mut slot_gestures: ResMut<crate::player::SlotInteractionState>,
+    mut slot_gestures: ResMut<crate::control::SlotInteractionState>,
     bodies: Query<&crate::actor::BodyKinematics>,
     primary_q: Query<Entity, crate::actor::PrimaryPlayerOnly>,
     world_time: Res<WorldTime>,

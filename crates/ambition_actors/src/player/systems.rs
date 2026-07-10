@@ -2,7 +2,7 @@
 
 use bevy::prelude::*;
 
-use super::components::{LocalPlayer, PlayerEntity, PlayerInputFrame, PlayerSlot, PrimaryPlayer};
+use super::components::{PlayerEntity, PrimaryPlayer};
 use super::events::PlayerHealRequested;
 use super::movement_components::{BodyGroundState, BodyKinematics};
 use crate::actor::BodyMelee;
@@ -10,39 +10,6 @@ use crate::features::ActorPose;
 use ambition_characters::actor::{BodyCombat, BodyHealth};
 use ambition_characters::brain::{ActorControl, Brain, BrainSnapshot, SlotControls};
 use ambition_engine_core as ae;
-use ambition_input::ControlFrame;
-
-/// Publish the local device's finalized [`ControlFrame`] into the slot-based
-/// controller model as [`PlayerSlot::PRIMARY`]. This is the ONE place local
-/// input enters the canonical [`SlotControls`] resource; every controlled body
-/// reads its slot's frame from there via `Brain::Player`. Co-op / netcode add
-/// their own writers for higher slots without touching this one.
-pub fn populate_slot_controls(frame: Res<ControlFrame>, mut slots: ResMut<SlotControls>) {
-    slots.set(PlayerSlot::PRIMARY, *frame);
-}
-
-/// Mirror a controlled body's slot frame onto its [`PlayerInputFrame`] component.
-///
-/// `PlayerInputFrame` is the per-body view of "the input THIS body is receiving
-/// as a controlled body" — read by player-specific ability systems (held-item
-/// use, heal shrine, portal gun). It is sourced from [`SlotControls`] and gated
-/// on brain ownership: a body only receives its slot's frame while it carries
-/// `Brain::Player(slot)`. A vacated home avatar (its player brain transferred to
-/// a possessed actor) therefore sees NEUTRAL input and has no local attack
-/// authority — the mandate's "the vacated body must not act", derived from the
-/// brain rather than a possession run-condition.
-pub fn sync_local_player_input_frame(
-    slots: Res<SlotControls>,
-    mut players: Query<(&mut PlayerInputFrame, Option<&Brain>), With<LocalPlayer>>,
-) {
-    for (mut player_input, brain) in &mut players {
-        player_input.frame = match brain.and_then(Brain::player_slot) {
-            Some(slot) => slots.get(slot),
-            // No player brain (vacated during possession): no local control.
-            None => ControlFrame::default(),
-        };
-    }
-}
 
 /// Mirror authoritative player body state into the generic gameplay
 /// [`ActorPose`] used by the brain/action resolver.
@@ -240,8 +207,13 @@ pub fn regen_player_mana(
 
 #[cfg(test)]
 mod tests {
+    // The device→slot and slot→body bridges left for `crate::control` (R6c);
+    // these end-to-end tests drive the player tick THROUGH them, so they import
+    // them as fixtures rather than owning them.
     use super::*;
+    use crate::control::{populate_slot_controls, sync_local_player_input_frame};
     use ambition_characters::brain::ActorControl;
+    use ambition_input::ControlFrame;
 
     #[test]
     fn mana_regenerates_over_time_but_clamps_to_max() {

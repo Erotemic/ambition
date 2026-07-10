@@ -353,7 +353,7 @@ fn gameplay_systems_must_not_read_res_time_directly() {
         // timers still compute their own scaled dt manually) — same ADR 0011
         // player-clock follow-up as the app-tick path they moved out of.
         (
-            "player/input_systems.rs",
+            "control/input_systems.rs",
             "home-body reaction/gesture/flash timers moved from the app (C4); ADR 0011 follow-up",
         ),
         // Hot reload polls disk in wall-clock cadence.

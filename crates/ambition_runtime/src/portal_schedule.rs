@@ -45,8 +45,8 @@ impl Plugin for PortalSchedulePlugin {
             sim,
             PortalSet::InputWarp
                 .in_set(SandboxSet::PlayerInput)
-                .after(ambition_actors::player::interaction_input_system)
-                .before(ambition_actors::player::sync_local_player_input_frame)
+                .after(ambition_actors::control::interaction_input_system)
+                .before(ambition_actors::control::sync_local_player_input_frame)
                 .run_if(gameplay_allowed),
         );
 

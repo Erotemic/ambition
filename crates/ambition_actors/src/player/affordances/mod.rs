@@ -198,7 +198,7 @@ impl Plugin for AffordancesPlugin {
                     // `Res<ControlFrame>` (populated before
                     // `CoreSimulation`). Pin the chain after the sync so
                     // the intent still reflects this frame's input.
-                    .after(crate::player::sync_local_player_input_frame)
+                    .after(crate::control::sync_local_player_input_frame)
                     .in_set(AffordancesSystemSet::Compute),
             )
             // Active-input-method detection runs unchained because it
@@ -225,7 +225,7 @@ mod tests {
             BodyEnvironmentContact, BodyGroundState, BodyLedgeState, BodyModeState,
         };
         use crate::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
-        use crate::player::PlayerInputFrame;
+        use crate::control::PlayerInputFrame;
         use ambition_input::ControlFrame;
 
         let mut app = App::new();
@@ -273,7 +273,7 @@ mod tests {
     fn set_axis(app: &mut App, player: Entity, x: f32, y: f32) {
         let mut input = app
             .world_mut()
-            .get_mut::<crate::player::PlayerInputFrame>(player)
+            .get_mut::<crate::control::PlayerInputFrame>(player)
             .unwrap();
         input.frame.axis_x = x;
         input.frame.axis_y = y;

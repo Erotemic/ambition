@@ -2001,9 +2001,9 @@ fn architecture_boundaries_input_timer_systems_moved_to_actors() {
     for needle in [
         "ambition_dev_tools::sync_live_player_dev_edits_system",
         "ambition_actors::time::time_control::apply_suspended_time_scale_system",
-        "ambition_actors::player::input_timer_system",
-        "ambition_actors::player::interaction_input_system",
-        "ambition_actors::player::cleanup_timers_system",
+        "ambition_actors::control::input_timer_system",
+        "ambition_actors::control::interaction_input_system",
+        "ambition_actors::control::cleanup_timers_system",
     ] {
         assert!(
             engine_schedule.contains(needle),

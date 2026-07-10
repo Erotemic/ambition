@@ -131,7 +131,7 @@ pub fn spawn_requested_player_clone(
             ambition::actors::body_mode::BodyModeCapabilities::full(),
             ambition::actors::actor::BodyMelee::default(),
             ambition::actors::player::PlayerSafetyState::default(),
-            ambition::actors::player::PlayerInputFrame::default(),
+            ambition::actors::control::PlayerInputFrame::default(),
         ),
         transform,
         Name::new("Player Clone (brain-driven)"),

@@ -100,7 +100,7 @@ pub fn tick_actor_brains(
     player_query: Query<
         (
             bevy::prelude::Entity,
-            Option<&crate::player::PlayerSlot>,
+            Option<&crate::control::PlayerSlot>,
             &crate::actor::BodyKinematics,
             &ambition_characters::actor::BodyHealth,
         ),
@@ -233,7 +233,7 @@ pub fn tick_actor_brains(
         .and_then(|e| player_query.get(e).ok())
         .or_else(|| {
             player_query.iter().min_by_key(|(_, slot, _, _)| {
-                slot.copied().unwrap_or(crate::player::PlayerSlot::PRIMARY)
+                slot.copied().unwrap_or(crate::control::PlayerSlot::PRIMARY)
             })
         })
         .map(|(_, _, kin, _)| kin.pos);

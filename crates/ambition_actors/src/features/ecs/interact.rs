@@ -27,7 +27,7 @@ pub fn interact_ecs_actors_and_switches(
     // The local controller's buffered interact lives on its SLOT, published from the
     // device even while the home avatar is vacated — the right source for "the local
     // player wants to interact" independent of which body is being driven.
-    mut slot_gestures: ResMut<crate::player::SlotInteractionState>,
+    mut slot_gestures: ResMut<crate::control::SlotInteractionState>,
     // Interact-gesture pose on the primary player's presentation anim (+ the
     // startup-frame fallback subject).
     mut input_surface: Query<
@@ -257,7 +257,7 @@ mod tests {
         // The interact buffer is SLOT state now (published from the device); prime
         // the primary controller's slot so the system sees a live buffered interact.
         app.world_mut()
-            .get_resource_or_insert_with(crate::player::SlotInteractionState::default)
+            .get_resource_or_insert_with(crate::control::SlotInteractionState::default)
             .primary_mut()
             .interact_buffer_timer = 0.15;
     }
@@ -508,7 +508,7 @@ mod tests {
         );
         assert!(
             world
-                .resource::<crate::player::SlotInteractionState>()
+                .resource::<crate::control::SlotInteractionState>()
                 .primary()
                 .buffered(),
             "the buffered press is NOT consumed: the player may still interact \

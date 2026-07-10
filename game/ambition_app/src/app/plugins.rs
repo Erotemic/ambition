@@ -125,7 +125,7 @@ fn register_app_local_sim_systems(app: &mut App) {
             .chain()
             .in_set(SandboxSet::PlayerInput)
             .after(ambition::dev_tools::sync_live_player_dev_edits_system)
-            .before(ambition::actors::player::input_timer_system),
+            .before(ambition::actors::control::input_timer_system),
     );
     // Content dialogue-followup emitters (e.g. cut-rope "try again") run
     // before the replay consumer that drains their requests the same frame.

@@ -16,6 +16,7 @@
 | [`character_roster`](src/character_roster.rs) | The character-roster SEAM: the game installs its `character_catalog.ron` text; this module owns the parse cache + the lookup helpers the non-Bevy call sites use. |
 | [`character_sprites`](src/character_sprites/mod.rs) | Spritesheet metadata, atlas/animation logic, and loading for every animated character (player robot, goblins, sandbag, boss, NPCs). |
 | [`config`](src/config.rs) | The render-only `rgba` color helper. |
+| [`control`](src/control/mod.rs) | **The local control seam** — device frame → slot → the body carrying that slot's player brain. |
 | [`cutscene`](src/cutscene.rs) | Cutscene playback runtime (the systems that drive the scripts). |
 | [`cutscene_trigger`](src/cutscene_trigger.rs) | The cutscene TRIGGER channel — a presentation-neutral request queue. |
 | [`debug_label`](src/debug_label.rs) | Compatibility facade for room debug labels. |
@@ -41,7 +42,7 @@
 | [`time`](src/time/mod.rs) | Time domain plumbing: clocks (ADR 0010/0011), time-control authority, per-entity proper-time scale, and game-feel tuning. |
 | [`world`](src/world/mod.rs) | World / level authoring runtime: room graph + spawning, the code-first room builder, the LDtk hot-reloadable project loader, the Avian2D physics adapter, and LDtk-authored moving platforms. |
 
-_34 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_35 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 
@@ -62,7 +63,8 @@ concern, plus this map), not by more crates.
 |---|---|
 | `features` | **the enemy / NPC / boss ECS ACTOR SIMULATION.** Not a feature-toggle layer. "Features" here means in-world entities. The `features/` rename rides the S5/S6 player fold (refactor-chain R6). |
 | `actor` (singular) | the neutral **body VOCABULARY** — components every actor carries, the player included. Not systems. New shared body state lands here, never on a `Player*` component. |
-| `player` | what is LEFT of player-centrism. Its body vocabulary already moved out (R6a); the directory itself dissolves in R6c. `player/` existing as a sibling of `features/` is the last structural claim that the player is a kind of thing rather than a brain and a slot. |
+| `player` | what is LEFT of player-centrism after R6a–R6c took out the body vocabulary and the control seam: home-avatar POLICY (respawn safety, blink camera, identity bundle, starting character) plus the body mechanics still to be re-homed. The directory finishes dissolving in the rest of R6. |
+| `control` | **the local control seam** — device frame → slot → the body carrying that slot's player brain. Not player-centrism: it is the wire between a human and a body. Downstream of it, nothing holds `Res<ControlFrame>`. |
 
 ### Authoritative state — who mutates what
 

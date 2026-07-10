@@ -10,7 +10,7 @@ use crate::actor::{
 };
 use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::body_mode::BodyModeCapabilities;
-use crate::player::SlotInteractionState;
+use crate::control::SlotInteractionState;
 use ambition_characters::actor::control::ActorControlFrame;
 use ambition_characters::brain::{ActorControl, Brain, PlayerSlot};
 use ambition_engine_core::world::{ClimbableKind, ClimbableRegion, ClimbableSpec, World};
@@ -212,7 +212,7 @@ fn player_input_frame_is_not_body_mode_authority() {
     // crouch. The live crouch intent lives only on ActorControl.
     app.world_mut()
         .entity_mut(body)
-        .insert(crate::player::PlayerInputFrame::default());
+        .insert(crate::control::PlayerInputFrame::default());
     set_control(&mut app, body, |c| c.locomotion = Vec2::new(0.0, 1.0));
     app.update();
     assert_eq!(

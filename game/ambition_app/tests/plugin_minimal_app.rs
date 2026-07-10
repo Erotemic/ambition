@@ -23,9 +23,8 @@
 use ambition::actors::actor::BodyAnimFacts;
 use ambition::actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 use ambition::actors::body_mode::BodyModeCapabilities;
-use ambition::actors::player::{
-    LocalPlayer, PlayerBlinkCameraState, PlayerIdentityBundle, PlayerSlot,
-};
+use ambition::actors::control::{LocalPlayer, PlayerSlot};
+use ambition::actors::player::{PlayerBlinkCameraState, PlayerIdentityBundle};
 use ambition::actors::rooms::RoomSet;
 use ambition::actors::SandboxSimState;
 use ambition::characters::actor::{BodyCombat, BodyHealth};

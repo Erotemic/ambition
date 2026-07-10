@@ -7,8 +7,8 @@
 use crate::actor::BodyKinematics;
 use crate::actor::{BodyBaseSize, BodyMana};
 use crate::actor::{PlayerEntity, PrimaryPlayer};
+use crate::control::PlayerInputFrame;
 use crate::features::HeldItem;
-use crate::player::PlayerInputFrame;
 use ambition_characters::brain::{held_item_by_id, ActionSet, ActorControl};
 use ambition_engine_core as ae;
 use ambition_platformer_primitives::markers::ControlledSubject;

@@ -33,7 +33,7 @@ pub(crate) fn reset_sandbox(
     attack: &mut Option<ambition::actors::MeleeSwing>,
     anim: &mut ambition::actors::actor::BodyAnimFacts,
     combat: &mut ambition::characters::actor::BodyCombat,
-    interaction: &mut ambition::actors::player::SlotGestures,
+    interaction: &mut ambition::actors::control::SlotGestures,
     blink_cam: &mut ambition::actors::player::PlayerBlinkCameraState,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,

@@ -132,7 +132,7 @@ pub fn record_frame_system(
             ae::BodyClusterQueryData,
             Option<&ambition_characters::actor::BodyHealth>,
             &crate::player::PlayerSafetyState,
-            &crate::player::PlayerInputFrame,
+            &crate::control::PlayerInputFrame,
             &ambition_characters::actor::BodyCombat,
         ),
         // SLOT-0 BY DESIGN: the deterministic replay trace records ONE body's

@@ -232,7 +232,7 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
                 .in_set(PortalSet::InputWarp)
                 .in_set(ambition_input::InputSet::Populate)
                 .after(warp_portal_input)
-                .before(ambition_actors::player::sync_local_player_input_frame),
+                .before(ambition_actors::control::sync_local_player_input_frame),
         );
         // The player-input adapter reads `PlayerMovementIntent` as the warp
         // anchor; re-sync from `ControlFrame` immediately before the generic
@@ -453,7 +453,7 @@ mod schedule_tests {
     #[test]
     fn input_set_populate_runs_before_the_real_consumer() {
         use ambition_actors::actor::PlayerEntity;
-        use ambition_actors::player::{
+        use ambition_actors::control::{
             populate_slot_controls, sync_local_player_input_frame, LocalPlayer, PlayerInputFrame,
         };
         use ambition_characters::brain::{ActorControl, Brain, PlayerSlot, SlotControls};

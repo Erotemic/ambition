@@ -200,7 +200,7 @@ Jon rates as *actually fun*.
 | BD2 | Arena beats from encounter spec (waves/spawns/terrain via existing buses) | [opus] |
 | BD3 | Telegraph event channel (rides CM5) | [opus] |
 | BD4 | ~~Seed library v1~~ ✅ **DONE 2026-07-10** — see §7 | [opus] |
-| BD5 | Fight validator (the §3 rules over authored data) | [opus] |
+| BD5 | ~~Fight validator (the §3 rules over authored data)~~ ✅ **DONE 2026-07-10** — see §9 | [opus] |
 | BD6 | Playtester rig + metrics + report format | [opus; needs FB1–FB4] |
 | BD7 | Pilot: re-author ONE existing boss (mockingbird or behemoth) through the full loop; calibrate bands against Jon's verdict | [opus + Jon] |
 | BD8 | Hollow Lite boss through the pipeline (the acceptance) | [opus + Jon] |
@@ -270,11 +270,13 @@ that ignored the `Cycle` bosses would have been a lie about half the roster.
    through `spread_volley`. That is §3 rule 2's "forced-movement variety" gap,
    measured. `the_shipped_roster_does_not_yet_demand_a_parry` pins it, and says in
    its own assertion message to delete itself when a fight fixes it.
-3. **Every shipped telegraph clears even the heavy floor.** The shortest is
-   0.44 s = 26 ticks (the mockingbird's cycle), against §3's `heavy ≥ 30 ticks`.
-   So rule 1 will fire on exactly one boss when BD5 lands, and it will be right to:
-   `dive_lane` and `broadside` are not light attacks. The `dash_through` recipe
-   says so and recommends 0.60 s for a grounded re-author.
+3. ~~**Every shipped telegraph clears even the heavy floor** … rule 1 will fire on
+   exactly one boss when BD5 lands.~~ **WRONG, and BD5 disproved it (§9).** Rule 1
+   fires nowhere. The mockingbird's 26-tick cycle telegraphs belong to `sweep` and
+   `dash_through`, both `Medium`, whose floor is 20 ticks — not a heavy's 30. I
+   compared a medium's telegraph against a heavy's floor. The `dash_through`
+   recipe's advice (0.60 s for a grounded re-author) still stands as *taste*; it
+   was never a rule-1 violation.
 
 ### What BD5 gets for free
 
@@ -354,3 +356,81 @@ machinery that compiles.
 
 BD4's seed-library oracle now walks `Select` arms and stance bodies, so the
 catalog cannot go partial the moment a fight uses one.
+
+---
+
+## 9. BD5 — the fight validator, and what it found (opus, 2026-07-10)
+
+`ambition_characters::brain::boss_pattern::validator`, with the per-game bands in
+`game/ambition_content/assets/data/boss_validator_bands.ron` (§3: *"the bands live
+in ONE RON file per game so re-calibration is data, not code"*).
+
+### THE MEASUREMENT: the shipped roster vs §3
+
+**8 errors, 1 warning.** Every error is rule 3, every one is in **Enrage**, and
+every one is the same shape:
+
+```
+  clockwork_warden              minima_trap       Enrage: punish window 0 ticks (floor 12)
+  clockwork_warden              saddle_point      Enrage: punish window 0 ticks (floor 12)
+  exploding_gradient_boss       overfit_volley    Enrage: punish window 0 ticks (floor 6)
+  exploding_gradient_boss       saddle_point      Enrage: punish window 0 ticks (floor 12)
+  flying_spaghetti_monster_boss overfit_volley    Enrage: punish window 0 ticks (floor 6)
+  gnu_ton_rider                 hand_slam         Enrage: punish window 0 ticks (floor 24)
+  overflow_boss                 full_body_pulse   Enrage: punish window 0 ticks (floor 12)
+  trex_boss                     full_body_pulse   Enrage: punish window 0 ticks (floor 12)
+  smirking_behemoth_boss  [warn] the fight never demands WalkOut
+```
+
+The tightened enrage combos chain a `Strike` straight into the next `Telegraph`.
+§3 calls that an unpunishable attack; the authors called it escalation. **Which of
+them is right is BD7's pilot to settle with Jon** — and making that argument
+legible, per attack, per phase, is the entire point of the pipeline.
+
+The warning is its own small design fact: the smirking behemoth's kit is a beam, a
+sweep, a slam and a nova, every one answered by jumping or dashing. A player never
+has to simply step out of the way.
+
+**Rule 1 fires nowhere**, which disproves §7's finding 3. I had compared a
+`Medium` attack's telegraph against a `Heavy`'s floor.
+
+### The unit of judgement is a BEAT
+
+BD4 found that no per-attack `recovery` exists and none can — the punish window is
+the `Rest` that FOLLOWS a strike, a property of the OCCURRENCE. So the validator
+walks each phase into `Beat { move_key, phase, telegraph_s, active_s, recovery_s }`.
+`floor_slam` is fair in phase 1 and unpunishable in enrage, and only a per-beat
+rule can say that.
+
+**A phase's timeline loops**, so a strike that ends the list is followed by
+whatever begins it. Crediting a leading `Rest` removed three findings that were
+facts about the walker rather than about the fight (the smirking behemoth's
+`eye_beam`, in all three phases). A validator that cannot be wrong about a fight
+cannot be trusted about one.
+
+`Select` arms are walked — a fight cannot hide an unpunishable heavy inside a
+table — and so are stance bodies.
+
+### Two of §3's five rules are NOT implemented, and the reason is in the code
+
+- **Rule 4, simultaneity budget.** A scripted timeline is sequential, so its
+  body-mounted volumes never overlap. The threats that DO overlap are the
+  `zone_denial` hazards a `Special` spawns, whose lifetime lives in the content
+  technique's private consts (`MINIMA_TRAP_HAZARD_DURATION_S = 5.0`), not in any
+  authored row. This rule needs a `persists_s` on the seed, fed by the technique.
+- **Rule 5, readability floor.** *"Distinct attacks must differ in telegraph (pose
+  row OR cue)."* The authored data carries a telegraph DURATION, which is not a
+  telegraph IDENTITY. It needs BD3's telegraph channel, which does not exist yet.
+
+Both are named in the module docs rather than approximated by a rule that checks
+something adjacent and reports green.
+
+### Why it is not an install-time gate yet
+
+§3's endgame is *"fight does not install."* Switching that on today would fail
+eight of the nine shipped bosses against **Calibration v0**, which the doc itself
+calls *"starting numbers … BD7's pilot re-calibrates them against Jon's verdict."*
+Gating before the pilot would not make the fights fairer; it would make the numbers
+unfalsifiable. So `boss_fight_validator.rs` measures, prints a stable report, and
+**pins the counts** — a change in a fight shows up as a change in the pin. The day
+BD7 recalibrates, `EXPECTED_ERRORS` goes to zero and the pin becomes the gate.

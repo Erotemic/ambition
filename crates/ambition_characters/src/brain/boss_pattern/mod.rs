@@ -1093,6 +1093,10 @@ pub use tick::*;
 /// weighted `Select` resolution, stance push/pop, and interrupt bookkeeping.
 pub mod control_flow;
 
+/// BD5's fight validator: `boss-design.md` §3's telegraph grammar and fairness
+/// rules, run over authored data with per-game bands.
+pub mod validator;
+
 /// The boss SEED LIBRARY vocabulary (boss-design.md §2, slice BD4): attack
 /// archetypes with a written design intent, fair-counter set, and measured
 /// duration bands. The catalog itself is content.

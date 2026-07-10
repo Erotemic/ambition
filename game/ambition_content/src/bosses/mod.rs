@@ -44,6 +44,23 @@ pub const BOSS_PROFILES_RON: &str = include_str!("../../assets/data/boss_profile
 /// and measured telegraph/active bands.
 pub const BOSS_SEEDS_RON: &str = include_str!("../../assets/data/boss_seeds.ron");
 
+/// BD5's per-game fairness calibration (`boss-design.md` §3). One RON per game, so
+/// re-calibrating a fight's fairness is an edit, not a recompile.
+pub const BOSS_VALIDATOR_BANDS_RON: &str =
+    include_str!("../../assets/data/boss_validator_bands.ron");
+
+/// The parsed validator bands. Panics at first use if the RON is malformed, which
+/// a content test catches long before a fight does.
+pub fn validator_bands(
+) -> &'static ambition_characters::brain::boss_pattern::validator::ValidatorBands {
+    use ambition_characters::brain::boss_pattern::validator::ValidatorBands;
+    static BANDS: std::sync::LazyLock<ValidatorBands> = std::sync::LazyLock::new(|| {
+        ValidatorBands::from_ron(BOSS_VALIDATOR_BANDS_RON)
+            .unwrap_or_else(|err| panic!("boss_validator_bands.ron failed to deserialize: {err}"))
+    });
+    &BANDS
+}
+
 /// The parsed seed library. Parsed once; panics at first use if the RON is
 /// malformed, which a content test catches long before a player does.
 pub fn seed_library() -> &'static ambition_characters::brain::boss_pattern::seeds::SeedLibrary {

@@ -1,0 +1,52 @@
+// **BD5's per-game calibration** — `docs/planning/engine/boss-design.md` §3.
+//
+// The bands live in ONE RON file per game "so re-calibration is data, not code."
+// A different game ships a different file; nothing in the engine names these
+// numbers. Parsed by
+// `ambition_characters::brain::boss_pattern::validator::ValidatorBands::from_ron`.
+//
+// Values are §3's pinned Calibration v0 (fable, 2026-07-06), which the doc calls
+// "starting numbers … BD7's pilot re-calibrates them against Jon's verdict."
+(
+    // The sim steps at 60 Hz, so ticks ≈ frames.
+    tick_hz: 60.0,
+
+    // Rule 1 — telegraph proportionality. Minimum wind-up by threat class.
+    // §3: light (≤ 8 dmg, single volume) ≥ 12; medium ≥ 20; heavy (one-shot-threat
+    // or arena-wide) ≥ 30. `pressure` is chip-level and takes the light floor: a
+    // chip attack still has to be seen coming, it just does not have to be feared.
+    telegraph_ticks: (
+        pressure: 12.0,
+        light: 12.0,
+        medium: 20.0,
+        heavy: 30.0,
+    ),
+
+    // Rule 3 — the commitment rule. The punish window that must FOLLOW the active
+    // frames. §3: heavies ≥ 24 ticks of recovery, mediums ≥ 12. Light is 6 by
+    // extension (half a medium): a light attack that leaves no gap at all is still
+    // pressure wearing a light's damage number. `pressure` is exempt entirely and
+    // this entry is ignored — §3 caps it by damage (≤ 10% victim HP per touch),
+    // which is not a thing the validator can see from a pattern.
+    recovery_ticks: (
+        pressure: 0.0,
+        light: 6.0,
+        medium: 12.0,
+        heavy: 24.0,
+    ),
+
+    // Rule 2, second half — "across the fight every core movement verb must appear
+    // in some attack's counter set (forced-movement variety)."
+    //
+    // Ambition's core traversal verbs. `Parry` and `Shield` are deliberately NOT
+    // here: the shipped roster demands Shield only through `spread_volley` and a
+    // Parry nowhere at all (BD4 §7, measured), so listing them would fire a warning
+    // on every fight and teach an authoring agent to ignore the warnings. They join
+    // this list the day a fight is authored to answer them.
+    core_verbs: [Jump, Dash, WalkOut],
+
+    // §3's hard error vs. warning split: "band deviations ≤ 20% = WARNINGS
+    // requiring an inline `// boss-tuning:` justification the validator prints;
+    // > 20% = ERROR."
+    warn_deviation_frac: 0.2,
+)

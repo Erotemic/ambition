@@ -1,0 +1,319 @@
+// The boss SEED LIBRARY v1 — `docs/planning/engine/boss-design.md` §2, slice BD4.
+//
+// Nine attack archetypes, EXTRACTED from the twenty-two `BossAttackProfile` keys
+// the shipped roster actually uses, generalized, and documented. A fight is
+// 4–7 seeds + phase escalation + one signature bespoke move.
+//
+// Shape: `{ "<seed_id>": MoveSeed }`, deserialized by
+// `ambition_characters::brain::boss_pattern::seeds::SeedLibrary::from_ron`.
+//
+// ── THE BANDS ARE MEASURED, NOT INVENTED ──────────────────────────────────
+// `telegraph` and `active` are the exact observed envelope of every occurrence
+// of every instance in `boss_profiles.ron` — no padding. The test
+// `boss_seeds_bands_are_the_measured_envelope` re-derives them from the profile
+// RON and fails BOTH when an occurrence falls outside a band AND when a band is
+// wider than its own instances. So retuning a boss updates this file, by design:
+// that is how the library stays true, and it is the accretion discipline §2 asks
+// for made mechanical.
+//
+// ── WHAT IS DELIBERATELY ABSENT ───────────────────────────────────────────
+// `recovery`. §3's commitment rule wants a punish window per attack, and there is
+// no per-attack recovery in `BossPatternStep`: the punish window is the `Rest`
+// beat that FOLLOWS a `Strike`, a property of the OCCURRENCE, not the move. BD5's
+// validator must measure it per beat. Inventing a field nothing could fill would
+// have been worse than naming the gap.
+//
+// §2 also names `counter_stance`, `enrage_repeat`, and `grab_command`. The
+// roster contains no instance of any of them. An archetype with no example
+// teaches an authoring agent nothing, so they are NOT in this file; they arrive
+// with the fight that first needs one. (BD1's `Stance` pattern arm is what
+// `counter_stance` will be built on.)
+//
+// ── ADDED BY THE EXTRACTION ───────────────────────────────────────────────
+// `body_nova` and `spread_volley` were not in §2's list. They fell out of the
+// data: two bosses' signature moves are a proximity burst, and two more fire an
+// instantaneous ring/cone. Both are their own answer-shape, so both are seeds.
+{
+    // ============================================================
+    "sweep": (
+        archetype: Sweep,
+        intent: "Denies the ground plane at the boss's own height, usually to both sides at once. It is the fight's metronome: cheap, frequent, and the reason the player is ever in the air. A sweep that cannot be jumped is not a sweep — it is a slam with bad manners.",
+        skill_tested: "Leave the floor on the tell, and land somewhere useful.",
+        fair_counters: [Jump, Blink],
+        threat: Medium,
+        telegraph: (min_s: 0.44, max_s: 1.40),
+        active: (min_s: 0.28, max_s: 0.70),
+        instances: [
+            "side_sweep",           // two arms, boss-relative left+right
+            "hand_sweep",           // one wide low arc (0.85 × 0.28 body-relative)
+            "wing_sweep",           // mockingbird, cycle-timed
+            "broadside",            // two tall side columns — a sweep you jump BETWEEN
+            "converging_shockwave", // floor-level, arena-wide, arrives from both sides
+        ],
+        recipes: [
+            (
+                name: "readable_opener",
+                telegraph_s: 0.90,
+                active_s: 0.40,
+                notes: "Phase 1. Long enough to teach the animation. `side_sweep`'s shipped phase-1 numbers exactly.",
+            ),
+            (
+                name: "enrage_tight",
+                telegraph_s: 0.50,
+                active_s: 0.32,
+                notes: "Phase 3. Still 30 ticks of telegraph — the floor for a medium. Do NOT go below it to make a fight harder; add a second threat.",
+            ),
+            (
+                name: "arena_wide",
+                telegraph_s: 1.10,
+                active_s: 0.70,
+                notes: "The `converging_shockwave` shape: covers the floor, so the telegraph must fund a jump AND a landing spot. Pair with a platform or it is a coin flip.",
+            ),
+        ],
+    ),
+
+    // ============================================================
+    "slam": (
+        archetype: Slam,
+        intent: "A committed vertical strike onto a spot the player can leave. The seed the whole 'failed objective function' frame rests on: the boss over-commits to where you WERE, and its recovery is your damage window. Slam is where a fight gives back.",
+        skill_tested: "Read the wind-up's aim, then walk or dash out of it — and be greedy enough to come back before it recovers.",
+        fair_counters: [WalkOut, Dash],
+        threat: Heavy,
+        telegraph: (min_s: 0.60, max_s: 1.80),
+        active: (min_s: 0.40, max_s: 1.40),
+        instances: [
+            "floor_slam",    // wide flat rect at the feet
+            "hand_slam",     // two vertical columns, GNU-ton
+            "head_descent",  // the FSM's slow drop — 1.8s telegraph, 1.4s active
+            "seismic_stomp", // trex; a special, so damage rides its own effect
+        ],
+        recipes: [
+            (
+                name: "teaching_slam",
+                telegraph_s: 1.40,
+                active_s: 0.40,
+                notes: "The intro beat. `floor_slam`'s intro numbers. 84 ticks of tell is not too many for the first thing a player ever sees.",
+            ),
+            (
+                name: "standard",
+                telegraph_s: 1.20,
+                active_s: 0.40,
+                notes: "Phase 1 workhorse. Always followed by a Rest ≥ 1.2s — that Rest IS the punish window (§3 rule 3), and nothing else is.",
+            ),
+            (
+                name: "slow_giant",
+                telegraph_s: 1.80,
+                active_s: 1.40,
+                notes: "`head_descent`. A long active window is only fair when the volume is narrow (0.32 body-widths) and the telegraph is huge.",
+            ),
+        ],
+    ),
+
+    // ============================================================
+    "body_nova": (
+        archetype: BodyNova,
+        intent: "A burst centered on the boss's own body. It exists to punish the player who solved the fight by standing inside the boss, where most sweeps and slams cannot reach. Its answer is distance, which means it RESETS neutral — the only seed here that does.",
+        skill_tested: "Notice you have been camping, and pay to leave.",
+        fair_counters: [WalkOut, Dash, Blink],
+        threat: Medium,
+        telegraph: (min_s: 0.55, max_s: 1.20),
+        active: (min_s: 0.40, max_s: 0.50),
+        instances: [
+            "full_body_pulse", // 0.70 × 0.70 body-relative, centered
+            "gradient_nova",   // the exploding-gradient boss's runaway burst
+        ],
+        recipes: [
+            (
+                name: "close_range_answer",
+                telegraph_s: 1.10,
+                active_s: 0.50,
+                notes: "Phase 2. Add it the moment playtest metrics show the brain winning from inside the hurtbox.",
+            ),
+            (
+                name: "panic_button",
+                telegraph_s: 0.55,
+                active_s: 0.40,
+                notes: "Enrage only. 33 ticks. At this speed it stops being a punish and becomes a soft cage — use once per loop, never twice.",
+            ),
+        ],
+    ),
+
+    // ============================================================
+    "zone_denial": (
+        archetype: ZoneDenial,
+        intent: "A hazard that OUTLIVES the strike that made it. It shrinks the arena rather than threatening the body, so it composes with everything and must be budgeted against §3's simultaneity cap. The player stops reading the boss and starts reading the floor — which is the point, and also why two of these at once is a different fight.",
+        skill_tested: "Re-plan your footing while still tracking the boss.",
+        fair_counters: [Jump, WalkOut, Dash],
+        threat: Medium,
+        telegraph: (min_s: 0.70, max_s: 1.40),
+        active: (min_s: 0.50, max_s: 4.80),
+        instances: [
+            "hazard_column", // 0.30 × 1.80 — a tall pillar the player walks around
+            "minima_trap",   // a 5s pit hazard (the trap outlives its 0.6s strike)
+            "saddle_point",  // rotating cross arms, 220px, up to 4.8s of active
+        ],
+        recipes: [
+            (
+                name: "pillar",
+                telegraph_s: 1.40,
+                active_s: 1.00,
+                notes: "The gentle one. A column, one place, gone soon.",
+            ),
+            (
+                name: "persistent_trap",
+                telegraph_s: 1.00,
+                active_s: 0.60,
+                notes: "`minima_trap`: the STRIKE is short, the hazard it leaves is 5s. Author the strike, budget the hazard.",
+            ),
+            (
+                name: "rotating_cross",
+                telegraph_s: 1.40,
+                active_s: 4.80,
+                notes: "`saddle_point` phase 2. The longest active window in the roster. It is a second fight running underneath the first, so the boss's own beats must go quiet — check the simultaneity budget before pairing it with anything.",
+            ),
+        ],
+    ),
+
+    // ============================================================
+    "projectile_rain": (
+        archetype: ProjectileRain,
+        intent: "Threat that arrives from somewhere other than the boss — falling, tracking, or flooding in. The positioning test: it asks where you will BE, not where you are, and it is the only seed that punishes pure reaction. `overfit_volley` is the thesis: it samples where you stood five times and fires at those five ghosts. Stop being predictable, and the boss's model of you is worthless.",
+        skill_tested: "Move unpredictably; read arrival, not launch.",
+        fair_counters: [Jump, Dash, WalkOut, Blink],
+        threat: Light,
+        telegraph: (min_s: 0.60, max_s: 1.40),
+        active: (min_s: 0.26, max_s: 2.20),
+        instances: [
+            "apple_rain",     // GNU-ton; a 2.2s spawn window at 0.35s cadence
+            "overfit_volley", // five sampled ghosts, then five tracking shots
+            "overflow_flood", // a falling wall with ONE gap (78px half-width)
+        ],
+        recipes: [
+            (
+                name: "memorized_volley",
+                telegraph_s: 1.40,
+                active_s: 0.30,
+                notes: "Phase 1. Long tell because the shots are the fast part. Shorten the tell in enrage (0.60s), never the shots.",
+            ),
+            (
+                name: "sustained_rain",
+                telegraph_s: 1.00,
+                active_s: 2.20,
+                notes: "`apple_rain`. A 2.2s active window is a MOVEMENT phase, not an attack — the boss should be doing nothing else, and it self-dodges out of its own rain.",
+            ),
+            (
+                name: "gap_wall",
+                telegraph_s: 1.10,
+                active_s: 0.40,
+                notes: "`overflow_flood`. The gap is the answer; the telegraph must show WHERE it is, or this is unfair by construction.",
+            ),
+        ],
+    ),
+
+    // ============================================================
+    "spread_volley": (
+        archetype: SpreadVolley,
+        intent: "One instantaneous burst of projectiles outward from the boss — a closing ring, or a cone aimed at where you stand. Unlike `projectile_rain` it resolves in a single moment, so its answer is spatial, not temporal: find the gap between the shots. Mockingbird's `echo_fan` is the sharpest version, because the shots are YOURS, reflected back. The boss that punishes you for firing is the boss that makes you think about firing.",
+        skill_tested: "Read a radial pattern under time pressure; pick the gap.",
+        fair_counters: [Dash, WalkOut, Blink, Shield],
+        threat: Light,
+        telegraph: (min_s: 0.44, max_s: 1.50),
+        active: (min_s: 0.28, max_s: 0.40),
+        instances: [
+            "mode_collapse_converge", // 12 shots, a 190px ring, closing inward
+            "echo_fan",               // 7 shots, ~52° cone, aimed at the player
+        ],
+        recipes: [
+            (
+                name: "converging_ring",
+                telegraph_s: 1.50,
+                active_s: 0.40,
+                notes: "12 shots inward. The longest telegraph in the roster, and it needs every tick: the player must pick a gap BEFORE the ring exists. Spawn radius ≥ 190px or there is no gap to pick.",
+            ),
+            (
+                name: "reflect_cone",
+                telegraph_s: 0.44,
+                active_s: 0.28,
+                notes: "`echo_fan`. A short tell is fair here ONLY because the player caused it — the fan answers a shot they chose to fire. Never use this timing for an unprompted burst.",
+            ),
+        ],
+    ),
+
+    // ============================================================
+    "beam": (
+        archetype: Beam,
+        intent: "A directed line of denial, fired fast and thin. It is a question about ONE axis: are you on the line? Everything else about your position is irrelevant, which makes it the cheapest way to force a vertical decision in a fight that has become horizontal.",
+        skill_tested: "Leave the line — and know which way is out.",
+        fair_counters: [Jump, Descend, Dash],
+        threat: Light,
+        telegraph: (min_s: 0.55, max_s: 0.75),
+        active: (min_s: 0.22, max_s: 0.25),
+        instances: [
+            "eye_beam", // smirking behemoth; 780px/s shot, 1 damage
+        ],
+        recipes: [
+            (
+                name: "poke",
+                telegraph_s: 0.75,
+                active_s: 0.25,
+                notes: "Phase 1. 45 ticks for a 1-damage line: generous, and it should be — this is the move that teaches the boss's aim.",
+            ),
+            (
+                name: "pressure",
+                telegraph_s: 0.55,
+                active_s: 0.22,
+                notes: "Enrage. At 33 ticks it becomes chip pressure, so it must stay 1 damage; the moment a beam can kill, it needs a heavy's tell.",
+            ),
+        ],
+    ),
+
+    // ============================================================
+    "dash_through": (
+        archetype: DashThrough,
+        intent: "The boss crosses the arena THROUGH the player's position. Its real function is not damage but relocation: it swaps who is cornered, and it is the only seed that changes the boss's side of the stage on purpose. A fight without one drifts into a single corner and stays there.",
+        skill_tested: "Commit to a side before the boss does; do not chase.",
+        fair_counters: [Jump, Dash, WalkOut],
+        threat: Medium,
+        telegraph: (min_s: 0.44, max_s: 0.44),
+        active: (min_s: 0.28, max_s: 0.28),
+        instances: [
+            "dive_lane", // mockingbird; a narrow 0.22-wide lane along the dive path
+        ],
+        recipes: [
+            (
+                name: "cycle_dive",
+                telegraph_s: 0.44,
+                active_s: 0.28,
+                notes: "The only shipped tuning, and it is CYCLE-timed (flat `attack_windup`/`attack_active` on the profile, not per-step). A Scripted boss re-authoring it should start near 0.60s of tell: 26 ticks reads as fair on a flyer whose whole body is the telegraph, and as unfair on a grounded boss.",
+            ),
+        ],
+    ),
+
+    // ============================================================
+    "summon": (
+        archetype: Summon,
+        intent: "Adds. The attention split — the player must decide whether the minions are a threat or a distraction, and the answer should differ by phase. Summons are also the only seed that makes the ARENA the boss's ally over time, so they need a decay: a fight that accretes minions forever stops being about the boss.",
+        skill_tested: "Triage. Kill, ignore, or reposition — and be right.",
+        fair_counters: [Dash, WalkOut, Jump],
+        threat: Pressure,
+        telegraph: (min_s: 0.80, max_s: 1.30),
+        active: (min_s: 0.40, max_s: 0.50),
+        instances: [
+            "gradient_cascade", // 2 × small_lurker per cast
+        ],
+        recipes: [
+            (
+                name: "pair",
+                telegraph_s: 1.20,
+                active_s: 0.40,
+                notes: "Phase 2's `MinionCascade`. Two minions, followed by a 2.4s Rest — the longest breather in the fight, because the player needs it to spend on the adds rather than the boss.",
+            ),
+            (
+                name: "enrage_pair",
+                telegraph_s: 0.80,
+                active_s: 0.50,
+                notes: "Enrage. Same count, less warning. Raising the COUNT instead is the mistake: it converts a triage decision into a crowd, and the simultaneity budget (§3 rule 4) will reject it anyway.",
+            ),
+        ],
+    ),
+}

@@ -929,6 +929,11 @@ impl BossCapability {
 mod tick;
 pub use tick::*;
 
+/// The boss SEED LIBRARY vocabulary (boss-design.md §2, slice BD4): attack
+/// archetypes with a written design intent, fair-counter set, and measured
+/// duration bands. The catalog itself is content.
+pub mod seeds;
+
 /// Where the boss is in the encounter.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 pub enum BossEncounterPhase {

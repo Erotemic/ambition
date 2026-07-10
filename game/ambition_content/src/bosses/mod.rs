@@ -34,6 +34,27 @@ pub use cut_rope::{
 };
 pub use gnu_ton::gate_gnu_ton_arena_ladder;
 
+/// The authored boss-behavior roster, verbatim. Exposed so the seed-library test
+/// can re-derive each seed's duration bands from the same bytes the game loads —
+/// a band measured against a copy is not a measurement.
+pub const BOSS_PROFILES_RON: &str = include_str!("../../assets/data/boss_profiles.ron");
+
+/// The boss SEED LIBRARY (`boss-design.md` §2, slice BD4): nine attack archetypes
+/// extracted from the roster above, each with its design intent, fair-counter set,
+/// and measured telegraph/active bands.
+pub const BOSS_SEEDS_RON: &str = include_str!("../../assets/data/boss_seeds.ron");
+
+/// The parsed seed library. Parsed once; panics at first use if the RON is
+/// malformed, which a content test catches long before a player does.
+pub fn seed_library() -> &'static ambition_characters::brain::boss_pattern::seeds::SeedLibrary {
+    use ambition_characters::brain::boss_pattern::seeds::SeedLibrary;
+    static LIB: std::sync::LazyLock<SeedLibrary> = std::sync::LazyLock::new(|| {
+        SeedLibrary::from_ron(BOSS_SEEDS_RON)
+            .unwrap_or_else(|err| panic!("boss_seeds.ron failed to deserialize: {err}"))
+    });
+    &LIB
+}
+
 /// Install the named boss-behavior roster (`boss_profiles.ron`) into the
 /// machinery lib's holder. Called by [`AmbitionBossContentPlugin`] at build
 /// time, and by content tests that resolve boss profiles without assembling the
@@ -41,9 +62,7 @@ pub use gnu_ton::gate_gnu_ton_arena_ladder;
 pub fn install_boss_roster() {
     // Per-boss behavior (movement / attacks / rewards).
     ambition_actors::boss_encounter::install_boss_profiles(
-        ambition_actors::boss_encounter::BossProfileRegistry::from_ron(include_str!(
-            "../../assets/data/boss_profiles.ron"
-        )),
+        ambition_actors::boss_encounter::BossProfileRegistry::from_ron(BOSS_PROFILES_RON),
     );
 
     // Per-boss SPRITESHEET layouts (C6 — content out of core). Byte-identical to

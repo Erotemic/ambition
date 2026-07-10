@@ -199,8 +199,86 @@ Jon rates as *actually fun*.
 | BD1 | Pattern control-flow atoms (weighted selection buckets, interrupts, stances) | [opus, fable-specced — §1] |
 | BD2 | Arena beats from encounter spec (waves/spawns/terrain via existing buses) | [opus] |
 | BD3 | Telegraph event channel (rides CM5) | [opus] |
-| BD4 | Seed library v1: extract + document existing boss moves as prefab seeds | [opus/sonnet — extraction is mechanical, intent-writing is opus] |
+| BD4 | ~~Seed library v1~~ ✅ **DONE 2026-07-10** — see §7 | [opus] |
 | BD5 | Fight validator (the §3 rules over authored data) | [opus] |
 | BD6 | Playtester rig + metrics + report format | [opus; needs FB1–FB4] |
 | BD7 | Pilot: re-author ONE existing boss (mockingbird or behemoth) through the full loop; calibrate bands against Jon's verdict | [opus + Jon] |
 | BD8 | Hollow Lite boss through the pipeline (the acceptance) | [opus + Jon] |
+
+---
+
+## 7. BD4 — the seed library, extracted (opus, 2026-07-10)
+
+**Nine seeds, twenty-two attacks, zero uncatalogued moves.**
+
+- **Vocabulary:** `ambition_characters::brain::boss_pattern::seeds` —
+  `MoveSeed` (archetype, intent, `skill_tested`, `fair_counters`, `threat`,
+  measured `telegraph`/`active` bands, `instances`, `recipes`) and `SeedLibrary`
+  (a `BTreeMap`, so a validator's error list never depends on hash seed).
+- **Catalog:** `game/ambition_content/assets/data/boss_seeds.ron`. Content, not
+  engine — the engine names no boss and no archetype instance.
+- **Oracle:** `game/ambition_content/tests/boss_seeds.rs`, five tests.
+
+### The seeds
+
+| Seed | Threat | Instances | Answered by |
+|---|---|---|---|
+| `sweep` | Medium | side_sweep, hand_sweep, wing_sweep, broadside, converging_shockwave | Jump, Blink |
+| `slam` | Heavy | floor_slam, hand_slam, head_descent, seismic_stomp | WalkOut, Dash |
+| `body_nova` | Medium | full_body_pulse, gradient_nova | WalkOut, Dash, Blink |
+| `zone_denial` | Medium | hazard_column, minima_trap, saddle_point | Jump, WalkOut, Dash |
+| `projectile_rain` | Light | apple_rain, overfit_volley, overflow_flood | Jump, Dash, WalkOut, Blink |
+| `spread_volley` | Light | mode_collapse_converge, echo_fan | Dash, WalkOut, Blink, Shield |
+| `beam` | Light | eye_beam | Jump, Descend, Dash |
+| `dash_through` | Medium | dive_lane | Jump, Dash, WalkOut |
+| `summon` | Pressure | gradient_cascade | Dash, WalkOut, Jump |
+
+`body_nova` and `spread_volley` are **new archetypes**, not in §2's list. They
+fell out of the data: a proximity burst and an instantaneous ring/cone each have
+their own answer-shape, and neither is a sweep, a slam, or a rain.
+
+§2's `counter_stance`, `enrage_repeat`, and `grab_command` have **no instance in
+the roster** and are therefore not in the file. An archetype with no example
+teaches an authoring agent nothing. They arrive with the fight that first needs
+one; `counter_stance` will be built on BD1's `Stance` arm.
+
+### The bands are a measurement, and the test keeps them one
+
+`telegraph` and `active` are the **exact observed envelope** of every occurrence
+in `boss_profiles.ron` — no padding. `boss_seeds_bands_are_the_measured_envelope`
+re-derives them from the same bytes the game loads and fails on **both** sides:
+an occurrence outside a band, *and* a band wider than its own instances. So
+retuning a boss updates `boss_seeds.ron`. That is the accretion discipline §2 asks
+for, made mechanical rather than requested.
+
+Walking the roster meant handling two shapes. `Scripted` bosses carry per-step
+`Telegraph`/`Strike` durations across five phases; `Cycle` bosses carry none and
+rotate their `attacks` on the profile's flat `attack_windup`/`attack_active` —
+which is why all four of the mockingbird's moves read 0.44 s / 0.28 s. A band
+that ignored the `Cycle` bosses would have been a lie about half the roster.
+
+### Three findings the extraction produced
+
+1. **No seed carries `recovery`, and none can.** §3's commitment rule wants a
+   punish window per attack. `BossPatternStep` has none: the punish window is the
+   `Rest` beat that *follows* a `Strike`, a property of the **occurrence**, not of
+   the move. BD5 must measure it per beat. Inventing a `recovery` field nothing
+   could fill would have been worse than naming the gap — and the clockwork
+   warden's enrage phase already chains `minima_trap → overfit_volley` with **no
+   Rest between them**, which is precisely the beat BD5 will have to judge.
+2. **The shipped roster never demands a `Parry`,** and demands `Shield` only
+   through `spread_volley`. That is §3 rule 2's "forced-movement variety" gap,
+   measured. `the_shipped_roster_does_not_yet_demand_a_parry` pins it, and says in
+   its own assertion message to delete itself when a fight fixes it.
+3. **Every shipped telegraph clears even the heavy floor.** The shortest is
+   0.44 s = 26 ticks (the mockingbird's cycle), against §3's `heavy ≥ 30 ticks`.
+   So rule 1 will fire on exactly one boss when BD5 lands, and it will be right to:
+   `dive_lane` and `broadside` are not light attacks. The `dash_through` recipe
+   says so and recommends 0.60 s for a grounded re-author.
+
+### What BD5 gets for free
+
+`SeedLibrary::seed_for_move(key)` and `counter_coverage(keys)` — rule 2's
+per-fight verb union — are already there, ordered and tested. `MoveSeed::threat`
+is rule 1's tier. What BD5 still owes: the per-game calibration RON, the
+occurrence-level recovery measurement (finding 1), and the simultaneity integral.

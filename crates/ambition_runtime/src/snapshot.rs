@@ -676,6 +676,29 @@ impl SnapshotRegistry {
         }
     }
 
+    /// The `hash_by_entry` name of the active-room pseudo-entry (re-audit finding 2). The
+    /// NUL prefix keeps it from colliding with any registered entry name.
+    const ACTIVE_ROOM_ENTRY: &'static str = "\u{0}active_room";
+
+    /// **The active-room cursor, folded into the state hash.** The room a sim is in is sim
+    /// state: [`take`] captures it and [`restore`] refuses a rollback window that crosses
+    /// it. So it must be IN the hash, or two worlds that differ ONLY in which room is
+    /// active would hash equal, and "the hash is the serialization" — the take/hash
+    /// equivalence the N0.4 canary rests on — would be false (re-audit finding 2).
+    ///
+    /// Hashing it does not perturb the canary: two sims on the same input stream transit
+    /// rooms identically, and `restore` never crosses a room boundary, so the term is
+    /// equal on both sides of every comparison it takes part in — while a genuine
+    /// room-transition desync now shows up instead of hiding.
+    fn hash_active_room(world: &World, h: &mut StateHasher) {
+        match world.get_resource::<ambition_world::rooms::RoomSet>() {
+            Some(rs) => h.write_str(rs.active_spec().id.as_str()),
+            // A headless world with no `RoomSet` hashes a sentinel distinct from a room
+            // that is literally named "".
+            None => h.write_str("\u{0}no-room"),
+        }
+    }
+
     /// **N0.4's per-tick hash of the whole registered sim state.**
     pub fn hash_world(&self, world: &World) -> u64 {
         let mut h = StateHasher::default();
@@ -683,6 +706,8 @@ impl SnapshotRegistry {
             h.write_str(entry.name);
             self.hash_entry(entry, world, &mut h);
         }
+        h.write_str(Self::ACTIVE_ROOM_ENTRY);
+        Self::hash_active_room(world, &mut h);
         h.finish()
     }
 
@@ -690,14 +715,22 @@ impl SnapshotRegistry {
     /// "the worlds diverged, and it was `body_kinematics`" is a diagnosis; "the
     /// worlds diverged" is a fact.
     pub fn hash_by_entry(&self, world: &World) -> Vec<(&'static str, u64)> {
-        self.entries
+        let mut out: Vec<(&'static str, u64)> = self
+            .entries
             .iter()
             .map(|entry| {
                 let mut h = StateHasher::default();
                 self.hash_entry(entry, world, &mut h);
                 (entry.name, h.finish())
             })
-            .collect()
+            .collect();
+        // The active-room cursor is part of `hash_world` (finding 2); surface it here too,
+        // so a room-transition desync is a NAMED culprit rather than an aggregate hash
+        // that moved with no entry to point at.
+        let mut h = StateHasher::default();
+        Self::hash_active_room(world, &mut h);
+        out.push((Self::ACTIVE_ROOM_ENTRY, h.finish()));
+        out
     }
 
     /// **The registration checklist, computed rather than written down.**
@@ -979,7 +1012,8 @@ impl SimSnapshot {
 
     /// Total bytes of state. A rollback window is a memory budget.
     pub fn size_bytes(&self) -> usize {
-        self.entries
+        let entries: usize = self
+            .entries
             .iter()
             .map(|(_, blob)| match blob {
                 EntryBlob::Component(rows) => {
@@ -987,7 +1021,10 @@ impl SimSnapshot {
                 }
                 EntryBlob::Resource(bytes) => bytes.len(),
             })
-            .sum()
+            .sum();
+        // The active-room cursor is captured state too (finding 2), so it counts against
+        // the window's memory budget.
+        entries + self.active_room.as_ref().map_or(0, |s| s.len())
     }
 }
 
@@ -3191,9 +3228,11 @@ mod tests {
         reg.register_diagnostic("a", |_, h| h.write_u64(1));
         reg.register_diagnostic("b", |_, h| h.write_u64(2));
         let by_entry = reg.hash_by_entry(&world);
-        assert_eq!(by_entry.len(), 2);
+        // Two registered diagnostics, plus the active-room pseudo-entry (finding 2).
+        assert_eq!(by_entry.len(), 3);
         assert_eq!(by_entry[0].0, "a");
         assert_ne!(by_entry[0].1, by_entry[1].1);
+        assert_eq!(by_entry[2].0, SnapshotRegistry::ACTIVE_ROOM_ENTRY);
     }
 
     // ── N3.1: take / restore ─────────────────────────────────────────────────

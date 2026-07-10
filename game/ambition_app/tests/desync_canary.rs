@@ -758,6 +758,43 @@ fn restore_refuses_a_snapshot_that_spans_a_room_transition() {
     }
 }
 
+/// **The active room is IN the registered hash** (re-audit finding 2).
+///
+/// `take` captures the active room and `restore` refuses a window that crosses it, so
+/// the active room is sim state. If `hash_world` omitted it, the snapshot would carry
+/// state the canary hash could not see, and two worlds differing ONLY in which room is
+/// active would hash equal — "the hash is the serialization" would be false. Change only
+/// the active-room cursor (a clone of the current room under a fresh id; every entity and
+/// resource left untouched) and the registered hash must move.
+#[test]
+fn changing_only_the_active_room_changes_the_registered_hash() {
+    use ambition::world::rooms::RoomSet;
+
+    let mut s = sim("gap_run");
+    let reg = registry_of(&mut s);
+    let before = reg.hash_world(s.world());
+
+    let mut rooms = s
+        .world()
+        .get_resource::<RoomSet>()
+        .expect("the sandbox sim has a RoomSet")
+        .clone();
+    // A second room, identical to the active one but for its id, made active. Nothing
+    // else in the world changes, so any hash movement is the room cursor alone.
+    let mut probe = rooms.active_spec().clone();
+    probe.id = format!("{}\u{0}hash-probe", probe.id);
+    rooms.rooms.push(probe);
+    rooms.active = rooms.rooms.len() - 1;
+    s.world_mut().insert_resource(rooms);
+
+    let after = reg.hash_world(s.world());
+    assert_ne!(
+        before, after,
+        "changing only the active room did not change the registered hash — the room \
+         cursor is sim state the hash omitted (re-audit finding 2)"
+    );
+}
+
 /// **N3.1's exit oracle: rewind, replay, and land in the same place.**
 ///
 /// Run the sim, take a snapshot, run K ticks recording each hash, restore, replay

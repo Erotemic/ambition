@@ -313,11 +313,32 @@ snapshots needed. Needs N0 complete, plus:
     a field is caught by `every_engine_codec_round_trips_exactly` (the property is
     `encode ∘ decode ∘ encode == encode`, on bytes) and by `Reader::finish`, which
     rejects a decoder that leaves bytes on the floor.
-  - `restore` is decision (3) exactly: despawn every `SimId` entity, respawn from
-    blobs, load resources. An entity spawned after the snapshot ceases to exist; one
-    despawned since is recreated. Both fall out of *"the snapshot is the truth"*
+  - `restore` **reconciles by `SimId`**: an entity in both worlds is *patched* in
+    place (every registered component overwritten from its blob; one the snapshot
+    lacks is *removed*), one only in the snapshot is *respawned* from blobs, one only
+    in the world is *despawned*. All three fall out of *"the snapshot is the truth"*
     rather than out of a diff. `take` after `restore` returns the snapshot it
     restored from.
+
+  **DEVIATION from decision (3), and the case for it.** The sketch rules *"restore =
+  despawn-registered + respawn from blobs (no in-place patching — simpler, and
+  room-reset already proves the world can rebuild)"*. Despawn-everything shipped
+  first, and it is wrong for the case a rollback is made of.
+
+  A sim body carries two kinds of component. **Authored config** — its brain, its
+  moveset, its action set, its faction — is immutable for the body's life and is
+  created by the room spawner from content. **Mutable state** — kinematics, meters,
+  timers, cooldowns — is what the sim advances. Rewinding must restore the second and
+  must not disturb the first. Despawn-and-respawn destroys *both*, and then obliges
+  the registry to carry authored config in every blob of every tick of the rollback
+  buffer so respawn can put it back. That is not simpler; it is a serialization of the
+  entire content pipeline, sixty times a second.
+
+  Patching the survivors is no more complex — the despawn and respawn paths still
+  exist, for exactly the entities whose EXISTENCE changed, which is the case decision
+  (3) was really reasoning about and the one where *"room-reset proves the world can
+  rebuild"* actually applies. Measured on `gap_run`: the difference between a restore
+  that destroys **53 component types** and one that destroys **none**.
 
   **Deviation from the sketch, stated rather than drifted.** The sketch has
   `SimSnapshot { tick, blobs: Vec<(StateTypeId, Box<[u8]>)> }` — one flat byte
@@ -329,18 +350,20 @@ snapshots needed. Needs N0 complete, plus:
   serializes exactly this, which is why the per-entry bytes are already canonical,
   explicitly ordered, and free of `usize`.
 
-  **What restore cannot rebuild, it reports — and the report is a gate.**
-  A respawned entity carries exactly its registered components; everything else is
-  destroyed. `SnapshotRegistry::unclaimed_components` computes that set from the
-  live world (every component on a `SimId` entity that is neither registered nor
-  `declare_derived`'d), and `RestoreReport` returns it at every call, alongside
-  `unidentified_survivors` — bodies with no `SimId`, which `restore` does **not**
-  despawn and which therefore *walk out of a rollback*. A projectile in that set
-  outlives its own un-firing.
+  **What restore cannot REWIND, it reports — and the report is a gate.**
+  A patched entity keeps every component the registry does not know about. An
+  immutable authored fact is *correct* left alone; a timer is **stale**, still reading
+  the tick we rewound FROM, and it is that timer that makes a replay diverge.
+  `SnapshotRegistry::unclaimed_components` cannot tell the two apart, so it reports
+  both: every component on a `SimId` entity that is neither registered nor
+  `declare_derived`'d. `RestoreReport` returns that set at every call as
+  `stale_components`, alongside `unidentified_survivors` — bodies with no `SimId`,
+  which `restore` cannot touch at all and which therefore *walk out of a rollback*.
+  A projectile in that set outlives its own un-firing.
 
   `the_snapshot_coverage_ledger` in `ambition_app` prints and pins the debt:
 
-  | room | component types a restore would destroy |
+  | room | component types a restore leaves stale |
   |---|---|
   | `gap_run` | 53 |
   | `portal_lab` | **88** |
@@ -358,8 +381,9 @@ snapshots needed. Needs N0 complete, plus:
   **`a_restored_sim_replays_the_future_it_was_rewound_from` is N3.1's exit oracle**:
   take, run K ticks hashing each, restore, replay the same K inputs, demand identical
   hash streams. It is `#[ignore]`d and it fails at tick 0 — not from a bug in
-  `take`/`restore`, whose unit oracles are green, but because `restore` destroys the
-  player's motion model and every brain. **Un-ignore it when the ledger reads zero.**
+  `take`/`restore`, whose unit oracles are green, but because the player's ground
+  timers, jump state, and action buffer are unregistered and so are left stale.
+  **Un-ignore it when the ledger reads zero.**
   Its live sibling,
   `a_restore_of_a_real_room_is_exact_where_it_is_registered_and_honest_where_it_is_not`,
   pins today's truth: on `gap_run` the restore reproduces the registered hash bit for

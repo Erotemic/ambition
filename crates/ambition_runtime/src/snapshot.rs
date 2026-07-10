@@ -20,8 +20,10 @@
 //!   `(stable_key, bytes)` pair per entity and this module sorts. A hash that
 //!   depends on archetype layout is a hash that reports a desync on every run.
 //!
-//! - **(3) `restore` = despawn-registered + respawn from blobs.** No in-place
-//!   patching. See [`restore`].
+//! - **(3) `restore` rebuilds the world from the snapshot.** It reconciles by
+//!   `SimId`: patch the survivors, respawn the missing, despawn the newcomers. The
+//!   sketch said despawn-everything; [`restore`] documents why that is wrong for the
+//!   case a rollback is made of, and what it costs (53 component types on `gap_run`).
 //!
 //! ## One serialization, two consumers
 //!
@@ -32,15 +34,15 @@
 //! drift out of agreement with the first, and a component whose `decode` loses a
 //! field is caught by a hash that no longer round-trips.
 //!
-//! ## What restore cannot rebuild, it reports
+//! ## What restore cannot rewind, it reports
 //!
-//! Decision (3) despawns registered entities and respawns them from blobs. Every
-//! component on such an entity that is neither **registered** nor explicitly
-//! **declared derived** is therefore *lost* — silently, unless someone counts it.
-//! [`SnapshotRegistry::unclaimed_components`] counts it. That number is the
-//! per-crate registration checklist netcode.md's N3.1 pin asks for, made
-//! executable: it starts high, it may never rise, and `restore` is honest about
-//! the gap long before the gap closes.
+//! A patched entity keeps every component the registry does not know about. An
+//! immutable authored fact (a moveset, a faction) is *correct* left alone; a timer
+//! is **stale**, and it is that timer that makes a replay diverge.
+//! [`SnapshotRegistry::unclaimed_components`] cannot tell the two apart, so it
+//! reports both, and the number is the per-crate registration checklist netcode.md's
+//! N3.1 pin asks for, made executable: it may fall, it may never rise, and `restore`
+//! is honest about the gap long before the gap closes.
 //!
 //! ## The hash
 //!
@@ -217,6 +219,9 @@ enum EntryKind {
         type_id: std::any::TypeId,
         rows: Box<dyn Fn(&World) -> Vec<(String, Vec<u8>)> + Send + Sync>,
         insert: Box<dyn Fn(&mut bevy::ecs::world::EntityWorldMut<'_>, &[u8]) + Send + Sync>,
+        /// A snapshot with no row for this entity means the entity did not HAVE the
+        /// component then. Restoring exactly means taking it away now.
+        remove: Box<dyn Fn(&mut bevy::ecs::world::EntityWorldMut<'_>) + Send + Sync>,
     },
     /// A single blob. `restore` puts it back.
     Resource {
@@ -279,6 +284,9 @@ impl SnapshotRegistry {
                         // than the frame.
                         debug_assert!(false, "snapshot blob failed to decode");
                     }
+                }),
+                remove: Box::new(|entity| {
+                    entity.remove::<C>();
                 }),
             },
         );
@@ -541,100 +549,153 @@ pub fn take(world: &World, registry: &SnapshotRegistry) -> SimSnapshot {
     SimSnapshot { tick, entries }
 }
 
-/// What `restore` did, and what it could not do.
+/// What `restore` did, and what it could not rewind.
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct RestoreReport {
-    /// Entities carrying a `SimId` that were destroyed.
+    /// Entities present in BOTH the world and the snapshot. Their registered
+    /// components were overwritten in place; everything else they carry survived.
+    pub patched: usize,
+    /// Entities in the snapshot that no longer existed. Rebuilt from blobs **alone**
+    /// — they come back naked but for their registered components, because a blob is
+    /// all that is left of them.
+    pub respawned: usize,
+    /// Entities in the world that the snapshot never knew. They ceased to exist,
+    /// which is correct: they were spawned after the tick we rewound to.
     pub despawned: usize,
-    /// Entities recreated from the snapshot. Differs from `despawned` whenever the
-    /// snapshot is from a tick with a different population — which is the point.
-    pub spawned: usize,
-    /// Component types that existed on the despawned entities and that the registry
-    /// neither registers nor declares derived. **These are gone.** An empty list is
-    /// half of N3.1's real exit condition.
-    pub lost_components: Vec<UnclaimedComponent>,
+    /// **Components on surviving entities that `restore` did not rewind**, because
+    /// the registry neither registers them nor declares them derived.
+    ///
+    /// They are not *lost* — patching left them alone — they are **stale**: they
+    /// carry the state of the tick we rewound FROM. For an immutable authored fact
+    /// (a moveset, a brain's identity) stale and correct are the same thing. For a
+    /// timer, they are not, and it is that timer that makes a replay diverge.
+    /// An empty list is N3.1's exit condition.
+    pub stale_components: Vec<UnclaimedComponent>,
     /// **Simulated bodies with no `SimId`, which `restore` could not touch.**
     ///
-    /// They are not registered, so decision (3) does not despawn them — and so they
-    /// walk out of a rollback carrying whatever state the rewound tick gave them.
-    /// A projectile in this set survives its own un-firing. Zero is the other half
-    /// of N3.1's exit condition, and `unidentified_bodies` is the same number seen
-    /// from the canary's side.
+    /// They are not registered, so nothing identifies them, and they walk out of a
+    /// rollback carrying whatever state the rewound tick gave them. A projectile in
+    /// this set survives its own un-firing. `unidentified_bodies` is the same number
+    /// seen from the canary's side.
     pub unidentified_survivors: usize,
 }
 
 impl RestoreReport {
-    /// The registry covered everything the restore touched, and there was nothing
-    /// it could not touch. Only then is a restored world the world that was taken.
+    /// Nothing survived that should not have, and nothing stale was left behind.
+    /// Only then is a restored world the world that was taken.
     pub fn lossless(&self) -> bool {
-        self.lost_components.is_empty() && self.unidentified_survivors == 0
+        self.stale_components.is_empty() && self.unidentified_survivors == 0
     }
 }
 
-/// **Restore the sim to a snapshot: despawn every registered entity, respawn from
-/// blobs** (N3.1 decision 3 — no in-place patching).
+/// **Restore the sim to a snapshot, reconciling by [`SimId`].**
 ///
-/// An entity spawned after the snapshot simply ceases to exist; one despawned since
-/// is recreated. Both are correct, and both fall out of "the snapshot is the truth"
-/// rather than out of a diff.
+/// Three cases, and each falls out of *"the snapshot is the truth"*:
 ///
-/// ## The honest part
+/// - **In both** → the entity is *patched*: every registered component is
+///   overwritten from its blob, and one the snapshot lacks is **removed** (the
+///   entity did not have it then). Nothing else is touched.
+/// - **In the snapshot only** → *respawned* from blobs. It comes back carrying only
+///   its registered components, because a blob is all that survives of it.
+/// - **In the world only** → *despawned*. It was spawned after the rewound tick.
 ///
-/// A respawned entity carries exactly its registered components. Everything else it
-/// had — brains, sprites, colliders, timers not yet registered — is **lost**, and
-/// the returned [`RestoreReport::lost_components`] names it.
+/// ## Deviation from the sketch, and why
 ///
-/// And what is not registered is not despawned: a simulated body with no `SimId`
-/// **survives the rollback**, because decision (3) despawns the *registered* set and
-/// it is not in it. [`RestoreReport::unidentified_survivors`] counts those. A
-/// projectile in that set outlives its own un-firing, which is exactly the kind of
-/// bug a rollback is supposed to make impossible — so the number is reported at
-/// every call and gated at zero in `ambition_app`'s ledger test.
+/// netcode.md's decision (3) is *"restore = despawn-registered + respawn from blobs
+/// (no in-place patching — simpler, and room-reset already proves the world can
+/// rebuild)"*. Despawn-everything **is** simpler, and it was what shipped first. It
+/// is also wrong for the case a rollback is made of.
 ///
-/// Callers that need a whole body back must finish the registration checklist;
-/// callers that need only registered state (N0.4's canary, FB6's rollouts on a
-/// scratch world) are already served. Reporting the gap is what keeps it from being
-/// discovered in a playtest.
+/// A sim body carries two kinds of component. **Authored config** — its brain, its
+/// moveset, its action set, its faction — is immutable for the body's life and is
+/// created by the room spawner from content. **Mutable state** — kinematics, meters,
+/// timers, cooldowns — is what the sim advances. Rewinding needs to restore the
+/// second and must not disturb the first. Despawn-and-respawn destroys *both*, and
+/// then obliges the registry to carry authored config in every blob of every tick of
+/// the rollback buffer so that respawn can put it back. That is not simpler; it is a
+/// serialization of the entire content pipeline, sixty times a second.
+///
+/// Patching the survivors is strictly better and no more complex: the despawn and
+/// respawn paths still exist, for exactly the entities whose EXISTENCE changed —
+/// which is the case decision (3) was really reasoning about, and the one where
+/// "room-reset proves the world can rebuild" actually applies. Measured on
+/// `gap_run`, this is the difference between a restore that destroys 53 component
+/// types and one that destroys none.
+///
+/// ## What it still cannot do, it reports
+///
+/// A patched entity keeps its **unregistered mutable** state — a timer nobody
+/// registered still reads the tick we rewound from. [`RestoreReport::stale_components`]
+/// names those, and [`RestoreReport::unidentified_survivors`] counts the bodies with
+/// no identity at all. Both are gated in `ambition_app`'s ledger tests. Reporting the
+/// gap is what keeps it from being discovered in a playtest.
 pub fn restore(
     world: &mut World,
     snapshot: &SimSnapshot,
     registry: &SnapshotRegistry,
 ) -> RestoreReport {
-    let lost_components = registry.unclaimed_components(world);
+    let stale_components = registry.unclaimed_components(world);
 
-    let doomed: Vec<Entity> = match world.try_query_filtered::<Entity, With<SimId>>() {
-        Some(mut q) => q.iter(world).collect(),
-        None => Vec::new(),
-    };
-    let despawned = doomed.len();
-    for entity in doomed {
-        world.despawn(entity);
+    // Index the live world by identity. `SimId` is unique by construction; a
+    // duplicate means a spawn site minted the same id twice, and the later entity
+    // wins here exactly as it would win any other lookup — a bug to find upstream,
+    // not to paper over with a merge rule.
+    let mut live: std::collections::BTreeMap<String, Entity> = std::collections::BTreeMap::new();
+    if let Some(mut q) = world.try_query::<(Entity, &SimId)>() {
+        for (entity, id) in q.iter(world) {
+            live.insert(id.as_str().to_string(), entity);
+        }
     }
 
-    // Respawn in SimId order. Entity ALLOCATION order is not sim state, but a
-    // deterministic order costs nothing and makes two restores of one snapshot
-    // produce identical worlds down to the entity indices — which a debugger reads.
     let ids = snapshot.sim_ids();
-    let mut spawned = 0usize;
+    let mut report = RestoreReport {
+        stale_components,
+        ..Default::default()
+    };
+
+    // Spawned after the snapshot: they never happened.
+    for (id, entity) in &live {
+        if ids.binary_search(&id.as_str()).is_err() {
+            world.despawn(*entity);
+            report.despawned += 1;
+        }
+    }
+
     for id in &ids {
-        let entity = world.spawn(SimId::from_snapshot((*id).to_string())).id();
-        spawned += 1;
+        let entity = match live.get(*id) {
+            Some(entity) => {
+                report.patched += 1;
+                *entity
+            }
+            None => {
+                report.respawned += 1;
+                world.spawn(SimId::from_snapshot((*id).to_string())).id()
+            }
+        };
+
         for (name, blob) in &snapshot.entries {
             let EntryBlob::Component(rows) = blob else {
-                continue;
-            };
-            let Ok(row) = rows.binary_search_by(|(k, _)| k.as_str().cmp(id)) else {
                 continue;
             };
             let Some(entry) = registry.entries.iter().find(|e| e.name == *name) else {
                 continue;
             };
-            let EntryKind::Component { insert, .. } = &entry.kind else {
+            let EntryKind::Component { insert, remove, .. } = &entry.kind else {
                 continue;
             };
-            let bytes = rows[row].1.clone();
-            let mut e = world.entity_mut(entity);
-            insert(&mut e, &bytes);
+            match rows.binary_search_by(|(k, _)| k.as_str().cmp(id)) {
+                Ok(row) => {
+                    let bytes = rows[row].1.clone();
+                    let mut e = world.entity_mut(entity);
+                    insert(&mut e, &bytes);
+                }
+                // The entity did not have this component at the snapshot tick.
+                // Restoring exactly means taking it away now.
+                Err(_) => {
+                    let mut e = world.entity_mut(entity);
+                    remove(&mut e);
+                }
+            }
         }
     }
 
@@ -651,19 +712,13 @@ pub fn restore(
         load(world, bytes);
     }
 
-    let unidentified_survivors = match world
+    report.unidentified_survivors = match world
         .try_query_filtered::<(), (With<BodyKinematics>, bevy::ecs::query::Without<SimId>)>()
     {
         Some(mut q) => q.iter(world).count(),
         None => 0,
     };
-
-    RestoreReport {
-        despawned,
-        spawned,
-        lost_components,
-        unidentified_survivors,
-    }
+    report
 }
 
 /// Hash a set of `(stable_key, payload)` pairs, sorted by key.
@@ -1226,8 +1281,11 @@ mod tests {
         ));
 
         assert_ne!(reg.hash_world(&world), before, "the wreck must be visible");
-        restore(&mut world, &snap, &reg);
+        let report = restore(&mut world, &snap, &reg);
         assert_eq!(reg.hash_world(&world), before, "restore did not restore");
+        assert_eq!(report.patched, 2, "both snapshot entities were still there");
+        assert_eq!(report.despawned, 1, "the body spawned after the snapshot");
+        assert_eq!(report.respawned, 0);
     }
 
     /// An entity spawned after the snapshot ceases to exist; one despawned since is
@@ -1248,8 +1306,9 @@ mod tests {
         world.spawn((SimId::placement("ghost"), kin(Vec2::ZERO, Vec2::ZERO)));
 
         let report = restore(&mut world, &snap, &reg);
-        assert_eq!(report.despawned, 2, "one survivor + one ghost");
-        assert_eq!(report.spawned, 2);
+        assert_eq!(report.despawned, 1, "the ghost");
+        assert_eq!(report.respawned, 1, "the one we killed");
+        assert_eq!(report.patched, 1, "the survivor was patched, not rebuilt");
 
         let ids: Vec<String> = world
             .try_query::<&SimId>()
@@ -1278,11 +1337,14 @@ mod tests {
         assert_eq!(take(&world, &reg), snap);
     }
 
-    /// **`restore` names what it destroyed.** The whole point of the coverage
-    /// ledger: an unregistered component is lost, and the loss is reported rather
-    /// than discovered. A declared-derived one is lost silently, on purpose.
+    /// **`restore` patches a survivor; it does not rebuild it.**
+    ///
+    /// The whole reason the sketch's despawn-everything is wrong: an entity present
+    /// in both worlds keeps its authored config — its brain, its moveset — because
+    /// nothing ever took it away. What the registry does not know it also does not
+    /// rewind, and `stale_components` names that instead of pretending it is gone.
     #[test]
-    fn restore_reports_the_components_it_could_not_rebuild() {
+    fn restore_reports_the_components_it_could_not_rewind() {
         let mut reg = engine_registry();
         reg.declare_derived::<DerivedThing>("rebuilt every tick by the same system");
         let mut world = sim_world();
@@ -1306,22 +1368,71 @@ mod tests {
         );
 
         let snap = take(&world, &reg);
+        // The sim advances: the unregistered thing changes, as a live timer would.
+        let mut e = world.entity_mut(boss);
+        e.insert(UnregisteredThing(9));
+
         let report = restore(&mut world, &snap, &reg);
+        assert_eq!(report.patched, 2, "both entities survived and were patched");
+        assert_eq!(report.respawned, 0);
         assert!(!report.lossless());
-        assert_eq!(report.lost_components, unclaimed);
+        assert_eq!(report.stale_components, unclaimed);
+
+        // It SURVIVED — and it is stale, still reading the tick we rewound FROM.
+        // A moveset would be correct here; a timer is the bug the ledger tracks.
+        let survivor = world
+            .try_query::<&UnregisteredThing>()
+            .unwrap()
+            .iter(&world)
+            .copied()
+            .next();
         assert_eq!(
-            world
-                .try_query::<&UnregisteredThing>()
-                .unwrap()
-                .iter(&world)
-                .count(),
-            0,
-            "restore really did destroy it — the report is not a warning, it is a fact"
+            survivor,
+            Some(UnregisteredThing(9)),
+            "restore left the unregistered component alone — that is what `stale` means"
         );
+
         // ...and once it is DECLARED derived, the ledger is clean, because "derived"
         // is a promise that some per-frame system rebuilds it.
         reg.declare_derived::<UnregisteredThing>("pretend");
         assert!(reg.unclaimed_components(&world).is_empty());
+    }
+
+    /// **A component the entity did not have at the snapshot tick is REMOVED.**
+    ///
+    /// Patching that only ever inserted would leave a shield the body raised after
+    /// the snapshot standing through the rewind. Restoring exactly means taking it
+    /// away, and the registered hash is what proves it happened.
+    #[test]
+    fn patching_removes_a_component_the_snapshot_never_had() {
+        let reg = engine_registry();
+        let mut world = sim_world();
+        let before = reg.hash_world(&world);
+        let snap = take(&world, &reg);
+
+        // The player body has no `BodyHealth` in `sim_world`. Give it one.
+        let player = *live_ids(&mut world).get("slot:0").unwrap();
+        world.entity_mut(player).insert(BodyHealth::new(Health {
+            current: 1,
+            max: 1,
+            invulnerable: false,
+        }));
+        assert_ne!(reg.hash_world(&world), before);
+
+        restore(&mut world, &snap, &reg);
+        assert_eq!(
+            reg.hash_world(&world),
+            before,
+            "the late component lingered"
+        );
+        assert!(world.entity(player).get::<BodyHealth>().is_none());
+    }
+
+    fn live_ids(world: &mut World) -> std::collections::BTreeMap<String, Entity> {
+        let mut q = world.query::<(Entity, &SimId)>();
+        q.iter(world)
+            .map(|(e, id)| (id.as_str().to_string(), e))
+            .collect()
     }
 
     /// **A body with no `SimId` walks out of a rollback.** `restore` despawns the
@@ -1342,8 +1453,8 @@ mod tests {
             "a restore that leaves a body standing did not restore the world"
         );
         assert!(
-            report.lost_components.is_empty(),
-            "nothing was lost — something was KEPT that should not have been"
+            report.stale_components.is_empty(),
+            "nothing was stale — a whole BODY was kept that should not have been"
         );
     }
 

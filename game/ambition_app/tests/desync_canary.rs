@@ -252,7 +252,7 @@ fn the_snapshot_coverage_ledger() {
             "  {room:22} {:3} component types a restore would destroy\n",
             unclaimed.len()
         ));
-        for c in unclaimed.iter().take(4) {
+        for c in unclaimed.iter().take(400) {
             report.push_str(&format!("      {c}\n"));
         }
     }
@@ -341,10 +341,10 @@ fn a_restored_sim_replays_the_future_it_was_rewound_from() {
     assert!(
         diff.in_sync(),
         "a rewound sim replayed into a different future at tick {:?}. \
-         {} component types were destroyed by the restore and {} unidentified bodies \
+         {} component types were left STALE by the restore and {} unidentified bodies \
          survived it — one of them is the state that leaked. See netcode.md N3.1.",
         diff.first_divergence_tick,
-        report.lost_components.len(),
+        report.stale_components.len(),
         report.unidentified_survivors,
     );
 }
@@ -397,7 +397,7 @@ fn a_restore_of_a_real_room_is_exact_where_it_is_registered_and_honest_where_it_
         "an unidentified body walked out of the rollback"
     );
     assert!(
-        !report.lost_components.is_empty() && !report.lossless(),
+        !report.stale_components.is_empty() && !report.lossless(),
         "restore is lossless on a real room — the coverage ledger has reached zero. \
          Un-ignore `a_restored_sim_replays_the_future_it_was_rewound_from`, which is \
          N3.1's real exit oracle, and delete this assertion."

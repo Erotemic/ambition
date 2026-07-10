@@ -19,7 +19,6 @@ use crate::features::{
 use crate::projectile::ProjectileGameplay;
 use crate::trace::GameplayTraceBuffer;
 use ambition_characters::actor::BodyCombat;
-use ambition_engine_core::RoomGeometry;
 use ambition_sfx::SfxMessage;
 use ambition_vfx::vfx::VfxMessage;
 
@@ -87,45 +86,6 @@ fn player_projectile_muzzle_local_offset(
             facing.signum() * half.x * 0.4,
             feet_axis * (half.y + PLAYER_PROJECTILE_MUZZLE_CLEARANCE),
         )
-    }
-}
-
-/// The portal-carved collision world a projectile collides against. Bundled as a
-/// [`SystemParam`] so [`update_projectiles`] can build the carved world without
-/// adding two more top-level params (it is already at Bevy's 16-param ceiling).
-///
-/// A portal punched through a wall leaves the opening non-solid, so a shot fired
-/// into a wall portal flies THROUGH the opening instead of detonating on the wall
-/// — and `portal_transit` (which already moves the projectile body) carries it
-/// out the far portal. Without this the projectile collided against the raw world
-/// and could never transit a wall portal.
-#[derive(bevy::ecs::system::SystemParam)]
-pub struct ProjectileCollisionWorld<'w, 's> {
-    world: Res<'w, RoomGeometry>,
-    overlay: Res<'w, crate::features::FeatureEcsWorldOverlay>,
-    // Folded in here (rather than as its own top-level param) because
-    // `update_projectiles` is already at Bevy's 16-param ceiling.
-    portals: Query<'w, 's, &'static ambition_portal::PlacedPortal>,
-}
-
-impl ProjectileCollisionWorld<'_, '_> {
-    /// The room world with gate solids (lock walls) added and ONLY the portal
-    /// apertures carved out — preserves the projectile's historical raw-world
-    /// collision (it passes through moving platforms) while still colliding with
-    /// gate solids and letting a shot sink into a portal opening and transit.
-    /// Borrowed (no clone) in the common no-gate, no-carve case.
-    fn solids(&self) -> std::borrow::Cow<'_, ae::World> {
-        ambition_world::collision::world_with_gate_solids_and_carves(
-            &self.world.0,
-            &self.overlay.gate_solids,
-            &self.overlay.portal_carves,
-            &self.overlay.removed_block_names,
-        )
-    }
-
-    /// Snapshot the placed portals for the per-projectile transit test.
-    fn portal_list(&self) -> Vec<ambition_portal::PlacedPortal> {
-        self.portals.iter().cloned().collect()
     }
 }
 
@@ -401,7 +361,7 @@ struct PlayerProjectileTickInfo {
 pub fn step_projectiles(
     mut commands: Commands,
     world_time: Res<ambition_time::WorldTime>,
-    carved: ProjectileCollisionWorld,
+    carved: ambition_projectiles::collision_world::ProjectileCollisionWorld,
     gravity: crate::physics::GravityCtx,
     mut projectiles: Query<
         (

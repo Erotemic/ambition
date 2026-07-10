@@ -68,6 +68,20 @@ breakables, shields, and owner combat; world collision needs the live feature
 overlay and the portal-carve snapshot. `ProjectileCollisionWorld` waits on the
 world/plain-input follow-up.
 
+> **RE-CHECKED 2026-07-10 (`refactor-chain.md` R4). The ruling held; the prose was
+> imprecise.** R3 was the world/plain-input follow-up, so
+> `ProjectileCollisionWorld` moved to `ambition_projectiles::collision_world`.
+> The other two remain, and their blockers are narrower than written: victim
+> routing names exactly THREE `ambition_actors`-owned symbols — `BossConfig` /
+> `BossClusterRef` / `BossAnimationFrameSample` (the boss cluster views) and
+> `PlayerHealRequested`. Everything else it queries — `CenteredAabb`,
+> `BodyOffense`, `BodyDodgeState`, `BodyShieldState`, `FeatureId`,
+> `BreakableFeature`, `ActorDisposition`, `FriendlyFire`, `HitEvent`,
+> `PlayerEntity`, `FeatureSimEntity`, `GravityCtx`, `LiveProjectile`,
+> `GameplayTraceBuffer` — already lives a tier down. Charge input has ONE
+> blocker: `player::BodyAnimFacts`. Both discharge at the S5/S6 player fold plus
+> a boss-vocabulary settle; neither was forced.
+
 ## F3/F4 — compliance + correctness (all closed)
 
 Verified green and still true: the `[W-e]`/`[W-b]` lowering registry has both

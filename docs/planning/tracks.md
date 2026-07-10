@@ -66,9 +66,10 @@ player-visible bugs, and the untouched determinism ladder.
    2026-07-10** (`CollisionWorld` + `MovingPlatformSet` → `ambition_world::collision`;
    the spike found an unlisted `ambition_portal` dep, so `subtract_aabb` moved DOWN
    to `engine_core::geometry` rather than let the space IR name a mechanic) →
-   **R4** re-check the projectile steppers (only the
-   world-collision one can move now, and only if R3 lands; victim routing and
-   charge input both survive) → **R5** the `ControlFrame` allowlist
+   **R4** ✅ **RE-CHECKED + STOPPED 2026-07-10** (fable's ruling held:
+   `ProjectileCollisionWorld` came home to `ambition_projectiles`; victim routing
+   still needs the boss cluster views R2 never settled, charge input still needs
+   `BodyAnimFacts` — both blockers named, both deferred) → **R5** the `ControlFrame` allowlist
    lint (= unified-actors step 5's Phase C, newly defined; B3's "two holders" has
    drifted to four, unguarded) → **R6** the player fold + the `features/` rename.
 

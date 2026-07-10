@@ -9,8 +9,7 @@
 //! the residual glue enumerable while the remaining actor-side projectile
 //! steppers are split.
 
-pub use ambition_actors::projectile::{
-    charge_projectile_input, step_projectiles, ProjectileCollisionWorld,
-};
+pub use ambition_actors::projectile::{charge_projectile_input, step_projectiles};
 pub use ambition_projectiles::apply_player_spawn_projectile_messages;
+pub use ambition_projectiles::collision_world::ProjectileCollisionWorld;
 pub use ambition_projectiles::enemy::apply_enemy_projectile_effect_requests as apply_enemy_projectile_effects;

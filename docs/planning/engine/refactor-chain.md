@@ -1,6 +1,7 @@
 # The refactor chain — dissolving the adapter shells, then folding the player
 
-**Status:** R1, R2, R3 DONE (2026-07-10). Six slices, in dependency order.
+**Status:** R1, R2, R3 DONE; R4 re-checked and STOPPED as ruled (2026-07-10).
+Six slices, in dependency order.
 Each is committable on its own; each states its own exit check.
 
 This doc exists because the 2026-07-10 ledger ruling changed what "finish the
@@ -316,7 +317,58 @@ unblocks `ProjectileCollisionWorld` (R4).
 
 ---
 
-## R4 — projectile steppers: re-check, don't force
+## R4 — projectile steppers ✅ RE-CHECKED (2026-07-10). One moved. Two survive. STOPPED.
+
+**Fable's ruling held.** `ProjectileCollisionWorld` — the one thing F2 named as
+"waiting on the world/plain-input follow-up" — came home to
+`ambition_projectiles::collision_world`. The other two steppers are still blocked,
+so per the standing instruction they stay put and this slice ends here rather
+than forcing the seam.
+
+**Moved: `ProjectileCollisionWorld`.** R3 made every input plain, and this is what
+that was for. Its three inputs, measured: `Res<RoomGeometry>` (engine_core),
+`Res<FeatureEcsWorldOverlay>` (`platformer_primitives`, a content-free struct of
+`Block`s and `Aabb`s), and `Query<&PlacedPortal>` (`ambition_portal`) — with its
+body calling `ambition_world::collision::world_with_gate_solids_and_carves`.
+`ambition_projectiles` already depended on primitives and portal; it gained
+`ambition_world`, which is acyclic (the world IR names no projectile).
+
+**Survives: victim routing.** `step_projectiles` names exactly THREE
+`ambition_actors`-owned symbols. That is a sharper answer than F2's prose ("queries
+bosses, actors, breakables, shields, owner combat") — everything else it touches
+already lives a tier down. Measured 2026-07-10:
+
+| Symbol | Home | Discharged by |
+|---|---|---|
+| `BossConfig`, `BossClusterRef` | `ambition_actors/src/features/ecs/boss_clusters.rs` | the boss-type settle R2 was *supposed* to be |
+| `BossAnimationFrameSample` | `ambition_actors/src/boss_encounter/attack_geometry/` | same |
+| `PlayerHealRequested` | `ambition_actors/src/player/events.rs` | **R6**, the player fold |
+
+For contrast, these were *already* plain and needed nothing: `CenteredAabb`,
+`BodyOffense`, `BodyDodgeState`, `BodyShieldState` (engine_core); `FeatureId`,
+`BreakableFeature`, `ActorDisposition`, `FriendlyFire`, `HitEvent`
+(ambition_combat); `PlayerEntity`, `FeatureSimEntity`, `GravityCtx`
+(platformer_primitives); `LiveProjectile` (ambition_projectiles);
+`GameplayTraceBuffer` (ambition_gameplay_trace).
+
+So victim routing is *close* — but its remaining blocker is the boss cluster
+views, which R2 was expected to settle and did not (see R2's correction). Forcing
+it now would drag `ambition_actors`' boss vocabulary into `ambition_projectiles`,
+which is the sideways import anti-god rule 4 forbids. **Stopped.**
+
+**Survives: charge input**, exactly as predicted, and with exactly one blocker:
+`crate::player::BodyAnimFacts` (`ambition_actors/src/player/components/`) — fable's
+"optional player ANIMATION facts". Every other input is plain (`UserSettings` from
+persistence, `ChargesProjectiles`/`ActorActionMessage` from characters,
+`PlayerProjectileState` from projectiles itself, `GravityCtx` from primitives).
+It folds into **R6**.
+
+**LOC** (units: TOTAL src lines, incl. tests): `ambition_actors/src/projectile/`
+1758 → 1719 (−39); `ambition_projectiles` 2182 → 2240 (+58). `projectile/`'s
+`crate::features` touches: 14 → 13. A small, honest number for a slice whose
+instruction was "move ONLY what is now plain".
+
+### The original analysis, for the record
 
 **Blocked until R2 and R3 land. Fable: "Do NOT force this seam."**
 

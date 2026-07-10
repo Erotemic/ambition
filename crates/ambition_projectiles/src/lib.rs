@@ -27,6 +27,7 @@
 //! the game's sim heart (`ambition_actors`) because they are woven with
 //! un-carved boss/actor/player-anim/world state; they consume this crate.
 
+pub mod collision_world;
 pub mod diagnostics;
 pub mod enemy;
 pub mod entity;

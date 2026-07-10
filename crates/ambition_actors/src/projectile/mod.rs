@@ -11,13 +11,14 @@
 //! in `ambition_world` (W3): the unified [`systems::step_projectiles`] (queries
 //! bosses/breakables/actors, emits `HitEvent`, parry-heals the player), the
 //! [`systems::charge_projectile_input`] player-input/anim driver, and the
-//! [`systems::ProjectileCollisionWorld`] param that reads the ECS world overlay.
+//! `ambition_projectiles::collision_world::ProjectileCollisionWorld` param, which
+//! reads the ECS world overlay (it came home in R4).
 //! They CONSUME the model crate — the legal sim → model direction.
 
 pub use ambition_projectiles::*;
 
 pub mod systems;
-pub use systems::{charge_projectile_input, step_projectiles, ProjectileCollisionWorld};
+pub use systems::{charge_projectile_input, step_projectiles};
 
 #[cfg(test)]
 mod tests;

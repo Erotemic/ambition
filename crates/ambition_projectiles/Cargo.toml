@@ -17,6 +17,10 @@ ambition_engine_core = { path = "../ambition_engine_core" }
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 # Portal-aperture transit hooks (PlacedPortal + transit math).
 ambition_portal = { path = "../ambition_portal" }
+# The composited collision world a shot flies through (gate solids + portal
+# carves). R3 moved that builder into the space IR, which is what let
+# `ProjectileCollisionWorld` come home (fable F2).
+ambition_world = { path = "../ambition_world" }
 # The flight-recorder event schema PlayerProjectileState emits into.
 ambition_gameplay_trace = { path = "../ambition_gameplay_trace" }
 # Motion-gesture recognition (Hadouken input buffer) — pure input logic.

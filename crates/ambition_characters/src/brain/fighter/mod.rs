@@ -21,15 +21,20 @@
 //!   private field, so a brain layer cannot name a live view. The delay buffer is
 //!   the only read path because it is the only mint.
 //!
+//! - **FB5** — [`habit`], the opponent model. Bounded (`Situation × Choice`),
+//!   inspectable, decayed, and deterministic. `read_weight = 0` on levels 1–3
+//!   means the model, however confident, contributes nothing.
+//!
 //! Still owed: FB4's ladder self-play rig and APM enforcement (both need a brain
-//! that emits inputs), the opponent model (FB5), and L3's forward rollouts (FB6,
-//! on N3.1's snapshot seam).
+//! that emits inputs), and L3's forward rollouts (FB6, on N3.1's snapshot seam).
 
+pub mod habit;
 pub mod options;
 pub mod profile;
 pub mod scenarios;
 pub mod situation;
 
+pub use habit::{Choice, HabitModel};
 pub use options::{generate_options, AttackOption, MoveOption, OptionSet, UtilityWeights};
 pub use profile::{FighterBrainLadder, FighterBrainProfile};
 pub use scenarios::{suite, Scenario};

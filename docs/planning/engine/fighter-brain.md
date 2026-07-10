@@ -159,7 +159,7 @@ this track.
 | FB2 | ~~Frame-data table consumer (needs CM7) + L2 option generator/scorer~~ ✅ **DONE 2026-07-10** — see §9 | [opus] |
 | FB3 | ~~L1 classifier + scenario fixture suite~~ ✅ **DONE 2026-07-10** — see §8 | [opus] |
 | FB4 | 🟡 **(1) profiles + (2) the reaction/delay-buffer humanity check DONE 2026-07-10** — see §10. (2)'s APM histogram and (3) the ladder rig need a brain that emits inputs | [opus] |
-| FB5 | Opponent-model memory (bucketed frequencies, decay) | [opus] |
+| FB5 | ~~Opponent-model memory (bucketed frequencies, decay)~~ ✅ **DONE 2026-07-10** — see §11 | [opus] |
 | FB6 | L3 rollouts on the snapshot seam (after netcode N3.1) with compute budget + degradation | **[fable design, opus execute]** |
 
 Sequencing: FB1–FB4 need only landed systems + CM7 and deliver a credible
@@ -412,3 +412,43 @@ that promise.
   needs the same. It is also the instrument that calibrates L2's weights — and FB2
   (§9) already found the hole that will make it say so: none of §1's four features
   reads a move's power.
+
+---
+
+## 11. FB5 — the reads (opus, 2026-07-10)
+
+`ambition_characters::brain::fighter::habit`. A decayed frequency memory over
+`(Situation, Choice)`, and nothing else.
+
+**Bounded by construction.** Both keys are closed enums, so the whole model is a
+5 × 6 table. There is no history to prune and no unbounded growth to fear —
+`the_model_is_bounded_by_the_product_of_two_closed_enums` observes ten thousand
+times and the table is still thirty rows.
+
+**Honest by construction.** The model records only what the view already showed:
+what the opponent DID, in a situation the brain could name. A brain that reads you
+is not a brain that can see your controller.
+
+**Decay is what makes it a read rather than a census.** An opponent who spot-dodged
+nine times and then stopped is not a spot-dodger, and a plain count says otherwise
+forever. `observe` decays that situation's rows before crediting the choice, so at
+`decay = 0.5` three fresh jumps outweigh nine stale shields. Other situations do
+not decay: being edge-guarded rarely does not make what they do there less known.
+
+**Ignorance is not knowledge of absence.** An unseen situation returns the UNIFORM
+PRIOR, not zero. A model that returned zero would tell a level-9 brain its opponent
+will never shield out of a juggle, on the evidence of never having juggled them.
+And `read_bonus` is measured against that prior, so an opponent who does the
+expected thing exactly as often as chance is worth no read at all.
+
+`read_weight = 0` on levels 1–3 makes the whole model contribute nothing, which is
+§1's *"Level-9 reads = sampling the model; lower levels ignore it"* in one
+multiplication.
+
+### One deviation from §5's sketch, on purpose
+
+The sketch says `counts: HashMap<(u16, u16), f32>` with the note *"NOT iterated in
+sim order — read-only lookups, determinism-safe."* That is true of the LOOKUP and
+false of any iteration, and a trace, a snapshot (N3.1 registers brain memory), and
+FB6's rollouts all iterate. It is a `BTreeMap` (ADR 0023), and the keys are the
+enums themselves rather than opaque `u16`s, so a trace reads as English.

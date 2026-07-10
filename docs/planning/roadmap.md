@@ -43,10 +43,11 @@ remains (exit 3 — a demo binary, which fable ruled interactive work). Details
 - **P2 — decomposition + doctrines (ACTIVE; decomposition DONE).**
   [`engine/decomposition.md`](engine/decomposition.md) is executed through
   E9 + the F-queue; what remains are the doctrine slices the demos need:
-  [collision CC1–CC4](engine/collision-and-ccd.md) (CC1/CC2 done; **CC3
-  open**), [combat CM1–CM5/CM7](engine/combat-model.md) (all done), and
-  [netcode N0–N1](engine/netcode.md) (**untouched — the biggest remaining
-  piece of P2**), plus D-B/D-C. Exit = decomposition playbook exits 1–5.
+  [collision CC1–CC4](engine/collision-and-ccd.md) (CC1/CC2/CC5/CC6 done;
+  **CC3 open**), [combat CM1–CM5/CM7](engine/combat-model.md) (all done), and
+  [netcode N0–N1](engine/netcode.md) (**N0.1/N0.2/N0.3 done 2026-07-09;
+  N0.4 + N1 remain**), plus D-B/D-C. Exit = decomposition playbook exits 1–5,
+  of which only exit 3 (a demo binary) is still open.
 - **P3 — demo wave 1: [Sanic](demos/sanic.md) + [Super
   Mary-O](demos/super-mary-o.md).** **UNBLOCKED — E5-finish landed
   2026-07-06 night (the demo gate is open; the shell smoke test is the

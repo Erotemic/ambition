@@ -474,38 +474,6 @@ fn architecture_boundaries_app_uses_umbrella_manifest_surface() {
     );
 }
 
-/// The `ambition_render` crate is the sandbox's renderer. The sim machinery
-/// (`ambition_actors`) must not depend on it, and after F1.5 render must not
-/// depend back on the machinery either. Both crates meet only through lower
-/// vocabulary/read-model crates selected by the app composition root.
-#[test]
-fn architecture_boundaries_render_and_actor_crates_are_decoupled() {
-    assert_workspace_contains_crate("ambition_render");
-    let sandbox_root = repo_root().join("crates/ambition_actors");
-    let render_root = repo_root().join("crates/ambition_render");
-    assert_manifest_has_no_deps(
-        &sandbox_root,
-        &["ambition_render"],
-        "the sim machinery must not depend on its renderer",
-    );
-    assert_manifest_has_no_deps(
-        &render_root,
-        &["ambition_actors"],
-        "F1.5 complete: render must read lower view/vocabulary crates, not actor machinery",
-    );
-    // And no source file smuggles either crate in past the manifest.
-    assert_source_tree_has_no_code_refs(
-        sandbox_root.join("src"),
-        &["ambition_render"],
-        "ambition_actors must not reference the render crate",
-    );
-    assert_source_tree_has_no_code_refs(
-        render_root.join("src"),
-        &["ambition_actors"],
-        "ambition_render must not reference the actor machinery crate after F1.5",
-    );
-}
-
 #[test]
 fn architecture_boundaries_platformer_runtime_stays_content_free() {
     let forbidden = [
@@ -645,52 +613,6 @@ fn architecture_boundaries_sim_does_not_import_presentation() {
          not the reverse). Move the imported type DOWN to a foundation/runtime module, or invert \
          the call with an event. Violations:\n{}",
         violations.join("\n")
-    );
-}
-
-#[test]
-fn architecture_boundaries_menu_crate_stays_content_free() {
-    let crate_root = repo_root().join("crates/ambition_menu");
-    assert!(
-        crate_root.join("Cargo.toml").exists(),
-        "ambition_menu crate should exist at crates/ambition_menu"
-    );
-    assert_manifest_has_no_deps(
-        &crate_root,
-        &["ambition_actors"],
-        "ambition_menu is the reusable renderer; the game owns menu content",
-    );
-    assert_source_tree_has_no_code_refs(
-        crate_root.join("src"),
-        &["ambition_actors"],
-        "ambition_menu must stay content-free",
-    );
-}
-
-#[test]
-fn architecture_boundaries_persistence_crate_owns_stored_shapes_only() {
-    let crate_root = repo_root().join("crates/ambition_persistence");
-    assert_workspace_contains_crate("ambition_persistence");
-    assert!(
-        crate_root.join("Cargo.toml").exists(),
-        "ambition_persistence crate should exist at crates/ambition_persistence"
-    );
-    let forbidden = [
-        "ambition_actors",
-        "ambition_menu",
-        "ambition_render",
-        "ambition_content",
-        "ambition_app",
-    ];
-    assert_manifest_has_no_deps(
-        &crate_root,
-        &forbidden,
-        "ambition_persistence owns stored shapes, not menu/UI/game machinery",
-    );
-    assert_source_tree_has_no_code_refs(
-        crate_root.join("src"),
-        &forbidden,
-        "ambition_persistence must stay free of menu/UI/game machinery imports",
     );
 }
 
@@ -848,41 +770,6 @@ fn architecture_boundaries_projectiles_crate_is_model_only() {
     assert!(
         !actor_projectile_mod.contains("engine_tests"),
         "ambition_actors::projectile should expose only the actor-woven projectile steppers; pure primitive tests live in ambition_projectiles"
-    );
-}
-
-/// `ambition_encounter` (E-enc) owns the reusable encounter wave/lockdown
-/// vocabulary and headless state machine. The LDtk loader, ECS mob spawning,
-/// feature overlay, banners, save/quest plumbing, and schedule adapters stay in
-/// `ambition_actors` until their owning domains move, so this crate must remain free
-/// of sim-heart, content, render, runtime, host, and app dependencies.
-#[test]
-fn architecture_boundaries_encounter_crate_is_state_only() {
-    let crate_root = repo_root().join("crates/ambition_encounter");
-    assert_workspace_contains_crate("ambition_encounter");
-    assert!(
-        crate_root.join("Cargo.toml").exists(),
-        "ambition_encounter crate should exist at crates/ambition_encounter"
-    );
-    let forbidden = [
-        "ambition_actors",
-        "ambition_characters",
-        "ambition_ldtk_map",
-        "ambition_sim_view",
-        "ambition_runtime",
-        "ambition_render",
-        "ambition_content",
-        "ambition_app",
-    ];
-    assert_manifest_has_no_deps(
-        &crate_root,
-        &forbidden,
-        "ambition_encounter is reusable encounter state/vocabulary; adapters stay above it",
-    );
-    assert_source_tree_has_no_code_refs(
-        crate_root.join("src"),
-        &forbidden,
-        "ambition_encounter source must not reach into sim/content/render/host crates",
     );
 }
 
@@ -1158,27 +1045,6 @@ fn architecture_boundaries_runtime_is_headless_composition_tier() {
         // string literal, never a `use` (audit M8).
         |_, line| line.contains("\"ambition_ldtk_map::"),
         "runtime source should compose headless sim/mechanic/menu-model crates without reaching into          app/content/host/render tiers",
-    );
-}
-
-#[test]
-fn architecture_boundaries_host_does_not_depend_on_actors() {
-    let crate_root = repo_root().join("crates/ambition_host");
-    assert_workspace_contains_crate("ambition_host");
-    assert!(
-        crate_root.join("Cargo.toml").exists(),
-        "ambition_host crate should exist at crates/ambition_host"
-    );
-
-    assert_manifest_has_no_deps(
-        &crate_root,
-        &["ambition_actors"],
-        "F1.10: the windowed host wires presentation/input/runtime seams, not the actor-systems crate",
-    );
-    assert_code_refs_absent(
-        &[crate_root.join("src"), crate_root.join("tests")],
-        &["ambition_actors::"],
-        "F1.10: host source and smoke fixtures should reach actor-owned setup only through runtime facades",
     );
 }
 

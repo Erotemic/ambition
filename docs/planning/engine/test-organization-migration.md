@@ -116,6 +116,35 @@ so `attests.rs` is not misread). Deleted after parity:
 `crates/ambition_runtime/tests/module_size.rs`. D-B doc links updated
 (decomposition.md + tracks.md) to the new location; REOPENED status unchanged.
 
+### Task 6 — legacy guard + architecture batch 1 + migration-matrix machinery (LANDED)
+
+Legacy guard (`legacy_runtime_guardrail.rs`, both tests) →
+declarative:`game.no-legacy-runtime-in-app-src` (production-only, skip-tests,
+ALLOW_LEGACY_RUNTIME marker) + a `legacy_scanner_catches_each_forbidden_identifier`
+self-test over a dedicated poison fixture. Old file deleted after parity.
+
+**Architecture matrix is now machine-checked.** `migration_matrix.toml` maps all
+67 `architecture_boundaries.rs` tests to a disposition; the frozen canonical list
+is `fixtures/architecture_boundaries_source_tests.txt`;
+`custom::migration_matrix::check` asserts the bijection, that every
+declarative/custom destination resolves to a real policy ID, and — the honesty
+lock — that a migrated entry's fn is GONE from the legacy file while a
+`legacy-pending` entry's fn is still there. `legacy_file_is_fully_tracked` stops a
+new legacy test slipping the ledger. When the file is deleted (Task 9), zero
+entries may remain `legacy-pending`.
+
+Batch 1 (5 crate-purity tests migrated, 67→62 remaining in legacy):
+
+| old test fn | destination policies |
+| --- | --- |
+| `..._render_and_actor_crates_are_decoupled` | `engine.render-decoupled-member`, `engine.actor-manifest-no-render`, `engine.actor-source-no-render` (+ Task 4's `engine.render-no-actor-crate-dependency`, `engine.render-source-names-no-actors`) |
+| `..._menu_crate_stays_content_free` | `engine.menu-crate-manifest-no-actors`, `engine.menu-crate-source-no-actors` |
+| `..._persistence_crate_owns_stored_shapes_only` | `engine.persistence-crate-member/-manifest-purity/-source-purity` |
+| `..._encounter_crate_is_state_only` | `engine.encounter-crate-member/-manifest-purity/-source-purity` |
+| `..._host_does_not_depend_on_actors` | `engine.host-crate-member`, `engine.host-manifest-no-actors`, `engine.host-source-no-actors` |
+
+Remaining 62 architecture tests: `legacy-pending` (Tasks 7–9).
+
 <!-- MIGRATION-MATRIX-END -->
 
 ## Commands (target model)

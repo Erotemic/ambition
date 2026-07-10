@@ -149,6 +149,11 @@ pub struct Policy {
     /// (everything before the first `#[cfg(test)]`).
     #[serde(default)]
     pub production_only: bool,
+    /// `forbidden-source-reference`: skip whole test files (adjacent `tests.rs`,
+    /// sibling `_tests.rs`, `/tests/` dirs) via the central classifier, so a test
+    /// fixture that legitimately names a banned identifier is not flagged.
+    #[serde(default)]
+    pub skip_tests: bool,
     /// `forbidden-source-reference`: a per-line opt-out marker (e.g.
     /// `ALLOW_LEGACY_RUNTIME`); a line carrying it is exempt.
     #[serde(default)]

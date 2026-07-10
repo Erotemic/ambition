@@ -1,0 +1,351 @@
+# Migration matrix for game/ambition_app/tests/architecture_boundaries.rs.
+#
+# Every #[test] that was in that file (frozen canonical list in
+# fixtures/architecture_boundaries_source_tests.txt) maps to exactly one
+# disposition. `migration_matrix_is_complete` (self-test) asserts the bijection,
+# that every `declarative`/`custom` destination resolves to a real policy, and
+# that the matrix cannot lie: a `legacy-pending` entry's fn must STILL be in the
+# legacy file, and a migrated/removed/retained entry's fn must be GONE from it.
+#
+# disposition ∈ { declarative, custom, retained, removed, legacy-pending }
+#   declarative     — moved to policies/*.toml; `policies` lists the IDs.
+#   custom          — moved to a src/custom/*.rs scanner; `policies` names its ID.
+#   retained        — deliberately kept as a crate-local behavioral test; see note.
+#   removed         — obsolete; see note for justification.
+#   legacy-pending  — not yet migrated; still lives in the legacy file.
+
+
+[[entry]]
+old_test = "architecture_boundaries_umbrella_crate_and_demo_homes_exist"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_app_uses_umbrella_manifest_surface"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_render_and_actor_crates_are_decoupled"
+disposition = "declarative"
+policies = ["engine.render-decoupled-member", "engine.actor-manifest-no-render", "engine.actor-source-no-render", "engine.render-no-actor-crate-dependency", "engine.render-source-names-no-actors"]
+
+[[entry]]
+old_test = "architecture_boundaries_platformer_runtime_stays_content_free"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_platformer_runtime_crate_is_extracted"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_sim_does_not_import_presentation"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_menu_crate_stays_content_free"
+disposition = "declarative"
+policies = ["engine.menu-crate-manifest-no-actors", "engine.menu-crate-source-no-actors"]
+
+[[entry]]
+old_test = "architecture_boundaries_persistence_crate_owns_stored_shapes_only"
+disposition = "declarative"
+policies = ["engine.persistence-crate-member", "engine.persistence-crate-manifest-purity", "engine.persistence-crate-source-purity"]
+
+[[entry]]
+old_test = "architecture_boundaries_world_ir_and_ldtk_backend_are_split"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_projectiles_crate_is_model_only"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_encounter_crate_is_state_only"
+disposition = "declarative"
+policies = ["engine.encounter-crate-member", "engine.encounter-crate-manifest-purity", "engine.encounter-crate-source-purity"]
+
+[[entry]]
+old_test = "architecture_boundaries_items_crate_is_catalog_and_shop_only"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_inventory_ui_crate_is_menu_state_only"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_asset_manager_is_backend_generic"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_projectile_schedule_wiring_lives_in_runtime"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_runtime_is_headless_composition_tier"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_host_does_not_depend_on_actors"
+disposition = "declarative"
+policies = ["engine.host-crate-member", "engine.host-manifest-no-actors", "engine.host-source-no-actors"]
+
+[[entry]]
+old_test = "architecture_boundaries_kaleidoscope_is_an_engine_extension"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_settings_menu_ir_is_foundation_only"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_dev_tools_crate_is_foundation_only"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_dialog_crate_is_runtime_only"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_interaction_crate_is_foundation_only"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_effects_crate_is_foundation_only"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_input_crate_is_extracted"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_control_frame_lives_with_engine_body_contract"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_game_mode_lives_with_schedule_vocabulary"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_f2_actor_facades_burned_down"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_f2_schedule_labels_use_primitive_home"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_f2_asset_vocab_consumers_use_lower_crates"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_f2_character_anim_vocab_consumers_use_sprite_sheet"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_f2_encounter_vocab_consumers_use_encounter_crate"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_menu_backend_vocab_consumers_use_menu_crate"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_app_menu_settings_vocab_consumers_use_lower_crates"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_map_state_consumers_use_menu_crate"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_actor_dialog_keeps_only_game_bindings"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_actor_persistence_keeps_no_dev_tools_alias"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_dialog_vocab_consumers_use_dialog_crate"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_developer_persistence_uses_dev_tools_crate"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_audio_facade_consumers_use_audio_crate"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_touch_input_crate_is_extracted"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_touch_input_render_edge_is_intentional"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_room_feature_spawns_do_not_add_raw_spawns"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_app_plugins_does_not_reown_moved_subsystems"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_input_timer_systems_moved_to_actors"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_non_portal_mechanics_use_runtime_raycast_seam"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_portal_orders_against_item_set_not_function"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_portal_core_does_not_import_ambition_content_roster"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_portal_core_does_not_name_host_world_or_reset"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_music_director_is_content_agnostic"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_named_content_registers_through_content_plugin"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_gravity_zone_mechanic_left_portal"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_abilities_live_under_abilities_layer"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_portal_has_plugin_and_schedule_files_without_actor_facade"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_portal_crate_is_extracted"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_portal_presentation_crate_is_extracted"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_time_crate_is_extracted"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_f3_2_swept_movers_use_kernel_sweep_sample"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_clock_resets_use_time_control_owner"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_player_fallbacks_are_slot_ordered"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_machinery_does_not_import_content"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_combat_kit_stays_content_free"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_presentation_does_not_use_the_archetype_enum"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_enemy_sim_reads_data_not_the_archetype_enum"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_enemy_config_is_archetype_free"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_lib_menu_keeps_only_the_coupled_pieces"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_dev_overlays_live_in_app"
+disposition = "legacy-pending"
+policies = []
+
+[[entry]]
+old_test = "architecture_boundaries_actor_crate_is_content_free_and_foundation_clean"
+disposition = "legacy-pending"
+policies = []

@@ -20,3 +20,32 @@ paths = [
     "game/ambition_app/src",
     "game/ambition_app/Cargo.toml",
 ]
+
+# ── migrated from game/ambition_app/tests/legacy_runtime_guardrail.rs (Task 6) ──
+
+# was: no_legacy_runtime_references_in_production_src
+[[policy]]
+id = "game.no-legacy-runtime-in-app-src"
+scope = "game"
+kind = "forbidden-source-reference"
+owners = ["ambition_app"]
+watch_paths = ["game/ambition_app/src"]
+rationale = "The ECS migration deleted the SandboxRuntime/FeatureRuntime god-objects, the runtime.player shadow cache, the feature_runtime_phase helper, and the monolithic ae::Player aggregate. Canonical replacements live on dedicated Body* components/systems. Re-introducing any of these spellings means a shadow scratchpad crept back in. Test code and archived doc refs are exempt; a single reviewed occurrence opts out with ALLOW_LEGACY_RUNTIME."
+source_doc = "docs/planning/engine/unified-actors.md"
+severity = "error"
+production_only = true
+skip_tests = true
+allow_marker = "ALLOW_LEGACY_RUNTIME"
+roots = ["game/ambition_app/src"]
+forbid = [
+    "SandboxRuntime",
+    "FeatureRuntime",
+    "feature_runtime_phase",
+    "runtime.player",
+    "ae::Player::new",
+    "BodyClustersMut::to_player",
+    "::from_player(",
+    "update_player_with_tuning(",
+    "update_player_control_with_tuning(",
+    "update_player_simulation_with_tuning(",
+]

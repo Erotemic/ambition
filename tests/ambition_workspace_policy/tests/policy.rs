@@ -81,8 +81,67 @@ fn policy_runner_self_tests() {
     whole_ident_does_not_overmatch_but_substring_does();
     allow_marker_suppresses_a_line();
 
+    legacy_scanner_catches_each_forbidden_identifier();
+
     // Custom scanners' own poison.
     custom::module_size::poison_reacts(&Workspace::discover());
+
+    // The architecture-migration matrix is complete and honest.
+    let ws = Workspace::discover();
+    custom::migration_matrix::check(&ws);
+    custom::migration_matrix::legacy_file_is_fully_tracked(&ws);
+}
+
+/// Mirrors the retired `legacy_runtime_guardrail.rs` scanner self-test: every
+/// banned identifier is caught, and the `ALLOW_LEGACY_RUNTIME` line is suppressed.
+fn legacy_scanner_catches_each_forbidden_identifier() {
+    const FORBIDDEN: &[&str] = &[
+        "SandboxRuntime",
+        "FeatureRuntime",
+        "feature_runtime_phase",
+        "runtime.player",
+        "ae::Player::new",
+        "BodyClustersMut::to_player",
+        "::from_player(",
+        "update_player_with_tuning(",
+        "update_player_control_with_tuning(",
+        "update_player_simulation_with_tuning(",
+    ];
+    let forbid_toml = FORBIDDEN
+        .iter()
+        .map(|f| format!("{f:?}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let p = poison(&format!(
+        r#"
+        id = "poison.legacy-runtime"
+        scope = "game"
+        kind = "forbidden-source-reference"
+        rationale = "poison"
+        roots = ["tests/ambition_workspace_policy/fixtures/poison/legacy"]
+        allow_marker = "ALLOW_LEGACY_RUNTIME"
+        production_only = true
+        forbid = [{forbid_toml}]
+    "#
+    ));
+    let report = run_one(&p);
+    for needle in FORBIDDEN {
+        assert!(
+            report
+                .diagnostics()
+                .iter()
+                .any(|d| d.detail.contains(needle)),
+            "legacy scanner dropped `{needle}`"
+        );
+    }
+    // The ALLOW_LEGACY_RUNTIME line must not contribute a diagnostic.
+    assert!(
+        report
+            .diagnostics()
+            .iter()
+            .all(|d| !d.detail.contains("ALLOW_LEGACY_RUNTIME")),
+        "the ALLOW_LEGACY_RUNTIME line was not suppressed"
+    );
 }
 
 fn workspace_discovery_finds_the_root() {

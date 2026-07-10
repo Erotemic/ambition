@@ -339,6 +339,7 @@ dependencies = [
  "ambition_portal_presentation",
  "ambition_projectiles",
  "ambition_render",
+ "ambition_runtime",
  "ambition_sfx",
  "ambition_sprite_sheet",
  "ambition_time",

@@ -24,9 +24,8 @@ pub const SPEEDWAY_ROOM_ID: &str = "sanic_speedway";
 ///
 /// Ambition hosts this demo by loading its rooms alongside its own; a Sanic
 /// rules plugin gates its systems on `ambition::runtime::in_mode(SANIC_MODE)`
-/// so they sleep everywhere else. There are no Sanic rules yet — the momentum
-/// FEEL is the separate interactive build — but the rooms already claim the
-/// mode, which is what a hosted ruleset would wake on.
+/// so they sleep everywhere else. [`SanicRulesPlugin`] is that ruleset, and its
+/// `hosted()` / `global()` constructor flag is the D-C pattern made real.
 pub const SANIC_MODE: &str = "sanic";
 
 /// Number of segments in the generated Sonic loop polygon.
@@ -77,13 +76,158 @@ pub fn sanic_speedway() -> RoomSpec {
     room
 }
 
-/// First-cut content plugin for the Sanic movement demo home. Room authoring is
-/// exposed as [`sanic_speedway`]; wiring it into a running app (the playable
-/// binary + momentum-feel tuning) is the separate interactive build.
+/// The demo's one-character catalog. Every demo installs its own roster; the
+/// engine ships none (ADR 0017). The speedster wears the engine's fallback box
+/// until the sheet lands — the FEEL half is the separate interactive build, but
+/// the shell must not wait on it.
+const SANIC_CATALOG_RON: &str = r#"(
+    brain_presets: { "stand_still": StandStill },
+    action_set_presets: {},
+    characters: {
+        "sanic": (
+            display_name: "Sanic",
+            spritesheet: "sprites/sanic_spritesheet.png",
+            manifest: "sprites/sanic_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["player"],
+        ),
+    },
+)"#;
+
+/// Content plugin for the Sanic movement demo: installs the roster, the world,
+/// and the engine's own sim-world setup. This is the shape
+/// `crates/ambition_host/tests/demo_shell_smoke.rs` prescribes, built through the
+/// `ambition` umbrella alone.
 pub struct SanicDemoContentPlugin;
 
 impl Plugin for SanicDemoContentPlugin {
-    fn build(&self, _app: &mut App) {}
+    fn build(&self, app: &mut App) {
+        use ambition::runtime::demo_fixture::{ActiveRoomMetadata, RoomSet};
+        use bevy::prelude::IntoScheduleConfigs;
+
+        ambition::runtime::demo_fixture::install_character_catalog(SANIC_CATALOG_RON);
+        let room = sanic_speedway();
+        app.insert_resource(ae::RoomGeometry(room.world.clone()));
+        app.insert_resource(ActiveRoomMetadata(room.metadata.clone()));
+        app.insert_resource(RoomSet::from_parts(
+            SPEEDWAY_ROOM_ID,
+            vec![room],
+            Vec::new(),
+        ));
+        app.add_systems(
+            bevy::app::Startup,
+            sanic_setup.in_set(ambition::runtime::demo_fixture::SimulationSetupSet),
+        );
+    }
+}
+
+/// The demo's world construction: the engine's `simulation_world` on the
+/// speedway. Labeled `SimulationSetupSet` so the host's input attach orders after
+/// the player body exists.
+#[allow(clippy::too_many_arguments)]
+fn sanic_setup(
+    mut commands: bevy::prelude::Commands,
+    world: bevy::prelude::Res<ae::RoomGeometry>,
+    room_set: bevy::prelude::Res<ambition::runtime::demo_fixture::RoomSet>,
+    ldtk_index: bevy::prelude::Res<ambition::runtime::demo_fixture::LdtkRuntimeIndex>,
+    editable_abilities: bevy::prelude::Res<ambition::runtime::demo_fixture::EditableAbilitySet>,
+    editable_tuning: bevy::prelude::Res<ambition::runtime::demo_fixture::EditableMovementTuning>,
+    starting_character: bevy::prelude::Res<ambition::runtime::demo_fixture::StartingCharacter>,
+    asset_server: bevy::prelude::Res<bevy::asset::AssetServer>,
+) {
+    ambition::runtime::demo_fixture::simulation_world(
+        &mut commands,
+        ambition::runtime::demo_fixture::SimulationSetup {
+            world: &world,
+            room_set: &room_set,
+            ldtk_index: &ldtk_index,
+            editable_abilities: &editable_abilities,
+            editable_tuning: &editable_tuning,
+            starting_character: &starting_character,
+            sandbox_data_asset: None,
+            sandbox_asset_collection: None,
+            asset_server: &asset_server,
+        },
+    );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The RULES plugin — the D-C mode-scope seam, used for real.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// The act's live state, owned by the mode. It rides a `ModeScopedEntity`, so
+/// leaving the Sanic rooms tears it down through the engine's lifetime-scope
+/// vocabulary rather than a bespoke reset.
+#[derive(bevy::prelude::Component, Default, Debug)]
+pub struct SanicActState {
+    /// Seconds the act has been running (sim clock, so bullet-time slows it).
+    pub elapsed: f32,
+}
+
+/// Sanic's level rules. **ONE system list; a constructor flag decides its gating**
+/// — [`SanicRulesPlugin::hosted`] when Ambition hosts the demo alongside its own
+/// rooms, [`SanicRulesPlugin::global`] when the demo IS the game. That is the D-C
+/// pattern (`docs/planning/engine/decomposition.md` §Phase D-C), and this is its
+/// first real consumer: before this, `in_mode` had no ruleset to gate.
+pub struct SanicRulesPlugin {
+    hosted: bool,
+}
+
+impl SanicRulesPlugin {
+    /// Ambition hosts this demo: every rule sleeps outside the Sanic rooms.
+    pub fn hosted() -> Self {
+        Self { hosted: true }
+    }
+
+    /// The demo IS the game: the rules run unconditionally.
+    pub fn global() -> Self {
+        Self { hosted: false }
+    }
+}
+
+impl Plugin for SanicRulesPlugin {
+    fn build(&self, app: &mut App) {
+        use bevy::prelude::IntoScheduleConfigs;
+        let sim = ambition::platformer::schedule::SimScheduleExt::sim_schedule(app);
+        if self.hosted {
+            app.add_systems(
+                sim,
+                (spawn_sanic_mode_owner, tick_sanic_act)
+                    .chain()
+                    .run_if(ambition::runtime::in_mode(SANIC_MODE)),
+            );
+        } else {
+            app.add_systems(sim, (spawn_sanic_mode_owner, tick_sanic_act).chain());
+        }
+    }
+}
+
+/// Bring the act state into being the first frame the mode is live. Spawned
+/// `spawn_mode_scoped`, so the engine despawns it when the active room's mode
+/// changes — no teardown code here.
+fn spawn_sanic_mode_owner(
+    mut commands: bevy::prelude::Commands,
+    existing: bevy::prelude::Query<(), bevy::prelude::With<SanicActState>>,
+) {
+    use ambition::platformer::lifecycle::SpawnScopedExt;
+    if existing.iter().next().is_none() {
+        commands.spawn_mode_scoped(SANIC_MODE, SanicActState::default());
+    }
+}
+
+/// The act timer runs on the SIM clock (`scaled_dt`), so bullet-time and pause
+/// slow it exactly as they slow everything else — `WorldTime`, never `Res<Time>`.
+fn tick_sanic_act(
+    time: bevy::prelude::Res<ambition::time::WorldTime>,
+    mut act: bevy::prelude::Query<&mut SanicActState>,
+) {
+    for mut state in &mut act {
+        state.elapsed += time.scaled_dt;
+    }
 }
 
 /// Install the Sanic demo content layer into an engine app.
@@ -136,6 +280,74 @@ mod tests {
             s.x >= 0.0 && s.x <= room.world.size.x && s.y >= 0.0 && s.y <= room.world.size.y,
             "spawn {s:?} is inside room bounds {:?}",
             room.world.size
+        );
+    }
+
+    /// **The D-C pattern, end to end.** `SanicRulesPlugin::hosted()` ticks the act
+    /// timer only inside the Sanic rooms; `::global()` ticks it everywhere. The
+    /// mode-owner entity is `spawn_mode_scoped`, so the engine tears it down when
+    /// the active room leaves the mode — this demo writes no teardown code.
+    #[test]
+    fn hosted_rules_run_only_in_sanic_rooms_and_global_rules_run_everywhere() {
+        use ambition::bevy::ecs::system::RunSystemOnce as _;
+        use ambition::world::rooms::{ActiveRoomMetadata, RoomMetadata};
+
+        fn elapsed(app: &mut App) -> Option<f32> {
+            let mut q = app.world_mut().query::<&SanicActState>();
+            q.iter(app.world()).next().map(|s| s.elapsed)
+        }
+        fn shell(rules: SanicRulesPlugin, mode: Option<&str>) -> App {
+            let mut app = App::new();
+            ambition::engine::add_headless_foundation(&mut app);
+            app.insert_resource(ActiveRoomMetadata(RoomMetadata {
+                mode: mode.map(str::to_string),
+                ..Default::default()
+            }));
+            app.insert_resource(ambition::time::WorldTime {
+                scaled_dt: 0.5,
+                ..Default::default()
+            });
+            app.add_plugins(rules);
+            app
+        }
+
+        // HOSTED, inside a `sanic` room: the mode owner spawns and the act ticks.
+        // `.chain()` puts a sync point between spawn and tick, so the owner exists
+        // in time to tick on its own first frame: two frames = two ticks.
+        let mut app = shell(SanicRulesPlugin::hosted(), Some(SANIC_MODE));
+        app.update();
+        app.update();
+        assert_eq!(elapsed(&mut app), Some(1.0), "hosted rules tick in-mode");
+
+        // HOSTED, in one of Ambition's own rooms: nothing spawns, nothing ticks.
+        let mut app = shell(SanicRulesPlugin::hosted(), None);
+        app.update();
+        app.update();
+        assert_eq!(elapsed(&mut app), None, "hosted rules sleep out of mode");
+
+        // GLOBAL (the demo IS the game): the rules run with no mode at all.
+        let mut app = shell(SanicRulesPlugin::global(), None);
+        app.update();
+        app.update();
+        assert_eq!(
+            elapsed(&mut app),
+            Some(1.0),
+            "standalone rules need no mode"
+        );
+
+        // The mode owner really is mode-scoped: the engine's own sweep retires it.
+        let mut app = shell(SanicRulesPlugin::hosted(), Some(SANIC_MODE));
+        app.update();
+        app.update();
+        assert!(elapsed(&mut app).is_some());
+        app.insert_resource(ActiveRoomMetadata::default()); // left the Sanic rooms
+        app.world_mut()
+            .run_system_once(ambition::runtime::despawn_departed_mode_entities)
+            .expect("the engine's mode sweep runs");
+        assert_eq!(
+            elapsed(&mut app),
+            None,
+            "leaving the mode tears the act state down — no demo teardown code"
         );
     }
 

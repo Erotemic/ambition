@@ -8,3 +8,11 @@ description = "Tiny Sanic-style demo content home used as an oracle for the Ambi
 
 [dependencies]
 ambition = { path = "../../crates/ambition", default-features = false }
+# The E9 oracle's asterisk, paid explicitly. A content crate that defines its own
+# ECS components/resources CANNOT reach bevy's derive macros through
+# `ambition::bevy` — they resolve `bevy_ecs` through the CONSUMER's manifest, so a
+# re-export does not satisfy them (found while landing refactor-chain R1; logged in
+# dev/journals/code_smells.md). The oracle's real claim is therefore: a downstream
+# game names `ambition` + `bevy`, and NOTHING ELSE. It still holds — this file is
+# the proof.
+bevy = { version = "0.18.1", default-features = false }

@@ -367,6 +367,16 @@ name = "ambition_demo_sanic"
 version = "0.1.0"
 dependencies = [
  "ambition",
+ "bevy",
+]
+
+[[package]]
+name = "ambition_demo_sanic_app"
+version = "0.1.0"
+dependencies = [
+ "ambition",
+ "ambition_demo_sanic",
+ "bevy",
 ]
 
 [[package]]

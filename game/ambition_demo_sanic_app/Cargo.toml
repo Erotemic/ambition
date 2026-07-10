@@ -1,0 +1,21 @@
+[package]
+name = "ambition_demo_sanic_app"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The Sanic demo's thin SHELL: foundation + PlatformerEnginePlugins + PlatformerHostPlugins + the demo's content and rules crates. Playbook exit 3, executable."
+
+[[bin]]
+name = "sanic_demo"
+path = "src/main.rs"
+
+[dependencies]
+# The engine, host, and vocabulary — through the ONE umbrella surface. A demo app
+# depends on `ambition`, never on `ambition_app`. That is the demo gate.
+ambition = { path = "../../crates/ambition", default-features = false }
+# The demo's own content + rules. The shell names nothing else.
+ambition_demo_sanic = { path = "../ambition_demo_sanic" }
+# Bevy's derives cannot be reached through a re-export (see the content crate's
+# manifest). The shell needs none, but `App`/`Update` come from here.
+bevy = { version = "0.18.1", default-features = false }

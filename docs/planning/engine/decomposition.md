@@ -398,10 +398,23 @@ Pinned by `ambition_runtime/tests/mode_scope.rs` + the umbrella oracle in
 2. ✅ The named-content grep over engine crates hits zero (test fixtures
    allowed only under `cfg(test)`; the one `include_str!` is the sanctioned
    fixture pattern).
-3. ⏳ A demo app builds from runtime+host groups + its content crate with zero
-   engine edits (the oracle, executable). The umbrella + demo crates exist and
-   the AUTHORING oracle held; the remaining half is a demo binary, which fable
-   ruled interactive work (feel cannot ship headless).
+3. ✅ **MET (2026-07-10).** A demo app builds from runtime+host groups + its
+   content crate with zero engine edits — `game/ambition_demo_sanic_app`, whose
+   whole manifest is `ambition` + `ambition_demo_sanic` + `bevy`. It boots
+   `add_headless_foundation` + `PlatformerEnginePlugins::fixed_tick()` +
+   `PlatformerHostPlugins` + `SanicDemoContentPlugin` + `SanicRulesPlugin::global()`
+   and steps the REAL sim: the body falls and lands on the authored speedway floor,
+   and the mode-scoped act timer runs. **Gate-enforced** by
+   `game/ambition_demo_sanic_app/tests/exit_3.rs`, so a future engine change that
+   breaks a demo's ability to boot fails a test rather than a person.
+   `cargo run -p ambition_demo_sanic_app --bin sanic_demo -- --ticks 600`.
+
+   Fable ruled the demo binary "interactive work". That conflated the SHELL with
+   the FEEL (see tracks.md §1's counter-argument, vision §7). The shell is
+   architecture and ships now; the momentum tuning, the character sheet, and the
+   drawn frame remain the interactive build. **The shell draws nothing, and that
+   is an ENGINE gap, not a demo shortcut** — room/block visuals are still spawned
+   by `ambition_app`'s room-flow. Filed as oracle-violation OV1 in tracks.md.
 4. ✅ Workspace green: `cargo test --workspace --all-targets --features
    rl_sim` — 44/44 suites, zero failures as of 2026-07-09.
 5. ✅ **REWRITTEN and met (opus, 2026-07-09).** The old criterion compared the

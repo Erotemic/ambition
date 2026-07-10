@@ -5,6 +5,7 @@ members = [
     "game/ambition_app",
     "game/ambition_demo_smb1",
     "game/ambition_demo_sanic",
+    "game/ambition_demo_sanic_app",
     "crates/ambition_asset_manager",
     "crates/ambition_audio",
     "crates/ambition_combat",

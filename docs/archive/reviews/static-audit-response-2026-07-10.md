@@ -22,19 +22,38 @@ Use this exact framing:
 
 N3.1 landed the registry, `SimId` vocabulary, shared snapshot/hash bytes, take/restore mechanics, coverage measurement, and a replay oracle. It did not establish exact rollback. Uniqueness, complete mutable-state coverage, codec failure semantics, room ownership, dynamic-spawn reconstruction, and bounded rollback remain N3.2 work.
 
-### `portal_lab` — corrected diagnosis
+### `portal_lab` — confirmed diagnosis (leak hypothesis SUPERSEDED)
 
-`placement:NpcSpawn-0017` is authored by `central_hub_main`, not by `portal_lab`. Both levels live in the same `sandbox.ldtk` and one sim loads that world. Its appearance in a `portal_lab` snapshot is therefore evidence of a cross-room roster or active-room-ownership defect, not evidence that `RoomSpec` needs a fourth authored-list arm.
+> **Superseded 2026-07-10.** This section originally led with a cross-room *leak* /
+> active-room-ownership *defect* as the diagnosis of `placement:NpcSpawn-0017`. That
+> hypothesis was **traced and refuted**. The confirmed diagnosis is a **transition-spanning
+> rollback window**, not a leak. The paragraphs below are rewritten to the confirmed
+> finding; the original wording is preserved only in git history.
 
-Do **not** teach `respawn_authored_entity` to rebuild another room's entity against the active room. First trace why the entity remains snapshot-eligible across room behavior or transition. The highest-value probes are:
+`placement:NpcSpawn-0017` is authored by `central_hub_main`, not by `portal_lab`; both
+levels live in the same `sandbox.ldtk`. The ownership invariant was enforced per-tick
+(`every_placement_entity_is_owned_by_the_active_room_every_tick`) and **it PASSES**: there
+is no leak. The traversal policy bounces the player through a shared loading zone between
+`portal_lab` and `central_hub_complex`; while `central_hub_complex` is active its
+`NpcSpawn-0017` is legitimately alive, and it is despawned the instant the player
+transitions away (confirmed by trace — it lives only while its room is active).
 
-1. room transition and teardown;
-2. per-tick snapshot-roster construction;
-3. initial roster construction.
+What makes the *rewind* dirty is separate: the rollback window SPANS a room transition. The
+snapshot is taken while one room is active and `restore` runs while another is; the active
+room was not restored sim state, so restore would reconcile against the wrong `RoomSpec`.
+The fix that shipped is not to rebuild another room's entity against the active room, but to
+**capture the active room in the snapshot and REFUSE a window that crosses it**
+(`RestoreError::CrossRoomBoundary`, `restore_refuses_a_snapshot_that_spans_a_room_transition`).
+Restoring only `RoomSet.active` + geometry, without the room-scoped entities/platforms/clocks
+a transition rebuilds, would be *more* inconsistent than the refusal — so full atomic
+room-context restore (what moves `portal_lab` from a REFUSED window to CLEAN) is named
+remaining work, not this fix.
 
-The first hypothesis to confirm or refute is that `portal_lab` behavior over its 60-tick run causes a transition/despawn path to expose an entity leaked from `central_hub_main`. The invariant must ultimately hold at every captured tick, not merely immediately after room load:
+The per-tick invariant that holds:
 
-> Every `placement:<iid>` in a room snapshot is authored by the active room, unless it is explicitly classified as carried/persistent state.
+> Every `placement:<iid>` in a room snapshot is authored by the active room, unless it is
+> a dynamically-spawned child (no room authors it — an identity-vocabulary concern) or
+> carried/persistent state (`slot:` — the player).
 
 ## Three-series execution order
 
@@ -98,6 +117,13 @@ The accepted placement is:
 
 ## Execution evidence (Series 1 + Series 2, 2026-07-10)
 
+> **First pass.** A second-pass re-audit (see [Re-audit response](#re-audit-response-second-pass-2026-07-10) below)
+> refined several of these: `UnsupportedDynamicBirth` was renamed
+> `UnsupportedDynamicReconstruction`, `lossless()` became argless and self-measured, the
+> active room was added to the hash, and the identity roster and codec preflight were made
+> robust. Where a name below differs from current code, the second-pass section is
+> authoritative.
+
 Executed by Opus 4.8. Every slice is one commit, green before commit, with its poison
 test's red-before/green-after demonstration recorded in the commit message.
 
@@ -137,6 +163,42 @@ cargo test -p ambition_app --features rl_sim                → all ok (139 lib 
 ### Genuinely remaining (named, not hidden)
 
 - **Full atomic room-context restore** (entities + platforms + clocks) — what moves `portal_lab` from a REFUSED window to CLEAN. Restoring only `RoomSet.active`+geometry would be *worse* than the refusal (reviewer).
-- **Per-spawner reconstruction recipes** — no suite room spawns AND kills a dynamic child inside a window, so the recipe path is unexercised; the `UnsupportedDynamicBirth` rule is the honest bound until then.
+- **Per-spawner reconstruction recipes** — no suite room spawns AND kills a dynamic child inside a window, so the recipe path is unexercised; the `UnsupportedDynamicReconstruction` refusal is the honest bound until then. It is ONE reconstruction refusal, not a general bounded-rollback-window guarantee.
 - **Boss-hand identity** — `giant_gnu_hand_{left,right}_7` get a `FeatureId`, so `ensure_sim_id` promotes them into the `placement:` namespace with a non-deterministic name; they should mint `SimId::spawned(parent, counter)`.
+- **Resolved-codec decode failure is indistinguishable from authored absence** — `SnapshotResolve::resolve` returns `None` for both, so a resolved codec cannot be decode-preflighted and its failure can still leave the world partially restored. The corrupted-blob test covers the ordinary component/resource codec, which IS transactional.
 - **The N3.2 codec relocation** (move `SnapshotState` down so each crate owns its codec) and the `snapshot.rs`/`moveset.rs` god-module splits (audit M9) remain D-B waivers.
+
+---
+
+## Re-audit response (second pass, 2026-07-10)
+
+The re-auditor accepted the first-pass list-as-landed but withheld "full guardrail + N3.2
+substrate green," naming six correctness gaps the tests did not expose. All six are fixed;
+each is one bisectable commit, green before commit, with a red-before demonstration in the
+message. Executed by Opus 4.8.
+
+| # | Re-audit finding | Fix | Commit |
+|---|---|---|---|
+| 1 | N0.3 manifest-dependency scan was **vacuous** — `root/crates/<full-path>` opened zero manifests, passed green | `root.join(krate)`; PANIC on an unreadable listed manifest; assert one manifest read per listed crate | `1dfcad98` |
+| 2 | Active room **captured but not hashed** — snapshot held state the N0.4 hash omitted | fold active room into `hash_world` + `hash_by_entry` + `size_bytes`; poison test on real rooms | `2bc0a662` |
+| 3 | `duplicate_ids()` scanned **one component entry** — blind to a collision across disjoint/zero components; `take` never rejected live dups | full `roster` of every live `SimId`; `take` enforces uniqueness; `restore` validates the snapshot roster independently | `a26a681a` |
+| 4 | `UnsupportedDynamicBirth` named the **wrong temporal event** (a death/reconstruction, not a birth) | renamed `UnsupportedDynamicReconstruction`; reworded to a single reconstruction refusal, NOT a general window bound | `e06cfea7` |
+| 5 | Unsupported-dynamic + decode errors returned **after mutating** the world | dynamic refusal preflighted before any despawn; standalone (component/resource) codecs decode-preflighted before mutation; cursor/resolved apply-time path named as residual | `e06cfea7` + `e4eb4b55` |
+| 6 | `lossless()` unreliable: caller-supplied count, spurious `0` under no-debug-names, message channels counted as false debt, broad `ldtk_map::` exclusion, silent cursor success | restore MEASURES the resource term; argless `lossless()` requires `resource_census_reliable`; message-channel `Messages<M>` TypeIds claimed; ldtk exclusions per-type; cursor-unresolved counted | `80186af6` |
+| doc | The `portal_lab` "corrected diagnosis" still led with the leak hypothesis | section marked SUPERSEDED and rewritten to the confirmed transition-spanning diagnosis | this doc |
+
+**Red-before demonstrations** (each is in its commit message):
+
+- (1) old join path → 0 manifests read → the new `assert_eq!(manifests_read, len)` FAILS.
+- (2) omit the active-room fold → the poison test's `before == after` → FAILS.
+- (3) per-entry `duplicate_ids` → a collision sharing no component row returns empty → the surfacing test FAILS.
+- (4/5) inline (post-despawn) refusal → the future-only canary entity is despawned before the refusal → the "world untouched" assertion FAILS.
+- (5) decode check at apply time → the corrupted standalone blob despawns the future entity before `DecodeFailed` → FAILS.
+- (6) caller-supplied `lossless(0)` / no census flag → a report with resource debt reports lossless under no-debug-names → the census assertion FAILS.
+
+**Revised status after the second pass:** N0.3 = LANDED (dependency scan no longer vacuous);
+N3.2 substrate advanced — identity/ownership/reconciliation/room-boundary LANDED; codec
+semantics transactional for the ordinary path with the resolved path a named residual;
+losslessness self-measured and reliable; dynamic reconstruction a single enforced refusal,
+not a general window bound. The full atomic room restore, per-spawner recipes, boss-hand
+identity, and the resolved-codec Result contract remain named above.

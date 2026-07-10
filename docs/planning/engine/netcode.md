@@ -213,9 +213,10 @@ Obligations (each a slice, all [opus]):
   `serde_json::Value` field-pokes are gone. Noted while doing so: that fixture's
   60 ticks are entirely NEUTRAL input, so on its own it only ever proved that a
   falling body falls the same way.
-- **N0.3 Determinism lint set — 🟡 PARTIAL (audit correction 2026-07-10).** The four rules
+- **N0.3 Determinism lint set — 🟢 LANDED (2026-07-10; re-audit finding 1 closed).** The four rules
   (no ambient randomness; no wall-clock reads; no std-hash-order semantics; no
-  `Entity` as an ordering key) are greps over non-test source under `crates/*`,
+  `Entity` as an ordering key) are greps over non-test source under `crates/*` AND
+  `game/{ambition_content,ambition_demo_sanic,ambition_demo_smb1}`,
   in `crates/ambition_runtime/tests/determinism_lints.rs`, with an
   auditable `AMBITION_REVIEW(determinism)` escape hatch. The doc page is
   **ADR 0023**. Each lint is poison-tested (a violation injected into a real sim
@@ -251,12 +252,18 @@ Obligations (each a slice, all [opus]):
   is not a lint.* `ambition_world::placements::registered_kinds` picked up the marker:
   it sorts the keys on the very next line, at room load, outside the tick.
 
-  **Audit scope correction (2026-07-10).** The source-root manifest excludes
-  `game/ambition_content` and demo-rule crates even though they schedule portal,
-  falling-sand, boss, and other simulation systems. The neighboring control-frame
-  lint already scans content, so this is an oversight rather than a deliberate
-  boundary. Extend N0.3 to every simulation-bearing root and add a content-side
-  poison fixture before restoring DONE.
+  **Scope widening — DONE (2026-07-10).** N0.3 now scans `game/ambition_content` and
+  the demo-rule crates (which schedule portal, falling-sand, boss, and other simulation
+  systems), and its widening immediately caught two real `falling_sand.rs` rule-3
+  violations. A self-check asserts each `game/` root is actually reached, so the widened
+  scan cannot pass vacuously.
+
+  **Manifest-dependency scan un-vacuumed (re-audit finding 1, 2026-07-10).** When the
+  `game/` roots were added, the RNG-dependency half still joined `root/crates/<full-path>`,
+  producing `crates/crates/..` and `crates/game/..` — every manifest read failed, every
+  crate was silently skipped, and the dependency scan read ZERO manifests while passing
+  green. Fixed: `root.join(krate)`, PANIC on an unreadable listed manifest, and an assert
+  that one manifest is read per listed crate. N0.3 is now LANDED.
 - **N0.4 Desync canary rig — 🟡 PARTIAL (audit correction 2026-07-10).**
   `game/ambition_app/tests/desync_canary.rs`: two `SandboxSim`s, one seeded input
   stream, the registered sim state hashed every tick, first-divergence report that
@@ -623,29 +630,49 @@ snapshots needed. Needs N0 complete, plus:
   2. **Active-room ownership + room boundary:** DONE in part (S2.2/S2.3). Traced the
      mechanism — no leak; the rollback window spans a room transition and the active
      room is omitted from snapshot state. Enforced per-tick authored ownership (proves
-     the roster is healthy); captured `SimSnapshot::active_room`; and made restore
-     REJECT a cross-room snapshot (`RestoreError::CrossRoomBoundary`) before
-     reconciliation. REMAINING: the full atomic room-context restore (entities +
+     the roster is healthy); captured `SimSnapshot::active_room` AND folded it into
+     `hash_world`/`hash_by_entry`/`size_bytes` (re-audit finding 2 — the snapshot must not
+     carry state the N0.4 hash omits); and made restore REJECT a cross-room snapshot
+     (`RestoreError::CrossRoomBoundary`) before reconciliation. Also: the snapshot now
+     carries a full identity `roster` (every live `SimId`), so `duplicate_ids` catches a
+     collision across disjoint components, and `take` enforces uniqueness at capture
+     (finding 3). REMAINING: the full atomic room-context restore (entities +
      platforms + clocks), which moves `portal_lab` to CLEAN — see the bounded-window
      item. Dynamic children wrongly in the `placement:` namespace (boss hands) route to
      the dynamic-spawn item.
   3. **Reconciliation ordering:** DONE (S2.4). Stale components and unidentified
      survivors are computed AFTER reconciliation, over the final restored roster.
-  4. **Codec failure semantics:** DONE (S2.5). The decode closures return success;
-     `restore` returns `RestoreError::DecodeFailed` in every build; corrupted-blob
-     poison test landed in the same commit.
-  5. **Positive losslessness:** DONE (S2.6/S2.7/S2.8). `lossless(unregistered_sim_resources)`
-     is a positive contract: identity uniqueness and decode success are guaranteed by the
-     report existing; it checks no stale component, no unidentified survivor, no naked
-     reconstruction, and complete mutable-RESOURCE coverage. The sim-resource universe is a
-     NAMED exclusion policy (`SIM_RESOURCE_EXCLUSIONS`), never silence.
-  6. **Dynamic births + bounded window:** PARTLY DONE (S2.9/S2.10). The unsupported-window
-     RULE is enforced: `restore` refuses `RestoreError::UnsupportedDynamicBirth` when a
-     `SimId::spawned(..)` entity (id contains `/`) is in the snapshot, gone from the world,
-     and unauthored — a dynamic birth reconstructed from blobs alone is not exact. REMAINING
-     for exact-across-a-birth: register reconstruction recipes per dynamic spawner; then tag
-     confirmed read-model ticks and deduplicate resim side effects. Also remaining: the boss
-     hands (`giant_gnu_hand_left/right_7`) get a `FeatureId`, so `ensure_sim_id` promotes them
+  4. **Codec failure semantics:** DONE for the ordinary path, TRANSACTIONALLY (S2.5;
+     re-audit finding 5). `restore` returns `RestoreError::DecodeFailed` in every build.
+     Standalone codecs (plain component, plain resource) carry a decode `probe` and are
+     validated in a mutation-free preflight BEFORE the first despawn, so a corrupt ordinary
+     blob refuses with the world untouched (a would-be-despawned future entity is asserted
+     to survive). RESIDUAL: cursor/resolved codecs decode into a live target, cannot be
+     probed standalone, and their failure can still surface mid-reconciliation — and a
+     resolved codec cannot even distinguish decode failure from authored absence (its
+     `resolve` returns `None` for both). Making `SnapshotResolve::resolve` return a `Result`
+     is the remaining work.
+  5. **Positive, self-measured losslessness:** DONE (S2.6/S2.7/S2.8; re-audit finding 6).
+     `lossless()` is argless: `restore` MEASURES the resource term itself
+     (`unregistered_sim_resources`), so the caller can no longer claim `lossless(0)` against
+     a world with debt. It requires `resource_census_reliable` (resource names need
+     `bevy_ecs/debug`; without them the count is a spurious 0), so it cannot succeed blind.
+     Registered `Messages<M>` channels are CLAIMED (restore clears them), not counted as
+     false debt. Resource cursors whose target is absent are counted, not silently passed.
+     The sim-resource universe is a NAMED exclusion policy (`SIM_RESOURCE_EXCLUSIONS`),
+     per-TYPE for mixed-purpose crates (`ambition_ldtk_map`) so a new resource there is a
+     review event, namespace-form only for wholly-presentation subtrees.
+  6. **Dynamic reconstruction refusal (NOT a general bounded window):** ONE refusal enforced
+     (S2.9/S2.10; re-audit finding 4). `restore` refuses `RestoreError::UnsupportedDynamic`
+     `Reconstruction` when a `SimId::spawned(..)` entity (id contains `/`) is in the
+     snapshot, gone from the world, and unauthored — it EXISTED at the snapshot tick and
+     cannot be rebuilt from blobs alone. This is a reconstruction refusal, not a "birth"
+     (an entity spawned after the snapshot is future-only and simply despawned), and it is
+     preflighted before any mutation. It establishes ONE reconstruction refusal, not a
+     general bounded-window guarantee. REMAINING for exact-across-a-birth: register
+     reconstruction recipes per dynamic spawner; then tag confirmed read-model ticks and
+     deduplicate resim side effects. Also remaining: the boss hands
+     (`giant_gnu_hand_left/right_7`) get a `FeatureId`, so `ensure_sim_id` promotes them
      into the `placement:` namespace with an entity-index-derived (non-deterministic) name;
      they should mint `SimId::spawned(parent_giant_sim_id, counter)` at spawn. No suite room
      yet spawns AND kills a dynamic child inside a window, so the recipe path is unexercised.

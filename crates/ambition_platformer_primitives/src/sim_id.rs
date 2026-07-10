@@ -68,6 +68,17 @@ impl SimId {
     }
 
     /// The raw string. Sorted and compared; never parsed.
+    /// Rebuild an id from a snapshot blob's key.
+    ///
+    /// The ONLY way to make a `SimId` from a raw string, and it is named for its
+    /// one caller (`ambition_runtime::snapshot::restore`). Everything else must
+    /// go through [`SimId::placement`] / [`SimId::player_slot`] /
+    /// [`SimId::spawned`], because those three ARE the vocabulary — a fourth way
+    /// to mint one is a fourth namespace to collide in.
+    pub fn from_snapshot(raw: String) -> Self {
+        Self(raw)
+    }
+
     pub fn as_str(&self) -> &str {
         &self.0
     }

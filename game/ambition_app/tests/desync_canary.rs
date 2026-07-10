@@ -210,3 +210,196 @@ fn the_sim_id_migration_ledger() {
          or mint the child's (`mint_spawned_sim_ids` is the pattern). See netcode.md N3.1."
     );
 }
+
+/// **N3.1's registration checklist, computed against real rooms.**
+///
+/// `restore` despawns every `SimId` entity and respawns it from blobs. Every
+/// component on such an entity that the registry neither registers nor declares
+/// derived is therefore destroyed. This test names them, counts them, and pins the
+/// count.
+///
+/// The number is not zero and is not supposed to be yet: netcode.md's N3.1 pin
+/// lists what each sim crate still owes (move playbacks + cooldowns, brain memory,
+/// portal transit state, falling-sand grids, every seeded RNG). What this ledger
+/// buys is that the debt is a NUMBER, checked on every run, rather than a paragraph
+/// someone reads once. It may fall. It may not rise.
+///
+/// ```text
+/// cargo test -p ambition_app --features rl_sim --test desync_canary -- --nocapture the_snapshot
+/// ```
+#[test]
+fn the_snapshot_coverage_ledger() {
+    let reg = registry();
+    let mut report = String::new();
+    let mut worst = 0usize;
+
+    for room in [
+        "gap_run",
+        "portal_lab",
+        "mockingbird_arena",
+        "gnu_ton_arena",
+    ] {
+        let Some(mut s) = sim(room) else { continue };
+        let mut policy = RandomWalkPolicy::traversal_stress(7);
+        for i in 0..120 {
+            let mut action = policy.act();
+            action.attack = i % 7 == 0;
+            s.step(action);
+        }
+        let unclaimed = reg.unclaimed_components(s.world());
+        worst = worst.max(unclaimed.len());
+        report.push_str(&format!(
+            "  {room:22} {:3} component types a restore would destroy\n",
+            unclaimed.len()
+        ));
+        for c in unclaimed.iter().take(4) {
+            report.push_str(&format!("      {c}\n"));
+        }
+    }
+    eprintln!("\n=== N3.1 snapshot coverage ledger ===\n{report}");
+    eprintln!(
+        "  (component NAMES need bevy's `debug` feature; the counts key on TypeId \
+         and are exact either way)\n"
+    );
+
+    // Today's debt, pinned. Lower it by registering a component or by declaring it
+    // structurally derived — both are claims, and `declare_derived` is the one that
+    // promises a per-frame system rebuilds it.
+    const KNOWN_DEBT: usize = 88;
+    assert!(
+        worst <= KNOWN_DEBT,
+        "{worst} component types on SimId entities are neither registered as sim \
+         state nor declared derived, up from the pinned {KNOWN_DEBT}. A restore \
+         destroys every one of them. Register it, declare it derived, or lower the \
+         pin — but do not let the debt grow silently. See netcode.md N3.1."
+    );
+}
+
+/// **N3.1's exit oracle: rewind, replay, and land in the same place.**
+///
+/// Run the sim, take a snapshot, run K ticks recording each hash, restore, replay
+/// the same K inputs. The two hash streams must be identical.
+///
+/// This is strictly stronger than `take`'s unit round-trip, which says only that a
+/// restored world *looks* like the taken one for one tick. This says it *continues*
+/// like it. Any sim state the registry misses, and that feeds back into registered
+/// state, diverges here on the tick it first matters.
+///
+/// **It is `#[ignore]`d, and it fails today.** Not from a bug in `take`/`restore` —
+/// their unit oracles are green — but because `restore` destroys the 88 component
+/// types `the_snapshot_coverage_ledger` counts, including the player's motion model
+/// and every brain. It diverges at tick 0, exactly as it should. The live test
+/// below pins that fact so this `#[ignore]` cannot be mistaken for a shrug.
+///
+/// **Un-ignore it when the coverage ledger reads zero.** It is the single assertion
+/// that N3.1 is done.
+#[test]
+#[ignore = "N3.1's exit oracle: red until the snapshot coverage ledger reads zero"]
+fn a_restored_sim_replays_the_future_it_was_rewound_from() {
+    use ambition::runtime::snapshot::{restore, take};
+
+    let reg = registry();
+    let Some(mut s) = sim("gap_run") else { return };
+
+    // Warm up, so the snapshot is of a moving world rather than of a spawn pose.
+    let mut warm = RandomWalkPolicy::traversal_stress(3);
+    for _ in 0..40 {
+        s.step(warm.act());
+    }
+
+    let snap = take(s.world(), &reg);
+    let at_snapshot = reg.hash_world(s.world());
+    let inputs: Vec<_> = {
+        let mut p = RandomWalkPolicy::traversal_stress(99);
+        (0..60).map(|_| p.act()).collect()
+    };
+
+    let first: Vec<u64> = inputs
+        .iter()
+        .map(|a| {
+            s.step(a.clone());
+            reg.hash_world(s.world())
+        })
+        .collect();
+
+    let report = restore(s.world_mut(), &snap, &reg);
+    assert_eq!(
+        reg.hash_world(s.world()),
+        at_snapshot,
+        "restore did not reproduce the taken state"
+    );
+
+    let second: Vec<u64> = inputs
+        .iter()
+        .map(|a| {
+            s.step(a.clone());
+            reg.hash_world(s.world())
+        })
+        .collect();
+
+    let diff = compare_hash_streams(&first, &second);
+    assert!(
+        diff.in_sync(),
+        "a rewound sim replayed into a different future at tick {:?}. \
+         {} component types were destroyed by the restore and {} unidentified bodies \
+         survived it — one of them is the state that leaked. See netcode.md N3.1.",
+        diff.first_divergence_tick,
+        report.lost_components.len(),
+        report.unidentified_survivors,
+    );
+}
+
+/// **`restore` reproduces exactly the state it registered, and admits the rest.**
+///
+/// The half of the exit oracle that is true today, and the reason the other half is
+/// allowed to be `#[ignore]`d: on a real room, `restore` puts the registered hash
+/// back bit for bit, reports every component type it destroyed, and leaves no
+/// unidentified body standing. What it cannot do, it says.
+///
+/// A `lossless()` report here would mean the coverage ledger had reached zero — at
+/// which point this test's `assert!(!lossless)` is the thing that tells you to
+/// un-ignore the oracle above and delete this line.
+#[test]
+fn a_restore_of_a_real_room_is_exact_where_it_is_registered_and_honest_where_it_is_not() {
+    use ambition::runtime::snapshot::{restore, take};
+
+    let reg = registry();
+    let Some(mut s) = sim("gap_run") else { return };
+    let mut policy = RandomWalkPolicy::traversal_stress(3);
+    for _ in 0..40 {
+        s.step(policy.act());
+    }
+
+    let snap = take(s.world(), &reg);
+    let at_snapshot = reg.hash_world(s.world());
+    for _ in 0..30 {
+        s.step(policy.act());
+    }
+    assert_ne!(
+        reg.hash_world(s.world()),
+        at_snapshot,
+        "the sim must actually have moved, or this proves nothing"
+    );
+
+    let report = restore(s.world_mut(), &snap, &reg);
+    assert_eq!(
+        reg.hash_world(s.world()),
+        at_snapshot,
+        "restore did not reproduce the registered state it had snapshotted"
+    );
+    assert_eq!(
+        take(s.world(), &reg),
+        snap,
+        "a snapshot of a restored world is not the snapshot it was restored from"
+    );
+    assert_eq!(
+        report.unidentified_survivors, 0,
+        "an unidentified body walked out of the rollback"
+    );
+    assert!(
+        !report.lost_components.is_empty() && !report.lossless(),
+        "restore is lossless on a real room — the coverage ledger has reached zero. \
+         Un-ignore `a_restored_sim_replays_the_future_it_was_rewound_from`, which is \
+         N3.1's real exit oracle, and delete this assertion."
+    );
+}

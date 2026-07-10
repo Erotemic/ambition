@@ -282,8 +282,9 @@ snapshots needed. Needs N0 complete, plus:
 
 ## N3 — rollback (the real thing, explicitly post-1.0)
 
-- **N3.1 Snapshot/restore of sim state** — 🟡 **the REGISTRY half + the IDENTITY
-  migration landed 2026-07-10.**
+- **N3.1 Snapshot/restore of sim state** — 🟡 **registry + identity + `take`/`restore`
+  landed 2026-07-10. What remains is the per-crate registration checklist, and it
+  is now a NUMBER.**
 
   - `ambition_runtime::snapshot`: `SnapshotRegistry` (opt-in per plugin, decision
     1), `StateHasher`, `hash_entities_by_key` (the stable-order rule),
@@ -303,11 +304,75 @@ snapshots needed. Needs N0 complete, plus:
   simulated body carries a `SimId`. A rise means a spawn site shipped without
   minting one, and restore would silently lose whatever it spawned.
 
-  **`take`/`restore` remain the next slice.** The identity blocker is gone; what
-  is left is decision (3)'s despawn-registered + respawn-from-blobs, which needs
-  each sim crate to register its components' serialization, not just its hash.
+  **`take` / `restore` — ✅ LANDED 2026-07-10** (the sketch below, executed).
+
+  - **One serialization, two consumers.** N0.4's line *"hash = the snapshot
+    serialization of N3.1 — build them together"* is taken literally: a component
+    implements `SnapshotState` once, and its bytes are BOTH what the canary hashes
+    and what `take` stores. There is no second encoder to drift. A codec that drops
+    a field is caught by `every_engine_codec_round_trips_exactly` (the property is
+    `encode ∘ decode ∘ encode == encode`, on bytes) and by `Reader::finish`, which
+    rejects a decoder that leaves bytes on the floor.
+  - `restore` is decision (3) exactly: despawn every `SimId` entity, respawn from
+    blobs, load resources. An entity spawned after the snapshot ceases to exist; one
+    despawned since is recreated. Both fall out of *"the snapshot is the truth"*
+    rather than out of a diff. `take` after `restore` returns the snapshot it
+    restored from.
+
+  **Deviation from the sketch, stated rather than drifted.** The sketch has
+  `SimSnapshot { tick, blobs: Vec<(StateTypeId, Box<[u8]>)> }` — one flat byte
+  string per entry. Entity rows stay STRUCTURED (`Vec<(SimId, Vec<u8>)>`) instead,
+  because decision (3) makes `restore` group rows by `SimId` across entries to
+  respawn one entity carrying all of its components; a flat blob would be re-split
+  on `restore`'s first line, and that parse could fail. This one cannot. The wire
+  format — where `Box<[u8]>` and a version tag earn their keep — is N3.3's, and it
+  serializes exactly this, which is why the per-entry bytes are already canonical,
+  explicitly ordered, and free of `usize`.
+
+  **What restore cannot rebuild, it reports — and the report is a gate.**
+  A respawned entity carries exactly its registered components; everything else is
+  destroyed. `SnapshotRegistry::unclaimed_components` computes that set from the
+  live world (every component on a `SimId` entity that is neither registered nor
+  `declare_derived`'d), and `RestoreReport` returns it at every call, alongside
+  `unidentified_survivors` — bodies with no `SimId`, which `restore` does **not**
+  despawn and which therefore *walk out of a rollback*. A projectile in that set
+  outlives its own un-firing.
+
+  `the_snapshot_coverage_ledger` in `ambition_app` prints and pins the debt:
+
+  | room | component types a restore would destroy |
+  |---|---|
+  | `gap_run` | 53 |
+  | `portal_lab` | **88** |
+  | `mockingbird_arena` | 77 |
+  | `gnu_ton_arena` | 53 |
+
+  Pinned at 88; it may fall, it may not rise. The ledger keys on `TypeId` (always
+  exact); component NAMES need `bevy_ecs/debug`, which `ambition_app`'s test graph
+  happens to enable and `ambition_runtime`'s does not — so the counts are trustworthy
+  in both and the names are readable where it matters. Lower it by registering a
+  component, or by `declare_derived::<C>()`, which is a *promise* that the same
+  per-frame system that maintains `C` rebuilds it — N3.1's own no-restore-only-code
+  rule, made into an API call.
+
+  **`a_restored_sim_replays_the_future_it_was_rewound_from` is N3.1's exit oracle**:
+  take, run K ticks hashing each, restore, replay the same K inputs, demand identical
+  hash streams. It is `#[ignore]`d and it fails at tick 0 — not from a bug in
+  `take`/`restore`, whose unit oracles are green, but because `restore` destroys the
+  player's motion model and every brain. **Un-ignore it when the ledger reads zero.**
+  Its live sibling,
+  `a_restore_of_a_real_room_is_exact_where_it_is_registered_and_honest_where_it_is_not`,
+  pins today's truth: on `gap_run` the restore reproduces the registered hash bit for
+  bit, leaves zero unidentified survivors, and admits every type it destroyed. That
+  test is what stops the `#[ignore]` from being a shrug, and it goes red — on
+  purpose — the day the ledger hits zero.
+
+  Registered today: `sim_tick`, `world_time`, `body_kinematics`, `body_health`,
+  `sim_id_counters`. The checklist below (move playbacks + cooldowns, brain memory,
+  portal transit, falling-sand grids, every seeded RNG) is what the 88 is made of.
+
   Still useful long before netcode: Braid-style rewind, RL tree search, and the
-  fighter brain's FB6 rollouts all want it. [fable-hard]
+  fighter brain's FB6 rollouts all want it — and all three want `lossless()` first.
 - **N3.2 Resim discipline** — bounded rollback window; presentation reads
   confirmed ticks only (read-model tick-tagging); side-effect suppression
   during resim (sfx/vfx event facts carry the tick; presentation dedups).

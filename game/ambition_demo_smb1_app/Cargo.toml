@@ -1,0 +1,28 @@
+[package]
+name = "ambition_demo_smb1_app"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "The Super Mary-O demo's thin SHELL: foundation + PlatformerEnginePlugins + PlatformerHostPlugins + the demo's content and rules crates. Playbook exit 3, executable."
+
+[[bin]]
+name = "mary_o_demo"
+path = "src/main.rs"
+
+[features]
+default = []
+# Draw the world. Adds the engine's generic presentation face (OV1) and the
+# renderer's `visible` dependency chain. Without it the shell steps the sim
+# headlessly, which is what `tests/exit_3.rs` and the `mary_o_demo` bin do.
+visible = ["ambition/visible"]
+
+[dependencies]
+# The engine, host, and vocabulary — through the ONE umbrella surface. A demo app
+# depends on `ambition`, never on `ambition_app`. That is the demo gate.
+ambition = { path = "../../crates/ambition", default-features = false }
+# The demo's own content + rules. The shell names nothing else.
+ambition_demo_smb1 = { path = "../ambition_demo_smb1" }
+# Bevy's derives cannot be reached through a re-export (see the content crate's
+# manifest). The shell needs none, but `App`/`Update` come from here.
+bevy = { version = "0.18.1", default-features = false }

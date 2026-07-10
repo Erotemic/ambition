@@ -1,8 +1,8 @@
-# `ambition_demo_smb1` — module map
+# `ambition_demo_smb1_app` — module map
 
 <!-- BEGIN generated module map (scripts/modules_md.py) -->
 
-**ambition_demo_smb1** — Super Mary-O demo content home — the M-track's world half.
+**ambition_demo_smb1_app** — The Super Mary-O demo's shell, as a function — so the binary and the exit-3 regression test assemble the SAME app.
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|

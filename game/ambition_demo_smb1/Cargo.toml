@@ -8,3 +8,8 @@ description = "Tiny SMB1-style demo content home used as an oracle for the Ambit
 
 [dependencies]
 ambition = { path = "../../crates/ambition", default-features = false }
+# A content crate that defines its own ECS components/resources cannot reach
+# bevy's derive macros through `ambition::bevy` — they resolve `bevy_ecs` through
+# the CONSUMER's manifest, so a re-export does not satisfy them. The E9 oracle's
+# real claim: a downstream game names `ambition` + `bevy`, and NOTHING ELSE.
+bevy = { version = "0.18.1", default-features = false }

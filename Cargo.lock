@@ -384,6 +384,16 @@ name = "ambition_demo_smb1"
 version = "0.1.0"
 dependencies = [
  "ambition",
+ "bevy",
+]
+
+[[package]]
+name = "ambition_demo_smb1_app"
+version = "0.1.0"
+dependencies = [
+ "ambition",
+ "ambition_demo_smb1",
+ "bevy",
 ]
 
 [[package]]

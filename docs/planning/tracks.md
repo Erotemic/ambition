@@ -48,7 +48,10 @@ player-visible bugs, and the untouched determinism ladder.
    `tests/exit_3.rs` pin it. Fable's "interactive build" ruling held for the FEEL
    and was overruled for the SHELL (vision §7; the case is in the commit message).
    **The shell draws nothing — an ENGINE gap, filed as OV1 below.**
-   Same shape next for `ambition_demo_smb1`'s 1-1 geometry [sonnet].
+   ✅ **And the same shape landed for `ambition_demo_smb1` the same day**: level
+   1-1's grammar + `Smb1RulesPlugin` + `ambition_demo_smb1_app`. Two demos, two
+   genres, two modes, ONE engine — and the second one needed no engine change at
+   all, which is the E9 oracle's actual claim rather than its aspiration.
 
 2. **The refactor chain — [engine/refactor-chain.md](engine/refactor-chain.md).**
    [opus] Six slices in dependency order, all verified, written 2026-07-10 after
@@ -170,7 +173,7 @@ CC4 (profile first); CC7 P3a.
 | Boss pipeline | [engine/boss-design.md](engine/boss-design.md) | NEW | BD4 seed extraction [opus/sonnet]; BD1 after |
 | Falling sand | [engine/falling-sand.md](engine/falling-sand.md) | NEW; low priority | FS1 single-owner + conservation [opus] |
 | S — Sanic | [demos/sanic.md](demos/sanic.md) | S1–S3 landed; **S5 shell DONE 2026-07-10** — `ambition_demo_sanic_app` boots engine+host+content+rules and steps the sim (playbook exit 3, gate-enforced); `SanicRulesPlugin` is D-C's first real consumer | the FEEL half is still interactive. **OV1 blocks the windowed half.** Ball-dash technique [opus] |
-| M — Super Mary-O | [demos/super-mary-o.md](demos/super-mary-o.md) | `ambition_demo_smb1` registered, empty | level 1-1 geometry; M1+A3 powerup-equipment [opus] |
+| M — Super Mary-O | [demos/super-mary-o.md](demos/super-mary-o.md) | **level 1-1 + the shell LANDED 2026-07-10.** `level_1_1()` authors the grammar (open teach → widening pit rhythm → stepping stone → stair pyramid → goal), pinned by a geometry test; `Smb1RulesPlugin::{hosted,global}` runs the mode-scoped level clock; `ambition_demo_smb1_app` boots + draws. **The E9 oracle held a SECOND time** — a different genre, zero engine edits | M1+A3 powerup-equipment; M2 camera scroll policy; M3 flagpole sequence; tile art [opus] |
 | F — Super Smash Siblings | [demos/super-smash-siblings.md](demos/super-smash-siblings.md) | gated on CM6 / N1 / FB | F1 rules crate |
 | H — Hollow Lite | [demos/hollow-lite.md](demos/hollow-lite.md) | gated on BD pipeline | after BD7 pilot |
 | Slower light | [engine/slower-light.md](engine/slower-light.md) | Tier-0 seams rode E4; L1–L4 in P5 | — |

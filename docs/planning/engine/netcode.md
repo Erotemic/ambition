@@ -217,7 +217,7 @@ Obligations (each a slice, all [opus]):
   (no ambient randomness; no wall-clock reads; no std-hash-order semantics; no
   `Entity` as an ordering key) are greps over non-test source under `crates/*` AND
   `game/{ambition_content,ambition_demo_sanic,ambition_demo_smb1}`,
-  in `crates/ambition_runtime/tests/determinism_lints.rs`, with an
+  in the `engine.determinism` policy (`tests/ambition_workspace_policy/src/custom/determinism.rs`; migrated 2026-07-10 from `crates/ambition_runtime/tests/determinism_lints.rs`), with an
   auditable `AMBITION_REVIEW(determinism)` escape hatch. The doc page is
   **ADR 0023**. Each lint is poison-tested (a violation injected into a real sim
   source makes it fail), so none of them passes vacuously.

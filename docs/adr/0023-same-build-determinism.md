@@ -39,8 +39,10 @@ determinism stays reachable without a rewrite, should it ever be wanted.
 
 ### The rules
 
-Each is enforced by
-[`crates/ambition_runtime/tests/determinism_lints.rs`](../../crates/ambition_runtime/tests/determinism_lints.rs),
+Each is enforced by the `engine.determinism` / `game.determinism` policy
+([`tests/ambition_workspace_policy/src/custom/determinism.rs`](../../tests/ambition_workspace_policy/src/custom/determinism.rs)
++ config [`policies/determinism.toml`](../../tests/ambition_workspace_policy/policies/determinism.toml);
+migrated 2026-07-10 from the retired `crates/ambition_runtime/tests/determinism_lints.rs`),
 which greps every non-test source in the SIM crates.
 
 1. **No ambient randomness.** Sim randomness is a seeded, snapshot-registered

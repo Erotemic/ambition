@@ -34,6 +34,8 @@ fn engine_policies() {
     custom::module_size::run(&ws, &mut report);
     custom::determinism::run(&ws, Scope::Engine, &mut report);
     custom::control_frame::run(&ws, Scope::Engine, &mut report);
+    custom::lifecycle::run(&ws, &mut report);
+    custom::content_ownership::run(&ws, &mut report);
     report.assert_ok();
 }
 
@@ -95,6 +97,8 @@ fn policy_runner_self_tests() {
     custom::determinism::poison_self_tests();
     custom::control_frame::poison_self_tests();
     custom::control_frame::allowlist_is_justified();
+    custom::lifecycle::poison_self_tests();
+    custom::content_ownership::poison_self_tests();
 
     // The architecture-migration matrix is complete and honest.
     let ws = Workspace::discover();

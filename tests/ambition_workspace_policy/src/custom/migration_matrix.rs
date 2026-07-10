@@ -29,6 +29,8 @@ const CUSTOM_POLICY_IDS: &[&str] = &[
     "engine.module-size",
     "engine.determinism",
     "engine.control-frame",
+    "engine.room-feature-spawns",
+    "engine.enemy-config-archetype-free",
 ];
 
 #[derive(Debug, Deserialize)]

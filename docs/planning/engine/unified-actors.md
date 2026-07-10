@@ -368,7 +368,7 @@ Enemies rise to the player; delete-heavy. Each step is gated on *it compiles* (i
 
    🟢 **Phase C (payoff verification) DONE (2026-07-10).** It was ONE LINT, and it
    is the gate on the S5/S6 player fold:
-   **`ambition_runtime/tests/control_frame_lint.rs`**. Most of step 5's payoff was
+   **the `engine.control-frame` / `game.control-frame` policy** (`tests/ambition_workspace_policy/src/custom/control_frame.rs`; migrated 2026-07-10 from `ambition_runtime/tests/control_frame_lint.rs`). Most of step 5's payoff was
    already pinned by tests that exist: `duel_arena.rs` (the B1 grudge reframe — two
    ordinary `Npc`s, no hostile faction), `unified_melee.rs`,
    `unified_body_movement.rs`, `player_clone_live.rs`. What was NOT pinned was
@@ -402,7 +402,7 @@ Enemies rise to the player; delete-heavy. Each step is gated on *it compiles* (i
 
    **The lint is bidirectional**, because B3's rot was: an unlisted holder fails,
    AND an allowlist entry matching no holder fails. Same shape and file family as
-   `determinism_lints.rs` (ADR 0023): a grep over the sim crates' non-test sources,
+   the `engine.determinism` policy (ADR 0023): a grep over the sim crates' non-test sources,
    an explicit allowlist with a `Bridge` category + justifying reason per entry, a
    failure message naming file/line/fix, an `AMBITION_REVIEW(control_frame)` escape
    hatch, and a companion test that prints every exception.

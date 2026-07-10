@@ -201,6 +201,31 @@ Determinism + control-frame are kept SEPARATE scanners (not merged into one gene
 parser) — the merge would not reduce code or preserve clarity. Old file deleted
 after parity.
 
+### Task 9 — finish decomposing architecture_boundaries.rs (COMPLETE — file DELETED)
+
+All 67 original `architecture_boundaries.rs` tests migrated: **65 declarative** (in
+`policies/engine.toml` + `policies/game.toml`) and **2 custom** scanners
+(`custom/lifecycle.rs` raw-spawn allowlist, `custom/content_ownership.rs`
+archetype-free enemy config). Two new declarative rule kinds — `file-contains` /
+`file-omits` — carry the facade re-export + burned-down-facade shape. Delivered in
+3 batches (batch 1 in Task 6; batches 2 + 3 here), each ran old + new green together
+before removing the fns; the file was deleted only after the matrix reached zero
+`legacy-pending`. The migration-matrix self-test forced honesty at every step.
+
+Three originals were silently VACUOUS (scanned dirs that had moved to their own
+crates): `combat_kit_stays_content_free` → re-pointed at `ambition_combat/src`;
+`presentation_does_not_use_the_archetype_enum` → `ambition_render/src`;
+`portal_core_*` gravity/roster scans of the deleted `ambition_actors/src/portal` →
+`ambition_portal/src`. Re-pointing at the real homes made them meaningful (an
+improvement demanded by "a green empty scan is a failure").
+
+`cargo test -p ambition_app --test architecture_boundaries` references removed from
+`docs/architecture/architecture-boundaries.md` and ADR 0019; guard-location
+pointers in ADR 0023, netcode.md, unified-actors.md updated to the policy package.
+The policy suite runs without compiling or linking `ambition_app`.
+
+**Migration matrix: 65 declarative + 2 custom + 0 legacy-pending = 67. Complete.**
+
 <!-- MIGRATION-MATRIX-END -->
 
 ## Commands (target model)

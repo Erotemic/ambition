@@ -52,7 +52,7 @@ can be mapped cleanly onto reusable runtime phases.
 ## Validation
 
 ```bash
-cargo test -p ambition_app --test architecture_boundaries
+cargo test -p ambition_workspace_policy
 cargo test -p ambition_actors --lib room_scoped
 cargo test -p ambition_app --test portal_lab_usable
 cargo test -p ambition_app --test gravity_room_reachability
@@ -71,10 +71,11 @@ cargo test -p ambition_app --test gravity_room_reachability
   each by its canonical path — `ambition_engine_core`,
   `ambition_platformer_primitives::kinematic`, `ambition_input`, `ambition_ui_nav`,
   `ambition_interaction`, `ambition_characters::{actor, brain}` — and edit the crate
-  directly; there is no lib facade. The `architecture_boundaries` test guards against
-  re-adding them.
-- Machinery must not import content: the `architecture_boundaries` guards (in
-  `ambition_app/tests`) enforce it. Add a guard when you win a new boundary.
+  directly; there is no lib facade. The workspace-policy guards (in
+  `tests/ambition_workspace_policy`) guard against re-adding them.
+- Machinery must not import content: the workspace-policy guards (in
+  `tests/ambition_workspace_policy`, `engine.machinery-imports-no-content`)
+  enforce it. Add a guard when you win a new boundary.
 - New gameplay subsystems should be self-owning `Plugin`s (components-as-plugins),
   not functions hand-wired in the app assembly.
 - Integration tests + binaries live in `ambition_app`; machinery unit tests in

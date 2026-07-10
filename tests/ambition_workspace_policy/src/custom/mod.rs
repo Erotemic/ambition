@@ -10,7 +10,9 @@
 //!
 //! Populated as the custom scanners migrate (Tasks 5, 7, 8, 9).
 
+pub mod content_ownership;
 pub mod control_frame;
 pub mod determinism;
+pub mod lifecycle;
 pub mod migration_matrix;
 pub mod module_size;

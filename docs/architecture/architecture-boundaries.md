@@ -7,19 +7,18 @@ declarative policies + custom scanners, not by rustc; fast directional feedback.
 
 ## Where the guards live
 
-The authoritative guards are **migrating** into the sequestered workspace-policy
-package `tests/ambition_workspace_policy` (see
-`docs/planning/engine/test-organization-migration.md` for the live migration
-matrix). That package inspects the workspace as DATA (parsed manifests + source
-walking) and links no production crate, so running the policy suite never
-compiles `ambition_app`.
+The authoritative guards live in the sequestered workspace-policy package
+`tests/ambition_workspace_policy` (see
+`docs/planning/engine/test-organization-migration.md` for the migration matrix).
+That package inspects the workspace as DATA (parsed manifests + source walking)
+and links no production crate, so running the policy suite never compiles
+`ambition_app`.
 
-**Migration status:** in progress. Some architecture rules still live in the
-legacy `game/ambition_app/tests/architecture_boundaries.rs` binary until their
-batch is ported; each ported rule keeps a stable policy ID derived from its old
-test name, so `git log -S <old-name>` still finds the history. Do not treat the
-legacy file as the source of truth for a rule that has already moved — check the
-migration matrix.
+The legacy `game/ambition_app/tests/architecture_boundaries.rs` binary is **gone**
+(deleted 2026-07-10). All 67 of its tests were migrated: 65 to declarative
+`policies/*.toml` rules and 2 to custom scanners (raw-spawn allowlist,
+archetype-free enemy config). Each ported rule keeps a stable policy ID derived
+from its old test name, so `git log -S <old-name>` still finds the history.
 
 ## Ownership model
 
@@ -71,10 +70,7 @@ cargo test -p ambition_workspace_policy repository_policies
 cargo test -p ambition_workspace_policy engine_policies
 cargo test -p ambition_workspace_policy game_policies
 cargo test -p ambition_workspace_policy            # all scopes + self-tests
-# legacy (shrinking): the rules not yet ported still run in
-cargo test -p ambition_app --test architecture_boundaries
 ```
 
-When a boundary intentionally changes, update this document, the relevant policy
-file (or custom module), and — while it exists — the legacy
-`architecture_boundaries.rs` in the same patch, so the new rule is visible.
+When a boundary intentionally changes, update this document and the relevant
+policy file (or custom module) in the same patch, so the new rule is visible.

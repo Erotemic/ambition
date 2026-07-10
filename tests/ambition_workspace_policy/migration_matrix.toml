@@ -17,13 +17,13 @@
 
 [[entry]]
 old_test = "architecture_boundaries_umbrella_crate_and_demo_homes_exist"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["game.umbrella-and-demo-members", "game.umbrella-not-app-shell", "game.umbrella-exposes-engine-surface", "game.demo-sanic-umbrella-only", "game.demo-smb1-umbrella-only", "game.demos-reach-engine-through-facade"]
 
 [[entry]]
 old_test = "architecture_boundaries_app_uses_umbrella_manifest_surface"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["game.app-umbrella-plus-local", "game.app-reaches-lower-through-facade"]
 
 [[entry]]
 old_test = "architecture_boundaries_render_and_actor_crates_are_decoupled"
@@ -37,8 +37,8 @@ policies = ["engine.platformer-runtime-content-free"]
 
 [[entry]]
 old_test = "architecture_boundaries_platformer_runtime_crate_is_extracted"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.platformer-primitives-extracted", "engine.platformer-primitives-no-actors", "engine.platformer-primitives-projectile-generic-spec", "engine.platformer-primitives-projectile-generic-body", "engine.platformer-primitives-projectile-generic-collision", "engine.platformer-primitives-projectile-generic-mod", "engine.actor-platformer-facade-shrunk", "engine.actor-platformer-facade-reexports", "engine.actor-orientation-facade", "engine.actor-physics-facade"]
 
 [[entry]]
 old_test = "architecture_boundaries_sim_does_not_import_presentation"
@@ -82,18 +82,18 @@ policies = ["engine.ambition_inventory_ui-member", "engine.ambition_inventory_ui
 
 [[entry]]
 old_test = "architecture_boundaries_asset_manager_is_backend_generic"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.asset-manager-member", "engine.asset-manager-no-audio", "engine.asset-manager-no-backend-providers", "engine.asset-manager-no-sfx-adapter", "engine.asset-manager-no-sfx-feature"]
 
 [[entry]]
 old_test = "architecture_boundaries_projectile_schedule_wiring_lives_in_runtime"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.projectile-schedule-facade", "engine.projectile-schedule-facade-owns", "engine.projectile-schedule-facade-omits", "engine.app-no-actor-projectile-steppers", "engine.content-no-actor-projectile-steppers", "engine.runtime-actor-projectile-centralized"]
 
 [[entry]]
 old_test = "architecture_boundaries_runtime_is_headless_composition_tier"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.runtime-member", "engine.runtime-required-deps", "engine.runtime-manifest-allow", "engine.runtime-manifest-deny", "engine.runtime-source-no-upper"]
 
 [[entry]]
 old_test = "architecture_boundaries_host_does_not_depend_on_actors"
@@ -102,8 +102,8 @@ policies = ["engine.host-crate-member", "engine.host-manifest-no-actors", "engin
 
 [[entry]]
 old_test = "architecture_boundaries_kaleidoscope_is_an_engine_extension"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["game.kaleidoscope-member", "game.kaleidoscope-menu-model-only", "game.kaleidoscope-no-game-machinery", "game.menu-crate-lunex-free"]
 
 [[entry]]
 old_test = "architecture_boundaries_settings_menu_ir_is_foundation_only"
@@ -137,8 +137,8 @@ policies = ["engine.ambition_input-extracted-paths", "engine.ambition_input-abse
 
 [[entry]]
 old_test = "architecture_boundaries_control_frame_lives_with_engine_body_contract"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.control-frame-home", "engine.control-frame-exported", "engine.characters-no-input-dep", "engine.characters-no-input-source", "engine.input-reexports-control-frame"]
 
 [[entry]]
 old_test = "architecture_boundaries_game_mode_lives_with_schedule_vocabulary"
@@ -147,8 +147,8 @@ policies = ["engine.game-mode-schedule-vocab"]
 
 [[entry]]
 old_test = "architecture_boundaries_f2_actor_facades_burned_down"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.f2-actor-facades-gone", "engine.f2-actor-lib-no-facades", "engine.f2-possession-no-controlled-subject-reexport", "engine.f2-consumers-use-canonical-crates"]
 
 [[entry]]
 old_test = "architecture_boundaries_f2_schedule_labels_use_primitive_home"
@@ -177,23 +177,23 @@ policies = ["engine.menu-backend-vocab-menu-crate"]
 
 [[entry]]
 old_test = "architecture_boundaries_app_menu_settings_vocab_consumers_use_lower_crates"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["game.actor-menu-ir-gone", "game.app-menu-settings-lower-crates"]
 
 [[entry]]
 old_test = "architecture_boundaries_map_state_consumers_use_menu_crate"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["game.menu-map-state-home", "game.actor-menu-map-model-gone", "game.map-state-consumers-menu-crate"]
 
 [[entry]]
 old_test = "architecture_boundaries_actor_dialog_keeps_only_game_bindings"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.actor-dialog-no-runtime-reexport", "engine.actor-yarn-no-runtime-reexport"]
 
 [[entry]]
 old_test = "architecture_boundaries_actor_persistence_keeps_no_dev_tools_alias"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.actor-persistence-no-dev-tools-alias"]
 
 [[entry]]
 old_test = "architecture_boundaries_dialog_vocab_consumers_use_dialog_crate"
@@ -212,8 +212,8 @@ policies = ["engine.audio-facade-audio-crate"]
 
 [[entry]]
 old_test = "architecture_boundaries_touch_input_crate_is_extracted"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.touch-input-extracted", "engine.touch-input-not-in-app", "engine.app-wires-touch-plugin", "engine.app-no-in-app-mobile-input"]
 
 [[entry]]
 old_test = "architecture_boundaries_touch_input_render_edge_is_intentional"
@@ -222,63 +222,63 @@ policies = ["engine.ambition_touch_input-member", "engine.ambition_touch_input-m
 
 [[entry]]
 old_test = "architecture_boundaries_room_feature_spawns_do_not_add_raw_spawns"
-disposition = "legacy-pending"
-policies = []
+disposition = "custom"
+policies = ["engine.room-feature-spawns"]
 
 [[entry]]
 old_test = "architecture_boundaries_app_plugins_does_not_reown_moved_subsystems"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["game.app-plugins-no-reown"]
 
 [[entry]]
 old_test = "architecture_boundaries_input_timer_systems_moved_to_actors"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["game.app-sim-systems-no-redefine", "game.engine-schedule-references-moved", "game.app-keeps-host-reset-systems"]
 
 [[entry]]
 old_test = "architecture_boundaries_non_portal_mechanics_use_runtime_raycast_seam"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.non-portal-mechanics-runtime-raycast"]
 
 [[entry]]
 old_test = "architecture_boundaries_portal_orders_against_item_set_not_function"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.portal-plugin-no-host-item-subsystem", "engine.portal-wiring-orders-against-set", "engine.portal-wiring-uses-item-set"]
 
 [[entry]]
 old_test = "architecture_boundaries_portal_core_does_not_import_ambition_content_roster"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.portal-core-no-content-roster"]
 
 [[entry]]
 old_test = "architecture_boundaries_portal_core_does_not_name_host_world_or_reset"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.portal-core-no-host-world-reset"]
 
 [[entry]]
 old_test = "architecture_boundaries_music_director_is_content_agnostic"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.music-director-content-agnostic"]
 
 [[entry]]
 old_test = "architecture_boundaries_named_content_registers_through_content_plugin"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["game.named-content-paths", "game.content-plugin-composes", "game.app-installs-content-plugin", "game.app-sim-resources-no-inline-content", "game.app-plugins-no-inline-item-roster"]
 
 [[entry]]
 old_test = "architecture_boundaries_gravity_zone_mechanic_left_portal"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.gravity-mechanic-extracted", "engine.gravity-visuals-in-render", "engine.gravity-owns-plugin", "engine.gravity-portal-independent", "engine.portal-no-gravity-symbols"]
 
 [[entry]]
 old_test = "architecture_boundaries_abilities_live_under_abilities_layer"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["game.abilities-under-layer", "game.abilities-not-at-crate-root", "game.app-composes-engine-plugins", "game.engine-composes-abilities"]
 
 [[entry]]
 old_test = "architecture_boundaries_portal_has_plugin_and_schedule_files_without_actor_facade"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.portal-mechanic-crate-files", "engine.actor-portal-facade-gone", "engine.portal-plugin-labels-transit"]
 
 [[entry]]
 old_test = "architecture_boundaries_portal_crate_is_extracted"
@@ -297,18 +297,18 @@ policies = ["engine.ambition_time-member", "engine.ambition_time-extracted-paths
 
 [[entry]]
 old_test = "architecture_boundaries_f3_2_swept_movers_use_kernel_sweep_sample"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.actor-clusters-require-sweep", "engine.actor-clusters-no-optional-sweep", "engine.portal-transit-uses-sweep", "engine.portal-transit-no-anchor", "engine.portal-lib-no-anchor"]
 
 [[entry]]
 old_test = "architecture_boundaries_clock_resets_use_time_control_owner"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.clock-resets-owner-only", "engine.runtime-applies-clock-reset"]
 
 [[entry]]
 old_test = "architecture_boundaries_player_fallbacks_are_slot_ordered"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.player-fallbacks-no-raw-query", "engine.player-fallback-save-sync-documented", "engine.player-fallback-update-documented"]
 
 [[entry]]
 old_test = "architecture_boundaries_machinery_does_not_import_content"
@@ -332,18 +332,18 @@ policies = ["engine.enemy-sim-reads-data"]
 
 [[entry]]
 old_test = "architecture_boundaries_enemy_config_is_archetype_free"
-disposition = "legacy-pending"
-policies = []
+disposition = "custom"
+policies = ["engine.enemy-config-archetype-free"]
 
 [[entry]]
 old_test = "architecture_boundaries_lib_menu_keeps_only_the_coupled_pieces"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["game.lib-menu-no-host-files", "game.lib-menu-keeps-map", "game.app-menu-host-stack"]
 
 [[entry]]
 old_test = "architecture_boundaries_dev_overlays_live_in_app"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["game.lib-dev-no-overlays", "game.lib-dev-keeps-trace", "game.dev-tools-owns-state", "game.app-dev-overlays", "game.dev-consumers-use-dev-tools"]
 
 [[entry]]
 old_test = "architecture_boundaries_actor_crate_is_content_free_and_foundation_clean"

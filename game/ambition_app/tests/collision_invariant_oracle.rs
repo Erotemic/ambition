@@ -40,14 +40,39 @@ use ambition_app::{RandomWalkPolicy, SandboxSim, SandboxSimOptions};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Kind {
+    /// §6.1 invariant 1 — center inside a Solid/BlinkWall **after carve
+    /// subtraction**. A carved hole is not solid, so a body sunk into a portal
+    /// aperture is legal and this test no longer sees the block it went through.
     EmbeddedInSolid,
     OutOfBoundsAbove,
     OutOfBoundsBelow,
     OutOfBoundsSide,
     Teleport,
+    /// §6.1 invariant 4 — `NaN`/`inf` in pos or vel. Folded in from
+    /// `fuzz_random_walker`, which asserts it but does not catalog it.
+    NonFinite,
+    /// §6.1 invariant 6 — a body ended BELOW a one-way it was supported by last
+    /// frame, with no drop-through intent and no reset/room change. Admission is
+    /// one-directional; silent fall-through is the historical bug.
+    OneWayFallThrough,
 }
 
 impl Kind {
+    /// The §6.1 invariant number this kind reports. Part of the pinned minimum
+    /// trace payload: `(seed, room id, tick, invariant #, body)`.
+    fn invariant(self) -> u8 {
+        match self {
+            Kind::EmbeddedInSolid => 1,
+            // The OOB family and Teleport are both invariant 3's margin test
+            // (center outside the world AABB) split by side, plus the legacy
+            // single-tick-jump probe that predates the numbering.
+            Kind::OutOfBoundsAbove | Kind::OutOfBoundsBelow | Kind::OutOfBoundsSide => 3,
+            Kind::Teleport => 3,
+            Kind::NonFinite => 4,
+            Kind::OneWayFallThrough => 6,
+        }
+    }
+
     fn label(self) -> &'static str {
         match self {
             Kind::EmbeddedInSolid => "EMBEDDED-IN-SOLID",
@@ -55,6 +80,8 @@ impl Kind {
             Kind::OutOfBoundsBelow => "OOB-BELOW-FLOOR",
             Kind::OutOfBoundsSide => "OOB-SIDE",
             Kind::Teleport => "TELEPORT",
+            Kind::NonFinite => "NON-FINITE-POS-OR-VEL",
+            Kind::OneWayFallThrough => "ONE-WAY-FALL-THROUGH",
         }
     }
 }
@@ -71,14 +98,18 @@ struct Violation {
     /// (`Some(false)` = level-authoring, the edge is just open)? `None` for the
     /// embed/teleport kinds, which aren't boundary-relative.
     through_wall: Option<bool>,
+    /// §6.2's pinned minimum payload: the `GeoId` of the geometry the invariant
+    /// NAMES — the embedding block, the violated one-way. `None` where the
+    /// invariant names no geometry (OOB, teleport, non-finite).
+    geo: Option<ae::GeoId>,
 }
 
 /// True if `(x, y)` lies inside any Solid block — used to probe whether a Solid
 /// boundary wall sits just inside the edge the player went OOB through.
-fn point_in_solid(blocks: &[ae::Aabb], x: f32, y: f32) -> bool {
+fn point_in_solid(blocks: &[SolidBlock], x: f32, y: f32) -> bool {
     blocks
         .iter()
-        .any(|b| x >= b.min.x && x <= b.max.x && y >= b.min.y && y <= b.max.y)
+        .any(|b| x >= b.aabb.min.x && x <= b.aabb.max.x && y >= b.aabb.min.y && y <= b.aabb.max.y)
 }
 
 /// True if the center is past the world bounds (the same test the OOB check uses).
@@ -99,18 +130,102 @@ const OOB_MARGIN: f32 = 16.0;
 /// so this never fires on a legitimate ability).
 const TELEPORT_PX: f32 = 250.0;
 
-/// The Solid (full-collision) block AABBs of the room the sim is currently in.
-fn solid_blocks(sim: &SandboxSim) -> Vec<ae::Aabb> {
-    let Some(world) = sim.world().get_resource::<RoomGeometry>() else {
+/// One embeddable block: its durable identity and its box.
+#[derive(Clone)]
+struct SolidBlock {
+    geo: ae::GeoId,
+    aabb: ae::Aabb,
+}
+
+/// **The COMPOSED collision world's** embeddable blocks — §6.1 invariant 1's
+/// "after carve subtraction (the composed world is the truth — a carved hole is
+/// not solid)".
+///
+/// This is the CC3 delta. The old harness read `Res<RoomGeometry>`, the AUTHORED
+/// geometry, and so reported a body sunk into a portal aperture as embedded in the
+/// wall the portal had punched through. Composing the carves first makes the
+/// invariant-1 exemption for a straddling body FALL OUT of the geometry instead of
+/// needing a `PortalTransit` special case: the block it is "inside" no longer
+/// exists there.
+///
+/// `BlinkWall` joins `Solid`, per the invariant's own wording. One-ways never do:
+/// overlapping a one-way is explicitly legal (§6.1 "Explicitly legal").
+fn solid_blocks(sim: &SandboxSim) -> Vec<SolidBlock> {
+    let Some(room) = sim.world().get_resource::<RoomGeometry>() else {
         return Vec::new();
     };
-    world
-        .0
+    let carves: Vec<ae::Aabb> = sim
+        .world()
+        .get_resource::<ambition::actors::features::FeatureEcsWorldOverlay>()
+        .map(|o| o.portal_carves.clone())
+        .unwrap_or_default();
+    let composed = ambition::world::collision::world_with_portal_carves(&room.0, &carves);
+    composed
         .blocks
         .iter()
-        .filter(|b| matches!(b.kind, ae::BlockKind::Solid))
-        .map(|b| b.aabb)
+        .filter(|b| {
+            matches!(
+                b.kind,
+                ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
+            )
+        })
+        .map(|b| SolidBlock {
+            geo: b.id.clone(),
+            aabb: b.aabb,
+        })
         .collect()
+}
+
+/// The one-way platforms of the room the sim is in, with their identities. Read
+/// from the AUTHORED geometry: a portal never carves a one-way (only solid host
+/// kinds are carved for a body's benefit, and a one-way is not a host).
+fn one_ways(sim: &SandboxSim) -> Vec<SolidBlock> {
+    let Some(room) = sim.world().get_resource::<RoomGeometry>() else {
+        return Vec::new();
+    };
+    room.0
+        .blocks
+        .iter()
+        .filter(|b| matches!(b.kind, ae::BlockKind::OneWay))
+        .map(|b| SolidBlock {
+            geo: b.id.clone(),
+            aabb: b.aabb,
+        })
+        .collect()
+}
+
+/// The player's live body: center, velocity, half-extent. The oracle needs the
+/// half-height to know where its FEET are, and the velocity for invariant 4.
+fn player_body(sim: &mut SandboxSim) -> Option<(ae::Vec2, ae::Vec2, ae::Vec2)> {
+    use ambition::bevy::prelude::With;
+    let mut q = sim.world_mut().query_filtered::<
+        &ambition::actors::actor::BodyKinematics,
+        With<ambition::actors::actor::PrimaryPlayer>,
+    >();
+    let world = sim.world();
+    q.iter(world).next().map(|k| (k.pos, k.vel, k.size * 0.5))
+}
+
+/// Which one-way (if any) the body is STANDING ON this frame: its feet are within
+/// a contact epsilon of the platform's top, its center is above that top, and it
+/// is horizontally over the platform.
+fn supported_one_way(
+    center: ae::Vec2,
+    half: ae::Vec2,
+    platforms: &[SolidBlock],
+) -> Option<SolidBlock> {
+    /// y grows downward; feet are the +gravity face (default gravity is +y).
+    const CONTACT_EPS: f32 = 2.0;
+    let feet_y = center.y + half.y;
+    platforms
+        .iter()
+        .find(|p| {
+            center.x > p.aabb.min.x
+                && center.x < p.aabb.max.x
+                && center.y < p.aabb.min.y
+                && (feet_y - p.aabb.min.y).abs() <= CONTACT_EPS
+        })
+        .cloned()
 }
 
 /// `room id -> its LoadingZone (edge-exit / door) AABBs`, loaded once from the
@@ -139,29 +254,52 @@ fn load_loading_zones() -> std::collections::HashMap<String, Vec<ae::Aabb>> {
 /// room changed or the player respawned this tick (a door load or a death→spawn
 /// is a *legitimate* large jump, not a pop), so teleport only fires on a genuine
 /// same-room in-place warp. Embed/OOB always run on the current pos.
+#[allow(clippy::too_many_arguments)]
 fn check_step(
     room: &str,
     seed: u64,
     tick: u64,
     pos: (f32, f32),
+    vel: Option<(f32, f32)>,
     teleport_from: Option<(f32, f32)>,
     world_size: (f32, f32),
-    blocks: &[ae::Aabb],
+    blocks: &[SolidBlock],
     loading_zones: &[ae::Aabb],
+    // The one-way this body stood on LAST frame, if any, plus whether it pressed
+    // down this frame (drop-through intent) and whether a reset/room change
+    // occurred. Invariant 6 needs all three.
+    one_way_ctx: Option<(&SolidBlock, bool, bool)>,
     suppressed: &mut u32,
 ) -> Vec<Violation> {
     let mut out = Vec::new();
     let (px, py) = pos;
-    if !px.is_finite() || !py.is_finite() {
-        return out; // the base fuzzer owns the NaN-explosion assertion
+
+    // §6.1 invariant 4 — NaN/inf in pos or vel. `fuzz_random_walker` asserts it;
+    // the oracle CATALOGS it, because a non-finite body makes every other
+    // invariant meaningless and the repro line is what a fixer needs.
+    let vel_finite = vel.is_none_or(|(vx, vy)| vx.is_finite() && vy.is_finite());
+    if !px.is_finite() || !py.is_finite() || !vel_finite {
+        out.push(Violation {
+            room: room.to_string(),
+            seed,
+            tick,
+            kind: Kind::NonFinite,
+            pos,
+            detail: format!("pos=({px:?},{py:?}) vel={vel:?}"),
+            through_wall: None,
+            geo: None,
+        });
+        return out; // every downstream test is meaningless on a non-finite body
     }
 
-    // 1. Embedded in a Solid: center strictly inside a block by > EMBED_MARGIN.
+    // §6.1 invariant 1 — center strictly inside a Solid/BlinkWall by > EMBED_MARGIN,
+    // in the COMPOSED world (carves already subtracted by `solid_blocks`).
     for b in blocks {
-        if px > b.min.x + EMBED_MARGIN
-            && px < b.max.x - EMBED_MARGIN
-            && py > b.min.y + EMBED_MARGIN
-            && py < b.max.y - EMBED_MARGIN
+        let a = b.aabb;
+        if px > a.min.x + EMBED_MARGIN
+            && px < a.max.x - EMBED_MARGIN
+            && py > a.min.y + EMBED_MARGIN
+            && py < a.max.y - EMBED_MARGIN
         {
             out.push(Violation {
                 room: room.to_string(),
@@ -171,11 +309,35 @@ fn check_step(
                 pos,
                 detail: format!(
                     "center inside solid [{:.0},{:.0}]..[{:.0},{:.0}]",
-                    b.min.x, b.min.y, b.max.x, b.max.y
+                    a.min.x, a.min.y, a.max.x, a.max.y
                 ),
                 through_wall: None,
+                geo: Some(b.geo.clone()),
             });
             break; // one embed report per step is enough
+        }
+    }
+
+    // §6.1 invariant 6 — one-way fall-through. Admission is one-directional: a
+    // body supported by a one-way last frame may leave upward or sideways, and may
+    // drop through ON PURPOSE, but must never end below it silently.
+    if let Some((platform, pressed_down, remapped)) = one_way_ctx {
+        let top = platform.aabb.min.y;
+        // y grows downward, so "below the platform" is a larger y.
+        if !pressed_down && !remapped && py > top + EMBED_MARGIN {
+            out.push(Violation {
+                room: room.to_string(),
+                seed,
+                tick,
+                kind: Kind::OneWayFallThrough,
+                pos,
+                detail: format!(
+                    "stood on one-way top y={top:.0} last tick, now center y={py:.0} \
+                     with no drop-through intent"
+                ),
+                through_wall: None,
+                geo: Some(platform.geo.clone()),
+            });
         }
     }
 
@@ -230,6 +392,7 @@ fn check_step(
                 pos,
                 detail: format!("world [{ww:.0}x{wh:.0}]"),
                 through_wall: Some(through_wall),
+                geo: None,
             });
         }
     }
@@ -247,6 +410,7 @@ fn check_step(
                 pos,
                 detail: format!("jumped {d:.0}px from ({qx:.0},{qy:.0})"),
                 through_wall: None,
+                geo: None,
             });
         }
     }
@@ -274,31 +438,53 @@ fn run_episode(
     let mut prev_pos = first.player_pos;
     let mut prev_room = first.active_room.clone();
     let mut prev_resets = first.resets;
+    // Invariant 6's carry: the one-way the body stood on at the END of last tick.
+    let mut prev_support: Option<SolidBlock> = None;
     let mut violations = Vec::new();
     let mut ran = 0;
     let mut suppressed = 0;
     let empty: Vec<ae::Aabb> = Vec::new();
     for _ in 0..steps {
         let action = policy.act();
+        // Drop-through INTENT is a held descend axis — the same threshold the
+        // body-mode/possession gestures use. Sampled from the action we are about
+        // to submit, because that is the input the tick will consume.
+        let pressed_down = action.move_y > 0.35;
         let obs = sim.step(action);
         ran += 1;
         let blocks = solid_blocks(&sim);
+        let platforms = one_ways(&sim);
+        let body = player_body(&mut sim);
         let room_zones = zones.get(&obs.active_room).unwrap_or(&empty);
         // A door load or a death→spawn respawn is a legit large jump — only feed
-        // the teleport test a prior pos when neither happened this tick.
+        // the teleport test a prior pos when neither happened this tick. It is
+        // ALSO invariant 6's "Class-B remap" escape hatch: a body the engine
+        // teleported did not fall through anything.
         let transitioned = obs.active_room != prev_room || obs.resets != prev_resets;
         let teleport_from = (!transitioned).then_some(prev_pos);
+        let one_way_ctx = prev_support
+            .as_ref()
+            .map(|p| (p, pressed_down, transitioned));
         violations.extend(check_step(
             &obs.active_room,
             seed,
             obs.tick,
             obs.player_pos,
+            body.map(|(_, v, _)| (v.x, v.y)),
             teleport_from,
             obs.world_size,
             &blocks,
             room_zones,
+            one_way_ctx,
             &mut suppressed,
         ));
+        // Carry this tick's support forward. A room change invalidates it (the
+        // platform belongs to the room we left).
+        prev_support = if transitioned {
+            None
+        } else {
+            body.and_then(|(pos, _, half)| supported_one_way(pos, half, &platforms))
+        };
         prev_pos = obs.player_pos;
         prev_room = obs.active_room.clone();
         prev_resets = obs.resets;
@@ -353,9 +539,22 @@ fn format_report(
         return s;
     }
     for ((room, kind), (count, first)) in &buckets {
+        // §6.2's pinned MINIMUM payload: (seed, room id, tick, invariant #, body)
+        // + the GeoId of the geometry the invariant names, where it names one.
+        // Richer channels (sweep samples, Class-B events, portal crossings) JOIN
+        // this line in the slice that creates them — never speculatively.
+        let geo = match &first.geo {
+            Some(id) => format!(" geo={:?}#{}", id.source, id.index),
+            None => String::new(),
+        };
         s.push_str(&format!(
-            "  {room:28} {kind:28} x{count:<4} first: seed={} tick={} pos=({:.0},{:.0}) {}\n",
-            first.seed, first.tick, first.pos.0, first.pos.1, first.detail
+            "  {room:28} {kind:28} x{count:<4} first: inv={} seed={} tick={} pos=({:.0},{:.0}){geo} {}\n",
+            first.kind.invariant(),
+            first.seed,
+            first.tick,
+            first.pos.0,
+            first.pos.1,
+            first.detail
         ));
     }
     s
@@ -371,19 +570,21 @@ fn oob_classifies_through_wall_vs_open_edge() {
     let oob_right = (130.0, 50.0); // center well past the right edge (> ww + margin)
 
     // A Solid boundary wall at x[92,100]: being at x=130 means clipping through it.
-    let walled = [ae::Aabb::new(
-        ae::Vec2::new(96.0, 50.0),
-        ae::Vec2::new(4.0, 50.0),
-    )];
+    let walled = [SolidBlock {
+        geo: ae::GeoId::anon(),
+        aabb: ae::Aabb::new(ae::Vec2::new(96.0, 50.0), ae::Vec2::new(4.0, 50.0)),
+    }];
     let v = check_step(
         "r",
         1,
         1,
         oob_right,
+        None,
         Some((90.0, 50.0)),
         world,
         &walled,
         &[],
+        None,
         &mut supp,
     );
     let side = v.iter().find(|x| matches!(x.kind, Kind::OutOfBoundsSide));
@@ -399,10 +600,12 @@ fn oob_classifies_through_wall_vs_open_edge() {
         1,
         1,
         oob_right,
+        None,
         Some((90.0, 50.0)),
         world,
         &[],
         &[],
+        None,
         &mut supp,
     );
     let side = v.iter().find(|x| matches!(x.kind, Kind::OutOfBoundsSide));
@@ -420,10 +623,12 @@ fn oob_classifies_through_wall_vs_open_edge() {
         1,
         1,
         oob_right,
+        None,
         Some((120.0, 50.0)),
         world,
         &walled,
         &[],
+        None,
         &mut supp,
     );
     assert!(
@@ -531,4 +736,179 @@ fn load_project_for_test() -> Result<ambition::actors::ldtk_world::LdtkProject, 
     ambition_content::worlds::install();
     ambition_content::character_catalog::install();
     ambition::actors::ldtk_world::LdtkProject::load_default_for_dev()
+}
+
+/// §6.1 invariant 4 — a non-finite body is CATALOGED, and short-circuits the rest
+/// (every geometric test is meaningless once pos or vel is `NaN`).
+#[test]
+fn a_non_finite_body_reports_invariant_4_and_nothing_else() {
+    let mut supp = 0;
+    let v = check_step(
+        "r",
+        1,
+        1,
+        (f32::NAN, 50.0),
+        Some((0.0, 0.0)),
+        None,
+        (100.0, 100.0),
+        &[],
+        &[],
+        None,
+        &mut supp,
+    );
+    assert_eq!(v.len(), 1, "exactly one violation: {:?}", v.len());
+    assert!(matches!(v[0].kind, Kind::NonFinite));
+    assert_eq!(v[0].kind.invariant(), 4);
+
+    // A non-finite VELOCITY counts too, even with a finite position.
+    let v = check_step(
+        "r",
+        1,
+        1,
+        (50.0, 50.0),
+        Some((f32::INFINITY, 0.0)),
+        None,
+        (100.0, 100.0),
+        &[],
+        &[],
+        None,
+        &mut supp,
+    );
+    assert_eq!(v.len(), 1);
+    assert!(matches!(v[0].kind, Kind::NonFinite));
+}
+
+/// §6.1 invariant 6 — one-way admission is one-directional.
+///
+/// The historical bug is a SILENT fall-through. Dropping through on purpose, and
+/// being remapped by the engine (a room load / respawn — the Class-B escape
+/// hatch), are both legal and must not fire.
+#[test]
+fn a_silent_one_way_fall_through_reports_invariant_6() {
+    let mut supp = 0;
+    let world = (200.0, 200.0);
+    // A one-way whose TOP is y=100 (y grows downward), spanning x[40,160].
+    let platform = SolidBlock {
+        geo: ae::GeoId::anon(),
+        aabb: ae::Aabb::new(ae::Vec2::new(100.0, 110.0), ae::Vec2::new(60.0, 10.0)),
+    };
+    let below = (100.0, 130.0); // center well under the platform's top
+
+    let fire = |pressed_down: bool, remapped: bool, supp: &mut u32| {
+        check_step(
+            "r",
+            1,
+            1,
+            below,
+            Some((0.0, 50.0)),
+            None,
+            world,
+            &[],
+            &[],
+            Some((&platform, pressed_down, remapped)),
+            supp,
+        )
+    };
+
+    let v = fire(false, false, &mut supp);
+    let hit = v
+        .iter()
+        .find(|x| matches!(x.kind, Kind::OneWayFallThrough))
+        .expect("a body that stood on the one-way and ended below it, silently");
+    assert_eq!(hit.kind.invariant(), 6);
+    assert_eq!(
+        hit.geo,
+        Some(ae::GeoId::anon()),
+        "§6.2: the dump names the geometry the invariant names"
+    );
+
+    // Dropping through ON PURPOSE is the feature, not the bug.
+    assert!(fire(true, false, &mut supp)
+        .iter()
+        .all(|x| !matches!(x.kind, Kind::OneWayFallThrough)));
+
+    // A Class-B remap (room load / respawn) did not "fall" the body through.
+    assert!(fire(false, true, &mut supp)
+        .iter()
+        .all(|x| !matches!(x.kind, Kind::OneWayFallThrough)));
+
+    // Still standing on it: no violation.
+    let v = check_step(
+        "r",
+        1,
+        1,
+        (100.0, 80.0),
+        Some((0.0, 0.0)),
+        None,
+        world,
+        &[],
+        &[],
+        Some((&platform, false, false)),
+        &mut supp,
+    );
+    assert!(v.iter().all(|x| !matches!(x.kind, Kind::OneWayFallThrough)));
+}
+
+/// §6.1 invariant 1's carve subtraction, at the level `check_step` sees it: a
+/// carved block is simply ABSENT from the composed world, so a body sunk into a
+/// portal aperture reports nothing. `solid_blocks` performs the subtraction
+/// (`world_with_portal_carves`); this pins that the embed test respects it.
+#[test]
+fn a_body_inside_a_carved_hole_is_not_embedded() {
+    let mut supp = 0;
+    let world = (200.0, 200.0);
+    // The composed world after a portal carved the middle out of a wall: the
+    // wall survives as two pieces, and the body sits in the gap between them.
+    let carved = [
+        SolidBlock {
+            geo: ae::GeoId::anon(),
+            aabb: ae::Aabb::new(ae::Vec2::new(100.0, 40.0), ae::Vec2::new(20.0, 40.0)),
+        },
+        SolidBlock {
+            geo: ae::GeoId::anon(),
+            aabb: ae::Aabb::new(ae::Vec2::new(100.0, 160.0), ae::Vec2::new(20.0, 40.0)),
+        },
+    ];
+    let in_the_hole = (100.0, 100.0);
+    let v = check_step(
+        "r",
+        1,
+        1,
+        in_the_hole,
+        Some((0.0, 0.0)),
+        None,
+        world,
+        &carved,
+        &[],
+        None,
+        &mut supp,
+    );
+    assert!(
+        v.iter().all(|x| !matches!(x.kind, Kind::EmbeddedInSolid)),
+        "a carved hole is not solid — a straddling body's center legitimately \
+         sits there, and the exemption falls out of the geometry"
+    );
+
+    // ...but the UNCARVED wall would have reported it.
+    let solid = [SolidBlock {
+        geo: ae::GeoId::anon(),
+        aabb: ae::Aabb::new(ae::Vec2::new(100.0, 100.0), ae::Vec2::new(20.0, 100.0)),
+    }];
+    let v = check_step(
+        "r",
+        1,
+        1,
+        in_the_hole,
+        Some((0.0, 0.0)),
+        None,
+        world,
+        &solid,
+        &[],
+        None,
+        &mut supp,
+    );
+    assert!(
+        v.iter().any(|x| matches!(x.kind, Kind::EmbeddedInSolid)),
+        "the same point inside an UNCARVED wall is invariant 1"
+    );
 }

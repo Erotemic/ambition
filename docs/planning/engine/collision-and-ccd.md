@@ -540,20 +540,49 @@ P3a [opus after CC6]; P3b/P4 [opus, post-demo, gated on S3].
 
 ### 6.1 The fuzz oracle (CC3) — exact illegal-state definition
 
-**Status vs. implementation (2026-07-06 night):** a PARTIAL oracle exists
-in code — `ambition_app/tests/collision_invariant_oracle.rs`, a seeded
-diagnostic over `SandboxSim` checking THREE things (naive embed-in-solid,
-out-of-bounds by side, single-tick teleport threshold), with a smoke test
-+ an `#[ignore]`d full sweep that prints a repro catalog. **The CC3 slice
-is the DELTA from that harness to the six-invariant oracle below:** make
-the embed check carve-aware (invariant 1's carve subtraction + transit
-exemption), add invariants 2 (straddle-outside-carve), 5 (one Class-B
-remap per frame — needs the Class-B writers to emit a countable event),
-and 6 (one-way violation); fold invariant 4 (NaN — `fuzz_random_walker`
-already asserts it); extend the run matrix from the current room set to
-every shipped room; attach the §6.2 trace. Keep the existing
-diagnostic-only posture and the `(room, seed, tick)` repro-line format —
-they are already right.
+**Status (CC3 largely EXECUTED, opus 2026-07-10).** Four of the six
+invariants are live in `ambition_app/tests/collision_invariant_oracle.rs`,
+the pinned §6.2 minimum payload is attached, and the run matrix is every
+shipped room. The diagnostic-only posture and the repro-line format are
+unchanged, as ruled.
+
+| Invariant | Status |
+|---|---|
+| 1 embed-in-solid | ✅ **carve-aware.** `solid_blocks` now composes the world through `ambition_world::collision::world_with_portal_carves` before testing, and includes `BlinkWall`. **The transit exemption falls out of the geometry**: a straddling body's center sits in a hole that no longer contains a block, so no `PortalTransit` special case is needed. |
+| 2 straddle-outside-carve | ⏳ **remains.** Needs the transiting body's straddled-portal identity exposed to a test — the aperture volume is knowable, the *which portal* is not, without a read-model row. |
+| 3 out-of-bounds | ✅ pre-existing (by side, with the authored-exit suppression + the through-wall classifier). |
+| 4 NaN/inf | ✅ **folded in and CATALOGED**, pos and vel. It short-circuits: every geometric test is meaningless on a non-finite body. |
+| 5 one Class-B remap per frame | ⏳ **remains, and is the one that needs new machinery** — the Class-B writers must emit a countable event (§3.2). Not fakeable from outside. |
+| 6 one-way fall-through | ✅ **live.** Tracks the one-way a body was supported by at the end of last tick; fires when this tick's center ends below its top with no drop-through intent (held descend axis) and no Class-B remap (room load / respawn). |
+
+**THE MEASUREMENT (2026-07-10): 72 rooms × 3 seeds × 300 ticks = 64,800
+stepped frames, 15 violations, and NOT ONE of them is a collision bug.**
+
+```
+  gap_run             OOB-BELOW-FLOOR (open edge)   x1
+  intro_escape_shaft  OOB-SIDE (open edge)          x2
+  tiny_chamber        OOB-SIDE (open edge)          x3
+  under_town_pipes    OOB-SIDE (open edge)          x8
+  portal_lab          TELEPORT                      x1   (290px — a portal transit)
+```
+
+- **Zero `EMBEDDED-IN-SOLID`.** Zero `ONE-WAY-FALL-THROUGH`. Zero
+  `NON-FINITE`. Zero OOB that ended past a Solid at the crossed edge
+  (the `[past-solid?]` suspect class is empty).
+- All 14 OOB are open-edge walk-offs — level authoring, which §6.1 already
+  calls legal.
+- **The one TELEPORT is a false positive**, and a known one: §6.1's
+  "Explicitly legal" list says *"the transfer frame's position jump"* is
+  legal provided invariants 1–4 hold at frame end, and they do. The
+  teleport probe predates the numbering and does not yet consult the portal
+  crossing channel. **Fix rides invariant 2's slice** (both want the same
+  read-model row); until then it is one known, named line in the catalog.
+
+So the OOB class §6 exists to kill is, on this evidence, **already dead in
+every shipped room** — which is what turns "vigilance" into "guarantee".
+CC3 stays diagnostic-only per Jon's ruling; what the numbers argue is that
+promoting it to a hard gate would now cost only the authored-exit
+allowlist, not a bug hunt.
 
 The rig (per shipped room: random spawns, random high-speed impulses incl.
 through portals, N seconds stepped headlessly) asserts, at the END of every

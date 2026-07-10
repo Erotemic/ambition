@@ -1075,6 +1075,31 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     // The boss's mind: step cursor, stance clocks, and the seeded RNG. A cursor,
     // because the brain's KIND and tuning are authored and survive the patch.
     registry.register_cursor::<ambition_characters::brain::Brain>("brain");
+    registry
+        .register_component::<ambition_actors::features::ActorSurfaceState>("actor_surface_state");
+    registry.register_component::<ambition_combat::components::BodyEnvelope>("body_envelope");
+
+    // ── Structurally derived: rebuilt every tick by the system that maintains it ──
+    //
+    // N3.1: "if restoring something requires a rebuild pass, the rebuild must be the
+    // SAME system that maintains it per-frame (no restore-only code paths)." Each
+    // claim below was checked against that system, not assumed.
+
+    // `step_body`: `env_contact.water = world.water_at(aabb)` and `.climbable =
+    // world.climbable_at(aabb)`, unconditionally, every movement step. A pure
+    // function of the body's position and the world's geometry.
+    registry.declare_derived::<ambition_engine_core::body_clusters::BodyEnvironmentContact>(
+        "rewritten every movement step from the body's AABB and the world's geometry",
+    );
+
+    // The SimView and its indexes: netcode.md excludes these structurally
+    // ("rebuilt every tick by construction").
+    registry.declare_derived::<ambition_sim_view::BodyPoseView>(
+        "SimView: rebuilt from the sim every tick, by construction",
+    );
+    registry.declare_derived::<ambition_sim_view::ProjectileView>(
+        "SimView: rebuilt from the sim every tick, by construction",
+    );
 
     // **The blind spot, made loud.** Simulated bodies with no `SimId` cannot be
     // snapshotted, restored, or defended by the canary. Hashing the COUNT means a
@@ -1350,6 +1375,19 @@ snapshot_pod!(bc::BodyActionBuffer {
     blink: f32,
 });
 snapshot_pod!(bc::BodyBaseSize { base_size: vec2 });
+snapshot_pod!(ambition_actors::features::ActorSurfaceState {
+    surface_normal: vec2,
+    gravity_scale: f32,
+});
+
+impl SnapshotState for ambition_combat::components::BodyEnvelope {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_vec2(out, self.0);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(ambition_combat::components::BodyEnvelope(r.vec2()?))
+    }
+}
 snapshot_pod!(bc::SweepSample {
     prev: vec2,
     curr: vec2,

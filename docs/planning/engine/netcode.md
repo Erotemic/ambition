@@ -385,12 +385,12 @@ snapshots needed. Needs N0 complete, plus:
 
   | room | component types a rewind leaves stale | rewind is exact? |
   |---|---|---|
-  | `gap_run` | 33 | ✅ **yes** |
-  | `portal_lab` | 61 | no |
-  | `mockingbird_arena` | 68 | no |
-  | `gnu_ton_arena` | **78** | no |
+  | `gap_run` | 31 | ✅ **yes** |
+  | `portal_lab` | 57 | no |
+  | `mockingbird_arena` | 64 | no |
+  | `gnu_ton_arena` | **74** | no |
 
-  Pinned at 78 — the **peak over the run**, not the count at its end. The first
+  Pinned at 74 — the **peak over the run**, not the count at its end. The first
   version of this ledger measured once, after 120 ticks, by which time the arena
   bosses were dead and despawned; `gnu_ton_arena` duly reported the same 35 types as
   `gap_run`, which is the count of a world containing only the player. The debt was
@@ -449,7 +449,7 @@ snapshots needed. Needs N0 complete, plus:
   meant to look at.
 
   This is the general shape of the authored/mutable split, and it is why the coverage
-  ledger is an upper bound rather than a debt: many of the 78 want a *cursor*, not a
+  ledger is an upper bound rather than a debt: many of the 74 want a *cursor*, not a
   codec.
 
   ### The three named blockers between here and a clean arena
@@ -595,11 +595,25 @@ snapshots needed. Needs N0 complete, plus:
   and both are written down rather than discovered in a desync report.
 
   **`mockingbird_arena` still diverges, and the restore is no longer the reason.**
-  Probing the world immediately after a rewind now shows **every registered entry
-  matching exactly** — the snapshot half of N3.1 is finished for the boss. What leaks is
-  what remains unregistered on those entities: `ActorSurfaceState`, `BodyLedgeState`,
-  `BodyEnvironmentContact`, `BodyComboTrace`, `BodyEnvelope`, and the eleven
-  content-side boss-special states below. Each is a codec; none is a design problem.
+  Probing the world immediately after a rewind shows **every registered entry matching
+  exactly** — the snapshot half of N3.1 is finished for the boss. What leaks is what
+  remains unregistered on those entities, and it is now a list of codecs rather than a
+  list of design problems:
+
+  - ✅ `ActorSurfaceState`, `BodyEnvelope` — registered.
+  - ✅ **`BodyEnvironmentContact` is `declare_derived`** — `step_body` rewrites
+    `.water = world.water_at(aabb)` and `.climbable = world.climbable_at(aabb)`
+    unconditionally, every movement step. A pure function of position and geometry.
+    (`BodyPoseView` / `ProjectileView` are declared too: this section already excludes
+    the SimView structurally.)
+  - `BodyLedgeState` (an `Option<LedgeGrabState>` with its own contact + getup enums),
+    `BodyComboTrace` (a `Vec<ComboMark>` over `MovementOp`) — codecs.
+  - The eleven content-side boss-special states below.
+
+  **A `declare_derived` claim is a promise, and every one of them was checked against
+  the system that keeps it.** `CenteredAabb` looked derived and is not — falling chests
+  mutate it as gameplay state — so it is registered rather than declared, and a grep
+  caught that before the doc said otherwise.
 
   **The content-side specials need one more thing than a codec.** `EchoFanState`,
   `OverflowState`, `GradientCascadeState`, `SeismicStompState`, `MinimaTrapState`,

@@ -322,7 +322,12 @@ enum EntryKind {
     Component {
         type_id: std::any::TypeId,
         rows: Box<dyn Fn(&World) -> Vec<(String, Vec<u8>)> + Send + Sync>,
-        insert: Box<dyn Fn(&mut bevy::ecs::world::EntityWorldMut<'_>, &[u8]) + Send + Sync>,
+        /// Returns `false` on a codec DECODE FAILURE (a blob this registry wrote that
+        /// it cannot read — corrupt bytes or an encoder/decoder disagreement). `restore`
+        /// turns that into `RestoreError::DecodeFailed` rather than silently leaving
+        /// stale state (audit M3/S2.5). A legitimately-absent authored half on a
+        /// respawned entity is `true`, not a failure.
+        insert: Box<dyn Fn(&mut bevy::ecs::world::EntityWorldMut<'_>, &[u8]) -> bool + Send + Sync>,
         /// A snapshot with no row for this entity means the entity did not HAVE the
         /// component then. Restoring exactly means taking it away now.
         remove: Box<dyn Fn(&mut bevy::ecs::world::EntityWorldMut<'_>) + Send + Sync>,
@@ -331,7 +336,8 @@ enum EntryKind {
     Resource {
         type_id: std::any::TypeId,
         bytes: Box<dyn Fn(&World) -> Vec<u8> + Send + Sync>,
-        load: Box<dyn Fn(&mut World, &[u8]) + Send + Sync>,
+        /// `false` on decode failure — see [`EntryKind::Component`]'s `insert`.
+        load: Box<dyn Fn(&mut World, &[u8]) -> bool + Send + Sync>,
     },
     /// A resource that is half authored, half mutable — the [`SnapshotCursor`] shape,
     /// one level up. `CombatSlotsRes` is the archetype: authored slot geometry, live
@@ -339,7 +345,8 @@ enum EntryKind {
     ResourceCursor {
         type_id: std::any::TypeId,
         bytes: Box<dyn Fn(&World) -> Vec<u8> + Send + Sync>,
-        apply: Box<dyn Fn(&mut World, &[u8]) + Send + Sync>,
+        /// `false` on decode failure — see [`EntryKind::Component`]'s `insert`.
+        apply: Box<dyn Fn(&mut World, &[u8]) -> bool + Send + Sync>,
     },
     /// Hashed, never restored: a MEASUREMENT of the world rather than a part of
     /// it. `unidentified_bodies` is the archetype — you cannot restore a count.
@@ -397,14 +404,15 @@ impl SnapshotRegistry {
                     rows
                 }),
                 insert: Box::new(|entity, bytes| {
+                    // A blob this registry wrote that it cannot read is a codec failure.
+                    // Report it (`false`) so restore fails loudly in EVERY build, rather
+                    // than the old `debug_assert!(false)` that dropped the component
+                    // silently in release and left stale state reading as restored.
                     if let Some(value) = decode_one::<C>(bytes) {
                         entity.insert(value);
+                        true
                     } else {
-                        // A blob this registry wrote that this registry cannot read
-                        // is a codec bug, not a data condition. Fail loudly in
-                        // tests; in a shipped rollback, drop the component rather
-                        // than the frame.
-                        debug_assert!(false, "snapshot blob failed to decode");
+                        false
                     }
                 }),
                 remove: Box::new(|entity| {
@@ -438,13 +446,15 @@ impl SnapshotRegistry {
                 }),
                 insert: Box::new(|entity, bytes| {
                     // Absent on a respawned entity: there is no authored half to
-                    // apply the cursor to. `RestoreReport::respawned` is the report.
+                    // apply the cursor to. `RestoreReport::respawned` is the report —
+                    // this is legitimate (`true`), not a decode failure.
                     if let Some(mut value) = entity.get_mut::<C>() {
                         let mut r = Reader::new(bytes);
                         if value.apply_cursor(&mut r).is_none() || r.finish().is_none() {
-                            debug_assert!(false, "snapshot cursor failed to decode");
+                            return false; // codec disagreement -> restore reports it
                         }
                     }
+                    true
                 }),
                 remove: Box::new(|entity| {
                     entity.remove::<C>();
@@ -480,7 +490,11 @@ impl SnapshotRegistry {
                     match C::resolve(entity, &mut r) {
                         // The authored half is gone: a respawned entity. Leaving the
                         // component off is the only honest answer, and `respawned` is
-                        // the number that says so.
+                        // the number that says so. `SnapshotResolve::resolve` returns
+                        // `None` for BOTH this and a decode failure, so a resolved
+                        // codec cannot distinguish them here — it reports success and
+                        // leans on the resolve contract. (Plain components and cursors
+                        // do distinguish; see their `insert`.)
                         None => {
                             entity.remove::<C>();
                         }
@@ -488,6 +502,7 @@ impl SnapshotRegistry {
                             entity.insert(value);
                         }
                     }
+                    true
                 }),
                 remove: Box::new(|entity| {
                     entity.remove::<C>();
@@ -514,8 +529,12 @@ impl SnapshotRegistry {
                 load: Box::new(|world: &mut World, bytes: &[u8]| {
                     if bytes.is_empty() {
                         world.remove_resource::<R>();
+                        true
                     } else if let Some(value) = decode_one::<R>(bytes) {
                         world.insert_resource(value);
+                        true
+                    } else {
+                        false // decode failure -> restore reports it (was: silent)
                     }
                 }),
             },
@@ -588,14 +607,15 @@ impl SnapshotRegistry {
                 }),
                 apply: Box::new(|world: &mut World, bytes: &[u8]| {
                     if bytes.is_empty() {
-                        return;
+                        return true;
                     }
                     if let Some(mut v) = world.get_resource_mut::<R>() {
                         let mut r = Reader::new(bytes);
                         if v.apply_cursor(&mut r).is_none() || r.finish().is_none() {
-                            debug_assert!(false, "resource cursor failed to decode");
+                            return false; // decode failure -> restore reports it
                         }
                     }
+                    true
                 }),
             },
         );
@@ -1018,6 +1038,13 @@ pub enum RestoreError {
         snapshot_room: String,
         active_room: String,
     },
+    /// A registered codec failed to decode its blob during restore — the bytes are
+    /// corrupt, or the encoder and decoder disagree. A SILENT continue (the old
+    /// `debug_assert!(false)` + leave-it-alone, which fired only in debug builds) would
+    /// leave stale state reading as restored. `entry` is the registry name; `id` is the
+    /// `SimId` for a component row, `None` for a resource. On this error the world is
+    /// left PARTIALLY restored and the caller must discard it (fetch a fresh snapshot).
+    DecodeFailed { entry: String, id: Option<String> },
 }
 
 impl std::fmt::Display for RestoreError {
@@ -1030,6 +1057,15 @@ impl std::fmt::Display for RestoreError {
                 f,
                 "cross-room rollback boundary: snapshot taken in `{snapshot_room}`, world \
                  is now in `{active_room}` — a rollback window may not span a room transition"
+            ),
+            RestoreError::DecodeFailed { entry, id } => write!(
+                f,
+                "codec `{entry}` failed to decode its blob{} — corrupt snapshot or an \
+                 encoder/decoder disagreement; restore cannot honor it",
+                match id {
+                    Some(id) => format!(" for `{id}`"),
+                    None => String::new(),
+                }
             ),
         }
     }
@@ -1227,8 +1263,16 @@ pub fn restore(
             match rows.binary_search_by(|(k, _)| k.as_str().cmp(id)) {
                 Ok(row) => {
                     let bytes = rows[row].1.clone();
-                    let mut e = world.entity_mut(entity);
-                    insert(&mut e, &bytes);
+                    let decoded = {
+                        let mut e = world.entity_mut(entity);
+                        insert(&mut e, &bytes)
+                    };
+                    if !decoded {
+                        return Err(RestoreError::DecodeFailed {
+                            entry: (*name).to_string(),
+                            id: Some((*id).to_string()),
+                        });
+                    }
                 }
                 // The entity did not have this component at the snapshot tick.
                 // Restoring exactly means taking it away now.
@@ -1247,10 +1291,16 @@ pub fn restore(
         let Some(entry) = registry.entries.iter().find(|e| e.name == *name) else {
             continue;
         };
-        match &entry.kind {
+        let decoded = match &entry.kind {
             EntryKind::Resource { load, .. } => load(world, bytes),
             EntryKind::ResourceCursor { apply, .. } => apply(world, bytes),
             _ => continue,
+        };
+        if !decoded {
+            return Err(RestoreError::DecodeFailed {
+                entry: (*name).to_string(),
+                id: None,
+            });
         }
     }
 
@@ -3504,6 +3554,40 @@ mod tests {
              stale state was measured before reconciliation (audit H4): {:?}",
             report.stale_components
         );
+    }
+
+    /// **A corrupted blob makes restore fail LOUDLY, in every build** (audit M3/S2.5).
+    ///
+    /// A registered codec that cannot read a blob it was handed is a codec failure. The
+    /// old `debug_assert!(false)` dropped the component silently in release builds,
+    /// leaving stale state reading as restored. Now restore returns `DecodeFailed` and
+    /// names the entry. Poison test, co-located with the enforcement (atomicity rule).
+    #[test]
+    fn restore_refuses_a_corrupted_blob_rather_than_leaving_stale_state() {
+        let reg = engine_registry();
+        let mut world = sim_world();
+        let mut snap = take(&world, &reg);
+
+        // Corrupt the first non-empty component row: one byte short, so `decode_one`
+        // returns `None` (a truncated blob is rejected, not guessed).
+        let mut corrupted: Option<&'static str> = None;
+        for (name, blob) in snap.entries.iter_mut() {
+            if let EntryBlob::Component(rows) = blob {
+                if let Some((_, b)) = rows.iter_mut().find(|(_, b)| !b.is_empty()) {
+                    b.pop();
+                    corrupted = Some(*name);
+                    break;
+                }
+            }
+        }
+        let corrupted = corrupted.expect("a non-empty component row to corrupt");
+
+        match restore(&mut world, &snap, &reg) {
+            Err(RestoreError::DecodeFailed { entry, .. }) => assert_eq!(entry, corrupted),
+            other => {
+                panic!("restore accepted a corrupted blob instead of refusing: {other:?}")
+            }
+        }
     }
 
     /// Taking a snapshot of a restored world yields the identical snapshot. Restore

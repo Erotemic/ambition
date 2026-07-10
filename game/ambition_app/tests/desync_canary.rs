@@ -690,10 +690,10 @@ fn restore_refuses_a_snapshot_that_spans_a_room_transition() {
             assert_eq!(active_room, "portal_lab");
             assert_ne!(snapshot_room, active_room);
         }
-        Ok(_) => panic!(
-            "restore reconciled a cross-room snapshot (taken in `{snap_room}`, world now \
-             in `portal_lab`) instead of refusing — it rebuilt entities against the wrong \
-             RoomSpec (audit item 2)."
+        other => panic!(
+            "restore did not reject a cross-room snapshot (taken in `{snap_room}`, world \
+             now in `portal_lab`) with CrossRoomBoundary — got {other:?}. It must refuse \
+             rather than rebuild entities against the wrong RoomSpec (audit item 2)."
         ),
     }
 }

@@ -70,8 +70,11 @@ player-visible bugs, and the untouched determinism ladder.
    `ProjectileCollisionWorld` came home to `ambition_projectiles`; victim routing
    still needs the boss cluster views R2 never settled, charge input still needs
    `BodyAnimFacts` — both blockers named, both deferred) → **R5** the `ControlFrame` allowlist
-   lint (= unified-actors step 5's Phase C, newly defined; B3's "two holders" has
-   drifted to four, unguarded) → **R6** the player fold + the `features/` rename.
+   lint ✅ **DONE 2026-07-10** (= unified-actors step 5's Phase C. Bidirectional +
+   poison-tested. It found a FIFTH holder the re-count missed —
+   `possession_trigger_system` reads the global frame through an import path, so
+   possession is local-player-only; now the sole `Slot0Gesture` allowlist entry and
+   an N1 checklist item) → **R6** the player fold + the `features/` rename.
 
 3. **The visible sprite bugs (E3/E6 tail).** [opus] Three player-facing
    regressions in the bug queue below: all bosses render the generic sheet,

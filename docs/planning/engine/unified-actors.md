@@ -366,41 +366,55 @@ Enemies rise to the player; delete-heavy. Each step is gated on *it compiles* (i
 5. **De-player-center the remaining surface** — decisions settled with Jon (2026-06-30);
    **B1 (incl. duel reframe) + B2 + B3 DONE; phase-B complete.**
 
-   **Phase C (payoff verification) — DEFINED (Jon, 2026-07-10). It is ONE LINT,
-   and it is the gate on the S5/S6 player fold.** Step 4's Phase C was two named
-   end-to-end tests (C1/C2 below); step 5's had no definition at all, and the
-   ambiguity was blocking the fold. Most of step 5's payoff is in fact ALREADY
-   pinned by tests that exist: `duel_arena.rs` (the B1 grudge reframe — two
+   🟢 **Phase C (payoff verification) DONE (2026-07-10).** It was ONE LINT, and it
+   is the gate on the S5/S6 player fold:
+   **`ambition_runtime/tests/control_frame_lint.rs`**. Most of step 5's payoff was
+   already pinned by tests that exist: `duel_arena.rs` (the B1 grudge reframe — two
    ordinary `Npc`s, no hostile faction), `unified_melee.rs`,
-   `unified_body_movement.rs`, `player_clone_live.rs`.
+   `unified_body_movement.rs`, `player_clone_live.rs`. What was NOT pinned was
+   **B3**, and B3 had drifted — in both directions, exactly as suspected.
 
-   What is NOT pinned is **B3**, and it has already drifted. B3's audit
-   conclusion (below) states that inside `ambition_actors` the only
-   `Res<ControlFrame>` holders are "the two input-bridge writers
-   (`populate_control_frame_from_actions`, `sync_local_player_input_frame`)".
-   Measured 2026-07-10: there are **FOUR** holders —
-   `schedule/input_systems.rs::populate_control_frame_from_actions`,
-   `player/input_systems.rs` (two sites, incl. `interaction_input_system`), and
-   `player/systems.rs::populate_slot_controls` — and `sync_local_player_input_frame`
-   is not among them. The sentence is stale in both directions. Nothing guards
-   it: `architecture_boundaries.rs` asserts only that `ControlFrame` lives in
-   `engine_core`.
+   **What the lint found.** B3's audit conclusion (below, now corrected) claimed
+   the only `Res<ControlFrame>` holders inside `ambition_actors` were "the two
+   input-bridge writers (`populate_control_frame_from_actions`,
+   `sync_local_player_input_frame`)".
 
-   All four current holders still look like input-layer bridges, so the
-   INVARIANT is probably intact — but it is unverified, it moved once unnoticed,
-   and it is the exact invariant the unification exists to protect. It is also a
-   multiplayer bug in waiting: the global `ControlFrame` is ONE player's frame,
-   so a body system reading it is silently slot-0-only.
+   - `sync_local_player_input_frame` **is not a holder** — it reads
+     `Res<SlotControls>`. (It exists; the claim about it was wrong.)
+   - There are **FIVE** holders in `ambition_actors`, not two and not the four the
+     first re-count found:
+     `schedule/input_systems.rs::populate_control_frame_from_actions`,
+     `player/input_systems.rs::{input_timer_system, interaction_input_system}`,
+     `player/systems.rs::populate_slot_controls`, **and
+     `abilities/traversal/possession.rs::possession_trigger_system`** — which no
+     name-grep found because it is written `Res<ambition_input::ControlFrame>`.
+   - Nine holders repo-wide across the sim crates + `ambition_content`, counting
+     `engine_core`'s two latch systems and content's two portal intent bridges.
 
-   **C-step5 — the `ControlFrame` allowlist lint.** Pin the set of
-   `Res<ControlFrame>` / `ResMut<ControlFrame>` holders in the SIM crates to a
-   named allowlist, one justifying comment per entry ("this is a device→frame
-   bridge", "this is a frame→slot bridge"). Same shape and same file family as
-   `ambition_runtime/tests/determinism_lints.rs` (ADR 0023) — poison-test it:
-   inject a fake sim reader and confirm the lint fails. An afternoon. **Write it
-   BEFORE the fold**, not after: it is the guardrail that tells you whether
-   moving 4.3k production lines out of `player/` quietly re-introduced
-   player-centrism.
+   **`possession_trigger_system` is the one genuine SIM reader**, and it is
+   therefore local-player-only: a second player could never possess anything. Its
+   own doc comment already said "the gesture belongs to slot 0" — the invariant
+   was not violated silently so much as *documented and then forgotten*. It is now
+   the sole `Bridge::Slot0Gesture` allowlist entry, whose reason must begin
+   `MULTIPLAYER TODO` (a test enforces that), so N1 inherits a checklist item
+   rather than a surprise. **So B3's "the invariant is probably intact" was wrong,
+   and its own audit is what said so once something actually checked.**
+
+   **The lint is bidirectional**, because B3's rot was: an unlisted holder fails,
+   AND an allowlist entry matching no holder fails. Same shape and file family as
+   `determinism_lints.rs` (ADR 0023): a grep over the sim crates' non-test sources,
+   an explicit allowlist with a `Bridge` category + justifying reason per entry, a
+   failure message naming file/line/fix, an `AMBITION_REVIEW(control_frame)` escape
+   hatch, and a companion test that prints every exception.
+
+   **Poison-tested against real sources**, in both directions: injecting
+   `Res<ambition_input::ControlFrame>` into `features/ecs/actors/update.rs` turns
+   it red; putting B3's exact wrong claim (`sync_local_player_input_frame`) in the
+   allowlist turns it red on the STALE branch. Six more poison tests run on
+   synthetic sources — they caught two real bugs in the scanner's first draft
+   (`MenuControlFrame` is a prefix collision; `init_resource::<` contains
+   `resource::<`), which is precisely why a grep lint that cannot fail is worse
+   than no lint.
 
    The B1/B2/B3 record:
    - 🟢 **B2a (projectile world-hit) DONE** — `WorldHitPolicy` is on the projectile spec
@@ -441,15 +455,21 @@ Enemies rise to the player; delete-heavy. Each step is gated on *it compiles* (i
      AND anti-clump (a grudge foe is an opponent, not an ally) AND dissolves when settled.
      **FEEL-CHECK for Jon:** peaceful NPCs no longer stalk the player before being provoked
      (they hold facing, then hunt their grudge).
-   - 🟢 **B3 (de-player-center the control surface) DONE.** *Audit conclusion:* the stated
-     violation — sim/body logic reading the **global** `Res<ControlFrame>` — was already
-     resolved by prior slices. Inside `ambition_actors` the ONLY `Res<ControlFrame>`
-     holders are the two input-bridge **writers** (`populate_control_frame_from_actions`
-     device→frame, `sync_local_player_input_frame` frame→`PlayerInputFrame`); every sim
-     reader already consumes an **entity-local** component (`PlayerInputFrame` or
-     `ActorControl`), so relativity is honored. The remaining global-frame holders
-     (mobile-input, menu_bridge, portal transit/input adapters, render `item_visuals`) are
-     all legitimately KEEP (input / menu / presentation). *Note:* `ActorIntent` turned out to
+   - 🟢 **B3 (de-player-center the control surface) DONE** — ⚠️ **its audit conclusion
+     was WRONG, corrected 2026-07-10 by the Phase C lint above.** *What it said:* the
+     stated violation — sim/body logic reading the **global** `Res<ControlFrame>` — was
+     already resolved, and inside `ambition_actors` the ONLY holders were the two
+     input-bridge writers (`populate_control_frame_from_actions` device→frame,
+     `sync_local_player_input_frame` frame→`PlayerInputFrame`), so every sim reader
+     already consumed an entity-local component. *What is true:*
+     `sync_local_player_input_frame` reads `Res<SlotControls>` and was never a holder;
+     there are FIVE holders in `ambition_actors`; and one of them —
+     `possession_trigger_system` — is a real sim reader that makes possession
+     local-player-only. Nothing guarded any of this, which is the point: an audit is a
+     measurement at one instant, a lint is an invariant. The remaining global-frame
+     holders outside the sim crates (mobile-input, menu_bridge, render `item_visuals`)
+     are legitimately KEEP (input / menu / presentation); content's portal
+     transit adapters are allowlisted `IntentBridge`s. *Note:* `ActorIntent` turned out to
      be `CharacterAiMode` (AI-mode), **not** an intent frame — the real body-generic intent
      seam is **`ActorControl`** (the brain's `ActorControlFrame`), which the player already
      carries. So B3 reduced to the convergence: fold the player's residual reads onto

@@ -1,6 +1,7 @@
 # The refactor chain — dissolving the adapter shells, then folding the player
 
-**Status:** R1, R2, R3 DONE; R4 re-checked and STOPPED as ruled (2026-07-10).
+**Status:** R1, R2, R3, R5 DONE; R4 re-checked and STOPPED as ruled (2026-07-10).
+R6 (the player fold) is the last slice, and its guardrail is now armed.
 Six slices, in dependency order.
 Each is committable on its own; each states its own exit check.
 
@@ -397,7 +398,54 @@ seam" the likely honest outcome for the other two.
 
 ---
 
-## R5 — the `ControlFrame` allowlist lint (= step 5's Phase C)
+## R5 — the `ControlFrame` allowlist lint ✅ DONE (2026-07-10) (= step 5's Phase C)
+
+**`crates/ambition_runtime/tests/control_frame_lint.rs`.** Written BEFORE the fold,
+which is the whole point. Eight tests; the gate on R6 is now armed.
+
+**It found a fifth holder, and the fifth is the only real one.** This doc's own
+re-count said four `Res<ControlFrame>` holders in `ambition_actors`. Measured by
+the lint: **five**. The extra is
+`abilities/traversal/possession.rs::possession_trigger_system`, which no name-grep
+found because it is written `Res<ambition_input::ControlFrame>` — the import path
+hid it. It is a SIM system, not an input bridge, so **possession is
+local-player-only: a second player could never possess anything.** Its own doc
+comment already said "the gesture belongs to slot 0"; the invariant was documented
+and then forgotten, which is exactly what a lint is for and a paragraph is not.
+
+Nine holders repo-wide over the scanned scope (the sim crates + `ambition_content`,
+because a content RULE reading the global frame is as slot-0-only as an engine
+system doing it): `engine_core`'s two latch halves, `ambition_actors`' five,
+`ambition_content`'s two portal intent bridges. Each carries a `Bridge` category
+(`DeviceToFrame` / `Latch` / `FrameToSlot` / `IntentBridge` / `Slot0Gesture`) and a
+reason; a test asserts every `Slot0Gesture` reason opens with `MULTIPLAYER TODO`,
+so the allowlist doubles as the N1 checklist.
+
+**The lint is BIDIRECTIONAL**, because B3's rot was: an unlisted holder fails, and
+an allowlist entry that matches no holder ALSO fails. B3 named
+`sync_local_player_input_frame` as a holder; that system reads `Res<SlotControls>`
+and never held the frame. Stale in both directions, exactly as suspected — and the
+stale direction is the one no ordinary grep lint would ever catch.
+
+**Poison-tested against REAL sources, both directions** (the doc's instruction,
+followed literally):
+- inject `Res<ambition_input::ControlFrame>` into
+  `features/ecs/actors/update.rs` → red, naming file, line, and function;
+- put B3's exact wrong claim in the allowlist → red on the STALE branch, quoting
+  the history.
+Six further poison tests run on synthetic sources, and they **caught two real bugs
+in the scanner's first draft**: `MenuControlFrame` is a PREFIX collision (the menu's
+frame is a different resource, and the first draft flagged both real menu systems),
+and `init_resource::<` contains `resource::<` (so the frame's own owner,
+`SimCoreResourcesPlugin::build`, tripped its own lint). A grep lint that cannot fail
+is worse than none; mine could not fail *correctly* until it was made to fail.
+
+**Exit check — met.** The lint is green; the allowlist has nine entries, each with a
+category and a reason; the poison tests confirm it fails on a violation.
+`unified-actors.md` B3's stale sentence is corrected in the same commit, and step 5's
+Phase C is marked DONE there.
+
+### The original analysis, for the record
 
 **Unblocked. Small. This is the gate on R6 — write it BEFORE the fold.**
 

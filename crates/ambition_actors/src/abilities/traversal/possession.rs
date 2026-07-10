@@ -134,6 +134,15 @@ pub fn holding_descend(
 /// (`Res<ControlFrame>`) directly rather than any body's input — the home avatar
 /// is inert (neutral input) while vacated, but the local device still drives the
 /// release.
+///
+/// **This is the ONE sim system that holds the global `ControlFrame`, which makes
+/// possession local-player-only: a second player could never possess anything.**
+/// It is enumerated as the sole `Bridge::Slot0Gesture` in
+/// `ambition_runtime/tests/control_frame_lint.rs`, whose allowlist doubles as the
+/// N1 multiplayer checklist. The fix is to read the acting slot's
+/// `SlotInteractionState` / `SlotControls`, exactly as `interaction_input_system`
+/// already does for the interact buffer — a behavior change, not a refactor, so
+/// it is deferred rather than hidden.
 #[allow(clippy::too_many_arguments)]
 pub fn possession_trigger_system(
     control: Res<ambition_input::ControlFrame>,

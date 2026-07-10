@@ -43,9 +43,6 @@ path = "crates/ambition_characters/src/brain/smash/mod.rs"
 reason = "the smash-brain state machine. A decomposition target; no sub-module extracted yet."
 
 
-[[waiver]]
-path = "crates/ambition_entity_catalog/src/lib.rs"
-reason = "data-heavy declarative catalog — the auditor's named exception class (a large table of authored entity definitions, not branching logic)."
 
 [[waiver]]
 path = "game/ambition_app/src/menu/kaleidoscope_app.rs"

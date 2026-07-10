@@ -44,6 +44,10 @@
 //!
 //! Tests live in `tests.rs`.
 
+// The pure touch STATE + fold. Its consumers (`bevy_plugin`, `menu_bridge`) are
+// `mobile_touch`-gated, but the module compiles unconditionally so its unit tests
+// run in every build. Without the feature, most of it is legitimately unreachable.
+#[cfg_attr(not(feature = "mobile_touch"), allow(dead_code))]
 mod state;
 
 #[cfg(feature = "mobile_touch")]

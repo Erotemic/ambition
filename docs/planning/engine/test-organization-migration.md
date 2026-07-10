@@ -228,6 +228,35 @@ The policy suite runs without compiling or linking `ambition_app`.
 
 <!-- MIGRATION-MATRIX-END -->
 
+## Task 10 — compile-impact measurements
+
+| metric | before | after |
+| --- | --- | --- |
+| dedicated policy test binaries | 6 (+1 inline lib test) | **1** (`tests/policy.rs`) |
+| edit-test loop: touch policy **Rust** → recompile | 13.6 s (architecture_boundaries, links all of ambition_app) / 8.0 s (determinism) | **0.47 s** (policy pkg only) |
+| edit-test loop: touch policy **data** (`policies/*.toml`) → recompile | n/a (was Rust literals: 8–13.6 s) | **0.14 s** (data read at runtime; nothing recompiles) |
+| touch a watched **production** file → policy pkg rebuild | — | **0.14 s** (no rebuild — policy pkg has no production dep) |
+| running policy suite compiles `ambition_app`? | yes (architecture_boundaries) | **no** — building the policy pkg compiles **zero** production crates |
+| warm policy execution (all scopes + self-tests) | — | **0.95 s** |
+| policy pkg cold compile (one-time) | — | 10.8 s (incl. the new `toml` dep) |
+| policy pkg dependencies | (each binary linked its production crate) | `serde` + `toml` (+ `walkdir`, `serde_spanned`, `toml_datetime`, `toml_parser`, `winnow`) — no `cargo_metadata`, no production crate |
+
+Repository-policy LOC: **before** 4,769 in `crates/**` + `game/**` test dirs (7
+files, all deleted) + ~47 inline in `ambition_world/src/lib.rs`. **After** ~6,463 in
+the sequestered package (2,477 Rust scanner/machinery compiled ONCE + 3,057 TOML
+policy DATA + 444 `tests/policy.rs` + 485 fixtures/frozen-list/matrix). Total LOC
+rose (data-driven TOML is more verbose than dense Rust literals, and the honesty
+infrastructure — frozen list + migration matrix + poison fixtures — is new), but
+**production source navigation is 4,769 test-LOC lighter** and the shared scanner
+compiles once instead of being re-implemented per test file.
+
+Result vs. the intended outcomes: fewer policy binaries (6→1) ✓; shared scanner
+compiled once ✓; policy-only edits don't rebuild production crates ✓; running policy
+never compiles `ambition_app` ✓; targeted policy execution materially cheaper (13.6 s
+→ 0.47 s Rust, 0.14 s data) ✓. Full-workspace `--no-run` is neutral-to-better: the
+single most expensive test binary (`architecture_boundaries`, which linked all of
+`ambition_app`) plus five others are gone, replaced by one tiny data-driven package.
+
 ## Commands (target model)
 
 ```bash

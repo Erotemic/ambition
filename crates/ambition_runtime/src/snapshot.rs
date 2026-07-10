@@ -944,6 +944,7 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     registry.register_component::<bc::BodyModeState>("body_mode_state");
     registry.register_component::<ambition_actors::features::ActorStatus>("actor_status");
     registry.register_component::<ambition_combat::components::ActorIntent>("actor_intent");
+    registry.register_cursor::<ambition_combat::components::ActorTarget>("actor_target");
 
     // **The blind spot, made loud.** Simulated bodies with no `SimId` cannot be
     // snapshotted, restored, or defended by the canary. Hashing the COUNT means a
@@ -1274,6 +1275,20 @@ impl SnapshotState for ambition_characters::actor::BodyHealth {
                 invulnerable: r.bool()?,
             },
         ))
+    }
+}
+
+/// `ActorTarget` is half derived, half state — see its definition-site snapshot story.
+/// `entity` is rebuilt every tick by `select_actor_targets`; `pos` survives the frame
+/// where no candidate exists, and a chasing brain aims at it. So `pos` rewinds and
+/// `entity` does not.
+impl SnapshotCursor for ambition_combat::components::ActorTarget {
+    fn encode_cursor(&self, out: &mut Vec<u8>) {
+        put_vec2(out, self.pos);
+    }
+    fn apply_cursor(&mut self, r: &mut Reader<'_>) -> Option<()> {
+        self.pos = r.vec2()?;
+        Some(())
     }
 }
 

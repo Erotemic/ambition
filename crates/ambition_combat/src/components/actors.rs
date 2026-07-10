@@ -127,6 +127,33 @@ pub use ambition_characters::actor::pose::ActorFaction;
 /// actor's own position in that case so a "no target" frame produces
 /// a self-looking no-op rather than NaN-on-zero-direction crashes
 /// in choreography or AI math.
+///
+/// # Snapshot story
+///
+/// `docs/planning/engine/netcode.md` N3.1: *"sim components are plain data; anything
+/// holding `Entity` references or interior mutability documents its snapshot story at
+/// the definition site."* This is that document.
+///
+/// **`entity` is an `Entity`, which N3.1 decision (2) forbids in sim state.** An
+/// entity index is a slot in an allocator, not an identity: it does not survive a
+/// restore that respawns anything, and it means nothing in a desync report. It is
+/// here because every consumer needs to *query* the target (its health, its body),
+/// and replacing it with a `SimId` needs a `SimId -> Entity` index rebuilt each tick.
+/// **That is the named migration slice**, listed in `tracks.md`.
+///
+/// Until then: `entity` is **derived**, rewritten every tick by
+/// [`select_actor_targets`](crate::targeting::select_actor_targets) whenever any
+/// candidate exists, and a rollback lets that system rebuild it. `pos` is **state** —
+/// on the one frame where no candidates exist, the selector leaves the whole
+/// component untouched on purpose, so `pos` carries the previous frame's aim into the
+/// brain's math. `ambition_runtime::snapshot` therefore registers `ActorTarget` as a
+/// `SnapshotCursor` over `pos` alone.
+///
+/// A rollback that spans the frame a target *died* can leave `entity` pointing at a
+/// despawned body for one tick. `Query::get` returns `Err` and every consumer already
+/// treats that as "no target", which is the behaviour they take when the target dies
+/// anyway. That is a survivable one-tick lie, not a correct design, and it is the
+/// third reason the migration is worth doing.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct ActorTarget {
     pub entity: Option<Entity>,

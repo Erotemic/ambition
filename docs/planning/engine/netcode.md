@@ -366,11 +366,11 @@ snapshots needed. Needs N0 complete, plus:
   | room | component types a rewind leaves stale | rewind is exact? |
   |---|---|---|
   | `gap_run` | 35 | ✅ **yes** |
-  | `portal_lab` | **66** | no |
-  | `mockingbird_arena` | 55 | no |
+  | `portal_lab` | **65** | no |
+  | `mockingbird_arena` | 54 | no |
   | `gnu_ton_arena` | 35 | no |
 
-  Pinned at 66; it may fall, it may not rise. The count is an *upper bound* on the
+  Pinned at 65; it may fall, it may not rise. The count is an *upper bound* on the
   debt, not the debt: for an immutable authored fact, stale and correct are the same
   thing. The exit oracle is what measures whether stale state actually leaks.
 
@@ -423,7 +423,7 @@ snapshots needed. Needs N0 complete, plus:
   meant to look at.
 
   This is the general shape of the authored/mutable split, and it is why the coverage
-  ledger is an upper bound rather than a debt: many of the 66 want a *cursor*, not a
+  ledger is an upper bound rather than a debt: many of the 65 want a *cursor*, not a
   codec.
 
   ### The three named blockers between here and a clean arena
@@ -433,32 +433,34 @@ snapshots needed. Needs N0 complete, plus:
 
   | room | first divergence | what restore did | remaining cause |
   |---|---|---|---|
-  | `mockingbird_arena` | tick 0 | all patched | actor brain inputs |
-  | `gnu_ton_arena` | tick 8 | all patched | boss brain state |
+  | `mockingbird_arena` | tick 0 | all patched | **boss brain state** |
+  | `gnu_ton_arena` | tick 8 | all patched | **boss brain state** |
   | `portal_lab` | tick 0 | 1 respawned | a naked respawn |
 
-  `ActorMotionPath` was ONE of mockingbird's causes and is now registered as a cursor;
-  the ai-mode enums were another. The room still diverges at tick 0, so neither was the
-  last. What is left, in the order I would take them:
+  **The two arenas have ONE disease, not two.** Probing the world immediately after a
+  restore shows every registered entry matching exactly — the rewind is right. What
+  leaks is `BossPatternTimer`, `BossAttackState`, `BossPhase`, `BossAttackIntent`, and
+  `MovePlayback`: a boss resumes its pattern from the tick we rewound FROM. Mockingbird
+  reacts on tick 0 and Gnu-Ton takes eight, which is a difference in how quickly a
+  brain's decision reaches a body — not a difference in cause.
 
-  1. ~~**`ActorStatus.ai_mode` / `ActorIntent` are unit enums**~~ ✅ **DONE.**
-     `snapshot_unit_enum!` writes an EXPLICIT discriminant mapping, and
-     `a_unit_enums_wire_discriminant_never_moves` pins the bytes. Declaration order is
-     one refactor away from being a different order: move `Chase` above `Patrol` and
-     every snapshot ever taken starts decoding patrolling enemies as chasing ones,
-     silently, because both are valid states. An unknown discriminant decodes to
-     `None`, never to the default — a blob this build cannot read is a bug to surface,
-     not a state to guess, and `Idle` would be a very plausible guess.
-     `BodyModeState` came along for the ride.
-  2. **`ActorTarget` holds an `Option<Entity>`, and a stale `pos`.** Decision (2)
-     forbids the `Entity`: an entity index is an allocator slot, not an identity, and
-     it does not survive a restore that respawns anything. It needs a `SimId`. The
-     stale `pos` is very likely a tick-0 mover — a chasing brain aims at where the
-     target *was going to be*. *This is the migration slice decision (2) promised
-     would be "listed in tracks.md when N3.1 implementation starts" — it has started,
-     and here it is.*
-  3. **`Perception` / `PerceptionMemory`** — the brain's view and its memory. FB5's
-     habit model lives here, and FB6's rollouts cannot run until it rewinds.
+  So the remaining work, in order:
+
+  1. **Boss brain state.** `BossPatternTimer` / `BossAttackState` / `BossPhase` /
+     `MovePlayback`, plus each boss special's own state (`EchoFanState`,
+     `OverflowState`, `GradientCascadeState`, …). **The specials live in
+     `ambition_content`, which already depends on `ambition_runtime` — so content can
+     `impl SnapshotState` and register itself today.** That is the shape this section
+     asks for, arriving from the other end. This is also exactly the FB6-rollouts and
+     BD6-playtester blocker.
+  2. **`Perception` / `PerceptionMemory`** — the brain's view and its memory. FB5's
+     habit model lives here.
+  3. **`ActorTarget`'s `Option<Entity>`** — decision (2) forbids it. Its snapshot story
+     is now documented at the definition site, as this section's exit rule requires,
+     and `pos` (the half that IS state) rewinds as a cursor. Replacing the `Entity`
+     with a `SimId` needs a per-tick `SimId -> Entity` index; a rollback spanning a
+     target's death currently leaves it dangling for one tick, which every consumer
+     already reads as "no target". **A survivable one-tick lie, not a correct design.**
   4. **`portal_lab` respawns an entity from blobs, and it comes back naked.** The
      only room where `restore` reports `respawned > 0`. A respawn needs the entity's
      authored scaffolding, which is what decision (3)'s *"room-reset already proves

@@ -28,6 +28,7 @@ use crate::actor::BodyMana;
 use crate::features::HeldItem;
 use ambition_characters::brain::ActorControl;
 use ambition_engine_core::{self as ae, AabbExt};
+use ambition_platformer_primitives::class_b::{ClassBRemap, ClassBRemapLog};
 use ambition_platformer_primitives::markers::ControlledSubject;
 
 /// Held-item id of the dive gauntlet.
@@ -98,6 +99,9 @@ pub fn fire_dive_system(
     )>,
     mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
     mut hits: MessageWriter<crate::features::HitEvent>,
+    // Optional: the diagnostic-only Class-B ledger (§3.2). A minimal test app
+    // that never added the engine's schedule plugin still dives.
+    mut class_b: Option<ResMut<ClassBRemapLog>>,
 ) {
     let Some(subject) = controlled.0 else {
         return;
@@ -157,6 +161,12 @@ pub fn fire_dive_system(
         }
     }
     kin.pos = target;
+    // Class-B transit authority (`collision-and-ccd.md` §3.2): a traversal
+    // ability that JUMPS a body is a scripted teleport, ranked weakest — dying
+    // mid-dive is a death, not a dive.
+    if let Some(log) = class_b.as_mut() {
+        log.record(player, ClassBRemap::ScriptedTeleport);
+    }
     if local_dir.x.abs() > 0.001 {
         kin.facing = local_dir.x.signum();
     }

@@ -37,6 +37,7 @@
 //! group — [the windowed host] (`ambition_host`) and the game's app own those.
 
 use bevy::app::{App, FixedUpdate, Plugin, PluginGroup, PluginGroupBuilder};
+use bevy::ecs::schedule::IntoScheduleConfigs as _;
 use bevy::time::{Fixed, Time};
 
 use ambition_platformer_primitives::schedule::SimScheduleExt as _;
@@ -147,6 +148,19 @@ impl Plugin for SandboxSetsPlugin {
         // Declare the canonical simulation-phase ordering. System
         // registrations elsewhere only need `.in_set(SandboxSet::X)`.
         ambition_actors::schedule::configure_sandbox_sets(app);
+        // The Class-B transit ledger (`collision-and-ccd.md` §3.2). Frame-scoped:
+        // cleared at the head of the sim, appended to by portal transit, room
+        // transitions, death/respawn, and the teleport abilities. It belongs to
+        // THIS plugin because it is a property of the sim FRAME, not of any one
+        // mechanic — and every Class-B writer lives downstream of `CoreSimulation`'s
+        // leading edge, `ResetProcessing` (a tail set) included.
+        let sim = app.sim_schedule();
+        app.init_resource::<ambition_platformer_primitives::class_b::ClassBRemapLog>();
+        app.add_systems(
+            sim,
+            ambition_platformer_primitives::class_b::clear_class_b_remap_log
+                .before(ambition_platformer_primitives::schedule::SandboxSet::CoreSimulation),
+        );
         // Shrine activation pulse (interaction → save flash).
         app.init_resource::<ambition_actors::shrine::ShrineActivationPulse>();
         // Slot-keyed gesture/buffer authority (double-tap, interact buffer).

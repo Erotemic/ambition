@@ -225,6 +225,11 @@ pub(crate) fn death_respawn_player(
     died.write(ActorDiedMessage { pos: from, cause });
 }
 
+/// Resolve this frame's hits against one body. Returns **true when the body was
+/// Class-B remapped** (`collision-and-ccd.md` §3.2) — a death respawn or a
+/// hazard safe-respawn both teleport it. Knockback does not: it writes velocity,
+/// which is Class-A's business. The caller owns the entity id, so the caller
+/// records into `ClassBRemapLog`.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn handle_player_damage_events(
     world: &ae::World,
@@ -245,16 +250,16 @@ pub(crate) fn handle_player_damage_events(
     di_input_local: ae::Vec2,
     anim: &mut BodyAnimFacts,
     combat: &mut BodyCombat,
-) {
+) -> bool {
     let Some(damage) = damage_events.first().cloned() else {
-        return;
+        return false;
     };
     // Consume-time vulnerability (§A2): invincibility (debug toggle),
     // dodge-roll i-frames, and an active parry drop the event before any state
     // mutates. The post-hit i-frame window is consumed inside the resolver —
     // the SAME rule for every body; emitters no longer decide it.
     if !body_vulnerable(clusters.offense, clusters.dodge, clusters.shield, combat) {
-        return;
+        return false;
     }
     let impact_pos = damage
         .knockback
@@ -285,13 +290,14 @@ pub(crate) fn handle_player_damage_events(
         },
     );
     match resolution {
-        BodyHitResolution::Ignored => {}
+        BodyHitResolution::Ignored => false,
         BodyHitResolution::Blocked => {
             sfx.write(SfxMessage::Play {
                 id: ambition_sfx::ids::WORLD_ROCK_HIT,
                 pos: clusters.kinematics.pos,
             });
             banner_requests.write(GameplayBannerRequested::new("blocked", 1.0));
+            false
         }
         BodyHitResolution::Damaged { died: true, .. } => {
             // Attribution for the death fact: the killing hit's source category
@@ -318,6 +324,7 @@ pub(crate) fn handle_player_damage_events(
                 anim,
                 combat,
             );
+            true
         }
         BodyHitResolution::Damaged { died: false, .. } => match damage.mode {
             crate::combat::HitMode::SafeRespawn => {
@@ -332,6 +339,7 @@ pub(crate) fn handle_player_damage_events(
                     feel,
                     impact_pos,
                 );
+                true
             }
             crate::combat::HitMode::Knockback => {
                 // Getting hit knocks you off a ledge grab — you fall with the
@@ -347,6 +355,7 @@ pub(crate) fn handle_player_damage_events(
                     &damage,
                     di_input_local,
                 );
+                false
             }
         },
     }
@@ -546,7 +555,13 @@ pub(crate) fn apply_player_knockback(
 pub fn apply_player_hit_events(
     // Bundled into one tuple param to stay under Bevy's 16-system-param ceiling
     // (S3e's relational `relations` + `attacker_factions` pushed this to 17).
-    (world, moving_platforms): (Res<RoomGeometry>, Res<MovingPlatformSet>),
+    // `class_b` is the §3.2 transit ledger — death and hazard respawn are both
+    // Class-B remaps, and this system is where the victim's entity id is known.
+    (world, moving_platforms, mut class_b): (
+        Res<RoomGeometry>,
+        Res<MovingPlatformSet>,
+        Option<ResMut<ambition_platformer_primitives::class_b::ClassBRemapLog>>,
+    ),
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
@@ -669,7 +684,7 @@ pub fn apply_player_hit_events(
         let di_input_local = control.map(|c| c.0.locomotion).unwrap_or(ae::Vec2::ZERO);
 
         let mut clusters = cluster_item.as_clusters_mut();
-        handle_player_damage_events(
+        let remapped = handle_player_damage_events(
             &world.0,
             &mut sfx_writer,
             &mut vfx_writer,
@@ -688,6 +703,17 @@ pub fn apply_player_hit_events(
             &mut anim,
             &mut combat,
         );
+        // Class-B transit authority (`collision-and-ccd.md` §3.2). Death and the
+        // hazard safe-respawn both teleport the victim; recorded here because
+        // this is where the entity id lives.
+        if remapped {
+            if let Some(log) = class_b.as_mut() {
+                log.record(
+                    player_entity,
+                    ambition_platformer_primitives::class_b::ClassBRemap::DeathOrReset,
+                );
+            }
+        }
 
         let ctx = SafePositionContext {
             damaged_this_frame,

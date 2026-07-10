@@ -18,6 +18,7 @@ use crate::actor::BodyKinematics;
 use crate::features::HeldItem;
 use ambition_characters::brain::ActorControl;
 use ambition_engine_core::{self as ae, AabbExt};
+use ambition_platformer_primitives::class_b::{ClassBRemap, ClassBRemapLog};
 use ambition_platformer_primitives::markers::ControlledSubject;
 
 /// The held-item id the Blink ability grants.
@@ -113,6 +114,9 @@ pub fn blink_system(
     mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut hits: MessageWriter<crate::features::HitEvent>,
+    // Optional: the diagnostic-only Class-B ledger (§3.2). A minimal test app
+    // that never added the engine's schedule plugin still blinks.
+    mut class_b: Option<ResMut<ClassBRemapLog>>,
 ) {
     let Some(subject) = controlled.0 else {
         return;
@@ -158,6 +162,12 @@ pub fn blink_system(
         None => from + dir * BLINK_DISTANCE,
     };
     kin.pos = target;
+    // Class-B transit authority (`collision-and-ccd.md` §3.2): a traversal
+    // ability that JUMPS a body is a scripted teleport, ranked weakest — dying
+    // mid-blink is a death, not a blink.
+    if let Some(log) = class_b.as_mut() {
+        log.record(player, ClassBRemap::ScriptedTeleport);
+    }
     // Offensive blink: a small player-side shockwave at the arrival point, so you
     // can blink *into* enemies to strike them (and the PlayerSlash source spares
     // the player). Composes nicely with a gravity well — blink in, sweep them up.

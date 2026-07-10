@@ -263,6 +263,12 @@ pub(crate) struct TransitBodies<'w, 's> {
         ambition::actors::actor::PrimaryPlayerOnly,
     >,
     primary: Query<'w, 's, Entity, ambition::actors::actor::PrimaryPlayerOnly>,
+    /// The Class-B transit ledger (`collision-and-ccd.md` §3.2). It rides in
+    /// this param because a room transition IS one of the four Class-B
+    /// authorities, and this struct is the one that names the body it moves.
+    /// `Option`, and bundled here rather than added to the system's signature —
+    /// `apply_room_transition_system` already sits at Bevy's 16-param ceiling.
+    class_b: Option<ResMut<'w, ambition::platformer::class_b::ClassBRemapLog>>,
 }
 
 pub(crate) fn apply_room_transition_system(
@@ -362,6 +368,15 @@ pub(crate) fn apply_room_transition_system(
             load_resources.1.as_deref(),
             load_resources.2.as_deref(),
         );
+        // Class-B transit authority (`collision-and-ccd.md` §3.2): the load just
+        // relocated `subject` into the new room. Recorded AFTER the move, so a
+        // transition that bailed early never claims the frame's remap.
+        if let Some(log) = transit.class_b.as_mut() {
+            log.record(
+                subject,
+                ambition::platformer::class_b::ClassBRemap::RoomTransition,
+            );
+        }
         log_room_transition_landing(
             target_room,
             &room_set,

@@ -9,6 +9,7 @@
 | [`body`](src/body.rs) | Unified body kinematics for every controllable platformer body. |
 | [`camera_ease`](src/camera_ease.rs) | Smoothed camera scale + world-target state with tunable ease rates. |
 | [`camera_layers`](src/camera_layers.rs) | Presentation camera markers shared by host, render, and app wiring. |
+| [`class_b`](src/class_b.rs) | **Class-B transit authority** — the per-frame remap ledger. |
 | [`feature_overlay`](src/feature_overlay.rs) | Shared read resource for transient ECS-derived world collision overlays. |
 | [`gravity`](src/gravity.rs) | Shared world physics applied to every actor body. |
 | [`kinematic`](src/kinematic.rs) | Generic kinematic body — gravity + axis-separated sweep against a `World`. |
@@ -24,7 +25,7 @@
 | [`time`](src/time.rs) | Neutral simulation-time resource for the platformer runtime. |
 | [`transit`](src/transit.rs) | Generic body-transit velocity math for platformer mechanics. |
 
-_17 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_18 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

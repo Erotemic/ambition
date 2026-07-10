@@ -8,6 +8,7 @@ use bevy::prelude::*;
 use crate::pieces as pp;
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_platformer_primitives::body::BodyKinematics;
+use ambition_platformer_primitives::class_b::{ClassBRemap, ClassBRemapLog};
 use ambition_platformer_primitives::orientation::ActorRoll;
 use ambition_platformer_primitives::transit::rotate_velocity_between_normals as portal_transform_velocity;
 
@@ -274,6 +275,9 @@ pub fn portal_transit(
     host_depths: Option<Res<PortalHostDepths>>,
     mut entered: MessageWriter<super::messages::PortalBodyEntered>,
     mut transited: MessageWriter<PortalBodyTransited>,
+    // Optional: a minimal test app that never added the engine's schedule
+    // plugin still runs transit. The ledger is diagnostic, never load-bearing.
+    mut class_b: Option<ResMut<ClassBRemapLog>>,
 ) {
     let all: Vec<PlacedPortal> = portals.iter().cloned().collect();
     if all.is_empty() {
@@ -333,6 +337,13 @@ pub fn portal_transit(
                 exit_pos,
             } => {
                 kin.pos = pos;
+                // Class-B transit authority (`collision-and-ccd.md` §3.2),
+                // recorded at the moment the position is written — not when the
+                // crossing is detected. The CC3 oracle reads this to tell a
+                // legal aperture warp from a clip through solid geometry.
+                if let Some(log) = class_b.as_mut() {
+                    log.record(entity, ClassBRemap::PortalTransit);
+                }
                 // Velocity rotation is core/default; the policy only chooses
                 // whether to WRITE it (false = old boss no-velocity path).
                 if policy.carry_velocity {

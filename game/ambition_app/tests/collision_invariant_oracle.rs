@@ -55,6 +55,13 @@ enum Kind {
     /// frame, with no drop-through intent and no reset/room change. Admission is
     /// one-directional; silent fall-through is the historical bug.
     OneWayFallThrough,
+    /// §6.1 invariant 2 — a straddling body's center sits inside AUTHORED solid
+    /// material that is not part of the carve of the portal it straddles. The
+    /// §7.6 class: it got into the wall through some other hole.
+    StraddleOutsideCarve,
+    /// §6.1 invariant 5 — two Class-B remaps applied to one body in one frame
+    /// (§3.2's ordering invariant). A re-ordering bug, not a tolerated race.
+    DoubleClassBRemap,
 }
 
 impl Kind {
@@ -70,6 +77,8 @@ impl Kind {
             Kind::Teleport => 3,
             Kind::NonFinite => 4,
             Kind::OneWayFallThrough => 6,
+            Kind::StraddleOutsideCarve => 2,
+            Kind::DoubleClassBRemap => 5,
         }
     }
 
@@ -82,6 +91,8 @@ impl Kind {
             Kind::Teleport => "TELEPORT",
             Kind::NonFinite => "NON-FINITE-POS-OR-VEL",
             Kind::OneWayFallThrough => "ONE-WAY-FALL-THROUGH",
+            Kind::StraddleOutsideCarve => "STRADDLE-OUTSIDE-CARVE",
+            Kind::DoubleClassBRemap => "DOUBLE-CLASS-B-REMAP",
         }
     }
 }
@@ -194,6 +205,95 @@ fn one_ways(sim: &SandboxSim) -> Vec<SolidBlock> {
         .collect()
 }
 
+/// The room's AUTHORED (uncarved) solid material. Invariant 2 needs it: the
+/// composed world used by invariant 1 has EVERY portal's carve subtracted, so a
+/// body that slipped into the host wall through a *different* portal's hole
+/// reads as "not in a solid" there. Against the authored wall it reads as what
+/// it is.
+fn authored_solid_blocks(sim: &SandboxSim) -> Vec<SolidBlock> {
+    let Some(room) = sim.world().get_resource::<RoomGeometry>() else {
+        return Vec::new();
+    };
+    room.0
+        .blocks
+        .iter()
+        .filter(|b| {
+            matches!(
+                b.kind,
+                ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
+            )
+        })
+        .map(|b| SolidBlock {
+            geo: b.id.clone(),
+            aabb: b.aabb,
+        })
+        .collect()
+}
+
+/// The player's entity, so the Class-B ledger can be read per body.
+fn player_entity(sim: &mut SandboxSim) -> Option<ambition::bevy::prelude::Entity> {
+    use ambition::bevy::prelude::{Entity, With};
+    let mut q = sim
+        .world_mut()
+        .query_filtered::<Entity, With<ambition::actors::actor::PrimaryPlayer>>();
+    let world = sim.world();
+    q.iter(world).next()
+}
+
+/// **Invariant 2's read-model row.** The carve volume of the portal the player
+/// is currently straddling, if it is straddling one.
+///
+/// `docs/planning/engine/collision-and-ccd.md` §6.1 said this needed "a
+/// read-model row" that did not exist. It did exist: `PortalTransit.straddling`
+/// has always named the channel — what was missing was a caller. The hole is the
+/// same `pieces::carve_hole` that `publish_portal_carves` pushes, so the oracle
+/// tests against the exact geometry the sim carved.
+#[cfg(feature = "portal")]
+fn straddled_carve(sim: &mut SandboxSim) -> Option<ae::Aabb> {
+    use ambition::bevy::prelude::With;
+    use ambition::portal::{find_portal, PlacedPortal, PortalTransit};
+
+    let channel = {
+        let mut q = sim
+            .world_mut()
+            .query_filtered::<&PortalTransit, With<ambition::actors::actor::PrimaryPlayer>>();
+        let world = sim.world();
+        q.iter(world).next().map(|t| t.straddling)?
+    };
+    let portals: Vec<PlacedPortal> = {
+        let mut q = sim.world_mut().query::<&PlacedPortal>();
+        let world = sim.world();
+        q.iter(world).cloned().collect()
+    };
+    let enter = find_portal(&portals, channel)?;
+    Some(ambition::portal::pieces::carve_hole(&enter.aperture()))
+}
+
+#[cfg(not(feature = "portal"))]
+fn straddled_carve(_sim: &mut SandboxSim) -> Option<ae::Aabb> {
+    None
+}
+
+/// Every Class-B remap the engine applied to `body` on the tick that just ran
+/// (`collision-and-ccd.md` §3.2), newest last. Empty when the ledger is absent.
+///
+/// This is invariant 5's countable event — and it is also what finally retires
+/// the TELEPORT false positive: a body the transit authority legally warped did
+/// not "pop".
+fn class_b_remaps(
+    sim: &SandboxSim,
+    body: Option<ambition::bevy::prelude::Entity>,
+) -> Vec<ambition::platformer::class_b::ClassBRemap> {
+    let (Some(log), Some(body)) = (
+        sim.world()
+            .get_resource::<ambition::platformer::class_b::ClassBRemapLog>(),
+        body,
+    ) else {
+        return Vec::new();
+    };
+    log.kinds_for(body).collect()
+}
+
 /// The player's live body: center, velocity, half-extent. The oracle needs the
 /// half-height to know where its FEET are, and the velocity for invariant 4.
 fn player_body(sim: &mut SandboxSim) -> Option<(ae::Vec2, ae::Vec2, ae::Vec2)> {
@@ -249,6 +349,18 @@ fn load_loading_zones() -> std::collections::HashMap<String, Vec<ae::Aabb>> {
     map
 }
 
+/// Everything invariants 2 and 5 need about this tick's Class-B activity, bundled
+/// so `check_step` stays under a readable arity.
+#[derive(Default)]
+struct TransitContext<'a> {
+    /// The AUTHORED (uncarved) solid material — invariant 2's reference wall.
+    authored: &'a [SolidBlock],
+    /// The carve volume of the portal the body straddles, if it straddles one.
+    straddled_carve: Option<ae::Aabb>,
+    /// The Class-B remaps applied to this body on this tick, in order.
+    remaps: &'a [ambition::platformer::class_b::ClassBRemap],
+}
+
 /// Check one post-tick observation against the invariants. `teleport_from` is
 /// the prior tick's center for the teleport test — passed as `None` whenever the
 /// room changed or the player respawned this tick (a door load or a death→spawn
@@ -269,6 +381,7 @@ fn check_step(
     // down this frame (drop-through intent) and whether a reset/room change
     // occurred. Invariant 6 needs all three.
     one_way_ctx: Option<(&SolidBlock, bool, bool)>,
+    transit: &TransitContext<'_>,
     suppressed: &mut u32,
 ) -> Vec<Violation> {
     let mut out = Vec::new();
@@ -316,6 +429,82 @@ fn check_step(
             });
             break; // one embed report per step is enough
         }
+    }
+
+    // §6.1 invariant 2 — straddle-outside-carve. A body mid-transit legitimately
+    // has its center behind the plane, INSIDE the carved aperture. What is never
+    // legal is being inside the host material anywhere ELSE: it means the body
+    // reached the wall's interior through some other opening (the §7.6 class).
+    //
+    // Invariant 1 cannot see this. It tests the COMPOSED world, where every
+    // portal's carve has been subtracted — including the one the body did not
+    // enter through. Invariant 2 tests the AUTHORED wall against the ONE carve
+    // the body is entitled to.
+    if let Some(carve) = transit.straddled_carve {
+        let inside_own_carve =
+            px >= carve.min.x && px <= carve.max.x && py >= carve.min.y && py <= carve.max.y;
+        if !inside_own_carve {
+            for b in transit.authored {
+                let a = b.aabb;
+                if px > a.min.x + EMBED_MARGIN
+                    && px < a.max.x - EMBED_MARGIN
+                    && py > a.min.y + EMBED_MARGIN
+                    && py < a.max.y - EMBED_MARGIN
+                {
+                    out.push(Violation {
+                        room: room.to_string(),
+                        seed,
+                        tick,
+                        kind: Kind::StraddleOutsideCarve,
+                        pos,
+                        detail: format!(
+                            "straddling, but center is in solid [{:.0},{:.0}]..[{:.0},{:.0}] \
+                             outside its carve [{:.0},{:.0}]..[{:.0},{:.0}]",
+                            a.min.x,
+                            a.min.y,
+                            a.max.x,
+                            a.max.y,
+                            carve.min.x,
+                            carve.min.y,
+                            carve.max.x,
+                            carve.max.y
+                        ),
+                        through_wall: None,
+                        geo: Some(b.geo.clone()),
+                    });
+                    break;
+                }
+            }
+        }
+    }
+
+    // §6.1 invariant 5 — at most one Class-B remap per body per frame (§3.2).
+    // The ledger is the countable event; two entries is the violation, and their
+    // ORDER says which kind of bug: a stronger authority applying second means a
+    // sweep sample was not reset, a weaker one means the schedule is misordered.
+    if transit.remaps.len() > 1 {
+        let first = transit.remaps[0];
+        let second = transit.remaps[1];
+        out.push(Violation {
+            room: room.to_string(),
+            seed,
+            tick,
+            kind: Kind::DoubleClassBRemap,
+            pos,
+            detail: format!(
+                "{} then {} ({})",
+                first.label(),
+                second.label(),
+                if second.wins_over(first) {
+                    "priority-correct order, so the FIRST remap should have been \
+                     voided by the sample reset (§3.1 rule 2)"
+                } else {
+                    "priority-INVERTED: the weaker authority ran last and won"
+                }
+            ),
+            through_wall: None,
+            geo: None,
+        });
     }
 
     // §6.1 invariant 6 — one-way fall-through. Admission is one-directional: a
@@ -397,9 +586,13 @@ fn check_step(
         }
     }
 
-    // 3. Teleport: a single-tick jump no legit move can produce (caller passes
-    // None across room loads / respawns so those legit jumps don't count).
-    if let Some((qx, qy)) = teleport_from {
+    // 3. Teleport: a single-tick jump no legit move can produce. The caller passes
+    // `None` across room loads / respawns; the Class-B ledger covers the rest —
+    // §6.1's "Explicitly legal" list names *the transfer frame's position jump*,
+    // and a body that any Class-B authority remapped this tick took exactly that.
+    // Before the ledger existed this probe reported every portal transit as a
+    // 290px TELEPORT. That was the one false positive in the 64,800-frame sweep.
+    if let Some((qx, qy)) = teleport_from.filter(|_| transit.remaps.is_empty()) {
         let d = ((px - qx).powi(2) + (py - qy).powi(2)).sqrt();
         if d > TELEPORT_PX {
             out.push(Violation {
@@ -453,18 +646,28 @@ fn run_episode(
         let obs = sim.step(action);
         ran += 1;
         let blocks = solid_blocks(&sim);
+        let authored = authored_solid_blocks(&sim);
         let platforms = one_ways(&sim);
         let body = player_body(&mut sim);
+        let subject = player_entity(&mut sim);
+        let carve = straddled_carve(&mut sim);
+        let remaps = class_b_remaps(&sim, subject);
         let room_zones = zones.get(&obs.active_room).unwrap_or(&empty);
         // A door load or a death→spawn respawn is a legit large jump — only feed
         // the teleport test a prior pos when neither happened this tick. It is
         // ALSO invariant 6's "Class-B remap" escape hatch: a body the engine
-        // teleported did not fall through anything.
+        // teleported did not fall through anything. `remaps` is the same escape
+        // hatch made precise (§3.2) — the observation-derived `transitioned` flag
+        // stays because a room load also swaps the geometry the carry refers to.
         let transitioned = obs.active_room != prev_room || obs.resets != prev_resets;
         let teleport_from = (!transitioned).then_some(prev_pos);
-        let one_way_ctx = prev_support
-            .as_ref()
-            .map(|p| (p, pressed_down, transitioned));
+        let remapped = transitioned || !remaps.is_empty();
+        let one_way_ctx = prev_support.as_ref().map(|p| (p, pressed_down, remapped));
+        let transit_ctx = TransitContext {
+            authored: &authored,
+            straddled_carve: carve,
+            remaps: &remaps,
+        };
         violations.extend(check_step(
             &obs.active_room,
             seed,
@@ -476,6 +679,7 @@ fn run_episode(
             &blocks,
             room_zones,
             one_way_ctx,
+            &transit_ctx,
             &mut suppressed,
         ));
         // Carry this tick's support forward. A room change invalidates it (the
@@ -585,6 +789,7 @@ fn oob_classifies_through_wall_vs_open_edge() {
         &walled,
         &[],
         None,
+        &TransitContext::default(),
         &mut supp,
     );
     let side = v.iter().find(|x| matches!(x.kind, Kind::OutOfBoundsSide));
@@ -606,6 +811,7 @@ fn oob_classifies_through_wall_vs_open_edge() {
         &[],
         &[],
         None,
+        &TransitContext::default(),
         &mut supp,
     );
     let side = v.iter().find(|x| matches!(x.kind, Kind::OutOfBoundsSide));
@@ -629,6 +835,7 @@ fn oob_classifies_through_wall_vs_open_edge() {
         &walled,
         &[],
         None,
+        &TransitContext::default(),
         &mut supp,
     );
     assert!(
@@ -754,6 +961,7 @@ fn a_non_finite_body_reports_invariant_4_and_nothing_else() {
         &[],
         &[],
         None,
+        &TransitContext::default(),
         &mut supp,
     );
     assert_eq!(v.len(), 1, "exactly one violation: {:?}", v.len());
@@ -772,6 +980,7 @@ fn a_non_finite_body_reports_invariant_4_and_nothing_else() {
         &[],
         &[],
         None,
+        &TransitContext::default(),
         &mut supp,
     );
     assert_eq!(v.len(), 1);
@@ -806,6 +1015,7 @@ fn a_silent_one_way_fall_through_reports_invariant_6() {
             &[],
             &[],
             Some((&platform, pressed_down, remapped)),
+            &TransitContext::default(),
             supp,
         )
     };
@@ -844,6 +1054,7 @@ fn a_silent_one_way_fall_through_reports_invariant_6() {
         &[],
         &[],
         Some((&platform, false, false)),
+        &TransitContext::default(),
         &mut supp,
     );
     assert!(v.iter().all(|x| !matches!(x.kind, Kind::OneWayFallThrough)));
@@ -881,6 +1092,7 @@ fn a_body_inside_a_carved_hole_is_not_embedded() {
         &carved,
         &[],
         None,
+        &TransitContext::default(),
         &mut supp,
     );
     assert!(
@@ -905,10 +1117,218 @@ fn a_body_inside_a_carved_hole_is_not_embedded() {
         &solid,
         &[],
         None,
+        &TransitContext::default(),
         &mut supp,
     );
     assert!(
         v.iter().any(|x| matches!(x.kind, Kind::EmbeddedInSolid)),
         "the same point inside an UNCARVED wall is invariant 1"
+    );
+}
+
+/// §6.1 **invariant 2** — a straddling body's center is only allowed inside the
+/// host wall where ITS portal carved a hole.
+///
+/// This is the case invariant 1 structurally cannot see. Invariant 1 tests the
+/// COMPOSED world, in which every portal's carve has been subtracted; a body
+/// standing in a *different* portal's hole reads as "not in a solid" there. So
+/// the two probes disagree by construction, and that disagreement is the §7.6
+/// class: the body reached the wall's interior through an opening it never
+/// entered.
+#[test]
+fn a_straddling_body_inside_the_wall_but_outside_its_own_carve_is_invariant_2() {
+    let world = (400.0, 400.0);
+    let mut supp = 0;
+    // One thick wall spanning x∈[100,200]. Two holes punched through it: the one
+    // this body straddles (y∈[0,50]) and another, far away (y∈[300,350]).
+    let wall = SolidBlock {
+        geo: ae::GeoId::anon(),
+        aabb: ae::aabb_from_min_size(ae::Vec2::new(100.0, 0.0), ae::Vec2::new(100.0, 400.0)),
+    };
+    let own_carve = ae::aabb_from_min_size(ae::Vec2::new(100.0, 0.0), ae::Vec2::new(100.0, 50.0));
+    let authored = [wall];
+
+    let fire = |pos: (f32, f32), supp: &mut u32| {
+        check_step(
+            "r",
+            1,
+            1,
+            pos,
+            Some((0.0, 0.0)),
+            None,
+            world,
+            // The COMPOSED world: both holes subtracted, so nothing here is solid
+            // at either hole and invariant 1 stays silent for both positions.
+            &[],
+            &[],
+            None,
+            &TransitContext {
+                authored: &authored,
+                straddled_carve: Some(own_carve),
+                remaps: &[],
+            },
+            supp,
+        )
+    };
+
+    // Inside the wall, but in the hole this body straddles — legal, and the whole
+    // reason invariant 1 exempts a transiting body.
+    assert!(
+        fire((150.0, 25.0), &mut supp)
+            .iter()
+            .all(|x| !matches!(x.kind, Kind::StraddleOutsideCarve)),
+        "a body in its OWN aperture is mid-transit, not embedded"
+    );
+
+    // Inside the wall, in the OTHER portal's hole. Invariant 1 is blind (the
+    // composed world carved it away); invariant 2 is not.
+    let v = fire((150.0, 325.0), &mut supp);
+    let hit = v
+        .iter()
+        .find(|x| matches!(x.kind, Kind::StraddleOutsideCarve))
+        .expect("straddling + inside authored solid + outside own carve");
+    assert_eq!(hit.kind.invariant(), 2);
+    assert_eq!(
+        hit.geo,
+        Some(ae::GeoId::anon()),
+        "§6.2: the dump names the wall it is embedded in"
+    );
+
+    // Not straddling anything: invariant 2 has nothing to say, even in the wall.
+    let v = check_step(
+        "r",
+        1,
+        1,
+        (150.0, 325.0),
+        Some((0.0, 0.0)),
+        None,
+        world,
+        &[],
+        &[],
+        None,
+        &TransitContext {
+            authored: &authored,
+            straddled_carve: None,
+            remaps: &[],
+        },
+        &mut supp,
+    );
+    assert!(v
+        .iter()
+        .all(|x| !matches!(x.kind, Kind::StraddleOutsideCarve)));
+}
+
+/// §6.1 **invariant 5** — at most one Class-B remap per body per frame (§3.2).
+///
+/// The ledger is a `Vec`, so the probe is trivial; what earns its keep is the
+/// DETAIL line, which reads the pair's priority order and names the bug class.
+#[test]
+fn two_class_b_remaps_in_one_frame_is_invariant_5_and_the_order_names_the_bug() {
+    use ambition::platformer::class_b::ClassBRemap;
+    let world = (400.0, 400.0);
+    let mut supp = 0;
+
+    let fire = |remaps: &[ClassBRemap], supp: &mut u32| {
+        check_step(
+            "r",
+            1,
+            1,
+            (50.0, 50.0),
+            Some((0.0, 0.0)),
+            None,
+            world,
+            &[],
+            &[],
+            None,
+            &TransitContext {
+                authored: &[],
+                straddled_carve: None,
+                remaps,
+            },
+            supp,
+        )
+    };
+
+    // One remap per frame is the contract holding.
+    assert!(fire(&[ClassBRemap::PortalTransit], &mut supp).is_empty());
+
+    // Portal transit then room transition: the doctrine's own tie-break says the
+    // room transition wins, and it DID run last — so the bug is that the portal's
+    // remap also applied. §3.1 rule 2's sample reset should have voided it.
+    let v = fire(
+        &[ClassBRemap::PortalTransit, ClassBRemap::RoomTransition],
+        &mut supp,
+    );
+    let hit = v
+        .iter()
+        .find(|x| matches!(x.kind, Kind::DoubleClassBRemap))
+        .expect("two remaps in one frame");
+    assert_eq!(hit.kind.invariant(), 5);
+    assert!(
+        hit.detail.contains("voided by the sample reset"),
+        "detail must name the bug class, got: {}",
+        hit.detail
+    );
+
+    // Death then portal transit: a corpse cannot warp. The weaker authority ran
+    // last and won — a schedule ordering bug, a different fix.
+    let v = fire(
+        &[ClassBRemap::DeathOrReset, ClassBRemap::PortalTransit],
+        &mut supp,
+    );
+    let hit = v
+        .iter()
+        .find(|x| matches!(x.kind, Kind::DoubleClassBRemap))
+        .expect("two remaps in one frame");
+    assert!(
+        hit.detail.contains("priority-INVERTED"),
+        "detail must name the bug class, got: {}",
+        hit.detail
+    );
+}
+
+/// The TELEPORT probe's Class-B exemption — the fix for the one false positive
+/// in CC3's 64,800-frame sweep. §6.1's "Explicitly legal" list names *the
+/// transfer frame's position jump*; the ledger is how the oracle finally knows a
+/// transfer happened.
+#[test]
+fn a_class_b_remap_exempts_the_frames_position_jump_from_the_teleport_probe() {
+    use ambition::platformer::class_b::ClassBRemap;
+    let world = (4000.0, 4000.0);
+    let mut supp = 0;
+    let from = Some((100.0, 100.0));
+    let to = (900.0, 100.0); // an 800px jump: far past TELEPORT_PX
+
+    let fire = |remaps: &[ClassBRemap], supp: &mut u32| {
+        check_step(
+            "r",
+            1,
+            1,
+            to,
+            Some((0.0, 0.0)),
+            from,
+            world,
+            &[],
+            &[],
+            None,
+            &TransitContext {
+                authored: &[],
+                straddled_carve: None,
+                remaps,
+            },
+            supp,
+        )
+    };
+
+    let v = fire(&[], &mut supp);
+    assert!(
+        v.iter().any(|x| matches!(x.kind, Kind::Teleport)),
+        "an unexplained 800px jump is still a pop"
+    );
+
+    let v = fire(&[ClassBRemap::PortalTransit], &mut supp);
+    assert!(
+        v.iter().all(|x| !matches!(x.kind, Kind::Teleport)),
+        "the transfer frame's position jump is explicitly legal (§6.1)"
     );
 }

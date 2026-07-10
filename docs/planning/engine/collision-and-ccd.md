@@ -188,7 +188,16 @@ have a pinned order:
   not by inter-system negotiation. Schedule order today approximates this
   (transit runs before zone checks); the CC3 fuzz rig asserts the invariant
   ("no two Class-B remaps in one frame"), and violations are re-ordering
-  bugs, not tolerated races.
+  bugs, not tolerated races. **Implemented (2026-07-10):**
+  `ambition_platformer_primitives::class_b` is the countable event — every
+  Class-B writer calls `ClassBRemapLog::record` at the moment it writes the
+  position, the log is cleared at the head of each sim frame, and CC3's
+  invariant 5 reads it. Its `ClassBRemap` enum ranks the doctrine's three by
+  declaration order and appends `ScriptedTeleport` (blink / dive /
+  mark-recall — the abilities that jump a body rather than accelerate it) as
+  the weakest: dying mid-blink is a death, not a blink. The log is a
+  **ledger, not an arbiter** — rejecting the second remap would paper over
+  the missing sample reset the invariant exists to expose.
 - **Class C — observers** (read the path, never move the body): hazard
   touch, pickups, water/climb entry, ledge, blink validity, camera/music
   zones. Class-C readers are commutative — no ordering among them is
@@ -540,49 +549,51 @@ P3a [opus after CC6]; P3b/P4 [opus, post-demo, gated on S3].
 
 ### 6.1 The fuzz oracle (CC3) — exact illegal-state definition
 
-**Status (CC3 largely EXECUTED, opus 2026-07-10).** Four of the six
-invariants are live in `ambition_app/tests/collision_invariant_oracle.rs`,
-the pinned §6.2 minimum payload is attached, and the run matrix is every
-shipped room. The diagnostic-only posture and the repro-line format are
-unchanged, as ruled.
+**Status (CC3 COMPLETE, opus 2026-07-10).** All six invariants are live in
+`ambition_app/tests/collision_invariant_oracle.rs`, the pinned §6.2 minimum
+payload is attached, and the run matrix is every shipped room. The
+diagnostic-only posture and the repro-line format are unchanged, as ruled.
 
 | Invariant | Status |
 |---|---|
 | 1 embed-in-solid | ✅ **carve-aware.** `solid_blocks` now composes the world through `ambition_world::collision::world_with_portal_carves` before testing, and includes `BlinkWall`. **The transit exemption falls out of the geometry**: a straddling body's center sits in a hole that no longer contains a block, so no `PortalTransit` special case is needed. |
-| 2 straddle-outside-carve | ⏳ **remains.** Needs the transiting body's straddled-portal identity exposed to a test — the aperture volume is knowable, the *which portal* is not, without a read-model row. |
+| 2 straddle-outside-carve | ✅ **live.** The "read-model row" this row said was missing **already existed**: `PortalTransit.straddling` has named the channel since moving-portals landed. What was missing was a caller. The oracle resolves the straddled `PlacedPortal`, rebuilds its `pieces::carve_hole`, and tests the body's center against the **AUTHORED** wall — the composed world used by invariant 1 has *every* carve subtracted, so it is structurally blind to a body standing inside a hole it never entered. That blindness IS the §7.6 class, and this invariant is the eye for it. |
 | 3 out-of-bounds | ✅ pre-existing (by side, with the authored-exit suppression + the through-wall classifier). |
 | 4 NaN/inf | ✅ **folded in and CATALOGED**, pos and vel. It short-circuits: every geometric test is meaningless on a non-finite body. |
-| 5 one Class-B remap per frame | ⏳ **remains, and is the one that needs new machinery** — the Class-B writers must emit a countable event (§3.2). Not fakeable from outside. |
+| 5 one Class-B remap per frame | ✅ **live, and it did need new machinery.** `ambition_platformer_primitives::class_b` mints the countable event §3.2 asked for: `ClassBRemap` (priority = declaration order) + a frame-scoped `ClassBRemapLog`, cleared at the head of the sim by `SandboxSetsPlugin` and written by all four authorities — `portal_transit`, `apply_room_transition_system`, `apply_player_hit_events` (death + hazard safe-respawn), and the three traversal teleports (blink / dive / mark-recall). It is a **ledger, not an arbiter**: §3.2 says the one-action rule holds *structurally* via the §3.1 rule-2 sample reset, so an arbiter here would hide a broken reset and silence the oracle. The violation's DETAIL line reads the pair's priority order and names the bug class — a stronger authority applying second means a missed sample reset; a weaker one means a misordered schedule. |
 | 6 one-way fall-through | ✅ **live.** Tracks the one-way a body was supported by at the end of last tick; fires when this tick's center ends below its top with no drop-through intent (held descend axis) and no Class-B remap (room load / respawn). |
 
-**THE MEASUREMENT (2026-07-10): 72 rooms × 3 seeds × 300 ticks = 64,800
-stepped frames, 15 violations, and NOT ONE of them is a collision bug.**
+**THE MEASUREMENT (all six invariants, 2026-07-10): 72 rooms × 3 seeds × 300
+ticks = 64,800 stepped frames, 14 violations, and NOT ONE of them is a
+collision bug.**
 
 ```
   gap_run             OOB-BELOW-FLOOR (open edge)   x1
   intro_escape_shaft  OOB-SIDE (open edge)          x2
   tiny_chamber        OOB-SIDE (open edge)          x3
   under_town_pipes    OOB-SIDE (open edge)          x8
-  portal_lab          TELEPORT                      x1   (290px — a portal transit)
 ```
 
-- **Zero `EMBEDDED-IN-SOLID`.** Zero `ONE-WAY-FALL-THROUGH`. Zero
-  `NON-FINITE`. Zero OOB that ended past a Solid at the crossed edge
-  (the `[past-solid?]` suspect class is empty).
-- All 14 OOB are open-edge walk-offs — level authoring, which §6.1 already
+- **Zero `EMBEDDED-IN-SOLID`.** Zero `STRADDLE-OUTSIDE-CARVE`. Zero
+  `DOUBLE-CLASS-B-REMAP`. Zero `ONE-WAY-FALL-THROUGH`. Zero `NON-FINITE`.
+  Zero OOB that ended past a Solid at the crossed edge (the `[past-solid?]`
+  suspect class is empty).
+- All 14 are open-edge walk-offs — level authoring, which §6.1 already
   calls legal.
-- **The one TELEPORT is a false positive**, and a known one: §6.1's
-  "Explicitly legal" list says *"the transfer frame's position jump"* is
-  legal provided invariants 1–4 hold at frame end, and they do. The
-  teleport probe predates the numbering and does not yet consult the portal
-  crossing channel. **Fix rides invariant 2's slice** (both want the same
-  read-model row); until then it is one known, named line in the catalog.
+- **The `portal_lab TELEPORT x1` line from the four-invariant run is
+  GONE**, and it went for the right reason. It was the known false positive:
+  §6.1's "Explicitly legal" list says *"the transfer frame's position jump"*
+  is legal provided invariants 1–4 hold at frame end, and they did. The
+  probe now consults the Class-B ledger — a body any transit authority
+  remapped this tick did not pop. **One slice, three payoffs**, exactly as
+  the previous status predicted.
 
-So the OOB class §6 exists to kill is, on this evidence, **already dead in
-every shipped room** — which is what turns "vigilance" into "guarantee".
-CC3 stays diagnostic-only per Jon's ruling; what the numbers argue is that
-promoting it to a hard gate would now cost only the authored-exit
-allowlist, not a bug hunt.
+So the OOB class §6 exists to kill is, on this evidence, **dead in every
+shipped room**, and the §3.2 ordering contract — the one thing schedule
+order only *approximated* — is now measured rather than assumed. That is
+what turns "vigilance" into "guarantee". CC3 stays diagnostic-only per Jon's
+ruling; what the numbers argue is that promoting it to a hard gate would now
+cost only the authored-exit allowlist, not a bug hunt.
 
 The rig (per shipped room: random spawns, random high-speed impulses incl.
 through portals, N seconds stepped headlessly) asserts, at the END of every

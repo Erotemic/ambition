@@ -28,6 +28,7 @@ use crate::actor::BodyKinematics;
 use crate::features::HeldItem;
 use ambition_characters::brain::ActorControl;
 use ambition_engine_core as ae;
+use ambition_platformer_primitives::class_b::{ClassBRemap, ClassBRemapLog};
 use ambition_platformer_primitives::markers::ControlledSubject;
 
 /// The held-item id the Mark/Recall ability grants (see `brain::action_set`
@@ -66,6 +67,9 @@ pub fn mark_recall_system(
     mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut hits: MessageWriter<crate::features::HitEvent>,
+    // Optional: the diagnostic-only Class-B ledger (§3.2). A minimal test app
+    // that never added the engine's schedule plugin still recalls.
+    mut class_b: Option<ResMut<ClassBRemapLog>>,
 ) {
     let Some(subject) = controlled.0 else {
         return;
@@ -106,6 +110,11 @@ pub fn mark_recall_system(
     if c.blink_pressed {
         if let Some(target) = mark.and_then(|m| m.pos) {
             kin.pos = target;
+            // Class-B transit authority (`collision-and-ccd.md` §3.2): the
+            // recall JUMPS the body, so it is a scripted teleport.
+            if let Some(log) = class_b.as_mut() {
+                log.record(player, ClassBRemap::ScriptedTeleport);
+            }
             // Recall-strike: a player-side shockwave at the mark, so you can mark a
             // spot, lure enemies onto it, and recall in to hit them (mirrors Blink).
             hits.write(crate::features::HitEvent {

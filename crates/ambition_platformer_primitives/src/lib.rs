@@ -7,6 +7,7 @@
 pub mod body;
 pub mod camera_ease;
 pub mod camera_layers;
+pub mod class_b;
 pub mod gravity;
 pub mod kinematic;
 pub mod lifecycle;

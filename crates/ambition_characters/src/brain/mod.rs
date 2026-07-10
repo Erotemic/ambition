@@ -230,6 +230,16 @@ impl Brain {
         }
     }
 
+    /// Mutable access to the actor's `BossPatternState`. For
+    /// `ambition_runtime::snapshot`, which rewinds the boss's clocks, its step
+    /// cursor, and its `rng_seed` — see `SnapshotCursor for Brain`.
+    pub fn boss_pattern_state_mut(&mut self) -> Option<&mut boss_pattern::BossPatternState> {
+        match self {
+            Brain::StateMachine(StateMachineCfg::BossPattern { state, .. }) => Some(state),
+            _ => None,
+        }
+    }
+
     /// Short label for this brain backend — useful in debug overlays
     /// and trace dumps. Single word per backend.
     pub fn label(&self) -> &'static str {

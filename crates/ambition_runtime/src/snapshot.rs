@@ -1072,6 +1072,10 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
         "perception_memory",
     );
 
+    // The boss's mind: step cursor, stance clocks, and the seeded RNG. A cursor,
+    // because the brain's KIND and tuning are authored and survive the patch.
+    registry.register_cursor::<ambition_characters::brain::Brain>("brain");
+
     // **The blind spot, made loud.** Simulated bodies with no `SimId` cannot be
     // snapshotted, restored, or defended by the canary. Hashing the COUNT means a
     // sim that spawned a different number of un-identified bodies still diverges —
@@ -1664,6 +1668,174 @@ impl SnapshotState for ambition_actors::features::ecs::perception::PerceptionMem
                 WorldMemory::from_snapshot(rows),
             ),
         )
+    }
+}
+
+snapshot_unit_enum!(ambition_characters::brain::boss_pattern::BossEncounterPhase {
+    Dormant = 0,
+    Intro = 1,
+    Phase1 = 2,
+    Transition = 3,
+    Phase2 = 4,
+    Stagger = 5,
+    Enrage = 6,
+    Death = 7,
+});
+snapshot_unit_enum!(ambition_characters::brain::boss_pattern::CyclePhase {
+    Cooldown = 0,
+    Windup = 1,
+    Active = 2,
+});
+/// Not a unit enum — `Approach` and `Retreat` carry their own clocks, and a boss
+/// that rewinds into `Retreat` must rewind to the same retreat POSITION. Explicit
+/// discriminants for the same reason as `snapshot_unit_enum!`.
+impl SnapshotState for ambition_characters::brain::boss_pattern::BossMacroState {
+    fn encode(&self, out: &mut Vec<u8>) {
+        use ambition_characters::brain::boss_pattern::BossMacroState as M;
+        match self {
+            M::Engage => put_u8(out, 0),
+            M::Approach { remaining_s } => {
+                put_u8(out, 1);
+                put_f32(out, *remaining_s);
+            }
+            M::Retreat {
+                remaining_s,
+                retreat_pos,
+            } => {
+                put_u8(out, 2);
+                put_f32(out, *remaining_s);
+                put_vec2(out, *retreat_pos);
+            }
+        }
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        use ambition_characters::brain::boss_pattern::BossMacroState as M;
+        match r.u8()? {
+            0 => Some(M::Engage),
+            1 => Some(M::Approach {
+                remaining_s: r.f32()?,
+            }),
+            2 => Some(M::Retreat {
+                remaining_s: r.f32()?,
+                retreat_pos: r.vec2()?,
+            }),
+            _ => None,
+        }
+    }
+}
+
+/// **The boss's mind, rewound.**
+///
+/// A `SnapshotCursor`, because `Brain` is half authored and half state: the brain's
+/// KIND and its tuning came from content and survive the patch, and only
+/// `BossPatternState`'s clocks, cursors, and **`rng_seed`** ride the blob. A seeded
+/// RNG that is not snapshot state is a determinism bug the canary would eventually
+/// catch, and netcode.md's checklist names it.
+///
+/// ## What this deliberately does NOT rewind, and the constraint that buys
+///
+/// `timeline: Vec<BossPatternStep>` and `stance_stack` are left alone. The timeline is
+/// **re-resolved** from the authored pattern by `advance_scripted` whenever the script
+/// loops or the encounter phase changes, so within a rollback window that spans
+/// neither, the surviving timeline IS the snapshot's timeline — and encoding it would
+/// serialize authored content by value, which is the thing this module refuses to do.
+///
+/// So: **a rollback window must not span a pattern re-resolve**, exactly as it must
+/// not span a spawn. Both are constraints N3.2's bounded window makes reasonable, and
+/// both are written down here rather than discovered in a desync report.
+impl SnapshotCursor for ambition_characters::brain::Brain {
+    fn encode_cursor(&self, out: &mut Vec<u8>) {
+        let Some(s) = self.boss_pattern_state() else {
+            // Not a boss brain: nothing mutable that a rollback needs. The tag keeps
+            // "no state" distinguishable from a truncated blob.
+            put_u8(out, 0);
+            return;
+        };
+        put_u8(out, 1);
+        match &s.last_phase {
+            None => put_bool(out, false),
+            Some(p) => {
+                put_bool(out, true);
+                p.encode(out);
+            }
+        }
+        put_u32(out, s.step_index as u32);
+        put_f32(out, s.step_elapsed);
+        put_f32(out, s.movement_timer);
+        put_f32(out, s.pattern_timer);
+        s.cycle_phase.encode(out);
+        put_f32(out, s.cycle_phase_remaining);
+        s.macro_state.encode(out);
+        put_f32(out, s.engage_timer);
+        put_u64(out, s.rng_seed);
+        s.attack_state.encode(out);
+        put_u32(out, s.interrupt_cooldowns.len() as u32);
+        for v in &s.interrupt_cooldowns {
+            put_f32(out, *v);
+        }
+        put_u32(out, s.interrupt_timers.len() as u32);
+        for v in &s.interrupt_timers {
+            put_f32(out, *v);
+        }
+        match s.last_hp {
+            None => put_bool(out, false),
+            Some(hp) => {
+                put_bool(out, true);
+                put_i32(out, hp);
+            }
+        }
+    }
+
+    fn apply_cursor(&mut self, r: &mut Reader<'_>) -> Option<()> {
+        use ambition_characters::brain::boss_pattern::{
+            BossAttackState, BossEncounterPhase, BossMacroState, CyclePhase,
+        };
+        if r.u8()? == 0 {
+            return Some(());
+        }
+        let last_phase = if r.bool()? {
+            Some(BossEncounterPhase::decode(r)?)
+        } else {
+            None
+        };
+        let step_index = r.u32()? as usize;
+        let step_elapsed = r.f32()?;
+        let movement_timer = r.f32()?;
+        let pattern_timer = r.f32()?;
+        let cycle_phase = CyclePhase::decode(r)?;
+        let cycle_phase_remaining = r.f32()?;
+        let macro_state = BossMacroState::decode(r)?;
+        let engage_timer = r.f32()?;
+        let rng_seed = r.u64()?;
+        let attack_state = BossAttackState::decode(r)?;
+        fn read_f32s(r: &mut Reader<'_>) -> Option<Vec<f32>> {
+            let n = r.u32()?;
+            (0..n).map(|_| r.f32()).collect()
+        }
+        let interrupt_cooldowns = read_f32s(r)?;
+        let interrupt_timers = read_f32s(r)?;
+        let last_hp = if r.bool()? { Some(r.i32()?) } else { None };
+
+        // A blob written by a boss brain, applied to one that is no longer a boss
+        // brain, would be a content change across a rollback. Leave it alone.
+        let Some(s) = self.boss_pattern_state_mut() else {
+            return Some(());
+        };
+        s.last_phase = last_phase;
+        s.step_index = step_index;
+        s.step_elapsed = step_elapsed;
+        s.movement_timer = movement_timer;
+        s.pattern_timer = pattern_timer;
+        s.cycle_phase = cycle_phase;
+        s.cycle_phase_remaining = cycle_phase_remaining;
+        s.macro_state = macro_state;
+        s.engage_timer = engage_timer;
+        s.rng_seed = rng_seed;
+        s.attack_state = attack_state;
+        s.interrupt_cooldowns = interrupt_cooldowns;
+        s.interrupt_timers = interrupt_timers;
+        s.last_hp = last_hp;
+        Some(())
     }
 }
 
@@ -2686,6 +2858,74 @@ mod tests {
         world.entity_mut(boss).insert(Catalog(vec![]));
         restore(&mut world, &snap, &reg);
         assert!(world.entity(boss).get::<Playing>().is_none());
+    }
+
+    /// **The boss's seeded RNG rewinds, and so does its step cursor.**
+    ///
+    /// netcode.md's N3.1 checklist: *"every seeded RNG resource (sim randomness MUST
+    /// be a registered seeded resource — an unregistered RNG is a determinism bug
+    /// N0.4 will catch)"*. The boss's lives inside `Brain`, next to its authored
+    /// tuning, so it rides a `SnapshotCursor` rather than a codec.
+    #[test]
+    fn a_boss_brain_rewinds_its_seed_its_cursor_and_its_clocks() {
+        use ambition_characters::brain::boss_pattern::{
+            BossMacroState, BossPatternCfg, BossPatternState, CyclePhase,
+        };
+        use ambition_characters::brain::{Brain, StateMachineCfg};
+
+        let reg = engine_registry();
+        let mut world = sim_world();
+        let boss = *live_ids(&mut world).get("placement:boss-1").unwrap();
+
+        let mut brain = Brain::StateMachine(StateMachineCfg::BossPattern {
+            cfg: BossPatternCfg::neutral_test(),
+            state: BossPatternState::default(),
+        });
+        {
+            let s = brain.boss_pattern_state_mut().expect("a boss brain");
+            s.rng_seed = 0xDEAD_BEEF_CAFE_F00D;
+            s.step_index = 3;
+            s.step_elapsed = 0.75;
+            s.pattern_timer = 12.5;
+            s.cycle_phase = CyclePhase::Windup;
+            s.macro_state = BossMacroState::Retreat {
+                remaining_s: 0.5,
+                retreat_pos: ae_vec(40.0, -8.0),
+            };
+            s.last_hp = Some(77);
+        }
+        world.entity_mut(boss).insert(brain);
+        let before = reg.hash_world(&world);
+        let snap = take(&world, &reg);
+
+        // The fight advances: the boss draws from its RNG and moves on.
+        {
+            let mut brain = world.entity_mut(boss);
+            let mut brain = brain.get_mut::<Brain>().unwrap();
+            let s = brain.boss_pattern_state_mut().unwrap();
+            s.rng_seed = 1;
+            s.step_index = 5;
+            s.step_elapsed = 0.0;
+            s.macro_state = BossMacroState::Engage;
+        }
+        assert_ne!(reg.hash_world(&world), before, "the fight must have moved");
+
+        restore(&mut world, &snap, &reg);
+        let brain = world.entity(boss).get::<Brain>().unwrap();
+        let s = brain.boss_pattern_state().unwrap();
+        assert_eq!(s.rng_seed, 0xDEAD_BEEF_CAFE_F00D, "the seed rewound");
+        assert_eq!(s.step_index, 3, "the step cursor rewound");
+        assert_eq!(s.step_elapsed, 0.75);
+        assert_eq!(s.last_hp, Some(77));
+        assert!(
+            matches!(s.macro_state, BossMacroState::Retreat { retreat_pos, .. } if retreat_pos.x == 40.0),
+            "a boss that rewinds into Retreat rewinds to the same retreat POSITION"
+        );
+        assert_eq!(reg.hash_world(&world), before);
+    }
+
+    fn ae_vec(x: f32, y: f32) -> Vec2 {
+        Vec2::new(x, y)
     }
 
     /// Diagnostics are hashed and never snapshotted: you cannot restore a count.

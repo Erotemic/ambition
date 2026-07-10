@@ -385,12 +385,12 @@ snapshots needed. Needs N0 complete, plus:
 
   | room | component types a rewind leaves stale | rewind is exact? |
   |---|---|---|
-  | `gap_run` | 34 | ✅ **yes** |
-  | `portal_lab` | 62 | no |
-  | `mockingbird_arena` | 69 | no |
-  | `gnu_ton_arena` | **79** | no |
+  | `gap_run` | 33 | ✅ **yes** |
+  | `portal_lab` | 61 | no |
+  | `mockingbird_arena` | 68 | no |
+  | `gnu_ton_arena` | **78** | no |
 
-  Pinned at 79 — the **peak over the run**, not the count at its end. The first
+  Pinned at 78 — the **peak over the run**, not the count at its end. The first
   version of this ledger measured once, after 120 ticks, by which time the arena
   bosses were dead and despawned; `gnu_ton_arena` duly reported the same 35 types as
   `gap_run`, which is the count of a world containing only the player. The debt was
@@ -449,7 +449,7 @@ snapshots needed. Needs N0 complete, plus:
   meant to look at.
 
   This is the general shape of the authored/mutable split, and it is why the coverage
-  ledger is an upper bound rather than a debt: many of the 79 want a *cursor*, not a
+  ledger is an upper bound rather than a debt: many of the 78 want a *cursor*, not a
   codec.
 
   ### The three named blockers between here and a clean arena
@@ -570,7 +570,7 @@ snapshots needed. Needs N0 complete, plus:
   | `BossAttackIntent` | component | ✅ registered |
   | `Perception` | component | ✅ registered (`Sighted` carries a viewport — not a unit enum) |
   | `PerceptionMemory` | component | ✅ registered — and see below |
-  | **`Brain`** | **cursor** | ⛔ **the arenas' remaining blocker** |
+  | `Brain` | cursor | ✅ registered — step cursor, clocks, macro state, and `rng_seed` |
 
   **`PerceptionMemory` could not be registered until a determinism bug was fixed.**
   `WorldMemory.actors` was a `std::collections::HashMap`, so its iteration order — and
@@ -579,18 +579,27 @@ snapshots needed. Needs N0 complete, plus:
   are both at `1.0`. See the N0.3 note above. It is a `BTreeMap` now, which is what
   makes the codec's row order meaningful at all.
 
-  **`Brain` is the last thing standing between `mockingbird_arena` and a clean
-  rewind.** `Brain::StateMachine(StateMachineCfg::BossPattern { state, .. })` holds a
-  `BossPatternState`, which is the boss's entire mind: `step_index`, `step_elapsed`,
-  `pattern_timer`, `movement_timer`, `cycle_phase`, `macro_state`, `stance_stack`,
-  `interrupt_cooldowns`, a resolved `timeline: Vec<BossPatternStep>` — and **`rng_seed:
-  u64`**, which this section's own checklist names (*"every seeded RNG resource"*).
+  **`Brain` is a `SnapshotCursor`** (2026-07-10), because it is half authored and half
+  state: the brain's KIND and its tuning came from content and survive the patch, and
+  only `BossPatternState`'s clocks, cursors, and **`rng_seed`** ride the blob. That
+  seed is the one this section's checklist demands (*"every seeded RNG resource"*), and
+  it was living inside a component nobody had registered.
 
-  It is a `SnapshotCursor`: the brain's *kind* and its tuning are authored and survive
-  the patch; only the state half rides the blob. The `timeline` is re-resolved from the
-  cfg by `advance_scripted` on each loop, so it is derived from `(pattern, rng_seed,
-  step_index)` — encode the seed and the cursor, not the resolved steps. That is the
-  same "reference authored content by its authored id" rule a third time.
+  It deliberately does **not** rewind `timeline: Vec<BossPatternStep>` or the
+  `stance_stack`. The timeline is *re-resolved* from the authored pattern by
+  `advance_scripted` whenever the script loops or the encounter phase changes, so
+  within a window that spans neither, the surviving timeline IS the snapshot's — and
+  encoding it would serialize authored content by value, the one thing this module
+  refuses to do. **So a rollback window must not span a pattern re-resolve**, exactly as
+  it must not span a spawn. Both are constraints N3.2's bounded window makes reasonable,
+  and both are written down rather than discovered in a desync report.
+
+  **`mockingbird_arena` still diverges, and the restore is no longer the reason.**
+  Probing the world immediately after a rewind now shows **every registered entry
+  matching exactly** — the snapshot half of N3.1 is finished for the boss. What leaks is
+  what remains unregistered on those entities: `ActorSurfaceState`, `BodyLedgeState`,
+  `BodyEnvironmentContact`, `BodyComboTrace`, `BodyEnvelope`, and the eleven
+  content-side boss-special states below. Each is a codec; none is a design problem.
 
   **The content-side specials need one more thing than a codec.** `EchoFanState`,
   `OverflowState`, `GradientCascadeState`, `SeismicStompState`, `MinimaTrapState`,

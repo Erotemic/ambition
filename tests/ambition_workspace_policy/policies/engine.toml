@@ -19,3 +19,106 @@ source_doc = "docs/planning/engine/architecture.md"
 severity = "error"
 roots = ["crates/ambition_engine_core/src"]
 forbid = ["ambition_content", "ambition_app", "ambition_runtime"]
+
+# ── migrated from crates/ambition_host/tests/host_names_no_content.rs (Task 4) ──
+
+# was: manifest_does_not_depend_on_ambition_content
+[[policy]]
+id = "engine.host-names-no-content"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_host"]
+watch_paths = ["crates/ambition_host/Cargo.toml"]
+rationale = "The windowed host is the ENGINE face's presentation companion, not a game: it must never depend on ambition_content. Locks the E5-step-5 exit invariant from the scaffold onward."
+source_doc = "docs/planning/engine/decomposition.md#E5"
+severity = "error"
+manifest = "crates/ambition_host/Cargo.toml"
+deny = ["ambition_content"]
+
+# was: sources_name_no_content_crate
+[[policy]]
+id = "engine.host-source-names-no-content"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_host"]
+watch_paths = ["crates/ambition_host/src"]
+rationale = "The moment the host moves a system that reaches for a content type, this fails instead of the boundary rotting. Docs deliberately MENTION the forbidden crate, so comments are exempt."
+source_doc = "docs/planning/engine/decomposition.md#E5"
+severity = "error"
+roots = ["crates/ambition_host/src"]
+forbid = ["ambition_content"]
+
+# ── migrated from crates/ambition_render/tests/observation_boundary.rs (Task 4) ──
+
+# was: render_never_names_live_sim_state (E4 observation boundary)
+[[policy]]
+id = "engine.render-never-names-live-sim-state"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_render"]
+watch_paths = ["crates/ambition_render/src"]
+rationale = "Presentation reads ONLY the ambition_sim_view read-model — never the sim heart's live Body* clusters, actor/boss cluster refs, control seams, or item/ability sim components. Reintroducing a Query<&BodyKinematics> in render fails here. Whole-identifier match so GroundItemVisual does not trip GroundItem; vocabulary/data types (FeatureView, CharacterAnim, Health-as-data) are deliberately NOT forbidden."
+source_doc = "docs/planning/engine/decomposition.md#E4"
+severity = "error"
+whole_ident = true
+roots = ["crates/ambition_render/src"]
+forbid = [
+    "BodyKinematics", "BodyGroundState", "BodyWallState", "BodyBlinkState",
+    "BodyFlightState", "BodyDashState", "BodyLedgeState", "BodyModeState",
+    "BodyEnvironmentContact", "BodyAbilities", "BodyDodgeState", "BodyShieldState",
+    "BodyCombat", "BodyHealth", "BodyMana", "BodyWallet", "BodyMelee",
+    "BodyAnimFacts", "BodyBaseSize",
+    "ControlledSubject", "ActorControl", "SlotControls", "PlayerBlinkCameraState",
+    "ActorSpriteData", "BossClusterRef", "BossAttackState", "BossPhase",
+    "ActorDisposition", "ActorIdentity", "ActorStatus", "ActorConfig", "ActorRoll",
+    "MeleeSwing", "CenteredAabb", "FeatureSimEntity", "FeatureName",
+    "HeldItem", "GroundItem", "HeldProjectile", "PlayerMark", "HealShrine",
+    "GravityFlipSwitch", "LiveProjectile", "PlayerProjectileState",
+]
+
+# was: render_has_no_actor_crate_dependency_after_f15 (manifest half)
+[[policy]]
+id = "engine.render-no-actor-crate-dependency"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_render"]
+watch_paths = ["crates/ambition_render/Cargo.toml"]
+rationale = "F1.5 complete: ambition_render must not depend on or feature-forward to ambition_actors. Render and the machinery meet only through lower view/vocabulary crates."
+source_doc = "docs/planning/engine/decomposition.md#F1.5"
+severity = "error"
+manifest = "crates/ambition_render/Cargo.toml"
+deny = ["ambition_actors"]
+
+# was: render_has_no_actor_crate_dependency_after_f15 (source half)
+[[policy]]
+id = "engine.render-source-names-no-actors"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_render"]
+watch_paths = ["crates/ambition_render/src"]
+rationale = "F1.5 complete: render source must not name ambition_actors in code, even where the manifest dep is already gone."
+source_doc = "docs/planning/engine/decomposition.md#F1.5"
+severity = "error"
+roots = ["crates/ambition_render/src"]
+forbid = ["ambition_actors"]
+
+# ── migrated from crates/ambition_world/src/lib.rs dependency ratchet (Task 4) ──
+
+# was: ambition_world_dependency_allowlist_ratchets_world_ir_purity
+[[policy]]
+id = "engine.world-ir-dependency-allowlist"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_world"]
+watch_paths = ["crates/ambition_world/Cargo.toml"]
+rationale = "ambition_world owns the backend-agnostic world IR (room graph, placements, platform math, composited collision world). It may name only explicit world-IR dependencies; the exact ratchet forces a legacy entry out of the allow-list as each placement branch dissolves."
+source_doc = "docs/planning/engine/decomposition.md#W3"
+severity = "error"
+exact = true
+manifest = "crates/ambition_world/Cargo.toml"
+allow = [
+    "ambition_engine_core",
+    "ambition_entity_catalog",
+    "ambition_platformer_primitives",
+    "ambition_time",
+]

@@ -34,6 +34,19 @@ pub fn allowlist(ws: &Workspace, policy: &Policy, report: &mut Report) {
             ));
         }
     }
+    // Bidirectional ratchet: a stale allow entry — one that names no current dep —
+    // means the edge dissolved. Fail so the allowlist shrinks with the code (this
+    // is the property the ambition_world world-IR purity ratchet relies on).
+    if policy.exact {
+        for allowed in &policy.allow {
+            if !deps.contains(allowed) {
+                report.push(policy.diag(
+                    format!("{manifest} → {allowed}"),
+                    "stale allowlist entry — no longer a dependency; remove it from `allow`",
+                ));
+            }
+        }
+    }
 }
 
 /// `manifest` must not depend on any crate in `deny`. `deny` entries are matched

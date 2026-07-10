@@ -82,7 +82,21 @@ Every old `#[test]` must appear here exactly once with a destination
 lands (Tasks 4–9).
 
 <!-- MIGRATION-MATRIX-START -->
-(pending — populated as batches land)
+
+### Task 4 — smallest pure policy tests (LANDED)
+
+| old test fn (file) | destination |
+| --- | --- |
+| `manifest_does_not_depend_on_ambition_content` (host_names_no_content.rs) | declarative:`engine.host-names-no-content` |
+| `sources_name_no_content_crate` (host_names_no_content.rs) | declarative:`engine.host-source-names-no-content` |
+| `render_never_names_live_sim_state` (observation_boundary.rs) | declarative:`engine.render-never-names-live-sim-state` |
+| `render_has_no_actor_crate_dependency_after_f15` (observation_boundary.rs) | declarative:`engine.render-no-actor-crate-dependency` + `engine.render-source-names-no-actors` (manifest + source halves) |
+| `ambition_world_dependency_allowlist_ratchets_world_ir_purity` (world/src/lib.rs) | declarative:`engine.world-ir-dependency-allowlist` (exact ratchet) |
+
+Old files deleted after parity: `crates/ambition_host/tests/host_names_no_content.rs`,
+`crates/ambition_render/tests/observation_boundary.rs`, and the inline
+`dependency_tests` module in `crates/ambition_world/src/lib.rs`.
+
 <!-- MIGRATION-MATRIX-END -->
 
 ## Commands (target model)

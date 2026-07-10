@@ -118,6 +118,12 @@ pub struct Policy {
     /// `dependency-allowlist`: the complete set of allowed `ambition*` deps.
     #[serde(default)]
     pub allow: Vec<String>,
+    /// `dependency-allowlist`: when true the allow set must EXACTLY match the
+    /// manifest's `ambition*` deps — a stale allow entry (no longer a real dep)
+    /// fails too, so the ratchet tightens as edges dissolve. Default is a ceiling
+    /// (subset only).
+    #[serde(default)]
+    pub exact: bool,
     /// `dependency-denylist`: crate names that must not be depended on.
     #[serde(default)]
     pub deny: Vec<String>,

@@ -267,6 +267,42 @@ never compiles `ambition_app` ✓; targeted policy execution materially cheaper 
 single most expensive test binary (`architecture_boundaries`, which linked all of
 `ambition_app`) plus five others are gone, replaced by one tiny data-driven package.
 
+## Validation (handoff gate)
+
+`cargo test --workspace` was run as the merge gate. **The campaign introduced zero
+regressions:**
+
+- Policy suite (`cargo test -p ambition_workspace_policy`): green (4 filterable
+  tests + all self-tests/poison).
+- All 11 crates whose inline tests were extracted: `--lib` green (pure moves).
+- Full workspace `--no-run`: green (compiles after the file deletion + new package).
+- `cargo fmt --check` on every touched file, `check_doc_links.py`, `modules_md.py`:
+  clean. `check_agent_kb.py`: only pre-existing `dev/journals/*` broken links to
+  removed `TODO-*.md` (predate this work); no file I touched is flagged.
+
+The one genuinely-failing test under `--workspace`,
+`the_demos_own_rules_run_because_its_room_claims_its_mode` (demo mode-scope timing
+assertion, `exit_3.rs:102`, in both sanic + smb1), is **PRE-EXISTING** — it fails
+identically at the pre-campaign commit `8099506`, and the demo binary is
+byte-identical to base (this campaign changed zero production code compiled into the
+demo: all extractions moved only `#[cfg(test)]` code). Other `--workspace` reds
+(`snapshot::tests::restore_*`, demo boots/steps, `demo_shell_smoke`) pass
+consistently standalone — they are resource-contention flakes under full parallel
+`--workspace` load, not real failures.
+
+## Remaining test-organization debt
+
+- `crates/ambition_actors/src/features/ecs/perception.rs`: inline tests NOT
+  extracted — it has a `#[cfg(test)] trait CountOrNone` helper AFTER the `mod tests`
+  block (a split structure), safer kept inline than force-split.
+- Further inline extractions remain available (any `#[cfg(test)] mod tests` ≥~200
+  lines); the pattern + tool are proven.
+- 6 module-size waivers remain (snapshot 3647, view_cones 2206, geometry.rs was
+  retired; smash/mod 1976, kaleidoscope_app 1814, falling_sand 1588) — D-B stays
+  reopened until those files are split (not merely gated).
+- Pre-existing (not this campaign): the demo mode-scope timing test above, and the
+  `dev/journals/*` broken `TODO-*.md` links flagged by `check_agent_kb.py`.
+
 ## Commands (target model)
 
 ```bash

@@ -447,12 +447,43 @@ ran this script from will never see '$SERVER_NAME', no matter what the config sa
       rust-analyzer has finished indexing this project. In the new session, ask
       Claude to use the MCP tools on a known Rust file:
 
-          "use rust_analyzer_workspace_diagnostics on this workspace"
           "use rust_analyzer_hover on crates/my_crate/src/lib.rs line 10 character 5"
+          "use rust_analyzer_definition on the same position"
 
-      Expect diagnostics or hover/type information. The FIRST call against a
-      large workspace can take a while because rust-analyzer must index crates.
-      If it times out, run 'cargo check' once and try again.
+      Expect type/doc information, and a target location. Use hover or definition,
+      NOT a diagnostics tool: an empty diagnostics result is indistinguishable from
+      a healthy workspace, so it cannot tell you the server is working. Hover has
+      no such false-clean -- it either names the symbol or it does not.
+
+      The FIRST call after the server starts returns null while rust-analyzer
+      indexes (~15s on a warm target dir). null is not an error; ask again. If it
+      never answers, run 'cargo check' once and retry.
+
+--------------------------------------------------------------------------------
+KNOWN DEFECTS in rust-analyzer-mcp v0.2.0 — read before trusting a result
+--------------------------------------------------------------------------------
+
+  * The document buffer FREEZES. The server sends textDocument/didOpen the first
+    time it touches a file and never sends didChange. Per LSP, an open document's
+    buffer belongs to the client, so rust-analyzer deliberately ignores later
+    writes to that file on disk. Every position-based tool -- hover, definition,
+    references, diagnostics -- then answers from the content the file had when
+    this server process first read it.
+
+    So: EDIT A FILE AND THE ANSWERS GO STALE, silently, for the life of the
+    session. Diagnostics both miss errors you just introduced and keep reporting
+    errors you just fixed. Only a new session re-reads the file.
+    Treat these tools as valid for reading code you have not modified.
+
+  * 'cargo check' is the only compile gate. rust_analyzer_diagnostics is a
+    convenience for unmodified files, never a green light.
+
+  * rust_analyzer_workspace_diagnostics is broken: it always returns
+    {"diagnostics": null, "note": "Unexpected response format from rust-analyzer"}.
+    Reinstalling does not help; it is broken in the latest published version.
+
+  * rust_analyzer_format returns null when a file needs no changes. That is the
+    correct answer, not a failure. It does emit real edits for unformatted files.
 
 --------------------------------------------------------------------------------
 Registered for sessions launched from:
@@ -461,15 +492,21 @@ Rust workspace launch directory used by the server:
     $REPO_ROOT
 --------------------------------------------------------------------------------
 
-Useful tools for Rust work:
-    rust_analyzer_diagnostics            diagnostics for a specific file
-    rust_analyzer_workspace_diagnostics  diagnostics across the workspace
+Useful tools for Rust work (all read the frozen buffer -- see KNOWN DEFECTS):
     rust_analyzer_hover                  type/doc information at a position
     rust_analyzer_definition             go-to-definition at a position
     rust_analyzer_references             find references for a symbol
+    rust_analyzer_symbols                file-level symbols
     rust_analyzer_completion             completion suggestions at a position
     rust_analyzer_code_actions           quick fixes/refactor actions
-    rust_analyzer_symbols                file-level symbols
+    rust_analyzer_format                 rustfmt edits (null == already clean)
+    rust_analyzer_diagnostics            one file; NOT a compile gate, use cargo check
+    rust_analyzer_workspace_diagnostics  BROKEN in v0.2.0, always returns null
+
+Why bother, given all that: 'references' is semantic, so it ignores prose. On
+SimTick it finds the 12 real uses; ripgrep finds 18, the extra 6 being doc
+comments and a string literal. Across 42 crates with re-exports like
+'pub use ambition_time::SimTick', that difference is rename safety.
 
 EOF
 }

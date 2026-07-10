@@ -342,7 +342,7 @@ fn the_snapshot_coverage_ledger() {
     // `declare_derived` is how the presentation half comes off; a codec is how the rest
     // does; the message buffers want neither, they want N3.2's resim discipline
     // ("side-effect suppression during resim").
-    const KNOWN_RESOURCE_DEBT: usize = 182;
+    const KNOWN_RESOURCE_DEBT: usize = 181;
     assert!(
         resources.len() <= KNOWN_RESOURCE_DEBT,
         "{} unregistered `ambition_*` resources, up from the pinned \
@@ -640,4 +640,45 @@ fn the_content_crate_registers_its_own_boss_special_state() {
             "{owned_by_engine} vanished"
         );
     }
+}
+
+/// **A message written before a snapshot must not be read after a restore.**
+///
+/// `Messages<T>` is a `Resource`, so the coverage ledger never saw one, and it is named
+/// `bevy_ecs::message::Messages<..>`, so the resource ledger's first filter missed one
+/// too. It is nonetheless state: at a tick boundary `Messages<ActorActionMessage>` holds
+/// the actions the brains just emitted.
+///
+/// `restore` clears every registered channel. This test proves the channels are
+/// non-empty in the first place — a clearing test against buffers that were always empty
+/// proves nothing at all.
+#[test]
+fn a_rewind_empties_the_message_channels_it_registered() {
+    use ambition::runtime::snapshot::{restore, take};
+
+    let Some(mut s) = sim("mockingbird_arena") else {
+        return;
+    };
+    let reg = registry_of(&mut s);
+    for _ in 0..40 {
+        s.step(RandomWalkPolicy::traversal_stress(7).act());
+    }
+
+    let pending = reg.pending_messages(s.world());
+    assert!(
+        !pending.is_empty(),
+        "no registered channel holds a message at a tick boundary, so this test would \
+         pass on a `restore` that did nothing. Either the sim now drains itself inside \
+         the tick — in which case say so and delete this — or the channels are \
+         registered wrong."
+    );
+
+    let snap = take(s.world(), &reg);
+    let report = restore(s.world_mut(), &snap, &reg);
+    assert_eq!(report.messages_cleared, 4);
+    assert!(
+        reg.pending_messages(s.world()).is_empty(),
+        "a message from the abandoned future survived the rewind: {:?}",
+        reg.pending_messages(s.world())
+    );
 }

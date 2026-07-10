@@ -333,6 +333,14 @@ enum EntryKind {
         bytes: Box<dyn Fn(&World) -> Vec<u8> + Send + Sync>,
         load: Box<dyn Fn(&mut World, &[u8]) + Send + Sync>,
     },
+    /// A resource that is half authored, half mutable — the [`SnapshotCursor`] shape,
+    /// one level up. `CombatSlotsRes` is the archetype: authored slot geometry, live
+    /// assignments.
+    ResourceCursor {
+        type_id: std::any::TypeId,
+        bytes: Box<dyn Fn(&World) -> Vec<u8> + Send + Sync>,
+        apply: Box<dyn Fn(&mut World, &[u8]) + Send + Sync>,
+    },
     /// Hashed, never restored: a MEASUREMENT of the world rather than a part of
     /// it. `unidentified_bodies` is the archetype — you cannot restore a count.
     Diagnostic { hash: fn(&World, &mut StateHasher) },
@@ -356,6 +364,8 @@ struct StateEntry {
 #[derive(Default, Resource)]
 pub struct SnapshotRegistry {
     entries: Vec<StateEntry>,
+    /// Sim message channels. See [`SnapshotRegistry::register_message_channel`].
+    messages: Vec<MessageChannel>,
     /// Component types declared **structurally derived** — rebuilt every tick by
     /// the same system that maintains them, per N3.1's "Excluded, structurally".
     /// Declaring one is a CLAIM, and [`SnapshotRegistry::unclaimed_components`]
@@ -512,6 +522,85 @@ impl SnapshotRegistry {
         );
     }
 
+    /// **Register a sim message channel.**
+    ///
+    /// A `Messages<M>` buffer is a `Resource`, so `unclaimed_components` never saw one,
+    /// and its type name is `bevy_ecs::message::Messages<..>`, so the resource ledger's
+    /// first filter missed one too. It is nonetheless sim state: at a tick boundary
+    /// `Messages<ActorActionMessage>` is non-empty, and *a message written before a
+    /// snapshot and read after a restore is an event that happens twice.*
+    ///
+    /// `restore` **clears** every registered channel. That is not a shortcut, it is the
+    /// state: the messages standing in a buffer at the moment a snapshot is taken have
+    /// already been read by every system that runs in that tick, so their CONTENT
+    /// cannot affect the future — only the bookkeeping can, and Bevy's message cursors
+    /// clamp themselves back to a cleared buffer. What must not survive is a message
+    /// from the future we are abandoning.
+    ///
+    /// It is deliberately NOT hashed. The two sims of N0.4's canary run the same ticks
+    /// and hold the same pending messages; a rewound sim holds none, and hashing that
+    /// difference would make the exit oracle fail for the one thing it is trying to fix.
+    pub fn register_message_channel<M>(&mut self, name: &'static str)
+    where
+        M: bevy::ecs::message::Message,
+    {
+        self.messages.push(MessageChannel {
+            name,
+            len: |world: &World| {
+                world
+                    .get_resource::<bevy::ecs::message::Messages<M>>()
+                    .map_or(0, |m| m.len())
+            },
+            clear: |world: &mut World| {
+                if let Some(mut m) = world.get_resource_mut::<bevy::ecs::message::Messages<M>>() {
+                    m.clear();
+                }
+            },
+        });
+    }
+
+    /// Pending messages per registered channel, for a report. Zero everywhere means the
+    /// sim drained itself inside the tick, which is the shape a rollback wants.
+    pub fn pending_messages(&self, world: &World) -> Vec<(&'static str, usize)> {
+        self.messages
+            .iter()
+            .map(|c| (c.name, (c.len)(world)))
+            .filter(|(_, n)| *n > 0)
+            .collect()
+    }
+
+    /// Register a resource whose snapshot is a **cursor applied in place** — its
+    /// authored half stays put. See [`SnapshotCursor`].
+    pub fn register_resource_cursor<R>(&mut self, name: &'static str)
+    where
+        R: Resource + SnapshotCursor + Sized,
+    {
+        self.push(
+            name,
+            EntryKind::ResourceCursor {
+                type_id: std::any::TypeId::of::<R>(),
+                bytes: Box::new(|world: &World| {
+                    let mut out = Vec::new();
+                    if let Some(v) = world.get_resource::<R>() {
+                        v.encode_cursor(&mut out);
+                    }
+                    out
+                }),
+                apply: Box::new(|world: &mut World, bytes: &[u8]| {
+                    if bytes.is_empty() {
+                        return;
+                    }
+                    if let Some(mut v) = world.get_resource_mut::<R>() {
+                        let mut r = Reader::new(bytes);
+                        if v.apply_cursor(&mut r).is_none() || r.finish().is_none() {
+                            debug_assert!(false, "resource cursor failed to decode");
+                        }
+                    }
+                }),
+            },
+        );
+    }
+
     /// Register a hash-only measurement. It is hashed and never restored — see
     /// [`EntryKind::Diagnostic`].
     pub fn register_diagnostic(&mut self, name: &'static str, hash: fn(&World, &mut StateHasher)) {
@@ -554,7 +643,9 @@ impl SnapshotRegistry {
     fn hash_entry(&self, entry: &StateEntry, world: &World, h: &mut StateHasher) {
         match &entry.kind {
             EntryKind::Component { rows, .. } => hash_entities_by_key(h, rows(world)),
-            EntryKind::Resource { bytes, .. } => h.write(&bytes(world)),
+            EntryKind::Resource { bytes, .. } | EntryKind::ResourceCursor { bytes, .. } => {
+                h.write(&bytes(world))
+            }
             EntryKind::Diagnostic { hash } => hash(world, h),
         }
     }
@@ -648,15 +739,16 @@ impl SnapshotRegistry {
     /// the list is empty rather than wrong, which is why the ledger test that reads it
     /// lives in `ambition_app`.
     pub fn unclaimed_resources(&self, world: &World) -> Vec<UnclaimedComponent> {
-        let claimed: Vec<std::any::TypeId> = self
-            .entries
-            .iter()
-            .filter_map(|e| match &e.kind {
-                EntryKind::Resource { type_id, .. } => Some(*type_id),
-                _ => None,
-            })
-            .chain(self.derived.iter().map(|(id, _)| *id))
-            .collect();
+        let claimed: Vec<std::any::TypeId> =
+            self.entries
+                .iter()
+                .filter_map(|e| match &e.kind {
+                    EntryKind::Resource { type_id, .. }
+                    | EntryKind::ResourceCursor { type_id, .. } => Some(*type_id),
+                    _ => None,
+                })
+                .chain(self.derived.iter().map(|(id, _)| *id))
+                .collect();
 
         let mut out: Vec<UnclaimedComponent> = world
             .iter_resources()
@@ -679,6 +771,13 @@ impl SnapshotRegistry {
         out.dedup_by(|a, b| a.sort_key() == b.sort_key());
         out
     }
+}
+
+/// One `Messages<M>` buffer the rollback has to reckon with.
+struct MessageChannel {
+    name: &'static str,
+    len: fn(&World) -> usize,
+    clear: fn(&mut World),
 }
 
 /// A component `restore` would destroy and cannot rebuild. One row of N3.1's
@@ -782,7 +881,7 @@ pub fn take(world: &World, registry: &SnapshotRegistry) -> SimSnapshot {
                 rows.sort();
                 entries.push((entry.name, EntryBlob::Component(rows)));
             }
-            EntryKind::Resource { bytes, .. } => {
+            EntryKind::Resource { bytes, .. } | EntryKind::ResourceCursor { bytes, .. } => {
                 entries.push((entry.name, EntryBlob::Resource(bytes(world))));
             }
             EntryKind::Diagnostic { .. } => {}
@@ -813,6 +912,9 @@ pub struct RestoreReport {
     /// timer, they are not, and it is that timer that makes a replay diverge.
     /// An empty list is N3.1's exit condition.
     pub stale_components: Vec<UnclaimedComponent>,
+    /// Registered `Messages<M>` channels emptied, so no message from the abandoned
+    /// future is read in the restored past.
+    pub messages_cleared: usize,
     /// **Simulated bodies with no `SimId`, which `restore` could not touch.**
     ///
     /// They are not registered, so nothing identifies them, and they walk out of a
@@ -948,11 +1050,19 @@ pub fn restore(
         let Some(entry) = registry.entries.iter().find(|e| e.name == *name) else {
             continue;
         };
-        let EntryKind::Resource { load, .. } = &entry.kind else {
-            continue;
-        };
-        load(world, bytes);
+        match &entry.kind {
+            EntryKind::Resource { load, .. } => load(world, bytes),
+            EntryKind::ResourceCursor { apply, .. } => apply(world, bytes),
+            _ => continue,
+        }
     }
+
+    // Messages from the future we are abandoning must not be read in the past we are
+    // returning to. See `register_message_channel`.
+    for channel in &registry.messages {
+        (channel.clear)(world);
+    }
+    report.messages_cleared = registry.messages.len();
 
     report.unidentified_survivors = match world
         .try_query_filtered::<(), (With<BodyKinematics>, bevy::ecs::query::Without<SimId>)>()
@@ -1182,6 +1292,20 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     registry.declare_derived::<ambition_sim_view::ProjectileView>(
         "SimView: rebuilt from the sim every tick, by construction",
     );
+
+    registry
+        .register_resource_cursor::<ambition_combat::slots::CombatSlotsRes>("combat_slot_board");
+
+    // ── Sim message channels ─────────────────────────────────────────────────
+    //
+    // A message written before a snapshot and read after a restore is an event that
+    // happens twice. `restore` clears these; see `register_message_channel`.
+    registry
+        .register_message_channel::<ambition_characters::brain::ActorActionMessage>("actor_action");
+    registry.register_message_channel::<ambition_combat::events::HitEvent>("hit_event");
+    registry
+        .register_message_channel::<ambition_combat::on_hit::OnHitEffectMessage>("on_hit_effect");
+    registry.register_message_channel::<ambition_combat::moveset::MoveEventMessage>("move_event");
 
     // **The blind spot, made loud.** Simulated bodies with no `SimId` cannot be
     // snapshotted, restored, or defended by the canary. Hashing the COUNT means a
@@ -2350,6 +2474,32 @@ impl SnapshotState for ambition_actors::features::GameplayElapsed {
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         Some(ambition_actors::features::GameplayElapsed(r.f32()?))
+    }
+}
+
+/// **The combat slot board**: which attacker holds which approach slot around the
+/// target. The slot GEOMETRY is authored (`kind`, `offset`, `holding_offset`); the
+/// `assigned_to: Option<String>` is live, and it is a stable id rather than an `Entity`,
+/// so it rewinds cleanly. A boss holding a slot it never claimed attacks on a tick it
+/// never earned.
+impl SnapshotCursor for ambition_combat::slots::CombatSlotsRes {
+    fn encode_cursor(&self, out: &mut Vec<u8>) {
+        put_u32(out, self.0.slots.len() as u32);
+        for slot in &self.0.slots {
+            put_opt_str(out, slot.assigned_to.as_deref());
+        }
+    }
+    fn apply_cursor(&mut self, r: &mut Reader<'_>) -> Option<()> {
+        let n = r.u32()? as usize;
+        let assignments = (0..n)
+            .map(|_| Some(r.opt_str()?.map(str::to_string)))
+            .collect::<Option<Vec<_>>>()?;
+        // A board of a different SHAPE is a content change across a rollback. The
+        // authored geometry stays; only the assignments we can match are restored.
+        for (slot, assigned) in self.0.slots.iter_mut().zip(assignments) {
+            slot.assigned_to = assigned;
+        }
+        Some(())
     }
 }
 

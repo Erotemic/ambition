@@ -451,16 +451,21 @@ snapshots needed. Needs N0 complete, plus:
   name CONTAINS `ambition_` (Bevy's asset servers and render device state are not sim
   state and never will be). **It reads 182**, and it is pinned.
 
-  It read 135 until the filter said `starts_with`. **Forty-five of them are
-  `Messages<T>` buffers**, named `bevy_ecs::message::Messages<ambition_..::HitEvent>` —
-  hidden twice over, once by sitting on no entity and once by wearing Bevy's module
-  path. *A message written before a snapshot and read after a restore is an event that
-  happens twice.* `ActorActionMessage` is how a boss's Special reaches its executor on
-  the NEXT tick, and it is the most likely reason `mockingbird_arena` replays exactly
-  for twenty ticks and breaks on the twenty-first. Message buffers want neither a codec
-  nor `declare_derived`: they want **N3.2's resim discipline** (*"side-effect
-  suppression during resim"*), which is the next rung and now has a concrete first
-  customer. Most of that is presentation or derived —
+  It read 135 until the filter said `starts_with`. **Forty-five of them are `Messages<T>`
+  buffers**, named `bevy_ecs::message::Messages<ambition_..::HitEvent>` — hidden twice
+  over, once by sitting on no entity and once by wearing Bevy's module path. And they are
+  not empty: at a tick boundary `Messages<ActorActionMessage>` holds the actions the
+  brains just emitted. *A message written before a snapshot and read after a restore is
+  an event that happens twice.*
+
+  `SnapshotRegistry::register_message_channel` names one, and **`restore` clears every
+  registered channel**. The content of a buffer at snapshot time cannot affect the future
+  — every system that runs in that tick has already read it — but a message from the
+  future we are *abandoning* must not be read in the past we are returning to. Four
+  channels are registered (`actor_action`, `hit_event`, `on_hit_effect`, `move_event`);
+  `pending_messages` reports the rest. The channels are NOT hashed: two sims of N0.4's
+  canary hold the same pending messages, a rewound sim holds none, and hashing that
+  difference would fail the exit oracle for the one thing it is trying to fix. Most of that is presentation or derived —
   `ActorRenderIndex`, `CameraShakeState`, `DeveloperTools` — and comes off with
   `declare_derived`. Some of it is not:
 
@@ -525,9 +530,21 @@ snapshots needed. Needs N0 complete, plus:
      breaks at tick 21.** So the timeline was a real bug and not this bug, which is the
      ordinary way of things.
 
-     What is left on that tick is a boss DECISION that differs, and the most likely
-     carrier is `Messages<ActorActionMessage>` — see the resource section above. Not a
-     constraint. A buffer nobody rewinds.
+     What is left on that tick is a boss DECISION that differs. **Two hypotheses have
+     been tested and falsified**, and they are recorded because a falsified hypothesis is
+     the cheapest thing a later reader can be given:
+
+     - *`Messages<ActorActionMessage>` carries a stale action across the rewind.* The
+       buffers really are non-empty at a tick boundary, and `restore` clears them now.
+       Tick 21 did not move.
+     - *`CombatSlotsRes` holds a stale slot assignment, so the boss attacks on a tick it
+       never earned.* Its `assigned_to: Option<String>` is a stable id, it rewinds as a
+       `ResourceCursor`, and tick 21 did not move.
+
+     Both changes are right on their own terms and both are kept. What remains is a
+     third unregistered input the boss brain reads on that tick — `ProperTimeScale`,
+     `ActorSteering`, `FeatureEcsWorldOverlay`, and `PerceptionProjectiles` are the
+     unexamined candidates. Twenty ticks of bit-exact boss-fight replay stand either way.
   2. `portal_lab` is the only room where `restore` reports `respawned > 0`, and its
      divergence is everything at once on tick 0: a respawned entity comes back carrying
      only its registered components.

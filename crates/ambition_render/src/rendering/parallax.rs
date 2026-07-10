@@ -14,10 +14,10 @@ use bevy::prelude::*;
 use std::collections::HashSet;
 
 use super::primitives::RoomVisual;
-use ambition_sprite_sheet::game_assets::{GameAssets, ParallaxLayerAsset, ParallaxTheme};
-use ambition_world::rooms::RoomMetadata;
 use ambition_engine_core::config::{WINDOW_H, WINDOW_W};
 use ambition_persistence::settings::ParallaxBudget;
+use ambition_sprite_sheet::game_assets::{GameAssets, ParallaxLayerAsset, ParallaxTheme};
+use ambition_world::rooms::RoomMetadata;
 
 #[derive(Component, Clone, Copy, Debug)]
 pub struct ParallaxLayerVisual {
@@ -120,7 +120,9 @@ pub fn spawn_parallax_layers(
                 theme,
                 asset: spec.asset,
             },
-            RenderLayers::layer(ambition_platformer_primitives::camera_layers::PARALLAX_BACKGROUND_LAYER),
+            RenderLayers::layer(
+                ambition_platformer_primitives::camera_layers::PARALLAX_BACKGROUND_LAYER,
+            ),
             RoomVisual,
             Name::new(format!(
                 "Background parallax layer: {} {}",

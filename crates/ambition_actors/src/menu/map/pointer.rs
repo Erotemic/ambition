@@ -4,8 +4,8 @@
 
 use bevy::prelude::*;
 
-use ambition_menu::map::MapMenuState;
 use super::ui::MapMenuRoot;
+use ambition_menu::map::MapMenuState;
 
 #[cfg(feature = "input")]
 pub fn map_menu_pointer_dismiss(

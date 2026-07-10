@@ -35,8 +35,8 @@ use ambition_asset_manager::AssetProfile;
 
 use crate::boss::BossSpriteAsset;
 use crate::character::CharacterSpriteAssets;
-use ambition_world::rooms::RoomMetadata;
 use ambition_persistence::settings::VisualQualityBudget;
+use ambition_world::rooms::RoomMetadata;
 
 /// Pick a sensible default [`AssetProfile`] for the current build target.
 ///

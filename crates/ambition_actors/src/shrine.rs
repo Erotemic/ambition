@@ -13,13 +13,13 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer_primitives::markers::ControlledSubject;
 use crate::actor::BodyKinematics;
 use crate::actor::BodyMana;
 use crate::actor::{PlayerEntity, PrimaryPlayer};
 use ambition_characters::actor::BodyHealth;
 use ambition_characters::brain::ActorControl;
 use ambition_engine_core::{self as ae, AabbExt};
+use ambition_platformer_primitives::markers::ControlledSubject;
 
 /// A healing / save-point shrine the player can `Interact` with.
 #[derive(Component, Clone, Copy, Debug)]

@@ -55,9 +55,9 @@ pub mod engine {
 
 /// Windowed host plugin groups and host-facing seams.
 pub mod windowed_host {
-    pub use ambition_host::{HostCameraPlugin, PlatformerHostPlugins};
     #[cfg(feature = "input")]
     pub use ambition_host::HostInputBindingsPlugin;
+    pub use ambition_host::{HostCameraPlugin, PlatformerHostPlugins};
 }
 
 /// Default renderer facade.

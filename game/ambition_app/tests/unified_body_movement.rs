@@ -15,8 +15,8 @@
 use ambition::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition::actors::features::FeatureId;
 use ambition::actors::player::PlayerInputFrame;
-use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use ambition::entity_catalog::placements::CharacterBrain;
+use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use bevy::prelude::{Entity, World};
 
 const ENEMY_ID: &str = "unified_move_enemy";

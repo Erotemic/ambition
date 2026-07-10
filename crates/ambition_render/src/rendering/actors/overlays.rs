@@ -35,9 +35,7 @@ pub fn apply_hide_sprites_override(
     *prev_active = active;
 }
 
-fn effective_hide_sprites(
-    developer_tools: &ambition_dev_tools::dev_tools::DeveloperTools,
-) -> bool {
+fn effective_hide_sprites(developer_tools: &ambition_dev_tools::dev_tools::DeveloperTools) -> bool {
     // Placeholder art is a visible debug-art mode. If an old persisted or
     // inspector-mutated state leaves both booleans true, keep placeholders
     // visible instead of letting hide mode erase them.

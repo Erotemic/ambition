@@ -14,16 +14,16 @@ use super::primitives::{
     feature_color, feature_z, switch_on_color, FeatureVisual, PlayerSpriteBaseline, PlayerVisual,
     PropVisual, SceneEntities,
 };
-use ambition_sprite_sheet::game_assets::{self, EntitySprite, GameAssets};
-use ambition_sprite_sheet::boss::{self as sprites, BossAnimFrame, BossAnimState, BossAnimator};
 use ambition_combat::events::{BoundFeatureKind, FeatureVisualKind};
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_persistence::settings::TextureResolutionScale;
 use ambition_sim_view::FeatureViewIndex;
+use ambition_sprite_sheet::boss::{self as sprites, BossAnimFrame, BossAnimState, BossAnimator};
 use ambition_sprite_sheet::character::{
     build_character_sprite, build_character_sprite_with_render_size, feet_anchor_for,
     feet_anchor_for_render_size, player_placeholder_render_size, CharacterAnimator,
 };
+use ambition_sprite_sheet::game_assets::{self, EntitySprite, GameAssets};
 
 mod animation;
 mod boss;
@@ -145,7 +145,9 @@ pub fn sync_visuals(
 
 fn state_aware_entity_sprite(view: &ambition_combat::events::FeatureView) -> Option<EntitySprite> {
     match view.kind {
-        FeatureVisualKind::Breakable => view.breakable_state.map(game_assets::breakable_state_sprite),
+        FeatureVisualKind::Breakable => view
+            .breakable_state
+            .map(game_assets::breakable_state_sprite),
         FeatureVisualKind::Chest => Some(game_assets::chest_state_sprite(view.chest_opened)),
         // Switch shows its on/off button sprite (armed = on, disabled = off)
         // instead of a flat colored block (#57).

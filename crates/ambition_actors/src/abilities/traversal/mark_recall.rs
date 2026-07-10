@@ -24,11 +24,11 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer_primitives::markers::ControlledSubject;
 use crate::actor::BodyKinematics;
 use crate::features::HeldItem;
 use ambition_characters::brain::ActorControl;
 use ambition_engine_core as ae;
+use ambition_platformer_primitives::markers::ControlledSubject;
 
 /// The held-item id the Mark/Recall ability grants (see `brain::action_set`
 /// `HELD_ITEMS` and `items::Item::held_item_id`).

@@ -16,10 +16,10 @@
 use ambition_characters::brain::ActorControl;
 use bevy::prelude::*;
 
-use ambition_platformer_primitives::markers::ControlledSubject;
 use crate::actor::BodyKinematics;
 use crate::features::{ActorAggression, ActorFaction, HeldItem};
 use ambition_engine_core as ae;
+use ambition_platformer_primitives::markers::ControlledSubject;
 
 /// Marks a summoned, player-allied puppy slug (so the cap can count them and a
 /// future system can manage them).

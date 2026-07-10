@@ -213,7 +213,10 @@ mod tests {
             HAND_OFFSET_NORM.x * rider_height * facing_sign,
             HAND_OFFSET_NORM.y * rider_height,
         );
-        rider_pos + ambition_engine_core::AccelerationFrame::new(ambition_engine_core::Vec2::new(0.0, 1.0))
+        rider_pos
+            + ambition_engine_core::AccelerationFrame::new(ambition_engine_core::Vec2::new(
+                0.0, 1.0,
+            ))
             .to_world(hand_local)
     }
 }

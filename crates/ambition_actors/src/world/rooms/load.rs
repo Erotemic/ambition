@@ -16,6 +16,7 @@ use super::{validated_spawn, LoadingZoneActivation, RoomSet, RoomSpec, RoomTrans
 use crate::features;
 use crate::platformer_runtime::lifecycle::RoomScopedEntity;
 use crate::time::feel::SandboxFeelTuning;
+use crate::time::time_control::{ClockRequester, ClockResetRequest};
 use crate::world::physics::{self, PhysicsRoomEntity};
 use crate::world::platforms::{self, MovingPlatformState};
 use crate::SandboxSimState;
@@ -23,7 +24,6 @@ use ambition_dev_tools::SandboxDevState;
 use ambition_engine_core as ae;
 use ambition_engine_core::RoomGeometry;
 use ambition_sfx::SfxMessage;
-use crate::time::time_control::{ClockRequester, ClockResetRequest};
 
 /// What [`load_room_geometry`] hands back to the composition layer so the host
 /// can spawn parallax/room visuals + arrival VFX and apply the cross-domain

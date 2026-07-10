@@ -30,13 +30,13 @@ use ambition::menu::{
     MenuTextAlign,
 };
 
+use ambition::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use ambition::persistence::settings::{UserSettings, VisualQualityProfile};
 use ambition::settings_menu::settings::{SettingsOption, SettingsOptionId, SettingsOptionKind};
 use ambition::settings_menu::system::{
     DevSnapshot, RadioSnapshot, SystemMenuAction, SystemMenuEntryId, SystemMenuModel,
     SystemMenuTarget, SystemOptionId,
 };
-use ambition::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 
 /// Edge page-turn buttons flank the page in the side margins (NOT over the grid),
 /// matching the demo's `add_edge_buttons` rects (`crates/ambition_mock_demo/src/

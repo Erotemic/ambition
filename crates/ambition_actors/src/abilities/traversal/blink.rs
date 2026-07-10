@@ -14,11 +14,11 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer_primitives::markers::ControlledSubject;
 use crate::actor::BodyKinematics;
 use crate::features::HeldItem;
 use ambition_characters::brain::ActorControl;
 use ambition_engine_core::{self as ae, AabbExt};
+use ambition_platformer_primitives::markers::ControlledSubject;
 
 /// The held-item id the Blink ability grants.
 pub const BLINK_ID: &str = "blink";

@@ -17,7 +17,6 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer_primitives::markers::ControlledSubject;
 #[cfg(test)]
 use ambition_actors::actor::BodyBaseSize;
 use ambition_actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
@@ -27,6 +26,7 @@ use ambition_actors::platformer_runtime::prelude::SpawnScopedExt;
 use ambition_characters::brain::ActionSet;
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_items::{Item, OwnedItems};
+use ambition_platformer_primitives::markers::ControlledSubject;
 use ambition_portal::{
     DropPortalGun, PickUpPortalGun, PortalGun, PortalGunEquipped, PortalGunPickup,
 };

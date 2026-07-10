@@ -19,6 +19,5 @@ pub use pointer::map_menu_pointer_dismiss;
 pub use systems::{populate_map_rooms, sync_map_from_save, track_room_visits};
 pub use ui::{spawn_map_menu, sync_map_menu};
 
-
 #[cfg(test)]
 use ui::short_room_label;

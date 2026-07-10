@@ -103,10 +103,10 @@ mod chest_tests {
     //! a buffered interact over an overlapping, unopened chest inserts
     //! `Opened`; an unbuffered player or a non-overlapping chest does not.
     use super::*;
-    use ambition_platformer_primitives::markers::ControlledSubject;
     use crate::player::{BodyAnimFacts, SlotInteractionState};
     use ambition_engine_core::BodyBaseSize;
     use ambition_engine_core::BodyKinematics;
+    use ambition_platformer_primitives::markers::ControlledSubject;
     use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
     use bevy::prelude::{App, Entity, Update};
 

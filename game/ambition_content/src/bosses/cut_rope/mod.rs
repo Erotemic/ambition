@@ -11,7 +11,6 @@
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
-use ambition_sprite_sheet::game_assets::GameAssets;
 use ambition_actors::boss_encounter::{
     BossEncounterRegistry, EncounterBeat, EncounterDef, EncounterEffect, EncounterScript,
     EncounterTrigger, ReleaseOnDeath,
@@ -33,6 +32,7 @@ use ambition_sfx::SfxMessage;
 use ambition_sprite_sheet::character::{
     build_character_sprite, feet_anchor_for, CharacterAnimator,
 };
+use ambition_sprite_sheet::game_assets::GameAssets;
 use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
 use ambition_vfx::{ExplosionKind, ExplosionRequest, FireworksRequest, ParticleKind, VfxMessage};
 

@@ -32,11 +32,11 @@ use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
 use crate::character_roster::catalog;
 use ambition_engine_core as ae;
 use ambition_persistence::settings::VisualQualityBudget;
+use ambition_sprite_sheet::character::sheets;
 use ambition_sprite_sheet::character::{
     CharacterSheetSpec, CharacterSpriteAsset, CharacterSpritePage,
     TextureResolutionScale as SpriteTextureResolutionScale,
 };
-use ambition_sprite_sheet::character::sheets;
 use ambition_sprite_sheet::BodyMetrics;
 
 pub use ambition_sprite_sheet::character::CharacterSpriteAssets;
@@ -619,8 +619,7 @@ mod sprite_body_collision_tests {
         let frame_h = record.frame_height.max(1) as f32;
 
         // (1) render == legacy sprite_render_size(spec, ldtk).
-        let legacy =
-            sheets::sprite_render_size(&spec, bevy::math::Vec2::new(ldtk.x, ldtk.y));
+        let legacy = sheets::sprite_render_size(&spec, bevy::math::Vec2::new(ldtk.x, ldtk.y));
         assert!((derived.render_size.x - legacy.x).abs() < 1e-3);
         assert!((derived.render_size.y - legacy.y).abs() < 1e-3);
 

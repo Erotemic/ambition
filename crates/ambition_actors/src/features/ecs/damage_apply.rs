@@ -21,18 +21,18 @@ use ambition_vfx::vfx::VfxMessage;
 
 use crate::actor::{PlayerEntity, PrimaryPlayer, PrimaryPlayerOnly};
 use crate::combat::events::{GameplayBannerRequested, HitEvent as FeatureHitEvent, HitTarget};
-use ambition_dev_tools::dev_tools::EditableMovementTuning;
 use crate::player::{BodyAnimFacts, PlayerSafetyState};
 use crate::time::feel::SandboxFeelTuning;
+use crate::time::time_control::{ClockRequester, ClockResetRequest};
 use crate::{
     remember_safe_player_position, ActorDiedMessage, MovingPlatformSet, SafePositionContext,
     SandboxSimState,
 };
 use ambition_characters::actor::BodyCombat;
 use ambition_characters::actor::BodyHealth;
+use ambition_dev_tools::dev_tools::EditableMovementTuning;
 use ambition_engine_core::RoomGeometry;
 use ambition_sfx::SfxMessage;
-use crate::time::time_control::{ClockRequester, ClockResetRequest};
 
 // `body_vulnerable` / `shield_blocks_hit` moved to `crate::combat::util`
 // (E2): they are the shared victim-gate predicates every damage EMITTER
@@ -321,7 +321,15 @@ pub(crate) fn handle_player_damage_events(
         BodyHitResolution::Damaged { died: false, .. } => match damage.mode {
             crate::combat::HitMode::SafeRespawn => {
                 safe_respawn_player(
-                    sfx, vfx, clusters, clock_resets, safety, combat, tuning, feel, impact_pos,
+                    sfx,
+                    vfx,
+                    clusters,
+                    clock_resets,
+                    safety,
+                    combat,
+                    tuning,
+                    feel,
+                    impact_pos,
                 );
             }
             crate::combat::HitMode::Knockback => {

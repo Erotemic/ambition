@@ -172,7 +172,6 @@ fn manifest_path_deps(manifest: &str) -> Vec<String> {
         .collect()
 }
 
-
 fn manifest_ambition_deps_including_facade(manifest: &str) -> Vec<String> {
     manifest
         .lines()
@@ -337,15 +336,14 @@ fn read_spawn_allowlist() -> BTreeMap<String, usize> {
     allowlist
 }
 
-
 /// E9: downstream game/content crates should depend on one engine facade instead
 /// of copying the app shell's direct dependency wall. The Sanic/SMB1 demo homes
 /// are intentionally empty at first; their value is the manifest oracle.
 #[test]
 fn architecture_boundaries_umbrella_crate_and_demo_homes_exist() {
     let root = repo_root();
-    let workspace_manifest = fs::read_to_string(root.join("Cargo.toml"))
-        .expect("read workspace manifest");
+    let workspace_manifest =
+        fs::read_to_string(root.join("Cargo.toml")).expect("read workspace manifest");
     for member in [
         "crates/ambition",
         "game/ambition_demo_sanic",
@@ -360,11 +358,15 @@ fn architecture_boundaries_umbrella_crate_and_demo_homes_exist() {
     let umbrella_root = root.join("crates/ambition");
     assert_manifest_has_no_deps(
         &umbrella_root,
-        &["ambition_app", "ambition_content", "ambition_menu_kaleidoscope"],
+        &[
+            "ambition_app",
+            "ambition_content",
+            "ambition_menu_kaleidoscope",
+        ],
         "the ambition facade is an engine surface, not an app/content shell",
     );
-    let umbrella_lib = fs::read_to_string(umbrella_root.join("src/lib.rs"))
-        .expect("read ambition facade lib.rs");
+    let umbrella_lib =
+        fs::read_to_string(umbrella_root.join("src/lib.rs")).expect("read ambition facade lib.rs");
     for required in [
         "PlatformerEnginePlugins",
         "PlatformerHostPlugins",
@@ -390,7 +392,12 @@ fn architecture_boundaries_umbrella_crate_and_demo_homes_exist() {
         );
         assert_source_tree_has_no_code_refs(
             crate_root.join("src"),
-            &["ambition_actors::", "ambition_runtime::", "ambition_render::", "ambition_app::"],
+            &[
+                "ambition_actors::",
+                "ambition_runtime::",
+                "ambition_render::",
+                "ambition_app::",
+            ],
             &format!("{label} should reach the engine through the ambition facade"),
         );
     }
@@ -448,8 +455,12 @@ fn architecture_boundaries_app_uses_umbrella_manifest_surface() {
     assert_code_refs_filtered(
         &[app_root.join("src"), app_root.join("tests")],
         &direct_lower_refs,
-        |path| path.file_name().and_then(|name| name.to_str()) != Some("architecture_boundaries.rs"),
-        |_, line| line.contains("ambition_content::") || line.contains("ambition_menu_kaleidoscope::"),
+        |path| {
+            path.file_name().and_then(|name| name.to_str()) != Some("architecture_boundaries.rs")
+        },
+        |_, line| {
+            line.contains("ambition_content::") || line.contains("ambition_menu_kaleidoscope::")
+        },
         "ambition_app code should reach reusable lower crates through the ambition facade",
     );
 }
@@ -793,10 +804,9 @@ fn architecture_boundaries_projectiles_crate_is_model_only() {
         "ambition_projectiles must stay a reusable model free of sim/combat/host imports",
     );
 
-    let actor_projectile_stepper = fs::read_to_string(
-        repo_root().join("crates/ambition_actors/src/projectile/systems.rs"),
-    )
-    .expect("read actor projectile stepper");
+    let actor_projectile_stepper =
+        fs::read_to_string(repo_root().join("crates/ambition_actors/src/projectile/systems.rs"))
+            .expect("read actor projectile stepper");
     assert!(
         !actor_projectile_stepper.contains("fn lasersword_detonation")
             && !actor_projectile_stepper.contains("ExplosionKind::ClassicBurst"),
@@ -823,10 +833,9 @@ fn architecture_boundaries_projectiles_crate_is_model_only() {
         &["engine_tests.rs"],
         "pure projectile primitive tests should not live under the actor facade",
     );
-    let actor_projectile_mod = fs::read_to_string(
-        repo_root().join("crates/ambition_actors/src/projectile/mod.rs"),
-    )
-    .expect("read actor projectile module");
+    let actor_projectile_mod =
+        fs::read_to_string(repo_root().join("crates/ambition_actors/src/projectile/mod.rs"))
+            .expect("read actor projectile module");
     assert!(
         !actor_projectile_mod.contains("engine_tests"),
         "ambition_actors::projectile should expose only the actor-woven projectile steppers; pure primitive tests live in ambition_projectiles"
@@ -955,7 +964,6 @@ fn architecture_boundaries_inventory_ui_crate_is_menu_state_only() {
     );
 }
 
-
 /// `ambition_asset_manager` (F1.8) owns logical asset catalog/profile
 /// resolution only. Concrete backend providers — including SFX-bank
 /// `BankProvider` construction — live in the owning audio/app layer after a
@@ -995,7 +1003,6 @@ fn architecture_boundaries_asset_manager_is_backend_generic() {
         "asset manager should not expose an `sfx` feature that reintroduces an audio backend edge"
     );
 }
-
 
 #[test]
 fn architecture_boundaries_projectile_schedule_wiring_lives_in_runtime() {
@@ -1064,8 +1071,8 @@ fn architecture_boundaries_runtime_is_headless_composition_tier() {
         "ambition_runtime crate should exist at crates/ambition_runtime"
     );
 
-    let manifest = fs::read_to_string(crate_root.join("Cargo.toml"))
-        .expect("read ambition_runtime manifest");
+    let manifest =
+        fs::read_to_string(crate_root.join("Cargo.toml")).expect("read ambition_runtime manifest");
     for required in [
         "ambition_actors",
         "ambition_combat",
@@ -1133,7 +1140,6 @@ fn architecture_boundaries_runtime_is_headless_composition_tier() {
         "runtime source should compose headless sim/mechanic/menu-model crates without reaching into          app/content/host/render tiers",
     );
 }
-
 
 #[test]
 fn architecture_boundaries_host_does_not_depend_on_actors() {
@@ -1420,7 +1426,6 @@ fn architecture_boundaries_input_crate_is_extracted() {
     );
 }
 
-
 #[test]
 fn architecture_boundaries_control_frame_lives_with_engine_body_contract() {
     let engine_root = repo_root().join("crates/ambition_engine_core");
@@ -1451,8 +1456,8 @@ fn architecture_boundaries_control_frame_lives_with_engine_body_contract() {
         "ambition_characters should not depend on the input adapter for brain-facing ControlFrame",
     );
 
-    let input_lib = fs::read_to_string(input_root.join("src/lib.rs"))
-        .expect("read ambition_input lib.rs");
+    let input_lib =
+        fs::read_to_string(input_root.join("src/lib.rs")).expect("read ambition_input lib.rs");
     assert!(
         input_lib.contains("pub use ambition_engine_core::ControlFrame"),
         "ambition_input may keep the old import path as a compatibility re-export over engine_core::ControlFrame"
@@ -1535,10 +1540,8 @@ fn architecture_boundaries_f2_actor_facades_burned_down() {
         );
     }
 
-    let possession = fs::read_to_string(
-        crate_src().join("abilities/traversal/possession.rs"),
-    )
-    .expect("read possession module");
+    let possession = fs::read_to_string(crate_src().join("abilities/traversal/possession.rs"))
+        .expect("read possession module");
     assert!(
         !possession.contains("pub use ambition_platformer_primitives::markers::ControlledSubject"),
         "possession keeps possession behavior; ControlledSubject is named from ambition_platformer_primitives::markers"
@@ -1650,7 +1653,6 @@ fn architecture_boundaries_f2_encounter_vocab_consumers_use_encounter_crate() {
     );
 }
 
-
 #[test]
 fn architecture_boundaries_menu_backend_vocab_consumers_use_menu_crate() {
     assert_code_refs_absent(
@@ -1664,7 +1666,6 @@ fn architecture_boundaries_menu_backend_vocab_consumers_use_menu_crate() {
         "F2 menu-backend pass: InventoryUiBackend and backend availability constants live in ambition_menu::backend; actor menu keeps only map/settings adapter residue",
     );
 }
-
 
 #[test]
 fn architecture_boundaries_app_menu_settings_vocab_consumers_use_lower_crates() {
@@ -1682,8 +1683,6 @@ fn architecture_boundaries_app_menu_settings_vocab_consumers_use_lower_crates() 
         "F2 settings/menu IR facade pass: app menu hosts import stored settings from ambition_persistence and renderer-agnostic menu IR from ambition_settings_menu, not through ambition_actors",
     );
 }
-
-
 
 #[test]
 fn architecture_boundaries_map_state_consumers_use_menu_crate() {
@@ -1835,7 +1834,6 @@ fn architecture_boundaries_touch_input_crate_is_extracted() {
         "the app must not reference the removed in-app mobile_input module path"
     );
 }
-
 
 /// F1.11 ruling: the touch crate is a small presentation/input adapter, not a
 /// pure input-model crate. Its direct render dependency is intentional because
@@ -2581,10 +2579,9 @@ fn architecture_boundaries_f3_2_swept_movers_use_kernel_sweep_sample() {
         "F3.2: runtime actor/boss queries should not make SweepSample optional"
     );
 
-    let portal_transit = fs::read_to_string(
-        repo_root().join("crates/ambition_portal/src/transit.rs"),
-    )
-    .expect("read portal transit.rs");
+    let portal_transit =
+        fs::read_to_string(repo_root().join("crates/ambition_portal/src/transit.rs"))
+            .expect("read portal transit.rs");
     assert!(
         portal_transit.contains("Option<&ae::SweepSample>")
             && portal_transit.contains("portal_sweep_sample"),
@@ -2606,11 +2603,15 @@ fn architecture_boundaries_f3_2_swept_movers_use_kernel_sweep_sample() {
 #[test]
 fn architecture_boundaries_clock_resets_use_time_control_owner() {
     let roots = [crate_src(), app_src()];
-    let violations = scan_code_refs(&roots, &["time_scale = 1.0", "time_scale=1.0"], |file, _| {
-        let rel = file.strip_prefix(repo_root()).unwrap_or(file);
-        rel == Path::new("crates/ambition_actors/src/time/time_control/mod.rs")
-            || rel == Path::new("crates/ambition_actors/src/time/time_control/tests.rs")
-    });
+    let violations = scan_code_refs(
+        &roots,
+        &["time_scale = 1.0", "time_scale=1.0"],
+        |file, _| {
+            let rel = file.strip_prefix(repo_root()).unwrap_or(file);
+            rel == Path::new("crates/ambition_actors/src/time/time_control/mod.rs")
+                || rel == Path::new("crates/ambition_actors/src/time/time_control/tests.rs")
+        },
+    );
     assert!(
         violations.is_empty(),
         "F4.3: reset/respawn/transition code must emit ClockResetRequest; \
@@ -2618,8 +2619,9 @@ fn architecture_boundaries_clock_resets_use_time_control_owner() {
         violations.join("\n")
     );
 
-    let runtime_schedule = fs::read_to_string(repo_root().join("crates/ambition_runtime/src/player_schedule.rs"))
-        .expect("read player_schedule.rs");
+    let runtime_schedule =
+        fs::read_to_string(repo_root().join("crates/ambition_runtime/src/player_schedule.rs"))
+            .expect("read player_schedule.rs");
     assert!(
         runtime_schedule.contains("apply_clock_reset_requests")
             && runtime_schedule.contains("run_if(gameplay_allowed)"),
@@ -2633,13 +2635,19 @@ fn architecture_boundaries_player_fallbacks_are_slot_ordered() {
         repo_root().join("crates/ambition_actors/src/features/ecs/save_sync.rs"),
         repo_root().join("crates/ambition_actors/src/features/ecs/actors/update.rs"),
     ];
-    let violations = scan_code_refs(&roots, &["primary_player.iter().next()", "player_query.iter().next()"], |_, _| false);
+    let violations = scan_code_refs(
+        &roots,
+        &["primary_player.iter().next()", "player_query.iter().next()"],
+        |_, _| false,
+    );
     assert!(
         violations.is_empty(),
         "F4.4: player fallbacks must be deterministic by PlayerSlot, not raw Bevy query order:
 {}",
-        violations.join("
-")
+        violations.join(
+            "
+"
+        )
     );
 
     for path in roots {

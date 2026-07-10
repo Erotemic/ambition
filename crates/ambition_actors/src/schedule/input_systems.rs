@@ -14,18 +14,18 @@ use bevy::prelude::*;
 #[cfg(feature = "input")]
 use leafwing_input_manager::prelude::ActionState;
 
-use ambition_platformer_primitives::schedule::GameMode;
 #[cfg(feature = "input")]
 use crate::platformer_runtime::lifecycle::PlayerVisual;
 use ambition_dev_tools::SandboxDevState;
-#[cfg(feature = "input")]
-use ambition_input::{
-    read_gameplay_control_frame_with_settings, read_menu_control_frame, SandboxAction,
-};
 use ambition_input::{
     analog_to_dir, ControlFrame, KeyboardPreset, MenuControlFrame, MenuInputState,
     PlayerDashTriggerState,
 };
+#[cfg(feature = "input")]
+use ambition_input::{
+    read_gameplay_control_frame_with_settings, read_menu_control_frame, SandboxAction,
+};
+use ambition_platformer_primitives::schedule::GameMode;
 
 /// Item 3 (optional guard): whether input should be SUPPRESSED this frame because
 /// the "Pause input when window unfocused" setting is ON and the OS window is not

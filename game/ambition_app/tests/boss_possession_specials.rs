@@ -28,10 +28,10 @@
 use ambition::actors::abilities::traversal::possession::PossessionState;
 use ambition::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition::actors::features::{ActorFaction, FeatureId};
-use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use ambition::characters::brain::{BossAttackProfile, BossAttackState, BossCapability, Brain};
 use ambition::entity_catalog::placements::BossBrain;
 use ambition::vfx::HitSide;
+use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use bevy::prelude::{Entity, World};
 
 const BOSS_ID: &str = "possess_boss";

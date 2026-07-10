@@ -7,9 +7,9 @@
 use bevy::prelude::*;
 
 use super::primitives::{LoadingZoneVisual, PortalSprite, PropVisual};
-use ambition_world::rooms::{GatePortalPhase, GatePortalRegistry};
 use ambition_sprite_sheet::character::{CharacterAnim, CharacterAnimator};
 use ambition_time::WorldTime;
+use ambition_world::rooms::{GatePortalPhase, GatePortalRegistry};
 
 /// Hide the debug door-zone visual that `spawn_loading_zone`
 /// spawns for any LoadingZone that's registered as a portal — the

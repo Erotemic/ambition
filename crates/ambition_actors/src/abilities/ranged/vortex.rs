@@ -15,10 +15,10 @@
 use ambition_characters::brain::ActorControl;
 use bevy::prelude::*;
 
-use ambition_platformer_primitives::markers::ControlledSubject;
 use crate::actor::BodyMana;
 use crate::features::{ActorFaction, BodyKinematics, FeatureSimEntity, HeldItem};
 use ambition_engine_core as ae;
+use ambition_platformer_primitives::markers::ControlledSubject;
 
 /// Held-item id of the vortex gauntlet.
 pub const VORTEX_ID: &str = "vortex";

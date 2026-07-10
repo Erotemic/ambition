@@ -23,10 +23,10 @@
 use ambition::actors::abilities::traversal::possession::PossessionState;
 use ambition::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition::actors::features::{ActorFaction, FeatureId};
-use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use ambition::characters::brain::ActorControl;
 use ambition::engine_core as ae;
 use ambition::entity_catalog::placements::CharacterBrain;
+use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use bevy::prelude::{Entity, World};
 
 const ACTOR_ID: &str = "possess_target";

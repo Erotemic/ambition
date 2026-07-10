@@ -13,9 +13,9 @@
 //! visual: EVERY body's raised shield (player and brain-driven alike)
 //! materializes one row, so the render pool is a pure consumer.
 
-use ambition_sprite_sheet::character::CharacterAnim;
 use ambition_characters::actor::{BodyCombat, BodyHealth};
 use ambition_platformer_primitives::lifecycle::PlayerVisual;
+use ambition_sprite_sheet::character::CharacterAnim;
 use bevy::prelude::{Commands, Entity, Query, Res, ResMut, Resource, With};
 
 /// Sim-resolved presentation pose for one player-bodied entity: everything

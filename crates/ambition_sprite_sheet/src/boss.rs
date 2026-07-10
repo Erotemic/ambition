@@ -1059,10 +1059,12 @@ pub fn load_named_boss_sprite_via_catalog(
         .map(|q| q.sprites.resolution_scale)
         .filter(|scale| *scale != ambition_persistence::settings::TextureResolutionScale::Full)
         .and_then(|scale| {
-            let variant_id = ambition_asset_manager::sandbox_assets::scaled_asset_id(&id, scale.asset_id_suffix())?;
+            let variant_id = ambition_asset_manager::sandbox_assets::scaled_asset_id(
+                &id,
+                scale.asset_id_suffix(),
+            )?;
             let path = catalog.try_path_for_load(&variant_id)?;
-            let record =
-                record_for_target(boss_record_key(&path)?.as_str())?;
+            let record = record_for_target(boss_record_key(&path)?.as_str())?;
             record_aligns_with_const(record, &spec).then_some(path)
         });
     let Some(path) = variant_path.or_else(|| catalog.try_path_for_load(&id)) else {

@@ -162,7 +162,9 @@ pub fn sync_intro_flag_gated_lock_walls(
     project: Option<Res<ambition_actors::world::ldtk_world::SandboxLdtkProject>>,
     room_set: Option<Res<ambition_actors::rooms::RoomSet>>,
     save: Option<Res<ambition_persistence::save::SandboxSave>>,
-    overlay: Option<ResMut<ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay>>,
+    overlay: Option<
+        ResMut<ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay>,
+    >,
 ) {
     let (Some(project), Some(room_set), Some(save), Some(mut overlay)) =
         (project, room_set, save, overlay)

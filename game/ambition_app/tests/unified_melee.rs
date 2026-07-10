@@ -104,21 +104,23 @@ fn observe_hostile_melee(
         )>();
         q.iter(world)
             .find(|(_, f, ..)| f.as_str() == feature_id)
-            .map(|(entity, _, kin, control, disp, target, actions, melee, playback)| {
-                let attack_playback = playback.map(is_attack_move).unwrap_or(false);
-                let active_attack = playback.map(attack_move_is_active).unwrap_or(false);
-                (
-                    entity,
-                    kin.pos,
-                    control.0.melee_pressed,
-                    disp.is_hostile(),
-                    target.entity.is_some(),
-                    actions.melee.is_some(),
-                    melee.is_swinging() || melee.cooldown > 0.0 || attack_playback,
-                    attack_playback,
-                    active_attack,
-                )
-            })
+            .map(
+                |(entity, _, kin, control, disp, target, actions, melee, playback)| {
+                    let attack_playback = playback.map(is_attack_move).unwrap_or(false);
+                    let active_attack = playback.map(attack_move_is_active).unwrap_or(false);
+                    (
+                        entity,
+                        kin.pos,
+                        control.0.melee_pressed,
+                        disp.is_hostile(),
+                        target.entity.is_some(),
+                        actions.melee.is_some(),
+                        melee.is_swinging() || melee.cooldown > 0.0 || attack_playback,
+                        attack_playback,
+                        active_attack,
+                    )
+                },
+            )
     };
     let Some((
         entity,
@@ -130,7 +132,8 @@ fn observe_hostile_melee(
         engaged,
         attack_playback,
         active_attack,
-    )) = observed else {
+    )) = observed
+    else {
         return;
     };
 
@@ -177,7 +180,9 @@ fn hostile_body_present(world: &mut World, feature_id: &str) -> bool {
 /// `BodyMelee` and spawns a strike it OWNS.
 #[test]
 fn the_player_enters_the_body_melee_lifecycle_and_owns_its_strike() {
-    let _guard = UNIFIED_MELEE_TEST_LOCK.lock().expect("unified melee test lock");
+    let _guard = UNIFIED_MELEE_TEST_LOCK
+        .lock()
+        .expect("unified melee test lock");
     let mut sim =
         SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");
     let player = player_entity(sim.world_mut());
@@ -208,7 +213,9 @@ fn the_player_enters_the_body_melee_lifecycle_and_owns_its_strike() {
 /// `ActorActionMessage::Melee` path — no separate actor melee driver.
 #[test]
 fn a_hostile_actor_enters_the_same_body_melee_lifecycle() {
-    let _guard = UNIFIED_MELEE_TEST_LOCK.lock().expect("unified melee test lock");
+    let _guard = UNIFIED_MELEE_TEST_LOCK
+        .lock()
+        .expect("unified melee test lock");
     const ENEMY_ID: &str = "test_aggressor";
     let mut sim =
         SandboxSim::new_with_timestep(TimestepMode::fixed_60hz()).expect("sandbox sim builds");

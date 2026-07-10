@@ -2,10 +2,10 @@ use super::*;
 use crate::menu::model::{build_inventory_pages, system_rows, SystemRow};
 use ambition::actors::actor::BodyMana;
 use ambition::actors::actor::{PlayerEntity, PrimaryPlayer};
-use ambition::settings_menu::system::{SystemMenuEntryId, SystemMenuModel};
-use ambition::platformer::schedule::GameMode;
 use ambition::characters::brain::ActionSet;
 use ambition::items::Item;
+use ambition::platformer::schedule::GameMode;
+use ambition::settings_menu::system::{SystemMenuEntryId, SystemMenuModel};
 
 /// Switching the inventory frontend mid-session lands you on the SAME page in the
 /// new frontend (not back on Inventory). The cube stores the page in
@@ -1008,7 +1008,8 @@ fn grid_override_survives_hover_and_clears_on_keyboard() {
     // A hover (cursor-follow) moves the CURSOR but, with the override set, the
     // EFFECTIVE window stays at the override — hovering does not scroll the list.
     *app.world_mut()
-        .resource_mut::<ambition::input::ActiveInputKind>() = ambition::input::ActiveInputKind::Mouse;
+        .resource_mut::<ambition::input::ActiveInputKind>() =
+        ambition::input::ActiveInputKind::Mouse;
     app.world_mut()
         .resource_mut::<KaleidoscopeCursor>()
         .mark_keyboard(MenuFocus::System(0));

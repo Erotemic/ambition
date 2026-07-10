@@ -21,11 +21,11 @@
 use ambition_characters::brain::ActorControl;
 use bevy::prelude::*;
 
-use ambition_platformer_primitives::markers::ControlledSubject;
 use crate::actor::BodyKinematics;
 use crate::actor::BodyMana;
 use crate::features::HeldItem;
 use ambition_engine_core as ae;
+use ambition_platformer_primitives::markers::ControlledSubject;
 
 /// Held-item id of the focus-beam gauntlet.
 pub const BEAM_ID: &str = "beam";

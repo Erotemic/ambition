@@ -47,11 +47,15 @@ pub fn entity_sprite_or_color(
 /// Per-family entity-sprite resolvers. Stateless choices — the
 /// runtime sync system swaps the sprite later for state-driven kinds
 /// (chest open, breakable cracked).
-pub fn entity_sprite_for_hazard(_volume: &ambition_world::rooms::HazardVolumeSpec) -> Option<EntitySprite> {
+pub fn entity_sprite_for_hazard(
+    _volume: &ambition_world::rooms::HazardVolumeSpec,
+) -> Option<EntitySprite> {
     Some(EntitySprite::HazardSpikes)
 }
 
-pub fn entity_sprite_for_pickup(pickup: &ambition_world::rooms::PickupSpec) -> Option<EntitySprite> {
+pub fn entity_sprite_for_pickup(
+    pickup: &ambition_world::rooms::PickupSpec,
+) -> Option<EntitySprite> {
     Some(pickup_sprite(&pickup.kind))
 }
 
@@ -95,7 +99,10 @@ pub fn entity_sprite_for_interactable(
 pub fn entity_sprite_for_runtime_interactable(
     interactable: &ambition_interaction::Interactable,
 ) -> Option<EntitySprite> {
-    if matches!(interactable.kind, ambition_interaction::InteractionKind::Npc { .. }) {
+    if matches!(
+        interactable.kind,
+        ambition_interaction::InteractionKind::Npc { .. }
+    ) {
         Some(EntitySprite::NpcTerminal)
     } else {
         None

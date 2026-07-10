@@ -35,8 +35,8 @@ use ambition_sfx::SfxMessage;
 use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 use bevy::prelude::{
-    Commands, Component, Entity, MessageReader, MessageWriter, NextState, Query, Res, ResMut,
-    With, Without,
+    Commands, Component, Entity, MessageReader, MessageWriter, NextState, Query, Res, ResMut, With,
+    Without,
 };
 
 use ambition_time::WorldTime;

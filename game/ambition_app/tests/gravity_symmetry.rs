@@ -9,9 +9,9 @@
 //! (set_base_gravity_dir / teleport_player / grant_pogo_ability / add_block).
 
 mod common;
+use ambition::engine_core::{Block, Vec2};
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::{AgentAction, SandboxSim, SandboxSimOptions};
-use ambition::engine_core::{Block, Vec2};
 
 fn base() -> AgentAction {
     AgentAction::default()

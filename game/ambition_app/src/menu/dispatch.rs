@@ -18,13 +18,13 @@ use crate::menu::model::{
     system_rows_with_quality_prompt, MenuFocus, MenuPage, MenuPageAction, SystemRow,
 };
 use crate::menu::quality_confirm::VisualQualityConfirmState;
+use ambition::actors::player::PlayerHealRequested;
+use ambition::items::OwnedItems;
 use ambition::persistence::settings::UserSettings;
 use ambition::settings_menu::settings::{
     apply_settings_option, settings_menu_model, SettingsOptionId, SettingsOptionKind,
 };
 use ambition::settings_menu::system::SystemMenuAction;
-use ambition::actors::player::PlayerHealRequested;
-use ambition::items::OwnedItems;
 use ambition::sfx::SfxMessage;
 
 /// Dispatch a [`MenuPageAction`]. Item Equip/Use reuse the grid's shared

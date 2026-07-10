@@ -27,10 +27,10 @@ use ambition::actors::player::{
 };
 use ambition::actors::rooms::RoomSet;
 use ambition::actors::{MovingPlatformSet, SandboxSimState};
-use ambition::platformer::schedule::GameMode;
 use ambition::characters::actor::{BodyCombat, BodyHealth};
 use ambition::engine_core::RoomGeometry;
 use ambition::input::ControlFrame;
+use ambition::platformer::schedule::GameMode;
 use ambition::time::ClockState;
 use bevy::asset::AssetPlugin;
 use bevy::image::ImagePlugin;

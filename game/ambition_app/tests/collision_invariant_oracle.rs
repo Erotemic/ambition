@@ -31,10 +31,10 @@
 //! Each flagged step prints `(room, seed, tick, pos)` so it reproduces through
 //! `cargo run -p ambition_app --bin rl_random_walker -- <STEPS> <SEED>` after a `--start-room`.
 
-use ambition_app::rl_sim::TimestepMode;
-use ambition_app::{RandomWalkPolicy, SandboxSim, SandboxSimOptions};
 use ambition::engine_core as ae;
 use ambition::engine_core::RoomGeometry;
+use ambition_app::rl_sim::TimestepMode;
+use ambition_app::{RandomWalkPolicy, SandboxSim, SandboxSimOptions};
 
 // --- the oracle ---
 

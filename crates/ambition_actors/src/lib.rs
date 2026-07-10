@@ -110,7 +110,6 @@ pub use world::platforms::MovingPlatformState;
 use ambition_engine_core as ae;
 use bevy::prelude::{Message, Resource};
 
-
 /// Sandbox-side actor-death notification. Emitted from `death_respawn_player`
 /// the frame a controlled actor's HP drops to zero and it respawns at the room
 /// spawn. The encounter system reads this through `MessageReader` to fail any
@@ -236,7 +235,6 @@ impl Default for SandboxSimState {
         }
     }
 }
-
 
 /// The state of one in-flight player melee swing is now the unified
 /// [`crate::features::MeleeSwing`] — the SAME swing every brain-driven actor

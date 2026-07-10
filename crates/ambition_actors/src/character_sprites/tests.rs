@@ -12,11 +12,11 @@ use super::assets::sheet_for_character_id;
 fn robot_sheet() -> ambition_sprite_sheet::character::sheets::CharacterSheetSpec {
     sheet_for_character_id("robot").expect("robot catalog row resolves a sheet")
 }
-use ambition_sprite_sheet::SheetRecord;
 use ambition_sprite_sheet::character::sheets::{
     record_for_target, sprite_render_size, try_load_spec_for_target,
     try_load_spec_for_target_scaled, SheetTuning,
 };
+use ambition_sprite_sheet::SheetRecord;
 
 /// When the quality-variant sheets have been generated (gitignored, so only at
 /// build time after running `generate_visual_quality_variants.py`), the scaled

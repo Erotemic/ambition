@@ -7,8 +7,8 @@ use crate::menu::test_support::{
 };
 use ambition::actors::actor::BodyMana;
 use ambition::actors::actor::{PlayerEntity, PrimaryPlayer};
-use ambition::platformer::schedule::GameMode;
 use ambition::characters::brain::ActionSet;
+use ambition::platformer::schedule::GameMode;
 
 /// The cube's System list wraps vertically (closed list); the Grid clamps (its
 /// rows sit below the tab bar, a real UP target). Pins `step_system_row` so a
@@ -774,11 +774,7 @@ fn quit_action_writes_app_exit_and_closes() {
     );
     assert_eq!(
         model.entry(SystemMenuEntryId::Quit).map(|e| &e.target),
-        Some(
-            &SystemMenuTarget::Action(
-                SystemMenuAction::Quit
-            )
-        ),
+        Some(&SystemMenuTarget::Action(SystemMenuAction::Quit)),
         "Quit is surfaced as a top-level Action entry"
     );
 
@@ -1274,7 +1270,9 @@ fn scroll_total_rows(app: &App) -> usize {
     let dev = app
         .world()
         .resource::<ambition::dev_tools::dev_tools::DeveloperTools>();
-    let dev_state = app.world().resource::<ambition::dev_tools::SandboxDevState>();
+    let dev_state = app
+        .world()
+        .resource::<ambition::dev_tools::SandboxDevState>();
     let ldtk_reload = app
         .world()
         .resource::<ambition::actors::ldtk_world::LdtkHotReloadState>();

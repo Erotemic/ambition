@@ -12,13 +12,13 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer_primitives::markers::ControlledSubject;
 use crate::actor::BodyKinematics;
 use crate::actor::BodyMana;
 use crate::enemy_projectile::EnemyProjectileSpawn;
 use crate::features::HeldItem;
 use ambition_characters::brain::ActorControl;
 use ambition_engine_core as ae;
+use ambition_platformer_primitives::markers::ControlledSubject;
 
 /// Held-item id of the volley gauntlet.
 pub const VOLLEY_ID: &str = "volley";

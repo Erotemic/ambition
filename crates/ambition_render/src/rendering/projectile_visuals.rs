@@ -16,7 +16,6 @@ use bevy::math::{Rect, Vec2};
 use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
-use ambition_sprite_sheet::game_assets::{EntitySprite, GameAssets};
 use ambition_platformer_primitives::gravity::gravity_upright_angle;
 use ambition_platformer_primitives::gravity::GravityCtx;
 use ambition_projectiles::{
@@ -24,6 +23,7 @@ use ambition_projectiles::{
     ProjectileVisualKind,
 };
 use ambition_sim_view::ProjectileView;
+use ambition_sprite_sheet::game_assets::{EntitySprite, GameAssets};
 use ambition_sprite_sheet::SheetRegistry;
 
 /// Marker on the persistent per-projectile sprite entity.

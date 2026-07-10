@@ -17,12 +17,12 @@ use ambition::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition::actors::combat::components::{ActorDisposition, ActorTarget};
 use ambition::actors::features::FeatureId;
 use ambition::actors::player::BodyMelee;
-use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use ambition::characters::actor::BodyHealth;
 use ambition::characters::brain::ActorControl;
 use ambition::engine_core as ae;
 use ambition::entity_catalog::placements::CharacterBrain;
 use ambition::projectiles::enemy::EnemyProjectile;
+use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use bevy::prelude::World;
 
 const ROBOT_ID: &str = "player_robot_boss";

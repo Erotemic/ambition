@@ -32,11 +32,11 @@ impl Plugin for DevToolsPlugin {
 /// `EguiPlugin` first, hence the shared gate.
 #[cfg(feature = "dev_tools")]
 fn install_egui_inspectors(app: &mut App) {
+    use ambition::actors::time::feel::SandboxFeelTuning;
     use ambition::dev_tools::dev_tools::{
         inspector_visible, world_inspector_visible, DeveloperTools, EditableAbilitySet,
         EditableMovementTuning, EditablePlayerStats,
     };
-    use ambition::actors::time::feel::SandboxFeelTuning;
     use bevy_inspector_egui::bevy_egui::EguiPlugin;
     use bevy_inspector_egui::quick::{ResourceInspectorPlugin, WorldInspectorPlugin};
 

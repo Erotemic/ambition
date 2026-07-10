@@ -12,8 +12,8 @@
 //! Facing mirrors the box's forward offset.
 
 use ambition_engine_core as ae;
-use ambition_sprite_sheet::{baked_sheet_rons, SheetRecord, SheetRegistry};
 use ambition_sprite_sheet::character::sheets;
+use ambition_sprite_sheet::{baked_sheet_rons, SheetRecord, SheetRegistry};
 use std::sync::OnceLock;
 
 /// The player's sprite manifest file root. Both `robot` (enemy) and
@@ -127,9 +127,7 @@ fn player_render_size(collision: ae::Vec2) -> Option<ae::Vec2> {
     let spec = SPEC
         .get_or_init(|| super::assets::sheet_for_character_id(PLAYER_CHARACTER_ID))
         .as_ref()?;
-    Some(sheets::player_placeholder_render_size(
-        spec, collision,
-    ))
+    Some(sheets::player_placeholder_render_size(spec, collision))
 }
 
 /// Resolve the player's melee attack hitbox for `animation` from the

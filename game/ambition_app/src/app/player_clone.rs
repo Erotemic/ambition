@@ -18,7 +18,6 @@
 
 use bevy::prelude::*;
 
-use ambition::sprite_sheet::game_assets::GameAssets;
 use ambition::characters::brain::{ActorControl, Brain, BrainSnapshot, StateMachineCfg};
 use ambition::engine_core as ae;
 use ambition::engine_core::RoomGeometry;
@@ -27,6 +26,7 @@ use ambition::sprite_sheet::character::{
     build_character_sprite_with_render_size, feet_anchor_for_render_size,
     player_placeholder_render_size, CharacterAnimator,
 };
+use ambition::sprite_sheet::game_assets::GameAssets;
 
 /// Marks a brain-driven player-body clone (NOT the human player).
 #[derive(Component)]
@@ -236,7 +236,10 @@ pub fn despawn_player_clones_on_reset(
 /// Keep the clone's sprite on its simulated body.
 pub fn sync_player_clone_transform(
     world: Res<RoomGeometry>,
-    mut clones: Query<(&ambition::actors::actor::BodyKinematics, &mut Transform), With<PlayerClone>>,
+    mut clones: Query<
+        (&ambition::actors::actor::BodyKinematics, &mut Transform),
+        With<PlayerClone>,
+    >,
 ) {
     for (kin, mut transform) in &mut clones {
         transform.translation = ambition::engine_core::config::world_to_bevy(

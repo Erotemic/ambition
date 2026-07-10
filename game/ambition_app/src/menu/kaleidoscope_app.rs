@@ -27,18 +27,18 @@ use crate::menu::model::{
     SystemRow, SYSTEM_VISIBLE_ROWS,
 };
 use crate::menu::quality_confirm::VisualQualityConfirmState;
+use ambition::actors::player::PlayerHealRequested;
+use ambition::engine_core::Vec2;
+use ambition::input::MenuControlFrame;
+use ambition::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use ambition::persistence::settings::{UserSettings, VisualQualityProfile};
 use ambition::settings_menu::settings::{
     apply_settings_option, settings_menu_model, SettingsOptionId, SettingsOptionKind,
 };
 use ambition::settings_menu::system::{
-    DevSnapshot, DevToggleId, RadioSnapshot, SystemMenuAction, SystemMenuEntryId,
-    SystemMenuModel, SystemMenuTarget, SystemOptionId,
+    DevSnapshot, DevToggleId, RadioSnapshot, SystemMenuAction, SystemMenuEntryId, SystemMenuModel,
+    SystemMenuTarget, SystemOptionId,
 };
-use ambition::actors::player::PlayerHealRequested;
-use ambition::engine_core::Vec2;
-use ambition::input::MenuControlFrame;
-use ambition::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use ambition::sfx::SfxMessage;
 
 /// Play a one-shot UI sound for the cube menu: `Play { id, pos }` with `pos = ZERO`.
@@ -1120,9 +1120,7 @@ pub(crate) fn system_row_action_for(
 ) -> Option<MenuPageAction> {
     match row {
         SystemRow::Entry(id) => match model.entry(id).map(|e| &e.target) {
-            Some(SystemMenuTarget::Action(action)) => {
-                Some(MenuPageAction::SystemAction(*action))
-            }
+            Some(SystemMenuTarget::Action(action)) => Some(MenuPageAction::SystemAction(*action)),
             _ => Some(MenuPageAction::OpenSystemEntry(id)),
         },
         SystemRow::Setting(o) => Some(MenuPageAction::System(o)),

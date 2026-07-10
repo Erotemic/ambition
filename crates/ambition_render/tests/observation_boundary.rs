@@ -167,12 +167,7 @@ fn render_has_no_actor_crate_dependency_after_f15() {
         let text = std::fs::read_to_string(file).expect("readable source");
         for (i, line) in text.lines().enumerate() {
             if code_only(line).contains("ambition_actors") {
-                violations.push(format!(
-                    "{}:{}: {}",
-                    file.display(),
-                    i + 1,
-                    line.trim()
-                ));
+                violations.push(format!("{}:{}: {}", file.display(), i + 1, line.trim()));
             }
         }
     }

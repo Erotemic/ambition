@@ -7,12 +7,12 @@ use bevy::prelude::{
     AssetServer, Commands, Entity, MessageReader, MessageWriter, Query, Res, ResMut, With,
 };
 
-use ambition::dev_tools::dev_tools::EditableMovementTuning;
 use ambition::actors::platformer_runtime::lifecycle::RoomScopedEntity;
 use ambition::actors::rooms;
 use ambition::actors::time::feel::SandboxFeelTuning;
 use ambition::actors::time::time_control::{ClockRequester, ClockResetRequest};
 use ambition::actors::world::physics;
+use ambition::dev_tools::dev_tools::EditableMovementTuning;
 use ambition::engine_core::RoomGeometry;
 use ambition::engine_core::{self as ae, AabbExt};
 use ambition::render::rendering::spawn_room_visuals;
@@ -250,8 +250,7 @@ pub fn ensure_requested_room_parallax_system(
 /// neither); `primary` is the startup-frame fallback subject.
 #[derive(bevy::ecs::system::SystemParam)]
 pub(crate) struct TransitBodies<'w, 's> {
-    controlled:
-        Option<Res<'w, ambition::platformer::markers::ControlledSubject>>,
+    controlled: Option<Res<'w, ambition::platformer::markers::ControlledSubject>>,
     clusters: Query<'w, 's, ae::BodyClusterQueryData>,
     combat: Query<'w, 's, &'static mut ambition::characters::actor::BodyCombat>,
     presentation: Query<

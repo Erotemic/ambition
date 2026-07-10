@@ -13,11 +13,11 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer_primitives::markers::ControlledSubject;
 use crate::actor::BodyKinematics;
 use crate::features::HeldItem;
 use ambition_characters::brain::ActorControl;
 use ambition_engine_core as ae;
+use ambition_platformer_primitives::markers::ControlledSubject;
 
 /// The held-item id the Grapple ability grants.
 pub const GRAPPLE_ID: &str = "grapple";

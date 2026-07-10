@@ -73,8 +73,7 @@ pub use placement::{
 pub use transit::{
     portal_teleport_ground_items, portal_transit, publish_portal_carves, tick_portal_cooldowns,
     BodyTeleported, PlayerMovementIntent, PortalBody, PortalBodyTransited, PortalCarves,
-    PortalEmission, PortalInputWarp, PortalPolicy, PortalTransit,
-    PortalTransitable,
+    PortalEmission, PortalInputWarp, PortalPolicy, PortalTransit, PortalTransitable,
 };
 pub use tuning::{sync_portal_tuning_convention, PortalConvention, PortalTuning};
 pub use types::{

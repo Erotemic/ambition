@@ -29,12 +29,12 @@ use crate::menu::model::{
     SYSTEM_VISIBLE_ROWS,
 };
 use crate::menu::quality_confirm::VisualQualityConfirmState;
-use ambition::menu::backend::{InventoryUiBackend, BEVY_UI_MENU_BACKEND_ENABLED};
-use ambition::persistence::settings::{UserSettings, VisualQualityProfile};
-use ambition::settings_menu::system::{SystemMenuEntryId, SystemMenuModel};
 use ambition::actors::player::PlayerHealRequested;
 use ambition::input::MenuControlFrame;
 use ambition::items::{OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
+use ambition::menu::backend::{InventoryUiBackend, BEVY_UI_MENU_BACKEND_ENABLED};
+use ambition::persistence::settings::{UserSettings, VisualQualityProfile};
+use ambition::settings_menu::system::{SystemMenuEntryId, SystemMenuModel};
 use ambition::sfx::SfxMessage;
 
 /// The effect/dispatch resources shared by [`grid_menu_nav`] and

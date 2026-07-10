@@ -9,10 +9,10 @@
 
 use std::collections::{HashMap, HashSet};
 
-use ambition_world::rooms::{ActiveRoomMetadata, RoomNameplatePolicy};
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_sim_view::NameplateIndex;
+use ambition_world::rooms::{ActiveRoomMetadata, RoomNameplatePolicy};
 use bevy::prelude::*;
 
 use crate::ui_fonts::{UiFontWeight, UiFonts};

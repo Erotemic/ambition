@@ -12,12 +12,12 @@ use bevy::window::{MonitorSelection, VideoModeSelection, WindowMode};
 
 use super::video::FlashIntensity;
 use super::UserSettings;
+use crate::host::windowing::{DisplayModeKind, DisplayModeState};
+use crate::ldtk_world::LdtkHotReloadState;
 use ambition_dev_tools::dev_tools::{
     apply_movement_profile, apply_player_body_profile, DebugArtMode, DebugViewMode, DeveloperTools,
     EditableMovementTuning,
 };
-use crate::host::windowing::{DisplayModeKind, DisplayModeState};
-use crate::ldtk_world::LdtkHotReloadState;
 use ambition_dev_tools::SandboxDevState;
 
 /// Top-level settings page. The pause menu starts at `Top` (the
@@ -751,7 +751,10 @@ pub fn apply_action(
     // runs after the field update.
     if let Some(id) = item.shared_option_id() {
         ambition_settings_menu::settings::apply_settings_option(id, settings_dir(action), settings);
-        if matches!(id, ambition_settings_menu::settings::SettingsOptionId::DisplayMode) {
+        if matches!(
+            id,
+            ambition_settings_menu::settings::SettingsOptionId::DisplayMode
+        ) {
             let mode: DisplayModeKind = settings.video.display_mode.into();
             apply_display_mode(mode, display_state, windows);
         }

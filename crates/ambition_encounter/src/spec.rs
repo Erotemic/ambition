@@ -30,7 +30,9 @@ pub fn install_encounter_waves(book: HashMap<String, Vec<EncounterWaveSpec>>) {
 /// `None` means the adapter should fall back to one wave assembled from the
 /// level's own spawn markers.
 pub fn authored_encounter_waves(id: &str) -> Option<Vec<EncounterWaveSpec>> {
-    ENCOUNTER_WAVE_BOOK.get().and_then(|book| book.get(id).cloned())
+    ENCOUNTER_WAVE_BOOK
+        .get()
+        .and_then(|book| book.get(id).cloned())
 }
 
 /// One mob to spawn during a wave.

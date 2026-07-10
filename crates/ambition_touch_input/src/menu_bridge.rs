@@ -21,10 +21,10 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 
 use super::bevy_plugin::{MenuTouchGestureState, MobileTouchState};
-use ambition_platformer_primitives::schedule::GameMode;
 use super::exclusion::{touch_exclusion_contains, TouchExclusionZone};
 use super::state::{fold_touch_into_control_frame, touch_state_is_active, TouchInputState};
 use ambition_input::{ControlFrame, MenuControlFrame, MenuInputState};
+use ambition_platformer_primitives::schedule::GameMode;
 
 /// Merge the latest [`MobileTouchState`] into gameplay
 /// [`ControlFrame`]. The desktop input pipeline (Leafwing) writes its
@@ -228,11 +228,7 @@ pub fn fold_to_menu_control_frame(
 /// grid — so keying on `Paused` here is what lets the on-screen
 /// joystick drive the cube's cursor the same way it drives the grid.
 pub fn menu_move_active(mode: GameMode) -> bool {
-    matches!(
-        mode,
-        GameMode::Dialogue
-            | GameMode::Paused
-    )
+    matches!(mode, GameMode::Dialogue | GameMode::Paused)
 }
 
 /// Convert the touch move stick into a `MenuDir` for menu navigation.

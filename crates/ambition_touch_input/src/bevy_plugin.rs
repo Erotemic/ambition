@@ -1,10 +1,10 @@
 use std::borrow::Cow;
 
+use ambition_platformer_primitives::schedule::GameMode;
 use bevy::input::mouse::MouseButton;
 use bevy::input::touch::Touches;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
-use ambition_platformer_primitives::schedule::GameMode;
 use virtual_joystick::*;
 
 use super::layout::{

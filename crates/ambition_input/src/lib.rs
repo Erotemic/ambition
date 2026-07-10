@@ -38,8 +38,7 @@ pub use ambition_engine_core::ControlFrame;
 pub use control::PlayerDashTriggerState;
 #[cfg(feature = "input")]
 pub use control::{
-    read_gameplay_control_frame, read_gameplay_control_frame_with_settings,
-    read_menu_control_frame,
+    read_gameplay_control_frame, read_gameplay_control_frame_with_settings, read_menu_control_frame,
 };
 
 /// Schedule contract for the per-frame [`ControlFrame`] input window.

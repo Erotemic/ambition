@@ -25,10 +25,10 @@
 use ambition::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition::actors::features::FeatureId;
 use ambition::actors::features::{Mounted, PendingMountLinks, RidingOn};
-use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use ambition::characters::brain::{ActorControl, Brain, PlayerSlot};
 use ambition::engine_core as ae;
 use ambition::entity_catalog::placements::CharacterBrain;
+use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use bevy::prelude::{Entity, World};
 
 const MOUNT_ID: &str = "pilot_shark";

@@ -344,7 +344,9 @@ pub fn compile_surface(spec: &LdtkSurfaceSpec) -> Result<SurfaceCompiled, String
             let collision = match spec.collision {
                 SurfaceCollision::None => ambition_world::rooms::BreakableCollisionSpec::None,
                 SurfaceCollision::Solid => ambition_world::rooms::BreakableCollisionSpec::Solid,
-                SurfaceCollision::OneWayUp => ambition_world::rooms::BreakableCollisionSpec::OneWayUp,
+                SurfaceCollision::OneWayUp => {
+                    ambition_world::rooms::BreakableCollisionSpec::OneWayUp
+                }
                 SurfaceCollision::BlinkSoft | SurfaceCollision::BlinkHard => {
                     return Err(format!(
                         "Surface {} cannot mix BlinkWall collision with breakability yet",
@@ -364,7 +366,9 @@ pub fn compile_surface(spec: &LdtkSurfaceSpec) -> Result<SurfaceCompiled, String
             let mut breakable = ambition_world::rooms::BreakableSpec::new(max_hp);
             breakable.collision = collision;
             breakable.trigger = match breakable_kind {
-                SurfaceBreakability::BreakOnHit => ambition_world::rooms::BreakableTriggerSpec::OnHit,
+                SurfaceBreakability::BreakOnHit => {
+                    ambition_world::rooms::BreakableTriggerSpec::OnHit
+                }
                 SurfaceBreakability::BreakOnStand => {
                     ambition_world::rooms::BreakableTriggerSpec::OnStand
                 }

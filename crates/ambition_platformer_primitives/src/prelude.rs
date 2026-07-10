@@ -13,6 +13,4 @@ pub use crate::projectile::{
     resolve_world_collision, InFlightProjectile, ProjectileBody, ProjectileSolidHit,
     ProjectileSpec, WorldHitOutcome, WorldHitPolicy,
 };
-pub use crate::schedule::{
-    gameplay_allowed, gameplay_suspended, GameMode, PlatformerRuntimeSet,
-};
+pub use crate::schedule::{gameplay_allowed, gameplay_suspended, GameMode, PlatformerRuntimeSet};

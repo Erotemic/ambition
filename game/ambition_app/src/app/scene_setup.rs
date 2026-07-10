@@ -15,11 +15,6 @@ use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
 
 use ambition::engine_core as ae;
 
-use ambition::sprite_sheet::game_assets::GameAssets;
-#[cfg(feature = "audio")]
-use ambition::asset_manager::sandbox_assets::{ids, SandboxAssetCatalog};
-#[cfg(feature = "audio")]
-use ambition::audio::library::{AudioLibrary, MusicPlaybackState};
 use ambition::actors::platformer_runtime::lifecycle::SceneEntities;
 use ambition::actors::rooms::RoomSet;
 #[cfg(feature = "audio")]
@@ -27,11 +22,15 @@ use ambition::actors::session::data::{MusicRegistry, SfxRegistry};
 use ambition::actors::world::physics::PhysicsSandboxSettings;
 use ambition::actors::world::platforms;
 #[cfg(feature = "audio")]
+use ambition::asset_manager::sandbox_assets::{ids, SandboxAssetCatalog};
+#[cfg(feature = "audio")]
+use ambition::audio::library::{AudioLibrary, MusicPlaybackState};
+#[cfg(feature = "audio")]
 use ambition::audio::SfxBankResource;
 use ambition::engine_core::RoomGeometry;
 use ambition::render::rendering::{
-    spawn_parallax_layers, spawn_room_visuals, HudText, PlayerSpriteBaseline, PlayerSpriteCharacter,
-    QuestPanelText,
+    spawn_parallax_layers, spawn_room_visuals, HudText, PlayerSpriteBaseline,
+    PlayerSpriteCharacter, QuestPanelText,
 };
 use ambition::render::ui_fonts::{UiFontWeight, UiFonts};
 #[cfg(feature = "audio")]
@@ -40,6 +39,7 @@ use ambition::sprite_sheet::character::{
     build_character_sprite_with_render_size, feet_anchor_for_render_size,
     player_placeholder_render_size, CharacterAnimator,
 };
+use ambition::sprite_sheet::game_assets::GameAssets;
 
 /// Borrowed inputs for `presentation_world`.
 pub struct PresentationSetup<'a> {

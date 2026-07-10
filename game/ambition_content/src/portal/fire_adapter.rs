@@ -12,8 +12,8 @@
 
 use bevy::prelude::*;
 
-use ambition_platformer_primitives::markers::ControlledSubject;
 use ambition_actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
+use ambition_platformer_primitives::markers::ControlledSubject;
 use ambition_portal::{FirePortalGun, PortalFireIntent, PortalGun};
 
 /// Resolve a [`FirePortalGun`] gesture into a generic [`PortalFireIntent`] fired

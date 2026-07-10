@@ -24,15 +24,15 @@ use ambition::actors::boss_encounter::{
     BossEncounterPhase, EncounterBeat, EncounterDef, EncounterEffect, EncounterGate,
     EncounterScript, EncounterTrigger,
 };
-use ambition::encounter::BossEncounterMusicRequest;
 use ambition::actors::features::ecs::boss_clusters::{BossConfig, BossEncounter};
 use ambition::actors::features::{
     BossOverrides, BossRewardChest, ResetRoomFeaturesEvent, RoomResetReason,
 };
-use ambition_app::{AgentAction, SandboxSim, TimestepMode};
+use ambition::encounter::BossEncounterMusicRequest;
 use ambition::entity_catalog::placements::BossBrain;
 use ambition::persistence::save::SandboxSave;
 use ambition::persistence::save_data::PersistedEncounterState;
+use ambition_app::{AgentAction, SandboxSim, TimestepMode};
 use bevy::prelude::World;
 
 const MOCKINGBIRD_TRACK: &str = "how_to_kill_a_mockingbird";

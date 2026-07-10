@@ -280,7 +280,9 @@ pub(crate) fn insert_scaled_image_entry(
     scale: TextureResolutionScale,
     preload_group: PreloadGroup,
 ) {
-    let Some(id) = ambition_asset_manager::sandbox_assets::scaled_asset_id(base_id, scale.asset_id_suffix()) else {
+    let Some(id) =
+        ambition_asset_manager::sandbox_assets::scaled_asset_id(base_id, scale.asset_id_suffix())
+    else {
         return;
     };
     manifest.insert(

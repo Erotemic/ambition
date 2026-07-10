@@ -1,9 +1,9 @@
 //! Intro sprite catalog identity: the content extension's NPC/prop
 //! entries resolve through the prebuilt sandbox catalog.
 
-use ambition_sprite_sheet::game_assets::GameAssetConfig;
 use ambition_asset_manager::{AssetKind, AssetProfile};
 use ambition_content::audio_registries::load_music_registry;
+use ambition_sprite_sheet::game_assets::GameAssetConfig;
 
 #[test]
 fn intro_npc_and_prop_sprite_ids_resolve_through_the_catalog() {

@@ -270,7 +270,9 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 pirate_weapon::sync_pirate_weapon_visuals,
             )
                 .chain()
-                .in_set(ambition_platformer_primitives::schedule::SandboxSet::PresentationVisualSync),
+                .in_set(
+                    ambition_platformer_primitives::schedule::SandboxSet::PresentationVisualSync,
+                ),
         );
 
         // Rebuild the active room's static visuals + parallax when the sim asks

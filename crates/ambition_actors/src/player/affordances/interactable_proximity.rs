@@ -17,11 +17,11 @@ use ambition_engine_core::AabbExt;
 use bevy::prelude::*;
 
 use super::variants::InteractVariant;
-use ambition_platformer_primitives::markers::ControlledSubject;
 use crate::features::{
     ActorDisposition, ActorInteraction, CenteredAabb, ChestFeature, FeatureSimEntity, Opened,
     SwitchFeature,
 };
+use ambition_platformer_primitives::markers::ControlledSubject;
 
 /// Resource: the nearest live interactable overlapping the controlled
 /// subject's AABB, classified into an [`InteractVariant`]. Default is

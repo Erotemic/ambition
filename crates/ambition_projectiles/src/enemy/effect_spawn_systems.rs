@@ -94,10 +94,8 @@ mod tests {
         app.init_resource::<ProjectileSeqCounter>();
         app.add_systems(Update, apply_enemy_projectile_effect_requests);
 
-        app.world_mut().write_message(spawn_request(
-            "pca",
-            ProjectileVisualKind::Glider.to_tag(),
-        ));
+        app.world_mut()
+            .write_message(spawn_request("pca", ProjectileVisualKind::Glider.to_tag()));
         app.update();
 
         let mut q = app.world_mut().query_filtered::<
@@ -110,13 +108,11 @@ mod tests {
             .collect();
         assert_eq!(
             rows,
-            vec![
-                (
-                    "pca".to_string(),
-                    ProjectileVisualKind::Glider,
-                    ProjectileSeq(0),
-                ),
-            ],
+            vec![(
+                "pca".to_string(),
+                ProjectileVisualKind::Glider,
+                ProjectileSeq(0),
+            ),],
             "the substrate executor stamps owner id, visual kind, and deterministic sequence"
         );
     }
@@ -134,10 +130,9 @@ mod tests {
         app.world_mut().write_message(req);
         app.update();
 
-        let mut q = app.world_mut().query_filtered::<
-            &ProjectileOwner,
-            (With<EnemyProjectile>, With<LiveProjectile>),
-        >();
+        let mut q = app
+            .world_mut()
+            .query_filtered::<&ProjectileOwner, (With<EnemyProjectile>, With<LiveProjectile>)>();
         let owners: Vec<_> = q.iter(app.world()).map(|owner| owner.0).collect();
         assert_eq!(
             owners,

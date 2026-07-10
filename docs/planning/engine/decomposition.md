@@ -76,39 +76,42 @@ violating them is wrong even when it compiles and reads cleaner to you:
 
 ---
 
-## THE LEDGER — RE-BASELINED 2026-07-09 (the "63.5k" alarm was a counting error)
+## THE LEDGER — measured 2026-07-09 (supersedes the 2026-07-06 projection)
 
-**The open question below is CLOSED, and the 2026-07-06 projection was right.**
-The 2026-07-09 alarm — "the residual should have bottomed out at ≈31–35k, it is
-63.5k" — counted TEST code as residual. `ambition_actors` is 64.0k lines of
-which **27.8k are tests** (files named `tests.rs`, `tests/` directories, and
-inline `#[cfg(test)] mod` blocks). Its **production code is 36.3k**, which lands
-on the projected floor, not at twice it. Only the adapter shells overshoot, and
-each by ~1k, not by 3k.
+> **UNITS (state them, always): every LOC figure in this document is TOTAL `src`
+> lines INCLUDING TESTS.** This matches the 2026-07-06 projection's units — its
+> baseline was 101.7k, which is exactly `ambition_gameplay_core`'s total src at
+> that commit, and its residual breakdown (`features/` 20.6k + `player/` 6.6k +
+> `abilities/` 4.2k) matches today's TOTALS, not today's production-only counts.
+> A 2026-07-09 attempt to re-baseline this ledger in production-only lines
+> **concluded the opposite of the truth** and was retracted; the units mismatch
+> was the whole error. Compare like with like.
 
-**Standing rule for every future ledger: split production from test lines.**
-`ambition_actors` is 43% test code. Any LOC table that does not say so will
-mis-price every carve decision made against it — as this one did, and as the
-"is there a real carve left in `features/` 25k?" question did (there is 15.0k of
-production code in `features/`, against a 20.6k projection: it is UNDER).
+Every carve landed. Every carve also left an adapter shell behind, and the
+2026-07-06 projection did not model that. **The old numbers said the residual
+would bottom out at ≈31–35k and called it "the deliberate floor". It is 64.0k.**
+Roughly half the projected ~64k actually left `ambition_actors`.
 
-`ambition_actors` src, by subdirectory:
+`ambition_actors` src, by subdirectory. The prod/test split is recorded because
+it is genuinely useful for *scoping* a carve (test code travels with its module,
+but it is not what makes a module hard to navigate) — it is **not** the
+comparison against the projection:
 
-| Subdir | prod | test | Shape |
+| Subdir | LOC (total) | of which test | Shape |
 |---|---:|---:|---|
-| `features/` | 15.0k | 10.4k | the real actor domain (spawn/tick/perception/damage-routing/mount/bosses) + the surviving glue |
-| `player/` | 4.3k | 2.4k | the last structural player-centrism; folds at S5/S6 |
-| `boss_encounter/` | 2.9k | 2.5k | adapter residue after the E6 three-way split |
-| `abilities/` | 2.1k | 1.9k | D-B carve candidate (`ambition_abilities`), iff measurement is clean |
-| `character_sprites/` | 1.3k | 1.4k | actor/content join: animation pickers, authored hitbox resolution, catalog-aware loading |
-| `persistence/` | 1.2k | 0.1k | save-adjacent adapter |
-| `world/` | 1.1k | 0.8k | overlay rebuild (reads live feature components) + the avian physics adapter |
-| `items/` `dev/` | 2.1k | 1.1k | sim-coupled adapters for their carved crates |
-| `encounter/` `projectile/` | 1.6k | 1.5k | wave adapter; the three woven steppers |
-| rest | ~4.7k | ~5.7k | time, session, body_mode, portal glue, gravity, roster, shrine, cutscene, assets tail, menu |
-| **total** | **36.3k** | **27.8k** | |
+| `features/` | 25.4k | 10.4k | the real actor domain (spawn/tick/perception/damage-routing/mount/bosses) + the surviving glue |
+| `player/` | 6.7k | 2.4k | the last structural player-centrism; folds at S5/S6 |
+| `boss_encounter/` | 5.5k | 2.5k | adapter residue after the E6 three-way split |
+| `abilities/` | 4.1k | 1.9k | D-B carve candidate (`ambition_abilities`), iff measurement is clean |
+| `character_sprites/` | 2.7k | 1.4k | actor/content join: animation pickers, authored hitbox resolution, catalog-aware loading |
+| `world/` | 1.9k | 0.8k | overlay rebuild (reads live feature components) + the avian physics adapter |
+| `projectile/` | 1.8k | 0.9k | the three woven steppers (charge input, victim routing, world collision) |
+| `dev/` `items/` `encounter/` | 4.7k | 1.9k | sim-coupled adapters for their carved crates |
+| `persistence/` | 1.3k | 0.1k | save-adjacent adapter |
+| rest | ~9.9k | ~5.5k | time, session, body_mode, portal glue, gravity, roster, shrine, cutscene, assets tail, menu |
+| **total** | **64.0k** | **27.8k** | |
 
-Destination crates today (unsplit, 2026-07-06 measure): `engine_core` 17.5k,
+Destination crates today (2026-07-06 measure, same units): `engine_core` 17.5k,
 `characters` 17.0k, `combat` 9.5k, `render` 9.4k, `portal_presentation` 6.5k,
 `sprite_sheet` 6.0k, `portal` 5.3k, `ldtk_map` 5.0k, `primitives` 4.1k,
 `asset_manager` 4.0k, `persistence` 3.7k, `world` 2.9k, `audio` 2.9k, `sim_view`
@@ -116,11 +119,11 @@ Destination crates today (unsplit, 2026-07-06 measure): `engine_core` 17.5k,
 `menu/` stayed app-side by the E1e ruling — the host stack + grid backend couple
 up to items/player/sfx).
 
-**RULING: the adapter floor IS the floor.** No further carve is owed by the
-ledger. `abilities/` (2.1k production) remains a *discretionary* D-B candidate on
-its own merits, not because a number demands it. The remaining `features/` work
-is the S5/S6 player fold and the unified-actor track, which are structural, not
-size-driven.
+**Open question for the next structural session:** is the adapter floor THE
+floor (in which case re-baseline the ledger and say so), or is there a real
+carve left in `features/` 25.4k? Do not pre-commit — re-measure (U1). Note that
+`features/` GREW against its 20.6k projection, and that only ~15.0k of it is
+production code; both facts belong in the answer.
 
 **Efficiency (why the split costs the game nothing):** crate boundaries are
 COMPILE-TIME structure — the same systems run in the same schedule (E5's carve

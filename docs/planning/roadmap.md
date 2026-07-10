@@ -31,9 +31,9 @@ green.
 tick, N0.2 input stream, N0.3 determinism lints — 2026-07-09); N0.4 (the
 desync canary) and N1 remain; collision CC3 (the fuzz oracle delta) is open;
 the D-B `MODULES.md`
-standard and the D-C mode-scope seam are unstarted; and one playbook exit
-remains (exit 3 — a demo binary, which fable ruled interactive work). Details
-+ drift findings:
+standard and the D-C mode-scope seam are unstarted; one playbook exit remains
+(exit 3 — a demo binary, which fable ruled interactive work); and the residual
+ledger still needs its re-baseline or its ruling. Details + drift findings:
 [`tracks.md`](tracks.md).
 
 ## The phases

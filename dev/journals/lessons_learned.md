@@ -1344,3 +1344,44 @@ replace the whole region, rather than matching a paragraph verbatim.
 Related: living-plan discipline says the doc update rides in the commit that proves
 it. A doc update that *silently* did not ride is worse than one that visibly did
 not, because the commit message asserts it did.
+
+## A lint that only sees the spelling its author had in mind is not a lint
+
+**2026-07-10, ADR 0023 rule 3.** The determinism lint banning `std::collections::HashMap`
+iteration in sim crates matched only the **fully-qualified path on the binding line**:
+
+```rust
+if !(line.contains("std::collections::HashMap") || line.contains("std::collections::HashSet")) {
+    continue;
+}
+```
+
+Every idiomatic Rust file writes `use std::collections::HashMap;` once and then the
+bare name forever. So the rule saw almost nothing it was written to see, and it had
+been green for months.
+
+Widening it to the bare-but-imported spelling — while exempting
+`bevy::platform::collections`, whose `FixedHasher` is legal at level 2 — found the bug
+on the first run:
+
+```rust
+pub struct WorldMemory { actors: HashMap<String, RememberedActor> }
+// last_known_hostile: .values().filter(hostile).max_by(confidence)
+```
+
+**Two hostiles in view are both at confidence 1.0.** The tie was broken by iteration
+order, which under `RandomState` is the process seed. The enemy chased a different
+player on every run of the same binary on the same inputs — the exact bug class ADR
+0023 exists to prevent, sitting inside the crate the ADR polices.
+
+Three transferable things:
+
+1. **Grep-based lints must be poison-tested against the spelling real code uses**, not
+   only the spelling that makes the grep easy. `rule_three_sees_a_bare_hashmap_and_not_a_bevy_one`
+   feeds it both, plus the two shapes that must NOT trip it.
+2. **A green guardrail is evidence about the guardrail, not about the code**, until
+   you have watched it go red on purpose.
+3. The bug was found while trying to *serialize* `WorldMemory` for N3.1's snapshot —
+   the third time this month that building the first real consumer of an old code path
+   exposed a defect in it. (See "three separate bugs were found by building the first
+   real consumer".)

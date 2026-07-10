@@ -39,8 +39,6 @@
 //! `self`'s gravity direction is carried in [`SelfView::gravity_down`] so a brain
 //! that wants body-local reasoning can project into the acceleration frame.
 
-use std::collections::HashMap;
-
 use ae::AabbExt;
 use ambition_engine_core as ae;
 
@@ -500,7 +498,12 @@ pub struct RememberedActor {
 /// it is replay-deterministic and assertable headless without a running app.
 #[derive(Clone, Debug, Default)]
 pub struct WorldMemory {
-    actors: HashMap<String, RememberedActor>,
+    /// **`BTreeMap`, not `HashMap`** (ADR 0023). [`WorldMemory::last_known_hostile`]
+    /// takes the `max_by` confidence over these, and two hostiles both in view are
+    /// both at confidence `1.0` — so the tie is broken by iteration order. Under
+    /// `RandomState` that is the process seed, and the enemy chases a different
+    /// player on every run of the same binary on the same inputs.
+    actors: std::collections::BTreeMap<String, RememberedActor>,
 }
 
 impl WorldMemory {
@@ -552,6 +555,11 @@ impl WorldMemory {
     /// The most-confident remembered **hostile** — the target a brain pursues when
     /// none is currently in view (invariant I6: "move towards the last known
     /// position of the player to look for them").
+    /// The most-confidently-remembered hostile. Ties break on the greatest actor id
+    /// — `max_by` keeps the last maximum, and a `BTreeMap` walks ids in order — so
+    /// two foes at equal confidence resolve the same way on every run. That is not a
+    /// tiebreak anyone would *choose*; it is a tiebreak that EXISTS, which is the
+    /// whole requirement (ADR 0023).
     pub fn last_known_hostile(&self) -> Option<&RememberedActor> {
         self.actors
             .values()
@@ -1142,5 +1150,66 @@ mod tests {
         assert!(!BodyPhase::Neutral.is_punishable());
         assert!(BodyPhase::AttackActive.is_attacking());
         assert!(!BodyPhase::Shielding.is_attacking());
+    }
+
+    /// **The tie has to break somewhere, and it has to break the same way twice.**
+    ///
+    /// Two hostiles in view are both at confidence `1.0`, so `last_known_hostile`'s
+    /// `max_by` is deciding by iteration order. Under a `std::collections::HashMap`
+    /// that order is `RandomState`, seeded per process: the enemy chased a different
+    /// player on every run of the same binary on the same inputs (ADR 0023).
+    ///
+    /// A `BTreeMap` walks ids in order, and `max_by` keeps the LAST maximum, so the
+    /// greatest id wins. That is not a tiebreak anyone would choose. It is a tiebreak
+    /// that exists, which is the whole requirement.
+    #[test]
+    fn a_tie_between_two_remembered_hostiles_breaks_the_same_way_every_time() {
+        let foe = |id: &str, x: f32| PerceivedActor {
+            id: id.to_string(),
+            pos: ae::Vec2::new(x, 0.0),
+            faction: ActorFaction::Player,
+            hostile_to_self: true,
+            alive: true,
+            ..Default::default()
+        };
+        // Insertion order is deliberately the reverse of id order, so a map that
+        // remembered insertion would disagree with one that sorts.
+        let view = WorldView {
+            self_view: self_view_at(ae::Vec2::ZERO, ActorFaction::Enemy),
+            actors: vec![foe("zeta", 1.0), foe("alpha", 2.0), foe("mu", 3.0)],
+            ..Default::default()
+        };
+
+        let mut first = WorldMemory::default();
+        first.update(&view, 0.016);
+        let winner = first.last_known_hostile().expect("someone is remembered");
+        assert_eq!(
+            winner.pos.x, 1.0,
+            "`zeta` — the greatest id, at equal confidence"
+        );
+
+        // Same inputs, a fresh map, many times: one answer.
+        for _ in 0..64 {
+            let mut again = WorldMemory::default();
+            again.update(&view, 0.016);
+            assert_eq!(
+                again.last_known_hostile().map(|m| m.pos.x),
+                Some(winner.pos.x),
+                "the tiebreak moved between two runs of the same binary"
+            );
+        }
+
+        // And confidence still outranks the id: a decayed `zeta` loses to a fresh one.
+        let seen_only_mu = WorldView {
+            self_view: self_view_at(ae::Vec2::ZERO, ActorFaction::Enemy),
+            actors: vec![foe("mu", 3.0)],
+            ..Default::default()
+        };
+        first.update(&seen_only_mu, 1.0);
+        assert_eq!(
+            first.last_known_hostile().map(|m| m.pos.x),
+            Some(3.0),
+            "the in-view foe beats the fading one, whatever their ids"
+        );
     }
 }

@@ -78,6 +78,10 @@ impl PlacementLoweringRegistry {
     }
 
     pub fn registered_kinds(&self) -> Vec<PlacementKind> {
+        // AMBITION_REVIEW(determinism): the hash-ordered keys are sorted on the very
+        // next line, before anything can observe them, and this runs once at room
+        // load rather than in the tick. `PlacementKind` has no `Ord`, so a
+        // `BTreeMap` would need one invented for a debug-name sort we already do.
         let mut kinds: Vec<_> = self.interpreters.keys().copied().collect();
         kinds.sort_by_key(|kind| format!("{kind:?}"));
         kinds

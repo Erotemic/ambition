@@ -272,22 +272,70 @@ fn sim_sources_read_no_wall_clock() {
 // Rule 3 — no hash-order semantics.
 // ─────────────────────────────────────────────────────────────────────────────
 
+/// Type names that mean `std`'s hash containers **in this file**.
+///
+/// Always the fully-qualified paths. Additionally the BARE `HashMap` / `HashSet`,
+/// when the file imports them from `std::collections` and does not also import
+/// Bevy's same-named types — in which case a bare name is unambiguous.
+///
+/// This second half exists because it was missing, and `WorldMemory` hid a real
+/// hash-order bug behind it for months: `use std::collections::HashMap;` at the top,
+/// `actors: HashMap<String, RememberedActor>` two hundred lines later, and a
+/// `max_by` over `.values()` whose ties were broken by `RandomState`. A lint that
+/// only sees the path it was written with is a lint that only catches the code its
+/// author had in mind.
+fn std_hash_type_names(text: &str) -> Vec<&'static str> {
+    let mut out = vec!["std::collections::HashMap", "std::collections::HashSet"];
+    let imports_bevy = text.contains("platform::collections::HashMap")
+        || text.contains("platform::collections::HashSet");
+    if imports_bevy {
+        return out;
+    }
+    for (bare, fq) in [
+        ("HashMap", "std::collections::HashMap"),
+        ("HashSet", "std::collections::HashSet"),
+    ] {
+        let _ = fq;
+        let imported = text.lines().any(|l| {
+            let l = l.trim();
+            l.starts_with("use std::collections::")
+                && (l.contains(&format!("::{bare};"))
+                    || l.contains(&format!("{bare},"))
+                    || l.contains(&format!("{bare}}}"))
+                    || l.contains(&format!("{bare} as")))
+        });
+        if imported {
+            out.push(bare);
+        }
+    }
+    out
+}
+
 /// Names bound in this file to a `std` hash container. Bevy's
 /// `bevy::platform::collections` maps use `FixedHasher`, whose iteration order is
 /// a deterministic function of the insertion sequence on a fixed binary — legal
 /// at level 2, and the reason this lint discriminates by hasher, not by shape.
 fn std_hash_bindings(text: &str) -> BTreeSet<String> {
     let mut names = BTreeSet::new();
+    let type_names = std_hash_type_names(text);
     for raw in text.lines() {
         let line = raw.trim();
         if is_comment(raw) {
             continue;
         }
-        // `let [mut] name ... std::collections::HashMap/HashSet ...`
-        // `[pub] name: ... std::collections::HashMap/HashSet ...`  (struct field)
-        if !(line.contains("std::collections::HashMap")
-            || line.contains("std::collections::HashSet"))
-        {
+        // `let [mut] name ... HashMap/HashSet ...`
+        // `[pub] name: ... HashMap/HashSet ...`  (struct field)
+        //
+        // A bare name must be followed by `<`, so `HashMapLike` and a variable
+        // called `hashmap` are not types.
+        let mentions_std_hash = type_names.iter().any(|ty| {
+            if ty.starts_with("std::") {
+                line.contains(ty)
+            } else {
+                line.contains(&format!("{ty}<"))
+            }
+        });
+        if !mentions_std_hash {
             continue;
         }
         let after_let = line
@@ -425,4 +473,52 @@ fn reviewed_determinism_exceptions_are_listed() {
         found.len(),
         found.join("\n")
     );
+}
+
+/// **The poison test for rule 3's widened detector.**
+///
+/// Rule 3 used to require the fully-qualified `std::collections::HashMap` on the
+/// binding line. Every idiomatic Rust file imports the name and then writes it bare,
+/// so the rule saw almost nothing. `WorldMemory` hid a real hash-order bug behind
+/// that hole: `use std::collections::HashMap;`, `actors: HashMap<String, _>`, and a
+/// `max_by` over `.values()` whose ties — two hostiles both in view, both at
+/// confidence `1.0` — were broken by the process seed. The enemy chased a different
+/// player on every run of the same binary on the same inputs.
+///
+/// A lint that only sees the spelling its author had in mind is not a lint. This test
+/// feeds it both spellings, plus the two shapes that must NOT trip it.
+#[test]
+fn rule_three_sees_a_bare_hashmap_and_not_a_bevy_one() {
+    let std_bare =
+        "use std::collections::HashMap;\nstruct S {\n    actors: HashMap<String, u8>,\n}";
+    assert!(
+        std_hash_bindings(std_bare).contains("actors"),
+        "the bare, imported spelling is the one real code uses"
+    );
+
+    let std_fq = "struct S {\n    pub actors: std::collections::HashMap<String, u8>,\n}";
+    assert!(
+        std_hash_bindings(std_fq).contains("actors"),
+        "and the old one"
+    );
+
+    let braced = "use std::collections::{BTreeMap, HashSet};\nlet seen: HashSet<u32> = q();";
+    assert!(std_hash_bindings(braced).contains("seen"), "braced import");
+
+    // Bevy's maps use `FixedHasher`: deterministic for a fixed binary, and legal at
+    // level 2. A file that imports THEM must not have its bare `HashMap` condemned.
+    let bevy =
+        "use bevy::platform::collections::HashMap;\nstruct S {\n    actors: HashMap<String, u8>,\n}";
+    assert!(
+        !std_hash_bindings(bevy).contains("actors"),
+        "bevy's HashMap is legal, and shares the bare name"
+    );
+
+    // A BTreeMap is the fix, not the crime.
+    let btree = "use std::collections::BTreeMap;\nstruct S {\n    actors: BTreeMap<String, u8>,\n}";
+    assert!(std_hash_bindings(btree).is_empty());
+
+    // Not a type: an identifier that merely starts with the name.
+    let lookalike = "use std::collections::HashMap;\nlet hashmap_like: Vec<u8> = v();";
+    assert!(std_hash_bindings(lookalike).is_empty());
 }

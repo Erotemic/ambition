@@ -230,6 +230,26 @@ Obligations (each a slice, all [opus]):
   deduping in message order. Two commutative-but-hash-ordered sites became
   `BTreeMap`s (`compute_holding_positions`, the smash variety metric), and four
   genuinely-unobservable ones carry the marker.
+
+  **Rule 3's detector had a hole, and a real bug was living in it (2026-07-10).**
+  The lint required the fully-qualified `std::collections::HashMap` *on the binding
+  line*. Every idiomatic Rust file imports the name and then writes it bare, so the
+  rule saw almost nothing it was written to see. Widening it to the bare-but-imported
+  spelling — while still exempting `bevy::platform::collections`, whose `FixedHasher`
+  is legal at level 2 — immediately found
+  `ambition_characters::perception::WorldMemory`:
+
+  > `actors: HashMap<String, RememberedActor>`, and `last_known_hostile` takes the
+  > `max_by` confidence over `.values()`. **Two hostiles in view are both at
+  > confidence `1.0`**, so the tie was broken by `RandomState` — the enemy chased a
+  > different player on every run of the same binary on the same inputs.
+
+  Now a `BTreeMap`, so `max_by` keeps the greatest id. Not a tiebreak anyone would
+  *choose*; a tiebreak that EXISTS, which is the whole requirement.
+  `rule_three_sees_a_bare_hashmap_and_not_a_bevy_one` poison-tests both spellings and
+  both exemptions, because *a lint that only sees the spelling its author had in mind
+  is not a lint.* `ambition_world::placements::registered_kinds` picked up the marker:
+  it sorts the keys on the very next line, at room load, outside the tick.
 - ~~**N0.4 Desync canary rig.**~~ ✅ **LANDED 2026-07-10.**
   `game/ambition_app/tests/desync_canary.rs`: two `SandboxSim`s, one seeded input
   stream, the registered sim state hashed every tick, first-divergence report that

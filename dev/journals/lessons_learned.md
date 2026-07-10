@@ -1274,3 +1274,16 @@ Slimming is part of "done", not a follow-up: a unification that only adds is hal
 
 ### Takeaway
 Warnings are config-relative, not absolute. A "clean" fix under one feature set can be a compile break under another; only `--workspace --all-targets` sees them all. When in doubt, silence a config-local lint with a scoped `cfg_attr(allow)` rather than changing code.
+
+---
+
+**Date:** 2026-07-10. **Context:** Sanic's ball dash needed the momentum kernel's airborne "local right" axis (`ambition_engine_core::surface`). Reading it exposed a sign error; fixing the sign turned a green test red and exposed a *second*, worse bug underneath.
+
+### Transferable lesson — two bugs can hold each other up, and a green suite proves nothing about the code no test *reads*
+- **Bug 1:** `step_airborne` built its side axis as `tangent_of(gravity)`. A floor's normal is `-gravity`, so the axis was exactly negated: **holding right in mid-air accelerated a momentum body left.** The suite had airborne tests — ballistic arcs, landings, ceiling bonks — but **not one of them held a direction while airborne.** Coverage of a function is not coverage of its *parameters*.
+- **Bug 2:** a body running off the open end of a flat chain re-attached to the vertex it had just launched from (`project` clamps arc length into the chain), giving a two-frame shed→land limit cycle with the position frozen. It hovered at the lip forever. The one test that walked a flat chain end (`momentum_home_body_dies_in_pits`) **passed because of bug 1**: the mirrored air control shoved the body back over the chain and off the far side, so it still fell out and still flagged its reset.
+- **The signal to trust:** when a one-line sign fix breaks an unrelated-looking test, do not revert and do not relax the assertion. Print the state. Here the trace showed `pos` frozen and `state` alternating `Airborne`/`Riding` every frame — a diagnosis no amount of reading would have produced.
+- **A symmetry test must not straddle a discrete knife edge.** `c4_rotation_symmetry` compared two rotated runs to sub-pixel tolerance, but its scripted brake parked the body on a chain's open end, where whether it sheds *this* frame or *next* is decided by f32 rounding. The fix was the FIXTURE (500px of collinear runway, same start point, byte-identical trajectory) — never the tolerance. A tolerance bump would have hidden bug 2 forever.
+
+### Takeaway
+A verb that *reads* a convention audits it. Building the demo against the real kernel — rather than a demo-shaped copy of it — is what found both bugs; a content crate that had written its own air control would have shipped the mirror and never noticed. When adding the first real consumer of an old code path, expect the path to be wrong, and write the sign test before the feature.

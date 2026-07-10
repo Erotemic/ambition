@@ -135,6 +135,25 @@ pub trait SnapshotState: Send + Sync + 'static {
         Self: Sized;
 }
 
+/// **A component that is partly authored content and partly a mutable cursor.**
+///
+/// `ActorMotionPath` is the archetype: it owns a patrol path (authored, immutable,
+/// large) and a `(segment, dir)` cursor (mutable, tiny, and the whole reason a
+/// rollback touches it). Serializing the path sixty times a second to rewind two
+/// integers is absurd, and `SnapshotState::decode` cannot rebuild the component
+/// without it.
+///
+/// So a cursor component is **applied onto the entity that already has it**. That is
+/// sound precisely because [`restore`] patches survivors: an entity present in both
+/// worlds still carries its authored half. An entity being *respawned* does not, and
+/// `restore` therefore cannot rebuild its cursor — which is one more reason a
+/// rollback window must not span a spawn, and why `RestoreReport::respawned` is a
+/// number you are meant to look at.
+pub trait SnapshotCursor: Send + Sync + 'static {
+    fn encode_cursor(&self, out: &mut Vec<u8>);
+    fn apply_cursor(&mut self, r: &mut Reader<'_>) -> Option<()>;
+}
+
 /// Append a canonical `f32`. NaN collapses to one bit pattern; `-0.0` does not
 /// collapse to `0.0` (in a physics sim a body resting at `-0.0` has been pushed).
 pub fn put_f32(out: &mut Vec<u8>, v: f32) {
@@ -308,6 +327,45 @@ impl SnapshotRegistry {
                         // tests; in a shipped rollback, drop the component rather
                         // than the frame.
                         debug_assert!(false, "snapshot blob failed to decode");
+                    }
+                }),
+                remove: Box::new(|entity| {
+                    entity.remove::<C>();
+                }),
+            },
+        );
+    }
+
+    /// Register a component whose snapshot is a **cursor applied in place** — see
+    /// [`SnapshotCursor`]. It rewinds a survivor and cannot rebuild a respawn.
+    pub fn register_cursor<C>(&mut self, name: &'static str)
+    where
+        C: Component<Mutability = bevy::ecs::component::Mutable> + SnapshotCursor + Sized,
+    {
+        self.push(
+            name,
+            EntryKind::Component {
+                type_id: std::any::TypeId::of::<C>(),
+                rows: Box::new(|world: &World| {
+                    let mut rows = Vec::new();
+                    let Some(mut q) = world.try_query::<(&SimId, &C)>() else {
+                        return rows;
+                    };
+                    for (id, value) in q.iter(world) {
+                        let mut bytes = Vec::new();
+                        value.encode_cursor(&mut bytes);
+                        rows.push((id.as_str().to_string(), bytes));
+                    }
+                    rows
+                }),
+                insert: Box::new(|entity, bytes| {
+                    // Absent on a respawned entity: there is no authored half to
+                    // apply the cursor to. `RestoreReport::respawned` is the report.
+                    if let Some(mut value) = entity.get_mut::<C>() {
+                        let mut r = Reader::new(bytes);
+                        if value.apply_cursor(&mut r).is_none() || r.finish().is_none() {
+                            debug_assert!(false, "snapshot cursor failed to decode");
+                        }
                     }
                 }),
                 remove: Box::new(|entity| {
@@ -875,6 +933,11 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     registry.register_component::<ambition_combat::components::ActorCooldowns>("actor_cooldowns");
     registry.register_component::<ambition_engine_core::geometry::CenteredAabb>("centered_aabb");
 
+    // A patrolling enemy's path cursor. Authored waypoints stay on the entity; only
+    // `(segment, dir)` rides the snapshot. Without this, `mockingbird_arena` diverges
+    // on the FIRST tick after a rewind: the patrol resumes from where it was going.
+    registry.register_cursor::<ambition_actors::features::ActorMotionPath>("actor_motion_path");
+
     // **The blind spot, made loud.** Simulated bodies with no `SimId` cannot be
     // snapshotted, restored, or defended by the canary. Hashing the COUNT means a
     // sim that spawned a different number of un-identified bodies still diverges —
@@ -1115,6 +1178,39 @@ impl SnapshotState for ambition_characters::actor::BodyHealth {
                 invulnerable: r.bool()?,
             },
         ))
+    }
+}
+
+impl SnapshotCursor for ambition_actors::features::ActorMotionPath {
+    fn encode_cursor(&self, out: &mut Vec<u8>) {
+        match &self.0 {
+            Some(motion) => {
+                let (segment, dir) = motion.cursor();
+                put_bool(out, true);
+                put_u32(out, segment as u32);
+                put_i32(out, dir);
+            }
+            // A body with no path is a state a body with a path can reach.
+            None => put_bool(out, false),
+        }
+    }
+
+    fn apply_cursor(&mut self, r: &mut Reader<'_>) -> Option<()> {
+        let has_path = r.bool()?;
+        let (segment, dir) = if has_path {
+            (r.u32()? as usize, r.i32()?)
+        } else {
+            // The snapshot's body had no path. Ours does; drop it. The authored path
+            // is not recoverable from here, which is exactly what `stale_components`
+            // and `respawned` exist to make visible — but a body that GAINED a path
+            // after the snapshot must not keep it.
+            self.0 = None;
+            return Some(());
+        };
+        if let Some(motion) = self.0.as_mut() {
+            motion.set_cursor(segment, dir);
+        }
+        Some(())
     }
 }
 
@@ -1384,6 +1480,26 @@ mod tests {
     /// maintains it rebuilds it every tick.
     #[derive(Component)]
     struct DerivedThing;
+
+    /// A component that is half authored content and half mutable cursor — the
+    /// `ActorMotionPath` shape, in miniature.
+    #[derive(Component, Debug, PartialEq)]
+    struct Patrol {
+        /// Authored. Never in a blob.
+        waypoints: Vec<f32>,
+        /// Mutable. The only thing a rollback touches.
+        segment: u32,
+    }
+
+    impl SnapshotCursor for Patrol {
+        fn encode_cursor(&self, out: &mut Vec<u8>) {
+            put_u32(out, self.segment);
+        }
+        fn apply_cursor(&mut self, r: &mut Reader<'_>) -> Option<()> {
+            self.segment = r.u32()?;
+            Some(())
+        }
+    }
 
     fn kin(pos: Vec2, vel: Vec2) -> BodyKinematics {
         BodyKinematics {
@@ -1823,6 +1939,67 @@ mod tests {
         assert!(
             report.stale_components.is_empty(),
             "nothing was stale — a whole BODY was kept that should not have been"
+        );
+    }
+
+    /// **A cursor rewinds a survivor without re-serializing its authored half.**
+    ///
+    /// The waypoints never enter a blob; the segment does. This is only sound because
+    /// `restore` patches survivors — an entity that still exists still has its path.
+    #[test]
+    fn a_cursor_rewinds_the_mutable_half_and_leaves_the_authored_half_alone() {
+        let mut reg = engine_registry();
+        reg.register_cursor::<Patrol>("patrol");
+        let mut world = sim_world();
+        let boss = *live_ids(&mut world).get("placement:boss-1").unwrap();
+        world.entity_mut(boss).insert(Patrol {
+            waypoints: vec![0.0, 10.0, 20.0],
+            segment: 1,
+        });
+
+        let snap = take(&world, &reg);
+        assert!(
+            snap.size_bytes() < 200,
+            "the authored waypoints leaked into the blob: {} bytes",
+            snap.size_bytes()
+        );
+
+        world.entity_mut(boss).get_mut::<Patrol>().unwrap().segment = 2;
+        restore(&mut world, &snap, &reg);
+
+        let patrol = world.entity(boss).get::<Patrol>().unwrap();
+        assert_eq!(patrol.segment, 1, "the cursor rewound");
+        assert_eq!(
+            patrol.waypoints,
+            vec![0.0, 10.0, 20.0],
+            "the authored half was never touched"
+        );
+    }
+
+    /// **A cursor cannot rebuild a respawn, and does not pretend to.** There is no
+    /// authored half to apply it to. `RestoreReport::respawned` is the warning, which
+    /// is why a rollback window must not span a spawn.
+    #[test]
+    fn a_cursor_cannot_rebuild_an_entity_that_no_longer_exists() {
+        let mut reg = engine_registry();
+        reg.register_cursor::<Patrol>("patrol");
+        let mut world = sim_world();
+        let boss = *live_ids(&mut world).get("placement:boss-1").unwrap();
+        world.entity_mut(boss).insert(Patrol {
+            waypoints: vec![0.0, 10.0],
+            segment: 1,
+        });
+        let snap = take(&world, &reg);
+
+        world.despawn(boss);
+        let report = restore(&mut world, &snap, &reg);
+        assert_eq!(report.respawned, 1);
+
+        let back = *live_ids(&mut world).get("placement:boss-1").unwrap();
+        assert!(
+            world.entity(back).get::<Patrol>().is_none(),
+            "a cursor has nothing to apply itself to on a naked respawn — it must not \
+             invent a path"
         );
     }
 

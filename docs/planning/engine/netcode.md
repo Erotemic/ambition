@@ -366,11 +366,11 @@ snapshots needed. Needs N0 complete, plus:
   | room | component types a rewind leaves stale | rewind is exact? |
   |---|---|---|
   | `gap_run` | 36 | ✅ **yes** |
-  | `portal_lab` | **70** | no |
-  | `mockingbird_arena` | 59 | no |
+  | `portal_lab` | **69** | no |
+  | `mockingbird_arena` | 58 | no |
   | `gnu_ton_arena` | 36 | no |
 
-  Pinned at 70; it may fall, it may not rise. The count is an *upper bound* on the
+  Pinned at 69; it may fall, it may not rise. The count is an *upper bound* on the
   debt, not the debt: for an immutable authored fact, stale and correct are the same
   thing. The exit oracle is what measures whether stale state actually leaks.
 
@@ -408,37 +408,63 @@ snapshots needed. Needs N0 complete, plus:
   a world and demands its hash back; the exit oracle runs the sim forward and notices
   what a hash cannot.
 
+  ### `SnapshotCursor` — a component that is half authored, half mutable
+
+  `ActorMotionPath` owns a patrol path (authored, immutable, large) and a
+  `(segment, dir)` cursor (mutable, tiny, and the whole reason a rollback touches it).
+  Serializing the waypoints sixty times a second to rewind two integers is absurd, and
+  `SnapshotState::decode` cannot rebuild the component without them.
+
+  So `register_cursor::<C>()` **applies the cursor onto the entity that already has
+  it**. That is sound *precisely because* `restore` patches survivors: an entity
+  present in both worlds still carries its authored half. A **respawned** entity does
+  not, and the cursor correctly refuses to invent one — one more reason a rollback
+  window must not span a spawn, and why `RestoreReport::respawned` is a number you are
+  meant to look at.
+
+  This is the general shape of the authored/mutable split, and it is why the coverage
+  ledger is an upper bound rather than a debt: many of the 69 want a *cursor*, not a
+  codec.
+
   ### The three named blockers between here and a clean arena
 
   Pointing `hash_by_entry` — the per-entry hash the canary already had — at each dirty
   room named three different diseases wearing one symptom:
 
-  | room | first divergence | what restore did | cause |
+  | room | first divergence | what restore did | remaining cause |
   |---|---|---|---|
-  | `mockingbird_arena` | tick 0 | all patched | `ActorMotionPath` |
+  | `mockingbird_arena` | tick 0 | all patched | actor brain inputs |
   | `gnu_ton_arena` | tick 8 | all patched | boss brain state |
   | `portal_lab` | tick 0 | 1 respawned | a naked respawn |
 
-  None of the three is a codec:
+  `ActorMotionPath` was ONE of mockingbird's causes and is now registered as a cursor;
+  the room still diverges at tick 0, so it was not the only one. What is left, in the
+  order I would take them:
 
-  1. **`ActorTarget` holds an `Option<Entity>`.** Decision (2) forbids exactly this:
-     an entity index is an allocator slot, not an identity, and it does not survive a
-     restore that respawns anything. It needs a `SimId`. *This is the migration slice
-     decision (2) promised would be "listed in tracks.md when N3.1 implementation
-     starts" — it has started, and here it is.*
-  2. **`ActorMotionPath(Option<PathMotion>)` carries a private `segment`/`dir`
-     cursor.** `mockingbird_arena` diverges at tick **0** because of it: a patrolling
-     enemy resumes its path from the tick we rewound FROM. Encoding it means a codec
-     inside `ambition_combat` — which is the shape this section asks for anyway
-     (*"each sim crate registers its components' serialization"*).
-     `ambition_runtime` implementing `SnapshotState` for other crates' types is the
-     bootstrap, not the destination.
-  3. **`portal_lab` respawns an entity from blobs, and it comes back naked.** The
+  1. **`ActorStatus.ai_mode` / `ActorIntent` are unit enums** with no discriminant
+     codec. The mapping must be EXPLICIT, not declaration order: reordering a variant
+     must not silently reinterpret every snapshot ever taken.
+  2. **`ActorTarget` holds an `Option<Entity>`, and a stale `pos`.** Decision (2)
+     forbids the `Entity`: an entity index is an allocator slot, not an identity, and
+     it does not survive a restore that respawns anything. It needs a `SimId`. The
+     stale `pos` is very likely a tick-0 mover — a chasing brain aims at where the
+     target *was going to be*. *This is the migration slice decision (2) promised
+     would be "listed in tracks.md when N3.1 implementation starts" — it has started,
+     and here it is.*
+  3. **`Perception` / `PerceptionMemory`** — the brain's view and its memory. FB5's
+     habit model lives here, and FB6's rollouts cannot run until it rewinds.
+  4. **`portal_lab` respawns an entity from blobs, and it comes back naked.** The
      only room where `restore` reports `respawned > 0`. A respawn needs the entity's
      authored scaffolding, which is what decision (3)'s *"room-reset already proves
      the world can rebuild"* was pointing at. Until a respawn can re-run the spawner,
      **a rollback window must not span a spawn** — a constraint N3.2's bounded window
      makes reasonable, and one worth writing down before it is discovered.
+
+  A note on where the codecs live. `ambition_runtime` implements `SnapshotState` for
+  other crates' types today because it sits above them all. That is the bootstrap, not
+  the destination: this section asks that *"each sim crate registers its components'
+  serialization"*, which needs the trait to move down to `platformer_primitives`. It
+  is a mechanical move, and it is worth doing before the third crate wants a codec.
 
   `gnu_ton_arena` diverges at tick 8 with everything patched and nothing respawned:
   its boss's unregistered brain state (move playbacks, pattern cursors, seeded RNG)

@@ -23,6 +23,22 @@ impl PathMotion {
         }
     }
 
+    /// **The mutable half of this component**, for `SnapshotState` (netcode.md N3.1).
+    ///
+    /// `path` is authored content and never changes; `(segment, dir)` is a cursor the
+    /// sim advances. A rollback must rewind the cursor and must not re-serialize the
+    /// waypoints sixty times a second, so the snapshot carries only this pair.
+    pub fn cursor(&self) -> (usize, i32) {
+        (self.segment, self.dir)
+    }
+
+    /// Rewind the cursor. Clamped to the path's own segment count, because a blob
+    /// from a run whose content differed is a bug to survive, not to index with.
+    pub fn set_cursor(&mut self, segment: usize, dir: i32) {
+        self.segment = segment.min(self.path.points.len().saturating_sub(1));
+        self.dir = if dir >= 0 { 1 } else { -1 };
+    }
+
     pub fn start_pos(&self) -> Option<ae::Vec2> {
         self.path.points.first().copied()
     }

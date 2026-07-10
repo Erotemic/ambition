@@ -35,8 +35,9 @@ pub fn load_game_assets(
     let entities = load_entity_sprites(catalog, asset_server, quality);
     let boss = sprites::load_boss_sprite_in(catalog, asset_server, layouts, quality);
     let mut boss_sprites: HashMap<&'static str, sprites::BossSpriteAsset> = HashMap::new();
+    let mut boss_sheets_missed: Vec<&'static str> = Vec::new();
     for (key, spec) in sprites::dedicated_boss_sheets() {
-        if let Some(sheet) = sprites::load_named_boss_sprite_via_catalog(
+        match sprites::load_named_boss_sprite_via_catalog(
             catalog,
             asset_server,
             layouts,
@@ -44,7 +45,33 @@ pub fn load_game_assets(
             spec,
             quality,
         ) {
-            boss_sprites.insert(key, sheet);
+            Some(sheet) => {
+                boss_sprites.insert(key, sheet);
+            }
+            None => boss_sheets_missed.push(key),
+        }
+    }
+    // The diagnostic tracks.md's boss-sprite bug asked for, made permanent. A boss
+    // renders the GENERIC gradient-sentinel body exactly when its `boss_key` (its
+    // lowercased behavior id) is absent from this map — `upgrade_boss_sprites`
+    // warns once per such boss. Printing the map's contents here says whether the
+    // key was never LOADED (an asset/catalog problem, listed below) or never
+    // LOOKED UP under that name (a key-agreement problem, and the disproven
+    // `sprite_target` dispatch is not the fix — the render keys on `behavior.id`).
+    {
+        let mut keys: Vec<&str> = boss_sprites.keys().copied().collect();
+        keys.sort_unstable();
+        eprintln!(
+            "[boss_sprites] {} dedicated sheet(s) loaded: {}",
+            boss_sprites.len(),
+            keys.join(", ")
+        );
+        if !boss_sheets_missed.is_empty() {
+            eprintln!(
+                "[boss_sprites] {} FAILED to load (these bosses draw the generic body): {}",
+                boss_sheets_missed.len(),
+                boss_sheets_missed.join(", ")
+            );
         }
     }
     let active_parallax_theme = ParallaxTheme::from_room_metadata(active_room_metadata);

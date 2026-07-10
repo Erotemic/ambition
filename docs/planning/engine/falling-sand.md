@@ -36,10 +36,11 @@ automaton** with an explicit conservation law:
   self-gating CONTENT plugin (architecture ruling) — the engine ships the
   CA substrate, the room ships as content.
 
-Slices FS1 (single-owner refactor + conservation test), FS2 (settle/level
-rules + fixed-point test), FS3 (overlay compilation + atomic ownership
-transfer). All [opus] — the spec above is the contract; the current code is
-small and may be boldly restructured to meet it.
+Slices ~~FS1 (single-owner refactor + conservation test)~~ ✅ **DONE
+2026-07-10 — see §3**, FS2 (settle/level rules + fixed-point test), FS3
+(overlay compilation + atomic ownership transfer). All [opus] — the spec above
+is the contract; the current code is small and may be boldly restructured to
+meet it.
 
 **The SPOUT is the canonical authored-placement example (Jon, 2026-07-06).**
 A falling-sand spout (a source that emits matter) is an **authored PLACEMENT
@@ -76,3 +77,64 @@ the arena is a trap; hence the brainstorm's line. Prerequisites: FS1–FS3,
 the technique params seam (landed), CM5 presentation events. Home when
 built: Oiler is CONTENT (a catalog row + techniques); only the surface-
 coating movement hook is engine vocabulary.
+
+---
+
+## 3. FS1 — single owner + conservation (opus, 2026-07-10)
+
+**The reported defect was not subtle, and it was not in the cellular automaton.**
+`emit_falling_sand_spouts` did two things at once: it wrote `SpawnParticleSignal`s
+into the CA grid *and* spawned a parallel fleet of Ambition-side
+`FallingSandStreamParticle` sprites, with the comment *"so the player gets
+immediate visual feedback that the spout opened."*
+
+Those sprites were matter's second home. They fell on their own hardcoded
+gravity (`vel.y += 90.0 * dt`, on `Res<Time>` rather than `WorldTime` — a
+time-domains violation too), ignored every block in the room, and despawned at an
+invented `world.size.y - 64` floor. So they poured straight **through** the
+platforms the real particles were pooling on and rained down below. That is Jon's
+report, verbatim: *"water and oil pool on the top platform yet particles ALSO
+fall forever below."*
+
+§1 says the fix is **structural (single owner), not a patch**. So:
+
+- **The stream representation is deleted.** `SpawnParticleSignal` is now the only
+  way matter enters. `bevy_falling_sand`'s own `render` feature draws the falling
+  matter; `sync_material_visuals` draws what has settled. **One owner, two views.**
+- **The spouts are a table.** `SpoutMouth { particle_type, x, y, width }` +
+  `open_spouts(switch_state)` — the same data, in the same shape, that the ruled
+  `PlacementSchema::Spout { material, rate, direction }` will carry. One `const`
+  away from being read off the map instead of typed into the source, which is what
+  [W-a]/[W-b] turn it into.
+- **The conservation law is a ledger, and it is tested.** `tally_particles` walks
+  the grid once and lands every particle in exactly one `TallyLedger` column:
+  `sand`, `water`, `oil`, `outside_world`, or `unmodelled` (walls are geometry, not
+  matter). `total()` equals the particles walked, and a `debug_assert` on every
+  real frame checks that each material's tile buckets sum to its ledger column —
+  so a particle counted twice, or lost between the query and the tile map, is a
+  panic in a dev build rather than a drifting pool.
+- **Single owner per TILE, too.** A tile dense enough to be a sand solid never also
+  becomes a water region (you cannot swim inside a block), and the visual agrees
+  with the collision. Pinned by `a_tile_dense_in_both_sand_and_water_is_owned_by_sand_alone`.
+- **No silent caps.** `MAX_DYNAMIC_*` truncation now warns once, because a
+  truncated frame is indistinguishable from a settled one from the outside — a
+  pool simply stops growing, and that reads as a physics bug.
+
+`the_grid_is_the_only_owner_of_matter` guards the definitions (not mentions of the
+names — the doc comments say them out loud so the next reader knows what was
+removed, and an occurrence-counting lint would fight its own explanation). Its
+poison test assembles the needles at runtime so they never appear as literals in
+the file, and checks the guard both fires on a reintroduction and stays quiet on
+the module as it stands.
+
+### What FS1 did NOT do
+
+- **The CA is unaudited for conservation.** `tally_particles` proves the
+  *projection* creates and loses nothing. Whether `bevy_falling_sand` itself
+  conserves matter (§1's *"total per material = spawned − despawned, every tick"*
+  against the room's real spec) needs a headless test that steps the CA, and
+  `FallingSandPlugin` pulls the `render` feature. That is FS2's job, alongside the
+  settle guarantee it already needs a stepping harness for.
+- **The remaining pile-up weirdness is FS2's.** With the second representation
+  gone, whatever is left is the CA's rules — settle, lateral flow, level-finding —
+  which is exactly the slice named for them.

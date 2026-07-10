@@ -88,7 +88,6 @@ struct FallingSandRoomState {
     swim_snapshot: Option<SwimSnapshot>,
     seeded_boundaries: bool,
     spouts: FallingSandSpoutState,
-    visual_emit_counter: u32,
 }
 
 /// Stored player swim state plus a marker so we can tell whether the
@@ -149,14 +148,6 @@ struct FallingSandMaterialVisual {
 }
 
 #[derive(Component)]
-struct FallingSandStreamParticle {
-    world_pos: ae::Vec2,
-    vel: ae::Vec2,
-    age: f32,
-    lifetime: f32,
-}
-
-#[derive(Component)]
 struct FallingSandSpoutNozzle {
     id: &'static str,
 }
@@ -180,7 +171,6 @@ impl Plugin for FallingSandRoomPlugin {
                     seed_falling_sand_room_boundaries,
                     sync_falling_sand_spout_nozzles,
                     emit_falling_sand_spouts,
-                    animate_falling_sand_stream_particles,
                     project_particles_to_movement_world,
                     grant_room_swim_controls,
                 )
@@ -332,11 +322,9 @@ fn sync_falling_sand_room_state(
     if active_room {
         state.seeded_boundaries = false;
         state.spouts = FallingSandSpoutState::from_save(save.data());
-        state.visual_emit_counter = 0;
     } else {
         state.seeded_boundaries = false;
         state.spouts = FallingSandSpoutState::default();
-        state.visual_emit_counter = 0;
     }
 }
 
@@ -611,10 +599,82 @@ fn sync_falling_sand_spout_nozzles(
     }
 }
 
+/// One spout mouth: what it emits, where, and how wide. A **table**, because
+/// `falling-sand.md` §1 rules that a spout is an authored PLACEMENT
+/// (`PlacementSchema::Spout { material, rate, direction }`) lowered by this
+/// content plugin — not a hardcoded runtime spawn. Until [W-a]/[W-b] land, this
+/// is the same data in the same shape, one `const` away from being read off the
+/// map instead of typed here.
+struct SpoutMouth {
+    particle_type: &'static str,
+    x: f32,
+    y: f32,
+    /// Mouth width in particle cells.
+    width: i32,
+}
+
+const SOLO_SPOUT_WIDTH: i32 = 8;
+/// Mixed splits the same per-frame budget across three streams.
+const MIXED_SPOUT_WIDTH: i32 = 3;
+
+const SAND_SPOUT: SpoutMouth = SpoutMouth {
+    particle_type: TYPE_SAND,
+    x: 176.0,
+    y: 90.0,
+    width: SOLO_SPOUT_WIDTH,
+};
+const WATER_SPOUT: SpoutMouth = SpoutMouth {
+    particle_type: TYPE_WATER,
+    x: 384.0,
+    y: 90.0,
+    width: SOLO_SPOUT_WIDTH,
+};
+const OIL_SPOUT: SpoutMouth = SpoutMouth {
+    particle_type: TYPE_OIL,
+    x: 592.0,
+    y: 90.0,
+    width: SOLO_SPOUT_WIDTH,
+};
+const MIXED_SPOUTS: [SpoutMouth; 3] = [
+    SpoutMouth {
+        particle_type: TYPE_SAND,
+        x: 760.0,
+        y: 90.0,
+        width: MIXED_SPOUT_WIDTH,
+    },
+    SpoutMouth {
+        particle_type: TYPE_WATER,
+        x: 792.0,
+        y: 90.0,
+        width: MIXED_SPOUT_WIDTH,
+    },
+    SpoutMouth {
+        particle_type: TYPE_OIL,
+        x: 824.0,
+        y: 90.0,
+        width: MIXED_SPOUT_WIDTH,
+    },
+];
+
+/// Emit into **the grid, and only the grid** (FS1's single-owner rule).
+///
+/// This function used to do two things at once: write `SpawnParticleSignal`s
+/// into the cellular automaton *and* spawn a parallel fleet of Ambition-side
+/// `FallingSandStreamParticle` sprites, "so the player gets immediate visual
+/// feedback that the spout opened." Those sprites were matter's second home.
+/// They fell on their own hardcoded gravity, ignored every block in the room,
+/// and despawned at an invented `world.size.y - 64` floor — so they poured
+/// straight THROUGH the platforms the real particles were pooling on and rained
+/// down below. That is Jon's reported defect, verbatim: *"water and oil pool on
+/// the top platform yet particles ALSO fall forever below."*
+///
+/// `falling-sand.md` §1: *"A particle exists in exactly one place: the grid …
+/// the fix is structural (single owner), not a patch."* The sprites are gone;
+/// `bevy_falling_sand`'s own `render` feature draws the falling matter, and
+/// `sync_material_visuals` draws what has settled. One owner, two views of it.
 fn emit_falling_sand_spouts(
-    mut commands: Commands,
     room_set: Res<ambition_actors::rooms::RoomSet>,
-    mut state: ResMut<FallingSandRoomState>,
+    state: Res<FallingSandRoomState>,
     mut writer: MessageWriter<SpawnParticleSignal>,
     mut last_logged: Local<Option<FallingSandSpoutState>>,
 ) {
@@ -637,93 +697,36 @@ fn emit_falling_sand_spouts(
     }
 
     let world = &room.world;
+    for mouth in open_spouts(&state.spouts) {
+        emit_spout(
+            &mut writer,
+            mouth.particle_type,
+            world,
+            mouth.x,
+            mouth.y,
+            mouth.width,
+            1,
+        );
+    }
+}
 
-    // Feed the crate's simulation for material accumulation and collision/water
-    // projection, and also spawn lightweight Ambition-side falling pixels so
-    // the player gets immediate visual feedback that the spout opened.
-    //
-    // emit_spout uses `overwrite_existing` (not `new`) so the spout mouth
-    // is guaranteed to produce a particle every frame even if the cell
-    // was still occupied by the previous frame's emission. The 8×1 mouth
-    // gives a visibly thick stream at ~480 particles/sec per solo spout
-    // (one per frame per X-column). Mixed splits its budget across three
-    // streams.
-    if state.spouts.sand {
-        emit_spout(&mut writer, TYPE_SAND, world, 176.0, 90.0, 8, 1);
-        spawn_stream_particles(
-            &mut commands,
-            world,
-            MaterialKind::Sand,
-            176.0,
-            90.0,
-            36.0,
-            4,
-            &mut state.visual_emit_counter,
-        );
+/// The mouths a switch state opens, in a fixed order. Pure, so the wiring from
+/// four switches to five streams is testable without a room.
+fn open_spouts(spouts: &FallingSandSpoutState) -> Vec<&'static SpoutMouth> {
+    let mut open: Vec<&'static SpoutMouth> = Vec::new();
+    if spouts.sand {
+        open.push(&SAND_SPOUT);
     }
-    if state.spouts.water {
-        emit_spout(&mut writer, TYPE_WATER, world, 384.0, 90.0, 8, 1);
-        spawn_stream_particles(
-            &mut commands,
-            world,
-            MaterialKind::Water,
-            384.0,
-            90.0,
-            36.0,
-            4,
-            &mut state.visual_emit_counter,
-        );
+    if spouts.water {
+        open.push(&WATER_SPOUT);
     }
-    if state.spouts.oil {
-        emit_spout(&mut writer, TYPE_OIL, world, 592.0, 90.0, 8, 1);
-        spawn_stream_particles(
-            &mut commands,
-            world,
-            MaterialKind::Oil,
-            592.0,
-            90.0,
-            36.0,
-            3,
-            &mut state.visual_emit_counter,
-        );
+    if spouts.oil {
+        open.push(&OIL_SPOUT);
     }
-    if state.spouts.mixed {
-        // Mixed spreads three thinner streams so the combined throughput
-        // stays in the same per-frame budget as one solo spout.
-        emit_spout(&mut writer, TYPE_SAND, world, 760.0, 90.0, 3, 1);
-        emit_spout(&mut writer, TYPE_WATER, world, 792.0, 90.0, 3, 1);
-        emit_spout(&mut writer, TYPE_OIL, world, 824.0, 90.0, 3, 1);
-        spawn_stream_particles(
-            &mut commands,
-            world,
-            MaterialKind::Sand,
-            760.0,
-            90.0,
-            20.0,
-            2,
-            &mut state.visual_emit_counter,
-        );
-        spawn_stream_particles(
-            &mut commands,
-            world,
-            MaterialKind::Water,
-            792.0,
-            90.0,
-            20.0,
-            2,
-            &mut state.visual_emit_counter,
-        );
-        spawn_stream_particles(
-            &mut commands,
-            world,
-            MaterialKind::Oil,
-            824.0,
-            90.0,
-            20.0,
-            2,
-            &mut state.visual_emit_counter,
-        );
+    if spouts.mixed {
+        open.extend(MIXED_SPOUTS.iter());
     }
+    open
 }
 
 fn emit_spout(
@@ -754,84 +757,6 @@ fn emit_spout(
     }
 }
 
-fn spawn_stream_particles(
-    commands: &mut Commands,
-    world: &ae::World,
-    kind: MaterialKind,
-    x: f32,
-    y: f32,
-    width: f32,
-    count: usize,
-    counter: &mut u32,
-) {
-    for i in 0..count {
-        *counter = counter.wrapping_add(1);
-        let t = ((*counter + i as u32 * 17) % 100) as f32 / 100.0;
-        let offset = (t - 0.5) * width;
-        let side_wobble = (((*counter / 3 + i as u32 * 11) % 31) as f32 - 15.0) * 0.28;
-        let world_pos = ae::Vec2::new(x + offset, y);
-        let vel = match kind {
-            MaterialKind::Sand => ae::Vec2::new(side_wobble, 270.0 + t * 40.0),
-            MaterialKind::Water => ae::Vec2::new(side_wobble * 1.6, 230.0 + t * 55.0),
-            MaterialKind::Oil => ae::Vec2::new(side_wobble * 0.55, 150.0 + t * 30.0),
-        };
-        let size = match kind {
-            MaterialKind::Sand => Vec2::splat(4.0),
-            MaterialKind::Water => Vec2::new(4.0, 6.0),
-            MaterialKind::Oil => Vec2::new(5.0, 6.0),
-        };
-        commands.spawn((
-            Name::new(format!("falling sand stream {kind:?}")),
-            Sprite::from_color(kind.stream_color(), size),
-            Transform::from_translation(ambition_engine_core::config::world_to_bevy(
-                world,
-                world_pos,
-                ambition_engine_core::config::WORLD_Z_FX + 2.0,
-            )),
-            FallingSandStreamParticle {
-                world_pos,
-                vel,
-                age: 0.0,
-                lifetime: 2.4,
-            },
-            ambition_actors::platformer_runtime::lifecycle::RoomVisual,
-        ));
-    }
-}
-
-fn animate_falling_sand_stream_particles(
-    mut commands: Commands,
-    room_set: Res<ambition_actors::rooms::RoomSet>,
-    time: Res<Time>,
-    mut particles: Query<(Entity, &mut FallingSandStreamParticle, &mut Transform)>,
-) {
-    let room = room_set.active_spec();
-    if room.id != ROOM_ID {
-        for (entity, _, _) in &mut particles {
-            commands.entity(entity).despawn();
-        }
-        return;
-    }
-
-    let dt = time.delta_secs().min(0.05);
-    let floor_y = (room.world.size.y - 64.0).max(0.0);
-    for (entity, mut particle, mut transform) in &mut particles {
-        particle.age += dt;
-        particle.vel.y += 90.0 * dt;
-        let step = particle.vel * dt;
-        particle.world_pos += step;
-        if particle.age >= particle.lifetime || particle.world_pos.y >= floor_y + 10.0 {
-            commands.entity(entity).despawn();
-            continue;
-        }
-        transform.translation = ambition_engine_core::config::world_to_bevy(
-            &room.world,
-            particle.world_pos,
-            ambition_engine_core::config::WORLD_Z_FX + 2.0,
-        );
-    }
-}
-
 /// Reusable per-frame scratch buffers. Living in a `Local<>` keeps the
 /// allocations across frames; we just `.clear()` between runs so we don't
 /// hand the allocator three new HashMaps every tick.
@@ -857,6 +782,107 @@ impl ProjectionScratch {
         self.dense_sand.clear();
         self.desired_visuals.clear();
     }
+
+    fn tiles_for(&mut self, kind: MaterialKind) -> &mut HashMap<(i32, i32), usize> {
+        match kind {
+            MaterialKind::Sand => &mut self.sand_tiles,
+            MaterialKind::Water => &mut self.water_tiles,
+            MaterialKind::Oil => &mut self.oil_tiles,
+        }
+    }
+
+    /// Total counted into tile buckets, per material — the right-hand side of
+    /// the conservation law.
+    fn bucketed(&self, kind: MaterialKind) -> usize {
+        let tiles = match kind {
+            MaterialKind::Sand => &self.sand_tiles,
+            MaterialKind::Water => &self.water_tiles,
+            MaterialKind::Oil => &self.oil_tiles,
+        };
+        tiles.values().sum()
+    }
+}
+
+/// **The conservation ledger for one projection pass** (`falling-sand.md` §1:
+/// *"total matter per material = spawned − despawned, every tick"*).
+///
+/// The projection is a READ-MODEL over the grid — it must neither create matter
+/// nor lose it silently. Every particle the pass sees lands in exactly one of
+/// these three columns, and `total()` must equal the number of particles walked.
+/// A conservation failure would mean a particle is counted into two tiles, or
+/// vanished between the query and the buckets.
+///
+/// `outside_world` and `unmodelled` are not losses — they are the two legitimate
+/// exclusions, named so they cannot hide a third. Wall particles are `unmodelled`
+/// (the room seeds them, they are geometry, they never project).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+struct TallyLedger {
+    sand: usize,
+    water: usize,
+    oil: usize,
+    /// The particle's grid cell maps to no tile of this room.
+    outside_world: usize,
+    /// A particle type this room does not model as matter (walls).
+    unmodelled: usize,
+}
+
+impl TallyLedger {
+    fn counted(&self, kind: MaterialKind) -> usize {
+        match kind {
+            MaterialKind::Sand => self.sand,
+            MaterialKind::Water => self.water,
+            MaterialKind::Oil => self.oil,
+        }
+    }
+
+    fn add(&mut self, kind: MaterialKind) {
+        match kind {
+            MaterialKind::Sand => self.sand += 1,
+            MaterialKind::Water => self.water += 1,
+            MaterialKind::Oil => self.oil += 1,
+        }
+    }
+
+    /// Every particle the pass walked, by whichever column claimed it.
+    fn total(&self) -> usize {
+        self.sand + self.water + self.oil + self.outside_world + self.unmodelled
+    }
+}
+
+/// Bucket every live particle into its room tile. Pure over the grid, so the
+/// conservation law is a unit test rather than a hope.
+///
+/// The grid is the ONE owner of matter (FS1). This pass reads it and writes
+/// nothing back — the caller turns the buckets into overlay solids and water
+/// regions, both of which the overlay rebuild clears every frame.
+fn tally_particles<'a>(
+    world: &ae::World,
+    particles: impl Iterator<Item = (IVec2, &'a str)>,
+    scratch: &mut ProjectionScratch,
+) -> TallyLedger {
+    let mut ledger = TallyLedger::default();
+    for (grid_position, particle_type) in particles {
+        let Some(kind) = MaterialKind::from_particle_type(particle_type) else {
+            ledger.unmodelled += 1;
+            continue;
+        };
+        let Some(tile) = grid_to_world_tile(world, grid_position) else {
+            ledger.outside_world += 1;
+            continue;
+        };
+        *scratch.tiles_for(kind).entry(tile).or_default() += 1;
+        ledger.add(kind);
+    }
+    for kind in [MaterialKind::Sand, MaterialKind::Water, MaterialKind::Oil] {
+        debug_assert_eq!(
+            scratch.bucketed(kind),
+            ledger.counted(kind),
+            "conservation ({kind:?}): every counted particle lands in exactly one \
+             tile bucket. A mismatch means matter was created or lost between the \
+             grid query and the tile map."
+        );
+    }
+    ledger
 }
 
 fn project_particles_to_movement_world(
@@ -868,6 +894,7 @@ fn project_particles_to_movement_world(
     particles: Query<(&GridPosition, &Particle)>,
     visuals: Query<(Entity, &FallingSandMaterialVisual)>,
     mut scratch: Local<ProjectionScratch>,
+    mut cap_warned: Local<bool>,
 ) {
     if !state.active_room || room_set.active_spec().id != ROOM_ID {
         clear_material_visuals(&mut commands, &visuals);
@@ -882,21 +909,14 @@ fn project_particles_to_movement_world(
     // frame (we run after it in WorldPrep), so we just push.
     scratch.reset_per_frame();
 
-    for (grid_position, particle) in &particles {
-        let Some(kind) = MaterialKind::from_particle_type(particle.name.as_ref()) else {
-            continue;
-        };
-        let Some((tile_x, tile_y)) = grid_to_world_tile(&world.0, grid_position.0) else {
-            continue;
-        };
-
-        let tile_counts = match kind {
-            MaterialKind::Sand => &mut scratch.sand_tiles,
-            MaterialKind::Water => &mut scratch.water_tiles,
-            MaterialKind::Oil => &mut scratch.oil_tiles,
-        };
-        *tile_counts.entry((tile_x, tile_y)).or_default() += 1;
-    }
+    let ledger = tally_particles(
+        &world.0,
+        particles.iter().map(|(g, p)| (g.0, p.name.as_ref())),
+        &mut scratch,
+    );
+    // No silent caps: the projection truncates at MAX_DYNAMIC_* tiles, and a
+    // truncated frame looks exactly like a settled one from the outside.
+    warn_on_projection_cap(&ledger, &scratch, &mut cap_warned);
 
     project_sand(&mut overlay.gate_solids, &mut scratch);
     let mut liquid_added: usize = 0;
@@ -921,6 +941,28 @@ fn project_particles_to_movement_world(
     );
 
     sync_material_visuals(&mut commands, &world.0, &scratch.desired_visuals, &visuals);
+}
+
+/// Warn ONCE when the per-material tile cap truncates a projection. A truncated
+/// frame is indistinguishable from a settled one from the outside — a pool simply
+/// stops growing — so a silent cap reads as a physics bug. (`no silent caps`.)
+fn warn_on_projection_cap(ledger: &TallyLedger, scratch: &ProjectionScratch, warned: &mut bool) {
+    if *warned {
+        return;
+    }
+    let sand_tiles = scratch.sand_tiles.len();
+    let liquid_tiles = scratch.water_tiles.len() + scratch.oil_tiles.len();
+    if sand_tiles > MAX_DYNAMIC_SAND_TILES || liquid_tiles > MAX_DYNAMIC_LIQUID_TILES {
+        bevy::log::warn!(
+            "falling_sand_room: projection cap reached — {sand_tiles} sand tiles \
+             (cap {MAX_DYNAMIC_SAND_TILES}), {liquid_tiles} liquid tiles (cap \
+             {MAX_DYNAMIC_LIQUID_TILES}). Matter beyond the cap is SIMULATED but not \
+             projected into collision; the pool will look like it stopped growing. \
+             {} particles this frame; ledger: {ledger:?}",
+            ledger.total()
+        );
+        *warned = true;
+    }
 }
 
 /// Sort tile keys by `count` desc (stable on tile coords as the tiebreaker)
@@ -1190,14 +1232,6 @@ impl MaterialKind {
             Self::Oil => ambition_actors::config::rgba(0.20, 0.13, 0.06, 0.66),
         }
     }
-
-    fn stream_color(self) -> Color {
-        match self {
-            Self::Sand => ambition_actors::config::rgba(1.0, 0.82, 0.33, 0.95),
-            Self::Water => ambition_actors::config::rgba(0.28, 0.66, 1.0, 0.82),
-            Self::Oil => ambition_actors::config::rgba(0.19, 0.12, 0.06, 0.92),
-        }
-    }
 }
 
 fn clear_material_visuals(
@@ -1303,5 +1337,242 @@ fn viscous_oil_spec() -> ae::WaterVolumeSpec {
         drag: 1.85,
         max_fall_speed: 82.0,
         swim_up_impulse: 330.0,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn room(w: f32, h: f32) -> ae::World {
+        ae::World::new("fs-test", ae::Vec2::new(w, h), ae::Vec2::ZERO, Vec::new())
+    }
+
+    fn at(world: &ae::World, x: f32, y: f32) -> IVec2 {
+        world_to_particle_grid(world, ae::Vec2::new(x, y))
+    }
+
+    /// **FS1's conservation law.** The projection is a read-model over the grid:
+    /// it may neither create matter nor lose it. Every particle the pass walks
+    /// lands in exactly one ledger column, and every counted particle lands in
+    /// exactly one tile bucket. `tally_particles` `debug_assert`s the second half
+    /// on every real frame; this pins the first.
+    #[test]
+    fn every_particle_lands_in_exactly_one_ledger_column() {
+        let w = room(256.0, 256.0);
+        let mut scratch = ProjectionScratch::default();
+
+        let particles = vec![
+            (at(&w, 10.0, 10.0), TYPE_SAND),
+            (at(&w, 11.0, 10.0), TYPE_SAND),
+            (at(&w, 40.0, 40.0), TYPE_WATER),
+            (at(&w, 200.0, 200.0), TYPE_OIL),
+            // A wall particle: geometry, not matter. Named, not silently dropped.
+            (at(&w, 12.0, 10.0), TYPE_WALL),
+            // Off the map entirely.
+            (IVec2::new(100_000, 100_000), TYPE_SAND),
+        ];
+        let n = particles.len();
+
+        let ledger = tally_particles(&w, particles.into_iter(), &mut scratch);
+        assert_eq!(ledger.total(), n, "no particle escaped the ledger");
+        assert_eq!(ledger.sand, 2);
+        assert_eq!(ledger.water, 1);
+        assert_eq!(ledger.oil, 1);
+        assert_eq!(
+            ledger.unmodelled, 1,
+            "the wall is geometry, and is named so"
+        );
+        assert_eq!(ledger.outside_world, 1);
+
+        for kind in [MaterialKind::Sand, MaterialKind::Water, MaterialKind::Oil] {
+            assert_eq!(
+                scratch.bucketed(kind),
+                ledger.counted(kind),
+                "{kind:?}: buckets and ledger disagree — a particle was counted twice \
+                 or lost between the query and the tile map"
+            );
+        }
+    }
+
+    /// Two particles of the same material in the same tile are two particles, not
+    /// one tile. The bucket is a COUNT, and the thresholds read it.
+    #[test]
+    fn particles_accumulate_within_a_tile_rather_than_collapsing() {
+        let w = room(256.0, 256.0);
+        let mut scratch = ProjectionScratch::default();
+        let same_tile: Vec<(IVec2, &str)> = (0..7)
+            .map(|i| (at(&w, 20.0 + i as f32, 20.0), TYPE_SAND))
+            .collect();
+        let ledger = tally_particles(&w, same_tile.into_iter(), &mut scratch);
+        assert_eq!(ledger.sand, 7);
+        assert_eq!(scratch.sand_tiles.len(), 1, "one tile");
+        assert_eq!(scratch.bucketed(MaterialKind::Sand), 7, "seven particles");
+    }
+
+    /// **Single owner, per tile.** A tile dense enough to be sand is a solid; it
+    /// must not ALSO become a water region, or the player would swim inside a
+    /// block. Sand claims first and liquid yields — and the visual agrees with the
+    /// collision, so what you see is what you stand on.
+    #[test]
+    fn a_tile_dense_in_both_sand_and_water_is_owned_by_sand_alone() {
+        let mut scratch = ProjectionScratch::default();
+        scratch.sand_tiles.insert((3, 3), SAND_THRESHOLD + 4);
+        scratch.water_tiles.insert((3, 3), LIQUID_THRESHOLD + 4);
+        scratch.water_tiles.insert((9, 9), LIQUID_THRESHOLD + 4);
+
+        let mut blocks = Vec::new();
+        project_sand(&mut blocks, &mut scratch);
+        assert_eq!(blocks.len(), 1, "the shared tile is a solid");
+        assert!(scratch.dense_sand.contains(&(3, 3)));
+
+        let mut water = Vec::new();
+        let mut added = 0;
+        project_liquid(
+            &mut water,
+            &mut scratch,
+            &mut added,
+            MaterialKind::Water,
+            ae::WaterKind::Clear,
+            falling_water_spec(),
+        );
+        assert_eq!(water.len(), 1, "only the tile sand did NOT claim");
+        assert_eq!(
+            scratch.desired_visuals.get(&(3, 3)),
+            Some(&MaterialKind::Sand),
+            "the visual agrees with the collision: you stand on what you see"
+        );
+        assert_eq!(
+            scratch.desired_visuals.get(&(9, 9)),
+            Some(&MaterialKind::Water)
+        );
+    }
+
+    /// Below the density threshold a tile is neither solid nor swimmable — the
+    /// matter is still IN the grid, it is simply too thin to project. Conservation
+    /// lives in the grid, not in the overlay.
+    #[test]
+    fn thin_matter_projects_nothing_but_is_not_lost() {
+        let mut scratch = ProjectionScratch::default();
+        scratch.sand_tiles.insert((1, 1), SAND_THRESHOLD - 1);
+        scratch.water_tiles.insert((2, 2), LIQUID_THRESHOLD - 1);
+
+        let mut blocks = Vec::new();
+        project_sand(&mut blocks, &mut scratch);
+        assert!(blocks.is_empty());
+
+        let mut water = Vec::new();
+        let mut added = 0;
+        project_liquid(
+            &mut water,
+            &mut scratch,
+            &mut added,
+            MaterialKind::Water,
+            ae::WaterKind::Clear,
+            falling_water_spec(),
+        );
+        assert!(water.is_empty());
+        assert_eq!(scratch.bucketed(MaterialKind::Sand), SAND_THRESHOLD - 1);
+    }
+
+    /// The switch→spout wiring, as a table. `mixed` opens three mouths, and the
+    /// order is fixed so the emit pass is deterministic (ADR 0023).
+    #[test]
+    fn the_switch_state_selects_a_deterministic_set_of_spout_mouths() {
+        let none = FallingSandSpoutState::default();
+        assert!(open_spouts(&none).is_empty());
+
+        let sand_only = FallingSandSpoutState {
+            sand: true,
+            ..Default::default()
+        };
+        let mouths = open_spouts(&sand_only);
+        assert_eq!(mouths.len(), 1);
+        assert_eq!(mouths[0].particle_type, TYPE_SAND);
+        assert_eq!(mouths[0].width, SOLO_SPOUT_WIDTH);
+
+        let all = FallingSandSpoutState {
+            sand: true,
+            water: true,
+            oil: true,
+            mixed: true,
+        };
+        let types: Vec<&str> = open_spouts(&all).iter().map(|m| m.particle_type).collect();
+        assert_eq!(
+            types,
+            [
+                TYPE_SAND, TYPE_WATER, TYPE_OIL, // the three solo mouths
+                TYPE_SAND, TYPE_WATER, TYPE_OIL, // then mixed's three, narrower
+            ]
+        );
+        assert!(open_spouts(&all)[3..]
+            .iter()
+            .all(|m| m.width == MIXED_SPOUT_WIDTH));
+    }
+
+    /// **The bug FS1 exists to kill, pinned at the definition.** Matter had a
+    /// second home: `FallingSandStreamParticle`, an Ambition-side sprite that fell
+    /// on its own gravity, ignored every block in the room, and despawned at an
+    /// invented `world.size.y - 64` floor — so it poured straight through the
+    /// platforms the real particles were pooling on. Its absence is the invariant.
+    ///
+    /// The check is on the DEFINITIONS, not on mentions of the names: the doc
+    /// comments above deliberately say those names out loud so the next reader
+    /// knows what was removed and why, and an occurrence-counting lint would fight
+    /// its own explanation. A lint that cannot survive its own documentation is
+    /// the wrong lint.
+    #[test]
+    fn the_grid_is_the_only_owner_of_matter() {
+        let source = include_str!("falling_sand.rs");
+        assert!(
+            source.contains("SpawnParticleSignal"),
+            "the one entry point for matter"
+        );
+        for banned_definition in banned_definitions() {
+            assert!(
+                !source.contains(&banned_definition),
+                "`{banned_definition}` is back — a second, geometry-ignoring \
+                 representation of matter. falling-sand.md §1: a particle exists in \
+                 exactly one place, the grid. If this room needs more visual \
+                 feedback, draw the GRID harder; do not spawn a parallel fleet that \
+                 falls on its own physics."
+            );
+        }
+    }
+
+    /// The needles, ASSEMBLED AT RUNTIME so they never appear as literals in this
+    /// file. Spelling them out would make the guard find its own test and fail
+    /// forever — the same self-reference trap the `ControlFrame` lint's near-miss
+    /// tests were written for.
+    fn banned_definitions() -> Vec<String> {
+        let stream = format!("{}{}", "FallingSandStream", "Particle");
+        vec![
+            format!("struct {stream}"),
+            format!("fn {}{}", "spawn_stream_", "particles"),
+            format!("fn {}{}", "animate_falling_sand_stream_", "particles"),
+        ]
+    }
+
+    /// **Poison test.** The guard must be able to go red; a lint that cannot fail
+    /// is worse than none (ADR 0023's rule, applied here). Feeds it a source that
+    /// DOES contain a reintroduced definition and checks it is seen.
+    #[test]
+    fn the_single_owner_guard_can_detect_a_reintroduced_representation() {
+        let reintroduced = format!(
+            "{} {{ world_pos: Vec2, vel: Vec2 }}",
+            banned_definitions()[0]
+        );
+        let hits = banned_definitions()
+            .iter()
+            .filter(|needle| reintroduced.contains(needle.as_str()))
+            .count();
+        assert_eq!(hits, 1, "the guard sees a real reintroduction");
+
+        // ...and it does NOT fire on the module as it stands, which is the other
+        // half of "can fail": a lint that always fires is also useless.
+        let source = include_str!("falling_sand.rs");
+        assert!(banned_definitions()
+            .iter()
+            .all(|needle| !source.contains(needle.as_str())));
     }
 }

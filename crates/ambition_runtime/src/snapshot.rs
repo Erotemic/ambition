@@ -1153,8 +1153,6 @@ pub fn restore(
         }
     }
 
-    let stale_components = registry.unclaimed_components(world);
-
     // **Identity invariant (audit H2), enforced BEFORE any lookup map is built.**
     // A `SimId` carried by two live entities, or two snapshot rows, makes every by-id
     // lookup pick one arbitrarily — the exact silent corruption N3.1 depends on not
@@ -1185,10 +1183,7 @@ pub fn restore(
     }
 
     let ids = snapshot.sim_ids();
-    let mut report = RestoreReport {
-        stale_components,
-        ..Default::default()
-    };
+    let mut report = RestoreReport::default();
 
     // Spawned after the snapshot: they never happened.
     for (id, entity) in &live {
@@ -1266,6 +1261,13 @@ pub fn restore(
     }
     report.messages_cleared = registry.messages.len();
 
+    // **Stale state is measured AFTER reconciliation (audit H4), over the FINAL
+    // restored roster.** Measuring it at the top — before the future-only entities are
+    // despawned and the missing ones rebuilt — reported stale components on entities
+    // that were about to vanish (false positives) and missed unregistered components on
+    // entities just rebuilt (false negatives). The debt a rewind actually leaves behind
+    // is the debt on the entities that survive the rewind, so it is counted here.
+    report.stale_components = registry.unclaimed_components(world);
     report.unidentified_survivors = match world
         .try_query_filtered::<(), (With<BodyKinematics>, bevy::ecs::query::Without<SimId>)>()
     {
@@ -3466,6 +3468,41 @@ mod tests {
         assert!(
             good.duplicate_ids().is_empty(),
             "a snapshot of a unique-identity world has no duplicate rows"
+        );
+    }
+
+    /// **Stale state is measured AFTER reconciliation, not before** (audit H4).
+    ///
+    /// A future-only entity — not in the snapshot, so `restore` despawns it — carries an
+    /// UNREGISTERED component. Measured at the top (the old ordering), its component was
+    /// counted as stale: a false positive on an entity about to cease to exist. Measured
+    /// over the post-reconciliation roster, it does not appear, because the debt a rewind
+    /// leaves behind is the debt on the entities that SURVIVE the rewind.
+    #[test]
+    fn stale_state_is_measured_after_reconciliation_not_before() {
+        let reg = engine_registry();
+        let mut world = sim_world();
+        let snap = take(&world, &reg);
+
+        // Future-only (a fresh id the snapshot never knew) with an unregistered component.
+        world.spawn((
+            SimId::placement("future-ghost"),
+            kin(Vec2::ZERO, Vec2::ZERO),
+            UnregisteredThing(7),
+        ));
+
+        let report = restore(&mut world, &snap, &reg).unwrap();
+        assert_eq!(report.despawned, 1, "the future-only ghost was despawned");
+
+        let probe = std::any::TypeId::of::<UnregisteredThing>();
+        assert!(
+            !report
+                .stale_components
+                .iter()
+                .any(|c| c.type_id == Some(probe)),
+            "an unregistered component on a DESPAWNED entity leaked into stale_components — \
+             stale state was measured before reconciliation (audit H4): {:?}",
+            report.stale_components
         );
     }
 

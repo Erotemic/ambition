@@ -232,6 +232,10 @@ pub fn sync_hit_flash_overlays(
             Option<&FeatureVisual>,
             Option<&PlayerVisual>,
             &HitFlashSource,
+            // The source's OWN visibility. The overlay is a separate root entity
+            // that stays `Visible` forever (see the spawn site), so it does not
+            // inherit a hidden source — see `overlay_intensity`.
+            Option<&Visibility>,
         ),
         Without<HitFlashOverlay>,
     >,
@@ -242,8 +246,16 @@ pub fn sync_hit_flash_overlays(
     )>,
     mut materials: ResMut<Assets<HitFlashMaterial>>,
 ) {
-    for (source_entity, source_transform, source_sprite, anchor, feature, player, source) in
-        &sources
+    for (
+        source_entity,
+        source_transform,
+        source_sprite,
+        anchor,
+        feature,
+        player,
+        source,
+        source_visibility,
+    ) in &sources
     {
         let Some(render_size) = source_sprite.custom_size else {
             continue;
@@ -263,7 +275,7 @@ pub fn sync_hit_flash_overlays(
         // one query without changing the overlay sync.
         let hit_flash_secs =
             hit_flash_secs_for_source(source_entity, feature, player, &feature_views, &poses);
-        let intensity = hit_flash_secs.map(normalize_hit_flash).unwrap_or(0.0);
+        let intensity = overlay_intensity(hit_flash_secs, source_visibility.copied());
 
         let Ok((mut overlay_transform, material_handle, overlay)) =
             overlays.get_mut(source.overlay)
@@ -355,6 +367,27 @@ fn hit_flash_secs_for_source(
     feature_views
         .get(feature?.id.as_str())
         .map(|view| view.hit_flash_secs)
+}
+
+/// The overlay's shader intensity for one source this frame.
+///
+/// **A hidden body flashes nothing.** The overlay is a separate ROOT entity that
+/// stays `Visibility::Visible` permanently — a deliberate workaround for the
+/// `InheritedVisibility`-propagation gotcha documented at its spawn site — and it
+/// is textured with the SOURCE sprite's own image. So it does not inherit a hidden
+/// source: while the player is balled up (body `Hidden`, morph-ball sprite drawn),
+/// taking a hit would have painted the robot's silhouette right over the ball.
+///
+/// Hiding a body must hide everything that draws it. `Visibility::Inherited` is
+/// treated as visible here, which is correct at the top level and conservative
+/// under a hidden ancestor: a fully-hidden hierarchy has an ancestor whose
+/// overlay is likewise suppressed, and the shader's `discard` arm makes a
+/// zero-intensity overlay free either way.
+fn overlay_intensity(hit_flash_secs: Option<f32>, source_visibility: Option<Visibility>) -> f32 {
+    if matches!(source_visibility, Some(Visibility::Hidden)) {
+        return 0.0;
+    }
+    hit_flash_secs.map(normalize_hit_flash).unwrap_or(0.0)
 }
 
 /// Map raw seconds-remaining into a [0, 1] intensity. Holds at 1.0
@@ -462,5 +495,41 @@ mod tests {
         let fade_end = REFERENCE_FLASH_SECONDS * (1.0 - FLASH_HOLD_FRACTION);
         let between = (fade_end + REFERENCE_FLASH_SECONDS) * 0.5;
         assert_eq!(normalize_hit_flash(between), 1.0);
+    }
+
+    /// **A hidden body flashes nothing.** The overlay is a separate root entity,
+    /// permanently `Visible`, textured with the SOURCE's own sprite image. Nothing
+    /// made it follow the source's visibility, so taking a hit while balled up
+    /// (body `Hidden`, morph-ball sprite drawn) painted the robot's silhouette
+    /// right over the ball. That is a live suspect for tracks.md's "morph ball
+    /// still draws the robot".
+    #[test]
+    fn a_hidden_source_flashes_nothing_however_hard_it_was_hit() {
+        assert_eq!(
+            overlay_intensity(Some(10.0), Some(Visibility::Hidden)),
+            0.0,
+            "a hidden body must not draw, and the overlay draws the body"
+        );
+        assert_eq!(overlay_intensity(Some(0.2), Some(Visibility::Hidden)), 0.0);
+    }
+
+    /// The guard is narrow: a visible, inherited, or unknown source flashes
+    /// exactly as it did before. `Inherited` reads as visible, which is right at
+    /// the top level and harmless below one — a hidden ancestor suppresses its own
+    /// overlay, and the shader discards a zero-intensity fragment for free.
+    #[test]
+    fn a_visible_source_still_flashes_exactly_as_before() {
+        for vis in [
+            Some(Visibility::Visible),
+            Some(Visibility::Inherited),
+            None,
+        ] {
+            assert_eq!(
+                overlay_intensity(Some(10.0), vis),
+                normalize_hit_flash(10.0),
+                "{vis:?} must not change the flash"
+            );
+            assert_eq!(overlay_intensity(None, vis), 0.0, "no flash, no intensity");
+        }
     }
 }

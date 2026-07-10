@@ -179,6 +179,17 @@ pub trait SnapshotResolve: Send + Sync + 'static {
         Self: Sized;
 }
 
+/// Append an optional string as `0` / `1 <len> <bytes>`.
+pub fn put_opt_str(out: &mut Vec<u8>, v: Option<&str>) {
+    match v {
+        None => put_bool(out, false),
+        Some(s) => {
+            put_bool(out, true);
+            put_str(out, s);
+        }
+    }
+}
+
 /// Append a length-prefixed UTF-8 string. The prefix is a `u32`, never a `usize`:
 /// a snapshot format that inherits the host's word size cannot become the
 /// cross-platform format netcode.md's portability section keeps reachable.
@@ -270,6 +281,17 @@ impl<'a> Reader<'a> {
     pub fn str(&mut self) -> Option<&'a str> {
         let n = self.u32()? as usize;
         std::str::from_utf8(self.take(n)?).ok()
+    }
+
+    /// `None` means "the field was absent", never "the read failed" — a failed read
+    /// returns `None` from the outer `Option`, and these two nest.
+    #[allow(clippy::option_option)]
+    pub fn opt_str(&mut self) -> Option<Option<&'a str>> {
+        Some(if self.bool()? {
+            Some(self.str()?)
+        } else {
+            None
+        })
     }
 
     /// Every byte was consumed. A decoder that leaves bytes on the floor has
@@ -1035,6 +1057,21 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
         .register_component::<ambition_combat::components::BossPatternTimer>("boss_pattern_timer");
     registry.register_component::<ambition_combat::components::BossPhase>("boss_phase");
 
+    // The boss brain, and the actor brain's senses. A boss that resumes its pattern
+    // from the tick we rewound FROM is the whole reason the arenas diverge — and the
+    // FB6-rollouts / BD6-playtester blocker.
+    registry.register_component::<ambition_characters::brain::boss_pattern::BossAttackState>(
+        "boss_attack_state",
+    );
+    registry.register_component::<ambition_characters::brain::boss_pattern::BossAttackIntent>(
+        "boss_attack_intent",
+    );
+    registry
+        .register_component::<ambition_actors::features::ecs::perception::Perception>("perception");
+    registry.register_component::<ambition_actors::features::ecs::perception::PerceptionMemory>(
+        "perception_memory",
+    );
+
     // **The blind spot, made loud.** Simulated bodies with no `SimId` cannot be
     // snapshotted, restored, or defended by the canary. Hashing the COUNT means a
     // sim that spawned a different number of un-identified bodies still diverges —
@@ -1446,6 +1483,187 @@ impl SnapshotCursor for ambition_actors::features::ActorMotionPath {
             motion.set_cursor(segment, dir);
         }
         Some(())
+    }
+}
+
+snapshot_unit_enum!(ambition_characters::actor::ActorFaction {
+    Player = 0,
+    Enemy = 1,
+    Npc = 2,
+    Boss = 3,
+    Neutral = 4,
+});
+
+/// `Strike(key)` / `Special(key)` — a keyed reference by construction, because "a new
+/// geometry strike is a new key + authored rects, with NO edit to this enum".
+impl SnapshotState for ambition_characters::brain::boss_pattern::BossAttackProfile {
+    fn encode(&self, out: &mut Vec<u8>) {
+        use ambition_characters::brain::boss_pattern::BossAttackProfile as P;
+        match self {
+            P::Strike(key) => {
+                put_u8(out, 0);
+                put_str(out, key);
+            }
+            P::Special(key) => {
+                put_u8(out, 1);
+                put_str(out, key);
+            }
+        }
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        use ambition_characters::brain::boss_pattern::BossAttackProfile as P;
+        match r.u8()? {
+            0 => Some(P::Strike(r.str()?.to_string())),
+            1 => Some(P::Special(r.str()?.to_string())),
+            _ => None,
+        }
+    }
+}
+
+fn put_opt_profile(
+    out: &mut Vec<u8>,
+    v: &Option<ambition_characters::brain::boss_pattern::BossAttackProfile>,
+) {
+    match v {
+        None => put_bool(out, false),
+        Some(p) => {
+            put_bool(out, true);
+            p.encode(out);
+        }
+    }
+}
+
+#[allow(clippy::option_option)]
+fn read_opt_profile(
+    r: &mut Reader<'_>,
+) -> Option<Option<ambition_characters::brain::boss_pattern::BossAttackProfile>> {
+    use ambition_characters::brain::boss_pattern::BossAttackProfile as P;
+    Some(if r.bool()? { Some(P::decode(r)?) } else { None })
+}
+
+impl SnapshotState for ambition_characters::brain::boss_pattern::BossAttackState {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_opt_profile(out, &self.telegraph_profile);
+        put_f32(out, self.telegraph_remaining);
+        put_f32(out, self.telegraph_elapsed);
+        match &self.telegraph_spec {
+            None => put_bool(out, false),
+            Some(spec) => {
+                put_bool(out, true);
+                put_opt_str(out, spec.pose.as_deref());
+                put_opt_str(out, spec.cue.as_deref());
+                put_opt_str(out, spec.vfx.as_deref());
+            }
+        }
+        put_opt_profile(out, &self.active_profile);
+        put_f32(out, self.active_remaining);
+        put_f32(out, self.active_elapsed);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        use ambition_characters::brain::boss_pattern::{BossAttackState, TelegraphSpec};
+        let telegraph_profile = read_opt_profile(r)?;
+        let telegraph_remaining = r.f32()?;
+        let telegraph_elapsed = r.f32()?;
+        let telegraph_spec = if r.bool()? {
+            Some(TelegraphSpec {
+                pose: r.opt_str()?.map(str::to_string),
+                cue: r.opt_str()?.map(str::to_string),
+                vfx: r.opt_str()?.map(str::to_string),
+            })
+        } else {
+            None
+        };
+        Some(BossAttackState {
+            telegraph_profile,
+            telegraph_remaining,
+            telegraph_elapsed,
+            telegraph_spec,
+            active_profile: read_opt_profile(r)?,
+            active_remaining: r.f32()?,
+            active_elapsed: r.f32()?,
+        })
+    }
+}
+
+impl SnapshotState for ambition_characters::brain::boss_pattern::BossAttackIntent {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_opt_profile(out, &self.telegraph_profile);
+        put_opt_profile(out, &self.active_profile);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(ambition_characters::brain::boss_pattern::BossAttackIntent {
+            telegraph_profile: read_opt_profile(r)?,
+            active_profile: read_opt_profile(r)?,
+        })
+    }
+}
+
+/// `Omniscient` reads the global `ActorTarget`; `Sighted` carries its viewport. Not a
+/// unit enum, so `snapshot_unit_enum!` cannot have it — but the discriminant is still
+/// explicit for exactly the same reason.
+impl SnapshotState for ambition_actors::features::ecs::perception::Perception {
+    fn encode(&self, out: &mut Vec<u8>) {
+        use ambition_actors::features::ecs::perception::Perception as P;
+        match self {
+            P::Omniscient => put_u8(out, 0),
+            P::Sighted { viewport_half } => {
+                put_u8(out, 1);
+                put_vec2(out, *viewport_half);
+            }
+        }
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        use ambition_actors::features::ecs::perception::Perception as P;
+        match r.u8()? {
+            0 => Some(P::Omniscient),
+            1 => Some(P::Sighted {
+                viewport_half: r.vec2()?,
+            }),
+            _ => None,
+        }
+    }
+}
+
+/// The brain's memory of what it has seen — FB5's habit model reads it, and FB6's
+/// rollouts cannot run until it rewinds. Ordered by actor id, because `WorldMemory`
+/// is a `BTreeMap` (ADR 0023, and a real bug: see `last_known_hostile`).
+impl SnapshotState for ambition_actors::features::ecs::perception::PerceptionMemory {
+    fn encode(&self, out: &mut Vec<u8>) {
+        let rows: Vec<_> = self.0.entries().collect();
+        put_u32(out, rows.len() as u32);
+        for (id, m) in rows {
+            put_str(out, id);
+            put_vec2(out, m.pos);
+            put_vec2(out, m.vel);
+            m.faction.encode(out);
+            put_bool(out, m.hostile_to_self);
+            put_f32(out, m.last_seen);
+            put_f32(out, m.confidence);
+        }
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        use ambition_characters::perception::{RememberedActor, WorldMemory};
+        let n = r.u32()?;
+        let mut rows = Vec::with_capacity(n as usize);
+        for _ in 0..n {
+            let id = r.str()?.to_string();
+            rows.push((
+                id,
+                RememberedActor {
+                    pos: r.vec2()?,
+                    vel: r.vec2()?,
+                    faction: ambition_characters::actor::ActorFaction::decode(r)?,
+                    hostile_to_self: r.bool()?,
+                    last_seen: r.f32()?,
+                    confidence: r.f32()?,
+                },
+            ));
+        }
+        Some(
+            ambition_actors::features::ecs::perception::PerceptionMemory(
+                WorldMemory::from_snapshot(rows),
+            ),
+        )
     }
 }
 
@@ -1917,6 +2135,63 @@ mod tests {
             center: Vec2::new(5.0, 6.0),
             half_size: Vec2::new(8.0, 16.0),
         });
+        {
+            use ambition_actors::features::ecs::perception::{Perception, PerceptionMemory};
+            use ambition_characters::actor::ActorFaction;
+            use ambition_characters::brain::boss_pattern::{
+                BossAttackIntent, BossAttackProfile, BossAttackState, TelegraphSpec,
+            };
+            use ambition_characters::perception::{RememberedActor, WorldMemory};
+
+            round_trip(BossAttackProfile::Strike("floor_slam".into()));
+            round_trip(BossAttackProfile::Special("overfit_volley".into()));
+            round_trip(BossAttackIntent {
+                telegraph_profile: Some(BossAttackProfile::Strike("side_sweep".into())),
+                active_profile: None,
+            });
+            round_trip(BossAttackState {
+                telegraph_profile: None,
+                telegraph_remaining: 0.4,
+                telegraph_elapsed: 0.1,
+                telegraph_spec: Some(TelegraphSpec {
+                    pose: Some("wind_up".into()),
+                    cue: None,
+                    vfx: Some("sparks".into()),
+                }),
+                active_profile: Some(BossAttackProfile::Special("apple_rain".into())),
+                active_remaining: 1.25,
+                active_elapsed: -0.0,
+            });
+            round_trip(Perception::Omniscient);
+            round_trip(Perception::Sighted {
+                viewport_half: Vec2::new(320.0, 180.0),
+            });
+            round_trip(PerceptionMemory(WorldMemory::from_snapshot([
+                (
+                    "zeta".to_string(),
+                    RememberedActor {
+                        pos: Vec2::new(1.0, 2.0),
+                        vel: Vec2::new(-3.0, 0.0),
+                        faction: ActorFaction::Player,
+                        hostile_to_self: true,
+                        last_seen: 9.5,
+                        confidence: 0.75,
+                    },
+                ),
+                (
+                    "alpha".to_string(),
+                    RememberedActor {
+                        pos: Vec2::ZERO,
+                        vel: Vec2::ZERO,
+                        faction: ActorFaction::Neutral,
+                        hostile_to_self: false,
+                        last_seen: 0.0,
+                        confidence: 1.0,
+                    },
+                ),
+            ])));
+        }
+
         round_trip(bc::BodyMana {
             meter: ambition_engine_core::player_state::ResourceMeter {
                 current: 12.0,

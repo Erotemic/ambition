@@ -571,6 +571,20 @@ impl WorldMemory {
             })
     }
 
+    /// Every remembered actor, in id order. For `ambition_runtime::snapshot`, and
+    /// deterministic by construction now that the map is a `BTreeMap`.
+    pub fn entries(&self) -> impl Iterator<Item = (&str, &RememberedActor)> {
+        self.actors.iter().map(|(id, m)| (id.as_str(), m))
+    }
+
+    /// Rebuild from a snapshot blob. The only way to construct a `WorldMemory` other
+    /// than by [`WorldMemory::update`], and named for its one caller.
+    pub fn from_snapshot(entries: impl IntoIterator<Item = (String, RememberedActor)>) -> Self {
+        Self {
+            actors: entries.into_iter().collect(),
+        }
+    }
+
     /// How many actors are currently remembered (in view or fading).
     pub fn len(&self) -> usize {
         self.actors.len()

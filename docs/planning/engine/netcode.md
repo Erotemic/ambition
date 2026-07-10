@@ -386,11 +386,11 @@ snapshots needed. Needs N0 complete, plus:
   | room | component types a rewind leaves stale | rewind is exact? |
   |---|---|---|
   | `gap_run` | 34 | ✅ **yes** |
-  | `portal_lab` | 64 | no |
-  | `mockingbird_arena` | 71 | no |
-  | `gnu_ton_arena` | **83** | no |
+  | `portal_lab` | 62 | no |
+  | `mockingbird_arena` | 69 | no |
+  | `gnu_ton_arena` | **79** | no |
 
-  Pinned at 83 — the **peak over the run**, not the count at its end. The first
+  Pinned at 79 — the **peak over the run**, not the count at its end. The first
   version of this ledger measured once, after 120 ticks, by which time the arena
   bosses were dead and despawned; `gnu_ton_arena` duly reported the same 35 types as
   `gap_run`, which is the count of a world containing only the player. The debt was
@@ -449,7 +449,7 @@ snapshots needed. Needs N0 complete, plus:
   meant to look at.
 
   This is the general shape of the authored/mutable split, and it is why the coverage
-  ledger is an upper bound rather than a debt: many of the 83 want a *cursor*, not a
+  ledger is an upper bound rather than a debt: many of the 79 want a *cursor*, not a
   codec.
 
   ### The three named blockers between here and a clean arena
@@ -559,19 +559,38 @@ snapshots needed. Needs N0 complete, plus:
   restore-only code paths)."* `retire_orphaned_strike_volumes` runs whether or not
   anyone ever rolls back.
 
-  The rest of the boss table stands:
+  The rest of the boss table, updated:
 
-  The rest of the boss table stands:
+  | component | kind | status |
+  |---|---|---|
+  | `BossPatternTimer` | component | ✅ registered |
+  | `BossPhase` | component | ✅ registered |
+  | `MovePlayback` | resolve | ✅ registered |
+  | `BossAttackState` | component | ✅ registered (profiles as `(tag, key)`) |
+  | `BossAttackIntent` | component | ✅ registered |
+  | `Perception` | component | ✅ registered (`Sighted` carries a viewport — not a unit enum) |
+  | `PerceptionMemory` | component | ✅ registered — and see below |
+  | **`Brain`** | **cursor** | ⛔ **the arenas' remaining blocker** |
 
-  | component | kind | blob | status |
-  |---|---|---|---|
-  | `BossPatternTimer` | component | one `f32` | ✅ registered |
-  | `BossPhase` | component | `snapshot_unit_enum!` | ✅ registered |
-  | `MovePlayback` | resolve | `(move_id, facing, t, landed_hit)` | ✅ registered |
-  | `BossAttackState` | component | profiles as `(tag, key)`, four `f32` clocks, telegraph spec by key | todo |
-  | `BossAttackIntent` | component | two optional `(tag, key)` | todo |
-  | `Perception` | component | `Omniscient` / `Sighted { viewport_half }` — not a unit enum | todo |
-  | `PerceptionMemory` | component | `WorldMemory`, which FB5 already keeps in a `BTreeMap` for exactly this reason | todo |
+  **`PerceptionMemory` could not be registered until a determinism bug was fixed.**
+  `WorldMemory.actors` was a `std::collections::HashMap`, so its iteration order — and
+  therefore any blob written from it — was seeded per process. It was also a live bug:
+  `last_known_hostile` `max_by`s confidence over `.values()`, and two hostiles in view
+  are both at `1.0`. See the N0.3 note above. It is a `BTreeMap` now, which is what
+  makes the codec's row order meaningful at all.
+
+  **`Brain` is the last thing standing between `mockingbird_arena` and a clean
+  rewind.** `Brain::StateMachine(StateMachineCfg::BossPattern { state, .. })` holds a
+  `BossPatternState`, which is the boss's entire mind: `step_index`, `step_elapsed`,
+  `pattern_timer`, `movement_timer`, `cycle_phase`, `macro_state`, `stance_stack`,
+  `interrupt_cooldowns`, a resolved `timeline: Vec<BossPatternStep>` — and **`rng_seed:
+  u64`**, which this section's own checklist names (*"every seeded RNG resource"*).
+
+  It is a `SnapshotCursor`: the brain's *kind* and its tuning are authored and survive
+  the patch; only the state half rides the blob. The `timeline` is re-resolved from the
+  cfg by `advance_scripted` on each loop, so it is derived from `(pattern, rng_seed,
+  step_index)` — encode the seed and the cursor, not the resolved steps. That is the
+  same "reference authored content by its authored id" rule a third time.
 
   **The content-side specials need one more thing than a codec.** `EchoFanState`,
   `OverflowState`, `GradientCascadeState`, `SeismicStompState`, `MinimaTrapState`,

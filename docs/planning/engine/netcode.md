@@ -629,17 +629,26 @@ snapshots needed. Needs N0 complete, plus:
      platforms + clocks), which moves `portal_lab` to CLEAN — see the bounded-window
      item. Dynamic children wrongly in the `placement:` namespace (boss hands) route to
      the dynamic-spawn item.
-  3. **Reconciliation ordering:** reconcile first; only then compute stale
-     components and unidentified survivors against the post-reconciliation roster.
-  4. **Codec failure semantics:** registered decode failures are restore errors in
-     every build mode. Land the corrupted-blob poison test in the same commit.
-  5. **Positive losslessness:** `lossless()` covers unique identity, registered
-     components, mutable resources, relevant messages/events, successful codecs,
-     no unexplained survivors/stale state, and no naked reconstruction outside an
-     explicit policy. Intentional exclusions are named policy, never silence.
-  6. **Dynamic births + bounded window:** register reconstruction recipes or
-     constrain rollback so unsupported births cannot be crossed; then tag
-     confirmed read-model ticks and deduplicate resim side effects.
+  3. **Reconciliation ordering:** DONE (S2.4). Stale components and unidentified
+     survivors are computed AFTER reconciliation, over the final restored roster.
+  4. **Codec failure semantics:** DONE (S2.5). The decode closures return success;
+     `restore` returns `RestoreError::DecodeFailed` in every build; corrupted-blob
+     poison test landed in the same commit.
+  5. **Positive losslessness:** DONE (S2.6/S2.7/S2.8). `lossless(unregistered_sim_resources)`
+     is a positive contract: identity uniqueness and decode success are guaranteed by the
+     report existing; it checks no stale component, no unidentified survivor, no naked
+     reconstruction, and complete mutable-RESOURCE coverage. The sim-resource universe is a
+     NAMED exclusion policy (`SIM_RESOURCE_EXCLUSIONS`), never silence.
+  6. **Dynamic births + bounded window:** PARTLY DONE (S2.9/S2.10). The unsupported-window
+     RULE is enforced: `restore` refuses `RestoreError::UnsupportedDynamicBirth` when a
+     `SimId::spawned(..)` entity (id contains `/`) is in the snapshot, gone from the world,
+     and unauthored — a dynamic birth reconstructed from blobs alone is not exact. REMAINING
+     for exact-across-a-birth: register reconstruction recipes per dynamic spawner; then tag
+     confirmed read-model ticks and deduplicate resim side effects. Also remaining: the boss
+     hands (`giant_gnu_hand_left/right_7`) get a `FeatureId`, so `ensure_sim_id` promotes them
+     into the `placement:` namespace with an entity-index-derived (non-deterministic) name;
+     they should mint `SimId::spawned(parent_giant_sim_id, counter)` at spawn. No suite room
+     yet spawns AND kills a dynamic child inside a window, so the recipe path is unexercised.
 
   Poison-test atomicity is binding: do not land a known-red future test or pin the
   current bug. Full rationale and the three-series order live in

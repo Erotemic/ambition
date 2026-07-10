@@ -1,15 +1,25 @@
 # Test-organization migration ledger
 
-**Status:** IN PROGRESS (started 2026-07-10, commit `5950499`).
-**Goal:** three clear test homes — (1) local behavioral tests inline or in adjacent
-`src/foo/tests.rs`; (2) public crate/assembled-system behavior in each crate's
-`tests/`; (3) workspace *policy* tests (source scans, dependency boundaries,
-module-size, architecture ratchets, forbidden-name checks) sequestered in one
-top-level package `tests/ambition_workspace_policy`.
+**Status: COMPLETE (2026-07-10, commit `5950499` → HEAD).** Retained as HISTORICAL
+EVIDENCE of the migration, not as a live source of truth. The LIVE authorities are
+now: `tests/ambition_workspace_policy/policies/*.toml` + `src/custom/*.rs` (the
+guards themselves), `migration_matrix.toml` (the architecture_boundaries mapping,
+machine-checked), and `docs/concepts/test-placement.md` (the binding rule).
 
-This is a migration ledger, not a design doc. It is the single source of truth for
-"where does every old policy test go" until the campaign closes, then it is archived
-as historical evidence.
+**Goal (achieved):** three clear test homes — (1) local behavioral tests inline or
+in adjacent `src/foo/tests.rs`; (2) public crate/assembled-system behavior in each
+crate's `tests/`; (3) workspace *policy* tests (source scans, dependency boundaries,
+module-size, architecture ratchets, forbidden-name checks) sequestered in one
+top-level package `tests/ambition_workspace_policy` that links no production crate.
+
+**Outcome:** 7 policy test files (4,769 LOC) + 1 inline lib ratchet deleted from
+production source dirs; all their guards live in the policy package as **215
+declarative policies** (repository 2 / engine 173 / game 40) + **5 custom scanners**
+(module-size, determinism, control-frame, raw-spawn lifecycle, archetype-free
+content-ownership) + the migration-matrix completeness self-test. Policy binaries
+6→1; edit-test loop 13.6 s→0.47 s (Rust) / 0.14 s (data); the policy suite never
+compiles `ambition_app`. Separately, 11 large inline test modules were extracted to
+adjacent `src/foo/tests.rs` (pure moves), retiring 4 module-size waivers.
 
 ## Baseline (commit `5950499`, HEAD `8099506`)
 

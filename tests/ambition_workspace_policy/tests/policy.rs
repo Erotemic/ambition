@@ -11,7 +11,9 @@
 //! validates the runner itself: real owners, existing watch-paths, non-vacuous
 //! source roots, and poison fixtures that prove every rule kind still reacts.
 
-use ambition_workspace_policy::{run_declarative, workspace, Policy, Report, Scope, Workspace};
+use ambition_workspace_policy::{
+    custom, run_declarative, workspace, Policy, Report, Scope, Workspace,
+};
 
 // ── the three scope tests ────────────────────────────────────────────────────
 
@@ -28,8 +30,9 @@ fn engine_policies() {
     let ws = Workspace::discover();
     let mut report = Report::new(Scope::Engine);
     run_declarative(&ws, Scope::Engine, &mut report);
-    // Custom engine scanners (module-size, determinism, control-frame) are
-    // appended here as they migrate (Tasks 5/7/8).
+    // Custom engine scanners share the compiled runner and the same Report.
+    custom::module_size::run(&ws, &mut report);
+    // (determinism, control-frame appended in Tasks 7/8.)
     report.assert_ok();
 }
 
@@ -77,6 +80,9 @@ fn policy_runner_self_tests() {
     comment_lines_are_exempt_from_source_scan();
     whole_ident_does_not_overmatch_but_substring_does();
     allow_marker_suppresses_a_line();
+
+    // Custom scanners' own poison.
+    custom::module_size::poison_reacts(&Workspace::discover());
 }
 
 fn workspace_discovery_finds_the_root() {

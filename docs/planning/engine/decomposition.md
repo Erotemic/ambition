@@ -363,17 +363,20 @@ agents can navigate the code *inside* those boundaries.
    missing/unknown waiver fails.
 
 **Progress (Series 1, 2026-07-10):** criteria 1–3 and 5 are DONE, and the metadata
-half of 4 is done. The executable gate is
-[`crates/ambition_runtime/tests/module_size.rs`](../../../crates/ambition_runtime/tests/module_size.rs):
+half of 4 is done. The executable gate is the `engine.module-size` policy
+([`tests/ambition_workspace_policy/src/custom/module_size.rs`](../../../tests/ambition_workspace_policy/src/custom/module_size.rs)
++ its waiver list in
+[`policies/module_size.toml`](../../../tests/ambition_workspace_policy/policies/module_size.toml);
+migrated 2026-07-10 from the retired `crates/ambition_runtime/tests/module_size.rs`):
 it walks every production `.rs` under `crates/*/src` and `game/*/src` (test files
 excluded by path; inline `#[cfg(test)]` counts), fails any unwaived module over 1500
 lines, and — bidirectionally — fails a waiver whose file is no longer oversized.
 Exceptions are a named waiver list with one reviewed reason per path; nothing is
-inferred. It is poison-tested (a disabled waiver reddens the gate on `falling_sand.rs`
-at 1588 lines). The stale `MODULES.md` was regenerated and the 44-member count
-corrected. **What KEEPS D-B reopened is criterion 4's other half:** nine modules are
-still waived debt (snapshot.rs 3744, moveset.rs 3022, view_cones.rs 2206, and six
-more). D-B re-closes when that list is split down, not merely gated.
+inferred. It is poison-tested (`poison_reacts` drives the real walk with a hostile
+limit + a stale waiver). The stale `MODULES.md` was regenerated and the 44-member
+count corrected. **What KEEPS D-B reopened is criterion 4's other half:** nine
+modules are still waived debt (snapshot.rs 3744, moveset.rs 3022, view_cones.rs 2206,
+and six more). D-B re-closes when that list is split down, not merely gated.
 
 `MODULES.md` generation remains useful and the dissolved hub globs remain done;
 those mechanisms are not sufficient to label the whole D-B standard complete.

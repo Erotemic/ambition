@@ -1,0 +1,62 @@
+# D-B's module-size gate (docs/planning/engine/decomposition.md).
+#
+# The standard: a production module is at most ~1.5k lines. It was DOCUMENTED but
+# never enforced (audit H6). This is the executable half — the thing that makes
+# D-B a gate rather than a paragraph, and the reason D-B is REOPENED. Config +
+# waivers are DATA here; the scanner is src/custom/module_size.rs.
+#
+# Scope: every PRODUCTION `.rs` under crates/*/src and game/*/src — engine AND
+# content/demo code. Standalone test files (`tests.rs`, `/tests/`) are excluded by
+# path (workspace::is_test_path); inline `#[cfg(test)]` counts toward its file.
+#
+# Generated/data-heavy declarative modules are NOT inferred: such a file goes in
+# `[[waiver]]` with a reason, so an exception is always a visible review event.
+#
+# The waiver list is BIDIRECTIONAL: an unwaived file over the limit fails (split
+# it or waive it with a reason); a waiver for a file no longer over the limit ALSO
+# fails (the split landed — delete the stale waiver and celebrate). It is a DEBT
+# LEDGER. Shrink it; do not grow it without a reason that survives review.
+
+id = "engine.module-size"
+scope = "engine"
+owners = ["ambition_runtime"]
+source_doc = "docs/planning/engine/decomposition.md"
+rationale = "D-B module-size gate: no production module exceeds ~1500 lines unless waived with a reason; every waiver is decomposition debt, and a stale waiver must be removed when its split lands."
+limit = 1500
+roots = ["crates", "game"]
+
+[[waiver]]
+path = "crates/ambition_runtime/src/snapshot.rs"
+reason = "N3.1 bootstrap god module (audit M9): public API + wire format + registry + restore/reconciliation + per-crate codecs + diagnostics in one file. The codec trait moves down and the file splits during the N3.2 substrate work (netcode.md)."
+
+[[waiver]]
+path = "crates/ambition_combat/src/moveset.rs"
+reason = "the moveset runtime (audit M9): MoveSpec pricing + playback proper-time clock + strike-volume systems. Splits alongside the N3.2 codec relocation."
+
+[[waiver]]
+path = "crates/ambition_portal_presentation/src/view_cones.rs"
+reason = "portal view-cone assembly. Presentation (never sim-hashed); split tracked with the portal-presentation work, no natural seam extracted yet."
+
+[[waiver]]
+path = "crates/ambition_portal_presentation/src/view_cones/geometry.rs"
+reason = "portal view-cone geometry math. Presentation; dense trig with no clean seam yet."
+
+[[waiver]]
+path = "crates/ambition_characters/src/brain/smash/mod.rs"
+reason = "the smash-brain state machine. A decomposition target; no sub-module extracted yet."
+
+[[waiver]]
+path = "crates/ambition_engine_core/src/surface.rs"
+reason = "the collision-surface primitive. Core geometry; a split is not yet scoped."
+
+[[waiver]]
+path = "crates/ambition_entity_catalog/src/lib.rs"
+reason = "data-heavy declarative catalog — the auditor's named exception class (a large table of authored entity definitions, not branching logic)."
+
+[[waiver]]
+path = "game/ambition_app/src/menu/kaleidoscope_app.rs"
+reason = "declarative menu UI (a Lunex node tree). Presentation, data-heavy by nature."
+
+[[waiver]]
+path = "game/ambition_content/src/falling_sand.rs"
+reason = "falling-sand grid simulation + its visual-sync systems in one module. Content; a sim/presentation split is not yet scoped."

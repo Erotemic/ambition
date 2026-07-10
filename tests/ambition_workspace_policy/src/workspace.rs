@@ -184,6 +184,33 @@ pub fn rust_sources_under(dir: &Path) -> Vec<PathBuf> {
     files
 }
 
+// ── central production/test path classification ──────────────────────────────
+
+/// Whether a workspace-relative `.rs` path is a TEST module rather than a
+/// production module. THE single classifier — the module-size gate uses it to
+/// keep test LOC out of the production count, so extracting a large inline test
+/// into an adjacent `src/foo/tests.rs` (Task 11) is reclassified automatically,
+/// by explicit path shape, not a filename-substring guess:
+///   * a standalone integration test lives under a `tests/` directory;
+///   * an adjacent unit-test module is `…/tests.rs` (or `…/tests/*.rs`).
+/// Inline `#[cfg(test)]` modules are intentionally NOT excluded here — they count
+/// toward their file's size (a 3.7k-line file is hard to navigate no matter how
+/// much of it is tests, and this matches how audit H6 counted).
+///
+/// Explicit path rules, anchored on the basename, not a loose `contains("test")`
+/// heuristic — so a production `attests.rs` is NOT misread as a test:
+///   * an adjacent unit-test module: basename exactly `tests.rs`;
+///   * a sibling test file: basename ends with `_tests.rs` (legacy convention);
+///   * anything under a `tests/` directory.
+pub fn is_test_path(rel: &str) -> bool {
+    let rel = rel.replace('\\', "/");
+    let base = rel.rsplit('/').next().unwrap_or(&rel);
+    base == "tests.rs"
+        || base.ends_with("_tests.rs")
+        || rel.contains("/tests/")
+        || rel.starts_with("tests/")
+}
+
 // ── shared scanning primitives ───────────────────────────────────────────────
 
 /// A whole-line comment (`//`, `/*`, `*`, doc lines). Prose that names a

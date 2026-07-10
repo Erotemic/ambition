@@ -97,6 +97,25 @@ Old files deleted after parity: `crates/ambition_host/tests/host_names_no_conten
 `crates/ambition_render/tests/observation_boundary.rs`, and the inline
 `dependency_tests` module in `crates/ambition_world/src/lib.rs`.
 
+### Task 5 — module-size policy (LANDED)
+
+All four `module_size.rs` tests → `custom:module_size` (scanner
+`src/custom/module_size.rs`, config `policies/module_size.toml`):
+
+| old test fn (module_size.rs) | destination |
+| --- | --- |
+| `the_size_scan_is_not_vacuous` | custom:`module_size` (vacuity assert, >300 files) |
+| `no_production_module_exceeds_the_size_limit_unwaived` | custom:`module_size` (oversized-unwaived diagnostics) |
+| `every_waiver_names_a_currently_oversized_file` | custom:`module_size` (stale-waiver diagnostics) |
+| `every_waiver_has_a_real_reason` | custom:`module_size` (reason-quality assert, >20 chars) |
+
+All 9 waivers moved verbatim to `policies/module_size.toml`. Production/test path
+classification centralized in `workspace::is_test_path` (explicit basename rules:
+adjacent `tests.rs`, sibling `_tests.rs`, `/tests/` dirs — not a loose substring,
+so `attests.rs` is not misread). Deleted after parity:
+`crates/ambition_runtime/tests/module_size.rs`. D-B doc links updated
+(decomposition.md + tracks.md) to the new location; REOPENED status unchanged.
+
 <!-- MIGRATION-MATRIX-END -->
 
 ## Commands (target model)

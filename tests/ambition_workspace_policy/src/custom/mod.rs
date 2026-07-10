@@ -9,3 +9,5 @@
 //! place.
 //!
 //! Populated as the custom scanners migrate (Tasks 5, 7, 8, 9).
+
+pub mod module_size;

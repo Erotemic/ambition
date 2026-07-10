@@ -168,6 +168,11 @@ pub enum BossPatternStep {
     Telegraph {
         profile: BossAttackProfile,
         duration: f32,
+        /// **BD3 — the authored anticipation.** `#[serde(default)]`, so every
+        /// pre-BD3 row parses unchanged. `None` means "this attack telegraphs by
+        /// duration alone", which §3 rule 5 counts as *no telegraph identity*.
+        #[serde(default)]
+        telegraph: Option<TelegraphSpec>,
     },
     /// Hitbox is live: active volumes draw, contact damages the player.
     Strike {
@@ -190,6 +195,46 @@ pub enum BossPatternStep {
     /// to come back to. Zero duration. Reaching the end of a stance returns to the
     /// step after the `Stance` that entered it.
     Stance { id: String },
+}
+
+/// **BD3 — the telegraph a player READS.** `docs/planning/engine/boss-design.md`
+/// §1: *"a `telegraph` presentation event on pattern/move rows (pose row, flash,
+/// sfx cue — combat-model CM5's event channel) so anticipation is AUTHORED per
+/// attack, and the validator (§3) can SEE it."*
+///
+/// The duration of a wind-up says how LONG the player has. This says what they
+/// are looking at. §3 rule 5 — *"distinct attacks must differ in telegraph (pose
+/// row OR cue)"* — is a statement about THIS type, and cannot be made about a
+/// duration: two attacks that both wind up for 1.2 s are not thereby
+/// distinguishable, and a fight in which every attack looks the same is
+/// unreadable however generous its timings.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, serde::Deserialize)]
+pub struct TelegraphSpec {
+    /// The animation row the boss holds while winding up. The strongest signal,
+    /// because it is on screen the whole time.
+    #[serde(default)]
+    pub pose: Option<String>,
+    /// A CM5 sfx cue id, played once on the telegraph's rising edge.
+    #[serde(default)]
+    pub cue: Option<String>,
+    /// A CM5 vfx effect id, spawned once on the rising edge.
+    #[serde(default)]
+    pub vfx: Option<String>,
+}
+
+impl TelegraphSpec {
+    /// Does this spec say anything at all? An all-`None` spec is authored noise
+    /// and reads as absent — the validator treats it as no telegraph identity.
+    pub fn is_authored(&self) -> bool {
+        self.pose.is_some() || self.cue.is_some() || self.vfx.is_some()
+    }
+
+    /// §3 rule 5's IDENTITY: what makes this telegraph distinguishable from
+    /// another. Two attacks may share a `vfx` flourish; they may not share both a
+    /// pose and a cue, because then nothing on screen tells them apart.
+    pub fn identity(&self) -> (Option<&str>, Option<&str>) {
+        (self.pose.as_deref(), self.cue.as_deref())
+    }
 }
 
 /// One arm of a [`BossPatternStep::Select`] table.
@@ -630,7 +675,7 @@ impl BossPatternCfg {
             } => {
                 for pattern in [intro, phase1, transition, phase2, enrage] {
                     for step in &pattern.steps {
-                        if let BossPatternStep::Telegraph { profile, duration } = step {
+                        if let BossPatternStep::Telegraph { profile, duration, .. } = step {
                             push(profile, *duration);
                         }
                     }
@@ -976,6 +1021,11 @@ pub struct BossAttackState {
     /// Consumers use this to sample sprite-authored per-frame
     /// hit/hurt boxes without depending on presentation components.
     pub telegraph_elapsed: f32,
+    /// BD3: the authored anticipation for the live telegraph, projected out of the
+    /// pattern so presentation reads ONE read-model rather than re-walking the
+    /// script. `None` when nothing is telegraphing, or when the step authored no
+    /// [`TelegraphSpec`].
+    pub telegraph_spec: Option<TelegraphSpec>,
     /// `Some(profile)` while the brain is inside a `Strike` step for
     /// `profile`; `None` outside Strike.
     pub active_profile: Option<BossAttackProfile>,
@@ -1024,6 +1074,7 @@ impl BossAttackState {
     /// phase (Dormant / Stagger / Death).
     pub fn clear(&mut self) {
         self.telegraph_profile = None;
+        self.telegraph_spec = None;
         self.telegraph_remaining = 0.0;
         self.telegraph_elapsed = 0.0;
         self.active_profile = None;

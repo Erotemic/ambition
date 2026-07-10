@@ -6,6 +6,7 @@ fn scripted_two_step_phase1(strike_profile: BossAttackProfile) -> BossAttackPatt
             BossPatternStep::Telegraph {
                 profile: strike_profile.clone(),
                 duration: 0.5,
+                telegraph: None,
             },
             BossPatternStep::Strike {
                 profile: strike_profile.clone(),
@@ -817,6 +818,7 @@ fn idle_attack_chance_can_gate_rest_into_eye_beam() {
             BossPatternStep::Telegraph {
                 profile: BossAttackProfile::Special("eye_beam".into()),
                 duration: 0.5,
+                telegraph: None,
             },
             BossPatternStep::Strike {
                 profile: BossAttackProfile::Special("eye_beam".into()),
@@ -917,6 +919,7 @@ fn scripted_repertoire_dedups_strike_profiles_in_first_seen_order() {
             BossPatternStep::Telegraph {
                 profile: BossAttackProfile::Strike("floor_slam".to_string()),
                 duration: 0.5,
+                telegraph: None,
             },
             BossPatternStep::Strike {
                 profile: BossAttackProfile::Strike("floor_slam".to_string()),

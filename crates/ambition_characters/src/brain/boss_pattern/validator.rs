@@ -26,7 +26,7 @@
 //! | 2 answer coverage | ✅ both halves: an empty `fair_counters` is an ERROR; a fight that fails to demand a core verb is a WARNING |
 //! | 3 commitment (punish window) | ✅ per beat, from the following `Rest`; `Pressure` is exempt |
 //! | 4 simultaneity budget | ❌ **not expressible.** A scripted timeline is sequential, so its body-mounted volumes never overlap. The threats that DO overlap are the `zone_denial` hazards a `Special` spawns, whose lifetime lives in the content technique's private consts (`MINIMA_TRAP_HAZARD_DURATION_S`), not in any authored row. This rule needs a `persists_s` on the seed, fed by the technique. |
-//! | 5 readability floor | ❌ **not expressible.** *"distinct attacks must differ in telegraph (pose row OR cue)"* — the authored data carries a telegraph DURATION, which is not a telegraph IDENTITY. It needs BD3's telegraph channel (pose row + cue), which does not exist yet. |
+//! | 5 readability floor | ✅ **since BD3.** Two distinct attacks may not share a `(pose, cue)` telegraph identity. An attack that authors NO identity is reported once per fight — a warning today, because the shipped roster authors none, and §3's "attacks without a telegraph event FAIL" is a promise for after BD7's pilot. |
 //!
 //! Naming the two gaps here, in the code, rather than shipping a rule that checks
 //! something adjacent and reports green.
@@ -34,7 +34,9 @@
 use std::collections::BTreeSet;
 
 use super::seeds::{MovementVerb, SeedLibrary, ThreatClass};
-use super::{BossAttackPattern, BossAttackProfile, BossEncounterPhase, BossPatternStep};
+use super::{
+    BossAttackPattern, BossAttackProfile, BossEncounterPhase, BossPatternStep, TelegraphSpec,
+};
 
 /// Per-threat-class tick floors. Ticks, because §3's calibration is in ticks and
 /// the sim runs at a fixed rate — a designer reasoning about "frames of startup"
@@ -94,6 +96,8 @@ pub enum Rule {
     AnswerCoverage,
     /// 3 — the commitment rule (punish window).
     Commitment,
+    /// 5 — the readability floor: distinct attacks must differ in telegraph.
+    ReadabilityFloor,
     /// A move the seed library does not catalogue. Not one of §3's five: it is the
     /// precondition for rules 1–3, all of which read the seed.
     UncataloguedMove,
@@ -120,6 +124,8 @@ pub struct Beat {
     pub telegraph_s: f32,
     pub active_s: f32,
     pub recovery_s: f32,
+    /// BD3's authored anticipation, if the step carried one. §3 rule 5 reads it.
+    pub telegraph: Option<TelegraphSpec>,
 }
 
 fn move_key(profile: &BossAttackProfile) -> &str {
@@ -134,24 +140,32 @@ fn move_key(profile: &BossAttackProfile) -> &str {
 /// their own sequence (arms are alternatives, not a continuation). A `Stance`
 /// marker is a jump; its body is walked by the caller from `pattern.stances`.
 fn beats_in(steps: &[BossPatternStep], phase: BossEncounterPhase, out: &mut Vec<Beat>) {
-    let mut pending_telegraph: Option<(String, f32)> = None;
+    let mut pending_telegraph: Option<(String, f32, Option<TelegraphSpec>)> = None;
     let mut awaiting_recovery: Option<usize> = None;
 
     for step in steps {
         match step {
-            BossPatternStep::Telegraph { profile, duration } => {
+            BossPatternStep::Telegraph {
+                profile,
+                duration,
+                telegraph,
+            } => {
                 // A telegraph ends the previous strike's punish window: whatever
                 // Rest we had (possibly none) is what the player got.
                 awaiting_recovery = None;
-                pending_telegraph = Some((move_key(profile).to_string(), *duration));
+                pending_telegraph = Some((
+                    move_key(profile).to_string(),
+                    *duration,
+                    telegraph.clone().filter(|t| t.is_authored()),
+                ));
             }
             BossPatternStep::Strike { profile, duration } => {
                 let key = move_key(profile).to_string();
-                let telegraph_s = match pending_telegraph.take() {
-                    Some((tk, d)) if tk == key => d,
+                let (telegraph_s, telegraph) = match pending_telegraph.take() {
+                    Some((tk, d, spec)) if tk == key => (d, spec),
                     // A strike with no telegraph of its own. Rule 1 will report it
                     // as a zero-telegraph attack, which is what it is.
-                    _ => 0.0,
+                    _ => (0.0, None),
                 };
                 out.push(Beat {
                     move_key: key,
@@ -159,6 +173,7 @@ fn beats_in(steps: &[BossPatternStep], phase: BossEncounterPhase, out: &mut Vec<
                     telegraph_s,
                     active_s: *duration,
                     recovery_s: 0.0,
+                    telegraph,
                 });
                 awaiting_recovery = Some(out.len() - 1);
             }
@@ -218,6 +233,9 @@ pub fn fight_beats(
                     telegraph_s: cycle_windup_s,
                     active_s: cycle_active_s,
                     recovery_s: cycle_cooldown_s,
+                    // A `Cycle` boss authors no per-step telegraph: the flat windup
+                    // is all it has. Rule 5 reports it as un-identified, which it is.
+                    telegraph: None,
                 });
             }
         }
@@ -315,6 +333,59 @@ pub fn validate_fight(
                 ));
             }
         }
+    }
+
+    // Rule 5 — the readability floor. *"Distinct attacks must differ in telegraph
+    // (pose row OR cue)."* Only expressible since BD3 gave a telegraph an IDENTITY:
+    // a DURATION cannot distinguish two attacks, and a fight in which everything
+    // looks the same is unreadable however generous its timings.
+    //
+    // Scanned over a `Vec`, sorted — never a hash map (ADR 0023): a validator's
+    // error list must not depend on hash seed.
+    let mut identities: Vec<(String, String)> = Vec::new();
+    let mut unidentified: Vec<String> = Vec::new();
+    for beat in beats {
+        match beat.telegraph.as_ref().filter(|t| t.is_authored()) {
+            Some(spec) => {
+                let (pose, cue) = spec.identity();
+                let key = format!("{}|{}", pose.unwrap_or(""), cue.unwrap_or(""));
+                identities.push((key, beat.move_key.clone()));
+            }
+            None => {
+                if !unidentified.contains(&beat.move_key) {
+                    unidentified.push(beat.move_key.clone());
+                }
+            }
+        }
+    }
+    identities.sort();
+    for pair in identities.windows(2) {
+        let (a, b) = (&pair[0], &pair[1]);
+        if a.0 == b.0 && a.1 != b.1 {
+            findings.push(FightFinding {
+                severity: Severity::Error,
+                rule: Rule::ReadabilityFloor,
+                subject: format!("{} / {}", a.1, b.1),
+                detail: format!(
+                    "two distinct attacks share the telegraph identity `{}` — nothing \
+                     on screen tells them apart",
+                    a.0
+                ),
+            });
+        }
+    }
+    if !unidentified.is_empty() {
+        unidentified.sort();
+        findings.push(FightFinding {
+            severity: Severity::Warning,
+            rule: Rule::ReadabilityFloor,
+            subject: fight_id.to_string(),
+            detail: format!(
+                "{} attack(s) author no telegraph (pose or cue): {unidentified:?}. §3 \
+                 makes this an ERROR after BD7's pilot; today the roster authors none.",
+                unidentified.len()
+            ),
+        });
     }
 
     // Rule 2, second half: forced-movement variety. A fight that never demands a
@@ -447,6 +518,7 @@ mod tests {
             BossPatternStep::Telegraph {
                 profile: BossAttackProfile::Strike(id.to_string()),
                 duration: telegraph,
+                telegraph: None,
             },
             BossPatternStep::Strike {
                 profile: BossAttackProfile::Strike(id.to_string()),
@@ -543,7 +615,9 @@ mod tests {
     fn an_uncatalogued_move_is_an_error_rather_than_a_pass() {
         let steps = strike("mystery_punch", 0.1, 0.1);
         let f = validate_fight("x", &beats(&scripted(steps)), &seeds(), &bands());
-        assert_eq!(f.len(), 2, "the move, and the fight demanding no core verb");
+        // The move; the fight demanding no core verb; the fight authoring no
+        // telegraph identity (rule 5's warning, since BD3).
+        assert_eq!(f.len(), 3);
         assert_eq!(f[0].rule, Rule::UncataloguedMove);
         assert_eq!(f[0].severity, Severity::Error);
     }
@@ -636,5 +710,157 @@ mod tests {
         steps.extend(strike("floor_slam", 1.0, 0.4));
         let b = beats(&scripted(steps));
         assert_eq!(b[1].recovery_s, 0.0);
+    }
+
+    // ── Rule 5: the readability floor (expressible only since BD3) ────────────
+
+    fn telegraphed(id: &str, pose: &str, cue: &str) -> Vec<BossPatternStep> {
+        vec![
+            BossPatternStep::Telegraph {
+                profile: BossAttackProfile::Strike(id.to_string()),
+                duration: 1.0,
+                telegraph: Some(TelegraphSpec {
+                    pose: Some(pose.to_string()),
+                    cue: Some(cue.to_string()),
+                    vfx: None,
+                }),
+            },
+            BossPatternStep::Strike {
+                profile: BossAttackProfile::Strike(id.to_string()),
+                duration: 0.4,
+            },
+            BossPatternStep::Rest { duration: 1.0 },
+        ]
+    }
+
+    /// **The rule 5 that a duration cannot express.** Two attacks wind up for the
+    /// same 1.0s and look identical: nothing on screen tells them apart. A
+    /// telegraph DURATION says how long the player has; a telegraph IDENTITY says
+    /// what they are looking at.
+    #[test]
+    fn two_attacks_that_share_a_pose_and_a_cue_are_unreadable() {
+        let mut steps = telegraphed("floor_slam", "rear_up", "boss_growl");
+        steps.extend(telegraphed("eye_beam", "rear_up", "boss_growl"));
+        let f = validate_fight("x", &beats(&scripted(steps)), &seeds(), &bands());
+        let hit = f
+            .iter()
+            .find(|x| x.rule == Rule::ReadabilityFloor && x.severity == Severity::Error)
+            .expect("identical telegraph identities");
+        assert!(hit.subject.contains("eye_beam") && hit.subject.contains("floor_slam"));
+    }
+
+    /// Differing in EITHER half is enough — §3 says "pose row OR cue".
+    #[test]
+    fn differing_in_the_pose_or_in_the_cue_is_enough() {
+        for (pose_b, cue_b) in [("crouch", "boss_growl"), ("rear_up", "boss_hiss")] {
+            let mut steps = telegraphed("floor_slam", "rear_up", "boss_growl");
+            steps.extend(telegraphed("eye_beam", pose_b, cue_b));
+            let f = validate_fight("x", &beats(&scripted(steps)), &seeds(), &bands());
+            assert!(
+                f.iter()
+                    .all(|x| !(x.rule == Rule::ReadabilityFloor && x.severity == Severity::Error)),
+                "({pose_b}, {cue_b}) should be distinguishable"
+            );
+        }
+    }
+
+    /// The SAME attack telegraphing the same way in two phases is not two attacks.
+    /// A fight is allowed to repeat itself; it is not allowed to lie.
+    #[test]
+    fn one_attack_repeated_shares_its_own_identity_without_complaint() {
+        let mut steps = telegraphed("floor_slam", "rear_up", "boss_growl");
+        steps.extend(telegraphed("floor_slam", "rear_up", "boss_growl"));
+        let f = validate_fight("x", &beats(&scripted(steps)), &seeds(), &bands());
+        assert!(f
+            .iter()
+            .all(|x| !(x.rule == Rule::ReadabilityFloor && x.severity == Severity::Error)));
+    }
+
+    /// An all-`None` spec is authored noise and reads as ABSENT — otherwise every
+    /// attack that "authored a telegraph" of nothing would collide with every other.
+    #[test]
+    fn an_empty_telegraph_spec_reads_as_no_telegraph_at_all() {
+        let empty = TelegraphSpec::default();
+        assert!(!empty.is_authored());
+
+        let steps = vec![
+            BossPatternStep::Telegraph {
+                profile: BossAttackProfile::Strike("floor_slam".to_string()),
+                duration: 1.0,
+                telegraph: Some(empty),
+            },
+            BossPatternStep::Strike {
+                profile: BossAttackProfile::Strike("floor_slam".to_string()),
+                duration: 0.4,
+            },
+            BossPatternStep::Rest { duration: 1.0 },
+        ];
+        let f = validate_fight("x", &beats(&scripted(steps)), &seeds(), &bands());
+        let warn = f
+            .iter()
+            .find(|x| x.rule == Rule::ReadabilityFloor && x.severity == Severity::Warning)
+            .expect("an unauthored telegraph is reported once per fight");
+        assert!(warn.detail.contains("floor_slam"));
+    }
+
+    /// An attack with no telegraph identity is a WARNING today, because the shipped
+    /// roster authors none. §3 promises an error after BD7's pilot; this test is
+    /// where that promise gets kept.
+    #[test]
+    fn unidentified_telegraphs_are_reported_once_per_fight_not_once_per_beat() {
+        let mut steps = strike("floor_slam", 1.0, 0.4);
+        steps.push(BossPatternStep::Rest { duration: 1.0 });
+        steps.extend(strike("floor_slam", 1.0, 0.4));
+        steps.push(BossPatternStep::Rest { duration: 1.0 });
+        let f = validate_fight("x", &beats(&scripted(steps)), &seeds(), &bands());
+        let warns: Vec<&FightFinding> = f
+            .iter()
+            .filter(|x| x.rule == Rule::ReadabilityFloor)
+            .collect();
+        assert_eq!(warns.len(), 1, "one report per fight, not per beat");
+        assert_eq!(warns[0].severity, Severity::Warning);
+    }
+
+    /// **BD3 byte-parity.** A pre-BD3 `Telegraph` row parses with no `telegraph`
+    /// field and behaves exactly as before.
+    #[test]
+    fn a_pre_bd3_telegraph_row_still_parses() {
+        use crate::brain::boss_pattern::BossPattern;
+        let p: BossPattern = ron::from_str(
+            r#"(steps: [
+                Telegraph(profile: Strike("floor_slam"), duration: 1.2),
+                Strike(profile: Strike("floor_slam"), duration: 0.4),
+            ])"#,
+        )
+        .expect("a pre-BD3 row parses");
+        match &p.steps[0] {
+            BossPatternStep::Telegraph { telegraph, .. } => assert!(telegraph.is_none()),
+            _ => panic!("expected a Telegraph"),
+        }
+    }
+
+    /// ...and a BD3 row parses its anticipation.
+    #[test]
+    fn a_bd3_telegraph_row_parses_its_pose_and_cue() {
+        use crate::brain::boss_pattern::BossPattern;
+        let p: BossPattern = ron::from_str(
+            r#"(steps: [
+                Telegraph(
+                    profile: Strike("floor_slam"),
+                    duration: 1.2,
+                    telegraph: Some((pose: Some("rear_up"), cue: Some("warden_slam_tell"))),
+                ),
+                Strike(profile: Strike("floor_slam"), duration: 0.4),
+            ])"#,
+        )
+        .expect("a BD3 row parses");
+        match &p.steps[0] {
+            BossPatternStep::Telegraph { telegraph, .. } => {
+                let spec = telegraph.as_ref().unwrap();
+                assert!(spec.is_authored());
+                assert_eq!(spec.identity(), (Some("rear_up"), Some("warden_slam_tell")));
+            }
+            _ => panic!("expected a Telegraph"),
+        }
     }
 }

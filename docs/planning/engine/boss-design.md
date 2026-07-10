@@ -198,7 +198,7 @@ Jon rates as *actually fun*.
 |---|---|---|
 | BD1 | ~~Pattern control-flow atoms~~ ✅ **DONE 2026-07-10** — see §8 | [opus] |
 | BD2 | Arena beats from encounter spec (waves/spawns/terrain via existing buses) | [opus] |
-| BD3 | Telegraph event channel (rides CM5) | [opus] |
+| BD3 | ~~Telegraph event channel (rides CM5)~~ 🟡 **DATA + VALIDATOR half DONE 2026-07-10** — see §10 | [opus] |
 | BD4 | ~~Seed library v1~~ ✅ **DONE 2026-07-10** — see §7 | [opus] |
 | BD5 | ~~Fight validator (the §3 rules over authored data)~~ ✅ **DONE 2026-07-10** — see §9 | [opus] |
 | BD6 | Playtester rig + metrics + report format | [opus; needs FB1–FB4] |
@@ -418,9 +418,10 @@ table — and so are stance bodies.
   `zone_denial` hazards a `Special` spawns, whose lifetime lives in the content
   technique's private consts (`MINIMA_TRAP_HAZARD_DURATION_S = 5.0`), not in any
   authored row. This rule needs a `persists_s` on the seed, fed by the technique.
-- **Rule 5, readability floor.** *"Distinct attacks must differ in telegraph (pose
-  row OR cue)."* The authored data carries a telegraph DURATION, which is not a
-  telegraph IDENTITY. It needs BD3's telegraph channel, which does not exist yet.
+- ~~**Rule 5, readability floor.**~~ ✅ **LANDED with BD3 (§10).** Two distinct
+  attacks may not share a `(pose, cue)` telegraph identity. **Nine of nine shipped
+  bosses author no telegraph at all**, so rule 5's other half — §3's *"attacks
+  without a telegraph event FAIL"* — is a warning today and an error after BD7.
 
 Both are named in the module docs rather than approximated by a rule that checks
 something adjacent and reports green.
@@ -434,3 +435,46 @@ Gating before the pilot would not make the fights fairer; it would make the numb
 unfalsifiable. So `boss_fight_validator.rs` measures, prints a stable report, and
 **pins the counts** — a change in a fight shows up as a change in the pin. The day
 BD7 recalibrates, `EXPECTED_ERRORS` goes to zero and the pin becomes the gate.
+
+---
+
+## 10. BD3 — the telegraph gets an identity (opus, 2026-07-10)
+
+`TelegraphSpec { pose, cue, vfx }`, `#[serde(default)]` on
+`BossPatternStep::Telegraph`, projected into `BossAttackState::telegraph_spec` so
+presentation reads ONE read-model instead of re-walking the script. Every pre-BD3
+row parses unchanged.
+
+**A duration is not an identity.** The wind-up's length says how long the player
+has; the pose and the cue say what they are looking at. §3 rule 5 — *"distinct
+attacks must differ in telegraph (pose row OR cue)"* — is a statement about this
+type and cannot be made about a number: two attacks that both wind up for 1.2 s
+are not thereby distinguishable, and a fight in which everything looks the same is
+unreadable however generous its timings. That is why BD5 could not implement rule
+5 until now, and why it can now.
+
+### THE MEASUREMENT
+
+**Nine of nine shipped bosses author NO telegraph identity.** Every attack in the
+game telegraphs by duration alone. §3's *"attacks without a telegraph event FAIL"*
+is therefore a WARNING today (one per fight, listing the attacks) and an ERROR
+after BD7's pilot. It is the single largest readability gap the pipeline has found,
+and it was invisible before there was a field to be empty.
+
+The validator's error half is live: two distinct attacks sharing a `(pose, cue)`
+identity is an ERROR, and an all-`None` spec reads as ABSENT rather than as an
+identity every attack could collide on.
+
+### What BD3 did NOT do
+
+**No boss authors a telegraph, and none was invented.** Writing `pose: "rear_up"`
+for a row that has no such animation, or a `cue` id no sfx registry carries, would
+have made the warning go away without making a single fight more readable — the
+"generic by accident" failure the boss-sprite bug taught. Authoring them is BD7's
+pilot, where the numbers get a taste pass.
+
+**The presentation consumer is likewise owed.** `BossAttackState.telegraph_spec`
+is the read-model a CM5-style emitter would fire from on the telegraph's rising
+edge; the emitter and its sfx/vfx consumer land with the first boss that authors
+one. The doc's two purposes for BD3 were *"anticipation is AUTHORED per attack"*
+and *"the validator can SEE it"*. The second is done; the first has a place to go.

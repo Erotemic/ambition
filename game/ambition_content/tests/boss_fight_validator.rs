@@ -125,12 +125,17 @@ fn the_shipped_roster_against_section_threes_rules() {
 /// authors called it escalation. Which of them is right is BD7's pilot to settle
 /// with Jon, and it is exactly the argument the pipeline exists to make legible.
 ///
-/// The one warning: the smirking behemoth never demands a `WalkOut`. Its kit is a
-/// beam, a sweep, a slam and a nova — every one of them answered by jumping or
-/// dashing. A player never has to simply *step out of the way*.
+/// Of the 10 warnings, **nine are rule 5 (BD3, 2026-07-10): not one shipped boss
+/// authors a telegraph identity.** Every attack in the game telegraphs by duration
+/// alone. §3 makes that an ERROR after BD7's pilot; today it is a measurement, and
+/// it is the single largest readability gap the pipeline has found.
+///
+/// The tenth: the smirking behemoth never demands a `WalkOut`. Its kit is a beam,
+/// a sweep, a slam and a nova — every one answered by jumping or dashing. A player
+/// never has to simply *step out of the way*.
 ///
 /// Rule 1 (telegraph proportionality) fires **nowhere**, which corrects BD4 §7's
 /// finding 3: the mockingbird's 26-tick cycle telegraphs are `Medium` attacks
 /// (`sweep`, `dash_through`), whose floor is 20 ticks, not a heavy's 30.
 const EXPECTED_ERRORS: usize = 8;
-const EXPECTED_WARNINGS: usize = 1;
+const EXPECTED_WARNINGS: usize = 10;

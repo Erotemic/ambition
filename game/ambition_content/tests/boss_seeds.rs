@@ -88,7 +88,9 @@ fn collect_scripted(steps: &[BossPatternStep], out: &mut BTreeMap<String, Vec<Oc
     let mut pending: BTreeMap<String, f32> = BTreeMap::new();
     for step in steps {
         match step {
-            BossPatternStep::Telegraph { profile, duration } => {
+            BossPatternStep::Telegraph {
+                profile, duration, ..
+            } => {
                 pending.insert(move_key(profile).to_string(), *duration);
             }
             BossPatternStep::Strike { profile, duration } => {

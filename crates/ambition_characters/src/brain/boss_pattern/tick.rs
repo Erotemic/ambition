@@ -275,8 +275,13 @@ fn advance_scripted(
     let elapsed = state.step_elapsed.clamp(0.0, current_duration);
     let remaining = (current_duration - elapsed).max(0.0);
     match &current {
-        BossPatternStep::Telegraph { profile, .. } => {
+        BossPatternStep::Telegraph {
+            profile, telegraph, ..
+        } => {
             attack_state.telegraph_profile = Some(profile.clone());
+            // BD3: project the authored anticipation into the read-model, so
+            // presentation reads ONE place instead of re-walking the script.
+            attack_state.telegraph_spec = telegraph.clone().filter(|t| t.is_authored());
             attack_state.telegraph_remaining = remaining;
             attack_state.telegraph_elapsed = elapsed;
             attack_state.active_profile = None;
@@ -289,6 +294,7 @@ fn advance_scripted(
                     BossPatternStep::Telegraph {
                         profile: prev_profile,
                         duration,
+                        ..
                     } if prev_profile == profile => (*duration).max(0.0),
                     _ => 0.0,
                 }
@@ -296,6 +302,7 @@ fn advance_scripted(
                 0.0
             };
             attack_state.telegraph_profile = None;
+            attack_state.telegraph_spec = None;
             attack_state.telegraph_remaining = 0.0;
             attack_state.telegraph_elapsed = 0.0;
             attack_state.active_profile = Some(profile.clone());

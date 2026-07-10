@@ -542,14 +542,31 @@ snapshots needed. Needs N0 complete, plus:
   that survives of an entity that no longer exists — so it comes back naked and
   everything diverges on tick 0.
 
-  Two ways out, and they are not exclusive:
+  **The entity is `placement:NpcSpawn-0017`.** Snapshot at tick 40 holds
+  `["placement:NpcSpawn-0017", "slot:0"]`; sixty ticks later only `slot:0` is alive. The
+  NPC dies during the run, and `restore` brings it back as a bare `SimId` plus whatever
+  the registry covers.
 
-  1. **A respawn re-runs the spawner.** This is what decision (3)'s *"room-reset already
-     proves the world can rebuild"* was pointing at. The snapshot's `SimId` for an
-     authored placement IS its LDtk iid, so the room spawner can rebuild it and the blob
-     overlays its mutable state.
+  That is worth knowing, because it settles which way out to take. The thing that died is
+  an **authored LDtk placement**, not a transient projectile — and N3.1's identity pin
+  says an authored placement's `SimId` *is its LDtk iid*. The spawner that built it can
+  build it again from the same room data, keyed by the same id.
+
+  1. **A respawn re-runs the spawner.** *(preferred)* Decision (3)'s *"room-reset already
+     proves the world can rebuild"* was pointing exactly here. Resolve each respawned
+     `SimId::placement(iid)` back to its `PlacementRecord`, let the room's lowering
+     interpreter rebuild the entity, then apply the blob over its mutable half — the
+     same patch path a survivor takes. Nothing new is needed from the snapshot format:
+     the blob already carries what the entity BECAME, and the room carries what it was.
   2. **Forbid a rollback window that spans a spawn.** `RestoreReport::respawned` is
-     already the number; N3.2's bounded window is where the constraint gets paid.
+     already the number; N3.2's bounded window is where the constraint gets paid. Cheap,
+     and strictly weaker: a fight where anything dies is a fight you cannot rewind
+     across, which is most fights.
+
+  A dynamically-spawned entity (`SimId::spawned(spawner, n)`) has no authored record and
+  so has no route (1). It needs either a spawn recipe registered alongside its codec, or
+  route (2). No room in the suite exercises that case yet, which is itself worth knowing
+  before someone assumes route (1) is sufficient.
 
   Everything else about N3.1 is done: 60 registry entries across five kinds (component,
   cursor, resolved, resource, resource-cursor), four message channels, three declared

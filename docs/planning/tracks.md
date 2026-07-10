@@ -243,7 +243,10 @@ Jon's open questions (Q1/Q2/Q3/Q5) live in [`roadmap.md`](roadmap.md).
 
 **The BLIND ledger (standing, Jon-only):** sanic area layout (`d620a230`),
 sanic sheet/params, G3 limb arcs + G5 verb bindings (`a5d15247`), moveset
-slash VFX placement (`05a32378`), swept-transit feel (`31342e6f`).
+slash VFX placement (`05a32378`), swept-transit feel (`31342e6f`),
+**hit-flash overlay no longer draws a hidden body** (`dbc6bd0b` — does the
+robot still appear when a balled-up player takes a hit?), **Sanic's ball dash**
+(`4e9f0ce2` — rev cadence, launch speed, ball size, when he stands back up).
 
 ## Oracle-violation log (demos file here; engine work exits through tracks)
 

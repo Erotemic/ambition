@@ -574,6 +574,39 @@ impl WorldMemory {
     }
 }
 
+/// **A view a brain is allowed to read.** The no-cheat contract, made a type.
+///
+/// `docs/planning/engine/fighter-brain.md` §3's humanity checks ask for a test
+/// that *"the delay buffer is on the ONLY read path"*. A test can be forgotten,
+/// and a grep lint can be argued with. This cannot: `Perceived` has a private
+/// field and only [`DelayedPerception::perceive`] constructs one, so a brain layer
+/// that wanted to read the LIVE world would have to change this file to do it.
+///
+/// It derefs to the view, so reading is free. Minting is not.
+#[derive(Clone, Copy, Debug)]
+pub struct Perceived<'a>(&'a WorldView);
+
+impl std::ops::Deref for Perceived<'_> {
+    type Target = WorldView;
+    fn deref(&self) -> &WorldView {
+        self.0
+    }
+}
+
+impl<'a> Perceived<'a> {
+    /// Mint a `Perceived` from a view WITHOUT any latency. The name is the
+    /// documentation: this is the frame-perfect path, and it exists for RL rigs,
+    /// replay determinism fixtures, and the unit tests of the brain layers
+    /// themselves — never for a shipped difficulty (§1.3: *"Level 9 = small
+    /// numbers, never zero"*).
+    ///
+    /// FB4's profile loader is the only production caller, and only for a row whose
+    /// `reaction_ms` is zero, which no shipped row has.
+    pub fn cheating(view: &'a WorldView) -> Self {
+        Self(view)
+    }
+}
+
 /// **The perception delay-buffer** — the no-cheat contract's reaction latency,
 /// made structural (`docs/planning/engine/fighter-brain.md` §1.3, §5).
 ///
@@ -637,8 +670,14 @@ impl DelayedPerception {
     /// What the brain is allowed to read: the view from `delay_ticks` ticks ago,
     /// or the oldest one held if the buffer has not filled yet. `None` only before
     /// the first `observe`.
-    pub fn perceive(&self) -> Option<&WorldView> {
-        self.buf.front()
+    ///
+    /// Returns a [`Perceived`], not a `&WorldView`. That is the enforcement: §3's
+    /// humanity check asks a test to *"assert the delay buffer is on the ONLY read
+    /// path"*, and a type that only this method can mint makes the assertion
+    /// unnecessary. A brain layer cannot accept a live view, because it cannot name
+    /// one.
+    pub fn perceive(&self) -> Option<Perceived<'_>> {
+        self.buf.front().map(Perceived)
     }
 
     /// Ticks currently buffered. `delay_ticks + 1` once warm.

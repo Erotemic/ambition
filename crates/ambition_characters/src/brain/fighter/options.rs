@@ -10,7 +10,7 @@
 //! > advantage, kill potential at victim's damage meter, stage position risk) with
 //! > per-difficulty weights."*
 //!
-//! Pure. Every input is the [`WorldView`] the no-cheat contract allows, plus the
+//! Pure. Every input is the [`Perceived`] view the no-cheat contract allows, plus the
 //! body's own kit and its difficulty's [`UtilityWeights`].
 //!
 //! ## The four features, and why each is a fact about the VIEW
@@ -63,7 +63,7 @@
 use ambition_entity_catalog::MoveFrameData;
 
 use super::situation::{is_punishable, Situation};
-use crate::perception::WorldView;
+use crate::perception::Perceived;
 
 /// One movement verb the body can attempt. Derived from `SelfView`'s capability
 /// mask — the body-enforced floor (invariant I3), so the brain can only propose
@@ -127,7 +127,7 @@ impl Features {
 
 /// Per-difficulty scoring weights. Content in the end (`FighterBrainProfile`'s
 /// `utility_weights`); a struct here so L2 stays pure.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, serde::Deserialize)]
 pub struct UtilityWeights {
     pub reach_fit: f32,
     pub frame_advantage: f32,
@@ -196,7 +196,7 @@ const REACH_TOLERANCE: f32 = 2.0;
 /// must agree about the tick, and a second `classify` call on a delayed view could
 /// disagree with the first.
 pub fn generate_options(
-    view: &WorldView,
+    view: Perceived<'_>,
     situation: Situation,
     kit: &[AttackCandidate],
     weights: &UtilityWeights,
@@ -205,7 +205,7 @@ pub fn generate_options(
     let foe = view.nearest_hostile();
 
     // Movement first: it is the only thing `Recovery` has.
-    let mut movement = movement_options(view, situation);
+    let mut movement = movement_options(&view, situation);
     sort_by_score_then_name(&mut movement, |m| (m.score, verb_order(m.verb)));
 
     if situation == Situation::Recovery || foe.is_none() {
@@ -287,7 +287,7 @@ pub fn frame_advantage(startup_s: f32, their_commitment_s: f32) -> f32 {
 /// attack scorer and in L3's rollouts; movement's job at L2 is to express the
 /// situation's ONE obligation — get back, get out, get in — so that a brain with
 /// no L3 still plays a recognizable game.
-fn movement_options(view: &WorldView, situation: Situation) -> Vec<MoveOption> {
+fn movement_options(view: &crate::perception::WorldView, situation: Situation) -> Vec<MoveOption> {
     let me = &view.self_view;
     let mut out = Vec::new();
     let mut push = |verb: MovementVerb, score: f32| out.push(MoveOption { verb, score });
@@ -347,7 +347,7 @@ fn sort_by_score_then_name<T, K: Ord>(items: &mut [T], key: impl Fn(&T) -> (f32,
 mod tests {
     use super::*;
     use crate::actor::ActorFaction;
-    use crate::perception::{BodyPhase, PerceivedActor, SelfView, StageView};
+    use crate::perception::{BodyPhase, PerceivedActor, SelfView, StageView, WorldView};
     use ambition_engine_core as ae;
 
     fn frames(startup_s: f32, reach: f32, recovery_s: f32) -> MoveFrameData {
@@ -442,10 +442,20 @@ mod tests {
         let kit = [candidate("jab", 0.1, 100.0), candidate("lunge", 0.1, 400.0)];
         let w = UtilityWeights::v1();
 
-        let near = generate_options(&view_with(300.0, 400.0), Situation::Neutral, &kit, &w);
+        let near = generate_options(
+            Perceived::cheating(&view_with(300.0, 400.0)),
+            Situation::Neutral,
+            &kit,
+            &w,
+        );
         assert_eq!(near.best_attack().unwrap().move_id, "jab");
 
-        let far = generate_options(&view_with(100.0, 500.0), Situation::Neutral, &kit, &w);
+        let far = generate_options(
+            Perceived::cheating(&view_with(100.0, 500.0)),
+            Situation::Neutral,
+            &kit,
+            &w,
+        );
         assert_eq!(far.best_attack().unwrap().move_id, "lunge");
     }
 
@@ -464,13 +474,13 @@ mod tests {
         let w = UtilityWeights::v1();
 
         let v = view_with(300.0, 400.0);
-        let free = generate_options(&v, Situation::Neutral, &kit, &w);
+        let free = generate_options(Perceived::cheating(&v), Situation::Neutral, &kit, &w);
         assert!(free.best_attack().unwrap().features.frame_advantage < 0.0);
 
         let mut v = view_with(300.0, 400.0);
         v.actors[0].phase = BodyPhase::AttackRecovery;
         v.actors[0].phase_remaining = 0.5;
-        let punish = generate_options(&v, Situation::Advantage, &kit, &w);
+        let punish = generate_options(Perceived::cheating(&v), Situation::Advantage, &kit, &w);
         let fa = punish.best_attack().unwrap().features.frame_advantage;
         assert!(fa >= 0.0, "a 0.4s smash into a 0.5s window lands: {fa}");
 
@@ -480,7 +490,8 @@ mod tests {
         let mut v = view_with(300.0, 400.0);
         v.actors[0].phase = BodyPhase::AttackActive;
         v.actors[0].phase_remaining = 0.5;
-        let into_the_hitbox = generate_options(&v, Situation::Neutral, &kit, &w);
+        let into_the_hitbox =
+            generate_options(Perceived::cheating(&v), Situation::Neutral, &kit, &w);
         assert!(
             into_the_hitbox
                 .best_attack()
@@ -500,9 +511,9 @@ mod tests {
         let mut v = view_with(300.0, 400.0);
 
         v.actors[0].damage_taken = 0;
-        let fresh = generate_options(&v, Situation::Neutral, &kit, &w);
+        let fresh = generate_options(Perceived::cheating(&v), Situation::Neutral, &kit, &w);
         v.actors[0].damage_taken = 90;
-        let ripe = generate_options(&v, Situation::Neutral, &kit, &w);
+        let ripe = generate_options(Perceived::cheating(&v), Situation::Neutral, &kit, &w);
 
         assert!(ripe.best_attack().unwrap().score > fresh.best_attack().unwrap().score);
         assert_eq!(ripe.best_attack().unwrap().features.kill_potential, 0.9);
@@ -515,8 +526,18 @@ mod tests {
     fn committing_near_a_blastzone_costs_score() {
         let kit = [candidate("jab", 0.1, 100.0)];
         let w = UtilityWeights::v1();
-        let safe = generate_options(&view_with(400.0, 500.0), Situation::Neutral, &kit, &w);
-        let edge = generate_options(&view_with(10.0, 110.0), Situation::Neutral, &kit, &w);
+        let safe = generate_options(
+            Perceived::cheating(&view_with(400.0, 500.0)),
+            Situation::Neutral,
+            &kit,
+            &w,
+        );
+        let edge = generate_options(
+            Perceived::cheating(&view_with(10.0, 110.0)),
+            Situation::Neutral,
+            &kit,
+            &w,
+        );
         assert!(edge.best_attack().unwrap().score < safe.best_attack().unwrap().score);
         assert!(w.stage_risk < 0.0);
     }
@@ -527,7 +548,7 @@ mod tests {
     fn recovery_offers_no_attacks_and_exactly_one_obligation() {
         let kit = [candidate("jab", 0.1, 100.0), candidate("smash", 0.4, 100.0)];
         let opts = generate_options(
-            &view_with(-40.0, 400.0),
+            Perceived::cheating(&view_with(-40.0, 400.0)),
             Situation::Recovery,
             &kit,
             &UtilityWeights::v1(),
@@ -549,7 +570,12 @@ mod tests {
             (Situation::EdgeGuard, MovementVerb::Approach),
             (Situation::Neutral, MovementVerb::Approach),
         ] {
-            let opts = generate_options(&view_with(300.0, 400.0), situation, &kit, &w);
+            let opts = generate_options(
+                Perceived::cheating(&view_with(300.0, 400.0)),
+                situation,
+                &kit,
+                &w,
+            );
             assert_eq!(
                 opts.best_movement().unwrap().verb,
                 expect,
@@ -568,7 +594,7 @@ mod tests {
         v.self_view.can_shield = false;
         v.self_view.can_dash = false;
 
-        let opts = generate_options(&v, Situation::Disadvantage, &kit, &w);
+        let opts = generate_options(Perceived::cheating(&v), Situation::Disadvantage, &kit, &w);
         assert!(opts
             .movement
             .iter()
@@ -584,7 +610,7 @@ mod tests {
         let w = UtilityWeights::v1();
         let v = view_with(300.0, 400.0);
         let a = generate_options(
-            &v,
+            Perceived::cheating(&v),
             Situation::Neutral,
             &[
                 candidate("zeta", 0.1, 100.0),
@@ -593,7 +619,7 @@ mod tests {
             &w,
         );
         let b = generate_options(
-            &v,
+            Perceived::cheating(&v),
             Situation::Neutral,
             &[
                 candidate("alpha", 0.1, 100.0),
@@ -617,11 +643,21 @@ mod tests {
             kill_potential: 0.0,
             stage_risk: 0.0,
         };
-        let opts = generate_options(&view_with(300.0, 400.0), Situation::Neutral, &kit, &zero);
+        let opts = generate_options(
+            Perceived::cheating(&view_with(300.0, 400.0)),
+            Situation::Neutral,
+            &kit,
+            &zero,
+        );
         assert_eq!(opts.best_attack().unwrap().score, 0.0);
 
         let w = UtilityWeights::v1();
-        let opts = generate_options(&view_with(300.0, 400.0), Situation::Neutral, &kit, &w);
+        let opts = generate_options(
+            Perceived::cheating(&view_with(300.0, 400.0)),
+            Situation::Neutral,
+            &kit,
+            &w,
+        );
         let a = opts.best_attack().unwrap();
         assert!((a.score - a.features.dot(&w)).abs() < 1e-6);
     }
@@ -633,7 +669,7 @@ mod tests {
         let mut v = view_with(300.0, 400.0);
         v.actors.clear();
         let opts = generate_options(
-            &v,
+            Perceived::cheating(&v),
             Situation::Neutral,
             &[candidate("jab", 0.1, 100.0)],
             &UtilityWeights::v1(),

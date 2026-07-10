@@ -186,6 +186,7 @@ pub fn suite() -> Vec<Scenario> {
 mod tests {
     use super::*;
     use crate::brain::fighter::situation::classify;
+    use crate::perception::Perceived;
 
     /// **The suite, classified.** Every fixture reads out as the situation its name
     /// claims. A failure here is a disagreement about the GAME, not about the CPU.
@@ -193,12 +194,12 @@ mod tests {
     fn l1_reads_every_scenario_the_way_its_name_says() {
         for s in suite() {
             assert_eq!(
-                classify(&s.view),
+                classify(Perceived::cheating(&s.view)),
                 s.expect,
                 "`{}` — {}\ngot {:?}, expected {:?}",
                 s.name,
                 s.premise,
-                classify(&s.view),
+                classify(Perceived::cheating(&s.view)),
                 s.expect
             );
         }

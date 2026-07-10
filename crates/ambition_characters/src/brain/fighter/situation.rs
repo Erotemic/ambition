@@ -8,7 +8,7 @@
 //! > (offstage/knocked out of arena), `EdgeGuard` (opponent recovering). Pure
 //! > function of the view; unit-tested per scenario fixture."*
 //!
-//! It is a pure function of [`WorldView`] and nothing else. That is the no-cheat
+//! It is a pure function of a [`Perceived`] view and nothing else. That is the no-cheat
 //! contract's first clause, and it is why FB1's audit had to come first: before
 //! it, the view carried no move phase, no damage meter, and no stage geometry, so
 //! three of these five states were not derivable at all.
@@ -41,7 +41,9 @@
 
 use ambition_engine_core as ae;
 
-use crate::perception::{BodyPhase, PerceivedActor, WorldView};
+#[cfg(test)]
+use crate::perception::WorldView;
+use crate::perception::{BodyPhase, Perceived, PerceivedActor};
 
 /// How close to a blastzone counts as cornered, in world px. A body with less
 /// than this much stage behind it has lost its retreat option, which is what
@@ -98,7 +100,7 @@ pub fn is_punishable(actor: &PerceivedActor, gravity_down: ae::Vec2) -> bool {
 /// of the brain targets — L1 does not get a private query, and a body with no
 /// hostile in view is in [`Neutral`] however cornered it is, because "cornered"
 /// only means something relative to someone.
-pub fn classify(view: &WorldView) -> Situation {
+pub fn classify(view: Perceived<'_>) -> Situation {
     let me = &view.self_view;
     let gravity_down = me.gravity_down;
 
@@ -141,6 +143,13 @@ pub fn classify(view: &WorldView) -> Situation {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::perception::Perceived;
+
+    /// The tests mint `Perceived` directly. That is the ONE legal way in without a
+    /// delay buffer, its name says what it is, and FB4's profiles never use it.
+    fn seen(v: &WorldView) -> Perceived<'_> {
+        Perceived::cheating(v)
+    }
     use crate::actor::ActorFaction;
     use crate::perception::{SelfView, StageView};
 
@@ -189,7 +198,7 @@ mod tests {
     #[test]
     fn two_idle_bodies_mid_stage_are_in_neutral() {
         assert_eq!(
-            classify(&view(me_at(300.0, 300.0), vec![foe_at(500.0, 300.0)])),
+            classify(seen(&view(me_at(300.0, 300.0), vec![foe_at(500.0, 300.0)]))),
             Situation::Neutral
         );
     }
@@ -203,7 +212,7 @@ mod tests {
         me.phase = BodyPhase::Hitstun;
         let mut foe = foe_at(-80.0, 300.0); // also offstage
         foe.phase = BodyPhase::Hitstun;
-        assert_eq!(classify(&view(me, vec![foe])), Situation::Recovery);
+        assert_eq!(classify(seen(&view(me, vec![foe]))), Situation::Recovery);
     }
 
     /// **Precedence 2, the one worth arguing about.** A player who chases an
@@ -214,7 +223,10 @@ mod tests {
         let mut me = me_at(400.0, 300.0);
         me.phase = BodyPhase::Hitstun;
         let foe = foe_at(900.0, 300.0); // offstage
-        assert_eq!(classify(&view(me, vec![foe])), Situation::Disadvantage);
+        assert_eq!(
+            classify(seen(&view(me, vec![foe]))),
+            Situation::Disadvantage
+        );
     }
 
     /// Cornered is a `Disadvantage` even at full health and full composure: you
@@ -223,13 +235,13 @@ mod tests {
     fn a_body_with_no_stage_behind_it_is_at_a_disadvantage() {
         let me = me_at(CORNER_MARGIN_PX - 1.0, 300.0);
         assert_eq!(
-            classify(&view(me, vec![foe_at(400.0, 300.0)])),
+            classify(seen(&view(me, vec![foe_at(400.0, 300.0)]))),
             Situation::Disadvantage
         );
         // One pixel further in and it is a fight again.
         let me = me_at(CORNER_MARGIN_PX + 1.0, 300.0);
         assert_eq!(
-            classify(&view(me, vec![foe_at(400.0, 300.0)])),
+            classify(seen(&view(me, vec![foe_at(400.0, 300.0)]))),
             Situation::Neutral
         );
     }
@@ -237,7 +249,7 @@ mod tests {
     #[test]
     fn an_offstage_opponent_is_an_edgeguard() {
         assert_eq!(
-            classify(&view(me_at(400.0, 300.0), vec![foe_at(-20.0, 300.0)])),
+            classify(seen(&view(me_at(400.0, 300.0), vec![foe_at(-20.0, 300.0)]))),
             Situation::EdgeGuard
         );
     }
@@ -253,7 +265,7 @@ mod tests {
             let mut foe = foe_at(500.0, 300.0);
             foe.phase = phase;
             assert_eq!(
-                classify(&view(me_at(300.0, 300.0), vec![foe])),
+                classify(seen(&view(me_at(300.0, 300.0), vec![foe]))),
                 Situation::Advantage,
                 "{phase:?} is a punish window"
             );
@@ -261,7 +273,7 @@ mod tests {
         let mut foe = foe_at(500.0, 300.0);
         foe.phase = BodyPhase::AttackActive;
         assert_eq!(
-            classify(&view(me_at(300.0, 300.0), vec![foe])),
+            classify(seen(&view(me_at(300.0, 300.0), vec![foe]))),
             Situation::Neutral,
             "the hitbox is out; walking into it is not a punish"
         );
@@ -275,19 +287,19 @@ mod tests {
         foe.on_ground = false;
         foe.vel = ae::Vec2::new(0.0, LANDING_SPEED_PX_S + 10.0); // +y is down
         assert_eq!(
-            classify(&view(me_at(300.0, 300.0), vec![foe.clone()])),
+            classify(seen(&view(me_at(300.0, 300.0), vec![foe.clone()]))),
             Situation::Advantage
         );
 
         // Rising, or drifting: not committed to anything.
         foe.vel = ae::Vec2::new(0.0, -200.0);
         assert_eq!(
-            classify(&view(me_at(300.0, 300.0), vec![foe.clone()])),
+            classify(seen(&view(me_at(300.0, 300.0), vec![foe.clone()]))),
             Situation::Neutral
         );
         foe.vel = ae::Vec2::new(90.0, LANDING_SPEED_PX_S - 10.0);
         assert_eq!(
-            classify(&view(me_at(300.0, 300.0), vec![foe])),
+            classify(seen(&view(me_at(300.0, 300.0), vec![foe]))),
             Situation::Neutral
         );
     }
@@ -302,7 +314,7 @@ mod tests {
         let mut foe = foe_at(500.0, 300.0);
         foe.on_ground = false;
         foe.vel = ae::Vec2::new(LANDING_SPEED_PX_S + 10.0, 0.0); // falling "down" = +x
-        assert_eq!(classify(&view(me, vec![foe])), Situation::Advantage);
+        assert_eq!(classify(seen(&view(me, vec![foe]))), Situation::Advantage);
     }
 
     /// A body with no hostile in view is in `Neutral`, however cornered: being near
@@ -311,11 +323,11 @@ mod tests {
     #[test]
     fn with_no_opponent_cornered_is_neutral_but_hitstun_is_not() {
         let me = me_at(10.0, 300.0);
-        assert_eq!(classify(&view(me, vec![])), Situation::Neutral);
+        assert_eq!(classify(seen(&view(me, vec![]))), Situation::Neutral);
 
         let mut me = me_at(400.0, 300.0);
         me.phase = BodyPhase::Hitstun;
-        assert_eq!(classify(&view(me, vec![])), Situation::Disadvantage);
+        assert_eq!(classify(seen(&view(me, vec![]))), Situation::Disadvantage);
     }
 
     /// A dead opponent is nobody's advantage. `nearest_hostile` already filters
@@ -326,7 +338,7 @@ mod tests {
         foe.alive = false;
         foe.phase = BodyPhase::Hitstun;
         assert_eq!(
-            classify(&view(me_at(300.0, 300.0), vec![foe])),
+            classify(seen(&view(me_at(300.0, 300.0), vec![foe]))),
             Situation::Neutral
         );
     }

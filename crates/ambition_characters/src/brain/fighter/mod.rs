@@ -16,14 +16,21 @@
 //!   verbs from the body's capability mask; attacks from CM7's frame-data table,
 //!   which is what lets the brain understand a character nobody wrote a table for.
 //!
-//! Still owed: the difficulty profiles and humanity checks (FB4 — which is also
-//! what finally FORCES every brain through the delay buffer), the opponent model
-//! (FB5), and L3's forward rollouts (FB6, on N3.1's snapshot seam).
+//! - **FB4a** — [`profile`], the nine-rung difficulty ladder as data, and the one
+//!   humanity check that is now STRUCTURAL: [`crate::perception::Perceived`] has a
+//!   private field, so a brain layer cannot name a live view. The delay buffer is
+//!   the only read path because it is the only mint.
+//!
+//! Still owed: FB4's ladder self-play rig and APM enforcement (both need a brain
+//! that emits inputs), the opponent model (FB5), and L3's forward rollouts (FB6,
+//! on N3.1's snapshot seam).
 
 pub mod options;
+pub mod profile;
 pub mod scenarios;
 pub mod situation;
 
 pub use options::{generate_options, AttackOption, MoveOption, OptionSet, UtilityWeights};
+pub use profile::{FighterBrainLadder, FighterBrainProfile};
 pub use scenarios::{suite, Scenario};
 pub use situation::{classify, Situation};

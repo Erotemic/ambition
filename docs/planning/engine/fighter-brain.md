@@ -158,7 +158,7 @@ this track.
 | FB1 | ~~View audit for the no-cheat contract~~ ✅ **DONE 2026-07-10** — see §7 | [opus] |
 | FB2 | ~~Frame-data table consumer (needs CM7) + L2 option generator/scorer~~ ✅ **DONE 2026-07-10** — see §9 | [opus] |
 | FB3 | ~~L1 classifier + scenario fixture suite~~ ✅ **DONE 2026-07-10** — see §8 | [opus] |
-| FB4 | Difficulty profiles + humanity checks + ladder self-play rig — concretely: (1) the nine `FighterBrainProfile` RON rows per §4 (reaction_ms interpolates 500→150, apm_cap, noise σ, rollout knobs 0 until FB6); (2) the THREE humanity checks from §3 as headless tests — input-rate histogram ≤ apm_cap, reaction-time distribution matches the configured latency (assert the delay buffer is the ONLY view path — a lint-style grep + a runtime assert), and no same-tick perceive→act; (3) the ladder rig = N headless matches per adjacent-level pair via `SlotControls`, gate: level n beats n−1 in ≥ 60%, plus L9-vs-sandbag damage-efficiency floor. The rig reuses the duel-arena headless harness (`ambition_app/tests/duel_arena.rs` is the seed) | [opus] |
+| FB4 | 🟡 **(1) profiles + (2) the reaction/delay-buffer humanity check DONE 2026-07-10** — see §10. (2)'s APM histogram and (3) the ladder rig need a brain that emits inputs | [opus] |
 | FB5 | Opponent-model memory (bucketed frequencies, decay) | [opus] |
 | FB6 | L3 rollouts on the snapshot seam (after netcode N3.1) with compute budget + degradation | **[fable design, opus execute]** |
 
@@ -227,12 +227,11 @@ numbers, never zero."*
 
 ### Left for FB4, on purpose
 
-The buffer exists; **nothing yet forces a brain through it.** §3's humanity check
-*"assert the delay buffer is on the ONLY read path"* is a lint plus a runtime
-assert, and it belongs with the profiles that give `delay_ticks` a value. FB1
-built the instrument; FB4 makes it mandatory. Until then `build_world_view`'s
-output still reaches the smash brain live, and that is stated here rather than
-quietly true.
+~~The buffer exists; **nothing yet forces a brain through it.**~~ ✅ **FB4a closed
+this 2026-07-10, and not with a lint.** `Perceived` has a private field and only
+`DelayedPerception::perceive` mints one; L1 and L2 take a `Perceived`. A brain
+layer that wanted the live world would have to edit `perception.rs` to name it. See
+§10.
 
 `AttackRecovery` carries `phase_remaining = 0.0`: the sim keeps no endlag clock
 today. CM7's frame-data table is what gives it one, which is why FB2 depends on
@@ -367,3 +366,49 @@ calibration claim, and calibration is FB4's.
 hold intents between decisions."* The latency lives on
 `FighterBrainProfile.reaction_ms`, which is FB4's. L2 is a pure function a decision
 tick calls.
+
+---
+
+## 10. FB4a — the delay buffer stops being a promise (opus, 2026-07-10)
+
+`ambition_characters::brain::fighter::profile`, plus
+`game/ambition_content/assets/data/fighter_brain_ladder.ron` (§4: *"Games/demos
+ship their own rows — it's content."*).
+
+### The humanity check that is now a TYPE
+
+§3 asks for a test that *"the delay buffer is on the ONLY read path"* and that
+there is *"no same-tick perceive→act"*. FB1 built the buffer and said out loud
+that nothing forced a brain through it.
+
+Nothing has to. **`Perceived` has a private field, and only
+`DelayedPerception::perceive` constructs one.** L1's `classify` and L2's
+`generate_options` take a `Perceived`. A brain layer that wanted to read the live
+world would have to edit `perception.rs` to name it. *A test can be forgotten and
+a grep lint can be argued with; a type cannot.*
+
+The one door is `Perceived::cheating`, whose name is its documentation — RL rigs,
+replay fixtures, and the brain layers' own unit tests. `FighterBrainProfile::delay`
+never calls it, and `no_shipped_level_reacts_instantly` is why.
+
+### The ladder
+
+Nine rows, `reaction_ms` 500 → 150, monotone in reaction, APM, and execution noise.
+`FighterBrainLadder::problems()` checks all of that **at startup**, and every one of
+those checks would otherwise surface as *"the levels do not order correctly"* after
+hours of self-play.
+
+**`rollout_depth` is zero on every row.** L3 needs N3.1's `restore`, which does not
+exist. §1 promises graceful degradation — *"L3 is an upgrade, not a dependency"* —
+so the whole ladder plays on L2's scores alone today, and FB6 turns them on without
+touching a difficulty's identity. `the_whole_shipped_ladder_plays_without_l3` pins
+that promise.
+
+### What FB4 still owes
+
+- **The APM cap is DATA, not enforcement.** *"Input-rate histograms within the APM
+  cap"* needs a brain that emits inputs, and nothing above L2 does.
+- **The ladder self-play rig** (level *n* beats *n−1* in ≥ 60% of headless matches)
+  needs the same. It is also the instrument that calibrates L2's weights — and FB2
+  (§9) already found the hole that will make it say so: none of §1's four features
+  reads a move's power.

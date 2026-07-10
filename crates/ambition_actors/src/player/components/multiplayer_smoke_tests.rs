@@ -3,6 +3,7 @@
 //! singleton queries / heal routing stay independent and correct.
 
 use super::*;
+use crate::actor::BodyMelee;
 use crate::actor::PrimaryPlayerOnly;
 use ambition_engine_core as ae;
 

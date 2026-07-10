@@ -51,8 +51,8 @@ pub use starting_character::{apply_worn_motion_model, StartingCharacter};
 // dependency direction (non-player code imports body state from `crate::actor`,
 // never through the player module). The genuinely player-only state stays below.
 pub use components::{
-    BodyAnimFacts, BodyMelee, LocalPlayer, PlayerBlinkCameraState, PlayerInputFrame,
-    PlayerSafetyState, PlayerSlot, SlotGestures, SlotInteractionState,
+    LocalPlayer, PlayerBlinkCameraState, PlayerInputFrame, PlayerSafetyState, PlayerSlot,
+    SlotGestures, SlotInteractionState,
 };
 pub use events::PlayerHealRequested;
 pub use input_systems::{cleanup_timers_system, input_timer_system, interaction_input_system};

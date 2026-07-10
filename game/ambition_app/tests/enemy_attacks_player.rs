@@ -11,10 +11,10 @@
 
 #![cfg(feature = "rl_sim")]
 
+use ambition::actors::actor::BodyMelee;
 use ambition::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition::actors::combat::components::{ActorDisposition, ActorTarget};
 use ambition::actors::features::FeatureId;
-use ambition::actors::player::BodyMelee;
 use ambition::characters::brain::{ActionSet, ActorControl};
 use ambition::engine_core as ae;
 use ambition::entity_catalog::placements::CharacterBrain;

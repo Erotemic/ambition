@@ -20,9 +20,10 @@ use ambition_engine_core as ae;
 use ambition_vfx::vfx::VfxMessage;
 use ambition_world::collision::MovingPlatformSet;
 
+use crate::actor::BodyAnimFacts;
 use crate::actor::{PlayerEntity, PrimaryPlayer, PrimaryPlayerOnly};
 use crate::combat::events::{GameplayBannerRequested, HitEvent as FeatureHitEvent, HitTarget};
-use crate::player::{BodyAnimFacts, PlayerSafetyState};
+use crate::player::PlayerSafetyState;
 use crate::time::feel::SandboxFeelTuning;
 use crate::time::time_control::{ClockRequester, ClockResetRequest};
 use crate::{

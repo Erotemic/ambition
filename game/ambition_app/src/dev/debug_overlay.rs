@@ -94,7 +94,7 @@ pub(crate) fn draw_debug_overlay(
         (
             ae::BodyClusterQueryData,
             Option<&ambition::characters::actor::BodyHealth>,
-            &ambition::actors::player::BodyMelee,
+            &ambition::actors::actor::BodyMelee,
         ),
         // The primary player never carries `FeatureSimEntity` (player vs
         // feature-sim entities are mutually exclusive — see the kinematics

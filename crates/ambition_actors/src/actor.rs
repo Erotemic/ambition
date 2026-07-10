@@ -21,6 +21,13 @@
 
 pub use crate::platformer_runtime::body::BodyKinematics;
 pub use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
+// Body vocabulary that used to be reachable only through `crate::player`, which
+// is what made that module a universal dependency sink (see the module docs
+// above). `BodyAnimFacts` re-homed DOWN to `ambition_characters::actor::body`
+// beside `BodyCombat`/`BodyHealth`; `BodyMelee` already lived in the combat kit.
+// Both surface here, on the neutral actor vocabulary, in the S5/S6 fold (R6).
+pub use ambition_characters::actor::BodyAnimFacts;
+pub use ambition_combat::BodyMelee;
 
 /// The shared **movement-cluster components** every body carries — the 18
 /// ancillary clusters (ground contact, wall, jump, dash, flight, blink, ledge,

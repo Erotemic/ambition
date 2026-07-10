@@ -111,7 +111,7 @@ pub fn charge_projectile_input(
             Entity,
             &crate::actor::BodyKinematics,
             &mut crate::projectile::PlayerProjectileState,
-            Option<&mut crate::player::BodyAnimFacts>,
+            Option<&mut crate::actor::BodyAnimFacts>,
         ),
         With<ambition_characters::brain::ChargesProjectiles>,
     >,

@@ -33,7 +33,7 @@ use ambition_dev_tools::dev_tools::EditableMovementTuning;
 /// Baseline seconds between enemy contact attacks (scaled per-actor by
 /// `attack_cooldown_mult`). Combat-owned pacing tuning (E2).
 pub(crate) const ENEMY_ATTACK_COOLDOWN: f32 = 1.05;
-use crate::player::BodyAnimFacts;
+use crate::actor::BodyAnimFacts;
 use crate::time::feel::SandboxFeelTuning;
 use crate::world::platforms::MovingPlatformState;
 use crate::{physics, MeleeSwing};

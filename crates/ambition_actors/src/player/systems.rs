@@ -2,11 +2,10 @@
 
 use bevy::prelude::*;
 
-use super::components::{
-    BodyMelee, LocalPlayer, PlayerEntity, PlayerInputFrame, PlayerSlot, PrimaryPlayer,
-};
+use super::components::{LocalPlayer, PlayerEntity, PlayerInputFrame, PlayerSlot, PrimaryPlayer};
 use super::events::PlayerHealRequested;
 use super::movement_components::{BodyGroundState, BodyKinematics};
+use crate::actor::BodyMelee;
 use crate::features::ActorPose;
 use ambition_characters::actor::{BodyCombat, BodyHealth};
 use ambition_characters::brain::{ActorControl, Brain, BrainSnapshot, SlotControls};

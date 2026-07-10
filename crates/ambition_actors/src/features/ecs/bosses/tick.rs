@@ -681,7 +681,7 @@ pub fn integrate_boss_bodies(
             &super::super::boss_clusters::BossConfig,
             &crate::combat::BodyEnvelope,
             Option<&mut ActorControl>,
-            Option<&mut crate::player::BodyAnimFacts>,
+            Option<&mut crate::actor::BodyAnimFacts>,
             &super::super::super::components::ActorTarget,
             &mut CenteredAabb,
             &mut ambition_characters::actor::BodyCombat,

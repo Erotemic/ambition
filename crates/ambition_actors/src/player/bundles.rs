@@ -5,11 +5,12 @@ use ambition_engine_core::CenteredAabb;
 use bevy::prelude::*;
 
 use super::components::{
-    BodyAnimFacts, BodyMelee, LocalPlayer, PlayerBlinkCameraState, PlayerEntity, PlayerInputFrame,
-    PlayerSafetyState, PlayerSlot, PrimaryPlayer,
+    LocalPlayer, PlayerBlinkCameraState, PlayerEntity, PlayerInputFrame, PlayerSafetyState,
+    PlayerSlot, PrimaryPlayer,
 };
 use super::movement_components::BodyKinematics;
 use crate::actor::AncillaryMovementBundle;
+use crate::actor::{BodyAnimFacts, BodyMelee};
 use crate::body_mode::BodyModeCapabilities;
 use crate::features::{ActorFaction, ActorPose};
 use ambition_characters::actor::{BodyCombat, BodyHealth, BodyWallet};

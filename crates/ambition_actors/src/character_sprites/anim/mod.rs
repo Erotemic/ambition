@@ -6,7 +6,7 @@ pub use ambition_sprite_sheet::character::CharacterAnim;
 
 use ambition_engine_core as ae;
 
-use crate::player::BodyAnimFacts;
+use crate::actor::BodyAnimFacts;
 
 /// Pick the player's animation from ECS animation state and engine state.
 ///
@@ -405,7 +405,7 @@ pub struct ActorAnimState {
     /// is NOT aerial — it falls through to the Jump/Fall gate like the player.
     pub aerial: bool,
     /// Movement-driven presentation overlays, read from the actor's
-    /// [`crate::player::BodyAnimFacts`] — the SAME poses the player shows, now
+    /// [`crate::actor::BodyAnimFacts`] — the SAME poses the player shows, now
     /// available to any body (fable review §A9). `landing` carries hard-vs-soft.
     /// A sheet without a given row falls back through `resolve_anim`, so these are
     /// always safe to request.

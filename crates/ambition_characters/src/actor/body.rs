@@ -193,6 +193,63 @@ impl BodyCombat {
     }
 }
 
+/// A body's ECS-owned animation signal timers.
+///
+/// **Body vocabulary, not player-only** — despite the anim rows it gates being
+/// authored on the player's sheet first, every brain-driven body that plays a
+/// slash, a landing, or a dash pre-roll carries one. It re-homed here from
+/// `ambition_actors::player::components` (the S5/S6 player fold, refactor-chain
+/// R6): it was the single biggest reason `crate::player` was still a universal
+/// dependency sink — 18 non-player modules imported that module solely to name
+/// this component.
+///
+/// All fields are presentation-only: they gate which sprite row plays and
+/// decay independent of gameplay timers like hitstop or invulnerability.
+/// Written directly by `cleanup_timers_system` / the melee swing / the dash;
+/// the animation picker reads them. This is the authoritative source —
+/// `write_player_ecs_components` does not touch it.
+#[derive(Component, Clone, Debug, Default, PartialEq)]
+pub struct BodyAnimFacts {
+    /// Time remaining for the slash animation row.
+    pub slash_anim_timer: f32,
+    /// Time remaining for the post-touchdown landing pose.
+    pub land_anim_timer: f32,
+    /// True when the landing was fast enough for the hard-impact row.
+    pub land_anim_hard: bool,
+    /// Time remaining for the brief dash pre-roll pose.
+    pub dash_startup_timer: f32,
+    /// Previous frame's `on_ground`; used to detect the touchdown edge.
+    pub anim_prev_on_ground: bool,
+    /// Previous frame's pre-landing downward velocity; used to grade
+    /// hard vs. soft landings.
+    pub anim_prev_vel_y: f32,
+    /// Previous frame's `dash_timer`; used to detect the dash rising edge.
+    pub anim_prev_dash_timer: f32,
+    /// Time remaining for the projectile-release `Shoot` pose. Armed by
+    /// `update_projectiles` whenever a projectile body is spawned (any
+    /// kind — Fireball/Hadouken/HadoukenSuper). Single-shot, short.
+    pub shoot_anim_timer: f32,
+    /// Set each frame by `update_projectiles` to mirror
+    /// `PlayerProjectileState.charging.is_some()`. While true the
+    /// player is holding a charge and the `Aim` row plays.
+    pub aim_anim_active: bool,
+    /// Time remaining for the wall-jump push-off pose. Armed by
+    /// `handle_player_events` on a `MovementOp::WallJump` op. Distinct
+    /// from `Jump` so the wall departure reads as a kick-off rather
+    /// than a ground arc.
+    pub wall_jump_anim_timer: f32,
+    /// Time remaining for the interact-gesture pose. Armed when an
+    /// interaction (door, NPC, pickup) consumes
+    /// `interact_buffer_timer`.
+    pub interact_anim_timer: f32,
+}
+
+impl BodyAnimFacts {
+    pub fn reset(&mut self) {
+        *self = Self::default();
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

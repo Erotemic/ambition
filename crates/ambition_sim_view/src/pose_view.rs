@@ -104,7 +104,7 @@ pub fn rebuild_body_pose_views(
                 Option<&ambition_actors::actor::BodyDashState>,
                 Option<&ambition_actors::actor::BodyLedgeState>,
                 Option<&BodyCombat>,
-                Option<&ambition_actors::player::BodyAnimFacts>,
+                Option<&ambition_actors::actor::BodyAnimFacts>,
                 Option<&ambition_actors::player::PlayerBlinkCameraState>,
             ),
             (
@@ -113,7 +113,7 @@ pub fn rebuild_body_pose_views(
                 Option<&ambition_actors::actor::BodyAbilities>,
                 Option<&ambition_actors::actor::BodyDodgeState>,
                 Option<&ambition_actors::actor::BodyShieldState>,
-                Option<&ambition_actors::player::BodyMelee>,
+                Option<&ambition_actors::actor::BodyMelee>,
                 Option<&ambition_engine_core::BodyBaseSize>,
                 Option<&BodyHealth>,
                 Option<&ambition_actors::platformer_runtime::orientation::ActorRoll>,

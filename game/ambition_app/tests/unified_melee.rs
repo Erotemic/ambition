@@ -20,11 +20,11 @@
 
 #![cfg(feature = "rl_sim")]
 
+use ambition::actors::actor::BodyMelee;
 use ambition::actors::actor::{BodyKinematics, PrimaryPlayerOnly};
 use ambition::actors::combat::components::{ActorDisposition, ActorTarget};
 use ambition::actors::combat::moveset::MovePlayback;
 use ambition::actors::features::{FeatureId, Hitbox};
-use ambition::actors::player::BodyMelee;
 use ambition::characters::brain::{ActionSet, ActorControl};
 use ambition::entity_catalog::{placements::CharacterBrain, WindowTag};
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};

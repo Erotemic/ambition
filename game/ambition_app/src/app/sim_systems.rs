@@ -62,10 +62,10 @@ pub fn apply_player_reset_input_system(
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
-            &mut ambition::actors::player::BodyAnimFacts,
+            &mut ambition::actors::actor::BodyAnimFacts,
             &mut ambition::characters::actor::BodyCombat,
             &mut ambition::actors::player::PlayerBlinkCameraState,
-            &mut ambition::actors::player::BodyMelee,
+            &mut ambition::actors::actor::BodyMelee,
             &mut ambition::actors::player::PlayerSafetyState,
         ),
         ambition::actors::actor::PrimaryPlayerOnly,
@@ -136,10 +136,10 @@ pub fn apply_room_replay_request_system(
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
-            &mut ambition::actors::player::BodyAnimFacts,
+            &mut ambition::actors::actor::BodyAnimFacts,
             &mut ambition::characters::actor::BodyCombat,
             &mut ambition::actors::player::PlayerBlinkCameraState,
-            &mut ambition::actors::player::BodyMelee,
+            &mut ambition::actors::actor::BodyMelee,
             &mut ambition::actors::player::PlayerSafetyState,
         ),
         ambition::actors::actor::PrimaryPlayerOnly,

@@ -35,7 +35,7 @@ pub(super) struct HudCameraParams<'w, 's> {
             &'static ambition::actors::actor::BodyComboTrace,
             &'static ambition::characters::actor::BodyHealth,
             &'static ambition::characters::actor::BodyCombat,
-            &'static ambition::actors::player::BodyMelee,
+            &'static ambition::actors::actor::BodyMelee,
         ),
         ambition::actors::actor::PrimaryPlayerOnly,
     >,

@@ -20,10 +20,11 @@
 //! `scripted_gameplay.rs` and the per-feature suites under
 //! `crates/ambition::actors/src/**/tests.rs`.
 
+use ambition::actors::actor::BodyAnimFacts;
 use ambition::actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
 use ambition::actors::body_mode::BodyModeCapabilities;
 use ambition::actors::player::{
-    BodyAnimFacts, LocalPlayer, PlayerBlinkCameraState, PlayerIdentityBundle, PlayerSlot,
+    LocalPlayer, PlayerBlinkCameraState, PlayerIdentityBundle, PlayerSlot,
 };
 use ambition::actors::rooms::RoomSet;
 use ambition::actors::SandboxSimState;

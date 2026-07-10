@@ -146,7 +146,7 @@ pub fn apply_feature_hit_events(
             &mut ambition_characters::actor::BodyCombat,
             // The attacker's live swing, so a multi-active-frame slash records
             // which targets it has already struck and never double-hits them.
-            Option<&mut crate::player::BodyMelee>,
+            Option<&mut crate::actor::BodyMelee>,
         ),
         bevy::prelude::With<crate::actor::PlayerEntity>,
     >,

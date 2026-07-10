@@ -14,7 +14,7 @@ pub fn open_ecs_chests(
     mut slot_gestures: ResMut<crate::player::SlotInteractionState>,
     // Interact-gesture pose + startup-frame fallback subject.
     mut input_surface: Query<
-        (Entity, &mut crate::player::BodyAnimFacts),
+        (Entity, &mut crate::actor::BodyAnimFacts),
         (
             With<ambition_platformer_primitives::markers::PlayerEntity>,
             With<ambition_platformer_primitives::markers::PrimaryPlayer>,
@@ -103,7 +103,8 @@ mod chest_tests {
     //! a buffered interact over an overlapping, unopened chest inserts
     //! `Opened`; an unbuffered player or a non-overlapping chest does not.
     use super::*;
-    use crate::player::{BodyAnimFacts, SlotInteractionState};
+    use crate::actor::BodyAnimFacts;
+    use crate::player::SlotInteractionState;
     use ambition_engine_core::BodyBaseSize;
     use ambition_engine_core::BodyKinematics;
     use ambition_platformer_primitives::markers::ControlledSubject;

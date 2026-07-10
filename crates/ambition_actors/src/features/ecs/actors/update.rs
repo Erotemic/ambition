@@ -572,7 +572,7 @@ pub(crate) fn integrate_actor_body(
     aabb: &mut CenteredAabb,
     combat: &mut BodyCombat,
     mut control: Option<&mut ambition_characters::brain::ActorControl>,
-    mut anim: Option<&mut crate::player::BodyAnimFacts>,
+    mut anim: Option<&mut crate::actor::BodyAnimFacts>,
     // The body's coarse footprint size: `Some` (a boss's composite render
     // envelope, from `BodyEnvelope`) publishes the `CenteredAabb` at that size;
     // `None` (every ordinary actor) publishes it at `em.kin.size` — the
@@ -804,7 +804,7 @@ pub fn integrate_sim_bodies(
             &mut BodyCombat,
             &super::super::super::components::ActorTarget,
             Option<&mut ambition_characters::brain::ActorControl>,
-            Option<&mut crate::player::BodyAnimFacts>,
+            Option<&mut crate::actor::BodyAnimFacts>,
             Option<&super::super::Mounted>,
             Option<&mut MotionModel>,
             Option<super::super::actor_clusters::ActorClusterQueryData>,

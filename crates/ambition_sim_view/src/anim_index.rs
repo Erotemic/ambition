@@ -47,7 +47,7 @@ pub struct ActorSpriteData {
     /// shoot poses), shared with the player. `Option` so an actor spawned without
     /// the component (a legacy / bespoke path) still animates its base ladder —
     /// it just shows no overlays (fable review §A9).
-    pub anim: Option<&'static ambition_actors::player::BodyAnimFacts>,
+    pub anim: Option<&'static ambition_actors::actor::BodyAnimFacts>,
 }
 
 /// One actor's resolved animation frame for the renderer: the chosen anim plus

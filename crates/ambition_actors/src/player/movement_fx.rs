@@ -19,7 +19,8 @@ use bevy::prelude::MessageWriter;
 use ambition_engine_core as ae;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
-use crate::player::{BodyAnimFacts, PlayerBlinkCameraState};
+use crate::actor::BodyAnimFacts;
+use crate::player::PlayerBlinkCameraState;
 use ambition_characters::actor::BodyCombat;
 use ambition_sfx::SfxMessage;
 
@@ -28,7 +29,7 @@ use ambition_sfx::SfxMessage;
 /// picks back up; long enough that the kick reads at typical playback rates.
 const WALL_JUMP_ANIM_HOLD_SECS: f32 = 0.18;
 
-/// Advance a body's presentation overlay timers ([`crate::player::BodyAnimFacts`])
+/// Advance a body's presentation overlay timers ([`crate::actor::BodyAnimFacts`])
 /// one frame: decay the op-armed poses (slash / shoot / wall-jump / interact) and
 /// arm+decay the edge-derived poses (landing on the air→ground edge, graded hard
 /// vs soft by pre-touchdown speed; dash-startup on the dash rising edge). Body-
@@ -41,7 +42,7 @@ pub fn advance_body_anim_overlays(
     on_ground: bool,
     vel_y: f32,
     dash_timer: f32,
-    anim: &mut crate::player::BodyAnimFacts,
+    anim: &mut crate::actor::BodyAnimFacts,
     frame_dt: f32,
 ) {
     /// Pre-touchdown downward speed (px/s) above which the hard-landing row plays.
@@ -89,7 +90,7 @@ pub fn advance_body_anim_overlays(
 }
 
 /// Arm the op-driven presentation overlays a movement frame implies on ANY body's
-/// [`crate::player::BodyAnimFacts`]: the wall-jump push-off pose fires on the
+/// [`crate::actor::BodyAnimFacts`]: the wall-jump push-off pose fires on the
 /// `WallJump` op. Body-generic so the player tick AND the actor tick arm the SAME
 /// pose from the SAME frame data — an AI fighter that wall-jumps shows the kick pose
 /// the player does, not just its dust/SFX (fable review §A9 follow-up). The other

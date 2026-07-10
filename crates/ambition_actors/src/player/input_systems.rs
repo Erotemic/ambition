@@ -172,7 +172,7 @@ pub fn cleanup_timers_system(
             &crate::actor::BodyKinematics,
             &crate::actor::BodyGroundState,
             &crate::actor::BodyDashState,
-            &mut crate::player::BodyAnimFacts,
+            &mut crate::actor::BodyAnimFacts,
             &mut ambition_characters::actor::BodyCombat,
             &mut crate::player::PlayerBlinkCameraState,
         ),

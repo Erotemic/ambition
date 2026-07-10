@@ -67,7 +67,7 @@ pub fn spawn_enemy_projectiles_from_brain_actions(
     // Disjoint from `actors` — `ActorClusterQueryData` carries no `BodyAnimFacts`,
     // so this second view borrows the firing body's overlay-pose facts without
     // aliasing. Arms the Shoot pose on the frame the body accepts a shot.
-    mut anim_facts: Query<&mut crate::player::BodyAnimFacts>,
+    mut anim_facts: Query<&mut crate::actor::BodyAnimFacts>,
     held_items: Query<&super::HeldItem>,
 ) {
     for msg in messages.read() {

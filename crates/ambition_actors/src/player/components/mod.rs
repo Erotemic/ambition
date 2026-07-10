@@ -57,64 +57,6 @@ pub struct PlayerInputFrame {
 // combat component). The player fills the reaction-timer fields; the actor fills
 // the status/attack fields.
 
-// The player's per-player active melee swing is now the unified
-// [`crate::features::BodyMelee`] — the SAME component every brain-driven actor
-// carries (`swing: Option<MeleeSwing>`, `None` between swings). The player is an
-// actor; its swing ticks through the SAME spec model. `write_player_ecs_components`
-// mirrors `is_swinging()` into `BodyCombat::attacking`. (This deletes the former
-// player-only `ActivePlayerAttack` wrapper — ONE BODY ONE PATH.)
-pub use crate::features::BodyMelee;
-
-/// ECS-owned player animation signal timers.
-///
-/// All fields are presentation-only: they gate which sprite row plays and
-/// decay independent of gameplay timers like hitstop or invulnerability.
-/// Written directly by `cleanup_timers_system` / `start_attack` /
-/// `advance_attack`; `animate_player` reads them via `pick_player_anim`.
-/// This is the authoritative source — `write_player_ecs_components` does
-/// not touch it.
-#[derive(Component, Clone, Debug, Default, PartialEq)]
-pub struct BodyAnimFacts {
-    /// Time remaining for the slash animation row.
-    pub slash_anim_timer: f32,
-    /// Time remaining for the post-touchdown landing pose.
-    pub land_anim_timer: f32,
-    /// True when the landing was fast enough for the hard-impact row.
-    pub land_anim_hard: bool,
-    /// Time remaining for the brief dash pre-roll pose.
-    pub dash_startup_timer: f32,
-    /// Previous frame's `on_ground`; used to detect the touchdown edge.
-    pub anim_prev_on_ground: bool,
-    /// Previous frame's pre-landing downward velocity; used to grade
-    /// hard vs. soft landings.
-    pub anim_prev_vel_y: f32,
-    /// Previous frame's `dash_timer`; used to detect the dash rising edge.
-    pub anim_prev_dash_timer: f32,
-    /// Time remaining for the projectile-release `Shoot` pose. Armed by
-    /// `update_projectiles` whenever a projectile body is spawned (any
-    /// kind — Fireball/Hadouken/HadoukenSuper). Single-shot, short.
-    pub shoot_anim_timer: f32,
-    /// Set each frame by `update_projectiles` to mirror
-    /// `PlayerProjectileState.charging.is_some()`. While true the
-    /// player is holding a charge and the `Aim` row plays.
-    pub aim_anim_active: bool,
-    /// Time remaining for the wall-jump push-off pose. Armed by
-    /// `handle_player_events` on a `MovementOp::WallJump` op. Distinct
-    /// from `Jump` so the wall departure reads as a kick-off rather
-    /// than a ground arc.
-    pub wall_jump_anim_timer: f32,
-    /// Time remaining for the interact-gesture pose. Armed when an
-    /// interaction (door, NPC, pickup) consumes
-    /// `interact_buffer_timer`.
-    pub interact_anim_timer: f32,
-}
-
-impl BodyAnimFacts {
-    pub fn reset(&mut self) {
-        *self = Self::default();
-    }
-}
-
 /// One controller slot's gesture/buffer state: double-tap timers, the interact
 /// buffer, and the pending double-tap edges. This is SLOT-level state (it belongs
 /// to a controller, not to any one body) — the local input systems publish it from

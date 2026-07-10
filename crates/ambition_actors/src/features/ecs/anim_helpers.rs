@@ -22,7 +22,7 @@ pub fn advance_actor_anim_overlays(
             &crate::actor::BodyGroundState,
             &crate::actor::BodyKinematics,
             &crate::actor::BodyDashState,
-            &mut crate::player::BodyAnimFacts,
+            &mut crate::actor::BodyAnimFacts,
         ),
         Without<crate::actor::PlayerEntity>,
     >,

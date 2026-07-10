@@ -363,37 +363,87 @@ snapshots needed. Needs N0 complete, plus:
 
   `the_snapshot_coverage_ledger` in `ambition_app` prints and pins the debt:
 
-  | room | component types a restore leaves stale |
-  |---|---|
-  | `gap_run` | 53 |
-  | `portal_lab` | **88** |
-  | `mockingbird_arena` | 77 |
-  | `gnu_ton_arena` | 53 |
+  | room | component types a rewind leaves stale | rewind is exact? |
+  |---|---|---|
+  | `gap_run` | 36 | ✅ **yes** |
+  | `portal_lab` | **70** | no |
+  | `mockingbird_arena` | 59 | no |
+  | `gnu_ton_arena` | 36 | no |
 
-  Pinned at 88; it may fall, it may not rise. The ledger keys on `TypeId` (always
-  exact); component NAMES need `bevy_ecs/debug`, which `ambition_app`'s test graph
-  happens to enable and `ambition_runtime`'s does not — so the counts are trustworthy
-  in both and the names are readable where it matters. Lower it by registering a
-  component, or by `declare_derived::<C>()`, which is a *promise* that the same
-  per-frame system that maintains `C` rebuilds it — N3.1's own no-restore-only-code
-  rule, made into an API call.
+  Pinned at 70; it may fall, it may not rise. The count is an *upper bound* on the
+  debt, not the debt: for an immutable authored fact, stale and correct are the same
+  thing. The exit oracle is what measures whether stale state actually leaks.
 
-  **`a_restored_sim_replays_the_future_it_was_rewound_from` is N3.1's exit oracle**:
-  take, run K ticks hashing each, restore, replay the same K inputs, demand identical
-  hash streams. It is `#[ignore]`d and it fails at tick 0 — not from a bug in
-  `take`/`restore`, whose unit oracles are green, but because the player's ground
-  timers, jump state, and action buffer are unregistered and so are left stale.
-  **Un-ignore it when the ledger reads zero.**
-  Its live sibling,
+  The ledger keys on `TypeId` (always exact); component NAMES need `bevy_ecs/debug`,
+  which `ambition_app`'s test graph happens to enable and `ambition_runtime`'s does
+  not — so the counts are trustworthy in both and the names are readable where it
+  matters. Lower it by registering a component, or by `declare_derived::<C>()`, which
+  is a *promise* that the same per-frame system that maintains `C` rebuilds it —
+  N3.1's own no-restore-only-code rule, made into an API call.
+
+  **`a_restored_sim_replays_the_future_it_was_rewound_from` is N3.1's exit oracle,
+  and `gap_run` PASSES IT.** Take, run K ticks hashing each, restore, replay the same
+  K inputs, demand identical hash streams. `body_kinematics` is in the hash, so
+  "unregistered state leaked" and "anything moved differently" are the same event. A
+  plain platformer room now rewinds and replays bit for bit, 60 ticks deep.
+
+  The other three rooms do not, and the oracle **asserts that they do not** — fix one
+  and the test fails, telling you to promote it. A ledger you can only satisfy by
+  lowering it is not a ledger. Its sibling,
   `a_restore_of_a_real_room_is_exact_where_it_is_registered_and_honest_where_it_is_not`,
-  pins today's truth: on `gap_run` the restore reproduces the registered hash bit for
-  bit, leaves zero unidentified survivors, and admits every type it destroyed. That
-  test is what stops the `#[ignore]` from being a shrug, and it goes red — on
-  purpose — the day the ledger hits zero.
+  pins the other half: `restore` reproduces the registered hash bit for bit, leaves
+  zero unidentified survivors, and names every type it left stale.
 
-  Registered today: `sim_tick`, `world_time`, `body_kinematics`, `body_health`,
-  `sim_id_counters`. The checklist below (move playbacks + cooldowns, brain memory,
-  portal transit, falling-sand grids, every seeded RNG) is what the 88 is made of.
+  Registered today (23 entries): `sim_tick`, `world_time`, `body_kinematics`,
+  `body_health`, `sim_id_counters`, the thirteen mutable body-state clusters — ground
+  / wall / jump / dash / flight / blink / dodge / shield / offense / lifetime /
+  action-buffer / base-size / sweep-sample — plus `body_mana`, `actor_pose`,
+  `actor_roll`, `actor_cooldowns`, `centered_aabb`. *A coyote timer that survives a
+  rollback is a jump the player did not earn; an attack cooldown that survives one is
+  an attack the enemy did not pay for.*
+
+  `snapshot_pod!` writes a codec from a field list, so the failure mode is a field
+  OMITTED — which `encode ∘ decode ∘ encode` cannot see, because it round-trips its
+  own bytes perfectly. `every_registered_component_survives_a_world_round_trip` wrecks
+  a world and demands its hash back; the exit oracle runs the sim forward and notices
+  what a hash cannot.
+
+  ### The three named blockers between here and a clean arena
+
+  Pointing `hash_by_entry` — the per-entry hash the canary already had — at each dirty
+  room named three different diseases wearing one symptom:
+
+  | room | first divergence | what restore did | cause |
+  |---|---|---|---|
+  | `mockingbird_arena` | tick 0 | all patched | `ActorMotionPath` |
+  | `gnu_ton_arena` | tick 8 | all patched | boss brain state |
+  | `portal_lab` | tick 0 | 1 respawned | a naked respawn |
+
+  None of the three is a codec:
+
+  1. **`ActorTarget` holds an `Option<Entity>`.** Decision (2) forbids exactly this:
+     an entity index is an allocator slot, not an identity, and it does not survive a
+     restore that respawns anything. It needs a `SimId`. *This is the migration slice
+     decision (2) promised would be "listed in tracks.md when N3.1 implementation
+     starts" — it has started, and here it is.*
+  2. **`ActorMotionPath(Option<PathMotion>)` carries a private `segment`/`dir`
+     cursor.** `mockingbird_arena` diverges at tick **0** because of it: a patrolling
+     enemy resumes its path from the tick we rewound FROM. Encoding it means a codec
+     inside `ambition_combat` — which is the shape this section asks for anyway
+     (*"each sim crate registers its components' serialization"*).
+     `ambition_runtime` implementing `SnapshotState` for other crates' types is the
+     bootstrap, not the destination.
+  3. **`portal_lab` respawns an entity from blobs, and it comes back naked.** The
+     only room where `restore` reports `respawned > 0`. A respawn needs the entity's
+     authored scaffolding, which is what decision (3)'s *"room-reset already proves
+     the world can rebuild"* was pointing at. Until a respawn can re-run the spawner,
+     **a rollback window must not span a spawn** — a constraint N3.2's bounded window
+     makes reasonable, and one worth writing down before it is discovered.
+
+  `gnu_ton_arena` diverges at tick 8 with everything patched and nothing respawned:
+  its boss's unregistered brain state (move playbacks, pattern cursors, seeded RNG)
+  takes eight ticks to change what a body does. That is the FB6/BD6 blocker, and it is
+  a `SnapshotState` impl per brain component.
 
   Still useful long before netcode: Braid-style rewind, RL tree search, and the
   fighter brain's FB6 rollouts all want it — and all three want `lossless()` first.

@@ -853,6 +853,27 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     registry.register_component::<bc::BodyActionBuffer>("body_action_buffer");
     registry.register_component::<bc::BodyBaseSize>("body_base_size");
     registry.register_component::<bc::SweepSample>("sweep_sample");
+    registry.register_component::<bc::BodyMana>("body_mana");
+
+    // Actor-side mutable state.
+    //
+    // **Not here, and named rather than forgotten:**
+    //
+    // - `ActorTarget` holds an `Option<Entity>`. N3.1 decision (2) FORBIDS `Entity`
+    //   inside sim components — an entity index is an allocator slot, not an
+    //   identity, and it will not survive a restore that respawns anything. It needs
+    //   a `SimId`, and that is a migration slice, not a codec.
+    // - `ActorMotionPath(Option<PathMotion>)` carries `PathMotion`'s private
+    //   `segment` / `dir` cursor. Encoding it means giving `PathMotion` accessors or
+    //   moving its codec into `ambition_combat`, which is the shape the doc wants
+    //   anyway ("each sim crate registers its components' serialization").
+    // - `ActorStatus` / `ActorIntent` / `BodyModeState` carry unit enums and need a
+    //   discriminant codec whose mapping is EXPLICIT, not declaration order.
+    registry.register_component::<ambition_characters::actor::pose::ActorPose>("actor_pose");
+    registry
+        .register_component::<ambition_platformer_primitives::orientation::ActorRoll>("actor_roll");
+    registry.register_component::<ambition_combat::components::ActorCooldowns>("actor_cooldowns");
+    registry.register_component::<ambition_engine_core::geometry::CenteredAabb>("centered_aabb");
 
     // **The blind spot, made loud.** Simulated bodies with no `SimId` cannot be
     // snapshotted, restored, or defended by the canary. Hashing the COUNT means a
@@ -1045,6 +1066,40 @@ snapshot_pod!(bc::SweepSample {
     vel: vec2,
     half: vec2,
 });
+
+// Actor-side mutable state. An attack cooldown that survives a rollback is an
+// attack the enemy did not pay for.
+snapshot_pod!(ambition_characters::actor::pose::ActorPose {
+    center: vec2,
+    feet: vec2,
+    facing: f32,
+});
+snapshot_pod!(ambition_platformer_primitives::orientation::ActorRoll { angle: f32 });
+snapshot_pod!(ambition_combat::components::ActorCooldowns {
+    attack_cooldown: f32,
+    respawn_timer: f32,
+});
+snapshot_pod!(ambition_engine_core::geometry::CenteredAabb {
+    center: vec2,
+    half_size: vec2,
+});
+snapshot_pod!(ambition_engine_core::player_state::ResourceMeter {
+    current: f32,
+    max: f32,
+    regen_rate: f32,
+    decay_rate: f32,
+});
+
+impl SnapshotState for bc::BodyMana {
+    fn encode(&self, out: &mut Vec<u8>) {
+        self.meter.encode(out);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(bc::BodyMana {
+            meter: ambition_engine_core::player_state::ResourceMeter::decode(r)?,
+        })
+    }
+}
 
 impl SnapshotState for ambition_characters::actor::BodyHealth {
     fn encode(&self, out: &mut Vec<u8>) {
@@ -1482,6 +1537,28 @@ mod tests {
             curr: Vec2::new(3.0, 4.0),
             vel: Vec2::new(5.0, 6.0),
             half: Vec2::new(7.0, 8.0),
+        });
+        round_trip(ambition_characters::actor::pose::ActorPose {
+            center: Vec2::new(1.0, 2.0),
+            feet: Vec2::new(1.0, 18.0),
+            facing: -1.0,
+        });
+        round_trip(ambition_platformer_primitives::orientation::ActorRoll { angle: 1.57 });
+        round_trip(ambition_combat::components::ActorCooldowns {
+            attack_cooldown: 0.4,
+            respawn_timer: 2.0,
+        });
+        round_trip(ambition_engine_core::geometry::CenteredAabb {
+            center: Vec2::new(5.0, 6.0),
+            half_size: Vec2::new(8.0, 16.0),
+        });
+        round_trip(bc::BodyMana {
+            meter: ambition_engine_core::player_state::ResourceMeter {
+                current: 12.0,
+                max: 50.0,
+                regen_rate: 1.0,
+                decay_rate: -0.0,
+            },
         });
     }
 

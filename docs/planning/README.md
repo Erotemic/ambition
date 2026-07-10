@@ -89,6 +89,13 @@ docs/planning" — they must NEVER be stale or read as stale:
    or the ledger, update the sketch/ledger in the same commit and note
    the drift in the execution log — the next agent must be able to trust
    every table here without re-verifying.
+6. **Green guardrails require poison evidence.** A new lint, ledger, oracle,
+   or invariant is not completion evidence until a deliberately injected instance
+   of the exact failure makes it fail for the intended reason. When the behavior
+   does not already exist, land the poison test and its enforcement atomically;
+   never leave a planned-red interval or pin the current wrong behavior merely to
+   keep the tree green. The 2026-07-10 correction order is recorded in
+   [`../archive/reviews/static-audit-response-2026-07-10.md`](../archive/reviews/static-audit-response-2026-07-10.md).
 
 ## The spine (unchanged, binding)
 

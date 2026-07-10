@@ -15,41 +15,47 @@ core?*
 
 ---
 
-## Where we are (2026-07-09, measured)
+## Where we are (2026-07-10, audit-normalized)
 
-42 workspace crates. **P1 (unification) and the P2 decomposition are both
-COMPLETE.** One body pipeline, one damage resolver, bosses are actors,
-movesets subsume all attack paths, the G-track landed end-to-end, the
-momentum kernel rides chains AND ordinary blocks. The monolith is gone:
-`ambition_runtime` (headless sim assembly) + `ambition_host` (windowed
-wiring) + the `ambition` umbrella crate are real, `ambition_render` no
-longer depends on the actor sim, `placements` is the sole authored-entity
-channel, and two demo crates dep only the umbrella. Gate: 44/44 suites
-green.
+44 workspace crates. **P1 unification and the D-A decomposition are complete.**
+The runtime/host/umbrella split is real, `placements` is the sole authored-entity
+channel, two demo shells compose through the umbrella, D-C's mode-scope seam is
+landed, and playbook exit 3 is gate-enforced.
 
-**What P2 still owes:** the netcode ladder's N0 rungs are DONE (N0.1 fixed
-tick, N0.2 input stream, N0.3 determinism lints — 2026-07-09); N0.4 (the
-desync canary) and N1 remain; collision CC3 (the fuzz oracle delta) is open;
-the D-B `MODULES.md`
-standard and the D-C mode-scope seam are unstarted; and one playbook exit
-remains (exit 3 — a demo binary, which fable ruled interactive work). The
-residual ledger was RULED 2026-07-10: the adapter floor IS the floor, and the
-residue now dissolves shell-by-shell via
-[`engine/refactor-chain.md`](engine/refactor-chain.md). Details + drift findings:
-[`tracks.md`](tracks.md).
+The 2026-07-10 static audit found that several later labels had promoted
+instrumentation into completion. The live corrections are:
+
+- **N0.3 PARTIAL:** the determinism rules and poison tests exist, but the scan
+  excludes simulation-bearing content/demo source roots.
+- **N0.4 PARTIAL:** loaded rooms are checked correctly, but required rooms can
+  disappear from the canary/replay/ledger gates when construction fails.
+- **N3.1 keystone landed; N3.2 exactness open:** registry, `SimId`, shared
+  snapshot/hash bytes, take/restore mechanics, coverage measurement, and replay
+  oracle are valuable. Uniqueness, complete mutable-state coverage, codec errors,
+  active-room ownership, and dynamic-spawn reconstruction are not yet exact.
+- **CC3 diagnostic landed, enforcement pending:** the six-invariant rig measures
+  shipped rooms, but the comprehensive sweep is diagnostic rather than a hard
+  semantic completion gate.
+- **BD5 validator landed, enforcement pending:** it reports and pins eight hard
+  errors; boss-roster installation does not reject them yet.
+- **D-B REOPENED:** `MODULES.md` generation exists, but the documented ~1.5k-line
+  standard is currently false and has no executable line-size gate.
+
+The binding repair order is guardrail credibility first, exact-restore substrate
+second, and evidence-ledger normalization last. See
+[`docs/archive/reviews/static-audit-response-2026-07-10.md`](../archive/reviews/static-audit-response-2026-07-10.md)
+and [`tracks.md`](tracks.md).
 
 ## The phases
 
 - **P1 — unification.** DONE (2026-07-05). The record lives in the
   archived reviews.
-- **P2 — decomposition + doctrines (ACTIVE; decomposition DONE).**
-  [`engine/decomposition.md`](engine/decomposition.md) is executed through
-  E9 + the F-queue; what remains are the doctrine slices the demos need:
-  [collision CC1–CC4](engine/collision-and-ccd.md) (CC1/CC2/CC5/CC6 done;
-  **CC3 open**), [combat CM1–CM5/CM7](engine/combat-model.md) (all done), and
-  [netcode N0–N1](engine/netcode.md) (**N0.1/N0.2/N0.3 done 2026-07-09;
-  N0.4 + N1 remain**), plus D-B/D-C. Exit = decomposition playbook exits 1–5,
-  of which only exit 3 (a demo binary) is still open.
+- **P2 — decomposition + doctrines (ACTIVE; D-A and D-C DONE, D-B
+  REOPENED).** [`engine/decomposition.md`](engine/decomposition.md) is executed
+  through E9 + the F-queue and playbook exits 1–5 are met. Remaining trust work:
+  D-B's executable navigability gate; CC3's transition from diagnostic to an
+  enforced completion criterion; N0.3 source-scope completion; N0.4 hard-fail
+  fixture coverage; and N3.2 exact-restore substrate. N1 still ships with SSB.
 - **P3 — demo wave 1: [Sanic](demos/sanic.md) + [Super
   Mary-O](demos/super-mary-o.md).** **UNBLOCKED — E5-finish landed
   2026-07-06 night (the demo gate is open; the shell smoke test is the

@@ -192,8 +192,12 @@ rebuilds abilities, then actors, then the whole tower.
 spawn/tick/perceive/damage-routing apart would re-fork the actor unification
 (U1)… Below the crate line, navigability is won by the D-B internal standard
 (every module ≤ ~1.5k lines, one concern, `MODULES.md`), not by more crates."*
-That standard already holds — no module in `ambition_actors` exceeds 1.5k. The
-one unmet piece of it is `MODULES.md`.
+
+**Audit correction (2026-07-10): D-B is reopened.** The crate-split ruling still
+stands, but the repo-wide navigability standard does not. Several engine/content
+modules exceed ~1.5k lines, the script does not enforce the limit, and at least one
+module map is stale. The standard must be made executable rather than cited as an
+assumption supporting the adapter-floor ruling.
 
 **Consequences.**
 - No further crate split is owed by the ledger. `abilities/` is a *discretionary*
@@ -327,35 +331,39 @@ The carve relocated and SEALED the view types; the rules it fixed still bind:
 
 ---
 
-## Phase D-B — the post-carve `ambition_actors` and the navigability standard
+## Phase D-B — 🔴 REOPENED: repo-wide navigability standard
 
-- **Re-measure before further splits** (U1 stands). The likely-clean further
-  carve if measurement supports it: the traversal-ability kit
-  (blink/dive/grapple/possession) — it reads the controlled-subject seam and
-  kinematics, not the spawn machinery. Do NOT pre-commit.
-- **The navigability standard applies INSIDE the crate** — this is where
-  "agents can work cleanly" is actually won, and it applies to every engine
-  crate. Status:
-  - every module ≤ ~1.5k lines, each with a header stating its ONE concern,
-    its authoritative state, and its seams — ✅ **holds today** (no module in
-    `ambition_actors` exceeds 1.5k);
-  - `features/mod.rs` hub-glob patterns dissolved into explicit imports — ✅
-    **done**;
-  - the schedule vocabulary documented in one place;
-  - ✅ **a `MODULES.md` map at each crate root — DONE (2026-07-10), all 42
-    crates.** GENERATED from each module's own `//!` header by
-    `scripts/modules_md.py`, so it cannot rot; `python scripts/modules_md.py`
-    exits non-zero on drift and names any module missing a concern header (there
-    was exactly one, `ambition_touch_input::bevy_plugin`, now written).
-    Hand-written prose under `## Notes` survives regeneration —
-    `crates/ambition_actors/MODULES.md` uses it to record the three
-    misleadingly-named modules (`features` is the actor simulation; `actor` is
-    body vocabulary; `player` is what is left of player-centrism), who mutates
-    what, and the two lints that will fail you.
+The crate-boundary ruling remains: do not split `ambition_actors` merely to chase
+line counts or expected compile-time wins. D-B is the independent requirement that
+agents can navigate the code *inside* those boundaries.
 
-**D-B's navigability standard now holds in full**, which matters because the
-ledger RULING leans on it: "Below the crate line, navigability is won by the D-B
-internal standard … not by more crates."
+**Audit state (2026-07-10):**
+
+- the documented ~1.5k-line limit is false today (`snapshot.rs`, `moveset.rs`,
+  `view_cones.rs`, `smash/mod.rs`, `surface.rs`, and others exceed it);
+- `scripts/modules_md.py` checks concern headers and generated maps, but does not
+  enforce line size;
+- `game/ambition_demo_smb1/MODULES.md` is stale in the audited tree;
+- the workspace has 44 members, not the documented 42.
+
+**Re-close criteria:**
+
+1. Define scope explicitly. Production engine modules and simulation-bearing game
+   content are in scope. Tests may have a separate threshold, but cannot silently
+   disappear from the policy. Generated/data-heavy files are exceptions only when
+   named explicitly.
+2. Add a nested-module line-count check to the existing navigation script or a
+   neighboring guardrail.
+3. Encode exceptions as a **named waiver list with one path and one reviewed reason
+   per entry**. Do not infer broad “generated” or “declarative” categories. Adding
+   a waiver must be a visible review event.
+4. Split or justify every over-limit module, regenerate every stale `MODULES.md`,
+   and correct the workspace count.
+5. Poison-test the line gate with a synthetic over-limit module and prove that a
+   missing/unknown waiver fails.
+
+`MODULES.md` generation remains useful and the dissolved hub globs remain done;
+those mechanisms are not sufficient to label the whole D-B standard complete.
 
 ## Phase D-C — the demo-hosting seam (ambition runs the demos)
 

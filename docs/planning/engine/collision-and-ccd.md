@@ -549,10 +549,15 @@ P3a [opus after CC6]; P3b/P4 [opus, post-demo, gated on S3].
 
 ### 6.1 The fuzz oracle (CC3) — exact illegal-state definition
 
-**Status (CC3 COMPLETE, opus 2026-07-10).** All six invariants are live in
+**Status (CC3 DIAGNOSTIC LANDED; enforcement pending, audit-corrected 2026-07-10).** All six invariants are live in
 `ambition_app/tests/collision_invariant_oracle.rs`, the pinned §6.2 minimum
 payload is attached, and the run matrix is every shipped room. The
 diagnostic-only posture and the repro-line format are unchanged, as ruled.
+
+The static audit found that the comprehensive sweep is ignored/diagnostic and does
+not assert the completion thresholds. The run is valuable measurement, but it is
+not yet an enforced guarantee. Re-close CC3 only after a poison-tested gate runs
+all required rooms and fails on the exact invariant classes it claims to exclude.
 
 | Invariant | Status |
 |---|---|
@@ -734,7 +739,7 @@ they are `ambition_portal` gameplay policy. The capture box builds from
 |---|---|---|
 | CC1 | ✅ **COMPLETE (fable, 2026-07-06).** All three §3.4 rulings executed: (a) circle stays kernel-private (documented in cast's header); (b) `ray_aabb`/`raycast_solids`/`SolidWorldQuery` moved down into `cast`, `world_query.rs` deleted, consumers repointed; (c) `cast::ray_through_apertures` landed with CC5 — §3.5 segment semantics (incl. the flush-mount tie-break: `t == solid_t` → aperture wins), `raycast_through_portals` is now the gameplay wrapper supplying aperture pairs + the game-wide convention | done |
 | CC2 | ⏳ FIRST PASS (opus, 2026-07-06): `aabb_path_contacts` + hazards converted + tunneling test. **Completion = the §3.3 table:** auto-collect → ANY-HIT; mid-room Doors → FIRST-TOI; water/climb thin-region validator rule; ledge audit; the `AMBITION_REVIEW(discrete_ok)` markers; migrate hazard delta onto the §3.1 sample when it mints | [opus — the table is the checklist] |
-| CC3 | Fuzz invariant rig — the §6.1 oracle verbatim, §6.2 traces, seeded-reproducible. **DIAGNOSTIC-ONLY for now (Jon, 2026-07-06): it detects + reports illegal states + emits reproducible seeds/traces; it is NOT wired as a hard CI gate yet** (that would RED on the deferred embed/OOB bugs). SHAPE the seeds/traces so a staged hard gate can be switched on later without redesign (stable seed → replayable trace; a `--deny` mode is a flag flip, not a rewrite). | [opus — oracle written; no design freedom; the GATE-vs-diagnostic switch is Jon's, deferred] |
+| CC3 | 🟡 **DIAGNOSTIC LANDED; ENFORCEMENT OPEN.** The §6.1 oracle, §6.2 traces, stable seeds, and shipped-room measurement exist. The comprehensive sweep is still ignored/diagnostic and does not assert the completion thresholds. A future hard gate must hard-fail missing rooms and be poison-tested against each illegal-state class before CC3 becomes COMPLETE. | [opus — enforcement slice; policy switch remains deliberate] |
 | CC4 | Broadphase grid for chains+blocks casts (profile first) | [opus; NOT a CC1–CC3 precondition] |
 | CC5 | ✅ **LANDED (fable, 2026-07-06).** `engine_core::frame` minted (`PortalFrame {origin, normal, velocity}`, tangent DERIVED, `PortalAperture {frame, half_length}`, explicit `MapConvention`, `map_vec/map_point/map_velocity` incl. Galilean composition); platformer math delegates to the ONE implementation; `pieces::PortalFrame` REPLACED (no shim) — frame-only consumers take `&PortalFrame`, opening-aware take `&PortalAperture` (`PlacedPortal::{frame, aperture}`). Full parity suite green (portal 46, presentation 45, gameplay 1167, app rl_sim). CC6 may now read non-zero `velocity` | done |
 | CC6 | ✅ **LANDED (fable, 2026-07-09).** Host-attached frames (`PlacedPortal.host: Option<GeoFaceRef>` + `host_lift`/`vel`/`prev_pos` — the aperture's own sweep sample), engine_core `FaceAnchor` + `World::{block_by_id, resolve_face, attribute_face}`, platforms stamp `GeoSource::Placement`, the RELATIVE swept trigger (body sample shifted by the aperture's frame delta — the scoop works), Galilean `map(v−v_enter)+v_exit` with the min-exit floor in the EXIT REST frame, host-carried motion exempt from eviction (close-only pushout preserved), lazy content-side attribution + per-frame re-derivation (portal closes with its host face). Full parity gate green incl. the `--features portal` content suite. **Amendments recorded below (§5-P2a).** | done |

@@ -200,7 +200,7 @@ Jon rates as *actually fun*.
 | BD2 | Arena beats from encounter spec (waves/spawns/terrain via existing buses) | [opus] |
 | BD3 | ~~Telegraph event channel (rides CM5)~~ 🟡 **DATA + VALIDATOR half DONE 2026-07-10** — see §10 | [opus] |
 | BD4 | ~~Seed library v1~~ ✅ **DONE 2026-07-10** — see §7 | [opus] |
-| BD5 | ~~Fight validator (the §3 rules over authored data)~~ ✅ **DONE 2026-07-10** — see §9 | [opus] |
+| BD5 | 🟡 **VALIDATOR LANDED; ENFORCEMENT PENDING (audit correction 2026-07-10)** — see §9 | [opus] |
 | BD6 | Playtester rig + metrics + report format | [opus; needs FB1–FB4] |
 | BD7 | Pilot: re-author ONE existing boss (mockingbird or behemoth) through the full loop; calibrate bands against Jon's verdict | [opus + Jon] |
 | BD8 | Hollow Lite boss through the pipeline (the acceptance) | [opus + Jon] |
@@ -359,7 +359,7 @@ catalog cannot go partial the moment a fight uses one.
 
 ---
 
-## 9. BD5 — the fight validator, and what it found (opus, 2026-07-10)
+## 9. BD5 — validator landed; enforcement pending (opus + audit correction, 2026-07-10)
 
 `ambition_characters::brain::boss_pattern::validator`, with the per-game bands in
 `game/ambition_content/assets/data/boss_validator_bands.ron` (§3: *"the bands live
@@ -428,13 +428,17 @@ something adjacent and reports green.
 
 ### Why it is not an install-time gate yet
 
-§3's endgame is *"fight does not install."* Switching that on today would fail
-eight of the nine shipped bosses against **Calibration v0**, which the doc itself
-calls *"starting numbers … BD7's pilot re-calibrates them against Jon's verdict."*
-Gating before the pilot would not make the fights fairer; it would make the numbers
-unfalsifiable. So `boss_fight_validator.rs` measures, prints a stable report, and
-**pins the counts** — a change in a fight shows up as a change in the pin. The day
-BD7 recalibrates, `EXPECTED_ERRORS` goes to zero and the pin becomes the gate.
+§3's endgame is *"fight does not install."* That contract is not implemented:
+`install_boss_roster` does not call the validator, and the current test deliberately
+accepts eight hard errors through `EXPECTED_ERRORS`. The validator therefore
+**measures debt; it does not enforce the design doctrine.** Calibration v0 still
+needs BD7's pilot before zero becomes the correct threshold, but until installation
+rejects hard errors the honest status is “validator landed, enforcement pending.”
+
+BD7 must recalibrate the bands against Jon's verdict, reduce accepted hard errors
+to zero (or replace them with explicit per-fight reviewed waivers), and wire the
+validator into roster installation. Poison-test that a hard-invalid fight cannot
+install before restoring DONE.
 
 ---
 

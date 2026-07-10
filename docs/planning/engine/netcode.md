@@ -213,10 +213,10 @@ Obligations (each a slice, all [opus]):
   `serde_json::Value` field-pokes are gone. Noted while doing so: that fixture's
   60 ticks are entirely NEUTRAL input, so on its own it only ever proved that a
   falling body falls the same way.
-- **N0.3 Determinism lint set — ✅ LANDED (opus, 2026-07-09).** The four rules
+- **N0.3 Determinism lint set — 🟡 PARTIAL (audit correction 2026-07-10).** The four rules
   (no ambient randomness; no wall-clock reads; no std-hash-order semantics; no
-  `Entity` as an ordering key) are greps over every non-test source in the sim
-  crates, in `crates/ambition_runtime/tests/determinism_lints.rs`, with an
+  `Entity` as an ordering key) are greps over non-test source under `crates/*`,
+  in `crates/ambition_runtime/tests/determinism_lints.rs`, with an
   auditable `AMBITION_REVIEW(determinism)` escape hatch. The doc page is
   **ADR 0023**. Each lint is poison-tested (a violation injected into a real sim
   source makes it fail), so none of them passes vacuously.
@@ -250,13 +250,30 @@ Obligations (each a slice, all [opus]):
   both exemptions, because *a lint that only sees the spelling its author had in mind
   is not a lint.* `ambition_world::placements::registered_kinds` picked up the marker:
   it sorts the keys on the very next line, at room load, outside the tick.
-- ~~**N0.4 Desync canary rig.**~~ ✅ **LANDED 2026-07-10.**
+
+  **Audit scope correction (2026-07-10).** The source-root manifest excludes
+  `game/ambition_content` and demo-rule crates even though they schedule portal,
+  falling-sand, boss, and other simulation systems. The neighboring control-frame
+  lint already scans content, so this is an oversight rather than a deliberate
+  boundary. Extend N0.3 to every simulation-bearing root and add a content-side
+  poison fixture before restoring DONE.
+- **N0.4 Desync canary rig — 🟡 PARTIAL (audit correction 2026-07-10).**
   `game/ambition_app/tests/desync_canary.rs`: two `SandboxSim`s, one seeded input
   stream, the registered sim state hashed every tick, first-divergence report that
   names the offending REGISTRY ENTRY (a desync you cannot name is a desync you
   cannot fix). **3 rooms × 240 ticks, in sync.** Poison-tested both ways — a
   different input stream must diverge, and moving one body must change the hash —
   because a canary that cannot cry proves nothing.
+
+
+  **Fixture-coverage correction.** Required-room construction currently uses
+  skip/return paths. A room that loads is still checked: the canary/replay asserts
+  the full tick count and hash equality. The defect is narrower but serious:
+  **required rooms can disappear from the gate; loaded rooms do not silently pass
+  incorrect canary/replay results.** The SimId and resource ledgers are more
+  exposed because all-room load failure can collapse measured peak debt to zero.
+  Make fixture construction return `Result`, `expect` every required room with its
+  name, and land the missing-room poison test in the same commit.
 
   Built on N3.1's registration seam, as this section required
   (`ambition_runtime::snapshot`). The hash is FNV-1a, never
@@ -302,9 +319,12 @@ snapshots needed. Needs N0 complete, plus:
 
 ## N3 — rollback (the real thing, explicitly post-1.0)
 
-- **N3.1 Snapshot/restore of sim state** — 🟡 **registry + identity + `take`/`restore`
-  landed 2026-07-10. What remains is the per-crate registration checklist, and it
-  is now a NUMBER.**
+- **N3.1 Snapshot/restore keystone — 🟡 LANDED, exactness OPEN in N3.2
+  (audit correction 2026-07-10).** The registry, `SimId` vocabulary, shared
+  snapshot/hash bytes, take/restore mechanics, coverage measurement, and replay
+  oracle are valuable. The surrounding prose overstated what they prove:
+  uniqueness, complete mutable-state coverage, codec failure semantics,
+  active-room ownership, and dynamic-spawn reconstruction remain open.
 
   - `ambition_runtime::snapshot`: `SnapshotRegistry` (opt-in per plugin, decision
     1), `StateHasher`, `hash_entities_by_key` (the stable-order rule),
@@ -319,10 +339,12 @@ snapshots needed. Needs N0 complete, plus:
     covers projectiles, ordered by the existing `ProjectileSeq` (a global counter
     is forbidden for *identity* but is a perfectly good *total order*).
 
-  **`the_sim_id_migration_ledger` is a GATE, and it reads ZERO** across
-  `gap_run` / `portal_lab` / `mockingbird_arena` / `gnu_ton_arena`: every
-  simulated body carries a `SimId`. A rise means a spawn site shipped without
-  minting one, and restore would silently lose whatever it spawned.
+  **`the_sim_id_migration_ledger` currently measures zero anonymous bodies**
+  across `gap_run` / `portal_lab` / `mockingbird_arena` / `gnu_ton_arena` when
+  those fixtures load. It is not yet a trustworthy gate because a failed room
+  construction is skipped, and duplicate `SimId`s are not rejected. Series 1
+  hard-fails the fixtures; Series 2 adds the uniqueness invariant and its poison
+  test. A real rise still means a spawn site shipped without minting identity.
 
   **`take` / `restore` — ✅ LANDED 2026-07-10** (the sketch below, executed).
 
@@ -425,13 +447,12 @@ snapshots needed. Needs N0 complete, plus:
   pins the other half: `restore` reproduces the registered hash bit for bit, leaves
   zero unidentified survivors, and names every type it left stale.
 
-  Registered today (23 entries): `sim_tick`, `world_time`, `body_kinematics`,
-  `body_health`, `sim_id_counters`, the thirteen mutable body-state clusters — ground
-  / wall / jump / dash / flight / blink / dodge / shield / offense / lifetime /
-  action-buffer / base-size / sweep-sample — plus `body_mana`, `actor_pose`,
-  `actor_roll`, `actor_cooldowns`, `centered_aabb`. *A coyote timer that survives a
-  rollback is a jump the player did not earn; an attack cooldown that survives one is
-  an attack the enemy did not pay for.*
+  The current keystone records **60 registry entries across five kinds**
+  (component, cursor, resolved, resource, resource-cursor), plus registered message
+  channels and declared-derived state. The coverage ledger, not an inline hand count,
+  is the inventory authority. *A coyote timer that survives a rollback is a jump the
+  player did not earn; an attack cooldown that survives one is an attack the enemy did
+  not pay for.*
 
   `snapshot_pod!` writes a codec from a field list, so the failure mode is a field
   OMITTED — which `encode ∘ decode ∘ encode` cannot see, because it round-trips its
@@ -449,7 +470,7 @@ snapshots needed. Needs N0 complete, plus:
 
   `SnapshotRegistry::unclaimed_resources` now measures it, filtered to types whose
   name CONTAINS `ambition_` (Bevy's asset servers and render device state are not sim
-  state and never will be). **It reads 182**, and it is pinned.
+  state and never will be). **It reads 181 in the audited tree**, and it is pinned.
 
   It read 135 until the filter said `starts_with`. **Forty-five of them are `Messages<T>`
   buffers**, named `bevy_ecs::message::Messages<ambition_..::HitEvent>` — hidden twice
@@ -470,8 +491,7 @@ snapshots needed. Needs N0 complete, plus:
   `declare_derived`. Some of it is not:
 
   - `ambition_encounter::state::EncounterState` — the live encounter phase, the wave
-    run, the spawn counter. **This is why `mockingbird_arena` still diverges** after
-    every component on the boss rewinds correctly.
+    run, the spawn counter. **This was why `mockingbird_arena` diverged** before the missing state was registered; the current replay table below records it clean.
   - `ambition_projectiles::enemy::state::EnemyProjectileState`.
   - `ambition_actors::encounter::switches::SwitchActivationQueue`.
 
@@ -497,7 +517,7 @@ snapshots needed. Needs N0 complete, plus:
   ledger is an upper bound rather than a debt: many of the 59 want a *cursor*, not a
   codec.
 
-  ### The three named blockers between here and a clean arena
+  ### Replay status after the resolved blockers
 
   Pointing `hash_by_entry` — the per-entry hash the canary already had — at each dirty
   room named three different diseases wearing one symptom:
@@ -535,34 +555,33 @@ snapshots needed. Needs N0 complete, plus:
   not an `Entity`). Neither moved tick 21. `ProperTimeScale` was registered on the way,
   too. A falsified hypothesis is the cheapest thing a later reader can be handed.
 
-  ### What is left: `portal_lab`, and it is one thing
+  ### `portal_lab`: corrected diagnosis — cross-room ownership, not a fourth spawner arm
 
-  **A respawn re-runs the spawner now.** `restore` no longer goes straight from "this
-  `SimId` is in the snapshot and not in the world" to "spawn a bare entity". It first asks
-  the ACTIVE ROOM to build the thing again, keyed by the authored id its `SimId` already
-  is — `ambition_actors::features::respawn_authored_entity`, which walks the room's
-  `placements` (through the same `PlacementLoweringRegistry` the room ran at load), its
-  `enemy_spawns`, and its `boss_spawns`. Then the blob patches its mutable half exactly as
-  a survivor's. That is decision (3)'s *"room-reset already proves the world can rebuild"*
-  honoured rather than quoted: no restore-only code path, just the room's own lowering.
+  `placement:NpcSpawn-0017` is authored by **`central_hub_main`**, not by
+  `portal_lab`. Both levels are among the sixty levels in the same
+  `sandbox.ldtk`, loaded by one sim. Its appearance in a `portal_lab` snapshot
+  therefore proves that the snapshot roster or room-lifetime machinery spans
+  active-room ownership incorrectly. It does **not** prove that `RoomSpec` has a
+  missing fourth authored list.
 
-  `RestoreReport` splits the two outcomes, because they are not the same event:
+  The previously proposed fix — add another arm to `respawn_authored_entity` —
+  would paper over the defect by rebuilding another room's entity against the
+  wrong active `RoomSpec`. Do not do that.
 
-  - **`rebuilt`** — the room authored it, so it came back whole.
-  - **`respawned`** — nothing authors it, so it came back naked. `lossless()` now demands
-    this be zero.
+  The discriminating observation is that `gap_run`, `mockingbird_arena`, and
+  `gnu_ton_arena` replay clean under the same registry and all-levels-loaded
+  world. The violation is therefore likely produced during `portal_lab`'s
+  60-tick behavior, not merely at initial load. Confirm or refute that before
+  writing the invariant. Probe in this order:
 
-  **And `portal_lab` still diverges, for a reason worth having found.** Its dead entity is
-  `placement:NpcSpawn-0017`, and the room authors **no** `enemy_spawns`, no
-  `boss_spawns`, and no `placement` by that id — its `placements` are the portal pads and
-  doors (`a_purple`, `d_portal_door1`, four LDtk iids). So `respawn_authored_entity`
-  correctly declines, and the NPC comes back naked.
+  1. room transition and teardown;
+  2. per-tick snapshot-roster construction;
+  3. initial roster construction.
 
-  The remaining question is therefore precise, and it is not the one this section has been
-  asking: **what spawns `NpcSpawn-0017`?** It is not one of the three authored lists
-  `RoomSpec` exposes. Find its spawner, give it a fourth arm in
-  `respawn_authored_entity`, and `portal_lab` joins the CLEAN list. Everything else the
-  rebuild needs is already in place and green on three rooms.
+  Then enforce the invariant at every captured tick:
+
+  > Every `placement:<iid>` in a room snapshot is authored by the active room,
+  > unless the entity is explicitly classified as carried/persistent state.
 
   The other unresolved case, unchanged: a dynamically-spawned entity
   (`SimId::spawned(spawner, n)`) has no authored record and so no route back through the
@@ -570,7 +589,7 @@ snapshots needed. Needs N0 complete, plus:
   does not span its birth (`RestoreReport::respawned` is already the number, and N3.2's
   bounded window is where that constraint gets paid). No room in the suite exercises it.
 
-  Everything else about N3.1 is done: 60 registry entries across five kinds (component,
+  The landed N3.1 keystone currently contains 60 registry entries across five kinds (component,
   cursor, resolved, resource, resource-cursor), four message channels, three declared
   derived, and an exit oracle that three rooms pass and the fourth is *asserted* to fail.
 
@@ -580,16 +599,31 @@ snapshots needed. Needs N0 complete, plus:
   serialization"*, which needs the trait to move down to `platformer_primitives`. It
   is a mechanical move, and it is worth doing before the third crate wants a codec.
 
-  `gnu_ton_arena` diverges at tick 8 with everything patched and nothing respawned:
-  its boss's unregistered brain state (move playbacks, pattern cursors, seeded RNG)
-  takes eight ticks to change what a body does. That is the FB6/BD6 blocker, and it is
-  a `SnapshotState` impl per brain component.
-
   Still useful long before netcode: Braid-style rewind, RL tree search, and the
   fighter brain's FB6 rollouts all want it — and all three want `lossless()` first.
-- **N3.2 Resim discipline** — bounded rollback window; presentation reads
-  confirmed ticks only (read-model tick-tagging); side-effect suppression
-  during resim (sfx/vfx event facts carry the tick; presentation dedups).
+- **N3.2 Exact-restore substrate + resim discipline — OPEN, ordered.**
+
+  1. **Identity invariant:** reject duplicate live/snapshot `SimId`s and duplicate
+     registry names before constructing lookup maps. Land the duplicate-`SimId`
+     poison test in the same commit.
+  2. **Active-room ownership:** trace transition/teardown and roster construction,
+     fix the `central_hub_main` → `portal_lab` leak, then enforce per-tick authored
+     ownership with explicit carried/persistent exceptions.
+  3. **Reconciliation ordering:** reconcile first; only then compute stale
+     components and unidentified survivors against the post-reconciliation roster.
+  4. **Codec failure semantics:** registered decode failures are restore errors in
+     every build mode. Land the corrupted-blob poison test in the same commit.
+  5. **Positive losslessness:** `lossless()` covers unique identity, registered
+     components, mutable resources, relevant messages/events, successful codecs,
+     no unexplained survivors/stale state, and no naked reconstruction outside an
+     explicit policy. Intentional exclusions are named policy, never silence.
+  6. **Dynamic births + bounded window:** register reconstruction recipes or
+     constrain rollback so unsupported births cannot be crossed; then tag
+     confirmed read-model ticks and deduplicate resim side effects.
+
+  Poison-test atomicity is binding: do not land a known-red future test or pin the
+  current bug. Full rationale and the three-series order live in
+  [`../../archive/reviews/static-audit-response-2026-07-10.md`](../../archive/reviews/static-audit-response-2026-07-10.md).
 - **N3.3 `bevy_ggrs` integration spike** against the SSB demo scene.
 
 ## N3.1 design sketch (pre-solved; sim components conform to this NOW)

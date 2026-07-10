@@ -31,11 +31,40 @@ where they conflict, and its tail carries the next-phase queue.
 
 ---
 
-## ▶ NEXT UP (priority order, 2026-07-09)
+## ▶ NEXT UP (priority order, audit-normalized 2026-07-10)
 
-P2's decomposition and combat stack are DONE. What's left divides into one
-arc that closes the last agent-closable playbook exit, a handful of
-player-visible bugs, and the untouched determinism ladder.
+### Audit correction order — binding
+
+The next structural work is split into three series. Detailed investigation and
+acceptance criteria live in
+[`../archive/reviews/static-audit-response-2026-07-10.md`](../archive/reviews/static-audit-response-2026-07-10.md).
+
+1. **Series 1 — guardrail credibility + baseline normalization.** Hard-fail every
+   required room load; land the missing-room poison test with that fix; prove the
+   resource/message coverage ledger reacts to injected mutable state; expand N0.3
+   to every simulation-bearing source root; reopen D-B with an executable line
+   gate and an explicit per-path waiver list; regenerate stale module maps.
+2. **Series 2 — N3.2 exact-restore substrate.** Enforce unique identities (with
+   the duplicate-`SimId` poison test in the same commit); diagnose and enforce
+   active-room ownership; compute stale state after reconciliation; make codec
+   failures explicit (with the corrupted-blob poison test in the same commit);
+   redefine `lossless()` from positive component/resource/message/codec coverage;
+   then address dynamic-spawn reconstruction and bounded rollback.
+3. **Series 3 — evidence ledger.** This commit is pass 1: correct status and false
+   diagnoses before they steer work. Pass 2 happens only after Series 1/2 are
+   green and compresses completion evidence to enforced invariants.
+
+**Poison-test atomicity is binding:** a poison test and the behavior that makes it
+pass share a commit unless the behavior already exists. Do not land known-red
+future tests or tests that pin the current bug merely to keep the tree green.
+
+**Locked audit framings:** required rooms can disappear from the gate; loaded
+rooms do not silently pass incorrect canary/replay results. The N3.1 keystone is
+valuable; the prose overstated what it proves, and exactness is N3.2 work.
+
+The historical execution sequence below remains useful context, but the audit
+correction order above supersedes it for structural work. Existing completed slices
+stay completed unless explicitly reopened or reclassified here.
 
 1. ~~**The demo-shell arc — a runnable `ambition_demo_sanic`.**~~
    ✅ **DONE 2026-07-10 — playbook exit 3 is MET and gate-enforced.**
@@ -91,38 +120,20 @@ player-visible bugs, and the untouched determinism ladder.
    logging, and do NOT apply the disproven `sprite_target` dispatch. Ship the
    visual; never defer to "an interactive pass".
 
-4. ~~**CC3 — the fuzz-oracle delta** (§6.1).~~ ✅ **DONE 2026-07-10. All six
-   invariants live.** 1 (carve-aware), 3, 4 (folded + cataloged), 6 (one-way
-   fall-through) landed first; **2 (straddle-outside-carve) and 5 (one Class-B
-   remap per frame) closed in one slice**, with the §6.2 minimum payload
-   `(seed, room, tick, invariant #, GeoId)` and every shipped room in the matrix.
+4. **CC3 — diagnostic rig LANDED; completion gate OPEN.** All six invariants
+   and the minimum repro payload exist, and the shipped-room sweep produced a
+   useful measurement. The comprehensive sweep remains ignored/diagnostic and
+   does not assert the completion thresholds. Label it as evidence-producing
+   instrumentation, not a completed guarantee, until the enforced gate is
+   poison-tested and enabled.
 
-   - Invariant 2 needed **no** new read-model row after all. `PortalTransit`
-     always named the straddled channel; nothing called it. The oracle rebuilds
-     the straddled portal's `carve_hole` and tests against the **authored** wall,
-     because the composed world invariant 1 uses has *every* carve subtracted and
-     is therefore blind to a body standing in a hole it never entered.
-   - Invariant 5 **did** need machinery, and got it:
-     `ambition_platformer_primitives::class_b` — a frame-scoped `ClassBRemapLog`
-     cleared by `SandboxSetsPlugin` and written by all four Class-B authorities.
-     A **ledger, not an arbiter**, per §3.2's structural reading.
-   - **72 rooms × 3 seeds × 300 ticks = 64,800 frames, 14 violations, NONE a
-     collision bug** (all 14 are open-edge walk-offs). The 15th — `portal_lab`'s
-     TELEPORT — was the known false positive and the ledger retired it. One
-     slice, three payoffs, as predicted. [opus]
-
-5. **Bookkeeping**: ~~re-baseline the ledger~~ **RULED 2026-07-10** — the adapter
-   floor IS the floor, on evidence (EIGHT shells, not nine — `boss_encounter/`
-   turned out not to be one; no compile-time win from a further carve).
-   ~~reconstruct or rewrite playbook exit 5~~ **DONE** (four measured, ratchetable
-   rebuild loops). ~~Write `MODULES.md` per crate (D-B)~~ ✅ **DONE 2026-07-10**
-   — all 42 crates, GENERATED from each module's own `//!` header by
-   `scripts/modules_md.py` (bare = drift check, `--write` = regenerate), so it
-   cannot rot. It doubles as a lint for the standard's first clause: exactly one
-   module repo-wide lacked a concern header. **D-B's navigability standard now
-   holds in full**, which is what the ledger ruling leans on. Also fixed a RED
-   `check_agent_kb.py` (ADR 0023 was missing its required agent-implications
-   section).
+5. **Bookkeeping:** the adapter-floor ruling and playbook exit 5 remain
+   valid. **D-B is REOPENED.** `scripts/modules_md.py` provides useful concern-map
+   drift checking, but the workspace has 44 members rather than the claimed 42,
+   at least one generated map is stale, and several production/simulation modules
+   exceed the documented ~1.5k-line standard. Add an executable line gate with a
+   reviewed waiver list containing one reason per path; never infer a broad
+   “generated/declarative” exemption.
 
 **Deliberately NOT next:** CM6 and N1 (both land with the SSB demo, P4);
 projectile steppers (blocked by design until their inputs are plain); the
@@ -140,12 +151,11 @@ CC4 (profile first); CC7 P3a.
    remainders (presentation interpolation, `wall_dt` semantics, one-frame
    device latency). N0.2 and N0.4 are unblocked.
 
-7. ~~**N0.3 — the determinism lint set.**~~ **✅ DONE (opus, 2026-07-09).** Four
-   greps over the sim crates + **ADR 0023** + an auditable
-   `AMBITION_REVIEW(determinism)` escape hatch; every lint poison-tested.
-   **The "already true" measurement was wrong**: `start_body_melee` iterated a
-   `std::collections::HashSet<Entity>` and spawned strikes + wrote messages from
-   that loop — per-process hash order on the hottest combat path. Fixed.
+7. **N0.3 — 🟡 PARTIAL.** The four rules, ADR 0023, escape hatch, and
+   existing poison tests are valuable and found real defects. The gate scans
+   `crates/*` but omits simulation-bearing `game/ambition_content` and demo-rule
+   sources. Expand the source-root manifest and poison-test a content-side
+   violation before restoring DONE.
 
 8. ~~**The dialog speaker-context slice.**~~ **✅ DONE (opus, 2026-07-09).**
    `$speaker_id` / `$listener_id` / `$speaker_is_self` published into Yarn
@@ -171,14 +181,14 @@ CC4 (profile first); CC7 P3a.
 
 | Track | Doc | Status | Next |
 |---|---|---|---|
-| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | **COMPLETE** — E1–E9, W1–W4, F1–F9 executed; demo gate open; umbrella crate real; `placements` the sole authored-entity channel. **Exit 5 rewritten + the ledger RULED (adapter floor IS the floor, 2026-07-10).** Playbook exits 1, 2, 4, 5 met; only exit 3 (a demo binary) is open | the shell-dissolution chain: [refactor-chain.md](engine/refactor-chain.md) |
-| Decomposition D-B | same | **✅ COMPLETE (2026-07-10)** — navigability standard holds in full: no module >1.5k ✅, hub globs dissolved ✅, `MODULES.md` in all 42 crates ✅ (generated by `scripts/modules_md.py`; bare invocation is the drift check) | — |
+| Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | **COMPLETE** — E1–E9, W1–W4, F1–F9 executed; demo gate open; umbrella crate real; `placements` is the sole authored-entity channel; playbook exits 1–5 are met | shell-dissolution chain: [refactor-chain.md](engine/refactor-chain.md) |
+| Decomposition D-B | same | **🔴 REOPENED (audit 2026-07-10)** — module maps exist, but the ~1.5k-line standard is false, the workspace count is 44 rather than 42, at least one `MODULES.md` is stale, and no executable line-size gate exists | regenerate maps; add line gate + explicit reasoned waiver list |
 | Decomposition D-C | same | **✅ DONE (2026-07-10)** — the mode-scope seam shipped as `refactor-chain.md` R1: `RoomMetadata.mode`, `ModeScopedEntity` + `spawn_mode_scoped`, `in_mode(name)` + `ModeScopePlugin`. Two hosted rulesets coexist (`ambition_runtime/tests/mode_scope.rs`); `sanic_speedway` claims its mode | — |
-| Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | CC1 + CC2 + CC5 + CC6 LANDED; **CC3 COMPLETE 2026-07-10** — all six invariants live + the §6.2 minimum payload + every shipped room. **64,800 stepped frames, 14 violations, none of them a collision bug** (all 14 open-edge OOB = authoring). Zero embeds, zero straddle-outside-carve, zero double Class-B remaps, zero one-way fall-throughs, zero suspect clips. The §3.2 ordering contract is now MEASURED, not assumed (`platformer_primitives::class_b`) | CC4 (profile first), CC7 P3a |
+| Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | CC1 + CC2 + CC5 + CC6 LANDED; **CC3 DIAGNOSTIC LANDED, ENFORCEMENT OPEN** — six invariants and replay payload exist, but the comprehensive sweep is diagnostic/ignored and does not enforce the completion thresholds | turn the measured oracle into a poison-tested gate when its policy is ready; CC4/CC7 remain |
 | Combat stack | [engine/combat-model.md](engine/combat-model.md) | CM1–CM5 + CM7 LANDED — smash axes complete (growth, DI, charge, cancel tables, launch angles, per-move presentation) | CM6 grab/throw/shield-stun (brings OnBlock) [opus, with SSB — a P4 slice, not a P2 exit] |
-| Netcode ladder | [engine/netcode.md](engine/netcode.md) | **N0.3's rule-3 lint had a HOLE and a real bug lived in it (fixed 2026-07-10)** — it only matched the fully-qualified `std::collections::HashMap` on the binding line, so every idiomatic `use`-then-bare-name file was invisible. `WorldMemory.actors` was a std `HashMap`, and `last_known_hostile`'s `max_by` broke confidence ties (two foes in view are BOTH at 1.0) by the process hash seed: the enemy chased a different player each run. Now a `BTreeMap`; the lint is widened and poison-tested. **N0.1 + N0.2 + N0.3 LANDED** (2026-07-09): `SimSchedule` seam + `fixed_tick` knob + `SimTick` + `ControlFrameLatch`; `InputStream` + `InputStreamRecorder`; determinism lints + ADR 0023 | **N0.4 desync canary LANDED 2026-07-10** — 2 sims, 1 input stream, per-tick hash of the REGISTERED sim state, first-divergence report naming the offending entry. 3 rooms × 240 ticks, in sync; poison-tested both ways. Rides **N3.1's registry half** (`ambition_runtime::snapshot`). **N3.1's SimId migration LANDED the same day** — `platformer_primitives::sim_id` + `ensure_sim_id` + `mint_spawned_sim_ids`; `the_sim_id_migration_ledger` is a GATE reading **zero anonymous bodies** across 4 rooms. **`take`/`restore` LANDED 2026-07-10** — `SnapshotState` makes the hash and the snapshot THE SAME BYTES (one codec, two consumers, no drift); `restore` **reconciles by SimId** — patch the survivors in place, respawn the missing, despawn the newcomers — and `take` after `restore` returns the snapshot it restored from. **Deviation from decision (3)'s despawn-everything, argued in the doc:** a body's authored config (brain, moveset, faction) is immutable and belongs to the room, not to a blob written 60×/s; despawn-and-respawn destroyed 53 component types on `gap_run`, patching destroys none. **What it cannot rewind, it reports:** `RestoreReport` names every STALE component type and counts `unidentified_survivors` — bodies with no `SimId`, which restore does NOT despawn and which walk out of a rollback. **N3.1 IS DONE except `portal_lab`.** `the_snapshot_coverage_ledger` pins **59 component types** + **181 `ambition_*` resources** (45 of them `Messages<T>` buffers — hidden twice: a `Resource` sits on no entity, and `Messages<ambition_..>` is NAMED `bevy_ecs::message::Messages<..>`; `restore` clears the registered channels). **THREE ROOMS rewind and replay bit for bit, two of them boss fights** — `gap_run`, `gnu_ton_arena`, `mockingbird_arena`. The last two blockers were mirrors of state living elsewhere: `GameplayElapsed` (an accumulating sim clock a brain stamps `last_seen` with) and `BossEncounter.encounter_phase`, which `sync_boss_encounter_phase` copies out of `BossEncounter.encounter: Option<BossPhaseState>` every tick — rewinding only the mirror is rewinding a thermometer. Two hypotheses died on the way (stale `ActorActionMessage`; stale `CombatSlotsRes` slot assignment); both fixes kept, both right on their own terms. **What remains is `portal_lab`, and it is ONE thing:** it is the only room with `respawned > 0`, and a respawned entity comes back carrying only its registered components. **A respawn RE-RUNS THE SPAWNER now** (`respawn_authored_entity`: the room's `placements` via its own `PlacementLoweringRegistry`, plus `enemy_spawns` / `boss_spawns`), and the blob patches the rebuilt entity's mutable half exactly as a survivor's. `RestoreReport` splits `rebuilt` (the room authored it, it came back whole) from `respawned` (nothing authors it, it came back naked); `lossless()` demands `respawned == 0`. **`portal_lab` STILL diverges, and the question is now precise:** its dead entity is `placement:NpcSpawn-0017`, and the room authors no `enemy_spawns`, no `boss_spawns`, and no placement by that id — so what spawns it? Find that spawner, give it a fourth arm in `respawn_authored_entity`, and the room joins CLEAN. Separately, a dynamically-spawned `SimId::spawned(..)` entity has no authored record and no route back through the room: it needs a spawn recipe beside its codec, or a rollback window that does not span its birth. No room in the suite exercises that yet. 60 registry entries across five kinds; `gnu_ton_arena` carries the LARGEST stale count and rewinds exactly — the ledger is an upper bound, the oracle measures the debt. Then N1.1/N1.2 (local multiplayer, ships with SSB) |
+| Netcode ladder | [engine/netcode.md](engine/netcode.md) | N0.1/N0.2 LANDED. **N0.3 PARTIAL** (content/demo sim roots excluded). **N0.4 PARTIAL** (loaded rooms are checked, but required rooms can disappear on construction failure). **N3.1 KEYSTONE LANDED** (registry, identity vocabulary, shared bytes, take/restore, ledgers, replay oracle); exactness is N3.2 and open. `portal_lab` is a cross-room ownership defect: `NpcSpawn-0017` belongs to `central_hub_main`; do not add a fourth respawn arm | Series 1 guardrails, then N3.2 identity → room ownership → reconciliation → codec → coverage/lossless → dynamic spawn/window |
 | Fighter brain | [engine/fighter-brain.md](engine/fighter-brain.md) | **FB1 DONE 2026-07-10** (§7) — the view now carries move phase, i-frames, damage meters, and stage geometry; `DelayedPerception` is the reaction-latency buffer. **Two bugs found: `half_extent` was filled with the FULL body size (2× everywhere), and peers' `on_ground`/`shield_raised` were hardcoded `false`** **FB3 DONE 2026-07-10** (§8): L1's `classify(&WorldView) -> Situation`, RANKED (Disadvantage outranks EdgeGuard — chasing an offstage foe while in hitstun is not edge-guarding, it is being carried), plus the 8-fixture scenario suite in the LIBRARY so FB4's rig scores the same situations. Three of L1's five states were underivable before FB1's audit **FB2 DONE 2026-07-10** (§9): L2's option generator + scorer. Attacks priced from CM7's `MoveFrameData`, so the brain understands a character nobody wrote a table for. **FOUND: none of §1's four features reads a move's POWER, so at any weights the jab beats the smash on a punish** — CM7 carries no damage either. Recorded, not patched: FB4's ladder is the doctrine's own instrument for forcing it **FB4a DONE 2026-07-10** (§10): the nine-rung ladder is content, and **the no-cheat contract is now a TYPE** — `Perceived` has a private field and only `DelayedPerception::perceive` mints one, so a brain layer cannot name the live world. A test can be forgotten and a grep lint argued with; a type cannot | FB4's remaining half (APM histogram + ladder self-play rig — both need a brain that emits inputs; the rig also calibrates L2's weights and will surface FB2's §9 hole), **FB5 DONE 2026-07-10** (§11): the opponent model — bounded (`Situation × Choice`, a 5×6 table), decayed (three fresh jumps outweigh nine stale shields), and honest (an unseen situation reads as the UNIFORM PRIOR, not zero: ignorance is not knowledge of absence). `BTreeMap`, not the sketch's `HashMap` — a trace and FB6's rollouts both iterate. Then FB6 (needs N3.1's `restore`) |
-| Boss pipeline | [engine/boss-design.md](engine/boss-design.md) | **BD4 DONE 2026-07-10** (§7) — 9 seeds cover all 22 shipped boss attacks; bands are the MEASURED envelope and a test keeps them one. Found: no per-attack `recovery` exists (the punish window is the following `Rest`, an occurrence property — BD5 must measure it), the roster never demands a Parry, and the mockingbird's 26-tick telegraphs will fail rule 1 | **BD1 DONE 2026-07-10** (§8) — `Select` (weighted, bucket-gated), `Stance` (a jump with a return point), and `InterruptRule` (`OnHitTaken`/`OnPhaseEnter`/`OnTimer`). Byte-parity: every existing `boss_profiles.ron` row parses unchanged. `OnHitTaken` needed no damage channel — the brain remembers its own HP. **BD5 DONE 2026-07-10** (§9) — §3's rules 1/2/3 over authored data, bands in a per-game RON. **THE MEASUREMENT: 8 errors, 1 warning. Every error is rule 3, every one in Enrage: the tightened combos chain a Strike straight into the next Telegraph, leaving no punish window.** Rules 4 and 5 are NOT expressible from today's data and the module says why. Not an install gate yet — Calibration v0 is unfalsifiable until BD7's pilot. **BD3's data + validator half DONE 2026-07-10** (§10): `TelegraphSpec { pose, cue, vfx }` gives a telegraph an IDENTITY, so BD5's rule 5 is now live. **THE MEASUREMENT: nine of nine shipped bosses author NO telegraph at all** — every attack telegraphs by duration alone. None was invented (that is the 'generic by accident' trap). Next: BD2, BD6 rig, then BD7's pilot — which authors the telegraphs and recalibrates the bands |
+| Boss pipeline | [engine/boss-design.md](engine/boss-design.md) | BD1/BD4 LANDED; BD3 data + validator half LANDED; **BD5 VALIDATOR LANDED, ENFORCEMENT PENDING** — it reports eight hard errors and one warning, but roster installation does not reject them and the expected-error pin accepts the current debt | BD2, BD6, BD7 calibration; then make zero hard errors an install gate |
 | Falling sand | [engine/falling-sand.md](engine/falling-sand.md) | **FS1 DONE 2026-07-10** (§3) — the reported defect was a SECOND representation: `emit_falling_sand_spouts` fed the CA grid *and* spawned parallel sprites that fell on their own gravity through every platform. Deleted. Conservation is now a tested `TallyLedger`; spouts are a table one `const` from the ruled `PlacementSchema::Spout` | FS2 (settle/level rules + fixed-point test — it needs the CA-stepping harness FS1's conservation audit also wants), then FS3 |
 | S — Sanic | [demos/sanic.md](demos/sanic.md) | S1–S3 landed; **S5 shell DONE 2026-07-10** — `ambition_demo_sanic_app` boots engine+host+content+rules and steps the sim (playbook exit 3, gate-enforced); `SanicRulesPlugin` is D-C's first real consumer | the FEEL half is still interactive. **OV1 blocks the windowed half.** Ball-dash technique [opus] |
 | M — Super Mary-O | [demos/super-mary-o.md](demos/super-mary-o.md) | **level 1-1 + the shell LANDED 2026-07-10.** `level_1_1()` authors the grammar (open teach → widening pit rhythm → stepping stone → stair pyramid → goal), pinned by a geometry test; `Smb1RulesPlugin::{hosted,global}` runs the mode-scoped level clock; `ambition_demo_smb1_app` boots + draws. **The E9 oracle held a SECOND time** — a different genre, zero engine edits | **M2 scroll knob LANDED 2026-07-10** — `CameraZoneSpec.scroll_policy` (`ForwardOnlyX`), applied after the bounds clamp, watermark on `CameraEaseState`, cleared on leaving so the clamp is PER-VISIT. Never eases backward to meet the watermark. Byte-parity for every pre-M2 zone. **The oracle-violation is filed and closed in the same breath: the knob is authored data, so no engine code names a demo.** **M3 flag sequence LANDED 2026-07-10** — `flag.rs`, zero engine code: `step_flag_sequence` is a pure `(state, pole, body, dt) -> Option<Vec2>`; the score is decided at the moment of CONTACT, and `FlagSequence::driven` holds the position so a gravity step between systems cannot move the slide. **Deviation stated out loud: NOT on the cutscene kit** — `CutsceneBeat` cannot move a body, and adding a beat that could would be engine code serving one demo, with a presentation crate's timing deciding a gameplay score. `goal_pole()` is the one source of the flag's geometry; the oracle that proves it agrees with the authored block caught a hardcoded tile size on its first run | M1 equipment chain (with A3), M4 the game, M5 hosting wing |

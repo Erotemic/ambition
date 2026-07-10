@@ -459,7 +459,16 @@ fn architecture_boundaries_app_uses_umbrella_manifest_surface() {
             path.file_name().and_then(|name| name.to_str()) != Some("architecture_boundaries.rs")
         },
         |_, line| {
-            line.contains("ambition_content::") || line.contains("ambition_menu_kaleidoscope::")
+            line.contains("ambition_content::")
+                || line.contains("ambition_menu_kaleidoscope::")
+                // The N3.2 sim-resource exclusion policy and its tests name presentation
+                // namespaces as STRING DATA (resource-name substrings for
+                // `unclaimed_sim_resources`), not facade-bypassing imports. A
+                // quote-prefixed crate path is always a string literal, never a `use`,
+                // so this cannot mask a real facade violation (audit M8).
+                || line.contains("\"ambition_sim_view::")
+                || line.contains("\"ambition_ldtk_map::")
+                || line.contains("\"ambition_time::")
         },
         "ambition_app code should reach reusable lower crates through the ambition facade",
     );
@@ -1129,7 +1138,7 @@ fn architecture_boundaries_runtime_is_headless_composition_tier() {
         ],
         "ambition_runtime is headless composition, not app/content/host/render/backend ownership",
     );
-    assert_code_refs_absent(
+    assert_code_refs_filtered(
         &[crate_root.join("src")],
         &[
             "ambition_render::",
@@ -1141,6 +1150,13 @@ fn architecture_boundaries_runtime_is_headless_composition_tier() {
             "ambition_ldtk_map::",
             "bevy_ecs_ldtk::",
         ],
+        |_| true,
+        // `SIM_RESOURCE_EXCLUSIONS` names the ldtk backend's namespace as a STRING, to
+        // exclude its resources from the rollback sim-state universe — data, not a
+        // dependency (the `assert_manifest_has_no_deps` check above proves runtime does
+        // not depend on ambition_ldtk_map). A quote-prefixed crate path is always a
+        // string literal, never a `use` (audit M8).
+        |_, line| line.contains("\"ambition_ldtk_map::"),
         "runtime source should compose headless sim/mechanic/menu-model crates without reaching into          app/content/host/render tiers",
     );
 }

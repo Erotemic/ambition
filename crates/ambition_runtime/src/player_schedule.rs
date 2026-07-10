@@ -124,6 +124,11 @@ impl Plugin for PlayerSchedulePlugin {
                 (
                     ambition_actors::abilities::traversal::possession::resolve_controlled_subject,
                     ambition_actors::player::populate_slot_controls,
+                    // N0.2: capture the input the SIM consumes, which is not the
+                    // input the device produced — gestures, portal warp, and the
+                    // fixed-tick latch all rewrite the frame on the way here.
+                    crate::input_stream::record_input_stream
+                        .run_if(crate::input_stream::input_stream_recording),
                     ambition_actors::player::sync_local_player_input_frame,
                 )
                     .chain(),

@@ -191,9 +191,28 @@ Obligations (each a slice, all [opus]):
     Update/FixedUpdate) — that's the exit check. ✅ met: `SandboxSimOptions
     ::with_fixed_tick` parameterizes `player_phase_split` and
     `actor_phase_split`.
-- **N0.2 Input-stream capture as a first-class type.** `SlotControls`
-  per-tick, serializable, versioned — the SAME artifact serves replay
-  fixtures, RL trajectories, desync forensics, and the wire format later.
+- **N0.2 Input-stream capture as a first-class type — ✅ LANDED (opus,
+  2026-07-09).** `ambition_engine_core::InputStream` — versioned
+  (`INPUT_STREAM_VERSION`), serde, per-tick `SlotControls` keyed by `SimTick`,
+  contiguous, `validate()`d on load. Explicit field order, `u64`/`u32` only (no
+  `usize`), so it does not preclude level 3. `ControlFrame` gained
+  `#[serde(default)]`, so ADDING a field never bumps the version: an older
+  stream loads with the new field neutral, which is what it meant.
+  `ambition_runtime::InputStreamRecorder` is the ONE capture path, recording
+  `SlotControls` after the input phase finalizes them — the frame the SIM
+  consumed, not the one the device produced (gestures, portal warp, and the
+  fixed-tick latch all rewrite it in between). `SandboxSim::step_frame` drives a
+  raw `ControlFrame`, so replay no longer round-trips through `AgentAction`,
+  which silently drops `shield_held` / `aim_*` / the projectile verbs.
+
+  Exit: `game/ambition_app/tests/input_stream_replay.rs` records a scripted
+  session (run, jump, reverse, dash), validates, JSON round-trips, and replays
+  the DECODED stream into a FRESH sim with zero divergence at every tick —
+  capture, transport, and replay, which is N0.4's comparison in miniature.
+  `replay_fixture_regression.rs` was promoted onto the type: its untyped
+  `serde_json::Value` field-pokes are gone. Noted while doing so: that fixture's
+  60 ticks are entirely NEUTRAL input, so on its own it only ever proved that a
+  falling body falls the same way.
 - **N0.3 Determinism lint set — ✅ LANDED (opus, 2026-07-09).** The four rules
   (no ambient randomness; no wall-clock reads; no std-hash-order semantics; no
   `Entity` as an ordering key) are greps over every non-test source in the sim

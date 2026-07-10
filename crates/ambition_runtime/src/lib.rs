@@ -42,6 +42,7 @@ use bevy::time::{Fixed, Time};
 use ambition_platformer_primitives::schedule::SimScheduleExt as _;
 
 mod combat_schedule;
+pub mod input_stream;
 mod player_schedule;
 #[cfg(feature = "portal")]
 mod portal_schedule;
@@ -61,6 +62,8 @@ pub use sim_core_resources::SimCoreResourcesPlugin;
 /// The canonical timeline (netcode N0.1). Re-exported here because the sim
 /// schedule this crate assembles is what advances it.
 pub use ambition_time::SimTick;
+/// The per-tick input recorder (netcode N0.2).
+pub use input_stream::{input_stream_recording, record_input_stream, InputStreamRecorder};
 
 /// Host-facing input seams that are implemented by the simulation heart but
 /// scheduled by a visible host. Keeping this tiny facade here lets

@@ -108,6 +108,9 @@ impl Plugin for SimCoreResourcesPlugin {
             // The canonical timeline (N0.1): the index of the sim step now
             // running. Input streams and state hashes key on it.
             .init_resource::<ambition_time::SimTick>()
+            // The per-tick input recorder (N0.2). Disarmed; a replay/RL/desync
+            // driver arms it. Costs one resource read per tick while idle.
+            .init_resource::<crate::InputStreamRecorder>()
             // Neutral runtime mirror of `WorldTime::sim_dt()`.
             .init_resource::<ambition_platformer_primitives::time::SimDt>()
             // Portal registry — per-portal lifecycle state machine.

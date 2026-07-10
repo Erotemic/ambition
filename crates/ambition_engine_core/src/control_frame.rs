@@ -23,7 +23,13 @@ use crate::{InputState, RawDirectionEdges, Vec2};
 /// keeps one global `ControlFrame` resource for the local primary input before
 /// mirroring it into per-slot brain state. The type itself is slot-neutral and
 /// is also used by `ambition_characters::brain::SlotControls`.
-#[derive(Resource, Clone, Copy, Debug, Default)]
+/// `#[serde(default)]`: an input stream recorded before a field existed loads
+/// with that field NEUTRAL, which is what the old recording meant by it. This
+/// is why adding a `ControlFrame` field does not bump `INPUT_STREAM_VERSION`.
+#[derive(
+    Resource, Clone, Copy, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize,
+)]
+#[serde(default)]
 pub struct ControlFrame {
     pub axis_x: f32,
     pub axis_y: f32,

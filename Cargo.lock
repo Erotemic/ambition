@@ -421,6 +421,7 @@ dependencies = [
  "bevy_math",
  "parry2d 0.26.0",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

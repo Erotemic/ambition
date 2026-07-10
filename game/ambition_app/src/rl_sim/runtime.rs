@@ -181,7 +181,19 @@ impl SandboxSim {
     /// strategy resource was never installed, so Bevy's default
     /// `Automatic` reads wall-clock dt.
     pub fn step(&mut self, action: AgentAction) -> AgentObservation {
-        *self.app.world_mut().resource_mut::<ControlFrame>() = action.into();
+        self.step_frame(action.into())
+    }
+
+    /// Step one tick driven by a raw [`ControlFrame`] — the unit an
+    /// [`InputStream`](ambition::engine_core::InputStream) records (netcode
+    /// N0.2).
+    ///
+    /// `step` is this plus an `AgentAction → ControlFrame` conversion. A REPLAY
+    /// drives this directly: the recorded stream already IS control frames, and
+    /// routing them back through `AgentAction` would silently drop every field
+    /// that type does not carry.
+    pub fn step_frame(&mut self, frame: ControlFrame) -> AgentObservation {
+        *self.app.world_mut().resource_mut::<ControlFrame>() = frame;
         self.app.update();
         self.tick = self.tick.saturating_add(1);
         self.observation()

@@ -90,11 +90,15 @@ player-visible bugs, and the untouched determinism ladder.
    player pedestal IS `player`, so `hall_player__self` — the mirror scene — is
    authored, and a content test guards that it must be.
 
-6. **N0.2 — the input-stream type.** [opus] Mostly promotion, not invention:
-   `game/ambition_app/tests/replay_fixture_regression.rs` already replays a
-   recorded per-tick `ControlFrame` sequence with zero divergence. Give it a
-   versioned typed home so replay fixtures, RL trajectories, desync forensics,
-   and the eventual wire format share ONE artifact.
+6. ~~**N0.2 — the input-stream type.**~~ **✅ DONE (opus, 2026-07-09).**
+   `engine_core::InputStream` (versioned, serde, per-tick `SlotControls` keyed by
+   `SimTick`, contiguous, validated) + `runtime::InputStreamRecorder`, the one
+   capture path. `SandboxSim::step_frame` drives raw `ControlFrame`s, so replay
+   stops laundering the artifact through `AgentAction`. **It was more than
+   promotion:** the old fixture is 60 ticks of NEUTRAL input, which only proves a
+   falling body falls the same. The new `input_stream_replay` suite records a
+   moving session, round-trips it through JSON, and replays it into a fresh sim
+   with zero divergence. N0.4 is now a state-hash away.
 
 7. **CC3 — the fuzz-oracle delta** (§6.1). [opus] The collision doctrine's
    exit. Diagnostic-only by Jon's ruling; a 3-check harness already exists, so
@@ -119,7 +123,7 @@ CC4 (profile first); CC7 P3a.
 | Decomposition D-C | same | **NOT STARTED** — the mode-scope seam (`RoomMetadata.mode` + `in_mode("sanic")` run-condition). Demos want it; it can land early | the room-scoped run-condition helper [opus] |
 | Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | CC1 + CC2 + CC5 + CC6 (moving portals) LANDED | **CC3** — the enumerated delta from the 3-check diagnostic to the six-invariant oracle (§6.1); diagnostic-only, Jon defers hard gating [opus]. Then CC4 (profile first; NOT a CC1–CC3 precondition), CC7 P3a angled math |
 | Combat stack | [engine/combat-model.md](engine/combat-model.md) | CM1–CM5 + CM7 LANDED — smash axes complete (growth, DI, charge, cancel tables, launch angles, per-move presentation) | CM6 grab/throw/shield-stun (brings OnBlock) [opus, with SSB — a P4 slice, not a P2 exit] |
-| Netcode ladder | [engine/netcode.md](engine/netcode.md) | **N0.1 + N0.3 LANDED** (2026-07-09): `SimSchedule` seam, `fixed_tick` knob, `SimTick` timeline, `ControlFrameLatch`, exit check green both ways; determinism lints + ADR 0023 | N0.2 input-stream type → N0.4 desync canary; then N1.1–N1.3. (Presentation interpolation rides the first fixed-tick *windowed* app) |
+| Netcode ladder | [engine/netcode.md](engine/netcode.md) | **N0.1 + N0.2 + N0.3 LANDED** (2026-07-09): `SimSchedule` seam + `fixed_tick` knob + `SimTick` + `ControlFrameLatch`; `InputStream` + `InputStreamRecorder`; determinism lints + ADR 0023 | **N0.4 desync canary** — everything it needs now exists (a fixed timeline, a replayable input artifact, the lint set); it wants the N3.1 snapshot registry for the per-tick hash. Then N1.1–N1.3. (Presentation interpolation rides the first fixed-tick *windowed* app) |
 | Fighter brain | [engine/fighter-brain.md](engine/fighter-brain.md) | NEW (CM7 fed it) | FB1 view audit [opus] |
 | Boss pipeline | [engine/boss-design.md](engine/boss-design.md) | NEW | BD4 seed extraction [opus/sonnet]; BD1 after |
 | Falling sand | [engine/falling-sand.md](engine/falling-sand.md) | NEW; low priority | FS1 single-owner + conservation [opus] |
@@ -243,6 +247,13 @@ violation gets a row here + a slice in the right doc.)*
 - **fable** — **the F9.2 IR-consolidation arc, families 1–6, CLOSED.** Interactables → pickups → chests → breakables were Tier-0 MOVES into `entity_catalog::placements` (one pure type, no schema/world mirror). Portals were the deliberate `Vec2` exception, done as a Tier-0 `PortalSchema` mirror whose lowering DERIVES the face center from the record's `aabb.center()`. Hazards closed the arc: `convert_damage_volume` now LIFTS a legacy inline `motion: KinematicPath` to a synthesized room-level path (`{iid}__inline_motion`) referenced by `path_id`, behavior-preserving. **`RoomSpec` carries zero typed per-family Vecs, there are zero typed spawn loops, and the dual-emit guard is DELETED — `placements` is the sole authored-entity channel.** A future authored family adds ONE `PlacementSchema` variant + one lowering interpreter.
 - **fable** — F9.1: `ambition_demo_sanic` authors a real momentum showcase room (`sanic_speedway` — long solid floor + a rideable loop as an interior-winding `SurfaceChain`) built entirely through the `ambition` umbrella, with a headless test that composes it and runs the engine's own chain validator. **The oracle held — nothing was missing from the re-exports.** RULING: the FEEL half (momentum tuning to a Sanic identity, a playable binary, character art) is a fundamentally interactive build and cannot be responsibly completed headlessly.
 - **Jon** — the CC6 content-side host adapter committed. (`c9ef23d8`)
+- **opus** — **N0.2 INPUT STREAM.** `engine_core::InputStream` is the one per-tick
+  input artifact (versioned, serde, `SimTick`-keyed, contiguous, validated), and
+  `runtime::InputStreamRecorder` the one capture path — recording the frame the
+  SIM consumed, not the device frame, because gestures / portal warp / the
+  fixed-tick latch rewrite it in between. `SandboxSim::step_frame` replays raw
+  `ControlFrame`s. Exit: record a moving session → validate → JSON round-trip →
+  replay into a FRESH sim → zero divergence, tick for tick.
 - **opus** — **DIALOG SPEAKER-CONTEXT.** A conversation now knows who is in it.
   `DialogueContext` (speaker id, listener id, `speaker_is_self`) rides the
   pending-start request; the Yarn bridge publishes it into variable storage

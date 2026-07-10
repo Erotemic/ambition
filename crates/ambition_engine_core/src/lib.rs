@@ -36,6 +36,7 @@ pub mod control_frame;
 pub mod frame;
 pub mod geo_id;
 pub mod geometry;
+pub mod input_stream;
 pub mod kinematic_path;
 pub mod ledge_grab;
 pub mod movement;
@@ -66,6 +67,8 @@ pub use control_frame::{
 };
 pub use geo_id::{Face, GeoFaceRef, GeoId, GeoSource, PlacementId};
 pub use geometry::{aabb_from_min_size, Aabb, AabbExt, CenteredAabb};
+/// The per-tick input artifact (netcode N0.2): replay, RL, forensics, wire.
+pub use input_stream::{InputStream, InputStreamError, InputStreamFrame, INPUT_STREAM_VERSION};
 pub use kinematic_path::{KinematicPath, KinematicPathMode};
 pub use ledge_grab::{
     probe_ledge_grab, LedgeContact, LedgeGetupKind, LedgeGrabState, LEDGE_CLIMB_TIME,

@@ -16,6 +16,8 @@
 //! rows (M1), the camera scroll policy (M2), and the flagpole sequence (M3) are
 //! the rest of the M-track; see `docs/planning/demos/super-mary-o.md`.
 
+pub mod flag;
+
 use ambition::engine_core as ae;
 use ambition::prelude::*;
 use ambition::world::rooms::RoomSpec;
@@ -40,6 +42,12 @@ const T: f32 = 32.0;
 /// Ground thickness, in tiles.
 const GROUND_TILES: f32 = 2.0;
 
+/// The level's world width and height. Named, rather than inlined into
+/// [`level_1_1`], because [`goal_pole`] must derive the flag's geometry from the
+/// same numbers the flag's BLOCK is built from — see `flag_geometry_oracle`.
+const LEVEL_WIDTH: f32 = 96.0 * T;
+const LEVEL_HEIGHT: f32 = 15.0 * T;
+
 /// Build Mary-O's level 1-1 through the `ambition` umbrella surface ONLY.
 ///
 /// The grammar, left to right:
@@ -52,11 +60,12 @@ const GROUND_TILES: f32 = 2.0;
 ///    practised over safe ground at step 2 is now load-bearing, exactly once.
 /// 4. **The stair pyramid** — four steps up, a gap, four down. Your run-up decides
 ///    the landing.
-/// 5. **The goal** — a tall pole. (The flagpole SEQUENCE is M3, on the cutscene
-///    kit; the geometry is here so the level ends somewhere.)
+/// 5. **The goal** — a tall pole. Its geometry is here; the SEQUENCE that plays
+///    when you grab it is [`flag`], and [`goal_pole`] is the one place both agree
+///    on where it stands.
 pub fn level_1_1() -> RoomSpec {
-    let width = 96.0 * T; // 96 tiles — a real 1-1 is ~210; this is its grammar.
-    let height = 15.0 * T;
+    let width = LEVEL_WIDTH; // 96 tiles — a real 1-1 is ~210; this is its grammar.
+    let height = LEVEL_HEIGHT;
     let ground_top = height - GROUND_TILES * T;
 
     let mut blocks = Vec::new();
@@ -118,6 +127,19 @@ pub fn level_1_1() -> RoomSpec {
     let mut room = RoomSpec::new(LEVEL_1_1_ROOM_ID, world);
     room.metadata.mode = Some(SMB1_MODE.to_string());
     room
+}
+
+/// The pole's geometry, derived from the SAME constants [`level_1_1`] builds the
+/// `goal_pole` block out of. A second source of truth for where the flag is would
+/// be a bug that only surfaces after someone moves the level.
+pub fn goal_pole() -> flag::FlagPole {
+    let ground_top = LEVEL_HEIGHT - GROUND_TILES * T;
+    flag::FlagPole {
+        // `Block::solid` takes a MIN corner; the pole is `T * 0.5` wide.
+        x: 90.0 * T + T * 0.25,
+        top_y: ground_top - 9.0 * T,
+        base_y: ground_top,
+    }
 }
 
 /// The demo's one-character catalog. Every demo installs its own roster; the
@@ -239,15 +261,19 @@ impl Plugin for Smb1RulesPlugin {
     fn build(&self, app: &mut App) {
         use bevy::prelude::IntoScheduleConfigs;
         let sim = ambition::platformer::schedule::SimScheduleExt::sim_schedule(app);
+        app.insert_resource(goal_pole());
+        // The flag runs BEFORE the clock: a level whose flag has been grabbed is
+        // over, and `tick_level_clock` reads the sequence to know it.
+        let rules = (
+            spawn_smb1_mode_owner,
+            flag::run_flag_sequence,
+            tick_level_clock,
+        )
+            .chain();
         if self.hosted {
-            app.add_systems(
-                sim,
-                (spawn_smb1_mode_owner, tick_level_clock)
-                    .chain()
-                    .run_if(ambition::runtime::in_mode(SMB1_MODE)),
-            );
+            app.add_systems(sim, rules.run_if(ambition::runtime::in_mode(SMB1_MODE)));
         } else {
-            app.add_systems(sim, (spawn_smb1_mode_owner, tick_level_clock).chain());
+            app.add_systems(sim, rules);
         }
     }
 }
@@ -258,7 +284,12 @@ fn spawn_smb1_mode_owner(
 ) {
     use ambition::platformer::lifecycle::SpawnScopedExt;
     if existing.iter().next().is_none() {
-        commands.spawn_mode_scoped(SMB1_MODE, Smb1LevelState::default());
+        // The sequence rides the same mode-scoped entity as the clock: both are
+        // level state, and the engine tears them down together.
+        commands.spawn_mode_scoped(
+            SMB1_MODE,
+            (Smb1LevelState::default(), flag::FlagSequence::default()),
+        );
     }
 }
 
@@ -266,9 +297,14 @@ fn spawn_smb1_mode_owner(
 /// as they slow everything else. It clamps at zero rather than going negative.
 fn tick_level_clock(
     time: bevy::prelude::Res<ambition::time::WorldTime>,
-    mut level: bevy::prelude::Query<&mut Smb1LevelState>,
+    mut level: bevy::prelude::Query<(&mut Smb1LevelState, &flag::FlagSequence)>,
 ) {
-    for mut state in &mut level {
+    for (mut state, sequence) in &mut level {
+        // A level whose flag has been grabbed is over. The clock stopping is what
+        // turns the remaining time from a threat into a score.
+        if sequence.active() {
+            continue;
+        }
         state.time_remaining = (state.time_remaining - time.scaled_dt).max(0.0);
     }
 }
@@ -402,5 +438,42 @@ mod tests {
         let mut app = shell(Smb1RulesPlugin::global(), None, STARTING_TIME * 2.0);
         app.update();
         assert_eq!(remaining(&mut app), Some(0.0));
+    }
+}
+
+#[cfg(test)]
+mod flag_geometry_oracle {
+    use super::*;
+
+    /// [`goal_pole`] and the authored `goal_pole` block are the SAME object. This is
+    /// the test that catches someone moving the level and leaving the flag behind.
+    #[test]
+    fn the_pole_resource_is_the_authored_block() {
+        let room = level_1_1();
+        let block = room
+            .world
+            .blocks
+            .iter()
+            .find(|b| b.name == "goal_pole")
+            .expect("the level authors a goal pole");
+        let aabb = block.aabb;
+        let pole = goal_pole();
+
+        let center_x = (aabb.min.x + aabb.max.x) * 0.5;
+        assert!((pole.x - center_x).abs() < 1.0e-3, "pole is centered");
+        assert_eq!(pole.top_y, aabb.min.y, "top of the pole");
+        assert_eq!(pole.base_y, aabb.max.y, "base of the pole");
+    }
+
+    /// The grab band is narrower than the pole is tall, and the pole spans a real
+    /// slide. A pole with `top_y == base_y` would score every grab 100 and read as
+    /// a bug in the score table rather than in the level.
+    #[test]
+    fn the_pole_is_tall_enough_to_have_score_bands() {
+        let pole = goal_pole();
+        let span = pole.base_y - pole.top_y;
+        assert!(span > 100.0, "a {span}px pole has no bands worth sliding");
+        assert_eq!(flag::flag_score(pole.grab_height(pole.top_y)), 5000);
+        assert_eq!(flag::flag_score(pole.grab_height(pole.base_y)), 100);
     }
 }

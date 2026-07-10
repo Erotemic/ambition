@@ -66,9 +66,41 @@ scroll clamp (a `CameraZoneSpec` policy knob).
   The oracle-violation this slice was told to file is filed and closed in the same
   breath: the knob is a `CameraZoneSpec` field, which is authored data, so no engine
   code names a demo.
-- **M3 level-end sequencing:** flagpole grab → slide → walk-off → score
-  tally on the cutscene kit + `RoomLoaded`/gate vocabulary; pipes =
-  LoadingZone Door activation (exists).
+- ~~**M3 level-end sequencing**~~ ✅ **LANDED 2026-07-10.** Flagpole grab → slide
+  → walk-off → score tally, in `game/ambition_demo_smb1/src/flag.rs`. **Zero engine
+  code.** `step_flag_sequence(&mut FlagSequence, &FlagPole, body, dt) -> Option<Vec2>`
+  is the whole thing: a pure function of state, geometry, and a clock, wrapped by
+  one system that writes the result onto `BodyKinematics`.
+
+  Three rulings.
+
+  **The score is decided at the moment of contact, not read off the slide.** The
+  points depend on how high you *caught* the pole; that is a fact about one instant.
+  Deriving it from the live body position would let a player who grabbed high and
+  slid fast score differently from one who grabbed high and slid slow — a bug that
+  reads as physics.
+
+  **`FlagSequence::driven` holds the position once the sequence takes over.** If each
+  tick re-read the body, a gravity step landing between this system and the next
+  would accumulate into the slide, and the slice's correctness would depend on
+  system ordering. Pinned by
+  `a_grabbed_sequence_ignores_whatever_physics_does_to_the_body`, which shoves the
+  body a full tile every frame and gets the same score and the same landing.
+
+  **DEVIATION, stated out loud: this does NOT ride the cutscene kit,** which this
+  doc's original M3 line asked for. `CutsceneBeat` is `{Wait, Dialogue, CameraPan,
+  Fade, SetFlag, Banner}` — a presentation script. It has no beat that moves a body,
+  and adding one would be engine code written to serve a demo, in a crate whose
+  timing then decides a gameplay score. The flag is a rules state machine, so it
+  lives with the rules. The kit is still the right home for M4's *results screen*,
+  which is presentation and nothing else.
+
+  `goal_pole()` is the single place the flag's geometry lives; `level_1_1()` builds
+  the block from the same constants. The `flag_geometry_oracle` that asserts they
+  agree caught a real bug on its first run (a hardcoded tile size), which is the
+  whole argument for writing it.
+
+  Pipes remain LoadingZone Door activation (exists).
 - **Enemies:** goomba-analog (walker, stomp-kill via pogo/on-hit
   vocabulary), koopa-analog (stomp → shell prop that becomes a sliding
   hazard-projectile both sides can trigger — the actors-vs-props
@@ -80,9 +112,9 @@ scroll clamp (a `CameraZoneSpec` policy knob).
 
 ## Slices
 
-M1 equipment chain [opus] (with A3); ~~M2 scroll knob~~ ✅ **DONE 2026-07-10**; M3 flag
-sequence [opus]; M4 the game (3 levels + enemies + HUD + title/results)
-[opus]; M5 hosting wing in ambition (Phase D-C) [opus].
+M1 equipment chain [opus] (with A3); ~~M2 scroll knob~~ ✅ **DONE 2026-07-10**;
+~~M3 flag sequence~~ ✅ **DONE 2026-07-10**; M4 the game (3 levels + enemies + HUD +
+title/results) [opus]; M5 hosting wing in ambition (Phase D-C) [opus].
 
 **Exit:** doctrine exits + the classic-specific one: an input script
 speedruns 1-1 headlessly; warp-pipe secret reachable; and the whole demo

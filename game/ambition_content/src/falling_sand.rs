@@ -569,8 +569,11 @@ fn sync_falling_sand_spout_nozzles(
         }
     }
 
-    for &id in &desired {
-        if present.contains(id) {
+    // Iterate the switches in a FIXED order, not `desired`'s hash order: this spawns
+    // entities, and `desired` is a std `HashSet` whose iteration is per-process
+    // (ADR 0023 rule 3). `desired` stays a membership filter, which the rule allows.
+    for &id in &[SAND_SWITCH, WATER_SWITCH, OIL_SWITCH, MIXED_SWITCH] {
+        if !desired.contains(id) || present.contains(id) {
             continue;
         }
         let (x, y, width, color) = match id {
@@ -1259,7 +1262,14 @@ fn sync_material_visuals(
         }
     }
 
-    for (&tile, &kind) in desired {
+    // Spawn in a FIXED tile order, not `desired`'s hash order: `desired` is a std
+    // `HashMap` whose iteration is per-process (ADR 0023 rule 3), and this spawns
+    // entities. AMBITION_REVIEW(determinism): the `.iter()` here is immediately
+    // collected and sorted by the `(i32, i32)` tile key BEFORE any spawn, so no
+    // hash-order is ever observed — the sort is the determinism, not the iteration.
+    let mut ordered: Vec<(&(i32, i32), &MaterialKind)> = desired.iter().collect();
+    ordered.sort_by_key(|(tile, _)| **tile);
+    for (&tile, &kind) in ordered {
         if existing.contains(&(tile, kind)) {
             continue;
         }

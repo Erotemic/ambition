@@ -32,26 +32,40 @@
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
 
-/// The crates whose sources ARE the simulation. Presentation, input-device,
-/// audio, render, and menu crates are excluded by construction — they run on the
-/// feel clock and their order is never part of a state hash.
+/// The source roots whose code IS the simulation — engine crates AND the game's
+/// content and demo-rules crates. Presentation, input-device, audio, render, menu,
+/// and the app shells are excluded by construction: they run on the feel clock and
+/// their order is never part of a state hash.
+///
+/// Content and demo RULES are in here for the reason the auditor gave (N0.3 was
+/// PARTIAL until they were): `game/ambition_content` schedules portals, bosses,
+/// quests, and the falling-sand grid; `game/ambition_demo_{sanic,smb1}` schedule
+/// hosted rules that drive `BodyKinematics` (e.g. smb1's flag sequence). A
+/// `HashMap` iterated in any of them leaks `RandomState` into sim order exactly as
+/// one in an engine crate would. The `_app` shells and the kaleidoscope menu are
+/// NOT here — sampling and displaying the local device frame is their whole job.
+/// Roots are full workspace-relative paths so `crates/*` and `game/*` mix. This
+/// mirrors `control_frame_lint.rs`'s root list (which already reaches content).
 const SIM_CRATES: &[&str] = &[
-    "ambition_engine_core",
-    "ambition_platformer_primitives",
-    "ambition_time",
-    "ambition_entity_catalog",
-    "ambition_world",
-    "ambition_characters",
-    "ambition_combat",
-    "ambition_projectiles",
-    "ambition_portal",
-    "ambition_encounter",
-    "ambition_items",
-    "ambition_cutscene",
-    "ambition_interaction",
-    "ambition_sim_view",
-    "ambition_actors",
-    "ambition_runtime",
+    "crates/ambition_engine_core",
+    "crates/ambition_platformer_primitives",
+    "crates/ambition_time",
+    "crates/ambition_entity_catalog",
+    "crates/ambition_world",
+    "crates/ambition_characters",
+    "crates/ambition_combat",
+    "crates/ambition_projectiles",
+    "crates/ambition_portal",
+    "crates/ambition_encounter",
+    "crates/ambition_items",
+    "crates/ambition_cutscene",
+    "crates/ambition_interaction",
+    "crates/ambition_sim_view",
+    "crates/ambition_actors",
+    "crates/ambition_runtime",
+    "game/ambition_content",
+    "game/ambition_demo_sanic",
+    "game/ambition_demo_smb1",
 ];
 
 /// Paths inside a sim crate that are NOT sim. `ambition_actors` in particular
@@ -93,7 +107,8 @@ fn sim_sources() -> Vec<(String, String)> {
     let root = repo_root();
     let mut out = Vec::new();
     for krate in SIM_CRATES {
-        let src = root.join("crates").join(krate).join("src");
+        // `krate` is a full workspace-relative root (`crates/..` or `game/..`).
+        let src = root.join(krate).join("src");
         let mut files = Vec::new();
         walk(&src, &mut files);
         for path in files {
@@ -122,6 +137,20 @@ fn sim_sources() -> Vec<(String, String)> {
          and a lint that scans nothing passes vacuously",
         out.len()
     );
+    // The `game/` roots (content + demo rules) are the N0.3 widening (audit: N0.3 was
+    // PARTIAL until they were scanned). A broken `game/..` join would silently scan
+    // nothing under them and pass vacuously — so prove each is actually reached.
+    for game_root in [
+        "game/ambition_content",
+        "game/ambition_demo_sanic",
+        "game/ambition_demo_smb1",
+    ] {
+        assert!(
+            out.iter().any(|(label, _)| label.starts_with(game_root)),
+            "no sources scanned under `{game_root}` — the widened N0.3 scan is not \
+             reaching it, and the lint would pass vacuously there"
+        );
+    }
     out
 }
 

@@ -365,12 +365,12 @@ snapshots needed. Needs N0 complete, plus:
 
   | room | component types a rewind leaves stale | rewind is exact? |
   |---|---|---|
-  | `gap_run` | 36 | ✅ **yes** |
-  | `portal_lab` | **69** | no |
-  | `mockingbird_arena` | 58 | no |
-  | `gnu_ton_arena` | 36 | no |
+  | `gap_run` | 35 | ✅ **yes** |
+  | `portal_lab` | **66** | no |
+  | `mockingbird_arena` | 55 | no |
+  | `gnu_ton_arena` | 35 | no |
 
-  Pinned at 69; it may fall, it may not rise. The count is an *upper bound* on the
+  Pinned at 66; it may fall, it may not rise. The count is an *upper bound* on the
   debt, not the debt: for an immutable authored fact, stale and correct are the same
   thing. The exit oracle is what measures whether stale state actually leaks.
 
@@ -423,7 +423,7 @@ snapshots needed. Needs N0 complete, plus:
   meant to look at.
 
   This is the general shape of the authored/mutable split, and it is why the coverage
-  ledger is an upper bound rather than a debt: many of the 69 want a *cursor*, not a
+  ledger is an upper bound rather than a debt: many of the 66 want a *cursor*, not a
   codec.
 
   ### The three named blockers between here and a clean arena
@@ -438,12 +438,18 @@ snapshots needed. Needs N0 complete, plus:
   | `portal_lab` | tick 0 | 1 respawned | a naked respawn |
 
   `ActorMotionPath` was ONE of mockingbird's causes and is now registered as a cursor;
-  the room still diverges at tick 0, so it was not the only one. What is left, in the
-  order I would take them:
+  the ai-mode enums were another. The room still diverges at tick 0, so neither was the
+  last. What is left, in the order I would take them:
 
-  1. **`ActorStatus.ai_mode` / `ActorIntent` are unit enums** with no discriminant
-     codec. The mapping must be EXPLICIT, not declaration order: reordering a variant
-     must not silently reinterpret every snapshot ever taken.
+  1. ~~**`ActorStatus.ai_mode` / `ActorIntent` are unit enums**~~ ✅ **DONE.**
+     `snapshot_unit_enum!` writes an EXPLICIT discriminant mapping, and
+     `a_unit_enums_wire_discriminant_never_moves` pins the bytes. Declaration order is
+     one refactor away from being a different order: move `Chase` above `Patrol` and
+     every snapshot ever taken starts decoding patrolling enemies as chasing ones,
+     silently, because both are valid states. An unknown discriminant decodes to
+     `None`, never to the default — a blob this build cannot read is a bug to surface,
+     not a state to guess, and `Idle` would be a very plausible guess.
+     `BodyModeState` came along for the ride.
   2. **`ActorTarget` holds an `Option<Entity>`, and a stale `pos`.** Decision (2)
      forbids the `Entity`: an entity index is an allocator slot, not an identity, and
      it does not survive a restore that respawns anything. It needs a `SimId`. The

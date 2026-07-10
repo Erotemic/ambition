@@ -938,6 +938,13 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     // on the FIRST tick after a rewind: the patrol resumes from where it was going.
     registry.register_cursor::<ambition_actors::features::ActorMotionPath>("actor_motion_path");
 
+    // The brain's mode, and the body's. Unit enums with EXPLICIT discriminants — see
+    // `snapshot_unit_enum!`. An enemy that rewinds into `Attack` because a variant
+    // moved is a bug nobody would look for.
+    registry.register_component::<bc::BodyModeState>("body_mode_state");
+    registry.register_component::<ambition_actors::features::ActorStatus>("actor_status");
+    registry.register_component::<ambition_combat::components::ActorIntent>("actor_intent");
+
     // **The blind spot, made loud.** Simulated bodies with no `SimId` cannot be
     // snapshotted, restored, or defended by the canary. Hashing the COUNT means a
     // sim that spawned a different number of un-identified bodies still diverges —
@@ -1056,6 +1063,95 @@ fn paste_put<T: PasteEncode>(out: &mut Vec<u8>, v: T) {
 }
 
 use ambition_engine_core::body_clusters as bc;
+
+/// **A unit enum's wire discriminant, written down.**
+///
+/// The mapping is EXPLICIT and the numbers are load-bearing: reordering a variant in
+/// its `enum` must never silently reinterpret a snapshot. Declaration order is a
+/// refactor away from being a different order, and `#[derive(Default)]` on a variant
+/// makes it look reorderable. Adding a variant means adding a number; changing one
+/// means breaking every stored blob, which is what a version tag would be for.
+///
+/// An unknown discriminant decodes to `None`, not to the default: a blob this build
+/// cannot read is a bug to surface, not a state to guess.
+macro_rules! snapshot_unit_enum {
+    ($ty:path { $($variant:ident = $code:literal),+ $(,)? }) => {
+        impl SnapshotState for $ty {
+            fn encode(&self, out: &mut Vec<u8>) {
+                #[allow(unused_imports)]
+                use $ty as E;
+                put_u8(
+                    out,
+                    match self {
+                        $( E::$variant => $code ),+
+                    },
+                );
+            }
+            fn decode(r: &mut Reader<'_>) -> Option<Self> {
+                #[allow(unused_imports)]
+                use $ty as E;
+                match r.u8()? {
+                    $( $code => Some(E::$variant), )+
+                    _ => None,
+                }
+            }
+        }
+    };
+}
+
+snapshot_unit_enum!(ambition_engine_core::player_state::BodyMode {
+    Standing = 0,
+    Crouching = 1,
+    Crawling = 2,
+    Sliding = 3,
+    MorphBall = 4,
+    Climbing = 5,
+});
+snapshot_unit_enum!(ambition_characters::actor::ai::CharacterAiMode {
+    Idle = 0,
+    Patrol = 1,
+    Chase = 2,
+    Telegraph = 3,
+    Attack = 4,
+    Recover = 5,
+    Stunned = 6,
+    Dead = 7,
+});
+
+impl SnapshotState for bc::BodyModeState {
+    fn encode(&self, out: &mut Vec<u8>) {
+        self.body_mode.encode(out);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(bc::BodyModeState {
+            body_mode: ambition_engine_core::player_state::BodyMode::decode(r)?,
+        })
+    }
+}
+
+impl SnapshotState for ambition_actors::features::ActorStatus {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_f32(out, self.respawn_timer);
+        self.ai_mode.encode(out);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(ambition_actors::features::ActorStatus {
+            respawn_timer: r.f32()?,
+            ai_mode: ambition_characters::actor::ai::CharacterAiMode::decode(r)?,
+        })
+    }
+}
+
+impl SnapshotState for ambition_combat::components::ActorIntent {
+    fn encode(&self, out: &mut Vec<u8>) {
+        self.0.encode(out);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(ambition_combat::components::ActorIntent(
+            ambition_characters::actor::ai::CharacterAiMode::decode(r)?,
+        ))
+    }
+}
 
 snapshot_pod!(bc::BodyGroundState {
     on_ground: bool,
@@ -2001,6 +2097,55 @@ mod tests {
             "a cursor has nothing to apply itself to on a naked respawn — it must not \
              invent a path"
         );
+    }
+
+    /// **The unit-enum discriminants are a WIRE FORMAT, and this test is the format.**
+    ///
+    /// Declaration order is one refactor away from being a different order. If someone
+    /// moves `Chase` above `Patrol` in `CharacterAiMode`, every snapshot ever taken
+    /// starts decoding patrolling enemies as chasing ones — silently, because both
+    /// are valid states. Pinning the bytes here means that refactor fails a test
+    /// instead of a playtest.
+    #[test]
+    fn a_unit_enums_wire_discriminant_never_moves() {
+        use ambition_characters::actor::ai::CharacterAiMode as Ai;
+        use ambition_engine_core::player_state::BodyMode as Mode;
+
+        for (mode, byte) in [
+            (Ai::Idle, 0u8),
+            (Ai::Patrol, 1),
+            (Ai::Chase, 2),
+            (Ai::Telegraph, 3),
+            (Ai::Attack, 4),
+            (Ai::Recover, 5),
+            (Ai::Stunned, 6),
+            (Ai::Dead, 7),
+        ] {
+            assert_eq!(encode_one(&mode), vec![byte], "{mode:?} moved");
+            assert_eq!(decode_one::<Ai>(&[byte]), Some(mode));
+        }
+        for (mode, byte) in [
+            (Mode::Standing, 0u8),
+            (Mode::Crouching, 1),
+            (Mode::Crawling, 2),
+            (Mode::Sliding, 3),
+            (Mode::MorphBall, 4),
+            (Mode::Climbing, 5),
+        ] {
+            assert_eq!(encode_one(&mode), vec![byte], "{mode:?} moved");
+        }
+    }
+
+    /// An unknown discriminant is `None`, never the default. A blob this build cannot
+    /// read is a bug to surface, not a state to guess — and `Idle` would be a very
+    /// plausible guess.
+    #[test]
+    fn an_unknown_discriminant_is_rejected_rather_than_defaulted() {
+        use ambition_characters::actor::ai::CharacterAiMode as Ai;
+        assert_eq!(decode_one::<Ai>(&[8]), None);
+        assert_eq!(decode_one::<Ai>(&[255]), None);
+        assert_eq!(decode_one::<Ai>(&[]), None);
+        assert_eq!(decode_one::<Ai>(&[0, 0]), None, "trailing byte");
     }
 
     /// Diagnostics are hashed and never snapshotted: you cannot restore a count.

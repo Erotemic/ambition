@@ -34,9 +34,6 @@ reason = "N3.1 bootstrap god module (audit M9): public API + wire format + regis
 path = "crates/ambition_portal_presentation/src/view_cones.rs"
 reason = "portal view-cone assembly. Presentation (never sim-hashed); split tracked with the portal-presentation work, no natural seam extracted yet."
 
-[[waiver]]
-path = "crates/ambition_portal_presentation/src/view_cones/geometry.rs"
-reason = "portal view-cone geometry math. Presentation; dense trig with no clean seam yet."
 
 [[waiver]]
 path = "crates/ambition_characters/src/brain/smash/mod.rs"

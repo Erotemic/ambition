@@ -200,11 +200,25 @@ const RNG_CRATES: &[&str] = &["rand", "fastrand", "oorandom", "nanorand", "getra
 fn sim_crates_pull_in_no_ambient_rng() {
     let root = repo_root();
     let mut violations = Vec::new();
+    let mut manifests_read = 0usize;
     for krate in SIM_CRATES {
-        let manifest = root.join("crates").join(krate).join("Cargo.toml");
-        let Ok(text) = std::fs::read_to_string(&manifest) else {
-            continue;
-        };
+        // `krate` is already a full workspace-relative root (`crates/..` or `game/..`),
+        // EXACTLY as `sim_sources()` joins it. The old `root.join("crates").join(krate)`
+        // produced `crates/crates/..` and `crates/game/..` once the `game/` roots were
+        // added — every read failed, every crate was silently `continue`d, and the
+        // dependency half of N0.3 scanned ZERO manifests while still passing green. A scan
+        // that reads nothing is the vacuous lint the audit caught; a missing manifest for a
+        // listed crate is a bug in this list, so it PANICS rather than skips.
+        let manifest = root.join(krate).join("Cargo.toml");
+        let text = std::fs::read_to_string(&manifest).unwrap_or_else(|e| {
+            panic!(
+                "sim-crate manifest `{}` is unreadable ({e}). Every entry in SIM_CRATES \
+                 must name a real crate root — a manifest scan that silently skips passes \
+                 vacuously (audit N0.3).",
+                manifest.display()
+            )
+        });
+        manifests_read += 1;
         // Real dependencies only. A `rand` dev-dependency is fine: tests are not
         // the simulation, and a fuzzer that generates inputs is exactly the tool
         // that PROVES determinism rather than breaking it.
@@ -225,6 +239,16 @@ fn sim_crates_pull_in_no_ambient_rng() {
             }
         }
     }
+    // The dependency half of N0.3 is only as good as the manifests it opened. A scan that
+    // reaches zero of them is indistinguishable from a clean one, so prove every listed
+    // crate contributed a manifest (this is the assertion the vacuous-path bug slipped).
+    assert_eq!(
+        manifests_read,
+        SIM_CRATES.len(),
+        "the RNG-dependency scan read {manifests_read} of {} sim manifests — a scan that \
+         misses manifests passes vacuously (audit N0.3)",
+        SIM_CRATES.len(),
+    );
     report(
         "N0.3 rule 1 (no ambient randomness)",
         "Sim randomness must be a SEEDED, snapshot-registered resource (netcode N3.1): \

@@ -46,7 +46,7 @@ impl Plugin for SimCoreResourcesPlugin {
             .add_message::<ambition_actors::features::ActorStimulus>()
             .add_message::<ambition_combat::ResetRoomFeaturesEvent>()
             .add_message::<ambition_combat::GameplayBannerRequested>()
-            .add_message::<ambition_actors::player::PlayerHealRequested>()
+            .add_message::<ambition_actors::avatar::PlayerHealRequested>()
             .add_message::<ambition_actors::rooms::RoomTransitionRequested>()
             // Staging fact: a room's contents finished spawning (JD4).
             .add_message::<ambition_actors::rooms::RoomLoaded>()

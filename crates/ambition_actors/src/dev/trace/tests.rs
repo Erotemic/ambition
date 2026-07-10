@@ -21,7 +21,7 @@ fn dummy_world() -> World {
 }
 
 fn dummy_player(at: ae::Vec2) -> ae::BodyClusterScratch {
-    crate::player::primary_player_scratch(at, ae::AbilitySet::sandbox_all())
+    crate::avatar::primary_player_scratch(at, ae::AbilitySet::sandbox_all())
 }
 
 fn scratch_from(scratch: &ae::BodyClusterScratch) -> ae::BodyClusterScratch {
@@ -185,7 +185,7 @@ fn record_frame_with_oob_pushes_event_and_requests_dump() {
         &clusters,
         &ambition_characters::actor::BodyCombat::default(),
         &ambition_time::ClockState::default(),
-        &crate::player::PlayerSafetyState::default(),
+        &crate::avatar::PlayerSafetyState::default(),
         &world,
         ControlFrame::default(),
         0.016,
@@ -216,7 +216,7 @@ fn write_dump_writes_two_files() {
         &clusters,
         &ambition_characters::actor::BodyCombat::default(),
         &ambition_time::ClockState::default(),
-        &crate::player::PlayerSafetyState::default(),
+        &crate::avatar::PlayerSafetyState::default(),
         &world,
         ControlFrame::default(),
         0.016,
@@ -491,7 +491,7 @@ fn frame_includes_moving_platform_state() {
         &clusters,
         &ambition_characters::actor::BodyCombat::default(),
         &ambition_time::ClockState::default(),
-        &crate::player::PlayerSafetyState::default(),
+        &crate::avatar::PlayerSafetyState::default(),
         &world,
         ControlFrame::default(),
         0.016,

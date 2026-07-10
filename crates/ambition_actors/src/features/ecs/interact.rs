@@ -204,7 +204,7 @@ pub struct DialogueDispatch<'w> {
     /// suppresses.
     pub nodes: Res<'w, ambition_dialog::DialogueNodeIndex>,
     /// The character the home avatar is WEARING — its identity when it speaks.
-    pub worn_character: Res<'w, crate::player::StartingCharacter>,
+    pub worn_character: Res<'w, crate::avatar::StartingCharacter>,
 }
 
 /// The catalog character this interactable IS, if it is a character at all.
@@ -248,8 +248,8 @@ mod tests {
     use bevy::prelude::{App, NextState, Update};
 
     fn spawn_interaction_player(app: &mut App, pos: ae::Vec2) {
-        let scratch = crate::player::primary_player_scratch(pos, ae::AbilitySet::sandbox_all());
-        let bundle = crate::player::PlayerSimulationBundle::from_scratch(
+        let scratch = crate::avatar::primary_player_scratch(pos, ae::AbilitySet::sandbox_all());
+        let bundle = crate::avatar::PlayerSimulationBundle::from_scratch(
             scratch,
             ambition_characters::actor::Health::new(10),
         );
@@ -269,7 +269,7 @@ mod tests {
         app.insert_resource(GameplayBanner::default());
         app.insert_resource(ambition_dialog::DialogState::default());
         app.init_resource::<ambition_dialog::DialogueNodeIndex>();
-        app.init_resource::<crate::player::StartingCharacter>();
+        app.init_resource::<crate::avatar::StartingCharacter>();
         app.insert_resource(NextState::<
             ambition_platformer_primitives::schedule::GameMode,
         >::default());
@@ -316,7 +316,7 @@ mod tests {
         app.insert_resource(GameplayBanner::default());
         app.insert_resource(ambition_dialog::DialogState::default());
         app.init_resource::<ambition_dialog::DialogueNodeIndex>();
-        app.init_resource::<crate::player::StartingCharacter>();
+        app.init_resource::<crate::avatar::StartingCharacter>();
         app.insert_resource(NextState::<
             ambition_platformer_primitives::schedule::GameMode,
         >::default());
@@ -428,7 +428,7 @@ mod tests {
         let mut index = ambition_dialog::DialogueNodeIndex::default();
         index.populate(nodes.iter().map(|n| (*n).to_string()));
         app.insert_resource(index);
-        app.insert_resource(crate::player::StartingCharacter::new(worn));
+        app.insert_resource(crate::avatar::StartingCharacter::new(worn));
         app.insert_resource(NextState::<
             ambition_platformer_primitives::schedule::GameMode,
         >::default());

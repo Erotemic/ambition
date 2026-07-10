@@ -5,7 +5,7 @@
 //! (`WorldPrep`), which integrates every non-boss sim body — home and actor — in
 //! ONE scheduled system through the same engine entry. There is no `player_body_tick`
 //! gameplay-movement route anymore. What remains here are the two HOME-specific
-//! phases that read the [`ambition::actors::player::PlayerBodyFrameOutput`]
+//! phases that read the [`ambition::actors::avatar::PlayerBodyFrameOutput`]
 //! hand-off the movement phase writes:
 //!
 //! - [`apply_home_reset_policy`] — HOME RESET POLICY. On a flagged body reset
@@ -18,7 +18,7 @@
 
 use bevy::prelude::*;
 
-use ambition::actors::player::PlayerBodyFrameOutput;
+use ambition::actors::avatar::PlayerBodyFrameOutput;
 use ambition::actors::time::feel::SandboxFeelTuning;
 use ambition::combat::{ResetRoomFeaturesEvent, RoomResetReason};
 use ambition::dev_tools::dev_tools::EditableMovementTuning;
@@ -49,9 +49,9 @@ pub(crate) fn apply_home_reset_policy(
             ae::BodyClusterQueryData,
             &mut ambition::actors::actor::BodyAnimFacts,
             &mut ambition::characters::actor::BodyCombat,
-            &mut ambition::actors::player::PlayerBlinkCameraState,
+            &mut ambition::actors::avatar::PlayerBlinkCameraState,
             &mut ambition::actors::actor::BodyMelee,
-            &mut ambition::actors::player::PlayerSafetyState,
+            &mut ambition::actors::avatar::PlayerSafetyState,
             &PlayerBodyFrameOutput,
         ),
         (
@@ -115,7 +115,7 @@ pub fn sync_player_presentation(
             ae::BodyClusterQueryData,
             &mut ambition::actors::actor::BodyAnimFacts,
             &mut ambition::characters::actor::BodyCombat,
-            &mut ambition::actors::player::PlayerBlinkCameraState,
+            &mut ambition::actors::avatar::PlayerBlinkCameraState,
             &PlayerBodyFrameOutput,
             Option<&ambition::actors::actor::PrimaryPlayer>,
         ),

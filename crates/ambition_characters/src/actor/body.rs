@@ -18,7 +18,7 @@ use super::Health;
 /// multiplayer), and an NPC/enemy can carry one too (a body that drops currency
 /// on death holds it here). Pay-for-use — most bodies simply never spawn with a
 /// wallet. Was `PlayerWallet`; re-homed here so non-player economy (drops,
-/// trading NPCs) needs no `crate::player` dependency.
+/// trading NPCs) needs no `crate::avatar` dependency.
 ///
 /// Decided (Jon): a coin/credits wallet, not item-as-currency.
 #[derive(Component, Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -198,8 +198,8 @@ impl BodyCombat {
 /// **Body vocabulary, not player-only** — despite the anim rows it gates being
 /// authored on the player's sheet first, every brain-driven body that plays a
 /// slash, a landing, or a dash pre-roll carries one. It re-homed here from
-/// `ambition_actors::player::components` (the S5/S6 player fold, refactor-chain
-/// R6): it was the single biggest reason `crate::player` was still a universal
+/// `ambition_actors::avatar::components` (the S5/S6 player fold, refactor-chain
+/// R6): it was the single biggest reason `crate::avatar` was still a universal
 /// dependency sink — 18 non-player modules imported that module solely to name
 /// this component.
 ///

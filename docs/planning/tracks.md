@@ -74,9 +74,12 @@ player-visible bugs, and the untouched determinism ladder.
    poison-tested. It found a FIFTH holder the re-count missed —
    `possession_trigger_system` reads the global frame through an import path, so
    possession is local-player-only; now the sole `Slot0Gesture` allowlist entry and
-   an N1 checklist item) → **R6** the player fold + the `features/` rename — 🟡 R6a/R6b/R6c landed
-   (body vocab out, slot-0 filters folded+justified, `crate::control` extracted;
-   R5's lint caught the move, as designed). R6d = the rest of `player/`.
+   an N1 checklist item) → **R6** the player fold + the `features/` rename — 🟡 R6a–R6d landed.
+   **`player/` NO LONGER EXISTS**: body vocab → `actor`, control seam →
+   `control`, affordance table → `affordances`, body mechanics → `features`, and
+   what remained (correctly) became `avatar` — the home avatar slot 0 returns to.
+   Slot-0 filters folded or justified in place. R5's lint went red on the move, as
+   designed. Only R6e, the mechanical `features/` rename, remains.
 
 3. **The visible sprite bugs (E3/E6 tail).** [opus] Three player-facing
    regressions in the bug queue below: all bosses render the generic sheet,

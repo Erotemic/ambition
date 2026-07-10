@@ -431,7 +431,7 @@ mod dispatch_parity {
     use crate::menu::test_support::click_control as click;
     use ambition::actors::actor::BodyMana;
     use ambition::actors::actor::{PlayerEntity, PrimaryPlayer};
-    use ambition::actors::player::PlayerHealRequested;
+    use ambition::actors::avatar::PlayerHealRequested;
     use ambition::characters::brain::ActionSet;
     use ambition::input::MenuControlFrame;
     use ambition::inventory_ui::InventoryUiState;

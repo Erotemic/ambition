@@ -279,7 +279,7 @@ mod tests {
     use ambition_characters::brain::{MeleeActionSpec, RangedActionSpec};
 
     fn player_scratch() -> ae::BodyClusterScratch {
-        crate::player::primary_player_scratch(ae::Vec2::ZERO, ae::AbilitySet::sandbox_all())
+        crate::avatar::primary_player_scratch(ae::Vec2::ZERO, ae::AbilitySet::sandbox_all())
     }
 
     #[test]

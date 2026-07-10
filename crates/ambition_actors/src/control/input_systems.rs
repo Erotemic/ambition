@@ -174,7 +174,7 @@ pub fn cleanup_timers_system(
             &crate::actor::BodyDashState,
             &mut crate::actor::BodyAnimFacts,
             &mut ambition_characters::actor::BodyCombat,
-            &mut crate::player::PlayerBlinkCameraState,
+            &mut crate::avatar::PlayerBlinkCameraState,
         ),
         crate::actor::PrimaryPlayerOnly,
     >,
@@ -191,7 +191,7 @@ pub fn cleanup_timers_system(
     // also runs (fable review §A9).
     blink_cam.blink_in_timer = (blink_cam.blink_in_timer - frame_dt).max(0.0);
     blink_cam.camera_snap_timer = (blink_cam.camera_snap_timer - frame_dt).max(0.0);
-    crate::player::advance_body_anim_overlays(
+    crate::features::advance_body_anim_overlays(
         ground.on_ground,
         kinematics.vel.y,
         dash.timer,

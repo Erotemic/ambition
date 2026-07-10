@@ -18,9 +18,9 @@ fn spawn_interaction_player(app: &mut App, player_pos: ae::Vec2) {
     // `PlayerEntity` (and reads interact_buffer_timer);
     // `PlayerSimulationBundle` covers all of that.
     let mut scratch =
-        crate::player::primary_player_scratch(player_pos, ae::AbilitySet::sandbox_all());
+        crate::avatar::primary_player_scratch(player_pos, ae::AbilitySet::sandbox_all());
     scratch.ground.on_ground = true;
-    let bundle = crate::player::PlayerSimulationBundle::from_scratch(
+    let bundle = crate::avatar::PlayerSimulationBundle::from_scratch(
         scratch,
         ambition_characters::actor::Health::new(10),
     );
@@ -285,7 +285,7 @@ fn interact_buffered_starts_npc_dialogue() {
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_dialog::DialogState::default());
     app.init_resource::<ambition_dialog::DialogueNodeIndex>();
-    app.init_resource::<crate::player::StartingCharacter>();
+    app.init_resource::<crate::avatar::StartingCharacter>();
     app.add_message::<SetFlagRequested>();
     app.add_message::<QuestAdvanceRequested>();
     app.add_message::<SwitchActivated>();

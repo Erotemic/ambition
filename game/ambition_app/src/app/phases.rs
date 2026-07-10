@@ -1,14 +1,15 @@
 //! Home body PRESENTATION phase helper.
 //!
 //! Movement integration and the ledge-platform carry moved DOWN into
-//! `ambition::actors::player::body_integration` (called by the unified
+//! `ambition::actors::avatar::body_integration` (called by the unified
 //! `integrate_sim_bodies` phase). What remains here is the presentation HOOK the
 //! app-side `sync_player_presentation` system calls: it reads the
 //! [`PlayerBodyFrameOutput`] hand-off and emits screen-facing feedback.
 
 use bevy::prelude::*;
 
-use ambition::actors::player::{handle_player_events, PlayerBodyFrameOutput};
+use ambition::actors::avatar::PlayerBodyFrameOutput;
+use ambition::actors::features::handle_player_events;
 use ambition::engine_core as ae;
 use ambition::sfx::SfxMessage;
 use ambition::vfx::VfxMessage;
@@ -24,7 +25,7 @@ pub(super) fn sync_player_presentation(
     frame_out: &PlayerBodyFrameOutput,
     clusters: &ae::BodyClustersMut<'_>,
     combat: &mut ambition::characters::actor::BodyCombat,
-    blink_cam: &mut ambition::actors::player::PlayerBlinkCameraState,
+    blink_cam: &mut ambition::actors::avatar::PlayerBlinkCameraState,
     anim: &mut ambition::actors::actor::BodyAnimFacts,
     sfx_writer: &mut MessageWriter<SfxMessage>,
     vfx_writer: &mut MessageWriter<VfxMessage>,

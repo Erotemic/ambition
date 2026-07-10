@@ -53,7 +53,7 @@ pub fn collect_ecs_pickups(
         ),
         With<FeatureSimEntity>,
     >,
-    mut heals: MessageWriter<crate::player::PlayerHealRequested>,
+    mut heals: MessageWriter<crate::avatar::PlayerHealRequested>,
     mut wallets: Query<&mut ambition_characters::actor::BodyWallet>,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
@@ -83,7 +83,7 @@ pub fn collect_ecs_pickups(
         banner.show(format!("picked up {}", name.0.as_str()), 2.6);
         match &pickup.pickup.kind {
             ambition_interaction::PickupKind::Health { amount } => {
-                heals.write(crate::player::PlayerHealRequested::for_target(
+                heals.write(crate::avatar::PlayerHealRequested::for_target(
                     *amount,
                     collector_entity,
                 ));
@@ -142,7 +142,7 @@ pub fn collect_ecs_pickups(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::player::PlayerHealRequested;
+    use crate::avatar::PlayerHealRequested;
     use ambition_engine_core::BodyBaseSize;
     use ambition_engine_core::BodyKinematics;
     use ambition_platformer_primitives::markers::PlayerEntity;

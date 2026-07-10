@@ -556,7 +556,7 @@ pub fn tick_actor_brains(
 }
 
 /// The per-body ACTOR movement integrator — the actor-species sibling of
-/// [`crate::player::integrate_home_body`]. Both bottom out in the SAME engine seam
+/// [`crate::avatar::integrate_home_body`]. Both bottom out in the SAME engine seam
 /// (`ae::update_body_with_tuning_clusters`, reached here via `ActorMut::update` →
 /// `integrate_body`); this wrapper adds the actor-species orchestration the home
 /// body doesn't need (dead/revive, AI evaluation, surface-walker step, flight
@@ -715,7 +715,7 @@ pub(crate) fn integrate_actor_body(
     // the same dust + SFX the player does, not the old blink-only actor branch
     // with its hand-copied second blink emit (fable review §A8). Fly-toggle +
     // shield are resolved INSIDE `em.update`'s shared pipeline.
-    crate::player::emit_movement_fx(
+    crate::features::emit_movement_fx(
         sfx,
         vfx,
         &move_events,
@@ -730,7 +730,7 @@ pub(crate) fn integrate_actor_body(
     // player tick runs — so an AI fighter that wall-jumps shows the kick pose, not
     // just the dust (§A9 follow-up). `advance_actor_anim_overlays` decays it.
     if let Some(anim) = anim.as_deref_mut() {
-        crate::player::arm_movement_anim_overlays(anim, &move_events);
+        crate::features::arm_movement_anim_overlays(anim, &move_events);
     }
     // Publish the actor's footprint ORIENTED to its reference frame (a
     // surface-walker's frame is its clung surface; everyone else's is gravity at
@@ -770,7 +770,7 @@ pub(crate) fn integrate_actor_body(
 /// - ACTOR bodies (`FeatureSimEntity`, not player, not boss): [`integrate_actor_body`]
 ///   (AI eval + surface-walker/flight tuning around the seam, then blink SFX/VFX,
 ///   the shark-charge crash, and the frame-oriented `CenteredAabb` publish).
-/// - HOME/PLAYER bodies (`PlayerEntity`): [`crate::player::integrate_home_body`]
+/// - HOME/PLAYER bodies (`PlayerEntity`): [`crate::avatar::integrate_home_body`]
 ///   (hitstun gate + ledge-platform carry + reset teleport around the seam, writing
 ///   the `PlayerBodyFrameOutput` hand-off the home reset-policy + presentation phases
 ///   consume).
@@ -834,7 +834,7 @@ pub fn integrate_sim_bodies(
             &BodyCombat,
             &ambition_characters::brain::ActorControl,
             &mut CenteredAabb,
-            &mut crate::player::PlayerBodyFrameOutput,
+            &mut crate::avatar::PlayerBodyFrameOutput,
             Option<&mut MotionModel>,
         ),
         With<crate::actor::PlayerEntity>,
@@ -907,7 +907,7 @@ pub fn integrate_sim_bodies(
         &mut players
     {
         let mut clusters = cluster_item.as_clusters_mut();
-        crate::player::integrate_home_body(
+        crate::avatar::integrate_home_body(
             control.0,
             &world.0,
             &mut clusters,

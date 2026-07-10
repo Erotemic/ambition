@@ -2,7 +2,7 @@
 //!
 //! The body-generic input/timer/dev systems that used to live here folded into
 //! their owning `ambition::actors` modules (C4): `input_timer_system`,
-//! `interaction_input_system`, `cleanup_timers_system` → `ambition::actors::player`;
+//! `interaction_input_system`, `cleanup_timers_system` → `ambition::actors::avatar`;
 //! `sync_live_player_dev_edits_system` → `ambition::actors::dev`;
 //! `apply_suspended_time_scale_system` → `ambition::actors::time::time_control`.
 //! The host schedule (`super::plugins::register_player_input_systems`) still owns
@@ -64,9 +64,9 @@ pub fn apply_player_reset_input_system(
             ae::BodyClusterQueryData,
             &mut ambition::actors::actor::BodyAnimFacts,
             &mut ambition::characters::actor::BodyCombat,
-            &mut ambition::actors::player::PlayerBlinkCameraState,
+            &mut ambition::actors::avatar::PlayerBlinkCameraState,
             &mut ambition::actors::actor::BodyMelee,
-            &mut ambition::actors::player::PlayerSafetyState,
+            &mut ambition::actors::avatar::PlayerSafetyState,
         ),
         ambition::actors::actor::PrimaryPlayerOnly,
     >,
@@ -138,9 +138,9 @@ pub fn apply_room_replay_request_system(
             ae::BodyClusterQueryData,
             &mut ambition::actors::actor::BodyAnimFacts,
             &mut ambition::characters::actor::BodyCombat,
-            &mut ambition::actors::player::PlayerBlinkCameraState,
+            &mut ambition::actors::avatar::PlayerBlinkCameraState,
             &mut ambition::actors::actor::BodyMelee,
-            &mut ambition::actors::player::PlayerSafetyState,
+            &mut ambition::actors::avatar::PlayerSafetyState,
         ),
         ambition::actors::actor::PrimaryPlayerOnly,
     >,

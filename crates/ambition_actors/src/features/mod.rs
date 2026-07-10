@@ -52,6 +52,17 @@ mod npcs;
 
 // Re-export the generic combat kit so existing feature-facing paths stay stable.
 pub use crate::combat::components;
+// Body MECHANICS re-homed off `player/` in the S5/S6 fold (R6d). None of them is
+// player-only: `movement_fx` turns a frame's engine `FrameEvents` into Sfx/Vfx
+// facts for whichever body produced them; `swim` and `ledge_grab` are thin shims
+// over engine-owned water / ledge state and name no `crate::` type at all.
+pub mod ledge_grab;
+pub mod movement_fx;
+pub mod swim;
+pub use movement_fx::{
+    advance_body_anim_overlays, arm_movement_anim_overlays, emit_movement_fx, handle_player_events,
+};
+
 pub use crate::combat::events;
 pub use crate::combat::hazard_runtime as hazards;
 pub use crate::combat::path_motion;
@@ -342,7 +353,7 @@ impl bevy::prelude::Plugin for WorldPrepSchedulePlugin {
                 // home body used to advance them in `PlayerSimulation`, after the
                 // actors integrated, so actors read stale positions; unifying the
                 // movement phase unifies this too.
-                crate::player::advance_moving_platforms,
+                crate::avatar::advance_moving_platforms,
                 // The ONE movement phase for every non-boss sim body: actor bodies
                 // AND home/player bodies integrate here, through the same engine
                 // entry. (`player_body_tick` in `PlayerSimulation` is gone.)
@@ -419,7 +430,7 @@ impl bevy::prelude::Plugin for FeatureCollectionSchedulePlugin {
                 // Pull nearby loot toward the player, then collect on overlap.
                 magnetize_pickups,
                 collect_ecs_pickups,
-                crate::player::apply_player_heal_requests,
+                crate::avatar::apply_player_heal_requests,
             )
                 .chain()
                 .in_set(crate::schedule::SandboxSet::FeatureCollection),

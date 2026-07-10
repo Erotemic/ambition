@@ -46,10 +46,10 @@ fn spawn_player(app: &mut App, pos: ae::Vec2, facing: f32) {
     // (`BodyKinematics`, `PlayerEntity`, `PrimaryPlayer`,
     // `LocalPlayer`, `PlayerInputFrame`, the 17 other cluster
     // components, …) with no manual spawn-tuple list.
-    let mut scratch = crate::player::primary_player_scratch(pos, ae::AbilitySet::sandbox_all());
+    let mut scratch = crate::avatar::primary_player_scratch(pos, ae::AbilitySet::sandbox_all());
     scratch.kinematics.facing = facing;
     scratch.ground.on_ground = true;
-    let bundle = crate::player::PlayerSimulationBundle::from_scratch(
+    let bundle = crate::avatar::PlayerSimulationBundle::from_scratch(
         scratch,
         ambition_characters::actor::Health::new(10),
     );
@@ -80,7 +80,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     app.add_message::<crate::projectile::SpawnProjectile>();
     // The unified stepper can heal the player on a parry, so the message must be
     // registered even though player projectiles never trigger it.
-    app.add_message::<crate::player::PlayerHealRequested>();
+    app.add_message::<crate::avatar::PlayerHealRequested>();
     app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
     app.add_plugins(ambition_characters::brain::BrainPlugin);
     app.add_systems(
@@ -90,7 +90,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
             // brain-gated input mirror sees it (production order).
             crate::control::populate_slot_controls,
             crate::control::sync_local_player_input_frame,
-            crate::player::tick_player_brains,
+            crate::avatar::tick_player_brains,
             ambition_characters::brain::emit_player_projectile_tick_messages,
             // Mirror production order: the unified stepper advances existing
             // shots, THEN input fires + the pool consumer materializes (so a

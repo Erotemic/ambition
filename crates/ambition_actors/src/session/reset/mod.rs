@@ -104,9 +104,9 @@ pub fn process_sandbox_reset_request(
             ae::BodyClusterQueryData,
             &mut crate::actor::BodyAnimFacts,
             &mut ambition_characters::actor::BodyCombat,
-            &mut crate::player::PlayerBlinkCameraState,
+            &mut crate::avatar::PlayerBlinkCameraState,
             &mut crate::actor::BodyMelee,
-            &mut crate::player::PlayerSafetyState,
+            &mut crate::avatar::PlayerSafetyState,
         ),
         // PRIMARY-only: the reset warps THE player to the start-room spawn. A
         // brain-driven clone is a transient demo body; scoping to the primary keeps

@@ -92,9 +92,9 @@ pub mod host_seams {
 /// `ambition_host` smoke shell can assemble a tiny content plugin without taking
 /// a direct `ambition_actors` dependency.
 pub mod demo_fixture {
+    pub use ambition_actors::avatar::StartingCharacter;
     pub use ambition_actors::character_roster::install_character_catalog;
     pub use ambition_actors::ldtk_world::LdtkRuntimeIndex;
-    pub use ambition_actors::player::StartingCharacter;
     pub use ambition_actors::rooms::{ActiveRoomMetadata, RoomSet, RoomSpec};
     pub use ambition_actors::session::setup::{simulation_world, SimulationSetup};
     pub use ambition_dev_tools::dev_tools::{EditableAbilitySet, EditableMovementTuning};
@@ -155,7 +155,7 @@ impl Plugin for SandboxSetsPlugin {
         app.init_resource::<ambition_actors::control::SlotInteractionState>();
         // Which character the local player spawns as (empty = the
         // content-installed default). Hosts pre-insert to override.
-        app.init_resource::<ambition_actors::player::StartingCharacter>();
+        app.init_resource::<ambition_actors::avatar::StartingCharacter>();
     }
 }
 
@@ -220,7 +220,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             // Traversal ability/weapon kit + shared app state.
             .add(ambition_actors::abilities::AmbitionAbilitiesPlugin)
             // The emitted player trail substrate.
-            .add(ambition_actors::player::trail::PlayerTrailPlugin)
+            .add(ambition_actors::avatar::trail::PlayerTrailPlugin)
             // Gravity zones/switches + the ambient-gravity snapshot.
             .add(ambition_actors::gravity::GravityPlugin)
             // Item pickup simulation.
@@ -244,7 +244,7 @@ impl PluginGroup for PlatformerEnginePlugins {
             // Deterministic sim traces.
             .add(ambition_actors::trace::TraceSchedulePlugin)
             // Per-frame affordance table (what would each verb do right now).
-            .add(ambition_actors::player::affordances::AffordancesPlugin)
+            .add(ambition_actors::affordances::AffordancesPlugin)
             // The camera OBSERVATION seam (E4-17): the sim resolves ONE
             // follow-camera snapshot per tick (the only CameraEaseState
             // writer); presentation consumes it. Headless/RL readers too.

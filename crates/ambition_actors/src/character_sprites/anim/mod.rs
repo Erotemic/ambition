@@ -309,7 +309,7 @@ pub fn body_view_from_clusters(
 pub fn pick_player_anim(
     anim: &BodyAnimFacts,
     combat: &ambition_characters::actor::BodyCombat,
-    blink_cam: &crate::player::PlayerBlinkCameraState,
+    blink_cam: &crate::avatar::PlayerBlinkCameraState,
     attack: Option<&crate::MeleeSwing>,
     kinematics: &crate::actor::BodyKinematics,
     ground: &crate::actor::BodyGroundState,

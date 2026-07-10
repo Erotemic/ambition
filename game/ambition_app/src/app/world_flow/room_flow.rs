@@ -29,12 +29,12 @@ pub(crate) fn reset_sandbox(
     clusters: &mut ae::BodyClustersMut<'_>,
     sim_state: &mut ambition::actors::SandboxSimState,
     clock_resets: &mut MessageWriter<ClockResetRequest>,
-    safety: &mut ambition::actors::player::PlayerSafetyState,
+    safety: &mut ambition::actors::avatar::PlayerSafetyState,
     attack: &mut Option<ambition::actors::MeleeSwing>,
     anim: &mut ambition::actors::actor::BodyAnimFacts,
     combat: &mut ambition::characters::actor::BodyCombat,
     interaction: &mut ambition::actors::control::SlotGestures,
-    blink_cam: &mut ambition::actors::player::PlayerBlinkCameraState,
+    blink_cam: &mut ambition::actors::avatar::PlayerBlinkCameraState,
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
 ) {
@@ -77,10 +77,10 @@ pub(crate) fn reset_sandbox(
 /// to when these writes lived inside `load_room_geometry`.
 #[allow(clippy::too_many_arguments)]
 fn apply_room_transition_resets(
-    safety: Option<&mut ambition::actors::player::PlayerSafetyState>,
+    safety: Option<&mut ambition::actors::avatar::PlayerSafetyState>,
     dialogue: &mut ambition::dialog::DialogState,
     combat: &mut ambition::characters::actor::BodyCombat,
-    blink_cam: Option<&mut ambition::actors::player::PlayerBlinkCameraState>,
+    blink_cam: Option<&mut ambition::actors::avatar::PlayerBlinkCameraState>,
     arrival_pos: ae::Vec2,
     edge_exit: bool,
     feel: SandboxFeelTuning,
@@ -119,11 +119,11 @@ pub(crate) fn load_room(
     sim_state: &mut ambition::actors::SandboxSimState,
     clock_resets: &mut MessageWriter<ClockResetRequest>,
     // Home-only presentation state (None when a possessed actor transits).
-    safety: Option<&mut ambition::actors::player::PlayerSafetyState>,
+    safety: Option<&mut ambition::actors::avatar::PlayerSafetyState>,
     moving_platforms: &mut Vec<ambition::actors::world::platforms::MovingPlatformState>,
     dialogue: &mut ambition::dialog::DialogState,
     combat: &mut ambition::characters::actor::BodyCombat,
-    blink_cam: Option<&mut ambition::actors::player::PlayerBlinkCameraState>,
+    blink_cam: Option<&mut ambition::actors::avatar::PlayerBlinkCameraState>,
     world: &mut RoomGeometry,
     room_set: &mut rooms::RoomSet,
     placement_lowering: &ambition::actors::world::placements::PlacementLoweringRegistry,
@@ -257,8 +257,8 @@ pub(crate) struct TransitBodies<'w, 's> {
         'w,
         's,
         (
-            &'static mut ambition::actors::player::PlayerBlinkCameraState,
-            &'static mut ambition::actors::player::PlayerSafetyState,
+            &'static mut ambition::actors::avatar::PlayerBlinkCameraState,
+            &'static mut ambition::actors::avatar::PlayerSafetyState,
         ),
         ambition::actors::actor::PrimaryPlayerOnly,
     >,

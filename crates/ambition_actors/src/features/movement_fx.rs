@@ -20,7 +20,7 @@ use ambition_engine_core as ae;
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 
 use crate::actor::BodyAnimFacts;
-use crate::player::PlayerBlinkCameraState;
+use crate::avatar::PlayerBlinkCameraState;
 use ambition_characters::actor::BodyCombat;
 use ambition_sfx::SfxMessage;
 

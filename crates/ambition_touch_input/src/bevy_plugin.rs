@@ -230,11 +230,11 @@ impl Plugin for TouchControlsPlugin {
                 Update,
                 (
                     update_button_verb_from_affordances
-                        .after(ambition_actors::player::affordances::AffordancesSystemSet::Compute),
+                        .after(ambition_actors::affordances::AffordancesSystemSet::Compute),
                     update_button_glyph_from_active_input
-                        .after(ambition_actors::player::affordances::AffordancesSystemSet::Compute),
+                        .after(ambition_actors::affordances::AffordancesSystemSet::Compute),
                     update_button_pressed_from_actions
-                        .after(ambition_actors::player::affordances::AffordancesSystemSet::Compute),
+                        .after(ambition_actors::affordances::AffordancesSystemSet::Compute),
                     render_touch_button_text
                         .after(update_button_verb_from_affordances)
                         .after(update_button_glyph_from_active_input)
@@ -777,7 +777,7 @@ pub struct TouchActionLabel(pub TouchActionButton);
 
 /// The verb-text to render under each touch button. Updated each
 /// frame by [`update_button_verb_from_affordances`] from the global
-/// [`ambition_actors::player::affordances::PlayerAffordances`] table. Held as
+/// [`ambition_actors::affordances::PlayerAffordances`] table. Held as
 /// component data (not computed inline in the render system) so
 /// independent concerns — verb, future glyph subtitle, future
 /// pressed-state highlight — each own their own component + update
@@ -811,10 +811,10 @@ impl ButtonVerb {
 /// (and, in later phases, the glyph / pressed-state components) into
 /// the actual `Text` node.
 pub fn update_button_verb_from_affordances(
-    affordances: Res<ambition_actors::player::affordances::PlayerAffordances>,
+    affordances: Res<ambition_actors::affordances::PlayerAffordances>,
     mut labels: Query<(&TouchActionLabel, &mut ButtonVerb)>,
 ) {
-    use ambition_actors::player::affordances::{InteractVariant, VariantLabel};
+    use ambition_actors::affordances::{InteractVariant, VariantLabel};
     for (TouchActionLabel(action), mut verb) in &mut labels {
         let next: Option<String> = match action {
             TouchActionButton::Jump => Some(affordances.jump.text().to_owned()),
@@ -927,7 +927,7 @@ fn touch_action_to_sandbox_action(action: TouchActionButton) -> SandboxAction {
 /// [`KeyboardPreset`] (from settings), so HUD glyphs follow a rebind
 /// instead of always showing the out-of-the-box Z/X/C keys.
 pub fn update_button_glyph_from_active_input(
-    active: Res<ambition_actors::player::affordances::ActiveInputMethod>,
+    active: Res<ambition_actors::affordances::ActiveInputMethod>,
     settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     mut labels: Query<(&TouchActionLabel, &mut ButtonGlyph)>,
 ) {
@@ -939,7 +939,7 @@ pub fn update_button_glyph_from_active_input(
         .unwrap_or_else(KeyboardPreset::arrows_zxc);
     for (TouchActionLabel(touch_action), mut glyph) in &mut labels {
         let sa = touch_action_to_sandbox_action(*touch_action);
-        let next = ambition_actors::player::affordances::glyph_for(sa, &preset, active.0);
+        let next = ambition_actors::affordances::glyph_for(sa, &preset, active.0);
         if glyph.0 != next {
             glyph.0 = next;
         }

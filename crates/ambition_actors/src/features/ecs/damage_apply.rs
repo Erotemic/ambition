@@ -22,8 +22,8 @@ use ambition_world::collision::MovingPlatformSet;
 
 use crate::actor::BodyAnimFacts;
 use crate::actor::PrimaryPlayerOnly;
+use crate::avatar::PlayerSafetyState;
 use crate::combat::events::{GameplayBannerRequested, HitEvent as FeatureHitEvent, HitTarget};
-use crate::player::PlayerSafetyState;
 use crate::time::feel::SandboxFeelTuning;
 use crate::time::time_control::{ClockRequester, ClockResetRequest};
 use crate::{

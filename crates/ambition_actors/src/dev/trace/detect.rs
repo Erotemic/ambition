@@ -184,7 +184,7 @@ pub fn build_frame(
     clusters: &ae::BodyClustersMut<'_>,
     combat: &ambition_characters::actor::BodyCombat,
     clock: &ambition_time::ClockState,
-    safety: &crate::player::PlayerSafetyState,
+    safety: &crate::avatar::PlayerSafetyState,
     world: &ae::World,
     controls: ControlFrame,
     real_dt: f32,

@@ -1,8 +1,8 @@
 # The refactor chain — dissolving the adapter shells, then folding the player
 
 **Status:** R1, R2, R3, R5 DONE; R4 re-checked and STOPPED as ruled; R6 IN PROGRESS
-(R6a/R6b/R6c landed; R6d — the rest of `player/` + the `features/` rename —
-remains). 2026-07-10.
+(R6a–R6d landed — **`player/` no longer exists**; only R6e, the mechanical
+`features/` rename, remains). 2026-07-10.
 Six slices, in dependency order.
 Each is committable on its own; each states its own exit check.
 
@@ -563,16 +563,44 @@ Measured: the `crate::player` importer sink is **31 → 26 (R6a) → 21 (R6c)**
 non-player files. `player/` is 6632 → 5685 total src lines (units: TOTAL, incl.
 tests); `control/` is 962.
 
-### ⏳ R6d — what is still under `player/`
+### ✅ R6d — `player/` is gone (committed)
 
-- **body mechanics** → the actor tree: `body_integration.rs`, `movement_fx.rs`,
-  `trail.rs`, `swim.rs`, `ledge_grab.rs`, `affordances/`.
-- **home-avatar POLICY** (genuinely slot-0, and correctly named): `bundles.rs`,
-  `starting_character.rs`, `events.rs`, `components/` (`PlayerSafetyState`,
-  `PlayerBlinkCameraState`), `systems.rs`'s remainder.
+**Exit-check clause 1 is met: `crates/ambition_actors/src/player/` no longer
+exists.** What was in it went where it belongs, and what remained turned out to be
+a real concept that had simply never been named:
 
-Then the `features/` rename (508 internal + 199 external references), which the
-original plan says rides the fold.
+| Moved | To | Why |
+|---|---|---|
+| `affordances/` (1971 lines) | **`crate::affordances`** (new, top-level) | a BRIDGE — input × body × world → verb. It is neither the control seam nor the actor sim, which is why it belongs to neither. |
+| `movement_fx.rs` | `crate::features` | turns a frame's engine `FrameEvents` into Sfx/Vfx facts for whichever body produced them. |
+| `swim.rs`, `ledge_grab.rs` | `crate::features` | thin shims over engine-owned water / ledge state. Measured: they name **zero** `crate::` types. |
+| everything else | **`crate::avatar`** (the rename) | it is the HOME AVATAR's. |
+
+**`player/` → `avatar/` is the fold's conclusion, not a cosmetic rename.** R6b
+established that the home avatar is a real concept: during possession it is
+precisely the body that is NOT the controlled subject, so nothing else can find
+it. What is left under that name — the identity bundle, respawn safety, the blink
+camera, the starting character, the emitted trail (which filters `PrimaryPlayer`,
+correctly), and the tick that integrates the home body — is slot-0's by design.
+Its module doc now carries the table above and the sentence that matters: *nothing
+here is the ONLY path for anything; the avatar differs from every other actor in
+its input frame and its respawn policy, and that is all.*
+
+65 files repointed. Zero errors and zero warnings across
+`--workspace --all-targets --features rl_sim`.
+
+### ⏳ R6e — the `features/` rename
+
+The last piece: `features/` is "the enemy / NPC / boss ECS ACTOR SIMULATION — NOT
+a feature-toggle layer" (its own header says so), and it is now also the home of
+the body mechanics R6d moved in. 508 internal + 199 external references. Deliberately
+NOT bundled into R6d: the rename is a pure mechanical sweep, and mixing it with
+the fold's judgment calls would have made both unreviewable.
+
+**Still deferred by prior ruling:** folding the avatar's `ProjectileSpawner`
+(cooldown + mana meter + charge state machine) onto `try_fire_ranged`. It changes
+FEEL, rides the differential trace, and never ships blind. Same for
+`items/pickup/mod.rs`'s `held_projectile_step` (R6b marked it in the code).
 
 **Still deferred by prior ruling:** folding the player's `ProjectileSpawner`
 (cooldown + mana meter + charge state machine) onto `try_fire_ranged`. It changes

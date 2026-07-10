@@ -2,7 +2,7 @@
 //! request/consume edge behavior, and the post-reset gameplay-state rebuild.
 
 use super::*;
-use crate::player::PlayerBlinkCameraState;
+use crate::avatar::PlayerBlinkCameraState;
 use ambition_dev_tools::dev_tools::EditableMovementTuning;
 use ambition_engine_core::RoomGeometry;
 
@@ -142,7 +142,7 @@ fn min_app() -> App {
     // of them present.
     {
         let mut initial =
-            crate::player::primary_player_scratch(world.spawn, ae::AbilitySet::sandbox_all());
+            crate::avatar::primary_player_scratch(world.spawn, ae::AbilitySet::sandbox_all());
         ae::refresh_movement_resources_clusters(
             &initial.abilities,
             &mut initial.dash,
@@ -151,7 +151,7 @@ fn min_app() -> App {
         );
         let health = ambition_characters::actor::Health::new(20);
         app.world_mut()
-            .spawn(crate::player::PlayerSimulationBundle::from_scratch(
+            .spawn(crate::avatar::PlayerSimulationBundle::from_scratch(
                 initial, health,
             ));
         let _ = PlayerBlinkCameraState::default();

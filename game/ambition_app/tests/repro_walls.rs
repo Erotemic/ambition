@@ -6,7 +6,7 @@ use ambition::actors as sb;
 use ambition::engine_core as ae;
 
 fn scratch_at(spawn: ae::Vec2) -> BodyClusterScratch {
-    sb::player::primary_player_scratch(spawn, AbilitySet::sandbox_all())
+    sb::avatar::primary_player_scratch(spawn, AbilitySet::sandbox_all())
 }
 
 /// Depenetration allowance: a single simulation step may legitimately

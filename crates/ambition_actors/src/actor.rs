@@ -3,15 +3,15 @@
 //!
 //! Establishing this module is step 4 (the keystone) of the unified-actors plan
 //! (`docs/planning/engine/unified-actors.md` / `engine/architecture.md`): the
-//! shared body/sim-state was historically surfaced through `crate::player`, which
-//! made `crate::player` a universal dependency sink — ~20 of the non-player
+//! shared body/sim-state was historically surfaced through `crate::avatar`, which
+//! made `crate::avatar` a universal dependency sink — ~20 of the non-player
 //! modules imported it just to name a body component. Re-homing the shared types
 //! here dissolves those back-edges so the runtime domains can extract into leaf
 //! crates.
 //!
 //! **Rule:** new *shared* sim-state (state every actor has) lands here on the
 //! actor vocabulary, never on a `Player*`-named component. Genuinely player-only
-//! state (camera, HUD, device input, wallet) stays in `crate::player`.
+//! state (camera, HUD, device input, wallet) stays in `crate::avatar`.
 //!
 //! Slice 0 re-homed [`BodyKinematics`] (the single position / velocity / size /
 //! facing component the player, enemies, NPCs, and bosses all share). Slice 0b
@@ -21,7 +21,7 @@
 
 pub use crate::platformer_runtime::body::BodyKinematics;
 pub use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
-// Body vocabulary that used to be reachable only through `crate::player`, which
+// Body vocabulary that used to be reachable only through `crate::avatar`, which
 // is what made that module a universal dependency sink (see the module docs
 // above). `BodyAnimFacts` re-homed DOWN to `ambition_characters::actor::body`
 // beside `BodyCombat`/`BodyHealth`; `BodyMelee` already lived in the combat kit.
@@ -36,7 +36,7 @@ pub use ambition_combat::BodyMelee;
 /// [`BodyKinematics`], form the authoritative movement aggregate the shared
 /// pipeline (`ae::update_body_with_tuning_clusters`) reads and writes.
 ///
-/// These were historically named `Player*` and surfaced through `crate::player`,
+/// These were historically named `Player*` and surfaced through `crate::avatar`,
 /// which made every non-player module that names a body component import the
 /// player. They are not player-specific — enemies, NPCs, and bosses all carry
 /// them — so they are re-homed here on the neutral actor vocabulary under the

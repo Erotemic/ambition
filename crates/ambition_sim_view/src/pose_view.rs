@@ -105,7 +105,7 @@ pub fn rebuild_body_pose_views(
                 Option<&ambition_actors::actor::BodyLedgeState>,
                 Option<&BodyCombat>,
                 Option<&ambition_actors::actor::BodyAnimFacts>,
-                Option<&ambition_actors::player::PlayerBlinkCameraState>,
+                Option<&ambition_actors::avatar::PlayerBlinkCameraState>,
             ),
             (
                 Option<&ambition_actors::actor::BodyModeState>,

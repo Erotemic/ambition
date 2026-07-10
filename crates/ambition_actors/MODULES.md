@@ -9,8 +9,10 @@
 | [`abilities`](src/abilities/mod.rs) | Ambition's player ability / weapon kit. |
 | [`ability_cooldown`](src/ability_cooldown.rs) | Shared cooldown for the movement abilities (Blink, Grapple) so they read as deliberate verbs instead of spammable teleports. |
 | [`actor`](src/actor.rs) | The neutral **actor vocabulary** home for shared sim-state — the components every actor carries, the player included. |
+| [`affordances`](src/affordances/mod.rs) | Player affordances: "what would each button do right now?" |
 | [`assets`](src/assets/mod.rs) | Asset registries and load-time wiring. |
 | [`audio`](src/audio/mod.rs) | Audio runtime for the Ambition sandbox. |
+| [`avatar`](src/avatar/mod.rs) | **The HOME AVATAR** — the body slot 0 owns and returns to, and the policy that belongs to the local human rather than to any body. |
 | [`body_mode`](src/body_mode/mod.rs) | Sandbox-side body-mode driver: facade re-exporting [`update_body_mode`]. |
 | [`boss_encounter`](src/boss_encounter/mod.rs) | Sandbox-side coordinator for boss fights (distinct from the generic `crate::encounter` enemy-wave system). |
 | [`character_roster`](src/character_roster.rs) | The character-roster SEAM: the game installs its `character_catalog.ron` text; this module owns the parse cache + the lookup helpers the non-Bevy call sites use. |
@@ -33,7 +35,6 @@
 | [`persistence`](src/persistence/mod.rs) | Compatibility adapter for persistence paths that still sit inside the gameplay-core UI surface. |
 | [`physics`](src/physics.rs) | Shared world physics facade. |
 | [`platformer_runtime`](src/platformer_runtime/mod.rs) | Proto-runtime facade for reusable platformer systems. |
-| [`player`](src/player/mod.rs) | Player ECS state. |
 | [`projectile`](src/projectile/mod.rs) | Sandbox PLAYER-faction projectile glue. |
 | [`quest`](src/quest/mod.rs) | Gameplay-core adapter for the generic quest runtime. |
 | [`schedule`](src/schedule/mod.rs) | Schedule + input-frame vocabulary shared by the machinery lib, the content crate, and the app crate. |
@@ -42,7 +43,7 @@
 | [`time`](src/time/mod.rs) | Time domain plumbing: clocks (ADR 0010/0011), time-control authority, per-entity proper-time scale, and game-feel tuning. |
 | [`world`](src/world/mod.rs) | World / level authoring runtime: room graph + spawning, the code-first room builder, the LDtk hot-reloadable project loader, the Avian2D physics adapter, and LDtk-authored moving platforms. |
 
-_35 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_36 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

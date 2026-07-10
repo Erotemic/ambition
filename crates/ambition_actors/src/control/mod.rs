@@ -21,7 +21,7 @@
 //! of this same wire). `ambition_runtime/tests/control_frame_lint.rs` enforces it,
 //! and its allowlist is almost exactly this module's contents.
 //!
-//! Extracted from `crate::player` in the S5/S6 fold (refactor-chain R6c): the
+//! Extracted from `crate::avatar` in the S5/S6 fold (refactor-chain R6c): the
 //! slot machinery was never player-only state, and keeping it under `player/`
 //! was one of the reasons that module read as a universal dependency sink.
 

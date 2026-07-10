@@ -74,7 +74,7 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
     // Idle inputs only -- the trace captures the deterministic gameplay
     // baseline; agents that want a richer trace can replay this binary
     // pattern from their own scripted policy.
-    use ambition::actors::player::PlayerSafetyState;
+    use ambition::actors::avatar::PlayerSafetyState;
     use ambition::actors::rooms::RoomSet;
     use ambition::engine_core::RoomGeometry;
     use ambition::platformer::schedule::GameMode as GameModeState;

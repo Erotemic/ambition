@@ -14,7 +14,7 @@ pub fn record_simulation_frame(
     clusters: &ae::BodyClustersMut<'_>,
     combat: &ambition_characters::actor::BodyCombat,
     clock: &ambition_time::ClockState,
-    safety: &crate::player::PlayerSafetyState,
+    safety: &crate::avatar::PlayerSafetyState,
     world: &ae::World,
     controls: ControlFrame,
     real_dt: f32,
@@ -131,7 +131,7 @@ pub fn record_frame_system(
         (
             ae::BodyClusterQueryData,
             Option<&ambition_characters::actor::BodyHealth>,
-            &crate::player::PlayerSafetyState,
+            &crate::avatar::PlayerSafetyState,
             &crate::control::PlayerInputFrame,
             &ambition_characters::actor::BodyCombat,
         ),

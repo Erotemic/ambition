@@ -394,7 +394,7 @@ mod home_momentum_tests {
 
     fn rig(world: ae::World) -> Rig {
         Rig {
-            scratch: crate::player::primary_player_scratch(
+            scratch: crate::avatar::primary_player_scratch(
                 world.spawn,
                 ae::AbilitySet::sandbox_all(),
             ),

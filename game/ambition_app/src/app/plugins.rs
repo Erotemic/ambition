@@ -525,7 +525,7 @@ fn install_fx_and_hud_systems(app: &mut App) {
     .add_systems(
         Update,
         (
-            ambition::actors::player::regen_player_mana,
+            ambition::actors::avatar::regen_player_mana,
             ambition::render::hud::spawn_player_hud,
             ambition::render::hud::update_player_hud,
         )

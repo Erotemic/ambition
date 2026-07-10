@@ -17,7 +17,7 @@
 use bevy::prelude::*;
 
 use ambition_actors::actor::{BodyKinematics, PlayerEntity, PrimaryPlayer};
-use ambition_actors::player::affordances::{InteractVariant, NearestInteractable};
+use ambition_actors::affordances::{InteractVariant, NearestInteractable};
 use ambition_characters::brain::{Brain, PlayerSlot, SlotControls};
 use ambition_input::ControlFrame;
 use ambition_platformer_primitives::markers::ControlledSubject;

@@ -50,8 +50,8 @@ pub struct PresentationSetup<'a> {
     pub quality: Option<&'a ambition::render::quality::ResolvedVisualQuality>,
     /// Which catalog character the player wears — selects its sprite sheet so
     /// the home avatar draws as the chosen character
-    /// ([`ambition::actors::player::StartingCharacter`]).
-    pub starting_character: &'a ambition::actors::player::StartingCharacter,
+    /// ([`ambition::actors::avatar::StartingCharacter`]).
+    pub starting_character: &'a ambition::actors::avatar::StartingCharacter,
     #[cfg(feature = "audio")]
     pub music_registry: &'a MusicRegistry,
     #[cfg(feature = "audio")]

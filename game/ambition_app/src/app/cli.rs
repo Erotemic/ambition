@@ -274,7 +274,7 @@ fn insert_starting_character_override(app: &mut App) {
         return;
     }
     eprintln!("ambition_app: starting as character '{id}' (AMBITION_START_CHARACTER)");
-    app.insert_resource(ambition::actors::player::StartingCharacter::new(id));
+    app.insert_resource(ambition::actors::avatar::StartingCharacter::new(id));
 }
 
 /// Build + run the visible Bevy app for a browser (wasm32) target.

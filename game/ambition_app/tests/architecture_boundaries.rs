@@ -2142,7 +2142,7 @@ fn architecture_boundaries_portal_core_does_not_name_host_world_or_reset() {
             "FeatureEcsWorldOverlay",
             "ResetRoomFeaturesEvent",
             "ambition_input::ControlFrame",
-            "ambition_actors::player",
+            "ambition_actors::avatar",
         ],
         |file| {
             let name = file.file_name().and_then(|n| n.to_str()).unwrap_or("");

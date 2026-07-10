@@ -18,7 +18,7 @@ use crate::menu::model::{
     system_rows_with_quality_prompt, MenuFocus, MenuPage, MenuPageAction, SystemRow,
 };
 use crate::menu::quality_confirm::VisualQualityConfirmState;
-use ambition::actors::player::PlayerHealRequested;
+use ambition::actors::avatar::PlayerHealRequested;
 use ambition::items::OwnedItems;
 use ambition::persistence::settings::UserSettings;
 use ambition::settings_menu::settings::{

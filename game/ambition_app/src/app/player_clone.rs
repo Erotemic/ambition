@@ -3,7 +3,7 @@
 //! the EXACT same movement integration the human player uses.
 //!
 //! This is the live, in-game counterpart to the headless proof in
-//! `ambition::actors::player::clone_probe_tests`. It demonstrates the
+//! `ambition::actors::avatar::clone_probe_tests`. It demonstrates the
 //! universal-brain seam: the clone runs / jumps / dashes / flies entirely from
 //! brain-emitted `ActorControlFrame` verbs.
 //!
@@ -115,7 +115,7 @@ pub fn spawn_requested_player_clone(
         (
             ambition::actors::actor::BodyAnimFacts::default(),
             ambition::characters::actor::BodyCombat::default(),
-            ambition::actors::player::PlayerBlinkCameraState::default(),
+            ambition::actors::avatar::PlayerBlinkCameraState::default(),
         ),
         // The clone IS a `PlayerEntity` (3c-ii): the iterating
         // `player_control_system` / `player_simulation_system` move it through the
@@ -130,7 +130,7 @@ pub fn spawn_requested_player_clone(
         (
             ambition::actors::body_mode::BodyModeCapabilities::full(),
             ambition::actors::actor::BodyMelee::default(),
-            ambition::actors::player::PlayerSafetyState::default(),
+            ambition::actors::avatar::PlayerSafetyState::default(),
             ambition::actors::control::PlayerInputFrame::default(),
         ),
         transform,

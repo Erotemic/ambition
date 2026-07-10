@@ -87,7 +87,7 @@ pub fn attach_player_input_components(
 pub fn toggle_player_trail_emission_from_actions(
     mode: Res<State<GameMode>>,
     player_input: Query<&ActionState<SandboxAction>, With<PlayerVisual>>,
-    enabled: Option<ResMut<crate::player::trail::PlayerTrailEnabled>>,
+    enabled: Option<ResMut<crate::avatar::trail::PlayerTrailEnabled>>,
 ) {
     if !mode.get().allows_gameplay() {
         return;

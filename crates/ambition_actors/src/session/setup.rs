@@ -40,7 +40,7 @@ pub struct SimulationSetup<'a> {
     pub editable_tuning: &'a EditableMovementTuning,
     /// Which catalog character the local player spawns as. `is_default()` (the
     /// `player` protagonist) takes the untouched `from_scratch` path.
-    pub starting_character: &'a crate::player::StartingCharacter,
+    pub starting_character: &'a crate::avatar::StartingCharacter,
     pub sandbox_data_asset: Option<&'a SandboxDataAsset>,
     pub sandbox_asset_collection: Option<&'a SandboxAssetCollection>,
     pub asset_server: &'a AssetServer,
@@ -100,7 +100,7 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
     crate::features::spawn_room_feature_entities(commands, room_set.active_spec());
 
     let mut initial_scratch =
-        crate::player::primary_player_scratch(world.0.spawn, editable_abilities.as_engine());
+        crate::avatar::primary_player_scratch(world.0.spawn, editable_abilities.as_engine());
     ae::refresh_movement_resources_clusters(
         &initial_scratch.abilities,
         &mut initial_scratch.dash,
@@ -113,9 +113,9 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
     // moveset + name onto the same box (its sprite is bound presentation-side).
     let player_health = ambition_characters::actor::Health::new(20);
     let player_bundle = if starting_character.is_default() {
-        crate::player::PlayerSimulationBundle::from_scratch(initial_scratch, player_health)
+        crate::avatar::PlayerSimulationBundle::from_scratch(initial_scratch, player_health)
     } else {
-        crate::player::PlayerSimulationBundle::from_scratch_as_character(
+        crate::avatar::PlayerSimulationBundle::from_scratch_as_character(
             initial_scratch,
             player_health,
             &starting_character.character_id,
@@ -134,7 +134,7 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
     // any other character removes the model so the box stays axis-swept. The
     // default `player` row authors no momentum, so this is a no-op for the
     // protagonist.
-    crate::player::apply_worn_motion_model(commands, player, starting_character.effective_id());
+    crate::avatar::apply_worn_motion_model(commands, player, starting_character.effective_id());
 
     // HUD entity is presentation-side; placeholder until presentation_world
     // overwrites this resource.

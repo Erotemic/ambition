@@ -538,7 +538,7 @@ pub fn resolve_camera_observation(
         (
             &ambition_platformer_primitives::body::BodyKinematics,
             &ae::BodyBaseSize,
-            &ambition_actors::player::PlayerBlinkCameraState,
+            &ambition_actors::avatar::PlayerBlinkCameraState,
         ),
         ambition_platformer_primitives::markers::PrimaryPlayerOnly,
     >,

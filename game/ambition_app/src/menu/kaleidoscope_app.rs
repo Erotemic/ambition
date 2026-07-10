@@ -27,7 +27,7 @@ use crate::menu::model::{
     SystemRow, SYSTEM_VISIBLE_ROWS,
 };
 use crate::menu::quality_confirm::VisualQualityConfirmState;
-use ambition::actors::player::PlayerHealRequested;
+use ambition::actors::avatar::PlayerHealRequested;
 use ambition::engine_core::Vec2;
 use ambition::input::MenuControlFrame;
 use ambition::items::{Item, OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};

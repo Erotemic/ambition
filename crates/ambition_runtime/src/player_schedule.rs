@@ -23,7 +23,7 @@
 
 use bevy::prelude::*;
 
-use ambition_actors::player::PlayerBodyFrameOutput;
+use ambition_actors::avatar::PlayerBodyFrameOutput;
 use ambition_platformer_primitives::schedule::SandboxSet;
 use ambition_platformer_primitives::schedule::SimScheduleExt;
 use ambition_platformer_primitives::schedule::{gameplay_allowed, gameplay_suspended};
@@ -134,13 +134,13 @@ impl Plugin for PlayerSchedulePlugin {
                     .chain(),
                 // Universal-brain seam: translate this frame's slot input into
                 // each controlled body's ActorControl frame.
-                ambition_actors::player::tick_player_brains,
+                ambition_actors::avatar::tick_player_brains,
                 // Body-mode policy (crouch / morph / climb) consumes the
                 // CONTROLLED body's freshly-produced ActorControl + its slot
                 // gestures, so it runs AFTER `tick_player_brains` and before
                 // WorldPrep movement consumes the resize/mode change.
                 ambition_actors::body_mode::update_body_mode,
-                ambition_actors::player::sync_player_actor_poses,
+                ambition_actors::avatar::sync_player_actor_poses,
             )
                 .chain()
                 .in_set(SandboxSet::PlayerInput)
@@ -200,7 +200,7 @@ impl Plugin for PlayerSchedulePlugin {
         app.add_systems(
             sim,
             (
-                ambition_actors::player::write_player_ecs_components,
+                ambition_actors::avatar::write_player_ecs_components,
                 ambition_actors::control::cleanup_timers_system,
             )
                 .chain()

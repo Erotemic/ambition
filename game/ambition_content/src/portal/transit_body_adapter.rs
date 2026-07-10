@@ -15,8 +15,8 @@
 use bevy::prelude::*;
 
 use ambition_actors::actor::{PlayerEntity, PrimaryPlayer};
+use ambition_actors::avatar::trail::TrailContinuityBreak;
 use ambition_actors::features::{BodyKinematics, BossConfig};
-use ambition_actors::player::trail::TrailContinuityBreak;
 use ambition_portal::{
     BodyTeleported, PlayerMovementIntent, PortalBody, PortalBodyTransited, PortalEmission,
     PortalInputWarp, PortalPolicy, PortalTuning,

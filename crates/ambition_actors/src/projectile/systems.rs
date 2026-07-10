@@ -414,7 +414,7 @@ pub fn step_projectiles(
     >,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
-    mut heals: MessageWriter<crate::player::PlayerHealRequested>,
+    mut heals: MessageWriter<crate::avatar::PlayerHealRequested>,
     mut trace: ResMut<GameplayTraceBuffer>,
     // Relational damage authority + non-player actor victims for actor-vs-actor
     // projectile damage. A shot damages any DIFFERENT-faction body it hits, routed
@@ -586,7 +586,7 @@ pub fn step_projectiles(
                     );
                     // Player-facing reward policy — the reflect mechanic above is
                     // shared with actors; only the player heals on parry.
-                    heals.write(crate::player::PlayerHealRequested::new(PARRY_HEAL));
+                    heals.write(crate::avatar::PlayerHealRequested::new(PARRY_HEAL));
                     reflected = true;
                     break;
                 }

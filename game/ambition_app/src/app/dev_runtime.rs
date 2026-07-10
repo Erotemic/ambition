@@ -98,7 +98,7 @@ pub(super) fn handle_ldtk_hot_reload(
         (
             ae::BodyClusterQueryData,
             &mut ambition::characters::actor::BodyCombat,
-            &mut ambition::actors::player::PlayerSafetyState,
+            &mut ambition::actors::avatar::PlayerSafetyState,
         ),
         // PRIMARY-only: LDtk hot-reload repositions the camera body to the
         // validated spawn — a single-player dev flow.
@@ -240,7 +240,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     clusters: &mut ae::BodyClustersMut<'_>,
     dev_state: &mut SandboxDevState,
     sim_state: &mut ambition::actors::SandboxSimState,
-    safety: &mut ambition::actors::player::PlayerSafetyState,
+    safety: &mut ambition::actors::avatar::PlayerSafetyState,
     dialogue: &mut ambition::dialog::DialogState,
     combat: &mut ambition::characters::actor::BodyCombat,
     ldtk_index: &mut ldtk_world::LdtkRuntimeIndex,

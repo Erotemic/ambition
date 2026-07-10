@@ -41,6 +41,13 @@
 // into these modules. Everything else stays `pub(crate)` so the compiler
 // can tell us what's actually depended on from outside.
 pub mod audio;
+/// The HOME AVATAR — the body slot 0 owns and returns to, plus the policy that is
+/// genuinely the local human's rather than any body's: its identity bundle, its
+/// respawn safety and blink camera, its starting character, its emitted trail,
+/// and the tick that integrates it. Formerly `player/`; the body vocabulary, the
+/// control seam, the affordance table, and the body mechanics all left it in the
+/// S5/S6 fold (refactor-chain R6). What is named here is named correctly.
+pub mod avatar;
 pub mod character_roster;
 /// The local control seam: device frame -> slot -> the body carrying that slot's
 /// player brain. See `control/mod.rs`.
@@ -48,7 +55,6 @@ pub mod control;
 pub mod debug_label;
 pub mod host;
 pub mod platformer_runtime;
-pub mod player;
 pub mod quest;
 pub mod schedule;
 // Stable facade for save-game data shapes used by dialogue bindings.
@@ -59,6 +65,10 @@ pub mod abilities;
 pub mod ability_cooldown;
 /// Neutral actor-vocabulary home for shared sim-state (the keystone re-home target).
 pub mod actor;
+/// "What would each button do right now?" — the per-frame verb table the HUD
+/// labels its buttons from. A BRIDGE (input x body x world -> verb), which is why
+/// it is neither `control` nor `features`. Moved off `player/` in R6d.
+pub mod affordances;
 pub mod assets;
 pub mod body_mode;
 pub mod boss_encounter;
@@ -207,7 +217,7 @@ pub const ROOM_DOOR_CAMERA_SNAP_TIME: f32 = 0.08;
 /// **Multiplayer caveat:** each field has different per-player vs.
 /// shared semantics for a future co-op build:
 /// - Per-player "last safe position" lives on each player entity as
-///   `crate::player::PlayerSafetyState`.
+///   `crate::avatar::PlayerSafetyState`.
 /// - `room_transition_cooldown` — **global shared-world** today
 ///   because the whole party shares one active room. If a future
 ///   build splits rooms per-player this would need to move per-room
@@ -243,7 +253,7 @@ pub use crate::features::MeleeSwing;
 /// `dev/journals/lessons_learned.md` for the OOB trace where a wall-cling
 /// teleport polluted `last_safe_player_pos` with `(62, -23)`.
 pub fn remember_safe_player_position(
-    safety: &mut crate::player::PlayerSafetyState,
+    safety: &mut crate::avatar::PlayerSafetyState,
     clusters: &ae::BodyClustersMut<'_>,
     world: &ae::World,
     ctx: SafePositionContext,
@@ -265,7 +275,7 @@ pub fn remember_safe_player_position(
 /// this tuple form is exposed for tests that build a
 /// `BodyClusterScratch` and pass individual fields.
 pub fn remember_safe_player_position_from_kinematics(
-    safety: &mut crate::player::PlayerSafetyState,
+    safety: &mut crate::avatar::PlayerSafetyState,
     pos: ae::Vec2,
     vel: ae::Vec2,
     aabb: ae::Aabb,
@@ -311,9 +321,9 @@ mod safe_pos_tests {
     fn player_at(
         world: &ae::World,
         pos: ae::Vec2,
-    ) -> (ae::BodyClusterScratch, crate::player::PlayerSafetyState) {
+    ) -> (ae::BodyClusterScratch, crate::avatar::PlayerSafetyState) {
         let mut scratch =
-            crate::player::primary_player_scratch(world.spawn, ae::AbilitySet::sandbox_all());
+            crate::avatar::primary_player_scratch(world.spawn, ae::AbilitySet::sandbox_all());
         ae::refresh_movement_resources_clusters(
             &scratch.abilities,
             &mut scratch.dash,
@@ -323,7 +333,7 @@ mod safe_pos_tests {
         scratch.kinematics.pos = pos;
         scratch.ground.on_ground = true;
         // Force a known starting "safe pos" we can detect changes from.
-        let safety = crate::player::PlayerSafetyState::new(ae::Vec2::new(170.0, 1695.0));
+        let safety = crate::avatar::PlayerSafetyState::new(ae::Vec2::new(170.0, 1695.0));
         (scratch, safety)
     }
 

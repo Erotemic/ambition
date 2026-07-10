@@ -2,7 +2,7 @@
 //! the `ClockScaleRequest` → policy dispatch in the `Solo` regime.
 
 use super::*;
-use crate::player::components::PlayerSlot;
+use crate::avatar::components::PlayerSlot;
 use ambition_time::ProperTimeScale;
 
 #[test]

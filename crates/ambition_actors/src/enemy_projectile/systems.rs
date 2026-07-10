@@ -62,7 +62,7 @@ mod tests {
         app.add_message::<HitEvent>();
         app.add_message::<SfxMessage>();
         app.add_message::<VfxMessage>();
-        app.add_message::<crate::player::PlayerHealRequested>();
+        app.add_message::<crate::avatar::PlayerHealRequested>();
         app.init_resource::<ProjectileSeqCounter>();
         app.init_resource::<CapturedHits>();
         app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
@@ -148,7 +148,7 @@ mod tests {
         app.add_message::<HitEvent>();
         app.add_message::<SfxMessage>();
         app.add_message::<VfxMessage>();
-        app.add_message::<crate::player::PlayerHealRequested>();
+        app.add_message::<crate::avatar::PlayerHealRequested>();
         app.init_resource::<ProjectileSeqCounter>();
         app.init_resource::<CapturedHits>();
         app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
@@ -213,7 +213,7 @@ mod tests {
         app.add_message::<HitEvent>();
         app.add_message::<SfxMessage>();
         app.add_message::<VfxMessage>();
-        app.add_message::<crate::player::PlayerHealRequested>();
+        app.add_message::<crate::avatar::PlayerHealRequested>();
         app.init_resource::<ProjectileSeqCounter>();
         app.init_resource::<CapturedHits>();
         app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
@@ -327,7 +327,7 @@ mod tests {
         app.add_message::<HitEvent>();
         app.add_message::<SfxMessage>();
         app.add_message::<VfxMessage>();
-        app.add_message::<crate::player::PlayerHealRequested>();
+        app.add_message::<crate::avatar::PlayerHealRequested>();
         app.init_resource::<ProjectileSeqCounter>();
         app.init_resource::<crate::features::FeatureEcsWorldOverlay>();
         app.init_resource::<crate::trace::GameplayTraceBuffer>();
@@ -432,7 +432,7 @@ mod tests {
         app.add_message::<SfxMessage>();
         app.add_message::<VfxMessage>();
         app.add_message::<ambition_vfx::EffectRequest>();
-        app.add_message::<crate::player::PlayerHealRequested>();
+        app.add_message::<crate::avatar::PlayerHealRequested>();
         app.init_resource::<ProjectileSeqCounter>();
         app.init_resource::<CapturedHits>();
         app.init_resource::<crate::features::FeatureEcsWorldOverlay>();

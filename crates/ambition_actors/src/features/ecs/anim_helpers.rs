@@ -7,7 +7,7 @@
 use super::*;
 
 /// Advance every non-player actor's movement-driven anim overlays (landing /
-/// dash-startup) one frame, via the SAME [`crate::player::advance_body_anim_overlays`]
+/// dash-startup) one frame, via the SAME [`crate::features::advance_body_anim_overlays`]
 /// the player tick runs — so [`crate::character_sprites::pick_actor_anim`] can show
 /// those poses (fable review §A9). The home player ([`crate::actor::PlayerEntity`])
 /// is excluded (it advances its own overlays in the player tick), so no body is
@@ -29,7 +29,7 @@ pub fn advance_actor_anim_overlays(
 ) {
     let dt = world_time.sim_dt();
     for (ground, kin, dash, mut anim) in &mut actors {
-        crate::player::advance_body_anim_overlays(
+        crate::features::advance_body_anim_overlays(
             ground.on_ground,
             kin.vel.y,
             dash.timer,

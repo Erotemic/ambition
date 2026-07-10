@@ -49,10 +49,10 @@ pub use cli::run_web;
 pub use feedback::{ProgressionResources, SandboxEventWriters, SandboxQueues};
 pub use hud::update_quest_panel;
 pub use player_clone::{PlayerClone, SpawnPlayerCloneRequest};
-// `PlayerBodyFrameOutput` moved to `ambition::actors::player` (the movement
+// `PlayerBodyFrameOutput` moved to `ambition::actors::avatar` (the movement
 // phase that writes it is now the unified `integrate_sim_bodies`). Re-exported here
 // so existing `ambition_app::app::PlayerBodyFrameOutput` paths (tests) keep working.
-pub use ambition::actors::player::PlayerBodyFrameOutput;
+pub use ambition::actors::avatar::PlayerBodyFrameOutput;
 pub use player_tick::sync_player_presentation;
 pub use plugins::{
     add_ldtk_runtime_plugin, add_presentation_plugins, add_simulation_plugins, SandboxLdtkPlugin,

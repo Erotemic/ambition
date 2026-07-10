@@ -7,7 +7,7 @@
 //! `SpawnPlayerCloneRequest` resource, steps the real schedule, and asserts the
 //! clone runs, leaves the ground, and rises — driven entirely by its brain, with
 //! no human input. Complements the engine-level proof in
-//! `ambition::actors::player::clone_probe_tests`.
+//! `ambition::actors::avatar::clone_probe_tests`.
 
 mod common;
 use common::base;

@@ -247,7 +247,7 @@ impl SandboxSim {
         let mut safety_query = self
             .app
             .world_mut()
-            .query_filtered::<&ambition::actors::player::PlayerSafetyState, ambition::actors::actor::PrimaryPlayerOnly>(
+            .query_filtered::<&ambition::actors::avatar::PlayerSafetyState, ambition::actors::actor::PrimaryPlayerOnly>(
             );
         // World-side observability (enemies, pickups) for combat /
         // collection assertions. Read once per tick; cheap.

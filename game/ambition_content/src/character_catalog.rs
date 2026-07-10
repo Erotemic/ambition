@@ -51,7 +51,7 @@ pub fn next_playable(current: &str) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ambition_actors::player::StartingCharacter;
+    use ambition_actors::avatar::StartingCharacter;
 
     #[test]
     fn every_playable_roster_id_is_a_real_catalog_character() {

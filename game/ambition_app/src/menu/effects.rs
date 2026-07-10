@@ -7,10 +7,10 @@ use bevy::prelude::*;
 
 use ambition::actors::actor::BodyMana;
 use ambition::actors::actor::{PlayerEntity, PrimaryPlayer};
+use ambition::actors::avatar::PlayerHealRequested;
 use ambition::actors::items::pickup::{
     equip_held_spec, held_spec_for_item, unequip_held, StashedActionSet,
 };
-use ambition::actors::player::PlayerHealRequested;
 use ambition::characters::brain::ActionSet;
 use ambition::items::{Item, ItemCategory, OwnedItems};
 

@@ -133,7 +133,7 @@ fn main() {
     // plugin so its `init_resource::<StartingCharacter>()` leaves it in place.
     if let Some(character_id) = config.character.clone() {
         eprintln!("capture_scene: player wears character '{character_id}'");
-        app.insert_resource(ambition::actors::player::StartingCharacter::new(
+        app.insert_resource(ambition::actors::avatar::StartingCharacter::new(
             character_id,
         ));
     }

@@ -288,13 +288,13 @@ mod tests {
     #[test]
     fn player_action_set_melee_disabled_when_attack_ability_off() {
         use ambition_characters::brain::ActionSet;
-        let mut player = crate::player::primary_player_scratch(
+        let mut player = crate::avatar::primary_player_scratch(
             ae::Vec2::new(0.0, 0.0),
             ae::AbilitySet::sandbox_all(),
         );
         // Force-disable the attack ability.
         player.abilities.abilities.attack = false;
-        let bundle = crate::player::PlayerSimulationBundle::from_scratch(
+        let bundle = crate::avatar::PlayerSimulationBundle::from_scratch(
             player,
             ambition_characters::actor::Health::new(10),
         );
@@ -311,12 +311,12 @@ mod tests {
     #[test]
     fn player_action_set_special_disabled_when_shield_ability_off() {
         use ambition_characters::brain::ActionSet;
-        let mut player = crate::player::primary_player_scratch(
+        let mut player = crate::avatar::primary_player_scratch(
             ae::Vec2::new(0.0, 0.0),
             ae::AbilitySet::sandbox_all(),
         );
         player.abilities.abilities.shield = false;
-        let bundle = crate::player::PlayerSimulationBundle::from_scratch(
+        let bundle = crate::avatar::PlayerSimulationBundle::from_scratch(
             player,
             ambition_characters::actor::Health::new(10),
         );
@@ -336,11 +336,11 @@ mod tests {
         use ambition_characters::brain::{
             ActionSet, MeleeActionSpec, RangedActionSpec, SpecialActionSpec,
         };
-        let player = crate::player::primary_player_scratch(
+        let player = crate::avatar::primary_player_scratch(
             ae::Vec2::new(0.0, 0.0),
             ae::AbilitySet::sandbox_all(),
         );
-        let bundle = crate::player::PlayerSimulationBundle::from_scratch(
+        let bundle = crate::avatar::PlayerSimulationBundle::from_scratch(
             player,
             ambition_characters::actor::Health::new(10),
         );
@@ -370,7 +370,7 @@ mod tests {
         app.init_resource::<ControlFrame>();
         app.init_resource::<SlotControls>();
         app.add_message::<ActorActionMessage>();
-        let mut player = crate::player::primary_player_scratch(
+        let mut player = crate::avatar::primary_player_scratch(
             ae::Vec2::new(40.0, 60.0),
             ae::AbilitySet::sandbox_all(),
         );
@@ -380,7 +380,7 @@ mod tests {
             &mut player.jump,
             ae::DEFAULT_TUNING,
         );
-        let bundle = crate::player::PlayerSimulationBundle::from_scratch(
+        let bundle = crate::avatar::PlayerSimulationBundle::from_scratch(
             player,
             ambition_characters::actor::Health::new(10),
         );
@@ -444,7 +444,7 @@ mod tests {
         app.init_resource::<ControlFrame>();
         app.init_resource::<SlotControls>();
         app.add_message::<ActorActionMessage>();
-        let mut player = crate::player::primary_player_scratch(
+        let mut player = crate::avatar::primary_player_scratch(
             ae::Vec2::new(40.0, 60.0),
             ae::AbilitySet::sandbox_all(),
         );
@@ -457,7 +457,7 @@ mod tests {
         // Use the canonical bundle so the player's ActionSet is the
         // production default (Swipe melee + Bolt ranged). Bundle
         // already includes a PlayerBody synced off the authority.
-        let bundle = crate::player::PlayerSimulationBundle::from_scratch(
+        let bundle = crate::avatar::PlayerSimulationBundle::from_scratch(
             player,
             ambition_characters::actor::Health::new(10),
         );
@@ -508,7 +508,7 @@ mod tests {
         let mut app = App::new();
         app.init_resource::<ControlFrame>();
         app.init_resource::<SlotControls>();
-        let mut player = crate::player::primary_player_scratch(
+        let mut player = crate::avatar::primary_player_scratch(
             ae::Vec2::new(100.0, 100.0),
             ae::AbilitySet::sandbox_all(),
         );
@@ -522,7 +522,7 @@ mod tests {
         // that `PlayerMovementAuthority` + `PlayerBody` used to be
         // synthesized from. `Brain` / `ActorControl` are bundle fields
         // too, so no extra spawn-tuple state is needed.
-        let bundle = crate::player::PlayerSimulationBundle::from_scratch(
+        let bundle = crate::avatar::PlayerSimulationBundle::from_scratch(
             player,
             ambition_characters::actor::Health::new(10),
         );

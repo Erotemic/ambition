@@ -5,7 +5,7 @@
 use super::*;
 use crate::actor::BodyMelee;
 use crate::actor::PrimaryPlayerOnly;
-use crate::player::PlayerSafetyState;
+use crate::avatar::PlayerSafetyState;
 use ambition_engine_core as ae;
 
 fn dummy_attack_spec() -> crate::combat::AttackSpec {
@@ -20,7 +20,7 @@ fn dummy_attack_spec() -> crate::combat::AttackSpec {
         ae::Vec2::new(100.0, 900.0),
         vec![],
     );
-    let scratch = crate::player::primary_player_scratch(world.spawn, ae::AbilitySet::sandbox_all());
+    let scratch = crate::avatar::primary_player_scratch(world.spawn, ae::AbilitySet::sandbox_all());
     let view = crate::combat::AttackView {
         pos: scratch.kinematics.pos,
         size: scratch.kinematics.size,
@@ -239,7 +239,7 @@ fn clear_is_per_entity() {
 /// the heart instead of always to primary.
 #[test]
 fn targeted_heal_routes_to_named_entity_not_primary() {
-    use crate::player::{apply_player_heal_requests, PlayerHealRequested};
+    use crate::avatar::{apply_player_heal_requests, PlayerHealRequested};
     use ambition_characters::actor::BodyHealth;
 
     let mut app = App::new();
@@ -289,7 +289,7 @@ fn targeted_heal_routes_to_named_entity_not_primary() {
 /// silently break when other code starts using `for_target`.
 #[test]
 fn untargeted_heal_routes_to_primary() {
-    use crate::player::{apply_player_heal_requests, PlayerHealRequested};
+    use crate::avatar::{apply_player_heal_requests, PlayerHealRequested};
     use ambition_characters::actor::BodyHealth;
 
     let mut app = App::new();

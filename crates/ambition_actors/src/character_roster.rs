@@ -172,7 +172,7 @@ pub fn hall_dialogue_id_for_character_id(character_id: &str) -> Option<&'static 
 /// into `MotionModel::SurfaceMomentum` — the surface-follower solver. Returns
 /// `None` for an unknown id or a row that authors no `momentum` field (the
 /// axis-swept default). This is the single lookup both the player-wear seam
-/// ([`crate::player::apply_worn_motion_model`]) and the actor spawn path read.
+/// ([`crate::avatar::apply_worn_motion_model`]) and the actor spawn path read.
 pub fn momentum_params_for_character_id(
     character_id: &str,
 ) -> Option<ambition_engine_core::surface::MomentumParams> {

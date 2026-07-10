@@ -59,7 +59,7 @@ mod conversion_tests {
             crate::features::NPC_TALK_RADIUS,
             false,
         );
-        let player = crate::player::primary_player_scratch(
+        let player = crate::avatar::primary_player_scratch(
             ae::Vec2::new(1500.0, 540.0),
             ae::AbilitySet::sandbox_all(),
         );

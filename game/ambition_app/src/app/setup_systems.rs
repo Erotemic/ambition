@@ -32,7 +32,7 @@ pub(super) fn setup_simulation_system(
     ldtk_index: Res<ldtk_world::LdtkRuntimeIndex>,
     editable_tuning: Res<EditableMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
-    starting_character: Res<ambition::actors::player::StartingCharacter>,
+    starting_character: Res<ambition::actors::avatar::StartingCharacter>,
     mut platform_set: ResMut<ambition::world::collision::MovingPlatformSet>,
 ) {
     let _player = setup::simulation_world(
@@ -54,7 +54,7 @@ pub(super) fn setup_simulation_system(
     // `PlayerSafetyState::last_safe_pos` is initialized by the player
     // bundle to the player's spawn position (which is `world.0.spawn`),
     // so we don't need to overwrite it here. See
-    // `ambition::actors::player::PlayerSimulationBundle::new`.
+    // `ambition::actors::avatar::PlayerSimulationBundle::new`.
 }
 
 /// Presentation startup. Runs after `setup_simulation_system` so the
@@ -78,7 +78,7 @@ pub(crate) fn setup_presentation_system(
     scene_entities: Res<SceneEntities>,
     ui_fonts: Option<Res<ui_fonts::UiFonts>>,
     quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
-    starting_character: Res<ambition::actors::player::StartingCharacter>,
+    starting_character: Res<ambition::actors::avatar::StartingCharacter>,
     mut profiler: ResMut<ambition::dev_tools::profiling::StartupProfiler>,
 ) {
     // `std::time::Instant::now()` panics on `wasm32-unknown-unknown`
@@ -205,7 +205,7 @@ pub(crate) fn setup_presentation_system(
     asset_config: Res<GameAssetConfig>,
     scene_entities: Res<SceneEntities>,
     quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
-    starting_character: Res<ambition::actors::player::StartingCharacter>,
+    starting_character: Res<ambition::actors::avatar::StartingCharacter>,
 ) {
     let game_assets = actor_game_assets::load_game_assets(
         &asset_config,

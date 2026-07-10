@@ -753,7 +753,7 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
         mut flag: ResMut<TeleportedThisFrame>,
         mut trail_flag: ResMut<TrailBreakThisFrame>,
         mut reader: MessageReader<BodyTeleported>,
-        mut trail_reader: MessageReader<ambition_actors::player::trail::TrailContinuityBreak>,
+        mut trail_reader: MessageReader<ambition_actors::avatar::trail::TrailContinuityBreak>,
     ) {
         flag.0 = reader.read().next().is_some();
         trail_flag.0 = trail_reader.read().next().is_some();
@@ -762,7 +762,7 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
     let mut app = App::new();
     app.add_message::<ambition_portal::PortalBodyEntered>();
     app.add_message::<BodyTeleported>();
-    app.add_message::<ambition_actors::player::trail::TrailContinuityBreak>();
+    app.add_message::<ambition_actors::avatar::trail::TrailContinuityBreak>();
     app.add_message::<ambition_portal::PortalBodyTransited>();
     app.init_resource::<TeleportedThisFrame>();
     app.init_resource::<TrailBreakThisFrame>();

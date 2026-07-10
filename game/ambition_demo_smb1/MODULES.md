@@ -6,8 +6,9 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
+| [`flag`](src/flag.rs) | **M3 — the flagpole sequence.** |
 
-_0 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_1 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -1270,6 +1270,8 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     registry.register_component::<bc::BodyLedgeState>("body_ledge_state");
     registry.register_component::<bc::BodyComboTrace>("body_combo_trace");
     registry.register_component::<ambition_characters::brain::ActorControl>("actor_control");
+    registry.register_component::<ambition_time::ProperTimeScale>("proper_time_scale");
+    registry.register_cursor::<ambition_actors::features::BossEncounter>("boss_encounter");
 
     // ── Structurally derived: rebuilt every tick by the system that maintains it ──
     //
@@ -1801,6 +1803,53 @@ impl SnapshotResolve for ambition_combat::moveset::MovePlayback {
             r.f32()?,
             r.bool()?,
         ))
+    }
+}
+
+/// **The boss's encounter phase**, and the `BossPhaseState` it is forwarded from.
+///
+/// A cursor, because the rest of `BossEncounter` is sprite metrics derived from the
+/// sheet registry, and because `BossPhaseState.triggers` is authored data.
+///
+/// `encounter_phase` is the exposed MIRROR that `sync_boss_encounter_phase` copies out
+/// of `encounter` every tick. Rewinding only the mirror is rewinding a thermometer:
+/// `mockingbird_arena` telegraphed `wing_sweep` on the replay's tick 21 and stood still
+/// on the original's, with every clock, seed, and cooldown identical, because the
+/// replay's boss was already awake.
+impl SnapshotCursor for ambition_actors::features::BossEncounter {
+    fn encode_cursor(&self, out: &mut Vec<u8>) {
+        self.encounter_phase.encode(out);
+        match &self.encounter {
+            None => put_bool(out, false),
+            Some(e) => {
+                put_bool(out, true);
+                e.phase.encode(out);
+                put_f32(out, e.phase_elapsed);
+                put_f32(out, e.transition_lock);
+                e.start_phase.encode(out);
+            }
+        }
+    }
+    fn apply_cursor(&mut self, r: &mut Reader<'_>) -> Option<()> {
+        use ambition_characters::brain::boss_pattern::BossEncounterPhase;
+        self.encounter_phase = BossEncounterPhase::decode(r)?;
+        if r.bool()? {
+            let phase = BossEncounterPhase::decode(r)?;
+            let phase_elapsed = r.f32()?;
+            let transition_lock = r.f32()?;
+            let start_phase = BossEncounterPhase::decode(r)?;
+            // The authored `triggers` stay where they are: a snapshot carries what the
+            // fight has BECOME, never the rules it became it by.
+            if let Some(e) = self.encounter.as_mut() {
+                e.phase = phase;
+                e.phase_elapsed = phase_elapsed;
+                e.transition_lock = transition_lock;
+                e.start_phase = start_phase;
+            }
+        } else {
+            self.encounter = None;
+        }
+        Some(())
     }
 }
 
@@ -2500,6 +2549,18 @@ impl SnapshotCursor for ambition_combat::slots::CombatSlotsRes {
             slot.assigned_to = assigned;
         }
         Some(())
+    }
+}
+
+/// **A body's proper-time dilation** (ADR 0011): hitstop, bullet-time, a boss's slow.
+/// Every move clock and every brain timer advances on `world_time.entity_dt(scale)`, so
+/// a stale scale makes a rewound body live in a differently-paced universe.
+impl SnapshotState for ambition_time::ProperTimeScale {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_f32(out, self.0);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(ambition_time::ProperTimeScale(r.f32()?))
     }
 }
 

@@ -386,16 +386,16 @@ snapshots needed. Needs N0 complete, plus:
   | room | component types a rewind leaves stale | rewind is exact? |
   |---|---|---|
   | `gap_run` | 28 | ✅ **yes** |
+  | `mockingbird_arena` | 49 | ✅ **yes** |
+  | `gnu_ton_arena` | **59** | ✅ **yes** |
   | `portal_lab` | 54 | no |
-  | `mockingbird_arena` | 50 | no |
-  | `gnu_ton_arena` | **60** | ✅ **yes** |
 
   **`gnu_ton_arena` carries the LARGEST stale count of any room and rewinds exactly.**
   That is the ledger's own disclaimer, demonstrated: for an immutable authored fact,
   stale and correct are the same thing. The number is an upper bound on the debt, and
   the exit oracle is the only thing that measures the debt.
 
-  Pinned at 60 — the **peak over the run**, not the count at its end. The first
+  Pinned at 59 — the **peak over the run**, not the count at its end. The first
   version of this ledger measured once, after 120 ticks, by which time the arena
   bosses were dead and despawned; `gnu_ton_arena` duly reported the same 35 types as
   `gap_run`, which is the count of a world containing only the player. The debt was
@@ -494,7 +494,7 @@ snapshots needed. Needs N0 complete, plus:
   meant to look at.
 
   This is the general shape of the authored/mutable split, and it is why the coverage
-  ledger is an upper bound rather than a debt: many of the 60 want a *cursor*, not a
+  ledger is an upper bound rather than a debt: many of the 59 want a *cursor*, not a
   codec.
 
   ### The three named blockers between here and a clean arena
@@ -504,242 +504,56 @@ snapshots needed. Needs N0 complete, plus:
 
   | room | first divergence | what restore did | remaining cause |
   |---|---|---|---|
+  | `gap_run` | — | all patched | ✅ **CLEAN** |
   | `gnu_ton_arena` | — | all patched | ✅ **CLEAN** |
-  | `mockingbird_arena` | tick **21** | all patched | the boss's `timeline` re-resolved |
+  | `mockingbird_arena` | — | all patched | ✅ **CLEAN** |
   | `portal_lab` | tick 0 | 1 **respawned** | a naked respawn |
 
-  **`gnu_ton_arena` — a boss fight — rewinds and replays bit for bit.** It diverged on
-  `perception_memory` and nothing else, and the cause was `GameplayElapsed`: an
-  accumulating sim clock that a brain stamps `RememberedActor.last_seen` with. A rewind
-  that left it running made every memory look older than it was. This section's checklist
-  said *"`WorldTime` + every sim clock"* and I had registered exactly one of the two.
-  Resources were invisible to the ledger until the section above; the moment they were
-  not, the room fell in a single commit.
+  **Three rooms rewind and replay bit for bit, two of them boss fights.** Take a
+  snapshot, run 60 ticks, restore, replay the same inputs, identical hash stream.
 
-  The other two are causes this document already named:
+  The last two blockers were both *mirrors of state that lives somewhere else*:
 
-  1. `mockingbird_arena` replays exactly for **twenty ticks** and breaks at 21 on
-     `move_playback` / `boss_attack_state` / `brain`.
+  - `gnu_ton_arena` broke on `perception_memory` alone. The cause was `GameplayElapsed`,
+    an accumulating sim clock a brain stamps `RememberedActor.last_seen` with. This
+    section's checklist says *"`WorldTime` + every sim clock"*; I had registered one of
+    the two, and could not have found the other, because a `Resource` sits on no entity
+    and the coverage ledger walked entities.
+  - `mockingbird_arena` broke at tick 21: the replay telegraphed `wing_sweep` while the
+    original stood still, with every clock, seed, and cooldown identical. The boss was
+    already awake. `BossEncounter.encounter_phase` is a MIRROR that
+    `sync_boss_encounter_phase` copies out of `BossEncounter.encounter:
+    Option<BossPhaseState>` every tick. **Rewinding only the mirror is rewinding a
+    thermometer.** The cursor now carries the `BossPhaseState` — its `phase`,
+    `phase_elapsed`, `transition_lock` — and leaves its authored `triggers` alone: *a
+    snapshot carries what the fight has become, never the rules it became it by.*
 
-     I first blamed the boss's un-rewound `BossPatternState.timeline`, and called the
-     hazard a *constraint*: "a rollback window must not span a pattern re-resolve." That
-     framing was wrong. The AUTHORED thing is the `BossPattern`; the timeline is what one
-     weighted roll made of it — *"the roll happens at RESOLUTION … a concrete list of
-     beats before the first tick of it runs"* — which is instance state by any
-     definition. It is encoded now, along with the `stance_stack`. **The room still
-     breaks at tick 21.** So the timeline was a real bug and not this bug, which is the
-     ordinary way of things.
+  **Two hypotheses died on the way, and both fixes were kept because both were right on
+  their own terms**: a stale `Messages<ActorActionMessage>` (buffers really are non-empty
+  at a tick boundary; `restore` clears the registered channels now) and a stale
+  `CombatSlotsRes` slot assignment (a `ResourceCursor`; its `assigned_to` is a stable id,
+  not an `Entity`). Neither moved tick 21. `ProperTimeScale` was registered on the way,
+  too. A falsified hypothesis is the cheapest thing a later reader can be handed.
 
-     What is left on that tick is a boss DECISION that differs. **Two hypotheses have
-     been tested and falsified**, and they are recorded because a falsified hypothesis is
-     the cheapest thing a later reader can be given:
+  ### What is left: `portal_lab`, and it is one thing
 
-     - *`Messages<ActorActionMessage>` carries a stale action across the rewind.* The
-       buffers really are non-empty at a tick boundary, and `restore` clears them now.
-       Tick 21 did not move.
-     - *`CombatSlotsRes` holds a stale slot assignment, so the boss attacks on a tick it
-       never earned.* Its `assigned_to: Option<String>` is a stable id, it rewinds as a
-       `ResourceCursor`, and tick 21 did not move.
+  `portal_lab` is the only room where `restore` reports `respawned > 0`. A respawned
+  entity comes back carrying **only its registered components**, because a blob is all
+  that survives of an entity that no longer exists — so it comes back naked and
+  everything diverges on tick 0.
 
-     Both changes are right on their own terms and both are kept. What remains is a
-     third unregistered input the boss brain reads on that tick — `ProperTimeScale`,
-     `ActorSteering`, `FeatureEcsWorldOverlay`, and `PerceptionProjectiles` are the
-     unexamined candidates. Twenty ticks of bit-exact boss-fight replay stand either way.
-  2. `portal_lab` is the only room where `restore` reports `respawned > 0`, and its
-     divergence is everything at once on tick 0: a respawned entity comes back carrying
-     only its registered components.
+  Two ways out, and they are not exclusive:
 
-  So the remaining work, in order:
+  1. **A respawn re-runs the spawner.** This is what decision (3)'s *"room-reset already
+     proves the world can rebuild"* was pointing at. The snapshot's `SimId` for an
+     authored placement IS its LDtk iid, so the room spawner can rebuild it and the blob
+     overlays its mutable state.
+  2. **Forbid a rollback window that spans a spawn.** `RestoreReport::respawned` is
+     already the number; N3.2's bounded window is where the constraint gets paid.
 
-  1. **Boss brain state.** `BossPatternTimer` / `BossAttackState` / `BossPhase` /
-     `MovePlayback`, plus each boss special's own state (`EchoFanState`,
-     `OverflowState`, `GradientCascadeState`, …). **The specials live in
-     `ambition_content`, which already depends on `ambition_runtime` — so content can
-     `impl SnapshotState` and register itself today.** That is the shape this section
-     asks for, arriving from the other end. This is also exactly the FB6-rollouts and
-     BD6-playtester blocker.
-  2. **`Perception` / `PerceptionMemory`** — the brain's view and its memory. FB5's
-     habit model lives here.
-  3. **`ActorTarget`'s `Option<Entity>`** — decision (2) forbids it. Its snapshot story
-     is now documented at the definition site, as this section's exit rule requires,
-     and `pos` (the half that IS state) rewinds as a cursor. Replacing the `Entity`
-     with a `SimId` needs a per-tick `SimId -> Entity` index; a rollback spanning a
-     target's death currently leaves it dangling for one tick, which every consumer
-     already reads as "no target". **A survivable one-tick lie, not a correct design.**
-  4. **`portal_lab` respawns an entity from blobs, and it comes back naked.** The
-     only room where `restore` reports `respawned > 0`. A respawn needs the entity's
-     authored scaffolding, which is what decision (3)'s *"room-reset already proves
-     the world can rebuild"* was pointing at. Until a respawn can re-run the spawner,
-     **a rollback window must not span a spawn** — a constraint N3.2's bounded window
-     makes reasonable, and one worth writing down before it is discovered.
-
-  ### Pre-solved: `SnapshotResolve`, and how boss brain state rewinds
-
-  The boss slice looks large and is not, once you notice that **every piece of it
-  already has an authored name.**
-
-  - `MovePlayback { spec: MoveSpec, facing, t, landed_hit }` embeds a whole authored
-    `MoveSpec` — but `MoveSpec.id` is *"a stable move id (`"jab"`, `"tilt_up"`)"*, and
-    the entity's `ActorMoveset` survives the rewind because it is authored config and
-    `restore` patches survivors.
-  - `BossAttackProfile` is already `Strike(String)` / `Special(String)` — a keyed
-    reference by construction, because a new geometry strike is *"a new key + authored
-    rects, with NO edit to this enum."*
-
-  So the rule, which is the same rule `SnapshotCursor` follows one step further:
-
-  > **Reference authored content by its authored id, never by value.** A snapshot
-  > carries what the sim *chose*; the content it chose from is still on the entity.
-
-  The seam is a third registration kind next to `register_component` /
-  `register_cursor`:
-
-  ```rust
-  pub trait SnapshotResolve: Component + Sized {
-      /// The CHOICE, not the content: an id, a cursor, a flag.
-      fn encode_ref(&self, out: &mut Vec<u8>);
-      /// Rebuild by resolving that choice against the authored data the entity
-      /// still carries. `None` if the entity lost it — which only happens on a
-      /// respawn, which `RestoreReport::respawned` already reports.
-      fn resolve(entity: &mut EntityWorldMut<'_>, r: &mut Reader<'_>) -> Option<Self>;
-  }
-  ```
-
-  `SnapshotResolve` **is implemented** (2026-07-10), along with `register_resolved` and
-  `put_str` / `Reader::str`. It restores a component's *presence*, not just its value —
-  a move is inserted when it starts and removed when it ends, so a rollback must both
-  add and drop it, which `register_cursor` cannot. A name the content no longer knows
-  leaves the component OFF rather than resolving to a plausible neighbour.
-
-  **`MovePlayback` cost a combat slice, and it is done** (2026-07-10). Trying to write
-  its codec found two private fields:
-
-  - `live_boxes: Vec<(usize, Entity)>` — the spawned hitbox entity per entered-but-not-
-    exited Active window. **Decision (2)'s third forbidden `Entity` reference**, after
-    `ActorTarget` and the mount cluster.
-  - `fired: Vec<bool>` — which timed events already fired, parallel to `spec.events`.
-
-  I first guessed the fix was "make window entry idempotent on `t` rather than
-  edge-triggered". **Reading the code showed it already is**: the arm is
-  `match (inside, live_slot)`, so a box is spawned whenever the clock is inside a
-  window and no box is live. The real hazard was narrower and worse — `live_boxes` was
-  the *only handle* on those entities, so a `MovePlayback` rebuilt from a blob would
-  strand every live box forever and spawn a duplicate beside it.
-
-  So `live_boxes` is now documented as a **cache**, whose authority is `(t, window)`,
-  and `retire_orphaned_strike_volumes` enforces that against the world every frame. It
-  is a no-op in the ordinary case. A new `StrikeVolume { owner, window }` marker is what
-  lets it check the derivation without reading the cache. `MovePlayback::resumed(spec,
-  facing, t, landed_hit)` rebuilds the rest — `new_at` already pre-marks events with
-  `at_s <= t` as fired.
-
-  N3.1's own rule, honoured rather than quoted: *"if restoring something requires a
-  rebuild pass, the rebuild must be the SAME system that maintains it per-frame (no
-  restore-only code paths)."* `retire_orphaned_strike_volumes` runs whether or not
-  anyone ever rolls back.
-
-  The rest of the boss table, updated:
-
-  | component | kind | status |
-  |---|---|---|
-  | `BossPatternTimer` | component | ✅ registered |
-  | `BossPhase` | component | ✅ registered |
-  | `MovePlayback` | resolve | ✅ registered |
-  | `BossAttackState` | component | ✅ registered (profiles as `(tag, key)`) |
-  | `BossAttackIntent` | component | ✅ registered |
-  | `Perception` | component | ✅ registered (`Sighted` carries a viewport — not a unit enum) |
-  | `PerceptionMemory` | component | ✅ registered — and see below |
-  | `Brain` | cursor | ✅ registered — step cursor, clocks, macro state, and `rng_seed` |
-
-  **`PerceptionMemory` could not be registered until a determinism bug was fixed.**
-  `WorldMemory.actors` was a `std::collections::HashMap`, so its iteration order — and
-  therefore any blob written from it — was seeded per process. It was also a live bug:
-  `last_known_hostile` `max_by`s confidence over `.values()`, and two hostiles in view
-  are both at `1.0`. See the N0.3 note above. It is a `BTreeMap` now, which is what
-  makes the codec's row order meaningful at all.
-
-  **`Brain` is a `SnapshotCursor`** (2026-07-10), because it is half authored and half
-  state: the brain's KIND and its tuning came from content and survive the patch, and
-  only `BossPatternState`'s clocks, cursors, and **`rng_seed`** ride the blob. That
-  seed is the one this section's checklist demands (*"every seeded RNG resource"*), and
-  it was living inside a component nobody had registered.
-
-  It deliberately does **not** rewind `timeline: Vec<BossPatternStep>` or the
-  `stance_stack`. The timeline is *re-resolved* from the authored pattern by
-  `advance_scripted` whenever the script loops or the encounter phase changes, so
-  within a window that spans neither, the surviving timeline IS the snapshot's — and
-  encoding it would serialize authored content by value, the one thing this module
-  refuses to do. **So a rollback window must not span a pattern re-resolve**, exactly as
-  it must not span a spawn. Both are constraints N3.2's bounded window makes reasonable,
-  and both are written down rather than discovered in a desync report.
-
-  **`mockingbird_arena` still diverges, and the restore is no longer the reason.**
-  Probing the world immediately after a rewind shows **every registered entry matching
-  exactly** — the snapshot half of N3.1 is finished for the boss. What leaks is what
-  remains unregistered on those entities, and it is now a list of codecs rather than a
-  list of design problems:
-
-  - ✅ `ActorSurfaceState`, `BodyEnvelope` — registered.
-  - ✅ **`BodyEnvironmentContact` is `declare_derived`** — `step_body` rewrites
-    `.water = world.water_at(aabb)` and `.climbable = world.climbable_at(aabb)`
-    unconditionally, every movement step. A pure function of position and geometry.
-    (`BodyPoseView` / `ProjectileView` are declared too: this section already excludes
-    the SimView structurally.)
-  - `BodyLedgeState` (an `Option<LedgeGrabState>` with its own contact + getup enums),
-    `BodyComboTrace` (a `Vec<ComboMark>` over `MovementOp`) — codecs.
-  - The eleven content-side boss-special states below.
-
-  **A `declare_derived` claim is a promise, and every one of them was checked against
-  the system that keeps it.** `CenteredAabb` looked derived and is not — falling chests
-  mutate it as gameplay state — so it is registered rather than declared, and a grep
-  caught that before the doc said otherwise.
-
-  **The content-side specials needed one more thing than a codec, and it was a
-  RESOURCE.** ✅ **Done 2026-07-10.** `SnapshotRegistry` is a `Resource`;
-  `SnapshotRegistryPlugin` installs it inside `PlatformerEnginePlugins`; and
-  `BossSpecialContentPlugin` reaches in and registers the eleven Technique states it
-  owns (`EchoFanState`, `OverflowState`, `GradientCascadeState`, …). Both sides
-  `init_resource` and then *add*, so registration is additive and independent of plugin
-  build order. `snapshot_pod!` and `snapshot_unit_enum!` are `#[macro_export]`ed, so a
-  content crate writes a codec in one line.
-
-  **I said, two commits earlier, that this needed no trait relocation because "content
-  already depends on ambition_runtime". It does not — it did not depend on it at all.**
-  So I tried the relocation instead, moving the machinery down to
-  `platformer_primitives`, and the orphan rule killed it: `ambition_runtime` could no
-  longer `impl SnapshotState for ambition_time::SimTick`, and `ambition_engine_core`
-  (which sits *below* `platformer_primitives`) could not implement it for its own types
-  either. The trait must live where it can be implemented for the engine's foreign
-  types, which is `ambition_runtime`. `ambition_content` gained a dependency on it —
-  content sits above the engine, which is the direction the layering already runs.
-
-  A resource, not a relocation. The relocation was the answer to a different crate
-  graph than the one this repo has.
-
-  **A silent hole, worth recording.** The first version of the content registration was
-  `if let Some(mut registry) = app.world_mut().get_resource_mut::<SnapshotRegistry>()`.
-  `BossSpecialContentPlugin` builds *before* `SnapshotRegistryPlugin`, so it found
-  nothing and registered nothing — and every test stayed green, because the ledger
-  simply reported a debt it had stopped measuring.
-  `the_content_crate_registers_its_own_boss_special_state` now names all eleven entries
-  and asserts the engine's survived too. **Silence is not a fallback.**
-
-  Ledger: 74 → 61.
-
-  `SaddlePointState` holds two `Option<Entity>` hitbox handles — **decision (2)'s fourth
-  forbidden reference**, after `ActorTarget`, the mount cluster, and
-  `MovePlayback.live_boxes`. It rides a cursor (clock and latch rewind, handles are left
-  alone), which is sound but not correct: rewinding past an axis flip leaves the wrong
-  axis's hitbox alive. The fix is the one `MovePlayback` got — make the hitbox's
-  EXISTENCE derived from the state and maintained by a per-frame system, so there is
-  nothing to hold a handle to.
-
-  Expect `gnu_ton_arena` to stay dirty after the engine half: it also carries
-  `Limb` / `LimbIntents` / `LimbRig` / `LimbRouteState` and the mount cluster
-  (`Mountable`, `Mounted`, `MountSlot`, `RidingOn`, `CanPilot`, `Mass`). Those are
-  ADR 0020's two-linked-actors model, and `Mounted`/`RidingOn` hold entity
-  references — the same decision-(2) migration `ActorTarget` needs. Do
-  `mockingbird_arena` first: it is the same disease without the mount.
+  Everything else about N3.1 is done: 60 registry entries across five kinds (component,
+  cursor, resolved, resource, resource-cursor), four message channels, three declared
+  derived, and an exit oracle that three rooms pass and the fourth is *asserted* to fail.
 
   A note on where the codecs live. `ambition_runtime` implements `SnapshotState` for
   other crates' types today because it sits above them all. That is the bootstrap, not

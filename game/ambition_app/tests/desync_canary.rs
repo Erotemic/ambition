@@ -354,7 +354,7 @@ fn the_snapshot_coverage_ledger() {
     // Today's debt, pinned. Lower it by registering a component or by declaring it
     // structurally derived — both are claims, and `declare_derived` is the one that
     // promises a per-frame system rebuilds it.
-    const KNOWN_DEBT: usize = 60;
+    const KNOWN_DEBT: usize = 59;
     assert!(
         worst <= KNOWN_DEBT,
         "{worst} component types on SimId entities are neither registered as sim \
@@ -388,11 +388,15 @@ fn a_restored_sim_replays_the_future_it_was_rewound_from() {
     /// Rooms where a rewind is exact. This list may grow. It may not shrink.
     ///
     /// `gnu_ton_arena` joined it the day `GameplayElapsed` — an accumulating sim clock
-    /// a brain stamps its memories with — was registered. **A boss fight rewinds and
-    /// replays bit for bit.**
-    const CLEAN: &[&str] = &["gap_run", "gnu_ton_arena"];
-    /// Rooms whose unregistered mutable state still leaks across a rewind.
-    const DIRTY: &[&str] = &["portal_lab", "mockingbird_arena"];
+    /// a brain stamps its memories with — was registered. `mockingbird_arena` joined it
+    /// the day `BossEncounter.encounter` did: rewinding only the exposed
+    /// `encounter_phase` mirror is rewinding a thermometer. **Two boss fights rewind and
+    /// replay bit for bit.**
+    const CLEAN: &[&str] = &["gap_run", "gnu_ton_arena", "mockingbird_arena"];
+    /// Rooms whose unregistered mutable state still leaks across a rewind. `portal_lab`
+    /// is the only room where `restore` reports `respawned > 0`, and a respawned entity
+    /// comes back carrying only its registered components.
+    const DIRTY: &[&str] = &["portal_lab"];
 
     for room in CLEAN {
         replay_after_rewind(room);

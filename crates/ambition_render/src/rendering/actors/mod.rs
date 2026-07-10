@@ -195,6 +195,25 @@ fn active_sprite_scale(
 /// character registry — then a STATE-keyed fallback: a sandbag renders the
 /// sandbag sheet, a fighting actor the generic enemy sheet, and a peaceful
 /// un-registered actor keeps its terminal-rectangle placeholder.
+/// **Which sprite upgrader owns this body.**
+///
+/// A boss is also an actor — post-unification there is one body vocabulary — so a
+/// boss's id is in `ActorRenderIndex` *and* `BossRenderIndex`. Before this rule,
+/// arbitration was accidental: `upgrade_actor_sprites` ran first, resolved no
+/// character sheet for "Mockingbird", fell back to the **generic enemy sheet**, and
+/// inserted a `CharacterAnimator`. `upgrade_boss_sprites` is filtered
+/// `Without<CharacterAnimator>`, so it then skipped that boss forever and its
+/// dedicated sheet was never bound. Every boss in the game drew a generic body.
+///
+/// System ORDER cannot fix that (swapping them just moves the overwrite), and a
+/// `Without<BossAnimator>` filter cannot either (the boss upgrader legitimately
+/// skips a frame while its image loads, and the actor path would claim it in the
+/// gap). The read-model is the answer: **the boss index claims the id, so the boss
+/// path owns it.**
+pub fn actor_sprite_path_owns(id: &str, boss_render: &ambition_sim_view::BossRenderIndex) -> bool {
+    boss_render.get(id).is_none()
+}
+
 pub fn upgrade_actor_sprites(
     mut commands: Commands,
     assets: Option<Res<GameAssets>>,
@@ -212,6 +231,10 @@ pub fn upgrade_actor_sprites(
     // WITHOUT borrowing gameplay_core's live actor clusters. Built by
     // `rebuild_actor_render_index` in the sim's `FeatureViewSync` set.
     actor_render: Res<ambition_sim_view::ActorRenderIndex>,
+    // A boss is ALSO an actor (post-unification), so its id appears in BOTH render
+    // read-models. This one is read to YIELD, never to bind — see
+    // `actor_sprite_path_owns`.
+    boss_render: Res<ambition_sim_view::BossRenderIndex>,
     // Names we've already warned about resolving no sprite, so the warning fires
     // once per offending name instead of every frame the actor is unbound.
     mut warned_sprite_names: Local<std::collections::HashSet<String>>,
@@ -239,6 +262,10 @@ pub fn upgrade_actor_sprites(
             continue;
         }
         if kind_bound && !quality_bound && !assets_changed {
+            continue;
+        }
+        // IDENTITY decides which upgrader owns a body, not which one ran first.
+        if !actor_sprite_path_owns(&visual.id, &boss_render) {
             continue;
         }
         // Read the actor's materialized identity snapshot. Absent ⇒ the read-model

@@ -120,3 +120,187 @@ fn a_boss_with_no_authored_sheet_is_absent_from_the_registry_on_purpose() {
         );
     }
 }
+
+/// **(2') The cause the other two tests could not see.**
+///
+/// `the_render_key_is_the_behavior_id_not_the_sprite_target` resolves profiles
+/// through `BossBehaviorProfile::from_data(id)` — the DIRECT path, which panics on
+/// a miss. The SIM does not use that path. `BossConfig::new` runs
+/// `canonical_boss_id_from(name, brain)` and then `for_authored_boss`, which
+/// **silently falls back** to `BossBehaviorProfile::generic(key)`: a clone of the
+/// clockwork warden's tuning wearing the authored slug as its id.
+///
+/// A generic profile draws the generic body, because `boss_sprites[slug]` misses.
+/// So an LDtk placement whose display name slugs to anything but a registered
+/// profile id renders generic **no matter how correct its sheet wiring is** — and
+/// nothing upstream complains.
+///
+/// This test walks every boss placement in every shipped room and resolves it the
+/// way the sim will. It is allowed to end on a generic profile; it is NOT allowed
+/// to do so by accident.
+#[test]
+fn every_authored_boss_placement_resolves_the_profile_the_sim_will_spawn() {
+    install_content();
+    ambition_content::worlds::install();
+
+    let project = ambition::actors::ldtk_world::LdtkProject::load_default_for_dev()
+        .expect("the shipped LDtk project loads");
+    let room_set = project.to_room_set().expect("it lowers to rooms");
+
+    let sheet_keys: BTreeSet<&str> =
+        ambition::actors::boss_encounter::sprites::dedicated_boss_sheets()
+            .into_iter()
+            .map(|(key, _)| key)
+            .collect();
+
+    // Bosses the game deliberately ships without their own art. Everything else
+    // that a room actually places must land on a sheet.
+    // Bosses whose profile IS registered but which ship no dedicated art. They draw
+    // the gradient-sentinel body on purpose, and `boss_sheet_wiring`'s third test
+    // pins that choice.
+    const DELIBERATELY_GENERIC: &[&str] = &[
+        "clockwork_warden",
+        "mode_collapse_boss",
+        "overflow_boss",
+        "exploding_gradient_boss",
+    ];
+
+    let mut placed = 0usize;
+    let mut generic_by_accident = Vec::new();
+    for room in &room_set.rooms {
+        for spawn in &room.boss_spawns {
+            placed += 1;
+            let canonical = ambition::actors::boss_encounter::behavior::canonical_boss_id_from(
+                &spawn.name,
+                &spawn.payload,
+            );
+            let profile =
+                ambition::actors::features::BossBehaviorProfile::for_authored_boss(&canonical);
+            let render_key = profile.id.to_ascii_lowercase().replace('-', "_");
+            if sheet_keys.contains(render_key.as_str())
+                || DELIBERATELY_GENERIC.contains(&render_key.as_str())
+            {
+                continue;
+            }
+            generic_by_accident.push(format!(
+                "room `{}` places boss `{}` (name {:?}, brain {:?}) → canonical `{canonical}` \
+                 → profile id `{}` → render key `{render_key}`",
+                room.id, spawn.id, spawn.name, spawn.payload, profile.id
+            ));
+        }
+    }
+
+    assert!(placed > 0, "the shipped worlds place at least one boss");
+    assert!(
+        generic_by_accident.is_empty(),
+        "these placements resolve to a profile with NO dedicated sheet, so they draw \
+         the generic gradient-sentinel body. `for_authored_boss` fell back to \
+         `BossBehaviorProfile::generic(slug)` without a word. Either the placement's \
+         name/brain must slug to a registered profile id, or the boss belongs in \
+         DELIBERATELY_GENERIC above:\n  {}",
+        generic_by_accident.join("\n  ")
+    );
+}
+
+/// **(3) THE BUG. Found 2026-07-10, in the real sim, on the real rooms.**
+///
+/// A boss is also an actor — post-unification there is one body vocabulary — so
+/// every boss's id appears in **both** `ActorRenderIndex` and `BossRenderIndex`.
+/// `upgrade_actor_sprites` runs first. It resolved no character sheet for
+/// "Mockingbird", fell back to the **generic enemy sheet**, and inserted a
+/// `CharacterAnimator`. `upgrade_boss_sprites` is filtered
+/// `Without<CharacterAnimator>` — so it skipped that boss forever, and its
+/// dedicated sheet was never bound. Every boss in the game drew a generic body.
+///
+/// This test runs the REAL sim in the REAL boss rooms, because the collision is
+/// between two `rebuild_*_render_index` systems and no amount of reading the
+/// render code tells you which ids they actually emit. It asserts both halves:
+///
+/// 1. the collision is real (a boss id IS an actor id), so the rule is needed; and
+/// 2. `actor_sprite_path_owns` makes the actor path yield on exactly those ids.
+///
+/// If a future refactor stops putting bosses in `ActorRenderIndex`, half (1) goes
+/// red — and that is a fine outcome to have to think about, not a failure to
+/// paper over.
+#[test]
+fn the_actor_sprite_path_yields_every_boss_to_the_boss_sprite_path() {
+    use ambition::render::rendering::actor_sprite_path_owns;
+    use ambition_app::rl_sim::TimestepMode;
+    use ambition_app::{SandboxSim, SandboxSimOptions};
+
+    let mut rooms_checked = 0;
+    let mut bosses_checked = 0;
+    for room in [
+        "mockingbird_arena",
+        "gnu_ton_arena",
+        "trex_arena",
+        "flying_spaghetti_monster_arena",
+        "basement_boss",
+    ] {
+        let opts = SandboxSimOptions::default()
+            .with_timestep(TimestepMode::fixed_60hz())
+            .with_start_room(room);
+        let Ok(mut sim) = SandboxSim::new_with_options(opts) else {
+            continue; // a room the fixture cannot load is not this test's business
+        };
+        rooms_checked += 1;
+        // A few ticks: the boss materializes, and both indices rebuild in
+        // `FeatureViewSync` at the tail of the sim.
+        for _ in 0..8 {
+            sim.step(Default::default());
+        }
+
+        let boss_ids: Vec<String> = sim
+            .world()
+            .get_resource::<ambition::sim_view::BossRenderIndex>()
+            .expect("the sim publishes the boss render index")
+            .iter()
+            .map(|(id, _)| id.to_string())
+            .collect();
+        assert!(
+            !boss_ids.is_empty(),
+            "room `{room}` places a boss but the boss render index is empty — the \
+             renderer would have nothing to key a sheet from"
+        );
+        bosses_checked += boss_ids.len();
+
+        let boss_index = sim
+            .world()
+            .get_resource::<ambition::sim_view::BossRenderIndex>()
+            .unwrap();
+        let actors = sim
+            .world()
+            .get_resource::<ambition::sim_view::ActorRenderIndex>()
+            .expect("the sim publishes the actor render index");
+
+        for id in &boss_ids {
+            // (1) The collision that made this bug possible.
+            assert!(
+                actors.get(id).is_some(),
+                "room `{room}`: boss `{id}` is NOT in the actor index. The arbitration \
+                 rule below is then unnecessary — check whether it still is."
+            );
+            // (2) The rule that resolves it.
+            assert!(
+                !actor_sprite_path_owns(id, boss_index),
+                "room `{room}`: `upgrade_actor_sprites` would claim boss `{id}`, bind \
+                 the generic enemy sheet + a `CharacterAnimator`, and lock \
+                 `upgrade_boss_sprites` out of it forever."
+            );
+        }
+
+        // The converse — the rule must not starve ordinary actors. An id the boss
+        // index does not claim still belongs to the actor path, by construction:
+        // `actor_sprite_path_owns` IS `boss_render.get(id).is_none()`. Pinned on a
+        // name no boss will ever have rather than by iterating the actor index,
+        // which would need a `HashMap` walk this read-model deliberately does not
+        // expose (ADR 0023).
+        assert!(
+            actor_sprite_path_owns("EnemySpawn-not-a-boss", boss_index),
+            "room `{room}`: the rule must yield ONLY bosses"
+        );
+    }
+
+    assert!(rooms_checked >= 3, "checked {rooms_checked} boss rooms");
+    assert!(bosses_checked >= 3, "checked {bosses_checked} bosses");
+}

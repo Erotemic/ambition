@@ -417,15 +417,51 @@ impl BossBehaviorProfile {
     /// canonical id. Matches the encounter-id slug against the
     /// known bosses in `boss_profiles.ron`; falls back to a generic
     /// clone if the slug isn't a registered boss.
+    ///
+    /// **The fallback is LOUD.** It used to be silent, and that is how
+    /// `sandbox.ldtk`'s `basement_boss` shipped for months carrying
+    /// `PhaseScript:tri_slam_sweep_halo` — a pattern name, not a boss id. The
+    /// slug matched nothing, `generic(slug)` cloned the warden's tuning under a
+    /// bogus id, and the render then looked up `boss_sprites["tri_slam_sweep_halo"]`,
+    /// missed, and drew the generic gradient-sentinel body. Nothing anywhere said a
+    /// word. A boss that is generic BY ACCIDENT looks exactly like a boss that is
+    /// generic by design, which is why this warns.
     pub fn for_authored_boss(id_or_name: &str) -> Self {
         let key = crate::boss_encounter::encounter_id_from_name(id_or_name);
         if key == "gradient_sentinel" {
             return Self::from_data("clockwork_warden");
         }
-        boss_profiles()
-            .get(&key)
-            .cloned()
-            .unwrap_or_else(|| Self::generic(key))
+        match boss_profiles().get(&key) {
+            Some(profile) => profile.clone(),
+            None => {
+                warn_once_unregistered_boss(&key);
+                Self::generic(key)
+            }
+        }
+    }
+}
+
+/// Warn once per unknown slug. A boss placement resolves every time its room
+/// loads, so an unconditional warning would drown the log on a room the player
+/// re-enters.
+fn warn_once_unregistered_boss(key: &str) {
+    use std::collections::BTreeSet;
+    use std::sync::{LazyLock, Mutex};
+    static WARNED: LazyLock<Mutex<BTreeSet<String>>> =
+        LazyLock::new(|| Mutex::new(BTreeSet::new()));
+    let fresh = WARNED
+        .lock()
+        .map(|mut seen| seen.insert(key.to_string()))
+        .unwrap_or(false);
+    if fresh {
+        bevy::log::warn!(
+            target: "ambition::bosses",
+            "boss '{key}' is not in boss_profiles.ron — spawning a GENERIC clone of \
+             the clockwork warden under that id. It will draw the generic body no \
+             matter how its sheet is wired, because `boss_sprites[\"{key}\"]` cannot \
+             exist. Fix the placement's `brain: PhaseScript:<id>` to name a real \
+             profile, or add the profile.",
+        );
     }
 }
 

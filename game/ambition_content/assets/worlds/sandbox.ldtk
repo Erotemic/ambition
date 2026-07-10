@@ -17767,9 +17767,9 @@
 									"id": "V_String",
 									"params": ["clockwork warden"]
 								}] },
-								{ "__identifier": "brain", "__type": "String", "__value": "PhaseScript:tri_slam_sweep_halo", "__tile": null, "defUid": 3034, "realEditorValues": [{
+								{ "__identifier": "brain", "__type": "String", "__value": "PhaseScript:clockwork_warden", "__tile": null, "defUid": 3034, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["PhaseScript:tri_slam_sweep_halo"]
+									"params": ["PhaseScript:clockwork_warden"]
 								}] },
 								{ "__identifier": "mounted_on", "__type": "EntityRef", "__value": null, "__tile": null, "defUid": 6832, "realEditorValues": [] }
 							],

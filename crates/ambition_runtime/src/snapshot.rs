@@ -964,7 +964,29 @@ pub struct SimSnapshot {
     /// clocks, so a partial restore is more inconsistent than a refusal (netcode.md N3.2).
     /// `None` for a headless world with no `RoomSet` (the unit-test fixtures).
     pub active_room: Option<String>,
+    /// **Every `SimId` carried by a live entity when the snapshot was taken** — sorted,
+    /// with duplicates PRESERVED. The full identity roster, a superset of the
+    /// component-row ids [`sim_ids`](Self::sim_ids) derives.
+    ///
+    /// A per-component-entry duplicate scan is blind to two entities that share one
+    /// `SimId` but carry disjoint (or zero) registered components — each contributes at
+    /// most one row per entry, so no single entry sees the collision (re-audit finding 3).
+    /// The roster sees every identity regardless of components, so `duplicate_ids` catches
+    /// it. `take` enforces uniqueness at capture; `restore` validates it independently,
+    /// defending the deserialized-snapshot path (N3.3) that `take` never touched.
+    roster: Vec<String>,
     entries: Vec<(&'static str, EntryBlob)>,
+}
+
+/// Values that appear more than once in a **sorted** slice, each named exactly once.
+fn adjacent_dups(sorted: &[String]) -> Vec<String> {
+    let mut dups = Vec::new();
+    for pair in sorted.windows(2) {
+        if pair[0] == pair[1] && dups.last() != Some(&pair[1]) {
+            dups.push(pair[1].clone());
+        }
+    }
+    dups
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -991,23 +1013,16 @@ impl SimSnapshot {
         out
     }
 
-    /// `SimId`s that appear on more than one row of a single component — an ambiguous
-    /// roster. `sim_ids()` silently `dedup`s these away; this surfaces them so
-    /// `restore` can refuse a snapshot whose identity is not unique (audit H2). A
-    /// well-formed snapshot, taken from a world with unique identity, returns empty.
+    /// `SimId`s carried by more than one live entity at capture — an ambiguous roster.
+    /// `sim_ids()` silently `dedup`s these away; this surfaces them so `restore` can
+    /// refuse a snapshot whose identity is not unique (audit H2).
+    ///
+    /// Reads the full [`roster`](Self::roster), not the per-entry component rows, so it
+    /// catches a collision even between two entities that share a `SimId` but carry
+    /// disjoint (or zero) registered components — the case the old per-entry scan missed
+    /// (re-audit finding 3). A well-formed snapshot returns empty.
     pub fn duplicate_ids(&self) -> Vec<String> {
-        let mut dups = std::collections::BTreeSet::new();
-        for (_, blob) in &self.entries {
-            if let EntryBlob::Component(rows) = blob {
-                let mut seen = std::collections::BTreeSet::new();
-                for (k, _) in rows {
-                    if !seen.insert(k.as_str()) {
-                        dups.insert(k.clone());
-                    }
-                }
-            }
-        }
-        dups.into_iter().collect()
+        adjacent_dups(&self.roster)
     }
 
     /// Total bytes of state. A rollback window is a memory budget.
@@ -1022,9 +1037,11 @@ impl SimSnapshot {
                 EntryBlob::Resource(bytes) => bytes.len(),
             })
             .sum();
-        // The active-room cursor is captured state too (finding 2), so it counts against
-        // the window's memory budget.
-        entries + self.active_room.as_ref().map_or(0, |s| s.len())
+        // The active-room cursor and the identity roster are captured state too (findings
+        // 2, 3), so they count against the window's memory budget.
+        entries
+            + self.active_room.as_ref().map_or(0, |s| s.len())
+            + self.roster.iter().map(String::len).sum::<usize>()
     }
 }
 
@@ -1042,6 +1059,26 @@ pub fn take(world: &World, registry: &SnapshotRegistry) -> SimSnapshot {
     let active_room = world
         .get_resource::<ambition_world::rooms::RoomSet>()
         .map(|rs| rs.active_spec().id.clone());
+    // The full identity roster: every live `SimId`, sorted, dups preserved. Captured
+    // independently of which components an entity carries, so identity is validated even
+    // for an entity with no registered state — the collision a per-component scan misses
+    // (re-audit finding 3). Enforced unique HERE, at the source, rather than letting a
+    // corrupt snapshot into the rollback buffer to be discovered at restore.
+    let mut roster: Vec<String> = Vec::new();
+    if let Some(mut q) = world.try_query::<&SimId>() {
+        for id in q.iter(world) {
+            roster.push(id.as_str().to_string());
+        }
+    }
+    roster.sort();
+    let dups = adjacent_dups(&roster);
+    assert!(
+        dups.is_empty(),
+        "take: {} SimId(s) carried by more than one live entity — identity is not unique \
+         and no snapshot of this world can be trusted. Fix the spawn site (a duplicated \
+         `SimId::spawned`/placement id). Collisions: {dups:?}",
+        dups.len(),
+    );
     let mut entries = Vec::new();
     for entry in &registry.entries {
         match &entry.kind {
@@ -1059,6 +1096,7 @@ pub fn take(world: &World, registry: &SnapshotRegistry) -> SimSnapshot {
     SimSnapshot {
         tick,
         active_room,
+        roster,
         entries,
     }
 }
@@ -3675,7 +3713,9 @@ mod tests {
     }
 
     /// The snapshot's own roster must be unambiguous: `duplicate_ids` surfaces the
-    /// duplicates `sim_ids` dedups away, so restore can refuse a malformed snapshot.
+    /// duplicates `sim_ids` dedups away, so restore can refuse a malformed snapshot — even
+    /// a collision that shares NO registered component row, which a per-entry scan misses
+    /// (re-audit finding 3).
     #[test]
     fn a_snapshot_roster_surfaces_its_duplicate_ids() {
         let reg = engine_registry();
@@ -3684,6 +3724,45 @@ mod tests {
         assert!(
             good.duplicate_ids().is_empty(),
             "a snapshot of a unique-identity world has no duplicate rows"
+        );
+
+        // Forge the collision a per-component scan is blind to: one id twice in the full
+        // roster, sharing no component row. The roster sees identity regardless of which
+        // (or how few) components an entity carried.
+        let mut malformed = good.clone();
+        malformed.roster.push("placement:ghost-dup".to_string());
+        malformed.roster.push("placement:ghost-dup".to_string());
+        malformed.roster.sort();
+        assert_eq!(
+            malformed.duplicate_ids(),
+            vec!["placement:ghost-dup".to_string()],
+            "duplicate_ids must catch a collision that carries no shared component row"
+        );
+    }
+
+    /// **Restore validates the snapshot roster independently of the live world** (re-audit
+    /// finding 3). `take` enforces uniqueness at capture, but a snapshot arriving over the
+    /// N3.3 wire was never take-validated. Restore refuses (panics, like the live-identity
+    /// invariant) rather than pick one of the colliding rows.
+    #[test]
+    fn restore_refuses_a_snapshot_whose_roster_is_ambiguous() {
+        let reg = engine_registry();
+        let mut world = sim_world();
+        let mut snap = take(&world, &reg);
+        // The live world is clean; only the (deserialized) SNAPSHOT is corrupt.
+        snap.roster.push("placement:ghost-dup".to_string());
+        snap.roster.push("placement:ghost-dup".to_string());
+        snap.roster.sort();
+
+        let prev = std::panic::take_hook();
+        std::panic::set_hook(Box::new(|_| {}));
+        let refused = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            restore(&mut world, &snap, &reg)
+        }));
+        std::panic::set_hook(prev);
+        assert!(
+            refused.is_err(),
+            "restore must refuse a snapshot with an ambiguous roster, not silently pick one"
         );
     }
 
@@ -4090,11 +4169,23 @@ mod tests {
             },
         ));
 
+        // The resolved move must encode only a REFERENCE (its id + progress), never the
+        // catalog it resolves `power` out of. Measure the DELTA the move adds to the
+        // snapshot — a proxy immune to identity-roster and active-room overhead, which is
+        // identical with and without the move (re-audit finding 3 added the roster, so an
+        // absolute threshold no longer isolates the blob).
+        world.entity_mut(boss).remove::<Playing>();
+        let without_move = take(&world, &reg).size_bytes();
+        world.entity_mut(boss).insert(Playing {
+            power: 20.0,
+            id: "smash".into(),
+            t: 0.25,
+        });
         let snap = take(&world, &reg);
         assert!(
-            snap.size_bytes() < 200,
-            "the catalog leaked into the blob: {} bytes",
-            snap.size_bytes()
+            snap.size_bytes() - without_move < 40,
+            "the catalog leaked into the blob: the resolved move added {} bytes",
+            snap.size_bytes() - without_move
         );
 
         // The move ends. The component goes away.

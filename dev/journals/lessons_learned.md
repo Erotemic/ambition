@@ -1315,3 +1315,32 @@ Corollary, from the same session: `for_authored_boss` fell back to `BossBehavior
 
 ### Corollary — the second bug hid behind the first
 Once the kernel was fixed, two of four cases still failed: I had been holding the stick "toward the corner" in WORLD `+x`, but `SurfaceInputs::run` is along the **chain's tangent** (increasing arc length), whose world direction depends on the winding the converter derived. Obvious afterwards; invisible in the arc table. Both bugs were found because the doc insisted the winding be proven by *riding* the ramp rather than by inspecting its points — `docs/planning/engine/spatial-model.md` §SurfaceRamp: *"the test catches what inspection doesn't."* It was right twice.
+
+## A script that asserts before it writes can leave your `git add` staging nothing
+
+**2026-07-10, N3.1.** Twice in one session I ran a `python3 - <<'PY'` heredoc that
+did `assert t.count(old)==1` for several replacements and then `p.write_text(t)`,
+followed unconditionally by `git add <those files> && git commit`. When one
+assertion failed — because an earlier commit had reflowed a line I was matching
+against — the script died *before* `write_text`, the shell moved on to `git add`,
+and the commit landed with the code changes and **none of the doc updates**. The
+commit message described doc updates that were not in it.
+
+Nothing was red. The gate was green. The lie was in the commit message, which is
+the one artifact no test checks.
+
+**The fix is not "be careful."** It is:
+
+- Make the doc edit a *separate command* from the commit, and `grep` for the new
+  text before staging. A one-line `grep -c "PASSES IT" doc.md` is the assertion.
+- Or `set -e` the shell so a dead script stops the chain. A heredoc's exit status
+  does propagate; `&&` between the python and the `git add` would have caught both.
+
+**The deeper cause:** I was matching multi-line prose that my *own previous commit*
+had rewrapped. Prose is not a stable anchor. When editing a doc I have edited
+before in the same session, slice by index (`t.index(start)`, `t.index(end)`) and
+replace the whole region, rather than matching a paragraph verbatim.
+
+Related: living-plan discipline says the doc update rides in the commit that proves
+it. A doc update that *silently* did not ride is worse than one that visibly did
+not, because the commit message asserts it did.

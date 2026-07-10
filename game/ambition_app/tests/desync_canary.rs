@@ -255,18 +255,32 @@ fn the_snapshot_coverage_ledger() {
     ] {
         let Some(mut s) = sim(room) else { continue };
         let mut policy = RandomWalkPolicy::traversal_stress(7);
+
+        // **Sample as we go, and keep the worst.**
+        //
+        // The first version of this test measured once, after 120 ticks. By then the
+        // arena bosses were dead and despawned, and `gnu_ton_arena` reported the same
+        // 35 types as `gap_run` — the count of a world containing only the player.
+        // The debt was real the whole time; the instrument was looking at the wrong
+        // tick. A ledger that under-reports is worse than no ledger.
+        let mut peak: Vec<_> = Vec::new();
         for i in 0..120 {
+            if i % 20 == 0 {
+                let unclaimed = reg.unclaimed_components(s.world());
+                if unclaimed.len() > peak.len() {
+                    peak = unclaimed;
+                }
+            }
             let mut action = policy.act();
             action.attack = i % 7 == 0;
             s.step(action);
         }
-        let unclaimed = reg.unclaimed_components(s.world());
-        worst = worst.max(unclaimed.len());
+        worst = worst.max(peak.len());
         report.push_str(&format!(
-            "  {room:22} {:3} component types a restore leaves stale\n",
-            unclaimed.len()
+            "  {room:22} {:3} component types a rewind leaves stale (peak over 120 ticks)\n",
+            peak.len()
         ));
-        for c in unclaimed.iter().take(4) {
+        for c in peak.iter().take(4) {
             report.push_str(&format!("      {c}\n"));
         }
     }
@@ -279,7 +293,7 @@ fn the_snapshot_coverage_ledger() {
     // Today's debt, pinned. Lower it by registering a component or by declaring it
     // structurally derived — both are claims, and `declare_derived` is the one that
     // promises a per-frame system rebuilds it.
-    const KNOWN_DEBT: usize = 65;
+    const KNOWN_DEBT: usize = 86;
     assert!(
         worst <= KNOWN_DEBT,
         "{worst} component types on SimId entities are neither registered as sim \

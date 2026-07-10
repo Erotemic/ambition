@@ -366,11 +366,17 @@ snapshots needed. Needs N0 complete, plus:
   | room | component types a rewind leaves stale | rewind is exact? |
   |---|---|---|
   | `gap_run` | 35 | ✅ **yes** |
-  | `portal_lab` | **65** | no |
-  | `mockingbird_arena` | 54 | no |
-  | `gnu_ton_arena` | 35 | no |
+  | `portal_lab` | 65 | no |
+  | `mockingbird_arena` | 73 | no |
+  | `gnu_ton_arena` | **86** | no |
 
-  Pinned at 65; it may fall, it may not rise. The count is an *upper bound* on the
+  Pinned at 86 — the **peak over the run**, not the count at its end. The first
+  version of this ledger measured once, after 120 ticks, by which time the arena
+  bosses were dead and despawned; `gnu_ton_arena` duly reported the same 35 types as
+  `gap_run`, which is the count of a world containing only the player. The debt was
+  real the whole time. The instrument was looking at the wrong tick, and a ledger that
+  under-reports is worse than no ledger. It samples every 20 ticks now and keeps the
+  worst. It may fall; it may not rise. The count is an *upper bound* on the
   debt, not the debt: for an immutable authored fact, stale and correct are the same
   thing. The exit oracle is what measures whether stale state actually leaks.
 
@@ -423,7 +429,7 @@ snapshots needed. Needs N0 complete, plus:
   meant to look at.
 
   This is the general shape of the authored/mutable split, and it is why the coverage
-  ledger is an upper bound rather than a debt: many of the 65 want a *cursor*, not a
+  ledger is an upper bound rather than a debt: many of the 86 want a *cursor*, not a
   codec.
 
   ### The three named blockers between here and a clean arena

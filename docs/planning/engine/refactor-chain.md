@@ -705,13 +705,16 @@ adjectives ("small", "the big one", "unblocked, fully pre-solved").
 | R6a body vocab out | (part of "the big one") | **15 min** | `BodyAnimFacts` had one obvious home and 18 importers. |
 | R6b slot-0 filters | (part of "the big one") | **15 min** | The `ability_cooldown` fold turned out to be a live bug. |
 | R6c control seam out | (part of "the big one") | **18 min** | The compiler and two lints did the finding; I only had to place things. |
-| R6d the rest of `player/` | — | **not started** | See above. |
+| R6d `player/` dissolves | (part of "the big one") | **31 min** | `affordances/` to its own top-level home, body mechanics to the actor tree, and the remainder correctly renamed `avatar/`. 65 files repointed; compiled first try. |
+| R6e `features/` rename | "a pure mechanical sweep" | **PARKED** | Measuring it is what parked it: 1560 sites across 5 crates, not 722, and a half-rename makes the tree worse. Decision brief written. |
 | D-B `MODULES.md` | "[sonnet]. Mechanical." | **8 min** | Mechanical, once it was generated from module headers rather than written by hand. |
 
-**Total: 3h16m for R1–R3, R5, R6a–R6c, D-B, plus R4's ruled stop.** The two slices
-that ran long (R3) and the two that came in far under (R4, R5) were both cases
+**Total: ~4h for R1–R3, R5, R6a–R6d, D-B, plus R4's and R6e's ruled stops.** The
+slice that ran long (R3) and the two that came in far under (R4, R5) were all cases
 where the doc's instruction — *spike it*, *don't force it*, *poison-test it* — was
-the load-bearing part, not the code.
+the load-bearing part, not the code. **Measuring before sweeping stopped two slices
+from doing damage** (R2's premise, R6e's scope) and was mandated by the standing
+rules for entirely different reasons.
 
 Three findings the plan did not predict, each surfaced by a step the plan
 mandated for a different reason:
@@ -721,6 +724,15 @@ mandated for a different reason:
    found it; four separate hand-greps (including this doc's) had not.
 3. **A possessed body's ability cooldown never expired.** R6b's filter fold found
    it, because `blink`/`grapple` had already been made subject-generic.
+4. **The `features/` rename is twice the size the plan thought**, and the half
+   version is worse than doing nothing. R6e's "state the units" instinct, applied
+   to a reference count instead of a line count.
+
+Three PRE-EXISTING failures were fixed on the way, none of them this chain's: a
+`portal_render`-gated content test that had not compiled in weeks (R3), a RED
+`check_agent_kb.py` (ADR 0023 missing a required section, D-B), and four dead-code
+warnings in `ambition_touch_input`. The workspace now builds `--all-targets
+--features rl_sim` with zero errors AND zero warnings.
 
 ## What this chain does NOT do
 

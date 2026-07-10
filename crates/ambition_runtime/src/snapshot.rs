@@ -1220,15 +1220,19 @@ pub enum RestoreError {
     /// `SimId` for a component row, `None` for a resource. On this error the world is
     /// left PARTIALLY restored and the caller must discard it (fetch a fresh snapshot).
     DecodeFailed { entry: String, id: Option<String> },
-    /// The snapshot has a dynamically-spawned entity (a `SimId::spawned(..)` id — the
-    /// vocabulary appends `/<seq>`) that no longer exists and that no room authors, so
-    /// restore would reconstruct it from blobs ALONE. That is not exact: a dynamic entity
-    /// needs its spawner's recipe to come back whole, and N3.2 does not yet register spawn
-    /// recipes. A rollback window that spans a dynamic birth is therefore unsupported —
-    /// restore refuses rather than produce a naked entity (audit item 6: "constrain the
-    /// rollback window so it cannot span unsupported births"). The honest boundary until
-    /// spawn recipes land.
-    UnsupportedDynamicBirth { sim_id: String },
+    /// The snapshot holds a dynamically-spawned entity (a `SimId::spawned(..)` id — the
+    /// vocabulary appends `/<seq>`) that **existed at the snapshot tick, is absent now,
+    /// and cannot be reconstructed** because no spawn recipe exists. Rebuilding it from
+    /// blobs ALONE is not exact: a dynamic entity needs its spawner's recipe to come back
+    /// whole, and N3.2 does not yet register spawn recipes.
+    ///
+    /// This is precisely a **reconstruction** refusal — the entity died inside the window
+    /// and restore is being asked to raise it — not a "birth inside the window" (an entity
+    /// spawned AFTER the snapshot is future-only and simply despawned; re-audit finding 4).
+    /// It establishes ONE reconstruction refusal, not a general bounded-window guarantee.
+    /// Preflighted before any mutation (finding 5), so restore refuses cleanly rather than
+    /// after partial work. The honest boundary until spawn recipes land.
+    UnsupportedDynamicReconstruction { sim_id: String },
 }
 
 impl std::fmt::Display for RestoreError {
@@ -1242,12 +1246,12 @@ impl std::fmt::Display for RestoreError {
                 "cross-room rollback boundary: snapshot taken in `{snapshot_room}`, world \
                  is now in `{active_room}` — a rollback window may not span a room transition"
             ),
-            RestoreError::UnsupportedDynamicBirth { sim_id } => write!(
+            RestoreError::UnsupportedDynamicReconstruction { sim_id } => write!(
                 f,
-                "unsupported rollback boundary: `{sim_id}` is a dynamically-spawned entity \
-                 born inside the window and no room authors it — reconstructing it from \
-                 blobs alone is not exact (no spawn recipe yet). A window may not span a \
-                 dynamic birth."
+                "unsupported dynamic reconstruction: `{sim_id}` is a dynamically-spawned \
+                 entity that existed at the snapshot tick, is gone now, and no room authors \
+                 it — rebuilding it from blobs alone is not exact (no spawn recipe yet). \
+                 Restore refuses rather than raise a naked entity."
             ),
             RestoreError::DecodeFailed { entry, id } => write!(
                 f,
@@ -1412,6 +1416,23 @@ pub fn restore(
     let ids = snapshot.sim_ids();
     let mut report = RestoreReport::default();
 
+    // **Unsupported-dynamic-reconstruction preflight (re-audit finding 5), BEFORE any
+    // mutation.** A `spawned(..)` id (the vocabulary appends `/<seq>`) that is in the
+    // snapshot but gone from the live world would have to be rebuilt from blobs alone — no
+    // room authors it and no spawn recipe exists, so the rebuild is not exact. Detecting it
+    // here, from the id string and the live map alone (no world mutation), lets restore
+    // refuse cleanly rather than after the despawn/rebuild loop has already half-reconciled
+    // the world. `respawn_from_the_room` only ever handles `placement:` ids, so this is
+    // exactly the set that used to reach the inline `None if contains('/')` branch — moved
+    // ahead of the first despawn.
+    for id in &ids {
+        if !live.contains_key(*id) && id.contains('/') {
+            return Err(RestoreError::UnsupportedDynamicReconstruction {
+                sim_id: (*id).to_string(),
+            });
+        }
+    }
+
     // Spawned after the snapshot: they never happened.
     for (id, entity) in &live {
         if ids.binary_search(&id.as_str()).is_err() {
@@ -1434,17 +1455,10 @@ pub fn restore(
                     report.rebuilt += 1;
                     entity
                 }
-                // A `spawned(..)` id (the vocabulary appends `/<seq>`) that no room
-                // authors is a DYNAMIC birth inside the window: reconstructing it from
-                // blobs alone is not exact (it needs a spawn recipe N3.2 has not landed),
-                // so the window is unsupported — refuse rather than produce a naked
-                // entity (audit item 6). A `placement:`/`slot:` id with no room record is
-                // the headless-fixture path and still respawns bare.
-                None if id.contains('/') => {
-                    return Err(RestoreError::UnsupportedDynamicBirth {
-                        sim_id: (*id).to_string(),
-                    });
-                }
+                // Gone, and no room authors it. A `placement:`/`slot:` id with no room
+                // record is the headless-fixture path: respawn bare. A `spawned(..)` id in
+                // this position was already refused by the preflight above, so this arm
+                // only ever sees static ids the fixtures use.
                 None => {
                     report.respawned += 1;
                     world.spawn(SimId::from_snapshot((*id).to_string())).id()
@@ -3766,16 +3780,19 @@ mod tests {
         );
     }
 
-    /// **A rollback window may not span a dynamic birth** (audit item 6 / S2.9–2.10).
+    /// **Restore refuses to reconstruct a dead dynamic entity — cleanly** (re-audit
+    /// findings 4 + 5).
     ///
-    /// A `SimId::spawned(..)` entity that is in the snapshot but gone from the world — a
-    /// dynamically-spawned child born (and died) inside the window — has no room to
-    /// rebuild it, so reconstructing it from blobs alone is not exact. Restore refuses
-    /// with `UnsupportedDynamicBirth` rather than produce a naked entity. (A `placement:`
-    /// id with no room record still respawns bare: the headless-fixture path, which
+    /// A `SimId::spawned(..)` entity that existed at the snapshot tick and is gone now has
+    /// no room to rebuild it and no spawn recipe, so rebuilding it from blobs alone is not
+    /// exact. This is a RECONSTRUCTION refusal — the entity DIED inside the window — not a
+    /// "birth inside the window": an entity spawned AFTER the snapshot is future-only and
+    /// simply despawned. And it is PREFLIGHTED: restore refuses before it mutates the
+    /// world, so a would-be-despawned future entity is left standing. (A `placement:` id
+    /// with no room record still respawns bare: the headless-fixture path, which
     /// `restore_forgets_the_future_and_remembers_the_dead` covers.)
     #[test]
-    fn restore_refuses_a_dynamically_spawned_entity_born_inside_the_window() {
+    fn restore_refuses_to_reconstruct_a_dead_dynamic_entity_without_a_recipe() {
         let reg = engine_registry();
         let mut world = sim_world();
 
@@ -3788,16 +3805,33 @@ mod tests {
         world.spawn((child.clone(), kin(Vec2::ZERO, Vec2::ZERO)));
         let snap = take(&world, &reg);
 
-        // It dies inside the window.
+        // It dies inside the window...
         let entity = *live_ids(&mut world).get(child.as_str()).unwrap();
         world.despawn(entity);
+        // ...and a fresh future-only entity appears that a MUTATING restore would despawn.
+        let future = world
+            .spawn((
+                SimId::placement("future-canary"),
+                kin(Vec2::ZERO, Vec2::ZERO),
+            ))
+            .id();
 
         match restore(&mut world, &snap, &reg) {
-            Err(RestoreError::UnsupportedDynamicBirth { sim_id }) => {
+            Err(RestoreError::UnsupportedDynamicReconstruction { sim_id }) => {
                 assert_eq!(sim_id, child.as_str());
             }
-            other => panic!("restore did not refuse a dynamic birth in the window: {other:?}"),
+            other => {
+                panic!("restore did not refuse to reconstruct a dead dynamic entity: {other:?}")
+            }
         }
+
+        // The refusal was PREFLIGHTED: the world was not touched, so the future-only
+        // entity that a mutating restore would have despawned is still standing (finding 5).
+        assert!(
+            world.get::<SimId>(future).is_some(),
+            "restore despawned a future entity before refusing — the unsupported-\
+             reconstruction check is not the clean pre-mutation preflight finding 5 asks for"
+        );
     }
 
     /// **Stale state is measured AFTER reconciliation, not before** (audit H4).

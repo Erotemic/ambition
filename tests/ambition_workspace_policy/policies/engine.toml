@@ -1,0 +1,21 @@
+# Engine-scope policies: crates/* layering, foundation purity, determinism,
+# control-frame ownership, module-size.
+#
+# Run: cargo test -p ambition_workspace_policy engine_policies
+#
+# The custom scanners (module-size, determinism, control-frame) also run under
+# `engine_policies`; they carry their own config files and are invoked from
+# tests/policy.rs. Anchor policy below keeps the declarative scan non-vacuous;
+# real ratchets are appended by Tasks 4/6/9.
+
+[[policy]]
+id = "engine.engine-core-is-foundation-clean"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_engine_core"]
+watch_paths = ["crates/ambition_engine_core/src"]
+rationale = "ambition_engine_core is the bottom foundation crate: geometry, body contract, control-frame vocabulary. It must never name the headless composition tier, the content crate, or the app shell — those are strictly above it."
+source_doc = "docs/planning/engine/architecture.md"
+severity = "error"
+roots = ["crates/ambition_engine_core/src"]
+forbid = ["ambition_content", "ambition_app", "ambition_runtime"]

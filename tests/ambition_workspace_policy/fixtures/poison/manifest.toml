@@ -1,0 +1,21 @@
+# POISON FIXTURE — a deliberately-violating manifest.
+#
+# The self-tests point dependency rules at this file and assert they REACT:
+#   * dependency-denylist must catch `ambition_content` and `bevy_ecs_ldtk`;
+#   * dependency-allowlist (allow = ["ambition_engine_core"]) must catch the
+#     extra `ambition_content` / `ambition_render` deps.
+#
+# It is NOT a Cargo package (named `manifest.toml`, not `Cargo.toml`) so cargo
+# never tries to build it. A rule that stopped reacting to this file would be a
+# grep lint that cannot fail — worse than no lint.
+[package]
+name = "poison_fixture"
+
+[dependencies]
+ambition_engine_core = { path = "../x" }
+ambition_content = { path = "../y" }
+ambition_render = { path = "../z" }
+bevy_ecs_ldtk = "0.1"
+
+[dev-dependencies]
+ambition_app = { path = "../w" }

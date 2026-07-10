@@ -44,6 +44,7 @@ members = [
     "crates/ambition_ui_nav",
     "crates/ambition_world",
     "game/ambition_menu_kaleidoscope",
+    "tests/ambition_workspace_policy",
 ]
 resolver = "2"
 

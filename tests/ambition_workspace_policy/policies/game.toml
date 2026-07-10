@@ -1,0 +1,22 @@
+# Game-scope policies: game/* content ownership, app composition, named-content
+# registration.
+#
+# Run: cargo test -p ambition_workspace_policy game_policies
+#
+# Anchor policy below keeps the scan non-vacuous; real ratchets decomposed from
+# architecture_boundaries.rs are appended by Tasks 6/9.
+
+[[policy]]
+id = "game.content-and-app-homes-exist"
+scope = "game"
+kind = "required-path"
+owners = ["ambition_content"]
+watch_paths = ["game"]
+rationale = "The named-content crate and the app-assembly shell are the two game-tier homes the composition root depends on; a missing src root means a move went wrong."
+source_doc = "docs/planning/engine/decomposition.md"
+severity = "error"
+paths = [
+    "game/ambition_content/src",
+    "game/ambition_app/src",
+    "game/ambition_app/Cargo.toml",
+]

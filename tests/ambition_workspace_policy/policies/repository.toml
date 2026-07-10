@@ -1,0 +1,41 @@
+# Repository-scope policies: workspace membership + top-level layout.
+#
+# Run: cargo test -p ambition_workspace_policy repository_policies
+#
+# Each policy carries: id, scope, owners, watch_paths, kind, rationale,
+# source_doc, severity, plus its kind-specific fields. Anchor policies below are
+# trivially-true structural facts that keep the scan non-vacuous; real migrated
+# ratchets are appended by Tasks 4/6/9.
+
+[[policy]]
+id = "repository.core-crates-registered"
+scope = "repository"
+kind = "workspace-member"
+owners = ["ambition_app"]
+watch_paths = ["Cargo.toml"]
+rationale = "The tier anchors (foundation engine_core, headless runtime, content, app) and the policy package itself must stay registered workspace members, or `cargo test --workspace` silently stops covering them."
+source_doc = "docs/planning/engine/decomposition.md"
+severity = "error"
+members = [
+    "ambition_engine_core",
+    "ambition_runtime",
+    "ambition_content",
+    "ambition_app",
+    "ambition_workspace_policy",
+]
+
+[[policy]]
+id = "repository.tier-manifests-exist"
+scope = "repository"
+kind = "required-path"
+owners = ["ambition_app"]
+watch_paths = ["crates", "game"]
+rationale = "The crate-tier layout (foundation crates under crates/, game crates under game/) is load-bearing; a missing tier anchor manifest means a crate move went wrong."
+source_doc = "docs/planning/engine/architecture.md"
+severity = "error"
+paths = [
+    "crates/ambition_engine_core/Cargo.toml",
+    "crates/ambition_runtime/Cargo.toml",
+    "game/ambition_app/Cargo.toml",
+    "game/ambition_content/Cargo.toml",
+]

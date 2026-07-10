@@ -1,0 +1,96 @@
+# Test-organization migration ledger
+
+**Status:** IN PROGRESS (started 2026-07-10, commit `5950499`).
+**Goal:** three clear test homes — (1) local behavioral tests inline or in adjacent
+`src/foo/tests.rs`; (2) public crate/assembled-system behavior in each crate's
+`tests/`; (3) workspace *policy* tests (source scans, dependency boundaries,
+module-size, architecture ratchets, forbidden-name checks) sequestered in one
+top-level package `tests/ambition_workspace_policy`.
+
+This is a migration ledger, not a design doc. It is the single source of truth for
+"where does every old policy test go" until the campaign closes, then it is archived
+as historical evidence.
+
+## Baseline (commit `5950499`, HEAD `8099506`)
+
+Physical LOC (measured by `scripts`-style walk over `crates/*` + `game/*`):
+
+| category | LOC | files |
+| --- | ---: | ---: |
+| production Rust (excl. inline tests) | 163,146 | 701 |
+| inline `#[cfg(test)]` modules | 45,352 | — |
+| adjacent test modules (`src/**/tests.rs`, `src/**/tests/`) | 32,027 | 70 |
+| crate integration tests (`*/tests/*.rs`, non-policy) | 13,340 | 54 |
+| **repository-policy tests (7 files)** | **4,769** | **7** |
+
+Repository-policy test binaries **today: 6 dedicated integration binaries**
+(`architecture_boundaries`, `control_frame_lint`, `determinism_lints`,
+`module_size`, `observation_boundary`, `host_names_no_content`,
+`legacy_runtime_guardrail` — the last two share crates so it is 6 across
+ambition_app ×2, ambition_runtime ×3, ambition_render ×1, ambition_host ×1) plus
+one inline lib test (`ambition_world` dependency ratchet). **Target: 1 binary**
+(`tests/policy.rs`).
+
+Policy-file sizes: architecture_boundaries.rs 2923 (67 `#[test]`),
+control_frame_lint.rs 650 (8), determinism_lints.rs 577 (7), module_size.rs 216
+(4), observation_boundary.rs 180 (2), legacy_runtime_guardrail.rs 165 (2),
+host_names_no_content.rs 58 (2).
+
+Compile timings — **before** (warm tree, edit-test loop), full detail in Task 10:
+
+- full workspace `cargo test --workspace --no-run`: **3:20** (cold-ish, warm registry).
+- edit `architecture_boundaries.rs` → recompile that binary (links all of
+  `ambition_app`): **13.6 s**.
+- edit `determinism_lints.rs` → recompile (links `ambition_runtime`): **8.0 s**.
+
+Baseline policy tests all green: 67 + 2 + 8 + 7 + 4 + 2 + 2 + 1 = 93 policy `#[test]`s.
+
+## Destinations (Task 1 inventory)
+
+| old test file | destination | form |
+| --- | --- | --- |
+| `crates/ambition_host/tests/host_names_no_content.rs` | policy pkg | declarative: dependency-denylist + forbidden-source-reference |
+| `crates/ambition_render/tests/observation_boundary.rs` | policy pkg | declarative: forbidden-source-reference (sim-state ident list) + dependency-denylist |
+| `crates/ambition_world/src/lib.rs` dep ratchet | policy pkg | declarative: dependency-allowlist |
+| `crates/ambition_runtime/tests/module_size.rs` | policy pkg + `policies/module_size.toml` | module-size rule |
+| `game/ambition_app/tests/legacy_runtime_guardrail.rs` | policy pkg | declarative: forbidden-source-reference (production-only, ALLOW marker) |
+| `crates/ambition_runtime/tests/determinism_lints.rs` | policy pkg `src/custom/determinism.rs` | custom scanner + `policies/determinism.toml` config |
+| `crates/ambition_runtime/tests/control_frame_lint.rs` | policy pkg `src/custom/control_frame.rs` | custom scanner + `policies/control_frame.toml` config |
+| `game/ambition_app/tests/architecture_boundaries.rs` (67 tests) | policy pkg (declarative + custom modules) | see migration matrix |
+
+**Inspected, deliberately NOT moved** (assembled-behavior / authored-content, not
+repository structure): `desync_canary.rs`, `collision_invariant_oracle.rs`,
+`dialogue_lint.rs`, `boss_fight_validator.rs`, `intro_sprite_catalog.rs`,
+`input_stream_replay.rs`, boss lifecycle/scenario tests, headless game scenarios.
+
+## Scope assignment
+
+- **repository** — workspace membership, top-level layout, umbrella/demo homes,
+  the spawn allowlist, cross-crate composition that is not tied to one engine or
+  game crate.
+- **engine** — `crates/*` layering + foundation purity + determinism + control
+  frame + module-size (engine crates dominate it).
+- **game** — `game/*` content ownership, app composition, named-content
+  registration.
+
+## Migration matrix
+
+Every old `#[test]` must appear here exactly once with a destination
+(`declarative:<policy-id>`, `custom:<module>`, `retained:<where>`, or
+`removed:<why>`). The completeness of this matrix is itself asserted by
+`migration_matrix_is_complete` in the policy package. Filled in as each batch
+lands (Tasks 4–9).
+
+<!-- MIGRATION-MATRIX-START -->
+(pending — populated as batches land)
+<!-- MIGRATION-MATRIX-END -->
+
+## Commands (target model)
+
+```bash
+cargo test -p ambition_workspace_policy repository_policies
+cargo test -p ambition_workspace_policy engine_policies
+cargo test -p ambition_workspace_policy game_policies
+cargo test -p ambition_workspace_policy               # all scopes + self-tests
+cargo test --workspace                                # handoff / merge gate
+```

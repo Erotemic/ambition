@@ -71,6 +71,12 @@ pub enum RuleKind {
     DependencyDenylist,
     /// No `.rs` file under `roots` may name any identifier in `forbid`.
     ForbiddenSourceReference,
+    /// A single `file` must contain every string in `contains` (facade
+    /// re-exports, required plugin composition wiring).
+    FileContains,
+    /// A single `file` must contain none of the strings in `forbid` (a burned-
+    /// down facade / re-owned subsystem must not reappear). Raw text match.
+    FileOmits,
 }
 
 /// One declarative policy, parsed from a `policies/*.toml` `[[policy]]` entry.
@@ -115,6 +121,12 @@ pub struct Policy {
     /// `dependency-*`: repo-relative path to the `Cargo.toml` to inspect.
     #[serde(default)]
     pub manifest: Option<String>,
+    /// `file-contains` / `file-omits`: repo-relative path to the single file.
+    #[serde(default)]
+    pub file: Option<String>,
+    /// `file-contains`: strings that must all appear in `file`.
+    #[serde(default)]
+    pub contains: Vec<String>,
     /// `dependency-allowlist`: the complete set of allowed `ambition*` deps.
     #[serde(default)]
     pub allow: Vec<String>,

@@ -298,3 +298,1068 @@ source_doc = "docs/planning/engine/decomposition.md#F1.10"
 severity = "error"
 roots = ["crates/ambition_host/src", "crates/ambition_host/tests"]
 forbid = ["ambition_actors::"]
+
+# ── architecture_boundaries.rs decomposition, batch 2 (Task 9): crate-purity +
+#    consumer-vocab rules migrated declaratively (generated). ─────────────────
+
+# was: architecture_boundaries_platformer_runtime_stays_content_free
+[[policy]]
+id = "engine.platformer-runtime-content-free"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_platformer_primitives"]
+watch_paths = ["crates/ambition_actors/src/platformer_runtime"]
+rationale = "the platformer_runtime facade in ambition_actors must remain reusable and content-free"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_actors/src/platformer_runtime"]
+forbid = ["crate::content", "crate::ambition_content", "crate::intro", "crate::boss_encounter", "crate::quest", "crate::assets::sandbox_assets", "crate::music", "crate::items", "crate::app", "crate::dev", "crate::presentation", "ambition_portal::", "ambition_portal;", "ambition_portal}"]
+
+
+# was: architecture_boundaries_world_ir_and_ldtk_backend_are_split
+[[policy]]
+id = "engine.ambition_world-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_world"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_world must stay a registered workspace member"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+members = ["ambition_world"]
+
+[[policy]]
+id = "engine.ambition_world-manifest-deny"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_world"]
+watch_paths = ["crates/ambition_world/Cargo.toml"]
+rationale = "ambition_world is the backend-agnostic world IR"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+deny = ["ambition_ldtk_map", "ambition_actors", "ambition_runtime", "ambition_render", "ambition_content", "ambition_app", "ambition_combat", "ambition_interaction", "ambition_portal", "bevy_ecs_ldtk"]
+manifest = "crates/ambition_world/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_world-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_world"]
+watch_paths = ["crates/ambition_world/src"]
+rationale = "ambition_world source stays free of forbidden refs"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_world/src"]
+forbid = ["ambition_ldtk_map", "ambition_combat", "ambition_interaction", "ambition_portal", "bevy_ecs_ldtk"]
+
+[[policy]]
+id = "engine.ldtk-map-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_world"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_ldtk_map registered"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+members = ["ambition_ldtk_map"]
+
+[[policy]]
+id = "engine.ldtk-map-manifest-deny"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_world"]
+watch_paths = ["crates/ambition_ldtk_map/Cargo.toml"]
+rationale = "ambition_ldtk_map converts into world IR without depending on the sim heart"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+deny = ["ambition_actors", "ambition_runtime", "ambition_render", "ambition_content", "ambition_app"]
+manifest = "crates/ambition_ldtk_map/Cargo.toml"
+
+[[policy]]
+id = "engine.ldtk-map-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_world"]
+watch_paths = ["crates/ambition_ldtk_map/src"]
+rationale = "ambition_ldtk_map source must not reach upward into sim/app/render/content (test fixture path string exempt)"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_ldtk_map/src"]
+forbid = ["ambition_actors", "ambition_runtime", "ambition_render", "ambition_content", "ambition_app"]
+allow_lines = ["../../game/ambition_content/assets"]
+
+
+# was: architecture_boundaries_items_crate_is_catalog_and_shop_only
+[[policy]]
+id = "engine.ambition_items-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_items"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_items must stay a registered workspace member"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+members = ["ambition_items"]
+
+[[policy]]
+id = "engine.ambition_items-absent-paths"
+scope = "engine"
+kind = "forbidden-path"
+owners = ["ambition_items"]
+watch_paths = ["crates/ambition_items"]
+rationale = "ambition_items: removed facades stay gone"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_items/src/inventory_ui", "crates/ambition_items/src/inventory_ui/mod.rs", "crates/ambition_items/src/inventory_ui/model.rs", "crates/ambition_actors/src/inventory_ui", "crates/ambition_actors/src/inventory_ui/mod.rs", "crates/ambition_actors/src/inventory_ui/model.rs"]
+
+[[policy]]
+id = "engine.ambition_items-manifest-deny"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_items"]
+watch_paths = ["crates/ambition_items/Cargo.toml"]
+rationale = "ambition_items owns reusable catalog/shop data; UI state lives in ambition_inventory_ui"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+deny = ["ambition_actors", "ambition_render", "ambition_content", "ambition_app", "ambition_ui_nav", "ambition_inventory_ui"]
+manifest = "crates/ambition_items/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_items-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_items"]
+watch_paths = ["crates/ambition_items/src"]
+rationale = "ambition_items source stays free of forbidden refs"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_items/src"]
+forbid = ["ambition_actors", "ambition_render", "ambition_content", "ambition_app", "ambition_ui_nav", "ambition_inventory_ui"]
+
+
+# was: architecture_boundaries_inventory_ui_crate_is_menu_state_only
+[[policy]]
+id = "engine.ambition_inventory_ui-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_inventory_ui"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_inventory_ui must stay a registered workspace member"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+members = ["ambition_inventory_ui"]
+
+[[policy]]
+id = "engine.ambition_inventory_ui-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_inventory_ui"]
+watch_paths = ["crates/ambition_inventory_ui/Cargo.toml"]
+rationale = "ambition_inventory_ui is reusable menu-navigation state over ambition_ui_nav"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+allow = ["ambition_ui_nav"]
+manifest = "crates/ambition_inventory_ui/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_inventory_ui-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_inventory_ui"]
+watch_paths = ["crates/ambition_inventory_ui/src"]
+rationale = "ambition_inventory_ui source stays free of forbidden refs"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_inventory_ui/src"]
+forbid = ["ambition_items::", "ambition_actors", "ambition_render", "ambition_content", "ambition_app"]
+
+
+# was: architecture_boundaries_settings_menu_ir_is_foundation_only
+[[policy]]
+id = "engine.ambition_settings_menu-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_settings_menu"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_settings_menu must stay a registered workspace member"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+members = ["ambition_settings_menu"]
+
+[[policy]]
+id = "engine.ambition_settings_menu-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_settings_menu"]
+watch_paths = ["crates/ambition_settings_menu/Cargo.toml"]
+rationale = "ambition_settings_menu is the pure, renderer-agnostic settings IR"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+allow = ["ambition_persistence", "ambition_input"]
+manifest = "crates/ambition_settings_menu/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_settings_menu-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_settings_menu"]
+watch_paths = ["crates/ambition_settings_menu/src"]
+rationale = "ambition_settings_menu source stays free of forbidden refs"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_settings_menu/src"]
+forbid = ["ambition_actors", "ambition_menu", "ambition_render", "ambition_content", "ambition_app", "bevy_lunex", "bevy::"]
+
+
+# was: architecture_boundaries_dev_tools_crate_is_foundation_only
+[[policy]]
+id = "engine.ambition_dev_tools-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_dev_tools"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_dev_tools must stay a registered workspace member"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+members = ["ambition_dev_tools"]
+
+[[policy]]
+id = "engine.ambition_dev_tools-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_dev_tools"]
+watch_paths = ["crates/ambition_dev_tools/Cargo.toml"]
+rationale = "ambition_dev_tools is foundational dev-tool state; overlays/sim stay out"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+allow = ["ambition_engine_core", "ambition_characters", "ambition_platformer_primitives", "ambition_persistence"]
+manifest = "crates/ambition_dev_tools/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_dev_tools-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_dev_tools"]
+watch_paths = ["crates/ambition_dev_tools/src"]
+rationale = "ambition_dev_tools source stays free of forbidden refs"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_dev_tools/src"]
+forbid = ["ambition_actors", "ambition_menu", "ambition_render", "ambition_content", "ambition_app", "bevy_inspector_egui"]
+
+
+# was: architecture_boundaries_dialog_crate_is_runtime_only
+[[policy]]
+id = "engine.ambition_dialog-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_dialog"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_dialog must stay a registered workspace member"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+members = ["ambition_dialog"]
+
+[[policy]]
+id = "engine.ambition_dialog-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_dialog"]
+watch_paths = ["crates/ambition_dialog/Cargo.toml"]
+rationale = "ambition_dialog is the reusable dialogue runtime; game bindings stay host-side"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+allow = ["ambition_engine_core", "ambition_ui_nav", "ambition_input", "ambition_sfx", "ambition_persistence"]
+manifest = "crates/ambition_dialog/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_dialog-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_dialog"]
+watch_paths = ["crates/ambition_dialog/src"]
+rationale = "ambition_dialog source stays free of forbidden refs"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_dialog/src"]
+forbid = ["ambition_actors", "ambition_menu", "ambition_render", "ambition_content", "ambition_app", "ambition_characters"]
+
+
+# was: architecture_boundaries_interaction_crate_is_foundation_only
+[[policy]]
+id = "engine.ambition_interaction-manifest-deny"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_interaction"]
+watch_paths = ["crates/ambition_interaction/Cargo.toml"]
+rationale = "ambition_interaction is a content-free data model over the actor/geometry foundations"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+deny = ["ambition_actors", "ambition_content", "ambition_render", "bevy"]
+manifest = "crates/ambition_interaction/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_interaction-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_interaction"]
+watch_paths = ["crates/ambition_interaction/src"]
+rationale = "ambition_interaction source stays free of forbidden refs"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_interaction/src"]
+forbid = ["ambition_actors", "ambition_content", "gnu_ton", "gradient_sentinel"]
+
+
+# was: architecture_boundaries_effects_crate_is_foundation_only
+[[policy]]
+id = "engine.ambition_vfx-manifest-deny"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_vfx"]
+watch_paths = ["crates/ambition_vfx/Cargo.toml"]
+rationale = "ambition_vfx is the reusable effect substrate; never depends on the game lib or cast crate"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+deny = ["ambition_actors", "ambition_characters"]
+manifest = "crates/ambition_vfx/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_vfx-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_vfx"]
+watch_paths = ["crates/ambition_vfx/src"]
+rationale = "ambition_vfx source stays free of forbidden refs"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_vfx/src"]
+forbid = ["ambition_actors", "ambition_characters"]
+
+
+# was: architecture_boundaries_projectiles_crate_is_model_only
+[[policy]]
+id = "engine.ambition_projectiles-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_projectiles"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_projectiles must stay a registered workspace member"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+members = ["ambition_projectiles"]
+
+[[policy]]
+id = "engine.ambition_projectiles-manifest-deny"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_projectiles"]
+watch_paths = ["crates/ambition_projectiles/Cargo.toml"]
+rationale = "ambition_projectiles is the projectile MODEL \u2014 no sim-heart/combat/brain/host/content coupling"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+deny = ["ambition_actors", "ambition_combat", "ambition_characters", "ambition_sim_view", "ambition_runtime", "ambition_render", "ambition_content", "ambition_app"]
+manifest = "crates/ambition_projectiles/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_projectiles-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_projectiles"]
+watch_paths = ["crates/ambition_projectiles/src"]
+rationale = "ambition_projectiles source stays free of forbidden refs"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_projectiles/src"]
+forbid = ["ambition_actors", "ambition_combat", "ambition_characters", "ambition_sim_view", "ambition_runtime", "ambition_render", "ambition_content", "ambition_app"]
+
+[[policy]]
+id = "engine.projectiles-actor-stepper-generic"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_projectiles"]
+watch_paths = ["crates/ambition_actors/src/projectile/systems.rs"]
+rationale = "projectile-kind-specific expiry VFX policy belongs in ambition_projectiles::visual_kind"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["fn lasersword_detonation", "ExplosionKind::ClassicBurst"]
+file = "crates/ambition_actors/src/projectile/systems.rs"
+
+[[policy]]
+id = "engine.projectiles-visual-kind-owns-expiry"
+scope = "engine"
+kind = "file-contains"
+owners = ["ambition_projectiles"]
+watch_paths = ["crates/ambition_projectiles/src/visual_kind.rs"]
+rationale = "ambition_projectiles::visual_kind owns the expiry VFX seam"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["pub fn expiry_vfx"]
+file = "crates/ambition_projectiles/src/visual_kind.rs"
+
+[[policy]]
+id = "engine.projectiles-tests-travel-with-kit"
+scope = "engine"
+kind = "required-path"
+owners = ["ambition_projectiles"]
+watch_paths = ["crates/ambition_projectiles/src"]
+rationale = "projectile model tests travel with the projectile kit"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_projectiles/src/engine_tests.rs"]
+
+[[policy]]
+id = "engine.projectiles-no-actor-facade-tests"
+scope = "engine"
+kind = "forbidden-path"
+owners = ["ambition_projectiles"]
+watch_paths = ["crates/ambition_actors/src/projectile"]
+rationale = "pure projectile primitive tests do not live under the actor facade"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_actors/src/projectile/engine_tests.rs"]
+
+[[policy]]
+id = "engine.projectiles-actor-mod-no-engine-tests"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_projectiles"]
+watch_paths = ["crates/ambition_actors/src/projectile/mod.rs"]
+rationale = "actor projectile mod exposes only steppers"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["engine_tests"]
+file = "crates/ambition_actors/src/projectile/mod.rs"
+
+
+# was: architecture_boundaries_portal_crate_is_extracted
+[[policy]]
+id = "engine.ambition_portal-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_portal"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_portal must stay a registered workspace member"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+members = ["ambition_portal"]
+
+[[policy]]
+id = "engine.ambition_portal-extracted-paths"
+scope = "engine"
+kind = "required-path"
+owners = ["ambition_portal"]
+watch_paths = ["crates/ambition_portal"]
+rationale = "ambition_portal extracted-crate files exist"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_portal/Cargo.toml", "crates/ambition_portal/src/lib.rs"]
+
+[[policy]]
+id = "engine.ambition_portal-manifest-deny"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_portal"]
+watch_paths = ["crates/ambition_portal/Cargo.toml"]
+rationale = "ambition_portal must stay host-free"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+deny = ["ambition_actors", "ambition_content", "ambition_input", "ambition_sfx", "ambition_menu"]
+manifest = "crates/ambition_portal/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_portal-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_portal"]
+watch_paths = ["crates/ambition_portal/Cargo.toml"]
+rationale = "ambition_portal must stay host-free"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+allow = ["ambition_engine_core", "ambition_platformer_primitives"]
+manifest = "crates/ambition_portal/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_portal-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_portal"]
+watch_paths = ["crates/ambition_portal/src"]
+rationale = "ambition_portal source stays free of forbidden refs"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_portal/src"]
+forbid = ["ambition_actors"]
+
+[[policy]]
+id = "engine.portal-exposes-plugin"
+scope = "engine"
+kind = "file-contains"
+owners = ["ambition_portal"]
+watch_paths = ["crates/ambition_portal/src/lib.rs"]
+rationale = "portal exposes a drop-in PortalPlugin"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["pub use plugin::{PortalPlugin"]
+file = "crates/ambition_portal/src/lib.rs"
+
+[[policy]]
+id = "engine.portal-plugin-impl"
+scope = "engine"
+kind = "file-contains"
+owners = ["ambition_portal"]
+watch_paths = ["crates/ambition_portal/src/plugin.rs"]
+rationale = "portal plugin impl"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["impl Plugin for PortalPlugin"]
+file = "crates/ambition_portal/src/plugin.rs"
+
+[[policy]]
+id = "engine.actors-no-portal-facade"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_portal"]
+watch_paths = ["crates/ambition_actors/src/lib.rs"]
+rationale = "ambition_actors must not reintroduce a portal facade"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["pub mod portal"]
+file = "crates/ambition_actors/src/lib.rs"
+
+
+# was: architecture_boundaries_portal_presentation_crate_is_extracted
+[[policy]]
+id = "engine.ambition_portal_presentation-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_portal_presentation"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_portal_presentation must stay a registered workspace member"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+members = ["ambition_portal_presentation"]
+
+[[policy]]
+id = "engine.ambition_portal_presentation-extracted-paths"
+scope = "engine"
+kind = "required-path"
+owners = ["ambition_portal_presentation"]
+watch_paths = ["crates/ambition_portal_presentation"]
+rationale = "ambition_portal_presentation extracted-crate files exist"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_portal_presentation/Cargo.toml"]
+
+[[policy]]
+id = "engine.ambition_portal_presentation-manifest-deny"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_portal_presentation"]
+watch_paths = ["crates/ambition_portal_presentation/Cargo.toml"]
+rationale = "ambition_portal_presentation must stay host-free"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+deny = ["ambition_actors", "ambition_content", "ambition_input", "ambition_sfx", "ambition_menu"]
+manifest = "crates/ambition_portal_presentation/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_portal_presentation-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_portal_presentation"]
+watch_paths = ["crates/ambition_portal_presentation/Cargo.toml"]
+rationale = "ambition_portal_presentation must stay host-free"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+allow = ["ambition_engine_core", "ambition_platformer_primitives", "ambition_portal"]
+manifest = "crates/ambition_portal_presentation/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_portal_presentation-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_portal_presentation"]
+watch_paths = ["crates/ambition_portal_presentation/src"]
+rationale = "ambition_portal_presentation source stays free of forbidden refs"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_portal_presentation/src"]
+forbid = ["ambition_actors", "ambition_content"]
+
+[[policy]]
+id = "engine.portal-presentation-plugin"
+scope = "engine"
+kind = "file-contains"
+owners = ["ambition_portal_presentation"]
+watch_paths = ["crates/ambition_portal_presentation/src/lib.rs"]
+rationale = "exposes PortalPresentationPlugin"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["PortalPresentationPlugin"]
+file = "crates/ambition_portal_presentation/src/lib.rs"
+
+[[policy]]
+id = "engine.portal-mechanic-no-renderer-dep"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_portal_presentation"]
+watch_paths = ["crates/ambition_portal/Cargo.toml"]
+rationale = "headless portal must not depend on its renderer"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["ambition_portal_presentation"]
+file = "crates/ambition_portal/Cargo.toml"
+
+[[policy]]
+id = "engine.actors-no-portal-presentation-dep"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_portal_presentation"]
+watch_paths = ["crates/ambition_actors/Cargo.toml"]
+rationale = "actors must not depend on portal presentation"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["ambition_portal_presentation"]
+file = "crates/ambition_actors/Cargo.toml"
+
+
+# was: architecture_boundaries_time_crate_is_extracted
+[[policy]]
+id = "engine.ambition_time-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_time"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_time must stay a registered workspace member"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+members = ["ambition_time"]
+
+[[policy]]
+id = "engine.ambition_time-extracted-paths"
+scope = "engine"
+kind = "required-path"
+owners = ["ambition_time"]
+watch_paths = ["crates/ambition_time"]
+rationale = "ambition_time extracted-crate files exist"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_time/Cargo.toml", "crates/ambition_time/src/lib.rs"]
+
+[[policy]]
+id = "engine.ambition_time-manifest-deny"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_time"]
+watch_paths = ["crates/ambition_time/Cargo.toml"]
+rationale = "ambition_time is the reusable time layer"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+deny = ["ambition_actors"]
+manifest = "crates/ambition_time/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_time-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_time"]
+watch_paths = ["crates/ambition_time/src"]
+rationale = "ambition_time source stays free of forbidden refs"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_time/src"]
+forbid = ["ambition_actors"]
+
+[[policy]]
+id = "engine.time-exposes-plugin"
+scope = "engine"
+kind = "file-contains"
+owners = ["ambition_time"]
+watch_paths = ["crates/ambition_time/src/lib.rs"]
+rationale = "ambition_time exposes a TimePlugin"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["pub struct TimePlugin", "impl Plugin for TimePlugin"]
+file = "crates/ambition_time/src/lib.rs"
+
+[[policy]]
+id = "engine.time-facades-removed"
+scope = "engine"
+kind = "forbidden-path"
+owners = ["ambition_time"]
+watch_paths = ["crates/ambition_actors/src/time"]
+rationale = "clock_state/camera_ease facades removed"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_actors/src/time/clock_state.rs", "crates/ambition_actors/src/time/camera_ease.rs"]
+
+[[policy]]
+id = "engine.time-world-time-bridge"
+scope = "engine"
+kind = "file-contains"
+owners = ["ambition_time"]
+watch_paths = ["crates/ambition_actors/src/time/world_time.rs"]
+rationale = "world_time.rs is the sim-dt bridge naming ambition_time directly"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["mirror_sim_dt_into_runtime", "ambition_time::"]
+file = "crates/ambition_actors/src/time/world_time.rs"
+
+[[policy]]
+id = "engine.time-sandbox-policy-exists"
+scope = "engine"
+kind = "required-path"
+owners = ["ambition_time"]
+watch_paths = ["crates/ambition_actors/src/time"]
+rationale = "sandbox game-specific time policy exists"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_actors/src/time/time_control", "crates/ambition_actors/src/time/feel.rs"]
+
+
+# was: architecture_boundaries_input_crate_is_extracted
+[[policy]]
+id = "engine.ambition_input-extracted-paths"
+scope = "engine"
+kind = "required-path"
+owners = ["ambition_input"]
+watch_paths = ["crates/ambition_input"]
+rationale = "ambition_input extracted-crate files exist"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_input/Cargo.toml", "crates/ambition_input/src/lib.rs", "crates/ambition_input/src/actions.rs", "crates/ambition_input/src/control.rs", "crates/ambition_input/src/menu.rs", "crates/ambition_input/src/presets.rs", "crates/ambition_input/src/settings.rs"]
+
+[[policy]]
+id = "engine.ambition_input-absent-paths"
+scope = "engine"
+kind = "forbidden-path"
+owners = ["ambition_input"]
+watch_paths = ["crates/ambition_input"]
+rationale = "ambition_input: removed facades stay gone"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+paths = ["crates/ambition_actors/src/input.rs", "crates/ambition_actors/src/input", "crates/ambition_actors/src/persistence/settings/controls.rs"]
+
+[[policy]]
+id = "engine.ambition_input-manifest-deny"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_input"]
+watch_paths = ["crates/ambition_input/Cargo.toml"]
+rationale = "ambition_input must stay decoupled from sandbox content and reusable brains"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+deny = ["ambition_actors", "ambition_characters"]
+manifest = "crates/ambition_input/Cargo.toml"
+
+[[policy]]
+id = "engine.actors-no-input-shim"
+scope = "engine"
+kind = "file-omits"
+owners = ["ambition_input"]
+watch_paths = ["crates/ambition_actors/src/lib.rs"]
+rationale = "the ambition_actors::input compat shim was removed"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+forbid = ["pub use ambition_input as input"]
+file = "crates/ambition_actors/src/lib.rs"
+
+[[policy]]
+id = "engine.persistence-reexports-input-controls"
+scope = "engine"
+kind = "file-contains"
+owners = ["ambition_input"]
+watch_paths = ["crates/ambition_persistence/src/settings/mod.rs"]
+rationale = "persistence::settings::controls re-exports ambition_input::settings"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["pub use ambition_input::settings as controls"]
+file = "crates/ambition_persistence/src/settings/mod.rs"
+
+[[policy]]
+id = "engine.actors-settings-surfaces-controls"
+scope = "engine"
+kind = "file-contains"
+owners = ["ambition_input"]
+watch_paths = ["crates/ambition_actors/src/persistence/settings/mod.rs"]
+rationale = "actors persistence::settings re-surfaces controls (E1a layering)"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["controls"]
+file = "crates/ambition_actors/src/persistence/settings/mod.rs"
+
+
+# was: architecture_boundaries_touch_input_render_edge_is_intentional
+[[policy]]
+id = "engine.ambition_touch_input-member"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_touch_input"]
+watch_paths = ["Cargo.toml"]
+rationale = "ambition_touch_input must stay a registered workspace member"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+members = ["ambition_touch_input"]
+
+[[policy]]
+id = "engine.ambition_touch_input-manifest-deny"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_touch_input"]
+watch_paths = ["crates/ambition_touch_input/Cargo.toml"]
+rationale = "ambition_touch_input is a reusable touch presentation/input adapter; render edge is intentional"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+deny = ["ambition_app", "ambition_content", "ambition_host", "ambition_ldtk_map", "ambition_asset_manager", "bevy_ecs_ldtk"]
+manifest = "crates/ambition_touch_input/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_touch_input-manifest-allow"
+scope = "engine"
+kind = "dependency-allowlist"
+owners = ["ambition_touch_input"]
+watch_paths = ["crates/ambition_touch_input/Cargo.toml"]
+rationale = "ambition_touch_input is a reusable touch presentation/input adapter; render edge is intentional"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+allow = ["ambition_input", "ambition_engine_core", "ambition_platformer_primitives", "ambition_actors", "ambition_render", "ambition_cutscene", "ambition_ui_nav", "ambition_persistence"]
+manifest = "crates/ambition_touch_input/Cargo.toml"
+
+[[policy]]
+id = "engine.ambition_touch_input-source-purity"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_touch_input"]
+watch_paths = ["crates/ambition_touch_input/src"]
+rationale = "ambition_touch_input source stays free of forbidden refs"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_touch_input/src"]
+forbid = ["ambition_app::", "ambition_content::", "ambition_host::", "ambition_ldtk_map::", "bevy_ecs_ldtk::"]
+
+[[policy]]
+id = "engine.touch-input-render-edge"
+scope = "engine"
+kind = "file-contains"
+owners = ["ambition_touch_input"]
+watch_paths = ["crates/ambition_touch_input/Cargo.toml"]
+rationale = "F1.11: intentional render edge (visible touch HUD)"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+contains = ["ambition_render"]
+file = "crates/ambition_touch_input/Cargo.toml"
+
+
+# was: architecture_boundaries_f2_schedule_labels_use_primitive_home
+[[policy]]
+id = "engine.f2-schedule-labels-primitive-home"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_actors"]
+watch_paths = ["crates/ambition_runtime/src", "crates/ambition_sim_view/src", "crates/ambition_sim_view/tests", "game/ambition_content/src", "game/ambition_app/src"]
+rationale = "F2 schedule-label pass: pure schedule labels live in ambition_platformer_primitives::schedule"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_runtime/src", "crates/ambition_sim_view/src", "crates/ambition_sim_view/tests", "game/ambition_content/src", "game/ambition_app/src"]
+forbid = ["ambition_actors::schedule::SandboxSet", "ambition_actors::schedule::CombatSet", "ambition_actors::schedule::BossSteerSlot", "ambition_actors::schedule::PresentationSetupSet", "ambition_actors::schedule::SimulationSetupSet"]
+
+
+# was: architecture_boundaries_f2_asset_vocab_consumers_use_lower_crates
+[[policy]]
+id = "engine.f2-asset-vocab-lower-crates"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_actors"]
+watch_paths = ["crates/ambition_sim_view/src", "game/ambition_content/src", "game/ambition_content/tests", "game/ambition_app/src"]
+rationale = "F2 assets pass: pure asset vocabulary owned by ambition_sprite_sheet/ambition_asset_manager"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_sim_view/src", "game/ambition_content/src", "game/ambition_content/tests", "game/ambition_app/src"]
+forbid = ["ambition_actors::assets::game_assets::GameAssetConfig", "ambition_actors::assets::game_assets::GameAssets", "ambition_actors::assets::game_assets::EntitySprite", "ambition_actors::assets::sandbox_assets::SandboxAssetCatalog", "ambition_actors::assets::sandbox_assets::ids"]
+
+
+# was: architecture_boundaries_f2_character_anim_vocab_consumers_use_sprite_sheet
+[[policy]]
+id = "engine.f2-character-anim-sprite-sheet"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_actors"]
+watch_paths = ["crates/ambition_sim_view/src", "crates/ambition_render/src", "game/ambition_content/src", "game/ambition_app/src"]
+rationale = "F2 character-sprites pass: CharacterAnim vocabulary lives in ambition_sprite_sheet"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_sim_view/src", "crates/ambition_render/src", "game/ambition_content/src", "game/ambition_app/src"]
+forbid = ["ambition_actors::character_sprites::CharacterAnim"]
+
+
+# was: architecture_boundaries_f2_encounter_vocab_consumers_use_encounter_crate
+[[policy]]
+id = "engine.f2-encounter-vocab-encounter-crate"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_actors"]
+watch_paths = ["crates/ambition_runtime/src", "crates/ambition_sim_view/src", "game/ambition_content/src", "game/ambition_app/src", "game/ambition_app/tests/boss_lifecycle.rs"]
+rationale = "F2 encounter pass: pure encounter vocabulary lives in ambition_encounter"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_runtime/src", "crates/ambition_sim_view/src", "game/ambition_content/src", "game/ambition_app/src", "game/ambition_app/tests/boss_lifecycle.rs"]
+forbid = ["ambition_actors::encounter::EncounterEvent", "ambition_actors::encounter::EncounterMobSpec", "ambition_actors::encounter::EncounterMusicRequest", "ambition_actors::encounter::BossEncounterMusicRequest", "ambition_actors::encounter::EncounterPhase", "ambition_actors::encounter::EncounterRegistry", "ambition_actors::encounter::EncounterRun", "ambition_actors::encounter::EncounterSpec", "ambition_actors::encounter::EncounterState", "ambition_actors::encounter::EncounterWaveSpec", "ambition_actors::encounter::LockWallSpec", "ambition_actors::encounter::encounter_reward_chest_pos", "ambition_actors::encounter::encounter_reward_looted_flag", "ambition_actors::encounter::install_encounter_waves"]
+
+
+# was: architecture_boundaries_menu_backend_vocab_consumers_use_menu_crate
+[[policy]]
+id = "engine.menu-backend-vocab-menu-crate"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_actors"]
+watch_paths = ["game/ambition_app/src", "crates/ambition_actors/src"]
+rationale = "F2 menu-backend pass: InventoryUiBackend + availability constants live in ambition_menu::backend"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["game/ambition_app/src", "crates/ambition_actors/src"]
+forbid = ["ambition_actors::menu::backend", "crate::menu::backend::InventoryUiBackend", "crate::menu::backend::BEVY_UI_MENU_BACKEND_ENABLED", "crate::menu::backend::KALEIDOSCOPE_MENU_BACKEND_ENABLED"]
+
+
+# was: architecture_boundaries_dialog_vocab_consumers_use_dialog_crate
+[[policy]]
+id = "engine.dialog-vocab-dialog-crate"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_actors"]
+watch_paths = ["crates/ambition_runtime/src", "game/ambition_content/src", "game/ambition_app/src"]
+rationale = "F2 dialog pass: reusable dialog vocabulary lives in ambition_dialog"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_runtime/src", "game/ambition_content/src", "game/ambition_app/src"]
+forbid = ["ambition_actors::dialog::DialogState", "ambition_actors::dialog::DialogChoice", "ambition_actors::dialog::DialogChoiceSlot", "ambition_actors::dialog::dialog_input", "ambition_actors::dialog::dialog_pointer_input", "ambition_actors::dialog::dialog_reveal_tick", "ambition_actors::dialog::yarn_bindings::YarnContentBindings", "ambition_actors::dialog::yarn_bindings::YarnStateMirror", "ambition_actors::dialog::yarn_bindings::YarnStateMirrorData", "ambition_actors::dialog::yarn_bindings::YarnPresentationCue", "ambition_actors::dialog::yarn_bindings::clear_yarn_presentation_cue"]
+
+
+# was: architecture_boundaries_developer_persistence_uses_dev_tools_crate
+[[policy]]
+id = "engine.developer-persistence-dev-tools"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_actors"]
+watch_paths = ["game/ambition_app/src"]
+rationale = "F2 developer-persistence pass: DeveloperTools disk persistence scheduled through ambition_dev_tools"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["game/ambition_app/src"]
+forbid = ["ambition_actors::persistence::DeveloperPersistenceSchedulePlugin"]
+
+
+# was: architecture_boundaries_audio_facade_consumers_use_audio_crate
+[[policy]]
+id = "engine.audio-facade-audio-crate"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_actors"]
+watch_paths = ["game/ambition_app/src", "crates/ambition_runtime/src"]
+rationale = "F2 audio pass: pure playback vocabulary owned by ambition_audio::library"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["game/ambition_app/src", "crates/ambition_runtime/src"]
+forbid = ["ambition_actors::audio::AudioLibrary", "ambition_actors::audio::MusicPlaybackState", "ambition_actors::audio::RadioStationState", "ambition_actors::audio::MusicChannel", "ambition_actors::audio::SfxChannel", "ambition_actors::audio::set_radio_track"]
+
+
+# was: architecture_boundaries_machinery_does_not_import_content
+[[policy]]
+id = "engine.machinery-imports-no-content"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_actors"]
+watch_paths = ["crates/ambition_actors/src"]
+rationale = "machinery (all of ambition_actors/src) must not import the content module in code; comments/prose exempt"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_actors/src"]
+forbid = ["crate::content::", "ambition_content::"]
+skip_tests = true
+
+
+# was: architecture_boundaries_combat_kit_stays_content_free
+[[policy]]
+id = "engine.combat-kit-content-free"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_combat"]
+watch_paths = ["crates/ambition_combat/src"]
+rationale = "generic combat kit (now the ambition_combat crate) must not name Ambition content"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_combat/src"]
+forbid = ["crate::content", "crate::ambition_content", "CharacterArchetype", "CutRope", "cut_rope", "GnuTon", "GNU_TON", "gnu_ton", "Pirate", "Mockingbird", "BurningFlyingShark", "ExplodingMite", "DividingMite", "clockwork_warden"]
+
+
+# was: architecture_boundaries_presentation_does_not_use_the_archetype_enum
+[[policy]]
+id = "engine.presentation-no-archetype-enum"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_render"]
+watch_paths = ["crates/ambition_render/src"]
+rationale = "presentation (now the ambition_render crate) should consume authored visual data, not the archetype enum"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_render/src"]
+forbid = ["CharacterArchetype", "is_composite_spawn", "sandbag_"]
+skip_tests = true
+
+
+# was: architecture_boundaries_enemy_sim_reads_data_not_the_archetype_enum
+[[policy]]
+id = "engine.enemy-sim-reads-data"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_actors"]
+watch_paths = ["crates/ambition_actors/src/features/ecs/damage/mod.rs", "crates/ambition_render/src/rendering/features.rs"]
+rationale = "per-frame enemy sim reads projected tuning/capabilities, not named archetypes"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_actors/src/features/ecs/damage/mod.rs", "crates/ambition_render/src/rendering/features.rs"]
+forbid = ["CharacterArchetype", ".archetype"]
+production_only = true
+
+
+# was: architecture_boundaries_actor_crate_is_content_free_and_foundation_clean
+[[policy]]
+id = "engine.characters-content-free"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_characters"]
+watch_paths = ["crates/ambition_characters/src"]
+rationale = "ambition_characters must stay content-free with no upward imports"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_characters/src"]
+forbid = ["ambition_actors", "ambition_content", "ambition_app", "GnuTon", "gnu_ton", "Mockingbird", "mockingbird", "cut_rope", "CutRope", "Pirate", "BurningFlyingShark", "PuppySlug", "clockwork_warden", "CharacterArchetype"]
+
+
+# was: architecture_boundaries_sim_does_not_import_presentation
+[[policy]]
+id = "engine.sim-no-presentation-import"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_actors"]
+watch_paths = ["crates/ambition_actors/src"]
+rationale = "pure gameplay/sim code must not import crate::presentation (render depends on sim, not the reverse)"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_actors/src"]
+forbid = ["crate::presentation"]
+skip_paths = ["presentation/", "dialog/ui.rs", "runtime/setup.rs", "runtime/reset/"]
+
+
+# was: architecture_boundaries_game_mode_lives_with_schedule_vocabulary
+[[policy]]
+id = "engine.game-mode-schedule-vocab"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_actors"]
+watch_paths = ["crates/ambition_actors/src", "crates/ambition_runtime/src", "crates/ambition_sim_view/src", "crates/ambition_touch_input/src", "crates/ambition_render/src", "game/ambition_content/src", "game/ambition_app/src"]
+rationale = "all code should name GameMode through ambition_platformer_primitives::schedule"
+source_doc = "docs/architecture/architecture-boundaries.md"
+severity = "error"
+roots = ["crates/ambition_actors/src", "crates/ambition_runtime/src", "crates/ambition_sim_view/src", "crates/ambition_touch_input/src", "crates/ambition_render/src", "game/ambition_content/src", "game/ambition_app/src"]
+forbid = ["ambition_actors::GameMode", "ambition_actors::game_mode", "ambition_actors::session::game_mode", "ambition_actors::gameplay_allowed", "ambition_actors::gameplay_suspended", "crate::GameMode", "crate::gameplay_allowed", "crate::game_mode", "crate::session::game_mode"]

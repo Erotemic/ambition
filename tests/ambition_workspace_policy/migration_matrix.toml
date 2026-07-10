@@ -32,8 +32,8 @@ policies = ["engine.render-decoupled-member", "engine.actor-manifest-no-render",
 
 [[entry]]
 old_test = "architecture_boundaries_platformer_runtime_stays_content_free"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.platformer-runtime-content-free"]
 
 [[entry]]
 old_test = "architecture_boundaries_platformer_runtime_crate_is_extracted"
@@ -42,8 +42,8 @@ policies = []
 
 [[entry]]
 old_test = "architecture_boundaries_sim_does_not_import_presentation"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.sim-no-presentation-import"]
 
 [[entry]]
 old_test = "architecture_boundaries_menu_crate_stays_content_free"
@@ -57,13 +57,13 @@ policies = ["engine.persistence-crate-member", "engine.persistence-crate-manifes
 
 [[entry]]
 old_test = "architecture_boundaries_world_ir_and_ldtk_backend_are_split"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.ambition_world-member", "engine.ambition_world-manifest-deny", "engine.ambition_world-source-purity", "engine.ldtk-map-member", "engine.ldtk-map-manifest-deny", "engine.ldtk-map-source-purity"]
 
 [[entry]]
 old_test = "architecture_boundaries_projectiles_crate_is_model_only"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.ambition_projectiles-member", "engine.ambition_projectiles-manifest-deny", "engine.ambition_projectiles-source-purity", "engine.projectiles-actor-stepper-generic", "engine.projectiles-visual-kind-owns-expiry", "engine.projectiles-tests-travel-with-kit", "engine.projectiles-no-actor-facade-tests", "engine.projectiles-actor-mod-no-engine-tests"]
 
 [[entry]]
 old_test = "architecture_boundaries_encounter_crate_is_state_only"
@@ -72,13 +72,13 @@ policies = ["engine.encounter-crate-member", "engine.encounter-crate-manifest-pu
 
 [[entry]]
 old_test = "architecture_boundaries_items_crate_is_catalog_and_shop_only"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.ambition_items-member", "engine.ambition_items-absent-paths", "engine.ambition_items-manifest-deny", "engine.ambition_items-source-purity"]
 
 [[entry]]
 old_test = "architecture_boundaries_inventory_ui_crate_is_menu_state_only"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.ambition_inventory_ui-member", "engine.ambition_inventory_ui-manifest-allow", "engine.ambition_inventory_ui-source-purity"]
 
 [[entry]]
 old_test = "architecture_boundaries_asset_manager_is_backend_generic"
@@ -107,33 +107,33 @@ policies = []
 
 [[entry]]
 old_test = "architecture_boundaries_settings_menu_ir_is_foundation_only"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.ambition_settings_menu-member", "engine.ambition_settings_menu-manifest-allow", "engine.ambition_settings_menu-source-purity"]
 
 [[entry]]
 old_test = "architecture_boundaries_dev_tools_crate_is_foundation_only"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.ambition_dev_tools-member", "engine.ambition_dev_tools-manifest-allow", "engine.ambition_dev_tools-source-purity"]
 
 [[entry]]
 old_test = "architecture_boundaries_dialog_crate_is_runtime_only"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.ambition_dialog-member", "engine.ambition_dialog-manifest-allow", "engine.ambition_dialog-source-purity"]
 
 [[entry]]
 old_test = "architecture_boundaries_interaction_crate_is_foundation_only"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.ambition_interaction-manifest-deny", "engine.ambition_interaction-source-purity"]
 
 [[entry]]
 old_test = "architecture_boundaries_effects_crate_is_foundation_only"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.ambition_vfx-manifest-deny", "engine.ambition_vfx-source-purity"]
 
 [[entry]]
 old_test = "architecture_boundaries_input_crate_is_extracted"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.ambition_input-extracted-paths", "engine.ambition_input-absent-paths", "engine.ambition_input-manifest-deny", "engine.actors-no-input-shim", "engine.persistence-reexports-input-controls", "engine.actors-settings-surfaces-controls"]
 
 [[entry]]
 old_test = "architecture_boundaries_control_frame_lives_with_engine_body_contract"
@@ -142,8 +142,8 @@ policies = []
 
 [[entry]]
 old_test = "architecture_boundaries_game_mode_lives_with_schedule_vocabulary"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.game-mode-schedule-vocab"]
 
 [[entry]]
 old_test = "architecture_boundaries_f2_actor_facades_burned_down"
@@ -152,28 +152,28 @@ policies = []
 
 [[entry]]
 old_test = "architecture_boundaries_f2_schedule_labels_use_primitive_home"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.f2-schedule-labels-primitive-home"]
 
 [[entry]]
 old_test = "architecture_boundaries_f2_asset_vocab_consumers_use_lower_crates"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.f2-asset-vocab-lower-crates"]
 
 [[entry]]
 old_test = "architecture_boundaries_f2_character_anim_vocab_consumers_use_sprite_sheet"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.f2-character-anim-sprite-sheet"]
 
 [[entry]]
 old_test = "architecture_boundaries_f2_encounter_vocab_consumers_use_encounter_crate"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.f2-encounter-vocab-encounter-crate"]
 
 [[entry]]
 old_test = "architecture_boundaries_menu_backend_vocab_consumers_use_menu_crate"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.menu-backend-vocab-menu-crate"]
 
 [[entry]]
 old_test = "architecture_boundaries_app_menu_settings_vocab_consumers_use_lower_crates"
@@ -197,18 +197,18 @@ policies = []
 
 [[entry]]
 old_test = "architecture_boundaries_dialog_vocab_consumers_use_dialog_crate"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.dialog-vocab-dialog-crate"]
 
 [[entry]]
 old_test = "architecture_boundaries_developer_persistence_uses_dev_tools_crate"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.developer-persistence-dev-tools"]
 
 [[entry]]
 old_test = "architecture_boundaries_audio_facade_consumers_use_audio_crate"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.audio-facade-audio-crate"]
 
 [[entry]]
 old_test = "architecture_boundaries_touch_input_crate_is_extracted"
@@ -217,8 +217,8 @@ policies = []
 
 [[entry]]
 old_test = "architecture_boundaries_touch_input_render_edge_is_intentional"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.ambition_touch_input-member", "engine.ambition_touch_input-manifest-deny", "engine.ambition_touch_input-manifest-allow", "engine.ambition_touch_input-source-purity", "engine.touch-input-render-edge"]
 
 [[entry]]
 old_test = "architecture_boundaries_room_feature_spawns_do_not_add_raw_spawns"
@@ -282,18 +282,18 @@ policies = []
 
 [[entry]]
 old_test = "architecture_boundaries_portal_crate_is_extracted"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.ambition_portal-member", "engine.ambition_portal-extracted-paths", "engine.ambition_portal-manifest-deny", "engine.ambition_portal-manifest-allow", "engine.ambition_portal-source-purity", "engine.portal-exposes-plugin", "engine.portal-plugin-impl", "engine.actors-no-portal-facade"]
 
 [[entry]]
 old_test = "architecture_boundaries_portal_presentation_crate_is_extracted"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.ambition_portal_presentation-member", "engine.ambition_portal_presentation-extracted-paths", "engine.ambition_portal_presentation-manifest-deny", "engine.ambition_portal_presentation-manifest-allow", "engine.ambition_portal_presentation-source-purity", "engine.portal-presentation-plugin", "engine.portal-mechanic-no-renderer-dep", "engine.actors-no-portal-presentation-dep"]
 
 [[entry]]
 old_test = "architecture_boundaries_time_crate_is_extracted"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.ambition_time-member", "engine.ambition_time-extracted-paths", "engine.ambition_time-manifest-deny", "engine.ambition_time-source-purity", "engine.time-exposes-plugin", "engine.time-facades-removed", "engine.time-world-time-bridge", "engine.time-sandbox-policy-exists"]
 
 [[entry]]
 old_test = "architecture_boundaries_f3_2_swept_movers_use_kernel_sweep_sample"
@@ -312,23 +312,23 @@ policies = []
 
 [[entry]]
 old_test = "architecture_boundaries_machinery_does_not_import_content"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.machinery-imports-no-content"]
 
 [[entry]]
 old_test = "architecture_boundaries_combat_kit_stays_content_free"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.combat-kit-content-free"]
 
 [[entry]]
 old_test = "architecture_boundaries_presentation_does_not_use_the_archetype_enum"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.presentation-no-archetype-enum"]
 
 [[entry]]
 old_test = "architecture_boundaries_enemy_sim_reads_data_not_the_archetype_enum"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.enemy-sim-reads-data"]
 
 [[entry]]
 old_test = "architecture_boundaries_enemy_config_is_archetype_free"
@@ -347,5 +347,5 @@ policies = []
 
 [[entry]]
 old_test = "architecture_boundaries_actor_crate_is_content_free_and_foundation_clean"
-disposition = "legacy-pending"
-policies = []
+disposition = "declarative"
+policies = ["engine.characters-content-free"]

@@ -81,6 +81,8 @@ fn policy_runner_self_tests() {
     poison_dependency_denylist_reacts();
     poison_dependency_allowlist_reacts();
     poison_forbidden_source_reference_reacts();
+    poison_file_contains_reacts();
+    poison_file_omits_reacts();
     // …and its knobs behave.
     comment_lines_are_exempt_from_source_scan();
     whole_ident_does_not_overmatch_but_substring_does();
@@ -311,6 +313,40 @@ fn poison_forbidden_source_reference_reacts() {
     assert!(
         !run_one(&p).is_empty(),
         "forbidden-source-reference must catch the fixture's `use ambition_content::`"
+    );
+}
+
+fn poison_file_contains_reacts() {
+    let p = poison(&format!(
+        r#"
+        id = "poison.file-contains"
+        scope = "repository"
+        kind = "file-contains"
+        rationale = "poison"
+        file = "{POISON_MANIFEST}"
+        contains = ["this string is definitely not in the manifest"]
+    "#
+    ));
+    assert!(
+        !run_one(&p).is_empty(),
+        "file-contains must fail when a required string is missing"
+    );
+}
+
+fn poison_file_omits_reacts() {
+    let p = poison(&format!(
+        r#"
+        id = "poison.file-omits"
+        scope = "repository"
+        kind = "file-omits"
+        rationale = "poison"
+        file = "{POISON_MANIFEST}"
+        forbid = ["ambition_content"]
+    "#
+    ));
+    assert!(
+        !run_one(&p).is_empty(),
+        "file-omits must fail when a forbidden string is present"
     );
 }
 

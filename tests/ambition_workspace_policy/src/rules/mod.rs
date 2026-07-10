@@ -4,6 +4,7 @@
 //! scanners live in [`crate::custom`].
 
 pub mod dependency;
+pub mod file_content;
 pub mod paths;
 pub mod source_reference;
 pub mod workspace_member;

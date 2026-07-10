@@ -46,11 +46,52 @@ fn registry_of(sim: &mut SandboxSim) -> SnapshotRegistry {
         .expect("SnapshotRegistryPlugin installs it")
 }
 
-fn sim(room: &str) -> Option<SandboxSim> {
+/// Build a sandbox sim for `room` **and prove it landed in that room**, or say why
+/// it could not.
+///
+/// H1 (guardrail credibility): "required rooms can disappear from the gate." The
+/// disappearance is subtler than a build error. An unknown room id does not fail
+/// construction — `init_sandbox_resources` calls `set_start_by_id`, and on no match
+/// it prints a warning and leaves the LDtk project's *authored* start room active
+/// (see `resources.rs`). So `SandboxSim::new_with_options(..).is_ok()` is not enough:
+/// a fixture-path regression that makes `room` unmatchable would silently run every
+/// gate below against the WRONG world and pass. `try_sim` therefore also checks that
+/// the active room is the one asked for — matching `room_index_by_id`'s own rule
+/// (id **or** world name).
+fn try_sim(room: &str) -> Result<SandboxSim, String> {
     let opts = SandboxSimOptions::default()
         .with_timestep(TimestepMode::fixed_60hz())
         .with_start_room(room);
-    SandboxSim::new_with_options(opts).ok()
+    let sim = SandboxSim::new_with_options(opts)
+        .map_err(|e| format!("room `{room}` failed to build: {e}"))?;
+    let active = {
+        let spec = sim
+            .world()
+            .get_resource::<ambition::world::rooms::RoomSet>()
+            .ok_or_else(|| format!("room `{room}`: no RoomSet after build"))?
+            .active_spec();
+        if spec.id == room || spec.world.name == room {
+            None
+        } else {
+            Some(spec.id.clone())
+        }
+    };
+    if let Some(fell_into) = active {
+        return Err(format!(
+            "room `{room}` did not become active — the sim fell back to `{fell_into}`. \
+             A required room that silently becomes another room makes its gate pass \
+             against the wrong world (H1)."
+        ));
+    }
+    Ok(sim)
+}
+
+/// A **required** room. A load failure — or a silent fallback to another room — is a
+/// HARD failure here, not a skip. Every gate in this file (canary, replay oracle,
+/// SimId ledger, coverage ledger) builds through this, so a room that vanishes takes
+/// its gate down with it instead of passing vacuously.
+fn sim(room: &str) -> SandboxSim {
+    try_sim(room).unwrap_or_else(|e| panic!("{e}"))
 }
 
 /// Step `sim` through the seeded policy's actions, hashing after each tick.
@@ -73,9 +114,7 @@ fn two_sims_on_the_same_input_stream_never_diverge() {
         ("portal_lab", 42),
         ("mockingbird_arena", 2026),
     ] {
-        let (Some(mut a), Some(mut b)) = (sim(room), sim(room)) else {
-            continue; // a room the fixture cannot load is not this test's business
-        };
+        let (mut a, mut b) = (sim(room), sim(room));
         // ONE registry for both sims: two sims hashed by two definitions of "the sim"
         // are not comparable.
         let reg = registry_of(&mut a);
@@ -111,9 +150,7 @@ fn two_sims_on_the_same_input_stream_never_diverge() {
 /// ADR 0023's determinism lints follow.
 #[test]
 fn the_canary_reports_a_divergence_when_one_sim_is_given_different_input() {
-    let (Some(mut a), Some(mut b)) = (sim("gap_run"), sim("gap_run")) else {
-        return;
-    };
+    let (mut a, mut b) = (sim("gap_run"), sim("gap_run"));
     // ONE registry, for both sims: two sims hashed by two definitions of "the sim"
     // are not comparable. `b` keeps its copy as an unread resource.
     let reg = registry_of(&mut a);
@@ -133,7 +170,7 @@ fn the_canary_reports_a_divergence_when_one_sim_is_given_different_input() {
 /// that reads nothing and the canary would never notice.
 #[test]
 fn moving_a_body_changes_the_registered_hash() {
-    let Some(mut s) = sim("gap_run") else { return };
+    let mut s = sim("gap_run");
     let reg = registry_of(&mut s);
     let before = reg.hash_world(s.world());
 
@@ -153,6 +190,58 @@ fn moving_a_body_changes_the_registered_hash() {
         reg.hash_world(s.world()),
         "the registered hash must see the player's body — it is the first thing a \
          rollback would have to restore"
+    );
+}
+
+/// **A required room that fails to load — or silently becomes another room — is a
+/// HARD failure, not a skip.** (H1, guardrail credibility.)
+///
+/// This is the poison test for the hard-fail behavior in `sim`/`try_sim` above, and
+/// it is in the same commit as that behavior (the poison-test atomicity rule:
+/// static-audit-response-2026-07-10.md). Before Series 1, every gate in this file
+/// opened with `let Some(s) = sim(room) else { continue }`, so a fixture-load failure
+/// became a green skip. Worse, an unknown room id does not even fail to build:
+/// `set_start_by_id` warns and leaves the authored start room active, so a required
+/// room could vanish and be replaced by the WRONG world with nothing crying.
+///
+/// This proves the new `sim` cries in both directions: `try_sim` reports the
+/// substitution, and `sim` turns that report into a panic.
+#[test]
+fn a_missing_required_room_is_a_hard_failure_not_a_skip() {
+    const GHOST: &str = "no_such_room_exists_anywhere";
+
+    // The failure is REPORTED, not swallowed. The build succeeds (an unknown room
+    // falls back to the authored start room), so the tell is that the active room is
+    // not the one asked for.
+    let err = match try_sim(GHOST) {
+        // `SandboxSim` is not `Debug`, so we cannot use `expect_err`.
+        Ok(_) => panic!(
+            "a room no world authors must not pass `try_sim` — it falls back to the \
+             authored start room, which is exactly the silent substitution H1 is about"
+        ),
+        Err(e) => e,
+    };
+    assert!(
+        err.contains(GHOST) && err.contains("fell back"),
+        "the failure must name the missing room and the substitution, so a real \
+         fixture-path regression is diagnosable: {err}"
+    );
+
+    // ...and the required-room helper turns that report into a panic, so no gate below
+    // can run against a substituted room and pass.
+    let crashed = quietly(|| sim(GHOST)).is_err();
+    assert!(
+        crashed,
+        "`sim` must panic on a room it cannot make active — otherwise a fixture-path \
+         regression makes a required room disappear from the canary, replay, and \
+         ledgers, and every one of them passes vacuously (H1)."
+    );
+
+    // The control: a room that DOES load passes `try_sim`. Without this, a `try_sim`
+    // that returned `Err` unconditionally would also satisfy the assertions above.
+    assert!(
+        try_sim("gap_run").is_ok(),
+        "a real room must still build, or the hard-fail helper rejects everything"
     );
 }
 
@@ -188,7 +277,7 @@ fn the_sim_id_migration_ledger() {
         "mockingbird_arena",
         "gnu_ton_arena",
     ] {
-        let Some(mut s) = sim(room) else { continue };
+        let mut s = sim(room);
         let mut policy = RandomWalkPolicy::traversal_stress(7);
         // The traversal policy never attacks, so it never spawns a projectile —
         // and a ledger of anonymous bodies that never sees a projectile is a
@@ -263,7 +352,7 @@ fn the_snapshot_coverage_ledger() {
         "mockingbird_arena",
         "gnu_ton_arena",
     ] {
-        let Some(mut s) = sim(room) else { continue };
+        let mut s = sim(room);
         // The registry the APP built: engine entries plus whatever `ambition_content`
         // registered for its own boss specials.
         let reg = registry_of(&mut s);
@@ -304,14 +393,14 @@ fn the_snapshot_coverage_ledger() {
     // resources explicitly — "`WorldTime` + every sim clock", "every seeded RNG
     // resource", "active room + spawn state", "falling-sand grids (ONE resource blob)".
     // None of that was being measured.
-    let mut resources = Vec::new();
-    if let Some(mut s) = sim("mockingbird_arena") {
+    let resources = {
+        let mut s = sim("mockingbird_arena");
         let reg = registry_of(&mut s);
         for _ in 0..40 {
             s.step(RandomWalkPolicy::traversal_stress(7).act());
         }
-        resources = reg.unclaimed_resources(s.world());
-    }
+        reg.unclaimed_resources(s.world())
+    };
     eprintln!(
         "=== N3.1 unregistered sim RESOURCES ({}) ===\n{}\n",
         resources.len(),
@@ -418,7 +507,7 @@ fn a_restored_sim_replays_the_future_it_was_rewound_from() {
 fn replay_after_rewind(room: &str) {
     use ambition::runtime::snapshot::{restore, take};
 
-    let Some(mut s) = sim(room) else { return };
+    let mut s = sim(room);
     let reg = registry_of(&mut s);
 
     // Warm up, so the snapshot is of a moving world rather than of a spawn pose.
@@ -481,7 +570,7 @@ fn replay_after_rewind(room: &str) {
 fn a_restore_of_a_real_room_is_exact_where_it_is_registered_and_honest_where_it_is_not() {
     use ambition::runtime::snapshot::{restore, take};
 
-    let Some(mut s) = sim("gap_run") else { return };
+    let mut s = sim("gap_run");
     let reg = registry_of(&mut s);
     let mut policy = RandomWalkPolicy::traversal_stress(3);
     for _ in 0..40 {
@@ -556,7 +645,7 @@ fn a_move_in_flight_rewinds_to_its_clock_and_not_to_its_hitboxes() {
         smash_charge_mult: 1.0,
     };
 
-    let Some(mut s) = sim("gap_run") else { return };
+    let mut s = sim("gap_run");
     let reg = registry_of(&mut s);
     for _ in 0..10 {
         s.step(RandomWalkPolicy::traversal_stress(3).act());
@@ -609,9 +698,7 @@ fn a_move_in_flight_rewinds_to_its_clock_and_not_to_its_hitboxes() {
 /// This test is the thing that would have caught the silence.
 #[test]
 fn the_content_crate_registers_its_own_boss_special_state() {
-    let Some(mut s) = sim("mockingbird_arena") else {
-        return;
-    };
+    let mut s = sim("mockingbird_arena");
     let reg = registry_of(&mut s);
     let names: Vec<&str> = reg.names().collect();
 
@@ -660,9 +747,7 @@ fn the_content_crate_registers_its_own_boss_special_state() {
 fn a_rewind_empties_the_message_channels_it_registered() {
     use ambition::runtime::snapshot::{restore, take};
 
-    let Some(mut s) = sim("mockingbird_arena") else {
-        return;
-    };
+    let mut s = sim("mockingbird_arena");
     let reg = registry_of(&mut s);
     for _ in 0..40 {
         s.step(RandomWalkPolicy::traversal_stress(7).act());

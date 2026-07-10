@@ -29,9 +29,6 @@ roots = ["crates", "game"]
 path = "crates/ambition_runtime/src/snapshot.rs"
 reason = "N3.1 bootstrap god module (audit M9): public API + wire format + registry + restore/reconciliation + per-crate codecs + diagnostics in one file. The codec trait moves down and the file splits during the N3.2 substrate work (netcode.md)."
 
-[[waiver]]
-path = "crates/ambition_combat/src/moveset.rs"
-reason = "the moveset runtime (audit M9): MoveSpec pricing + playback proper-time clock + strike-volume systems. Splits alongside the N3.2 codec relocation."
 
 [[waiver]]
 path = "crates/ambition_portal_presentation/src/view_cones.rs"
@@ -45,9 +42,6 @@ reason = "portal view-cone geometry math. Presentation; dense trig with no clean
 path = "crates/ambition_characters/src/brain/smash/mod.rs"
 reason = "the smash-brain state machine. A decomposition target; no sub-module extracted yet."
 
-[[waiver]]
-path = "crates/ambition_engine_core/src/surface.rs"
-reason = "the collision-surface primitive. Core geometry; a split is not yet scoped."
 
 [[waiver]]
 path = "crates/ambition_entity_catalog/src/lib.rs"

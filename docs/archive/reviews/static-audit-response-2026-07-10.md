@@ -93,3 +93,50 @@ The accepted placement is:
 1. **Guardrail audit:** each poison test demonstrably detects its intended failure, required rooms cannot disappear, and the workspace/source scope is explicit.
 2. **Substrate audit:** identity, ownership, reconciliation ordering, codec semantics, coverage, and losslessness are reviewed independently.
 3. **Ledger audit:** every `COMPLETE` status points to enforced evidence; diagnostics and measurements are labeled as such.
+
+---
+
+## Execution evidence (Series 1 + Series 2, 2026-07-10)
+
+Executed by Opus 4.8. Every slice is one commit, green before commit, with its poison
+test's red-before/green-after demonstration recorded in the commit message.
+
+### The gate, run end to end (exact commands, all green)
+
+```
+cargo test -p ambition_actors --lib                         → 744 passed
+cargo test -p ambition_engine_core -p ambition_runtime \
+  -p ambition_host -p ambition_dialog -p ambition_sim_view \
+  -p ambition_combat -p ambition_characters                 → all segments ok (356/100/24/282/… )
+cargo test -p ambition_content --features portal            → 101 (+3/5/4/3/1) passed
+cargo test -p ambition_content --features ui --test yarn_compile → 1 passed
+cargo test -p ambition_app --features rl_sim                → all ok (139 lib + 67 arch-boundary + desync_canary 15 + …)
+```
+
+### Poison tests — each fails for its intended reason, passes after its fix
+
+| Poison test | Commit | Red-before demonstration |
+|---|---|---|
+| `a_missing_required_room_is_a_hard_failure_not_a_skip` | d9c151bc | fallback-detection disabled → FAILS ("a room no world authors must not pass try_sim") |
+| `the_coverage_ledger_reacts_to_a_new_unregistered_resource` | 4ddfd4cd | debt-insertion removed → count assertion FAILS (left 181, right 182) |
+| N0.3 widened scan | 705b6695 | caught 2 real `falling_sand.rs` rule-3 violations |
+| D-B `no_production_module_exceeds_the_size_limit_unwaived` | f2034a23 | a disabled waiver → FAILS naming `falling_sand.rs: 1588 lines` |
+| `restore_refuses_a_world_with_two_entities_of_one_identity` | 3bedea4b | identity assert neutered → FAILS ("must refuse a duplicated identity") |
+| `restore_refuses_a_snapshot_that_spans_a_room_transition` | 25ae1d3c | boundary check disabled → FAILS ("reconciled a cross-room snapshot") |
+| `stale_state_is_measured_after_reconciliation_not_before` | 2fea4942 | measured before despawn → FAILS (despawned ghost's component leaks) |
+| `restore_refuses_a_corrupted_blob_rather_than_leaving_stale_state` | 86ae239a | decode check disabled → FAILS (returns `Ok(RestoreReport{patched:2,…})`) |
+| `the_sim_resource_universe_excludes_presentation_but_keeps_sim_state` | 17247e02 | teeth both ways: drops `sim_view`/`ldtk_map`, keeps `ClockState` |
+| `restore_refuses_a_dynamically_spawned_entity_born_inside_the_window` | c44c4ebd | reject disabled → FAILS (returns `Ok(RestoreReport{respawned:1,…})`) |
+
+### Mapping to the re-audit checkpoints
+
+- **Guardrail audit:** required rooms hard-fail (silent room-fallback caught too); N0.3 scans content + demo rules with a non-vacuous self-check; the coverage ledger reacts to added debt; D-B has an executable line gate + bidirectional reasoned waiver list.
+- **Substrate audit:** identity (`duplicate_live_ids` + panic), room ownership (per-tick invariant + `CrossRoomBoundary`), reconciliation ordering (stale computed last, H4), codec semantics (`DecodeFailed` in every build), coverage/`lossless()` (positive contract + named `SIM_RESOURCE_EXCLUSIONS`), and the dynamic-birth window bound (`UnsupportedDynamicBirth`) each have an independent enforced test.
+- **Ledger audit:** `tracks.md` N0.3/N0.4 = LANDED, N3.2 substrate = LANDED with remainder named; `portal_lab` corrected to a transition-spanning window (not a leak).
+
+### Genuinely remaining (named, not hidden)
+
+- **Full atomic room-context restore** (entities + platforms + clocks) — what moves `portal_lab` from a REFUSED window to CLEAN. Restoring only `RoomSet.active`+geometry would be *worse* than the refusal (reviewer).
+- **Per-spawner reconstruction recipes** — no suite room spawns AND kills a dynamic child inside a window, so the recipe path is unexercised; the `UnsupportedDynamicBirth` rule is the honest bound until then.
+- **Boss-hand identity** — `giant_gnu_hand_{left,right}_7` get a `FeatureId`, so `ensure_sim_id` promotes them into the `placement:` namespace with a non-deterministic name; they should mint `SimId::spawned(parent, counter)`.
+- **The N3.2 codec relocation** (move `SnapshotState` down so each crate owns its codec) and the `snapshot.rs`/`moveset.rs` god-module splits (audit M9) remain D-B waivers.

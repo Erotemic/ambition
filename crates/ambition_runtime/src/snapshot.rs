@@ -153,6 +153,19 @@ pub fn put_bool(out: &mut Vec<u8>, v: bool) {
     out.push(v as u8);
 }
 
+pub fn put_u8(out: &mut Vec<u8>, v: u8) {
+    out.push(v);
+}
+
+pub fn put_u32(out: &mut Vec<u8>, v: u32) {
+    out.extend_from_slice(&v.to_le_bytes());
+}
+
+pub fn put_vec2(out: &mut Vec<u8>, v: bevy::math::Vec2) {
+    put_f32(out, v.x);
+    put_f32(out, v.y);
+}
+
 /// A cursor over a blob. Every getter returns `None` past the end, so a decoder
 /// that reads more than its encoder wrote fails rather than guesses.
 pub struct Reader<'a> {
@@ -188,6 +201,18 @@ impl<'a> Reader<'a> {
 
     pub fn bool(&mut self) -> Option<bool> {
         Some(*self.take(1)?.first()? != 0)
+    }
+
+    pub fn u8(&mut self) -> Option<u8> {
+        Some(*self.take(1)?.first()?)
+    }
+
+    pub fn u32(&mut self) -> Option<u32> {
+        Some(u32::from_le_bytes(self.take(4)?.try_into().ok()?))
+    }
+
+    pub fn vec2(&mut self) -> Option<bevy::math::Vec2> {
+        Some(bevy::math::Vec2::new(self.f32()?, self.f32()?))
     }
 
     /// Every byte was consumed. A decoder that leaves bytes on the floor has
@@ -812,6 +837,23 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     // the divergence may be a shot that has already despawned.
     registry.register_component::<SimIdCounter>("sim_id_counters");
 
+    // The mutable body-state clusters. A coyote timer that survives a rollback is a
+    // jump the player did not earn; a dash cooldown that survives one is a dash they
+    // did. Each is plain data, and each is exactly what the sim advances.
+    registry.register_component::<bc::BodyGroundState>("body_ground_state");
+    registry.register_component::<bc::BodyWallState>("body_wall_state");
+    registry.register_component::<bc::BodyJumpState>("body_jump_state");
+    registry.register_component::<bc::BodyDashState>("body_dash_state");
+    registry.register_component::<bc::BodyFlightState>("body_flight_state");
+    registry.register_component::<bc::BodyBlinkState>("body_blink_state");
+    registry.register_component::<bc::BodyDodgeState>("body_dodge_state");
+    registry.register_component::<bc::BodyShieldState>("body_shield_state");
+    registry.register_component::<bc::BodyOffense>("body_offense");
+    registry.register_component::<bc::BodyLifetime>("body_lifetime");
+    registry.register_component::<bc::BodyActionBuffer>("body_action_buffer");
+    registry.register_component::<bc::BodyBaseSize>("body_base_size");
+    registry.register_component::<bc::SweepSample>("sweep_sample");
+
     // **The blind spot, made loud.** Simulated bodies with no `SimId` cannot be
     // snapshotted, restored, or defended by the canary. Hashing the COUNT means a
     // sim that spawned a different number of un-identified bodies still diverges —
@@ -859,27 +901,150 @@ impl SnapshotState for ambition_time::WorldTime {
 
 impl SnapshotState for BodyKinematics {
     fn encode(&self, out: &mut Vec<u8>) {
-        for v in [
-            self.pos.x,
-            self.pos.y,
-            self.vel.x,
-            self.vel.y,
-            self.size.x,
-            self.size.y,
-            self.facing,
-        ] {
-            put_f32(out, v);
-        }
+        put_vec2(out, self.pos);
+        put_vec2(out, self.vel);
+        put_vec2(out, self.size);
+        put_f32(out, self.facing);
     }
     fn decode(r: &mut Reader<'_>) -> Option<Self> {
         Some(BodyKinematics {
-            pos: bevy::math::Vec2::new(r.f32()?, r.f32()?),
-            vel: bevy::math::Vec2::new(r.f32()?, r.f32()?),
-            size: bevy::math::Vec2::new(r.f32()?, r.f32()?),
+            pos: r.vec2()?,
+            vel: r.vec2()?,
+            size: r.vec2()?,
             facing: r.f32()?,
         })
     }
 }
+
+// The mutable body-state clusters. These are what a rewind is FOR: a coyote timer
+// that survives a rollback is a jump the player did not earn.
+macro_rules! snapshot_pod {
+    ($ty:path { $($field:ident : $get:ident),+ $(,)? }) => {
+        impl SnapshotState for $ty {
+            fn encode(&self, out: &mut Vec<u8>) {
+                $( paste_put(out, self.$field); )+
+            }
+            fn decode(r: &mut Reader<'_>) -> Option<Self> {
+                Some(Self { $( $field: r.$get()? ),+ })
+            }
+        }
+    };
+}
+
+/// One overload per encodable primitive, so `snapshot_pod!` does not have to name
+/// the writer twice. The reader cannot do this — `Option<T>` inference would need
+/// the type back — so the macro names the getter and infers the putter.
+trait PasteEncode: Copy {
+    fn put(self, out: &mut Vec<u8>);
+}
+impl PasteEncode for f32 {
+    fn put(self, out: &mut Vec<u8>) {
+        put_f32(out, self);
+    }
+}
+impl PasteEncode for bool {
+    fn put(self, out: &mut Vec<u8>) {
+        put_bool(out, self);
+    }
+}
+impl PasteEncode for u8 {
+    fn put(self, out: &mut Vec<u8>) {
+        put_u8(out, self);
+    }
+}
+impl PasteEncode for u32 {
+    fn put(self, out: &mut Vec<u8>) {
+        put_u32(out, self);
+    }
+}
+impl PasteEncode for i32 {
+    fn put(self, out: &mut Vec<u8>) {
+        put_i32(out, self);
+    }
+}
+impl PasteEncode for bevy::math::Vec2 {
+    fn put(self, out: &mut Vec<u8>) {
+        put_vec2(out, self);
+    }
+}
+fn paste_put<T: PasteEncode>(out: &mut Vec<u8>, v: T) {
+    v.put(out);
+}
+
+use ambition_engine_core::body_clusters as bc;
+
+snapshot_pod!(bc::BodyGroundState {
+    on_ground: bool,
+    coyote_timer: f32,
+    drop_through_timer: f32,
+    rebound_cooldown: f32,
+});
+snapshot_pod!(bc::BodyWallState {
+    on_wall: bool,
+    wall_normal_x: f32,
+    wall_clinging: bool,
+    wall_climbing: bool,
+    pre_wall_vel: vec2,
+    pre_wall_vel_age: f32,
+});
+snapshot_pod!(bc::BodyJumpState {
+    air_jumps_available: u8,
+    ladder_jump_boost: f32,
+    ladder_drop_through_timer: f32,
+    ladder_drop_through_hold_lock: bool,
+});
+snapshot_pod!(bc::BodyDashState {
+    charges_available: u8,
+    timer: f32,
+    cooldown: f32,
+});
+snapshot_pod!(bc::BodyFlightState {
+    fly_enabled: bool,
+    flight_phase: f32,
+    gliding: bool,
+    fast_falling: bool,
+    carried_run: f32,
+});
+snapshot_pod!(bc::BodyBlinkState {
+    cooldown: f32,
+    hold_active: bool,
+    hold_timer: f32,
+    aiming: bool,
+    aim_offset: vec2,
+    grace_timer: f32,
+});
+snapshot_pod!(bc::BodyDodgeState {
+    roll_timer: f32,
+    cooldown: f32,
+});
+snapshot_pod!(bc::BodyShieldState {
+    active: bool,
+    parry_window_timer: f32,
+});
+snapshot_pod!(bc::BodyOffense {
+    damage_multiplier: i32,
+    invincible: bool,
+});
+snapshot_pod!(bc::BodyLifetime {
+    time_alive: f32,
+    resets: u32,
+    max_speed: f32,
+});
+snapshot_pod!(bc::BodyActionBuffer {
+    jump: f32,
+    dash: f32,
+    attack: f32,
+    pogo: f32,
+    projectile: f32,
+    blink: f32,
+});
+snapshot_pod!(bc::BodyBaseSize { base_size: vec2 });
+snapshot_pod!(bc::SweepSample {
+    prev: vec2,
+    curr: vec2,
+    vel: vec2,
+    half: vec2,
+});
 
 impl SnapshotState for ambition_characters::actor::BodyHealth {
     fn encode(&self, out: &mut Vec<u8>) {
@@ -1238,6 +1403,132 @@ mod tests {
             invulnerable: true,
         }));
         round_trip(SimIdCounter(u64::MAX));
+
+        // The body-state clusters. `snapshot_pod!` writes these codecs from a field
+        // list, so the risk is a field OMITTED from the list, not a field mistyped —
+        // and an omitted field is exactly what `encode ∘ decode ∘ encode` cannot see.
+        // `every_registered_component_survives_a_world_round_trip` below is the one
+        // that catches it, by comparing hashes of a world rather than of a value.
+        round_trip(bc::BodyGroundState {
+            on_ground: true,
+            coyote_timer: 0.1,
+            drop_through_timer: -0.0,
+            rebound_cooldown: 3.0,
+        });
+        round_trip(bc::BodyWallState {
+            on_wall: true,
+            wall_normal_x: -1.0,
+            wall_clinging: false,
+            wall_climbing: true,
+            pre_wall_vel: Vec2::new(1.0, 2.0),
+            pre_wall_vel_age: 0.5,
+        });
+        round_trip(bc::BodyJumpState {
+            air_jumps_available: 2,
+            ladder_jump_boost: 1.5,
+            ladder_drop_through_timer: 0.0,
+            ladder_drop_through_hold_lock: true,
+        });
+        round_trip(bc::BodyDashState {
+            charges_available: 255,
+            timer: 0.2,
+            cooldown: 0.3,
+        });
+        round_trip(bc::BodyFlightState {
+            fly_enabled: true,
+            flight_phase: 6.28,
+            gliding: true,
+            fast_falling: false,
+            carried_run: -12.0,
+        });
+        round_trip(bc::BodyBlinkState {
+            cooldown: 1.0,
+            hold_active: true,
+            hold_timer: 0.4,
+            aiming: true,
+            aim_offset: Vec2::new(-3.0, 4.0),
+            grace_timer: 0.05,
+        });
+        round_trip(bc::BodyDodgeState {
+            roll_timer: 0.1,
+            cooldown: 0.9,
+        });
+        round_trip(bc::BodyShieldState {
+            active: true,
+            parry_window_timer: 0.08,
+        });
+        round_trip(bc::BodyOffense {
+            damage_multiplier: -2,
+            invincible: true,
+        });
+        round_trip(bc::BodyLifetime {
+            time_alive: 99.5,
+            resets: u32::MAX,
+            max_speed: 1200.0,
+        });
+        round_trip(bc::BodyActionBuffer {
+            jump: 0.1,
+            dash: 0.2,
+            attack: 0.3,
+            pogo: 0.4,
+            projectile: 0.5,
+            blink: 0.6,
+        });
+        round_trip(bc::BodyBaseSize {
+            base_size: Vec2::new(16.0, 32.0),
+        });
+        round_trip(bc::SweepSample {
+            prev: Vec2::new(1.0, 2.0),
+            curr: Vec2::new(3.0, 4.0),
+            vel: Vec2::new(5.0, 6.0),
+            half: Vec2::new(7.0, 8.0),
+        });
+    }
+
+    /// **The test `encode ∘ decode ∘ encode` cannot be: a field left out of the
+    /// codec entirely.**
+    ///
+    /// A codec that never touches `coyote_timer` round-trips its own bytes perfectly
+    /// and loses the timer. So: put a world in a known state, snapshot it, wreck
+    /// EVERY registered component, restore, and demand the world hash come back. The
+    /// hash reads the components through the same codecs — so this catches a field
+    /// dropped from `snapshot_pod!`'s list only if the hash sees it too, which is
+    /// the honest limit of "one serialization, two consumers".
+    ///
+    /// The unlosable half is the field that MOVES something: a dropped `coyote_timer`
+    /// changes what the next jump does, and
+    /// `a_restored_sim_replays_the_future_it_was_rewound_from` in `ambition_app` is
+    /// the test that runs the sim forward and notices.
+    #[test]
+    fn every_registered_component_survives_a_world_round_trip() {
+        let reg = engine_registry();
+        let mut world = sim_world();
+        let id = *live_ids(&mut world).get("placement:boss-1").unwrap();
+        world.entity_mut(id).insert((
+            bc::BodyGroundState {
+                on_ground: true,
+                coyote_timer: 0.125,
+                drop_through_timer: 0.25,
+                rebound_cooldown: 0.5,
+            },
+            bc::BodyDashState {
+                charges_available: 3,
+                timer: 0.75,
+                cooldown: 1.5,
+            },
+        ));
+        let before = reg.hash_world(&world);
+        let snap = take(&world, &reg);
+
+        world
+            .entity_mut(id)
+            .insert((bc::BodyGroundState::default(), bc::BodyDashState::default()));
+        assert_ne!(reg.hash_world(&world), before);
+
+        restore(&mut world, &snap, &reg);
+        assert_eq!(reg.hash_world(&world), before);
+        let ground = *world.entity(id).get::<bc::BodyGroundState>().unwrap();
+        assert_eq!(ground.coyote_timer, 0.125, "the timer came back");
     }
 
     /// A truncated blob decodes to `None` rather than to a plausible lie.

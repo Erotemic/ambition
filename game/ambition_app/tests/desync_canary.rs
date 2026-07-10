@@ -22,6 +22,16 @@ use ambition::runtime::snapshot::{
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::{RandomWalkPolicy, SandboxSim, SandboxSimOptions};
 
+/// The DIRTY probes below panic on purpose. Without this, every run prints four
+/// alarming backtraces for a test that passed.
+fn quietly<T>(f: impl FnOnce() -> T) -> std::thread::Result<T> {
+    let prev = std::panic::take_hook();
+    std::panic::set_hook(Box::new(|_| {}));
+    let out = std::panic::catch_unwind(std::panic::AssertUnwindSafe(f));
+    std::panic::set_hook(prev);
+    out
+}
+
 fn registry() -> SnapshotRegistry {
     let mut reg = SnapshotRegistry::default();
     register_engine_sim_state(&mut reg);
@@ -213,16 +223,20 @@ fn the_sim_id_migration_ledger() {
 
 /// **N3.1's registration checklist, computed against real rooms.**
 ///
-/// `restore` despawns every `SimId` entity and respawns it from blobs. Every
-/// component on such an entity that the registry neither registers nor declares
-/// derived is therefore destroyed. This test names them, counts them, and pins the
-/// count.
+/// `restore` patches a surviving entity's registered components and leaves the rest
+/// alone. Every component on a `SimId` entity that the registry neither registers
+/// nor declares derived is therefore **stale** after a rewind: it still reads the
+/// tick we rewound FROM. This test names them, counts them, and pins the count.
 ///
-/// The number is not zero and is not supposed to be yet: netcode.md's N3.1 pin
-/// lists what each sim crate still owes (move playbacks + cooldowns, brain memory,
-/// portal transit state, falling-sand grids, every seeded RNG). What this ledger
-/// buys is that the debt is a NUMBER, checked on every run, rather than a paragraph
-/// someone reads once. It may fall. It may not rise.
+/// For an immutable authored fact — a moveset, a faction — stale and correct are
+/// the same thing, so the number is not the debt itself; it is an upper bound on it,
+/// and `a_restored_sim_replays_the_future_it_was_rewound_from` is what measures
+/// whether the stale state actually leaks. netcode.md's N3.1 pin lists what each sim
+/// crate still owes (move playbacks + cooldowns, brain memory, portal transit state,
+/// falling-sand grids, every seeded RNG).
+///
+/// What this ledger buys is that the debt is a NUMBER, checked on every run, rather
+/// than a paragraph someone reads once. It may fall. It may not rise.
 ///
 /// ```text
 /// cargo test -p ambition_app --features rl_sim --test desync_canary -- --nocapture the_snapshot
@@ -249,10 +263,10 @@ fn the_snapshot_coverage_ledger() {
         let unclaimed = reg.unclaimed_components(s.world());
         worst = worst.max(unclaimed.len());
         report.push_str(&format!(
-            "  {room:22} {:3} component types a restore would destroy\n",
+            "  {room:22} {:3} component types a restore leaves stale\n",
             unclaimed.len()
         ));
-        for c in unclaimed.iter().take(400) {
+        for c in unclaimed.iter().take(4) {
             report.push_str(&format!("      {c}\n"));
         }
     }
@@ -265,13 +279,13 @@ fn the_snapshot_coverage_ledger() {
     // Today's debt, pinned. Lower it by registering a component or by declaring it
     // structurally derived — both are claims, and `declare_derived` is the one that
     // promises a per-frame system rebuilds it.
-    const KNOWN_DEBT: usize = 88;
+    const KNOWN_DEBT: usize = 75;
     assert!(
         worst <= KNOWN_DEBT,
         "{worst} component types on SimId entities are neither registered as sim \
-         state nor declared derived, up from the pinned {KNOWN_DEBT}. A restore \
-         destroys every one of them. Register it, declare it derived, or lower the \
-         pin — but do not let the debt grow silently. See netcode.md N3.1."
+         state nor declared derived, up from the pinned {KNOWN_DEBT}. A rewind leaves \
+         every one of them stale. Register it, declare it derived, or lower the pin — \
+         but do not let the debt grow silently. See netcode.md N3.1."
     );
 }
 
@@ -283,23 +297,46 @@ fn the_snapshot_coverage_ledger() {
 /// This is strictly stronger than `take`'s unit round-trip, which says only that a
 /// restored world *looks* like the taken one for one tick. This says it *continues*
 /// like it. Any sim state the registry misses, and that feeds back into registered
-/// state, diverges here on the tick it first matters.
+/// state, diverges here on the tick it first matters — and `body_kinematics` is in
+/// the hash, so "feeds back into registered state" means "moves anything at all".
 ///
-/// **It is `#[ignore]`d, and it fails today.** Not from a bug in `take`/`restore` —
-/// their unit oracles are green — but because `restore` destroys the 88 component
-/// types `the_snapshot_coverage_ledger` counts, including the player's motion model
-/// and every brain. It diverges at tick 0, exactly as it should. The live test
-/// below pins that fact so this `#[ignore]` cannot be mistaken for a shrug.
+/// **`gap_run` is CLEAN**: a plain platformer room rewinds and replays bit for bit.
+/// The other three do not, and the ledger says so rather than skipping them. Each
+/// carries state the registry has not reached yet — portals carry transit latches,
+/// the arenas carry brains and move playbacks (netcode.md N3.1's checklist).
 ///
-/// **Un-ignore it when the coverage ledger reads zero.** It is the single assertion
-/// that N3.1 is done.
+/// The dirty list is asserted to be dirty. Fix a room and this test fails, telling
+/// you to promote it. A ledger you can only ever satisfy by lowering it is not a
+/// ledger.
 #[test]
-#[ignore = "N3.1's exit oracle: red until the snapshot coverage ledger reads zero"]
 fn a_restored_sim_replays_the_future_it_was_rewound_from() {
+    /// Rooms where a rewind is exact. This list may grow. It may not shrink.
+    const CLEAN: &[&str] = &["gap_run"];
+    /// Rooms whose unregistered mutable state still leaks across a rewind.
+    const DIRTY: &[&str] = &["portal_lab", "mockingbird_arena", "gnu_ton_arena"];
+
+    for room in CLEAN {
+        replay_after_rewind(room);
+    }
+
+    for room in DIRTY {
+        let clean = quietly(|| replay_after_rewind(room)).is_ok();
+        assert!(
+            !clean,
+            "`{room}` now rewinds exactly. Move it from DIRTY to CLEAN — and if that \
+             empties DIRTY, N3.1 is done: delete the honesty assertion in \
+             `a_restore_of_a_real_room_is_exact_where_it_is_registered_and_honest_where_it_is_not`."
+        );
+    }
+}
+
+/// Take a snapshot, run K ticks hashing each, restore, replay the same K inputs,
+/// and demand the two hash streams agree. Panics on divergence, naming the tick.
+fn replay_after_rewind(room: &str) {
     use ambition::runtime::snapshot::{restore, take};
 
     let reg = registry();
-    let Some(mut s) = sim("gap_run") else { return };
+    let Some(mut s) = sim(room) else { return };
 
     // Warm up, so the snapshot is of a moving world rather than of a spawn pose.
     let mut warm = RandomWalkPolicy::traversal_stress(3);
@@ -340,7 +377,7 @@ fn a_restored_sim_replays_the_future_it_was_rewound_from() {
     let diff = compare_hash_streams(&first, &second);
     assert!(
         diff.in_sync(),
-        "a rewound sim replayed into a different future at tick {:?}. \
+        "`{room}`: a rewound sim replayed into a different future at tick {:?}. \
          {} component types were left STALE by the restore and {} unidentified bodies \
          survived it — one of them is the state that leaked. See netcode.md N3.1.",
         diff.first_divergence_tick,
@@ -351,14 +388,12 @@ fn a_restored_sim_replays_the_future_it_was_rewound_from() {
 
 /// **`restore` reproduces exactly the state it registered, and admits the rest.**
 ///
-/// The half of the exit oracle that is true today, and the reason the other half is
-/// allowed to be `#[ignore]`d: on a real room, `restore` puts the registered hash
-/// back bit for bit, reports every component type it destroyed, and leaves no
-/// unidentified body standing. What it cannot do, it says.
+/// On a real room `restore` puts the registered hash back bit for bit, leaves no
+/// unidentified body standing, and names every component type it could not rewind.
+/// What it cannot do, it says.
 ///
-/// A `lossless()` report here would mean the coverage ledger had reached zero — at
-/// which point this test's `assert!(!lossless)` is the thing that tells you to
-/// un-ignore the oracle above and delete this line.
+/// A `lossless()` report here would mean the coverage ledger had reached zero. The
+/// `assert!(!lossless)` is what tells you that day has come.
 #[test]
 fn a_restore_of_a_real_room_is_exact_where_it_is_registered_and_honest_where_it_is_not() {
     use ambition::runtime::snapshot::{restore, take};

@@ -243,3 +243,30 @@ and denies unapplied rows / unresolved cursors. Room-boundary refusal = compares
 full atomic room-context restore (→ `portal_lab` CLEAN), per-spawner reconstruction recipes,
 the `resolve` → `Result` contract, and the boss-hand `SimId::spawned` identity remain named,
 not hidden.
+
+## Re-audit response (fourth pass, 2026-07-10)
+
+The fourth pass accepted the six third-pass fixes and named three codec-completeness gaps —
+cases where "successful decode" was not yet guaranteed merely because a `RestoreReport` exists.
+All three fixed, each with a red-before poison test, in one commit.
+
+| # | Fourth-pass finding | Fix |
+|---|---|---|
+| 1 | The resource-cursor ABSENCE path removed the resource and returned `Applied` without exhausting the reader, so `false` + trailing bytes was accepted; and `Reader::bool` treated every nonzero byte (e.g. tag `2`) as `true` | the absence path checks `r.finish()` before removing; `Reader::bool` decodes only canonical `0`/`1` (→ `a_resource_cursor_absence_blob_rejects_trailing_bytes_and_a_bad_tag`) |
+| 2 | `register_resolved` treated `resolve → Some` as `Applied` without `r.finish()`, so a valid prefix + trailing garbage was applied and could report lossless — NOT covered by the `resolve → Result` residual | the insert closure (which holds the reader after `resolve` returns) checks `r.finish()`; trailing bytes are `DecodeFailed` (→ `a_resolved_blob_with_trailing_bytes_is_rejected`) |
+| 3 | `validate_snapshot` accepted any PERMUTATION of entries, though restore iterates `snapshot.entries` directly — a resolved codec inspects other components, so a reorder could resolve before a dependency is restored | `validate_snapshot` requires the snapshot's entry order to match the registry's non-diagnostic order exactly (subsuming unknown/missing/duplicate) (→ `a_reordered_snapshot_is_rejected`) |
+
+**Red-before demonstrations:**
+
+- (1) no `finish()` on the absence path → `[false, 0xAB]` removes-and-succeeds; old `bool` → `[2]` is `true` and the present path passes → the test's `DecodeFailed` expectations FAIL.
+- (2) no `finish()` after `resolve` → the boss's `playing` row with a trailing `0xFF` applies and returns `Ok` → the test's `DecodeFailed` expectation FAILS.
+- (3) order-independent validation → a `swap(0, 1)` snapshot validates and restores → the test's `MalformedSnapshot` expectation FAILS.
+
+**Revised status after the fourth pass:** "successful decode" is now guaranteed by a
+`RestoreReport` existing — every codec path (plain, cursor, resolved, resource-cursor, and the
+presence tag) either consumes its whole blob or returns `DecodeFailed`, and `validate_snapshot`
+fixes the entry order restore depends on. The named residual narrows accordingly: `resolve →
+Result` is now ONLY about distinguishing a resolved decode failure from authored absence (both
+still map to `Unapplied`, which denies `lossless()`), not about trailing bytes. **N3.2 overall
+remains OPEN** — the full atomic room-context restore, per-spawner recipes, the `resolve →
+Result` contract, and the boss-hand `SimId::spawned` identity are unchanged from above.

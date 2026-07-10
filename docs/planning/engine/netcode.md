@@ -631,11 +631,14 @@ snapshots needed. Needs N0 complete, plus:
      map. The live-identity check is a PANIC (a running world with a duplicate id is a
      spawn-site bug); the SNAPSHOT check is a mutation-free `validate_snapshot` phase that
      runs before the first despawn and RETURNS `RestoreError::MalformedSnapshot` (corrupt
-     wire input, not a program bug). It establishes canonical order, registry/kind agreement,
-     unique rows, and roster membership — everything restore's `binary_search`es assume — and
-     `duplicate_ids` now sorts before scanning, so a non-adjacent collision in an unsorted
-     deserialized roster no longer evades it. Duplicate-`SimId` and kind-mismatch poison
-     tests landed with it.
+     wire input, not a program bug). It establishes canonical roster order, registry/kind
+     agreement, unique rows, roster membership, AND exact top-level entry order (fourth-pass
+     re-audit: restore iterates `snapshot.entries` directly, so a permuted deserialized
+     snapshot could resolve a component before a registered dependency is restored — the entry
+     order is now required to match registry order, which also subsumes unknown/missing/
+     duplicate entries). `duplicate_ids` sorts before scanning, so a non-adjacent collision in
+     an unsorted roster no longer evades it. Duplicate-`SimId`, kind-mismatch, and reordered-
+     snapshot poison tests landed with it.
   2. **Active-room ownership + room boundary + authoritative roster:** DONE (S2.2/S2.3;
      third-pass findings 1 + 5). Traced the mechanism — no leak; the rollback window spans a
      room transition and the active room is omitted from snapshot state. Enforced per-tick
@@ -665,11 +668,16 @@ snapshots needed. Needs N0 complete, plus:
      (counted, `lossless()` denies it) instead of the old bare `true`. Resource cursors carry
      a PRESENCE TAG (`Some`/`None`), so absence and an empty cursor no longer encode
      identically, and a shape mismatch (`CombatSlotsRes`) refuses loudly rather than silently
-     zipping. RESIDUAL: cursor/resolved codecs decode into a live target, cannot be probed
-     standalone, so a genuine decode failure can still surface mid-reconciliation; and a
-     resolved codec still cannot DISTINGUISH decode failure from authored absence (`resolve`
-     returns `None` for both) — both now deny `lossless()`, but making `SnapshotResolve::`
-     `resolve` return a `Result` to separate the two is the remaining work.
+     zipping. **Every codec path now also asserts it consumed the WHOLE blob** (fourth-pass
+     re-audit): the resolved insert checks `r.finish()` after `resolve` returns `Some`, the
+     resource-cursor absence path checks `finish` before removing, and `Reader::bool` decodes
+     only canonical `0`/`1` — so a valid prefix plus trailing garbage, or a non-canonical tag
+     byte, is `DecodeFailed` rather than a silent success. RESIDUAL: cursor/resolved codecs
+     decode into a live target, cannot be probed standalone, so a genuine decode failure can
+     still surface mid-reconciliation; and a resolved codec still cannot DISTINGUISH a decode
+     failure (e.g. a truncated blob) from authored absence (`resolve` returns `None` for both)
+     — both deny `lossless()`, but making `SnapshotResolve::resolve` return a `Result` to
+     separate the two is the remaining work (now ONLY that distinction, not trailing bytes).
   5. **Positive, self-measured losslessness:** DONE (S2.6/S2.7/S2.8; third-pass findings 3 + 4
      + 6). `lossless()` is argless: `restore` MEASURES the resource term itself
      (`unregistered_sim_resources`), so the caller can no longer claim `lossless(0)` against a

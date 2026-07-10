@@ -184,3 +184,126 @@ pub fn sync_morph_ball_visual(
         }
     }
 }
+
+/// **What these tests prove, and what they do not.**
+///
+/// tracks.md's bug queue carries *"Morph ball still draws the robot"*. These
+/// three tests run `sync_morph_ball_visual` against the rig it actually sees — a
+/// `PlayerEntity + PrimaryPlayer + PlayerVisual` body carrying a `BodyPoseView`,
+/// one `MorphBallVisual` sibling, and `SceneEntities` pointing at the body — and
+/// the system is **correct**: it shows the ball, hides the body, and restores
+/// `Inherited` (never a hard `Visible`) on exit.
+///
+/// So the reported bug is NOT in this system, and the search moves on: a child or
+/// overlay entity carrying an explicit `Visibility::Visible` (which Bevy does not
+/// hide with its parent), a second entity drawing the body's sprite, or a
+/// last-write-wins ordering with a system that re-shows it. This file no longer
+/// needs re-litigating.
+///
+/// The DESIGN defect is separate and still owed (E3, `mode→sprite-state row`):
+/// a modal body morph should select an animation row on the body's own sheet, not
+/// hide the body and draw a bespoke sibling sprite. That is what "generalize modal
+/// body morphs" means, and it deletes this whole file.
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_platformer_primitives::lifecycle::{PlayerVisual, SceneEntities};
+    use ambition_platformer_primitives::markers::{PlayerEntity, PrimaryPlayer};
+    use ambition_sim_view::BodyPoseView;
+
+    fn pose(morph: bool) -> BodyPoseView {
+        BodyPoseView {
+            morph_ball: morph,
+            size: ambition_engine_core::Vec2::new(24.0, 24.0),
+            ..Default::default()
+        }
+    }
+
+    /// The rig `sync_morph_ball_visual` actually runs against: a player body that
+    /// carries `PlayerVisual` + `PrimaryPlayer` + a `BodyPoseView`, one
+    /// `MorphBallVisual` sibling, and `SceneEntities` pointing at the body.
+    fn rig(morph: bool) -> (App, Entity, Entity) {
+        let mut app = App::new();
+        app.insert_resource(ambition_engine_core::RoomGeometry(
+            ambition_engine_core::World::new(
+                "t",
+                ambition_engine_core::Vec2::new(640.0, 480.0),
+                ambition_engine_core::Vec2::ZERO,
+                Vec::new(),
+            ),
+        ));
+        let player = app
+            .world_mut()
+            .spawn((
+                PlayerVisual,
+                PlayerEntity,
+                PrimaryPlayer,
+                pose(morph),
+                Visibility::Inherited,
+                Transform::default(),
+            ))
+            .id();
+        let ball = app
+            .world_mut()
+            .spawn((
+                MorphBallVisual,
+                Sprite::default(),
+                Transform::default(),
+                Visibility::Hidden,
+            ))
+            .id();
+        app.insert_resource(SceneEntities {
+            player,
+            hud: Entity::PLACEHOLDER,
+            quest_panel: Entity::PLACEHOLDER,
+        });
+        app.add_systems(Update, sync_morph_ball_visual);
+        (app, player, ball)
+    }
+
+    fn vis(app: &App, e: Entity) -> Visibility {
+        *app.world().get::<Visibility>(e).unwrap()
+    }
+
+    /// **The reported bug: "morph ball still draws the robot".** In morph the ball
+    /// shows and the body's sprite must be hidden — otherwise the standing rig
+    /// draws through the ball.
+    #[test]
+    fn entering_morph_hides_the_body_sprite_and_shows_the_ball() {
+        let (mut app, player, ball) = rig(true);
+        app.update();
+        assert_eq!(vis(&app, ball), Visibility::Visible, "the ball draws");
+        assert_eq!(
+            vis(&app, player),
+            Visibility::Hidden,
+            "the standing rig must not draw through the ball"
+        );
+    }
+
+    /// Leaving morph restores the body to `Inherited` — never a hard `Visible`,
+    /// so the death overlay and the room-transition fade keep their authority.
+    #[test]
+    fn leaving_morph_returns_the_body_to_inherited_not_visible() {
+        let (mut app, player, ball) = rig(true);
+        app.update();
+        assert_eq!(vis(&app, player), Visibility::Hidden);
+
+        app.world_mut().get_mut::<BodyPoseView>(player).unwrap().morph_ball = false;
+        app.update();
+        assert_eq!(vis(&app, ball), Visibility::Hidden);
+        assert_eq!(
+            vis(&app, player),
+            Visibility::Inherited,
+            "not `Visible`: the overlay/fade systems must still be able to hide it"
+        );
+    }
+
+    /// A body that never morphs is never touched.
+    #[test]
+    fn a_body_that_is_not_in_morph_is_left_alone() {
+        let (mut app, player, ball) = rig(false);
+        app.update();
+        assert_eq!(vis(&app, ball), Visibility::Hidden);
+        assert_eq!(vis(&app, player), Visibility::Inherited);
+    }
+}

@@ -1287,3 +1287,18 @@ Warnings are config-relative, not absolute. A "clean" fix under one feature set 
 
 ### Takeaway
 A verb that *reads* a convention audits it. Building the demo against the real kernel — rather than a demo-shaped copy of it — is what found both bugs; a content crate that had written its own air control would have shipped the mirror and never noticed. When adding the first real consumer of an old code path, expect the path to be wrong, and write the sign test before the feature.
+
+---
+
+**Date:** 2026-07-10. **Context:** "all bosses render the generic sheet" — a bug that survived a pass which correctly ruled out its two most plausible causes and gate-tested both.
+
+### Transferable lesson — when two systems can both claim an entity, ARBITRATE BY IDENTITY, never by system order or component presence
+- The cause: post-unification **a boss is also an actor**, so a boss's id lives in both `ActorRenderIndex` and `BossRenderIndex`. `upgrade_actor_sprites` ran first, found no character sheet for the boss's display name, fell back to the generic enemy sheet, and inserted a `CharacterAnimator`. `upgrade_boss_sprites` is filtered `Without<CharacterAnimator>` — so it skipped that boss **forever**.
+- **Neither obvious fix works.** Reordering the two systems just moves the overwrite. Adding `Without<BossAnimator>` to the actor query doesn't help either: the boss upgrader legitimately skips frames while its texture loads, and the actor path claims the entity in the gap. The presence of a component is a *race*, not an identity.
+- The fix is a predicate over the read-model: `actor_sprite_path_owns(id, &boss_render) == boss_render.get(id).is_none()`. Ownership is a **fact about the entity**, resolved before either system runs.
+- **Unification creates this hazard by construction.** Every time you collapse two types into one body vocabulary, every consumer that used to dispatch on the type now dispatches on *something*, and if that something is "which system got there first" the bug is invisible until an artist notices.
+
+### How it was finally found, after two correct-but-insufficient tests
+The earlier pass proved (1) every boss sheet resolves a catalog path and (2) the render key is the behavior id, not the `sprite_target` — both true, both gate-enforced, neither the bug. What found it was **running the real sim in the real rooms and reading the real read-models**, then asserting a property nobody had written down: *no id is claimed by two sprite upgraders*. When static reasoning has ruled out everything and the bug persists, stop reasoning about the code and go read what the code actually produced.
+
+Corollary, from the same session: `for_authored_boss` fell back to `BossBehaviorProfile::generic(slug)` **silently**, which is how `basement_boss` shipped for months with `PhaseScript:tri_slam_sweep_halo` — a pattern name, not a boss id. *A thing that is generic by accident looks exactly like a thing that is generic by design.* Every silent fallback that produces a plausible-looking result needs a warning, or it becomes permanent.

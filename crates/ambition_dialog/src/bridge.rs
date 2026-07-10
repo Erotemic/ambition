@@ -21,6 +21,7 @@ use bevy_yarnspinner::prelude::*;
 
 use crate::bindings::{YarnContentBindings, YarnPresentationCue, YarnStateMirror};
 use crate::content::DialogChoice;
+use crate::context::{DialogueContext, DialogueNodeIndex};
 use crate::runtime::{DialogSpeechStyle, DialogState};
 use ambition_persistence::save::SandboxSave;
 use ambition_sfx::SfxMessage;
@@ -42,6 +43,9 @@ impl Plugin for YarnBridgePlugin {
         // `resource_exists` + a one-shot guard inside the system
         // so we spawn the first frame YarnProject is alive,
         // regardless of relative ordering.
+        // The compiled project's node names, published for the SIMULATION to
+        // ask "did content author a self branch?" without a Yarn dependency.
+        app.init_resource::<DialogueNodeIndex>();
         app.add_systems(
             Update,
             spawn_dialogue_runner.run_if(resource_exists::<YarnProject>),
@@ -66,12 +70,17 @@ fn spawn_dialogue_runner(
     project: Res<YarnProject>,
     mirror: Res<YarnStateMirror>,
     content_bindings: Res<YarnContentBindings>,
+    mut node_index: ResMut<DialogueNodeIndex>,
     existing: Option<Res<DialogueRunnerEntity>>,
 ) {
     if existing.is_some() {
         return;
     }
     let mut runner = project.create_dialogue_runner(&mut commands);
+    // Publish the compiled node set. The interact dispatcher reads it to decide
+    // whether a self-conversation has a branch to enter — before it opens a
+    // dialogue box, not after.
+    node_index.populate(runner.inner().node_names().map(str::to_owned));
     // All Yarn vocabulary — the host's generic game commands/functions
     // AND content-side named vocabulary — is registered through the
     // installer seam. The bridge names no concrete command, so the
@@ -125,7 +134,11 @@ fn dispatch_pending_dialog_requests(
     };
 
     // start_node
-    if let Some((dialogue_id, _npc_name)) = state.pending_start.take() {
+    if let Some(pending) = state.pending_start.take() {
+        let dialogue_id = pending.dialogue_id;
+        // WHO is talking to WHOM, published before the node begins so content's
+        // very first `<<if $speaker_is_self>>` reads a live value.
+        publish_dialogue_context(&mut runner, &pending.context);
         if let Some(mut save) = save {
             save.data_mut().increment_dialog_visit(&dialogue_id);
         }
@@ -207,6 +220,36 @@ fn dispatch_pending_dialog_requests(
         state.line_last_before_options = false;
         state.options_reveal = crate::runtime::OptionsRevealState::default();
         state.runner_done_pending_close = false;
+    }
+}
+
+/// Write the conversation's identity context into the runner's variable storage.
+///
+/// This is the ONLY place the engine writes a Yarn `$variable`; everything else
+/// content reads is a library FUNCTION over the state mirror. Identity is
+/// different: it is fixed for the whole conversation and content branches on it
+/// at line zero, so a variable — set once, before the node starts — is the right
+/// shape, and it costs no per-line mirror read.
+fn publish_dialogue_context(runner: &mut DialogueRunner, context: &DialogueContext) {
+    let storage = runner.variable_storage_mut();
+    let vars: [(&str, YarnValue); 3] = [
+        ("$speaker_id", YarnValue::String(context.speaker_id.clone())),
+        (
+            "$listener_id",
+            YarnValue::String(context.listener_id.clone()),
+        ),
+        (
+            "$speaker_is_self",
+            YarnValue::Boolean(context.speaker_is_self),
+        ),
+    ];
+    for (name, value) in vars {
+        if let Err(e) = storage.set(name.to_string(), value) {
+            warn!(
+                target: "ambition_dialog::bridge",
+                "could not publish {name} into Yarn variable storage: {e}",
+            );
+        }
     }
 }
 

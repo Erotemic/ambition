@@ -1,3 +1,22 @@
+title: dialogue_context
+---
+// Never played. Declares the identity context the ENGINE publishes into Yarn
+// variable storage at interact-dispatch, before a node begins:
+//
+//   $speaker_id       who is talking — the character the player wears, or the
+//                     character a possessed body IS
+//   $listener_id      who is being talked to
+//   $speaker_is_self  the two are the same character
+//
+// Content branches on these. When $speaker_is_self and a `<node>__self` branch
+// exists, the engine enters THAT node instead; when it doesn't, the interaction
+// is suppressed entirely — a body has nothing to say to itself unless someone
+// wrote it something. See `ambition_dialog::DialogueContext`.
+<<declare $speaker_id = "">>
+<<declare $listener_id = "">>
+<<declare $speaker_is_self = false>>
+===
+
 title: hall_pirate_admiral
 ---
 Admiral: A visitor. Stand at attention or don't — that's the one power they stripped when they stood me up here. I used to be able to make people.
@@ -32,6 +51,21 @@ Player: Strange, isn't it. You're inspecting me — and I'm the one you usually 
     Player: You move me, something moves you, we both call it a choice. I gave up winning that argument a few rooms ago.
 -> What's it like being the hero?
     Player: Mostly falling, occasionally on purpose. The whole craft is making the falling look intentional. You'll get the hang of it.
+===
+
+title: hall_player__self
+---
+// The mirror. Reached only when the player WEARS `player` and interacts with the
+// Hall's own player pedestal — $speaker_id == $listener_id. Every other visitor
+// gets `hall_player` above.
+Player: Ah. You brought me here to look at me.
+-> Say nothing.
+    Player: Good. That's the honest answer. Neither of us knows which one is doing the looking.
+    Player: The pedestal doesn't settle it. I've been standing on it and walking past it, and it feels the same from here.
+-> Are you me?
+    Player: You're the part that decides. I'm the part that falls. Ask again after you've missed a jump you meant to make.
+-> Who's the copy?
+    Player: Whichever of us stops moving first. Don't test it. I like the odds better when we're both in motion.
 ===
 
 title: hall_robot

@@ -63,6 +63,10 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_dev_tools::profiling::StartupProfiler>()
             .init_resource::<ambition_actors::trace::GameplayTraceBuffer>()
             .init_resource::<ambition_dialog::DialogState>()
+            // Which Yarn nodes content compiled (empty + unpopulated headless).
+            // The interact dispatcher reads it to resolve a self-conversation's
+            // branch; the Yarn bridge fills it when the runner spawns.
+            .init_resource::<ambition_dialog::DialogueNodeIndex>()
             .init_resource::<ambition_actors::MovingPlatformSet>()
             .init_resource::<ambition_actors::SandboxSimState>()
             .init_resource::<ambition_dev_tools::SandboxDevState>()

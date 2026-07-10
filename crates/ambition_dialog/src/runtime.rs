@@ -15,6 +15,7 @@
 use bevy::prelude::{Component, Entity, Resource};
 
 use crate::content::DialogChoice;
+use crate::context::DialogueContext;
 use ambition_engine_core::Vec2;
 use ambition_ui_nav::MenuFocusState;
 
@@ -31,6 +32,18 @@ pub struct DialogChoiceSlot {
 
 #[cfg(feature = "ui")]
 use bevy_yarnspinner::prelude::OptionId;
+
+/// A `start()` request waiting for the Yarn bridge to drain it.
+///
+/// The [`DialogueContext`] rides along so the bridge can publish `$speaker_id`
+/// / `$listener_id` / `$speaker_is_self` into the runner's variable storage
+/// BEFORE the node begins — content's `<<if>>` reads them on its first line.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct PendingStart {
+    pub(crate) dialogue_id: String,
+    pub(crate) npc_name: String,
+    pub(crate) context: DialogueContext,
+}
 
 #[derive(Clone, Debug, Default, Resource)]
 pub struct DialogState {
@@ -98,7 +111,7 @@ pub struct DialogState {
 
     /// Pending request: `Some((dialogue_id, npc_name))` until a
     /// dispatch system drains it and calls `runner.start_node`.
-    pub(crate) pending_start: Option<(String, String)>,
+    pub(crate) pending_start: Option<PendingStart>,
     /// Pending request: `true` until a dispatch system drains it
     /// and calls `runner.stop`. Set on `state.close()`.
     pub(crate) pending_close: bool,
@@ -173,7 +186,7 @@ impl DialogState {
     /// call `runner.start_node`. Increments
     /// `SandboxSave.dialog_visits[id]` so Yarn's `visit_count(id)`
     /// function reflects the new visit.
-    pub fn start(&mut self, dialogue_id: &str, npc_name: &str) {
+    pub fn start(&mut self, dialogue_id: &str, npc_name: &str, context: DialogueContext) {
         self.active = true;
         self.dialogue_id = dialogue_id.to_string();
         self.npc_name = npc_name.to_string();
@@ -194,7 +207,11 @@ impl DialogState {
         self.pointer_armed = None;
         self.focus = MenuFocusState::default();
         self.last_pointer_position = None;
-        self.pending_start = Some((dialogue_id.to_string(), npc_name.to_string()));
+        self.pending_start = Some(PendingStart {
+            dialogue_id: dialogue_id.to_string(),
+            npc_name: npc_name.to_string(),
+            context,
+        });
         // Clear any stale pending close from a previous session.
         self.pending_close = false;
         self.pending_select = None;

@@ -80,8 +80,15 @@ player-visible bugs, and the untouched determinism ladder.
    `std::collections::HashSet<Entity>` and spawned strikes + wrote messages from
    that loop — per-process hash order on the hottest combat path. Fixed.
 
-5. **The dialog speaker-context slice.** [opus] Player-facing, design pinned
-   in the bug queue below.
+5. ~~**The dialog speaker-context slice.**~~ **✅ DONE (opus, 2026-07-09).**
+   `$speaker_id` / `$listener_id` / `$speaker_is_self` published into Yarn
+   variable storage at dispatch (the FIRST Yarn-variable write path in the
+   codebase — everything else content reads is a library function over the state
+   mirror). `<dialogue_id>__self` is the self branch; without one, self-talk is
+   suppressed before the banner, the flags, the quest pump, and the mode flip.
+   Identity is CHARACTER-first: the default player wears `player` and the Hall's
+   player pedestal IS `player`, so `hall_player__self` — the mirror scene — is
+   authored, and a content test guards that it must be.
 
 6. **N0.2 — the input-stream type.** [opus] Mostly promotion, not invention:
    `game/ambition_app/tests/replay_fixture_regression.rs` already replays a
@@ -154,7 +161,7 @@ Jon's open questions (Q1/Q2/Q3/Q5) live in [`roadmap.md`](roadmap.md).
 | Morph ball still draws the robot; generalize modal body morphs | E3 (mode→sprite-state row) | [opus] |
 | Shrine + glider sprites broken | E3 (rect drift; sprite pipeline) | [opus] |
 | All bosses render the generic sheet | needs a RUN with `boss_sprites.len()` logging; do NOT apply the disproven `sprite_target` dispatch | [opus] |
-| Dialogs don't adapt to WHO is talking | design PINNED: at interact-dispatch set `$speaker_id` (controlled body's `config.id` / worn character id), `$listener_id` (target id), `$speaker_is_self`. Content branches on them. Engine default: when `$speaker_is_self` and the dialogue declares no `self` branch (convention: node `<name>__self`), the interaction is SUPPRESSED. Ids, not display names | [opus] |
+| ~~Dialogs don't adapt to WHO is talking~~ **DONE 2026-07-09** | `ambition_dialog::{DialogueContext, DialogueNodeIndex}`; `interact_ecs_actors_and_switches` resolves both ids and suppresses trace-free. **Amendment to the pin:** identity is the CHARACTER id where a body has one (`InteractionKind::Npc.character_id`, or the home avatar's worn `StartingCharacter`), falling back to the placement id. The pin's literal "config.id vs target id" would make `$speaker_is_self` fire only when a possessed body interacts with its own placement — never at the Hall, which is the case that motivated the slice | — |
 | Sanic ball-dash special | [demos/sanic.md](demos/sanic.md) — release→velocity technique + hurtbox-resize seam, inside the S5 content crate | [opus] |
 | Portal gun should be a normal item | portal exposes `spawn portal of pair P on surface`; one gun = one pair | [opus, low priority] |
 | Build cache re-balloons | `$CARGO_TARGET_DIR/debug` hit 351G once. Consider `cargo-sweep` or a periodic prune | [Jon] |
@@ -236,6 +243,19 @@ violation gets a row here + a slice in the right doc.)*
 - **fable** — **the F9.2 IR-consolidation arc, families 1–6, CLOSED.** Interactables → pickups → chests → breakables were Tier-0 MOVES into `entity_catalog::placements` (one pure type, no schema/world mirror). Portals were the deliberate `Vec2` exception, done as a Tier-0 `PortalSchema` mirror whose lowering DERIVES the face center from the record's `aabb.center()`. Hazards closed the arc: `convert_damage_volume` now LIFTS a legacy inline `motion: KinematicPath` to a synthesized room-level path (`{iid}__inline_motion`) referenced by `path_id`, behavior-preserving. **`RoomSpec` carries zero typed per-family Vecs, there are zero typed spawn loops, and the dual-emit guard is DELETED — `placements` is the sole authored-entity channel.** A future authored family adds ONE `PlacementSchema` variant + one lowering interpreter.
 - **fable** — F9.1: `ambition_demo_sanic` authors a real momentum showcase room (`sanic_speedway` — long solid floor + a rideable loop as an interior-winding `SurfaceChain`) built entirely through the `ambition` umbrella, with a headless test that composes it and runs the engine's own chain validator. **The oracle held — nothing was missing from the re-exports.** RULING: the FEEL half (momentum tuning to a Sanic identity, a playable binary, character art) is a fundamentally interactive build and cannot be responsibly completed headlessly.
 - **Jon** — the CC6 content-side host adapter committed. (`c9ef23d8`)
+- **opus** — **DIALOG SPEAKER-CONTEXT.** A conversation now knows who is in it.
+  `DialogueContext` (speaker id, listener id, `speaker_is_self`) rides the
+  pending-start request; the Yarn bridge publishes it into variable storage
+  before the node begins — the first `$variable` write in the project (every
+  other Yarn read is a library function over the state mirror; identity is fixed
+  for a conversation and read at line zero, so a variable is the right shape).
+  `DialogueNodeIndex` lets the SIM ask "did content author a `__self` branch?"
+  with no Yarn dependency, so a self-conversation with nothing written for it is
+  suppressed at dispatch — before banner, flags, quest pump, mode flip — instead
+  of opening a dialogue box and closing it. Identity is character-first, so
+  wearing a character and inspecting its Hall pedestal IS self-talk;
+  `hall_player__self` (the mirror scene) is authored because the default
+  character makes that the likeliest interaction in the game.
 - **opus** — **N0.1 FIXED-TICK LANDED.** The sim no longer names a schedule: it
   registers into `SimSchedule` (`platformer_primitives::schedule`, default
   `Update`), which `PlatformerEnginePlugins::fixed_tick()` swaps for

@@ -161,4 +161,48 @@ mod tests {
                 .join("\n"),
         );
     }
+    /// The DEFAULT player character wears `player`, and the Hall's player
+    /// pedestal IS `player`. So on the one interaction every playthrough is
+    /// likeliest to make, the speaker is the listener — and the engine SUPPRESSES
+    /// a self-conversation that has no `__self` branch
+    /// (`ambition_dialog::DialogueNodeIndex::entry_node`).
+    ///
+    /// Without this node the player's own pedestal would silently become
+    /// un-talkable. The mirror scene is content; that it must exist is structure.
+    #[test]
+    fn the_player_pedestal_has_a_self_branch_because_the_default_character_is_the_player() {
+        // `known_dialogue_ids()` folds in catalog rows, so the roster must exist.
+        // Self-sufficient rather than order-dependent on a sibling test.
+        crate::character_catalog::install();
+        assert_eq!(
+            crate::character_catalog::PLAYABLE_ROSTER[0],
+            "player",
+            "this guard assumes the default worn character",
+        );
+        let known = known_dialogue_ids();
+        assert!(
+            known.contains(&"hall_player__self"),
+            "hall.yarn must author `hall_player__self`: the default player wears \
+             `player`, so interacting with the `player` pedestal is self-talk, which \
+             the engine suppresses unless content authored the branch",
+        );
+    }
+
+    /// Every `<root>__self` branch belongs to a real root node. A self branch for
+    /// a dialogue that does not exist is dead content.
+    #[test]
+    fn every_self_branch_has_a_root_node() {
+        for (name, source) in YARN_SOURCES {
+            let titles: Vec<&str> = yarn_title_ids(source).collect();
+            for title in &titles {
+                if let Some(root) = title.strip_suffix("__self") {
+                    assert!(
+                        titles.contains(&root),
+                        "{name}: `{title}` is a self branch of `{root}`, which has no \
+                         `title:` node in the same file",
+                    );
+                }
+            }
+        }
+    }
 }

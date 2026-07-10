@@ -7,8 +7,9 @@
 use super::cutscene::{install_intro_cutscenes, intro_room_cutscene_bindings};
 use super::dialog::intro_dialogue_ids;
 use super::sprites::intro_npc_sprite_rows;
-use ambition_dialog::DialogState;
 use ambition_cutscene::CutsceneLibrary;
+use ambition_dialog::DialogState;
+use ambition_dialog::DialogueContext;
 
 #[test]
 fn every_intro_dialogue_id_is_registered_with_validator() {
@@ -33,11 +34,11 @@ fn dialog_start_sets_dialogue_id_for_intro_and_sandbox() {
     // unified registry routes both families through the same
     // dialogue_id surface.
     let mut state = DialogState::default();
-    state.start("creator_intro", "Creator");
+    state.start("creator_intro", "Creator", DialogueContext::scripted());
     assert_eq!(state.dialogue_id(), "creator_intro");
-    state.start("oiler_intro", "Oiler");
+    state.start("oiler_intro", "Oiler", DialogueContext::scripted());
     assert_eq!(state.dialogue_id(), "oiler_intro");
-    state.start("hub_guide", "Kernel Guide");
+    state.start("hub_guide", "Kernel Guide", DialogueContext::scripted());
     assert_eq!(state.dialogue_id(), "hub_guide");
 }
 

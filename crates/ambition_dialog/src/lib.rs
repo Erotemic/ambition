@@ -22,6 +22,7 @@
 //! runtime be reused by another game.
 
 mod content;
+mod context;
 mod runtime;
 mod speech_sfx;
 mod systems;
@@ -38,6 +39,7 @@ mod bridge;
     reason = "DialogChoice surfaces in the UI's choice-row layout"
 )]
 pub use content::DialogChoice;
+pub use context::{DialogueContext, DialogueNodeIndex, SELF_NODE_SUFFIX};
 pub use runtime::{DialogChoiceSlot, DialogState};
 pub use systems::{dialog_input, dialog_pointer_input, dialog_reveal_tick};
 

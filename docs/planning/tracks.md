@@ -89,11 +89,17 @@ player-visible bugs, and the untouched determinism ladder.
    it is a test rig, not a feature.
 
 5. **Bookkeeping**: ~~re-baseline the ledger~~ **RULED 2026-07-10** — the adapter
-   floor IS the floor, on evidence (nine shells, no compile-time win from a
-   further carve). ~~reconstruct or rewrite playbook exit 5~~ **DONE** (four
-   measured, ratchetable rebuild loops). Write `MODULES.md` per crate (D-B) —
-   still open [sonnet]; it is now the LAST unmet piece of D-B's navigability
-   standard, and the ruling leans on that standard.
+   floor IS the floor, on evidence (EIGHT shells, not nine — `boss_encounter/`
+   turned out not to be one; no compile-time win from a further carve).
+   ~~reconstruct or rewrite playbook exit 5~~ **DONE** (four measured, ratchetable
+   rebuild loops). ~~Write `MODULES.md` per crate (D-B)~~ ✅ **DONE 2026-07-10**
+   — all 42 crates, GENERATED from each module's own `//!` header by
+   `scripts/modules_md.py` (bare = drift check, `--write` = regenerate), so it
+   cannot rot. It doubles as a lint for the standard's first clause: exactly one
+   module repo-wide lacked a concern header. **D-B's navigability standard now
+   holds in full**, which is what the ledger ruling leans on. Also fixed a RED
+   `check_agent_kb.py` (ADR 0023 was missing its required agent-implications
+   section).
 
 **Deliberately NOT next:** CM6 and N1 (both land with the SSB demo, P4);
 projectile steppers (blocked by design until their inputs are plain); the

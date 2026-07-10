@@ -156,7 +156,7 @@ this track.
 | # | Slice | Grade |
 |---|---|---|
 | FB1 | ~~View audit for the no-cheat contract~~ ✅ **DONE 2026-07-10** — see §7 | [opus] |
-| FB2 | Frame-data table consumer (needs CM7) + L2 option generator/scorer with authored weights | [opus, fable-specced — this doc §1] |
+| FB2 | ~~Frame-data table consumer (needs CM7) + L2 option generator/scorer~~ ✅ **DONE 2026-07-10** — see §9 | [opus] |
 | FB3 | ~~L1 classifier + scenario fixture suite~~ ✅ **DONE 2026-07-10** — see §8 | [opus] |
 | FB4 | Difficulty profiles + humanity checks + ladder self-play rig — concretely: (1) the nine `FighterBrainProfile` RON rows per §4 (reaction_ms interpolates 500→150, apm_cap, noise σ, rollout knobs 0 until FB6); (2) the THREE humanity checks from §3 as headless tests — input-rate histogram ≤ apm_cap, reaction-time distribution matches the configured latency (assert the delay buffer is the ONLY view path — a lint-style grep + a runtime assert), and no same-tick perceive→act; (3) the ladder rig = N headless matches per adjacent-level pair via `SlotControls`, gate: level n beats n−1 in ≥ 60%, plus L9-vs-sandbag damage-efficiency floor. The rig reuses the duel-arena headless harness (`ambition_app/tests/duel_arena.rs` is the seed) | [opus] |
 | FB5 | Opponent-model memory (bucketed frequencies, decay) | [opus] |
@@ -304,3 +304,66 @@ suite only a test can see gets rebuilt, slightly differently, by the next slice.
 **The metrics half is not here**, and cannot be: survival % and damage ratio need a
 brain to survive and deal damage, and nothing above L1 exists. FB4 brings the
 profiles and the rig; these scenarios are what it will run.
+
+---
+
+## 9. FB2 — L2, the option generator and scorer (opus, 2026-07-10)
+
+`ambition_characters::brain::fighter::options`. Pure: every input is the
+`WorldView` the no-cheat contract allows, plus the body's own kit and its
+difficulty's `UtilityWeights`.
+
+- **Movement verbs from the capability mask.** `SelfView`'s `can_dash` /
+  `can_shield` / `can_blink` gate what L2 may propose, so the brain physically
+  cannot ask for what the body would refuse (invariant I3).
+- **Attacks from CM7's frame-data table.** `reach` and `startup_s` come from
+  `MoveFrameData`, not from a table someone typed — which is precisely what lets
+  the brain *understand a character nobody wrote a table for*. At 100px it throws
+  the 100px jab; at 400px, the lunge. Nobody said so; the frame data did.
+- **`score == Σ weight_i · feature_i`, by construction**, and the four unweighted
+  features ride along on every `AttackOption` so a failing ladder run can be READ
+  rather than guessed at. Zeroed weights make every attack score zero — the
+  ablation that proves nothing is smuggled in outside the dot product.
+- **`Recovery` offers no attacks at all.** Not a low-scoring one; none. A body past
+  the blastzone has exactly one problem, and it is not a preference.
+- **Ties break on the move id**, so `best_attack` is a function of the world and
+  not of how a content author sorted a RON file (ADR 0023).
+
+`stage_risk` is a COST (`w = -0.8`): committing near a blastzone is how a level-9
+CPU dies to a level-3 one, and a negative weight means it can never be bought back
+by kill potential alone.
+
+### A gap in §1's own four features, found by building them
+
+**None of the four reads a move's POWER.** `kill_potential` is the *victim's*
+meter; `reach_fit` and `frame_advantage` are geometry and timing; `stage_risk` is
+about me. So at ANY weights, given a punish window both a jab and a smash fit, the
+jab wins: it is faster, therefore has more frame advantage, and nothing prices the
+smash's payoff. **A level-9 CPU that always jabs its punishes is not a level-9
+CPU.**
+
+CM7's `MoveFrameData` carries no damage or knockback either, so L2 could not price
+it even if a fifth feature existed. Two ways out, and this slice takes neither on
+its own authority:
+
+1. Derive `max_damage` / `max_knockback` into `MoveFrameData` — a pure derivation
+   over the Active volumes, exactly like `reach` — and add an
+   `expected_payoff = damage × landing_chance` feature.
+2. Let **FB4's ladder** discover that the weights cannot order the levels, and
+   force the question.
+
+§FB6 is explicit that *"scoring weights are NOT divined up front … FB4's ladder
+self-play monotonicity gate is the calibration instrument,"* so (2) is the
+doctrine's own answer, and (1) is what it will ask for. Recorded here rather than
+patched by inventing a fifth weight nobody has calibrated.
+
+**The unit tests reflect that discipline**: they assert FEATURE properties and
+structural invariants, never *which move wins a scenario at v1 weights*. That is a
+calibration claim, and calibration is FB4's.
+
+### The decision cadence is not here
+
+§5: *"rebuilt per decision tick … decide at ~10–20 Hz gated by reaction latency,
+hold intents between decisions."* The latency lives on
+`FighterBrainProfile.reaction_ms`, which is FB4's. L2 is a pure function a decision
+tick calls.

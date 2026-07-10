@@ -12,13 +12,18 @@
 //!   of the view; and [`scenarios`], the fixture suite it is asserted against and
 //!   that FB4's ladder rig will score survival % and damage ratio over.
 //!
-//! Still owed: L2's option generator + utility scorer (FB2, needs CM7's frame-data
-//! table), the difficulty profiles and humanity checks (FB4 — which is also what
-//! finally FORCES every brain through the delay buffer), the opponent model (FB5),
-//! and L3's forward rollouts (FB6, on N3.1's snapshot seam).
+//! - **FB2's L2** — [`options`], the option generator + utility scorer. Movement
+//!   verbs from the body's capability mask; attacks from CM7's frame-data table,
+//!   which is what lets the brain understand a character nobody wrote a table for.
+//!
+//! Still owed: the difficulty profiles and humanity checks (FB4 — which is also
+//! what finally FORCES every brain through the delay buffer), the opponent model
+//! (FB5), and L3's forward rollouts (FB6, on N3.1's snapshot seam).
 
+pub mod options;
 pub mod scenarios;
 pub mod situation;
 
+pub use options::{generate_options, AttackOption, MoveOption, OptionSet, UtilityWeights};
 pub use scenarios::{suite, Scenario};
 pub use situation::{classify, Situation};

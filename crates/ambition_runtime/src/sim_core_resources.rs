@@ -67,7 +67,7 @@ impl Plugin for SimCoreResourcesPlugin {
             // The interact dispatcher reads it to resolve a self-conversation's
             // branch; the Yarn bridge fills it when the runner spawns.
             .init_resource::<ambition_dialog::DialogueNodeIndex>()
-            .init_resource::<ambition_actors::MovingPlatformSet>()
+            .init_resource::<ambition_world::collision::MovingPlatformSet>()
             .init_resource::<ambition_actors::SandboxSimState>()
             .init_resource::<ambition_dev_tools::SandboxDevState>()
             .init_resource::<ambition_combat::GameplayBanner>()

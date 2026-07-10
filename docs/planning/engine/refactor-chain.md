@@ -1,6 +1,6 @@
 # The refactor chain — dissolving the adapter shells, then folding the player
 
-**Status:** R1 DONE (2026-07-10). Six slices, in dependency order.
+**Status:** R1, R2, R3 DONE (2026-07-10). Six slices, in dependency order.
 Each is committable on its own; each states its own exit check.
 
 This doc exists because the 2026-07-10 ledger ruling changed what "finish the
@@ -208,7 +208,67 @@ authors no body metrics at all, which those tests now pin explicitly.
 
 ---
 
-## R3 — the overlay split: `CollisionWorld` joins `ambition_world`
+## R3 — the overlay split ✅ DONE (2026-07-10): `CollisionWorld` joined `ambition_world`
+
+**The spike found one dep the analysis had missed, and fixing it properly made
+the move cleaner than promised.**
+
+`carve_portal_apertures` called `ambition_portal::pieces::subtract_aabb`. The
+residue analysis listed only the three `crate::` touches and never looked at the
+`ambition_*` ones — so the move as written would have forced
+`ambition_world → ambition_portal`, i.e. the space IR importing a gameplay
+MECHANIC. That edge is acyclic (portal names only `engine_core` +
+`platformer_primitives`) so it would have compiled, and it would have been wrong:
+the world IR is an authored INPUT to the sim, never a peer (decomposition.md's
+fault line 2).
+
+`subtract_aabb` is plain rectangle set-difference with **one** consumer outside
+its own crate. So it moved DOWN to `ambition_engine_core::geometry` (anti-god
+rule 1: vocabulary moves to the crate that owns the domain), along with the
+private `aabb_mm` helper, now `geometry::aabb_from_min_max`. Its two tests
+travelled with it (F7 test accounting) and a third was added for the
+hole-covers-block case. `ambition_portal::pieces` keeps the portal-SPECIFIC part
+— how deep and how wide the hole is (`carve_hole`, `CARVE_DEPTH`,
+`SURFACE_GRACE`) — and now calls down for the algebra.
+
+**What landed.**
+- `ambition_actors/src/world/overlay_rebuild.rs` → **deleted**; it is
+  `ambition_world/src/collision.rs`, named for its ONE concern (the composited
+  collision world) rather than for the actors-side split it used to be half of.
+- `CollisionWorld`, `world_with_sandbox_solids`, `world_with_portal_carves`,
+  `world_with_gate_solids_and_carves` now live there, with their six inline tests.
+- `MovingPlatformSet` moved out of `ambition_actors/src/lib.rs` down to
+  `ambition_world::collision`, beside the `MovingPlatformState` it wraps.
+- The `features/` hub's `world_overlay` alias and its four re-exports are
+  **gone** (anti-god rule 3). All ~30 consumers import from the owning crate.
+- New deps, each with its reason in the manifest: `ambition_world →
+  ambition_platformer_primitives` (for `FeatureEcsWorldOverlay`, a content-free
+  struct of `Block`s and `Aabb`s); `ambition_sim_view → ambition_world` and
+  `ambition_content → ambition_world` (for `MovingPlatformSet`). `ambition_world`
+  still uses `bevy_ecs`/`bevy_app` directly — it never took the `bevy` facade.
+- `ambition_world`'s own `dependency_tests` allowlist fired on the new dep,
+  correctly, and now names it.
+
+**What did NOT move, on purpose.** `world/overlay.rs` — the REBUILD side. It
+queries breakables and pogo-target volumes and imports `crate::combat::*`; it is
+actor-domain and stays. Only the CONSUMPTION side left.
+
+**Test accounting (F7).** `ambition_actors --lib` 745 → 739 (the six
+`collision_world_tests` travelled); `ambition_world` 33 → 39. `ambition_portal`
+52 → 50; `ambition_engine_core` +3. Every moved test name exists in its new home.
+
+**LOC (units: TOTAL src lines, including tests).** `ambition_actors/src/world/`
+1875 → 1508 (−367); `ambition_actors` overall 63,858 → 63,477 (−381);
+`ambition_world` 2897 → 3296 (+399). The residue moved rather than vanished —
+which is the point of a carve, and unlike R2 the number moved where the ledger
+said it would.
+
+**Exit check — met.** `CollisionWorld` is importable from `ambition_world`;
+`ambition_actors` has no `overlay_rebuild` module; the full gate is green. This
+was to unblock `ProjectileCollisionWorld` (R4) — and it is now R4's ONLY
+discharged blocker, since R2 turned out not to settle boss types.
+
+### The original analysis, for the record
 
 **Unblocked — the precondition fable named has already been met, unnoticed.**
 

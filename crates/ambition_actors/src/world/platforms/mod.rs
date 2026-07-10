@@ -58,7 +58,7 @@ pub fn sync_moving_platform(
     mut commands: Commands,
     world: Res<ambition_engine_core::RoomGeometry>,
     room_set: Res<RoomSet>,
-    mut platform_set: ResMut<crate::MovingPlatformSet>,
+    mut platform_set: ResMut<ambition_world::collision::MovingPlatformSet>,
     mut active_platform_room: Local<Option<String>>,
     mut active_platform_source: Local<Option<Vec<MovingPlatformState>>>,
     mut query: Query<(Entity, &MovingPlatformVisual, &mut Transform, &mut Sprite)>,

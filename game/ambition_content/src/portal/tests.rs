@@ -863,17 +863,51 @@ fn transit_is_gradual_centroid_crossing_flags_the_teleport_then_clears() {
     );
 }
 
+/// The two host-side bridges the presentation chain needs, restated locally.
+///
+/// They live in `ambition_host::portal` — a crate ABOVE this one, so a content
+/// test cannot call them. (They were once reachable as `ambition_portal::*`,
+/// which is where this test imported them from; the E-track carve moved them and
+/// never updated this `portal_render`-gated test, so it had not compiled since.
+/// Fixed while landing R3.) Each is a five-line field copy / marker insert, and
+/// the host owns testing them; what THIS test exercises is
+/// `sync_portal_body_pieces`, which presentation owns.
+#[cfg(feature = "portal_render")]
+mod host_bridges {
+    use super::*;
+    use ambition_portal_presentation::{PortalSceneBody, PortalWorldFrame};
+    use ambition_render::rendering::PlayerVisual;
+
+    pub fn sync_portal_world_frame(world: Res<RoomGeometry>, mut frame: ResMut<PortalWorldFrame>) {
+        if frame.size != world.0.size {
+            frame.size = world.0.size;
+        }
+    }
+
+    pub fn tag_portal_scene_bodies(
+        mut commands: Commands,
+        untagged: Query<Entity, (With<PlayerVisual>, Without<PortalSceneBody>)>,
+    ) {
+        for entity in &untagged {
+            commands.entity(entity).insert(PortalSceneBody);
+        }
+    }
+}
+
 #[cfg(feature = "portal_render")]
 #[test]
 fn partial_render_keeps_the_sprite_and_adds_the_exit_copy() {
-    use ambition_portal::{sync_portal_world_frame, tag_portal_scene_bodies, PortalWorldFrame};
+    use ambition_portal_presentation::{
+        sync_portal_body_pieces, PortalBodyPiece, PortalWorldFrame,
+    };
     use ambition_render::rendering::PlayerVisual;
+    use host_bridges::{sync_portal_world_frame, tag_portal_scene_bodies};
     let mut app = App::new();
     app.insert_resource(world_with_two_walls());
-    // Drive the visual through the REAL host adapter chain: world-frame sync +
-    // scene-body tagging bridge the sandbox types (RoomGeometry / PlayerVisual)
-    // to the crate-owned seams the presentation system reads (auto sync points
-    // flush the tag's commands between the chained systems).
+    // Drive the visual through the same adapter chain the host runs: world-frame
+    // sync + scene-body tagging bridge the sandbox types (RoomGeometry /
+    // PlayerVisual) to the crate-owned seams the presentation system reads (auto
+    // sync points flush the tag's commands between the chained systems).
     app.init_resource::<PortalWorldFrame>();
     // The body-pieces system reads the live effect selection (for the legacy
     // mask mode); default = first compiled effect.
@@ -1375,7 +1409,7 @@ fn floor_floor_round_trip_saturates_at_the_terminal_apex_when_capped() {
 fn a_portal_on_a_moving_platform_rides_its_host_face() {
     use crate::portal::host_adapter::{attach_portal_hosts, refresh_hosted_portal_frames};
     use ambition_actors::world::platforms::MovingPlatformState;
-    use ambition_actors::MovingPlatformSet;
+    use ambition_world::collision::MovingPlatformSet;
 
     let mut app = App::new();
     // Authored base: one anon fixture wall (unattributable on purpose).

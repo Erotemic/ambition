@@ -293,3 +293,24 @@ implies. Options if we want the claim literal: re-export the derives from
 `ambition` under different names (ugly), or document the `bevy` line as expected
 in the umbrella's docs + `docs/planning/demos/README.md` (cheap, honest).
 Size: S. Not blocking — `game/ambition_demo_sanic` authors rooms, not components.
+
+## 2026-07-10 (R3) — feature-gated test targets rot: `portal_render` had not compiled in weeks
+
+`game/ambition_content/src/portal/tests.rs`'s `partial_render_keeps_the_sprite_and_adds_the_exit_copy`
+(gated `#[cfg(feature = "portal_render")]`) imported `ambition_portal::{sync_portal_world_frame,
+tag_portal_scene_bodies, PortalWorldFrame}`. Those symbols live in
+`ambition_host::portal` and `ambition_portal_presentation` — a crate ABOVE
+content and a crate content only gets under `portal_render`. An E-track carve
+moved them and never updated this test, so `cargo check -p ambition_content
+--features portal_render` had failed since. Nothing in the standing gate builds
+that feature, so nobody saw it. Fixed while landing R3: the two five-line host
+bridges are restated as local test fixtures (the host owns testing them; what
+this test exercises is presentation's `sync_portal_body_pieces`).
+
+**The class, not the instance.** CC6 already taught this once — the content
+suite silently skipped its portal tests until `--features portal` joined the
+gate. `portal_render` is the same hole one feature over. Candidates the standing
+gate still never builds: `portal_render`, `bevy_ui_menu`, `kaleidoscope_menu`,
+`mobile_touch`, `physics_debris`, `static_map`. A periodic
+`cargo check --workspace --all-targets --all-features` (or a per-feature matrix
+in CI) would catch the next one. Size: S for the check, unknown for what it finds.

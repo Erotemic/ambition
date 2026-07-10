@@ -274,7 +274,7 @@ pub(crate) fn apply_room_transition_system(
     mut room_set: ResMut<rooms::RoomSet>,
     mut dev_state: ResMut<ambition::dev_tools::SandboxDevState>,
     mut room_clock: RoomClock,
-    mut moving_platforms: ResMut<ambition::actors::MovingPlatformSet>,
+    mut moving_platforms: ResMut<ambition::world::collision::MovingPlatformSet>,
     mut dialogue: ResMut<ambition::dialog::DialogState>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     editable_tuning: Res<EditableMovementTuning>,

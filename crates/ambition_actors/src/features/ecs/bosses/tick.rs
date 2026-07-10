@@ -385,7 +385,7 @@ pub fn drive_boss_animators(
 pub fn tick_boss_brains_system(
     world_time: Res<WorldTime>,
     world: Res<ambition_engine_core::RoomGeometry>,
-    platform_set: Res<crate::MovingPlatformSet>,
+    platform_set: Res<ambition_world::collision::MovingPlatformSet>,
     overlay: Res<FeatureEcsWorldOverlay>,
     // A possessed boss carries `Brain::Player(slot)` and reads its controller
     // frame from here, through the SAME universal-brain path every controlled
@@ -418,7 +418,8 @@ pub fn tick_boss_brains_system(
     >,
 ) {
     let dt = world_time.sim_dt();
-    let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
+    let feature_world =
+        ambition_world::collision::world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
     for (_entity, feature, health, mut brain, mut control, mut intent, target, capability) in
         &mut bosses
     {
@@ -665,7 +666,7 @@ pub(crate) fn horizontal_front_wall_clearance(
 pub fn integrate_boss_bodies(
     world_time: Res<WorldTime>,
     world: Res<ambition_engine_core::RoomGeometry>,
-    platform_set: Res<crate::MovingPlatformSet>,
+    platform_set: Res<ambition_world::collision::MovingPlatformSet>,
     overlay: Res<FeatureEcsWorldOverlay>,
     feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,
     steering: Res<super::super::actors::ActorSteering>,
@@ -689,7 +690,8 @@ pub fn integrate_boss_bodies(
     >,
 ) {
     let dt = world_time.sim_dt();
-    let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
+    let feature_world =
+        ambition_world::collision::world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
     let combat_tuning = feel_tuning.feature_combat_tuning();
     for (
         entity,

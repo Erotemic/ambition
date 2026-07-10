@@ -24,10 +24,11 @@ use bevy::prelude::*;
 use ambition_engine_core as ae;
 
 use crate::features::ecs::attack::engine_input_from_actor_control;
-use crate::features::{world_with_sandbox_solids, FeatureEcsWorldOverlay};
+use crate::features::FeatureEcsWorldOverlay;
 use crate::time::feel::SandboxFeelTuning;
 use crate::world::platforms::MovingPlatformState;
 use ambition_characters::actor::BodyCombat;
+use ambition_world::collision::world_with_sandbox_solids;
 
 /// Movement→(reset/presentation) hand-off for a home/player body, written by the
 /// unified body integration phase (`integrate_sim_bodies` → [`integrate_home_body`])
@@ -344,7 +345,7 @@ fn integrate_home_momentum(
 /// the PRIMARY player's hitstop so platforms freeze during the player's hitstop.
 pub fn advance_moving_platforms(
     world_time: Res<ambition_time::WorldTime>,
-    mut platforms: ResMut<crate::MovingPlatformSet>,
+    mut platforms: ResMut<ambition_world::collision::MovingPlatformSet>,
     primary_combat: Query<&BodyCombat, crate::actor::PrimaryPlayerOnly>,
 ) {
     let Ok(combat) = primary_combat.single() else {

@@ -28,9 +28,9 @@
 use bevy::prelude::*;
 
 use ambition_actors::world::platforms::world_with_moving_platforms;
-use ambition_actors::MovingPlatformSet;
 use ambition_engine_core::RoomGeometry;
 use ambition_portal::PlacedPortal;
+use ambition_world::collision::MovingPlatformSet;
 
 /// Attribution probe reach behind the placement point, in px. The gun lifts a
 /// portal 2px proud of the hit face; authored specs sit on the face. The probe

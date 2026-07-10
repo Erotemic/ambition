@@ -47,6 +47,9 @@ ambition_vfx = { path = "../../crates/ambition_vfx" }
 ambition_time = { path = "../../crates/ambition_time" }
 ambition_audio = { path = "../../crates/ambition_audio", optional = true }
 ambition_platformer_primitives = { path = "../../crates/ambition_platformer_primitives" }
+# `MovingPlatformSet` + `world_with_sandbox_solids` — the composited collision
+# world the portal host adapter and the arena-gate tests read (R3).
+ambition_world = { path = "../../crates/ambition_world" }
 ambition_portal = { path = "../../crates/ambition_portal" }
 ambition_portal_presentation = { path = "../../crates/ambition_portal_presentation", optional = true }
 ambition_input = { path = "../../crates/ambition_input" }

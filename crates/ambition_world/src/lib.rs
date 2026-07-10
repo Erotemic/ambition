@@ -1,9 +1,11 @@
 //! Backend-agnostic authored world IR.
 //!
 //! This crate owns the room graph, authored placement records, room metadata,
-//! and moving-platform math. Backend adapters such as LDtk convert into these
-//! types; simulation crates interpret them through explicit lowering seams.
+//! moving-platform math, and the composited [`collision`] world every sweep and
+//! raycast reads. Backend adapters such as LDtk convert into these types;
+//! simulation crates interpret them through explicit lowering seams.
 
+pub mod collision;
 pub mod debug_label;
 pub mod placements;
 pub mod platforms;
@@ -46,6 +48,10 @@ mod dependency_tests {
         let allowed = BTreeSet::from([
             "ambition_engine_core".to_string(),
             "ambition_entity_catalog".to_string(),
+            // `FeatureEcsWorldOverlay` — the content-free per-frame overlay the
+            // `collision` composite folds onto the authored room (R3). That crate
+            // depends on nothing but `engine_core`, so the edge stays downward.
+            "ambition_platformer_primitives".to_string(),
             "ambition_time".to_string(),
         ]);
         assert_eq!(

@@ -86,7 +86,7 @@ pub fn blink_target(
 /// first solid wall so the teleport never lands inside geometry.
 pub fn blink_system(
     gravity: crate::physics::GravityCtx,
-    world: crate::features::CollisionWorld,
+    world: ambition_world::collision::CollisionWorld,
     mut commands: Commands,
     // Ability execution is SUBJECT-GENERIC: it acts on the CONTROLLED SUBJECT (the
     // body carrying `Brain::Player`) reading that body's OWN `ActorControl` (the

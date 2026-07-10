@@ -12,7 +12,9 @@
 //! This module is the pure, deterministic, allocation-light heart of that math:
 //! the portal map (point / AABB / velocity), half-space clipping, the
 //! piece-decomposition ([`compute_body_pieces`]), and the host-surface carve
-//! ([`subtract_aabb`]). It has no ECS, no Bevy systems, no RNG — so the headless
+//! HOLE ([`carve_hole`] — the rectangle set-difference it feeds is
+//! `ambition_engine_core::geometry::subtract_aabb`, plain AABB algebra that lives
+//! in the foundation). It has no ECS, no Bevy systems, no RNG — so the headless
 //! sim and the unit tests exercise the exact same geometry the game runs.
 //!
 //! Current implementation note: gameplay pieces are still AABB-backed, so
@@ -68,17 +70,6 @@ pub fn map_aabb(b: ae::Aabb, enter: &PortalFrame, exit: &PortalFrame) -> ae::Aab
     ae::Aabb::new(center, half)
 }
 
-/// Build an AABB from explicit min/max edges (empty → `None`).
-fn aabb_mm(x0: f32, y0: f32, x1: f32, y1: f32) -> Option<ae::Aabb> {
-    if x0 >= x1 || y0 >= y1 {
-        return None;
-    }
-    Some(ae::Aabb::new(
-        Vec2::new((x0 + x1) * 0.5, (y0 + y1) * 0.5),
-        Vec2::new((x1 - x0) * 0.5, (y1 - y0) * 0.5),
-    ))
-}
-
 /// Keep the part of `b` on the side of the plane (through `point`, axis-aligned
 /// outward `dir`) that `dir` points toward. `None` if `b` is entirely on the far
 /// side. Used to clip a body to one side of a portal plane.
@@ -95,7 +86,7 @@ pub fn clip_halfspace(b: ae::Aabb, point: Vec2, dir: Vec2) -> Option<ae::Aabb> {
     } else if dir.y < -0.5 {
         y1 = y1.min(point.y);
     }
-    aabb_mm(x0, y0, x1, y1)
+    ae::geometry::aabb_from_min_max(x0, y0, x1, y1)
 }
 
 /// Clip `b` laterally to a portal's opening span (so a body wider than the
@@ -104,14 +95,14 @@ fn clip_to_aperture(b: ae::Aabb, ap: &PortalAperture) -> Option<ae::Aabb> {
     let along = ap.frame.tangent();
     let half = ap.half_length;
     if along.x.abs() > 0.5 {
-        aabb_mm(
+        ae::geometry::aabb_from_min_max(
             b.min.x.max(ap.frame.origin.x - half),
             b.min.y,
             b.max.x.min(ap.frame.origin.x + half),
             b.max.y,
         )
     } else {
-        aabb_mm(
+        ae::geometry::aabb_from_min_max(
             b.min.x,
             b.min.y.max(ap.frame.origin.y - half),
             b.max.x,
@@ -219,31 +210,12 @@ pub fn front_distance(point: Vec2, frame: &PortalFrame) -> f32 {
 
 // ---------------------------------------------------------------------------
 // Host-surface carve: the floor / wall must become non-solid in the opening.
-
-/// Set-difference of two axis-aligned rectangles: `block` minus `hole`, pushed
-/// into `out` as up to four sub-rectangles (the frame around the hole). If they
-/// don't overlap, `block` is pushed unchanged; if `hole` covers `block`, nothing
-/// is pushed. This is how a portal carves a doorway out of its host surface
-/// while leaving the rim and surrounding geometry solid.
-pub fn subtract_aabb(block: ae::Aabb, hole: ae::Aabb, out: &mut Vec<ae::Aabb>) {
-    let (bx0, by0, bx1, by1) = (block.min.x, block.min.y, block.max.x, block.max.y);
-    // Clamp the hole to the block.
-    let hx0 = hole.min.x.max(bx0);
-    let hy0 = hole.min.y.max(by0);
-    let hx1 = hole.max.x.min(bx1);
-    let hy1 = hole.max.y.min(by1);
-    if hx0 >= hx1 || hy0 >= hy1 {
-        // No real overlap — keep the block whole.
-        out.push(block);
-        return;
-    }
-    // Up to four rectangles around the hole (below, above, left-middle,
-    // right-middle). `aabb_mm` drops any that are empty.
-    out.extend(aabb_mm(bx0, by0, bx1, hy0)); // below the hole
-    out.extend(aabb_mm(bx0, hy1, bx1, by1)); // above the hole
-    out.extend(aabb_mm(bx0, hy0, hx0, hy1)); // left of the hole
-    out.extend(aabb_mm(hx1, hy0, bx1, hy1)); // right of the hole
-}
+//
+// The rectangle set-difference itself is `ae::geometry::subtract_aabb` — plain
+// AABB algebra, so it lives in the foundation (refactor-chain R3). It moved so
+// `ambition_world` could composite a carved collision world without depending on
+// this crate. The portal-specific part — how deep and how wide the hole is — is
+// below.
 
 /// How deep (px) into the host surface a portal carves its doorway. Just past a
 /// body's half-depth so the leading slice can sink in up to the centroid before
@@ -427,33 +399,6 @@ mod tests {
             front_distance(Vec2::new(100.0, 320.0), &f.frame) < 0.0,
             "below floor = behind"
         );
-    }
-
-    #[test]
-    fn subtract_carves_a_doorway_leaving_a_frame() {
-        // A wide floor block, carve a hole in the middle.
-        let block = ae::Aabb::new(Vec2::new(100.0, 300.0), Vec2::new(100.0, 10.0));
-        let hole = ae::Aabb::new(Vec2::new(100.0, 300.0), Vec2::new(30.0, 30.0));
-        let mut out = Vec::new();
-        subtract_aabb(block, hole, &mut out);
-        // Left + right segments remain; the middle is open.
-        assert_eq!(out.len(), 2, "left + right frame: {out:?}");
-        // The opening (x in [70,130]) is not covered by any remaining piece.
-        for piece in &out {
-            assert!(
-                piece.min.x >= 130.0 - 1e-3 || piece.max.x <= 70.0 + 1e-3,
-                "piece spans hole: {piece:?}"
-            );
-        }
-    }
-
-    #[test]
-    fn subtract_no_overlap_keeps_block() {
-        let block = ae::Aabb::new(Vec2::new(0.0, 0.0), Vec2::new(10.0, 10.0));
-        let hole = ae::Aabb::new(Vec2::new(100.0, 100.0), Vec2::new(5.0, 5.0));
-        let mut out = Vec::new();
-        subtract_aabb(block, hole, &mut out);
-        assert_eq!(out.len(), 1);
     }
 
     #[test]

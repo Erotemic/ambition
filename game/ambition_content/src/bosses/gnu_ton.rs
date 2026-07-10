@@ -110,9 +110,9 @@ pub fn gate_gnu_ton_arena_ladder(
 mod tests {
     use super::*;
     use ambition_actors::features::{
-        rebuild_feature_ecs_world_overlay, world_with_sandbox_solids, BossBehaviorProfile,
-        BossClusterScratch,
+        rebuild_feature_ecs_world_overlay, BossBehaviorProfile, BossClusterScratch,
     };
+    use ambition_world::collision::world_with_sandbox_solids;
 
     /// The composited collision view (immutable base + this frame's overlay).
     /// The gate is now a derived overlay contributor, so the arena assertions

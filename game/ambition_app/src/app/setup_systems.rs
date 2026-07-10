@@ -33,7 +33,7 @@ pub(super) fn setup_simulation_system(
     editable_tuning: Res<EditableMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
     starting_character: Res<ambition::actors::player::StartingCharacter>,
-    mut platform_set: ResMut<ambition::actors::MovingPlatformSet>,
+    mut platform_set: ResMut<ambition::world::collision::MovingPlatformSet>,
 ) {
     let _player = setup::simulation_world(
         &mut commands,

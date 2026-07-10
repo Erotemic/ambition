@@ -29,6 +29,91 @@ pub fn aabb_from_min_size(min: Vec2, size: Vec2) -> Aabb {
     Aabb::new(min + size * 0.5, size * 0.5)
 }
 
+/// Construct an AABB from explicit min/max edges. Degenerate (empty) → `None`.
+pub fn aabb_from_min_max(x0: f32, y0: f32, x1: f32, y1: f32) -> Option<Aabb> {
+    if x0 >= x1 || y0 >= y1 {
+        return None;
+    }
+    Some(Aabb::new(
+        Vec2::new((x0 + x1) * 0.5, (y0 + y1) * 0.5),
+        Vec2::new((x1 - x0) * 0.5, (y1 - y0) * 0.5),
+    ))
+}
+
+/// Set-difference of two axis-aligned rectangles: `block` minus `hole`, pushed
+/// into `out` as up to four sub-rectangles (the frame around the hole). If they
+/// don't overlap, `block` is pushed unchanged; if `hole` covers `block`, nothing
+/// is pushed.
+///
+/// This is how a portal carves a doorway out of its host surface while leaving
+/// the rim and surrounding geometry solid — but the operation is plain rectangle
+/// algebra, so it lives here rather than in a mechanic crate. That is what lets
+/// `ambition_world` composite a carved collision world without depending on
+/// `ambition_portal` (the space IR is an INPUT to the sim, never a peer).
+pub fn subtract_aabb(block: Aabb, hole: Aabb, out: &mut Vec<Aabb>) {
+    let (bx0, by0, bx1, by1) = (block.min.x, block.min.y, block.max.x, block.max.y);
+    // Clamp the hole to the block.
+    let hx0 = hole.min.x.max(bx0);
+    let hy0 = hole.min.y.max(by0);
+    let hx1 = hole.max.x.min(bx1);
+    let hy1 = hole.max.y.min(by1);
+    if hx0 >= hx1 || hy0 >= hy1 {
+        // No real overlap — keep the block whole.
+        out.push(block);
+        return;
+    }
+    // Up to four rectangles around the hole (below, above, left-middle,
+    // right-middle). `aabb_from_min_max` drops any that are empty.
+    out.extend(aabb_from_min_max(bx0, by0, bx1, hy0)); // below the hole
+    out.extend(aabb_from_min_max(bx0, hy1, bx1, by1)); // above the hole
+    out.extend(aabb_from_min_max(bx0, hy0, hx0, hy1)); // left of the hole
+    out.extend(aabb_from_min_max(hx1, hy0, bx1, hy1)); // right of the hole
+}
+
+#[cfg(test)]
+mod subtract_aabb_tests {
+    use super::*;
+
+    /// Moved down from `ambition_portal::pieces` (refactor-chain R3) with its
+    /// fixtures, so `ambition_world` can composite a carved collision world
+    /// without taking a dependency on the portal mechanic.
+    #[test]
+    fn subtract_carves_a_doorway_leaving_a_frame() {
+        // A wide floor block, carve a hole in the middle.
+        let block = Aabb::new(Vec2::new(100.0, 300.0), Vec2::new(100.0, 10.0));
+        let hole = Aabb::new(Vec2::new(100.0, 300.0), Vec2::new(30.0, 30.0));
+        let mut out = Vec::new();
+        subtract_aabb(block, hole, &mut out);
+        // Left + right segments remain; the middle is open.
+        assert_eq!(out.len(), 2, "left + right frame: {out:?}");
+        // The opening (x in [70,130]) is not covered by any remaining piece.
+        for piece in &out {
+            assert!(
+                piece.min.x >= 130.0 - 1e-3 || piece.max.x <= 70.0 + 1e-3,
+                "piece spans hole: {piece:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn subtract_no_overlap_keeps_block() {
+        let block = Aabb::new(Vec2::new(0.0, 0.0), Vec2::new(10.0, 10.0));
+        let hole = Aabb::new(Vec2::new(100.0, 100.0), Vec2::new(5.0, 5.0));
+        let mut out = Vec::new();
+        subtract_aabb(block, hole, &mut out);
+        assert_eq!(out.len(), 1);
+    }
+
+    #[test]
+    fn subtract_a_covering_hole_leaves_nothing() {
+        let block = Aabb::new(Vec2::new(0.0, 0.0), Vec2::new(10.0, 10.0));
+        let hole = Aabb::new(Vec2::new(0.0, 0.0), Vec2::new(20.0, 20.0));
+        let mut out = Vec::new();
+        subtract_aabb(block, hole, &mut out);
+        assert!(out.is_empty(), "a hole that covers the block erases it");
+    }
+}
+
 /// Canonical mutable axis-aligned box, stored as `center` + `half_size`.
 ///
 /// [`Aabb`] (= `Aabb2d`) is the collision-math primitive — min/max corners, Parry

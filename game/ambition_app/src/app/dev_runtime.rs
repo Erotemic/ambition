@@ -87,7 +87,7 @@ pub(super) fn handle_ldtk_hot_reload(
     mut ldtk_reload: ResMut<ldtk_world::LdtkHotReloadState>,
     editable_tuning: Res<EditableMovementTuning>,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
-    mut platform_set: ResMut<ambition::actors::MovingPlatformSet>,
+    mut platform_set: ResMut<ambition::world::collision::MovingPlatformSet>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     // Bundled into one tuple param to stay within Bevy's 16-param system limit.
     visual_assets: (

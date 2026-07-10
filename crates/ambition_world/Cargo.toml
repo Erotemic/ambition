@@ -13,6 +13,10 @@ default = []
 ambition_engine_core = { path = "../ambition_engine_core" }
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
 ambition_time = { path = "../ambition_time" }
+# `FeatureEcsWorldOverlay` — the per-frame dynamic contribution `CollisionWorld`
+# composites onto the authored room (R3). Content-free vocabulary; this crate
+# depends on nothing but `engine_core` itself, so the edge stays downward.
+ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 bevy_app = { version = "0.18.1", default-features = false }
 bevy_ecs = { version = "0.18.1", default-features = false }
 petgraph = "0.8"

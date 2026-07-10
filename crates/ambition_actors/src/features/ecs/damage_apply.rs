@@ -18,6 +18,7 @@ use bevy::prelude::{Entity, MessageReader, MessageWriter, Query, Res, ResMut, Wi
 
 use ambition_engine_core as ae;
 use ambition_vfx::vfx::VfxMessage;
+use ambition_world::collision::MovingPlatformSet;
 
 use crate::actor::{PlayerEntity, PrimaryPlayer, PrimaryPlayerOnly};
 use crate::combat::events::{GameplayBannerRequested, HitEvent as FeatureHitEvent, HitTarget};
@@ -25,8 +26,7 @@ use crate::player::{BodyAnimFacts, PlayerSafetyState};
 use crate::time::feel::SandboxFeelTuning;
 use crate::time::time_control::{ClockRequester, ClockResetRequest};
 use crate::{
-    remember_safe_player_position, ActorDiedMessage, MovingPlatformSet, SafePositionContext,
-    SandboxSimState,
+    remember_safe_player_position, ActorDiedMessage, SafePositionContext, SandboxSimState,
 };
 use ambition_characters::actor::BodyCombat;
 use ambition_characters::actor::BodyHealth;
@@ -616,7 +616,7 @@ pub fn apply_player_hit_events(
         * assist_factor;
     let tuning = editable_tuning.as_engine();
     let feel = *feel_tuning;
-    let safe_world = crate::world::overlay_rebuild::world_with_sandbox_solids(
+    let safe_world = ambition_world::collision::world_with_sandbox_solids(
         &world.0,
         &moving_platforms.0,
         &feature_ecs_overlay,

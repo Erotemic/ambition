@@ -94,7 +94,8 @@ fn run_with_trace_dump(max_ticks: u32, dump_dir: PathBuf, start_room: Option<Str
             let control_frame = *world_ref.resource::<ControlFrame>();
             let room_set = world_ref.resource::<RoomSet>();
             let game_mode = world_ref.resource::<State<GameModeState>>();
-            let moving_platforms = world_ref.resource::<ambition::actors::MovingPlatformSet>();
+            let moving_platforms =
+                world_ref.resource::<ambition::world::collision::MovingPlatformSet>();
             let game_world = world_ref.resource::<RoomGeometry>();
             let active_area = room_set.active_spec().id.clone();
             let mode_label = format!("{:?}", game_mode.get());

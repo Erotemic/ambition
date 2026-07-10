@@ -101,10 +101,6 @@ pub use world::{ldtk_world, rooms};
 pub use time::move_toward;
 pub use time::world_time::mirror_sim_dt_into_runtime;
 
-// `MovingPlatformState` leaks through the public `MovingPlatformSet.0`
-// signature, so it must be nameable via a pub path even though
-// `world::platforms` stays `pub(crate)` (else Rust's private-interfaces lint
-// fires under `-D warnings`).
 pub use world::platforms::MovingPlatformState;
 
 use ambition_engine_core as ae;
@@ -200,16 +196,6 @@ impl SafePositionContext {
 
 pub const BLINK_IN_ANIM_TIME: f32 = 0.34;
 pub const ROOM_DOOR_CAMERA_SNAP_TIME: f32 = 0.08;
-
-/// Live platform-simulation state for the current room.
-///
-/// Owned by the physics/rendering pipeline; the player tick advances each
-/// platform per frame and carries the player by its delta. The physics plugin
-/// registers this as a resource; the room-load path (setup, load_room,
-/// LDtk hot-reload, sandbox reset) replaces the Vec when the active room
-/// changes.
-#[derive(Resource, Default)]
-pub struct MovingPlatformSet(pub Vec<world::platforms::MovingPlatformState>);
 
 /// Pure simulation scalars for the running sandbox session.
 /// Holds values that belong to the simulation, not to

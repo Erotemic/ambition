@@ -60,7 +60,7 @@ use ambition_platformer_primitives::schedule::SimScheduleExt;
 pub struct ResetPlayState<'w> {
     sim_state: ResMut<'w, crate::SandboxSimState>,
     clock_resets: MessageWriter<'w, crate::time::time_control::ClockResetRequest>,
-    moving_platforms: ResMut<'w, crate::MovingPlatformSet>,
+    moving_platforms: ResMut<'w, ambition_world::collision::MovingPlatformSet>,
 }
 
 /// Cross-system trigger for "wipe the save and rebuild the runtime."

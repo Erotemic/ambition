@@ -29,6 +29,9 @@ ambition_encounter = { path = "../ambition_encounter" }
 ambition_characters = { path = "../ambition_characters" }
 ambition_engine_core = { path = "../ambition_engine_core" }
 ambition_entity_catalog = { path = "../ambition_entity_catalog" }
+# `MovingPlatformSet` — the world IR owns the live platform set the moving-
+# platform view facts read (R3).
+ambition_world = { path = "../ambition_world" }
 ambition_interaction = { path = "../ambition_interaction" }
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 ambition_time = { path = "../ambition_time" }

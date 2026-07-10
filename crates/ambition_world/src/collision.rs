@@ -1,27 +1,49 @@
-//! Augmented-collision-world builders that fold dynamic state into the static
-//! room world. `world_with_sandbox_solids` adds moving-platform + ECS-overlay
-//! solids and carves portal apertures; `world_with_portal_carves` carves only
-//! the apertures (borrowing when none are active, for the projectile path).
-//! `carve_portal_apertures` splits solid host blocks around the holes.
-//! The overlay *resource* lives in [`overlay`](super::overlay); this is the
-//! consumption side. Consumers import `crate::world::overlay_rebuild` (post-E2 home).
+//! The composited collision world: the authored room folded together with the
+//! per-frame dynamic contributions a running sim adds to it.
 //!
 //! [`CollisionWorld`] is the single collision read-API every actor sweep/raycast
 //! should reach for instead of `Res<RoomGeometry>`: it composites the authored
-//! room with the per-frame dynamic overlay so player, NPC, enemy, and projectile
-//! all collide against one truth (the relativity principle as a correctness
-//! property), never the bare geometry.
+//! room with moving platforms and the ECS overlay so player, NPC, enemy, and
+//! projectile all collide against one truth (the relativity principle as a
+//! correctness property), never the bare geometry.
+//!
+//! Lives in the space IR (refactor-chain R3) because every input is now plain:
+//! the authored room, a `Vec<MovingPlatformState>` this crate already owns, and
+//! `FeatureEcsWorldOverlay` — a content-free struct of `Block`s and `Aabb`s. The
+//! rebuild side that PRODUCES the overlay (querying breakables, pogo volumes,
+//! and gates) stays actor-side; only the CONSUMPTION side is here.
+//!
+//! `world_with_sandbox_solids` adds moving-platform + ECS-overlay solids and
+//! carves portal apertures; `world_with_portal_carves` carves only the apertures
+//! (borrowing when none are active, for the projectile path);
+//! `world_with_gate_solids_and_carves` is the projectile view.
 
-use super::overlay::FeatureEcsWorldOverlay;
-use crate::world::platforms::MovingPlatformState;
 use ambition_engine_core as ae;
+use ambition_engine_core::geometry::subtract_aabb;
 use ambition_engine_core::AabbExt;
-use bevy::prelude::*;
+use ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay;
+use bevy_ecs::prelude::{Res, Resource};
+use bevy_ecs::system::SystemParam;
 use std::borrow::Cow;
 
-/// The single collision read-API. Composites the authored [`ambition_engine_core::RoomGeometry`]
-/// with the per-frame dynamic overlay — moving platforms, ECS-owned solids, and
-/// portal carves — into the collision world a sweep or raycast should see.
+use crate::platforms::{world_with_moving_platforms, MovingPlatformState};
+
+/// The active room's live moving platforms.
+///
+/// Owned by the physics/rendering pipeline; the player tick advances each
+/// platform per frame and carries the player by its delta. The physics plugin
+/// registers this as a resource; the room-load path (setup, load_room, LDtk
+/// hot-reload, sandbox reset) replaces the Vec when the active room changes.
+///
+/// Lives beside [`MovingPlatformState`] rather than a tier up: it is a newtype
+/// over this crate's own vocabulary, and [`CollisionWorld`] reads it.
+#[derive(Resource, Default)]
+pub struct MovingPlatformSet(pub Vec<MovingPlatformState>);
+
+/// The single collision read-API. Composites the authored
+/// [`ambition_engine_core::RoomGeometry`] with the per-frame dynamic overlay —
+/// moving platforms, ECS-owned solids, and portal carves — into the collision
+/// world a sweep or raycast should see.
 ///
 /// Every resource is optional so headless / minimal-app tests that insert only a
 /// room (or nothing) still satisfy the param. The composite degrades to the bare
@@ -29,11 +51,11 @@ use std::borrow::Cow;
 /// when bare and composite are identical — so routing a former `Res<RoomGeometry>`
 /// reader through here changes behaviour only in production rooms that actually
 /// carry moving platforms / ECS solids / portal carves.
-#[derive(bevy::ecs::system::SystemParam)]
+#[derive(SystemParam)]
 pub struct CollisionWorld<'w> {
-    room: Option<bevy::prelude::Res<'w, ambition_engine_core::RoomGeometry>>,
-    platforms: Option<bevy::prelude::Res<'w, crate::MovingPlatformSet>>,
-    overlay: Option<bevy::prelude::Res<'w, FeatureEcsWorldOverlay>>,
+    room: Option<Res<'w, ae::RoomGeometry>>,
+    platforms: Option<Res<'w, MovingPlatformSet>>,
+    overlay: Option<Res<'w, FeatureEcsWorldOverlay>>,
 }
 
 impl CollisionWorld<'_> {
@@ -92,8 +114,7 @@ pub fn world_with_sandbox_solids(
     platforms: &[MovingPlatformState],
     ecs_overlay: &FeatureEcsWorldOverlay,
 ) -> ae::World {
-    let mut collision_world =
-        crate::world::platforms::world_with_moving_platforms(world, platforms);
+    let mut collision_world = world_with_moving_platforms(world, platforms);
     // Content gates may SUBTRACT authored geometry from the view (the immutable-
     // base inversion): drop named authored blocks and carve out suppressed
     // climbable regions before adding overlay solids / carving portals. A gate
@@ -134,13 +155,13 @@ pub fn world_with_sandbox_solids(
 pub fn world_with_portal_carves<'w>(
     world: &'w ae::World,
     portal_carves: &[ae::Aabb],
-) -> std::borrow::Cow<'w, ae::World> {
+) -> Cow<'w, ae::World> {
     if portal_carves.is_empty() {
-        return std::borrow::Cow::Borrowed(world);
+        return Cow::Borrowed(world);
     }
     let mut carved = world.clone();
     carve_portal_apertures(&mut carved.blocks, portal_carves);
-    std::borrow::Cow::Owned(carved)
+    Cow::Owned(carved)
 }
 
 /// The room world with gate solids (lock walls) added and ONLY the portal
@@ -154,19 +175,20 @@ pub fn world_with_gate_solids_and_carves<'w>(
     gate_solids: &[ae::Block],
     portal_carves: &[ae::Aabb],
     removed_block_names: &[String],
-) -> std::borrow::Cow<'w, ae::World> {
+) -> Cow<'w, ae::World> {
     if gate_solids.is_empty() && portal_carves.is_empty() && removed_block_names.is_empty() {
-        return std::borrow::Cow::Borrowed(world);
+        return Cow::Borrowed(world);
     }
     let mut composed = world.clone();
-    // Subtract authored blocks a gate has opened (gnu_ton floor-gate) so a shot
-    // passes through it exactly as the player does, then add gate solids + carve.
+    // Subtract authored blocks a gate has opened (the gnu_ton floor-gate) so a
+    // shot passes through it exactly as the player does, then add gate solids +
+    // carve.
     remove_named_blocks(&mut composed.blocks, removed_block_names);
     composed.blocks.extend(gate_solids.iter().cloned());
     if !portal_carves.is_empty() {
         carve_portal_apertures(&mut composed.blocks, portal_carves);
     }
-    std::borrow::Cow::Owned(composed)
+    Cow::Owned(composed)
 }
 
 /// Apply a content gate's authored-geometry SUBTRACTIONS to a composited world:
@@ -203,6 +225,10 @@ fn remove_named_blocks(blocks: &mut Vec<ae::Block>, removed_block_names: &[Strin
 /// Split every solid host block by the portal aperture holes, leaving a doorway
 /// in the surface (and a solid frame around it). Non-host kinds (hazard, pogo,
 /// rebound) pass through untouched.
+///
+/// The set-difference itself is `ae::geometry::subtract_aabb` — plain rectangle
+/// algebra in the foundation. This crate never names the portal MECHANIC; a
+/// carve arrives as a `Vec<Aabb>` on the overlay.
 fn carve_portal_apertures(blocks: &mut Vec<ae::Block>, holes: &[ae::Aabb]) {
     let original = std::mem::take(blocks);
     for block in original {
@@ -220,7 +246,7 @@ fn carve_portal_apertures(blocks: &mut Vec<ae::Block>, holes: &[ae::Aabb]) {
         for hole in holes {
             let mut next = Vec::with_capacity(pieces.len());
             for piece in pieces.drain(..) {
-                ambition_portal::pieces::subtract_aabb(piece, *hole, &mut next);
+                subtract_aabb(piece, *hole, &mut next);
             }
             pieces = next;
         }
@@ -240,15 +266,16 @@ fn carve_portal_apertures(blocks: &mut Vec<ae::Block>, holes: &[ae::Aabb]) {
 #[cfg(test)]
 mod collision_world_tests {
     use super::*;
-    use bevy::prelude::{App, ResMut, Resource, Update};
+    use bevy_app::{App, Update};
+    use bevy_ecs::prelude::ResMut;
 
-    /// Captured `(is_some, was_owned, block_count)` from a `CollisionWorld::solids()`
-    /// read, so a system can report the borrow/own decision out of the App.
+    /// Captured `(was_owned, block_count)` from a `CollisionWorld::solids()` read,
+    /// so a system can report the borrow/own decision out of the App.
     #[derive(Resource, Default, Debug, PartialEq)]
     struct SolidsProbe(Option<(bool, usize)>);
 
-    fn room_one_block() -> ambition_engine_core::RoomGeometry {
-        ambition_engine_core::RoomGeometry(ae::World::new(
+    fn room_one_block() -> ae::RoomGeometry {
+        ae::RoomGeometry(ae::World::new(
             "test",
             ae::Vec2::new(400.0, 400.0),
             ae::Vec2::new(50.0, 50.0),

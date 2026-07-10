@@ -157,7 +157,7 @@ fn min_app() -> App {
         let _ = PlayerBlinkCameraState::default();
     }
     app.insert_resource(crate::world::physics::PhysicsSandboxSettings::default());
-    app.insert_resource(crate::MovingPlatformSet::default());
+    app.insert_resource(ambition_world::collision::MovingPlatformSet::default());
     app.insert_resource(crate::SandboxSimState::default());
     app.insert_resource(ambition_time::ClockState::default());
     app.insert_resource(ambition_dev_tools::SandboxDevState::default());
@@ -329,7 +329,9 @@ fn processor_restores_authored_start_room_platform() {
         room_set.rooms[0].moving_platforms = vec![authored.clone()];
     }
     {
-        let mut platform_set = app.world_mut().resource_mut::<crate::MovingPlatformSet>();
+        let mut platform_set = app
+            .world_mut()
+            .resource_mut::<ambition_world::collision::MovingPlatformSet>();
         platform_set.0 = vec![crate::world::platforms::MovingPlatformState::from_authored(
             ae::Vec2::new(10.0, 20.0),
             ae::Vec2::new(32.0, 8.0),
@@ -342,7 +344,9 @@ fn processor_restores_authored_start_room_platform() {
         req.request();
     }
     app.update();
-    let platform_set = app.world().resource::<crate::MovingPlatformSet>();
+    let platform_set = app
+        .world()
+        .resource::<ambition_world::collision::MovingPlatformSet>();
     assert_eq!(platform_set.0[0].pos, authored.pos);
     assert_eq!(platform_set.0[0].size, authored.size);
 }

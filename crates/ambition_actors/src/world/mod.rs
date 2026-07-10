@@ -9,7 +9,6 @@
 
 pub mod ldtk_world;
 pub mod overlay;
-pub mod overlay_rebuild;
 pub mod physics;
 pub mod placements;
 pub mod platforms;

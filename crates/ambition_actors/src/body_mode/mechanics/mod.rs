@@ -39,7 +39,7 @@ use bevy::prelude::*;
 const CROUCH_AXIS_Y_THRESHOLD: f32 = 0.4;
 
 pub fn update_body_mode(
-    world: crate::features::CollisionWorld,
+    world: ambition_world::collision::CollisionWorld,
     gravity_field: Option<Res<crate::physics::GravityField>>,
     // Slot gestures (double-tap-down → morph) keyed by the controlling slot. The
     // body reads ITS controller's gesture, never a privileged home avatar's.

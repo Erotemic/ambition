@@ -36,10 +36,11 @@ pub(crate) const ENEMY_ATTACK_COOLDOWN: f32 = 1.05;
 use crate::player::BodyAnimFacts;
 use crate::time::feel::SandboxFeelTuning;
 use crate::world::platforms::MovingPlatformState;
-use crate::{physics, MeleeSwing, MovingPlatformSet};
+use crate::{physics, MeleeSwing};
 use ambition_characters::actor::BodyCombat;
 use ambition_engine_core::RoomGeometry;
 use ambition_sfx::SfxMessage;
+use ambition_world::collision::MovingPlatformSet;
 
 /// Build the engine's `InputState` purely from `ActorControl` —
 /// the player's brain output is the single source of truth for
@@ -187,7 +188,7 @@ pub fn pogo_moveset_off_world_orbs(
     if pogo.is_empty() {
         return;
     }
-    let assembled = crate::world::overlay_rebuild::world_with_sandbox_solids(
+    let assembled = ambition_world::collision::world_with_sandbox_solids(
         &world.0,
         &moving_platforms.0,
         &feature_ecs_overlay,
@@ -480,7 +481,7 @@ pub fn advance_attack(
             && attack_state.spec.can_pogo
             && !attack_state.pogo_applied
         {
-            let attack_world = crate::world::overlay_rebuild::world_with_sandbox_solids(
+            let attack_world = ambition_world::collision::world_with_sandbox_solids(
                 world,
                 moving_platforms,
                 feature_ecs_overlay,

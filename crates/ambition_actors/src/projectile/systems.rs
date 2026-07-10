@@ -115,7 +115,7 @@ impl ProjectileCollisionWorld<'_, '_> {
     /// gate solids and letting a shot sink into a portal opening and transit.
     /// Borrowed (no clone) in the common no-gate, no-carve case.
     fn solids(&self) -> std::borrow::Cow<'_, ae::World> {
-        crate::features::world_with_gate_solids_and_carves(
+        ambition_world::collision::world_with_gate_solids_and_carves(
             &self.world.0,
             &self.overlay.gate_solids,
             &self.overlay.portal_carves,

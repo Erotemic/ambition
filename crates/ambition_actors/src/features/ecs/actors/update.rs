@@ -88,7 +88,7 @@ pub fn tick_actor_brains(
     world: Res<ambition_engine_core::RoomGeometry>,
     gravity: crate::physics::GravityCtx,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
-    platform_set: Res<crate::MovingPlatformSet>,
+    platform_set: Res<ambition_world::collision::MovingPlatformSet>,
     overlay: Res<FeatureEcsWorldOverlay>,
     mut slot_board: ResMut<crate::combat::slots::CombatSlotsRes>,
     // Neighbor index handed to the movement phase (surface-walker steering).
@@ -208,7 +208,8 @@ pub fn tick_actor_brains(
     let dt = world_time.sim_dt();
     // Accumulating sim-time for brain perception (reaction-latency lookback).
     let sim_now = sim_clock.0;
-    let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
+    let feature_world =
+        ambition_world::collision::world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
     // Resolve the live hostility table once (default = all-peaceful) for every
     // brain's world-out view this frame (§A7).
     let relations_fallback = crate::combat::targeting::FactionRelations::default();
@@ -787,7 +788,7 @@ pub fn integrate_sim_bodies(
     world_time: Res<WorldTime>,
     world: Res<ambition_engine_core::RoomGeometry>,
     gravity: crate::physics::GravityCtx,
-    platform_set: Res<crate::MovingPlatformSet>,
+    platform_set: Res<ambition_world::collision::MovingPlatformSet>,
     feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,
     overlay: Res<FeatureEcsWorldOverlay>,
     steering: Res<ActorSteering>,
@@ -840,7 +841,8 @@ pub fn integrate_sim_bodies(
     >,
 ) {
     let dt = world_time.sim_dt();
-    let feature_world = world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
+    let feature_world =
+        ambition_world::collision::world_with_sandbox_solids(&world.0, &platform_set.0, &overlay);
     let combat_tuning = feel_tuning.feature_combat_tuning();
     // ── ACTOR bodies (the per-body integrator, symmetric with the home body's) ──
     for (

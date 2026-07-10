@@ -35,7 +35,7 @@ const GRAPPLE_COOLDOWN_S: f32 = 0.55;
 /// hitting a solid within [`GRAPPLE_RANGE`] it yanks the player toward the hit.
 pub fn grapple_system(
     gravity: crate::physics::GravityCtx,
-    world: crate::features::CollisionWorld,
+    world: ambition_world::collision::CollisionWorld,
     mut commands: Commands,
     // Ability execution is SUBJECT-GENERIC: acts on the `ControlledSubject`,
     // reading that body's OWN `ActorControl` (brain output) + `HeldItem`. No

@@ -121,7 +121,7 @@ pub fn handle_trace_hotkey(
 pub fn record_frame_system(
     mut buffer: ResMut<GameplayTraceBuffer>,
     clock: Res<ambition_time::ClockState>,
-    platform_set: Res<crate::MovingPlatformSet>,
+    platform_set: Res<ambition_world::collision::MovingPlatformSet>,
     world: Res<RoomGeometry>,
     time: Res<Time>,
     rooms: Option<Res<crate::rooms::RoomSet>>,
@@ -176,8 +176,11 @@ pub fn record_frame_system(
     let locomotion = locomotion_state.label().to_string();
     let body_mode = body_mode_state.label().to_string();
 
-    let augmented_world =
-        crate::features::world_with_sandbox_solids(&world.0, &platform_set.0, &feature_ecs_overlay);
+    let augmented_world = ambition_world::collision::world_with_sandbox_solids(
+        &world.0,
+        &platform_set.0,
+        &feature_ecs_overlay,
+    );
 
     synthesize_events_from_diff(
         &mut buffer,

@@ -86,7 +86,7 @@ fn dive_corridor(from: ae::Vec2, to: ae::Vec2) -> ae::Aabb {
 /// throw-on-plain-Attack in `throw_held_item_system`).
 pub fn fire_dive_system(
     gravity: crate::physics::GravityCtx,
-    world: crate::features::CollisionWorld,
+    world: ambition_world::collision::CollisionWorld,
     // Ability ORIGIN = the controlled subject, not a `PrimaryPlayer` filter.
     controlled: Res<ControlledSubject>,
     mut players: Query<(

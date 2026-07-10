@@ -62,9 +62,11 @@ player-visible bugs, and the untouched determinism ladder.
    (the fused `gnu_ton` profile + the split-layer render are gone; GNU-ton is the
    ADR-0020 linked pair. **Its premise was WRONG and the doc now says so:**
    `boss_encounter/` is not a shell and did not shrink — 5456→5457 total src
-   lines — so R2 does NOT unblock R4) → **R3** the overlay split (`CollisionWorld`
-   → `ambition_world`; the precondition fable named has already been met,
-   unnoticed — verified) → **R4** re-check the projectile steppers (only the
+   lines — so R2 does NOT unblock R4) → **R3** the overlay split ✅ **DONE
+   2026-07-10** (`CollisionWorld` + `MovingPlatformSet` → `ambition_world::collision`;
+   the spike found an unlisted `ambition_portal` dep, so `subtract_aabb` moved DOWN
+   to `engine_core::geometry` rather than let the space IR name a mechanic) →
+   **R4** re-check the projectile steppers (only the
    world-collision one can move now, and only if R3 lands; victim routing and
    charge input both survive) → **R5** the `ControlFrame` allowlist
    lint (= unified-actors step 5's Phase C, newly defined; B3's "two holders" has

@@ -78,7 +78,7 @@ pub(crate) fn draw_debug_overlay(
     mut gizmos: Gizmos,
     world: Res<RoomGeometry>,
     dev_state: Res<SandboxDevState>,
-    platform_set: Res<ambition::actors::MovingPlatformSet>,
+    platform_set: Res<ambition::world::collision::MovingPlatformSet>,
     developer_tools: Res<DeveloperTools>,
     room_set: Res<RoomSet>,
     ldtk_spine_index: Res<ambition::actors::ldtk_world::LdtkRuntimeSpineIndex>,

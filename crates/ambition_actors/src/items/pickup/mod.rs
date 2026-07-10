@@ -191,7 +191,7 @@ const THROW_SPEED_UP: f32 = 260.0;
 /// are skipped, so pickup-able items stay put.
 pub fn ground_item_physics(
     time: Res<ambition_time::WorldTime>,
-    world: crate::features::CollisionWorld,
+    world: ambition_world::collision::CollisionWorld,
     gravity: crate::physics::GravityCtx,
     mut grounds: Query<&mut GroundItem>,
 ) {
@@ -863,7 +863,7 @@ pub fn held_projectile_step(
     // carries it out the far portal. Carves-only preserves the bolt's historical
     // raw-world collision (it passes through moving platforms).
     let collision_world =
-        crate::features::world_with_portal_carves(&world.0, &overlay.portal_carves);
+        ambition_world::collision::world_with_portal_carves(&world.0, &overlay.portal_carves);
     let attacker = player.single().ok();
     for (entity, mut kin, mut proj) in &mut projectiles {
         let pos = kin.pos;

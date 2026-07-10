@@ -343,6 +343,7 @@ dependencies = [
  "ambition_sprite_sheet",
  "ambition_time",
  "ambition_vfx",
+ "ambition_world",
  "bevy",
  "bevy_falling_sand",
  "bevy_yarnspinner",
@@ -685,6 +686,7 @@ dependencies = [
  "ambition_projectiles",
  "ambition_sprite_sheet",
  "ambition_time",
+ "ambition_world",
  "bevy",
  "bevy_math",
  "leafwing-input-manager",
@@ -756,6 +758,7 @@ version = "0.1.0"
 dependencies = [
  "ambition_engine_core",
  "ambition_entity_catalog",
+ "ambition_platformer_primitives",
  "ambition_time",
  "bevy_app",
  "bevy_ecs",

@@ -104,12 +104,12 @@ comparison against the projection:
 | `boss_encounter/` | 5.5k | 1.5k | ~~adapter residue after the E6 three-way split~~ **NOT a shell (measured 2026-07-10, R2).** Live boss machinery: attack-geometry math, the phase-script runtime, the encounter entity, the behavior-profile schema. Reaches `crate::features` 53×. See the correction below |
 | `abilities/` | 4.1k | 1.9k | D-B carve candidate (`ambition_abilities`), iff measurement is clean |
 | `character_sprites/` | 2.7k | 1.4k | actor/content join: animation pickers, authored hitbox resolution, catalog-aware loading |
-| `world/` | 1.9k | 0.8k | overlay rebuild (reads live feature components) + the avian physics adapter |
+| `world/` | ~~1.9k~~ **1.5k** | 0.8k | overlay REBUILD (reads live feature components) + the avian physics adapter. The CONSUMPTION side (`CollisionWorld`) left in R3 → `ambition_world::collision`; re-measured 2026-07-10 |
 | `projectile/` | 1.8k | 0.9k | the three woven steppers (charge input, victim routing, world collision) |
 | `dev/` `items/` `encounter/` | 4.7k | 1.9k | sim-coupled adapters for their carved crates |
 | `persistence/` | 1.3k | 0.1k | save-adjacent adapter |
 | rest | ~9.9k | ~5.5k | time, session, body_mode, portal glue, gravity, roster, shrine, cutscene, assets tail, menu |
-| **total** | **64.0k** | **27.8k** | |
+| **total** | ~~64.0k~~ **63.5k** | **27.8k** | after R2 (−0.0k here; it hit content+render) and R3 (−0.4k) |
 
 Destination crates today (2026-07-06 measure, same units): `engine_core` 17.5k,
 `characters` 17.0k, `combat` 9.5k, `render` 9.4k, `portal_presentation` 6.5k,
@@ -136,7 +136,7 @@ versus what actually stayed:
 | Subdir | projected out | still resident | the shell |
 |---|---:|---:|---|
 | `combat/` | 12.8k | **0** | fully left ✅ — the proof a clean carve is possible |
-| `world/` | 10.9k | 1.9k | overlay rebuild + the avian adapter |
+| `world/` | 10.9k | 1.9k | ~~overlay rebuild~~ (LEFT in R3) + the avian adapter |
 | `boss_encounter/` | 6.8k | **5.5k** | ⚠️ **NOT a shell — see the R2 correction below** |
 | `persistence/` | 5.2k | 1.3k | save-adjacent adapter |
 | `projectile/` | 4.4k | 1.8k | the three woven steppers |
@@ -297,9 +297,14 @@ The carve relocated and SEALED the view types; the rules it fixed still bind:
   lock-wall contribution, switch-index rebuild, and
   `features/ecs/encounter_rewards.rs` spawn mobs/chests and write
   save/quest/banner state.
-- **`world/overlay.rs` and `world/overlay_rebuild.rs` are TWO modules with
-  OPPOSITE status** (measured 2026-07-10; they were previously one bullet, which
-  hid this):
+- ✅ **`world/overlay_rebuild.rs` LEFT (2026-07-10, `refactor-chain.md` R3).** It
+  is now `ambition_world::collision` — `CollisionWorld` + the three composite
+  builders + `MovingPlatformSet`. The spike found a dep the analysis below had
+  missed (`ambition_portal::pieces::subtract_aabb`); rather than give the space IR
+  a dependency on a gameplay mechanic, the pure rectangle set-difference moved
+  DOWN to `engine_core::geometry`. `world/overlay.rs` — the REBUILD side — stays,
+  as predicted. The `features/` hub re-exports it fed are deleted (anti-god
+  rule 3). The original analysis:
   - `overlay.rs` is the REBUILD side. It queries breakables and pogo-target
     volumes and imports `crate::combat::*`. Actor-domain. **It stays.**
   - `overlay_rebuild.rs` is the CONSUMPTION side — it owns `CollisionWorld`, the

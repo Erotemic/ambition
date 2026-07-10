@@ -537,36 +537,38 @@ snapshots needed. Needs N0 complete, plus:
 
   ### What is left: `portal_lab`, and it is one thing
 
-  `portal_lab` is the only room where `restore` reports `respawned > 0`. A respawned
-  entity comes back carrying **only its registered components**, because a blob is all
-  that survives of an entity that no longer exists — so it comes back naked and
-  everything diverges on tick 0.
+  **A respawn re-runs the spawner now.** `restore` no longer goes straight from "this
+  `SimId` is in the snapshot and not in the world" to "spawn a bare entity". It first asks
+  the ACTIVE ROOM to build the thing again, keyed by the authored id its `SimId` already
+  is — `ambition_actors::features::respawn_authored_entity`, which walks the room's
+  `placements` (through the same `PlacementLoweringRegistry` the room ran at load), its
+  `enemy_spawns`, and its `boss_spawns`. Then the blob patches its mutable half exactly as
+  a survivor's. That is decision (3)'s *"room-reset already proves the world can rebuild"*
+  honoured rather than quoted: no restore-only code path, just the room's own lowering.
 
-  **The entity is `placement:NpcSpawn-0017`.** Snapshot at tick 40 holds
-  `["placement:NpcSpawn-0017", "slot:0"]`; sixty ticks later only `slot:0` is alive. The
-  NPC dies during the run, and `restore` brings it back as a bare `SimId` plus whatever
-  the registry covers.
+  `RestoreReport` splits the two outcomes, because they are not the same event:
 
-  That is worth knowing, because it settles which way out to take. The thing that died is
-  an **authored LDtk placement**, not a transient projectile — and N3.1's identity pin
-  says an authored placement's `SimId` *is its LDtk iid*. The spawner that built it can
-  build it again from the same room data, keyed by the same id.
+  - **`rebuilt`** — the room authored it, so it came back whole.
+  - **`respawned`** — nothing authors it, so it came back naked. `lossless()` now demands
+    this be zero.
 
-  1. **A respawn re-runs the spawner.** *(preferred)* Decision (3)'s *"room-reset already
-     proves the world can rebuild"* was pointing exactly here. Resolve each respawned
-     `SimId::placement(iid)` back to its `PlacementRecord`, let the room's lowering
-     interpreter rebuild the entity, then apply the blob over its mutable half — the
-     same patch path a survivor takes. Nothing new is needed from the snapshot format:
-     the blob already carries what the entity BECAME, and the room carries what it was.
-  2. **Forbid a rollback window that spans a spawn.** `RestoreReport::respawned` is
-     already the number; N3.2's bounded window is where the constraint gets paid. Cheap,
-     and strictly weaker: a fight where anything dies is a fight you cannot rewind
-     across, which is most fights.
+  **And `portal_lab` still diverges, for a reason worth having found.** Its dead entity is
+  `placement:NpcSpawn-0017`, and the room authors **no** `enemy_spawns`, no
+  `boss_spawns`, and no `placement` by that id — its `placements` are the portal pads and
+  doors (`a_purple`, `d_portal_door1`, four LDtk iids). So `respawn_authored_entity`
+  correctly declines, and the NPC comes back naked.
 
-  A dynamically-spawned entity (`SimId::spawned(spawner, n)`) has no authored record and
-  so has no route (1). It needs either a spawn recipe registered alongside its codec, or
-  route (2). No room in the suite exercises that case yet, which is itself worth knowing
-  before someone assumes route (1) is sufficient.
+  The remaining question is therefore precise, and it is not the one this section has been
+  asking: **what spawns `NpcSpawn-0017`?** It is not one of the three authored lists
+  `RoomSpec` exposes. Find its spawner, give it a fourth arm in
+  `respawn_authored_entity`, and `portal_lab` joins the CLEAN list. Everything else the
+  rebuild needs is already in place and green on three rooms.
+
+  The other unresolved case, unchanged: a dynamically-spawned entity
+  (`SimId::spawned(spawner, n)`) has no authored record and so no route back through the
+  room. It needs a spawn recipe registered alongside its codec, or a rollback window that
+  does not span its birth (`RestoreReport::respawned` is already the number, and N3.2's
+  bounded window is where that constraint gets paid). No room in the suite exercises it.
 
   Everything else about N3.1 is done: 60 registry entries across five kinds (component,
   cursor, resolved, resource, resource-cursor), four message channels, three declared

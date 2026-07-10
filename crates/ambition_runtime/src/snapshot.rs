@@ -896,9 +896,14 @@ pub struct RestoreReport {
     /// Entities present in BOTH the world and the snapshot. Their registered
     /// components were overwritten in place; everything else they carry survived.
     pub patched: usize,
-    /// Entities in the snapshot that no longer existed. Rebuilt from blobs **alone**
-    /// — they come back naked but for their registered components, because a blob is
-    /// all that is left of them.
+    /// Entities in the snapshot that no longer existed and that the ROOM could build
+    /// again, keyed by the authored id their `SimId` already is. They come back whole,
+    /// and the blob patches their mutable half exactly as a survivor's.
+    pub rebuilt: usize,
+    /// Entities in the snapshot that no longer existed and that **no room authors** —
+    /// dynamically-spawned ones (`SimId::spawned(..)`). Rebuilt from blobs **alone**, so
+    /// they come back naked but for their registered components. A rollback window that
+    /// spans such a birth is not exact, and this is the number that says so.
     pub respawned: usize,
     /// Entities in the world that the snapshot never knew. They ceased to exist,
     /// which is correct: they were spawned after the tick we rewound to.
@@ -928,8 +933,57 @@ impl RestoreReport {
     /// Nothing survived that should not have, and nothing stale was left behind.
     /// Only then is a restored world the world that was taken.
     pub fn lossless(&self) -> bool {
-        self.stale_components.is_empty() && self.unidentified_survivors == 0
+        self.stale_components.is_empty() && self.unidentified_survivors == 0 && self.respawned == 0
     }
+}
+
+/// Ask the active room to rebuild one authored entity, by the id its `SimId` already is.
+///
+/// Returns the rebuilt entity, carrying its `SimId` so `restore` can patch the blob over
+/// it. `None` when the id names nothing the room authors — a dynamically-spawned entity —
+/// or when the world has no room at all (a headless fixture).
+///
+/// This is decision (3)'s *"room-reset already proves the world can rebuild"*, honoured
+/// rather than quoted: the rebuild goes through `respawn_authored_entity`, the same
+/// lowering the room ran at load, not through a restore-only code path.
+fn respawn_from_the_room(world: &mut World, sim_id: &str) -> Option<Entity> {
+    let iid = sim_id.strip_prefix("placement:")?;
+    let registry = world
+        .get_resource::<ambition_world::placements::PlacementLoweringRegistry>()?
+        .clone();
+    let room = {
+        let rooms = world.get_resource::<ambition_world::rooms::RoomSet>()?;
+        rooms.rooms.get(rooms.active)?.clone()
+    };
+
+    let built = {
+        let mut commands = world.commands();
+        ambition_actors::features::respawn_authored_entity(&mut commands, &room, &registry, iid)
+    };
+    if !built {
+        return None;
+    }
+    // The lowering used `Commands`; nothing exists until they run.
+    world.flush();
+
+    // Find what it built. An authored entity wears its `FeatureId`, which IS the iid —
+    // that identity is exactly why a snapshot can key on it.
+    let entity = {
+        let mut q = world.try_query::<(Entity, &ambition_combat::components::FeatureId)>()?;
+        let mut found = None;
+        for (entity, feature) in q.iter(world) {
+            if feature.0 == iid {
+                found = Some(entity);
+                break;
+            }
+        }
+        found?
+    };
+    world.entity_mut(entity).insert((
+        SimId::from_snapshot(sim_id.to_string()),
+        SimIdCounter::default(),
+    ));
+    Some(entity)
 }
 
 /// **Restore the sim to a snapshot, reconciling by [`SimId`].**
@@ -1011,10 +1065,19 @@ pub fn restore(
                 report.patched += 1;
                 *entity
             }
-            None => {
-                report.respawned += 1;
-                world.spawn(SimId::from_snapshot((*id).to_string())).id()
-            }
+            // Gone since the snapshot. Ask the ROOM to build it again before falling
+            // back to a bare `SimId` — the blob carries what the entity became, and only
+            // the room carries what it was.
+            None => match respawn_from_the_room(world, id) {
+                Some(entity) => {
+                    report.rebuilt += 1;
+                    entity
+                }
+                None => {
+                    report.respawned += 1;
+                    world.spawn(SimId::from_snapshot((*id).to_string())).id()
+                }
+            },
         };
 
         for (name, blob) in &snapshot.entries {

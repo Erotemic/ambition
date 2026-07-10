@@ -58,6 +58,51 @@ pub fn spawn_room_feature_entities(commands: &mut Commands, room: &crate::rooms:
     spawn_room_feature_entities_with_registry(commands, room, &registry);
 }
 
+/// **Re-run the spawner for ONE authored entity, by its authored id.**
+///
+/// `docs/planning/engine/netcode.md` N3.1 decision (3): *"restore = despawn-registered +
+/// respawn from blobs … room-reset already proves the world can rebuild."* This is the
+/// half that proves it. A rollback whose window spans a death has to bring the dead body
+/// back, and a blob is not enough: the blob carries what the entity *became*, and only
+/// the room carries what it *was*.
+///
+/// Keyed by the id the snapshot already holds — an authored placement's `SimId` IS its
+/// LDtk iid — so nothing new has to be recorded to make a respawn possible.
+///
+/// Returns `false` for an id this room does not author, which is the honest answer for a
+/// dynamically-spawned entity (`SimId::spawned(..)`): it has no authored record, and it
+/// needs a spawn recipe of its own or a rollback window that does not span its birth.
+pub fn respawn_authored_entity(
+    commands: &mut Commands,
+    room: &crate::rooms::RoomSpec,
+    registry: &crate::world::placements::PlacementLoweringRegistry,
+    authored_id: &str,
+) -> bool {
+    let paths = room_spec_paths(room);
+    if let Some(record) = room
+        .placements
+        .iter()
+        .find(|r| r.id.as_str() == authored_id)
+    {
+        let mut ctx = crate::world::placements::LoweringCtx {
+            commands,
+            room_id: &room.id,
+            paths: &paths,
+        };
+        registry.lower(record, &mut ctx);
+        return true;
+    }
+    if let Some(enemy) = room.enemy_spawns.iter().find(|e| e.id == authored_id) {
+        super::spawn_actors::spawn_enemy(commands, enemy, &paths);
+        return true;
+    }
+    if let Some(boss) = room.boss_spawns.iter().find(|b| b.id == authored_id) {
+        super::spawn_actors::spawn_boss(commands, boss);
+        return true;
+    }
+    false
+}
+
 pub fn spawn_room_feature_entities_with_registry(
     commands: &mut Commands,
     room: &crate::rooms::RoomSpec,

@@ -282,21 +282,32 @@ snapshots needed. Needs N0 complete, plus:
 
 ## N3 — rollback (the real thing, explicitly post-1.0)
 
-- **N3.1 Snapshot/restore of sim state** — 🟡 **the REGISTRY half landed
-  2026-07-10** (`ambition_runtime::snapshot`): `SnapshotRegistry` (opt-in per
-  plugin, decision 1), `StateHasher`, `hash_entities_by_key` (the stable-order
-  rule), and `register_engine_sim_state`. N0.4 rides it.
+- **N3.1 Snapshot/restore of sim state** — 🟡 **the REGISTRY half + the IDENTITY
+  migration landed 2026-07-10.**
 
-  **`take`/`restore` are deliberately NOT built.** Decision (3) is *"restore =
-  despawn-registered + respawn from blobs"*, which needs decision's identity pin:
-  *"every snapshot-registered entity carries a `SimId`."* **No `SimId` exists in
-  the tree.** A `restore` keyed on `Entity` would break this section's own rule
-  (*"`Entity` values never appear in a blob"*) and would have to be torn out. So
-  the SimId migration is N3.1's real next slice, and the canary — which needs only
-  the hash — did not wait for it.
+  - `ambition_runtime::snapshot`: `SnapshotRegistry` (opt-in per plugin, decision
+    1), `StateHasher`, `hash_entities_by_key` (the stable-order rule),
+    `register_engine_sim_state`. N0.4 rides it.
+  - `ambition_platformer_primitives::sim_id`: **`SimId`**, the one identity
+    vocabulary — `placement(id)` (an LDtk iid / `FeatureId`), `player_slot(n)`,
+    and `spawned(spawner, counter)`. It is a *`String`* on purpose: a desync report
+    that says `placement:BossSpawn-4308/3` names a projectile fired by a boss;
+    `9f3ac21e` names nothing. `SimIdCounter` lives on the SPAWNER, never global —
+    a global counter couples unrelated spawners.
+  - `ensure_sim_id` covers the two authored identities; `mint_spawned_sim_ids`
+    covers projectiles, ordered by the existing `ProjectileSeq` (a global counter
+    is forbidden for *identity* but is a perfectly good *total order*).
 
+  **`the_sim_id_migration_ledger` is a GATE, and it reads ZERO** across
+  `gap_run` / `portal_lab` / `mockingbird_arena` / `gnu_ton_arena`: every
+  simulated body carries a `SimId`. A rise means a spawn site shipped without
+  minting one, and restore would silently lose whatever it spawned.
+
+  **`take`/`restore` remain the next slice.** The identity blocker is gone; what
+  is left is decision (3)'s despawn-registered + respawn-from-blobs, which needs
+  each sim crate to register its components' serialization, not just its hash.
   Still useful long before netcode: Braid-style rewind, RL tree search, and the
-  fighter brain's FB6 rollouts all want the restore half. [fable-hard]
+  fighter brain's FB6 rollouts all want it. [fable-hard]
 - **N3.2 Resim discipline** — bounded rollback window; presentation reads
   confirmed ticks only (read-model tick-tagging); side-effect suppression
   during resim (sfx/vfx event facts carry the tick; presentation dedups).
@@ -334,7 +345,7 @@ world can rebuild); (4) the fighter brain's rollouts call
 
 **Identity & scope (pinned 2026-07-06, answering the contract review):**
 
-- **One identity vocabulary, shared with SimView.** Every
+- **One identity vocabulary, shared with SimView.** ✅ **LANDED 2026-07-10.** Every
   snapshot-registered entity carries a `SimId` — the EXISTING stable ids,
   not a new system: actors use `ActorConfig.id` (== LDtk iid; placement
   identity), player bodies use their slot, dynamically-spawned sim

@@ -163,6 +163,15 @@ impl Plugin for SandboxSetsPlugin {
             ambition_platformer_primitives::class_b::clear_class_b_remap_log
                 .before(ambition_platformer_primitives::schedule::SandboxSet::CoreSimulation),
         );
+        // N3.1's identity vocabulary. Every body the sim can identify from an
+        // authored fact gets its `SimId` at the head of the frame, before anything
+        // reads identity — snapshot, replay, and the N0.4 canary all key on it.
+        app.add_systems(
+            sim,
+            (snapshot::ensure_sim_id, snapshot::mint_spawned_sim_ids)
+                .chain()
+                .before(ambition_platformer_primitives::schedule::SandboxSet::CoreSimulation),
+        );
         // Shrine activation pulse (interaction → save flash).
         app.init_resource::<ambition_actors::shrine::ShrineActivationPulse>();
         // Slot-keyed gesture/buffer authority (double-tap, interact buffer).

@@ -22,10 +22,11 @@
 | [`projectile`](src/projectile/mod.rs) | Reusable, game-agnostic projectile physics primitive. |
 | [`schedule`](src/schedule.rs) | Runtime schedule vocabulary that is independent of Ambition content. |
 | [`shrine`](src/shrine.rs) | Shared presentation pulse state for save/heal shrines. |
+| [`sim_id`](src/sim_id.rs) | **`SimId` — the one identity vocabulary for snapshot, replay, and netcode.** |
 | [`time`](src/time.rs) | Neutral simulation-time resource for the platformer runtime. |
 | [`transit`](src/transit.rs) | Generic body-transit velocity math for platformer mechanics. |
 
-_18 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_19 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

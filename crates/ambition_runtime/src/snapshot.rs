@@ -254,33 +254,194 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
         }
     });
 
+    // Every body that carries a `SimId` — the ONE identity vocabulary (N3.1).
+    // A body without one is invisible to the canary, and `unidentified_bodies`
+    // below makes that blind spot itself a hashed, reported number.
     registry.register("body_kinematics", |world, h| {
         let mut rows: Vec<(String, Vec<u8>)> = Vec::new();
-        let mut q = world.try_query::<(
-            &ambition_platformer_primitives::body::BodyKinematics,
-            Option<&ambition_combat::components::FeatureId>,
-            Option<&ambition_platformer_primitives::markers::PrimaryPlayer>,
-        )>();
-        let Some(mut q) = q.take() else {
+        let Some(mut q) = world
+            .try_query::<(
+                &ambition_platformer_primitives::sim_id::SimId,
+                &ambition_platformer_primitives::body::BodyKinematics,
+            )>()
+            .take()
+        else {
             return;
         };
-        for (kin, feature_id, primary) in q.iter(world) {
-            // The two stable identities that exist today. A body with neither is
-            // NOT hashed, and that silence is the SimId migration, named in the
-            // module docs rather than papered over with an `Entity` index.
-            let key = match (feature_id, primary) {
-                (Some(id), _) => format!("feature:{}", id.0),
-                (None, Some(_)) => "player:slot0".to_string(),
-                (None, None) => continue,
-            };
+        for (id, kin) in q.iter(world) {
             let mut bytes = Vec::with_capacity(20);
             for v in [kin.pos.x, kin.pos.y, kin.vel.x, kin.vel.y, kin.facing] {
                 bytes.extend_from_slice(&canonical_f32_bits(v).to_le_bytes());
             }
-            rows.push((key, bytes));
+            rows.push((id.as_str().to_string(), bytes));
         }
         hash_entities_by_key(h, rows);
     });
+
+    registry.register("body_health", |world, h| {
+        let mut rows: Vec<(String, Vec<u8>)> = Vec::new();
+        let Some(mut q) = world
+            .try_query::<(
+                &ambition_platformer_primitives::sim_id::SimId,
+                &ambition_characters::actor::BodyHealth,
+            )>()
+            .take()
+        else {
+            return;
+        };
+        for (id, health) in q.iter(world) {
+            let mut bytes = Vec::with_capacity(8);
+            bytes.extend_from_slice(&health.current().to_le_bytes());
+            bytes.extend_from_slice(&health.max().to_le_bytes());
+            rows.push((id.as_str().to_string(), bytes));
+        }
+        hash_entities_by_key(h, rows);
+    });
+
+    // Each spawner's minted-id count. Two sims that minted a different NUMBER of
+    // projectiles are not in the same state even if every surviving body agrees —
+    // the divergence may be a shot that has already despawned.
+    registry.register("sim_id_counters", |world, h| {
+        let mut rows: Vec<(String, Vec<u8>)> = Vec::new();
+        let Some(mut q) = world
+            .try_query::<(
+                &ambition_platformer_primitives::sim_id::SimId,
+                &ambition_platformer_primitives::sim_id::SimIdCounter,
+            )>()
+            .take()
+        else {
+            return;
+        };
+        for (id, counter) in q.iter(world) {
+            rows.push((id.as_str().to_string(), counter.0.to_le_bytes().to_vec()));
+        }
+        hash_entities_by_key(h, rows);
+    });
+
+    // **The blind spot, made loud.** Simulated bodies with no `SimId` cannot be
+    // snapshotted, restored, or defended by the canary. Hashing the COUNT means a
+    // sim that spawned a different number of un-identified bodies still diverges —
+    // the canary reports "I cannot see what changed", which beats reporting green.
+    // `unidentified_bodies` goes to zero as the SimId migration finishes.
+    registry.register("unidentified_bodies", |world, h| {
+        let Some(mut q) = world
+            .try_query_filtered::<(), (
+                bevy::ecs::query::With<ambition_platformer_primitives::body::BodyKinematics>,
+                bevy::ecs::query::Without<ambition_platformer_primitives::sim_id::SimId>,
+            )>()
+            .take()
+        else {
+            return;
+        };
+        h.write_u64(q.iter(world).count() as u64);
+    });
+}
+
+/// Give every body the sim can identify a [`SimId`], once.
+///
+/// Two facts exist today, and this system reads exactly those two: an authored
+/// placement's `FeatureId` (the LDtk iid a save file already keys on) and the
+/// primary player's slot. **Dynamically-spawned entities are NOT covered** —
+/// N3.1's pin says they get `(spawner SimId, per-spawner counter)`, which the
+/// spawn sites must mint at spawn (they know their spawner; this system does not).
+/// `unidentified_bodies` counts what is left, so the migration has a number.
+///
+/// Runs at the head of the sim, before anything reads identity.
+pub fn ensure_sim_id(
+    mut commands: bevy::ecs::system::Commands,
+    unidentified: bevy::ecs::system::Query<
+        (
+            bevy::ecs::entity::Entity,
+            Option<&ambition_combat::components::FeatureId>,
+            Option<&ambition_platformer_primitives::markers::PrimaryPlayer>,
+        ),
+        (
+            bevy::ecs::query::With<ambition_platformer_primitives::body::BodyKinematics>,
+            bevy::ecs::query::Without<ambition_platformer_primitives::sim_id::SimId>,
+        ),
+    >,
+) {
+    use ambition_platformer_primitives::sim_id::{SimId, SimIdCounter};
+    for (entity, feature_id, primary) in &unidentified {
+        let id = match (feature_id, primary) {
+            (Some(id), _) => SimId::placement(&id.0),
+            (None, Some(_)) => SimId::player_slot(0),
+            // Not identifiable from an authored fact. Its spawn site must mint it.
+            (None, None) => continue,
+        };
+        // Every identified body is a potential spawner (a boss summons, a player
+        // fires), and its counter is snapshot state.
+        commands
+            .entity(entity)
+            .insert((id, SimIdCounter::default()));
+    }
+}
+
+/// Mint `SimId::spawned(spawner, counter.next())` for every in-flight projectile
+/// that has none — N3.1's rule for dynamically-spawned sim entities.
+///
+/// ## Why this is one system rather than an edit at every spawn site
+///
+/// A projectile already carries the fact this needs: `ProjectileOwner`. Threading
+/// a `SimIdCounter` through a dozen fire paths would put the same lookup in a
+/// dozen places and leave the thirteenth out.
+///
+/// ## Why the order is deterministic
+///
+/// A `Query` walks archetypes, not spawn order, so two sims could mint a pair of
+/// same-tick projectiles' ids in opposite order. Sorting by
+/// `(owner SimId, ProjectileSeq)` fixes that: `ProjectileSeq` is the existing
+/// monotonic spawn-sequence the step system already sorts by to keep iteration
+/// deterministic. Its counter is global — which N3.1 forbids for *identity*,
+/// because it couples unrelated spawners — but a global counter is a perfectly
+/// good *total order*, which is all this uses it for. The identity itself comes
+/// from the owner's own `SimIdCounter`, one stream per spawner.
+pub fn mint_spawned_sim_ids(
+    mut commands: bevy::ecs::system::Commands,
+    newborns: bevy::ecs::system::Query<
+        (
+            bevy::ecs::entity::Entity,
+            &ambition_projectiles::ProjectileOwner,
+            &ambition_projectiles::ProjectileSeq,
+        ),
+        (
+            bevy::ecs::query::With<ambition_projectiles::LiveProjectile>,
+            bevy::ecs::query::Without<ambition_platformer_primitives::sim_id::SimId>,
+        ),
+    >,
+    mut owners: bevy::ecs::system::Query<(
+        &ambition_platformer_primitives::sim_id::SimId,
+        &mut ambition_platformer_primitives::sim_id::SimIdCounter,
+    )>,
+) {
+    use ambition_platformer_primitives::sim_id::SimId;
+
+    let mut rows: Vec<(
+        String,
+        u64,
+        bevy::ecs::entity::Entity,
+        bevy::ecs::entity::Entity,
+    )> = Vec::new();
+    for (entity, owner, seq) in &newborns {
+        // An owner with no identity cannot lend one. Its own migration comes first.
+        let Ok((owner_id, _)) = owners.get(owner.0) else {
+            continue;
+        };
+        rows.push((owner_id.as_str().to_string(), seq.0, entity, owner.0));
+    }
+    rows.sort();
+
+    for (_, _, entity, owner_entity) in rows {
+        let Ok((owner_id, mut counter)) = owners.get_mut(owner_entity) else {
+            continue;
+        };
+        let id = SimId::spawned(owner_id, counter.next());
+        // A projectile can itself spawn (a splitting shot), so it gets a counter.
+        commands.entity(entity).insert((
+            id,
+            ambition_platformer_primitives::sim_id::SimIdCounter::default(),
+        ));
+    }
 }
 
 fn canonical_f32_bits(v: f32) -> u32 {

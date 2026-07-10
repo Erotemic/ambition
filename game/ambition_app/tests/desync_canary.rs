@@ -134,3 +134,79 @@ fn moving_a_body_changes_the_registered_hash() {
          rollback would have to restore"
     );
 }
+
+/// **The SimId migration, measured.**
+///
+/// N3.1: *"every snapshot-registered entity carries a `SimId`."* Today
+/// `ensure_sim_id` covers the two identities that exist as authored facts — a
+/// placement's `FeatureId` and the primary player's slot. Everything else is a
+/// dynamically-spawned entity whose spawn site must mint
+/// `SimId::spawned(spawner, counter.next())`, because only the spawn site knows
+/// its spawner.
+///
+/// `mint_spawned_sim_ids` covers the other class: an in-flight projectile takes
+/// `SimId::spawned(owner, owner_counter.next())`, ordered by the `ProjectileSeq`
+/// the step system already sorts by.
+///
+/// **The ledger is a GATE, and it reads zero.** Every simulated body in every
+/// room below carries a `SimId`. A rise means a new spawner shipped without
+/// minting one, and N3.1's restore would silently lose whatever it spawned.
+///
+/// ```text
+/// cargo test -p ambition_app --features rl_sim --test desync_canary -- --nocapture the_sim_id
+/// ```
+#[test]
+fn the_sim_id_migration_ledger() {
+    use ambition::bevy::prelude::{With, Without};
+
+    let mut report = String::new();
+    let mut worst = 0usize;
+    for room in [
+        "gap_run",
+        "portal_lab",
+        "mockingbird_arena",
+        "gnu_ton_arena",
+    ] {
+        let Some(mut s) = sim(room) else { continue };
+        let mut policy = RandomWalkPolicy::traversal_stress(7);
+        // The traversal policy never attacks, so it never spawns a projectile —
+        // and a ledger of anonymous bodies that never sees a projectile is a
+        // ledger of nothing. Mash attack: projectiles are exactly the class N3.1
+        // says needs `(spawner, counter)` ids.
+        for i in 0..240 {
+            let mut action = policy.act();
+            action.attack = i % 7 == 0;
+            s.step(action);
+        }
+
+        let identified = {
+            let mut q = s
+                .world_mut()
+                .query_filtered::<(), With<ambition::platformer::sim_id::SimId>>();
+            let w = s.world();
+            q.iter(w).count()
+        };
+        let unidentified = {
+            let mut q = s.world_mut().query_filtered::<(), (
+                With<ambition::actors::actor::BodyKinematics>,
+                Without<ambition::platformer::sim_id::SimId>,
+            )>();
+            let w = s.world();
+            q.iter(w).count()
+        };
+        worst = worst.max(unidentified);
+        report.push_str(&format!(
+            "  {room:22} {identified:3} identified, {unidentified:3} bodies still anonymous\n"
+        ));
+    }
+    eprintln!("\n=== N3.1 SimId migration ledger ===\n{report}");
+
+    assert_eq!(
+        worst, 0,
+        "{worst} simulated bodies carry no SimId. A spawn site shipped without \
+         `SimId::spawned(spawner, counter.next())`, so N3.1's restore would silently \
+         lose whatever it spawned and the N0.4 canary cannot defend it. Either give \
+         the spawner an identity (`ensure_sim_id` reads `FeatureId` / `PrimaryPlayer`) \
+         or mint the child's (`mint_spawned_sim_ids` is the pattern). See netcode.md N3.1."
+    );
+}

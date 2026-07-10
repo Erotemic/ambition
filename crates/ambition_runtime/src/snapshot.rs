@@ -331,6 +331,13 @@ enum EntryKind {
         /// A snapshot with no row for this entity means the entity did not HAVE the
         /// component then. Restoring exactly means taking it away now.
         remove: Box<dyn Fn(&mut bevy::ecs::world::EntityWorldMut<'_>) + Send + Sync>,
+        /// **Standalone decode check for the transactional preflight** (re-audit finding
+        /// 5). `Some` when the blob decodes to a self-contained value (`register_component`),
+        /// so `restore` can validate it BEFORE mutating the world. `None` for cursor and
+        /// resolved codecs, which decode into a live target and cannot be probed without
+        /// one — their decode failure is caught at apply time, after mutation has begun (the
+        /// named residual on `RestoreError::DecodeFailed`).
+        probe: Option<Box<dyn Fn(&[u8]) -> bool + Send + Sync>>,
     },
     /// A single blob. `restore` puts it back.
     Resource {
@@ -338,6 +345,10 @@ enum EntryKind {
         bytes: Box<dyn Fn(&World) -> Vec<u8> + Send + Sync>,
         /// `false` on decode failure — see [`EntryKind::Component`]'s `insert`.
         load: Box<dyn Fn(&mut World, &[u8]) -> bool + Send + Sync>,
+        /// Standalone decode check for the preflight — always `Some` for a plain resource
+        /// (`register_resource` decodes to a self-contained value). See
+        /// [`EntryKind::Component`]'s `probe`.
+        probe: Box<dyn Fn(&[u8]) -> bool + Send + Sync>,
     },
     /// A resource that is half authored, half mutable — the [`SnapshotCursor`] shape,
     /// one level up. `CombatSlotsRes` is the archetype: authored slot geometry, live
@@ -418,6 +429,9 @@ impl SnapshotRegistry {
                 remove: Box::new(|entity| {
                     entity.remove::<C>();
                 }),
+                // Standalone: the blob decodes to a self-contained `C`, so restore can
+                // validate it before mutating the world (finding 5).
+                probe: Some(Box::new(|bytes| decode_one::<C>(bytes).is_some())),
             },
         );
     }
@@ -459,6 +473,10 @@ impl SnapshotRegistry {
                 remove: Box::new(|entity| {
                     entity.remove::<C>();
                 }),
+                // A cursor decodes INTO a live target (`apply_cursor(&mut self)`), so it
+                // cannot be validated standalone — no probe. Its decode failure is caught at
+                // apply time, after mutation has begun (the named residual, finding 5).
+                probe: None,
             },
         );
     }
@@ -507,6 +525,10 @@ impl SnapshotRegistry {
                 remove: Box::new(|entity| {
                     entity.remove::<C>();
                 }),
+                // A resolved codec decodes against the live entity's authored content
+                // (`resolve(entity, ..)`) and cannot distinguish a decode failure from an
+                // absent authored half anyway (see `insert`), so it has no standalone probe.
+                probe: None,
             },
         );
     }
@@ -537,6 +559,9 @@ impl SnapshotRegistry {
                         false // decode failure -> restore reports it (was: silent)
                     }
                 }),
+                // Standalone: an empty blob is a removal (always valid); a non-empty one
+                // must decode to a self-contained `R`. Validated before mutation (finding 5).
+                probe: Box::new(|bytes| bytes.is_empty() || decode_one::<R>(bytes).is_some()),
             },
         );
     }
@@ -1217,8 +1242,15 @@ pub enum RestoreError {
     /// corrupt, or the encoder and decoder disagree. A SILENT continue (the old
     /// `debug_assert!(false)` + leave-it-alone, which fired only in debug builds) would
     /// leave stale state reading as restored. `entry` is the registry name; `id` is the
-    /// `SimId` for a component row, `None` for a resource. On this error the world is
-    /// left PARTIALLY restored and the caller must discard it (fetch a fresh snapshot).
+    /// `SimId` for a component row, `None` for a resource.
+    ///
+    /// **Transactionality (re-audit finding 5):** a STANDALONE codec — a plain component
+    /// or plain resource — is decode-preflighted before any mutation, so this error leaves
+    /// the world UNTOUCHED. A cursor/resolved codec decodes into a live target and has no
+    /// standalone probe, so ITS decode failure can surface mid-reconciliation with the
+    /// world PARTIALLY restored; that is the named residual, and the caller must discard
+    /// the world (fetch a fresh snapshot). Only a project-authored cursor/resolved codec
+    /// disagreement reaches that path — the common corrupt-blob case is transactional.
     DecodeFailed { entry: String, id: Option<String> },
     /// The snapshot holds a dynamically-spawned entity (a `SimId::spawned(..)` id — the
     /// vocabulary appends `/<seq>`) that **existed at the snapshot tick, is absent now,
@@ -1430,6 +1462,44 @@ pub fn restore(
             return Err(RestoreError::UnsupportedDynamicReconstruction {
                 sim_id: (*id).to_string(),
             });
+        }
+    }
+
+    // **Codec decode preflight (re-audit finding 5), BEFORE any mutation.** Validate every
+    // STANDALONE-decodable blob — plain components and plain resources — so an ordinary
+    // codec failure refuses transactionally, with the world untouched, rather than after
+    // the despawn/rebuild loop has half-reconciled it. Cursor and resolved codecs decode
+    // into a live target and have no standalone probe; their failure is still caught, at
+    // apply time (the named residual on `RestoreError::DecodeFailed`).
+    for (name, blob) in &snapshot.entries {
+        let Some(entry) = registry.entries.iter().find(|e| e.name == *name) else {
+            continue;
+        };
+        match (&entry.kind, blob) {
+            (
+                EntryKind::Component {
+                    probe: Some(probe), ..
+                },
+                EntryBlob::Component(rows),
+            ) => {
+                for (row_id, bytes) in rows {
+                    if !probe(bytes) {
+                        return Err(RestoreError::DecodeFailed {
+                            entry: (*name).to_string(),
+                            id: Some(row_id.clone()),
+                        });
+                    }
+                }
+            }
+            (EntryKind::Resource { probe, .. }, EntryBlob::Resource(bytes)) => {
+                if !probe(bytes) {
+                    return Err(RestoreError::DecodeFailed {
+                        entry: (*name).to_string(),
+                        id: None,
+                    });
+                }
+            }
+            _ => {}
         }
     }
 
@@ -3869,31 +3939,49 @@ mod tests {
         );
     }
 
-    /// **A corrupted blob makes restore fail LOUDLY, in every build** (audit M3/S2.5).
+    /// **A corrupted STANDALONE blob makes restore refuse LOUDLY and transactionally**
+    /// (audit M3/S2.5; re-audit finding 5).
     ///
     /// A registered codec that cannot read a blob it was handed is a codec failure. The
     /// old `debug_assert!(false)` dropped the component silently in release builds,
-    /// leaving stale state reading as restored. Now restore returns `DecodeFailed` and
-    /// names the entry. Poison test, co-located with the enforcement (atomicity rule).
+    /// leaving stale state reading as restored. Now restore returns `DecodeFailed`, names
+    /// the entry, and — for a standalone codec (`body_kinematics` is a plain component) —
+    /// decode-preflights it BEFORE any mutation, so the refusal leaves the world untouched.
+    /// A future-only entity a mutating restore would despawn proves it. Poison test,
+    /// co-located with the enforcement (atomicity rule).
     #[test]
     fn restore_refuses_a_corrupted_blob_rather_than_leaving_stale_state() {
         let reg = engine_registry();
         let mut world = sim_world();
         let mut snap = take(&world, &reg);
 
-        // Corrupt the first non-empty component row: one byte short, so `decode_one`
-        // returns `None` (a truncated blob is rejected, not guessed).
-        let mut corrupted: Option<&'static str> = None;
+        // Corrupt a PLAIN-component row (`body_kinematics`, a standalone-decodable codec):
+        // one byte short, so `decode_one` returns `None` (a truncated blob is rejected, not
+        // guessed). Targeting the standalone codec is what exercises the pre-mutation
+        // decode preflight rather than the apply-time cursor/resolved path.
+        let corrupted = "body_kinematics";
+        let mut hit = false;
         for (name, blob) in snap.entries.iter_mut() {
-            if let EntryBlob::Component(rows) = blob {
-                if let Some((_, b)) = rows.iter_mut().find(|(_, b)| !b.is_empty()) {
+            if *name == corrupted {
+                if let EntryBlob::Component(rows) = blob {
+                    let (_, b) = rows
+                        .iter_mut()
+                        .find(|(_, b)| !b.is_empty())
+                        .expect("a non-empty body_kinematics row");
                     b.pop();
-                    corrupted = Some(*name);
-                    break;
+                    hit = true;
                 }
             }
         }
-        let corrupted = corrupted.expect("a non-empty component row to corrupt");
+        assert!(hit, "expected a non-empty `{corrupted}` row to corrupt");
+
+        // A future-only entity a MUTATING restore would despawn in its first pass.
+        let future = world
+            .spawn((
+                SimId::placement("future-canary"),
+                kin(Vec2::ZERO, Vec2::ZERO),
+            ))
+            .id();
 
         match restore(&mut world, &snap, &reg) {
             Err(RestoreError::DecodeFailed { entry, .. }) => assert_eq!(entry, corrupted),
@@ -3901,6 +3989,14 @@ mod tests {
                 panic!("restore accepted a corrupted blob instead of refusing: {other:?}")
             }
         }
+
+        // Transactional: the standalone decode preflight refused before mutating, so the
+        // future entity is still standing (finding 5).
+        assert!(
+            world.get::<SimId>(future).is_some(),
+            "restore despawned a future entity before refusing a corrupted standalone blob \
+             — the decode preflight is not transactional (finding 5)"
+        );
     }
 
     /// Taking a snapshot of a restored world yields the identical snapshot. Restore

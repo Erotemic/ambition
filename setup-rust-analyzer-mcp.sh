@@ -31,7 +31,13 @@ SCOPE="local"
 DO_REGISTER=1
 DO_SMOKE_TEST=1
 DO_INSTALL=1
+DO_UNINSTALL=0
 CLAUDE_DIRS=()
+
+# `--uninstall` sweeps every scope rather than just $SCOPE. A registration you have
+# forgotten the scope of is exactly the one you are trying to get rid of, and removing
+# from a scope that does not hold it is a no-op that exits 1.
+ALL_SCOPES=(local project user)
 
 log() {
     printf '[setup_rust_analyzer_mcp] %s\n' "$*"
@@ -58,8 +64,14 @@ Options:
                        local   - private to you, per --claude-dir, not committed
                        project - writes .mcp.json in --claude-dir, shared via git
                        user    - visible in every project on this machine
-  --no-install       Verify prerequisites only; do not run cargo install.
-  --no-register      Install/verify prerequisites only; do not touch Claude config.
+  --uninstall        Undo this script: unregister the server from every scope under
+                     each --claude-dir, then `cargo uninstall` the binary. Combine
+                     with --no-install to keep the binary, or --no-register to keep
+                     the registration. Ignores --scope; it sweeps all of them.
+                     Leaves the rustup rust-analyzer component alone -- your editor
+                     needs it -- and never touches the cargo target dir.
+  --no-install       Do not run cargo install (or, with --uninstall, cargo uninstall).
+  --no-register      Do not touch Claude config, in either direction.
   --no-smoke-test    Skip the stdio handshake check.
   -h, --help         Show this help.
 
@@ -74,6 +86,8 @@ Examples:
   ./setup_rust_analyzer_mcp.sh --claude-dir ../..          # superproject checkout
   ./setup_rust_analyzer_mcp.sh --scope user
   FORCE=1 ./setup_rust_analyzer_mcp.sh
+  ./setup_rust_analyzer_mcp.sh --uninstall                 # remove registration + binary
+  ./setup_rust_analyzer_mcp.sh --uninstall --no-install    # unregister, keep the binary
 EOF
 }
 
@@ -90,6 +104,7 @@ parse_args() {
                 SCOPE="$2"
                 shift 2
                 ;;
+            --uninstall)     DO_UNINSTALL=1; shift ;;
             --no-install)    DO_INSTALL=0; shift ;;
             --no-register)   DO_REGISTER=0; shift ;;
             --no-smoke-test) DO_SMOKE_TEST=0; shift ;;
@@ -273,6 +288,84 @@ EOF
     for dir in "${CLAUDE_DIRS[@]}"; do
         register_one "$dir"
     done
+}
+
+unregister_one() {
+    local claude_dir="$1"
+    local scope removed=0
+
+    for scope in "${ALL_SCOPES[@]}"; do
+        # Exits 1 when the name is not registered in that scope, which is the common
+        # case for two of the three. Only a 0 means we actually removed something.
+        if ( cd "$claude_dir" && claude mcp remove "$SERVER_NAME" -s "$scope" >/dev/null 2>&1 ); then
+            log "removed '$SERVER_NAME' (scope=$scope) registered from $claude_dir"
+            removed=1
+        fi
+    done
+
+    [ "$removed" -eq 1 ] || warn "no '$SERVER_NAME' registration found under $claude_dir"
+}
+
+unregister_server() {
+    if [ "$DO_REGISTER" -eq 0 ]; then
+        log "leaving Claude config alone (--no-register)"
+        return
+    fi
+
+    if ! command -v claude >/dev/null 2>&1; then
+        warn "the 'claude' CLI is not on PATH; cannot unregister automatically."
+        warn "delete the '$SERVER_NAME' entry from your MCP config by hand."
+        return
+    fi
+
+    local dir
+    for dir in "${CLAUDE_DIRS[@]}"; do
+        unregister_one "$dir"
+    done
+}
+
+uninstall_binary() {
+    if [ "$DO_INSTALL" -eq 0 ]; then
+        log "leaving $MCP_BIN installed (--no-install)"
+        return
+    fi
+
+    if ! command -v "$MCP_BIN" >/dev/null 2>&1; then
+        log "$MCP_BIN is not installed; nothing to uninstall"
+        return
+    fi
+
+    log "removing $CARGO_PACKAGE with cargo uninstall"
+    cargo uninstall "$CARGO_PACKAGE" || fail "cargo uninstall $CARGO_PACKAGE failed"
+    ! command -v "$MCP_BIN" >/dev/null 2>&1 || warn "$MCP_BIN is STILL on PATH: $(command -v "$MCP_BIN")"
+}
+
+uninstall() {
+    log "uninstalling '$SERVER_NAME'"
+    unregister_server
+    uninstall_binary
+
+    cat <<EOF
+
+================================================================================
+[setup_rust_analyzer_mcp] Uninstalled. One manual step remains.
+================================================================================
+
+  A Claude Code session binds its MCP servers once, at startup. The session you
+  ran this from still holds a live '$SERVER_NAME' connection, and will keep
+  answering from it until you start a new session. Nothing was left running on
+  disk; the process exits with the session.
+
+  Deliberately NOT removed:
+
+    rustup component rust-analyzer   your editor's language server uses this.
+                                     'rustup component remove rust-analyzer' if
+                                     you really want it gone.
+    the cargo target dir             untouched; this script never wrote to it.
+
+  To reinstall:  ./$(basename "$0")
+
+EOF
 }
 
 # Drive the server over stdio and confirm it completes an MCP handshake and advertises
@@ -514,6 +607,19 @@ EOF
 main() {
     parse_args "$@"
     verify_workspace
+
+    if [ "$DO_UNINSTALL" -eq 1 ]; then
+        # Deliberately skips verify_rust_tools: that runs `rustup component add
+        # rust-analyzer`, and installing something on the way out would be absurd.
+        if [ "$DO_INSTALL" -eq 1 ]; then
+            command -v cargo >/dev/null 2>&1 ||
+                fail "cargo not found on PATH; rerun with --no-install to unregister only"
+        fi
+        uninstall
+        log "done"
+        return
+    fi
+
     verify_rust_tools
     check_ripgrep
     check_cargo_artifacts

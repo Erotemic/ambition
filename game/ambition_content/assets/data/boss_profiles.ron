@@ -4,8 +4,8 @@
 // Loaded once at startup into a
 // `LazyLock<HashMap<String, BossBehaviorProfile>>` in
 // `content/features/bosses.rs`. `BossBehaviorProfile::from_data(id)`
-// is the read site; the legacy `clockwork_warden()` / `mockingbird()`
-// / `gnu_ton()` constructor methods delegate to it.
+// is the read site; the test-only `clockwork_warden()` / `mockingbird()`
+// / `gnu_ton_rider()` aliases delegate to it.
 //
 // To re-tune a fight: edit the row, restart the sandbox. No Rust
 // changes needed.
@@ -261,142 +261,23 @@
         ),
     ),
     // ============================================================
-    // GNU-ton — stationary giant with wide-ranging hand attacks.
-    //
-    // Unique pacing among bosses: scripted timeline with explicit
-    // *rest* beats between strikes so the player can read each
-    // windup, react, and learn the sequence. The contrast with
-    // clockwork_warden / mockingbird's faster duels is the design
-    // intent — GNU-ton should feel like a slow, deliberate monolith.
-    //
-    // Phase pacing (longer than other bosses by design):
-    // - Intro: single show-of-force slam (no rest after)
-    // - Phase 1: ~9s — slam → rest → sweep → rest → slam → long rest
-    // - Transition: ~3s pure rest
-    // - Phase 2: ~12s — adds head-descent vulnerability windows
-    // - Enrage: ~8s — shockwave + double slam, shorter rests
-    //
-    // The sprite is huge but the boss entity itself is anchored to
-    // the shoulder ridge under the scholar; damaging and vulnerable
-    // regions are generated from named sprite parts, so
-    // `combat_size` is only the movement/placeholder envelope.
-    // ============================================================
-    "gnu_ton": (
-        bark_anchor: (dx_px: 38.0, dy_half_h: -0.55, dy_px: -18.0),
-        id: "gnu_ton",
-        sprite_target: Some("gnu_ton_boss"),
-        reward_ability: Some("fireball"),
-        signature_gauntlet: Some("meteor"),
-        combat_size: Some((220.0, 220.0)),
-        movement: StationaryGiant(
-            sway_amplitude: 6.0,
-            sway_frequency: 0.28,
-            speed: 40.0,
-        ),
-        movement_phase2: None,
-        movement_enrage: None,
-        strike_speed_scale: 1.0,
-        // GNU-ton weaves out of its own apple rain: (amplitude_px, frequency).
-        self_dodge: Some((70.0, 1.6)),
-        macro_tuning: (
-            too_close_distance: 0.0,
-            too_far_distance: 0.0,
-            engage_distance: 0.0,
-            approach_duration_s: 0.0,
-            retreat_duration_s: 0.0,
-            engage_max_duration_s: 0.0,
-            approach_speed_scale: 1.0,
-            retreat_speed_scale: 1.0,
-            retreat_distance: 0.0,
-        ),
-        attacks: [
-            Strike("hand_slam"),
-            Strike("hand_sweep"),
-            Strike("head_descent"),
-            Strike("converging_shockwave"),
-            Special("apple_rain"),
-        ],
-        attack_cooldown: 0.0,
-        attack_windup: 0.0,
-        attack_active: 0.0,
-        attack_damage: 2,
-        // No contact damage from the off-screen body.
-        body_damage: 0,
-        attack_pattern: Scripted(
-            intro: (steps: [
-                Telegraph(profile: Strike("hand_slam"), duration: 1.6),
-                Strike(profile: Strike("hand_slam"), duration: 0.55),
-                Rest(duration: 1.4),
-            ]),
-            phase1: (steps: [
-                // Hand slam from above, long telegraph.
-                Telegraph(profile: Strike("hand_slam"), duration: 1.6),
-                Strike(profile: Strike("hand_slam"), duration: 0.55),
-                Rest(duration: 1.2),
-                // Side sweep — different motion / hitbox shape.
-                Telegraph(profile: Strike("hand_sweep"), duration: 1.4),
-                Strike(profile: Strike("hand_sweep"), duration: 0.50),
-                Rest(duration: 1.0),
-                // Apple rain: scholar gestures up; apples fall.
-                // Strike window is long enough to drop ~4 apples.
-                Telegraph(profile: Special("apple_rain"), duration: 1.0),
-                Strike(profile: Special("apple_rain"), duration: 2.2),
-                Rest(duration: 1.0),
-                // Repeat the slam to reward memorizers.
-                Telegraph(profile: Strike("hand_slam"), duration: 1.6),
-                Strike(profile: Strike("hand_slam"), duration: 0.55),
-                // Long breather closes the cycle.
-                Rest(duration: 1.8),
-            ]),
-            transition: (steps: [Rest(duration: 3.0)]),
-            phase2: (steps: [
-                Telegraph(profile: Strike("hand_slam"), duration: 1.4),
-                Strike(profile: Strike("hand_slam"), duration: 0.55),
-                Rest(duration: 1.0),
-                // Long head-descent: head is vulnerable. Matches the
-                // score so the music's "harpsichord exposure" beat
-                // lands in this window.
-                Telegraph(profile: Strike("head_descent"), duration: 1.8),
-                Strike(profile: Strike("head_descent"), duration: 1.4),
-                Rest(duration: 1.4),
-                Telegraph(profile: Strike("hand_sweep"), duration: 1.4),
-                Strike(profile: Strike("hand_sweep"), duration: 0.50),
-                Rest(duration: 2.0),
-            ]),
-            enrage: (steps: [
-                // Faster pace, no head exposure: punishing.
-                Telegraph(profile: Strike("hand_slam"), duration: 0.90),
-                Strike(profile: Strike("hand_slam"), duration: 0.45),
-                Telegraph(profile: Strike("hand_sweep"), duration: 0.90),
-                Strike(profile: Strike("hand_sweep"), duration: 0.45),
-                Rest(duration: 0.6),
-                Telegraph(profile: Strike("converging_shockwave"), duration: 1.10),
-                Strike(profile: Strike("converging_shockwave"), duration: 0.70),
-                Rest(duration: 1.2),
-            ]),
-        ),
-        reward: DropChest(
-            pickup: Custom("gnu_scroll"),
-            offset: (0.0, 30.0),
-            size: (52.0, 52.0),
-        ),
-    ),
-    // ============================================================
-    // GNU-ton RIDER (ADR 0020 mount/rider split — G2). The SCHOLAR half of the
-    // fused GNU-ton: he is the boss (BossConfig + encounter HP) but rides the
-    // `giant_gnu` MOUNT actor. Authored ALONGSIDE the still-live fused `gnu_ton`
-    // profile above — the arena keeps using `gnu_ton` until G4 reauthors it as
-    // the linked pair, so this row is ADDITIVE and causes no live-boss
-    // regression. Differences from `gnu_ton`:
-    //   * `sprite_target: "gnu_ton_rider"` — the scholar's own trimmed sheet
-    //     (not the fused-giant `gnu_ton_boss` sheet).
+    // GNU-ton RIDER (ADR 0020 mount/rider split — G2). GNU-ton IS this row: the
+    // scholar is the boss (BossConfig + encounter HP) and he rides the
+    // `giant_gnu` MOUNT actor, whose hand limbs his strikes drive. The fused
+    // single-profile GNU-ton — one body with a render-only hands overlay — was
+    // torn down in the E6 teardown (`refactor-chain.md` R2); a two-part boss is
+    // two linked actors, so the hands can be hit, and the giant can die out from
+    // under the scholar.
+    //   * `sprite_target: "gnu_ton_rider"` — the scholar's own trimmed sheet.
+    //     The giant's body geometry rides the `giant_gnu` MOUNT's sheet.
     //   * `pilotable_mount_classes: ["giant"]` — `spawn_boss` attaches a
     //     `CanPilot` so this boss can board the `giant_gnu` mount.
     //   * `combat_size` is the scholar's small footprint, not the giant's.
-    //   * The hand_slam/hand_sweep/head_descent strikes stay authored but are
-    //     INERT on the scholar for now — G3's limb router will drive the giant's
-    //     hands from them (the on-foot mini-phase fires via the encounter spec's
-    //     `extra_phase_triggers` mount_died External trigger, gnu_ton_rider.ron).
+    //   * hand_slam / hand_sweep / converging_shockwave are `limb_routing`-mapped
+    //     onto the giant's hands (G3). `head_descent` stays a host-body move and
+    //     `apple_rain` a Special. The on-foot mini-phase fires via the encounter
+    //     spec's `extra_phase_triggers` mount_died External trigger
+    //     (gnu_ton_rider.ron).
     "gnu_ton_rider": (
         bark_anchor: (dx_px: 0.0, dy_half_h: -1.0, dy_px: -18.0),
         id: "gnu_ton_rider",

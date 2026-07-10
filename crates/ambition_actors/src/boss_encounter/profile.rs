@@ -170,7 +170,7 @@ mod tests {
         }
         for id in [
             "mockingbird",
-            "gnu_ton",
+            "gnu_ton_rider",
             "flying_spaghetti_monster_boss",
             "trex_boss",
             "mode_collapse_boss",

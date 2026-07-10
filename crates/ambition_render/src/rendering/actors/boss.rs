@@ -1,47 +1,17 @@
-//! Boss sprite upgrade + animation (the boss spritesheet resolver, per-boss
-//! animation, and the DATA-driven multi-layer boss render). Split out of the
-//! actors renderer god-module; `use super::*` reaches the shared sprite-build
-//! helpers + the marker components / z-constants.
+//! Boss sprite upgrade + animation (the boss spritesheet resolver and per-boss
+//! animation). Split out of the actors renderer god-module; `use super::*`
+//! reaches the shared sprite-build helpers + the marker components / z-constants.
 //!
-//! **Multi-layer bosses (fable review C7).** A boss whose art ships two sheets
-//! keyed `{boss_key}_body` + `{boss_key}_hands` renders split across two layers
-//! (body BEHIND one-way platforms, overlay in FRONT of the player), driven purely
-//! by that asset CONVENTION — no per-boss code path. GNU-ton is the first such
-//! boss (`gnu_ton_body` / `gnu_ton_hands`); any future giant gets the same look by
-//! shipping the two sheets, editing no engine code.
+//! **A two-part boss is two linked actors, not two render layers.** The old
+//! split-layer render (fable review C7) drew a giant's body behind one-way
+//! platforms and its hands in front of the player, from a `{boss_key}_body` +
+//! `{boss_key}_hands` sheet convention. GNU-ton was its only instance, and the
+//! ADR-0020 mount/rider split superseded it: the giant is a real mount ACTOR
+//! whose hands are real limb bodies the rider boss's strikes drive. Render-only
+//! layers can't be hit, possessed, or killed; limbs can. Deleted in the E6
+//! teardown (`refactor-chain.md` R2).
 
 use super::*;
-
-/// Marks a multi-layer boss's BODY entity (the layer that sits behind one-way
-/// platforms). The marker drives a follow-up system that overrides the entity's
-/// z-translation so the body silhouette sits behind platforms, letting the player
-/// read jump targets through a giant boss. Generic across bosses — GNU-ton is the
-/// first, but the split-layer render is asset-convention-driven, not per-boss.
-#[derive(Component)]
-pub struct BossBodyLayer;
-
-/// Marks the overlay child entity spawned alongside a multi-layer boss (GNU-ton's
-/// hands are the first instance). A sync system mirrors the parent boss's atlas
-/// index, page, + tint onto this child each frame, so both layers stay in lockstep
-/// without needing a second `BossAnimator`. Carries the overlay sheet's per-page
-/// handles so the child follows the parent onto the same page of a split sheet (the
-/// body and overlay sheets are emitted in lockstep, so a shared page index applies).
-#[derive(Component)]
-pub struct BossOverlayLayer {
-    pub pages: Vec<sprites::BossSpritePage>,
-}
-
-/// World-space z for a split-layer boss's BODY silhouette — between block tiles
-/// (`WORLD_Z_BLOCK + 0.5 = 0.5`) and one-way platforms
-/// (`WORLD_Z_BLOCK + 4.0 = 4.0`) so the body sits behind platforms but
-/// in front of the wall tiles. Generic default; a per-boss override is a
-/// parameterizable detail (bulk-review).
-pub const BOSS_SPLIT_BODY_Z: f32 = 2.0;
-
-/// World-space z for a split-layer boss's OVERLAY — just in front of the
-/// player (`WORLD_Z_PLAYER = 20.0`) so the slamming layer reads as a
-/// foreground threat the player navigates around.
-pub const BOSS_SPLIT_OVERLAY_Z: f32 = 20.5;
 
 /// Replace the static `boss_core.png` look on boss feature entities with
 /// the animated boss spritesheet once the asset is available. Symmetric
@@ -84,34 +54,14 @@ pub fn upgrade_boss_sprites(
         let boss_behavior_id = boss_ident.behavior_id.as_str();
         let _ = boss_name;
         let boss_key = boss_behavior_id.to_ascii_lowercase().replace('-', "_");
-        // Multi-layer boss render (fable review C7): a boss whose art ships
-        // `{boss_key}_body` + `{boss_key}_hands` sheets renders split across two
-        // layers — driven by the asset CONVENTION, not a per-boss string match. Any
-        // boss gets the giant-behind-platforms look by shipping the two sheets. If
-        // either layer is missing, fall back to the single-sheet path.
-        let split_layers = match (
-            assets.boss_sprite(&format!("{boss_key}_body")),
-            assets.boss_sprite(&format!("{boss_key}_hands")),
-        ) {
-            (Some(body), Some(hands))
-                if images.get(&body.pages[0].texture).is_some()
-                    && images.get(&hands.pages[0].texture).is_some() =>
-            {
-                Some((body, hands))
-            }
-            _ => None,
-        };
         // Dedicated sheets are keyed by `boss_key` in the asset registry, so the
         // former per-boss if-else chain collapses to one lookup + the generic
-        // fallback. A split-layer boss's body sheet (above) takes precedence.
+        // fallback.
         let dedicated = assets.boss_sprite(&boss_key);
         // Warn once for any boss without its own sheet (it renders with the
         // generic gradient-sentinel body) — the same signal the per-boss chain
         // gave, so a boss that should have art isn't silently shipped generic.
-        if split_layers.is_none()
-            && dedicated.is_none()
-            && warned_generic_bosses.insert(boss_key.clone())
-        {
+        if dedicated.is_none() && warned_generic_bosses.insert(boss_key.clone()) {
             bevy::log::warn!(
                 target: "ambition::sprites",
                 "boss '{boss_key}' has no dedicated spritesheet wired — rendering with the \
@@ -120,11 +70,7 @@ pub fn upgrade_boss_sprites(
                  flying_spaghetti_monster_boss).",
             );
         }
-        let boss_asset = if let Some((body, _hands)) = split_layers {
-            body
-        } else if let Some(asset) = dedicated.or(assets.boss.as_ref()) {
-            asset
-        } else {
+        let Some(boss_asset) = dedicated.or(assets.boss.as_ref()) else {
             continue;
         };
         if images.get(&boss_asset.pages[0].texture).is_none() {
@@ -141,98 +87,13 @@ pub fn upgrade_boss_sprites(
             },
         );
         sprite.custom_size = Some(render_size);
-        let mut entity_commands = commands.entity(entity);
         // `with_render_basis` lets a trimmed (alpha-packed) boss sheet recompute
         // per-frame size/anchor in `animate_bosses`; untrimmed sheets ignore it.
-        entity_commands.insert((
+        commands.entity(entity).insert((
             sprite,
             anchor,
             BossAnimator::new(boss_asset).with_render_basis(render_size, anchor.0),
         ));
-        if let Some((_body, hands)) = split_layers {
-            // Spawn the overlay as a Bevy child so it inherits the parent's
-            // translation. The child's local z offset puts the overlay well in
-            // front of platforms (and slightly in front of the player) so incoming
-            // slams read as foreground danger.
-            entity_commands.insert(BossBodyLayer);
-            let mut hands_sprite = Sprite::from_atlas_image(
-                hands.texture(),
-                bevy::image::TextureAtlas {
-                    layout: hands.layout(),
-                    index: hands.flat_index(sprites::BossAnim::Rest, 0),
-                },
-            );
-            hands_sprite.custom_size = Some(render_size);
-            let hands_pages = hands.pages.clone();
-            entity_commands.with_children(|parent| {
-                parent.spawn((
-                    hands_sprite,
-                    anchor,
-                    BossOverlayLayer { pages: hands_pages },
-                    // Local z offset relative to the parent body. The parent's
-                    // absolute z is forced to `BOSS_SPLIT_BODY_Z` by
-                    // `apply_boss_split_body_z` each frame, so this offset lands the
-                    // child at `BOSS_SPLIT_OVERLAY_Z` in world space.
-                    Transform::from_xyz(0.0, 0.0, BOSS_SPLIT_OVERLAY_Z - BOSS_SPLIT_BODY_Z),
-                ));
-            });
-        }
-    }
-}
-
-/// Override a split-layer boss parent entity's world z so the body
-/// silhouette sits behind one-way platforms. `sync_visuals` resets
-/// `translation.z` every frame from `feature_z(Boss) = 11.0`; this
-/// system runs after it and rewrites just the z, leaving x/y alone.
-pub fn apply_boss_split_body_z(mut query: Query<&mut Transform, With<BossBodyLayer>>) {
-    for mut transform in &mut query {
-        transform.translation.z = BOSS_SPLIT_BODY_Z;
-    }
-}
-
-/// Mirror the parent boss's atlas index and color tint onto the overlay
-/// child each frame. Both sheets share the same atlas layout
-/// (same rows + frame counts) because the generator emits them in
-/// lockstep, so the same flat index applies to both.
-pub fn sync_boss_split_overlay(
-    parents: Query<(&Sprite, &BossAnimator, &bevy::sprite::Anchor, &Children), With<BossBodyLayer>>,
-    mut hands: Query<
-        (&mut Sprite, &mut bevy::sprite::Anchor, &BossOverlayLayer),
-        Without<BossBodyLayer>,
-    >,
-) {
-    for (parent_sprite, animator, parent_anchor, children) in &parents {
-        let Some(parent_atlas) = parent_sprite.texture_atlas.as_ref() else {
-            continue;
-        };
-        let parent_index = parent_atlas.index;
-        let parent_color = parent_sprite.color;
-        // The body + hands sheets pack in lockstep (shared per-frame rect, page,
-        // and alpha-trim), so EVERY per-frame render-basis value the parent
-        // computes — page, flat index, trimmed `custom_size`, anchor, and facing
-        // flip — applies verbatim to the hands overlay. Mirror them all so a
-        // trimmed gnu_ton sheet keeps the hands aligned with the body.
-        let parent_page = animator.current_page();
-        let parent_size = parent_sprite.custom_size;
-        let parent_flip = parent_sprite.flip_x;
-        let parent_anchor_v = parent_anchor.0;
-        for child in children.iter() {
-            if let Ok((mut child_sprite, mut child_anchor, layer)) = hands.get_mut(child) {
-                if let Some(page) = layer.pages.get(parent_page as usize) {
-                    child_sprite.image = page.texture.clone();
-                    if let Some(child_atlas) = child_sprite.texture_atlas.as_mut() {
-                        child_atlas.layout = page.layout.clone();
-                    }
-                }
-                if let Some(child_atlas) = child_sprite.texture_atlas.as_mut() {
-                    child_atlas.index = parent_index;
-                }
-                child_sprite.color = parent_color;
-                child_sprite.custom_size = parent_size;
-                child_sprite.flip_x = parent_flip;
-                child_anchor.0 = parent_anchor_v;
-            }
-        }
     }
 }
 

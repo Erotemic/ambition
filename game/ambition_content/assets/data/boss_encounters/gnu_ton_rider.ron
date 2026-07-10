@@ -1,9 +1,8 @@
 // Boss encounter spec — GNU-ton RIDER (ADR 0020 mount/rider split, G2).
 //
 // The scholar half of GNU-ton: a boss that RIDES the `giant_gnu` mount actor.
-// Authored ALONGSIDE the still-live fused `gnu_ton.ron` (the arena keeps using
-// `gnu_ton` until G4 reauthors it as the linked pair), so this is ADDITIVE with
-// no live-boss regression. Numbers mirror `gnu_ton.ron`.
+// This IS the GNU-ton encounter. It replaced the fused `gnu_ton.ron`, deleted in
+// the E6 teardown (`refactor-chain.md` R2), whose numbers it carries forward.
 //
 // The one bespoke addition is `extra_phase_triggers`: a `mount_died` External
 // gate that fires the rider into `Enrage` — the ON-FOOT mini-phase. When the

@@ -268,7 +268,7 @@ mod tests {
     #[test]
     fn is_cut_rope_boss_matches_only_the_cut_rope_id() {
         assert!(is_cut_rope_boss(CUT_ROPE_BOSS_ID));
-        assert!(!is_cut_rope_boss("gnu_ton"));
+        assert!(!is_cut_rope_boss("gnu_ton_rider"));
         assert!(!is_cut_rope_boss(""));
     }
 

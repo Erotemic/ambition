@@ -101,7 +101,7 @@ comparison against the projection:
 |---|---:|---:|---|
 | `features/` | 25.4k | 10.4k | the real actor domain (spawn/tick/perception/damage-routing/mount/bosses) + the surviving glue |
 | `player/` | 6.7k | 2.4k | the last structural player-centrism; folds at S5/S6 |
-| `boss_encounter/` | 5.5k | 2.5k | adapter residue after the E6 three-way split |
+| `boss_encounter/` | 5.5k | 1.5k | ~~adapter residue after the E6 three-way split~~ **NOT a shell (measured 2026-07-10, R2).** Live boss machinery: attack-geometry math, the phase-script runtime, the encounter entity, the behavior-profile schema. Reaches `crate::features` 53×. See the correction below |
 | `abilities/` | 4.1k | 1.9k | D-B carve candidate (`ambition_abilities`), iff measurement is clean |
 | `character_sprites/` | 2.7k | 1.4k | actor/content join: animation pickers, authored hitbox resolution, catalog-aware loading |
 | `world/` | 1.9k | 0.8k | overlay rebuild (reads live feature components) + the avian physics adapter |
@@ -137,7 +137,7 @@ versus what actually stayed:
 |---|---:|---:|---|
 | `combat/` | 12.8k | **0** | fully left ✅ — the proof a clean carve is possible |
 | `world/` | 10.9k | 1.9k | overlay rebuild + the avian adapter |
-| `boss_encounter/` | 6.8k | **5.5k** | the BIGGEST shell (E6 deferred teardown) |
+| `boss_encounter/` | 6.8k | **5.5k** | ⚠️ **NOT a shell — see the R2 correction below** |
 | `persistence/` | 5.2k | 1.3k | save-adjacent adapter |
 | `projectile/` | 4.4k | 1.8k | the three woven steppers |
 | `character_sprites/` | 4.3k | 2.7k | the actor/content join |
@@ -148,6 +148,32 @@ Plus `features/` overshooting its 20.6k projection by ~4.8k. **There is no 25k
 carve hiding in `features/`.** There are nine adapter shells between 0.8k and
 5.5k, each gated on a DIFFERENT technical precondition. Dissolving them is the
 enumerated residue queue below, not a new decomposition phase.
+
+#### CORRECTION (opus, 2026-07-10, executing R2): `boss_encounter/` is NOT one of the shells
+
+The row above was wrong, and executing R2 is what proved it. The table conflated
+the **E6 deferred teardown** (the fused `gnu_ton` profile + the split-layer render)
+with **`boss_encounter/`'s 5.5k residency**. They are unrelated. The teardown
+landed in R2 and removed 511 total src lines repo-wide — **337 from
+`game/ambition_content/assets`, 147 from `ambition_render`, and net +26 from
+`ambition_actors`.** `boss_encounter/` went 5456 → 5457 total src lines (units:
+TOTAL, incl. tests). It did not shrink.
+
+What `boss_encounter/` actually holds: boss attack-GEOMETRY math
+(`attack_geometry/`, 2.0k), the phase-script runtime (`encounter_script.rs`), the
+encounter entity, the boss behavior-profile schema + registry, and the sim
+systems. It reaches `crate::features` 53 times (`BossRef` / `BossConfig` / the
+cluster views / spawn). That is the boss half of the ACTOR domain, woven to it —
+exactly the shape fable's own floor argument protects ("splitting spawn / tick /
+perceive / damage-routing apart would re-fork the actor unification").
+
+**So the shell count is eight, not nine, and the largest remaining one is
+`character_sprites/` at 2.7k.** The ruling itself is UNAFFECTED and in fact
+strengthened: the residue is not one missing carve, no further crate split is
+owed, and `boss_encounter/` is a *reason* the floor is the floor rather than a
+line item against it. The knock-on for the chain is that **R2 does not unblock
+R4's victim-routing stepper** — boss types never left. See
+[`refactor-chain.md`](refactor-chain.md) §R2/§R4.
 
 **3. A further carve of `ambition_actors` buys no compile time.** Every
 app-facing crate sits above it (`ambition` umbrella, `content`, `runtime`,
@@ -252,9 +278,14 @@ The carve relocated and SEALED the view types; the rules it fixed still bind:
 
 ### Open residue (small, enumerated, not blocking)
 
-- **E6 deferred teardown:** the fused `gnu_ton` profile +
-  `sync_boss_split_overlay` + `BossOverlayLayer` + split z-consts. Retarget
-  the referencing tests to the linked-pair arena first.
+- ✅ **E6 deferred teardown DONE (2026-07-10, `refactor-chain.md` R2):** the fused
+  `gnu_ton` profile, `sync_boss_split_overlay`, `BossOverlayLayer`,
+  `BossBodyLayer`, `apply_boss_split_body_z`, the split z-consts, and the
+  `{boss_key}_body`/`_hands` sheet convention are gone. GNU-ton IS the ADR-0020
+  linked pair: a `gnu_ton_rider` scholar boss aboard a `giant_gnu` mount actor
+  whose hand LIMBS his strikes drive. `GIANT_GNU_SHEET` (formerly a byte-identical
+  clone of the fused sheet) is now the primary layout. Note this removed nothing
+  from `boss_encounter/` — see the correction above.
 - **E7 named-content residue:** `dialog/speech_sfx.rs`'s voice table wants a
   content voice-profile registry; the `StartingCharacter` worn-sheet residue
   (`PLAYER_CHARACTER_ID` / `PLAYER_FILE_ROOT` in

@@ -456,7 +456,7 @@ fn defeated_boss_drops_its_signature_ability() {
     let expect: &[(&str, Option<&str>)] = &[
         ("flying_spaghetti_monster_boss", Some("blink")),
         ("trex_boss", Some("grapple")),
-        ("gnu_ton", Some("fireball")),
+        ("gnu_ton_rider", Some("fireball")),
         ("clockwork_warden", Some("markrecall")),
         ("mockingbird", None),
         ("smirking_behemoth_boss", None),
@@ -520,7 +520,7 @@ fn boss_signature_gauntlets_map_to_real_wielded_held_items() {
         ("mode_collapse_boss", Some(vortex::VORTEX_ID)),
         ("exploding_gradient_boss", Some(sentry::SENTRY_ID)),
         ("overflow_boss", Some(dive::DIVE_ID)),
-        ("gnu_ton", Some(meteor::METEOR_ID)),
+        ("gnu_ton_rider", Some(meteor::METEOR_ID)),
         ("clockwork_warden", None),
         ("flying_spaghetti_monster_boss", None),
     ];
@@ -545,8 +545,8 @@ fn boss_signature_gauntlets_map_to_real_wielded_held_items() {
         }
     }
     // trex + mockingbird + smirking + mode_collapse + exploding_gradient +
-    // overflow + gnu_ton each arm a wielded gauntlet (seven "learn its
-    // attack" drops; trex and gnu_ton also grant a catalog ability).
+    // overflow + the gnu_ton rider each arm a wielded gauntlet (seven "learn its
+    // attack" drops; trex and the rider also grant a catalog ability).
     assert_eq!(gauntlets, 7, "seven bosses drop a signature gauntlet");
     // FSM(blink) + trex(grapple) + gnu(fireball) + clockwork(markrecall).
     assert_eq!(abilities, 4, "four bosses grant a catalog ability");

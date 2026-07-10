@@ -351,8 +351,8 @@ mod tests {
     #[test]
     fn parse_boss_brain_dispatches_phasescript_and_falls_back_to_custom() {
         assert!(matches!(
-            parse_boss_brain("PhaseScript:gnu_ton"),
-            BossBrain::PhaseScript { script_id } if script_id == "gnu_ton"
+            parse_boss_brain("PhaseScript:gnu_ton_rider"),
+            BossBrain::PhaseScript { script_id } if script_id == "gnu_ton_rider"
         ));
         assert!(matches!(parse_boss_brain("Dormant"), BossBrain::Dormant));
         assert!(matches!(

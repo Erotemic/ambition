@@ -15,10 +15,11 @@
 //! This pins, driving REAL inputs through `SandboxSim::step`:
 //! 1. A ~2s Down+Interact hold next to a boss possesses it (its brain becomes
 //!    `Brain::Player`), without mutating its authored `Boss` faction.
-//! 2. Pressing Attack (the boss's geometry-primary) is SUPPRESSED while possessed —
-//!    §A1 slice 1b made `BossAttackState` a pure projection, and a possessed geometry
-//!    strike starts no move, so it projects no read-model (a BLIND pose loss pending
-//!    the effective-faction follow-up; its damage was already suppressed).
+//! 2. Pressing Attack fires a geometry strike through the moveset (R1.4 — possession
+//!    grants the full kit), and the strike's hitbox carries the possessor's EFFECTIVE
+//!    `Player` faction. WHICH strike is the boss's authored choice: a profile with a
+//!    G5 `possessed_verbs` map commands the move that map names; one without keeps the
+//!    legacy capability-slot-0 mapping.
 //! 3. Pressing Special (blink button) fires the boss's SIGNATURE content special —
 //!    it runs through the moveset, so its `active_profile` read-model is projected.
 //! 4. Releasing restores the boss's autonomous `BossPattern` brain.
@@ -71,8 +72,8 @@ fn down_interact(edge: bool) -> AgentAction {
 }
 
 /// Spawn a boss one short stride from the player and possess it (~2s hold).
-/// GNU-ton is a `StationaryGiant` (it stays put through the hold, unlike an
-/// airborne swooping boss) whose scripted repertoire is
+/// The GNU-ton rider is a `StationaryGiant` (it stays put through the hold,
+/// unlike an airborne swooping boss) whose scripted repertoire is
 /// `[HandSlam, HandSweep, HeadDescent, ConvergingShockwave, Special("apple_rain")]`
 /// — a geometry primary (slot 0) AND a content signature special, so both
 /// mapping arms are exercised.
@@ -80,11 +81,11 @@ fn spawn_and_possess_boss(sim: &mut SandboxSim) -> Entity {
     let p = player_pos(sim.world_mut());
     sim.spawn_boss_at(
         BOSS_ID,
-        "gnu_ton",
+        "gnu_ton_rider",
         (p.x + 60.0, p.y),
         (30.0, 30.0),
         BossBrain::PhaseScript {
-            script_id: "gnu_ton".to_string(),
+            script_id: "gnu_ton_rider".to_string(),
         },
     );
     let boss = boss_entity(sim.world_mut());
@@ -135,9 +136,12 @@ fn possessed_boss_commands_its_authored_specials_and_release_restores_the_patter
             .get::<BossCapability>(boss)
             .expect("possessed boss retains its authored capability");
         (
-            cap.slot(0).expect("gnu_ton has strikes").0.clone(),
+            cap.slot(0)
+                .expect("the gnu_ton rider has strikes")
+                .0
+                .clone(),
             cap.signature_special()
-                .expect("gnu_ton authors a content special")
+                .expect("the gnu_ton rider authors a content special")
                 .0
                 .clone(),
         )
@@ -151,15 +155,23 @@ fn possessed_boss_commands_its_authored_specials_and_release_restores_the_patter
     // No strike in flight before we press.
     assert_eq!(active_profile(sim.world_mut(), boss), None);
 
-    // The boss's PRIMARY strike (slot 0) is a GEOMETRY profile (HandSlam). Since R1.4
-    // a possessed boss's geometry strike FIRES like any other move (possession grants
-    // the full kit, invariant I2): pressing Attack starts its moveset move, so the
-    // projected `active_profile` read-model shows the strike. The strike hitbox carries
-    // the possessor's EFFECTIVE faction (`Player`, stamped in `advance_move_playback`),
-    // so it hits the boss's former allies rather than the controlling player.
+    // Since R1.4 a possessed boss's geometry strike FIRES like any other move
+    // (possession grants the full kit, invariant I2): pressing Attack starts its
+    // moveset move, so the projected `active_profile` read-model shows the strike.
+    // The strike hitbox carries the possessor's EFFECTIVE faction (`Player`,
+    // stamped in `advance_move_playback`), so it hits the boss's former allies
+    // rather than the controlling player.
+    //
+    // WHICH strike is the boss's own authored choice. The rider authors a G5
+    // `possessed_verbs` map (`attack` -> `hand_sweep`), so plain Attack commands
+    // that move instead of falling back to slot 0 — and because `hand_sweep` is
+    // limb-routed, the press drives the giant mount's facing-side hand. A profile
+    // with no verb map (the fused `gnu_ton` this test used to spawn) keeps the
+    // legacy slot-0 mapping.
+    let attack_move = BossAttackProfile::Strike("hand_sweep".to_string());
     assert!(
-        !primary.is_special(),
-        "the primary (HandSlam) is a geometry strike"
+        !primary.is_special() && !attack_move.is_special(),
+        "the rider's strikes are geometry profiles, not specials"
     );
     sim.step(AgentAction {
         attack: true,
@@ -167,8 +179,9 @@ fn possessed_boss_commands_its_authored_specials_and_release_restores_the_patter
     });
     assert_eq!(
         active_profile(sim.world_mut(), boss),
-        Some(primary.clone()),
-        "a possessed boss's geometry strike fires through the moveset (R1.4)"
+        Some(attack_move),
+        "a possessed boss's geometry strike fires through the moveset (R1.4), \
+         resolved through its authored possessed-verb map (G5)"
     );
     // The spawned strike hitbox carries the possessor's EFFECTIVE faction (Player),
     // not the boss's authored `Boss` — so a possessing player's geometry strike hurts

@@ -31,7 +31,7 @@ fn boss_classifies_as_boss_not_the_actor_enemy_fallback() {
     // used to provide implicitly.
     let boss_body = ae::Aabb::new(ae::Vec2::new(500.0, 500.0), ae::Vec2::new(80.0, 120.0));
     let boss = ambition_actors::features::BossClusterScratch::new(
-        "gnu_ton",
+        "gnu_ton_rider",
         "GNU-ton",
         boss_body,
         ambition_entity_catalog::placements::BossBrain::Dormant,
@@ -48,7 +48,7 @@ fn boss_classifies_as_boss_not_the_actor_enemy_fallback() {
     app.init_resource::<FeatureViewIndex>();
     app.world_mut().spawn((
         FeatureSimEntity,
-        FeatureId::new("gnu_ton"),
+        FeatureId::new("gnu_ton_rider"),
         FeatureName::new("GNU-ton"),
         CenteredAabb::from_aabb(boss_body),
         boss.into_components(),
@@ -60,7 +60,7 @@ fn boss_classifies_as_boss_not_the_actor_enemy_fallback() {
 
     let index = app.world().resource::<FeatureViewIndex>();
     let view = index
-        .get("gnu_ton")
+        .get("gnu_ton_rider")
         .expect("the boss must have a feature view");
     assert_eq!(
         view.kind,

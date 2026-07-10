@@ -273,7 +273,7 @@ impl<'w, 's> BossClusterRefItem<'w, 's> {
 }
 
 /// Owned aggregate for spawn construction / non-ECS callers (tests,
-/// the gnu_ton encounter setup). Mirrors the enemy/NPC scratch.
+/// the gnu_ton_rider encounter setup). Mirrors the enemy/NPC scratch.
 #[derive(Clone, Debug)]
 pub struct BossClusterScratch {
     pub kin: BodyKinematics,

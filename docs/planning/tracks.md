@@ -58,12 +58,15 @@ player-visible bugs, and the untouched determinism ladder.
 2. **The refactor chain — [engine/refactor-chain.md](engine/refactor-chain.md).**
    [opus] Six slices in dependency order, all verified, written 2026-07-10 after
    the ledger ruling: **R1** D-C mode-scope seam ✅ **DONE 2026-07-10** (closed
-   the last decomposition artifact) → **R2** E6 teardown (dissolves
-   `boss_encounter/`, the biggest shell at 5.5k, and unblocks R4's victim
-   stepper) → **R3** the overlay split (`CollisionWorld` → `ambition_world`; the
-   precondition fable named has already been met, unnoticed — verified) → **R4**
-   re-check the projectile steppers (two of their three blockers die with R2/R3;
-   charge input survives and folds into R6) → **R5** the `ControlFrame` allowlist
+   the last decomposition artifact) → **R2** E6 teardown ✅ **DONE 2026-07-10**
+   (the fused `gnu_ton` profile + the split-layer render are gone; GNU-ton is the
+   ADR-0020 linked pair. **Its premise was WRONG and the doc now says so:**
+   `boss_encounter/` is not a shell and did not shrink — 5456→5457 total src
+   lines — so R2 does NOT unblock R4) → **R3** the overlay split (`CollisionWorld`
+   → `ambition_world`; the precondition fable named has already been met,
+   unnoticed — verified) → **R4** re-check the projectile steppers (only the
+   world-collision one can move now, and only if R3 lands; victim routing and
+   charge input both survive) → **R5** the `ControlFrame` allowlist
    lint (= unified-actors step 5's Phase C, newly defined; B3's "two holders" has
    drifted to four, unguarded) → **R6** the player fold + the `features/` rename.
 

@@ -644,7 +644,7 @@
         // Far heavier than the scholar rider so the mount+rider COG sits on the
         // giant and the lighter rider orbits it under a gravity flip.
         mass: 8.0,
-        // The giant's collision envelope (mirrors the fused gnu_ton combat_size).
+        // The giant's collision envelope (the 220x220 the fused GNU-ton once carried).
         default_size: Some((220.0, 220.0)),
         // No motion / no AI — the carried giant just stands.
         brain_template: StandStill,

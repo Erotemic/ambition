@@ -341,7 +341,7 @@ fn damageable_volumes_samples_per_frame_hurtbox_from_animation_elapsed() {
         combat_offset: ae::Vec2::ZERO,
         animations,
     };
-    let behavior = BossBehaviorProfile::gnu_ton();
+    let behavior = BossBehaviorProfile::gnu_ton_rider();
     let mut attack_state = BossAttackState::default();
     attack_state.active_profile = Some(BossAttackProfile::Strike("head_descent".to_string()));
     attack_state.active_elapsed = 0.15; // frame index 1 at 0.1s/frame.
@@ -419,7 +419,7 @@ fn animation_frame_sample_overrides_elapsed_frame_for_authored_boxes() {
         combat_offset: ae::Vec2::ZERO,
         animations,
     };
-    let behavior = BossBehaviorProfile::gnu_ton();
+    let behavior = BossBehaviorProfile::gnu_ton_rider();
     let mut attack_state = BossAttackState::default();
     attack_state.active_profile = Some(BossAttackProfile::Strike("head_descent".to_string()));
     attack_state.active_elapsed = 0.15; // elapsed alone would pick frame 1.
@@ -508,7 +508,7 @@ fn idle_rest_hurtbox_follows_the_live_animation_frame() {
         combat_offset: ae::Vec2::ZERO,
         animations,
     };
-    let behavior = BossBehaviorProfile::gnu_ton();
+    let behavior = BossBehaviorProfile::gnu_ton_rider();
     // Fully idle: no active or telegraph profile.
     let attack_state = BossAttackState::default();
 
@@ -630,7 +630,7 @@ fn gnu_head_descent_accepts_visual_row_alias_for_runtime_boxes() {
         combat_offset: ae::Vec2::ZERO,
         animations,
     };
-    let behavior = BossBehaviorProfile::gnu_ton();
+    let behavior = BossBehaviorProfile::gnu_ton_rider();
     let mut attack_state = BossAttackState::default();
     attack_state.active_profile = Some(BossAttackProfile::Strike("head_descent".to_string()));
     attack_state.active_elapsed = 0.15;

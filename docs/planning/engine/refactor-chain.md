@@ -125,34 +125,86 @@ an asterisk.
 
 ---
 
-## R2 — E6 teardown: the biggest shell
+## R2 — E6 teardown ✅ DONE (2026-07-10) — and its premise was WRONG
 
-**Unblocked. Precondition is internal and mechanical.**
-`boss_encounter/` is **5.5k** — the largest single adapter shell in the crate,
-against a 6.8k projected-out. Dissolving it is the biggest measurable win in this
-chain, and it unblocks R4's victim-routing stepper (`tracks.md` names boss types
-as that blocker).
+The teardown landed and the exit check is met. **But this slice's stated payoff
+does not exist, and the measurement it demanded is what proved it.** Written down
+here rather than quietly dropped.
 
-**What dies:** the fused `gnu_ton` profile, `sync_boss_split_overlay`,
-`BossOverlayLayer`, and the split z-consts.
+**What died.** The fused `gnu_ton` boss profile (`boss_profiles.ron` row +
+`boss_encounters/gnu_ton.ron` + the `#[cfg(test)] gnu_ton()` alias), its sheet
+(`GNU_TON_SHEET` and the `gnu_ton{,_body,_hands}` / `giant_gnu_{body,hands}`
+registry rows), and the whole split-layer render — `BossOverlayLayer`,
+`BossBodyLayer`, `sync_boss_split_overlay`, `apply_boss_split_body_z`,
+`BOSS_SPLIT_BODY_Z`, `BOSS_SPLIT_OVERLAY_Z`, and the `{boss_key}_body` +
+`{boss_key}_hands` convention in `upgrade_boss_sprites`.
 
-**Anchors.** `ambition_render/src/rendering/actors/boss.rs` →
-`BossOverlayLayer`, `sync_boss_split_overlay`; registered in
-`ambition_render/src/rendering/mod.rs`. Verified 2026-07-10: those two symbols
-appear in **exactly those two files** and have **zero test references**. The fused
-profile lives under `ambition_actors/src/boss_encounter/` (`profile.rs`,
-`specs.rs`, `behavior.rs`) and its test surface is NOT yet enumerated — do that
-first.
+A two-part boss is now two linked ACTORS (ADR 0020), not one body with a
+render-only hands overlay. That is the real win, and it is a correctness win, not
+a line-count one: a render layer cannot be hit, possessed, or killed; the giant's
+hand limbs can. `GIANT_GNU_SHEET` was a byte-identical clone of the fused sheet,
+so the giant mount simply inherited the layout it always described.
 
-**Order (the stated precondition):** retarget the tests that reference the fused
-profile onto the **linked-pair arena** first, then delete. A two-part boss is now
-two linked actors (ADR 0020's mount/vehicle shape), not one fused profile with an
-overlay layer.
+**THE MEASUREMENT (units: TOTAL src lines, including tests).**
 
-**Exit check.** `grep -rn 'BossOverlayLayer\|sync_boss_split_overlay'` over
-`crates/ game/` returns zero. gnu_ton still fights correctly: `boss_lifecycle.rs`,
+| Area | net |
+|---|---:|
+| `game/ambition_content/assets` (the fused profile, its encounter, 5 sheet rows) | **−337** |
+| `ambition_render` (the split-layer render) | **−147** |
+| `game/ambition_content/src` (two duplicated arena-gate tests collapsed) | −42 |
+| `ambition_sprite_sheet` | −29 |
+| `game/ambition_app`, `ambition_ldtk_map`, `ambition_sim_view` (test retargets) | +9 |
+| **`ambition_actors`** | **+26** |
+| **repo-wide** | **−511** |
+
+`ambition_actors/src/boss_encounter/` went **5456 → 5457** total src lines. It did
+not shrink. It *grew by one line*, because the retargeted tests carry more
+assertions than the ones they replaced.
+
+**Why the premise was wrong.** The ledger's shell table listed `boss_encounter/`
+at "6.8k projected out, 5.5k still resident — the BIGGEST shell (E6 deferred
+teardown)", and this doc inherited that. It conflated two unrelated things:
+
+1. **The E6 *deferred teardown*** — the fused profile + the split overlay. That is
+   a CONTENT and RENDER item. Essentially none of it lived in `boss_encounter/`.
+2. **`boss_encounter/`'s 5.5k residency** — which is real, live boss machinery:
+   boss attack-GEOMETRY math (`attack_geometry/`, 2.0k, of which 953 lines are the
+   sprite-metadata derivation tests), the phase-script runtime
+   (`encounter_script.rs`, 563), the encounter entity (374), the boss
+   behavior-profile schema + registry (`behavior.rs` 697 + `profile.rs` 196 +
+   `specs.rs` 145), and the sim systems (609).
+
+Measured 2026-07-10: `boss_encounter/` reaches into `crate::features` **53 times**
+(`BossRef`, `BossConfig`, the cluster views, the spawn machinery). It is the boss
+half of the ACTOR domain, woven to it — not an adapter awaiting a move. Its only
+`ambition_content` references are three `cfg(test)` fixture `include_str!`s, the
+sanctioned pattern.
+
+**Consequence: R2 does NOT unblock R4.** This doc claimed "boss types settle with
+R2". They did not: `BossRef` / `BossConfig` / `BossEncounter` all still live in
+`ambition_actors`, and the victim-routing stepper still queries them. R4 therefore
+loses one of its two claimed unblocks; only R3's `CollisionWorld` move discharges
+a real blocker. See R4 below — this makes fable's "do NOT force this seam" more
+likely to be the outcome, not less.
+
+**Exit check — met.** `grep -rn 'BossOverlayLayer\|sync_boss_split_overlay'` over
+`crates/ game/` returns zero (so do `BossBodyLayer`, `apply_boss_split_body_z`,
+`BOSS_SPLIT_*`). GNU-ton still fights: `boss_lifecycle.rs`,
 `boss_motion_parity.rs`, `boss_possession_specials.rs`, `boss_contact_iframes.rs`
-green. Record the new `boss_encounter/` LOC in the ledger table, with units.
+green, plus the full gate. The ledger table is re-baselined below with units.
+
+**Retarget-before-delete (the stated precondition) found a real behavior fact.**
+`boss_possession_specials.rs` spawned the fused `gnu_ton`, which authors no
+`possessed_verbs`, so a possessed boss's plain Attack fell back to capability slot
+0 (`hand_slam`). The rider DOES author the G5 verb map (`attack` → `hand_sweep`),
+so the retargeted test went red until it asserted the authored move. The G5 map
+was already live; nothing had ever exercised it through possession. Retargeting
+first is what surfaced it.
+
+Two test subjects genuinely moved with the split rather than being renamed: the
+per-animation hurtbox metrics and the head-hurtbox alignment guard (TODO #30) both
+belong to the `giant_gnu` MOUNT's sheet now — the scholar's own trimmed sheet
+authors no body metrics at all, which those tests now pin explicitly.
 
 ---
 
@@ -215,7 +267,7 @@ paragraph):
 
 | Stepper | Blocker as written | After R2/R3 |
 |---|---|---|
-| victim routing | queries bosses, actors, breakables, shields, owner combat; emits `HitEvent`/heal/SFX/VFX | boss types settle with **R2** |
+| victim routing | queries bosses, actors, breakables, shields, owner combat; emits `HitEvent`/heal/SFX/VFX | **STILL BLOCKED.** R2 was supposed to settle boss types; it did not (see R2's correction) — `BossRef`/`BossConfig`/`BossEncounter` never left `ambition_actors`, and the stepper still queries actors/breakables/shields besides |
 | world collision | needs the live feature overlay + the portal-carve snapshot; `ProjectileCollisionWorld` waits on the world follow-up | **R3** is that follow-up |
 | charge input | reads brain action messages, `UserSettings`, gravity, optional player ANIMATION facts | still blocked — and it folds into **R6** anyway |
 
@@ -226,7 +278,10 @@ paragraph):
 
 **Do this:** after R2 and R3, re-read the blocker paragraph and move ONLY what is
 now plain. If a blocker survives, say so in this doc and stop. Charge input is
-expected to survive — do not chase it here.
+expected to survive — do not chase it here. **Post-R2 expectation (2026-07-10):
+only the world-collision stepper can move, and only if R3 lands.** Two of the
+three blockers now survive by measurement, which makes fable's "do NOT force this
+seam" the likely honest outcome for the other two.
 
 ---
 

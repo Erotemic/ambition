@@ -176,39 +176,33 @@ fn boss_ron_target_strips_the_sheet_suffix() {
         boss_ron_target("sprites/flying_spaghetti_monster_boss_spritesheet.png"),
         Some("flying_spaghetti_monster_boss")
     );
+    // The GNU-ton generator installs into a `gnu_ton_boss/` subdir; the target
+    // is the FILE stem, so a sheet in a subdir resolves to its own record.
     assert_eq!(
-        boss_ron_target("sprites/gnu_ton_boss/gnu_ton_boss_spritesheet.png"),
-        Some("gnu_ton_boss")
-    );
-    // GNU-ton's split body/hands textures resolve back to the ONE packed
-    // `gnu_ton_boss` record (they share an atlas layout, lockstep-packed).
-    assert_eq!(
-        boss_ron_target("sprites/gnu_ton_boss/gnu_ton_boss_body_spritesheet.png"),
-        Some("gnu_ton_boss")
+        boss_ron_target("sprites/gnu_ton_boss/giant_gnu_spritesheet.png"),
+        Some("giant_gnu")
     );
     assert_eq!(
-        boss_ron_target("sprites/gnu_ton_boss/gnu_ton_boss_hands_spritesheet.png"),
-        Some("gnu_ton_boss")
+        boss_ron_target("sprites/gnu_ton_boss/gnu_ton_rider_spritesheet.png"),
+        Some("gnu_ton_rider")
     );
 }
 
 #[test]
-fn gnu_ton_baked_record_drives_the_split_layers_packed() {
-    // End-to-end convergence guard: the regenerated `gnu_ton_boss` sheet is a
-    // lockstep alpha-trim/packed sheet (one shared atlas layout for the
-    // full/body/hands textures). The published record must (a) line up with the
+fn giant_gnu_baked_record_drives_the_packed_pixels() {
+    // End-to-end convergence guard: the regenerated `giant_gnu` mount sheet is
+    // an alpha-trim/packed sheet. The published record must (a) line up with the
     // const so it drives the pixels, (b) be trimmed, and (c) stay single-page
-    // (the split-layer record carries one image per layer — multi-page siblings
-    // would resolve the wrong layer's filename).
-    let record = crate::character_sprites::record_for_target("gnu_ton_boss")
-        .expect("baked gnu_ton_boss record present (run regen_sprites.sh)");
+    // (a multi-page sibling would resolve the wrong page's filename).
+    let record = crate::character_sprites::record_for_target("giant_gnu")
+        .expect("baked giant_gnu record present (run regen_sprites.sh)");
     assert!(
-        record_aligns_with_const(record, &GNU_TON_SHEET),
-        "packed gnu_ton record lines up with the const → drives body + hands pixels"
+        record_aligns_with_const(record, &GIANT_GNU_SHEET),
+        "the packed giant_gnu record lines up with the const → it drives the pixels"
     );
     assert!(
         record.is_trimmed(),
-        "gnu_ton sheet is alpha-trimmed/packed, not a raw grid"
+        "the giant_gnu sheet is alpha-trimmed/packed, not a raw grid"
     );
     assert_eq!(
         record.page_count(),
@@ -273,7 +267,7 @@ fn mockingbird_flips_to_face_the_player_unlike_right_facing_sheets() {
     // normal right-facing sheet. Player to the right ⇒ facing > 0.
     assert!(MOCKINGBIRD_SHEET.authored_faces_left);
     assert!(!BOSS_SHEET.authored_faces_left);
-    assert!(!GNU_TON_SHEET.authored_faces_left);
+    assert!(!GIANT_GNU_SHEET.authored_faces_left);
     assert!(!SMIRKING_BEHEMOTH_SHEET.authored_faces_left);
 
     // Right-facing sheet: face right (no flip) when the player is right,
@@ -396,38 +390,38 @@ fn render_size_floors_at_minimum_extent() {
 }
 
 #[test]
-fn gnu_ton_sheet_has_six_rows() {
-    assert_eq!(GNU_TON_SHEET.rows.len(), 6);
+fn giant_gnu_sheet_has_six_rows() {
+    assert_eq!(GIANT_GNU_SHEET.rows.len(), 6);
 }
 
 #[test]
-fn gnu_ton_sheet_is_body_centered() {
+fn giant_gnu_sheet_is_body_centered() {
     // body_centered:true is required so the man (at top of frame)
     // is placed at the entity transform origin rather than the
     // GNU's hooves (at the bottom of frame).
-    assert!(GNU_TON_SHEET.body_centered);
+    assert!(GIANT_GNU_SHEET.body_centered);
 }
 
 #[test]
-fn gnu_ton_anchor_is_above_sprite_center() {
+fn giant_gnu_anchor_is_above_sprite_center() {
     // feet_anchor_y > 0 means the entity position is above the
     // sprite center — placing the man (upper frame) at entity pos.
     assert!(
-        GNU_TON_SHEET.feet_anchor_y > 0.0,
+        GIANT_GNU_SHEET.feet_anchor_y > 0.0,
         "feet_anchor_y should be positive for GNU-ton (man at top), got {}",
-        GNU_TON_SHEET.feet_anchor_y
+        GIANT_GNU_SHEET.feet_anchor_y
     );
     // Should not be so large that the man falls outside the frame.
     assert!(
-        GNU_TON_SHEET.feet_anchor_y < 0.5,
+        GIANT_GNU_SHEET.feet_anchor_y < 0.5,
         "feet_anchor_y too large, would place entity at sprite top edge"
     );
 }
 
 #[test]
-fn gnu_ton_side_sweep_resolves_to_itself() {
+fn giant_gnu_side_sweep_resolves_to_itself() {
     assert_eq!(
-        GNU_TON_SHEET.resolve_anim(BossAnim::SideSweep),
+        GIANT_GNU_SHEET.resolve_anim(BossAnim::SideSweep),
         BossAnim::SideSweep
     );
 }

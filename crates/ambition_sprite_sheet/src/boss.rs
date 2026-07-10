@@ -529,22 +529,15 @@ impl BossSpriteAsset {
 
 pub(crate) const BOSS_FILENAME: &str = "boss_spritesheet.png";
 pub(crate) const MOCKINGBIRD_FILENAME: &str = "mockingbird_boss/mockingbird_boss_spritesheet.png";
-pub(crate) const GNU_TON_FILENAME: &str = "gnu_ton_boss/gnu_ton_boss_spritesheet.png";
 pub(crate) const SMIRKING_BEHEMOTH_FILENAME: &str = "smirking_behemoth_boss_spritesheet.png";
-// Layered GNU-ton sheets emitted alongside the full sheet by the
-// Python generator. `_body` excludes hands + attack VFX; `_hands` is
-// only hands + VFX. Runtime z-layers the body behind platforms and the
-// hands in front so the player can read jump targets and incoming
-// danger separately.
-pub(crate) const GNU_TON_BODY_FILENAME: &str = "gnu_ton_boss/gnu_ton_boss_body_spritesheet.png";
-pub(crate) const GNU_TON_HANDS_FILENAME: &str = "gnu_ton_boss/gnu_ton_boss_hands_spritesheet.png";
-// ADR 0020 mount/rider split (G1): the SAME generator additionally emits the
-// giant GNU MOUNT (scholar-less body + shared hands) and the scholar RIDER
-// (drawn alone) into the `gnu_ton_boss/` install dir. `giant_gnu` is the giant
-// WITHOUT the scholar; `gnu_ton_rider` is the scholar's own tight-trimmed sheet.
+// ADR 0020 mount/rider split (G1): the GNU-ton generator emits the giant GNU
+// MOUNT (the body, scholar-less) and the scholar RIDER (drawn alone) into the
+// `gnu_ton_boss/` install dir. `giant_gnu` is the giant; `gnu_ton_rider` is the
+// scholar's own tight-trimmed sheet. The generator ALSO still emits the fused
+// `gnu_ton_boss*` sheets and the `_body`/`_hands` layer pages the old split
+// render consumed; nothing loads them since the E6 teardown (R2), and stripping
+// them is a change to the `tools/ambition_sprite2d_renderer` submodule.
 pub(crate) const GIANT_GNU_FILENAME: &str = "gnu_ton_boss/giant_gnu_spritesheet.png";
-pub(crate) const GIANT_GNU_BODY_FILENAME: &str = "gnu_ton_boss/giant_gnu_body_spritesheet.png";
-pub(crate) const GIANT_GNU_HANDS_FILENAME: &str = "gnu_ton_boss/giant_gnu_hands_spritesheet.png";
 pub(crate) const GNU_TON_RIDER_FILENAME: &str = "gnu_ton_boss/gnu_ton_rider_spritesheet.png";
 pub(crate) const FLYING_SPAGHETTI_MONSTER_FILENAME: &str =
     "flying_spaghetti_monster_boss_spritesheet.png";
@@ -552,7 +545,12 @@ pub(crate) const FLYING_SPAGHETTI_MONSTER_FILENAME: &str =
 // render is generated; the boss path just maps `trex_boss` onto this sheet.
 pub(crate) const TREX_BOSS_FILENAME: &str = "trex_enemy_spritesheet.png";
 
-/// GNU-ton boss sheet.
+/// Giant GNU MOUNT sheet — the giant wildebeest body (ADR 0020 mount/rider
+/// split, G1).
+///
+/// Until the E6 teardown this layout was authored as the FUSED `gnu_ton` sheet
+/// (giant + scholar drawn together) and cloned byte-for-byte into the giant's.
+/// The fused boss is gone, so the giant now owns the layout it always described.
 ///
 /// Frame layout: 768×576 pixels per frame, 6 animation rows. Bumped from
 /// the older 512×384 to keep the giant readable when blown up to its
@@ -560,14 +558,17 @@ pub(crate) const TREX_BOSS_FILENAME: &str = "trex_enemy_spritesheet.png";
 /// Rows map to BossAnim as: Rest/FloorSlam/SideSweep/SpikeHalo/Hit/Death.
 ///
 /// The collision box is placed at the giant's shoulder ridge, where the
-/// GNU-ton scholar's feet touch the body. The runtime GNU-ton hitboxes
-/// use the same design-space anchor, so the head and hands line up with
-/// the generated sprite instead of a generic boss rectangle.
+/// GNU-ton scholar's feet touch the body. The runtime hitboxes use the same
+/// design-space anchor, so the head and hands line up with the generated sprite
+/// instead of a generic boss rectangle. The scholar's shoulder anchor for the
+/// runtime `Mountable::rider_offset` is design-space
+/// `(_MAN_CENTER_X ≈ 44.0, _MAN_CENTER_Y ≈ -20.0)` relative to the giant frame
+/// center (recorded in the generator's `giant_gnu_actor.ron`).
 ///
 /// `collision_scale: 4.5` makes the 768×576 sprite render much larger
-/// than the authored boss box, so the giant body dominates the arena
+/// than the authored box, so the giant body dominates the arena
 /// while runtime hitboxes stay tied to named parts.
-pub static GNU_TON_SHEET: std::sync::LazyLock<BossSheetSpec> =
+pub static GIANT_GNU_SHEET: std::sync::LazyLock<BossSheetSpec> =
     std::sync::LazyLock::new(|| BossSheetSpec {
         label_width: 0,
         frame_width: 768,
@@ -626,20 +627,6 @@ pub static GNU_TON_SHEET: std::sync::LazyLock<BossSheetSpec> =
         body_centered: true,
         authored_faces_left: false,
     });
-
-/// Giant GNU MOUNT sheet (ADR 0020 mount/rider split, G1).
-///
-/// The giant wildebeest body WITHOUT the scholar, lockstep-packed exactly like
-/// the fused `gnu_ton` sheet (identical 768×576 frame layout / rows / anchor),
-/// so its layout mirrors `GNU_TON_SHEET` byte-for-byte. `giant_gnu_body` =
-/// scholar-less body page, `giant_gnu_hands` = the (identical) hands page.
-///
-/// The scholar's shoulder anchor for the runtime `Mountable::rider_offset` is
-/// design-space `(_MAN_CENTER_X ≈ 44.0, _MAN_CENTER_Y ≈ -20.0)` relative to the
-/// giant frame center (recorded in the generator's `giant_gnu_actor.ron`); G2
-/// authors the rider socket from it.
-pub static GIANT_GNU_SHEET: std::sync::LazyLock<BossSheetSpec> =
-    std::sync::LazyLock::new(|| GNU_TON_SHEET.clone());
 
 /// GNU-ton scholar RIDER sheet (ADR 0020 mount/rider split, G1).
 ///
@@ -875,14 +862,9 @@ pub fn all_boss_sprite_filenames() -> Vec<(&'static str, &'static str)> {
     vec![
         ("gradient_sentinel", BOSS_FILENAME),
         ("mockingbird", MOCKINGBIRD_FILENAME),
-        ("gnu_ton", GNU_TON_FILENAME),
         ("smirking_behemoth_boss", SMIRKING_BEHEMOTH_FILENAME),
-        ("gnu_ton_body", GNU_TON_BODY_FILENAME),
-        ("gnu_ton_hands", GNU_TON_HANDS_FILENAME),
         // ADR 0020 split: giant MOUNT + scholar RIDER sheets.
         ("giant_gnu", GIANT_GNU_FILENAME),
-        ("giant_gnu_body", GIANT_GNU_BODY_FILENAME),
-        ("giant_gnu_hands", GIANT_GNU_HANDS_FILENAME),
         ("gnu_ton_rider", GNU_TON_RIDER_FILENAME),
         (
             "flying_spaghetti_monster_boss",
@@ -895,8 +877,7 @@ pub fn all_boss_sprite_filenames() -> Vec<(&'static str, &'static str)> {
 /// The dedicated per-boss spritesheets, as `(boss_key, BossSheetSpec)` rows.
 ///
 /// `boss_key` is the lowercased boss behavior id the renderer dispatches on
-/// (`assets.boss_sprite(&boss_key)`); GNU-ton's split render reads the
-/// `"gnu_ton_body"` / `"gnu_ton_hands"` rows. This is the ONE place the
+/// (`assets.boss_sprite(&boss_key)`). This is the ONE place the
 /// machinery names a boss sheet â `load_game_assets` loops it to fill
 /// `GameAssets::boss_sprites`. Adding a boss is a row here (+ its catalog filename
 /// in `all_boss_sprite_filenames`), not a new loader fn or struct field. The
@@ -911,13 +892,8 @@ pub fn builtin_boss_sheets() -> std::collections::HashMap<String, BossSheetSpec>
     let mut m = std::collections::HashMap::new();
     m.insert("gradient_sentinel".to_string(), BOSS_SHEET.clone());
     m.insert("mockingbird".to_string(), MOCKINGBIRD_SHEET.clone());
-    m.insert("gnu_ton".to_string(), GNU_TON_SHEET.clone());
-    m.insert("gnu_ton_body".to_string(), GNU_TON_SHEET.clone());
-    m.insert("gnu_ton_hands".to_string(), GNU_TON_SHEET.clone());
-    // ADR 0020 split: giant MOUNT (mirrors gnu_ton layout) + scholar RIDER.
+    // ADR 0020 split: giant MOUNT + scholar RIDER.
     m.insert("giant_gnu".to_string(), GIANT_GNU_SHEET.clone());
-    m.insert("giant_gnu_body".to_string(), GIANT_GNU_SHEET.clone());
-    m.insert("giant_gnu_hands".to_string(), GIANT_GNU_SHEET.clone());
     m.insert("gnu_ton_rider".to_string(), GNU_TON_RIDER_SHEET.clone());
     m.insert(
         "smirking_behemoth_boss".to_string(),
@@ -931,7 +907,7 @@ pub fn builtin_boss_sheets() -> std::collections::HashMap<String, BossSheetSpec>
     m
 }
 
-pub fn dedicated_boss_sheets() -> [(&'static str, BossSheetSpec); 11] {
+pub fn dedicated_boss_sheets() -> [(&'static str, BossSheetSpec); 6] {
     // Each key resolves to the content-authored override (`boss_sheets.ron`) if
     // one is installed, else the built-in default — the E58 "empty default =
     // built-in" pattern, now for sheet layouts.
@@ -945,14 +921,9 @@ pub fn dedicated_boss_sheets() -> [(&'static str, BossSheetSpec); 11] {
     };
     [
         resolve("mockingbird", &MOCKINGBIRD_SHEET),
-        resolve("gnu_ton", &GNU_TON_SHEET),
         resolve("smirking_behemoth_boss", &SMIRKING_BEHEMOTH_SHEET),
-        resolve("gnu_ton_body", &GNU_TON_SHEET),
-        resolve("gnu_ton_hands", &GNU_TON_SHEET),
         // ADR 0020 split: giant MOUNT + scholar RIDER.
         resolve("giant_gnu", &GIANT_GNU_SHEET),
-        resolve("giant_gnu_body", &GIANT_GNU_SHEET),
-        resolve("giant_gnu_hands", &GIANT_GNU_SHEET),
         resolve("gnu_ton_rider", &GNU_TON_RIDER_SHEET),
         resolve(
             "flying_spaghetti_monster_boss",

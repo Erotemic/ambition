@@ -539,7 +539,7 @@ mod mount_death_bridge_tests {
     /// Spawn a boss carrying a `mount_died` external trigger from `Phase1`, at
     /// `Phase1`. Returns its entity.
     fn spawn_mounted_boss(app: &mut App) -> Entity {
-        let config = test_boss_config("gnu_ton", "GNU-ton", "gnu_ton");
+        let config = test_boss_config("gnu_ton_rider", "GNU-ton", "gnu_ton_rider");
         let (status, health) = test_boss_status_with(
             100,
             BossEncounterPhase::Phase1,

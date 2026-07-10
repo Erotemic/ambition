@@ -109,47 +109,74 @@ fn boss_spawn_hurtboxes_resolves_without_panicking() {
     assert!(!hbs.is_empty(), "a boss should expose at least one hurtbox");
 }
 
+/// A sheet whose body geometry is authored PER ANIMATION (a head hurtbox that
+/// bobs with the idle, dives with the head-descent) resolves through
+/// `boss_sprite_metrics_from_registry` as an animation map with no static parts
+/// — the opposite of the mockingbird's single alpha-bbox below.
+///
+/// The subject moved with the ADR-0020 split (E6 teardown): the per-animation
+/// hurtboxes belong to the `giant_gnu` MOUNT's sheet, which is where they came
+/// from all along — the fused `gnu_ton` sheet this test used to name was the
+/// giant and the scholar drawn together. The scholar's own trimmed
+/// `gnu_ton_rider` sheet authors no body metrics at all, which the second half
+/// pins: a boss can be a rider whose hurtboxes live on the body it rides.
 #[test]
-fn gnu_ton_metrics_come_from_per_animation_hurtboxes() {
+fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
     use crate::features::bosses::BossBehaviorProfile;
 
     let registry = crate::character_sprites::baked_sheet_registry();
     let pos = ae::Vec2::new(500.0, 400.0);
-    let behavior = BossBehaviorProfile::gnu_ton();
-    let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(220.0, 220.0));
+    let mut behavior = BossBehaviorProfile::gnu_ton_rider();
+    // Aim the lookup at the mount's sheet: the giant is what carries the head.
+    behavior.sprite_target = Some("giant_gnu".to_string());
+    let combat_size = ae::Vec2::new(220.0, 220.0);
     let mut boss = super::super::boss_clusters::BossClusterScratch::new(
-        "boss_gnu_ton",
-        "GNU-ton",
+        "boss_giant_gnu",
+        "Giant GNU",
         ae::Aabb::new(pos, combat_size * 0.5),
         ambition_entity_catalog::placements::BossBrain::Dormant,
     );
     boss.config.behavior = behavior;
 
     let (metrics, derived_size) = boss_sprite_metrics_from_registry(boss.as_ref(), &registry)
-        .expect("gnu_ton sprite target should have body metrics in the baked registry");
+        .expect("the giant_gnu sheet has body metrics in the baked registry");
     // The head/hand hurtboxes (what damageable_volumes consumes) live
     // in the per-animation map.
     assert!(
         !metrics.animations.is_empty(),
-        "gnu_ton should carry per-animation hurtboxes"
+        "the giant should carry per-animation hurtboxes"
     );
     assert!(
         metrics.animations.contains_key("rest"),
-        "gnu_ton should have a 'rest' animation hurtbox"
+        "the giant should have a 'rest' animation hurtbox"
     );
     // No static body bbox → no offset / derived size.
     assert_eq!(
         metrics.combat_offset,
         ae::Vec2::ZERO,
-        "gnu_ton has no static body_pixel_parts, so combat_offset stays zero"
+        "the giant has no static body_pixel_parts, so combat_offset stays zero"
     );
     assert!(
         metrics.body_pixel_parts.is_empty() && metrics.body_pixel_bbox.is_none(),
-        "gnu_ton's body geometry is per-animation, not static parts"
+        "the giant's body geometry is per-animation, not static parts"
     );
     assert!(
         derived_size.is_none(),
         "with no static body bbox, no combat_size is derived"
+    );
+
+    // The rider, on its own tight sheet, has no body metrics to resolve — his
+    // damageable volume falls back to his authored `combat_size`.
+    let mut rider = super::super::boss_clusters::BossClusterScratch::new(
+        "boss_gnu_ton_rider",
+        "GNU-ton",
+        ae::Aabb::new(pos, ae::Vec2::new(27.0, 48.0)),
+        ambition_entity_catalog::placements::BossBrain::Dormant,
+    );
+    rider.config.behavior = BossBehaviorProfile::gnu_ton_rider();
+    assert!(
+        boss_sprite_metrics_from_registry(rider.as_ref(), &registry).is_none(),
+        "the scholar's trimmed sheet authors no body metrics — the giant carries them",
     );
 }
 

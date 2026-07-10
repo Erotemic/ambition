@@ -42,7 +42,7 @@ const GRADIENT_CASCADE_MINION_COUNT: u8 = 2;
 /// to keep the runtime focused on body/HP and to let the EFFECTS
 /// consumer (`spawn_gnu_apple_rain_from_special_messages`) own the
 /// per-tick spawn cadence. Defaulted-attached to every boss; only
-/// the gnu_ton encounter advances it (its ActionSet's `special` is
+/// the gnu_ton_rider encounter advances it (its ActionSet's `special` is
 /// `SpecialActionSpec::Special("apple_rain")`, so only it generates the
 /// Special messages the consumer reads). Per the actor/brain
 /// follow-up plan Task B: components hold state, consumers spawn

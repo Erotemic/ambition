@@ -46,14 +46,14 @@ const FLOOR_GATE_BLOCK_NAME: &str = "ladder_floor_gate";
 /// GNU-ton recognizer (id or authored display name). Lives content-side:
 /// the generic cluster views no longer carry named-boss predicates.
 ///
-/// The arena (ADR 0020 / G4) now spawns the SPLIT pair: the encounter boss is
-/// the `gnu_ton_rider` scholar riding the `giant_gnu` mount, so the gate must
-/// recognize the rider id. The fused `gnu_ton` id is still matched so the gate
-/// keeps working against the (still-authored) fused profile and its regression
-/// tests until the fused teardown lands.
+/// The arena (ADR 0020 / G4) spawns the SPLIT pair: the encounter boss is the
+/// `gnu_ton_rider` scholar riding the `giant_gnu` mount. The fused `gnu_ton`
+/// profile it replaced was torn down in the E6 teardown (`refactor-chain.md`
+/// R2), so the rider id — plus the display name a room author writes — is the
+/// whole recognizer. Note the MOUNT is deliberately not matched: the giant dying
+/// is a phase trigger, not the encounter ending.
 fn boss_is_gnu_ton(boss: &ambition_actors::features::BossRef<'_>) -> bool {
-    boss.config.behavior.id == "gnu_ton"
-        || boss.config.behavior.id == "gnu_ton_rider"
+    boss.config.behavior.id == "gnu_ton_rider"
         || boss.config.name.eq_ignore_ascii_case("gnu_ton")
         || boss.config.name.eq_ignore_ascii_case("gnu-ton")
 }
@@ -164,13 +164,16 @@ mod tests {
             .count()
     }
 
+    /// The arena's encounter boss: the `gnu_ton_rider` scholar aboard the
+    /// `giant_gnu` mount (ADR 0020 / G4). GNU-ton IS this boss — the fused
+    /// single profile was torn down in the E6 teardown.
     fn spawn_gnu_ton_runtime() -> BossClusterScratch {
-        let behavior = BossBehaviorProfile::from_data("gnu_ton");
-        let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(220.0, 220.0));
+        let behavior = BossBehaviorProfile::from_data("gnu_ton_rider");
+        let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(54.0, 96.0));
         let pos = ae::Vec2::new(500.0, 400.0);
         let aabb = ae::Aabb::new(pos, combat_size * 0.5);
         let mut scratch = BossClusterScratch::new(
-            "boss_gnu_ton",
+            "boss_gnu_ton_rider",
             "GNU-ton",
             aabb,
             ambition_entity_catalog::placements::BossBrain::Dormant,
@@ -179,17 +182,21 @@ mod tests {
         scratch
     }
 
-    /// The ADR 0020 / G4 encounter boss: the `gnu_ton_rider` scholar (the boss
-    /// that actually spawns in the reauthored arena — it rides the `giant_gnu`
-    /// mount). The gate must treat this the same as the fused `gnu_ton`.
-    fn spawn_gnu_ton_rider_runtime() -> BossClusterScratch {
-        let behavior = BossBehaviorProfile::from_data("gnu_ton_rider");
-        let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(54.0, 96.0));
+    /// A boss wearing the GIANT's sheet — the only sheet whose body geometry is
+    /// authored PER ANIMATION. Since the ADR-0020 split the giant is a mount
+    /// ACTOR, so no live boss targets it; but the boss sprite-metrics machinery
+    /// still has to handle such a sheet (the fused GNU-ton was exactly this
+    /// shape), and the head-hurtbox alignment guard below is what pins it.
+    fn spawn_giant_bodied_boss_runtime() -> BossClusterScratch {
+        let mut behavior = BossBehaviorProfile::from_data("gnu_ton_rider");
+        behavior.sprite_target = Some("giant_gnu".to_string());
+        let combat_size = ae::Vec2::new(220.0, 220.0);
+        behavior.combat_size = Some(combat_size);
         let pos = ae::Vec2::new(500.0, 400.0);
         let aabb = ae::Aabb::new(pos, combat_size * 0.5);
         let mut scratch = BossClusterScratch::new(
-            "boss_gnu_ton_rider",
-            "GNU-ton",
+            "boss_giant_gnu",
+            "Giant GNU",
             aabb,
             ambition_entity_catalog::placements::BossBrain::Dormant,
         );
@@ -206,7 +213,7 @@ mod tests {
     /// though it is computed in frame space (frame-center → `boss.pos`)
     /// while the body envelope carries `combat_offset`.
     #[test]
-    fn gnu_ton_head_hurtbox_overlaps_the_body_envelope() {
+    fn giant_head_hurtbox_overlaps_the_body_envelope() {
         use ambition_engine_core::AabbExt;
 
         crate::bosses::install_boss_roster();
@@ -216,7 +223,7 @@ mod tests {
             .world_mut()
             .spawn((
                 ambition_actors::features::FeatureSimEntity,
-                spawn_gnu_ton_runtime().into_components(),
+                spawn_giant_bodied_boss_runtime().into_components(),
                 ambition_characters::brain::BossAttackState::default(),
             ))
             .id();
@@ -234,7 +241,7 @@ mod tests {
             .unwrap();
         assert!(
             status.sprite_metrics.is_some(),
-            "gnu_ton sprite metrics should derive from the baked sheet registry"
+            "the giant's sprite metrics should derive from the baked sheet registry"
         );
         let attack = app
             .world()
@@ -261,7 +268,7 @@ mod tests {
         let hurtboxes = ambition_actors::features::damageable_volumes(&ctx);
         assert!(
             !hurtboxes.is_empty(),
-            "gnu_ton should expose at least one damageable hurtbox at rest"
+            "the giant should expose at least one damageable hurtbox at rest"
         );
         let kin = app
             .world()
@@ -400,54 +407,6 @@ mod tests {
                 BossBrain::PhaseScript { script_id } if script_id == "gnu_ton"
             )),
             "the arena must no longer spawn the fused gnu_ton boss — it is the split pair now"
-        );
-    }
-
-    #[test]
-    fn ladder_is_hidden_when_rider_boss_is_alive() {
-        // G4: the reauthored arena spawns the `gnu_ton_rider` (the scholar on
-        // the giant), not the fused `gnu_ton`. The gate must still hide the
-        // retreat ladder while THAT boss is alive, or the split boss would let
-        // the player climb out and skip the fight.
-        let ladder = ae::ClimbableRegion::ladder(ladder_aabb());
-        let mut app = make_app(make_game_world(ARENA_ROOM_NAME, vec![ladder]));
-        app.world_mut()
-            .spawn(spawn_gnu_ton_rider_runtime().into_components());
-        app.update();
-        assert_eq!(
-            climbable_regions_len(&app),
-            0,
-            "ladder must be hidden while the gnu_ton_rider encounter boss is alive"
-        );
-    }
-
-    #[test]
-    fn ladder_appears_when_rider_boss_dies() {
-        // The rider-boss defeat must reveal the retreat ladder, exactly like the
-        // fused boss does — the gate keys on the encounter boss being defeated.
-        let ladder = ae::ClimbableRegion::ladder(ladder_aabb());
-        let mut app = make_app(make_game_world(ARENA_ROOM_NAME, vec![ladder]));
-        let boss_entity = app
-            .world_mut()
-            .spawn(spawn_gnu_ton_rider_runtime().into_components())
-            .id();
-        app.update();
-        assert_eq!(climbable_regions_len(&app), 0);
-        app.world_mut()
-            .get_mut::<ambition_characters::actor::BodyHealth>(boss_entity)
-            .unwrap()
-            .health
-            .current = 0;
-        app.update();
-        let regions = &app
-            .world()
-            .resource::<ambition_engine_core::RoomGeometry>()
-            .0
-            .climbable_regions;
-        assert_eq!(
-            regions.len(),
-            1,
-            "ladder should be back after the rider boss is defeated"
         );
     }
 

@@ -119,7 +119,7 @@ mod tests {
     }
 
     /// The loader produces no duplicate ids — a misnamed `.ron` file
-    /// (e.g. `gnu_ton_old.ron` with `id: \"gnu_ton\"`) would land
+    /// (e.g. `mockingbird_old.ron` with `id: \"mockingbird\"`) would land
     /// duplicate specs in the override map; the profile loop would
     /// then nondeterministically pick whichever the BTreeMap collected
     /// last. This test trips on that case.

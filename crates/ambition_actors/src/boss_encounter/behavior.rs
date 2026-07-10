@@ -430,7 +430,7 @@ impl BossBehaviorProfile {
 }
 
 /// Named-boss test conveniences: thin `from_data` aliases so a test can read
-/// `BossBehaviorProfile::gnu_ton()` instead of the stringly id. The engine
+/// `BossBehaviorProfile::mockingbird()` instead of the stringly id. The engine
 /// ships NO named bosses — production resolves every boss by id through
 /// `from_data` / `for_authored_boss`, and the DATA lives in
 /// `boss_profiles.ron`. These aliases exist only for the boss test suites.
@@ -448,9 +448,12 @@ impl BossBehaviorProfile {
         Self::from_data("mockingbird")
     }
 
-    /// GNU-ton — stationary giant with wide-ranging hand attacks.
-    pub fn gnu_ton() -> Self {
-        Self::from_data("gnu_ton")
+    /// GNU-ton's scholar RIDER — the boss half of the ADR-0020 linked pair. He
+    /// rides the `giant_gnu` mount and his strikes drive its hand limbs. This
+    /// replaced the fused single `gnu_ton` profile in the E6 teardown; the
+    /// giant's body geometry now lives on the MOUNT's sheet, not the boss's.
+    pub fn gnu_ton_rider() -> Self {
+        Self::from_data("gnu_ton_rider")
     }
 }
 
@@ -627,23 +630,27 @@ pub fn boss_animation_keys_for_profile(
 mod pilotable_mount_tests {
     use super::*;
 
-    /// ADR 0020 field addition (fork #2): existing bosses author NO
-    /// `pilotable_mount_classes`, so the serde default keeps them empty — no boss
-    /// pilots anything until it's authored to. Regression pin that adding the
-    /// field left every current profile untouched.
+    /// ADR 0020 field addition (fork #2): a boss authors NO
+    /// `pilotable_mount_classes` unless it really rides something, so the serde
+    /// default keeps them empty. The one boss that DOES ride is the GNU-ton
+    /// rider, and it names exactly the mount class the `giant_gnu` archetype
+    /// declares — a typo there would silently leave the scholar on foot.
     #[test]
-    fn existing_profiles_default_to_no_pilotable_classes() {
-        assert!(
-            BossBehaviorProfile::clockwork_warden()
-                .pilotable_mount_classes
-                .is_empty(),
-            "the reference boss pilots nothing by default",
-        );
-        assert!(
-            BossBehaviorProfile::gnu_ton()
-                .pilotable_mount_classes
-                .is_empty(),
-            "GNU-ton authors its rider role in the G2 pair slice, not here",
+    fn only_a_riding_boss_authors_pilotable_classes() {
+        for profile in [
+            BossBehaviorProfile::clockwork_warden(),
+            BossBehaviorProfile::mockingbird(),
+        ] {
+            assert!(
+                profile.pilotable_mount_classes.is_empty(),
+                "{} pilots nothing by default",
+                profile.id,
+            );
+        }
+        assert_eq!(
+            BossBehaviorProfile::gnu_ton_rider().pilotable_mount_classes,
+            vec!["giant".to_string()],
+            "the rider boards the giant-class mount — that is what makes the pair a pair",
         );
     }
 

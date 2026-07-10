@@ -358,7 +358,7 @@ pub struct GameAssets {
     /// Dedicated per-boss spritesheets, keyed by the boss's lowercased behavior
     /// id (`boss_key`) — the renderer looks up `boss_sprites.get(&boss_key)` and
     /// falls back to `boss`. This replaced a hand-maintained set of named fields
-    /// (`gnu_ton`, `mockingbird`, `trex_boss`, …) + a per-boss if-else chain in
+    /// (`giant_gnu`, `mockingbird`, `trex_boss`, …) + a per-boss if-else chain in
     /// the render layer, so the MACHINERY no longer names any boss: adding a boss
     /// sheet is a new [`boss_sprite_keys`] entry + its loader, not a struct edit.
     ///

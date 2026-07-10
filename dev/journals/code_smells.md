@@ -232,14 +232,14 @@ are now gravity-relative. These four remain world-Y-locked — each is a DESIGN 
 - **Why not fixed here:** wiring it needs the open reference-frame design call; deleting it would remove the wiring point. Left in place, flagged. [[project_reference_frames]]
 - **Suggested fix / size:** S once the reference-frame design lands — wire it into the input→control-frame bridge; until then, keep it (or `#[allow(dead_code)]` with a pointer to frame-of-reference.md).
 
-## 2026-07-05 (G4) — fused `gnu_ton` boss profile + split-overlay render are dead-in-arena but NOT torn down
-- **Where:** the fused `gnu_ton` profile in `game/ambition_content/assets/data/boss_profiles.ron`; the split-overlay render (`sync_boss_split_overlay`, `BossOverlayLayer`, split z-consts, HAND_SLAM/HAND_SWEEP StrikeRect tables) in `crates/ambition_render/src/rendering/actors/boss.rs` + its schedule wiring in `rendering/mod.rs:275`.
-- **Context:** G4 reauthored `gnu_ton_arena` as the ADR-0020 linked pair (a `giant_gnu` EnemySpawn mount + a `gnu_ton_rider` BossSpawn rider), so the arena NO LONGER spawns the fused `gnu_ton` boss. The fused profile is now dead *content* (nothing authored spawns `PhaseScript:gnu_ton`).
-- **Why NOT torn down (deferred, deliberate):** the fused `gnu_ton` id/profile + `gnu_ton_boss` sprite are STILL referenced by non-arena code and would make the teardown large + risky:
-  - `ambition_actors/src/boss_encounter/behavior.rs:438` (`gnu_ton()` constructor → `from_data("gnu_ton")`), `profile.rs:173`, `sprites/mod.rs` (`GNU_TON_SHEET`, `"gnu_ton"` registration), `features/bosses.rs:224`, `features/ecs/bosses/sync.rs:157` (sprite-target routing `"gnu_ton_boss" | "gnu_ton" | ...`).
-  - Tests: `features/ecs/tests.rs`, `features/ecs/damage/tests.rs` (reward mapping), `boss_encounter/systems.rs:524`, `world/ldtk_world/fields.rs:352`; `ambition_app/tests/boss_possession_specials.rs`, `architecture_boundaries.rs` (×3).
-  - The split-overlay render still drives the `gnu_ton_boss` hands page; it is the only split-render boss, but removing it means retargeting those suites.
-- **Suggested fix / size:** M–L follow-up (G6+). Migrate the fused-profile references/tests to the split pair (or to a generic fixture), delete the fused `gnu_ton` row + the `gnu_ton_boss` sheet registration, then delete `sync_boss_split_overlay`/`BossOverlayLayer` + the HAND_* StrikeRect tables. The arena-gate `boss_is_gnu_ton` (content-side) already recognizes BOTH ids; drop the `"gnu_ton"` arm once the fused profile is gone. Prefer this as its own commit with the boss suites retargeted, per "prefer a correct additive result over a risky teardown".
+## 2026-07-05 (G4) — fused `gnu_ton` boss profile + split-overlay render — ✅ RESOLVED 2026-07-10
+Torn down in `refactor-chain.md` R2 (the E6 deferred teardown). The fused profile,
+its encounter spec, its sheet, and the whole split-layer render are deleted; the
+referencing tests were retargeted onto the ADR-0020 linked pair FIRST, which is
+how the retarget caught a real fact: the rider authors a G5 `possessed_verbs` map
+the fused profile never had, so a possessed boss's Attack now commands
+`hand_sweep`, not capability slot 0. Detail + the honest LOC accounting (it did
+NOT shrink `boss_encounter/`) in `docs/planning/engine/refactor-chain.md` §R2.
 
 ## 2026-07-06 (E5 step 5) — `apply_room_replay_request_system` hard-codes cut-rope content in the APP
 - **Where:** `game/ambition_app/src/app/sim_systems.rs::apply_room_replay_request_system` — calls `ambition_content::bosses::{is_cut_rope_boss, reset_cut_rope_boss_attempt}` inline before the generic room replay.

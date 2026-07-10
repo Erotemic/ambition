@@ -151,12 +151,10 @@ pub fn sprite_render_size_for(target: &str, boss_size: ae::Vec2) -> ae::Vec2 {
         "boss" => Some(&*sprites::BOSS_SHEET),
         "mockingbird" | "mockingbird_boss" => Some(&*sprites::MOCKINGBIRD_SHEET),
         "smirking_behemoth_boss" => Some(&*sprites::SMIRKING_BEHEMOTH_SHEET),
-        // `gnu_ton_boss` is the actual sheet target ID emitted by the
-        // gnu_ton spritesheet RON. `gnu_ton_body` / `gnu_ton_hands` /
-        // `gnu_ton` (legacy aliases) stay mapped for compatibility.
-        "gnu_ton_boss" | "gnu_ton" | "gnu_ton_body" | "gnu_ton_hands" => {
-            Some(&*sprites::GNU_TON_SHEET)
-        }
+        // The GNU-ton giant. It is a MOUNT actor since the ADR-0020 split, so no
+        // live boss targets it — but a boss CAN (the E6-teardown tests do), and
+        // it is the only sheet whose body geometry is authored per animation.
+        "giant_gnu" => Some(&*sprites::GIANT_GNU_SHEET),
         _ => None,
     };
     let Some(spec) = spec else {

@@ -227,7 +227,7 @@ mod boss_profile_data_tests {
         for id in [
             "clockwork_warden",
             "mockingbird",
-            "gnu_ton",
+            "gnu_ton_rider",
             "smirking_behemoth_boss",
         ] {
             // `from_data` panics with a clear message when the row is
@@ -249,7 +249,7 @@ mod boss_profile_data_tests {
         assert!((warden.strike_speed_scale - 0.20).abs() < f32::EPSILON);
         assert!((warden.macro_tuning.too_close_distance - 110.0).abs() < f32::EPSILON);
         assert!((warden.macro_tuning.engage_max_duration_s - 9.0).abs() < f32::EPSILON);
-        let gnu = BossBehaviorProfile::gnu_ton();
+        let gnu = BossBehaviorProfile::gnu_ton_rider();
         assert_eq!(gnu.body_damage, 0);
         assert_eq!(gnu.attacks.len(), 5);
         let mocker = BossBehaviorProfile::mockingbird();
@@ -407,7 +407,7 @@ mod scripted_pattern_tests {
     use ambition_engine_core::AabbExt;
 
     fn gnu_ton_runtime() -> super::super::ecs::boss_clusters::BossClusterScratch {
-        let behavior = BossBehaviorProfile::gnu_ton();
+        let behavior = BossBehaviorProfile::gnu_ton_rider();
         let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(220.0, 220.0));
         let pos = ae::Vec2::new(500.0, 400.0);
         let aabb = ae::Aabb::new(pos, combat_size * 0.5);
@@ -493,8 +493,8 @@ mod scripted_pattern_tests {
             frame_height: 576,
             body_pixel_bbox: None,
             body_pixel_parts: Vec::new(),
-            // Match what `sprite_render_size_for("gnu_ton_boss", boss.size)`
-            // would produce for a (220, 220) spawn → GNU_TON_SHEET's
+            // Match what `sprite_render_size_for("giant_gnu", boss.size)`
+            // would produce for a (220, 220) spawn → GIANT_GNU_SHEET's
             // 4.5× collision_scale: render = 990×990 with aspect
             // adjustment to 1320×990 for the 768/576 frame ratio.
             sprite_render_size: ae::Vec2::new(1320.0, 990.0),
@@ -504,16 +504,16 @@ mod scripted_pattern_tests {
     }
 
     #[test]
-    fn gnu_ton_pattern_includes_explicit_rest_beats_in_every_phase() {
+    fn gnu_ton_rider_pattern_includes_explicit_rest_beats_in_every_phase() {
         let BossAttackPattern::Scripted {
             phase1,
             transition,
             phase2,
             enrage,
             ..
-        } = BossBehaviorProfile::gnu_ton().attack_pattern
+        } = BossBehaviorProfile::gnu_ton_rider().attack_pattern
         else {
-            panic!("gnu_ton must use a Scripted attack pattern");
+            panic!("the gnu_ton rider must use a Scripted attack pattern");
         };
         for (label, pattern) in [
             ("phase1", &phase1),
@@ -535,8 +535,8 @@ mod scripted_pattern_tests {
     }
 
     #[test]
-    fn gnu_ton_phase1_is_materially_longer_than_other_bosses() {
-        let gnu_phase1 = match BossBehaviorProfile::gnu_ton().attack_pattern {
+    fn gnu_ton_rider_phase1_is_materially_longer_than_other_bosses() {
+        let gnu_phase1 = match BossBehaviorProfile::gnu_ton_rider().attack_pattern {
             BossAttackPattern::Scripted { phase1, .. } => phase1.total_duration(),
             _ => unreachable!(),
         };
@@ -544,7 +544,7 @@ mod scripted_pattern_tests {
         let warden_cycle = warden.attack_windup + warden.attack_active + warden.attack_cooldown;
         assert!(
             gnu_phase1 > warden_cycle * 3.0,
-            "gnu_ton phase1 ({gnu_phase1}s) should be much slower than the \
+            "the gnu_ton rider's phase1 ({gnu_phase1}s) should be much slower than the \
              clockwork warden cycle ({warden_cycle}s) — design intent is a \
              deliberate, memorizable rhythm"
         );

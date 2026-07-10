@@ -231,6 +231,7 @@ fn active_metadata_returns_active_room_metadata() {
         visual_profile: Default::default(),
         nameplate_policy: Default::default(),
         gallery: false,
+        mode: None,
     };
     let m2 = RoomMetadata {
         biome: Some("cave".into()),
@@ -240,6 +241,7 @@ fn active_metadata_returns_active_room_metadata() {
         visual_profile: Default::default(),
         nameplate_policy: Default::default(),
         gallery: false,
+        mode: None,
     };
     let mut set = RoomSet::from_parts(
         "first",
@@ -266,6 +268,7 @@ fn sync_room_music_request_mirrors_metadata_music_track() {
         visual_profile: Default::default(),
         nameplate_policy: Default::default(),
         gallery: false,
+        mode: None,
     }));
     app.insert_resource(RoomMusicRequest::default());
     app.add_systems(Update, sync_room_music_request);
@@ -299,6 +302,7 @@ fn sync_active_room_metadata_publishes_active_value() {
         visual_profile: Default::default(),
         nameplate_policy: Default::default(),
         gallery: false,
+        mode: None,
     };
     let m_lab = RoomMetadata {
         biome: Some("lab".into()),
@@ -308,6 +312,7 @@ fn sync_active_room_metadata_publishes_active_value() {
         visual_profile: Default::default(),
         nameplate_policy: Default::default(),
         gallery: false,
+        mode: None,
     };
     let set = RoomSet::from_parts(
         "hub",
@@ -348,6 +353,7 @@ fn room_metadata_is_empty_false_when_any_field_set() {
         visual_profile: Default::default(),
         nameplate_policy: Default::default(),
         gallery: false,
+        mode: None,
     };
     assert!(!m.is_empty());
 
@@ -357,6 +363,10 @@ fn room_metadata_is_empty_false_when_any_field_set() {
 
     let mut m = RoomMetadata::default();
     m.nameplate_policy.full_opacity_count = Some(100);
+    assert!(!m.is_empty());
+
+    let mut m = RoomMetadata::default();
+    m.mode = Some("sanic".into());
     assert!(!m.is_empty());
 }
 
@@ -370,6 +380,7 @@ fn room_metadata_merge_preserves_existing_values() {
         visual_profile: Default::default(),
         nameplate_policy: Default::default(),
         gallery: false,
+        mode: None,
     };
     let b = RoomMetadata {
         biome: Some("CONFLICT".into()),        // ignored — a.biome wins
@@ -381,7 +392,8 @@ fn room_metadata_merge_preserves_existing_values() {
             full_opacity_count: Some(100),
             fade_out_count: Some(120),
         },
-        gallery: true, // takes effect — a.gallery was false (merge ORs)
+        gallery: true,              // takes effect — a.gallery was false (merge ORs)
+        mode: Some("sanic".into()), // takes effect — a.mode was None
     };
     a.merge(b);
     assert_eq!(a.biome.as_deref(), Some("hub"));
@@ -391,6 +403,23 @@ fn room_metadata_merge_preserves_existing_values() {
     assert_eq!(a.visual_theme.as_deref(), Some("blue"));
     assert_eq!(a.nameplate_policy.full_opacity_count, Some(100));
     assert_eq!(a.nameplate_policy.fade_out_count, Some(120));
+    assert_eq!(
+        a.mode.as_deref(),
+        Some("sanic"),
+        "a member level's mode tag propagates to the merged active area"
+    );
+
+    // ...and the first non-empty value still wins, so one level cannot
+    // re-home an area another level already claimed for its ruleset.
+    let mut a = RoomMetadata {
+        mode: Some("sanic".into()),
+        ..Default::default()
+    };
+    a.merge(RoomMetadata {
+        mode: Some("CONFLICT".into()),
+        ..Default::default()
+    });
+    assert_eq!(a.mode.as_deref(), Some("sanic"));
 }
 
 #[test]

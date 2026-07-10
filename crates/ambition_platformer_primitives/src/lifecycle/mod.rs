@@ -1,7 +1,7 @@
 //! Lifecycle vocabulary for entities spawned by reusable platformer systems.
 //!
-//! The public API is the helper verb (`spawn_room_scoped`,
-//! `spawn_run_scoped`, `spawn_persistent`) rather than the marker component
+//! The public API is the helper verb (`spawn_room_scoped`, `spawn_run_scoped`,
+//! `spawn_mode_scoped`, `spawn_persistent`) rather than the marker component
 //! convention. Marker components remain public because existing cleanup queries
 //! and tests need to name them, but new spawn sites should prefer
 //! [`SpawnScopedExt`].
@@ -12,7 +12,7 @@ mod spawn_ext;
 
 pub use cleanup::despawn_scoped_entity;
 pub use markers::{
-    FeatureSimEntity, LoadingZoneVisual, PersistentEntity, PlayerVisual, RoomScopedEntity,
-    RoomVisual, RunScopedEntity, SceneEntities,
+    FeatureSimEntity, LoadingZoneVisual, ModeScopedEntity, PersistentEntity, PlayerVisual,
+    RoomScopedEntity, RoomVisual, RunScopedEntity, SceneEntities,
 };
 pub use spawn_ext::SpawnScopedExt;

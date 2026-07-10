@@ -43,6 +43,7 @@ use ambition_platformer_primitives::schedule::SimScheduleExt as _;
 
 mod combat_schedule;
 pub mod input_stream;
+mod mode_scope;
 mod player_schedule;
 #[cfg(feature = "portal")]
 mod portal_schedule;
@@ -52,6 +53,8 @@ mod room_schedule;
 mod sim_core_resources;
 
 pub use combat_schedule::CombatSchedulePlugin;
+/// The demo-hosting seam (D-C): gate a hosted ruleset on the active room's mode.
+pub use mode_scope::{despawn_departed_mode_entities, in_mode, ModeScopePlugin};
 pub use player_schedule::PlayerSchedulePlugin;
 #[cfg(feature = "portal")]
 pub use portal_schedule::PortalSchedulePlugin;
@@ -259,7 +262,11 @@ impl PluginGroup for PlatformerEnginePlugins {
             // The engine progression chain (boss encounters, save mirrors,
             // quest pump, room metadata/music, portal phases) + its content
             // slots.
-            .add(ProgressionSchedulePlugin);
+            .add(ProgressionSchedulePlugin)
+            // The demo-hosting seam (D-C): retire a departed game mode's
+            // entities once the active room's mode changes. Reads the metadata
+            // ProgressionSchedulePlugin just published, so it is added after it.
+            .add(ModeScopePlugin);
         #[cfg(feature = "portal")]
         let builder = builder
             // PortalPlugin + the portal-set schedule placement (the three

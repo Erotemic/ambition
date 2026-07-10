@@ -1,6 +1,6 @@
 # The refactor chain — dissolving the adapter shells, then folding the player
 
-**Status:** NOT STARTED (written 2026-07-10). Six slices, in dependency order.
+**Status:** R1 DONE (2026-07-10). Six slices, in dependency order.
 Each is committable on its own; each states its own exit check.
 
 This doc exists because the 2026-07-10 ledger ruling changed what "finish the
@@ -49,36 +49,79 @@ in the same commit, don't guess.
 
 ---
 
-## R1 — D-C: the mode-scope seam
+## R1 — D-C: the mode-scope seam ✅ DONE (2026-07-10)
 
-**Unblocked. No dependencies. Closes the last decomposition artifact.**
+**Closed the last decomposition artifact.** Vision §5's **scoped game-mode
+pattern**: a demo's rules crate gates its systems on an area/room tag, not on
+global state, so Ambition hosts several demos' rulesets in one binary.
 
-Vision §5 forces the **scoped game-mode pattern**: a demo's rules crate exposes
-`<Demo>RulesPlugin` whose systems are gated on an area/room tag, not on global
-state. Fully pre-solved in [`decomposition.md`](decomposition.md) §"Phase D-C":
+**What landed.**
+- `ambition_world/src/rooms/metadata.rs` → `RoomMetadata::mode: Option<String>`,
+  merged first-`Some`-wins like every other string field; `is_empty` accounts for
+  it. Authored as the LDtk level string field `mode`
+  (`ambition_ldtk_map/src/project.rs` → `LdtkLevel::level_metadata`).
+- `ambition_platformer_primitives/src/lifecycle/` → `ModeScopedEntity(String)`
+  and `SpawnScopedExt::spawn_mode_scoped`.
+- `ambition_runtime/src/mode_scope.rs` → `in_mode(name)`,
+  `despawn_departed_mode_entities`, `ModeScopePlugin` (last member of
+  `PlatformerEnginePlugins`, `.after(sync_active_room_metadata)` in
+  `SandboxSet::Progression`).
+- `game/ambition_demo_sanic` → `SANIC_MODE`; `sanic_speedway()` tags its room.
 
-```rust
-// ambition_world (RoomMetadata):   pub mode: Option<String>,  // merge: first Some wins
-// ambition_runtime:
-pub fn in_mode(name: &'static str) -> impl Condition { /* reads ActiveRoomMetadata */ }
-#[derive(Component)] pub struct ModeScopedEntity(pub String); // despawned when the mode deactivates
-```
+**Two deviations from the pre-solved sketch, both stated out loud (vision §7):**
 
-**Anchors.** `ambition_world/src/rooms/metadata.rs` → `RoomMetadata` (verified
-2026-07-10: it has `biome`, `music_track`, `visual_theme`, … and **no `mode`
-field yet** — this slice adds it). The mode-owner cleanup sweep must GENERALIZE
-the existing `RoomScopedEntity` sweep, not duplicate it. The reference assembly
-is `ambition_host/tests/demo_shell_smoke.rs` (already passing).
-`game/ambition_demo_sanic` already authors `sanic_speedway` through the umbrella.
+1. **`ModeScopedEntity` lives in `ambition_platformer_primitives::lifecycle`, not
+   in `ambition_runtime`,** with `RoomScopedEntity` / `RunScopedEntity` /
+   `PersistentEntity`. It is lifetime-scope VOCABULARY, and anti-god rule 1 sends
+   vocabulary DOWN to the crate that owns the domain; it also lets
+   `spawn_mode_scoped` join the existing `SpawnScopedExt` verb trait rather than
+   forcing a second spawn-helper trait a tier up. Only the SWEEP needs
+   `ActiveRoomMetadata`, so only the sweep sits in `ambition_runtime` — the exact
+   split `RoomScopedEntity` already uses (marker in primitives, sweep above).
+   The sketch's `// ambition_runtime:` comment is satisfied by `in_mode` + the
+   plugin; nothing about the design changed.
+2. **`in_mode` returns `impl FnMut(Option<Res<ActiveRoomMetadata>>) -> bool +
+   Clone`, not `impl Condition`.** That is the signature bevy's own `in_state`
+   uses; a bare closure is a `Condition` via `IntoSystem`, and naming `Condition`
+   in the return type would force the caller to name its marker generic. `None`
+   (no world installed) reads as "in no mode", so a hosted ruleset sleeps rather
+   than panicking.
 
-**A rules crate** attaches `.run_if(in_mode("sanic"))` when hosted, or runs
-unconditionally when standalone — the app chooses via `SanicRulesPlugin::hosted()`
-vs `::global()`. A constructor flag, **not two plugins**.
+**"Generalize the sweep, don't duplicate it"** resolved to reusing
+`lifecycle::despawn_scoped_entity` (which existed with zero callers, documented
+as "a runtime-owned verb to grow from") — NOT to folding the mode sweep into
+`load_room_geometry`'s room sweep. They are genuinely different lifetimes: a
+mode-scoped entity SURVIVES the room transitions inside its own mode, which is
+the whole point, and `load_room_geometry`'s loop additionally carries the
+transiting body and retires avian physics entities. One sweep could not do both
+without a policy argument that means "which scope am I".
 
-**Exit check.** A headless test in which two mode-scoped rules plugins coexist:
-systems tagged `in_mode("a")` do not run while room metadata says mode `b`, and
-`ModeScopedEntity` entities for mode `a` are despawned when the active room's
-mode changes. Plus `demo_shell_smoke.rs` still passes.
+**`ambition_runtime` gained a direct `ambition_world` dep** (the space IR is a
+tier below the sim). `architecture_boundaries.rs`'s runtime allowlist fired on
+it, correctly, and now names it with its reason.
+
+**The rules-crate constructor flag** (`SanicRulesPlugin::hosted()` vs
+`::global()`) is NOT built: `SanicDemoContentPlugin` has zero rules today (the
+momentum feel is the separate interactive build), so the constructor would be a
+facade over nothing. The room already claims the mode, which is what a hosted
+ruleset wakes on; the flag lands with sanic's first rule. The pattern is written
+out in `mode_scope.rs`'s module docs and pinned by
+`ambition_runtime/tests/mode_scope.rs`'s `DemoRulesPlugin` fixture, which is that
+constructor flag exactly.
+
+**Exit check — met.** `ambition_runtime/tests/mode_scope.rs`: two hosted rules
+plugins coexist; `in_mode("a")` systems do not run while room metadata says `b`;
+`ModeScopedEntity("a")` entities are despawned when the active room's mode
+changes, while `b`'s survive; a room change WITHIN a mode spares them; a
+standalone (ungated) ruleset runs with no mode at all. `demo_shell_smoke.rs`
+passes. Plus the E9 oracle in `ambition_demo_sanic`: the seam is reachable
+through the `ambition` umbrella alone.
+
+**Found while doing it** (logged in `dev/journals/code_smells.md`): a crate whose
+manifest names only `ambition` cannot `#[derive(Resource)]` — bevy's derives
+resolve `bevy_ecs` through the consumer's manifest, and a re-export does not
+satisfy them. The umbrella's "author a game through this crate alone" claim has
+an asterisk.
 
 ---
 

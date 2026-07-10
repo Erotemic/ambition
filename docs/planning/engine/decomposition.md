@@ -311,25 +311,36 @@ The carve relocated and SEALED the view types; the rules it fixed still bind:
 
 ## Phase D-C — the demo-hosting seam (ambition runs the demos)
 
-**NOT STARTED.** Vision §5 forces one more decomposition artifact — the
-**scoped game-mode pattern**: a demo's rules crate exposes `<Demo>RulesPlugin`
-whose systems are gated on an area/room tag, not on global state. Design
-detail in [`../demos/README.md`](../demos/README.md); the engine-side slice is
-the room-scoped run-condition helper + the mode field. Pre-solved:
+**✅ DONE (2026-07-10, = `refactor-chain.md` R1).** Vision §5's last
+decomposition artifact — the **scoped game-mode pattern**: a demo's rules crate
+gates its systems on an area/room tag, not on global state, so several rulesets
+coexist in one binary. Design detail in [`../demos/README.md`](../demos/README.md).
+
+The shipped surface:
 
 ```rust
-// ambition_world (RoomMetadata):   pub mode: Option<String>,  // merge: first Some wins
-// ambition_runtime:
-pub fn in_mode(name: &'static str) -> impl Condition { /* reads ActiveRoomMetadata */ }
-#[derive(Component)] pub struct ModeScopedEntity(pub String); // despawned when the mode deactivates
+// ambition_world (RoomMetadata):          pub mode: Option<String>,  // merge: first Some wins
+// ambition_platformer_primitives::lifecycle:
+#[derive(Component)] pub struct ModeScopedEntity(pub String);  // + SpawnScopedExt::spawn_mode_scoped
+// ambition_runtime::mode_scope:
+pub fn in_mode(name: &'static str) -> impl FnMut(Option<Res<ActiveRoomMetadata>>) -> bool + Clone;
+pub fn despawn_departed_mode_entities(..);  // ModeScopePlugin, in SandboxSet::Progression
 ```
 
 A rules crate attaches every system `.run_if(in_mode("sanic"))` when hosted,
 or unconditionally when standalone — the APP chooses via
 `SanicRulesPlugin::hosted()` vs `::global()` (a constructor flag, not two
 plugins). Mode resources live on a mode-owner entity carrying
-`ModeScopedEntity`, so zone exit cleans up by the same sweep
-`RoomScopedEntity` uses (generalize that sweep, don't duplicate it).
+`ModeScopedEntity`; leaving the mode's rooms tears them down through the same
+lifetime-scope vocabulary a room-scoped entity uses.
+
+The marker lives with its lifetime-scope siblings a tier below the sweep that
+consumes it (the sweep reads `ActiveRoomMetadata`) — the same marker/sweep split
+`RoomScopedEntity` already has. `ambition_runtime` therefore gained a direct
+`ambition_world` dep, which `architecture_boundaries.rs` now allows by name.
+Pinned by `ambition_runtime/tests/mode_scope.rs` + the umbrella oracle in
+`game/ambition_demo_sanic`. Rationale for both deviations from the sketch above:
+[`refactor-chain.md`](refactor-chain.md) §R1.
 
 ## Exit criteria (the whole playbook)
 

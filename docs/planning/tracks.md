@@ -39,13 +39,12 @@ player-visible bugs, and the untouched determinism ladder.
 
 1. **The demo-shell arc — a runnable `ambition_demo_sanic`.**
    [opus] It closes playbook **exit 3** (the oracle, executable). **D-C, its
-   engine-side half, is now R1 of [refactor-chain.md](engine/refactor-chain.md)
-   — do it there, not here; this item is the BINARY.** The
-   mode-scope seam is pre-solved in
-   [engine/decomposition.md](engine/decomposition.md) §D-C; the reference
+   engine-side half, LANDED 2026-07-10 as R1 of
+   [refactor-chain.md](engine/refactor-chain.md) — this item is now just the
+   BINARY.** `sanic_speedway` already claims `mode: "sanic"`, so a hosted
+   `SanicRulesPlugin` has something to wake on; the reference
    assembly is `crates/ambition_host/tests/demo_shell_smoke.rs` (already
-   passing). `ambition_demo_sanic` already authors `sanic_speedway` through
-   the umbrella.
+   passing).
    **Counter-argument to fable's F9.1 ruling, per vision §7 (make the case,
    don't silently drift):** fable ruled the demo binary "a fundamentally
    interactive build" and deferred it. That conflates the SHELL with the
@@ -58,7 +57,7 @@ player-visible bugs, and the untouched determinism ladder.
 
 2. **The refactor chain — [engine/refactor-chain.md](engine/refactor-chain.md).**
    [opus] Six slices in dependency order, all verified, written 2026-07-10 after
-   the ledger ruling: **R1** D-C mode-scope seam (unblocked, pre-solved, closes
+   the ledger ruling: **R1** D-C mode-scope seam ✅ **DONE 2026-07-10** (closed
    the last decomposition artifact) → **R2** E6 teardown (dissolves
    `boss_encounter/`, the biggest shell at 5.5k, and unblocks R4's victim
    stepper) → **R3** the overlay split (`CollisionWorld` → `ambition_world`; the
@@ -136,7 +135,7 @@ CC4 (profile first); CC7 P3a.
 |---|---|---|---|
 | Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | **COMPLETE** — E1–E9, W1–W4, F1–F9 executed; demo gate open; umbrella crate real; `placements` the sole authored-entity channel. **Exit 5 rewritten + the ledger RULED (adapter floor IS the floor, 2026-07-10).** Playbook exits 1, 2, 4, 5 met; only exit 3 (a demo binary) is open | the shell-dissolution chain: [refactor-chain.md](engine/refactor-chain.md) |
 | Decomposition D-B | same | navigability standard: no module >1.5k ✅, hub globs dissolved ✅, **`MODULES.md` missing in every crate** | write `MODULES.md` per crate [sonnet] |
-| Decomposition D-C | same | **NOT STARTED** — the mode-scope seam (`RoomMetadata.mode` + `in_mode("sanic")` run-condition). Demos want it; it can land early | the room-scoped run-condition helper [opus] |
+| Decomposition D-C | same | **✅ DONE (2026-07-10)** — the mode-scope seam shipped as `refactor-chain.md` R1: `RoomMetadata.mode`, `ModeScopedEntity` + `spawn_mode_scoped`, `in_mode(name)` + `ModeScopePlugin`. Two hosted rulesets coexist (`ambition_runtime/tests/mode_scope.rs`); `sanic_speedway` claims its mode | — |
 | Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | CC1 + CC2 + CC5 + CC6 (moving portals) LANDED | **CC3** — the enumerated delta from the 3-check diagnostic to the six-invariant oracle (§6.1); diagnostic-only, Jon defers hard gating [opus]. Then CC4 (profile first; NOT a CC1–CC3 precondition), CC7 P3a angled math |
 | Combat stack | [engine/combat-model.md](engine/combat-model.md) | CM1–CM5 + CM7 LANDED — smash axes complete (growth, DI, charge, cancel tables, launch angles, per-move presentation) | CM6 grab/throw/shield-stun (brings OnBlock) [opus, with SSB — a P4 slice, not a P2 exit] |
 | Netcode ladder | [engine/netcode.md](engine/netcode.md) | **N0.1 + N0.2 + N0.3 LANDED** (2026-07-09): `SimSchedule` seam + `fixed_tick` knob + `SimTick` + `ControlFrameLatch`; `InputStream` + `InputStreamRecorder`; determinism lints + ADR 0023 | **N0.4 desync canary** — everything it needs now exists (a fixed timeline, a replayable input artifact, the lint set); it wants the N3.1 snapshot registry for the per-tick hash. Then N1.1–N1.3. (Presentation interpolation rides the first fixed-tick *windowed* app) |

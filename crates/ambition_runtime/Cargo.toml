@@ -38,6 +38,9 @@ ambition_persistence = { path = "../ambition_persistence" }
 ambition_menu = { path = "../ambition_menu" }
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 ambition_dev_tools = { path = "../ambition_dev_tools" }
+# The authored world IR — `ActiveRoomMetadata` is what the mode-scope seam
+# (D-C) reads to decide which hosted ruleset is awake.
+ambition_world = { path = "../ambition_world" }
 bevy_common_assets = { version = "0.15", features = ["ron"] }
 bevy = { version = "0.18.1", default-features = false, features = [
     # add_headless_foundation: asset/image registries + states for a

@@ -20,6 +20,15 @@ use ambition::world::rooms::RoomSpec;
 /// Stable room id for the momentum speedway.
 pub const SPEEDWAY_ROOM_ID: &str = "sanic_speedway";
 
+/// The game-MODE tag this demo's rooms carry (decomposition D-C).
+///
+/// Ambition hosts this demo by loading its rooms alongside its own; a Sanic
+/// rules plugin gates its systems on `ambition::runtime::in_mode(SANIC_MODE)`
+/// so they sleep everywhere else. There are no Sanic rules yet — the momentum
+/// FEEL is the separate interactive build — but the rooms already claim the
+/// mode, which is what a hosted ruleset would wake on.
+pub const SANIC_MODE: &str = "sanic";
+
 /// Number of segments in the generated Sonic loop polygon.
 const LOOP_SEGMENTS: usize = 24;
 
@@ -63,7 +72,9 @@ pub fn sanic_speedway() -> RoomSpec {
     )
     .with_chains(vec![sonic_loop]);
 
-    RoomSpec::new(SPEEDWAY_ROOM_ID, world)
+    let mut room = RoomSpec::new(SPEEDWAY_ROOM_ID, world);
+    room.metadata.mode = Some(SANIC_MODE.to_string());
+    room
 }
 
 /// First-cut content plugin for the Sanic movement demo home. Room authoring is
@@ -126,5 +137,42 @@ mod tests {
             "spawn {s:?} is inside room bounds {:?}",
             room.world.size
         );
+    }
+
+    /// The D-C hosting oracle: a demo's room claims its mode, and the run
+    /// condition that wakes a hosted ruleset inside it reaches this crate
+    /// through the `ambition` umbrella alone. If gating a hosted demo ever
+    /// needs a lower `ambition_*` crate, it fails to compile HERE.
+    ///
+    /// The condition is evaluated directly rather than through `.run_if` on a
+    /// bespoke marker resource: a crate whose manifest names only `ambition`
+    /// cannot `#[derive(Resource)]`, because bevy's derive macros resolve
+    /// `bevy_ecs` through the CONSUMER's manifest and a re-export does not
+    /// satisfy them. The `.run_if` wiring itself is pinned in
+    /// `ambition_runtime/tests/mode_scope.rs`.
+    #[test]
+    fn the_speedway_claims_the_sanic_mode_and_wakes_a_hosted_ruleset() {
+        use ambition::bevy::ecs::system::RunSystemOnce as _;
+        use ambition::runtime::in_mode;
+        use ambition::world::rooms::ActiveRoomMetadata;
+
+        let room = sanic_speedway();
+        assert_eq!(room.metadata.mode.as_deref(), Some(SANIC_MODE));
+
+        let mut app = App::new();
+        app.insert_resource(ActiveRoomMetadata(room.metadata.clone()));
+        let awake = app
+            .world_mut()
+            .run_system_once(in_mode(SANIC_MODE))
+            .expect("the mode condition runs");
+        assert!(awake, "a hosted Sanic ruleset wakes inside the speedway");
+
+        // Ambition's own rooms carry no mode, so the demo's rules sleep there.
+        app.insert_resource(ActiveRoomMetadata::default());
+        let awake = app
+            .world_mut()
+            .run_system_once(in_mode(SANIC_MODE))
+            .expect("the mode condition runs");
+        assert!(!awake, "and it sleeps in a room that claims no mode");
     }
 }

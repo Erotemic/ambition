@@ -131,6 +131,17 @@ pub struct RoomMetadata {
     /// bark ticker draws each NPC's `Hall` pool here and its `Idle` pool
     /// elsewhere. Authored as the LDtk level bool field `gallery`.
     pub gallery: bool,
+    /// The GAME MODE this room belongs to (decomposition D-C, vision §5).
+    ///
+    /// A hosted demo's rules crate gates its systems on
+    /// `ambition_runtime::in_mode("sanic")` rather than on a global state, so
+    /// Ambition can host several demos' rulesets in one binary and the rules
+    /// only run inside the rooms that opted into them. `None` is the base game.
+    ///
+    /// Authored as the LDtk level string field `mode`; merged first-`Some`-wins
+    /// across an active area's member levels, like every other string field
+    /// here.
+    pub mode: Option<String>,
 }
 
 impl RoomMetadata {
@@ -142,6 +153,7 @@ impl RoomMetadata {
             && self.visual_profile.is_empty()
             && self.nameplate_policy.is_empty()
             && !self.gallery
+            && self.mode.is_none()
     }
 
     /// Fold `other` into `self`, preferring values already set.
@@ -159,6 +171,9 @@ impl RoomMetadata {
         }
         if self.visual_theme.is_none() {
             self.visual_theme = other.visual_theme;
+        }
+        if self.mode.is_none() {
+            self.mode = other.mode;
         }
         // A multi-level area is a gallery if ANY member level marks it one.
         self.gallery = self.gallery || other.gallery;

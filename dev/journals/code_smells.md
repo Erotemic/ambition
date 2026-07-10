@@ -272,3 +272,24 @@ as a test-travel candidate for `ambition_ldtk_map`; on inspection it is
 correctly actor-side and stays. RENAME opportunity: `actor_movement_tests.rs`
 (and drop the redundant inner `mod conversion_tests` wrapper). Low-risk; deferred
 to avoid churn during the F9.2 arc.
+
+## 2026-07-10 (R1) — the `ambition` umbrella re-exports `bevy`, but not its DERIVES
+
+A downstream game crate whose manifest names ONLY `ambition` can use bevy
+*types* through `ambition::bevy::…`, but it cannot `#[derive(Component)]` /
+`#[derive(Resource)]`. Bevy's derive macros resolve the `bevy_ecs` path through
+the CONSUMER's `Cargo.toml` (`BevyManifest`), and a re-export does not satisfy
+that lookup — the expansion emits a bare `::bevy_ecs::…` and fails with
+"unresolved module or unlinked crate `bevy_ecs`". Hit while writing the D-C
+hosting oracle in `game/ambition_demo_sanic` (which keeps a one-dependency
+manifest on purpose); the test now evaluates the run condition with
+`RunSystemOnce` instead of gating a bespoke marker resource.
+
+**So the E9 "author a game through the umbrella alone" claim has an asterisk:**
+any content crate that defines its own components/resources must ALSO list
+`bevy` in its manifest. That is probably fine (it is one line, and the version
+is pinned by the workspace), but it is not what the umbrella's doc comment
+implies. Options if we want the claim literal: re-export the derives from
+`ambition` under different names (ugly), or document the `bevy` line as expected
+in the umbrella's docs + `docs/planning/demos/README.md` (cheap, honest).
+Size: S. Not blocking — `game/ambition_demo_sanic` authors rooms, not components.

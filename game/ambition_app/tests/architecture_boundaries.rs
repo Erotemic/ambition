@@ -1107,6 +1107,10 @@ fn architecture_boundaries_runtime_is_headless_composition_tier() {
             "ambition_menu",
             "ambition_platformer_primitives",
             "ambition_dev_tools",
+            // D-C: the mode-scope seam reads `ActiveRoomMetadata` (the authored
+            // world IR) to decide which hosted ruleset is awake. The space IR is
+            // an INPUT to the sim, a tier below it — a downward edge.
+            "ambition_world",
         ],
         "F1.9: ambition_runtime composes the headless engine/sim surface; it may          name sim/mechanic/model/dev-state crates but not app, content, host, or renderer crates",
     );

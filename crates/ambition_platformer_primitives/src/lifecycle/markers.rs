@@ -33,6 +33,23 @@ pub struct RoomVisual;
 #[derive(Component, Default)]
 pub struct RunScopedEntity;
 
+/// Lifetime-scope marker: despawn when the named GAME MODE deactivates.
+///
+/// A mode is the demo-hosting seam (decomposition D-C): the active room's
+/// `RoomMetadata::mode` names which ruleset owns the room, so a mode-scoped
+/// entity SURVIVES room transitions inside its own mode and dies the moment the
+/// active room's mode is something else. That is a distinct lifetime from
+/// [`RoomScopedEntity`] (dies every room load) and [`RunScopedEntity`] (dies
+/// with the session) — a hosted demo's mode-owner entity carries its rules'
+/// resources across every room in its own zone.
+///
+/// The marker lives here with its lifetime-scope siblings; the sweep that
+/// consumes it needs the active room's metadata and therefore lives a tier up
+/// (`ambition_runtime::mode_scope`), exactly as the `RoomScopedEntity` sweep
+/// lives above this crate.
+#[derive(Component, Clone, Debug, PartialEq, Eq)]
+pub struct ModeScopedEntity(pub String);
+
 /// Explicit marker for entities that intentionally survive room and run resets.
 ///
 /// This is mostly documentation in ECS form. Use `spawn_persistent` when a raw

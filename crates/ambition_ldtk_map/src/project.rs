@@ -140,6 +140,7 @@ impl LdtkLevel {
                 fade_out_count: take_count("nameplate_fade_out_count"),
             },
             gallery: self.field_bool("gallery").unwrap_or(false),
+            mode: take("mode"),
         }
     }
 

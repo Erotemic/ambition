@@ -278,19 +278,15 @@ EOF
 # Drive the server over stdio and confirm it completes an MCP handshake and advertises
 # tools. stdin is held open until the reply arrives; closing it early shuts the server
 # down mid-request, which looks like a hang.
-smoke_test() {
-    if [ "$DO_SMOKE_TEST" -eq 0 ]; then
-        log "skipping smoke test (--no-smoke-test)"
-        return
-    fi
-
-    log "smoke test: MCP handshake + tools/list"
-
+#
+# Returns 0 if the server is usable, non-zero otherwise. It reports *why* on stderr but
+# never exits the script: the caller decides whether a failure is fatal or repairable.
+probe_server() {
     # Drive the exact command that gets registered, from a directory that is NOT the
     # workspace, in a login shell. Anything less can pass while the registered server
     # fails to connect: this script's own PATH contains CARGO_HOME/bin, a login
     # shell's need not, and running from $REPO_ROOT would mask a broken `cd`.
-    python3 - "$(build_launch_cmd)" <<'PY' || fail "smoke test failed"
+    python3 - "$(build_launch_cmd)" <<'PY'
 import json
 import subprocess
 import sys
@@ -352,7 +348,9 @@ finally:
         proc.kill()
 
 if not tools:
-    print("[setup_rust_analyzer_mcp] error: server advertised no tools", file=sys.stderr)
+    # Also the "binary not on PATH" case: the exec fails, so stdout closes and the
+    # handshake never lands.
+    print("[setup_rust_analyzer_mcp] probe: no handshake, or server advertised no tools", file=sys.stderr)
     sys.exit(1)
 
 names = sorted(t["name"] for t in tools)
@@ -366,9 +364,51 @@ required_any = (
     "rust_analyzer_workspace_diagnostics",
 )
 if not any(name in names for name in required_any):
-    print("[setup_rust_analyzer_mcp] error: missing expected rust-analyzer diagnostic tools", file=sys.stderr)
+    print("[setup_rust_analyzer_mcp] probe: missing expected rust-analyzer diagnostic tools", file=sys.stderr)
     sys.exit(1)
 PY
+}
+
+reinstall_server() {
+    log "reinstalling $CARGO_PACKAGE with cargo install --force"
+    cargo install "$CARGO_PACKAGE" --force || fail "reinstall of $CARGO_PACKAGE failed"
+    command -v "$MCP_BIN" >/dev/null 2>&1 || fail "$MCP_BIN is not on PATH after reinstall"
+    log "reinstalled: $(command -v "$MCP_BIN")"
+}
+
+# `command -v` proves a file exists, not that it speaks MCP. A binary can be present and
+# still broken: a half-written install, a build against an incompatible rust-analyzer, or
+# one left over from an older protocol version. Those all register happily and report
+# "Connected", then answer nothing. Probing is the only real health check -- the binary
+# cannot be asked its version, because it treats argv[1] as a workspace path and blocks
+# on stdin. So: probe, and if it is broken, reinstall once and probe again.
+smoke_test() {
+    if [ "$DO_SMOKE_TEST" -eq 0 ]; then
+        log "skipping smoke test (--no-smoke-test)"
+        return
+    fi
+
+    log "smoke test: MCP handshake + tools/list"
+    if probe_server; then
+        return
+    fi
+
+    if [ "$DO_INSTALL" -eq 0 ]; then
+        fail "server is not usable, and --no-install forbids repairing it (rerun without --no-install)"
+    fi
+
+    if [ "${FORCE:-0}" = "1" ]; then
+        # install_server already did a --force install this run; a second one would
+        # produce the identical binary. The fault is elsewhere.
+        fail "server is not usable even after the forced reinstall performed earlier"
+    fi
+
+    warn "server is installed but not usable; treating it as broken and reinstalling"
+    reinstall_server
+
+    log "smoke test (retry after reinstall): MCP handshake + tools/list"
+    probe_server || fail "server is still not usable after reinstalling $CARGO_PACKAGE"
+    log "reinstall repaired the server"
 }
 
 print_next_steps() {

@@ -345,7 +345,14 @@ struct StateEntry {
 
 /// The opt-in registry of sim state (N3.1 decision 1). Each sim crate's plugin
 /// registers what it owns; nothing else is snapshot state, by definition.
-#[derive(Default)]
+///
+/// **A `Resource`**, so a downstream crate can register the state it owns without any
+/// crate above it knowing the type exists. `ambition_content`'s boss specials do
+/// exactly that: they hold sim state, they live above `ambition_runtime`, and
+/// [`register_engine_sim_state`] cannot name them. That is the *"each sim crate
+/// registers its components' serialization"* shape netcode.md asks for, and it needed
+/// a resource rather than a trait relocation.
+#[derive(Default, Resource)]
 pub struct SnapshotRegistry {
     entries: Vec<StateEntry>,
     /// Component types declared **structurally derived** — rebuilt every tick by
@@ -987,6 +994,28 @@ pub fn compare_hash_streams(a: &[u64], b: &[u64]) -> DesyncReport {
 /// Anything else is unregistered, and by N3.1 decision 1 that is a CLAIM: it is
 /// presentation, derived, or it is missing. `netcode.md`'s N3.1 section carries
 /// the migration list; this function is where each row lands as it gets an id.
+/// Install the [`SnapshotRegistry`] resource with the engine's own state registered.
+///
+/// Any plugin built AFTER this one may `resource_mut::<SnapshotRegistry>()` and add
+/// its own entries. Registration order is part of the hash — deliberately, since a
+/// canary comparing two builds with different registries is comparing two different
+/// definitions of "the sim" — and it is a function of plugin build order, which is a
+/// function of the binary. Two `SandboxSim`s of the same build agree.
+pub struct SnapshotRegistryPlugin;
+
+impl bevy::app::Plugin for SnapshotRegistryPlugin {
+    fn build(&self, app: &mut bevy::app::App) {
+        // `init_resource` + register, never `insert_resource`: a plugin that built
+        // BEFORE this one and added its own entries must not have them thrown away.
+        // Registration is additive and order-independent; the resulting ORDER is a
+        // function of plugin build order, hence of the binary, hence identical across
+        // two sims of the same build — which is all the hash requires.
+        app.init_resource::<SnapshotRegistry>();
+        let mut registry = app.world_mut().resource_mut::<SnapshotRegistry>();
+        register_engine_sim_state(&mut registry);
+    }
+}
+
 pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     registry.register_resource::<ambition_time::SimTick>("sim_tick");
     registry.register_resource::<ambition_time::WorldTime>("world_time");
@@ -1078,6 +1107,8 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     registry
         .register_component::<ambition_actors::features::ActorSurfaceState>("actor_surface_state");
     registry.register_component::<ambition_combat::components::BodyEnvelope>("body_envelope");
+    registry.register_component::<bc::BodyLedgeState>("body_ledge_state");
+    registry.register_component::<bc::BodyComboTrace>("body_combo_trace");
 
     // ── Structurally derived: rebuilt every tick by the system that maintains it ──
     //
@@ -1165,11 +1196,12 @@ impl SnapshotState for BodyKinematics {
 
 // The mutable body-state clusters. These are what a rewind is FOR: a coyote timer
 // that survives a rollback is a jump the player did not earn.
+#[macro_export]
 macro_rules! snapshot_pod {
     ($ty:path { $($field:ident : $get:ident),+ $(,)? }) => {
         impl SnapshotState for $ty {
             fn encode(&self, out: &mut Vec<u8>) {
-                $( paste_put(out, self.$field); )+
+                $( $crate::snapshot::paste_put(out, self.$field); )+
             }
             fn decode(r: &mut Reader<'_>) -> Option<Self> {
                 Some(Self { $( $field: r.$get()? ),+ })
@@ -1181,7 +1213,7 @@ macro_rules! snapshot_pod {
 /// One overload per encodable primitive, so `snapshot_pod!` does not have to name
 /// the writer twice. The reader cannot do this — `Option<T>` inference would need
 /// the type back — so the macro names the getter and infers the putter.
-trait PasteEncode: Copy {
+pub trait PasteEncode: Copy {
     fn put(self, out: &mut Vec<u8>);
 }
 impl PasteEncode for f32 {
@@ -1214,7 +1246,7 @@ impl PasteEncode for bevy::math::Vec2 {
         put_vec2(out, self);
     }
 }
-fn paste_put<T: PasteEncode>(out: &mut Vec<u8>, v: T) {
+pub fn paste_put<T: PasteEncode>(out: &mut Vec<u8>, v: T) {
     v.put(out);
 }
 
@@ -1230,6 +1262,7 @@ use ambition_engine_core::body_clusters as bc;
 ///
 /// An unknown discriminant decodes to `None`, not to the default: a blob this build
 /// cannot read is a bug to surface, not a state to guess.
+#[macro_export]
 macro_rules! snapshot_unit_enum {
     ($ty:path { $($variant:ident = $code:literal),+ $(,)? }) => {
         impl SnapshotState for $ty {
@@ -1379,6 +1412,117 @@ snapshot_pod!(ambition_actors::features::ActorSurfaceState {
     surface_normal: vec2,
     gravity_scale: f32,
 });
+
+snapshot_unit_enum!(ambition_engine_core::ledge_grab::LedgeGetupKind {
+    Climb = 0,
+    Roll = 1,
+    Attack = 2,
+});
+snapshot_unit_enum!(ambition_engine_core::ledge_grab::LedgeGrabQuality {
+    Precise = 0,
+    Forgiving = 1,
+});
+snapshot_unit_enum!(ambition_engine_core::movement::MovementOp {
+    Jump = 0,
+    DoubleJump = 1,
+    WallJump = 2,
+    WallCling = 3,
+    WallClimb = 4,
+    LedgeGrab = 5,
+    LedgeJump = 6,
+    LedgeClimbStart = 7,
+    LedgeClimbFinish = 8,
+    LedgeDrop = 9,
+    LedgeRoll = 10,
+    LedgeGetupAttack = 11,
+    SwimStroke = 12,
+    Dash = 13,
+    DoubleDash = 14,
+    DodgeRoll = 15,
+    FlyToggle = 16,
+    Blink = 17,
+    PrecisionBlink = 18,
+    Pogo = 19,
+    Rebound = 20,
+    Slash = 21,
+    Reset = 22,
+    ShieldUp = 23,
+});
+
+/// A body hanging on a ledge. `grab: Option<LedgeGrabState>` is the whole state
+/// machine: a rollback into a hang must land on the same anchor, with the same
+/// carried momentum, or the getup goes somewhere else.
+impl SnapshotState for bc::BodyLedgeState {
+    fn encode(&self, out: &mut Vec<u8>) {
+        match &self.grab {
+            None => put_bool(out, false),
+            Some(g) => {
+                put_bool(out, true);
+                put_f32(out, g.contact.wall_normal_x);
+                put_vec2(out, g.contact.anchor);
+                put_vec2(out, g.contact.climb_target);
+                put_f32(out, g.elapsed);
+                put_bool(out, g.climbing);
+                g.getup_kind.encode(out);
+                put_f32(out, g.climb_elapsed);
+                put_vec2(out, g.momentum_at_grab);
+                g.grab_quality.encode(out);
+            }
+        }
+        put_f32(out, self.release_cooldown);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        use ambition_engine_core::ledge_grab::{
+            LedgeContact, LedgeGetupKind, LedgeGrabQuality, LedgeGrabState,
+        };
+        let grab = if r.bool()? {
+            Some(LedgeGrabState {
+                contact: LedgeContact {
+                    wall_normal_x: r.f32()?,
+                    anchor: r.vec2()?,
+                    climb_target: r.vec2()?,
+                },
+                elapsed: r.f32()?,
+                climbing: r.bool()?,
+                getup_kind: LedgeGetupKind::decode(r)?,
+                climb_elapsed: r.f32()?,
+                momentum_at_grab: r.vec2()?,
+                grab_quality: LedgeGrabQuality::decode(r)?,
+            })
+        } else {
+            None
+        };
+        Some(bc::BodyLedgeState {
+            grab,
+            release_cooldown: r.f32()?,
+        })
+    }
+}
+
+/// The recent-movement trace a combo/chain rule reads. A `Vec`, so its order IS its
+/// meaning: the ops go out in the order they went in.
+impl SnapshotState for bc::BodyComboTrace {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_u32(out, self.combo.len() as u32);
+        for mark in &self.combo {
+            mark.op.encode(out);
+            put_f32(out, mark.age);
+        }
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        use ambition_engine_core::movement::{ComboMark, MovementOp};
+        let n = r.u32()?;
+        let combo = (0..n)
+            .map(|_| {
+                Some(ComboMark {
+                    op: MovementOp::decode(r)?,
+                    age: r.f32()?,
+                })
+            })
+            .collect::<Option<Vec<_>>>()?;
+        Some(bc::BodyComboTrace { combo })
+    }
+}
 
 impl SnapshotState for ambition_combat::components::BodyEnvelope {
     fn encode(&self, out: &mut Vec<u8>) {

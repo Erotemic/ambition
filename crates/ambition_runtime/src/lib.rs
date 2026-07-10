@@ -238,6 +238,12 @@ impl PluginGroup for PlatformerEnginePlugins {
             // The engine sim messages + resource defaults (E5 step 6) —
             // hosts override by insert-before-add (init never clobbers).
             .add(SimCoreResourcesPlugin)
+            // N3.1's snapshot registry, with the engine's own state registered.
+            // EARLY, so every plugin after it — including a downstream game's
+            // content plugins — can `resource_mut::<SnapshotRegistry>()` and add
+            // the sim state it owns. Registration order is a function of plugin
+            // build order, hence of the binary, hence identical across two sims.
+            .add(crate::snapshot::SnapshotRegistryPlugin)
             // The world-prep phase (body integration, gravity collection, etc.).
             .add(ambition_actors::features::WorldPrepSchedulePlugin)
             // Universal-brain messages/resources (player/NPC/enemy/boss).

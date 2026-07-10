@@ -385,12 +385,12 @@ snapshots needed. Needs N0 complete, plus:
 
   | room | component types a rewind leaves stale | rewind is exact? |
   |---|---|---|
-  | `gap_run` | 31 | ✅ **yes** |
-  | `portal_lab` | 57 | no |
-  | `mockingbird_arena` | 64 | no |
-  | `gnu_ton_arena` | **74** | no |
+  | `gap_run` | 29 | ✅ **yes** |
+  | `portal_lab` | 55 | no |
+  | `mockingbird_arena` | 51 | no |
+  | `gnu_ton_arena` | **61** | no |
 
-  Pinned at 74 — the **peak over the run**, not the count at its end. The first
+  Pinned at 61 — the **peak over the run**, not the count at its end. The first
   version of this ledger measured once, after 120 ticks, by which time the arena
   bosses were dead and despawned; `gnu_ton_arena` duly reported the same 35 types as
   `gap_run`, which is the count of a world containing only the player. The debt was
@@ -449,7 +449,7 @@ snapshots needed. Needs N0 complete, plus:
   meant to look at.
 
   This is the general shape of the authored/mutable split, and it is why the coverage
-  ledger is an upper bound rather than a debt: many of the 74 want a *cursor*, not a
+  ledger is an upper bound rather than a debt: many of the 61 want a *cursor*, not a
   codec.
 
   ### The three named blockers between here and a clean arena
@@ -615,15 +615,45 @@ snapshots needed. Needs N0 complete, plus:
   mutate it as gameplay state — so it is registered rather than declared, and a grep
   caught that before the doc said otherwise.
 
-  **The content-side specials need one more thing than a codec.** `EchoFanState`,
-  `OverflowState`, `GradientCascadeState`, `SeismicStompState`, `MinimaTrapState`,
-  `AppleRainSpawnState`, `SaddlePointState`, `ExplodingGradientState`,
-  `ModeCollapseState`, `EyeBeamState`, `OverfitVolleyState` live in `ambition_content`,
-  which already depends on `ambition_runtime`. They can `impl SnapshotState` today —
-  but nothing *calls* their registration, because `SnapshotRegistry` is built by hand
-  in tests and is not an app resource. **Make it one** (`app.init_resource::<SnapshotRegistry>()`,
-  each plugin registering in `build`) and the "each sim crate registers its own
-  serialization" shape falls out with no trait relocation at all.
+  **The content-side specials needed one more thing than a codec, and it was a
+  RESOURCE.** ✅ **Done 2026-07-10.** `SnapshotRegistry` is a `Resource`;
+  `SnapshotRegistryPlugin` installs it inside `PlatformerEnginePlugins`; and
+  `BossSpecialContentPlugin` reaches in and registers the eleven Technique states it
+  owns (`EchoFanState`, `OverflowState`, `GradientCascadeState`, …). Both sides
+  `init_resource` and then *add*, so registration is additive and independent of plugin
+  build order. `snapshot_pod!` and `snapshot_unit_enum!` are `#[macro_export]`ed, so a
+  content crate writes a codec in one line.
+
+  **I said, two commits earlier, that this needed no trait relocation because "content
+  already depends on ambition_runtime". It does not — it did not depend on it at all.**
+  So I tried the relocation instead, moving the machinery down to
+  `platformer_primitives`, and the orphan rule killed it: `ambition_runtime` could no
+  longer `impl SnapshotState for ambition_time::SimTick`, and `ambition_engine_core`
+  (which sits *below* `platformer_primitives`) could not implement it for its own types
+  either. The trait must live where it can be implemented for the engine's foreign
+  types, which is `ambition_runtime`. `ambition_content` gained a dependency on it —
+  content sits above the engine, which is the direction the layering already runs.
+
+  A resource, not a relocation. The relocation was the answer to a different crate
+  graph than the one this repo has.
+
+  **A silent hole, worth recording.** The first version of the content registration was
+  `if let Some(mut registry) = app.world_mut().get_resource_mut::<SnapshotRegistry>()`.
+  `BossSpecialContentPlugin` builds *before* `SnapshotRegistryPlugin`, so it found
+  nothing and registered nothing — and every test stayed green, because the ledger
+  simply reported a debt it had stopped measuring.
+  `the_content_crate_registers_its_own_boss_special_state` now names all eleven entries
+  and asserts the engine's survived too. **Silence is not a fallback.**
+
+  Ledger: 74 → 61.
+
+  `SaddlePointState` holds two `Option<Entity>` hitbox handles — **decision (2)'s fourth
+  forbidden reference**, after `ActorTarget`, the mount cluster, and
+  `MovePlayback.live_boxes`. It rides a cursor (clock and latch rewind, handles are left
+  alone), which is sound but not correct: rewinding past an axis flip leaves the wrong
+  axis's hitbox alive. The fix is the one `MovePlayback` got — make the hitbox's
+  EXISTENCE derived from the state and maintained by a per-frame system, so there is
+  nothing to hold a handle to.
 
   Expect `gnu_ton_arena` to stay dirty after the engine half: it also carries
   `Limb` / `LimbIntents` / `LimbRig` / `LimbRouteState` and the mount cluster

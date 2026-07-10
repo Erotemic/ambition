@@ -64,6 +64,8 @@ use ambition_platformer_primitives::schedule::SimScheduleExt;
 ///    by the app's `CombatSchedulePlugin`.
 ///
 /// Installed by [`super::AmbitionBossContentPlugin`].
+mod snapshot;
+
 pub struct BossSpecialContentPlugin;
 
 impl Plugin for BossSpecialContentPlugin {
@@ -83,6 +85,17 @@ impl Plugin for BossSpecialContentPlugin {
         app.register_required_components::<BossConfig, OverflowState>();
         app.register_required_components::<BossConfig, SeismicStompState>();
         app.register_required_components::<BossConfig, EchoFanState>();
+
+        // N3.1: this crate owns eleven pieces of sim state, and no crate below it can
+        // name them. `init_resource` rather than a plugin-order assumption — either
+        // this plugin or `SnapshotRegistryPlugin` may build first, and both are
+        // additive. (A silent `if let Some(..)` here registered NOTHING for one
+        // commit, because this plugin builds first. Silence is not a fallback.)
+        app.init_resource::<ambition_runtime::snapshot::SnapshotRegistry>();
+        let mut registry = app
+            .world_mut()
+            .resource_mut::<ambition_runtime::snapshot::SnapshotRegistry>();
+        snapshot::register(&mut registry);
 
         // The 11 Technique systems, hung on the engine's combat extension
         // slot. They read `ActorActionMessage::Special` and emit

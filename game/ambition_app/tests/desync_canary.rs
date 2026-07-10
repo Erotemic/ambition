@@ -16,9 +16,7 @@
 
 #![cfg(feature = "rl_sim")]
 
-use ambition::runtime::snapshot::{
-    compare_hash_streams, register_engine_sim_state, SnapshotRegistry,
-};
+use ambition::runtime::snapshot::{compare_hash_streams, SnapshotRegistry};
 use ambition_app::rl_sim::TimestepMode;
 use ambition_app::{RandomWalkPolicy, SandboxSim, SandboxSimOptions};
 
@@ -32,10 +30,20 @@ fn quietly<T>(f: impl FnOnce() -> T) -> std::thread::Result<T> {
     out
 }
 
-fn registry() -> SnapshotRegistry {
-    let mut reg = SnapshotRegistry::default();
-    register_engine_sim_state(&mut reg);
-    reg
+/// **The registry the app actually built**, taken out of the sim's world.
+///
+/// `SnapshotRegistryPlugin` installs it early and every plugin after may add the sim
+/// state it owns — including `ambition_content`'s boss specials, whose types
+/// `ambition_runtime` cannot name. Building a fresh engine-only registry here would
+/// test a registry no binary uses.
+///
+/// It is REMOVED rather than borrowed: no system reads it, the tests want it owned
+/// across `&mut world` calls, and taking it makes "who owns the definition of the sim"
+/// answerable in one place.
+fn registry_of(sim: &mut SandboxSim) -> SnapshotRegistry {
+    sim.world_mut()
+        .remove_resource::<SnapshotRegistry>()
+        .expect("SnapshotRegistryPlugin installs it")
 }
 
 fn sim(room: &str) -> Option<SandboxSim> {
@@ -60,9 +68,6 @@ fn hash_stream(sim: &mut SandboxSim, reg: &SnapshotRegistry, seed: u64, ticks: u
 /// tick, and the report names the first tick that disagreed.
 #[test]
 fn two_sims_on_the_same_input_stream_never_diverge() {
-    let reg = registry();
-    assert!(reg.len() >= 3, "the registry declares something to defend");
-
     for (room, seed) in [
         ("gap_run", 1),
         ("portal_lab", 42),
@@ -71,6 +76,10 @@ fn two_sims_on_the_same_input_stream_never_diverge() {
         let (Some(mut a), Some(mut b)) = (sim(room), sim(room)) else {
             continue; // a room the fixture cannot load is not this test's business
         };
+        // ONE registry for both sims: two sims hashed by two definitions of "the sim"
+        // are not comparable.
+        let reg = registry_of(&mut a);
+        assert!(reg.len() >= 3, "the registry declares something to defend");
         let ha = hash_stream(&mut a, &reg, seed, 240);
         let hb = hash_stream(&mut b, &reg, seed, 240);
         let report = compare_hash_streams(&ha, &hb);
@@ -102,10 +111,12 @@ fn two_sims_on_the_same_input_stream_never_diverge() {
 /// ADR 0023's determinism lints follow.
 #[test]
 fn the_canary_reports_a_divergence_when_one_sim_is_given_different_input() {
-    let reg = registry();
     let (Some(mut a), Some(mut b)) = (sim("gap_run"), sim("gap_run")) else {
         return;
     };
+    // ONE registry, for both sims: two sims hashed by two definitions of "the sim"
+    // are not comparable. `b` keeps its copy as an unread resource.
+    let reg = registry_of(&mut a);
     let ha = hash_stream(&mut a, &reg, 1, 120);
     let hb = hash_stream(&mut b, &reg, 999, 120); // a DIFFERENT input stream
     let report = compare_hash_streams(&ha, &hb);
@@ -122,8 +133,8 @@ fn the_canary_reports_a_divergence_when_one_sim_is_given_different_input() {
 /// that reads nothing and the canary would never notice.
 #[test]
 fn moving_a_body_changes_the_registered_hash() {
-    let reg = registry();
     let Some(mut s) = sim("gap_run") else { return };
+    let reg = registry_of(&mut s);
     let before = reg.hash_world(s.world());
 
     {
@@ -243,7 +254,6 @@ fn the_sim_id_migration_ledger() {
 /// ```
 #[test]
 fn the_snapshot_coverage_ledger() {
-    let reg = registry();
     let mut report = String::new();
     let mut worst = 0usize;
 
@@ -254,6 +264,9 @@ fn the_snapshot_coverage_ledger() {
         "gnu_ton_arena",
     ] {
         let Some(mut s) = sim(room) else { continue };
+        // The registry the APP built: engine entries plus whatever `ambition_content`
+        // registered for its own boss specials.
+        let reg = registry_of(&mut s);
         let mut policy = RandomWalkPolicy::traversal_stress(7);
 
         // **Sample as we go, and keep the worst.**
@@ -293,7 +306,7 @@ fn the_snapshot_coverage_ledger() {
     // Today's debt, pinned. Lower it by registering a component or by declaring it
     // structurally derived — both are claims, and `declare_derived` is the one that
     // promises a per-frame system rebuilds it.
-    const KNOWN_DEBT: usize = 74;
+    const KNOWN_DEBT: usize = 61;
     assert!(
         worst <= KNOWN_DEBT,
         "{worst} component types on SimId entities are neither registered as sim \
@@ -349,8 +362,8 @@ fn a_restored_sim_replays_the_future_it_was_rewound_from() {
 fn replay_after_rewind(room: &str) {
     use ambition::runtime::snapshot::{restore, take};
 
-    let reg = registry();
     let Some(mut s) = sim(room) else { return };
+    let reg = registry_of(&mut s);
 
     // Warm up, so the snapshot is of a moving world rather than of a spawn pose.
     let mut warm = RandomWalkPolicy::traversal_stress(3);
@@ -412,8 +425,8 @@ fn replay_after_rewind(room: &str) {
 fn a_restore_of_a_real_room_is_exact_where_it_is_registered_and_honest_where_it_is_not() {
     use ambition::runtime::snapshot::{restore, take};
 
-    let reg = registry();
     let Some(mut s) = sim("gap_run") else { return };
+    let reg = registry_of(&mut s);
     let mut policy = RandomWalkPolicy::traversal_stress(3);
     for _ in 0..40 {
         s.step(policy.act());
@@ -487,8 +500,8 @@ fn a_move_in_flight_rewinds_to_its_clock_and_not_to_its_hitboxes() {
         smash_charge_mult: 1.0,
     };
 
-    let reg = registry();
     let Some(mut s) = sim("gap_run") else { return };
+    let reg = registry_of(&mut s);
     for _ in 0..10 {
         s.step(RandomWalkPolicy::traversal_stress(3).act());
     }
@@ -525,4 +538,54 @@ fn a_move_in_flight_rewinds_to_its_clock_and_not_to_its_hitboxes() {
     assert_eq!(pb.t, 0.25, "the clock rewound");
     assert!(pb.landed_hit, "the combo-confirm fact rewound");
     assert_eq!(reg.hash_world(s.world()), before);
+}
+
+/// **`ambition_content` registers the sim state it owns, and this test is why.**
+///
+/// netcode.md N3.1: *"each sim crate registers its components' serialization."*
+/// `SnapshotRegistry` is a resource precisely so a crate `ambition_runtime` cannot name
+/// can add to it. For one commit this worked by accident and then silently stopped: the
+/// content plugin builds BEFORE `SnapshotRegistryPlugin`, so its
+/// `if let Some(registry) = get_resource_mut(..)` found nothing and registered nothing.
+/// Every test stayed green. The ledger simply reported a debt it had stopped measuring.
+///
+/// Both plugins `init_resource` now, so registration is additive and order-independent.
+/// This test is the thing that would have caught the silence.
+#[test]
+fn the_content_crate_registers_its_own_boss_special_state() {
+    let Some(mut s) = sim("mockingbird_arena") else {
+        return;
+    };
+    let reg = registry_of(&mut s);
+    let names: Vec<&str> = reg.names().collect();
+
+    for owned_by_content in [
+        "echo_fan_state",
+        "seismic_stomp_state",
+        "exploding_gradient_state",
+        "overflow_state",
+        "gradient_cascade_state",
+        "minima_trap_state",
+        "apple_rain_spawn_state",
+        "mode_collapse_state",
+        "eye_beam_state",
+        "overfit_volley_state",
+        "saddle_point_state",
+    ] {
+        assert!(
+            names.contains(&owned_by_content),
+            "`{owned_by_content}` is sim state owned by `ambition_content`, and the \
+             registry has not got it. Its plugin's registration is silently not running \
+             — see `BossSpecialContentPlugin::build`. Registered: {names:?}"
+        );
+    }
+
+    // ...and the engine's own entries are still there: `init_resource` must not have
+    // let one plugin clobber the other's registry.
+    for owned_by_engine in ["sim_tick", "body_kinematics", "brain"] {
+        assert!(
+            names.contains(&owned_by_engine),
+            "{owned_by_engine} vanished"
+        );
+    }
 }

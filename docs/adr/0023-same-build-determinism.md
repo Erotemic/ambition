@@ -110,3 +110,34 @@ reads every such claim at once.
 - **Formats stay open.** The input-stream (N0.2) and snapshot (N3.1) encodings
   are versioned, explicit in field order, and free of platform-width-dependent
   types, so level 3 remains reachable.
+
+## Current implications for agents
+
+Writing sim code (`ambition_engine_core`, `platformer_primitives`, `time`,
+`entity_catalog`, `world`, `characters`, `combat`, `projectiles`, `portal`,
+`encounter`, `items`, `cutscene`, `interaction`, `sim_view`, `actors`,
+`runtime`):
+
+- **Iterate a `BTreeMap`/`BTreeSet`**, or a `bevy::platform::collections` map, or
+  don't iterate. `std::collections::HashMap`/`HashSet` seed per PROCESS, so two
+  runs of ONE binary diverge. Keeping a `HashSet` as a membership *filter* and
+  iterating the source sequence is fine.
+- **Never order by `Entity`.** Ids are allocation details (index + generation,
+  reused from a free list). Order by a stable authored/spawn id or a
+  `PlayerSlot` — the identity vocabulary `SimSnapshot` (N3.1) needs anyway.
+- **Never read the wall clock.** The sim advances on `WorldTime` / `SimTick`.
+- **Never reach for a global RNG.** Sim randomness is a seeded,
+  snapshot-registered resource.
+
+`ambition_runtime/tests/determinism_lints.rs` enforces all four with an explicit
+allowlist and a failure message naming the file, the line, and the fix. When an
+occurrence genuinely cannot affect sim order, mark the line (or the comment block
+above it) `AMBITION_REVIEW(determinism)` and say why;
+`reviewed_determinism_exceptions_are_listed` prints the whole set for audit.
+
+**The same file family now holds a second invariant.**
+`ambition_runtime/tests/control_frame_lint.rs` (refactor-chain R5) pins who may
+hold the global `ControlFrame` — one player's device frame, so a sim system that
+reads it is silently slot-0-only. Both lints are greps with justified allowlists,
+both are poison-tested, and both exist because a measured "this is already true"
+is not an invariant until something can make it fail.

@@ -1,3 +1,14 @@
+//! The Bevy wiring: the touch HUD's spawn/despawn lifecycle and the fold from
+//! joystick + virtual-button state into `ControlFrame`.
+//!
+//! This is the crate's only ECS surface. `layout` computes where the controls
+//! sit, `state` holds what they are doing, and this module is what makes them
+//! exist in a running `App` and what publishes their effect into the one frame
+//! the simulator reads. A touch device is a DEVICE, so everything here belongs
+//! to the input layer — it is allowlisted as a `ControlFrame` device bridge for
+//! exactly that reason (`ambition_runtime/tests/control_frame_lint.rs` scans the
+//! sim crates; this crate is not one).
+
 use std::borrow::Cow;
 
 use ambition_platformer_primitives::schedule::GameMode;

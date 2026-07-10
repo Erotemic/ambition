@@ -21,7 +21,8 @@ For non-trivial work, read in this order:
 4. `dev/SEARCH.md`
 5. `docs/README.md`
 6. `docs/planning/README.md` → `docs/planning/vision.md` + `docs/planning/tracks.md` (the master plan + live queue)
-7. One focused concept, system doc, recipe, tool doc, or planning doc for the task
+7. The crate's `MODULES.md` (its modules + the ONE concern each declares)
+8. One focused concept, system doc, recipe, tool doc, or planning doc for the task
 
 Do not read all of `docs/` or `dev/` by default.
 
@@ -96,9 +97,10 @@ lessons to `dev/benchmark-candidates/` + its index — never transient state.
 
 ## Generated indexes
 
-`.agent/index/` is generated and git-ignored. If missing/stale, regenerate:
-`python scripts/generate_agent_index.py && python scripts/check_agent_kb.py
-&& python scripts/check_doc_links.py`.
+`.agent/index/` is generated + git-ignored; each crate root's `MODULES.md` is
+generated + committed. Regenerate/check: `python scripts/generate_agent_index.py
+&& python scripts/check_agent_kb.py && python scripts/check_doc_links.py && python
+scripts/modules_md.py`.
 
 ## Commit messages
 
@@ -111,9 +113,7 @@ lessons to `dev/benchmark-candidates/` + its index — never transient state.
 - Do not hand-edit `sandbox.ldtk`; use Ambition LDtk tooling.
 - Update concepts, recipes, ADRs, or dev memory when a durable invariant changes.
 
-## Style
-
-- `cargo fmt` on modified Rust files; `ruff format` on modified Python files.
+## Style: `cargo fmt` on modified Rust files; `ruff format` on modified Python files.
 
 ## Common validation commands
 
@@ -122,8 +122,8 @@ cargo fmt --check
 cargo test -p ambition_actors --lib
 cargo test -p ambition_content --all-features
 cargo run -p ambition_app --bin headless
-python scripts/check_agent_kb.py
-python scripts/check_doc_links.py
+python scripts/check_agent_kb.py && python scripts/check_doc_links.py
+python scripts/modules_md.py          # each crate's MODULES.md is current
 ```
 
 Use narrower tests when a focused test already covers the touched concept.

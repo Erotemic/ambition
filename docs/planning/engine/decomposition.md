@@ -342,8 +342,20 @@ The carve relocated and SEALED the view types; the rules it fixed still bind:
   - `features/mod.rs` hub-glob patterns dissolved into explicit imports — ✅
     **done**;
   - the schedule vocabulary documented in one place;
-  - **a `MODULES.md` map at each crate root — ❌ NOT DONE in any crate.**
-    Maintained by the same rule as TODO discipline. Mechanical [sonnet].
+  - ✅ **a `MODULES.md` map at each crate root — DONE (2026-07-10), all 42
+    crates.** GENERATED from each module's own `//!` header by
+    `scripts/modules_md.py`, so it cannot rot; `python scripts/modules_md.py`
+    exits non-zero on drift and names any module missing a concern header (there
+    was exactly one, `ambition_touch_input::bevy_plugin`, now written).
+    Hand-written prose under `## Notes` survives regeneration —
+    `crates/ambition_actors/MODULES.md` uses it to record the three
+    misleadingly-named modules (`features` is the actor simulation; `actor` is
+    body vocabulary; `player` is what is left of player-centrism), who mutates
+    what, and the two lints that will fail you.
+
+**D-B's navigability standard now holds in full**, which matters because the
+ledger RULING leans on it: "Below the crate line, navigability is won by the D-B
+internal standard … not by more crates."
 
 ## Phase D-C — the demo-hosting seam (ambition runs the demos)
 

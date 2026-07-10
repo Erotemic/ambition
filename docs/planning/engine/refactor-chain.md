@@ -616,6 +616,39 @@ ordering it first); the full gate is green; `player_clone_live.rs`,
 
 ---
 
+## Execution record — estimated vs. actual (2026-07-10, opus)
+
+Wall-clock per slice, measured from commit timestamps. "Estimated" is the doc's
+own framing before execution; where it made no estimate the column reads by its
+adjectives ("small", "the big one", "unblocked, fully pre-solved").
+
+| Slice | Estimated | Actual | What made the difference |
+|---|---|---:|---|
+| R1 D-C mode-scope seam | "unblocked, fully pre-solved" | **25 min** | It was. The only cost was deciding `ModeScopedEntity`'s crate, and the demo oracle turned up the umbrella's derive-macro asterisk. |
+| R2 E6 teardown | "the biggest measurable win in this chain" | **33 min** | Cheap to execute, and the required LOC measurement disproved the premise. Retarget-before-delete found the G5 possessed-verb map. |
+| R3 overlay split | "spike it first" | **58 min** | The longest slice, and the spike is why: an unlisted `ambition_portal` dep meant the right move was to send `subtract_aabb` DOWN to `engine_core`, not to give the space IR a mechanic dependency. Plus ~30 consumers, a `--all-targets` feature hole, and a full disk. |
+| R4 projectile steppers | "re-check, do NOT force" | **11 min** | Measurement, one 45-line move, and a STOP. The doc's instruction was the whole slice. |
+| R5 ControlFrame lint | "an afternoon" | **12 min** | Far cheaper than estimated because `determinism_lints.rs` was a working template. The poison tests cost more than the lint and were worth more. |
+| R6a body vocab out | (part of "the big one") | **15 min** | `BodyAnimFacts` had one obvious home and 18 importers. |
+| R6b slot-0 filters | (part of "the big one") | **15 min** | The `ability_cooldown` fold turned out to be a live bug. |
+| R6c control seam out | (part of "the big one") | **18 min** | The compiler and two lints did the finding; I only had to place things. |
+| R6d the rest of `player/` | — | **not started** | See above. |
+| D-B `MODULES.md` | "[sonnet]. Mechanical." | **8 min** | Mechanical, once it was generated from module headers rather than written by hand. |
+
+**Total: 3h16m for R1–R3, R5, R6a–R6c, D-B, plus R4's ruled stop.** The two slices
+that ran long (R3) and the two that came in far under (R4, R5) were both cases
+where the doc's instruction — *spike it*, *don't force it*, *poison-test it* — was
+the load-bearing part, not the code.
+
+Three findings the plan did not predict, each surfaced by a step the plan
+mandated for a different reason:
+1. **R2's premise was false.** The exit check's "record the LOC, with units" is
+   what proved `boss_encounter/` never was a shell.
+2. **`possession_trigger_system` reads the global `ControlFrame`.** R5's lint
+   found it; four separate hand-greps (including this doc's) had not.
+3. **A possessed body's ability cooldown never expired.** R6b's filter fold found
+   it, because `blink`/`grapple` had already been made subject-generic.
+
 ## What this chain does NOT do
 
 - **No new crates.** The ledger ruling says no further crate split is owed, and

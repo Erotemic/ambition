@@ -358,6 +358,10 @@ enum EntryKind {
         bytes: Box<dyn Fn(&World) -> Vec<u8> + Send + Sync>,
         /// `false` on decode failure — see [`EntryKind::Component`]'s `insert`.
         apply: Box<dyn Fn(&mut World, &[u8]) -> bool + Send + Sync>,
+        /// Whether the cursor's target resource is present. A non-empty blob with no target
+        /// applies NOTHING — an incompleteness the old `apply` swallowed by returning
+        /// success. `restore` reads this to count `resource_cursors_unresolved` (finding 6).
+        present: fn(&World) -> bool,
     },
     /// Hashed, never restored: a MEASUREMENT of the world rather than a part of
     /// it. `unidentified_bodies` is the archetype — you cannot restore a count.
@@ -590,6 +594,11 @@ impl SnapshotRegistry {
     {
         self.messages.push(MessageChannel {
             name,
+            // A `Messages<M>` is a `Resource`, so the resource census would count it as
+            // unregistered debt — yet `restore` deliberately clears every registered
+            // channel, so it is handled, not debt. Record its TypeId so `unclaimed_resources`
+            // treats it as CLAIMED (re-audit finding 6).
+            type_id: std::any::TypeId::of::<bevy::ecs::message::Messages<M>>(),
             len: |world: &World| {
                 world
                     .get_resource::<bevy::ecs::message::Messages<M>>()
@@ -642,6 +651,7 @@ impl SnapshotRegistry {
                     }
                     true
                 }),
+                present: |world: &World| world.get_resource::<R>().is_some(),
             },
         );
     }
@@ -832,6 +842,10 @@ impl SnapshotRegistry {
                     _ => None,
                 })
                 .chain(self.derived.iter().map(|(id, _)| *id))
+                // Registered `Messages<M>` channels are handled by restore (it clears them), so
+                // their `Messages<M>` resource is claimed, not debt (finding 6). Without this,
+                // the four channels restore deliberately clears counted against `lossless()`.
+                .chain(self.messages.iter().map(|c| c.type_id))
                 .collect();
 
         let mut out: Vec<UnclaimedComponent> = world
@@ -893,6 +907,17 @@ impl SnapshotRegistry {
 /// **Everything NOT matched here is genuine sim-state debt** and must be registered for a
 /// room to become exactly restorable. Shrink this list only by proving a class is not
 /// sim state; grow it only with a reason that survives review.
+///
+/// **Two forms, deliberately (re-audit finding 6):**
+/// - A **namespace** needle (`crate::` or `crate::module::`) is permitted ONLY for a
+///   subtree where EVERY resource is non-sim by construction — a presentation view, a menu,
+///   camera feel, save I/O, engine plumbing. A sim resource added there is a layering error
+///   the crate-boundary tests catch; the namespace sweep is therefore safe.
+/// - An **exact type** needle (`::TypeName`) is required for a MIXED-purpose crate that
+///   could gain a mutable sim resource. `ambition_ldtk_map` is the case the auditor named:
+///   it holds authored-immutable + per-frame-derived resources today, but a namespace sweep
+///   would auto-hide a NEW mutable one. Listing each type by name makes a new ldtk_map
+///   resource count as debt — a review event — until it is explicitly classified here.
 pub const SIM_RESOURCE_EXCLUSIONS: &[(&str, &str)] = &[
     (
         "ambition_sim_view::",
@@ -902,10 +927,48 @@ pub const SIM_RESOURCE_EXCLUSIONS: &[(&str, &str)] = &[
         "ambition_platformer_primitives::camera_ease::",
         "camera feel (shake/ease) — presentation, runs on the feel clock",
     ),
+    // ambition_ldtk_map — MIXED-purpose, so per-TYPE (see the two-forms note above). Every
+    // current resource is authored-immutable content or a per-room-derived render/collision
+    // index, restored by room-load, not by rollback. A new mutable one is NOT auto-excluded.
     (
-        "ambition_ldtk_map::",
-        "loaded map project and derived runtime render/collision indices — authored \
-         content and per-room derivations, restored by room-load, not by rollback",
+        "::SandboxLdtkProject",
+        "ldtk_map: loaded LDtk project — authored, immutable",
+    ),
+    (
+        "::LdtkWorldAssets",
+        "ldtk_map: asset handles — loaded content",
+    ),
+    (
+        "::LdtkRuntimeIndex",
+        "ldtk_map: per-room derived render index — rebuilt on room load",
+    ),
+    (
+        "::LdtkRuntimeSpineStats",
+        "ldtk_map: per-room derived spine stats — rebuilt on room load",
+    ),
+    (
+        "::LdtkRuntimeSpineIndex",
+        "ldtk_map: per-room derived spine index — rebuilt on room load",
+    ),
+    (
+        "::LdtkRuntimeSolidIndex",
+        "ldtk_map: per-room derived collision index — rebuilt on room load",
+    ),
+    (
+        "::LdtkRuntimeOneWayIndex",
+        "ldtk_map: per-room derived one-way index — rebuilt on room load",
+    ),
+    (
+        "::LdtkRuntimeDamageIndex",
+        "ldtk_map: per-room derived damage index — rebuilt on room load",
+    ),
+    (
+        "::LdtkHotReloadState",
+        "ldtk_map: editor hot-reload bookkeeping — out of sim scope",
+    ),
+    (
+        "::LdtkRuntimeSpineParity",
+        "ldtk_map: spine parity check — dev/derived",
     ),
     ("ambition_menu::", "menu / map UI state — presentation"),
     (
@@ -933,6 +996,9 @@ pub const SIM_RESOURCE_EXCLUSIONS: &[(&str, &str)] = &[
 /// One `Messages<M>` buffer the rollback has to reckon with.
 struct MessageChannel {
     name: &'static str,
+    /// The `TypeId` of `Messages<M>`, so the resource census counts this registered
+    /// (restore-cleared) channel as CLAIMED, not as unregistered debt (finding 6).
+    type_id: std::any::TypeId,
     len: fn(&World) -> usize,
     clear: fn(&mut World),
 }
@@ -1181,6 +1247,24 @@ pub struct RestoreReport {
     /// this set survives its own un-firing. `unidentified_bodies` is the same number
     /// seen from the canary's side.
     pub unidentified_survivors: usize,
+    /// **Unregistered sim-state resources still standing after restore** (audit H3;
+    /// re-audit finding 6). Measured BY `restore` from `unclaimed_sim_resources(world)`,
+    /// not supplied by the caller — a caller-supplied count let `lossless(0)` be claimed
+    /// against a world that had debt. `0` also when the census is unreliable (see
+    /// [`resource_census_reliable`](Self::resource_census_reliable)); `lossless()` refuses
+    /// regardless in that case.
+    pub unregistered_sim_resources: usize,
+    /// Whether the resource census that produced `unregistered_sim_resources` was even
+    /// meaningful. Bevy only names resources under `bevy_ecs/debug`; without it every name
+    /// is a placeholder, the `ambition_*` filter matches nothing, and the count is a
+    /// spurious `0`. `lossless()` REQUIRES this true, so it cannot falsely succeed in a
+    /// build where resource debt is invisible (re-audit finding 6).
+    pub resource_census_reliable: bool,
+    /// Registered resource CURSORS whose snapshot blob was non-empty but whose target
+    /// resource was absent at restore, so nothing was applied — a silent incompleteness the
+    /// apply closure used to swallow by returning success (re-audit finding 6). Denied by
+    /// `lossless()`.
+    pub resource_cursors_unresolved: usize,
 }
 
 impl RestoreReport {
@@ -1195,26 +1279,34 @@ impl RestoreReport {
     /// - **successful decode** — `restore` returns `Err(DecodeFailed)` on a codec failure
     ///   (S2.5), so a report means every registered blob decoded.
     ///
-    /// The rest are checked here:
+    /// The rest are checked here, from the report's OWN measured fields — the caller no
+    /// longer supplies the resource count, so `lossless()` cannot be claimed against a
+    /// world that had debt (re-audit finding 6):
     /// - **no unaccounted stale component** on a surviving entity (`stale_components`);
     /// - **every survivor carries an identity** (`unidentified_survivors == 0`);
     /// - **no naked reconstruction** — nothing came back from blobs alone, outside an
     ///   accepted policy (`respawned == 0`);
-    /// - **complete mutable-RESOURCE coverage** (`unregistered_sim_resources == 0`). This
-    ///   is the condition the old `lossless()` omitted, and it is why H3 flagged it: a
-    ///   `Resource` sits on no entity, so `stale_components` never saw one, and the method
-    ///   returned `true` while ~181 sim resources went unrestored. The caller measures it
-    ///   with `SnapshotRegistry::unclaimed_resources(world).len()` — which needs
-    ///   `bevy_ecs/debug` for the resource names, and is `0` where they are unavailable.
+    /// - **complete mutable-RESOURCE coverage** (`unregistered_sim_resources == 0`),
+    ///   measured by `restore` itself. This is the condition the old `lossless()` omitted,
+    ///   and why H3 flagged it: a `Resource` sits on no entity, so `stale_components` never
+    ///   saw one, and the method returned `true` while ~181 sim resources went unrestored;
+    /// - **every resource cursor resolved** (`resource_cursors_unresolved == 0`) — a
+    ///   non-empty cursor blob with an absent target applied nothing;
+    /// - **the resource census was meaningful** (`resource_census_reliable`). Without
+    ///   `bevy_ecs/debug` the resource count is a spurious `0`; requiring this true stops a
+    ///   build with invisible resource debt from reporting a false lossless.
     ///
-    /// Message-channel coverage is not a separate argument: `restore` clears every
-    /// REGISTERED channel, and an UN-registered `Messages<ambition_..>` is counted by
-    /// `unclaimed_resources` (it is a resource), so it already lands in the argument above.
-    pub fn lossless(&self, unregistered_sim_resources: usize) -> bool {
+    /// Message-channel coverage is not a separate condition: `restore` clears every
+    /// REGISTERED channel (and their `Messages<M>` is now CLAIMED, so it is not counted as
+    /// debt), and an UN-registered `Messages<ambition_..>` is a resource, so it lands in
+    /// `unregistered_sim_resources` above.
+    pub fn lossless(&self) -> bool {
         self.stale_components.is_empty()
             && self.unidentified_survivors == 0
             && self.respawned == 0
-            && unregistered_sim_resources == 0
+            && self.unregistered_sim_resources == 0
+            && self.resource_cursors_unresolved == 0
+            && self.resource_census_reliable
     }
 }
 
@@ -1579,7 +1671,16 @@ pub fn restore(
         };
         let decoded = match &entry.kind {
             EntryKind::Resource { load, .. } => load(world, bytes),
-            EntryKind::ResourceCursor { apply, .. } => apply(world, bytes),
+            EntryKind::ResourceCursor { apply, present, .. } => {
+                let ok = apply(world, bytes);
+                // A non-empty cursor blob whose target resource is absent applied nothing —
+                // a silent incompleteness the apply closure reports as success (finding 6).
+                // Count it so `lossless()` denies it. (An empty blob is a legitimate no-op.)
+                if ok && !bytes.is_empty() && !present(world) {
+                    report.resource_cursors_unresolved += 1;
+                }
+                ok
+            }
             _ => continue,
         };
         if !decoded {
@@ -1610,7 +1711,27 @@ pub fn restore(
         Some(mut q) => q.iter(world).count(),
         None => 0,
     };
+    // **Resource coverage, measured by restore itself (audit H3; re-audit finding 6),** so
+    // `lossless()` reads its own field rather than trusting a caller-supplied count. The
+    // census needs Bevy's debug resource names; where they are unavailable the count is a
+    // meaningless 0, flagged so `lossless()` refuses rather than falsely succeed.
+    report.resource_census_reliable = resource_names_available(world);
+    report.unregistered_sim_resources = registry.unclaimed_sim_resources(world).len();
     Ok(report)
+}
+
+/// Whether Bevy's runtime resource NAMES are available in this build (re-audit finding 6).
+///
+/// They require `bevy_ecs/debug`; without it every `iter_resources` name is a fixed
+/// placeholder (`"<Enable the debug feature to see the name>"`) that contains no `::`, so
+/// the `ambition_*` resource census matches nothing and returns a spurious 0. A real Rust
+/// type path always contains `::` (its module path), so one such name proves the census is
+/// meaningful. Keyed on the SHAPE of a real path, not the exact placeholder string, so it
+/// survives a Bevy version bump.
+fn resource_names_available(world: &World) -> bool {
+    world
+        .iter_resources()
+        .any(|(info, _)| info.name().to_string().contains("::"))
 }
 
 /// Hash a set of `(stable_key, payload)` pairs, sorted by key.
@@ -4048,9 +4169,12 @@ mod tests {
         let report = restore(&mut world, &snap, &reg).unwrap();
         assert_eq!(report.patched, 2, "both entities survived and were patched");
         assert_eq!(report.respawned, 0);
-        // Not lossless: an unregistered component survives, stale. (Resource coverage is
-        // 0 here — resource names need `bevy_ecs/debug`, absent in this crate's tests.)
-        assert!(!report.lossless(reg.unclaimed_sim_resources(&world).len()));
+        // Not lossless: an unregistered component survives, stale. `restore` now measures
+        // the resource term itself; in this crate's tests bevy's `debug` names are off, so
+        // the census is unreliable and `lossless()` refuses on that ground alone — which is
+        // the point of the census flag (finding 6): it does not falsely succeed blind.
+        assert!(!report.lossless());
+        assert!(!report.resource_census_reliable);
         assert_eq!(report.stale_components, unclaimed);
 
         // It SURVIVED — and it is stale, still reading the tick we rewound FROM.
@@ -4124,7 +4248,7 @@ mod tests {
         let report = restore(&mut world, &snap, &reg).unwrap();
         assert_eq!(report.unidentified_survivors, 1);
         assert!(
-            !report.lossless(reg.unclaimed_sim_resources(&world).len()),
+            !report.lossless(),
             "a restore that leaves a body standing did not restore the world"
         );
         assert!(

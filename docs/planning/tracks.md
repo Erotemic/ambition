@@ -236,25 +236,32 @@ slash VFX placement (`05a32378`), swept-transit feel (`31342e6f`).
 
 ## Oracle-violation log (demos file here; engine work exits through tracks)
 
-**OV1 — a demo cannot DRAW its own world (filed 2026-07-10, by `ambition_demo_sanic_app`).**
-The demo shell assembles and steps the real sim with zero engine edits (exit 3 ✅),
-but it renders nothing, because **room/block/parallax VISUALS are spawned app-side**:
-`game/ambition_app/src/app/world_flow/room_flow.rs` calls the engine's
-`load_room_geometry` and then spawns the visuals itself, and
-`add_presentation_plugins` assembles the sprite pipeline from a dozen app-local
-`install_*` helpers. `ambition_render` exposes only
-`PresentationVisualAnimationPlugin` / `PlayerVisualSchedulePlugin` — no group a
-demo can add.
-- **Why it is an engine gap, not demo scope:** the demos README's `<name>_app`
-  contract is "~100 lines: foundation + engine group + host group + content".
-  Drawing a room is not content. Every demo would copy the same code.
-- **The slice:** lift the room-visual spawn + the presentation assembly into a
-  `PlatformerPresentationPlugins` group in `ambition_render` (or a new
-  `ambition_presentation`), leaving Ambition's HUD/menu/dev stack app-side. That
-  is E5 residue the carve deliberately left ("the room-transition APPLY composer
-  (`load_room` + render spawns)" — `ambition_runtime`'s own module doc says so).
-- **Home:** [engine/architecture.md](engine/architecture.md) + a new E10 slice.
-  **Grade:** [opus]. **Blocks:** the windowed half of every demo.
+~~**OV1 — a demo cannot DRAW its own world**~~ ✅ **CLOSED 2026-07-10, same day it
+was filed.** `ambition_render::platformer_presentation::PlatformerPresentationPlugin`
+is the engine's generic presentation face: the main `Camera2d` +
+`MainCameraEntity`, the active room's static visuals at `Startup`, and the
+sprite/animation chain. Room transitions already rebuilt through
+`respawn_room_visuals_on_request`, which lived here all along.
+
+**Everything the plugin needs already lived in `ambition_render`. What was missing
+was a plugin that CALLED it** — `ambition_app` spawned the camera itself and
+called `spawn_room_visuals` itself. That is all OV1 ever was.
+
+`game/ambition_demo_sanic_app` now has two shells that differ by ONE plugin and
+one foundation call: `build_demo_app()` (sim only, no renderer) and
+`build_windowed_demo_app(RenderMode)` (`--features visible`). Three tests in
+`tests/ov1_draws_the_world.rs` run the FULL render graph against no wgpu backend
+and no window — the standard Bevy CI recipe — and assert the room visuals spawn,
+the camera publishes itself, and **no `bevy_ui` node exists**: the face draws the
+WORLD; Ambition's HUD, menus, and dev overlays stay app-side.
+
+`cargo run -p ambition_demo_sanic_app --features visible --bin sanic_demo -- --window`
+draws the speedway. What it looks like is Jon's to judge (BLIND).
+
+**One thing the fix taught, worth keeping:** the presentation face genuinely needs
+a renderer foundation and cannot run under `add_headless_foundation`. Splitting the
+shells is not a workaround — a demo that only steps the sim should pay for no
+renderer, and now it does not.
 
 ---
 

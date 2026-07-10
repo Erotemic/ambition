@@ -19,6 +19,8 @@ pub mod dialog_ui;
 pub mod fx;
 /// The in-world HUD overlay: health/mana bars, ability pips, banner text.
 pub mod hud;
+/// The presentation face a demo can add (oracle-violation OV1). See its module docs.
+pub mod platformer_presentation;
 pub mod quality;
 pub mod rendering;
 pub mod screen_effects;

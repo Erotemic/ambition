@@ -26,14 +26,16 @@
 //! player body on the momentum kernel, and the mode-scoped act timer. It steps
 //! that sim on the fixed 60 Hz timeline and reports what the sim knows.
 //!
-//! It draws nothing. **That is a known engine gap, not a demo shortcut:** room
-//! and block VISUALS are spawned by `ambition_app`'s room-flow, which is app-local
-//! residue the E5 carve left behind. A windowed demo needs that lifted into an
-//! engine-side plugin. Filed as the first entry in tracks.md's oracle-violation
-//! log. Until it lands, the shell proves the ASSEMBLY, which is what exit 3 asks.
+//! By default it draws nothing and prints what the sim knows — the sim-only shell,
+//! which pays for no renderer at all. **Built with `--features visible` it opens a
+//! window and draws the speedway**, adding exactly one plugin:
+//! `ambition_render`'s `PlatformerPresentationPlugin` (the engine's generic
+//! presentation face, minted to close oracle-violation OV1). No HUD, no menus, no
+//! dev overlays — those are the GAME's, and `ambition_app` still assembles them.
 //!
 //! ```console
 //! $ cargo run -p ambition_demo_sanic_app --bin sanic_demo -- --ticks 600
+//! $ cargo run -p ambition_demo_sanic_app --features visible --bin sanic_demo -- --window
 //! ```
 
 use bevy::prelude::*;
@@ -44,6 +46,16 @@ use ambition_demo_sanic::{SanicActState, SANIC_MODE};
 const DEFAULT_TICKS: u32 = 300;
 
 fn main() {
+    #[cfg(feature = "visible")]
+    if std::env::args().any(|a| a == "--window") {
+        // The drawn demo. One plugin more than the sim-only shell below.
+        ambition_demo_sanic_app::build_windowed_demo_app(
+            ambition_demo_sanic_app::RenderMode::Windowed,
+        )
+        .run();
+        return;
+    }
+
     let ticks = parse_ticks().unwrap_or(DEFAULT_TICKS);
 
     // The assembly lives in `lib.rs` so the exit-3 regression test builds the
@@ -103,7 +115,6 @@ fn report(app: &mut App, requested: u32) {
         None => println!("  player body     : ABSENT — `simulation_world` did not spawn it."),
     }
     println!();
-    println!("  Nothing was drawn: room/block visuals are still spawned app-side");
-    println!("  (`ambition_app`'s room-flow). See the oracle-violation log in");
-    println!("  docs/planning/tracks.md.");
+    println!("  Nothing was drawn — this is the sim-only shell. Build with");
+    println!("  `--features visible` and pass `--window` to draw the speedway.");
 }

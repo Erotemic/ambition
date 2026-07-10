@@ -64,3 +64,12 @@ pub mod windowed_host {
 pub mod renderer {
     pub use ambition_render::*;
 }
+
+/// The generic platformer PRESENTATION face: a camera, the room's static visuals,
+/// and the sprite/animation chain. A demo adds this beside the engine and host
+/// groups; a game layers its own HUD/menus/dev stack on top (oracle-violation OV1).
+pub mod presentation {
+    pub use ambition_render::platformer_presentation::{
+        PlatformerPresentationPlugin, PlatformerPresentationSetupSet,
+    };
+}

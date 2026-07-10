@@ -1,0 +1,81 @@
+# Reviewed known-debt inventory: unregistered COMPONENT types on SimId entities (re-audit finding 6).
+#
+# `the_snapshot_coverage_ledger` asserts the CURRENT unregistered-component set (unioned across
+# all sampled rooms) is a SUBSET of this list, so a NEW unregistered type is a review event
+# rather than a silent substitution the count-only gate would miss. One fully-qualified type
+# name per line; `#` comments and blank lines ignored. Regenerate from `cargo test -p
+# ambition_app --features rl_sim --test desync_canary -- --nocapture the_snapshot` (the
+# "reviewed component-debt inventory" block).
+#
+# Shrink this by registering a component or declaring it derived; grow it only with a reviewed
+# diff. Names need bevy_ecs/debug, which rl_sim enables.
+ambition_actors::avatar::body_integration::PlayerBodyFrameOutput
+ambition_actors::avatar::components::PlayerBlinkCameraState
+ambition_actors::avatar::components::PlayerSafetyState
+ambition_actors::body_mode::BodyModeCapabilities
+ambition_actors::boss_encounter::attack_geometry::BossAnimationFrameSample
+ambition_actors::control::components::LocalPlayer
+ambition_actors::control::components::PlayerInputFrame
+ambition_actors::features::ecs::actor_clusters::ActorConfig
+ambition_actors::features::ecs::actors::limbs::Limb
+ambition_actors::features::ecs::actors::limbs::LimbIntents
+ambition_actors::features::ecs::actors::limbs::LimbRig
+ambition_actors::features::ecs::actors::limbs::LimbRouteState
+ambition_actors::features::ecs::boss_clusters::BossConfig
+ambition_actors::features::ecs::mount::CanPilot
+ambition_actors::features::ecs::mount::Mass
+ambition_actors::features::ecs::mount::MountSlot
+ambition_actors::features::ecs::mount::Mountable
+ambition_actors::features::ecs::mount::Mounted
+ambition_actors::features::ecs::mount::RidingOn
+ambition_actors::features::ecs::spawn_actors::BossOverrides
+ambition_actors::items::pickup::StashedActionSet
+ambition_characters::actor::body::BodyAnimFacts
+ambition_characters::actor::body::BodyCombat
+ambition_characters::actor::body::BodyWallet
+ambition_characters::actor::pose::ActorFaction
+ambition_characters::brain::ChargesProjectiles
+ambition_characters::brain::PlayerSlot
+ambition_characters::brain::action_set::ActionSet
+ambition_characters::brain::boss_pattern::BossCapability
+ambition_combat::components::CombatCapabilities
+ambition_combat::components::CombatTuning
+ambition_combat::components::actors::ActorAggression
+ambition_combat::components::actors::ActorDisposition
+ambition_combat::components::actors::ActorIdentity
+ambition_combat::components::actors::ActorInteraction
+ambition_combat::components::actors::ActorRenderSize
+ambition_combat::components::actors::BodyMelee
+ambition_combat::components::actors::BossDeathAnimation
+ambition_combat::components::actors::CombatKit
+ambition_combat::components::features::DamageableVolumes
+ambition_combat::components::features::FeatureId
+ambition_combat::components::features::FeatureName
+ambition_combat::components::features::PogoPolicy
+ambition_combat::components::features::PogoTargetVolumes
+ambition_combat::held_items::HeldItem
+ambition_combat::moveset::ActorMoveset
+ambition_combat::moveset::MovesetMelee
+ambition_engine_core::body_clusters::BodyAbilities
+ambition_platformer_primitives::body::PrimaryBody
+ambition_platformer_primitives::lifecycle::markers::FeatureSimEntity
+ambition_platformer_primitives::lifecycle::markers::PlayerVisual
+ambition_platformer_primitives::lifecycle::markers::RoomScopedEntity
+ambition_platformer_primitives::lifecycle::markers::RoomVisual
+ambition_platformer_primitives::markers::PlayerEntity
+ambition_platformer_primitives::markers::PrimaryPlayer
+ambition_platformer_primitives::projectile::body::ProjectileGameplay
+ambition_portal::transit::PortalBody
+ambition_portal::transit::PortalPolicy
+ambition_projectiles::enemy::entity::EnemyProjectile
+ambition_projectiles::entity::LiveProjectile
+ambition_projectiles::entity::ProjectileOwner
+ambition_projectiles::entity::ProjectileOwnerId
+ambition_projectiles::entity::ProjectileSeq
+ambition_projectiles::state::PlayerProjectileState
+ambition_projectiles::visual_kind::ProjectileVisualKind
+ambition_sprite_sheet::boss::BossAnimFrame
+bevy_ecs::name::Name
+bevy_transform::components::global_transform::GlobalTransform
+bevy_transform::components::transform::Transform
+bevy_transform::components::transform::TransformTreeChanged

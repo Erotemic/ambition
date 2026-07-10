@@ -314,6 +314,27 @@ fn decode_one<T: SnapshotState>(bytes: &[u8]) -> Option<T> {
     Some(v)
 }
 
+/// **What applying one registered blob to its entity accomplished** (re-audit finding 3).
+///
+/// The old `insert` returned a bare `bool` — `false` for a decode failure, `true` for
+/// "anything else, *including having applied nothing*." That conflation let a cursor with no
+/// live target and a resolve whose content had vanished BOTH report success, so `lossless()`
+/// could return `true` after registered state was silently not restored. Naming the third
+/// outcome lets `restore` count it and `lossless()` deny it.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum ApplyOutcome {
+    /// The blob's state is now on the entity.
+    Applied,
+    /// The blob did not decode — `restore` returns [`RestoreError::DecodeFailed`].
+    DecodeFailed,
+    /// The codec could not apply the row because the live target lacked what it needs — a
+    /// cursor with no authored half to rewind, or a resolve whose authored content is gone.
+    /// The registered state did NOT come back. It is not an error (a save legitimately drops
+    /// a move whose content changed under it), but it is not lossless either: `lossless()`
+    /// denies a report with any unapplied row.
+    Unapplied,
+}
+
 /// What a registered entry *is*. The three kinds are not a taxonomy for its own
 /// sake: they are the three answers to "what does `restore` do with this?"
 enum EntryKind {
@@ -322,12 +343,14 @@ enum EntryKind {
     Component {
         type_id: std::any::TypeId,
         rows: Box<dyn Fn(&World) -> Vec<(String, Vec<u8>)> + Send + Sync>,
-        /// Returns `false` on a codec DECODE FAILURE (a blob this registry wrote that
-        /// it cannot read — corrupt bytes or an encoder/decoder disagreement). `restore`
-        /// turns that into `RestoreError::DecodeFailed` rather than silently leaving
-        /// stale state (audit M3/S2.5). A legitimately-absent authored half on a
-        /// respawned entity is `true`, not a failure.
-        insert: Box<dyn Fn(&mut bevy::ecs::world::EntityWorldMut<'_>, &[u8]) -> bool + Send + Sync>,
+        /// Applies one blob to its entity and reports the outcome (re-audit finding 3).
+        /// [`ApplyOutcome::DecodeFailed`] becomes `RestoreError::DecodeFailed` rather than
+        /// silently leaving stale state (audit M3/S2.5); [`ApplyOutcome::Unapplied`] — a
+        /// cursor with no live target, a resolve whose content is gone — is counted and
+        /// denies `lossless()` rather than passing as the old bare `true`.
+        insert: Box<
+            dyn Fn(&mut bevy::ecs::world::EntityWorldMut<'_>, &[u8]) -> ApplyOutcome + Send + Sync,
+        >,
         /// A snapshot with no row for this entity means the entity did not HAVE the
         /// component then. Restoring exactly means taking it away now.
         remove: Box<dyn Fn(&mut bevy::ecs::world::EntityWorldMut<'_>) + Send + Sync>,
@@ -355,13 +378,16 @@ enum EntryKind {
     /// assignments.
     ResourceCursor {
         type_id: std::any::TypeId,
+        /// A presence-tagged cursor blob (re-audit finding 4): a leading `bool` distinguishes
+        /// "the resource existed at the snapshot tick" from "it did not", so an absent resource
+        /// and a present-but-empty cursor no longer encode identically to `[]`.
         bytes: Box<dyn Fn(&World) -> Vec<u8> + Send + Sync>,
-        /// `false` on decode failure — see [`EntryKind::Component`]'s `insert`.
-        apply: Box<dyn Fn(&mut World, &[u8]) -> bool + Send + Sync>,
-        /// Whether the cursor's target resource is present. A non-empty blob with no target
-        /// applies NOTHING — an incompleteness the old `apply` swallowed by returning
-        /// success. `restore` reads this to count `resource_cursors_unresolved` (finding 6).
-        present: fn(&World) -> bool,
+        /// Applies the tagged blob and reports the outcome (re-audit finding 4):
+        /// [`ApplyOutcome::Applied`] (cursor applied, or an absent-tagged resource removed to
+        /// match), [`ApplyOutcome::DecodeFailed`] (corrupt blob or a shape the cursor cannot
+        /// faithfully apply), or [`ApplyOutcome::Unapplied`] (present at snapshot, absent now —
+        /// a resource a cursor cannot rebuild, counted so `lossless()` denies it).
+        apply: Box<dyn Fn(&mut World, &[u8]) -> ApplyOutcome + Send + Sync>,
     },
     /// Hashed, never restored: a MEASUREMENT of the world rather than a part of
     /// it. `unidentified_bodies` is the archetype — you cannot restore a count.
@@ -420,14 +446,15 @@ impl SnapshotRegistry {
                 }),
                 insert: Box::new(|entity, bytes| {
                     // A blob this registry wrote that it cannot read is a codec failure.
-                    // Report it (`false`) so restore fails loudly in EVERY build, rather
-                    // than the old `debug_assert!(false)` that dropped the component
-                    // silently in release and left stale state reading as restored.
+                    // Report it so restore fails loudly in EVERY build, rather than the old
+                    // `debug_assert!(false)` that dropped the component silently in release
+                    // and left stale state reading as restored. A plain component either
+                    // decodes-and-applies or fails — it is never `Unapplied`.
                     if let Some(value) = decode_one::<C>(bytes) {
                         entity.insert(value);
-                        true
+                        ApplyOutcome::Applied
                     } else {
-                        false
+                        ApplyOutcome::DecodeFailed
                     }
                 }),
                 remove: Box::new(|entity| {
@@ -463,16 +490,20 @@ impl SnapshotRegistry {
                     rows
                 }),
                 insert: Box::new(|entity, bytes| {
-                    // Absent on a respawned entity: there is no authored half to
-                    // apply the cursor to. `RestoreReport::respawned` is the report —
-                    // this is legitimate (`true`), not a decode failure.
-                    if let Some(mut value) = entity.get_mut::<C>() {
-                        let mut r = Reader::new(bytes);
-                        if value.apply_cursor(&mut r).is_none() || r.finish().is_none() {
-                            return false; // codec disagreement -> restore reports it
-                        }
+                    // No live target: the cursor has no authored half to rewind onto. On a
+                    // respawned entity that is expected (`respawned` reports it separately);
+                    // on a SURVIVOR that lost the component since the snapshot it is a genuine,
+                    // un-rewindable loss. Either way the registered state did NOT come back —
+                    // `Unapplied`, which `lossless()` denies. The old bare `true` here was the
+                    // exact false-success the re-audit named (finding 3).
+                    let Some(mut value) = entity.get_mut::<C>() else {
+                        return ApplyOutcome::Unapplied;
+                    };
+                    let mut r = Reader::new(bytes);
+                    if value.apply_cursor(&mut r).is_none() || r.finish().is_none() {
+                        return ApplyOutcome::DecodeFailed; // codec disagreement -> restore reports it
                     }
-                    true
+                    ApplyOutcome::Applied
                 }),
                 remove: Box::new(|entity| {
                     entity.remove::<C>();
@@ -510,21 +541,24 @@ impl SnapshotRegistry {
                 insert: Box::new(|entity, bytes| {
                     let mut r = Reader::new(bytes);
                     match C::resolve(entity, &mut r) {
-                        // The authored half is gone: a respawned entity. Leaving the
-                        // component off is the only honest answer, and `respawned` is
-                        // the number that says so. `SnapshotResolve::resolve` returns
-                        // `None` for BOTH this and a decode failure, so a resolved
-                        // codec cannot distinguish them here — it reports success and
-                        // leans on the resolve contract. (Plain components and cursors
-                        // do distinguish; see their `insert`.)
-                        None => {
-                            entity.remove::<C>();
-                        }
                         Some(value) => {
                             entity.insert(value);
+                            ApplyOutcome::Applied
+                        }
+                        // `resolve` returns `None` for BOTH a decode failure and a vanished
+                        // authored half, and cannot distinguish them (the resolved-codec
+                        // residual — making `resolve` return `Result` is the named fix).
+                        // Either way this row did NOT come back, so it is `Unapplied`: the
+                        // component is dropped (honest for a save whose content changed) and
+                        // `lossless()` is denied (honest for a rollback). It is deliberately
+                        // NOT `DecodeFailed` — that would refuse a legitimate content change as
+                        // if the bytes were corrupt. The old bare `true` here reported success
+                        // for a row that never returned (re-audit finding 3).
+                        None => {
+                            entity.remove::<C>();
+                            ApplyOutcome::Unapplied
                         }
                     }
-                    true
                 }),
                 remove: Box::new(|entity| {
                     entity.remove::<C>();
@@ -633,25 +667,46 @@ impl SnapshotRegistry {
             EntryKind::ResourceCursor {
                 type_id: std::any::TypeId::of::<R>(),
                 bytes: Box::new(|world: &World| {
+                    // Presence tag (re-audit finding 4): a leading `bool` says whether the
+                    // resource existed at snapshot time, so absence (`false`) and a
+                    // present-but-empty cursor (`true` + no payload) are distinguishable —
+                    // where both used to serialize to `[]` and restore treated the pair as a
+                    // single no-op. The tag is part of the hashed bytes too, so the canary sees
+                    // a resource that comes or goes.
                     let mut out = Vec::new();
-                    if let Some(v) = world.get_resource::<R>() {
-                        v.encode_cursor(&mut out);
+                    match world.get_resource::<R>() {
+                        Some(v) => {
+                            put_bool(&mut out, true);
+                            v.encode_cursor(&mut out);
+                        }
+                        None => put_bool(&mut out, false),
                     }
                     out
                 }),
                 apply: Box::new(|world: &mut World, bytes: &[u8]| {
-                    if bytes.is_empty() {
-                        return true;
+                    let mut r = Reader::new(bytes);
+                    let Some(present_at_snapshot) = r.bool() else {
+                        return ApplyOutcome::DecodeFailed;
+                    };
+                    if !present_at_snapshot {
+                        // The resource did not exist at the snapshot tick. Restoring exactly
+                        // means it must not exist now: a resource created after the snapshot is
+                        // a future birth, removed to match (where the old empty-blob no-op left
+                        // it standing — the absence/empty conflation, re-audit finding 4).
+                        world.remove_resource::<R>();
+                        return ApplyOutcome::Applied;
                     }
-                    if let Some(mut v) = world.get_resource_mut::<R>() {
-                        let mut r = Reader::new(bytes);
-                        if v.apply_cursor(&mut r).is_none() || r.finish().is_none() {
-                            return false; // decode failure -> restore reports it
-                        }
+                    // Present at the snapshot: its cursor needs a live authored half to apply
+                    // onto. Absent now → a cursor cannot rebuild a resource from nothing;
+                    // report it incomplete rather than swallow it as success.
+                    let Some(mut v) = world.get_resource_mut::<R>() else {
+                        return ApplyOutcome::Unapplied;
+                    };
+                    if v.apply_cursor(&mut r).is_none() || r.finish().is_none() {
+                        return ApplyOutcome::DecodeFailed; // decode/shape failure -> restore reports it
                     }
-                    true
+                    ApplyOutcome::Applied
                 }),
-                present: |world: &World| world.get_resource::<R>().is_some(),
             },
         );
     }
@@ -715,6 +770,35 @@ impl SnapshotRegistry {
     /// NUL prefix keeps it from colliding with any registered entry name.
     const ACTIVE_ROOM_ENTRY: &'static str = "\u{0}active_room";
 
+    /// The `hash_by_entry` name of the identity-roster pseudo-entry (re-audit finding 1).
+    const ROSTER_ENTRY: &'static str = "\u{0}roster";
+
+    /// **The identity roster, folded into the state hash.** The set of live `SimId`s is sim
+    /// state in its own right: [`take`] captures it, [`restore`] reconstructs it exactly, and
+    /// a `SimId` entity carrying NO registered component contributes to no component entry —
+    /// so without this term the hash is blind to it, and two worlds differing only by such an
+    /// entity hash equal. That is the very defect fixed for `active_room`, one level up: the
+    /// snapshot carries state (the roster) the hash omitted (re-audit finding 1).
+    ///
+    /// Count + sorted ids, so it is stable against Bevy's archetype-dependent query order —
+    /// the same discipline `hash_entities_by_key` uses. It does not perturb the N0.4 canary:
+    /// two sims on one input stream spawn and despawn identically, so their rosters — and this
+    /// term — are equal on both sides of every comparison, while a genuine identity desync (an
+    /// entity that exists in one sim and not the other) now shows up instead of hiding.
+    fn hash_roster(world: &World, h: &mut StateHasher) {
+        let mut ids: Vec<String> = Vec::new();
+        if let Some(mut q) = world.try_query::<&SimId>() {
+            for id in q.iter(world) {
+                ids.push(id.as_str().to_string());
+            }
+        }
+        ids.sort();
+        h.write_u64(ids.len() as u64);
+        for id in &ids {
+            h.write_str(id);
+        }
+    }
+
     /// **The active-room cursor, folded into the state hash.** The room a sim is in is sim
     /// state: [`take`] captures it and [`restore`] refuses a rollback window that crosses
     /// it. So it must be IN the hash, or two worlds that differ ONLY in which room is
@@ -743,6 +827,8 @@ impl SnapshotRegistry {
         }
         h.write_str(Self::ACTIVE_ROOM_ENTRY);
         Self::hash_active_room(world, &mut h);
+        h.write_str(Self::ROSTER_ENTRY);
+        Self::hash_roster(world, &mut h);
         h.finish()
     }
 
@@ -765,6 +851,11 @@ impl SnapshotRegistry {
         let mut h = StateHasher::default();
         Self::hash_active_room(world, &mut h);
         out.push((Self::ACTIVE_ROOM_ENTRY, h.finish()));
+        // Likewise the identity roster (finding 1): an entity that exists in one sim and not
+        // the other is a desync this pseudo-entry names, where no component entry could.
+        let mut h = StateHasher::default();
+        Self::hash_roster(world, &mut h);
+        out.push((Self::ROSTER_ENTRY, h.finish()));
         out
     }
 
@@ -1088,17 +1179,19 @@ enum EntryBlob {
 }
 
 impl SimSnapshot {
-    /// Every `SimId` the snapshot knows about, sorted. These are exactly the
-    /// entities `restore` will respawn.
+    /// **The authoritative identity set the snapshot restores: the full [`roster`], sorted
+    /// and deduped** (re-audit finding 1).
+    ///
+    /// Reads the captured `roster` — every live `SimId` at snapshot time — NOT the union of
+    /// per-entry component-row ids. Those two differ by exactly the entities the old
+    /// component-derived set was blind to: a `SimId` carrying no registered component appears
+    /// in no row, so `restore` (which reconciles against THIS list) would never see it —
+    /// despawning it if it survived, silently dropping it if it had died. Driving off the
+    /// roster makes both cases correct with no other change, because the roster IS the set of
+    /// entities that existed. `roster` is a superset of the component-row ids by construction,
+    /// so no id that carried state is ever lost.
     pub fn sim_ids(&self) -> Vec<&str> {
-        let mut out: Vec<&str> = self
-            .entries
-            .iter()
-            .flat_map(|(_, blob)| match blob {
-                EntryBlob::Component(rows) => rows.iter().map(|(k, _)| k.as_str()).collect(),
-                EntryBlob::Resource(_) => Vec::new(),
-            })
-            .collect();
+        let mut out: Vec<&str> = self.roster.iter().map(String::as_str).collect();
         out.sort_unstable();
         out.dedup();
         out
@@ -1112,8 +1205,15 @@ impl SimSnapshot {
     /// catches a collision even between two entities that share a `SimId` but carry
     /// disjoint (or zero) registered components — the case the old per-entry scan missed
     /// (re-audit finding 3). A well-formed snapshot returns empty.
+    ///
+    /// **Sorts a clone before scanning** (re-audit finding 2): `take` stores the roster
+    /// sorted, but a snapshot arriving over the N3.3 wire may not be, and an
+    /// adjacent-only scan of `["dup", "other", "dup"]` would miss the collision. Detection
+    /// must not depend on the caller having sorted first.
     pub fn duplicate_ids(&self) -> Vec<String> {
-        adjacent_dups(&self.roster)
+        let mut sorted = self.roster.clone();
+        sorted.sort();
+        adjacent_dups(&sorted)
     }
 
     /// Total bytes of state. A rollback window is a memory budget.
@@ -1260,11 +1360,18 @@ pub struct RestoreReport {
     /// spurious `0`. `lossless()` REQUIRES this true, so it cannot falsely succeed in a
     /// build where resource debt is invisible (re-audit finding 6).
     pub resource_census_reliable: bool,
-    /// Registered resource CURSORS whose snapshot blob was non-empty but whose target
-    /// resource was absent at restore, so nothing was applied — a silent incompleteness the
-    /// apply closure used to swallow by returning success (re-audit finding 6). Denied by
+    /// Registered resource CURSORS whose snapshot blob said the resource was present but whose
+    /// target was absent at restore, so nothing was applied — a silent incompleteness the
+    /// apply closure used to swallow by returning success (re-audit findings 4 + 6). Denied by
     /// `lossless()`.
     pub resource_cursors_unresolved: usize,
+    /// **Registered COMPONENT rows that did not come back** (re-audit finding 3): a cursor with
+    /// no live target to rewind, or a resolve whose authored content had vanished. The
+    /// component is left off (honest), but the registered state the snapshot carried was not
+    /// restored, so `lossless()` denies any report with an unapplied row. Distinct from
+    /// `respawned` (a whole entity rebuilt from blobs) and `stale_components` (a survivor's
+    /// UNregistered state): this is registered state that was asked for and could not be given.
+    pub unapplied_rows: usize,
 }
 
 impl RestoreReport {
@@ -1290,8 +1397,12 @@ impl RestoreReport {
     ///   measured by `restore` itself. This is the condition the old `lossless()` omitted,
     ///   and why H3 flagged it: a `Resource` sits on no entity, so `stale_components` never
     ///   saw one, and the method returned `true` while ~181 sim resources went unrestored;
-    /// - **every resource cursor resolved** (`resource_cursors_unresolved == 0`) — a
-    ///   non-empty cursor blob with an absent target applied nothing;
+    /// - **every resource cursor resolved** (`resource_cursors_unresolved == 0`) — a cursor
+    ///   blob that said the resource was present, restored into a world where it is absent,
+    ///   applied nothing (re-audit finding 4);
+    /// - **every registered COMPONENT row applied** (`unapplied_rows == 0`) — a cursor with no
+    ///   live target, or a resolve whose content vanished, left registered state unrestored
+    ///   while the old bare-`true` insert reported success (re-audit finding 3);
     /// - **the resource census was meaningful** (`resource_census_reliable`). Without
     ///   `bevy_ecs/debug` the resource count is a spurious `0`; requiring this true stops a
     ///   build with invisible resource debt from reporting a false lossless.
@@ -1306,6 +1417,7 @@ impl RestoreReport {
             && self.respawned == 0
             && self.unregistered_sim_resources == 0
             && self.resource_cursors_unresolved == 0
+            && self.unapplied_rows == 0
             && self.resource_census_reliable
     }
 }
@@ -1319,16 +1431,22 @@ impl RestoreReport {
 /// future netcode boundary logs it and refuses the rewind.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum RestoreError {
-    /// The snapshot was taken while one room was active and the world is now in another
-    /// — the rollback window spans a room transition. Reconciling would rebuild the
-    /// snapshot's entities against the WRONG `RoomSpec`. The active room is not yet
-    /// restored sim state, and a room transition rebuilds room-scoped entities, moving
-    /// platforms, and clocks that a partial restore cannot reproduce, so restore refuses
-    /// rather than produce a world more inconsistent than the one it started from
-    /// (netcode.md N3.2: room transitions are rollback boundaries).
+    /// The snapshot's active room and the world's do not MATCH — the rollback window
+    /// spans a room transition. Reconciling would rebuild the snapshot's entities against
+    /// the WRONG `RoomSpec`. The active room is not yet restored sim state, and a room
+    /// transition rebuilds room-scoped entities, moving platforms, and clocks that a
+    /// partial restore cannot reproduce, so restore refuses rather than produce a world
+    /// more inconsistent than the one it started from (netcode.md N3.2: room transitions
+    /// are rollback boundaries).
+    ///
+    /// Each side is `Option<String>` because *presence itself* is state: a snapshot taken
+    /// with no room (`None`) restored into a world that now has one (`Some`) is as much a
+    /// mismatch as two different room ids, so restore compares the full options, not just
+    /// the both-`Some` case (re-audit finding 5). A headless fixture with no `RoomSet` on
+    /// either side is `None == None` and does not refuse.
     CrossRoomBoundary {
-        snapshot_room: String,
-        active_room: String,
+        snapshot_room: Option<String>,
+        active_room: Option<String>,
     },
     /// A registered codec failed to decode its blob during restore — the bytes are
     /// corrupt, or the encoder and decoder disagree. A SILENT continue (the old
@@ -1357,6 +1475,17 @@ pub enum RestoreError {
     /// Preflighted before any mutation (finding 5), so restore refuses cleanly rather than
     /// after partial work. The honest boundary until spawn recipes land.
     UnsupportedDynamicReconstruction { sim_id: String },
+    /// **The snapshot is not well-formed against the registry restoring it** (re-audit
+    /// finding 2) — caught by [`validate_snapshot`], a mutation-free phase that runs before
+    /// restore touches a single entity. `take` cannot produce a malformed snapshot, so in a
+    /// same-process rollback this never fires; it exists for the N3.3 wire, where a snapshot
+    /// is deserialized bytes that were never take-validated and restore must not trust their
+    /// shape. `reason` names the exact violation: a duplicate or unsorted roster; an entry
+    /// naming no registered state; a component blob under a resource entry (or the reverse);
+    /// rows out of order, duplicated, or carrying an id absent from the roster; or a
+    /// registered entry the snapshot omitted. All of these would otherwise make restore's
+    /// by-id lookups and `binary_search`es silently wrong rather than loudly refused.
+    MalformedSnapshot { reason: String },
 }
 
 impl std::fmt::Display for RestoreError {
@@ -1365,17 +1494,32 @@ impl std::fmt::Display for RestoreError {
             RestoreError::CrossRoomBoundary {
                 snapshot_room,
                 active_room,
-            } => write!(
-                f,
-                "cross-room rollback boundary: snapshot taken in `{snapshot_room}`, world \
-                 is now in `{active_room}` — a rollback window may not span a room transition"
-            ),
+            } => {
+                fn room(r: &Option<String>) -> String {
+                    match r {
+                        Some(id) => format!("`{id}`"),
+                        None => "no room".to_string(),
+                    }
+                }
+                write!(
+                    f,
+                    "cross-room rollback boundary: snapshot taken in {}, world is now in {} \
+                     — a rollback window may not span a room transition",
+                    room(snapshot_room),
+                    room(active_room),
+                )
+            }
             RestoreError::UnsupportedDynamicReconstruction { sim_id } => write!(
                 f,
                 "unsupported dynamic reconstruction: `{sim_id}` is a dynamically-spawned \
                  entity that existed at the snapshot tick, is gone now, and no room authors \
                  it — rebuilding it from blobs alone is not exact (no spawn recipe yet). \
                  Restore refuses rather than raise a naked entity."
+            ),
+            RestoreError::MalformedSnapshot { reason } => write!(
+                f,
+                "malformed snapshot: {reason} — restore refuses a snapshot whose shape does \
+                 not agree with the registry, rather than reconcile against it silently"
             ),
             RestoreError::DecodeFailed { entry, id } => write!(
                 f,
@@ -1441,6 +1585,116 @@ fn respawn_from_the_room(world: &mut World, sim_id: &str) -> Option<Entity> {
     Some(entity)
 }
 
+/// **Validate a snapshot's shape against the registry, before restore mutates anything**
+/// (re-audit finding 2).
+///
+/// A same-process rollback cannot reach here in error — [`take`] produces a canonical,
+/// registry-agreeing snapshot. This phase exists for the N3.3 wire: a deserialized snapshot is
+/// bytes that were never `take`-validated, and restore's by-id lookups and `binary_search`es
+/// assume a shape (sorted, unique, registry-matching) that corrupt input can violate. Rather
+/// than reconcile against a lie, restore refuses with [`RestoreError::MalformedSnapshot`].
+///
+/// Mutation-free by construction — it reads only the snapshot and the registry — so it runs
+/// ahead of the first despawn and leaves a rejected world untouched. It establishes, in order:
+/// a canonical (sorted) and unique roster; every snapshot entry names a registered entry of the
+/// matching KIND, exactly once; every component row is sorted, unique, and identifies a roster
+/// member; and no non-diagnostic registered entry is missing.
+fn validate_snapshot(
+    snapshot: &SimSnapshot,
+    registry: &SnapshotRegistry,
+) -> Result<(), RestoreError> {
+    let malformed = |reason: String| RestoreError::MalformedSnapshot { reason };
+
+    // Roster: canonical order and uniqueness. Restore builds its existence set and the hash
+    // its roster term from the stored order, so an unsorted or duplicated roster must be
+    // refused, not silently accepted (`duplicate_ids` is order-robust, so it catches even a
+    // non-adjacent collision).
+    if snapshot.roster.windows(2).any(|w| w[0] > w[1]) {
+        return Err(malformed(
+            "roster is not in canonical (sorted) order".into(),
+        ));
+    }
+    let dups = snapshot.duplicate_ids();
+    if !dups.is_empty() {
+        return Err(malformed(format!(
+            "roster carries duplicate identities: {dups:?}"
+        )));
+    }
+    let roster: std::collections::BTreeSet<&str> =
+        snapshot.roster.iter().map(String::as_str).collect();
+
+    // Every snapshot entry: known to the registry, of the matching kind, present once — and
+    // each component row sorted, unique, and a roster member.
+    let mut seen: std::collections::BTreeSet<&str> = std::collections::BTreeSet::new();
+    for (name, blob) in &snapshot.entries {
+        if !seen.insert(*name) {
+            return Err(malformed(format!("entry `{name}` appears more than once")));
+        }
+        let Some(entry) = registry.entries.iter().find(|e| e.name == *name) else {
+            return Err(malformed(format!(
+                "entry `{name}` names no registered state"
+            )));
+        };
+        match (&entry.kind, blob) {
+            (EntryKind::Component { .. }, EntryBlob::Component(rows)) => {
+                let mut prev: Option<&str> = None;
+                for (id, _) in rows {
+                    let id = id.as_str();
+                    match prev {
+                        Some(p) if p > id => {
+                            return Err(malformed(format!(
+                                "entry `{name}` rows are not sorted by id"
+                            )))
+                        }
+                        Some(p) if p == id => {
+                            return Err(malformed(format!(
+                                "entry `{name}` has a duplicate row id `{id}`"
+                            )))
+                        }
+                        _ => {}
+                    }
+                    if !roster.contains(id) {
+                        return Err(malformed(format!(
+                            "entry `{name}` row id `{id}` is not in the roster"
+                        )));
+                    }
+                    prev = Some(id);
+                }
+            }
+            (
+                EntryKind::Resource { .. } | EntryKind::ResourceCursor { .. },
+                EntryBlob::Resource(_),
+            ) => {}
+            (EntryKind::Diagnostic { .. }, _) => {
+                return Err(malformed(format!(
+                    "entry `{name}` names a diagnostic, which is never snapshotted"
+                )))
+            }
+            // A component blob under a resource entry, or the reverse.
+            (_, _) => {
+                return Err(malformed(format!(
+                    "entry `{name}` blob kind does not match its registry kind"
+                )))
+            }
+        }
+    }
+
+    // No non-diagnostic registered entry may be missing: `take` emits one per such entry, so an
+    // absent one is a snapshot from a different (older) registry, which restore cannot honor.
+    for entry in &registry.entries {
+        if matches!(entry.kind, EntryKind::Diagnostic { .. }) {
+            continue;
+        }
+        if !seen.contains(entry.name) {
+            return Err(malformed(format!(
+                "registered entry `{}` is missing from the snapshot",
+                entry.name
+            )));
+        }
+    }
+    Ok(())
+}
+
 /// **Restore the sim to a snapshot, reconciling by [`SimId`].**
 ///
 /// Three cases, and each falls out of *"the snapshot is the truth"*:
@@ -1494,18 +1748,19 @@ pub fn restore(
     // only `RoomSet.active` + geometry, but not the room-scoped entities/platforms/
     // clocks a transition rebuilds, would leave a world more inconsistent than this
     // clean refusal. The full atomic room transaction is the bounded-window work.
-    if let Some(snap_room) = &snapshot.active_room {
-        if let Some(active) = world
-            .get_resource::<ambition_world::rooms::RoomSet>()
-            .map(|rs| rs.active_spec().id.clone())
-        {
-            if *snap_room != active {
-                return Err(RestoreError::CrossRoomBoundary {
-                    snapshot_room: snap_room.clone(),
-                    active_room: active,
-                });
-            }
-        }
+    //
+    // The two `Option<String>` are compared WHOLE (re-audit finding 5): a snapshot with a
+    // room restored into a world with none — or vice versa — is a state mismatch as surely
+    // as two different ids, and the old both-`Some` guard let it through. `None == None`
+    // (a headless fixture with no `RoomSet`) is not a mismatch and does not refuse.
+    let active_room = world
+        .get_resource::<ambition_world::rooms::RoomSet>()
+        .map(|rs| rs.active_spec().id.clone());
+    if snapshot.active_room != active_room {
+        return Err(RestoreError::CrossRoomBoundary {
+            snapshot_room: snapshot.active_room.clone(),
+            active_room,
+        });
     }
 
     // **Identity invariant (audit H2), enforced BEFORE any lookup map is built.**
@@ -1521,13 +1776,14 @@ pub fn restore(
          `SimId::spawned`/placement id). Collisions (id, count): {live_dups:?}",
         live_dups.len(),
     );
-    let snap_dups = snapshot.duplicate_ids();
-    assert!(
-        snap_dups.is_empty(),
-        "restore: the snapshot's roster is ambiguous — these SimId(s) appear on more \
-         than one row of a component: {snap_dups:?}. It was taken from a world whose \
-         identity was already not unique.",
-    );
+    // **Snapshot well-formedness (re-audit finding 2), mutation-free, before the lookup map
+    // is built.** The live-identity invariant above is a PANIC — a running world with a
+    // duplicate `SimId` is a spawn-site bug. A malformed SNAPSHOT is different: it is corrupt
+    // INPUT (the N3.3 wire), so it is a returned refusal, not a panic. `validate_snapshot`
+    // establishes canonical order, registry/kind agreement, unique rows, and roster
+    // membership — everything restore's `binary_search`es and by-id lookups below assume —
+    // and touches nothing, so a rejected snapshot leaves the world exactly as it was.
+    validate_snapshot(snapshot, registry)?;
 
     // Now the map is unambiguous: every id appears once, so no insert overwrites.
     let mut live: std::collections::BTreeMap<String, Entity> = std::collections::BTreeMap::new();
@@ -1641,15 +1897,23 @@ pub fn restore(
             match rows.binary_search_by(|(k, _)| k.as_str().cmp(id)) {
                 Ok(row) => {
                     let bytes = rows[row].1.clone();
-                    let decoded = {
+                    let outcome = {
                         let mut e = world.entity_mut(entity);
                         insert(&mut e, &bytes)
                     };
-                    if !decoded {
-                        return Err(RestoreError::DecodeFailed {
-                            entry: (*name).to_string(),
-                            id: Some((*id).to_string()),
-                        });
+                    match outcome {
+                        ApplyOutcome::Applied => {}
+                        // A registered row that could not be applied (a cursor with no live
+                        // target, a resolve whose content is gone) did NOT come back. Count it
+                        // so `lossless()` denies the restore rather than pass the old bare
+                        // `true` as success (re-audit finding 3).
+                        ApplyOutcome::Unapplied => report.unapplied_rows += 1,
+                        ApplyOutcome::DecodeFailed => {
+                            return Err(RestoreError::DecodeFailed {
+                                entry: (*name).to_string(),
+                                id: Some((*id).to_string()),
+                            })
+                        }
                     }
                 }
                 // The entity did not have this component at the snapshot tick.
@@ -1669,25 +1933,30 @@ pub fn restore(
         let Some(entry) = registry.entries.iter().find(|e| e.name == *name) else {
             continue;
         };
-        let decoded = match &entry.kind {
-            EntryKind::Resource { load, .. } => load(world, bytes),
-            EntryKind::ResourceCursor { apply, present, .. } => {
-                let ok = apply(world, bytes);
-                // A non-empty cursor blob whose target resource is absent applied nothing —
-                // a silent incompleteness the apply closure reports as success (finding 6).
-                // Count it so `lossless()` denies it. (An empty blob is a legitimate no-op.)
-                if ok && !bytes.is_empty() && !present(world) {
-                    report.resource_cursors_unresolved += 1;
+        match &entry.kind {
+            EntryKind::Resource { load, .. } => {
+                if !load(world, bytes) {
+                    return Err(RestoreError::DecodeFailed {
+                        entry: (*name).to_string(),
+                        id: None,
+                    });
                 }
-                ok
             }
+            // A resource cursor now carries a presence tag and reports its own outcome
+            // (re-audit finding 4): a snapshot-present resource restored into a world where it
+            // is absent cannot be rebuilt from a cursor — `Unapplied`, counted so `lossless()`
+            // denies it, where the old empty-blob heuristic swallowed it as success.
+            EntryKind::ResourceCursor { apply, .. } => match apply(world, bytes) {
+                ApplyOutcome::Applied => {}
+                ApplyOutcome::Unapplied => report.resource_cursors_unresolved += 1,
+                ApplyOutcome::DecodeFailed => {
+                    return Err(RestoreError::DecodeFailed {
+                        entry: (*name).to_string(),
+                        id: None,
+                    });
+                }
+            },
             _ => continue,
-        };
-        if !decoded {
-            return Err(RestoreError::DecodeFailed {
-                entry: (*name).to_string(),
-                id: None,
-            });
         }
     }
 
@@ -3201,13 +3470,18 @@ impl SnapshotCursor for ambition_combat::slots::CombatSlotsRes {
     }
     fn apply_cursor(&mut self, r: &mut Reader<'_>) -> Option<()> {
         let n = r.u32()? as usize;
-        let assignments = (0..n)
-            .map(|_| Some(r.opt_str()?.map(str::to_string)))
-            .collect::<Option<Vec<_>>>()?;
-        // A board of a different SHAPE is a content change across a rollback. The
-        // authored geometry stays; only the assignments we can match are restored.
-        for (slot, assigned) in self.0.slots.iter_mut().zip(assignments) {
-            slot.assigned_to = assigned;
+        // A board of a different SHAPE cannot be faithfully rewound by a cursor: the snapshot's
+        // assignments would not line up with the live authored slots, and silently zipping the
+        // shorter length leaves live slots untouched or drops snapshot assignments while
+        // reporting success (re-audit finding 4). Within a supported window the shape is stable
+        // — content does not change, and a cross-room rollback is already refused — so this
+        // never fires there; if it ever did, refusing loudly (`None` → `DecodeFailed`) beats a
+        // silent partial restore.
+        if n != self.0.slots.len() {
+            return None;
+        }
+        for slot in self.0.slots.iter_mut() {
+            slot.assigned_to = r.opt_str()?.map(str::to_string);
         }
         Some(())
     }
@@ -3471,11 +3745,13 @@ mod tests {
         reg.register_diagnostic("a", |_, h| h.write_u64(1));
         reg.register_diagnostic("b", |_, h| h.write_u64(2));
         let by_entry = reg.hash_by_entry(&world);
-        // Two registered diagnostics, plus the active-room pseudo-entry (finding 2).
-        assert_eq!(by_entry.len(), 3);
+        // Two registered diagnostics, plus the active-room (finding 2) and identity-roster
+        // (finding 1) pseudo-entries.
+        assert_eq!(by_entry.len(), 4);
         assert_eq!(by_entry[0].0, "a");
         assert_ne!(by_entry[0].1, by_entry[1].1);
         assert_eq!(by_entry[2].0, SnapshotRegistry::ACTIVE_ROOM_ENTRY);
+        assert_eq!(by_entry[3].0, SnapshotRegistry::ROSTER_ENTRY);
     }
 
     // ── N3.1: take / restore ─────────────────────────────────────────────────
@@ -3510,6 +3786,26 @@ mod tests {
         }
         fn apply_cursor(&mut self, r: &mut Reader<'_>) -> Option<()> {
             self.segment = r.u32()?;
+            Some(())
+        }
+    }
+
+    /// A resource that is half authored geometry, half mutable assignment — the
+    /// `CombatSlotsRes` shape, in miniature. Its cursor carries only the mutable half.
+    #[derive(bevy::ecs::resource::Resource, Debug, PartialEq)]
+    struct TestBoard {
+        /// Authored. Never in the cursor.
+        slots: u32,
+        /// Mutable. The only thing the cursor rewinds.
+        assigned: u32,
+    }
+
+    impl SnapshotCursor for TestBoard {
+        fn encode_cursor(&self, out: &mut Vec<u8>) {
+            put_u32(out, self.assigned);
+        }
+        fn apply_cursor(&mut self, r: &mut Reader<'_>) -> Option<()> {
+            self.assigned = r.u32()?;
             Some(())
         }
     }
@@ -3945,30 +4241,123 @@ mod tests {
         );
     }
 
+    /// **A zero-component `SimId` entity is snapshot state the roster makes authoritative**
+    /// (re-audit finding 1).
+    ///
+    /// It appears in no component entry, so a restore driven by the old component-derived id
+    /// set was blind to it: it despawned the entity if it survived, and dropped it if it had
+    /// died. Driven by the roster, restore preserves it (a), reconstructs it (b), despawns a
+    /// future one (c) — and the state hash now sees it at all.
+    #[test]
+    fn a_zero_component_sim_id_entity_is_covered_by_the_roster() {
+        let reg = engine_registry();
+        let mut world = sim_world();
+
+        let before = reg.hash_world(&world);
+        // An entity with an identity and NOTHING the registry knows — the case a
+        // per-component id set cannot see.
+        world.spawn(SimId::placement("ghost"));
+        assert_ne!(
+            reg.hash_world(&world),
+            before,
+            "the state hash is blind to a zero-component identity — finding 1's roster term \
+             is missing"
+        );
+
+        // (a) It SURVIVES a restore that snapshotted it: not mistaken for a future birth.
+        let with_ghost = take(&world, &reg);
+        assert!(
+            with_ghost.sim_ids().contains(&"placement:ghost"),
+            "the snapshot's authoritative id set must include the zero-component entity"
+        );
+        restore(&mut world, &with_ghost, &reg).unwrap();
+        assert!(
+            live_ids(&mut world).contains_key("placement:ghost"),
+            "restore despawned a zero-component survivor it had snapshotted"
+        );
+
+        // (b) It is RECONSTRUCTED when it died inside the window (bare — no room authors it).
+        let ghost = *live_ids(&mut world).get("placement:ghost").unwrap();
+        world.despawn(ghost);
+        let report = restore(&mut world, &with_ghost, &reg).unwrap();
+        assert!(
+            live_ids(&mut world).contains_key("placement:ghost"),
+            "restore did not reconstruct a zero-component entity that died inside the window"
+        );
+        assert_eq!(report.respawned, 1, "the reconstruction must be reported");
+
+        // (c) A live one the snapshot never knew is despawned as a future birth.
+        let without_ghost = take(&sim_world(), &reg);
+        restore(&mut world, &without_ghost, &reg).unwrap();
+        assert!(
+            !live_ids(&mut world).contains_key("placement:ghost"),
+            "restore kept a zero-component entity that was born after the snapshot"
+        );
+    }
+
     /// **Restore validates the snapshot roster independently of the live world** (re-audit
-    /// finding 3). `take` enforces uniqueness at capture, but a snapshot arriving over the
-    /// N3.3 wire was never take-validated. Restore refuses (panics, like the live-identity
-    /// invariant) rather than pick one of the colliding rows.
+    /// findings 2 + 3). `take` enforces uniqueness at capture, but a snapshot arriving over
+    /// the N3.3 wire was never take-validated. Restore refuses with a RETURNED
+    /// `MalformedSnapshot` (corrupt input) — not a panic (reserved for a live-identity bug) —
+    /// rather than pick one of the colliding rows, and its dup detection no longer trusts the
+    /// caller to have sorted first.
     #[test]
     fn restore_refuses_a_snapshot_whose_roster_is_ambiguous() {
         let reg = engine_registry();
         let mut world = sim_world();
-        let mut snap = take(&world, &reg);
-        // The live world is clean; only the (deserialized) SNAPSHOT is corrupt.
-        snap.roster.push("placement:ghost-dup".to_string());
-        snap.roster.push("placement:ghost-dup".to_string());
-        snap.roster.sort();
 
-        let prev = std::panic::take_hook();
-        std::panic::set_hook(Box::new(|_| {}));
-        let refused = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            restore(&mut world, &snap, &reg)
-        }));
-        std::panic::set_hook(prev);
-        assert!(
-            refused.is_err(),
-            "restore must refuse a snapshot with an ambiguous roster, not silently pick one"
+        // `duplicate_ids` no longer trusts the caller to have sorted: the audit's split
+        // duplicate in an UNSORTED roster (`["dup", "other", "dup"]`) is still detected
+        // (re-audit finding 2), where an adjacent-only scan of the stored order would miss it.
+        let mut probe = take(&world, &reg);
+        probe.roster = vec![
+            "placement:ghost-dup".into(),
+            "placement:other".into(),
+            "placement:ghost-dup".into(),
+        ];
+        assert_eq!(
+            probe.duplicate_ids(),
+            vec!["placement:ghost-dup".to_string()],
+            "duplicate_ids must detect a non-adjacent collision in an unsorted roster"
         );
+
+        // The live world is clean; only the (deserialized) SNAPSHOT is corrupt. Restore
+        // refuses it as a returned error, having touched nothing.
+        let mut snap = take(&world, &reg);
+        snap.roster.push("placement:ghost-dup".into());
+        snap.roster.push("placement:ghost-dup".into());
+        snap.roster.sort();
+        match restore(&mut world, &snap, &reg) {
+            Err(RestoreError::MalformedSnapshot { .. }) => {}
+            other => panic!("restore accepted an ambiguous roster instead of refusing: {other:?}"),
+        }
+    }
+
+    /// **A snapshot entry whose blob kind disagrees with the registry is refused**
+    /// (re-audit finding 2). A component blob arriving under a resource entry — the sort of
+    /// corruption a wire format admits — used to be silently SKIPPED by restore's
+    /// `find(..).kind` match. `validate_snapshot` catches it before any mutation.
+    #[test]
+    fn restore_refuses_a_snapshot_with_a_kind_mismatched_entry() {
+        let reg = engine_registry();
+        let mut world = sim_world();
+        let mut snap = take(&world, &reg);
+
+        // Find a resource entry and corrupt its blob into a component blob.
+        let (name, slot) = snap
+            .entries
+            .iter_mut()
+            .find_map(|(n, b)| matches!(b, EntryBlob::Resource(_)).then_some((*n, b)))
+            .expect("the engine registry has at least one resource entry");
+        *slot = EntryBlob::Component(Vec::new());
+        let _ = name;
+
+        match restore(&mut world, &snap, &reg) {
+            Err(RestoreError::MalformedSnapshot { .. }) => {}
+            other => {
+                panic!("restore accepted a kind-mismatched entry instead of refusing: {other:?}")
+            }
+        }
     }
 
     /// **Restore refuses to reconstruct a dead dynamic entity — cleanly** (re-audit
@@ -4273,10 +4662,21 @@ mod tests {
         });
 
         let snap = take(&world, &reg);
+        // The authored waypoints (12 bytes) must NOT enter the blob — only the 4-byte segment
+        // cursor does. Measure the DELTA the cursor adds (its key + segment), a proxy immune to
+        // the identity-roster (finding 1) and resource-cursor presence-tag (finding 4) overhead
+        // that the old absolute `< 200` threshold folded in and that now trips it.
+        world.entity_mut(boss).remove::<Patrol>();
+        let without = take(&world, &reg).size_bytes();
+        world.entity_mut(boss).insert(Patrol {
+            waypoints: vec![0.0, 10.0, 20.0],
+            segment: 1,
+        });
+        let with = take(&world, &reg).size_bytes();
         assert!(
-            snap.size_bytes() < 200,
-            "the authored waypoints leaked into the blob: {} bytes",
-            snap.size_bytes()
+            with - without < 30,
+            "the authored waypoints leaked into the blob: the cursor added {} bytes",
+            with - without
         );
 
         world.entity_mut(boss).get_mut::<Patrol>().unwrap().segment = 2;
@@ -4316,6 +4716,76 @@ mod tests {
             "a cursor has nothing to apply itself to on a naked respawn — it must not \
              invent a path"
         );
+    }
+
+    /// **A resource cursor tags its presence and reports an incomplete restore** (re-audit
+    /// finding 4).
+    ///
+    /// An absent resource and a present-but-empty cursor used to both encode to `[]`, so
+    /// restore could not tell "it did not exist at the snapshot" from "its cursor was empty",
+    /// and a snapshot-present resource that was gone at restore silently applied nothing while
+    /// reporting success. The presence tag closes both.
+    #[test]
+    fn a_resource_cursor_tags_presence_and_reports_an_absent_target() {
+        let mut reg = engine_registry();
+        reg.register_resource_cursor::<TestBoard>("test_board");
+
+        // (a) Present at snapshot, GONE at restore: a cursor cannot rebuild a resource from
+        // nothing, so the restore is incomplete — reported, not swallowed as success.
+        let mut world = sim_world();
+        world.insert_resource(TestBoard {
+            slots: 4,
+            assigned: 2,
+        });
+        let snap = take(&world, &reg);
+        world.remove_resource::<TestBoard>();
+        let report = restore(&mut world, &snap, &reg).unwrap();
+        assert_eq!(
+            report.resource_cursors_unresolved, 1,
+            "a snapshot-present resource absent at restore must be reported"
+        );
+        // The link to losslessness, isolated (a headless lib build has no reliable census, so
+        // `report.lossless()` is false for that reason alone — pin the term itself instead).
+        let probe = RestoreReport {
+            resource_cursors_unresolved: 1,
+            resource_census_reliable: true,
+            ..RestoreReport::default()
+        };
+        assert!(
+            !probe.lossless(),
+            "an unresolved resource cursor must deny losslessness on its own"
+        );
+
+        // (b) ABSENT at snapshot, PRESENT at restore: the tag lets restore remove a resource
+        // born after the snapshot, where the old empty-blob no-op left it standing.
+        let mut world = sim_world();
+        let absent = take(&world, &reg); // TestBoard never inserted -> tagged absent
+        world.insert_resource(TestBoard {
+            slots: 4,
+            assigned: 9,
+        });
+        restore(&mut world, &absent, &reg).unwrap();
+        assert!(
+            world.get_resource::<TestBoard>().is_none(),
+            "restore did not remove a resource that did not exist at the snapshot tick"
+        );
+
+        // (c) Present on BOTH sides: the cursor rewinds the mutable half exactly, nothing
+        // reported unresolved.
+        let mut world = sim_world();
+        world.insert_resource(TestBoard {
+            slots: 4,
+            assigned: 2,
+        });
+        let snap = take(&world, &reg);
+        world.get_resource_mut::<TestBoard>().unwrap().assigned = 7;
+        let report = restore(&mut world, &snap, &reg).unwrap();
+        assert_eq!(
+            world.get_resource::<TestBoard>().unwrap().assigned,
+            2,
+            "the cursor rewound the mutable half"
+        );
+        assert_eq!(report.resource_cursors_unresolved, 0);
     }
 
     /// **The unit-enum discriminants are a WIRE FORMAT, and this test is the format.**
@@ -4469,8 +4939,14 @@ mod tests {
 
     /// A name the content no longer knows leaves the component OFF, rather than
     /// resolving to a plausible neighbour. Impossible in a rollback; loud in a save.
+    ///
+    /// **And it is not lossless** (re-audit finding 3): the registered `Playing` row the
+    /// snapshot carried did not come back, so restore reports one unapplied row and
+    /// `lossless()` is false — where the old bare-`true` resolved insert reported success for
+    /// a row that never returned. Dropping the component stays correct (a save whose content
+    /// changed should not guess); claiming the restore was complete does not.
     #[test]
-    fn a_resolved_component_that_names_missing_content_is_dropped_not_guessed() {
+    fn a_resolved_component_that_names_missing_content_is_dropped_and_denies_lossless() {
         let mut reg = engine_registry();
         reg.register_resolved::<Playing>("playing");
         let mut world = sim_world();
@@ -4487,8 +4963,19 @@ mod tests {
 
         // The content changed under us.
         world.entity_mut(boss).insert(Catalog(vec![]));
-        restore(&mut world, &snap, &reg).unwrap();
-        assert!(world.entity(boss).get::<Playing>().is_none());
+        let report = restore(&mut world, &snap, &reg).unwrap();
+        assert!(
+            world.entity(boss).get::<Playing>().is_none(),
+            "a name the content forgot must not resolve to a neighbour"
+        );
+        assert_eq!(
+            report.unapplied_rows, 1,
+            "the dropped resolved row must be counted, not swallowed as success"
+        );
+        assert!(
+            !report.lossless(),
+            "a restore that silently dropped registered state is not lossless (finding 3)"
+        );
     }
 
     /// **The boss's seeded RNG rewinds, and so does its step cursor.**

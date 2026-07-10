@@ -467,6 +467,10 @@ fn the_sim_id_migration_ledger() {
 fn the_snapshot_coverage_ledger() {
     let mut report = String::new();
     let mut worst = 0usize;
+    // The UNION of every component debt name sampled across all rooms, for the reviewed
+    // inventory subset check (re-audit finding 6) — broader than `worst`, which is a single
+    // room's peak COUNT.
+    let mut component_debt: std::collections::BTreeSet<String> = Default::default();
 
     for room in [
         "gap_run",
@@ -491,6 +495,9 @@ fn the_snapshot_coverage_ledger() {
         for i in 0..120 {
             if i % 20 == 0 {
                 let unclaimed = reg.unclaimed_components(s.world());
+                for c in &unclaimed {
+                    component_debt.insert(c.name.clone());
+                }
                 if unclaimed.len() > peak.len() {
                     peak = unclaimed;
                 }
@@ -553,6 +560,83 @@ fn the_snapshot_coverage_ledger() {
     // `declare_derived` is how the presentation half comes off; a codec is how the rest
     // does; the message buffers want neither, they want N3.2's resim discipline
     // ("side-effect suppression during resim").
+    // **The debt is pinned by TYPE NAME, not just by count** (re-audit finding 6).
+    //
+    // A count-only gate (`len <= 181`) is *substitution-blind*: a newly-unregistered sim
+    // type can replace a removed debt type and hold the count constant, so the gate stays
+    // green while the debt has silently CHANGED. Requiring the current debt to be a SUBSET of
+    // a reviewed inventory makes any NEW type a review event — register it, or add it to the
+    // inventory (which is itself a reviewed diff, like a `SIM_RESOURCE_EXCLUSIONS` entry). The
+    // count thresholds remain, but as SUMMARIES beneath the subset gate, not the enforcement.
+    //
+    // Type NAMES need `bevy_ecs/debug`, which `rl_sim` turns on — the resource census is
+    // reliable in this build (asserted by `a_restore_of_a_real_room...`). The inventories live
+    // in sibling text files so a debt change is a reviewable diff, not a buried constant.
+    let resource_debt: std::collections::BTreeSet<String> =
+        resources.iter().map(|c| c.name.clone()).collect();
+
+    fn inventory(s: &str) -> std::collections::BTreeSet<&str> {
+        s.lines()
+            .map(str::trim)
+            .filter(|l| !l.is_empty() && !l.starts_with('#'))
+            .collect()
+    }
+    let known_resources = inventory(include_str!("known_resource_debt.txt"));
+    let known_components = inventory(include_str!("known_component_debt.txt"));
+
+    // Dump the full current inventories (sorted), so a debt change is auditable in the test
+    // log and the reviewed files can be regenerated from `--nocapture` output.
+    eprintln!(
+        "=== reviewed resource-debt inventory ({} current / {} pinned) ===\n{}\n",
+        resource_debt.len(),
+        known_resources.len(),
+        resource_debt
+            .iter()
+            .map(|n| n.as_str())
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
+    eprintln!(
+        "=== reviewed component-debt inventory ({} current / {} pinned) ===\n{}\n",
+        component_debt.len(),
+        known_components.len(),
+        component_debt
+            .iter()
+            .map(|n| n.as_str())
+            .collect::<Vec<_>>()
+            .join("\n")
+    );
+
+    let new_resources: Vec<&str> = resource_debt
+        .iter()
+        .map(String::as_str)
+        .filter(|n| !known_resources.contains(n))
+        .collect();
+    assert!(
+        new_resources.is_empty(),
+        "{} unregistered resource type(s) are NOT in the reviewed known-debt inventory \
+         (game/ambition_app/tests/known_resource_debt.txt) — a substitution the old count-only \
+         gate would have missed (re-audit finding 6). Register them, or record them in the \
+         inventory as a reviewed diff:\n{}",
+        new_resources.len(),
+        new_resources.join("\n"),
+    );
+    let new_components: Vec<&str> = component_debt
+        .iter()
+        .map(String::as_str)
+        .filter(|n| !known_components.contains(n))
+        .collect();
+    assert!(
+        new_components.is_empty(),
+        "{} unregistered component type(s) are NOT in the reviewed known-debt inventory \
+         (game/ambition_app/tests/known_component_debt.txt) — a substitution the old count-only \
+         gate would have missed (re-audit finding 6). Register them, declare them derived, or \
+         record them in the inventory as a reviewed diff:\n{}",
+        new_components.len(),
+        new_components.join("\n"),
+    );
+
+    // The count thresholds, kept as SUMMARIES beneath the name-level subset gate above.
     const KNOWN_RESOURCE_DEBT: usize = 181;
     assert!(
         resources.len() <= KNOWN_RESOURCE_DEBT,
@@ -561,10 +645,6 @@ fn the_snapshot_coverage_ledger() {
          never saw one and `restore` never touched one. See netcode.md N3.1.",
         resources.len()
     );
-
-    // Today's debt, pinned. Lower it by registering a component or by declaring it
-    // structurally derived — both are claims, and `declare_derived` is the one that
-    // promises a per-frame system rebuilds it.
     const KNOWN_DEBT: usize = 59;
     assert!(
         worst <= KNOWN_DEBT,
@@ -746,8 +826,11 @@ fn restore_refuses_a_snapshot_that_spans_a_room_transition() {
             snapshot_room,
             active_room,
         }) => {
-            assert_eq!(snapshot_room, snap_room);
-            assert_eq!(active_room, "portal_lab");
+            // Both rooms exist here (a Some/Some mismatch); the guard now also refuses a
+            // Some/None presence mismatch (re-audit finding 5), covered by the runtime unit
+            // tests. This case remains the real cross-room transition.
+            assert_eq!(snapshot_room, Some(snap_room.clone()));
+            assert_eq!(active_room, Some("portal_lab".to_string()));
             assert_ne!(snapshot_room, active_room);
         }
         other => panic!(

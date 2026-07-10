@@ -6,7 +6,6 @@
 use bevy::prelude::*;
 
 use crate::actor::BodyKinematics;
-use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::physics::GravityField;
 use ambition_engine_core::{self as ae, AabbExt};
 
@@ -48,7 +47,11 @@ pub struct GravityFlipSwitch {
 /// gravity zones override locally while the switch sets the room default.
 pub fn gravity_flip_switch_system(
     mut base: ResMut<crate::physics::BaseGravity>,
-    players: Query<&BodyKinematics, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    // SLOT-0 BY DESIGN: a gravity-flip switch rewrites the ROOM's ambient gravity
+    // for everyone, so exactly one body may arm it — the local human's own. (If a
+    // possessed actor should be able to arm it too, this becomes `ControlledSubject`;
+    // that is a design call about the Noether Chamber, not a refactor.)
+    players: Query<&BodyKinematics, crate::actor::PrimaryPlayerOnly>,
     mut switches: Query<&mut GravityFlipSwitch>,
     mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
 ) {
@@ -80,6 +83,7 @@ pub fn gravity_flip_switch_system(
 mod tests {
     use super::*;
     use crate::actor::BodyBaseSize;
+    use crate::actor::{PlayerEntity, PrimaryPlayer};
     use crate::physics::{BaseGravity, GravityField};
 
     fn spawn_player(app: &mut App, pos: Vec2) -> Entity {

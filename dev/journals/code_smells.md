@@ -314,3 +314,19 @@ gate still never builds: `portal_render`, `bevy_ui_menu`, `kaleidoscope_menu`,
 `mobile_touch`, `physics_debris`, `static_map`. A periodic
 `cargo check --workspace --all-targets --all-features` (or a per-feature matrix
 in CI) would catch the next one. Size: S for the check, unknown for what it finds.
+
+## 2026-07-10 (R6b) — a gate script that greps only for success is silent on failure
+
+My R6b gate ran `cargo test -p ambition_actors --lib 2>&1 | grep -E "^test result" | tail -1`
+and printed NOTHING. Nothing is what a clean pass looks like to a careless reader,
+so a `grep`-for-success gate reports "green" when the crate's lib-TEST target does
+not compile. It had not: the slot-0 filter annotations deleted `use
+crate::actor::{PlayerEntity, PrimaryPlayer};` from six modules, and their inline
+`#[cfg(test)]` blocks reached those names through `use super::*`. The lib compiled;
+`--lib` tests did not.
+
+Caught only because the missing line looked odd next to its siblings. **Any gate
+filter must match the FAILURE signatures too**, not just the success marker:
+`grep -E "^test result|^error|FAILED|panicked"`. The other gate legs in this chain
+happened to be safe (`grep -E "FAILED|^error"`), which is the same lesson from the
+other side. Same class as the Monitor doctrine: *silence is not success.*

@@ -3,6 +3,7 @@
 
 use super::*;
 use crate::actor::BodyBaseSize;
+use crate::actor::{PlayerEntity, PrimaryPlayer};
 
 fn spawn_player(app: &mut App, pos: Vec2) -> Entity {
     let entity = app

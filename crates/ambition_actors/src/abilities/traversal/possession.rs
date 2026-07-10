@@ -33,7 +33,7 @@ use ambition_characters::brain::{ActorControl, Brain, PlayerSlot};
 use ambition_platformer_primitives::markers::ControlledSubject;
 
 use crate::actor::BodyKinematics;
-use crate::actor::{PlayerEntity, PrimaryPlayer};
+use crate::actor::PlayerEntity;
 use crate::features::{CenteredAabb, FeatureSimEntity};
 
 /// Brain-transfer bookkeeping for possession.
@@ -155,7 +155,10 @@ pub fn possession_trigger_system(
     mut commands: Commands,
     // Home avatar kinematics: its position seeds the candidate search, and on
     // release it steps out to the vacated actor's spot (camera continuity).
-    mut home_q: Query<(Entity, &mut BodyKinematics), (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    // SLOT-0 BY DESIGN: the HOME AVATAR is a real concept — the body slot 0 owns and
+    // returns to on release. It is precisely the body that is NOT the controlled
+    // subject while possession is active, so it cannot be found any other way.
+    mut home_q: Query<(Entity, &mut BodyKinematics), crate::actor::PrimaryPlayerOnly>,
     // Possession candidates: any brain-driven feature body — INCLUDING bosses.
     // Bosses are valid controllable bodies (their tick consumes `Brain::Player`),
     // so there is no `Without<BossConfig>` barrier here. Restricting WHICH boss is
@@ -255,7 +258,8 @@ fn release_possession(
     state: &mut PossessionState,
     target: Entity,
     actor_aabbs: &Query<&CenteredAabb>,
-    home_q: &mut Query<(Entity, &mut BodyKinematics), (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    // SLOT-0 BY DESIGN: the home avatar (see `possession_trigger_system`).
+    home_q: &mut Query<(Entity, &mut BodyKinematics), crate::actor::PrimaryPlayerOnly>,
 ) {
     state.possessed = None;
 
@@ -309,6 +313,7 @@ pub fn release_possession_if_target_lost(
 mod tests {
     use super::*;
     use crate::actor::BodyBaseSize;
+    use crate::actor::PrimaryPlayer;
     use crate::features::ActorFaction;
     use ambition_characters::brain::{PlayerSlot, StateMachineCfg};
 

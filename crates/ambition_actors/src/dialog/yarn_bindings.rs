@@ -285,6 +285,8 @@ pub fn cmd_play_sfx(In(id_str): In<String>, mut sfx: MessageWriter<ambition_sfx:
 /// can verify the explosion pipeline without entering a boss room.
 pub fn cmd_spawn_fireworks(
     mut fireworks: MessageWriter<ambition_vfx::vfx::FireworksRequest>,
+    // SLOT-0 BY DESIGN: Yarn's `$player_x`/`$player_y` are authored against the
+    // local player's position — dialogue is told to a human, not to a body.
     player_q: Query<&crate::actor::BodyKinematics, crate::actor::PrimaryPlayerOnly>,
 ) {
     let origin = player_q

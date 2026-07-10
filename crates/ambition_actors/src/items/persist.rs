@@ -9,7 +9,6 @@
 
 use bevy::prelude::*;
 
-use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::items::OwnedItems;
 use ambition_characters::actor::BodyWallet;
 use ambition_persistence::save::SandboxSave;
@@ -27,7 +26,10 @@ pub fn restore_inventory_from_save(
     mut restored: ResMut<InventoryRestored>,
     save: Res<SandboxSave>,
     mut owned: ResMut<OwnedItems>,
-    mut wallet_q: Query<&mut BodyWallet, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    // SLOT-0 BY DESIGN: the SAVE FILE belongs to the local player. `BodyWallet` is
+    // body vocabulary (a currency-dropping NPC carries one), but only slot 0's
+    // balance round-trips through the save.
+    mut wallet_q: Query<&mut BodyWallet, crate::actor::PrimaryPlayerOnly>,
 ) {
     if restored.0 {
         return;
@@ -50,7 +52,9 @@ pub fn restore_inventory_from_save(
 pub fn persist_inventory_to_save(
     restored: Res<InventoryRestored>,
     owned: Res<OwnedItems>,
-    wallet_q: Query<&BodyWallet, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    // SLOT-0 BY DESIGN: see `restore_inventory_from_save` — the save file is the
+    // local player's, so only slot 0's wallet is persisted.
+    wallet_q: Query<&BodyWallet, crate::actor::PrimaryPlayerOnly>,
     mut save: ResMut<SandboxSave>,
 ) {
     if !restored.0 {
@@ -73,6 +77,7 @@ pub fn persist_inventory_to_save(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::actor::{PlayerEntity, PrimaryPlayer};
     use crate::items::Item;
 
     fn app_with(save: SandboxSave, owned: OwnedItems, wallet: i32) -> (App, Entity) {

@@ -14,14 +14,14 @@
 //! does. The relativity-principle fix is the actor-unification rename of those
 //! types, tracked separately; this drain only relocates and de-render-couples.
 
-use bevy::prelude::{Entity, MessageReader, MessageWriter, Query, Res, ResMut, With};
+use bevy::prelude::{Entity, MessageReader, MessageWriter, Query, Res, ResMut};
 
 use ambition_engine_core as ae;
 use ambition_vfx::vfx::VfxMessage;
 use ambition_world::collision::MovingPlatformSet;
 
 use crate::actor::BodyAnimFacts;
-use crate::actor::{PlayerEntity, PrimaryPlayer, PrimaryPlayerOnly};
+use crate::actor::PrimaryPlayerOnly;
 use crate::combat::events::{GameplayBannerRequested, HitEvent as FeatureHitEvent, HitTarget};
 use crate::player::PlayerSafetyState;
 use crate::time::feel::SandboxFeelTuning;
@@ -558,7 +558,10 @@ pub fn apply_player_hit_events(
     mut died_writer: MessageWriter<ActorDiedMessage>,
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,
-    primary_q: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    // SLOT-0 BY DESIGN: the safe-position memory this feeds is slot 0's respawn
+    // point. Damage ROUTING itself is body-generic (it runs off factions and the
+    // grudge); only "where does the local player wake up" is primary-scoped.
+    primary_q: Query<Entity, crate::actor::PrimaryPlayerOnly>,
     // Friendly-fire policy (the DAMAGE side) + a faction lookup for the hit's
     // attacker: damage is physical, so any DIFFERENT-faction attacker's hit lands
     // on the player — including a duel's stray that the observer walked into. Only
@@ -579,6 +582,10 @@ pub fn apply_player_hit_events(
             // no DI). Inert unless `feel.di_max_angle` is authored nonzero.
             Option<&ambition_characters::brain::ActorControl>,
         ),
+        // SLOT-0 BY DESIGN: this is the PLAYER-VICTIM path — hitstop, the death
+        // banner, the safe-position rewind. Actor-vs-actor damage runs through
+        // `apply_actor_hit_events` on the same `HitEvent` stream; the two differ
+        // only in the feel/save consequences the local human is owed.
         PrimaryPlayerOnly,
     >,
 ) {

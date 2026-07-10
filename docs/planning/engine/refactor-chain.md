@@ -1,7 +1,7 @@
 # The refactor chain — dissolving the adapter shells, then folding the player
 
-**Status:** R1, R2, R3, R5 DONE; R4 re-checked and STOPPED as ruled (2026-07-10).
-R6 (the player fold) is the last slice, and its guardrail is now armed.
+**Status:** R1, R2, R3, R5 DONE; R4 re-checked and STOPPED as ruled; R6 IN PROGRESS
+(R6a + R6b landed; R6c — dissolving the `player/` directory — remains). 2026-07-10.
 Six slices, in dependency order.
 Each is committable on its own; each states its own exit check.
 
@@ -485,7 +485,88 @@ reason, and the poison test confirms it fails on a violation. Update
 
 ---
 
-## R6 — the player fold (S5/S6) + the `features/` rename
+## R6 — the player fold (S5/S6) + the `features/` rename — 🟡 IN PROGRESS (2026-07-10)
+
+**Gated on R5 (now green). The big one. A CHECKPOINTED refactor, per the
+unified-actors guardrail — each checkpoint lands green on main.**
+
+### ✅ R6a — body vocabulary leaves `player/` (committed)
+
+`crate::actor`'s module doc states the rule: shared body state lands on the actor
+vocabulary, never on a `Player*` component, because otherwise `crate::player` is a
+universal dependency sink. Two components were breaking it from inside `player/`:
+
+- **`BodyAnimFacts`** — a body's animation signal timers. It was **the single
+  biggest reason the sink existed**: 18 non-player modules imported
+  `crate::player` solely to name it. Pure vocabulary, no deps → re-homed DOWN to
+  `ambition_characters::actor::body`, beside `BodyCombat`/`BodyHealth`/`BodyWallet`
+  (whose own doc records the identical `PlayerWallet`→`BodyWallet` re-homing).
+- **`BodyMelee`** — already in `ambition_combat`; `player/components` merely
+  re-exported it. Deleted; non-player code now reaches it via `crate::actor`.
+
+Measured: the `crate::player` importer sink went **31 → 26** non-player files.
+
+### ✅ R6b — the slot-0 filters: one real fold, ten justified survivors (committed)
+
+**The fold found a bug.** `ability_cooldown::tick_ability_cooldown` filtered
+`With<PlayerEntity>, With<PrimaryPlayer>`, but `blink` and `grapple` are already
+SUBJECT-GENERIC (they act on `ControlledSubject` and arm the cooldown on *that*
+body). So a **possessed actor that blinked could never blink again** — its armed
+cooldown was never ticked down. The filter is gone; the system ticks every body;
+`a_possessed_body_cooldown_ticks_down_too` pins it. Folding a filter fixed a
+correctness bug, exactly as R2's retarget did.
+
+Every surviving sim-side slot-0 filter now uses the NAMED `PrimaryPlayerOnly`
+alias and carries a comment saying why (the exit check's second clause). Zero
+spelled-out `With<PlayerEntity>, With<PrimaryPlayer>` pairs remain in
+`ambition_actors`' non-test sources. Six modules — `gravity/lifecycle`,
+`ability_cooldown`, `items/persist`, `items/pickup`, `shrine`,
+`features/ecs/damage_apply` — no longer name the player markers at all.
+
+The survivors, and why:
+
+| Site | Why it is slot-0 |
+|---|---|
+| `possession.rs` `home_q` | the HOME AVATAR is a real concept — the body slot 0 returns to. It is *by definition* not the controlled subject during possession, so nothing else can find it |
+| `shrine.rs` | heals the touching body, but also writes a CHECKPOINT — a session fact owned by the local player |
+| `items/persist.rs` ×2 | the SAVE FILE is the local player's; `BodyWallet` is body vocabulary but only slot 0's balance round-trips |
+| `session/reset/mod.rs` | the reset warps THE player to the start-room spawn |
+| `time/time_control/` | bullet-time is a per-PLAYER feel clock (ADR 0010/0011); a second player emits its own intent |
+| `dialog/yarn_bindings.rs` | `$player_x`/`$player_y` are authored against the local player — dialogue is told to a human |
+| `dev/trace/systems.rs` | the replay trace records one body; per-slot traces are netcode N3 |
+| `features/ecs/damage_apply.rs` ×2 | the PLAYER-VICTIM path (hitstop, death banner, safe-position rewind). Actor-vs-actor damage runs the same `HitEvent` stream |
+| `gravity/lifecycle.rs` | a flip switch rewrites the ROOM's ambient gravity for everyone, so exactly one body may arm it |
+| `world/rooms/systems.rs` | fallback when `ControlledSubject` is not yet resolved (startup) |
+
+One is marked **SLOT-0 SCOPE, NOT BY DESIGN**: `items/pickup/mod.rs`'s
+`held_projectile_step`. A held bolt belongs to whichever body picked it up and
+should key off `ControlledSubject`. Retargeting a thrown bolt's owner changes hit
+attribution — feel — and that never ships blind. Left with the reason in the code.
+
+### ⏳ R6c — `player/` itself (NOT DONE)
+
+The directory still exists. What is left to place, by concern:
+
+- **the control seam** → a `control/` module: `input_systems.rs`,
+  `systems.rs::{populate_slot_controls, sync_local_player_input_frame}`,
+  `queries.rs`, and the components `PlayerInputFrame` / `LocalPlayer` /
+  `SlotGestures` / `SlotInteractionState`. (`PlayerSlot` and `SlotControls`
+  already live in `ambition_characters::brain`.) This is not player-centrism — it
+  is the device→slot→body path — and naming it so is most of the fold.
+- **body mechanics** → the actor tree: `body_integration.rs`, `movement_fx.rs`,
+  `trail.rs`, `swim.rs`, `ledge_grab.rs`, `affordances/`.
+- **home-avatar POLICY** (genuinely slot-0) → its own module: `bundles.rs`,
+  `starting_character.rs`, `events.rs`, `PlayerSafetyState`,
+  `PlayerBlinkCameraState`.
+
+Then the `features/` rename (508 internal + 199 external references), which the
+original plan says rides the fold.
+
+**Still deferred by prior ruling:** folding the player's `ProjectileSpawner`
+(cooldown + mana meter + charge state machine) onto `try_fire_ranged`. It changes
+player FEEL, rides the differential trace, and never ships blind.
+
+### The original analysis, for the record
 
 **Gated on R5. The big one. `player/` is 6.7k total / 4.3k production.**
 

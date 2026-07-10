@@ -284,6 +284,9 @@ fn write_target(target: &mut RequestedClockScale, domain: ClockDomain, scale: f3
 /// Step 3's per-entity `ProperTimeScale` component + `entity_dt`
 /// accessor are the seam where future MP / RL regimes diverge.
 pub fn emit_player_time_intent_system(
+    // SLOT-0 BY DESIGN: bullet-time is a per-PLAYER feel-clock affordance (ADR
+    // 0010/0011). Slot 0's blink slows slot 0's world; a second player would emit
+    // its own intent against its own clock, not fight over this one.
     primary: Query<(&crate::actor::BodyBlinkState, &BodyCombat), With<PrimaryPlayer>>,
     dev_state: Res<SandboxDevState>,
     feel: Res<SandboxFeelTuning>,

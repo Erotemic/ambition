@@ -15,7 +15,6 @@ use bevy::prelude::*;
 
 use crate::actor::BodyKinematics;
 use crate::actor::BodyMana;
-use crate::actor::{PlayerEntity, PrimaryPlayer};
 use ambition_characters::actor::BodyHealth;
 use ambition_characters::brain::ActorControl;
 use ambition_engine_core::{self as ae, AabbExt};
@@ -50,7 +49,11 @@ pub fn heal_save_shrine_system(
         &mut BodyHealth,
         &mut BodyMana,
     )>,
-    primary: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    // SLOT-0 BY DESIGN: a shrine heals the body that touched it (via
+    // `ControlledSubject`, above) but ALSO writes a CHECKPOINT to the save. The
+    // checkpoint is a session fact owned by the local player, not by whatever body
+    // slot 0 happens to be driving — hence the second, primary-scoped query.
+    primary: Query<Entity, crate::actor::PrimaryPlayerOnly>,
     shrines: Query<&HealShrine>,
     mut save: ResMut<ambition_persistence::save::SandboxSave>,
     mut activation: ResMut<ShrineActivationPulse>,
@@ -94,6 +97,7 @@ pub use ambition_platformer_primitives::shrine::ShrineActivationPulse;
 mod tests {
     use super::*;
     use crate::actor::BodyBaseSize;
+    use crate::actor::{PlayerEntity, PrimaryPlayer};
 
     #[test]
     fn interacting_at_the_shrine_heals_to_full() {

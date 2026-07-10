@@ -135,6 +135,9 @@ pub fn record_frame_system(
             &crate::player::PlayerInputFrame,
             &ambition_characters::actor::BodyCombat,
         ),
+        // SLOT-0 BY DESIGN: the deterministic replay trace records ONE body's
+        // trajectory, and the replay harness drives slot 0's input stream. A
+        // per-slot trace is netcode N3's concern, not this dev tool's.
         crate::actor::PrimaryPlayerOnly,
     >,
     #[cfg(feature = "portal")] mut teleported: MessageReader<ambition_portal::BodyTeleported>,

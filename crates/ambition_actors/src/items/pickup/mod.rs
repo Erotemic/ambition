@@ -13,7 +13,6 @@
 use bevy::prelude::*;
 
 use crate::actor::BodyKinematics;
-use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::features::HeldItem;
 use crate::platformer_runtime::prelude::SpawnScopedExt;
 use crate::player::PlayerInputFrame;
@@ -816,7 +815,12 @@ pub fn held_projectile_step(
         (Entity, &mut BodyKinematics, &mut HeldProjectile),
         Without<crate::features::FeatureSimEntity>,
     >,
-    player: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
+    // SLOT-0 SCOPE, NOT BY DESIGN — a held-bolt fold candidate the S5/S6 fold
+    // did not reach. A held projectile belongs to whichever body picked it up, so
+    // this should key off `ControlledSubject` like `blink`/`grapple` do. Left as-is
+    // because retargeting a thrown bolt's owner changes hit attribution (feel), and
+    // that never ships blind. Tracked in refactor-chain.md R6.
+    player: Query<Entity, crate::actor::PrimaryPlayerOnly>,
     ecs_breakables: Query<
         (
             &crate::features::FeatureId,

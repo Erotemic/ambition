@@ -262,8 +262,15 @@ impl<'a> Reader<'a> {
         Some(u64::from_le_bytes(self.take(8)?.try_into().ok()?))
     }
 
+    /// Only canonical `0`/`1` decode; any other byte is corruption, not `true` (third-pass
+    /// re-audit). `put_bool` writes exactly `0`/`1`, so a `2` in a `bool` slot is a malformed
+    /// blob a decoder must reject, not silently accept as truthy.
     pub fn bool(&mut self) -> Option<bool> {
-        Some(*self.take(1)?.first()? != 0)
+        match self.u8()? {
+            0 => Some(false),
+            1 => Some(true),
+            _ => None,
+        }
     }
 
     pub fn u8(&mut self) -> Option<u8> {
@@ -542,18 +549,28 @@ impl SnapshotRegistry {
                     let mut r = Reader::new(bytes);
                     match C::resolve(entity, &mut r) {
                         Some(value) => {
+                            // `resolve` gets only `&mut Reader`, so it cannot assert it consumed
+                            // the whole blob — a valid prefix followed by trailing garbage would
+                            // resolve and apply. The insert closure DOES hold the reader after
+                            // `resolve` returns, so it checks `finish` here: trailing bytes are a
+                            // malformed blob, `DecodeFailed`, not a silent success (third-pass
+                            // re-audit). A correct `encode_ref`/`resolve` pair consumes exactly.
+                            if r.finish().is_none() {
+                                return ApplyOutcome::DecodeFailed;
+                            }
                             entity.insert(value);
                             ApplyOutcome::Applied
                         }
-                        // `resolve` returns `None` for BOTH a decode failure and a vanished
-                        // authored half, and cannot distinguish them (the resolved-codec
-                        // residual — making `resolve` return `Result` is the named fix).
+                        // `resolve` returns `None` for BOTH a decode failure (e.g. a truncated
+                        // blob) and a vanished authored half, and cannot distinguish them (the
+                        // resolved-codec residual — making `resolve` return `Result` is the named
+                        // fix, and it is now ONLY about that distinction, not trailing bytes).
                         // Either way this row did NOT come back, so it is `Unapplied`: the
                         // component is dropped (honest for a save whose content changed) and
-                        // `lossless()` is denied (honest for a rollback). It is deliberately
-                        // NOT `DecodeFailed` — that would refuse a legitimate content change as
-                        // if the bytes were corrupt. The old bare `true` here reported success
-                        // for a row that never returned (re-audit finding 3).
+                        // `lossless()` is denied (honest for a rollback). It is deliberately NOT
+                        // `DecodeFailed` — that would refuse a legitimate content change as if the
+                        // bytes were corrupt. The old bare `true` reported success for a row that
+                        // never returned (re-audit finding 3).
                         None => {
                             entity.remove::<C>();
                             ApplyOutcome::Unapplied
@@ -692,7 +709,12 @@ impl SnapshotRegistry {
                         // The resource did not exist at the snapshot tick. Restoring exactly
                         // means it must not exist now: a resource created after the snapshot is
                         // a future birth, removed to match (where the old empty-blob no-op left
-                        // it standing — the absence/empty conflation, re-audit finding 4).
+                        // it standing — the absence/empty conflation, re-audit finding 4). The
+                        // absence blob is JUST the tag, so trailing bytes are corruption the
+                        // remove path must still reject (third-pass re-audit): `finish` first.
+                        if r.finish().is_none() {
+                            return ApplyOutcome::DecodeFailed;
+                        }
                         world.remove_resource::<R>();
                         return ApplyOutcome::Applied;
                     }
@@ -1623,18 +1645,36 @@ fn validate_snapshot(
     let roster: std::collections::BTreeSet<&str> =
         snapshot.roster.iter().map(String::as_str).collect();
 
-    // Every snapshot entry: known to the registry, of the matching kind, present once — and
-    // each component row sorted, unique, and a roster member.
-    let mut seen: std::collections::BTreeSet<&str> = std::collections::BTreeSet::new();
-    for (name, blob) in &snapshot.entries {
-        if !seen.insert(*name) {
-            return Err(malformed(format!("entry `{name}` appears more than once")));
-        }
-        let Some(entry) = registry.entries.iter().find(|e| e.name == *name) else {
+    // **Entry order must match the registry's non-diagnostic order EXACTLY** (third-pass
+    // re-audit). `take` emits registry order; `restore` iterates `snapshot.entries` directly,
+    // so a permuted deserialized snapshot is operationally significant — a resolved codec
+    // inspects OTHER components on the entity, and a reorder could resolve one before a
+    // registered dependency is restored, even though the same entries in registry order would
+    // apply. Requiring the exact order (which also subsumes unknown / missing / duplicate
+    // entries in one comparison) removes the untrusted snapshot's ability to choose it.
+    let expected: Vec<&StateEntry> = registry
+        .entries
+        .iter()
+        .filter(|e| !matches!(e.kind, EntryKind::Diagnostic { .. }))
+        .collect();
+    if snapshot.entries.len() != expected.len() {
+        return Err(malformed(format!(
+            "snapshot has {} entries; the registry has {} non-diagnostic entries",
+            snapshot.entries.len(),
+            expected.len()
+        )));
+    }
+    for (i, ((name, blob), entry)) in snapshot.entries.iter().zip(&expected).enumerate() {
+        if *name != entry.name {
             return Err(malformed(format!(
-                "entry `{name}` names no registered state"
+                "entry {i} is `{name}`, but the registry expects `{}` there \
+                 (snapshot entry order must match registry order)",
+                entry.name
             )));
-        };
+        }
+        // Kind agreement + per-component-row canonical form. A `Diagnostic` cannot appear in
+        // `expected` (filtered out), so the only kind failure is a component blob under a
+        // resource entry or the reverse.
         match (&entry.kind, blob) {
             (EntryKind::Component { .. }, EntryBlob::Component(rows)) => {
                 let mut prev: Option<&str> = None;
@@ -1665,31 +1705,11 @@ fn validate_snapshot(
                 EntryKind::Resource { .. } | EntryKind::ResourceCursor { .. },
                 EntryBlob::Resource(_),
             ) => {}
-            (EntryKind::Diagnostic { .. }, _) => {
-                return Err(malformed(format!(
-                    "entry `{name}` names a diagnostic, which is never snapshotted"
-                )))
-            }
-            // A component blob under a resource entry, or the reverse.
             (_, _) => {
                 return Err(malformed(format!(
                     "entry `{name}` blob kind does not match its registry kind"
                 )))
             }
-        }
-    }
-
-    // No non-diagnostic registered entry may be missing: `take` emits one per such entry, so an
-    // absent one is a snapshot from a different (older) registry, which restore cannot honor.
-    for entry in &registry.entries {
-        if matches!(entry.kind, EntryKind::Diagnostic { .. }) {
-            continue;
-        }
-        if !seen.contains(entry.name) {
-            return Err(malformed(format!(
-                "registered entry `{}` is missing from the snapshot",
-                entry.name
-            )));
         }
     }
     Ok(())
@@ -4357,6 +4377,107 @@ mod tests {
             other => {
                 panic!("restore accepted a kind-mismatched entry instead of refusing: {other:?}")
             }
+        }
+    }
+
+    /// **A reordered snapshot is refused** (third-pass re-audit). `restore` iterates
+    /// `snapshot.entries` directly, so a permuted deserialized snapshot is operationally
+    /// significant (a resolved codec could resolve before a registered dependency is applied).
+    /// `validate_snapshot` now requires the exact registry order.
+    #[test]
+    fn a_reordered_snapshot_is_rejected() {
+        let reg = engine_registry();
+        let mut world = sim_world();
+        let mut snap = take(&world, &reg);
+        assert!(snap.entries.len() >= 2, "need two entries to reorder");
+        snap.entries.swap(0, 1);
+        match restore(&mut world, &snap, &reg) {
+            Err(RestoreError::MalformedSnapshot { .. }) => {}
+            other => panic!("restore accepted a reordered snapshot instead of refusing: {other:?}"),
+        }
+    }
+
+    /// **A resource-cursor absence blob rejects trailing bytes and a non-canonical tag**
+    /// (third-pass re-audit). The `false` (absent) path used to remove the resource and report
+    /// success WITHOUT exhausting the reader, and `Reader::bool` accepted any nonzero byte as
+    /// `true`. Both are corruption a decoder must refuse.
+    #[test]
+    fn a_resource_cursor_absence_blob_rejects_trailing_bytes_and_a_bad_tag() {
+        let mut reg = engine_registry();
+        reg.register_resource_cursor::<TestBoard>("test_board");
+
+        fn restore_with_board_blob(
+            reg: &SnapshotRegistry,
+            blob: Vec<u8>,
+        ) -> Result<RestoreReport, RestoreError> {
+            let mut world = sim_world(); // TestBoard absent -> tagged `false`
+            let mut snap = take(&world, reg);
+            for (name, b) in snap.entries.iter_mut() {
+                if *name == "test_board" {
+                    *b = EntryBlob::Resource(blob.clone());
+                }
+            }
+            restore(&mut world, &snap, reg)
+        }
+
+        // Absence tag (0) + trailing bytes: corruption, not a clean removal.
+        assert!(
+            matches!(
+                restore_with_board_blob(&reg, vec![0, 0xAB]),
+                Err(RestoreError::DecodeFailed { .. })
+            ),
+            "trailing bytes after an absence tag were accepted"
+        );
+        // A non-canonical presence tag (2) is not `true`.
+        assert!(
+            matches!(
+                restore_with_board_blob(&reg, vec![2]),
+                Err(RestoreError::DecodeFailed { .. })
+            ),
+            "a non-canonical presence tag (2) was accepted as `true`"
+        );
+        // Sanity: the clean absence blob (just the tag) still applies.
+        assert!(
+            restore_with_board_blob(&reg, vec![0]).is_ok(),
+            "a clean absence tag must still remove-and-apply"
+        );
+    }
+
+    /// **A resolved blob with trailing garbage is refused** (third-pass re-audit). `resolve`
+    /// reads only a prefix and cannot itself assert the whole blob was consumed (it holds only
+    /// `&mut Reader`); the insert closure now checks `finish()` after a `Some`, so a valid
+    /// prefix followed by bytes nobody wrote is `DecodeFailed`, not a silent success.
+    #[test]
+    fn a_resolved_blob_with_trailing_bytes_is_rejected() {
+        let mut reg = engine_registry();
+        reg.register_resolved::<Playing>("playing");
+        let mut world = sim_world();
+        let boss = *live_ids(&mut world).get("placement:boss-1").unwrap();
+        world.entity_mut(boss).insert((
+            Catalog(vec![("smash".into(), 20.0)]),
+            Playing {
+                power: 20.0,
+                id: "smash".into(),
+                t: 0.25,
+            },
+        ));
+        let mut snap = take(&world, &reg);
+
+        // Append a byte nobody encoded to the boss's `playing` row.
+        for (name, blob) in snap.entries.iter_mut() {
+            if *name == "playing" {
+                if let EntryBlob::Component(rows) = blob {
+                    for (id, bytes) in rows.iter_mut() {
+                        if id == "placement:boss-1" {
+                            bytes.push(0xFF);
+                        }
+                    }
+                }
+            }
+        }
+        match restore(&mut world, &snap, &reg) {
+            Err(RestoreError::DecodeFailed { entry, .. }) => assert_eq!(entry, "playing"),
+            other => panic!("a resolved blob with trailing garbage was accepted: {other:?}"),
         }
     }
 

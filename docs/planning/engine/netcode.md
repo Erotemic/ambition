@@ -483,16 +483,24 @@ snapshots needed. Needs N0 complete, plus:
 
   | room | first divergence | what restore did | remaining cause |
   |---|---|---|---|
-  | `mockingbird_arena` | tick 0 | all patched | **boss brain state** |
-  | `gnu_ton_arena` | tick 8 | all patched | **boss brain state** |
-  | `portal_lab` | tick 0 | 1 respawned | a naked respawn |
+  | `mockingbird_arena` | tick **21** | all patched | the boss's `timeline` re-resolved |
+  | `gnu_ton_arena` | tick 0 | all patched | `PerceptionPeers`, a RESOURCE |
+  | `portal_lab` | tick 0 | 1 **respawned** | a naked respawn |
 
-  **The two arenas have ONE disease, not two.** Probing the world immediately after a
-  restore shows every registered entry matching exactly — the rewind is right. What
-  leaks is `BossPatternTimer`, `BossAttackState`, `BossPhase`, `BossAttackIntent`, and
-  `MovePlayback`: a boss resumes its pattern from the tick we rewound FROM. Mockingbird
-  reacts on tick 0 and Gnu-Ton takes eight, which is a difference in how quickly a
-  brain's decision reaches a body — not a difference in cause.
+  **Each of the three is a cause this document already named**, which is the point at
+  which a debt stops being a mystery and becomes a schedule:
+
+  1. `mockingbird_arena` diverges on `move_playback` / `boss_attack_state` / `brain` at
+     tick **21** — not tick 0. It replays exactly for twenty ticks, then the boss's
+     `BossPatternState.timeline` is *re-resolved* inside the window, and the `Brain`
+     cursor deliberately does not rewind it. **That is the "a rollback window must not
+     span a pattern re-resolve" constraint, observed.**
+  2. `gnu_ton_arena` diverges on `perception_memory` **alone**. The memory rewinds
+     exactly; what feeds it does not — `PerceptionPeers` is a **resource**, and
+     resources were invisible to the ledger until the section above.
+  3. `portal_lab` is the only room where `restore` reports `respawned > 0`, and its
+     divergence is everything at once on the first tick: a respawned entity comes back
+     carrying only its registered components.
 
   So the remaining work, in order:
 

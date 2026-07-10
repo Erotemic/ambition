@@ -626,3 +626,4 @@ fn the_content_crate_registers_its_own_boss_special_state() {
         );
     }
 }
+

@@ -15,35 +15,29 @@ This is the repository operating guide for coding agents. Keep it short, session
 
 For non-trivial work, read in this order:
 
-1. `README.md`
-2. `AGENTS.md`
-3. `dev/README.md`
-4. `dev/SEARCH.md`
-5. `docs/README.md`
-6. `docs/planning/README.md` → `docs/planning/vision.md` + `docs/planning/tracks.md` (the master plan + live queue)
-7. The crate's `MODULES.md` (its modules + the ONE concern each declares)
-8. One focused concept, system doc, recipe, tool doc, or planning doc for the task
+1. `README.md`; `AGENTS.md`; `dev/README.md`; `dev/SEARCH.md`; `docs/README.md`.
+2. `docs/planning/README.md` → `docs/planning/vision.md` + `docs/planning/tracks.md` (the master plan + live queue)
+3. The crate's `MODULES.md` (its modules + the ONE concern each declares)
+4. One focused concept, system doc, recipe, tool doc, or planning doc for the task
 
 Do not read all of `docs/` or `dev/` by default.
 
 ## Source-of-truth order
 
 1. Fresh user instructions.
-2. **The master plan under `docs/planning/`** — the single source of truth
-   for direction and tasking ("implement the plan in docs/planning" is the
-   standing job). Its living-plan discipline (`docs/planning/README.md`) is
-   binding: work commits update the plan in the same commit.
-3. ADRs under `docs/adr/`.
-4. Concept pages under `docs/concepts/`.
-5. Focused system/tool docs and recipes under `docs/systems/`, `docs/tools/`, and `docs/recipes/`.
-6. Brainstorms under `docs/brainstorms/` (Jon's — agents never write there).
-7. Engineering memory under `dev/`.
-8. Generated navigation indexes under `.agent/`.
+2. **The master plan under `docs/planning/`** — the single source of truth for
+   direction and tasking ("implement the plan in docs/planning" is the standing
+   job). Its living-plan discipline (`docs/planning/README.md`) is binding: work
+   commits update the plan in the same commit.
+3. ADRs under `docs/adr/`; concept pages under `docs/concepts/`.
+4. Focused system/tool docs and recipes under `docs/systems/`, `docs/tools/`, `docs/recipes/`.
+5. Brainstorms under `docs/brainstorms/` (Jon's — agents never write there).
+6. Engineering memory under `dev/`; generated navigation indexes under `.agent/`.
 
-`docs/current/` is retired (archived 2026-07-05); `docs/vision/` holds
-auxiliary vision notes only — direction lives in `docs/planning/`.
-
-Historical notes under `docs/archive/` are evidence, not current authority. Generated indexes aid localization but do not override source files.
+`docs/current/` is retired (archived 2026-07-05); `docs/vision/` holds auxiliary
+vision notes only — direction lives in `docs/planning/`. Historical notes under
+`docs/archive/` are evidence, not authority; generated indexes aid localization
+but do not override source files.
 
 ## Current architectural stance
 
@@ -54,66 +48,70 @@ Historical notes under `docs/archive/` are evidence, not current authority. Gene
 - **Crate layering:** foundations ← machinery (`ambition_actors`, being
   decomposed) ← presentation (`ambition_render`) ← content (`ambition_content`)
   ← app (`ambition_app`, the only crate naming both machinery and content;
-  `architecture_boundaries` enforces it). The target stack and the teardown
-  playbook: `docs/planning/engine/architecture.md` +
-  `docs/planning/engine/decomposition.md`.
+  the `ambition_workspace_policy` guards enforce it). Target stack + teardown:
+  `docs/planning/engine/architecture.md` + `.../decomposition.md`.
 
 ## Autonomous decision-making
 
 When operating autonomously and you hit an architecture or design fork, **make
 the choice Jon would most likely make and act** — read
-`docs/planning/decision-principles.md` (Jon's criteria) and
-`docs/concepts/autonomous-decision-making.md`. Reserve questions for
-product/scope, irreversible/outward-facing acts, or true intent ambiguity;
-otherwise infer and keep going — do not stall to ask. Until a polish pass,
-output/feel is not a constraint. The gates: it compiles (including
-`ambition_app`) and invariants hold.
+`docs/planning/decision-principles.md` + `docs/concepts/autonomous-decision-making.md`.
+Reserve questions for product/scope, irreversible/outward-facing acts, or true
+intent ambiguity; otherwise infer and keep going. Until a polish pass, output/feel
+is not a constraint. The gates: it compiles (including `ambition_app`) and
+invariants hold.
 
 ## Verification
 
-* **Drive the real headless sim — don't say "I can't test it."** The game runs
-  headless (`headless` / `trace_replay` binaries); step the actual simulation
-  and observe. If the real sim can't be exercised headlessly from some state,
-  fixing THAT is the priority. Only visual feel is exempt (ships BLIND).
-* **Test invariants and properties, not tuned values or feel** — the strongest
-  are symmetry/covariance (C4 gravity rotation, through-portal). No new
-  regression tests pinning unpolished behavior.
-* **Bit-identical / replay tests are canaries, not cages** — a failure is
-  information; re-baseline when the diff isn't egregious.
-  Full doctrine: `docs/planning/engine/headless-verification.md`.
+* **Drive the real headless sim — don't say "I can't test it."** Step the actual
+  sim (`headless` / `trace_replay`) and observe; if a state can't be exercised
+  headlessly, fixing THAT is the priority. Only visual feel ships BLIND.
+* **Test invariants/properties, not tuned values or feel** — strongest are
+  symmetry/covariance (C4 gravity, through-portal); no regression tests pinning
+  unpolished behavior.
+* **Replay/bit-identical tests are canaries, not cages** — a failure is info;
+  re-baseline when the diff isn't egregious. Full doctrine:
+  `docs/planning/engine/headless-verification.md`.
+
+## Test placement (binding)
+
+A test lives at the **narrowest scope that owns its invariant**: small local
+invariants inline; large private modules in an adjacent `src/foo/tests.rs`
+(**never widen a production API to move a test**); public/assembled-system
+behavior in the owning crate's `tests/`; workspace source/dependency/module-size/
+architecture rules ONLY in `tests/ambition_workspace_policy` (links no production
+crate, so never compiles `ambition_app`). Poison + non-vacuity checks stay with
+what they validate; a green empty scan is a failure. Full rules + commands:
+`docs/concepts/test-placement.md`.
 
 ## Spatial authoring discipline (LDtk, gates, hitboxes)
 
 Before asking "where exactly?", read
 `docs/concepts/llm-spatial-authoring-discipline.md`: read the map, infer the
-component's PURPOSE, place it on the seam that fulfils it, state the
-reasoning in the commit message. Asking "where?" is the wrong default.
+component's PURPOSE, place it on the seam that fulfils it, state the reasoning in
+the commit. Asking "where?" is the wrong default.
 
 ## Engineering memory and benchmark candidates
 
 Before a non-trivial patch: `rg -n "<subsystem>|<symptom>" dev/journals
-dev/benchmark-candidates` (postmortems + invariant traps). Add durable
-lessons to `dev/benchmark-candidates/` + its index — never transient state.
+dev/benchmark-candidates` (postmortems + invariant traps). Add durable lessons to
+`dev/benchmark-candidates/` + its index — never transient state.
 
 ## Generated indexes
 
 `.agent/index/` is generated + git-ignored; each crate root's `MODULES.md` is
 generated + committed. Regenerate/check: `python scripts/generate_agent_index.py
-&& python scripts/check_agent_kb.py && python scripts/check_doc_links.py && python
-scripts/modules_md.py`.
+&& python scripts/check_agent_kb.py && python scripts/check_doc_links.py &&
+python scripts/modules_md.py`.
 
-## Commit messages
-
-- Make detailed commit messages as you might normally do it, but also include a
-  summary of the prompt that inspired them. I.e. why the change is being made.
+## Commit messages: detailed, plus a summary of the prompt that inspired them (why).
 
 ## Patch discipline
 
-- Prefer reviewable changes with targeted validation.
-- Do not hand-edit `sandbox.ldtk`; use Ambition LDtk tooling.
-- Update concepts, recipes, ADRs, or dev memory when a durable invariant changes.
-
-## Style: `cargo fmt` on modified Rust files; `ruff format` on modified Python files.
+- Prefer reviewable changes with targeted validation; don't hand-edit
+  `sandbox.ldtk` (use Ambition LDtk tooling); update concepts/recipes/ADRs/dev
+  memory when a durable invariant changes.
+- Style: `cargo fmt` on modified Rust files; `ruff format` on modified Python.
 
 ## Common validation commands
 
@@ -121,6 +119,7 @@ scripts/modules_md.py`.
 cargo fmt --check
 cargo test -p ambition_actors --lib
 cargo test -p ambition_content --all-features
+cargo test -p ambition_workspace_policy    # source/dependency/architecture policy
 cargo run -p ambition_app --bin headless
 python scripts/check_agent_kb.py && python scripts/check_doc_links.py
 python scripts/modules_md.py          # each crate's MODULES.md is current

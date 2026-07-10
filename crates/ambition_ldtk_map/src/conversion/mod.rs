@@ -646,6 +646,7 @@ fn standard_converters() -> &'static BTreeMap<&'static str, LdtkEntityConverter>
         map.insert("KinematicPath", convert_kinematic_path);
         map.insert("SurfaceChain", convert_surface_chain);
         map.insert("SurfaceLoop", convert_surface_loop);
+        map.insert("SurfaceRamp", convert_surface_ramp);
         map.insert("Prop", convert_prop);
         map.insert("NpcSpawn", convert_npc_spawn);
         map.insert("PickupSpawn", convert_pickup_spawn);

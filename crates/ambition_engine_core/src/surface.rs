@@ -446,13 +446,33 @@ fn advance_riding(
         }
         // Concave (or tiny) joins always follow: the surface pushes.
         // Nudge past the join so frame_at resolves the next segment.
-        current += remaining.signum() * 1.0e-4;
-        remaining -= remaining.signum() * 1.0e-4;
+        //
+        // The nudge must be RELATIVE. A fixed `1e-4` is under one f32 ULP once the
+        // arc length passes ~800px (ULP at 857 is 6.1e-5), so on a long chain the
+        // nudge rounded back to the joint, `frame_at` kept resolving the segment
+        // that STARTS there, `to_join` stayed 0, and the bounded walk spun out
+        // without advancing. The body froze on the joint, riding, forever — with
+        // its velocity intact, which is what made it look like a physics puzzle
+        // rather than a rounding bug. Found by the `SurfaceRamp` winding oracle
+        // (Q27), whose lead-in chain is long enough to reach the failure.
+        let nudge = joint_nudge(current);
+        current += remaining.signum() * nudge;
+        remaining -= remaining.signum() * nudge;
         if chain.closed {
             current = current.rem_euclid(total);
         }
     }
     RideOutcome::Riding { s: current }
+}
+
+/// A step past a joint that is guaranteed to be representable at `s`.
+///
+/// `f32` spacing grows with magnitude: at `s = 857` one ULP is 6.1e-5, so an
+/// absolute `1e-4` is barely more than one and can round away entirely. Eight ULPs
+/// is unambiguous and still far below any geometric scale, with a floor for small
+/// `s` where ULPs are tiny.
+fn joint_nudge(s: f32) -> f32 {
+    (s.abs() * f32::EPSILON * 8.0).max(1.0e-4)
 }
 
 /// Arc length at the START of segment `i`.
@@ -1663,5 +1683,71 @@ mod tests {
             );
         }
         assert!(body.riding(), "a landing at the tip is a landing");
+    }
+
+    /// **A body must be able to cross a joint anywhere on a long chain.**
+    ///
+    /// `advance_riding` nudges past a joint so `frame_at` resolves the segment it
+    /// entered. The nudge was a fixed `1e-4` — under one f32 ULP once the arc
+    /// length passes ~800px. On a long chain the nudge rounded back to the joint,
+    /// `to_join` stayed 0, and the bounded walk spun out without advancing: the
+    /// body froze ON the joint, still `Riding`, still carrying its velocity. That
+    /// last detail is why it read as a physics puzzle instead of a rounding bug.
+    ///
+    /// The valley tests never caught it because their joints sit at s ≈ 500, where
+    /// `1e-4` is comfortably many ULPs.
+    #[test]
+    fn a_body_crosses_a_joint_far_along_a_long_chain_in_both_directions() {
+        // A flat run, then a gentle bend, then more flat — the joint at s ≈ 1500.
+        let chain = SurfaceChain::open(
+            "long",
+            vec![
+                Vec2::new(0.0, 400.0),
+                Vec2::new(1500.0, 400.0),
+                Vec2::new(2500.0, 380.0),
+            ],
+        );
+        let world = world_with_chains(vec![chain]);
+        let params = frictionless();
+
+        for (start_s, v_t, name) in [(1400.0, 600.0, "forward"), (1600.0, -600.0, "backward")] {
+            let mut body = ride(0, start_s, v_t, &world, 14.0);
+            let x0 = body.pos.x;
+            for _ in 0..60 {
+                step_surface_body(
+                    &mut body,
+                    &world,
+                    &params,
+                    G,
+                    SurfaceInputs {
+                        run: v_t.signum(),
+                        jump_pressed: false,
+                    },
+                    DT,
+                    None,
+                );
+            }
+            let travelled = (body.pos.x - x0) * v_t.signum();
+            assert!(
+                travelled > 400.0,
+                "{name}: the body moved {travelled:.1}px in one second at 600px/s — \
+                 it stalled on the joint at s≈1500"
+            );
+            assert!(body.riding(), "{name}: it should still be on the chain");
+        }
+    }
+
+    /// The nudge is representable wherever it is applied. A nudge smaller than one
+    /// ULP is a nudge that never happened.
+    #[test]
+    fn the_joint_nudge_always_moves_the_arc_length() {
+        for s in [0.0_f32, 1.0, 100.0, 857.0, 10_000.0, 1_000_000.0] {
+            let n = joint_nudge(s);
+            assert!(s + n > s, "nudge {n} vanished at s={s}");
+            assert!(
+                s - n < s || s == 0.0,
+                "nudge {n} vanished downward at s={s}"
+            );
+        }
     }
 }

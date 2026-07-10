@@ -1302,3 +1302,16 @@ A verb that *reads* a convention audits it. Building the demo against the real k
 The earlier pass proved (1) every boss sheet resolves a catalog path and (2) the render key is the behavior id, not the `sprite_target` — both true, both gate-enforced, neither the bug. What found it was **running the real sim in the real rooms and reading the real read-models**, then asserting a property nobody had written down: *no id is claimed by two sprite upgraders*. When static reasoning has ruled out everything and the bug persists, stop reasoning about the code and go read what the code actually produced.
 
 Corollary, from the same session: `for_authored_boss` fell back to `BossBehaviorProfile::generic(slug)` **silently**, which is how `basement_boss` shipped for months with `PhaseScript:tri_slam_sweep_halo` — a pattern name, not a boss id. *A thing that is generic by accident looks exactly like a thing that is generic by design.* Every silent fallback that produces a plausible-looking result needs a warning, or it becomes permanent.
+
+---
+
+**Date:** 2026-07-10. **Context:** Q27's `SurfaceRamp` winding oracle — a 4-case test in which a momentum body rides each quarter-circle fillet — refused to pass. The bug was not in the ramp.
+
+### Transferable lesson — an absolute epsilon is a relative bug waiting for a big number
+- `advance_riding` nudged past a chain joint by a fixed `1.0e-4` so `frame_at` would resolve the segment it had entered. At `s ≈ 857`, one f32 ULP is `6.1e-5`: the nudge was 1.6 ULPs and could round straight back to the joint. Then `frame_at` kept resolving the segment that STARTS there, `to_join` stayed `0`, the bounded walk spun out without advancing, and the body **froze on the joint — still `Riding`, still carrying its velocity.**
+- **That last detail is why it took so long.** A frozen body with `vel = (-897, 0)` looks like a physics puzzle (a stick rule? a launch? a brake?), not a rounding bug. The tell was that `s` and `v_t` were *bit-identical* frame over frame: a body that is being simulated changes something.
+- The existing valley/loop tests never caught it because their joints sit at `s ≈ 500`, where `1e-4` is comfortably many ULPs. **A test fixture's SCALE is part of its coverage.** Doubling a lead-in length is a real test-matrix axis for anything that walks an accumulated arc length, a texture coordinate, or a timeline.
+- Rule: an epsilon compared against an accumulating quantity must be **relative** to that quantity (`(s.abs() * f32::EPSILON * 8.0).max(1e-4)`), or the code is correct only near the origin.
+
+### Corollary — the second bug hid behind the first
+Once the kernel was fixed, two of four cases still failed: I had been holding the stick "toward the corner" in WORLD `+x`, but `SurfaceInputs::run` is along the **chain's tangent** (increasing arc length), whose world direction depends on the winding the converter derived. Obvious afterwards; invisible in the arc table. Both bugs were found because the doc insisted the winding be proven by *riding* the ramp rather than by inspecting its points — `docs/planning/engine/spatial-model.md` §SurfaceRamp: *"the test catches what inspection doesn't."* It was right twice.

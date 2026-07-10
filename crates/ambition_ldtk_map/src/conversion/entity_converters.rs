@@ -170,6 +170,140 @@ pub(super) fn convert_surface_loop(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissi
     Ok(RoomEmission::chain(loop_chain))
 }
 
+/// The four corners a [`convert_surface_ramp`] fillet can round.
+///
+/// Named by the two surfaces it joins, in travel order: `FloorToRightWall` runs
+/// along a floor in `+x` and turns up a wall on its right.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RampOrientation {
+    FloorToRightWall,
+    FloorToLeftWall,
+    CeilingToRightWall,
+    CeilingToLeftWall,
+}
+
+impl RampOrientation {
+    fn parse(s: &str) -> Option<Self> {
+        match s {
+            "FloorToRightWall" => Some(Self::FloorToRightWall),
+            "FloorToLeftWall" => Some(Self::FloorToLeftWall),
+            "CeilingToRightWall" => Some(Self::CeilingToRightWall),
+            "CeilingToLeftWall" => Some(Self::CeilingToLeftWall),
+            _ => None,
+        }
+    }
+
+    /// The SOLID corner the fillet rounds, within the marker's box.
+    fn corner(self, min: ae::Vec2, max: ae::Vec2) -> ae::Vec2 {
+        // `+y` is DOWN, so a floor is at `max.y` and a ceiling at `min.y`.
+        match self {
+            Self::FloorToRightWall => ae::Vec2::new(max.x, max.y),
+            Self::FloorToLeftWall => ae::Vec2::new(min.x, max.y),
+            Self::CeilingToRightWall => ae::Vec2::new(max.x, min.y),
+            Self::CeilingToLeftWall => ae::Vec2::new(min.x, min.y),
+        }
+    }
+
+    /// Unit vector from the corner toward the arc CENTER — i.e. into the open
+    /// room. Each component is `±1`, so the base arc table mirrors by sign alone.
+    fn into_room(self) -> ae::Vec2 {
+        match self {
+            Self::FloorToRightWall => ae::Vec2::new(-1.0, -1.0),
+            Self::FloorToLeftWall => ae::Vec2::new(1.0, -1.0),
+            Self::CeilingToRightWall => ae::Vec2::new(-1.0, 1.0),
+            Self::CeilingToLeftWall => ae::Vec2::new(1.0, 1.0),
+        }
+    }
+}
+
+/// `SurfaceRamp` — the **quarter-circle fillet** that lets a momentum body carry
+/// its speed from a floor onto a wall (Q27; pinned math in
+/// `docs/planning/engine/spatial-model.md` §`SurfaceRamp`).
+///
+/// Fields: `radius` (px, required), `orientation` (one of the four
+/// [`RampOrientation`] names, default `FloorToRightWall`), `segments` (polygon
+/// resolution, default 8, min 2).
+///
+/// AMBITION_REVIEW(spatial): the arc table is the doc's, verbatim, for the base
+/// orientation. **The winding sign is NOT hand-derived per orientation** — the
+/// doc explicitly forbids that, and it is right to: a floor's outward normal must
+/// point up, a ceiling's down, and mirroring the point list flips the sign of
+/// `normal = (t.y, -t.x)` in a way that is genuinely hard to see. Instead the
+/// converter DERIVES the order: a fillet's surface normal points from the arc
+/// toward its center, so the point list is reversed whenever the first segment's
+/// normal points away from it. One code path, four orientations, and the winding
+/// oracle (`surface_ramp_winding_oracle`) proves each one by riding it.
+pub(super) fn convert_surface_ramp(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
+    let (entity, name, min, size) = ctx.parts();
+    let radius = field_f32(entity, "radius").unwrap_or(0.0);
+    if radius <= 0.0 {
+        return Err("SurfaceRamp requires a positive `radius`".to_string());
+    }
+    let orientation = match field_string(entity, "orientation") {
+        Some(s) => RampOrientation::parse(&s)
+            .ok_or_else(|| format!("SurfaceRamp: unknown orientation `{s}`"))?,
+        None => RampOrientation::FloorToRightWall,
+    };
+    let segments = field_i32(entity, "segments").unwrap_or(8).max(2) as usize;
+
+    let points = surface_ramp_points(
+        orientation.corner(min, min + size),
+        radius,
+        orientation,
+        segments,
+    );
+    let points = offset_points(points, ctx.offset);
+    let chain = ae::SurfaceChain::open(name, points);
+    let problems = chain.validate();
+    if !problems.is_empty() {
+        return Err(problems.join("; "));
+    }
+    Ok(RoomEmission::chain(chain))
+}
+
+/// The arc, in the order that makes its normals point into the room.
+///
+/// Base table (spatial-model.md, `+y` is DOWN, `FloorToRightWall`, corner
+/// `(x1, y0)`):
+///
+/// ```text
+/// C    = (x1 − r, y0 − r)
+/// P(θ) = C + r · (sin θ, cos θ),  θ ∈ [0°, 90°]
+/// P(0°)  = (x1 − r, y0)   — tangent on the floor
+/// P(90°) = (x1, y0 − r)   — tangent on the wall
+/// ```
+///
+/// The other three are axis mirrors of the SAME table, which `into_room()`'s
+/// `±1` components apply.
+pub fn surface_ramp_points(
+    corner: ae::Vec2,
+    radius: f32,
+    orientation: RampOrientation,
+    segments: usize,
+) -> Vec<ae::Vec2> {
+    let sign = orientation.into_room();
+    let center = corner + sign * radius;
+    let n = segments.max(2);
+    let mut points: Vec<ae::Vec2> = (0..=n)
+        .map(|k| {
+            let theta = std::f32::consts::FRAC_PI_2 * (k as f32) / (n as f32);
+            // Base table, then mirrored by `sign`. `sin` runs along the wall axis
+            // and `cos` along the floor axis, exactly as the doc writes it.
+            center + ae::Vec2::new(-sign.x * theta.sin(), -sign.y * theta.cos()) * radius
+        })
+        .collect();
+
+    // Derive the winding rather than tabulate it. `SurfaceChain`'s outward normal
+    // is `(t.y, -t.x)`; on a fillet it must point from the surface toward the arc
+    // center. If the first segment's does not, the list runs the wrong way.
+    let t = (points[1] - points[0]).normalize_or_zero();
+    let normal = ae::Vec2::new(t.y, -t.x);
+    if normal.dot(center - points[0]) < 0.0 {
+        points.reverse();
+    }
+    points
+}
+
 pub(super) fn convert_kinematic_path(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, String> {
     let (entity, name, min, size) = ctx.parts();
     let offset = ctx.offset;
@@ -610,4 +744,232 @@ pub(super) fn convert_switch(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmission, St
     );
     record.name = name;
     Ok(RoomEmission::placement(record))
+}
+
+/// **The winding oracle for `SurfaceRamp` (Q27).**
+///
+/// `docs/planning/engine/spatial-model.md`: *"Do NOT hand-derive the winding sign
+/// per orientation … let the WINDING ORACLE decide correctness — a 4-case
+/// parameterized headless test in which a momentum body enters each ramp along
+/// the floor at speed and must EXIT moving up the wall … A sign error flips a case
+/// from 'climbs the wall' to 'launches off/clips' — the test catches what
+/// inspection doesn't."*
+///
+/// So it is not inspected. It is ridden.
+#[cfg(test)]
+mod surface_ramp_winding_oracle {
+    use super::{surface_ramp_points, RampOrientation};
+    use ambition_engine_core as ae;
+
+    const R: f32 = 200.0;
+    const SEGMENTS: usize = 8;
+    const CORNER: ae::Vec2 = ae::Vec2::new(600.0, 400.0);
+    const DT: f32 = 1.0 / 60.0;
+    /// Fast enough to be momentum, slow enough that a 200px fillet can supply the
+    /// centripetal demand (`v²·angle/r_body` vs `stick_factor · press`). A body
+    /// that launches off the ramp is a level-design fact, not a winding bug.
+    const SPEED: f32 = 300.0;
+
+    fn corner_for(o: RampOrientation) -> ae::Vec2 {
+        let x = match o {
+            RampOrientation::FloorToRightWall | RampOrientation::CeilingToRightWall => CORNER.x,
+            _ => CORNER.x - 2.0 * R,
+        };
+        let y = match o {
+            RampOrientation::FloorToRightWall | RampOrientation::FloorToLeftWall => CORNER.y,
+            _ => CORNER.y - 2.0 * R,
+        };
+        ae::Vec2::new(x, y)
+    }
+
+    /// A fillet plus the straight flat that leads into it and the straight wall it
+    /// leaves along — one chain, in the order `surface_ramp_points` chose.
+    fn ramp_chain(o: RampOrientation) -> ae::SurfaceChain {
+        let corner = corner_for(o);
+        let arc = surface_ramp_points(corner, R, o, SEGMENTS);
+        let room = o.into_room();
+
+        // Long lead-ins on purpose: the joint at the fillet's mouth then sits at an
+        // arc length where a fixed-epsilon joint nudge used to round away (see
+        // `ambition_engine_core::surface::joint_nudge`). The oracle should ride a
+        // realistic chain, not a convenient one.
+        let flat_far = ae::Vec2::new(corner.x + room.x * 8.0 * R, corner.y);
+        let wall_far = ae::Vec2::new(corner.x, corner.y + room.y * 8.0 * R);
+
+        let first_is_flat = (arc[0].y - corner.y).abs() < 1.0;
+        let mut points = Vec::with_capacity(arc.len() + 2);
+        if first_is_flat {
+            points.push(flat_far);
+            points.extend(arc.iter().copied());
+            points.push(wall_far);
+        } else {
+            points.push(wall_far);
+            points.extend(arc.iter().copied());
+            points.push(flat_far);
+        }
+        ae::SurfaceChain::open(format!("{o:?}"), points)
+    }
+
+    /// A ramp's local "down" is the opposite of the flat surface's outward normal:
+    /// `+y` under a floor, `−y` above a ceiling. This is the C4 gravity conjugation
+    /// the doc asks the mirrored cases to be ridden under.
+    fn gravity_for(o: RampOrientation) -> ae::Vec2 {
+        ae::Vec2::new(0.0, -o.into_room().y) * 1450.0
+    }
+
+    /// Ride the chain from the flat end into the corner; report the velocity the
+    /// moment the body clears the fillet onto the wall.
+    fn ride_into_the_corner(o: RampOrientation) -> ae::Vec2 {
+        let chain = ramp_chain(o);
+        let corner = corner_for(o);
+        let room = o.into_room();
+        let world = ae::World::new(
+            "ramp",
+            ae::Vec2::new(6000.0, 6000.0),
+            ae::Vec2::ZERO,
+            Vec::new(),
+        )
+        .with_chains(vec![chain.clone()]);
+        // Frictionless: this test is about winding, not about whether the body has
+        // enough speed left after 1600px of floor.
+        let params = ae::surface::MomentumParams {
+            friction: 0.0,
+            ..Default::default()
+        };
+        let total = chain.total_length();
+
+        // Start near the FLAT end, moving toward the arc. Which end of the chain
+        // that is depends on the winding the converter derived, so ask the chain.
+        let flat_at_zero = (chain.points[0].y - corner.y).abs() < 1.0;
+        let (s, v_t) = if flat_at_zero {
+            (30.0, SPEED)
+        } else {
+            (total - 30.0, -SPEED)
+        };
+
+        let f = chain.frame_at(s);
+        let radius = 14.0;
+        let mut body = ae::surface::SurfaceBody {
+            pos: f.point + f.normal * radius,
+            vel: ae::Vec2::ZERO,
+            radius,
+            motion: ae::surface::SurfaceMotion::Riding {
+                on: ae::surface::SurfaceRef::Chain(0),
+                s,
+                v_t,
+            },
+        };
+        let gravity = gravity_for(o);
+        // `run` is along the CHAIN's tangent (increasing arc length), not along
+        // world `+x`. Which world direction that is depends on the winding the
+        // converter derived — so hold the stick in the direction we are already
+        // travelling, and let the chain say what that means. Passing `-room.x` here
+        // braked the ceiling cases into a stop, which is a fact about `run`, not
+        // about the ramp.
+        let run = v_t.signum();
+        // Sample the moment the body clears the fillet onto the wall — NOT seconds
+        // later. A body that climbed the wall correctly decelerates under gravity
+        // and comes back down, and "it is falling" is not a winding bug.
+        for _ in 0..2000 {
+            ae::surface::step_surface_body(
+                &mut body,
+                &world,
+                &params,
+                gravity,
+                ae::surface::SurfaceInputs {
+                    run,
+                    jump_pressed: false,
+                },
+                DT,
+                None,
+            );
+            // Past the fillet's far tangent point, measured along the wall axis.
+            if (body.pos.y - corner.y) * room.y > R * 1.25 {
+                break;
+            }
+        }
+        body.vel
+    }
+
+    /// **The oracle.** A body that runs into the fillet at speed leaves along the
+    /// WALL, in the direction the room opens — up, for a floor; down, for a
+    /// ceiling. A winding sign error turns this into a launch or a clip, and no
+    /// amount of reading the arc table would show it.
+    #[test]
+    fn a_momentum_body_carries_its_speed_from_the_flat_onto_the_wall() {
+        for o in [
+            RampOrientation::FloorToRightWall,
+            RampOrientation::FloorToLeftWall,
+            RampOrientation::CeilingToRightWall,
+            RampOrientation::CeilingToLeftWall,
+        ] {
+            let vel = ride_into_the_corner(o);
+            let expected_sign = o.into_room().y; // floors exit up (−y), ceilings down (+y)
+            assert!(
+                vel.y * expected_sign > 0.0,
+                "{o:?}: exited with vel {vel:?}; expected the wall-axis component to \
+                 run toward {expected_sign:+}"
+            );
+            assert!(
+                vel.y.abs() > vel.x.abs(),
+                "{o:?}: exited with vel {vel:?} — that is still along the flat, not up \
+                 the wall"
+            );
+        }
+    }
+
+    /// The arc itself: endpoints tangent to the two surfaces, `segments + 1` points,
+    /// every point on the circle of radius `r` about the fillet's center. The doc's
+    /// table, checked.
+    #[test]
+    fn the_arc_is_the_documented_quarter_circle() {
+        for o in [
+            RampOrientation::FloorToRightWall,
+            RampOrientation::FloorToLeftWall,
+            RampOrientation::CeilingToRightWall,
+            RampOrientation::CeilingToLeftWall,
+        ] {
+            let corner = ae::Vec2::new(600.0, 400.0);
+            let pts = surface_ramp_points(corner, R, o, SEGMENTS);
+            assert_eq!(pts.len(), SEGMENTS + 1, "{o:?}");
+
+            let center = corner + o.into_room() * R;
+            for p in &pts {
+                assert!(
+                    ((*p - center).length() - R).abs() < 0.01,
+                    "{o:?}: {p:?} is not on the fillet's circle"
+                );
+            }
+            // One endpoint is tangent on the flat surface, the other on the wall.
+            let on_flat = pts.iter().filter(|p| (p.y - corner.y).abs() < 0.01).count();
+            let on_wall = pts.iter().filter(|p| (p.x - corner.x).abs() < 0.01).count();
+            assert_eq!((on_flat, on_wall), (1, 1), "{o:?}");
+        }
+    }
+
+    /// The winding is DERIVED, not tabulated: every orientation's first segment has
+    /// its outward normal pointing into the room. That is the property the
+    /// converter enforces, and the reason there is one code path for four cases.
+    #[test]
+    fn every_orientation_winds_so_its_normals_point_into_the_room() {
+        for o in [
+            RampOrientation::FloorToRightWall,
+            RampOrientation::FloorToLeftWall,
+            RampOrientation::CeilingToRightWall,
+            RampOrientation::CeilingToLeftWall,
+        ] {
+            let corner = ae::Vec2::new(600.0, 400.0);
+            let pts = surface_ramp_points(corner, R, o, SEGMENTS);
+            let center = corner + o.into_room() * R;
+            for w in pts.windows(2) {
+                let t = (w[1] - w[0]).normalize();
+                let normal = ae::Vec2::new(t.y, -t.x);
+                let midpoint = (w[0] + w[1]) * 0.5;
+                assert!(
+                    normal.dot(center - midpoint) > 0.0,
+                    "{o:?}: a segment's normal points into the solid"
+                );
+            }
+        }
+    }
 }

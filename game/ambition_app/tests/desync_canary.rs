@@ -293,7 +293,7 @@ fn the_snapshot_coverage_ledger() {
     // Today's debt, pinned. Lower it by registering a component or by declaring it
     // structurally derived — both are claims, and `declare_derived` is the one that
     // promises a per-frame system rebuilds it.
-    const KNOWN_DEBT: usize = 86;
+    const KNOWN_DEBT: usize = 84;
     assert!(
         worst <= KNOWN_DEBT,
         "{worst} component types on SimId entities are neither registered as sim \

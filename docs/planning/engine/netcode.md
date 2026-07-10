@@ -367,10 +367,10 @@ snapshots needed. Needs N0 complete, plus:
   |---|---|---|
   | `gap_run` | 35 | ✅ **yes** |
   | `portal_lab` | 65 | no |
-  | `mockingbird_arena` | 73 | no |
-  | `gnu_ton_arena` | **86** | no |
+  | `mockingbird_arena` | 71 | no |
+  | `gnu_ton_arena` | **84** | no |
 
-  Pinned at 86 — the **peak over the run**, not the count at its end. The first
+  Pinned at 84 — the **peak over the run**, not the count at its end. The first
   version of this ledger measured once, after 120 ticks, by which time the arena
   bosses were dead and despawned; `gnu_ton_arena` duly reported the same 35 types as
   `gap_run`, which is the count of a world containing only the player. The debt was
@@ -429,7 +429,7 @@ snapshots needed. Needs N0 complete, plus:
   meant to look at.
 
   This is the general shape of the authored/mutable split, and it is why the coverage
-  ledger is an upper bound rather than a debt: many of the 86 want a *cursor*, not a
+  ledger is an upper bound rather than a debt: many of the 84 want a *cursor*, not a
   codec.
 
   ### The three named blockers between here and a clean arena
@@ -506,23 +506,39 @@ snapshots needed. Needs N0 complete, plus:
   }
   ```
 
-  `MovePlayback::resolve` clones the entity's `ActorMoveset`, looks the id up, and
-  rebuilds. It is also the piece that makes `MovePlayback`'s *presence* rewindable:
-  the component is inserted when a move starts and removed when it ends, so a rollback
-  must be able to both add and drop it — which `register_component`'s
-  insert-or-remove already does, and which `register_cursor` cannot.
+  `SnapshotResolve` **is implemented** (2026-07-10), along with `register_resolved` and
+  `put_str` / `Reader::str`. It restores a component's *presence*, not just its value —
+  a move is inserted when it starts and removed when it ends, so a rollback must both
+  add and drop it, which `register_cursor` cannot. A name the content no longer knows
+  leaves the component OFF rather than resolving to a plausible neighbour.
 
-  Then the boss registrations are mechanical:
+  **`MovePlayback` is NOT mechanical, and I was wrong to say it was.** It carries two
+  private fields the sketch above did not know about:
 
-  | component | kind | blob |
-  |---|---|---|
-  | `MovePlayback` | resolve | `(move_id, facing, t, landed_hit)` |
-  | `BossAttackState` | component | profiles as `(tag, key)`, four `f32` clocks, telegraph spec by key |
-  | `BossAttackIntent` | component | two optional `(tag, key)` |
-  | `BossPatternTimer` | component | one `f32` |
-  | `BossPhase` | component | `snapshot_unit_enum!` |
-  | `Perception` | component | `snapshot_unit_enum!` |
-  | `PerceptionMemory` | component | `WorldMemory`, which FB5 already keeps in a `BTreeMap` for exactly this reason |
+  - `live_boxes: Vec<(usize, Entity)>` — the spawned hitbox entity per entered-but-not-
+    exited Active window. **Decision (2)'s third forbidden `Entity` reference**, after
+    `ActorTarget` and the mount cluster.
+  - `fired: Vec<bool>` — which timed events already fired, parallel to `spec.events`.
+
+  `MovePlayback::new_at(spec, facing, t)` already pre-marks events with `at_s <= t` as
+  fired, so it is most of a `resolve`. What no code in `ambition_runtime` can decide is
+  what happens to a hitbox that was **live** at the snapshot tick: rewinding into the
+  middle of an Active window with `live_boxes` empty means the box is never re-entered,
+  because entry already happened. **That is a slice in `ambition_combat`**, whose
+  systems own those entities — most likely by making window entry idempotent on `t`
+  rather than edge-triggered, which is the shape a rollback wants anyway.
+
+  The rest of the boss table stands:
+
+  | component | kind | blob | status |
+  |---|---|---|---|
+  | `BossPatternTimer` | component | one `f32` | ✅ registered |
+  | `BossPhase` | component | `snapshot_unit_enum!` | ✅ registered |
+  | `MovePlayback` | resolve | `(move_id, facing, t, landed_hit)` | ⛔ blocked on `live_boxes` |
+  | `BossAttackState` | component | profiles as `(tag, key)`, four `f32` clocks, telegraph spec by key | todo |
+  | `BossAttackIntent` | component | two optional `(tag, key)` | todo |
+  | `Perception` | component | `Omniscient` / `Sighted { viewport_half }` — not a unit enum | todo |
+  | `PerceptionMemory` | component | `WorldMemory`, which FB5 already keeps in a `BTreeMap` for exactly this reason | todo |
 
   **The content-side specials need one more thing than a codec.** `EchoFanState`,
   `OverflowState`, `GradientCascadeState`, `SeismicStompState`, `MinimaTrapState`,

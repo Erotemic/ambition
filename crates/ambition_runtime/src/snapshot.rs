@@ -154,6 +154,39 @@ pub trait SnapshotCursor: Send + Sync + 'static {
     fn apply_cursor(&mut self, r: &mut Reader<'_>) -> Option<()>;
 }
 
+/// **A component that REFERENCES authored content instead of owning it.**
+///
+/// `MovePlayback` embeds a whole `MoveSpec` — but `MoveSpec.id` is a stable authored
+/// id, and the entity's `ActorMoveset` survives the rewind because it is authored
+/// config and [`restore`] patches survivors. So the snapshot carries the *choice*
+/// (`"jab"`, `t = 0.13`) and `resolve` rebuilds the component from the content the
+/// entity is still holding.
+///
+/// > **Reference authored content by its authored id, never by value.** A snapshot
+/// > carries what the sim CHOSE; the content it chose from is still on the entity.
+///
+/// Unlike [`SnapshotCursor`], this can restore a component's **presence**:
+/// `MovePlayback` is inserted when a move starts and removed when it ends, so a
+/// rollback must be able to both add and drop it.
+pub trait SnapshotResolve: Send + Sync + 'static {
+    /// The choice, not the content: an id, a clock, a flag.
+    fn encode_ref(&self, out: &mut Vec<u8>);
+    /// Rebuild by resolving that choice against the authored data the entity still
+    /// carries. `None` when the entity lost it — which happens only on a respawn,
+    /// which [`RestoreReport::respawned`] already reports.
+    fn resolve(entity: &bevy::ecs::world::EntityWorldMut<'_>, r: &mut Reader<'_>) -> Option<Self>
+    where
+        Self: Sized;
+}
+
+/// Append a length-prefixed UTF-8 string. The prefix is a `u32`, never a `usize`:
+/// a snapshot format that inherits the host's word size cannot become the
+/// cross-platform format netcode.md's portability section keeps reachable.
+pub fn put_str(out: &mut Vec<u8>, v: &str) {
+    put_u32(out, v.len() as u32);
+    out.extend_from_slice(v.as_bytes());
+}
+
 /// Append a canonical `f32`. NaN collapses to one bit pattern; `-0.0` does not
 /// collapse to `0.0` (in a physics sim a body resting at `-0.0` has been pushed).
 pub fn put_f32(out: &mut Vec<u8>, v: f32) {
@@ -232,6 +265,11 @@ impl<'a> Reader<'a> {
 
     pub fn vec2(&mut self) -> Option<bevy::math::Vec2> {
         Some(bevy::math::Vec2::new(self.f32()?, self.f32()?))
+    }
+
+    pub fn str(&mut self) -> Option<&'a str> {
+        let n = self.u32()? as usize;
+        std::str::from_utf8(self.take(n)?).ok()
     }
 
     /// Every byte was consumed. A decoder that leaves bytes on the floor has
@@ -365,6 +403,49 @@ impl SnapshotRegistry {
                         let mut r = Reader::new(bytes);
                         if value.apply_cursor(&mut r).is_none() || r.finish().is_none() {
                             debug_assert!(false, "snapshot cursor failed to decode");
+                        }
+                    }
+                }),
+                remove: Box::new(|entity| {
+                    entity.remove::<C>();
+                }),
+            },
+        );
+    }
+
+    /// Register a component that references authored content by id — see
+    /// [`SnapshotResolve`]. Unlike a cursor, it restores the component's PRESENCE.
+    pub fn register_resolved<C>(&mut self, name: &'static str)
+    where
+        C: Component + SnapshotResolve + Sized,
+    {
+        self.push(
+            name,
+            EntryKind::Component {
+                type_id: std::any::TypeId::of::<C>(),
+                rows: Box::new(|world: &World| {
+                    let mut rows = Vec::new();
+                    let Some(mut q) = world.try_query::<(&SimId, &C)>() else {
+                        return rows;
+                    };
+                    for (id, value) in q.iter(world) {
+                        let mut bytes = Vec::new();
+                        value.encode_ref(&mut bytes);
+                        rows.push((id.as_str().to_string(), bytes));
+                    }
+                    rows
+                }),
+                insert: Box::new(|entity, bytes| {
+                    let mut r = Reader::new(bytes);
+                    match C::resolve(entity, &mut r) {
+                        // The authored half is gone: a respawned entity. Leaving the
+                        // component off is the only honest answer, and `respawned` is
+                        // the number that says so.
+                        None => {
+                            entity.remove::<C>();
+                        }
+                        Some(value) => {
+                            entity.insert(value);
                         }
                     }
                 }),
@@ -946,6 +1027,19 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     registry.register_component::<ambition_combat::components::ActorIntent>("actor_intent");
     registry.register_cursor::<ambition_combat::components::ActorTarget>("actor_target");
 
+    // `MovePlayback` is NOT here, and the reason is a finding rather than an omission.
+    // It holds a private `live_boxes: Vec<(usize, Entity)>` — spawned hitbox entities,
+    // and N3.1 decision (2)'s THIRD forbidden `Entity` reference — plus a private
+    // `fired: Vec<bool>` parallel to `spec.events`. `MovePlayback::new_at(spec, facing,
+    // t)` already pre-marks events with `at_s <= t` as fired, which is most of a
+    // `resolve`; what it cannot do is decide what happens to a hitbox that was live at
+    // the snapshot tick. That is a slice in `ambition_combat`, whose systems own those
+    // entities. See netcode.md N3.1.
+
+    registry
+        .register_component::<ambition_combat::components::BossPatternTimer>("boss_pattern_timer");
+    registry.register_component::<ambition_combat::components::BossPhase>("boss_phase");
+
     // **The blind spot, made loud.** Simulated bodies with no `SimId` cannot be
     // snapshotted, restored, or defended by the canary. Hashing the COUNT means a
     // sim that spawned a different number of un-identified bodies still diverges —
@@ -1322,6 +1416,20 @@ impl SnapshotCursor for ambition_actors::features::ActorMotionPath {
             motion.set_cursor(segment, dir);
         }
         Some(())
+    }
+}
+
+snapshot_unit_enum!(ambition_combat::components::BossPhase {
+    Active = 0,
+    Defeated = 1,
+});
+
+impl SnapshotState for ambition_combat::components::BossPatternTimer {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_f32(out, self.0);
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(ambition_combat::components::BossPatternTimer(r.f32()?))
     }
 }
 
@@ -2161,6 +2269,118 @@ mod tests {
         assert_eq!(decode_one::<Ai>(&[255]), None);
         assert_eq!(decode_one::<Ai>(&[]), None);
         assert_eq!(decode_one::<Ai>(&[0, 0]), None, "trailing byte");
+    }
+
+    /// A component that references authored content by id — the `MovePlayback` shape,
+    /// in miniature. The catalog stays on the entity; the blob carries a name.
+    #[derive(Component, Clone, Debug, PartialEq)]
+    struct Catalog(Vec<(String, f32)>);
+
+    #[derive(Component, Debug, PartialEq)]
+    struct Playing {
+        /// Resolved out of the `Catalog`. Never in a blob.
+        power: f32,
+        /// The choice, and the clock.
+        id: String,
+        t: f32,
+    }
+
+    impl SnapshotResolve for Playing {
+        fn encode_ref(&self, out: &mut Vec<u8>) {
+            put_str(out, &self.id);
+            put_f32(out, self.t);
+        }
+        fn resolve(
+            entity: &bevy::ecs::world::EntityWorldMut<'_>,
+            r: &mut Reader<'_>,
+        ) -> Option<Self> {
+            let id = r.str()?;
+            let power = entity
+                .get::<Catalog>()?
+                .0
+                .iter()
+                .find(|(name, _)| name == id)?
+                .1;
+            Some(Playing {
+                power,
+                id: id.to_string(),
+                t: r.f32()?,
+            })
+        }
+    }
+
+    /// **A resolved component restores its PRESENCE, not just its value.** A move is
+    /// inserted when it starts and removed when it ends, so a rollback must both add
+    /// and drop it — which a cursor cannot do.
+    #[test]
+    fn a_resolved_component_rebuilds_itself_from_content_the_entity_still_holds() {
+        let mut reg = engine_registry();
+        reg.register_resolved::<Playing>("playing");
+        let mut world = sim_world();
+        let boss = *live_ids(&mut world).get("placement:boss-1").unwrap();
+        world.entity_mut(boss).insert((
+            Catalog(vec![("jab".into(), 3.0), ("smash".into(), 20.0)]),
+            Playing {
+                power: 20.0,
+                id: "smash".into(),
+                t: 0.25,
+            },
+        ));
+
+        let snap = take(&world, &reg);
+        assert!(
+            snap.size_bytes() < 200,
+            "the catalog leaked into the blob: {} bytes",
+            snap.size_bytes()
+        );
+
+        // The move ends. The component goes away.
+        world.entity_mut(boss).remove::<Playing>();
+        restore(&mut world, &snap, &reg);
+        assert_eq!(
+            world.entity(boss).get::<Playing>(),
+            Some(&Playing {
+                power: 20.0,
+                id: "smash".into(),
+                t: 0.25
+            }),
+            "the move came back, and its power was resolved out of the catalog"
+        );
+
+        // ...and a move that started AFTER the snapshot is dropped.
+        world.entity_mut(boss).insert(Playing {
+            power: 3.0,
+            id: "jab".into(),
+            t: 0.0,
+        });
+        let empty = take(&world, &reg);
+        world.entity_mut(boss).remove::<Playing>();
+        restore(&mut world, &empty, &reg);
+        assert!(world.entity(boss).get::<Playing>().is_some());
+    }
+
+    /// A name the content no longer knows leaves the component OFF, rather than
+    /// resolving to a plausible neighbour. Impossible in a rollback; loud in a save.
+    #[test]
+    fn a_resolved_component_that_names_missing_content_is_dropped_not_guessed() {
+        let mut reg = engine_registry();
+        reg.register_resolved::<Playing>("playing");
+        let mut world = sim_world();
+        let boss = *live_ids(&mut world).get("placement:boss-1").unwrap();
+        world.entity_mut(boss).insert((
+            Catalog(vec![("smash".into(), 20.0)]),
+            Playing {
+                power: 20.0,
+                id: "smash".into(),
+                t: 0.25,
+            },
+        ));
+        let snap = take(&world, &reg);
+
+        // The content changed under us.
+        world.entity_mut(boss).insert(Catalog(vec![]));
+        restore(&mut world, &snap, &reg);
+        assert!(world.entity(boss).get::<Playing>().is_none());
     }
 
     /// Diagnostics are hashed and never snapshotted: you cannot restore a count.

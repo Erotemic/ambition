@@ -157,7 +157,7 @@ this track.
 |---|---|---|
 | FB1 | ~~View audit for the no-cheat contract~~ ✅ **DONE 2026-07-10** — see §7 | [opus] |
 | FB2 | Frame-data table consumer (needs CM7) + L2 option generator/scorer with authored weights | [opus, fable-specced — this doc §1] |
-| FB3 | L1 classifier + scenario fixture suite | [opus] |
+| FB3 | ~~L1 classifier + scenario fixture suite~~ ✅ **DONE 2026-07-10** — see §8 | [opus] |
 | FB4 | Difficulty profiles + humanity checks + ladder self-play rig — concretely: (1) the nine `FighterBrainProfile` RON rows per §4 (reaction_ms interpolates 500→150, apm_cap, noise σ, rollout knobs 0 until FB6); (2) the THREE humanity checks from §3 as headless tests — input-rate histogram ≤ apm_cap, reaction-time distribution matches the configured latency (assert the delay buffer is the ONLY view path — a lint-style grep + a runtime assert), and no same-tick perceive→act; (3) the ladder rig = N headless matches per adjacent-level pair via `SlotControls`, gate: level n beats n−1 in ≥ 60%, plus L9-vs-sandbag damage-efficiency floor. The rig reuses the duel-arena headless harness (`ambition_app/tests/duel_arena.rs` is the seed) | [opus] |
 | FB5 | Opponent-model memory (bucketed frequencies, decay) | [opus] |
 | FB6 | L3 rollouts on the snapshot seam (after netcode N3.1) with compute budget + degradation | **[fable design, opus execute]** |
@@ -238,6 +238,69 @@ quietly true.
 today. CM7's frame-data table is what gives it one, which is why FB2 depends on
 CM7 and this field is already in the struct.
 
-`brain::smash::arena::Stage` is a separate, brain-private stage rectangle used by
-the self-play arena. `StageView` should subsume it when FB3's fixture suite lands;
-it is not worth a churn commit before there is a second consumer.
+~~`brain::smash::arena::Stage` … `StageView` should subsume it when FB3's fixture
+suite lands.~~ **Revisited when FB3 landed: they stay separate, and the prediction
+was wrong.** `arena::Stage` is the self-play arena's AUTHORED geometry — a fixture
+the harness builds a world from. `StageView` is what a body PERCEIVES of a stage.
+They hold the same four numbers and mean different things, and collapsing them
+would put a perception type in the arena's constructor. Same shape, different
+authority.
+
+---
+
+## 8. FB3 — L1, and the fixtures it is judged by (opus, 2026-07-10)
+
+`ambition_characters::brain::fighter::{situation, scenarios}`. Both pure; neither
+touches Bevy.
+
+### L1
+
+`classify(&WorldView) -> Situation`. A pure function of the view and nothing else,
+which is the no-cheat contract's first clause — and the reason FB1's audit had to
+come first. Before it the view carried no move phase, no damage meter, and no
+stage geometry, so **three of L1's five states were not derivable at all.**
+
+**The states are RANKED, and the rank is the design.** Two facts can hold at once —
+you can be offstage and in hitstun, or juggling an opponent while cornered — and
+L1 answers one question: *what is this tick about?*
+
+1. `Recovery` — self offstage. A stock lost to the blastzone is not repaid by a
+   punish.
+2. `Disadvantage` — self in hitstun, or cornered.
+3. `EdgeGuard` — the opponent is offstage.
+4. `Advantage` — the opponent is punishable.
+5. `Neutral` — nobody has anything.
+
+**Disadvantage outranks EdgeGuard on purpose:** a player who chases an offstage
+opponent while himself in hitstun is not edge-guarding, he is being carried. The
+precedence IS the enum's declaration order, and a test says so, so inserting a
+variant in the middle fails loudly.
+
+Two thresholds live in the module rather than in a difficulty profile, because
+they are facts about the STAGE and the KIT, not about difficulty: `cornered`
+(< 120px of stage behind you — you have lost your retreat option, not your life)
+and `landing` (airborne, descending faster than 60px/s **along `gravity_down`**,
+because a fight under rotated gravity is the same fight). A level-1 CPU and a
+level-9 CPU agree about whether they are cornered; they disagree about what to do
+next, and that is L2's job.
+
+`Advantage` deliberately excludes an opponent's ACTIVE frames. That is where the
+hitbox is, and walking into it is not a punish.
+
+### The scenario suite
+
+Eight fixtures in `scenarios::suite()`, each a named `WorldView` plus the one fact
+everyone agrees on before any brain runs: which `Situation` it is. §3's four —
+ledge trap, juggle escape, projectile camper, edge-guard window — plus **recovery
+from each of the four offstage quadrants**, which §3 asks for and which is four
+fixtures, not one: a body knocked off the top has different options from one
+knocked off the side, and a classifier that conflates them is not caught by a
+single case.
+
+They live in the LIBRARY, not in a `#[cfg(test)]` module, because FB4's ladder rig
+scores survival % and damage ratio *over these same eight situations*. A fixture
+suite only a test can see gets rebuilt, slightly differently, by the next slice.
+
+**The metrics half is not here**, and cannot be: survival % and damage ratio need a
+brain to survive and deal damage, and nothing above L1 exists. FB4 brings the
+profiles and the rig; these scenarios are what it will run.

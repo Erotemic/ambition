@@ -17,6 +17,8 @@
 
 pub mod action_set;
 pub mod boss_pattern;
+/// The advanced fighter brain (fighter-brain.md): L1's situation classifier today.
+pub mod fighter;
 pub mod player;
 pub mod smash;
 pub mod snapshot;

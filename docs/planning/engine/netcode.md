@@ -447,9 +447,20 @@ snapshots needed. Needs N0 complete, plus:
   *"every seeded RNG resource"*, *"active room + spawn state"*, *"falling-sand grids
   (ONE resource blob)"*.
 
-  `SnapshotRegistry::unclaimed_resources` now measures it, filtered to `ambition_*`
-  types (Bevy's asset servers and render device state are not sim state and never will
-  be). **It reads 135**, and it is pinned. Most of that is presentation or derived —
+  `SnapshotRegistry::unclaimed_resources` now measures it, filtered to types whose
+  name CONTAINS `ambition_` (Bevy's asset servers and render device state are not sim
+  state and never will be). **It reads 182**, and it is pinned.
+
+  It read 135 until the filter said `starts_with`. **Forty-five of them are
+  `Messages<T>` buffers**, named `bevy_ecs::message::Messages<ambition_..::HitEvent>` —
+  hidden twice over, once by sitting on no entity and once by wearing Bevy's module
+  path. *A message written before a snapshot and read after a restore is an event that
+  happens twice.* `ActorActionMessage` is how a boss's Special reaches its executor on
+  the NEXT tick, and it is the most likely reason `mockingbird_arena` replays exactly
+  for twenty ticks and breaks on the twenty-first. Message buffers want neither a codec
+  nor `declare_derived`: they want **N3.2's resim discipline** (*"side-effect
+  suppression during resim"*), which is the next rung and now has a concrete first
+  customer. Most of that is presentation or derived —
   `ActorRenderIndex`, `CameraShakeState`, `DeveloperTools` — and comes off with
   `declare_derived`. Some of it is not:
 
@@ -503,12 +514,20 @@ snapshots needed. Needs N0 complete, plus:
   The other two are causes this document already named:
 
   1. `mockingbird_arena` replays exactly for **twenty ticks** and breaks at 21 on
-     `move_playback` / `boss_attack_state` / `brain`. The boss's
-     `BossPatternState.timeline` is *re-resolved* inside the window, and the `Brain`
-     cursor deliberately does not rewind it — encoding it would serialize authored
-     content by value. **This is the "a rollback window must not span a pattern
-     re-resolve" constraint, observed rather than predicted.** N3.2's bounded window is
-     where it gets paid.
+     `move_playback` / `boss_attack_state` / `brain`.
+
+     I first blamed the boss's un-rewound `BossPatternState.timeline`, and called the
+     hazard a *constraint*: "a rollback window must not span a pattern re-resolve." That
+     framing was wrong. The AUTHORED thing is the `BossPattern`; the timeline is what one
+     weighted roll made of it — *"the roll happens at RESOLUTION … a concrete list of
+     beats before the first tick of it runs"* — which is instance state by any
+     definition. It is encoded now, along with the `stance_stack`. **The room still
+     breaks at tick 21.** So the timeline was a real bug and not this bug, which is the
+     ordinary way of things.
+
+     What is left on that tick is a boss DECISION that differs, and the most likely
+     carrier is `Messages<ActorActionMessage>` — see the resource section above. Not a
+     constraint. A buffer nobody rewinds.
   2. `portal_lab` is the only room where `restore` reports `respawned > 0`, and its
      divergence is everything at once on tick 0: a respawned entity comes back carrying
      only its registered components.

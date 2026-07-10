@@ -662,9 +662,13 @@ impl SnapshotRegistry {
             .iter_resources()
             .map(|(info, _)| info)
             .filter(|info| {
+                // `contains`, not `starts_with`. A `Messages<ambition_...::HitEvent>`
+                // is named `bevy_ecs::message::Messages<..>` and is EVERY BIT the sim
+                // state its payload is: a message written before a snapshot and read
+                // after a restore is an event that happens twice. `starts_with` hid an
+                // entire class of them behind Bevy's own module path.
                 let name = info.name().to_string();
-                name.starts_with("ambition_")
-                    && info.type_id().is_none_or(|id| !claimed.contains(&id))
+                name.contains("ambition_") && info.type_id().is_none_or(|id| !claimed.contains(&id))
             })
             .map(|info| UnclaimedComponent {
                 type_id: info.type_id(),
@@ -1953,6 +1957,114 @@ impl SnapshotState for ambition_characters::brain::boss_pattern::BossMacroState 
     }
 }
 
+/// One beat of a **resolved** boss timeline.
+///
+/// `resolve_timeline` rolls every `Select` away before the first tick of the fight runs
+/// — *"Select rolled away, Stance markers left in place as jumps"* — so a resolved
+/// timeline holds only these four. A `Select` that survives into one is an invariant
+/// violation, and this encodes it as a tag no decoder accepts: rejected, never silently
+/// reinterpreted as a `Rest`.
+///
+/// The steps are *resolved instance state*, not authored content. The authored thing is
+/// the `BossPattern`; the timeline is what one weighted roll made of it. Rewinding a
+/// boss without rewinding the roll gives it a different fight.
+impl SnapshotState for ambition_characters::brain::boss_pattern::BossPatternStep {
+    fn encode(&self, out: &mut Vec<u8>) {
+        use ambition_characters::brain::boss_pattern::BossPatternStep as S;
+        match self {
+            S::Telegraph {
+                profile,
+                duration,
+                telegraph,
+            } => {
+                put_u8(out, 0);
+                profile.encode(out);
+                put_f32(out, *duration);
+                match telegraph {
+                    None => put_bool(out, false),
+                    Some(spec) => {
+                        put_bool(out, true);
+                        put_opt_str(out, spec.pose.as_deref());
+                        put_opt_str(out, spec.cue.as_deref());
+                        put_opt_str(out, spec.vfx.as_deref());
+                    }
+                }
+            }
+            S::Strike { profile, duration } => {
+                put_u8(out, 1);
+                profile.encode(out);
+                put_f32(out, *duration);
+            }
+            S::Rest { duration } => {
+                put_u8(out, 2);
+                put_f32(out, *duration);
+            }
+            S::Stance { id } => {
+                put_u8(out, 3);
+                put_str(out, id);
+            }
+            // Unreachable in a resolved timeline. Tag 4 decodes to `None`.
+            S::Select { .. } => {
+                debug_assert!(false, "a resolved timeline still holds a `Select`");
+                put_u8(out, 4);
+            }
+        }
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        use ambition_characters::brain::boss_pattern::{
+            BossAttackProfile, BossPatternStep as S, TelegraphSpec,
+        };
+        match r.u8()? {
+            0 => {
+                let profile = BossAttackProfile::decode(r)?;
+                let duration = r.f32()?;
+                let telegraph = if r.bool()? {
+                    Some(TelegraphSpec {
+                        pose: r.opt_str()?.map(str::to_string),
+                        cue: r.opt_str()?.map(str::to_string),
+                        vfx: r.opt_str()?.map(str::to_string),
+                    })
+                } else {
+                    None
+                };
+                Some(S::Telegraph {
+                    profile,
+                    duration,
+                    telegraph,
+                })
+            }
+            1 => Some(S::Strike {
+                profile: BossAttackProfile::decode(r)?,
+                duration: r.f32()?,
+            }),
+            2 => Some(S::Rest { duration: r.f32()? }),
+            3 => Some(S::Stance {
+                id: r.str()?.to_string(),
+            }),
+            _ => None,
+        }
+    }
+}
+
+fn put_timeline(
+    out: &mut Vec<u8>,
+    steps: &[ambition_characters::brain::boss_pattern::BossPatternStep],
+) {
+    put_u32(out, steps.len() as u32);
+    for s in steps {
+        s.encode(out);
+    }
+}
+
+fn read_timeline(
+    r: &mut Reader<'_>,
+) -> Option<Vec<ambition_characters::brain::boss_pattern::BossPatternStep>> {
+    use ambition_characters::brain::boss_pattern::BossPatternStep;
+    let n = r.u32()?;
+    (0..n).map(|_| BossPatternStep::decode(r)).collect()
+}
+
 /// **The boss's mind, rewound.**
 ///
 /// A `SnapshotCursor`, because `Brain` is half authored and half state: the brain's
@@ -1961,17 +2073,23 @@ impl SnapshotState for ambition_characters::brain::boss_pattern::BossMacroState 
 /// RNG that is not snapshot state is a determinism bug the canary would eventually
 /// catch, and netcode.md's checklist names it.
 ///
-/// ## What this deliberately does NOT rewind, and the constraint that buys
+/// ## The `timeline` is instance state, not authored content
 ///
-/// `timeline: Vec<BossPatternStep>` and `stance_stack` are left alone. The timeline is
-/// **re-resolved** from the authored pattern by `advance_scripted` whenever the script
-/// loops or the encounter phase changes, so within a rollback window that spans
-/// neither, the surviving timeline IS the snapshot's timeline — and encoding it would
-/// serialize authored content by value, which is the thing this module refuses to do.
+/// I first left `timeline` and `stance_stack` un-rewound, and called the resulting
+/// hazard a *constraint*: "a rollback window must not span a pattern re-resolve."
+/// `mockingbird_arena` then replayed exactly for twenty ticks and broke on the
+/// twenty-first, which is what a re-resolve inside the window looks like.
 ///
-/// So: **a rollback window must not span a pattern re-resolve**, exactly as it must
-/// not span a spawn. Both are constraints N3.2's bounded window makes reasonable, and
-/// both are written down here rather than discovered in a desync report.
+/// The framing was wrong. The AUTHORED thing is the `BossPattern`; the timeline is what
+/// **one weighted roll** made of it — *"the roll happens at RESOLUTION, not at the
+/// cursor, so a fight's timeline is a concrete list of beats before the first tick of
+/// it runs."* That is instance state by any definition, and rewinding a boss without
+/// rewinding the roll gives it a different fight. It is encoded, and so is the
+/// `stance_stack`, whose entries carry timelines of their own.
+///
+/// A resolved timeline holds only `Telegraph` / `Strike` / `Rest` / `Stance`: the
+/// `Select`s are rolled away at resolution. So the beats are small, and the blob is a
+/// handful of tags and floats — not the pattern, not the arms, not the weights.
 impl SnapshotCursor for ambition_characters::brain::Brain {
     fn encode_cursor(&self, out: &mut Vec<u8>) {
         let Some(s) = self.boss_pattern_state() else {
@@ -1998,6 +2116,15 @@ impl SnapshotCursor for ambition_characters::brain::Brain {
         put_f32(out, s.engage_timer);
         put_u64(out, s.rng_seed);
         s.attack_state.encode(out);
+        put_timeline(out, &s.timeline);
+        put_opt_str(out, s.stance.as_deref());
+        put_u32(out, s.stance_stack.len() as u32);
+        for ret in &s.stance_stack {
+            put_timeline(out, &ret.timeline);
+            put_opt_str(out, ret.stance.as_deref());
+            put_u32(out, ret.step_index as u32);
+            put_f32(out, ret.step_elapsed);
+        }
         put_u32(out, s.interrupt_cooldowns.len() as u32);
         for v in &s.interrupt_cooldowns {
             put_f32(out, *v);
@@ -2037,6 +2164,22 @@ impl SnapshotCursor for ambition_characters::brain::Brain {
         let engage_timer = r.f32()?;
         let rng_seed = r.u64()?;
         let attack_state = BossAttackState::decode(r)?;
+        let timeline = read_timeline(r)?;
+        let stance = r.opt_str()?.map(str::to_string);
+        let stance_stack = {
+            use ambition_characters::brain::boss_pattern::StanceReturn;
+            let n = r.u32()?;
+            (0..n)
+                .map(|_| {
+                    Some(StanceReturn {
+                        timeline: read_timeline(r)?,
+                        stance: r.opt_str()?.map(str::to_string),
+                        step_index: r.u32()? as usize,
+                        step_elapsed: r.f32()?,
+                    })
+                })
+                .collect::<Option<Vec<_>>>()?
+        };
         fn read_f32s(r: &mut Reader<'_>) -> Option<Vec<f32>> {
             let n = r.u32()?;
             (0..n).map(|_| r.f32()).collect()
@@ -2061,6 +2204,9 @@ impl SnapshotCursor for ambition_characters::brain::Brain {
         s.engage_timer = engage_timer;
         s.rng_seed = rng_seed;
         s.attack_state = attack_state;
+        s.timeline = timeline;
+        s.stance = stance;
+        s.stance_stack = stance_stack;
         s.interrupt_cooldowns = interrupt_cooldowns;
         s.interrupt_timers = interrupt_timers;
         s.last_hp = last_hp;

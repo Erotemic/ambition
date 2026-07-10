@@ -329,9 +329,20 @@ fn the_snapshot_coverage_ledger() {
     // The resource half, pinned too. It is LARGE and most of it is presentation or
     // derived — `ActorRenderIndex`, `CameraShakeState`, `DeveloperTools`. But
     // `EncounterState` is in there, holding a live encounter phase and wave run, and
-    // so is `EnemyProjectileState`. `declare_derived` is how the presentation half
-    // comes off; a codec is how the rest does.
-    const KNOWN_RESOURCE_DEBT: usize = 134;
+    // so is `EnemyProjectileState`.
+    //
+    // **45 of them are `Messages<T>` buffers**, and they were hidden twice over: a
+    // `Resource` sits on no entity, and `Messages<ambition_..::HitEvent>` is NAMED
+    // `bevy_ecs::message::Messages<..>`, so a `starts_with("ambition_")` filter missed
+    // every one. A message written before a snapshot and read after a restore is an
+    // event that happens twice — `ActorActionMessage` is how a boss's Special reaches
+    // the executor on the NEXT tick, and it is very likely why `mockingbird_arena`
+    // replays exactly for twenty ticks and breaks on the twenty-first.
+    //
+    // `declare_derived` is how the presentation half comes off; a codec is how the rest
+    // does; the message buffers want neither, they want N3.2's resim discipline
+    // ("side-effect suppression during resim").
+    const KNOWN_RESOURCE_DEBT: usize = 182;
     assert!(
         resources.len() <= KNOWN_RESOURCE_DEBT,
         "{} unregistered `ambition_*` resources, up from the pinned \

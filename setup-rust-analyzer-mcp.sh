@@ -156,12 +156,23 @@ check_ripgrep() {
 # first MCP tool call can spend a while downloading/building dependencies, which
 # can look like a broken server from inside Claude Code.
 check_cargo_artifacts() {
-    if [ -d "$REPO_ROOT/target/debug/.fingerprint" ] || [ -d "$REPO_ROOT/target/release/.fingerprint" ]; then
-        log "cargo artifacts present under target/"
+    local target_dir
+
+    # `target/` is only the default. A `[build] target-dir` in .cargo/config.toml (as
+    # this repo uses) puts artifacts elsewhere, so ask cargo instead of guessing --
+    # otherwise a fully warm workspace still gets the "may be slow" warning.
+    target_dir="$(
+        cd "$REPO_ROOT" && cargo metadata --no-deps --format-version 1 2>/dev/null |
+            python3 -c 'import json,sys; print(json.load(sys.stdin)["target_directory"])' 2>/dev/null
+    )" || true
+    [ -n "$target_dir" ] || target_dir="$REPO_ROOT/target"
+
+    if [ -d "$target_dir/debug/.fingerprint" ] || [ -d "$target_dir/release/.fingerprint" ]; then
+        log "cargo artifacts present under $target_dir"
         return
     fi
 
-    warn "no cargo build/check artifacts found under target/"
+    warn "no cargo build/check artifacts found under $target_dir"
     warn "the first MCP tool call may be slow while rust-analyzer indexes dependencies"
     warn "recommended warmup: run 'cargo check' in $REPO_ROOT before using the server"
 }
@@ -196,14 +207,32 @@ prefetch_server() {
     log "server binary: $(command -v "$MCP_BIN")"
 }
 
-register_one() {
-    # Already validated and made absolute by parse_args.
-    local claude_dir="$1"
-    local quoted_repo quoted_bin launch_cmd
+# The single source of truth for how the server is launched. Both registration and
+# the smoke test must use this, or the smoke test validates a command nobody runs.
+#
+# `bash -lc` starts a login shell, whose PATH is not this script's PATH: the
+# CARGO_HOME/bin prepend at the top of this file applies only to our own process.
+# Without restoring it here the registered command dies with
+# "exec: rust-analyzer-mcp: not found" and Claude reports "Failed to connect".
+build_launch_cmd() {
+    local quoted_repo quoted_bin quoted_cargo_bin
 
     printf -v quoted_repo '%q' "$REPO_ROOT"
     printf -v quoted_bin '%q' "$MCP_BIN"
-    launch_cmd="cd $quoted_repo && exec $quoted_bin"
+    printf -v quoted_cargo_bin '%q' "$CARGO_HOME/bin"
+
+    # `$PATH` is left unquoted on purpose: bash does not word-split the value of an
+    # `export name=value` assignment, and it keeps the string embeddable in JSON.
+    printf 'export PATH=%s:$PATH; cd %s && exec %s' \
+        "$quoted_cargo_bin" "$quoted_repo" "$quoted_bin"
+}
+
+register_one() {
+    # Already validated and made absolute by parse_args.
+    local claude_dir="$1"
+    local launch_cmd
+
+    launch_cmd="$(build_launch_cmd)"
 
     log "registering '$SERVER_NAME' (scope=$SCOPE) for sessions launched from $claude_dir"
     log "server launch command: bash -lc '$launch_cmd'"
@@ -232,7 +261,7 @@ register_server() {
   "mcpServers": {
     "$SERVER_NAME": {
       "command": "bash",
-      "args": ["-lc", "cd $REPO_ROOT && exec $MCP_BIN"]
+      "args": ["-lc", "$(build_launch_cmd)"]
     }
   }
 
@@ -257,19 +286,21 @@ smoke_test() {
 
     log "smoke test: MCP handshake + tools/list"
 
-    python3 - "$REPO_ROOT" "$MCP_BIN" <<'PY' || fail "smoke test failed"
+    # Drive the exact command that gets registered, from a directory that is NOT the
+    # workspace, in a login shell. Anything less can pass while the registered server
+    # fails to connect: this script's own PATH contains CARGO_HOME/bin, a login
+    # shell's need not, and running from $REPO_ROOT would mask a broken `cd`.
+    python3 - "$(build_launch_cmd)" <<'PY' || fail "smoke test failed"
 import json
-import os
 import subprocess
 import sys
 import time
 
-repo_root = sys.argv[1]
-mcp_bin = sys.argv[2]
+launch_cmd = sys.argv[1]
 
 proc = subprocess.Popen(
-    [mcp_bin],
-    cwd=repo_root,
+    ["bash", "-lc", launch_cmd],
+    cwd="/",
     stdin=subprocess.PIPE,
     stdout=subprocess.PIPE,
     stderr=subprocess.DEVNULL,

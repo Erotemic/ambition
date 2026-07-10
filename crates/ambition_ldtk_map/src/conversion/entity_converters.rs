@@ -708,6 +708,9 @@ pub(super) fn convert_camera_zone(ctx: &LdtkEntityCtx<'_>) -> Result<RoomEmissio
         cinematic_lock: field_bool(entity, "cinematic_lock")
             .or_else(|| field_bool(entity, "lock_to_zone"))
             .unwrap_or(false),
+        scroll_policy: ambition_world::rooms::CameraScrollPolicy::from_author_value(
+            field_string(entity, "scroll_policy").as_deref(),
+        ),
         clamp_mode: CameraClampMode::from_author_value(
             field_string(entity, "clamp_mode").as_deref(),
         ),

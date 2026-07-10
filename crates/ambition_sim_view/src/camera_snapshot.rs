@@ -10,7 +10,9 @@ use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
 use bevy_math::UVec2;
 
-use ambition_actors::rooms::{CameraClampMode, CameraZoneSpec};
+use ambition_actors::rooms::{
+    apply_forward_only_x, CameraClampMode, CameraScrollPolicy, CameraZoneSpec,
+};
 use ambition_persistence::settings::video::CameraFramingPreset;
 use ambition_persistence::settings::CameraAspectPolicy;
 use ambition_platformer_primitives::camera_ease::{CameraEaseState, CameraEaseTuning};
@@ -329,6 +331,25 @@ pub fn resolve_follow_camera_snapshot(
     } else {
         (normal_host_x, normal_host_y)
     };
+
+    // **M2 — the one-way forward scroll.** Applied AFTER the bounds clamp, because
+    // the watermark must record where the camera actually settled, not where it
+    // wanted to be. `host_x` is centered-render x, which is monotone in world x.
+    //
+    // Leaving the zone clears the watermark: the clamp is per-visit, not per-room.
+    let forward_only =
+        active_zone.is_some_and(|zone| zone.scroll_policy == CameraScrollPolicy::ForwardOnlyX);
+    // `normal_host_x` is the UNPADDED diagnostic center; it is deliberately left
+    // un-watermarked so a trace can still see where the camera wanted to be.
+    let host_x = match ease_state.as_deref_mut() {
+        Some(state) if forward_only => apply_forward_only_x(host_x, &mut state.scroll_watermark_x),
+        Some(state) => {
+            state.scroll_watermark_x = None;
+            host_x
+        }
+        None => host_x,
+    };
+
     let center_world = ae::Vec2::new(
         host_x + input.world.size.x * 0.5,
         input.world.size.y * 0.5 - host_y,
@@ -636,6 +657,111 @@ impl bevy::prelude::Plugin for CameraObservationPlugin {
             sim,
             resolve_camera_observation
                 .after(ambition_platformer_primitives::schedule::SandboxSet::CoreSimulation),
+        );
+    }
+}
+
+#[cfg(test)]
+mod m2_forward_scroll_tests {
+    use super::*;
+    use ambition_platformer_primitives::camera_ease::CameraEaseState;
+
+    fn world() -> ae::World {
+        ae::World::new(
+            "m2",
+            ae::Vec2::new(4000.0, 600.0),
+            ae::Vec2::ZERO,
+            Vec::new(),
+        )
+    }
+
+    fn zone(policy: CameraScrollPolicy) -> CameraZoneSpec {
+        CameraZoneSpec {
+            id: "scroll".into(),
+            name: "scroll".into(),
+            aabb: ae::Aabb::new(ae::Vec2::new(2000.0, 300.0), ae::Vec2::new(2000.0, 300.0)),
+            priority: 0,
+            zoom: Some(1.0),
+            target_offset: ae::Vec2::ZERO,
+            easing_hz: None,
+            cinematic_lock: false,
+            clamp_mode: CameraClampMode::None,
+            scroll_policy: policy,
+        }
+    }
+
+    fn resolve(
+        world: &ae::World,
+        zones: &[CameraZoneSpec],
+        x: f32,
+        ease: &mut CameraEaseState,
+    ) -> f32 {
+        let snap = resolve_follow_camera_snapshot(
+            CameraSnapshotResolveInput {
+                world,
+                camera_zones: zones,
+                focus: CameraFocus2d {
+                    center_world: ae::Vec2::new(x, 300.0),
+                    size: ae::Vec2::new(24.0, 40.0),
+                    base_size: ae::Vec2::new(24.0, 40.0),
+                    facing: 1.0,
+                },
+                base_view: ae::Vec2::new(480.0, 270.0),
+                viewport_px: ae::Vec2::new(480.0, 270.0),
+                aspect_policy: CameraAspectPolicy::FixedHeight,
+                framing: CameraFramingPreset::default(),
+                overview_scale: 1.0,
+                encounter_scale: 1.0,
+                overview_camera: false,
+                snap_camera: true,
+                blink: None,
+                dt: 1.0 / 60.0,
+                mode: CameraSnapshotResolveMode::Eased,
+                extra_clamp_center_world: None,
+                ease_tuning: CameraEaseTuning::default(),
+            },
+            Some(ease),
+        );
+        snap.center_world.x
+    }
+
+    /// **The wiring, not just the clamp.** A player who runs right and then walks
+    /// back left leaves the camera where it was. This is the whole of Mary-O's
+    /// scroll rule, resolved through the real snapshot path.
+    #[test]
+    fn a_forward_only_zone_refuses_to_scroll_back() {
+        let w = world();
+        let zones = [zone(CameraScrollPolicy::ForwardOnlyX)];
+        let mut ease = CameraEaseState::default();
+
+        let far = resolve(&w, &zones, 1800.0, &mut ease);
+        let back = resolve(&w, &zones, 1400.0, &mut ease);
+        assert!(
+            (back - far).abs() < 0.5,
+            "camera followed the player back: {far} -> {back}"
+        );
+        // ...and forward progress still works.
+        let further = resolve(&w, &zones, 2200.0, &mut ease);
+        assert!(further > far + 100.0, "{far} -> {further}");
+    }
+
+    /// A `Free` zone — every zone authored before M2 — follows the player both ways,
+    /// and clears any watermark it inherited from a forward-only zone it just left.
+    #[test]
+    fn a_free_zone_follows_both_ways_and_clears_the_watermark() {
+        let w = world();
+        let zones = [zone(CameraScrollPolicy::Free)];
+        let mut ease = CameraEaseState {
+            scroll_watermark_x: Some(9999.0),
+            ..Default::default()
+        };
+
+        let far = resolve(&w, &zones, 1800.0, &mut ease);
+        assert!(ease.scroll_watermark_x.is_none(), "leaving clears it");
+        let back = resolve(&w, &zones, 1400.0, &mut ease);
+        assert!(
+            back < far - 100.0,
+            "a free camera comes back: {far} -> {back}"
         );
     }
 }

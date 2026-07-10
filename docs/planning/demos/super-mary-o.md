@@ -44,9 +44,28 @@ scroll clamp (a `CameraZoneSpec` policy knob).
   row (`simple_ranged` + params). Both are GroundItem pickups. THIS is
   A3's adjudicated consumer (numeric modifiers merge into params at
   trigger-resolve; behavioral overrides are components).
-- **M2 camera scroll policy:** one-way forward scroll + no-backtrack
-  clamp as a `CameraZoneSpec` extension (authored data; the knob is the
-  oracle-violation to file).
+- ~~**M2 camera scroll policy**~~ ✅ **LANDED 2026-07-10.**
+  `CameraZoneSpec.scroll_policy: CameraScrollPolicy` (`#[serde(default)]`, so every
+  zone authored before M2 is byte-identical), applied in
+  `resolve_follow_camera_snapshot` AFTER the bounds clamp — the watermark records
+  where the camera SETTLED, not where it wanted to be. The watermark lives on
+  `CameraEaseState` and is cleared on leaving the zone, so the clamp is
+  **per-visit**: re-entering from the other side scrolls again rather than meeting a
+  camera pinned to where it stopped an hour ago.
+
+  Two rulings. `ForwardOnlyX` is the ONLY non-default variant — one shipped need,
+  one variant; a `ForwardOnly { axis, direction }` generalization waits for a second
+  consumer. And the axis is SCREEN `+x`, not gravity-relative, because a
+  side-scroller's no-backtrack rule is a statement about the level's authored
+  direction of travel, and rotating gravity does not rotate the level.
+
+  The clamp **never eases backward to meet the watermark**: a camera that crept
+  toward a high-water mark while the player stood still would be a bug that looked
+  like a feature for exactly one playtest.
+
+  The oracle-violation this slice was told to file is filed and closed in the same
+  breath: the knob is a `CameraZoneSpec` field, which is authored data, so no engine
+  code names a demo.
 - **M3 level-end sequencing:** flagpole grab → slide → walk-off → score
   tally on the cutscene kit + `RoomLoaded`/gate vocabulary; pipes =
   LoadingZone Door activation (exists).
@@ -61,7 +80,7 @@ scroll clamp (a `CameraZoneSpec` policy knob).
 
 ## Slices
 
-M1 equipment chain [opus] (with A3); M2 scroll knob [opus]; M3 flag
+M1 equipment chain [opus] (with A3); ~~M2 scroll knob~~ ✅ **DONE 2026-07-10**; M3 flag
 sequence [opus]; M4 the game (3 levels + enemies + HUD + title/results)
 [opus]; M5 hosting wing in ambition (Phase D-C) [opus].
 

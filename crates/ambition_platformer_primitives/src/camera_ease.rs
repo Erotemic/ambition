@@ -17,6 +17,11 @@ pub struct CameraEaseState {
     /// jumps when look-ahead flips with facing or when framing presets change.
     pub live_target_world: ae::Vec2,
     pub target_initialized: bool,
+    /// **M2's no-backtrack watermark.** The furthest `+x` the camera has reached
+    /// during the current visit to a `ForwardOnlyX` zone. `None` outside such a
+    /// zone — which is what makes re-entering one a fresh scroll rather than a
+    /// camera pinned to where it stopped an hour ago.
+    pub scroll_watermark_x: Option<f32>,
 }
 
 impl Default for CameraEaseState {
@@ -25,6 +30,7 @@ impl Default for CameraEaseState {
             live_scale: 1.0,
             live_target_world: ae::Vec2::ZERO,
             target_initialized: false,
+            scroll_watermark_x: None,
         }
     }
 }

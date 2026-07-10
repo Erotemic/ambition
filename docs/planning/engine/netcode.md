@@ -474,6 +474,73 @@ snapshots needed. Needs N0 complete, plus:
      **a rollback window must not span a spawn** — a constraint N3.2's bounded window
      makes reasonable, and one worth writing down before it is discovered.
 
+  ### Pre-solved: `SnapshotResolve`, and how boss brain state rewinds
+
+  The boss slice looks large and is not, once you notice that **every piece of it
+  already has an authored name.**
+
+  - `MovePlayback { spec: MoveSpec, facing, t, landed_hit }` embeds a whole authored
+    `MoveSpec` — but `MoveSpec.id` is *"a stable move id (`"jab"`, `"tilt_up"`)"*, and
+    the entity's `ActorMoveset` survives the rewind because it is authored config and
+    `restore` patches survivors.
+  - `BossAttackProfile` is already `Strike(String)` / `Special(String)` — a keyed
+    reference by construction, because a new geometry strike is *"a new key + authored
+    rects, with NO edit to this enum."*
+
+  So the rule, which is the same rule `SnapshotCursor` follows one step further:
+
+  > **Reference authored content by its authored id, never by value.** A snapshot
+  > carries what the sim *chose*; the content it chose from is still on the entity.
+
+  The seam is a third registration kind next to `register_component` /
+  `register_cursor`:
+
+  ```rust
+  pub trait SnapshotResolve: Component + Sized {
+      /// The CHOICE, not the content: an id, a cursor, a flag.
+      fn encode_ref(&self, out: &mut Vec<u8>);
+      /// Rebuild by resolving that choice against the authored data the entity
+      /// still carries. `None` if the entity lost it — which only happens on a
+      /// respawn, which `RestoreReport::respawned` already reports.
+      fn resolve(entity: &mut EntityWorldMut<'_>, r: &mut Reader<'_>) -> Option<Self>;
+  }
+  ```
+
+  `MovePlayback::resolve` clones the entity's `ActorMoveset`, looks the id up, and
+  rebuilds. It is also the piece that makes `MovePlayback`'s *presence* rewindable:
+  the component is inserted when a move starts and removed when it ends, so a rollback
+  must be able to both add and drop it — which `register_component`'s
+  insert-or-remove already does, and which `register_cursor` cannot.
+
+  Then the boss registrations are mechanical:
+
+  | component | kind | blob |
+  |---|---|---|
+  | `MovePlayback` | resolve | `(move_id, facing, t, landed_hit)` |
+  | `BossAttackState` | component | profiles as `(tag, key)`, four `f32` clocks, telegraph spec by key |
+  | `BossAttackIntent` | component | two optional `(tag, key)` |
+  | `BossPatternTimer` | component | one `f32` |
+  | `BossPhase` | component | `snapshot_unit_enum!` |
+  | `Perception` | component | `snapshot_unit_enum!` |
+  | `PerceptionMemory` | component | `WorldMemory`, which FB5 already keeps in a `BTreeMap` for exactly this reason |
+
+  **The content-side specials need one more thing than a codec.** `EchoFanState`,
+  `OverflowState`, `GradientCascadeState`, `SeismicStompState`, `MinimaTrapState`,
+  `AppleRainSpawnState`, `SaddlePointState`, `ExplodingGradientState`,
+  `ModeCollapseState`, `EyeBeamState`, `OverfitVolleyState` live in `ambition_content`,
+  which already depends on `ambition_runtime`. They can `impl SnapshotState` today —
+  but nothing *calls* their registration, because `SnapshotRegistry` is built by hand
+  in tests and is not an app resource. **Make it one** (`app.init_resource::<SnapshotRegistry>()`,
+  each plugin registering in `build`) and the "each sim crate registers its own
+  serialization" shape falls out with no trait relocation at all.
+
+  Expect `gnu_ton_arena` to stay dirty after the engine half: it also carries
+  `Limb` / `LimbIntents` / `LimbRig` / `LimbRouteState` and the mount cluster
+  (`Mountable`, `Mounted`, `MountSlot`, `RidingOn`, `CanPilot`, `Mass`). Those are
+  ADR 0020's two-linked-actors model, and `Mounted`/`RidingOn` hold entity
+  references — the same decision-(2) migration `ActorTarget` needs. Do
+  `mockingbird_arena` first: it is the same disease without the mount.
+
   A note on where the codecs live. `ambition_runtime` implements `SnapshotState` for
   other crates' types today because it sits above them all. That is the bootstrap, not
   the destination: this section asks that *"each sim crate registers its components'

@@ -24,8 +24,8 @@ use ambition_engine_core as ae;
 
 use ambition_characters::actor::ActorFaction;
 use ambition_characters::perception::{
-    PerceivedActor, PerceivedPortal, PerceivedProjectile, PerceivedSolid, SelfView, SolidKind,
-    Viewport, WorldView,
+    BodyPhase, PerceivedActor, PerceivedPortal, PerceivedProjectile, PerceivedSolid, SelfView,
+    SolidKind, StageView, Viewport, WorldView,
 };
 
 use crate::combat::targeting::FactionRelations;
@@ -87,6 +87,14 @@ pub struct PerceptionBody {
     pub can_blink: bool,
     pub can_dash: bool,
     pub can_shield: bool,
+    /// What this body is doing, and how long is left of it — the no-cheat
+    /// contract's "move phase / animation state" (fighter-brain.md §1).
+    pub phase: BodyPhase,
+    pub phase_remaining: f32,
+    pub invulnerable: bool,
+    /// The smash-percent axis (CM1) and its denominator.
+    pub damage_taken: i32,
+    pub health_max: i32,
     /// This viewer's per-entity GRUDGE, if any (`ActorAggression.grudge`). A grudge
     /// makes ONE exact body a foe even when it shares the viewer's faction — the
     /// mechanism behind two same-faction NPCs dueling. Carried here so
@@ -112,6 +120,14 @@ pub struct PerceptionPeer {
     pub alive: bool,
     pub on_ground: bool,
     pub shield_raised: bool,
+    /// Move phase + its remaining seconds, as a watcher reads it off the
+    /// animation. This is what lets a brain punish a whiffed swing.
+    pub phase: BodyPhase,
+    pub phase_remaining: f32,
+    pub invulnerable: bool,
+    /// The smash-percent axis (CM1) and its denominator — kill potential.
+    pub damage_taken: i32,
+    pub health_max: i32,
 }
 
 /// A live projectile the viewer may perceive. `faction` is the **firer's**
@@ -149,6 +165,52 @@ pub struct PerceptionPeers(pub Vec<PerceptionPeer>);
 /// `ActorTarget`). Each peer carries its source `Entity` so a viewer excludes ITSELF
 /// and resolves a per-entity grudge. `on_ground` / `shield_raised` are left `false`
 /// for now (no consumer reads them; wire them when a brain needs them).
+/// Read a body's **move phase** off its live combat state — the one place the
+/// perception vocabulary ([`BodyPhase`]) is mapped from the sim's.
+///
+/// The `ambition_combat` swing clock is the authority while a swing is in flight;
+/// `BodyCombat`'s hitstun timer wins over it, because a body knocked out of its
+/// own attack is reeling, not attacking. Shield is last: you cannot guard while
+/// reeling or swinging.
+///
+/// Returns `(phase, seconds_remaining_in_phase)`. The remaining clock is `0.0`
+/// where the sim keeps none (recovery has no dedicated timer today — CM7's
+/// frame-data table is what will give it one).
+pub fn body_phase(
+    combat: Option<&ambition_characters::actor::BodyCombat>,
+    melee: Option<&ambition_combat::components::BodyMelee>,
+    shield: Option<&ae::BodyShieldState>,
+) -> (BodyPhase, f32) {
+    if let Some(c) = combat {
+        if c.hitstun_timer > 0.0 || c.recoil_lock_timer > 0.0 {
+            return (BodyPhase::Hitstun, c.hitstun_timer.max(c.recoil_lock_timer));
+        }
+    }
+    if let Some(m) = melee {
+        match m.phase() {
+            Some(ambition_combat::AttackPhase::Startup) => {
+                return (BodyPhase::AttackStartup, m.windup_remaining())
+            }
+            Some(ambition_combat::AttackPhase::Active) => {
+                return (BodyPhase::AttackActive, m.active_remaining())
+            }
+            Some(ambition_combat::AttackPhase::Recovery) => {
+                return (BodyPhase::AttackRecovery, 0.0)
+            }
+            None => {}
+        }
+    }
+    if shield.is_some_and(|s| s.active) {
+        return (BodyPhase::Shielding, 0.0);
+    }
+    (BodyPhase::Neutral, 0.0)
+}
+
+/// True while the body is in post-hit i-frames — visible, because it flashes.
+fn body_invulnerable(combat: Option<&ambition_characters::actor::BodyCombat>) -> bool {
+    combat.is_some_and(|c| c.damage_invuln_timer > 0.0)
+}
+
 pub fn collect_perception_peers(
     mut peers: bevy::prelude::ResMut<PerceptionPeers>,
     bodies: bevy::prelude::Query<(
@@ -157,10 +219,18 @@ pub fn collect_perception_peers(
         &crate::actor::BodyKinematics,
         &ambition_characters::actor::BodyHealth,
         &ActorFaction,
+        // FB1: `on_ground` / `shield_raised` used to be hardcoded `false` here —
+        // the view LIED about every peer. A brain that read them (and FB1's L1
+        // classifier will) would think nobody was ever grounded or guarding.
+        Option<&ae::BodyGroundState>,
+        Option<&ae::BodyShieldState>,
+        Option<&ambition_characters::actor::BodyCombat>,
+        Option<&ambition_combat::components::BodyMelee>,
     )>,
 ) {
     peers.0.clear();
-    for (entity, id, kin, health, faction) in &bodies {
+    for (entity, id, kin, health, faction, ground, shield, combat, melee) in &bodies {
+        let (phase, phase_remaining) = body_phase(combat, melee, shield);
         peers.0.push(PerceptionPeer {
             entity,
             id: id
@@ -169,11 +239,19 @@ pub fn collect_perception_peers(
             pos: kin.pos,
             vel: kin.vel,
             facing: kin.facing,
-            half_extent: kin.size,
+            // FB1: this was `kin.size` — the FULL body size passed as a HALF
+            // extent, so every peer read as twice its real box. `BodyKinematics`
+            // keeps full size (`aabb()` halves it); the view's contract is halves.
+            half_extent: kin.size * 0.5,
             faction: *faction,
             alive: health.alive(),
-            on_ground: false,
-            shield_raised: false,
+            on_ground: ground.is_some_and(|g| g.on_ground),
+            shield_raised: shield.is_some_and(|s| s.active),
+            phase,
+            phase_remaining,
+            invulnerable: body_invulnerable(combat),
+            damage_taken: health.damage_taken(),
+            health_max: health.max(),
         });
     }
 }
@@ -321,6 +399,18 @@ pub fn build_world_view(
         can_blink: body.can_blink,
         can_dash: body.can_dash,
         can_shield: body.can_shield,
+        phase: body.phase,
+        phase_remaining: body.phase_remaining,
+        invulnerable: body.invulnerable,
+        damage_taken: body.damage_taken,
+        health_max: body.health_max,
+    };
+
+    // The stage is NOT viewport-clipped: a fighter can see the blastzones. It is
+    // the same envelope CC3's invariant 3 polices, so "offstage" here and "out of
+    // bounds" there are the same predicate.
+    let stage = StageView {
+        bounds: ae::aabb_from_min_size(ae::Vec2::ZERO, world.size),
     };
 
     let actors = peers
@@ -342,6 +432,11 @@ pub fn build_world_view(
             alive: p.alive,
             on_ground: p.on_ground,
             shield_raised: p.shield_raised,
+            phase: p.phase,
+            phase_remaining: p.phase_remaining,
+            invulnerable: p.invulnerable,
+            damage_taken: p.damage_taken,
+            health_max: p.health_max,
         })
         .collect();
 
@@ -380,6 +475,7 @@ pub fn build_world_view(
     WorldView {
         self_view,
         viewport,
+        stage,
         actors,
         projectiles,
         terrain,
@@ -420,6 +516,11 @@ mod tests {
             can_blink: false,
             can_dash: false,
             can_shield: false,
+            phase: BodyPhase::Neutral,
+            phase_remaining: 0.0,
+            invulnerable: false,
+            damage_taken: 0,
+            health_max: 100,
             grudge: None,
         }
     }
@@ -436,6 +537,11 @@ mod tests {
             alive: true,
             on_ground: true,
             shield_raised: false,
+            phase: BodyPhase::Neutral,
+            phase_remaining: 0.0,
+            invulnerable: false,
+            damage_taken: 0,
+            health_max: 100,
         }
     }
 
@@ -838,6 +944,146 @@ mod tests {
                 .any(|p| p.faction == ActorFaction::Player && p.damage == 2),
             "the live-pool shot defaults to Player"
         );
+    }
+
+    // ── FB1: the view-audit regressions ──
+
+    /// **The 2× bug.** `BodyKinematics::size` is the FULL body size (`aabb()`
+    /// halves it); `PerceptionBody::half_extent` and `PerceivedActor::half_extent`
+    /// are halves. Both fill sites passed `size` straight through, so every body
+    /// perceived itself and everyone else as twice its real box — and
+    /// `WorldView::reachable`, which sweeps `self_view.half_extent`, refused
+    /// corridors the body physically fits through.
+    ///
+    /// This test pins the CONTRACT rather than the call sites: the view's
+    /// half-extent must equal the body's real `aabb()` half-extent.
+    #[test]
+    fn the_views_half_extent_is_a_half_extent() {
+        let kin_size = ae::Vec2::new(24.0, 36.0);
+        let real_half = ae::Aabb::new(ae::Vec2::ZERO, kin_size * 0.5).half_size();
+        assert_eq!(
+            real_half,
+            kin_size * 0.5,
+            "if this ever changes, both perception fill sites must change with it"
+        );
+        // And a body built with the halved value reaches through a gap its full
+        // size would not fit: the observable consequence of the bug.
+        let mut b = body(ae::Vec2::new(0.0, 100.0), ActorFaction::Enemy);
+        b.half_extent = kin_size * 0.5;
+        // Gap 50px: the true 36px-tall sweep clears it; the doubled 72px one does not.
+        let world = corridor_world(50.0);
+        let view = build_world_view(
+            &b,
+            &[],
+            &[],
+            &[],
+            &world,
+            &FactionRelations::default(),
+            DEFAULT_VIEWPORT_HALF,
+            0.0,
+        );
+        assert!(
+            view.reachable(ae::Vec2::new(300.0, 100.0)),
+            "a body sweeping its true half-extent fits the corridor"
+        );
+        let mut fat = b;
+        fat.half_extent = kin_size; // the bug
+        let fat_view = build_world_view(
+            &fat,
+            &[],
+            &[],
+            &[],
+            &world,
+            &FactionRelations::default(),
+            DEFAULT_VIEWPORT_HALF,
+            0.0,
+        );
+        assert!(
+            !fat_view.reachable(ae::Vec2::new(300.0, 100.0)),
+            "the doubled box does not — which is what the brain used to believe"
+        );
+    }
+
+    /// A corridor at y=100 whose vertical opening is `gap` px, walled above/below.
+    fn corridor_world(gap: f32) -> ae::World {
+        let half = gap * 0.5;
+        let blocks = vec![
+            ae::Block::solid(
+                "ceil",
+                ae::Vec2::new(-500.0, 100.0 - half - 200.0),
+                ae::Vec2::new(1000.0, 200.0),
+            ),
+            ae::Block::solid(
+                "floor",
+                ae::Vec2::new(-500.0, 100.0 + half),
+                ae::Vec2::new(1000.0, 200.0),
+            ),
+        ];
+        ae::World::new(
+            "corridor",
+            ae::Vec2::new(1000.0, 600.0),
+            ae::Vec2::ZERO,
+            blocks,
+        )
+    }
+
+    /// **The stage is not viewport-clipped.** A fighter can see the blastzones;
+    /// L1's `Recovery`/`EdgeGuard` are undecidable otherwise. The viewport here is
+    /// far smaller than the room.
+    #[test]
+    fn the_view_carries_the_whole_stage_not_the_viewport() {
+        let world = arena_world();
+        let view = build_world_view(
+            &body(ae::Vec2::new(0.0, 180.0), ActorFaction::Enemy),
+            &[],
+            &[],
+            &[],
+            &world,
+            &FactionRelations::default(),
+            ae::Vec2::splat(40.0), // a tiny viewport
+            0.0,
+        );
+        assert_eq!(view.stage.bounds.min, ae::Vec2::ZERO);
+        assert_eq!(view.stage.bounds.max, world.size);
+        assert!(view.stage.bounds.max.x > view.viewport.half_extent.x * 2.0);
+    }
+
+    /// The move-phase reader's priority order: hitstun beats a swing (a body
+    /// knocked out of its own attack is reeling, not attacking), and a swing beats
+    /// a raised shield.
+    #[test]
+    fn hitstun_outranks_a_swing_and_a_swing_outranks_a_shield() {
+        use ambition_characters::actor::BodyCombat;
+        let shield_up = ae::BodyShieldState {
+            active: true,
+            parry_window_timer: 0.0,
+        };
+
+        let mut reeling = BodyCombat::default();
+        reeling.hitstun_timer = 0.4;
+        assert_eq!(
+            body_phase(Some(&reeling), None, Some(&shield_up)),
+            (BodyPhase::Hitstun, 0.4)
+        );
+
+        assert_eq!(
+            body_phase(Some(&BodyCombat::default()), None, Some(&shield_up)),
+            (BodyPhase::Shielding, 0.0)
+        );
+        assert_eq!(
+            body_phase(None, None, None),
+            (BodyPhase::Neutral, 0.0),
+            "a body with no combat components is neutral, not unknown"
+        );
+    }
+
+    #[test]
+    fn i_frames_are_perceivable_because_the_body_flashes() {
+        use ambition_characters::actor::BodyCombat;
+        let mut c = BodyCombat::default();
+        assert!(!body_invulnerable(Some(&c)));
+        c.damage_invuln_timer = 0.2;
+        assert!(body_invulnerable(Some(&c)));
     }
 }
 

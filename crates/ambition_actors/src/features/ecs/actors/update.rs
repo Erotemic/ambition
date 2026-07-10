@@ -471,12 +471,20 @@ pub fn tick_actor_brains(
                                     .collect()
                             })
                             .unwrap_or_default();
+                    // Self's own move phase / i-frames come from the SAME per-tick
+                    // snapshot every peer's do — one derivation (`body_phase`), so a
+                    // body cannot read itself more precisely than its opponent reads it.
+                    let self_peer = perception_peers
+                        .as_ref()
+                        .and_then(|p| p.0.iter().find(|peer| peer.entity == this_actor_entity));
                     let world_view = super::super::perception::build_world_view(
                         &super::super::perception::PerceptionBody {
                             pos: em.kin.pos,
                             vel: em.kin.vel,
                             facing: em.kin.facing,
-                            half_extent: em.kin.size,
+                            // FB1: was `em.kin.size` — the FULL size handed to a HALF
+                            // extent. `WorldView::reachable` swept a box twice the body.
+                            half_extent: em.kin.size * 0.5,
                             faction: self_faction,
                             gravity_down: enemy_gravity_dir,
                             on_ground: em.ground.on_ground,
@@ -486,6 +494,11 @@ pub fn tick_actor_brains(
                             can_blink: em.caps.can_blink,
                             can_dash: em.caps.can_dash,
                             can_shield: em.caps.can_shield,
+                            phase: self_peer.map(|p| p.phase).unwrap_or_default(),
+                            phase_remaining: self_peer.map_or(0.0, |p| p.phase_remaining),
+                            invulnerable: self_peer.is_some_and(|p| p.invulnerable),
+                            damage_taken: em.health.damage_taken(),
+                            health_max: em.health.max(),
                             // A grudge makes ONE same-faction body a foe (the duel
                             // mechanism); carry it so this body's `nearest_hostile`
                             // matches the foe `select_actor_targets` would pick.

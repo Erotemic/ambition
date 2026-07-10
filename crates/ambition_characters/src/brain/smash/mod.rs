@@ -1318,6 +1318,7 @@ mod tests {
                 can_blink: false,
                 can_dash: false,
                 can_shield: false,
+                ..Default::default()
             },
             viewport: Viewport::around(ae::Vec2::ZERO, ae::Vec2::splat(800.0)),
             actors: vec![],
@@ -1325,6 +1326,7 @@ mod tests {
             terrain,
             portals: vec![],
             sim_time: 0.0,
+            ..Default::default()
         }
     }
 

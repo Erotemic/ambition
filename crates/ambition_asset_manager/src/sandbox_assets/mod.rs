@@ -18,13 +18,6 @@ use crate::{
     AssetSourceProfile, ResolvedAsset,
 };
 
-// The `tests` module reaches for several `ambition_asset_manager` types
-// through `use super::*`. Re-import them under `#[cfg(test)]` so the
-// prod `lib` build doesn't flag them as unused, while the test build
-// still sees them at this module's path.
-#[cfg(test)]
-use crate::{AssetKind, AssetLocation, MissingAssetPolicy, PreloadGroup};
-
 mod builders;
 mod embedded;
 pub mod ids;

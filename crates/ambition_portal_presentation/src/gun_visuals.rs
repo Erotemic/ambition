@@ -336,7 +336,7 @@ mod tests {
         );
 
         // Without a transit, exactly one plain-sprite gun.
-        let mut transits = app.world_mut().query::<&mut BodyKinematics>();
+        let transits = app.world_mut().query::<&mut BodyKinematics>();
         drop(transits);
         let player = app
             .world_mut()

@@ -150,9 +150,6 @@ impl Stage {
     pub fn width(&self) -> f32 {
         self.right - self.left
     }
-    pub fn height(&self) -> f32 {
-        self.floor - self.ceiling
-    }
 }
 
 /// One verb a brain emitted on a tick — the alphabet the variety metric counts.

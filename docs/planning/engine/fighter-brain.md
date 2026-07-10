@@ -155,7 +155,7 @@ this track.
 
 | # | Slice | Grade |
 |---|---|---|
-| FB1 | View audit for the no-cheat contract: does `WorldView`/`BrainSnapshot` carry move-phase, damage meters, stage geometry? Add missing fields; add the perception delay-buffer wrapper | [opus] |
+| FB1 | ~~View audit for the no-cheat contract~~ ✅ **DONE 2026-07-10** — see §7 | [opus] |
 | FB2 | Frame-data table consumer (needs CM7) + L2 option generator/scorer with authored weights | [opus, fable-specced — this doc §1] |
 | FB3 | L1 classifier + scenario fixture suite | [opus] |
 | FB4 | Difficulty profiles + humanity checks + ladder self-play rig — concretely: (1) the nine `FighterBrainProfile` RON rows per §4 (reaction_ms interpolates 500→150, apm_cap, noise σ, rollout knobs 0 until FB6); (2) the THREE humanity checks from §3 as headless tests — input-rate histogram ≤ apm_cap, reaction-time distribution matches the configured latency (assert the delay buffer is the ONLY view path — a lint-style grep + a runtime assert), and no same-tick perceive→act; (3) the ladder rig = N headless matches per adjacent-level pair via `SlotControls`, gate: level n beats n−1 in ≥ 60%, plus L9-vs-sandbag damage-efficiency floor. The rig reuses the duel-arena headless harness (`ambition_app/tests/duel_arena.rs` is the seed) | [opus] |
@@ -165,3 +165,79 @@ this track.
 Sequencing: FB1–FB4 need only landed systems + CM7 and deliver a credible
 mid-level CPU; FB5 makes it scary; FB6 makes it level 9. SSB demo ships
 with FB1–FB4 minimum.
+
+---
+
+## 7. FB1 — the view audit, and what it found (opus, 2026-07-10)
+
+**Answer to the card's question: no, the view did not carry move phase, damage
+meters, or stage geometry — and two of the fields it DID carry were wrong.**
+
+### The view now carries
+
+| Field | Where | Why the contract needs it |
+|---|---|---|
+| `BodyPhase` + `phase_remaining` | `SelfView`, `PerceivedActor` | §1 names *"move phase/animation state"*. `Neutral / Hitstun / AttackStartup / AttackActive / AttackRecovery / Shielding`, with `is_punishable()` — active frames are NOT a punish window, and that distinction is L2's whole game. Derived once, in `body_phase()`, from `BodyCombat` + `BodyMelee` + `BodyShieldState`; hitstun outranks a swing (a body knocked out of its own attack is reeling), a swing outranks a shield. |
+| `invulnerable` | both | i-frames. Perceivable: the body flashes. |
+| `damage_taken` + `health_max` + `damage_frac()` | both | §1's *"damage meters"*, CM1's smash-percent axis. L2 cannot score kill potential without the victim's meter. |
+| `WorldView.stage: StageView` | the view | §1's *"stage geometry"*. **NOT viewport-clipped** — a fighter can see the blastzones. `offstage()` is L1's `Recovery` predicate and `actor_offstage()` is `EdgeGuard`; without them those two states are undecidable. `distance_to_edge()` is L2's corner-pressure feature. Its bounds are the room's world AABB — the same envelope CC3's invariant 3 polices, so "offstage" and "out of bounds" mean the same thing in both places. |
+
+`StageView::default()` is the **empty** box (inverted bounds), so every point
+reads offstage. The first draft used a zero-size box at the origin, which made
+the origin — and only the origin — read as safe. That is the kind of quiet lie a
+perception type must not tell.
+
+### Two bugs the audit surfaced
+
+1. **The 2× half-extent.** Both fill sites (`PerceptionBody` in
+   `actors/update.rs`, `PerceptionPeer` in `collect_perception_peers`) passed
+   `BodyKinematics::size` — the **full** body size — into a field contracted as a
+   **half** extent. Every body perceived itself and everyone else as twice its
+   real box, and `WorldView::reachable`, which sweeps `self_view.half_extent`,
+   refused corridors the body physically fits through. Fixed, and pinned by
+   `the_views_half_extent_is_a_half_extent`, which asserts the observable
+   consequence (a real sweep through a real gap) rather than the call sites.
+2. **`on_ground` and `shield_raised` were hardcoded `false` for every peer.** The
+   old comment said *"no consumer reads them; wire them when a brain needs them."*
+   A view that lies until someone reads it is worse than a view that lacks the
+   field: FB1's L1 classifier is exactly that reader, and it would have concluded
+   nobody is ever grounded or guarding. Now read from `BodyGroundState` /
+   `BodyShieldState`.
+
+Self's phase and i-frames come from the **same** per-tick peer snapshot everyone
+else's do, so a body cannot read itself more precisely than its opponent reads it.
+
+### The perception delay-buffer
+
+`ambition_characters::perception::DelayedPerception` — a `VecDeque<WorldView>` of
+length `delay_ticks + 1`, `observe()`d by the gameplay layer, `perceive()`d by the
+brain. `from_reaction_ms(ms, hz)` converts a `FighterBrainProfile` row (150 ms →
+9 ticks at 60 Hz; 500 ms → 30).
+
+**Warm-up is deliberately stale, never fresh.** Before the buffer fills it returns
+the *oldest* view it holds, so a brain spawned mid-fight reacts more slowly than
+its profile for a few ticks and never gets a same-tick perceive→act at the exact
+moment a fight begins — which is the moment FB4's humanity check is watching.
+`clear()` (respawn / room change) blinds the brain for a tick rather than
+stranding it on a picture of the old room.
+
+`delay_ticks == 0` is a legal profile (RL rigs, regression fixtures) and returns
+the live view. Shipped difficulty rows never use it — §1.3: *"Level 9 = small
+numbers, never zero."*
+
+### Left for FB4, on purpose
+
+The buffer exists; **nothing yet forces a brain through it.** §3's humanity check
+*"assert the delay buffer is on the ONLY read path"* is a lint plus a runtime
+assert, and it belongs with the profiles that give `delay_ticks` a value. FB1
+built the instrument; FB4 makes it mandatory. Until then `build_world_view`'s
+output still reaches the smash brain live, and that is stated here rather than
+quietly true.
+
+`AttackRecovery` carries `phase_remaining = 0.0`: the sim keeps no endlag clock
+today. CM7's frame-data table is what gives it one, which is why FB2 depends on
+CM7 and this field is already in the struct.
+
+`brain::smash::arena::Stage` is a separate, brain-private stage rectangle used by
+the self-play arena. `StageView` should subsume it when FB3's fixture suite lands;
+it is not worth a churn commit before there is a second consumer.

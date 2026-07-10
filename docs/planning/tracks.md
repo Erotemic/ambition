@@ -79,7 +79,12 @@ player-visible bugs, and the untouched determinism ladder.
    `control`, affordance table → `affordances`, body mechanics → `features`, and
    what remained (correctly) became `avatar` — the home avatar slot 0 returns to.
    Slot-0 filters folded or justified in place. R5's lint went red on the move, as
-   designed. Only R6e, the mechanical `features/` rename, remains.
+   designed. **R6e (the `features/` rename) is PARKED with a DECISION BRIEF** in
+   [refactor-chain.md](engine/refactor-chain.md) §R6e: measured, it is ~1560 sites
+   across 5 crates (838 `Feature*` identifiers, not just 722 module paths), and
+   renaming the module while leaving `FeatureId`/`FeatureSimEntity` behind would
+   make the tree worse, not better. Jon picks: rename both (`sim` + `Sim*`), or
+   accept the name now that `MODULES.md` explains it.
 
 3. **The visible sprite bugs (E3/E6 tail).** [opus] Three player-facing
    regressions in the bug queue below: all bosses render the generic sheet,

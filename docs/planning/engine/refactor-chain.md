@@ -1,8 +1,9 @@
 # The refactor chain — dissolving the adapter shells, then folding the player
 
 **Status:** R1, R2, R3, R5 DONE; R4 re-checked and STOPPED as ruled; R6 IN PROGRESS
-(R6a–R6d landed — **`player/` no longer exists**; only R6e, the mechanical
-`features/` rename, remains). 2026-07-10.
+(R6a–R6d landed — **`player/` no longer exists**. R6e PARKED with a decision
+brief: measured, the `features/` rename is ~1560 sites across 5 crates, not the
+722 the plan assumed, and a half-rename would make the tree worse). 2026-07-10.
 Six slices, in dependency order.
 Each is committable on its own; each states its own exit check.
 
@@ -589,13 +590,57 @@ its input frame and its respawn policy, and that is all.*
 65 files repointed. Zero errors and zero warnings across
 `--workspace --all-targets --features rl_sim`.
 
-### ⏳ R6e — the `features/` rename
+### ⏸ R6e — the `features/` rename: PARKED, with a decision brief
 
-The last piece: `features/` is "the enemy / NPC / boss ECS ACTOR SIMULATION — NOT
-a feature-toggle layer" (its own header says so), and it is now also the home of
-the body mechanics R6d moved in. 508 internal + 199 external references. Deliberately
-NOT bundled into R6d: the rename is a pure mechanical sweep, and mixing it with
-the fold's judgment calls would have made both unreviewable.
+**Measured before executing, and the measurement changed the answer.** The plan
+called this "a pure mechanical sweep" of 508 internal + 199 external references.
+It is not, and doing it as scoped would leave the tree WORSE than it is today.
+
+| Surface | Refs |
+|---|---:|
+| `crate::features` / `ambition_actors::features` / … | **722** |
+| `Feature*`-prefixed IDENTIFIERS (`FeatureId` 165, `FeatureSimEntity` 192, `FeatureEcsWorldOverlay` 80, `FeatureName` 55, `FeatureViewIndex` 40, `FeatureView` 33, `FeatureVisual` 29, …) | **838** |
+| Crates that DEFINE a `Feature*` type | **5** (`actors`, `combat`, `platformer_primitives`, `render`, `sim_view`) |
+
+Rename the module alone and you get a module called (say) `actors` or `sim`
+containing `FeatureId`, `FeatureSimEntity`, `FeatureVisual`. Today at least the
+module and its types agree on the word. **A half-rename creates a new
+inconsistency where there is currently only an old one** — and it violates the two
+rulings that govern here: unified-actors step 6 ("rename off type-names") and
+Jon's standing rule that an id must match its displayed label.
+
+So R6e's real scope is ~1560 sites across five crates, and it turns on a naming
+question the rulings do not answer.
+
+#### DECISION BRIEF (for Jon) — what should `features` be called?
+
+The module's own header: *"The enemy / NPC / boss ECS ACTOR SIMULATION — NOT a
+feature-toggle layer. Despite the name, 'features' here means in-world entities
+(actors plus room props: pickups, chests, switches, breakables, hazards)."* Since
+R6d it also holds the body mechanics.
+
+Note there are TWO things to name, and they are different: the MODULE (a
+simulation) and the TYPE FAMILY (in-world entities).
+
+| Option | Module | Types | Cost | Trade |
+|---|---|---|---|---|
+| **A. `sim` + `Entity*`** | `crate::sim`, `ambition::actors::sim::…` | `SimEntityId`, `SimEntity`, … | ~1560 | Reads cleanly outside; `Entity*` risks confusion with bevy's `Entity` unless prefixed `Sim`. |
+| **B. `actors` + keep `Feature*`** | `crate::actors` | unchanged | ~722 | Matches vision's "ONE actors tree" literally, but yields `ambition::actors::actors::FeatureId` — redundant AND still mis-typed. **Not recommended.** |
+| **C. `entities` + `Entity*`** | `crate::entities` | `EntityId`, … | ~1560 | Truest to the header's own words; collides hard with bevy `Entity` in a Bevy-native codebase. |
+| **D. do nothing; fix the DOC** | unchanged | unchanged | 0 | `crates/ambition_actors/MODULES.md` already names `features` as one of three misleading names and says what it is. The cost of the name is now one table row, paid once, for every reader. |
+
+**Recommendation: A, or D.** A is right if the 1560-site sweep is worth a day of
+churn on a pre-release engine with zero dependents (it probably is — the cost only
+grows). D is right if the answer is "the name is ugly but the map fixes it," which
+is a legitimate answer now that a map exists and did not before.
+
+**What is NOT on the table: B, and any half-rename.** Renaming the directory while
+leaving `FeatureId` behind buys nothing and costs a new lie.
+
+Parked here per `tracks.md`'s standing rule — *a genuine design ambiguity the
+rulings do not cover: do not improvise doctrine, do not block; park the slice,
+write the brief, continue with the nearest unambiguous work.* Everything else in
+this chain is done.
 
 **Still deferred by prior ruling:** folding the avatar's `ProjectileSpawner`
 (cooldown + mana meter + charge state machine) onto `try_fire_ranged`. It changes

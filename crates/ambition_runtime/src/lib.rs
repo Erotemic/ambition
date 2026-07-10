@@ -52,6 +52,8 @@ mod progression_schedule;
 pub mod projectile_schedule;
 mod room_schedule;
 mod sim_core_resources;
+/// N3.1's opt-in sim-state registration seam, and N0.4's desync-canary hash.
+pub mod snapshot;
 
 pub use combat_schedule::CombatSchedulePlugin;
 /// The demo-hosting seam (D-C): gate a hosted ruleset on the active room's mode.

@@ -230,9 +230,25 @@ Obligations (each a slice, all [opus]):
   deduping in message order. Two commutative-but-hash-ordered sites became
   `BTreeMap`s (`compute_holding_positions`, the smash variety metric), and four
   genuinely-unobservable ones carry the marker.
-- **N0.4 Desync canary rig.** Two sims, same input stream, state-hash per
-  tick (hash = the snapshot serialization of N3.1 — build them together),
-  first-divergence report. This is the tool that keeps N0 true forever.
+- ~~**N0.4 Desync canary rig.**~~ ✅ **LANDED 2026-07-10.**
+  `game/ambition_app/tests/desync_canary.rs`: two `SandboxSim`s, one seeded input
+  stream, the registered sim state hashed every tick, first-divergence report that
+  names the offending REGISTRY ENTRY (a desync you cannot name is a desync you
+  cannot fix). **3 rooms × 240 ticks, in sync.** Poison-tested both ways — a
+  different input stream must diverge, and moving one body must change the hash —
+  because a canary that cannot cry proves nothing.
+
+  Built on N3.1's registration seam, as this section required
+  (`ambition_runtime::snapshot`). The hash is FNV-1a, never
+  `std::hash::DefaultHasher`: `RandomState` is seeded per process, and a canary
+  that changes its mind between runs is the bug class ADR 0023 exists to prevent.
+  Entity rows are sorted by stable key before hashing, because Bevy's `Query`
+  order follows archetype layout and would otherwise cry desync on every run.
+
+  **What it covers is what is registered**, and today that is the sim tick, the
+  scaled clock, and every body with a stable id (`FeatureId`, or slot 0). *What
+  the canary cannot see, it cannot defend* — and the set grows as `SimId` reaches
+  the rest of the sim. That is the honest reading of decision (1), not a loophole.
 
 ## N1 — local multiplayer (ships with Super Smash Siblings)
 
@@ -266,14 +282,21 @@ snapshots needed. Needs N0 complete, plus:
 
 ## N3 — rollback (the real thing, explicitly post-1.0)
 
-- **N3.1 Snapshot/restore of sim state** — the big one, and useful long
-  before netcode: Braid-style rewind, RL tree search, and the fighter
-  brain's forward rollouts all want it. Scope: the SIM world only (the
-  read-model boundary means presentation never snapshots). Shape: a
-  `SimSnapshot` component-set registry (the crates each register their
-  sim-state components; the runtime owns serialize/restore) — design work,
-  [fable-hard], and the reason N3 design starts now even though online
-  ships later.
+- **N3.1 Snapshot/restore of sim state** — 🟡 **the REGISTRY half landed
+  2026-07-10** (`ambition_runtime::snapshot`): `SnapshotRegistry` (opt-in per
+  plugin, decision 1), `StateHasher`, `hash_entities_by_key` (the stable-order
+  rule), and `register_engine_sim_state`. N0.4 rides it.
+
+  **`take`/`restore` are deliberately NOT built.** Decision (3) is *"restore =
+  despawn-registered + respawn from blobs"*, which needs decision's identity pin:
+  *"every snapshot-registered entity carries a `SimId`."* **No `SimId` exists in
+  the tree.** A `restore` keyed on `Entity` would break this section's own rule
+  (*"`Entity` values never appear in a blob"*) and would have to be torn out. So
+  the SimId migration is N3.1's real next slice, and the canary — which needs only
+  the hash — did not wait for it.
+
+  Still useful long before netcode: Braid-style rewind, RL tree search, and the
+  fighter brain's FB6 rollouts all want the restore half. [fable-hard]
 - **N3.2 Resim discipline** — bounded rollback window; presentation reads
   confirmed ticks only (read-model tick-tagging); side-effect suppression
   during resim (sfx/vfx event facts carry the tick; presentation dedups).

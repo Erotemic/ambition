@@ -176,14 +176,7 @@ pub fn update_boss_encounters(
             phase_events.extend(phase.tick(dt, hp_fraction));
         }
         for ev in &phase_events {
-            let encounter_events = phase_event_to_encounter_events(ev, &spec);
-            publish_events(
-                &archetype_id,
-                &encounter_events,
-                &mut music_request,
-                &mut cutscene_queue,
-                &mut banner,
-            );
+            publish_events(&archetype_id, ev, &mut cutscene_queue, &mut banner);
         }
 
         // Read post-tick state for death resolution + music + invuln.
@@ -318,36 +311,6 @@ fn phase_music_track(
         P::Dormant | P::Death => return None,
     };
     (!track.is_empty()).then_some(track.as_str())
-}
-
-/// Bridge an entity-local [`BossPhaseEvent`](crate::boss_encounter::BossPhaseEvent)
-/// to the existing [`publish_events`] consumers (banner / intro cutscene / music).
-/// The brief `TransitionLockStarted` tell carries no banner/music of its own.
-fn phase_event_to_encounter_events(
-    ev: &crate::boss_encounter::BossPhaseEvent,
-    spec: &crate::boss_encounter::BossEncounterSpec,
-) -> Vec<crate::boss_encounter::BossEncounterEvent> {
-    use crate::boss_encounter::{BossEncounterEvent, BossEncounterPhase, BossPhaseEvent};
-    match ev {
-        BossPhaseEvent::PhaseChanged { from, to } => {
-            let mut out = vec![BossEncounterEvent::PhaseChanged {
-                from: *from,
-                to: *to,
-            }];
-            if let Some(track) = phase_music_track(spec, *to) {
-                if !track.is_empty() {
-                    out.push(BossEncounterEvent::MusicRequested {
-                        track: track.to_string(),
-                    });
-                }
-            }
-            if matches!(to, BossEncounterPhase::Death) {
-                out.push(BossEncounterEvent::Defeated);
-            }
-            out
-        }
-        BossPhaseEvent::TransitionLockStarted { .. } => Vec::new(),
-    }
 }
 
 /// Camera-shake amplitude (px) on a dramatic boss phase change. Capped to 14 by

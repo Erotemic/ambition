@@ -471,7 +471,14 @@ methods from crate A — `EncounterRegistry::any_lock_active` and
       `ambition_encounter::timeline` (the one timeline authority); boss effect
       EXECUTION stays actor-side. E3b (wave adopts the shared vocabulary) pending
       — see the impedance note below.
-- [ ] **E4** boss composition (delete `sync_boss_encounter_entities`, auto-wrap).
+- [~] **E4** boss composition — **event-publication bridge collapsed**: the
+      pointless `BossPhaseEvent → BossEncounterEvent → effects` indirection is
+      gone (deleted the `BossEncounterEvent` enum + `phase_event_to_encounter_events`);
+      `publish_events` consumes `BossPhaseEvent` directly for banner + cutscene,
+      and the dead edge-triggered music-set in it dropped (the level-triggered
+      lifetime block in `update_boss_encounters` is the one music authority).
+      The flagship `sync_boss_encounter_entities` deletion (author boss encounters
+      at spawn; HUD/lock feel-sensitive) is still pending.
 - [~] **E5** generalize actor-local phase vocabulary — **first bullet landed**:
       the entity-local phase machine `BossPhaseState` → `ActorPhaseState` (it is
       actor-local, not encounter-owned). The deeper bullet (replace the fixed

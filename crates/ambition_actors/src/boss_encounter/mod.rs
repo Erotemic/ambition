@@ -46,8 +46,8 @@ mod tests;
 pub use ids::encounter_id_from_name;
 // The engine hard-codes no boss id: `ids` ships only the slugging helper.
 pub use ambition_characters::boss_encounter::{
-    ActorPhaseState, BossEncounterEvent, BossEncounterPhase, BossEncounterSpec, BossPhaseEvent,
-    PhaseTrigger, PhaseTriggerCondition,
+    ActorPhaseState, BossEncounterPhase, BossEncounterSpec, BossPhaseEvent, PhaseTrigger,
+    PhaseTriggerCondition,
 };
 pub use behavior::{
     install_boss_profiles, install_boss_special_anim_keys, BossProfileRegistry, LimbMotion,

@@ -68,22 +68,6 @@ pub struct BossEncounterSpec {
     pub extra_phase_triggers: Vec<PhaseTrigger>,
 }
 
-/// Bridge events the phase mechanism emits for the music / banner / cutscene
-/// publisher (`boss_encounter::events::publish_events`). Built from
-/// `BossPhaseEvent` by `phase_event_to_encounter_events`.
-#[derive(Clone, Debug, PartialEq)]
-pub enum BossEncounterEvent {
-    PhaseChanged {
-        from: BossEncounterPhase,
-        to: BossEncounterPhase,
-    },
-    MusicRequested {
-        track: String,
-    },
-    /// Boss reached `Death`; shows the victory banner.
-    Defeated,
-}
-
 // ===========================================================================
 // Entity-local phase mechanism (boss-entity-local refactor, Stage R1)
 //

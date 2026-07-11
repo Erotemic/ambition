@@ -29,7 +29,7 @@ roots = ["crates", "game"]
 
 [[waiver]]
 path = "crates/ambition_runtime/src/snapshot.rs"
-reason = "N3.1 bootstrap god module (audit M9): public API + wire format + registry + restore/reconciliation + per-crate codecs + diagnostics in one file. The codec trait moves down and the file splits during the N3.2 substrate work (netcode.md)."
+reason = "N3.1 bootstrap god module (audit M9): public API + wire format + registry + restore/reconciliation + per-crate codecs + diagnostics in one file. A pre-solved, opus-executable 4-way split (mod.rs core / registry.rs / restore.rs / codecs.rs, each <1500, plus the shared-`bc`-alias gotcha) is in docs/planning/engine/decomposition.md §D-B — run it fresh and delete this waiver."
 
 
 [[waiver]]

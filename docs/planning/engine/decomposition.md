@@ -374,9 +374,42 @@ lines, and — bidirectionally — fails a waiver whose file is no longer oversi
 Exceptions are a named waiver list with one reviewed reason per path; nothing is
 inferred. It is poison-tested (`poison_reacts` drives the real walk with a hostile
 limit + a stale waiver). The stale `MODULES.md` was regenerated and the 44-member
-count corrected. **What KEEPS D-B reopened is criterion 4's other half:** nine
-modules are still waived debt (snapshot.rs 3744, moveset.rs 3022, view_cones.rs 2206,
-and six more). D-B re-closes when that list is split down, not merely gated.
+count corrected. **What KEEPS D-B reopened is criterion 4's other half:** the waived
+debt (status corrected 2026-07-11 — the earlier "nine modules … moveset.rs 3022" was
+wrong; `moveset.rs` is 1536 total / under the code-line limit and is NOT waived). The
+actual waiver list is **THREE**: `snapshot.rs` (3684), `view_cones.rs` (2206),
+`kaleidoscope_app.rs` (1814). D-B re-closes when that list empties.
+
+**Pre-solved, opus-executable plan for the biggest waiver, `snapshot.rs` (3684 →
+four sub-1500 modules, clearing the waiver in one pass** — derived + verified against
+the current file 2026-07-11):
+
+- Convert `snapshot.rs` → `snapshot/mod.rs` (the tests already live at
+  `snapshot/tests.rs` via `mod tests;`; that line stays). `mod.rs` keeps the core:
+  the traits (`SnapshotState`/`Cursor`/`Resolve` + `ResolveDecodeError`), the wire
+  primitives (`put_*`, `Reader`, `paste_put`/`PasteEncode`), `StateHasher`,
+  `ApplyOutcome`/`EntryKind`/`StateEntry`, `SimSnapshot`/`take`/`duplicate_live_ids`,
+  `RestoreReport`/`RestoreError`, the hash/`DesyncReport`/plugin/`register_engine_sim_state`
+  — ≈1094 lines.
+- `snapshot/registry.rs` ← the `impl SnapshotRegistry` block (≈443–1135, ≈692 lines).
+- `snapshot/restore.rs` ← `respawn_from_the_room` + `validate_snapshot` + `restore`
+  (≈1595–2062, ≈467 lines).
+- `snapshot/codecs.rs` ← every `impl SnapshotState/Cursor/Resolve for <T>` +
+  `PasteEncode`/`paste_put` (≈2310–3684, ≈1374 lines).
+- **GOTCHA (found the hard way):** `use ambition_engine_core::body_clusters as bc;` is
+  a MODULE-LEVEL alias declared at line 2405 (inside the codec block) but ALSO used by
+  `register_engine_sim_state` at line ~2168 (which stays in `mod.rs`). Moving the codec
+  block moves that `use`, so `bc` must be RE-DECLARED in `mod.rs`'s top imports (and in
+  `codecs.rs`). Each submodule does `use super::*;` for the traits/primitives (all
+  `pub`) plus its own external-crate imports; the codec impls otherwise use
+  fully-qualified `ambition_*` paths, so the import surface is small. `mod.rs`
+  `pub use` any items the tests' `use super::*;` needs (they currently see everything).
+- Verify: `cargo test -p ambition_runtime --lib` (46 snapshot tests) + the app rl_sim
+  desync canary. It is a pure code RELOCATION — correctness is compiler + those tests.
+  Then delete the `snapshot.rs` waiver from `module_size.toml` (the bidirectional gate
+  FAILS if a stale waiver remains, so the deletion is forced). Not attempted inline in
+  the 2026-07-11 session (a 4-way split of a 3.7k-line file mid-long-context is a
+  compile-loop risk best run fresh); the plan is the deliverable.
 
 `MODULES.md` generation remains useful and the dissolved hub globs remain done;
 those mechanisms are not sufficient to label the whole D-B standard complete.

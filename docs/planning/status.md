@@ -89,10 +89,11 @@ invariant.
   `rg -n 'FeatureId|FeatureSimEntity' crates/ambition_actors/src`. Establishes
   `player/` is gone and `features/`/`Feature*` remain; this is a naming DECISION
   pending Jon, not a code defect.
-- **BD5 "no content-install call site"** — corroborate:
-  `rg -n 'validate_fight' game/ambition_content/src` (no install call site).
-  Establishes the validator is not wired into installation; it does not prove the
-  §3 doctrine is enforced anywhere.
+- **BD5 "no install path invokes the validator"** — corroborate:
+  `rg -n '\bvalidate_fight\b' --glob '*.rs' crates game tests`, then inspect every
+  caller. At HEAD all callers are test/diagnostic (`boss_fight_validator.rs` +
+  `validator/tests.rs`); no installation path calls it. Source-inspection evidence,
+  not a CI invariant — it does not prove future code cannot add such a call.
 
 ## How to verify this page
 

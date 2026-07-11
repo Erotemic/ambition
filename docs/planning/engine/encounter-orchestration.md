@@ -171,6 +171,9 @@ stable signals; generic objectives consume them.
 
 ## Ordered patches
 
+These are the encounter track's executable subtasks; **all of E8–E13 are OPEN** at
+HEAD (each ends with the exit test that would move it to DONE).
+
 ### E8 — canonical lifecycle and command seam
 
 Add a generic reducer and ingress for `Start`, `Fail`, `Complete`, and `Signal`.
@@ -229,17 +232,20 @@ objective evaluator, cleanup path, or presentation authority.
 
 ## Acceptance ledger
 
-| Criterion | HEAD grade |
-|---|---|
-| Boss actor works outside an encounter | **YES** |
-| Ordinary-enemy wave exists without boss machinery | **YES** |
-| No-actor signal/timer encounter uses live generic lifecycle | **NO** |
-| Spawned/adopted cleanup is controlled by ownership policy | **NO** |
-| Actor-local phase remains independent | **YES** |
-| One lifecycle/objective/timeline authority | **NO** |
-| Generic presentation/reward/persistence intent | **PARTIAL** |
-| One snapshot representation with stable participant relations | **NO** |
-| First non-boss customer proves reuse | **NO** |
+Grades are acceptance-criterion satisfaction (SATISFIED / UNSATISFIED / PARTIAL);
+every UNSATISFIED or PARTIAL criterion maps to an OPEN patch below.
+
+| Criterion | HEAD grade | Open subtask |
+|---|---|---|
+| Boss actor works outside an encounter | **SATISFIED** | — |
+| Ordinary-enemy wave exists without boss machinery | **SATISFIED** | — |
+| No-actor signal/timer encounter uses live generic lifecycle | **UNSATISFIED** | E8/E9 |
+| Spawned/adopted cleanup is controlled by ownership policy | **UNSATISFIED** | E10 |
+| Actor-local phase remains independent | **SATISFIED** | — |
+| One lifecycle/objective/timeline authority | **UNSATISFIED** | E8 |
+| Generic presentation/reward/persistence intent | **PARTIAL** | E12 |
+| One snapshot representation with stable participant relations | **UNSATISFIED** | E11 |
+| First non-boss customer proves reuse | **UNSATISFIED** | E13 |
 
 The architecture is complete only when the missing criteria are demonstrated by
 code and tests at HEAD. Line-count reduction is useful evidence of deleted

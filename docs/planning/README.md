@@ -66,18 +66,20 @@ HEAD and fails when they drift.
 
 Grade by decomposition, never by a broad label (binding on every executor):
 
-- A task given too broadly is **decomposed by the executing agent** into
-  executable subtasks, each **DONE**, **OPEN**, or **BLOCKED**. Executable status
-  tables use only those three words.
-- A parent is **DONE** only when every represented subtask is DONE, unless Jon
-  explicitly approves a pivot, deletion, rescoping, or redirection.
-- A caveat that affects acceptance becomes an **OPEN**/**BLOCKED** subtask;
-  "complete except for …" is not completion. A **BLOCKED** item names its blocker
-  and any maintainer decision required.
-- Narrow per-slice completion credit is encouraged; a broad label must not imply
-  unfinished neighboring properties. A future possibility not currently in scope
-  is recorded as prose outside the subtask table, never as a fourth status word
-  (no `DEFERRED` rows).
+- A too-broad task is **decomposed by the executing agent** into executable
+  subtasks. A parent is **DONE** only when every subtask is DONE, unless Jon
+  approves a pivot / deletion / rescope. A caveat affecting acceptance becomes an
+  **OPEN**/**BLOCKED** subtask — "complete except for …" is not completion, and a
+  **PARTIAL** parent is never complete. A **BLOCKED** item names its blocker.
+- Narrow per-slice credit is encouraged; a broad label must not imply unfinished
+  neighboring properties.
+- **Status vocabularies** (not interchangeable): executable subtask rows use only
+  **DONE**/**OPEN**/**BLOCKED** (a future out-of-scope possibility is prose, not a
+  fourth word — no `DEFERRED`); parent summaries may use **PARTIAL** when a child
+  is OPEN/BLOCKED (`DIAGNOSTIC`/`PARKED` describe scope, not child status);
+  acceptance-criterion tables use **SATISFIED**/**UNSATISFIED**/**PARTIAL**, and
+  every UNSATISFIED/PARTIAL criterion maps to an OPEN/BLOCKED subtask unless Jon
+  approves a scope change.
 
 ## Planning size policy
 

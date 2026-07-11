@@ -51,7 +51,12 @@ and [`tracks.md`](tracks.md).
 - **P1 — unification.** DONE (2026-07-05). The record lives in the
   archived reviews.
 - **P2 — decomposition + doctrines (ACTIVE; D-A and D-C DONE, D-B
-  REOPENED).** [`engine/decomposition.md`](engine/decomposition.md) is executed
+  REOPENED).** The next high-priority architecture convergence is Jon's unified
+  encounter design: actors remain independently constructible, while one generic
+  event-driven encounter authority orchestrates participants, objectives, timeline,
+  presentation, rewards, and persistence. See
+  [`engine/encounter-orchestration.md`](engine/encounter-orchestration.md).
+  [`engine/decomposition.md`](engine/decomposition.md) is executed
   through E9 + the F-queue and playbook exits 1–5 are met. Remaining trust work:
   D-B's executable navigability gate; CC3's transition from diagnostic to an
   enforced completion criterion; N0.3 source-scope completion; N0.4 hard-fail
@@ -114,6 +119,7 @@ New (2026-07-05):
 | M18 | **Fight quality is measured** — telegraph grammar + validator + playtester metrics gate boss authoring; taste passes are banked as data | [boss-design.md](engine/boss-design.md) |
 | M19 | **Demo rules are mode-scoped plugins** — ambition hosts every demo; global-state demo rules are a design bug | [demos/README.md](demos/README.md) |
 | M20 | **Determinism is a managed same-build contract** (fixed-tick option, input streams, desync canary); cross-platform float determinism is NOT promised | [netcode.md](engine/netcode.md) N0 — *flagged Q4 below for Jon's confirmation* |
+| M21 | **Encounter is orchestration, never an actor type** - boss-capable actors work without encounters; encounters compose arbitrary participants/objectives and may contain no boss or no actors | [encounter-orchestration.md](engine/encounter-orchestration.md) - Jon Crall, 2026-07-10 |
 
 ## Uncertainty register (watch-items, updated)
 

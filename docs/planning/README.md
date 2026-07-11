@@ -38,7 +38,8 @@ the nearest ruling — it never invents a contradicting doctrine.
 - **`engine/`** — design docs, one per planned system:
   [`architecture.md`](engine/architecture.md) (the target crate stack) ·
   [`refactor-chain.md`](engine/refactor-chain.md) (**the live refactor
-  queue**: dissolve the nine adapter shells, then fold `player/`) ·
+  queue**) · [`encounter-orchestration.md`](engine/encounter-orchestration.md)
+  (Jon's P0 actor/encounter separation and convergence plan) ·
   [`decomposition.md`](engine/decomposition.md) (**the highest-priority
   track**: the monolith teardown playbook) ·
   [`collision-and-ccd.md`](engine/collision-and-ccd.md) (the sweep law,

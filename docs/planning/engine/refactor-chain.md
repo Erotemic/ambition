@@ -1,10 +1,11 @@
 # The refactor chain — dissolving the adapter shells, then folding the player
 
 **Status:** R1, R2, R3, R5 DONE; R4 re-checked and STOPPED as ruled; R6 IN PROGRESS
-(R6a–R6d landed — **`player/` no longer exists**. R6e PARKED with a decision
+(R6a-R6d landed - **`player/` no longer exists**. R6e PARKED with a decision
 brief: measured, the `features/` rename is ~1560 sites across 5 crates, not the
-722 the plan assumed, and a half-rename would make the tree worse). 2026-07-10.
-Six slices, in dependency order.
+722 the plan assumed, and a half-rename would make the tree worse). **R7 is the
+next P0 structural convergence after the in-flight test refactor:** Jon's unified
+encounter-orchestration design. 2026-07-10.
 Each is committable on its own; each states its own exit check.
 
 This doc exists because the 2026-07-10 ledger ruling changed what "finish the
@@ -50,6 +51,36 @@ in the same commit, don't guess.
 - **Do not disagree with fable silently.** Fable's rulings are pre-solved
   designs. If evidence contradicts one, make the case in the doc (vision §7),
   then proceed — but say so, out loud, in the commit message.
+
+---
+
+## R7 - unify encounter orchestration (P0 NEXT; Jon Crall's idea)
+
+The current tree has two partial encounter authorities: the generic wave-centric
+`ambition_encounter` resource machine and the boss-specific encounter entity/
+script/event/music path under `ambition_actors::boss_encounter`. Jon's design is
+the stronger unification: an encounter is event-driven orchestration over any
+actors/features/objectives, while a boss is only an actor profile/capability and
+works outside an encounter.
+
+This slice is deliberately delete-heavy. It converges the two systems onto one
+first-class encounter entity with stable participants, generic objectives,
+commands/signals, timeline effects, presentation intent, rewards, and
+persistence. It deletes automatic boss wrapping and the parallel boss music/
+registry/progress/event authorities. Actor-local phase state remains actor-local
+and is generalized separately from encounter lifecycle.
+
+**Measured migration surface:** approximately 3,681 total source lines including
+tests. **Exit:** one runtime authority, boss/wave/race/puzzle scenarios on that
+authority, and at least 800 total lines removed from the migration surface
+(stretch 1,200+). A shared helper beneath two surviving state machines is not
+completion.
+
+Full design, migration slices, and acceptance:
+[`encounter-orchestration.md`](encounter-orchestration.md).
+
+Do not begin R7 code while the test-organization refactor is modifying test
+locations. Start from its clean integrated base.
 
 ---
 

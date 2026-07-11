@@ -8,13 +8,15 @@ SECOND movement physics coexisting with the classic AABB path in one
 engine, selected per body by data (`MotionModel`), with level design that
 only makes sense at speed.
 
-**Status:** furthest along. Landed: the momentum kernel (chains, loops,
-blocks-as-surfaces), Sanic catalog row + sheet, `sanic_sandbox` proving
-area, chains channel + LDtk converters + debug overlay, swept portal
-transit at speed, the demo shell + presentation (playbook exit 3 + OV1),
-**the ball dash (2026-07-10)**. Remaining: S4 proofs, the demo game itself
-(S5 — UNBLOCKED 2026-07-06 night: E5-finish landed; copy the demo-shell
-fixture in `crates/ambition_host/tests/demo_shell_smoke.rs`).
+**Status:** furthest along, but the visible/playable shell is currently an
+open architecture proof rather than a completed success. The room and music run;
+the selected character still falls back to a rectangle and the real input path is
+not yet proven end to end. The ordered recovery is
+[`sanic-recovery.md`](sanic-recovery.md). Landed: the momentum kernel (chains,
+loops, blocks-as-surfaces), Sanic catalog row, `sanic_sandbox` proving area,
+chains channel + LDtk converters + debug overlay, swept portal transit at speed,
+the demo shell, and **the ball dash (2026-07-10)**. Remaining: recover the public
+playable-character composition seam, S4 proofs, and the demo game itself.
 
 ## Consumes (by role) / Owns
 
@@ -36,9 +38,15 @@ technique registration, the bits pickup + drop-on-hit policy rows, the
 booster/spring entity rows, 2–3 patrol enemy rows, the goal-gate +
 results sequence, HUD.
 
-**Engine prerequisites:** E5-finish ✅ (landed 2026-07-06 night). Nice-to-have: CM5 (per-move
-sfx/vfx). Expected oracle-violations: speed-adaptive camera look-ahead
-knob; anything the spring/booster surfaces need beyond rebound blocks.
+**Engine prerequisites:** E5-finish landed. Immediate blocker: the public
+windowed input + selected-character presentation path in
+[`sanic-recovery.md`](sanic-recovery.md). Nice-to-have: CM5 (per-move sfx/vfx).
+The act-3 mini-boss and later race/chase set pieces become first customers of
+Jon's generic encounter design in
+[`../engine/encounter-orchestration.md`](../engine/encounter-orchestration.md),
+but that refactor does not block the immediate visible/playable recovery.
+Expected oracle-violations: speed-adaptive camera look-ahead knob; anything the
+spring/booster surfaces need beyond rebound blocks.
 
 ## Design (v1 scope)
 

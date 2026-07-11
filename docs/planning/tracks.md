@@ -66,6 +66,22 @@ The historical execution sequence below remains useful context, but the audit
 correction order above supersedes it for structural work. Existing completed slices
 stay completed unless explicitly reopened or reclassified here.
 
+0. **P0 architecture refactor - unified encounter orchestration (Jon's idea).**
+   **NEXT after the currently in-flight test-organization work.** Split encounter
+   orchestration from boss/actor construction and converge the generic wave system
+   plus boss encounter wrapper onto one first-class, event-driven encounter entity.
+   Encounters may compose ordinary enemies, boss-capable actors, hazards, puzzles,
+   races, escorts, or no actors at all; actors retain local phase/capability state
+   and work outside encounters. This is delete-heavy work: the measured migration
+   surface is about 3,681 total source lines including tests, and completion requires
+   one authority plus a materially smaller code surface. Design, slices, and exits:
+   [`engine/encounter-orchestration.md`](engine/encounter-orchestration.md).
+
+   **Do not interleave its code migration with the active test refactor.** The docs
+   overlay is safe; implementation starts from the resulting clean base. The Sanic
+   visible/input/character recovery is independent and may land first:
+   [`demos/sanic-recovery.md`](demos/sanic-recovery.md).
+
 1. ~~**The demo-shell arc — a runnable `ambition_demo_sanic`.**~~
    ✅ **DONE 2026-07-10 — playbook exit 3 is MET and gate-enforced.**
    `game/ambition_demo_sanic_app` (manifest: `ambition` + `ambition_demo_sanic` +

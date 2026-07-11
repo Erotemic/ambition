@@ -331,16 +331,26 @@ The carve relocated and SEALED the view types; the rules it fixed still bind:
 
 ---
 
-## Phase D-B — 🔴 REOPENED: repo-wide navigability standard
+## Phase D-B — ✅ RE-CLOSED (2026-07-11): repo-wide navigability standard
+
+**All five re-close criteria are met.** The executable line gate exists and is
+poison-tested (criteria 1–3, 5, Series 1), and the last-open half of criterion 4 — split
+*or justify* every over-limit module — landed 2026-07-11: `snapshot.rs`, `moveset.rs`,
+and `view_cones.rs` were split (see below), `MODULES.md` regenerated, the workspace count
+corrected, and the ONE remaining over-limit module (`menu/kaleidoscope_app.rs`, a
+declarative Lunex node tree) is *justified* via the named-waiver mechanism (criterion 3),
+which criterion 4 explicitly permits ("split **or justify**"). The `engine.module-size`
+gate is GREEN (28 policy checks). Nothing in the navigability standard remains open.
 
 The crate-boundary ruling remains: do not split `ambition_actors` merely to chase
 line counts or expected compile-time wins. D-B is the independent requirement that
 agents can navigate the code *inside* those boundaries.
 
-**Audit state (2026-07-10):**
+**Audit state (2026-07-10, since RESOLVED — see the re-closure note above):**
 
-- the documented ~1.5k-line limit is false today (`snapshot.rs`, `moveset.rs`,
-  `view_cones.rs`, `smash/mod.rs`, `surface.rs`, and others exceed it);
+- the documented ~1.5k-line limit was unenforced then (`snapshot.rs`, `moveset.rs`,
+  `view_cones.rs` genuinely exceeded it — all three split 2026-07-11; the audit's
+  `smash/mod.rs`/`surface.rs` examples were imprecise — measured 1050 / 719, under limit);
 - `scripts/modules_md.py` checks concern headers and generated maps, but does not
   enforce line size;
 - `game/ambition_demo_smb1/MODULES.md` is stale in the audited tree;
@@ -362,8 +372,10 @@ agents can navigate the code *inside* those boundaries.
 5. Poison-test the line gate with a synthetic over-limit module and prove that a
    missing/unknown waiver fails.
 
-**Progress (Series 1, 2026-07-10):** criteria 1–3 and 5 are DONE, and the metadata
-half of 4 is done. The executable gate is the `engine.module-size` policy
+**Progress:** criteria 1–3 and 5 landed in Series 1 (2026-07-10); criterion 4 COMPLETED
+2026-07-11 (all three over-limit non-declarative modules split, `MODULES.md` regenerated,
+count corrected, the one declarative module justified). **All five met — D-B re-closed.**
+The executable gate is the `engine.module-size` policy
 ([`tests/ambition_workspace_policy/src/custom/module_size.rs`](../../../tests/ambition_workspace_policy/src/custom/module_size.rs)
 + its waiver list in
 [`policies/module_size.toml`](../../../tests/ambition_workspace_policy/policies/module_size.toml);
@@ -374,8 +386,8 @@ lines, and — bidirectionally — fails a waiver whose file is no longer oversi
 Exceptions are a named waiver list with one reviewed reason per path; nothing is
 inferred. It is poison-tested (`poison_reacts` drives the real walk with a hostile
 limit + a stale waiver). The stale `MODULES.md` was regenerated and the 44-member
-count corrected. **What KEEPS D-B reopened is criterion 4's other half:** the
-over-limit debt list. The gate counts **total** lines (`s.lines().count()`, test
+count corrected. **What re-closed D-B was criterion 4's other half — now done:** the
+over-limit debt list is cleared. The gate counts **total** lines (`s.lines().count()`, test
 files excluded by path) against the 1500 limit — there is no separate "code-line"
 count, so an earlier note calling `moveset.rs` (1536) "under the code-line limit"
 was wrong: 1536 > 1500, and the gate flagged it as an **unwaived** violation. All

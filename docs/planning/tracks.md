@@ -84,17 +84,20 @@ and render their declared art without app-local sprite or keyboard code.
 under a deliberate poison fixture. Only then remove `#[ignore]` or add a separate
 non-ignored policy test.
 
-### 5. BD5 installation policy
+### 5. BD5 boss validator (diagnostic — no active enforcement work)
 
-**State:** the validator currently pins 8 hard errors and 10 warnings, but
-content installation does not call it.
+**State:** PARTIAL / DIAGNOSTIC. The validator infrastructure exists and reports
+8 errors / 10 warnings as diagnostic findings. By maintainer decision it is
+**non-blocking**: not a gate, not a dependency for any other track.
 
-**Plan:** [`engine/boss-design.md`](engine/boss-design.md)
+**Plan:** [`engine/boss-design.md`](engine/boss-design.md) §11 (per-slice
+DONE/OPEN/BLOCKED).
 
-**Next slice:** define the installation threshold, wire it into the content
-installation/validation path, and re-author the roster until that threshold is
-satisfied. Do not call the validator a gate before the install path rejects bad
-content.
+**No enforcement work is queued.** Do NOT wire the validator into installation and
+do NOT drive errors to zero now — several rules are BLOCKED on missing engine
+expressivity (boss-feel representations), and the error/warning counts are not a
+failure condition. Revisit enforcement only when authoring bosses for feel or
+approaching shipment; an install gate is a separate maintainer decision.
 
 ### 6. Super Mary-O completion
 

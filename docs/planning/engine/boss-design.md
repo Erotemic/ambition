@@ -200,7 +200,7 @@ Jon rates as *actually fun*.
 | BD2 | Arena beats from encounter spec (waves/spawns/terrain via existing buses) | [opus] |
 | BD3 | ~~Telegraph event channel (rides CM5)~~ 🟡 **DATA + VALIDATOR half DONE 2026-07-10** — see §10 | [opus] |
 | BD4 | ~~Seed library v1~~ ✅ **DONE 2026-07-10** — see §7 | [opus] |
-| BD5 | 🟡 **VALIDATOR LANDED; ENFORCEMENT PENDING (audit correction 2026-07-10)** — see §9 | [opus] |
+| BD5 | **PARTIAL / DIAGNOSTIC — non-blocking; enforcement DEFERRED (2026-07-11)** — per-slice DONE/OPEN/BLOCKED in §11 | [opus + Jon] |
 | BD6 | Playtester rig + metrics + report format | [opus; needs FB1–FB4] |
 | BD7 | Pilot: re-author ONE existing boss (mockingbird or behemoth) through the full loop; calibrate bands against Jon's verdict | [opus + Jon] |
 | BD8 | Hollow Lite boss through the pipeline (the acceptance) | [opus + Jon] |
@@ -421,19 +421,24 @@ table — and so are stance bodies.
 Both are named in the module docs rather than approximated by a rule that checks
 something adjacent and reports green.
 
-### Why it is not an install-time gate yet
+### Enforcement is deferred by maintainer decision (2026-07-11)
 
-§3's endgame is *"fight does not install."* That contract is not implemented:
-`install_boss_roster` does not call the validator, and the current test deliberately
-accepts eight hard errors through `EXPECTED_ERRORS`. The validator therefore
-**measures debt; it does not enforce the design doctrine.** Calibration v0 still
-needs BD7's pilot before zero becomes the correct threshold, but until installation
-rejects hard errors the honest status is “validator landed, enforcement pending.”
+§3's endgame is *"fight does not install."* That contract is deliberately NOT
+implemented, and by maintainer decision it stays deferred: `install_boss_roster`
+does not call the validator, the current test accepts eight hard errors through
+`EXPECTED_ERRORS`, and **the 8 errors / 10 warnings are diagnostic findings, not a
+failure condition.** The validator is useful early infrastructure; it is not on the
+critical architectural path, must not gate installation, and must not block any
+other engine / gameplay / content work.
 
-BD7 must recalibrate the bands against Jon's verdict, reduce accepted hard errors
-to zero (or replace them with explicit per-fight reviewed waivers), and wire the
-validator into roster installation. Poison-test that a hard-invalid fight cannot
-install before restoring DONE.
+The deeper reason enforcement cannot simply be "turned on": the engine cannot yet
+elegantly express what makes a fight FEEL good — recovery, pressure, overlapping
+threats, readable telegraphs, counters, intentional exceptions. Until those have
+stable representations, some §3 rules are impossible or premature to complete (see
+§11's BLOCKED slice). Revisit calibration + enforcement only when the project is
+seriously authoring bosses for feel or approaching shipment; wiring an install gate
+is then a separate, explicit maintainer decision — not a debt owed now. BD5 must
+not be declared DONE merely because the currently-expressible checks are implemented.
 
 ---
 
@@ -477,3 +482,27 @@ is the read-model a CM5-style emitter would fire from on the telegraph's rising
 edge; the emitter and its sfx/vfx consumer land with the first boss that authors
 one. The doc's two purposes for BD3 were *"anticipation is AUTHORED per attack"*
 and *"the validator can SEE it"*. The second is done; the first has a place to go.
+
+---
+
+## 11. BD5 decomposition — DONE / OPEN / BLOCKED (2026-07-11)
+
+Per the maintainer decision (§9), BD5 is diagnostic and non-blocking; completion is
+deferred. Its rules and infrastructure decompose to exact slices:
+
+| Slice | Status | Note |
+|---|---|---|
+| Beat-walker + per-game bands RON + validator crate | **DONE** | `boss_pattern::validator`; `boss_validator_bands.ron`; walks phases into `Beat{telegraph,active,recovery}`, incl. `Select` arms + stance bodies |
+| Rule 1 — telegraph proportionality | **DONE** | implemented; fires nowhere on the shipped roster |
+| Rule 2 — answer coverage | **DONE (validator)** | `counter_coverage`; the roster's missing-`Parry` / thin-`Shield` demand is a measured CONTENT fact, not a validator gap |
+| Rule 3 — commitment / punish window | **DONE (validator)** | per-beat recovery floor; the 8 enrage findings are a taste call for BD7 + Jon, not a validator defect |
+| Rule 5 — readability floor (identity half) | **DONE** | two attacks may not share a `(pose,cue)` identity (rode BD3) |
+| Rule 5 — "attacks must telegraph" (FAIL half) | **OPEN (content)** | 9/9 bosses author no telegraph identity: a warning today, an error only once content authors telegraphs (BD7). Not engine work |
+| Rule 4 — simultaneity budget | **BLOCKED** | needs a representation the engine lacks: hazard/zone lifetimes live in a technique's private consts (`MINIMA_TRAP_HAZARD_DURATION_S`), not an authored row. **Missing representation:** a `persists_s` on the seed, fed by the spawning technique, so total on-screen threat is integrable from data |
+| Enrage "unpunishable heavy" disposition | **OPEN (Jon + BD7)** | the tightened enrage chains are either unfair or intended escalation — a per-fight taste decision, made legible per beat |
+| Playtester report/metrics rig (BD6) | **OPEN** | needs the fighter brain (FB1–FB4); not BD5 |
+| Install-gate enforcement | **DEFERRED (maintainer decision)** | not a gate, not a dependency; revisit at boss-feel calibration / shipment; a separate explicit decision then |
+
+Parent BD5 track: **PARTIAL / DIAGNOSTIC.** Not DONE — its intended domain still
+depends on unresolved engine expressivity (the BLOCKED slice) plus content and
+taste calibration.

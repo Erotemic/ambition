@@ -65,10 +65,13 @@ resimulate the difficult window rather than merely reject it.
 **State:** playable-persona ARCHITECTURE landed (`DONE`): canonical sim-owned
 `WornCharacter` identity → gameplay derive + generic `ambition_render` presentation
 binder (app + demos), standard host-input path proven headlessly, app duplicate
-binder deleted + guarded. Two-customer genericity proven (binder robot+goblin;
-gameplay sanic+player). `OPEN`: native Sanic sheet provisioning (demo draws a
-marked fallback) and the optional `visible`+`input` facade feature. Per-slice
-statuses + test evidence in the plan.
+binder deleted + guarded. ONE identity — dialogue now reads the entity's
+`WornCharacter` too (no `StartingCharacter` second authority). The demo genuinely
+rides Sanic `SurfaceMomentum` (ball dash live), and `visible` now implies `input`
+so the windowed binary is playable. Spawn/runtime share ONE gameplay overlay.
+`OPEN`: native Sanic sheet provisioning (demo draws a marked fallback); a
+runtime re-wear to the code-default kit is a documented gap (needs the default kit
+modeled as data). Per-slice statuses + test evidence in the plan.
 
 **Plan:** [`demos/sanic-recovery.md`](demos/sanic-recovery.md)
 

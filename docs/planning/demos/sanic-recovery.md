@@ -111,10 +111,15 @@ Downstream games should not have to discover fragile feature combinations such a
 
 Headless builds must remain renderer-, window-, and audio-device-free.
 
-**Status:** input works but via a distinct `input` feature; folding `visible`+`input`
-into one facade is a convenience, left `OPEN`. (The CANONICAL-identity work is a
-separate **DONE** slice: `WornCharacter` + `apply_worn_character_gameplay`, proven by
-`ambition_actors` `avatar::starting_character::tests` + the snapshot round-trip.)
+**Status:** DONE for the demo — `visible` now implies `input`, so
+`cargo run --features visible ... --window` is interactive; the headless shell stays
+input-free. (The CANONICAL-identity work is a separate **DONE** slice: `WornCharacter`
++ `apply_worn_character_gameplay`, proven by `ambition_actors`
+`avatar::starting_character::tests` + the snapshot round-trip. Dialogue now derives
+the speaker from the entity's `WornCharacter`, not `StartingCharacter` — no second
+authority. Spawn + runtime share ONE `apply_worn_character_overlay`; a runtime re-wear
+to the code-default kit is a documented gap, tested at
+`runtime_rewear_to_the_default_keeps_the_prior_kit_documented_gap`.)
 
 ### S2 - reusable selected-character presentation binder — DONE
 
@@ -178,8 +183,12 @@ naming the character and exact expected paths/generation command.
 
 **Evidence:** two profiles on each half of the ONE path, no engine edits —
 presentation binds `robot` vs `goblin` (`worn_binder_tests`), gameplay derives
-`sanic` vs `player` (`avatar::starting_character::tests`); a runtime `WornCharacter`
-change moves both. A native second Sanic profile is authoring work gated on S4 —
+`sanic` vs `player` (`avatar::starting_character::tests`), and the full kit follows a
+known↔known re-wear (`worn_kit_fully_follows_a_known_character_rewear`). The SHIPPED
+demo genuinely uses Sanic MOVEMENT — its catalog momentum profile rides
+`SurfaceMomentum` and arms ball dash
+(`persona_architecture::the_demo_body_rides_surface_momentum_and_arms_ball_dash`). A
+native second Sanic profile (reused Ambition visual) is authoring work gated on S4 —
 `OPEN`.
 
 Sanic must define at least two playable profiles through the same public path:

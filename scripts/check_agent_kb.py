@@ -1050,9 +1050,11 @@ def doc_refs_in_comment_text(comment: str) -> set[str]:
 
 
 def check_code_comment_doc_links(errors: list[str]) -> None:
-    """Verify unambiguous repository-document references inside Rust comments exist.
-    Deliberately narrow: `docs/...`, `../docs/...`, and backticked path-like `.md`
-    in COMMENTS only. Not arbitrary prose, external URLs, or string literals."""
+    """Verify repo-ANCHORED documentation references inside Rust comments exist.
+    Deliberately narrow: only `docs/...` and `../docs/...` paths (backticked or
+    not), in COMMENTS only. Non-anchored backticked `.md` shorthands (e.g.
+    `engine/foo.md`) are NOT recognized — resolving them guesses a base directory.
+    No arbitrary prose, external URLs, or string literals."""
     for base in [ROOT / "crates", ROOT / "game"]:
         if not base.exists():
             continue

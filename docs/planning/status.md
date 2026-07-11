@@ -62,6 +62,38 @@ These are current facts, not active tasks:
   deleted `game/ambition_app/tests/architecture_boundaries.rs` is historical only.
 - Sprite-sheet embedding is owned by `crates/ambition_sprite_sheet/build.rs`.
 
+## Evidence notes (source-inspection rows)
+
+Rows above whose Evidence is manual source inspection, not a machine marker or a
+passing acceptance test. Source inspection establishes shape; it is not a CI
+invariant.
+
+- **Encounter orchestration** — corroborate:
+  `rg -n 'EncounterState|EncounterParticipants|Objective' crates/ambition_encounter/src`
+  + `cargo test -p ambition_encounter -p ambition_actors`. Establishes the shared
+  vocabulary types and two live schemas EXIST; does NOT prove one generic
+  lifecycle, ownership-driven cleanup, or a non-boss customer run (the OPEN slices
+  in [`engine/encounter-orchestration.md`](engine/encounter-orchestration.md)).
+- **N3.2 exact restore** — corroborate:
+  `rg -n 'RestoreError|validate_snapshot' crates/ambition_runtime/src/snapshot`
+  + `cargo test -p ambition_runtime snapshot`. Establishes validation + refusal
+  paths exist; does NOT prove cross-room rollback restores-and-resimulates rather
+  than refusing.
+- **Sanic** — corroborate: `ls game/ambition_demo_sanic*/` +
+  `cargo test -p ambition_demo_sanic`. Establishes the windowed shell + ball-dash
+  source exist; does NOT prove the reusable input path or selected-character binder.
+- **Super Mary-O** — corroborate: `cargo test -p ambition_demo_smb1`. Establishes
+  equipment data/mechanism + scroll policy + flag sequence exist with tests; does
+  NOT prove pickup/equip wiring, body-scale read-fold, or a headless 1-1 run.
+- **R6e** — corroborate: no `crates/ambition_actors/src/player/` dir;
+  `rg -n 'FeatureId|FeatureSimEntity' crates/ambition_actors/src`. Establishes
+  `player/` is gone and `features/`/`Feature*` remain; this is a naming DECISION
+  pending Jon, not a code defect.
+- **BD5 "no content-install call site"** — corroborate:
+  `rg -n 'validate_fight' game/ambition_content/src` (no install call site).
+  Establishes the validator is not wired into installation; it does not prove the
+  §3 doctrine is enforced anywhere.
+
 ## How to verify this page
 
 Run:

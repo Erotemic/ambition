@@ -28,6 +28,7 @@ use ambition::actors::boss_encounter::{BossEncounterPhase, EncounterDef, Encount
 use ambition::actors::combat::{HitEvent, HitSource};
 use ambition::actors::features::ecs::boss_clusters::BossConfig;
 use ambition::characters::actor::{BodyCombat, BodyHealth};
+use ambition::encounter::EncounterParticipants;
 use ambition::engine_core::{self as ae, AabbExt};
 use ambition::entity_catalog::placements::BossBrain;
 use ambition_app::{AgentAction, SandboxSim, TimestepMode};
@@ -671,13 +672,17 @@ fn woken_boss_is_wrapped_by_an_encounter_entity_with_live_progress() {
     }
 
     let world = sim.world_mut();
-    let mut q = world.query::<(&EncounterDef, &EncounterProgress)>();
-    let (def, progress) = q
+    let mut q = world.query::<(&EncounterDef, &EncounterParticipants, &EncounterProgress)>();
+    let (def, parts, progress) = q
         .iter(world)
-        .find(|(def, _)| def.placement_id == "boss_with_encounter")
+        .find(|(def, _, _)| def.placement_id == "boss_with_encounter")
         .expect("a woken boss must be wrapped by an encounter entity");
     assert!(def.hud, "the auto-created encounter binds the HUD");
-    assert_eq!(def.members.len(), 1, "single-boss encounter has one member");
+    assert_eq!(
+        parts.members.len(),
+        1,
+        "single-boss encounter has one member"
+    );
     let member = progress
         .members
         .first()

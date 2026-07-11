@@ -461,7 +461,10 @@ methods from crate A — `EncounterRegistry::any_lock_active` and
       `id -> Entity` index; presentation read-model (`EncounterView`) introduced.
       (Command-seam ingress reordered to E3, where it replaces switch/trigger
       polling and thus deletes code — see below.)
-- [ ] **E2** generic participants + objectives.
+- [x] **E2** generic participants + roles + objective vocabulary
+      (`ambition_encounter::{participants,objective}`); boss `EncounterDef.members`
+      → `EncounterParticipants` (adopted `PrimaryTarget`); `EncounterWin` deleted;
+      the generic objective is evaluated into the `EncounterProgress` read-model.
 - [ ] **E3** generic timeline/effects.
 - [ ] **E4** boss composition (delete `sync_boss_encounter_entities`, auto-wrap).
 - [ ] **E5** generalize actor-local phase vocabulary.
@@ -533,7 +536,46 @@ E3 (timeline collapses the wave state machine) then bank, and E4 deletes the bos
 duplicate. The win banked NOW is the removed resource-owned live-state authority
 (acceptance #10, half — the wave half).
 
-### Recommended next slice (superseded — E1 landed above)
+### E2 — generic participants + objective vocabulary (landed 2026-07-11)
+
+The shared membership + win vocabulary (§3, §5), defined in `ambition_encounter`
+so both boss fights (now) and wave arenas (E3) speak it:
+
+- `ambition_encounter::participants`: `EncounterRole` (PrimaryTarget / Elite /
+  Minion / Hazard / Objective / Protected / Escort / Narrative / Rival),
+  `Ownership` (Spawned / Adopted), `EncounterParticipant { id, entity, role,
+  ownership, alive }` (a stable id + resolved entity — §3 "do not store raw
+  `Entity` as the only durable identity"), and `EncounterParticipants` with
+  `all_with_role_defeated` / `any_with_role_defeated`.
+- `ambition_encounter::objective`: `Objective` (`AllWithRoleDefeated` /
+  `AnyWithRoleDefeated` / `Survive` / `ReceiveSignal` / `All` / `Any` — no
+  `Custom(String)` escape hatch, §5), the `EncounterObjective` component, and the
+  pure `objective_met` reducer.
+
+Boss migration:
+
+- `EncounterDef.members: Vec<Entity>` → the generic `EncounterParticipants`
+  component (the boss is one ADOPTED `PrimaryTarget`). `sync_boss_encounter_entities`,
+  `tick_encounter_scripts` (ForceKill/CommandMoveTo/DropHazard resolve member N
+  via participant order), `update_encounter_progress`, and the cut-rope setup all
+  read participants now.
+- `EncounterDef.win` + the `EncounterWin` enum + `EncounterProgress::all_members_dead`
+  are DELETED. The generic `EncounterObjective` (AllWithRoleDefeated(PrimaryTarget))
+  is attached at sync and evaluated by `objective_met` into
+  `EncounterProgress.complete` — the generic projection the HUD/win read model
+  observes. (The boss death → save authority is still the phase machine; the
+  encounter entity becomes the completion authority at E4, so this is a read-model,
+  not a second authority.)
+
+Deleted symbols: `EncounterWin`, `EncounterDef::{members, win}`,
+`EncounterProgress::all_members_dead`. Net LOC is additive this slice (the
+participant/objective vocabulary + its tests), which E3 banks (the wave adopts
+`EncounterParticipants` for its mobs, deleting the `alive_ids` string handling)
+and E4 banks (the objective drives completion, removing the phase-machine's
+encounter coupling). Verified: crate A 20, actors boss 72, boss_lifecycle 4,
+boss_contact_iframes 8, app clean.
+
+### Recommended next slice (superseded — E1/E2 landed above)
 
 The two systems barely interact at runtime, so the remaining slices are a real
 multi-session migration that touches live wave state, boss content authoring,

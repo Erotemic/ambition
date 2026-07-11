@@ -8,6 +8,8 @@
 pub mod entity;
 pub mod events;
 pub mod music;
+pub mod objective;
+pub mod participants;
 pub mod registry;
 pub mod rewards;
 pub mod spec;
@@ -16,6 +18,8 @@ pub mod state;
 pub use entity::{Encounter, EncounterView};
 pub use events::EncounterEvent;
 pub use music::EncounterMusicRequest;
+pub use objective::{objective_met, EncounterObjective, Objective};
+pub use participants::{EncounterParticipant, EncounterParticipants, EncounterRole, Ownership};
 pub use registry::{EncounterRegistry, SwitchActivation};
 pub use rewards::{encounter_reward_chest_pos, encounter_reward_looted_flag};
 pub use spec::{

@@ -25,9 +25,9 @@
 
 use bevy::prelude::*;
 
-use super::encounter_entity::EncounterDef;
 use crate::features::ecs::boss_clusters::{BossClusterRef, BossEncounter};
 use crate::features::CenteredAabb;
+use ambition_encounter::EncounterParticipants;
 use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
 
@@ -51,7 +51,7 @@ impl EncounterGate {
 pub enum EncounterTrigger {
     /// An external [`EncounterGate`] with this name fired this tick.
     Gate(String),
-    /// The Nth member (by `EncounterDef.members` index) is dead (or gone).
+    /// The Nth member (by `EncounterParticipants` order) is dead (or gone).
     MemberDied(usize),
     /// Every member is dead (or gone).
     AllMembersDead,
@@ -142,7 +142,7 @@ pub fn tick_encounter_scripts(
     mut commands: Commands,
     world_time: Res<ambition_time::WorldTime>,
     mut gates: MessageReader<EncounterGate>,
-    mut scripts: Query<(&EncounterDef, &mut EncounterScript)>,
+    mut scripts: Query<(&EncounterParticipants, &mut EncounterScript)>,
     mut members: Query<(
         &mut BossEncounter,
         &mut ambition_characters::actor::BodyHealth,
@@ -153,25 +153,26 @@ pub fn tick_encounter_scripts(
     let dt = world_time.sim_dt();
     let fired: Vec<String> = gates.read().map(|g| g.gate.clone()).collect();
 
-    for (def, mut script) in &mut scripts {
+    for (participants, mut script) in &mut scripts {
         if script.done() {
             continue;
         }
         script.elapsed += dt;
         let beat = &script.beats[script.cursor];
+        // The Nth member's resolved entity (by participant order), if any.
+        let member_entity = |i: usize| participants.members.get(i).and_then(|p| p.entity);
         // A member is "dead" if its status is non-alive or it has left the world.
         let triggered = match &beat.when {
             EncounterTrigger::Gate(g) => fired.iter().any(|f| f == g),
-            EncounterTrigger::MemberDied(i) => def
-                .members
-                .get(*i)
-                .map_or(true, |&m| members.get(m).map_or(true, |(_, h)| !h.alive())),
+            EncounterTrigger::MemberDied(i) => {
+                member_entity(*i).map_or(true, |m| members.get(m).map_or(true, |(_, h)| !h.alive()))
+            }
             EncounterTrigger::AllMembersDead => {
-                !def.members.is_empty()
-                    && def
-                        .members
-                        .iter()
-                        .all(|&m| members.get(m).map_or(true, |(_, h)| !h.alive()))
+                !participants.members.is_empty()
+                    && participants.members.iter().all(|p| {
+                        p.entity
+                            .map_or(true, |m| members.get(m).map_or(true, |(_, h)| !h.alive()))
+                    })
             }
             EncounterTrigger::Timer(secs) => script.elapsed >= *secs,
         };
@@ -182,7 +183,7 @@ pub fn tick_encounter_scripts(
         for effect in &effects {
             match effect {
                 EncounterEffect::ForceKill(i) => {
-                    if let Some(&m) = def.members.get(*i) {
+                    if let Some(m) = member_entity(*i) {
                         if let Ok((mut status, mut health)) = members.get_mut(m) {
                             health.health.current = 0;
                             if let Some(phase) = status.encounter.as_mut() {
@@ -199,7 +200,7 @@ pub fn tick_encounter_scripts(
                     speed,
                     arrive_tolerance,
                 } => {
-                    if let Some(&m) = def.members.get(*member) {
+                    if let Some(m) = member_entity(*member) {
                         commands.entity(m).insert(CommandedMove {
                             target: *target,
                             speed: *speed,
@@ -216,7 +217,7 @@ pub fn tick_encounter_scripts(
                     target_member,
                     impact_gate,
                 } => {
-                    if let Some(&target) = def.members.get(*target_member) {
+                    if let Some(target) = member_entity(*target_member) {
                         commands.spawn((
                             CenteredAabb::from_center_size(*anchor, *size),
                             FallingHazard {

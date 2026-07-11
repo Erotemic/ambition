@@ -55,7 +55,7 @@ pub use behavior::{
 };
 pub use encounter_entity::{
     release_payloads_on_death, sync_boss_encounter_entities, update_encounter_progress,
-    EncounterDef, EncounterProgress, EncounterWin, MemberProgress, PayloadReleased, ReleaseOnDeath,
+    EncounterDef, EncounterProgress, MemberProgress, PayloadReleased, ReleaseOnDeath,
 };
 pub use encounter_script::{
     tick_commanded_moves, tick_encounter_scripts, tick_falling_hazards, CommandedMove,

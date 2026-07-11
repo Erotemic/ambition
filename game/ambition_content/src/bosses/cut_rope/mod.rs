@@ -12,9 +12,10 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
 use ambition_actors::boss_encounter::{
-    BossEncounterRegistry, EncounterBeat, EncounterDef, EncounterEffect, EncounterScript,
-    EncounterTrigger, ReleaseOnDeath,
+    BossEncounterRegistry, EncounterBeat, EncounterEffect, EncounterScript, EncounterTrigger,
+    ReleaseOnDeath,
 };
+use ambition_encounter::EncounterParticipants;
 use ambition_actors::features::BossConfig;
 use ambition_actors::features::{
     ActorPose, BossClusterQueryData, BossClusterRef, BossRef, CenteredAabb, DamageableVolumes,
@@ -192,7 +193,7 @@ pub fn setup_cut_rope_encounter(
     mut commands: Commands,
     room_set: Res<RoomSet>,
     bosses: Query<&BossConfig>,
-    encounters: Query<(Entity, &EncounterDef), Without<EncounterScript>>,
+    encounters: Query<(Entity, &EncounterParticipants), Without<EncounterScript>>,
     behemoths: Query<(Entity, &BossConfig), Without<ReleaseOnDeath>>,
 ) {
     // The swallowed victory NPC is freed by the generic on-death capability.
@@ -212,13 +213,14 @@ pub fn setup_cut_rope_encounter(
         return;
     };
 
-    for (encounter, def) in &encounters {
+    for (encounter, participants) in &encounters {
         // Only the behemoth's encounter gets the cut-rope script; member 0 is the
         // single boss the encounter wraps.
-        let Some(config) = def
+        let Some(config) = participants
             .members
             .first()
-            .and_then(|&m| bosses.get(m).ok())
+            .and_then(|p| p.entity)
+            .and_then(|m| bosses.get(m).ok())
             .filter(|c| is_cut_rope_boss(&c.behavior.id))
         else {
             continue;

@@ -7,6 +7,7 @@ use super::*;
 use crate::boss_encounter::PhaseTrigger;
 use crate::features::ecs::boss_clusters::test_support::{test_boss_config, test_boss_status_with};
 use crate::features::ecs::boss_clusters::{BossConfig, BossEncounter};
+use ambition_encounter::{EncounterParticipants, EncounterRole};
 
 fn awake_boss(
     name: &str,
@@ -42,12 +43,17 @@ fn active_boss_gets_a_single_boss_encounter_entity() {
 
     app.update();
 
-    let mut q = app.world_mut().query::<&EncounterDef>();
+    let mut q = app
+        .world_mut()
+        .query::<(&EncounterDef, &EncounterParticipants)>();
     let defs: Vec<_> = q.iter(app.world()).collect();
     assert_eq!(defs.len(), 1, "one active boss ⇒ one encounter entity");
-    assert_eq!(defs[0].members, vec![boss]);
-    assert!(defs[0].hud);
-    assert_eq!(defs[0].placement_id, "mockingbird_runtime");
+    let (def, parts) = defs[0];
+    assert_eq!(parts.members.len(), 1);
+    assert_eq!(parts.members[0].entity, Some(boss));
+    assert_eq!(parts.members[0].role, EncounterRole::PrimaryTarget);
+    assert!(def.hud);
+    assert_eq!(def.placement_id, "mockingbird_runtime");
 
     // Idempotent: a second pass does not spawn a duplicate.
     app.update();
@@ -73,7 +79,7 @@ fn progress_reflects_member_hp_and_phase() {
     assert_eq!(m.name, "mockingbird");
     assert_eq!(m.hp, 40);
     assert_eq!(m.phase, BossEncounterPhase::Phase1);
-    assert!(!progress.all_members_dead());
+    assert!(!progress.complete, "a living boss ⇒ objective not met");
 }
 
 #[test]

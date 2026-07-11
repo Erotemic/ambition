@@ -20,32 +20,28 @@ use bevy::prelude::*;
 use crate::boss_encounter::BossEncounterPhase;
 use crate::features::ecs::boss_clusters::{BossConfig, BossEncounter};
 use crate::features::FeatureSimEntity;
+use ambition_encounter::{
+    objective_met, EncounterObjective, EncounterParticipant, EncounterParticipants, EncounterRole,
+    Objective,
+};
 
-/// Definition of an encounter entity: which members it orchestrates + how it
-/// frames them. Optional by construction — a creature with no `EncounterDef`
-/// nearby is simply un-orchestrated.
+/// Definition of an encounter entity: its stable identity + how it FRAMES its
+/// members. Optional by construction — a creature with no `EncounterDef` nearby
+/// is simply un-orchestrated.
+///
+/// E2: membership moved to the generic [`EncounterParticipants`] component and
+/// the win condition to the generic [`EncounterObjective`] component (both on
+/// the same entity), so an encounter's members/objective are generic vocabulary
+/// shared with wave arenas — not a boss-shaped `Vec<Entity>`.
 #[derive(Component, Clone, Debug)]
 pub struct EncounterDef {
     /// Stable placement id (the room / LDtk encounter key). R4 keys the
     /// "cleared" save record to THIS — the placement — not the archetype, so
     /// reusing a boss archetype elsewhere is not pre-marked cleared.
     pub placement_id: String,
-    /// The member creature entities this encounter orchestrates. A single-boss
-    /// fight has one; a gauntlet / add-wave has many.
-    pub members: Vec<Entity>,
     /// Whether this encounter binds the HUD (a view of its progress). `false`
     /// / no encounter ⇒ no boss HUD.
     pub hud: bool,
-    /// Win condition. R3 observes members to resolve it + write the save.
-    pub win: EncounterWin,
-}
-
-/// How an encounter is won. Extensible (add-wave "survive N waves", cut-rope
-/// "boss crushed", …); R2 only needs the common case.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum EncounterWin {
-    /// Cleared once every member creature is dead (single-boss + gauntlet).
-    AllMembersDead,
 }
 
 /// Live, member-derived progress of an encounter — recomputed every frame by
@@ -53,16 +49,13 @@ pub enum EncounterWin {
 /// the sim depends on it (so a headless build that ignores it is fine).
 #[derive(Component, Clone, Debug, Default)]
 pub struct EncounterProgress {
-    /// One entry per resolvable member, in `EncounterDef::members` order.
+    /// One entry per resolvable member, in [`EncounterParticipants`] order.
     pub members: Vec<MemberProgress>,
-}
-
-impl EncounterProgress {
-    /// True once every tracked member is dead — the `AllMembersDead` shape,
-    /// surfaced for the HUD / R3 win check.
-    pub fn all_members_dead(&self) -> bool {
-        !self.members.is_empty() && self.members.iter().all(|m| m.hp <= 0)
-    }
+    /// Whether the encounter's generic [`EncounterObjective`] is met this tick
+    /// (the generic projection the HUD / win read model observes — replaces the
+    /// boss-specific `all_members_dead`). Display/read-model only: the boss
+    /// death → save authority is still the phase machine (converged at E4).
+    pub complete: bool,
 }
 
 /// Snapshot of one member creature's fight-relevant state.
@@ -102,11 +95,11 @@ pub fn sync_boss_encounter_entities(
         ),
         With<FeatureSimEntity>,
     >,
-    encounters: Query<&EncounterDef>,
+    encounters: Query<&EncounterParticipants>,
 ) {
     let covered: HashSet<Entity> = encounters
         .iter()
-        .flat_map(|d| d.members.iter().copied())
+        .flat_map(|p| p.members.iter().filter_map(|m| m.entity))
         .collect();
     for (entity, config, status, overrides) in &bosses {
         if covered.contains(&entity) {
@@ -127,13 +120,19 @@ pub fn sync_boss_encounter_entities(
         if !active {
             continue;
         }
+        // The boss is the encounter's single ADOPTED `PrimaryTarget`; the win is
+        // the generic "all PrimaryTargets defeated" objective.
         commands.spawn((
             EncounterDef {
                 placement_id: config.id.clone(),
-                members: vec![entity],
                 hud: true,
-                win: EncounterWin::AllMembersDead,
             },
+            EncounterParticipants::new(vec![EncounterParticipant::adopted(
+                config.id.clone(),
+                entity,
+                EncounterRole::PrimaryTarget,
+            )]),
+            EncounterObjective::win(Objective::AllWithRoleDefeated(EncounterRole::PrimaryTarget)),
             EncounterProgress::default(),
         ));
     }
@@ -146,19 +145,33 @@ pub fn sync_boss_encounter_entities(
 /// `sync_boss_encounter_entities` in the Progression set.
 pub fn update_encounter_progress(
     mut commands: Commands,
-    mut encounters: Query<(Entity, &EncounterDef, &mut EncounterProgress)>,
+    mut encounters: Query<(
+        Entity,
+        &mut EncounterParticipants,
+        Option<&EncounterObjective>,
+        &mut EncounterProgress,
+    )>,
     bosses: Query<(
         &BossConfig,
         &BossEncounter,
         &ambition_characters::actor::BodyHealth,
     )>,
 ) {
-    for (entity, def, mut progress) in &mut encounters {
+    let no_signals: HashSet<String> = HashSet::new();
+    for (entity, mut participants, objective, mut progress) in &mut encounters {
         progress.members.clear();
-        for &member in &def.members {
-            let Ok((config, status, health)) = bosses.get(member) else {
+        let mut any_resolved = false;
+        for member in &mut participants.members {
+            let Some((config, status, health)) = member.entity.and_then(|e| bosses.get(e).ok())
+            else {
+                // The member left the world (room change / despawn): forget the
+                // stale entity + read it as not alive.
+                member.entity = None;
+                member.alive = false;
                 continue;
             };
+            any_resolved = true;
+            member.alive = health.alive();
             // Phase comes from the entity-local copy; fall back to the synced
             // `encounter_phase` mirror if the copy isn't populated yet.
             let phase = status
@@ -175,9 +188,15 @@ pub fn update_encounter_progress(
         }
         // Every member gone (boss despawned on a room change) ⇒ the encounter
         // is over its world; retire it.
-        if progress.members.is_empty() {
+        if !any_resolved {
             commands.entity(entity).despawn();
+            continue;
         }
+        // The generic projection the HUD/win read model observes: is the
+        // encounter's objective met? (Boss has no timer/signals here.)
+        progress.complete = objective
+            .map(|o| objective_met(&o.win, &participants, 0.0, &no_signals))
+            .unwrap_or(false);
     }
 }
 

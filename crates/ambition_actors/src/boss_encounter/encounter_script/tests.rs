@@ -9,6 +9,7 @@ use crate::encounter::EncounterMusicRequest;
 use crate::features::ecs::boss_clusters::test_support::{test_boss_config, test_boss_status};
 use crate::features::ecs::boss_clusters::BossEncounter;
 use crate::features::GameplayBanner;
+use ambition_encounter::{EncounterParticipant, EncounterParticipants, EncounterRole};
 use ambition_time::WorldTime;
 
 fn member(hp: i32) -> (BossEncounter, ambition_characters::actor::BodyHealth) {
@@ -41,12 +42,11 @@ fn gate_beat_force_kills_its_member() {
     let mut app = test_app();
     let boss = app.world_mut().spawn(member(9999)).id();
     app.world_mut().spawn((
-        EncounterDef {
-            placement_id: "cut_rope".into(),
-            members: vec![boss],
-            hud: true,
-            win: crate::boss_encounter::EncounterWin::AllMembersDead,
-        },
+        EncounterParticipants::new(vec![EncounterParticipant::adopted(
+            "cut_rope_boss",
+            boss,
+            EncounterRole::PrimaryTarget,
+        )]),
         EncounterScript::new(vec![EncounterBeat::new(
             EncounterTrigger::Gate("impact".into()),
             vec![EncounterEffect::ForceKill(0)],
@@ -76,12 +76,11 @@ fn beats_advance_in_order_with_timer_and_banner() {
     let mut app = test_app();
     let boss = app.world_mut().spawn(member(10)).id();
     app.world_mut().spawn((
-        EncounterDef {
-            placement_id: "enc".into(),
-            members: vec![boss],
-            hud: false,
-            win: crate::boss_encounter::EncounterWin::AllMembersDead,
-        },
+        EncounterParticipants::new(vec![EncounterParticipant::adopted(
+            "enc_boss",
+            boss,
+            EncounterRole::PrimaryTarget,
+        )]),
         EncounterScript::new(vec![
             EncounterBeat::new(
                 EncounterTrigger::Gate("go".into()),

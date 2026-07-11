@@ -8,12 +8,9 @@
 //! the app, as the composition root, owns the wiring that crosses the seam.
 #![allow(clippy::too_many_arguments)]
 
-use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 #[cfg(feature = "audio")]
 use bevy_kira_audio::prelude::AudioSource as KiraAudioSource;
-
-use ambition::engine_core as ae;
 
 use ambition::actors::platformer_runtime::lifecycle::SceneEntities;
 use ambition::actors::rooms::RoomSet;
@@ -29,16 +26,11 @@ use ambition::audio::library::{AudioLibrary, MusicPlaybackState};
 use ambition::audio::SfxBankResource;
 use ambition::engine_core::RoomGeometry;
 use ambition::render::rendering::{
-    spawn_parallax_layers, spawn_room_visuals, HudText, PlayerSpriteBaseline,
-    PlayerSpriteCharacter, QuestPanelText,
+    spawn_parallax_layers, spawn_room_visuals, HudText, QuestPanelText,
 };
 use ambition::render::ui_fonts::{UiFontWeight, UiFonts};
 #[cfg(feature = "audio")]
 use ambition::sfx::BankProvider;
-use ambition::sprite_sheet::character::{
-    build_character_sprite_with_render_size, feet_anchor_for_render_size,
-    player_placeholder_render_size, CharacterAnimator,
-};
 use ambition::sprite_sheet::game_assets::GameAssets;
 
 /// Borrowed inputs for `presentation_world`.
@@ -48,10 +40,6 @@ pub struct PresentationSetup<'a> {
     pub physics_settings: PhysicsSandboxSettings,
     pub game_assets: &'a GameAssets,
     pub quality: Option<&'a ambition::render::quality::ResolvedVisualQuality>,
-    /// Which catalog character the player wears — selects its sprite sheet so
-    /// the home avatar draws as the chosen character
-    /// ([`ambition::actors::avatar::StartingCharacter`]).
-    pub starting_character: &'a ambition::actors::avatar::StartingCharacter,
     #[cfg(feature = "audio")]
     pub music_registry: &'a MusicRegistry,
     #[cfg(feature = "audio")]
@@ -237,12 +225,10 @@ fn presentation_world_inner(
     let physics_settings = params.physics_settings;
     let game_assets = params.game_assets;
     let quality = params.quality;
-    let starting_character = params.starting_character;
     #[cfg(feature = "audio")]
     let ui_fonts = params.ui_fonts;
     #[cfg(not(feature = "audio"))]
     let ui_fonts: Option<&UiFonts> = None;
-    let character_sprites = &game_assets.characters;
 
     // The MAIN camera (order 0) renders the gameplay world (sprites on layer 0),
     // portal-window meshes, and the main-camera-only parallax layer. It NO LONGER
@@ -326,40 +312,12 @@ fn presentation_world_inner(
         &platforms::moving_platforms_for_room(room_set.active_spec()),
     );
 
-    let player_collision = BVec2::new(
-        ae::DEFAULT_PLAYER_BODY_WIDTH,
-        ae::DEFAULT_PLAYER_BODY_HEIGHT,
-    );
-    // Bind the sheet of whichever character the player wears. `player` (the
-    // default) resolves to the compact robot sheet exactly as before; any other
-    // selected character binds its own sheet, so the home avatar draws as e.g.
-    // the goblin, the pirate admiral, or the Perfect Cellular Automaton.
-    if let Some(asset) = character_sprites.asset_for_character_id(starting_character.effective_id())
-    {
-        let player_render = player_placeholder_render_size(&asset.spec, player_collision);
-        let sprite = build_character_sprite_with_render_size(asset, player_render);
-        let player_anchor =
-            feet_anchor_for_render_size(&asset.spec, player_collision, player_render);
-        commands.entity(player).insert((
-            sprite,
-            player_anchor,
-            CharacterAnimator::new(asset),
-            PlayerSpriteBaseline {
-                standing_render: player_render,
-                standing_collision: player_collision,
-            },
-            PlayerSpriteCharacter {
-                id: starting_character.effective_id().to_string(),
-            },
-        ));
-    } else {
-        commands.entity(player).insert((
-            Sprite::from_color(Color::srgba(0.80, 0.95, 1.0, 1.0), player_collision),
-            PlayerSpriteCharacter {
-                id: starting_character.effective_id().to_string(),
-            },
-        ));
-    }
+    // The player's character sprite is NO LONGER bound here. It is installed by
+    // the reusable `bind_worn_character_presentation` system (in
+    // `ambition_render::PresentationVisualAnimationPlugin`, which this app adds),
+    // which reads the canonical sim-owned `WornCharacter` identity carried by the
+    // player entity. The app owns only the scene composition below (cameras, HUD,
+    // audio); character presentation is engine-generic so demos share it.
 
     let hud = commands
         .spawn((

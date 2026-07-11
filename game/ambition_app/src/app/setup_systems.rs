@@ -78,7 +78,6 @@ pub(crate) fn setup_presentation_system(
     scene_entities: Res<SceneEntities>,
     ui_fonts: Option<Res<ui_fonts::UiFonts>>,
     quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
-    starting_character: Res<ambition::actors::avatar::StartingCharacter>,
     mut profiler: ResMut<ambition::dev_tools::profiling::StartupProfiler>,
 ) {
     // `std::time::Instant::now()` panics on `wasm32-unknown-unknown`
@@ -114,7 +113,6 @@ pub(crate) fn setup_presentation_system(
                 physics_settings: *physics_settings,
                 game_assets: &game_assets,
                 quality: quality.as_deref(),
-                starting_character: &starting_character,
                 music_registry: &music_registry,
                 sfx_registry: &sfx_registry,
                 ui_fonts: ui_fonts.as_deref(),
@@ -147,7 +145,6 @@ pub(crate) fn setup_presentation_system(
                 physics_settings: *physics_settings,
                 game_assets: &game_assets,
                 quality: quality.as_deref(),
-                starting_character: &starting_character,
                 music_registry: &music_registry,
                 sfx_registry: &sfx_registry,
                 ui_fonts: ui_fonts.as_deref(),
@@ -205,7 +202,6 @@ pub(crate) fn setup_presentation_system(
     asset_config: Res<GameAssetConfig>,
     scene_entities: Res<SceneEntities>,
     quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
-    starting_character: Res<ambition::actors::avatar::StartingCharacter>,
 ) {
     let game_assets = actor_game_assets::load_game_assets(
         &asset_config,
@@ -223,7 +219,6 @@ pub(crate) fn setup_presentation_system(
             physics_settings: *physics_settings,
             game_assets: &game_assets,
             quality: quality.as_deref(),
-            starting_character: &starting_character,
         },
         scene_entities.player,
     );

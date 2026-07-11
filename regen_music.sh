@@ -1,30 +1,28 @@
 #!/usr/bin/env bash
 # Re-render and republish all in-game music cues.
 #
-# Covers:
-#   - first_goblin_tune_v2 (delegates to scripts/regen_first_goblin_tune_v2.sh,
-#     which renders, audits, and installs the adaptive boss cue).
+# Covers every in-game cue through ONE path:
 #   - All radio cues: scores/active/* (auto-discovered) plus the curated
 #     EXTRA_RADIO_CUES list (example-tree cues we expose on the radio).
-#     Driven via `ambition_music_renderer radio render-publish`.
+#     Driven via `ambition_music_renderer radio render-publish`. Adaptive cues
+#     (e.g. first_goblin_tune_v2) are detected and published per-section by the
+#     SAME path — the renderer publishes each adaptive/<section>/<section>.full.ogg
+#     into crates/ambition_actors/assets/audio/music/generated/. No dedicated installer.
 #
 # Usage:
 #   ./regen_music.sh                    # render + install everything (default)
 #   ./regen_music.sh --skip-render      # only republish from existing renders
 #   ./regen_music.sh --force            # force re-render where supported
-#   ./regen_music.sh --with-stems       # also install first_goblin_tune_v2 stems
-#   ./regen_music.sh --keep-debug-stems # keep first_goblin_tune_v2 scratch stems
 #
 # Useful environment overrides:
 #   AMBITION_MUSIC_BACKEND=pretty-midi|fluidsynth-cli|fallback|auto
-#                                   # forwarded to the adaptive cue renderer
+#                                   # forwarded to the cue renderer
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$repo_root"
 
 renderer_dir="$repo_root/tools/ambition_music_renderer"
-adaptive_cue_script="$repo_root/scripts/regen_first_goblin_tune_v2.sh"
 
 select_python() {
     if [ -n "${PYTHON:-}" ]; then
@@ -51,21 +49,15 @@ print_help() {
 
 skip_render=0
 force_render=0
-adaptive_args=()
 radio_args=()
 for arg in "$@"; do
     case "$arg" in
         --skip-render)
             skip_render=1
-            adaptive_args+=(--skip-render)
             ;;
         --force|--force-render)
             force_render=1
-            adaptive_args+=(--force)
             radio_args+=(--force-render)
-            ;;
-        --with-stems|--keep-debug-stems)
-            adaptive_args+=("$arg")
             ;;
         -h|--help) print_help; exit 0 ;;
         *) echo "unknown arg: $arg" >&2; exit 2 ;;
@@ -90,10 +82,7 @@ if ! "$renderer_py" -c 'import ambition_music_renderer' >/dev/null 2>&1; then
     exit 1
 fi
 
-echo "==> first_goblin_tune_v2 (adaptive cue)"
-PYTHON="$renderer_py" bash "$adaptive_cue_script" "${adaptive_args[@]}"
-
-echo "==> radio cues (scores/active/* + EXTRA_RADIO_CUES, simple-mix)"
+echo "==> radio cues (scores/active/* + EXTRA_RADIO_CUES; adaptive cues per-section)"
 if [ "$skip_render" -eq 1 ]; then
     (cd "$renderer_dir" && "$renderer_py" -m ambition_music_renderer radio publish)
 else

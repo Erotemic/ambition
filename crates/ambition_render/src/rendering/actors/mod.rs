@@ -35,20 +35,110 @@ pub use overlays::*;
 
 /// Ensure every simulation-owned player visual has a renderable sprite.
 ///
-/// The full Ambition app binds an authored character sheet in its app-local
-/// presentation setup. Reusable demo shells intentionally do not depend on that
-/// app crate, so their `simulation_world` player otherwise carries `PlayerVisual`
-/// without the `Sprite` required by [`sync_visuals`]. Insert a neutral rectangle
-/// here; the normal character-sheet upgrade path may replace it later.
+/// A player that carries the canonical [`WornCharacter`] identity is owned by
+/// [`bind_worn_character_presentation`] (it installs the sheet or a fallback
+/// rectangle). This system is the safety net for a bare `PlayerVisual` with NO
+/// worn identity — a minimal test/demo shell — so `sync_visuals` always has a
+/// `Sprite` to query. The `Without<WornCharacter>` filter (a spawn-time fact, no
+/// same-frame race) keeps the two systems from both claiming one entity.
 pub fn ensure_player_visual_sprite(
     mut commands: Commands,
-    players: Query<Entity, (With<PlayerVisual>, Without<Sprite>)>,
+    players: Query<
+        Entity,
+        (
+            With<PlayerVisual>,
+            Without<Sprite>,
+            Without<ambition_characters::actor::WornCharacter>,
+        ),
+    >,
 ) {
     for entity in &players {
         commands.entity(entity).insert(Sprite::from_color(
             Color::srgba(0.18, 0.55, 1.0, 1.0),
             BVec2::ONE,
         ));
+    }
+}
+
+/// **The reusable selected-character presentation binder.**
+///
+/// Observes the canonical simulation-owned [`WornCharacter`] identity on each
+/// player body and installs the matching visual configuration — sprite sheet,
+/// animation cursor ([`CharacterAnimator`]), feet [`Anchor`], the crouch-squash
+/// [`PlayerSpriteBaseline`], and the [`PlayerSpriteCharacter`] marker recording
+/// what is currently bound. It:
+///
+/// * binds when a player first appears (the marker is absent), and
+/// * rebinds when the worn identity changes (marker id ≠ worn id), REPLACING the
+///   prior sheet-derived components rather than layering duplicates.
+///
+/// There is **no per-character branch** — every character resolves through the
+/// same `GameAssets` catalog lookup, so a new character needs zero code here.
+/// Owned by `ambition_render` (the lowest reusable presentation crate) and added
+/// by the shared animation plugin, so `ambition_app` AND standalone demos consume
+/// the identical path; neither binds the player sprite itself. With no `GameAssets`
+/// (a demo shell that ships no art) OR an id with no sheet, it installs the
+/// colored-rectangle fallback and still marks the identity — this system OWNS
+/// every `WornCharacter` player's presentation, so [`ensure_player_visual_sprite`]
+/// only backstops bare `PlayerVisual`s that carry no identity at all.
+pub fn bind_worn_character_presentation(
+    mut commands: Commands,
+    assets: Option<Res<GameAssets>>,
+    players: Query<
+        (
+            Entity,
+            &ambition_characters::actor::WornCharacter,
+            Option<&PlayerSpriteCharacter>,
+        ),
+        With<PlayerVisual>,
+    >,
+) {
+    for (entity, worn, bound) in &players {
+        // Already bound to this exact identity — nothing to do.
+        if bound.map(|b| b.id.as_str()) == Some(worn.id()) {
+            continue;
+        }
+        let player_collision = BVec2::new(
+            ae::DEFAULT_PLAYER_BODY_WIDTH,
+            ae::DEFAULT_PLAYER_BODY_HEIGHT,
+        );
+        // Resolve the sheet — absent `GameAssets` (art-free demo) and an id with no
+        // sheet both fall through to the rectangle, so a worn player is ALWAYS drawn.
+        let asset = assets
+            .as_ref()
+            .and_then(|a| a.characters.asset_for_character_id(worn.id()));
+        if let Some(asset) = asset {
+            let player_render = player_placeholder_render_size(&asset.spec, player_collision);
+            let sprite = build_character_sprite_with_render_size(asset, player_render);
+            let anchor = feet_anchor_for_render_size(&asset.spec, player_collision, player_render);
+            commands.entity(entity).insert((
+                sprite,
+                anchor,
+                CharacterAnimator::new(asset),
+                PlayerSpriteBaseline {
+                    standing_render: player_render,
+                    standing_collision: player_collision,
+                },
+                PlayerSpriteCharacter {
+                    id: worn.id().to_string(),
+                },
+            ));
+        } else {
+            // No sheet for this identity: draw the colored-rectangle fallback and
+            // strip any sheet-derived presentation a PRIOR identity installed, so a
+            // rebind never leaves a stale animator/anchor/baseline behind.
+            commands
+                .entity(entity)
+                .remove::<CharacterAnimator>()
+                .remove::<bevy::sprite::Anchor>()
+                .remove::<PlayerSpriteBaseline>()
+                .insert((
+                    Sprite::from_color(Color::srgba(0.80, 0.95, 1.0, 1.0), player_collision),
+                    PlayerSpriteCharacter {
+                        id: worn.id().to_string(),
+                    },
+                ));
+        }
     }
 }
 
@@ -482,5 +572,182 @@ pub fn refresh_prop_sprites_on_game_assets_change(
             CharacterAnimator::new(asset),
             BoundSpriteQuality { scale },
         ));
+    }
+}
+
+#[cfg(test)]
+mod worn_binder_tests {
+    //! **S2: the reusable selected-character presentation binder.**
+    //!
+    //! Proves the binder derives presentation from the canonical `WornCharacter`
+    //! identity — generically (two character profiles, no per-character branch),
+    //! binding on first appearance, rebinding on identity change, and leaving no
+    //! stale/duplicate sheet components — using deterministic sheet fixtures and
+    //! nothing from `ambition_app`.
+    use super::bind_worn_character_presentation;
+    use super::{PlayerSpriteCharacter, PlayerVisual};
+    use ambition_characters::actor::WornCharacter;
+    use ambition_sprite_sheet::character::{
+        try_load_spec_for_character_id, CharacterAnimator, CharacterSpriteAsset,
+    };
+    use ambition_sprite_sheet::game_assets::GameAssets;
+    use bevy::prelude::*;
+
+    /// A deterministic sheet fixture: a real baked spec for `sheet_root`, with
+    /// placeholder texture/atlas handles (the binder only clones handles).
+    fn fixture(sheet_root: &str) -> CharacterSpriteAsset {
+        let spec = try_load_spec_for_character_id(sheet_root)
+            .unwrap_or_else(|| panic!("baked sheet spec exists for '{sheet_root}'"));
+        CharacterSpriteAsset {
+            texture: Handle::default(),
+            layout: Handle::default(),
+            spec,
+            pages: Vec::new(),
+        }
+    }
+
+    /// Two distinct character profiles resolve through the SAME binder with no
+    /// per-character code: "robot" and "goblin" each bind their own sheet and are
+    /// marked with their own id.
+    fn two_character_assets() -> GameAssets {
+        let mut assets = GameAssets::default();
+        assets.characters.robot = Some(fixture("robot"));
+        assets.characters.goblin = Some(fixture("goblin"));
+        assets
+    }
+
+    fn spawn_worn(app: &mut App, id: &str) -> Entity {
+        app.world_mut()
+            .spawn((PlayerVisual, WornCharacter::new(id)))
+            .id()
+    }
+
+    #[test]
+    fn binds_on_first_appearance_for_two_profiles() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.insert_resource(two_character_assets());
+        app.add_systems(Update, bind_worn_character_presentation);
+
+        let robot = spawn_worn(&mut app, "robot");
+        let goblin = spawn_worn(&mut app, "goblin");
+        app.update();
+
+        // Each body is bound to ITS OWN identity through the one generic path.
+        assert_eq!(
+            app.world().get::<PlayerSpriteCharacter>(robot).unwrap().id,
+            "robot"
+        );
+        assert_eq!(
+            app.world().get::<PlayerSpriteCharacter>(goblin).unwrap().id,
+            "goblin"
+        );
+        // A real sheet resolved → an animator + textured sprite were installed.
+        assert!(app.world().get::<CharacterAnimator>(robot).is_some());
+        assert!(app.world().get::<Sprite>(goblin).is_some());
+        // The two bodies bound DIFFERENT identities through one generic path —
+        // the genericity claim (no per-character branch).
+        assert_ne!(
+            app.world().get::<PlayerSpriteCharacter>(robot).unwrap().id,
+            app.world().get::<PlayerSpriteCharacter>(goblin).unwrap().id
+        );
+        assert!(
+            app.world().get::<CharacterAnimator>(goblin).is_some(),
+            "the second profile also bound a real sheet animator"
+        );
+    }
+
+    #[test]
+    fn rebinds_and_leaves_no_stale_sheet_components_on_identity_change() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        // Only "robot" has a sheet; the second identity has NONE, exercising the
+        // sheet → fallback rebind (the stale-component path).
+        let mut assets = GameAssets::default();
+        assets.characters.robot = Some(fixture("robot"));
+        app.insert_resource(assets);
+        app.add_systems(Update, bind_worn_character_presentation);
+
+        let e = spawn_worn(&mut app, "robot");
+        app.update();
+        assert!(
+            app.world().get::<CharacterAnimator>(e).is_some(),
+            "robot binds a real sheet (animator present)"
+        );
+        assert_eq!(
+            app.world().get::<PlayerSpriteCharacter>(e).unwrap().id,
+            "robot"
+        );
+
+        // Re-wear to an identity with no sheet: the binder must REPLACE the stale
+        // animator/anchor/baseline with the colored-rectangle fallback, not layer
+        // a duplicate.
+        *app.world_mut().get_mut::<WornCharacter>(e).unwrap() = WornCharacter::new("no_such_sheet");
+        app.update();
+        assert_eq!(
+            app.world().get::<PlayerSpriteCharacter>(e).unwrap().id,
+            "no_such_sheet",
+            "the marker follows the new identity"
+        );
+        assert!(
+            app.world().get::<CharacterAnimator>(e).is_none(),
+            "the stale sheet animator was removed on rebind (no duplicate/stale state)"
+        );
+        assert!(
+            app.world().get::<super::PlayerSpriteBaseline>(e).is_none(),
+            "the stale crouch-squash baseline was removed on rebind"
+        );
+        assert!(
+            app.world().get::<Sprite>(e).is_some(),
+            "a fallback sprite is present"
+        );
+    }
+
+    #[test]
+    fn no_game_assets_still_draws_a_marked_fallback() {
+        // An art-free demo shell (no GameAssets) must still draw the worn player:
+        // the binder installs the colored-rectangle fallback AND marks the identity,
+        // so a demo without a sheet never renders an invisible player.
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_systems(Update, bind_worn_character_presentation);
+        let e = spawn_worn(&mut app, "sanic");
+        app.update();
+        assert_eq!(
+            app.world().get::<PlayerSpriteCharacter>(e).unwrap().id,
+            "sanic",
+            "the identity is marked even with no art"
+        );
+        assert!(
+            app.world().get::<Sprite>(e).is_some(),
+            "a fallback sprite is drawn with no GameAssets"
+        );
+        assert!(
+            app.world().get::<CharacterAnimator>(e).is_none(),
+            "no sheet → no animator, just the rectangle"
+        );
+    }
+
+    #[test]
+    fn already_bound_identity_is_not_rebound() {
+        // Non-vacuity: a body whose bound marker already matches its worn identity
+        // is SKIPPED — the binder does not thrash the sprite every frame. Prove it
+        // by removing the animator after the bind and confirming the guard does
+        // NOT re-add it (an unconditional binder would).
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.insert_resource(two_character_assets());
+        app.add_systems(Update, bind_worn_character_presentation);
+        let e = spawn_worn(&mut app, "robot");
+        app.update();
+        assert!(app.world().get::<CharacterAnimator>(e).is_some());
+
+        // Identity unchanged (still "robot", marker still "robot"): the guard skips.
+        app.world_mut().entity_mut(e).remove::<CharacterAnimator>();
+        app.update();
+        assert!(
+            app.world().get::<CharacterAnimator>(e).is_none(),
+            "a matching identity is not rebound, so the removed animator stays removed"
+        );
     }
 }

@@ -18,8 +18,10 @@ declarative policies** (repository 2 / engine 173 / game 40) + **5 custom scanne
 (module-size, determinism, control-frame, raw-spawn lifecycle, archetype-free
 content-ownership) + the migration-matrix completeness self-test. Policy binaries
 6→1; edit-test loop 13.6 s→0.47 s (Rust) / 0.14 s (data); the policy suite never
-compiles `ambition_app`. Separately, 11 large inline test modules were extracted to
-adjacent `src/foo/tests.rs` (pure moves), retiring 4 module-size waivers.
+compiles `ambition_app`. Separately, 11 large inline test modules across 9 crates
+were extracted to adjacent `src/foo/tests.rs` (pure moves) — 9,289 physical lines
+of test code (measured as `wc -l` of the 11 new `tests.rs` files) moved out of
+production implementation files — retiring 4 module-size waivers.
 
 ## Baseline (commit `5950499`, HEAD `8099506`)
 
@@ -269,12 +271,14 @@ single most expensive test binary (`architecture_boundaries`, which linked all o
 
 ## Validation (handoff gate)
 
-`cargo test --workspace` was run as the merge gate. **The campaign introduced zero
-regressions:**
+`cargo test --workspace` was run as the merge gate. **The campaign introduced no
+identified regressions, and the workspace compiled successfully with `--no-run`** —
+but `cargo test --workspace` is NOT fully green: a pre-existing failing test and
+parallel-execution flakes remain (pre-existing red is still red; see below).
 
-- Policy suite (`cargo test -p ambition_workspace_policy`): green (4 filterable
-  tests + all self-tests/poison).
-- All 11 crates whose inline tests were extracted: `--lib` green (pure moves).
+- Policy suite (`cargo test -p ambition_workspace_policy`): green (28 named tests —
+  3 scope runners + self-tests/poison, one binary).
+- All 11 extracted implementation files' crates: `--lib` green (pure moves).
 - Full workspace `--no-run`: green (compiles after the file deletion + new package).
 - `cargo fmt --check` on every touched file, `check_doc_links.py`, `modules_md.py`:
   clean. `check_agent_kb.py`: only pre-existing `dev/journals/*` broken links to
@@ -297,9 +301,13 @@ consistently standalone — they are resource-contention flakes under full paral
   block (a split structure), safer kept inline than force-split.
 - Further inline extractions remain available (any `#[cfg(test)] mod tests` ≥~200
   lines); the pattern + tool are proven.
-- 6 module-size waivers remain (snapshot 3647, view_cones 2206, geometry.rs was
-  retired; smash/mod 1976, kaleidoscope_app 1814, falling_sand 1588) — D-B stays
-  reopened until those files are split (not merely gated).
+- 5 module-size waivers remain (snapshot.rs, view_cones.rs, brain/smash/mod.rs,
+  kaleidoscope_app.rs, falling_sand.rs) — the extractions retired 4 (surface,
+  moveset, entity_catalog, geometry). D-B stays reopened until the remaining files
+  are split (not merely gated).
+- The full `cargo test --workspace` handoff gate is NOT yet green: the pre-existing
+  demo mode-scope timing test (below) plus parallel resource-contention flakes.
+  These are a separate reliability concern, not a structural-refactor gap.
 - Pre-existing (not this campaign): the demo mode-scope timing test above, and the
   `dev/journals/*` broken `TODO-*.md` links flagged by `check_agent_kb.py`.
 

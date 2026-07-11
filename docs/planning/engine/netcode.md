@@ -675,12 +675,19 @@ snapshots needed. Needs N0 complete, plus:
      re-audit): the resolved insert checks `r.finish()` after `resolve` returns `Some`, the
      resource-cursor absence path checks `finish` before removing, and `Reader::bool` decodes
      only canonical `0`/`1` — so a valid prefix plus trailing garbage, or a non-canonical tag
-     byte, is `DecodeFailed` rather than a silent success. RESIDUAL: cursor/resolved codecs
-     decode into a live target, cannot be probed standalone, so a genuine decode failure can
-     still surface mid-reconciliation; and a resolved codec still cannot DISTINGUISH a decode
-     failure (e.g. a truncated blob) from authored absence (`resolve` returns `None` for both)
-     — both deny `lossless()`, but making `SnapshotResolve::resolve` return a `Result` to
-     separate the two is the remaining work (now ONLY that distinction, not trailing bytes).
+     byte, is `DecodeFailed` rather than a silent success. **A resolved codec now
+     DISTINGUISHES a decode failure from authored absence (2026-07-11, residual CLOSED):**
+     `SnapshotResolve::resolve` returns `Result<Option<Self>, ResolveDecodeError>` —
+     `Err` (a `Reader` primitive returned `None`: truncated / non-canonical) → `DecodeFailed`
+     (aborts the restore); `Ok(None)` (the authored half is gone) → `Unapplied` (a content
+     change, denies `lossless()`); `Ok(Some)` → `Applied` after the `finish()` check. `resolve`
+     now decodes the WHOLE blob before it looks up content, so a truncated blob is `Err` even
+     when the content is present. Poison test:
+     `a_truncated_resolved_blob_is_a_decode_failure_not_a_content_change` (red-before: the old
+     `Option` laundered a truncated blob as a content-change `Unapplied`). RESIDUAL (narrower):
+     cursor/resolved codecs decode into a live target, so they still cannot be PREFLIGHTED
+     standalone — a decode failure surfaces mid-reconciliation (after mutation begins), not
+     before. Making them preflightable is the remaining transactional work.
   5. **Positive, self-measured losslessness:** DONE (S2.6/S2.7/S2.8; third-pass findings 3 + 4
      + 6). `lossless()` is argless: `restore` MEASURES the resource term itself
      (`unregistered_sim_resources`), so the caller can no longer claim `lossless(0)` against a

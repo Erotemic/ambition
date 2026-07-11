@@ -168,13 +168,36 @@ pub trait SnapshotCursor: Send + Sync + 'static {
 /// Unlike [`SnapshotCursor`], this can restore a component's **presence**:
 /// `MovePlayback` is inserted when a move starts and removed when it ends, so a
 /// rollback must be able to both add and drop it.
+/// `resolve` could not DECODE its blob — it was truncated or non-canonical. This
+/// is distinct from the authored content being absent (`Ok(None)`): a decode
+/// failure is a corrupt/incompatible wire input (→ `ApplyOutcome::DecodeFailed`,
+/// which aborts the restore), while absent content is a legitimate change (→
+/// `ApplyOutcome::Unapplied`, which drops the component and denies `lossless()`).
+/// A named error rather than `()` so the `Result` reads at the call site and
+/// clippy's `result_unit_err` stays quiet.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ResolveDecodeError;
+
 pub trait SnapshotResolve: Send + Sync + 'static {
     /// The choice, not the content: an id, a clock, a flag.
     fn encode_ref(&self, out: &mut Vec<u8>);
     /// Rebuild by resolving that choice against the authored data the entity still
-    /// carries. `None` when the entity lost it — which happens only on a respawn,
-    /// which [`RestoreReport::respawned`] already reports.
-    fn resolve(entity: &bevy::ecs::world::EntityWorldMut<'_>, r: &mut Reader<'_>) -> Option<Self>
+    /// carries. Three outcomes, kept DISTINCT (the resolved-codec residual, now
+    /// closed):
+    /// - `Ok(Some(value))` — the choice resolved against present content.
+    /// - `Ok(None)` — the authored content the choice referenced is GONE (a respawn
+    ///   / content change). Honest; [`RestoreReport::respawned`] and `Unapplied`
+    ///   report it, and it denies `lossless()`. NOT a decode failure.
+    /// - `Err(ResolveDecodeError)` — the BLOB itself is malformed (a `Reader`
+    ///   primitive returned `None`: truncated, or a non-canonical bool tag). A
+    ///   corrupt wire input, mapped to `ApplyOutcome::DecodeFailed`.
+    ///
+    /// Decode the blob's leading reference FIRST, then look up the content, so a
+    /// truncated blob is `Err` regardless of whether the content is present.
+    fn resolve(
+        entity: &bevy::ecs::world::EntityWorldMut<'_>,
+        r: &mut Reader<'_>,
+    ) -> Result<Option<Self>, ResolveDecodeError>
     where
         Self: Sized;
 }
@@ -548,7 +571,7 @@ impl SnapshotRegistry {
                 insert: Box::new(|entity, bytes| {
                     let mut r = Reader::new(bytes);
                     match C::resolve(entity, &mut r) {
-                        Some(value) => {
+                        Ok(Some(value)) => {
                             // `resolve` gets only `&mut Reader`, so it cannot assert it consumed
                             // the whole blob — a valid prefix followed by trailing garbage would
                             // resolve and apply. The insert closure DOES hold the reader after
@@ -561,20 +584,22 @@ impl SnapshotRegistry {
                             entity.insert(value);
                             ApplyOutcome::Applied
                         }
-                        // `resolve` returns `None` for BOTH a decode failure (e.g. a truncated
-                        // blob) and a vanished authored half, and cannot distinguish them (the
-                        // resolved-codec residual — making `resolve` return `Result` is the named
-                        // fix, and it is now ONLY about that distinction, not trailing bytes).
-                        // Either way this row did NOT come back, so it is `Unapplied`: the
-                        // component is dropped (honest for a save whose content changed) and
-                        // `lossless()` is denied (honest for a rollback). It is deliberately NOT
-                        // `DecodeFailed` — that would refuse a legitimate content change as if the
-                        // bytes were corrupt. The old bare `true` reported success for a row that
-                        // never returned (re-audit finding 3).
-                        None => {
+                        // The authored half the choice referenced is GONE (a respawn, a content
+                        // change). This row did not come back: drop the component (honest for a
+                        // save whose content changed) and deny `lossless()` (honest for a
+                        // rollback). Deliberately NOT `DecodeFailed` — the bytes were fine, the
+                        // world moved on.
+                        Ok(None) => {
                             entity.remove::<C>();
                             ApplyOutcome::Unapplied
                         }
+                        // The BLOB itself is malformed (truncated / non-canonical tag). Now
+                        // distinguished from absence (the resolved-codec residual, closed): a
+                        // corrupt wire input is `DecodeFailed`, which aborts the restore, rather
+                        // than being silently laundered into a content-change `Unapplied`. The
+                        // component is left untouched (as the trailing-bytes path does) — restore
+                        // is aborting anyway.
+                        Err(ResolveDecodeError) => ApplyOutcome::DecodeFailed,
                     }
                 }),
                 remove: Box::new(|entity| {
@@ -2740,19 +2765,31 @@ impl SnapshotResolve for ambition_combat::moveset::MovePlayback {
         put_bool(out, self.landed_hit);
     }
 
-    fn resolve(entity: &bevy::ecs::world::EntityWorldMut<'_>, r: &mut Reader<'_>) -> Option<Self> {
-        let id = r.str()?;
-        let spec = entity
-            .get::<ambition_combat::moveset::ActorMoveset>()?
-            .0
-            .move_by_id(id)?
-            .clone();
-        Some(ambition_combat::moveset::MovePlayback::resumed(
-            spec,
-            r.f32()?,
-            r.f32()?,
-            r.bool()?,
-        ))
+    fn resolve(
+        entity: &bevy::ecs::world::EntityWorldMut<'_>,
+        r: &mut Reader<'_>,
+    ) -> Result<Option<Self>, ResolveDecodeError> {
+        // Decode the WHOLE blob first (id + facing + t + landed) — a `Reader`
+        // primitive returning `None` is a malformed blob (`Err`), never confused
+        // with the move having vanished. Then resolve the id against the entity's
+        // still-authored moveset: an absent moveset or an unknown id is `Ok(None)`
+        // (a content change), not a decode failure.
+        let id = r.str().ok_or(ResolveDecodeError)?;
+        let facing = r.f32().ok_or(ResolveDecodeError)?;
+        let t = r.f32().ok_or(ResolveDecodeError)?;
+        let landed = r.bool().ok_or(ResolveDecodeError)?;
+        let Some(moveset) = entity.get::<ambition_combat::moveset::ActorMoveset>() else {
+            return Ok(None);
+        };
+        let Some(spec) = moveset.0.move_by_id(id) else {
+            return Ok(None);
+        };
+        Ok(Some(ambition_combat::moveset::MovePlayback::resumed(
+            spec.clone(),
+            facing,
+            t,
+            landed,
+        )))
     }
 }
 

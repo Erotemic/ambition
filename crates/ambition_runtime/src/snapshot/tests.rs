@@ -839,6 +839,54 @@ fn a_resolved_blob_with_trailing_bytes_is_rejected() {
     }
 }
 
+/// **A truncated resolved blob is a DECODE FAILURE, distinct from absent content**
+/// (the resolved-codec `resolve -> Result` residual, now CLOSED). A blob missing its
+/// trailing bytes makes a `Reader` primitive return `None` mid-decode — a corrupt
+/// wire input, `DecodeFailed` (which aborts the restore), NOT the content-change
+/// `Unapplied` a legitimately vanished authored half earns (see
+/// `a_resolved_component_that_names_missing_content_is_dropped_and_denies_lossless`).
+/// Before `resolve` returned `Result<Option<_>, ResolveDecodeError>`, both a truncated
+/// blob and absent content mapped to `None`, so a corrupt blob was silently laundered
+/// as a content change. The catalog here is PRESENT — the truncation is detected
+/// regardless, because `resolve` decodes the whole blob before it looks up content.
+#[test]
+fn a_truncated_resolved_blob_is_a_decode_failure_not_a_content_change() {
+    let mut reg = engine_registry();
+    reg.register_resolved::<Playing>("playing");
+    let mut world = sim_world();
+    let boss = *live_ids(&mut world).get("placement:boss-1").unwrap();
+    world.entity_mut(boss).insert((
+        Catalog(vec![("smash".into(), 20.0)]),
+        Playing {
+            power: 20.0,
+            id: "smash".into(),
+            t: 0.25,
+        },
+    ));
+    let mut snap = take(&world, &reg);
+
+    // Drop the trailing `t` f32 (4 bytes) from the boss's `playing` row: `id` still
+    // decodes, but reading `t` hits the end of the buffer — a truncated blob.
+    for (name, blob) in snap.entries.iter_mut() {
+        if *name == "playing" {
+            if let EntryBlob::Component(rows) = blob {
+                for (id, bytes) in rows.iter_mut() {
+                    if id == "placement:boss-1" {
+                        bytes.truncate(bytes.len().saturating_sub(4));
+                    }
+                }
+            }
+        }
+    }
+    match restore(&mut world, &snap, &reg) {
+        Err(RestoreError::DecodeFailed { entry, .. }) => assert_eq!(entry, "playing"),
+        other => panic!(
+            "a truncated resolved blob must be DecodeFailed, not laundered as a \
+             content change: {other:?}"
+        ),
+    }
+}
+
 /// **Restore refuses to reconstruct a dead dynamic entity — cleanly** (re-audit
 /// findings 4 + 5).
 ///
@@ -1335,19 +1383,30 @@ impl SnapshotResolve for Playing {
         put_str(out, &self.id);
         put_f32(out, self.t);
     }
-    fn resolve(entity: &bevy::ecs::world::EntityWorldMut<'_>, r: &mut Reader<'_>) -> Option<Self> {
-        let id = r.str()?;
-        let power = entity
-            .get::<Catalog>()?
+    fn resolve(
+        entity: &bevy::ecs::world::EntityWorldMut<'_>,
+        r: &mut Reader<'_>,
+    ) -> Result<Option<Self>, ResolveDecodeError> {
+        // Decode the whole blob first (id + t) so a truncated blob is `Err`, then
+        // resolve `power` out of the still-held `Catalog` (absent → `Ok(None)`).
+        let id = r.str().ok_or(ResolveDecodeError)?;
+        let t = r.f32().ok_or(ResolveDecodeError)?;
+        let Some(catalog) = entity.get::<Catalog>() else {
+            return Ok(None);
+        };
+        let Some(power) = catalog
             .0
             .iter()
-            .find(|(name, _)| name == id)?
-            .1;
-        Some(Playing {
+            .find(|(name, _)| name == id)
+            .map(|(_, p)| *p)
+        else {
+            return Ok(None);
+        };
+        Ok(Some(Playing {
             power,
             id: id.to_string(),
-            t: r.f32()?,
-        })
+            t,
+        }))
     }
 }
 

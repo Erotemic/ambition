@@ -212,6 +212,49 @@ Also verify:
 
 All inline test modules of at least 200 lines are extracted. The 150–199-line population has been reviewed individually. Remaining inline tests are intentionally small, explanatory, or structurally inseparable.
 
+### Execution ledger (2026-07-11, Opus 4.8)
+
+Phase 2 **executed and complete**. Actuals differed from the plan's estimates
+(the estimates predated a fresh measurement); the measured routing was:
+
+* **Wave 2A (≥500 tail LOC): 6 files** — `smash/mod.rs` (29), `features/bosses.rs`
+  (23), `features/enemies/mod.rs` (17), `features/ecs/perception.rs` (12),
+  `enemy_projectile/systems.rs` (7), `characters/perception.rs` (20).
+* **Wave 2B (400–499): 5 files** — `boss_pattern/control_flow.rs`,
+  `boss_pattern/validator.rs`, `bosses/gnu_ton.rs`, `player_state.rs`, `world.rs`.
+* **Waves 2C+2D (200–399): 33 files** — swept together; **no inline block ≥200
+  lines remains anywhere in the workspace.**
+* **Wave 2E (150–199): 14 of 25 files** — extracted where the test block was
+  ≥40 % of the file; the 11 low-ratio files stay inline by the plan's own rule.
+* **Wave 2F (100–149): 29 of 50 files** — same ≥40 % threshold; 21 low-ratio
+  files stay inline.
+
+Totals: **87 implementation files touched, 99 new adjacent test-module files,
+687 `#[test]` functions relocated (~21 k test LOC moved out of production
+files).** Every extraction is a pure move — same test names + logic, private
+`use super::*`, direct-sibling module depth (so `super::…` paths are unchanged),
+one implementation file per commit.
+
+Conventions established for future waves:
+
+* single terminal `#[cfg(test)] mod tests` → `foo/tests.rs`;
+* a single named block (e.g. `mod dash_tests`) → `foo/dash_tests.rs` (name kept);
+* several contiguous tail blocks → one **sibling file each** (never a nested
+  `tests` wrapper — the extra layer breaks `super::super::…` paths);
+* trailing test-only helpers (e.g. a `CountOrNone` trait) fold into the test
+  file, shedding their now-redundant `#[cfg(test)]` guards;
+* **relative `include_str!` paths must be re-anchored** (`"foo.rs"` →
+  `"../foo.rs"`) — caught in `falling_sand.rs` and `clip_material.rs`;
+* crate roots (`lib.rs`/`main.rs`) and `mod.rs` resolve submodules in the same
+  directory; never `rustfmt` a module root directly (it cascades into siblings);
+* `mod` declarations are emitted alphabetically to satisfy `reorder_modules`.
+
+Side effect: two module-size waivers (`smash/mod.rs`, `falling_sand.rs`) fell
+below the 1500-line gate once their tests moved out and were **deleted** from
+`module_size.toml` — decomposition debt paid down.
+
+All 13+ touched crates and `ambition_workspace_policy` are green.
+
 ---
 
 ## Phase 3 — normalize crate-local test structure

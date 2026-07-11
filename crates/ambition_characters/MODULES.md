@@ -9,9 +9,10 @@
 | [`actor`](src/actor/mod.rs) | Reusable, content-free actor vocabulary: identity + the control contract. |
 | [`boss_encounter`](src/boss_encounter.rs) | Boss encounter state machine. |
 | [`brain`](src/brain/mod.rs) | Universal brain interface. |
+| [`equipment`](src/equipment.rs) | A3 — equipment→params. |
 | [`perception`](src/perception.rs) | `WorldView` + `WorldMemory` — the **world-out** port (architecture roadmap S4). |
 
-_4 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_5 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

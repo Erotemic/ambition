@@ -7,8 +7,9 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`flag`](src/flag.rs) | **M3 — the flagpole sequence.** |
+| [`powerups`](src/powerups.rs) | Super Mary-O's powerups — the M1 equipment chain, authored as A3 data. |
 
-_1 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

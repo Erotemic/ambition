@@ -465,7 +465,12 @@ methods from crate A — `EncounterRegistry::any_lock_active` and
       (`ambition_encounter::{participants,objective}`); boss `EncounterDef.members`
       → `EncounterParticipants` (adopted `PrimaryTarget`); `EncounterWin` deleted;
       the generic objective is evaluated into the `EncounterProgress` read-model.
-- [ ] **E3** generic timeline/effects.
+- [~] **E3** generic timeline/effects — **E3a landed**: the timeline vocabulary
+      (`EncounterGate`/`EncounterTrigger`/`EncounterEffect`/`EncounterBeat`/`EncounterScript`
+      + the generic `EncounterScript::advance` beat-stepper) moved into
+      `ambition_encounter::timeline` (the one timeline authority); boss effect
+      EXECUTION stays actor-side. E3b (wave adopts the shared vocabulary) pending
+      — see the impedance note below.
 - [ ] **E4** boss composition (delete `sync_boss_encounter_entities`, auto-wrap).
 - [ ] **E5** generalize actor-local phase vocabulary.
 - [ ] **E6** persistence/snapshot/presentation convergence — *music sub-slice
@@ -575,7 +580,37 @@ and E4 banks (the objective drives completion, removing the phase-machine's
 encounter coupling). Verified: crate A 20, actors boss 72, boss_lifecycle 4,
 boss_contact_iframes 8, app clean.
 
-### Recommended next slice (superseded — E1/E2 landed above)
+### E3a — timeline authority relocated to the generic crate (landed 2026-07-11)
+
+The doc's E3 first bullet ("Move the reusable parts of `EncounterScript`, beats,
+gates, and effects into the encounter authority"): the timeline VOCABULARY +
+generic beat-stepper now live in `ambition_encounter::timeline` —
+`EncounterGate` (the signal message), `EncounterTrigger` (Gate / MemberDied /
+AllMembersDead / Timer, with a generic `holds` predicate that reads participant
+`alive`), `EncounterEffect` (ForceKill / Banner / SetMusic / CommandMoveTo /
+DropHazard — neutral member/geometry DATA, §6), `EncounterBeat`, and
+`EncounterScript` with a generic `advance(dt, participants, fired) -> effects`
+cursor stepper. The boss module re-exports them (consumers unchanged) and keeps
+only what TOUCHES actor bodies: `tick_encounter_scripts` (executes the advanced
+effects), `CommandedMove` + `FallingHazard` + their tick systems. Any content can
+now carry an `EncounterScript` without depending on the boss crate. Verified:
+crate A 22, actors boss 72, app clean.
+
+**Impedance note (why E3b — waves-as-`EncounterScript` — is not a mechanical
+port):** the boss timeline is a SINGLE-CURSOR beat sequence (advance one beat per
+fired trigger); the wave arena is CONCURRENT — several delayed sub-spawns in
+flight at once, plus dynamic wave-gating (wave N+1 starts when wave N's minions
+are all dead, at a time not known in advance). A single cursor cannot hold
+concurrent timed spawns. So the elegant convergence is: waves and bosses share
+the timeline VOCABULARY (triggers/effects/participants/objective/lifecycle, one
+crate) but the wave keeps a slim spawn-STEPPER (its proven `run.pending` /
+`wave_elapsed` scheduler feeding `EncounterParticipants` with role `Minion`),
+rather than forcing the wave onto the boss's single-cursor stepper. E3b converges
+the wave's lifecycle/objective/participants onto the shared components and keeps
+the spawn scheduler — deleting the wave phase/lock/completion LOGIC (now
+lifecycle + objective) while the scheduler survives as the wave's timeline kind.
+
+### Recommended next slice (superseded — E1/E2/E3a landed above)
 
 The two systems barely interact at runtime, so the remaining slices are a real
 multi-session migration that touches live wave state, boss content authoring,

@@ -1,143 +1,35 @@
-//! Generic ENCOUNTER SCRIPT — ordered beats `{ when: Trigger, then: [Effect] }`
-//! that advance as triggers fire.
+//! Encounter-script EXECUTION + its actor-specific mechanics.
 //!
-//! An encounter entity ([`EncounterDef`]) may carry an [`EncounterScript`] for
-//! its bespoke scripted beats (a cut-rope puzzle, a timed add-wave, a gauntlet
-//! cue). This is the encounter's OWN mechanism, parallel to — and sharing a
-//! vocabulary with — the entity-local phase triggers ([`PhaseTrigger`]), but a
-//! distinct concern: phase triggers are the boss's intrinsic self-progression;
-//! the script is the orchestration the encounter layers on top.
+//! The generic timeline vocabulary — [`EncounterGate`], [`EncounterTrigger`],
+//! [`EncounterEffect`], [`EncounterBeat`], [`EncounterScript`] — and the generic
+//! beat-advance (`EncounterScript::advance`) live in `ambition_encounter` (the
+//! one timeline authority). This module owns only what TOUCHES actor bodies: it
+//! reads each script's `advance`d effects and EXECUTES them (defeat a member,
+//! command a member's brain, drop a hazard, banner, music), plus the two generic
+//! mechanics an effect spawns — [`CommandedMove`] (a "walk the boss to a spot"
+//! brain override) and [`FallingHazard`] (a "hang, wait for alignment, fall,
+//! fire the impact gate" hazard). Member indices address the encounter's generic
+//! [`EncounterParticipants`].
 //!
-//! Triggers OBSERVE the world / members; effects COMMAND members / world. The
-//! cut-rope fight is expressed ENTIRELY as a script: `Gate("rope_cut")` →
+//! The cut-rope fight is expressed entirely as a script: `Gate("rope_cut")` →
 //! [`EncounterEffect::CommandMoveTo`] (lure the behemoth under the drop) +
-//! [`EncounterEffect::DropHazard`] (a generic [`FallingHazard`] that hangs,
-//! waits for alignment, falls, and fires its impact gate) → `ForceKill`. The
-//! lure + falling-hazard are GENERIC mechanics ([`CommandedMove`] /
-//! [`FallingHazard`]) any future "stand-under-the-thing" puzzle reuses; cut-rope
-//! owns only its rope-cut detection + flavor visuals. The swallowed-NPC release
-//! falls out of the generic [`ReleaseOnDeath`](super::encounter_entity::ReleaseOnDeath).
-//!
-//! See `docs/planning/boss-entity-local-refactor.md` (encounter-script shape).
-//!
-//! [`PhaseTrigger`]: crate::boss_encounter::PhaseTrigger
-//! [`EncounterDef`]: super::encounter_entity::EncounterDef
+//! [`EncounterEffect::DropHazard`] (a [`FallingHazard`]) → `ForceKill`. The
+//! swallowed-NPC release falls out of the generic
+//! [`ReleaseOnDeath`](super::encounter_entity::ReleaseOnDeath).
 
 use bevy::prelude::*;
 
 use crate::features::ecs::boss_clusters::{BossClusterRef, BossEncounter};
 use crate::features::CenteredAabb;
-use ambition_encounter::EncounterParticipants;
+use ambition_encounter::{EncounterEffect, EncounterGate, EncounterParticipants, EncounterScript};
 use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
 
-/// A named gate fired by gameplay code (rope cut, hazard impact, cutscene cue,
-/// "all adds dead") to advance an [`EncounterScript`] beat waiting on it. The
-/// external / scripted hook — the same role `PhaseTrigger::External` plays for
-/// intrinsic phases.
-#[derive(Message, Clone, Debug, PartialEq, Eq)]
-pub struct EncounterGate {
-    pub gate: String,
-}
-
-impl EncounterGate {
-    pub fn new(gate: impl Into<String>) -> Self {
-        Self { gate: gate.into() }
-    }
-}
-
-/// A condition that advances the current script beat. Observes world / members.
-#[derive(Clone, Debug, PartialEq)]
-pub enum EncounterTrigger {
-    /// An external [`EncounterGate`] with this name fired this tick.
-    Gate(String),
-    /// The Nth member (by `EncounterParticipants` order) is dead (or gone).
-    MemberDied(usize),
-    /// Every member is dead (or gone).
-    AllMembersDead,
-    /// `secs` elapsed since this beat became current.
-    Timer(f32),
-}
-
-/// A command the script issues when its beat's trigger fires. Commands members
-/// / world.
-#[derive(Clone, Debug, PartialEq)]
-pub enum EncounterEffect {
-    /// Force the Nth member straight to `Death` (an environmental kill that
-    /// bypasses `environmental_kill_only`).
-    ForceKill(usize),
-    /// Show a gameplay banner for `secs` seconds.
-    Banner { text: String, secs: f32 },
-    /// Set (`Some`) or clear (`None`) the adaptive-music request.
-    SetMusic(Option<String>),
-    /// Lure the Nth member toward `target.x` at `speed` (stopping within
-    /// `arrive_tolerance`) by overriding its brain control — attaches a generic
-    /// [`CommandedMove`]. The cut-rope behemoth is lured under the anvil this way.
-    CommandMoveTo {
-        member: usize,
-        target: ae::Vec2,
-        speed: f32,
-        arrive_tolerance: f32,
-    },
-    /// Spawn a generic [`FallingHazard`] hanging at `anchor`: it waits until the
-    /// `target_member` is within `align_tolerance.x`, then falls under `gravity`
-    /// (capped at `terminal`) and fires `EncounterGate(impact_gate)` on contact.
-    DropHazard {
-        anchor: ae::Vec2,
-        size: ae::Vec2,
-        gravity: f32,
-        terminal: f32,
-        align_tolerance: f32,
-        target_member: usize,
-        impact_gate: String,
-    },
-}
-
-/// One scripted beat: when `when` fires, apply `then` and advance the cursor.
-#[derive(Clone, Debug, PartialEq)]
-pub struct EncounterBeat {
-    pub when: EncounterTrigger,
-    pub then: Vec<EncounterEffect>,
-}
-
-impl EncounterBeat {
-    pub fn new(when: EncounterTrigger, then: Vec<EncounterEffect>) -> Self {
-        Self { when, then }
-    }
-}
-
-/// An ordered beat sequence attached to an encounter entity. Advances one beat
-/// per fired trigger; inert once the cursor passes the last beat.
-#[derive(Component, Clone, Debug, Default)]
-pub struct EncounterScript {
-    pub beats: Vec<EncounterBeat>,
-    cursor: usize,
-    /// Seconds in the current beat (for `Timer`).
-    elapsed: f32,
-}
-
-impl EncounterScript {
-    pub fn new(beats: Vec<EncounterBeat>) -> Self {
-        Self {
-            beats,
-            cursor: 0,
-            elapsed: 0.0,
-        }
-    }
-
-    /// True once every beat has fired.
-    pub fn done(&self) -> bool {
-        self.cursor >= self.beats.len()
-    }
-
-    pub fn cursor(&self) -> usize {
-        self.cursor
-    }
-}
-
-/// Advance every encounter script: check the current beat's trigger against this
-/// tick's fired gates + member state, and on a match apply the effects and step
-/// the cursor. Runs in the Progression set after the encounter entity exists.
+/// Advance every encounter script and EXECUTE the effects it yields this tick.
+/// The trigger evaluation + cursor logic is generic (`EncounterScript::advance`,
+/// reading fired gates + participant deadness); this system supplies the
+/// actor-touching execution. Runs in the Progression set after
+/// `update_encounter_progress` (which refreshes participant `alive`).
 pub fn tick_encounter_scripts(
     mut commands: Commands,
     world_time: Res<ambition_time::WorldTime>,
@@ -154,32 +46,8 @@ pub fn tick_encounter_scripts(
     let fired: Vec<String> = gates.read().map(|g| g.gate.clone()).collect();
 
     for (participants, mut script) in &mut scripts {
-        if script.done() {
-            continue;
-        }
-        script.elapsed += dt;
-        let beat = &script.beats[script.cursor];
-        // The Nth member's resolved entity (by participant order), if any.
+        let effects = script.advance(dt, participants, &fired);
         let member_entity = |i: usize| participants.members.get(i).and_then(|p| p.entity);
-        // A member is "dead" if its status is non-alive or it has left the world.
-        let triggered = match &beat.when {
-            EncounterTrigger::Gate(g) => fired.iter().any(|f| f == g),
-            EncounterTrigger::MemberDied(i) => {
-                member_entity(*i).map_or(true, |m| members.get(m).map_or(true, |(_, h)| !h.alive()))
-            }
-            EncounterTrigger::AllMembersDead => {
-                !participants.members.is_empty()
-                    && participants.members.iter().all(|p| {
-                        p.entity
-                            .map_or(true, |m| members.get(m).map_or(true, |(_, h)| !h.alive()))
-                    })
-            }
-            EncounterTrigger::Timer(secs) => script.elapsed >= *secs,
-        };
-        if !triggered {
-            continue;
-        }
-        let effects = beat.then.clone();
         for effect in &effects {
             match effect {
                 EncounterEffect::ForceKill(i) => {
@@ -235,8 +103,6 @@ pub fn tick_encounter_scripts(
                 }
             }
         }
-        script.cursor += 1;
-        script.elapsed = 0.0;
     }
 }
 

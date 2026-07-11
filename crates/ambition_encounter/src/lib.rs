@@ -14,6 +14,7 @@ pub mod registry;
 pub mod rewards;
 pub mod spec;
 pub mod state;
+pub mod timeline;
 
 pub use entity::{Encounter, EncounterView};
 pub use events::EncounterEvent;
@@ -29,4 +30,7 @@ pub use spec::{
 pub use state::{
     active_encounter_camera_zoom, EncounterPhase, EncounterRun, EncounterState,
     ENCOUNTER_INTER_WAVE_DELAY_SECONDS,
+};
+pub use timeline::{
+    EncounterBeat, EncounterEffect, EncounterGate, EncounterScript, EncounterTrigger,
 };

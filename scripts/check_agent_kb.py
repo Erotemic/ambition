@@ -831,11 +831,11 @@ def check_planning_evidence(errors: list[str]) -> None:
                 f"{expected_errors}/{expected_warnings}",
             )
 
-    # Every >=200-line inline test module must carry exactly one reviewed marker
-    # with an explicit disposition. 200 is a review PROXY (see test-placement.md);
-    # `behavioral-inline` (genuine local behavioral tests) is a valid disposition,
-    # not debt. The set of marked paths must equal the measured set — so no module
-    # escapes review and no stale marker survives its extraction.
+    # Every >=200-line inline test module must carry exactly one marker with a
+    # `kind` finding and a `disposition`. 200 is a review PROXY (test-placement.md);
+    # an agent records `kind=behavioral-local` + `disposition=maintainer-review-
+    # pending`, NOT a permanent inline grant. The set of marked paths must equal the
+    # measured set — so no module escapes review and no stale marker survives a split.
     reviewed = INLINE_TEST_EVIDENCE_RE.findall(status)
     documented = {path for path, _kind, _disposition in reviewed}
     measured = large_inline_test_debt()

@@ -100,7 +100,8 @@ pub fn interact_ecs_actors_and_switches(
     // localization artifact and two characters can share one.
     let speaker_id =
         dialogue_identity(interactions.get(subject).ok(), identities.get(subject).ok())
-            .unwrap_or_else(|| dialogue.worn_character.effective_id().to_string());
+            .or_else(|| dialogue.worn.get(subject).ok().map(|w| w.id().to_string()))
+            .unwrap_or_else(|| crate::character_roster::default_character_id().to_string());
     for (actor_entity, aabb, disposition, identity, interaction_payload) in &actors {
         if disposition.is_hostile() {
             continue;
@@ -196,15 +197,18 @@ pub fn interact_ecs_actors_and_switches(
 /// interact system is already at Bevy's parameter ceiling — a signal that a
 /// system reaching for this many worlds should name its sub-worlds.
 #[derive(bevy::ecs::system::SystemParam)]
-pub struct DialogueDispatch<'w> {
+pub struct DialogueDispatch<'w, 's> {
     /// The conversation read-model the UI polls.
     pub state: ResMut<'w, ambition_dialog::DialogState>,
     /// Which Yarn nodes content compiled. Read to decide whether a
     /// self-conversation has a branch to enter; an unpopulated index never
     /// suppresses.
     pub nodes: Res<'w, ambition_dialog::DialogueNodeIndex>,
-    /// The character the home avatar is WEARING — its identity when it speaks.
-    pub worn_character: Res<'w, crate::avatar::StartingCharacter>,
+    /// The character a speaking body is WEARING — read from the ENTITY's canonical
+    /// [`WornCharacter`] identity, not the app-local startup selection resource, so
+    /// after a runtime re-wear or snapshot restore the home avatar speaks as the
+    /// character it currently IS.
+    pub worn: Query<'w, 's, &'static ambition_characters::actor::WornCharacter>,
 }
 
 /// The catalog character this interactable IS, if it is a character at all.

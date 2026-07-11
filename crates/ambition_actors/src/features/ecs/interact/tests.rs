@@ -10,19 +10,31 @@ use crate::features::{
 use ambition_engine_core as ae;
 use bevy::prelude::{App, NextState, Update};
 
-fn spawn_interaction_player(app: &mut App, pos: ae::Vec2) {
+fn spawn_interaction_player(app: &mut App, pos: ae::Vec2) -> Entity {
     let scratch = crate::avatar::primary_player_scratch(pos, ae::AbilitySet::sandbox_all());
     let bundle = crate::avatar::PlayerSimulationBundle::from_scratch(
         scratch,
         ambition_characters::actor::Health::new(10),
     );
-    app.world_mut().spawn(bundle);
+    let player = app.world_mut().spawn(bundle).id();
     // The interact buffer is SLOT state now (published from the device); prime
     // the primary controller's slot so the system sees a live buffered interact.
     app.world_mut()
         .get_resource_or_insert_with(crate::control::SlotInteractionState::default)
         .primary_mut()
         .interact_buffer_timer = 0.15;
+    player
+}
+
+/// Like [`spawn_interaction_player`], but also gives the home avatar the canonical
+/// `WornCharacter` identity `simulation_world` attaches in production — so dialogue
+/// speaks as the ENTITY's worn character, not an app-local resource.
+fn spawn_interaction_player_wearing(app: &mut App, pos: ae::Vec2, worn: &str) -> Entity {
+    let player = spawn_interaction_player(app, pos);
+    app.world_mut()
+        .entity_mut(player)
+        .insert(ambition_characters::actor::WornCharacter::new(worn));
+    player
 }
 
 #[test]
@@ -179,14 +191,13 @@ fn spawn_pedestal(app: &mut App, pos: ae::Vec2, character_id: &str, dialogue_id:
         .id()
 }
 
-fn dialogue_app(worn: &str, nodes: &[&str]) -> App {
+fn dialogue_app(nodes: &[&str]) -> App {
     let mut app = App::new();
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(ambition_dialog::DialogState::default());
     let mut index = ambition_dialog::DialogueNodeIndex::default();
     index.populate(nodes.iter().map(|n| (*n).to_string()));
     app.insert_resource(index);
-    app.insert_resource(crate::avatar::StartingCharacter::new(worn));
     app.insert_resource(NextState::<
         ambition_platformer_primitives::schedule::GameMode,
     >::default());
@@ -202,8 +213,8 @@ fn dialogue_app(worn: &str, nodes: &[&str]) -> App {
 #[test]
 fn a_visitor_gets_the_pedestals_ordinary_node() {
     let center = ae::Vec2::new(100.0, 100.0);
-    let mut app = dialogue_app("goblin", &["hall_player", "hall_player__self"]);
-    spawn_interaction_player(&mut app, center);
+    let mut app = dialogue_app(&["hall_player", "hall_player__self"]);
+    spawn_interaction_player_wearing(&mut app, center, "goblin");
     spawn_pedestal(&mut app, center, "player", "hall_player");
 
     app.add_systems(Update, interact_ecs_actors_and_switches);
@@ -219,8 +230,8 @@ fn a_visitor_gets_the_pedestals_ordinary_node() {
 #[test]
 fn wearing_the_pedestals_character_enters_the_self_branch() {
     let center = ae::Vec2::new(100.0, 100.0);
-    let mut app = dialogue_app("player", &["hall_player", "hall_player__self"]);
-    spawn_interaction_player(&mut app, center);
+    let mut app = dialogue_app(&["hall_player", "hall_player__self"]);
+    spawn_interaction_player_wearing(&mut app, center, "player");
     spawn_pedestal(&mut app, center, "player", "hall_player");
 
     app.add_systems(Update, interact_ecs_actors_and_switches);
@@ -241,8 +252,8 @@ fn wearing_the_pedestals_character_enters_the_self_branch() {
 #[test]
 fn self_talk_without_a_self_branch_is_suppressed_without_a_trace() {
     let center = ae::Vec2::new(100.0, 100.0);
-    let mut app = dialogue_app("player", &["hall_player"]);
-    spawn_interaction_player(&mut app, center);
+    let mut app = dialogue_app(&["hall_player"]);
+    spawn_interaction_player_wearing(&mut app, center, "player");
     spawn_pedestal(&mut app, center, "player", "hall_player");
 
     // Pre-poison: if the system returns early for the WRONG reason, these
@@ -283,9 +294,9 @@ fn self_talk_without_a_self_branch_is_suppressed_without_a_trace() {
 #[test]
 fn an_unpopulated_node_index_never_suppresses() {
     let center = ae::Vec2::new(100.0, 100.0);
-    let mut app = dialogue_app("player", &[]);
+    let mut app = dialogue_app(&[]);
     app.insert_resource(ambition_dialog::DialogueNodeIndex::default());
-    spawn_interaction_player(&mut app, center);
+    spawn_interaction_player_wearing(&mut app, center, "player");
     spawn_pedestal(&mut app, center, "player", "hall_player");
 
     app.add_systems(Update, interact_ecs_actors_and_switches);

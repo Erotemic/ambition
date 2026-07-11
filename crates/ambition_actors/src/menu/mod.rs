@@ -5,8 +5,7 @@
 //! consolidated out of the formerly-scattered top-level modules
 //! (`menu_model`, `map_menu`, `persistence/settings/{menu,system_menu}`).
 //! Presentation backends (the cube + the bevy_ui grid) are installed through
-//! independent feature-gated plugins
-//! §10 for the full plan.
+//! independent feature-gated plugins.
 //!
 //! Submodules:
 //! - backend selection (`InventoryUiBackend`) now lives in `ambition_menu::backend`.

@@ -38,15 +38,5 @@ reason = "portal view-cone assembly. Presentation (never sim-hashed); split trac
 
 
 [[waiver]]
-path = "crates/ambition_characters/src/brain/smash/mod.rs"
-reason = "the smash-brain state machine. A decomposition target; no sub-module extracted yet."
-
-
-
-[[waiver]]
 path = "game/ambition_app/src/menu/kaleidoscope_app.rs"
 reason = "declarative menu UI (a Lunex node tree). Presentation, data-heavy by nature."
-
-[[waiver]]
-path = "game/ambition_content/src/falling_sand.rs"
-reason = "falling-sand grid simulation + its visual-sync systems in one module. Content; a sim/presentation split is not yet scoped."

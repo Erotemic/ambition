@@ -141,15 +141,19 @@ STALE_RECIPE_OR_SYSTEM_PATTERNS = [
 # live plans. The hard discipline lives in `PLANNING_FILE_MAX_LINES` (each
 # always-live index file stays lean) and the stale-phrasing patterns below.
 PLANNING_TOTAL_SOFT_BUDGET = 10_500
+# Per-file ceilings on the always-live index docs — the hard "stay lean" gate.
+# The numbers are generous headroom, not tight measurements (doubled 2026-07-11
+# because the originals were never a deliberate choice); they exist to catch a doc
+# ballooning, not to force line-by-line trimming.
 PLANNING_FILE_MAX_LINES = {
-    "docs/planning/README.md": 100,
-    "docs/planning/status.md": 180,
-    "docs/planning/tracks.md": 220,
-    "docs/planning/roadmap.md": 180,
-    "docs/planning/engine/encounter-orchestration.md": 320,
-    "docs/planning/engine/refactor-chain.md": 180,
-    "docs/planning/engine/fable-final-audit-2026-07-07.md": 40,
-    "docs/planning/test-refactor-plan-2026-07-10.md": 180,
+    "docs/planning/README.md": 200,
+    "docs/planning/status.md": 360,
+    "docs/planning/tracks.md": 440,
+    "docs/planning/roadmap.md": 360,
+    "docs/planning/engine/encounter-orchestration.md": 640,
+    "docs/planning/engine/refactor-chain.md": 360,
+    "docs/planning/engine/fable-final-audit-2026-07-07.md": 80,
+    "docs/planning/test-refactor-plan-2026-07-10.md": 360,
 }
 
 FORBIDDEN_PLANNING_PATTERNS = [

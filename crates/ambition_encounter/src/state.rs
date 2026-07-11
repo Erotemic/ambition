@@ -11,7 +11,10 @@ use bevy::prelude::Component;
 use ambition_engine_core as ae;
 use ambition_persistence::save_data::PersistedEncounterState;
 
-use super::{EncounterEvent, EncounterMobSpec, EncounterSpec};
+use super::{
+    EncounterEvent, EncounterMobSpec, EncounterParticipant, EncounterParticipants, EncounterRole,
+    EncounterSpec,
+};
 
 /// Live encounter phase the sandbox can render / lock against.
 ///
@@ -88,18 +91,18 @@ fn add_inter_wave_delay(mobs: &[EncounterMobSpec]) -> Vec<EncounterMobSpec> {
         .collect()
 }
 
-/// Per-encounter run state: the live wave's pending and alive mobs
-/// plus the elapsed-since-wave-start timer driving delayed sub-spawns.
-/// Lives outside `EncounterPhase` so the phase enum stays cheap to
-/// copy / pattern-match.
+/// Per-encounter run state: the live wave's pending sub-spawns plus the
+/// elapsed-since-wave-start timer driving them. The live (spawned, still-alive)
+/// mobs are the encounter's [`EncounterParticipants`](crate::EncounterParticipants)
+/// with role [`Minion`](crate::EncounterRole::Minion) — E3b unified wave mob
+/// membership onto the generic participant model, so this no longer carries a
+/// separate `alive_ids` list. Lives outside `EncounterPhase` so the phase enum
+/// stays cheap to copy / pattern-match.
 #[derive(Clone, Debug, Default)]
 pub struct EncounterRun {
     /// MobSpecs the active wave hasn't spawned yet (decreasing-delay
     /// order; entries pop from the front when their delay elapses).
     pub pending: Vec<EncounterMobSpec>,
-    /// Ids of mobs spawned by the active wave that are still alive.
-    /// The encounter system removes ids whose matching enemy is dead.
-    pub alive_ids: Vec<String>,
     /// Seconds since the active wave started.
     pub wave_elapsed: f32,
 }
@@ -172,6 +175,7 @@ impl EncounterState {
     /// already active or no spec is loaded.
     pub fn maybe_start(
         &mut self,
+        participants: &mut EncounterParticipants,
         player_pos: ae::Vec2,
         player_size: ae::Vec2,
     ) -> Vec<EncounterEvent> {
@@ -193,6 +197,8 @@ impl EncounterState {
         if !trigger.intersects(&player_aabb) {
             return events;
         }
+        // Fresh attempt: no live mobs yet.
+        participants.members.clear();
         if spec.waves.is_empty() {
             // No waves authored → clear immediately.
             self.phase = EncounterPhase::Cleared;
@@ -230,7 +236,7 @@ impl EncounterState {
     pub fn tick_intro_or_wave(
         &mut self,
         dt: f32,
-        mut enemy_alive: impl FnMut(&str) -> bool,
+        participants: &mut EncounterParticipants,
     ) -> Vec<EncounterEvent> {
         let mut events = Vec::new();
         let Some(spec) = self.spec.clone() else {
@@ -262,18 +268,18 @@ impl EncounterState {
         // Advance wave clock.
         self.run.wave_elapsed += dt;
 
-        // 1. Drop alive_ids whose runtime enemy is dead. MUST run
-        //    BEFORE the spawn loop so newly-spawned mobs aren't
-        //    immediately reaped: the caller's `enemy_alive` lookup
-        //    was built from the runtime BEFORE this tick fires, so
-        //    it doesn't know about mobs spawned later in this same
-        //    tick. Spawning first then retaining would unconditionally
-        //    drop every just-spawned id and the wave would clear in
-        //    a single tick. (This was the "encounter ends after 2
-        //    seconds" bug.)
-        self.run.alive_ids.retain(|id| enemy_alive(id));
+        // 1. Drop dead Minion participants (their `alive` was refreshed from the
+        //    runtime by the host BEFORE this tick). MUST run BEFORE the spawn
+        //    loop so this tick's fresh spawns aren't immediately reaped: the
+        //    host's liveness refresh ran before this tick fires, so it doesn't
+        //    know about mobs spawned later in this same tick. Spawning first
+        //    then retaining would unconditionally drop every just-spawned mob
+        //    and the wave would clear in a single tick. (This was the
+        //    "encounter ends after 2 seconds" bug.)
+        participants.members.retain(|m| m.alive);
 
-        // 2. Spawn pending mobs whose delay has elapsed.
+        // 2. Spawn pending mobs whose delay has elapsed → a `SpawnCommand` the
+        //    host applies + a live `Minion` participant (spawned + owned).
         let mut still_pending = Vec::with_capacity(self.run.pending.len());
         for mob in std::mem::take(&mut self.run.pending) {
             if mob.delay <= self.run.wave_elapsed {
@@ -291,7 +297,11 @@ impl EncounterState {
                     pos: mob.spawn,
                     size: mob.size,
                 });
-                self.run.alive_ids.push(id);
+                participants.members.push(EncounterParticipant::spawned(
+                    id,
+                    None,
+                    EncounterRole::Minion,
+                ));
             } else {
                 still_pending.push(mob);
             }
@@ -299,7 +309,7 @@ impl EncounterState {
         self.run.pending = still_pending;
 
         // Update remaining_mobs on the phase for HUD parity.
-        let remaining_mobs = self.run.pending.len() + self.run.alive_ids.len();
+        let remaining_mobs = self.run.pending.len() + participants.members.len();
         self.phase = EncounterPhase::Active {
             wave_index,
             remaining_mobs,
@@ -329,14 +339,18 @@ impl EncounterState {
         events
     }
 
-    /// Player died — reset the encounter to inactive + unlock so a
-    /// fresh attempt can begin.
-    pub fn on_player_death(&mut self) -> Vec<EncounterEvent> {
+    /// Player died — fail the encounter + unlock so a fresh attempt can begin.
+    /// Clears the live minions (the host despawns their mob entities).
+    pub fn on_player_death(
+        &mut self,
+        participants: &mut EncounterParticipants,
+    ) -> Vec<EncounterEvent> {
         let mut events = Vec::new();
         let id = self.spec.as_ref().map(|s| s.id.clone());
         if matches!(self.phase, EncounterPhase::Active { .. }) {
             self.phase = EncounterPhase::Failed;
             self.lock_active = false;
+            participants.members.clear();
             if let Some(id) = id {
                 events.push(EncounterEvent::Failed { id });
             }
@@ -447,8 +461,9 @@ mod tests {
         }
     }
 
-    /// Active-phase state with one live mob and no pending sub-spawns.
-    fn active_with_one_live_mob(spec: EncounterSpec) -> EncounterState {
+    /// Active-phase state (wave 0), no pending sub-spawns. The live mobs are a
+    /// separate [`EncounterParticipants`] (see [`live_minions`]).
+    fn active_state(spec: EncounterSpec) -> EncounterState {
         EncounterState {
             spec: Some(spec),
             phase: EncounterPhase::Active {
@@ -458,11 +473,19 @@ mod tests {
             lock_active: true,
             run: EncounterRun {
                 pending: Vec::new(),
-                alive_ids: vec!["mob_0".into()],
                 wave_elapsed: 0.0,
             },
             spawn_counter: 0,
         }
+    }
+
+    /// The wave's live spawned mobs as `Minion` participants (alive).
+    fn live_minions(ids: &[&str]) -> EncounterParticipants {
+        EncounterParticipants::new(
+            ids.iter()
+                .map(|id| EncounterParticipant::spawned(*id, None, EncounterRole::Minion))
+                .collect(),
+        )
     }
 
     #[test]
@@ -511,9 +534,12 @@ mod tests {
 
     #[test]
     fn defeating_the_last_mob_of_the_last_wave_clears_and_unlocks() {
-        let mut s = active_with_one_live_mob(spec(vec![wave("only", 1)]));
-        // The live mob is reported dead this tick → wave (and encounter) clears.
-        let events = s.tick_intro_or_wave(0.0, |_| false);
+        let mut s = active_state(spec(vec![wave("only", 1)]));
+        // The live mob is reported dead this tick (host refreshed alive=false)
+        // → wave (and encounter) clears.
+        let mut parts = live_minions(&["mob_0"]);
+        parts.members[0].alive = false;
+        let events = s.tick_intro_or_wave(0.0, &mut parts);
         assert_eq!(s.phase, EncounterPhase::Cleared);
         assert!(!s.lock_active, "clearing releases the lock");
         assert!(events
@@ -526,9 +552,11 @@ mod tests {
 
     #[test]
     fn defeating_the_last_mob_of_a_wave_advances_to_the_next() {
-        let mut s = active_with_one_live_mob(spec(vec![wave("first", 1), wave("second", 2)]));
+        let mut s = active_state(spec(vec![wave("first", 1), wave("second", 2)]));
         // The live mob is reported dead this tick → the wave advances.
-        let events = s.tick_intro_or_wave(0.0, |_| false);
+        let mut parts = live_minions(&["mob_0"]);
+        parts.members[0].alive = false;
+        let events = s.tick_intro_or_wave(0.0, &mut parts);
         assert_eq!(s.phase.wave_index(), Some(1), "advanced to the second wave");
         assert!(events
             .iter()
@@ -538,10 +566,12 @@ mod tests {
 
     #[test]
     fn player_death_during_an_active_encounter_fails_and_unlocks() {
-        let mut s = active_with_one_live_mob(spec(vec![wave("only", 1)]));
-        let events = s.on_player_death();
+        let mut s = active_state(spec(vec![wave("only", 1)]));
+        let mut parts = live_minions(&["mob_0"]);
+        let events = s.on_player_death(&mut parts);
         assert_eq!(s.phase, EncounterPhase::Failed);
         assert!(!s.lock_active, "failing releases the lock");
+        assert!(parts.members.is_empty(), "death clears the live minions");
         assert!(events
             .iter()
             .any(|e| matches!(e, EncounterEvent::Failed { .. })));
@@ -550,7 +580,8 @@ mod tests {
     #[test]
     fn player_death_outside_an_active_encounter_is_a_noop() {
         let mut s = EncounterState::default(); // Inactive
-        assert!(s.on_player_death().is_empty());
+        let mut parts = EncounterParticipants::default();
+        assert!(s.on_player_death(&mut parts).is_empty());
         assert_eq!(s.phase, EncounterPhase::Inactive);
     }
 
@@ -563,7 +594,7 @@ mod tests {
         assert_eq!(s.phase, EncounterPhase::Inactive);
 
         // Reset is a no-op while still Active (only terminal phases reset).
-        let mut active = active_with_one_live_mob(spec(vec![wave("only", 1)]));
+        let mut active = active_state(spec(vec![wave("only", 1)]));
         active.reset_for_retry();
         assert!(matches!(active.phase, EncounterPhase::Active { .. }));
     }
@@ -571,7 +602,8 @@ mod tests {
     #[test]
     fn ticking_while_inactive_is_a_noop() {
         let mut s = EncounterState::default();
-        assert!(s.tick_intro_or_wave(0.0, |_| false).is_empty());
+        let mut parts = EncounterParticipants::default();
+        assert!(s.tick_intro_or_wave(0.0, &mut parts).is_empty());
         assert_eq!(s.phase, EncounterPhase::Inactive);
     }
 }

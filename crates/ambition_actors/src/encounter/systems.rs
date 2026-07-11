@@ -14,8 +14,8 @@ use ambition_engine_core as ae;
 
 use super::{
     load_encounter_specs_from_ldtk, Encounter, EncounterEvent, EncounterMusicRequest,
-    EncounterPhase, EncounterRegistry, EncounterRun, EncounterState, EncounterSwitchIndex,
-    EncounterView, SwitchActivationQueue,
+    EncounterParticipants, EncounterPhase, EncounterRegistry, EncounterRun, EncounterState,
+    EncounterSwitchIndex, EncounterView, SwitchActivationQueue,
 };
 
 /// Bevy startup system: load encounter specs from the embedded LDtk
@@ -45,7 +45,13 @@ pub fn populate_encounter_registry(
             ..Default::default()
         };
         state.apply_persisted(persisted);
-        let entity = commands.spawn((Encounter::new(id.clone()), state)).id();
+        let entity = commands
+            .spawn((
+                Encounter::new(id.clone()),
+                state,
+                EncounterParticipants::default(),
+            ))
+            .id();
         registry.insert(id, entity);
     }
     registry.specs_loaded = true;
@@ -68,7 +74,7 @@ pub fn update_encounters_from_world(
     mut commands: Commands,
     world_time: Res<ambition_time::WorldTime>,
     mut died_messages: MessageReader<crate::ActorDiedMessage>,
-    mut encounters: Query<(&Encounter, &mut EncounterState)>,
+    mut encounters: Query<(&Encounter, &mut EncounterState, &mut EncounterParticipants)>,
     mut save: ResMut<ambition_persistence::save::SandboxSave>,
     mut switch_activations: ResMut<SwitchActivationQueue>,
     switch_index: Res<EncounterSwitchIndex>,
@@ -108,19 +114,19 @@ pub fn update_encounters_from_world(
     // 0. Player death this frame? Fail any in-flight encounter,
     //    drop the lock wall, and despawn carryover encounter mobs
     //    (the player reset already rebuilt room-local state, but the
-    //    encounter alive_ids still reference the old ids — clearing
-    //    them here makes the next tick a clean fresh attempt). The
-    //    death-respawn path already moved the player back to the
-    //    room spawn, so the trigger AABB will re-fire on next entry.
+    //    encounter's live Minion participants still reference the old
+    //    mobs — clearing them here makes the next tick a clean fresh
+    //    attempt). The death-respawn path already moved the player back
+    //    to the room spawn, so the trigger AABB will re-fire on entry.
     let died_this_frame = died_messages.read().next().is_some();
     if died_this_frame {
-        for (enc, mut state) in &mut encounters {
+        for (enc, mut state, mut participants) in &mut encounters {
             let in_flight = matches!(
                 state.phase,
                 EncounterPhase::Starting { .. } | EncounterPhase::Active { .. }
             );
             if in_flight {
-                let evs = state.on_player_death();
+                let evs = state.on_player_death(&mut participants);
                 if !evs.is_empty() {
                     events.push((enc.id.clone(), evs));
                 }
@@ -129,6 +135,7 @@ pub fn update_encounters_from_world(
                 state.phase = EncounterPhase::Inactive;
                 state.lock_active = false;
                 state.run = EncounterRun::default();
+                participants.members.clear();
                 crate::features::despawn_encounter_mobs(&mut commands, &encounter_mobs, &enc.id);
             }
         }
@@ -137,7 +144,7 @@ pub fn update_encounters_from_world(
     // 1. Cancel encounters whose area the player has left. Snaps back
     //    to Inactive so the camera zoom + lock release on exit. A
     //    fresh attempt will fire next time the player re-enters.
-    for (enc, mut state) in &mut encounters {
+    for (enc, mut state, mut participants) in &mut encounters {
         let in_flight = matches!(
             state.phase,
             EncounterPhase::Starting { .. } | EncounterPhase::Active { .. }
@@ -146,6 +153,7 @@ pub fn update_encounters_from_world(
             state.phase = EncounterPhase::Inactive;
             state.lock_active = false;
             state.run = EncounterRun::default();
+            participants.members.clear();
             events.push((
                 enc.id.clone(),
                 vec![EncounterEvent::LockChanged { locked: false }],
@@ -160,7 +168,10 @@ pub fn update_encounters_from_world(
     //    switch toggle. The trigger only fires when the encounter
     //    isn't currently in flight AND the linked switch is off.
     let armed_active = switch_index.encounter_armed(&active_area);
-    if let Some((_, mut state)) = encounters.iter_mut().find(|(enc, _)| enc.id == active_area) {
+    if let Some((_, mut state, mut participants)) = encounters
+        .iter_mut()
+        .find(|(enc, _, _)| enc.id == active_area)
+    {
         let in_flight = matches!(
             state.phase,
             EncounterPhase::Starting { .. } | EncounterPhase::Active { .. }
@@ -173,6 +184,7 @@ pub fn update_encounters_from_world(
                 state.phase = EncounterPhase::Inactive;
                 state.lock_active = false;
                 state.run = EncounterRun::default();
+                participants.members.clear();
             }
             if armed_active {
                 // Iterate every player so any player walking into
@@ -181,7 +193,7 @@ pub fn update_encounters_from_world(
                 // entity today. OVERNIGHT-TODO #17.8 (iterate-all-
                 // players "any player triggers" pattern).
                 for body in &player_body_q {
-                    let started = state.maybe_start(body.pos, body.size);
+                    let started = state.maybe_start(&mut participants, body.pos, body.size);
                     if !started.is_empty() {
                         events.push((active_area.clone(), started));
                         break;
@@ -197,22 +209,29 @@ pub fn update_encounters_from_world(
     //    linked switch to green afterwards.
     let mut spawn_commands: Vec<(String, String, [f32; 2], [f32; 2])> = Vec::new();
     let mut just_cleared_id: Option<String> = None;
-    if let Some((_, mut state)) = encounters.iter_mut().find(|(enc, _)| enc.id == active_area) {
+    if let Some((_, mut state, mut participants)) = encounters
+        .iter_mut()
+        .find(|(enc, _, _)| enc.id == active_area)
+    {
         if matches!(
             state.phase,
             EncounterPhase::Starting { .. } | EncounterPhase::Active { .. }
         ) {
-            // Snapshot alive ids from the runtime BEFORE ticking. The
-            // tick's `retain` runs before its spawn loop now, so the
-            // freshly-spawned mobs in this tick aren't immediately
-            // reaped (they'll be tested against the next frame's
-            // snapshot).
+            // Snapshot alive ids from the runtime BEFORE ticking, and refresh
+            // each live `Minion` participant's `alive` from it. The reducer's
+            // `retain` runs before its spawn loop, and this refresh runs before
+            // the reducer, so the mobs spawned in THIS tick (added after the
+            // refresh) aren't immediately reaped — they're tested against the
+            // next frame's snapshot.
             let alive_lookup: std::collections::HashSet<String> = encounter_mobs
                 .iter()
                 .filter(|(_, mob, _, combat)| mob.encounter_id == active_area && combat.alive)
                 .map(|(_, _, id, _)| id.as_str().to_string())
                 .collect();
-            let evs = state.tick_intro_or_wave(dt, |id| alive_lookup.contains(id));
+            for member in &mut participants.members {
+                member.alive = alive_lookup.contains(&member.id);
+            }
+            let evs = state.tick_intro_or_wave(dt, &mut participants);
             for ev in &evs {
                 match ev {
                     EncounterEvent::SpawnCommand {
@@ -337,7 +356,9 @@ pub fn update_encounters_from_world(
         if !new_on {
             // Re-arming: snap the encounter back to Inactive and
             // drop carryover mobs.
-            if let Some((_, mut state)) = encounters.iter_mut().find(|(enc, _)| enc.id == target_id)
+            if let Some((_, mut state, mut participants)) = encounters
+                .iter_mut()
+                .find(|(enc, _, _)| enc.id == target_id)
             {
                 let in_flight = matches!(
                     state.phase,
@@ -347,6 +368,7 @@ pub fn update_encounters_from_world(
                     state.phase = EncounterPhase::Inactive;
                     state.lock_active = false;
                     state.run = EncounterRun::default();
+                    participants.members.clear();
                 }
             }
             crate::features::despawn_encounter_mobs(&mut commands, &encounter_mobs, &target_id);
@@ -371,8 +393,8 @@ pub fn update_encounters_from_world(
     //     reward sync stays decoupled from the encounter state representation.
     let cleared_specs: Vec<(String, super::EncounterSpec)> = encounters
         .iter()
-        .filter(|(_, state)| matches!(state.phase, EncounterPhase::Cleared))
-        .filter_map(|(enc, state)| state.spec.clone().map(|spec| (enc.id.clone(), spec)))
+        .filter(|(_, state, _)| matches!(state.phase, EncounterPhase::Cleared))
+        .filter_map(|(enc, state, _)| state.spec.clone().map(|spec| (enc.id.clone(), spec)))
         .collect();
     crate::features::sync_encounter_reward_chests_ecs(
         &mut commands,
@@ -393,7 +415,7 @@ pub fn update_encounters_from_world(
     //    otherwise clear it. Writing the base source every frame — including
     //    `None` — is safe: `desired_track()` ranks `priority_track` above
     //    `base_track`, so this can't clobber a concurrent focused fight's music.
-    let active_track = encounters.iter().find_map(|(_, s)| {
+    let active_track = encounters.iter().find_map(|(_, s, _)| {
         if matches!(
             s.phase,
             EncounterPhase::Starting { .. } | EncounterPhase::Active { .. }
@@ -412,11 +434,11 @@ pub fn update_encounters_from_world(
     //     encounters want. Cross-crate presentation reads `EncounterView`, not
     //     the entities. `max`-based, so it is query-order-independent.
     encounter_view.camera_zoom =
-        ambition_encounter::active_encounter_camera_zoom(encounters.iter().map(|(_, s)| s));
+        ambition_encounter::active_encounter_camera_zoom(encounters.iter().map(|(_, s, _)| s));
 
     // 9. Project phase to the save (Cleared/Failed survive, others
     //    collapse to Untouched).
-    for (enc, state) in &encounters {
+    for (enc, state, _) in &encounters {
         let persisted = state.to_persisted();
         let current = save.data().encounter(&enc.id);
         if persisted != current {

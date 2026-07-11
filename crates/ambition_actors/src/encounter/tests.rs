@@ -34,8 +34,16 @@ fn install_test_world_manifest() {
 /// Drive an EncounterState past `Starting` into the first wave's
 /// `Active` phase. The lab_spec uses `intro_seconds: 0.0` so a
 /// single tick is enough.
-fn advance_past_intro(state: &mut EncounterState) {
-    let _ = state.tick_intro_or_wave(0.001, |_| true);
+fn advance_past_intro(state: &mut EncounterState, parts: &mut EncounterParticipants) {
+    let _ = state.tick_intro_or_wave(0.001, parts);
+}
+
+/// Mimic the host's liveness refresh reporting every live minion dead (the
+/// reducer reads `participant.alive`, which the host sets from the runtime).
+fn kill_all(parts: &mut EncounterParticipants) {
+    for m in &mut parts.members {
+        m.alive = false;
+    }
 }
 
 fn lab_spec() -> EncounterSpec {
@@ -89,8 +97,13 @@ fn encounter_reward_defaults_to_small_heal_and_is_authorable() {
 #[test]
 fn entering_trigger_starts_first_wave() {
     let mut state = EncounterState::default();
+    let mut parts = EncounterParticipants::default();
     state.spec = Some(lab_spec());
-    let events = state.maybe_start(ae::Vec2::new(50.0, 50.0), ae::Vec2::new(20.0, 30.0));
+    let events = state.maybe_start(
+        &mut parts,
+        ae::Vec2::new(50.0, 50.0),
+        ae::Vec2::new(20.0, 30.0),
+    );
     assert!(state.lock_active);
     assert!(matches!(state.phase, EncounterPhase::Starting { .. }));
     assert!(events
@@ -100,7 +113,7 @@ fn entering_trigger_starts_first_wave() {
         .iter()
         .any(|e| matches!(e, EncounterEvent::LockChanged { locked: true })));
     // After the intro tick, we land in Active{wave 0}.
-    advance_past_intro(&mut state);
+    advance_past_intro(&mut state, &mut parts);
     assert_eq!(
         state.phase,
         EncounterPhase::Active {
@@ -113,8 +126,13 @@ fn entering_trigger_starts_first_wave() {
 #[test]
 fn standing_outside_trigger_does_not_start() {
     let mut state = EncounterState::default();
+    let mut parts = EncounterParticipants::default();
     state.spec = Some(lab_spec());
-    let events = state.maybe_start(ae::Vec2::new(2000.0, 50.0), ae::Vec2::new(20.0, 30.0));
+    let events = state.maybe_start(
+        &mut parts,
+        ae::Vec2::new(2000.0, 50.0),
+        ae::Vec2::new(20.0, 30.0),
+    );
     assert!(events.is_empty());
     assert_eq!(state.phase, EncounterPhase::Inactive);
     assert!(!state.lock_active);
@@ -123,17 +141,24 @@ fn standing_outside_trigger_does_not_start() {
 #[test]
 fn defeating_all_mobs_clears_each_wave_and_then_encounter() {
     let mut state = EncounterState::default();
+    let mut parts = EncounterParticipants::default();
     state.spec = Some(lab_spec());
-    state.maybe_start(ae::Vec2::new(50.0, 50.0), ae::Vec2::new(20.0, 30.0));
+    state.maybe_start(
+        &mut parts,
+        ae::Vec2::new(50.0, 50.0),
+        ae::Vec2::new(20.0, 30.0),
+    );
     // `advance_past_intro` also spawns wave 1's single mob (delay 0).
-    advance_past_intro(&mut state);
+    advance_past_intro(&mut state, &mut parts);
     // Wave 1's mob is reported dead → wave advances to wave 2.
-    let _ = state.tick_intro_or_wave(0.001, |_| false);
+    kill_all(&mut parts);
+    let _ = state.tick_intro_or_wave(0.001, &mut parts);
     // Wave 2 has 2 mobs; tick past the 0.70s inter-wave delay so both
-    // pending entries spawn before they can be reported dead.
-    let _ = state.tick_intro_or_wave(ENCOUNTER_INTER_WAVE_DELAY_SECONDS + 0.01, |_| true);
+    // pending entries spawn before they can be reported dead (all alive).
+    let _ = state.tick_intro_or_wave(ENCOUNTER_INTER_WAVE_DELAY_SECONDS + 0.01, &mut parts);
     // Both wave-2 mobs reported dead → the encounter clears.
-    let events = state.tick_intro_or_wave(0.001, |_| false);
+    kill_all(&mut parts);
+    let events = state.tick_intro_or_wave(0.001, &mut parts);
     assert_eq!(state.phase, EncounterPhase::Cleared);
     assert!(!state.lock_active);
     assert!(events
@@ -147,10 +172,15 @@ fn defeating_all_mobs_clears_each_wave_and_then_encounter() {
 #[test]
 fn player_death_during_active_encounter_unlocks_and_marks_failed() {
     let mut state = EncounterState::default();
+    let mut parts = EncounterParticipants::default();
     state.spec = Some(lab_spec());
-    state.maybe_start(ae::Vec2::new(50.0, 50.0), ae::Vec2::new(20.0, 30.0));
-    advance_past_intro(&mut state);
-    let events = state.on_player_death();
+    state.maybe_start(
+        &mut parts,
+        ae::Vec2::new(50.0, 50.0),
+        ae::Vec2::new(20.0, 30.0),
+    );
+    advance_past_intro(&mut state, &mut parts);
+    let events = state.on_player_death(&mut parts);
     assert_eq!(state.phase, EncounterPhase::Failed);
     assert!(!state.lock_active);
     assert!(events
@@ -161,10 +191,15 @@ fn player_death_during_active_encounter_unlocks_and_marks_failed() {
 #[test]
 fn reset_for_retry_returns_to_inactive_after_failure() {
     let mut state = EncounterState::default();
+    let mut parts = EncounterParticipants::default();
     state.spec = Some(lab_spec());
-    state.maybe_start(ae::Vec2::new(50.0, 50.0), ae::Vec2::new(20.0, 30.0));
-    advance_past_intro(&mut state);
-    state.on_player_death();
+    state.maybe_start(
+        &mut parts,
+        ae::Vec2::new(50.0, 50.0),
+        ae::Vec2::new(20.0, 30.0),
+    );
+    advance_past_intro(&mut state, &mut parts);
+    state.on_player_death(&mut parts);
     state.reset_for_retry();
     assert_eq!(state.phase, EncounterPhase::Inactive);
 }
@@ -172,20 +207,30 @@ fn reset_for_retry_returns_to_inactive_after_failure() {
 #[test]
 fn lock_active_truthy_during_active_phase() {
     let mut state = EncounterState::default();
+    let mut parts = EncounterParticipants::default();
     state.spec = Some(lab_spec());
-    state.maybe_start(ae::Vec2::new(50.0, 50.0), ae::Vec2::new(20.0, 30.0));
+    state.maybe_start(
+        &mut parts,
+        ae::Vec2::new(50.0, 50.0),
+        ae::Vec2::new(20.0, 30.0),
+    );
     assert!(state.phase.locks_exits());
     assert!(state.lock_active);
-    advance_past_intro(&mut state);
+    advance_past_intro(&mut state, &mut parts);
     assert!(state.phase.locks_exits());
 }
 
 #[test]
 fn hud_summary_shows_wave_progress() {
     let mut state = EncounterState::default();
+    let mut parts = EncounterParticipants::default();
     state.spec = Some(lab_spec());
-    state.maybe_start(ae::Vec2::new(50.0, 50.0), ae::Vec2::new(20.0, 30.0));
-    advance_past_intro(&mut state);
+    state.maybe_start(
+        &mut parts,
+        ae::Vec2::new(50.0, 50.0),
+        ae::Vec2::new(20.0, 30.0),
+    );
+    advance_past_intro(&mut state, &mut parts);
     let summary = state.hud_summary();
     assert!(summary.contains("WAVE 1/2"), "got: {summary}");
     assert!(summary.contains("1 left"), "got: {summary}");
@@ -237,7 +282,12 @@ fn active_camera_zoom_picks_active_encounter() {
         spec: Some(spec),
         ..Default::default()
     };
-    state.maybe_start(ae::Vec2::new(50.0, 50.0), ae::Vec2::new(20.0, 30.0));
+    let mut parts = EncounterParticipants::default();
+    state.maybe_start(
+        &mut parts,
+        ae::Vec2::new(50.0, 50.0),
+        ae::Vec2::new(20.0, 30.0),
+    );
     assert_eq!(active_encounter_camera_zoom([&state]), 1.6);
 }
 
@@ -265,8 +315,13 @@ fn apply_persisted_cleared_keeps_lock_off() {
 #[test]
 fn to_persisted_collapses_active_to_untouched() {
     let mut state = EncounterState::default();
+    let mut parts = EncounterParticipants::default();
     state.spec = Some(lab_spec());
-    state.maybe_start(ae::Vec2::new(50.0, 50.0), ae::Vec2::new(20.0, 30.0));
+    state.maybe_start(
+        &mut parts,
+        ae::Vec2::new(50.0, 50.0),
+        ae::Vec2::new(20.0, 30.0),
+    );
     assert_eq!(state.to_persisted(), PersistedEncounterState::Untouched);
 }
 
@@ -390,15 +445,20 @@ fn intro_delays_first_wave_spawn_until_elapsed() {
     let mut spec = lab_spec();
     spec.intro_seconds = 1.5;
     state.spec = Some(spec);
-    state.maybe_start(ae::Vec2::new(50.0, 50.0), ae::Vec2::new(20.0, 30.0));
+    let mut parts = EncounterParticipants::default();
+    state.maybe_start(
+        &mut parts,
+        ae::Vec2::new(50.0, 50.0),
+        ae::Vec2::new(20.0, 30.0),
+    );
     // Halfway through the intro: still Starting, no spawns yet.
-    let evs = state.tick_intro_or_wave(0.5, |_| true);
+    let evs = state.tick_intro_or_wave(0.5, &mut parts);
     assert!(matches!(state.phase, EncounterPhase::Starting { .. }));
     assert!(!evs
         .iter()
         .any(|e| matches!(e, EncounterEvent::SpawnCommand { .. })));
     // After the rest of the intro: Active + a spawn command.
-    let evs = state.tick_intro_or_wave(1.2, |_| true);
+    let evs = state.tick_intro_or_wave(1.2, &mut parts);
     assert!(matches!(state.phase, EncounterPhase::Active { .. }));
     assert!(evs
         .iter()
@@ -419,16 +479,21 @@ fn delayed_sub_spawn_holds_then_fires() {
         ],
     }];
     state.spec = Some(spec);
-    state.maybe_start(ae::Vec2::new(50.0, 50.0), ae::Vec2::new(20.0, 30.0));
+    let mut parts = EncounterParticipants::default();
+    state.maybe_start(
+        &mut parts,
+        ae::Vec2::new(50.0, 50.0),
+        ae::Vec2::new(20.0, 30.0),
+    );
     // Tick once: intro elapses, wave 1 starts, immediate mob spawns.
-    let evs = state.tick_intro_or_wave(0.5, |_| true);
+    let evs = state.tick_intro_or_wave(0.5, &mut parts);
     let immediate_spawns = evs
         .iter()
         .filter(|e| matches!(e, EncounterEvent::SpawnCommand { .. }))
         .count();
     assert_eq!(immediate_spawns, 1);
     // Tick to 1.0s wave-elapsed: still nothing new.
-    let evs = state.tick_intro_or_wave(0.5, |_| true);
+    let evs = state.tick_intro_or_wave(0.5, &mut parts);
     assert_eq!(
         evs.iter()
             .filter(|e| matches!(e, EncounterEvent::SpawnCommand { .. }))
@@ -436,7 +501,7 @@ fn delayed_sub_spawn_holds_then_fires() {
         0
     );
     // Tick past 2.0s: delayed mob fires.
-    let evs = state.tick_intro_or_wave(1.5, |_| true);
+    let evs = state.tick_intro_or_wave(1.5, &mut parts);
     assert_eq!(
         evs.iter()
             .filter(|e| matches!(e, EncounterEvent::SpawnCommand { .. }))
@@ -464,29 +529,36 @@ fn wave_clears_only_when_all_pending_and_alive_are_resolved() {
         },
     ];
     state.spec = Some(spec);
-    state.maybe_start(ae::Vec2::new(50.0, 50.0), ae::Vec2::new(20.0, 30.0));
-    // Intro tick: Starting → Active{wave 0}; immediate mob spawned.
-    // Closure says "alive" so the just-spawned id sticks.
-    let _ = state.tick_intro_or_wave(0.001, |_| true);
+    let mut parts = EncounterParticipants::default();
+    state.maybe_start(
+        &mut parts,
+        ae::Vec2::new(50.0, 50.0),
+        ae::Vec2::new(20.0, 30.0),
+    );
+    // Intro tick: Starting → Active{wave 0}; immediate mob spawned (alive).
+    let _ = state.tick_intro_or_wave(0.001, &mut parts);
     // 0.5s elapsed: alive mob marked dead, but the delayed mob
     // hasn't fired yet → wave still pending.
-    let _ = state.tick_intro_or_wave(0.5, |_| false);
+    kill_all(&mut parts);
+    let _ = state.tick_intro_or_wave(0.5, &mut parts);
     assert!(matches!(
         state.phase,
         EncounterPhase::Active { wave_index: 0, .. }
     ));
     // 1.001s wave-elapsed: delayed mob spawns. Retain runs first
-    // (no alive ids to drop; closure won't see new id this tick).
-    let _ = state.tick_intro_or_wave(0.5, |_| false);
+    // (no live minions to drop; the fresh spawn is added after).
+    kill_all(&mut parts);
+    let _ = state.tick_intro_or_wave(0.5, &mut parts);
     // Still wave 1: the just-spawned mob is alive in the encounter
-    // bookkeeping (not yet been retained against a stale lookup).
+    // bookkeeping (not yet refreshed against a stale runtime).
     assert!(
         matches!(state.phase, EncounterPhase::Active { wave_index: 0, .. }),
         "wave 1 should hold while the just-spawned mob is alive"
     );
-    // Next tick: retain drops the just-spawned mob (closure
-    // returns false), wave clears, wave 2 starts.
-    let _ = state.tick_intro_or_wave(0.001, |_| false);
+    // Next tick: refresh reports the just-spawned mob dead → retain drops
+    // it, wave clears, wave 2 starts.
+    kill_all(&mut parts);
+    let _ = state.tick_intro_or_wave(0.001, &mut parts);
     assert!(
         matches!(state.phase, EncounterPhase::Active { wave_index: 1, .. }),
         "expected wave 2 active, got {:?}",
@@ -508,10 +580,17 @@ fn just_spawned_mob_survives_one_tick_before_retain() {
         mobs: vec![EncounterMobSpec::new("medium_striker", [100.0, 100.0])],
     }];
     state.spec = Some(spec);
-    state.maybe_start(ae::Vec2::new(50.0, 50.0), ae::Vec2::new(20.0, 30.0));
-    // Intro elapses + spawn happens. Closure returns false (the
-    // runtime hasn't seen the new id yet — the bug condition).
-    let _ = state.tick_intro_or_wave(0.001, |_| false);
+    let mut parts = EncounterParticipants::default();
+    state.maybe_start(
+        &mut parts,
+        ae::Vec2::new(50.0, 50.0),
+        ae::Vec2::new(20.0, 30.0),
+    );
+    // Intro elapses + spawn happens. The refresh reports all-dead (the
+    // runtime hasn't seen the new mob yet — the bug condition), but the
+    // fresh spawn is added AFTER the refresh so it survives this tick.
+    kill_all(&mut parts);
+    let _ = state.tick_intro_or_wave(0.001, &mut parts);
     // The mob must still be tracked: the wave shouldn't be cleared.
     assert!(
         matches!(
@@ -609,7 +688,12 @@ fn lock_wall_is_derived_while_active_and_dropped_when_inactive() {
         spec: Some(spec),
         ..Default::default()
     };
-    state.maybe_start(ae::Vec2::new(50.0, 50.0), ae::Vec2::new(20.0, 30.0));
+    let mut parts = EncounterParticipants::default();
+    state.maybe_start(
+        &mut parts,
+        ae::Vec2::new(50.0, 50.0),
+        ae::Vec2::new(20.0, 30.0),
+    );
     // Starting/Active phase → the gate solid is derived this frame.
     let blocks = desired_lock_wall_blocks([("goblin_encounter", &state)]);
     assert!(blocks.iter().any(|b| b.name == "lockwall:goblin_encounter"));

@@ -145,7 +145,7 @@ bevy_ecs::message::messages::Messages<ambition_actors::ActorDiedMessage>
 bevy_ecs::message::messages::Messages<ambition_actors::avatar::events::PlayerHealRequested>
 bevy_ecs::message::messages::Messages<ambition_actors::avatar::trail::TrailContinuityBreak>
 bevy_ecs::message::messages::Messages<ambition_actors::boss_encounter::encounter_entity::PayloadReleased>
-bevy_ecs::message::messages::Messages<ambition_actors::boss_encounter::encounter_script::EncounterGate>
+bevy_ecs::message::messages::Messages<ambition_encounter::timeline::EncounterGate>
 bevy_ecs::message::messages::Messages<ambition_actors::encounter::switches::SwitchActivated>
 bevy_ecs::message::messages::Messages<ambition_actors::features::ecs::mount::MountDied>
 bevy_ecs::message::messages::Messages<ambition_actors::features::ecs::spawn_actors::SpawnActorRequest>

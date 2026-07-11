@@ -465,12 +465,15 @@ methods from crate A — `EncounterRegistry::any_lock_active` and
       (`ambition_encounter::{participants,objective}`); boss `EncounterDef.members`
       → `EncounterParticipants` (adopted `PrimaryTarget`); `EncounterWin` deleted;
       the generic objective is evaluated into the `EncounterProgress` read-model.
-- [~] **E3** generic timeline/effects — **E3a landed**: the timeline vocabulary
-      (`EncounterGate`/`EncounterTrigger`/`EncounterEffect`/`EncounterBeat`/`EncounterScript`
-      + the generic `EncounterScript::advance` beat-stepper) moved into
-      `ambition_encounter::timeline` (the one timeline authority); boss effect
-      EXECUTION stays actor-side. E3b (wave adopts the shared vocabulary) pending
-      — see the impedance note below.
+- [x] **E3** generic timeline/effects — **E3a**: timeline vocabulary +
+      `EncounterScript::advance` stepper moved into `ambition_encounter::timeline`
+      (the one timeline authority; boss effect EXECUTION stays actor-side).
+      **E3b**: the wave's live mobs are now the shared `EncounterParticipants`
+      (role `Minion`, `Spawned`); `EncounterRun.alive_ids` + the closure-based
+      liveness plumbing are deleted (the host refreshes `participant.alive` from
+      the runtime, the reducer reads it). Both boss and wave encounters speak the
+      one participant vocabulary now (acceptance #4/#7). The wave keeps its slim
+      spawn scheduler (`run.pending`/`wave_elapsed`) per the impedance note below.
 - [~] **E4** boss composition — **event-publication bridge collapsed**: the
       pointless `BossPhaseEvent → BossEncounterEvent → effects` indirection is
       gone (deleted the `BossEncounterEvent` enum + `phase_event_to_encounter_events`);
@@ -655,7 +658,32 @@ the wave's lifecycle/objective/participants onto the shared components and keeps
 the spawn scheduler — deleting the wave phase/lock/completion LOGIC (now
 lifecycle + objective) while the scheduler survives as the wave's timeline kind.
 
-### Recommended next slice (superseded — E1/E2/E3a landed above)
+### E3b — wave mobs become shared participants (landed 2026-07-11)
+
+The wave arena's live mobs were a bespoke `EncounterRun.alive_ids: Vec<String>`
+tracked via a per-id `enemy_alive` closure the host threaded into the reducer.
+They are now the generic `EncounterParticipants` (role `Minion`, ownership
+`Spawned`) — the SAME component boss fights use for their adopted `PrimaryTarget`.
+
+- `EncounterRun` loses `alive_ids`; the reducers (`maybe_start` /
+  `tick_intro_or_wave` / `on_player_death`) take `&mut EncounterParticipants` and
+  manage the Minion list (spawn → push a live participant; retain-alive drops the
+  dead). The `enemy_alive` closure is gone: the host refreshes each participant's
+  `alive` from the runtime mobs query BEFORE the reducer ticks, and the reducer
+  reads `participant.alive` — the "just-spawned survives one tick" invariant falls
+  out because the fresh spawn is appended AFTER the refresh.
+- The host `update_encounters_from_world` queries
+  `(&Encounter, &mut EncounterState, &mut EncounterParticipants)` and clears the
+  participants at every re-arm / cancel / death site.
+
+Deleted: `EncounterRun.alive_ids`, the `impl FnMut(&str) -> bool` closure
+threading, and the host's per-tick `alive_lookup`→closure indirection (replaced
+by a direct `participant.alive` refresh). Verified behaviour-preserving against
+the wave suite: crate A reducer tests 22, host `encounter::tests` 38 (intro
+delay, delayed sub-spawns, inter-wave delay, just-spawned-survives, wave advance,
+clear/fail/retry, lock wall, reward, switch arming), music 8, app clean.
+
+### Recommended next slice (superseded — E1/E2/E3 landed above)
 
 The two systems barely interact at runtime, so the remaining slices are a real
 multi-session migration that touches live wave state, boss content authoring,

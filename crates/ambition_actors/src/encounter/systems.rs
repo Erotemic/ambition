@@ -1,22 +1,28 @@
 //! The Bevy wiring around the headless `state.rs` machine.
-//! `populate_encounter_registry` (startup) loads specs from LDtk + the save;
-//! `update_encounters_from_world` is the per-frame tick: death/area-exit
-//! cancellation, switch-armed trigger entry, `tick_intro_or_wave`, applying
-//! `SpawnCommand`s to ECS mobs, auto-greening the cleared switch + reward
-//! chest, lock-wall sync, music request, save projection, and trace push.
+//! `populate_encounter_registry` (startup) loads specs from LDtk + the save and
+//! spawns one encounter ENTITY per spec (E1 — the live state lives on the
+//! entity's `EncounterState` component, not in a resource map);
+//! `update_encounters_from_world` is the per-frame tick over those entities:
+//! death/area-exit cancellation, switch-armed trigger entry, `tick_intro_or_wave`,
+//! applying `SpawnCommand`s to ECS mobs, auto-greening the cleared switch +
+//! reward chest, music request, presentation read-model, save projection, and
+//! trace push.
 
 use bevy::prelude::*;
 
 use ambition_engine_core as ae;
 
 use super::{
-    load_encounter_specs_from_ldtk, EncounterEvent, EncounterMusicRequest, EncounterPhase,
-    EncounterRegistry, EncounterRun, EncounterSwitchIndex, SwitchActivationQueue,
+    load_encounter_specs_from_ldtk, Encounter, EncounterEvent, EncounterMusicRequest,
+    EncounterPhase, EncounterRegistry, EncounterRun, EncounterState, EncounterSwitchIndex,
+    EncounterView, SwitchActivationQueue,
 };
 
 /// Bevy startup system: load encounter specs from the embedded LDtk
-/// project and apply persisted states from the save.
+/// project, spawn one encounter entity per spec, and apply persisted states
+/// from the save.
 pub fn populate_encounter_registry(
+    mut commands: Commands,
     mut registry: ResMut<EncounterRegistry>,
     save: Res<ambition_persistence::save::SandboxSave>,
     // Optional: a RON-only app (demo shell, generated rooms) installs no
@@ -34,9 +40,13 @@ pub fn populate_encounter_registry(
     let entries = load_encounter_specs_from_ldtk(&project.0, save.data());
     let count = entries.len();
     for (id, spec, persisted) in entries {
-        let state = registry.ensure(&id);
-        state.spec = Some(spec);
+        let mut state = EncounterState {
+            spec: Some(spec),
+            ..Default::default()
+        };
         state.apply_persisted(persisted);
+        let entity = commands.spawn((Encounter::new(id.clone()), state)).id();
+        registry.insert(id, entity);
     }
     registry.specs_loaded = true;
     // One-line census so "did encounters load?" is checkable from
@@ -44,7 +54,7 @@ pub fn populate_encounter_registry(
     // `populate_boss_encounter_registry` + the catalog sprite census.
     bevy::log::info!(
         target: "ambition::encounter",
-        "encounter registry: {count} spec(s) loaded from LDtk",
+        "encounter registry: {count} encounter entit(ies) spawned from LDtk",
     );
 }
 
@@ -58,13 +68,14 @@ pub fn update_encounters_from_world(
     mut commands: Commands,
     world_time: Res<ambition_time::WorldTime>,
     mut died_messages: MessageReader<crate::ActorDiedMessage>,
-    mut registry: ResMut<EncounterRegistry>,
+    mut encounters: Query<(&Encounter, &mut EncounterState)>,
     mut save: ResMut<ambition_persistence::save::SandboxSave>,
     mut switch_activations: ResMut<SwitchActivationQueue>,
     switch_index: Res<EncounterSwitchIndex>,
     mut trace: ResMut<crate::trace::GameplayTraceBuffer>,
     player_body_q: Query<&crate::actor::BodyKinematics, With<crate::actor::PlayerEntity>>,
     mut music_request: ResMut<EncounterMusicRequest>,
+    mut encounter_view: ResMut<EncounterView>,
     mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
     mut banner_requests: MessageWriter<crate::features::GameplayBannerRequested>,
     room_set: Res<crate::rooms::RoomSet>,
@@ -103,7 +114,7 @@ pub fn update_encounters_from_world(
     //    room spawn, so the trigger AABB will re-fire on next entry.
     let died_this_frame = died_messages.read().next().is_some();
     if died_this_frame {
-        for (id, state) in registry.encounters.iter_mut() {
+        for (enc, mut state) in &mut encounters {
             let in_flight = matches!(
                 state.phase,
                 EncounterPhase::Starting { .. } | EncounterPhase::Active { .. }
@@ -111,14 +122,14 @@ pub fn update_encounters_from_world(
             if in_flight {
                 let evs = state.on_player_death();
                 if !evs.is_empty() {
-                    events.push((id.clone(), evs));
+                    events.push((enc.id.clone(), evs));
                 }
                 // After failing, snap to Inactive so the trigger can
                 // fire fresh once the player walks back in.
                 state.phase = EncounterPhase::Inactive;
                 state.lock_active = false;
                 state.run = EncounterRun::default();
-                crate::features::despawn_encounter_mobs(&mut commands, &encounter_mobs, id);
+                crate::features::despawn_encounter_mobs(&mut commands, &encounter_mobs, &enc.id);
             }
         }
     }
@@ -126,17 +137,17 @@ pub fn update_encounters_from_world(
     // 1. Cancel encounters whose area the player has left. Snaps back
     //    to Inactive so the camera zoom + lock release on exit. A
     //    fresh attempt will fire next time the player re-enters.
-    for (id, state) in registry.encounters.iter_mut() {
+    for (enc, mut state) in &mut encounters {
         let in_flight = matches!(
             state.phase,
             EncounterPhase::Starting { .. } | EncounterPhase::Active { .. }
         );
-        if in_flight && id != &active_area {
+        if in_flight && enc.id != active_area {
             state.phase = EncounterPhase::Inactive;
             state.lock_active = false;
             state.run = EncounterRun::default();
             events.push((
-                id.clone(),
+                enc.id.clone(),
                 vec![EncounterEvent::LockChanged { locked: false }],
             ));
         }
@@ -149,7 +160,7 @@ pub fn update_encounters_from_world(
     //    switch toggle. The trigger only fires when the encounter
     //    isn't currently in flight AND the linked switch is off.
     let armed_active = switch_index.encounter_armed(&active_area);
-    if let Some(state) = registry.encounters.get_mut(&active_area) {
+    if let Some((_, mut state)) = encounters.iter_mut().find(|(enc, _)| enc.id == active_area) {
         let in_flight = matches!(
             state.phase,
             EncounterPhase::Starting { .. } | EncounterPhase::Active { .. }
@@ -186,7 +197,7 @@ pub fn update_encounters_from_world(
     //    linked switch to green afterwards.
     let mut spawn_commands: Vec<(String, String, [f32; 2], [f32; 2])> = Vec::new();
     let mut just_cleared_id: Option<String> = None;
-    if let Some(state) = registry.encounters.get_mut(&active_area) {
+    if let Some((_, mut state)) = encounters.iter_mut().find(|(enc, _)| enc.id == active_area) {
         if matches!(
             state.phase,
             EncounterPhase::Starting { .. } | EncounterPhase::Active { .. }
@@ -278,8 +289,8 @@ pub fn update_encounters_from_world(
         // becomes the opposite of wherever it currently points, so the switch
         // still works after a Noether-Chamber sideways SetGravity (fable review
         // 2026-07-02 §B13: the old `dir.y = -dir.y` was a no-op on sideways
-        // gravity). Done as a deferred world command so this 16-param system
-        // needn't take `BaseGravity` as a 17th param (Bevy's tuple limit).
+        // gravity). Done as a deferred world command so this system needn't take
+        // `BaseGravity` as another param (Bevy's tuple limit).
         // Toggle the persisted switch state so the switch sprite reads flipped.
         if activation.action.as_str() == "FlipGravity" {
             commands.queue(|world: &mut bevy::prelude::World| {
@@ -296,7 +307,7 @@ pub fn update_encounters_from_world(
         // that side becomes the new "down". NOTE: the action must NOT contain a
         // colon — `SwitchActivation::to_custom_payload`/`parse_custom` round-trip
         // through a `:`-delimited string, so a colon in the action is silently
-        // truncated. Deferred world command (16-param tuple limit). Persist the
+        // truncated. Deferred world command (tuple limit). Persist the
         // switch as on so its sprite reads engaged.
         if let Some(dir_token) = activation.action.as_str().strip_prefix("SetGravity") {
             let dir = match dir_token {
@@ -326,7 +337,8 @@ pub fn update_encounters_from_world(
         if !new_on {
             // Re-arming: snap the encounter back to Inactive and
             // drop carryover mobs.
-            if let Some(state) = registry.encounters.get_mut(&target_id) {
+            if let Some((_, mut state)) = encounters.iter_mut().find(|(enc, _)| enc.id == target_id)
+            {
                 let in_flight = matches!(
                     state.phase,
                     EncounterPhase::Starting { .. } | EncounterPhase::Active { .. }
@@ -355,11 +367,17 @@ pub fn update_encounters_from_world(
 
     // 6b. Reward chest sync runs after switch resets so a re-arm in this
     //     same tick cannot spawn a deferred ECS chest that the clear path
-    //     cannot see yet.
+    //     cannot see yet. Gather the cleared encounters' (id, spec) so the
+    //     reward sync stays decoupled from the encounter state representation.
+    let cleared_specs: Vec<(String, super::EncounterSpec)> = encounters
+        .iter()
+        .filter(|(_, state)| matches!(state.phase, EncounterPhase::Cleared))
+        .filter_map(|(enc, state)| state.spec.clone().map(|spec| (enc.id.clone(), spec)))
+        .collect();
     crate::features::sync_encounter_reward_chests_ecs(
         &mut commands,
         save.data(),
-        &registry,
+        &cleared_specs,
         &reward_chests,
     );
 
@@ -367,15 +385,15 @@ pub fn update_encounters_from_world(
     //    solid lock wall seals the arena exits. The wall is NOT mutated into the
     //    authored base here — `contribute_encounter_lock_walls` (WorldPrep)
     //    derives it onto the collision overlay's `gate_solids` each frame from
-    //    the registry phase this tick just updated. Keeps `RoomGeometry`
-    //    authored-immutable mid-room.
+    //    the encounter entities' live phase this tick just updated. Keeps
+    //    `RoomGeometry` authored-immutable mid-room.
 
     // 8. Music: pick the first encounter currently in flight and request its
     //    track (the base-priority source of the shared `EncounterMusicRequest`);
     //    otherwise clear it. Writing the base source every frame — including
     //    `None` — is safe: `desired_track()` ranks `priority_track` above
     //    `base_track`, so this can't clobber a concurrent focused fight's music.
-    let active_track = registry.encounters.iter().find_map(|(_, s)| {
+    let active_track = encounters.iter().find_map(|(_, s)| {
         if matches!(
             s.phase,
             EncounterPhase::Starting { .. } | EncounterPhase::Active { .. }
@@ -390,13 +408,19 @@ pub fn update_encounters_from_world(
     });
     music_request.base_track = active_track;
 
+    // 8b. Publish the presentation read-model (§6): the camera zoom the active
+    //     encounters want. Cross-crate presentation reads `EncounterView`, not
+    //     the entities. `max`-based, so it is query-order-independent.
+    encounter_view.camera_zoom =
+        ambition_encounter::active_encounter_camera_zoom(encounters.iter().map(|(_, s)| s));
+
     // 9. Project phase to the save (Cleared/Failed survive, others
     //    collapse to Untouched).
-    for (id, state) in registry.encounters.iter() {
+    for (enc, state) in &encounters {
         let persisted = state.to_persisted();
-        let current = save.data().encounter(id);
+        let current = save.data().encounter(&enc.id);
         if persisted != current {
-            save.data_mut().set_encounter(id, persisted);
+            save.data_mut().set_encounter(&enc.id, persisted);
         }
     }
 

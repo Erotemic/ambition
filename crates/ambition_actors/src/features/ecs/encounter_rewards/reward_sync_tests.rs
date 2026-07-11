@@ -8,12 +8,17 @@
 //! thin system so the minimal App can drive the &Commands/&save/&registry
 //! /&Query helper.
 use super::*;
-use crate::encounter::{EncounterPhase, EncounterRegistry, EncounterSpec, EncounterState};
+use crate::encounter::EncounterSpec;
 use ambition_interaction::PickupKind;
 use ambition_persistence::save::SandboxSave;
-use bevy::prelude::{App, Update};
+use bevy::prelude::{App, Resource, Update};
 
-fn cleared_registry() -> EncounterRegistry {
+/// The cleared encounters' `(id, spec)` pairs the reward sync consumes now that
+/// it takes the cleared list directly (E1) instead of the registry.
+#[derive(Resource)]
+struct ClearedEncounters(Vec<(String, EncounterSpec)>);
+
+fn cleared_encounters() -> ClearedEncounters {
     let spec = EncounterSpec {
         id: "test_enc".into(),
         waves: Vec::new(),
@@ -25,29 +30,22 @@ fn cleared_registry() -> EncounterRegistry {
         music_track: String::new(),
         reward: PickupKind::Health { amount: 2 },
     };
-    let state = EncounterState {
-        spec: Some(spec),
-        phase: EncounterPhase::Cleared,
-        ..Default::default()
-    };
-    let mut reg = EncounterRegistry::default();
-    reg.encounters.insert("test_enc".into(), state);
-    reg
+    ClearedEncounters(vec![("test_enc".into(), spec)])
 }
 
 fn run_sync(
     mut commands: Commands,
     save: Res<SandboxSave>,
-    registry: Res<EncounterRegistry>,
+    cleared: Res<ClearedEncounters>,
     chests: Query<(Entity, &EncounterRewardChest, &FeatureId, Option<&Opened>), With<ChestFeature>>,
 ) {
-    sync_encounter_reward_chests_ecs(&mut commands, save.data(), &registry, &chests);
+    sync_encounter_reward_chests_ecs(&mut commands, save.data(), &cleared.0, &chests);
 }
 
 fn app() -> App {
     let mut app = App::new();
     app.insert_resource(SandboxSave::default());
-    app.insert_resource(cleared_registry());
+    app.insert_resource(cleared_encounters());
     app.add_systems(Update, run_sync);
     app
 }

@@ -13,8 +13,10 @@
 
 use bevy::prelude::*;
 
+use std::collections::HashMap;
+
 use crate::audio::RadioStationState;
-use crate::encounter::{EncounterMusicRequest, EncounterPhase, EncounterRegistry};
+use crate::encounter::{Encounter, EncounterMusicRequest, EncounterPhase, EncounterState};
 use crate::rooms::RoomMusicRequest;
 use crate::session::data::MusicRegistry;
 
@@ -35,17 +37,22 @@ pub(super) const LARGE_BRUTE_DELAY_SECONDS: f32 = 3.5;
 pub fn compute_music_intent(
     catalog: Option<Res<MusicCueCatalog>>,
     director: Option<Res<MusicDirectorState>>,
-    encounters: Res<EncounterRegistry>,
+    encounters: Query<(&Encounter, &EncounterState)>,
     mut encounter_music: ResMut<EncounterMusicRequest>,
     room_music: Res<RoomMusicRequest>,
     radio: Option<Res<RadioStationState>>,
     music_registry: Res<MusicRegistry>,
     mut intent: ResMut<MusicIntent>,
 ) {
+    // The music director keys adaptive cues by encounter id; build the id →
+    // live-state lookup from the encounter entities (E1 — the registry is now
+    // just an index, so the state is read from the entities directly).
+    let states: HashMap<&str, &EncounterState> = encounters
+        .iter()
+        .map(|(enc, state)| (enc.id.as_str(), state))
+        .collect();
     let adaptive = match (catalog.as_ref(), director.as_ref()) {
-        (Some(catalog), Some(director)) => {
-            resolve_adaptive_directive(catalog, &encounters, director)
-        }
+        (Some(catalog), Some(director)) => resolve_adaptive_directive(catalog, &states, director),
         _ => None,
     };
 
@@ -98,11 +105,11 @@ fn simple_track_candidates(
 /// binding.)
 pub(super) fn resolve_adaptive_directive(
     catalog: &MusicCueCatalog,
-    encounters: &EncounterRegistry,
+    states: &HashMap<&str, &EncounterState>,
     director: &MusicDirectorState,
 ) -> Option<AdaptiveCueDirective> {
     for binding in catalog.encounter_bindings() {
-        if let Some(directive) = resolve_directive_for_binding(binding, encounters, director) {
+        if let Some(directive) = resolve_directive_for_binding(binding, states, director) {
             return Some(directive);
         }
     }
@@ -119,11 +126,11 @@ pub(super) fn resolve_adaptive_directive(
 ///   not playing — the binding doesn't claim audio this frame.
 pub(super) fn resolve_directive_for_binding(
     binding: &EncounterMusicBinding,
-    encounters: &EncounterRegistry,
+    states: &HashMap<&str, &EncounterState>,
     director: &MusicDirectorState,
 ) -> Option<AdaptiveCueDirective> {
     let cue_active = director.active_cue_id.as_deref() == Some(binding.cue_id.as_str());
-    let Some(encounter) = encounters.get(&binding.encounter_id) else {
+    let Some(encounter) = states.get(binding.encounter_id.as_str()) else {
         if cue_active {
             return Some(AdaptiveCueDirective::StopNow);
         }

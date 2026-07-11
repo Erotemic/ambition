@@ -33,23 +33,21 @@ pub fn clear_encounter_reward_ecs(
 }
 
 /// Idempotently ensure cleared mob encounters have an ECS reward chest.
+///
+/// Takes the cleared encounters' `(id, spec)` pairs (gathered from the live
+/// encounter entities by the caller) rather than the registry, so it stays
+/// decoupled from the encounter state representation (E1).
 pub fn sync_encounter_reward_chests_ecs(
     commands: &mut Commands,
     save: &ambition_persistence::save_data::SandboxSaveData,
-    registry: &crate::encounter::EncounterRegistry,
+    cleared: &[(String, crate::encounter::EncounterSpec)],
     chests: &Query<
         (Entity, &EncounterRewardChest, &FeatureId, Option<&Opened>),
         With<ChestFeature>,
     >,
 ) {
     let chest_size = ae::Vec2::new(28.0, 28.0);
-    for (encounter_id, state) in registry.encounters.iter() {
-        if !matches!(state.phase, crate::encounter::EncounterPhase::Cleared) {
-            continue;
-        }
-        let Some(spec) = state.spec.as_ref() else {
-            continue;
-        };
+    for (encounter_id, spec) in cleared.iter() {
         let chest_id = format!("encounter_chest_{encounter_id}");
         let looted = save.flag(&crate::encounter::encounter_reward_looted_flag(
             encounter_id,

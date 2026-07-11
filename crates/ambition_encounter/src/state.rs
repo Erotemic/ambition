@@ -6,7 +6,7 @@
 //! flow stays unit-testable; `systems.rs` is the Bevy wiring around it.
 
 use bevy::math::bounding::IntersectsVolume;
-use bevy::prelude::Resource;
+use bevy::prelude::Component;
 
 use ambition_engine_core as ae;
 use ambition_persistence::save_data::PersistedEncounterState;
@@ -118,10 +118,12 @@ impl EncounterRun {
     }
 }
 
-/// Bevy resource holding the live encounter state plus the authored
-/// spec it's tracking. Populated by the LDtk encounter loader when
+/// The live encounter's state COMPONENT: the authored spec it's tracking plus
+/// its live phase / run. E1 makes this entity-owned (one per live encounter
+/// entity, keyed by [`Encounter`](crate::Encounter)) instead of a value in a
+/// resource-owned map. Populated by the LDtk encounter loader when
 /// `EncounterTrigger` markers land in an active area.
-#[derive(Resource, Default)]
+#[derive(Component, Default)]
 pub struct EncounterState {
     pub spec: Option<EncounterSpec>,
     pub phase: EncounterPhase,
@@ -381,6 +383,28 @@ impl EncounterState {
             EncounterPhase::Failed => format!("[{id}] FAILED — reset to retry"),
         }
     }
+}
+
+/// The camera zoom the active encounters want this frame: the max authored
+/// `camera_zoom` over every `Starting`/`Active` encounter (`1.0` if none). The
+/// host publishes it into [`EncounterView`](crate::EncounterView) each tick.
+/// `max` (not first) so the result is order-independent — the encounter
+/// entities are queried, and query order is not stable.
+pub fn active_encounter_camera_zoom<'a>(
+    states: impl IntoIterator<Item = &'a EncounterState>,
+) -> f32 {
+    let mut zoom = 1.0_f32;
+    for state in states {
+        if matches!(
+            state.phase,
+            EncounterPhase::Starting { .. } | EncounterPhase::Active { .. }
+        ) {
+            if let Some(spec) = &state.spec {
+                zoom = zoom.max(spec.camera_zoom);
+            }
+        }
+    }
+    zoom
 }
 
 fn countdown_bar(remaining: f32, total: f32) -> String {

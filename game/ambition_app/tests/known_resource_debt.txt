@@ -70,10 +70,9 @@ ambition_dialog::bindings::YarnStateMirror
 ambition_dialog::bridge::DialogueRunnerEntity
 ambition_dialog::context::DialogueNodeIndex
 ambition_dialog::runtime::DialogState
-ambition_encounter::music::BossEncounterMusicRequest
+ambition_encounter::entity::EncounterView
 ambition_encounter::music::EncounterMusicRequest
 ambition_encounter::registry::EncounterRegistry
-ambition_encounter::state::EncounterState
 ambition_engine_core::control_frame::ControlFrame
 ambition_engine_core::world::RoomGeometry
 ambition_gameplay_trace::actor_trace::ActorTraceBuffer

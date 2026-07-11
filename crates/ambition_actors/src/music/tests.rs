@@ -4,7 +4,23 @@
 //! multi-binding iteration, and notes on the outro/restart race fix.
 
 use super::*;
-use crate::encounter::{EncounterPhase, EncounterRegistry, EncounterRun};
+use crate::encounter::{EncounterPhase, EncounterRun, EncounterState};
+use std::collections::HashMap;
+
+/// A live encounter state fixture at `phase` (E1: the resolvers read encounter
+/// entities via an `id -> &EncounterState` lookup, not the registry).
+fn state_with_phase(phase: EncounterPhase) -> EncounterState {
+    EncounterState {
+        phase,
+        ..Default::default()
+    }
+}
+
+/// A single-entry `id -> &EncounterState` lookup, matching what
+/// `compute_music_intent` builds from the encounter entities.
+fn lookup<'a>(id: &'a str, state: &'a EncounterState) -> HashMap<&'a str, &'a EncounterState> {
+    HashMap::from([(id, state)])
+}
 
 fn binding(encounter_id: &str, cue_id: &str) -> EncounterMusicBinding {
     EncounterMusicBinding {
@@ -26,44 +42,35 @@ fn director_with_active_cue(cue_id: Option<&str>) -> MusicDirectorState {
     s
 }
 
-fn registry_with_phase(encounter_id: &str, phase: EncounterPhase) -> EncounterRegistry {
-    let mut registry = EncounterRegistry::default();
-    let state = registry.ensure(encounter_id);
-    state.phase = phase;
-    registry
-}
-
 #[test]
 fn unknown_encounter_with_inactive_cue_returns_none() {
-    let registry = EncounterRegistry::default();
+    let states: HashMap<&str, &EncounterState> = HashMap::new();
     let director = director_with_active_cue(None);
     let bind = binding("nonexistent", "first_goblin_tune_v2");
-    assert!(resolve_directive_for_binding(&bind, &registry, &director).is_none());
+    assert!(resolve_directive_for_binding(&bind, &states, &director).is_none());
 }
 
 #[test]
 fn unknown_encounter_with_active_cue_returns_stop_now() {
-    let registry = EncounterRegistry::default();
+    let states: HashMap<&str, &EncounterState> = HashMap::new();
     // The cue is currently playing for an encounter that no longer
-    // exists in the registry — the resolver should stop it.
+    // exists — the resolver should stop it.
     let director = director_with_active_cue(Some("first_goblin_tune_v2"));
     let bind = binding("nonexistent", "first_goblin_tune_v2");
     assert_eq!(
-        resolve_directive_for_binding(&bind, &registry, &director),
+        resolve_directive_for_binding(&bind, &states, &director),
         Some(AdaptiveCueDirective::StopNow)
     );
 }
 
 #[test]
 fn starting_phase_returns_starting_state_play() {
-    let registry = registry_with_phase(
-        "goblin_encounter",
-        EncounterPhase::Starting { remaining: 1.0 },
-    );
+    let state = state_with_phase(EncounterPhase::Starting { remaining: 1.0 });
+    let states = lookup("goblin_encounter", &state);
     let director = director_with_active_cue(None);
     let bind = binding("goblin_encounter", "first_goblin_tune_v2");
     assert_eq!(
-        resolve_directive_for_binding(&bind, &registry, &director),
+        resolve_directive_for_binding(&bind, &states, &director),
         Some(AdaptiveCueDirective::Play {
             cue_id: "first_goblin_tune_v2".into(),
             state_id: "intro".into(),
@@ -73,17 +80,15 @@ fn starting_phase_returns_starting_state_play() {
 
 #[test]
 fn active_phase_uses_wave_state_by_index() {
-    let registry = registry_with_phase(
-        "goblin_encounter",
-        EncounterPhase::Active {
-            wave_index: 2,
-            remaining_mobs: 1,
-        },
-    );
+    let state = state_with_phase(EncounterPhase::Active {
+        wave_index: 2,
+        remaining_mobs: 1,
+    });
+    let states = lookup("goblin_encounter", &state);
     let director = director_with_active_cue(None);
     let bind = binding("goblin_encounter", "first_goblin_tune_v2");
     assert_eq!(
-        resolve_directive_for_binding(&bind, &registry, &director),
+        resolve_directive_for_binding(&bind, &states, &director),
         Some(AdaptiveCueDirective::Play {
             cue_id: "first_goblin_tune_v2".into(),
             state_id: "wave3".into(),
@@ -93,11 +98,12 @@ fn active_phase_uses_wave_state_by_index() {
 
 #[test]
 fn cleared_phase_returns_cleared_state_play() {
-    let registry = registry_with_phase("goblin_encounter", EncounterPhase::Cleared);
+    let state = state_with_phase(EncounterPhase::Cleared);
+    let states = lookup("goblin_encounter", &state);
     let director = director_with_active_cue(None);
     let bind = binding("goblin_encounter", "first_goblin_tune_v2");
     assert_eq!(
-        resolve_directive_for_binding(&bind, &registry, &director),
+        resolve_directive_for_binding(&bind, &states, &director),
         Some(AdaptiveCueDirective::Play {
             cue_id: "first_goblin_tune_v2".into(),
             state_id: "outro".into(),
@@ -107,34 +113,37 @@ fn cleared_phase_returns_cleared_state_play() {
 
 #[test]
 fn failed_phase_returns_stop_now() {
-    let registry = registry_with_phase("goblin_encounter", EncounterPhase::Failed);
+    let state = state_with_phase(EncounterPhase::Failed);
+    let states = lookup("goblin_encounter", &state);
     let director = director_with_active_cue(None);
     let bind = binding("goblin_encounter", "first_goblin_tune_v2");
     assert_eq!(
-        resolve_directive_for_binding(&bind, &registry, &director),
+        resolve_directive_for_binding(&bind, &states, &director),
         Some(AdaptiveCueDirective::StopNow)
     );
 }
 
 #[test]
 fn active_phase_wave2_promotes_to_reinforced_after_brute_delay() {
-    let mut registry = EncounterRegistry::default();
-    let state = registry.ensure("goblin_encounter");
-    state.phase = EncounterPhase::Active {
-        wave_index: 1,
-        remaining_mobs: 3,
-    };
-    // Simulate enough wave_elapsed time to trigger the
-    // wave2_reinforced_state promotion (LARGE_BRUTE_DELAY_SECONDS
-    // is the threshold).
-    state.run = EncounterRun {
-        wave_elapsed: LARGE_BRUTE_DELAY_SECONDS + 0.1,
+    let state = EncounterState {
+        phase: EncounterPhase::Active {
+            wave_index: 1,
+            remaining_mobs: 3,
+        },
+        // Simulate enough wave_elapsed time to trigger the
+        // wave2_reinforced_state promotion (LARGE_BRUTE_DELAY_SECONDS
+        // is the threshold).
+        run: EncounterRun {
+            wave_elapsed: LARGE_BRUTE_DELAY_SECONDS + 0.1,
+            ..Default::default()
+        },
         ..Default::default()
     };
+    let states = lookup("goblin_encounter", &state);
     let director = director_with_active_cue(None);
     let bind = binding("goblin_encounter", "first_goblin_tune_v2");
     assert_eq!(
-        resolve_directive_for_binding(&bind, &registry, &director),
+        resolve_directive_for_binding(&bind, &states, &director),
         Some(AdaptiveCueDirective::Play {
             cue_id: "first_goblin_tune_v2".into(),
             state_id: "wave2_brute".into(),
@@ -166,14 +175,13 @@ fn resolver_iterates_multiple_bindings() {
         wave2_reinforced_state: None,
         cleared_state: "outro".into(),
     });
-    let mut registry = EncounterRegistry::default();
-    let state = registry.ensure("imaginary_arena");
-    state.phase = EncounterPhase::Cleared;
+    let state = state_with_phase(EncounterPhase::Cleared);
+    let states = lookup("imaginary_arena", &state);
     let director = MusicDirectorState::default();
     // goblin_encounter binding has no encounter; imaginary_arena binding
     // is Cleared. The resolver iterates and returns the second
     // binding's Play directive.
-    let result = resolve_adaptive_directive(&catalog, &registry, &director);
+    let result = resolve_adaptive_directive(&catalog, &states, &director);
     assert!(matches!(result, Some(AdaptiveCueDirective::Play { .. })));
 }
 

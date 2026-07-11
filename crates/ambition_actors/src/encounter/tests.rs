@@ -217,33 +217,40 @@ fn switch_activation_rejects_non_switch_payload() {
 // ── EncounterRegistry ──────────────────────────────────────────
 
 #[test]
-fn registry_ensure_creates_default_state() {
+fn registry_indexes_encounter_ids_to_entities() {
+    // E1: the registry is a pure `id -> Entity` index; the live state lives on
+    // the entity's `EncounterState` component.
     let mut reg = EncounterRegistry::default();
-    let state = reg.ensure("goblin_encounter");
-    assert_eq!(state.phase, EncounterPhase::Inactive);
+    assert_eq!(reg.entity("goblin_encounter"), None);
+    let e = bevy::prelude::Entity::PLACEHOLDER;
+    reg.insert("goblin_encounter", e);
+    assert_eq!(reg.entity("goblin_encounter"), Some(e));
+    assert_eq!(reg.remove("goblin_encounter"), Some(e));
+    assert_eq!(reg.entity("goblin_encounter"), None);
 }
 
 #[test]
-fn registry_active_camera_zoom_picks_active_encounter() {
-    let mut reg = EncounterRegistry::default();
+fn active_camera_zoom_picks_active_encounter() {
     let mut spec = lab_spec();
     spec.camera_zoom = 1.6;
-    let state = reg.ensure("goblin_encounter");
-    state.spec = Some(spec);
+    let mut state = EncounterState {
+        spec: Some(spec),
+        ..Default::default()
+    };
     state.maybe_start(ae::Vec2::new(50.0, 50.0), ae::Vec2::new(20.0, 30.0));
-    assert_eq!(reg.active_camera_zoom(), 1.6);
+    assert_eq!(active_encounter_camera_zoom([&state]), 1.6);
 }
 
 #[test]
-fn registry_camera_zoom_falls_back_to_one_when_inactive() {
-    let mut reg = EncounterRegistry::default();
-    reg.ensure("goblin_encounter").spec = Some({
-        let mut s = lab_spec();
-        s.camera_zoom = 1.6;
-        s
-    });
+fn active_camera_zoom_falls_back_to_one_when_inactive() {
+    let mut spec = lab_spec();
+    spec.camera_zoom = 1.6;
+    let state = EncounterState {
+        spec: Some(spec),
+        ..Default::default()
+    };
     // Phase still Inactive — no zoom applied.
-    assert_eq!(reg.active_camera_zoom(), 1.0);
+    assert_eq!(active_encounter_camera_zoom([&state]), 1.0);
 }
 
 #[test]
@@ -593,22 +600,22 @@ fn encounter_reward_chest_pos_sits_on_trigger_floor() {
 #[test]
 fn lock_wall_is_derived_while_active_and_dropped_when_inactive() {
     use super::lock_walls::desired_lock_wall_blocks;
-    let mut reg = EncounterRegistry::default();
     let mut spec = lab_spec();
     spec.lock_wall = Some(LockWallSpec {
         min: [100.0, 100.0],
         size: [32.0, 200.0],
     });
-    let state = reg.ensure("goblin_encounter");
-    state.spec = Some(spec);
+    let mut state = EncounterState {
+        spec: Some(spec),
+        ..Default::default()
+    };
     state.maybe_start(ae::Vec2::new(50.0, 50.0), ae::Vec2::new(20.0, 30.0));
     // Starting/Active phase → the gate solid is derived this frame.
-    let blocks = desired_lock_wall_blocks(&reg);
+    let blocks = desired_lock_wall_blocks([("goblin_encounter", &state)]);
     assert!(blocks.iter().any(|b| b.name == "lockwall:goblin_encounter"));
     // Force back to Inactive — the overlay clears each frame, so "removal" is
     // simply the wall no longer being derived (no reconcile against a base).
-    let state = reg.ensure("goblin_encounter");
     state.phase = EncounterPhase::Inactive;
-    let blocks = desired_lock_wall_blocks(&reg);
+    let blocks = desired_lock_wall_blocks([("goblin_encounter", &state)]);
     assert!(!blocks.iter().any(|b| b.name == "lockwall:goblin_encounter"));
 }

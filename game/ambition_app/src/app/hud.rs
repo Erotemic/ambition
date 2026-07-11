@@ -75,11 +75,16 @@ pub(super) fn update_hud(
         &ambition::actors::boss_encounter::EncounterDef,
         &ambition::actors::boss_encounter::EncounterProgress,
     )>,
+    // E1: the wave HUD reads the live encounter ENTITIES (the registry is now
+    // just an index) — one line per in-flight wave encounter.
+    wave_encounters: Query<(
+        &ambition::encounter::Encounter,
+        &ambition::encounter::EncounterState,
+    )>,
     mut query: Query<&mut Text, With<HudText>>,
 ) {
     let _quest_registry = &progression.quests;
     let cutscene = &progression.cutscene;
-    let encounter_registry = &progression.encounters;
     let map_state = &progression.map;
     let Ok(mut text) = query.get_mut(entities.hud) else {
         return;
@@ -207,7 +212,7 @@ pub(super) fn update_hud(
     };
     let encounter_line = {
         let mut bits = Vec::new();
-        for (_id, state) in encounter_registry.encounters.iter() {
+        for (_enc, state) in &wave_encounters {
             if matches!(
                 state.phase,
                 ambition::encounter::EncounterPhase::Starting { .. }

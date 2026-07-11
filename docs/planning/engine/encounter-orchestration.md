@@ -457,7 +457,10 @@ methods from crate A — `EncounterRegistry::any_lock_active` and
 ### Progress
 
 - [x] **E0** baseline recorded; dead code removed.
-- [ ] **E1** canonical encounter entity + command seam (wave state → components).
+- [x] **E1** wave live-state is entity-owned; `EncounterRegistry` reduced to an
+      `id -> Entity` index; presentation read-model (`EncounterView`) introduced.
+      (Command-seam ingress reordered to E3, where it replaces switch/trigger
+      polling and thus deletes code — see below.)
 - [ ] **E2** generic participants + objectives.
 - [ ] **E3** generic timeline/effects.
 - [ ] **E4** boss composition (delete `sync_boss_encounter_entities`, auto-wrap).
@@ -485,7 +488,52 @@ the doc's completion bar ("Completion means one path is gone"), not a raw line
 count. Combined with the E0 dead-method deletions, net so far is ≈ −20 lines;
 the bulk of the ≥ 800-line target lands with the E1–E4/E7 entity migration.
 
-### Recommended next slice (E1) and why the heavy work was NOT rushed
+### E1 — wave live-state is entity-owned (landed 2026-07-11)
+
+The structural keystone: the wave encounter's live state is no longer a
+resource-owned `BTreeMap<String, EncounterState>`. Each live encounter is now a
+Bevy ENTITY carrying an `Encounter { id }` identity + its `EncounterState`
+component (both boss and wave encounters are entities now — the precondition for
+one snapshot representation, acceptance #9). Behaviour-preserving: the proven
+headless reducers (`maybe_start` / `tick_intro_or_wave` / `on_player_death` /
+`reset_for_retry`) are byte-unchanged, so the crate-A reducer tests and the
+118-test host suite stay valid; only the *authority* moved (resource map →
+entities).
+
+What changed:
+
+- `EncounterState`: `#[derive(Resource)]` → `#[derive(Component)]`. The dead
+  singleton `init_resource::<EncounterState>()` (nothing read `Res<EncounterState>`)
+  is deleted.
+- `EncounterRegistry`: the state-holding `BTreeMap<String, EncounterState>` is
+  reduced to an `ids: BTreeMap<String, Entity>` index (`entity`/`insert`/`remove`);
+  `get`/`get_mut`/`ensure`/`active_camera_zoom` deleted.
+- `EncounterRegistry::active_camera_zoom` (a method that read the states) →
+  free fn `active_encounter_camera_zoom(states)` using `max` (order-independent,
+  the entities are queried and query order is not stable).
+- `EncounterView` resource (new): the one cross-crate presentation read-model
+  (§6, started minimal). The host publishes `camera_zoom` each tick; the camera
+  (`ambition_sim_view`) reads `EncounterView` instead of reaching into the
+  registry — presentation is decoupled from the state representation.
+- `populate_encounter_registry` spawns one encounter entity per loaded spec.
+- `update_encounters_from_world` drives the entities via a
+  `Query<(&Encounter, &mut EncounterState)>` (registry Res dropped — lookups
+  iterate the query, keeping the system under Bevy's 16-param limit; the reward
+  sync now takes the cleared `(id, spec)` list, not the registry).
+- Consumers repointed to the entities: lock walls (`Query`), reward chests
+  (cleared list), music intent (`id -> &EncounterState` lookup built from the
+  query), HUD (`Query`), session reset (despawns the `Encounter` entities).
+
+Deleted symbols/paths: `EncounterState` as a resource (+ its `init_resource`);
+`EncounterRegistry::{encounters, get, get_mut, ensure, active_camera_zoom}`; the
+`Res<EncounterRegistry>` camera coupling. Net LOC is roughly neutral this slice
+(the entity plumbing + `EncounterView` offset the deleted registry methods) — the
+doc anticipated this: E1 pays the entity-plumbing cost that E2 (participants) and
+E3 (timeline collapses the wave state machine) then bank, and E4 deletes the boss
+duplicate. The win banked NOW is the removed resource-owned live-state authority
+(acceptance #10, half — the wave half).
+
+### Recommended next slice (superseded — E1 landed above)
 
 The two systems barely interact at runtime, so the remaining slices are a real
 multi-session migration that touches live wave state, boss content authoring,

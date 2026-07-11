@@ -11,18 +11,18 @@
 use ambition_engine_core as ae;
 use bevy::prelude::*;
 
-use super::{EncounterPhase, EncounterRegistry};
+use super::{Encounter, EncounterPhase, EncounterState};
 use crate::features::FeatureEcsWorldOverlay;
 
 /// The lock-wall solid blocks wanted THIS frame: one per Starting/Active
 /// encounter that has an authored `LockWall`. Block name format is
 /// `lockwall:<encounter_id>` so the render layer can surface them as
 /// `LockWallVisual` sprites (and a future per-id query can find them).
-pub(in crate::encounter) fn desired_lock_wall_blocks(
-    registry: &EncounterRegistry,
+pub(in crate::encounter) fn desired_lock_wall_blocks<'a>(
+    encounters: impl IntoIterator<Item = (&'a str, &'a EncounterState)>,
 ) -> Vec<ae::Block> {
     let mut blocks = Vec::new();
-    for (id, state) in &registry.encounters {
+    for (id, state) in encounters {
         if !matches!(
             state.phase,
             EncounterPhase::Starting { .. } | EncounterPhase::Active { .. }
@@ -47,12 +47,14 @@ pub(in crate::encounter) fn desired_lock_wall_blocks(
 /// Contribute the encounter lock walls to the per-frame collision overlay.
 /// Runs in `WorldPrep` after [`crate::features::rebuild_feature_ecs_world_overlay`]
 /// has cleared `gate_solids`, so the contribution is a clean per-frame derive of
-/// the encounter registry's live phase — no base mutation, no reconcile.
+/// the encounter entities' live phase — no base mutation, no reconcile.
 pub fn contribute_encounter_lock_walls(
-    registry: Res<EncounterRegistry>,
+    encounters: Query<(&Encounter, &EncounterState)>,
     mut overlay: ResMut<FeatureEcsWorldOverlay>,
 ) {
-    overlay
-        .gate_solids
-        .extend(desired_lock_wall_blocks(&registry));
+    overlay.gate_solids.extend(desired_lock_wall_blocks(
+        encounters
+            .iter()
+            .map(|(enc, state)| (enc.id.as_str(), state)),
+    ));
 }

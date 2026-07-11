@@ -99,6 +99,10 @@ pub fn process_sandbox_reset_request(
     mut commands: Commands,
     mut banner: ResMut<crate::features::GameplayBanner>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
+    // E1: the live wave encounters are entities now; despawn them so
+    // `populate_encounter_registry` (which the cleared `specs_loaded` flag
+    // re-arms) respawns them fresh from the empty save next frame.
+    encounter_entities: Query<Entity, With<ambition_encounter::Encounter>>,
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
@@ -132,6 +136,9 @@ pub fn process_sandbox_reset_request(
     //    `specs_loaded` / `initialized` back to false so the populate
     //    Update systems re-run on the next frame.
     *encounter_registry = EncounterRegistry::default();
+    for entity in &encounter_entities {
+        commands.entity(entity).despawn();
+    }
     *boss_registry = BossEncounterRegistry::default();
     *quest_registry = QuestRegistry::default();
     *music_request = EncounterMusicRequest::default();

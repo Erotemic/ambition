@@ -545,7 +545,7 @@ pub fn resolve_camera_observation(
     room_set: bevy::prelude::Res<ambition_actors::rooms::RoomSet>,
     time: bevy::prelude::Res<bevy::prelude::Time>,
     developer_tools: bevy::prelude::Res<ambition_dev_tools::dev_tools::DeveloperTools>,
-    encounter_registry: bevy::prelude::Res<ambition_encounter::EncounterRegistry>,
+    encounter_view: bevy::prelude::Res<ambition_encounter::EncounterView>,
     user_settings: bevy::prelude::Res<ambition_persistence::settings::UserSettings>,
     viewport: bevy::prelude::Res<CameraViewport>,
     extra_clamp: bevy::prelude::Res<CameraExtraClamp>,
@@ -577,7 +577,7 @@ pub fn resolve_camera_observation(
     };
     let base_view = ae::Vec2::new(base_view_w, base_view_h);
     let overview_scale = developer_tools.overview_camera_scale.max(1.0);
-    let encounter_scale = encounter_registry.active_camera_zoom().max(1.0);
+    let encounter_scale = encounter_view.camera_zoom.max(1.0);
 
     let Ok((mut player_body, player_base_size, blink_cam)) =
         player.single().map(|(b, bs, bc)| (*b, *bs, *bc))

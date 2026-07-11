@@ -25,7 +25,9 @@ mod state;
 mod switches;
 mod systems;
 
-pub use ambition_encounter::install_encounter_waves;
+pub use ambition_encounter::{
+    active_encounter_camera_zoom, install_encounter_waves, Encounter, EncounterView,
+};
 pub use events::EncounterEvent;
 pub use loading::load_encounter_specs_from_ldtk;
 pub use lock_walls::contribute_encounter_lock_walls;

@@ -1,6 +1,8 @@
-//! `EncounterRegistry` resource: the multi-encounter holder keyed by id
-//! (matching LDtk `EncounterTrigger.id`), so the sandbox runs several
-//! encounters at once. Also `SwitchActivation` — the typed
+//! `EncounterRegistry` resource: the `id -> Entity` INDEX into the live
+//! encounter entities (E1 — the live state lives on the entity's
+//! [`EncounterState`](crate::EncounterState) component, not here). Keyed by id
+//! (matching LDtk `EncounterTrigger.id`) so consumers resolve an id to its
+//! entity in one hop. Also `SwitchActivation` — the typed
 //! `switch:<id>:<action>:<target>` payload parsed once at LDtk→ECS spawn and
 //! consumed by the switch-arming gate (`switches.rs`) and the encounter tick.
 
@@ -8,15 +10,14 @@ use std::collections::BTreeMap;
 
 use bevy::prelude::*;
 
-use super::{EncounterPhase, EncounterState};
-
-/// Multi-encounter registry. Keyed by encounter id (matching the
-/// `EncounterTrigger.id` field in LDtk). Replaces the older
-/// single-encounter `Res<EncounterState>` so the sandbox can carry
-/// more than one encounter at once.
+/// Index from encounter id → the live encounter entity that owns its
+/// [`EncounterState`](crate::EncounterState). Reduced from the old
+/// state-holding map to a pure index at E1: the entity is the sole live-state
+/// authority, so nothing is duplicated here.
 #[derive(Resource, Default)]
 pub struct EncounterRegistry {
-    pub encounters: BTreeMap<String, EncounterState>,
+    /// Encounter id → live encounter entity.
+    pub ids: BTreeMap<String, Entity>,
     /// Tracks whether the current LDtk file has been scanned for
     /// encounter triggers yet. Reset by hot reload so an edited LDtk
     /// re-populates the specs.
@@ -24,36 +25,19 @@ pub struct EncounterRegistry {
 }
 
 impl EncounterRegistry {
-    pub fn get(&self, id: &str) -> Option<&EncounterState> {
-        self.encounters.get(id)
+    /// The live entity for an encounter id, if one is spawned.
+    pub fn entity(&self, id: &str) -> Option<Entity> {
+        self.ids.get(id).copied()
     }
 
-    pub fn get_mut(&mut self, id: &str) -> Option<&mut EncounterState> {
-        self.encounters.get_mut(id)
+    /// Record (or replace) the live entity for an encounter id.
+    pub fn insert(&mut self, id: impl Into<String>, entity: Entity) {
+        self.ids.insert(id.into(), entity);
     }
 
-    pub fn ensure(&mut self, id: &str) -> &mut EncounterState {
-        self.encounters.entry(id.to_string()).or_default()
-    }
-
-    /// Camera zoom multiplier sourced from the active encounter (if
-    /// any). 1.0 if no encounter is in flight. The camera starts
-    /// zooming during `Starting` so the ramp finishes before wave 1
-    /// spawns.
-    pub fn active_camera_zoom(&self) -> f32 {
-        for state in self.encounters.values() {
-            if matches!(
-                state.phase,
-                EncounterPhase::Starting { .. } | EncounterPhase::Active { .. }
-            ) {
-                if let Some(spec) = &state.spec {
-                    if spec.camera_zoom > 1.0 {
-                        return spec.camera_zoom;
-                    }
-                }
-            }
-        }
-        1.0
+    /// Forget an encounter id (its entity despawned / room changed).
+    pub fn remove(&mut self, id: &str) -> Option<Entity> {
+        self.ids.remove(id)
     }
 }
 

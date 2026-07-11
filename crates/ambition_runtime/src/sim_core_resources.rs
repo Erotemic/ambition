@@ -87,10 +87,11 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_projectiles::enemy::EnemyProjectileState>()
             // Anti-clump attack slot arbitration.
             .init_resource::<ambition_actors::combat::slots::CombatSlotsRes>()
-            // Encounter system: the live multi-encounter store is
-            // `EncounterRegistry`, populated from the installed world.
-            .init_resource::<ambition_encounter::EncounterState>()
+            // Encounter system (E1): the live state lives on the encounter
+            // ENTITIES; `EncounterRegistry` is the `id -> Entity` index and
+            // `EncounterView` is the cross-crate presentation read-model.
             .init_resource::<ambition_encounter::EncounterRegistry>()
+            .init_resource::<ambition_encounter::EncounterView>()
             .init_resource::<ambition_actors::encounter::SwitchActivationQueue>()
             .init_resource::<ambition_actors::encounter::EncounterSwitchIndex>()
             // One encounter music-intent stream: every encounter source writes

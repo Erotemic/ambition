@@ -28,7 +28,8 @@ Entry format:
 - **Noticed while:** the controlled-body pass (portal gun → holder).
 - **Suggested fix / size:** M — resolve `ControlledSubject` (fallback primary) and gate these on the transited body being the controlled subject, mirroring the input/fire adapters. Needs the transit event to carry / be matched against the controlled body.
 
-## 2026-07-01 Docs reference a removed `CharacterArchetype` (né `EnemyArchetype`) ENUM
+## 2026-07-01 Docs reference a removed `CharacterArchetype` (né `EnemyArchetype`) ENUM — ✅ RESOLVED 2026-07-11
+- **RESOLUTION:** the actual live stale refs (7, most of the original 8 had already been fixed by later refactors) reworded to the real path (`spec_for_brain`: brain key → `CharacterArchetypeSpec`): `spawn_actors.rs:75,882` + `entity_catalog/placements.rs:71` (Rust doc), and 4 RON comments (`character_catalog.ron` ×3, `character_archetypes.ron` ×1). `enemies/mod.rs:553` is CORRECT as-is (it names the *deleted* `CharacterArchetype::X.spec()` to explain what its test fixture replaced). Pure docs; no code change.
 - **Where:** 8 sites — `features/ecs/spawn_actors.rs:75,641`, `features/enemies/mod.rs:527`, `ambition_characters/src/actor/mod.rs:186`, and comments in `character_catalog.ron` / `character_archetypes.ron`.
 - **Smell:** doc comments call methods on a `CharacterArchetype` enum (`::from_brain`, `::attacks_player`, `::RangedSkirmisher`, `::X.spec()`) that no longer exists — the named-archetype enum was removed in an earlier refactor; only the `CharacterArchetypeSpec` STRUCT + a brain-key string map (`CharacterRoster`) remain. Classic docs-describe-dead-things (per the standing rule). Surfaced during the step-6 roster rename (the `Enemy*`→`Character*` sed renamed the dead refs in place, so they now read `CharacterArchetype::…`).
 - **Noticed while:** unified-actors step-6 rename (character-roster vocabulary).

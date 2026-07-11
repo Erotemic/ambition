@@ -1293,7 +1293,7 @@
         ),
         hall_dialogue_id: Some("hall_npc_goblin_forest_spear"),
         ),
-        // Sandbox kiter enemy (CharacterArchetype::RangedSkirmisher). The spawn's
+        // Sandbox kiter enemy (the ranged-skirmisher archetype). The spawn's
         // display name is "Skirmisher", which is how the renderer resolves it.
         "npc_ranged_skirmisher": (
             display_name: "Skirmisher",
@@ -1312,7 +1312,7 @@
         ),
         hall_dialogue_id: Some("hall_npc_ranged_skirmisher"),
         ),
-        // Sandbox kamikaze mite (CharacterArchetype::ExplodingMite); spawn name "Exploding Mite".
+        // Sandbox kamikaze mite (the exploding-mite archetype); spawn name "Exploding Mite".
         "npc_exploding_mite": (
             display_name: "Exploding Mite",
             spritesheet: "sprites/exploding_mite_spritesheet.png",
@@ -1330,7 +1330,7 @@
         ),
         hall_dialogue_id: Some("hall_npc_exploding_mite"),
         ),
-        // Sandbox splitter mite (CharacterArchetype::DividingMite); spawn name "Dividing Mite".
+        // Sandbox splitter mite (the dividing-mite archetype); spawn name "Dividing Mite".
         "npc_dividing_mite": (
             display_name: "Dividing Mite",
             spritesheet: "sprites/dividing_mite_spritesheet.png",

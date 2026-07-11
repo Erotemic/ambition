@@ -681,8 +681,8 @@
         brain_template: StandStill,
         move_style: WalkHeavy,
     ),
-    // Cove crew. Peaceful by default because aggro_radius stays 0 and
-    // `CharacterArchetype::attacks_player()` is false, but the archetype now
+    // Cove crew. Peaceful by default because aggro_radius stays 0 (the archetype
+    // has no attacks-player disposition), but the archetype now
     // still carries its own melee capability. That lets systems that
     // explicitly force a PirateHeavy hostile (provoked cove crew or a
     // shark rider after dismount) reuse the same body/action tuning instead

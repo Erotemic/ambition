@@ -72,8 +72,8 @@ pub enum SpawnActorKind {
         brain: ambition_entity_catalog::placements::BossBrain,
         overrides: BossOverrides,
     },
-    /// A hostile enemy, resolved through `CharacterArchetype::from_brain` — the same
-    /// path a room `EnemySpawn` takes.
+    /// A hostile enemy, resolved through `spec_for_brain` (brain key →
+    /// `CharacterArchetypeSpec`) — the same path a room `EnemySpawn` takes.
     Enemy {
         brain: ambition_entity_catalog::placements::CharacterBrain,
     },
@@ -879,7 +879,7 @@ pub(super) fn spawn_boss_with_overrides(
 ///
 /// `archetype_id` matches one of the strings in `BRAIN_NAME_TO_ARCHETYPE`
 /// (`"puppy_slug"`, `"small_lurker"`, …); unknown strings fall back
-/// to `Combatant` via `CharacterArchetype::from_brain`. `half_size` is
+/// to `Combatant` via `spec_for_brain`. `half_size` is
 /// the spawn AABB half-extent (the archetype spec's `default_size`
 /// usually overrides this anyway). `id` should be unique per spawn
 /// so per-entity systems don't collide on identity. `encounter_id`

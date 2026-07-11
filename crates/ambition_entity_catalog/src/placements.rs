@@ -68,7 +68,7 @@ pub enum HazardRespawn {
 }
 
 /// Authored enemy behavior tag. The sandbox maps `Custom(name)` to its
-/// own `CharacterArchetype` via `CharacterArchetype::from_brain`; the engine
+/// own `CharacterArchetypeSpec` via `spec_for_brain`; the engine
 /// only carries this enum as a typed payload between LDtk authoring
 /// and sandbox dispatch.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]

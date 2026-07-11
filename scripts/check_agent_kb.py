@@ -134,7 +134,13 @@ STALE_RECIPE_OR_SYSTEM_PATTERNS = [
 ]
 
 
-PLANNING_TOTAL_MAX_LINES = 10_500
+# A SOFT budget on the whole planning corpus, surfaced as a WARNING, not an error.
+# Planning legitimately runs ahead of the code — a long roadmap is not a defect — so
+# a hard cap on total lines is the wrong tool. The nudge it carries is real, though:
+# when the corpus grows, archive the parts that are LONG DONE rather than trimming
+# live plans. The hard discipline lives in `PLANNING_FILE_MAX_LINES` (each
+# always-live index file stays lean) and the stale-phrasing patterns below.
+PLANNING_TOTAL_SOFT_BUDGET = 10_500
 PLANNING_FILE_MAX_LINES = {
     "docs/planning/README.md": 100,
     "docs/planning/status.md": 180,
@@ -777,17 +783,18 @@ def large_inline_test_debt() -> set[str]:
     return debt
 
 
-def check_planning_front_end(errors: list[str]) -> None:
+def check_planning_front_end(errors: list[str], warnings: list[str]) -> None:
     files = planning_markdown_files()
     total_lines = sum(
         len(path.read_text(encoding="utf-8", errors="replace").splitlines())
         for path in files
     )
-    if total_lines > PLANNING_TOTAL_MAX_LINES:
-        fail(
-            errors,
-            f"docs/planning has {total_lines} lines; keep it <= {PLANNING_TOTAL_MAX_LINES} "
-            "by archiving execution history",
+    if total_lines > PLANNING_TOTAL_SOFT_BUDGET:
+        # A nudge, not a gate: planning ahead is legitimate. Clean up long-done
+        # history into docs/archive rather than trimming live plans.
+        warnings.append(
+            f"docs/planning has {total_lines} lines (soft budget {PLANNING_TOTAL_SOFT_BUDGET}); "
+            "archive sections that are long done rather than trimming live plans",
         )
 
     for rpath, limit in PLANNING_FILE_MAX_LINES.items():
@@ -1100,6 +1107,7 @@ def check_code_comment_link_self_test(errors: list[str]) -> None:
 
 def main() -> int:
     errors: list[str] = []
+    warnings: list[str] = []
     check_required_files(errors)
     check_forbidden_live_paths(errors)
     check_top_level_docs(errors)
@@ -1114,10 +1122,14 @@ def main() -> int:
     check_adr_current_implications(errors)
     check_active_doc_phrasing(errors)
     check_planning_checker_self_test(errors)
-    check_planning_front_end(errors)
+    check_planning_front_end(errors, warnings)
     check_planning_evidence(errors)
     check_archive_duplicates(errors)
     check_tool_docs(errors)
+    if warnings:
+        print("Agent KB warnings (non-fatal):", file=sys.stderr)
+        for msg in warnings:
+            print(f"- {msg}", file=sys.stderr)
     if errors:
         print("Agent KB check failed:", file=sys.stderr)
         for msg in errors:

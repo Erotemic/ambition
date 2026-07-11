@@ -28,6 +28,11 @@ pub const SPEEDWAY_ROOM_ID: &str = "sanic_speedway";
 /// `hosted()` / `global()` constructor flag is the D-C pattern made real.
 pub const SANIC_MODE: &str = "sanic";
 
+/// Authored soundtrack for the standalone Sanic demo. The rendered asset lives
+/// in the shared engine asset tree beside the other generated music tracks.
+pub const SANIC_MUSIC_ASSET_PATH: &str =
+    "audio/music/generated/you_are_too_slow/full.ogg";
+
 /// Number of segments in the generated Sonic loop polygon.
 const LOOP_SEGMENTS: usize = 24;
 
@@ -112,6 +117,11 @@ impl Plugin for SanicDemoContentPlugin {
         use bevy::prelude::IntoScheduleConfigs;
 
         ambition::runtime::demo_fixture::install_character_catalog(SANIC_CATALOG_RON);
+        // The demo's player is explicitly the speedster rather than relying on
+        // whichever row happens to be the installed catalog default.
+        app.insert_resource(ambition::runtime::demo_fixture::StartingCharacter::new(
+            "sanic",
+        ));
         let room = sanic_speedway();
         app.insert_resource(ae::RoomGeometry(room.world.clone()));
         app.insert_resource(ActiveRoomMetadata(room.metadata.clone()));

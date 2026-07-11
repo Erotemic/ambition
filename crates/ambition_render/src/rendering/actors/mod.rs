@@ -33,6 +33,25 @@ pub use animation::*;
 pub use boss::*;
 pub use overlays::*;
 
+/// Ensure every simulation-owned player visual has a renderable sprite.
+///
+/// The full Ambition app binds an authored character sheet in its app-local
+/// presentation setup. Reusable demo shells intentionally do not depend on that
+/// app crate, so their `simulation_world` player otherwise carries `PlayerVisual`
+/// without the `Sprite` required by [`sync_visuals`]. Insert a neutral rectangle
+/// here; the normal character-sheet upgrade path may replace it later.
+pub fn ensure_player_visual_sprite(
+    mut commands: Commands,
+    players: Query<Entity, (With<PlayerVisual>, Without<Sprite>)>,
+) {
+    for entity in &players {
+        commands.entity(entity).insert(Sprite::from_color(
+            Color::srgba(0.18, 0.55, 1.0, 1.0),
+            BVec2::ONE,
+        ));
+    }
+}
+
 pub fn sync_visuals(
     world: Res<ambition_engine_core::RoomGeometry>,
     entities: Res<SceneEntities>,

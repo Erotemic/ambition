@@ -50,6 +50,28 @@ fn the_demo_spawns_the_rooms_static_visuals() {
     );
 }
 
+#[test]
+fn the_demo_spawns_a_renderable_player_sprite() {
+    let mut app = drawn_demo();
+    app.update();
+
+    let visible_players = {
+        let mut q = app.world_mut().query_filtered::<
+            Entity,
+            (
+                With<ambition::platformer::lifecycle::PlayerVisual>,
+                With<Sprite>,
+            ),
+        >();
+        q.iter(app.world()).count()
+    };
+    assert_eq!(
+        visible_players, 1,
+        "the generic presentation face must attach a fallback Sprite to the
+         simulation-owned PlayerVisual; otherwise demos draw the room but no player"
+    );
+}
+
 /// The camera the host's `camera_follow` drives. Before OV1 the app spawned it;
 /// a demo that added the host group got follow logic pointed at nothing.
 #[test]

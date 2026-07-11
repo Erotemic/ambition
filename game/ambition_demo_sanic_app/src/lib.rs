@@ -6,6 +6,8 @@
 use bevy::prelude::*;
 
 use ambition_demo_sanic::{SanicDemoContentPlugin, SanicRulesPlugin};
+#[cfg(feature = "visible")]
+use ambition_demo_sanic::SANIC_MUSIC_ASSET_PATH;
 
 /// Assemble the demo: foundation + the engine group + the host group + this
 /// demo's content and rules. **Zero engine edits, zero `ambition_app`.**
@@ -28,9 +30,9 @@ pub fn build_demo_app() -> App {
 /// The same demo, DRAWN — foundation swapped for `DefaultPlugins`, plus the
 /// engine's generic presentation face (oracle-violation OV1).
 ///
-/// The only difference from [`build_demo_app`] is the first call and one added
-/// plugin. That is the claim the demos doctrine makes about a `<name>_app` shell,
-/// and it is now true rather than aspirational.
+/// The simulation/content composition is identical to [`build_demo_app`]. The
+/// visible shell swaps the foundation, adds the generic presentation face, and
+/// starts this demo's authored soundtrack when it owns a real window.
 ///
 /// `render` decides whether a rasterizer is created. `RenderMode::Headless` builds
 /// the full render graph against **no wgpu backend** and opens no window — the
@@ -44,21 +46,28 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
     use bevy::window::{ExitCondition, WindowPlugin};
 
     let mut app = App::new();
-    let plugins = DefaultPlugins.set(WindowPlugin {
-        primary_window: match render {
-            RenderMode::Windowed => Some(Window {
-                title: "Sanic — momentum demo".into(),
-                ..default()
-            }),
-            RenderMode::Headless => None,
-        },
-        exit_condition: match render {
-            RenderMode::Windowed => ExitCondition::OnAllClosed,
-            RenderMode::Headless => ExitCondition::DontExit,
-        },
-        close_when_requested: matches!(render, RenderMode::Windowed),
-        ..default()
-    });
+    let asset_root = desktop_asset_root();
+    eprintln!("sanic_demo: asset root = {asset_root}");
+    let plugins = DefaultPlugins
+        .set(bevy::asset::AssetPlugin {
+            file_path: asset_root,
+            ..default()
+        })
+        .set(WindowPlugin {
+            primary_window: match render {
+                RenderMode::Windowed => Some(Window {
+                    title: "Sanic — momentum demo".into(),
+                    ..default()
+                }),
+                RenderMode::Headless => None,
+            },
+            exit_condition: match render {
+                RenderMode::Windowed => ExitCondition::OnAllClosed,
+                RenderMode::Headless => ExitCondition::DontExit,
+            },
+            close_when_requested: matches!(render, RenderMode::Windowed),
+            ..default()
+        });
     match render {
         RenderMode::Windowed => app.add_plugins(plugins),
         RenderMode::Headless => app.add_plugins(
@@ -73,6 +82,11 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
                 .disable::<bevy::winit::WinitPlugin>(),
         ),
     };
+    if matches!(render, RenderMode::Windowed) {
+        // Keep headless render tests independent of the host audio device.
+        app.add_plugins(bevy_kira_audio::prelude::AudioPlugin);
+        app.add_systems(Startup, start_sanic_music);
+    }
     ambition::engine::init_engine_states(&mut app);
     app.add_plugins(ambition::engine::PlatformerEnginePlugins::fixed_tick());
     app.add_plugins(ambition::windowed_host::PlatformerHostPlugins);
@@ -91,4 +105,50 @@ pub enum RenderMode {
     Windowed,
     /// The render graph, no backend, no window. What CI wants.
     Headless,
+}
+
+#[cfg(all(feature = "visible", not(target_arch = "wasm32")))]
+fn desktop_asset_root() -> String {
+    if std::env::var_os("BEVY_ASSET_ROOT").is_some() {
+        return "assets".to_string();
+    }
+    let shared_assets = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../crates/ambition_actors/assets");
+    match shared_assets.canonicalize() {
+        Ok(path) if path.is_dir() => path.to_string_lossy().into_owned(),
+        _ => "assets".to_string(),
+    }
+}
+
+#[cfg(all(feature = "visible", target_arch = "wasm32"))]
+fn desktop_asset_root() -> String {
+    "assets".to_string()
+}
+
+#[cfg(feature = "visible")]
+fn start_sanic_music(
+    asset_server: Res<AssetServer>,
+    audio: Res<bevy_kira_audio::prelude::Audio>,
+) {
+    use bevy_kira_audio::prelude::AudioControl;
+
+    audio
+        .play(asset_server.load(SANIC_MUSIC_ASSET_PATH))
+        .looped();
+}
+
+#[cfg(all(test, feature = "visible", not(target_arch = "wasm32")))]
+mod tests {
+    #[test]
+    fn development_asset_root_contains_the_shared_shader_tree() {
+        if std::env::var_os("BEVY_ASSET_ROOT").is_some() {
+            return;
+        }
+        let root = std::path::PathBuf::from(super::desktop_asset_root());
+        assert!(
+            root.join("shaders/hit_flash.wgsl").is_file(),
+            "Sanic's visible shell must resolve the shared Ambition asset tree; got {}",
+            root.display()
+        );
+    }
 }

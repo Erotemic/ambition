@@ -28,10 +28,10 @@
 //!
 //! By default it draws nothing and prints what the sim knows — the sim-only shell,
 //! which pays for no renderer at all. **Built with `--features visible` it opens a
-//! window and draws the speedway**, adding exactly one plugin:
-//! `ambition_render`'s `PlatformerPresentationPlugin` (the engine's generic
-//! presentation face, minted to close oracle-violation OV1). No HUD, no menus, no
-//! dev overlays — those are the GAME's, and `ambition_app` still assembles them.
+//! window, draws the speedway and player, and loops the authored “You Are Too
+//! Slow” track.** It adds the generic `PlatformerPresentationPlugin` plus the
+//! demo-owned soundtrack. No HUD, no menus, no dev overlays — those are the
+//! GAME's, and `ambition_app` still assembles them.
 //!
 //! ```console
 //! $ cargo run -p ambition_demo_sanic_app --bin sanic_demo -- --ticks 600

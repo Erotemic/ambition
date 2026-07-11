@@ -378,6 +378,7 @@ dependencies = [
  "ambition",
  "ambition_demo_sanic",
  "bevy",
+ "bevy_kira_audio",
 ]
 
 [[package]]

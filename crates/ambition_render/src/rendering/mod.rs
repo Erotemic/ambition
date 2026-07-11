@@ -211,6 +211,10 @@ impl bevy::prelude::Plugin for PresentationVisualAnimationPlugin {
                 // Spawn visual entities for encounter-spawned enemies
                 // BEFORE sync_visuals reads positions for them.
                 features::spawn_dynamic_feature_visuals,
+                // Demo shells create the simulation player without the app-local
+                // character-sheet binding. Give every PlayerVisual a drawable
+                // fallback before sync_visuals queries `&mut Sprite`.
+                actors::ensure_player_visual_sprite,
                 actors::sync_visuals,
                 actors::upgrade_actor_sprites,
                 // Grouped (parallel within their chain slot): player-sprite and

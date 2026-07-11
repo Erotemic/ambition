@@ -341,8 +341,8 @@ fn an_empty_telegraph_spec_reads_as_no_telegraph_at_all() {
 }
 
 /// An attack with no telegraph identity is a WARNING today, because the shipped
-/// roster authors none. §3 promises an error after BD7's pilot; this test is
-/// where that promise gets kept.
+/// roster authors none. Promotion to a hard error requires calibration and a
+/// separate maintainer decision; this test pins the warning behavior.
 #[test]
 fn unidentified_telegraphs_are_reported_once_per_fight_not_once_per_beat() {
     let mut steps = strike("floor_slam", 1.0, 0.4);

@@ -25,8 +25,8 @@
 //! | 1 telegraph proportionality | ✅ per beat, against the threat class its seed declares |
 //! | 2 answer coverage | ✅ both halves: an empty `fair_counters` is an ERROR; a fight that fails to demand a core verb is a WARNING |
 //! | 3 commitment (punish window) | ✅ per beat, from the following `Rest`; `Pressure` is exempt |
-//! | 4 simultaneity budget | ❌ **not expressible.** A scripted timeline is sequential, so its body-mounted volumes never overlap. The threats that DO overlap are the `zone_denial` hazards a `Special` spawns, whose lifetime lives in the content technique's private consts (`MINIMA_TRAP_HAZARD_DURATION_S`), not in any authored row. This rule needs a `persists_s` on the seed, fed by the technique. |
-//! | 5 readability floor | ✅ **since BD3.** Two distinct attacks may not share a `(pose, cue)` telegraph identity. An attack that authors NO identity is reported once per fight — a warning today, because the shipped roster authors none, and §3's "attacks without a telegraph event FAIL" is a promise for after BD7's pilot. |
+//! | 4 simultaneity budget | ❌ **not expressible.** A scripted timeline is sequential, so its body-mounted volumes never overlap. The threats that DO overlap are the `zone_denial` hazards a `Special` spawns, whose lifetime lives in the content technique's private consts (`MINIMA_TRAP_HAZARD_DURATION_S`), not in any authored row. The diagnostic needs authored or runtime-visible threat lifetime + overlap the validator can integrate; a seed-level `persists_s` fed by the spawning technique is ONE candidate representation, not settled architecture. |
+//! | 5 readability floor | ✅ **since BD3.** Two distinct attacks may not share a `(pose, cue)` telegraph identity. An attack that authors NO identity is reported once per fight — a warning today, because the shipped roster authors none. Promotion of that warning to a hard error requires successful calibration and a separate maintainer decision (not automatically after BD7). |
 //!
 //! Naming the two gaps here, in the code, rather than shipping a rule that checks
 //! something adjacent and reports green.
@@ -381,8 +381,9 @@ pub fn validate_fight(
             rule: Rule::ReadabilityFloor,
             subject: fight_id.to_string(),
             detail: format!(
-                "{} attack(s) author no telegraph (pose or cue): {unidentified:?}. §3 \
-                 makes this an ERROR after BD7's pilot; today the roster authors none.",
+                "{} attack(s) author no telegraph (pose or cue): {unidentified:?}. \
+                 Promotion to a hard error requires calibration and a separate \
+                 maintainer decision; today the roster authors none.",
                 unidentified.len()
             ),
         });

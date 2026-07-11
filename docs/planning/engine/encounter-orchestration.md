@@ -484,3 +484,26 @@ prevents the old clobber bug). The win is a removed *state authority*, which is
 the doc's completion bar ("Completion means one path is gone"), not a raw line
 count. Combined with the E0 dead-method deletions, net so far is ≈ −20 lines;
 the bulk of the ≥ 800-line target lands with the E1–E4/E7 entity migration.
+
+### Recommended next slice (E1) and why the heavy work was NOT rushed
+
+The two systems barely interact at runtime, so the remaining slices are a real
+multi-session migration that touches live wave state, boss content authoring,
+the HUD/camera/save adapters, and in-game feel (wave timing, lock walls, camera
+zoom, boss music/lock-wall pacing) that only the sim + Jon's eye can verify.
+Each slice must compile and delete a path in the same commit (this doc's own
+mandate), so they were deliberately not batched into one unverifiable push.
+
+**Start E1 here:** the *wave* live state (`EncounterRegistry: BTreeMap<String,
+EncounterState>` in crate A) is the last resource-owned encounter authority; the
+boss side is already an entity (`EncounterDef`). E1 moves the wave lifecycle
+(`maybe_start` / `tick_intro_or_wave` / `on_player_death` reducers in
+`ambition_encounter/state.rs`) onto components and reduces `EncounterRegistry`
+to an index, then adds the generic `Start/Fail/Complete/Signal` command ingress
+(§4). Blast radius (from the E0 consumer map): the ~355-line
+`ambition_actors/encounter/systems.rs` monolith, plus HUD
+(`ambition_app/app/hud.rs`), camera (`ambition_sim_view/camera_snapshot.rs`),
+music intent, reward chests, switches, lock walls, and save projection. Build a
+parity harness against the existing `ambition_actors/encounter/tests.rs` (118
+green tests) FIRST, then port. Do E1 as its own commit before E2 touches
+participants/roles.

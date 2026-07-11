@@ -405,3 +405,72 @@ Sanic should eventually prove two non-boss encounter shapes:
 
 Do not block the immediate Sanic input/character-presentation recovery on this
 refactor. The recovery plan is [`../demos/sanic-recovery.md`](../demos/sanic-recovery.md).
+
+## Execution ledger
+
+Living record of what has actually landed. Update it in the same commit as the
+code. **Units are stated explicitly** because a bare "LOC" figure conflates
+production and test lines (a source of past confusion).
+
+### E0 — baseline (measured 2026-07-11, `cargo`-independent `wc -l` + cfg(test) split)
+
+The migration surface, by group (prod = non-test source, test = `#[cfg(test)]`
+blocks and `*tests.rs` files):
+
+| Group | What | prod | test | total |
+|---|---|---:|---:|---:|
+| A | `ambition_encounter/src` (generic wave crate) | 815 | 267 | 1,082 |
+| B | `ambition_actors/src/boss_encounter/{encounter_entity,encounter_script,events,registry,systems}` (+ their `tests.rs`) | 1,093 | 542 | 1,635 |
+| C | `ambition_characters/src/boss_encounter.rs` (+ `phase_mechanism_tests.rs`) — the actor-local phase module | 436 | 233 | 669 |
+| **A+B+C** | **the doc's "~3,681" migration surface** | **2,344** | **1,042** | **3,386** |
+| D | `ambition_actors/src/encounter/*` (the Bevy host adapter wrapping crate A) | 808 | 740 | 1,548 |
+| **A+B+C+D** | **full runtime surface incl. wave host** | **3,152** | **1,782** | **4,934** |
+
+The `LOC acceptance` target (≥ 800 total source lines removed, stretch 1,200+) is
+tracked against the **A+B+C total = 3,386** baseline unless a slice explicitly
+touches group D.
+
+**Consumer map (recorded so the heavy slices are turn-key):**
+
+- *Generic wave crate A* is reached almost entirely through two facades:
+  `ambition::encounter` (`crates/ambition/src/lib.rs` `pub use ambition_encounter as encounter`)
+  and the host module `ambition_actors::encounter` (thin re-export shims). The
+  live state authority is the resource pair `EncounterState`/`EncounterRegistry`,
+  driven by `ambition_actors::encounter::systems::update_encounters_from_world`
+  (one ~355-line monolith). Consumers: HUD (`ambition_app/app/hud.rs`), camera
+  zoom (`ambition_sim_view/camera_snapshot.rs`), music intent
+  (`ambition_actors/music/intent.rs`), reward chests
+  (`ambition_actors/features/ecs/encounter_rewards.rs`), switches, lock walls,
+  save projection, session reset.
+- *Boss orchestration B* is wired in exactly one schedule
+  (`ambition_runtime/progression_schedule.rs`, the boss `.chain()`), inits its
+  registry in `ambition_runtime/sim_core_resources.rs`, and is authored as
+  content in `game/ambition_content/src/bosses/**` (the cut-rope fight is the
+  only content author of `EncounterScript`/beats). HUD reads
+  `EncounterDef`+`EncounterProgress`. `sync_boss_encounter_entities` auto-wraps
+  every woken boss (the E4 deletion target).
+
+**E0 down-payment deletions (this commit):** removed two confirmed-dead public
+methods from crate A — `EncounterRegistry::any_lock_active` and
+`EncounterState::celebratory_banner` (grep-verified zero call sites).
+
+### Progress
+
+- [x] **E0** baseline recorded; dead code removed.
+- [ ] **E1** canonical encounter entity + command seam (wave state → components).
+- [ ] **E2** generic participants + objectives.
+- [ ] **E3** generic timeline/effects.
+- [ ] **E4** boss composition (delete `sync_boss_encounter_entities`, auto-wrap).
+- [ ] **E5** generalize actor-local phase vocabulary.
+- [ ] **E6** persistence/snapshot/presentation convergence — *music sub-slice
+      landed early (see below): one prioritized encounter music stream.*
+- [ ] **E7** deletion + LOC audit.
+
+**Out-of-order E6 music sub-slice (landed early — self-contained, no feel risk):**
+the two music-intent resources `EncounterMusicRequest` and
+`BossEncounterMusicRequest` are collapsed into one `EncounterMusicRequest` with
+explicit per-source fields (`boss_track` > `wave_track`) and a `desired_track()`
+resolver, satisfying §6 ("one encounter music-intent stream with explicit
+priority/source"). This deletes the whole `BossEncounterMusicRequest` type and
+its ~14 references — a named E7 deletion target retired ahead of the entity
+migration because it does not depend on it.

@@ -381,18 +381,6 @@ impl EncounterState {
             EncounterPhase::Failed => format!("[{id}] FAILED — reset to retry"),
         }
     }
-
-    /// Human-readable status for the encounter's first cleared event,
-    /// surfaced as a HUD banner on the frame the encounter ends.
-    pub fn celebratory_banner(&self) -> Option<String> {
-        match self.phase {
-            EncounterPhase::Cleared => self
-                .spec
-                .as_ref()
-                .map(|s| format!("ARENA CLEAR — {}", s.id)),
-            _ => None,
-        }
-    }
 }
 
 fn countdown_bar(remaining: f32, total: f32) -> String {

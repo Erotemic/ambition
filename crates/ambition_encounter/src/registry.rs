@@ -36,11 +36,6 @@ impl EncounterRegistry {
         self.encounters.entry(id.to_string()).or_default()
     }
 
-    /// True if any encounter is currently locking exits.
-    pub fn any_lock_active(&self) -> bool {
-        self.encounters.values().any(|e| e.lock_active)
-    }
-
     /// Camera zoom multiplier sourced from the active encounter (if
     /// any). 1.0 if no encounter is in flight. The camera starts
     /// zooming during `Starting` so the ramp finishes before wave 1

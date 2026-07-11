@@ -55,7 +55,7 @@ pub fn populate_boss_encounter_registry(mut registry: ResMut<BossEncounterRegist
 }
 
 /// Drive every boss's entity-local phase mechanism: seed from the profile
-/// catalog, wake, tick the `BossPhaseState`, resolve death (save + quest), keep
+/// catalog, wake, tick the `ActorPhaseState`, resolve death (save + quest), keep
 /// the adaptive-music request live, and sync reward chests.
 /// The body's `BodyHealth` (§A1) + `BossEncounter.encounter` ARE the source of truth.
 pub fn update_boss_encounters(
@@ -142,7 +142,7 @@ pub fn update_boss_encounters(
             let triggers = overrides
                 .and_then(|o| o.phase_triggers.clone())
                 .unwrap_or_else(|| crate::boss_encounter::PhaseTrigger::intrinsic_from_spec(&spec));
-            feature.status.encounter = Some(crate::boss_encounter::BossPhaseState::new(triggers));
+            feature.status.encounter = Some(crate::boss_encounter::ActorPhaseState::new(triggers));
         }
 
         // Persisted "cleared" is keyed to this PLACEMENT, NOT the archetype (R4) —

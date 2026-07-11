@@ -10,7 +10,7 @@ use BossEncounterPhase::{Death, Dormant, Enrage, Intro, Phase1, Phase2};
 /// (owned elsewhere) reaches zero. This is "a boss reused as a plain enemy".
 #[test]
 fn empty_triggers_never_phase_up() {
-    let mut state = BossPhaseState::new(Vec::new());
+    let mut state = ActorPhaseState::new(Vec::new());
     assert_eq!(state.start_phase, Phase1, "no intro tell ⇒ start fighting");
     assert_eq!(
         state.wake(),
@@ -29,7 +29,7 @@ fn empty_triggers_never_phase_up() {
 /// An HpBelow trigger fires when HP crosses its threshold, gated by `from`.
 #[test]
 fn hp_below_trigger_fires_when_threshold_crossed() {
-    let mut state = BossPhaseState::new(vec![PhaseTrigger::hp_below(0.5, Phase1, Phase2, 0.0)]);
+    let mut state = ActorPhaseState::new(vec![PhaseTrigger::hp_below(0.5, Phase1, Phase2, 0.0)]);
     state.wake();
     assert_eq!(state.phase, Phase1);
     // Above threshold: no transition.
@@ -50,7 +50,7 @@ fn hp_below_trigger_fires_when_threshold_crossed() {
 /// `from` gating: a Phase2→Enrage trigger must not fire while in Phase1.
 #[test]
 fn trigger_respects_from_phase_gate() {
-    let mut state = BossPhaseState::new(vec![
+    let mut state = ActorPhaseState::new(vec![
         PhaseTrigger::hp_below(0.6, Phase1, Phase2, 0.0),
         PhaseTrigger::hp_below(0.2, Phase2, Enrage, 0.0),
     ]);
@@ -80,7 +80,7 @@ fn trigger_respects_from_phase_gate() {
 /// swap — its own mechanism, not the swap itself.
 #[test]
 fn lock_inserts_invulnerable_tell_before_swap() {
-    let mut state = BossPhaseState::new(vec![PhaseTrigger::hp_below(0.5, Phase1, Phase2, 0.30)]);
+    let mut state = ActorPhaseState::new(vec![PhaseTrigger::hp_below(0.5, Phase1, Phase2, 0.30)]);
     state.wake();
     assert!(!state.boss_invulnerable(), "Phase1 is vulnerable");
     // Crossing the threshold starts the lock, but does NOT swap yet.
@@ -117,7 +117,7 @@ fn lock_inserts_invulnerable_tell_before_swap() {
 /// boss start there and advance to Phase1 on its own.
 #[test]
 fn intro_is_opt_in_time_trigger() {
-    let mut state = BossPhaseState::new(vec![PhaseTrigger::time_in_phase(0.5, Intro, Phase1, 0.0)]);
+    let mut state = ActorPhaseState::new(vec![PhaseTrigger::time_in_phase(0.5, Intro, Phase1, 0.0)]);
     assert_eq!(state.start_phase, Intro);
     state.wake();
     assert_eq!(state.phase, Intro);
@@ -144,7 +144,7 @@ fn intro_is_opt_in_time_trigger() {
 /// External triggers fire via `notify_external`, never from `tick`.
 #[test]
 fn external_trigger_only_fires_on_notify() {
-    let mut state = BossPhaseState::new(vec![PhaseTrigger::external(
+    let mut state = ActorPhaseState::new(vec![PhaseTrigger::external(
         "all_adds_dead",
         Phase1,
         Enrage,
@@ -172,7 +172,7 @@ fn external_trigger_only_fires_on_notify() {
 /// Death is terminal: no trigger fires once dead.
 #[test]
 fn death_is_terminal() {
-    let mut state = BossPhaseState::new(vec![PhaseTrigger::hp_below(0.9, Phase1, Phase2, 0.0)]);
+    let mut state = ActorPhaseState::new(vec![PhaseTrigger::hp_below(0.9, Phase1, Phase2, 0.0)]);
     state.wake();
     state.phase = Death;
     assert!(state.tick(1.0, 0.0).is_empty());

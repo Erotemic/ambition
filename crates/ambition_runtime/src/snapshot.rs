@@ -2756,10 +2756,10 @@ impl SnapshotResolve for ambition_combat::moveset::MovePlayback {
     }
 }
 
-/// **The boss's encounter phase**, and the `BossPhaseState` it is forwarded from.
+/// **The boss's encounter phase**, and the `ActorPhaseState` it is forwarded from.
 ///
 /// A cursor, because the rest of `BossEncounter` is sprite metrics derived from the
-/// sheet registry, and because `BossPhaseState.triggers` is authored data.
+/// sheet registry, and because `ActorPhaseState.triggers` is authored data.
 ///
 /// `encounter_phase` is the exposed MIRROR that `sync_boss_encounter_phase` copies out
 /// of `encounter` every tick. Rewinding only the mirror is rewinding a thermometer:

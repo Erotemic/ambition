@@ -93,7 +93,7 @@ pub enum BossEncounterEvent {
 // this splits the ENTITY half out as its own mechanism:
 //
 //   * HP lives on the body's shared `BodyHealth` component (entity, §A1).
-//   * Phase progression lives in `BossPhaseState` (entity) and is driven by a
+//   * Phase progression lives in `ActorPhaseState` (entity) and is driven by a
 //     `Vec<PhaseTrigger>` of intrinsic, *optional* DATA — empty ⇒ the boss
 //     never phases up and just fights to death (a boss reused as a plain
 //     enemy); non-empty ⇒ it phases up on its own, with or without an
@@ -121,7 +121,7 @@ pub enum PhaseTriggerCondition {
     TimeInPhase(f32),
     /// Fire when a named external `gate` message arrives (room switch, "all
     /// adds dead", a scripted cutscene cue). This is the gauntlet / scripted
-    /// hook — fired via [`BossPhaseState::notify_external`].
+    /// hook — fired via [`ActorPhaseState::notify_external`].
     External(String),
 }
 
@@ -258,10 +258,10 @@ pub enum BossPhaseEvent {
 /// HP is NOT here (it lives on the body's shared `BodyHealth`); `tick` takes the HP
 /// fraction as an argument so the two stay decoupled.
 #[derive(Clone, Debug, PartialEq)]
-pub struct BossPhaseState {
+pub struct ActorPhaseState {
     /// Current exposed phase the brain reads. `Dormant` until [`wake`]d.
     ///
-    /// [`wake`]: BossPhaseState::wake
+    /// [`wake`]: ActorPhaseState::wake
     pub phase: BossEncounterPhase,
     /// Seconds in the current phase; resets on every swap.
     pub phase_elapsed: f32,
@@ -276,13 +276,13 @@ pub struct BossPhaseState {
     /// The phase entered on [`wake`]: `Intro` when an intro tell is authored,
     /// else `Phase1` (fight immediately — no forced intro invulnerability).
     ///
-    /// [`wake`]: BossPhaseState::wake
+    /// [`wake`]: ActorPhaseState::wake
     pub start_phase: BossEncounterPhase,
     /// Phase queued behind an active `transition_lock`.
     pending: Option<BossEncounterPhase>,
 }
 
-impl BossPhaseState {
+impl ActorPhaseState {
     /// Build from an explicit trigger list. An empty list is valid (and means
     /// "no phases — fight to death").
     pub fn new(triggers: Vec<PhaseTrigger>) -> Self {

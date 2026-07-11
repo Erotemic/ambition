@@ -2,7 +2,7 @@
 //! `crate::encounter` enemy-wave system).
 //!
 //! Boss HP/phase state is ENTITY-LOCAL (`BossEncounter.health` +
-//! `BossEncounter.encounter: BossPhaseState`); this module bridges it to the
+//! `BossEncounter.encounter: ActorPhaseState`); this module bridges it to the
 //! in-arena boss ECS clusters (`features::BossClusterQueryData` / `BossRef`),
 //! the optional first-class encounter entity (`EncounterDef` + `EncounterScript`),
 //! and the adaptive music + cutscene + save-state systems. The registry is a
@@ -46,7 +46,7 @@ mod tests;
 pub use ids::encounter_id_from_name;
 // The engine hard-codes no boss id: `ids` ships only the slugging helper.
 pub use ambition_characters::boss_encounter::{
-    BossEncounterEvent, BossEncounterPhase, BossEncounterSpec, BossPhaseEvent, BossPhaseState,
+    ActorPhaseState, BossEncounterEvent, BossEncounterPhase, BossEncounterSpec, BossPhaseEvent,
     PhaseTrigger, PhaseTriggerCondition,
 };
 pub use behavior::{

@@ -8,7 +8,7 @@
 //!
 //! A boss spawned with NO encounter is just a tough enemy: no HUD, no lock
 //! walls, no win/lose — headless / RL fine. The encounter never *gates* the
-//! creature's intrinsic phase-up (that is entity-local [`BossPhaseState`]); it
+//! creature's intrinsic phase-up (that is entity-local [`ActorPhaseState`]); it
 //! only FRAMES / DISPLAYS the fight and adds external/scripted triggers.
 //!
 //! See `docs/planning/boss-entity-local-refactor.md`.
@@ -139,7 +139,7 @@ pub fn sync_boss_encounter_entities(
 }
 
 /// Recompute each encounter's progress from its members' entity-local state
-/// (HP from the body's `BodyHealth` (§A1), phase from the entity-local `BossPhaseState`
+/// (HP from the body's `BodyHealth` (§A1), phase from the entity-local `ActorPhaseState`
 /// copy). Despawns an encounter whose members have all left the world (room
 /// change), so stale encounters don't linger on the HUD. Runs after
 /// `sync_boss_encounter_entities` in the Progression set.

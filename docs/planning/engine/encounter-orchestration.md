@@ -472,7 +472,12 @@ methods from crate A — `EncounterRegistry::any_lock_active` and
       EXECUTION stays actor-side. E3b (wave adopts the shared vocabulary) pending
       — see the impedance note below.
 - [ ] **E4** boss composition (delete `sync_boss_encounter_entities`, auto-wrap).
-- [ ] **E5** generalize actor-local phase vocabulary.
+- [~] **E5** generalize actor-local phase vocabulary — **first bullet landed**:
+      the entity-local phase machine `BossPhaseState` → `ActorPhaseState` (it is
+      actor-local, not encounter-owned). The deeper bullet (replace the fixed
+      `BossEncounterPhase` enum with authored phase keys/data) is deferred — it
+      threads the snapshot ledger + content RON and is a larger, feel-adjacent
+      change.
 - [ ] **E6** persistence/snapshot/presentation convergence — *music sub-slice
       landed early (see below): one prioritized encounter music stream.*
 - [ ] **E7** deletion + LOC audit.

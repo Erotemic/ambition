@@ -1,7 +1,7 @@
 //! Applying a hit to a boss: mutating the boss ENTITY's HP + phase directly.
 //!
 //! Boss HP/phase authority is entity-local (`BossEncounter.health` +
-//! `BossEncounter.encounter: BossPhaseState`). Player damage mutates the entity in
+//! `BossEncounter.encounter: ActorPhaseState`). Player damage mutates the entity in
 //! place via [`apply_entity_boss_damage`]; the death CONSEQUENCES that aren't
 //! immediate VFX (save Cleared + quest + music restore) are resolved by
 //! `update_boss_encounters` once the death outro elapses.

@@ -648,7 +648,7 @@ fn two_same_archetype_bosses_have_independent_encounter_state() {
 ///
 /// A boss woken in the room is wrapped by a single-boss `EncounterDef` entity,
 /// and its `EncounterProgress` is derived from the boss's entity-local state
-/// (HP + the `BossPhaseState` phase copy) — NOT the global registry. The HUD is
+/// (HP + the `ActorPhaseState` phase copy) — NOT the global registry. The HUD is
 /// a view bound to this progress. See `docs/planning/boss-entity-local-refactor.md`.
 #[test]
 fn woken_boss_is_wrapped_by_an_encounter_entity_with_live_progress() {

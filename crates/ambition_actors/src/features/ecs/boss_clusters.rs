@@ -81,7 +81,7 @@ pub struct BossEncounter {
     /// entity is what makes two of the same boss (a gauntlet) carry independent
     /// fights by construction rather than by a string-keyed side map. See
     /// `docs/planning/boss-entity-local-refactor.md`. `None` until seeded.
-    pub encounter: Option<crate::boss_encounter::BossPhaseState>,
+    pub encounter: Option<crate::boss_encounter::ActorPhaseState>,
 }
 
 /// Immutable borrow view over the boss clusters. Hosts the read-only
@@ -391,17 +391,17 @@ pub(crate) mod test_support {
     //! `BossConfig`" so the boss test modules build the same shape — adding a
     //! field updates them all at once instead of drifting per-module.
     use super::*;
-    use crate::boss_encounter::{BossPhaseState, PhaseTrigger};
+    use crate::boss_encounter::{ActorPhaseState, PhaseTrigger};
 
     /// A `(BossEncounter, BodyHealth)` pair at `hp` HP in `phase`, with
-    /// entity-local `BossPhaseState` carrying `triggers` (empty ⇒ never phases
+    /// entity-local `ActorPhaseState` carrying `triggers` (empty ⇒ never phases
     /// up) already set to `phase`. HP lives on the shared `BodyHealth` (§A1).
     pub(crate) fn test_boss_status_with(
         hp: i32,
         phase: BossEncounterPhase,
         triggers: Vec<PhaseTrigger>,
     ) -> (BossEncounter, ambition_characters::actor::BodyHealth) {
-        let mut encounter = BossPhaseState::new(triggers);
+        let mut encounter = ActorPhaseState::new(triggers);
         encounter.phase = phase;
         let mut health = ambition_characters::actor::Health::new(hp);
         health.current = hp;

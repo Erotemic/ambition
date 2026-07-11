@@ -646,3 +646,26 @@ integration.
 Note: RK may not be stronger for the game even if we can afford it because of
 the game discontinuities which require swweeping a path. Although you could do
 the motion sweep with RK it would be more expensive.
+
+---
+
+Maybe a heavy scene in the game has someone attempting to be very macho and
+fight someone for something they believe is right, but they are escalating it
+way way way too much. Maybe Galwah does this. Maybe it ends up worse for
+everyone, with nobody learning anything, and maybe there was another way out.
+And then maybe that similar situation happens but with the Nazis, and we
+explore the nuance of what distinguishes the cases, and why in one violence was
+not the answer, but in the other it was the only option.
+
+Galwah believes escalation is proof of conviction. He believes it is cowardly
+to restrain oneself. Anyone who tries to stop him has betrayed him in his mind.
+
+
+This probably means to enemy zones where combat is part of the fun of the game,
+we need to morally justify it, or lower stakes of combat in some cases by just
+pushing things out of the way. Occasionally they need to be squashed like a
+lantern fly. But there needs to be a rich other world with nuanced characters
+where combat is only one option of many, similar to Skyrim.
+
+
+Galwah is probably your friend with Fia in Act 1.

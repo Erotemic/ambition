@@ -15,31 +15,44 @@ core?*
 
 ---
 
-## Where we are (2026-07-10, audit-normalized)
+## Where we are (2026-07-11, audit-normalized)
 
 44 workspace crates. **P1 unification and the D-A decomposition are complete.**
 The runtime/host/umbrella split is real, `placements` is the sole authored-entity
 channel, two demo shells compose through the umbrella, D-C's mode-scope seam is
-landed, and playbook exit 3 is gate-enforced.
+landed, and playbook exit 3 is gate-enforced. **Jon's P0 unified-encounter
+orchestration landed E0–E7 (2026-07-11):** one encounter-entity model + a generic
+`participants/objective/timeline` vocabulary, with an honest E7 audit (additive
++458, wave keeps its spawn stepper, boss auto-wrap retained).
 
 The 2026-07-10 static audit found that several later labels had promoted
-instrumentation into completion. The live corrections are:
+instrumentation into completion. The Series-1 guardrail-credibility corrections have
+since landed; the exact-restore substrate and two enforcement gates remain:
 
-- **N0.3 PARTIAL:** the determinism rules and poison tests exist, but the scan
-  excludes simulation-bearing content/demo source roots.
-- **N0.4 PARTIAL:** loaded rooms are checked correctly, but required rooms can
-  disappear from the canary/replay/ledger gates when construction fails.
-- **N3.1 keystone landed; N3.2 exactness open:** registry, `SimId`, shared
+- **N0.3 ✅ LANDED (2026-07-10):** the determinism scan now reaches every
+  simulation-bearing root, including `game/ambition_content` + the demo rules
+  crates (it caught two real `falling_sand` bugs), with a self-check against a
+  vacuous pass.
+- **N0.4 ✅ LANDED (2026-07-10) as the canary mechanism:** required rooms hard-fail
+  — a load failure or silent room-fallback panics rather than vanishing from the
+  gate; the coverage ledger reacts to added debt.
+- **N3.1 keystone landed; N3.2 exactness OPEN:** registry, `SimId`, shared
   snapshot/hash bytes, take/restore mechanics, coverage measurement, and replay
-  oracle are valuable. Uniqueness, complete mutable-state coverage, codec errors,
-  active-room ownership, and dynamic-spawn reconstruction are not yet exact.
-- **CC3 diagnostic landed, enforcement pending:** the six-invariant rig measures
+  oracle are valuable. Substantial N3.2 progress (identity invariant, hashed
+  roster, active-room ownership, codec-error transactionality, boss-hand identity,
+  `resolve → Result`); still open: full atomic room-context restore, per-spawner
+  reconstruction recipes, standalone codec preflight, dynamic-spawn, bounded
+  rollback — then the N3.3 `bevy_ggrs` spike.
+- **CC3 diagnostic landed, enforcement PENDING:** the six-invariant rig measures
   shipped rooms, but the comprehensive sweep is diagnostic rather than a hard
   semantic completion gate.
-- **BD5 validator landed, enforcement pending:** it reports and pins eight hard
+- **BD5 validator landed, enforcement PENDING:** it reports and pins eight hard
   errors; boss-roster installation does not reject them yet.
-- **D-B REOPENED:** `MODULES.md` generation exists, but the documented ~1.5k-line
-  standard is currently false and has no executable line-size gate.
+- **D-B ✅ RE-CLOSED (2026-07-11):** the executable `engine.module-size` gate
+  (1500-line limit + reasoned waiver list, poison-tested) is in
+  `tests/ambition_workspace_policy`; the three over-limit modules were split;
+  `MODULES.md` regenerated; the only remaining waiver is the declarative
+  `kaleidoscope_app.rs`.
 
 The binding repair order is guardrail credibility first, exact-restore substrate
 second, and evidence-ledger normalization last. See
@@ -50,17 +63,19 @@ and [`tracks.md`](tracks.md).
 
 - **P1 — unification.** DONE (2026-07-05). The record lives in the
   archived reviews.
-- **P2 — decomposition + doctrines (ACTIVE; D-A and D-C DONE, D-B
-  REOPENED).** The next high-priority architecture convergence is Jon's unified
-  encounter design: actors remain independently constructible, while one generic
-  event-driven encounter authority orchestrates participants, objectives, timeline,
-  presentation, rewards, and persistence. See
-  [`engine/encounter-orchestration.md`](engine/encounter-orchestration.md).
+- **P2 — decomposition + doctrines (ACTIVE; D-A/D-B/D-C DONE, encounter
+  orchestration LANDED).** Jon's unified-encounter convergence — actors remain
+  independently constructible while one generic event-driven encounter authority
+  orchestrates participants, objectives, timeline, presentation, rewards, and
+  persistence — **landed E0–E7 (2026-07-11)**; see
+  [`engine/encounter-orchestration.md`](engine/encounter-orchestration.md) for the
+  execution ledger + the honest E7 LoC audit.
   [`engine/decomposition.md`](engine/decomposition.md) is executed
-  through E9 + the F-queue and playbook exits 1–5 are met. Remaining trust work:
-  D-B's executable navigability gate; CC3's transition from diagnostic to an
-  enforced completion criterion; N0.3 source-scope completion; N0.4 hard-fail
-  fixture coverage; and N3.2 exact-restore substrate. N1 still ships with SSB.
+  through E9 + the F-queue and playbook exits 1–5 are met; D-B re-closed
+  (2026-07-11) with an executable line-size gate. **Remaining trust work:** CC3's
+  transition from diagnostic to an enforced completion criterion; BD5's transition
+  from validator to an install gate; and the N3.2 exact-restore substrate. N1 still
+  ships with SSB.
 - **P3 — demo wave 1: [Sanic](demos/sanic.md) + [Super
   Mary-O](demos/super-mary-o.md).** **UNBLOCKED — E5-finish landed
   2026-07-06 night (the demo gate is open; the shell smoke test is the

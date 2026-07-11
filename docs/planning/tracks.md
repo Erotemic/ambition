@@ -66,20 +66,30 @@ The historical execution sequence below remains useful context, but the audit
 correction order above supersedes it for structural work. Existing completed slices
 stay completed unless explicitly reopened or reclassified here.
 
-0. **P0 architecture refactor - unified encounter orchestration (Jon's idea).**
-   **NEXT after the currently in-flight test-organization work.** Split encounter
-   orchestration from boss/actor construction and converge the generic wave system
-   plus boss encounter wrapper onto one first-class, event-driven encounter entity.
-   Encounters may compose ordinary enemies, boss-capable actors, hazards, puzzles,
-   races, escorts, or no actors at all; actors retain local phase/capability state
-   and work outside encounters. This is delete-heavy work: the measured migration
-   surface is about 3,681 total source lines including tests, and completion requires
-   one authority plus a materially smaller code surface. Design, slices, and exits:
-   [`engine/encounter-orchestration.md`](engine/encounter-orchestration.md).
-
-   **Do not interleave its code migration with the active test refactor.** The docs
-   overlay is safe; implementation starts from the resulting clean base. The Sanic
-   visible/input/character recovery is independent and may land first:
+0. ~~**P0 architecture refactor — unified encounter orchestration (Jon's idea).**~~
+   ✅ **LANDED E0–E7, 2026-07-11 (opus; `ca9c6d17`…`bcbcacbf`).** The architecture
+   spine is in: ONE encounter-entity model with a generic
+   `ambition_encounter::{participants, objective, timeline}` vocabulary (roles, the
+   `Objective` predicate set with no `Custom(String)` hatch, one timeline stepper),
+   honestly-named `ActorPhaseState` (was `BossPhaseState` — it was always
+   actor-local), one prioritized `EncounterMusicRequest`, and **five duplicate
+   authorities deleted** (resource-owned wave live-state, `BossEncounterMusicRequest`,
+   `EncounterWin`, `EncounterRun.alive_ids`+closure, `BossEncounterEvent`). Both boss
+   and wave encounters are entities now (one snapshot representation). **Two goals
+   deliberately unmet, each with a stated architectural reason** (execution ledger +
+   E7 audit in [`engine/encounter-orchestration.md`](engine/encounter-orchestration.md)):
+   the ≥ 800-line net DELETION (the unification is additive-vocabulary for the two
+   current customers — the surface GREW **+458**; it amortizes only as non-boss
+   customers reuse the vocab), and the full form of acceptance #7/#10 (the wave keeps
+   its concurrent spawn STEPPER — a genuine impedance mismatch with the boss's
+   single-cursor beats — and the boss auto-wrap `sync_boss_encounter_entities` is
+   retained as an ergonomic default that now composes a GENERIC encounter). **The
+   remaining tails are all UNBLOCKED:** E3b/E4 wave-timing + boss HUD/lock/music
+   pacing want an in-game feel pass (BLIND); E5's deeper bullet (fixed
+   `BossEncounterPhase` enum → authored phase keys/data) is deferred as a larger
+   snapshot+RON change; and the vocabulary's payoff is only PROVEN when the first
+   non-boss customer lands (a Sanic race via `Objective::ReceiveSignal`, or a puzzle
+   with no actors). The Sanic visible/input/character recovery is independent:
    [`demos/sanic-recovery.md`](demos/sanic-recovery.md).
 
 1. ~~**The demo-shell arc — a runnable `ambition_demo_sanic`.**~~
@@ -203,6 +213,7 @@ CC4 (profile first); CC7 P3a.
 | Decomposition D-A | [engine/decomposition.md](engine/decomposition.md) | **COMPLETE** — E1–E9, W1–W4, F1–F9 executed; demo gate open; umbrella crate real; `placements` is the sole authored-entity channel; playbook exits 1–5 are met | shell-dissolution chain: [refactor-chain.md](engine/refactor-chain.md) |
 | Decomposition D-B | same | **✅ RE-CLOSED (2026-07-11)** — all five re-close criteria met. Series 1 landed the executable gate (`engine.module-size` policy in `tests/ambition_workspace_policy`, config `policies/module_size.toml`: code-line limit 1500 + bidirectional reasoned waiver list, poison-tested; migrated 2026-07-10 from the retired `crates/ambition_runtime/tests/module_size.rs`), regenerated the stale `MODULES.md`, and corrected 42→44. Criterion-4 line-size debt EFFECTIVELY CLEARED 2026-07-11 — all three over-limit non-declarative modules split: **`snapshot.rs` (3684)** → `snapshot/{mod,registry,restore,codecs}.rs` (1155/718/471/1379), 46 tests + rl_sim `desync_canary` green; **`moveset.rs` (1536)** → `moveset/{mod,prefabs}.rs` (862/691), 102 combat tests green (never waived — a pre-existing gate RED the "under the code-line limit" note had masked; the gate counts TOTAL lines); **`view_cones.rs` (2206)** → `view_cones.rs` render path (1145) + `view_cones/debug.rs` diagnostics (1078), 45 portal-presentation tests green. Each waiver deleted; **gate GREEN (28 policy checks)**. The ONLY remaining waiver is `menu/kaleidoscope_app.rs` (1814), a declarative Lunex node tree — the legitimate "generated/declarative" permanent-waiver class. Other D-B criteria (module maps, dissolved hub globs) already done. | — RE-CLOSED. The `kaleidoscope_app.rs` waiver stands as the justified declarative exception criterion 4 permits ("split OR justify"); if Jon would rather see zero waivers, splitting the Lunex tree into per-panel modules is the only remaining line-size work, but it is not required for closure. |
 | Decomposition D-C | same | **✅ DONE (2026-07-10)** — the mode-scope seam shipped as `refactor-chain.md` R1: `RoomMetadata.mode`, `ModeScopedEntity` + `spawn_mode_scoped`, `in_mode(name)` + `ModeScopePlugin`. Two hosted rulesets coexist (`ambition_runtime/tests/mode_scope.rs`); `sanic_speedway` claims its mode | — |
+| Encounter orchestration | [engine/encounter-orchestration.md](engine/encounter-orchestration.md) | **✅ LANDED E0–E7 (2026-07-11)** — ONE encounter-entity model + generic `ambition_encounter::{participants,objective,timeline}` vocab; `ActorPhaseState`; one prioritized music stream; five duplicate authorities deleted. Two goals deliberately unmet with stated reasons (E7 audit): additive **+458** not the ≥ 800-line deletion (amortizes as non-boss customers reuse the vocab), and #7/#10 partial (wave keeps its concurrent spawn stepper; boss auto-wrap retained, now composes a generic encounter) | first non-boss customer to prove the vocab (Sanic race via `Objective::ReceiveSignal`, or a puzzle with no actors); E5 deeper authored phase-keys; E3b/E4 in-game feel pass (BLIND) |
 | Collision doctrine | [engine/collision-and-ccd.md](engine/collision-and-ccd.md) | CC1 + CC2 + CC5 + CC6 LANDED; **CC3 DIAGNOSTIC LANDED, ENFORCEMENT OPEN** — six invariants and replay payload exist, but the comprehensive sweep is diagnostic/ignored and does not enforce the completion thresholds | turn the measured oracle into a poison-tested gate when its policy is ready; CC4/CC7 remain |
 | Combat stack | [engine/combat-model.md](engine/combat-model.md) | CM1–CM5 + CM7 LANDED — smash axes complete (growth, DI, charge, cancel tables, launch angles, per-move presentation). **A3 equipment→params LANDED (2026-07-11)** — `ambition_characters::equipment`: read-time modifier fold + behavioral grants + `OnHit::ConsumeAsArmor` in the one `resolve_body_hit`; three v1 deviations named in combat-model §8 | CM6 grab/throw/shield-stun (brings OnBlock) [opus, with SSB — a P4 slice, not a P2 exit] |
 | Netcode ladder | [engine/netcode.md](engine/netcode.md) | N0.1/N0.2 LANDED. **N0.3 LANDED** (determinism scan reaches `game/ambition_content` + demo rules; caught 2 real `falling_sand` bugs; manifest scan un-vacuumed). **N0.4 LANDED as the canary mechanism** (required rooms hard-fail — a load failure or silent room-fallback panics, no vacuous skip; coverage ledger reacts to added debt). **N3.2 exact-restore substrate — substantial progress across THREE re-audit passes, still OPEN** (2026-07-10): identity invariant + mutation-free `validate_snapshot` (canonical order / registry-kind agreement / roster membership; order-robust dup detection); AUTHORITATIVE + HASHED identity `roster` (restore reconciles against it, so a zero-component `SimId` entity is preserved not despawned, and two worlds differing only by it no longer hash equal); active-room ownership + `CrossRoomBoundary` refusal comparing the full `Option` (a Some/None presence mismatch is refused) + active room folded into the hash; reconciliation-first stale accounting (H4); `DecodeFailed` transactional for standalone codecs, and every cursor/resolved codec now reports `ApplyOutcome` (unapplied rows counted) AND asserts it consumed the whole blob (`finish()` on the resolved + resource-cursor-absence paths, canonical `Reader::bool`, and `validate_snapshot` requiring exact registry entry order); resource cursors presence-tagged (absence ≠ empty cursor); self-measured reliable `lossless()` that denies unapplied rows + unresolved cursors + a spurious census; coverage ledger pinned by TYPE NAME against reviewed inventory files (not just a count); and an `UnsupportedDynamicReconstruction` refusal (ONE refusal, not a general window bound) — each with a red-before/green-after poison test. **`portal_lab` is a transition-spanning window, NOT a leak** (`central_hub_complex` authors `NpcSpawn-0017`; restore refuses the cross-room window). | REMAINING (N3.2, still OPEN): full atomic room-context restore (→ portal_lab CLEAN); per-spawner reconstruction recipes; then a narrower residual — cursor/resolved codecs still cannot be PREFLIGHTED standalone (a decode failure surfaces mid-reconciliation). **TWO residuals closed 2026-07-11:** (a) boss-hand `SimId::spawned` identity — `spawn_giant_hand_limbs` derives the hands' id from the giant's authored id (not `giant.index()`) and mints `SimId::spawned(giant, ordinal)` (`giant_hand_identity_tests`); (b) `SnapshotResolve::resolve` → `Result<Option, ResolveDecodeError>` — a truncated blob is `DecodeFailed`, distinct from authored absence's `Unapplied` (`a_truncated_resolved_blob_is_a_decode_failure_not_a_content_change`). Then N3.3 bevy_ggrs spike |
@@ -507,3 +518,22 @@ renderer, and now it does not.
   code-line count, so `moveset.rs` at 1536 is an UNWAIVED violation and the gate was
   RED, not green. Surfaced when the `snapshot.rs` split deleted its waiver and re-ran
   the gate.
+- **opus** — **ENCOUNTER ORCHESTRATION E0–E7 LANDED (Jon's P0 idea; `ca9c6d17`…`bcbcacbf`).**
+  The boss/wave split collapses onto ONE encounter-entity model. New generic vocabulary
+  `ambition_encounter::{participants, objective, timeline}` (roles; the `Objective`
+  predicate set with NO `Custom(String)` hatch; one timeline beat-stepper);
+  `BossPhaseState` → `ActorPhaseState` (it was always actor-local, never encounter-owned);
+  one prioritized `EncounterMusicRequest` (fields name PRIORITY, not encounter kind).
+  **Five duplicate authorities deleted** (wave resource live-state + the dead
+  `EncounterState` singleton; `BossEncounterMusicRequest`; `EncounterWin` +
+  `all_members_dead`; `EncounterRun.alive_ids` + the `enemy_alive` closure;
+  `BossEncounterEvent` + `phase_event_to_encounter_events`). Both boss and wave are
+  entities now (one snapshot representation). **Honest E7 audit:** the A+B+C migration
+  surface GREW **+458** (3,386 → 3,844) — the doc's ≥ 800-line deletion is NOT achievable
+  for two customers without deleting the doc-mandated generic vocab or forcing the wave
+  onto the boss's single-cursor stepper (an impedance mismatch). Acceptance 9/11 fully
+  met; #7/#10 partial (wave keeps its concurrent spawn stepper; the boss auto-wrap is
+  retained, now composing a GENERIC encounter); #11 (LoC) not met — each documented with
+  an architectural reason, not a silent defer. The vocab is an INVESTMENT that pays off
+  when the first non-boss customer (Sanic race / puzzle / defense) reuses it as an
+  ADD-a-content-crate change with no new core authority.

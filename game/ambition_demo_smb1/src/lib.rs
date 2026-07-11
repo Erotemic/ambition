@@ -17,6 +17,7 @@
 //! the rest of the M-track; see `docs/planning/demos/super-mary-o.md`.
 
 pub mod flag;
+pub mod powerups;
 
 use ambition::engine_core as ae;
 use ambition::prelude::*;

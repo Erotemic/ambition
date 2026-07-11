@@ -232,6 +232,33 @@ impl CharacterBarks {
     }
 }
 
+/// Where a character's PLAYABLE combat kit comes from when the home box WEARS
+/// it — the catalog, or the host game's code.
+///
+/// This exists to separate two concepts that are NOT the same: "which row is the
+/// content default" and "whose kit does the playable body use". The general case
+/// is [`Authored`](Self::Authored): the worn kit IS the row's `default_action_set`
+/// (a demo speedster, a pirate, a goblin — a body earns its moveset from the same
+/// catalog row that names its sprite and brain). The exception is
+/// [`HostCode`](Self::HostCode): a protagonist whose combat abilities are a
+/// runtime-mutable code concern — an [`crate`]-external `AbilitySet` / progression
+/// / dev-toggle system — rather than static catalog data. Such a row keeps the
+/// body's code-built kit; its `default_action_set` still exists (for its Hall
+/// pedestal or when it is spawned as an NPC) but does NOT define the playable kit.
+///
+/// A standalone game whose default protagonist wants its OWN authored profile
+/// simply leaves this `Authored` (the default). Only a game that layers a code
+/// kit on its protagonist (Ambition's robot) marks that row `HostCode`.
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
+pub enum PlayableKitSource {
+    /// The worn kit is the row's `default_action_set` (the general case).
+    #[default]
+    Authored,
+    /// The worn body keeps its host-code-built kit; the catalog action set does
+    /// not define the playable kit (a protagonist with a runtime code kit).
+    HostCode,
+}
+
 /// One character entry in `character_catalog.ron`.
 #[allow(
     dead_code,
@@ -259,6 +286,14 @@ pub struct CharacterCatalogEntry {
     pub default_brain: String,
     /// Name of the preset in `action_set_presets` to apply by default.
     pub default_action_set: String,
+    /// Whose kit the PLAYABLE body uses when the home box wears this character:
+    /// the catalog's `default_action_set` ([`PlayableKitSource::Authored`], the
+    /// default) or the host game's code-built kit ([`PlayableKitSource::HostCode`],
+    /// a protagonist with a runtime `AbilitySet`/progression kit). Defaults to
+    /// `Authored`, so every existing standalone row wears its own authored kit;
+    /// only a host protagonist marks itself `HostCode`. See [`PlayableKitSource`].
+    #[serde(default)]
+    pub playable_kit: PlayableKitSource,
     /// Free-form tags. Tooling filters by these (e.g. the hall
     /// generator uses `tags = ["boss"]` to fence basement entries).
     #[serde(default)]

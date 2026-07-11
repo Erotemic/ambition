@@ -111,26 +111,53 @@ pub fn apply_worn_motion_model(commands: &mut Commands, entity: Entity, characte
     }
 }
 
-/// **Derive a body's gameplay configuration from its worn identity.**
+/// **The gameplay OVERLAY a body derives from wearing `character_id`.** The ONE
+/// authority both the spawn bundle
+/// ([`crate::avatar::PlayerSimulationBundle::from_scratch_as_character`]) and the
+/// runtime re-wear system ([`apply_worn_character_gameplay`]) apply, so for a KNOWN
+/// character they can never disagree on its name + kit. Applied in place:
 ///
-/// Runs whenever a player's [`WornCharacter`] is added or changes (Bevy's
-/// `Changed` filter covers both), so gameplay always follows the ONE canonical
-/// identity — at spawn AND on any later re-wear / transformation. Re-applies:
+/// * the display [`Name`] for any id that authors one;
+/// * for a KNOWN NON-PROTAGONIST character, its authored [`ActionSet`] + the melee
+///   [`ActorMoveset`] derived from it — the worn character's ActionSet IS the kit.
 ///
-/// * the display [`Name`],
-/// * the authored kit ([`ActionSet`] + the melee [`ActorMoveset`] derived from
-///   it) for any non-protagonist character — the worn character's ActionSet IS
-///   the kit (possession semantics), and
-/// * the movement identity via [`apply_worn_motion_model`].
+/// It deliberately does NOT touch the kit for the PROTAGONIST (content default) or
+/// an UNKNOWN id: the protagonist's kit is the code-side `AbilitySet` dev-toggle
+/// kit and an unknown id keeps the playable default — both are established by
+/// `from_scratch` and cannot be rebuilt from the catalog here. **Consequence
+/// (known limitation):** a *runtime* re-wear FROM a known character TO the default
+/// or an unknown id leaves the prior character's kit in place (the code-side
+/// default kit is not reconstructible without persisting the `AbilitySet`). Fully
+/// closing that requires modeling the default kit as data; tracked in the plan.
+pub fn apply_worn_character_overlay(
+    name: &mut Name,
+    action_set: &mut ActionSet,
+    moveset: &mut ActorMoveset,
+    character_id: &str,
+) {
+    if let Some(display) = crate::character_roster::display_name_for_character_id(character_id) {
+        *name = Name::new(display);
+    }
+    if character_id == crate::character_roster::default_character_id() {
+        return;
+    }
+    if let Some(character_set) =
+        crate::character_roster::default_action_set_for_character_id(character_id)
+    {
+        *moveset = ActorMoveset(
+            build_actor_moveset(None, character_set.melee.as_ref(), None).unwrap_or_default(),
+        );
+        *action_set = character_set;
+    }
+}
+
+/// **Derive a body's gameplay from its worn identity, at spawn and on re-wear.**
 ///
-/// The PROTAGONIST (the content-installed default row) keeps whatever kit it
-/// spawned with: its code-side kit is derived from live `AbilitySet` dev toggles
-/// and cannot be rebuilt from the catalog here, so re-wearing the default id at
-/// runtime applies only its name + (absent) movement model, never a peaceful
-/// catalog action set over the protagonist's real moveset. Unknown ids likewise
-/// keep the current kit and just refresh the movement model. This is the same
-/// authority `PlayerSimulationBundle::from_scratch_as_character` uses at spawn,
-/// so spawn-time and runtime re-wear can never disagree on what a character is.
+/// Runs whenever a player's [`WornCharacter`] is added or changes (Bevy's `Changed`
+/// filter covers both). Applies [`apply_worn_character_overlay`] (name + authored
+/// kit — the SAME overlay the spawn bundle uses) then the movement identity via
+/// [`apply_worn_motion_model`]. See the overlay's docs for the protagonist/unknown
+/// limitation.
 pub fn apply_worn_character_gameplay(
     mut commands: Commands,
     mut worn: Query<
@@ -146,21 +173,7 @@ pub fn apply_worn_character_gameplay(
 ) {
     for (entity, character, mut name, mut action_set, mut moveset) in &mut worn {
         let id = character.id();
-        if let Some(display) = crate::character_roster::display_name_for_character_id(id) {
-            *name = Name::new(display);
-        }
-        let is_protagonist = id == crate::character_roster::default_character_id();
-        if !is_protagonist {
-            if let Some(character_set) =
-                crate::character_roster::default_action_set_for_character_id(id)
-            {
-                *moveset = ActorMoveset(
-                    build_actor_moveset(None, character_set.melee.as_ref(), None)
-                        .unwrap_or_default(),
-                );
-                *action_set = character_set;
-            }
-        }
+        apply_worn_character_overlay(&mut name, &mut action_set, &mut moveset, id);
         // Movement identity: insert SurfaceMomentum for a momentum character,
         // else REMOVE any stale model so a re-wear never rides a chain the new
         // character can't (the render-refresh clobber gotcha in reverse).
@@ -328,6 +341,92 @@ mod tests {
         assert!(
             app.world().get::<MotionModel>(e).is_none(),
             "with no WornCharacter change the derive system must not re-fire"
+        );
+    }
+
+    /// **The full KIT (ActionSet + moveset), not just name/movement, follows a
+    /// re-wear between two KNOWN characters** — the reviewer-flagged gap. Wearing
+    /// the pirate gives its authored pistol; re-wearing the goblin replaces it with
+    /// the goblin's kit, leaving no stale pirate pistol behind.
+    #[test]
+    fn worn_kit_fully_follows_a_known_character_rewear() {
+        use crate::combat::moveset::ActorMoveset;
+        use ambition_characters::brain::{ActionSet, RangedActionSpec};
+        use bevy::prelude::*;
+
+        crate::character_roster::install_default_character_id("player");
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_systems(Update, apply_worn_character_gameplay);
+        let e = app
+            .world_mut()
+            .spawn((
+                WornCharacter::new("npc_pirate_admiral"),
+                Name::new("unset"),
+                ActionSet::default(),
+                ActorMoveset(Default::default()),
+            ))
+            .id();
+        app.update();
+        assert!(
+            matches!(
+                app.world().get::<ActionSet>(e).unwrap().ranged,
+                Some(RangedActionSpec::Pistol { .. })
+            ),
+            "wearing the pirate derives its authored pistol into the ActionSet"
+        );
+
+        // Re-wear a DIFFERENT known character: the kit fully swaps — no stale pistol.
+        *app.world_mut().get_mut::<WornCharacter>(e).unwrap() = WornCharacter::new("goblin");
+        app.update();
+        assert!(
+            !matches!(
+                app.world().get::<ActionSet>(e).unwrap().ranged,
+                Some(RangedActionSpec::Pistol { .. })
+            ),
+            "re-wearing the goblin replaces the pirate's kit — no stale ActionSet"
+        );
+        assert_eq!(app.world().get::<Name>(e).unwrap().as_str(), "Goblin");
+    }
+
+    /// **Honest limitation:** a runtime re-wear FROM a known character TO the
+    /// content default (protagonist) does NOT rebuild the code-side AbilitySet kit
+    /// — it leaves the prior kit, because that kit is not reconstructible from the
+    /// catalog. Pinned so the limitation is explicit rather than hidden behind an
+    /// "always total" claim. (Fully closing it means modeling the default kit as
+    /// data; tracked in the plan.)
+    #[test]
+    fn runtime_rewear_to_the_default_keeps_the_prior_kit_documented_gap() {
+        use crate::combat::moveset::ActorMoveset;
+        use ambition_characters::brain::{ActionSet, RangedActionSpec};
+        use bevy::prelude::*;
+
+        crate::character_roster::install_default_character_id("player");
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_systems(Update, apply_worn_character_gameplay);
+        let e = app
+            .world_mut()
+            .spawn((
+                WornCharacter::new("npc_pirate_admiral"),
+                Name::new("unset"),
+                ActionSet::default(),
+                ActorMoveset(Default::default()),
+            ))
+            .id();
+        app.update();
+
+        // Re-wear the default: name follows, but the pistol kit is NOT rebuilt.
+        *app.world_mut().get_mut::<WornCharacter>(e).unwrap() = WornCharacter::new("player");
+        app.update();
+        assert_eq!(app.world().get::<Name>(e).unwrap().as_str(), "Player");
+        assert!(
+            matches!(
+                app.world().get::<ActionSet>(e).unwrap().ranged,
+                Some(RangedActionSpec::Pistol { .. })
+            ),
+            "documented gap: the default's code-side kit is not rebuilt at runtime, \
+             so the prior pistol lingers (spawn uses the code kit instead)"
         );
     }
 }

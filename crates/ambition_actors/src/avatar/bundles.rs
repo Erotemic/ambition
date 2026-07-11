@@ -203,28 +203,15 @@ impl PlayerSimulationBundle {
         character_id: &str,
     ) -> Self {
         let mut bundle = Self::from_scratch(scratch, health);
-        if let Some(display) = crate::character_roster::display_name_for_character_id(character_id)
-        {
-            bundle.name = Name::new(display);
-        }
-        let is_protagonist = character_id == crate::character_roster::default_character_id();
-        if !is_protagonist {
-            if let Some(character_set) =
-                crate::character_roster::default_action_set_for_character_id(character_id)
-            {
-                bundle.action_set = character_set;
-                // Re-derive the melee moveset from the WORN character's swing —
-                // the character defines behavior, the controller just attaches.
-                bundle.moveset = crate::combat::moveset::ActorMoveset(
-                    crate::combat::moveset::build_actor_moveset(
-                        None,
-                        bundle.action_set.melee.as_ref(),
-                        None,
-                    )
-                    .unwrap_or_default(),
-                );
-            }
-        }
+        // The SAME overlay the runtime re-wear system applies (name + the worn
+        // character's authored kit for a known non-protagonist), so spawn and
+        // runtime can never disagree on what a known character is.
+        crate::avatar::apply_worn_character_overlay(
+            &mut bundle.name,
+            &mut bundle.action_set,
+            &mut bundle.moveset,
+            character_id,
+        );
         bundle
     }
 }

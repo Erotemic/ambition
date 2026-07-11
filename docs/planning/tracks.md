@@ -153,3 +153,19 @@ Before writing `DONE`, `LANDED`, `ONE authority`, or `none remain`:
 3. Search for competing owners and consumers, not only the newly added type.
 4. Update [`status.md`](status.md) and the owning plan in the same commit.
 5. Archive the execution narrative instead of appending it here.
+
+## Decomposition and completion (binding)
+
+- A broad task is the executing agent's to decompose into executable subtasks,
+  each labeled **DONE**, **OPEN**, or **BLOCKED**. A parent is **DONE** only when
+  every subtask is DONE, or Jon explicitly approves a pivot / deletion / rescope.
+- A **DONE** row names the precise property established and cites evidence that
+  directly establishes it. Never use a broad row name that implies neighboring
+  unfinished properties.
+- **Caveated completion is not completion.** A caveat that affects the acceptance
+  bar becomes an OPEN or BLOCKED subtask; the parent stays PARTIAL / OPEN /
+  BLOCKED. "Complete except for X" is forbidden when X was part of the original
+  bar. Only Jon may remove an unfinished item from the bar.
+- A **BLOCKED** subtask names its blocker and any maintainer decision required.
+- Legitimate partial progress gets exact per-slice credit, never a binary parent
+  grade that hides it.

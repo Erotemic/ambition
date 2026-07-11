@@ -180,7 +180,8 @@ BOSS_EVIDENCE_RE = re.compile(
     r"<!--\s*planning-evidence:\s*boss-validator\s+errors=(\d+)\s+warnings=(\d+)\s*-->"
 )
 INLINE_TEST_EVIDENCE_RE = re.compile(
-    r"<!--\s*planning-evidence:\s*inline-test-debt\s+path=([^\s]+)\s*-->"
+    r"<!--\s*planning-evidence:\s*inline-test\s+path=(\S+)"
+    r"\s+disposition=(behavioral-inline|extract-pending)\s*-->"
 )
 WORKSPACE_MEMBERS_RE = re.compile(
     r"<!--\s*planning-evidence:\s*workspace-members\s+count=(\d+)\s*-->"
@@ -796,17 +797,23 @@ def check_planning_evidence(errors: list[str]) -> None:
                 f"{expected_errors}/{expected_warnings}",
             )
 
-    documented_debt = set(INLINE_TEST_EVIDENCE_RE.findall(status))
-    measured_debt = large_inline_test_debt()
-    if documented_debt != measured_debt:
-        missing = sorted(measured_debt - documented_debt)
-        stale = sorted(documented_debt - measured_debt)
+    # Every >=200-line inline test module must carry exactly one reviewed marker
+    # with an explicit disposition. 200 is a review PROXY (see test-placement.md);
+    # `behavioral-inline` (genuine local behavioral tests) is a valid disposition,
+    # not debt. The set of marked paths must equal the measured set — so no module
+    # escapes review and no stale marker survives its extraction.
+    reviewed = INLINE_TEST_EVIDENCE_RE.findall(status)
+    documented = {path for path, _disposition in reviewed}
+    measured = large_inline_test_debt()
+    if documented != measured:
+        missing = sorted(measured - documented)
+        stale = sorted(documented - measured)
         parts = []
         if missing:
-            parts.append("undocumented: " + ", ".join(missing))
+            parts.append("unreviewed (add a disposition marker): " + ", ".join(missing))
         if stale:
-            parts.append("no longer present: " + ", ".join(stale))
-        fail(errors, "large inline-test debt markers disagree with HEAD (" + "; ".join(parts) + ")")
+            parts.append("no longer >=200 lines (drop the marker): " + ", ".join(stale))
+        fail(errors, "inline-test review markers disagree with HEAD (" + "; ".join(parts) + ")")
 
     ws_markers = WORKSPACE_MEMBERS_RE.findall(status)
     if len(ws_markers) != 1:

@@ -27,6 +27,26 @@ invariant.** AGENTS.md carries the one-paragraph version; this is the full model
   to relocate a test, and do not externalize private behavioral tests into an
   integration crate.
 
+**The 200-line trigger is a review proxy, not a verdict.** `scripts/check_agent_kb.py`
+flags any inline `#[cfg(test)]` module ≥ 200 lines. The real rule is SEMANTIC and
+the proxy is imperfect (a genuinely hard problem): line count alone never
+establishes bad organization.
+
+- **Genuine local behavioral tests** — ones exercising real, breakable logic
+  (numeric folds, scoping, sequencing, serde round-trips, gameplay invariants) —
+  may stay inline even when large, because co-location improves reviewability.
+- **Structural / guardrail tests** — shape checks, signature checks, ratchets,
+  module-size or architecture policy, anything whose main job is to constrain
+  machine-generated changes — belong in `tests/ambition_workspace_policy` or a
+  dedicated integration location, NOT interleaved with implementation a human is
+  trying to read.
+- A flagged module is semantically reviewed and given an explicit disposition:
+  `behavioral-inline` (with a stated reason) or `extract-pending`. Operate in the
+  spirit of the rule, not the zealous letter.
+- **Weak or untrusted agents get the zealous default:** a new ≥ 200-line inline
+  module fails until a reviewer allowlists it with a reason; an agent does not
+  grant itself the exception.
+
 ### 2. Public crate / assembled-system behavior — that crate's `tests/`
 
 Public crate behavior stays in the crate's `tests/` directory. Game scenarios,

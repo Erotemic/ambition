@@ -712,6 +712,41 @@ pub fn build_actor_moveset(
     }
 }
 
+/// Equip an A3 equipment row onto a body — the ONE equip contract a powerup pickup
+/// or a menu equip shares. Applies the row's grants to `action_set`, records the
+/// row in `worn`, and returns the re-derived moveset **only if the row granted a
+/// verb** (the caller inserts it as `ActorMoveset`). `current` is the body's
+/// moveset before this equip and is passed as the derivation base so existing
+/// signature/melee/ranged moves survive — `build_actor_moveset` is idempotent, so
+/// re-deriving them is safe, and the granted verb overlays.
+///
+/// A grant-free row (a pure modifier/armor powerup like the grow-cap) returns
+/// `None` and touches neither the action set nor the moveset: its whole effect is
+/// read-time (`resolved_param` / `consume_armor`), so there is nothing to wire on
+/// equip. Pure by design (no `Commands`), so it unit-tests without an ECS world;
+/// the pickup system owns inserting `worn`/the returned moveset.
+pub fn equip_equipment_row(
+    action_set: &mut ambition_characters::brain::action_set::ActionSet,
+    worn: &mut ambition_characters::equipment::WornEquipment,
+    current: Option<&MovesetContract>,
+    row: ambition_characters::equipment::EquipmentRow,
+) -> Option<MovesetContract> {
+    let grants_a_verb = !row.grants.is_empty();
+    for grant in &row.grants {
+        grant.apply_to_action_set(action_set);
+    }
+    worn.equip(row);
+    if grants_a_verb {
+        build_actor_moveset(
+            current,
+            action_set.melee.as_ref(),
+            action_set.ranged.as_ref(),
+        )
+    } else {
+        None
+    }
+}
+
 /// Marker: this body's basic melee swing is a data-driven moveset `"attack"`
 /// move, not the flat `BodyMelee` swing. The flat-melee phases
 /// (`start_body_melee` / `advance_body_melee`'s swing logic) SKIP a body carrying

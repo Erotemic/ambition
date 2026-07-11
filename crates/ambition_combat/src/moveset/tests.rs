@@ -1582,3 +1582,58 @@ fn a3_flower_grant_adds_and_removes_a_ranged_verb_in_the_derived_moveset() {
         "unequip removes the ranged move"
     );
 }
+
+/// The A3 equip contract `equip_equipment_row`: a grant-free row is read-time only
+/// (no moveset, no action-set change); a grant-bearing row overlays the verb and
+/// re-derives a moveset that PRESERVES the body's existing verbs.
+#[test]
+fn a3_equip_equipment_row_is_read_time_for_plain_rows_and_rebuilds_for_grants() {
+    use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec};
+    use ambition_characters::equipment::{EquipmentGrant, EquipmentRow, WornEquipment};
+    use ambition_entity_catalog::MovesetContract;
+
+    let mut actions = ActionSet::peaceful();
+    let mut worn = WornEquipment::default();
+
+    // A grant-free grow-cap analog: returns None, touches neither.
+    let grow_cap = EquipmentRow {
+        id: "grow_cap".to_string(),
+        ..Default::default()
+    };
+    assert!(
+        equip_equipment_row(&mut actions, &mut worn, None, grow_cap).is_none(),
+        "a grant-free row wires no moveset — its effect is read-time"
+    );
+    assert!(actions.ranged.is_none(), "no grant, no action-set change");
+    assert!(worn.wears("grow_cap"), "but it is recorded as worn");
+
+    // A grant-bearing spark-blossom analog, equipped OVER a body that already has a
+    // signature verb: the rebuilt moveset gains "ranged" AND keeps the signature.
+    let mut current = MovesetContract::default();
+    current
+        .verbs
+        .insert("special".to_string(), "chain".to_string());
+    let blossom = EquipmentRow {
+        id: "spark_blossom".to_string(),
+        grants: vec![EquipmentGrant::Ranged(RangedActionSpec::Bolt {
+            speed: 420.0,
+            damage: 6,
+        })],
+        ..Default::default()
+    };
+    let rebuilt = equip_equipment_row(&mut actions, &mut worn, Some(&current), blossom)
+        .expect("a granted verb rebuilds a moveset");
+    assert!(
+        rebuilt.move_for_verb(RANGED_VERB).is_some(),
+        "the granted ranged verb is fireable"
+    );
+    assert!(
+        rebuilt.verbs.contains_key("special"),
+        "the body's existing signature verb survives the equip"
+    );
+    assert!(
+        actions.ranged.is_some(),
+        "the grant overlaid the action set"
+    );
+    assert!(worn.wears("spark_blossom"));
+}

@@ -195,7 +195,22 @@ pub fn populate_control_frame_from_actions(
                 read_menu_control_frame(action_state)
             }
         }
-        Err(_) => ControlFrame::default(),
+        // No `ActionState<SandboxAction>` on a `PlayerVisual` body → neutral input.
+        // This is EXPECTED and benign for a single frame at startup/teardown (the
+        // body exists before `attach_player_input_components` runs, or after a
+        // despawn). But it must not SILENTLY mask a persistent disconnection —
+        // `MultipleEntities` is always a bug (two input-bearing bodies fighting for
+        // the frame), and a lasting `NoEntities` means the host bridge is wired to
+        // nothing. Surface both once so the neutral fallback is explicit, then
+        // default. (`warn_once` fires a single line, so it never spams per frame.)
+        Err(err) => {
+            bevy::log::warn_once!(
+                "populate_control_frame_from_actions: no unique player ActionState \
+                 ({err:?}); gameplay input is NEUTRAL. Benign for one startup/teardown \
+                 frame; if it persists the standard host-input path is disconnected."
+            );
+            ControlFrame::default()
+        }
     };
 }
 

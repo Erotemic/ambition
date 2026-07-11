@@ -117,6 +117,13 @@ impl Plugin for HostInputBindingsPlugin {
         if !app.is_plugin_added::<bevy::input::InputPlugin>() {
             app.add_plugins(bevy::input::InputPlugin);
         }
+        // `update_active_input_kind` (added below) reads `MessageReader<CursorMoved>`,
+        // a WINDOW message that `InputPlugin` does NOT register — a windowed host
+        // gets it from `WindowPlugin`/`DefaultPlugins`, but a headless boot has no
+        // window and Bevy 0.18 PANICS on the unregistered channel. Register it here
+        // (idempotent) so the standard host-input path runs headlessly — the shape
+        // RL and `tests/standard_input_path.rs` need.
+        app.add_message::<bevy::window::CursorMoved>();
 
         app.init_resource::<MenuInputState>()
             .init_resource::<MenuControlFrame>()

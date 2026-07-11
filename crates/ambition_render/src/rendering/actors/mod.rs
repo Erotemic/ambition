@@ -89,15 +89,12 @@ pub fn bind_worn_character_presentation(
             Entity,
             &ambition_characters::actor::WornCharacter,
             Option<&PlayerSpriteCharacter>,
+            Has<CharacterAnimator>,
         ),
         With<PlayerVisual>,
     >,
 ) {
-    for (entity, worn, bound) in &players {
-        // Already bound to this exact identity — nothing to do.
-        if bound.map(|b| b.id.as_str()) == Some(worn.id()) {
-            continue;
-        }
+    for (entity, worn, bound, has_sheet) in &players {
         let player_collision = BVec2::new(
             ae::DEFAULT_PLAYER_BODY_WIDTH,
             ae::DEFAULT_PLAYER_BODY_HEIGHT,
@@ -107,6 +104,14 @@ pub fn bind_worn_character_presentation(
         let asset = assets
             .as_ref()
             .and_then(|a| a.characters.asset_for_character_id(worn.id()));
+        // Skip only when already CORRECTLY bound: same id AND either a real sheet is
+        // installed or none is available to upgrade to. A body sitting on a fallback
+        // (marker matches but no animator) is re-attempted once its sheet appears, so
+        // an asset that loads AFTER the first bind is not lost.
+        let already_bound = bound.map(|b| b.id.as_str()) == Some(worn.id());
+        if already_bound && (has_sheet || asset.is_none()) {
+            continue;
+        }
         if let Some(asset) = asset {
             let player_render = player_placeholder_render_size(&asset.spec, player_collision);
             let sprite = build_character_sprite_with_render_size(asset, player_render);
@@ -730,24 +735,48 @@ mod worn_binder_tests {
 
     #[test]
     fn already_bound_identity_is_not_rebound() {
-        // Non-vacuity: a body whose bound marker already matches its worn identity
-        // is SKIPPED — the binder does not thrash the sprite every frame. Prove it
-        // by removing the animator after the bind and confirming the guard does
-        // NOT re-add it (an unconditional binder would).
+        // Non-vacuity: a body correctly bound to its identity (same id AND a real
+        // sheet installed) is SKIPPED — the binder does not thrash the sprite every
+        // frame. Prove it by advancing the animator's frame cursor and confirming a
+        // no-change update preserves it (a rebind would install a fresh frame-0
+        // animator).
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
         app.insert_resource(two_character_assets());
         app.add_systems(Update, bind_worn_character_presentation);
         let e = spawn_worn(&mut app, "robot");
         app.update();
-        assert!(app.world().get::<CharacterAnimator>(e).is_some());
-
-        // Identity unchanged (still "robot", marker still "robot"): the guard skips.
-        app.world_mut().entity_mut(e).remove::<CharacterAnimator>();
+        app.world_mut().get_mut::<CharacterAnimator>(e).unwrap().frame = 7;
         app.update();
+        assert_eq!(
+            app.world().get::<CharacterAnimator>(e).unwrap().frame,
+            7,
+            "a correctly-bound identity is not rebound, so animator state is preserved"
+        );
+    }
+
+    #[test]
+    fn a_fallback_upgrades_when_its_sheet_appears_later() {
+        // The reusable binder must not permanently stick on a fallback: if GameAssets
+        // (or the id's sheet) arrives AFTER the first bind, the next run upgrades the
+        // marked fallback to the real sheet.
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_systems(Update, bind_worn_character_presentation);
+        let e = spawn_worn(&mut app, "robot");
+        app.update();
+        assert_eq!(app.world().get::<PlayerSpriteCharacter>(e).unwrap().id, "robot");
         assert!(
             app.world().get::<CharacterAnimator>(e).is_none(),
-            "a matching identity is not rebound, so the removed animator stays removed"
+            "no assets yet → marked fallback, no animator"
+        );
+
+        // The sheet loads now.
+        app.insert_resource(two_character_assets());
+        app.update();
+        assert!(
+            app.world().get::<CharacterAnimator>(e).is_some(),
+            "the fallback upgraded to the real sheet once its asset appeared"
         );
     }
 }

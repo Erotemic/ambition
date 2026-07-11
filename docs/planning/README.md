@@ -62,6 +62,23 @@ HEAD and fails when they drift.
    production lines, or test-inclusive lines. Avoid duplicating brittle counts
    when the number does not guide a decision.
 
+## Completion policy
+
+Grade by decomposition, never by a broad label (binding on every executor):
+
+- A task given too broadly is **decomposed by the executing agent** into
+  executable subtasks, each **DONE**, **OPEN**, or **BLOCKED**. Executable status
+  tables use only those three words.
+- A parent is **DONE** only when every represented subtask is DONE, unless Jon
+  explicitly approves a pivot, deletion, rescoping, or redirection.
+- A caveat that affects acceptance becomes an **OPEN**/**BLOCKED** subtask;
+  "complete except for …" is not completion. A **BLOCKED** item names its blocker
+  and any maintainer decision required.
+- Narrow per-slice completion credit is encouraged; a broad label must not imply
+  unfinished neighboring properties. A future possibility not currently in scope
+  is recorded as prose outside the subtask table, never as a fourth status word
+  (no `DEFERRED` rows).
+
 ## Planning size policy
 
 Live plans should be concise enough to audit. The documentation checker enforces

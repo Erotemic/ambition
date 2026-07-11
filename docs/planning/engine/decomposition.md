@@ -374,42 +374,46 @@ lines, and — bidirectionally — fails a waiver whose file is no longer oversi
 Exceptions are a named waiver list with one reviewed reason per path; nothing is
 inferred. It is poison-tested (`poison_reacts` drives the real walk with a hostile
 limit + a stale waiver). The stale `MODULES.md` was regenerated and the 44-member
-count corrected. **What KEEPS D-B reopened is criterion 4's other half:** the waived
-debt (status corrected 2026-07-11 — the earlier "nine modules … moveset.rs 3022" was
-wrong; `moveset.rs` is 1536 total / under the code-line limit and is NOT waived). The
-actual waiver list is **THREE**: `snapshot.rs` (3684), `view_cones.rs` (2206),
-`kaleidoscope_app.rs` (1814). D-B re-closes when that list empties.
+count corrected. **What KEEPS D-B reopened is criterion 4's other half:** the
+over-limit debt list. The gate counts **total** lines (`s.lines().count()`, test
+files excluded by path) against the 1500 limit — there is no separate "code-line"
+count, so an earlier note calling `moveset.rs` (1536) "under the code-line limit"
+was wrong: 1536 > 1500, and the gate flags it as an **unwaived** violation. The
+current over-limit set is **THREE**: `moveset.rs` (1536, unwaived — split or waive
+next), `view_cones.rs` (2206, waived), `kaleidoscope_app.rs` (1814, waived). D-B
+re-closes when that list empties.
 
-**Pre-solved, opus-executable plan for the biggest waiver, `snapshot.rs` (3684 →
-four sub-1500 modules, clearing the waiver in one pass** — derived + verified against
-the current file 2026-07-11):
+**`snapshot.rs` (3684) → four sub-1500 modules — ✅ LANDED 2026-07-11.** The
+pre-solved plan ran clean; final shape and the traps it hit:
 
-- Convert `snapshot.rs` → `snapshot/mod.rs` (the tests already live at
-  `snapshot/tests.rs` via `mod tests;`; that line stays). `mod.rs` keeps the core:
-  the traits (`SnapshotState`/`Cursor`/`Resolve` + `ResolveDecodeError`), the wire
-  primitives (`put_*`, `Reader`, `paste_put`/`PasteEncode`), `StateHasher`,
+- `snapshot.rs` → `snapshot/mod.rs` (**1155**), keeping the core: the traits
+  (`SnapshotState`/`Cursor`/`Resolve` + `ResolveDecodeError`), wire primitives
+  (`put_*`, `Reader`, `paste_put`/`PasteEncode`), `StateHasher`,
   `ApplyOutcome`/`EntryKind`/`StateEntry`, `SimSnapshot`/`take`/`duplicate_live_ids`,
-  `RestoreReport`/`RestoreError`, the hash/`DesyncReport`/plugin/`register_engine_sim_state`
-  — ≈1094 lines.
-- `snapshot/registry.rs` ← the `impl SnapshotRegistry` block (≈443–1135, ≈692 lines).
-- `snapshot/restore.rs` ← `respawn_from_the_room` + `validate_snapshot` + `restore`
-  (≈1595–2062, ≈467 lines).
-- `snapshot/codecs.rs` ← every `impl SnapshotState/Cursor/Resolve for <T>` +
-  `PasteEncode`/`paste_put` (≈2310–3684, ≈1374 lines).
-- **GOTCHA (found the hard way):** `use ambition_engine_core::body_clusters as bc;` is
-  a MODULE-LEVEL alias declared at line 2405 (inside the codec block) but ALSO used by
-  `register_engine_sim_state` at line ~2168 (which stays in `mod.rs`). Moving the codec
-  block moves that `use`, so `bc` must be RE-DECLARED in `mod.rs`'s top imports (and in
-  `codecs.rs`). Each submodule does `use super::*;` for the traits/primitives (all
-  `pub`) plus its own external-crate imports; the codec impls otherwise use
-  fully-qualified `ambition_*` paths, so the import surface is small. `mod.rs`
-  `pub use` any items the tests' `use super::*;` needs (they currently see everything).
-- Verify: `cargo test -p ambition_runtime --lib` (46 snapshot tests) + the app rl_sim
-  desync canary. It is a pure code RELOCATION — correctness is compiler + those tests.
-  Then delete the `snapshot.rs` waiver from `module_size.toml` (the bidirectional gate
-  FAILS if a stale waiver remains, so the deletion is forced). Not attempted inline in
-  the 2026-07-11 session (a 4-way split of a 3.7k-line file mid-long-context is a
-  compile-loop risk best run fresh); the plan is the deliverable.
+  `RestoreReport`/`RestoreError`, hash/`DesyncReport`/plugin/`register_engine_sim_state`,
+  and `canonical_f32_bits` (a wire helper `put_f32` calls — it had to stay with `put_f32`
+  in `mod.rs`, NOT travel with the codec block).
+- `snapshot/registry.rs` (**718**) ← `struct`+`impl SnapshotRegistry`,
+  `SIM_RESOURCE_EXCLUSIONS`.
+- `snapshot/restore.rs` (**471**) ← `respawn_from_the_room` + `validate_snapshot` +
+  `restore` + `resource_names_available`.
+- `snapshot/codecs.rs` (**1379**) ← every `impl SnapshotState/Cursor/Resolve for <T>`,
+  the `snapshot_pod!`/`snapshot_unit_enum!` generators, `PasteEncode`/`paste_put`, and
+  the `SimId` minting helpers. `use ambition_engine_core::body_clusters as bc;` moved
+  with this block and was RE-DECLARED in `mod.rs` (the flagged gotcha — `register_engine_sim_state`
+  stays in `mod.rs` and needs `bc`).
+- **The gotcha the plan missed: cross-module privacy.** A child module sees its
+  parent's private items (so every submodule's `use super::*` reaches the core, and
+  `tests.rs` still sees everything), but a PARENT cannot see a child's privates and
+  SIBLINGS cannot see each other's. Three items `restore`/`take`/`tests` read across
+  that line had to open up: `SnapshotRegistry.entries`/`.messages` → `pub(super)`;
+  `MessageChannel` moved from `registry.rs` up to `mod.rs` (parent → visible to all
+  submodules, the same as `StateEntry`/`EntryKind`) so `restore` can call its `clear`;
+  `SnapshotRegistry::ACTIVE_ROOM_ENTRY`/`ROSTER_ENTRY` → `pub(super)` for the tests.
+- Verified: `cargo test -p ambition_runtime --lib` (46 snapshot tests green) + the app
+  rl_sim `desync_canary`. Pure code RELOCATION + the visibility widenings above. The
+  `snapshot.rs` waiver was deleted from `module_size.toml` (the bidirectional gate
+  forces it — a stale waiver for a vanished file also fails).
 
 `MODULES.md` generation remains useful and the dissolved hub globs remain done;
 those mechanisms are not sufficient to label the whole D-B standard complete.

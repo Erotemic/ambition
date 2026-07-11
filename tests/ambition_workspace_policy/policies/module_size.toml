@@ -28,11 +28,6 @@ limit = 1500
 roots = ["crates", "game"]
 
 [[waiver]]
-path = "crates/ambition_runtime/src/snapshot.rs"
-reason = "N3.1 bootstrap god module (audit M9): public API + wire format + registry + restore/reconciliation + per-crate codecs + diagnostics in one file. A pre-solved, opus-executable 4-way split (mod.rs core / registry.rs / restore.rs / codecs.rs, each <1500, plus the shared-`bc`-alias gotcha) is in docs/planning/engine/decomposition.md §D-B — run it fresh and delete this waiver."
-
-
-[[waiver]]
 path = "crates/ambition_portal_presentation/src/view_cones.rs"
 reason = "portal view-cone assembly. Presentation (never sim-hashed); split tracked with the portal-presentation work, no natural seam extracted yet."
 

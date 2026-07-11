@@ -16,7 +16,7 @@ use std::path::Path;
 
 use serde::Deserialize;
 
-use crate::model::{Report, Scope};
+use crate::model::{CustomMeta, Report, Scope, Severity};
 use crate::workspace::{self, Workspace};
 
 #[derive(Debug, Deserialize)]
@@ -83,6 +83,20 @@ fn count_lines(path: &Path) -> usize {
     std::fs::read_to_string(path)
         .map(|s| s.lines().count())
         .unwrap_or(0)
+}
+
+/// Uniform metadata for the module-size policy (its watched roots are the crate
+/// parents it scans).
+pub fn metas() -> Vec<CustomMeta> {
+    let cfg = load_config();
+    vec![CustomMeta {
+        id: cfg.id,
+        scope: cfg.scope,
+        owners: cfg.owners,
+        watch_paths: cfg.roots,
+        source_doc: cfg.source_doc,
+        severity: Severity::Error,
+    }]
 }
 
 /// The gate. Appends oversized + stale-waiver diagnostics to `report`; asserts

@@ -15,8 +15,19 @@
 
 use serde::Deserialize;
 
-use crate::model::{Diagnostic, Report, Scope};
+use crate::model::{CustomMeta, Diagnostic, Report, Scope, Severity, WORKSPACE_OWNER};
 use crate::workspace::{self, Workspace};
+
+/// The canonical workspace package name owning a repo-relative source path
+/// (`crates/ambition_foo/src/…` / `game/ambition_foo/src/…` → `ambition_foo`),
+/// not a `crates/…` path fragment. For every Ambition crate `package.name` equals
+/// the directory basename, so this matches `Workspace::member_names`.
+fn package_of(file: &str) -> String {
+    file.split('/')
+        .nth(1)
+        .unwrap_or(WORKSPACE_OWNER)
+        .to_string()
+}
 
 #[derive(Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -72,9 +83,9 @@ impl Allow {
             Scope::Engine
         }
     }
-    /// The owning crate, derived from the first two path segments.
+    /// The owning crate's canonical package name.
     fn owner(&self) -> String {
-        self.file.split('/').take(2).collect::<Vec<_>>().join("/")
+        package_of(&self.file)
     }
 }
 
@@ -295,7 +306,7 @@ pub fn run(ws: &Workspace, scope: Scope, report: &mut Report) {
             .iter()
             .any(|a| a.file == h.file && a.func == h.func);
         if !listed {
-            let owner = h.file.split('/').take(2).collect::<Vec<_>>().join("/");
+            let owner = package_of(&h.file);
             report.push(mk(
                 format!("{}:{}", h.file, h.line),
                 owner,
@@ -321,6 +332,28 @@ pub fn run(ws: &Workspace, scope: Scope, report: &mut Report) {
             ));
         }
     }
+}
+
+/// Uniform metadata for the two scoped ControlFrame policies (cross-cutting over
+/// the sim crates, so `workspace` owns them). Watched roots come from the config.
+pub fn metas() -> Vec<CustomMeta> {
+    let cfg = load_config();
+    [Scope::Engine, Scope::Game]
+        .into_iter()
+        .map(|scope| CustomMeta {
+            id: format!("{}.control-frame", scope.label()),
+            scope,
+            owners: vec![WORKSPACE_OWNER.to_string()],
+            watch_paths: cfg
+                .root
+                .iter()
+                .filter(|r| r.scope == scope)
+                .map(|r| r.path.clone())
+                .collect(),
+            source_doc: cfg.source_doc.clone(),
+            severity: Severity::Error,
+        })
+        .collect()
 }
 
 // ── poison / self-tests (called from tests/policy.rs) ────────────────────────

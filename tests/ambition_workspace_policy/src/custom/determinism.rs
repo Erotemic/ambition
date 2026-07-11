@@ -19,7 +19,7 @@ use std::collections::BTreeSet;
 
 use serde::Deserialize;
 
-use crate::model::{Diagnostic, Report, Scope};
+use crate::model::{CustomMeta, Diagnostic, Report, Scope, Severity, WORKSPACE_OWNER};
 use crate::workspace::{self, Workspace};
 
 #[derive(Debug, Deserialize)]
@@ -123,12 +123,35 @@ fn sim_sources(ws: &Workspace, cfg: &Config, scope: Scope) -> Vec<(String, Strin
 fn diag(cfg: &Config, scope: Scope, location: String, detail: String) -> Diagnostic {
     Diagnostic {
         policy_id: format!("{}.determinism", scope.label()),
-        owners: vec![],
+        owners: vec![WORKSPACE_OWNER.to_string()],
         source_doc: cfg.source_doc.clone(),
         rationale: cfg.rationale.clone(),
         location,
         detail,
     }
+}
+
+/// Uniform metadata for the two scoped determinism policies (cross-cutting: they
+/// span every sim crate, so `workspace` owns them). Watched roots come from the
+/// config so `xtask test-affected` can select the right scope from a changed crate.
+pub fn metas() -> Vec<CustomMeta> {
+    let cfg = load_config();
+    [Scope::Engine, Scope::Game]
+        .into_iter()
+        .map(|scope| CustomMeta {
+            id: format!("{}.determinism", scope.label()),
+            scope,
+            owners: vec![WORKSPACE_OWNER.to_string()],
+            watch_paths: cfg
+                .root
+                .iter()
+                .filter(|r| r.scope == scope)
+                .map(|r| r.path.clone())
+                .collect(),
+            source_doc: cfg.source_doc.clone(),
+            severity: Severity::Error,
+        })
+        .collect()
 }
 
 /// The whole determinism suite for one scope.

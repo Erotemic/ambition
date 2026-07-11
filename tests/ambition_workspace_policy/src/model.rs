@@ -53,6 +53,28 @@ impl Severity {
     }
 }
 
+/// The owner sentinel for a CROSS-CUTTING policy that no single crate owns (the
+/// determinism / module-size / control-frame scanners span every sim crate). A
+/// valid owner is this sentinel or a real workspace package name.
+pub const WORKSPACE_OWNER: &str = "workspace";
+
+/// Uniform metadata for a CUSTOM scanner policy (the Rust modules under
+/// `custom/`), so it carries the same reviewable ownership surface as a
+/// declarative [`Policy`]: a stable id, scope, canonical package owners (or
+/// [`WORKSPACE_OWNER`]), watched roots, source doc, and severity. The
+/// `policy_metadata_is_uniform` self-test validates declarative + custom policies
+/// through one path, and a future `xtask test-affected` can select either kind
+/// from a changed crate.
+#[derive(Debug, Clone)]
+pub struct CustomMeta {
+    pub id: String,
+    pub scope: Scope,
+    pub owners: Vec<String>,
+    pub watch_paths: Vec<String>,
+    pub source_doc: String,
+    pub severity: Severity,
+}
+
 /// The declarative rule kinds. Each maps to one function under [`crate::rules`].
 /// Deliberately small: add a kind only when a migration needs it (do not design
 /// a universal policy language in advance).

@@ -31,7 +31,9 @@ pub mod rules;
 pub mod runner;
 pub mod workspace;
 
-pub use model::{Diagnostic, Policy, Report, RuleKind, Scope, Severity};
+pub use model::{
+    CustomMeta, Diagnostic, Policy, Report, RuleKind, Scope, Severity, WORKSPACE_OWNER,
+};
 pub use workspace::Workspace;
 
 /// Load and run every declarative policy of `scope` from the standard

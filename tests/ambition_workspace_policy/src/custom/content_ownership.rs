@@ -6,7 +6,7 @@
 //! carry the enum (consumed before the entity exists), so this guards only the
 //! two durable structs by parsing their bodies.
 
-use crate::model::{Diagnostic, Report};
+use crate::model::{CustomMeta, Diagnostic, Report, Scope, Severity};
 use crate::workspace::{self, Workspace};
 
 const FILE: &str = "crates/ambition_actors/src/features/ecs/actor_clusters.rs";
@@ -29,6 +29,17 @@ fn archetype_fields(text: &str, struct_name: &str) -> Option<Vec<String>> {
             .map(str::to_string)
             .collect(),
     )
+}
+
+pub fn metas() -> Vec<CustomMeta> {
+    vec![CustomMeta {
+        id: POLICY_ID.to_string(),
+        scope: Scope::Engine,
+        owners: vec!["ambition_actors".to_string()],
+        watch_paths: vec![FILE.to_string()],
+        source_doc: "docs/architecture/architecture-boundaries.md".to_string(),
+        severity: Severity::Error,
+    }]
 }
 
 pub fn run(ws: &Workspace, report: &mut Report) {

@@ -1,18 +1,19 @@
-//! The ONE workspace-policy test binary.
+//! The ONE workspace-policy test binary — many independently named + filterable
+//! `#[test]`s, one compiled binary.
 //!
-//! Four independently filterable tests:
+//! The three scope runners aggregate every violation of a scope at once:
 //!   cargo test -p ambition_workspace_policy repository_policies
 //!   cargo test -p ambition_workspace_policy engine_policies
 //!   cargo test -p ambition_workspace_policy game_policies
-//!   cargo test -p ambition_workspace_policy policy_runner_self_tests
 //!
-//! The scope tests run every declarative policy of that scope (plus, for
-//! `engine`, the custom scanners once they migrate). `policy_runner_self_tests`
-//! validates the runner itself: real owners, existing watch-paths, non-vacuous
-//! source roots, and poison fixtures that prove every rule kind still reacts.
+//! The rest are the runner's own self-tests, each its own `#[test]` so a first
+//! panic no longer hides the others: workspace discovery, uniform owner/watch-path
+//! validation across declarative AND custom policies, non-vacuous source roots,
+//! custom-metadata completeness, the migration-matrix honesty checks, and a poison
+//! fixture per rule kind + custom scanner proving each still reacts.
 
 use ambition_workspace_policy::{
-    custom, run_declarative, workspace, Policy, Report, Scope, Workspace,
+    custom, run_declarative, workspace, Policy, Report, Scope, Workspace, WORKSPACE_OWNER,
 };
 
 // ── the three scope tests ────────────────────────────────────────────────────
@@ -69,45 +70,58 @@ fn run_one(policy: &Policy) -> Report {
     report
 }
 
+// The runner's self-tests are individual `#[test]`s (one compiled binary, but each
+// check is separately named + filterable, and a first panic no longer hides the
+// rest). The three scope runners above stay aggregating — their `Report`
+// intentionally emits ALL violations of a scope at once.
+
+// ── custom scanners' own poison ──────────────────────────────────────────────
+
 #[test]
-fn policy_runner_self_tests() {
-    workspace_discovery_finds_the_root();
-    every_declared_owner_is_a_real_workspace_package();
-    every_watch_path_exists();
-    every_source_root_contributes_files();
-
-    // Poison: each rule kind must react to a deliberate violation.
-    poison_required_path_reacts();
-    poison_forbidden_path_reacts();
-    poison_workspace_member_reacts();
-    poison_dependency_denylist_reacts();
-    poison_dependency_allowlist_reacts();
-    poison_forbidden_source_reference_reacts();
-    poison_file_contains_reacts();
-    poison_file_omits_reacts();
-    // …and its knobs behave.
-    comment_lines_are_exempt_from_source_scan();
-    whole_ident_does_not_overmatch_but_substring_does();
-    allow_marker_suppresses_a_line();
-
-    legacy_scanner_catches_each_forbidden_identifier();
-
-    // Custom scanners' own poison.
+fn module_size_gate_reacts() {
     custom::module_size::poison_reacts(&Workspace::discover());
-    custom::determinism::poison_self_tests();
-    custom::control_frame::poison_self_tests();
-    custom::control_frame::allowlist_is_justified();
-    custom::lifecycle::poison_self_tests();
-    custom::content_ownership::poison_self_tests();
+}
 
-    // The architecture-migration matrix is complete and honest.
-    let ws = Workspace::discover();
-    custom::migration_matrix::check(&ws);
-    custom::migration_matrix::legacy_file_is_fully_tracked(&ws);
+#[test]
+fn determinism_scanners_react() {
+    custom::determinism::poison_self_tests();
+}
+
+#[test]
+fn control_frame_scanner_reacts() {
+    custom::control_frame::poison_self_tests();
+}
+
+#[test]
+fn control_frame_allowlist_is_justified() {
+    custom::control_frame::allowlist_is_justified();
+}
+
+#[test]
+fn raw_spawn_gate_reacts() {
+    custom::lifecycle::poison_self_tests();
+}
+
+#[test]
+fn enemy_config_gate_reacts() {
+    custom::content_ownership::poison_self_tests();
+}
+
+// ── the architecture-migration matrix is complete and honest ─────────────────
+
+#[test]
+fn migration_matrix_is_complete() {
+    custom::migration_matrix::check(&Workspace::discover());
+}
+
+#[test]
+fn legacy_file_is_fully_tracked() {
+    custom::migration_matrix::legacy_file_is_fully_tracked(&Workspace::discover());
 }
 
 /// Mirrors the retired `legacy_runtime_guardrail.rs` scanner self-test: every
 /// banned identifier is caught, and the `ALLOW_LEGACY_RUNTIME` line is suppressed.
+#[test]
 fn legacy_scanner_catches_each_forbidden_identifier() {
     const FORBIDDEN: &[&str] = &[
         "SandboxRuntime",
@@ -158,6 +172,7 @@ fn legacy_scanner_catches_each_forbidden_identifier() {
     );
 }
 
+#[test]
 fn workspace_discovery_finds_the_root() {
     let ws = Workspace::discover();
     assert!(
@@ -176,20 +191,41 @@ fn workspace_discovery_finds_the_root() {
     );
 }
 
+/// Owners of BOTH declarative and custom policies must be a real workspace
+/// package (or the `workspace` cross-cutting sentinel). One uniform check so a
+/// future `xtask test-affected` can trust every policy's ownership.
+#[test]
 fn every_declared_owner_is_a_real_workspace_package() {
     let ws = Workspace::discover();
     let members = ws.member_names();
+    let valid = |o: &str| o == WORKSPACE_OWNER || members.contains(o);
     for policy in workspace::load_all_policies() {
         for owner in &policy.owners {
             assert!(
-                members.contains(owner),
-                "policy `{}` names owner `{owner}`, which is not a workspace package",
+                valid(owner),
+                "policy `{}` names owner `{owner}`, not a workspace package or `{WORKSPACE_OWNER}`",
                 policy.id
+            );
+        }
+    }
+    for meta in custom::metas() {
+        assert!(
+            !meta.owners.is_empty(),
+            "custom policy `{}` declares no owners",
+            meta.id
+        );
+        for owner in &meta.owners {
+            assert!(
+                valid(owner),
+                "custom policy `{}` names owner `{owner}`, not a workspace package or `{WORKSPACE_OWNER}`",
+                meta.id
             );
         }
     }
 }
 
+/// Watch paths of BOTH declarative and custom policies must exist.
+#[test]
 fn every_watch_path_exists() {
     let ws = Workspace::discover();
     for policy in workspace::load_all_policies() {
@@ -201,8 +237,58 @@ fn every_watch_path_exists() {
             );
         }
     }
+    for meta in custom::metas() {
+        assert!(
+            !meta.watch_paths.is_empty(),
+            "custom policy `{}` declares no watch paths",
+            meta.id
+        );
+        for wp in &meta.watch_paths {
+            assert!(
+                ws.abs(wp).exists(),
+                "custom policy `{}` watches `{wp}`, which does not exist",
+                meta.id
+            );
+        }
+    }
 }
 
+/// Every custom scanner exposes uniform metadata: a stable id, a source doc, and
+/// (validated above) owners + watch paths. This is the surface a future
+/// `xtask test-affected` selects on, so it must be complete.
+#[test]
+fn custom_policy_metadata_is_complete() {
+    let mut ids = std::collections::BTreeSet::new();
+    for meta in custom::metas() {
+        assert!(
+            !meta.id.is_empty() && meta.id.contains('.'),
+            "custom policy id `{}` should be `<scope>.<name>`",
+            meta.id
+        );
+        assert!(
+            meta.source_doc.len() > 5,
+            "custom policy `{}` has no source_doc",
+            meta.id
+        );
+        assert_eq!(
+            meta.id.split('.').next().unwrap(),
+            meta.scope.label(),
+            "custom policy `{}` id scope-prefix must match its scope",
+            meta.id
+        );
+        assert!(
+            ids.insert(meta.id.clone()),
+            "duplicate custom id `{}`",
+            meta.id
+        );
+    }
+    assert!(
+        ids.len() >= 6,
+        "expected the 6+ custom policies, got {ids:?}"
+    );
+}
+
+#[test]
 fn every_source_root_contributes_files() {
     let ws = Workspace::discover();
     for policy in workspace::load_all_policies() {
@@ -216,6 +302,7 @@ fn every_source_root_contributes_files() {
     }
 }
 
+#[test]
 fn poison_required_path_reacts() {
     let p = poison(
         r#"
@@ -232,6 +319,7 @@ fn poison_required_path_reacts() {
     );
 }
 
+#[test]
 fn poison_forbidden_path_reacts() {
     let p = poison(&format!(
         r#"
@@ -248,6 +336,7 @@ fn poison_forbidden_path_reacts() {
     );
 }
 
+#[test]
 fn poison_workspace_member_reacts() {
     let p = poison(
         r#"
@@ -264,6 +353,7 @@ fn poison_workspace_member_reacts() {
     );
 }
 
+#[test]
 fn poison_dependency_denylist_reacts() {
     let p = poison(&format!(
         r#"
@@ -283,6 +373,7 @@ fn poison_dependency_denylist_reacts() {
     );
 }
 
+#[test]
 fn poison_dependency_allowlist_reacts() {
     let p = poison(&format!(
         r#"
@@ -303,6 +394,7 @@ fn poison_dependency_allowlist_reacts() {
     );
 }
 
+#[test]
 fn poison_forbidden_source_reference_reacts() {
     let p = poison(&format!(
         r#"
@@ -320,6 +412,7 @@ fn poison_forbidden_source_reference_reacts() {
     );
 }
 
+#[test]
 fn poison_file_contains_reacts() {
     let p = poison(&format!(
         r#"
@@ -337,6 +430,7 @@ fn poison_file_contains_reacts() {
     );
 }
 
+#[test]
 fn poison_file_omits_reacts() {
     let p = poison(&format!(
         r#"
@@ -354,6 +448,7 @@ fn poison_file_omits_reacts() {
     );
 }
 
+#[test]
 fn comment_lines_are_exempt_from_source_scan() {
     // The fixture names `ambition_content` in TWO comment lines and ONE code
     // line. A correct scan reports exactly the code line — proving prose is
@@ -375,6 +470,7 @@ fn comment_lines_are_exempt_from_source_scan() {
     );
 }
 
+#[test]
 fn whole_ident_does_not_overmatch_but_substring_does() {
     // The fixture names `GroundItemVisual` but never a bare `GroundItem`.
     let whole = poison(&format!(
@@ -409,6 +505,7 @@ fn whole_ident_does_not_overmatch_but_substring_does() {
     );
 }
 
+#[test]
 fn allow_marker_suppresses_a_line() {
     // The fixture's `SandboxRuntime` line carries `ALLOW_LEGACY_RUNTIME`.
     let with_marker = poison(&format!(

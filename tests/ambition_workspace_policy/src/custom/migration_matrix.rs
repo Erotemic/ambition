@@ -23,16 +23,6 @@ const FROZEN_LIST: &str =
 const MATRIX: &str = "tests/ambition_workspace_policy/migration_matrix.toml";
 const LEGACY_FILE: &str = "game/ambition_app/tests/architecture_boundaries.rs";
 
-/// Custom-scanner policy IDs that are not declarative `[[policy]]` entries.
-/// Extended as custom scanners land (Tasks 7/8/9).
-const CUSTOM_POLICY_IDS: &[&str] = &[
-    "engine.module-size",
-    "engine.determinism",
-    "engine.control-frame",
-    "engine.room-feature-spawns",
-    "engine.enemy-config-archetype-free",
-];
-
 #[derive(Debug, Deserialize)]
 struct Matrix {
     #[serde(default)]
@@ -111,12 +101,13 @@ pub fn check(ws: &Workspace) {
         seen.difference(&frozen).collect::<Vec<_>>(),
     );
 
-    // Known destination IDs = every declarative policy ID + the custom IDs.
+    // Known destination IDs = every declarative policy ID + every custom-scanner
+    // policy ID (derived from `custom::metas()`, so it cannot drift).
     let mut known: BTreeSet<String> = workspace::load_all_policies()
         .into_iter()
         .map(|p| p.id)
         .collect();
-    known.extend(CUSTOM_POLICY_IDS.iter().map(|s| s.to_string()));
+    known.extend(super::metas().into_iter().map(|m| m.id));
 
     let in_legacy = legacy_fn_names(ws);
 

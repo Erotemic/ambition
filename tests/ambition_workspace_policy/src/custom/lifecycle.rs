@@ -5,7 +5,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::model::{Diagnostic, Report};
+use crate::model::{CustomMeta, Diagnostic, Report, Scope, Severity};
 use crate::workspace::{self, Workspace};
 
 const SPAWN_DIR: &str = "crates/ambition_actors/src/features/ecs";
@@ -36,6 +36,17 @@ fn read_allowlist(ws: &Workspace) -> BTreeMap<String, usize> {
         out.insert(rel.trim().to_string(), count);
     }
     out
+}
+
+pub fn metas() -> Vec<CustomMeta> {
+    vec![CustomMeta {
+        id: POLICY_ID.to_string(),
+        scope: Scope::Engine,
+        owners: vec!["ambition_actors".to_string()],
+        watch_paths: vec![SPAWN_DIR.to_string(), ALLOWLIST.to_string()],
+        source_doc: "docs/architecture/architecture-boundaries.md".to_string(),
+        severity: Severity::Error,
+    }]
 }
 
 pub fn run(ws: &Workspace, report: &mut Report) {

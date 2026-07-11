@@ -19,7 +19,9 @@
 
 id = "engine.module-size"
 scope = "engine"
-owners = ["ambition_runtime"]
+# Cross-cutting: the gate scans every production module under crates/*/src +
+# game/*/src, so no single crate owns it — the `workspace` owner sentinel.
+owners = ["workspace"]
 source_doc = "docs/planning/engine/decomposition.md"
 rationale = "D-B module-size gate: no production module exceeds ~1500 lines unless waived with a reason; every waiver is decomposition debt, and a stale waiver must be removed when its split lands."
 limit = 1500

@@ -134,17 +134,19 @@ STALE_RECIPE_OR_SYSTEM_PATTERNS = [
 ]
 
 
-# A SOFT budget on the whole planning corpus, surfaced as a WARNING, not an error.
+# A SOFT budget on the whole planning corpus, surfaced as a WARNING, never an error.
 # Planning legitimately runs ahead of the code — a long roadmap is not a defect — so
 # a hard cap on total lines is the wrong tool. The nudge it carries is real, though:
 # when the corpus grows, archive the parts that are LONG DONE rather than trimming
-# live plans. The hard discipline lives in `PLANNING_FILE_MAX_LINES` (each
-# always-live index file stays lean) and the stale-phrasing patterns below.
+# live plans. Size is NEVER a build-failing gate here (see the note on
+# PLANNING_FILE_MAX_LINES); the only hard planning gate is content correctness —
+# the stale-phrasing patterns below.
 PLANNING_TOTAL_SOFT_BUDGET = 10_500
-# Per-file ceilings on the always-live index docs — the hard "stay lean" gate.
-# The numbers are generous headroom, not tight measurements (doubled 2026-07-11
-# because the originals were never a deliberate choice); they exist to catch a doc
-# ballooning, not to force line-by-line trimming.
+# Per-file SOFT ceilings on the always-live index docs — warnings, not gates. A hard
+# line ceiling is a gameable proxy (pack everything onto one line and it passes), and
+# blocking on plan SIZE just trains an agent to game the metric instead of writing a
+# good plan. These numbers are generous headroom to notice a doc ballooning, nothing
+# more; a human decides if a plan actually needs pruning.
 PLANNING_FILE_MAX_LINES = {
     "docs/planning/README.md": 200,
     "docs/planning/status.md": 360,
@@ -807,7 +809,11 @@ def check_planning_front_end(errors: list[str], warnings: list[str]) -> None:
             continue
         lines = len(path.read_text(encoding="utf-8", errors="replace").splitlines())
         if lines > limit:
-            fail(errors, f"{rpath} has {lines} lines; keep it <= {limit}")
+            # A nudge, never a gate. A hard line ceiling is a gameable proxy (one
+            # long line defeats it) and blocking on plan SIZE just trains the agent
+            # to game the metric. Surface it so a ballooning index gets noticed;
+            # let a human decide whether it actually needs pruning.
+            warnings.append(f"{rpath} has {lines} lines (soft ceiling {limit}); consider pruning")
 
     for path in files:
         text = path.read_text(encoding="utf-8", errors="replace")

@@ -117,9 +117,14 @@ input-free. (The CANONICAL-identity work is a separate **DONE** slice: `WornChar
 + `apply_worn_character_gameplay`, proven by `ambition_actors`
 `avatar::starting_character::tests` + the snapshot round-trip. Dialogue now derives
 the speaker from the entity's `WornCharacter`, not `StartingCharacter` — no second
-authority. Spawn + runtime share ONE `apply_worn_character_overlay`; a runtime re-wear
-to the code-default kit is a documented gap, tested at
-`runtime_rewear_to_the_default_keeps_the_prior_kit_documented_gap`.)
+authority. Spawn + runtime share ONE `apply_worn_character_overlay`, which resolves
+name + kit from identity + the body's persisted `AbilitySet` — TOTAL and
+deterministic. The `default_character_id`↔hardcoded-kit coupling was replaced by an
+engine-neutral `PlayableKitSource::{Authored,HostCode}` catalog field, so the content
+default is free to wear its OWN authored kit; a `HostCode` protagonist rebuilds its
+code kit on re-wear/restore, closing the former gap. Tests:
+`runtime_rewear_to_a_host_code_protagonist_rebuilds_the_code_kit`,
+`runtime_rewear_to_an_unknown_id_is_a_defined_fallback_not_stale_state`.)
 
 ### S2 - reusable selected-character presentation binder — DONE
 
@@ -183,13 +188,16 @@ naming the character and exact expected paths/generation command.
 
 **Evidence:** two profiles on each half of the ONE path, no engine edits —
 presentation binds `robot` vs `goblin` (`worn_binder_tests`), gameplay derives
-`sanic` vs `player` (`avatar::starting_character::tests`), and the full kit follows a
-known↔known re-wear (`worn_kit_fully_follows_a_known_character_rewear`). The SHIPPED
-demo genuinely uses Sanic MOVEMENT — its catalog momentum profile rides
-`SurfaceMomentum` and arms ball dash
-(`persona_architecture::the_demo_body_rides_surface_momentum_and_arms_ball_dash`). A
-native second Sanic profile (reused Ambition visual) is authoring work gated on S4 —
-`OPEN`.
+`sanic` vs `player` (`avatar::starting_character::tests`), and the full kit
+(ActionSet + moveset) follows a known↔known re-wear
+(`worn_kit_fully_follows_a_known_character_rewear`). The SHIPPED demo genuinely uses
+Sanic GAMEPLAY, not just the name: it rides `SurfaceMomentum` + arms ball dash
+(`persona_architecture::the_demo_body_rides_surface_momentum_and_arms_ball_dash`) AND
+wears Sanic's authored PEACEFUL kit — no melee/ranged/special, empty moveset — proving
+the visual/default identity no longer forces Ambition's protagonist combat
+(`persona_architecture::the_demo_body_wears_the_authored_peaceful_kit_not_the_host_protagonist_kit`).
+A native second Sanic profile (reused Ambition visual) is authoring work gated on
+S4 — `OPEN`.
 
 Sanic must define at least two playable profiles through the same public path:
 

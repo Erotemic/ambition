@@ -66,12 +66,17 @@ resimulate the difficult window rather than merely reject it.
 `WornCharacter` identity → gameplay derive + generic `ambition_render` presentation
 binder (app + demos), standard host-input path proven headlessly, app duplicate
 binder deleted + guarded. ONE identity — dialogue now reads the entity's
-`WornCharacter` too (no `StartingCharacter` second authority). The demo genuinely
-rides Sanic `SurfaceMomentum` (ball dash live), and `visible` now implies `input`
-so the windowed binary is playable. Spawn/runtime share ONE gameplay overlay.
-`OPEN`: native Sanic sheet provisioning (demo draws a marked fallback); a
-runtime re-wear to the code-default kit is a documented gap (needs the default kit
-modeled as data). Per-slice statuses + test evidence in the plan.
+`WornCharacter` too (no `StartingCharacter` second authority). Gameplay derivation
+is now TOTAL and deterministic: the wear overlay resolves name + kit from identity +
+the body's persisted `AbilitySet`, never from prior component state. The
+`default_character_id`↔hardcoded-kit coupling is GONE — a new engine-neutral
+`PlayableKitSource::{Authored,HostCode}` catalog field decides whose kit a worn body
+uses, so the demo genuinely wears Sanic's authored PEACEFUL kit (no melee/ranged/
+special) while riding `SurfaceMomentum` (ball dash live), and a `HostCode`
+protagonist rebuilds its code kit on re-wear/restore (the old "documented gap" is
+closed). `visible` implies `input` so the windowed binary is playable. `OPEN`:
+native Sanic sheet provisioning only (demo draws a marked fallback). Per-slice
+statuses + test evidence in the plan.
 
 **Plan:** [`demos/sanic-recovery.md`](demos/sanic-recovery.md)
 

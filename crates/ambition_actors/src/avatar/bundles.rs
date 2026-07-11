@@ -191,26 +191,32 @@ impl PlayerSimulationBundle {
     /// binder, which reads the `WornCharacter` identity the spawn records — not
     /// here, and not app-locally.
     ///
-    /// The one exception is the PROTAGONIST (the content-installed default
-    /// row): its kit is the code-side `default_player_action_set` (derived
-    /// from the live `AbilitySet` dev toggles), so wearing the default id
-    /// yields a bundle equivalent to `from_scratch`. Callers should still
-    /// branch on `is_default()` and use `from_scratch` for the protagonist so
-    /// the canonical path is provably unchanged.
+    /// A row marked [`PlayableKitSource::HostCode`](ambition_characters::actor::character_catalog::PlayableKitSource::HostCode)
+    /// (a protagonist whose combat is a runtime `AbilitySet` concern) keeps the
+    /// code-built kit — the overlay rebuilds it from the body's own `AbilitySet`,
+    /// so wearing that id yields a bundle equivalent to `from_scratch`. This is
+    /// keyed on the ROW's declared kit source, not on "is this the content
+    /// default": a standalone demo whose default character authors its own kit
+    /// gets that authored kit.
     pub fn from_scratch_as_character(
         scratch: ae::BodyClusterScratch,
         health: ambition_characters::actor::Health,
         character_id: &str,
     ) -> Self {
+        // The body's code-side capability set — the source of the protagonist's
+        // kit, captured before `scratch` folds into the movement bundle so the
+        // overlay can rebuild the code kit deterministically (host-code rows and
+        // unknown ids fall back to it).
+        let base_abilities = scratch.abilities.abilities;
         let mut bundle = Self::from_scratch(scratch, health);
-        // The SAME overlay the runtime re-wear system applies (name + the worn
-        // character's authored kit for a known non-protagonist), so spawn and
-        // runtime can never disagree on what a known character is.
+        // The SAME overlay the runtime re-wear system applies (name + the resolved
+        // kit), so spawn and runtime can never disagree on what a character is.
         crate::avatar::apply_worn_character_overlay(
             &mut bundle.name,
             &mut bundle.action_set,
             &mut bundle.moveset,
             character_id,
+            base_abilities,
         );
         bundle
     }
@@ -226,7 +232,7 @@ impl PlayerSimulationBundle {
 /// player doesn't have, so EFFECTS consumers can
 /// read the ActionSet as the authoritative "what can this player
 /// actually do right now" surface without re-checking AbilitySet.
-fn default_player_action_set(abilities: ae::AbilitySet) -> ActionSet {
+pub(crate) fn default_player_action_set(abilities: ae::AbilitySet) -> ActionSet {
     use ambition_characters::brain::{
         MeleeActionSpec, MoveStyleSpec, RangedActionSpec, SpecialActionSpec, SwipeSpec,
     };
@@ -321,10 +327,11 @@ mod tests {
 
     #[test]
     fn unknown_character_id_still_spawns_a_controllable_player() {
-        // A stale / unknown id keeps the player fully playable: name + moveset
-        // fall back to the player defaults (no catalog row to wear), and it
-        // is still Brain::Player. The sprite falls back to the colored rectangle
-        // presentation-side.
+        // A stale / unknown id keeps the player fully playable: the KIT falls back
+        // to the defined code kit (rebuilt from the body's abilities), and it is
+        // still Brain::Player. The NAME becomes the id itself — a legible
+        // diagnostic, never a stale prior name. The sprite falls back to the
+        // colored rectangle presentation-side.
         crate::character_roster::install_default_character_id("player");
         let bundle = PlayerSimulationBundle::from_scratch_as_character(
             player_scratch(),
@@ -334,8 +341,8 @@ mod tests {
         assert!(bundle.brain.is_player());
         assert_eq!(
             bundle.name.as_str(),
-            "Player",
-            "unknown id keeps the default name"
+            "not_a_real_character",
+            "an unknown id names the body after the id (deterministic diagnostic)"
         );
         assert!(matches!(
             bundle.action_set.melee,

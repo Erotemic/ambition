@@ -169,6 +169,13 @@
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
+            // The protagonist's PLAYABLE kit is host-code-owned: its combat is the
+            // runtime `AbilitySet` dev-toggle / progression kit, not this catalog
+            // row. `default_action_set: "peaceful"` above describes its Hall
+            // pedestal / NPC face, NOT what the worn home box can do. Being the
+            // content default is now unrelated to keeping the code kit — a demo
+            // whose default authors its own kit (Sanic) gets that kit.
+            playable_kit: HostCode,
             tags: ["player"],
         barks: (
             hall: ["Jump, fall, repeat. That's the whole job.", "Somewhere, someone is holding a controller. I try not to dwell."],

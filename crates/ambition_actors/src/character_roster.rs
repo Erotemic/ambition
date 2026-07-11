@@ -167,6 +167,27 @@ pub fn hall_dialogue_id_for_character_id(character_id: &str) -> Option<&'static 
         .as_deref()
 }
 
+/// True when the character row declares its PLAYABLE kit is host-code-owned
+/// ([`PlayableKitSource::HostCode`]) rather than authored in the catalog — a
+/// protagonist whose combat is a runtime `AbilitySet`/progression concern, not
+/// static catalog data. The single lookup that lets the player-wear seam decide
+/// whether to overlay the row's `default_action_set` or keep the body's
+/// code-built kit, WITHOUT keying off "is this the content default" (a demo whose
+/// only/default character authors its own kit must still get that kit).
+///
+/// Unknown ids return `false`: they have no row to opt in, and the wear seam
+/// handles an unknown id with its own code-kit fallback.
+pub fn playable_kit_is_host_code(character_id: &str) -> bool {
+    catalog()
+        .characters
+        .get(character_id)
+        .map(|entry| {
+            entry.playable_kit
+                == ambition_characters::actor::character_catalog::PlayableKitSource::HostCode
+        })
+        .unwrap_or(false)
+}
+
 /// The authored surface-momentum params for a character id, hydrated into the
 /// serde-free kernel struct (Q21 / S2). `Some` means the character's body opts
 /// into `MotionModel::SurfaceMomentum` — the surface-follower solver. Returns

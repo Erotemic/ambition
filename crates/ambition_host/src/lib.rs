@@ -105,6 +105,19 @@ impl Plugin for HostInputBindingsPlugin {
             );
         }
 
+        // leafwing's `InputManagerPlugin` runs systems (e.g. `filter_captured_input`)
+        // over Bevy's `ButtonInput<..>` resources, which `bevy::input::InputPlugin`
+        // provides. A windowed host gets it from `DefaultPlugins`; a headless boot
+        // (exit_3, RL, tests) uses `add_headless_foundation`, which has no
+        // `InputPlugin` — and Bevy 0.18's strict system-param validation PANICS on the
+        // missing `ButtonInput<MouseButton>` rather than skipping the system. Add it
+        // here so the host input group is SELF-SUFFICIENT headless — the "boots from
+        // the host groups alone" claim `exit_3` makes. Guarded, so it is a no-op when
+        // `DefaultPlugins` already added it.
+        if !app.is_plugin_added::<bevy::input::InputPlugin>() {
+            app.add_plugins(bevy::input::InputPlugin);
+        }
+
         app.init_resource::<MenuInputState>()
             .init_resource::<MenuControlFrame>()
             .init_resource::<PlayerDashTriggerState>()

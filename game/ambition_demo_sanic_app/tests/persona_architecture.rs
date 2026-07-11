@@ -1,0 +1,82 @@
+//! **S1/S4 — the playable-persona architecture, exercised by an assembled demo.**
+//!
+//! A standalone demo (no `ambition_app`) proves the canonical path end to end:
+//! the selected character becomes a simulation-owned `WornCharacter` identity ON
+//! the canonical player, gameplay derives from it, and the identity does NOT
+//! depend on the app-local `StartingCharacter` startup resource. This is the same
+//! `WornCharacter` component + derive systems the full app uses — the demo just
+//! assembles them through the `ambition` umbrella.
+
+use bevy::prelude::*;
+
+use ambition::actors::avatar::StartingCharacter;
+use ambition::characters::actor::WornCharacter;
+
+fn worn_of_primary(app: &mut App) -> Option<WornCharacter> {
+    let mut q = app
+        .world_mut()
+        .query_filtered::<&WornCharacter, With<ambition::actors::actor::PrimaryPlayer>>();
+    q.iter(app.world()).next().cloned()
+}
+
+fn primary_name(app: &mut App) -> Option<String> {
+    let mut q = app
+        .world_mut()
+        .query_filtered::<&Name, With<ambition::actors::actor::PrimaryPlayer>>();
+    q.iter(app.world()).next().map(|n| n.as_str().to_string())
+}
+
+/// **S1.1 + S1.2:** after startup the canonical player carries the selected
+/// character as a `WornCharacter` identity, and gameplay (its display name) is
+/// derived from that identity.
+#[test]
+fn canonical_player_carries_the_selected_identity_and_derives_gameplay() {
+    let mut app = ambition_demo_sanic_app::build_demo_app();
+    app.update();
+    for _ in 0..2 {
+        app.update();
+    }
+
+    let worn = worn_of_primary(&mut app).expect("the primary player carries a WornCharacter");
+    assert_eq!(
+        worn.id(),
+        "sanic",
+        "the demo's selected character became the canonical identity"
+    );
+    assert_eq!(
+        primary_name(&mut app).as_deref(),
+        Some("Sanic"),
+        "gameplay (the display name) is derived from the worn identity"
+    );
+}
+
+/// **S1.4:** the canonical identity is INDEPENDENT of the app-local
+/// `StartingCharacter` startup resource. Once captured on the entity at spawn,
+/// nothing re-reads the resource for identity — mutating it afterwards does not
+/// change the player's `WornCharacter`, so presentation/gameplay never rediscover
+/// the selection from app-local startup state. (The resource stays live because
+/// other systems, e.g. the dialogue default, read it — this proves independence
+/// without pretending the resource is unused.)
+#[test]
+fn identity_does_not_track_the_startup_selection_resource_after_spawn() {
+    let mut app = ambition_demo_sanic_app::build_demo_app();
+    app.update();
+    assert_eq!(worn_of_primary(&mut app).unwrap().id(), "sanic");
+
+    // Change the startup selection resource to a DIFFERENT id after spawn.
+    app.world_mut()
+        .resource_mut::<StartingCharacter>()
+        .character_id = "goblin".to_string();
+    for _ in 0..5 {
+        app.update();
+    }
+
+    // The entity-owned identity is unmoved: presentation/gameplay derive from the
+    // component, not from the mutated app-local resource.
+    assert_eq!(
+        worn_of_primary(&mut app).unwrap().id(),
+        "sanic",
+        "the canonical identity does not track the startup resource after spawn"
+    );
+    assert_eq!(primary_name(&mut app).as_deref(), Some("Sanic"));
+}

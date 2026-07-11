@@ -539,3 +539,50 @@ fn allow_marker_suppresses_a_line() {
         "without the marker, the SandboxRuntime line must be caught"
     );
 }
+
+// ── Playable-persona architecture guards (S3/S4) ─────────────────────────────
+
+/// **S3 ownership guard.** The reusable `ambition_render` binder
+/// (`bind_worn_character_presentation`) is the SOLE authority that resolves the
+/// selected/worn character's sprite from the catalog. The app layer must not
+/// re-introduce its own selected-character sprite binding: `asset_for_character_id`
+/// is the catalog resolution that duplicate authority used, so its ABSENCE from
+/// `ambition_app`'s production source is the focused, proportional regression check
+/// (a dev clone that binds a FIXED default sheet via `characters.player` is fine —
+/// it never resolves the *selected* character, so this stays narrow).
+#[test]
+fn app_layer_does_not_bind_the_selected_character_sprite() {
+    let ws = Workspace::discover();
+    let needle = "asset_for_character_id";
+    let mut offenders = Vec::new();
+    for path in ws.rust_sources("game/ambition_app/src") {
+        let text = std::fs::read_to_string(&path).unwrap_or_default();
+        // Only production code — a future app-level TEST may legitimately name it.
+        if workspace::contains_ident(workspace::production_slice(&text), needle) {
+            offenders.push(path.display().to_string());
+        }
+    }
+    assert!(
+        offenders.is_empty(),
+        "the app must consume the reusable WornCharacter presentation binder, not \
+         resolve the selected character's sprite itself. `{needle}` reappeared in: {offenders:#?}"
+    );
+}
+
+/// **S4 demo-independence guard.** A standalone demo consumes the SAME engine
+/// persona path as the app; it must never depend on `ambition_app`. This pins the
+/// boundary for both the Sanic content crate and its shell.
+#[test]
+fn standalone_demos_do_not_depend_on_ambition_app() {
+    let ws = Workspace::discover();
+    for manifest in [
+        "game/ambition_demo_sanic/Cargo.toml",
+        "game/ambition_demo_sanic_app/Cargo.toml",
+    ] {
+        let deps = ws.ambition_deps(manifest);
+        assert!(
+            !deps.contains("ambition_app"),
+            "{manifest} must not depend on ambition_app (the demo gate); deps = {deps:?}"
+        );
+    }
+}

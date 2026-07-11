@@ -16,7 +16,7 @@
 | [`hazards`](src/hazards.rs) | Hazard tick: patrol motion, contact damage, and the impact SFX/VFX published to the presentation/audio buses. |
 | [`held_items`](src/held_items.rs) | ECS-owned held item capability for actors. |
 | [`hitbox`](src/hitbox/mod.rs) | Hitbox-entity lifecycle: spawn → overlap-check → despawn. |
-| [`moveset`](src/moveset.rs) | Data-driven move playback — the runtime half of the Smash model. |
+| [`moveset`](src/moveset/mod.rs) | Data-driven move playback — the runtime half of the Smash model. |
 | [`on_hit`](src/on_hit.rs) | On-hit techniques — the conditional-hit primitive of the ability model. |
 | [`path_motion`](src/path_motion.rs) | `PathMotion`: waypoint-following used by moving hazards/platforms. |
 | [`slots`](src/slots.rs) | Anti-clump attack-slot arbitration. |

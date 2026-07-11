@@ -378,10 +378,12 @@ count corrected. **What KEEPS D-B reopened is criterion 4's other half:** the
 over-limit debt list. The gate counts **total** lines (`s.lines().count()`, test
 files excluded by path) against the 1500 limit — there is no separate "code-line"
 count, so an earlier note calling `moveset.rs` (1536) "under the code-line limit"
-was wrong: 1536 > 1500, and the gate flags it as an **unwaived** violation. The
-current over-limit set is **THREE**: `moveset.rs` (1536, unwaived — split or waive
-next), `view_cones.rs` (2206, waived), `kaleidoscope_app.rs` (1814, waived). D-B
-re-closes when that list empties.
+was wrong: 1536 > 1500, and the gate flagged it as an **unwaived** violation. Both
+over-limit non-declarative modules were split 2026-07-11 (see below); the remaining
+over-limit set is the **TWO** standing waivers: `view_cones.rs` (2206) and
+`kaleidoscope_app.rs` (1814). The gate is GREEN. D-B re-closes when that list empties
+(or `kaleidoscope_app.rs`, a declarative Lunex tree, is accepted as a permanent
+justified waiver).
 
 **`snapshot.rs` (3684) → four sub-1500 modules — ✅ LANDED 2026-07-11.** The
 pre-solved plan ran clean; final shape and the traps it hit:
@@ -414,6 +416,22 @@ pre-solved plan ran clean; final shape and the traps it hit:
   rl_sim `desync_canary`. Pure code RELOCATION + the visibility widenings above. The
   `snapshot.rs` waiver was deleted from `module_size.toml` (the bidirectional gate
   forces it — a stale waiver for a vanished file also fails).
+
+**`moveset.rs` (1536) → two modules — ✅ LANDED 2026-07-11.** Never waived; a
+pre-existing gate RED the corrected status note had masked. Clean builders/runtime
+seam, no cross-section coupling:
+
+- `moveset/mod.rs` (**862**) keeps the module's stated identity — the runtime half of
+  the Smash model: the components (`MovePlayback`/`ActorMoveset`/`StrikeVolume`/
+  `MovesetMelee`/`MoveEventMessage`), the `advance_move_playback`/`trigger_moveset_moves`/
+  `dispatch_move_events`/… systems, the verb/VFX/SFX constants, and the tests.
+- `moveset/prefabs.rs` (**691**) ← the build-time authoring: `attack_move_from_melee`,
+  `Simple{Melee,Ranged,Charge}Params` + their `simple_*` builders + private
+  `smp_*`/`srp_*`/`scp_*` defaults, `MovePrefabRegistry`, `Dir`/`directional_attack_variants`,
+  and `build_actor_moveset`/`equip_equipment_row`. Re-exported (`pub use prefabs::*`) so
+  the public `moveset::<builder>` API and `tests.rs`'s `use super::*` are unchanged.
+- Verified: `cargo test -p ambition_combat --lib` (102 tests green), `cargo check
+  -p ambition_app --features rl_sim` clean, and the module-size gate GREEN.
 
 `MODULES.md` generation remains useful and the dissolved hub globs remain done;
 those mechanisms are not sufficient to label the whole D-B standard complete.

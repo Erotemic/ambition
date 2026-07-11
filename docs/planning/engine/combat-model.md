@@ -178,7 +178,11 @@ Mul-at-trigger-resolve). M1 (`ambition_demo_smb1::powerups`) is the first consum
 but can't run equip-time grants); and the live BODY-scale collision/render read is
 not yet folded (the resolver + fire folds are, which the exit test asserts) — it
 needs the actors/render read-site fold and is the named remaining wiring, alongside
-the powerup PICKUP path.
+the powerup PICKUP path. **The equip half of that pickup landed
+(`combat::moveset::equip_equipment_row`, 45cce0dd)** — the one ECS-free contract
+(grants + `worn.equip` + idempotent moveset rebuild) a pickup or menu equip calls;
+what remains is the pickup ENTITY/overlap system + level spawns + art + the
+body-scale read-fold.
 
 - **The model:** worn equipment contributes (a) NUMERIC modifiers that merge
   into move/body params at the moment a value is RESOLVED, and (b) BEHAVIORAL

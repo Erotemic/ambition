@@ -117,10 +117,10 @@ M1 equipment chain [opus] (with A3) — 🟡 **DATA + MECHANISM LANDED 2026-07-1
 A3 shipped (`ambition_characters::equipment`) and `ambition_demo_smb1::powerups`
 authors the two rows (`grow_cap` = size+armor, `spark_blossom` = ranged grant +
 fire-time damage buff) entirely through the umbrella — zero engine edits, E9
-oracle held a third time. REMAINING for M1: the powerup PICKUP path (a
-GroundItem-style equip-on-touch that inserts `WornEquipment` + applies grants +
-rebuilds the moveset) and the live BODY-scale collision/render read-fold, plus
-level spawns + art — the visible/feel half. ~~M2 scroll knob~~ ✅ **DONE
+oracle held a third time. The equip CONTRACT also landed
+(`ambition::combat::moveset::equip_equipment_row`). REMAINING for M1: the powerup
+PICKUP ENTITY + equip-on-touch system + level spawns + art, and the live
+BODY-scale collision/render read-fold — the visible/feel half. ~~M2 scroll knob~~ ✅ **DONE
 2026-07-10**; ~~M3 flag sequence~~ ✅ **DONE 2026-07-10**; M4 the game (3 levels +
 enemies + HUD + title/results) [opus]; M5 hosting wing in ambition (Phase D-C)
 [opus].

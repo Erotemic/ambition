@@ -1401,23 +1401,30 @@ windowed path got them from `DefaultPlugins`. Fix: the host self-provides
 `bevy::input::InputPlugin` when absent (guarded), so the host input group is
 self-sufficient headless.
 
-Fixing the panic un-masked a SECOND, distinct 0.18 regression in the same suite: the act
-clock accumulated 59 ticks over 60 updates, not 60. Root cause: a `.chain()` of
-`(spawn_owner_via_deferred_command, tick_that_reads_the_owner, …)`. Bevy 0.18 **removed
-automatic sync-point insertion**, so the deferred `spawn` no longer flushes before the
-reader in the same schedule — the owner is born one tick late and tick 0 is missed.
+Fixing the panic un-masked a SECOND, distinct failure in the same suite: the act clock
+accumulated 59 ticks over 60 updates, not 60. **The obvious hypothesis was WRONG, and I
+only know because I tested it:** the rules chain spawns the mode owner via a deferred
+`spawn_mode_scoped` and reads it the same tick with `tick_sanic_act`, so "Bevy 0.18
+removed auto-sync-points → owner born one tick late" was the natural diagnosis — but
+inserting an explicit `ApplyDeferred` between the spawn and the read did NOT change the
+count. The real cause is a first-sim-tick zero-dt: `refresh_world_time` sets
+`WorldTime::scaled_dt` from `Res<Time>`'s frame delta, `advance_sim_tick` skips its first
+increment (a priming step), and the test pins the frame dt via `ManualDuration` — so one
+of the 60 sim runs contributes 0. Parked as a decision brief (priming-step semantics is a
+demo/engine-owner call). Lesson: **a plausible root cause is a hypothesis until a
+targeted change moves the number; write the diagnosis you PROVED, not the one that
+sounds right.**
 
 Three transferable things:
 
 1. **One dep upgrade can plant several unrelated failures; the first panic masks the
    rest.** Don't declare a suite fixed when the panic clears — re-run and read what the
    now-reachable assertions say.
-2. **Bevy 0.18 checklist when a headless/test app that used to boot now panics or
-   drifts by one tick:** (a) a system with a `Res`/`ResMut` param whose resource a
-   windowed build provided → strict param validation now panics headless; provide the
-   resource/plugin or gate the system. (b) a `spawn-then-read-same-schedule` chain that
-   used to work → auto-sync-points are gone; insert an explicit `ApplyDeferred` or move
-   the spawn earlier.
+2. **Bevy 0.18 checklist when a headless/test app that used to boot now panics:** a
+   system with a `Res`/`ResMut` param whose resource a windowed build provided → strict
+   param validation now panics headless; provide the resource/plugin or gate the system.
+   (Auto-sync-point removal is also real in 0.18 — but confirm it with an `ApplyDeferred`
+   probe before blaming it; it was NOT this suite's tick drift.)
 3. **Attribution by causality, not proximity.** The gate went red on the commit that
    split `snapshot.rs`/`moveset.rs`/`view_cones.rs`, but those are pure library
    relocations the sanic app does not reference — the failure was third-party input

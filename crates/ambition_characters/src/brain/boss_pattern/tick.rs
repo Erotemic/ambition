@@ -231,8 +231,8 @@ fn advance_scripted(
                 if !control_flow::enter_stance(&pattern, state, ctx, &id, resume, &mut || {
                     rng.unit()
                 }) {
-                    // Unknown or empty stance: step over the marker. BD5 rejects it
-                    // at install time; mid-fight it must not panic or stall.
+                    // Unknown or empty stance: step over the marker. BD5 flags it
+                    // as a diagnostic finding; mid-fight it must not panic or stall.
                     state.step_index += 1;
                 }
             }

@@ -311,8 +311,8 @@ fn entering_a_stance_saves_the_cursor_and_leaving_restores_it_exactly() {
     assert!(!leave_stance(&mut state), "nothing left to pop");
 }
 
-/// An unknown stance id is a no-op, not a panic. BD5 rejects it at install
-/// time; a fight already running must not die of a typo.
+/// An unknown stance id is a no-op, not a panic. BD5 flags it as a diagnostic
+/// finding; a fight already running must not die of a typo.
 #[test]
 fn an_unknown_or_empty_stance_is_a_no_op() {
     let c = ctx();

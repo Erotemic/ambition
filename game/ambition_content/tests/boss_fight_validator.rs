@@ -1,18 +1,19 @@
 //! **BD5 run over the shipped roster** — `boss-design.md` §3's rules, measured.
 //!
-//! §3's endgame is an install-time gate: *"missing telegraph, empty fair_counters,
-//! unpunishable heavy, simultaneity budget exceeded = ERRORS (fight does not
-//! install)."* That gate cannot be switched on today, and the honest reason is
-//! written into the report below rather than into a silenced assertion: **the
-//! bands are Calibration v0**, which the doc itself calls *"starting numbers …
-//! BD7's pilot re-calibrates them against Jon's verdict."* Turning them into a
-//! hard gate before that pilot would not make the fights fairer; it would make the
-//! numbers unfalsifiable.
+//! §3's original aspiration was an install-time gate (*"missing telegraph, empty
+//! fair_counters, unpunishable heavy, simultaneity budget exceeded = ERRORS"*). By
+//! maintainer decision the validator is DIAGNOSTIC today and non-blocking; it does
+//! not gate installation. The honest reason is written into the report below rather
+//! than into a silenced assertion: **the bands are Calibration v0**, which the doc
+//! itself calls *"starting numbers … BD7's pilot re-calibrates them against Jon's
+//! verdict,"* and several rules may be impossible to complete until the engine can
+//! express the relevant boss-feel properties (boss-design.md §9/§11).
 //!
 //! So this test does what CC3's oracle does: it MEASURES, it prints a stable
 //! report, and it pins the current findings so a change in a fight shows up as a
-//! change in the report. The day BD7 recalibrates, `expected_errors` goes to zero
-//! and the pin becomes the gate.
+//! change in the report. Whether these pins ever become an install/shipping gate
+//! is a separate maintainer decision, made after the engine can express and
+//! calibrate boss feel — not an automatic consequence of BD7.
 
 use std::collections::BTreeMap;
 

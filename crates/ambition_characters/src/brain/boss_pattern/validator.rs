@@ -1,9 +1,9 @@
-//! **BD5 — the fight validator.** The telegraph grammar and fairness rules of
-//! `docs/planning/engine/boss-design.md` §3, run over authored data.
-//!
-//! > *"Codified as an install-time/CI fight validator over the authored data
-//! > (same pattern as the content-graph validator) … codified craft rules that
-//! > make bad fights hard to express."*
+//! **BD5 — the fight validator (currently DIAGNOSTIC, non-blocking).** The telegraph
+//! grammar and fairness rules of `docs/planning/engine/boss-design.md` §3, run over
+//! authored data. §3's original aspiration was an install/CI gate, but by maintainer
+//! decision the validator only MEASURES today; it does not gate installation, and a
+//! future install or shipping gate is a separate maintainer decision made after the
+//! engine can express and calibrate the relevant boss-feel properties (§9/§11).
 //!
 //! Pure functions over `(BossAttackPattern, SeedLibrary, ValidatorBands)`. The
 //! bands are DATA — one RON per game — so re-calibrating a fight's fairness is an
@@ -83,7 +83,7 @@ pub struct ValidatorBands {
 pub enum Severity {
     /// Requires an inline `// boss-tuning:` justification the validator prints.
     Warning,
-    /// The fight does not install.
+    /// A hard finding (diagnostic today; not an install rejection).
     Error,
 }
 

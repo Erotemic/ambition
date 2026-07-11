@@ -192,7 +192,7 @@ pub fn tick_interrupts(
 
 /// Enter `stance_id`, saving where to come back to. No-op (returns `false`) when
 /// the pattern has no such stance — an authored typo must not panic mid-fight; it
-/// is BD5's job to reject it at install time.
+/// is BD5's job to flag it as a diagnostic finding.
 ///
 /// `resume_at` is the step to return to. A `Stance` step passes the step AFTER
 /// itself (the marker is consumed); an INTERRUPT passes the current step and its

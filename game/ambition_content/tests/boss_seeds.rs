@@ -14,7 +14,7 @@
 //!    therefore updates `boss_seeds.ron` — which is the accretion discipline,
 //!    enforced.
 //! 3. **BD5's preconditions** — no seed ships with an empty `fair_counters` (rule
-//!    2 would error on it at install time) and the union across a fight is
+//!    2 would flag it as a diagnostic error) and the union across a fight is
 //!    inspectable.
 
 use std::collections::{BTreeMap, BTreeSet};

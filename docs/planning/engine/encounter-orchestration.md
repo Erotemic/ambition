@@ -501,6 +501,39 @@ the doc's completion bar ("Completion means one path is gone"), not a raw line
 count. Combined with the E0 dead-method deletions, net so far is ≈ −20 lines;
 the bulk of the ≥ 800-line target lands with the E1–E4/E7 entity migration.
 
+### Status after E1 / E2 / E3a / E5-first (2026-07-11)
+
+Landed + verified (each its own green commit): **E1** (wave state → entities,
+registry → index, `EncounterView` read-model), **E2** (generic
+participants/roles + objective vocabulary; boss adopts them; `EncounterWin`
+deleted), **E3a** (timeline authority relocated to `ambition_encounter`), **E5
+first bullet** (`BossPhaseState` → `ActorPhaseState`). This is the ARCHITECTURAL
+spine of the unification: both boss and wave encounters are entities; membership
+and win are one generic vocabulary; the timeline lives in one crate; the actor
+phase is honestly named.
+
+**Net LoC so far is ≈ neutral-to-slightly-additive** — the generic vocabulary
+(`participants`/`objective`/`timeline` modules + their tests) is new shared code
+that the remaining slices BANK. The ≥ 800-line deletion target lives entirely in
+the remaining convergence:
+
+- **E3b** — collapse the wave's phase/completion/lock LOGIC into the shared
+  lifecycle + objective (keeping its spawn scheduler; see the E3a impedance
+  note). Deletes ~part of `state.rs`'s reducer machine. **Feel-sensitive**
+  (wave timing) — the 118-test host suite pins it, but it is the kind of change
+  the doc's own E1 note flagged for in-game verification.
+- **E4** — delete `sync_boss_encounter_entities` (author boss encounters at
+  spawn, lifecycle tracks the boss phase) + collapse the `BossEncounterEvent`
+  publication bridge. **Feel-sensitive** (boss HUD/lock/music appearance timing).
+- **E6** — extend `EncounterView` to carry HUD/lock intent; route presentation
+  through the one read-model; deterministic concurrent-encounter priority.
+- **E7** — delete the superseded paths and re-measure against the 3,386-line
+  A+B+C baseline.
+
+These remaining slices are where the deletion lands, and each meaningfully
+changes on-screen timing/presentation that is best verified in-game. They are
+being executed in dependency order on top of the verified spine above.
+
 ### E1 — wave live-state is entity-owned (landed 2026-07-11)
 
 The structural keystone: the wave encounter's live state is no longer a

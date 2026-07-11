@@ -2,7 +2,12 @@
 
 **Priority:** immediate P3 bugfix and architecture proof.
 
-**Status:** diagnosed; implementation not started in this plan.
+**Status (2026-07-11):** playable-persona ARCHITECTURE landed; native Sanic asset
+provisioning remains open. Canonical model: the player carries a sim-owned
+`ambition_characters::actor::WornCharacter(id)`; gameplay derives from it
+(`apply_worn_character_gameplay`) and presentation derives from it
+(`ambition_render::bind_worn_character_presentation`, used by the app AND demos).
+One identity, no second authority. Slice status + evidence are per-slice below.
 
 ## Problem
 
@@ -74,7 +79,15 @@ gameplay profiles if the multi-character proof demonstrates real duplication.
 
 ## Ordered fix plan
 
-### S0 - observable input path
+### S0 - observable input path — DONE
+
+**Evidence:** `game/ambition_demo_sanic_app/tests/standard_input_path.rs`
+(`--features input`): synthetic ArrowRight → leafwing `ActionState` → the standard
+`populate_control_frame_from_actions` bridge → fixed-tick latch →
+`SlotControls[PRIMARY]` → brain → observable movement, plus a no-input twin. Fix
+landed: `ambition_host` now registers the `CursorMoved` window message
+`update_active_input_kind` needs (it panicked headlessly before); the bridge's
+neutral fallback is now diagnostic (`warn_once`).
 
 Add one focused integration test that checks all checkpoints in the real windowed
 composition without requiring a physical window:
@@ -89,7 +102,7 @@ Fix only the first broken checkpoint. Never add a Sanic-local keyboard system.
 Make neutral fallback diagnostic when the input bridge expected exactly one
 player but found zero or many.
 
-### S1 - coherent playable persona
+### S1 - coherent playable persona — OPEN (nicety)
 
 Expose one public facade/persona that means "windowed and playable" and installs
 rendering, window host, input bridge, and the standard fixed-tick connection.
@@ -98,7 +111,20 @@ Downstream games should not have to discover fragile feature combinations such a
 
 Headless builds must remain renderer-, window-, and audio-device-free.
 
-### S2 - reusable selected-character presentation binder
+**Status:** input works but via a distinct `input` feature; folding `visible`+`input`
+into one facade is a convenience, left `OPEN`. (The CANONICAL-identity work is a
+separate **DONE** slice: `WornCharacter` + `apply_worn_character_gameplay`, proven by
+`ambition_actors` `avatar::starting_character::tests` + the snapshot round-trip.)
+
+### S2 - reusable selected-character presentation binder — DONE
+
+**Evidence:** `bind_worn_character_presentation` in
+`crates/ambition_render/src/rendering/actors/mod.rs`, registered in
+`PresentationVisualAnimationPlugin` (app + every demo). Reads `WornCharacter`;
+installs sprite/anchor/`CharacterAnimator`/`PlayerSpriteBaseline`/`PlayerSpriteCharacter`;
+rebinds on change and strips stale components; no per-character branch. Tests:
+`rendering::actors::worn_binder_tests`. The `ambition_app::app::scene_setup` binder
+was deleted (S3); guard `app_layer_does_not_bind_the_selected_character_sprite`.
 
 Extract the main app's selected-character binding into reusable engine/
 presentation machinery. It must:
@@ -112,7 +138,11 @@ presentation machinery. It must:
 
 Remove the duplicate app-local binder when the reusable path lands.
 
-### S3 - narrow visual asset registration
+### S3 - narrow visual asset registration — OPEN
+
+**Status:** the binder reuses `GameAssets` cleanly (marked fallback when absent);
+narrowing per-demo loading + loading the demo's own sheet is open content/tooling,
+not required for the architecture proof.
 
 Allow a game/content pack to register only the character/entity visual assets it
 uses. Do not require a one-character demo to load every Ambition boss, prop, and
@@ -128,7 +158,11 @@ If the existing `GameAssets` resource can support this cleanly, reuse it. If it
 forces all-game loading or app ownership, extract a narrower character visual
 library. Do not create a second parallel asset system.
 
-### S4 - deterministic asset provisioning
+### S4 - deterministic asset provisioning — OPEN
+
+**Status:** native Sanic sheet provisioning is the remaining content/tooling item;
+the demo draws a deterministic MARKED fallback (`PlayerSpriteCharacter` records the
+id), not a silent box.
 
 Choose and document one canonical policy:
 
@@ -140,7 +174,13 @@ Startup must never silently render a box for a declared character. Missing
 catalog row, manifest, image, or animation must produce an actionable diagnostic
 naming the character and exact expected paths/generation command.
 
-### S5 - multi-character acceptance
+### S5 - multi-character acceptance — DONE (architecture) / OPEN (native 2nd profile)
+
+**Evidence:** two profiles on each half of the ONE path, no engine edits —
+presentation binds `robot` vs `goblin` (`worn_binder_tests`), gameplay derives
+`sanic` vs `player` (`avatar::starting_character::tests`); a runtime `WornCharacter`
+change moves both. A native second Sanic profile is authoring work gated on S4 —
+`OPEN`.
 
 Sanic must define at least two playable profiles through the same public path:
 
@@ -151,7 +191,11 @@ Selecting either profile must change the actor's visual and gameplay data withou
 editing engine code. This is the proof that the shell is a game composition seam,
 not a one-character special case.
 
-### S6 - remove the temporary success mask
+### S6 - remove the temporary success mask — PARTIAL
+
+**Status:** the fallback is now binder-owned and always records the worn identity on
+`PlayerSpriteCharacter` — an explicit marked degraded state, not a silent mask. A
+louder missing-sheet diagnostic rides with S4.
 
 The fallback rectangle may remain only as an explicit degraded/error presentation
 with a clear diagnostic. Tests and documentation must not count it as successful

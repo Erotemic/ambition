@@ -62,17 +62,17 @@ resimulate the difficult window rather than merely reject it.
 
 ### 3. Sanic visible/playable recovery
 
-**State:** windowed presentation and ball dash exist; reusable input and selected
-character composition remain unproven.
+**State:** playable-persona ARCHITECTURE landed (`DONE`): canonical sim-owned
+`WornCharacter` identity → gameplay derive + generic `ambition_render` presentation
+binder (app + demos), standard host-input path proven headlessly, app duplicate
+binder deleted + guarded. Two-customer genericity proven (binder robot+goblin;
+gameplay sanic+player). `OPEN`: native Sanic sheet provisioning (demo draws a
+marked fallback) and the optional `visible`+`input` facade feature. Per-slice
+statuses + test evidence in the plan.
 
 **Plan:** [`demos/sanic-recovery.md`](demos/sanic-recovery.md)
 
-**Next slice:** add the focused end-to-end input checkpoint test and fix only the
-first broken checkpoint. Then extract the selected-character presentation binder
-used by both the main app and standalone demos.
-
-**Exit evidence:** two selectable Sanic profiles drive the standard input path
-and render their declared art without app-local sprite or keyboard code.
+**Next slice:** provision the native Sanic sheet so the windowed demo draws real art.
 
 ### 4. CC3 enforcement
 

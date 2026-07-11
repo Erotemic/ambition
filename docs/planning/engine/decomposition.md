@@ -378,12 +378,14 @@ count corrected. **What KEEPS D-B reopened is criterion 4's other half:** the
 over-limit debt list. The gate counts **total** lines (`s.lines().count()`, test
 files excluded by path) against the 1500 limit — there is no separate "code-line"
 count, so an earlier note calling `moveset.rs` (1536) "under the code-line limit"
-was wrong: 1536 > 1500, and the gate flagged it as an **unwaived** violation. Both
-over-limit non-declarative modules were split 2026-07-11 (see below); the remaining
-over-limit set is the **TWO** standing waivers: `view_cones.rs` (2206) and
-`kaleidoscope_app.rs` (1814). The gate is GREEN. D-B re-closes when that list empties
-(or `kaleidoscope_app.rs`, a declarative Lunex tree, is accepted as a permanent
-justified waiver).
+was wrong: 1536 > 1500, and the gate flagged it as an **unwaived** violation. All
+three over-limit non-declarative modules were split 2026-07-11 (`snapshot.rs`,
+`moveset.rs`, `view_cones.rs` — see below). The waiver list is now down to **ONE**:
+`kaleidoscope_app.rs` (1814), a declarative Lunex node tree — data-heavy by nature and
+exactly the "generated/declarative" class the gate documents as a legitimate permanent
+waiver. The gate is GREEN. **D-B's criterion-4 line-size debt is effectively cleared**:
+every remaining over-limit module is a justified declarative waiver, not deferred
+decomposition work.
 
 **`snapshot.rs` (3684) → four sub-1500 modules — ✅ LANDED 2026-07-11.** The
 pre-solved plan ran clean; final shape and the traps it hit:
@@ -432,6 +434,26 @@ seam, no cross-section coupling:
   the public `moveset::<builder>` API and `tests.rs`'s `use super::*` are unchanged.
 - Verified: `cargo test -p ambition_combat --lib` (102 tests green), `cargo check
   -p ambition_app --features rl_sim` clean, and the module-size gate GREEN.
+
+**`view_cones.rs` (2206) → runtime + diagnostics — ✅ LANDED 2026-07-11.** The waiver
+had said "no natural seam extracted yet"; inspection found a clean one — the F1/F3
+debug overlay and the text/PNG dump machinery are ~1080 lines that never run in a
+normal render frame:
+
+- `view_cones.rs` (**1145**) keeps the render path: the config types, `PortalViewRig`,
+  the `sync_portal_view_cones` system and its `sync_cone_material_tint` helper, and the
+  `geometry`/`mesh` submodules (unchanged).
+- `view_cones/debug.rs` (**1078**) ← `debug_portal_view_zones` (gizmo overlay), the
+  `handle_*`/`flush_*`/`write_*`/`*_debug_dump_text` F-key dump chain, `SourceClipDebug`,
+  `PortalViewConeDebugRow`/`selected_portal_view_cone_debug_rows`, and the `fmt_*`
+  formatting helpers. `view_cones.rs` stays a FILE (not `mod.rs`) — it already hosts
+  `mod geometry;`/`mod mesh;`, so it just gained `mod debug; pub use debug::*;`, leaving
+  the crate-level `view_cones::` path (lib.rs re-exports, plugin.rs registration)
+  unchanged. `sync_cone_material_tint` (called by `sync_portal_view_cones`, line 856)
+  stayed on the render side even though it sits among the diagnostics in source order.
+- Verified: `cargo test -p ambition_portal_presentation` (45 tests green), `cargo check
+  -p ambition_app --features rl_sim` clean; the module-size gate is GREEN with the
+  `view_cones.rs` waiver deleted.
 
 `MODULES.md` generation remains useful and the dissolved hub globs remain done;
 those mechanisms are not sufficient to label the whole D-B standard complete.

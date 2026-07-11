@@ -28,10 +28,5 @@ limit = 1500
 roots = ["crates", "game"]
 
 [[waiver]]
-path = "crates/ambition_portal_presentation/src/view_cones.rs"
-reason = "portal view-cone assembly. Presentation (never sim-hashed); split tracked with the portal-presentation work, no natural seam extracted yet."
-
-
-[[waiver]]
 path = "game/ambition_app/src/menu/kaleidoscope_app.rs"
 reason = "declarative menu UI (a Lunex node tree). Presentation, data-heavy by nature."

@@ -128,8 +128,9 @@ fn the_shipped_roster_against_section_threes_rules() {
 ///
 /// Of the 10 warnings, **nine are rule 5 (BD3, 2026-07-10): not one shipped boss
 /// authors a telegraph identity.** Every attack in the game telegraphs by duration
-/// alone. §3 makes that an ERROR after BD7's pilot; today it is a measurement, and
-/// it is the single largest readability gap the pipeline has found.
+/// alone. Today it is a measurement; promotion to a hard error requires calibration
+/// and a separate maintainer decision (not automatically after BD7). It is the
+/// single largest readability gap the pipeline has found.
 ///
 /// The tenth: the smirking behemoth never demands a `WalkOut`. Its kit is a beam,
 /// a sweep, a slam and a nova — every one answered by jumping or dashing. A player

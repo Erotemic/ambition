@@ -412,11 +412,14 @@ table — and so are stance bodies.
   body-mounted volumes never overlap. The threats that DO overlap are the
   `zone_denial` hazards a `Special` spawns, whose lifetime lives in the content
   technique's private consts (`MINIMA_TRAP_HAZARD_DURATION_S = 5.0`), not in any
-  authored row. This rule needs a `persists_s` on the seed, fed by the technique.
+  authored row. The diagnostic needs authored or runtime-visible threat lifetime +
+  overlap it can integrate; a seed-level `persists_s` fed by the technique is one
+  candidate representation, not settled architecture.
 - ~~**Rule 5, readability floor.**~~ ✅ **LANDED with BD3 (§10).** Two distinct
   attacks may not share a `(pose, cue)` telegraph identity. **Nine of nine shipped
   bosses author no telegraph at all**, so rule 5's other half — §3's *"attacks
-  without a telegraph event FAIL"* — is a warning today and an error after BD7.
+  without a telegraph event FAIL"* — is a warning today; promotion to a hard error
+  requires calibration and a separate maintainer decision (not automatically after BD7).
 
 Both are named in the module docs rather than approximated by a rule that checks
 something adjacent and reports green.

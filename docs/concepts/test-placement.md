@@ -40,12 +40,21 @@ establishes bad organization.
   machine-generated changes — belong in `tests/ambition_workspace_policy` or a
   dedicated integration location, NOT interleaved with implementation a human is
   trying to read.
-- A flagged module is semantically reviewed and given an explicit disposition:
-  `behavioral-inline` (with a stated reason) or `extract-pending`. Operate in the
-  spirit of the rule, not the zealous letter.
+- **A `kind` finding is not a layout decision.** An agent may inspect a flagged
+  module and record its `kind` — `behavioral-local` (real local behavioral tests)
+  or `guardrail` (shape/signature/ratchet/policy). `behavioral-local` settles
+  semantic OWNERSHIP: the tests belong with the implementation. It does NOT settle
+  physical LAYOUT — hundreds of behavioral test lines may still read better in an
+  adjacent private child module (`foo/tests.rs` via `#[cfg(test)] mod tests;`,
+  keeping private access with `use super::*;`) than inline in the same file.
+- **Dispositions and who sets them.** The agent-writable disposition is
+  `maintainer-review-pending` (or `extract-pending` if the agent chooses to move
+  it now). `maintainer-approved-inline` is a PERMANENT exception and is valid only
+  when the path is in the maintainer-owned `MAINTAINER_APPROVED_INLINE` allowlist
+  in `scripts/check_agent_kb.py`; an agent cannot self-grant it by writing a marker.
 - **Weak or untrusted agents get the zealous default:** a new ≥ 200-line inline
-  module fails until a reviewer allowlists it with a reason; an agent does not
-  grant itself the exception.
+  module fails until a reviewer allowlists it; an agent does not grant itself the
+  exception. Operate in the spirit of the rule, not the zealous letter.
 
 ### 2. Public crate / assembled-system behavior — that crate's `tests/`
 

@@ -181,8 +181,13 @@ BOSS_EVIDENCE_RE = re.compile(
 )
 INLINE_TEST_EVIDENCE_RE = re.compile(
     r"<!--\s*planning-evidence:\s*inline-test\s+path=(\S+)"
-    r"\s+disposition=(behavioral-inline|extract-pending)\s*-->"
+    r"\s+kind=(behavioral-local|guardrail)"
+    r"\s+disposition=(maintainer-review-pending|maintainer-approved-inline|extract-pending)\s*-->"
 )
+# Paths a MAINTAINER has explicitly approved to keep a large inline test module.
+# Only Jon edits this set; an agent CANNOT self-issue `maintainer-approved-inline`
+# by writing a status marker — the disposition is rejected unless the path is here.
+MAINTAINER_APPROVED_INLINE: set[str] = set()
 WORKSPACE_MEMBERS_RE = re.compile(
     r"<!--\s*planning-evidence:\s*workspace-members\s+count=(\d+)\s*-->"
 )
@@ -803,17 +808,27 @@ def check_planning_evidence(errors: list[str]) -> None:
     # not debt. The set of marked paths must equal the measured set — so no module
     # escapes review and no stale marker survives its extraction.
     reviewed = INLINE_TEST_EVIDENCE_RE.findall(status)
-    documented = {path for path, _disposition in reviewed}
+    documented = {path for path, _kind, _disposition in reviewed}
     measured = large_inline_test_debt()
     if documented != measured:
         missing = sorted(measured - documented)
         stale = sorted(documented - measured)
         parts = []
         if missing:
-            parts.append("unreviewed (add a disposition marker): " + ", ".join(missing))
+            parts.append("unreviewed (add an inline-test marker): " + ", ".join(missing))
         if stale:
             parts.append("no longer >=200 lines (drop the marker): " + ", ".join(stale))
         fail(errors, "inline-test review markers disagree with HEAD (" + "; ".join(parts) + ")")
+    # A permanent inline exception requires a MAINTAINER-owned allowlist entry; an
+    # agent's marker can only ever carry `maintainer-review-pending` (or the agent's
+    # own decision to extract). It cannot self-grant `maintainer-approved-inline`.
+    for path, _kind, disposition in reviewed:
+        if disposition == "maintainer-approved-inline" and path not in MAINTAINER_APPROVED_INLINE:
+            fail(
+                errors,
+                f"inline-test marker for {path} claims maintainer-approved-inline but is not in "
+                "MAINTAINER_APPROVED_INLINE; only a reviewer grants a permanent inline exception",
+            )
 
     ws_markers = WORKSPACE_MEMBERS_RE.findall(status)
     if len(ws_markers) != 1:
@@ -898,6 +913,11 @@ def check_planning_checker_self_test(errors: list[str]) -> None:
         'limit = 1500\nroots = ["crates", "game"]\n[[waiver]]\npath = "x.rs"\n'
     ) != (1500, ["crates", "game"], {"x.rs"}):
         fail(errors, "planning checker self-test failed: module-size config parser")
+    if INLINE_TEST_EVIDENCE_RE.findall(
+        "<!-- planning-evidence: inline-test path=a/b.rs "
+        "kind=behavioral-local disposition=maintainer-review-pending -->"
+    ) != [("a/b.rs", "behavioral-local", "maintainer-review-pending")]:
+        fail(errors, "planning checker self-test failed: inline-test marker parser")
 
 
 def check_archive_duplicates(errors: list[str]) -> None:

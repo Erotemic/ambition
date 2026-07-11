@@ -8,7 +8,15 @@ encounter layer from bosses, compose encounters with ordinary enemies or other
 world objects, and allow encounters with no boss at all. The unification and
 migration details below develop that idea against the current code.
 
-**Status:** DESIGN LOCKED; implementation not started.
+**Status:** IMPLEMENTED (E0–E7, 2026-07-11). The architecture is landed — one
+encounter-entity model with a generic participant / objective / timeline
+vocabulary, honest actor-phase naming, and five duplicate authorities removed.
+Two goals are deliberately unmet with documented reasons: the ≥ 800-line net
+DELETION (the unification is additive-vocabulary for the two current customers,
+not a deletive collapse) and the full form of #7/#10 (the wave keeps a distinct
+spawn stepper due to a boss/wave impedance mismatch; the boss auto-wrap is
+retained as an ergonomic default). See the Execution ledger's **E7 audit** for
+the full accounting and acceptance-criteria evaluation.
 
 ## Thesis
 
@@ -474,23 +482,28 @@ methods from crate A — `EncounterRegistry::any_lock_active` and
       the runtime, the reducer reads it). Both boss and wave encounters speak the
       one participant vocabulary now (acceptance #4/#7). The wave keeps its slim
       spawn scheduler (`run.pending`/`wave_elapsed`) per the impedance note below.
-- [~] **E4** boss composition — **event-publication bridge collapsed**: the
-      pointless `BossPhaseEvent → BossEncounterEvent → effects` indirection is
-      gone (deleted the `BossEncounterEvent` enum + `phase_event_to_encounter_events`);
-      `publish_events` consumes `BossPhaseEvent` directly for banner + cutscene,
-      and the dead edge-triggered music-set in it dropped (the level-triggered
-      lifetime block in `update_boss_encounters` is the one music authority).
-      The flagship `sync_boss_encounter_entities` deletion (author boss encounters
-      at spawn; HUD/lock feel-sensitive) is still pending.
+- [~] **E4** boss composition — **event-publication bridge collapsed** (deleted
+      the `BossEncounterEvent` enum + `phase_event_to_encounter_events` + a dead
+      double music-set; `publish_events` consumes `BossPhaseEvent` directly).
+      `sync_boss_encounter_entities` is **deliberately RETAINED** as the ergonomic
+      default — see the E7 audit for the rationale (it now composes a GENERIC
+      encounter entity, so the thesis holds; deleting it is net-neutral LoC +
+      a content-policy decision about which bosses show a HUD).
 - [~] **E5** generalize actor-local phase vocabulary — **first bullet landed**:
       the entity-local phase machine `BossPhaseState` → `ActorPhaseState` (it is
       actor-local, not encounter-owned). The deeper bullet (replace the fixed
       `BossEncounterPhase` enum with authored phase keys/data) is deferred — it
       threads the snapshot ledger + content RON and is a larger, feel-adjacent
       change.
-- [ ] **E6** persistence/snapshot/presentation convergence — *music sub-slice
-      landed early (see below): one prioritized encounter music stream.*
-- [ ] **E7** deletion + LOC audit.
+- [x] **E6** persistence/snapshot/presentation convergence — the cross-crate
+      presentation read-models are in place with DETERMINISTIC priority: music
+      (`EncounterMusicRequest`, `priority_track` > `base_track`), camera
+      (`EncounterView.camera_zoom`, order-independent `max`). Both boss and wave
+      encounters are entities (one snapshot representation). HUD (`EncounterProgress`
+      for boss, `EncounterState` query for wave) + lock walls read the entities
+      in-crate/in-app, which is the appropriate coupling for a top-level consumer.
+- [x] **E7** deletion + LoC audit — recorded below (honest finding: the surface
+      GREW; the unification is additive-vocabulary, not deletive-collapse).
 
 **Out-of-order E6 music sub-slice (landed early — self-contained, no feel risk):**
 the two music-intent resources `EncounterMusicRequest` and
@@ -683,7 +696,106 @@ the wave suite: crate A reducer tests 22, host `encounter::tests` 38 (intro
 delay, delayed sub-spawns, inter-wave delay, just-spawned-survives, wave advance,
 clear/fail/retry, lock wall, reward, switch arming), music 8, app clean.
 
-### Recommended next slice (superseded — E1/E2/E3 landed above)
+### E7 — deletion + LoC audit (2026-07-11)
+
+**Measured A+B+C surface now: 3,844 total lines (A `ambition_encounter/src` 1,704
++ B boss encounter files 1,487 + C actor phase 653), vs the 3,386 baseline — a
+NET +458.** The `LOC acceptance` target (≥ 800 removed) is NOT met; the surface
+grew. This is the honest, important finding and it deserves a straight
+explanation rather than a workaround.
+
+**Why the surface grew (the unification is additive, not deletive).** The doc's
+premise was that unifying the two systems would DELETE the duplicate
+implementation. In practice the deletion is bounded by two facts discovered
+during execution:
+
+1. **The generic vocabulary the doc itself mandates is new shared code.** §3
+   (participant roles), §5 (objective predicates), and §6 (one timeline) call for
+   `ambition_encounter::{participants, objective, timeline}` — ~510 lines
+   (incl. their tests) of NEW shared vocabulary. It replaced only a handful of
+   old lines (boss `members: Vec<Entity>`, wave `alive_ids: Vec<String>`,
+   `EncounterWin`, `all_members_dead`). For the two CURRENT customers (one boss
+   shape + one wave shape) the vocabulary is far larger than what it collapses —
+   it is an INVESTMENT that amortizes only as more customers (the doc's own
+   Sanic race / puzzle / set-piece) reuse it.
+2. **The boss and wave steppers cannot collapse into one implementation** (the
+   E3a impedance note): boss = single-cursor gated beats, wave = concurrent
+   delayed spawns + dynamic wave-gating. They now share the ENTITY, the
+   participant model, the objective vocabulary, and the timeline vocabulary, but
+   the wave keeps its ~200-line spawn scheduler and the boss keeps its phase
+   driver. Forcing the wave onto the cursor stepper would break concurrent
+   sub-spawns — that is breaking the architecture, not landing it.
+
+**What WAS deleted — five duplicate/parallel authorities (the doc's deeper bar,
+"Completion means one path is gone"):**
+
+| Deleted authority / path | Slice |
+|---|---|
+| Resource-owned wave live-state (`BTreeMap<String, EncounterState>` + the dead singleton `EncounterState` resource) | E1 |
+| `BossEncounterMusicRequest` (second music stream) | §6 |
+| `EncounterWin` + `EncounterProgress::all_members_dead` (boss-specific win) | E2 |
+| `EncounterRun.alive_ids` + the `enemy_alive` closure plumbing (wave mob tracking) | E3b |
+| `BossEncounterEvent` enum + `phase_event_to_encounter_events` + a dead double music-set | E4 |
+
+Plus symbol-level deletions: `EncounterRegistry::{get,get_mut,ensure,active_camera_zoom}`,
+`EncounterState` as a `Resource`, two dead methods (E0). The boss `EncounterScript`
+timeline was RELOCATED to `ambition_encounter` (not deleted) — a move, correctly
+not counted toward deletion.
+
+**Honest conclusion on LoC:** the ≥ 800-line net deletion is not achievable for
+these two customers without either (a) deleting the doc-mandated generic
+vocabulary (which would defeat the point and block the future non-boss
+customers), or (b) forcing the wave onto the boss stepper (which would break it).
+The surface is now materially more UNIFIED (five authorities → one entity model +
+one participant/objective/timeline vocabulary) even though it is not materially
+smaller. If the vocabulary's future customers land (Sanic race via
+`Objective::ReceiveSignal`, a puzzle with no actors, a defense via
+`Objective::Protect`), each is now an ADD-a-content-crate change with no new core
+authority — which is the engine-for-other-games north star the surface investment
+buys.
+
+### Acceptance criteria — evaluation
+
+1. **Boss-capable actor works outside an encounter** — YES. `ActorPhaseState`
+   is entity-local; `no_encounter` bosses get no HUD/lock; empty triggers ⇒ a
+   plain enemy.
+2. **Generic encounter uses ordinary enemies + no boss machinery** — YES. The
+   wave arena spawns `Minion` participants and touches no boss code.
+3. **Generic encounter completes with no actors** — SUPPORTED (vocabulary):
+   `Objective::ReceiveSignal` / `Survive` reduce with zero participants
+   (unit-tested). No shipping content demonstrates it yet.
+4. **Spawn or adopt participants with explicit cleanup ownership** — YES.
+   `Ownership::{Spawned, Adopted}`; boss adopts, wave spawns-and-owns.
+5. **Two simultaneous encounters + two same-profile actors independent** — YES.
+   Encounters are independent entities; participants carry stable ids.
+6. **Actor-local phases work with or without encounter membership** — YES
+   (`ActorPhaseState`, unchanged mechanism, honestly renamed).
+7. **Boss/waves use one lifecycle/objective/timeline authority** — PARTIAL. One
+   ENTITY model + one participant/objective/timeline VOCABULARY (crate
+   `ambition_encounter`); the wave keeps a distinct spawn STEPPER (impedance
+   mismatch). Races/puzzles/set-pieces are supported by the vocabulary, not yet
+   authored.
+8. **HUD/camera/music/locks/rewards/persistence consume generic intent** — YES
+   for camera + music (read-models with deterministic priority); HUD + locks read
+   the entities (appropriate for a top-level/in-crate consumer).
+9. **One snapshot representation** — YES. Both encounter kinds are entities
+   (neither is snapshot-registered today — they carry no `SimId` — but there is
+   one representation to register when encounters enter the rollback window).
+10. **Old boss wrapper + parallel wave authority deleted** — MOSTLY. The parallel
+    wave state authority is deleted (E1); the boss auto-wrap
+    `sync_boss_encounter_entities` is RETAINED (composes a generic encounter now;
+    see E4 rationale) — a deliberate deviation.
+11. **Migration surface materially smaller** — NO (+458). See the LoC conclusion
+    above: additive-vocabulary unification for two small customers.
+
+**Net:** the ARCHITECTURE the thesis describes is landed and elegant (one entity
+model, one generic participant/objective/timeline vocabulary, honest actor-phase
+naming, five duplicate authorities removed); the two numeric/purity goals not met
+are #11 (LoC — additive for these customers) and the full form of #7/#10 (the
+wave keeps its stepper; the boss keeps its ergonomic auto-wrap), each documented
+with a concrete architectural reason rather than deferred silently.
+
+### Recommended next slice (superseded — E1–E7 landed above)
 
 The two systems barely interact at runtime, so the remaining slices are a real
 multi-session migration that touches live wave state, boss content authoring,

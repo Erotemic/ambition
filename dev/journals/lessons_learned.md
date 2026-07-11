@@ -1385,3 +1385,41 @@ Three transferable things:
    the third time this month that building the first real consumer of an old code path
    exposed a defect in it. (See "three separate bugs were found by building the first
    real consumer".)
+
+---
+
+## Bevy 0.18 fallout hides behind the FIRST panic: two failures, one upgrade (2026-07-11)
+
+The workspace `--features rl_sim` gate, run to confirm three unrelated D-B module splits,
+surfaced `ambition_demo_sanic_app::exit_3` — a gate that had been green — with all three
+tests panicking. The panic was `leafwing_input_manager::filter_captured_input` wanting a
+missing `ButtonInput<MouseButton>`. That is Bevy 0.18's **strict system-param
+validation**: where an earlier Bevy skipped a system whose resource param was absent,
+0.18 PANICS. The host adds leafwing's `InputManagerPlugin` but a headless boot
+(`add_headless_foundation`, no `InputPlugin`) never registered the input resources — the
+windowed path got them from `DefaultPlugins`. Fix: the host self-provides
+`bevy::input::InputPlugin` when absent (guarded), so the host input group is
+self-sufficient headless.
+
+Fixing the panic un-masked a SECOND, distinct 0.18 regression in the same suite: the act
+clock accumulated 59 ticks over 60 updates, not 60. Root cause: a `.chain()` of
+`(spawn_owner_via_deferred_command, tick_that_reads_the_owner, …)`. Bevy 0.18 **removed
+automatic sync-point insertion**, so the deferred `spawn` no longer flushes before the
+reader in the same schedule — the owner is born one tick late and tick 0 is missed.
+
+Three transferable things:
+
+1. **One dep upgrade can plant several unrelated failures; the first panic masks the
+   rest.** Don't declare a suite fixed when the panic clears — re-run and read what the
+   now-reachable assertions say.
+2. **Bevy 0.18 checklist when a headless/test app that used to boot now panics or
+   drifts by one tick:** (a) a system with a `Res`/`ResMut` param whose resource a
+   windowed build provided → strict param validation now panics headless; provide the
+   resource/plugin or gate the system. (b) a `spawn-then-read-same-schedule` chain that
+   used to work → auto-sync-points are gone; insert an explicit `ApplyDeferred` or move
+   the spawn earlier.
+3. **Attribution by causality, not proximity.** The gate went red on the commit that
+   split `snapshot.rs`/`moveset.rs`/`view_cones.rs`, but those are pure library
+   relocations the sanic app does not reference — the failure was third-party input
+   plumbing under a dep upgrade. A pure relocation that compiles and keeps its public API
+   cannot change a downstream crate's runtime behavior.

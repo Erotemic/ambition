@@ -269,6 +269,7 @@ Jon's open questions (Q1/Q2/Q3/Q5) live in [`roadmap.md`](roadmap.md).
 | Portal gun should be a normal item | portal exposes `spawn portal of pair P on surface`; one gun = one pair | [opus, low priority] |
 | Build cache re-balloons | `$CARGO_TARGET_DIR/debug` hit 351G once. Consider `cargo-sweep` or a periodic prune | [Jon] |
 | Smells journal (`dev/journals/code_smells.md`) | C4-style sweep rides each related track; the journal stays the intake | — |
+| **DECISION BRIEF — exit_3 act-timer 59 vs 60 (Bevy-0.18 sync-point removal)** | `ambition_demo_sanic_app::exit_3::the_demos_own_rules...` expects the act clock to accumulate exactly 60 ticks over 60 updates but gets 59 (`0.98333`). ROOT CAUSE: `SanicRulesPlugin`'s rules chain is `(spawn_sanic_mode_owner, tick_sanic_act, …).chain()`; `spawn_sanic_mode_owner` spawns the mode owner via **deferred** `commands.spawn_mode_scoped`, and Bevy 0.18 removed automatic sync-point insertion — so the owner exists one tick AFTER `tick_sanic_act` first runs, missing tick 0. Not caused by the D-B splits or the InputPlugin fix (the `SimTick==119` test passes; tick counting is intact). OPTIONS: **(A, recommended)** insert an explicit sync point between the spawn and the tick (`(spawn, ApplyDeferred, tick, …)` — restores the test's "runs every tick" intent; note the codebase has no `ApplyDeferred` yet, so this sets the modern-Bevy pattern and other spawn→read-same-schedule chains may share the latent lag); **(B)** accept 59 as correct (the owner is genuinely born on tick 0 and counts from tick 1) and recalibrate the test with a comment. A demo-design call — parked per the decision-brief protocol, not guessed. | [opus / Jon] |
 
 **The BLIND ledger (standing, Jon-only):** sanic area layout (`d620a230`),
 sanic sheet/params, G3 limb arcs + G5 verb bindings (`a5d15247`), moveset
@@ -425,6 +426,32 @@ renderer, and now it does not.
   [engine/netcode.md](engine/netcode.md).
 
 ## 2026-07-11
+- **opus** — **D-B LINE-SIZE DEBT CLEARED — three module splits + a Bevy-0.18 gate fix.**
+  All three over-limit non-declarative modules split (pure relocations + the minimum
+  visibility widenings the split forces), module-size gate GREEN (28 checks), only the
+  `kaleidoscope_app.rs` declarative waiver left:
+  (1) `snapshot.rs` (3684) → `snapshot/{mod,registry,restore,codecs}.rs`
+  (1155/718/471/1379), `8f96a21e` — 46 lib tests + rl_sim `desync_canary` green. The
+  plan flagged the shared-`bc` alias; inspection found a second class it missed —
+  cross-module privacy (a child sees a parent's privates, but not vice-versa nor across
+  siblings), so `SnapshotRegistry.{entries,messages}`+2 consts went `pub(super)` and
+  `MessageChannel` moved up to `mod.rs`.
+  (2) `moveset.rs` (1536) → `moveset/{mod,prefabs}.rs` (862/691), `fb4db01e` — builders
+  to `prefabs.rs`, runtime playback stays in `mod.rs`; 102 combat tests. Never waived —
+  a pre-existing gate RED the "under the code-line limit" note masked (the gate counts
+  TOTAL lines).
+  (3) `view_cones.rs` (2206) → render path (1145) + `view_cones/debug.rs` (1078),
+  `5c6b47e5` — the F1/F3 overlay + text/PNG dump machinery (the "no natural seam" the
+  waiver claimed was there after all); 45 portal-presentation tests. `MODULES.md`
+  regenerated; docs (decomposition §D-B, this row) updated.
+  **The workspace `--features rl_sim` gate then surfaced a PRE-EXISTING Bevy-0.18
+  failure** (unrelated to the splits — the sanic app references none of that code):
+  `ambition_demo_sanic_app::exit_3` panicked on boot, `leafwing`'s `filter_captured_input`
+  wanting a missing `ButtonInput<MouseButton>`. Fixed at the host layer (`9519aba2`):
+  `HostInputBindingsPlugin` now adds `bevy::input::InputPlugin` when absent, so the host
+  input group is self-sufficient headless (guarded → no-op under `DefaultPlugins`).
+  exit_3 2/3 green; the third is a separate Bevy-0.18 residual — see the act-timer
+  decision brief in the bug queue.
 - **opus** — **A3 EQUIPMENT→PARAMS LANDED + M1 first slice.** The equipment→params
   mechanism the M-track was blocked on, in three bisectable commits:
   (1) the pure core `ambition_characters::equipment` — `EquipmentRow{modifiers,

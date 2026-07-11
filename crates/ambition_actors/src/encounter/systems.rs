@@ -370,9 +370,11 @@ pub fn update_encounters_from_world(
     //    the registry phase this tick just updated. Keeps `RoomGeometry`
     //    authored-immutable mid-room.
 
-    // 8. Music: pick the first encounter currently in flight and
-    //    request its track; otherwise request the default. The music
-    //    intent adapter turns this into the neutral director request.
+    // 8. Music: pick the first encounter currently in flight and request its
+    //    track (the base-priority source of the shared `EncounterMusicRequest`);
+    //    otherwise clear it. Writing the base source every frame — including
+    //    `None` — is safe: `desired_track()` ranks `priority_track` above
+    //    `base_track`, so this can't clobber a concurrent focused fight's music.
     let active_track = registry.encounters.iter().find_map(|(_, s)| {
         if matches!(
             s.phase,
@@ -386,7 +388,7 @@ pub fn update_encounters_from_world(
             None
         }
     });
-    music_request.desired_track = active_track;
+    music_request.base_track = active_track;
 
     // 9. Project phase to the save (Cleared/Failed survive, others
     //    collapse to Untouched).

@@ -64,7 +64,7 @@ pub fn update_boss_encounters(
     registry: Res<BossEncounterRegistry>,
     mut banner: ResMut<crate::features::GameplayBanner>,
     mut save: ResMut<ambition_persistence::save::SandboxSave>,
-    mut music_request: ResMut<crate::encounter::BossEncounterMusicRequest>,
+    mut music_request: ResMut<crate::encounter::EncounterMusicRequest>,
     mut quests: ResMut<QuestRegistry>,
     mut cutscene_queue: ResMut<CutsceneTriggerQueue>,
     world: Res<ambition_engine_core::RoomGeometry>,
@@ -249,12 +249,12 @@ pub fn update_boss_encounters(
     // `defeated_boss_is_recorded_cleared_drops_reward_and_clears_music`.
     match active_music_track {
         Some(track) => {
-            if music_request.desired_track.as_deref() != Some(track.as_str()) {
-                music_request.desired_track = Some(track);
+            if music_request.priority_track.as_deref() != Some(track.as_str()) {
+                music_request.priority_track = Some(track);
             }
         }
-        None if music_request.desired_track.is_some() => {
-            music_request.desired_track = None;
+        None if music_request.priority_track.is_some() => {
+            music_request.priority_track = None;
         }
         None => {}
     }

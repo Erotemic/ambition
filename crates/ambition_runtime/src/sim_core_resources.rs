@@ -93,10 +93,11 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_encounter::EncounterRegistry>()
             .init_resource::<ambition_actors::encounter::SwitchActivationQueue>()
             .init_resource::<ambition_actors::encounter::EncounterSwitchIndex>()
+            // One encounter music-intent stream: every encounter source writes
+            // its own priority tier on this single resource (`priority_track`
+            // beats `base_track`), so a per-frame base-source `None` can't
+            // clobber a concurrent focused fight's music.
             .init_resource::<ambition_encounter::EncounterMusicRequest>()
-            // Boss music routes through its own resource so the regular
-            // encounter tick can't clobber the boss's MusicRequested events.
-            .init_resource::<ambition_encounter::BossEncounterMusicRequest>()
             .init_resource::<ambition_actors::rooms::RoomMusicRequest>()
             // Sandbox save (encounter defeat + switch state). Loaded from
             // disk by the presentation half only — headless/RL never touch

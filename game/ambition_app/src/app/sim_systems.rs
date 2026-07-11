@@ -125,7 +125,7 @@ pub fn apply_room_replay_request_system(
     mut clock_resets: MessageWriter<ClockResetRequest>,
     boss_registry: Res<ambition::actors::boss_encounter::BossEncounterRegistry>,
     mut save: Option<ResMut<ambition::persistence::save::SandboxSave>>,
-    mut boss_music: Option<ResMut<ambition::encounter::BossEncounterMusicRequest>>,
+    mut boss_music: Option<ResMut<ambition::encounter::EncounterMusicRequest>>,
     // Cut-rope boss placements in the room — R4 keys "cleared" by placement
     // (`config.id`), so the replay clears those keys (the respawned boss carries
     // the same LDtk id).

@@ -14,9 +14,7 @@
 use bevy::prelude::*;
 
 use crate::audio::RadioStationState;
-use crate::encounter::{
-    BossEncounterMusicRequest, EncounterMusicRequest, EncounterPhase, EncounterRegistry,
-};
+use crate::encounter::{EncounterMusicRequest, EncounterPhase, EncounterRegistry};
 use crate::rooms::RoomMusicRequest;
 use crate::session::data::MusicRegistry;
 
@@ -39,7 +37,6 @@ pub fn compute_music_intent(
     director: Option<Res<MusicDirectorState>>,
     encounters: Res<EncounterRegistry>,
     mut encounter_music: ResMut<EncounterMusicRequest>,
-    mut boss_music: ResMut<BossEncounterMusicRequest>,
     room_music: Res<RoomMusicRequest>,
     radio: Option<Res<RadioStationState>>,
     music_registry: Res<MusicRegistry>,
@@ -57,38 +54,33 @@ pub fn compute_music_intent(
         radio.as_deref(),
         &music_registry,
         &encounter_music,
-        &boss_music,
     );
 
-    // Mirror the resolved priority winner back into the request resources'
+    // Mirror the resolved priority winner back into the request resource's
     // `last_applied` for diagnostics and tests. The director itself never
-    // touches these gameplay resources.
+    // touches this gameplay resource.
     if let Some(top) = candidates.first().cloned() {
-        encounter_music.last_applied = Some(top.clone());
-        boss_music.last_applied = Some(top);
+        encounter_music.last_applied = Some(top);
     }
 
     intent.adaptive = adaptive;
     intent.simple_track_candidates = candidates;
 }
 
-/// Build the simple-track priority list. Priority: boss-encounter music >
-/// regular encounter music > radio > room default > sandbox default. The
-/// director plays the first id that exists in its `AudioLibrary`, so this
-/// stays a pure list of candidate ids (no audio backend access here).
+/// Build the simple-track priority list. Priority: encounter music (boss beats
+/// wave, resolved inside `EncounterMusicRequest::desired_track`) > radio > room
+/// default > sandbox default. The director plays the first id that exists in its
+/// `AudioLibrary`, so this stays a pure list of candidate ids (no audio backend
+/// access here).
 fn simple_track_candidates(
     room_music: &RoomMusicRequest,
     radio: Option<&RadioStationState>,
     music_registry: &MusicRegistry,
     encounter_music: &EncounterMusicRequest,
-    boss_music: &BossEncounterMusicRequest,
 ) -> Vec<String> {
     let mut candidates = Vec::new();
-    if let Some(track) = &boss_music.desired_track {
-        candidates.push(track.clone());
-    }
-    if let Some(track) = &encounter_music.desired_track {
-        candidates.push(track.clone());
+    if let Some(track) = encounter_music.desired_track() {
+        candidates.push(track.to_string());
     }
     if let Some(track) = radio.and_then(|radio| radio.selected_track()) {
         candidates.push(track.to_string());

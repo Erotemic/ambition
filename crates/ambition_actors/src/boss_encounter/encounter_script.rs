@@ -148,7 +148,7 @@ pub fn tick_encounter_scripts(
         &mut ambition_characters::actor::BodyHealth,
     )>,
     mut banner: ResMut<crate::features::GameplayBanner>,
-    mut music: ResMut<crate::encounter::BossEncounterMusicRequest>,
+    mut music: ResMut<crate::encounter::EncounterMusicRequest>,
 ) {
     let dt = world_time.sim_dt();
     let fired: Vec<String> = gates.read().map(|g| g.gate.clone()).collect();
@@ -192,7 +192,7 @@ pub fn tick_encounter_scripts(
                     }
                 }
                 EncounterEffect::Banner { text, secs } => banner.show(text.clone(), *secs),
-                EncounterEffect::SetMusic(track) => music.desired_track = track.clone(),
+                EncounterEffect::SetMusic(track) => music.priority_track = track.clone(),
                 EncounterEffect::CommandMoveTo {
                     member,
                     target,

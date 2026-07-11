@@ -157,7 +157,7 @@ pub fn emit_cut_rope_room_replay_after_dialogue_closes(
 pub fn reset_cut_rope_boss_attempt(
     registry: &BossEncounterRegistry,
     save: Option<&mut ambition_persistence::save::SandboxSave>,
-    music_request: Option<&mut ambition_encounter::BossEncounterMusicRequest>,
+    music_request: Option<&mut ambition_encounter::EncounterMusicRequest>,
     placement_ids: &[String],
 ) {
     let intro_track = registry
@@ -176,7 +176,7 @@ pub fn reset_cut_rope_boss_attempt(
         data.set_flag("smirking_behemoth_victory_npc_seen", false);
     }
     if let Some(music) = music_request {
-        music.desired_track = intro_track.filter(|track| !track.is_empty());
+        music.priority_track = intro_track.filter(|track| !track.is_empty());
     }
 }
 

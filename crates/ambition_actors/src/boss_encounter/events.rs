@@ -11,7 +11,7 @@ use crate::cutscene_trigger::CutsceneTriggerQueue;
 pub(super) fn publish_events(
     encounter_id: &str,
     events: &[crate::boss_encounter::BossEncounterEvent],
-    music_request: &mut crate::encounter::BossEncounterMusicRequest,
+    music_request: &mut crate::encounter::EncounterMusicRequest,
     cutscene_queue: &mut CutsceneTriggerQueue,
     banner: &mut crate::features::GameplayBanner,
 ) {
@@ -39,7 +39,7 @@ pub(super) fn publish_events(
             }
             crate::boss_encounter::BossEncounterEvent::MusicRequested { track } => {
                 if !track.is_empty() {
-                    music_request.desired_track = Some(track.clone());
+                    music_request.priority_track = Some(track.clone());
                 }
             }
             crate::boss_encounter::BossEncounterEvent::Defeated => {

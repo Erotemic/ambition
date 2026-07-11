@@ -134,7 +134,7 @@ pub fn process_sandbox_reset_request(
     *encounter_registry = EncounterRegistry::default();
     *boss_registry = BossEncounterRegistry::default();
     *quest_registry = QuestRegistry::default();
-    music_request.desired_track = None;
+    *music_request = EncounterMusicRequest::default();
 
     // 3. Despawn all room visuals (and their physics colliders if
     //    Avian2D installed any). The room-visual respawn path that

@@ -28,7 +28,7 @@ use ambition::actors::features::ecs::boss_clusters::{BossConfig, BossEncounter};
 use ambition::actors::features::{
     BossOverrides, BossRewardChest, ResetRoomFeaturesEvent, RoomResetReason,
 };
-use ambition::encounter::BossEncounterMusicRequest;
+use ambition::encounter::EncounterMusicRequest;
 use ambition::entity_catalog::placements::BossBrain;
 use ambition::persistence::save::SandboxSave;
 use ambition::persistence::save_data::PersistedEncounterState;
@@ -80,8 +80,8 @@ fn force_kill_boss(sim: &mut SandboxSim, runtime_id: &str) {
 
 fn music_track(sim: &SandboxSim) -> Option<String> {
     sim.world()
-        .resource::<BossEncounterMusicRequest>()
-        .desired_track
+        .resource::<EncounterMusicRequest>()
+        .priority_track
         .clone()
 }
 

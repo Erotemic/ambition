@@ -5,7 +5,7 @@
 
 use super::*;
 use crate::boss_encounter::BossEncounterPhase;
-use crate::encounter::BossEncounterMusicRequest;
+use crate::encounter::EncounterMusicRequest;
 use crate::features::ecs::boss_clusters::test_support::{test_boss_config, test_boss_status};
 use crate::features::ecs::boss_clusters::BossEncounter;
 use crate::features::GameplayBanner;
@@ -30,7 +30,7 @@ fn test_app() -> App {
     });
     app.add_message::<EncounterGate>();
     app.init_resource::<GameplayBanner>();
-    app.init_resource::<BossEncounterMusicRequest>();
+    app.init_resource::<EncounterMusicRequest>();
     app.add_systems(Update, tick_encounter_scripts);
     app
 }

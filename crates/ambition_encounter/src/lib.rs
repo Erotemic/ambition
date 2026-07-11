@@ -13,7 +13,7 @@ pub mod spec;
 pub mod state;
 
 pub use events::EncounterEvent;
-pub use music::{BossEncounterMusicRequest, EncounterMusicRequest};
+pub use music::EncounterMusicRequest;
 pub use registry::{EncounterRegistry, SwitchActivation};
 pub use rewards::{encounter_reward_chest_pos, encounter_reward_looted_flag};
 pub use spec::{

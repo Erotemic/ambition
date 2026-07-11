@@ -468,9 +468,19 @@ methods from crate A — `EncounterRegistry::any_lock_active` and
 
 **Out-of-order E6 music sub-slice (landed early — self-contained, no feel risk):**
 the two music-intent resources `EncounterMusicRequest` and
-`BossEncounterMusicRequest` are collapsed into one `EncounterMusicRequest` with
-explicit per-source fields (`boss_track` > `wave_track`) and a `desired_track()`
-resolver, satisfying §6 ("one encounter music-intent stream with explicit
-priority/source"). This deletes the whole `BossEncounterMusicRequest` type and
-its ~14 references — a named E7 deletion target retired ahead of the entity
-migration because it does not depend on it.
+`BossEncounterMusicRequest` are collapsed into one `EncounterMusicRequest`. It
+carries two priority tiers as fields — `priority_track` (a focused fight, e.g. a
+boss) beats `base_track` (a wave/arena) — resolved by `desired_track()`.
+Crucially the fields name PRIORITY, not encounter kind: a boss fight is just a
+`priority_track` writer and a wave arena a `base_track` writer, so the generic
+stream never hard-codes "boss". This satisfies §6 ("one encounter music-intent
+stream with explicit priority/source") and retires the named E7 deletion target
+`BossEncounterMusicRequest` (~14 references) ahead of the entity migration
+because it does not depend on it.
+
+LoC note: this sub-slice is roughly line-neutral (a whole resource type is gone,
+but the surviving one gained the docs explaining the priority invariant that
+prevents the old clobber bug). The win is a removed *state authority*, which is
+the doc's completion bar ("Completion means one path is gone"), not a raw line
+count. Combined with the E0 dead-method deletions, net so far is ≈ −20 lines;
+the bulk of the ≥ 800-line target lands with the E1–E4/E7 entity migration.

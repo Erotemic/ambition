@@ -74,6 +74,8 @@ CONFIG = {
     'agent_index_command': [sys.executable, 'scripts/generate_agent_index.py'],
     'required_agent_index_paths': [
         '.agent/manifest.yaml',
+        '.agent/index/entry_points.json',
+        '.agent/index/planning_index.json',
         '.agent/index/file_summaries.json',
         '.agent/index/symbol_index.json',
         '.agent/index/test_map.json',
@@ -127,6 +129,16 @@ CONFIG = {
         {
             'output': '.agent/dirstats-crates-full.txt',
             'path': 'crates',
+            'display_depth': None,
+        },
+        {
+            'output': '.agent/dirstats-game-summary.txt',
+            'path': 'game',
+            'display_depth': 4,
+        },
+        {
+            'output': '.agent/dirstats-game-full.txt',
+            'path': 'game',
             'display_depth': None,
         },
         {

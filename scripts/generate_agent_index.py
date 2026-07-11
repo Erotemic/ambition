@@ -57,6 +57,27 @@ def iter_files() -> list[Path]:
     return sorted(out)
 
 
+# Workspace source roots that hold Rust crate source. `crates/` is the engine;
+# `game/` holds the app + content + demo crates (re-homed by decomposition E7);
+# `tests/` holds the workspace-policy package. The symbol/test indexes sweep all
+# three so a chat agent can find e.g. Smb1RulesPlugin / level_1_1 in game/.
+SOURCE_ROOTS = ("crates", "game", "tests")
+
+
+def iter_source_rs() -> list[Path]:
+    """Every `.rs` under the workspace source roots (crates/, game/, tests/)."""
+    out: list[Path] = []
+    for root_name in SOURCE_ROOTS:
+        root = ROOT / root_name
+        if not root.is_dir():
+            continue
+        for path in root.rglob("*.rs"):
+            if any(part in SKIP_DIRS for part in path.parts):
+                continue
+            out.append(path)
+    return sorted(out)
+
+
 def rel(path: Path) -> str:
     return path.relative_to(ROOT).as_posix()
 
@@ -121,10 +142,7 @@ SYMBOL_RE = re.compile(
 
 def build_symbol_index() -> dict[str, object]:
     symbols = []
-    crates_dir = ROOT / "crates"
-    if not crates_dir.exists():
-        return {**generated_meta(), "symbols": symbols}
-    for path in sorted(crates_dir.rglob("*.rs")):
+    for path in iter_source_rs():
         text = path.read_text(encoding="utf-8", errors="replace")
         for m in SYMBOL_RE.finditer(text):
             symbols.append(
@@ -141,10 +159,7 @@ def build_symbol_index() -> dict[str, object]:
 
 def build_test_map() -> dict[str, object]:
     tests = []
-    crates_dir = ROOT / "crates"
-    if not crates_dir.exists():
-        return {**generated_meta(), "tests": tests}
-    for path in sorted(crates_dir.rglob("*.rs")):
+    for path in iter_source_rs():
         text = path.read_text(encoding="utf-8", errors="replace")
         lines = text.splitlines()
         pending_attr_line: int | None = None
@@ -284,6 +299,74 @@ def build_doc_health(files: list[Path]) -> dict[str, object]:
     return {**generated_meta(), "doc_count": len(md), "longest_markdown": longest}
 
 
+# The canonical "read me first" docs. AGENTS.md is the root instruction file
+# (CLAUDE.md defers to it); docs/planning/ is the consolidated single source of
+# truth (vision -> roadmap -> the live tracks queue). Order = suggested read order.
+ENTRY_DOC_CANDIDATES = (
+    "AGENTS.md",
+    "CLAUDE.md",
+    "README.md",
+    "docs/planning/README.md",
+    "docs/planning/vision.md",
+    "docs/planning/roadmap.md",
+    "docs/planning/tracks.md",
+    "docs/planning/decision-principles.md",
+    "MODULES.md",
+)
+
+
+def build_entry_points() -> dict[str, object]:
+    """A curated 'start here' index so an uploaded tarball is self-orienting."""
+    start_here = []
+    for relpath in ENTRY_DOC_CANDIDATES:
+        p = ROOT / relpath
+        if not p.is_file():
+            continue
+        text = p.read_text(encoding="utf-8", errors="replace")
+        start_here.append(
+            {
+                "path": relpath,
+                "heading": first_heading(text),
+                "lines": text.count("\n") + (1 if text else 0),
+            }
+        )
+    # Every MODULES.md concern-map across the source roots (per-crate navigation).
+    module_maps = []
+    for root_name in SOURCE_ROOTS:
+        root = ROOT / root_name
+        if not root.is_dir():
+            continue
+        for p in sorted(root.rglob("MODULES.md")):
+            if any(part in SKIP_DIRS for part in p.parts):
+                continue
+            module_maps.append(
+                {
+                    "path": rel(p),
+                    "heading": first_heading(
+                        p.read_text(encoding="utf-8", errors="replace")
+                    ),
+                }
+            )
+    return {**generated_meta(), "start_here": start_here, "module_maps": module_maps}
+
+
+def build_planning_index() -> dict[str, object]:
+    """The docs/planning master-plan tree (THE single source of truth)."""
+    docs = []
+    pdir = ROOT / "docs" / "planning"
+    if pdir.is_dir():
+        for p in sorted(pdir.rglob("*.md")):
+            text = p.read_text(encoding="utf-8", errors="replace")
+            docs.append(
+                {
+                    "path": rel(p),
+                    "heading": first_heading(text),
+                    "lines": text.count("\n") + 1,
+                }
+            )
+    return {**generated_meta(), "planning_docs": docs}
+
+
 def write_json(path: Path, data: dict[str, object]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
@@ -356,6 +439,8 @@ def update_agent_manifest(meta: dict[str, str]) -> None:
 def main() -> int:
     files = iter_files()
     INDEX_DIR.mkdir(parents=True, exist_ok=True)
+    write_json(INDEX_DIR / "entry_points.json", build_entry_points())
+    write_json(INDEX_DIR / "planning_index.json", build_planning_index())
     write_json(INDEX_DIR / "file_summaries.json", build_file_summaries(files))
     write_json(INDEX_DIR / "symbol_index.json", build_symbol_index())
     write_json(INDEX_DIR / "test_map.json", build_test_map())

@@ -1544,9 +1544,13 @@ def crate_display_name(crate_root: pathlib.Path) -> str:
 
 def discover_crate_roots(repo_root: pathlib.Path) -> list[pathlib.Path]:
     roots: list[pathlib.Path] = []
-    crates_dir = repo_root / "crates"
-    if crates_dir.is_dir():
-        for cargo_toml in sorted(crates_dir.glob("*/Cargo.toml")):
+    # crates/ = engine; game/ = app + content + demos (re-homed by decomposition
+    # E7); tests/ = the workspace-policy package. All hold workspace-member crates.
+    for root_name in ("crates", "game", "tests"):
+        parent = repo_root / root_name
+        if not parent.is_dir():
+            continue
+        for cargo_toml in sorted(parent.glob("*/Cargo.toml")):
             crate_root = cargo_toml.parent
             if (crate_root / "src").is_dir():
                 roots.append(crate_root.resolve())
@@ -1703,7 +1707,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         crate_roots = discover_crate_roots(repo_root)
         if not crate_roots:
             print(
-                f"error: no crate source directories found under {repo_root / 'crates'}",
+                f"error: no crate source directories found under crates/, game/, tests/ in {repo_root}",
                 file=sys.stderr,
             )
             return 2

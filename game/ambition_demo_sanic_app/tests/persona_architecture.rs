@@ -120,3 +120,49 @@ fn the_demo_body_rides_surface_momentum_and_arms_ball_dash() {
         "the ball-dash rule attaches to the momentum body (inert without SurfaceMomentum)"
     );
 }
+
+/// **The demo body wears SANIC'S authored kit, not Ambition's protagonist kit.**
+/// `sanic` is the demo's default/only character, so under the old rule (kit skipped
+/// for the content default) it kept the code-side `sandbox_all` kit — Swipe, Bolt,
+/// bubble_shield — a peaceful speedster that secretly shot fireballs. With the
+/// `default_character_id`↔code-kit coupling removed, `sanic` is an `Authored` row,
+/// so its `"peaceful"` ActionSet (no melee / ranged / special) IS the worn kit, and
+/// the derived directional moveset is empty. This is the assembled proof of the
+/// architecture fix — asserted on `ActionSet` + `ActorMoveset`, not just movement.
+#[test]
+fn the_demo_body_wears_the_authored_peaceful_kit_not_the_host_protagonist_kit() {
+    use ambition::actors::combat::moveset::ActorMoveset;
+    use ambition::characters::brain::ActionSet;
+
+    let mut app = ambition_demo_sanic_app::build_demo_app();
+    app.update();
+    for _ in 0..3 {
+        app.update();
+    }
+
+    let (action_set, moveset_len) = {
+        let mut q = app.world_mut().query_filtered::<
+            (&ActionSet, &ActorMoveset),
+            With<ambition::actors::actor::PrimaryPlayer>,
+        >();
+        let (set, moveset) = q.iter(app.world()).next().expect("primary player has a kit");
+        (set.clone(), moveset.0.moves.len())
+    };
+
+    assert!(
+        action_set.melee.is_none(),
+        "Sanic's authored peaceful kit has no melee — the code-side Swipe is gone"
+    );
+    assert!(
+        action_set.ranged.is_none(),
+        "Sanic's peaceful kit has no ranged — the protagonist's Bolt/fireball is gone"
+    );
+    assert!(
+        action_set.special.is_none(),
+        "Sanic's peaceful kit has no special — the bubble_shield is gone"
+    );
+    assert_eq!(
+        moveset_len, 0,
+        "an empty melee derives an empty directional moveset"
+    );
+}

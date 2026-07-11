@@ -5,7 +5,7 @@ aliases:
   - where do tests go
   - workspace policy tests
   - ambition_workspace_policy
-last_verified: 2026-07-10
+last_verified: 2026-07-11
 ---
 
 # Test placement
@@ -19,9 +19,10 @@ invariant.** AGENTS.md carries the one-paragraph version; this is the full model
 
 - A small test that explains a **local implementation invariant** may stay inline
   (`#[cfg(test)] mod tests { … }` in the same file).
-- A **large private test module** moves to an adjacent child module: `src/foo.rs`
-  gains `#[cfg(test)] mod tests;` and the tests move to `src/foo/tests.rs`, which
-  keeps private access via `use super::*;`.
+- A **large private test module should normally move** to an adjacent private
+  child module (the default): `src/foo.rs` gains `#[cfg(test)] mod tests;` and the
+  tests move to `src/foo/tests.rs`, keeping private access via `use super::*;`.
+  Staying inline when large is the EXCEPTION (below), not the norm.
 - **Never widen a production API just to move a test.** If a test needs private
   internals, it stays crate-local (inline or adjacent) — do not make items `pub`
   to relocate a test, and do not externalize private behavioral tests into an
@@ -34,7 +35,11 @@ establishes bad organization.
 
 - **Genuine local behavioral tests** — ones exercising real, breakable logic
   (numeric folds, scoping, sequencing, serde round-trips, gameplay invariants) —
-  may stay inline even when large, because co-location improves reviewability.
+  are OWNED by the implementation. Ownership does not decide layout: they may
+  remain inline even when large ONLY when a maintainer explicitly approves that
+  co-location materially improves reviewability; otherwise the default above (move
+  to an adjacent private child module) applies. Ownership is satisfied equally by
+  `equipment/tests.rs` / `flag/tests.rs` as by an inline module.
 - **Structural / guardrail tests** — shape checks, signature checks, ratchets,
   module-size or architecture policy, anything whose main job is to constrain
   machine-generated changes — belong in `tests/ambition_workspace_policy` or a
@@ -47,14 +52,18 @@ establishes bad organization.
   physical LAYOUT — hundreds of behavioral test lines may still read better in an
   adjacent private child module (`foo/tests.rs` via `#[cfg(test)] mod tests;`,
   keeping private access with `use super::*;`) than inline in the same file.
-- **Dispositions and who sets them.** The agent-writable disposition is
-  `maintainer-review-pending` (or `extract-pending` if the agent chooses to move
-  it now). `maintainer-approved-inline` is a PERMANENT exception and is valid only
-  when the path is in the maintainer-owned `MAINTAINER_APPROVED_INLINE` allowlist
-  in `scripts/check_agent_kb.py`; an agent cannot self-grant it by writing a marker.
-- **Weak or untrusted agents get the zealous default:** a new ≥ 200-line inline
-  module fails until a reviewer allowlists it; an agent does not grant itself the
-  exception. Operate in the spirit of the rule, not the zealous letter.
+- **Dispositions and who sets them.** An agent may classify a module's `kind` and
+  RECOMMEND a disposition — `maintainer-review-pending` (or `extract-pending` if it
+  chooses to move the module now). `maintainer-approved-inline` is a PERMANENT
+  exception: the checker requires the path in the maintainer-owned
+  `MAINTAINER_APPROVED_INLINE` allowlist in `scripts/check_agent_kb.py`, and
+  repository policy reserves that entry to the maintainer. (An agent with write
+  access could edit the allowlist; policy, not a mechanism, forbids it granting its
+  own exception.)
+- **Exceptions are maintainer authority, not agent self-service.** No agent may
+  grant a permanent inline exception to its own or another agent's work; a new
+  ≥ 200-line inline module needs a maintainer-owned allowlist entry. Operate in the
+  spirit of the rule, not the zealous letter.
 
 ### 2. Public crate / assembled-system behavior — that crate's `tests/`
 

@@ -185,8 +185,10 @@ INLINE_TEST_EVIDENCE_RE = re.compile(
     r"\s+disposition=(maintainer-review-pending|maintainer-approved-inline|extract-pending)\s*-->"
 )
 # Paths a MAINTAINER has explicitly approved to keep a large inline test module.
-# Only Jon edits this set; an agent CANNOT self-issue `maintainer-approved-inline`
-# by writing a status marker — the disposition is rejected unless the path is here.
+# Repository policy reserves editing this set to the maintainer. The checker rejects
+# a `maintainer-approved-inline` marker whose path is absent here — but this is a
+# policy boundary, not access control: an agent with write access could edit the set;
+# policy, not a mechanism, forbids it granting its own exception.
 MAINTAINER_APPROVED_INLINE: set[str] = set()
 WORKSPACE_MEMBERS_RE = re.compile(
     r"<!--\s*planning-evidence:\s*workspace-members\s+count=(\d+)\s*-->"
@@ -848,9 +850,11 @@ def check_planning_evidence(errors: list[str]) -> None:
         if stale:
             parts.append("no longer >=200 lines (drop the marker): " + ", ".join(stale))
         fail(errors, "inline-test review markers disagree with HEAD (" + "; ".join(parts) + ")")
-    # A permanent inline exception requires a MAINTAINER-owned allowlist entry; an
-    # agent's marker can only ever carry `maintainer-review-pending` (or the agent's
-    # own decision to extract). It cannot self-grant `maintainer-approved-inline`.
+    # A permanent inline exception requires a maintainer-owned allowlist entry. An
+    # agent records `maintainer-review-pending` (or its own decision to extract) and
+    # RECOMMENDS; repository policy — not this check — forbids it adding its own
+    # `maintainer-approved-inline` entry. The check enforces that the marker alone is
+    # insufficient without the allowlist entry.
     for path, _kind, disposition in reviewed:
         if disposition == "maintainer-approved-inline" and path not in MAINTAINER_APPROVED_INLINE:
             fail(

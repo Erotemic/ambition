@@ -87,7 +87,16 @@ pub fn sanic_speedway() -> RoomSpec {
 /// the shell must not wait on it.
 const SANIC_CATALOG_RON: &str = r#"(
     brain_presets: { "stand_still": StandStill },
-    action_set_presets: {},
+    action_set_presets: {
+        // A peaceful speedster: the momentum ride + ball dash ARE the kit; no
+        // combat moveset. Referenced by the row below so the catalog is valid.
+        "peaceful": (
+            move_style: Walk,
+            melee: None,
+            ranged: None,
+            special: None,
+        ),
+    },
     characters: {
         "sanic": (
             display_name: "Sanic",
@@ -99,6 +108,16 @@ const SANIC_CATALOG_RON: &str = r#"(
             default_brain: "stand_still",
             default_action_set: "peaceful",
             tags: ["player"],
+            // The MOVEMENT identity that makes this a Sanic demo: the worn home
+            // box opts into `MotionModel::SurfaceMomentum` (rides the speedway +
+            // loop), which is also what `ball_dash` requires to charge/launch.
+            // Without this the body is axis-swept and ball dash is inert — the
+            // demo would be an Ambition player wearing the name "Sanic".
+            momentum: Some((
+                ground_accel: 900.0,
+                top_speed: 1200.0,
+                jump_speed: 700.0,
+            )),
         ),
     },
 )"#;

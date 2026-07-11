@@ -12,14 +12,16 @@ path = "src/main.rs"
 
 [features]
 default = []
-# Draw the world. Adds the engine's generic presentation face (OV1) and the
-# renderer's `visible` dependency chain. Without it the shell steps the sim
-# headlessly, which is what `tests/exit_3.rs` and the `sanic_demo` bin do.
-visible = ["ambition/visible", "dep:bevy_kira_audio"]
-# Wire the STANDARD host input path (leafwing bindings + the device→ControlFrame
-# bridge + the fixed-tick latch) into the otherwise-headless demo shell. This is
-# the same production input wiring the full app uses; `tests/standard_input_path.rs`
-# drives synthetic keyboard input through it to observable player movement.
+# Draw the world AND make it playable. Adds the engine's generic presentation face
+# (OV1), the renderer's `visible` chain, AND the standard host input path (`input`)
+# — a windowed demo that ignored the keyboard would not be a playable-persona demo.
+# Without it the shell steps the sim headlessly (`tests/exit_3.rs`, the `sanic_demo`
+# bin default).
+visible = ["ambition/visible", "input", "dep:bevy_kira_audio"]
+# The STANDARD host input path (leafwing bindings + the device→ControlFrame bridge +
+# the fixed-tick latch), the same production wiring the full app uses. Folded into
+# `visible` above so the windowed binary is interactive; also usable alone for the
+# headless `tests/standard_input_path.rs` proof.
 input = ["ambition/input"]
 
 [dependencies]

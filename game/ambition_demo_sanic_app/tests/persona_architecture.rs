@@ -80,3 +80,43 @@ fn identity_does_not_track_the_startup_selection_resource_after_spawn() {
     );
     assert_eq!(primary_name(&mut app).as_deref(), Some("Sanic"));
 }
+
+/// **The demo genuinely uses Sanic MOVEMENT, not just the name.** The catalog's
+/// `sanic` momentum profile puts the worn home box on `MotionModel::SurfaceMomentum`
+/// (rides the speedway + loop), and the ball-dash rule — inert on any body without
+/// that model — attaches to it. Guards against the demo silently degrading to an
+/// axis-swept Ambition player wearing the label "Sanic".
+#[test]
+fn the_demo_body_rides_surface_momentum_and_arms_ball_dash() {
+    let mut app = ambition_demo_sanic_app::build_demo_app();
+    app.update();
+    for _ in 0..3 {
+        app.update();
+    }
+
+    let has_momentum = {
+        let mut q = app.world_mut().query_filtered::<
+            &ambition::actors::features::MotionModel,
+            With<ambition::actors::actor::PrimaryPlayer>,
+        >();
+        matches!(
+            q.iter(app.world()).next(),
+            Some(ambition::actors::features::MotionModel::SurfaceMomentum(_))
+        )
+    };
+    assert!(
+        has_momentum,
+        "the worn `sanic` momentum profile must put the body on SurfaceMomentum"
+    );
+
+    let ball_dash_armed = {
+        let mut q = app
+            .world_mut()
+            .query::<&ambition_demo_sanic::ball_dash::BallDash>();
+        q.iter(app.world()).next().is_some()
+    };
+    assert!(
+        ball_dash_armed,
+        "the ball-dash rule attaches to the momentum body (inert without SurfaceMomentum)"
+    );
+}

@@ -113,6 +113,15 @@ python scripts/modules_md.py`.
   memory when a durable invariant changes.
 - Style: `cargo fmt` on modified Rust files; `ruff format` on modified Python.
 
+## Script output convention
+
+Any script that writes a file/artifact (a tool, not a pure library) ENDS its
+stdout with a `rich` clickable `file://` link to the artifact AND its containing
+directory, so it is one click to navigate to. Use `[link=file://…]…[/link]`
+markup via `rich.print`, with a graceful `try/except ImportError` fallback to
+plain paths. Pattern: `scripts/git_debloat.py` (`file_uri`/`format_path`),
+`scripts/archive_agent_source.py` (`path_link`/`print_output_location`).
+
 ## Common validation commands
 
 ```bash

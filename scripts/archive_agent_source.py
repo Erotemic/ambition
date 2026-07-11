@@ -45,6 +45,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable, Sequence
 
+try:  # rich is optional; the final artifact link degrades to plain print without it.
+    from rich import print as rich_print
+    from rich.markup import escape as rich_escape
+except ImportError:
+    rich_print = None
+
+    def rich_escape(text: str) -> str:
+        return text
+
 
 CONFIG = {
     # Archive identity. ``prefix_template`` may use {repo}, {timestamp}, and
@@ -318,6 +327,25 @@ def normalize_depth(value: object) -> int | None:
 def file_url(path: Path) -> str:
     # Path.as_uri handles spaces and other URL quoting for absolute paths.
     return path.resolve().as_uri()
+
+
+def path_link(path: Path, label: str | None = None) -> str:
+    """Rich clickable ``file://`` link markup for a path (repo convention)."""
+    text = label if label is not None else os.fspath(path)
+    return f'[link={file_url(path)}]{rich_escape(text)}[/link]'
+
+
+def print_output_location(output: Path) -> None:
+    """Announce the written archive + its directory as clickable links at the very
+    end of stdout, so the artifact is one click away. Prints unconditionally (this
+    is the result, not chatter) and degrades to plain paths when rich is absent."""
+    directory = output.parent
+    if rich_print is not None:
+        rich_print(f'\n[bold green]✓ archive written[/bold green]  {path_link(output)}')
+        rich_print(f'  [dim]open folder →[/dim]  {path_link(directory)}')
+    else:
+        print(f'\narchive written: {output}')
+        print(f'open folder: {directory}')
 
 
 def parse_submodule_status(repo_root: Path) -> list[SubmoduleInfo]:
@@ -1434,7 +1462,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     if args.skip_ecs_inventory:
         CONFIG['run_ecs_inventory'] = False
     try:
-        build_archive(
+        output = build_archive(
             args.repo,
             args.output,
             args.prefix,
@@ -1446,6 +1474,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     finally:
         CONFIG['run_agent_index'] = old_run_index
         CONFIG['run_ecs_inventory'] = old_run_ecs_inventory
+    print_output_location(output)
     return 0
 
 

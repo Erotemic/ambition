@@ -1320,6 +1320,9 @@ pub fn dispatch_move_events(
     ranged_owners: Query<(
         &ambition_characters::brain::action_set::ActionSet,
         &ActorControl,
+        // A3: the owner's worn equipment, so a worn Move/Verb-scoped modifier
+        // scales the shot's damage/speed at fire (trigger-resolve).
+        Option<&ambition_characters::equipment::WornEquipment>,
     )>,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<ambition_vfx::VfxMessage>,
@@ -1373,11 +1376,23 @@ pub fn dispatch_move_events(
             MoveEventKind::Ranged => {
                 // The owner's ranged CAPABILITY + LIVE aim supply the concrete shot;
                 // the move stays content-free.
-                let Ok((actions_set, control)) = ranged_owners.get(ev.owner) else {
+                let Ok((actions_set, control, worn)) = ranged_owners.get(ev.owner) else {
                     continue;
                 };
                 let Some(spec) = actions_set.ranged else {
                     continue; // owner has no ranged weapon — the move fires nothing
+                };
+                // A3 trigger-resolve: fold worn equipment modifiers into THIS shot's
+                // speed/damage. No worn equipment (the common case) returns the spec
+                // unchanged — parity by construction.
+                let spec = match worn {
+                    Some(worn) => ambition_characters::equipment::resolved_ranged(
+                        spec,
+                        worn,
+                        &ev.move_id,
+                        RANGED_VERB,
+                    ),
+                    None => spec,
                 };
                 let kin = positions.get(ev.owner).ok();
                 let origin = kin.map(|k| k.pos).unwrap_or(ae::Vec2::ZERO);

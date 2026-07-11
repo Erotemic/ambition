@@ -1528,3 +1528,57 @@ fn the_real_hit_path_sets_the_landed_fact() {
         "the active-window connect set the fact"
     );
 }
+
+/// A3 behavioral grant, through the real moveset derivation: equipping the
+/// flower-analog (a `Ranged` grant) overlays `ActionSet.ranged`, and
+/// `build_actor_moveset` derives a `"ranged"` verb → a `simple_ranged`-backed
+/// move. Unequip is its inverse. This is the exit-test assertion "verb map gains
+/// the ranged move; unequip removes it".
+#[test]
+fn a3_flower_grant_adds_and_removes_a_ranged_verb_in_the_derived_moveset() {
+    use ambition_characters::brain::action_set::{ActionSet, RangedActionSpec};
+    use ambition_characters::equipment::{
+        apply_equipment_grants, EquipmentGrant, EquipmentRow, WornEquipment,
+    };
+
+    let flower = EquipmentRow {
+        id: "fire_flower".to_string(),
+        grants: vec![EquipmentGrant::Ranged(RangedActionSpec::Bolt {
+            speed: 420.0,
+            damage: 6,
+        })],
+        ..Default::default()
+    };
+    let mut worn = WornEquipment::default();
+    worn.equip(flower);
+
+    // A peaceful body: no ranged verb in its derived moveset.
+    let actions = ActionSet::peaceful();
+    let before = build_actor_moveset(None, actions.melee.as_ref(), actions.ranged.as_ref());
+    assert!(
+        before.map_or(true, |m| m.move_for_verb(RANGED_VERB).is_none()),
+        "no flower, no ranged move"
+    );
+
+    // Equip the flower: the grant confers the ranged verb, and the moveset
+    // derivation turns it into a fireable move.
+    let mut equipped = ActionSet::peaceful();
+    apply_equipment_grants(&mut equipped, &worn);
+    let moveset = build_actor_moveset(None, equipped.melee.as_ref(), equipped.ranged.as_ref())
+        .expect("a ranged verb yields a moveset");
+    assert!(
+        moveset.move_for_verb(RANGED_VERB).is_some(),
+        "the flower's ranged verb is in the derived moveset"
+    );
+
+    // Unequip: rebuild from the emptied worn set — the verb is gone (nothing was
+    // baked to outlive the row).
+    worn.unequip("fire_flower");
+    let mut after = ActionSet::peaceful();
+    apply_equipment_grants(&mut after, &worn);
+    let moveset = build_actor_moveset(None, after.melee.as_ref(), after.ranged.as_ref());
+    assert!(
+        moveset.map_or(true, |m| m.move_for_verb(RANGED_VERB).is_none()),
+        "unequip removes the ranged move"
+    );
+}

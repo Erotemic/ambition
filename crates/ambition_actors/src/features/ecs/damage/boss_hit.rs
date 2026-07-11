@@ -58,6 +58,8 @@ pub(crate) fn apply_entity_boss_damage(
     let resolution = crate::features::ecs::damage_apply::resolve_body_hit(
         combat,
         Some(health),
+        // Bosses wear no equipment; armor is inert here.
+        None,
         false,
         0.0,
         ae::Vec2::ZERO,
@@ -78,6 +80,8 @@ pub(crate) fn apply_entity_boss_damage(
         crate::features::ecs::damage_apply::BodyHitResolution::Ignored => (false, false),
         // No shield component ⇒ the resolver never returns Blocked for a boss.
         crate::features::ecs::damage_apply::BodyHitResolution::Blocked => (false, false),
+        // No `WornEquipment` ⇒ the resolver never returns Armored for a boss.
+        crate::features::ecs::damage_apply::BodyHitResolution::Armored => (true, false),
         crate::features::ecs::damage_apply::BodyHitResolution::Damaged { died, .. } => {
             if died {
                 if let Some(phase) = status.encounter.as_mut() {

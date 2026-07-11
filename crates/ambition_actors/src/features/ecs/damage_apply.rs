@@ -31,6 +31,7 @@ use crate::{
 };
 use ambition_characters::actor::BodyCombat;
 use ambition_characters::actor::BodyHealth;
+use ambition_characters::equipment::WornEquipment;
 use ambition_dev_tools::dev_tools::EditableMovementTuning;
 use ambition_engine_core::RoomGeometry;
 use ambition_sfx::SfxMessage;
@@ -111,6 +112,11 @@ pub enum BodyHitResolution {
     /// The body's raised shield consumed the hit: no damage, but the hit DID
     /// register (guard i-frame armed; the caller plays block feedback).
     Blocked,
+    /// A worn armor equipment row absorbed the hit (A3
+    /// `OnHit::ConsumeAsArmor`): no HP damage, the row was spent (removed or
+    /// downgraded), and the SAME brief i-frames a damaging hit arms are armed.
+    /// The hit registered, but it never reaches HP or the death path.
+    Armored,
     /// The hit landed. `damage` is the post-multiplier amount applied; `died`
     /// is whether it killed the body.
     Damaged { damage: i32, died: bool },
@@ -135,6 +141,7 @@ pub enum BodyHitResolution {
 pub fn resolve_body_hit(
     combat: &mut BodyCombat,
     mut health: Option<&mut BodyHealth>,
+    armor: Option<&mut WornEquipment>,
     shield_active: bool,
     facing: f32,
     body_pos: ae::Vec2,
@@ -159,6 +166,19 @@ pub fn resolve_body_hit(
         }
         combat.damage_invuln_timer = combat.damage_invuln_timer.max(feel.block_invuln_floor);
         return BodyHitResolution::Blocked;
+    }
+    // A3 armor-on-hit (shield beats armor beats damage): a worn armor row spends
+    // itself BEFORE the hit reaches HP. The wearer takes zero HP damage and gets
+    // the same brief i-frames a damaging hit arms. Generic — any body carrying a
+    // `WornEquipment` with a `ConsumeAsArmor` row gets this; the player is the
+    // only wirer today. `never_dies` bodies still spend armor (a downgrade is a
+    // state change worth honoring), then reach the no-death path below anyway.
+    if let Some(armor) = armor {
+        if armor.consume_armor().is_some() {
+            combat.hit_flash = feel.hit_flash;
+            combat.damage_invuln_timer = feel.damage_invuln_time;
+            return BodyHitResolution::Armored;
+        }
     }
     combat.hit_flash = feel.hit_flash;
     combat.damage_invuln_timer = feel.damage_invuln_time;
@@ -242,6 +262,9 @@ pub(crate) fn handle_player_damage_events(
     safety: &mut PlayerSafetyState,
     banner_requests: &mut MessageWriter<GameplayBannerRequested>,
     mut player_health: Option<&mut BodyHealth>,
+    // A3: the player's worn equipment, so an armor row can absorb this hit before
+    // it reaches HP. `None` for a player wearing nothing.
+    armor: Option<&mut WornEquipment>,
     damage_events: &[FeatureHitEvent],
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
@@ -274,6 +297,7 @@ pub(crate) fn handle_player_damage_events(
     let resolution = resolve_body_hit(
         combat,
         player_health.as_deref_mut(),
+        armor,
         clusters.shield.active,
         clusters.kinematics.facing,
         clusters.kinematics.pos,
@@ -297,6 +321,17 @@ pub(crate) fn handle_player_damage_events(
                 pos: clusters.kinematics.pos,
             });
             banner_requests.write(GameplayBannerRequested::new("blocked", 1.0));
+            false
+        }
+        // A3: a worn armor row (mushroom-analog) absorbed the hit. No HP change,
+        // no respawn/teleport (so no Class-B remap), just the spent powerup and
+        // the brief i-frames the resolver already armed.
+        BodyHitResolution::Armored => {
+            sfx.write(SfxMessage::Play {
+                id: ambition_sfx::ids::PLAYER_DAMAGE,
+                pos: impact_pos,
+            });
+            banner_requests.write(GameplayBannerRequested::new("POWERUP LOST", 1.4));
             false
         }
         BodyHitResolution::Damaged { died: true, .. } => {
@@ -589,6 +624,9 @@ pub fn apply_player_hit_events(
             Entity,
             ae::BodyClusterQueryData,
             Option<&mut BodyHealth>,
+            // A3: the player's worn equipment (mushroom/flower). `Option` so a
+            // player wearing nothing still resolves — the common case.
+            Option<&mut WornEquipment>,
             &mut BodyAnimFacts,
             &mut BodyCombat,
             &mut PlayerSafetyState,
@@ -668,6 +706,7 @@ pub fn apply_player_hit_events(
         player_entity,
         mut cluster_item,
         player_health,
+        worn,
         mut anim,
         mut combat,
         mut safety,
@@ -695,6 +734,7 @@ pub fn apply_player_hit_events(
             &mut safety,
             &mut banner_requests,
             player_health.map(|h| h.into_inner()),
+            worn.map(|w| w.into_inner()),
             &target_events,
             tuning,
             feel,

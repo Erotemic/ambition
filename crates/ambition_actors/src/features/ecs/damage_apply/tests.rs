@@ -90,6 +90,7 @@ fn resolver_ignores_a_hit_inside_the_i_frame_window() {
     let res = resolve_body_hit(
         &mut combat,
         Some(&mut health),
+        None,
         false,
         1.0,
         pos,
@@ -114,6 +115,7 @@ fn resolver_ignores_a_hit_on_a_dead_body() {
     let res = resolve_body_hit(
         &mut combat,
         Some(&mut health),
+        None,
         false,
         1.0,
         pos,
@@ -135,6 +137,7 @@ fn resolver_shield_blocks_a_faced_hit_and_arms_the_guard_i_frame() {
     let res = resolve_body_hit(
         &mut combat,
         Some(&mut health),
+        None,
         true,
         1.0,
         pos,
@@ -157,6 +160,7 @@ fn resolver_shield_blocks_a_faced_hit_and_arms_the_guard_i_frame() {
     let res = resolve_body_hit(
         &mut combat,
         Some(&mut health),
+        None,
         true,
         1.0,
         pos,
@@ -184,6 +188,7 @@ fn resolver_scales_damage_arms_feel_and_floors_at_one() {
     let res = resolve_body_hit(
         &mut combat,
         Some(&mut health),
+        None,
         false,
         1.0,
         pos,
@@ -209,6 +214,7 @@ fn resolver_scales_damage_arms_feel_and_floors_at_one() {
     let res = resolve_body_hit(
         &mut combat,
         Some(&mut health),
+        None,
         false,
         1.0,
         pos,
@@ -236,6 +242,7 @@ fn resolver_reports_death_and_never_dies_takes_no_damage() {
     let res = resolve_body_hit(
         &mut combat,
         Some(&mut health),
+        None,
         false,
         1.0,
         pos,
@@ -261,6 +268,7 @@ fn resolver_reports_death_and_never_dies_takes_no_damage() {
     let res = resolve_body_hit(
         &mut combat,
         Some(&mut health),
+        None,
         false,
         1.0,
         pos,
@@ -283,6 +291,7 @@ fn resolver_reports_death_and_never_dies_takes_no_damage() {
     let mut combat = BodyCombat::default();
     let res = resolve_body_hit(
         &mut combat,
+        None,
         None,
         false,
         1.0,
@@ -661,4 +670,86 @@ fn di_conjugates_under_rotated_gravity() {
             ),
         }
     }
+}
+
+/// A3 armor-on-hit, through the ONE victim-side resolver: Mary-O's mushroom
+/// big→small. The first hit is ABSORBED (the row downgrades, HP untouched, the
+/// normal i-frames armed); the second — once the armor-less small row is all
+/// that's worn — reaches HP. This is the exit-test assertion "one hit downgrades,
+/// second hit damages HP".
+#[test]
+fn a3_worn_armor_absorbs_a_hit_downgrades_then_the_next_hit_damages_hp() {
+    use ambition_characters::equipment::{EquipmentRow, OnHit, WornEquipment};
+
+    let small = EquipmentRow {
+        id: "mushroom_small".to_string(),
+        ..Default::default()
+    };
+    let mut worn = WornEquipment::new(vec![EquipmentRow {
+        id: "mushroom_big".to_string(),
+        on_hit: Some(OnHit::ConsumeAsArmor {
+            downgrade_to: Some(Box::new(small)),
+        }),
+        ..Default::default()
+    }]);
+    let mut combat = BodyCombat::default();
+    let mut health = test_health(10);
+    let pos = ae::Vec2::new(0.0, 0.0);
+
+    // First hit: the mushroom absorbs it. Zero HP loss, the row downgrades to
+    // small, and the SAME brief i-frames any hit arms are armed.
+    let res = resolve_body_hit(
+        &mut combat,
+        Some(&mut health),
+        Some(&mut worn),
+        false,
+        1.0,
+        pos,
+        pos,
+        DOWN,
+        4,
+        1.0,
+        false,
+        TEST_FEEL,
+    );
+    assert_eq!(res, BodyHitResolution::Armored);
+    assert_eq!(health.current(), 10, "worn armor spends itself, not HP");
+    assert_eq!(
+        combat.damage_invuln_timer, TEST_FEEL.damage_invuln_time,
+        "armor arms the same brief i-frames a damaging hit would"
+    );
+    assert!(
+        worn.wears("mushroom_small"),
+        "big downgraded to small in place"
+    );
+
+    // Clear the i-frame the absorb armed so the next hit resolves; small carries
+    // no armor, so this hit reaches HP.
+    combat.damage_invuln_timer = 0.0;
+    let res = resolve_body_hit(
+        &mut combat,
+        Some(&mut health),
+        Some(&mut worn),
+        false,
+        1.0,
+        pos,
+        pos,
+        DOWN,
+        4,
+        1.0,
+        false,
+        TEST_FEEL,
+    );
+    assert_eq!(
+        res,
+        BodyHitResolution::Damaged {
+            damage: 4,
+            died: false
+        }
+    );
+    assert_eq!(
+        health.current(),
+        6,
+        "with the armor spent, the hit reaches HP"
+    );
 }

@@ -137,6 +137,9 @@ pub(crate) fn apply_actor_hit(
         let resolution = crate::features::ecs::damage_apply::resolve_body_hit(
             combat,
             Some(&mut *em.health),
+            // No actor archetype wears equipment armor today; the resolver
+            // supports it generically, but nothing threads a `WornEquipment` here.
+            None,
             em.shield.active,
             em.kin.facing,
             em.kin.pos,
@@ -195,6 +198,12 @@ pub(crate) fn apply_actor_hit(
                 color: [0.78, 0.90, 1.0, 0.90],
                 kind: ParticleKind::Spark,
             });
+            return true;
+        }
+        if resolution == crate::features::ecs::damage_apply::BodyHitResolution::Armored {
+            // A worn armor row absorbed the hit (no actor wears one today; kept
+            // exhaustive so the generic resolver stays honest). Took the hit, no
+            // damage, no death, no knockback.
             return true;
         }
         // CM1 death policy: an `Unbounded` (smash-percent) body never dies from

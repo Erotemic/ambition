@@ -251,6 +251,57 @@ pub fn resolved_param(
     value
 }
 
+/// Param keys a ranged shot resolves against worn modifiers at fire
+/// (trigger-resolve). A `Move`/`Verb`-scoped modifier on these keys scales the
+/// projectile the flower-analog grants.
+pub mod ranged_param {
+    /// The shot's launch speed.
+    pub const SPEED: &str = "speed";
+    /// The shot's damage.
+    pub const DAMAGE: &str = "damage";
+}
+
+/// Apply every worn row's [`EquipmentGrant`]s onto an action set — the equip step.
+/// Grants overlay in worn order (a later row's grant wins), exactly as stacked
+/// held items would; the caller re-derives the moveset from the result. Unequip is
+/// its inverse: drop the row from [`WornEquipment`] and rebuild the set from the
+/// remaining grants.
+pub fn apply_equipment_grants(actions: &mut ActionSet, worn: &WornEquipment) {
+    for row in &worn.rows {
+        for grant in &row.grants {
+            grant.apply_to_action_set(actions);
+        }
+    }
+}
+
+/// Fold worn `Move`/`Verb`-scoped modifiers into a ranged shot's speed + damage at
+/// the moment it fires (trigger-resolve). This is the A3 "a Mul modifier visibly
+/// scales one authored param at trigger-resolve" seam: the flower's fireball hits
+/// harder because a worn row scales [`ranged_param::DAMAGE`], resolved here rather
+/// than baked into the spec. `move_id` + `verb` scope the fold so a body wearing
+/// two weapons doesn't cross-contaminate their shots.
+pub fn resolved_ranged(
+    base: RangedActionSpec,
+    worn: &WornEquipment,
+    move_id: &str,
+    verb: &str,
+) -> RangedActionSpec {
+    let scope = ResolveScope::Move {
+        id: move_id,
+        verb: Some(verb),
+    };
+    let speed = resolved_param(base.speed(), worn, ranged_param::SPEED, scope);
+    let damage = resolved_param(base.damage() as f32, worn, ranged_param::DAMAGE, scope)
+        .round()
+        .max(0.0) as i32;
+    match base {
+        RangedActionSpec::Rock { .. } => RangedActionSpec::Rock { speed, damage },
+        RangedActionSpec::Arrow { .. } => RangedActionSpec::Arrow { speed, damage },
+        RangedActionSpec::Pistol { .. } => RangedActionSpec::Pistol { speed, damage },
+        RangedActionSpec::Bolt { .. } => RangedActionSpec::Bolt { speed, damage },
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -535,5 +586,70 @@ mod tests {
             flower.modifiers[0].scope,
             ModifierScope::Move("fireball".to_string())
         );
+    }
+
+    #[test]
+    fn apply_grants_overlays_every_worn_grant_and_unequip_is_its_inverse() {
+        let flower = EquipmentRow {
+            id: "fire_flower".to_string(),
+            grants: vec![EquipmentGrant::Ranged(RangedActionSpec::Bolt {
+                speed: 420.0,
+                damage: 6,
+            })],
+            ..Default::default()
+        };
+        // Equip: the base set had no ranged verb; the grant confers one.
+        let mut worn = WornEquipment::default();
+        worn.equip(flower);
+        let mut actions = ActionSet::peaceful();
+        apply_equipment_grants(&mut actions, &worn);
+        assert!(actions.ranged.is_some(), "the flower grants a ranged verb");
+
+        // Unequip: with the row gone, rebuilding from scratch has no ranged verb —
+        // the grant is not baked into anything that outlives the worn row.
+        worn.unequip("fire_flower");
+        let mut after = ActionSet::peaceful();
+        apply_equipment_grants(&mut after, &worn);
+        assert!(after.ranged.is_none(), "unequip revokes the granted verb");
+    }
+
+    #[test]
+    fn resolved_ranged_scales_the_shot_by_a_move_scoped_mul_at_fire() {
+        // A fireball whose damage a worn row scales ×1.5 (Move-scoped), speed +60
+        // (Verb-scoped): the shot that leaves the barrel carries the folded values,
+        // while the authored spec on the action set is untouched.
+        let worn = WornEquipment::new(vec![EquipmentRow {
+            id: "fire_flower".to_string(),
+            modifiers: vec![
+                ParamModifier {
+                    param: ranged_param::DAMAGE.to_string(),
+                    op: ModifierOp::Mul(1.5),
+                    scope: ModifierScope::Move("fireball".to_string()),
+                },
+                ParamModifier {
+                    param: ranged_param::SPEED.to_string(),
+                    op: ModifierOp::Add(60.0),
+                    scope: ModifierScope::Verb("ranged".to_string()),
+                },
+            ],
+            ..Default::default()
+        }]);
+        let base = RangedActionSpec::Bolt {
+            speed: 400.0,
+            damage: 6,
+        };
+        let shot = resolved_ranged(base, &worn, "fireball", "ranged");
+        assert_eq!(shot.damage(), 9, "×1.5 on 6 damage");
+        assert_eq!(shot.speed(), 460.0, "+60 on 400 speed via the ranged verb");
+
+        // A different move id keeps the Verb-scoped speed buff but drops the
+        // Move("fireball") damage scaling.
+        let other = resolved_ranged(base, &worn, "icebolt", "ranged");
+        assert_eq!(
+            other.damage(),
+            6,
+            "the Move-scoped buff is inert for icebolt"
+        );
+        assert_eq!(other.speed(), 460.0, "the Verb-scoped buff still applies");
     }
 }

@@ -147,6 +147,18 @@ impl Plugin for PlayerSchedulePlugin {
                 .after(ambition_dev_tools::sync_live_player_dev_edits_system),
         );
 
+        // Derive gameplay config from the canonical worn-character identity.
+        // Runs in PlayerInput before `tick_player_brains` so a re-wear's new kit
+        // (ActionSet + moveset + movement model) is live the same tick the brain
+        // reads it. `Changed<WornCharacter>` covers both spawn (Added) and any
+        // later transformation.
+        app.add_systems(
+            sim,
+            ambition_actors::avatar::apply_worn_character_gameplay
+                .in_set(SandboxSet::PlayerInput)
+                .before(ambition_actors::avatar::tick_player_brains),
+        );
+
         // The content dialogue-followup slot lives in PlayerInput; the HOST
         // adds the consumer-relative edge (`.before(its replay consumer)`) —
         // the engine only gives the slot its phase home.

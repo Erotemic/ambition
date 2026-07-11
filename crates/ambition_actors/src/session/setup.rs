@@ -125,6 +125,13 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
         .spawn((
             Transform::from_translation(world_to_bevy(&world.0, world.0.spawn, WORLD_Z_PLAYER)),
             PlayerVisual,
+            // The canonical playable-persona identity: WHICH catalog character
+            // this control box wears. Simulation-owned, so gameplay config AND
+            // presentation both derive from this ONE relationship instead of
+            // rediscovering the selection from separate authorities. Resolved to
+            // a concrete id (the content default when unset) so the identity is
+            // never empty on the entity.
+            ambition_characters::actor::WornCharacter::new(starting_character.effective_id()),
             player_bundle,
         ))
         .id();

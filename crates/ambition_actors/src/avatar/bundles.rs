@@ -187,7 +187,9 @@ impl PlayerSimulationBundle {
     /// secretly shoot the robot's fireballs). Slots the character leaves empty
     /// stay EMPTY. The player box is otherwise untouched — same
     /// `Brain::Player`, same markers, same collision. The chosen character's
-    /// SPRITE is bound presentation-side (`scene_setup`), not here.
+    /// SPRITE is bound presentation-side by the reusable `ambition_render`
+    /// binder, which reads the `WornCharacter` identity the spawn records — not
+    /// here, and not app-locally.
     ///
     /// The one exception is the PROTAGONIST (the content-installed default
     /// row): its kit is the code-side `default_player_action_set` (derived

@@ -14,6 +14,8 @@ pub mod body;
 pub use body::{BodyAnimFacts, BodyCombat, BodyHealth, BodyWallet};
 pub mod character_catalog;
 pub mod control;
+pub mod worn;
+pub use worn::WornCharacter;
 
 use ambition_entity_catalog::placements::DamageTeam;
 

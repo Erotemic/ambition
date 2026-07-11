@@ -448,6 +448,21 @@ impl SnapshotState for ambition_characters::actor::BodyHealth {
     }
 }
 
+/// The canonical playable-persona identity: WHICH catalog character a body
+/// wears. A length-delimited string id — the choice, not the content: the
+/// catalog it names is authored data that survives the rewind. Registered as a
+/// full component (not a resolve) because the id IS the value; the entity's
+/// gameplay/presentation are re-derived from it by `Changed<WornCharacter>`
+/// systems the tick after a restore patches it.
+impl SnapshotState for ambition_characters::actor::WornCharacter {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_str(out, self.id());
+    }
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(ambition_characters::actor::WornCharacter::new(r.str()?))
+    }
+}
+
 /// `ActorTarget` is half derived, half state — see its definition-site snapshot story.
 /// `entity` is rebuilt every tick by `select_actor_targets`; `pos` survives the frame
 /// where no candidate exists, and a chasing brain aims at it. So `pos` rewinds and

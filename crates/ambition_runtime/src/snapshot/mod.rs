@@ -902,7 +902,6 @@ impl std::fmt::Display for RestoreError {
 
 impl std::error::Error for RestoreError {}
 
-
 /// Hash a set of `(stable_key, payload)` pairs, sorted by key.
 ///
 /// **Bevy's `Query` iteration order is not stable** — it follows archetype layout,
@@ -1050,6 +1049,10 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     // - `ActorStatus` / `ActorIntent` / `BodyModeState` carry unit enums and need a
     //   discriminant codec whose mapping is EXPLICIT, not declaration order.
     registry.register_component::<ambition_characters::actor::pose::ActorPose>("actor_pose");
+    // The canonical playable-persona identity. A restore patches it onto the
+    // survivor, and the `Changed<WornCharacter>` derive systems re-apply the
+    // character's gameplay + presentation the following tick.
+    registry.register_component::<ambition_characters::actor::WornCharacter>("worn_character");
     registry
         .register_component::<ambition_platformer_primitives::orientation::ActorRoll>("actor_roll");
     registry.register_component::<ambition_combat::components::ActorCooldowns>("actor_cooldowns");
@@ -1155,7 +1158,6 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
         h.write_u64(q.iter(world).count() as u64);
     });
 }
-
 
 fn canonical_f32_bits(v: f32) -> u32 {
     if v.is_nan() {

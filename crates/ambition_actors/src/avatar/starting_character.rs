@@ -15,14 +15,23 @@
 //! `Brain::Player` drives ANY body; this makes the *starting* body a choice
 //! too, without unifying the (deferred) player-vs-actor integration paths.
 //!
-//! Reads happen at session setup in two halves — the simulation side
-//! ([`crate::session::setup`]) overlays the moveset + name; the presentation
-//! side (`ambition_app::app::scene_setup`) binds the sprite sheet.
+//! [`StartingCharacter`] is the STARTUP SELECTION resource. At spawn
+//! ([`crate::session::setup`]) the chosen id is both overlaid onto the body
+//! (moveset + name) AND recorded as the canonical [`WornCharacter`] identity
+//! component ON the player entity. From then on the entity's component — not
+//! this resource — is the single source both gameplay and presentation derive
+//! from: [`apply_worn_character_gameplay`] re-applies the kit on any change, and
+//! the reusable `ambition_render` binder installs the sprite from the same
+//! identity. Presentation no longer reads this app-local resource.
 
 use bevy::ecs::resource::Resource;
-use bevy::ecs::system::Commands;
-use bevy::prelude::Entity;
+use bevy::ecs::system::{Commands, Query};
+use bevy::prelude::{Changed, Entity, Name};
 
+use ambition_characters::actor::WornCharacter;
+use ambition_characters::brain::ActionSet;
+
+use crate::combat::moveset::{build_actor_moveset, ActorMoveset};
 use crate::features::{MomentumMotion, MotionModel};
 
 /// The catalog `character_id` the local player spawns as.
@@ -102,6 +111,63 @@ pub fn apply_worn_motion_model(commands: &mut Commands, entity: Entity, characte
     }
 }
 
+/// **Derive a body's gameplay configuration from its worn identity.**
+///
+/// Runs whenever a player's [`WornCharacter`] is added or changes (Bevy's
+/// `Changed` filter covers both), so gameplay always follows the ONE canonical
+/// identity — at spawn AND on any later re-wear / transformation. Re-applies:
+///
+/// * the display [`Name`],
+/// * the authored kit ([`ActionSet`] + the melee [`ActorMoveset`] derived from
+///   it) for any non-protagonist character — the worn character's ActionSet IS
+///   the kit (possession semantics), and
+/// * the movement identity via [`apply_worn_motion_model`].
+///
+/// The PROTAGONIST (the content-installed default row) keeps whatever kit it
+/// spawned with: its code-side kit is derived from live `AbilitySet` dev toggles
+/// and cannot be rebuilt from the catalog here, so re-wearing the default id at
+/// runtime applies only its name + (absent) movement model, never a peaceful
+/// catalog action set over the protagonist's real moveset. Unknown ids likewise
+/// keep the current kit and just refresh the movement model. This is the same
+/// authority `PlayerSimulationBundle::from_scratch_as_character` uses at spawn,
+/// so spawn-time and runtime re-wear can never disagree on what a character is.
+pub fn apply_worn_character_gameplay(
+    mut commands: Commands,
+    mut worn: Query<
+        (
+            Entity,
+            &WornCharacter,
+            &mut Name,
+            &mut ActionSet,
+            &mut ActorMoveset,
+        ),
+        Changed<WornCharacter>,
+    >,
+) {
+    for (entity, character, mut name, mut action_set, mut moveset) in &mut worn {
+        let id = character.id();
+        if let Some(display) = crate::character_roster::display_name_for_character_id(id) {
+            *name = Name::new(display);
+        }
+        let is_protagonist = id == crate::character_roster::default_character_id();
+        if !is_protagonist {
+            if let Some(character_set) =
+                crate::character_roster::default_action_set_for_character_id(id)
+            {
+                *moveset = ActorMoveset(
+                    build_actor_moveset(None, character_set.melee.as_ref(), None)
+                        .unwrap_or_default(),
+                );
+                *action_set = character_set;
+            }
+        }
+        // Movement identity: insert SurfaceMomentum for a momentum character,
+        // else REMOVE any stale model so a re-wear never rides a chain the new
+        // character can't (the render-refresh clobber gotcha in reverse).
+        apply_worn_motion_model(&mut commands, entity, id);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -168,5 +234,100 @@ mod tests {
     #[test]
     fn non_default_id_is_not_default() {
         assert!(!StartingCharacter::new("goblin").is_default());
+    }
+
+    /// **S1: gameplay configuration is DERIVED from the worn identity, at spawn
+    /// (Added) and on any later re-wear (Changed).** A body carrying only the
+    /// `WornCharacter` identity plus the mutable gameplay components has its name
+    /// and movement identity re-derived by `apply_worn_character_gameplay`.
+    #[test]
+    fn gameplay_derives_from_worn_identity_at_add_and_on_change() {
+        use crate::combat::moveset::ActorMoveset;
+        use ambition_characters::brain::ActionSet;
+        use bevy::prelude::*;
+
+        // Pin the installed default so the protagonist branch is deterministic.
+        crate::character_roster::install_default_character_id("player");
+
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_systems(Update, apply_worn_character_gameplay);
+
+        // Spawn wearing the momentum speedster.
+        let e = app
+            .world_mut()
+            .spawn((
+                WornCharacter::new("sanic"),
+                Name::new("unset"),
+                ActionSet::default(),
+                ActorMoveset(Default::default()),
+            ))
+            .id();
+        app.update();
+
+        // Movement identity (SurfaceMomentum) + name are derived from "sanic".
+        assert!(
+            matches!(
+                app.world().get::<MotionModel>(e),
+                Some(MotionModel::SurfaceMomentum(_))
+            ),
+            "wearing the momentum character derives SurfaceMomentum"
+        );
+        assert_eq!(
+            app.world().get::<Name>(e).unwrap().as_str(),
+            "Sanic",
+            "the display name is derived from the worn identity"
+        );
+
+        // Re-wear the protagonist through the supported path (mutate the
+        // identity). Downstream observes the change: the stale momentum model is
+        // removed and the name follows.
+        *app.world_mut().get_mut::<WornCharacter>(e).unwrap() = WornCharacter::new("player");
+        app.update();
+        assert!(
+            app.world().get::<MotionModel>(e).is_none(),
+            "re-wearing a non-momentum character removes the stale movement model"
+        );
+        assert_eq!(
+            app.world().get::<Name>(e).unwrap().as_str(),
+            "Player",
+            "the display name follows the new worn identity"
+        );
+    }
+
+    /// **S1 poison / non-vacuity:** with NO change to `WornCharacter`, the derive
+    /// system does not fire, so a hand-set movement model is left untouched. This
+    /// proves the assertion above is driven by the `Changed` edge, not by the
+    /// system running unconditionally every frame.
+    #[test]
+    fn derive_system_only_fires_on_identity_change() {
+        use crate::combat::moveset::ActorMoveset;
+        use ambition_characters::brain::ActionSet;
+        use bevy::prelude::*;
+
+        crate::character_roster::install_default_character_id("player");
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins);
+        app.add_systems(Update, apply_worn_character_gameplay);
+        let e = app
+            .world_mut()
+            .spawn((
+                WornCharacter::new("sanic"),
+                Name::new("unset"),
+                ActionSet::default(),
+                ActorMoveset(Default::default()),
+            ))
+            .id();
+        app.update(); // Added → derives SurfaceMomentum for sanic.
+        assert!(app.world().get::<MotionModel>(e).is_some());
+
+        // No identity change: subsequent frames must not re-run the wear. Prove it
+        // by clobbering the model and confirming the un-changed system leaves it.
+        app.world_mut().entity_mut(e).remove::<MotionModel>();
+        app.update();
+        assert!(
+            app.world().get::<MotionModel>(e).is_none(),
+            "with no WornCharacter change the derive system must not re-fire"
+        );
     }
 }

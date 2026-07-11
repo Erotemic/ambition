@@ -80,7 +80,7 @@ pub struct BossEncounter {
     /// `BossProfile` (or `BossOverrides`) and ticks it. Keeping the state ON the
     /// entity is what makes two of the same boss (a gauntlet) carry independent
     /// fights by construction rather than by a string-keyed side map. See
-    /// `docs/planning/boss-entity-local-refactor.md`. `None` until seeded.
+    /// `docs/planning/engine/encounter-orchestration.md`. `None` until seeded.
     pub encounter: Option<crate::boss_encounter::ActorPhaseState>,
 }
 

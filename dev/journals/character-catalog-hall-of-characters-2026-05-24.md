@@ -2,7 +2,7 @@
 
 **Date:** 2026-05-24
 **Duration:** ~3.5 h wall-clock for plan (1.10 h) + bonus follow-ups (2.4 h)
-**Plan doc:** [`TODO-character-catalog-and-hall.md`](../../TODO-character-catalog-and-hall.md)
+**Plan doc:** [`TODO-character-catalog-and-hall.md`](../../docs/archive/TODO-character-catalog-and-hall.md)
 **ADR:** [`docs/adr/0017-rust-behavior-ron-content-ldtk-space.md`](../../docs/adr/0017-rust-behavior-ron-content-ldtk-space.md)
 **System doc:** [`docs/systems/character-catalog.md`](../../docs/systems/character-catalog.md)
 **Final state:** 100% Hall sprite coverage (97/97), 0 sandbox.ldtk validator warnings (down from 185), 3 intentional intro.ldtk warnings.
@@ -194,7 +194,7 @@ State at 2026-05-24, second half checkpoint:
 
 ## Cross-refs
 
-- [`TODO-character-catalog-and-hall.md`](../../TODO-character-catalog-and-hall.md) — the run's plan + progress table.
+- [`TODO-character-catalog-and-hall.md`](../../docs/archive/TODO-character-catalog-and-hall.md) — the run's plan + progress table.
 - [`docs/adr/0017-rust-behavior-ron-content-ldtk-space.md`](../../docs/adr/0017-rust-behavior-ron-content-ldtk-space.md) — codified architectural posture.
 - [`docs/systems/character-catalog.md`](../../docs/systems/character-catalog.md) — live system overview.
 - [`docs/systems/sprite-rendering-surface.md`](../../docs/systems/sprite-rendering-surface.md) — renderer-side divergence + cleanup plan.

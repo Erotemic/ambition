@@ -367,20 +367,15 @@ in ONE RON file per game so re-calibration is data, not code"*).
 
 ### THE MEASUREMENT: the shipped roster vs §3
 
-**8 errors, 1 warning.** Every error is rule 3, every one is in **Enrage**, and
-every one is the same shape:
+**8 errors, 10 warnings.** The test constants in
+`game/ambition_content/tests/boss_fight_validator.rs` are the source of truth.
+All eight errors are rule 3 findings in **Enrage**: the authored sequence leaves a
+zero-tick punish window where the configured floor is positive. Nine warnings are
+rule 5 findings because every shipped boss currently lacks authored telegraph
+identity; the tenth warns that the smirking behemoth never demands `WalkOut`.
 
-```
-  clockwork_warden              minima_trap       Enrage: punish window 0 ticks (floor 12)
-  clockwork_warden              saddle_point      Enrage: punish window 0 ticks (floor 12)
-  exploding_gradient_boss       overfit_volley    Enrage: punish window 0 ticks (floor 6)
-  exploding_gradient_boss       saddle_point      Enrage: punish window 0 ticks (floor 12)
-  flying_spaghetti_monster_boss overfit_volley    Enrage: punish window 0 ticks (floor 6)
-  gnu_ton_rider                 hand_slam         Enrage: punish window 0 ticks (floor 24)
-  overflow_boss                 full_body_pulse   Enrage: punish window 0 ticks (floor 12)
-  trex_boss                     full_body_pulse   Enrage: punish window 0 ticks (floor 12)
-  smirking_behemoth_boss  [warn] the fight never demands WalkOut
-```
+The exact roster is intentionally kept in the validator test rather than copied
+here. Run that test before changing this status.
 
 The tightened enrage combos chain a `Strike` straight into the next `Telegraph`.
 §3 calls that an unpunishable attack; the authors called it escalation. **Which of

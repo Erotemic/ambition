@@ -1,5 +1,5 @@
 //! Boss lifecycle CONTRACT pins — the headless safety net for Stage R3 of the
-//! boss entity-local refactor (`docs/planning/boss-entity-local-refactor.md`).
+//! boss entity-local refactor (`docs/planning/engine/encounter-orchestration.md`).
 //!
 //! R3 flips boss HP/phase authority off the global `BossEncounterRegistry` onto
 //! the entity and deletes the live map. The *consequences* of a boss dying —

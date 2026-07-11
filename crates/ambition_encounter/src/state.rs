@@ -1,9 +1,8 @@
-//! The headless encounter state machine: `EncounterPhase`
-//! (Inactive→Starting→Active→Cleared/Failed), the per-run `EncounterRun`
-//! (pending/alive/elapsed), and the `EncounterState` resource. Entry points
-//! `maybe_start` / `tick_intro_or_wave` / `on_player_death` / `reset_for_retry`
-//! take an `enemy_alive` closure instead of touching the ECS, so the whole
-//! flow stays unit-testable; `systems.rs` is the Bevy wiring around it.
+//! The headless wave-encounter state machine: `EncounterPhase`
+//! (Inactive→Starting→Active→Cleared/Failed), per-run pending-spawn timing, and
+//! the entity-owned `EncounterState` component. Participant liveness is supplied
+//! through `EncounterParticipants`, so the reducer stays unit-testable while
+//! `systems.rs` owns ECS resolution and effects.
 
 use bevy::math::bounding::IntersectsVolume;
 use bevy::prelude::Component;
@@ -133,7 +132,7 @@ pub struct EncounterState {
     /// True when the encounter's lock should seal exits this frame.
     /// Cached so multiple consumers don't have to call `phase.locks_exits`.
     pub lock_active: bool,
-    /// Live wave run state (pending / alive_ids / wave_elapsed). Reset
+    /// Live wave run state (pending spawns / wave_elapsed). Reset
     /// on every wave start.
     pub run: EncounterRun,
     /// Bumped each time a unique mob id needs to be generated. Lets
@@ -225,14 +224,9 @@ impl EncounterState {
         events
     }
 
-    /// Drive the encounter forward by `dt`. Resolves the intro
-    /// countdown, spawns delayed mobs, removes dead alive_ids, and
-    /// advances waves. Returns the events the caller routes through
-    /// trace + spawning.
-    ///
-    /// `enemy_alive` is a closure: given a mob id, returns whether
-    /// the corresponding enemy is still alive. Lets the encounter
-    /// system stay headless-testable by not depending on the runtime.
+    /// Drive the encounter forward by `dt`. Resolves the intro countdown,
+    /// spawns delayed mobs, observes participant liveness, and advances waves.
+    /// Returns the events the caller routes through trace and spawning.
     pub fn tick_intro_or_wave(
         &mut self,
         dt: f32,

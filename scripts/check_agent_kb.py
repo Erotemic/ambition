@@ -38,6 +38,7 @@ REQUIRED_FILES = [
     "docs/vision/index.md",
     "docs/planning/README.md",
     "docs/planning/vision.md",
+    "docs/planning/status.md",
     "docs/planning/tracks.md",
     "docs/adr/README.md",
     "docs/adr/0002-engine-must-be-bevy-native.md",
@@ -131,6 +132,58 @@ STALE_RECIPE_OR_SYSTEM_PATTERNS = [
     (re.compile(r"\bmigration plan\b", re.IGNORECASE), "migration-plan phrasing"),
     (re.compile(r"\blanded roadmap\b", re.IGNORECASE), "landed-roadmap phrasing"),
 ]
+
+
+PLANNING_TOTAL_MAX_LINES = 10_500
+PLANNING_FILE_MAX_LINES = {
+    "docs/planning/README.md": 100,
+    "docs/planning/status.md": 180,
+    "docs/planning/tracks.md": 220,
+    "docs/planning/roadmap.md": 180,
+    "docs/planning/engine/encounter-orchestration.md": 320,
+    "docs/planning/engine/refactor-chain.md": 180,
+    "docs/planning/engine/fable-final-audit-2026-07-07.md": 40,
+    "docs/planning/test-refactor-plan-2026-07-10.md": 180,
+}
+
+FORBIDDEN_PLANNING_PATTERNS = [
+    (re.compile(r"8 errors, 1 warning", re.IGNORECASE), "stale boss-validator count"),
+    (re.compile(r"1155/718(?:/471/1379)?"), "stale snapshot split count"),
+    (re.compile(r"crates/ambition_actors/build\.rs"), "retired sprite embed owner"),
+    (re.compile(r"Objective::Protect\b"), "nonexistent objective variant"),
+    (
+        re.compile(r"Status:\s*\*\*?IMPLEMENTED.*E0.?E7", re.IGNORECASE),
+        "unsupported encounter implemented banner",
+    ),
+    (
+        re.compile(r"ONE encounter-entity model"),
+        "unsupported encounter-unification claim",
+    ),
+    (
+        re.compile(
+            r"Both boss and wave are entities now \(one snapshot representation\)",
+            re.IGNORECASE,
+        ),
+        "unsupported encounter snapshot claim",
+    ),
+    (re.compile(r"OV1 blocks", re.IGNORECASE), "stale OV1 blocker claim"),
+    (re.compile(r"the shell draws nothing", re.IGNORECASE), "stale renderer-gap claim"),
+    (re.compile(r"44 workspace crates", re.IGNORECASE), "stale workspace count"),
+    (re.compile(r"Q4 flagged below", re.IGNORECASE), "resolved Q4 presented as open"),
+    (
+        re.compile(r"may or may not split further", re.IGNORECASE),
+        "resolved actor-carve uncertainty",
+    ),
+]
+
+BOSS_EVIDENCE_RE = re.compile(
+    r"<!--\s*planning-evidence:\s*boss-validator\s+errors=(\d+)\s+warnings=(\d+)\s*-->"
+)
+INLINE_TEST_EVIDENCE_RE = re.compile(
+    r"<!--\s*planning-evidence:\s*inline-test-debt\s+path=([^\s]+)\s*-->"
+)
+RUST_USIZE_CONST_RE = r"\bconst\s+{name}\s*:\s*usize\s*=\s*(\d+)\s*;"
+INLINE_TEST_MIN_LINES = 200
 
 
 def rel(path: Path) -> str:
@@ -411,6 +464,288 @@ def check_active_doc_phrasing(errors: list[str]) -> None:
                     )
 
 
+
+def planning_markdown_files() -> list[Path]:
+    root = ROOT / "docs" / "planning"
+    return sorted(path for path in root.rglob("*.md") if path.is_file())
+
+
+def parse_rust_usize_const(text: str, name: str) -> int | None:
+    match = re.search(RUST_USIZE_CONST_RE.format(name=re.escape(name)), text)
+    return int(match.group(1)) if match else None
+
+
+def mask_rust_noncode(text: str) -> str:
+    """Mask comments and literals while preserving code positions and newlines."""
+
+    out = list(text)
+    n = len(text)
+    i = 0
+    block_depth = 0
+    state = "code"
+    raw_hashes = 0
+
+    def blank(index: int) -> None:
+        if out[index] != "\n":
+            out[index] = " "
+
+    while i < n:
+        if state == "line_comment":
+            if text[i] == "\n":
+                state = "code"
+            else:
+                blank(i)
+            i += 1
+            continue
+
+        if state == "block_comment":
+            if text.startswith("/*", i):
+                blank(i)
+                if i + 1 < n:
+                    blank(i + 1)
+                block_depth += 1
+                i += 2
+            elif text.startswith("*/", i):
+                blank(i)
+                if i + 1 < n:
+                    blank(i + 1)
+                block_depth -= 1
+                i += 2
+                if block_depth == 0:
+                    state = "code"
+            else:
+                blank(i)
+                i += 1
+            continue
+
+        if state == "string":
+            if text[i] == "\\":
+                blank(i)
+                if i + 1 < n:
+                    blank(i + 1)
+                i += 2
+            elif text[i] == '"':
+                blank(i)
+                state = "code"
+                i += 1
+            else:
+                blank(i)
+                i += 1
+            continue
+
+        if state == "char":
+            if text[i] == "\\":
+                blank(i)
+                if i + 1 < n:
+                    blank(i + 1)
+                i += 2
+            elif text[i] == "'":
+                blank(i)
+                state = "code"
+                i += 1
+            else:
+                blank(i)
+                i += 1
+            continue
+
+        if state == "raw":
+            terminator = '"' + ('#' * raw_hashes)
+            if text.startswith(terminator, i):
+                for j in range(i, min(i + len(terminator), n)):
+                    blank(j)
+                i += len(terminator)
+                state = "code"
+            else:
+                blank(i)
+                i += 1
+            continue
+
+        if text.startswith("//", i):
+            blank(i)
+            blank(i + 1)
+            state = "line_comment"
+            i += 2
+            continue
+        if text.startswith("/*", i):
+            blank(i)
+            blank(i + 1)
+            block_depth = 1
+            state = "block_comment"
+            i += 2
+            continue
+
+        raw = re.match(r"(?:br|r)(#+)?\"", text[i:])
+        if raw:
+            token = raw.group(0)
+            raw_hashes = len(raw.group(1) or "")
+            for j in range(i, i + len(token)):
+                blank(j)
+            i += len(token)
+            state = "raw"
+            continue
+
+        if text[i] == '"':
+            blank(i)
+            state = "string"
+            i += 1
+            continue
+
+        # Treat a quote as a char literal only when a closing quote is nearby;
+        # this avoids masking Rust lifetimes such as `'a`.
+        if text[i] == "'":
+            close = i + 1
+            escaped = False
+            while close < min(i + 8, n) and text[close] != "\n":
+                if text[close] == "'" and not escaped:
+                    break
+                escaped = text[close] == "\\" and not escaped
+                if text[close] != "\\":
+                    escaped = False
+                close += 1
+            if close < min(i + 8, n) and text[close] == "'":
+                blank(i)
+                state = "char"
+                i += 1
+                continue
+
+        i += 1
+
+    return "".join(out)
+
+
+def inline_test_modules_in_text(text: str) -> list[tuple[int, int]]:
+    masked = mask_rust_noncode(text)
+    pattern = re.compile(
+        r"#\s*\[\s*cfg\s*\(\s*test\s*\)\s*\]\s*"
+        r"(?:#\s*\[[^\]]+\]\s*)*"
+        r"(?:pub(?:\([^)]*\))?\s+)?mod\s+[A-Za-z_][A-Za-z0-9_]*\s*\{",
+        re.MULTILINE,
+    )
+    found: list[tuple[int, int]] = []
+    for match in pattern.finditer(masked):
+        open_brace = masked.find("{", match.start(), match.end())
+        depth = 0
+        end = None
+        for index in range(open_brace, len(masked)):
+            char = masked[index]
+            if char == "{":
+                depth += 1
+            elif char == "}":
+                depth -= 1
+                if depth == 0:
+                    end = index
+                    break
+        if end is None:
+            continue
+        start_line = masked.count("\n", 0, match.start()) + 1
+        end_line = masked.count("\n", 0, end) + 1
+        found.append((start_line, end_line))
+    return found
+
+
+def large_inline_test_debt() -> set[str]:
+    debt: set[str] = set()
+    for base in [ROOT / "crates", ROOT / "game"]:
+        if not base.exists():
+            continue
+        for path in base.rglob("*.rs"):
+            rpath = rel(path)
+            if "/tests/" in rpath or path.name == "tests.rs" or path.name.endswith("_tests.rs"):
+                continue
+            text = path.read_text(encoding="utf-8", errors="replace")
+            if any(
+                end - start + 1 >= INLINE_TEST_MIN_LINES
+                for start, end in inline_test_modules_in_text(text)
+            ):
+                debt.add(rpath)
+    return debt
+
+
+def check_planning_front_end(errors: list[str]) -> None:
+    files = planning_markdown_files()
+    total_lines = sum(
+        len(path.read_text(encoding="utf-8", errors="replace").splitlines())
+        for path in files
+    )
+    if total_lines > PLANNING_TOTAL_MAX_LINES:
+        fail(
+            errors,
+            f"docs/planning has {total_lines} lines; keep it <= {PLANNING_TOTAL_MAX_LINES} "
+            "by archiving execution history",
+        )
+
+    for rpath, limit in PLANNING_FILE_MAX_LINES.items():
+        path = ROOT / rpath
+        if not path.exists():
+            continue
+        lines = len(path.read_text(encoding="utf-8", errors="replace").splitlines())
+        if lines > limit:
+            fail(errors, f"{rpath} has {lines} lines; keep it <= {limit}")
+
+    for path in files:
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for pattern, label in FORBIDDEN_PLANNING_PATTERNS:
+            if pattern.search(text):
+                fail(errors, f"{rel(path)} contains {label}: {pattern.pattern}")
+
+
+def check_planning_evidence(errors: list[str]) -> None:
+    status_path = ROOT / "docs/planning/status.md"
+    if not status_path.exists():
+        return
+    status = status_path.read_text(encoding="utf-8", errors="replace")
+
+    boss_matches = BOSS_EVIDENCE_RE.findall(status)
+    if len(boss_matches) != 1:
+        fail(
+            errors,
+            "docs/planning/status.md must contain exactly one boss-validator evidence marker",
+        )
+    else:
+        source_path = ROOT / "game/ambition_content/tests/boss_fight_validator.rs"
+        source = source_path.read_text(encoding="utf-8", errors="replace")
+        expected_errors = parse_rust_usize_const(source, "EXPECTED_ERRORS")
+        expected_warnings = parse_rust_usize_const(source, "EXPECTED_WARNINGS")
+        marked_errors, marked_warnings = map(int, boss_matches[0])
+        if expected_errors is None or expected_warnings is None:
+            fail(errors, f"could not parse boss validator constants from {rel(source_path)}")
+        elif (marked_errors, marked_warnings) != (expected_errors, expected_warnings):
+            fail(
+                errors,
+                "boss-validator planning evidence is stale: "
+                f"status says {marked_errors}/{marked_warnings}, source pins "
+                f"{expected_errors}/{expected_warnings}",
+            )
+
+    documented_debt = set(INLINE_TEST_EVIDENCE_RE.findall(status))
+    measured_debt = large_inline_test_debt()
+    if documented_debt != measured_debt:
+        missing = sorted(measured_debt - documented_debt)
+        stale = sorted(documented_debt - measured_debt)
+        parts = []
+        if missing:
+            parts.append("undocumented: " + ", ".join(missing))
+        if stale:
+            parts.append("no longer present: " + ", ".join(stale))
+        fail(errors, "large inline-test debt markers disagree with HEAD (" + "; ".join(parts) + ")")
+
+
+def check_planning_checker_self_test(errors: list[str]) -> None:
+    synthetic = "#[cfg(test)]\nmod tests {\n" + ("fn x() {}\n" * 198) + "}\n"
+    modules = inline_test_modules_in_text(synthetic)
+    if modules != [(1, 201)]:
+        fail(
+            errors,
+            "planning checker poison self-test failed: "
+            f"expected a 201-line module, got {modules}",
+        )
+    if inline_test_modules_in_text("#[cfg(test)]\nmod tests;\n"):
+        fail(errors, "planning checker self-test failed: external test module counted as inline")
+    constants = "const EXPECTED_ERRORS: usize = 8;\nconst EXPECTED_WARNINGS: usize = 10;\n"
+    if parse_rust_usize_const(constants, "EXPECTED_ERRORS") != 8:
+        fail(errors, "planning checker self-test failed: Rust constant parser")
+
+
 def check_archive_duplicates(errors: list[str]) -> None:
     archive = ROOT / "docs" / "archive"
     if not archive.exists():
@@ -460,6 +795,9 @@ def main() -> int:
     check_retrieval_evals(errors)
     check_adr_current_implications(errors)
     check_active_doc_phrasing(errors)
+    check_planning_checker_self_test(errors)
+    check_planning_front_end(errors)
+    check_planning_evidence(errors)
     check_archive_duplicates(errors)
     check_tool_docs(errors)
     if errors:

@@ -11,7 +11,7 @@
 //! creature's intrinsic phase-up (that is entity-local [`ActorPhaseState`]); it
 //! only FRAMES / DISPLAYS the fight and adds external/scripted triggers.
 //!
-//! See `docs/planning/boss-entity-local-refactor.md`.
+//! See `docs/planning/engine/encounter-orchestration.md`.
 
 use std::collections::HashSet;
 

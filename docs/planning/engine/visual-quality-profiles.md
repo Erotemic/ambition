@@ -212,7 +212,7 @@ crates/ambition_actors/assets/
 
 ### Landmine: `build.rs` embed scope
 
-`crates/ambition_actors/build.rs` embeds every `*_spritesheet.ron` from
+`crates/ambition_sprite_sheet/build.rs` embeds every `*_spritesheet.ron` from
 `assets/sprites/` **plus one level of subdirectories**. Sibling variant folders
 (`sprites_0_5x/…`) are **not embedded** unless `build.rs` is taught about them. This is
 the first thing to get right or Android (which trusts the embedded/packaged manifest set

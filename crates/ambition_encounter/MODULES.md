@@ -14,7 +14,7 @@
 | [`registry`](src/registry.rs) | `EncounterRegistry` resource: the `id -> Entity` INDEX into the live encounter entities (E1 — the live state lives on the entity's [`EncounterState`](crate::EncounterState) component, not here). |
 | [`rewards`](src/rewards.rs) | Encounter reward-chest helpers: `encounter_reward_looted_flag` (the per-encounter save-flag id that remembers a chest was opened across save/load) and `encounter_reward_chest_pos` (where the `EncounterSpec`'s reward chest spawns — centered on the trigger, resting on its floor). |
 | [`spec`](src/spec.rs) | Authored encounter data types (serde RON). |
-| [`state`](src/state.rs) | The headless encounter state machine: `EncounterPhase` (Inactive→Starting→Active→Cleared/Failed), the per-run `EncounterRun` (pending/alive/elapsed), and the `EncounterState` resource. |
+| [`state`](src/state.rs) | The headless wave-encounter state machine: `EncounterPhase` (Inactive→Starting→Active→Cleared/Failed), per-run pending-spawn timing, and the entity-owned `EncounterState` component. |
 | [`timeline`](src/timeline.rs) | Generic encounter TIMELINE (§6): ordered beats `{ when: Trigger, then: [Effect] }` that advance as triggers fire. |
 
 _10 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._

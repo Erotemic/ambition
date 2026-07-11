@@ -1093,7 +1093,7 @@ Good first targets to inspect:
 scripts/generate_visual_quality_variants.py
 tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/registry/discovery.py
 tools/ambition_sprite2d_renderer/ambition_sprite2d_renderer/authoring/actor_contract.py
-crates/ambition_actors/build.rs
+crates/ambition_sprite_sheet/build.rs
 crates/ambition_actors/src/character_sprites/
 crates/ambition_actors/src/assets/sandbox_assets/
 ```

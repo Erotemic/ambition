@@ -90,7 +90,7 @@ pub struct BossEncounterSpec {
 // invulnerable `transition_lock` "tell/scream" beat → the exposed phase swaps.
 // They merely *resemble* the "event → locked beat → controls change" shape.
 //
-// See `docs/planning/boss-entity-local-refactor.md` ("Phase model" + R1).
+// See `docs/planning/engine/encounter-orchestration.md` ("Phase model" + R1).
 // ===========================================================================
 
 /// The condition under which a [`PhaseTrigger`] fires.

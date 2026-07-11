@@ -547,7 +547,7 @@ fn face_tanking_player_swings_back_and_is_recoil_locked() {
 /// to a single `encounters["mockingbird"]` state and shared one HP pool;
 /// damaging one would drain the other. After R3 the global map is gone, so this
 /// reads the per-entity `BossEncounter`. See
-/// `docs/planning/boss-entity-local-refactor.md`.
+/// `docs/planning/engine/encounter-orchestration.md`.
 #[test]
 fn two_same_archetype_bosses_have_independent_encounter_state() {
     use ambition::actors::features::ecs::boss_clusters::{BossConfig, BossEncounter};
@@ -649,7 +649,7 @@ fn two_same_archetype_bosses_have_independent_encounter_state() {
 /// A boss woken in the room is wrapped by a single-boss `EncounterDef` entity,
 /// and its `EncounterProgress` is derived from the boss's entity-local state
 /// (HP + the `ActorPhaseState` phase copy) — NOT the global registry. The HUD is
-/// a view bound to this progress. See `docs/planning/boss-entity-local-refactor.md`.
+/// a view bound to this progress. See `docs/planning/engine/encounter-orchestration.md`.
 #[test]
 fn woken_boss_is_wrapped_by_an_encounter_entity_with_live_progress() {
     let mut sim =

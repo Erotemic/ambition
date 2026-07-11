@@ -4,7 +4,7 @@
 //! archetype id. Live state is entity-local (HP on the shared `BodyHealth`,
 //! phase in `BossEncounter.encounter`), NOT here; `update_boss_encounters` reads this catalog
 //! to SEED each boss's entity-local state, and `BossProfile` selection is the
-//! only thing the registry does. See `docs/planning/boss-entity-local-refactor.md`.
+//! only thing the registry does. See `docs/planning/engine/encounter-orchestration.md`.
 
 use std::collections::BTreeMap;
 

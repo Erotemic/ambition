@@ -538,9 +538,9 @@ impl SnapshotRegistry {
     }
     /// **The ledger's other half: sim RESOURCES nobody registered.**
     ///
-    /// `unclaimed_components` walks entities. A `Resource` sits on no entity, so it was
-    /// invisible to the ledger entirely — `EncounterState`, with its live phase and
-    /// wave run, was never counted, and `restore` never touched it.
+    /// `unclaimed_components` walks entities. A `Resource` sits on no entity, so
+    /// resource-owned simulation state would otherwise be invisible to the ledger and
+    /// untouched by restore. This complementary inventory keeps that class measurable.
     ///
     /// Filtered to types owned by this project, because Bevy's own resources (asset
     /// servers, schedules, render device state) are not sim state and never will be:

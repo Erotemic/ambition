@@ -165,6 +165,6 @@ Estimated 1-2h. Mostly mechanical.
   ranged + player-melee variants).
 - [`docs/adr/0016-actor-unification.md`](../../docs/adr/0016-actor-unification.md)
   — actor unification ADR.
-- [`TODO-controllable-entity.md`](../../TODO-controllable-entity.md)
+- [`TODO-controllable-entity.md`](../../docs/archive/TODO-controllable-entity.md)
   — original plan; the "Daytime continuation" list is now mostly
   retired.

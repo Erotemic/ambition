@@ -130,14 +130,16 @@ was 68.0k total at the F8 audit close (2026-07-07, `3bdbef26`) and is 63.8k
 today. It has SHRUNK 4.2k since the carves finished. The gap against the
 projected 31–35k is genuine residue.
 
-**2. The missing ~30k is not one carve. It is nine shells.** Projected "LOC out"
+**2. The missing ~30k is not one carve. It is eight measured residue categories.**
+The original count incorrectly treated `boss_encounter/` as an adapter shell.
+After the R2 measurement rejected that premise, the live residue is the seven
+adapter categories below plus the `features/` overshoot. Projected "LOC out"
 versus what actually stayed:
 
 | Subdir | projected out | still resident | the shell |
 |---|---:|---:|---|
 | `combat/` | 12.8k | **0** | fully left ✅ — the proof a clean carve is possible |
 | `world/` | 10.9k | 1.9k | ~~overlay rebuild~~ (LEFT in R3) + the avian adapter |
-| `boss_encounter/` | 6.8k | **5.5k** | ⚠️ **NOT a shell — see the R2 correction below** |
 | `persistence/` | 5.2k | 1.3k | save-adjacent adapter |
 | `projectile/` | 4.4k | 1.8k | the three woven steppers |
 | `character_sprites/` | 4.3k | 2.7k | the actor/content join |
@@ -145,8 +147,7 @@ versus what actually stayed:
 | `menu/` | 3.2k | 0.8k | map UI hydration |
 
 Plus `features/` overshooting its 20.6k projection by ~4.8k. **There is no 25k
-carve hiding in `features/`.** There are nine adapter shells between 0.8k and
-5.5k, each gated on a DIFFERENT technical precondition. Dissolving them is the
+carve hiding in `features/`.** There are eight residue categories, each gated on a different technical precondition. Dissolving them is the
 enumerated residue queue below, not a new decomposition phase.
 
 #### CORRECTION (opus, 2026-07-10, executing R2): `boss_encounter/` is NOT one of the shells
@@ -498,7 +499,7 @@ lifetime-scope vocabulary a room-scoped entity uses.
 The marker lives with its lifetime-scope siblings a tier below the sweep that
 consumes it (the sweep reads `ActiveRoomMetadata`) — the same marker/sweep split
 `RoomScopedEntity` already has. `ambition_runtime` therefore gained a direct
-`ambition_world` dep, which `architecture_boundaries.rs` now allows by name.
+`ambition_world` dep, which the `tests/ambition_workspace_policy` dependency policy now allows by name.
 Pinned by `ambition_runtime/tests/mode_scope.rs` + the umbrella oracle in
 `game/ambition_demo_sanic`. Rationale for both deviations from the sketch above:
 [`refactor-chain.md`](refactor-chain.md) §R1.
@@ -506,8 +507,7 @@ Pinned by `ambition_runtime/tests/mode_scope.rs` + the umbrella oracle in
 ## Exit criteria (the whole playbook)
 
 1. ✅ The monolith no longer exists (renamed residue included); every crate in
-   architecture.md's stack is real with imports flowing downward, enforced by
-   `game/ambition_app/tests/architecture_boundaries.rs`.
+   architecture.md's stack is real with imports flowing downward, enforced by the `tests/ambition_workspace_policy` package.
 2. ✅ The named-content grep over engine crates hits zero (test fixtures
    allowed only under `cfg(test)`; the one `include_str!` is the sanctioned
    fixture pattern).
@@ -525,11 +525,13 @@ Pinned by `ambition_runtime/tests/mode_scope.rs` + the umbrella oracle in
    Fable ruled the demo binary "interactive work". That conflated the SHELL with
    the FEEL (see tracks.md §1's counter-argument, vision §7). The shell is
    architecture and ships now; the momentum tuning, the character sheet, and the
-   drawn frame remain the interactive build. **The shell draws nothing, and that
-   is an ENGINE gap, not a demo shortcut** — room/block visuals are still spawned
-   by `ambition_app`'s room-flow. Filed as oracle-violation OV1 in tracks.md.
-4. ✅ Workspace green: `cargo test --workspace --all-targets --features
-   rl_sim` — 44/44 suites, zero failures as of 2026-07-09.
+   drawn frame remain the interactive build. The windowed presentation gap later filed as OV1 is now closed by
+   `ambition_render::platformer_presentation::PlatformerPresentationPlugin` and
+   the Sanic/SMB1 windowed-shell tests. Remaining Sanic work is input and selected-
+   character presentation, not world drawing.
+4. ✅ The workspace gate was green when this exit was closed. Re-run the current
+   workspace commands from `docs/planning/tracks.md`; do not rely on the historical
+   suite count.
 5. ✅ **REWRITTEN and met (opus, 2026-07-09).** The old criterion compared the
    hot-path rebuild against "the monolith baseline recorded before D-A" — a
    baseline that was never recorded, and which could no longer be reconstructed

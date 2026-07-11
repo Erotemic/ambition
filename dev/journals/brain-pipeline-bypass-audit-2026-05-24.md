@@ -48,7 +48,7 @@ should consume `ActorControlFrame` directly. The two clocks
 (control_dt + sim_dt) stay; only the input type changes. Touches
 the engine boundary (`ambition_engine::player::*`).
 
-Daytime continuation #3 in [`TODO-controllable-entity.md`](../../TODO-controllable-entity.md):
+Daytime continuation #3 in [`TODO-controllable-entity.md`](../../docs/archive/TODO-controllable-entity.md):
 > *`update_player` consume `ActorControl` frame instead of `PlayerInputFrame` directly.*
 
 ### Enemy bypass — `EnemyRuntime::update`
@@ -166,7 +166,7 @@ Mechanical translation; tests pin the behavior.
 ## Cross-references
 
 - [`docs/recipes/extending-brains-and-action-sets.md`](../../docs/recipes/extending-brains-and-action-sets.md) §"Daytime EFFECTS-consumer flip" — concrete procedure with consumer skeleton.
-- [`TODO-controllable-entity.md`](../../TODO-controllable-entity.md) — overall plan + chunks 1–4f checklist.
+- [`TODO-controllable-entity.md`](../../docs/archive/TODO-controllable-entity.md) — overall plan + chunks 1–4f checklist.
 - [`docs/adr/0016-actor-unification.md`](../../docs/adr/0016-actor-unification.md) — universal-brain section.
 - [`dev/journals/ae-player-field-usage-2026-05-24.md`](ae-player-field-usage-2026-05-24.md) — 38-call-site `authority.player.*` audit (the `ae::Player` decomposition input).
 - [`dev/benchmark-candidates/bevy-ecs-stale-component-after-sync-removal-2026-05-15.md`](../benchmark-candidates/bevy-ecs-stale-component-after-sync-removal-2026-05-15.md) — overlap-then-delete pattern.

@@ -26,10 +26,11 @@ flower-analog: `simple_ranged` grant), goomba/koopa-analog rows + the
 shell PROP (a brainless sliding hazard both sides can trigger —
 actors-vs-props exercised), the flagpole sequence, HUD, title/results.
 
-**Engine prerequisites:** E5-finish ✅ (landed 2026-07-06 night); A3 (equipment→params — design PINNED in
-[combat-model.md](../engine/combat-model.md) §8 "A3 design"; M1 is its
-adjudicated consumer). Expected oracle-violations: the one-way forward
-scroll clamp (a `CameraZoneSpec` policy knob).
+**Engine prerequisites:** E5-finish ✅ (landed 2026-07-06 night); A3
+(equipment→params) ✅ **LANDED 2026-07-11** as `ambition_characters::equipment`
+(see [combat-model.md](../engine/combat-model.md) §8). Expected
+oracle-violations: the one-way forward scroll clamp (a `CameraZoneSpec` policy
+knob).
 
 ## Design (v1 scope)
 
@@ -112,9 +113,17 @@ scroll clamp (a `CameraZoneSpec` policy knob).
 
 ## Slices
 
-M1 equipment chain [opus] (with A3); ~~M2 scroll knob~~ ✅ **DONE 2026-07-10**;
-~~M3 flag sequence~~ ✅ **DONE 2026-07-10**; M4 the game (3 levels + enemies + HUD +
-title/results) [opus]; M5 hosting wing in ambition (Phase D-C) [opus].
+M1 equipment chain [opus] (with A3) — 🟡 **DATA + MECHANISM LANDED 2026-07-11**:
+A3 shipped (`ambition_characters::equipment`) and `ambition_demo_smb1::powerups`
+authors the two rows (`grow_cap` = size+armor, `spark_blossom` = ranged grant +
+fire-time damage buff) entirely through the umbrella — zero engine edits, E9
+oracle held a third time. REMAINING for M1: the powerup PICKUP path (a
+GroundItem-style equip-on-touch that inserts `WornEquipment` + applies grants +
+rebuilds the moveset) and the live BODY-scale collision/render read-fold, plus
+level spawns + art — the visible/feel half. ~~M2 scroll knob~~ ✅ **DONE
+2026-07-10**; ~~M3 flag sequence~~ ✅ **DONE 2026-07-10**; M4 the game (3 levels +
+enemies + HUD + title/results) [opus]; M5 hosting wing in ambition (Phase D-C)
+[opus].
 
 **Exit:** doctrine exits + the classic-specific one: an input script
 speedruns 1-1 headlessly; warp-pipe secret reachable; and the whole demo

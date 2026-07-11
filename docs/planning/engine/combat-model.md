@@ -157,8 +157,28 @@ an oracle-violation to file, not a quiet edit.
   through DI) — all via `SlotControls` headlessly. C4 conjugation applies to
   throws like any launch.
 
-**A3 — equipment→params (fable, 2026-07-06 night; the card the M-track was
-missing; [the stuff kit] + this doc share it):**
+**A3 — equipment→params — ✅ LANDED (opus, 2026-07-11).** The mechanism is
+`ambition_characters::equipment` (below combat/actors, above engine_core, so the
+resolver, the moveset dispatch, and the body reads all call it; engine_core
+untouched). `EquipmentRow { id, modifiers, grants, on_hit }` on a per-body
+`WornEquipment` component. The three mechanisms landed exactly as sketched:
+(a) `resolved_param(base, worn, key, scope)` — a read-time fold, all Adds then all
+Muls, order-independent, never baked — scoped `Body` vs `Move`/`Verb`; (b) grants
+overlay `ActionSet` on equip (`apply_equipment_grants`), from which
+`build_actor_moveset` derives the move; (c) `OnHit::ConsumeAsArmor` is spent inside
+the ONE `resolve_body_hit` (shield beats armor beats damage) with a new
+`BodyHitResolution::Armored`. The fire-time fold rides `dispatch_move_events`
+(`resolved_ranged`). The player damage system threads the worn set; actor/boss
+callers pass `None` (the resolver stays generic). Exit test met headlessly across
+three suites (armor sequence through the real resolver, grant→moveset verb map,
+Mul-at-trigger-resolve). M1 (`ambition_demo_smb1::powerups`) is the first consumer.
+**Three v1 deviations, stated:** the mushroom's SIZE is a `Body` numeric modifier
+(the (a) path), not a component grant — one mechanism for numeric effects; a
+`downgrade_to` armor row is expected grant-free (the resolver rewrites the worn set
+but can't run equip-time grants); and the live BODY-scale collision/render read is
+not yet folded (the resolver + fire folds are, which the exit test asserts) — it
+needs the actors/render read-site fold and is the named remaining wiring, alongside
+the powerup PICKUP path.
 
 - **The model:** worn equipment contributes (a) NUMERIC modifiers that merge
   into move/body params at the moment a value is RESOLVED, and (b) BEHAVIORAL

@@ -17,13 +17,12 @@ drift. Priorities may shuffle; the designs do not.
 ## The shape (every demo, no exceptions)
 
 ```
-demos/
-  demo_<name>/
-    <name>_content/   — ONE crate: worlds (own .ldtk), rosters/catalog rows,
-                        movesets, rules plugin(s), mode/match state, HUD data
-    <name>_app/       — the thin shell (~100 lines): foundation plugins +
-                        PlatformerEnginePlugins + PlatformerHostPlugins +
-                        <Name>ContentPlugin + <Name>RulesPlugin (global)
+game/
+  ambition_demo_<name>/      — ONE content crate: worlds (own .ldtk), rosters/catalog rows,
+                               movesets, rules plugin(s), mode/match state, HUD data
+  ambition_demo_<name>_app/  — the thin shell (~100 lines): foundation plugins +
+                               PlatformerEnginePlugins + PlatformerHostPlugins +
+                               <Name>DemoContentPlugin + <Name>RulesPlugin (global)
 ```
 
 **The executable reference:** `crates/ambition_host/tests/
@@ -33,7 +32,7 @@ foundation + engine group + host group + a fixture content plugin that
 `RoomSet`/`RoomGeometry`/`ActiveRoomMetadata`, and (3) runs the engine's
 `session::setup::simulation_world` in a Startup system labeled
 `SimulationSetupSet` (which spawns the player box the host's input attach
-finds). Start every `<name>_app` by copying that fixture.
+finds). Start every `ambition_demo_<name>_app` by copying that fixture.
 
 - **Standalone:** depends only on engine crates. `git log --stat` for the
   demo touches ZERO engine crates. Every needed core change files an
@@ -55,7 +54,7 @@ global app state:
   rules systems attach with `.run_if(in_mode("sanic"))` when hosted, or
   unconditionally (`GlobalMode`) in the standalone app — same systems, two
   activation policies, chosen by the APP, not the rules crate.
-- `ambition_app` depends on each `<name>_content`, mounts the demo's zone
+- `ambition_app` depends on each `ambition_demo_<name>` content crate, mounts the demo's zone
   (its .ldtk world merges via the multi-world loader; a LoadingZone door
   from the sandbox), and tags the zone's rooms with the mode. Possess Sanic
   in the Hall, walk into the Sanic wing, and the demo IS running — same

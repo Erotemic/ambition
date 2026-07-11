@@ -17,10 +17,10 @@ detailed and triaged in the **Work program** section that follows.
 
 ### Done (audited)
 
-- **Publish-boundary hygiene.** `ambition_actors::asset_publish`
+- **Publish-boundary hygiene.** `ambition_asset_manager::asset_publish`
   (classify / manifest / publish / hygiene, typed + tested) and
   `scripts/sweep_runtime_diagnostics.py` wired into `regen_sprites.sh`.
-  *Audit:* `cargo test -p ambition_actors asset_publish` → 10/10 after
+  *Audit:* `cargo test -p ambition_asset_manager asset_publish` → 10/10 after
   sweeping one new leak (see findings); the real-data test
   `shipped_runtime_roots_have_no_leaked_diagnostics` has teeth — it is what
   caught the leak.
@@ -150,7 +150,7 @@ staged packs. The Rust `PublishManifest` type is done; this task makes the
 data real. *Acceptance:* regen produces a manifest that
 `PublishManifest::parse` + `validate_shape` accept; a Rust test validates
 the real emitted manifest when present. *Validate:*
-`cargo test -p ambition_actors asset_publish` + a regen run.
+`cargo test -p ambition_asset_manager asset_publish` + a regen run.
 
 ### W5 [opus] YAML sidecars out of the runtime roots
 
@@ -1171,7 +1171,7 @@ Suggested commands for a first implementation slice:
 
 ```bash
 cargo test -p ambition_actors publish_manifest
-cargo test -p ambition_actors asset_publish
+cargo test -p ambition_asset_manager asset_publish
 ```
 
 If Python publisher code is added:
@@ -1210,7 +1210,7 @@ documentation of installed vs diagnostic artifacts
 
 Keep current runtime behavior.
 
-Landed in `crates/ambition_actors/src/asset_publish/`:
+Landed in `crates/ambition_asset_manager/src/asset_publish/`:
 
 * `classify.rs` — `ArtifactClass`, the shared brain that decides what a
   generated file *is* from its path shape (runtime vs intermediate vs

@@ -3,14 +3,14 @@
 **Status:** R1, R2, R3, R5 DONE; R4 re-checked and STOPPED as ruled; R6 IN PROGRESS
 (R6a-R6d landed - **`player/` no longer exists**. R6e PARKED with a decision
 brief: measured, the `features/` rename is ~1560 sites across 5 crates, not the
-722 the plan assumed, and a half-rename would make the tree worse). **R7 is the
-next P0 structural convergence after the in-flight test refactor:** Jon's unified
-encounter-orchestration design. 2026-07-10.
+722 the plan assumed, and a half-rename would make the tree worse). **R7 LANDED
+2026-07-11 (E0–E7):** Jon's unified encounter-orchestration design, landed after
+the in-flight test refactor. 2026-07-11.
 Each is committable on its own; each states its own exit check.
 
 This doc exists because the 2026-07-10 ledger ruling changed what "finish the
 decomposition" means. The residual `ambition_actors` is **64.0k total src lines**
-(units: TOTAL, incl. tests) against a projected 31–35k — and the gap is **nine
+(units: TOTAL, incl. tests) against a projected 31–35k — and the gap is **eight
 adapter shells, not one missing carve**. No further crate split is owed, and none
 would buy compile time. The residue shrinks by dissolving shells, one technical
 precondition at a time. See [`decomposition.md`](decomposition.md) THE LEDGER for
@@ -54,7 +54,9 @@ in the same commit, don't guess.
 
 ---
 
-## R7 - unify encounter orchestration (P0 NEXT; Jon Crall's idea)
+## R7 — unify encounter orchestration ✅ DONE (2026-07-11; Jon Crall's idea)
+
+✅ **LANDED E0–E7, 2026-07-11** (`ca9c6d17`…`bcbcacbf`). The boss/wave split collapsed onto ONE encounter-entity model with a generic `ambition_encounter::{participants, objective, timeline}` vocabulary; `BossPhaseState` → `ActorPhaseState`; one prioritized `EncounterMusicRequest`; five duplicate authorities deleted. Two goals deliberately unmet with stated reasons — additive **+458** rather than the ≥ 800-line deletion, and #7/#10 partial (the wave keeps its concurrent spawn stepper; the boss auto-wrap is retained, now composing a generic encounter). Full record + honest E7 LoC audit: [`encounter-orchestration.md`](encounter-orchestration.md). The design rationale below is retained for provenance.
 
 The current tree has two partial encounter authorities: the generic wave-centric
 `ambition_encounter` resource machine and the boss-specific encounter entity/
@@ -433,7 +435,7 @@ seam" the likely honest outcome for the other two.
 
 ## R5 — the `ControlFrame` allowlist lint ✅ DONE (2026-07-10) (= step 5's Phase C)
 
-**`crates/ambition_runtime/tests/control_frame_lint.rs`.** Written BEFORE the fold,
+**`tests/ambition_workspace_policy/src/custom/control_frame.rs`** (migrated 2026-07-10 from the retired `crates/ambition_runtime/tests/control_frame_lint.rs`). Written BEFORE the fold,
 which is the whole point. Eight tests; the gate on R6 is now armed.
 
 **It found a fifth holder, and the fifth is the only real one.** This doc's own
@@ -490,8 +492,8 @@ verification) remains" and never defined it. Defined 2026-07-10: it is this lint
 writers (`populate_control_frame_from_actions`, `sync_local_player_input_frame`)".
 Measured: there are **four** —
 `schedule/input_systems.rs::populate_control_frame_from_actions`,
-`player/input_systems.rs` (two sites, incl. `interaction_input_system`), and
-`player/systems.rs::populate_slot_controls` — and `sync_local_player_input_frame`
+`control/input_systems.rs` (two sites, incl. `interaction_input_system`), and
+`control/slots.rs::populate_slot_controls` — and `sync_local_player_input_frame`
 is **not among them**. Stale in both directions, and nothing guards it:
 `architecture_boundaries.rs` asserts only that `ControlFrame` lives in
 `engine_core`.
@@ -501,7 +503,7 @@ intact. But it moved once, unnoticed. It is also a **multiplayer bug in waiting*
 the global `ControlFrame` is ONE player's frame, so a body system reading it is
 silently slot-0-only.
 
-**Build it like the determinism lints.** `ambition_runtime/tests/determinism_lints.rs`
+**Build it like the determinism lints.** `tests/ambition_workspace_policy/src/custom/determinism.rs`
 (ADR 0023) is the template: a grep over the sim crates' non-test sources, an
 explicit allowlist with a justifying comment per entry ("device→frame bridge",
 "frame→slot bridge"), a failure message naming file, line, and fix, and an
@@ -699,7 +701,7 @@ third are comments *explaining* a system deliberately has no such filter).
 Several are legitimately slot-0-scoped **by design** and must SURVIVE, renamed to
 say so: possession's `home_q` (the "home avatar" is a real concept), the shrine's
 heal+checkpoint (`shrine.rs`), the wallet save (`items/persist.rs`). Fold
-candidates cluster in `player/systems.rs`, `abilities/ability_cooldown.rs`,
+candidates cluster in `control/slots.rs`, `abilities/ability_cooldown.rs`,
 `items/pickup/`.
 
 **Explicitly deferred inside this slice, by prior ruling:** folding the player's

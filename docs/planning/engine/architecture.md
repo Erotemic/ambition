@@ -24,8 +24,8 @@ table is updated in the same commit (living-plan discipline).
 ## 1. The workspace layout (the push target)
 
 The filesystem states the oracle: engine, game, and demos are physically
-separate trees. (Today `ambition_content`/`ambition_app` live in `crates/`;
-the move to `game/` is a mechanical late slice — decomposition E7.)
+separate trees. (E7 landed: `ambition_content`/`ambition_app` now live under
+`game/` as drawn.)
 
 ```
 crates/           — THE ENGINE. Only role-bearing engine crates. No named
@@ -41,6 +41,8 @@ demos/            — the acceptance games, one directory per demo:
 tools/            — author-time tooling (sprite/music renderers, ldtk_tools)
 docs/planning/    — this plan (single source of truth)
 ```
+
+*(As shipped today, demos live under `game/` as `game/ambition_demo_{sanic,smb1}{,_app}`; the `demos/` layout above is the unrealized target naming.)*
 
 ## 2. The crate set (end state), by tier
 
@@ -101,7 +103,7 @@ IR] pure while authored maps still declare rich content.
 
 | Crate | ROLE |
 |---|---|
-| `ambition_actors` (Q2 rename pending) | **[the sim heart]** — the unified actor simulation: everything that spawns, ticks, perceives-for, and resolves the lives of BODIES. ~33k post-carve; deliberately ONE crate (splitting the actor sim would re-fork the unification); navigability is won by the internal layout below + the module standard. |
+| `ambition_actors` (Q2 rename pending) | **[the sim heart]** — the unified actor simulation: everything that spawns, ticks, perceives-for, and resolves the lives of BODIES. ~64k total src post-carve (the measured adapter floor, not the retired ~33k projection — see decomposition.md's LEDGER); deliberately ONE crate (splitting the actor sim would re-fork the unification); navigability is won by the internal layout below + the module standard. |
 
 Internal module layout (the target; every module ≤ ~1.5k lines, one
 concern, header stating authority + seams; `MODULES.md` at crate root):
@@ -135,7 +137,7 @@ src/
 
 | Crate | ROLE | Owns |
 |---|---|---|
-| `ambition_runtime` | **[the sim assembly]** | `PlatformerEnginePlugins` (headless-safe sim composition, owns set ordering + the schedule vocabulary — INCLUDING the per-frame player/room/portal/progression schedule wiring: headless/RL runs the same player frame a window does, E5 step-5 ruling), `add_headless_foundation`, `init_engine_states`, the mode-scope helpers (`in_mode`, `ModeScopedEntity`), the `SnapshotRegistry` (netcode N3.1) |
+| `ambition_runtime` | **[the sim assembly]** | `PlatformerEnginePlugins` (headless-safe sim composition, owns set ordering + the schedule vocabulary — INCLUDING the per-frame player/room/portal/progression schedule wiring: headless/RL runs the same player frame a window does, E5 step-5 ruling), `add_headless_foundation`, `init_engine_states`, the mode-scope sweep (`in_mode`; the `ModeScopedEntity` marker lives a tier down in `platformer_primitives`), the `SnapshotRegistry` (netcode N3.1) |
 | `ambition_host` | **[the windowed host]** | `PlatformerHostPlugins` — ONLY what a windowed game needs that headless doesn't: the leafwing input bindings/device bridge (`HostInputBindingsPlugin`) and the camera follow/shake/portal-continuity cluster (`HostCameraPlugin`). May dep [the picture]. The test "would headless/RL need this system?" decides runtime-vs-host for every future addition. |
 | (post-1.0) `ambition_net` | **[the wire]** | transport trait, session shell, rollback driver | 
 

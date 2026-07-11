@@ -32,8 +32,11 @@ player chooses "Challenge it"* in dialogue — the same body, the same `Brain` +
   `ActionSet` resolves it to concrete verbs (the policy/capability split). Difficulty
   is data: `reaction_delay_s`, `commit_probability`, `accuracy` — it perceives a
   *lagged* opponent, so it can't frame-perfectly counter.
-- **Kit:** melee (approach / dash / jab / reactive block), jump, fly-reposition are
-  landed; the **glider special**, blink-dodge, and full aerial game are open.
+- **Kit:** melee (approach / dash / jab / reactive block), jump, fly-reposition, the
+  **glider** ranged poke, **blink-evade**, the aerial dive/perch game, and the
+  data-driven **Cellular Pulse** signature move are all landed (glider/blink/fly are
+  body-enforced capabilities, so a possessing player inherits them). Remaining work is
+  encounter/narrative polish, not kit.
 - **Encounter:** dormant NPC → Yarn dialogue (a "Challenge" branch + peaceful exits) →
   combat → win/loss. The dialogue→provoke bridge flips the brain + disposition and arms
   the hostile volumes. Placed in the Noether Chamber via LDtk as a peaceful archetype.

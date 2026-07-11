@@ -37,9 +37,11 @@ The Hall is a playable index of the cast — and a living test of the catalog pi
 
 ## Remaining work (content + deletion)
 
-The architecture is in place; the job is authoring and cleanup:
+The architecture is in place; the migration + deletion are done. What remains is authoring:
 
-1. Migrate the legacy hardcoded bark sources into catalog `barks`.
-2. Author `hall` bark lines + a `hall_dialogue_id` Yarn node for every character.
-3. **Delete** the legacy fallback code + registry (don't bridge it).
-4. Regenerate the Hall spec via the Python tool and re-embed it into LDtk.
+- ✅ DONE (R3.4, `248eb9cc`): barks migrated to the catalog; the legacy
+  named-bark tables + registry deleted, not bridged. The catalog `barks` field is
+  now the single source of truth via `bark_line_for_character_id`, with only a
+  single engine-generic `GENERIC_HIT_BARKS` anonymous default remaining.
+1. Author `hall` bark lines + a `hall_dialogue_id` Yarn node for every character.
+2. Regenerate the Hall spec via the Python tool and re-embed it into LDtk.

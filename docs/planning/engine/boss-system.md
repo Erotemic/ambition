@@ -23,7 +23,7 @@ bosses are content.
 > possession verbs. The remaining residue is ONE bounded slice —
 > [`decomposition.md`](decomposition.md) **E6** (animator frame-state split,
 > `BossAnim`→`CharacterAnim`, `target_pos` retirement, the two deep-fold
-> decisions, split-overlay teardown). Fight QUALITY work is
+> decisions). Fight QUALITY work is
 > [`boss-design.md`](boss-design.md). Multi-limb history:
 > `docs/archive/planning-superseded/multi-limb-bosses.md`.
 
@@ -38,7 +38,7 @@ bosses are content.
 ## The rules
 
 - **Per-entity keying, not archetype-string keying.** Live state (HP, current phase)
-  is a component on the entity (`BossStatus` for HP; the encounter's phase-state on its
+  is a component on the entity (`BodyHealth` for HP; the encounter's phase-state on its
   own entity), keyed by a unique **runtime id**, not the archetype `encounter_id`. This
   is the core correctness win: keying by archetype string made two identical bosses
   share HP/phase. (Watch the keying when you touch lifetimes — a pre-refactor bug set
@@ -61,8 +61,8 @@ bosses are content.
   scripted timeline → the *encounter* entity. No encounter entity = no HUD, no walls —
   just a tough enemy. "Cleared" is keyed by **encounter placement**, not archetype, so
   reusing a boss elsewhere isn't pre-cleared.
-- **Reactions are message-driven, per-entity.** `BossPhaseChanged` / `BossDefeated`
-  carry the entity; music / cutscene / reward subscribers never collide across
+- **Reactions are message-driven, per-entity.** `BossPhaseEvent` (its `PhaseChanged` variant)
+  carries the entity; music / cutscene / reward subscribers never collide across
   simultaneous bosses.
 
 ## Scripted encounters are data
@@ -91,8 +91,8 @@ installs its own bosses as data (via the `BOSS_*` / `ENCOUNTER_WAVE_BOOK` instal
 
 ## Pointers
 
-`ambition_characters/src/boss_encounter.rs` (`BossEncounterState`), the `BossStatus`
-HP component, the `BossPattern` brain, `boss_encounter/damage.rs` (`record_boss_damage`).
+`ambition_characters/src/boss_encounter.rs` (`ActorPhaseState`), HP on the body's
+`BodyHealth`, the `BossPattern` brain, `ambition_actors/src/features/ecs/damage/boss_hit.rs` (`record_boss_damage`).
 The blast radius of a registry change is ~15 files across machinery / characters / app /
 content — run the boss lifecycle tests after.
 

@@ -278,7 +278,7 @@ recognizable:
   `home_q` (the "home avatar" is a real concept), the shrine's heal+checkpoint,
   and the wallet save are legitimately slot-0-scoped. The fold is "move the
   directory, KEEP the handful that are genuinely slot-scoped, and name them as
-  such" — not "delete all fifteen". `player/` is 6.7k total / 4.3k production.
+  such" — not "delete all fifteen". *(R6 has since deleted `player/` entirely — the body vocab, control seam, and affordances split into `actor`/`control`/`affordances`/`features`/`avatar`; the 6.7k/4.3k figure was the pre-split measurement.)*
 - ~~**Naming — still player-centric.**~~ 🟢 **DONE.** The rename landed:
   `character_archetypes.ron` / `CharacterArchetypeSpec` / the brain-key map. Zero
   `EnemyArchetypeSpec` / `EnemyBrain` / `enemy_archetypes.ron` remain in code or
@@ -384,8 +384,8 @@ Enemies rise to the player; delete-heavy. Each step is gated on *it compiles* (i
    - There are **FIVE** holders in `ambition_actors`, not two and not the four the
      first re-count found:
      `schedule/input_systems.rs::populate_control_frame_from_actions`,
-     `player/input_systems.rs::{input_timer_system, interaction_input_system}`,
-     `player/systems.rs::populate_slot_controls`, **and
+     `control/input_systems.rs::{input_timer_system, interaction_input_system}`,
+     `control/slots.rs::populate_slot_controls`, **and
      `abilities/traversal/possession.rs::possession_trigger_system`** — which no
      name-grep found because it is written `Res<ambition_input::ControlFrame>`.
    - Nine holders repo-wide across the sim crates + `ambition_content`, counting

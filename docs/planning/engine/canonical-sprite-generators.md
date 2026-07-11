@@ -3,9 +3,9 @@
 Status: DONE (2026-07-01). Landed in renderer submodule commit `d49b152`.
 The adapter layer is dissolved; all nine generators are canonical
 `CharacterGenerator`s. Renderer suite 148 pass / 30 skip, unchanged from
-baseline. A follow-up remains: unify the `TackonTarget` / `AdapterTarget` split
-in `registry/discovery.py` (both are one concept now that generators are the
-canonical shape).
+baseline. The `TackonTarget` / `AdapterTarget` split in `registry/discovery.py` has since
+been unified into one `Target` class (both were one concept once generators
+became the only kind).
 
 Goal (from Jon's steer): make the sprite-generation code logically organized and
 canonical so it *reads beautifully* — **not** by adding adapters that reshape
@@ -28,9 +28,10 @@ classes — `GoblinAdapter`, `RobotAdapter`, `BossAdapter`, … — each of whic
 The generators are *not* canonical; the adapter reshapes each one into the
 canonical interface the sheet pipeline consumes. Two further symptoms:
 
-- `registry/discovery.py` carries two parallel "target" kinds — `TackonTarget`
-  (Python-module targets) and `AdapterTarget` (YAML-config targets that wrap an
-  adapter) — for what is one concept.
+- `registry/discovery.py` USED TO carry two parallel "target" kinds —
+  `TackonTarget` (Python-module targets) and `AdapterTarget` (YAML-config targets
+  that wrap an adapter) — for what is one concept; they are now unified into one
+  `Target` class.
 - The authored gameplay geometry (`RobotAdapter.attack_hitboxes` / `body_inset`,
   `BossAdapter.hurtbox_parts`) lives in `adapters.py`, away from the sprite it
   describes.

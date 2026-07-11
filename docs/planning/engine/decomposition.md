@@ -354,7 +354,7 @@ agents can navigate the code *inside* those boundaries.
 - `scripts/modules_md.py` checks concern headers and generated maps, but does not
   enforce line size;
 - `game/ambition_demo_smb1/MODULES.md` is stale in the audited tree;
-- the workspace has 44 members, not the documented 42.
+- the workspace has 45 members (44 crates + the `ambition_workspace_policy` test-policy package), not the documented 42.
 
 **Re-close criteria:**
 
@@ -385,7 +385,7 @@ excluded by path; inline `#[cfg(test)]` counts), fails any unwaived module over 
 lines, and — bidirectionally — fails a waiver whose file is no longer oversized.
 Exceptions are a named waiver list with one reviewed reason per path; nothing is
 inferred. It is poison-tested (`poison_reacts` drives the real walk with a hostile
-limit + a stale waiver). The stale `MODULES.md` was regenerated and the 44-member
+limit + a stale waiver). The stale `MODULES.md` was regenerated and the 45-member
 count corrected. **What re-closed D-B was criterion 4's other half — now done:** the
 over-limit debt list is cleared. The gate counts **total** lines (`s.lines().count()`, test
 files excluded by path) against the 1500 limit — there is no separate "code-line"
@@ -402,14 +402,14 @@ decomposition work.
 **`snapshot.rs` (3684) → four sub-1500 modules — ✅ LANDED 2026-07-11.** The
 pre-solved plan ran clean; final shape and the traps it hit:
 
-- `snapshot.rs` → `snapshot/mod.rs` (**1155**), keeping the core: the traits
+- `snapshot.rs` → `snapshot/mod.rs` (**1169**), keeping the core: the traits
   (`SnapshotState`/`Cursor`/`Resolve` + `ResolveDecodeError`), wire primitives
   (`put_*`, `Reader`, `paste_put`/`PasteEncode`), `StateHasher`,
   `ApplyOutcome`/`EntryKind`/`StateEntry`, `SimSnapshot`/`take`/`duplicate_live_ids`,
   `RestoreReport`/`RestoreError`, hash/`DesyncReport`/plugin/`register_engine_sim_state`,
   and `canonical_f32_bits` (a wire helper `put_f32` calls — it had to stay with `put_f32`
   in `mod.rs`, NOT travel with the codec block).
-- `snapshot/registry.rs` (**718**) ← `struct`+`impl SnapshotRegistry`,
+- `snapshot/registry.rs` (**713**) ← `struct`+`impl SnapshotRegistry`,
   `SIM_RESOURCE_EXCLUSIONS`.
 - `snapshot/restore.rs` (**471**) ← `respawn_from_the_room` + `validate_snapshot` +
   `restore` + `resource_names_available`.

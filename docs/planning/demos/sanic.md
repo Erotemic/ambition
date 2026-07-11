@@ -32,7 +32,7 @@ pattern as `SurfaceLoop`) · [the combat resolver] (rolling hit volume,
 on-hit bit-scatter) · [the observation boundary] (HUD reads) ·
 [the authoring spine]/[the sprite-geometry authority] (rows + sheets).
 
-**Owns (`sanic_content`):** the zone world (3 acts), the level rules
+**Owns (`ambition_demo_sanic`):** the zone world (3 acts), the level rules
 plugin (bit count, act clear, timer — mode-scoped), the spin-dash
 technique registration, the bits pickup + drop-on-hit policy rows, the
 booster/spring entity rows, 2–3 patrol enemy rows, the goal-gate +
@@ -41,10 +41,11 @@ results sequence, HUD.
 **Engine prerequisites:** E5-finish landed. Immediate blocker: the public
 windowed input + selected-character presentation path in
 [`sanic-recovery.md`](sanic-recovery.md). Nice-to-have: CM5 (per-move sfx/vfx).
-The act-3 mini-boss and later race/chase set pieces become first customers of
-Jon's generic encounter design in
-[`../engine/encounter-orchestration.md`](../engine/encounter-orchestration.md),
-but that refactor does not block the immediate visible/playable recovery.
+Jon's generic encounter orchestrator
+([`../engine/encounter-orchestration.md`](../engine/encounter-orchestration.md))
+LANDED E0–E7 (2026-07-11), so the act-3 mini-boss and later race/chase set pieces
+are now unblocked to be its first non-boss customers — but building them is not a
+prerequisite for the immediate visible/playable recovery.
 Expected oracle-violations: speed-adaptive camera look-ahead knob; anything the
 spring/booster surfaces need beyond rebound blocks.
 

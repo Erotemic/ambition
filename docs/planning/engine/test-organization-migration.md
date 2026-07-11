@@ -301,10 +301,11 @@ consistently standalone — they are resource-contention flakes under full paral
   block (a split structure), safer kept inline than force-split.
 - Further inline extractions remain available (any `#[cfg(test)] mod tests` ≥~200
   lines); the pattern + tool are proven.
-- 5 module-size waivers remain (snapshot.rs, view_cones.rs, brain/smash/mod.rs,
-  kaleidoscope_app.rs, falling_sand.rs) — the extractions retired 4 (surface,
-  moveset, entity_catalog, geometry). D-B stays reopened until the remaining files
-  are split (not merely gated).
+- 1 module-size waiver remains (`kaleidoscope_app.rs`, a declarative Lunex menu
+  tree). The three over-limit modules — `snapshot.rs`, `moveset.rs`, `view_cones.rs`
+  — were split 2026-07-11, and **Phase D-B is RE-CLOSED** (all five criteria met,
+  `e60e67a7`). The executable `engine.module-size` gate lives in
+  `tests/ambition_workspace_policy`.
 - The full `cargo test --workspace` handoff gate is NOT yet green: the pre-existing
   demo mode-scope timing test (below) plus parallel resource-contention flakes.
   These are a separate reliability concern, not a structural-refactor gap.

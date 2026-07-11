@@ -142,7 +142,7 @@ while the drama (warp, Doppler, contraction) is presentation.
 ## Pointers
 
 - Proper time: ADR 0010/0011, `WorldTime`, `ProperTimeScale`, the moveset's
-  `entity_dt` (combat/moveset.rs — the proper-time clock).
+  `entity_dt` (combat/moveset/mod.rs — the proper-time clock).
 - Perception policy: `features/ecs/perception.rs` (`Perception` enum).
 - Zone precedent: `GravityZone` (platformer_primitives gravity.rs).
 - Observer boundary: E4 / `ambition_sim_view` in the demo plan (track E).

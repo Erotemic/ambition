@@ -398,8 +398,10 @@ Nine rows, `reaction_ms` 500 → 150, monotone in reaction, APM, and execution n
 those checks would otherwise surface as *"the levels do not order correctly"* after
 hours of self-play.
 
-**`rollout_depth` is zero on every row.** L3 needs N3.1's `restore`, which does not
-exist. §1 promises graceful degradation — *"L3 is an upgrade, not a dependency"* —
+**`rollout_depth` is zero on every row.** L3 needs N3.1's `restore`, which landed
+2026-07-10 (`ambition_runtime::snapshot::restore`); FB6 is now unblocked and is the
+slice that turns rollouts on (until then every row still ships `rollout_depth = 0`).
+§1 promises graceful degradation — *"L3 is an upgrade, not a dependency"* —
 so the whole ladder plays on L2's scores alone today, and FB6 turns them on without
 touching a difficulty's identity. `the_whole_shipped_ladder_plays_without_l3` pins
 that promise.

@@ -80,5 +80,5 @@ lower-payoff than hoped.
 ## Pointers
 
 `core/draw.py` (`overlay_draw`), `core/measure.py`, `core/pipeline.py`,
-`core/manifest_ron.py`; `sheet.py` / `tackon_sheet.py` (the two assemblers);
-`skeleton.py` + rigdoc + `part_editor.py` (the bone-rig island); `target_registry.py`.
+`core/manifest_ron.py`; `sheet.py` / `sheet_build.py` (the two assemblers);
+`skeleton.py` + rigdoc + `part_editor.py` (the bone-rig island); `registry/discovery.py` + `registry/character_generators.py` (target discovery).

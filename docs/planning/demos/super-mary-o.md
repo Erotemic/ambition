@@ -19,7 +19,7 @@ path) · [the sim heart] (spawn, body size seam for the mushroom) ·
 IR]+[the LDtk backend] (its own 3-level world; pipes = LoadingZone Door)
 · `ambition_cutscene` (flag sequence) · [the observation boundary] (HUD).
 
-**Owns (`mary_o_content`):** the 3-level world, the level-rules plugin
+**Owns (`ambition_demo_smb1`):** the 3-level world, the level-rules plugin
 (lives/score/coins/timer, level-restart death policy — mode-scoped),
 powerup equipment rows (mushroom-analog: size + one-hit armor;
 flower-analog: `simple_ranged` grant), goomba/koopa-analog rows + the

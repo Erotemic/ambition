@@ -552,8 +552,8 @@ snapshots needed. Needs N0 complete, plus:
     original stood still, with every clock, seed, and cooldown identical. The boss was
     already awake. `BossEncounter.encounter_phase` is a MIRROR that
     `sync_boss_encounter_phase` copies out of `BossEncounter.encounter:
-    Option<BossPhaseState>` every tick. **Rewinding only the mirror is rewinding a
-    thermometer.** The cursor now carries the `BossPhaseState` — its `phase`,
+    Option<ActorPhaseState>` every tick. **Rewinding only the mirror is rewinding a
+    thermometer.** The cursor now carries the `ActorPhaseState` — its `phase`,
     `phase_elapsed`, `transition_lock` — and leaves its authored `triggers` alone: *a
     snapshot carries what the fight has become, never the rules it became it by.*
 

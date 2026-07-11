@@ -3,7 +3,7 @@
 //! Each `apply_<verb>` is a self-contained step the integration calls in a fixed
 //! order. Splitting the movement monolith into these named units is the first
 //! move toward the "shared physics spine + composable ability limbs" architecture
-//! (see `docs/planning/non-player-centric-actor-unification.md`): an ability
+//! (see `docs/planning/engine/unified-actors.md`): an ability
 //! reads + writes ONLY its own cluster fields, so it can later become an opt-in
 //! component+system an actor carries or not — and an actor (enemy, NPC, boss,
 //! player) is then a different *instance* of one system, differing only in which

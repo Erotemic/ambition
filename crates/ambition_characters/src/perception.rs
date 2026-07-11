@@ -1,7 +1,7 @@
 //! `WorldView` + `WorldMemory` — the **world-out** port (architecture roadmap S4).
 //!
 //! The unified-control architecture
-//! (`docs/planning/fighter-capability-and-motor-unification.md`) gives every body
+//! (`docs/planning/engine/unified-actors.md`) gives every body
 //! two ports: **intent-in** (a controller attempts an `ActorControlFrame`, the
 //! body enforces) and **world-out** (the body produces a controller-neutral,
 //! *headless* view of what it can perceive). This module is the world-out port.

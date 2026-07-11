@@ -469,7 +469,7 @@ fn wall_cling_displacement_budget_holds_across_pose_sweep() {
 }
 
 /// Regression guard for the mob_lab lock-wall teleport documented in
-/// `docs/planning/tech-debt-log.md` (HIGH).
+/// `dev/journals/code_smells.md` (HIGH).
 ///
 /// Geometry mirrors the runtime: the runtime-inserted
 /// `lockwall:mob_lab` block sits at LDtk px (480, 400) size (224, 208),

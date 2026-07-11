@@ -1,7 +1,7 @@
 //! Real-ECS headless fighter harness (architecture roadmap S0).
 //!
 //! The unified-control architecture
-//! (`docs/planning/fighter-capability-and-motor-unification.md`) hangs on a
+//! (`docs/planning/engine/unified-actors.md`) hangs on a
 //! contract: *any controller drives any body through one input seam, and the
 //! **body** enforces all physics.* That contract has to be proven against the
 //! **real** simulation systems, not a proxy with its own kinematics. This module

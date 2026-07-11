@@ -2,7 +2,7 @@
 //!
 //! The `step_kinematic` primitive has axis-role conformance tests; the app has
 //! `gravity_symmetry_room` for movement verbs. What was missing (fable review
-//! 2026-07-02, `docs/reviews/fable-review-2026-07-02.md` §B) is the same rig at
+//! 2026-07-02, `docs/archive/reviews/fable-review-2026-07-02.md` §B) is the same rig at
 //! the `update_player_with_tuning_clusters` level for the *reaction/effect
 //! epilogues* — slash recoil, blink fallback aim, post-blink velocity cleanup,
 //! wall-slide ordering — where a verb correct in its main path historically kept

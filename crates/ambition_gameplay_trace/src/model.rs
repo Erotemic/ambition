@@ -345,7 +345,7 @@ pub enum DumpReason {
     /// `OOB_MARGIN` and so never tripped the OOB detector. Captures the
     /// ring buffer at the moment of the snap so the pre-teleport frames
     /// are still present (a manual dump seconds later only catches the
-    /// stuck aftermath — see `docs/planning/tech-debt-log.md`).
+    /// stuck aftermath — see `dev/journals/code_smells.md`).
     TeleportAuto {
         reason: String,
     },

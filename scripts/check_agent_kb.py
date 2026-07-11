@@ -185,6 +185,13 @@ INLINE_TEST_EVIDENCE_RE = re.compile(
 RUST_USIZE_CONST_RE = r"\bconst\s+{name}\s*:\s*usize\s*=\s*(\d+)\s*;"
 INLINE_TEST_MIN_LINES = 200
 
+# Narrow code-comment documentation-link scanning: only repo-ANCHORED references
+# (`docs/...` and `../docs/...`), backticked or not. Non-anchored `.md` shorthands
+# (e.g. `engine/foo.md`, `brain/README.md`) are deliberately skipped — resolving
+# them guesses a base directory and yields false positives (decision: reduce scope
+# rather than over-interpret path-like strings).
+DOC_REF_RE = re.compile(r"(?:\.\./)*docs/[A-Za-z0-9_./+-]+\.md")
+
 
 def rel(path: Path) -> str:
     return path.relative_to(ROOT).as_posix()
@@ -782,6 +789,110 @@ def check_tool_docs(errors: list[str]) -> None:
             )
 
 
+def rust_comment_text(text: str) -> str:
+    """Return only Rust comment characters; code and string/char/raw literals are
+    dropped (newlines preserved). Lets the doc-link scan look at comments rather
+    than path-like string literals."""
+    out: list[str] = []
+    i, n = 0, len(text)
+    while i < n:
+        if text.startswith("//", i):
+            j = text.find("\n", i)
+            j = n if j == -1 else j
+            out.append(text[i:j])
+            i = j
+            continue
+        if text.startswith("/*", i):
+            depth, j = 1, i + 2
+            while j < n and depth:
+                if text.startswith("/*", j):
+                    depth += 1
+                    j += 2
+                elif text.startswith("*/", j):
+                    depth -= 1
+                    j += 2
+                else:
+                    j += 1
+            out.append(text[i:j])
+            i = j
+            continue
+        raw = re.match(r'(?:b?r)(#*)"', text[i:])
+        if raw:
+            term = '"' + "#" * len(raw.group(1))
+            k = text.find(term, i + len(raw.group(0)))
+            k = n if k == -1 else k + len(term)
+            out.append("\n" * text.count("\n", i, k))
+            i = k
+            continue
+        if text[i] == '"':
+            j = i + 1
+            while j < n:
+                if text[j] == "\\":
+                    j += 2
+                    continue
+                if text[j] == '"':
+                    j += 1
+                    break
+                j += 1
+            out.append("\n" * text.count("\n", i, j))
+            i = j
+            continue
+        char = re.match(r"'(?:\\.|[^'\\])'", text[i:])
+        if char:
+            i += len(char.group(0))
+            continue
+        out.append("\n" if text[i] == "\n" else "")
+        i += 1
+    return "".join(out)
+
+
+def doc_refs_in_comment_text(comment: str) -> set[str]:
+    return set(DOC_REF_RE.findall(comment))
+
+
+def check_code_comment_doc_links(errors: list[str]) -> None:
+    """Verify unambiguous repository-document references inside Rust comments exist.
+    Deliberately narrow: `docs/...`, `../docs/...`, and backticked path-like `.md`
+    in COMMENTS only. Not arbitrary prose, external URLs, or string literals."""
+    for base in [ROOT / "crates", ROOT / "game"]:
+        if not base.exists():
+            continue
+        for path in sorted(base.rglob("*.rs")):
+            text = path.read_text(encoding="utf-8", errors="replace")
+            if "docs/" not in text:
+                continue
+            for ref in sorted(doc_refs_in_comment_text(rust_comment_text(text))):
+                resolved = (
+                    (ROOT / ref) if ref.startswith("docs/") else (path.parent / ref)
+                ).resolve()
+                try:
+                    resolved.relative_to(ROOT)
+                except ValueError:
+                    continue
+                if not resolved.exists():
+                    fail(errors, f"{rel(path)} comment references missing doc: {ref}")
+
+
+def check_code_comment_link_self_test(errors: list[str]) -> None:
+    # A repo-anchored docs ref (backticked) is recognized.
+    if "docs/planning/status.md" not in doc_refs_in_comment_text(
+        rust_comment_text("//! see `docs/planning/status.md` for the current state\n")
+    ):
+        fail(errors, "code-comment link self-test: valid docs ref not recognized")
+    # A non-anchored `.md` shorthand is deliberately skipped (no false positive).
+    if doc_refs_in_comment_text(rust_comment_text("//! see `engine/architecture.md`\n")):
+        fail(errors, "code-comment link self-test: non-anchored .md shorthand should be skipped")
+    # A doc path inside a string literal is not a comment reference.
+    if doc_refs_in_comment_text(rust_comment_text('fn f() { let _ = "docs/none.md"; }\n')):
+        fail(errors, "code-comment link self-test: string literal treated as a comment ref")
+    # A nonexistent anchored reference resolves as missing (the enforcement path).
+    poison = doc_refs_in_comment_text(
+        rust_comment_text("// see docs/planning/__poison_missing__.md\n")
+    )
+    if not poison or (ROOT / next(iter(poison))).exists():
+        fail(errors, "code-comment link self-test: poison ref unexpectedly resolvable")
+
+
 def main() -> int:
     errors: list[str] = []
     check_required_files(errors)
@@ -792,6 +903,8 @@ def main() -> int:
     check_generated_indexes(errors)
     check_concepts(errors)
     check_markdown_links(errors)
+    check_code_comment_link_self_test(errors)
+    check_code_comment_doc_links(errors)
     check_retrieval_evals(errors)
     check_adr_current_implications(errors)
     check_active_doc_phrasing(errors)

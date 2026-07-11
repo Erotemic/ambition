@@ -88,8 +88,7 @@ pub use items::shop;
 pub use ambition_combat as combat;
 pub mod gravity;
 pub mod music;
-// Unified menu content (model + concrete settings IR + Map tab). See
-// `docs/planning/unified_tabbed_menu.md` §10.
+// Unified menu content (model + concrete settings IR + Map tab).
 pub mod menu;
 pub mod persistence;
 pub mod physics;

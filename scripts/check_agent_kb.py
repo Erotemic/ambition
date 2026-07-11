@@ -192,7 +192,8 @@ WORKSPACE_MEMBERS_RE = re.compile(
     r"<!--\s*planning-evidence:\s*workspace-members\s+count=(\d+)\s*-->"
 )
 MODULE_SIZE_EVIDENCE_RE = re.compile(
-    r"<!--\s*planning-evidence:\s*module-size\s+waivers=(\d+)\s+violations=(\d+)\s*-->"
+    r"<!--\s*planning-evidence:\s*module-size\s+waivers=(\d+)\s+unwaived-violations=(\d+)"
+    r"\s+stale-waivers=(\d+)\s+invalid-waivers=(\d+)\s*-->"
 )
 CC3_EVIDENCE_RE = re.compile(
     r"<!--\s*planning-evidence:\s*cc3\s+status=(ignored|enforced)\s*-->"
@@ -533,8 +534,27 @@ def is_workspace_test_path(rpath: str) -> bool:
     return "/tests/" in rpath or name == "tests.rs" or name.endswith("_tests.rs")
 
 
-def module_size_actuals() -> tuple[int, int] | None:
-    """Return (waiver count, over-limit-unwaived violation count) from HEAD source."""
+def parse_module_size_waivers(toml_text: str) -> list[tuple[str, str]]:
+    """(path, reason) for each `[[waiver]]` table. Line-anchored, so a `[[waiver]]`
+    mention inside a TOML comment is not treated as a table."""
+    blocks = re.split(r"^\s*\[\[waiver\]\]\s*$", toml_text, flags=re.MULTILINE)[1:]
+    out: list[tuple[str, str]] = []
+    for block in blocks:
+        body = re.split(r"^\s*\[", block, flags=re.MULTILINE)[0]
+        path_m = re.search(r'path\s*=\s*"([^"]*)"', body)
+        reason_m = re.search(r'reason\s*=\s*"([^"]*)"', body)
+        out.append((path_m.group(1) if path_m else "", reason_m.group(1) if reason_m else ""))
+    return out
+
+
+def module_size_actuals() -> tuple[int, int, int, int] | None:
+    """(waivers, unwaived-violations, stale-waivers, invalid-waivers) from HEAD.
+
+    This is a FAST cross-check, not the authoritative gate: the behavioral gate is
+    `cargo test -p ambition_workspace_policy`. Returns None if the policy is
+    unreadable or the scan is vacuous (zero modules scanned) — a vacuous scan must
+    not report a green count.
+    """
     toml_path = ROOT / "tests/ambition_workspace_policy/policies/module_size.toml"
     if not toml_path.exists():
         return None
@@ -543,21 +563,30 @@ def module_size_actuals() -> tuple[int, int] | None:
     if config is None:
         return None
     limit, roots, waiver_paths = config
-    # Line-anchored so a `[[waiver]]` mention inside a TOML comment is not counted.
-    waiver_count = len(re.findall(r"^\s*\[\[waiver\]\]", toml_text, re.MULTILINE))
-    violations = 0
+    waivers = parse_module_size_waivers(toml_text)
+    scanned = 0
+    over_limit: set[str] = set()
     for root in roots:
         base = ROOT / root
         if not base.is_dir():
             continue
         for path in base.rglob("*.rs"):
             rpath = rel(path)
-            if is_workspace_test_path(rpath) or rpath in waiver_paths:
+            if is_workspace_test_path(rpath):
                 continue
-            lines = len(path.read_text(encoding="utf-8", errors="replace").splitlines())
-            if lines > limit:
-                violations += 1
-    return waiver_count, violations
+            scanned += 1
+            if len(path.read_text(encoding="utf-8", errors="replace").splitlines()) > limit:
+                over_limit.add(rpath)
+    if scanned == 0:
+        return None
+    unwaived_violations = len(over_limit - waiver_paths)
+    stale = sum(
+        1 for p, _r in waivers if p and (ROOT / p).exists() and p not in over_limit
+    )
+    invalid = sum(
+        1 for p, r in waivers if not p or not (ROOT / p).exists() or not r.strip()
+    )
+    return len(waivers), unwaived_violations, stale, invalid
 
 
 def mask_rust_noncode(text: str) -> str:
@@ -852,15 +881,14 @@ def check_planning_evidence(errors: list[str]) -> None:
     else:
         actual_ms = module_size_actuals()
         if actual_ms is None:
-            fail(errors, "could not compute module-size counts from policy + source")
+            fail(errors, "could not compute module-size counts (policy unreadable or vacuous scan)")
         else:
-            marked = (int(ms_markers[0][0]), int(ms_markers[0][1]))
+            marked = tuple(int(x) for x in ms_markers[0])
             if marked != actual_ms:
                 fail(
                     errors,
-                    f"module-size evidence stale: status says waivers={marked[0]} "
-                    f"violations={marked[1]}, source has waivers={actual_ms[0]} "
-                    f"violations={actual_ms[1]}",
+                    "module-size evidence stale (waivers, unwaived-violations, "
+                    f"stale-waivers, invalid-waivers): status says {marked}, source has {actual_ms}",
                 )
 
     cc3_markers = CC3_EVIDENCE_RE.findall(status)
@@ -918,6 +946,10 @@ def check_planning_checker_self_test(errors: list[str]) -> None:
         "kind=behavioral-local disposition=maintainer-review-pending -->"
     ) != [("a/b.rs", "behavioral-local", "maintainer-review-pending")]:
         fail(errors, "planning checker self-test failed: inline-test marker parser")
+    if parse_module_size_waivers(
+        '[[waiver]]\npath = "a.rs"\nreason = "x"\n[[waiver]]\npath = "b.rs"\n'
+    ) != [("a.rs", "x"), ("b.rs", "")]:
+        fail(errors, "planning checker self-test failed: module-size waiver parser")
 
 
 def check_archive_duplicates(errors: list[str]) -> None:

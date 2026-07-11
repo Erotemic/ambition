@@ -38,7 +38,7 @@ is never equivalent to a passing acceptance test or an enforced invariant.
 <!-- planning-evidence: inline-test path=crates/ambition_characters/src/equipment.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=game/ambition_demo_smb1/src/flag.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: workspace-members count=45 -->
-<!-- planning-evidence: module-size waivers=1 violations=0 -->
+<!-- planning-evidence: module-size waivers=1 unwaived-violations=0 stale-waivers=0 invalid-waivers=0 -->
 <!-- planning-evidence: cc3 status=ignored -->
 
 ## Verified foundations
@@ -47,8 +47,11 @@ These are current facts, not active tasks:
 
 - The workspace has 45 members (44 crates + the `ambition_workspace_policy`
   test-policy package). Machine-checked against `Cargo.toml`.
-- D-B's module-size policy counts physical source lines. It is green with one
-  reasoned waiver for the declarative `game/ambition_app/src/menu/kaleidoscope_app.rs`.
+- D-B's module-size policy counts physical source lines. The KB marker is a fast
+  source-derived cross-check (waivers / unwaived-violations / stale-waivers /
+  invalid-waivers, currently 1/0/0/0, one reasoned waiver for the declarative
+  `kaleidoscope_app.rs`); the AUTHORITATIVE behavioral gate is
+  `cargo test -p ambition_workspace_policy` — the KB check does not replace it.
 - D-C's mode-scoped rules seam exists and is consumed by the demo rules crates.
 - The generic platformer presentation plugin closes OV1 for Sanic and SMB1.
 - Sanic's ball dash is implemented in its rules crate without a Sanic-specific

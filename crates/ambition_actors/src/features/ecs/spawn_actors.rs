@@ -972,7 +972,7 @@ pub(super) fn spawn_enemy_with_faction(
     // per-archetype `has_hand_limbs` flag is the data-driven generalization, left
     // for when a second limbed mount lands.
     if mount_has_hand_limbs(&spec) {
-        spawn_giant_hand_limbs(commands, entity, authored.aabb, &spec);
+        spawn_giant_hand_limbs(commands, entity, &authored.id, authored.aabb, &spec);
     }
     Some(entity)
 }
@@ -1000,12 +1000,30 @@ fn mount_has_hand_limbs(spec: &super::super::enemies::CharacterArchetypeSpec) ->
 /// damage, and the fan-out clobbers their `ActorControl` every tick, so the
 /// cluster's brain/health ride along inertly rather than justifying a bespoke
 /// minimal body.
+/// A giant hand's stable `FeatureId`, derived from the giant's AUTHORED id and the
+/// hand's fixed side — an entity-free game fact, so two sims that spawn the same
+/// giant give its hands the same identity. It deliberately takes `giant_id: &str`,
+/// never an `Entity`: the old form used `giant.index()` (an allocator slot), which
+/// handed the hands a different `SimId` every run and broke snapshot/replay
+/// determinism (netcode.md N3.2 boss-hand residual).
+fn giant_hand_feature_id(giant_id: &str, side: &str) -> String {
+    format!("giant_gnu_hand_{side}_{giant_id}")
+}
+
 fn spawn_giant_hand_limbs(
     commands: &mut Commands,
     giant: bevy::ecs::entity::Entity,
+    giant_id: &str,
     giant_aabb: ae::Aabb,
     spec: &super::super::enemies::CharacterArchetypeSpec,
 ) {
+    use ambition_platformer_primitives::sim_id::SimId;
+    // The giant's own snapshot identity (ensure_sim_id gives an authored body
+    // `SimId::placement(feature_id)`, and the giant's FeatureId IS its authored id).
+    // Each hand is a SPAWNED CHILD of it — `SimId::spawned(parent, ordinal)` — not
+    // an authored placement, so it lands in the spawned namespace parented to the
+    // giant rather than masquerading as a top-level authored entity.
+    let giant_sim = SimId::placement(giant_id);
     let giant_half = spec
         .default_size
         .map(|s| s * 0.5)
@@ -1022,14 +1040,18 @@ fn spawn_giant_hand_limbs(
     let home_r = ae::Vec2::new(giant_half.x * 0.55, giant_half.y * 0.15);
 
     let mut hands: Vec<bevy::ecs::entity::Entity> = Vec::with_capacity(2);
-    for (slot, home, tag) in [
+    for (ordinal, (slot, home, tag)) in [
         (super::LimbSlot::HandLeft, home_l, "left"),
         (super::LimbSlot::HandRight, home_r, "right"),
-    ] {
+    ]
+    .into_iter()
+    .enumerate()
+    {
         let center = giant_center + home;
         let aabb = ae::Aabb::new(center, hand_size * 0.5);
-        // Unique per giant instance (feature ids must not collide across live spawns).
-        let hand_id = format!("giant_gnu_hand_{tag}_{}", giant.index());
+        // Deterministic + unique per giant instance: derived from the giant's
+        // AUTHORED id (not `giant.index()`), so two sims agree on the identity.
+        let hand_id = giant_hand_feature_id(giant_id, tag);
         let seed = super::actor_clusters::ActorClusterSeed::new(
             hand_id.clone(),
             "Giant GNU Hand",
@@ -1059,6 +1081,12 @@ fn spawn_giant_hand_limbs(
             // A hand is not itself a threat/target — flip it out of the hostile
             // default so targeting/aggro ignore it; the fan-out is its only driver.
             super::ActorDisposition::Peaceful,
+            // Snapshot identity: a spawned child of the giant, minted here so
+            // `ensure_sim_id` (which is `Without<SimId>`) skips it and never
+            // promotes its `FeatureId` into the authored `placement:` namespace.
+            // `ordinal` is the fixed loop order (left=0, right=1) — a per-spawner
+            // sequence, deterministic because the array literal is.
+            SimId::spawned(&giant_sim, ordinal as u64),
         ));
         hands.push(hand);
     }
@@ -1259,5 +1287,53 @@ pub fn apply_summon_effects(
                 super::ActorAggression::hostile(),
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod giant_hand_identity_tests {
+    use super::giant_hand_feature_id;
+    use ambition_platformer_primitives::sim_id::SimId;
+
+    /// The hand's identity is a pure function of the giant's AUTHORED id + its
+    /// fixed side — no `Entity`, so it is the same across two sims fed the same
+    /// inputs. The old form derived the `_N` suffix from `giant.index()`, an
+    /// allocator slot: this pins that the suffix is now the authored id instead.
+    #[test]
+    fn a_giant_hands_feature_id_is_deterministic_from_the_authored_id() {
+        assert_eq!(
+            giant_hand_feature_id("gnu-42", "left"),
+            "giant_gnu_hand_left_gnu-42"
+        );
+        assert_eq!(
+            giant_hand_feature_id("gnu-42", "right"),
+            "giant_gnu_hand_right_gnu-42"
+        );
+        // Two different giants → two different hand ids (no live collision);
+        // the SAME giant id → the SAME hand id (determinism across sims).
+        assert_ne!(
+            giant_hand_feature_id("gnu-42", "left"),
+            giant_hand_feature_id("gnu-99", "left")
+        );
+        assert_eq!(
+            giant_hand_feature_id("gnu-42", "left"),
+            giant_hand_feature_id("gnu-42", "left")
+        );
+    }
+
+    /// A spawned hand lands in the SPAWNED namespace parented to the giant —
+    /// `SimId::spawned(giant_placement, ordinal)` — not the authored `placement:`
+    /// namespace. The ordinal is the fixed loop order (left=0, right=1), so the
+    /// pair is deterministic and legible as the giant's children.
+    #[test]
+    fn a_giant_hand_sim_id_is_a_spawned_child_of_the_giant() {
+        let giant = SimId::placement("gnu-42");
+        let left = SimId::spawned(&giant, 0);
+        let right = SimId::spawned(&giant, 1);
+        assert_eq!(left.as_str(), "placement:gnu-42/0");
+        assert_eq!(right.as_str(), "placement:gnu-42/1");
+        // It is a child of the giant, not a sibling authored placement.
+        assert!(left.as_str().starts_with(giant.as_str()));
+        assert_ne!(left, giant);
     }
 }

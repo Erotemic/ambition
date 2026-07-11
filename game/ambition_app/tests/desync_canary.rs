@@ -674,10 +674,14 @@ fn the_snapshot_coverage_ledger() {
 ///
 /// The invariant is precise: a live `placement:<iid>` that some room authors must be
 /// authored by the ACTIVE room. A `placement:<iid>` that NO room authors is a
-/// dynamically-spawned child (a boss's `giant_gnu_hand_left_7`, spawned by the boss,
-/// not the room) — that is an identity-vocabulary concern (its id should be
-/// `spawned(..)`; netcode.md N3.2 dynamic-spawn), not a cross-room leak, so it is
-/// exempt here. `slot:` (the player) is carried/persistent and exempt.
+/// dynamically-spawned child (a boss's giant hands, spawned by the boss, not the
+/// room) — a spawned child, not a cross-room leak, so it is exempt here. As of the
+/// N3.2 boss-hand fix those hands mint `SimId::spawned(giant, ordinal)` =
+/// `placement:<giant_iid>/<ordinal>` from the giant's AUTHORED id (no longer the
+/// non-deterministic `giant_gnu_hand_left_7` derived from an entity index), so they
+/// are deterministic spawned ids; they still surface below because a spawned child of
+/// a `placement:` parent is itself `placement:`-prefixed and no room authors it.
+/// `slot:` (the player) is carried/persistent and exempt.
 #[test]
 fn every_placement_entity_is_owned_by_the_active_room_every_tick() {
     use std::collections::{BTreeMap, BTreeSet};
@@ -715,11 +719,12 @@ fn every_placement_entity_is_owned_by_the_active_room_every_tick() {
         };
 
         // The no-room category, reported separately (reviewer): a `placement:<id>` no
-        // room authors is a dynamically-spawned child promoted into the placement
-        // namespace because `ensure_sim_id` gave it a `FeatureId`. Its name is derived
-        // from an entity index, so it is not a deterministic authored identity — it is
-        // dynamic-spawn identity debt (netcode.md N3.2 dynamic-spawn / S2.9), not a
-        // room leak. Collected here so the debt is visible, not silently skipped.
+        // room authors is a dynamically-spawned child. The giant hands now mint
+        // `SimId::spawned(giant, ordinal)` from the giant's authored id, so this is a
+        // DETERMINISTIC spawned identity — legible as `<giant_iid>/<ordinal>` — not the
+        // old entity-index debt. It surfaces here only because a spawned child of a
+        // `placement:` parent is itself `placement:`-prefixed. Collected so the set is
+        // visible, not silently skipped.
         let mut dynamic_debt: BTreeSet<String> = BTreeSet::new();
 
         let mut policy = RandomWalkPolicy::traversal_stress(3);
@@ -764,8 +769,8 @@ fn every_placement_entity_is_owned_by_the_active_room_every_tick() {
 
         if !dynamic_debt.is_empty() {
             eprintln!(
-                "  [{room}] dynamic-spawn identity debt (placement: ids no room authors, \
-                 should be SimId::spawned(..) — netcode.md N3.2): {dynamic_debt:?}"
+                "  [{room}] spawned children (placement: ids no room authors — now \
+                 deterministic SimId::spawned(giant, ordinal), netcode.md N3.2): {dynamic_debt:?}"
             );
         }
     }

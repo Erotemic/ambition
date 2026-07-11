@@ -605,12 +605,14 @@ snapshots needed. Needs N0 complete, plus:
   moves `portal_lab` to CLEAN.
 
   A separate, un-conflated case surfaced by the ownership invariant: a
-  dynamically-spawned child (`giant_gnu_hand_left_7`, a boss hand) receives a
-  `FeatureId`, so `ensure_sim_id` promotes it into the `placement:` namespace even
-  though **no room authors it** and its entity-index-derived name is not a
-  deterministic authored identity. That is dynamic-spawn identity debt, not a room
-  leak: the hands should mint `SimId::spawned(parent_giant_sim_id, counter)` at spawn.
-  Routed to the dynamic-spawn slice below.
+  dynamically-spawned child (a boss hand) receives a `FeatureId`, so `ensure_sim_id`
+  would promote it into the `placement:` namespace even though **no room authors
+  it**. **RESOLVED (2026-07-11):** `spawn_giant_hand_limbs` now derives the hand's
+  `FeatureId` from the giant's AUTHORED id (not `giant.index()`, an allocator slot)
+  and mints its `SimId::spawned(giant_placement_sim_id, ordinal)` at spawn, so the
+  hand is a deterministic spawned child (`placement:<giant_iid>/<ordinal>`) and
+  `ensure_sim_id` (`Without<SimId>`) skips it. Pinned by
+  `giant_hand_identity_tests` in `spawn_actors.rs`.
 
   The landed N3.1 keystone currently contains 60 registry entries across five kinds (component,
   cursor, resolved, resource, resource-cursor), four message channels, three declared
@@ -653,8 +655,9 @@ snapshots needed. Needs N0 complete, plus:
      roster is a named hash pseudo-entry, so two worlds differing only by such an entity no
      longer hash equal. REMAINING: the full atomic room-context restore (entities +
      platforms + clocks), which moves `portal_lab` to CLEAN — see the bounded-window item.
-     Dynamic children wrongly in the `placement:` namespace (boss hands) route to the
-     dynamic-spawn item.
+     (The boss-hand case that once routed to the dynamic-spawn item — dynamic children
+     wrongly in the `placement:` namespace — is RESOLVED: they mint `SimId::spawned(..)`
+     from the giant's authored id, 2026-07-11.)
   3. **Reconciliation ordering:** DONE (S2.4). Stale components and unidentified
      survivors are computed AFTER reconciliation, over the final restored roster.
   4. **Codec failure semantics:** DONE for the ordinary path TRANSACTIONALLY, and every
@@ -701,11 +704,12 @@ snapshots needed. Needs N0 complete, plus:
      preflighted before any mutation. It establishes ONE reconstruction refusal, not a
      general bounded-window guarantee. REMAINING for exact-across-a-birth: register
      reconstruction recipes per dynamic spawner; then tag confirmed read-model ticks and
-     deduplicate resim side effects. Also remaining: the boss hands
-     (`giant_gnu_hand_left/right_7`) get a `FeatureId`, so `ensure_sim_id` promotes them
-     into the `placement:` namespace with an entity-index-derived (non-deterministic) name;
-     they should mint `SimId::spawned(parent_giant_sim_id, counter)` at spawn. No suite room
-     yet spawns AND kills a dynamic child inside a window, so the recipe path is unexercised.
+     deduplicate resim side effects. No suite room yet spawns AND kills a dynamic child
+     inside a window, so the recipe path is unexercised. **The boss-hand identity
+     sub-item is DONE (2026-07-11):** `spawn_giant_hand_limbs` derives the hands'
+     `FeatureId` from the giant's AUTHORED id and mints `SimId::spawned(giant, ordinal)`
+     at spawn, so they are deterministic spawned children instead of entity-index-derived
+     `placement:` ids (`giant_hand_identity_tests`).
 
   Poison-test atomicity is binding: do not land a known-red future test or pin the
   current bug. Full rationale and the three-series order live in

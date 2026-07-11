@@ -182,6 +182,15 @@ BOSS_EVIDENCE_RE = re.compile(
 INLINE_TEST_EVIDENCE_RE = re.compile(
     r"<!--\s*planning-evidence:\s*inline-test-debt\s+path=([^\s]+)\s*-->"
 )
+WORKSPACE_MEMBERS_RE = re.compile(
+    r"<!--\s*planning-evidence:\s*workspace-members\s+count=(\d+)\s*-->"
+)
+MODULE_SIZE_EVIDENCE_RE = re.compile(
+    r"<!--\s*planning-evidence:\s*module-size\s+waivers=(\d+)\s+violations=(\d+)\s*-->"
+)
+CC3_EVIDENCE_RE = re.compile(
+    r"<!--\s*planning-evidence:\s*cc3\s+status=(ignored|enforced)\s*-->"
+)
 RUST_USIZE_CONST_RE = r"\bconst\s+{name}\s*:\s*usize\s*=\s*(\d+)\s*;"
 INLINE_TEST_MIN_LINES = 200
 
@@ -482,6 +491,69 @@ def parse_rust_usize_const(text: str, name: str) -> int | None:
     return int(match.group(1)) if match else None
 
 
+def parse_workspace_member_count(cargo_text: str) -> int | None:
+    """Count entries in the root `[workspace] members = [...]` list."""
+    match = re.search(
+        r"\[workspace\][^\[]*?members\s*=\s*\[(.*?)\]", cargo_text, re.DOTALL
+    )
+    if not match:
+        return None
+    return len(re.findall(r'"[^"]+"', match.group(1)))
+
+
+def parse_module_size_config(toml_text: str) -> tuple[int, list[str], set[str]] | None:
+    """Return (line limit, scanned roots, waiver paths) from the module-size policy."""
+    limit = re.search(r"^limit\s*=\s*(\d+)", toml_text, re.MULTILINE)
+    roots_block = re.search(r"roots\s*=\s*\[(.*?)\]", toml_text, re.DOTALL)
+    if not limit or not roots_block:
+        return None
+    roots = re.findall(r'"([^"]+)"', roots_block.group(1))
+    waiver_paths = set(re.findall(r'path\s*=\s*"([^"]+)"', toml_text))
+    return int(limit.group(1)), roots, waiver_paths
+
+
+def parse_cc3_ignore_status(src_text: str) -> str | None:
+    """`ignored` if the CC3 full-sweep test carries `#[ignore]`, else `enforced`."""
+    match = re.search(
+        r"((?:#\[[^\]]*\]\s*)*)\bfn\s+collision_oracle_full_sweep\b", src_text
+    )
+    if not match:
+        return None
+    return "ignored" if "ignore" in match.group(1) else "enforced"
+
+
+def is_workspace_test_path(rpath: str) -> bool:
+    name = Path(rpath).name
+    return "/tests/" in rpath or name == "tests.rs" or name.endswith("_tests.rs")
+
+
+def module_size_actuals() -> tuple[int, int] | None:
+    """Return (waiver count, over-limit-unwaived violation count) from HEAD source."""
+    toml_path = ROOT / "tests/ambition_workspace_policy/policies/module_size.toml"
+    if not toml_path.exists():
+        return None
+    toml_text = toml_path.read_text(encoding="utf-8", errors="replace")
+    config = parse_module_size_config(toml_text)
+    if config is None:
+        return None
+    limit, roots, waiver_paths = config
+    # Line-anchored so a `[[waiver]]` mention inside a TOML comment is not counted.
+    waiver_count = len(re.findall(r"^\s*\[\[waiver\]\]", toml_text, re.MULTILINE))
+    violations = 0
+    for root in roots:
+        base = ROOT / root
+        if not base.is_dir():
+            continue
+        for path in base.rglob("*.rs"):
+            rpath = rel(path)
+            if is_workspace_test_path(rpath) or rpath in waiver_paths:
+                continue
+            lines = len(path.read_text(encoding="utf-8", errors="replace").splitlines())
+            if lines > limit:
+                violations += 1
+    return waiver_count, violations
+
+
 def mask_rust_noncode(text: str) -> str:
     """Mask comments and literals while preserving code positions and newlines."""
 
@@ -736,6 +808,57 @@ def check_planning_evidence(errors: list[str]) -> None:
             parts.append("no longer present: " + ", ".join(stale))
         fail(errors, "large inline-test debt markers disagree with HEAD (" + "; ".join(parts) + ")")
 
+    ws_markers = WORKSPACE_MEMBERS_RE.findall(status)
+    if len(ws_markers) != 1:
+        fail(errors, "status.md must contain exactly one workspace-members evidence marker")
+    else:
+        actual = parse_workspace_member_count(
+            (ROOT / "Cargo.toml").read_text(encoding="utf-8", errors="replace")
+        )
+        if actual is None:
+            fail(errors, "could not parse [workspace] members from Cargo.toml")
+        elif int(ws_markers[0]) != actual:
+            fail(
+                errors,
+                f"workspace-members evidence stale: status says {ws_markers[0]}, "
+                f"Cargo.toml has {actual}",
+            )
+
+    ms_markers = MODULE_SIZE_EVIDENCE_RE.findall(status)
+    if len(ms_markers) != 1:
+        fail(errors, "status.md must contain exactly one module-size evidence marker")
+    else:
+        actual_ms = module_size_actuals()
+        if actual_ms is None:
+            fail(errors, "could not compute module-size counts from policy + source")
+        else:
+            marked = (int(ms_markers[0][0]), int(ms_markers[0][1]))
+            if marked != actual_ms:
+                fail(
+                    errors,
+                    f"module-size evidence stale: status says waivers={marked[0]} "
+                    f"violations={marked[1]}, source has waivers={actual_ms[0]} "
+                    f"violations={actual_ms[1]}",
+                )
+
+    cc3_markers = CC3_EVIDENCE_RE.findall(status)
+    if len(cc3_markers) != 1:
+        fail(errors, "status.md must contain exactly one cc3 evidence marker")
+    else:
+        cc3_src = ROOT / "game/ambition_app/tests/collision_invariant_oracle.rs"
+        actual_cc3 = (
+            parse_cc3_ignore_status(cc3_src.read_text(encoding="utf-8", errors="replace"))
+            if cc3_src.exists()
+            else None
+        )
+        if actual_cc3 is None:
+            fail(errors, "could not determine CC3 full-sweep ignore status from source")
+        elif cc3_markers[0] != actual_cc3:
+            fail(
+                errors,
+                f"cc3 evidence stale: status says {cc3_markers[0]}, source is {actual_cc3}",
+            )
+
 
 def check_planning_checker_self_test(errors: list[str]) -> None:
     synthetic = "#[cfg(test)]\nmod tests {\n" + ("fn x() {}\n" * 198) + "}\n"
@@ -751,6 +874,23 @@ def check_planning_checker_self_test(errors: list[str]) -> None:
     constants = "const EXPECTED_ERRORS: usize = 8;\nconst EXPECTED_WARNINGS: usize = 10;\n"
     if parse_rust_usize_const(constants, "EXPECTED_ERRORS") != 8:
         fail(errors, "planning checker self-test failed: Rust constant parser")
+    if (
+        parse_workspace_member_count(
+            '[workspace]\nmembers = ["crates/a", "game/b"]\nresolver = "2"\n'
+        )
+        != 2
+    ):
+        fail(errors, "planning checker self-test failed: workspace member parser")
+    if parse_cc3_ignore_status(
+        '#[test]\n#[ignore = "x"]\nfn collision_oracle_full_sweep() {}'
+    ) != "ignored" or parse_cc3_ignore_status(
+        "#[test]\nfn collision_oracle_full_sweep() {}"
+    ) != "enforced":
+        fail(errors, "planning checker self-test failed: cc3 ignore parser")
+    if parse_module_size_config(
+        'limit = 1500\nroots = ["crates", "game"]\n[[waiver]]\npath = "x.rs"\n'
+    ) != (1500, ["crates", "game"], {"x.rs"}):
+        fail(errors, "planning checker self-test failed: module-size config parser")
 
 
 def check_archive_duplicates(errors: list[str]) -> None:

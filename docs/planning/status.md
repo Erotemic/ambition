@@ -30,11 +30,16 @@ checks against HEAD and update this page in the same commit.
 <!-- planning-evidence: boss-validator errors=8 warnings=10 -->
 <!-- planning-evidence: inline-test-debt path=crates/ambition_characters/src/equipment.rs -->
 <!-- planning-evidence: inline-test-debt path=game/ambition_demo_smb1/src/flag.rs -->
+<!-- planning-evidence: workspace-members count=45 -->
+<!-- planning-evidence: module-size waivers=1 violations=0 -->
+<!-- planning-evidence: cc3 status=ignored -->
 
 ## Verified foundations
 
 These are current facts, not active tasks:
 
+- The workspace has 45 members (44 crates + the `ambition_workspace_policy`
+  test-policy package). Machine-checked against `Cargo.toml`.
 - D-B's module-size policy counts physical source lines. It is green with one
   reasoned waiver for the declarative `game/ambition_app/src/menu/kaleidoscope_app.rs`.
 - D-C's mode-scoped rules seam exists and is consumed by the demo rules crates.

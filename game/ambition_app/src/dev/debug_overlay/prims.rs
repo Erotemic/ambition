@@ -131,6 +131,29 @@ pub(crate) fn draw_aabb_styled(
     }
 }
 
+/// Draw a live hitbox's TRUE damage volume — the shape damage resolution
+/// actually tests ([`ambition::vfx::Hitbox::world_volume`]), not a re-derived
+/// preview. When the hitbox authors a hull (the player's convex attack blade,
+/// an OBB, a circle) the hull is drawn prominently and its bounding box is
+/// reduced to a faint, vestigial broad-phase outline — "when a polygon is
+/// available the box around it is just vestigial". A bare `Aabb` volume has no
+/// separate hull, so the box IS the volume (normal styled fill).
+pub(crate) fn draw_hitbox_volume(
+    gizmos: &mut Gizmos,
+    world: &ae::World,
+    vol: &ae::CombatVolume,
+    color: Color,
+    developer_tools: &DeveloperTools,
+) {
+    match vol {
+        ae::CombatVolume::Aabb(a) => draw_aabb_styled(gizmos, world, *a, color, developer_tools),
+        shaped => {
+            draw_combat_volume(gizmos, world, shaped, color);
+            draw_aabb(gizmos, world, shaped.bounds(), with_alpha(color, 0.16));
+        }
+    }
+}
+
 pub(crate) fn with_alpha(color: Color, alpha: f32) -> Color {
     let srgba = color.to_srgba();
     Color::srgba(srgba.red, srgba.green, srgba.blue, alpha.clamp(0.0, 1.0))

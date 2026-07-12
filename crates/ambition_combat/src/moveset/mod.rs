@@ -820,6 +820,23 @@ fn is_melee_swing_move(id: &str) -> bool {
     id == ATTACK_VERB || id.starts_with("attack_")
 }
 
+/// Map a moveset `"attack"` move id back to the swing direction it was derived
+/// for. The directional variants (`prefabs::directional_attack_variants`) name
+/// their moves after the intent, so the read-model swing (and the sprite row it
+/// drives) can recover the direction the flat path used to carry on `AttackSpec`.
+/// The base `"attack"` and any unknown id read as the forward swing.
+fn attack_intent_from_move_id(id: &str) -> AttackIntent {
+    match id {
+        "attack_up" => AttackIntent::Up,
+        "attack_down" => AttackIntent::Down,
+        "attack_air" => AttackIntent::AirForward,
+        "attack_air_up" => AttackIntent::AirUp,
+        "attack_air_back" => AttackIntent::AirBack,
+        "attack_air_down" => AttackIntent::AirDown,
+        _ => AttackIntent::Forward,
+    }
+}
+
 /// Build the read-model `MeleeSwing` for a live move: startup = first Active
 /// window start, active = span from first Active start to last Active end
 /// (covers multi-hit combos), recovery = remainder. Only the timing is
@@ -841,7 +858,13 @@ fn synth_swing_from_move(pb: &MovePlayback) -> MeleeSwing {
     };
     let recovery = (spec.duration_s - startup - active).max(0.0);
     let attack_spec = AttackSpec {
-        intent: AttackIntent::Forward,
+        // The move's directional variant id (from `directional_attack_variants`)
+        // carries the swing direction — recover it so the read-model swing drives
+        // the correct directional sprite row (up-tilt reads `AttackUp`, a down-air
+        // `AirDown`, …) and any preview gizmo points the right way. The base
+        // `"attack"` move stays `Forward` (byte-parity with the pre-directional
+        // hardcode).
+        intent: attack_intent_from_move_id(spec.id.as_str()),
         startup_seconds: startup,
         active_seconds: active,
         recovery_seconds: recovery,

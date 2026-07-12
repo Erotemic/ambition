@@ -52,14 +52,12 @@ pub struct ActorSpriteData {
 
 /// One actor's resolved animation frame for the renderer: the chosen anim plus
 /// the bits the per-frame apply needs that aren't in the anim itself — world
-/// position (for localized-gravity facing), facing sign, and whether the actor
-/// is mid-swing (for the warm outgoing-attack tint).
+/// position (for localized-gravity facing) and facing sign.
 #[derive(Clone, Copy, Debug)]
 pub struct ActorAnimFrame {
     pub anim: CharacterAnim,
     pub pos: ae::Vec2,
     pub facing: f32,
-    pub attacking: bool,
 }
 
 // The per-actor identity accessors (`ecs_actor_name`, `ecs_actor_is_sandbag`,
@@ -127,7 +125,6 @@ impl ActorAnimIndex {
 pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query<ActorSpriteData>) {
     index.begin_rebuild();
     for a in &actors {
-        let attacking = a.attack.is_active() || a.attack.is_winding_up();
         let anim = ambition_actors::character_sprites::pick_actor_anim(
             a.kin,
             a.ground,
@@ -164,7 +161,6 @@ pub fn rebuild_actor_anim_index(mut index: ResMut<ActorAnimIndex>, actors: Query
                 anim,
                 pos: a.kin.pos,
                 facing: a.kin.facing,
-                attacking,
             },
         );
     }

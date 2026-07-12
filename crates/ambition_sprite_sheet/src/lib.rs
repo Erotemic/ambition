@@ -410,6 +410,20 @@ impl SheetRegistry {
         let mut loaded = 0usize;
         let mut failed: Vec<(String, String)> = Vec::new();
         for (filename_root, text) in table {
+            // Below-full quality-variant RONs (`sprites_0_5x` / `_0_25x` /
+            // `_potato`, baked as `<root>.<marker>` by `build.rs::baked_key_for_path`)
+            // are embedded in the SAME table but MUST NOT enter this target-keyed
+            // registry: every variant of `robot_slash` carries the identical
+            // `target: "robot_slash"`, so the last one inserted (potato, 8px
+            // frames) would silently clobber the full-res base. Any consumer that
+            // reads `Res<SheetRegistry>` directly against a full-res PNG (the slash
+            // VFX, shrine/projectile visuals) would then crop with potato-scale
+            // rects. Variant records reach the resolution-pair loader through the
+            // separate file-root-keyed indices (`from_baked_table_by_file_root`,
+            // `character::sheets::record_index`) that key them distinctly.
+            if is_quality_variant_file_root(filename_root) {
+                continue;
+            }
             match ron::from_str::<Vec<SheetRecord>>(text) {
                 Ok(records) => {
                     for record in records {
@@ -459,6 +473,14 @@ impl SheetRegistry {
         }
         registry
     }
+}
+
+/// True when a baked file root names a below-full quality variant — the
+/// `<root>.0_5x` / `.0_25x` / `.potato` keys `build.rs::baked_key_for_path`
+/// emits for the `sprites_0_5x` / `sprites_0_25x` / `sprites_potato` folders.
+/// Kept in sync with that function; the base (full-res) root carries no marker.
+fn is_quality_variant_file_root(root: &str) -> bool {
+    root.ends_with(".0_5x") || root.ends_with(".0_25x") || root.ends_with(".potato")
 }
 
 /// Build a [`SheetRegistry`] from the build-script baked RON table.

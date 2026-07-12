@@ -345,7 +345,21 @@ pub fn pick_player_anim(
     v.hit = combat.hitstun_timer > 0.05;
     v.blink_in = blink_cam.blink_in_timer > 0.0;
     v.shooting = anim.shoot_anim_timer > 0.0;
-    v.melee_attack = (anim.slash_anim_timer > 0.0).then(|| directional_attack_anim(attack));
+    // Gate the attack row on the live swing's PHASE (startup/active), the same
+    // read `pick_actor_anim` uses — NOT the flat `slash_anim_timer`. A
+    // `MovesetMelee` body (the player is one) drives its swing through the moveset
+    // runtime, which projects `BodyMelee.swing` but never arms `slash_anim_timer`
+    // (that timer is set only by the flat `start_attack`, which moveset bodies
+    // skip). Reading the timer left the player stuck on its locomotion row for the
+    // whole swing; the phase read works for both the moveset and flat paths.
+    v.melee_attack = attack
+        .filter(|s| {
+            matches!(
+                s.phase(),
+                Some(crate::combat::AttackPhase::Startup | crate::combat::AttackPhase::Active)
+            )
+        })
+        .map(|s| directional_attack_anim(Some(s)));
     v.aiming = anim.aim_anim_active;
     v.wall_jump = anim.wall_jump_anim_timer > 0.0;
     v.interacting = anim.interact_anim_timer > 0.0;

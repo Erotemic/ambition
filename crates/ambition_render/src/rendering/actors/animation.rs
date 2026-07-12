@@ -173,15 +173,14 @@ pub fn animate_characters(
         let Some(frame) = anim_index.get(&visual.id) else {
             continue;
         };
-        // Hit feedback is drawn by the white-silhouette overlay in
-        // `presentation::rendering::hit_flash`. Keep the warm attack tint on the
-        // multiplicative `sprite.color` channel — it's a separate signal
-        // (telegraphing the actor's outgoing swing, not its own damage).
-        let color = if frame.attacking {
-            Color::srgba(1.0, 0.85, 0.55, 1.0)
-        } else {
-            Color::WHITE
-        };
+        // Hit feedback (taking damage) is drawn by the white-silhouette overlay in
+        // `presentation::rendering::hit_flash`; the source sprite stays untinted
+        // (`WHITE`). Actors deliberately do NOT flash/tint on their OWN outgoing
+        // attack — a flash on an attack is something a character should opt INTO,
+        // not out of, and nothing wants it by default. If a game later needs
+        // per-character attack presentation (a warm windup tint, a charge glow), it
+        // belongs behind an explicit game-authored customization seam (a
+        // per-character presentation spec), not a hardcoded default here.
         apply_character_frame(
             &mut sprite,
             &mut animator,
@@ -190,7 +189,7 @@ pub fn animate_characters(
             dt,
             frame.facing,
             gravity.dir_at(frame.pos),
-            color,
+            Color::WHITE,
             // Enemies/NPCs don't drive the crouch stance-scale seam (their compaction,
             // if any, is authored per-anim); full standing height.
             1.0,

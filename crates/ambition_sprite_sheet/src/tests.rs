@@ -237,3 +237,42 @@ fn live_boss_spritesheet_ron_round_trips() {
         sweep_hurt.parts.len()
     );
 }
+
+/// A quality-variant RON (`sprites_potato/…`, baked as `<root>.potato` by
+/// `build.rs::baked_key_for_path`) must NOT clobber the full-res base in the
+/// target-keyed `SheetRegistry`. Every resolution variant of a sheet carries the
+/// IDENTICAL `record.target`, so a naive last-write-wins insert left
+/// `get("robot_slash")` returning the 8px potato frames — and any consumer that
+/// crops the full-res PNG with those tiny rects rendered a mis-cropped dark strip
+/// (the "translucent black box" slash-VFX bug, 2026-07-12). The base must win.
+///
+/// Deterministic: hand-built table (the real `BAKED_SHEET_RONS` only carries
+/// variant rows when the gitignored `sprites_*x/` folders exist locally, so a
+/// registry-level assertion would silently pass in CI). Sorted order puts the
+/// base (`"slash"`) before the variant (`"slash.potato"`), so a target-keyed
+/// last-write-wins would otherwise pick potato — exactly the bug.
+#[test]
+fn quality_variant_records_do_not_clobber_the_base_registry() {
+    let base = r#"[(target: "slash", image: "slash_spritesheet.png", label_width: 100,
+        frame_width: 116, frame_height: 118,
+        rows: [(animation: "side", row_index: 0, frame_count: 1, duration_ms: 60, duration_secs: 0.06,
+                rects: [(x: 100, y: 0, w: 116, h: 118)])])]"#;
+    let potato = r#"[(target: "slash", image: "slash_spritesheet.png", label_width: 7,
+        frame_width: 8, frame_height: 8,
+        rows: [(animation: "side", row_index: 0, frame_count: 1, duration_ms: 60, duration_secs: 0.06,
+                rects: [(x: 1, y: 1, w: 5, h: 6)])])]"#;
+    let table: &[(&str, &str)] = &[("slash", base), ("slash.potato", potato)];
+    let registry = SheetRegistry::from_baked_table(table);
+    let record = registry.get("slash").expect("base record present");
+    assert_eq!(
+        record.frame_width, 116,
+        "full-res base must win, not the 8px potato variant"
+    );
+    assert_eq!(record.frame_height, 118);
+    // The variant is not smuggled in under a suffixed key either.
+    assert!(registry.get("slash.potato").is_none());
+    // Sanity: the marker classifier agrees on which roots are variants.
+    assert!(is_quality_variant_file_root("slash.potato"));
+    assert!(is_quality_variant_file_root("robot_slash.0_5x"));
+    assert!(!is_quality_variant_file_root("slash"));
+}

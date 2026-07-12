@@ -848,7 +848,12 @@ pub(crate) fn draw_feature_debug(
             // FollowOwner with a dead/unknown owner: don't draw a ghost at origin.
             (None, ambition::actors::features::HitboxAnchor::FollowOwner { .. }) => continue,
         };
-        let aabb = hitbox.world_aabb(owner_pos);
+        // Draw the hitbox's TRUE damage volume — the authored convex blade / OBB /
+        // circle the strike actually resolves against, not just its AABB. When a
+        // hull is present the bounding box is drawn faint + vestigial; a bare-box
+        // hitbox draws as the box itself. (The player's melee resolves the authored
+        // per-clip poly through the moveset, so "hit:player" now shows that poly.)
+        let volume = hitbox.world_volume(owner_pos);
         let (color, tag) = match hitbox.source {
             ambition::vfx::HitSide::Player => (player_hitbox_color, "hit:player"),
             ambition::vfx::HitSide::Enemy => (enemy_hitbox_color, "hit:enemy"),
@@ -857,8 +862,8 @@ pub(crate) fn draw_feature_debug(
                 (npc_hitbox_color, "hit:npc")
             }
         };
-        draw_aabb_styled(gizmos, world, aabb, color, developer_tools);
-        label_box(labels, aabb, tag, color, LabelSpot::TopRight);
+        draw_hitbox_volume(gizmos, world, &volume, color, developer_tools);
+        label_box(labels, volume.bounds(), tag, color, LabelSpot::TopRight);
     }
 }
 

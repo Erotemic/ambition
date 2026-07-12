@@ -59,13 +59,21 @@ pub fn sync_live_player_dev_edits_system(
     else {
         return;
     };
+    let desired_abilities = editable_abilities.as_engine();
+    // Reading through `Mut<T>` is change-neutral; coercing it to `&mut T` is
+    // not. Keep the equality guard here, before the helper call, so an
+    // unchanged inspector resource does not mark `BodyAbilities` changed every
+    // frame and spuriously refresh every downstream derived persona system.
+    if abilities.abilities == desired_abilities {
+        return;
+    }
     dev_tools::sync_live_ability_edits_clusters(
         &mut abilities,
         &mut flight,
         &mut blink,
         &mut dash,
         &mut jump,
-        editable_abilities.as_engine(),
+        desired_abilities,
         editable_tuning.as_engine(),
     );
 }

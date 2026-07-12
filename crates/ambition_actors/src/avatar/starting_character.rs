@@ -24,6 +24,7 @@
 //! the reusable `ambition_render` binder installs the sprite from the same
 //! identity. Presentation no longer reads this app-local resource.
 
+use bevy::ecs::change_detection::{DetectChanges, Ref};
 use bevy::ecs::resource::Resource;
 use bevy::ecs::system::{Commands, Query};
 use bevy::prelude::{Changed, Entity, Has, Name, Or, With};
@@ -173,6 +174,22 @@ pub fn apply_worn_character_overlay(
         None => *name = Name::new(character_id.to_string()),
     }
 
+    apply_worn_character_kit(action_set, moveset, character_id, base_abilities)
+}
+
+/// Refresh only the action/moveset portion of a playable persona.
+///
+/// Identity changes call this through [`apply_worn_character_overlay`]. A live
+/// `BodyAbilities` edit calls it directly only for `HostCode` and unknown
+/// compatibility identities, whose kits actually depend on those abilities.
+/// Authored personas deliberately ignore that edge so an inspector edit cannot
+/// reset their name, authored kit, or persistent movement state.
+fn apply_worn_character_kit(
+    action_set: &mut ActionSet,
+    moveset: &mut ActorMoveset,
+    character_id: &str,
+    base_abilities: ambition_engine_core::AbilitySet,
+) -> bool {
     let source = crate::character_roster::playable_kit_source_for_character_id(character_id);
     let authored = crate::character_roster::default_action_set_for_character_id(character_id);
     if matches!(
@@ -198,31 +215,49 @@ pub fn apply_worn_character_overlay(
     charges_projectiles
 }
 
+fn sync_charge_projectile_capability(
+    commands: &mut Commands,
+    entity: Entity,
+    charges_projectiles: bool,
+    has_projectile_state: bool,
+) {
+    let mut entity_commands = commands.entity(entity);
+    if charges_projectiles {
+        entity_commands.insert(ambition_characters::brain::ChargesProjectiles);
+        if !has_projectile_state {
+            entity_commands.insert(ambition_projectiles::PlayerProjectileState::default());
+        }
+    } else {
+        entity_commands.remove::<ambition_characters::brain::ChargesProjectiles>();
+        entity_commands.remove::<ambition_projectiles::PlayerProjectileState>();
+    }
+}
+
 /// **Derive a body's gameplay from its worn identity and host ability source.**
 ///
-/// Runs when either [`WornCharacter`] or [`crate::actor::BodyAbilities`] changes.
-/// The second edge is load-bearing for `HostCode`: live developer/progression
-/// changes must rebuild the code-derived ActionSet immediately instead of leaving
-/// a stale kit until the character is worn again. The system also synchronizes
-/// the chargeable-projectile capability: authored characters use their authored
-/// ranged path, while HostCode/unknown compatibility profiles own both the host
-/// charge marker and its per-body state. Removing both prevents a nominally
-/// peaceful persona from retaining a dormant protagonist-only charge machine.
+/// An identity change refreshes the complete persona: display name, effective
+/// kit, projectile capability, and movement identity. An ability-only change is
+/// narrower: only a `HostCode` or unknown compatibility kit depends on
+/// `BodyAbilities`, so only that kit and its projectile capability are rebuilt.
+/// In particular, an authored Sanic keeps the persistent `MomentumMotion.state`
+/// it accumulated while riding a surface.
 pub fn apply_worn_character_gameplay(
     mut commands: Commands,
     mut worn: Query<
         (
             Entity,
-            &WornCharacter,
+            Ref<WornCharacter>,
             &mut Name,
             &mut ActionSet,
             &mut ActorMoveset,
-            &crate::actor::BodyAbilities,
+            Ref<crate::actor::BodyAbilities>,
             Has<ambition_projectiles::PlayerProjectileState>,
         ),
         Or<(Changed<WornCharacter>, Changed<crate::actor::BodyAbilities>)>,
     >,
 ) {
+    use ambition_characters::actor::character_catalog::PlayableKitSource;
+
     for (
         entity,
         character,
@@ -234,29 +269,46 @@ pub fn apply_worn_character_gameplay(
     ) in &mut worn
     {
         let id = character.id();
-        let charges_projectiles = apply_worn_character_overlay(
-            &mut name,
-            &mut action_set,
-            &mut moveset,
-            id,
-            abilities.abilities,
-        );
-        {
-            let mut entity_commands = commands.entity(entity);
-            if charges_projectiles {
-                entity_commands.insert(ambition_characters::brain::ChargesProjectiles);
-                if !has_projectile_state {
-                    entity_commands.insert(ambition_projectiles::PlayerProjectileState::default());
-                }
-            } else {
-                entity_commands.remove::<ambition_characters::brain::ChargesProjectiles>();
-                entity_commands.remove::<ambition_projectiles::PlayerProjectileState>();
+        if character.is_changed() {
+            let charges_projectiles = apply_worn_character_overlay(
+                &mut name,
+                &mut action_set,
+                &mut moveset,
+                id,
+                abilities.abilities,
+            );
+            sync_charge_projectile_capability(
+                &mut commands,
+                entity,
+                charges_projectiles,
+                has_projectile_state,
+            );
+
+            // Movement identity is identity-derived, not ability-derived. Only
+            // a wear/re-wear may replace the model; doing this for a live
+            // ability edit would reset SurfaceMomentum's persistent riding
+            // state to Airborne.
+            apply_worn_motion_model(&mut commands, entity, id);
+            continue;
+        }
+
+        if abilities.is_changed() {
+            let source = crate::character_roster::playable_kit_source_for_character_id(id);
+            if matches!(source, Some(PlayableKitSource::HostCode)) || source.is_none() {
+                let charges_projectiles = apply_worn_character_kit(
+                    &mut action_set,
+                    &mut moveset,
+                    id,
+                    abilities.abilities,
+                );
+                sync_charge_projectile_capability(
+                    &mut commands,
+                    entity,
+                    charges_projectiles,
+                    has_projectile_state,
+                );
             }
         }
-        // Movement identity: insert SurfaceMomentum for a momentum character,
-        // else REMOVE any stale model so a re-wear never rides a chain the new
-        // character can't (the render-refresh clobber gotcha in reverse).
-        apply_worn_motion_model(&mut commands, entity, id);
     }
 }
 

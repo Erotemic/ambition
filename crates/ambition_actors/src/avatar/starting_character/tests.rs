@@ -1,5 +1,7 @@
 use super::*;
 
+mod live_refresh;
+
 #[test]
 fn default_is_unset_and_is_default() {
     // No override: an empty id routes to the untouched `from_scratch` path.

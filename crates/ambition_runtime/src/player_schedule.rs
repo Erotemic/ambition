@@ -132,10 +132,11 @@ impl Plugin for PlayerSchedulePlugin {
                     ambition_actors::control::sync_local_player_input_frame,
                 )
                     .chain(),
-                // Canonical persona derive. It reacts both to identity changes
-                // and to live BodyAbilities edits; placing it in this chain gives
-                // its deferred capability-marker commands an apply-deferred seam
-                // before the brain/effects consumers run.
+                // Canonical persona derive. Identity changes refresh the full
+                // persona; live BodyAbilities edits refresh only HostCode-derived
+                // kit state, preserving authored movement state. Keeping it in
+                // this chain gives deferred capability-marker commands an
+                // apply-deferred seam before the brain/effects consumers run.
                 ambition_actors::avatar::apply_worn_character_gameplay,
                 // Universal-brain seam: translate this frame's slot input into
                 // each controlled body's ActorControl frame.

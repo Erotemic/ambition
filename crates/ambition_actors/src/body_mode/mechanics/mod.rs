@@ -56,7 +56,7 @@ pub fn update_body_mode(
         &mut crate::actor::BodyModeState,
         &mut crate::actor::BodyJumpState,
         &crate::actor::BodyGroundState,
-        Option<&crate::features::MotionModel>,
+        &crate::features::MotionModel,
         &crate::actor::BodyWallState,
         &crate::actor::BodyDashState,
         &crate::actor::BodyBlinkState,
@@ -140,10 +140,10 @@ pub fn update_body_mode(
         let on_ground = ground.on_ground
             || matches!(
                 motion,
-                Some(crate::features::MotionModel::SurfaceMomentum(momentum))
+                crate::features::MotionModel::SurfaceMomentum(momentum)
                     if matches!(
                         momentum.state,
-                        ae::surface::SurfaceMotion::Riding { .. }
+                        ae::movement::surface_momentum::SurfaceMotion::Riding { .. }
                     )
             );
         let mode = body_mode_state.body_mode;

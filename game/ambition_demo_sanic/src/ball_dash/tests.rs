@@ -166,7 +166,7 @@ fn leaving_the_ground_past_the_grace_loses_the_charge() {
 
 // ── The ECS half: a real body, the real components, the real systems ──
 
-use ae::surface::SurfaceMotion;
+use ae::movement::surface_momentum::SurfaceMotion;
 use ambition::actors::features::{MomentumMotion, MotionModel};
 use ambition::characters::brain::ActorControl;
 
@@ -186,7 +186,7 @@ fn body_app() -> (App, Entity) {
     let mut motion = MotionModel::SurfaceMomentum(MomentumMotion::new(Default::default()));
     if let MotionModel::SurfaceMomentum(m) = &mut motion {
         m.state = SurfaceMotion::Riding {
-            on: ae::surface::SurfaceRef::Chain(0),
+            on: ae::movement::surface_momentum::SurfaceRef::Chain(0),
             s: 100.0,
             v_t: 0.0,
         };
@@ -416,7 +416,7 @@ fn rolling_narrows_the_body_and_standing_up_restores_it() {
         &mut *app.world_mut().get_mut::<MotionModel>(e).unwrap()
     {
         m.state = SurfaceMotion::Riding {
-            on: ae::surface::SurfaceRef::Chain(0),
+            on: ae::movement::surface_momentum::SurfaceRef::Chain(0),
             s: 100.0,
             v_t: 5.0,
         };

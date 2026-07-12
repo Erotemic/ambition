@@ -69,7 +69,7 @@ pub struct SpriteTuningSpec {
 
 /// Surface-momentum motion feel, authored on the catalog row (Q21). The
 /// gameplay-side **mirror** of the serde-free kernel struct
-/// [`ae::surface::MomentumParams`](ambition_engine_core::surface::MomentumParams):
+/// [`ae::MomentumParams`](ambition_engine_core::MomentumParams):
 /// the kernel stays serde-free (its doc's contract), so this Deserialize twin
 /// lives here and hydrates via [`to_kernel`](MomentumParamsSpec::to_kernel).
 ///
@@ -103,36 +103,36 @@ pub struct MomentumParamsSpec {
 // Per-field defaults, read straight off the kernel `Default` so the two never
 // drift (the kernel is the single source of truth for the feel baseline).
 fn md_ground_accel() -> f32 {
-    ae::surface::MomentumParams::default().ground_accel
+    ae::MomentumParams::default().ground_accel
 }
 fn md_brake() -> f32 {
-    ae::surface::MomentumParams::default().brake
+    ae::MomentumParams::default().brake
 }
 fn md_friction() -> f32 {
-    ae::surface::MomentumParams::default().friction
+    ae::MomentumParams::default().friction
 }
 fn md_slope_factor() -> f32 {
-    ae::surface::MomentumParams::default().slope_factor
+    ae::MomentumParams::default().slope_factor
 }
 fn md_top_speed() -> f32 {
-    ae::surface::MomentumParams::default().top_speed
+    ae::MomentumParams::default().top_speed
 }
 fn md_air_accel() -> f32 {
-    ae::surface::MomentumParams::default().air_accel
+    ae::MomentumParams::default().air_accel
 }
 fn md_jump_speed() -> f32 {
-    ae::surface::MomentumParams::default().jump_speed
+    ae::MomentumParams::default().jump_speed
 }
 fn md_stick_factor() -> f32 {
-    ae::surface::MomentumParams::default().stick_factor
+    ae::MomentumParams::default().stick_factor
 }
 fn md_min_stick_speed() -> f32 {
-    ae::surface::MomentumParams::default().min_stick_speed
+    ae::MomentumParams::default().min_stick_speed
 }
 
 impl Default for MomentumParamsSpec {
     fn default() -> Self {
-        // Mirrors `ae::surface::MomentumParams::default()` field-for-field.
+        // Mirrors `ae::MomentumParams::default()` field-for-field.
         Self {
             ground_accel: md_ground_accel(),
             brake: md_brake(),
@@ -149,8 +149,8 @@ impl Default for MomentumParamsSpec {
 
 impl MomentumParamsSpec {
     /// Hydrate into the serde-free kernel struct the surface solver consumes.
-    pub fn to_kernel(&self) -> ae::surface::MomentumParams {
-        ae::surface::MomentumParams {
+    pub fn to_kernel(&self) -> ae::MomentumParams {
+        ae::MomentumParams {
             ground_accel: self.ground_accel,
             brake: self.brake,
             friction: self.friction,
@@ -538,7 +538,7 @@ mod momentum_spec_tests {
             ron::from_str("(ground_accel: 900.0, top_speed: 1200.0, jump_speed: 700.0)")
                 .expect("partial momentum spec should deserialize");
         let k = spec.to_kernel();
-        let d = ae::surface::MomentumParams::default();
+        let d = ae::MomentumParams::default();
         assert_eq!(k.ground_accel, 900.0, "tuned field wins");
         assert_eq!(k.top_speed, 1200.0);
         assert_eq!(k.jump_speed, 700.0);
@@ -554,6 +554,6 @@ mod momentum_spec_tests {
     #[test]
     fn empty_spec_is_the_kernel_default() {
         let spec: MomentumParamsSpec = ron::from_str("()").expect("empty spec ok");
-        assert_eq!(spec.to_kernel(), ae::surface::MomentumParams::default());
+        assert_eq!(spec.to_kernel(), ae::MomentumParams::default());
     }
 }

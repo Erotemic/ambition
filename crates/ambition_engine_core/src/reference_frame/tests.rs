@@ -6,6 +6,36 @@
 use super::*;
 
 #[test]
+fn motion_frame_keeps_acceleration_and_basis_canonical() {
+    let frame = MotionFrame::from_acceleration(Vec2::new(300.0, 400.0)).expect("non-zero acceleration");
+    assert_eq!(frame.acceleration(), Vec2::new(300.0, 400.0));
+    assert!((frame.magnitude() - 500.0).abs() < 1e-5);
+    assert!((frame.down() - Vec2::new(0.6, 0.8)).length() < 1e-6);
+    assert!((frame.side() - Vec2::new(0.8, -0.6)).length() < 1e-6);
+
+    let local = Vec2::new(17.0, -23.0);
+    assert!((frame.to_local(frame.to_world(local)) - local).length() < 1e-5);
+}
+
+#[test]
+fn zero_acceleration_can_retain_an_authored_reference_direction() {
+    let frame = MotionFrame::from_direction(Vec2::X, 0.0);
+    assert_eq!(frame.acceleration(), Vec2::ZERO);
+    assert_eq!(frame.down(), Vec2::X);
+    assert_eq!(frame.side(), Vec2::new(0.0, -1.0));
+}
+
+#[test]
+fn changing_acceleration_magnitude_does_not_rotate_the_reference_frame() {
+    let weak = MotionFrame::from_direction(Vec2::new(-2.0, 3.0), 10.0);
+    let strong = MotionFrame::from_direction(Vec2::new(-2.0, 3.0), 900.0);
+    assert!((weak.down() - strong.down()).length() < 1e-6);
+    assert!((weak.side() - strong.side()).length() < 1e-6);
+    assert!((weak.magnitude() - 10.0).abs() < 1e-5);
+    assert!((strong.magnitude() - 900.0).abs() < 1e-4);
+}
+
+#[test]
 fn normal_gravity_is_identity() {
     let f = AccelerationFrame::new(Vec2::new(0.0, 1.0));
     assert_eq!(f.down, Vec2::new(0.0, 1.0));

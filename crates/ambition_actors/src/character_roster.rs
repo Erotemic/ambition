@@ -203,7 +203,7 @@ pub fn playable_kit_is_host_code(character_id: &str) -> bool {
 /// ([`crate::avatar::apply_worn_motion_model`]) and the actor spawn path read.
 pub fn momentum_params_for_character_id(
     character_id: &str,
-) -> Option<ambition_engine_core::surface::MomentumParams> {
+) -> Option<ambition_engine_core::MomentumParams> {
     catalog()
         .characters
         .get(character_id)?

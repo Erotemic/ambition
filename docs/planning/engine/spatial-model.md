@@ -235,7 +235,7 @@ things that inspection would not have:
    and the bounded walk spun out. **The body froze on the joint, still `Riding`,
    still carrying its velocity** — which is why it read as a physics puzzle
    rather than a rounding bug. Fixed (`joint_nudge` is relative now) with a
-   regression test in `ambition_engine_core::surface`. The valley tests never
+   regression test in `ambition_engine_core::movement::surface_momentum`. The valley tests never
    caught it: their joints sit at s ≈ 500, where `1e-4` is comfortably many ULPs.
 2. **`SurfaceInputs::run` is along the CHAIN's tangent, not world `+x`.** Holding
    the stick "toward the corner" in world coordinates braked the ceiling cases to

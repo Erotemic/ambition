@@ -7,7 +7,7 @@
 
 #![allow(unused_imports)]
 use crate::geometry::{Aabb, AabbExt};
-use crate::movement::{InputState, MovementOp, MovementTuning};
+use crate::movement::{AxisSweptParams, InputState, MovementOp, MovementTuning};
 use crate::world::{BlockKind, World};
 use crate::Vec2;
 
@@ -176,7 +176,7 @@ pub struct LedgeGrabState {
     /// Velocity the player carried into the ledge at the moment of
     /// grab. Used to grant a momentum-carry boost to early getup
     /// options (climb / roll / attack / vertical jump) per the
-    /// `MovementTuning::ledge_momentum` parameters. Capped + decayed
+    /// `AxisSweptParams::ledge_momentum` parameters. Capped + decayed
     /// by [`ledge_boost`]; pure data, no behavior change unless that
     /// helper actually consumes it.
     pub momentum_at_grab: Vec2,

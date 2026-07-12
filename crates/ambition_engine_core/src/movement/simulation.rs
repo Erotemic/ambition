@@ -3,8 +3,9 @@ use crate::world::World;
 use super::events::FrameEvents;
 use super::input::InputState;
 use super::ops::MovementOp;
-use super::tuning::{MovementTuning, ONE_WAY_DROP_THROUGH_GRACE};
+use super::tuning::{AxisSweptParams, ONE_WAY_DROP_THROUGH_GRACE};
 use crate::player_state::BodyMode;
+use crate::MotionFrame;
 
 const LADDER_JUMP_BOOST_TIME: f32 = 0.10;
 
@@ -32,22 +33,23 @@ pub fn handle_jump_buffer_clusters(
     jump_state: &mut crate::body_clusters::BodyJumpState,
     combo_trace: &mut crate::body_clusters::BodyComboTrace,
     input: InputState,
-    tuning: MovementTuning,
+    frame: MotionFrame,
+    tuning: AxisSweptParams,
     events: &mut FrameEvents,
 ) {
     if action_buffer.jump <= 0.0 {
         return;
     }
 
-    let frame = crate::AccelerationFrame::new(tuning.gravity_dir);
+    let basis = frame.basis();
 
     if let Some(contact) = env_contact.water {
         if abilities.abilities.swim {
             let impulse = contact.spec.swim_up_impulse;
             let ascend_target = -impulse;
-            let descend = kinematics.vel.dot(frame.down);
+            let descend = kinematics.vel.dot(basis.down);
             if descend > ascend_target {
-                kinematics.vel += frame.down * (ascend_target - descend);
+                kinematics.vel += basis.down * (ascend_target - descend);
             }
             action_buffer.jump = 0.0;
             ground.coyote_timer = 0.0;
@@ -58,15 +60,15 @@ pub fn handle_jump_buffer_clusters(
 
     let on_ladder = env_contact.climbable.is_some();
 
-    if super::integration::wants_drop_through(tuning.stick(&input).y, input.jump_pressed)
+    if super::integration::wants_drop_through(input.local_axis().y, input.jump_pressed)
         && on_ladder
     {
         jump_state.ladder_drop_through_timer = ONE_WAY_DROP_THROUGH_GRACE;
         jump_state.ladder_drop_through_hold_lock = true;
         jump_state.ladder_jump_boost = 0.0;
-        let descend = kinematics.vel.dot(frame.down);
+        let descend = kinematics.vel.dot(basis.down);
         if descend < 0.0 {
-            kinematics.vel -= frame.down * descend;
+            kinematics.vel -= basis.down * descend;
         }
         action_buffer.jump = 0.0;
         ground.coyote_timer = 0.0;
@@ -76,7 +78,7 @@ pub fn handle_jump_buffer_clusters(
     if body_mode == BodyMode::Climbing && on_ladder {
         // "Press away from the feet + jump" boosts off the ladder (gravity- +
         // input-mode-relative via the resolved descend).
-        if abilities.abilities.jump && tuning.stick(&input).y < -0.1 {
+        if abilities.abilities.jump && input.local_axis().y < -0.1 {
             jump_state.ladder_jump_boost = LADDER_JUMP_BOOST_TIME;
             events.op_clusters(combo_trace, MovementOp::Jump);
         }
@@ -86,12 +88,12 @@ pub fn handle_jump_buffer_clusters(
     }
 
     let can_ladder_jump = on_ladder && !ground.on_ground;
-    if super::integration::wants_drop_through(tuning.stick(&input).y, input.jump_pressed)
+    if super::integration::wants_drop_through(input.local_axis().y, input.jump_pressed)
         && ground.on_ground
         && crate::movement::collision::standing_on_one_way_aabb(
             world,
-            kinematics.aabb_oriented(tuning.gravity_dir),
-            tuning.gravity_dir,
+            kinematics.aabb_oriented(frame.down()),
+            frame.down(),
         )
     {
         action_buffer.jump = 0.0;
@@ -102,13 +104,13 @@ pub fn handle_jump_buffer_clusters(
     }
 
     if abilities.abilities.wall_jump && wall.on_wall && !ground.on_ground {
-        let frame = crate::AccelerationFrame::new(tuning.gravity_dir);
+        let basis = frame.basis();
         let target_side = wall.wall_normal_x * tuning.wall_jump_x;
-        let cur_side = kinematics.vel.dot(frame.side);
-        kinematics.vel += frame.side * (target_side - cur_side);
+        let cur_side = kinematics.vel.dot(basis.side);
+        kinematics.vel += basis.side * (target_side - cur_side);
         super::integration::set_jump_velocity(
             &mut kinematics.vel,
-            tuning.gravity_dir,
+            frame.down(),
             tuning.jump_speed * 0.94,
         );
         wall.on_wall = false;
@@ -123,7 +125,7 @@ pub fn handle_jump_buffer_clusters(
     {
         super::integration::set_jump_velocity(
             &mut kinematics.vel,
-            tuning.gravity_dir,
+            frame.down(),
             tuning.jump_speed,
         );
         ground.on_ground = false;
@@ -134,7 +136,7 @@ pub fn handle_jump_buffer_clusters(
     } else if abilities.abilities.double_jump && !flying && jump_state.air_jumps_available > 0 {
         super::integration::set_jump_velocity(
             &mut kinematics.vel,
-            tuning.gravity_dir,
+            frame.down(),
             tuning.double_jump_speed,
         );
         ground.on_ground = false;

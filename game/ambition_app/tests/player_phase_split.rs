@@ -3,7 +3,7 @@
 //!
 //! `player_body_tick` used to fuse movement integration and presentation. It is now
 //! two scheduled phases: the MOVEMENT phase integrates through the LITERAL same
-//! engine entry actors use (`ae::update_body_with_tuning_clusters`) and writes a
+//! engine entry actors use (`ae::step_motion`) and writes a
 //! `PlayerBodyFrameOutput` hand-off; the separate PRESENTATION phase
 //! (`sync_player_presentation`, the player counterpart of `sync_actor_read_model`)
 //! reads that hand-off to emit anim/SFX/VFX/screen-shake. This drives real input

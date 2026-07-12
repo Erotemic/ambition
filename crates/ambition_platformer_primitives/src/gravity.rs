@@ -49,6 +49,12 @@ impl GravityField {
         self.dir.normalize_or_zero() * magnitude
     }
 
+    /// Resolve the complete frame consumed by a movement policy. Direction and
+    /// acceleration magnitude stay paired, including zero-force ticks.
+    pub fn motion_frame(&self, magnitude: f32) -> ambition_engine_core::MotionFrame {
+        ambition_engine_core::MotionFrame::from_direction(self.dir, magnitude)
+    }
+
     /// Sign of gravity along Y: `+1` = down (normal), `-1` = up (flipped). Used
     /// by the axis-based collision controllers (player / enemies).
     pub fn vertical_sign(&self) -> f32 {
@@ -298,6 +304,18 @@ impl GravityCtx<'_> {
             Some(zones) => gravity_dir_at(pos, zones, self.base_dir()),
             None => self.field_dir(),
         }
+    }
+
+    /// Resolve one body's current acceleration/reference frame at its world
+    /// position. This is the canonical ECS-to-kernel seam: callers construct it
+    /// once per body tick and pass the same value to input projection and the
+    /// selected movement policy.
+    pub fn motion_frame_at(
+        &self,
+        pos: Vec2,
+        magnitude: f32,
+    ) -> ambition_engine_core::MotionFrame {
+        ambition_engine_core::MotionFrame::from_direction(self.dir_at(pos), magnitude)
     }
 
     /// Localized gravity sign at `pos` (`+1` down / `-1` up).

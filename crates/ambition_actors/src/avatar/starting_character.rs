@@ -13,7 +13,8 @@
 //! brain the keyboard input."* Possession
 //! ([`crate::abilities::traversal::possession`]) already proves
 //! `Brain::Player` drives ANY body; this makes the *starting* body a choice
-//! too, without unifying the (deferred) player-vs-actor integration paths.
+//! too without creating a character-specific movement route. The worn body
+//! still enters the same frame-aware movement kernel as every other body.
 //!
 //! [`StartingCharacter`] is the STARTUP SELECTION resource. At spawn
 //! ([`crate::session::setup`]) the chosen id is both overlaid onto the body
@@ -34,7 +35,7 @@ use ambition_characters::actor::WornCharacter;
 use ambition_characters::brain::ActionSet;
 
 use crate::combat::moveset::{build_actor_moveset, ActorMoveset};
-use crate::features::{MomentumMotion, MotionModel};
+use crate::features::{AxisSweptMotion, MomentumMotion, MotionModel};
 
 /// The catalog `character_id` the local player spawns as.
 ///
@@ -92,64 +93,55 @@ impl StartingCharacter {
 // `AbilitySet`); the DEFAULT is that the row's authored kit wins — being the
 // content default no longer implies "keep the host's hardcoded kit" (2026-07-11).
 
-/// Apply the worn character's MOVEMENT IDENTITY to an already-spawned body
-/// (Q16 §S2): if the character authors surface-momentum params, insert
-/// `MotionModel::SurfaceMomentum`; otherwise **REMOVE** any `MotionModel` the
-/// body carried so it falls back to the axis-swept path.
+/// Resolve the state-free movement policy authored by a character identity.
 ///
-/// The explicit removal is the point: wearing is a re-parametrisation of ONE
-/// box (`Brain::Player` never moves), so a re-wear must not leave a stale
-/// momentum model riding a chain the new character can't — the render-refresh
-/// clobber gotcha in reverse. `momentum_params_for_character_id` is the single
-/// source of truth, so the player-wear seam and the actor spawn path can never
-/// disagree on which characters ride surfaces.
+/// The active experience owns the character catalog. Movement identity must be
+/// resolved from that App-local catalog rather than from Ambition's built-in
+/// roster, so standalone experiences such as Sanic can author their own policy
+/// without process-global registration.
+pub fn motion_model_spec_for_character_id(
+    catalog: &CharacterCatalog,
+    character_id: &str,
+) -> ambition_engine_core::MotionModelSpec {
+    match catalog.momentum_params(character_id) {
+        Some(params) => ambition_engine_core::MotionModelSpec::SurfaceMomentum(params),
+        None => ambition_engine_core::MotionModelSpec::AxisSwept(
+            ambition_engine_core::AxisSweptParams::default(),
+        ),
+    }
+}
+
+/// Apply the worn character's movement identity to an already-spawned body.
+///
+/// Every movable body already carries one explicit model. This operation only
+/// changes that policy; it never removes the component or uses absence as an
+/// axis-swept sentinel.
 pub fn apply_worn_motion_model(
     catalog: &CharacterCatalog,
     commands: &mut Commands,
     entity: Entity,
     character_id: &str,
 ) {
-    match catalog.momentum_params(character_id) {
-        Some(params) => {
-            commands
-                .entity(entity)
-                .insert(MotionModel::SurfaceMomentum(MomentumMotion::new(params)));
+    let model = match motion_model_spec_for_character_id(catalog, character_id) {
+        ambition_engine_core::MotionModelSpec::AxisSwept(params) => {
+            MotionModel::AxisSwept(AxisSweptMotion::new(params))
         }
-        None => {
-            commands.entity(entity).remove::<MotionModel>();
+        ambition_engine_core::MotionModelSpec::SurfaceMomentum(params) => {
+            MotionModel::SurfaceMomentum(MomentumMotion::new(params))
         }
-    }
+    };
+    commands.entity(entity).insert(model);
 }
 
-/// Synchronize movement identity without discarding live solver state when two
-/// forms author the same momentum profile. This is the transformation case:
-/// changing the worn sprite/name must not throw a rider off its surface or erase
-/// its tangential speed merely because the identity component changed.
+/// Synchronize movement identity without discarding live solver state when the
+/// selected policy is unchanged. A same-model refresh updates only parameters;
+/// a cross-model transition initializes only destination-private state.
 fn sync_worn_motion_model_preserving_state(
     catalog: &CharacterCatalog,
-    commands: &mut Commands,
-    entity: Entity,
     character_id: &str,
-    current: Option<&MotionModel>,
+    current: &mut MotionModel,
 ) {
-    match catalog.momentum_params(character_id) {
-        Some(params) => {
-            let already_matches = matches!(
-                current,
-                Some(MotionModel::SurfaceMomentum(momentum)) if momentum.params == params
-            );
-            if !already_matches {
-                commands
-                    .entity(entity)
-                    .insert(MotionModel::SurfaceMomentum(MomentumMotion::new(params)));
-            }
-        }
-        None => {
-            if current.is_some() {
-                commands.entity(entity).remove::<MotionModel>();
-            }
-        }
-    }
+    current.apply_spec(motion_model_spec_for_character_id(catalog, character_id));
 }
 
 /// Resolve a playable ActionSet without collapsing an invalid authored row into
@@ -291,7 +283,7 @@ pub fn apply_worn_character_gameplay(
             &mut ActionSet,
             &mut ActorMoveset,
             Ref<crate::actor::BodyAbilities>,
-            Option<&MotionModel>,
+            &mut MotionModel,
             Has<ambition_projectiles::PlayerProjectileState>,
         ),
         Or<(Changed<WornCharacter>, Changed<crate::actor::BodyAbilities>)>,
@@ -310,7 +302,7 @@ pub fn apply_worn_character_gameplay(
         mut action_set,
         mut moveset,
         abilities,
-        motion_model,
+        mut motion_model,
         has_projectile_state,
     ) in &mut worn
     {
@@ -335,13 +327,7 @@ pub fn apply_worn_character_gameplay(
             // a wear/re-wear may replace the model; doing this for a live
             // ability edit would reset SurfaceMomentum's persistent riding
             // state to Airborne.
-            sync_worn_motion_model_preserving_state(
-                &catalog,
-                &mut commands,
-                entity,
-                id,
-                motion_model,
-            );
+            sync_worn_motion_model_preserving_state(&catalog, id, &mut motion_model);
             continue;
         }
 

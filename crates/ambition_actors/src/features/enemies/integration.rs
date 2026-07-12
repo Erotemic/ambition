@@ -1,7 +1,7 @@
 //! Actor physics/AI integration: the per-frame tick that drives actor
 //! movement + attack geometry through the [`ActorMut`] ECS view. Grounded AND
 //! aerial actors run the EXACT shared player movement pipeline
-//! ([`ActorMut::integrate_body`] → `ae::update_body_with_tuning_clusters`,
+//! ([`ActorMut::integrate_body`] → `ae::step_motion`,
 //! borrowing the actor's `kin` + [`ActorBody`] clusters as one `BodyClustersMut`
 //! view) — the pipeline picks the flight limb vs the grounded spine from
 //! `flight.fly_enabled`; surface-walkers keep their glued crawl. Attack AABBs are
@@ -109,10 +109,10 @@ impl<'a> ActorMut<'a> {
         dt: f32,
         _is_mounted: bool,
         frame: ambition_characters::actor::control::ActorControlFrame,
-        // World gravity DIRECTION at the enemy (down/up/sideways) from
-        // `GravityField`, so the enemy falls the way the player does under ANY
-        // gravity — including left/right.
-        gravity_dir: ae::Vec2,
+        motion_model: &mut crate::features::MotionModel,
+        // Per-body acceleration-frame resolver. The actor resolves one frame at
+        // its current position and uses it for input projection and movement.
+        gravity: &crate::physics::GravityCtx,
         // Post-hit stagger inputs (§A2 step 7): the body's live hitstun /
         // recoil-lock timers (from its `BodyCombat`) + the feel tuning, applied
         // to the FINAL InputState by the SAME gate the player's input bridge
@@ -163,6 +163,7 @@ impl<'a> ActorMut<'a> {
         self.status.ai_mode = ai.mode;
 
         let is_surface_walker = self.config.tuning.surface_walker;
+        let gravity_dir = gravity.dir_at(self.kin.pos);
 
         // Keep the published reference-frame normal LIVE for every body (fable
         // review 2026-07-02 §B2): a surface-walker's normal is its clung surface
@@ -206,7 +207,9 @@ impl<'a> ActorMut<'a> {
             // `flight.fly_enabled` (set for aerial bodies at spawn / by the fly
             // toggle). The bespoke aerial integrator is gone. Its `FrameEvents`
             // (blink teleports, etc.) flow out to the driver.
-            self.integrate_body(world, ai.intent, &frame, dt, gravity_dir, feel, stagger)
+            self.integrate_body(
+                world, ai.intent, &frame, motion_model, dt, gravity, feel, stagger,
+            )
         };
 
         // Shield is the shared pipeline limb now (folded off the actor's own
@@ -232,7 +235,7 @@ impl<'a> ActorMut<'a> {
     }
 
     /// Integration through the **shared player movement pipeline**
-    /// (`ae::update_body_with_tuning_clusters`) — the unification's core seam, for
+    /// (`ae::step_motion`) — the unification's core seam, for
     /// BOTH grounded and aerial bodies. The actor's `kin` supplies the kinematics;
     /// its persistent [`ActorBody`] supplies the 18 ancillary movement clusters.
     /// The brain's `ActorControlFrame` becomes the body's `InputState`, so an actor
@@ -256,11 +259,13 @@ impl<'a> ActorMut<'a> {
         world: &ae::World,
         ai_intent: ambition_characters::actor::ai::CharacterAiIntent,
         frame: &ambition_characters::actor::control::ActorControlFrame,
+        motion_model: &mut crate::features::MotionModel,
         dt: f32,
-        gravity_dir: ae::Vec2,
+        gravity: &crate::physics::GravityCtx,
         feel: crate::time::feel::SandboxFeelTuning,
         stagger: (f32, f32),
     ) -> ae::FrameEvents {
+        let gravity_dir = gravity.dir_at(self.kin.pos);
         // Wall-stop detection on the gravity-PERPENDICULAR "side" axis the actor
         // walks along (so a patroller reverses when it stalls against a wall,
         // correctly under sideways gravity too).
@@ -291,15 +296,19 @@ impl<'a> ActorMut<'a> {
         // through the shared flight limb — byte-identical to the old SNAP float (AS4).
         tuning.flight_direct_velocity = self.config.tuning.flight_direct_velocity;
 
+        // Resolve the body's current acceleration/reference frame exactly once.
+        // Input projection and whichever physics policy is active consume this
+        // same immutable value.
+        let motion_frame = gravity.motion_frame_at(self.kin.pos, tuning.gravity);
         let mut input = if flying {
             // `velocity_target` (world px/s) → flight stick intent: project onto the
             // body frame the flight limb integrates in, normalise by the terminal so
             // a full-speed command maps to a full-deflection stick.
-            let fref = ae::AccelerationFrame::new(gravity_dir);
             let vt = frame.velocity_target;
             let mut i = frame.to_input_state();
-            i.axis_x = (vt.dot(fref.side) / flight_speed).clamp(-1.0, 1.0);
-            i.axis_y = (vt.dot(fref.down) / flight_speed).clamp(-1.0, 1.0);
+            let local_target = motion_frame.to_local(vt);
+            i.axis_x = (local_target.x / flight_speed).clamp(-1.0, 1.0);
+            i.axis_y = (local_target.y / flight_speed).clamp(-1.0, 1.0);
             i
         } else {
             frame.to_input_state()
@@ -321,9 +330,24 @@ impl<'a> ActorMut<'a> {
         // it and writes back the contact directly — no `surface` round-trip. Borrow
         // `kin` + the 18 ancillary clusters as ONE `BodyClustersMut` view, the exact
         // aggregate the player builds.
+        if let crate::features::MotionModel::AxisSwept(axis) = motion_model {
+            axis.params = tuning.axis_swept_params();
+        }
         let mut clusters = self.clusters_mut();
-        let events = ae::update_body_with_tuning_clusters(world, &mut clusters, input, dt, tuning);
+        let result = ae::step_motion(
+            motion_model,
+            &mut clusters,
+            ae::MotionStepContext {
+                world,
+                input,
+                frame: motion_frame,
+                facing_intent: frame.facing,
+                dt,
+            },
+        );
         drop(clusters);
+        self.surface.surface_normal = result.surface_normal;
+        let events = result.events;
         // Two actor policies applied on the ONE ground/jump authority: a flying body
         // is never grounded (the collision sweep can still find support under a
         // hovering flyer), and a grounded body refreshes its air jumps each tick

@@ -273,18 +273,18 @@ fn momentum_body_crosses_the_ramp_full_loop_and_runout_without_stalling() {
     let start_s = entry_s - 30.0;
     let frame = chain.frame_at(start_s);
     let speed = 1000.0;
-    let mut body = ae::surface::SurfaceBody {
+    let mut body = ae::movement::surface_momentum::SurfaceBody {
         pos: frame.point + frame.normal * 16.0,
         vel: frame.tangent * speed,
         radius: 16.0,
         depth_lane: chain.segment_depth(frame.segment),
-        motion: ae::surface::SurfaceMotion::Riding {
-            on: ae::surface::SurfaceRef::Chain(0),
+        motion: ae::movement::surface_momentum::SurfaceMotion::Riding {
+            on: ae::movement::surface_momentum::SurfaceRef::Chain(0),
             s: start_s,
             v_t: speed,
         },
     };
-    let params = ae::surface::MomentumParams {
+    let params = ae::MomentumParams {
         ground_accel: 0.0,
         brake: 0.0,
         friction: 0.0,
@@ -298,16 +298,16 @@ fn momentum_body_crosses_the_ramp_full_loop_and_runout_without_stalling() {
 
     let mut reached_runout = false;
     for _ in 0..180 {
-        ae::surface::step_surface_body(
+        ae::movement::surface_momentum::step_surface_body(
             &mut body,
             &room.world,
             &params,
-            ae::Vec2::new(0.0, 1450.0),
-            ae::surface::SurfaceInputs::default(),
+            ae::MotionFrame::from_acceleration(ae::Vec2::new(0.0, 1450.0)).expect("non-zero acceleration"),
+            ae::movement::surface_momentum::SurfaceInputs::default(),
             1.0 / 60.0,
             None,
         );
-        let ae::surface::SurfaceMotion::Riding { s, .. } = body.motion else {
+        let ae::movement::surface_momentum::SurfaceMotion::Riding { s, .. } = body.motion else {
             panic!("the continuous ramp/full-loop route must not shed the rider");
         };
         if s > closure_s + 120.0 {
@@ -339,18 +339,18 @@ fn authored_sanic_speed_clears_the_depth_crossover_before_any_launch() {
         .sum();
     let frame = chain.frame_at(entry_s);
     let speed = 1120.0;
-    let mut body = ae::surface::SurfaceBody {
+    let mut body = ae::movement::surface_momentum::SurfaceBody {
         pos: frame.point + frame.normal * 16.0,
         vel: frame.tangent * speed,
         radius: 16.0,
         depth_lane: chain.segment_depth(frame.segment),
-        motion: ae::surface::SurfaceMotion::Riding {
-            on: ae::surface::SurfaceRef::Chain(0),
+        motion: ae::movement::surface_momentum::SurfaceMotion::Riding {
+            on: ae::movement::surface_momentum::SurfaceRef::Chain(0),
             s: entry_s,
             v_t: speed,
         },
     };
-    let params = ae::surface::MomentumParams {
+    let params = ae::MomentumParams {
         ground_accel: 900.0,
         top_speed: 1200.0,
         jump_speed: 700.0,
@@ -359,20 +359,19 @@ fn authored_sanic_speed_clears_the_depth_crossover_before_any_launch() {
 
     let clear_s = closure_s + 160.0;
     for _ in 0..180 {
-        ae::surface::step_surface_body(
+        ae::movement::surface_momentum::step_surface_body(
             &mut body,
             &room.world,
             &params,
-            ae::Vec2::new(0.0, 1450.0),
-            ae::surface::SurfaceInputs {
-                run: 1.0,
-                steer: ae::Vec2::ZERO,
+            ae::MotionFrame::from_acceleration(ae::Vec2::new(0.0, 1450.0)).expect("non-zero acceleration"),
+            ae::movement::surface_momentum::SurfaceInputs {
+                local_axis: ae::Vec2::X,
                 jump_pressed: false,
             },
             1.0 / 60.0,
             None,
         );
-        let ae::surface::SurfaceMotion::Riding { s, .. } = body.motion else {
+        let ae::movement::surface_momentum::SurfaceMotion::Riding { s, .. } = body.motion else {
             panic!("authored Sanic speed must stay attached through the loop mouth; body={body:?}");
         };
         if s > clear_s {
@@ -587,7 +586,7 @@ fn loop_mouth_steering_selects_the_up_or_down_route_in_both_directions() {
         .expect("the speedway owns its ramp+loop route");
     let entry_s = chain.arc_at_vertex(LOOP_ENTRY_POINT_INDEX);
     let closure_s = chain.arc_at_vertex(LOOP_CLOSURE_POINT_INDEX);
-    let params = ae::surface::MomentumParams {
+    let params = ae::MomentumParams {
         ground_accel: 0.0,
         brake: 0.0,
         friction: 0.0,
@@ -601,25 +600,24 @@ fn loop_mouth_steering_selects_the_up_or_down_route_in_both_directions() {
 
     let step_from = |s: f32, v_t: f32, steer: ae::Vec2| {
         let frame = chain.frame_at(s);
-        let mut body = ae::surface::SurfaceBody {
+        let mut body = ae::movement::surface_momentum::SurfaceBody {
             pos: frame.point + frame.normal * 16.0,
             vel: frame.tangent * v_t,
             radius: 16.0,
             depth_lane: chain.segment_depth(frame.segment),
-            motion: ae::surface::SurfaceMotion::Riding {
-                on: ae::surface::SurfaceRef::Chain(0),
+            motion: ae::movement::surface_momentum::SurfaceMotion::Riding {
+                on: ae::movement::surface_momentum::SurfaceRef::Chain(0),
                 s,
                 v_t,
             },
         };
-        ae::surface::step_surface_body(
+        ae::movement::surface_momentum::step_surface_body(
             &mut body,
             &room.world,
             &params,
-            ae::Vec2::new(0.0, 1450.0),
-            ae::surface::SurfaceInputs {
-                run: v_t.signum(),
-                steer,
+            ae::MotionFrame::from_acceleration(ae::Vec2::new(0.0, 1450.0)).expect("non-zero acceleration"),
+            ae::movement::surface_momentum::SurfaceInputs {
+                local_axis: steer,
                 jump_pressed: false,
             },
             1.0 / 60.0,
@@ -629,19 +627,19 @@ fn loop_mouth_steering_selects_the_up_or_down_route_in_both_directions() {
     };
 
     let up_into_loop = step_from(entry_s - 3.0, 600.0, ae::Vec2::new(1.0, -1.0));
-    let ae::surface::SurfaceMotion::Riding { s, .. } = up_into_loop.motion else {
+    let ae::movement::surface_momentum::SurfaceMotion::Riding { s, .. } = up_into_loop.motion else {
         panic!("the authored route switch guides the rider instead of launching");
     };
     assert!(s > entry_s && s < closure_s, "up-right enters the loop");
 
     let down_to_runout = step_from(entry_s - 3.0, 600.0, ae::Vec2::new(1.0, 1.0));
-    let ae::surface::SurfaceMotion::Riding { s, .. } = down_to_runout.motion else {
+    let ae::movement::surface_momentum::SurfaceMotion::Riding { s, .. } = down_to_runout.motion else {
         panic!("the authored route switch guides the rider instead of launching");
     };
     assert!(s > closure_s, "down-right selects the lower/outbound route");
 
     let up_into_reverse_loop = step_from(closure_s + 3.0, -600.0, ae::Vec2::new(-1.0, -1.0));
-    let ae::surface::SurfaceMotion::Riding { s, .. } = up_into_reverse_loop.motion else {
+    let ae::movement::surface_momentum::SurfaceMotion::Riding { s, .. } = up_into_reverse_loop.motion else {
         panic!("the authored route switch guides the rider instead of launching");
     };
     assert!(
@@ -650,19 +648,19 @@ fn loop_mouth_steering_selects_the_up_or_down_route_in_both_directions() {
     );
 
     let down_to_ramp = step_from(closure_s + 3.0, -600.0, ae::Vec2::new(-1.0, 1.0));
-    let ae::surface::SurfaceMotion::Riding { s, .. } = down_to_ramp.motion else {
+    let ae::movement::surface_momentum::SurfaceMotion::Riding { s, .. } = down_to_ramp.motion else {
         panic!("the authored route switch guides the rider instead of launching");
     };
     assert!(s < entry_s, "down-left selects the descending ramp");
 
     let forward_default = step_from(closure_s - 3.0, 600.0, ae::Vec2::X);
-    let ae::surface::SurfaceMotion::Riding { s, .. } = forward_default.motion else {
+    let ae::movement::surface_momentum::SurfaceMotion::Riding { s, .. } = forward_default.motion else {
         panic!("horizontal input preserves the authored forward exit");
     };
     assert!(s > closure_s, "holding Right exits after one forward lap");
 
     let reverse_default = step_from(entry_s + 3.0, -600.0, -ae::Vec2::X);
-    let ae::surface::SurfaceMotion::Riding { s, .. } = reverse_default.motion else {
+    let ae::movement::surface_momentum::SurfaceMotion::Riding { s, .. } = reverse_default.motion else {
         panic!("horizontal input preserves the authored reverse exit");
     };
     assert!(s < entry_s, "holding Left exits after one reverse lap");
@@ -679,7 +677,7 @@ fn floor_route_steering_enters_the_ramp_without_jumping() {
         .expect("the speedway owns a momentum floor route");
     let floor = &room.world.chains[floor_index];
     let branch_s = floor.arc_at_vertex(1);
-    let params = ae::surface::MomentumParams {
+    let params = ae::MomentumParams {
         ground_accel: 0.0,
         brake: 0.0,
         friction: 0.0,
@@ -693,25 +691,24 @@ fn floor_route_steering_enters_the_ramp_without_jumping() {
 
     let step = |steer: ae::Vec2| {
         let frame = floor.frame_at(branch_s - 3.0);
-        let mut body = ae::surface::SurfaceBody {
+        let mut body = ae::movement::surface_momentum::SurfaceBody {
             pos: frame.point + frame.normal * 16.0,
             vel: frame.tangent * 600.0,
             radius: 16.0,
             depth_lane: floor.segment_depth(frame.segment),
-            motion: ae::surface::SurfaceMotion::Riding {
-                on: ae::surface::SurfaceRef::Chain(floor_index),
+            motion: ae::movement::surface_momentum::SurfaceMotion::Riding {
+                on: ae::movement::surface_momentum::SurfaceRef::Chain(floor_index),
                 s: branch_s - 3.0,
                 v_t: 600.0,
             },
         };
-        ae::surface::step_surface_body(
+        ae::movement::surface_momentum::step_surface_body(
             &mut body,
             &room.world,
             &params,
-            ae::Vec2::new(0.0, 1450.0),
-            ae::surface::SurfaceInputs {
-                run: 1.0,
-                steer,
+            ae::MotionFrame::from_acceleration(ae::Vec2::new(0.0, 1450.0)).expect("non-zero acceleration"),
+            ae::movement::surface_momentum::SurfaceInputs {
+                local_axis: steer,
                 jump_pressed: false,
             },
             1.0 / 60.0,
@@ -724,8 +721,8 @@ fn floor_route_steering_enters_the_ramp_without_jumping() {
     assert!(
         matches!(
             raised.motion,
-            ae::surface::SurfaceMotion::Riding {
-                on: ae::surface::SurfaceRef::Chain(0),
+            ae::movement::surface_momentum::SurfaceMotion::Riding {
+                on: ae::movement::surface_momentum::SurfaceRef::Chain(0),
                 ..
             }
         ),
@@ -736,8 +733,8 @@ fn floor_route_steering_enters_the_ramp_without_jumping() {
     assert!(
         matches!(
             flat.motion,
-            ae::surface::SurfaceMotion::Riding {
-                on: ae::surface::SurfaceRef::Chain(index),
+            ae::movement::surface_momentum::SurfaceMotion::Riding {
+                on: ae::movement::surface_momentum::SurfaceRef::Chain(index),
                 ..
             } if index == floor_index
         ),
@@ -758,13 +755,13 @@ fn reverse_loop_exits_after_one_revolution_instead_of_reentering_forever() {
     let closure_s = chain.arc_at_vertex(LOOP_CLOSURE_POINT_INDEX);
     let start_s = closure_s + 180.0;
     let frame = chain.frame_at(start_s);
-    let mut body = ae::surface::SurfaceBody {
+    let mut body = ae::movement::surface_momentum::SurfaceBody {
         pos: frame.point + frame.normal * 16.0,
         vel: frame.tangent * -900.0,
         radius: 16.0,
         depth_lane: chain.segment_depth(frame.segment),
-        motion: ae::surface::SurfaceMotion::Riding {
-            on: ae::surface::SurfaceRef::Chain(0),
+        motion: ae::movement::surface_momentum::SurfaceMotion::Riding {
+            on: ae::movement::surface_momentum::SurfaceRef::Chain(0),
             s: start_s,
             v_t: -900.0,
         },
@@ -772,7 +769,7 @@ fn reverse_loop_exits_after_one_revolution_instead_of_reentering_forever() {
     // Isolate route topology from feel tuning: this oracle asks whether the
     // authored reverse continuation exits after one lap, not whether a
     // particular speed/stick-factor combination sheds from a convex ramp.
-    let params = ae::surface::MomentumParams {
+    let params = ae::MomentumParams {
         ground_accel: 0.0,
         brake: 0.0,
         friction: 0.0,
@@ -786,27 +783,26 @@ fn reverse_loop_exits_after_one_revolution_instead_of_reentering_forever() {
 
     let mut entered_loop = false;
     for _ in 0..420 {
-        ae::surface::step_surface_body(
+        ae::movement::surface_momentum::step_surface_body(
             &mut body,
             &room.world,
             &params,
-            ae::Vec2::new(0.0, 1450.0),
-            ae::surface::SurfaceInputs {
-                run: -1.0,
-                steer: ae::Vec2::new(-1.0, 0.0),
+            ae::MotionFrame::from_acceleration(ae::Vec2::new(0.0, 1450.0)).expect("non-zero acceleration"),
+            ae::movement::surface_momentum::SurfaceInputs {
+                local_axis: ae::Vec2::NEG_X,
                 jump_pressed: false,
             },
             1.0 / 60.0,
             None,
         );
         match body.motion {
-            ae::surface::SurfaceMotion::Riding { s, .. } => {
+            ae::movement::surface_momentum::SurfaceMotion::Riding { s, .. } => {
                 entered_loop |= s > entry_s + 100.0 && s < closure_s - 100.0;
                 if entered_loop && s < entry_s - 0.5 {
                     return;
                 }
             }
-            ae::surface::SurfaceMotion::Airborne => {
+            ae::movement::surface_momentum::SurfaceMotion::Airborne => {
                 panic!(
                     "the topology oracle uses sticky, slope-free tuning and must remain attached; body={body:?}"
                 );
@@ -815,5 +811,25 @@ fn reverse_loop_exits_after_one_revolution_instead_of_reentering_forever() {
     }
     panic!(
         "reverse traversal must leave after one revolution instead of re-entering; body={body:?}"
+    );
+}
+
+#[test]
+fn rules_plugin_registers_its_mandatory_sfx_message_channel() {
+    let mut app = App::new();
+    assert!(
+        !app.world().contains_resource::<
+            bevy::prelude::Messages<ambition::sfx::SfxMessage>,
+        >(),
+        "the test must begin without the engine group's SFX registrar"
+    );
+
+    app.add_plugins(SanicRulesPlugin::global());
+
+    assert!(
+        app.world().contains_resource::<
+            bevy::prelude::Messages<ambition::sfx::SfxMessage>,
+        >(),
+        "SanicRulesPlugin owns a mandatory MessageWriter<SfxMessage> dependency and must register it when a thin host has not"
     );
 }

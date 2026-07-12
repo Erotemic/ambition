@@ -50,6 +50,7 @@ fn live_ability_sync_does_not_rederive_authored_movement_identity() {
             PlayerEntity,
             PrimaryPlayer,
             WornCharacter::new("sanic"),
+            MotionModel::default(),
             Name::new("unset"),
             ActionSet::default(),
             ActorMoveset(Default::default()),
@@ -65,8 +66,8 @@ fn live_ability_sync_does_not_rederive_authored_movement_identity() {
     app.world_mut()
         .resource_mut::<AbilityChangeObservations>()
         .0 = 0;
-    let riding = ambition_engine_core::surface::SurfaceMotion::Riding {
-        on: ambition_engine_core::surface::SurfaceRef::Chain(7),
+    let riding = ambition_engine_core::movement::surface_momentum::SurfaceMotion::Riding {
+        on: ambition_engine_core::movement::surface_momentum::SurfaceRef::Chain(7),
         s: 123.0,
         v_t: 456.0,
     };
@@ -105,7 +106,7 @@ fn live_ability_sync_does_not_rederive_authored_movement_identity() {
 fn assert_riding_state(
     world: &World,
     entity: Entity,
-    expected: ambition_engine_core::surface::SurfaceMotion,
+    expected: ambition_engine_core::movement::surface_momentum::SurfaceMotion,
 ) {
     let model = world.get::<MotionModel>(entity).unwrap();
     match model {

@@ -321,16 +321,12 @@ fn exemplar_hall_dialogue_ids_resolve() {
 }
 
 #[test]
-fn a_non_momentum_character_and_unknown_ids_ride_axis_swept() {
-    // The protagonist (axis-swept) and unknown ids resolve None so
-    // `apply_worn_motion_model` REMOVES any stale model on them. (Momentum
-    // resolution for a speedster row is covered content-independently by
-    // `avatar::starting_character::tests` against a local fixture; the shipped
-    // Ambition roster no longer authors one — that identity belongs to the
-    // Sanic experience provider.)
+fn built_in_roster_non_momentum_and_unknown_ids_have_no_momentum_profile() {
+    // Momentum identities are App-local catalog data. The Ambition roster does
+    // not own Sanic; standalone providers test their own momentum rows locally.
     assert!(
         momentum_params_for_character_id("player").is_none(),
-        "the protagonist stays axis-swept"
+        "the protagonist authors no surface-momentum profile"
     );
     assert!(momentum_params_for_character_id("npc_not_a_character").is_none());
 }

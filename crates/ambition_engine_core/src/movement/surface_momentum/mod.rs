@@ -55,7 +55,7 @@ use parry2d::{
 
 use crate::collision_semantics::{is_full_collision_surface, Contact, ContactSource};
 use crate::world::{SurfaceChain, SurfaceFrame, SurfacePort, World};
-use crate::Vec2;
+use crate::{MotionFrame, Vec2};
 
 /// Motion-feel parameters for a surface-momentum body. RON-authorable on the
 /// archetype row (the gameplay layer hydrates these; the kernel just consumes).
@@ -163,25 +163,25 @@ impl SurfaceBody {
 /// Per-tick controller intent (the body enforces — two-port discipline).
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SurfaceInputs {
-    /// -1..1 run intent. Riding: along the tangent. Airborne: along the
-    /// gravity frame's side axis.
-    pub run: f32,
-    /// Full controller direction in world axes (under normal gravity, `+y` is down).
+    /// Controller intent in the body's current acceleration-relative frame:
+    /// `+x` is local side/right and `+y` is local down/toward-feet.
     ///
-    /// Left/Right remains locomotion along the ridden route. Explicit route
-    /// junctions use only the acceleration-frame Up/Down component as branch
-    /// bias, then compare that bias with each branch's short lookahead heading.
-    pub steer: Vec2,
+    /// The solver receives this artifact unchanged from the common kernel
+    /// boundary and uses the supplied [`MotionFrame`] for every world-space
+    /// interpretation. No movement policy is allowed to reinterpret raw screen
+    /// input or construct a private control frame.
+    pub local_axis: Vec2,
     pub jump_pressed: bool,
 }
 
-/// One frame of surface-momentum physics. `gravity` is the full vector
-/// (direction × magnitude, e.g. `(0, 1450)`) so gravity zones compose.
+/// One frame of surface-momentum physics in the body's current acceleration
+/// frame. The exact same [`MotionFrame`] is supplied to every movement policy;
+/// this solver never reconstructs a private gravity/reference frame.
 pub fn step_surface_body(
     body: &mut SurfaceBody,
     world: &World,
     params: &MomentumParams,
-    gravity: Vec2,
+    frame: MotionFrame,
     inputs: SurfaceInputs,
     dt: f32,
     mut contacts: Option<&mut Vec<Contact>>,
@@ -195,7 +195,7 @@ pub fn step_surface_body(
                 body,
                 world,
                 params,
-                gravity,
+                frame,
                 inputs,
                 dt,
                 on,
@@ -209,7 +209,7 @@ pub fn step_surface_body(
                 body,
                 world,
                 params,
-                gravity,
+                frame,
                 inputs,
                 dt,
                 contacts.as_deref_mut(),
@@ -252,7 +252,7 @@ fn step_riding(
     body: &mut SurfaceBody,
     world: &World,
     params: &MomentumParams,
-    gravity: Vec2,
+    motion_frame: MotionFrame,
     inputs: SurfaceInputs,
     dt: f32,
     on: SurfaceRef,
@@ -260,8 +260,17 @@ fn step_riding(
     mut v_t: f32,
     mut contacts: Option<&mut Vec<Contact>>,
 ) {
-    let run = inputs.run.clamp(-1.0, 1.0);
-    let (on, s) = choose_route_branch_at_rest(world, on, s, v_t, inputs.steer).unwrap_or((on, s));
+    let gravity = motion_frame.acceleration();
+    let run = inputs.local_axis.x.clamp(-1.0, 1.0);
+    let (on, s) = choose_route_branch_at_rest(
+        world,
+        on,
+        s,
+        v_t,
+        motion_frame,
+        inputs.local_axis,
+    )
+    .unwrap_or((on, s));
     let Some(chain) = resolve_surface(world, on) else {
         body.motion = SurfaceMotion::Airborne;
         return;
@@ -295,7 +304,7 @@ fn step_riding(
             body,
             world,
             params,
-            gravity,
+            motion_frame,
             SurfaceInputs::default(),
             dt,
             contacts,
@@ -341,10 +350,10 @@ fn step_riding(
         stabilized_s,
         v_t * dt,
         v_t,
-        gravity,
+        motion_frame,
         params,
         body.radius,
-        inputs.steer,
+        inputs.local_axis,
     ) {
         RideOutcome::Riding {
             on: new_on,
@@ -404,12 +413,15 @@ fn choose_route_branch_at_rest(
     on: SurfaceRef,
     s: f32,
     v_t: f32,
-    steer: Vec2,
+    frame: MotionFrame,
+    local_axis: Vec2,
 ) -> Option<(SurfaceRef, f32)> {
     let SurfaceRef::Chain(chain_index) = on else {
         return None;
     };
-    if v_t.abs() > 1.0e-3 || steer.length_squared() <= ROUTE_BIAS_DEADZONE * ROUTE_BIAS_DEADZONE {
+    if v_t.abs() > 1.0e-3
+        || local_axis.length_squared() <= ROUTE_BIAS_DEADZONE * ROUTE_BIAS_DEADZONE
+    {
         return None;
     }
     let chain = world.chains.get(chain_index)?;
@@ -419,7 +431,7 @@ fn choose_route_branch_at_rest(
     } else {
         s.clamp(0.0, total)
     };
-    let desired = steer.normalize_or_zero();
+    let desired = frame.to_world(local_axis).normalize_or_zero();
     let mut current_vertex = None;
     let mut ports = None;
     for vertex in 0..chain.points.len() {
@@ -708,9 +720,9 @@ const ROUTE_BIAS_DEADZONE: f32 = 0.25;
 /// override an authored continuation. Projecting against the incoming tangent
 /// is incorrect on a slope: plain Left then acquires a fake downward component
 /// and can route a reverse runner into another loop lap.
-fn route_bias_direction(gravity: Vec2, steer: Vec2) -> Option<Vec2> {
-    let down = gravity.try_normalize().unwrap_or(Vec2::Y);
-    let amount = steer.dot(down);
+fn route_bias_direction(frame: MotionFrame, local_axis: Vec2) -> Option<Vec2> {
+    let amount = local_axis.y;
+    let down = frame.down();
     if amount.abs() <= ROUTE_BIAS_DEADZONE {
         None
     } else {
@@ -783,8 +795,8 @@ fn choose_route_branch(
     current_vertex: usize,
     incoming_segment: usize,
     travel_sign: f32,
-    gravity: Vec2,
-    steer: Vec2,
+    frame: MotionFrame,
+    local_axis: Vec2,
 ) -> Option<RouteBranch> {
     let SurfaceRef::Chain(current_chain) = on else {
         return None;
@@ -826,7 +838,7 @@ fn choose_route_branch(
     // only drive along the current route. This stays true on diagonal ramps and
     // under rotated gravity; projecting relative to the incoming tangent made
     // plain Left look like Down on an upslope and caused reverse loop re-entry.
-    let Some(desired) = route_bias_direction(gravity, steer) else {
+    let Some(desired) = route_bias_direction(frame, local_axis) else {
         return Some(default);
     };
     let branch_bias = |branch: RouteBranch| branch.heading.dot(desired);
@@ -853,11 +865,12 @@ fn advance_riding(
     s: f32,
     ds: f32,
     v_t: f32,
-    gravity: Vec2,
+    frame: MotionFrame,
     params: &MomentumParams,
     radius: f32,
-    steer: Vec2,
+    local_axis: Vec2,
 ) -> RideOutcome {
+    let gravity = frame.acceleration();
     let mut current = s;
     let mut remaining = ds;
     let mut routed_v_t = v_t;
@@ -923,8 +936,8 @@ fn advance_riding(
             current_vertex,
             seg_i,
             travel_sign,
-            gravity,
-            steer,
+            frame,
+            local_axis,
         ) {
             if !branch.is_default {
                 let Some(target) = resolve_surface(world, branch.on) else {
@@ -1012,21 +1025,18 @@ fn step_airborne(
     body: &mut SurfaceBody,
     world: &World,
     params: &MomentumParams,
-    gravity: Vec2,
+    frame: MotionFrame,
     inputs: SurfaceInputs,
     dt: f32,
     mut contacts: Option<&mut Vec<Contact>>,
 ) {
-    // Ballistic + air control along the gravity frame's side axis.
+    // Ballistic + air control use the same frame the dispatcher supplied.
+    let gravity = frame.acceleration();
     body.vel += gravity * dt;
-    let run = inputs.run.clamp(-1.0, 1.0);
+    let run = inputs.local_axis.x.clamp(-1.0, 1.0);
     if run.abs() > 0.1 {
-        // The local side axis is the along-surface tangent of the FLOOR a body
-        // would be standing on, and a floor's normal is `-gravity`. Using
-        // `tangent_of(gravity)` here — the exact negation — mirrored air control
-        // for every momentum body. `AccelerationFrame::new(gravity).side` is the
-        // same vector; `tangent_of` names why.
-        let side = crate::frame::tangent_of(-gravity.normalize_or_zero());
+        // Air steering is authored along the body's local side axis.
+        let side = frame.side();
         let along = body.vel.dot(side);
         let target = run * params.top_speed;
         // Equilibrium steering: accelerate toward the held direction up to

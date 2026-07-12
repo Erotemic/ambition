@@ -446,10 +446,10 @@ fn down_plus_x_revs_and_releasing_down_launches_the_ball_dash() {
                 .expect("the demo spawned a primary player body");
             let speed = match motion {
                 MotionModel::SurfaceMomentum(momentum) => match momentum.state {
-                    ambition::engine_core::surface::SurfaceMotion::Riding { v_t, .. } => v_t.abs(),
-                    ambition::engine_core::surface::SurfaceMotion::Airborne => kin.vel.length(),
+                    ambition::engine_core::movement::surface_momentum::SurfaceMotion::Riding { v_t, .. } => v_t.abs(),
+                    ambition::engine_core::movement::surface_momentum::SurfaceMotion::Airborne => kin.vel.length(),
                 },
-                MotionModel::AxisSwept => 0.0,
+                MotionModel::AxisSwept(_) => 0.0,
             };
             (rolling.is_some(), speed, *dash, *technique_input)
         };

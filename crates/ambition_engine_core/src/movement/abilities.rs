@@ -12,7 +12,8 @@
 use super::events::FrameEvents;
 use super::input::InputState;
 use super::ops::MovementOp;
-use super::tuning::MovementTuning;
+use super::tuning::AxisSweptParams;
+use crate::MotionFrame;
 use crate::body_clusters::{
     BodyAbilities, BodyActionBuffer, BodyBlinkState, BodyComboTrace, BodyDashState, BodyDodgeState,
     BodyFlightState, BodyGroundState, BodyKinematics, BodyShieldState, BodyWallState,
@@ -28,10 +29,10 @@ pub(super) fn apply_intent(
     action_buffer: &mut BodyActionBuffer,
     abilities: &BodyAbilities,
     input: InputState,
-    tuning: MovementTuning,
+    tuning: AxisSweptParams,
 ) {
     let can_turn = ground.on_ground || flight.fly_enabled;
-    let local_stick = tuning.stick(&input);
+    let local_stick = input.local_axis();
     if can_turn && local_stick.x.abs() > 0.1 {
         kinematics.facing = local_stick.x.signum();
     }
@@ -78,7 +79,8 @@ pub(super) fn apply_dodge(
     abilities: &BodyAbilities,
     combo_trace: &mut BodyComboTrace,
     input: InputState,
-    tuning: MovementTuning,
+    frame: MotionFrame,
+    tuning: AxisSweptParams,
     events: &mut FrameEvents,
 ) {
     if action_buffer.dash > 0.0
@@ -86,15 +88,14 @@ pub(super) fn apply_dodge(
         && ground.on_ground
         && dodge.cooldown <= 0.0
     {
-        let local_stick = tuning.stick(&input);
+        let local_stick = input.local_axis();
         let dir = if local_stick.x.abs() > 0.1 {
             local_stick.x.signum()
         } else {
             kinematics.facing
         };
-        let frame = crate::AccelerationFrame::new(tuning.gravity_dir);
-        let descend = kinematics.vel.dot(frame.down).min(0.0);
-        kinematics.vel = frame.side * (dir * tuning.dodge_roll_speed) + frame.down * descend;
+        let descend = kinematics.vel.dot(frame.down()).min(0.0);
+        kinematics.vel = frame.side() * (dir * tuning.dodge_roll_speed) + frame.down() * descend;
         dodge.roll_timer = tuning.dodge_roll_time;
         dodge.cooldown = tuning.dodge_roll_cooldown;
         action_buffer.dash = 0.0;
@@ -143,7 +144,7 @@ pub(super) fn apply_shield(
     abilities: &BodyAbilities,
     combo_trace: &mut BodyComboTrace,
     input: InputState,
-    tuning: MovementTuning,
+    tuning: AxisSweptParams,
     events: &mut FrameEvents,
 ) {
     let fresh = resolve_shield(
@@ -164,13 +165,13 @@ pub(super) fn apply_jump_release(
     kinematics: &mut BodyKinematics,
     abilities: &BodyAbilities,
     input: InputState,
-    tuning: MovementTuning,
+    frame: MotionFrame,
+    tuning: AxisSweptParams,
 ) {
-    let frame = crate::AccelerationFrame::new(tuning.gravity_dir);
-    let ascend_speed = -kinematics.vel.dot(frame.down);
+    let ascend_speed = -kinematics.vel.dot(frame.down());
     if abilities.abilities.variable_jump && input.jump_released && ascend_speed > 120.0 {
-        let along_down = kinematics.vel.dot(frame.down);
-        kinematics.vel += frame.down * (along_down * 0.54 - along_down);
+        let along_down = kinematics.vel.dot(frame.down());
+        kinematics.vel += frame.down() * (along_down * 0.54 - along_down);
     }
 }
 
@@ -191,7 +192,8 @@ pub(super) fn apply_dash(
     abilities: &BodyAbilities,
     combo_trace: &mut BodyComboTrace,
     input: InputState,
-    tuning: MovementTuning,
+    frame: MotionFrame,
+    tuning: AxisSweptParams,
     events: &mut FrameEvents,
 ) {
     if action_buffer.dash > 0.0
@@ -199,9 +201,8 @@ pub(super) fn apply_dash(
         && dash.charges_available > 0
         && dash.cooldown <= 0.0
     {
-        let frame = crate::AccelerationFrame::new(tuning.gravity_dir);
         let fallback = bevy_math::Vec2::new(kinematics.facing, 0.0);
-        let aim = tuning.stick(&input).normalize_or(fallback);
+        let aim = input.local_axis().normalize_or(fallback);
         kinematics.vel = frame.to_world(aim) * tuning.dash_speed;
         dash.timer = tuning.dash_time;
         dash.cooldown = tuning.dash_cooldown;

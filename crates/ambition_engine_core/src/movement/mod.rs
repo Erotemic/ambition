@@ -1,28 +1,23 @@
-//! Player movement simulation.
+//! One trusted, frame-aware movement kernel with swappable physics policies.
 //!
-//! Pure-Rust kinematic platformer with coyote time, buffered jumps,
-//! optional double jumps, optional wall jumps/cling/climb, optional
-//! dash/double dash, blink/precision blink, pogo refreshes, rebound
-//! pads, hazards, and a symbolic operation trace.
+//! [`step_motion`] is the production gateway. Every movable body carries one
+//! explicit [`MotionModel`], and every policy receives the same immutable
+//! [`MotionFrame`] resolved once from the environment's reference basis and
+//! complete world-space acceleration for that tick. The active frame is
+//! environmental state: it is neither
+//! authored into model parameters nor cached in model-private runtime state.
 //!
-//! Entry points (all cluster-native, no `ae::Player` aggregate):
+//! Axis-swept action-platformer movement and [`surface_momentum`] are sibling
+//! implementations. They may own different private state and collision logic,
+//! but they share one body-state authority, one local-input contract, one world
+//! context, one frame, and one deterministic dispatch seam.
 //!
-//! - [`update_player_with_tuning_clusters`] — combined control + sim
-//! - [`update_player_control_with_clusters`] — control-phase only
-//! - [`update_player_simulation_with_clusters`] — simulation-phase only
-//! - [`update_player_*_scratch`] — test wrappers that take a
-//!   `BodyClusterScratch` instead of a `BodyClustersMut` view
-//!
-//! Each entry point consumes an [`InputState`], mutates the player's
-//! cluster components through a [`crate::BodyClustersMut`]
-//! view, and returns [`FrameEvents`] for the Bevy layer to translate
-//! into particles, hitstop, sound, or debug overlays. Implementation
-//! details live in focused child modules so movement actions,
-//! simulation clocks, collision, velocity integration, and blink
-//! pathing can evolve independently.
+//! The phase-level axis functions below remain implementation/test vocabulary
+//! while existing invariant tests are migrated. Production actor and home-body
+//! integration must call [`step_motion`], never an individual solver arm.
 
 use crate::world::World;
-use crate::Vec2;
+use crate::{MotionFrame, Vec2};
 
 mod abilities;
 mod blink;
@@ -31,10 +26,15 @@ mod control;
 mod events;
 mod input;
 mod integration;
+mod kernel;
+mod model;
 mod ops;
 mod player;
 mod simulation;
+pub mod surface_momentum;
 mod tuning;
+
+pub use surface_momentum::MomentumParams;
 
 pub use abilities::resolve_shield;
 pub use blink::{blink_destination_clusters, blink_destination_to_point_clusters};
@@ -44,6 +44,11 @@ pub use blink::{blink_destination_clusters, blink_destination_to_point_clusters}
 pub use collision::touching_hazard_aabb;
 pub use events::{BlinkEvent, FrameEvents};
 pub use input::InputState;
+pub use kernel::{step_motion, MotionStepContext, MotionStepResult};
+pub use model::{
+    AxisSweptMotion, MotionModel, MotionModelKind, MotionModelSpec,
+    SurfaceMomentumMotion,
+};
 /// Screen-vertical input → gravity-relative "descend" intent (the vertical
 /// sibling of the run-axis transform). Every crouch/pogo/drop-through/fast-fall
 /// gate and gravity-relative vertical movement reads input through this so a
@@ -62,10 +67,11 @@ pub use integration::{integrate_normal_spine, NormalSpineCtx};
 pub use ops::{ComboMark, MovementOp};
 pub use player::{default_player_body_size, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH};
 pub use tuning::{
-    LedgeMomentumTuning, MovementTuning, AIR_ACCEL, AIR_FRICTION, AIR_JUMPS, BLINK_COOLDOWN,
+    AxisSweptParams, LedgeMomentumTuning, MovementTuning, AIR_ACCEL, AIR_FRICTION, AIR_JUMPS,
+    BLINK_COOLDOWN,
     BLINK_DISTANCE, BLINK_GRACE_TIME, BLINK_HOLD_THRESHOLD, BLINK_MAX_DOWNWARD_SPEED, COYOTE_TIME,
-    DASH_BUFFER, DASH_COOLDOWN, DASH_SPEED, DASH_TIME, DEFAULT_GRAVITY_DIR, DEFAULT_GRAVITY_SIGN,
-    DEFAULT_TUNING, DODGE_ROLL_COOLDOWN, DODGE_ROLL_SPEED, DODGE_ROLL_TIME, DOUBLE_JUMP_SPEED,
+    DASH_BUFFER, DASH_COOLDOWN, DASH_SPEED, DASH_TIME, DEFAULT_AXIS_SWEPT_PARAMS,
+    DEFAULT_GRAVITY_DIR, DEFAULT_GRAVITY_SIGN, DEFAULT_TUNING, DODGE_ROLL_COOLDOWN, DODGE_ROLL_SPEED, DODGE_ROLL_TIME, DOUBLE_JUMP_SPEED,
     FAST_FALL_ACCEL, FAST_FALL_SPEED, FLIGHT_ACCEL, FLIGHT_DRAG, FLIGHT_HOVER_HZ,
     FLIGHT_HOVER_SPEED, FLIGHT_TERMINAL_SPEED, GLIDE_AIR_ACCEL, GLIDE_FALL_SPEED, GRAVITY,
     GROUND_FRICTION, JUMP_BUFFER, JUMP_SPEED, MAX_FALL_SPEED, MAX_RUN_SPEED,
@@ -89,12 +95,35 @@ use collision::body_is_side_contact;
 /// wrapper. An actor body calls this directly and handles a reset request with
 /// its own policy (take damage / die / ignore), never a teleport to the player
 /// spawn.
-pub fn update_body_control_with_clusters(
+#[cfg(test)]
+pub(crate) fn update_body_control_with_clusters(
     world: &World,
     clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
     input: InputState,
     control_dt: f32,
     tuning: MovementTuning,
+) -> FrameEvents {
+    let frame = MotionFrame::from_direction(tuning.gravity_dir, tuning.gravity);
+    update_body_control_in_frame(
+        world,
+        clusters,
+        input,
+        control_dt,
+        frame,
+        tuning.axis_swept_params(),
+    )
+}
+
+/// Frame-explicit axis-swept control phase used by the unified movement kernel.
+/// The current acceleration frame is supplied by the environment, never read
+/// from or written into model parameters.
+pub(crate) fn update_body_control_in_frame(
+    world: &World,
+    clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
+    input: InputState,
+    control_dt: f32,
+    frame: MotionFrame,
+    tuning: AxisSweptParams,
 ) -> FrameEvents {
     let mut events = FrameEvents::default();
 
@@ -138,6 +167,7 @@ pub fn update_body_control_with_clusters(
         clusters.combo_trace,
         input,
         control_dt,
+        frame,
         tuning,
         &mut events,
     );
@@ -146,6 +176,7 @@ pub fn update_body_control_with_clusters(
         clusters.abilities,
         clusters.combo_trace,
         input,
+        frame,
         tuning,
         &mut events,
     );
@@ -158,6 +189,7 @@ pub fn update_body_control_with_clusters(
         clusters.abilities,
         clusters.combo_trace,
         input,
+        frame,
         tuning,
         &mut events,
     );
@@ -169,6 +201,7 @@ pub fn update_body_control_with_clusters(
         clusters.abilities,
         clusters.combo_trace,
         input,
+        frame,
         tuning,
         &mut events,
     );
@@ -183,7 +216,7 @@ pub fn update_body_control_with_clusters(
         &mut events,
     );
 
-    abilities::apply_jump_release(clusters.kinematics, clusters.abilities, input, tuning);
+    abilities::apply_jump_release(clusters.kinematics, clusters.abilities, input, frame, tuning);
 
     events
 }
@@ -192,7 +225,8 @@ pub fn update_body_control_with_clusters(
 /// [`update_body_control_with_clusters`] plus the player respawn *policy* — a
 /// flagged reset teleports the player body to `world.spawn`. Behavior-identical
 /// to the historical inline reset; actors deliberately do NOT use this wrapper.
-pub fn update_player_control_with_clusters(
+#[cfg(test)]
+pub(crate) fn update_player_control_with_clusters(
     world: &World,
     clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
     input: InputState,
@@ -211,12 +245,34 @@ pub fn update_player_control_with_clusters(
 /// handle the buffered jump, integrate velocity through collision,
 /// re-probe ledge starts, and finally fire the hazard reset gate.
 /// All state lives on cluster components.
-pub fn update_body_simulation_with_clusters(
+#[cfg(test)]
+pub(crate) fn update_body_simulation_with_clusters(
     world: &World,
     clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
     input: InputState,
     raw_dt: f32,
     tuning: MovementTuning,
+) -> FrameEvents {
+    let frame = MotionFrame::from_direction(tuning.gravity_dir, tuning.gravity);
+    update_body_simulation_in_frame(
+        world,
+        clusters,
+        input,
+        raw_dt,
+        frame,
+        tuning.axis_swept_params(),
+    )
+}
+
+/// Frame-explicit axis-swept simulation phase used by the unified movement
+/// kernel. The same immutable frame reaches every gravity-relative limb.
+pub(crate) fn update_body_simulation_in_frame(
+    world: &World,
+    clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
+    input: InputState,
+    raw_dt: f32,
+    frame: MotionFrame,
+    tuning: AxisSweptParams,
 ) -> FrameEvents {
     // §3.1 SweepSample: both endpoints are captured INSIDE the kernel —
     // `prev` at sim-phase entry, `curr` at exit — so any position change
@@ -227,7 +283,7 @@ pub fn update_body_simulation_with_clusters(
     // zero-length segment, never a stale one).
     let entry_pos = clusters.kinematics.pos;
     let entry_vel = clusters.kinematics.vel;
-    let events = update_body_simulation_inner(world, clusters, input, raw_dt, tuning);
+    let events = update_body_simulation_inner(world, clusters, input, raw_dt, frame, tuning);
     if let Some(sweep) = clusters.sweep.as_deref_mut() {
         *sweep = crate::body_clusters::SweepSample {
             prev: entry_pos,
@@ -244,7 +300,8 @@ fn update_body_simulation_inner(
     clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
     input: InputState,
     raw_dt: f32,
-    tuning: MovementTuning,
+    frame: MotionFrame,
+    tuning: AxisSweptParams,
 ) -> FrameEvents {
     let mut events = FrameEvents::default();
     if raw_dt <= 0.0 {
@@ -312,7 +369,9 @@ fn update_body_simulation_inner(
 
     // Active ledge-grab tick. Returns true if it consumed the frame
     // (the rest of the simulation phase short-circuits).
-    if crate::ledge_grab::tick_active_ledge_grab_clusters(clusters, input, dt, tuning, &mut events)
+    if crate::ledge_grab::tick_active_ledge_grab_clusters_in_frame(
+        clusters, input, dt, frame, tuning, &mut events,
+    )
     {
         return events;
     }
@@ -332,16 +391,21 @@ fn update_body_simulation_inner(
         clusters.jump,
         clusters.combo_trace,
         input,
+        frame,
         tuning,
         &mut events,
     );
 
-    integration::integrate_velocity_clusters(world, clusters, input, dt, tuning, &mut events);
+    integration::integrate_velocity_clusters(
+        world, clusters, input, dt, frame, tuning, &mut events,
+    );
 
     // Probe for a fresh ledge grab now that the integration step
     // settled the new position. Required for the auto-snap-on-fall
     // recovery path (slow drifts ignore this; fast falls latch).
-    crate::ledge_grab::try_start_ledge_grab_clusters(world, clusters, input, tuning, &mut events);
+    crate::ledge_grab::try_start_ledge_grab_clusters_in_frame(
+        world, clusters, input, frame, tuning, &mut events,
+    );
 
     // Hazard / out-of-bounds gate — body flags hazard + reset; the player
     // wrapper respawns. An actor body reads the flag and applies its own policy.
@@ -354,7 +418,7 @@ fn update_body_simulation_inner(
         pos.x.clamp(0.0, world.size.x),
         pos.y.clamp(0.0, world.size.y),
     );
-    let fell_out = (pos - clamped).dot(tuning.gravity_dir) > 200.0;
+    let fell_out = (pos - clamped).dot(frame.down()) > 200.0;
     if collision::touching_hazard_aabb(world, clusters.kinematics.aabb()) || fell_out {
         events.hazard = true;
         events.reset = true;
@@ -368,7 +432,8 @@ fn update_body_simulation_inner(
 /// flagged reset (drown / hazard / out-of-bounds) teleports the player body to
 /// `world.spawn`. Behavior-identical to the historical inline resets; actors
 /// deliberately do NOT use this wrapper (they own their hazard reaction).
-pub fn update_player_simulation_with_clusters(
+#[cfg(test)]
+pub(crate) fn update_player_simulation_with_clusters(
     world: &World,
     clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
     input: InputState,
@@ -390,7 +455,8 @@ fn dec(value: f32, dt: f32) -> f32 {
 /// phase, using `tuning`. `InputState::control_dt` overrides `raw_dt`
 /// for the control phase when positive (so bullet-time slowing
 /// gravity does not slow input).
-pub fn update_player_with_tuning_clusters(
+#[cfg(test)]
+pub(crate) fn update_player_with_tuning_clusters(
     world: &World,
     clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
     input: InputState,
@@ -416,20 +482,44 @@ pub fn update_player_with_tuning_clusters(
 /// reads `events.hazard` / `events.reset` and applies its own policy), so an
 /// enemy never teleports to the player spawn. The player path uses
 /// [`update_player_with_tuning_clusters`] instead (= this + the respawn policy).
-pub fn update_body_with_tuning_clusters(
+#[cfg(test)]
+pub(crate) fn update_body_with_tuning_clusters(
     world: &World,
     clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
     input: InputState,
     raw_dt: f32,
     tuning: MovementTuning,
 ) -> FrameEvents {
+    let frame = MotionFrame::from_direction(tuning.gravity_dir, tuning.gravity);
+    update_body_with_frame_clusters(
+        world,
+        clusters,
+        input,
+        frame,
+        raw_dt,
+        tuning.axis_swept_params(),
+    )
+}
+
+/// Axis-swept implementation arm behind [`step_motion`]. All frame-sensitive
+/// control and integration receives the exact same per-tick frame value.
+pub(crate) fn update_body_with_frame_clusters(
+    world: &World,
+    clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
+    input: InputState,
+    frame: MotionFrame,
+    raw_dt: f32,
+    tuning: AxisSweptParams,
+) -> FrameEvents {
     let control_dt = if input.control_dt > 0.0 {
         input.control_dt
     } else {
         raw_dt
     };
-    let mut events = update_body_control_with_clusters(world, clusters, input, control_dt, tuning);
-    let sim_events = update_body_simulation_with_clusters(world, clusters, input, raw_dt, tuning);
+    let mut events =
+        update_body_control_in_frame(world, clusters, input, control_dt, frame, tuning);
+    let sim_events =
+        update_body_simulation_in_frame(world, clusters, input, raw_dt, frame, tuning);
     events.extend(sim_events);
     events
 }
@@ -438,7 +528,8 @@ pub fn update_body_with_tuning_clusters(
 /// [`update_player_with_tuning_clusters`]. Useful in adapter sites
 /// (RL, headless drivers, lightweight integration tests) that don't
 /// need custom tuning knobs.
-pub fn update_player_clusters(
+#[cfg(test)]
+pub(crate) fn update_player_clusters(
     world: &World,
     clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
     input: InputState,
@@ -449,7 +540,8 @@ pub fn update_player_clusters(
 
 /// `BodyClusterScratch`-based test wrapper: builds the cluster view
 /// in-place and dispatches to `update_player_with_tuning_clusters`.
-pub fn update_player_with_tuning_scratch(
+#[cfg(test)]
+pub(crate) fn update_player_with_tuning_scratch(
     world: &World,
     scratch: &mut crate::body_clusters::BodyClusterScratch,
     input: InputState,
@@ -461,7 +553,7 @@ pub fn update_player_with_tuning_scratch(
 }
 
 /// Convenience wrapper using `DEFAULT_TUNING`.
-pub fn update_player_scratch(
+pub(crate) fn update_player_scratch(
     world: &World,
     scratch: &mut crate::body_clusters::BodyClusterScratch,
     input: InputState,
@@ -471,7 +563,8 @@ pub fn update_player_scratch(
 }
 
 /// `BodyClusterScratch`-based control-phase wrapper for tests.
-pub fn update_player_control_with_tuning_scratch(
+#[cfg(test)]
+pub(crate) fn update_player_control_with_tuning_scratch(
     world: &World,
     scratch: &mut crate::body_clusters::BodyClusterScratch,
     input: InputState,
@@ -482,7 +575,8 @@ pub fn update_player_control_with_tuning_scratch(
     update_player_control_with_clusters(world, &mut clusters, input, control_dt, tuning)
 }
 
-pub fn update_player_control_scratch(
+#[cfg(test)]
+pub(crate) fn update_player_control_scratch(
     world: &World,
     scratch: &mut crate::body_clusters::BodyClusterScratch,
     input: InputState,
@@ -492,7 +586,8 @@ pub fn update_player_control_scratch(
 }
 
 /// `BodyClusterScratch`-based simulation-phase wrapper for tests.
-pub fn update_player_simulation_with_tuning_scratch(
+#[cfg(test)]
+pub(crate) fn update_player_simulation_with_tuning_scratch(
     world: &World,
     scratch: &mut crate::body_clusters::BodyClusterScratch,
     input: InputState,
@@ -503,7 +598,8 @@ pub fn update_player_simulation_with_tuning_scratch(
     update_player_simulation_with_clusters(world, &mut clusters, input, raw_dt, tuning)
 }
 
-pub fn update_player_simulation_scratch(
+#[cfg(test)]
+pub(crate) fn update_player_simulation_scratch(
     world: &World,
     scratch: &mut crate::body_clusters::BodyClusterScratch,
     input: InputState,

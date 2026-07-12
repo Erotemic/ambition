@@ -82,7 +82,23 @@ statuses + test evidence in the plan.
 
 **Next slice:** provision the native Sanic sheet so the windowed demo draws real art.
 
-### 4. CC3 enforcement
+### 4. Unified swappable movement kernel
+
+**PARTIAL.** [ADR 0024](../adr/0024-frame-aware-unified-movement-kernel.md) is
+the binding architecture;
+[`engine/unified-movement-kernel.md`](engine/unified-movement-kernel.md) is the
+migration ledger. The drift-aware first cut preserves the App-local character
+catalog and later Sanic surface fixes while placing axis-swept and surface-momentum
+behind `step_motion`. It is not completion evidence: the authoritative frame
+resolver, typed intent seam, crawler policy, private-state migration, snapshots,
+and guards remain open.
+
+**Next slice:** finish the no-alternate-entry migration, move genuinely private
+axis state out of shared clusters, introduce the authoritative per-body net
+acceleration resolver, and add guards/covariance tests that make frame sensitivity
+and explicit model ownership mechanically unavoidable.
+
+### 5. CC3 enforcement
 
 **State:** diagnostic rig landed; the comprehensive test remains ignored.
 
@@ -92,7 +108,7 @@ statuses + test evidence in the plan.
 under a deliberate poison fixture. Only then remove `#[ignore]` or add a separate
 non-ignored policy test.
 
-### 5. BD5 boss validator (diagnostic — no active enforcement work)
+### 6. BD5 boss validator (diagnostic — no active enforcement work)
 
 **State:** PARTIAL / DIAGNOSTIC. The validator infrastructure exists and reports
 8 errors / 10 warnings as diagnostic findings. By maintainer decision it is
@@ -107,7 +123,7 @@ expressivity (boss-feel representations), and the error/warning counts are not a
 failure condition. Revisit enforcement only when authoring bosses for feel or
 approaching shipment; an install gate is a separate maintainer decision.
 
-### 6. Super Mary-O completion
+### 7. Super Mary-O completion
 
 **State:** equipment rows and mechanism, camera scroll policy, and flag sequence
 exist. The gameplay customer is incomplete.
@@ -117,7 +133,7 @@ exist. The gameplay customer is incomplete.
 **Next slices:** pickup/equip wiring, body-scale collision/render read-fold,
 enemies and shell prop, HUD/results, then the headless 1-1 run.
 
-### 7. R6e naming decision
+### 8. R6e naming decision
 
 **State:** parked. `player/` has been dissolved; `features/` still names the
 actor/prop simulation tree.
@@ -128,7 +144,7 @@ actor/prop simulation tree.
 the current name with the module map. A module-only rename is forbidden because
 it preserves the misleading `Feature*` vocabulary while adding a second name.
 
-### 8. Large inline-test debt
+### 9. Large inline-test debt
 
 **State:** the test-policy migration succeeded, but the repository-wide
 "no 200-line inline test module" claim is false. The machine inventory currently

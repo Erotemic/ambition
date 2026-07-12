@@ -3,7 +3,8 @@ use crate::world::World;
 use super::events::FrameEvents;
 use super::input::InputState;
 use super::ops::MovementOp;
-use super::tuning::MovementTuning;
+use super::tuning::AxisSweptParams;
+use crate::MotionFrame;
 
 /// Drive the blink hold / aim / release lifecycle: arm on press
 /// when the cooldown has cleared, enter precision-aim after the hold
@@ -21,14 +22,14 @@ pub fn handle_blink_clusters(
     combo_trace: &mut crate::body_clusters::BodyComboTrace,
     input: InputState,
     dt: f32,
-    tuning: MovementTuning,
+    frame: MotionFrame,
+    tuning: AxisSweptParams,
     events: &mut FrameEvents,
 ) {
     // "Forward along facing" is a LOCAL-side direction; every world-space
     // default derived from it must go through the body frame (fable review
     // 2026-07-02 §B9 — the world-X fallback broke sideways gravity).
-    let frame = crate::AccelerationFrame::new(tuning.gravity_dir);
-    let facing_aim_offset = frame.side * (tuning.blink_distance * kinematics.facing);
+    let facing_aim_offset = frame.side() * (tuning.blink_distance * kinematics.facing);
 
     if !abilities.abilities.blink {
         blink.hold_active = false;
@@ -69,7 +70,7 @@ pub fn handle_blink_clusters(
         // Quick blink direction in WORLD space, resolved through the MOVEMENT
         // frame mode at the seam (locomotion-framed). Zero stick → forward
         // along facing, which lives on the body's local side axis.
-        let fallback = frame.side * kinematics.facing;
+        let fallback = frame.side() * kinematics.facing;
         let aim = input.blink_quick_dir.normalize_or(fallback);
         let precision = blink.aiming && abilities.abilities.precision_blink;
         let from = kinematics.pos;
@@ -99,6 +100,7 @@ pub fn handle_blink_clusters(
             from,
             to,
             precision,
+            frame,
             tuning,
             events,
         );
@@ -126,7 +128,8 @@ pub fn handle_attacks_clusters(
     abilities: &crate::body_clusters::BodyAbilities,
     combo_trace: &mut crate::body_clusters::BodyComboTrace,
     input: InputState,
-    tuning: MovementTuning,
+    frame: MotionFrame,
+    tuning: AxisSweptParams,
     events: &mut FrameEvents,
 ) {
     if !abilities.abilities.attack {
@@ -136,8 +139,7 @@ pub fn handle_attacks_clusters(
         // Recoil opposes facing along the body's LOCAL side axis (fable review
         // 2026-07-02 §B4 — the raw `vel.x` form shoved sideways-gravity bodies
         // along their gravity axis).
-        let frame = crate::AccelerationFrame::new(tuning.gravity_dir);
-        kinematics.vel -= frame.side * (kinematics.facing * tuning.slash_recoil);
+        kinematics.vel -= frame.side() * (kinematics.facing * tuning.slash_recoil);
         events.op_clusters(combo_trace, MovementOp::Slash);
     }
 }

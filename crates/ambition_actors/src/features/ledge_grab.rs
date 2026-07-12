@@ -2,7 +2,7 @@
 //!
 //! Gameplay ownership lives in `ambition_engine_core`:
 //! `BodyLedgeState::grab` is advanced by
-//! `ae::update_player_simulation_with_clusters` alongside gravity,
+//! `ae::step_motion` alongside gravity,
 //! wall contact, moving platforms, and water. The sandbox keeps this
 //! module only as a stable place for presentation code/tests that
 //! want the public timing constants.
@@ -12,6 +12,29 @@ pub use ambition_engine_core::{LEDGE_CLIMB_TIME, LEDGE_MIN_CLIMB_DELAY, LEDGE_TO
 #[cfg(test)]
 mod tests {
     use ambition_engine_core as ae;
+
+    fn step_axis(
+        world: &ae::World,
+        scratch: &mut ae::BodyClusterScratch,
+        model: &mut ae::MotionModel,
+        input: ae::InputState,
+        dt: f32,
+    ) -> ae::FrameEvents {
+        let frame = ae::MotionFrame::from_direction(ae::DEFAULT_GRAVITY_DIR, ae::GRAVITY);
+        let mut clusters = scratch.as_mut();
+        ae::step_motion(
+            model,
+            &mut clusters,
+            ae::MotionStepContext {
+                world,
+                input,
+                frame,
+                facing_intent: input.axis_x,
+                dt,
+            },
+        )
+        .events
+    }
 
     #[test]
     fn engine_owned_ledge_state_hangs_then_climbs() {
@@ -39,7 +62,8 @@ mod tests {
             control_dt: 0.016,
             ..Default::default()
         };
-        let events = ae::update_player_simulation_scratch(&world, &mut scratch, input, 0.016);
+        let mut model = ae::MotionModel::axis_swept(ae::DEFAULT_AXIS_SWEPT_PARAMS);
+        let events = step_axis(&world, &mut scratch, &mut model, input, 0.016);
         assert!(
             scratch.ledge.grab.is_some(),
             "engine tick should latch ledge state"
@@ -49,7 +73,7 @@ mod tests {
         input.axis_y = -1.0;
         let mut saw_start = false;
         for _ in 0..16 {
-            let events = ae::update_player_simulation_scratch(&world, &mut scratch, input, 0.016);
+            let events = step_axis(&world, &mut scratch, &mut model, input, 0.016);
             if events.operations.contains(&ae::MovementOp::LedgeClimbStart) {
                 saw_start = true;
                 break;
@@ -63,7 +87,7 @@ mod tests {
 
         let mut saw_finish = false;
         for _ in 0..32 {
-            let events = ae::update_player_simulation_scratch(&world, &mut scratch, input, 0.016);
+            let events = step_axis(&world, &mut scratch, &mut model, input, 0.016);
             if events
                 .operations
                 .contains(&ae::MovementOp::LedgeClimbFinish)

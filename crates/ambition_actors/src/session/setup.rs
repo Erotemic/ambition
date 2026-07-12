@@ -156,11 +156,9 @@ pub fn simulation_world(
         )
         .id();
 
-    // Movement identity travels WITH the worn character (Q16 / S2): a character
-    // authoring surface-momentum params (Sanic) makes the home box ride chains;
-    // any other character removes the model so the box stays axis-swept. The
-    // default `player` row authors no momentum, so this is a no-op for the
-    // protagonist.
+    // Movement identity travels WITH the worn character. Every body already
+    // carries one explicit policy; the App-local catalog selects or refreshes
+    // that policy without using component absence as an axis-swept sentinel.
     crate::avatar::apply_worn_motion_model(
         character_catalog,
         commands,

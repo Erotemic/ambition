@@ -147,7 +147,7 @@ impl CharacterCatalog {
     pub fn momentum_params(
         &self,
         character_id: &str,
-    ) -> Option<ambition_engine_core::surface::MomentumParams> {
+    ) -> Option<ambition_engine_core::MomentumParams> {
         self.get(character_id)?
             .momentum
             .as_ref()

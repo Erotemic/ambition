@@ -178,12 +178,11 @@ impl ResolvedControlFrame {
     }
 }
 
-/// The controlled body's local reference frame under a net "down"-defining acceleration.
+/// The controlled body's local reference basis, historically named for acceleration.
 ///
-/// The common source of `down` is gravity, but the frame is deliberately not
-/// gravity-specific (hence the name): any net proper acceleration — a force
-/// field, thrust, a spinning room — defines the body's local "down", and the
-/// frame transforms the same way. The direction is also NOT snapped to a
+/// Gravity commonly supplies `down`, but orientation is a distinct environment
+/// fact: zero acceleration may retain this basis, and lateral/inertial acceleration
+/// need not rotate it. The direction is NOT snapped to a
 /// cardinal, so an off-axis / rotating "down" works (the transforms are general
 /// rotations); the gravity system happens to feed cardinal directions today.
 ///
@@ -196,6 +195,92 @@ pub struct AccelerationFrame {
     pub down: Vec2,
     /// The run / side axis (perpendicular to `down`). `(1,0)` under normal gravity.
     pub side: Vec2,
+}
+
+/// The complete per-body acceleration-relative frame consumed by the movement kernel.
+///
+/// [`AccelerationFrame`] stores the environment-supplied orthonormal reference
+/// basis; `MotionFrame` pairs it with the complete world-space acceleration. The
+/// two facts are deliberately independent even when ordinary gravity aligns
+/// them. Construct this once per body tick and pass the same value through input
+/// interpretation and whichever movement policy is active.
+///
+/// This is deliberately runtime/environment state, never movement-model
+/// configuration.  Swapping physics policies therefore cannot freeze, reset, or
+/// reinterpret the body's current frame.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct MotionFrame {
+    acceleration: Vec2,
+    basis: AccelerationFrame,
+}
+
+impl MotionFrame {
+    /// Build a frame from an explicit basis and world-space acceleration.
+    ///
+    /// The basis and force vector are separate on purpose: the environment may
+    /// define the controlled body's orientation while composing additional
+    /// inertial or lateral acceleration.  Zero acceleration is therefore fully
+    /// specified rather than silently snapping to normal gravity.
+    pub const fn new(basis: AccelerationFrame, acceleration: Vec2) -> Self {
+        Self {
+            acceleration,
+            basis,
+        }
+    }
+
+    /// Derive both orientation and force from a non-zero world-space
+    /// acceleration. Returns `None` for zero because a zero vector cannot define
+    /// a reference-frame orientation.
+    pub fn from_acceleration(acceleration: Vec2) -> Option<Self> {
+        let down = acceleration.try_normalize()?;
+        Some(Self::new(AccelerationFrame::new(down), acceleration))
+    }
+
+    /// Compose an environment-supplied down direction with a per-body response
+    /// magnitude. This remains well-defined at zero magnitude because the
+    /// direction explicitly carries the reference-frame orientation.
+    pub fn from_direction(direction: Vec2, magnitude: f32) -> Self {
+        let down = direction.try_normalize().unwrap_or(Vec2::new(0.0, 1.0));
+        Self::new(
+            AccelerationFrame::new(down),
+            down * magnitude.max(0.0),
+        )
+    }
+
+    /// Full world-space acceleration applied this tick.
+    pub const fn acceleration(self) -> Vec2 {
+        self.acceleration
+    }
+
+    /// Acceleration magnitude in world units per second squared.
+    pub fn magnitude(self) -> f32 {
+        self.acceleration.length()
+    }
+
+    /// The acceleration-relative body basis.
+    pub const fn basis(self) -> AccelerationFrame {
+        self.basis
+    }
+
+    /// Toward the feet in world coordinates.
+    pub const fn down(self) -> Vec2 {
+        self.basis.down
+    }
+
+    /// Local side/right in world coordinates.
+    pub const fn side(self) -> Vec2 {
+        self.basis.side
+    }
+
+    /// Convert a body-local vector into world coordinates.
+    pub fn to_world(self, local: Vec2) -> Vec2 {
+        self.basis.to_world(local)
+    }
+
+    /// Convert a world vector into body-local coordinates.
+    pub fn to_local(self, world: Vec2) -> Vec2 {
+        self.basis.to_local(world)
+    }
 }
 
 /// Declares the frame a gameplay quantity is authored or interpreted in.

@@ -234,7 +234,7 @@ fn precise_grab_keeps_momentum_boost_reward() {
         "precise grab should keep the momentum-carry reward"
     );
     assert!(
-        ledge_boost_weight_for_state(state, &tuning) > 0.0,
+        ledge_boost_weight_for_state(state, &tuning.axis_swept_params()) > 0.0,
         "precise grab should keep the fast-getup reward"
     );
 }
@@ -267,7 +267,7 @@ fn forgiving_grab_latches_but_suppresses_momentum_boost_reward() {
         "forgiving grab should not receive the momentum boost"
     );
     assert_eq!(
-        ledge_boost_weight_for_state(state, &tuning),
+        ledge_boost_weight_for_state(state, &tuning.axis_swept_params()),
         0.0,
         "forgiving grab should not receive the fast-getup reward"
     );

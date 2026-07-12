@@ -140,7 +140,7 @@ pub use ecs::{
     MountSlot, Mountable, Mounted, MountedBrainCache, MountedSize, PendingChallenge,
     PendingMountLinks, RidingOn, SpawnActorKind, SpawnActorRequest, CHALLENGE_GRACE_S,
 };
-pub use ecs::{step_momentum_body, MomentumMotion, MotionModel};
+pub use ecs::{MomentumMotion, MotionModel};
 pub use enemies::{
     enemy_spawn_is_sandbag, install_enemy_roster, ActorSpawnState, ActorSurfaceState,
     CharacterRoster, RespawnPolicy, ENEMY_DEAD_UNTIL_REST_SUFFIX,

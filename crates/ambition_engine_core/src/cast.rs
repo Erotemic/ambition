@@ -23,7 +23,7 @@
 //! Deliberately NOT absorbed (ruled, collision-and-ccd.md §3.4(a)): the
 //! **swept-circle** primitive (`first_circle_hit`) is load-bearing interior of
 //! the momentum kernel (`SurfaceChain` / `resolve_surface` intimacy, on the
-//! no-pushout/OOB path) and stays kernel-private in [`crate::surface`]; a
+//! no-pushout/OOB path) and stays kernel-private in [`crate::movement::surface_momentum`]; a
 //! public swept-circle query is minted here only when a consumer outside the
 //! kernel lands. The **portal-aware** cast rides CC5's aperture vocabulary
 //! ([`crate::frame`]).

@@ -90,7 +90,7 @@ pub use actors::{
 pub(crate) use actors::hostile_brain_id_for_actor;
 pub use actors::{
     apply_actor_contact_damage, fan_out_limb_intents, integrate_sim_bodies,
-    route_boss_strikes_to_limbs, step_momentum_body, sync_actor_poses_from_feature_aabbs,
+    route_boss_strikes_to_limbs, sync_actor_poses_from_feature_aabbs,
     sync_actor_read_model, tick_actor_brains, tick_npc_idle_barks, ActorSteering, Limb,
     LimbIntents, LimbRig, LimbRouteState, LimbSlot, MomentumMotion, MotionModel,
 };

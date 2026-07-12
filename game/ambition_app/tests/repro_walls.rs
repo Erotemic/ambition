@@ -17,6 +17,30 @@ fn scratch_at(spawn: ae::Vec2) -> BodyClusterScratch {
 /// the wall-cling "teleport" class (TODO #96).
 const DEPEN_MARGIN_PX: f32 = 16.0;
 
+fn step_axis_for_test(
+    world: &World,
+    scratch: &mut BodyClusterScratch,
+    input: InputState,
+    dt: f32,
+    tuning: ae::MovementTuning,
+) -> ae::FrameEvents {
+    let mut model = ae::MotionModel::axis_swept(tuning.axis_swept_params());
+    let frame = ae::MotionFrame::from_direction(tuning.gravity_dir, tuning.gravity);
+    let mut clusters = scratch.as_mut();
+    ae::step_motion(
+        &mut model,
+        &mut clusters,
+        ae::MotionStepContext {
+            world,
+            input,
+            frame,
+            facing_intent: input.axis_x,
+            dt,
+        },
+    )
+    .events
+}
+
 /// Principled replacement for the old `dy < 50.0` magic threshold:
 /// assert one step's position change stays within the physically
 /// justifiable budget (intended velocity displacement + bounded
@@ -79,7 +103,7 @@ fn square_arena_wall_cling_does_not_teleport() {
     player.wall.wall_clinging = true;
 
     let initial = player.kinematics.pos;
-    let _ = ae::update_player_simulation_with_tuning_scratch(
+    let _ = step_axis_for_test(
         &world,
         &mut player,
         InputState {
@@ -149,7 +173,7 @@ fn square_arena_wall_cling_with_subpixel_penetration_does_not_teleport() {
     player.wall.wall_clinging = true;
 
     let initial = player.kinematics.pos;
-    let _ = ae::update_player_simulation_with_tuning_scratch(
+    let _ = step_axis_for_test(
         &world,
         &mut player,
         InputState {
@@ -213,7 +237,7 @@ fn locate_teleport_target_block() {
         player.wall.wall_clinging = true;
         player.kinematics.facing = -1.0;
         let initial = player.kinematics.pos;
-        let _ = ae::update_player_simulation_with_tuning_scratch(
+        let _ = step_axis_for_test(
             &single,
             &mut player,
             InputState {
@@ -276,7 +300,7 @@ fn square_arena_wall_cling_full_world_does_not_teleport() {
 
     let initial = player.kinematics.pos;
     let dt = 0.00677_f32; // live frame 1088 real_dt
-    let _ = ae::update_player_simulation_with_tuning_scratch(
+    let _ = step_axis_for_test(
         &augmented,
         &mut player,
         InputState {
@@ -343,7 +367,7 @@ fn square_arena_wall_cling_full_world_steps_many_times() {
 
     for i in 0..200 {
         let dt = 0.0069_f32;
-        let _ = ae::update_player_simulation_with_tuning_scratch(
+        let _ = step_axis_for_test(
             &augmented,
             &mut player,
             InputState {
@@ -433,7 +457,7 @@ fn wall_cling_displacement_budget_holds_across_pose_sweep() {
 
                     let initial = player.kinematics.pos;
                     let pre_vel = player.kinematics.vel;
-                    let _ = ae::update_player_simulation_with_tuning_scratch(
+                    let _ = step_axis_for_test(
                         &world,
                         &mut player,
                         InputState {
@@ -526,7 +550,7 @@ fn mob_lab_lock_wall_cling_does_not_teleport() {
     player.wall.wall_clinging = true;
 
     let initial = player.kinematics.pos;
-    let _ = ae::update_player_simulation_with_tuning_scratch(
+    let _ = step_axis_for_test(
         &world,
         &mut player,
         InputState {
@@ -649,7 +673,7 @@ fn goblin_encounter_full_world_lock_wall_cling_repro() {
             control_dt: dt,
             ..Default::default()
         };
-        let _ = ae::update_player_simulation_with_tuning_scratch(
+        let _ = step_axis_for_test(
             &augmented,
             &mut player,
             input,
@@ -722,15 +746,8 @@ fn goblin_encounter_real_walljump_repro() {
             control_dt: dt,
             ..Default::default()
         };
-        // Control phase first (fires the wall-jump impulse), then sim.
-        let _ = ae::update_player_control_with_tuning_scratch(
-            &augmented,
-            &mut player,
-            input,
-            dt,
-            DEFAULT_TUNING,
-        );
-        let _ = ae::update_player_simulation_with_tuning_scratch(
+        // The unified kernel owns intent and simulation in one deterministic tick.
+        let _ = step_axis_for_test(
             &augmented,
             &mut player,
             input,

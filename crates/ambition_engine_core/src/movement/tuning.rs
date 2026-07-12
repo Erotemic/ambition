@@ -144,7 +144,7 @@ pub const LEDGE_GETUP_SPEEDUP_GAIN: f32 = 1.0;
 /// those are deliberate disengage actions.
 ///
 /// Set [`Self::window`] to `0.0` to disable the mechanic entirely.
-#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct LedgeMomentumTuning {
     /// Seconds after grab during which the incoming momentum is
     /// still claimable by a getup. The boost is weighted linearly
@@ -206,7 +206,13 @@ impl LedgeMomentumTuning {
     };
 }
 
-/// Tunable movement parameters.
+/// Authored movement/control profile used at the ECS and content boundary.
+///
+/// This legacy aggregate still contains environmental acceleration and input
+/// mapping preferences because existing content hydrates it directly. It is NOT
+/// stored in [`super::MotionModel`]. The trusted axis-swept policy receives only
+/// [`AxisSweptParams`], extracted after the current [`crate::MotionFrame`] and
+/// local input frame have been resolved.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct MovementTuning {
     pub gravity: f32,
@@ -306,6 +312,94 @@ pub struct MovementTuning {
     pub ledge_momentum: LedgeMomentumTuning,
 }
 
+/// Parameters owned by the axis-swept movement policy.
+///
+/// This type intentionally contains no gravity vector, acceleration magnitude,
+/// or input-frame preference. Those are current environmental/control facts and
+/// enter the kernel through [`crate::MotionFrame`] and already-resolved local
+/// [`super::InputState`], respectively. A model can therefore be swapped or
+/// snapshotted without freezing the reference frame that happened to be active.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct AxisSweptParams {
+    pub run_accel: f32,
+    pub air_accel: f32,
+    pub ground_friction: f32,
+    pub air_friction: f32,
+    /// Hands-off airborne run deceleration (px/s²) toward the CARRIED floor
+    /// (`BodyFlightState::carried_run`) — the tight "release the stick and
+    /// fall straight down" feel, without ever bleeding momentum the world
+    /// imparted (portal flings, knockback). `serde(default)` for tuning files
+    /// baked before it existed.
+    #[serde(default = "default_air_stop_assist")]
+    pub air_stop_assist: f32,
+    /// Passive bleed (px/s²) of the carried-momentum floor itself. 0 (the
+    /// default) conserves a fling until input, a wall, or landing consumes
+    /// it; positive values make the world slowly forget imparted momentum.
+    #[serde(default)]
+    pub carried_decay: f32,
+    pub max_run_speed: f32,
+    pub max_fall_speed: f32,
+    pub jump_speed: f32,
+    pub double_jump_speed: f32,
+    pub wall_jump_x: f32,
+    pub wall_slide_speed: f32,
+    pub wall_climb_speed: f32,
+    pub dash_speed: f32,
+    pub dash_time: f32,
+    pub dash_cooldown: f32,
+    pub dash_buffer: f32,
+    pub blink_distance: f32,
+    pub precision_blink_distance: f32,
+    pub precision_blink_aim_speed: f32,
+    pub blink_hold_threshold: f32,
+    pub blink_cooldown: f32,
+    pub blink_grace_time: f32,
+    pub blink_max_downward_speed: f32,
+    pub precision_blink_max_downward_speed: f32,
+    pub fast_fall_accel: f32,
+    pub fast_fall_speed: f32,
+    /// Vertical fall speed cap while `Player::gliding` is true. See
+    /// [`GLIDE_FALL_SPEED`].
+    pub glide_fall_speed: f32,
+    /// Horizontal acceleration applied while `Player::gliding` is
+    /// true, replacing `air_accel`. See [`GLIDE_AIR_ACCEL`].
+    pub glide_air_accel: f32,
+    pub flight_accel: f32,
+    pub flight_drag: f32,
+    pub flight_terminal_speed: f32,
+    pub flight_hover_speed: f32,
+    pub flight_hover_hz: f32,
+    /// Direct-velocity free-mover: the controller commands an EXACT velocity each
+    /// tick (a boss pattern's `desired_vel`), so the flight limb takes
+    /// `stick × flight_terminal_speed` verbatim — no accel ramp, drag, hover-bob,
+    /// or deadzone. This is the shared-seam equivalent of a SNAP integrator
+    /// (`step_floating_body` with `accel: None`), letting a floating boss fly
+    /// through the ONE movement pipeline byte-identically to its old bespoke float.
+    /// `#[serde(default)]` (false) so pre-existing tuning files + every ordinary
+    /// flyer (parrot, hover-drone) keep the smoothed accel/drag flight unchanged.
+    #[serde(default)]
+    pub flight_direct_velocity: bool,
+    pub coyote_time: f32,
+    pub jump_buffer: f32,
+    pub pogo_speed: f32,
+    pub slash_recoil: f32,
+    pub air_jumps: u8,
+    pub dodge_roll_time: f32,
+    pub dodge_roll_speed: f32,
+    pub dodge_roll_cooldown: f32,
+    pub parry_window_time: f32,
+    /// Momentum-carry parameters for ledge getups. Set to
+    /// `LedgeMomentumTuning::OFF` to disable the mechanic.
+    ///
+    /// `#[serde(default)]` so any tuning files serialized before this
+    /// field existed (e.g. `assets/ambition/sandbox.ron` baked at
+    /// boot) deserialize with `LedgeMomentumTuning::DEFAULT` instead
+    /// of panicking on `MissingStructField`.
+    #[serde(default)]
+    pub ledge_momentum: LedgeMomentumTuning,
+}
+
+
 impl Default for MovementTuning {
     fn default() -> Self {
         DEFAULT_TUNING
@@ -313,16 +407,76 @@ impl Default for MovementTuning {
 }
 
 impl MovementTuning {
-    /// Return the movement stick in the controlled body's local frame.
-    ///
-    /// Raw device/screen input is resolved before the engine sees an
-    /// [`InputState`]. Keeping this as the named accessor avoids reopening the old
-    /// bug class where some consumers silently re-resolved already-local input.
+    /// Extract the frame-independent policy parameters consumed by the trusted
+    /// axis-swept solver. Environment and input mapping remain outside the model.
+    pub const fn axis_swept_params(self) -> AxisSweptParams {
+        AxisSweptParams {
+            run_accel: self.run_accel,
+            air_accel: self.air_accel,
+            ground_friction: self.ground_friction,
+            air_friction: self.air_friction,
+            air_stop_assist: self.air_stop_assist,
+            carried_decay: self.carried_decay,
+            max_run_speed: self.max_run_speed,
+            max_fall_speed: self.max_fall_speed,
+            jump_speed: self.jump_speed,
+            double_jump_speed: self.double_jump_speed,
+            wall_jump_x: self.wall_jump_x,
+            wall_slide_speed: self.wall_slide_speed,
+            wall_climb_speed: self.wall_climb_speed,
+            dash_speed: self.dash_speed,
+            dash_time: self.dash_time,
+            dash_cooldown: self.dash_cooldown,
+            dash_buffer: self.dash_buffer,
+            blink_distance: self.blink_distance,
+            precision_blink_distance: self.precision_blink_distance,
+            precision_blink_aim_speed: self.precision_blink_aim_speed,
+            blink_hold_threshold: self.blink_hold_threshold,
+            blink_cooldown: self.blink_cooldown,
+            blink_grace_time: self.blink_grace_time,
+            blink_max_downward_speed: self.blink_max_downward_speed,
+            precision_blink_max_downward_speed: self.precision_blink_max_downward_speed,
+            fast_fall_accel: self.fast_fall_accel,
+            fast_fall_speed: self.fast_fall_speed,
+            glide_fall_speed: self.glide_fall_speed,
+            glide_air_accel: self.glide_air_accel,
+            flight_accel: self.flight_accel,
+            flight_drag: self.flight_drag,
+            flight_terminal_speed: self.flight_terminal_speed,
+            flight_hover_speed: self.flight_hover_speed,
+            flight_hover_hz: self.flight_hover_hz,
+            flight_direct_velocity: self.flight_direct_velocity,
+            coyote_time: self.coyote_time,
+            jump_buffer: self.jump_buffer,
+            pogo_speed: self.pogo_speed,
+            slash_recoil: self.slash_recoil,
+            air_jumps: self.air_jumps,
+            dodge_roll_time: self.dodge_roll_time,
+            dodge_roll_speed: self.dodge_roll_speed,
+            dodge_roll_cooldown: self.dodge_roll_cooldown,
+            parry_window_time: self.parry_window_time,
+            ledge_momentum: self.ledge_momentum,
+        }
+    }
+
+}
+
+impl AxisSweptParams {
+    /// Input is already expressed in the controlled body's local acceleration
+    /// frame before entering the movement kernel.
     pub fn stick(&self, input: &super::InputState) -> Vec2 {
-        let _ = self.movement_frame_mode;
         Vec2::new(input.axis_x, input.axis_y)
     }
 }
+
+impl Default for AxisSweptParams {
+    fn default() -> Self {
+        DEFAULT_AXIS_SWEPT_PARAMS
+    }
+}
+
+pub const DEFAULT_AXIS_SWEPT_PARAMS: AxisSweptParams =
+    DEFAULT_TUNING.axis_swept_params();
 
 pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     gravity: GRAVITY,

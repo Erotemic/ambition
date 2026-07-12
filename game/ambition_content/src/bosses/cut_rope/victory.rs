@@ -120,6 +120,7 @@ fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
                 faction: ambition_actors::features::ActorFaction::Npc,
                 target: ambition_actors::features::ActorTarget::default(),
                 pose: ActorPose::from_parts(aabb.center(), aabb.half_size(), facing),
+                motion_model: ambition_actors::features::MotionModel::default(),
                 combat_kit,
                 aggression: ambition_actors::features::ActorAggression::passive(),
                 combat,

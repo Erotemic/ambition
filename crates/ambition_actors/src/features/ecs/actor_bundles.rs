@@ -122,6 +122,10 @@ pub struct EnemyActorBundle {
     /// updated each tick.
     pub target: ActorTarget,
     pub pose: ActorPose,
+    /// Explicit movement-policy identity and private runtime state. Every
+    /// integrated actor carries exactly one policy from spawn; absence is not
+    /// an axis-swept fallback.
+    pub motion_model: crate::features::MotionModel,
     pub combat_kit: CombatKit,
     pub aggression: ActorAggression,
     // Health (`BodyHealth`) spawns with the actor CLUSTER (`into_components`), the
@@ -169,6 +173,7 @@ impl EnemyActorBundle {
             faction,
             target: ActorTarget::default(),
             pose,
+            motion_model: crate::features::MotionModel::default(),
             combat_kit,
             aggression,
             combat,

@@ -188,6 +188,6 @@ the rest of the ballistic frame rather than repeatedly reporting TOI zero. The
 guard is one-directional, so landing on
 a ramp's tip while moving inward still attaches.
 
-Both are fixed with tests, in `ambition_engine_core::surface`. Neither is an
+Both are fixed with tests, in `ambition_engine_core::movement::surface_momentum`. Neither is an
 engine addition *for the demo* — they are bugs the demo's first honest reader
 found, which is exactly the argument for building demos against the real kernel.

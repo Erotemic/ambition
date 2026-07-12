@@ -70,7 +70,7 @@ concern, plus this map), not by more crates.
 ### Authoritative state — who mutates what
 
 - **A body's motion** is `BodyKinematics` + the 18 movement clusters, and exactly
-  one pipeline writes them: `ae::update_body_with_tuning_clusters`. The player
+  one kernel entry writes them: `ae::step_motion`. The player
   tick and `update_ecs_actors` are two Bevy systems calling the SAME body tick.
   Do not add a third.
 - **A body's melee** is `BodyMelee` / `MeleeSwing`, spawned through

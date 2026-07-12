@@ -8,12 +8,12 @@ use super::*;
 use crate::geometry::{Aabb, AabbExt};
 
 fn launch_away_from_feet(
-    tuning: MovementTuning,
+    frame: crate::MotionFrame,
+    tuning: AxisSweptParams,
     platform_side_axis: f32,
     platform_speed: f32,
 ) -> Vec2 {
-    let frame = crate::AccelerationFrame::new(tuning.gravity_dir);
-    frame.side * (platform_side_axis * platform_speed) - frame.down * tuning.jump_speed
+    frame.side() * (platform_side_axis * platform_speed) - frame.down() * tuning.jump_speed
 }
 
 fn point_from_frame_coords(frame: crate::AccelerationFrame, side: f32, down: f32) -> Vec2 {
@@ -183,6 +183,26 @@ pub fn tick_active_ledge_grab_clusters(
     tuning: MovementTuning,
     events: &mut crate::movement::FrameEvents,
 ) -> bool {
+    let frame = crate::MotionFrame::from_direction(tuning.gravity_dir, tuning.gravity);
+    tick_active_ledge_grab_clusters_in_frame(
+        clusters,
+        input,
+        dt,
+        frame,
+        tuning.axis_swept_params(),
+        events,
+    )
+}
+
+/// Frame-explicit ledge runtime used by the unified movement kernel.
+pub fn tick_active_ledge_grab_clusters_in_frame(
+    clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
+    input: InputState,
+    dt: f32,
+    frame: crate::MotionFrame,
+    tuning: AxisSweptParams,
+    events: &mut crate::movement::FrameEvents,
+) -> bool {
     let Some(mut state) = clusters.ledge.grab else {
         return false;
     };
@@ -199,7 +219,7 @@ pub fn tick_active_ledge_grab_clusters(
         let duration_scale = ledge_getup_duration_scale(state, &tuning);
         let duration = state.getup_duration() * duration_scale;
         let progress = (state.climb_elapsed / duration).clamp(0.0, 1.0);
-        clusters.kinematics.pos = getup_position(state, progress, tuning.gravity_dir);
+        clusters.kinematics.pos = getup_position(state, progress, frame.down());
         clusters.kinematics.vel = Vec2::ZERO;
         clusters.ground.on_ground = false;
         clusters.wall.wall_clinging = false;
@@ -207,13 +227,12 @@ pub fn tick_active_ledge_grab_clusters(
         clusters.wall.on_wall = false;
 
         if progress >= 1.0 {
-            clusters.kinematics.pos = getup_end_position(state, tuning.gravity_dir);
+            clusters.kinematics.pos = getup_end_position(state, frame.down());
             // Carry HORIZONTAL momentum into exit; drop the Y so the
             // player doesn't relaunch off the platform they just stood
             // on. (Ledge-jump path keeps Y because that's a hop.)
-            let boost = ledge_boost_for_state(state, &tuning);
-            let frame = crate::AccelerationFrame::new(tuning.gravity_dir);
-            clusters.kinematics.vel = boost - frame.down * boost.dot(frame.down);
+            let boost = ledge_boost_for_state_in_frame(state, frame, &tuning);
+            clusters.kinematics.vel = boost - frame.down() * boost.dot(frame.down());
             clusters.ground.on_ground = true;
             clusters.wall.wall_clinging = false;
             clusters.wall.wall_climbing = false;
@@ -281,7 +300,7 @@ pub fn tick_active_ledge_grab_clusters(
         clusters.ground.on_ground = false;
         clusters.ledge.grab = None;
         clusters.ledge.release_cooldown = LEDGE_REGRAB_COOLDOWN;
-        clusters.kinematics.vel = launch_away_from_feet(tuning, away_x, tuning.wall_jump_x);
+        clusters.kinematics.vel = launch_away_from_feet(frame, tuning, away_x, tuning.wall_jump_x);
         crate::body_clusters::refresh_movement_resources_clusters(
             clusters.abilities,
             &mut *clusters.dash,
@@ -299,8 +318,8 @@ pub fn tick_active_ledge_grab_clusters(
         clusters.ground.on_ground = false;
         clusters.ledge.grab = None;
         clusters.ledge.release_cooldown = LEDGE_REGRAB_COOLDOWN;
-        let mut launch = launch_away_from_feet(tuning, into_x, tuning.jump_speed * 0.35);
-        launch += ledge_boost_for_state(state, &tuning);
+        let mut launch = launch_away_from_feet(frame, tuning, into_x, tuning.jump_speed * 0.35);
+        launch += ledge_boost_for_state_in_frame(state, frame, &tuning);
         clusters.kinematics.vel = launch;
         crate::body_clusters::refresh_movement_resources_clusters(
             clusters.abilities,
@@ -420,7 +439,7 @@ fn requested_wall_normal_clusters(
     wall: &crate::body_clusters::BodyWallState,
     ground: &crate::body_clusters::BodyGroundState,
     input: InputState,
-    tuning: MovementTuning,
+    tuning: AxisSweptParams,
 ) -> Option<f32> {
     if wall.wall_clinging && wall.wall_normal_x.abs() >= 0.5 {
         return Some(wall.wall_normal_x);
@@ -454,6 +473,18 @@ pub fn ledge_boost(
     elapsed_at_initiation: f32,
     tuning: &MovementTuning,
 ) -> Vec2 {
+    let frame = crate::MotionFrame::from_direction(tuning.gravity_dir, tuning.gravity);
+    let params = tuning.axis_swept_params();
+    ledge_boost_in_frame(momentum_at_grab, contact, elapsed_at_initiation, frame, &params)
+}
+
+pub fn ledge_boost_in_frame(
+    momentum_at_grab: Vec2,
+    contact: LedgeContact,
+    elapsed_at_initiation: f32,
+    frame: crate::MotionFrame,
+    tuning: &AxisSweptParams,
+) -> Vec2 {
     let cfg = tuning.ledge_momentum;
     if cfg.window <= 0.0 || elapsed_at_initiation > cfg.window {
         return Vec2::ZERO;
@@ -462,14 +493,14 @@ pub fn ledge_boost(
     // t=window. Easier to reason about while tuning than smoothstep.
     let weight = 1.0 - (elapsed_at_initiation / cfg.window).clamp(0.0, 1.0);
     let m = momentum_at_grab;
-    let frame = crate::AccelerationFrame::new(tuning.gravity_dir);
+    let basis = frame.basis();
     // Only count side-axis momentum that points INTO the platform. Reverse
     // momentum at grab time meant the actor was sliding off the lip — no reward.
-    let side_speed = m.dot(frame.side);
+    let side_speed = m.dot(basis.side);
     let into = into_platform_axis(contact);
     let forward_into = side_speed * into;
     let carried_side = if forward_into > 0.0 {
-        frame.side * (side_speed * cfg.x_gain * weight).clamp(-cfg.x_cap, cfg.x_cap)
+        basis.side * (side_speed * cfg.x_gain * weight).clamp(-cfg.x_cap, cfg.x_cap)
     } else {
         Vec2::ZERO
     };
@@ -477,9 +508,9 @@ pub fn ledge_boost(
     // is the old `m.y < 0` upward check; under flipped/sideways gravity it is the
     // same rule in the controlled body's acceleration frame.
     let carried_away = {
-        let along_down = m.dot(frame.down);
+        let along_down = m.dot(basis.down);
         if along_down < 0.0 {
-            frame.down * (along_down * cfg.y_gain * weight).clamp(-cfg.y_cap, cfg.y_cap)
+            basis.down * (along_down * cfg.y_gain * weight).clamp(-cfg.y_cap, cfg.y_cap)
         } else {
             Vec2::ZERO
         }
@@ -491,14 +522,25 @@ pub fn ledge_boost(
 /// transitions that have already started ticking `climb_elapsed`,
 /// subtracts that from `elapsed` to recover the grab-to-action time.
 pub fn ledge_boost_for_state(state: LedgeGrabState, tuning: &MovementTuning) -> Vec2 {
+    let frame = crate::MotionFrame::from_direction(tuning.gravity_dir, tuning.gravity);
+    let params = tuning.axis_swept_params();
+    ledge_boost_for_state_in_frame(state, frame, &params)
+}
+
+pub fn ledge_boost_for_state_in_frame(
+    state: LedgeGrabState,
+    frame: crate::MotionFrame,
+    tuning: &AxisSweptParams,
+) -> Vec2 {
     if !state.grab_quality.is_precise() {
         return Vec2::ZERO;
     }
     let elapsed_at_initiation = (state.elapsed - state.climb_elapsed).max(0.0);
-    ledge_boost(
+    ledge_boost_in_frame(
         state.momentum_at_grab,
         state.contact,
         elapsed_at_initiation,
+        frame,
         tuning,
     )
 }
@@ -507,7 +549,7 @@ pub fn ledge_boost_for_state(state: LedgeGrabState, tuning: &MovementTuning) -> 
 /// to scale both the launch velocity AND the transition duration —
 /// so a high-momentum getup runs faster AND exits faster, rather
 /// than just teleporting fast at the end of a frozen animation.
-pub fn ledge_boost_weight_for_state(state: LedgeGrabState, tuning: &MovementTuning) -> f32 {
+pub fn ledge_boost_weight_for_state(state: LedgeGrabState, tuning: &AxisSweptParams) -> f32 {
     if !state.grab_quality.is_precise() {
         return 0.0;
     }
@@ -523,7 +565,7 @@ pub fn ledge_boost_weight_for_state(state: LedgeGrabState, tuning: &MovementTuni
 /// `duration_scale = 1.0 / (1.0 + weight * gain)`. With `gain = 1.0`
 /// and full weight, a 0.24-s climb becomes ~0.12 s — exactly the
 /// "no stop-and-go" feel a quick getup should have.
-pub fn ledge_getup_duration_scale(state: LedgeGrabState, tuning: &MovementTuning) -> f32 {
+pub fn ledge_getup_duration_scale(state: LedgeGrabState, tuning: &AxisSweptParams) -> f32 {
     let weight = ledge_boost_weight_for_state(state, tuning);
     1.0 / (1.0 + weight * tuning.ledge_momentum.getup_speedup_gain)
 }
@@ -560,6 +602,26 @@ pub fn try_start_ledge_grab_clusters(
     tuning: MovementTuning,
     events: &mut crate::movement::FrameEvents,
 ) -> bool {
+    let frame = crate::MotionFrame::from_direction(tuning.gravity_dir, tuning.gravity);
+    try_start_ledge_grab_clusters_in_frame(
+        world,
+        clusters,
+        input,
+        frame,
+        tuning.axis_swept_params(),
+        events,
+    )
+}
+
+/// Frame-explicit ledge acquisition used by the unified movement kernel.
+pub fn try_start_ledge_grab_clusters_in_frame(
+    world: &World,
+    clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
+    input: InputState,
+    frame: crate::MotionFrame,
+    tuning: AxisSweptParams,
+    events: &mut crate::movement::FrameEvents,
+) -> bool {
     if !clusters.abilities.abilities.ledge_grab
         || clusters.ledge.grab.is_some()
         || clusters.ground.on_ground
@@ -579,11 +641,10 @@ pub fn try_start_ledge_grab_clusters(
             clusters.kinematics.size,
             wall_normal,
             world,
-            tuning.gravity_dir,
+            frame.down(),
         );
     }
-    let frame = crate::AccelerationFrame::new(tuning.gravity_dir);
-    if contact.is_none() && clusters.kinematics.vel.dot(frame.down) > FALL_SNAP_MIN_VY {
+    if contact.is_none() && clusters.kinematics.vel.dot(frame.down()) > FALL_SNAP_MIN_VY {
         // Smash-style auto-snap during a falling recovery: try BOTH
         // sides and snap to whichever has a grabbable lip in the chin
         // band.
@@ -593,7 +654,7 @@ pub fn try_start_ledge_grab_clusters(
                 clusters.kinematics.size,
                 trial_normal,
                 world,
-                tuning.gravity_dir,
+                frame.down(),
             ) {
                 contact = Some(found);
                 break;
@@ -608,7 +669,7 @@ pub fn try_start_ledge_grab_clusters(
         clusters.kinematics.pos,
         clusters.kinematics.size,
         contact,
-        tuning.gravity_dir,
+        frame.down(),
     );
 
     let pre_wall_fresh = clusters.wall.pre_wall_vel_age <= LEDGE_REGRAB_COOLDOWN;

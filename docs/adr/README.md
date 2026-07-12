@@ -35,3 +35,4 @@ Use an ADR when a decision:
 - 0021: reserved (authoring-backend-agnostic space — lands with the W4 world-carve slice)
 - [0022: Respawn policy — dead stays dead by default; respawning is authored](0022-respawn-policy.md)
 - [0023: Same-build determinism is a contract, enforced by lints](0023-same-build-determinism.md)
+- [0024: One frame-aware movement kernel with explicit swappable policies](0024-frame-aware-unified-movement-kernel.md)

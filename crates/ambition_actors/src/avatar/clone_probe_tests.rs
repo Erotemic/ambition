@@ -6,8 +6,8 @@
 //! ([`BodyClusterScratch`]) with the full ability set, attach a
 //! [`StateMachineCfg::PlayerDemo`] brain (which emits the player's own
 //! run/jump/dash/fly verbs on the shared `ActorControlFrame`), and drive it
-//! through the exact same `update_player_clusters` integration the human player
-//! uses — with ZERO player-specific code path. We then assert the emergent
+//! through the exact same `step_motion` kernel entry the human player uses —
+//! with ZERO player-specific code path. We then assert the emergent
 //! result: the brain made the body run, leave the ground, and fly.
 //!
 //! What this proves: the Brain -> ActorControlFrame -> InputState ->
@@ -17,7 +17,9 @@
 //! `single_mut()`-keyed to the one `PlayerEntity` — see the player-clone probe
 //! in `docs/journals/content-authoring-pain-points.md`.)
 
-use ae::movement::{update_player_clusters, InputState};
+use ae::movement::{
+    step_motion, InputState, MotionModel, MotionStepContext, DEFAULT_AXIS_SWEPT_PARAMS,
+};
 use ae::world::{Block, World};
 use ae::Vec2;
 use ambition_characters::actor::control::ActorControlFrame;
@@ -28,6 +30,31 @@ use ambition_engine_core as ae;
 /// Mirror of `engine_input_from_actor_control` (ambition_app): for the PLAYER
 /// path, `desired_vel` is the normalized stick axis, fed straight into the
 /// movement axis. No hitstun in this probe.
+
+fn step_axis_body(
+    world: &World,
+    scratch: &mut ae::BodyClusterScratch,
+    model: &mut MotionModel,
+    input: InputState,
+    dt: f32,
+) {
+    let mut clusters = scratch.as_mut();
+    let result = step_motion(
+        model,
+        &mut clusters,
+        MotionStepContext {
+            world,
+            input,
+            frame: ae::MotionFrame::from_direction(ae::DEFAULT_GRAVITY_DIR, ae::GRAVITY),
+            facing_intent: 0.0,
+            dt,
+        },
+    );
+    if result.events.reset {
+        ae::reset_body_clusters(&mut clusters, world.spawn);
+    }
+}
+
 fn input_from_frame(f: &ActorControlFrame) -> InputState {
     InputState {
         axis_x: f.locomotion.x,
@@ -64,11 +91,17 @@ fn a_brain_drives_a_full_player_body_through_the_player_movement() {
     );
 
     let dt = 1.0 / 60.0;
+    let mut model = MotionModel::axis_swept(DEFAULT_AXIS_SWEPT_PARAMS);
 
     // Let it settle onto the floor under gravity (no input).
     for _ in 0..40 {
-        let mut clusters = scratch.as_mut();
-        update_player_clusters(&world, &mut clusters, InputState::default(), dt);
+        step_axis_body(
+            &world,
+            &mut scratch,
+            &mut model,
+            InputState::default(),
+            dt,
+        );
     }
     let grounded_y = scratch.kinematics.pos.y;
     let start_x = scratch.kinematics.pos.x;
@@ -104,8 +137,7 @@ fn a_brain_drives_a_full_player_body_through_the_player_movement() {
         brain.tick(&snapshot, &mut frame);
 
         let input = input_from_frame(&frame);
-        let mut clusters = scratch.as_mut();
-        update_player_clusters(&world, &mut clusters, input, dt);
+        step_axis_body(&world, &mut scratch, &mut model, input, dt);
 
         if !scratch.ground.on_ground {
             left_ground = true;

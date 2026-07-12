@@ -36,7 +36,7 @@ fn rig(world: ae::World) -> Rig {
     Rig {
         scratch: crate::avatar::primary_player_scratch(world.spawn, ae::AbilitySet::sandbox_all()),
         model: MotionModel::SurfaceMomentum(MomentumMotion::new(
-            ae::surface::MomentumParams::default(),
+            ae::MomentumParams::default(),
         )),
         hurtbox: ae::CenteredAabb::new(world.spawn, ae::Vec2::splat(10.0)),
         frame_out: PlayerBodyFrameOutput::default(),
@@ -177,7 +177,7 @@ fn momentum_home_body_dies_in_pits_and_respawns_airborne() {
         matches!(
             r.model,
             MotionModel::SurfaceMomentum(MomentumMotion {
-                state: ae::surface::SurfaceMotion::Airborne,
+                state: ae::movement::surface_momentum::SurfaceMotion::Airborne,
                 ..
             })
         ),

@@ -65,13 +65,11 @@ fn default_is_unset_and_is_default() {
 }
 
 #[test]
-fn wearing_sanic_inserts_momentum_then_unwearing_removes_it() {
+fn wearing_sanic_selects_momentum_then_unwearing_selects_axis_swept() {
     // Q16 test (c): wearing a momentum character makes the box ride
-    // surfaces; re-wearing a non-momentum character REMOVES the model so a
-    // stale MotionModel never rides a chain the new character can't (the
-    // render-refresh clobber gotcha in reverse). Removal restores the
-    // axis-swept path byte-for-byte — the absence of the component IS the
-    // default.
+    // surfaces; re-wearing a non-momentum character explicitly selects the
+    // axis-swept model so stale surface-private state cannot survive the swap.
+    // Every movable body carries one policy; absence is never a default.
     use bevy::prelude::*;
 
     let mut app = App::new();
@@ -97,7 +95,7 @@ fn wearing_sanic_inserts_momentum_then_unwearing_removes_it() {
         other => panic!("expected SurfaceMomentum after wearing Sanic, got {other:?}"),
     }
 
-    // Re-wear the protagonist (axis-swept) → the model is removed entirely.
+    // Re-wear the protagonist → an explicit axis-swept model replaces momentum.
     let mut queue = bevy::ecs::world::CommandQueue::default();
     {
         let mut commands = Commands::new(&mut queue, app.world());
@@ -105,8 +103,11 @@ fn wearing_sanic_inserts_momentum_then_unwearing_removes_it() {
     }
     queue.apply(app.world_mut());
     assert!(
-        app.world().get::<MotionModel>(entity).is_none(),
-        "unwearing a momentum character restores the axis-swept path (no MotionModel)"
+        matches!(
+            app.world().get::<MotionModel>(entity),
+            Some(MotionModel::AxisSwept(_))
+        ),
+        "unwearing a momentum character installs the explicit axis-swept policy"
     );
 }
 
@@ -137,6 +138,7 @@ fn gameplay_derives_from_worn_identity_at_add_and_on_change() {
         .world_mut()
         .spawn((
             WornCharacter::new("sanic"),
+            MotionModel::default(),
             Name::new("unset"),
             ActionSet::default(),
             ActorMoveset(Default::default()),
@@ -163,12 +165,15 @@ fn gameplay_derives_from_worn_identity_at_add_and_on_change() {
 
     // Re-wear the protagonist through the supported path (mutate the
     // identity). Downstream observes the change: the stale momentum model is
-    // removed and the name follows.
+    // replaced by the explicit axis-swept policy and the name follows.
     *app.world_mut().get_mut::<WornCharacter>(e).unwrap() = WornCharacter::new("player");
     app.update();
     assert!(
-        app.world().get::<MotionModel>(e).is_none(),
-        "re-wearing a non-momentum character removes the stale movement model"
+        matches!(
+            app.world().get::<MotionModel>(e),
+            Some(MotionModel::AxisSwept(_))
+        ),
+        "re-wearing a non-momentum character installs the axis-swept policy"
     );
     assert_eq!(
         app.world().get::<Name>(e).unwrap().as_str(),
@@ -191,6 +196,7 @@ fn rewearing_an_equivalent_momentum_profile_preserves_live_ride_state() {
         .world_mut()
         .spawn((
             WornCharacter::new("sanic"),
+            MotionModel::default(),
             Name::new("unset"),
             ActionSet::default(),
             ActorMoveset(Default::default()),
@@ -199,8 +205,8 @@ fn rewearing_an_equivalent_momentum_profile_preserves_live_ride_state() {
         .id();
     app.update();
 
-    let expected = ambition_engine_core::surface::SurfaceMotion::Riding {
-        on: ambition_engine_core::surface::SurfaceRef::Chain(0),
+    let expected = ambition_engine_core::movement::surface_momentum::SurfaceMotion::Riding {
+        on: ambition_engine_core::movement::surface_momentum::SurfaceRef::Chain(0),
         s: 123.0,
         v_t: 456.0,
     };
@@ -246,6 +252,7 @@ fn derive_system_only_fires_on_identity_or_ability_change() {
         .world_mut()
         .spawn((
             WornCharacter::new("sanic"),
+            MotionModel::default(),
             Name::new("unset"),
             ActionSet::default(),
             ActorMoveset(Default::default()),
@@ -258,11 +265,14 @@ fn derive_system_only_fires_on_identity_or_ability_change() {
     assert!(app.world().get::<MotionModel>(e).is_some());
 
     // No identity change: subsequent frames must not re-run the wear. Prove it
-    // by clobbering the model and confirming the un-changed system leaves it.
-    app.world_mut().entity_mut(e).remove::<MotionModel>();
+    // by changing to a different explicit policy and confirming the unchanged
+    // derive system leaves it alone. Absence is never used as a policy sentinel.
+    app.world_mut()
+        .entity_mut(e)
+        .insert(MotionModel::AxisSwept(AxisSweptMotion::default()));
     app.update();
     assert!(
-        app.world().get::<MotionModel>(e).is_none(),
+        matches!(app.world().get::<MotionModel>(e), Some(MotionModel::AxisSwept(_))),
         "with no identity or ability change the derive system must not re-fire"
     );
 }
@@ -285,6 +295,7 @@ fn worn_kit_fully_follows_a_known_character_rewear() {
         .world_mut()
         .spawn((
             WornCharacter::new("npc_pirate_admiral"),
+            MotionModel::default(),
             Name::new("unset"),
             ActionSet::default(),
             ActorMoveset(Default::default()),
@@ -349,6 +360,7 @@ fn runtime_rewear_to_a_host_code_protagonist_rebuilds_the_code_kit() {
         .world_mut()
         .spawn((
             WornCharacter::new("npc_pirate_admiral"),
+            MotionModel::default(),
             Name::new("unset"),
             ActionSet::default(),
             ActorMoveset(Default::default()),
@@ -416,6 +428,7 @@ fn runtime_rewear_to_an_unknown_id_is_a_defined_fallback_not_stale_state() {
         .world_mut()
         .spawn((
             WornCharacter::new("npc_pirate_admiral"),
+            MotionModel::default(),
             Name::new("unset"),
             ActionSet::default(),
             ActorMoveset(Default::default()),
@@ -458,6 +471,7 @@ fn host_code_kit_refreshes_when_body_abilities_change() {
         .world_mut()
         .spawn((
             WornCharacter::new("player"),
+            MotionModel::default(),
             Name::new("unset"),
             ActionSet::default(),
             ActorMoveset(Default::default()),
@@ -537,6 +551,7 @@ fn peaceful_worn_kit_gates_direct_player_combat_verbs() {
         .spawn((
             crate::actor::PlayerEntity,
             WornCharacter::new("sanic"),
+            MotionModel::default(),
             ActionSet::peaceful(),
             ActorControl(frame),
         ))

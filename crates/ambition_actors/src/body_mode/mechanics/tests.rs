@@ -233,8 +233,8 @@ fn momentum_riding_support_allows_the_controlled_body_to_crouch() {
         .unwrap()
         .on_ground = false;
     let mut momentum = crate::features::MomentumMotion::new(Default::default());
-    momentum.state = ae::surface::SurfaceMotion::Riding {
-        on: ae::surface::SurfaceRef::Block(0),
+    momentum.state = ae::movement::surface_momentum::SurfaceMotion::Riding {
+        on: ae::movement::surface_momentum::SurfaceRef::Block(0),
         s: 10.0,
         v_t: 0.0,
     };

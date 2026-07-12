@@ -96,10 +96,10 @@ pub fn blink_system(
     // (a possessed actor has neither). A possessed body blinks iff IT holds the
     // blink item; the vacated home avatar is not the subject, so it never blinks.
     //
-    // `Without<MotionModel>`: the box-traversal kit belongs to the axis-swept
-    // integration path. A surface-momentum body's traversal IS its kernel (the
-    // S1 v1 ruling: blink/dash machinery absent) — a worn speedster must not
-    // teleport with the robot's blink.
+    // The box-traversal kit belongs to the explicit axis-swept policy. A
+    // surface-momentum body's traversal IS its kernel (the S1 v1 ruling:
+    // blink/dash machinery absent) — a worn speedster must not teleport with
+    // the robot's blink. Absence is never interpreted as an axis policy.
     controlled: Res<ControlledSubject>,
     mut bodies: Query<
         (
@@ -108,8 +108,8 @@ pub fn blink_system(
             &HeldItem,
             &ActorControl,
             Option<&mut crate::ability_cooldown::AbilityCooldown>,
+            &crate::features::MotionModel,
         ),
-        bevy::ecs::query::Without<crate::features::MotionModel>,
     >,
     mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
@@ -121,9 +121,14 @@ pub fn blink_system(
     let Some(subject) = controlled.0 else {
         return;
     };
-    let Ok((player, mut kin, held, control, mut cooldown)) = bodies.get_mut(subject) else {
+    let Ok((player, mut kin, held, control, mut cooldown, motion_model)) =
+        bodies.get_mut(subject)
+    else {
         return;
     };
+    if !matches!(motion_model, crate::features::MotionModel::AxisSwept(_)) {
+        return;
+    }
     let c = control.0;
     // Plain Attack blinks; Shield+Attack is the generic "throw the item away".
     if !c.melee_pressed || c.shield_held {

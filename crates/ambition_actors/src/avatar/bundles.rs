@@ -99,6 +99,9 @@ pub struct PlayerSimulationBundle {
     // `BodyClustersMut`. See `engine_core/body_clusters.rs` for the
     // per-cluster shape.
     pub kinematics: BodyKinematics,
+    /// Explicit swappable movement policy. Every integrated body owns one;
+    /// absence is never interpreted as the axis-swept default.
+    pub motion_model: crate::features::MotionModel,
     /// The body's published combat footprint, ORIENTED to its gravity frame —
     /// the SAME single-source-of-truth component every actor publishes
     /// (fable review 2026-07-02 §A6: consumers used to rebuild the player
@@ -173,6 +176,7 @@ impl PlayerSimulationBundle {
                 kinematics.facing,
             ),
             kinematics,
+            motion_model: crate::features::MotionModel::default(),
             hurtbox,
             movement: AncillaryMovementBundle::from_scratch(scratch),
             projectile: crate::projectile::PlayerProjectileState::default(),
@@ -220,6 +224,9 @@ impl PlayerSimulationBundle {
             character_id,
             base_abilities,
         );
+        bundle
+            .motion_model
+            .apply_spec(crate::avatar::motion_model_spec_for_character_id(catalog, character_id));
         // The returned capability is synchronized on the spawned entity by
         // `apply_worn_character_gameplay` from its Added<WornCharacter> edge.
         // A Bundle cannot conditionally omit a component, so the canonical

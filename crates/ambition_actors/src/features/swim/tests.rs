@@ -5,6 +5,33 @@
 
 use ambition_engine_core as ae;
 
+fn step_axis_player(
+    world: &ae::World,
+    scratch: &mut ae::BodyClusterScratch,
+    model: &mut ae::MotionModel,
+    input: ae::InputState,
+    dt: f32,
+) -> ae::FrameEvents {
+    let frame = ae::MotionFrame::from_direction(ae::DEFAULT_GRAVITY_DIR, ae::GRAVITY);
+    let mut clusters = scratch.as_mut();
+    let result = ae::step_motion(
+        model,
+        &mut clusters,
+        ae::MotionStepContext {
+            world,
+            input,
+            frame,
+            facing_intent: input.axis_x,
+            dt,
+        },
+    );
+    let events = result.events;
+    if events.reset {
+        ae::reset_body_clusters(&mut clusters, world.spawn);
+    }
+    events
+}
+
 fn pool_world(kind: ae::WaterKind, spawn: ae::Vec2) -> ae::World {
     let mut world = ae::World::new(
         "swim_test",
@@ -36,9 +63,11 @@ fn no_swim_ability_water_contact_triggers_reset() {
     abilities.swim = false;
     let mut scratch = scratch_with(abilities, world.spawn);
     scratch.kinematics.pos = ae::Vec2::new(500.0, 500.0);
-    let events = ae::update_player_simulation_scratch(
+    let mut model = ae::MotionModel::axis_swept(ae::DEFAULT_AXIS_SWEPT_PARAMS);
+    let events = step_axis_player(
         &world,
         &mut scratch,
+        &mut model,
         ae::InputState::default(),
         0.016,
     );
@@ -63,11 +92,10 @@ fn swim_ability_jump_press_becomes_upward_impulse() {
         control_dt: 0.016,
         ..ae::InputState::default()
     };
-    // Control phase: would normally fill the jump buffer.
-    ae::update_player_control_scratch(&world, &mut scratch, input, 0.016);
-    // Simulation phase: the buffered jump must be consumed as a
-    // swim stroke, not a normal jump.
-    ae::update_player_simulation_scratch(&world, &mut scratch, input, 0.016);
+    let mut model = ae::MotionModel::axis_swept(ae::DEFAULT_AXIS_SWEPT_PARAMS);
+    // The unified kernel owns both intent and simulation phases. The buffered
+    // jump must be consumed as a swim stroke, not a normal jump.
+    step_axis_player(&world, &mut scratch, &mut model, input, 0.016);
     assert!(
         scratch.kinematics.vel.y < 0.0,
         "expected upward (negative) vel.y after swim stroke; got {}",
@@ -91,7 +119,8 @@ fn swim_ability_passive_buoyancy_clamps_fall() {
         control_dt: 0.016,
         ..ae::InputState::default()
     };
-    ae::update_player_simulation_scratch(&world, &mut scratch, input, 0.016);
+    let mut model = ae::MotionModel::axis_swept(ae::DEFAULT_AXIS_SWEPT_PARAMS);
+    step_axis_player(&world, &mut scratch, &mut model, input, 0.016);
     let spec = ae::WaterVolumeSpec::default();
     assert!(
         scratch.kinematics.vel.x.abs() < 40.0,
@@ -116,6 +145,7 @@ fn out_of_water_leaves_water_contact_none() {
         control_dt: 0.016,
         ..ae::InputState::default()
     };
-    ae::update_player_simulation_scratch(&world, &mut scratch, input, 0.016);
+    let mut model = ae::MotionModel::axis_swept(ae::DEFAULT_AXIS_SWEPT_PARAMS);
+    step_axis_player(&world, &mut scratch, &mut model, input, 0.016);
     assert!(scratch.env_contact.water.is_none());
 }

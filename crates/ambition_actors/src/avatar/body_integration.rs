@@ -5,7 +5,7 @@
 //! the per-body movement core the unified `integrate_sim_bodies` phase calls for
 //! every `PlayerEntity`, right beside the actor bodies it integrates in the same
 //! system. It runs the LITERAL same engine entry an actor uses
-//! (`ae::update_body_with_tuning_clusters`) over the body's `BodyClustersMut`
+//! (`ae::step_motion`) over the body's `BodyClustersMut`
 //! view. The ONLY home-specific work here is:
 //!
 //! - the pre-sim ledge-platform carry ([`ledge_platform_carry`]) — only the home
@@ -89,7 +89,7 @@ pub fn ledge_platform_carry(
 }
 
 /// The per-body home movement core — control phase **and** simulation phase in ONE
-/// combined engine call, `ae::update_body_with_tuning_clusters`: the LITERAL same
+/// combined kernel call, `ae::step_motion`: the literal same
 /// engine entry a brain-driven actor uses (`ActorMut::integrate_body`). Called by
 /// the unified `integrate_sim_bodies` phase for every `PlayerEntity`, so the home
 /// body and every actor integrate through one function inside one scheduled system.
@@ -117,23 +117,14 @@ pub fn integrate_home_body(
     hurtbox: &mut ae::CenteredAabb,
     frame_out: &mut PlayerBodyFrameOutput,
     moving_platforms: &[MovingPlatformState],
-    // The body's motion IDENTITY (demo plan AJ11/Q16 — "Sanic is BOTH"):
-    // `None`/`AxisSwept` = the axis-swept path below, byte-identical;
-    // `SurfaceMomentum` dispatches the HOME body to the surface-follower
-    // solver — the same policy branch `integrate_actor_body` carries, so a
-    // worn momentum character rides whether it is the start character or a
-    // possessed actor.
-    motion_model: Option<&mut crate::features::MotionModel>,
-    tuning: ae::MovementTuning,
+    motion_model: &mut crate::features::MotionModel,
+    motion_frame: ae::MotionFrame,
+    axis_tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     frame_dt: f32,
     scaled_dt: f32,
     feature_ecs_overlay: &FeatureEcsWorldOverlay,
 ) {
-    // ONE input frame. `control_dt = frame_dt` (real time) IS the precision-blink
-    // affordance: the combined entry below runs the control phase at this rate and
-    // the simulation phase at the scaled `sim_dt`. The hitstun gate applies inside
-    // the helper.
     let input = engine_input_from_actor_control(
         actor_control,
         feel,
@@ -141,67 +132,44 @@ pub fn integrate_home_body(
         combat.recoil_lock_timer,
         frame_dt,
     );
-    // Per-body sim dt: frozen during this body's hitstop, otherwise the scaled
-    // gameplay dt (bullet-time / pause already folded into `scaled_dt`).
     let sim_dt = if combat.hitstop_timer > 0.0 {
         0.0
     } else {
         scaled_dt
     };
 
-    // ── SurfaceMomentum dispatch (Q16): the home body's movement identity ──
-    // Uses the GATED input (hitstun/recoil authority-reduction stays uniform
-    // with every other body) and skips the AABB-path machinery below (ledge
-    // carry, jump buffer, dash/blink — capabilities absent on a momentum
-    // body v1).
-    if let Some(crate::features::MotionModel::SurfaceMomentum(m)) = motion_model {
-        integrate_home_momentum(
-            input,
-            actor_control.facing,
-            world,
-            clusters,
-            hurtbox,
-            frame_out,
-            moving_platforms,
-            m,
-            tuning,
-            sim_dt,
-            feature_ecs_overlay,
-        );
-        return;
+    // Live authored tuning refreshes only the active axis policy's parameters.
+    // The environmental acceleration frame is supplied separately and therefore
+    // cannot be frozen into, or reset with, movement-model configuration.
+    if let crate::features::MotionModel::AxisSwept(axis) = motion_model {
+        axis.params = axis_tuning.axis_swept_params();
     }
 
-    // Pre-sim LEDGE-platform carry. Platforms are advanced once (by
-    // `advance_moving_platforms`) ahead of this whole phase, so we read this frame's
-    // delta. Standing-on-platform RIDING is EMERGENT in the movement sweep (the same
-    // rule enemies ride by), so there is no player-specific ride code. What stays
-    // home-specific is the LEDGE carry: hanging off a moving platform's edge (only
-    // the home body ledge-grabs) leaves the body un-grounded, so the sweep carry
-    // can't apply.
-    let player_aabb_pre = clusters.kinematics.aabb();
-    let player_size_pre = clusters.kinematics.size;
-    let active_ledge_platform = clusters.ledge.grab.and_then(|grab| {
-        moving_platforms.iter().position(|platform| {
-            platform.matches_ledge_contact_in_frame(
-                grab.contact,
-                player_size_pre,
-                tuning.gravity_dir,
-            )
-        })
-    });
-    if let Some(platform_delta) =
-        active_ledge_platform.map(|idx| moving_platforms[idx].last_delta())
-    {
-        match ledge_platform_carry(world, player_aabb_pre, platform_delta) {
-            // #126: the platform is about to carry the hanging player INTO a wall.
-            LedgePlatformCarry::KnockOff => {
-                clusters.ledge.knock_off_on_hit();
-            }
-            LedgePlatformCarry::Carry => {
-                clusters.kinematics.pos += platform_delta;
-                if let Some(grab) = clusters.ledge.grab.as_mut() {
-                    grab.contact.anchor += platform_delta;
-                    grab.contact.climb_target += platform_delta;
+    // Ledge-platform carry is an axis-swept model-private affordance.  The
+    // movement dispatch itself remains one call for every policy.
+    if matches!(motion_model, crate::features::MotionModel::AxisSwept(_)) {
+        let player_aabb_pre = clusters.kinematics.aabb();
+        let player_size_pre = clusters.kinematics.size;
+        let active_ledge_platform = clusters.ledge.grab.and_then(|grab| {
+            moving_platforms.iter().position(|platform| {
+                platform.matches_ledge_contact_in_frame(
+                    grab.contact,
+                    player_size_pre,
+                    motion_frame.down(),
+                )
+            })
+        });
+        if let Some(platform_delta) =
+            active_ledge_platform.map(|idx| moving_platforms[idx].last_delta())
+        {
+            match ledge_platform_carry(world, player_aabb_pre, platform_delta) {
+                LedgePlatformCarry::KnockOff => clusters.ledge.knock_off_on_hit(),
+                LedgePlatformCarry::Carry => {
+                    clusters.kinematics.pos += platform_delta;
+                    if let Some(grab) = clusters.ledge.grab.as_mut() {
+                        grab.contact.anchor += platform_delta;
+                        grab.contact.climb_target += platform_delta;
+                    }
                 }
             }
         }
@@ -209,133 +177,37 @@ pub fn integrate_home_body(
 
     let collision_world = world_with_sandbox_solids(world, moving_platforms, feature_ecs_overlay);
     let was_grounded = clusters.ground.on_ground;
-    let pre_sim_fall_speed = clusters.kinematics.vel.dot(tuning.gravity_dir);
+    let pre_sim_fall_speed = clusters.kinematics.vel.dot(motion_frame.down());
+    let result = ae::step_motion(
+        motion_model,
+        clusters,
+        ae::MotionStepContext {
+            world: &collision_world,
+            input,
+            frame: motion_frame,
+            facing_intent: actor_control.facing,
+            dt: sim_dt,
+        },
+    );
 
-    // THE single combined body tick: control phase (at `input.control_dt`) then
-    // simulation phase (at `sim_dt`). The EXACT engine entry an actor body uses.
-    let events =
-        ae::update_body_with_tuning_clusters(&collision_world, clusters, input, sim_dt, tuning);
-    // Engine-level body reset (teleport to spawn) — the same reset every body does
-    // on a hazard flag; NOT the sandbox/room reset (that is home policy, elsewhere).
-    if events.reset {
+    // Respawn is home-body policy. The pure kernel only reports the reset event.
+    if result.events.reset {
         ae::reset_body_clusters(clusters, world.spawn);
     }
 
     *frame_out = PlayerBodyFrameOutput {
         was_grounded,
         pre_sim_fall_speed,
-        reset: events.reset,
-        events,
+        reset: result.events.reset,
+        events: result.events,
     };
 
-    // Publish the body's combat footprint ORIENTED to its gravity frame — the
-    // IDENTICAL single-source-of-truth publish every actor performs in
-    // `integrate_actor_body` (§A6). Every hurtbox consumer (enemy hitboxes,
-    // hazards, boss volumes, contact damage, enemy projectiles) reads THIS
-    // component instead of rebuilding the box per-site.
     use ambition_engine_core::AabbExt;
     let body = crate::features::collision_aabb(&crate::features::SimpleActorGeometry {
         pos: clusters.kinematics.pos,
         size: clusters.kinematics.size,
         facing: clusters.kinematics.facing,
-        frame_down: tuning.gravity_dir,
-    });
-    hurtbox.center = body.center();
-    hurtbox.half_size = body.half_size();
-}
-
-/// The home body's surface-momentum frame (the Q16 branch): drive the R9.1
-/// pure core over the SAME composited collision view, then apply the SAME
-/// hazard/out-of-bounds gate the engine sim phase applies to axis-swept
-/// bodies — Sanic dies in pits. Publishes the hurtbox oriented to the ridden
-/// surface (`frame_down = -surface_normal`, gravity when airborne — the §B2
-/// rule); sprite tilt-on-slope is a presentation follow-up (BLIND).
-#[allow(clippy::too_many_arguments)]
-fn integrate_home_momentum(
-    input: ae::InputState,
-    facing_intent: f32,
-    world: &ae::World,
-    clusters: &mut ae::BodyClustersMut<'_>,
-    hurtbox: &mut ae::CenteredAabb,
-    frame_out: &mut PlayerBodyFrameOutput,
-    moving_platforms: &[MovingPlatformState],
-    m: &mut crate::features::MomentumMotion,
-    tuning: ae::MovementTuning,
-    sim_dt: f32,
-    feature_ecs_overlay: &FeatureEcsWorldOverlay,
-) {
-    use ambition_engine_core::AabbExt;
-
-    let collision_world = world_with_sandbox_solids(world, moving_platforms, feature_ecs_overlay);
-    let was_grounded = clusters.ground.on_ground;
-    let pre_sim_fall_speed = clusters.kinematics.vel.dot(tuning.gravity_dir);
-
-    let mut on_ground = clusters.ground.on_ground;
-    // Recomputed per step by the momentum core (ride contact, else gravity);
-    // the home body has no persistent `ActorSurfaceState` — the frame publish
-    // below is this step's truth.
-    let mut surface_normal = -tuning.gravity_dir;
-    let mut events = ae::FrameEvents::default();
-    // §3.1 sample capture around the momentum step (this path skips the
-    // shared pipeline's kernel write). The hazard respawn below overwrites
-    // it with a zero-length record via `reset_body_clusters` — a respawn is
-    // a teleport, never path.
-    let sweep_entry = (clusters.kinematics.pos, clusters.kinematics.vel);
-    events.contacts = crate::features::step_momentum_body(
-        clusters.kinematics,
-        &mut on_ground,
-        &mut surface_normal,
-        m,
-        &collision_world,
-        tuning.gravity_dir * tuning.gravity,
-        input.axis_x,
-        ae::Vec2::new(input.axis_x, input.axis_y),
-        input.jump_pressed,
-        facing_intent,
-        sim_dt,
-    );
-    if let Some(sweep) = clusters.sweep.as_deref_mut() {
-        *sweep = ae::SweepSample {
-            prev: sweep_entry.0,
-            curr: clusters.kinematics.pos,
-            vel: sweep_entry.1,
-            half: clusters.kinematics.size * 0.5,
-        };
-    }
-    clusters.ground.on_ground = on_ground;
-
-    // Hazard / out-of-bounds parity with the axis-swept sim phase: the SAME
-    // hazard predicate over the SAME composited view + the gravity-relative
-    // "fell 200px past the world AABB" rule. On trigger: engine-level body
-    // reset to spawn, and the follower state returns to Airborne (never
-    // respawn "riding" a chain the body is no longer on).
-    let pos = clusters.kinematics.pos;
-    let clamped = ae::Vec2::new(
-        pos.x.clamp(0.0, world.size.x),
-        pos.y.clamp(0.0, world.size.y),
-    );
-    let fell_out = (pos - clamped).dot(tuning.gravity_dir) > 200.0;
-    if ae::movement::touching_hazard_aabb(&collision_world, clusters.kinematics.aabb()) || fell_out
-    {
-        events.hazard = true;
-        events.reset = true;
-        ae::reset_body_clusters(clusters, world.spawn);
-        m.state = ambition_engine_core::surface::SurfaceMotion::Airborne;
-        m.depth_lane = 0;
-    }
-
-    *frame_out = PlayerBodyFrameOutput {
-        was_grounded,
-        pre_sim_fall_speed,
-        reset: events.reset,
-        events,
-    };
-
-    let body = crate::features::collision_aabb(&crate::features::SimpleActorGeometry {
-        pos: clusters.kinematics.pos,
-        size: clusters.kinematics.size,
-        facing: clusters.kinematics.facing,
-        frame_down: -surface_normal,
+        frame_down: -result.surface_normal,
     });
     hurtbox.center = body.center();
     hurtbox.half_size = body.half_size();

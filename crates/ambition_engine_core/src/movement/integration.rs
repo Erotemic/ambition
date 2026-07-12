@@ -49,7 +49,7 @@ pub fn gravity_descend(axis_y: f32, gravity_dir: crate::Vec2) -> f32 {
 
 /// The "drop through a one-way platform" gesture: press the descend gate (toward
 /// the feet) + jump. The `descend` scalar is the resolved player-frame `y` from
-/// [`MovementTuning::stick`], so it is gravity- AND input-mode-relative (under
+/// [`AxisSweptParams::stick`], so it is gravity- AND input-mode-relative (under
 /// inverted gravity, Hybrid reads screen-UP + jump). Computed at the consumer
 /// rather than precomputed gravity-blind at the input boundary.
 pub(super) fn wants_drop_through(descend: f32, jump_pressed: bool) -> bool {
@@ -60,7 +60,8 @@ use super::dec;
 use super::events::FrameEvents;
 use super::input::InputState;
 use super::ops::MovementOp;
-use super::tuning::MovementTuning;
+use super::tuning::AxisSweptParams;
+use crate::MotionFrame;
 
 /// Apply one frame of velocity integration to the player: mode-select
 /// between dash / climb / flight / normal physics, run the per-mode
@@ -72,7 +73,8 @@ pub(super) fn integrate_velocity_clusters(
     clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
     input: InputState,
     dt: f32,
-    tuning: MovementTuning,
+    frame: MotionFrame,
+    tuning: AxisSweptParams,
     events: &mut FrameEvents,
 ) {
     use crate::player_state::BodyMode;
@@ -94,6 +96,7 @@ pub(super) fn integrate_velocity_clusters(
             clusters.jump,
             input,
             dt,
+            frame,
             tuning,
         );
     } else if clusters.flight.fly_enabled && clusters.abilities.abilities.fly {
@@ -103,6 +106,7 @@ pub(super) fn integrate_velocity_clusters(
             clusters.wall,
             input,
             dt,
+            frame,
             tuning,
         );
     } else {
@@ -116,6 +120,7 @@ pub(super) fn integrate_velocity_clusters(
             clusters.abilities,
             input,
             dt,
+            frame,
             tuning,
         );
     }
@@ -138,7 +143,7 @@ pub(super) fn integrate_velocity_clusters(
     // onto). In particular, a sideways body that runs off a ledge loses support
     // before the gravity-axis sweep of the SAME frame, not one frame later
     // because X happened to run before Y.
-    let gravity_on_x = tuning.gravity_dir.x != 0.0;
+    let gravity_on_x = frame.down().x != 0.0;
     let (side_axis, gravity_axis) = if gravity_on_x {
         (
             crate::collision_semantics::Axis::Y,
@@ -151,7 +156,7 @@ pub(super) fn integrate_velocity_clusters(
         )
     };
 
-    let drop_through = wants_drop_through(tuning.stick(&input).y, input.jump_pressed)
+    let drop_through = wants_drop_through(input.local_axis().y, input.jump_pressed)
         || clusters.ground.drop_through_timer > 0.0;
 
     let sweep = |clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
@@ -159,8 +164,8 @@ pub(super) fn integrate_velocity_clusters(
                  contacts: &mut Vec<crate::collision_semantics::Contact>| {
         let prev_feet_coord = clusters
             .kinematics
-            .aabb_oriented(tuning.gravity_dir)
-            .feet_coord(tuning.gravity_dir);
+            .aabb_oriented(frame.down())
+            .feet_coord(frame.down());
         let delta_along = match axis {
             crate::collision_semantics::Axis::X => clusters.kinematics.vel.x,
             crate::collision_semantics::Axis::Y => clusters.kinematics.vel.y,
@@ -176,7 +181,7 @@ pub(super) fn integrate_velocity_clusters(
             delta_along,
             prev_feet_coord,
             drop_through,
-            tuning.gravity_dir,
+            frame.down(),
             contacts,
         );
     };
@@ -189,6 +194,7 @@ pub(super) fn integrate_velocity_clusters(
         clusters.abilities,
         clusters.combo_trace,
         input,
+        frame,
         tuning,
         was_clinging,
         events,
@@ -204,7 +210,7 @@ pub(super) fn integrate_velocity_clusters(
     // brain-driven clone, which runs this exact core — ride moving platforms: not a
     // player feature, a property of standing on a moving solid.
     if clusters.ground.on_ground {
-        let g = tuning.gravity_dir;
+        let g = frame.down();
         let oriented = clusters.kinematics.aabb_oriented(g);
         if let Some(support) = crate::collision_semantics::supporting_block(
             world,
@@ -243,7 +249,7 @@ pub(super) fn integrate_velocity_clusters(
     if clusters.abilities.abilities.rebound && clusters.ground.rebound_cooldown <= 0.0 {
         if let Some(impulse) = super::collision::touching_rebound_aabb(
             world,
-            clusters.kinematics.aabb_oriented(tuning.gravity_dir),
+            clusters.kinematics.aabb_oriented(frame.down()),
         ) {
             clusters.kinematics.vel = impulse;
             crate::body_clusters::refresh_movement_resources_clusters(
@@ -273,7 +279,7 @@ pub(super) fn integrate_velocity_clusters(
 /// Normal-mode integration — the shared physics SPINE (not a composable limb):
 /// gravity-direction-relative gravity, fast-fall, glide-gate, run/friction, and
 /// the fall-speed cap. The fourth mode-select branch alongside dash (skip),
-/// climb, and flight. Everything projects onto `tuning.gravity_dir` so sideways /
+/// climb, and flight. Everything projects through the supplied `MotionFrame` so sideways /
 /// flipped gravity Just Works — the property enemies/NPCs inherit when they move
 /// onto this spine (and the reason their Y-only `gravity_sign` fall bug vanishes).
 pub(super) fn integrate_normal_clusters(
@@ -285,7 +291,8 @@ pub(super) fn integrate_normal_clusters(
     abilities: &crate::body_clusters::BodyAbilities,
     input: InputState,
     dt: f32,
-    tuning: MovementTuning,
+    frame: MotionFrame,
+    tuning: AxisSweptParams,
 ) {
     // The player adapter: project its rich clusters into the actor-generic
     // spine context (ability components → gating flags) and run the one spine.
@@ -304,6 +311,7 @@ pub(super) fn integrate_normal_clusters(
         },
         input,
         dt,
+        frame,
         tuning,
     );
 }
@@ -342,7 +350,7 @@ impl NormalSpineCtx {
 /// Normal-mode integration — the shared physics SPINE, actor-generic. Applies
 /// gravity-direction-relative gravity, fast-fall, glide-gate, run/friction, and
 /// the fall-speed cap to ANY body's `vel`, gated only by the small
-/// [`NormalSpineCtx`]. Everything projects onto `tuning.gravity_dir` so sideways /
+/// [`NormalSpineCtx`]. Everything projects through the supplied `MotionFrame` so sideways /
 /// flipped gravity Just Works. The player feeds it via `integrate_normal_clusters`;
 /// enemies/NPCs feed it via [`NormalSpineCtx::bare`] (+ per-actor `tuning`).
 pub fn integrate_normal_spine(
@@ -353,16 +361,17 @@ pub fn integrate_normal_spine(
     ctx: NormalSpineCtx,
     input: InputState,
     dt: f32,
-    tuning: MovementTuning,
+    frame: MotionFrame,
+    tuning: AxisSweptParams,
 ) {
-    let g = tuning.gravity_dir;
+    let g = frame.down();
     // Fall-direction speed BEFORE this frame's gravity (terminal velocity is an
     // equilibrium gravity accelerates UP TO, not a brake on an over-cap fling).
     let fall_along_before = kin_vel.dot(g).max(0.0);
     let blink_hang_active = ctx.blink_grace && kin_vel.dot(g) >= 0.0;
     let water_gravity_scale = ctx.water.map(|c| c.spec.gravity_scale).unwrap_or(1.0);
     if !blink_hang_active {
-        *kin_vel += tuning.gravity * g * water_gravity_scale * dt;
+        *kin_vel += frame.acceleration() * water_gravity_scale * dt;
     }
     if input.fast_fall_pressed && ctx.can_fast_fall && !ctx.on_ground {
         *fast_falling = true;
@@ -391,8 +400,8 @@ pub fn integrate_normal_spine(
         // `stick(...).x` is the run component (Hybrid: just `axis_x`; Screen: the
         // screen stick's run-along-the-ground component). So `+run` walks the body
         // toward THEIR right at any gravity orientation, screen-relative or not.
-        let m = crate::AccelerationFrame::new(g).side;
-        let run = tuning.stick(&input).x;
+        let m = frame.side();
+        let run = input.local_axis().x;
         let along = kin_vel.dot(m);
         // CARRIED MOMENTUM: the world has no air drag, but the CONTROLLER has
         // a tight stop assist. `carried_run` is the run-axis velocity the
@@ -459,7 +468,8 @@ pub(super) fn integrate_climb_clusters(
     jump: &mut crate::body_clusters::BodyJumpState,
     input: InputState,
     dt: f32,
-    tuning: MovementTuning,
+    frame: MotionFrame,
+    tuning: AxisSweptParams,
 ) {
     let Some(contact) = env_contact.climbable else {
         kinematics.vel = Vec2::ZERO;
@@ -472,8 +482,8 @@ pub(super) fn integrate_climb_clusters(
     // axes. Today's climbable regions are vertical world-space spans with a
     // small horizontal strafe lane; when climbables grow an explicit authored
     // axis, this projection is the seam that should consume it.
-    let local_stick = tuning.stick(&input);
-    let body_frame = crate::reference_frame::AccelerationFrame::new(tuning.gravity_dir);
+    let local_stick = input.local_axis();
+    let body_frame = frame.basis();
     let world_stick = body_frame.to_world(local_stick);
     let pressing_away_from_gravity = local_stick.y < -0.1;
     let mut target_vel = Vec2::new(
@@ -502,7 +512,8 @@ pub(super) fn integrate_flight_clusters(
     wall: &mut crate::body_clusters::BodyWallState,
     input: InputState,
     dt: f32,
-    tuning: MovementTuning,
+    frame: MotionFrame,
+    tuning: AxisSweptParams,
 ) {
     flight.fast_falling = false;
     wall.wall_clinging = false;
@@ -512,10 +523,10 @@ pub(super) fn integrate_flight_clusters(
     // Free flight consumes controlled-body-local input. Resolve raw input before
     // it reaches `InputState`; this layer only projects local side/down motion
     // into world space.
-    let frame = crate::reference_frame::AccelerationFrame::new(tuning.gravity_dir);
-    let vel_run = kinematics.vel.dot(frame.side);
-    let vel_descend = kinematics.vel.dot(frame.down);
-    let local_stick = tuning.stick(&input);
+    let basis = frame.basis();
+    let vel_run = kinematics.vel.dot(basis.side);
+    let vel_descend = kinematics.vel.dot(basis.down);
+    let local_stick = input.local_axis();
 
     let target_run = local_stick.x * tuning.flight_terminal_speed;
     let mut target_descend = local_stick.y * tuning.flight_terminal_speed;
@@ -563,15 +574,16 @@ pub(super) fn apply_wall_abilities_clusters(
     abilities: &crate::body_clusters::BodyAbilities,
     combo_trace: &mut crate::body_clusters::BodyComboTrace,
     input: InputState,
-    tuning: MovementTuning,
+    frame: MotionFrame,
+    tuning: AxisSweptParams,
     was_clinging: bool,
     events: &mut FrameEvents,
 ) {
     if !wall.on_wall || ground.on_ground || !abilities.abilities.wall_cling {
         return;
     }
-    let frame = crate::reference_frame::AccelerationFrame::new(tuning.gravity_dir);
-    let local_stick = tuning.stick(&input);
+    let basis = frame.basis();
+    let local_stick = input.local_axis();
     let pressing_into_wall =
         local_stick.x.abs() > 0.1 && local_stick.x.signum() == -wall.wall_normal_x;
     if !pressing_into_wall {
@@ -580,15 +592,15 @@ pub(super) fn apply_wall_abilities_clusters(
     wall.wall_clinging = true;
     if abilities.abilities.wall_climb && local_stick.y.abs() > 0.25 {
         wall.wall_climbing = true;
-        let along_down = kinematics.vel.dot(frame.down);
-        kinematics.vel += frame.down * (local_stick.y * tuning.wall_climb_speed - along_down);
+        let along_down = kinematics.vel.dot(basis.down);
+        kinematics.vel += basis.down * (local_stick.y * tuning.wall_climb_speed - along_down);
         if !was_clinging {
             events.op_clusters(combo_trace, MovementOp::WallClimb);
         }
     } else {
-        let descend = kinematics.vel.dot(frame.down);
+        let descend = kinematics.vel.dot(basis.down);
         if descend > tuning.wall_slide_speed {
-            kinematics.vel -= frame.down * (descend - tuning.wall_slide_speed);
+            kinematics.vel -= basis.down * (descend - tuning.wall_slide_speed);
         }
         if !was_clinging {
             events.op_clusters(combo_trace, MovementOp::WallCling);

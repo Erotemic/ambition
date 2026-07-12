@@ -513,24 +513,6 @@ impl NpcActorSpawnPlan {
         if let Some(size) = render_size {
             entity.insert(crate::features::ActorRenderSize(size));
         }
-        // Movement identity is body DATA (Q16 / S2): an NPC authored from a
-        // momentum catalog row (an NPC Sanic, for coexistence + the possession
-        // e2e) rides surfaces through the SAME `MotionModel::SurfaceMomentum`
-        // the worn-player path inserts — resolved from the same roster lookup,
-        // so player-Sanic and NPC-Sanic can never disagree. The catalog
-        // character_id rides in on the Npc interaction kind; fall back to the
-        // display-name join for legacy/synthetic spawns.
-        let momentum_id = match &self.interaction_character_id {
-            Some(id) => Some(id.as_str()),
-            None => crate::character_roster::character_id_for_display_name(&self.feature_name),
-        };
-        if let Some(params) =
-            momentum_id.and_then(crate::character_roster::momentum_params_for_character_id)
-        {
-            entity.insert(crate::features::MotionModel::SurfaceMomentum(
-                crate::features::MomentumMotion::new(params),
-            ));
-        }
         entity.id()
     }
 }

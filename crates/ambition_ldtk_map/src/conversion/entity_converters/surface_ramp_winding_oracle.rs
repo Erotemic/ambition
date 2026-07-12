@@ -36,7 +36,7 @@ fn ramp_chain(o: RampOrientation) -> ae::SurfaceChain {
 
     // Long lead-ins on purpose: the joint at the fillet's mouth then sits at an
     // arc length where a fixed-epsilon joint nudge used to round away (see
-    // `ambition_engine_core::surface::joint_nudge`). The oracle should ride a
+    // `ambition_engine_core::movement::surface_momentum::joint_nudge`). The oracle should ride a
     // realistic chain, not a convenient one.
     let flat_far = ae::Vec2::new(corner.x + room.x * 8.0 * R, corner.y);
     let wall_far = ae::Vec2::new(corner.x, corner.y + room.y * 8.0 * R);
@@ -77,7 +77,7 @@ fn ride_into_the_corner(o: RampOrientation) -> ae::Vec2 {
     .with_chains(vec![chain.clone()]);
     // Frictionless: this test is about winding, not about whether the body has
     // enough speed left after 1600px of floor.
-    let params = ae::surface::MomentumParams {
+    let params = ae::MomentumParams {
         friction: 0.0,
         ..Default::default()
     };
@@ -94,13 +94,13 @@ fn ride_into_the_corner(o: RampOrientation) -> ae::Vec2 {
 
     let f = chain.frame_at(s);
     let radius = 14.0;
-    let mut body = ae::surface::SurfaceBody {
+    let mut body = ae::movement::surface_momentum::SurfaceBody {
         pos: f.point + f.normal * radius,
         vel: ae::Vec2::ZERO,
         radius,
         depth_lane: 0,
-        motion: ae::surface::SurfaceMotion::Riding {
-            on: ae::surface::SurfaceRef::Chain(0),
+        motion: ae::movement::surface_momentum::SurfaceMotion::Riding {
+            on: ae::movement::surface_momentum::SurfaceRef::Chain(0),
             s,
             v_t,
         },
@@ -117,14 +117,13 @@ fn ride_into_the_corner(o: RampOrientation) -> ae::Vec2 {
     // later. A body that climbed the wall correctly decelerates under gravity
     // and comes back down, and "it is falling" is not a winding bug.
     for _ in 0..2000 {
-        ae::surface::step_surface_body(
+        ae::movement::surface_momentum::step_surface_body(
             &mut body,
             &world,
             &params,
-            gravity,
-            ae::surface::SurfaceInputs {
-                run,
-                steer: ae::Vec2::ZERO,
+            ae::MotionFrame::from_acceleration(gravity).expect("non-zero acceleration"),
+            ae::movement::surface_momentum::SurfaceInputs {
+                local_axis: ae::Vec2::new(run, 0.0),
                 jump_pressed: false,
             },
             DT,

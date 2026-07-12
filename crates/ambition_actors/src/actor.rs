@@ -34,7 +34,7 @@ pub use ambition_combat::BodyMelee;
 /// dodge, shield, body-mode, environment contact, mana, offense, action buffer,
 /// lifetime, combo trace, base size, ability mask) that, together with
 /// [`BodyKinematics`], form the authoritative movement aggregate the shared
-/// pipeline (`ae::update_body_with_tuning_clusters`) reads and writes.
+/// kernel (`ae::step_motion`) reads and writes.
 ///
 /// These were historically named `Player*` and surfaced through `crate::avatar`,
 /// which made every non-player module that names a body component import the

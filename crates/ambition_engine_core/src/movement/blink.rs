@@ -4,7 +4,8 @@ use crate::Vec2;
 
 use super::events::{BlinkEvent, FrameEvents};
 use super::ops::MovementOp;
-use super::tuning::MovementTuning;
+use super::tuning::AxisSweptParams;
+use crate::MotionFrame;
 
 /// Complete a blink: teleport to `to`, damp post-blink velocity,
 /// clamp downward speed, clear fast-fall / wall-cling / dash state,
@@ -23,7 +24,8 @@ pub fn complete_blink_clusters(
     from: Vec2,
     to: Vec2,
     precision: bool,
-    tuning: MovementTuning,
+    frame: MotionFrame,
+    tuning: AxisSweptParams,
     events: &mut FrameEvents,
 ) {
     kinematics.pos = to;
@@ -32,7 +34,6 @@ pub fn complete_blink_clusters(
     // world-X/Y form never clamped the true fall axis under sideways gravity,
     // so chained blinks inherited unbounded fall speed (fable review
     // 2026-07-02 §B3).
-    let frame = crate::AccelerationFrame::new(tuning.gravity_dir);
     let damping = if precision { 0.35 } else { 0.55 };
     let max_downward = if precision {
         tuning.precision_blink_max_downward_speed
@@ -57,7 +58,7 @@ pub fn complete_blink_clusters(
     blink.hold_active = false;
     blink.hold_timer = 0.0;
     blink.aiming = false;
-    blink.aim_offset = frame.side * (tuning.blink_distance * kinematics.facing);
+    blink.aim_offset = frame.side() * (tuning.blink_distance * kinematics.facing);
     let op = if precision {
         MovementOp::PrecisionBlink
     } else {

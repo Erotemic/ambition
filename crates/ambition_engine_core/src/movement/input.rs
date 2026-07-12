@@ -52,7 +52,7 @@ pub struct InputState {
     pub reset_pressed: bool,
     /// Shield button is currently held. When the `shield` ability is active,
     /// holding this deploys the bubble; releasing drops it. The first
-    /// `MovementTuning::parry_window_time` seconds after activation are the
+    /// `AxisSweptParams::parry_window_time` seconds after activation are the
     /// parry window (full invulnerability).
     pub shield_held: bool,
     /// Real, unscaled frame duration supplied by the presentation layer.
@@ -61,4 +61,12 @@ pub struct InputState {
     /// a control/UI gesture: the cursor should stay responsive even when game
     /// time is nearly frozen. If zero, the engine falls back to scaled dt.
     pub control_dt: f32,
+}
+
+impl InputState {
+    /// The locomotion stick in the controlled body's local acceleration frame.
+    /// Device/screen mapping has already happened before the movement kernel.
+    pub const fn local_axis(self) -> Vec2 {
+        Vec2::new(self.axis_x, self.axis_y)
+    }
 }

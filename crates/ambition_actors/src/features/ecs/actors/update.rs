@@ -570,7 +570,7 @@ pub fn tick_actor_brains(
 
 /// The per-body ACTOR movement integrator — the actor-species sibling of
 /// [`crate::avatar::integrate_home_body`]. Both bottom out in the SAME engine seam
-/// (`ae::update_body_with_tuning_clusters`, reached here via `ActorMut::update` →
+/// (`ae::step_motion`, reached here via `ActorMut::update` →
 /// `integrate_body`); this wrapper adds the actor-species orchestration the home
 /// body doesn't need (dead/revive, AI evaluation, surface-walker step, flight
 /// tuning) and reacts to the integration: the revive flash on the dead→alive edge,
@@ -596,7 +596,7 @@ pub(crate) fn integrate_actor_body(
     // axis-role swept path below; `SurfaceMomentum` dispatches to the
     // surface-follower solver — a policy field on the ONE integrator, the
     // `Perception` pattern, never a parallel system.
-    motion_model: Option<&mut MotionModel>,
+    motion_model: &mut MotionModel,
     target_pos: ae::Vec2,
     is_mounted: bool,
     feature_world: &ae::World,
@@ -618,70 +618,6 @@ pub(crate) fn integrate_actor_body(
     let previous_pos = em.kin.pos;
     // Pre-update grounded snapshot for the shared movement-fx landing dust (§A8).
     let was_grounded = em.ground.on_ground;
-    // Localized gravity: each actor feels the gravity of the column it stands in.
-    let enemy_gravity_dir = gravity.dir_at(em.kin.pos);
-
-    // ── SurfaceMomentum dispatch (AJ11): the body's movement identity ──
-    if let Some(MotionModel::SurfaceMomentum(m)) = motion_model {
-        let gravity_magnitude = em
-            .config
-            .tuning
-            .movement
-            .body_tuning(
-                em.config.tuning.max_run_speed,
-                enemy_gravity_dir,
-                em.surface.gravity_scale,
-            )
-            .gravity;
-        let mut on_ground = em.ground.on_ground;
-        let mut normal = em.surface.surface_normal;
-        // §3.1 SweepSample (rule 2 — every mover owns its record): this momentum
-        // dispatch bypasses the kernel's sample write, so capture the segment
-        // around the step (both endpoints inside the mover, same rule the
-        // surface-walker branch and the home momentum path use). Without this a
-        // SurfaceMomentum actor keeps a stale zero-length sample, so the hazard
-        // reader reads no path and a fast momentum body tunnels spikes.
-        let sweep_entry = (em.kin.pos, em.kin.vel);
-        super::motion::step_momentum_body(
-            em.kin,
-            &mut on_ground,
-            &mut normal,
-            m,
-            feature_world,
-            enemy_gravity_dir * gravity_magnitude,
-            brain_frame.locomotion.x,
-            brain_frame.locomotion,
-            brain_frame.jump_pressed,
-            brain_frame.facing,
-            dt,
-        );
-        if let Some(sweep) = em.sweep.as_deref_mut() {
-            *sweep = ae::SweepSample {
-                prev: sweep_entry.0,
-                curr: em.kin.pos,
-                vel: sweep_entry.1,
-                half: em.kin.size * 0.5,
-            };
-        }
-        em.ground.on_ground = on_ground;
-        em.surface.surface_normal = normal;
-        // The SAME universal footprint publish + frame write-back tail the
-        // axis-swept path runs (frame oriented to the ridden surface).
-        let down = -em.surface.surface_normal;
-        let footprint = envelope.unwrap_or(em.kin.size);
-        let body = crate::features::collision_aabb(&crate::features::SimpleActorGeometry {
-            pos: em.kin.pos,
-            size: footprint,
-            facing: em.kin.facing,
-            frame_down: down,
-        });
-        aabb.center = body.center();
-        aabb.half_size = body.half_size();
-        if let Some(control) = control.as_deref_mut() {
-            control.0 = brain_frame;
-        }
-        return;
-    }
     let shark_charge_vec = brain_frame.velocity_target;
     // Respawn blink: `em.update` revives a dead body in place; apply the revive
     // flash here on the dead→alive transition (the damage-blink lives on
@@ -701,7 +637,8 @@ pub(crate) fn integrate_actor_body(
         dt,
         is_mounted,
         brain_frame,
-        enemy_gravity_dir,
+        motion_model,
+        gravity,
         feel,
         (combat.hitstun_timer, combat.recoil_lock_timer),
     );
@@ -776,7 +713,7 @@ pub(crate) fn integrate_actor_body(
 
 /// PHASE — integrate sim bodies. The ONE scheduled movement phase for every
 /// non-boss sim body: it reads each body's brain-produced `ActorControl` and moves
-/// it through the shared movement pipeline (`ae::update_body_with_tuning_clusters`).
+/// it through the shared movement kernel (`ae::step_motion`).
 ///
 /// There is no separate home/player movement route. The phase is a thin driver over
 /// TWO per-body integrators that are SIBLINGS — each bottoms out in that one engine
@@ -820,7 +757,7 @@ pub fn integrate_sim_bodies(
             Option<&mut ambition_characters::brain::ActorControl>,
             Option<&mut crate::actor::BodyAnimFacts>,
             Option<&super::super::Mounted>,
-            Option<&mut MotionModel>,
+            &mut MotionModel,
             Option<super::super::actor_clusters::ActorClusterQueryData>,
         ),
         (
@@ -849,7 +786,7 @@ pub fn integrate_sim_bodies(
             &ambition_characters::brain::ActorControl,
             &mut CenteredAabb,
             &mut crate::avatar::PlayerBodyFrameOutput,
-            Option<&mut MotionModel>,
+            &mut MotionModel,
         ),
         With<crate::actor::PlayerEntity>,
     >,
@@ -885,7 +822,7 @@ pub fn integrate_sim_bodies(
             // No actor carries a `BodyEnvelope` today — its collision box is its
             // footprint, so `CenteredAabb` publishes from `kin.size` (None).
             None,
-            motion_model.as_deref_mut(),
+            &mut motion_model,
             target.pos,
             mounted.is_some(),
             &feature_world,
@@ -909,8 +846,6 @@ pub fn integrate_sim_bodies(
     // no presentation happen here — those are the home reset-POLICY and
     // PRESENTATION phases, which read the `PlayerBodyFrameOutput` this writes.
     let mut player_tuning = editable_tuning.as_engine();
-    let player_gravity_dir = gravity.field_dir();
-    crate::physics::apply_gravity_dir(&mut player_tuning, player_gravity_dir);
     if let Some(settings) = user_settings.as_deref() {
         player_tuning.movement_frame_mode = settings.gameplay.movement_frame_mode;
     }
@@ -921,6 +856,8 @@ pub fn integrate_sim_bodies(
         &mut players
     {
         let mut clusters = cluster_item.as_clusters_mut();
+        let player_motion_frame =
+            gravity.motion_frame_at(clusters.kinematics.pos, player_tuning.gravity);
         crate::avatar::integrate_home_body(
             control.0,
             &world.0,
@@ -929,7 +866,8 @@ pub fn integrate_sim_bodies(
             &mut hurtbox,
             &mut frame_out,
             &platform_set.0,
-            motion_model.as_deref_mut(),
+            &mut motion_model,
+            player_motion_frame,
             player_tuning,
             player_feel,
             frame_dt,

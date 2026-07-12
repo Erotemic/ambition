@@ -62,20 +62,29 @@ fn input_suppressed_by_unfocus(
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct MenuNavConsume;
 
-/// Presentation-side companion to `setup_simulation_system`: attach
-/// leafwing's `ActionState` and the active preset's `InputMap` to the
-/// player entity. Sim-only setup spawns the player without these so the
-/// sim path stays leafwing-free per the ADR 0012 input seam.
+/// Attach leafwing input state to every newly spawned player visual.
+///
+/// This deliberately queries the lifecycle marker instead of requiring the
+/// process-global [`SceneEntities`](crate::platformer_runtime::lifecycle::SceneEntities)
+/// resource. Startup-built worlds and shell-activated/relaunched worlds create
+/// that resource at different schedule seams; a mandatory `Res<SceneEntities>`
+/// therefore made the input host panic before a late shell activation could
+/// spawn its player. The `Without<ActionState<_>>` filter makes this safe to run
+/// every frame and naturally handles relaunches without resetting held input on
+/// an already-wired player.
 #[cfg(feature = "input")]
 pub fn attach_player_input_components(
     mut commands: Commands,
     dev_state: Res<SandboxDevState>,
-    scene: Res<crate::platformer_runtime::lifecycle::SceneEntities>,
+    players: Query<Entity, (With<PlayerVisual>, Without<ActionState<SandboxAction>>)>,
 ) {
-    let input_map = KeyboardPreset::by_index(dev_state.preset_index).input_map();
-    commands
-        .entity(scene.player)
-        .insert((ActionState::<SandboxAction>::default(), input_map));
+    let preset = KeyboardPreset::by_index(dev_state.preset_index);
+    for player in &players {
+        commands.entity(player).insert((
+            ActionState::<SandboxAction>::default(),
+            preset.input_map(),
+        ));
+    }
 }
 
 /// Toggle player-trail emission from the logical input action.
@@ -319,8 +328,51 @@ pub fn apply_menu_frame_to_cutscene_request(
 
 #[cfg(all(test, feature = "input"))]
 mod focus_gate_tests {
-    use super::input_suppressed_by_unfocus;
+    use super::{attach_player_input_components, input_suppressed_by_unfocus};
+    use ambition_input::SandboxAction;
     use ambition_persistence::settings::UserSettings;
+    use bevy::prelude::*;
+    use leafwing_input_manager::prelude::{ActionState, InputMap};
+
+    #[test]
+    fn input_attachment_tolerates_no_scene_and_wires_late_players() {
+        let mut app = App::new();
+        app.init_resource::<ambition_dev_tools::SandboxDevState>();
+        app.add_systems(Update, attach_player_input_components);
+
+        // A shell host starts before its first route activation. There is no
+        // SceneEntities resource and no player yet; the host must simply idle.
+        app.update();
+
+        let first = app
+            .world_mut()
+            .spawn(crate::platformer_runtime::lifecycle::PlayerVisual)
+            .id();
+        app.update();
+        assert!(
+            app.world().entity(first).contains::<ActionState<SandboxAction>>(),
+            "a player spawned after startup receives leafwing state"
+        );
+        assert!(
+            app.world().entity(first).contains::<InputMap<SandboxAction>>(),
+            "a player spawned after startup receives the active input map"
+        );
+
+        // Session relaunches create a fresh player after the original startup
+        // schedule is long gone. The same idempotent system must wire it too.
+        app.world_mut().despawn(first);
+        let relaunched = app
+            .world_mut()
+            .spawn(crate::platformer_runtime::lifecycle::PlayerVisual)
+            .id();
+        app.update();
+        assert!(
+            app.world()
+                .entity(relaunched)
+                .contains::<ActionState<SandboxAction>>(),
+            "a relaunched player is wired without rerunning Startup"
+        );
+    }
 
     #[test]
     fn unfocus_gate_is_off_by_default() {

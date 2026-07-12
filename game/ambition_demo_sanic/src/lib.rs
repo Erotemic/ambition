@@ -517,6 +517,20 @@ impl SanicRulesPlugin {
 impl Plugin for SanicRulesPlugin {
     fn build(&self, app: &mut App) {
         use bevy::prelude::IntoScheduleConfigs;
+
+        // Every rule below writes the engine-generic SFX seam. The complete
+        // engine group normally owns this message channel, but a reusable rules
+        // plugin must not panic merely because a thin/headless host omitted the
+        // registrar or changed plugin ordering. Register it only when absent so
+        // the ordinary engine-owned path remains unchanged and no duplicate
+        // message-maintenance system is installed.
+        if !app
+            .world()
+            .contains_resource::<bevy::prelude::Messages<ambition::sfx::SfxMessage>>()
+        {
+            app.add_message::<ambition::sfx::SfxMessage>();
+        }
+
         let sim = ambition::platformer::schedule::SimScheduleExt::sim_schedule(app);
         app.init_resource::<ball_dash::BallDashTuning>();
         // Attach the mode-local state and consume Sanic's semantic input verbs

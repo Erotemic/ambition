@@ -135,10 +135,11 @@ pub struct SurfaceBody {
     pub radius: f32,
     /// Simulated-depth lane retained while airborne.
     ///
-    /// Lane `0` is ordinary geometry and composes with every lane. Non-zero
-    /// lanes collide with themselves and lane `0`, but not with each other.
-    /// This prevents a body leaving the back rail of a crossover from landing
-    /// immediately on its foreground rail.
+    /// Lanes are discrete collision planes: a body collides only with authored
+    /// chain segments on the same lane. Route traversal may change lanes while
+    /// riding, and ordinary solid blocks remain depth-agnostic. Treating lane
+    /// `0` as a wildcard made a rider shed from the loop's center plane and
+    /// immediately snag on its foreground/background rails.
     pub depth_lane: i8,
     pub motion: SurfaceMotion,
 }
@@ -1149,7 +1150,42 @@ fn project_to_segment(chain: &SurfaceChain, segment: usize, point: Vec2) -> f32 
 }
 
 fn depth_lanes_collide(body_lane: i8, surface_lane: i8) -> bool {
-    body_lane == 0 || surface_lane == 0 || body_lane == surface_lane
+    body_lane == surface_lane
+}
+
+/// Ignore a numerically immediate, nearly tangent chain contact.
+///
+/// A circle released from a polygonal track joint is exactly tangent to the
+/// departure segment and may overlap the neighboring segment by a few
+/// hundredths of a pixel. Parry reports that as a TOI-zero hit. Reattaching on
+/// that hit creates the visible "caught on the rail" limit cycle. Genuine
+/// landings have either meaningful separation before impact or a substantial
+/// into-surface component, so they remain collision candidates.
+fn grazing_chain_contact_at_release(
+    center: Vec2,
+    radius: f32,
+    segment_start: Vec2,
+    normal: Vec2,
+    delta: Vec2,
+    toi: f32,
+) -> bool {
+    const CONTACT_SLOP: f32 = 0.5;
+    const TOI_EPSILON: f32 = 1.0e-4;
+    const MAX_NORMAL_FRACTION: f32 = 0.12;
+
+    if toi > TOI_EPSILON {
+        return false;
+    }
+    let travel = delta.length();
+    if travel <= 1.0e-6 {
+        return false;
+    }
+    let signed_distance = (center - segment_start).dot(normal);
+    let penetration = radius - signed_distance;
+    let inward_distance = (-delta.dot(normal)).max(0.0);
+    penetration > 0.0
+        && penetration <= CONTACT_SLOP
+        && inward_distance <= travel * MAX_NORMAL_FRACTION
 }
 
 /// Earliest swept-circle hit against chains (one-sided) and solid blocks.
@@ -1202,6 +1238,9 @@ fn first_circle_hit(
                 continue;
             };
             let toi = hit.time_of_impact.clamp(0.0, 1.0);
+            if grazing_chain_contact_at_release(center, radius, a, n, delta, toi) {
+                continue;
+            }
             if best.as_ref().is_none_or(|b| toi < b.toi) {
                 best = Some(CircleHit {
                     toi,

@@ -407,10 +407,11 @@ pub struct SurfaceChain {
     /// Empty means every segment lives on lane `0`. Non-empty vectors must have
     /// exactly [`Self::segment_count`] entries. Riding remains one-dimensional by
     /// arc length; presentation draws negative lanes behind the player and
-    /// positive lanes in front. An airborne rider retains its last non-zero lane,
-    /// so opposite non-zero lanes do not collide at a crossover; lane `0`
-    /// remains ordinary shared geometry. Proper geometric intersections stay
-    /// invalid; junctions connect repeated/coincident vertex occurrences.
+    /// positive lanes in front. An airborne rider retains its current lane and
+    /// collides only with segments on that same lane. Route traversal may move a
+    /// rider between lanes without an airborne collision, while solid blocks
+    /// remain depth-agnostic. Proper geometric intersections stay invalid;
+    /// junctions connect repeated/coincident vertex occurrences.
     #[serde(default)]
     pub depth_lanes: Vec<i8>,
     /// Explicit topological route switches.

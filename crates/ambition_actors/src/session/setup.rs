@@ -61,8 +61,9 @@ pub struct SimulationSetup<'a> {
 ///   (`PlayerSimulationBundle` for sim clusters plus `Transform`,
 ///   `PlayerVisual`, etc.).
 ///   Leafwing's `ActionState` and `InputMap` get attached by the
-///   presentation-side `attach_player_input_components` startup system;
-///   sim-only builds stay leafwing-free per the ADR 0012 input seam.
+///   host-side, idempotent `attach_player_input_components` system when the
+///   input feature is present; sim-only builds stay leafwing-free per the
+///   ADR 0012 input seam.
 /// * inserting a `SceneEntities` resource with `hud: Entity::PLACEHOLDER`
 ///   that `presentation_world` overwrites once the HUD entity exists
 pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) -> Entity {

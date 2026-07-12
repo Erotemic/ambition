@@ -143,12 +143,21 @@ impl Plugin for HostInputBindingsPlugin {
                 Update,
                 ambition_input::update_active_input_kind.in_set(ambition_input::InputSet::Populate),
             )
-            // Attach the input components once the host's simulation setup
-            // has spawned the player (the `SimulationSetupSet` label is the
-            // machinery-facing name for that startup slot).
+            // Preserve the zero-lag path for historical Startup-built worlds.
+            // The attachment system no longer requires `SceneEntities`, so it is
+            // also safe when a shell provider has not activated a route yet.
             .add_systems(
                 Startup,
                 attach_player_input_components.after(SimulationSetupSet),
+            )
+            // Shell providers spawn a fresh player during Update, including on
+            // relaunch after Startup is permanently over. Re-run the idempotent
+            // `Without<ActionState<_>>` attachment before the frame's consumers;
+            // deferred insertion becomes visible on the following input frame.
+            .add_systems(
+                Update,
+                attach_player_input_components
+                    .before(populate_menu_control_frame_from_actions),
             )
             // Collect semantic menu intent before gameplay input is
             // suppressed. `populate_control_frame_from_actions` may zero the

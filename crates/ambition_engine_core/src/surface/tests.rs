@@ -1456,13 +1456,90 @@ fn route_junction_changes_arc_occurrence_without_reversing_speed() {
 }
 
 #[test]
-fn nonzero_depth_lanes_do_not_collide_across_a_crossover() {
+fn depth_lanes_are_discrete_collision_planes() {
+    assert!(depth_lanes_collide(-1, -1));
+    assert!(depth_lanes_collide(0, 0));
+    assert!(depth_lanes_collide(1, 1));
+    assert!(!depth_lanes_collide(-1, 0));
+    assert!(!depth_lanes_collide(0, 1));
     assert!(!depth_lanes_collide(-1, 1));
     assert!(!depth_lanes_collide(1, -1));
-    assert!(depth_lanes_collide(-1, -1));
-    assert!(depth_lanes_collide(1, 1));
-    assert!(depth_lanes_collide(-1, 0));
-    assert!(depth_lanes_collide(0, 1));
+}
+
+#[test]
+fn airborne_sweep_ignores_tracks_on_other_depth_lanes() {
+    let rail = |name: &str, lane: i8| {
+        SurfaceChain::open(
+            name,
+            vec![Vec2::new(-100.0, 100.0), Vec2::new(100.0, 100.0)],
+        )
+        .with_segment_depths(vec![lane])
+    };
+    let center = Vec2::new(0.0, 60.0);
+    let delta = Vec2::new(0.0, 80.0);
+
+    let other_lanes = world_with_chains(vec![rail("back", -1), rail("center", 0)]);
+    assert!(
+        first_circle_hit(&other_lanes, center, 12.0, 1, delta).is_none(),
+        "a foreground rider must pass the coincident back/center rails"
+    );
+
+    let matching = world_with_chains(vec![rail("back", -1), rail("center", 0), rail("front", 1)]);
+    let hit = first_circle_hit(&matching, center, 12.0, 1, delta)
+        .expect("the matching foreground rail remains collidable");
+    assert!(
+        matches!(
+            hit.what,
+            CircleHitTarget::Chain {
+                chain: 2,
+                segment: 0
+            }
+        ),
+        "the sweep must select only the matching depth lane"
+    );
+}
+
+#[test]
+fn toi_zero_tangent_scrapes_are_not_recaptured_as_landings() {
+    let normal = Vec2::new(0.0, -1.0);
+    let center = Vec2::new(0.0, -15.8);
+    let tangent_scrape = Vec2::new(10.0, 0.5);
+    assert!(grazing_chain_contact_at_release(
+        center,
+        16.0,
+        Vec2::ZERO,
+        normal,
+        tangent_scrape,
+        0.0,
+    ));
+
+    assert!(
+        !grazing_chain_contact_at_release(
+            Vec2::new(0.0, -16.0),
+            16.0,
+            Vec2::ZERO,
+            normal,
+            tangent_scrape,
+            0.0,
+        ),
+        "an exactly tangent contact is not an overlap artifact"
+    );
+
+    assert!(
+        !grazing_chain_contact_at_release(
+            center,
+            16.0,
+            Vec2::ZERO,
+            normal,
+            Vec2::new(1.0, 10.0),
+            0.0,
+        ),
+        "a meaningful into-surface impact is a real landing"
+    );
+    assert!(
+        !grazing_chain_contact_at_release(center, 16.0, Vec2::ZERO, normal, tangent_scrape, 0.25,),
+        "a later impact is not the numerical release contact"
+    );
 }
 
 #[test]

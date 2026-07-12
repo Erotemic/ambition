@@ -807,3 +807,23 @@ fn reverse_loop_exits_after_one_revolution_instead_of_reentering_forever() {
         "reverse traversal must leave after one revolution instead of re-entering; body={body:?}"
     );
 }
+
+#[test]
+fn rules_plugin_registers_its_mandatory_sfx_message_channel() {
+    let mut app = App::new();
+    assert!(
+        !app.world().contains_resource::<
+            bevy::prelude::Messages<ambition::sfx::SfxMessage>,
+        >(),
+        "the test must begin without the engine group's SFX registrar"
+    );
+
+    app.add_plugins(SanicRulesPlugin::global());
+
+    assert!(
+        app.world().contains_resource::<
+            bevy::prelude::Messages<ambition::sfx::SfxMessage>,
+        >(),
+        "SanicRulesPlugin owns a mandatory MessageWriter<SfxMessage> dependency and must register it when a thin host has not"
+    );
+}

@@ -305,7 +305,10 @@ pub(crate) fn spawn_pickup(
     authored: &crate::rooms::Authored<crate::rooms::PickupSpec>,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
-    commands.spawn_room_in_session(
+    // `PickupBundle` already carries `RoomScopedEntity` (via `FeatureRenderedBundle`),
+    // so spawn through the session-only helper — `spawn_room_in_session` would prepend
+    // a second `RoomScopedEntity` and trip Bevy's duplicate-component panic.
+    commands.spawn_session_scoped(
         session_scope,
         (
             Name::new(format!("Feature pickup: {}", authored.name)),
@@ -491,7 +494,9 @@ pub(crate) fn spawn_chest(
     authored: &crate::rooms::Authored<crate::rooms::ChestSpec>,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
-    commands.spawn_room_in_session(
+    // `ChestBundle` already carries `RoomScopedEntity` (via `FeatureRenderedBundle`),
+    // so spawn through the session-only helper — see the note in `spawn_pickup`.
+    commands.spawn_session_scoped(
         session_scope,
         (
             Name::new(format!("Feature chest: {}", authored.name)),

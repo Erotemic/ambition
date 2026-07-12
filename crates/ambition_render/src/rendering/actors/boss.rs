@@ -99,16 +99,21 @@ pub fn upgrade_boss_sprites(
 
 /// Per-frame state-driven animation for boss entities.
 pub fn animate_bosses(
-    // The boss frame read-model (E4 slice 7): facing flip + attack-telegraph
-    // tint facts resolved sim-side into `BossFrameIndex`. The animation frame is
-    // not derived here either: the SIM owns `BossAnimFrame`, so this presentation
-    // system mirrors that cursor into the draw-only animator and renders it.
+    // The boss frame read-model (E4 slice 7): facing flip + attack-telegraph tint
+    // facts resolved sim-side into `BossFrameIndex`, PLUS the SIM-owned draw cursor
+    // (`cursor_anim`/`cursor_frame`). The frame is not derived here: the sim owns it
+    // (`drive_boss_animators`), and this system mirrors the published cursor into
+    // the draw-only animator and renders it.
     boss_frames: Res<ambition_sim_view::BossFrameIndex>,
+    // The draw cursor is READ from `boss_frames` (the by-id read-model), NOT from a
+    // `&BossAnimFrame` component: this presentation entity is a `FeatureVisual`
+    // mirror that never carries the sim's `BossAnimFrame` (that lives on the
+    // separate sim boss entity). Querying the component here matched ZERO bosses
+    // and froze every boss on frame 0 — the read-model is the boundary.
     mut query: Query<
         (
             &FeatureVisual,
             &mut Sprite,
-            &BossAnimFrame,
             &mut BossAnimator,
             Option<&mut bevy::sprite::Anchor>,
         ),
@@ -124,15 +129,15 @@ pub fn animate_bosses(
     // here: a boss with ProperTimeScale > 1.0 keeps tickling its
     // own animation while the world is frozen by its SimClock
     // request.
-    for (visual, mut sprite, frame, mut animator, anchor) in &mut query {
-        let Some(state): Option<BossAnimState> =
-            boss_frames.get(&visual.id).map(|frame| frame.anim)
-        else {
+    for (visual, mut sprite, mut animator, anchor) in &mut query {
+        let Some(view) = boss_frames.get(&visual.id) else {
             continue;
         };
-        animator.mirror_frame(frame);
-        // Read the current flat index to draw, so the drawn pose and the strike
-        // geometry share the ONE sim-owned frame.
+        let state: BossAnimState = view.anim;
+        // Mirror the SIM-owned draw cursor published in the read-model. The frame
+        // was advanced by `drive_boss_animators` this tick; the render only draws
+        // it, so the drawn pose and the strike geometry share the ONE sim frame.
+        animator.mirror_cursor(view.cursor_anim, view.cursor_frame);
         let index = animator.current_flat_index();
         // Split sheets: select the page image the active frame draws from
         // before setting the (page-local) index. Single-page bosses skip this.

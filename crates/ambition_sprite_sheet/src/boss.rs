@@ -1256,12 +1256,15 @@ impl BossAnimator {
         self.flat_index(self.current, self.frame)
     }
 
-    pub fn mirror_frame(&mut self, frame: &BossAnimFrame) {
-        self.current = frame.current;
-        self.drive_phase = frame.drive_phase;
-        self.frame = frame.frame;
-        self.elapsed = frame.elapsed;
-        self.clip_held = frame.clip_held;
+    /// Mirror the SIM-owned draw cursor published in the boss frame read-model
+    /// (`BossFrameIndex`). The render's `FeatureVisual` entity is a by-id mirror
+    /// that never carries the sim `BossAnimFrame` component, so the animator reads
+    /// the current `(anim, frame)` from the read-model instead of the component.
+    /// Only `current` + `frame` are needed to DRAW — `drive_phase`/`elapsed`/
+    /// `clip_held` are advance-side bookkeeping the sim owns.
+    pub fn mirror_cursor(&mut self, current: BossAnim, frame: usize) {
+        self.current = current;
+        self.frame = frame;
     }
 }
 

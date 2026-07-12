@@ -157,6 +157,14 @@ pub fn authored_attack_volume_resolver(
     }
 }
 
+/// Player-only GAMEPLAY hitbox enlargement (blind fix 2026-07-12, Jon: "make
+/// dair / up-tilt easier to pogo + test"). The authored polys are sized to the
+/// visual blade; this scales the player's strike reach + size about the feet
+/// anchor so the directional swings connect more forgivingly, WITHOUT touching
+/// the visual sprite or any actor's authored size. `1.0` = authored size. Pure
+/// feel knob — TUNE LIVE.
+const PLAYER_ATTACK_HITBOX_SCALE: f32 = 1.3;
+
 /// authored melee box drives its attack.
 pub fn player_attack_hitbox_world(
     animation: &str,
@@ -166,7 +174,9 @@ pub fn player_attack_hitbox_world(
     gravity_dir: ae::Vec2,
 ) -> Option<ae::CombatVolume> {
     let record = file_root_registry().get(PLAYER_FILE_ROOT)?;
-    let render_size = player_render_size(collision)?;
+    // Enlarge the hitbox by scaling the render size the poly/bbox offsets derive
+    // from — grows reach + size about the feet anchor, player-only.
+    let render_size = player_render_size(collision)? * PLAYER_ATTACK_HITBOX_SCALE;
     manifest_attack_hitbox_world(
         record,
         animation,

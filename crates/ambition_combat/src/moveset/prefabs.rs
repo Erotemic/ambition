@@ -585,6 +585,15 @@ fn directional_attack_variants(base: &MoveSpec) -> Vec<(String, MoveSpec)> {
         }
         m
     };
+    // NB: the second `variant(...)` arg is the CLIP the strike resolves its
+    // AUTHORED hitbox polygon from (`authored_attack_volume` → a plain manifest
+    // animation-name lookup). It MUST match a real authored row or the strike
+    // silently falls back to the tiny default Rect. The manifest authors the
+    // aerials as `air_up` / `air_down` / `air_back` / `air_forward` (NOT
+    // `attack_air*`), so the aerials bind those — otherwise the down-air's big
+    // authored blade was lost and the dair read as a tiny box. The sprite is
+    // driven by the swing's intent (`directional_attack_anim`), not this clip, so
+    // the clip name only steers the hitbox lookup.
     vec![
         (
             "attack_up".to_string(),
@@ -596,19 +605,19 @@ fn directional_attack_variants(base: &MoveSpec) -> Vec<(String, MoveSpec)> {
         ),
         (
             "attack_air".to_string(),
-            variant("attack_air", "attack_air", false, Dir::Fwd, false),
+            variant("attack_air", "air_forward", false, Dir::Fwd, false),
         ),
         (
             "attack_air_up".to_string(),
-            variant("attack_air_up", "attack_up", false, Dir::Up, false),
+            variant("attack_air_up", "air_up", false, Dir::Up, false),
         ),
         (
             "attack_air_back".to_string(),
-            variant("attack_air_back", "attack_air", false, Dir::Back, false),
+            variant("attack_air_back", "air_back", false, Dir::Back, false),
         ),
         (
             "attack_air_down".to_string(),
-            variant("attack_air_down", "attack_air_down", false, Dir::Down, true),
+            variant("attack_air_down", "air_down", false, Dir::Down, true),
         ),
     ]
 }

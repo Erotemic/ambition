@@ -346,6 +346,13 @@ pub fn apply_feature_hit_events(
             });
         }
 
+        // Struck breakables, keyed for the one-hit-per-target dedup. Unlike actors
+        // (i-frames) and bosses, a breakable carries NO post-hit invuln, and its
+        // loop runs AFTER the actor/boss fold-back — so before this it was never
+        // entered into the accumulator and a lingering player strike re-smashed it
+        // (and re-fired its Impact FX) every active tick. Collected here and folded
+        // below, exactly like the factioned targets.
+        let mut breakable_keys: Vec<String> = Vec::new();
         for (entity, id, name, aabb, mut feature) in
             breakables.iter_mut().filter(|_| actor_target.is_none())
         {
@@ -362,6 +369,7 @@ pub fn apply_feature_hit_events(
                 continue;
             }
             let broke = feature.breakable.apply_damage(event.damage.max(1));
+            breakable_keys.push(format!("breakable:{}", id.as_str()));
             writers.vfx.write(VfxMessage::Impact {
                 pos: midpoint(event.volume.center(), aabb.center),
             });
@@ -382,6 +390,30 @@ pub fn apply_feature_hit_events(
                     &mut writers.vfx,
                     &mut writers.debris,
                 );
+            }
+        }
+
+        // Fold struck breakables into the SAME one-hit-per-target accumulator the
+        // factioned targets use. Their loop runs after the actor/boss fold-back and
+        // they carry no i-frames, so without this a lingering player strike
+        // re-smashed each breakable (and re-fired its Impact FX) every active tick.
+        // Persist on the move (survives the moveset swing projection) AND the flat
+        // swing (non-moveset bodies).
+        if matches!(event.source, HitSource::PlayerSlash { .. }) && !breakable_keys.is_empty() {
+            if let Some(attacker) = event.attacker.or_else(|| primary_q.single().ok()) {
+                if let Ok(mut pb) = attacker_moves.get_mut(attacker) {
+                    pb.hit_targets.extend(breakable_keys.iter().cloned());
+                }
+                for (entity, _combat, active_attack) in &mut player_combat_q {
+                    if entity == attacker {
+                        if let Some(mut active) = active_attack {
+                            if let Some(state) = active.swing.as_mut() {
+                                state.hit_targets.extend(breakable_keys.iter().cloned());
+                            }
+                        }
+                        break;
+                    }
+                }
             }
         }
     }

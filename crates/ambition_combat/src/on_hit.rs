@@ -60,6 +60,18 @@ impl HitboxOnHit {
             fired: std::collections::HashSet::new(),
         }
     }
+
+    /// Has this strike already fired for `target`? Used by both the entity
+    /// on-hit path and the world-orb pogo (which passes the OWNER as a sentinel,
+    /// since a collision-world orb has no victim entity) to fire once per strike.
+    pub fn has_fired(&self, target: Entity) -> bool {
+        self.fired.contains(&target)
+    }
+
+    /// Mark `target` as fired (idempotent).
+    pub fn mark_fired(&mut self, target: Entity) {
+        self.fired.insert(target);
+    }
 }
 
 /// A landed on-hit: `effect` fires with the hit context. The consuming

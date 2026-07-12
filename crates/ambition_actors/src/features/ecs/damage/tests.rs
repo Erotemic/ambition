@@ -866,3 +866,146 @@ fn an_actor_targeted_hit_damages_only_the_named_actor() {
         "an overlapping non-target actor is untouched (pre-resolved, not broadcast)"
     );
 }
+
+/// The player-melee one-hit-per-target dedup must PERSIST on the attacker's
+/// `MovePlayback` (the moveset read-model swing is wiped each frame). This drives
+/// `apply_feature_hit_events` directly: a `PlayerSlash` Volume hit whose attacker
+/// carries a live melee move must (a) land, and (b) fold the struck target's key
+/// onto `MovePlayback.hit_targets` so the next tick's emit ignores it.
+#[test]
+fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
+    use crate::combat::moveset::{simple_melee, MovePlayback, SimpleMeleeParams};
+    let mut app = App::new();
+    app.insert_resource(GameplayBanner::default());
+    app.add_message::<HitEvent>();
+    app.add_message::<SetFlagRequested>();
+    app.add_message::<SfxMessage>();
+    app.add_message::<VfxMessage>();
+    app.add_message::<DebrisBurstMessage>();
+    app.add_message::<ActorStimulus>();
+    app.add_systems(Update, apply_feature_hit_events);
+
+    let attacker = app
+        .world_mut()
+        .spawn(MovePlayback::new(
+            simple_melee(&SimpleMeleeParams::default()),
+            1.0,
+        ))
+        .id();
+    let enemy = spawn_hostile_actor(&mut app); // HP 5, box at origin
+    let volume = ae::Aabb::new(ae::Vec2::ZERO, ae::Vec2::new(24.0, 40.0));
+    app.world_mut().write_message(HitEvent {
+        volume: volume.into(),
+        damage: 2,
+        source: HitSource::PlayerSlash { knock_x: 0.0 },
+        attacker: Some(attacker),
+        target: HitTarget::Volume,
+        mode: HitMode::Knockback,
+        knockback: None,
+        ignored_targets: Vec::new(),
+    });
+    app.update();
+
+    assert_eq!(
+        app.world().get::<BodyHealth>(enemy).unwrap().health.current,
+        3,
+        "the slash lands (5 -> 3)"
+    );
+    let acc = app
+        .world()
+        .get::<MovePlayback>(attacker)
+        .unwrap()
+        .hit_targets
+        .clone();
+    assert!(
+        acc.iter().any(|k| k.starts_with("enemy:")),
+        "the struck target must be folded onto MovePlayback.hit_targets so the \
+         next active tick ignores it; got {acc:?}"
+    );
+}
+
+/// END-TO-END isolation: a moveset player's FollowOwner strike emits a Volume
+/// HitEvent EVERY active tick; the projection + fold-back must collapse them to
+/// ONE landed hit. Victim i-frames are cleared each tick so the ONLY thing that
+/// can dedup is the `MovePlayback.hit_targets` accumulator (the projection copies
+/// it onto the swing → `apply_hitbox_damage` emits it as ignored_targets). If the
+/// accumulator fails to persist, the enemy drains every tick.
+#[test]
+fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
+    use crate::combat::moveset::{
+        project_moveset_melee_to_body_melee, simple_melee, MovePlayback, MovesetMelee,
+        SimpleMeleeParams,
+    };
+    use bevy::prelude::IntoScheduleConfigs;
+    fn clear_iframes(mut q: bevy::prelude::Query<&mut ambition_characters::actor::BodyCombat>) {
+        for mut c in &mut q {
+            c.damage_invuln_timer = 0.0;
+        }
+    }
+    let mut app = App::new();
+    app.insert_resource(GameplayBanner::default());
+    app.add_message::<HitEvent>();
+    app.add_message::<SetFlagRequested>();
+    app.add_message::<SfxMessage>();
+    app.add_message::<VfxMessage>();
+    app.add_message::<DebrisBurstMessage>();
+    app.add_message::<ActorStimulus>();
+    app.add_systems(
+        Update,
+        (
+            clear_iframes,
+            project_moveset_melee_to_body_melee,
+            crate::features::apply_hitbox_damage,
+            apply_feature_hit_events,
+        )
+            .chain(),
+    );
+
+    let player = app
+        .world_mut()
+        .spawn((
+            MovePlayback::new(simple_melee(&SimpleMeleeParams::default()), 1.0),
+            MovesetMelee,
+            crate::features::BodyMelee::default(),
+            ambition_engine_core::BodyKinematics {
+                pos: ae::Vec2::ZERO,
+                size: ae::Vec2::new(20.0, 40.0),
+                facing: 1.0,
+                ..Default::default()
+            },
+            ambition_engine_core::CenteredAabb::from_center_size(
+                ae::Vec2::ZERO,
+                ae::Vec2::new(20.0, 40.0),
+            ),
+        ))
+        .id();
+    app.world_mut().spawn((
+        ambition_vfx::Hitbox {
+            owner: player,
+            source: ambition_vfx::HitSide::Player,
+            anchor: ambition_vfx::HitboxAnchor::FollowOwner {
+                local_offset: ae::Vec2::ZERO,
+            },
+            half_extent: ae::Vec2::new(24.0, 40.0),
+            shape: None,
+            facing: 1.0,
+            damage: 2,
+            knockback_strength: 0.0,
+            knockback_growth: 0.0,
+            launch_dir: None,
+            knock_x: 0.0,
+            frame_down: ae::Vec2::new(0.0, 1.0),
+        },
+        ambition_vfx::HitboxHits::default(),
+    ));
+    let enemy = spawn_hostile_actor(&mut app); // HP 5 at origin
+
+    for _ in 0..6 {
+        app.update();
+    }
+    assert_eq!(
+        app.world().get::<BodyHealth>(enemy).unwrap().health.current,
+        3,
+        "a multi-tick player strike must hit once (5 -> 3), not many times"
+    );
+}

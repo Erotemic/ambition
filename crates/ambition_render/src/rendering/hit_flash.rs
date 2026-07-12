@@ -31,6 +31,9 @@ use bevy::{
 };
 
 use super::primitives::{FeatureVisual, PlayerVisual, PropVisual};
+use ambition_platformer_primitives::lifecycle::{
+    SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
+};
 
 const SHADER_ASSET_PATH: &str = "shaders/hit_flash.wgsl";
 
@@ -133,11 +136,12 @@ pub fn attach_hit_flash_overlays(
             Option<&Anchor>,
             Option<&FeatureVisual>,
             Option<&PlayerVisual>,
+            Option<&SessionScopedEntity>,
         ),
         (Without<HitFlashSource>, Without<PropVisual>),
     >,
 ) {
-    for (source_entity, transform, sprite, anchor, feature, player) in &candidates {
+    for (source_entity, transform, sprite, anchor, feature, player, session_owner) in &candidates {
         // Eligibility: a textured sprite (atlas OR plain image) that
         // belongs to a character — FeatureVisual covers
         // enemies/NPCs/bosses, PlayerVisual covers the player. Props
@@ -167,36 +171,42 @@ pub fn attach_hit_flash_overlays(
         });
         let mesh = meshes.add(Rectangle::default());
         let overlay_transform = overlay_transform_from_source(transform, anchor, render_size);
+        let session_scope = session_owner.map_or(SessionSpawnScope::UNSCOPED, |owner| {
+            SessionSpawnScope::scoped(owner.0)
+        });
         let overlay_entity = commands
-            .spawn((
-                Mesh2d(mesh),
-                MeshMaterial2d(material),
-                overlay_transform,
-                // Stay `Visible` always — the shader's `discard`
-                // arm zero-cost-culls fragments when `intensity == 0`,
-                // and starting with `Hidden` can stick the auto-inserted
-                // `InheritedVisibility` at false in a way that
-                // PostUpdate's propagator can't fix on the same tick
-                // (see the deep-dream comment for the same gotcha).
-                Visibility::Visible,
-                HitFlashOverlay {
-                    source: source_entity,
-                },
-                // NOT `RoomVisual` — that requires `RoomScopedEntity`,
-                // and the room-transition pass despawns every
-                // RoomScopedEntity. The player isn't room-scoped, so
-                // adding RoomVisual here would orphan the player's
-                // HitFlashSource against a dead overlay every time
-                // the player crossed a loading zone, and the
-                // `Without<HitFlashSource>` attach gate would
-                // refuse to re-create it. Instead,
-                // `cleanup_hit_flash_overlays` despawns orphans by
-                // checking whether the source entity still has its
-                // `HitFlashSource` marker — that handles enemies'
-                // room-scoped sources cleanly without depending on
-                // RoomScopedEntity for the overlay itself.
-                Name::new("HitFlash Overlay"),
-            ))
+            .spawn_session_scoped(
+                session_scope,
+                (
+                    Mesh2d(mesh),
+                    MeshMaterial2d(material),
+                    overlay_transform,
+                    // Stay `Visible` always — the shader's `discard`
+                    // arm zero-cost-culls fragments when `intensity == 0`,
+                    // and starting with `Hidden` can stick the auto-inserted
+                    // `InheritedVisibility` at false in a way that
+                    // PostUpdate's propagator can't fix on the same tick
+                    // (see the deep-dream comment for the same gotcha).
+                    Visibility::Visible,
+                    HitFlashOverlay {
+                        source: source_entity,
+                    },
+                    // NOT `RoomVisual` — that requires `RoomScopedEntity`,
+                    // and the room-transition pass despawns every
+                    // RoomScopedEntity. The player isn't room-scoped, so
+                    // adding RoomVisual here would orphan the player's
+                    // HitFlashSource against a dead overlay every time
+                    // the player crossed a loading zone, and the
+                    // `Without<HitFlashSource>` attach gate would
+                    // refuse to re-create it. Instead,
+                    // `cleanup_hit_flash_overlays` despawns orphans by
+                    // checking whether the source entity still has its
+                    // `HitFlashSource` marker — that handles enemies'
+                    // room-scoped sources cleanly without depending on
+                    // RoomScopedEntity for the overlay itself.
+                    Name::new("HitFlash Overlay"),
+                ),
+            )
             .id();
         commands.entity(source_entity).insert(HitFlashSource {
             overlay: overlay_entity,

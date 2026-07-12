@@ -15,6 +15,7 @@ use super::super::{ae, GameplayBanner, HitEvent, HitSource};
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.
 use crate::features::ecs::boss_clusters::BossEncounter;
+use ambition_platformer_primitives::lifecycle::SpawnSessionScopedExt;
 use ambition_sfx::SfxMessage;
 use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
@@ -117,6 +118,7 @@ pub(crate) fn apply_boss_hit(
     combat_banter: Option<&crate::features::banter::CombatBanterRegistry>,
     writers: &mut FeatureHitWriters<'_, '_>,
 ) -> bool {
+    let session_scope = writers.session_spawn_scope();
     if !health.alive() {
         return false;
     }
@@ -213,12 +215,14 @@ pub(crate) fn apply_boss_hit(
         // A jackpot of coins + a heal for the hardest fight, on top of the ability.
         drop_currency_coin(
             &mut writers.commands,
+            session_scope,
             &boss.config.behavior.id,
             boss.kin.pos,
             BOSS_BOUNTY,
         );
         drop_health_pickup(
             &mut writers.commands,
+            session_scope,
             &boss.config.behavior.id,
             boss.kin.pos + ae::Vec2::new(24.0, 0.0),
             3,
@@ -230,6 +234,7 @@ pub(crate) fn apply_boss_hit(
             if let Some(item) = crate::items::Item::from_dialog_id(ability_id) {
                 drop_ability_pickup(
                     &mut writers.commands,
+                    session_scope,
                     &boss.config.behavior.id,
                     boss.kin.pos,
                     ability_id,
@@ -241,16 +246,19 @@ pub(crate) fn apply_boss_hit(
         // player picks up + uses (the player literally wields the boss's move).
         if let Some(gauntlet_id) = boss.config.behavior.signature_gauntlet.as_deref() {
             if let Some(spec) = ambition_characters::brain::held_item_by_id(gauntlet_id) {
-                writers.commands.spawn((
-                    crate::items::pickup::GroundItem {
-                        spec,
-                        // Offset from the ability pickup so the two drops don't stack.
-                        pos: boss.kin.pos + ae::Vec2::new(36.0, 0.0),
-                        vel: ae::Vec2::ZERO,
-                        half_extent: ae::Vec2::splat(18.0),
-                    },
-                    bevy::prelude::Name::new("Boss signature gauntlet"),
-                ));
+                writers.commands.spawn_session_scoped(
+                    session_scope,
+                    (
+                        crate::items::pickup::GroundItem {
+                            spec,
+                            // Offset from the ability pickup so the two drops don't stack.
+                            pos: boss.kin.pos + ae::Vec2::new(36.0, 0.0),
+                            vel: ae::Vec2::ZERO,
+                            half_extent: ae::Vec2::splat(18.0),
+                        },
+                        bevy::prelude::Name::new("Boss signature gauntlet"),
+                    ),
+                );
             }
         }
     }

@@ -38,6 +38,7 @@ fn encounter_mob_brain_is_per_archetype_melee_brute() {
     app.add_systems(Update, |mut commands: Commands| {
         spawn_encounter_mob(
             &mut commands,
+            ambition_platformer_primitives::lifecycle::SessionSpawnScope::UNSCOPED,
             "test_encounter",
             "test_mob".to_string(),
             ambition_entity_catalog::placements::CharacterBrain::Custom("medium_striker".into()),
@@ -69,7 +70,11 @@ fn boss_spawn_attaches_brain_components() {
             aabb: ae::Aabb::new(ae::Vec2::new(200.0, 100.0), ae::Vec2::new(40.0, 50.0)),
             payload: ambition_entity_catalog::placements::BossBrain::Dormant,
         };
-        spawn_boss(&mut commands, &authored);
+        spawn_boss(
+            &mut commands,
+            ambition_platformer_primitives::lifecycle::SessionSpawnScope::UNSCOPED,
+            &authored,
+        );
     });
     app.update();
     let mut q = app
@@ -148,6 +153,7 @@ fn encounter_mob_spawns_with_brain_components() {
     app.add_systems(Update, |mut commands: Commands| {
         spawn_encounter_mob(
             &mut commands,
+            ambition_platformer_primitives::lifecycle::SessionSpawnScope::UNSCOPED,
             "test_encounter",
             "test_mob".to_string(),
             ambition_entity_catalog::placements::CharacterBrain::Custom("medium_striker".into()),

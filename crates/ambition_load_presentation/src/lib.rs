@@ -58,6 +58,7 @@ impl bevy::prelude::PluginGroup for MinimalLoadShellPlugins {
         let builder = bevy::app::PluginGroupBuilder::start::<Self>()
             .add(ambition_load::AmbitionLoadPlugin)
             .add(ambition_game_shell::AmbitionGameShellPlugin)
+            .add(ambition_game_shell::GameplaySessionBridgePlugin)
             .add(ambition_game_shell::ShellSequencePlugin)
             .add(ambition_game_shell::ShellLauncherPlugin)
             .add(AmbitionLoadPresentationPlugin);

@@ -46,6 +46,9 @@
 use bevy::prelude::*;
 
 use ambition_platformer_primitives::camera_layers::{MainCamera, MainCameraEntity};
+use ambition_platformer_primitives::lifecycle::{
+    ActiveSessionScope, SessionScopeId, SessionScopeSet, SessionSpawnScope,
+};
 use ambition_platformer_primitives::physics::PhysicsSandboxSettings;
 use ambition_sprite_sheet::game_assets::GameAssets;
 use ambition_world::rooms::RoomSet;
@@ -55,10 +58,13 @@ use crate::rendering::{
     PresentationVisualAnimationPlugin,
 };
 
-/// System set for this plugin's one-shot `Startup` work, so a game can order its
-/// own presentation setup against it.
+/// System set for this plugin's one-shot host-resident `Startup` work, so a game
+/// can order its own presentation setup against it.
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 pub struct PlatformerPresentationSetupSet;
+
+#[derive(Resource, Default)]
+struct PresentedSessionScope(Option<SessionScopeId>);
 
 /// See the module docs. The generic platformer presentation: a camera, the room's
 /// static visuals, and the sprite/animation chain.
@@ -66,14 +72,19 @@ pub struct PlatformerPresentationPlugin;
 
 impl Plugin for PlatformerPresentationPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<crate::quality::ResolvedVisualQuality>();
+        app.init_resource::<crate::quality::ResolvedVisualQuality>()
+            .init_resource::<PresentedSessionScope>();
         // `spawn_room_visuals` reads this; the sim's physics plugin does not own it.
         app.init_resource::<PhysicsSandboxSettings>();
         app.add_systems(
             Startup,
-            (spawn_main_camera, spawn_active_room_visuals)
+            (spawn_main_camera, spawn_initial_room_visuals)
                 .chain()
                 .in_set(PlatformerPresentationSetupSet),
+        );
+        app.add_systems(
+            Update,
+            sync_session_room_visuals.in_set(SessionScopeSet::Presentation),
         );
         // Room TRANSITIONS rebuild the visuals through
         // `respawn_room_visuals_on_request`, which `PresentationVisualAnimationPlugin`
@@ -98,16 +109,19 @@ fn spawn_main_camera(mut commands: Commands) {
     commands.insert_resource(MainCameraEntity(camera));
 }
 
-/// Spawn the active room's static visuals once, at startup. Room TRANSITIONS
-/// rebuild them through `respawn_room_visuals_on_request`, which the sim already
-/// drives — so a demo gets room changes for free.
-fn spawn_active_room_visuals(
+/// Spawn the active room once for legacy hosts that do not install the
+/// gameplay-session lifecycle. Shell hosts wait for a real session activation.
+fn spawn_initial_room_visuals(
     mut commands: Commands,
     room_set: Option<Res<RoomSet>>,
     physics_settings: Res<PhysicsSandboxSettings>,
     assets: Option<Res<GameAssets>>,
     quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
+    active_session: Option<Res<ActiveSessionScope>>,
 ) {
+    if active_session.is_some() {
+        return;
+    }
     // No world installed (a minimal test app) → nothing to draw, and that is not
     // an error: the same shape every optional-resource system in the engine uses.
     let Some(room_set) = room_set else {
@@ -116,10 +130,65 @@ fn spawn_active_room_visuals(
     let spec = room_set.active_spec();
     spawn_parallax_layers(
         &mut commands,
+        SessionSpawnScope::UNSCOPED,
         &spec.world,
         &spec.metadata,
         assets.as_deref(),
         quality.as_deref().map(|q| &q.budget.parallax),
     );
-    spawn_room_visuals(&mut commands, spec, *physics_settings, assets.as_deref());
+    spawn_room_visuals(
+        &mut commands,
+        SessionSpawnScope::UNSCOPED,
+        spec,
+        *physics_settings,
+        assets.as_deref(),
+    );
+}
+
+/// Materialize the active session's room presentation exactly once. The scope
+/// is captured before any spawn request, so route retirement owns every static
+/// visual and parallax entity created here.
+fn sync_session_room_visuals(
+    mut commands: Commands,
+    active_session: Option<Res<ActiveSessionScope>>,
+    mut presented: ResMut<PresentedSessionScope>,
+    room_set: Option<Res<RoomSet>>,
+    physics_settings: Res<PhysicsSandboxSettings>,
+    assets: Option<Res<GameAssets>>,
+    quality: Option<Res<crate::quality::ResolvedVisualQuality>>,
+) {
+    let Some(active_session) = active_session else {
+        return;
+    };
+    let current = active_session.current();
+    let Some(scope) = current else {
+        presented.0 = None;
+        return;
+    };
+    if presented.0 == Some(scope) {
+        return;
+    }
+    let Some(room_set) = room_set else {
+        // Keep the scope unpresented so a provider that publishes its world on a
+        // later frame is retried rather than permanently skipped.
+        return;
+    };
+    presented.0 = Some(scope);
+    let spawn_scope = SessionSpawnScope::scoped(scope);
+    let spec = room_set.active_spec();
+    spawn_parallax_layers(
+        &mut commands,
+        spawn_scope,
+        &spec.world,
+        &spec.metadata,
+        assets.as_deref(),
+        quality.as_deref().map(|q| &q.budget.parallax),
+    );
+    spawn_room_visuals(
+        &mut commands,
+        spawn_scope,
+        spec,
+        *physics_settings,
+        assets.as_deref(),
+    );
 }

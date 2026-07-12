@@ -5,11 +5,6 @@
 
 use bevy::prelude::*;
 
-// The windowed demo still uses the historical Startup-driven content path; the
-// headless `build_demo_app` uses the shell-integrated provider path instead.
-#[cfg(feature = "visible")]
-use ambition_demo_smb1::{Smb1DemoContentPlugin, Smb1RulesPlugin};
-
 /// Assemble the demo under a standalone shell host: foundation + engine + host +
 /// the Mary-O experience. **Zero engine edits, zero `ambition_app`.**
 ///
@@ -47,8 +42,9 @@ fn compose_smb1_shell(app: &mut App, home_route: &str) {
     };
     use ambition_demo_smb1::{smb1_session_world, Smb1ExperiencePlugin, MARY_O_GAMEPLAY_ROUTE};
 
-    app.add_plugins(ambition::platformer::lifecycle::SessionScopePlugin);
     app.add_plugins(ambition::game_shell::MinimalShellPlugins);
+    app.add_plugins(ambition::load::AmbitionLoadPlugin);
+    app.add_plugins(ambition::load_presentation::MinimalLoadPresentationPlugins);
     app.add_plugins(Smb1ExperiencePlugin);
 
     app.world_mut()
@@ -121,10 +117,12 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
     ambition::engine::init_engine_states(&mut app);
     app.add_plugins(ambition::engine::PlatformerEnginePlugins::fixed_tick());
     app.add_plugins(ambition::windowed_host::PlatformerHostPlugins);
+    // Visible and headless hosts share one provider/shell/session lifecycle.
+    compose_smb1_shell(&mut app, ambition_demo_smb1::MARY_O_LAUNCHER_ROUTE);
+
     // OV1, closed: a camera, the room's static visuals, and the sprite/animation
-    // chain. No HUD, no menus, no dev stack — those are the GAME's.
+    // chain. The minimal launcher/loading presentation is composed by the host.
     app.add_plugins(ambition::presentation::PlatformerPresentationPlugin);
-    app.add_plugins((Smb1DemoContentPlugin, Smb1RulesPlugin::global()));
     app
 }
 

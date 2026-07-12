@@ -9,6 +9,9 @@ use bevy::prelude::*;
 use std::f32::consts::TAU;
 
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_FX};
+use ambition_platformer_primitives::lifecycle::{
+    ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
+};
 use ambition_sfx::SfxMessage;
 use ambition_sprite_sheet::character::{
     build_character_sprite_with_render_size, CharacterAnim, CharacterAnimator,
@@ -163,8 +166,13 @@ pub fn process_explosion_requests(
 pub fn process_fireworks_requests(
     mut commands: Commands,
     mut requests: MessageReader<FireworksRequest>,
+    active_session: Option<Res<ActiveSessionScope>>,
 ) {
+    let spawn_scope = SessionSpawnScope::for_optional_active_session(active_session.as_deref());
     for request in requests.read() {
+        let Some(spawn_scope) = spawn_scope else {
+            continue;
+        };
         let count = request.count.max(5).min(24) as usize;
         let duration = request.duration.max(0.35);
         let mut schedule = Vec::with_capacity(count);
@@ -199,15 +207,18 @@ pub fn process_fireworks_requests(
             });
         }
         schedule.sort_by(|a, b| a.at.partial_cmp(&b.at).unwrap_or(std::cmp::Ordering::Equal));
-        commands.spawn((
-            Name::new("Firework explosion sequence"),
-            FireworkSequence {
-                origin: request.origin,
-                age: 0.0,
-                next_index: 0,
-                schedule,
-            },
-        ));
+        commands.spawn_session_scoped(
+            spawn_scope,
+            (
+                Name::new("Firework explosion sequence"),
+                FireworkSequence {
+                    origin: request.origin,
+                    age: 0.0,
+                    next_index: 0,
+                    schedule,
+                },
+            ),
+        );
     }
 }
 
@@ -249,8 +260,10 @@ pub fn vfx_spawn_messages(
     mut messages: MessageReader<VfxMessage>,
     world: Res<ambition_engine_core::RoomGeometry>,
     assets: Option<Res<ambition_sprite_sheet::game_assets::GameAssets>>,
+    active_session: Option<Res<ActiveSessionScope>>,
     mut speech_bubbles: Query<(&mut SpeechBubbleVisual, &mut Transform, &mut TextColor)>,
 ) {
+    let spawn_scope = SessionSpawnScope::for_optional_active_session(active_session.as_deref());
     let world = &world.0;
     let mut pending_speech_bubbles = Vec::new();
     for message in messages.read() {
@@ -264,6 +277,7 @@ pub fn vfx_spawn_messages(
             } => {
                 spawn_burst(
                     &mut commands,
+                    spawn_scope,
                     world,
                     pos,
                     count as usize,
@@ -272,17 +286,27 @@ pub fn vfx_spawn_messages(
                     kind,
                 );
             }
-            VfxMessage::Dust { pos, facing } => spawn_dust(&mut commands, world, pos, facing),
-            VfxMessage::Impact { pos } => spawn_impact(&mut commands, world, pos),
+            VfxMessage::Dust { pos, facing } => {
+                spawn_dust(&mut commands, spawn_scope, world, pos, facing)
+            }
+            VfxMessage::Impact { pos } => spawn_impact(&mut commands, spawn_scope, world, pos),
             VfxMessage::Explosion { pos, kind, scale } => {
-                spawn_explosion(&mut commands, world, assets.as_deref(), pos, kind, scale);
+                spawn_explosion(
+                    &mut commands,
+                    spawn_scope,
+                    world,
+                    assets.as_deref(),
+                    pos,
+                    kind,
+                    scale,
+                );
             }
             VfxMessage::BlinkEffects {
                 from,
                 to,
                 precision,
             } => {
-                spawn_blink_effects(&mut commands, world, from, to, precision);
+                spawn_blink_effects(&mut commands, spawn_scope, world, from, to, precision);
             }
             // The melee slash effect is a sheet-driven visual handled by its own
             // self-contained system, `rendering::slash_visuals::spawn_slash_effects`
@@ -290,7 +314,7 @@ pub fn vfx_spawn_messages(
             // dispatcher's match stays exhaustive.
             VfxMessage::Slash { .. } => {}
             VfxMessage::ResetEffects { from, to } => {
-                spawn_reset_effects(&mut commands, world, from, to);
+                spawn_reset_effects(&mut commands, spawn_scope, world, from, to);
             }
             VfxMessage::SpeechBubble { pos, text } => {
                 make_room_for_speech_bubble(pos, world, &mut speech_bubbles);
@@ -308,6 +332,7 @@ pub fn vfx_spawn_messages(
     for bubble in pending_speech_bubbles {
         spawn_speech_bubble(
             &mut commands,
+            spawn_scope,
             world,
             bubble.pos,
             &bubble.text,
@@ -320,17 +345,22 @@ pub fn vfx_spawn_messages(
 
 fn spawn_explosion(
     commands: &mut Commands,
+    session_scope: Option<SessionSpawnScope>,
     world: &ae::World,
     assets: Option<&ambition_sprite_sheet::game_assets::GameAssets>,
     pos: ae::Vec2,
     kind: ExplosionKind,
     scale: f32,
 ) {
+    let Some(session_scope) = session_scope else {
+        return;
+    };
     let Some(asset) = assets.and_then(|assets| assets.characters.props.get("generic_explosions"))
     else {
         // Fallback keeps the call site useful in headless/no-asset profiles.
         spawn_burst(
             commands,
+            Some(session_scope),
             world,
             pos,
             24,
@@ -338,7 +368,7 @@ fn spawn_explosion(
             [0.95, 0.74, 0.28, 0.85],
             ParticleKind::Spark,
         );
-        spawn_impact(commands, world, pos);
+        spawn_impact(commands, Some(session_scope), world, pos);
         return;
     };
     let scale = scale.max(0.1);
@@ -350,17 +380,20 @@ fn spawn_explosion(
     if let Some(atlas) = sprite.texture_atlas.as_mut() {
         atlas.index = index;
     }
-    commands.spawn((
-        Name::new(format!("VFX explosion: {:?}", kind)),
-        sprite,
-        Transform::from_translation(world_to_bevy(world, pos, WORLD_Z_FX + 6.0)),
-        animator,
-        ExplosionVisual {
-            pos,
-            age: 0.0,
-            duration: 0.72,
-        },
-    ));
+    commands.spawn_session_scoped(
+        session_scope,
+        (
+            Name::new(format!("VFX explosion: {:?}", kind)),
+            sprite,
+            Transform::from_translation(world_to_bevy(world, pos, WORLD_Z_FX + 6.0)),
+            animator,
+            ExplosionVisual {
+                pos,
+                age: 0.0,
+                duration: 0.72,
+            },
+        ),
+    );
 }
 
 fn make_room_for_speech_bubble(
@@ -604,6 +637,7 @@ pub fn update_impacts(
 
 pub fn spawn_speech_bubble(
     commands: &mut Commands,
+    session_scope: Option<SessionSpawnScope>,
     world: &ae::World,
     pos: ae::Vec2,
     text: &str,
@@ -612,6 +646,9 @@ pub fn spawn_speech_bubble(
     target_stack_offset: f32,
 ) {
     let bubble_text = format!("\u{201c}{text}\u{201d}");
+    let Some(session_scope) = session_scope else {
+        return;
+    };
     let duration = SPEECH_BUBBLE_DURATION;
     let mut transform = Transform::default();
     let mut color = TextColor(Color::srgba(1.0, 1.0, 1.0, 0.95));
@@ -631,23 +668,26 @@ pub fn spawn_speech_bubble(
         0.88 * speech_bubble_alpha(age, duration),
     ));
     commands
-        .spawn((
-            Text2d::new(bubble_text.clone()),
-            TextFont {
-                font_size: 18.0,
-                ..default()
-            },
-            color,
-            transform,
-            SpeechBubbleVisual {
-                pos,
-                age,
-                duration,
-                stack_offset,
-                target_stack_offset,
-            },
-            Name::new(format!("Speech bubble: {text}")),
-        ))
+        .spawn_session_scoped(
+            session_scope,
+            (
+                Text2d::new(bubble_text.clone()),
+                TextFont {
+                    font_size: 18.0,
+                    ..default()
+                },
+                color,
+                transform,
+                SpeechBubbleVisual {
+                    pos,
+                    age,
+                    duration,
+                    stack_offset,
+                    target_stack_offset,
+                },
+                Name::new(format!("Speech bubble: {text}")),
+            ),
+        )
         .with_children(|parent| {
             for offset in [
                 BVec2::new(-1.25, 0.0),
@@ -670,21 +710,33 @@ pub fn spawn_speech_bubble(
         });
 }
 
-pub fn spawn_impact(commands: &mut Commands, world: &ae::World, pos: ae::Vec2) {
-    commands.spawn((
-        Sprite::from_color(Color::srgba(1.0, 1.0, 0.35, 0.82), BVec2::splat(12.0)),
-        Transform::from_translation(world_to_bevy(world, pos, WORLD_Z_FX + 1.0)),
-        ImpactVisual {
-            pos,
-            age: 0.0,
-            duration: 0.24,
-            radius: 12.0,
-        },
-    ));
+pub fn spawn_impact(
+    commands: &mut Commands,
+    session_scope: Option<SessionSpawnScope>,
+    world: &ae::World,
+    pos: ae::Vec2,
+) {
+    let Some(session_scope) = session_scope else {
+        return;
+    };
+    commands.spawn_session_scoped(
+        session_scope,
+        (
+            Sprite::from_color(Color::srgba(1.0, 1.0, 0.35, 0.82), BVec2::splat(12.0)),
+            Transform::from_translation(world_to_bevy(world, pos, WORLD_Z_FX + 1.0)),
+            ImpactVisual {
+                pos,
+                age: 0.0,
+                duration: 0.24,
+                radius: 12.0,
+            },
+        ),
+    );
 }
 
 pub fn spawn_reset_effects(
     commands: &mut Commands,
+    session_scope: Option<SessionSpawnScope>,
     world: &ae::World,
     from: ae::Vec2,
     to: ae::Vec2,
@@ -695,6 +747,7 @@ pub fn spawn_reset_effects(
     if (from - to).length() > 8.0 {
         spawn_burst(
             commands,
+            session_scope,
             world,
             from,
             10,
@@ -705,6 +758,7 @@ pub fn spawn_reset_effects(
     }
     spawn_burst(
         commands,
+        session_scope,
         world,
         to,
         24,
@@ -712,11 +766,12 @@ pub fn spawn_reset_effects(
         [0.55, 0.85, 1.0, 0.90],
         ParticleKind::Spark,
     );
-    spawn_impact(commands, world, to);
+    spawn_impact(commands, session_scope, world, to);
 }
 
 pub fn spawn_burst(
     commands: &mut Commands,
+    session_scope: Option<SessionSpawnScope>,
     world: &ae::World,
     pos: ae::Vec2,
     count: usize,
@@ -724,6 +779,9 @@ pub fn spawn_burst(
     color_rgba: [f32; 4],
     kind: ParticleKind,
 ) {
+    let Some(session_scope) = session_scope else {
+        return;
+    };
     // TODO(quality): thread `ResolvedVisualQuality.budget.particles` into the
     // central VFX spawn API, then clamp `count` and spawn-rate here instead of
     // letting individual gameplay emitters interpret quality profiles.
@@ -736,60 +794,76 @@ pub fn spawn_burst(
         let vel = ae::Vec2::new(angle.cos() * strength, angle.sin() * strength);
         let radius = 2.0 + 2.5 * ((i * 5 + 1) % 7) as f32 / 6.0;
         let lifetime = 0.22 + 0.16 * ((i * 7 + 3) % 9) as f32 / 8.0;
-        commands.spawn((
-            Sprite::from_color(
-                rgba(color_rgba[0], color_rgba[1], color_rgba[2], color_rgba[3]),
-                BVec2::splat(radius),
+        commands.spawn_session_scoped(
+            session_scope,
+            (
+                Sprite::from_color(
+                    rgba(color_rgba[0], color_rgba[1], color_rgba[2], color_rgba[3]),
+                    BVec2::splat(radius),
+                ),
+                Transform::from_translation(world_to_bevy(world, pos, WORLD_Z_FX)),
+                ParticleVisual {
+                    kind,
+                    pos,
+                    vel,
+                    age: 0.0,
+                    lifetime,
+                    radius,
+                    rgba: color_rgba,
+                    gravity: match kind {
+                        ParticleKind::Spark => 300.0,
+                        ParticleKind::Dust => 120.0,
+                        ParticleKind::Shard => 650.0,
+                    },
+                    drag: match kind {
+                        ParticleKind::Spark => 3.4,
+                        ParticleKind::Dust => 4.7,
+                        ParticleKind::Shard => 1.8,
+                    },
+                },
             ),
-            Transform::from_translation(world_to_bevy(world, pos, WORLD_Z_FX)),
-            ParticleVisual {
-                kind,
-                pos,
-                vel,
-                age: 0.0,
-                lifetime,
-                radius,
-                rgba: color_rgba,
-                gravity: match kind {
-                    ParticleKind::Spark => 300.0,
-                    ParticleKind::Dust => 120.0,
-                    ParticleKind::Shard => 650.0,
-                },
-                drag: match kind {
-                    ParticleKind::Spark => 3.4,
-                    ParticleKind::Dust => 4.7,
-                    ParticleKind::Shard => 1.8,
-                },
-            },
-        ));
+        );
     }
 }
 
-pub fn spawn_dust(commands: &mut Commands, world: &ae::World, pos: ae::Vec2, facing: f32) {
+pub fn spawn_dust(
+    commands: &mut Commands,
+    session_scope: Option<SessionSpawnScope>,
+    world: &ae::World,
+    pos: ae::Vec2,
+    facing: f32,
+) {
+    let Some(session_scope) = session_scope else {
+        return;
+    };
     for i in 0..6 {
         let lateral = -facing * (75.0 + i as f32 * 18.0);
         let upward = -35.0 - i as f32 * 8.0;
         let radius = 3.5 + i as f32 * 0.35;
-        commands.spawn((
-            Sprite::from_color(Color::srgba(0.58, 0.62, 0.72, 0.75), BVec2::splat(radius)),
-            Transform::from_translation(world_to_bevy(world, pos, WORLD_Z_FX)),
-            ParticleVisual {
-                kind: ParticleKind::Dust,
-                pos,
-                vel: ae::Vec2::new(lateral, upward),
-                age: 0.0,
-                lifetime: 0.28 + 0.03 * i as f32,
-                radius,
-                rgba: [0.58, 0.62, 0.72, 0.75],
-                gravity: 80.0,
-                drag: 4.4,
-            },
-        ));
+        commands.spawn_session_scoped(
+            session_scope,
+            (
+                Sprite::from_color(Color::srgba(0.58, 0.62, 0.72, 0.75), BVec2::splat(radius)),
+                Transform::from_translation(world_to_bevy(world, pos, WORLD_Z_FX)),
+                ParticleVisual {
+                    kind: ParticleKind::Dust,
+                    pos,
+                    vel: ae::Vec2::new(lateral, upward),
+                    age: 0.0,
+                    lifetime: 0.28 + 0.03 * i as f32,
+                    radius,
+                    rgba: [0.58, 0.62, 0.72, 0.75],
+                    gravity: 80.0,
+                    drag: 4.4,
+                },
+            ),
+        );
     }
 }
 
 pub fn spawn_blink_effects(
     commands: &mut Commands,
+    session_scope: Option<SessionSpawnScope>,
     world: &ae::World,
     from: ae::Vec2,
     to: ae::Vec2,
@@ -807,6 +881,7 @@ pub fn spawn_blink_effects(
     };
     spawn_burst(
         commands,
+        session_scope,
         world,
         from,
         if precision { 18 } else { 12 },
@@ -816,6 +891,7 @@ pub fn spawn_blink_effects(
     );
     spawn_burst(
         commands,
+        session_scope,
         world,
         to,
         if precision { 28 } else { 18 },
@@ -823,7 +899,7 @@ pub fn spawn_blink_effects(
         entry_color,
         ParticleKind::Spark,
     );
-    spawn_impact(commands, world, to);
+    spawn_impact(commands, session_scope, world, to);
 }
 
 /// Live ring of orbiting embers showing where the next blink will land.
@@ -839,14 +915,17 @@ pub fn update_blink_preview(
     time: Res<Time>,
     world: Res<ambition_engine_core::RoomGeometry>,
     fact: Res<ambition_sim_view::BlinkPreviewFact>,
+    active_session: Option<Res<ActiveSessionScope>>,
     mut existing: Query<(Entity, &BlinkPreviewVisual, &mut Transform, &mut Sprite)>,
 ) {
-    if !fact.active {
+    let spawn_scope = SessionSpawnScope::for_optional_active_session(active_session.as_deref());
+    if !fact.active || spawn_scope.is_none() {
         for (entity, _, _, _) in &existing {
             commands.entity(entity).despawn();
         }
         return;
     }
+    let session_scope = spawn_scope.expect("active preview requires a spawn scope");
     let target = fact.target;
     let precision = fact.precision;
     // Match the post-blink burst palette so the preview reads as
@@ -878,15 +957,18 @@ pub fn update_blink_preview(
             let angle_offset = TAU * (i as f32) / RING_EMBERS as f32;
             let angle = spin + angle_offset;
             let offset = ae::Vec2::new(angle.cos(), angle.sin()) * radius;
-            commands.spawn((
-                Sprite::from_color(color, BVec2::splat(ember_size.max(1.0))),
-                Transform::from_translation(world_to_bevy(
-                    &world.0,
-                    target + offset,
-                    WORLD_Z_FX + 1.5,
-                )),
-                BlinkPreviewVisual { angle_offset },
-            ));
+            commands.spawn_session_scoped(
+                session_scope,
+                (
+                    Sprite::from_color(color, BVec2::splat(ember_size.max(1.0))),
+                    Transform::from_translation(world_to_bevy(
+                        &world.0,
+                        target + offset,
+                        WORLD_Z_FX + 1.5,
+                    )),
+                    BlinkPreviewVisual { angle_offset },
+                ),
+            );
         }
     }
 }

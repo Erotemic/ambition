@@ -18,6 +18,7 @@ pub use markers::{
 };
 pub use session::{
     despawn_retired_session_entities, ActiveSessionScope, SessionRoot, SessionScopeId,
-    SessionScopePlugin, SessionScopeRetired, SessionScopedEntity, SpawnSessionScopedExt,
+    SessionScopePlugin, SessionScopeRetired, SessionScopeSet, SessionScopedEntity,
+    SessionSpawnScope, SpawnSessionScopedExt,
 };
 pub use spawn_ext::SpawnScopedExt;

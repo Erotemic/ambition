@@ -5,6 +5,9 @@
 use super::sheet_atlas::{
     atlas_layout_from_record, row_duration, row_frame_count, row_start_index,
 };
+use ambition_platformer_primitives::lifecycle::{
+    ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
+};
 use ambition_platformer_primitives::shrine::ShrineActivationPulse;
 use ambition_sim_view::{ShrineFact, ShrinesView};
 use ambition_sprite_sheet::{SheetRecord, SheetRegistry};
@@ -68,6 +71,7 @@ pub enum ShrineVisualSource {
 pub fn sync_shrine_visual(
     mut commands: Commands,
     world: Res<ambition_engine_core::RoomGeometry>,
+    active_session: Option<Res<ActiveSessionScope>>,
     asset_server: Res<AssetServer>,
     sheet_registry: Option<Res<SheetRegistry>>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
@@ -78,6 +82,11 @@ pub fn sync_shrine_visual(
     visuals: Query<(Entity, &ShrineVisualKey)>,
     shrines: Res<ShrinesView>,
 ) {
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        return;
+    };
     let source = shrine_visual_source(
         &asset_server,
         sheet_registry.as_ref().map(|registry| &**registry),
@@ -131,16 +140,19 @@ pub fn sync_shrine_visual(
         sprite.custom_size = Some(shrine.half_extent * 2.0);
 
         let entity = commands
-            .spawn((
-                ShrineVisual,
-                ShrineVisualKey(key),
-                ShrineVisualAnim::default(),
-                shrine_visual_atlas(&source),
-                sprite,
-                Transform::from_translation(translation),
-                ambition_platformer_primitives::lifecycle::RoomVisual,
-                Name::new("Shrine visual"),
-            ))
+            .spawn_session_scoped(
+                session_scope,
+                (
+                    ShrineVisual,
+                    ShrineVisualKey(key),
+                    ShrineVisualAnim::default(),
+                    shrine_visual_atlas(&source),
+                    sprite,
+                    Transform::from_translation(translation),
+                    ambition_platformer_primitives::lifecycle::RoomVisual,
+                    Name::new("Shrine visual"),
+                ),
+            )
             .id();
         visual_cache.insert(key, entity);
     }

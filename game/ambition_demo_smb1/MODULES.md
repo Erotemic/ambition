@@ -8,8 +8,9 @@
 |---|---|
 | [`flag`](src/flag.rs) | **M3 — the flagpole sequence.** |
 | [`powerups`](src/powerups.rs) | Super Mary-O's powerups — the M1 equipment chain, authored as A3 data. |
+| [`provider`](src/provider.rs) | The Mary-O **experience provider**: SMB1 as a launchable, teardown-clean, host-independent shell experience. |
 
-_2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_3 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

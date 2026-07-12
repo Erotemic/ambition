@@ -127,6 +127,7 @@ pub(crate) fn load_room(
     world: &mut RoomGeometry,
     room_set: &mut rooms::RoomSet,
     placement_lowering: &ambition::actors::world::placements::PlacementLoweringRegistry,
+    session_scope: ambition::platformer::lifecycle::SessionSpawnScope,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     // The transiting body, exempt from the old-room despawn so it rides along.
     carry_body: Option<Entity>,
@@ -153,6 +154,7 @@ pub(crate) fn load_room(
         clock_resets,
         moving_platforms,
         placement_lowering,
+        session_scope,
         world,
         room_set,
         room_visuals,
@@ -181,12 +183,13 @@ pub(crate) fn load_room(
     // they stay here in the app where composition with render is allowed.
     ambition::render::rendering::spawn_parallax_layers(
         commands,
+        session_scope,
         &world.0,
         &spec.metadata,
         assets,
         quality.map(|q| &q.budget.parallax),
     );
-    spawn_room_visuals(commands, &spec, physics_settings, assets);
+    spawn_room_visuals(commands, session_scope, &spec, physics_settings, assets);
     if edge_exit {
         // Edge exits should feel like contiguous room scrolling, not a death-like
         // teleport. Only show an arrival puff in the new room because `from` was
@@ -291,6 +294,7 @@ pub(crate) fn apply_room_transition_system(
         Res<ambition::actors::world::placements::PlacementLoweringRegistry>,
         Option<Res<ambition::sprite_sheet::game_assets::GameAssets>>,
         Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
+        Option<Res<ambition::platformer::lifecycle::ActiveSessionScope>>,
     ),
     mut combat_reset: super::super::feedback::CombatRoomReset,
 ) {
@@ -342,6 +346,13 @@ pub(crate) fn apply_room_transition_system(
                 pos: pos_before,
             });
         }
+        let Some(session_scope) =
+            ambition::platformer::lifecycle::SessionSpawnScope::for_optional_active_session(
+                load_resources.3.as_deref(),
+            )
+        else {
+            continue;
+        };
         let target_room = request.transition.target_room;
         load_room(
             &mut commands,
@@ -359,6 +370,7 @@ pub(crate) fn apply_room_transition_system(
             &mut world,
             &mut room_set,
             &load_resources.0,
+            session_scope,
             &room_visuals,
             carry_body,
             request.transition.clone(),

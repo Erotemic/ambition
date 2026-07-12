@@ -85,6 +85,7 @@ fn fixture_setup(
 ) {
     ambition_runtime::demo_fixture::simulation_world(
         &mut commands,
+        ambition_platformer_primitives::lifecycle::SessionSpawnScope::UNSCOPED,
         ambition_runtime::demo_fixture::SimulationSetup {
             world: &world,
             room_set: &room_set,

@@ -11,6 +11,9 @@
 // `sync_bubble_shield_visual` tints it with `Sprite.color` each frame so
 // no new image upload is needed for the parry-vs-held color switch.
 
+use ambition_platformer_primitives::lifecycle::{
+    ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
+};
 use bevy::asset::RenderAssetUsages;
 use bevy::image::Image;
 use bevy::prelude::*;
@@ -103,6 +106,7 @@ fn new_ring_sprite(handle: Handle<Image>) -> impl Bundle {
 pub fn spawn_bubble_shield_visual(
     mut commands: Commands,
     sprite: Option<Res<BubbleShieldSprite>>,
+    active_session: Option<Res<ActiveSessionScope>>,
     existing: Query<(), With<BubbleShieldVisual>>,
 ) {
     if !existing.is_empty() {
@@ -112,7 +116,12 @@ pub fn spawn_bubble_shield_visual(
     if sprite.handle == Handle::default() {
         return;
     }
-    commands.spawn(new_ring_sprite(sprite.handle.clone()));
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        return;
+    };
+    commands.spawn_session_scoped(session_scope, new_ring_sprite(sprite.handle.clone()));
 }
 
 /// Parry window: gold glow. Held but expired: soft cyan.
@@ -132,6 +141,7 @@ fn shield_ring_color(parrying: bool) -> Color {
 pub fn sync_bubble_shield_visual(
     mut commands: Commands,
     sprite: Option<Res<BubbleShieldSprite>>,
+    active_session: Option<Res<ActiveSessionScope>>,
     world: Res<ambition_engine_core::RoomGeometry>,
     // Every raised shield, resolved sim-side into the pooled-ring read-model
     // (E4): render positions rings, it no longer queries the live clusters.
@@ -167,8 +177,16 @@ pub fn sync_bubble_shield_visual(
     if active.len() > ring_count {
         if let Some(sprite) = sprite {
             if sprite.handle != Handle::default() {
+                let Some(session_scope) =
+                    SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+                else {
+                    return;
+                };
                 for _ in ring_count..active.len() {
-                    commands.spawn(new_ring_sprite(sprite.handle.clone()));
+                    commands.spawn_session_scoped(
+                        session_scope,
+                        new_ring_sprite(sprite.handle.clone()),
+                    );
                 }
             }
         }

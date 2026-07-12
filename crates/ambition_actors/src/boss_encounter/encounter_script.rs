@@ -24,6 +24,9 @@ use crate::features::CenteredAabb;
 use ambition_encounter::{EncounterEffect, EncounterGate, EncounterParticipants, EncounterScript};
 use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
+use ambition_platformer_primitives::lifecycle::{
+    SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
+};
 
 /// Advance every encounter script and EXECUTE the effects it yields this tick.
 /// The trigger evaluation + cursor logic is generic (`EncounterScript::advance`,
@@ -39,6 +42,7 @@ pub fn tick_encounter_scripts(
         &mut BossEncounter,
         &mut ambition_characters::actor::BodyHealth,
     )>,
+    session_owners: Query<&SessionScopedEntity>,
     mut banner: ResMut<crate::features::GameplayBanner>,
     mut music: ResMut<crate::encounter::EncounterMusicRequest>,
 ) {
@@ -86,19 +90,24 @@ pub fn tick_encounter_scripts(
                     impact_gate,
                 } => {
                     if let Some(target) = member_entity(*target_member) {
-                        commands.spawn((
-                            CenteredAabb::from_center_size(*anchor, *size),
-                            FallingHazard {
-                                size: *size,
-                                gravity: *gravity,
-                                terminal: *terminal,
-                                align_tolerance: *align_tolerance,
-                                target,
-                                impact_gate: impact_gate.clone(),
-                                vel_y: 0.0,
-                                dropping: false,
-                            },
-                        ));
+                        commands.spawn_session_scoped(
+                            SessionSpawnScope::new(
+                                session_owners.get(target).ok().map(|owner| owner.0),
+                            ),
+                            (
+                                CenteredAabb::from_center_size(*anchor, *size),
+                                FallingHazard {
+                                    size: *size,
+                                    gravity: *gravity,
+                                    terminal: *terminal,
+                                    align_tolerance: *align_tolerance,
+                                    target,
+                                    impact_gate: impact_gate.clone(),
+                                    vel_y: 0.0,
+                                    dropping: false,
+                                },
+                            ),
+                        );
                     }
                 }
             }

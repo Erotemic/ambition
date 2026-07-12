@@ -15,6 +15,7 @@ use super::super::{ae, ActorDisposition, GameplayBanner, HitEvent, HitSource, Se
 // tests query `PickupFeature` directly. Both are test-only now that the drop
 // spawners live in `damage_drops`.
 use crate::features::ActorStimulus;
+use ambition_platformer_primitives::lifecycle::SpawnSessionScopedExt;
 use ambition_sfx::SfxMessage;
 use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
@@ -57,6 +58,7 @@ pub(crate) fn apply_actor_hit(
     di_input_local: ae::Vec2,
     writers: &mut FeatureHitWriters<'_, '_>,
 ) -> bool {
+    let session_scope = writers.session_spawn_scope();
     if disposition.is_peaceful() {
         // Body-generic post-hit i-frame — the same consume-time gate
         // `resolve_body_hit` applies to a hostile body: a body that registered
@@ -283,6 +285,7 @@ pub(crate) fn apply_actor_hit(
                 // ~1 in 4 enemy kinds also drops a heart (combat sustain).
                 drop_currency_coin(
                     &mut writers.commands,
+                    session_scope,
                     &em.config.id,
                     em.kin.pos,
                     ENEMY_BOUNTY,
@@ -291,7 +294,12 @@ pub(crate) fn apply_actor_hit(
                 // Enemy-faction blast at the corpse, so a point-blank kill is
                 // punished (the read: kill it at range / sidestep the body).
                 if caps.explodes_on_death {
-                    spawn_death_explosion(&mut writers.commands, actor_entity, em.kin.pos);
+                    spawn_death_explosion(
+                        &mut writers.commands,
+                        session_scope,
+                        actor_entity,
+                        em.kin.pos,
+                    );
                     writers.vfx.write(VfxMessage::Explosion {
                         pos: em.kin.pos,
                         kind: ambition_vfx::vfx::ExplosionKind::ClassicBurst,
@@ -300,11 +308,17 @@ pub(crate) fn apply_actor_hit(
                 }
                 // Replicating blobs divide on death into two fast offspring.
                 if caps.divides_on_death {
-                    spawn_split_offspring(&mut writers.commands, &em.config.id, em.kin.pos);
+                    spawn_split_offspring(
+                        &mut writers.commands,
+                        session_scope,
+                        &em.config.id,
+                        em.kin.pos,
+                    );
                 }
                 if id_drops_health(&em.config.id) {
                     drop_health_pickup(
                         &mut writers.commands,
+                        session_scope,
                         &em.config.id,
                         em.kin.pos + ae::Vec2::new(18.0, 0.0),
                         ENEMY_HEALTH_DROP,
@@ -314,15 +328,18 @@ pub(crate) fn apply_actor_hit(
                 // a held item drops it as a `GroundItem` the player can grab +
                 // wield (e.g. a pirate's gun-sword), via the existing pickup path.
                 if let Some(spec) = caps.drops_held_item.clone() {
-                    writers.commands.spawn((
-                        crate::items::pickup::GroundItem {
-                            spec,
-                            pos: em.kin.pos + ae::Vec2::new(-14.0, 0.0),
-                            vel: ae::Vec2::ZERO,
-                            half_extent: ae::Vec2::splat(16.0),
-                        },
-                        bevy::prelude::Name::new("Dropped weapon"),
-                    ));
+                    writers.commands.spawn_session_scoped(
+                        session_scope,
+                        (
+                            crate::items::pickup::GroundItem {
+                                spec,
+                                pos: em.kin.pos + ae::Vec2::new(-14.0, 0.0),
+                                vel: ae::Vec2::ZERO,
+                                half_extent: ae::Vec2::splat(16.0),
+                            },
+                            bevy::prelude::Name::new("Dropped weapon"),
+                        ),
+                    );
                 }
                 // Persist the death per the authored policy (ADR 0022).
                 // `encounter:*` ids keep their own state machine; `InPlace`

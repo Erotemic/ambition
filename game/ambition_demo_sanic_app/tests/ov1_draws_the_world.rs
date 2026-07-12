@@ -23,10 +23,52 @@
 
 use bevy::prelude::*;
 
+use ambition::game_shell::{ShellCommand, ShellLauncherCommand, ShellRouter};
+use ambition::platformer::lifecycle::{RoomVisual, SessionScopedEntity};
+
 use ambition_demo_sanic_app::{build_windowed_demo_app, RenderMode};
 
 fn drawn_demo() -> App {
     build_windowed_demo_app(RenderMode::Headless)
+}
+
+fn settle(app: &mut App) {
+    for _ in 0..5 {
+        app.update();
+    }
+}
+
+fn room_visual_count(app: &mut App) -> usize {
+    let mut query = app.world_mut().query::<&RoomVisual>();
+    query.iter(app.world()).count()
+}
+
+fn scoped_entity_count(app: &mut App) -> usize {
+    let mut query = app.world_mut().query::<&SessionScopedEntity>();
+    query.iter(app.world()).count()
+}
+
+fn unscoped_room_visual_count(app: &mut App) -> usize {
+    let mut query = app
+        .world_mut()
+        .query::<(&RoomVisual, Option<&SessionScopedEntity>)>();
+    query
+        .iter(app.world())
+        .filter(|(_, owner)| owner.is_none())
+        .count()
+}
+
+fn ui_node_count(app: &mut App) -> usize {
+    let mut query = app.world_mut().query::<&bevy::ui::Node>();
+    query.iter(app.world()).count()
+}
+
+fn active_route(app: &App) -> Option<&str> {
+    app.world()
+        .resource::<ShellRouter>()
+        .active
+        .as_ref()
+        .map(|active| active.route_id.as_str())
 }
 
 /// The demo's speedway authors exactly one solid block (`speedway_floor`) plus a
@@ -34,7 +76,7 @@ fn drawn_demo() -> App {
 #[test]
 fn the_demo_spawns_the_rooms_static_visuals() {
     let mut app = drawn_demo();
-    app.update(); // Startup: the presentation plugin's set runs here.
+    settle(&mut app);
 
     let room_visuals = {
         let mut q = app
@@ -53,7 +95,7 @@ fn the_demo_spawns_the_rooms_static_visuals() {
 #[test]
 fn the_demo_loads_shared_assets_and_draws_landmarks_and_the_loop() {
     let mut app = drawn_demo();
-    app.update();
+    settle(&mut app);
 
     assert!(
         app.world()
@@ -111,7 +153,7 @@ fn the_demo_loads_shared_assets_and_draws_landmarks_and_the_loop() {
 #[test]
 fn the_demo_spawns_a_renderable_player_sprite() {
     let mut app = drawn_demo();
-    app.update();
+    settle(&mut app);
 
     let visible_players = {
         let mut q = app.world_mut().query_filtered::<
@@ -132,7 +174,7 @@ fn the_demo_spawns_a_renderable_player_sprite() {
 #[test]
 fn changing_the_worn_form_rebinds_the_existing_super_sanic_sheet_path() {
     let mut app = drawn_demo();
-    app.update();
+    settle(&mut app);
 
     {
         let mut q = app.world_mut().query_filtered::<
@@ -147,7 +189,7 @@ fn changing_the_worn_form_rebinds_the_existing_super_sanic_sheet_path() {
             ambition_demo_sanic::SUPER_SANIC_CHARACTER_ID,
         );
     }
-    app.update();
+    settle(&mut app);
 
     let rebound = {
         let mut q = app.world_mut().query_filtered::<
@@ -168,7 +210,7 @@ fn changing_the_worn_form_rebinds_the_existing_super_sanic_sheet_path() {
 #[test]
 fn the_demo_spawns_a_main_camera_and_publishes_it() {
     let mut app = drawn_demo();
-    app.update();
+    settle(&mut app);
 
     let cameras = {
         let mut q = app
@@ -199,7 +241,7 @@ fn the_demo_spawns_a_main_camera_and_publishes_it() {
 #[test]
 fn the_presentation_plugin_adds_no_hud_and_no_menu() {
     let mut app = drawn_demo();
-    app.update();
+    settle(&mut app);
 
     let ui_nodes = {
         let mut q = app.world_mut().query::<&bevy::ui::Node>();
@@ -219,4 +261,63 @@ fn the_presentation_plugin_adds_no_hud_and_no_menu() {
         .world()
         .get_resource::<ambition::render::quality::ResolvedVisualQuality>()
         .is_some(),);
+}
+
+#[test]
+fn visible_sanic_presentation_retires_and_relaunches_with_the_session() {
+    let mut app = drawn_demo();
+    settle(&mut app);
+
+    assert_eq!(active_route(&app), Some("sanic_gameplay"));
+    let first_visual_count = room_visual_count(&mut app);
+    assert!(
+        first_visual_count > 0,
+        "gameplay must materialize room presentation"
+    );
+    assert!(
+        scoped_entity_count(&mut app) >= first_visual_count,
+        "the active session must own at least the complete room presentation"
+    );
+    assert_eq!(
+        unscoped_room_visual_count(&mut app),
+        0,
+        "every room visual must carry the exact session owner"
+    );
+
+    app.world_mut().write_message(ShellCommand::QuitToHome);
+    settle(&mut app);
+    assert_eq!(active_route(&app), Some("sanic_launcher"));
+    assert_eq!(
+        room_visual_count(&mut app),
+        0,
+        "room presentation retires at home"
+    );
+    assert_eq!(
+        scoped_entity_count(&mut app),
+        0,
+        "the visible host leaves no activation-owned entity at home"
+    );
+    assert!(
+        ui_node_count(&mut app) > 0,
+        "the minimal host launcher must become the visible frontend at home"
+    );
+
+    app.world_mut()
+        .write_message(ShellLauncherCommand::LaunchSelected);
+    settle(&mut app);
+    assert_eq!(active_route(&app), Some("sanic_gameplay"));
+    assert!(
+        room_visual_count(&mut app) > 0,
+        "relaunch rebuilds presentation"
+    );
+    assert_eq!(
+        unscoped_room_visual_count(&mut app),
+        0,
+        "relaunched room visuals remain activation-owned"
+    );
+    assert_eq!(
+        ui_node_count(&mut app),
+        0,
+        "the launcher presentation retires when gameplay resumes"
+    );
 }

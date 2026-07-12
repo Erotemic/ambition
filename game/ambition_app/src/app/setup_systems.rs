@@ -37,6 +37,7 @@ pub(super) fn setup_simulation_system(
 ) {
     let _player = setup::simulation_world(
         &mut commands,
+        ambition::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
         setup::SimulationSetup {
             world: &world,
             room_set: &room_set,

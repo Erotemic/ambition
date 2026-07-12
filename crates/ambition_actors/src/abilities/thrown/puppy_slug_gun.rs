@@ -19,6 +19,7 @@ use bevy::prelude::*;
 use crate::actor::BodyKinematics;
 use crate::features::{ActorAggression, ActorFaction, HeldItem};
 use ambition_engine_core as ae;
+use ambition_platformer_primitives::lifecycle::{SessionScopedEntity, SessionSpawnScope};
 use ambition_platformer_primitives::markers::ControlledSubject;
 
 /// Marks a summoned, player-allied puppy slug (so the cap can count them and a
@@ -43,14 +44,19 @@ pub fn fire_puppy_slug_gun_system(
     mut next_id: Local<u64>,
     // Ability ORIGIN = the controlled subject, not a `PrimaryPlayer` filter.
     controlled: Res<ControlledSubject>,
-    players: Query<(&ActorControl, &BodyKinematics, &HeldItem)>,
+    players: Query<(
+        &ActorControl,
+        &BodyKinematics,
+        &HeldItem,
+        Option<&SessionScopedEntity>,
+    )>,
     allies: Query<(), With<PuppySlugAlly>>,
     mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
 ) {
     let Some(subject) = controlled.0 else {
         return;
     };
-    let Ok((control, kin, held)) = players.get(subject) else {
+    let Ok((control, kin, held, owner)) = players.get(subject) else {
         return;
     };
     let c = control.0;
@@ -68,8 +74,10 @@ pub fn fire_puppy_slug_gun_system(
     *next_id = next_id.wrapping_add(1);
     let facing = if kin.facing >= 0.0 { 1.0 } else { -1.0 };
     let spawn_pos = kin.pos + ae::Vec2::new(facing * 40.0, -6.0);
+    let session_scope = SessionSpawnScope::new(owner.map(|owner| owner.0));
     let entity = crate::features::spawn_runtime_minion(
         &mut commands,
+        session_scope,
         format!("puppy_slug_ally_{}", *next_id),
         // Must be the catalog `display_name` ("Puppy Slug"), NOT a decorated label
         // — the character-sprite table is keyed by display_name and silently falls

@@ -8,22 +8,21 @@
 //! the host's [`ambition::game_shell::ShellHostSpec`] differs.
 //!
 //! World construction moved off `Startup` (which runs once and cannot rebuild)
-//! onto the shell's [`ShellEvent::RouteActivated`] for this experience, so a
+//! onto the shared gameplay-session bridge for this experience, so a
 //! launch → quit → relaunch cycle rebuilds a genuinely fresh session. Every
 //! entity the session spawns inherits the activation's
 //! [`SessionScopeId`](ambition::platformer::lifecycle::SessionScopeId) (the player
 //! body via `simulation_world`, the act state via the rules), so
-//! [`ShellEvent::RouteDeactivated`] retires them together with one
-//! `SessionScopeRetired`.
+//! the bridge retires them together from the exact shell activation.
 
 use bevy::prelude::*;
 
 use ambition::engine_core as ae;
 use ambition::game_shell::{
-    ExperienceRegistration, ShellActivationId, ShellCompletionPolicy, ShellEvent,
-    ShellExperienceAppExt, ShellRouteSpec,
+    ExperienceRegistration, GameplaySessionAppExt, GameplaySessionEvent, GameplaySessionSet,
+    ShellCompletionPolicy, ShellRouteSpec,
 };
-use ambition::platformer::lifecycle::{ActiveSessionScope, SessionScopeId, SessionScopeRetired};
+use ambition::platformer::lifecycle::{SessionRoot, SessionSpawnScope, SpawnSessionScopedExt};
 use ambition::runtime::demo_fixture::{
     simulation_world, ActiveRoomMetadata, EditableAbilitySet, EditableMovementTuning,
     LdtkRuntimeIndex, RoomSet, SimulationSetup, StartingCharacter,
@@ -67,25 +66,6 @@ pub fn sanic_session_world() -> SanicSessionWorld {
     }
 }
 
-/// Maps a shell activation to the session scope it began, so the matching
-/// deactivation can retire exactly that scope. Ordered `Vec`, not a hash map, so
-/// the mapping is deterministic (ADR 0023).
-#[derive(Resource, Default)]
-pub struct SanicSessionLink {
-    bindings: Vec<(ShellActivationId, SessionScopeId)>,
-}
-
-impl SanicSessionLink {
-    fn bind(&mut self, activation: ShellActivationId, scope: SessionScopeId) {
-        self.bindings.push((activation, scope));
-    }
-
-    fn unbind(&mut self, activation: ShellActivationId) -> Option<SessionScopeId> {
-        let index = self.bindings.iter().position(|(a, _)| *a == activation)?;
-        Some(self.bindings.remove(index).1)
-    }
-}
-
 /// The reusable Sanic provider: content registries, experience/route
 /// registration, the gameplay rules, and the session activation/teardown
 /// lifecycle. It does NOT insert a build-time world or configure a host — those
@@ -101,18 +81,15 @@ impl Plugin for SanicExperiencePlugin {
 
         // Advertise the experience + its gameplay route. The launcher catalog is
         // derived from this registration, so no host writes a Sanic match.
-        app.register_experience(
+        app.register_gameplay_experience(
             ExperienceRegistration::new(SANIC_EXPERIENCE, "Sanic", SANIC_GAMEPLAY_ROUTE)
                 .with_description("Momentum speedway with a rideable loop"),
             ShellRouteSpec::new(SANIC_GAMEPLAY_ROUTE, SANIC_EXPERIENCE)
                 .on_complete(ShellCompletionPolicy::ReturnHome),
         );
-
-        app.init_resource::<SanicSessionLink>();
         app.add_systems(
             Update,
-            (sanic_activate_session, sanic_retire_session)
-                .after(ambition::game_shell::AmbitionGameShellSet::Pending),
+            sanic_activate_session.in_set(GameplaySessionSet::Providers),
         );
 
         // The mode-gated gameplay rules. `spawn_sanic_mode_owner` additionally
@@ -124,33 +101,43 @@ impl Plugin for SanicExperiencePlugin {
 
 /// Build the real Sanic session when the shell activates the gameplay route.
 ///
-/// Begins a fresh session scope, records it against the activation, constructs
-/// the world (the player body inherits the scope through `simulation_world`), and
-/// publishes the session's world resources.
+/// Receives the fresh scope minted by the shared bridge, constructs the world
+/// with that captured ownership context, and publishes the session's world
+/// resources.
 #[allow(clippy::too_many_arguments)]
 fn sanic_activate_session(
-    mut events: MessageReader<ShellEvent>,
-    mut active: ResMut<ActiveSessionScope>,
-    mut link: ResMut<SanicSessionLink>,
+    mut events: MessageReader<GameplaySessionEvent>,
     mut commands: Commands,
     ldtk_index: Res<LdtkRuntimeIndex>,
     editable_abilities: Res<EditableAbilitySet>,
     editable_tuning: Res<EditableMovementTuning>,
     asset_server: Res<AssetServer>,
+    mut geometry: ResMut<ae::RoomGeometry>,
+    mut room_set: ResMut<RoomSet>,
+    mut metadata: ResMut<ActiveRoomMetadata>,
+    mut starting_character: ResMut<StartingCharacter>,
 ) {
     for event in events.read() {
-        let ShellEvent::RouteActivated(route) = event else {
+        let GameplaySessionEvent::Activated { activation, scope } = event else {
             continue;
         };
-        if route.experience_id.as_str() != SANIC_EXPERIENCE {
+        if activation.experience_id.as_str() != SANIC_EXPERIENCE {
             continue;
         }
-        let scope = active.begin();
-        link.bind(route.activation_id, scope);
+        let scope = *scope;
+
+        commands.spawn_in_session(
+            scope,
+            (
+                Name::new(format!("{} session root", SANIC_EXPERIENCE)),
+                SessionRoot(scope),
+            ),
+        );
 
         let world = sanic_session_world();
         simulation_world(
             &mut commands,
+            SessionSpawnScope::scoped(scope),
             SimulationSetup {
                 world: &world.geometry,
                 room_set: &world.room_set,
@@ -166,28 +153,9 @@ fn sanic_activate_session(
 
         // Republish the session's "current world" (a relaunch must overwrite any
         // stale world left by the previous session).
-        commands.insert_resource(world.geometry);
-        commands.insert_resource(world.room_set);
-        commands.insert_resource(world.metadata);
-        commands.insert_resource(world.starting_character);
-    }
-}
-
-/// Retire the session when the shell deactivates it. Writes one
-/// `SessionScopeRetired`; the generic sweep despawns everything the session
-/// spawned. The "current world" resources are process-resident and overwritten by
-/// the next activation, so they are intentionally left in place here.
-fn sanic_retire_session(
-    mut events: MessageReader<ShellEvent>,
-    mut link: ResMut<SanicSessionLink>,
-    mut retired: MessageWriter<SessionScopeRetired>,
-) {
-    for event in events.read() {
-        let ShellEvent::RouteDeactivated(route) = event else {
-            continue;
-        };
-        if let Some(scope) = link.unbind(route.activation_id) {
-            retired.write(SessionScopeRetired(scope));
-        }
+        *geometry = world.geometry;
+        *room_set = world.room_set;
+        *metadata = world.metadata;
+        *starting_character = world.starting_character;
     }
 }

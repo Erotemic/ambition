@@ -105,6 +105,7 @@ pub(super) fn handle_ldtk_hot_reload(
         ambition::actors::actor::PrimaryPlayerOnly,
     >,
     catalog: Res<ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>,
+    active_session: Option<Res<ambition::platformer::lifecycle::ActiveSessionScope>>,
 ) {
     if keys.just_pressed(KeyCode::F12) {
         ldtk_reload.auto_apply = !ldtk_reload.auto_apply;
@@ -138,6 +139,13 @@ pub(super) fn handle_ldtk_hot_reload(
         return;
     };
     if let Ok((mut cluster_item, mut combat, mut safety)) = player_q.single_mut() {
+        let Some(session_scope) =
+            ambition::platformer::lifecycle::SessionSpawnScope::for_optional_active_session(
+                active_session.as_deref(),
+            )
+        else {
+            return;
+        };
         let mut clusters = cluster_item.as_clusters_mut();
         let result = reload_ldtk_world_from_disk(
             &mut commands,
@@ -158,6 +166,7 @@ pub(super) fn handle_ldtk_hot_reload(
             visual_assets.1.as_deref(),
             &watch_path,
             &catalog,
+            session_scope,
         );
         match result {
             Ok(active_room) => {
@@ -252,6 +261,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     quality: Option<&ambition::render::quality::ResolvedVisualQuality>,
     watch_path: &std::path::Path,
     catalog: &ambition::asset_manager::sandbox_assets::SandboxAssetCatalog,
+    session_scope: ambition::platformer::lifecycle::SessionSpawnScope,
 ) -> Result<String, Vec<String>> {
     let current_room_id = room_set.active_spec().id.clone();
     let preserved_pos = clusters.kinematics.pos;
@@ -288,7 +298,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     );
     safety.last_safe_pos = transaction.safe_player_pos;
     *moving_platforms = platforms::moving_platforms_for_room(&transaction.next_spec);
-    features::spawn_room_feature_entities(commands, &transaction.next_spec);
+    features::spawn_room_feature_entities(commands, &transaction.next_spec, session_scope);
     dialogue.close();
     combat.hitstop_timer = 0.0;
     combat.hitstun_timer = 0.0;
@@ -300,13 +310,20 @@ pub(super) fn reload_ldtk_world_from_disk(
 
     ambition::render::rendering::spawn_parallax_layers(
         commands,
+        session_scope,
         &world.0,
         &room_set.active_spec().metadata,
         assets,
         quality.map(|q| &q.budget.parallax),
     );
-    spawn_room_visuals(commands, room_set.active_spec(), physics_settings, assets);
-    platforms::spawn_moving_platforms(commands, &world.0, moving_platforms);
+    spawn_room_visuals(
+        commands,
+        session_scope,
+        room_set.active_spec(),
+        physics_settings,
+        assets,
+    );
+    platforms::spawn_moving_platforms(commands, session_scope, &world.0, moving_platforms);
 
     Ok(active_room)
 }

@@ -12,6 +12,7 @@ mod launcher;
 mod plugin;
 mod router;
 mod sequence;
+mod session;
 
 #[cfg(feature = "basic_presentation")]
 mod basic_presentation;
@@ -24,6 +25,7 @@ pub use launcher::*;
 pub use plugin::{AmbitionGameShellPlugin, ShellLauncherPlugin, ShellSequencePlugin};
 pub use router::*;
 pub use sequence::*;
+pub use session::*;
 
 #[cfg(feature = "basic_presentation")]
 pub use basic_presentation::BasicShellPresentationPlugin;
@@ -53,6 +55,7 @@ impl bevy::prelude::PluginGroup for MinimalShellPlugins {
     fn build(self) -> bevy::app::PluginGroupBuilder {
         let builder = bevy::app::PluginGroupBuilder::start::<Self>()
             .add(AmbitionGameShellPlugin)
+            .add(GameplaySessionBridgePlugin)
             .add(ShellSequencePlugin)
             .add(ShellLauncherPlugin);
         #[cfg(feature = "basic_presentation")]

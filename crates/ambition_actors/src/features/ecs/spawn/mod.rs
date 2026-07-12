@@ -5,6 +5,7 @@
 //! This keeps the active ECS path readable without changing the entity shapes
 //! or scheduling surfaces that callers use.
 
+use ambition_platformer_primitives::lifecycle::SessionSpawnScope;
 use bevy::prelude::{Commands, Entity, Query};
 
 pub(crate) use super::spawn_actors::spawn_runtime_minion;
@@ -28,7 +29,11 @@ pub(crate) fn room_spec_paths(
     paths
 }
 
-pub fn spawn_room_feature_entities(commands: &mut Commands, room: &crate::rooms::RoomSpec) {
+pub fn spawn_room_feature_entities(
+    commands: &mut Commands,
+    room: &crate::rooms::RoomSpec,
+    session_scope: SessionSpawnScope,
+) {
     let mut registry = crate::world::placements::PlacementLoweringRegistry::default();
     registry.register(
         ambition_entity_catalog::placements::PlacementKind::Hazard,
@@ -55,7 +60,7 @@ pub fn spawn_room_feature_entities(commands: &mut Commands, room: &crate::rooms:
         ambition_entity_catalog::placements::PlacementKind::Portal,
         super::spawn_static::lower_portal_placement,
     );
-    spawn_room_feature_entities_with_registry(commands, room, &registry);
+    spawn_room_feature_entities_with_registry(commands, room, &registry, session_scope);
 }
 
 /// **Re-run the spawner for ONE authored entity, by its authored id.**
@@ -76,6 +81,7 @@ pub fn respawn_authored_entity(
     commands: &mut Commands,
     room: &crate::rooms::RoomSpec,
     registry: &crate::world::placements::PlacementLoweringRegistry,
+    session_scope: SessionSpawnScope,
     authored_id: &str,
 ) -> bool {
     let paths = room_spec_paths(room);
@@ -88,16 +94,17 @@ pub fn respawn_authored_entity(
             commands,
             room_id: &room.id,
             paths: &paths,
+            session_scope,
         };
         registry.lower(record, &mut ctx);
         return true;
     }
     if let Some(enemy) = room.enemy_spawns.iter().find(|e| e.id == authored_id) {
-        super::spawn_actors::spawn_enemy(commands, enemy, &paths);
+        super::spawn_actors::spawn_enemy(commands, session_scope, enemy, &paths);
         return true;
     }
     if let Some(boss) = room.boss_spawns.iter().find(|b| b.id == authored_id) {
-        super::spawn_actors::spawn_boss(commands, boss);
+        super::spawn_actors::spawn_boss(commands, session_scope, boss);
         return true;
     }
     false
@@ -107,6 +114,7 @@ pub fn spawn_room_feature_entities_with_registry(
     commands: &mut Commands,
     room: &crate::rooms::RoomSpec,
     registry: &crate::world::placements::PlacementLoweringRegistry,
+    session_scope: SessionSpawnScope,
 ) {
     let paths = room_spec_paths(room);
     for record in &room.placements {
@@ -114,6 +122,7 @@ pub fn spawn_room_feature_entities_with_registry(
             commands,
             room_id: &room.id,
             paths: &paths,
+            session_scope,
         };
         registry.lower(record, &mut ctx);
     }
@@ -123,28 +132,28 @@ pub fn spawn_room_feature_entities_with_registry(
     // path and no dual-emit guard. Hazards with inline motion are lifted to a
     // room-level `KinematicPath` at conversion and resolved by `path_id`.
     for boss in &room.boss_spawns {
-        super::spawn_actors::spawn_boss(commands, boss);
+        super::spawn_actors::spawn_boss(commands, session_scope, boss);
     }
     // Pickups now lower through the `placements` channel above (fable audit F9.2).
     for ground_item in &room.ground_items {
-        super::spawn_static::spawn_ground_item(commands, ground_item);
+        super::spawn_static::spawn_ground_item(commands, session_scope, ground_item);
     }
     #[cfg(feature = "portal")]
     for portal_gun in &room.portal_gun_spawns {
-        super::spawn_static::spawn_portal_gun_spawn(commands, portal_gun);
+        super::spawn_static::spawn_portal_gun_spawn(commands, session_scope, portal_gun);
     }
     // Static portals now lower through the `placements` channel above (fable
     // audit F9.2) via the cfg(portal) `lower_portal_placement` interpreter.
     for shrine in &room.shrines {
-        super::spawn_static::spawn_shrine(commands, shrine);
+        super::spawn_static::spawn_shrine(commands, session_scope, shrine);
     }
     for gravity_zone in &room.gravity_zones {
-        super::spawn_static::spawn_gravity_zone(commands, gravity_zone);
+        super::spawn_static::spawn_gravity_zone(commands, session_scope, gravity_zone);
     }
     // Chests now lower through the `placements` channel above (fable audit F9.2).
     // Breakables now lower through the `placements` channel above (fable audit F9.2).
     for enemy in &room.enemy_spawns {
-        super::spawn_actors::spawn_enemy(commands, enemy, &paths);
+        super::spawn_actors::spawn_enemy(commands, session_scope, enemy, &paths);
     }
     // ADR 0020: hand the room's authored `(rider, mount)` links to the
     // resolver resource. It links them by `FeatureId` once the actors above
@@ -179,13 +188,22 @@ pub fn spawn_room_feature_entities_with_registry(
 /// feature entity queried by actor, projectile, rendering, and health systems.
 pub fn spawn_encounter_mob(
     commands: &mut Commands,
+    session_scope: SessionSpawnScope,
     encounter_id: impl Into<String>,
     id: String,
     brain: ambition_entity_catalog::placements::CharacterBrain,
     pos: ambition_engine_core::Vec2,
     size: ambition_engine_core::Vec2,
 ) {
-    super::spawn_actors::spawn_encounter_mob(commands, encounter_id, id, brain, pos, size);
+    super::spawn_actors::spawn_encounter_mob(
+        commands,
+        session_scope,
+        encounter_id,
+        id,
+        brain,
+        pos,
+        size,
+    );
 }
 
 /// Despawn all ECS mobs owned by an encounter attempt.

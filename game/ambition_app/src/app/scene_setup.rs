@@ -288,6 +288,7 @@ fn presentation_world_inner(
     let t_room = std::time::Instant::now();
     spawn_parallax_layers(
         commands,
+        ambition::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
         &world.0,
         &room_set.active_spec().metadata,
         Some(game_assets),
@@ -295,6 +296,7 @@ fn presentation_world_inner(
     );
     spawn_room_visuals(
         commands,
+        ambition::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
         room_set.active_spec(),
         physics_settings,
         Some(game_assets),
@@ -308,6 +310,7 @@ fn presentation_world_inner(
     }
     platforms::spawn_moving_platforms(
         commands,
+        ambition::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
         &world.0,
         &platforms::moving_platforms_for_room(room_set.active_spec()),
     );

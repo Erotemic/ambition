@@ -37,6 +37,7 @@ fn run_boss_sync(
 ) {
     sync_boss_reward_chests_ecs(
         &mut commands,
+        SessionSpawnScope::UNSCOPED,
         save.data(),
         &registry,
         &world.0,

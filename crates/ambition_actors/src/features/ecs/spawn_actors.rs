@@ -8,6 +8,9 @@ use super::brain_builders::{
     enemy_combat_kit_for_spec, enemy_default_action_set, enemy_default_brain,
 };
 use super::*;
+use ambition_platformer_primitives::lifecycle::{
+    ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
+};
 use bevy::prelude::{Message, Name};
 
 /// Programmatic actor-spawn request — the public seam for dropping a specific
@@ -114,12 +117,19 @@ pub struct BossOverrides {
 pub fn apply_spawn_actor_requests(
     mut commands: bevy::prelude::Commands,
     mut requests: bevy::prelude::MessageReader<SpawnActorRequest>,
+    active_session: Option<bevy::prelude::Res<ActiveSessionScope>>,
 ) {
     // Collect (feature id, entity, grudge-target id) for the Enemy spawns this batch
     // so a mutual grudge (a staged duel pair) can be cross-wired once both entities
     // exist — `grudge_against` names a foe by id, resolvable only after the whole
     // batch has reserved its entities.
     let mut staged: Vec<(String, bevy::prelude::Entity, Option<String>)> = Vec::new();
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        requests.clear();
+        return;
+    };
     for req in requests.read() {
         let aabb = ae::Aabb::new(req.pos, req.half_size);
         match &req.kind {
@@ -130,7 +140,7 @@ pub fn apply_spawn_actor_requests(
                     aabb,
                     brain.clone(),
                 );
-                spawn_boss_with_overrides(&mut commands, &authored, overrides);
+                spawn_boss_with_overrides(&mut commands, session_scope, &authored, overrides);
             }
             SpawnActorKind::Enemy { brain } => {
                 let authored = crate::rooms::Authored::new(
@@ -142,9 +152,13 @@ pub fn apply_spawn_actor_requests(
                 // Runtime spawn (outside the authored RoomSpec lists): mark it so
                 // the renderer's runtime-visual discovery gives it a sprite, the
                 // same as any authored enemy.
-                if let Some(entity) =
-                    spawn_enemy_with_faction(&mut commands, &authored, &[], req.faction)
-                {
+                if let Some(entity) = spawn_enemy_with_faction(
+                    &mut commands,
+                    session_scope,
+                    &authored,
+                    &[],
+                    req.faction,
+                ) {
                     commands.entity(entity).insert(super::RuntimeStagedActor);
                     staged.push((req.id.clone(), entity, req.grudge_against.clone()));
                 }
@@ -254,35 +268,42 @@ impl EnemyActorSpawnPlan {
         self
     }
 
-    pub(super) fn spawn(self, commands: &mut Commands) -> Entity {
+    pub(super) fn spawn(self, commands: &mut Commands, session_scope: SessionSpawnScope) -> Entity {
         let facing = self.enemy.kin.facing;
         let (identity, disposition, combat, intent, cooldowns) =
             enemy_component_snapshot(&self.enemy);
         let cluster_bundle = self.enemy.into_components();
         let entity = commands
-            .spawn((
-                Name::new(self.entity_name),
-                EnemyActorBundle::new(
-                    FeatureBaseBundle::new(&self.feature_id, &self.feature_name, self.feature_aabb),
-                    identity,
-                    disposition,
-                    self.faction,
-                    ActorPose::from_parts(
-                        self.feature_aabb.center,
-                        self.feature_aabb.half_size,
-                        facing,
+            .spawn_session_scoped(
+                session_scope,
+                (
+                    Name::new(self.entity_name),
+                    EnemyActorBundle::new(
+                        FeatureBaseBundle::new(
+                            &self.feature_id,
+                            &self.feature_name,
+                            self.feature_aabb,
+                        ),
+                        identity,
+                        disposition,
+                        self.faction,
+                        ActorPose::from_parts(
+                            self.feature_aabb.center,
+                            self.feature_aabb.half_size,
+                            facing,
+                        ),
+                        self.combat_kit,
+                        self.aggression,
+                        combat,
+                        intent,
+                        cooldowns,
                     ),
-                    self.combat_kit,
-                    self.aggression,
-                    combat,
-                    intent,
-                    cooldowns,
+                    cluster_bundle,
+                    self.brain,
+                    self.action_set,
+                    ambition_characters::brain::ActorControl::default(),
                 ),
-                cluster_bundle,
-                self.brain,
-                self.action_set,
-                ambition_characters::brain::ActorControl::default(),
-            ))
+            )
             .id();
         if let Some(item) = self.held_item {
             commands.entity(entity).insert(super::HeldItem::new(item));
@@ -424,7 +445,7 @@ impl NpcActorSpawnPlan {
         }
     }
 
-    pub(super) fn spawn(self, commands: &mut Commands) -> Entity {
+    pub(super) fn spawn(self, commands: &mut Commands, session_scope: SessionSpawnScope) -> Entity {
         let facing = self.seed.kin.facing;
         // Sprite-metadata render size lives on the SHARED `ActorRenderSize`
         // component so it survives a hostile flip (otherwise the body-sized
@@ -447,29 +468,32 @@ impl NpcActorSpawnPlan {
             self.action_set.ranged.as_ref(),
         );
         let cluster_bundle = self.seed.into_components();
-        let mut entity = commands.spawn((
-            Name::new(self.entity_name),
-            EnemyActorBundle::new(
-                FeatureBaseBundle::new(&self.feature_id, &self.feature_name, self.feature_aabb),
-                identity,
-                disposition,
-                super::ActorFaction::Npc,
-                ActorPose::from_parts(
-                    self.feature_aabb.center,
-                    self.feature_aabb.half_size,
-                    facing,
+        let mut entity = commands.spawn_session_scoped(
+            session_scope,
+            (
+                Name::new(self.entity_name),
+                EnemyActorBundle::new(
+                    FeatureBaseBundle::new(&self.feature_id, &self.feature_name, self.feature_aabb),
+                    identity,
+                    disposition,
+                    super::ActorFaction::Npc,
+                    ActorPose::from_parts(
+                        self.feature_aabb.center,
+                        self.feature_aabb.half_size,
+                        facing,
+                    ),
+                    self.combat_kit,
+                    self.aggression,
+                    combat,
+                    intent,
+                    cooldowns,
                 ),
-                self.combat_kit,
-                self.aggression,
-                combat,
-                intent,
-                cooldowns,
+                cluster_bundle,
+                self.brain,
+                self.action_set,
+                ambition_characters::brain::ActorControl::default(),
             ),
-            cluster_bundle,
-            self.brain,
-            self.action_set,
-            ambition_characters::brain::ActorControl::default(),
-        ));
+        );
         entity.insert(interaction);
         if let Some(moveset) = npc_moveset {
             let has_attack = moveset
@@ -514,9 +538,10 @@ impl NpcActorSpawnPlan {
 /// Spawn a boss with no spawn-time tweaks (room-load + the default seam path).
 pub(super) fn spawn_boss(
     commands: &mut Commands,
+    session_scope: SessionSpawnScope,
     authored: &crate::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
 ) {
-    spawn_boss_with_overrides(commands, authored, &BossOverrides::default());
+    spawn_boss_with_overrides(commands, session_scope, authored, &BossOverrides::default());
 }
 
 /// The flight ceiling a boss body steers under. A boss's `BossPattern` brain
@@ -629,6 +654,7 @@ fn boss_actor_cluster(
 /// them); the encounter opt-out is honored by `sync_boss_encounter_entities`.
 pub(super) fn spawn_boss_with_overrides(
     commands: &mut Commands,
+    session_scope: SessionSpawnScope,
     authored: &crate::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
     overrides: &BossOverrides,
 ) {
@@ -764,31 +790,34 @@ pub(super) fn spawn_boss_with_overrides(
     // publish. Captured before `into_components` consumes the scratch.
     let boss_render_envelope = crate::combat::BodyEnvelope(boss.as_ref().render_size());
     let boss_components = boss.into_components();
-    let mut entity = commands.spawn((
-        Name::new(format!("Feature boss: {}", authored.name)),
-        FeatureSimEntity,
-        RoomVisual,
-        FeatureId::new(authored.id.clone()),
-        FeatureName::new(authored.name.clone()),
-        feature_aabb,
-        // BossPatternTimer is a presentation-side mirror of the brain's
-        // `BossPatternState.pattern_timer`; updated each tick by
-        // `update_ecs_bosses`. Initial value is 0.0 because the brain
-        // state defaults to a fresh `BossPatternState`.
-        BossPatternTimer(0.0),
-        boss_anim_frame,
-        BossDeathAnimation::default(),
-        initial_phase,
-        super::ActorFaction::Boss,
-        super::ActorTarget::default(),
-        ActorPose::from_parts(feature_aabb.center, feature_aabb.half_size, boss_facing),
+    let mut entity = commands.spawn_session_scoped(
+        session_scope,
         (
-            DamageableVolumes::default(),
-            PogoPolicy::FromDamageable,
-            PogoTargetVolumes::default(),
-            boss_components,
+            Name::new(format!("Feature boss: {}", authored.name)),
+            FeatureSimEntity,
+            RoomVisual,
+            FeatureId::new(authored.id.clone()),
+            FeatureName::new(authored.name.clone()),
+            feature_aabb,
+            // BossPatternTimer is a presentation-side mirror of the brain's
+            // `BossPatternState.pattern_timer`; updated each tick by
+            // `update_ecs_bosses`. Initial value is 0.0 because the brain
+            // state defaults to a fresh `BossPatternState`.
+            BossPatternTimer(0.0),
+            boss_anim_frame,
+            BossDeathAnimation::default(),
+            initial_phase,
+            super::ActorFaction::Boss,
+            super::ActorTarget::default(),
+            ActorPose::from_parts(feature_aabb.center, feature_aabb.half_size, boss_facing),
+            (
+                DamageableVolumes::default(),
+                PogoPolicy::FromDamageable,
+                PogoTargetVolumes::default(),
+                boss_components,
+            ),
         ),
-    ));
+    );
     entity.insert((
         // Shared actor combat read models. Boss-specific encounter
         // phase / music / rewards stay on BossFeature + boss
@@ -888,6 +917,7 @@ pub(super) fn spawn_boss_with_overrides(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn spawn_runtime_minion(
     commands: &mut Commands,
+    session_scope: SessionSpawnScope,
     id: impl Into<String>,
     name: impl Into<String>,
     world_pos: ae::Vec2,
@@ -922,7 +952,7 @@ pub(crate) fn spawn_runtime_minion(
     )
     .with_faction(faction)
     .with_aggression(aggression)
-    .spawn(commands);
+    .spawn(commands, session_scope);
     commands
         .entity(entity)
         .insert(super::EncounterMob::new(encounter_id));
@@ -938,10 +968,17 @@ pub(crate) fn spawn_runtime_minion(
 
 pub(super) fn spawn_enemy(
     commands: &mut Commands,
+    session_scope: SessionSpawnScope,
     authored: &crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
     paths: &[(String, ambition_engine_core::KinematicPath)],
 ) {
-    let _ = spawn_enemy_with_faction(commands, authored, paths, super::ActorFaction::Enemy);
+    let _ = spawn_enemy_with_faction(
+        commands,
+        session_scope,
+        authored,
+        paths,
+        super::ActorFaction::Enemy,
+    );
 }
 
 /// Like [`spawn_enemy`] but the spawned body takes `faction` (the duel/arena path
@@ -952,6 +989,7 @@ pub(super) fn spawn_enemy(
 /// for the composite mount/rider path (it fans out two of its own entities).
 pub(super) fn spawn_enemy_with_faction(
     commands: &mut Commands,
+    session_scope: SessionSpawnScope,
     authored: &crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
     paths: &[(String, ambition_engine_core::KinematicPath)],
     faction: super::ActorFaction,
@@ -964,7 +1002,7 @@ pub(super) fn spawn_enemy_with_faction(
         authored.payload.clone(),
         paths,
     );
-    let entity = spawn_solo_enemy(commands, enemy, authored, faction);
+    let entity = spawn_solo_enemy(commands, session_scope, enemy, authored, faction);
     attach_mount_role(commands, entity, &spec);
     // Q18 (G3): a mount archetype that carries articulated hands (the `giant`-class
     // giant_gnu) grows a `LimbRig` + two hand limb bodies the rider boss's strikes
@@ -972,7 +1010,14 @@ pub(super) fn spawn_enemy_with_faction(
     // per-archetype `has_hand_limbs` flag is the data-driven generalization, left
     // for when a second limbed mount lands.
     if mount_has_hand_limbs(&spec) {
-        spawn_giant_hand_limbs(commands, entity, &authored.id, authored.aabb, &spec);
+        spawn_giant_hand_limbs(
+            commands,
+            session_scope,
+            entity,
+            &authored.id,
+            authored.aabb,
+            &spec,
+        );
     }
     Some(entity)
 }
@@ -1012,6 +1057,7 @@ fn giant_hand_feature_id(giant_id: &str, side: &str) -> String {
 
 fn spawn_giant_hand_limbs(
     commands: &mut Commands,
+    session_scope: SessionSpawnScope,
     giant: bevy::ecs::entity::Entity,
     giant_id: &str,
     giant_aabb: ae::Aabb,
@@ -1061,6 +1107,7 @@ fn spawn_giant_hand_limbs(
         );
         let hand = spawn_solo_enemy(
             commands,
+            session_scope,
             seed,
             &crate::rooms::Authored {
                 id: hand_id,
@@ -1148,6 +1195,7 @@ fn attach_mount_role(
 /// mount/rider fan-out has been handled. Returns the spawned body entity.
 pub(super) fn spawn_solo_enemy(
     commands: &mut Commands,
+    session_scope: SessionSpawnScope,
     enemy: super::actor_clusters::ActorClusterSeed,
     authored: &crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
     faction: super::ActorFaction,
@@ -1161,7 +1209,7 @@ pub(super) fn spawn_solo_enemy(
         enemy,
     )
     .with_faction(faction)
-    .spawn(commands);
+    .spawn(commands, session_scope);
     // A named catalog character carries its authored sprite render size on the
     // shared `ActorRenderSize` (the same component the peaceful-NPC path sets), so
     // the sprite draws at the authored scale and matches the body the per-frame
@@ -1178,6 +1226,7 @@ pub(super) fn spawn_solo_enemy(
 }
 pub(super) fn spawn_interactable(
     commands: &mut Commands,
+    session_scope: SessionSpawnScope,
     authored: &crate::rooms::Authored<crate::rooms::InteractableSpec>,
     paths: &[(String, ambition_engine_core::KinematicPath)],
 ) {
@@ -1197,19 +1246,22 @@ pub(super) fn spawn_interactable(
             interactable.clone(),
             paths,
         )
-        .spawn(commands);
+        .spawn(commands, session_scope);
     } else if let ambition_interaction::InteractionKind::Custom(payload) = &interactable.kind {
         if let Some(activation) = crate::encounter::SwitchActivation::parse_custom(payload) {
-            commands.spawn((
-                Name::new(format!("Feature switch: {}", authored.name)),
-                FeatureSimEntity,
-                RoomVisual,
-                FeatureId::new(authored.id.clone()),
-                FeatureName::new(authored.name.clone()),
-                feature_aabb,
-                SwitchFeature::new(activation),
-                SwitchOn(false),
-            ));
+            commands.spawn_session_scoped(
+                session_scope,
+                (
+                    Name::new(format!("Feature switch: {}", authored.name)),
+                    FeatureSimEntity,
+                    RoomVisual,
+                    FeatureId::new(authored.id.clone()),
+                    FeatureName::new(authored.name.clone()),
+                    feature_aabb,
+                    SwitchFeature::new(activation),
+                    SwitchOn(false),
+                ),
+            );
         }
     }
 }
@@ -1220,6 +1272,7 @@ pub(super) fn spawn_interactable(
 /// feature entity queried by actor, projectile, rendering, and health systems.
 pub(super) fn spawn_encounter_mob(
     commands: &mut Commands,
+    session_scope: SessionSpawnScope,
     encounter_id: impl Into<String>,
     id: String,
     brain: ambition_entity_catalog::placements::CharacterBrain,
@@ -1241,7 +1294,7 @@ pub(super) fn spawn_encounter_mob(
         feature_aabb,
         enemy,
     )
-    .spawn(commands);
+    .spawn(commands, session_scope);
     commands
         .entity(entity)
         .insert(EncounterMob::new(encounter_id));
@@ -1272,11 +1325,19 @@ pub(super) fn despawn_encounter_mobs(
 pub fn apply_summon_effects(
     mut commands: bevy::prelude::Commands,
     mut requests: bevy::prelude::MessageReader<ambition_vfx::EffectRequest>,
+    active_session: Option<bevy::prelude::Res<ActiveSessionScope>>,
 ) {
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        requests.clear();
+        return;
+    };
     for req in requests.read() {
         if let ambition_vfx::Effect::Summon(s) = &req.effect {
             spawn_runtime_minion(
                 &mut commands,
+                session_scope,
                 s.id.clone(),
                 s.name.clone(),
                 s.pos,

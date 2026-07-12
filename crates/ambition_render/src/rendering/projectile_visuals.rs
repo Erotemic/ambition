@@ -18,6 +18,9 @@ use bevy::sprite::Anchor;
 
 use ambition_platformer_primitives::gravity::gravity_upright_angle;
 use ambition_platformer_primitives::gravity::GravityCtx;
+use ambition_platformer_primitives::lifecycle::{
+    ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
+};
 use ambition_projectiles::{
     ProjectileArtSource, ProjectileKind, ProjectileRenderSize, ProjectileRotation,
     ProjectileVisualKind,
@@ -256,6 +259,7 @@ pub fn sync_projectile_visuals(
     asset_server: Res<AssetServer>,
     sheets: Res<SheetRegistry>,
     game_assets: Option<Res<GameAssets>>,
+    active_session: Option<Res<ActiveSessionScope>>,
     // Projectiles that don't have a visual yet get one spawned.
     new_projectiles: Query<(Entity, &ProjectileView), Without<ProjectileVisualLink>>,
     // Live views for the per-frame transform refresh.
@@ -272,6 +276,11 @@ pub fn sync_projectile_visuals(
         With<ProjectileVisual>,
     >,
 ) {
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        return;
+    };
     let energy = game_assets
         .as_deref()
         .and_then(|a| a.entities.get(EntitySprite::ProjectileEnergy));
@@ -281,14 +290,17 @@ pub fn sync_projectile_visuals(
         let built = build_visual(view, &asset_server, &sheets, energy);
         let translation =
             ambition_engine_core::config::world_to_bevy(&world.0, view.pos, projectile_z());
-        let mut visual = commands.spawn((
-            built.sprite,
-            Transform::from_translation(translation),
-            ProjectileVisual,
-            view.kind,
-            VisualProjectile(proj_entity),
-            Name::new(format!("Projectile visual: {}", view.kind.label())),
-        ));
+        let mut visual = commands.spawn_session_scoped(
+            session_scope,
+            (
+                built.sprite,
+                Transform::from_translation(translation),
+                ProjectileVisual,
+                view.kind,
+                VisualProjectile(proj_entity),
+                Name::new(format!("Projectile visual: {}", view.kind.label())),
+            ),
+        );
         if let Some(anchor) = built.anchor {
             visual.insert(anchor);
         }
@@ -344,6 +356,7 @@ pub fn sync_projectile_visuals(
 pub fn sync_projectile_charge_visuals(
     mut commands: Commands,
     world: Res<ambition_engine_core::RoomGeometry>,
+    active_session: Option<Res<ActiveSessionScope>>,
     // Sim-built pose read-model (E4): charge tier + body geometry facts, no
     // live cluster / projectile-state reads.
     player_q: Query<
@@ -355,6 +368,11 @@ pub fn sync_projectile_charge_visuals(
     for entity in &existing_charge {
         commands.entity(entity).despawn();
     }
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        return;
+    };
     for pose in &player_q {
         let Some(tier) = pose.charge_tier else {
             continue;
@@ -375,18 +393,21 @@ pub fn sync_projectile_charge_visuals(
             pose.pos.x + facing * (pose.size.x * 0.5 + 6.0),
             pose.pos.y - pose.size.y * 0.20,
         );
-        commands.spawn((
-            Sprite::from_color(
-                Color::srgba(1.0, 0.74, 0.30, alpha),
-                Vec2::new(render_size.x, render_size.y),
+        commands.spawn_session_scoped(
+            session_scope,
+            (
+                Sprite::from_color(
+                    Color::srgba(1.0, 0.74, 0.30, alpha),
+                    Vec2::new(render_size.x, render_size.y),
+                ),
+                Transform::from_translation(ambition_engine_core::config::world_to_bevy(
+                    &world.0,
+                    charge_pos,
+                    ambition_engine_core::config::WORLD_Z_PLAYER + 1.5,
+                )),
+                PlayerChargeVisual,
+                Name::new("Player projectile charge indicator"),
             ),
-            Transform::from_translation(ambition_engine_core::config::world_to_bevy(
-                &world.0,
-                charge_pos,
-                ambition_engine_core::config::WORLD_Z_PLAYER + 1.5,
-            )),
-            PlayerChargeVisual,
-            Name::new("Player projectile charge indicator"),
-        ));
+        );
     }
 }

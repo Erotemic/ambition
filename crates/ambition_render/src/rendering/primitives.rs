@@ -6,6 +6,7 @@ use bevy::prelude::*;
 
 use ambition_combat::events::FeatureVisualKind;
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_BLOCK, WORLD_Z_DUMMY, WORLD_Z_PLAYER};
+use ambition_platformer_primitives::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
 
 // Runtime-owned room lifecycle markers. Re-exported so presentation systems +
 // existing `presentation::rendering::RoomVisual` call sites keep resolving; the
@@ -161,20 +162,24 @@ pub(super) fn feature_color(kind: FeatureVisualKind, fighting: bool, flash: bool
 
 pub(super) fn spawn_world_label(
     commands: &mut Commands,
+    session_scope: SessionSpawnScope,
     world: &ae::World,
     pos: ae::Vec2,
     text: &str,
     font_size: f32,
 ) {
-    commands.spawn((
-        Text2d::new(text.to_string()),
-        TextFont {
-            font_size,
-            ..default()
-        },
-        TextColor(Color::srgba(0.86, 0.94, 1.0, 0.94)),
-        Transform::from_translation(world_to_bevy(world, pos, WORLD_Z_PLAYER + 8.0)),
-        Name::new(format!("World label: {text}")),
-        RoomVisual,
-    ));
+    commands.spawn_session_scoped(
+        session_scope,
+        (
+            Text2d::new(text.to_string()),
+            TextFont {
+                font_size,
+                ..default()
+            },
+            TextColor(Color::srgba(0.86, 0.94, 1.0, 0.94)),
+            Transform::from_translation(world_to_bevy(world, pos, WORLD_Z_PLAYER + 8.0)),
+            Name::new(format!("World label: {text}")),
+            RoomVisual,
+        ),
+    );
 }

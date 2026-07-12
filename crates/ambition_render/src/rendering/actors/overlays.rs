@@ -4,6 +4,9 @@
 //! Split out of the former 883-line `actors/mod.rs` (2026-06-15).
 
 use super::*;
+use ambition_platformer_primitives::lifecycle::{
+    ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
+};
 
 /// When `DeveloperTools::hide_sprites` is enabled, force every `Sprite`-bearing
 /// entity to `Hidden` so only gizmo hitbox outlines remain visible. When the
@@ -83,9 +86,15 @@ const GRADIENT_LANE_VISUAL_Z: f32 = 10.5;
 pub fn manage_gradient_lane_visual(
     mut commands: Commands,
     world: Res<ambition_engine_core::RoomGeometry>,
+    active_session: Option<Res<ActiveSessionScope>>,
     boss_frames: Res<ambition_sim_view::BossFrameIndex>,
     mut visuals: Query<(Entity, &GradientLaneVisual, &mut Transform, &mut Sprite)>,
 ) {
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        return;
+    };
     let mut active: std::collections::HashMap<&str, (bool, ae::Vec2, BVec2)> =
         std::collections::HashMap::new();
     for (id, frame) in boss_frames.iter() {
@@ -124,19 +133,26 @@ pub fn manage_gradient_lane_visual(
         } else {
             GRADIENT_LANE_TELEGRAPH_COLOR
         };
-        commands.spawn((
-            Sprite {
-                color,
-                custom_size: Some(size),
-                ..default()
-            },
-            Transform::from_translation(world_to_bevy(&world.0, center, GRADIENT_LANE_VISUAL_Z)),
-            super::super::primitives::RoomVisual,
-            GradientLaneVisual {
-                owner_id: owner_id.to_string(),
-            },
-            Name::new("Gradient Lane visual"),
-        ));
+        commands.spawn_session_scoped(
+            session_scope,
+            (
+                Sprite {
+                    color,
+                    custom_size: Some(size),
+                    ..default()
+                },
+                Transform::from_translation(world_to_bevy(
+                    &world.0,
+                    center,
+                    GRADIENT_LANE_VISUAL_Z,
+                )),
+                super::super::primitives::RoomVisual,
+                GradientLaneVisual {
+                    owner_id: owner_id.to_string(),
+                },
+                Name::new("Gradient Lane visual"),
+            ),
+        );
     }
 }
 

@@ -24,6 +24,9 @@ use bevy::{
 };
 
 use super::primitives::{FeatureVisual, PlayerVisual, PropVisual, RoomVisual};
+use ambition_platformer_primitives::lifecycle::{
+    SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
+};
 
 const SHADER_ASSET_PATH: &str = "shaders/puppy_slug_deep_dream.wgsl";
 
@@ -102,7 +105,14 @@ pub fn attach_puppy_slug_deep_dream_overlays(
     // ride `ActorRenderView`, no live cluster reads.
     actor_render: Res<ambition_sim_view::ActorRenderIndex>,
     candidates: Query<
-        (Entity, &FeatureVisual, &Transform, &Sprite, Option<&Anchor>),
+        (
+            Entity,
+            &FeatureVisual,
+            &Transform,
+            &Sprite,
+            Option<&Anchor>,
+            Option<&SessionScopedEntity>,
+        ),
         (
             Without<PlayerVisual>,
             Without<PropVisual>,
@@ -110,7 +120,7 @@ pub fn attach_puppy_slug_deep_dream_overlays(
         ),
     >,
 ) {
-    for (source_entity, visual, transform, sprite, anchor) in &candidates {
+    for (source_entity, visual, transform, sprite, anchor, session_owner) in &candidates {
         let Some(actor_seed) = puppy_slug_seed(&visual.id, &actor_render) else {
             continue;
         };
@@ -141,21 +151,25 @@ pub fn attach_puppy_slug_deep_dream_overlays(
         // default removed, the auto-inserted InheritedVisibility starts
         // unset and the propagator computes it from `Visibility::Visible`
         // immediately. Same reasoning for ViewVisibility.
+        let session_scope = SessionSpawnScope::new(session_owner.map(|owner| owner.0));
         let overlay_entity = commands
-            .spawn((
-                Mesh2d(mesh),
-                MeshMaterial2d(material),
-                overlay_transform,
-                Visibility::Visible,
-                PuppySlugDeepDreamOverlay {
-                    source: source_entity,
-                },
-                // Room cleanup should remove this sibling alongside the regular
-                // feature visuals. The explicit cleanup system below also handles
-                // encounter-mob despawns before a room unload.
-                RoomVisual,
-                Name::new(format!("Puppy Slug Deep Dream Overlay: {}", visual.id)),
-            ))
+            .spawn_session_scoped(
+                session_scope,
+                (
+                    Mesh2d(mesh),
+                    MeshMaterial2d(material),
+                    overlay_transform,
+                    Visibility::Visible,
+                    PuppySlugDeepDreamOverlay {
+                        source: source_entity,
+                    },
+                    // Room cleanup should remove this sibling alongside the regular
+                    // feature visuals. The explicit cleanup system below also handles
+                    // encounter-mob despawns before a room unload.
+                    RoomVisual,
+                    Name::new(format!("Puppy Slug Deep Dream Overlay: {}", visual.id)),
+                ),
+            )
             .id();
         commands
             .entity(source_entity)

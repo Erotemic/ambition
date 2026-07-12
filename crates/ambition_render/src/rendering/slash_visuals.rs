@@ -19,6 +19,9 @@ use bevy::prelude::*;
 
 use ambition_engine_core as ae;
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_FX};
+use ambition_platformer_primitives::lifecycle::{
+    ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
+};
 use ambition_vfx::vfx::{SlashKind, VfxMessage};
 
 use super::sheet_atlas::{
@@ -124,8 +127,15 @@ pub(crate) fn spawn_slash_effects(
     asset_server: Res<AssetServer>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     sheet_registry: Option<Res<SheetRegistry>>,
+    active_session: Option<Res<ActiveSessionScope>>,
     mut cache: Local<Option<SlashSource>>,
 ) {
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        messages.clear();
+        return;
+    };
     let mut source: Option<SlashSource> = None;
     for message in messages.read() {
         let VfxMessage::Slash {
@@ -148,7 +158,16 @@ pub(crate) fn spawn_slash_effects(
         let Some(source) = source.as_ref() else {
             continue;
         };
-        spawn_one(&mut commands, &world.0, source, *center, *size, *kind, *dir);
+        spawn_one(
+            &mut commands,
+            session_scope,
+            &world.0,
+            source,
+            *center,
+            *size,
+            *kind,
+            *dir,
+        );
     }
 }
 
@@ -156,6 +175,7 @@ pub(crate) fn spawn_slash_effects(
 /// rotated to point along the world `dir` (attacker→hitbox, gravity-relative).
 fn spawn_one(
     commands: &mut Commands,
+    session_scope: SessionSpawnScope,
     world: &ae::World,
     source: &SlashSource,
     center: ae::Vec2,
@@ -174,17 +194,20 @@ fn spawn_one(
     sprite.custom_size = Some(BVec2::splat(size.max(1.0)));
     let mut transform = Transform::from_translation(world_to_bevy(world, center, WORLD_Z_FX + 2.0));
     transform.rotation = Quat::from_rotation_z(slash_rotation(dir, kind));
-    commands.spawn((
-        Name::new("VFX slash"),
-        sprite,
-        transform,
-        SlashVisual {
-            age: 0.0,
-            row_start: row.start,
-            frames: row.frames,
-            frame_duration: row.frame_duration,
-        },
-    ));
+    commands.spawn_session_scoped(
+        session_scope,
+        (
+            Name::new("VFX slash"),
+            sprite,
+            transform,
+            SlashVisual {
+                age: 0.0,
+                row_start: row.start,
+                frames: row.frames,
+                frame_duration: row.frame_duration,
+            },
+        ),
+    );
 }
 
 /// Advance every live slash effect one frame at a time and despawn it once the

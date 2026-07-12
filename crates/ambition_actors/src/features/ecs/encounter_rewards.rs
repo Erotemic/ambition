@@ -9,6 +9,7 @@
 
 use super::falling_chest::settled_chest_center;
 use super::*;
+use ambition_platformer_primitives::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
 use bevy::prelude::Name;
 
 /// Drop the encounter's ECS reward chest, if any, and clear its looted flag.
@@ -39,6 +40,7 @@ pub fn clear_encounter_reward_ecs(
 /// decoupled from the encounter state representation (E1).
 pub fn sync_encounter_reward_chests_ecs(
     commands: &mut Commands,
+    session_scope: SessionSpawnScope,
     save: &ambition_persistence::save_data::SandboxSaveData,
     cleared: &[(String, crate::encounter::EncounterSpec)],
     chests: &Query<
@@ -68,19 +70,22 @@ pub fn sync_encounter_reward_chests_ecs(
             continue;
         }
         let chest_pos = crate::encounter::encounter_reward_chest_pos(spec, chest_size);
-        let mut entity = commands.spawn((
-            Name::new(format!("Encounter reward chest: {encounter_id}")),
-            FeatureSimEntity,
-            RoomVisual,
-            FeatureId::new(chest_id.clone()),
-            FeatureName::new(chest_id.clone()),
-            CenteredAabb::from_center_size(chest_pos, chest_size),
-            ChestFeature::new(ambition_interaction::Chest::new(
-                chest_id,
-                Some(spec.reward.clone()),
-            )),
-            EncounterRewardChest::new(encounter_id.clone()),
-        ));
+        let mut entity = commands.spawn_session_scoped(
+            session_scope,
+            (
+                Name::new(format!("Encounter reward chest: {encounter_id}")),
+                FeatureSimEntity,
+                RoomVisual,
+                FeatureId::new(chest_id.clone()),
+                FeatureName::new(chest_id.clone()),
+                CenteredAabb::from_center_size(chest_pos, chest_size),
+                ChestFeature::new(ambition_interaction::Chest::new(
+                    chest_id,
+                    Some(spec.reward.clone()),
+                )),
+                EncounterRewardChest::new(encounter_id.clone()),
+            ),
+        );
         if looted {
             entity.insert(Opened);
         }
@@ -92,6 +97,7 @@ pub fn sync_encounter_reward_chests_ecs(
 /// from the boss encounter system and owns the reward chest entity/state natively.
 pub fn sync_boss_reward_chests_ecs(
     commands: &mut Commands,
+    session_scope: SessionSpawnScope,
     save: &ambition_persistence::save_data::SandboxSaveData,
     registry: &crate::boss_encounter::BossEncounterRegistry,
     world: &ae::World,
@@ -154,19 +160,22 @@ pub fn sync_boss_reward_chests_ecs(
         if looted {
             chest_pos = settled_chest_center(world, chest_pos, *size);
         }
-        let mut entity = commands.spawn((
-            Name::new(format!("Boss reward chest: {placement_id}")),
-            FeatureSimEntity,
-            RoomVisual,
-            FeatureId::new(chest_id.clone()),
-            FeatureName::new(chest_id.clone()),
-            CenteredAabb::from_center_size(chest_pos, *size),
-            ChestFeature::new(ambition_interaction::Chest::new(
-                chest_id,
-                Some(pickup.clone()),
-            )),
-            BossRewardChest::new(placement_id.clone()),
-        ));
+        let mut entity = commands.spawn_session_scoped(
+            session_scope,
+            (
+                Name::new(format!("Boss reward chest: {placement_id}")),
+                FeatureSimEntity,
+                RoomVisual,
+                FeatureId::new(chest_id.clone()),
+                FeatureName::new(chest_id.clone()),
+                CenteredAabb::from_center_size(chest_pos, *size),
+                ChestFeature::new(ambition_interaction::Chest::new(
+                    chest_id,
+                    Some(pickup.clone()),
+                )),
+                BossRewardChest::new(placement_id.clone()),
+            ),
+        );
         if looted {
             entity.insert(Opened);
         } else {

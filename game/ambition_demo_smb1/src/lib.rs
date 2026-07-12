@@ -21,8 +21,8 @@ pub mod powerups;
 pub mod provider;
 
 pub use provider::{
-    smb1_session_world, Smb1ExperiencePlugin, Smb1SessionLink, Smb1SessionWorld,
-    MARY_O_CHARACTER_ID, MARY_O_EXPERIENCE, MARY_O_GAMEPLAY_ROUTE, MARY_O_LAUNCHER_ROUTE,
+    smb1_session_world, Smb1ExperiencePlugin, Smb1SessionWorld, MARY_O_CHARACTER_ID,
+    MARY_O_EXPERIENCE, MARY_O_GAMEPLAY_ROUTE, MARY_O_LAUNCHER_ROUTE,
 };
 
 use ambition::engine_core as ae;
@@ -225,6 +225,7 @@ fn smb1_setup(
 ) {
     ambition::runtime::demo_fixture::simulation_world(
         &mut commands,
+        ambition::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
         ambition::runtime::demo_fixture::SimulationSetup {
             world: &world,
             room_set: &room_set,
@@ -308,18 +309,26 @@ fn spawn_smb1_mode_owner(
     existing: bevy::prelude::Query<(), bevy::prelude::With<Smb1LevelState>>,
     session: Option<bevy::prelude::Res<ambition::platformer::lifecycle::ActiveSessionScope>>,
 ) {
-    use ambition::platformer::lifecycle::SpawnSessionScopedExt;
+    use ambition::platformer::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
     // Sleep once a session-scoped host has retired the live session (at the
     // launcher), so the level state is not resurrected from stale "mary_o" room
     // metadata. Inert when no `ActiveSessionScope` exists (Startup path / D-C
     // tests). Mirrors Sanic's `spawn_sanic_mode_owner`.
-    let session_live = session.map_or(true, |scope| scope.current().is_some());
+    let session_live = session
+        .as_ref()
+        .map_or(true, |scope| scope.current().is_some());
+    let spawn_scope = session
+        .as_ref()
+        .map_or(SessionSpawnScope::UNSCOPED, |scope| scope.spawn_scope());
     if session_live && existing.iter().next().is_none() {
         // The sequence rides the same entity as the clock. Owned by BOTH the mode
         // (survives in-session room changes) and the active session (torn down on
         // a shell relaunch, which a same-mode reload is NOT).
         commands
-            .spawn_session_scoped((Smb1LevelState::default(), flag::FlagSequence::default()))
+            .spawn_session_scoped(
+                spawn_scope,
+                (Smb1LevelState::default(), flag::FlagSequence::default()),
+            )
             .insert(ambition::platformer::lifecycle::ModeScopedEntity(
                 SMB1_MODE.to_string(),
             ));

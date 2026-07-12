@@ -23,10 +23,20 @@ fn respawn_from_the_room(world: &mut World, sim_id: &str) -> Option<Entity> {
         let rooms = world.get_resource::<ambition_world::rooms::RoomSet>()?;
         rooms.rooms.get(rooms.active)?.clone()
     };
+    let session_scope =
+        ambition_platformer_primitives::lifecycle::SessionSpawnScope::for_optional_active_session(
+            world.get_resource::<ambition_platformer_primitives::lifecycle::ActiveSessionScope>(),
+        )?;
 
     let built = {
         let mut commands = world.commands();
-        ambition_actors::features::respawn_authored_entity(&mut commands, &room, &registry, iid)
+        ambition_actors::features::respawn_authored_entity(
+            &mut commands,
+            &room,
+            &registry,
+            session_scope,
+            iid,
+        )
     };
     if !built {
         return None;

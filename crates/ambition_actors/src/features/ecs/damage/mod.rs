@@ -46,6 +46,20 @@ pub struct FeatureHitWriters<'w, 's> {
     /// (`writers.commands.spawn(...)`) instead of hand-threading a separate
     /// `&mut Commands` through every helper that already takes `writers`.
     pub commands: Commands<'w, 's>,
+    /// Captured gameplay-session owner for loot, minions, and death effects.
+    pub active_session:
+        Option<Res<'w, ambition_platformer_primitives::lifecycle::ActiveSessionScope>>,
+}
+
+impl FeatureHitWriters<'_, '_> {
+    pub fn session_spawn_scope(
+        &self,
+    ) -> ambition_platformer_primitives::lifecycle::SessionSpawnScope {
+        self.active_session.as_deref().map_or(
+            ambition_platformer_primitives::lifecycle::SessionSpawnScope::UNSCOPED,
+            ambition_platformer_primitives::lifecycle::ActiveSessionScope::spawn_scope,
+        )
+    }
 }
 
 /// Coins a defeated standard enemy drops. A flat amount — a *working* earn-side
@@ -378,8 +392,10 @@ pub fn apply_feature_hit_events(
                 banner.show(format!("broke {}", name.0.as_str()), 2.6);
                 // Loot: a smashed crate/pot drops a small coin (same collectible
                 // pickup path as enemy drops).
+                let session_scope = writers.session_spawn_scope();
                 drop_currency_coin(
                     &mut writers.commands,
+                    session_scope,
                     id.as_str(),
                     aabb.center,
                     BREAKABLE_BOUNTY,

@@ -16,6 +16,9 @@ use std::collections::HashSet;
 use super::primitives::RoomVisual;
 use ambition_engine_core::config::{WINDOW_H, WINDOW_W};
 use ambition_persistence::settings::ParallaxBudget;
+use ambition_platformer_primitives::lifecycle::{
+    ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
+};
 use ambition_sprite_sheet::game_assets::{GameAssets, ParallaxLayerAsset, ParallaxTheme};
 use ambition_world::rooms::RoomMetadata;
 
@@ -80,6 +83,7 @@ const RUNTIME_PARALLAX_LAYERS: &[RuntimeParallaxLayerSpec] = &[
 
 pub fn spawn_parallax_layers(
     commands: &mut Commands,
+    session_scope: SessionSpawnScope,
     world: &ae::World,
     metadata: &RoomMetadata,
     assets: Option<&GameAssets>,
@@ -107,34 +111,38 @@ pub fn spawn_parallax_layers(
         let travel = ((panel_size - viewport) * 0.5).max(BVec2::ZERO);
         let mut sprite = Sprite::from_image(image.clone());
         sprite.custom_size = Some(panel_size);
-        commands.spawn((
-            sprite,
-            Transform::from_translation(Vec3::new(0.0, 0.0, spec.z)),
-            ParallaxLayerVisual {
-                factor: Vec2::splat(spec.factor),
-                z: spec.z,
-                travel: Vec2::new(travel.x, travel.y),
-                world_size: Vec2::new(world.size.x.max(1.0), world.size.y.max(1.0)),
-            },
-            BoundParallaxLayer {
-                theme,
-                asset: spec.asset,
-            },
-            RenderLayers::layer(
-                ambition_platformer_primitives::camera_layers::PARALLAX_BACKGROUND_LAYER,
+        commands.spawn_session_scoped(
+            session_scope,
+            (
+                sprite,
+                Transform::from_translation(Vec3::new(0.0, 0.0, spec.z)),
+                ParallaxLayerVisual {
+                    factor: Vec2::splat(spec.factor),
+                    z: spec.z,
+                    travel: Vec2::new(travel.x, travel.y),
+                    world_size: Vec2::new(world.size.x.max(1.0), world.size.y.max(1.0)),
+                },
+                BoundParallaxLayer {
+                    theme,
+                    asset: spec.asset,
+                },
+                RenderLayers::layer(
+                    ambition_platformer_primitives::camera_layers::PARALLAX_BACKGROUND_LAYER,
+                ),
+                RoomVisual,
+                Name::new(format!(
+                    "Background parallax layer: {} {}",
+                    theme.key(),
+                    spec.asset.key()
+                )),
             ),
-            RoomVisual,
-            Name::new(format!(
-                "Background parallax layer: {} {}",
-                theme.key(),
-                spec.asset.key()
-            )),
-        ));
+        );
     }
 }
 
 pub fn refresh_parallax_layers_on_quality_change(
     mut commands: Commands,
+    active_session: Option<Res<ActiveSessionScope>>,
     world: Res<ambition_engine_core::RoomGeometry>,
     room_set: Res<ambition_world::rooms::RoomSet>,
     assets: Option<Res<GameAssets>>,
@@ -158,8 +166,14 @@ pub fn refresh_parallax_layers_on_quality_change(
     for entity in &layers {
         commands.entity(entity).despawn();
     }
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        return;
+    };
     spawn_parallax_layers(
         &mut commands,
+        session_scope,
         &world.0,
         &room_set.active_spec().metadata,
         Some(assets.as_ref()),
@@ -195,6 +209,7 @@ pub fn sync_parallax_layers(
 #[cfg(feature = "portal_render")]
 pub fn sync_portal_capture_parallax_layers(
     mut commands: Commands,
+    active_session: Option<Res<ActiveSessionScope>>,
     sources: Query<
         (Entity, &Sprite, &ParallaxLayerVisual),
         Without<PortalCaptureParallaxLayerVisual>,
@@ -211,6 +226,11 @@ pub fn sync_portal_capture_parallax_layers(
         &mut RenderLayers,
     )>,
 ) {
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        return;
+    };
     let mut live: HashSet<(Entity, Entity)> = HashSet::new();
     for (entity, copy, mut sprite, mut transform, mut render_layers) in &mut copies {
         let Ok((_, source_sprite, source_layer)) = sources.get(copy.source) else {
@@ -238,22 +258,25 @@ pub fn sync_portal_capture_parallax_layers(
             }
             let mut transform = Transform::default();
             sync_parallax_transform_to_camera(&mut transform, source_layer, rig.parallax_anchor());
-            commands.spawn((
-                source_sprite.clone(),
-                transform,
-                *source_layer,
-                PortalCaptureParallaxLayerVisual {
-                    rig: rig_entity,
-                    source: source_entity,
-                },
-                RenderLayers::none().with(rig.parallax_layer()),
-                RoomVisual,
-                Name::new(format!(
-                    "Portal capture parallax layer {} ({})",
-                    rig.parallax_layer(),
-                    rig.channel().name()
-                )),
-            ));
+            commands.spawn_session_scoped(
+                session_scope,
+                (
+                    source_sprite.clone(),
+                    transform,
+                    *source_layer,
+                    PortalCaptureParallaxLayerVisual {
+                        rig: rig_entity,
+                        source: source_entity,
+                    },
+                    RenderLayers::none().with(rig.parallax_layer()),
+                    RoomVisual,
+                    Name::new(format!(
+                        "Portal capture parallax layer {} ({})",
+                        rig.parallax_layer(),
+                        rig.channel().name()
+                    )),
+                ),
+            );
         }
     }
 }

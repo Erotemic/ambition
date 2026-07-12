@@ -3,6 +3,9 @@
 //! sim-side mark read-model.
 
 use ambition_engine_core as ae;
+use ambition_platformer_primitives::lifecycle::{
+    ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
+};
 use ambition_sim_view::MarkBeaconsView;
 use bevy::prelude::*;
 
@@ -24,12 +27,18 @@ pub fn sync_mark_beacon_visual(
     mut commands: Commands,
     world: Res<ambition_engine_core::RoomGeometry>,
     asset_server: Res<AssetServer>,
+    active_session: Option<Res<ActiveSessionScope>>,
     visuals: Query<Entity, With<MarkBeaconVisual>>,
     marks: Res<MarkBeaconsView>,
 ) {
     for entity in &visuals {
         commands.entity(entity).despawn();
     }
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        return;
+    };
     for &pos in &marks.0 {
         // +Y is down in world space, so "up" (toward the ceiling) is -Y.
         let translation = ambition_engine_core::config::world_to_bevy(
@@ -39,11 +48,14 @@ pub fn sync_mark_beacon_visual(
         );
         let mut sprite = Sprite::from_image(asset_server.load("sprites/props/mark_beacon.png"));
         sprite.custom_size = Some(BEACON_SIZE);
-        commands.spawn((
-            MarkBeaconVisual,
-            sprite,
-            Transform::from_translation(translation),
-            Name::new("Mark beacon visual"),
-        ));
+        commands.spawn_session_scoped(
+            session_scope,
+            (
+                MarkBeaconVisual,
+                sprite,
+                Transform::from_translation(translation),
+                Name::new("Mark beacon visual"),
+            ),
+        );
     }
 }

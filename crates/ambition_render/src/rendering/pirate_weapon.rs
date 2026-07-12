@@ -23,6 +23,9 @@ use bevy::prelude::*;
 use bevy::sprite::Anchor;
 
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
+use ambition_platformer_primitives::lifecycle::{
+    ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
+};
 use ambition_sim_view::WieldedGunSwordsView;
 
 #[derive(Component)]
@@ -86,6 +89,7 @@ pub fn sync_pirate_weapon_visuals(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     world: Res<ambition_engine_core::RoomGeometry>,
+    active_session: Option<Res<ActiveSessionScope>>,
     // Sim-built wielded-weapon read-model (E4 slices 1+11): hand position,
     // aim target, and wielder height per live gun-sword rider.
     gun_swords: Res<WieldedGunSwordsView>,
@@ -95,6 +99,11 @@ pub fn sync_pirate_weapon_visuals(
     for entity in &existing {
         commands.entity(entity).despawn();
     }
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        return;
+    };
     let art = art.get_or_insert_with(|| PirateWeaponVisualArt::load(&asset_server));
 
     for fact in &gun_swords.0 {
@@ -142,17 +151,20 @@ pub fn sync_pirate_weapon_visuals(
             ),
         ));
 
-        commands.spawn((
-            sprite,
-            Anchor(Vec2::new(anchor_x_norm, anchor_y_norm)),
-            Transform {
-                translation,
-                rotation: Quat::from_rotation_z(bevy_angle),
-                scale: Vec3::ONE,
-            },
-            PirateWeaponVisual,
-            Name::new("Pirate gun-sword"),
-        ));
+        commands.spawn_session_scoped(
+            session_scope,
+            (
+                sprite,
+                Anchor(Vec2::new(anchor_x_norm, anchor_y_norm)),
+                Transform {
+                    translation,
+                    rotation: Quat::from_rotation_z(bevy_angle),
+                    scale: Vec3::ONE,
+                },
+                PirateWeaponVisual,
+                Name::new("Pirate gun-sword"),
+            ),
+        );
     }
 }
 

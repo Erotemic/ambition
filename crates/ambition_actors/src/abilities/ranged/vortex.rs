@@ -18,6 +18,9 @@ use bevy::prelude::*;
 use crate::actor::BodyMana;
 use crate::features::{ActorFaction, BodyKinematics, FeatureSimEntity, HeldItem};
 use ambition_engine_core as ae;
+use ambition_platformer_primitives::lifecycle::{
+    SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
+};
 use ambition_platformer_primitives::markers::ControlledSubject;
 
 /// Held-item id of the vortex gauntlet.
@@ -51,14 +54,20 @@ pub fn fire_vortex_system(
     gravity: crate::physics::GravityCtx,
     // Ability ORIGIN = the controlled subject, not a `PrimaryPlayer` filter.
     controlled: Res<ControlledSubject>,
-    mut bodies: Query<(&ActorControl, &BodyKinematics, &HeldItem, &mut BodyMana)>,
+    mut bodies: Query<(
+        &ActorControl,
+        &BodyKinematics,
+        &HeldItem,
+        &mut BodyMana,
+        Option<&SessionScopedEntity>,
+    )>,
     mut commands: Commands,
     mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
 ) {
     let Some(subject) = controlled.0 else {
         return;
     };
-    let Ok((control, kin, held, mut mana)) = bodies.get_mut(subject) else {
+    let Ok((control, kin, held, mut mana, owner)) = bodies.get_mut(subject) else {
         return;
     };
     let c = control.0;
@@ -78,13 +87,16 @@ pub fn fire_vortex_system(
         return;
     }
     let center = kin.pos + aim * VORTEX_RANGE;
-    commands.spawn((
-        VortexWell {
-            center,
-            remaining_s: VORTEX_LIFETIME_S,
-        },
-        Name::new("Vortex singularity"),
-    ));
+    commands.spawn_session_scoped(
+        SessionSpawnScope::new(owner.map(|owner| owner.0)),
+        (
+            VortexWell {
+                center,
+                remaining_s: VORTEX_LIFETIME_S,
+            },
+            Name::new("Vortex singularity"),
+        ),
+    );
     sfx.write(ambition_sfx::SfxMessage::Play {
         id: ambition_sfx::ids::PLAYER_BLINK,
         pos: center,

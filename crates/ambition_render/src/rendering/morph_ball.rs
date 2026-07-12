@@ -10,6 +10,9 @@
 // `MorphBallSprite` handle to a loaded asset and the same toggle logic
 // applies.
 
+use ambition_platformer_primitives::lifecycle::{
+    ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
+};
 use bevy::asset::RenderAssetUsages;
 use bevy::image::Image;
 use bevy::prelude::*;
@@ -100,6 +103,7 @@ pub fn build_morph_ball_sprite(mut commands: Commands, mut images: ResMut<Assets
 pub fn spawn_morph_ball_visual(
     mut commands: Commands,
     sprite: Option<Res<MorphBallSprite>>,
+    active_session: Option<Res<ActiveSessionScope>>,
     existing: Query<(), With<MorphBallVisual>>,
 ) {
     if !existing.is_empty() {
@@ -111,21 +115,29 @@ pub fn spawn_morph_ball_visual(
     if sprite.handle == Handle::default() {
         return;
     }
-    commands.spawn((
-        Sprite {
-            image: sprite.handle.clone(),
-            custom_size: Some(bevy::math::Vec2::new(16.0, 16.0)),
-            ..default()
-        },
-        Transform::from_xyz(
-            0.0,
-            0.0,
-            ambition_engine_core::config::WORLD_Z_PLAYER + 0.05,
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        return;
+    };
+    commands.spawn_session_scoped(
+        session_scope,
+        (
+            Sprite {
+                image: sprite.handle.clone(),
+                custom_size: Some(bevy::math::Vec2::new(16.0, 16.0)),
+                ..default()
+            },
+            Transform::from_xyz(
+                0.0,
+                0.0,
+                ambition_engine_core::config::WORLD_Z_PLAYER + 0.05,
+            ),
+            Visibility::Hidden,
+            MorphBallVisual,
+            Name::new("Morph Ball Visual"),
         ),
-        Visibility::Hidden,
-        MorphBallVisual,
-        Name::new("Morph Ball Visual"),
-    ));
+    );
 }
 
 /// Toggle the morph-ball visual on / off based on `Player::body_mode`,

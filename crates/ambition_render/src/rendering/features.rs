@@ -13,6 +13,9 @@ use bevy::prelude::*;
 
 use super::primitives::{feature_color, feature_z, FeatureVisual, RoomVisual};
 use ambition_engine_core::config::world_to_bevy;
+use ambition_platformer_primitives::lifecycle::{
+    ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
+};
 use ambition_sim_view::DynamicFeatureViews;
 use ambition_sprite_sheet::game_assets::{entity_sprite_or_color, GameAssets};
 
@@ -28,9 +31,15 @@ pub fn spawn_dynamic_feature_visuals(
     mut commands: Commands,
     world: Res<ambition_engine_core::RoomGeometry>,
     assets: Option<Res<GameAssets>>,
+    active_session: Option<Res<ActiveSessionScope>>,
     existing: Query<&FeatureVisual>,
     dynamic: Res<DynamicFeatureViews>,
 ) {
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        return;
+    };
     let known: std::collections::HashSet<&str> = existing.iter().map(|v| v.id.as_str()).collect();
     let assets_ref = assets.as_deref();
     for fact in &dynamic.0 {
@@ -43,18 +52,21 @@ pub fn spawn_dynamic_feature_visuals(
             Some(a) => entity_sprite_or_color(a, fact.sprite_key, render, fallback),
             None => Sprite::from_color(fallback, render),
         };
-        commands.spawn((
-            sprite,
-            Transform::from_translation(world_to_bevy(
-                &world.0,
-                fact.pos,
-                feature_z(fact.visual_kind),
-            )),
-            Name::new(format!("{}: {}", fact.family, fact.label)),
-            FeatureVisual {
-                id: fact.id.clone(),
-            },
-            RoomVisual,
-        ));
+        commands.spawn_session_scoped(
+            session_scope,
+            (
+                sprite,
+                Transform::from_translation(world_to_bevy(
+                    &world.0,
+                    fact.pos,
+                    feature_z(fact.visual_kind),
+                )),
+                Name::new(format!("{}: {}", fact.family, fact.label)),
+                FeatureVisual {
+                    id: fact.id.clone(),
+                },
+                RoomVisual,
+            ),
+        );
     }
 }

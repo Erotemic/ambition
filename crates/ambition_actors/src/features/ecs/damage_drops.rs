@@ -5,6 +5,7 @@
 //! the exploding-mite death blast, and the dividing-mite split. Sibling of
 //! `damage/` (which owns hit application) and `damage_predicates`.
 
+use ambition_platformer_primitives::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
 use bevy::prelude::{Commands, Entity};
 
 use super::{CenteredAabb, FeatureId, FeatureName, FeatureSimEntity, PickupFeature};
@@ -25,17 +26,26 @@ pub fn id_drops_health(id: &str) -> bool {
 /// [`super::collect_ecs_pickups`] grants it (and plays `WORLD_COIN_PICKUP`) when a
 /// player overlaps it. The coin sits where the enemy fell and never respawns
 /// (`Pickup::new` defaults to [`ambition_interaction::RespawnPolicy::Never`]).
-pub fn drop_currency_coin(commands: &mut Commands, id: &str, pos: ae::Vec2, amount: i32) {
-    commands.spawn((
-        FeatureSimEntity,
-        FeatureId::new(format!("coin:{id}")),
-        FeatureName::new("Coin"),
-        CenteredAabb::from_center_size(pos, ae::Vec2::new(12.0, 12.0)),
-        PickupFeature::new(ambition_interaction::Pickup::new(
-            format!("coin:{id}"),
-            ambition_interaction::PickupKind::Currency { amount },
-        )),
-    ));
+pub fn drop_currency_coin(
+    commands: &mut Commands,
+    session_scope: SessionSpawnScope,
+    id: &str,
+    pos: ae::Vec2,
+    amount: i32,
+) {
+    commands.spawn_session_scoped(
+        session_scope,
+        (
+            FeatureSimEntity,
+            FeatureId::new(format!("coin:{id}")),
+            FeatureName::new("Coin"),
+            CenteredAabb::from_center_size(pos, ae::Vec2::new(12.0, 12.0)),
+            PickupFeature::new(ambition_interaction::Pickup::new(
+                format!("coin:{id}"),
+                ambition_interaction::PickupKind::Currency { amount },
+            )),
+        ),
+    );
 }
 
 /// Half-extent (px) of an `ExplodingMite`'s death blast — a wide, readable boom.
@@ -57,8 +67,13 @@ const EXPLODER_BLAST_LIFETIME_S: f32 = 0.14;
 /// runs in the hit-resolution stage, AFTER `apply_effects`, so a fire-and-forget
 /// `EffectRequest` would land a frame late. Spawning the box here keeps it
 /// same-frame (and replay-identical).
-pub(super) fn spawn_death_explosion(commands: &mut Commands, owner: Entity, pos: ae::Vec2) {
-    ambition_vfx::spawn_damage_box(
+pub(super) fn spawn_death_explosion(
+    commands: &mut Commands,
+    session_scope: SessionSpawnScope,
+    owner: Entity,
+    pos: ae::Vec2,
+) {
+    let entity = ambition_vfx::spawn_damage_box(
         commands,
         owner,
         ambition_vfx::HitSide::Enemy,
@@ -72,6 +87,8 @@ pub(super) fn spawn_death_explosion(commands: &mut Commands, owner: Entity, pos:
             name: Some("Exploding mite blast"),
         },
     );
+    let mut entity_commands = commands.entity(entity);
+    session_scope.apply_to(&mut entity_commands);
 }
 
 /// Lateral offset (px) each split offspring spawns from the parent's corpse.
@@ -83,10 +100,16 @@ const SPLIT_OFFSPRING_HALF: ae::Vec2 = ae::Vec2::new(15.0, 20.0);
 /// to each side — through the runtime-minion spawner. The children are plain
 /// skitters (NOT dividers), so the split is exactly one level deep: no runaway
 /// recursion, just "kill the slow parent, then handle two quick children."
-pub(super) fn spawn_split_offspring(commands: &mut Commands, parent_id: &str, pos: ae::Vec2) {
+pub(super) fn spawn_split_offspring(
+    commands: &mut Commands,
+    session_scope: SessionSpawnScope,
+    parent_id: &str,
+    pos: ae::Vec2,
+) {
     for (i, side) in [-1.0f32, 1.0].into_iter().enumerate() {
         crate::features::spawn_runtime_minion(
             commands,
+            session_scope,
             format!("{parent_id}:split{i}"),
             "Divided cell",
             pos + ae::Vec2::new(side * SPLIT_OFFSET_X, 0.0),
@@ -102,17 +125,26 @@ pub(super) fn spawn_split_offspring(commands: &mut Commands, parent_id: &str, po
 /// Spawn a collectible health heart at `pos` (a sometimes-drop on enemy defeat),
 /// same pickup path as the coin so `collect_ecs_pickups` heals the player on
 /// overlap via `PlayerHealRequested`.
-pub fn drop_health_pickup(commands: &mut Commands, id: &str, pos: ae::Vec2, amount: i32) {
-    commands.spawn((
-        FeatureSimEntity,
-        FeatureId::new(format!("heart:{id}")),
-        FeatureName::new("Health"),
-        CenteredAabb::from_center_size(pos, ae::Vec2::new(12.0, 12.0)),
-        PickupFeature::new(ambition_interaction::Pickup::new(
-            format!("heart:{id}"),
-            ambition_interaction::PickupKind::Health { amount },
-        )),
-    ));
+pub fn drop_health_pickup(
+    commands: &mut Commands,
+    session_scope: SessionSpawnScope,
+    id: &str,
+    pos: ae::Vec2,
+    amount: i32,
+) {
+    commands.spawn_session_scoped(
+        session_scope,
+        (
+            FeatureSimEntity,
+            FeatureId::new(format!("heart:{id}")),
+            FeatureName::new("Health"),
+            CenteredAabb::from_center_size(pos, ae::Vec2::new(12.0, 12.0)),
+            PickupFeature::new(ambition_interaction::Pickup::new(
+                format!("heart:{id}"),
+                ambition_interaction::PickupKind::Health { amount },
+            )),
+        ),
+    );
 }
 
 /// Spawn a collectible ability pickup at `pos` — a defeated boss's reward. Reuses
@@ -120,21 +152,25 @@ pub fn drop_health_pickup(commands: &mut Commands, id: &str, pos: ae::Vec2, amou
 /// ability to the player's catalog ([`crate::items::OwnedItems`]) on overlap.
 pub fn drop_ability_pickup(
     commands: &mut Commands,
+    session_scope: SessionSpawnScope,
     boss_id: &str,
     pos: ae::Vec2,
     ability_id: &str,
     ability_name: &str,
 ) {
-    commands.spawn((
-        FeatureSimEntity,
-        FeatureId::new(format!("ability_drop:{boss_id}")),
-        FeatureName::new(ability_name.to_string()),
-        CenteredAabb::from_center_size(pos, ae::Vec2::new(16.0, 16.0)),
-        PickupFeature::new(ambition_interaction::Pickup::new(
-            format!("ability_drop:{boss_id}"),
-            ambition_interaction::PickupKind::Ability {
-                ability_id: ability_id.to_string(),
-            },
-        )),
-    ));
+    commands.spawn_session_scoped(
+        session_scope,
+        (
+            FeatureSimEntity,
+            FeatureId::new(format!("ability_drop:{boss_id}")),
+            FeatureName::new(ability_name.to_string()),
+            CenteredAabb::from_center_size(pos, ae::Vec2::new(16.0, 16.0)),
+            PickupFeature::new(ambition_interaction::Pickup::new(
+                format!("ability_drop:{boss_id}"),
+                ambition_interaction::PickupKind::Ability {
+                    ability_id: ability_id.to_string(),
+                },
+            )),
+        ),
+    );
 }

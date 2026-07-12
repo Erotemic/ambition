@@ -39,7 +39,13 @@ fn run_sync(
     cleared: Res<ClearedEncounters>,
     chests: Query<(Entity, &EncounterRewardChest, &FeatureId, Option<&Opened>), With<ChestFeature>>,
 ) {
-    sync_encounter_reward_chests_ecs(&mut commands, save.data(), &cleared.0, &chests);
+    sync_encounter_reward_chests_ecs(
+        &mut commands,
+        SessionSpawnScope::UNSCOPED,
+        save.data(),
+        &cleared.0,
+        &chests,
+    );
 }
 
 fn app() -> App {

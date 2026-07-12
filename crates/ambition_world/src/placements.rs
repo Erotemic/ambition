@@ -12,6 +12,7 @@
 
 use ambition_engine_core as ae;
 use ambition_entity_catalog::placements::{PlacementKind, PlacementSchema};
+use ambition_platformer_primitives::lifecycle::SessionSpawnScope;
 use bevy_app::App;
 use bevy_ecs::prelude::{Commands, Resource};
 use std::collections::HashMap;
@@ -59,6 +60,8 @@ pub struct LoweringCtx<'w, 's, 'a> {
     pub commands: &'a mut Commands<'w, 's>,
     pub room_id: &'a str,
     pub paths: &'a [(String, ae::KinematicPath)],
+    /// Gameplay-session ownership captured when room staging was requested.
+    pub session_scope: SessionSpawnScope,
 }
 
 pub type LoweringFn = for<'w, 's, 'a> fn(&PlacementRecord, &mut LoweringCtx<'w, 's, 'a>);

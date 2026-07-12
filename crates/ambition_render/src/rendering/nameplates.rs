@@ -11,6 +11,9 @@ use std::collections::{HashMap, HashSet};
 
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_engine_core::{self as ae, AabbExt};
+use ambition_platformer_primitives::lifecycle::{
+    ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
+};
 use ambition_sim_view::NameplateIndex;
 use ambition_world::rooms::{ActiveRoomMetadata, RoomNameplatePolicy};
 use bevy::prelude::*;
@@ -166,6 +169,7 @@ pub fn sync_actor_nameplates(
     mut commands: Commands,
     world: Res<ambition_engine_core::RoomGeometry>,
     settings: Res<ActorNameplateSettings>,
+    active_session: Option<Res<ActiveSessionScope>>,
     active_metadata: Option<Res<ActiveRoomMetadata>>,
     camera: Option<Res<CameraViewState>>,
     // Sim-built nameplate read-model (E4 slices 5+16): label / geometry /
@@ -186,6 +190,11 @@ pub fn sync_actor_nameplates(
         Query<&mut TextColor, With<ActorNameplateOutlineVisual>>,
     )>,
 ) {
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        return;
+    };
     if !settings.enabled {
         let mut nameplates = nameplate_queries.p1();
         hide_all_nameplates(&mut nameplates);
@@ -283,7 +292,14 @@ pub fn sync_actor_nameplates(
     let font = nameplate_font(ui_fonts.as_deref(), settings.font_size);
     for candidate in visible_candidates.values() {
         if !existing_visible.contains(candidate.owner_id.as_str()) {
-            spawn_actor_nameplate(&mut commands, &world.0, &settings, &font, candidate);
+            spawn_actor_nameplate(
+                &mut commands,
+                session_scope,
+                &world.0,
+                &settings,
+                &font,
+                candidate,
+            );
         }
     }
 }
@@ -419,6 +435,7 @@ fn nameplate_font(ui_fonts: Option<&UiFonts>, font_size: f32) -> TextFont {
 
 fn spawn_actor_nameplate(
     commands: &mut Commands,
+    session_scope: SessionSpawnScope,
     world: &ae::World,
     settings: &ActorNameplateSettings,
     font: &TextFont,
@@ -429,23 +446,30 @@ fn spawn_actor_nameplate(
     let text_color = color_with_opacity(settings.text_color, candidate.opacity);
     let outline_color = color_with_opacity(settings.outline_color, candidate.opacity);
     commands
-        .spawn((
-            Text2d::new(text.clone()),
-            font.clone(),
-            TextColor(text_color),
-            Transform::from_translation(world_to_bevy(world, candidate.anchor_world, settings.z)),
-            if candidate.opacity > 0.0 {
-                Visibility::Visible
-            } else {
-                Visibility::Hidden
-            },
-            ActorNameplateVisual {
-                owner_id: candidate.owner_id.clone(),
-                label: text.clone(),
-            },
-            RoomVisual,
-            Name::new(format!("Nameplate: {text}")),
-        ))
+        .spawn_session_scoped(
+            session_scope,
+            (
+                Text2d::new(text.clone()),
+                font.clone(),
+                TextColor(text_color),
+                Transform::from_translation(world_to_bevy(
+                    world,
+                    candidate.anchor_world,
+                    settings.z,
+                )),
+                if candidate.opacity > 0.0 {
+                    Visibility::Visible
+                } else {
+                    Visibility::Hidden
+                },
+                ActorNameplateVisual {
+                    owner_id: candidate.owner_id.clone(),
+                    label: text.clone(),
+                },
+                RoomVisual,
+                Name::new(format!("Nameplate: {text}")),
+            ),
+        )
         .with_children(|parent| {
             for offset in outline_offsets {
                 parent.spawn((

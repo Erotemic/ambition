@@ -3,6 +3,9 @@
 //! consumers of the sim-built `sim_view` item snapshots (E4 slices 11+12+16)
 //! — no live item/body queries.
 
+use ambition_platformer_primitives::lifecycle::{
+    ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
+};
 use ambition_sim_view::{GroundItemsView, HeldItemView, HeldShotsView};
 
 const FIREBALL_ID: &str = "fireball";
@@ -146,12 +149,18 @@ pub fn sync_ground_item_visuals(
     mut commands: Commands,
     world: Res<ambition_engine_core::RoomGeometry>,
     art: Option<Res<ItemArt>>,
+    active_session: Option<Res<ActiveSessionScope>>,
     visuals: Query<Entity, With<GroundItemVisual>>,
     grounds: Res<GroundItemsView>,
 ) {
     for entity in &visuals {
         commands.entity(entity).despawn();
     }
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        return;
+    };
     for ground in &grounds.0 {
         let translation = ambition_engine_core::config::world_to_bevy(&world.0, ground.pos, 8.0);
         let sprite = art
@@ -165,12 +174,15 @@ pub fn sync_ground_item_visuals(
             .unwrap_or_else(|| {
                 Sprite::from_color(Color::srgb(0.72, 0.52, 0.30), ground.half_extent * 2.0)
             });
-        commands.spawn((
-            GroundItemVisual,
-            sprite,
-            Transform::from_translation(translation),
-            Name::new("Ground item visual"),
-        ));
+        commands.spawn_session_scoped(
+            session_scope,
+            (
+                GroundItemVisual,
+                sprite,
+                Transform::from_translation(translation),
+                Name::new("Ground item visual"),
+            ),
+        );
     }
 }
 
@@ -191,12 +203,18 @@ pub fn sync_held_item_visual(
     mut commands: Commands,
     world: Res<ambition_engine_core::RoomGeometry>,
     art: Option<Res<ItemArt>>,
+    active_session: Option<Res<ActiveSessionScope>>,
     held_view: Res<HeldItemView>,
     visuals: Query<Entity, With<HeldItemVisual>>,
 ) {
     for entity in &visuals {
         commands.entity(entity).despawn();
     }
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        return;
+    };
     let Some(held) = held_view.0.as_ref() else {
         return;
     };
@@ -242,12 +260,15 @@ pub fn sync_held_item_visual(
             };
             Sprite::from_color(color, Vec2::new(14.0, 28.0))
         });
-    commands.spawn((
-        HeldItemVisual,
-        sprite,
-        Transform::from_translation(translation).with_rotation(rotation),
-        Name::new("Held item visual"),
-    ));
+    commands.spawn_session_scoped(
+        session_scope,
+        (
+            HeldItemVisual,
+            sprite,
+            Transform::from_translation(translation).with_rotation(rotation),
+            Name::new("Held item visual"),
+        ),
+    );
 }
 
 /// Texture handles used by held-shot visuals. Kept alive in system-local state
@@ -277,6 +298,7 @@ pub fn sync_held_projectile_visuals(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     world: Res<ambition_engine_core::RoomGeometry>,
+    active_session: Option<Res<ActiveSessionScope>>,
     visuals: Query<Entity, With<HeldProjectileVisual>>,
     shots: Res<HeldShotsView>,
     mut art: Local<Option<HeldProjectileVisualArt>>,
@@ -284,36 +306,47 @@ pub fn sync_held_projectile_visuals(
     for entity in &visuals {
         commands.entity(entity).despawn();
     }
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        return;
+    };
     let art = art.get_or_insert_with(|| HeldProjectileVisualArt::load(&asset_server));
     for shot in &shots.0 {
         let translation = ambition_engine_core::config::world_to_bevy(&world.0, shot.pos, 9.5);
         if shot.fireball {
             // Fireball: a glowing ball, sized a touch over the contact box so the
             // fire visibly fills the space that hits. No rotation — it's radial.
-            commands.spawn((
-                HeldProjectileVisual,
-                Sprite {
-                    image: art.fireball.clone(),
-                    custom_size: Some(Vec2::splat(30.0)),
-                    ..default()
-                },
-                Transform::from_translation(translation),
-                Name::new("Fireball shot"),
-            ));
+            commands.spawn_session_scoped(
+                session_scope,
+                (
+                    HeldProjectileVisual,
+                    Sprite {
+                        image: art.fireball.clone(),
+                        custom_size: Some(Vec2::splat(30.0)),
+                        ..default()
+                    },
+                    Transform::from_translation(translation),
+                    Name::new("Fireball shot"),
+                ),
+            );
             continue;
         }
         let (sprite, anchor, rotation) =
             lasersword_projectile_sprite(art.lasersword.clone(), shot.vel);
-        commands.spawn((
-            HeldProjectileVisual,
-            sprite,
-            anchor,
-            Transform {
-                translation,
-                rotation,
-                scale: Vec3::ONE,
-            },
-            Name::new("Gun-sword laser shot"),
-        ));
+        commands.spawn_session_scoped(
+            session_scope,
+            (
+                HeldProjectileVisual,
+                sprite,
+                anchor,
+                Transform {
+                    translation,
+                    rotation,
+                    scale: Vec3::ONE,
+                },
+                Name::new("Gun-sword laser shot"),
+            ),
+        );
     }
 }

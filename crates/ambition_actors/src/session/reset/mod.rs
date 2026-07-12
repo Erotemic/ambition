@@ -17,6 +17,7 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
 use ambition_engine_core as ae;
+use ambition_platformer_primitives::lifecycle::{ActiveSessionScope, SessionSpawnScope};
 
 /// Room-transition slot for *content-side* reset work (named boss
 /// arenas, story state). Content plugins register their reset systems in
@@ -97,6 +98,7 @@ pub fn process_sandbox_reset_request(
     tuning: Res<ambition_dev_tools::dev_tools::EditableMovementTuning>,
     mut respawn_visuals: MessageWriter<crate::session::RespawnRoomVisualsRequested>,
     mut commands: Commands,
+    active_session: Option<Res<ActiveSessionScope>>,
     mut banner: ResMut<crate::features::GameplayBanner>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     // E1: the live wave encounters are entities now; despawn them so
@@ -122,6 +124,14 @@ pub fn process_sandbox_reset_request(
         return;
     }
     request.request = false;
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        // A shell host may receive a late reset request after gameplay has
+        // retired. With no active session there is no world to reset and no
+        // scope that may own the replacement entities.
+        return;
+    };
 
     info!(
         target: "ambition::reset",
@@ -196,7 +206,7 @@ pub fn process_sandbox_reset_request(
         attack.clear();
         safety.last_safe_pos = world.0.spawn;
     }
-    crate::features::spawn_room_feature_entities(&mut commands, &start_spec);
+    crate::features::spawn_room_feature_entities(&mut commands, &start_spec, session_scope);
     play_state.moving_platforms.0 = platforms::moving_platforms_for_room(&start_spec);
 
     // 7. Respawn the static world visuals + parallax for the start room.
@@ -207,7 +217,12 @@ pub fn process_sandbox_reset_request(
     //    reads the active room from `RoomSet`. A headless build has no consumer
     //    and correctly skips the (purely visual) respawn.
     respawn_visuals.write(crate::session::RespawnRoomVisualsRequested);
-    platforms::spawn_moving_platforms(&mut commands, &world.0, &play_state.moving_platforms.0);
+    platforms::spawn_moving_platforms(
+        &mut commands,
+        session_scope,
+        &world.0,
+        &play_state.moving_platforms.0,
+    );
 
     // 8. User feedback: surface a banner so the reset is visibly
     //    confirmed. The HUD's banner channel is the same one used

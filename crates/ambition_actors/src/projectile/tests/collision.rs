@@ -21,6 +21,7 @@ fn fireball_damages_enemy_on_intersect() {
     app.add_systems(Startup, |mut commands: Commands| {
         crate::features::spawn_encounter_mob(
             &mut commands,
+            ambition_platformer_primitives::lifecycle::SessionSpawnScope::UNSCOPED,
             "projectile_test",
             "test_enemy".into(),
             ambition_entity_catalog::placements::CharacterBrain::Custom("medium_striker".into()),

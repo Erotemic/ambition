@@ -10,6 +10,10 @@ use ambition_engine_core as ae;
 #[cfg(feature = "physics_debris")]
 use ambition_engine_core::AabbExt;
 #[cfg(feature = "physics_debris")]
+use ambition_platformer_primitives::lifecycle::{
+    ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
+};
+#[cfg(feature = "physics_debris")]
 use avian2d::prelude::*;
 #[cfg(feature = "physics_debris")]
 use bevy::math::Vec2 as BVec2;
@@ -69,9 +73,23 @@ pub fn physics_spawn_debris_messages(
     mut messages: MessageReader<DebrisBurstMessage>,
     world: Res<ambition_engine_core::RoomGeometry>,
     settings: Res<PhysicsSandboxSettings>,
+    active_session: Option<Res<ActiveSessionScope>>,
 ) {
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        messages.clear();
+        return;
+    };
     for message in messages.read() {
-        spawn_debris_burst(&mut commands, &world.0, message.pos, message.cue, *settings);
+        spawn_debris_burst(
+            &mut commands,
+            session_scope,
+            &world.0,
+            message.pos,
+            message.cue,
+            *settings,
+        );
     }
 }
 
@@ -158,6 +176,7 @@ pub fn retire_physics_entity(_commands: &mut Commands, _entity: Entity) {}
 #[cfg(feature = "physics_debris")]
 pub fn spawn_static_collider_for_block(
     commands: &mut Commands,
+    session_scope: SessionSpawnScope,
     world: &ae::World,
     block: &ae::Block,
     settings: PhysicsSandboxSettings,
@@ -169,19 +188,27 @@ pub fn spawn_static_collider_for_block(
     if size.x <= 0.0 || size.y <= 0.0 {
         return;
     }
-    commands.spawn((
-        RigidBody::Static,
-        Collider::rectangle(size.x, size.y),
-        Transform::from_translation(world_to_bevy(world, block.aabb.center(), STATIC_COLLIDER_Z)),
-        Name::new(format!("Physics collider: {}", block.name)),
-        RoomVisual,
-        PhysicsRoomEntity,
-    ));
+    commands.spawn_session_scoped(
+        session_scope,
+        (
+            RigidBody::Static,
+            Collider::rectangle(size.x, size.y),
+            Transform::from_translation(world_to_bevy(
+                world,
+                block.aabb.center(),
+                STATIC_COLLIDER_Z,
+            )),
+            Name::new(format!("Physics collider: {}", block.name)),
+            RoomVisual,
+            PhysicsRoomEntity,
+        ),
+    );
 }
 
 #[cfg(not(feature = "physics_debris"))]
 pub fn spawn_static_collider_for_block(
     _commands: &mut Commands,
+    _session_scope: ambition_platformer_primitives::lifecycle::SessionSpawnScope,
     _world: &ae::World,
     _block: &ae::Block,
     _settings: PhysicsSandboxSettings,
@@ -193,6 +220,7 @@ pub fn spawn_static_collider_for_block(
 #[cfg(feature = "physics_debris")]
 pub fn spawn_debris_burst(
     commands: &mut Commands,
+    session_scope: SessionSpawnScope,
     world: &ae::World,
     pos: ae::Vec2,
     cue: PhysicsDebrisCue,
@@ -221,6 +249,7 @@ pub fn spawn_debris_burst(
         );
         spawn_debris_piece(
             commands,
+            session_scope,
             world,
             pos,
             size,
@@ -235,6 +264,7 @@ pub fn spawn_debris_burst(
 #[cfg(feature = "physics_debris")]
 fn spawn_debris_piece(
     commands: &mut Commands,
+    session_scope: SessionSpawnScope,
     world: &ae::World,
     pos: ae::Vec2,
     size: BVec2,
@@ -243,18 +273,21 @@ fn spawn_debris_piece(
     color: Color,
     lifetime: f32,
 ) {
-    commands.spawn((
-        Sprite::from_color(color, size),
-        Transform::from_translation(world_to_bevy(world, pos, DEBRIS_Z)),
-        RigidBody::Dynamic,
-        Collider::rectangle(size.x.max(1.0), size.y.max(1.0)),
-        LinearVelocity(velocity),
-        AngularVelocity(angular_velocity),
-        PhysicsDebris { lifetime },
-        Name::new("Physics debris"),
-        RoomVisual,
-        PhysicsRoomEntity,
-    ));
+    commands.spawn_session_scoped(
+        session_scope,
+        (
+            Sprite::from_color(color, size),
+            Transform::from_translation(world_to_bevy(world, pos, DEBRIS_Z)),
+            RigidBody::Dynamic,
+            Collider::rectangle(size.x.max(1.0), size.y.max(1.0)),
+            LinearVelocity(velocity),
+            AngularVelocity(angular_velocity),
+            PhysicsDebris { lifetime },
+            Name::new("Physics debris"),
+            RoomVisual,
+            PhysicsRoomEntity,
+        ),
+    );
 }
 
 #[cfg(feature = "physics_debris")]

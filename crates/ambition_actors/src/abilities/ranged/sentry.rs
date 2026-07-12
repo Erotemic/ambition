@@ -20,6 +20,9 @@ use crate::enemy_projectile::EnemyProjectileSpawn;
 use crate::features::{ActorFaction, CenteredAabb, FeatureSimEntity, HeldItem};
 use ambition_characters::brain::ActorControl;
 use ambition_engine_core as ae;
+use ambition_platformer_primitives::lifecycle::{
+    SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
+};
 
 /// Held-item id of the sentry gauntlet.
 pub const SENTRY_ID: &str = "sentry";
@@ -55,11 +58,17 @@ pub struct Sentry {
 /// possessed/robot body holding the gauntlet deploys through this exact path.
 /// `BodyMana` is the implicit gate (player-only today).
 pub fn fire_sentry_system(
-    mut wielders: Query<(&ActorControl, &BodyKinematics, &HeldItem, &mut BodyMana)>,
+    mut wielders: Query<(
+        &ActorControl,
+        &BodyKinematics,
+        &HeldItem,
+        &mut BodyMana,
+        Option<&SessionScopedEntity>,
+    )>,
     mut commands: Commands,
     mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
 ) {
-    for (control, kin, held, mut mana) in &mut wielders {
+    for (control, kin, held, mut mana, owner) in &mut wielders {
         if !control.0.melee_pressed || control.0.shield_held {
             continue;
         }
@@ -69,15 +78,18 @@ pub fn fire_sentry_system(
         if !mana.meter.try_spend(SENTRY_MANA_COST) {
             continue;
         }
-        commands.spawn((
-            Sentry {
-                pos: kin.pos,
-                remaining_s: SENTRY_LIFETIME_S,
-                // A short arm delay before the first shot.
-                fire_cooldown: 0.25,
-            },
-            Name::new("Sentry turret"),
-        ));
+        commands.spawn_session_scoped(
+            SessionSpawnScope::new(owner.map(|owner| owner.0)),
+            (
+                Sentry {
+                    pos: kin.pos,
+                    remaining_s: SENTRY_LIFETIME_S,
+                    // A short arm delay before the first shot.
+                    fire_cooldown: 0.25,
+                },
+                Name::new("Sentry turret"),
+            ),
+        );
         sfx.write(ambition_sfx::SfxMessage::Play {
             id: ambition_sfx::ids::WORLD_ROCK_HIT,
             pos: kin.pos,

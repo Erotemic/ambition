@@ -91,6 +91,7 @@ pub fn update_encounters_from_world(
         &crate::features::FeatureId,
         &ambition_characters::actor::BodyCombat,
     )>,
+    active_session: Option<Res<ambition_platformer_primitives::lifecycle::ActiveSessionScope>>,
     reward_chests: Query<
         (
             Entity,
@@ -101,6 +102,13 @@ pub fn update_encounters_from_world(
         With<crate::features::ChestFeature>,
     >,
 ) {
+    let Some(session_scope) =
+        ambition_platformer_primitives::lifecycle::SessionSpawnScope::for_optional_active_session(
+            active_session.as_deref(),
+        )
+    else {
+        return;
+    };
     let active_area = room_set.active_spec().id.clone();
     if player_body_q.is_empty() {
         return;
@@ -256,6 +264,7 @@ pub fn update_encounters_from_world(
     for (id, kind, pos, size) in spawn_commands {
         crate::features::spawn_encounter_mob(
             &mut commands,
+            session_scope,
             active_area.clone(),
             id,
             ambition_entity_catalog::placements::CharacterBrain::Custom(kind),
@@ -398,6 +407,7 @@ pub fn update_encounters_from_world(
         .collect();
     crate::features::sync_encounter_reward_chests_ecs(
         &mut commands,
+        session_scope,
         save.data(),
         &cleared_specs,
         &reward_chests,

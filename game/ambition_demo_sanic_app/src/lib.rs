@@ -5,10 +5,8 @@
 
 use bevy::prelude::*;
 
-// The windowed demo still uses the historical Startup-driven content path; the
-// headless `build_demo_app` uses the shell-integrated provider path instead.
 #[cfg(feature = "visible")]
-use ambition_demo_sanic::{SanicDemoContentPlugin, SanicRulesPlugin, SANIC_MUSIC_ASSET_PATH};
+use ambition_demo_sanic::SANIC_MUSIC_ASSET_PATH;
 
 /// Assemble the demo: foundation + the engine group + the host group + the Sanic
 /// experience under a standalone shell host. **Zero engine edits, zero
@@ -56,8 +54,9 @@ fn compose_sanic_shell(app: &mut App, home_route: &str) {
     };
     use ambition_demo_sanic::{sanic_session_world, SanicExperiencePlugin, SANIC_GAMEPLAY_ROUTE};
 
-    app.add_plugins(ambition::platformer::lifecycle::SessionScopePlugin);
     app.add_plugins(ambition::game_shell::MinimalShellPlugins);
+    app.add_plugins(ambition::load::AmbitionLoadPlugin);
+    app.add_plugins(ambition::load_presentation::MinimalLoadPresentationPlugins);
     app.add_plugins(SanicExperiencePlugin);
 
     // This host's home route: a launcher listing this host's registered
@@ -154,10 +153,10 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
     // the sandbox's B-key trail debug affordance. Move that behind an explicit
     // host/dev capability later; it is inherited here, not a Sanic ability.
 
-    // Content must install its character catalog before the shared asset catalog
-    // is built: that catalog discovers Sanic's sheet through the same public
-    // character-loader path the full Ambition game uses.
-    app.add_plugins((SanicDemoContentPlugin, SanicRulesPlugin::global()));
+    // Visible and headless hosts share one provider/shell/session lifecycle.
+    // The provider installs Sanic's content definitions before the shared asset
+    // catalog is assembled below.
+    compose_sanic_shell(&mut app, ambition_demo_sanic::SANIC_LAUNCHER_ROUTE);
     let sfx_bank_path = install_sanic_asset_resources(&mut app);
 
     // OV1, closed: a camera, the room's static visuals, and the sprite/animation
@@ -169,7 +168,7 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
         // Keep headless render tests independent of the host audio device. The
         // demo still uses Ambition's standard SfxMessage -> packed-bank bridge.
         install_sanic_audio(&mut app, sfx_bank_path);
-        app.add_systems(Startup, start_sanic_music);
+        app.add_systems(Update, drive_sanic_music_for_session);
     }
     app
 }
@@ -320,12 +319,28 @@ fn desktop_asset_root() -> String {
 }
 
 #[cfg(feature = "visible")]
-fn start_sanic_music(asset_server: Res<AssetServer>, audio: Res<bevy_kira_audio::prelude::Audio>) {
+fn drive_sanic_music_for_session(
+    mut sessions: MessageReader<ambition::game_shell::GameplaySessionEvent>,
+    asset_server: Res<AssetServer>,
+    audio: Res<bevy_kira_audio::prelude::Audio>,
+) {
     use bevy_kira_audio::prelude::AudioControl;
 
-    audio
-        .play(asset_server.load(SANIC_MUSIC_ASSET_PATH))
-        .looped();
+    for event in sessions.read() {
+        if event.activation().experience_id.as_str() != ambition_demo_sanic::SANIC_EXPERIENCE {
+            continue;
+        }
+        match event {
+            ambition::game_shell::GameplaySessionEvent::Activated { .. } => {
+                audio
+                    .play(asset_server.load(SANIC_MUSIC_ASSET_PATH))
+                    .looped();
+            }
+            ambition::game_shell::GameplaySessionEvent::Retiring { .. } => {
+                audio.stop();
+            }
+        }
+    }
 }
 
 #[cfg(all(test, feature = "visible", not(target_arch = "wasm32")))]

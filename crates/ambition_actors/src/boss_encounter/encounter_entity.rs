@@ -24,6 +24,9 @@ use ambition_encounter::{
     objective_met, EncounterObjective, EncounterParticipant, EncounterParticipants, EncounterRole,
     Objective,
 };
+use ambition_platformer_primitives::lifecycle::{
+    SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
+};
 
 /// Definition of an encounter entity: its stable identity + how it FRAMES its
 /// members. Optional by construction — a creature with no `EncounterDef` nearby
@@ -92,6 +95,7 @@ pub fn sync_boss_encounter_entities(
             &BossConfig,
             &BossEncounter,
             Option<&crate::features::BossOverrides>,
+            Option<&SessionScopedEntity>,
         ),
         With<FeatureSimEntity>,
     >,
@@ -101,7 +105,7 @@ pub fn sync_boss_encounter_entities(
         .iter()
         .flat_map(|p| p.members.iter().filter_map(|m| m.entity))
         .collect();
-    for (entity, config, status, overrides) in &bosses {
+    for (entity, config, status, overrides, owner) in &bosses {
         if covered.contains(&entity) {
             continue;
         }
@@ -122,19 +126,24 @@ pub fn sync_boss_encounter_entities(
         }
         // The boss is the encounter's single ADOPTED `PrimaryTarget`; the win is
         // the generic "all PrimaryTargets defeated" objective.
-        commands.spawn((
-            EncounterDef {
-                placement_id: config.id.clone(),
-                hud: true,
-            },
-            EncounterParticipants::new(vec![EncounterParticipant::adopted(
-                config.id.clone(),
-                entity,
-                EncounterRole::PrimaryTarget,
-            )]),
-            EncounterObjective::win(Objective::AllWithRoleDefeated(EncounterRole::PrimaryTarget)),
-            EncounterProgress::default(),
-        ));
+        commands.spawn_session_scoped(
+            SessionSpawnScope::new(owner.map(|owner| owner.0)),
+            (
+                EncounterDef {
+                    placement_id: config.id.clone(),
+                    hud: true,
+                },
+                EncounterParticipants::new(vec![EncounterParticipant::adopted(
+                    config.id.clone(),
+                    entity,
+                    EncounterRole::PrimaryTarget,
+                )]),
+                EncounterObjective::win(Objective::AllWithRoleDefeated(
+                    EncounterRole::PrimaryTarget,
+                )),
+                EncounterProgress::default(),
+            ),
+        );
     }
 }
 

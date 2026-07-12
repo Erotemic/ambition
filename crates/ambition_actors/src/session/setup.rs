@@ -25,7 +25,7 @@ use crate::session::data::SandboxDataAsset;
 use ambition_dev_tools::dev_tools::{EditableAbilitySet, EditableMovementTuning};
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_engine_core::RoomGeometry;
-use ambition_platformer_primitives::lifecycle::SpawnSessionScopedExt;
+use ambition_platformer_primitives::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
 
 /// Borrowed inputs for `simulation_world`.
 ///
@@ -61,12 +61,15 @@ pub struct SimulationSetup<'a> {
 ///   (`PlayerSimulationBundle` for sim clusters plus `Transform`,
 ///   `PlayerVisual`, etc.).
 ///   Leafwing's `ActionState` and `InputMap` get attached by the
-///   host-side, idempotent `attach_player_input_components` system when the
-///   input feature is present; sim-only builds stay leafwing-free per the
-///   ADR 0012 input seam.
+///   presentation-side `attach_player_input_components` startup system;
+///   sim-only builds stay leafwing-free per the ADR 0012 input seam.
 /// * inserting a `SceneEntities` resource with `hud: Entity::PLACEHOLDER`
 ///   that `presentation_world` overwrites once the HUD entity exists
-pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) -> Entity {
+pub fn simulation_world(
+    commands: &mut Commands,
+    session_scope: SessionSpawnScope,
+    params: SimulationSetup<'_>,
+) -> Entity {
     let SimulationSetup {
         world,
         room_set,
@@ -99,7 +102,7 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
     let _ = asset_server;
     let _ = ldtk_index;
 
-    crate::features::spawn_room_feature_entities(commands, room_set.active_spec());
+    crate::features::spawn_room_feature_entities(commands, room_set.active_spec(), session_scope);
 
     let mut initial_scratch =
         crate::avatar::primary_player_scratch(world.0.spawn, editable_abilities.as_engine());
@@ -123,24 +126,25 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
             &starting_character.character_id,
         )
     };
-    // Session ownership: the player body inherits the ambient session scope
-    // (`ActiveSessionScope`) at command-flush time, so a shell-driven relaunch
-    // tears the previous session's body down with its scope. When no session is
-    // active (the historical Startup path, RL/headless fixtures), the ambient
-    // scope is absent and this spawns unscoped exactly as before.
+    // Session ownership is captured by the caller when world construction
+    // is requested. Deferred command application cannot reassign this body to a
+    // later activation. Historical startup/RL callers pass `UNSCOPED`.
     let player = commands
-        .spawn_session_scoped((
-            Transform::from_translation(world_to_bevy(&world.0, world.0.spawn, WORLD_Z_PLAYER)),
-            PlayerVisual,
-            // The canonical playable-persona identity: WHICH catalog character
-            // this control box wears. Simulation-owned, so gameplay config AND
-            // presentation both derive from this ONE relationship instead of
-            // rediscovering the selection from separate authorities. Resolved to
-            // a concrete id (the content default when unset) so the identity is
-            // never empty on the entity.
-            ambition_characters::actor::WornCharacter::new(starting_character.effective_id()),
-            player_bundle,
-        ))
+        .spawn_session_scoped(
+            session_scope,
+            (
+                Transform::from_translation(world_to_bevy(&world.0, world.0.spawn, WORLD_Z_PLAYER)),
+                PlayerVisual,
+                // The canonical playable-persona identity: WHICH catalog character
+                // this control box wears. Simulation-owned, so gameplay config AND
+                // presentation both derive from this ONE relationship instead of
+                // rediscovering the selection from separate authorities. Resolved to
+                // a concrete id (the content default when unset) so the identity is
+                // never empty on the entity.
+                ambition_characters::actor::WornCharacter::new(starting_character.effective_id()),
+                player_bundle,
+            ),
+        )
         .id();
 
     // Movement identity travels WITH the worn character (Q16 / S2): a character

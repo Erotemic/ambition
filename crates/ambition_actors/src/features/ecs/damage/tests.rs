@@ -428,7 +428,13 @@ fn player_slash_shatters_a_breakable() {
 fn enemy_defeat_drops_a_collectible_currency_coin() {
     let mut app = App::new();
     app.add_systems(Update, |mut c: Commands| {
-        drop_currency_coin(&mut c, "goblin_1", ae::Vec2::new(40.0, 50.0), ENEMY_BOUNTY);
+        drop_currency_coin(
+            &mut c,
+            ambition_platformer_primitives::lifecycle::SessionSpawnScope::UNSCOPED,
+            "goblin_1",
+            ae::Vec2::new(40.0, 50.0),
+            ENEMY_BOUNTY,
+        );
     });
     app.update();
     let mut q = app.world_mut().query::<(&PickupFeature, &FeatureId)>();
@@ -481,6 +487,7 @@ fn defeated_boss_drops_its_signature_ability() {
     app.add_systems(Update, |mut c: Commands| {
         drop_ability_pickup(
             &mut c,
+            ambition_platformer_primitives::lifecycle::SessionSpawnScope::UNSCOPED,
             "trex_boss",
             ae::Vec2::new(10.0, 20.0),
             "grapple",
@@ -556,7 +563,12 @@ fn boss_signature_gauntlets_map_to_real_wielded_held_items() {
 fn exploding_mite_blast_is_a_player_damaging_enemy_hitbox() {
     let mut app = App::new();
     app.add_systems(Update, |mut c: Commands| {
-        spawn_death_explosion(&mut c, Entity::PLACEHOLDER, ae::Vec2::new(50.0, 60.0));
+        spawn_death_explosion(
+            &mut c,
+            ambition_platformer_primitives::lifecycle::SessionSpawnScope::UNSCOPED,
+            Entity::PLACEHOLDER,
+            ae::Vec2::new(50.0, 60.0),
+        );
     });
     app.update();
     let mut q = app.world_mut().query::<&crate::features::Hitbox>();
@@ -583,7 +595,12 @@ fn exploding_mite_blast_is_a_player_damaging_enemy_hitbox() {
 fn dividing_mite_splits_into_two_hostile_offspring_on_death() {
     let mut app = App::new();
     app.add_systems(Update, |mut c: Commands| {
-        spawn_split_offspring(&mut c, "divider_1", ae::Vec2::new(100.0, 100.0));
+        spawn_split_offspring(
+            &mut c,
+            ambition_platformer_primitives::lifecycle::SessionSpawnScope::UNSCOPED,
+            "divider_1",
+            ae::Vec2::new(100.0, 100.0),
+        );
     });
     app.update();
     let mut q = app.world_mut().query::<&crate::features::ActorFaction>();
@@ -608,7 +625,13 @@ fn enemy_health_drop_is_deterministic_and_spawns_a_heart() {
     // The drop spawns one collectible Health pickup.
     let mut app = App::new();
     app.add_systems(Update, |mut c: Commands| {
-        drop_health_pickup(&mut c, "any", ae::Vec2::ZERO, ENEMY_HEALTH_DROP);
+        drop_health_pickup(
+            &mut c,
+            ambition_platformer_primitives::lifecycle::SessionSpawnScope::UNSCOPED,
+            "any",
+            ae::Vec2::ZERO,
+            ENEMY_HEALTH_DROP,
+        );
     });
     app.update();
     let mut q = app.world_mut().query::<&PickupFeature>();

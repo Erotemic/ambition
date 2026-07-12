@@ -8,6 +8,9 @@ use bevy::prelude::*;
 use ambition_engine_core::RoomGeometry;
 use ambition_engine_core::{self as ae};
 use ambition_platformer_primitives::gravity::{GravityField, GravityZone};
+use ambition_platformer_primitives::lifecycle::{
+    ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
+};
 
 use ambition_sim_view::GravitySwitchesView;
 
@@ -20,12 +23,18 @@ pub struct GravityZoneVisual;
 pub fn sync_gravity_zone_visual(
     mut commands: Commands,
     world: Res<RoomGeometry>,
+    active_session: Option<Res<ActiveSessionScope>>,
     visuals: Query<Entity, With<GravityZoneVisual>>,
     zones: Query<&GravityZone>,
 ) {
     for entity in &visuals {
         commands.entity(entity).despawn();
     }
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        return;
+    };
     for zone in &zones {
         let color = if zone.dir.y < 0.0 {
             Color::srgba(0.62, 0.40, 0.95, 0.16) // up = violet
@@ -35,12 +44,15 @@ pub fn sync_gravity_zone_visual(
         let center = (zone.aabb.min + zone.aabb.max) * 0.5;
         let size = zone.aabb.max - zone.aabb.min;
         let translation = ambition_engine_core::config::world_to_bevy(&world.0, center, 7.5);
-        commands.spawn((
-            GravityZoneVisual,
-            Sprite::from_color(color, size),
-            Transform::from_translation(translation),
-            Name::new("Gravity zone visual"),
-        ));
+        commands.spawn_session_scoped(
+            session_scope,
+            (
+                GravityZoneVisual,
+                Sprite::from_color(color, size),
+                Transform::from_translation(translation),
+                Name::new("Gravity zone visual"),
+            ),
+        );
         // A brighter band on the edge gravity pulls TOWARD (the "down" edge under
         // this zone's gravity), so the zone reads as a DIRECTION — you can see
         // which way you'll fall before stepping in, not just that something
@@ -59,12 +71,15 @@ pub fn sync_gravity_zone_visual(
         );
         let band_translation =
             ambition_engine_core::config::world_to_bevy(&world.0, band_center, 7.6);
-        commands.spawn((
-            GravityZoneVisual,
-            Sprite::from_color(band_color, band_size),
-            Transform::from_translation(band_translation),
-            Name::new("Gravity zone direction band"),
-        ));
+        commands.spawn_session_scoped(
+            session_scope,
+            (
+                GravityZoneVisual,
+                Sprite::from_color(band_color, band_size),
+                Transform::from_translation(band_translation),
+                Name::new("Gravity zone direction band"),
+            ),
+        );
     }
 }
 
@@ -77,6 +92,7 @@ pub struct GravitySwitchVisual;
 pub fn sync_gravity_switch_visual(
     mut commands: Commands,
     world: Res<RoomGeometry>,
+    active_session: Option<Res<ActiveSessionScope>>,
     gravity: Option<Res<GravityField>>,
     visuals: Query<Entity, With<GravitySwitchVisual>>,
     switches: Res<GravitySwitchesView>,
@@ -84,6 +100,11 @@ pub fn sync_gravity_switch_visual(
     for entity in &visuals {
         commands.entity(entity).despawn();
     }
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        return;
+    };
     let flipped = gravity.as_deref().is_some_and(|g| g.dir.y < 0.0);
     let color = if flipped {
         Color::srgba(0.95, 0.55, 0.20, 0.65)
@@ -92,11 +113,14 @@ pub fn sync_gravity_switch_visual(
     };
     for sw in &switches.0 {
         let translation = ambition_engine_core::config::world_to_bevy(&world.0, sw.pos, 8.5);
-        commands.spawn((
-            GravitySwitchVisual,
-            Sprite::from_color(color, sw.half_extent * 2.0),
-            Transform::from_translation(translation),
-            Name::new("Gravity switch visual"),
-        ));
+        commands.spawn_session_scoped(
+            session_scope,
+            (
+                GravitySwitchVisual,
+                Sprite::from_color(color, sw.half_extent * 2.0),
+                Transform::from_translation(translation),
+                Name::new("Gravity switch visual"),
+            ),
+        );
     }
 }

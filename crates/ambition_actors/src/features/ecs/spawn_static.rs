@@ -5,8 +5,8 @@
 
 use super::*;
 use crate::features::{ChestBundle, PickupBundle};
-use crate::platformer_runtime::prelude::SpawnScopedExt;
 use ambition_entity_catalog::placements::PlacementSchema;
+use ambition_platformer_primitives::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
 use bevy::prelude::Name;
 
 fn damage_volume_from_authored(
@@ -216,6 +216,7 @@ fn portal_color_from_spec(
 
 pub(crate) fn spawn_hazard(
     commands: &mut Commands,
+    session_scope: SessionSpawnScope,
     authored: &crate::rooms::Authored<crate::rooms::HazardVolumeSpec>,
     paths: &[(String, ambition_engine_core::KinematicPath)],
 ) {
@@ -226,15 +227,18 @@ pub(crate) fn spawn_hazard(
         damage_volume_from_authored(authored),
         paths,
     );
-    commands.spawn_room_scoped((
-        Name::new(format!("Feature hazard: {}", authored.name)),
-        FeatureSimEntity,
-        RoomVisual,
-        FeatureId::new(authored.id.clone()),
-        FeatureName::new(authored.name.clone()),
-        CenteredAabb::from_center_size(hazard.pos, hazard.size),
-        HazardFeature::new(hazard),
-    ));
+    commands.spawn_room_in_session(
+        session_scope,
+        (
+            Name::new(format!("Feature hazard: {}", authored.name)),
+            FeatureSimEntity,
+            RoomVisual,
+            FeatureId::new(authored.id.clone()),
+            FeatureName::new(authored.name.clone()),
+            CenteredAabb::from_center_size(hazard.pos, hazard.size),
+            HazardFeature::new(hazard),
+        ),
+    );
 }
 
 pub(crate) fn lower_hazard_placement(
@@ -260,7 +264,7 @@ pub(crate) fn lower_hazard_placement(
             enabled: true,
         },
     };
-    spawn_hazard(ctx.commands, &authored, ctx.paths);
+    spawn_hazard(ctx.commands, ctx.session_scope, &authored, ctx.paths);
 }
 
 pub(crate) fn lower_interactable_placement(
@@ -276,7 +280,7 @@ pub(crate) fn lower_interactable_placement(
         aabb: record.aabb,
         payload: spec.clone(),
     };
-    super::spawn_actors::spawn_interactable(ctx.commands, &authored, ctx.paths);
+    super::spawn_actors::spawn_interactable(ctx.commands, ctx.session_scope, &authored, ctx.paths);
 }
 
 pub(crate) fn lower_pickup_placement(
@@ -292,57 +296,72 @@ pub(crate) fn lower_pickup_placement(
         aabb: record.aabb,
         payload: spec.clone(),
     };
-    spawn_pickup(ctx.commands, &authored);
+    spawn_pickup(ctx.commands, ctx.session_scope, &authored);
 }
 
 pub(crate) fn spawn_pickup(
     commands: &mut Commands,
+    session_scope: SessionSpawnScope,
     authored: &crate::rooms::Authored<crate::rooms::PickupSpec>,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
-    commands.spawn_room_scoped((
-        Name::new(format!("Feature pickup: {}", authored.name)),
-        PickupBundle::new(
-            &authored.id,
-            &authored.name,
-            feature_aabb,
-            pickup_from_authored(authored),
+    commands.spawn_room_in_session(
+        session_scope,
+        (
+            Name::new(format!("Feature pickup: {}", authored.name)),
+            PickupBundle::new(
+                &authored.id,
+                &authored.name,
+                feature_aabb,
+                pickup_from_authored(authored),
+            ),
         ),
-    ));
+    );
 }
 
-pub(crate) fn spawn_ground_item(commands: &mut Commands, spec: &crate::rooms::GroundItemSpec) {
+pub(crate) fn spawn_ground_item(
+    commands: &mut Commands,
+    session_scope: SessionSpawnScope,
+    spec: &crate::rooms::GroundItemSpec,
+) {
     // Resolve the held-item registry id -> HeldItemSpec. An unregistered or
     // feature-gated id is skipped (the item simply doesn't appear) -- the same
     // tolerance the retired `spawn_debug_ground_items_once` table had.
     let Some(held) = ambition_characters::brain::held_item_by_id(&spec.held_item) else {
         return;
     };
-    commands.spawn_room_scoped((
-        Name::new(format!("Ground item: {}", spec.name)),
-        crate::items::pickup::GroundItem {
-            spec: held,
-            pos: spec.pos,
-            vel: ambition_engine_core::Vec2::ZERO,
-            half_extent: spec.half_extent,
-        },
-    ));
+    commands.spawn_room_in_session(
+        session_scope,
+        (
+            Name::new(format!("Ground item: {}", spec.name)),
+            crate::items::pickup::GroundItem {
+                spec: held,
+                pos: spec.pos,
+                vel: ambition_engine_core::Vec2::ZERO,
+                half_extent: spec.half_extent,
+            },
+        ),
+    );
 }
 
 #[cfg(feature = "portal")]
 pub(crate) fn spawn_portal_gun_spawn(
     commands: &mut Commands,
+    session_scope: SessionSpawnScope,
     spec: &crate::rooms::PortalGunSpawnSpec,
 ) {
-    commands.spawn_room_scoped((
-        Name::new(format!("Portal gun pickup: {}", spec.name)),
-        ambition_portal::PortalGunPickup {
-            pos: spec.pos,
-            half_extent: spec.half_extent,
-            // World-placed pickups spawn already armed (a just-dropped one delays).
-            arm_timer: 0.0,
-        },
-    ));
+    commands.spawn_room_in_session(
+        session_scope,
+        (
+            Name::new(format!("Portal gun pickup: {}", spec.name)),
+            ambition_portal::PortalGunPickup {
+                pos: spec.pos,
+                half_extent: spec.half_extent,
+                // World-placed pickups spawn already armed (a just-dropped one delays).
+                arm_timer: 0.0,
+            },
+        ),
+    );
 }
 
 #[cfg(feature = "portal")]
@@ -369,11 +388,15 @@ pub(crate) fn lower_portal_placement(
         link: schema.link.clone(),
         half_length: schema.half_length,
     };
-    spawn_portal(ctx.commands, &spec);
+    spawn_portal(ctx.commands, ctx.session_scope, &spec);
 }
 
 #[cfg(feature = "portal")]
-pub(crate) fn spawn_portal(commands: &mut Commands, spec: &crate::rooms::PortalSpec) {
+pub(crate) fn spawn_portal(
+    commands: &mut Commands,
+    session_scope: SessionSpawnScope,
+    spec: &crate::rooms::PortalSpec,
+) {
     // Authored static portal: the same `Portal` component the gun fires, but
     // pre-placed and color-paired. Room-scoped so a transition despawns it and
     // the loader re-spawns it; never gun-owned, so it persists without a gun.
@@ -382,15 +405,18 @@ pub(crate) fn spawn_portal(commands: &mut Commands, spec: &crate::rooms::PortalS
         Some(h) => ambition_portal::portal_half_extent_with_length(spec.normal, h),
         None => ambition_portal::portal_half_extent(spec.normal),
     };
-    let mut entity = commands.spawn_room_scoped((
-        Name::new(format!("Portal ({}): {}", spec.color.name(), spec.name)),
-        ambition_portal::PlacedPortal::fixed(
-            portal_color_from_spec(spec.color).channel(),
-            spec.pos,
-            spec.normal,
-            half_extent,
+    let mut entity = commands.spawn_room_in_session(
+        session_scope,
+        (
+            Name::new(format!("Portal ({}): {}", spec.color.name(), spec.name)),
+            ambition_portal::PlacedPortal::fixed(
+                portal_color_from_spec(spec.color).channel(),
+                spec.pos,
+                spec.normal,
+                half_extent,
+            ),
         ),
-    ));
+    );
     if let Some(link) = &spec.link {
         entity.insert(ambition_portal::PortalLink(ambition_portal::link_hash(
             link,
@@ -398,24 +424,38 @@ pub(crate) fn spawn_portal(commands: &mut Commands, spec: &crate::rooms::PortalS
     }
 }
 
-pub(crate) fn spawn_shrine(commands: &mut Commands, spec: &crate::rooms::ShrineSpec) {
-    commands.spawn_room_scoped((
-        Name::new(format!("Heal/save shrine: {}", spec.name)),
-        crate::shrine::HealShrine {
-            pos: spec.pos,
-            half_extent: spec.half_extent,
-        },
-    ));
+pub(crate) fn spawn_shrine(
+    commands: &mut Commands,
+    session_scope: SessionSpawnScope,
+    spec: &crate::rooms::ShrineSpec,
+) {
+    commands.spawn_room_in_session(
+        session_scope,
+        (
+            Name::new(format!("Heal/save shrine: {}", spec.name)),
+            crate::shrine::HealShrine {
+                pos: spec.pos,
+                half_extent: spec.half_extent,
+            },
+        ),
+    );
 }
 
-pub(crate) fn spawn_gravity_zone(commands: &mut Commands, spec: &crate::rooms::GravityZoneSpec) {
-    let mut entity = commands.spawn_room_scoped((
-        Name::new(format!("Gravity zone: {}", spec.name)),
-        ambition_platformer_primitives::gravity::GravityZone {
-            aabb: ambition_engine_core::Aabb::new(spec.center, spec.half_extent),
-            dir: spec.dir,
-        },
-    ));
+pub(crate) fn spawn_gravity_zone(
+    commands: &mut Commands,
+    session_scope: SessionSpawnScope,
+    spec: &crate::rooms::GravityZoneSpec,
+) {
+    let mut entity = commands.spawn_room_in_session(
+        session_scope,
+        (
+            Name::new(format!("Gravity zone: {}", spec.name)),
+            ambition_platformer_primitives::gravity::GravityZone {
+                aabb: ambition_engine_core::Aabb::new(spec.center, spec.half_extent),
+                dir: spec.dir,
+            },
+        ),
+    );
     // A non-zero amplitude makes the column slide horizontally (the sliding
     // gravity demo); a static column omits the OscillatingZone.
     if spec.oscillate_amplitude > 0.0 {
@@ -442,23 +482,27 @@ pub(crate) fn lower_chest_placement(
         aabb: record.aabb,
         payload: spec.clone(),
     };
-    spawn_chest(ctx.commands, &authored);
+    spawn_chest(ctx.commands, ctx.session_scope, &authored);
 }
 
 pub(crate) fn spawn_chest(
     commands: &mut Commands,
+    session_scope: SessionSpawnScope,
     authored: &crate::rooms::Authored<crate::rooms::ChestSpec>,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
-    commands.spawn_room_scoped((
-        Name::new(format!("Feature chest: {}", authored.name)),
-        ChestBundle::new(
-            &authored.id,
-            &authored.name,
-            feature_aabb,
-            chest_from_authored(authored),
+    commands.spawn_room_in_session(
+        session_scope,
+        (
+            Name::new(format!("Feature chest: {}", authored.name)),
+            ChestBundle::new(
+                &authored.id,
+                &authored.name,
+                feature_aabb,
+                chest_from_authored(authored),
+            ),
         ),
-    ));
+    );
 }
 
 pub(crate) fn lower_breakable_placement(
@@ -474,29 +518,33 @@ pub(crate) fn lower_breakable_placement(
         aabb: record.aabb,
         payload: spec.clone(),
     };
-    spawn_breakable(ctx.commands, &authored);
+    spawn_breakable(ctx.commands, ctx.session_scope, &authored);
 }
 
 pub(crate) fn spawn_breakable(
     commands: &mut Commands,
+    session_scope: SessionSpawnScope,
     authored: &crate::rooms::Authored<crate::rooms::BreakableSpec>,
 ) {
     let feature_aabb = CenteredAabb::from_aabb(authored.aabb);
     let breakable = breakable_from_authored(authored);
     let breakable = &breakable;
-    let mut entity = commands.spawn_room_scoped((
-        Name::new(format!("Feature breakable: {}", authored.name)),
-        FeatureSimEntity,
-        RoomVisual,
-        FeatureId::new(authored.id.clone()),
-        FeatureName::new(authored.name.clone()),
-        feature_aabb,
-        BreakableFeature::new(breakable.clone()),
-        DamageableVolumes::default(),
-        PogoPolicy::FromDamageable,
-        PogoTargetVolumes::default(),
-        StandTimer(0.0),
-    ));
+    let mut entity = commands.spawn_room_in_session(
+        session_scope,
+        (
+            Name::new(format!("Feature breakable: {}", authored.name)),
+            FeatureSimEntity,
+            RoomVisual,
+            FeatureId::new(authored.id.clone()),
+            FeatureName::new(authored.name.clone()),
+            feature_aabb,
+            BreakableFeature::new(breakable.clone()),
+            DamageableVolumes::default(),
+            PogoPolicy::FromDamageable,
+            PogoTargetVolumes::default(),
+            StandTimer(0.0),
+        ),
+    );
     if breakable.collision.blocks_movement() {
         entity.insert(SandboxSolidContributor);
     }

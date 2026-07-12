@@ -10,6 +10,7 @@ use bevy::window::PrimaryWindow;
 
 use super::primitives::RoomVisual;
 use ambition_engine_core::config::{world_to_bevy, WINDOW_H, WINDOW_W, WORLD_Z_FX};
+use ambition_platformer_primitives::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
 use ambition_sprite_sheet::game_assets::{
     foreground_parallax_factor, foreground_parallax_sprite_for_biome, ForegroundParallaxSprite,
     GameAssets,
@@ -31,6 +32,7 @@ pub struct ForegroundParallax {
 /// Spawn the active room's optional generated foreground layer.
 pub fn spawn_room_foreground_parallax(
     commands: &mut Commands,
+    session_scope: SessionSpawnScope,
     spec: &ambition_world::rooms::RoomSpec,
     assets: Option<&GameAssets>,
 ) {
@@ -56,16 +58,19 @@ pub fn spawn_room_foreground_parallax(
     // visible frame does not flash uncovered corners.
     sprite.custom_size = Some(Vec2::new(WINDOW_W as f32, WINDOW_H as f32) * FOREGROUND_OVERSCAN);
 
-    commands.spawn((
-        sprite,
-        Transform::from_xyz(room_center.x, room_center.y, FOREGROUND_Z),
-        ForegroundParallax {
-            factor: foreground_parallax_factor(sprite_key),
-            room_center,
-        },
-        RoomVisual,
-        Name::new(format!("Foreground parallax: {:?}", sprite_key)),
-    ));
+    commands.spawn_session_scoped(
+        session_scope,
+        (
+            sprite,
+            Transform::from_xyz(room_center.x, room_center.y, FOREGROUND_Z),
+            ForegroundParallax {
+                factor: foreground_parallax_factor(sprite_key),
+                room_center,
+            },
+            RoomVisual,
+            Name::new(format!("Foreground parallax: {:?}", sprite_key)),
+        ),
+    );
 }
 
 /// Keep foreground layers viewport-sized and apply a subtle near-camera drift.

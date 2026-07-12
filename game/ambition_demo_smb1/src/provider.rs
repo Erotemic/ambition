@@ -1,21 +1,20 @@
 //! The Mary-O **experience provider**: SMB1 as a launchable, teardown-clean,
 //! host-independent shell experience.
 //!
-//! This is the second customer of the exact architecture Sanic proved
-//! (`game/ambition_demo_sanic/src/provider.rs`): the lifecycle mechanics —
-//! begin a session scope on activation, build the real world through
-//! `simulation_world`, retire the scope on deactivation — are identical, and only
-//! the game-specific content (the level, the mode tag, the character) differs.
-//! That two unrelated demos share this shape is the point.
+//! This is the second customer of the same shell-to-session bridge used by
+//! Sanic. The shared bridge mints and retires the engine-neutral session scope;
+//! this provider contributes only Mary-O registration, rules, and session
+//! construction. Two unrelated games therefore exercise one lifecycle rather
+//! than parallel activation bookkeeping.
 
 use bevy::prelude::*;
 
 use ambition::engine_core as ae;
 use ambition::game_shell::{
-    ExperienceRegistration, ShellActivationId, ShellCompletionPolicy, ShellEvent,
-    ShellExperienceAppExt, ShellRouteSpec,
+    ExperienceRegistration, GameplaySessionAppExt, GameplaySessionEvent, GameplaySessionSet,
+    ShellCompletionPolicy, ShellRouteSpec,
 };
-use ambition::platformer::lifecycle::{ActiveSessionScope, SessionScopeId, SessionScopeRetired};
+use ambition::platformer::lifecycle::{SessionRoot, SessionSpawnScope, SpawnSessionScopedExt};
 use ambition::runtime::demo_fixture::{
     simulation_world, ActiveRoomMetadata, EditableAbilitySet, EditableMovementTuning,
     LdtkRuntimeIndex, RoomSet, SimulationSetup, StartingCharacter,
@@ -56,24 +55,6 @@ pub fn smb1_session_world() -> Smb1SessionWorld {
     }
 }
 
-/// Maps a shell activation to the session scope it began. Ordered `Vec`, not a
-/// hash map, so the mapping is deterministic (ADR 0023).
-#[derive(Resource, Default)]
-pub struct Smb1SessionLink {
-    bindings: Vec<(ShellActivationId, SessionScopeId)>,
-}
-
-impl Smb1SessionLink {
-    fn bind(&mut self, activation: ShellActivationId, scope: SessionScopeId) {
-        self.bindings.push((activation, scope));
-    }
-
-    fn unbind(&mut self, activation: ShellActivationId) -> Option<SessionScopeId> {
-        let index = self.bindings.iter().position(|(a, _)| *a == activation)?;
-        Some(self.bindings.remove(index).1)
-    }
-}
-
 /// The reusable Mary-O provider: content, experience/route registration, the
 /// gameplay rules, and the session activation/teardown lifecycle. Host-independent.
 pub struct Smb1ExperiencePlugin;
@@ -82,18 +63,15 @@ impl Plugin for Smb1ExperiencePlugin {
     fn build(&self, app: &mut App) {
         crate::install_smb1_content();
 
-        app.register_experience(
+        app.register_gameplay_experience(
             ExperienceRegistration::new(MARY_O_EXPERIENCE, "Mary-O", MARY_O_GAMEPLAY_ROUTE)
                 .with_description("SMB1 level 1-1: run, jump, grab the flag"),
             ShellRouteSpec::new(MARY_O_GAMEPLAY_ROUTE, MARY_O_EXPERIENCE)
                 .on_complete(ShellCompletionPolicy::ReturnHome),
         );
-
-        app.init_resource::<Smb1SessionLink>();
         app.add_systems(
             Update,
-            (smb1_activate_session, smb1_retire_session)
-                .after(ambition::game_shell::AmbitionGameShellSet::Pending),
+            smb1_activate_session.in_set(GameplaySessionSet::Providers),
         );
 
         app.add_plugins(Smb1RulesPlugin::hosted());
@@ -103,28 +81,38 @@ impl Plugin for Smb1ExperiencePlugin {
 /// Build the real Mary-O session when the shell activates the gameplay route.
 #[allow(clippy::too_many_arguments)]
 fn smb1_activate_session(
-    mut events: MessageReader<ShellEvent>,
-    mut active: ResMut<ActiveSessionScope>,
-    mut link: ResMut<Smb1SessionLink>,
+    mut events: MessageReader<GameplaySessionEvent>,
     mut commands: Commands,
     ldtk_index: Res<LdtkRuntimeIndex>,
     editable_abilities: Res<EditableAbilitySet>,
     editable_tuning: Res<EditableMovementTuning>,
     asset_server: Res<AssetServer>,
+    mut geometry: ResMut<ae::RoomGeometry>,
+    mut room_set: ResMut<RoomSet>,
+    mut metadata: ResMut<ActiveRoomMetadata>,
+    mut starting_character: ResMut<StartingCharacter>,
 ) {
     for event in events.read() {
-        let ShellEvent::RouteActivated(route) = event else {
+        let GameplaySessionEvent::Activated { activation, scope } = event else {
             continue;
         };
-        if route.experience_id.as_str() != MARY_O_EXPERIENCE {
+        if activation.experience_id.as_str() != MARY_O_EXPERIENCE {
             continue;
         }
-        let scope = active.begin();
-        link.bind(route.activation_id, scope);
+        let scope = *scope;
+
+        commands.spawn_in_session(
+            scope,
+            (
+                Name::new(format!("{} session root", MARY_O_EXPERIENCE)),
+                SessionRoot(scope),
+            ),
+        );
 
         let world = smb1_session_world();
         simulation_world(
             &mut commands,
+            SessionSpawnScope::scoped(scope),
             SimulationSetup {
                 world: &world.geometry,
                 room_set: &world.room_set,
@@ -138,26 +126,9 @@ fn smb1_activate_session(
             },
         );
 
-        commands.insert_resource(world.geometry);
-        commands.insert_resource(world.room_set);
-        commands.insert_resource(world.metadata);
-        commands.insert_resource(world.starting_character);
-    }
-}
-
-/// Retire the session when the shell deactivates it — one `SessionScopeRetired`;
-/// the generic sweep despawns everything the session spawned.
-fn smb1_retire_session(
-    mut events: MessageReader<ShellEvent>,
-    mut link: ResMut<Smb1SessionLink>,
-    mut retired: MessageWriter<SessionScopeRetired>,
-) {
-    for event in events.read() {
-        let ShellEvent::RouteDeactivated(route) = event else {
-            continue;
-        };
-        if let Some(scope) = link.unbind(route.activation_id) {
-            retired.write(SessionScopeRetired(scope));
-        }
+        *geometry = world.geometry;
+        *room_set = world.room_set;
+        *metadata = world.metadata;
+        *starting_character = world.starting_character;
     }
 }

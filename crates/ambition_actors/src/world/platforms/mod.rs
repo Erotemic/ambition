@@ -7,6 +7,9 @@
 
 use ambition_engine_core as ae;
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_BLOCK};
+use ambition_platformer_primitives::lifecycle::{
+    ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
+};
 use bevy::math::Vec2 as BVec2;
 use bevy::prelude::*;
 
@@ -24,38 +27,50 @@ pub struct MovingPlatformVisual {
 
 pub fn spawn_moving_platform(
     commands: &mut Commands,
+    session_scope: SessionSpawnScope,
     world: &ae::World,
     index: usize,
     platform: &MovingPlatformState,
 ) -> Entity {
     commands
-        .spawn((
-            Sprite::from_color(
-                Color::srgba(0.35, 0.74, 1.0, 0.92),
-                BVec2::new(platform.size.x, platform.size.y),
+        .spawn_session_scoped(
+            session_scope,
+            (
+                Sprite::from_color(
+                    Color::srgba(0.35, 0.74, 1.0, 0.92),
+                    BVec2::new(platform.size.x, platform.size.y),
+                ),
+                Transform::from_translation(world_to_bevy(
+                    world,
+                    platform.pos,
+                    WORLD_Z_BLOCK + 4.0,
+                )),
+                Name::new(format!("Moving platform {index}: {}", platform.name)),
+                MovingPlatformVisual { index },
+                RoomVisual,
             ),
-            Transform::from_translation(world_to_bevy(world, platform.pos, WORLD_Z_BLOCK + 4.0)),
-            Name::new(format!("Moving platform {index}: {}", platform.name)),
-            MovingPlatformVisual { index },
-            RoomVisual,
-        ))
+        )
         .id()
 }
 
 pub fn spawn_moving_platforms(
     commands: &mut Commands,
+    session_scope: SessionSpawnScope,
     world: &ae::World,
     platforms: &[MovingPlatformState],
 ) -> Vec<Entity> {
     platforms
         .iter()
         .enumerate()
-        .map(|(index, platform)| spawn_moving_platform(commands, world, index, platform))
+        .map(|(index, platform)| {
+            spawn_moving_platform(commands, session_scope, world, index, platform)
+        })
         .collect()
 }
 
 pub fn sync_moving_platform(
     mut commands: Commands,
+    active_session: Option<Res<ActiveSessionScope>>,
     world: Res<ambition_engine_core::RoomGeometry>,
     room_set: Res<RoomSet>,
     mut platform_set: ResMut<ambition_world::collision::MovingPlatformSet>,
@@ -63,6 +78,11 @@ pub fn sync_moving_platform(
     mut active_platform_source: Local<Option<Vec<MovingPlatformState>>>,
     mut query: Query<(Entity, &MovingPlatformVisual, &mut Transform, &mut Sprite)>,
 ) {
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        return;
+    };
     let active_spec = room_set.active_spec();
     let desired_start = moving_platforms_for_room(active_spec);
 
@@ -81,7 +101,7 @@ pub fn sync_moving_platform(
             for (entity, _, _, _) in &mut query {
                 commands.entity(entity).despawn();
             }
-            spawn_moving_platforms(&mut commands, &world.0, &platform_set.0);
+            spawn_moving_platforms(&mut commands, session_scope, &world.0, &platform_set.0);
             return;
         }
     }

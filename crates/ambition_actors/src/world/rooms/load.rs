@@ -23,6 +23,7 @@ use crate::SandboxSimState;
 use ambition_dev_tools::SandboxDevState;
 use ambition_engine_core as ae;
 use ambition_engine_core::RoomGeometry;
+use ambition_platformer_primitives::lifecycle::SessionSpawnScope;
 use ambition_sfx::SfxMessage;
 
 /// What [`load_room_geometry`] hands back to the composition layer so the host
@@ -64,6 +65,7 @@ pub fn load_room_geometry(
     clock_resets: &mut MessageWriter<ClockResetRequest>,
     moving_platforms: &mut Vec<MovingPlatformState>,
     placement_lowering: &crate::world::placements::PlacementLoweringRegistry,
+    session_scope: SessionSpawnScope,
     world: &mut RoomGeometry,
     room_set: &mut RoomSet,
     room_visuals: &Query<(Entity, Option<&PhysicsRoomEntity>), With<RoomScopedEntity>>,
@@ -117,7 +119,12 @@ pub fn load_room_geometry(
         "room_transition",
     ));
     *moving_platforms = platforms::moving_platforms_for_room(&spec);
-    features::spawn_room_feature_entities_with_registry(commands, &spec, placement_lowering);
+    features::spawn_room_feature_entities_with_registry(
+        commands,
+        &spec,
+        placement_lowering,
+        session_scope,
+    );
     // This guard prevents immediate backtracking when arriving inside/near a
     // paired zone. It should not feel like frozen input, so keep it short and
     // rely on validated arrivals to do most of the safety work.
@@ -128,7 +135,7 @@ pub fn load_room_geometry(
     };
     dev_state.preset_flash = 1.0;
 
-    platforms::spawn_moving_platforms(commands, &world.0, moving_platforms);
+    platforms::spawn_moving_platforms(commands, session_scope, &world.0, moving_platforms);
     let arrival_pos = clusters.kinematics.pos;
     sfx.write(SfxMessage::Reset { pos: arrival_pos });
 

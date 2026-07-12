@@ -7,13 +7,15 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`basic_presentation`](src/basic_presentation.rs) | Plain Bevy UI reference presentation for launchers and shell sequences. |
+| [`experience`](src/experience.rs) | Registered top-level experiences: the launcher-visible identity of a provider. |
 | [`id`](src/id.rs) | Stable identifiers for shell routes, experiences, holds, and sequence segments. |
 | [`launcher`](src/launcher.rs) | Host-provided launch catalog and the cursor used by the minimal `ambition_menu` adapter. |
 | [`plugin`](src/plugin.rs) | Bevy plugins that drive shell routing, sequences, and launcher commands. |
 | [`router`](src/router.rs) | Host-relative top-level route lifecycle, pending loads, focus, and scoped cleanup. |
 | [`sequence`](src/sequence.rs) | Neutral ordered presentation-sequence data and runtime. |
+| [`session`](src/session.rs) | Shell-to-gameplay-session lifecycle bridge. |
 
-_6 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_8 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

@@ -1,604 +1,236 @@
-# Loading and game-shell architecture
-> **Status:** first real customer landed. The three core crates are green, and
-> **Sanic is a real, leak-free shell experience** with direct standalone entry,
-> host-relative Quit to Home, activation-scoped teardown, and repeatable relaunch
-> — proven by headless integration tests on the actual `build_demo_app()` host.
-> A reusable, engine-neutral **session-scope** primitive underlies teardown. The
-> Ambition launcher (I2), Mary-O (I1/I3 for SMB1), real load contributors (I0),
-> the startup sequence (I5), and App-local content catalogs remain **OPEN** — see
-> the *Integration status* ledger below for the honest per-slice state and cited
-> tests.
+# Loading, shell, and frontend integration
+
+> **Status:** the incoming baseline has tested load/shell cores and headless Sanic/Mary-O provider lifecycles. The current worktree adds captured spawn-time session ownership, a shared shell-to-session bridge, broad simulation/presentation scoping, and shared visible/headless demo composition. These additions remain **OPEN pending Rust compilation and runtime tests**. The next architectural chain is: canonical active-session world -> App-local catalogs -> real provider load plans -> Ambition provider/launcher -> cross-experience proof.
+
+## Target experience
+
+```text
+process entry -> configured shell route -> optional startup sequence -> host launcher
+              -> provider load plan -> activation authorization -> gameplay session
+              -> QuitToHome -> exact session retirement -> host launcher
+```
+
+Ambition's launcher exposes Ambition, Sanic, Mary-O, and Exit. Standalone Sanic and Mary-O use the same providers under private minimal hosts: gameplay may be the initial route while the demo-only launcher is the home route. Completion means all three games share one provider, session, load, shell, catalog, minimal-presentation, teardown, and relaunch architecture.
+
 ## Maintainer intent
-- Loading screens should be nonexistent when preparation finishes quickly.
-- When waiting is unavoidable, the engine should honestly report what is done,
-  what is active, how much known work remains, and what it estimates is still undiscovered.
-- Presentation may show an estimated percentage, exact step counts, both, or an
-  indeterminate view. Presentation never becomes readiness authority.
-- Arbitrary playable loading activities are first-class. If the player engages
-  with one, a ready destination may wait for explicit confirmation while the activity continues.
-- Minimal, unpolished implementations must be complete enough for Sanic,
-  Mary-O, new games, tests, and Ambition itself. Polish replaces presentation; it must not create a second
-  loading or shell path.
-- Boot is configuration, not a special application architecture. A process may
-  enter a vanity sequence, a menu, gameplay, credits, or a prefab cutscene.
-Priority order:
-1. avoid waits through retention and prefetching;
-2. keep required preparation asynchronous;
-3. stream optional work after activation where safe;
-4. reveal a waiting experience only after the relevant barrier misses its
-   latency budget;
-5. never use an attractive minigame to excuse avoidable stalls.
+
+1. Fast preparation shows no loading screen; unavoidable waits show honest facts and optional estimates.
+2. Activation-critical, streamable, and speculative work share one load model and stable work identity.
+3. Arbitrary loading activities are isolated first-class experiences; engaged activities may continue after readiness until universal Continue.
+4. Minimal launcher/loading presentation is complete for demos and early Ambition; polish replaces visuals rather than authority.
+5. Boot is route configuration. Vanity segments may be arbitrary Bevy programs, with text/static/image-sequence helpers and optional video adapters.
+6. Credits and top-level cutscenes are shell experiences; ordinary in-session cutscenes remain under `ambition_cutscene`.
+
 ## Binding crate carve
-Add exactly these engine crates for the initial implementation:
+
 ```text
 crates/ambition_load
 crates/ambition_game_shell
 crates/ambition_load_presentation
 ```
-Do **not** initially add `ambition_loader`, `ambition_load_backend`, `ambition_load_frontend`,
-`ambition_boot_sequence`, `ambition_vanity_card`, `ambition_load_activity`, or
-`ambition_presentation_sequence`.
+
 ### `ambition_load`
-> Owns headless asynchronous load coordination, work evidence, activation
-> barriers, streaming/prefetch roles, cancellation, supersession, failure, and
-> readiness. It does not perform subsystem-specific work or render anything.
-It is named `load`, not `loader`, because Bevy uses “loader” for concrete asset format/source loaders.
-This crate coordinates assets, save decoding, world construction, procedural work, required pipeline
-warmup, and other contributors. It must remain usable by headless binaries and tests. It must not depend
-on `ambition_render`, `ambition_menu`, game content, or `ambition_app`.
+
+Owns headless preparation truth: stable plan/request/work/barrier IDs; exact work state; discovery accounting; activation-critical, streamable, and speculative roles; priority; promotion without restart; cancellation/supersession; failure/retry facts; barrier readiness; and one-shot activation authorization. Asset, save, world, and content systems perform work and report through this protocol. The crate remains renderer-, menu-, and game-content-free.
+
 ### `ambition_game_shell`
-> Owns renderer-independent selection and lifecycle of top-level player-facing
-> experiences, including configurable process entrypoints and routing among
-> menus, presentation sequences, gameplay sessions, credits, top-level
-> cutscenes, and recovery states.
-The shell is not a universal gameplay state machine. It does not own room portals, combat modes,
-inventories, dialogue, pause overlays, ordinary in-session cutscenes, or boss phases. It may depend on
-`ambition_load`, `ambition_menu`, input/navigation foundations, and the minimum machinery required for
-scoped experience lifecycles. It must not know Ambition-specific route IDs, branding, menu content, or
-cutscene IDs. Its core plugin and semantic model remain render-free. The same crate may expose an
-optional `basic_presentation` module/feature containing `BasicShellPresentationPlugin`; headless users
-do not enable that feature.
+
+Owns renderer-independent top-level lifecycle: `initial_route`; `home_route`; provider and route registration; launcher projection; activation/replacement/completion/failure/return/exit; semantic `QuitToHome`; top-level focus transfer; shell/gameplay activation identity; neutral presentation sequences; and minimal launcher behavior through `ambition_menu`. Gameplay owns rooms, combat, inventory, dialogue, pause, bosses, and in-session cutscenes. The shell bridge maps shell activation to an engine-neutral gameplay-session scope.
+
 ### `ambition_load_presentation`
-> Provides a replaceable shell-integrated waiting experience for unresolved load
-> barriers, including a complete minimal loading presentation, optional
-> arbitrary foreground activities, engagement, ready-hold, Continue, failure
-> actions, and deterministic cleanup.
-It depends on `ambition_load` and `ambition_game_shell`; the shell does not depend on it. It may depend
-on presentation/input/audio crates because it is a presentation-layer package. Headless systems use
-`ambition_load` without it. The activity-host module must be intentionally extractable. Do not create an
-activity crate until loading activities, practice modes, or title-screen toys prove substantial shared
-mini-session machinery.
+
+Owns hidden grace, exact stage/step presentation, optional estimated percentage, indeterminate/failure/retry/return views, arbitrary activity registration, activity input/engagement/result, ready-hold, Continue, cleanup, and the basic no-art implementation. It consumes load and shell facts and never manufactures readiness.
+
 ## Constitutional dependency shape
+
 ```text
-Bevy AssetServer / bevy_asset_loader / save / world / content contributors
-                              |
-                              v
-                       ambition_load
-                  work facts and barriers
-                       /           \
-                      v             v
-          ambition_game_shell   headless clients
-                      ^
-                      |
-          ambition_load_presentation
-                      ^
-                      |
-       game policy, styling, activities, content
-                      |
-                      v
-                    app
+AssetServer / save / world / content contributors
+                     |
+                     v
+               ambition_load
+          work facts, barriers, commit
+              /               \
+             v                 v
+ ambition_game_shell       headless clients
+             ^
+             |
+ ambition_load_presentation
+             ^
+             |
+ providers, activities, styling, app hosts
+
+ambition_platformer_primitives::lifecycle::session
+             ^
+             |
+ ambition_game_shell session bridge
+             ^
+             |
+      gameplay providers
 ```
-Rules:
-1. Bevy loads assets; `ambition_load` explains what the game is waiting for.
-2. Contributors depend on the load-reporting protocol. The load crate does not
-depend upward on every contributor.
-3. The shell owns top-level routing, not the internals of registered experiences.
-4. Load presentation consumes evidence; it never manufactures readiness.
-5. `ambition_app` composes plugins but owns no reusable semantics.
-6. Standalone demos must use the same crates without depending on
-`ambition_app`.
-## Core model: load plans, work, and barriers
-A **load plan** groups related work. A **barrier** answers whether a particular activation is currently
-safe. Background streaming may continue after a barrier opens. “Blocking” means **blocks activation**,
-never “blocks the main thread.” Work has at least two independent policy axes:
+
+Rules: providers self-register and launcher entries derive from the registry; hosts select providers/routes/presentation; standalone apps depend on provider crates rather than `ambition_app`; `ambition_app` links provider crates rather than demo apps; session identity is shell-free and captured when spawn work is requested; load evidence alone controls readiness; one active gameplay session owns current gameplay-world authority; authored catalogs are App-local and composable.
+
+## Provider, host, and session contracts
+
+A provider owns registration, immutable catalog fragments, load contribution, preparation, activation-specific construction, session scope, teardown, and semantic shell commands. A host owns linked providers, initial/home routes, startup sequence, platform/render/audio selection, launcher projection, and process exit.
+
+```text
+Ambition:        initial = ambition_startup   home = ambition_launcher
+Standalone Sanic: initial = sanic_gameplay    home = sanic_launcher
+Standalone Mary-O: initial = mary_o_gameplay  home = mary_o_launcher
+```
+
+Every gameplay activation receives a fresh `SessionScopeId`. `SessionSpawnScope` captures ownership at spawn-request time, so nested/deferred work cannot be reassigned by a later route change. Session ownership covers actors, authored features, enemies/bosses/hazards/pickups/rewards, abilities/projectiles/debris, room visuals/parallax, overlays/health/effects/gameplay UI, and eventually gameplay camera/audio/input.
+
+The shell bridge owns `ShellActivationId <-> SessionScopeId`. Retirement removes active-session authority, revokes ambient spawn authority immediately, emits provider and exact-scope retirement facts, cleans only that scope, and preserves a newer scope during same-frame replacement.
+
+The canonical active gameplay session must own `RoomGeometry`, `RoomSet`, `ActiveRoomMetadata`, `StartingCharacter`, and related scene/runtime state. At launchers, credits, or other non-gameplay routes there is no active gameplay session and gameplay schedules sleep safely.
+
+## Load, evidence, and activities
+
+A plan groups preparation for one route request; a barrier decides activation. Background streaming may continue afterward.
+
 ```rust
-pub enum ActivationRequirement {
-    RequiredFor(LoadBarrierId),
-    Degradable,
-    Speculative,
-}
-pub enum LoadPriority {
-    Immediate,
-    High,
-    Normal,
-    Low,
-}
+pub enum ActivationRequirement { RequiredFor(LoadBarrierId), Degradable, Speculative }
+pub enum LoadPriority { Immediate, High, Normal, Low }
 ```
-Examples:
-| Work | Requirement | Typical priority |
+
+Required examples: save header, collision/world data, player definition, required sprites/entities. Degradable examples: distant art, ambience, high-resolution variants. Speculative examples: likely next route/room. Promotion preserves work identity and progress. Cancelled/superseded transactions cannot authorize activation; commit is one-shot for the current request.
+
+Player-facing work steps are semantic units such as catalog assembly, required asset request, room/save decode, content validation, staged world preparation, or required pipeline warmup. Snapshots separate exact completed/active/known-remaining work, discovery openness, stage labels, optional undiscovered-work forecast, optional effort/confidence/provenance, failures/retryability, and exact readiness. Presentation may show stages, counts, estimate, both, or indeterminate; 100% appears only after readiness.
+
+A waiting foreground attaches to one unresolved barrier after hidden grace. An activity has stable identity, scoped state/input, explicit engagement, optional result, and no destination authority. Policies are `AutoAdvance`, `AwaitConfirmation`, and `AutoUnlessEngaged`; engaged ready-hold continues until Continue cleans the activity and commits exactly once.
+
+## Startup, vanity, credits, and cutscenes
+
+A startup route is an ordinary shell sequence of text, static/image-sequence media, optional video adapters, arbitrary registered Bevy segments, notices, acknowledgements, and route transitions. Minimal Ambition flow: `Powered by Ambition -> Ambition title -> ambition_launcher`. Credits are initially game-owned shell experiences. Top-level cutscene previews adapt `ambition_cutscene`; in-session cutscenes remain inside gameplay.
+
+## Current implementation state
+
+### Verified incoming baseline
+
+Passing tests established the core load/shell/presentation contracts, provider-derived launcher registration, host-relative `QuitToHome`, exact synthetic scope cleanup, headless Sanic and Mary-O launch/return/relaunch, the initial shell-free session primitive, and dependency policy.
+
+### Current worktree awaiting verification
+
+Implemented but still `OPEN` until compiled and exercised: request-time captured `SessionSpawnScope`; immediate spawn-authority revocation plus exact retirement; shared `GameplaySessionBridgePlugin`; Sanic/Mary-O provider migration to that bridge; shared visible/headless provider composition; route-aware room presentation; broad session ownership across actor/feature/encounter/projectile/platform/world/transient-render spawns; and visible lifecycle tests for both demos.
+
+## Remaining-work ledger
+
+| ID | Status | Required result |
 |---|---|---|
-| save header, collision geometry, player definition | required | immediate |
-| required sprite fallback and room entities | required | high |
-| distant art, ambient audio, high-resolution variants | degradable | normal/low |
-| likely next room or title-menu Continue target | speculative | high/normal |
-A speculative or degradable item may be promoted when the player chooses a route that requires it.
-Promotion reuses stable work identity and existing progress; it does not restart or duplicate the load.
-Possible barriers include `BootRenderable`, `FrontendReady`, `SessionActivatable`, and game-owned
-region/room barriers. These are examples, not one engine-owned exhaustive enum.
-### Transaction safety
-Every plan/request has stable identity. Cancellation and supersession must make late results harmless. A
-replaced request can never activate after its replacement. A route provider owns the actual
-destination/session activation. The load crate owns evidence that the named barrier is open and that the
-request is still current. Activation is one explicit, idempotence-tested commit on a clean frame. Commit
-must not leave two active sessions, a half-active destination, or an activity that still owns input. A
-failure remains explicit and recoverable.
-## Honest work accounting
-The engine publishes **facts**, **estimates**, and **uncertainty** separately. A work step is
-player-meaningful, not one future, file, asset handle, or ECS command. Examples include resolving an
-asset profile, decoding region geometry, constructing required entities, and warming required pipelines.
-```rust
-pub enum WorkStepState {
-    Planned,
-    Running,
-    Complete,
-    Failed,
-    Cancelled,
-    Skipped,
-}
-pub enum WorkMetric {
-    Discrete { completed: u64, total: u64 },
-    Bytes { completed: u64, total: Option<u64> },
-    Items { completed: u64, total: Option<u64> },
-    Fraction { completed: f32 },
-    Indeterminate,
-}
-```
-Bytes, items, fractions, and step counts are local evidence; they are not naively additive. `Fraction`
-requires a defensible contributor estimate. The barrier snapshot exposes at least:
-- completed, active, and known-remaining required steps;
-- whether discovery is still open;
-- current stage and active labels;
-- optional forecast of additional undiscovered steps;
-- optional remaining-effort range, confidence, and provenance;
-- failures and retryability;
-- exact barrier readiness.
-A useful discovery-open report is:
-```text
-12 complete · 2 active · 5 known remaining
-approximately 2–6 additional steps may still be discovered
-```
-After discovery closes, known remaining is exact for that plan. One step may outweigh ten others, so
-estimated effort remains distinct from step count. Estimator inputs may include exact bounded work,
-authored phase weights, contributor estimates, and later historical telemetry. Raw estimates may move
-backward when work is discovered. They never control readiness.
-## Progress presentation
-`ambition_load` publishes a semantic snapshot. Presentation chooses among:
-- no UI;
-- current stage only;
-- exact step counts;
-- estimated percentage;
-- percentage plus steps;
-- detailed/debug evidence;
-- indeterminate progress.
-A percentage is permitted and useful, but its uncertainty remains representable. Presentation may smooth
-or keep a displayed estimate monotonic, while debug views retain the raw estimate. Binding rules:
-1. never display 100% before the barrier is open;
-2. reserve uncertainty while discovery remains open;
-3. mark low-confidence values as estimated (`about 68%`, not `68.00%`);
-4. prefer stages/steps when a percentage would be mostly invented;
-5. show active work when an estimate appears stalled;
-6. never call degradable/streaming work activation-blocking;
-7. failure replaces progress rather than hiding behind endless animation;
-8. presentation output never feeds back into readiness.
-## Shell routes, entrypoints, and experiences
-A process starts from a configurable shell entrypoint:
-```text
-development build -> gameplay
-normal release    -> startup sequence -> initial menu
-credits preview   -> credits -> title menu
-cutscene tool     -> prefab cutscene -> exit
-benchmark         -> prepared scenario
-```
-The engine owns stable route/experience IDs, lifecycle, focus, completion, failure, and scoped cleanup.
-Games own route names, parameters, and policy. A shell host configures **separate initial and home
-routes**:
-```rust
-pub struct ShellHostSpec {
-    pub initial_route: ShellRouteId,
-    pub home_route: ShellRouteId,
-}
-pub enum ShellCommand {
-    GoTo(ShellRouteRequest),
-    ReplaceWith(ShellRouteRequest),
-    Return,
-    QuitToHome,
-    ExitProcess,
-}
-```
-`initial_route` answers what this binary enters first. `home_route` answers where an active game/demo
-returns when it emits the host-independent `QuitToHome` command. They may differ: standalone Sanic may
-enter gameplay directly yet return to its barebones Sanic launcher; Ambition may enter its startup
-sequence and use the Ambition launcher as home.
+| V0 | OPEN | Compile modified dependency chain; run narrow, policy, headless, and visible tests |
+| V1 | OPEN | Poison captured-scope, immediate-revocation, bridge, and visible-cleanup tests |
+| W0 | OPEN | Canonical App-local active session owns current world state |
+| W1 | OPEN | Gameplay sleeps with no session; build-time placeholder worlds disappear |
+| W2 | OPEN | Camera, HUD, dialog, map, cutscene UI, input, and audio gain explicit ownership |
+| C0 | OPEN | Character/music/SFX authority becomes App-local provider fragments plus deterministic catalogs |
+| C1 | OPEN | Three-provider coexistence, order independence, duplicate diagnostics, multi-App isolation |
+| L0 | OPEN | Sanic/Mary-O report real preparation through `ambition_load` |
+| L1 | OPEN | Relaunch/retry/cancel/stream/promotion use correct fresh transaction authority |
+| A0 | OPEN after W0/C0 | Main Ambition game becomes a provider on the shared lifecycle |
+| A1 | OPEN after A0 | Ambition launcher derives Ambition + Sanic + Mary-O + Exit |
+| X0 | OPEN after A1 | Headless cross-experience cycle is leak-free |
+| X1 | OPEN after X0 | No-window rendered cycle proves presentation/camera/UI ownership |
+| B0 | OPEN | Startup sequence hands off to launcher; direct route entry remains available |
+| B1 | OPEN | Arbitrary loading activity proves engagement, ready-hold, Continue, cleanup |
+| F0 | LATER | Game-owned credits route and top-level cutscene adapter |
 
-Use ECS messages/components/plugins rather than assuming Rust traits. An experience owns a scoped
-entity/resource/input lifetime and reports semantic completion/failure/navigation. It may request
-`QuitToHome`, but it must not know or name its host's menu route. The host resolves the command, revokes
-gameplay input, retires the active session, cancels session-scoped load/stream work, restores shell
-focus, and activates `home_route` exactly once.
+## Ordered implementation plan
 
-The shell hosts one primary top-level experience and may host a shell-managed foreground such as a
-loading presentation. A foreground need not destroy the current gameplay experience; this permits
-in-session waits without routing every room transition through the application shell.
-## Standard shell sequence
-Boot is a configured shell route implemented by a reusable ordered sequence, not a separate crate. The
-initial neutral sequence runner lives in `ambition_game_shell::sequence` and is designed for later
-extraction only after a second substantial consumer proves the same abstraction. A segment has a
-semantic role, an implementation ID, and policy. The role does not dictate media format.
-```rust
-pub enum ShellSegmentRole {
-    Vanity,
-    Notice,
-    TitleReveal,
-    CreditsSection,
-    Custom(ShellRoleId),
-}
-```
-A vanity segment may be a text card, static image, image sequence, video adapter, shader scene, 3D
-scene, or arbitrary registered Bevy program with entities, systems, audio, and local input. The shell
-owns ordering, skip/cancel policy, completion, and cleanup. The segment owns its scoped implementation
-and reports ready-to-skip, completed, or failed. It never chooses the next route or sequence index.
-Provide low-cost standard helpers for:
-- text card;
-- static image;
-- image sequence;
-- timed hold/fade;
-- explicit acknowledgement;
-- load-barrier wait;
-- registered programmatic segment.
-Video remains an optional adapter so minimal demos do not inherit decoding and platform dependencies.
-### Vanity/startup route
-A normal startup route may sequence branding, notices, and a title reveal while `FrontendReady` work
-proceeds underneath. Never prolong a vanity segment solely to hide loading. When the sequence ends,
-route to the menu, show a load foreground if frontend readiness is unresolved, or show recovery on
-failure.
-### End credits
-Credits are a shell experience triggered by game policy after a semantic ending event. Gameplay reports
-the ending; it does not spawn credits UI or route the shell directly. Initially credits remain
-game-owned and may use the standard sequence runner or a custom experience. On completion/skip they
-route to a configured postgame or title state. Add an `ambition_credits` crate only if reusable credits
-layout, localization, attribution, controls, and multiple games justify it.
-### Cutscenes
-`ambition_cutscene` retains actor/camera/dialogue/world choreography.
-- **In-session cutscene:** gameplay remains active; no shell route is required.
-- **Shell-level cutscene:** opening cinematic, ending cinematic, preview tool, or
-  direct process entry; a shell adapter activates `ambition_cutscene` and maps completion back to a shell
-  result. Do not give generic shell segments gameplay-world powers merely to unify names. A future
-  `ambition_presentation_sequence` extraction requires at least two real hosts sharing substantial neutral
-  runner machinery.
-## Home menu, launcher catalog, and embedded demos
-The home menu is a stable shell experience backed by `ambition_menu`. Game policy supplies Continue/New
-Game/profile/settings/accessibility/quit actions, visuals, and a catalog of launchable top-level
-experiences. It may prefetch likely routes, but selection alone may promote work and commit.
+### Step 0 — Verify this worktree
 
-Plugins are installed at app construction; the runtime catalog contains only experiences compiled into
-that host. Each catalog entry supplies stable route ID, label/description, availability, and a route
-request—not a second app or runtime plugin loader.
+1. Run formatter, metadata, and generated-doc checks.
+2. Compile from platformer primitives through actors/render/shell/providers/apps.
+3. Run session, shell, headless lifecycle, and visible lifecycle tests.
+4. Fix feature gates, signatures, and schedule ordering from compiler/runtime evidence.
+5. Poison the captured-scope and immediate-retirement invariants; then update statuses.
 
-The Ambition desktop host registers the Ambition game plus every bundled demo (Sanic, Mary-O, and future
-demos). It depends on demo **content/session crates**, never their standalone `*_app` crates. Selecting
-an entry loads and activates the same experience provider used by that demo's standalone binary.
+### Step 1 — Canonical active-session world
 
-Each standalone demo app composes the same generic shell and minimal presentation but registers only its
-own demo route and barebones home menu. Its `initial_route` may be the demo itself; `QuitToHome` still
-reaches the demo-only launcher. Thus the same Sanic session returns to Ambition's launcher when hosted
-by Ambition and to Sanic's launcher when hosted by `sanic_demo`.
+1. Introduce one App-local active gameplay-session representation containing scope, provider/activation identity, room/world state, and staged session data.
+2. Move current-world pointers into it or explicit handles; gate gameplay schedules on its presence.
+3. Publish a prepared world atomically on activation and clear authority before frontend execution on retirement.
+4. Remove standalone build-time placeholder worlds.
+5. Prove safe launcher frames, fresh relaunch, and exact Sanic-to-Mary-O world replacement.
 
-The generic shell provides a plain no-art catalog/menu. Games may replace its presentation without
-replacing catalog, navigation, host-home, or routing semantics.
-## Load presentation and arbitrary activities
-`ambition_load_presentation` attaches a foreground to a specific unresolved barrier after a configurable
-hidden grace period. Fast loads produce no loading UI and no activity. There is no artificial
-minimum-visible delay.
-```rust
-pub enum ReadyTransitionPolicy {
-    AutoAdvance,
-    AwaitConfirmation,
-    AutoUnlessEngaged,
-}
-```
-`AutoUnlessEngaged` is the recommended activity default:
-1. reveal the foreground only after grace expires;
-2. start the configured activity;
-3. incidental input does not count as engagement;
-4. the activity deliberately reports meaningful engagement;
-5. if readiness arrives before engagement, advance automatically;
-6. if engaged, enter ready-hold and show a universal Continue action;
-7. let the activity continue until explicit confirmation;
-8. stop activity input, capture outcome, clean up, then commit.
-Activities may be movement practice, score attack, puzzles, rhythm games, lore, visual toys, or
-arbitrary game-installed Bevy programs. The coordinator contains no match over game-specific activity
-IDs. Every activity declares its frontend-resident assets, input context, engagement rule, cleanup
-scope, platform/memory limits, ready-hold support, and optional outcome. It cannot mutate destination,
-inventory, save, quest, or progression state. Version one may return score/completion/telemetry; rewards
-pass through game-owned policy after commit. Same-world scoped roots/schedules are acceptable only with
-isolation tests. The public protocol must permit a later isolated world/sub-app mini-session host.
-## Minimal plugins and customization
-The agreed crates must ship plain, correct reference implementations, not only protocols. A demo should
-be able to compose approximately:
-```rust
-app.add_plugins((
-    AmbitionLoadPlugin,
-    AmbitionGameShellPlugin,
-    BasicShellPresentationPlugin,
-    BasicLoadPresentationPlugin,
-));
-```
-Convenience groups such as `MinimalLoadPlugins` and `MinimalShellPlugins` may bundle these without
-hiding ownership. The minimal implementation must provide:
-- direct route entry;
-- plain text/static-image sequence helpers;
-- a simple initial menu;
-- hidden grace and a basic loading screen;
-- exact steps and optional estimated percentage;
-- indeterminate and failure views;
-- Retry/Return/Continue actions;
-- no-activity behavior and the activity lifecycle;
-- asset-free text fallbacks;
-- keyboard/controller navigation and accessible readable defaults.
-Sanic, Mary-O, and Ambition initially use this same path. Ambition may later install custom route
-content, sequence segments, menu skin, load renderer, and activities. Custom plugins consume the same
-semantic models and emit the same commands; they do not replace readiness, routing, or cleanup
-semantics.
-## Asset residency
-1. **Boot:** enough to render input/error/text fallback.
-2. **Shell-resident:** menu, sequence, loading UI, fonts, accessibility UI, and
-   selected activities.
-3. **Activation-critical:** required for the chosen route/barrier.
-4. **Streamable:** arrives after activation with explicit fallback.
-[`ambition_asset_manager`](../../../crates/ambition_asset_manager/) owns asset catalog/profile/residency
-vocabulary and translates Bevy load state into semantic work. It does not own saves, world construction,
-the shell, or the full load plan.
-## Failure and recovery
-A failed required step records its step/stage, safe player message, developer detail, retryability,
-cleanup need, and configured fallback route. The shell may offer Retry, Return, or Exit. An activity
-cannot hide failure. Retry may reuse verified immutable results but creates a new request identity.
-Cancellation/supersession rejects late completion. Route failure must not strand input, camera, audio
-focus, entities, or an inactive prepared session.
-## Integration status (living ledger)
-Source + passing tests are the authority here; a caveat is an OPEN/BLOCKED row,
-never a qualified DONE. Every DONE cites a passing test or a machine-checked
-invariant. Commands to re-verify are at the end of this section.
+### Step 2 — Complete runtime ownership
 
-### DONE
-- **Core crates green.** `ambition_load` (11 tests), `ambition_game_shell`
-  (9), `ambition_load_presentation` (9), `ambition_workspace_policy` (30 —
-  includes the load/shell carve + the standalone-demos-do-not-depend-on-
-  `ambition_app` policy). These cover the L*, S*, P* slices headlessly.
-- **Engine-neutral session scope** (`ambition_platformer_primitives::lifecycle::
-  session`). `SessionScopeId` / `ActiveSessionScope` / `SessionScopedEntity` /
-  `SessionRoot` / `SessionScopeRetired` + `SpawnSessionScopedExt` (ambient-scope
-  inheritance for nested and deferred spawns) + the retire sweep. 6 unit tests;
-  the inheritance and exact-per-scope-teardown invariants are poison-proven. This
-  is the reusable teardown substrate a route provider maps its activation onto,
-  and it is shell-free (usable by simulation/world-construction code alone).
-  *(commit `8f7094a7`)*
-- **Sanic is a real, host-independent shell experience** — the first mandatory
-  milestone. `SanicExperiencePlugin` (`game/ambition_demo_sanic/src/provider.rs`)
-  registers the `sanic` experience + gameplay route, builds the real session on
-  `RouteActivated` (the player body from `simulation_world` inherits the session
-  scope), and retires it on `RouteDeactivated`. `build_demo_app` is now a thin
-  standalone host (session-scope + `MinimalShellPlugins` + the provider;
-  `initial_route = sanic_gameplay`, `home_route = sanic_launcher`). *(commit
-  `8d7eb43f`)*
-  - **I1 (reusable provider), I3 (standalone host)** — DONE for Sanic. The
-    provider names no home route; the host supplies it.
-  - **I4 / #22 (quit-to-home + repeated leak-free relaunch)** — DONE.
-    `tests/shell_cycle.rs::sanic_launch_quit_relaunch_is_leak_free`: one player in
-    gameplay, ZERO after `QuitToHome` (player + act state + all session-scoped
-    entities gone), one after relaunch with a DISTINCT scope, clean second
-    teardown. Poison-proven (drop the retire signal → a player leaks home).
-  - **#20 / #21 (host-relative return; direct-entry standalone quits to a
-    non-initial home)** — DONE.
-    `tests/shell_cycle.rs::sanic_quit_to_home_is_host_relative`: the identical
-    provider under two different declared homes returns to each.
-- **Mary-O (SMB1) is the SECOND customer of the identical architecture** — one
-  session-scope + provider + shell machinery serves two unrelated games.
-  `Smb1ExperiencePlugin` (`game/ambition_demo_smb1/src/provider.rs`), a thin
-  `build_demo_app` host (`mary_o_gameplay` / `mary_o_launcher`), and
-  `game/ambition_demo_smb1_app/tests/shell_cycle.rs::{mary_o_launch_quit_relaunch_is_leak_free,
-  mary_o_quit_to_home_is_host_relative}` — both poison-proven. *(commit
-  `383a9662`)* This satisfies I1/I3/I4/#20/#21/#22 for Mary-O too, and the
-  acceptance-#18 "Sanic and Mary-O share minimal plugins and semantic contracts"
-  is now demonstrated for the shell/session/teardown layer. The provider lifecycle
-  is currently a clean copy of Sanic's; extracting the shared bridge is a
-  follow-up when the third consumer (Ambition) lands.
+1. Audit every gameplay spawn against captured scope and add a content-heavy fixture covering authored, nested, deferred, and dynamic spawns.
+2. Assign camera, gameplay input, HUD, map, dialog, cutscene UI, music, ambience, and looped SFX to host/session/experience owners.
+3. Prove each owner retires once while frontend camera/menu/input survive at home.
 
-### OPEN / BLOCKED (scoped, not started or partial)
-- **App-local content catalogs.** Characters/music/SFX are still process-global
-  first-install-wins seams (`character_roster.rs`, `session/data.rs`) read by many
-  non-`World` free functions across the engine (761 `ambition_actors` tests depend
-  on them). True per-App composition (acceptance: two Apps compose *different*
-  catalogs) requires threading a catalog handle through those call sites — a
-  whole-engine refactor. This is the **prerequisite for the Ambition host** (I2):
-  hosting Ambition + Sanic in one App needs both rosters, which global
-  first-install-wins cannot provide. **OPEN.**
-- **I0 real load contributors.** The Sanic route does not yet gate on a real
-  `ambition_load` barrier. `LoadCommand::Begin` overwrites a plan (resetting the
-  one-shot `commit_authorized`), so a reactive design — provider Begins/populates
-  the barrier on `ShellEvent::WaitingForLoad`, re-Begins per launch — is viable;
-  it just adds several frames of shell↔load↔shell latency (would shift exit_3 /
-  shell_cycle timing). **OPEN.**
-- **I2 Ambition launcher** (lists + launches Ambition + Sanic + Mary-O),
-  **I5 startup sequence** (vanity → launcher → session), **Ambition-as-provider**
-  (converting the main game's large startup/state flow into an experience),
-  **Mary-O provider/host** (SMB1), **P2/P3 arbitrary loading activity as a real
-  customer**, **I6 credits/cutscene adapters**. **OPEN** (Mary-O is explicitly
-  optional per maintainer note; Ambition takes priority).
-- **General feature-entity session-scoping.** `simulation_world` scopes the
-  player; the room-feature spawn helpers (`spawn_room_feature_entities`) are not
-  yet session-scoped. The Sanic room authors no feature entities, so Sanic
-  teardown is complete; content-heavy providers (Mary-O/Ambition) will need the
-  feature-spawn path threaded through `spawn_session_scoped`. **OPEN.**
+### Step 3 — App-local catalogs
 
-### Re-verify
-```bash
-export PATH="$HOME/.cargo/bin:$PATH"
-cargo test -p ambition_platformer_primitives lifecycle::session   # 6
-cargo test -p ambition_demo_sanic_app --test shell_cycle          # 2
-cargo test -p ambition_demo_sanic_app --test exit_3               # 3
-cargo test -p ambition_load -p ambition_game_shell -p ambition_load_presentation
-cargo test -p ambition_workspace_policy                           # 30
-```
-## Step-by-step implementation plan
-The executor must implement in this dependency order. Each step remains OPEN until every listed
-acceptance test passes; do not close a broad parent with a caveat.
-| Step | Status | Required result |
-|---|---|---|
-| L0 crate skeleton and policy guards | OPEN | three crates, legal dependency edges, MODULES/docs |
-| L1 load IDs, states, contributor protocol | OPEN | headless work registration/update/removal |
-| L2 barriers and exact accounting | OPEN | exact done/active/known-left + discovery state |
-| L3 cancellation, supersession, failure | OPEN | stale completion cannot alter current request |
-| L4 streaming/prefetch promotion | OPEN | work reuses identity/progress when promoted |
-| L5 estimates and evidence snapshot | OPEN | ranges/confidence/provenance separate from facts |
-| S0 shell route core and direct entry | OPEN | menu/gameplay/credits IDs route headlessly |
-| S1 host initial/home routes and exit commands | OPEN | QuitToHome resolves through host policy |
-| S2 scoped experience lifecycle | OPEN | activation/result/cleanup/focus are deterministic |
-| S3 standard sequence runner | OPEN | text + programmatic segments share one runner |
-| S4 minimal shell presentation/catalog | OPEN | no-art launcher lists registered experiences |
-| P0 load foreground and hidden grace | OPEN | fast barrier shows nothing; slow barrier reveals |
-| P1 progress/failure presentation | OPEN | steps, estimate, indeterminate, retry share evidence |
-| P2 activity host and engagement | OPEN | two unrelated activities need no engine branch |
-| P3 ready-hold and cleanup | OPEN | engaged activity continues; Continue cleans/commits |
-| I0 asset/save/world contributors | OPEN | at least three contributor kinds share protocol |
-| I1 reusable game/demo experience providers | SANIC + MARY-O DONE | `SanicExperiencePlugin` / `Smb1ExperiencePlugin`; Ambition OPEN |
-| I2 Ambition launcher integration | OPEN (blocked on App-local catalogs) | Ambition game + every bundled demo are selectable |
-| I3 standalone demo hosts | SANIC + MARY-O DONE | both `build_demo_app`s thin hosts |
-| I4 quit-to-home and repeated relaunch | SANIC + MARY-O DONE | both `shell_cycle.rs` leak-free + host-relative + poison |
-| I5 startup/menu/gameplay route | OPEN | sequence -> launcher -> prepared session end to end |
-| I6 credits and cutscene adapters | OPEN | direct credits and top-level cutscene entry work |
-| I7 architecture/poison policy | PARTIAL | standalone-no-app-dep policy green; more poison OPEN |
-| SS session-scope primitive (new) | DONE | `lifecycle::session`; 6 tests + 2 poison (`8f7094a7`) |
-### L0 — skeleton and dependency proof
-1. Create all three crates and add them to the workspace.
-2. Declare one concern per `MODULES.md` and crate-level doc.
-3. Add workspace-policy tests enforcing the dependency graph above.
-4. Add empty plugins that compile in headless and minimal app compositions.
-5. Do not add game-specific route/activity/media IDs.
-### L1–L5 — load core
-1. Land stable request, work, stage, and barrier IDs.
-2. Land contributor messages/API and a deterministic in-memory test contributor.
-3. Derive barrier snapshots and exact counts mechanically.
-4. Add open/closed discovery and dynamic child-work tests.
-5. Add cancellation/supersession/failure and poison late results.
-6. Add activation requirement and independent priority.
-7. Prove prefetch-to-required promotion preserves completed work.
-8. Add estimate ranges/confidence/provenance without affecting readiness.
-9. Add Bevy AssetServer/`bevy_asset_loader` adapters; do not reimplement either.
-10. Keep save/world/content adapters outside the load core.
-### S0–S4 — shell core, host policy, and minimal shell
-1. Land game-owned route/experience IDs plus configurable `initial_route` and
-`home_route`; prove they may differ.
-2. Prove direct entry to three fake experiences without rendering.
-3. Land `QuitToHome`, `Return`, restart, and process-exit as distinct semantic
-commands; experiences never name the host's home route.
-4. Land scoped experience ownership, commands/results, cleanup, and focus.
-5. Add primary experience plus optional shell-managed foreground.
-6. Land neutral sequence runner with text and custom programmatic fixtures.
-7. Add skip, acknowledgement, cancel, failure, and next-route policies.
-8. Add a generic launch catalog and basic text/static-image menu through
-`ambition_menu`; do not create a second navigation model.
-9. Add cutscene and game-owned credits adapters; keep in-session cutscenes
-unchanged.
-### P0–P3 — load presentation
-1. Register load foreground as a shell extension; do not modify shell for game IDs.
-2. Add hidden grace and prove fast loads instantiate no foreground/activity.
-3. Render exact step/stage evidence before adding percentage smoothing.
-4. Add estimated/indeterminate/failure policies and assert no pre-ready 100%.
-5. Land generic activity registration, scope, input, engagement, and outcome.
-6. Prove two unrelated fixtures run without coordinator branching.
-7. Add `AutoAdvance`, `AwaitConfirmation`, and `AutoUnlessEngaged`.
-8. Prove ready-hold, universal Continue, cleanup, and one activation commit.
-9. Poison destination mutation and leaked activity entities/resources.
-### I0–I7 — real integration and host-relative return
-1. Add asset, save/profile, and world-construction contributors; classify
-shell-resident, activation-critical, and streamable assets.
-2. Refactor each game/demo into a host-independent experience provider in its
-content/session crate. The provider owns session setup/teardown and emits semantic shell commands; it
-does not own a process, menu, or return route.
-3. Keep `ambition_demo_sanic_app` and `ambition_demo_smb1_app` as thin hosts:
-generic minimal plugins + one demo provider + one barebones catalog/home menu.
-4. Make `ambition_app` register the Ambition provider and all bundled demo
-providers directly. It may depend on demo content crates, never demo app crates.
-5. Populate Ambition's launcher catalog from registered providers. On desktop,
-prove Ambition, Sanic, and Mary-O are visible and launchable; feature-limited hosts show only
-compiled/available entries.
-6. Prove host-relative return: quit each embedded session to Ambition's launcher;
-quit standalone Sanic/Mary-O to their own launchers. No demo code branches on host identity or
-hard-codes an Ambition route.
-7. On return, revoke session input, cancel/retire session-scoped work, clean all
-session-owned entities/resources/cameras/audio, retain shell-resident assets, and activate home once.
-Re-launch repeatedly to expose leaks.
-8. Add startup route: programmatic vanity fixture -> launcher -> prepared session;
-add direct entry for gameplay, credits, and prefab cutscene.
-9. Remove replaced app-local startup/loading/session authorities and add policy
-checks against illegal app-crate dependencies or duplicate routing.
-10. Update live planning from passing tests only; archive execution diaries.
+1. Define character/music/SFX fragment types and generic provider registration.
+2. Assemble deterministically by provider/item ID; validate references and emit stable duplicate diagnostics.
+3. Publish App-local resources and migrate systems/pure helpers to explicit resources/parameters.
+4. Remove process-global lookup from integrated runtime authority.
+5. Prove standalone-only, Ambition-only, three-provider, registration-order, duplicate, and multiple-App cases.
+
+### Step 4 — Real provider load plans
+
+1. Create a fresh transaction per route request/relaunch.
+2. Report catalog validation, required assets, room/session preparation, staged immutable data, and classified streamable/speculative work.
+3. Consume one-shot authorization before activation.
+4. Prove hidden grace, slow reveal, exact facts, optional estimate, failure/Retry/Return Home, cancellation, streaming, promotion, and fresh relaunch authorization.
+
+### Step 5 — Ambition provider and launcher
+
+1. Extract main-game lifecycle from `ambition_app` startup authority and register it through the shared gameplay provider contract.
+2. Use shared session scope, active world, catalogs, load plan, ownership, and `QuitToHome`.
+3. Configure `ambition_startup`/`ambition_launcher`, link reusable Sanic/Mary-O providers, and derive entries from registrations.
+4. Prove each entry launches, returns, and relaunches.
+
+### Step 6 — Cross-experience proof
+
+Exercise `launcher -> Sanic -> launcher -> Mary-O -> launcher -> Ambition -> launcher -> Sanic -> launcher`. At every boundary assert one shell experience, zero/one gameplay session as appropriate, fresh IDs, correct world/catalog/input/camera/UI/audio, no stale load transaction, and no previous-provider state. Repeat in no-window rendered composition.
+
+### Step 7 — Startup and activity
+
+1. Configure minimal programmatic/text startup sequence without using vanity timing as load concealment.
+2. Preserve direct routes for tests/development.
+3. Add one deterministic arbitrary activity and prove unengaged auto-advance, engaged ready-hold, Continue, exact cleanup, and one activation commit.
+
+### Step 8 — Credits and cutscene adapters
+
+Register game-owned credits with postgame/home routing and a top-level cutscene adapter for previews/openings/endings; preserve ordinary in-session cutscenes.
+
 ## Required acceptance tests
-1. Headless load accounting works without render/assets.
-2. Exact completed/active/known-left counts survive dynamic discovery.
-3. Readiness ignores presentation percentages and optional streaming work.
-4. Promoted prefetch reuses work rather than duplicating it.
-5. Cancelled/superseded requests cannot activate through late results.
-6. Fast readiness creates no loading UI or activity.
-7. Slow readiness reveals after grace with honest evidence.
-8. Estimated percentage and step-only renderers consume the same snapshot.
-9. No display reaches 100% before barrier readiness.
-10. Shell enters gameplay, menu, credits, and cutscene routes directly.
-11. Arbitrary programmatic vanity segment runs and cleans up.
-12. Text/static/image-sequence helpers require no custom game renderer.
-13. In-session cutscene behavior remains outside shell routing.
-14. Two unrelated activities require no coordinator branch.
-15. Unengaged activity auto-advances; engaged activity waits for Continue.
-16. Activity cannot mutate destination and leaves no owned state after commit.
-17. Initial menu remains responsive while speculative prefetch runs.
-18. Sanic, Mary-O, and Ambition share minimal plugins and semantic contracts.
-19. Ambition's launcher enumerates and launches the Ambition game and every
-    bundled demo without depending on a demo `*_app` crate.
-20. `QuitToHome` from embedded Ambition/Sanic/Mary-O returns to Ambition's home;
-    the same command in standalone demos returns to their private home.
-21. A direct-entry standalone demo can quit to a home menu that was not its
-    initial route.
-22. Repeated launch -> quit-to-home -> relaunch cycles leak no session-owned
-    entities/resources/input/camera/audio or stale load completion.
-23. Custom presentation can replace visuals without replacing load/shell truth.
-24. Failure/retry/return restore input, camera, audio, and entity ownership.
-Every new invariant requires poison evidence before it supports a DONE claim.
-## Explicit non-goals for the first campaign
-- polished Ambition branding or final menu art;
-- video decoding as a mandatory dependency;
-- a universal cutscene/sequence framework;
-- a separate credits crate;
-- a separate activity/mini-session crate;
-- routing ordinary gameplay state through the shell;
-- rewards from loading activities;
-- historical telemetry before deterministic estimates work;
-- forcing every room transition to show a loading experience.
-## Current maintainer decisions
-- Crates are `ambition_load`, `ambition_game_shell`, and
-  `ambition_load_presentation`.
-- Boot is a configurable shell entry route, not a separate crate.
-- Vanity segments may be arbitrary programmatic Bevy experiences; static image,
-  image-sequence, and text forms are helpers. Video is optional.
-- Credits are initially a game-owned shell experience.
-- `ambition_cutscene` retains in-session narrative/world authority; shell-level
-  cutscenes use an adapter.
-- Load presentation supports arbitrary minigames and a complete minimal default.
-- Sanic, Mary-O, and Ambition first consume the same minimal path; polish comes
-  later through replaceable game plugins.
-- `initial_route` and `home_route` are separate host policy. Experiences emit
-  `QuitToHome`; they never hard-code the menu that launched them.
-- Ambition's home launcher registers the Ambition game and all bundled demo
-  providers. Standalone demo apps register the same provider under a private, minimal demo-only launcher
-  and never depend on `ambition_app`.
-- Streaming, prefetching, and activation-blocking work share one load system and
-  differ through barrier/priority policy.
+
+| Area | Proofs |
+|---|---|
+| Session | request-time ownership; nested/deferred inheritance; ambient-change immunity; immediate retirement revocation; A retirement preserves B; complete representative ownership; zero session state at home; visible/headless same lifecycle |
+| Catalog | provider-only catalogs; all three coexist; order independence; deterministic duplicates; multiple Apps; simulation/presentation same authority |
+| Load | hidden fast load; slow honest evidence; estimates non-authoritative; streaming activation; promotion reuse; cancelled/superseded inert; fresh retry/relaunch; one-shot commit |
+| Hosts | Ambition catalog exactly once each; direct standalone entry/private home; embedded host-relative return; repeated/cross-provider leak-free cycles; startup handoff; direct gameplay/credits/cutscene entry |
+| Activity | two unrelated registrations; unengaged auto-advance; engaged ready-hold; Continue cleanup/commit; destination isolation |
+
+Every invariant supporting `DONE` receives poison evidence.
+
+## Validation commands
+
+```bash
+cargo test -p ambition_platformer_primitives
+cargo test -p ambition_game_shell
+cargo test -p ambition_load
+cargo test -p ambition_load_presentation
+cargo test -p ambition_actors
+cargo test -p ambition_render
+cargo test -p ambition_demo_sanic
+cargo test -p ambition_demo_sanic_app
+cargo test -p ambition_demo_smb1
+cargo test -p ambition_demo_smb1_app
+cargo test -p ambition_workspace_policy
+cargo fmt --all -- --check
+python3 scripts/modules_md.py
+python3 scripts/generate_agent_index.py
+python3 scripts/check_agent_kb.py
+python3 scripts/check_doc_links.py
+```
+
+Run visible/no-window tests with their required features and add main Ambition packages once its provider lands. Report only executed commands.
+
+## Completion reporting
+
+Track executable slices as `DONE`, `OPEN`, or `BLOCKED`. `DONE` cites a passing test or machine-derived invariant; source inspection remains labeled. This live plan records current architecture and remaining work. Commit history or an archive holds detailed execution history.

@@ -12,6 +12,9 @@ use crate::ui_fonts::{UiFontWeight, UiFonts};
 use ambition_characters::actor::Health;
 use ambition_combat::events::FeatureVisualKind;
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
+use ambition_platformer_primitives::lifecycle::{
+    ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
+};
 use ambition_sim_view::{ActorRenderIndex, BossRenderIndex, FeatureViewIndex};
 
 #[derive(Component)]
@@ -32,10 +35,17 @@ pub fn sync_boss_health_bar_overlay(
     boss_render: Res<BossRenderIndex>,
     feature_views: Res<FeatureViewIndex>,
     ui_fonts: Option<Res<UiFonts>>,
+    active_session: Option<Res<ActiveSessionScope>>,
 ) {
     for entity in overlays.iter() {
         commands.entity(entity).despawn();
     }
+
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        return;
+    };
 
     let Some((health, boss_name)) = boss_render.iter().find_map(|(id, ident)| {
         let view = feature_views.get(id)?;
@@ -71,20 +81,23 @@ pub fn sync_boss_health_bar_overlay(
     };
 
     commands
-        .spawn((
-            Node {
-                position_type: PositionType::Absolute,
-                left: Val::Px(0.0),
-                right: Val::Px(0.0),
-                top: Val::Px(18.0),
-                justify_content: JustifyContent::Center,
-                align_items: AlignItems::FlexStart,
-                ..default()
-            },
-            ZIndex(34),
-            Name::new("Boss Health Overlay Root"),
-            BossHealthBarOverlayVisual,
-        ))
+        .spawn_session_scoped(
+            session_scope,
+            (
+                Node {
+                    position_type: PositionType::Absolute,
+                    left: Val::Px(0.0),
+                    right: Val::Px(0.0),
+                    top: Val::Px(18.0),
+                    justify_content: JustifyContent::Center,
+                    align_items: AlignItems::FlexStart,
+                    ..default()
+                },
+                ZIndex(34),
+                Name::new("Boss Health Overlay Root"),
+                BossHealthBarOverlayVisual,
+            ),
+        )
         .with_children(|root| {
             root.spawn((
                 Node {
@@ -145,6 +158,7 @@ pub fn sync_health_overlays(
     mut commands: Commands,
     world: Res<ambition_engine_core::RoomGeometry>,
     dev_state: Res<ambition_dev_tools::SandboxDevState>,
+    active_session: Option<Res<ActiveSessionScope>>,
     developer_tools: Res<ambition_dev_tools::dev_tools::DeveloperTools>,
     overlays: Query<Entity, With<HealthOverlayVisual>>,
     // Pure read-model consumer (E4 slice 5): the player rides its
@@ -163,6 +177,12 @@ pub fn sync_health_overlays(
         commands.entity(entity).despawn();
     }
 
+    let Some(session_scope) =
+        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
+    else {
+        return;
+    };
+
     if !dev_state.debug_enabled() || !developer_tools.show_health_bars {
         return;
     }
@@ -170,6 +190,7 @@ pub fn sync_health_overlays(
     if let Ok(pose) = player.single() {
         spawn_health_overlay(
             &mut commands,
+            session_scope,
             &world.0,
             "player",
             ae::Aabb::new(pose.pos, pose.size * 0.5),
@@ -197,6 +218,7 @@ pub fn sync_health_overlays(
                         let label = boss_render.get(id).map(|b| b.name.as_str()).unwrap_or(id);
                         spawn_health_overlay(
                             &mut commands,
+                            session_scope,
                             &world.0,
                             label,
                             frame.aabb,
@@ -213,6 +235,7 @@ pub fn sync_health_overlays(
                     let label = actor_render.get(id).map(|a| a.name.as_str()).unwrap_or(id);
                     spawn_health_overlay(
                         &mut commands,
+                        session_scope,
                         &world.0,
                         label,
                         ae::Aabb::new(view.pos, view.size * 0.5),
@@ -225,6 +248,7 @@ pub fn sync_health_overlays(
                 if view.alive {
                     spawn_health_overlay(
                         &mut commands,
+                        session_scope,
                         &world.0,
                         id,
                         ae::Aabb::new(view.pos, view.size * 0.5),
@@ -240,6 +264,7 @@ pub fn sync_health_overlays(
 
 fn spawn_health_overlay(
     commands: &mut Commands,
+    session_scope: SessionSpawnScope,
     world: &ae::World,
     name: &str,
     aabb: ae::Aabb,
@@ -255,44 +280,53 @@ fn spawn_health_overlay(
     let fill_w = width * ratio;
     let text = format!("{}/{}", health.current.max(0), health.max);
 
-    commands.spawn((
-        Sprite::from_color(
-            Color::srgba(0.02, 0.03, 0.05, 0.86),
-            BVec2::new(width + 5.0, height + 5.0),
-        ),
-        Transform::from_translation(world_to_bevy(
-            world,
-            ae::Vec2::new(center_x, y),
-            WORLD_Z_PLAYER + 12.0,
-        )),
-        Name::new(format!("Health bar bg: {name}")),
-        HealthOverlayVisual,
-    ));
-    if fill_w > 0.5 {
-        commands.spawn((
-            Sprite::from_color(fill_color, BVec2::new(fill_w, height)),
+    commands.spawn_session_scoped(
+        session_scope,
+        (
+            Sprite::from_color(
+                Color::srgba(0.02, 0.03, 0.05, 0.86),
+                BVec2::new(width + 5.0, height + 5.0),
+            ),
             Transform::from_translation(world_to_bevy(
                 world,
-                ae::Vec2::new(left + fill_w * 0.5, y),
-                WORLD_Z_PLAYER + 13.0,
+                ae::Vec2::new(center_x, y),
+                WORLD_Z_PLAYER + 12.0,
             )),
-            Name::new(format!("Health bar fill: {name}")),
+            Name::new(format!("Health bar bg: {name}")),
             HealthOverlayVisual,
-        ));
+        ),
+    );
+    if fill_w > 0.5 {
+        commands.spawn_session_scoped(
+            session_scope,
+            (
+                Sprite::from_color(fill_color, BVec2::new(fill_w, height)),
+                Transform::from_translation(world_to_bevy(
+                    world,
+                    ae::Vec2::new(left + fill_w * 0.5, y),
+                    WORLD_Z_PLAYER + 13.0,
+                )),
+                Name::new(format!("Health bar fill: {name}")),
+                HealthOverlayVisual,
+            ),
+        );
     }
-    commands.spawn((
-        Text2d::new(text),
-        TextFont {
-            font_size: 11.0,
-            ..default()
-        },
-        TextColor(Color::srgba(0.96, 0.98, 1.0, 0.98)),
-        Transform::from_translation(world_to_bevy(
-            world,
-            ae::Vec2::new(center_x, y - 13.0),
-            WORLD_Z_PLAYER + 14.0,
-        )),
-        Name::new(format!("Health label: {name}")),
-        HealthOverlayVisual,
-    ));
+    commands.spawn_session_scoped(
+        session_scope,
+        (
+            Text2d::new(text),
+            TextFont {
+                font_size: 11.0,
+                ..default()
+            },
+            TextColor(Color::srgba(0.96, 0.98, 1.0, 0.98)),
+            Transform::from_translation(world_to_bevy(
+                world,
+                ae::Vec2::new(center_x, y - 13.0),
+                WORLD_Z_PLAYER + 14.0,
+            )),
+            Name::new(format!("Health label: {name}")),
+            HealthOverlayVisual,
+        ),
+    );
 }

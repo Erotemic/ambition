@@ -12,6 +12,10 @@
 
 use bevy::prelude::*;
 
+use ambition_platformer_primitives::lifecycle::{
+    SessionScopedEntity, SessionSpawnScope, SpawnSessionScopedExt,
+};
+
 use crate::items::pickup::GroundItem;
 use crate::physics::{GravityZone, TemporaryZone};
 use ambition_engine_core as ae;
@@ -53,7 +57,12 @@ pub fn arm_thrown_gravity_grenades(
 pub fn tick_gravity_grenade_fuses(
     time: Res<ambition_time::WorldTime>,
     mut commands: Commands,
-    mut grenades: Query<(Entity, &GroundItem, &mut GravityGrenadeFuse)>,
+    mut grenades: Query<(
+        Entity,
+        &GroundItem,
+        &mut GravityGrenadeFuse,
+        Option<&SessionScopedEntity>,
+    )>,
     mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
@@ -61,21 +70,24 @@ pub fn tick_gravity_grenade_fuses(
     if dt <= 0.0 {
         return;
     }
-    for (entity, ground, mut fuse) in &mut grenades {
+    for (entity, ground, mut fuse, owner) in &mut grenades {
         fuse.timer -= dt;
         if fuse.timer > 0.0 {
             continue;
         }
-        commands.spawn((
-            GravityZone {
-                aabb: ae::Aabb::new(ground.pos, WELL_HALF),
-                dir: ae::Vec2::new(0.0, -1.0), // up
-            },
-            TemporaryZone {
-                remaining: WELL_DURATION_SECS,
-            },
-            Name::new("Gravity well (grenade)"),
-        ));
+        commands.spawn_session_scoped(
+            SessionSpawnScope::new(owner.map(|owner| owner.0)),
+            (
+                GravityZone {
+                    aabb: ae::Aabb::new(ground.pos, WELL_HALF),
+                    dir: ae::Vec2::new(0.0, -1.0), // up
+                },
+                TemporaryZone {
+                    remaining: WELL_DURATION_SECS,
+                },
+                Name::new("Gravity well (grenade)"),
+            ),
+        );
         sfx.write(ambition_sfx::SfxMessage::Play {
             id: ambition_sfx::ids::PORTAL_POWERUP,
             pos: ground.pos,

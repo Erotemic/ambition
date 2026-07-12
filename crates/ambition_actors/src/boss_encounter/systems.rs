@@ -68,6 +68,7 @@ pub fn update_boss_encounters(
     mut quests: ResMut<QuestRegistry>,
     mut cutscene_queue: ResMut<CutsceneTriggerQueue>,
     world: Res<ambition_engine_core::RoomGeometry>,
+    active_session: Option<Res<ambition_platformer_primitives::lifecycle::ActiveSessionScope>>,
     reward_chests: Query<
         (
             Entity,
@@ -91,6 +92,14 @@ pub fn update_boss_encounters(
         With<crate::features::FeatureSimEntity>,
     >,
 ) {
+    let Some(session_scope) =
+        ambition_platformer_primitives::lifecycle::SessionSpawnScope::for_optional_active_session(
+            active_session.as_deref(),
+        )
+    else {
+        return;
+    };
+
     // Sim clock: phase pacing (intro / phase-change timers, death outro,
     // reward grace) freezes alongside the player in bullet-time (ADR 0010); we
     // don't want phase transitions to fire while the sim is stopped.
@@ -254,6 +263,7 @@ pub fn update_boss_encounters(
 
     crate::features::sync_boss_reward_chests_ecs(
         &mut commands,
+        session_scope,
         save.data(),
         &registry,
         &world.0,

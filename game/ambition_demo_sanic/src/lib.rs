@@ -383,8 +383,8 @@ pub mod ball_dash;
 pub mod provider;
 
 pub use provider::{
-    sanic_session_world, SanicExperiencePlugin, SanicSessionLink, SanicSessionWorld,
-    SANIC_EXPERIENCE, SANIC_GAMEPLAY_ROUTE, SANIC_LAUNCHER_ROUTE,
+    sanic_session_world, SanicExperiencePlugin, SanicSessionWorld, SANIC_EXPERIENCE,
+    SANIC_GAMEPLAY_ROUTE, SANIC_LAUNCHER_ROUTE,
 };
 
 /// Content plugin for the Sanic movement demo: installs the roster, the world,
@@ -462,6 +462,7 @@ fn sanic_setup(
 ) {
     ambition::runtime::demo_fixture::simulation_world(
         &mut commands,
+        ambition::platformer::lifecycle::SessionSpawnScope::UNSCOPED,
         ambition::runtime::demo_fixture::SimulationSetup {
             world: &world,
             room_set: &room_set,
@@ -517,20 +518,6 @@ impl SanicRulesPlugin {
 impl Plugin for SanicRulesPlugin {
     fn build(&self, app: &mut App) {
         use bevy::prelude::IntoScheduleConfigs;
-
-        // Every rule below writes the engine-generic SFX seam. The complete
-        // engine group normally owns this message channel, but a reusable rules
-        // plugin must not panic merely because a thin/headless host omitted the
-        // registrar or changed plugin ordering. Register it only when absent so
-        // the ordinary engine-owned path remains unchanged and no duplicate
-        // message-maintenance system is installed.
-        if !app
-            .world()
-            .contains_resource::<bevy::prelude::Messages<ambition::sfx::SfxMessage>>()
-        {
-            app.add_message::<ambition::sfx::SfxMessage>();
-        }
-
         let sim = ambition::platformer::schedule::SimScheduleExt::sim_schedule(app);
         app.init_resource::<ball_dash::BallDashTuning>();
         // Attach the mode-local state and consume Sanic's semantic input verbs
@@ -633,20 +620,25 @@ fn spawn_sanic_mode_owner(
     session: Option<bevy::prelude::Res<ambition::platformer::lifecycle::ActiveSessionScope>>,
     mut sfx: bevy::prelude::MessageWriter<ambition::sfx::SfxMessage>,
 ) {
-    use ambition::platformer::lifecycle::SpawnSessionScopedExt;
+    use ambition::platformer::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
     // Sleep when a session-scoped host has retired the live session (i.e. at the
     // launcher): the room metadata may still read "sanic" until the next
     // activation overwrites it, but there is no session to own new state, so the
     // act owner must not be resurrected. When no `ActiveSessionScope` exists at
     // all (the historical Startup path and the D-C tests) the guard is inert.
-    let session_live = session.map_or(true, |scope| scope.current().is_some());
+    let session_live = session
+        .as_ref()
+        .map_or(true, |scope| scope.current().is_some());
+    let spawn_scope = session
+        .as_ref()
+        .map_or(SessionSpawnScope::UNSCOPED, |scope| scope.spawn_scope());
     if session_live && existing.iter().next().is_none() {
         // Owned by BOTH the mode (survives in-session room changes) and the
         // active session (torn down on a shell relaunch, which a same-mode
         // reload is NOT — so mode-scope alone would leak the act across a
         // launch → quit → relaunch cycle).
         commands
-            .spawn_session_scoped(SanicActState::default())
+            .spawn_session_scoped(spawn_scope, SanicActState::default())
             .insert(ambition::platformer::lifecycle::ModeScopedEntity(
                 SANIC_MODE.to_string(),
             ));

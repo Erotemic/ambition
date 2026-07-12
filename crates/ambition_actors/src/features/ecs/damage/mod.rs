@@ -86,6 +86,10 @@ pub fn apply_feature_hit_events(
     // headless test worlds that don't stand up the tuning resource still run
     // (they get the default feel).
     feel_tuning: Option<Res<crate::time::feel::SandboxFeelTuning>>,
+    // Authored character voice for struck NPCs (barks). App-local: `Option` so a
+    // minimal test world that exercises the hit path without a content bootstrap
+    // still runs (an empty catalog → the engine-generic barks).
+    character_catalog: Option<Res<ambition_characters::actor::character_catalog::CharacterCatalog>>,
     mut breakables: Query<
         (
             Entity,
@@ -184,6 +188,18 @@ pub fn apply_feature_hit_events(
     // `update_boss_encounters`.
 ) {
     let feel = feel_tuning.map(|r| *r).unwrap_or_default();
+    // Resolve the App-local character catalog once (or an empty fallback), so the
+    // struck-NPC bark helpers read authored voice without a process global.
+    let empty_catalog;
+    let catalog: &ambition_characters::actor::character_catalog::CharacterCatalog =
+        match character_catalog.as_deref() {
+            Some(catalog) => catalog,
+            None => {
+                empty_catalog =
+                    ambition_characters::actor::character_catalog::CharacterCatalog::empty();
+                &empty_catalog
+            }
+        };
     for event in hit_events.read().cloned() {
         // PogoBounce hits target only the breakable whose AABB
         // approximately matches the orb volume the engine reported.
@@ -272,6 +288,7 @@ pub fn apply_feature_hit_events(
             let mut em = cq.as_actor_mut();
             if apply_actor_hit(
                 &event,
+                catalog,
                 actor_entity,
                 *disposition,
                 &mut em,

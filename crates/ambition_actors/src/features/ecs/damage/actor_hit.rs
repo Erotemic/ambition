@@ -40,6 +40,7 @@ const CLING_DETACH_POP_SPEED: f32 = 180.0;
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn apply_actor_hit(
     event: &HitEvent,
+    catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
     actor_entity: Entity,
     disposition: ActorDisposition,
     em: &mut super::super::actor_clusters::ActorMut<'_>,
@@ -94,8 +95,11 @@ pub(crate) fn apply_actor_hit(
                     });
                     writers.vfx.write(VfxMessage::SpeechBubble {
                         pos: bark_anchor,
-                        text: super::super::super::npcs::npc_hostile_bark_line(interactable)
-                            .to_string(),
+                        text: super::super::super::npcs::npc_hostile_bark_line(
+                            catalog,
+                            interactable,
+                        )
+                        .to_string(),
                     });
                     writers.vfx.write(VfxMessage::Burst {
                         pos,
@@ -109,6 +113,7 @@ pub(crate) fn apply_actor_hit(
                     writers.vfx.write(VfxMessage::SpeechBubble {
                         pos: bark_anchor,
                         text: super::super::super::npcs::npc_hit_bark_line(
+                            catalog,
                             interactable,
                             aggression.strikes,
                         )
@@ -165,9 +170,10 @@ pub(crate) fn apply_actor_hit(
             // name (the identity every actor carries) and read its `on_hit`
             // pool. TEMP fallback to the CombatBanterRegistry until enemy rows
             // are populated (then drop the registry + its content installers).
-            let line = crate::character_roster::character_id_for_display_name(&em.config.name)
+            let line = catalog
+                .id_for_display_name(&em.config.name)
                 .and_then(|cid| {
-                    crate::character_roster::bark_line_for_character_id(
+                    catalog.bark_line(
                         cid,
                         ambition_characters::actor::character_catalog::BarkSituation::OnHit,
                         strikes,

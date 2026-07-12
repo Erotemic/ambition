@@ -61,6 +61,18 @@ pub struct CharacterCatalog(pub CharacterCatalogData);
     reason = "Public catalog API for future spawn-site consumers (EnemySpawn / BossSpawn migrations, custom spawn paths). Tested but not yet wired into a runtime call site."
 )]
 impl CharacterCatalog {
+    /// An empty catalog (no characters/presets). A safe fallback for a system
+    /// that may run before any provider fragment is registered — e.g. a minimal
+    /// test world that exercises one system without a full content bootstrap.
+    /// Every lookup returns `None`, so callers take their content-free default.
+    pub fn empty() -> Self {
+        Self(CharacterCatalogData {
+            brain_presets: Default::default(),
+            action_set_presets: Default::default(),
+            characters: Default::default(),
+        })
+    }
+
     /// Look up a character by id. Returns `None` if the id is not
     /// in the catalog — callers fall back to a placeholder spawn.
     pub fn get(&self, id: &str) -> Option<&CharacterCatalogEntry> {

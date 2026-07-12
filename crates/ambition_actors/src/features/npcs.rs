@@ -103,7 +103,7 @@ pub(crate) fn npc_brain_from_catalog(
 // per-family cluster. That keeps dialogue an actor capability (the
 // `ActorInteraction` seam): any talkable actor can drive them.
 
-use ambition_characters::actor::character_catalog::BarkSituation;
+use ambition_characters::actor::character_catalog::{BarkSituation, CharacterCatalog};
 use ambition_interaction::{Interactable, InteractionKind};
 
 pub(crate) fn npc_flag_id(id: &str) -> String {
@@ -125,12 +125,14 @@ fn npc_character_id(interactable: &Interactable) -> Option<&str> {
 /// On-hit bark for a struck peaceful actor: the character's catalog `barks.on_hit`
 /// pool (its authored voice), rotated by `strikes`; an actor with no catalog id
 /// or no on-hit pool gets the engine-generic default.
-pub(crate) fn npc_hit_bark_line(interactable: &Interactable, strikes: i32) -> &'static str {
+pub(crate) fn npc_hit_bark_line<'a>(
+    catalog: &'a CharacterCatalog,
+    interactable: &Interactable,
+    strikes: i32,
+) -> &'a str {
     let rotation = strikes.saturating_sub(1).max(0) as u32;
     if let Some(cid) = npc_character_id(interactable) {
-        if let Some(line) =
-            crate::character_roster::bark_line_for_character_id(cid, BarkSituation::OnHit, rotation)
-        {
+        if let Some(line) = catalog.bark_line(cid, BarkSituation::OnHit, rotation) {
             return line;
         }
     }
@@ -139,11 +141,12 @@ pub(crate) fn npc_hit_bark_line(interactable: &Interactable, strikes: i32) -> &'
 
 /// The shout a peaceful actor makes at the moment it turns hostile: the catalog
 /// `barks.provoked` pool (rotation 0), else the engine-generic default.
-pub(crate) fn npc_hostile_bark_line(interactable: &Interactable) -> &'static str {
+pub(crate) fn npc_hostile_bark_line<'a>(
+    catalog: &'a CharacterCatalog,
+    interactable: &Interactable,
+) -> &'a str {
     if let Some(cid) = npc_character_id(interactable) {
-        if let Some(line) =
-            crate::character_roster::bark_line_for_character_id(cid, BarkSituation::Provoked, 0)
-        {
+        if let Some(line) = catalog.bark_line(cid, BarkSituation::Provoked, 0) {
             return line;
         }
     }
@@ -155,13 +158,14 @@ pub(crate) fn npc_hostile_bark_line(interactable: &Interactable) -> &'static str
 /// pedestal), keyed by the actor's catalog id. `None` = nothing to say, so the
 /// ticker skips this actor (an anonymous actor has no ambient voice). Rotation
 /// cycles the pool.
-pub(crate) fn npc_ambient_bark_line(
+pub(crate) fn npc_ambient_bark_line<'a>(
+    catalog: Option<&'a CharacterCatalog>,
     interactable: &Interactable,
     situation: BarkSituation,
     rotation: u32,
-) -> Option<&'static str> {
+) -> Option<&'a str> {
     let cid = npc_character_id(interactable)?;
-    crate::character_roster::bark_line_for_character_id(cid, situation, rotation)
+    catalog?.bark_line(cid, situation, rotation)
 }
 
 pub(crate) fn npc_message(interactable: &Interactable, name: &str, hostile: bool) -> String {

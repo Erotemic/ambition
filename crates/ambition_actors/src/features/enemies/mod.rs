@@ -1,36 +1,15 @@
 //! Enemy data + state for the actor simulation: the [`CharacterRoster`] of
 //! archetype specs (loaded from `character_archetypes.ron`, installed via
 //! [`install_enemy_roster`]), per-actor locomotion state ([`ActorSpawnState`],
-//! [`ActorSurfaceState`]), surface-walker (PuppySlug) cling/wall predicates,
-//! and composite-visual planning. The per-frame physics/AI tick lives in the
-//! `integration` submodule; grounded enemies route through the shared
-//! `integrate_normal_spine`, aerial ones through [`super::step_floating_body`].
+//! [`ActorSurfaceState`]), and composite-visual planning. The per-frame
+//! physics/AI tick lives in the `integration` submodule; every actor —
+//! grounded, aerial, and the adhesive crawler — integrates through the one
+//! shared movement kernel (`ae::step_motion`).
 
 use super::*;
 
 mod integration;
 pub use integration::ContactAttack;
-
-/// Predicate matching any tile a surface-walker (PuppySlug) can
-/// CLING TO — both solid blocks and one-way platforms count, mirroring
-/// what step_kinematic treats as "ground" for grounded actors.
-fn surface_solid_pred(b: &ae::Block) -> bool {
-    matches!(
-        b.kind,
-        ae::BlockKind::Solid | ae::BlockKind::OneWay | ae::BlockKind::BlinkWall { .. }
-    )
-}
-
-/// Predicate matching tiles a surface-walker treats as "walls in
-/// the way" — strictly solid, NOT one-way. A one-way platform sitting
-/// in the slug's path along a wall must not register as a concave
-/// corner since the slug would never collide with its side anyway.
-fn surface_wall_pred(b: &ae::Block) -> bool {
-    matches!(
-        b.kind,
-        ae::BlockKind::Solid | ae::BlockKind::BlinkWall { .. }
-    )
-}
 
 /// The authored spawn baseline an actor reverts to on a same-room reset
 /// (`reset_to_spawn`): position and body size. No entity morphs its

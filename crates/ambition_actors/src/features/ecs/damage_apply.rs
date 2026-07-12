@@ -220,7 +220,7 @@ pub(crate) fn death_respawn_player(
         clusters.abilities,
         &mut *clusters.dash,
         &mut *clusters.jump,
-        tuning,
+        tuning.air_jumps,
     );
     clusters.mana.meter.refill_full();
     safety.last_safe_pos = world.spawn;
@@ -267,6 +267,8 @@ pub(crate) fn handle_player_damage_events(
     armor: Option<&mut WornEquipment>,
     damage_events: &[FeatureHitEvent],
     tuning: ae::MovementTuning,
+    // The body's frame down direction, resolved by the environment.
+    gravity_dir: ae::Vec2,
     feel: SandboxFeelTuning,
     difficulty_multiplier: f32,
     // The controlled body's held locomotion (local frame) for DI (CM2).
@@ -302,7 +304,7 @@ pub(crate) fn handle_player_damage_events(
         clusters.kinematics.facing,
         clusters.kinematics.pos,
         impact_pos,
-        tuning.gravity_dir,
+        gravity_dir,
         damage.damage,
         difficulty_multiplier,
         false,
@@ -386,6 +388,7 @@ pub(crate) fn handle_player_damage_events(
                     clusters,
                     combat,
                     tuning,
+                    gravity_dir,
                     feel,
                     &damage,
                     di_input_local,
@@ -414,7 +417,7 @@ pub(crate) fn safe_respawn_player(
         clusters.abilities,
         &mut *clusters.dash,
         &mut *clusters.jump,
-        tuning,
+        tuning.air_jumps,
     );
     combat.damage_invuln_timer = feel.hazard_respawn_invulnerability_time;
     combat.hitstun_timer = 0.0;
@@ -538,6 +541,8 @@ pub(crate) fn apply_player_knockback(
     clusters: &mut ae::BodyClustersMut<'_>,
     combat: &mut BodyCombat,
     tuning: ae::MovementTuning,
+    // The body's frame down direction, resolved by the environment.
+    gravity_dir: ae::Vec2,
     feel: SandboxFeelTuning,
     damage: &FeatureHitEvent,
     // The controlled body's held locomotion (local frame) for DI (CM2).
@@ -558,7 +563,7 @@ pub(crate) fn apply_player_knockback(
         combat,
         pos,
         facing,
-        tuning.gravity_dir,
+        gravity_dir,
         boss_hit,
         knockback,
         di_input_local,
@@ -568,7 +573,7 @@ pub(crate) fn apply_player_knockback(
         clusters.abilities,
         &mut *clusters.dash,
         &mut *clusters.jump,
-        tuning,
+        tuning.air_jumps,
     );
     sfx.write(SfxMessage::Hit { pos: impact_pos });
     vfx.write(VfxMessage::Impact { pos: impact_pos });
@@ -592,10 +597,11 @@ pub fn apply_player_hit_events(
     // (S3e's relational `relations` + `attacker_factions` pushed this to 17).
     // `class_b` is the §3.2 transit ledger — death and hazard respawn are both
     // Class-B remaps, and this system is where the victim's entity id is known.
-    (world, moving_platforms, mut class_b): (
+    (world, moving_platforms, mut class_b, gravity): (
         Res<RoomGeometry>,
         Res<MovingPlatformSet>,
         Option<ResMut<ambition_platformer_primitives::class_b::ClassBRemapLog>>,
+        crate::physics::GravityCtx,
     ),
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
@@ -723,6 +729,9 @@ pub fn apply_player_hit_events(
         let di_input_local = control.map(|c| c.0.locomotion).unwrap_or(ae::Vec2::ZERO);
 
         let mut clusters = cluster_item.as_clusters_mut();
+        // The victim's frame direction, resolved by the environment at its
+        // position (shield side + knockback launch are frame-relative).
+        let victim_gravity_dir = gravity.dir_at(clusters.kinematics.pos);
         let remapped = handle_player_damage_events(
             &world.0,
             &mut sfx_writer,
@@ -737,6 +746,7 @@ pub fn apply_player_hit_events(
             worn.map(|w| w.into_inner()),
             &target_events,
             tuning,
+            victim_gravity_dir,
             feel,
             difficulty_multiplier,
             di_input_local,

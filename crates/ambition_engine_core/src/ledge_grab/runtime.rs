@@ -13,7 +13,8 @@ fn launch_away_from_feet(
     platform_side_axis: f32,
     platform_speed: f32,
 ) -> Vec2 {
-    frame.side() * (platform_side_axis * platform_speed) - frame.down() * tuning.jump_speed
+    frame.side() * (platform_side_axis * platform_speed)
+        - frame.down() * tuning.locomotion.jump_speed
 }
 
 fn point_from_frame_coords(frame: crate::AccelerationFrame, side: f32, down: f32) -> Vec2 {
@@ -175,26 +176,7 @@ pub fn probe_ledge_grab(
 
 /// If the player is currently hanging/climbing, advance that state and return
 /// true to indicate that the normal movement integrator should not run this
-/// frame.
-pub fn tick_active_ledge_grab_clusters(
-    clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
-    input: InputState,
-    dt: f32,
-    tuning: MovementTuning,
-    events: &mut crate::movement::FrameEvents,
-) -> bool {
-    let frame = crate::MotionFrame::from_direction(tuning.gravity_dir, tuning.gravity);
-    tick_active_ledge_grab_clusters_in_frame(
-        clusters,
-        input,
-        dt,
-        frame,
-        tuning.axis_swept_params(),
-        events,
-    )
-}
-
-/// Frame-explicit ledge runtime used by the unified movement kernel.
+/// frame. Frame-explicit: the caller supplies the environment-resolved frame.
 pub fn tick_active_ledge_grab_clusters_in_frame(
     clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
     input: InputState,
@@ -248,7 +230,7 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
     // Player-frame "descend": "up" = away from the feet (climb up the ledge),
     // "down" = toward the feet (drop). Gravity- + input-mode-relative via the
     // resolved stick `y`.
-    let local_stick = tuning.stick(&input);
+    let local_stick = input.local_axis();
     let input_up = local_stick.y < -0.4;
     let input_down = local_stick.y > 0.4;
     let input_into_platform = local_stick.x * into_platform_axis(state.contact) > 0.4;
@@ -300,12 +282,13 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
         clusters.ground.on_ground = false;
         clusters.ledge.grab = None;
         clusters.ledge.release_cooldown = LEDGE_REGRAB_COOLDOWN;
-        clusters.kinematics.vel = launch_away_from_feet(frame, tuning, away_x, tuning.wall_jump_x);
+        clusters.kinematics.vel =
+            launch_away_from_feet(frame, tuning, away_x, tuning.locomotion.wall_jump_x);
         crate::body_clusters::refresh_movement_resources_clusters(
             clusters.abilities,
             &mut *clusters.dash,
             &mut *clusters.jump,
-            tuning,
+            tuning.locomotion.air_jumps,
         );
         events.op_clusters(clusters.combo_trace, MovementOp::LedgeJump);
         return true;
@@ -318,14 +301,15 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
         clusters.ground.on_ground = false;
         clusters.ledge.grab = None;
         clusters.ledge.release_cooldown = LEDGE_REGRAB_COOLDOWN;
-        let mut launch = launch_away_from_feet(frame, tuning, into_x, tuning.jump_speed * 0.35);
+        let mut launch =
+            launch_away_from_feet(frame, tuning, into_x, tuning.locomotion.jump_speed * 0.35);
         launch += ledge_boost_for_state_in_frame(state, frame, &tuning);
         clusters.kinematics.vel = launch;
         crate::body_clusters::refresh_movement_resources_clusters(
             clusters.abilities,
             &mut *clusters.dash,
             &mut *clusters.jump,
-            tuning,
+            tuning.locomotion.air_jumps,
         );
         events.op_clusters(clusters.combo_trace, MovementOp::LedgeJump);
         return true;
@@ -439,12 +423,11 @@ fn requested_wall_normal_clusters(
     wall: &crate::body_clusters::BodyWallState,
     ground: &crate::body_clusters::BodyGroundState,
     input: InputState,
-    tuning: AxisSweptParams,
 ) -> Option<f32> {
     if wall.wall_clinging && wall.wall_normal_x.abs() >= 0.5 {
         return Some(wall.wall_normal_x);
     }
-    let local_stick = tuning.stick(&input);
+    let local_stick = input.local_axis();
     if !ground.on_ground && local_stick.x.abs() > LEDGE_GRAB_INTENT_DEADZONE {
         return Some(-local_stick.x.signum());
     }
@@ -456,7 +439,7 @@ fn requested_wall_normal_clusters(
 /// Returns a velocity to ADD to the launch / post-transition velocity
 /// of an eligible getup (climb / roll / attack / vertical ledge-jump).
 /// Returns zero when:
-/// - The mechanic is disabled via `tuning.ledge_momentum.window == 0.0`.
+/// - The mechanic is disabled via `tuning.abilities.ledge_momentum.window == 0.0`.
 /// - The window has elapsed (so a player who lingered on the ledge
 ///   doesn't claim a stale boost when they finally act).
 /// - The carried component is in a direction that wouldn't count as
@@ -467,17 +450,6 @@ fn requested_wall_normal_clusters(
 /// machine ticks `climb_elapsed` after that point, so subtract it
 /// from `state.elapsed` at the call site. (See [`ledge_boost_for_state`]
 /// which does that subtraction for you.)
-pub fn ledge_boost(
-    momentum_at_grab: Vec2,
-    contact: LedgeContact,
-    elapsed_at_initiation: f32,
-    tuning: &MovementTuning,
-) -> Vec2 {
-    let frame = crate::MotionFrame::from_direction(tuning.gravity_dir, tuning.gravity);
-    let params = tuning.axis_swept_params();
-    ledge_boost_in_frame(momentum_at_grab, contact, elapsed_at_initiation, frame, &params)
-}
-
 pub fn ledge_boost_in_frame(
     momentum_at_grab: Vec2,
     contact: LedgeContact,
@@ -485,7 +457,7 @@ pub fn ledge_boost_in_frame(
     frame: crate::MotionFrame,
     tuning: &AxisSweptParams,
 ) -> Vec2 {
-    let cfg = tuning.ledge_momentum;
+    let cfg = tuning.abilities.ledge_momentum;
     if cfg.window <= 0.0 || elapsed_at_initiation > cfg.window {
         return Vec2::ZERO;
     }
@@ -521,12 +493,6 @@ pub fn ledge_boost_in_frame(
 /// Convenience: compute the boost from a [`LedgeGrabState`]. For
 /// transitions that have already started ticking `climb_elapsed`,
 /// subtracts that from `elapsed` to recover the grab-to-action time.
-pub fn ledge_boost_for_state(state: LedgeGrabState, tuning: &MovementTuning) -> Vec2 {
-    let frame = crate::MotionFrame::from_direction(tuning.gravity_dir, tuning.gravity);
-    let params = tuning.axis_swept_params();
-    ledge_boost_for_state_in_frame(state, frame, &params)
-}
-
 pub fn ledge_boost_for_state_in_frame(
     state: LedgeGrabState,
     frame: crate::MotionFrame,
@@ -553,7 +519,7 @@ pub fn ledge_boost_weight_for_state(state: LedgeGrabState, tuning: &AxisSweptPar
     if !state.grab_quality.is_precise() {
         return 0.0;
     }
-    let cfg = tuning.ledge_momentum;
+    let cfg = tuning.abilities.ledge_momentum;
     if cfg.window <= 0.0 {
         return 0.0;
     }
@@ -567,7 +533,7 @@ pub fn ledge_boost_weight_for_state(state: LedgeGrabState, tuning: &AxisSweptPar
 /// "no stop-and-go" feel a quick getup should have.
 pub fn ledge_getup_duration_scale(state: LedgeGrabState, tuning: &AxisSweptParams) -> f32 {
     let weight = ledge_boost_weight_for_state(state, tuning);
-    1.0 / (1.0 + weight * tuning.ledge_momentum.getup_speedup_gain)
+    1.0 / (1.0 + weight * tuning.abilities.ledge_momentum.getup_speedup_gain)
 }
 
 /// Minimum downward velocity for the no-input falling auto-snap
@@ -595,31 +561,12 @@ const FALL_SNAP_MIN_VY: f32 = 45.0;
 /// release cooldown, and either a wall-cling axis press or a fast
 /// falling auto-snap into a grabbable lip. On a successful latch,
 /// captures the pre-wall momentum + arms the post-grab invuln.
-pub fn try_start_ledge_grab_clusters(
-    world: &World,
-    clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
-    input: InputState,
-    tuning: MovementTuning,
-    events: &mut crate::movement::FrameEvents,
-) -> bool {
-    let frame = crate::MotionFrame::from_direction(tuning.gravity_dir, tuning.gravity);
-    try_start_ledge_grab_clusters_in_frame(
-        world,
-        clusters,
-        input,
-        frame,
-        tuning.axis_swept_params(),
-        events,
-    )
-}
-
-/// Frame-explicit ledge acquisition used by the unified movement kernel.
+/// Frame-explicit: the caller supplies the environment-resolved frame.
 pub fn try_start_ledge_grab_clusters_in_frame(
     world: &World,
     clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
     input: InputState,
     frame: crate::MotionFrame,
-    tuning: AxisSweptParams,
     events: &mut crate::movement::FrameEvents,
 ) -> bool {
     if !clusters.abilities.abilities.ledge_grab
@@ -633,8 +580,7 @@ pub fn try_start_ledge_grab_clusters_in_frame(
     }
 
     let mut contact: Option<LedgeContact> = None;
-    if let Some(wall_normal) =
-        requested_wall_normal_clusters(clusters.wall, clusters.ground, input, tuning)
+    if let Some(wall_normal) = requested_wall_normal_clusters(clusters.wall, clusters.ground, input)
     {
         contact = probe_ledge_grab_in_frame(
             clusters.kinematics.pos,
@@ -700,35 +646,4 @@ pub fn try_start_ledge_grab_clusters_in_frame(
     }
     events.op_clusters(clusters.combo_trace, MovementOp::LedgeGrab);
     true
-}
-
-/// Scratch-based wrapper around [`tick_active_ledge_grab_clusters`]. The
-/// engine ledge_grab tests use this so they can keep the
-/// "build a Player → assert against it" pattern.
-pub fn tick_active_ledge_grab_scratch(
-    scratch: &mut crate::body_clusters::BodyClusterScratch,
-    input: InputState,
-    dt: f32,
-    tuning: MovementTuning,
-    events: &mut crate::movement::FrameEvents,
-) -> bool {
-    let mut clusters = scratch.as_mut();
-    tick_active_ledge_grab_clusters(&mut clusters, input, dt, tuning, events)
-}
-
-/// Scratch-based wrapper around [`try_start_ledge_grab_clusters`].
-pub fn try_start_ledge_grab_scratch(
-    world: &World,
-    scratch: &mut crate::body_clusters::BodyClusterScratch,
-    input: InputState,
-    events: &mut crate::movement::FrameEvents,
-) -> bool {
-    let mut clusters = scratch.as_mut();
-    try_start_ledge_grab_clusters(
-        world,
-        &mut clusters,
-        input,
-        MovementTuning::default(),
-        events,
-    )
 }

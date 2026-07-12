@@ -163,7 +163,9 @@ pub fn integrate_home_body(
             active_ledge_platform.map(|idx| moving_platforms[idx].last_delta())
         {
             match ledge_platform_carry(world, player_aabb_pre, platform_delta) {
-                LedgePlatformCarry::KnockOff => clusters.ledge.knock_off_on_hit(),
+                LedgePlatformCarry::KnockOff => {
+                    clusters.ledge.knock_off_on_hit();
+                }
                 LedgePlatformCarry::Carry => {
                     clusters.kinematics.pos += platform_delta;
                     if let Some(grab) = clusters.ledge.grab.as_mut() {

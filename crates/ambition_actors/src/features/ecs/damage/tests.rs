@@ -31,6 +31,7 @@ fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
             FeatureId::new("kernel_guide"),
             CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
             enemy.into_components(),
+            crate::features::MotionModel::default(),
             identity,
             disposition,
             combat,
@@ -261,8 +262,8 @@ fn a_sustained_overlap_lands_one_hit_per_iframe_window_not_one_per_frame() {
     );
 }
 
-/// Shared setup for the cling-break tests: spawn a hostile actor, make it a
-/// surface-walker clung to a LEFT wall (outward normal +x), then slash it.
+/// Shared setup for the cling-break tests: spawn a hostile actor, make it an
+/// adhesive crawler clung to a LEFT wall (outward normal +x), then slash it.
 fn slash_clung_surface_walker(cling_breaks_on_hit: bool) -> (App, bevy::prelude::Entity) {
     let mut app = App::new();
     app.insert_resource(GameplayBanner::default());
@@ -282,6 +283,18 @@ fn slash_clung_surface_walker(cling_breaks_on_hit: bool) -> (App, bevy::prelude:
             .unwrap();
         cfg.tuning.surface_walker = true;
         cfg.tuning.cling_breaks_on_hit = cling_breaks_on_hit;
+    }
+    {
+        // The crawler POLICY with a live attachment — the explicit model the
+        // spawn selector installs for `surface_walker` archetypes.
+        let mut model = app
+            .world_mut()
+            .get_mut::<crate::features::MotionModel>(actor)
+            .unwrap();
+        *model = crate::features::MotionModel::AdhesiveCrawler(ae::AdhesiveCrawlerMotion {
+            params: ae::CrawlerParams::default(),
+            state: ae::CrawlerState::attached(ae::Vec2::new(1.0, 0.0)),
+        });
     }
     {
         app.world_mut()
@@ -691,6 +704,7 @@ fn spawn_shielding_actor(app: &mut App, shield_raised: bool) -> bevy::prelude::E
             FeatureId::new("guard"),
             CenteredAabb::from_center_size(aabb.center(), aabb.half_size() * 2.0),
             enemy.into_components(),
+            crate::features::MotionModel::default(),
             identity,
             disposition,
             combat,
@@ -996,6 +1010,7 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
                 facing: 1.0,
                 ..Default::default()
             },
+            crate::features::MotionModel::default(),
             ambition_engine_core::CenteredAabb::from_center_size(
                 ae::Vec2::ZERO,
                 ae::Vec2::new(20.0, 40.0),

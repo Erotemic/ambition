@@ -6,6 +6,8 @@ use super::super::*;
 use super::{step_scratch, test_world};
 use crate::body_clusters::BodyClusterScratch;
 use crate::geometry::AabbExt;
+#[allow(unused_imports)]
+use crate::test_support::*;
 use crate::world::Block;
 use crate::{Aabb, AbilitySet, Vec2, World};
 
@@ -46,7 +48,7 @@ fn one_way_platform_requires_down_plus_jump_to_drop_through() {
             &world,
             &mut scratch,
             InputState {
-                axis_y: 1.0,
+                axes: crate::LocalAxes::new(0.0, 1.0),
                 ..Default::default()
             },
         );
@@ -68,7 +70,7 @@ fn one_way_platform_requires_down_plus_jump_to_drop_through() {
         &world,
         &mut scratch,
         InputState {
-            axis_y: 1.0,
+            axes: crate::LocalAxes::new(0.0, 1.0),
             jump_pressed: true,
             ..Default::default()
         },
@@ -78,7 +80,7 @@ fn one_way_platform_requires_down_plus_jump_to_drop_through() {
             &world,
             &mut scratch,
             InputState {
-                axis_y: 1.0,
+                axes: crate::LocalAxes::new(0.0, 1.0),
                 // jump_pressed is NOT held: this
                 // is exactly the input shape the sandbox produces after
                 // the initial press.
@@ -120,15 +122,14 @@ fn wall_jump_does_not_catapult_through_left_wall() {
         &world,
         &mut scratch,
         InputState {
-            axis_x: -1.0,
-            axis_y: 0.0,
+            axes: crate::LocalAxes::new(-1.0, 0.0),
             jump_pressed: true,
             jump_held: true,
             control_dt: 1.0 / 60.0,
             ..Default::default()
         },
         1.0 / 60.0,
-        DEFAULT_TUNING,
+        TEST_TUNING,
     );
 
     assert!(
@@ -148,7 +149,7 @@ fn wall_jump_does_not_catapult_through_left_wall() {
 fn wall_jump_uses_local_side_axis_under_sideways_gravity() {
     let world = test_world();
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
-    let mut tuning = DEFAULT_TUNING;
+    let mut tuning = TEST_TUNING;
     tuning.gravity_dir = Vec2::new(1.0, 0.0);
 
     scratch.ground.on_ground = false;
@@ -174,7 +175,8 @@ fn wall_jump_uses_local_side_axis_under_sideways_gravity() {
             clusters.jump,
             clusters.combo_trace,
             InputState::default(),
-            tuning,
+            tuning.frame(),
+            tuning.params(),
             &mut events,
         );
     }
@@ -216,12 +218,12 @@ fn wall_jump_does_not_catapult_player_off_wall_overlap() {
         &world,
         &mut scratch,
         InputState {
-            axis_x: -1.0,
+            axes: crate::LocalAxes::new(-1.0, 0.0),
             control_dt: 1.0 / 60.0,
             ..Default::default()
         },
         1.0 / 60.0,
-        DEFAULT_TUNING,
+        TEST_TUNING,
     );
 
     let dx = (scratch.kinematics.pos.x - initial_x).abs();
@@ -246,7 +248,7 @@ fn wall_cling_does_not_teleport_to_wall_top_on_y_sweep() {
     let wall_right = 36.0;
     scratch.kinematics.pos.x = wall_right + half.x - 0.05;
     scratch.kinematics.pos.y = world.size.y * 0.5; // ~450, well inside the room
-    scratch.kinematics.vel = Vec2::new(0.0, DEFAULT_TUNING.wall_slide_speed);
+    scratch.kinematics.vel = Vec2::new(0.0, TEST_TUNING.wall_slide_speed);
     scratch.ground.on_ground = false;
     scratch.wall.on_wall = true;
     scratch.wall.wall_normal_x = 1.0;
@@ -257,12 +259,12 @@ fn wall_cling_does_not_teleport_to_wall_top_on_y_sweep() {
         &world,
         &mut scratch,
         InputState {
-            axis_x: -1.0,
+            axes: crate::LocalAxes::new(-1.0, 0.0),
             control_dt: 1.0 / 60.0,
             ..Default::default()
         },
         1.0 / 60.0,
-        DEFAULT_TUNING,
+        TEST_TUNING,
     );
 
     assert!(
@@ -318,11 +320,11 @@ fn partial_wall_cling_overlap_does_not_teleport_upward() {
         &mut scratch,
         InputState {
             control_dt: 1.0 / 60.0,
-            axis_x: -1.0, // pressing toward wall
+            axes: crate::LocalAxes::new(-1.0, 0.0), // pressing toward wall
             ..Default::default()
         },
         1.0 / 60.0,
-        DEFAULT_TUNING,
+        TEST_TUNING,
     );
 
     let dy = (scratch.kinematics.pos.y - start_y).abs();
@@ -369,7 +371,7 @@ fn descending_onto_top_corner_of_tall_block_lands_normally() {
             ..Default::default()
         },
         1.0 / 60.0,
-        DEFAULT_TUNING,
+        TEST_TUNING,
     );
 
     let body = scratch.kinematics.aabb();
@@ -511,8 +513,7 @@ fn flying_into_the_ceiling_corner_never_ejects_the_body_from_the_world() {
             &world,
             &mut scratch,
             InputState {
-                axis_x: 1.0,
-                axis_y: -1.0,
+                axes: crate::LocalAxes::new(1.0, -1.0),
                 ..Default::default()
             },
         );
@@ -578,7 +579,7 @@ fn sliding_along_the_ceiling_edge_does_not_teleport_across_the_room() {
             &world,
             &mut scratch,
             InputState {
-                axis_x: -1.0,
+                axes: crate::LocalAxes::new(-1.0, 0.0),
                 ..Default::default()
             },
         );
@@ -655,12 +656,12 @@ fn one_way_drop_through_works_under_inverted_gravity() {
     // the player rests on the platform's BOTTOM face and local "down + jump"
     // drops them through, toward gravity (-Y). Raw screen-UP is mapped into this
     // local intent before the movement engine sees `InputState`.
-    use crate::movement::tuning::DEFAULT_TUNING;
+    use crate::test_support::TEST_TUNING;
     let g = Vec2::new(0.0, -1.0);
-    let tuning = MovementTuning {
+    let tuning = TestTuning {
         gravity_dir: g,
         gravity_sign: -1.0,
-        ..DEFAULT_TUNING
+        ..TEST_TUNING
     };
     let step = |world: &World, scratch: &mut BodyClusterScratch, input: InputState| {
         update_player_with_tuning_scratch(world, scratch, input, 1.0 / 60.0, tuning);
@@ -697,7 +698,7 @@ fn one_way_drop_through_works_under_inverted_gravity() {
             &world,
             &mut scratch,
             InputState {
-                axis_y: 1.0,
+                axes: crate::LocalAxes::new(0.0, 1.0),
                 ..Default::default()
             },
         );
@@ -713,7 +714,7 @@ fn one_way_drop_through_works_under_inverted_gravity() {
         &world,
         &mut scratch,
         InputState {
-            axis_y: 1.0,
+            axes: crate::LocalAxes::new(0.0, 1.0),
             jump_pressed: true,
             ..Default::default()
         },
@@ -723,7 +724,7 @@ fn one_way_drop_through_works_under_inverted_gravity() {
             &world,
             &mut scratch,
             InputState {
-                axis_y: 1.0,
+                axes: crate::LocalAxes::new(0.0, 1.0),
                 ..Default::default()
             },
         );
@@ -740,7 +741,7 @@ fn sideways_gravity_blink_wall_is_ground_support() {
     // Blink walls are still authored surfaces for contact: blink pathing may pass
     // through them with upgrades, but a controlled body standing on their
     // gravity-facing face should be grounded just like on Solid.
-    use crate::movement::tuning::DEFAULT_TUNING;
+    use crate::test_support::TEST_TUNING;
     use crate::world::{BlinkWallTier, Block, World};
 
     let world = World {
@@ -762,10 +763,10 @@ fn sideways_gravity_blink_wall_is_ground_support() {
     scratch.ground.on_ground = false;
 
     let g = Vec2::new(-1.0, 0.0); // feet point screen-left
-    let tuning = MovementTuning {
+    let tuning = TestTuning {
         gravity_dir: g,
         gravity_sign: 1.0,
-        ..DEFAULT_TUNING
+        ..TEST_TUNING
     };
     for _ in 0..90 {
         update_player_with_tuning_scratch(
@@ -793,7 +794,7 @@ fn sideways_gravity_blink_wall_is_ground_support() {
 fn one_way_platform_works_under_sideways_gravity() {
     // One-way passability is authored against the acceleration frame: under
     // gravity-left the platform's right face is its anti-gravity/top face.
-    use crate::movement::tuning::DEFAULT_TUNING;
+    use crate::test_support::TEST_TUNING;
     use crate::world::{Block, World};
 
     let world = World {
@@ -814,10 +815,10 @@ fn one_way_platform_works_under_sideways_gravity() {
     scratch.ground.on_ground = false;
 
     let g = Vec2::new(-1.0, 0.0);
-    let tuning = MovementTuning {
+    let tuning = TestTuning {
         gravity_dir: g,
         gravity_sign: 1.0,
-        ..DEFAULT_TUNING
+        ..TEST_TUNING
     };
     for _ in 0..90 {
         update_player_with_tuning_scratch(
@@ -846,7 +847,7 @@ fn one_way_platform_works_under_sideways_gravity() {
             &world,
             &mut scratch,
             InputState {
-                axis_y: 1.0,
+                axes: crate::LocalAxes::new(0.0, 1.0),
                 ..Default::default()
             },
             1.0 / 60.0,
@@ -862,7 +863,7 @@ fn one_way_platform_works_under_sideways_gravity() {
         &world,
         &mut scratch,
         InputState {
-            axis_y: 1.0,
+            axes: crate::LocalAxes::new(0.0, 1.0),
             jump_pressed: true,
             ..Default::default()
         },
@@ -874,7 +875,7 @@ fn one_way_platform_works_under_sideways_gravity() {
             &world,
             &mut scratch,
             InputState {
-                axis_y: 1.0,
+                axes: crate::LocalAxes::new(0.0, 1.0),
                 ..Default::default()
             },
             1.0 / 60.0,
@@ -936,10 +937,13 @@ fn deeply_embedded_player_is_not_pushout_teleported_under_sideways_gravity() {
         Vec2::new(1.0, 0.0),
         Vec2::new(-1.0, 0.0),
     ] {
-        let tuning = MovementTuning {
-            gravity: 0.0,
+        let tuning = TestTuning {
+            base: MovementTuning {
+                gravity: 0.0,
+                ..DEFAULT_TUNING
+            },
             gravity_dir: dir,
-            ..DEFAULT_TUNING
+            ..TEST_TUNING
         };
         let mut scratch =
             BodyClusterScratch::new_with_abilities(world.spawn, AbilitySet::sandbox_all());
@@ -965,9 +969,9 @@ fn deeply_embedded_player_is_not_pushout_teleported_under_sideways_gravity() {
     // (2) Under real sideways gravity the body falls THROUGH the slab and out
     // its near face, but must never be flung outside the world envelope — the
     // actual OOB the actor trace recorded (player at x=-81, outside x).
-    let tuning = MovementTuning {
+    let tuning = TestTuning {
         gravity_dir: Vec2::new(-1.0, 0.0),
-        ..DEFAULT_TUNING
+        ..TEST_TUNING
     };
     let mut scratch =
         BodyClusterScratch::new_with_abilities(world.spawn, AbilitySet::sandbox_all());

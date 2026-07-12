@@ -36,9 +36,9 @@ pub fn complete_blink_clusters(
     // 2026-07-02 §B3).
     let damping = if precision { 0.35 } else { 0.55 };
     let max_downward = if precision {
-        tuning.precision_blink_max_downward_speed
+        tuning.abilities.precision_blink_max_downward_speed
     } else {
-        tuning.blink_max_downward_speed
+        tuning.abilities.blink_max_downward_speed
     };
     let mut local_vel = frame.to_local(kinematics.vel);
     local_vel.x *= damping;
@@ -52,13 +52,13 @@ pub fn complete_blink_clusters(
     wall.wall_clinging = false;
     wall.wall_climbing = false;
     dash.timer = 0.0;
-    blink.grace_timer = tuning.blink_grace_time;
+    blink.grace_timer = tuning.abilities.blink_grace_time;
 
-    blink.cooldown = tuning.blink_cooldown;
+    blink.cooldown = tuning.abilities.blink_cooldown;
     blink.hold_active = false;
     blink.hold_timer = 0.0;
     blink.aiming = false;
-    blink.aim_offset = frame.side() * (tuning.blink_distance * kinematics.facing);
+    blink.aim_offset = frame.side() * (tuning.abilities.blink_distance * kinematics.facing);
     let op = if precision {
         MovementOp::PrecisionBlink
     } else {

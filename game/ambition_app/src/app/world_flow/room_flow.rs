@@ -44,7 +44,7 @@ pub(crate) fn reset_sandbox(
         clusters.abilities,
         &mut *clusters.dash,
         &mut *clusters.jump,
-        tuning,
+        tuning.air_jumps,
     );
     clusters.mana.meter.refill_full();
     safety.last_safe_pos = world.spawn;

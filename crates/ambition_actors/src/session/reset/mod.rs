@@ -193,7 +193,7 @@ pub fn process_sandbox_reset_request(
             clusters.abilities,
             clusters.dash,
             clusters.jump,
-            tuning.as_engine(),
+            tuning.as_engine().air_jumps,
         );
         clusters.mana.meter.refill_full();
         anim.reset();

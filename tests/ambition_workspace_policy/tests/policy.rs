@@ -586,3 +586,36 @@ fn standalone_demos_do_not_depend_on_ambition_app() {
         );
     }
 }
+
+/// ADR 0024 guard poison: the movement-model scanner catches optional/absent
+/// `MotionModel` queries and the crawler-flag runtime dispatch. A guard that
+/// never fires proves nothing — this is the shape real regressions would take.
+#[test]
+fn movement_kernel_guards_react() {
+    let p = poison(
+        r#"
+        id = "poison.movement-model-optional"
+        scope = "engine"
+        kind = "forbidden-source-reference"
+        rationale = "poison"
+        production_only = true
+        roots = ["tests/ambition_workspace_policy/fixtures/poison/motion_model"]
+        forbid = ["Option<&MotionModel>", "Option<&mut MotionModel>", "Without<MotionModel>", "tuning.surface_walker"]
+    "#,
+    );
+    let report = run_one(&p);
+    for needle in [
+        "Option<&MotionModel>",
+        "Option<&mut MotionModel>",
+        "Without<MotionModel>",
+        "tuning.surface_walker",
+    ] {
+        assert!(
+            report
+                .diagnostics()
+                .iter()
+                .any(|d| d.detail.contains(needle)),
+            "movement-model guard dropped `{needle}`"
+        );
+    }
+}

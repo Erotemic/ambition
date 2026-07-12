@@ -18,6 +18,8 @@
 
 use super::*;
 use crate::body_clusters::BodyClusterScratch;
+#[allow(unused_imports)]
+use crate::test_support::*;
 use crate::{Vec2, World};
 
 pub(super) fn step_scratch(
@@ -25,7 +27,7 @@ pub(super) fn step_scratch(
     scratch: &mut BodyClusterScratch,
     input: InputState,
 ) -> FrameEvents {
-    update_player_with_tuning_scratch(world, scratch, input, 1.0 / 60.0, DEFAULT_TUNING)
+    update_player_with_tuning_scratch(world, scratch, input, 1.0 / 60.0, TEST_TUNING)
 }
 
 pub(super) fn test_world() -> World {

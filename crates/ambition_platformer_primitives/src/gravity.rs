@@ -243,13 +243,6 @@ pub fn snap_cardinal(dir: Vec2) -> Vec2 {
     }
 }
 
-/// Sync a freshly-built [`MovementTuning`]'s gravity direction (and the legacy
-/// `gravity_sign` scalar) from the live world gravity. EVERY system that builds
-/// a tuning via `as_engine()` and then applies a gravity-relative impulse
-/// (jump, pogo, wall-kick, knockback) MUST call this — otherwise the tuning
-/// keeps its default `(0,1)` "down" and the impulse launches the wrong way
-/// under a gravity flip. This is the single seam that keeps those mechanics
-/// flipping together; `pass `gravity_field.map(|g| g.dir)`.
 /// The live world gravity DIRECTION, or the default "down" `(0,1)` when no
 /// [`GravityField`] resource exists (headless / test apps). The standard way a
 /// per-frame actor tick reads gravity before `apply_gravity_dir`-syncing its
@@ -258,15 +251,6 @@ pub fn snap_cardinal(dir: Vec2) -> Vec2 {
 /// `gravity_dir_or_default(gravity_field.as_deref())`.
 pub fn gravity_dir_or_default(field: Option<&GravityField>) -> Vec2 {
     field.map_or(ambition_engine_core::DEFAULT_GRAVITY_DIR, |g| g.dir)
-}
-
-pub fn apply_gravity_dir(tuning: &mut ambition_engine_core::MovementTuning, gravity_dir: Vec2) {
-    tuning.gravity_dir = snap_cardinal(gravity_dir);
-    tuning.gravity_sign = if tuning.gravity_dir.y != 0.0 {
-        tuning.gravity_dir.y.signum()
-    } else {
-        1.0
-    };
 }
 
 /// One bundled system param for the world's gravity, so the many actor
@@ -310,11 +294,7 @@ impl GravityCtx<'_> {
     /// position. This is the canonical ECS-to-kernel seam: callers construct it
     /// once per body tick and pass the same value to input projection and the
     /// selected movement policy.
-    pub fn motion_frame_at(
-        &self,
-        pos: Vec2,
-        magnitude: f32,
-    ) -> ambition_engine_core::MotionFrame {
+    pub fn motion_frame_at(&self, pos: Vec2, magnitude: f32) -> ambition_engine_core::MotionFrame {
         ambition_engine_core::MotionFrame::from_direction(self.dir_at(pos), magnitude)
     }
 

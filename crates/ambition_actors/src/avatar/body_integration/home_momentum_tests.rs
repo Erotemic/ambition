@@ -35,9 +35,7 @@ struct Rig {
 fn rig(world: ae::World) -> Rig {
     Rig {
         scratch: crate::avatar::primary_player_scratch(world.spawn, ae::AbilitySet::sandbox_all()),
-        model: MotionModel::SurfaceMomentum(MomentumMotion::new(
-            ae::MomentumParams::default(),
-        )),
+        model: MotionModel::SurfaceMomentum(MomentumMotion::new(ae::MomentumParams::default())),
         hurtbox: ae::CenteredAabb::new(world.spawn, ae::Vec2::splat(10.0)),
         frame_out: PlayerBodyFrameOutput::default(),
         world,
@@ -55,7 +53,8 @@ fn step(r: &mut Rig, frame: ActorControlFrame) {
         &mut r.hurtbox,
         &mut r.frame_out,
         &[],
-        Some(&mut r.model),
+        &mut r.model,
+        ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
         ae::DEFAULT_TUNING,
         SandboxFeelTuning::default(),
         DT,
@@ -177,7 +176,7 @@ fn momentum_home_body_dies_in_pits_and_respawns_airborne() {
         matches!(
             r.model,
             MotionModel::SurfaceMomentum(MomentumMotion {
-                state: ae::movement::surface_momentum::SurfaceMotion::Airborne,
+                state: ae::SurfaceMotion::Airborne,
                 ..
             })
         ),

@@ -145,6 +145,7 @@ pub struct SurfaceBody {
 }
 
 impl SurfaceBody {
+    #[allow(dead_code, reason = "fixture constructor for kernel-private tests")]
     pub fn new(pos: Vec2, radius: f32) -> Self {
         Self {
             pos,
@@ -170,14 +171,14 @@ pub struct SurfaceInputs {
     /// boundary and uses the supplied [`MotionFrame`] for every world-space
     /// interpretation. No movement policy is allowed to reinterpret raw screen
     /// input or construct a private control frame.
-    pub local_axis: Vec2,
+    pub local_axes: crate::reference_frame::LocalAxes,
     pub jump_pressed: bool,
 }
 
 /// One frame of surface-momentum physics in the body's current acceleration
 /// frame. The exact same [`MotionFrame`] is supplied to every movement policy;
 /// this solver never reconstructs a private gravity/reference frame.
-pub fn step_surface_body(
+pub(crate) fn step_surface_body(
     body: &mut SurfaceBody,
     world: &World,
     params: &MomentumParams,
@@ -261,16 +262,10 @@ fn step_riding(
     mut contacts: Option<&mut Vec<Contact>>,
 ) {
     let gravity = motion_frame.acceleration();
-    let run = inputs.local_axis.x.clamp(-1.0, 1.0);
-    let (on, s) = choose_route_branch_at_rest(
-        world,
-        on,
-        s,
-        v_t,
-        motion_frame,
-        inputs.local_axis,
-    )
-    .unwrap_or((on, s));
+    let run = inputs.local_axes.x.clamp(-1.0, 1.0);
+    let (on, s) =
+        choose_route_branch_at_rest(world, on, s, v_t, motion_frame, inputs.local_axes.vec())
+            .unwrap_or((on, s));
     let Some(chain) = resolve_surface(world, on) else {
         body.motion = SurfaceMotion::Airborne;
         return;
@@ -353,7 +348,7 @@ fn step_riding(
         motion_frame,
         params,
         body.radius,
-        inputs.local_axis,
+        inputs.local_axes.vec(),
     ) {
         RideOutcome::Riding {
             on: new_on,
@@ -865,12 +860,12 @@ fn advance_riding(
     s: f32,
     ds: f32,
     v_t: f32,
-    frame: MotionFrame,
+    motion_frame: MotionFrame,
     params: &MomentumParams,
     radius: f32,
     local_axis: Vec2,
 ) -> RideOutcome {
-    let gravity = frame.acceleration();
+    let gravity = motion_frame.acceleration();
     let mut current = s;
     let mut remaining = ds;
     let mut routed_v_t = v_t;
@@ -936,7 +931,7 @@ fn advance_riding(
             current_vertex,
             seg_i,
             travel_sign,
-            frame,
+            motion_frame,
             local_axis,
         ) {
             if !branch.is_default {
@@ -1033,7 +1028,7 @@ fn step_airborne(
     // Ballistic + air control use the same frame the dispatcher supplied.
     let gravity = frame.acceleration();
     body.vel += gravity * dt;
-    let run = inputs.local_axis.x.clamp(-1.0, 1.0);
+    let run = inputs.local_axes.x.clamp(-1.0, 1.0);
     if run.abs() > 0.1 {
         // Air steering is authored along the body's local side axis.
         let side = frame.side();

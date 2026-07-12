@@ -73,6 +73,7 @@ pub(crate) fn spawn_primary_player_holding_at(
             ActorControl::default(),
             ActionSet::default(),
             HeldItem::new(spec),
+            crate::features::MotionModel::default(),
         ))
         .id();
     app.insert_resource(ControlledSubject(Some(entity)));

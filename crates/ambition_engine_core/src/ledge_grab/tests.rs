@@ -1,4 +1,6 @@
 use super::*;
+#[allow(unused_imports)]
+use crate::test_support::*;
 use crate::world::Block;
 
 fn world_with(blocks: Vec<Block>) -> World {
@@ -228,7 +230,7 @@ fn precise_grab_keeps_momentum_boost_reward() {
         state.grab_quality.is_precise(),
         "old tight window should be precise"
     );
-    let tuning = crate::movement::MovementTuning::default();
+    let tuning = TestTuning::default();
     assert!(
         ledge_boost_for_state(state, &tuning).length_squared() > 0.0,
         "precise grab should keep the momentum-carry reward"
@@ -260,7 +262,7 @@ fn forgiving_grab_latches_but_suppresses_momentum_boost_reward() {
         !state.grab_quality.is_precise(),
         "outer-window grab should be forgiving, not precise"
     );
-    let tuning = crate::movement::MovementTuning::default();
+    let tuning = TestTuning::default();
     assert_eq!(
         ledge_boost_for_state(state, &tuning),
         Vec2::ZERO,
@@ -282,7 +284,7 @@ fn forgiving_grab_still_allows_regular_ledge_jump_without_bonus_velocity() {
         ..scratch.ledge.grab.expect("hanging state")
     });
     let mut events = crate::movement::FrameEvents::default();
-    let tuning = crate::movement::MovementTuning::default();
+    let tuning = TestTuning::default();
     let input = InputState {
         jump_pressed: true,
         ..InputState::default()
@@ -483,10 +485,10 @@ fn ledge_jump_away_launches_player_outward() {
     };
     let mut scratch = make_hanging_player(contact);
     let mut events = crate::movement::FrameEvents::default();
-    let tuning = crate::movement::MovementTuning::default();
+    let tuning = TestTuning::default();
     let input = InputState {
         jump_pressed: true,
-        axis_x: -1.0, // pressing away from the platform (away = wall_normal direction = -1)
+        axes: crate::LocalAxes::new(-1.0, 0.0), // pressing away from the platform (away = wall_normal direction = -1)
         ..InputState::default()
     };
     let consumed = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
@@ -519,10 +521,10 @@ fn jump_toward_platform_now_hops_up_not_climbs() {
     };
     let mut scratch = make_hanging_player(contact);
     let mut events = crate::movement::FrameEvents::default();
-    let tuning = crate::movement::MovementTuning::default();
+    let tuning = TestTuning::default();
     let input = InputState {
         jump_pressed: true,
-        axis_x: 1.0, // pressing into the platform (into = -wall_normal = +1)
+        axes: crate::LocalAxes::new(1.0, 0.0), // pressing into the platform (into = -wall_normal = +1)
         ..InputState::default()
     };
     let consumed = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
@@ -558,7 +560,7 @@ fn jump_with_no_horizontal_input_hops_up() {
     };
     let mut scratch = make_hanging_player(contact);
     let mut events = crate::movement::FrameEvents::default();
-    let tuning = crate::movement::MovementTuning::default();
+    let tuning = TestTuning::default();
     let input = InputState {
         jump_pressed: true,
         ..InputState::default()
@@ -584,9 +586,9 @@ fn up_alone_still_starts_a_climb() {
     };
     let mut scratch = make_hanging_player(contact);
     let mut events = crate::movement::FrameEvents::default();
-    let tuning = crate::movement::MovementTuning::default();
+    let tuning = TestTuning::default();
     let input = InputState {
-        axis_y: -1.0, // up
+        axes: crate::LocalAxes::new(0.0, -1.0), // up
         ..InputState::default()
     };
     let _ = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
@@ -681,7 +683,7 @@ fn light_horizontal_intent_can_request_a_ledge_grab() {
         &world,
         &mut scratch,
         InputState {
-            axis_x: 0.30,
+            axes: crate::LocalAxes::new(0.30, 0.0),
             ..InputState::default()
         },
         &mut events,
@@ -706,7 +708,7 @@ fn shield_held_starts_a_ledge_roll() {
     };
     let mut scratch = make_hanging_player(contact);
     let mut events = crate::movement::FrameEvents::default();
-    let tuning = crate::movement::MovementTuning::default();
+    let tuning = TestTuning::default();
     let input = InputState {
         shield_held: true,
         ..InputState::default()
@@ -737,10 +739,10 @@ fn shield_overrides_climb_when_both_inputs_are_held() {
     };
     let mut scratch = make_hanging_player(contact);
     let mut events = crate::movement::FrameEvents::default();
-    let tuning = crate::movement::MovementTuning::default();
+    let tuning = TestTuning::default();
     let input = InputState {
         shield_held: true,
-        axis_y: -1.0, // up — would otherwise climb
+        axes: crate::LocalAxes::new(0.0, -1.0), // up — would otherwise climb
         ..InputState::default()
     };
     let _ = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
@@ -761,7 +763,7 @@ fn ledge_roll_lands_further_inboard_than_climb() {
     };
     let mut scratch = make_hanging_player(contact);
     let mut events = crate::movement::FrameEvents::default();
-    let tuning = crate::movement::MovementTuning::default();
+    let tuning = TestTuning::default();
     // Start the roll.
     let _ = tick_active_ledge_grab_scratch(
         &mut scratch,
@@ -845,9 +847,9 @@ fn voluntary_drop_arms_a_regrab_cooldown() {
     };
     let mut scratch = make_hanging_player(contact);
     let mut events = crate::movement::FrameEvents::default();
-    let tuning = crate::movement::MovementTuning::default();
+    let tuning = TestTuning::default();
     let input = InputState {
-        axis_y: 1.0, // down
+        axes: crate::LocalAxes::new(0.0, 1.0), // down
         ..InputState::default()
     };
     let consumed = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
@@ -929,10 +931,10 @@ fn ledge_jump_options_also_arm_regrab_cooldown() {
     {
         let mut scratch = make_hanging_player(contact);
         let mut events = crate::movement::FrameEvents::default();
-        let tuning = crate::movement::MovementTuning::default();
+        let tuning = TestTuning::default();
         let input = InputState {
             jump_pressed: true,
-            axis_x: -1.0, // away from a -1 wall_normal
+            axes: crate::LocalAxes::new(-1.0, 0.0), // away from a -1 wall_normal
             ..InputState::default()
         };
         let _ = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
@@ -946,7 +948,7 @@ fn ledge_jump_options_also_arm_regrab_cooldown() {
     {
         let mut scratch = make_hanging_player(contact);
         let mut events = crate::movement::FrameEvents::default();
-        let tuning = crate::movement::MovementTuning::default();
+        let tuning = TestTuning::default();
         let input = InputState {
             jump_pressed: true,
             ..InputState::default()
@@ -1049,7 +1051,7 @@ fn try_start_ledge_grab_captures_incoming_velocity() {
 
 #[test]
 fn ledge_boost_decays_linearly_across_window() {
-    let tuning = MovementTuning::default();
+    let tuning = TestTuning::default();
     let contact = rightward_ledge_contact();
     let momentum = Vec2::new(200.0 * into_platform_for(contact), 0.0);
     // t=0: full boost.
@@ -1088,7 +1090,7 @@ fn ledge_boost_decays_linearly_across_window() {
 
 #[test]
 fn ledge_boost_off_disables_mechanic() {
-    let mut tuning = MovementTuning::default();
+    let mut tuning = TestTuning::default();
     tuning.ledge_momentum = crate::movement::LedgeMomentumTuning::OFF;
     let contact = rightward_ledge_contact();
     let momentum = Vec2::new(300.0 * into_platform_for(contact), -300.0);
@@ -1098,7 +1100,7 @@ fn ledge_boost_off_disables_mechanic() {
 
 #[test]
 fn ledge_boost_ignores_reverse_horizontal_momentum() {
-    let tuning = MovementTuning::default();
+    let tuning = TestTuning::default();
     let contact = rightward_ledge_contact();
     // Momentum AWAY from the platform — into_platform is +1 here,
     // so a leftward (negative) vel doesn't earn a boost.
@@ -1114,7 +1116,7 @@ fn ledge_boost_ignores_reverse_horizontal_momentum() {
 
 #[test]
 fn ledge_boost_ignores_downward_vertical_momentum() {
-    let tuning = MovementTuning::default();
+    let tuning = TestTuning::default();
     let contact = rightward_ledge_contact();
     let momentum = Vec2::new(200.0 * into_platform_for(contact), 300.0); // falling
     let boost = ledge_boost(momentum, contact, 0.0, &tuning);
@@ -1128,7 +1130,7 @@ fn ledge_boost_ignores_downward_vertical_momentum() {
 
 #[test]
 fn ledge_boost_clamps_at_caps() {
-    let tuning = MovementTuning::default();
+    let tuning = TestTuning::default();
     let contact = rightward_ledge_contact();
     // Extreme incoming momentum (e.g. dash + air jump combo).
     let momentum = Vec2::new(2_000.0 * into_platform_for(contact), -2_000.0);
@@ -1152,7 +1154,7 @@ fn ledge_jump_with_quick_action_carries_momentum() {
     let mut scratch = make_hanging_player_with_momentum(contact, momentum);
     let baseline_player = make_hanging_player_with_momentum(contact, Vec2::ZERO);
     let mut events = crate::movement::FrameEvents::default();
-    let tuning = MovementTuning::default();
+    let tuning = TestTuning::default();
     let input = InputState {
         jump_pressed: true,
         ..InputState::default()
@@ -1186,9 +1188,9 @@ fn drop_does_not_apply_boost() {
     let momentum = Vec2::new(220.0, -120.0);
     let mut scratch = make_hanging_player_with_momentum(contact, momentum);
     let mut events = crate::movement::FrameEvents::default();
-    let tuning = MovementTuning::default();
+    let tuning = TestTuning::default();
     let input = InputState {
-        axis_y: 1.0, // down
+        axes: crate::LocalAxes::new(0.0, 1.0), // down
         ..InputState::default()
     };
     let _ = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
@@ -1212,13 +1214,13 @@ fn outward_ledge_release_does_not_apply_boost() {
     let mut scratch = make_hanging_player_with_momentum(contact, momentum);
     let baseline_player = make_hanging_player_with_momentum(contact, Vec2::ZERO);
     let mut events = crate::movement::FrameEvents::default();
-    let tuning = MovementTuning::default();
+    let tuning = TestTuning::default();
     // jump + AWAY from platform. away_from_platform here is -1
     // (left) since wall_normal_x is -1.
     let away = away_from_platform_axis(contact);
     let input = InputState {
         jump_pressed: true,
-        axis_x: away,
+        axes: crate::LocalAxes::new(away, 0.0),
         ..InputState::default()
     };
     let _ = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
@@ -1243,10 +1245,10 @@ fn climb_finish_carries_momentum_when_grabbed_with_speed() {
     let momentum = Vec2::new(220.0, -120.0);
     let mut scratch = make_hanging_player_with_momentum(contact, momentum);
     let mut events = crate::movement::FrameEvents::default();
-    let tuning = MovementTuning::default();
+    let tuning = TestTuning::default();
     // Start the climb (Up).
     let input = InputState {
-        axis_y: -1.0,
+        axes: crate::LocalAxes::new(0.0, -1.0),
         ..InputState::default()
     };
     let _ = tick_active_ledge_grab_scratch(&mut scratch, input, 0.001, tuning, &mut events);
@@ -1280,12 +1282,12 @@ fn climb_finish_does_not_carry_vertical_boost() {
     let momentum = Vec2::new(220.0, -500.0);
     let mut scratch = make_hanging_player_with_momentum(contact, momentum);
     let mut events = crate::movement::FrameEvents::default();
-    let tuning = MovementTuning::default();
+    let tuning = TestTuning::default();
     // Start + complete the climb in two big ticks.
     let _ = tick_active_ledge_grab_scratch(
         &mut scratch,
         InputState {
-            axis_y: -1.0,
+            axes: crate::LocalAxes::new(0.0, -1.0),
             ..InputState::default()
         },
         0.001,
@@ -1324,13 +1326,13 @@ fn getup_transition_completes_faster_with_momentum_carry() {
     let momentum = Vec2::new(220.0, -120.0);
     let mut boosted = make_hanging_player_with_momentum(contact, momentum);
     let mut baseline = make_hanging_player_with_momentum(contact, momentum);
-    let tuning = MovementTuning::default();
+    let tuning = TestTuning::default();
     // Disable just the speedup on the baseline so the comparison
     // isolates THIS knob.
     let mut baseline_tuning = tuning;
     baseline_tuning.ledge_momentum.getup_speedup_gain = 0.0;
     let input = InputState {
-        axis_y: -1.0,
+        axes: crate::LocalAxes::new(0.0, -1.0),
         ..InputState::default()
     };
     // Start both climbs.
@@ -1440,7 +1442,7 @@ fn boost_decays_to_zero_outside_window() {
     let momentum = Vec2::new(220.0, -120.0);
     let mut scratch = make_hanging_player_with_momentum(contact, momentum);
     let mut events = crate::movement::FrameEvents::default();
-    let tuning = MovementTuning::default();
+    let tuning = TestTuning::default();
     // Sit on the ledge for longer than the boost window with no
     // input (so we don't auto-climb).
     let dt = tuning.ledge_momentum.window + 0.05;
@@ -1455,7 +1457,7 @@ fn boost_decays_to_zero_outside_window() {
     let _ = tick_active_ledge_grab_scratch(
         &mut scratch,
         InputState {
-            axis_y: -1.0,
+            axes: crate::LocalAxes::new(0.0, -1.0),
             ..InputState::default()
         },
         0.001,

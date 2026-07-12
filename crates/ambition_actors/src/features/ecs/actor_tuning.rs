@@ -42,9 +42,10 @@ pub struct ActorTuning {
     /// Hostile by default: actively tracks the player and publishes
     /// contact damage. Peaceful patrollers are false.
     pub attacks_player: bool,
-    /// Walks surfaces hugging the surface normal: body axes swap on
-    /// vertical surfaces and patrol probes ledges instead of walking
-    /// off them.
+    /// SPAWN-TIME policy selector: this archetype crawls surfaces glued to
+    /// the surface normal (the adhesive-crawler movement policy). Consumed
+    /// once by [`Self::motion_model`]; runtime dispatch reads the body's
+    /// explicit `MotionModel`, never this flag.
     pub surface_walker: bool,
     /// Surface-walker only: a hit knocks the actor off its surface (it
     /// falls with gravity for a moment, then re-attaches). `false` keeps
@@ -229,6 +230,29 @@ impl Default for CharacterBrainSpec {
             smash_can_fly: false,
             smash_can_shield: false,
             provoke_forced_brute_min_aggro: None,
+        }
+    }
+}
+
+impl ActorTuning {
+    /// The explicit movement policy this archetype's bodies carry from spawn.
+    ///
+    /// Crawler archetypes (`surface_walker`) select the adhesive-crawler policy
+    /// with their patrol speed as the crawl speed; everything else starts
+    /// axis-swept with its authored body tuning (integration refreshes those
+    /// parameters live each tick).
+    pub fn motion_model(&self) -> crate::features::MotionModel {
+        if self.surface_walker {
+            crate::features::MotionModel::adhesive_crawler(ambition_engine_core::CrawlerParams {
+                crawl_speed: self.patrol_speed,
+                max_fall_speed: self.movement.max_fall_speed,
+            })
+        } else {
+            crate::features::MotionModel::axis_swept(
+                self.movement
+                    .body_tuning(self.max_run_speed)
+                    .axis_swept_params(),
+            )
         }
     }
 }

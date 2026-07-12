@@ -50,7 +50,7 @@ fn running_into_a_wall_reports_a_side_contact_with_the_surface_normal() {
             &world,
             &mut scratch,
             InputState {
-                axis_x: -1.0,
+                axes: crate::LocalAxes::new(-1.0, 0.0),
                 ..Default::default()
             },
         );

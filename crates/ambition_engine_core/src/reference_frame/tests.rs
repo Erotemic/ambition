@@ -7,7 +7,8 @@ use super::*;
 
 #[test]
 fn motion_frame_keeps_acceleration_and_basis_canonical() {
-    let frame = MotionFrame::from_acceleration(Vec2::new(300.0, 400.0)).expect("non-zero acceleration");
+    let frame =
+        MotionFrame::from_acceleration(Vec2::new(300.0, 400.0)).expect("non-zero acceleration");
     assert_eq!(frame.acceleration(), Vec2::new(300.0, 400.0));
     assert!((frame.magnitude() - 500.0).abs() < 1e-5);
     assert!((frame.down() - Vec2::new(0.6, 0.8)).length() < 1e-6);
@@ -129,7 +130,7 @@ fn hybrid_resolve_input_matches_the_legacy_run_and_descend_at_every_orientation(
             (0.0, -1.0),
             (0.6, -0.3),
         ] {
-            let r = f.resolve_input(InputFrameMode::BodyRelativeAssist, ax, ay);
+            let r = f.resolve_input(InputFrameMode::BodyRelativeAssist, ScreenAxes::new(ax, ay));
             // Run: world velocity direction must match the legacy basis * axis_x.
             let legacy_run = f.control_frame(InputFrameMode::BodyRelativeAssist).side * ax;
             let new_run = f.side * r.x;
@@ -160,7 +161,10 @@ fn screen_mode_is_screen_relative_at_every_orientation() {
             (0.0, -1.0),
             (0.5, -0.5),
         ] {
-            let world = f.to_world(f.resolve_input(InputFrameMode::ScreenRelative, ax, ay));
+            let world = f.to_world(
+                f.resolve_input(InputFrameMode::ScreenRelative, ScreenAxes::new(ax, ay))
+                    .vec(),
+            );
             assert!(
                 (world - Vec2::new(ax, ay)).length() < 1e-6,
                 "{name}: screen input ({ax},{ay}) should move screen-relative, got {world:?}"
@@ -174,7 +178,11 @@ fn screen_mode_matches_the_authored_quadrant_spec() {
     // The exact mapping Jon specified. Gravity RIGHT (player's feet point
     // screen-right): run = +side (screen-up), descend = +down (screen-right).
     let right = AccelerationFrame::new(Vec2::new(1.0, 0.0));
-    let r = |ax, ay| right.resolve_input(InputFrameMode::ScreenRelative, ax, ay);
+    let r = |ax, ay| {
+        right
+            .resolve_input(InputFrameMode::ScreenRelative, ScreenAxes::new(ax, ay))
+            .vec()
+    };
     assert_eq!(
         r(1.0, 0.0),
         Vec2::new(0.0, 1.0),
@@ -198,7 +206,10 @@ fn screen_mode_matches_the_authored_quadrant_spec() {
 
     // Gravity LEFT (feet point screen-left).
     let left = AccelerationFrame::new(Vec2::new(-1.0, 0.0));
-    let l = |ax, ay| left.resolve_input(InputFrameMode::ScreenRelative, ax, ay);
+    let l = |ax, ay| {
+        left.resolve_input(InputFrameMode::ScreenRelative, ScreenAxes::new(ax, ay))
+            .vec()
+    };
     assert_eq!(
         l(-1.0, 0.0),
         Vec2::new(0.0, 1.0),
@@ -225,19 +236,30 @@ fn screen_mode_matches_the_authored_quadrant_spec() {
 fn inverse_mapping_places_local_labels_on_raw_joystick_directions() {
     let right = AccelerationFrame::new(Vec2::new(1.0, 0.0));
     assert_eq!(
-        right.raw_axis_for_resolved_input(InputFrameMode::ScreenRelative, Vec2::new(0.0, 1.0)),
+        right
+            .raw_axis_for_resolved_input(InputFrameMode::ScreenRelative, LocalAxes::new(0.0, 1.0))
+            .vec(),
         Vec2::new(1.0, 0.0),
         "screen-directed: local down labels raw right when feet point screen-right"
     );
     assert_eq!(
-        right.raw_axis_for_resolved_input(InputFrameMode::BodyRelativeAssist, Vec2::new(0.0, 1.0)),
+        right
+            .raw_axis_for_resolved_input(
+                InputFrameMode::BodyRelativeAssist,
+                LocalAxes::new(0.0, 1.0),
+            )
+            .vec(),
         Vec2::new(0.0, 1.0),
         "body-relative assist: local down stays on raw down for side gravity"
     );
 
     let up = AccelerationFrame::new(Vec2::new(0.0, -1.0));
     assert_eq!(
-        up.raw_axis_for_resolved_input(InputFrameMode::BodyRelativeAssist, Vec2::new(0.0, 1.0)),
+        up.raw_axis_for_resolved_input(
+            InputFrameMode::BodyRelativeAssist,
+            LocalAxes::new(0.0, 1.0)
+        )
+        .vec(),
         Vec2::new(0.0, -1.0),
         "body-relative assist flips only when inverted"
     );
@@ -247,11 +269,14 @@ fn inverse_mapping_places_local_labels_on_raw_joystick_directions() {
 fn local_edge_mapping_uses_the_same_inverse_mapping() {
     let right = AccelerationFrame::new(Vec2::new(1.0, 0.0));
     let edges = RawDirectionEdges::new(false, true, false, false); // raw right edge
-    let resolved = right.resolve_control(InputFrameMode::ScreenRelative, 1.0, 0.0);
+    let resolved = right.resolve_control(InputFrameMode::ScreenRelative, ScreenAxes::new(1.0, 0.0));
     assert!(resolved.local_down_pressed(edges));
     assert!(!resolved.local_up_pressed(edges));
 
-    let hybrid = right.resolve_control(InputFrameMode::BodyRelativeAssist, 1.0, 0.0);
+    let hybrid = right.resolve_control(
+        InputFrameMode::BodyRelativeAssist,
+        ScreenAxes::new(1.0, 0.0),
+    );
     assert!(!hybrid.local_down_pressed(edges));
 }
 
@@ -276,7 +301,11 @@ fn player_mode_is_the_raw_stick_in_the_player_frame() {
     // Player mode never accommodates: the stick IS the local body frame.
     let up = AccelerationFrame::new(Vec2::new(0.0, -1.0));
     assert_eq!(
-        up.resolve_input(InputFrameMode::BodyRelativeStrict, 0.3, -0.7),
+        up.resolve_input(
+            InputFrameMode::BodyRelativeStrict,
+            ScreenAxes::new(0.3, -0.7)
+        )
+        .vec(),
         Vec2::new(0.3, -0.7)
     );
 }
@@ -293,17 +322,17 @@ fn resolve_aim_local_picks_frame_by_source_under_flipped_gravity() {
 
     // Aim stick pushed screen-up (-y). Screen aim → world stays screen-up
     // regardless of gravity: to_world(resolve) == (0,-1).
-    let aim_local = up.resolve_aim_local(modes, Vec2::new(0.0, -1.0), Vec2::ZERO, 1.0);
-    assert_eq!(up.to_world(aim_local), Vec2::new(0.0, -1.0));
+    let aim_local = up.resolve_aim_local(modes, ScreenAxes::new(0.0, -1.0), ScreenAxes::ZERO, 1.0);
+    assert_eq!(up.to_world(aim_local.vec()), Vec2::new(0.0, -1.0));
 
     // No aim, movement stick pushed screen-up (-y). Player movement → the
     // stick IS the body frame, so world = side*0 + down*(-1) = -down = (0,1).
-    let move_local = up.resolve_aim_local(modes, Vec2::ZERO, Vec2::new(0.0, -1.0), 1.0);
-    assert_eq!(up.to_world(move_local), Vec2::new(0.0, 1.0));
+    let move_local = up.resolve_aim_local(modes, ScreenAxes::ZERO, ScreenAxes::new(0.0, -1.0), 1.0);
+    assert_eq!(up.to_world(move_local.vec()), Vec2::new(0.0, 1.0));
 
     // Neither stick → body-local facing (+x), gravity-independent in local frame.
-    let facing_local = up.resolve_aim_local(modes, Vec2::ZERO, Vec2::ZERO, -1.0);
-    assert_eq!(facing_local, Vec2::new(-1.0, 0.0));
+    let facing_local = up.resolve_aim_local(modes, ScreenAxes::ZERO, ScreenAxes::ZERO, -1.0);
+    assert_eq!(facing_local.vec(), Vec2::new(-1.0, 0.0));
 }
 
 #[test]

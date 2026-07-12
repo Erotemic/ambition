@@ -568,6 +568,27 @@ pub fn tick_actor_brains(
     }
 }
 
+/// Anti-clump route steering for the adhesive crawler: does a same-kind
+/// neighbor sit directly ahead along the crawl tangent (derived from the
+/// published support normal + facing)? Pure, so the reversal rule is
+/// unit-testable without the phase context.
+pub(crate) fn crawler_neighbor_blocks(
+    pos: ae::Vec2,
+    size: ae::Vec2,
+    facing: f32,
+    surface_normal: ae::Vec2,
+    neighbor: ae::Vec2,
+) -> bool {
+    let n = surface_normal;
+    let tangent = ae::Vec2::new(-n.y * facing, n.x * facing);
+    let delta = neighbor - pos;
+    let along = delta.dot(tangent);
+    let perp = delta.dot(n);
+    let body_long = size.x * 0.5;
+    let body_thick = size.y * 0.5;
+    along > 0.0 && along < body_long + 6.0 && perp.abs() < body_thick + 4.0
+}
+
 /// The per-body ACTOR movement integrator — the actor-species sibling of
 /// [`crate::avatar::integrate_home_body`]. Both bottom out in the SAME engine seam
 /// (`ae::step_motion`, reached here via `ActorMut::update` →
@@ -614,7 +635,6 @@ pub(crate) fn integrate_actor_body(
         .as_deref()
         .map(|c| c.0)
         .unwrap_or_else(ambition_characters::actor::control::ActorControlFrame::neutral);
-    let nearest_neighbor = steering.neighbor_by_id.get(&em.config.id).copied();
     let previous_pos = em.kin.pos;
     // Pre-update grounded snapshot for the shared movement-fx landing dust (§A8).
     let was_grounded = em.ground.on_ground;
@@ -623,6 +643,31 @@ pub(crate) fn integrate_actor_body(
     // flash here on the dead→alive transition (the damage-blink lives on
     // `BodyCombat`).
     let was_dead = !em.health.alive();
+    // THE per-body frame resolution: the environment composes the localized
+    // gravity direction at the body's position with the body's authored
+    // response (magnitude × gravity_scale — an aerial body's 0 scale is the
+    // zero-acceleration-with-retained-orientation case) exactly ONCE for this
+    // tick. Input projection, the active policy, and every frame-relative limb
+    // downstream consume this same value.
+    let response = em.config.tuning.movement.gravity * em.surface.gravity_scale;
+    let motion_frame = gravity.motion_frame_at(em.kin.pos, response);
+    // Crawler route steering is CONTROLLER-side: reverse the crawl when a
+    // same-kind neighbor blocks the path ahead (anti-clump). The kernel only
+    // moves; the ECS resolves steering intent.
+    if matches!(motion_model, MotionModel::AdhesiveCrawler(_)) {
+        if let Some(neighbor) = steering.neighbor_by_id.get(&em.config.id).copied() {
+            if crawler_neighbor_blocks(
+                em.kin.pos,
+                em.kin.size,
+                em.kin.facing,
+                em.surface.surface_normal,
+                neighbor,
+            ) {
+                em.kin.facing = -em.kin.facing;
+                em.kin.vel = ae::Vec2::ZERO;
+            }
+        }
+    }
     // NOTE on hitstop: the resolver arms `combat.hitstop_timer` on every body,
     // but an actor's sim dt is NOT frozen by it (tried; per-victim freezes in
     // AI-vs-AI fights made duels degenerate — fighters spent whole bouts
@@ -633,12 +678,11 @@ pub(crate) fn integrate_actor_body(
         feature_world,
         target_pos,
         combat_tuning,
-        nearest_neighbor,
         dt,
         is_mounted,
         brain_frame,
         motion_model,
-        gravity,
+        motion_frame,
         feel,
         (combat.hitstun_timer, combat.recoil_lock_timer),
     );
@@ -845,10 +889,8 @@ pub fn integrate_sim_bodies(
     // affordance rides on `control_dt` inside the helper. No sandbox/room reset and
     // no presentation happen here — those are the home reset-POLICY and
     // PRESENTATION phases, which read the `PlayerBodyFrameOutput` this writes.
-    let mut player_tuning = editable_tuning.as_engine();
-    if let Some(settings) = user_settings.as_deref() {
-        player_tuning.movement_frame_mode = settings.gameplay.movement_frame_mode;
-    }
+    let player_tuning = editable_tuning.as_engine();
+    let _ = &user_settings;
     let player_feel = *feel_tuning;
     let frame_dt = world_time.raw_dt;
     let scaled_dt = world_time.scaled_dt;

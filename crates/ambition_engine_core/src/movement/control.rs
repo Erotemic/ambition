@@ -29,7 +29,7 @@ pub fn handle_blink_clusters(
     // "Forward along facing" is a LOCAL-side direction; every world-space
     // default derived from it must go through the body frame (fable review
     // 2026-07-02 §B9 — the world-X fallback broke sideways gravity).
-    let facing_aim_offset = frame.side() * (tuning.blink_distance * kinematics.facing);
+    let facing_aim_offset = frame.side() * (tuning.abilities.blink_distance * kinematics.facing);
 
     if !abilities.abilities.blink {
         blink.hold_active = false;
@@ -49,19 +49,22 @@ pub fn handle_blink_clusters(
     if blink.hold_active && input.blink_held {
         let control_dt = dt.min(1.0 / 20.0);
         blink.hold_timer += control_dt;
-        if abilities.abilities.precision_blink && blink.hold_timer >= tuning.blink_hold_threshold {
+        if abilities.abilities.precision_blink
+            && blink.hold_timer >= tuning.abilities.blink_hold_threshold
+        {
             blink.aiming = true;
         }
         if blink.aiming {
             // Precision steer in WORLD space, already resolved through the AIM
             // frame mode at the seam (screen-directed by default), so the cursor
             // moves the way the stick points ON SCREEN at any gravity.
-            let aim_input = input.blink_aim_step;
+            let aim_input = input.blink_aim_step.vec();
             if aim_input.length_squared() > 0.01 {
-                blink.aim_offset += aim_input * (tuning.precision_blink_aim_speed * control_dt);
+                blink.aim_offset +=
+                    aim_input * (tuning.abilities.precision_blink_aim_speed * control_dt);
                 blink.aim_offset = blink
                     .aim_offset
-                    .clamp_length_max(tuning.precision_blink_distance);
+                    .clamp_length_max(tuning.abilities.precision_blink_distance);
             }
         }
     }
@@ -87,7 +90,7 @@ pub fn handle_blink_clusters(
                 kinematics,
                 abilities,
                 aim,
-                tuning.blink_distance,
+                tuning.abilities.blink_distance,
             )
         };
         super::blink::complete_blink_clusters(
@@ -139,7 +142,7 @@ pub fn handle_attacks_clusters(
         // Recoil opposes facing along the body's LOCAL side axis (fable review
         // 2026-07-02 §B4 — the raw `vel.x` form shoved sideways-gravity bodies
         // along their gravity axis).
-        kinematics.vel -= frame.side() * (kinematics.facing * tuning.slash_recoil);
+        kinematics.vel -= frame.side() * (kinematics.facing * tuning.abilities.slash_recoil);
         events.op_clusters(combo_trace, MovementOp::Slash);
     }
 }

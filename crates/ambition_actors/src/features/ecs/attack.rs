@@ -68,8 +68,7 @@ pub fn engine_input_from_actor_control(
     control_dt: f32,
 ) -> ae::InputState {
     let mut input = ae::InputState {
-        axis_x: actor.locomotion.x,
-        axis_y: actor.locomotion.y,
+        axes: ae::LocalAxes::from_vec(actor.locomotion),
         jump_pressed: actor.jump_pressed,
         jump_held: actor.jump_held,
         jump_released: actor.jump_released,
@@ -78,8 +77,8 @@ pub fn engine_input_from_actor_control(
         blink_pressed: actor.blink_pressed,
         blink_held: actor.blink_held,
         blink_released: actor.blink_released,
-        blink_quick_dir: actor.blink_quick_dir,
-        blink_aim_step: actor.blink_aim_step,
+        blink_quick_dir: ae::WorldVec2(actor.blink_quick_dir),
+        blink_aim_step: ae::WorldVec2(actor.blink_aim_step),
         fast_fall_pressed: actor.fast_fall_pressed,
         attack_pressed: actor.melee_pressed,
         pogo_pressed: actor.pogo_pressed,
@@ -111,8 +110,7 @@ pub fn apply_post_hit_input_gates(
         // Recoil throw: NO authority. Zero everything (including the movement /
         // flight steering axis) so the knockback carries the body out and it
         // can't steer back in or act until it clears.
-        input.axis_x = 0.0;
-        input.axis_y = 0.0;
+        input.axes = ae::LocalAxes::ZERO;
         input.jump_pressed = false;
         input.jump_held = false;
         input.jump_released = false;
@@ -130,8 +128,7 @@ pub fn apply_post_hit_input_gates(
         // PRESERVED — you can fight back, and damage a boss you're standing in,
         // the instant the recoil lock ends while i-frames are still ticking.
         let scale = feel.hitstun_control_scale.clamp(0.0, 1.0);
-        input.axis_x *= scale;
-        input.axis_y *= scale;
+        input.axes = ae::LocalAxes::new(input.axes.x * scale, input.axes.y * scale);
         input.jump_pressed = false;
         input.dash_pressed = false;
         input.fast_fall_pressed = false;
@@ -398,6 +395,9 @@ pub fn advance_attack(
     attack: &mut Option<MeleeSwing>,
     anim: Option<&mut BodyAnimFacts>,
     tuning: ae::MovementTuning,
+    // The body's frame down direction, resolved by the environment at the
+    // body's position (never reconstructed from tuning).
+    gravity_dir: ae::Vec2,
     frame_dt: f32,
     feature_ecs_overlay: &FeatureEcsWorldOverlay,
     hit_events: &mut MessageWriter<crate::combat::events::HitEvent>,
@@ -440,7 +440,7 @@ pub fn advance_attack(
             view.pos,
             view.size,
             view.facing,
-            tuning.gravity_dir,
+            gravity_dir,
         );
         let world_box = manifest.map(|v| v.bounds()).unwrap_or(spec_box);
 
@@ -486,7 +486,7 @@ pub fn advance_attack(
                 knock_x,
                 attack_state.spec.active_seconds,
                 slash_kind(attack_state.spec.intent),
-                tuning.gravity_dir,
+                gravity_dir,
             );
         }
 
@@ -506,14 +506,14 @@ pub fn advance_attack(
             if let Some(orb_aabb) = pogo_target_for_attack_hitbox(&attack_world, world_box) {
                 ae::movement::set_jump_velocity(
                     &mut clusters.kinematics.vel,
-                    tuning.gravity_dir,
+                    gravity_dir,
                     tuning.pogo_speed,
                 );
                 ae::refresh_movement_resources_clusters(
                     clusters.abilities,
                     &mut *clusters.dash,
                     &mut *clusters.jump,
-                    tuning,
+                    tuning.air_jumps,
                 );
                 clusters.ground.on_ground = false;
                 attack_state.pogo_applied = true;
@@ -697,9 +697,10 @@ pub fn advance_body_melee(
             continue;
         }
         let pos = cq.kinematics.pos;
-        let mut tuning = editable_tuning.as_engine();
-        // Gravity into the tuning so the pogo bounce launches OPPOSITE live gravity.
-        physics::apply_gravity_dir(&mut tuning, gravity.dir_at(pos));
+        let tuning = editable_tuning.as_engine();
+        // Live frame direction at the body's position, so the pogo bounce
+        // launches OPPOSITE live gravity.
+        let gravity_dir = gravity.dir_at(pos);
         // The strike's effective allegiance picks the damage channel; the sprite id
         // (actors) resolves the authored per-animation box, else the player root.
         let strike_faction = crate::combat::targeting::effective_faction(*faction, brain);
@@ -718,6 +719,7 @@ pub fn advance_body_melee(
             &mut melee.swing,
             anim.as_deref_mut(),
             tuning,
+            gravity_dir,
             dt,
             &feature_ecs_overlay,
             &mut hit_events,

@@ -121,6 +121,9 @@ pub fn apply_feature_hit_events(
             // CPU or RL policy DIs its own knockback like a human. `Option` for
             // bare test bodies; inert unless `feel.di_max_angle` is authored.
             Option<&ambition_characters::brain::ActorControl>,
+            // The body's explicit movement policy — required (absence is never
+            // a policy). The crawler's typed cling-break detach goes through it.
+            &'static mut crate::features::MotionModel,
             super::actor_clusters::ActorClusterQueryData,
         ),
         // Bosses are handled by the disjoint `bosses` query; both take
@@ -262,6 +265,7 @@ pub fn apply_feature_hit_events(
             mut aggression,
             interaction,
             control,
+            mut motion_model,
             mut cq,
         ) in &mut actors
         {
@@ -292,6 +296,7 @@ pub fn apply_feature_hit_events(
                 actor_entity,
                 *disposition,
                 &mut em,
+                &mut motion_model,
                 &mut combat,
                 aggression.as_deref_mut(),
                 interactable,

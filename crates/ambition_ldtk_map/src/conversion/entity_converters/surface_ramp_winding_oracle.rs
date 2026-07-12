@@ -93,17 +93,24 @@ fn ride_into_the_corner(o: RampOrientation) -> ae::Vec2 {
     };
 
     let f = chain.frame_at(s);
-    let radius = 14.0;
-    let mut body = ae::movement::surface_momentum::SurfaceBody {
-        pos: f.point + f.normal * radius,
-        vel: ae::Vec2::ZERO,
-        radius,
-        depth_lane: 0,
-        motion: ae::movement::surface_momentum::SurfaceMotion::Riding {
-            on: ae::movement::surface_momentum::SurfaceRef::Chain(0),
-            s,
-            v_t,
-        },
+    // The body's square proxy: the kernel derives the ride circle from the
+    // smaller half-extent, so a 28px body rides as the old radius-14 circle.
+    let size = ae::Vec2::splat(28.0);
+    let radius = size.min_element() * 0.5;
+    let mut scratch = ae::BodyClusterScratch::new_with_abilities(
+        f.point + f.normal * radius,
+        ae::AbilitySet::default(),
+    );
+    scratch.kinematics.size = size;
+    scratch.kinematics.vel = ae::Vec2::ZERO;
+    let mut model = ae::MotionModel::surface_momentum(params);
+    let ae::MotionModel::SurfaceMomentum(motion) = &mut model else {
+        unreachable!();
+    };
+    motion.state = ae::SurfaceMotion::Riding {
+        on: ae::SurfaceRef::Chain(0),
+        s,
+        v_t,
     };
     let gravity = gravity_for(o);
     // `run` is along the CHAIN's tangent (increasing arc length), not along
@@ -115,26 +122,31 @@ fn ride_into_the_corner(o: RampOrientation) -> ae::Vec2 {
     let run = v_t.signum();
     // Sample the moment the body clears the fillet onto the wall — NOT seconds
     // later. A body that climbed the wall correctly decelerates under gravity
-    // and comes back down, and "it is falling" is not a winding bug.
+    // and comes back down, and "it is falling" is not a winding bug. The ride
+    // enters through the ONE public movement gateway, like production.
+    let frame = ae::MotionFrame::from_acceleration(gravity).expect("non-zero acceleration");
     for _ in 0..2000 {
-        ae::movement::surface_momentum::step_surface_body(
-            &mut body,
-            &world,
-            &params,
-            ae::MotionFrame::from_acceleration(gravity).expect("non-zero acceleration"),
-            ae::movement::surface_momentum::SurfaceInputs {
-                local_axis: ae::Vec2::new(run, 0.0),
-                jump_pressed: false,
+        let mut clusters = scratch.as_mut();
+        ae::step_motion(
+            &mut model,
+            &mut clusters,
+            ae::MotionStepContext {
+                world: &world,
+                input: ae::InputState {
+                    axes: ae::LocalAxes::new(run, 0.0),
+                    ..ae::InputState::default()
+                },
+                frame,
+                facing_intent: 0.0,
+                dt: DT,
             },
-            DT,
-            None,
         );
         // Past the fillet's far tangent point, measured along the wall axis.
-        if (body.pos.y - corner.y) * room.y > R * 1.25 {
+        if (scratch.kinematics.pos.y - corner.y) * room.y > R * 1.25 {
             break;
         }
     }
-    body.vel
+    scratch.kinematics.vel
 }
 
 /// **The oracle.** A body that runs into the fillet at speed leaves along the

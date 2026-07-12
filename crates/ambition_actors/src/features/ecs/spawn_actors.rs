@@ -270,6 +270,7 @@ impl EnemyActorSpawnPlan {
 
     pub(super) fn spawn(self, commands: &mut Commands, session_scope: SessionSpawnScope) -> Entity {
         let facing = self.enemy.kin.facing;
+        let motion_model = self.enemy.config.tuning.motion_model();
         let (identity, disposition, combat, intent, cooldowns) =
             enemy_component_snapshot(&self.enemy);
         let cluster_bundle = self.enemy.into_components();
@@ -297,7 +298,8 @@ impl EnemyActorSpawnPlan {
                         combat,
                         intent,
                         cooldowns,
-                    ),
+                    )
+                    .with_motion_model(motion_model),
                     cluster_bundle,
                     self.brain,
                     self.action_set,
@@ -467,6 +469,7 @@ impl NpcActorSpawnPlan {
             self.action_set.melee.as_ref(),
             self.action_set.ranged.as_ref(),
         );
+        let motion_model = self.seed.config.tuning.motion_model();
         let cluster_bundle = self.seed.into_components();
         let mut entity = commands.spawn_session_scoped(
             session_scope,
@@ -487,7 +490,8 @@ impl NpcActorSpawnPlan {
                     combat,
                     intent,
                     cooldowns,
-                ),
+                )
+                .with_motion_model(motion_model),
                 cluster_bundle,
                 self.brain,
                 self.action_set,

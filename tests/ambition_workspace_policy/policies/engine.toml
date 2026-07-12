@@ -2283,3 +2283,49 @@ source_doc = "docs/planning/engine/startup-loading-and-frontend-flow.md"
 severity = "error"
 roots = ["crates/ambition_actors/src", "crates/ambition_audio/src", "game/ambition_content/src", "game/ambition_app/src", "game/ambition_demo_sanic/src", "game/ambition_demo_smb1/src"]
 forbid = ["install_music_registry", "install_sfx_registry", "authored_music_registry", "authored_sfx_registry", "MUSIC_REGISTRY_OVERRIDE", "SFX_REGISTRY_OVERRIDE"]
+
+# ── One frame-aware movement kernel (ADR 0024) ──
+# Every integrated movable body carries exactly ONE explicit `MotionModel`;
+# absence is never a policy. An `Option<&MotionModel>` or `Without<MotionModel>`
+# query is the "missing model means axis-swept" convention returning — the exact
+# ambiguity the unified kernel removed. Policy-specific whole-tick solvers are
+# `pub(crate)` (visibility is the guard there); this rejects the QUERY-side
+# regression rustc cannot see.
+[[policy]]
+id = "engine.movement-model-is-never-optional"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_engine_core", "ambition_actors"]
+watch_paths = ["crates", "game"]
+rationale = "ADR 0024 §1: absence is never a movement policy. No production query may treat MotionModel as optional or filter on its absence; every integrated body carries a variant from spawn and dispatch happens inside step_motion."
+source_doc = "docs/adr/0024-frame-aware-unified-movement-kernel.md"
+severity = "error"
+production_only = true
+skip_tests = true
+roots = ["crates", "game"]
+forbid = [
+    "Option<&MotionModel>", "Option<&mut MotionModel>", "Without<MotionModel>",
+    "Option<&crate::features::MotionModel>", "Option<&mut crate::features::MotionModel>",
+    "Without<crate::features::MotionModel>",
+    "Option<&'static MotionModel>", "Option<&'static mut MotionModel>",
+    "Option<&'static mut crate::features::MotionModel>",
+]
+
+# The crawler is an explicit movement POLICY dispatched inside the kernel; the
+# authored `surface_walker` flag exists only as the spawn-time selector in
+# `ActorTuning::motion_model`. Any other production read is a hidden third
+# integrator (or a policy branch outside the kernel) growing back.
+[[policy]]
+id = "engine.crawler-flag-is-spawn-selection-only"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_actors"]
+watch_paths = ["crates/ambition_actors/src"]
+rationale = "ADR 0024 §8: the former surface_walker integrator is the AdhesiveCrawler policy. The authored boolean selects the MotionModel once at spawn (ActorTuning::motion_model); runtime dispatch reads the body's explicit model, never the flag."
+source_doc = "docs/adr/0024-frame-aware-unified-movement-kernel.md"
+severity = "error"
+production_only = true
+skip_tests = true
+skip_paths = ["features/ecs/actor_tuning.rs", "features/enemies/mod.rs"]
+roots = ["crates/ambition_actors/src"]
+forbid = ["tuning.surface_walker", ".config.tuning.surface_walker"]

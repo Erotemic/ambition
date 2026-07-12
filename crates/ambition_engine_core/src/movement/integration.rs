@@ -236,7 +236,7 @@ pub(super) fn integrate_velocity_clusters(
             clusters.abilities,
             &mut *clusters.dash,
             &mut *clusters.jump,
-            tuning,
+            tuning.locomotion.air_jumps,
         );
         clusters.blink.grace_timer = 0.0;
         clusters.flight.fast_falling = false;
@@ -256,7 +256,7 @@ pub(super) fn integrate_velocity_clusters(
                 clusters.abilities,
                 &mut *clusters.dash,
                 &mut *clusters.jump,
-                tuning,
+                tuning.locomotion.air_jumps,
             );
             clusters.ground.on_ground = false;
             clusters.ground.rebound_cooldown = 0.18;
@@ -377,7 +377,7 @@ pub fn integrate_normal_spine(
         *fast_falling = true;
     }
     if *fast_falling && !blink_hang_active && ctx.water.is_none() {
-        *kin_vel += tuning.fast_fall_accel * g * dt;
+        *kin_vel += tuning.locomotion.fast_fall_accel * g * dt;
     }
     *gliding = ctx.can_glide
         && !ctx.on_ground
@@ -389,11 +389,11 @@ pub fn integrate_normal_spine(
 
     if ctx.can_move_horizontal {
         let accel = if ctx.on_ground {
-            tuning.run_accel
+            tuning.locomotion.run_accel
         } else if *gliding {
-            tuning.glide_air_accel
+            tuning.locomotion.glide_air_accel
         } else {
-            tuning.air_accel
+            tuning.locomotion.air_accel
         };
         // Run/friction act along the PHYSICAL run axis (`side`, perpendicular to
         // gravity). The input-frame mode chooses how the stick projects onto it:
@@ -414,20 +414,28 @@ pub fn integrate_normal_spine(
         // beyond it in that direction — the fall cap's `relax`); OPPOSING
         // input brakes at full air control and eats the carried floor with
         // it. `carried_decay` optionally bleeds the floor over time.
-        *carried_run = approach(*carried_run, 0.0, tuning.carried_decay * dt);
+        *carried_run = approach(*carried_run, 0.0, tuning.locomotion.carried_decay * dt);
         let new_along = if ctx.on_ground {
-            let mut v = approach(along, run * tuning.max_run_speed, accel * dt);
+            let mut v = approach(along, run * tuning.locomotion.max_run_speed, accel * dt);
             if run.abs() <= 0.1 {
-                v = approach(v, 0.0, tuning.ground_friction * dt);
+                v = approach(v, 0.0, tuning.locomotion.ground_friction * dt);
             }
             v
         } else if run > 0.1 {
-            approach(along, (run * tuning.max_run_speed).max(along), accel * dt)
+            approach(
+                along,
+                (run * tuning.locomotion.max_run_speed).max(along),
+                accel * dt,
+            )
         } else if run < -0.1 {
-            approach(along, (run * tuning.max_run_speed).min(along), accel * dt)
+            approach(
+                along,
+                (run * tuning.locomotion.max_run_speed).min(along),
+                accel * dt,
+            )
         } else {
             // Hands-off: tight stop assist down to the carried floor.
-            approach(along, *carried_run, tuning.air_stop_assist * dt)
+            approach(along, *carried_run, tuning.locomotion.air_stop_assist * dt)
         };
         *kin_vel += (new_along - along) * m;
         // The floor never exceeds the actual velocity: opposing input, wall
@@ -445,11 +453,11 @@ pub fn integrate_normal_spine(
         // fling like a portal exit). GLIDING is an intentional brake, so it keeps a
         // hard clamp; terminal velocity + fast-fall do not.
         let (fall_cap, relax) = if *fast_falling {
-            (tuning.fast_fall_speed, true)
+            (tuning.locomotion.fast_fall_speed, true)
         } else if *gliding {
-            (tuning.glide_fall_speed, false)
+            (tuning.locomotion.glide_fall_speed, false)
         } else {
-            (tuning.max_fall_speed, true)
+            (tuning.locomotion.max_fall_speed, true)
         };
         let effective_cap = if relax {
             fall_cap.max(fall_along_before)
@@ -491,7 +499,7 @@ pub(super) fn integrate_climb_clusters(
         world_stick.y * spec.climb_speed,
     );
     if jump.ladder_jump_boost > 0.0 && pressing_away_from_gravity {
-        let away_from_feet = -tuning.jump_speed;
+        let away_from_feet = -tuning.locomotion.jump_speed;
         let along_down = target_vel.dot(body_frame.down);
         target_vel += body_frame.down * (away_from_feet - along_down);
     }
@@ -518,7 +526,7 @@ pub(super) fn integrate_flight_clusters(
     flight.fast_falling = false;
     wall.wall_clinging = false;
     wall.wall_climbing = false;
-    flight.flight_phase += dt * tuning.flight_hover_hz * std::f32::consts::TAU;
+    flight.flight_phase += dt * tuning.flight.hover_hz * std::f32::consts::TAU;
 
     // Free flight consumes controlled-body-local input. Resolve raw input before
     // it reaches `InputState`; this layer only projects local side/down motion
@@ -528,13 +536,13 @@ pub(super) fn integrate_flight_clusters(
     let vel_descend = kinematics.vel.dot(basis.down);
     let local_stick = input.local_axis();
 
-    let target_run = local_stick.x * tuning.flight_terminal_speed;
-    let mut target_descend = local_stick.y * tuning.flight_terminal_speed;
-    if !tuning.flight_direct_velocity && local_stick.y.abs() <= 0.10 {
-        target_descend = flight.flight_phase.sin() * tuning.flight_hover_speed;
+    let target_run = local_stick.x * tuning.flight.terminal_speed;
+    let mut target_descend = local_stick.y * tuning.flight.terminal_speed;
+    if !tuning.flight.direct_velocity && local_stick.y.abs() <= 0.10 {
+        target_descend = flight.flight_phase.sin() * tuning.flight.hover_speed;
     }
 
-    let (mut new_run, mut new_descend) = if tuning.flight_direct_velocity {
+    let (mut new_run, mut new_descend) = if tuning.flight.direct_velocity {
         // Direct-velocity free-mover: the controller commanded an exact velocity
         // (`stick × terminal` == its `velocity_target`), so take it verbatim — no
         // accel ramp, drag, hover-bob, or deadzone. Byte-identical to a SNAP float
@@ -543,20 +551,20 @@ pub(super) fn integrate_flight_clusters(
         // (`|stick| ≤ 1` already bounds this to ±terminal).
         (target_run, target_descend)
     } else {
-        let mut new_run = approach(vel_run, target_run, tuning.flight_accel * dt);
-        let mut new_descend = approach(vel_descend, target_descend, tuning.flight_accel * dt);
+        let mut new_run = approach(vel_run, target_run, tuning.flight.accel * dt);
+        let mut new_descend = approach(vel_descend, target_descend, tuning.flight.accel * dt);
 
         if local_stick.x.abs() <= 0.10 {
-            new_run = approach(new_run, 0.0, tuning.flight_drag * dt);
+            new_run = approach(new_run, 0.0, tuning.flight.drag * dt);
         }
         if local_stick.y.abs() <= 0.10 {
-            new_descend = approach(new_descend, target_descend, tuning.flight_drag * dt);
+            new_descend = approach(new_descend, target_descend, tuning.flight.drag * dt);
         }
         (new_run, new_descend)
     };
 
-    new_run = new_run.clamp(-tuning.flight_terminal_speed, tuning.flight_terminal_speed);
-    new_descend = new_descend.clamp(-tuning.flight_terminal_speed, tuning.flight_terminal_speed);
+    new_run = new_run.clamp(-tuning.flight.terminal_speed, tuning.flight.terminal_speed);
+    new_descend = new_descend.clamp(-tuning.flight.terminal_speed, tuning.flight.terminal_speed);
 
     kinematics.vel = frame.to_world(crate::Vec2::new(new_run, new_descend));
 }
@@ -593,14 +601,15 @@ pub(super) fn apply_wall_abilities_clusters(
     if abilities.abilities.wall_climb && local_stick.y.abs() > 0.25 {
         wall.wall_climbing = true;
         let along_down = kinematics.vel.dot(basis.down);
-        kinematics.vel += basis.down * (local_stick.y * tuning.wall_climb_speed - along_down);
+        kinematics.vel +=
+            basis.down * (local_stick.y * tuning.locomotion.wall_climb_speed - along_down);
         if !was_clinging {
             events.op_clusters(combo_trace, MovementOp::WallClimb);
         }
     } else {
         let descend = kinematics.vel.dot(basis.down);
-        if descend > tuning.wall_slide_speed {
-            kinematics.vel -= basis.down * (descend - tuning.wall_slide_speed);
+        if descend > tuning.locomotion.wall_slide_speed {
+            kinematics.vel -= basis.down * (descend - tuning.locomotion.wall_slide_speed);
         }
         if !was_clinging {
             events.op_clusters(combo_trace, MovementOp::WallCling);

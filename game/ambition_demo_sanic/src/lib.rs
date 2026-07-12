@@ -543,6 +543,9 @@ impl SanicRulesPlugin {
 
 impl Plugin for SanicRulesPlugin {
     fn build(&self, app: &mut App) {
+        // The plugin OWNS its mandatory message channels: three of its systems
+        // write SFX cues, so a thin host without the audio stack still builds.
+        app.add_message::<ambition::sfx::SfxMessage>();
         use bevy::prelude::IntoScheduleConfigs;
         let sim = ambition::platformer::schedule::SimScheduleExt::sim_schedule(app);
         app.init_resource::<ball_dash::BallDashTuning>();

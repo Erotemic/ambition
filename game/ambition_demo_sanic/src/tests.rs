@@ -255,6 +255,76 @@ fn sanic_speedway_composes_through_the_umbrella() {
     );
 }
 
+/// A surface-momentum test rig: the body-state scratch plus the motion model,
+/// stepped one tick at a time through the ONE public movement gateway
+/// (`ae::step_motion`), exactly as production does. The kernel derives the
+/// ride circle radius as `size.min_element() * 0.5`, so a `splat(32.0)` body
+/// box rides as the old radius-16 circle proxy.
+struct MomentumRig {
+    scratch: ae::BodyClusterScratch,
+    model: ae::MotionModel,
+}
+
+impl MomentumRig {
+    /// A radius-16 rider attached to `world.chains[chain_index]` at arc
+    /// length `s`, moving at signed tangential speed `v_t`.
+    fn riding(
+        chain: &ae::SurfaceChain,
+        chain_index: usize,
+        s: f32,
+        v_t: f32,
+        params: ae::MomentumParams,
+    ) -> Self {
+        let frame = chain.frame_at(s);
+        let mut scratch = ae::BodyClusterScratch::new_with_abilities(
+            frame.point + frame.normal * 16.0,
+            ae::AbilitySet::default(),
+        );
+        scratch.kinematics.size = ae::Vec2::splat(32.0);
+        scratch.kinematics.vel = frame.tangent * v_t;
+        let mut model = ae::MotionModel::surface_momentum(params);
+        let ae::MotionModel::SurfaceMomentum(m) = &mut model else {
+            unreachable!()
+        };
+        m.state = ae::SurfaceMotion::Riding {
+            on: ae::SurfaceRef::Chain(chain_index),
+            s,
+            v_t,
+        };
+        m.depth_lane = chain.segment_depth(frame.segment);
+        Self { scratch, model }
+    }
+
+    /// One 60 Hz kernel tick under the standard downward gravity frame.
+    fn step(&mut self, world: &ae::World, steer: ae::Vec2) {
+        let mut clusters = self.scratch.as_mut();
+        ae::step_motion(
+            &mut self.model,
+            &mut clusters,
+            ae::MotionStepContext {
+                world,
+                input: ae::InputState {
+                    axes: ae::LocalAxes::new(steer.x, steer.y),
+                    jump_pressed: false,
+                    ..ae::InputState::default()
+                },
+                frame: ae::MotionFrame::from_acceleration(ae::Vec2::new(0.0, 1450.0))
+                    .expect("non-zero acceleration"),
+                facing_intent: 0.0,
+                dt: 1.0 / 60.0,
+            },
+        );
+    }
+
+    /// The ride state, read back from the model (the kernel's authority).
+    fn motion(&self) -> ae::SurfaceMotion {
+        let ae::MotionModel::SurfaceMomentum(m) = &self.model else {
+            unreachable!()
+        };
+        m.state
+    }
+}
+
 #[test]
 fn momentum_body_crosses_the_ramp_full_loop_and_runout_without_stalling() {
     let room = sanic_speedway();
@@ -271,19 +341,7 @@ fn momentum_body_crosses_the_ramp_full_loop_and_runout_without_stalling() {
         .map(|segment| chain.segment_length(segment))
         .sum();
     let start_s = entry_s - 30.0;
-    let frame = chain.frame_at(start_s);
     let speed = 1000.0;
-    let mut body = ae::movement::surface_momentum::SurfaceBody {
-        pos: frame.point + frame.normal * 16.0,
-        vel: frame.tangent * speed,
-        radius: 16.0,
-        depth_lane: chain.segment_depth(frame.segment),
-        motion: ae::movement::surface_momentum::SurfaceMotion::Riding {
-            on: ae::movement::surface_momentum::SurfaceRef::Chain(0),
-            s: start_s,
-            v_t: speed,
-        },
-    };
     let params = ae::MomentumParams {
         ground_accel: 0.0,
         brake: 0.0,
@@ -295,19 +353,12 @@ fn momentum_body_crosses_the_ramp_full_loop_and_runout_without_stalling() {
         min_stick_speed: 0.0,
         ..Default::default()
     };
+    let mut rig = MomentumRig::riding(chain, 0, start_s, speed, params);
 
     let mut reached_runout = false;
     for _ in 0..180 {
-        ae::movement::surface_momentum::step_surface_body(
-            &mut body,
-            &room.world,
-            &params,
-            ae::MotionFrame::from_acceleration(ae::Vec2::new(0.0, 1450.0)).expect("non-zero acceleration"),
-            ae::movement::surface_momentum::SurfaceInputs::default(),
-            1.0 / 60.0,
-            None,
-        );
-        let ae::movement::surface_momentum::SurfaceMotion::Riding { s, .. } = body.motion else {
+        rig.step(&room.world, ae::Vec2::ZERO);
+        let ae::SurfaceMotion::Riding { s, .. } = rig.motion() else {
             panic!("the continuous ramp/full-loop route must not shed the rider");
         };
         if s > closure_s + 120.0 {
@@ -318,7 +369,7 @@ fn momentum_body_crosses_the_ramp_full_loop_and_runout_without_stalling() {
     assert!(
         reached_runout,
         "the rider must complete the full loop and enter the runout: entry_s={entry_s}, closure_s={closure_s}, motion={:?}",
-        body.motion
+        rig.motion()
     );
 }
 
@@ -337,42 +388,23 @@ fn authored_sanic_speed_clears_the_depth_crossover_before_any_launch() {
     let closure_s: f32 = (0..LOOP_CLOSURE_POINT_INDEX)
         .map(|segment| chain.segment_length(segment))
         .sum();
-    let frame = chain.frame_at(entry_s);
     let speed = 1120.0;
-    let mut body = ae::movement::surface_momentum::SurfaceBody {
-        pos: frame.point + frame.normal * 16.0,
-        vel: frame.tangent * speed,
-        radius: 16.0,
-        depth_lane: chain.segment_depth(frame.segment),
-        motion: ae::movement::surface_momentum::SurfaceMotion::Riding {
-            on: ae::movement::surface_momentum::SurfaceRef::Chain(0),
-            s: entry_s,
-            v_t: speed,
-        },
-    };
     let params = ae::MomentumParams {
         ground_accel: 900.0,
         top_speed: 1200.0,
         jump_speed: 700.0,
         ..Default::default()
     };
+    let mut rig = MomentumRig::riding(chain, 0, entry_s, speed, params);
 
     let clear_s = closure_s + 160.0;
     for _ in 0..180 {
-        ae::movement::surface_momentum::step_surface_body(
-            &mut body,
-            &room.world,
-            &params,
-            ae::MotionFrame::from_acceleration(ae::Vec2::new(0.0, 1450.0)).expect("non-zero acceleration"),
-            ae::movement::surface_momentum::SurfaceInputs {
-                local_axis: ae::Vec2::X,
-                jump_pressed: false,
-            },
-            1.0 / 60.0,
-            None,
-        );
-        let ae::movement::surface_momentum::SurfaceMotion::Riding { s, .. } = body.motion else {
-            panic!("authored Sanic speed must stay attached through the loop mouth; body={body:?}");
+        rig.step(&room.world, ae::Vec2::X);
+        let ae::SurfaceMotion::Riding { s, .. } = rig.motion() else {
+            panic!(
+                "authored Sanic speed must stay attached through the loop mouth; model={:?}, kinematics={:?}",
+                rig.model, rig.scratch.kinematics
+            );
         };
         if s > clear_s {
             return;
@@ -380,7 +412,7 @@ fn authored_sanic_speed_clears_the_depth_crossover_before_any_launch() {
     }
     panic!(
         "authored Sanic speed never cleared the foreground overpass; motion={:?}",
-        body.motion
+        rig.motion()
     );
 }
 
@@ -599,47 +631,25 @@ fn loop_mouth_steering_selects_the_up_or_down_route_in_both_directions() {
     };
 
     let step_from = |s: f32, v_t: f32, steer: ae::Vec2| {
-        let frame = chain.frame_at(s);
-        let mut body = ae::movement::surface_momentum::SurfaceBody {
-            pos: frame.point + frame.normal * 16.0,
-            vel: frame.tangent * v_t,
-            radius: 16.0,
-            depth_lane: chain.segment_depth(frame.segment),
-            motion: ae::movement::surface_momentum::SurfaceMotion::Riding {
-                on: ae::movement::surface_momentum::SurfaceRef::Chain(0),
-                s,
-                v_t,
-            },
-        };
-        ae::movement::surface_momentum::step_surface_body(
-            &mut body,
-            &room.world,
-            &params,
-            ae::MotionFrame::from_acceleration(ae::Vec2::new(0.0, 1450.0)).expect("non-zero acceleration"),
-            ae::movement::surface_momentum::SurfaceInputs {
-                local_axis: steer,
-                jump_pressed: false,
-            },
-            1.0 / 60.0,
-            None,
-        );
-        body
+        let mut rig = MomentumRig::riding(chain, 0, s, v_t, params);
+        rig.step(&room.world, steer);
+        rig.motion()
     };
 
     let up_into_loop = step_from(entry_s - 3.0, 600.0, ae::Vec2::new(1.0, -1.0));
-    let ae::movement::surface_momentum::SurfaceMotion::Riding { s, .. } = up_into_loop.motion else {
+    let ae::SurfaceMotion::Riding { s, .. } = up_into_loop else {
         panic!("the authored route switch guides the rider instead of launching");
     };
     assert!(s > entry_s && s < closure_s, "up-right enters the loop");
 
     let down_to_runout = step_from(entry_s - 3.0, 600.0, ae::Vec2::new(1.0, 1.0));
-    let ae::movement::surface_momentum::SurfaceMotion::Riding { s, .. } = down_to_runout.motion else {
+    let ae::SurfaceMotion::Riding { s, .. } = down_to_runout else {
         panic!("the authored route switch guides the rider instead of launching");
     };
     assert!(s > closure_s, "down-right selects the lower/outbound route");
 
     let up_into_reverse_loop = step_from(closure_s + 3.0, -600.0, ae::Vec2::new(-1.0, -1.0));
-    let ae::movement::surface_momentum::SurfaceMotion::Riding { s, .. } = up_into_reverse_loop.motion else {
+    let ae::SurfaceMotion::Riding { s, .. } = up_into_reverse_loop else {
         panic!("the authored route switch guides the rider instead of launching");
     };
     assert!(
@@ -648,19 +658,19 @@ fn loop_mouth_steering_selects_the_up_or_down_route_in_both_directions() {
     );
 
     let down_to_ramp = step_from(closure_s + 3.0, -600.0, ae::Vec2::new(-1.0, 1.0));
-    let ae::movement::surface_momentum::SurfaceMotion::Riding { s, .. } = down_to_ramp.motion else {
+    let ae::SurfaceMotion::Riding { s, .. } = down_to_ramp else {
         panic!("the authored route switch guides the rider instead of launching");
     };
     assert!(s < entry_s, "down-left selects the descending ramp");
 
     let forward_default = step_from(closure_s - 3.0, 600.0, ae::Vec2::X);
-    let ae::movement::surface_momentum::SurfaceMotion::Riding { s, .. } = forward_default.motion else {
+    let ae::SurfaceMotion::Riding { s, .. } = forward_default else {
         panic!("horizontal input preserves the authored forward exit");
     };
     assert!(s > closure_s, "holding Right exits after one forward lap");
 
     let reverse_default = step_from(entry_s + 3.0, -600.0, -ae::Vec2::X);
-    let ae::movement::surface_momentum::SurfaceMotion::Riding { s, .. } = reverse_default.motion else {
+    let ae::SurfaceMotion::Riding { s, .. } = reverse_default else {
         panic!("horizontal input preserves the authored reverse exit");
     };
     assert!(s < entry_s, "holding Left exits after one reverse lap");
@@ -690,39 +700,17 @@ fn floor_route_steering_enters_the_ramp_without_jumping() {
     };
 
     let step = |steer: ae::Vec2| {
-        let frame = floor.frame_at(branch_s - 3.0);
-        let mut body = ae::movement::surface_momentum::SurfaceBody {
-            pos: frame.point + frame.normal * 16.0,
-            vel: frame.tangent * 600.0,
-            radius: 16.0,
-            depth_lane: floor.segment_depth(frame.segment),
-            motion: ae::movement::surface_momentum::SurfaceMotion::Riding {
-                on: ae::movement::surface_momentum::SurfaceRef::Chain(floor_index),
-                s: branch_s - 3.0,
-                v_t: 600.0,
-            },
-        };
-        ae::movement::surface_momentum::step_surface_body(
-            &mut body,
-            &room.world,
-            &params,
-            ae::MotionFrame::from_acceleration(ae::Vec2::new(0.0, 1450.0)).expect("non-zero acceleration"),
-            ae::movement::surface_momentum::SurfaceInputs {
-                local_axis: steer,
-                jump_pressed: false,
-            },
-            1.0 / 60.0,
-            None,
-        );
-        body
+        let mut rig = MomentumRig::riding(floor, floor_index, branch_s - 3.0, 600.0, params);
+        rig.step(&room.world, steer);
+        rig.motion()
     };
 
     let raised = step(ae::Vec2::new(1.0, -1.0));
     assert!(
         matches!(
-            raised.motion,
-            ae::movement::surface_momentum::SurfaceMotion::Riding {
-                on: ae::movement::surface_momentum::SurfaceRef::Chain(0),
+            raised,
+            ae::SurfaceMotion::Riding {
+                on: ae::SurfaceRef::Chain(0),
                 ..
             }
         ),
@@ -732,9 +720,9 @@ fn floor_route_steering_enters_the_ramp_without_jumping() {
     let flat = step(ae::Vec2::X);
     assert!(
         matches!(
-            flat.motion,
-            ae::movement::surface_momentum::SurfaceMotion::Riding {
-                on: ae::movement::surface_momentum::SurfaceRef::Chain(index),
+            flat,
+            ae::SurfaceMotion::Riding {
+                on: ae::SurfaceRef::Chain(index),
                 ..
             } if index == floor_index
         ),
@@ -754,18 +742,6 @@ fn reverse_loop_exits_after_one_revolution_instead_of_reentering_forever() {
     let entry_s = chain.arc_at_vertex(LOOP_ENTRY_POINT_INDEX);
     let closure_s = chain.arc_at_vertex(LOOP_CLOSURE_POINT_INDEX);
     let start_s = closure_s + 180.0;
-    let frame = chain.frame_at(start_s);
-    let mut body = ae::movement::surface_momentum::SurfaceBody {
-        pos: frame.point + frame.normal * 16.0,
-        vel: frame.tangent * -900.0,
-        radius: 16.0,
-        depth_lane: chain.segment_depth(frame.segment),
-        motion: ae::movement::surface_momentum::SurfaceMotion::Riding {
-            on: ae::movement::surface_momentum::SurfaceRef::Chain(0),
-            s: start_s,
-            v_t: -900.0,
-        },
-    };
     // Isolate route topology from feel tuning: this oracle asks whether the
     // authored reverse continuation exits after one lap, not whether a
     // particular speed/stick-factor combination sheds from a convex ramp.
@@ -780,37 +756,29 @@ fn reverse_loop_exits_after_one_revolution_instead_of_reentering_forever() {
         min_stick_speed: 0.0,
         ..Default::default()
     };
+    let mut rig = MomentumRig::riding(chain, 0, start_s, -900.0, params);
 
     let mut entered_loop = false;
     for _ in 0..420 {
-        ae::movement::surface_momentum::step_surface_body(
-            &mut body,
-            &room.world,
-            &params,
-            ae::MotionFrame::from_acceleration(ae::Vec2::new(0.0, 1450.0)).expect("non-zero acceleration"),
-            ae::movement::surface_momentum::SurfaceInputs {
-                local_axis: ae::Vec2::NEG_X,
-                jump_pressed: false,
-            },
-            1.0 / 60.0,
-            None,
-        );
-        match body.motion {
-            ae::movement::surface_momentum::SurfaceMotion::Riding { s, .. } => {
+        rig.step(&room.world, ae::Vec2::NEG_X);
+        match rig.motion() {
+            ae::SurfaceMotion::Riding { s, .. } => {
                 entered_loop |= s > entry_s + 100.0 && s < closure_s - 100.0;
                 if entered_loop && s < entry_s - 0.5 {
                     return;
                 }
             }
-            ae::movement::surface_momentum::SurfaceMotion::Airborne => {
+            ae::SurfaceMotion::Airborne => {
                 panic!(
-                    "the topology oracle uses sticky, slope-free tuning and must remain attached; body={body:?}"
+                    "the topology oracle uses sticky, slope-free tuning and must remain attached; model={:?}, kinematics={:?}",
+                    rig.model, rig.scratch.kinematics
                 );
             }
         }
     }
     panic!(
-        "reverse traversal must leave after one revolution instead of re-entering; body={body:?}"
+        "reverse traversal must leave after one revolution instead of re-entering; model={:?}, kinematics={:?}",
+        rig.model, rig.scratch.kinematics
     );
 }
 
@@ -818,9 +786,8 @@ fn reverse_loop_exits_after_one_revolution_instead_of_reentering_forever() {
 fn rules_plugin_registers_its_mandatory_sfx_message_channel() {
     let mut app = App::new();
     assert!(
-        !app.world().contains_resource::<
-            bevy::prelude::Messages<ambition::sfx::SfxMessage>,
-        >(),
+        !app.world()
+            .contains_resource::<bevy::prelude::Messages<ambition::sfx::SfxMessage>>(),
         "the test must begin without the engine group's SFX registrar"
     );
 

@@ -143,7 +143,7 @@ pub fn update_body_mode(
                 crate::features::MotionModel::SurfaceMomentum(momentum)
                     if matches!(
                         momentum.state,
-                        ae::movement::surface_momentum::SurfaceMotion::Riding { .. }
+                        ae::SurfaceMotion::Riding { .. }
                     )
             );
         let mode = body_mode_state.body_mode;

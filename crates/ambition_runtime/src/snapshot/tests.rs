@@ -530,6 +530,9 @@ fn restoring_worn_host_code_rebuilds_from_the_snapshotted_abilities() {
 
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
+    // The App-local catalog resource the worn-character system reads (the
+    // process-global install above only stages the RON for this plugin).
+    app.add_plugins(ambition_actors::character_roster::character_roster_plugin());
     app.add_systems(
         Update,
         ambition_actors::avatar::apply_worn_character_gameplay,
@@ -543,6 +546,10 @@ fn restoring_worn_host_code_rebuilds_from_the_snapshotted_abilities() {
             ActionSet::default(),
             ActorMoveset(Default::default()),
             bc::BodyAbilities::new(ambition_engine_core::AbilitySet::sandbox_all()),
+            // Every worn body carries an explicit movement policy from spawn;
+            // the worn-character system refreshes it through the one
+            // transition seam.
+            ambition_engine_core::MotionModel::default(),
         ))
         .id();
     app.update();
@@ -1736,4 +1743,84 @@ fn two_equal_worlds_take_equal_snapshots() {
     assert_eq!(a, b);
     assert_eq!(a.tick, 11);
     assert!(a.size_bytes() > 0);
+}
+
+/// ADR 0024 §9: a snapshot preserves the active movement POLICY — identity,
+/// authored parameters, and policy-private runtime state (ride surface, arc
+/// position, tangential speed, depth lane; crawler attachment) — while the
+/// current environmental frame is deliberately NOT model state (nothing here
+/// encodes a gravity direction; restore re-resolves it from the live world).
+#[test]
+fn restore_rewinds_the_movement_policy_and_its_private_state() {
+    use ambition_engine_core::{
+        AdhesiveCrawlerMotion, CrawlerParams, CrawlerState, MomentumParams, MotionModel,
+        SurfaceMomentumMotion, SurfaceMotion, SurfaceRef,
+    };
+
+    let reg = engine_registry();
+    let mut world = World::new();
+    world.insert_resource(ambition_time::SimTick(1));
+    let riding = SurfaceMotion::Riding {
+        on: SurfaceRef::Chain(2),
+        s: 731.5,
+        v_t: -880.0,
+    };
+    let mut momentum_params = MomentumParams::default();
+    momentum_params.top_speed = 1234.0;
+    let rider = world
+        .spawn((
+            SimId::placement("rider"),
+            kin(Vec2::new(50.0, 60.0), Vec2::new(700.0, 0.0)),
+            MotionModel::SurfaceMomentum(SurfaceMomentumMotion {
+                params: momentum_params,
+                state: riding,
+                depth_lane: -1,
+            }),
+        ))
+        .id();
+    let crawler = world
+        .spawn((
+            SimId::placement("crawler"),
+            kin(Vec2::new(9.0, 9.0), Vec2::ZERO),
+            MotionModel::AdhesiveCrawler(AdhesiveCrawlerMotion {
+                params: CrawlerParams {
+                    crawl_speed: 77.0,
+                    max_fall_speed: 500.0,
+                },
+                state: CrawlerState::attached(Vec2::new(-1.0, 0.0)),
+            }),
+        ))
+        .id();
+
+    let snap = take(&world, &reg);
+
+    // Wreck both policies: swap the rider to axis-swept (losing its ride) and
+    // shed the crawler.
+    world.entity_mut(rider).insert(MotionModel::default());
+    world
+        .entity_mut(crawler)
+        .insert(MotionModel::AdhesiveCrawler(AdhesiveCrawlerMotion::new(
+            CrawlerParams::default(),
+        )));
+
+    restore(&mut world, &snap, &reg).unwrap();
+
+    let restored = world.get::<MotionModel>(rider).unwrap();
+    let MotionModel::SurfaceMomentum(motion) = restored else {
+        panic!("restore must bring back the surface-momentum policy");
+    };
+    assert_eq!(motion.state, riding, "ride surface/arc/speed rewound");
+    assert_eq!(motion.depth_lane, -1, "depth lane rewound");
+    assert_eq!(motion.params.top_speed, 1234.0, "authored params rewound");
+
+    let restored = world.get::<MotionModel>(crawler).unwrap();
+    let MotionModel::AdhesiveCrawler(motion) = restored else {
+        panic!("restore must bring back the crawler policy");
+    };
+    assert_eq!(
+        motion.state.attachment(),
+        Some(Vec2::new(-1.0, 0.0)),
+        "the clung surface rewound"
+    );
+    assert_eq!(motion.params.crawl_speed, 77.0);
 }

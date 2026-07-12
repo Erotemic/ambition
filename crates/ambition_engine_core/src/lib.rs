@@ -42,6 +42,8 @@ pub mod ledge_grab;
 pub mod movement;
 pub mod player_state;
 pub mod reference_frame;
+#[cfg(test)]
+pub(crate) mod test_support;
 pub mod volume_shape;
 pub mod world;
 
@@ -75,15 +77,16 @@ pub use ledge_grab::{
     LEDGE_TOWARD_CLIMB_DELAY,
 };
 pub use movement::{
-    step_motion, AxisSweptMotion, AxisSweptParams, MomentumParams, MotionModel,
-    MotionModelKind, MotionModelSpec, MotionStepContext, MotionStepResult,
-    SurfaceMomentumMotion,
     blink_destination_clusters, blink_destination_to_point_clusters, default_player_body_size,
-    integrate_normal_spine, resolve_shield, BlinkEvent, ComboMark, FrameEvents, InputState,
-    LedgeMomentumTuning, MovementOp, MovementTuning, NormalSpineCtx, AIR_ACCEL, AIR_FRICTION,
-    AIR_JUMPS, BLINK_COOLDOWN, BLINK_DISTANCE, BLINK_HOLD_THRESHOLD, COYOTE_TIME, DASH_BUFFER,
-    DASH_COOLDOWN, DASH_SPEED, DASH_TIME, DEFAULT_AXIS_SWEPT_PARAMS, DEFAULT_GRAVITY_DIR,
-    DEFAULT_GRAVITY_SIGN, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH, DEFAULT_TUNING, DODGE_ROLL_COOLDOWN,
+    integrate_normal_spine, resolve_shield, step_motion, switch_motion_model,
+    AdhesiveCrawlerMotion, AxisLocomotion, AxisSweptMotion, AxisSweptParams, BlinkEvent, ComboMark,
+    CrawlerParams, CrawlerState, FlightTuning, FrameEvents, InputState, LedgeMomentumTuning,
+    MomentumParams, MotionModel, MotionModelKind, MotionModelSpec, MotionStepContext,
+    MotionStepResult, MovementOp, MovementTuning, NormalSpineCtx, SurfaceMomentumMotion,
+    SurfaceMotion, SurfaceRef, TraversalAbilityTuning, AIR_ACCEL, AIR_FRICTION, AIR_JUMPS,
+    BLINK_COOLDOWN, BLINK_DISTANCE, BLINK_HOLD_THRESHOLD, COYOTE_TIME, DASH_BUFFER, DASH_COOLDOWN,
+    DASH_SPEED, DASH_TIME, DEFAULT_AXIS_SWEPT_PARAMS, DEFAULT_GRAVITY_DIR,
+    DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH, DEFAULT_TUNING, DODGE_ROLL_COOLDOWN,
     DODGE_ROLL_SPEED, DODGE_ROLL_TIME, DOUBLE_JUMP_SPEED, FAST_FALL_ACCEL, FAST_FALL_SPEED,
     FLIGHT_ACCEL, FLIGHT_DRAG, FLIGHT_HOVER_HZ, FLIGHT_HOVER_SPEED, FLIGHT_TERMINAL_SPEED, GRAVITY,
     GROUND_FRICTION, JUMP_BUFFER, JUMP_SPEED, MAX_FALL_SPEED, MAX_RUN_SPEED, PARRY_WINDOW_TIME,
@@ -95,9 +98,8 @@ pub use player_state::{
     LocomotionState, PlayerSafetyVerdict, ResourceMeter,
 };
 pub use reference_frame::{
-    AccelerationFrame, ControlFrameModes, GameplayFramePolicy, InputFrameMode, MotionFrame,
-    RawDirectionEdges,
-    ResolvedControlFrame,
+    AccelerationFrame, ControlFrameModes, GameplayFramePolicy, InputFrameMode, LocalAxes,
+    MotionFrame, RawDirectionEdges, ResolvedControlFrame, ScreenAxes, WorldVec2,
 };
 pub use volume_shape::{VolumeShape, DUMMY_HALF};
 pub use world::{

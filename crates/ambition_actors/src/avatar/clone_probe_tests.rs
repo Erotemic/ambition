@@ -57,8 +57,7 @@ fn step_axis_body(
 
 fn input_from_frame(f: &ActorControlFrame) -> InputState {
     InputState {
-        axis_x: f.locomotion.x,
-        axis_y: f.locomotion.y,
+        axes: ae::LocalAxes::from_vec(f.locomotion),
         jump_pressed: f.jump_pressed,
         jump_held: f.jump_held,
         jump_released: f.jump_released,
@@ -95,13 +94,7 @@ fn a_brain_drives_a_full_player_body_through_the_player_movement() {
 
     // Let it settle onto the floor under gravity (no input).
     for _ in 0..40 {
-        step_axis_body(
-            &world,
-            &mut scratch,
-            &mut model,
-            InputState::default(),
-            dt,
-        );
+        step_axis_body(&world, &mut scratch, &mut model, InputState::default(), dt);
     }
     let grounded_y = scratch.kinematics.pos.y;
     let start_x = scratch.kinematics.pos.x;

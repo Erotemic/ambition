@@ -67,12 +67,19 @@ pub fn tick_player_brain_from_control(
     // edges, and future possessed actors: unqualified left/right/up/down means
     // local to the controlled body, not privileged screen/player space.
     let frame = ae::AccelerationFrame::new(snapshot.control_down);
-    let resolved = frame.resolve_control(snapshot.movement_frame_mode, c.axis_x, c.axis_y);
-    let local_axis = resolved.local_axis;
+    let resolved = frame.resolve_control(
+        snapshot.movement_frame_mode,
+        ambition_engine_core::ScreenAxes::new(c.axis_x, c.axis_y),
+    );
+    let local_axis = resolved.local_axes.vec();
     let raw_aim = ae::Vec2::new(c.aim_x, c.aim_y);
     let local_aim = if raw_aim.length() > 0.1 {
         frame
-            .resolve_input(snapshot.aim_frame_mode, c.aim_x, c.aim_y)
+            .resolve_input(
+                snapshot.aim_frame_mode,
+                ambition_engine_core::ScreenAxes::new(c.aim_x, c.aim_y),
+            )
+            .vec()
             .normalize_or_zero()
     } else {
         ae::Vec2::ZERO
@@ -169,8 +176,14 @@ pub fn tick_player_brain_from_control(
     // directed by default), so a precision blink points where the stick points on
     // screen under any gravity.
     out.blink_quick_dir = frame.to_world(local_axis);
-    out.blink_aim_step =
-        frame.to_world(frame.resolve_input(snapshot.aim_frame_mode, c.axis_x, c.axis_y));
+    out.blink_aim_step = frame.to_world(
+        frame
+            .resolve_input(
+                snapshot.aim_frame_mode,
+                ambition_engine_core::ScreenAxes::new(c.axis_x, c.axis_y),
+            )
+            .vec(),
+    );
     out.aim = local_aim;
 }
 

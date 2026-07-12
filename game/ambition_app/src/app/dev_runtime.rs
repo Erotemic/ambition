@@ -289,7 +289,7 @@ pub(super) fn reload_ldtk_world_from_disk(
         clusters.abilities,
         &mut *clusters.dash,
         &mut *clusters.jump,
-        tuning,
+        tuning.air_jumps,
     );
     safety.last_safe_pos = transaction.safe_player_pos;
     *moving_platforms = platforms::moving_platforms_for_room(&transaction.next_spec);

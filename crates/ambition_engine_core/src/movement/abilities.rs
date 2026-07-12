@@ -13,11 +13,11 @@ use super::events::FrameEvents;
 use super::input::InputState;
 use super::ops::MovementOp;
 use super::tuning::AxisSweptParams;
-use crate::MotionFrame;
 use crate::body_clusters::{
     BodyAbilities, BodyActionBuffer, BodyBlinkState, BodyComboTrace, BodyDashState, BodyDodgeState,
     BodyFlightState, BodyGroundState, BodyKinematics, BodyShieldState, BodyWallState,
 };
+use crate::MotionFrame;
 
 /// Facing + input buffering: turn to face the stick (only when grounded or
 /// flying), and buffer jump/dash presses for the short windows the sim phase
@@ -37,10 +37,10 @@ pub(super) fn apply_intent(
         kinematics.facing = local_stick.x.signum();
     }
     if input.jump_pressed && abilities.abilities.jump {
-        action_buffer.jump = tuning.jump_buffer;
+        action_buffer.jump = tuning.locomotion.jump_buffer;
     }
     if input.dash_pressed && abilities.abilities.dash {
-        action_buffer.dash = tuning.dash_buffer;
+        action_buffer.dash = tuning.abilities.dash_buffer;
     }
 }
 
@@ -95,9 +95,10 @@ pub(super) fn apply_dodge(
             kinematics.facing
         };
         let descend = kinematics.vel.dot(frame.down()).min(0.0);
-        kinematics.vel = frame.side() * (dir * tuning.dodge_roll_speed) + frame.down() * descend;
-        dodge.roll_timer = tuning.dodge_roll_time;
-        dodge.cooldown = tuning.dodge_roll_cooldown;
+        kinematics.vel =
+            frame.side() * (dir * tuning.abilities.dodge_roll_speed) + frame.down() * descend;
+        dodge.roll_timer = tuning.abilities.dodge_roll_time;
+        dodge.cooldown = tuning.abilities.dodge_roll_cooldown;
         action_buffer.dash = 0.0;
         events.op_clusters(combo_trace, MovementOp::DodgeRoll);
     }
@@ -153,7 +154,7 @@ pub(super) fn apply_shield(
         abilities.abilities.shield,
         dash.timer > 0.0,
         input.shield_held,
-        tuning.parry_window_time,
+        tuning.abilities.parry_window_time,
     );
     if fresh {
         events.op_clusters(combo_trace, MovementOp::ShieldUp);
@@ -166,7 +167,6 @@ pub(super) fn apply_jump_release(
     abilities: &BodyAbilities,
     input: InputState,
     frame: MotionFrame,
-    tuning: AxisSweptParams,
 ) {
     let ascend_speed = -kinematics.vel.dot(frame.down());
     if abilities.abilities.variable_jump && input.jump_released && ascend_speed > 120.0 {
@@ -203,9 +203,9 @@ pub(super) fn apply_dash(
     {
         let fallback = bevy_math::Vec2::new(kinematics.facing, 0.0);
         let aim = input.local_axis().normalize_or(fallback);
-        kinematics.vel = frame.to_world(aim) * tuning.dash_speed;
-        dash.timer = tuning.dash_time;
-        dash.cooldown = tuning.dash_cooldown;
+        kinematics.vel = frame.to_world(aim) * tuning.abilities.dash_speed;
+        dash.timer = tuning.abilities.dash_time;
+        dash.cooldown = tuning.abilities.dash_cooldown;
         action_buffer.dash = 0.0;
         let before = dash.charges_available;
         dash.charges_available = dash.charges_available.saturating_sub(1);

@@ -691,6 +691,9 @@ pub fn integrate_boss_bodies(
             &super::super::super::components::ActorTarget,
             &mut CenteredAabb,
             &mut ambition_characters::actor::BodyCombat,
+            // The body's explicit movement policy — a boss carries one from
+            // spawn like every integrated body (absence is never a policy).
+            &'static mut crate::features::MotionModel,
         ),
         (With<FeatureSimEntity>, Without<crate::actor::PlayerEntity>),
     >,
@@ -709,6 +712,7 @@ pub fn integrate_boss_bodies(
         target,
         mut aabb,
         mut combat,
+        mut motion_model,
     ) in &mut bosses
     {
         // Self-heal the collision envelope onto `kin.size` (the seam sweeps it),
@@ -728,8 +732,7 @@ pub fn integrate_boss_bodies(
             // (byte-identical to the old render-sized box); an ordinary actor
             // would pass `None` and publish from `kin.size`.
             Some(envelope.0),
-            // A boss body is AxisSwept (no motion-model override).
-            None,
+            &mut motion_model,
             target.pos,
             // A boss is never mounted.
             false,

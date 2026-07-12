@@ -9,6 +9,12 @@ use crate::world::{SurfaceChain, SurfaceJunction, SurfacePort};
 const DT: f32 = 1.0 / 60.0;
 const G: Vec2 = Vec2::new(0.0, 1450.0);
 
+/// The [`MotionFrame`] the environment resolver would supply for acceleration
+/// `accel` (call-shape shim for the frame-explicit kernel APIs).
+fn gframe(accel: Vec2) -> MotionFrame {
+    MotionFrame::from_acceleration(accel).expect("non-zero acceleration")
+}
+
 fn frictionless() -> MomentumParams {
     MomentumParams {
         friction: 0.0,
@@ -215,7 +221,7 @@ fn input_cannot_exceed_top_speed_but_slopes_can() {
             &params,
             MotionFrame::from_acceleration(G).expect("non-zero acceleration"),
             SurfaceInputs {
-                local_axis: Vec2::X,
+                local_axes: crate::LocalAxes::new(1.0, 0.0),
                 ..Default::default()
             },
             DT,
@@ -239,7 +245,7 @@ fn input_cannot_exceed_top_speed_but_slopes_can() {
             &params,
             MotionFrame::from_acceleration(G).expect("non-zero acceleration"),
             SurfaceInputs {
-                local_axis: Vec2::X,
+                local_axes: crate::LocalAxes::new(1.0, 0.0),
                 ..Default::default()
             },
             DT,
@@ -390,7 +396,7 @@ fn convex_crest_launches_at_speed_and_follows_at_a_walk() {
             &params,
             MotionFrame::from_acceleration(G).expect("non-zero acceleration"),
             SurfaceInputs {
-                local_axis: Vec2::X,
+                local_axes: crate::LocalAxes::new(1.0, 0.0),
                 ..Default::default()
             },
             DT,
@@ -522,7 +528,7 @@ fn jump_leaves_along_the_surface_normal_with_tangent_momentum() {
         &params,
         MotionFrame::from_acceleration(G).expect("non-zero acceleration"),
         SurfaceInputs {
-            local_axis: Vec2::ZERO,
+            local_axes: crate::LocalAxes::ZERO,
             jump_pressed: true,
         },
         DT,
@@ -580,11 +586,27 @@ fn c4_rotation_symmetry_the_rotated_valley_matches() {
         };
         let input = SurfaceInputs {
             // Scripted local input: run right for 2s, coast, then brake.
-            local_axis: Vec2::new(run, 0.0),
+            local_axes: crate::LocalAxes::new(run, 0.0),
             jump_pressed: frame == 360,
         };
-        step_surface_body(&mut a, &world_a, &params, MotionFrame::from_acceleration(g_a).expect("non-zero acceleration"), input, DT, None);
-        step_surface_body(&mut b, &world_b, &params, MotionFrame::from_acceleration(g_b).expect("non-zero acceleration"), input, DT, None);
+        step_surface_body(
+            &mut a,
+            &world_a,
+            &params,
+            MotionFrame::from_acceleration(g_a).expect("non-zero acceleration"),
+            input,
+            DT,
+            None,
+        );
+        step_surface_body(
+            &mut b,
+            &world_b,
+            &params,
+            MotionFrame::from_acceleration(g_b).expect("non-zero acceleration"),
+            input,
+            DT,
+            None,
+        );
         let mapped = rot(a.pos);
         // Sub-pixel agreement: the translation in `rot` shifts f32
         // rounding between the two runs, so exact bit-equality is not
@@ -657,10 +679,18 @@ fn body_lands_runs_and_jumps_on_a_block_floor() {
     let x0 = body.pos.x;
     for _ in 0..60 {
         let input = SurfaceInputs {
-            local_axis: Vec2::new(1.0, 0.0),
+            local_axes: crate::LocalAxes::new(1.0, 0.0),
             jump_pressed: false,
         };
-        step_surface_body(&mut body, &world, &params, MotionFrame::from_acceleration(G).expect("non-zero acceleration"), input, DT, None);
+        step_surface_body(
+            &mut body,
+            &world,
+            &params,
+            MotionFrame::from_acceleration(G).expect("non-zero acceleration"),
+            input,
+            DT,
+            None,
+        );
     }
     assert!(body.riding(), "still grounded while running");
     assert!(
@@ -672,10 +702,18 @@ fn body_lands_runs_and_jumps_on_a_block_floor() {
 
     // Jump: leaves the surface along the normal, moving up.
     let input = SurfaceInputs {
-        local_axis: Vec2::ZERO,
+        local_axes: crate::LocalAxes::ZERO,
         jump_pressed: true,
     };
-    step_surface_body(&mut body, &world, &params, MotionFrame::from_acceleration(G).expect("non-zero acceleration"), input, DT, None);
+    step_surface_body(
+        &mut body,
+        &world,
+        &params,
+        MotionFrame::from_acceleration(G).expect("non-zero acceleration"),
+        input,
+        DT,
+        None,
+    );
     assert!(!body.riding(), "jump detaches");
     assert!(
         body.vel.y < -200.0,
@@ -708,10 +746,18 @@ fn flush_block_seams_do_not_stop_a_runner() {
     assert!(body.riding(), "grounded on the first block");
     for _ in 0..150 {
         let input = SurfaceInputs {
-            local_axis: Vec2::new(1.0, 0.0),
+            local_axes: crate::LocalAxes::new(1.0, 0.0),
             jump_pressed: false,
         };
-        step_surface_body(&mut body, &world, &params, MotionFrame::from_acceleration(G).expect("non-zero acceleration"), input, DT, None);
+        step_surface_body(
+            &mut body,
+            &world,
+            &params,
+            MotionFrame::from_acceleration(G).expect("non-zero acceleration"),
+            input,
+            DT,
+            None,
+        );
     }
     assert!(body.pos.x > 500.0, "crossed the seam: {:?}", body.pos);
     assert!(
@@ -757,10 +803,18 @@ fn walking_off_a_block_edge_launches_and_never_wraps() {
     let mut went_airborne = false;
     for _ in 0..120 {
         let input = SurfaceInputs {
-            local_axis: Vec2::new(1.0, 0.0),
+            local_axes: crate::LocalAxes::new(1.0, 0.0),
             jump_pressed: false,
         };
-        step_surface_body(&mut body, &world, &params, MotionFrame::from_acceleration(G).expect("non-zero acceleration"), input, DT, None);
+        step_surface_body(
+            &mut body,
+            &world,
+            &params,
+            MotionFrame::from_acceleration(G).expect("non-zero acceleration"),
+            input,
+            DT,
+            None,
+        );
         if !body.riding() {
             went_airborne = true;
         }
@@ -837,10 +891,18 @@ fn rotated_gravity_lands_on_the_gravity_side_face_of_a_block() {
     let y0 = body.pos.y;
     for _ in 0..60 {
         let input = SurfaceInputs {
-            local_axis: Vec2::new(1.0, 0.0),
+            local_axes: crate::LocalAxes::new(1.0, 0.0),
             jump_pressed: false,
         };
-        step_surface_body(&mut body, &world, &params, MotionFrame::from_acceleration(g).expect("non-zero acceleration"), input, DT, None);
+        step_surface_body(
+            &mut body,
+            &world,
+            &params,
+            MotionFrame::from_acceleration(g).expect("non-zero acceleration"),
+            input,
+            DT,
+            None,
+        );
     }
     assert!(body.riding());
     assert!(
@@ -876,7 +938,7 @@ fn airborne_air_control_pushes_toward_the_held_direction() {
                 &params,
                 MotionFrame::from_acceleration(gravity).expect("non-zero acceleration"),
                 SurfaceInputs {
-                    local_axis: Vec2::new(run, 0.0),
+                    local_axes: crate::LocalAxes::new(run, 0.0),
                     jump_pressed: false,
                 },
                 1.0 / 60.0,
@@ -910,7 +972,7 @@ fn airborne_air_control_is_gravity_relative() {
             &params,
             MotionFrame::from_acceleration(gravity).expect("non-zero acceleration"),
             SurfaceInputs {
-                local_axis: Vec2::new(1.0, 0.0),
+                local_axes: crate::LocalAxes::new(1.0, 0.0),
                 jump_pressed: false,
             },
             1.0 / 60.0,
@@ -953,7 +1015,7 @@ fn running_off_a_flat_chains_end_falls_instead_of_hovering_at_the_lip() {
             &params,
             MotionFrame::from_acceleration(Vec2::new(0.0, 1450.0)).expect("non-zero acceleration"),
             SurfaceInputs {
-                local_axis: Vec2::new(1.0, 0.0),
+                local_axes: crate::LocalAxes::new(1.0, 0.0),
                 jump_pressed: false,
             },
             DT,
@@ -1000,7 +1062,7 @@ fn landing_on_the_tip_of_a_ramp_while_moving_inward_still_attaches() {
             &params,
             MotionFrame::from_acceleration(Vec2::new(0.0, 1450.0)).expect("non-zero acceleration"),
             SurfaceInputs {
-                local_axis: Vec2::new(0.0, 0.0),
+                local_axes: crate::LocalAxes::new(0.0, 0.0),
                 jump_pressed: false,
             },
             DT,
@@ -1072,7 +1134,7 @@ fn zero_speed_at_a_joint_chooses_support_and_keeps_jump_and_walk_available() {
         &params,
         MotionFrame::from_acceleration(G).expect("non-zero acceleration"),
         SurfaceInputs {
-            local_axis: Vec2::new(1.0, 0.0),
+            local_axes: crate::LocalAxes::new(1.0, 0.0),
             jump_pressed: false,
         },
         DT,
@@ -1093,7 +1155,7 @@ fn zero_speed_at_a_joint_chooses_support_and_keeps_jump_and_walk_available() {
         &params,
         MotionFrame::from_acceleration(G).expect("non-zero acceleration"),
         SurfaceInputs {
-            local_axis: Vec2::ZERO,
+            local_axes: crate::LocalAxes::ZERO,
             jump_pressed: true,
         },
         DT,
@@ -1109,7 +1171,7 @@ fn zero_speed_at_a_joint_chooses_support_and_keeps_jump_and_walk_available() {
         &params,
         MotionFrame::from_acceleration(G).expect("non-zero acceleration"),
         SurfaceInputs {
-            local_axis: Vec2::new(-1.0, 0.0),
+            local_axes: crate::LocalAxes::new(-1.0, 0.0),
             jump_pressed: false,
         },
         DT,
@@ -1161,7 +1223,7 @@ fn a_body_crosses_a_joint_far_along_a_long_chain_in_both_directions() {
                 &params,
                 MotionFrame::from_acceleration(G).expect("non-zero acceleration"),
                 SurfaceInputs {
-                    local_axis: Vec2::new(v_t.signum(), 0.0),
+                    local_axes: crate::LocalAxes::new(v_t.signum(), 0.0),
                     jump_pressed: false,
                 },
                 DT,
@@ -1214,22 +1276,25 @@ fn moving_riders_are_not_preselected_onto_a_joint_branch() {
 #[test]
 fn route_bias_is_acceleration_frame_vertical_not_surface_transverse() {
     assert!(
-        route_bias_direction(G, Vec2::X).is_none(),
+        route_bias_direction(gframe(G), Vec2::X).is_none(),
         "Right is locomotion even while the ridden tangent is diagonal"
     );
     assert!(
-        route_bias_direction(G, -Vec2::X).is_none(),
+        route_bias_direction(gframe(G), -Vec2::X).is_none(),
         "Left is locomotion even while the ridden tangent is diagonal"
     );
 
-    let up = route_bias_direction(G, Vec2::new(1.0, -1.0)).expect("Up supplies a route override");
+    let up = route_bias_direction(gframe(G), Vec2::new(1.0, -1.0))
+        .expect("Up supplies a route override");
     assert!(up.dot(Vec2::new(0.0, -1.0)) > 0.999);
 
     // Under sideways gravity, screen/world Y is the locomotion-transverse axis,
-    // but it is not body Up/Down. Route bias rotates with the acceleration frame.
-    let sideways_down = Vec2::new(1450.0, 0.0);
-    assert!(route_bias_direction(sideways_down, Vec2::Y).is_none());
-    let body_up = route_bias_direction(sideways_down, Vec2::new(-1.0, 1.0))
+    // but it is not body Up/Down. Route bias rotates with the acceleration
+    // frame. The kernel now hands the policy an ALREADY-LOCAL axis, so the
+    // world-space stimuli are expressed through `to_local` at the boundary.
+    let sideways = gframe(Vec2::new(1450.0, 0.0));
+    assert!(route_bias_direction(sideways, sideways.to_local(Vec2::Y)).is_none());
+    let body_up = route_bias_direction(sideways, sideways.to_local(Vec2::new(-1.0, 1.0)))
         .expect("body-local Up rotates with gravity");
     assert!(body_up.dot(-Vec2::X) > 0.999);
 }
@@ -1243,13 +1308,13 @@ fn route_junction_uses_vertical_steering_and_preserves_default_continuation() {
 
     // Forward arrival from the left ramp: up-right enters the loop occurrence,
     // down-right skips to the runout occurrence.
-    let loop_branch = choose_route_branch(&world, on, 1, 0, 1.0, G, Vec2::new(1.0, -1.0))
+    let loop_branch = choose_route_branch(&world, on, 1, 0, 1.0, gframe(G), Vec2::new(1.0, -1.0))
         .expect("entry is an authored junction");
     assert_eq!(loop_branch.vertex, 1);
     assert_eq!(loop_branch.direction, 1.0);
     assert!(loop_branch.is_default);
 
-    let bypass = choose_route_branch(&world, on, 1, 0, 1.0, G, Vec2::new(1.0, 1.0))
+    let bypass = choose_route_branch(&world, on, 1, 0, 1.0, gframe(G), Vec2::new(1.0, 1.0))
         .expect("entry is an authored junction");
     assert_eq!(bypass.vertex, 4);
     assert_eq!(bypass.direction, 1.0);
@@ -1259,20 +1324,22 @@ fn route_junction_uses_vertical_steering_and_preserves_default_continuation() {
     // chooses the descending ramp. Neutral steering keeps the authored loop
     // continuation on first arrival, then the authored ramp continuation after
     // one reverse revolution rather than spinning again.
-    let reverse_loop = choose_route_branch(&world, on, 4, 4, -1.0, G, Vec2::new(-1.0, -1.0))
-        .expect("closure is an authored junction");
+    let reverse_loop =
+        choose_route_branch(&world, on, 4, 4, -1.0, gframe(G), Vec2::new(-1.0, -1.0))
+            .expect("closure is an authored junction");
     assert_eq!(reverse_loop.vertex, 4);
     assert_eq!(reverse_loop.direction, -1.0);
     assert!(reverse_loop.is_default);
 
-    let reverse_ramp = choose_route_branch(&world, on, 4, 4, -1.0, G, Vec2::new(-1.0, 1.0))
+    let reverse_ramp = choose_route_branch(&world, on, 4, 4, -1.0, gframe(G), Vec2::new(-1.0, 1.0))
         .expect("closure is an authored junction");
     assert_eq!(reverse_ramp.vertex, 1);
     assert_eq!(reverse_ramp.direction, -1.0);
     assert!(!reverse_ramp.is_default);
 
-    let after_reverse_lap = choose_route_branch(&world, on, 1, 1, -1.0, G, Vec2::new(-1.0, 0.0))
-        .expect("entry is an authored junction");
+    let after_reverse_lap =
+        choose_route_branch(&world, on, 1, 1, -1.0, gframe(G), Vec2::new(-1.0, 0.0))
+            .expect("entry is an authored junction");
     assert_eq!(after_reverse_lap.vertex, 1);
     assert_eq!(after_reverse_lap.direction, -1.0);
     assert!(
@@ -1280,8 +1347,9 @@ fn route_junction_uses_vertical_steering_and_preserves_default_continuation() {
         "world-horizontal Left on a diagonal loop tangent is locomotion, not a downward route request"
     );
 
-    let after_forward_lap = choose_route_branch(&world, on, 4, 3, 1.0, G, Vec2::new(1.0, 0.0))
-        .expect("closure is an authored junction");
+    let after_forward_lap =
+        choose_route_branch(&world, on, 4, 3, 1.0, gframe(G), Vec2::new(1.0, 0.0))
+            .expect("closure is an authored junction");
     assert_eq!(after_forward_lap.vertex, 4);
     assert_eq!(after_forward_lap.direction, 1.0);
     assert!(
@@ -1292,7 +1360,7 @@ fn route_junction_uses_vertical_steering_and_preserves_default_continuation() {
     let entry_s = chain.arc_at_vertex(1);
     let closure_s = chain.arc_at_vertex(4);
     let (stopped_on, stopped_bypass) =
-        choose_route_branch_at_rest(&world, on, entry_s, 0.0, Vec2::new(1.0, 1.0))
+        choose_route_branch_at_rest(&world, on, entry_s, 0.0, gframe(G), Vec2::new(1.0, 1.0))
             .expect("held direction selects a route from rest");
     assert_eq!(stopped_on, on);
     assert!(
@@ -1307,15 +1375,15 @@ fn route_junction_looks_past_a_shared_tangent_before_honoring_steering() {
     let world = world_with_chains(vec![chain]);
     let on = SurfaceRef::Chain(0);
 
-    let up = choose_route_branch(&world, on, 1, 0, 1.0, G, Vec2::new(1.0, -1.0))
+    let up = choose_route_branch(&world, on, 1, 0, 1.0, gframe(G), Vec2::new(1.0, -1.0))
         .expect("entry is an authored junction");
     assert_eq!(up.vertex, 1, "up-right selects the rising route");
 
-    let down = choose_route_branch(&world, on, 1, 0, 1.0, G, Vec2::new(1.0, 1.0))
+    let down = choose_route_branch(&world, on, 1, 0, 1.0, gframe(G), Vec2::new(1.0, 1.0))
         .expect("entry is an authored junction");
     assert_eq!(down.vertex, 4, "down-right selects the descending route");
 
-    let horizontal = choose_route_branch(&world, on, 1, 0, 1.0, G, Vec2::X)
+    let horizontal = choose_route_branch(&world, on, 1, 0, 1.0, gframe(G), Vec2::X)
         .expect("entry is an authored junction");
     assert_eq!(horizontal.vertex, 1);
     assert!(

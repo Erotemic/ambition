@@ -29,7 +29,7 @@ mod tests {
                 world,
                 input,
                 frame,
-                facing_intent: input.axis_x,
+                facing_intent: input.axes.x,
                 dt,
             },
         )
@@ -58,7 +58,7 @@ mod tests {
         scratch.wall.wall_normal_x = -1.0;
 
         let mut input = ae::InputState {
-            axis_x: 1.0,
+            axes: ae::LocalAxes::new(1.0, 0.0),
             control_dt: 0.016,
             ..Default::default()
         };
@@ -70,7 +70,7 @@ mod tests {
         );
         assert!(events.operations.contains(&ae::MovementOp::LedgeGrab));
 
-        input.axis_y = -1.0;
+        input.axes.y = -1.0;
         let mut saw_start = false;
         for _ in 0..16 {
             let events = step_axis(&world, &mut scratch, &mut model, input, 0.016);

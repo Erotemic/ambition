@@ -9,6 +9,8 @@
 use super::super::*;
 use super::test_world;
 use crate::body_clusters::{BodyClusterScratch, SweepSample};
+#[allow(unused_imports)]
+use crate::test_support::*;
 use crate::{AbilitySet, Vec2};
 
 fn scratch_at(spawn: Vec2) -> BodyClusterScratch {
@@ -25,7 +27,7 @@ fn sim_step_sampled(
 ) -> FrameEvents {
     let mut clusters = scratch.as_mut();
     clusters.sweep = Some(sample);
-    update_body_simulation_with_clusters(world, &mut clusters, input, dt, DEFAULT_TUNING)
+    update_player_simulation_with_clusters(world, &mut clusters, input, dt, TEST_TUNING)
 }
 
 #[test]
@@ -107,18 +109,18 @@ fn a_control_phase_blink_is_never_path() {
             ..Default::default()
         },
         1.0 / 60.0,
-        DEFAULT_TUNING,
+        TEST_TUNING,
     );
     let events = update_player_control_with_tuning_scratch(
         &world,
         &mut scratch,
         InputState {
-            blink_quick_dir: Vec2::new(1.0, 0.0),
+            blink_quick_dir: crate::WorldVec2(Vec2::new(1.0, 0.0)),
             blink_released: true,
             ..Default::default()
         },
         1.0 / 60.0,
-        DEFAULT_TUNING,
+        TEST_TUNING,
     );
     assert!(
         !events.blinks.is_empty(),
@@ -163,7 +165,7 @@ fn the_respawn_wrapper_leaves_a_zero_length_record_at_spawn() {
         &mut clusters,
         InputState::default(),
         1.0 / 60.0,
-        DEFAULT_TUNING,
+        TEST_TUNING,
     );
     drop(clusters);
 

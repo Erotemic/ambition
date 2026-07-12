@@ -108,7 +108,7 @@ pub fn load_room_geometry(
         clusters.abilities,
         &mut *clusters.dash,
         &mut *clusters.jump,
-        tuning,
+        tuning.air_jumps,
     );
     clusters.flight.fly_enabled = fly_enabled && clusters.abilities.abilities.fly;
     if edge_exit {

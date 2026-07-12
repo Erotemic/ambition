@@ -119,7 +119,10 @@ pub fn holding_descend(
     movement_mode: ambition_engine_core::InputFrameMode,
 ) -> bool {
     ambition_engine_core::AccelerationFrame::new(gravity_dir)
-        .resolve_input(movement_mode, axis_x, axis_y)
+        .resolve_input(
+            movement_mode,
+            ambition_engine_core::ScreenAxes::new(axis_x, axis_y),
+        )
         .y
         > POSSESS_DOWN_THRESHOLD
 }

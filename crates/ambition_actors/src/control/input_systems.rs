@@ -62,8 +62,7 @@ pub fn input_timer_system(
         });
     let resolved = ae::AccelerationFrame::new(gravity_dir).resolve_control(
         movement_mode,
-        control_frame.axis_x,
-        control_frame.axis_y,
+        ae::ScreenAxes::new(control_frame.axis_x, control_frame.axis_y),
     );
     let raw_edges = control_frame.raw_direction_edges();
     let descend_pressed = resolved.local_down_pressed(raw_edges);

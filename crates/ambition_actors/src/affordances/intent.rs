@@ -165,8 +165,7 @@ pub fn compute_controlled_actor_intent(
     );
     let local_axis = ambition_engine_core::AccelerationFrame::new(gravity_dir).resolve_input(
         movement_mode,
-        input.frame.axis_x,
-        input.frame.axis_y,
+        ambition_engine_core::ScreenAxes::new(input.frame.axis_x, input.frame.axis_y),
     );
     let next = PlayerIntent {
         aim: compute_aim(local_axis.x, local_axis.y, kinematics.facing),

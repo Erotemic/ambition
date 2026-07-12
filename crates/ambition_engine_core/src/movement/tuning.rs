@@ -1,23 +1,29 @@
+//! Movement parameter architecture.
+//!
+//! Three layers with different owners:
+//!
+//! - [`MovementTuning`] — the flat AUTHORING/CONTROL-BOUNDARY aggregate content
+//!   and dev tools hydrate (RON files, editable tuning). It also carries the
+//!   authored gravity RESPONSE magnitude, which is an input to the environment's
+//!   frame resolver — never to a movement policy.
+//! - [`AxisSweptParams`] — the axis-swept POLICY's authored parameters, grouped
+//!   by ownership: [`AxisLocomotion`] (the locomotion law itself),
+//!   [`TraversalAbilityTuning`] (optional ability verbs the axis control phase
+//!   executes), and [`FlightTuning`] (the free-flight limb).
+//! - The environment's current frame (gravity direction, acceleration,
+//!   reference orientation) and the controller's input-frame preference are
+//!   deliberately NOT here. They enter the kernel through
+//!   [`crate::MotionFrame`] and the typed input seam respectively, so a policy
+//!   can be swapped or snapshotted without freezing the frame that happened to
+//!   be active.
+
 use serde::{Deserialize, Serialize};
 
 use crate::Vec2;
 
-/// Default gravity sign (normal, downward). Used by `serde(default)` so tuning
-/// files baked before `gravity_sign` existed load as normal gravity.
-fn default_gravity_sign() -> f32 {
-    DEFAULT_GRAVITY_SIGN
-}
-
-/// Default cardinal gravity direction (down, `+Y`). `serde(default)` for tuning
-/// files baked before `gravity_dir` existed.
-fn default_gravity_dir() -> Vec2 {
-    DEFAULT_GRAVITY_DIR
-}
-
-/// Default locomotion frame mode for tuning files that omit it. Resolves to the
-/// single source of truth ([`crate::reference_frame::InputFrameMode::DEFAULT_MOVEMENT`]).
-fn default_movement_frame_mode() -> crate::reference_frame::InputFrameMode {
-    crate::reference_frame::InputFrameMode::DEFAULT_MOVEMENT
+/// `serde(default)` for tuning files baked before `air_stop_assist` existed.
+fn default_air_stop_assist() -> f32 {
+    AIR_STOP_ASSIST
 }
 
 // First-pass movement constants. These remain constants for easy grep/tuning,
@@ -25,13 +31,10 @@ fn default_movement_frame_mode() -> crate::reference_frame::InputFrameMode {
 // them without recompiling every assumption into the update function.
 pub const GRAVITY: f32 = 2250.0;
 /// THE default gravity DIRECTION (`+Y` is screen-down). Single source of truth
-/// for "down" — `DEFAULT_TUNING`, the `serde(default)` for tuning files, and the
-/// world `GravityField`/`BaseGravity` resources (in `ambition_platformer_primitives`)
-/// all resolve here so a flip of the convention is a one-line change.
+/// for "down" — `DEFAULT_TUNING` and the world `GravityField`/`BaseGravity`
+/// resources (in `ambition_platformer_primitives`) all resolve here so a flip
+/// of the convention is a one-line change.
 pub const DEFAULT_GRAVITY_DIR: Vec2 = Vec2::new(0.0, 1.0);
-/// THE default gravity SIGN along Y (`+1` = down/normal). Paired with
-/// [`DEFAULT_GRAVITY_DIR`]; consumed by the axis-based controllers.
-pub const DEFAULT_GRAVITY_SIGN: f32 = 1.0;
 pub const RUN_ACCEL: f32 = 5200.0;
 pub const AIR_ACCEL: f32 = 3100.0;
 pub const GROUND_FRICTION: f32 = 7600.0;
@@ -39,10 +42,6 @@ pub const AIR_FRICTION: f32 = 650.0;
 /// Hands-off airborne stop assist: matches the pre-carried-momentum feel of
 /// the zero-target approach (`AIR_ACCEL`) + `AIR_FRICTION` stacking.
 pub const AIR_STOP_ASSIST: f32 = 3750.0;
-
-fn default_air_stop_assist() -> f32 {
-    AIR_STOP_ASSIST
-}
 pub const MAX_RUN_SPEED: f32 = 270.0;
 // Raised for momentum-preserving portal play (Portal-style flings): you
 // can build and carry much more speed before the fall cap clips it. The
@@ -79,8 +78,8 @@ pub const FAST_FALL_ACCEL: f32 = 1850.0;
 pub const FAST_FALL_SPEED: f32 = 2400.0;
 /// Glide / slow-fall vertical cap. Roughly 1/5 of `MAX_FALL_SPEED` so
 /// the held-jump glide feels distinctly hover-y without becoming
-/// effectively-flying. Pair with `MovementTuning::glide_air_accel` for
-/// the increased horizontal authority while gliding.
+/// effectively-flying. Pair with `glide_air_accel` for the increased
+/// horizontal authority while gliding.
 pub const GLIDE_FALL_SPEED: f32 = 220.0;
 /// Horizontal acceleration while gliding. Higher than ordinary
 /// `air_accel` (4700) so the player can steer mid-glide; lower than
@@ -208,32 +207,18 @@ impl LedgeMomentumTuning {
 
 /// Authored movement/control profile used at the ECS and content boundary.
 ///
-/// This legacy aggregate still contains environmental acceleration and input
-/// mapping preferences because existing content hydrates it directly. It is NOT
-/// stored in [`super::MotionModel`]. The trusted axis-swept policy receives only
-/// [`AxisSweptParams`], extracted after the current [`crate::MotionFrame`] and
-/// local input frame have been resolved.
+/// This flat aggregate is what content hydrates and dev tools edit. It is NOT
+/// stored in [`super::MotionModel`]: the trusted axis-swept policy receives only
+/// the grouped [`AxisSweptParams`] projection, and the `gravity` RESPONSE
+/// magnitude below feeds the environment's per-body frame resolver, never a
+/// policy. Current gravity direction, reference orientation, and input-frame
+/// preference deliberately have no fields here.
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct MovementTuning {
+    /// Authored gravity RESPONSE magnitude (px/s²) — an input the environment's
+    /// frame resolver composes with the live gravity direction and any per-body
+    /// response scale. Not a policy parameter.
     pub gravity: f32,
-    /// Sign of gravity along the Y axis: `+1.0` = normal (down, +Y), `-1.0` =
-    /// flipped (up). Set per-frame from the world `GravityField`; threaded
-    /// through gravity application, jump impulses, and ground detection so a
-    /// gravity-flip room is just this sign. `serde(default)` so tuning files
-    /// baked before it existed deserialize as normal gravity.
-    #[serde(default = "default_gravity_sign")]
-    pub gravity_sign: f32,
-    /// Cardinal gravity DIRECTION for the controlled body (unit vector; `(0,1)` = down,
-    /// `(0,-1)` = up, `(±1,0)` = wall-walking). The movement model is
-    /// gravity-direction-relative; the `gravity_sign` scalar above is the legacy
-    /// Y-only form kept for the vertical-only actor controllers (enemies/NPCs).
-    /// Set per-frame from the world `GravityField` (cardinal-snapped).
-    #[serde(default = "default_gravity_dir")]
-    pub gravity_dir: Vec2,
-    /// How raw stick input maps onto the controlled body's gravity-relative frame for free
-    /// movement (run / flight). The toward-feet gate (pogo/crouch) is independent.
-    #[serde(default = "default_movement_frame_mode")]
-    pub movement_frame_mode: crate::reference_frame::InputFrameMode,
     pub run_accel: f32,
     pub air_accel: f32,
     pub ground_friction: f32,
@@ -271,11 +256,10 @@ pub struct MovementTuning {
     pub precision_blink_max_downward_speed: f32,
     pub fast_fall_accel: f32,
     pub fast_fall_speed: f32,
-    /// Vertical fall speed cap while `Player::gliding` is true. See
-    /// [`GLIDE_FALL_SPEED`].
+    /// Vertical fall speed cap while gliding. See [`GLIDE_FALL_SPEED`].
     pub glide_fall_speed: f32,
-    /// Horizontal acceleration applied while `Player::gliding` is
-    /// true, replacing `air_accel`. See [`GLIDE_AIR_ACCEL`].
+    /// Horizontal acceleration applied while gliding, replacing `air_accel`.
+    /// See [`GLIDE_AIR_ACCEL`].
     pub glide_air_accel: f32,
     pub flight_accel: f32,
     pub flight_drag: f32,
@@ -285,11 +269,9 @@ pub struct MovementTuning {
     /// Direct-velocity free-mover: the controller commands an EXACT velocity each
     /// tick (a boss pattern's `desired_vel`), so the flight limb takes
     /// `stick × flight_terminal_speed` verbatim — no accel ramp, drag, hover-bob,
-    /// or deadzone. This is the shared-seam equivalent of a SNAP integrator
-    /// (`step_floating_body` with `accel: None`), letting a floating boss fly
-    /// through the ONE movement pipeline byte-identically to its old bespoke float.
-    /// `#[serde(default)]` (false) so pre-existing tuning files + every ordinary
-    /// flyer (parrot, hover-drone) keep the smoothed accel/drag flight unchanged.
+    /// or deadzone. `#[serde(default)]` (false) so pre-existing tuning files +
+    /// every ordinary flyer (parrot, hover-drone) keep the smoothed accel/drag
+    /// flight unchanged.
     #[serde(default)]
     pub flight_direct_velocity: bool,
     pub coyote_time: f32,
@@ -312,93 +294,92 @@ pub struct MovementTuning {
     pub ledge_momentum: LedgeMomentumTuning,
 }
 
-/// Parameters owned by the axis-swept movement policy.
+/// The axis-swept LOCOMOTION law: ground/air run, jumps, walls, falling.
+///
+/// These parameters define how the body moves; ability verbs and the flight
+/// limb are separate groups. No field here may describe the live environment.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct AxisLocomotion {
+    pub run_accel: f32,
+    pub air_accel: f32,
+    pub ground_friction: f32,
+    pub air_friction: f32,
+    /// See [`MovementTuning::air_stop_assist`].
+    #[serde(default = "default_air_stop_assist")]
+    pub air_stop_assist: f32,
+    /// See [`MovementTuning::carried_decay`].
+    #[serde(default)]
+    pub carried_decay: f32,
+    pub max_run_speed: f32,
+    pub max_fall_speed: f32,
+    pub jump_speed: f32,
+    pub double_jump_speed: f32,
+    pub wall_jump_x: f32,
+    pub wall_slide_speed: f32,
+    pub wall_climb_speed: f32,
+    pub coyote_time: f32,
+    pub jump_buffer: f32,
+    pub air_jumps: u8,
+    pub fast_fall_accel: f32,
+    pub fast_fall_speed: f32,
+    pub glide_fall_speed: f32,
+    pub glide_air_accel: f32,
+}
+
+/// Optional traversal/combat ability tuning executed by the axis-swept control
+/// phase (dash, blink, dodge, shield/parry, pogo, slash recoil, ledge getups).
+/// Ability AVAILABILITY is the body's `AbilitySet`; these are the verbs' knobs.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct TraversalAbilityTuning {
+    pub dash_speed: f32,
+    pub dash_time: f32,
+    pub dash_cooldown: f32,
+    pub dash_buffer: f32,
+    pub blink_distance: f32,
+    pub precision_blink_distance: f32,
+    pub precision_blink_aim_speed: f32,
+    pub blink_hold_threshold: f32,
+    pub blink_cooldown: f32,
+    pub blink_grace_time: f32,
+    pub blink_max_downward_speed: f32,
+    pub precision_blink_max_downward_speed: f32,
+    pub pogo_speed: f32,
+    pub slash_recoil: f32,
+    pub dodge_roll_time: f32,
+    pub dodge_roll_speed: f32,
+    pub dodge_roll_cooldown: f32,
+    pub parry_window_time: f32,
+    #[serde(default)]
+    pub ledge_momentum: LedgeMomentumTuning,
+}
+
+/// The free-flight limb's tuning (hover, glide-steer, direct-velocity movers).
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct FlightTuning {
+    pub accel: f32,
+    pub drag: f32,
+    pub terminal_speed: f32,
+    pub hover_speed: f32,
+    pub hover_hz: f32,
+    /// See [`MovementTuning::flight_direct_velocity`].
+    #[serde(default)]
+    pub direct_velocity: bool,
+}
+
+/// Parameters owned by the axis-swept movement policy, grouped by ownership.
 ///
 /// This type intentionally contains no gravity vector, acceleration magnitude,
-/// or input-frame preference. Those are current environmental/control facts and
-/// enter the kernel through [`crate::MotionFrame`] and already-resolved local
-/// [`super::InputState`], respectively. A model can therefore be swapped or
-/// snapshotted without freezing the reference frame that happened to be active.
+/// reference orientation, or input-frame preference. Those are current
+/// environmental/control facts and enter the kernel through
+/// [`crate::MotionFrame`] and already-resolved typed input, respectively. A
+/// model can therefore be swapped or snapshotted without freezing the reference
+/// frame that happened to be active.
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
 pub struct AxisSweptParams {
-    pub run_accel: f32,
-    pub air_accel: f32,
-    pub ground_friction: f32,
-    pub air_friction: f32,
-    /// Hands-off airborne run deceleration (px/s²) toward the CARRIED floor
-    /// (`BodyFlightState::carried_run`) — the tight "release the stick and
-    /// fall straight down" feel, without ever bleeding momentum the world
-    /// imparted (portal flings, knockback). `serde(default)` for tuning files
-    /// baked before it existed.
-    #[serde(default = "default_air_stop_assist")]
-    pub air_stop_assist: f32,
-    /// Passive bleed (px/s²) of the carried-momentum floor itself. 0 (the
-    /// default) conserves a fling until input, a wall, or landing consumes
-    /// it; positive values make the world slowly forget imparted momentum.
-    #[serde(default)]
-    pub carried_decay: f32,
-    pub max_run_speed: f32,
-    pub max_fall_speed: f32,
-    pub jump_speed: f32,
-    pub double_jump_speed: f32,
-    pub wall_jump_x: f32,
-    pub wall_slide_speed: f32,
-    pub wall_climb_speed: f32,
-    pub dash_speed: f32,
-    pub dash_time: f32,
-    pub dash_cooldown: f32,
-    pub dash_buffer: f32,
-    pub blink_distance: f32,
-    pub precision_blink_distance: f32,
-    pub precision_blink_aim_speed: f32,
-    pub blink_hold_threshold: f32,
-    pub blink_cooldown: f32,
-    pub blink_grace_time: f32,
-    pub blink_max_downward_speed: f32,
-    pub precision_blink_max_downward_speed: f32,
-    pub fast_fall_accel: f32,
-    pub fast_fall_speed: f32,
-    /// Vertical fall speed cap while `Player::gliding` is true. See
-    /// [`GLIDE_FALL_SPEED`].
-    pub glide_fall_speed: f32,
-    /// Horizontal acceleration applied while `Player::gliding` is
-    /// true, replacing `air_accel`. See [`GLIDE_AIR_ACCEL`].
-    pub glide_air_accel: f32,
-    pub flight_accel: f32,
-    pub flight_drag: f32,
-    pub flight_terminal_speed: f32,
-    pub flight_hover_speed: f32,
-    pub flight_hover_hz: f32,
-    /// Direct-velocity free-mover: the controller commands an EXACT velocity each
-    /// tick (a boss pattern's `desired_vel`), so the flight limb takes
-    /// `stick × flight_terminal_speed` verbatim — no accel ramp, drag, hover-bob,
-    /// or deadzone. This is the shared-seam equivalent of a SNAP integrator
-    /// (`step_floating_body` with `accel: None`), letting a floating boss fly
-    /// through the ONE movement pipeline byte-identically to its old bespoke float.
-    /// `#[serde(default)]` (false) so pre-existing tuning files + every ordinary
-    /// flyer (parrot, hover-drone) keep the smoothed accel/drag flight unchanged.
-    #[serde(default)]
-    pub flight_direct_velocity: bool,
-    pub coyote_time: f32,
-    pub jump_buffer: f32,
-    pub pogo_speed: f32,
-    pub slash_recoil: f32,
-    pub air_jumps: u8,
-    pub dodge_roll_time: f32,
-    pub dodge_roll_speed: f32,
-    pub dodge_roll_cooldown: f32,
-    pub parry_window_time: f32,
-    /// Momentum-carry parameters for ledge getups. Set to
-    /// `LedgeMomentumTuning::OFF` to disable the mechanic.
-    ///
-    /// `#[serde(default)]` so any tuning files serialized before this
-    /// field existed (e.g. `assets/ambition/sandbox.ron` baked at
-    /// boot) deserialize with `LedgeMomentumTuning::DEFAULT` instead
-    /// of panicking on `MissingStructField`.
-    #[serde(default)]
-    pub ledge_momentum: LedgeMomentumTuning,
+    pub locomotion: AxisLocomotion,
+    pub abilities: TraversalAbilityTuning,
+    pub flight: FlightTuning,
 }
-
 
 impl Default for MovementTuning {
     fn default() -> Self {
@@ -407,65 +388,62 @@ impl Default for MovementTuning {
 }
 
 impl MovementTuning {
-    /// Extract the frame-independent policy parameters consumed by the trusted
+    /// Project the frame-independent policy parameters consumed by the trusted
     /// axis-swept solver. Environment and input mapping remain outside the model.
     pub const fn axis_swept_params(self) -> AxisSweptParams {
         AxisSweptParams {
-            run_accel: self.run_accel,
-            air_accel: self.air_accel,
-            ground_friction: self.ground_friction,
-            air_friction: self.air_friction,
-            air_stop_assist: self.air_stop_assist,
-            carried_decay: self.carried_decay,
-            max_run_speed: self.max_run_speed,
-            max_fall_speed: self.max_fall_speed,
-            jump_speed: self.jump_speed,
-            double_jump_speed: self.double_jump_speed,
-            wall_jump_x: self.wall_jump_x,
-            wall_slide_speed: self.wall_slide_speed,
-            wall_climb_speed: self.wall_climb_speed,
-            dash_speed: self.dash_speed,
-            dash_time: self.dash_time,
-            dash_cooldown: self.dash_cooldown,
-            dash_buffer: self.dash_buffer,
-            blink_distance: self.blink_distance,
-            precision_blink_distance: self.precision_blink_distance,
-            precision_blink_aim_speed: self.precision_blink_aim_speed,
-            blink_hold_threshold: self.blink_hold_threshold,
-            blink_cooldown: self.blink_cooldown,
-            blink_grace_time: self.blink_grace_time,
-            blink_max_downward_speed: self.blink_max_downward_speed,
-            precision_blink_max_downward_speed: self.precision_blink_max_downward_speed,
-            fast_fall_accel: self.fast_fall_accel,
-            fast_fall_speed: self.fast_fall_speed,
-            glide_fall_speed: self.glide_fall_speed,
-            glide_air_accel: self.glide_air_accel,
-            flight_accel: self.flight_accel,
-            flight_drag: self.flight_drag,
-            flight_terminal_speed: self.flight_terminal_speed,
-            flight_hover_speed: self.flight_hover_speed,
-            flight_hover_hz: self.flight_hover_hz,
-            flight_direct_velocity: self.flight_direct_velocity,
-            coyote_time: self.coyote_time,
-            jump_buffer: self.jump_buffer,
-            pogo_speed: self.pogo_speed,
-            slash_recoil: self.slash_recoil,
-            air_jumps: self.air_jumps,
-            dodge_roll_time: self.dodge_roll_time,
-            dodge_roll_speed: self.dodge_roll_speed,
-            dodge_roll_cooldown: self.dodge_roll_cooldown,
-            parry_window_time: self.parry_window_time,
-            ledge_momentum: self.ledge_momentum,
+            locomotion: AxisLocomotion {
+                run_accel: self.run_accel,
+                air_accel: self.air_accel,
+                ground_friction: self.ground_friction,
+                air_friction: self.air_friction,
+                air_stop_assist: self.air_stop_assist,
+                carried_decay: self.carried_decay,
+                max_run_speed: self.max_run_speed,
+                max_fall_speed: self.max_fall_speed,
+                jump_speed: self.jump_speed,
+                double_jump_speed: self.double_jump_speed,
+                wall_jump_x: self.wall_jump_x,
+                wall_slide_speed: self.wall_slide_speed,
+                wall_climb_speed: self.wall_climb_speed,
+                coyote_time: self.coyote_time,
+                jump_buffer: self.jump_buffer,
+                air_jumps: self.air_jumps,
+                fast_fall_accel: self.fast_fall_accel,
+                fast_fall_speed: self.fast_fall_speed,
+                glide_fall_speed: self.glide_fall_speed,
+                glide_air_accel: self.glide_air_accel,
+            },
+            abilities: TraversalAbilityTuning {
+                dash_speed: self.dash_speed,
+                dash_time: self.dash_time,
+                dash_cooldown: self.dash_cooldown,
+                dash_buffer: self.dash_buffer,
+                blink_distance: self.blink_distance,
+                precision_blink_distance: self.precision_blink_distance,
+                precision_blink_aim_speed: self.precision_blink_aim_speed,
+                blink_hold_threshold: self.blink_hold_threshold,
+                blink_cooldown: self.blink_cooldown,
+                blink_grace_time: self.blink_grace_time,
+                blink_max_downward_speed: self.blink_max_downward_speed,
+                precision_blink_max_downward_speed: self.precision_blink_max_downward_speed,
+                pogo_speed: self.pogo_speed,
+                slash_recoil: self.slash_recoil,
+                dodge_roll_time: self.dodge_roll_time,
+                dodge_roll_speed: self.dodge_roll_speed,
+                dodge_roll_cooldown: self.dodge_roll_cooldown,
+                parry_window_time: self.parry_window_time,
+                ledge_momentum: self.ledge_momentum,
+            },
+            flight: FlightTuning {
+                accel: self.flight_accel,
+                drag: self.flight_drag,
+                terminal_speed: self.flight_terminal_speed,
+                hover_speed: self.flight_hover_speed,
+                hover_hz: self.flight_hover_hz,
+                direct_velocity: self.flight_direct_velocity,
+            },
         }
-    }
-
-}
-
-impl AxisSweptParams {
-    /// Input is already expressed in the controlled body's local acceleration
-    /// frame before entering the movement kernel.
-    pub fn stick(&self, input: &super::InputState) -> Vec2 {
-        Vec2::new(input.axis_x, input.axis_y)
     }
 }
 
@@ -475,14 +453,10 @@ impl Default for AxisSweptParams {
     }
 }
 
-pub const DEFAULT_AXIS_SWEPT_PARAMS: AxisSweptParams =
-    DEFAULT_TUNING.axis_swept_params();
+pub const DEFAULT_AXIS_SWEPT_PARAMS: AxisSweptParams = DEFAULT_TUNING.axis_swept_params();
 
 pub const DEFAULT_TUNING: MovementTuning = MovementTuning {
     gravity: GRAVITY,
-    gravity_sign: DEFAULT_GRAVITY_SIGN,
-    gravity_dir: DEFAULT_GRAVITY_DIR,
-    movement_frame_mode: crate::reference_frame::InputFrameMode::DEFAULT_MOVEMENT,
     run_accel: RUN_ACCEL,
     air_accel: AIR_ACCEL,
     ground_friction: GROUND_FRICTION,

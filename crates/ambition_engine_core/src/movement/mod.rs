@@ -1,25 +1,27 @@
 //! One trusted, frame-aware movement kernel with swappable physics policies.
 //!
-//! [`step_motion`] is the production gateway. Every movable body carries one
+//! [`step_motion`] is the ONLY movement entry. Every movable body carries one
 //! explicit [`MotionModel`], and every policy receives the same immutable
-//! [`MotionFrame`] resolved once from the environment's reference basis and
-//! complete world-space acceleration for that tick. The active frame is
-//! environmental state: it is neither
-//! authored into model parameters nor cached in model-private runtime state.
+//! [`MotionFrame`] resolved once by the environment from a reference basis and
+//! the complete world-space acceleration for that body tick. The active frame
+//! is environmental state: it is neither authored into model parameters nor
+//! cached in model-private runtime state, and every directional quantity
+//! crossing this boundary carries its frame in its type (see
+//! [`InputState`]).
 //!
-//! Axis-swept action-platformer movement and [`surface_momentum`] are sibling
-//! implementations. They may own different private state and collision logic,
-//! but they share one body-state authority, one local-input contract, one world
-//! context, one frame, and one deterministic dispatch seam.
-//!
-//! The phase-level axis functions below remain implementation/test vocabulary
-//! while existing invariant tests are migrated. Production actor and home-body
-//! integration must call [`step_motion`], never an individual solver arm.
+//! Axis-swept action-platformer movement, [`surface momentum`](SurfaceMotion),
+//! and the [`adhesive crawler`](CrawlerState) are sibling implementations. They
+//! own different private state and contact logic, but they share one body-state
+//! authority, one typed local-input contract, one world context, one frame, and
+//! one deterministic dispatch seam. The phase-level axis functions below are
+//! kernel-private implementation vocabulary — production integration calls
+//! [`step_motion`], never an individual solver arm.
 
 use crate::world::World;
-use crate::{MotionFrame, Vec2};
+use crate::MotionFrame;
 
 mod abilities;
+mod adhesive_crawler;
 mod blink;
 pub(crate) mod collision;
 mod control;
@@ -31,24 +33,19 @@ mod model;
 mod ops;
 mod player;
 mod simulation;
-pub mod surface_momentum;
+pub(crate) mod surface_momentum;
 mod tuning;
 
-pub use surface_momentum::MomentumParams;
+pub use adhesive_crawler::{AdhesiveCrawlerMotion, CrawlerParams, CrawlerState};
+pub use surface_momentum::{MomentumParams, SurfaceMotion, SurfaceRef};
 
 pub use abilities::resolve_shield;
 pub use blink::{blink_destination_clusters, blink_destination_to_point_clusters};
-// The ONE hazard-touch rule, exported so external movement policies (e.g. the
-// gameplay layer's surface-momentum branch) apply the SAME predicate the
-// engine sim phase applies — never a duplicated near-copy.
+// The ONE hazard-touch rule, exported so external observers apply the SAME
+// predicate the kernel applies — never a duplicated near-copy.
 pub use collision::touching_hazard_aabb;
 pub use events::{BlinkEvent, FrameEvents};
 pub use input::InputState;
-pub use kernel::{step_motion, MotionStepContext, MotionStepResult};
-pub use model::{
-    AxisSweptMotion, MotionModel, MotionModelKind, MotionModelSpec,
-    SurfaceMomentumMotion,
-};
 /// Screen-vertical input → gravity-relative "descend" intent (the vertical
 /// sibling of the run-axis transform). Every crouch/pogo/drop-through/fast-fall
 /// gate and gravity-relative vertical movement reads input through this so a
@@ -64,14 +61,19 @@ pub use integration::set_jump_velocity;
 /// clusters; enemies/NPCs feed it [`NormalSpineCtx::bare`] + per-actor tuning, so
 /// every actor falls + runs through the SAME core (the non-player-centric seam).
 pub use integration::{integrate_normal_spine, NormalSpineCtx};
+pub use kernel::{step_motion, MotionStepContext, MotionStepResult};
+pub use model::{
+    switch_motion_model, AxisSweptMotion, MotionModel, MotionModelKind, MotionModelSpec,
+    SurfaceMomentumMotion,
+};
 pub use ops::{ComboMark, MovementOp};
 pub use player::{default_player_body_size, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH};
 pub use tuning::{
-    AxisSweptParams, LedgeMomentumTuning, MovementTuning, AIR_ACCEL, AIR_FRICTION, AIR_JUMPS,
-    BLINK_COOLDOWN,
-    BLINK_DISTANCE, BLINK_GRACE_TIME, BLINK_HOLD_THRESHOLD, BLINK_MAX_DOWNWARD_SPEED, COYOTE_TIME,
-    DASH_BUFFER, DASH_COOLDOWN, DASH_SPEED, DASH_TIME, DEFAULT_AXIS_SWEPT_PARAMS,
-    DEFAULT_GRAVITY_DIR, DEFAULT_GRAVITY_SIGN, DEFAULT_TUNING, DODGE_ROLL_COOLDOWN, DODGE_ROLL_SPEED, DODGE_ROLL_TIME, DOUBLE_JUMP_SPEED,
+    AxisLocomotion, AxisSweptParams, FlightTuning, LedgeMomentumTuning, MovementTuning,
+    TraversalAbilityTuning, AIR_ACCEL, AIR_FRICTION, AIR_JUMPS, BLINK_COOLDOWN, BLINK_DISTANCE,
+    BLINK_GRACE_TIME, BLINK_HOLD_THRESHOLD, BLINK_MAX_DOWNWARD_SPEED, COYOTE_TIME, DASH_BUFFER,
+    DASH_COOLDOWN, DASH_SPEED, DASH_TIME, DEFAULT_AXIS_SWEPT_PARAMS, DEFAULT_GRAVITY_DIR,
+    DEFAULT_TUNING, DODGE_ROLL_COOLDOWN, DODGE_ROLL_SPEED, DODGE_ROLL_TIME, DOUBLE_JUMP_SPEED,
     FAST_FALL_ACCEL, FAST_FALL_SPEED, FLIGHT_ACCEL, FLIGHT_DRAG, FLIGHT_HOVER_HZ,
     FLIGHT_HOVER_SPEED, FLIGHT_TERMINAL_SPEED, GLIDE_AIR_ACCEL, GLIDE_FALL_SPEED, GRAVITY,
     GROUND_FRICTION, JUMP_BUFFER, JUMP_SPEED, MAX_FALL_SPEED, MAX_RUN_SPEED,
@@ -83,40 +85,9 @@ pub use tuning::{
 #[cfg(test)]
 use collision::body_is_side_contact;
 
-/// Run the control phase for one frame: reset gesture, facing /
-/// jump-buffer / dash-buffer intent, fly toggle, blink hold + release,
-/// melee + pogo, dodge roll, dash, shield, variable jump release.
-/// All state lives on cluster components.
-///
-/// **Body-generic** (the non-player-centric movement seam): this performs the
-/// pure body mechanics and *flags* a reset request in [`FrameEvents::reset`]
-/// (e.g. the reset gesture) WITHOUT performing any respawn — respawn-to-spawn is
-/// a player *policy*, applied by the [`update_player_control_with_clusters`]
-/// wrapper. An actor body calls this directly and handles a reset request with
-/// its own policy (take damage / die / ignore), never a teleport to the player
-/// spawn.
-#[cfg(test)]
-pub(crate) fn update_body_control_with_clusters(
-    world: &World,
-    clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
-    input: InputState,
-    control_dt: f32,
-    tuning: MovementTuning,
-) -> FrameEvents {
-    let frame = MotionFrame::from_direction(tuning.gravity_dir, tuning.gravity);
-    update_body_control_in_frame(
-        world,
-        clusters,
-        input,
-        control_dt,
-        frame,
-        tuning.axis_swept_params(),
-    )
-}
-
-/// Frame-explicit axis-swept control phase used by the unified movement kernel.
-/// The current acceleration frame is supplied by the environment, never read
-/// from or written into model parameters.
+/// Frame-explicit axis-swept control phase — kernel-private. The current
+/// acceleration frame is supplied by the environment, never read from or
+/// written into model parameters.
 pub(crate) fn update_body_control_in_frame(
     world: &World,
     clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
@@ -127,8 +98,9 @@ pub(crate) fn update_body_control_in_frame(
 ) -> FrameEvents {
     let mut events = FrameEvents::default();
 
-    // Reset on edge press: the body only FLAGS the request; the player wrapper
-    // performs the respawn (an actor body applies its own reset policy).
+    // Reset on edge press: the body only FLAGS the request; the body's owner
+    // applies its reset policy (respawn for the home body, damage/ignore for
+    // an actor).
     if input.reset_pressed && clusters.abilities.abilities.reset {
         events.reset = true;
         return events;
@@ -216,56 +188,13 @@ pub(crate) fn update_body_control_in_frame(
         &mut events,
     );
 
-    abilities::apply_jump_release(clusters.kinematics, clusters.abilities, input, frame, tuning);
+    abilities::apply_jump_release(clusters.kinematics, clusters.abilities, input, frame);
 
     events
 }
 
-/// Player-flavored control phase: the body-generic
-/// [`update_body_control_with_clusters`] plus the player respawn *policy* — a
-/// flagged reset teleports the player body to `world.spawn`. Behavior-identical
-/// to the historical inline reset; actors deliberately do NOT use this wrapper.
-#[cfg(test)]
-pub(crate) fn update_player_control_with_clusters(
-    world: &World,
-    clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
-    input: InputState,
-    control_dt: f32,
-    tuning: MovementTuning,
-) -> FrameEvents {
-    let events = update_body_control_with_clusters(world, clusters, input, control_dt, tuning);
-    if events.reset {
-        crate::body_clusters::reset_body_clusters(clusters, world.spawn);
-    }
-    events
-}
-
-/// Run the simulation phase for one frame: cache water/climbable
-/// contact, age timers + combo trace, advance the active ledge grab,
-/// handle the buffered jump, integrate velocity through collision,
-/// re-probe ledge starts, and finally fire the hazard reset gate.
-/// All state lives on cluster components.
-#[cfg(test)]
-pub(crate) fn update_body_simulation_with_clusters(
-    world: &World,
-    clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
-    input: InputState,
-    raw_dt: f32,
-    tuning: MovementTuning,
-) -> FrameEvents {
-    let frame = MotionFrame::from_direction(tuning.gravity_dir, tuning.gravity);
-    update_body_simulation_in_frame(
-        world,
-        clusters,
-        input,
-        raw_dt,
-        frame,
-        tuning.axis_swept_params(),
-    )
-}
-
-/// Frame-explicit axis-swept simulation phase used by the unified movement
-/// kernel. The same immutable frame reaches every gravity-relative limb.
+/// Frame-explicit axis-swept simulation phase — kernel-private. The same
+/// immutable frame reaches every gravity-relative limb.
 pub(crate) fn update_body_simulation_in_frame(
     world: &World,
     clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
@@ -276,11 +205,11 @@ pub(crate) fn update_body_simulation_in_frame(
 ) -> FrameEvents {
     // §3.1 SweepSample: both endpoints are captured INSIDE the kernel —
     // `prev` at sim-phase entry, `curr` at exit — so any position change
-    // outside this window (blink in the control phase, the player respawn
-    // wrapper after this returns, portal/room/scripted teleports in other
-    // systems) is excluded from the motion record BY CONSTRUCTION. Early
-    // returns still pass through the write below (a zero-dt tick records a
-    // zero-length segment, never a stale one).
+    // outside this window (blink in the control phase, respawn policy after
+    // this returns, portal/room/scripted teleports in other systems) is
+    // excluded from the motion record BY CONSTRUCTION. Early returns still
+    // pass through the write below (a zero-dt tick records a zero-length
+    // segment, never a stale one).
     let entry_pos = clusters.kinematics.pos;
     let entry_vel = clusters.kinematics.vel;
     let events = update_body_simulation_inner(world, clusters, input, raw_dt, frame, tuning);
@@ -318,14 +247,14 @@ fn update_body_simulation_inner(
         clusters.ledge.grab = None;
     }
 
-    // Drowning gate — body flags hazard + reset; the player wrapper respawns.
+    // Drowning gate — body flags hazard + reset; the owner applies its policy.
     if clusters.env_contact.water.is_some() && !clusters.abilities.abilities.swim {
         events.hazard = true;
         events.reset = true;
         return events;
     }
 
-    // age_player + update_simulation_timers — cluster-native inline.
+    // Age lifetime + timers + combo trace — cluster-native inline.
     {
         clusters.lifetime.time_alive += dt;
         let speed = clusters.kinematics.vel.length();
@@ -357,12 +286,12 @@ fn update_body_simulation_inner(
             clusters.wall.pre_wall_vel_age += dt;
         }
         if clusters.ground.on_ground {
-            clusters.ground.coyote_timer = tuning.coyote_time;
+            clusters.ground.coyote_timer = tuning.locomotion.coyote_time;
             crate::body_clusters::refresh_movement_resources_clusters(
                 clusters.abilities,
                 clusters.dash,
                 clusters.jump,
-                tuning,
+                tuning.locomotion.air_jumps,
             );
         }
     }
@@ -370,9 +299,13 @@ fn update_body_simulation_inner(
     // Active ledge-grab tick. Returns true if it consumed the frame
     // (the rest of the simulation phase short-circuits).
     if crate::ledge_grab::tick_active_ledge_grab_clusters_in_frame(
-        clusters, input, dt, frame, tuning, &mut events,
-    )
-    {
+        clusters,
+        input,
+        dt,
+        frame,
+        tuning,
+        &mut events,
+    ) {
         return events;
     }
 
@@ -397,24 +330,33 @@ fn update_body_simulation_inner(
     );
 
     integration::integrate_velocity_clusters(
-        world, clusters, input, dt, frame, tuning, &mut events,
+        world,
+        clusters,
+        input,
+        dt,
+        frame,
+        tuning,
+        &mut events,
     );
 
     // Probe for a fresh ledge grab now that the integration step
     // settled the new position. Required for the auto-snap-on-fall
     // recovery path (slow drifts ignore this; fast falls latch).
     crate::ledge_grab::try_start_ledge_grab_clusters_in_frame(
-        world, clusters, input, frame, tuning, &mut events,
+        world,
+        clusters,
+        input,
+        frame,
+        &mut events,
     );
 
-    // Hazard / out-of-bounds gate — body flags hazard + reset; the player
-    // wrapper respawns. An actor body reads the flag and applies its own policy.
-    // "Fell out of the world" is gravity-relative: distance past the world AABB
-    // measured ALONG the fall direction (fable review 2026-07-02 §B7 — the old
-    // `pos.y > size.y + 200` only caught the bottom edge, so under up/sideways
-    // gravity a body could fall forever).
+    // Hazard / out-of-bounds gate — body flags hazard + reset; the owner
+    // applies its policy. "Fell out of the world" is gravity-relative:
+    // distance past the world AABB measured ALONG the fall direction (fable
+    // review 2026-07-02 §B7 — the old `pos.y > size.y + 200` only caught the
+    // bottom edge, so under up/sideways gravity a body could fall forever).
     let pos = clusters.kinematics.pos;
-    let clamped = Vec2::new(
+    let clamped = crate::Vec2::new(
         pos.x.clamp(0.0, world.size.x),
         pos.y.clamp(0.0, world.size.y),
     );
@@ -427,82 +369,14 @@ fn update_body_simulation_inner(
     events
 }
 
-/// Player-flavored simulation phase: the body-generic
-/// [`update_body_simulation_with_clusters`] plus the player respawn *policy* — a
-/// flagged reset (drown / hazard / out-of-bounds) teleports the player body to
-/// `world.spawn`. Behavior-identical to the historical inline resets; actors
-/// deliberately do NOT use this wrapper (they own their hazard reaction).
-#[cfg(test)]
-pub(crate) fn update_player_simulation_with_clusters(
-    world: &World,
-    clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
-    input: InputState,
-    raw_dt: f32,
-    tuning: MovementTuning,
-) -> FrameEvents {
-    let events = update_body_simulation_with_clusters(world, clusters, input, raw_dt, tuning);
-    if events.reset {
-        crate::body_clusters::reset_body_clusters(clusters, world.spawn);
-    }
-    events
-}
-
 fn dec(value: f32, dt: f32) -> f32 {
     (value - dt).max(0.0)
 }
 
-/// Combined cluster-native player tick: control phase then simulation
-/// phase, using `tuning`. `InputState::control_dt` overrides `raw_dt`
-/// for the control phase when positive (so bullet-time slowing
-/// gravity does not slow input).
-#[cfg(test)]
-pub(crate) fn update_player_with_tuning_clusters(
-    world: &World,
-    clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
-    input: InputState,
-    raw_dt: f32,
-    tuning: MovementTuning,
-) -> FrameEvents {
-    let control_dt = if input.control_dt > 0.0 {
-        input.control_dt
-    } else {
-        raw_dt
-    };
-    let mut events =
-        update_player_control_with_clusters(world, clusters, input, control_dt, tuning);
-    let sim_events = update_player_simulation_with_clusters(world, clusters, input, raw_dt, tuning);
-    events.extend(sim_events);
-    events
-}
-
-/// Combined **body-generic** tick: control + simulation through the body
-/// mechanics, returning the `FrameEvents` (incl. a flagged `reset` on
-/// drown / hazard / out-of-bounds) WITHOUT any player respawn. This is the
-/// entry point an actor body uses: it owns its hazard reaction (the caller
-/// reads `events.hazard` / `events.reset` and applies its own policy), so an
-/// enemy never teleports to the player spawn. The player path uses
-/// [`update_player_with_tuning_clusters`] instead (= this + the respawn policy).
-#[cfg(test)]
-pub(crate) fn update_body_with_tuning_clusters(
-    world: &World,
-    clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
-    input: InputState,
-    raw_dt: f32,
-    tuning: MovementTuning,
-) -> FrameEvents {
-    let frame = MotionFrame::from_direction(tuning.gravity_dir, tuning.gravity);
-    update_body_with_frame_clusters(
-        world,
-        clusters,
-        input,
-        frame,
-        raw_dt,
-        tuning.axis_swept_params(),
-    )
-}
-
-/// Axis-swept implementation arm behind [`step_motion`]. All frame-sensitive
-/// control and integration receives the exact same per-tick frame value.
+/// Axis-swept implementation arm behind [`step_motion`] — kernel-private. All
+/// frame-sensitive control and integration receives the exact same per-tick
+/// frame value. `InputState::control_dt` overrides `raw_dt` for the control
+/// phase when positive (so bullet-time slowing gravity does not slow input).
 pub(crate) fn update_body_with_frame_clusters(
     world: &World,
     clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
@@ -518,94 +392,9 @@ pub(crate) fn update_body_with_frame_clusters(
     };
     let mut events =
         update_body_control_in_frame(world, clusters, input, control_dt, frame, tuning);
-    let sim_events =
-        update_body_simulation_in_frame(world, clusters, input, raw_dt, frame, tuning);
+    let sim_events = update_body_simulation_in_frame(world, clusters, input, raw_dt, frame, tuning);
     events.extend(sim_events);
     events
-}
-
-/// `DEFAULT_TUNING` convenience wrapper for
-/// [`update_player_with_tuning_clusters`]. Useful in adapter sites
-/// (RL, headless drivers, lightweight integration tests) that don't
-/// need custom tuning knobs.
-#[cfg(test)]
-pub(crate) fn update_player_clusters(
-    world: &World,
-    clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
-    input: InputState,
-    raw_dt: f32,
-) -> FrameEvents {
-    update_player_with_tuning_clusters(world, clusters, input, raw_dt, DEFAULT_TUNING)
-}
-
-/// `BodyClusterScratch`-based test wrapper: builds the cluster view
-/// in-place and dispatches to `update_player_with_tuning_clusters`.
-#[cfg(test)]
-pub(crate) fn update_player_with_tuning_scratch(
-    world: &World,
-    scratch: &mut crate::body_clusters::BodyClusterScratch,
-    input: InputState,
-    raw_dt: f32,
-    tuning: MovementTuning,
-) -> FrameEvents {
-    let mut clusters = scratch.as_mut();
-    update_player_with_tuning_clusters(world, &mut clusters, input, raw_dt, tuning)
-}
-
-/// Convenience wrapper using `DEFAULT_TUNING`.
-pub(crate) fn update_player_scratch(
-    world: &World,
-    scratch: &mut crate::body_clusters::BodyClusterScratch,
-    input: InputState,
-    raw_dt: f32,
-) -> FrameEvents {
-    update_player_with_tuning_scratch(world, scratch, input, raw_dt, DEFAULT_TUNING)
-}
-
-/// `BodyClusterScratch`-based control-phase wrapper for tests.
-#[cfg(test)]
-pub(crate) fn update_player_control_with_tuning_scratch(
-    world: &World,
-    scratch: &mut crate::body_clusters::BodyClusterScratch,
-    input: InputState,
-    control_dt: f32,
-    tuning: MovementTuning,
-) -> FrameEvents {
-    let mut clusters = scratch.as_mut();
-    update_player_control_with_clusters(world, &mut clusters, input, control_dt, tuning)
-}
-
-#[cfg(test)]
-pub(crate) fn update_player_control_scratch(
-    world: &World,
-    scratch: &mut crate::body_clusters::BodyClusterScratch,
-    input: InputState,
-    control_dt: f32,
-) -> FrameEvents {
-    update_player_control_with_tuning_scratch(world, scratch, input, control_dt, DEFAULT_TUNING)
-}
-
-/// `BodyClusterScratch`-based simulation-phase wrapper for tests.
-#[cfg(test)]
-pub(crate) fn update_player_simulation_with_tuning_scratch(
-    world: &World,
-    scratch: &mut crate::body_clusters::BodyClusterScratch,
-    input: InputState,
-    raw_dt: f32,
-    tuning: MovementTuning,
-) -> FrameEvents {
-    let mut clusters = scratch.as_mut();
-    update_player_simulation_with_clusters(world, &mut clusters, input, raw_dt, tuning)
-}
-
-#[cfg(test)]
-pub(crate) fn update_player_simulation_scratch(
-    world: &World,
-    scratch: &mut crate::body_clusters::BodyClusterScratch,
-    input: InputState,
-    raw_dt: f32,
-) -> FrameEvents {
-    update_player_simulation_with_tuning_scratch(world, scratch, input, raw_dt, DEFAULT_TUNING)
 }
 
 #[cfg(test)]

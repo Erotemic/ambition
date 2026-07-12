@@ -4,6 +4,8 @@
 use super::super::*;
 use super::test_world;
 use crate::body_clusters::BodyClusterScratch;
+#[allow(unused_imports)]
+use crate::test_support::*;
 use crate::world::{BlinkWallTier, Block};
 use crate::{AbilitySet, Vec2};
 
@@ -32,12 +34,12 @@ fn simulation_latches_ledge_grab_on_blink_wall_surface() {
         &world,
         &mut scratch,
         InputState {
-            axis_x: 1.0,
+            axes: crate::LocalAxes::new(1.0, 0.0),
             control_dt: 1.0 / 60.0,
             ..InputState::default()
         },
         1.0 / 60.0,
-        DEFAULT_TUNING,
+        TEST_TUNING,
     );
     assert!(
         scratch.ledge.grab.is_some(),
@@ -64,12 +66,12 @@ fn simulation_latches_ledge_grab_on_one_way_surface_without_wall_collision() {
         &world,
         &mut scratch,
         InputState {
-            axis_x: 1.0,
+            axes: crate::LocalAxes::new(1.0, 0.0),
             control_dt: 1.0 / 60.0,
             ..InputState::default()
         },
         1.0 / 60.0,
-        DEFAULT_TUNING,
+        TEST_TUNING,
     );
     assert!(
         scratch.ledge.grab.is_some(),
@@ -103,7 +105,7 @@ fn attack_press_from_hang_starts_getup_attack_and_fires_slash() {
             ..InputState::default()
         },
         1.0 / 60.0,
-        DEFAULT_TUNING,
+        TEST_TUNING,
     );
 
     assert!(
@@ -145,7 +147,7 @@ fn active_ledge_grab_climb_finishes_inside_simulation_tick() {
         &mut scratch,
         InputState::default(),
         1.0 / 60.0,
-        DEFAULT_TUNING,
+        TEST_TUNING,
     );
     assert!(
         scratch.ledge.grab.is_none(),

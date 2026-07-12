@@ -68,6 +68,7 @@ use ambition_engine_core::body_clusters as bc;
 // sibling files. Their public items are re-exported so `snapshot::<Item>` paths
 // (and `tests.rs`'s `use super::*`) are unchanged by the relocation.
 mod codecs;
+mod motion_codec;
 mod registry;
 mod restore;
 
@@ -1105,6 +1106,10 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
         .register_component::<ambition_actors::features::ActorSurfaceState>("actor_surface_state");
     registry.register_component::<ambition_combat::components::BodyEnvelope>("body_envelope");
     registry.register_component::<bc::BodyLedgeState>("body_ledge_state");
+    // The body's explicit movement policy (identity + authored params +
+    // policy-private state). The current environmental frame is NOT model
+    // state: restore re-resolves it from the live environment.
+    registry.register_component::<ambition_engine_core::MotionModel>("motion_model");
     registry.register_component::<bc::BodyComboTrace>("body_combo_trace");
     registry.register_component::<ambition_characters::brain::ActorControl>("actor_control");
     registry.register_component::<ambition_time::ProperTimeScale>("proper_time_scale");

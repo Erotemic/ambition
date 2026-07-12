@@ -201,6 +201,7 @@ fn blink_executes_on_the_controlled_actor_not_the_home_avatar() {
                 size: ae::Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
+            crate::features::MotionModel::default(),
             HeldItem::new(home_spec),
             {
                 let mut c = ActorControl::default();
@@ -221,6 +222,7 @@ fn blink_executes_on_the_controlled_actor_not_the_home_avatar() {
                 size: ae::Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
+            crate::features::MotionModel::default(),
             HeldItem::new(actor_spec),
             {
                 let mut c = ActorControl::default();

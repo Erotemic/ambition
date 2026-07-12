@@ -23,6 +23,90 @@ use crate::Vec2;
 /// [`AccelerationFrame::resolve_aim_local`]'s aim → movement → facing priority.
 const STICK_SELECT_DEADZONE: f32 = 0.3;
 
+/// Raw device/screen-frame axes: `+x` screen-right, `+y` screen-down.
+///
+/// The ONLY directional form input devices may produce. It carries no gameplay
+/// meaning until it is resolved through [`AccelerationFrame::resolve_input`]
+/// (or an equivalent typed seam) into [`LocalAxes`]. Passing a `ScreenAxes`
+/// below the controller seam is an architecture error — the movement kernel
+/// never sees one.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct ScreenAxes {
+    pub x: f32,
+    pub y: f32,
+}
+
+impl ScreenAxes {
+    pub const ZERO: Self = Self { x: 0.0, y: 0.0 };
+
+    pub const fn new(x: f32, y: f32) -> Self {
+        Self { x, y }
+    }
+
+    pub const fn from_vec(v: Vec2) -> Self {
+        Self { x: v.x, y: v.y }
+    }
+
+    pub const fn vec(self) -> Vec2 {
+        Vec2::new(self.x, self.y)
+    }
+}
+
+/// Controlled-body-local axes: `+x` local side/right, `+y` toward the feet.
+///
+/// The frame every unqualified movement verb is written in. Produced exactly
+/// once per controller tick by resolving raw [`ScreenAxes`] against the body's
+/// current [`AccelerationFrame`]; consumed by the movement kernel and gameplay
+/// verbs that mean "the body's own left/right/up/down".
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct LocalAxes {
+    pub x: f32,
+    pub y: f32,
+}
+
+impl LocalAxes {
+    pub const ZERO: Self = Self { x: 0.0, y: 0.0 };
+
+    pub const fn new(x: f32, y: f32) -> Self {
+        Self { x, y }
+    }
+
+    pub const fn from_vec(v: Vec2) -> Self {
+        Self { x: v.x, y: v.y }
+    }
+
+    pub const fn vec(self) -> Vec2 {
+        Vec2::new(self.x, self.y)
+    }
+}
+
+/// A world-space direction/step whose frame resolution ALREADY happened.
+///
+/// Scripted directions, impulses, and seam-resolved aim vectors cross the
+/// trusted movement boundary in this form so a world-space quantity can never
+/// be mistaken for a screen- or body-local one.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct WorldVec2(pub Vec2);
+
+impl WorldVec2 {
+    pub const ZERO: Self = Self(Vec2::ZERO);
+
+    pub const fn new(x: f32, y: f32) -> Self {
+        Self(Vec2::new(x, y))
+    }
+
+    pub const fn vec(self) -> Vec2 {
+        self.0
+    }
+}
+
+impl std::ops::Deref for WorldVec2 {
+    type Target = Vec2;
+    fn deref(&self) -> &Vec2 {
+        &self.0
+    }
+}
+
 /// How the raw INPUT frame maps onto the controlled body's local frame — "which
 /// way is right when gravity is sideways or upside-down". A human-control
 /// preference (see [`AccelerationFrame::control_frame`]).
@@ -147,11 +231,10 @@ impl RawDirectionEdges {
 /// they mean unqualified left/right/up/down for the controlled body.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ResolvedControlFrame {
-    /// Raw input/screen-frame stick: `+x` screen-right, `+y` screen-down.
-    pub raw_axis: Vec2,
-    /// Controlled-body-local stick: `+x` local side/right, `+y` local down
-    /// / toward-feet.
-    pub local_axis: Vec2,
+    /// Raw input/screen-frame stick.
+    pub raw_axes: ScreenAxes,
+    /// Controlled-body-local stick.
+    pub local_axes: LocalAxes,
     pub mode: InputFrameMode,
     pub frame: AccelerationFrame,
 }
@@ -159,22 +242,22 @@ pub struct ResolvedControlFrame {
 impl ResolvedControlFrame {
     pub fn local_down_pressed(self, edges: RawDirectionEdges) -> bool {
         self.frame
-            .local_direction_pressed(self.mode, Vec2::new(0.0, 1.0), edges)
+            .local_direction_pressed(self.mode, LocalAxes::new(0.0, 1.0), edges)
     }
 
     pub fn local_up_pressed(self, edges: RawDirectionEdges) -> bool {
         self.frame
-            .local_direction_pressed(self.mode, Vec2::new(0.0, -1.0), edges)
+            .local_direction_pressed(self.mode, LocalAxes::new(0.0, -1.0), edges)
     }
 
     pub fn local_right_pressed(self, edges: RawDirectionEdges) -> bool {
         self.frame
-            .local_direction_pressed(self.mode, Vec2::new(1.0, 0.0), edges)
+            .local_direction_pressed(self.mode, LocalAxes::new(1.0, 0.0), edges)
     }
 
     pub fn local_left_pressed(self, edges: RawDirectionEdges) -> bool {
         self.frame
-            .local_direction_pressed(self.mode, Vec2::new(-1.0, 0.0), edges)
+            .local_direction_pressed(self.mode, LocalAxes::new(-1.0, 0.0), edges)
     }
 }
 
@@ -241,10 +324,7 @@ impl MotionFrame {
     /// direction explicitly carries the reference-frame orientation.
     pub fn from_direction(direction: Vec2, magnitude: f32) -> Self {
         let down = direction.try_normalize().unwrap_or(Vec2::new(0.0, 1.0));
-        Self::new(
-            AccelerationFrame::new(down),
-            down * magnitude.max(0.0),
-        )
+        Self::new(AccelerationFrame::new(down), down * magnitude.max(0.0))
     }
 
     /// Full world-space acceleration applied this tick.
@@ -404,16 +484,16 @@ impl AccelerationFrame {
     ///   `BodyRelativeStrict` up to ±90° from screen-down, then inverts BOTH axes
     ///   past 90° (gravity up-ish) so the hard-to-track flip reverts to a
     ///   screen-like feel.
-    pub fn resolve_input(self, mode: InputFrameMode, axis_x: f32, axis_y: f32) -> Vec2 {
+    pub fn resolve_input(self, mode: InputFrameMode, axes: ScreenAxes) -> LocalAxes {
         match mode {
-            InputFrameMode::BodyRelativeStrict => Vec2::new(axis_x, axis_y),
+            InputFrameMode::BodyRelativeStrict => LocalAxes::new(axes.x, axes.y),
             InputFrameMode::ScreenRelative => {
-                let input = Vec2::new(axis_x, axis_y);
-                Vec2::new(input.dot(self.side), input.dot(self.down))
+                let input = axes.vec();
+                LocalAxes::new(input.dot(self.side), input.dot(self.down))
             }
             InputFrameMode::BodyRelativeAssist => {
                 let s = if self.down.y < 0.0 { -1.0 } else { 1.0 };
-                Vec2::new(axis_x * s, axis_y * s)
+                LocalAxes::new(axes.x * s, axes.y * s)
             }
         }
     }
@@ -435,35 +515,28 @@ impl AccelerationFrame {
     pub fn resolve_aim_local(
         self,
         modes: ControlFrameModes,
-        aim: Vec2,
-        movement: Vec2,
+        aim: ScreenAxes,
+        movement: ScreenAxes,
         facing: f32,
-    ) -> Vec2 {
-        if aim.length() > STICK_SELECT_DEADZONE {
-            return self
-                .resolve_input(modes.aim, aim.x, aim.y)
-                .normalize_or_zero();
+    ) -> LocalAxes {
+        if aim.vec().length() > STICK_SELECT_DEADZONE {
+            let local = self.resolve_input(modes.aim, aim);
+            return LocalAxes::from_vec(local.vec().normalize_or_zero());
         }
-        if movement.length() > STICK_SELECT_DEADZONE {
-            return self
-                .resolve_input(modes.movement, movement.x, movement.y)
-                .normalize_or_zero();
+        if movement.vec().length() > STICK_SELECT_DEADZONE {
+            let local = self.resolve_input(modes.movement, movement);
+            return LocalAxes::from_vec(local.vec().normalize_or_zero());
         }
-        Vec2::new(if facing >= 0.0 { 1.0 } else { -1.0 }, 0.0)
+        LocalAxes::new(if facing >= 0.0 { 1.0 } else { -1.0 }, 0.0)
     }
 
     /// Resolve a raw input/screen-frame stick into the controlled body's local
     /// frame and keep both representations together for consumers that need to
     /// be explicit about which frame they are using.
-    pub fn resolve_control(
-        self,
-        mode: InputFrameMode,
-        axis_x: f32,
-        axis_y: f32,
-    ) -> ResolvedControlFrame {
+    pub fn resolve_control(self, mode: InputFrameMode, axes: ScreenAxes) -> ResolvedControlFrame {
         ResolvedControlFrame {
-            raw_axis: Vec2::new(axis_x, axis_y),
-            local_axis: self.resolve_input(mode, axis_x, axis_y),
+            raw_axes: axes,
+            local_axes: self.resolve_input(mode, axes),
             mode,
             frame: self,
         }
@@ -474,13 +547,13 @@ impl AccelerationFrame {
     /// This is primarily used for touch-glyph placement: given the semantic
     /// local command (`D`, `U`, `L`, `R`), find the raw joystick direction that
     /// should be labeled with that command under the active mapping policy.
-    pub fn raw_axis_for_resolved_input(self, mode: InputFrameMode, local_axis: Vec2) -> Vec2 {
+    pub fn raw_axis_for_resolved_input(self, mode: InputFrameMode, local: LocalAxes) -> ScreenAxes {
         match mode {
-            InputFrameMode::BodyRelativeStrict => local_axis,
-            InputFrameMode::ScreenRelative => self.to_world(local_axis),
+            InputFrameMode::BodyRelativeStrict => ScreenAxes::new(local.x, local.y),
+            InputFrameMode::ScreenRelative => ScreenAxes::from_vec(self.to_world(local.vec())),
             InputFrameMode::BodyRelativeAssist => {
                 let s = if self.down.y < 0.0 { -1.0 } else { 1.0 };
-                local_axis * s
+                ScreenAxes::new(local.x * s, local.y * s)
             }
         }
     }
@@ -490,10 +563,10 @@ impl AccelerationFrame {
     pub fn local_direction_pressed(
         self,
         mode: InputFrameMode,
-        local_axis: Vec2,
+        local: LocalAxes,
         edges: RawDirectionEdges,
     ) -> bool {
-        edges.pressed_for_raw_axis(self.raw_axis_for_resolved_input(mode, local_axis))
+        edges.pressed_for_raw_axis(self.raw_axis_for_resolved_input(mode, local).vec())
     }
 
     /// LOCAL BODY → WORLD. Rotate a local-body vector (authored with `+y` toward the

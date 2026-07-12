@@ -174,7 +174,7 @@ fn player_projectile_release_emits_ranged_bolt_action_message_end_to_end() {
         &player.abilities,
         &mut player.dash,
         &mut player.jump,
-        ae::DEFAULT_TUNING,
+        ae::DEFAULT_TUNING.air_jumps,
     );
     let bundle = crate::avatar::PlayerSimulationBundle::from_scratch(
         player,
@@ -248,7 +248,7 @@ fn player_attack_press_emits_swipe_action_message_end_to_end() {
         &player.abilities,
         &mut player.dash,
         &mut player.jump,
-        ae::DEFAULT_TUNING,
+        ae::DEFAULT_TUNING.air_jumps,
     );
     // Use the canonical bundle so the player's ActionSet is the
     // production default (Swipe melee + Bolt ranged). Bundle
@@ -312,7 +312,7 @@ fn player_brain_seam_translates_control_frame_to_actor_control() {
         &player.abilities,
         &mut player.dash,
         &mut player.jump,
-        ae::DEFAULT_TUNING,
+        ae::DEFAULT_TUNING.air_jumps,
     );
     // `PlayerSimulationBundle` carries the same cluster components
     // that `PlayerMovementAuthority` + `PlayerBody` used to be

@@ -44,6 +44,9 @@ pub(crate) fn apply_actor_hit(
     actor_entity: Entity,
     disposition: ActorDisposition,
     em: &mut super::super::actor_clusters::ActorMut<'_>,
+    // The body's explicit movement policy, for typed policy operations (the
+    // crawler cling-break detach).
+    motion_model: &mut crate::features::MotionModel,
     // The body's combat state — the ONE post-hit i-frame authority for every
     // body (the player gates re-hits on the same `BodyCombat.damage_invuln_timer`).
     combat: &mut ambition_characters::actor::BodyCombat,
@@ -264,17 +267,18 @@ pub(crate) fn apply_actor_hit(
         }
         let impact = midpoint(event.volume.center(), em.kin.pos);
         writers.vfx.write(VfxMessage::Impact { pos: impact });
-        // Cling-break: a struck surface-walker (puppy-slug) is knocked off
-        // its surface — it peels away along the surface normal and falls with
-        // gravity until it lands and re-attaches (handled by the surface-walk
-        // integration's `fall_until_landed`). Archetypes authored with
-        // `cling_breaks_on_hit: false` hold on when hit. Keep the last surface
-        // normal while airborne; `fall_until_landed` reorients it relative to
-        // the active acceleration frame on the next support contact.
-        if !killed && em.config.tuning.surface_walker && em.config.tuning.cling_breaks_on_hit {
-            let peel = em.surface.surface_normal * CLING_DETACH_POP_SPEED;
-            em.ground.on_ground = false;
-            em.kin.vel += peel;
+        // Cling-break: a struck crawler (puppy-slug) is knocked off its
+        // surface — the TYPED detach operation on its movement policy plus a
+        // peel impulse on shared velocity. It falls under the live frame until
+        // its own contact rule re-attaches it. Archetypes authored with
+        // `cling_breaks_on_hit: false` hold on when hit.
+        if !killed && em.config.tuning.cling_breaks_on_hit {
+            if let crate::features::MotionModel::AdhesiveCrawler(crawler) = motion_model {
+                let peel = em.surface.surface_normal * CLING_DETACH_POP_SPEED;
+                crawler.detach();
+                em.ground.on_ground = false;
+                em.kin.vel += peel;
+            }
         }
         if killed {
             // `health.damage` already zeroed HP → `alive()` is false; no flag to

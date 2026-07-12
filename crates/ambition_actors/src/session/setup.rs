@@ -116,7 +116,7 @@ pub fn simulation_world(
         &initial_scratch.abilities,
         &mut initial_scratch.dash,
         &mut initial_scratch.jump,
-        editable_tuning.as_engine(),
+        editable_tuning.as_engine().air_jumps,
     );
 
     // The player is a control box that WEARS a character. The protagonist takes

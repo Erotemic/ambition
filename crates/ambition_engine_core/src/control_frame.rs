@@ -10,7 +10,7 @@
 
 use bevy_ecs::prelude::{Res, ResMut, Resource};
 
-use crate::{InputState, RawDirectionEdges, Vec2};
+use crate::RawDirectionEdges;
 
 /// Per-frame snapshot of semantic controller input feeding actor brains.
 ///
@@ -160,35 +160,6 @@ impl ControlFrame {
             projectile_held: self.projectile_held,
             shield_held: self.shield_held,
             ..ControlFrame::default()
-        }
-    }
-
-    pub fn engine_input(self, control_dt: f32) -> InputState {
-        // The drop-through gesture is formed gravity-relatively in the engine
-        // (`movement::wants_drop_through`) from axis_y + jump, not precomputed here.
-        InputState {
-            axis_x: self.axis_x,
-            axis_y: self.axis_y,
-            jump_pressed: self.jump_pressed,
-            jump_held: self.jump_held,
-            jump_released: self.jump_released,
-            dash_pressed: self.dash_pressed,
-            fly_toggle_pressed: self.fly_toggle_pressed,
-            blink_pressed: self.blink_pressed,
-            blink_held: self.blink_held,
-            blink_released: self.blink_released,
-            // This raw passthrough has no gravity frame, so screen == world: the
-            // blink aim vectors are the raw stick. The canonical player path
-            // resolves these per-frame at the brain seam instead.
-            blink_quick_dir: Vec2::new(self.axis_x, self.axis_y),
-            blink_aim_step: Vec2::new(self.axis_x, self.axis_y),
-            fast_fall_pressed: self.fast_fall_pressed,
-            attack_pressed: self.attack_pressed,
-            pogo_pressed: self.pogo_pressed,
-            interact_pressed: self.interact_pressed,
-            reset_pressed: false,
-            shield_held: self.shield_held,
-            control_dt,
         }
     }
 }

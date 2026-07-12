@@ -4,6 +4,8 @@
 use super::super::*;
 use super::{step_scratch, test_world};
 use crate::body_clusters::BodyClusterScratch;
+#[allow(unused_imports)]
+use crate::test_support::*;
 use crate::world::{Block, ClimbableKind, ClimbableRegion, ClimbableSpec};
 use crate::{Aabb, AbilitySet, Vec2, World};
 
@@ -86,12 +88,12 @@ fn climbing_mode_suspends_gravity_and_drives_vertical_velocity() {
         &world,
         &mut scratch,
         InputState {
-            axis_y: -1.0, // press up
+            axes: crate::LocalAxes::new(0.0, -1.0), // press up
             control_dt: 1.0 / 60.0,
             ..InputState::default()
         },
         1.0 / 60.0,
-        DEFAULT_TUNING,
+        TEST_TUNING,
     );
 
     let spec = ClimbableSpec::default();
@@ -162,12 +164,12 @@ fn climbing_passes_through_solid_blocks_overlapping_ladder() {
             &world,
             &mut scratch,
             InputState {
-                axis_y: -1.0,
+                axes: crate::LocalAxes::new(0.0, -1.0),
                 control_dt: 1.0 / 60.0,
                 ..InputState::default()
             },
             1.0 / 60.0,
-            DEFAULT_TUNING,
+            TEST_TUNING,
         );
         // Re-set climbing in case any control branch flipped it.
         scratch.body_mode.body_mode = crate::player_state::BodyMode::Climbing;
@@ -222,12 +224,12 @@ fn climbing_player_still_collides_with_hazard_blocks_overlapping_ladder() {
             &world,
             &mut scratch,
             InputState {
-                axis_y: -1.0,
+                axes: crate::LocalAxes::new(0.0, -1.0),
                 control_dt: 1.0 / 60.0,
                 ..InputState::default()
             },
             1.0 / 60.0,
-            DEFAULT_TUNING,
+            TEST_TUNING,
         );
         if evs.hazard {
             hazard_fired = true;
@@ -274,7 +276,7 @@ fn non_climbing_player_still_collides_with_solid_blocks_overlapping_ladder() {
                 ..InputState::default()
             },
             1.0 / 60.0,
-            DEFAULT_TUNING,
+            TEST_TUNING,
         );
     }
     // Without the passthrough, an upward-moving Standing player
@@ -307,12 +309,12 @@ fn climbing_mode_strafe_factor_caps_horizontal_input() {
         &world,
         &mut scratch,
         InputState {
-            axis_x: 1.0,
+            axes: crate::LocalAxes::new(1.0, 0.0),
             control_dt: 1.0 / 60.0,
             ..InputState::default()
         },
         1.0 / 60.0,
-        DEFAULT_TUNING,
+        TEST_TUNING,
     );
 
     // `vel.x = axis_x * climb_speed * strafe_factor` = 1.0 * 180 *
@@ -325,10 +327,10 @@ fn climbing_mode_strafe_factor_caps_horizontal_input() {
         scratch.kinematics.vel.x
     );
     assert!(
-        scratch.kinematics.vel.x < DEFAULT_TUNING.max_run_speed * 0.5,
+        scratch.kinematics.vel.x < TEST_TUNING.max_run_speed * 0.5,
         "strafe_factor = 0.25 should keep vel.x well under max_run_speed; got {} (cap={})",
         scratch.kinematics.vel.x,
-        DEFAULT_TUNING.max_run_speed * 0.5
+        TEST_TUNING.max_run_speed * 0.5
     );
 }
 
@@ -354,12 +356,12 @@ fn ladder_jump_uses_jump_speed_without_leaving_climbing() {
         InputState {
             jump_pressed: true,
             jump_held: true,
-            axis_y: -1.0,
+            axes: crate::LocalAxes::new(0.0, -1.0),
             control_dt: 1.0 / 60.0,
             ..InputState::default()
         },
         1.0 / 60.0,
-        DEFAULT_TUNING,
+        TEST_TUNING,
     );
 
     assert_eq!(
@@ -368,10 +370,10 @@ fn ladder_jump_uses_jump_speed_without_leaving_climbing() {
         "ladder jump should keep the player in Climbing"
     );
     assert!(
-        scratch.kinematics.vel.y <= -DEFAULT_TUNING.jump_speed * 0.90,
+        scratch.kinematics.vel.y <= -TEST_TUNING.jump_speed * 0.90,
         "ladder jump should use the normal jump impulse while staying on the ladder; got vel.y={} vs jump_speed={} (gravity will nibble the frame)",
         scratch.kinematics.vel.y,
-        DEFAULT_TUNING.jump_speed
+        TEST_TUNING.jump_speed
     );
     assert!(
         scratch.jump.ladder_jump_boost > 0.0,
@@ -400,12 +402,12 @@ fn down_jump_on_ladder_falls_off_without_regrabbing() {
         InputState {
             jump_pressed: true,
             jump_held: true,
-            axis_y: 1.0,
+            axes: crate::LocalAxes::new(0.0, 1.0),
             control_dt: 1.0 / 60.0,
             ..InputState::default()
         },
         1.0 / 60.0,
-        DEFAULT_TUNING,
+        TEST_TUNING,
     );
 
     assert_eq!(

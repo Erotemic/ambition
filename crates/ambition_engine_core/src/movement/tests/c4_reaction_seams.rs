@@ -20,6 +20,8 @@
 use super::*;
 use crate::abilities::AbilitySet;
 use crate::body_clusters::BodyClusterScratch;
+#[allow(unused_imports)]
+use crate::test_support::*;
 use crate::world::Block;
 use crate::{AccelerationFrame, Vec2, World};
 
@@ -151,7 +153,7 @@ struct LocalInput {
 fn drive(arm: Arm, spawn_local: Vec2, script: &[LocalInput]) -> Vec<LocalSample> {
     let f = AccelerationFrame::new(arm.dir);
     let world = rig_world(&f);
-    let mut tuning = DEFAULT_TUNING;
+    let mut tuning = TEST_TUNING;
     tuning.gravity_dir = arm.dir;
     tuning.gravity_sign = if arm.dir.y != 0.0 { arm.dir.y } else { 1.0 };
 
@@ -162,15 +164,14 @@ fn drive(arm: Arm, spawn_local: Vec2, script: &[LocalInput]) -> Vec<LocalSample>
         .iter()
         .map(|li| {
             let input = InputState {
-                axis_x: li.axis.x,
-                axis_y: li.axis.y,
+                axes: crate::LocalAxes::new(li.axis.x, li.axis.y),
                 jump_pressed: li.jump_pressed,
                 jump_held: li.jump_held,
                 attack_pressed: li.attack_pressed,
                 blink_pressed: li.blink_pressed,
                 blink_held: li.blink_held,
                 blink_released: li.blink_released,
-                blink_quick_dir: f.to_world(li.blink_quick_local),
+                blink_quick_dir: crate::WorldVec2(f.to_world(li.blink_quick_local)),
                 ..InputState::default()
             };
             update_player_with_tuning_scratch(&world, &mut scratch, input, DT, tuning);
@@ -346,7 +347,7 @@ fn c4_out_of_bounds_reset_is_gravity_relative() {
     for arm in arms() {
         let f = AccelerationFrame::new(arm.dir);
         let world = rig_world(&f);
-        let mut tuning = DEFAULT_TUNING;
+        let mut tuning = TEST_TUNING;
         tuning.gravity_dir = arm.dir;
 
         // 201px past the world AABB along the fall direction: must flag reset.

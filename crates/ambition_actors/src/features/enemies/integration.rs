@@ -1,16 +1,16 @@
 //! Actor physics/AI integration: the per-frame tick that drives actor
-//! movement + attack geometry through the [`ActorMut`] ECS view. Grounded AND
-//! aerial actors run the EXACT shared player movement pipeline
-//! ([`ActorMut::integrate_body`] → `ae::step_motion`,
-//! borrowing the actor's `kin` + [`ActorBody`] clusters as one `BodyClustersMut`
-//! view) — the pipeline picks the flight limb vs the grounded spine from
-//! `flight.fly_enabled`; surface-walkers keep their glued crawl. Attack AABBs are
-//! derived here; archetype tuning comes from the [`super::CharacterRoster`].
+//! movement + attack geometry through the [`ActorMut`] ECS view. EVERY actor —
+//! grounded, aerial, and the adhesive crawler — runs the one shared movement
+//! kernel ([`ActorMut::integrate_body`] → `ae::step_motion`, borrowing the
+//! actor's `kin` + [`ActorBody`] clusters as one `BodyClustersMut` view). The
+//! kernel picks the physics by the body's explicit `MotionModel`; the flight
+//! limb vs grounded spine split rides `flight.fly_enabled` inside the
+//! axis-swept policy. Attack AABBs are derived here; archetype tuning comes
+//! from the [`super::CharacterRoster`].
 
 use super::super::ecs::actor_clusters::ActorMut;
 use super::super::*;
 use super::*;
-use ambition_platformer_primitives::kinematic;
 
 /// Minimum knockback strength a body-contact hit imparts on the struck body, even
 /// when the archetype authored `contact_strength = 0`. Guarantees a body that
@@ -105,14 +105,14 @@ impl<'a> ActorMut<'a> {
         world: &ae::World,
         target_pos: ae::Vec2,
         tuning: FeatureCombatTuning,
-        nearest_neighbor: Option<ae::Vec2>,
         dt: f32,
         _is_mounted: bool,
         frame: ambition_characters::actor::control::ActorControlFrame,
         motion_model: &mut crate::features::MotionModel,
-        // Per-body acceleration-frame resolver. The actor resolves one frame at
-        // its current position and uses it for input projection and movement.
-        gravity: &crate::physics::GravityCtx,
+        // The body's current acceleration/reference frame, resolved ONCE by the
+        // environment (the driver) for this body tick. Input projection, the
+        // active policy, and every frame-relative limb consume this same value.
+        motion_frame: ae::MotionFrame,
         // Post-hit stagger inputs (§A2 step 7): the body's live hitstun /
         // recoil-lock timers (from its `BodyCombat`) + the feel tuning, applied
         // to the FINAL InputState by the SAME gate the player's input bridge
@@ -162,63 +162,19 @@ impl<'a> ActorMut<'a> {
         );
         self.status.ai_mode = ai.mode;
 
-        let is_surface_walker = self.config.tuning.surface_walker;
-        let gravity_dir = gravity.dir_at(self.kin.pos);
-
-        // Keep the published reference-frame normal LIVE for every body (fable
-        // review 2026-07-02 §B2): a surface-walker's normal is its clung surface
-        // (written by `step_surface_walker`); everyone else's is anti-gravity AT
-        // THEIR POSITION. Before this, non-surface-walkers kept their spawn
-        // constant `(0,-1)` forever, so every consumer that derived the body
-        // frame from it (shield block side, slash knockback, ranged muzzle/aim)
-        // silently stayed in down-gravity space while the movement obeyed the
-        // real field.
-        if !is_surface_walker {
-            self.surface.surface_normal = -gravity_dir;
-        }
-
-        // Dash is no longer a bespoke actor mechanic: the body runs the SHARED
-        // player dash limb (the real dash impulse + window), gated by the
-        // `ActorBody` ability mask (`from_caps`, dash = `can_dash`) and driven by
-        // the brain's `dash_pressed` through `to_input_state` — invariant I3, the
-        // pipeline owns the burst. (blink / shield are still resolved below on the
-        // capability path; folding them needs the aerial reconciliation too.)
-
-        let move_events = if is_surface_walker {
-            // Surface-walkers don't run the input pipeline, so the stagger gate
-            // doesn't apply — their hit reaction is the cling-detach pop.
-            // They also don't pass through the kernel's §3.1 sample write, so
-            // this branch records its own step segment (same capture rule:
-            // both endpoints inside the mover).
-            let sweep_entry = (self.kin.pos, self.kin.vel);
-            self.step_surface_walker(world, nearest_neighbor, dt, gravity_dir);
-            if let Some(sweep) = self.sweep.as_deref_mut() {
-                *sweep = ae::SweepSample {
-                    prev: sweep_entry.0,
-                    curr: self.kin.pos,
-                    vel: sweep_entry.1,
-                    half: self.kin.size * 0.5,
-                };
-            }
-            ae::FrameEvents::default()
-        } else {
-            // Grounded AND aerial bodies run the ONE shared movement pipeline; it
-            // picks the flight limb vs the grounded spine internally from
-            // `flight.fly_enabled` (set for aerial bodies at spawn / by the fly
-            // toggle). The bespoke aerial integrator is gone. Its `FrameEvents`
-            // (blink teleports, etc.) flow out to the driver.
-            self.integrate_body(
-                world, ai.intent, &frame, motion_model, dt, gravity, feel, stagger,
-            )
-        };
-
-        // Shield is the shared pipeline limb now (folded off the actor's own
-        // `resolve_shield` call): `integrate_body`'s control phase resolved the
-        // `shield_held` intent directly onto the body's `BodyShieldState`
-        // (ability-gated by the mask, dash-blocked by the pipeline dash). The actor
-        // DAMAGE path reads `shield.active` off that ONE component to negate a
-        // guarded faced-side hit — no `status.shield_raised` mirror. (Surface-walkers
-        // don't run the pipeline; their shield stays inactive, so they never guard.)
+        // ONE integration arm for every actor: the kernel dispatches on the
+        // body's explicit MotionModel (axis-swept, surface momentum, or the
+        // adhesive crawler — the former hidden surface-walker path).
+        let move_events = self.integrate_body(
+            world,
+            ai.intent,
+            &frame,
+            motion_model,
+            dt,
+            motion_frame,
+            feel,
+            stagger,
+        );
 
         // Face the brain's committed direction whenever it commits one. Hostile
         // chasers AND peaceful patrollers/flyers both set `frame.facing`; a
@@ -234,13 +190,13 @@ impl<'a> ActorMut<'a> {
         (frame, move_events)
     }
 
-    /// Integration through the **shared player movement pipeline**
-    /// (`ae::step_motion`) — the unification's core seam, for
-    /// BOTH grounded and aerial bodies. The actor's `kin` supplies the kinematics;
-    /// its persistent [`ActorBody`] supplies the 18 ancillary movement clusters.
-    /// The brain's `ActorControlFrame` becomes the body's `InputState`, so an actor
-    /// runs / jumps / coyote-grace-jumps / dashes / **flies** and collides through
-    /// the EXACT code the human player uses — no parallel enemy integrator.
+    /// Integration through the **shared movement kernel**
+    /// (`ae::step_motion`) — the unification's core seam, for EVERY actor body.
+    /// The actor's `kin` supplies the kinematics; its persistent [`ActorBody`]
+    /// supplies the ancillary movement clusters. The brain's `ActorControlFrame`
+    /// becomes the body's typed `InputState`, so an actor runs / jumps /
+    /// coyote-grace-jumps / dashes / **flies** / crawls and collides through the
+    /// EXACT code the human player uses — no parallel enemy integrator.
     ///
     /// **Grounded** bodies map `locomotion → run` + `jump_pressed → buffered jump`.
     /// **Flying** bodies (`flight.fly_enabled`) are steered by the brain's exact
@@ -261,23 +217,22 @@ impl<'a> ActorMut<'a> {
         frame: &ambition_characters::actor::control::ActorControlFrame,
         motion_model: &mut crate::features::MotionModel,
         dt: f32,
-        gravity: &crate::physics::GravityCtx,
+        motion_frame: ae::MotionFrame,
         feel: crate::time::feel::SandboxFeelTuning,
         stagger: (f32, f32),
     ) -> ae::FrameEvents {
-        let gravity_dir = gravity.dir_at(self.kin.pos);
-        // Wall-stop detection on the gravity-PERPENDICULAR "side" axis the actor
+        // Wall-stop detection on the frame-PERPENDICULAR "side" axis the actor
         // walks along (so a patroller reverses when it stalls against a wall,
         // correctly under sideways gravity too).
-        let perp = ae::Vec2::new(-gravity_dir.y, gravity_dir.x);
+        let perp = motion_frame.side();
         let prev_side_speed = self.kin.vel.dot(perp);
 
         let flying = self.flight.fly_enabled;
-        let mut tuning = self.config.tuning.movement.body_tuning(
-            self.config.tuning.max_run_speed,
-            gravity_dir,
-            self.surface.gravity_scale,
-        );
+        let mut tuning = self
+            .config
+            .tuning
+            .movement
+            .body_tuning(self.config.tuning.max_run_speed);
         // Flight tuning from the actor's chase speed: the body flies at its own
         // speed, steers responsively (matching the old floating accel), and does
         // NOT idle-bob like the player (hover speed 0) — an AI flyer holds station.
@@ -296,10 +251,6 @@ impl<'a> ActorMut<'a> {
         // through the shared flight limb — byte-identical to the old SNAP float (AS4).
         tuning.flight_direct_velocity = self.config.tuning.flight_direct_velocity;
 
-        // Resolve the body's current acceleration/reference frame exactly once.
-        // Input projection and whichever physics policy is active consume this
-        // same immutable value.
-        let motion_frame = gravity.motion_frame_at(self.kin.pos, tuning.gravity);
         let mut input = if flying {
             // `velocity_target` (world px/s) → flight stick intent: project onto the
             // body frame the flight limb integrates in, normalise by the terminal so
@@ -307,8 +258,10 @@ impl<'a> ActorMut<'a> {
             let vt = frame.velocity_target;
             let mut i = frame.to_input_state();
             let local_target = motion_frame.to_local(vt);
-            i.axis_x = (local_target.x / flight_speed).clamp(-1.0, 1.0);
-            i.axis_y = (local_target.y / flight_speed).clamp(-1.0, 1.0);
+            i.axes = ae::LocalAxes::new(
+                (local_target.x / flight_speed).clamp(-1.0, 1.0),
+                (local_target.y / flight_speed).clamp(-1.0, 1.0),
+            );
             i
         } else {
             frame.to_input_state()
@@ -325,11 +278,8 @@ impl<'a> ActorMut<'a> {
             hitstun_timer,
             recoil_lock_timer,
         );
-        // The cluster's ground/jump state persists between ticks (real components,
-        // exactly like the player), so the pipeline reads coyote + jump gates from
-        // it and writes back the contact directly — no `surface` round-trip. Borrow
-        // `kin` + the 18 ancillary clusters as ONE `BodyClustersMut` view, the exact
-        // aggregate the player builds.
+        // Live authored tuning refreshes only the active policy's parameters —
+        // the frame is environmental and cannot ride along.
         if let crate::features::MotionModel::AxisSwept(axis) = motion_model {
             axis.params = tuning.axis_swept_params();
         }
@@ -346,6 +296,10 @@ impl<'a> ActorMut<'a> {
             },
         );
         drop(clusters);
+        // Publish the body's support/orientation fact from the ONE kernel
+        // result: a crawler's clung surface, a supported body's contact normal,
+        // anti-down otherwise. This keeps the read-model live for every body
+        // (§B2) without any policy-specific branch.
         self.surface.surface_normal = result.surface_normal;
         let events = result.events;
         // Two actor policies applied on the ONE ground/jump authority: a flying body
@@ -374,167 +328,14 @@ impl<'a> ActorMut<'a> {
         events
     }
 
-    fn step_surface_walker(
-        &mut self,
-        world: &ae::World,
-        nearest_neighbor: Option<ae::Vec2>,
-        dt: f32,
-        gravity_dir: ae::Vec2,
-    ) {
-        if !self.ground.on_ground {
-            self.fall_until_landed(world, dt, gravity_dir);
-            return;
-        }
-
-        // Emergent riding for a surface-walker: it is GLUED to its surface (it crawls
-        // floors, walls, ceilings), so a MOVING surface carries it by the FULL
-        // velocity — both axes, not just the gravity-perpendicular component a
-        // gravity-resting body gets. Probe toward the surface it's clinging to.
-        {
-            let toward_surface = -self.surface.surface_normal;
-            let probe = ae::Aabb::new(self.kin.pos + toward_surface * 2.0, self.kin.size * 0.5);
-            if let Some(block) = world.first_overlapping_block(probe, surface_solid_pred) {
-                self.kin.pos += block.velocity;
-            }
-        }
-
-        let n = self.surface.surface_normal;
-        let speed = self.config.tuning.patrol_speed;
-        let step_len = speed * dt;
-        let tangent = ae::Vec2::new(-n.y * self.kin.facing, n.x * self.kin.facing);
-        let body_long = self.kin.size.x * 0.5;
-        let body_thick = self.kin.size.y * 0.5;
-
-        if let Some(neighbor_pos) = nearest_neighbor {
-            let delta = neighbor_pos - self.kin.pos;
-            let along = delta.x * tangent.x + delta.y * tangent.y;
-            let perp = delta.x * n.x + delta.y * n.y;
-            if along > 0.0 && along < body_long + 6.0 && perp.abs() < body_thick + 4.0 {
-                self.kin.facing = -self.kin.facing;
-                self.kin.vel = ae::Vec2::ZERO;
-                return;
-            }
-        }
-
-        if self.wall_ahead(world, tangent, body_long, body_thick) {
-            self.surface.surface_normal = -tangent;
-            if self.snap_pos_to_surface(world) {
-                self.kin.vel = ae::Vec2::ZERO;
-                self.ground.on_ground = true;
-                return;
-            }
-            self.surface.surface_normal = n;
-        }
-
-        let original_pos = self.kin.pos;
-        self.kin.pos += tangent * step_len;
-        self.kin.vel = tangent * speed;
-
-        if self.snap_pos_to_surface(world) {
-            self.ground.on_ground = true;
-            return;
-        }
-
-        let new_normal = tangent;
-        let around_corner = original_pos + tangent * body_long + (-n) * body_long;
-        self.kin.pos = around_corner;
-        self.surface.surface_normal = new_normal;
-        if self.snap_pos_to_surface(world) {
-            self.kin.vel = ae::Vec2::ZERO;
-            self.ground.on_ground = true;
-            return;
-        }
-
-        self.kin.pos = original_pos;
-        self.surface.surface_normal = -tangent;
-        if self.snap_pos_to_surface(world) {
-            self.kin.vel = ae::Vec2::ZERO;
-            self.ground.on_ground = true;
-            return;
-        }
-
-        self.surface.surface_normal = n;
-        self.kin.pos = original_pos;
-        self.ground.on_ground = false;
-        self.fall_until_landed(world, dt, gravity_dir);
-    }
-
-    fn wall_ahead(
-        &self,
-        world: &ae::World,
-        tangent: ae::Vec2,
-        body_long: f32,
-        body_thick: f32,
-    ) -> bool {
-        let probe_center = self.kin.pos + tangent * (body_long + 3.0);
-        let half = if tangent.x.abs() > 0.5 {
-            ae::Vec2::new(2.0, body_thick * 0.7)
-        } else {
-            ae::Vec2::new(body_thick * 0.7, 2.0)
-        };
-        let probe = ae::Aabb::new(probe_center, half);
-        world.body_overlaps_any(probe, surface_wall_pred)
-    }
-
-    fn snap_pos_to_surface(&mut self, world: &ae::World) -> bool {
-        let n = self.surface.surface_normal;
-        let body_thick = self.kin.size.y * 0.5;
-        let body_long = self.kin.size.x * 0.5;
-        let down = -n;
-        let max_d = (body_thick + body_long + 4.0) as i32;
-        let half = if n.x.abs() > 0.5 {
-            ae::Vec2::new(0.75, body_long * 0.35)
-        } else {
-            ae::Vec2::new(body_long * 0.35, 0.75)
-        };
-        for i in 0..=max_d {
-            let d = i as f32;
-            let probe = ae::Aabb::new(self.kin.pos + down * d, half);
-            if world.body_overlaps_any(probe, surface_solid_pred) {
-                self.kin.pos += n * (body_thick - (d - 0.5));
-                return true;
-            }
-        }
-        false
-    }
-
-    fn fall_until_landed(&mut self, world: &ae::World, dt: f32, gravity_dir: ae::Vec2) {
-        let mut body = kinematic::KinematicBody {
-            pos: self.kin.pos,
-            vel: self.kin.vel,
-            size: self.kin.size,
-            on_ground: self.ground.on_ground,
-            facing: self.kin.facing,
-        };
-        kinematic::step_kinematic(
-            &mut body,
-            world,
-            kinematic::KinematicTuning {
-                gravity: self.config.tuning.movement.gravity,
-                max_fall_speed: self.config.tuning.movement.max_fall_speed,
-                // Detached surface-walkers fall toward the active acceleration frame,
-                // then reattach with their surface normal opposite local down.
-                gravity_dir,
-            },
-            kinematic::KinematicInputs {
-                drop_through: false,
-            },
-            dt,
-        );
-        self.kin.pos = body.pos;
-        self.kin.vel = body.vel;
-        self.ground.on_ground = body.on_ground;
-        if body.on_ground {
-            self.surface.surface_normal = -gravity_dir.normalize_or(ae::Vec2::new(0.0, 1.0));
-        }
-    }
-
     // ---- Consumer-facing geometry / combat helpers (ports of the
     // matching the cluster component accessors.
 
     pub fn aabb(&self) -> ae::Aabb {
-        let size = if self.config.tuning.surface_walker && self.surface.surface_normal.x.abs() > 0.5
-        {
+        // Orientation follows the published support normal — a crawler clung to
+        // a wall and a body under sideways gravity both lie ALONG the surface,
+        // so the footprint swaps its extents (frame-derived, policy-free).
+        let size = if self.surface.surface_normal.x.abs() > 0.5 {
             ae::Vec2::new(self.kin.size.y, self.kin.size.x)
         } else {
             self.kin.size

@@ -205,8 +205,8 @@ fn rewearing_an_equivalent_momentum_profile_preserves_live_ride_state() {
         .id();
     app.update();
 
-    let expected = ambition_engine_core::movement::surface_momentum::SurfaceMotion::Riding {
-        on: ambition_engine_core::movement::surface_momentum::SurfaceRef::Chain(0),
+    let expected = ambition_engine_core::SurfaceMotion::Riding {
+        on: ambition_engine_core::SurfaceRef::Chain(0),
         s: 123.0,
         v_t: 456.0,
     };
@@ -267,12 +267,15 @@ fn derive_system_only_fires_on_identity_or_ability_change() {
     // No identity change: subsequent frames must not re-run the wear. Prove it
     // by changing to a different explicit policy and confirming the unchanged
     // derive system leaves it alone. Absence is never used as a policy sentinel.
-    app.world_mut()
-        .entity_mut(e)
-        .insert(MotionModel::AxisSwept(AxisSweptMotion::default()));
+    app.world_mut().entity_mut(e).insert(MotionModel::AxisSwept(
+        crate::features::AxisSweptMotion::default(),
+    ));
     app.update();
     assert!(
-        matches!(app.world().get::<MotionModel>(e), Some(MotionModel::AxisSwept(_))),
+        matches!(
+            app.world().get::<MotionModel>(e),
+            Some(MotionModel::AxisSwept(_))
+        ),
         "with no identity or ability change the derive system must not re-fire"
     );
 }

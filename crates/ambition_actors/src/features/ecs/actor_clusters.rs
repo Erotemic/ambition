@@ -654,22 +654,22 @@ impl ActorClusterSeed {
         world: &ae::World,
         target_pos: ae::Vec2,
         tuning: crate::combat::FeatureCombatTuning,
-        nearest_neighbor: Option<ae::Vec2>,
         dt: f32,
         is_mounted: bool,
         frame: ambition_characters::actor::control::ActorControlFrame,
-        gravity_dir: ae::Vec2,
+        motion_model: &mut crate::features::MotionModel,
+        motion_frame: ae::MotionFrame,
     ) -> ambition_characters::actor::control::ActorControlFrame {
         self.as_actor_mut()
             .update(
                 world,
                 target_pos,
                 tuning,
-                nearest_neighbor,
                 dt,
                 is_mounted,
                 frame,
-                gravity_dir,
+                motion_model,
+                motion_frame,
                 crate::time::feel::SandboxFeelTuning::default(),
                 (0.0, 0.0),
             )

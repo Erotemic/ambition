@@ -226,7 +226,10 @@ impl PlayerSimulationBundle {
         );
         bundle
             .motion_model
-            .apply_spec(crate::avatar::motion_model_spec_for_character_id(catalog, character_id));
+            .apply_spec(crate::avatar::motion_model_spec_for_character_id(
+                catalog,
+                character_id,
+            ));
         // The returned capability is synchronized on the spawned entity by
         // `apply_worn_character_gameplay` from its Added<WornCharacter> edge.
         // A Bundle cannot conditionally omit a component, so the canonical

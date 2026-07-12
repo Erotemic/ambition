@@ -622,12 +622,14 @@ pub fn held_shot_aim_local(
     frame: ae::AccelerationFrame,
     modes: ae::ControlFrameModes,
 ) -> Vec2 {
-    frame.resolve_aim_local(
-        modes,
-        Vec2::new(control.aim_x, control.aim_y),
-        Vec2::new(control.axis_x, control.axis_y),
-        facing,
-    )
+    frame
+        .resolve_aim_local(
+            modes,
+            ae::ScreenAxes::new(control.aim_x, control.aim_y),
+            ae::ScreenAxes::new(control.axis_x, control.axis_y),
+            facing,
+        )
+        .vec()
 }
 
 /// Resolve held-item aim into world space after crossing the input seam through

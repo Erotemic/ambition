@@ -403,7 +403,12 @@ fn position_frame_axis_glyphs(
     let center = layout.base_size * 0.5;
     let radius = layout.base_size * 0.36;
     for (glyph, mut node) in &mut glyphs {
-        let on_input = frame.raw_axis_for_resolved_input(mode, glyph.local_axis);
+        let on_input = frame
+            .raw_axis_for_resolved_input(
+                mode,
+                ambition_engine_core::LocalAxes::from_vec(glyph.local_axis),
+            )
+            .vec();
         node.left = Val::Px(center + on_input.x * radius - 7.0);
         node.top = Val::Px(center + on_input.y * radius - 13.0);
     }

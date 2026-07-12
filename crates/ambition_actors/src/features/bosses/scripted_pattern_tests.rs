@@ -627,6 +627,7 @@ fn boss_motion_respects_world_collision_against_a_wall() {
             &mut frame,
             &mut attack_state,
         );
+        let mut model = crate::features::MotionModel::default();
         // Integrate through the shared flight limb (the boss's production path):
         // `flight_direct_velocity` takes `frame.velocity_target` verbatim, then
         // the pipeline collision-resolves against the wall.
@@ -634,11 +635,11 @@ fn boss_motion_respects_world_collision_against_a_wall() {
             &world,
             player_pos,
             combat_tuning,
-            None,
             dt,
             false,
             frame,
-            ae::Vec2::new(0.0, 1.0),
+            &mut model,
+            ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
         );
     }
     let boss_right_edge = seed.kin.pos.x + combat_size.x * 0.5;

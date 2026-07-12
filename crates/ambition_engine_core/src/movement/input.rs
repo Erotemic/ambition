@@ -1,19 +1,23 @@
+use crate::reference_frame::{LocalAxes, WorldVec2};
 use crate::Vec2;
 
-/// Game-action input for one simulation frame.
+/// Game-action input for one simulation frame — the resolved motion intent.
 ///
-/// Keyboard/gamepad remapping belongs in the presentation layer. Once those
-/// devices are interpreted, the engine only needs a small set of actions.
+/// Keyboard/gamepad remapping belongs in the presentation layer, and
+/// screen-vs-body input-frame accommodation belongs at the controller seam.
+/// Every directional field here carries its frame in its TYPE: by the time an
+/// `InputState` reaches the movement kernel, all frame resolution has already
+/// happened against the same [`crate::MotionFrame`] the kernel will step with.
 ///
-/// Directional axes are controlled-body-local by the time they reach the
-/// movement engine: `axis_x` is local side/right and `axis_y` is local
-/// down/toward-feet unless a field explicitly says it is screen/raw input.
+/// - [`LocalAxes`] — controlled-body-local (`+x` side/right, `+y` toward-feet);
+/// - [`WorldVec2`] — world-space, resolved through a controller frame policy at
+///   the seam.
+///
+/// Raw [`crate::ScreenAxes`] never appear below the seam.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct InputState {
-    /// -1 local-left, +1 local-right.
-    pub axis_x: f32,
-    /// -1 local-up / away-from-feet, +1 local-down / toward-feet.
-    pub axis_y: f32,
+    /// Locomotion stick in the controlled body's local frame.
+    pub axes: LocalAxes,
     pub jump_pressed: bool,
     pub jump_held: bool,
     pub jump_released: bool,
@@ -28,18 +32,19 @@ pub struct InputState {
     pub blink_released: bool,
     /// WORLD-space quick-blink direction, already resolved through the movement
     /// frame mode at the input seam. The engine consumes this directly (it does
-    /// NOT re-derive blink direction from the local `axis_*`), so quick blink is
+    /// NOT re-derive blink direction from the local `axes`), so quick blink is
     /// locomotion-framed and gravity-correct without the engine knowing the
     /// gravity frame. Zero → fall back to facing.
-    pub blink_quick_dir: Vec2,
+    pub blink_quick_dir: WorldVec2,
     /// WORLD-space precision-blink steer vector for the current frame, resolved
     /// through the *aim* frame mode at the seam (screen-directed by default).
     /// Magnitude carries the stick deflection; the engine integrates it into the
     /// precision aim offset. Decoupled from `blink_quick_dir` so quick blink and
     /// precision blink can use different frame policies on the same stick.
-    pub blink_aim_step: Vec2,
+    pub blink_aim_step: WorldVec2,
     /// Double-tap-down gesture recognized by the input layer. This is separate
-    /// from `axis_y` so down+attack can mean pogo without forcing fast-fall.
+    /// from the local descend axis so down+attack can mean pogo without forcing
+    /// fast-fall.
     pub fast_fall_pressed: bool,
     pub attack_pressed: bool,
     /// Dedicated downward/pogo slash action. This is separate from
@@ -52,8 +57,8 @@ pub struct InputState {
     pub reset_pressed: bool,
     /// Shield button is currently held. When the `shield` ability is active,
     /// holding this deploys the bubble; releasing drops it. The first
-    /// `AxisSweptParams::parry_window_time` seconds after activation are the
-    /// parry window (full invulnerability).
+    /// `parry_window_time` seconds after activation are the parry window (full
+    /// invulnerability).
     pub shield_held: bool,
     /// Real, unscaled frame duration supplied by the presentation layer.
     ///
@@ -64,9 +69,39 @@ pub struct InputState {
 }
 
 impl InputState {
-    /// The locomotion stick in the controlled body's local acceleration frame.
-    /// Device/screen mapping has already happened before the movement kernel.
+    /// The locomotion stick in the controlled body's local acceleration frame,
+    /// as a bare vector for kernel-internal math.
     pub const fn local_axis(self) -> Vec2 {
-        Vec2::new(self.axis_x, self.axis_y)
+        self.axes.vec()
+    }
+
+    /// Convenience constructor for a locomotion-only intent.
+    pub const fn with_axes(x: f32, y: f32) -> Self {
+        let mut input = Self::const_default();
+        input.axes = LocalAxes::new(x, y);
+        input
+    }
+
+    const fn const_default() -> Self {
+        Self {
+            axes: LocalAxes::ZERO,
+            jump_pressed: false,
+            jump_held: false,
+            jump_released: false,
+            dash_pressed: false,
+            fly_toggle_pressed: false,
+            blink_pressed: false,
+            blink_held: false,
+            blink_released: false,
+            blink_quick_dir: WorldVec2::ZERO,
+            blink_aim_step: WorldVec2::ZERO,
+            fast_fall_pressed: false,
+            attack_pressed: false,
+            pogo_pressed: false,
+            interact_pressed: false,
+            reset_pressed: false,
+            shield_held: false,
+            control_dt: 0.0,
+        }
     }
 }

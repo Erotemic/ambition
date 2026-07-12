@@ -4,6 +4,8 @@
 use super::super::*;
 use super::{step_scratch, test_world};
 use crate::body_clusters::BodyClusterScratch;
+#[allow(unused_imports)]
+use crate::test_support::*;
 use crate::world::BlinkWallTier;
 use crate::{AbilitySet, Vec2};
 
@@ -31,7 +33,7 @@ fn held_blink_arms_when_cooldown_clears_without_new_press() {
             ..Default::default()
         },
         1.0 / 60.0,
-        DEFAULT_TUNING,
+        TEST_TUNING,
     );
     assert!(!scratch.blink.hold_active);
 
@@ -41,7 +43,7 @@ fn held_blink_arms_when_cooldown_clears_without_new_press() {
         &mut scratch,
         InputState::default(),
         0.03,
-        DEFAULT_TUNING,
+        TEST_TUNING,
     );
     assert_eq!(scratch.blink.cooldown, 0.0);
 
@@ -55,7 +57,7 @@ fn held_blink_arms_when_cooldown_clears_without_new_press() {
             ..Default::default()
         },
         1.0 / 60.0,
-        DEFAULT_TUNING,
+        TEST_TUNING,
     );
     assert!(scratch.blink.hold_active);
 }
@@ -69,7 +71,7 @@ fn blink_ability_gates_teleport() {
     let mut scratch = scratch_with(abilities, world.spawn);
     let start = scratch.kinematics.pos;
     let input = InputState {
-        axis_x: 1.0,
+        axes: crate::LocalAxes::new(1.0, 0.0),
         blink_pressed: true,
         blink_held: true,
         ..Default::default()
@@ -79,10 +81,10 @@ fn blink_ability_gates_teleport() {
         &mut scratch,
         input,
         1.0 / 60.0,
-        DEFAULT_TUNING,
+        TEST_TUNING,
     );
     let input = InputState {
-        axis_x: 1.0,
+        axes: crate::LocalAxes::new(1.0, 0.0),
         blink_released: true,
         ..Default::default()
     };
@@ -91,7 +93,7 @@ fn blink_ability_gates_teleport() {
         &mut scratch,
         input,
         1.0 / 60.0,
-        DEFAULT_TUNING,
+        TEST_TUNING,
     );
     assert_eq!(scratch.kinematics.pos, start);
     assert!(events.blinks.is_empty());
@@ -106,7 +108,7 @@ fn quick_blink_moves_on_release() {
         &world,
         &mut scratch,
         InputState {
-            axis_x: 1.0,
+            axes: crate::LocalAxes::new(1.0, 0.0),
             blink_pressed: true,
             blink_held: true,
             ..Default::default()
@@ -116,7 +118,7 @@ fn quick_blink_moves_on_release() {
         &world,
         &mut scratch,
         InputState {
-            blink_quick_dir: Vec2::new(1.0, 0.0),
+            blink_quick_dir: crate::WorldVec2(Vec2::new(1.0, 0.0)),
             blink_released: true,
             ..Default::default()
         },
@@ -137,7 +139,7 @@ fn held_blink_enters_precision_aiming() {
             &world,
             &mut scratch,
             InputState {
-                blink_aim_step: Vec2::new(1.0, 0.0),
+                blink_aim_step: crate::WorldVec2(Vec2::new(1.0, 0.0)),
                 blink_held: true,
                 blink_pressed,
                 ..Default::default()
@@ -149,7 +151,7 @@ fn held_blink_enters_precision_aiming() {
         &world,
         &mut scratch,
         InputState {
-            axis_x: 1.0,
+            axes: crate::LocalAxes::new(1.0, 0.0),
             blink_released: true,
             ..Default::default()
         },
@@ -174,17 +176,17 @@ fn repeated_blinks_clamp_downward_velocity_each_time() {
             &world,
             &mut scratch,
             InputState {
-                axis_x: 1.0,
+                axes: crate::LocalAxes::new(1.0, 0.0),
                 blink_released: true,
                 ..Default::default()
             },
             1.0 / 60.0,
-            DEFAULT_TUNING,
+            TEST_TUNING,
         );
         assert_eq!(events.blinks.len(), 1);
         assert!(
             scratch.kinematics.vel.y
-                <= DEFAULT_TUNING.blink_max_downward_speed + DEFAULT_TUNING.gravity / 60.0 + 1.0,
+                <= TEST_TUNING.blink_max_downward_speed + TEST_TUNING.gravity / 60.0 + 1.0,
             "blink should not preserve a large downward fall speed; got {}",
             scratch.kinematics.vel.y
         );
@@ -203,12 +205,12 @@ fn post_blink_grace_suspends_gravity_for_tiny_window() {
         &world,
         &mut scratch,
         InputState {
-            axis_x: 1.0,
+            axes: crate::LocalAxes::new(1.0, 0.0),
             blink_released: true,
             ..Default::default()
         },
         1.0 / 60.0,
-        DEFAULT_TUNING,
+        TEST_TUNING,
     );
     let after_blink_vy = scratch.kinematics.vel.y;
     let _events = update_player_with_tuning_scratch(
@@ -216,7 +218,7 @@ fn post_blink_grace_suspends_gravity_for_tiny_window() {
         &mut scratch,
         InputState::default(),
         1.0 / 240.0,
-        DEFAULT_TUNING,
+        TEST_TUNING,
     );
     assert!(
         scratch.kinematics.vel.y <= after_blink_vy + 0.1,

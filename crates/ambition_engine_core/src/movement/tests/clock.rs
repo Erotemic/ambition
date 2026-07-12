@@ -4,6 +4,8 @@
 use super::super::*;
 use super::test_world;
 use crate::body_clusters::BodyClusterScratch;
+#[allow(unused_imports)]
+use crate::test_support::*;
 use crate::Vec2;
 
 fn scratch_at(spawn: Vec2) -> BodyClusterScratch {
@@ -22,7 +24,7 @@ fn tiny_dt_preserves_bullet_time_scale() {
         &mut scratch,
         InputState::default(),
         1.0 / 60.0,
-        DEFAULT_TUNING,
+        TEST_TUNING,
     );
     let normal_fall_speed = scratch.kinematics.vel.y;
 
@@ -35,7 +37,7 @@ fn tiny_dt_preserves_bullet_time_scale() {
         &mut slow,
         InputState::default(),
         (1.0 / 60.0) * 0.001,
-        DEFAULT_TUNING,
+        TEST_TUNING,
     );
 
     assert!(slow.kinematics.vel.y > 0.0);
@@ -59,13 +61,13 @@ fn control_clock_can_aim_blink_while_sim_clock_is_nearly_frozen() {
             &world,
             &mut scratch,
             InputState {
-                axis_x: 1.0,
+                axes: crate::LocalAxes::new(1.0, 0.0),
                 blink_pressed: i == 0,
                 blink_held: true,
                 ..Default::default()
             },
             1.0 / 60.0,
-            DEFAULT_TUNING,
+            TEST_TUNING,
         );
     }
     assert!(
@@ -79,7 +81,7 @@ fn control_clock_can_aim_blink_while_sim_clock_is_nearly_frozen() {
         &mut scratch,
         InputState::default(),
         (1.0 / 60.0) * 0.000035,
-        DEFAULT_TUNING,
+        TEST_TUNING,
     );
     assert!(
         scratch.kinematics.vel.y < 0.01,
@@ -89,7 +91,7 @@ fn control_clock_can_aim_blink_while_sim_clock_is_nearly_frozen() {
 }
 
 /// Direct cluster-mut callable: pins that `update_player_clusters`
-/// (DEFAULT_TUNING convenience wrapper) can be driven from a
+/// (TEST_TUNING convenience wrapper) can be driven from a
 /// `BodyClusterScratch::as_mut()` view, mirroring the production
 /// code path that takes a `Query<BodyClusterQueryData>`.
 #[test]

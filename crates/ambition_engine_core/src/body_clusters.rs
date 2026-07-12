@@ -484,15 +484,15 @@ pub fn reset_body_clusters(clusters: &mut BodyClustersMut<'_>, spawn: Vec2) {
 }
 
 /// Refresh the dash charge count and air-jump count from the active
-/// `BodyAbilities` + the caller's tuning.
+/// `BodyAbilities` + the caller's authored base air-jump count.
 pub fn refresh_movement_resources_clusters(
     abilities: &BodyAbilities,
     dash: &mut BodyDashState,
     jump: &mut BodyJumpState,
-    tuning: crate::movement::MovementTuning,
+    base_air_jumps: u8,
 ) {
     dash.charges_available = abilities.abilities.dash_charge_count();
-    jump.air_jumps_available = abilities.abilities.air_jump_count(tuning.air_jumps);
+    jump.air_jumps_available = abilities.abilities.air_jump_count(base_air_jumps);
 }
 
 /// Authoritative body-shape stance.

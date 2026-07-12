@@ -149,7 +149,7 @@ pub fn capture_ball_dash_input(
                 || matches!(
                     motion,
                     ambition::actors::features::MotionModel::SurfaceMomentum(momentum)
-                        if matches!(momentum.state, ae::movement::surface_momentum::SurfaceMotion::Riding { .. })
+                        if matches!(momentum.state, ae::SurfaceMotion::Riding { .. })
                 );
             let crouch_held = control.0.locomotion.y >= tuning.crouch_threshold;
             BallDashInput {
@@ -312,12 +312,12 @@ pub fn tick_ball_dash(
                 let speed = tuning.launch_speed * charge;
                 let facing = if kin.facing == 0.0 { 1.0 } else { kin.facing };
                 match &mut m.state {
-                    ae::movement::surface_momentum::SurfaceMotion::Riding { v_t, .. } => {
+                    ae::SurfaceMotion::Riding { v_t, .. } => {
                         // The kernel integrates `v_t += run * accel * dt` with
                         // `run = locomotion.x`, so `v_t` and facing share a sign.
                         *v_t = facing * speed;
                     }
-                    ae::movement::surface_momentum::SurfaceMotion::Airborne => {
+                    ae::SurfaceMotion::Airborne => {
                         // No tangent to speak of; the local side axis is the
                         // kernel's own airborne convention.
                         kin.vel = frame.side * facing * speed;
@@ -356,8 +356,8 @@ pub fn tick_rolling(
         // A ball flying off a ramp must not un-ball at the apex just because its
         // tangential speed no longer exists.
         let speed = match m.state {
-            ae::movement::surface_momentum::SurfaceMotion::Riding { v_t, .. } => v_t.abs(),
-            ae::movement::surface_momentum::SurfaceMotion::Airborne => kin.vel.length(),
+            ae::SurfaceMotion::Riding { v_t, .. } => v_t.abs(),
+            ae::SurfaceMotion::Airborne => kin.vel.length(),
         };
         if speed < tuning.exit_speed {
             kin.size = rolling.restore_size;

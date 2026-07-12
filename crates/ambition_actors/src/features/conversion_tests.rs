@@ -115,15 +115,16 @@ mod conversion_tests {
         };
         let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
         brain.tick(&snapshot, &mut frame);
+        let mut model = crate::features::MotionModel::default();
         seed.update_for_test(
             world,
             target,
             FeatureCombatTuning::default(),
-            None,
             dt,
             false,
             frame,
-            gravity,
+            &mut model,
+            ae::MotionFrame::from_direction(gravity, ae::GRAVITY),
         );
     }
 
@@ -544,15 +545,16 @@ mod conversion_tests {
         let mut frame = ambition_characters::actor::control::ActorControlFrame::neutral();
         frame.velocity_target = ae::Vec2::new(enemy.config.tuning.chase_speed, 0.0);
         for _ in 0..120 {
+            let mut model = crate::features::MotionModel::default();
             enemy.update_for_test(
                 &world,
                 player_pos,
                 FeatureCombatTuning::default(),
-                None,
                 1.0 / 60.0,
                 false,
                 frame,
-                ae::Vec2::new(0.0, 1.0),
+                &mut model,
+                ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
             );
         }
         let half_w = enemy.kin.size.x * 0.5;
@@ -615,15 +617,16 @@ mod conversion_tests {
         // Full-throttle rightward run intent; the enemy's tuning owns the px/s scale.
         frame.locomotion = ae::Vec2::new(1.0, 0.0);
         for _ in 0..120 {
+            let mut model = crate::features::MotionModel::default();
             enemy.update_for_test(
                 &world,
                 player_pos_far,
                 FeatureCombatTuning::default(),
-                None,
                 1.0 / 60.0,
                 false,
                 frame,
-                ae::Vec2::new(0.0, 1.0),
+                &mut model,
+                ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
             );
         }
         let half_w = enemy.kin.size.x * 0.5;
@@ -704,15 +707,16 @@ mod conversion_tests {
         let mut flips = 0u32;
         let mut prev_facing = enemy.kin.facing;
         for _ in 0..240 {
+            let mut model = crate::features::MotionModel::default();
             enemy.update_for_test(
                 &world,
                 player_pos_far,
                 FeatureCombatTuning::default(),
-                None,
                 1.0 / 60.0,
                 false,
                 frame,
-                gravity,
+                &mut model,
+                ae::MotionFrame::from_direction(gravity, ae::GRAVITY),
             );
             if enemy.kin.facing != prev_facing {
                 flips += 1;
@@ -774,15 +778,16 @@ mod conversion_tests {
         enemy.body.0.ground.on_ground = true;
         enemy.surface.surface_normal = ae::Vec2::new(0.0, -1.0);
         let x0 = enemy.kin.pos.x;
+        let mut model = crate::features::MotionModel::default();
         enemy.update_for_test(
             &world,
             ae::Vec2::new(1500.0, 492.0),
             FeatureCombatTuning::default(),
-            None,
             1.0 / 60.0,
             false,
             ambition_characters::actor::control::ActorControlFrame::neutral(),
-            ae::Vec2::new(0.0, 1.0),
+            &mut model,
+            ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
         );
         enemy.kin.pos.x - x0
     }
@@ -829,16 +834,17 @@ mod conversion_tests {
                 &[],
             );
             // Spawn constant is (0,-1); the update must overwrite it with the
+            let mut model = crate::features::MotionModel::default();
             // live frame for every cardinal.
             enemy.update_for_test(
                 &world,
                 ae::Vec2::new(600.0, 500.0),
                 FeatureCombatTuning::default(),
-                None,
                 1.0 / 60.0,
                 false,
                 ambition_characters::actor::control::ActorControlFrame::neutral(),
-                gravity_dir,
+                &mut model,
+                ae::MotionFrame::from_direction(gravity_dir, ae::GRAVITY),
             );
             assert_eq!(
                 enemy.surface.surface_normal, -gravity_dir,

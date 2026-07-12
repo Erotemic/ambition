@@ -7,5 +7,5 @@
 
 use ambition_engine_core as ae;
 
-pub use ae::movement::{AxisSweptMotion, MotionModel, MotionModelKind, MotionModelSpec};
 pub use ae::movement::SurfaceMomentumMotion as MomentumMotion;
+pub use ae::movement::{AxisSweptMotion, MotionModel};

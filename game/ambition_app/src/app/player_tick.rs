@@ -77,9 +77,7 @@ pub(crate) fn apply_home_reset_policy(
         return;
     }
     let mut clusters = cluster_item.as_clusters_mut();
-    let mut tuning = editable_tuning.as_engine();
-    let gdir = ambition::actors::physics::gravity_dir_or_default(gravity_field.as_deref());
-    ambition::actors::physics::apply_gravity_dir(&mut tuning, gdir);
+    let tuning = editable_tuning.as_engine();
     reset_sandbox(
         &world.0,
         &mut event_writers.sfx,

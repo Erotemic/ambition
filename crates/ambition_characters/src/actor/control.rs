@@ -296,8 +296,7 @@ impl ActorControlFrame {
     /// presentation concern, so both are left at their defaults.
     pub fn to_input_state(&self) -> InputState {
         InputState {
-            axis_x: self.locomotion.x,
-            axis_y: self.locomotion.y,
+            axes: ambition_engine_core::LocalAxes::from_vec(self.locomotion),
             jump_pressed: self.jump_pressed,
             jump_held: self.jump_held,
             jump_released: self.jump_released,
@@ -306,8 +305,8 @@ impl ActorControlFrame {
             blink_pressed: self.blink_pressed,
             blink_held: self.blink_held,
             blink_released: self.blink_released,
-            blink_quick_dir: self.blink_quick_dir,
-            blink_aim_step: self.blink_aim_step,
+            blink_quick_dir: ambition_engine_core::WorldVec2(self.blink_quick_dir),
+            blink_aim_step: ambition_engine_core::WorldVec2(self.blink_aim_step),
             fast_fall_pressed: self.fast_fall_pressed,
             attack_pressed: self.melee_pressed,
             pogo_pressed: self.pogo_pressed,
@@ -363,7 +362,7 @@ mod tests {
     #[test]
     fn to_input_state_maps_the_control_vocabulary() {
         let neutral = ActorControlFrame::neutral().to_input_state();
-        assert_eq!(neutral.axis_x, 0.0);
+        assert_eq!(neutral.axes.x, 0.0);
         assert!(!neutral.jump_pressed && !neutral.attack_pressed);
         assert!(!neutral.reset_pressed, "an actor never resets the room");
 
@@ -374,8 +373,8 @@ mod tests {
         frame.melee_pressed = true;
         frame.shield_held = true;
         let input = frame.to_input_state();
-        assert_eq!(input.axis_x, 0.6, "locomotion.x → axis_x");
-        assert_eq!(input.axis_y, -0.2, "locomotion.y → axis_y");
+        assert_eq!(input.axes.x, 0.6, "locomotion.x → local x");
+        assert_eq!(input.axes.y, -0.2, "locomotion.y → local y");
         assert!(input.jump_pressed && input.dash_pressed && input.shield_held);
         assert!(input.attack_pressed, "melee_pressed → attack_pressed");
     }

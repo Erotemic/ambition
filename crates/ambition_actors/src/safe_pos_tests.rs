@@ -29,7 +29,7 @@ fn player_at(
         &scratch.abilities,
         &mut scratch.dash,
         &mut scratch.jump,
-        ae::DEFAULT_TUNING,
+        ae::DEFAULT_TUNING.air_jumps,
     );
     scratch.kinematics.pos = pos;
     scratch.ground.on_ground = true;

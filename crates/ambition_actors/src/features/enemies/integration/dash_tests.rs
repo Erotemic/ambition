@@ -50,6 +50,7 @@ fn dash_run(can_dash: bool, ticks: u32) -> f32 {
     seed.body = ActorBody::from_caps(&seed.caps, false);
     seed.body.0.ground.on_ground = true;
     let start_x = seed.kin.pos.x;
+    let mut model = crate::features::MotionModel::default();
     let mut em = seed.as_actor_mut();
     let mut frame = ActorControlFrame::neutral();
     frame.locomotion = ae::Vec2::new(1.0, 0.0);
@@ -61,11 +62,11 @@ fn dash_run(can_dash: bool, ticks: u32) -> f32 {
             &world,
             ae::Vec2::new(2000.0, em.kin.pos.y),
             FeatureCombatTuning::default(),
-            None,
             dt,
             false,
             frame,
-            ae::Vec2::new(0.0, 1.0),
+            &mut model,
+            ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
             crate::time::feel::SandboxFeelTuning::default(),
             (0.0, 0.0),
         );
@@ -114,16 +115,18 @@ fn a_non_surface_walker_keeps_its_frame_normal_live_under_gravity() {
         // Spawn-pinned to screen-down — the exact stale state B2 fixes.
         seed.surface.surface_normal = ae::Vec2::new(0.0, -1.0);
         seed.kin.pos = ae::Vec2::new(0.0, 40.0);
+        let mut model = crate::features::MotionModel::default();
         let mut em = seed.as_actor_mut();
+        let mut model = crate::features::MotionModel::default();
         em.update(
             &world,
             ae::Vec2::new(2000.0, em.kin.pos.y),
             FeatureCombatTuning::default(),
-            None,
             1.0 / 60.0,
             false,
             ActorControlFrame::neutral(),
-            gravity,
+            &mut model,
+            ae::MotionFrame::from_direction(gravity, ae::GRAVITY),
             crate::time::feel::SandboxFeelTuning::default(),
             (0.0, 0.0),
         );
@@ -157,21 +160,23 @@ fn walk_run_staggered(stagger: (f32, f32), ticks: u32) -> f32 {
     seed.surface.gravity_scale = 1.0;
     seed.body.0.ground.on_ground = true;
     let start_x = seed.kin.pos.x;
+    let mut model = crate::features::MotionModel::default();
     let mut em = seed.as_actor_mut();
     let mut frame = ActorControlFrame::neutral();
     frame.locomotion = ae::Vec2::new(1.0, 0.0);
     frame.facing = 1.0;
     let dt = 1.0 / 60.0;
     for _ in 0..ticks {
+        let mut model = crate::features::MotionModel::default();
         em.update(
             &world,
             ae::Vec2::new(2000.0, em.kin.pos.y),
             FeatureCombatTuning::default(),
-            None,
             dt,
             false,
             frame,
-            ae::Vec2::new(0.0, 1.0),
+            &mut model,
+            ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
             crate::time::feel::SandboxFeelTuning::default(),
             stagger,
         );
@@ -220,19 +225,21 @@ fn an_uncapable_body_does_not_burst_and_just_walks() {
     seed.caps.can_dash = false;
     seed.body = ActorBody::from_caps(&seed.caps, false);
     seed.body.0.ground.on_ground = true;
+    let mut model = crate::features::MotionModel::default();
     let mut em = seed.as_actor_mut();
     let mut frame = ActorControlFrame::neutral();
     frame.locomotion = ae::Vec2::new(1.0, 0.0);
     frame.dash_pressed = true;
+    let mut model = crate::features::MotionModel::default();
     em.update(
         &world,
         ae::Vec2::new(2000.0, em.kin.pos.y),
         FeatureCombatTuning::default(),
-        None,
         1.0 / 60.0,
         false,
         frame,
-        ae::Vec2::new(0.0, 1.0),
+        &mut model,
+        ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
         crate::time::feel::SandboxFeelTuning::default(),
         (0.0, 0.0),
     );
@@ -264,6 +271,7 @@ fn an_aerial_body_steers_toward_its_velocity_target_through_the_flight_limb() {
     // Aerial body: fly ability + fly_enabled from spawn.
     seed.body = ActorBody::from_caps(&seed.caps, true);
     let start = seed.kin.pos;
+    let mut model = crate::features::MotionModel::default();
     let mut em = seed.as_actor_mut();
     let mut frame = ActorControlFrame::neutral();
     // Command a pure +x world velocity (the free-mover modality).
@@ -274,11 +282,11 @@ fn an_aerial_body_steers_toward_its_velocity_target_through_the_flight_limb() {
             &world,
             ae::Vec2::new(2000.0, em.kin.pos.y),
             FeatureCombatTuning::default(),
-            None,
             dt,
             false,
             frame,
-            ae::Vec2::new(0.0, 1.0),
+            &mut model,
+            ae::MotionFrame::from_direction(ae::Vec2::new(0.0, 1.0), ae::GRAVITY),
             crate::time::feel::SandboxFeelTuning::default(),
             (0.0, 0.0),
         );

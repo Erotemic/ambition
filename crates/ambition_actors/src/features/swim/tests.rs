@@ -21,7 +21,7 @@ fn step_axis_player(
             world,
             input,
             frame,
-            facing_intent: input.axis_x,
+            facing_intent: input.axes.x,
             dt,
         },
     );

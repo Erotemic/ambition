@@ -178,11 +178,8 @@ impl EditableMovementTuning {
             gravity: self.gravity,
             // Runtime-overridden each frame from the world GravityField; default
             // upright here.
-            gravity_sign: 1.0,
-            gravity_dir: ae::Vec2::new(0.0, 1.0),
             // Default; the live control preference is applied per-frame alongside
             // `gravity_dir` (see player_tick / sim_systems `apply_gravity_dir`).
-            movement_frame_mode: ae::InputFrameMode::DEFAULT_MOVEMENT,
             run_accel: self.run_accel,
             air_accel: self.air_accel,
             ground_friction: self.ground_friction,
@@ -365,7 +362,7 @@ pub fn apply_movement_profile(
     let tuning = profile.tuning();
     *editable_tuning = EditableMovementTuning::from(tuning);
     if let Some((abilities, dash, jump)) = live_movement_refs {
-        ae::refresh_movement_resources_clusters(abilities, dash, jump, tuning);
+        ae::refresh_movement_resources_clusters(abilities, dash, jump, tuning.air_jumps);
     }
 }
 

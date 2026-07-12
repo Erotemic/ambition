@@ -185,4 +185,12 @@ impl EnemyActorBundle {
             anim: crate::actor::BodyAnimFacts::default(),
         }
     }
+
+    /// Select the body's explicit movement policy at spawn (crawler archetypes
+    /// carry `MotionModel::AdhesiveCrawler` from tick one; absence is never a
+    /// policy).
+    pub fn with_motion_model(mut self, motion_model: crate::features::MotionModel) -> Self {
+        self.motion_model = motion_model;
+        self
+    }
 }

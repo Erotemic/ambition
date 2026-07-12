@@ -4,6 +4,8 @@
 use super::super::*;
 use super::{step_scratch, test_world};
 use crate::body_clusters::BodyClusterScratch;
+#[allow(unused_imports)]
+use crate::test_support::*;
 use crate::{AbilitySet, Vec2};
 
 fn scratch_with(abilities: AbilitySet, spawn: Vec2) -> BodyClusterScratch {
@@ -29,7 +31,7 @@ fn flipped_gravity_makes_the_player_fall_up_and_stand_on_the_ceiling() {
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(400.0, 300.0));
     scratch.ground.on_ground = false;
-    let mut tuning = DEFAULT_TUNING;
+    let mut tuning = TEST_TUNING;
     tuning.gravity_dir = Vec2::new(0.0, -1.0); // up — drives the integrator
     tuning.gravity_sign = -1.0; // legacy mirror, still read by the sweeps (pre-P4)
 
@@ -76,7 +78,7 @@ fn sideways_gravity_pulls_the_player_along_x() {
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(200.0, 300.0));
     scratch.ground.on_ground = false;
-    let mut tuning = DEFAULT_TUNING;
+    let mut tuning = TEST_TUNING;
     tuning.gravity_dir = Vec2::new(1.0, 0.0); // gravity points RIGHT
     tuning.gravity_sign = 1.0;
     let y0 = scratch.kinematics.pos.y;
@@ -126,7 +128,7 @@ fn wall_walking_grounds_walks_and_jumps_off_a_side_wall() {
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(400.0, 300.0));
     scratch.ground.on_ground = false;
-    let mut tuning = DEFAULT_TUNING;
+    let mut tuning = TEST_TUNING;
     tuning.gravity_dir = Vec2::new(1.0, 0.0); // gravity RIGHT
     tuning.gravity_sign = 1.0;
 
@@ -153,7 +155,7 @@ fn wall_walking_grounds_walks_and_jumps_off_a_side_wall() {
             &world,
             &mut scratch,
             InputState {
-                axis_x: 1.0,
+                axes: crate::LocalAxes::new(1.0, 0.0),
                 ..Default::default()
             },
             1.0 / 60.0,
@@ -223,7 +225,7 @@ fn one_way_platform_works_under_flipped_gravity() {
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(400.0, 400.0));
     scratch.ground.on_ground = false;
-    let mut tuning = DEFAULT_TUNING;
+    let mut tuning = TEST_TUNING;
     tuning.gravity_dir = Vec2::new(0.0, -1.0); // UP
     tuning.gravity_sign = -1.0;
     for _ in 0..120 {
@@ -273,12 +275,12 @@ fn glide_caps_fall_speed_while_jump_held() {
         "hold-jump while falling should engage glide"
     );
     assert!(
-        scratch.kinematics.vel.y <= DEFAULT_TUNING.glide_fall_speed + 1.0,
+        scratch.kinematics.vel.y <= TEST_TUNING.glide_fall_speed + 1.0,
         "glide cap should clamp fall speed; got {}",
         scratch.kinematics.vel.y
     );
     assert!(
-        scratch.kinematics.vel.y < DEFAULT_TUNING.max_fall_speed * 0.5,
+        scratch.kinematics.vel.y < TEST_TUNING.max_fall_speed * 0.5,
         "glide cap must be markedly below max_fall_speed; got {}",
         scratch.kinematics.vel.y
     );
@@ -371,10 +373,10 @@ fn glide_sustains_across_many_frames() {
                 scratch.kinematics.vel.x, scratch.kinematics.vel.y, scratch.ground.on_ground,
             );
             assert!(
-                scratch.kinematics.vel.y <= DEFAULT_TUNING.glide_fall_speed + 5.0,
+                scratch.kinematics.vel.y <= TEST_TUNING.glide_fall_speed + 5.0,
                 "frame {frame}: vel.y exceeded glide cap ({} > {})",
                 scratch.kinematics.vel.y,
-                DEFAULT_TUNING.glide_fall_speed,
+                TEST_TUNING.glide_fall_speed,
             );
         }
     }
@@ -393,7 +395,7 @@ fn fast_fall_requires_double_tap_signal() {
         &world,
         &mut scratch,
         InputState {
-            axis_y: 1.0,
+            axes: crate::LocalAxes::new(0.0, 1.0),
             ..Default::default()
         },
     );
@@ -405,7 +407,7 @@ fn fast_fall_requires_double_tap_signal() {
         &world,
         &mut scratch,
         InputState {
-            axis_y: 1.0,
+            axes: crate::LocalAxes::new(0.0, 1.0),
             fast_fall_pressed: true,
             ..Default::default()
         },
@@ -434,7 +436,7 @@ fn fly_toggle_switches_mode_and_counters_gravity() {
         &world,
         &mut scratch,
         InputState {
-            axis_y: -1.0,
+            axes: crate::LocalAxes::new(0.0, -1.0),
             ..Default::default()
         },
     );
@@ -464,7 +466,7 @@ fn direct_velocity_flight_takes_the_commanded_velocity_verbatim() {
         water_regions: Vec::new(),
     };
     let terminal = 400.0;
-    let mut tuning = DEFAULT_TUNING;
+    let mut tuning = TEST_TUNING;
     tuning.flight_terminal_speed = terminal;
     tuning.flight_hover_speed = 0.0;
     tuning.flight_hover_hz = 0.0;
@@ -476,8 +478,7 @@ fn direct_velocity_flight_takes_the_commanded_velocity_verbatim() {
         s
     };
     let input = InputState {
-        axis_x: 0.5,
-        axis_y: -0.25,
+        axes: crate::LocalAxes::new(0.5, -0.25),
         ..Default::default()
     };
 
@@ -526,7 +527,7 @@ fn the_player_rides_a_horizontally_moving_platform() {
         water_regions: Vec::new(),
     };
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(200.0, 360.0));
-    let tuning = DEFAULT_TUNING;
+    let tuning = TEST_TUNING;
     for _ in 0..30 {
         update_player_with_tuning_scratch(
             &world,
@@ -567,10 +568,10 @@ fn an_airborne_fling_above_run_speed_is_preserved_while_holding_into_it() {
     // High in the open air, flung hard to the right.
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(200.0, 200.0));
     scratch.ground.on_ground = false;
-    let fling = DEFAULT_TUNING.max_run_speed * 4.0;
+    let fling = TEST_TUNING.max_run_speed * 4.0;
     scratch.kinematics.vel = Vec2::new(fling, 0.0);
     let hold_right = InputState {
-        axis_x: 1.0,
+        axes: crate::LocalAxes::new(1.0, 0.0),
         ..InputState::default()
     };
     for _ in 0..10 {
@@ -587,7 +588,7 @@ fn an_airborne_fling_above_run_speed_is_preserved_while_holding_into_it() {
 
     // Holding AGAINST the fling still brakes (air control is preserved).
     let hold_left = InputState {
-        axis_x: -1.0,
+        axes: crate::LocalAxes::new(-1.0, 0.0),
         ..InputState::default()
     };
     let vx_before = scratch.kinematics.vel.x;
@@ -609,7 +610,7 @@ fn carried_momentum_conserves_flings_while_ordinary_drift_stays_tight() {
     let world = test_world();
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(200.0, 200.0));
     scratch.ground.on_ground = false;
-    let fling = DEFAULT_TUNING.max_run_speed * 4.0;
+    let fling = TEST_TUNING.max_run_speed * 4.0;
     scratch.kinematics.vel = Vec2::new(fling, 0.0);
     scratch.flight.carried_run = fling; // what the portal adapter sets on transfer
     for _ in 0..10 {
@@ -627,7 +628,7 @@ fn carried_momentum_conserves_flings_while_ordinary_drift_stays_tight() {
     // Opposing input brakes at full air control AND eats the carried floor:
     // after braking, releasing the stick does not restore the old speed.
     let hold_left = InputState {
-        axis_x: -1.0,
+        axes: crate::LocalAxes::new(-1.0, 0.0),
         ..InputState::default()
     };
     for _ in 0..30 {
@@ -648,7 +649,7 @@ fn carried_momentum_conserves_flings_while_ordinary_drift_stays_tight() {
     // (An un-carried over-cap speed is a controller artifact, not a fling.)
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), Vec2::new(200.0, 200.0));
     scratch.ground.on_ground = false;
-    scratch.kinematics.vel = Vec2::new(DEFAULT_TUNING.max_run_speed * 0.8, 0.0);
+    scratch.kinematics.vel = Vec2::new(TEST_TUNING.max_run_speed * 0.8, 0.0);
     scratch.flight.carried_run = 0.0;
     let drift = scratch.kinematics.vel.x;
     step_scratch(&world, &mut scratch, InputState::default());

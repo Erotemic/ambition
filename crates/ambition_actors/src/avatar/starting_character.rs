@@ -35,7 +35,7 @@ use ambition_characters::actor::WornCharacter;
 use ambition_characters::brain::ActionSet;
 
 use crate::combat::moveset::{build_actor_moveset, ActorMoveset};
-use crate::features::{AxisSweptMotion, MomentumMotion, MotionModel};
+use crate::features::MotionModel;
 
 /// The catalog `character_id` the local player spawns as.
 ///
@@ -122,14 +122,8 @@ pub fn apply_worn_motion_model(
     entity: Entity,
     character_id: &str,
 ) {
-    let model = match motion_model_spec_for_character_id(catalog, character_id) {
-        ambition_engine_core::MotionModelSpec::AxisSwept(params) => {
-            MotionModel::AxisSwept(AxisSweptMotion::new(params))
-        }
-        ambition_engine_core::MotionModelSpec::SurfaceMomentum(params) => {
-            MotionModel::SurfaceMomentum(MomentumMotion::new(params))
-        }
-    };
+    let mut model = MotionModel::default();
+    model.apply_spec(motion_model_spec_for_character_id(catalog, character_id));
     commands.entity(entity).insert(model);
 }
 

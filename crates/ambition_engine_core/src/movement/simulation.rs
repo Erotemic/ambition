@@ -60,8 +60,7 @@ pub fn handle_jump_buffer_clusters(
 
     let on_ladder = env_contact.climbable.is_some();
 
-    if super::integration::wants_drop_through(input.local_axis().y, input.jump_pressed)
-        && on_ladder
+    if super::integration::wants_drop_through(input.local_axis().y, input.jump_pressed) && on_ladder
     {
         jump_state.ladder_drop_through_timer = ONE_WAY_DROP_THROUGH_GRACE;
         jump_state.ladder_drop_through_hold_lock = true;
@@ -105,13 +104,13 @@ pub fn handle_jump_buffer_clusters(
 
     if abilities.abilities.wall_jump && wall.on_wall && !ground.on_ground {
         let basis = frame.basis();
-        let target_side = wall.wall_normal_x * tuning.wall_jump_x;
+        let target_side = wall.wall_normal_x * tuning.locomotion.wall_jump_x;
         let cur_side = kinematics.vel.dot(basis.side);
         kinematics.vel += basis.side * (target_side - cur_side);
         super::integration::set_jump_velocity(
             &mut kinematics.vel,
             frame.down(),
-            tuning.jump_speed * 0.94,
+            tuning.locomotion.jump_speed * 0.94,
         );
         wall.on_wall = false;
         wall.wall_clinging = false;
@@ -126,18 +125,20 @@ pub fn handle_jump_buffer_clusters(
         super::integration::set_jump_velocity(
             &mut kinematics.vel,
             frame.down(),
-            tuning.jump_speed,
+            tuning.locomotion.jump_speed,
         );
         ground.on_ground = false;
         action_buffer.jump = 0.0;
         ground.coyote_timer = 0.0;
-        jump_state.air_jumps_available = abilities.abilities.air_jump_count(tuning.air_jumps);
+        jump_state.air_jumps_available = abilities
+            .abilities
+            .air_jump_count(tuning.locomotion.air_jumps);
         events.op_clusters(combo_trace, MovementOp::Jump);
     } else if abilities.abilities.double_jump && !flying && jump_state.air_jumps_available > 0 {
         super::integration::set_jump_velocity(
             &mut kinematics.vel,
             frame.down(),
-            tuning.double_jump_speed,
+            tuning.locomotion.double_jump_speed,
         );
         ground.on_ground = false;
         wall.on_wall = false;

@@ -309,12 +309,20 @@ pub fn apply_feature_hit_events(
         if actor_hit_this_event || boss_hit_this_event {
             let target_attacker = event.attacker.or_else(|| primary_q.single().ok());
             if let Some(attacker) = target_attacker {
+                let record_dedup = matches!(event.source, HitSource::PlayerSlash { .. });
                 // CM4: the strike connected — the attacker's playing move
                 // learns it (combo-confirm for OnHit/OnWhiff cancels).
                 if let Ok(mut pb) = attacker_moves.get_mut(attacker) {
                     pb.landed_hit = true;
+                    // Persist one-hit-per-target dedup on the MOVE itself. The
+                    // per-swing accumulator below lives on `BodyMelee.swing`, which
+                    // a `MovesetMelee` body rebuilds every frame — so without this
+                    // the strike re-hit + re-fired the hit SFX every active tick.
+                    // `MovePlayback` is the persistent per-strike home.
+                    if record_dedup {
+                        pb.hit_targets.extend(landed_keys.iter().cloned());
+                    }
                 }
-                let record_dedup = matches!(event.source, HitSource::PlayerSlash { .. });
                 for (entity, mut combat, active_attack) in &mut player_combat_q {
                     if entity != attacker {
                         continue;

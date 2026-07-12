@@ -117,6 +117,18 @@ pub struct MovePlayback {
     live_boxes: Vec<(usize, Entity)>,
     /// Which timed events already fired (parallel to `spec.events`).
     fired: Vec<bool>,
+    /// One-hit-per-target dedup for a Player-faction Volume strike (the player's
+    /// slash / pogo). The downstream Volume resolver (`apply_feature_hit_events`)
+    /// folds each landed target key in, and the strike's per-tick emit ignores
+    /// them — so a multi-tick Active window hits each target ONCE. It lives HERE,
+    /// on the persistent per-strike move, NOT on the projected `BodyMelee.swing`:
+    /// that swing is a read-model rebuilt every frame by
+    /// `project_moveset_melee_to_body_melee`, which wiped the accumulator and made
+    /// every active tick re-hit + re-fire the hit SFX (the old flat-swing dedup
+    /// didn't survive the moveset projection). Starts empty per move; like
+    /// `live_boxes` it is not yet carried across a rollback resume, so fold it into
+    /// the snapshot blob if strike-dedup ever needs to be rollback-exact.
+    pub hit_targets: Vec<String>,
 }
 
 impl MovePlayback {
@@ -157,6 +169,7 @@ impl MovePlayback {
             landed_hit: false,
             live_boxes: Vec::new(),
             fired,
+            hit_targets: Vec::new(),
         }
     }
 
@@ -878,6 +891,12 @@ fn synth_swing_from_move(pb: &MovePlayback) -> MeleeSwing {
     };
     let mut swing = MeleeSwing::new(attack_spec);
     swing.elapsed = pb.t;
+    // Expose the move's PERSISTENT one-hit-per-target dedup on the read-model
+    // swing, so `apply_hitbox_damage` emits it as the strike's `ignored_targets`.
+    // The resolver folds newly-landed keys back into `MovePlayback.hit_targets`
+    // (not this swing, which is rebuilt next frame) — that persistence is what
+    // stops the multi-hit / hit-SFX spam.
+    swing.hit_targets = pb.hit_targets.clone();
     swing
 }
 

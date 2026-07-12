@@ -1637,3 +1637,33 @@ fn a3_equip_equipment_row_is_read_time_for_plain_rows_and_rebuilds_for_grants() 
     );
     assert!(worn.wears("spark_blossom"));
 }
+
+/// Regression (2026-07-12): a `MovesetMelee` body's `BodyMelee.swing` is a
+/// read-model that `project_moveset_melee_to_body_melee` rebuilds EVERY frame.
+/// The one-hit-per-target dedup (`hit_targets`, folded in by the downstream
+/// Volume resolver) used to live on that ephemeral swing, so it was wiped every
+/// tick — and the player's slash/pogo re-hit + re-fired the hit SFX on every
+/// active frame ("multi-hit on objects, lots of SFX at once"). The accumulator
+/// now lives on the persistent `MovePlayback`; the projection must COPY it onto
+/// the swing so `apply_hitbox_damage` re-emits it as `ignored_targets`.
+#[test]
+fn the_moveset_projection_carries_the_hit_dedup_accumulator() {
+    let mut app = App::new();
+    let mut playback = MovePlayback::new(simple_melee(&SimpleMeleeParams::default()), 1.0);
+    playback.hit_targets = vec!["enemy:already_struck".to_string()];
+    let body = app
+        .world_mut()
+        .spawn((playback, BodyMelee::default(), MovesetMelee))
+        .id();
+    app.add_systems(Update, project_moveset_melee_to_body_melee);
+    app.update();
+
+    let melee = app.world().get::<BodyMelee>(body).unwrap();
+    let swing = melee.swing.as_ref().expect("a melee move projects a swing");
+    assert_eq!(
+        swing.hit_targets,
+        vec!["enemy:already_struck".to_string()],
+        "the projected swing must carry the move's persistent hit-dedup set, or \
+         every active tick re-hits the same target (multi-hit / SFX spam)"
+    );
+}

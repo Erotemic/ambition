@@ -114,7 +114,9 @@ pub fn animate_bosses(
         (
             &FeatureVisual,
             &mut Sprite,
-            &mut BossAnimator,
+            // Immutable: the animator is a stateless texture addresser now — the
+            // draw cursor lives in `boss_frames`, not on this component.
+            &BossAnimator,
             Option<&mut bevy::sprite::Anchor>,
         ),
         Without<PlayerVisual>,
@@ -129,20 +131,21 @@ pub fn animate_bosses(
     // here: a boss with ProperTimeScale > 1.0 keeps tickling its
     // own animation while the world is frozen by its SimClock
     // request.
-    for (visual, mut sprite, mut animator, anchor) in &mut query {
+    for (visual, mut sprite, animator, anchor) in &mut query {
         let Some(view) = boss_frames.get(&visual.id) else {
             continue;
         };
         let state: BossAnimState = view.anim;
-        // Mirror the SIM-owned draw cursor published in the read-model. The frame
-        // was advanced by `drive_boss_animators` this tick; the render only draws
-        // it, so the drawn pose and the strike geometry share the ONE sim frame.
-        animator.mirror_cursor(view.cursor_anim, view.cursor_frame);
-        let index = animator.current_flat_index();
+        // Draw the SIM-owned cursor published in the read-model. `drive_boss_animators`
+        // advanced it this tick; the render only addresses the atlas cell for that
+        // `(anim, frame)`, so the drawn sprite and the strike geometry share the ONE
+        // sim frame.
+        let (cursor_anim, cursor_frame) = (view.cursor_anim, view.cursor_frame);
+        let index = animator.flat_index(cursor_anim, cursor_frame);
         // Split sheets: select the page image the active frame draws from
         // before setting the (page-local) index. Single-page bosses skip this.
         if animator.is_paged() {
-            let page = animator.current_page();
+            let page = animator.page_of(cursor_anim, cursor_frame);
             if let Some(pg) = animator.pages.get(page as usize) {
                 sprite.image = pg.texture.clone();
                 if let Some(atlas) = sprite.texture_atlas.as_mut() {
@@ -166,10 +169,11 @@ pub fn animate_bosses(
         ) ^ animator.spec.authored_faces_left;
         sprite.flip_x = flip;
         // Alpha-trimmed (atlas-packed) boss sheets: re-derive per-frame size +
-        // anchor so the logical frame stays fixed. `current_render` is `None`
-        // for untrimmed sheets, so those keep their spawn-time size/anchor. The
+        // anchor so the logical frame stays fixed. `render_of` is `None` for
+        // untrimmed sheets, so those keep their spawn-time size/anchor. The
         // anchor x mirrors with the same facing flip applied to the sprite.
-        if let (Some((size, mut anchor_v)), Some(mut anchor)) = (animator.current_render(), anchor)
+        if let (Some((size, mut anchor_v)), Some(mut anchor)) =
+            (animator.render_of(cursor_anim, cursor_frame), anchor)
         {
             sprite.custom_size = Some(size);
             if flip {

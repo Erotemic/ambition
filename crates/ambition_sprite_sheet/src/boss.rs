@@ -1115,8 +1115,14 @@ fn build_boss_pages(
         .collect()
 }
 
-/// Per-entity boss animation cursor. Same shape as `CharacterAnimator` but
-/// keyed off `BossAnim`.
+/// Render-side boss texture addresser. STATELESS w.r.t. the animation cursor:
+/// the cursor is SIM-owned ([`BossAnimFrame`], advanced by `drive_boss_animators`
+/// and published in `BossFrameIndex`), and this type only turns a published
+/// `(anim, frame)` into an atlas cell / page / trimmed size. That is why the boss
+/// frame the sprite draws and the frame-tied strike geometry are always the ONE
+/// sim frame — unlike `CharacterAnimator`, which the render advances locally
+/// because character hitboxes are not frame-tied. Holds only the GPU-side binding
+/// (sheet record, atlas pages, render basis), set once at sprite-upgrade time.
 #[derive(Component)]
 pub struct BossAnimator {
     pub spec: BossSheetSpec,
@@ -1127,11 +1133,6 @@ pub struct BossAnimator {
     /// image + atlas layout when the playing frame lives on a different page of
     /// a split sheet. Length 1 (no swap) for the common single-PNG boss.
     pub pages: Vec<BossSpritePage>,
-    pub current: BossAnim,
-    pub drive_phase: BossAnimDrivePhase,
-    pub frame: usize,
-    pub elapsed: f32,
-    pub clip_held: bool,
     /// Base render size + feet anchor set at spawn, so a trimmed (alpha-packed)
     /// boss sheet can recompute the per-frame `custom_size` + anchor that keeps
     /// the logical frame fixed. `None` until provided.
@@ -1144,11 +1145,6 @@ impl BossAnimator {
             spec: asset.spec.clone(),
             record: asset.record.clone(),
             pages: asset.pages.clone(),
-            current: BossAnim::Rest,
-            drive_phase: BossAnimDrivePhase::Rest,
-            frame: 0,
-            elapsed: 0.0,
-            clip_held: false,
             render_basis: None,
         }
     }
@@ -1163,19 +1159,13 @@ impl BossAnimator {
         self
     }
 
-    /// Page-local flat atlas index of `(anim, frame)` via the shared algebra.
-    fn flat_index(&self, anim: BossAnim, frame: usize) -> usize {
+    /// Page-local flat atlas index of the published `(anim, frame)` via the shared
+    /// algebra. The cursor is sim-owned (`BossAnimFrame` → `BossFrameIndex`); this
+    /// is a pure lookup, so the drawn cell and the frame-tied strike geometry are
+    /// always the one sim frame.
+    pub fn flat_index(&self, anim: BossAnim, frame: usize) -> usize {
         self.record
             .flat_index_in_page(self.spec.record_row(anim), frame)
-    }
-
-    /// The flat atlas index of the CURRENT `(current, frame)` — for a caller that
-    /// reads the animator's frame without ticking it. R1.3: the SIM drives the
-    /// frame (`drive_boss_animators` runs `request_for_phase` + `tick`), so the
-    /// renderer reads this instead of ticking, and geometry + the drawn sprite
-    /// share the one sim-owned frame.
-    pub fn current_flat_index(&self) -> usize {
-        self.flat_index(self.current, self.frame)
     }
 
     /// True when the sheet is split across more than one page image, so the
@@ -1184,87 +1174,26 @@ impl BossAnimator {
         self.pages.len() > 1
     }
 
-    /// The page image index the current frame draws from (per-frame: a packed
+    /// The page image index `(anim, frame)` draws from (per-frame: a packed
     /// animation can span pages).
-    pub fn current_page(&self) -> u32 {
-        self.record
-            .frame_page_of(self.spec.record_row(self.current), self.frame)
+    pub fn page_of(&self, anim: BossAnim, frame: usize) -> u32 {
+        self.record.frame_page_of(self.spec.record_row(anim), frame)
     }
 
-    /// Per-frame `(custom_size, anchor)` for the current frame, or `None` when
-    /// the sheet is untrimmed (or no basis is set) — callers then keep the fixed
+    /// Per-frame `(custom_size, anchor)` for `(anim, frame)`, or `None` when the
+    /// sheet is untrimmed (or no basis is set) — callers then keep the fixed
     /// spawn-time size/anchor, so untrimmed boss sheets are unaffected.
-    pub fn current_render(&self) -> Option<(Vec2, Vec2)> {
+    pub fn render_of(&self, anim: BossAnim, frame: usize) -> Option<(Vec2, Vec2)> {
         if !self.record.is_trimmed() {
             return None;
         }
         let basis = self.render_basis.as_ref()?;
-        let trim = self
-            .record
-            .frame_trim(self.spec.record_row(self.current), self.frame);
+        let trim = self.record.frame_trim(self.spec.record_row(anim), frame);
         Some(crate::trimmed_render(
             &trim,
             basis.render_size,
             basis.feet_anchor,
         ))
-    }
-
-    pub fn request(&mut self, anim: BossAnim) {
-        self.request_for_phase(anim, BossAnimDrivePhase::Rest);
-    }
-
-    /// Select a boss animation row and the gameplay phase that is
-    /// driving it. Some bosses intentionally use the same visual row
-    /// for windup and strike. Treating the phase as part of the
-    /// animation identity keeps the row from playing once during the
-    /// telegraph, holding its final frame through the strike, and then
-    /// snapping boxes back to rest later.
-    pub fn request_for_phase(&mut self, anim: BossAnim, drive_phase: BossAnimDrivePhase) {
-        if self.current == anim && self.drive_phase == drive_phase {
-            return;
-        }
-        self.current = anim;
-        self.drive_phase = drive_phase;
-        self.frame = 0;
-        self.elapsed = 0.0;
-        self.clip_held = false;
-    }
-
-    pub fn tick(&mut self, dt: f32) -> usize {
-        let row = self.spec.row(self.current);
-        if row.frame_count == 0 || row.duration_secs <= 0.0 {
-            return self.flat_index(self.current, self.frame);
-        }
-        if self.clip_held {
-            return self.flat_index(self.current, self.frame);
-        }
-        self.elapsed += dt;
-        while self.elapsed >= row.duration_secs {
-            self.elapsed -= row.duration_secs;
-            if self.frame + 1 >= row.frame_count {
-                if non_looping(self.current) {
-                    self.frame = row.frame_count - 1;
-                    self.clip_held = true;
-                    break;
-                } else {
-                    self.frame = 0;
-                }
-            } else {
-                self.frame += 1;
-            }
-        }
-        self.flat_index(self.current, self.frame)
-    }
-
-    /// Mirror the SIM-owned draw cursor published in the boss frame read-model
-    /// (`BossFrameIndex`). The render's `FeatureVisual` entity is a by-id mirror
-    /// that never carries the sim `BossAnimFrame` component, so the animator reads
-    /// the current `(anim, frame)` from the read-model instead of the component.
-    /// Only `current` + `frame` are needed to DRAW — `drive_phase`/`elapsed`/
-    /// `clip_held` are advance-side bookkeeping the sim owns.
-    pub fn mirror_cursor(&mut self, current: BossAnim, frame: usize) {
-        self.current = current;
-        self.frame = frame;
     }
 }
 

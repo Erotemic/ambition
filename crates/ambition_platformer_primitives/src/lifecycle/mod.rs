@@ -8,11 +8,16 @@
 
 mod cleanup;
 mod markers;
+mod session;
 mod spawn_ext;
 
 pub use cleanup::despawn_scoped_entity;
 pub use markers::{
     FeatureSimEntity, LoadingZoneVisual, ModeScopedEntity, PersistentEntity, PlayerVisual,
     RoomScopedEntity, RoomVisual, RunScopedEntity, SceneEntities,
+};
+pub use session::{
+    despawn_retired_session_entities, ActiveSessionScope, SessionRoot, SessionScopeId,
+    SessionScopePlugin, SessionScopeRetired, SessionScopedEntity, SpawnSessionScopedExt,
 };
 pub use spawn_ext::SpawnScopedExt;

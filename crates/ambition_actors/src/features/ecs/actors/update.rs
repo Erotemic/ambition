@@ -650,6 +650,7 @@ pub(crate) fn integrate_actor_body(
             feature_world,
             enemy_gravity_dir * gravity_magnitude,
             brain_frame.locomotion.x,
+            brain_frame.locomotion,
             brain_frame.jump_pressed,
             brain_frame.facing,
             dt,

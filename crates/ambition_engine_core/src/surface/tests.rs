@@ -4,7 +4,7 @@
 //! `use super::*;`.
 
 use super::*;
-use crate::world::SurfaceChain;
+use crate::world::{SurfaceChain, SurfaceJunction, SurfacePort};
 
 const DT: f32 = 1.0 / 60.0;
 const G: Vec2 = Vec2::new(0.0, 1450.0);
@@ -72,6 +72,44 @@ fn loop_chain(c: Vec2, r: f32) -> SurfaceChain {
     assert!(chain.validate().is_empty(), "{:?}", chain.validate());
     assert!(chain.signed_area() < 0.0, "interior-rideable winding");
     chain
+}
+
+fn route_switch_chain() -> SurfaceChain {
+    // Two topological visits to the same screen-space junction. The first
+    // occurrence leads up into the loop proxy; the second leads right onto the
+    // runout. The left branch slopes down when traversed in reverse, so vertical
+    // steering can distinguish "take the loop" from "take the ramp" in both
+    // directions.
+    SurfaceChain::open(
+        "route-switch",
+        vec![
+            Vec2::new(-100.0, 50.0),
+            Vec2::ZERO,
+            Vec2::new(100.0, -50.0),
+            Vec2::new(-100.0, -50.0),
+            Vec2::ZERO,
+            Vec2::new(100.0, 0.0),
+        ],
+    )
+    .with_junctions(vec![SurfaceJunction::new(vec![1, 4])])
+}
+
+fn shared_tangent_route_switch_chain() -> SurfaceChain {
+    // Both choices leave the switch horizontally for 16px, then diverge. A
+    // tangent-only router cannot distinguish them; route lookahead can.
+    SurfaceChain::open(
+        "shared-tangent-route-switch",
+        vec![
+            Vec2::new(-100.0, 0.0),
+            Vec2::ZERO,
+            Vec2::new(16.0, 0.0),
+            Vec2::new(100.0, -80.0),
+            Vec2::ZERO,
+            Vec2::new(16.0, 0.0),
+            Vec2::new(100.0, 80.0),
+        ],
+    )
+    .with_junctions(vec![SurfaceJunction::new(vec![1, 4])])
 }
 
 fn ride(chain_idx: usize, s: f32, v_t: f32, world: &World, radius: f32) -> SurfaceBody {
@@ -485,6 +523,7 @@ fn jump_leaves_along_the_surface_normal_with_tangent_momentum() {
         G,
         SurfaceInputs {
             run: 0.0,
+            steer: Vec2::ZERO,
             jump_pressed: true,
         },
         DT,
@@ -542,6 +581,7 @@ fn c4_rotation_symmetry_the_rotated_valley_matches() {
             } else {
                 -1.0
             },
+            steer: Vec2::ZERO,
             jump_pressed: frame == 360,
         };
         step_surface_body(&mut a, &world_a, &params, g_a, input, DT, None);
@@ -619,6 +659,7 @@ fn body_lands_runs_and_jumps_on_a_block_floor() {
     for _ in 0..60 {
         let input = SurfaceInputs {
             run: 1.0,
+            steer: Vec2::ZERO,
             jump_pressed: false,
         };
         step_surface_body(&mut body, &world, &params, G, input, DT, None);
@@ -634,6 +675,7 @@ fn body_lands_runs_and_jumps_on_a_block_floor() {
     // Jump: leaves the surface along the normal, moving up.
     let input = SurfaceInputs {
         run: 0.0,
+        steer: Vec2::ZERO,
         jump_pressed: true,
     };
     step_surface_body(&mut body, &world, &params, G, input, DT, None);
@@ -670,6 +712,7 @@ fn flush_block_seams_do_not_stop_a_runner() {
     for _ in 0..150 {
         let input = SurfaceInputs {
             run: 1.0,
+            steer: Vec2::ZERO,
             jump_pressed: false,
         };
         step_surface_body(&mut body, &world, &params, G, input, DT, None);
@@ -719,6 +762,7 @@ fn walking_off_a_block_edge_launches_and_never_wraps() {
     for _ in 0..120 {
         let input = SurfaceInputs {
             run: 1.0,
+            steer: Vec2::ZERO,
             jump_pressed: false,
         };
         step_surface_body(&mut body, &world, &params, G, input, DT, None);
@@ -799,6 +843,7 @@ fn rotated_gravity_lands_on_the_gravity_side_face_of_a_block() {
     for _ in 0..60 {
         let input = SurfaceInputs {
             run: 1.0,
+            steer: Vec2::ZERO,
             jump_pressed: false,
         };
         step_surface_body(&mut body, &world, &params, g, input, DT, None);
@@ -838,6 +883,7 @@ fn airborne_air_control_pushes_toward_the_held_direction() {
                 gravity,
                 SurfaceInputs {
                     run,
+                    steer: Vec2::ZERO,
                     jump_pressed: false,
                 },
                 1.0 / 60.0,
@@ -872,6 +918,7 @@ fn airborne_air_control_is_gravity_relative() {
             gravity,
             SurfaceInputs {
                 run: 1.0,
+                steer: Vec2::ZERO,
                 jump_pressed: false,
             },
             1.0 / 60.0,
@@ -915,6 +962,7 @@ fn running_off_a_flat_chains_end_falls_instead_of_hovering_at_the_lip() {
             Vec2::new(0.0, 1450.0),
             SurfaceInputs {
                 run: 1.0,
+                steer: Vec2::ZERO,
                 jump_pressed: false,
             },
             DT,
@@ -962,6 +1010,7 @@ fn landing_on_the_tip_of_a_ramp_while_moving_inward_still_attaches() {
             Vec2::new(0.0, 1450.0),
             SurfaceInputs {
                 run: 0.0,
+                steer: Vec2::ZERO,
                 jump_pressed: false,
             },
             DT,
@@ -969,6 +1018,125 @@ fn landing_on_the_tip_of_a_ramp_while_moving_inward_still_attaches() {
         );
     }
     assert!(body.riding(), "a landing at the tip is a landing");
+}
+
+/// Arc length does not name a unique frame at a polyline joint. A zero-speed
+/// rider must settle onto the adjacent branch that actually supports it, rather
+/// than inherit `frame_at`'s arbitrary pre-join tie and lose every grounded
+/// affordance.
+#[test]
+fn zero_speed_at_a_joint_chooses_support_and_keeps_jump_and_walk_available() {
+    // Authored upward wall into a rightward floor. At the joint `frame_at`
+    // historically returns the wall segment (`s <= len`), whose horizontal
+    // normal carries no gravity load. The floor immediately after the same
+    // vertex is valid support.
+    let chain = SurfaceChain::open(
+        "wall-to-floor",
+        vec![
+            Vec2::new(200.0, 400.0),
+            Vec2::new(200.0, 250.0),
+            Vec2::new(600.0, 250.0),
+        ],
+    );
+    let joint_s = chain.segment_length(0);
+    let floor_frame = chain.frame_at(joint_s + joint_nudge(joint_s));
+    assert_eq!(floor_frame.segment, 1);
+    let world = world_with_chains(vec![chain]);
+    let radius = 14.0;
+    let resting = SurfaceBody {
+        pos: floor_frame.point + floor_frame.normal * radius,
+        vel: Vec2::ZERO,
+        radius,
+        depth_lane: 0,
+        motion: SurfaceMotion::Riding {
+            on: SurfaceRef::Chain(0),
+            s: joint_s,
+            v_t: 0.0,
+        },
+    };
+    let params = MomentumParams::default();
+
+    let mut idle = resting;
+    let mut contacts = Vec::new();
+    step_surface_body(
+        &mut idle,
+        &world,
+        &params,
+        G,
+        SurfaceInputs::default(),
+        DT,
+        Some(&mut contacts),
+    );
+    assert!(
+        idle.riding(),
+        "resting on the supported side must stay grounded"
+    );
+    assert!(contacts
+        .iter()
+        .any(|contact| matches!(contact.source, ContactSource::Chain { segment: 1, .. })));
+
+    let mut walking = resting;
+    step_surface_body(
+        &mut walking,
+        &world,
+        &params,
+        G,
+        SurfaceInputs {
+            run: 1.0,
+            steer: Vec2::ZERO,
+            jump_pressed: false,
+        },
+        DT,
+        None,
+    );
+    let SurfaceMotion::Riding { s, v_t, .. } = walking.motion else {
+        panic!("walking onto the floor branch must stay attached");
+    };
+    assert!(
+        s > joint_s && v_t > 0.0,
+        "run intent advances off the joint"
+    );
+
+    let mut jumping = resting;
+    step_surface_body(
+        &mut jumping,
+        &world,
+        &params,
+        G,
+        SurfaceInputs {
+            run: 0.0,
+            steer: Vec2::ZERO,
+            jump_pressed: true,
+        },
+        DT,
+        None,
+    );
+    assert!(!jumping.riding(), "jump must leave the supported joint");
+    assert!(jumping.vel.y < 0.0, "jump launches away from the floor");
+
+    let mut leaving = resting;
+    step_surface_body(
+        &mut leaving,
+        &world,
+        &params,
+        G,
+        SurfaceInputs {
+            run: -1.0,
+            steer: Vec2::ZERO,
+            jump_pressed: false,
+        },
+        DT,
+        None,
+    );
+    assert!(
+        !leaving.riding(),
+        "intent toward the unsupported wall branch must shed instead of pinning the body"
+    );
+    assert!(
+        leaving.vel.x < 0.0 && leaving.vel.y.abs() < 1.0,
+        "walking off keeps the supporting floor tangent instead of launching down the adjacent wall: {:?}",
+        leaving.vel
+    );
 }
 
 /// **A body must be able to cross a joint anywhere on a long chain.**
@@ -1007,6 +1175,7 @@ fn a_body_crosses_a_joint_far_along_a_long_chain_in_both_directions() {
                 G,
                 SurfaceInputs {
                     run: v_t.signum(),
+                    steer: Vec2::ZERO,
                     jump_pressed: false,
                 },
                 DT,
@@ -1035,4 +1204,277 @@ fn the_joint_nudge_always_moves_the_arc_length() {
             "nudge {n} vanished downward at s={s}"
         );
     }
+}
+
+/// Joint stabilization is a zero-speed ambiguity resolver, not an alternate
+/// crossing path. A moving rider must remain exactly on the joint so
+/// `advance_riding` can apply the convex corner rule; nudging it onto the wall
+/// is what regressed both flush-block handoff and ordinary ledge departure.
+#[test]
+fn moving_riders_are_not_preselected_onto_a_joint_branch() {
+    let block = floor_block(Vec2::new(0.0, 500.0), Vec2::new(400.0, 100.0));
+    let chain = block.boundary_chain();
+    let top_right_s = chain.segment_length(0);
+
+    for speed in [-600.0, 600.0] {
+        assert_eq!(
+            stabilize_joint_rest(&chain, top_right_s, speed, speed.signum(), G),
+            top_right_s,
+            "moving riders must reach the joint classifier unchanged"
+        );
+    }
+}
+
+#[test]
+fn route_bias_is_acceleration_frame_vertical_not_surface_transverse() {
+    assert!(
+        route_bias_direction(G, Vec2::X).is_none(),
+        "Right is locomotion even while the ridden tangent is diagonal"
+    );
+    assert!(
+        route_bias_direction(G, -Vec2::X).is_none(),
+        "Left is locomotion even while the ridden tangent is diagonal"
+    );
+
+    let up = route_bias_direction(G, Vec2::new(1.0, -1.0)).expect("Up supplies a route override");
+    assert!(up.dot(Vec2::new(0.0, -1.0)) > 0.999);
+
+    // Under sideways gravity, screen/world Y is the locomotion-transverse axis,
+    // but it is not body Up/Down. Route bias rotates with the acceleration frame.
+    let sideways_down = Vec2::new(1450.0, 0.0);
+    assert!(route_bias_direction(sideways_down, Vec2::Y).is_none());
+    let body_up = route_bias_direction(sideways_down, Vec2::new(-1.0, 1.0))
+        .expect("body-local Up rotates with gravity");
+    assert!(body_up.dot(-Vec2::X) > 0.999);
+}
+
+#[test]
+fn route_junction_uses_vertical_steering_and_preserves_default_continuation() {
+    let chain = route_switch_chain();
+    assert!(chain.validate().is_empty(), "{:?}", chain.validate());
+    let world = world_with_chains(vec![chain.clone()]);
+    let on = SurfaceRef::Chain(0);
+
+    // Forward arrival from the left ramp: up-right enters the loop occurrence,
+    // down-right skips to the runout occurrence.
+    let loop_branch = choose_route_branch(&world, on, 1, 0, 1.0, G, Vec2::new(1.0, -1.0))
+        .expect("entry is an authored junction");
+    assert_eq!(loop_branch.vertex, 1);
+    assert_eq!(loop_branch.direction, 1.0);
+    assert!(loop_branch.is_default);
+
+    let bypass = choose_route_branch(&world, on, 1, 0, 1.0, G, Vec2::new(1.0, 1.0))
+        .expect("entry is an authored junction");
+    assert_eq!(bypass.vertex, 4);
+    assert_eq!(bypass.direction, 1.0);
+    assert!(!bypass.is_default);
+
+    // Reverse arrival from the right runout: up-left takes the loop; down-left
+    // chooses the descending ramp. Neutral steering keeps the authored loop
+    // continuation on first arrival, then the authored ramp continuation after
+    // one reverse revolution rather than spinning again.
+    let reverse_loop = choose_route_branch(&world, on, 4, 4, -1.0, G, Vec2::new(-1.0, -1.0))
+        .expect("closure is an authored junction");
+    assert_eq!(reverse_loop.vertex, 4);
+    assert_eq!(reverse_loop.direction, -1.0);
+    assert!(reverse_loop.is_default);
+
+    let reverse_ramp = choose_route_branch(&world, on, 4, 4, -1.0, G, Vec2::new(-1.0, 1.0))
+        .expect("closure is an authored junction");
+    assert_eq!(reverse_ramp.vertex, 1);
+    assert_eq!(reverse_ramp.direction, -1.0);
+    assert!(!reverse_ramp.is_default);
+
+    let after_reverse_lap = choose_route_branch(&world, on, 1, 1, -1.0, G, Vec2::new(-1.0, 0.0))
+        .expect("entry is an authored junction");
+    assert_eq!(after_reverse_lap.vertex, 1);
+    assert_eq!(after_reverse_lap.direction, -1.0);
+    assert!(
+        after_reverse_lap.is_default,
+        "world-horizontal Left on a diagonal loop tangent is locomotion, not a downward route request"
+    );
+
+    let after_forward_lap = choose_route_branch(&world, on, 4, 3, 1.0, G, Vec2::new(1.0, 0.0))
+        .expect("closure is an authored junction");
+    assert_eq!(after_forward_lap.vertex, 4);
+    assert_eq!(after_forward_lap.direction, 1.0);
+    assert!(
+        after_forward_lap.is_default,
+        "holding only along the travel direction must preserve the forward exit"
+    );
+
+    let entry_s = chain.arc_at_vertex(1);
+    let closure_s = chain.arc_at_vertex(4);
+    let (stopped_on, stopped_bypass) =
+        choose_route_branch_at_rest(&world, on, entry_s, 0.0, Vec2::new(1.0, 1.0))
+            .expect("held direction selects a route from rest");
+    assert_eq!(stopped_on, on);
+    assert!(
+        stopped_bypass > closure_s,
+        "down-right selects the runout even with zero momentum"
+    );
+}
+
+#[test]
+fn route_junction_looks_past_a_shared_tangent_before_honoring_steering() {
+    let chain = shared_tangent_route_switch_chain();
+    let world = world_with_chains(vec![chain]);
+    let on = SurfaceRef::Chain(0);
+
+    let up = choose_route_branch(&world, on, 1, 0, 1.0, G, Vec2::new(1.0, -1.0))
+        .expect("entry is an authored junction");
+    assert_eq!(up.vertex, 1, "up-right selects the rising route");
+
+    let down = choose_route_branch(&world, on, 1, 0, 1.0, G, Vec2::new(1.0, 1.0))
+        .expect("entry is an authored junction");
+    assert_eq!(down.vertex, 4, "down-right selects the descending route");
+
+    let horizontal = choose_route_branch(&world, on, 1, 0, 1.0, G, Vec2::X)
+        .expect("entry is an authored junction");
+    assert_eq!(horizontal.vertex, 1);
+    assert!(
+        horizontal.is_default,
+        "horizontal input cannot distinguish routes with a shared tangent, so it preserves authored continuation"
+    );
+}
+
+#[test]
+fn cross_chain_junction_selects_a_ramp_without_an_airborne_hop() {
+    let floor = SurfaceChain::open(
+        "floor-route",
+        vec![Vec2::new(-100.0, 0.0), Vec2::ZERO, Vec2::new(120.0, 0.0)],
+    );
+    let ramp = SurfaceChain::open(
+        "raised-route",
+        vec![Vec2::ZERO, Vec2::new(16.0, 0.0), Vec2::new(100.0, -80.0)],
+    )
+    .with_junctions(vec![SurfaceJunction::across(vec![
+        SurfacePort::local(0),
+        SurfacePort::chain(0, 1),
+    ])]);
+    let world = world_with_chains(vec![floor, ramp]);
+    let floor_on = SurfaceRef::Chain(0);
+    let branch_s = world.chains[0].arc_at_vertex(1);
+    let params = frictionless();
+
+    let raised = advance_riding(
+        &world,
+        floor_on,
+        branch_s - 1.0,
+        4.0,
+        240.0,
+        G,
+        &params,
+        14.0,
+        Vec2::new(1.0, -1.0),
+    );
+    let RideOutcome::Riding { on, s, v_t } = raised else {
+        panic!("a route junction transfers while riding; it is not a jump");
+    };
+    assert_eq!(on, SurfaceRef::Chain(1));
+    assert!(s > 0.0, "the rider advanced onto the raised chain");
+    assert!(v_t > 0.0, "the transfer preserves forward momentum");
+
+    let flat = advance_riding(
+        &world,
+        floor_on,
+        branch_s - 1.0,
+        4.0,
+        240.0,
+        G,
+        &params,
+        14.0,
+        Vec2::X,
+    );
+    let RideOutcome::Riding { on, s, .. } = flat else {
+        panic!("the flat continuation remains rideable");
+    };
+    assert_eq!(on, floor_on);
+    assert!(
+        s > branch_s,
+        "holding horizontally continues along the floor"
+    );
+}
+
+#[test]
+fn route_junction_changes_arc_occurrence_without_reversing_speed() {
+    let chain = route_switch_chain();
+    let entry_s = chain.arc_at_vertex(1);
+    let closure_s = chain.arc_at_vertex(4);
+    let world = world_with_chains(vec![chain]);
+    let on = SurfaceRef::Chain(0);
+    let params = frictionless();
+
+    let bypass = advance_riding(
+        &world,
+        on,
+        entry_s - 1.0,
+        4.0,
+        240.0,
+        G,
+        &params,
+        14.0,
+        Vec2::new(1.0, 1.0),
+    );
+    let RideOutcome::Riding {
+        on: result_on,
+        s,
+        v_t,
+    } = bypass
+    else {
+        panic!("an authored switch is a guided route, not a launch");
+    };
+    assert_eq!(result_on, on);
+    assert!(s > closure_s, "down-right selected the runout occurrence");
+    assert!(v_t > 0.0, "route transfer preserves forward speed");
+
+    let ramp = advance_riding(
+        &world,
+        on,
+        closure_s + 1.0,
+        -4.0,
+        -240.0,
+        G,
+        &params,
+        14.0,
+        Vec2::new(-1.0, 1.0),
+    );
+    let RideOutcome::Riding {
+        on: result_on,
+        s,
+        v_t,
+    } = ramp
+    else {
+        panic!("an authored switch is a guided route, not a launch");
+    };
+    assert_eq!(result_on, on);
+    assert!(
+        s < entry_s,
+        "down-left selected the descending ramp occurrence"
+    );
+    assert!(v_t < 0.0, "route transfer preserves reverse speed");
+}
+
+#[test]
+fn nonzero_depth_lanes_do_not_collide_across_a_crossover() {
+    assert!(!depth_lanes_collide(-1, 1));
+    assert!(!depth_lanes_collide(1, -1));
+    assert!(depth_lanes_collide(-1, -1));
+    assert!(depth_lanes_collide(1, 1));
+    assert!(depth_lanes_collide(-1, 0));
+    assert!(depth_lanes_collide(0, 1));
+}
+
+#[test]
+fn segment_scoped_projection_preserves_the_route_occurrence_at_a_crossover() {
+    let chain = route_switch_chain();
+    let point = Vec2::ZERO;
+    let entry_s = project_to_segment(&chain, 0, point);
+    let runout_s = project_to_segment(&chain, 4, point);
+    assert_eq!(chain.frame_at(entry_s).segment, 0);
+    assert_eq!(chain.frame_at(runout_s).segment, 4);
+    assert!(
+        runout_s - entry_s > 100.0,
+        "the same screen-space point retains distinct topological arc positions"
+    );
 }

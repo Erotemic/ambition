@@ -166,6 +166,64 @@ fn chain_validate_catches_authoring_hazards() {
         ],
     );
     assert!(bowtie.validate().iter().any(|p| p.contains("cross")));
+    let malformed_depths = SurfaceChain::open(
+        "bad-depth-count",
+        vec![Vec2::ZERO, Vec2::X, Vec2::new(2.0, 0.0)],
+    )
+    .with_segment_depths(vec![0]);
+    assert!(
+        malformed_depths
+            .validate()
+            .iter()
+            .any(|problem| problem.contains("depth_lanes")),
+        "authors must provide exactly one depth lane per segment"
+    );
+    let malformed_junction = SurfaceChain::open(
+        "bad-junction",
+        vec![Vec2::ZERO, Vec2::X, Vec2::new(2.0, 0.0)],
+    )
+    .with_junctions(vec![SurfaceJunction::new(vec![0, 2])]);
+    assert!(
+        malformed_junction
+            .validate()
+            .iter()
+            .any(|problem| problem.contains("not coincident")),
+        "a route switch connects coincident topological occurrences, not arbitrary points"
+    );
+    let valid_junction = SurfaceChain::open(
+        "valid-junction",
+        vec![
+            Vec2::new(-1.0, 0.0),
+            Vec2::ZERO,
+            Vec2::new(0.0, -1.0),
+            Vec2::ZERO,
+            Vec2::X,
+        ],
+    )
+    .with_junctions(vec![SurfaceJunction::new(vec![1, 3])]);
+    assert!(
+        valid_junction.validate().is_empty(),
+        "coincident route occurrences are valid: {:?}",
+        valid_junction.validate()
+    );
+    let cross_chain_junction =
+        SurfaceChain::open("cross-chain-owner", vec![Vec2::ZERO, Vec2::X]).with_junctions(vec![
+            SurfaceJunction::across(vec![SurfacePort::local(0), SurfacePort::chain(1, 0)]),
+        ]);
+    assert!(
+        cross_chain_junction.validate().is_empty(),
+        "chain-local validation accepts an external route port; world validation owns the referenced index"
+    );
+    let route_world = World::new("route-world", Vec2::new(10.0, 10.0), Vec2::ZERO, Vec::new())
+        .with_chains(vec![
+            cross_chain_junction,
+            SurfaceChain::open("target", vec![Vec2::ZERO, Vec2::Y]),
+        ]);
+    assert!(
+        route_world.validate_surface_junctions().is_empty(),
+        "coincident cross-chain ports validate in their owning world: {:?}",
+        route_world.validate_surface_junctions()
+    );
     // A healthy ramp validates clean.
     let ramp = SurfaceChain::open(
         "ramp",

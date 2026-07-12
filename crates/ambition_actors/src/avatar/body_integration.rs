@@ -289,6 +289,7 @@ fn integrate_home_momentum(
         &collision_world,
         tuning.gravity_dir * tuning.gravity,
         input.axis_x,
+        ae::Vec2::new(input.axis_x, input.axis_y),
         input.jump_pressed,
         facing_intent,
         sim_dt,
@@ -320,6 +321,7 @@ fn integrate_home_momentum(
         events.reset = true;
         ae::reset_body_clusters(clusters, world.spawn);
         m.state = ambition_engine_core::surface::SurfaceMotion::Airborne;
+        m.depth_lane = 0;
     }
 
     *frame_out = PlayerBodyFrameOutput {

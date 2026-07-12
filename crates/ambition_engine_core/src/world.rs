@@ -309,6 +309,58 @@ pub enum SurfaceKind {
     Ground,
 }
 
+/// One endpoint/vertex participating in a [`SurfaceJunction`].
+///
+/// Most junctions connect repeated occurrences inside their owning chain and
+/// use `Local`. `Chain` connects a different authored chain, which lets a
+/// continuous floor split into a raised ramp without requiring an airborne
+/// hop or a demo-specific transfer system.
+#[derive(
+    Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, serde::Serialize, serde::Deserialize,
+)]
+pub enum SurfacePort {
+    /// Vertex on the chain that owns the junction declaration.
+    Local(usize),
+    /// Vertex on another authored chain in `World::chains`.
+    Chain { chain: usize, vertex: usize },
+}
+
+impl SurfacePort {
+    pub fn local(vertex: usize) -> Self {
+        Self::Local(vertex)
+    }
+
+    pub fn chain(chain: usize, vertex: usize) -> Self {
+        Self::Chain { chain, vertex }
+    }
+}
+
+/// One topological switch shared by coincident vertices, potentially across
+/// multiple authored [`SurfaceChain`]s.
+///
+/// A port is a route occurrence, not merely a screen-space point. The follower
+/// preserves the authored continuation unless meaningful directional input is
+/// better aligned with another port's LOOKAHEAD direction. This expresses
+/// classic 2.5D loop mouths and floor/ramp forks without geometric ambiguity.
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct SurfaceJunction {
+    pub ports: Vec<SurfacePort>,
+}
+
+impl SurfaceJunction {
+    /// Declare a switch among repeated vertices on the owning chain.
+    pub fn new(vertices: Vec<usize>) -> Self {
+        Self {
+            ports: vertices.into_iter().map(SurfacePort::Local).collect(),
+        }
+    }
+
+    /// Declare a switch whose ports may span authored chains.
+    pub fn across(ports: Vec<SurfacePort>) -> Self {
+        Self { ports }
+    }
+}
+
 /// The local frame of a chain at an arc-length position: where you are, which
 /// way the surface runs, which way is off the surface.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -350,6 +402,25 @@ pub struct SurfaceChain {
     pub points: Vec<Vec2>,
     pub closed: bool,
     pub kind: SurfaceKind,
+    /// Optional per-segment simulated-depth lanes for 2.5D track crossings.
+    ///
+    /// Empty means every segment lives on lane `0`. Non-empty vectors must have
+    /// exactly [`Self::segment_count`] entries. Riding remains one-dimensional by
+    /// arc length; presentation draws negative lanes behind the player and
+    /// positive lanes in front. An airborne rider retains its last non-zero lane,
+    /// so opposite non-zero lanes do not collide at a crossover; lane `0`
+    /// remains ordinary shared geometry. Proper geometric intersections stay
+    /// invalid; junctions connect repeated/coincident vertex occurrences.
+    #[serde(default)]
+    pub depth_lanes: Vec<i8>,
+    /// Explicit topological route switches.
+    ///
+    /// Empty is the ordinary polyline case. Local ports distinguish repeated
+    /// visits to one projected point (a loop mouth); external ports connect
+    /// another authored chain (a floor splitting into a ramp). Geometric
+    /// proximity alone never creates a branch.
+    #[serde(default)]
+    pub junctions: Vec<SurfaceJunction>,
     /// Per-frame displacement of this surface (`ZERO` for static geometry).
     pub velocity: Vec2,
 }
@@ -361,6 +432,8 @@ impl SurfaceChain {
             points,
             closed: false,
             kind: SurfaceKind::Ground,
+            depth_lanes: Vec::new(),
+            junctions: Vec::new(),
             velocity: Vec2::ZERO,
         }
     }
@@ -371,6 +444,8 @@ impl SurfaceChain {
             points,
             closed: true,
             kind: SurfaceKind::Ground,
+            depth_lanes: Vec::new(),
+            junctions: Vec::new(),
             velocity: Vec2::ZERO,
         }
     }
@@ -383,6 +458,34 @@ impl SurfaceChain {
         } else {
             self.points.len() - 1
         }
+    }
+
+    /// Simulated-depth lane of segment `i` (`0` for ordinary planar track).
+    pub fn segment_depth(&self, i: usize) -> i8 {
+        self.depth_lanes.get(i).copied().unwrap_or(0)
+    }
+
+    /// Attach one simulated-depth lane per segment.
+    ///
+    /// Validation reports a length mismatch; keeping construction infallible is
+    /// consistent with the rest of the authored world IR.
+    pub fn with_segment_depths(mut self, depth_lanes: Vec<i8>) -> Self {
+        self.depth_lanes = depth_lanes;
+        self
+    }
+
+    /// Attach explicit route switches between coincident vertex occurrences.
+    pub fn with_junctions(mut self, junctions: Vec<SurfaceJunction>) -> Self {
+        self.junctions = junctions;
+        self
+    }
+
+    /// Arc length of point/vertex `vertex` measured from the beginning of an
+    /// open chain. For a closed chain, vertex `0` is also the wrap point.
+    pub fn arc_at_vertex(&self, vertex: usize) -> f32 {
+        (0..vertex.min(self.segment_count()))
+            .map(|i| self.segment_length(i))
+            .sum()
     }
 
     /// Endpoints of segment `i` (wraps for the closing segment).
@@ -516,7 +619,59 @@ impl SurfaceChain {
             problems.push(format!("chain '{}': non-finite point", self.name));
             return problems;
         }
-        for i in 0..self.segment_count() {
+        let count = self.segment_count();
+        if !self.depth_lanes.is_empty() && self.depth_lanes.len() != count {
+            problems.push(format!(
+                "chain '{}': depth_lanes has {} entries but the chain has {count} segments",
+                self.name,
+                self.depth_lanes.len()
+            ));
+        }
+        for (ji, junction) in self.junctions.iter().enumerate() {
+            if junction.ports.len() < 2 {
+                problems.push(format!(
+                    "chain '{}': junction {ji} needs at least two route ports",
+                    self.name
+                ));
+                continue;
+            }
+            let mut seen = std::collections::BTreeSet::new();
+            let mut local_anchor = None;
+            for &port in &junction.ports {
+                if !seen.insert(port) {
+                    problems.push(format!(
+                        "chain '{}': junction {ji} repeats port {port:?}",
+                        self.name
+                    ));
+                    continue;
+                }
+                let SurfacePort::Local(vertex) = port else {
+                    // Cross-chain range/coincidence validation needs the World
+                    // that owns both chains; the follower still validates the
+                    // referenced port when resolving it.
+                    continue;
+                };
+                let Some(point) = self.points.get(vertex) else {
+                    problems.push(format!(
+                        "chain '{}': junction {ji} local vertex {vertex} is out of range for {} points",
+                        self.name,
+                        self.points.len()
+                    ));
+                    continue;
+                };
+                if let Some((first, anchor)) = local_anchor {
+                    if point.distance(anchor) > 1.0e-3 {
+                        problems.push(format!(
+                            "chain '{}': junction {ji} local vertices are not coincident ({first} at {anchor:?}, {vertex} at {point:?})",
+                            self.name
+                        ));
+                    }
+                } else {
+                    local_anchor = Some((vertex, *point));
+                }
+            }
+        }
+        for i in 0..count {
             if self.segment_length(i) < 1.0e-3 {
                 problems.push(format!(
                     "chain '{}': segment {i} is degenerate (zero length) — joins must share \
@@ -534,7 +689,6 @@ impl SurfaceChain {
         }
         // Self-intersection: any two non-adjacent segments crossing makes
         // support ambiguous. O(n²) — validation-time only.
-        let count = self.segment_count();
         for i in 0..count {
             for j in (i + 2)..count {
                 if self.closed && i == 0 && j == count - 1 {
@@ -721,6 +875,59 @@ impl World {
     pub fn with_chains(mut self, chains: Vec<SurfaceChain>) -> Self {
         self.chains = chains;
         self
+    }
+
+    /// Validate route ports that require the owning world to resolve.
+    ///
+    /// [`SurfaceChain::validate`] owns local geometry. This companion catches
+    /// cross-chain index errors and verifies that every port in one junction is
+    /// coincident in projected world space.
+    pub fn validate_surface_junctions(&self) -> Vec<String> {
+        let mut problems = Vec::new();
+        for (owner_index, owner) in self.chains.iter().enumerate() {
+            for (junction_index, junction) in owner.junctions.iter().enumerate() {
+                let mut seen = std::collections::BTreeSet::new();
+                let mut anchor = None;
+                for &port in &junction.ports {
+                    let (chain_index, vertex) = match port {
+                        SurfacePort::Local(vertex) => (owner_index, vertex),
+                        SurfacePort::Chain { chain, vertex } => (chain, vertex),
+                    };
+                    if !seen.insert((chain_index, vertex)) {
+                        problems.push(format!(
+                            "chain '{}': junction {junction_index} repeats resolved port ({chain_index}, {vertex})",
+                            owner.name
+                        ));
+                        continue;
+                    }
+                    let Some(chain) = self.chains.get(chain_index) else {
+                        problems.push(format!(
+                            "chain '{}': junction {junction_index} references missing chain {chain_index}",
+                            owner.name
+                        ));
+                        continue;
+                    };
+                    let Some(&point) = chain.points.get(vertex) else {
+                        problems.push(format!(
+                            "chain '{}': junction {junction_index} references missing vertex {vertex} on chain '{}'",
+                            owner.name, chain.name
+                        ));
+                        continue;
+                    };
+                    if let Some((anchor_chain, anchor_vertex, anchor_point)) = anchor {
+                        if point.distance(anchor_point) > 1.0e-3 {
+                            problems.push(format!(
+                                "chain '{}': junction {junction_index} ports are not coincident: ({anchor_chain}, {anchor_vertex}) at {anchor_point:?}, ({chain_index}, {vertex}) at {point:?}",
+                                owner.name
+                            ));
+                        }
+                    } else {
+                        anchor = Some((chain_index, vertex, point));
+                    }
+                }
+            }
+        }
+        problems
     }
 
     pub fn with_water_regions(mut self, regions: Vec<WaterRegion>) -> Self {

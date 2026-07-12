@@ -364,13 +364,20 @@ fn spawn_climbable_region(
 /// Sanic-specific drawing; any game that authors a chain gets a matching visual.
 pub fn spawn_surface_chain_visuals(commands: &mut Commands, world: &ae::World) {
     const THICKNESS: f32 = 8.0;
-    let color = Color::srgba(0.22, 0.88, 0.96, 0.92);
 
     for chain in &world.chains {
         for segment_index in 0..chain.segment_count() {
+            let depth = chain.segment_depth(segment_index);
+            let (z, color) = if depth < 0 {
+                (WORLD_Z_BLOCK + 1.0, Color::srgba(0.12, 0.50, 0.60, 0.78))
+            } else if depth > 0 {
+                (WORLD_Z_PLAYER + 0.8, Color::srgba(0.08, 0.38, 0.46, 0.98))
+            } else {
+                (WORLD_Z_BLOCK + 2.0, Color::srgba(0.22, 0.88, 0.96, 0.92))
+            };
             let (a_world, b_world) = chain.segment(segment_index);
-            let a = world_to_bevy(world, a_world, WORLD_Z_BLOCK + 2.0);
-            let b = world_to_bevy(world, b_world, WORLD_Z_BLOCK + 2.0);
+            let a = world_to_bevy(world, a_world, z);
+            let b = world_to_bevy(world, b_world, z);
             let delta = b.truncate() - a.truncate();
             let length = delta.length();
             if length <= f32::EPSILON {
@@ -380,7 +387,10 @@ pub fn spawn_surface_chain_visuals(commands: &mut Commands, world: &ae::World) {
                 Sprite::from_color(color, BVec2::new(length, THICKNESS)),
                 Transform::from_translation((a + b) * 0.5)
                     .with_rotation(Quat::from_rotation_z(delta.y.atan2(delta.x))),
-                Name::new(format!("Surface: {} segment {}", chain.name, segment_index)),
+                Name::new(format!(
+                    "Surface: {} segment {} depth {}",
+                    chain.name, segment_index, depth
+                )),
                 RoomVisual,
             ));
         }

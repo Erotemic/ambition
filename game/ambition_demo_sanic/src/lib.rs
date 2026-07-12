@@ -32,56 +32,76 @@ pub const SANIC_MODE: &str = "sanic";
 /// in the shared engine asset tree beside the other generated music tracks.
 pub const SANIC_MUSIC_ASSET_PATH: &str = "audio/music/generated/you_are_too_slow/full.ogg";
 
-/// Number of segments in the loop body. The authored entry ramp is sampled
-/// separately so its final tangent is exactly the loop's first tangent.
-pub const LOOP_SEGMENTS: usize = 96;
+/// Number of segments in the full 360-degree loop body.
+pub const LOOP_SEGMENTS: usize = 128;
 
-/// Samples in the raised entry ramp. A smooth cubic here replaces the old
-/// one-segment spur whose corner could strand a momentum body at the join.
-pub const LOOP_RAMP_SEGMENTS: usize = 24;
+/// Samples in the raised entry ramp. The ramp, loop, and runout are one open
+/// surface route; there is no chain-transfer seam at either side of the loop.
+pub const LOOP_RAMP_SEGMENTS: usize = 32;
 
-/// Index of the loop's first arc point inside the combined ramp+loop chain.
+/// Samples in the post-loop route: a flat foreground overpass clears the
+/// crossover before a separate descent returns to the tiled floor.
+pub const LOOP_RUNOUT_SEGMENTS: usize = 32;
+
+/// Flat samples after the full revolution. Keeping the rider attached until it
+/// is horizontally clear of the inbound rail is the physical half of the 2.5D
+/// crossover; depth ordering supplies the visual half.
+pub const LOOP_OVERPASS_SEGMENTS: usize = 12;
+
+/// Remaining samples in the descent from the overpass to the floor.
+pub const LOOP_DESCENT_SEGMENTS: usize = LOOP_RUNOUT_SEGMENTS - LOOP_OVERPASS_SEGMENTS;
+
+/// Index of the loop's first arc point inside the combined route.
 pub const LOOP_ENTRY_POINT_INDEX: usize = LOOP_RAMP_SEGMENTS;
 
-/// Index of the loop's open release endpoint.
-pub const LOOP_EXIT_POINT_INDEX: usize = LOOP_ENTRY_POINT_INDEX + LOOP_SEGMENTS;
+/// Index where the full loop returns to the crossover after 360 degrees.
+pub const LOOP_CLOSURE_POINT_INDEX: usize = LOOP_ENTRY_POINT_INDEX + LOOP_SEGMENTS;
+
+/// Lower-arc segments rendered in front of the player on each side of the
+/// loop. The remaining loop body is on the ordinary/back lane.
+pub const LOOP_FOREGROUND_SEGMENTS_PER_SIDE: usize = 22;
+
+/// Index of the route's final floor-level runout point.
+pub const LOOP_EXIT_POINT_INDEX: usize = LOOP_CLOSURE_POINT_INDEX + LOOP_RUNOUT_SEGMENTS;
 
 const LOOP_RADIUS: f32 = 180.0;
-const LOOP_START_ANGLE: f32 = std::f32::consts::FRAC_PI_3;
-const LOOP_SWEEP_ANGLE: f32 = std::f32::consts::TAU * 0.75;
-const LOOP_RAMP_START_X: f32 = 2000.0;
-const LOOP_RAMP_START_CLEARANCE: f32 = 92.0;
+const LOOP_START_ANGLE: f32 = std::f32::consts::FRAC_PI_2;
+const LOOP_SWEEP_ANGLE: f32 = std::f32::consts::TAU;
+const LOOP_CENTER_X: f32 = 2200.0;
+const LOOP_TRACK_RISE: f32 = 84.0;
+const LOOP_RAMP_START_X: f32 = 1740.0;
+const LOOP_OVERPASS_END_X: f32 = 2480.0;
+const LOOP_RUNOUT_END_X: f32 = 2920.0;
 
 fn cubic_bezier(p0: ae::Vec2, p1: ae::Vec2, p2: ae::Vec2, p3: ae::Vec2, t: f32) -> ae::Vec2 {
     let u = 1.0 - t;
     p0 * (u * u * u) + p1 * (3.0 * u * u * t) + p2 * (3.0 * u * t * t) + p3 * (t * t * t)
 }
 
-/// Build one authored route for the raised on-ramp and loop arc.
+/// Build one continuous entry-ramp → full-loop → runout route.
 ///
-/// The old course joined a single straight spur directly to a coarse arc. The
-/// body's route was technically one chain, but the tangent discontinuity at the
-/// join behaved like an edge: the follower could shed, project back to the lip,
-/// and appear frozen. This cubic ends with the exact first-loop tangent, so the
-/// ramp/loop boundary is an ordinary sampled curve rather than a collision seam.
-///
-/// The open 270-degree release remains intentionally separate from the ramp:
-/// it sends the rider down and right to the floor *before* the raised ramp. The
-/// body then passes underneath with standing-height clearance, preserving the
-/// classic entry/exit layering without deleting the ramp or making it ghostly.
-fn raised_ramp_loop_points(floor_top: f32) -> (Vec<ae::Vec2>, ae::Vec2) {
-    let center = ae::Vec2::new(2000.0, floor_top - 312.0);
-    let ramp_start = ae::Vec2::new(LOOP_RAMP_START_X, floor_top - LOOP_RAMP_START_CLEARANCE);
+/// The loop starts at its bottom with a horizontal tangent, makes a complete
+/// 360-degree revolution, returns to the same screen-space point at a later arc
+/// length, and continues into a distinct runout. The repeated point is a 2.5D
+/// crossover: per-segment depth lanes distinguish the inbound/back rail from the
+/// outbound/front rail while the riding solver follows one unambiguous arc-length
+/// route. This is the classic Sonic topology rather than a literal planar circle.
+fn raised_full_loop_points(floor_top: f32) -> (Vec<ae::Vec2>, ae::Vec2) {
+    let center = ae::Vec2::new(LOOP_CENTER_X, floor_top - LOOP_TRACK_RISE - LOOP_RADIUS);
+    let ramp_start = ae::Vec2::new(LOOP_RAMP_START_X, floor_top);
     let loop_start =
         center + ae::Vec2::new(LOOP_START_ANGLE.cos(), LOOP_START_ANGLE.sin()) * LOOP_RADIUS;
-    // The authored loop winds with decreasing angle. Its travel tangent is
-    // therefore (sin(theta), -cos(theta)); use it as the cubic's final handle.
-    let loop_start_tangent = ae::Vec2::new(LOOP_START_ANGLE.sin(), -LOOP_START_ANGLE.cos());
+    debug_assert!((loop_start.y - (floor_top - LOOP_TRACK_RISE)).abs() < 1.0e-3);
 
-    let mut points = Vec::with_capacity(1 + LOOP_RAMP_SEGMENTS + LOOP_SEGMENTS);
+    let mut points =
+        Vec::with_capacity(1 + LOOP_RAMP_SEGMENTS + LOOP_SEGMENTS + LOOP_RUNOUT_SEGMENTS);
     points.push(ramp_start);
-    let ramp_control_1 = ramp_start + ae::Vec2::new(25.0, 0.0);
-    let ramp_control_2 = loop_start - loop_start_tangent * 55.0;
+
+    // Rise from the tiled floor to the loop bottom with a horizontal tangent at
+    // both ends. The first segment is a real ramp, not a teleport or rebound-only
+    // gap, while the final tangent exactly matches the loop's bottom tangent.
+    let ramp_control_1 = ramp_start + ae::Vec2::new(150.0, 0.0);
+    let ramp_control_2 = loop_start - ae::Vec2::new(170.0, 0.0);
     for step in 1..=LOOP_RAMP_SEGMENTS {
         let t = step as f32 / LOOP_RAMP_SEGMENTS as f32;
         points.push(cubic_bezier(
@@ -92,11 +112,45 @@ fn raised_ramp_loop_points(floor_top: f32) -> (Vec<ae::Vec2>, ae::Vec2) {
             t,
         ));
     }
+
+    // Decreasing theta gives the rideable inward normals expected by the
+    // surface kernel. The final sample intentionally equals `loop_start`: it is
+    // non-adjacent to the entry sample, so no degenerate segment is introduced.
     for step in 1..=LOOP_SEGMENTS {
         let t = step as f32 / LOOP_SEGMENTS as f32;
         let theta = LOOP_START_ANGLE - LOOP_SWEEP_ANGLE * t;
         points.push(center + ae::Vec2::new(theta.cos(), theta.sin()) * LOOP_RADIUS);
     }
+
+    // Cross the loop mouth on a flat foreground deck first. A high-speed rider
+    // may legitimately launch when a track begins descending; doing that at the
+    // coincident inbound/outbound point lets the airborne circle immediately
+    // re-hit the back rail. The flat deck keeps the rider attached until the
+    // simulated-depth crossover is physically clear.
+    let overpass_end = ae::Vec2::new(LOOP_OVERPASS_END_X, loop_start.y);
+    for step in 1..=LOOP_OVERPASS_SEGMENTS {
+        let t = step as f32 / LOOP_OVERPASS_SEGMENTS as f32;
+        points.push(loop_start.lerp(overpass_end, t));
+    }
+
+    // Descend only after clearing the loop's rightmost extent. Both cubic end
+    // tangents are horizontal, so the overpass/descent seam and the return to
+    // the tiled floor are smooth. Launching from this convex descent is valid
+    // Sonic behavior because no back-lane rail remains underneath it.
+    let runout_end = ae::Vec2::new(LOOP_RUNOUT_END_X, floor_top);
+    let runout_control_1 = overpass_end + ae::Vec2::new(120.0, 0.0);
+    let runout_control_2 = runout_end - ae::Vec2::new(160.0, 0.0);
+    for step in 1..=LOOP_DESCENT_SEGMENTS {
+        let t = step as f32 / LOOP_DESCENT_SEGMENTS as f32;
+        points.push(cubic_bezier(
+            overpass_end,
+            runout_control_1,
+            runout_control_2,
+            runout_end,
+            t,
+        ));
+    }
+
     (points, center)
 }
 
@@ -112,8 +166,8 @@ pub const SPEED_MARKER_XS: [f32; 5] = [600.0, 1200.0, 1800.0, 2600.0, 3400.0];
 
 /// Build the Sanic momentum showcase room through the `ambition` umbrella
 /// surface ONLY. The tiled solid floor remains the ordinary run surface. A
-/// rebound reaches one raised, continuously sampled ramp+loop chain; its open
-/// release lands before the ramp and then runs underneath it.
+/// rebound feeds one continuously sampled raised ramp, complete 360-degree
+/// depth-layered loop, and floor-level runout chain.
 pub fn sanic_speedway() -> RoomSpec {
     let width = 4000.0;
     let height = 720.0;
@@ -121,7 +175,7 @@ pub fn sanic_speedway() -> RoomSpec {
 
     // Ambition's tiled block-art path supplies a readable ground fill. This is
     // a real solid floor: the raised loop route is reached by the existing
-    // rebound, then releases back onto the same ordinary ground.
+    // rebound, completes a full revolution, then descends back to ground.
     let mut tiled_floor = ae::Block::solid(
         "speedway_floor",
         ae::Vec2::new(0.0, floor_top),
@@ -146,9 +200,11 @@ pub fn sanic_speedway() -> RoomSpec {
         "speed_booster",
         ae::Vec2::new(1640.0, floor_top - 22.0),
         ae::Vec2::new(72.0, 22.0),
-        // Reach the raised ramp from below. The ramp and arc are one smooth
-        // route, so the rebound is entry staging rather than a seam workaround.
-        ae::Vec2::new(700.0, -550.0),
+        // Feed the raised ramp with enough horizontal speed to demonstrate the
+        // complete revolution while leaving the player in control. The ramp,
+        // loop, and runout remain one physical route; this is course pacing, not
+        // a chain-transfer workaround.
+        ae::Vec2::new(1120.0, -260.0),
     ));
     blocks.push(ae::Block::hazard(
         "finish_warning_spikes",
@@ -162,8 +218,42 @@ pub fn sanic_speedway() -> RoomSpec {
     ));
     let spawn = ae::Vec2::new(160.0, floor_top - 64.0);
 
-    let (ramp_loop_points, loop_center) = raised_ramp_loop_points(floor_top);
-    let ramp_loop = ae::SurfaceChain::open("sanic_loop", ramp_loop_points);
+    let (ramp_loop_points, loop_center) = raised_full_loop_points(floor_top);
+    let mut loop_depths = vec![0_i8; ramp_loop_points.len() - 1];
+    // The approach lives behind the player. The two lower loop shoulders and
+    // the outbound runout live in front, creating the classic inside/outside
+    // crossover without adding a second collision surface.
+    loop_depths[..LOOP_RAMP_SEGMENTS].fill(-1);
+    let front = LOOP_FOREGROUND_SEGMENTS_PER_SIDE.min(LOOP_SEGMENTS / 2);
+    loop_depths[LOOP_ENTRY_POINT_INDEX..LOOP_ENTRY_POINT_INDEX + front].fill(1);
+    loop_depths[LOOP_CLOSURE_POINT_INDEX - front..].fill(1);
+    // Momentum bodies ride an authored floor guide over the same tiled solid
+    // block. That makes the floor/ramp split a first-class route junction: the
+    // player can keep running on the floor or hold toward the raised ramp,
+    // without an airborne transfer hack. Chains are ordered loop first so the
+    // long-lived test fixtures keep the loop at index 0.
+    let floor_route = ae::SurfaceChain::open(
+        "sanic_floor_route",
+        vec![
+            ae::Vec2::new(0.0, floor_top),
+            ae::Vec2::new(LOOP_RAMP_START_X, floor_top),
+            ae::Vec2::new(LOOP_RUNOUT_END_X, floor_top),
+            ae::Vec2::new(width, floor_top),
+        ],
+    );
+    let ramp_loop = ae::SurfaceChain::open("sanic_loop", ramp_loop_points)
+        .with_segment_depths(loop_depths)
+        .with_junctions(vec![
+            ae::SurfaceJunction::new(vec![LOOP_ENTRY_POINT_INDEX, LOOP_CLOSURE_POINT_INDEX]),
+            ae::SurfaceJunction::across(vec![
+                ae::SurfacePort::local(0),
+                ae::SurfacePort::chain(1, 1),
+            ]),
+            ae::SurfaceJunction::across(vec![
+                ae::SurfacePort::local(LOOP_EXIT_POINT_INDEX),
+                ae::SurfacePort::chain(1, 2),
+            ]),
+        ]);
 
     let world = ae::World::new(
         "Sanic Speedway",
@@ -171,7 +261,7 @@ pub fn sanic_speedway() -> RoomSpec {
         spawn,
         blocks,
     )
-    .with_chains(vec![ramp_loop]);
+    .with_chains(vec![ramp_loop, floor_route]);
 
     let mut room = RoomSpec::new(SPEEDWAY_ROOM_ID, world);
     room.metadata.mode = Some(SANIC_MODE.to_string());

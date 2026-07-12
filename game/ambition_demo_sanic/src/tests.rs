@@ -72,67 +72,168 @@ fn sanic_speedway_composes_through_the_umbrella() {
         "distance labels make displacement measurable"
     );
 
-    // The raised entry ramp and loop are ONE valid rideable route. The ramp's
-    // final tangent agrees with the loop's first tangent, so the join is not a
-    // launch/reattach edge. The open release points down and right, lands before
-    // the raised ramp, and leaves enough clearance to run underneath it.
+    // The raised ramp, complete loop, and runout are ONE valid rideable
+    // route. The loop returns to its entry point after a full revolution, but
+    // at a later arc length; the continuation then descends to the floor.
     let loop_chain = room
         .world
         .chains
         .iter()
         .find(|c| c.name == "sanic_loop")
-        .expect("the sanic ramp+loop chain is present");
+        .expect("the sanic ramp+loop+runout chain is present");
     assert_eq!(
         loop_chain.points.len(),
-        1 + LOOP_RAMP_SEGMENTS + LOOP_SEGMENTS
+        1 + LOOP_RAMP_SEGMENTS + LOOP_SEGMENTS + LOOP_RUNOUT_SEGMENTS
     );
     assert!(
         !loop_chain.closed,
-        "the showcase loop must release rather than wrap forever"
+        "the route is open even though the loop body makes a full revolution"
     );
     assert!(
         loop_chain.validate().is_empty(),
-        "the generated ramp+loop route is valid: {:?}",
+        "the generated full-loop route is valid: {:?}",
         loop_chain.validate()
+    );
+
+    assert_eq!(
+        loop_chain.depth_lanes.len(),
+        loop_chain.segment_count(),
+        "the 2.5D loop authors one depth lane per segment"
+    );
+    assert_eq!(
+        loop_chain.segment_depth(LOOP_ENTRY_POINT_INDEX - 1),
+        -1,
+        "the inbound ramp passes behind the player at the crossover"
+    );
+    assert_eq!(
+        loop_chain.segment_depth(LOOP_ENTRY_POINT_INDEX),
+        1,
+        "the lower front shoulder occludes the player entering the loop"
+    );
+    assert_eq!(
+        loop_chain.segment_depth(LOOP_ENTRY_POINT_INDEX + LOOP_SEGMENTS / 2),
+        0,
+        "the upper loop body remains on the ordinary track plane"
+    );
+    assert_eq!(
+        loop_chain.segment_depth(LOOP_CLOSURE_POINT_INDEX),
+        1,
+        "the outbound runout occupies the foreground lane"
+    );
+    assert_eq!(loop_chain.junctions.len(), 3);
+    let loop_mouth = loop_chain
+        .junctions
+        .iter()
+        .find(|junction| {
+            junction.ports
+                == vec![
+                    ae::SurfacePort::local(LOOP_ENTRY_POINT_INDEX),
+                    ae::SurfacePort::local(LOOP_CLOSURE_POINT_INDEX),
+                ]
+        })
+        .expect("the two loop-mouth occurrences form an explicit switch");
+    assert_eq!(
+        loop_mouth.ports.len(),
+        2,
+        "the loop mouth has exactly its inbound and outbound route occurrences"
+    );
+    let floor_route = room
+        .world
+        .chains
+        .iter()
+        .find(|chain| chain.name == "sanic_floor_route")
+        .expect("momentum bodies have a floor guide that can branch into the ramp");
+    assert_eq!(floor_route.points.len(), 4);
+    assert!(
+        room.world.validate_surface_junctions().is_empty(),
+        "every local and cross-chain route port resolves to the same projected point: {:?}",
+        room.world.validate_surface_junctions()
+    );
+    assert!(
+        loop_chain.junctions.iter().any(|junction| {
+            junction.ports == vec![ae::SurfacePort::local(0), ae::SurfacePort::chain(1, 1)]
+        }),
+        "the tiled floor and the ramp are one steerable route junction"
     );
 
     let ramp_start = loop_chain.points[0];
     let entry = loop_chain.points[LOOP_ENTRY_POINT_INDEX];
+    let closure = loop_chain.points[LOOP_CLOSURE_POINT_INDEX];
     let exit = loop_chain.points[LOOP_EXIT_POINT_INDEX];
+    let overpass_end = loop_chain.points[LOOP_CLOSURE_POINT_INDEX + LOOP_OVERPASS_SEGMENTS];
+    assert!(
+        entry.distance(closure) < 1.0e-2,
+        "a complete loop returns to its entry world point: entry={entry:?}, closure={closure:?}"
+    );
+
     let ramp_tangent = (entry - loop_chain.points[LOOP_ENTRY_POINT_INDEX - 1]).normalize_or_zero();
-    let loop_tangent = (loop_chain.points[LOOP_ENTRY_POINT_INDEX + 1] - entry).normalize_or_zero();
+    let loop_entry_tangent =
+        (loop_chain.points[LOOP_ENTRY_POINT_INDEX + 1] - entry).normalize_or_zero();
     assert!(
-        ramp_tangent.dot(loop_tangent) > 0.995,
-        "the ramp must meet the loop without a tangent edge: ramp={ramp_tangent:?}, loop={loop_tangent:?}"
+        ramp_tangent.dot(loop_entry_tangent) > 0.995,
+        "the ramp must meet the loop without a tangent edge: ramp={ramp_tangent:?}, loop={loop_entry_tangent:?}"
     );
 
-    let exit_tangent = (exit - loop_chain.points[LOOP_EXIT_POINT_INDEX - 1]).normalize_or_zero();
+    let loop_closure_tangent =
+        (closure - loop_chain.points[LOOP_CLOSURE_POINT_INDEX - 1]).normalize_or_zero();
+    let runout_tangent =
+        (loop_chain.points[LOOP_CLOSURE_POINT_INDEX + 1] - closure).normalize_or_zero();
     assert!(
-        exit_tangent.x > 0.35 && exit_tangent.y > 0.7,
-        "the open endpoint must send a right-moving rider steeply down toward the floor: {exit_tangent:?}"
+        loop_closure_tangent.dot(runout_tangent) > 0.995,
+        "the completed loop must flow into its runout without a tangent edge: loop={loop_closure_tangent:?}, runout={runout_tangent:?}"
     );
+
     let floor_top = floor.aabb.min.y;
-    let straight_line_landing_x = exit.x + (floor_top - exit.y) * exit_tangent.x / exit_tangent.y;
+    assert!((ramp_start.y - floor_top).abs() < 1.0e-3);
+    assert!(entry.y < floor_top - 60.0, "the loop is visibly raised");
+    assert!((exit.y - floor_top).abs() < 1.0e-3);
     assert!(
-        straight_line_landing_x < ramp_start.x,
-        "even the gravity-free exit ray must reach the floor before the raised ramp: landing_x={straight_line_landing_x}, ramp_start={ramp_start:?}"
+        overpass_end.x > LOOP_CENTER_X + LOOP_RADIUS + 80.0,
+        "the flat foreground deck must clear the loop before descending"
     );
-    let standing_radius = 16.0;
     assert!(
-        floor_top - ramp_start.y > standing_radius * 2.0,
-        "a floor rider must pass underneath the raised ramp with full-body clearance: floor_top={floor_top}, ramp_start={ramp_start:?}"
+        (overpass_end.y - closure.y).abs() < 1.0e-3,
+        "the crossover deck must stay flat while it clears the back rail"
+    );
+    assert!(
+        exit.x > closure.x + LOOP_RADIUS * 3.0,
+        "the runout must carry the rider clear of the completed loop"
     );
 
-    // A local smoothness oracle catches the exact class of coarse edge that
-    // originally stranded the rider. Every adjacent pair around the ramp/loop
-    // join must turn gently rather than presenting a polygonal launch lip.
-    for joint in (LOOP_ENTRY_POINT_INDEX - 2)..=(LOOP_ENTRY_POINT_INDEX + 2) {
-        let before = (loop_chain.points[joint] - loop_chain.points[joint - 1]).normalize_or_zero();
-        let after = (loop_chain.points[joint + 1] - loop_chain.points[joint]).normalize_or_zero();
-        assert!(
-            before.dot(after) > 0.99,
-            "ramp/loop joint {joint} is too sharp: before={before:?}, after={after:?}"
-        );
+    // The loop samples all four quadrants around the label/visual center. This
+    // rejects the earlier three-quarter-loop compromise.
+    let loop_points = &loop_chain.points[LOOP_ENTRY_POINT_INDEX..=LOOP_CLOSURE_POINT_INDEX];
+    let min_x = loop_points
+        .iter()
+        .map(|p| p.x)
+        .fold(f32::INFINITY, f32::min);
+    let max_x = loop_points
+        .iter()
+        .map(|p| p.x)
+        .fold(f32::NEG_INFINITY, f32::max);
+    let min_y = loop_points
+        .iter()
+        .map(|p| p.y)
+        .fold(f32::INFINITY, f32::min);
+    let max_y = loop_points
+        .iter()
+        .map(|p| p.y)
+        .fold(f32::NEG_INFINITY, f32::max);
+    assert!(max_x - min_x > LOOP_RADIUS * 1.99);
+    assert!(max_y - min_y > LOOP_RADIUS * 1.99);
+
+    // Local smoothness oracles cover both repeated-world-point visits. The
+    // route may touch itself at the bottom, but neither arc-length join may be
+    // a polygonal collision lip.
+    for joint in [LOOP_ENTRY_POINT_INDEX, LOOP_CLOSURE_POINT_INDEX] {
+        for i in (joint - 2)..=(joint + 2) {
+            let before = (loop_chain.points[i] - loop_chain.points[i - 1]).normalize_or_zero();
+            let after = (loop_chain.points[i + 1] - loop_chain.points[i]).normalize_or_zero();
+            assert!(
+                before.dot(after) > 0.99,
+                "full-loop joint {i} is too sharp: before={before:?}, after={after:?}"
+            );
+        }
     }
 
     // Spawn is inside the room bounds (not floating/falling on load).
@@ -145,7 +246,7 @@ fn sanic_speedway_composes_through_the_umbrella() {
 }
 
 #[test]
-fn momentum_body_crosses_the_smoothed_ramp_loop_join_without_stalling() {
+fn momentum_body_crosses_the_ramp_full_loop_and_runout_without_stalling() {
     let room = sanic_speedway();
     let chain = room
         .world
@@ -156,16 +257,21 @@ fn momentum_body_crosses_the_smoothed_ramp_loop_join_without_stalling() {
     let entry_s: f32 = (0..LOOP_ENTRY_POINT_INDEX)
         .map(|segment| chain.segment_length(segment))
         .sum();
+    let closure_s: f32 = (0..LOOP_CLOSURE_POINT_INDEX)
+        .map(|segment| chain.segment_length(segment))
+        .sum();
     let start_s = entry_s - 30.0;
     let frame = chain.frame_at(start_s);
+    let speed = 1000.0;
     let mut body = ae::surface::SurfaceBody {
         pos: frame.point + frame.normal * 16.0,
-        vel: frame.tangent * 600.0,
+        vel: frame.tangent * speed,
         radius: 16.0,
+        depth_lane: chain.segment_depth(frame.segment),
         motion: ae::surface::SurfaceMotion::Riding {
             on: ae::surface::SurfaceRef::Chain(0),
             s: start_s,
-            v_t: 600.0,
+            v_t: speed,
         },
     };
     let params = ae::surface::MomentumParams {
@@ -180,7 +286,8 @@ fn momentum_body_crosses_the_smoothed_ramp_loop_join_without_stalling() {
         ..Default::default()
     };
 
-    for _ in 0..30 {
+    let mut reached_runout = false;
+    for _ in 0..180 {
         ae::surface::step_surface_body(
             &mut body,
             &room.world,
@@ -190,14 +297,81 @@ fn momentum_body_crosses_the_smoothed_ramp_loop_join_without_stalling() {
             1.0 / 60.0,
             None,
         );
+        let ae::surface::SurfaceMotion::Riding { s, .. } = body.motion else {
+            panic!("the continuous ramp/full-loop route must not shed the rider");
+        };
+        if s > closure_s + 120.0 {
+            reached_runout = true;
+            break;
+        }
     }
-
-    let ae::surface::SurfaceMotion::Riding { s, .. } = body.motion else {
-        panic!("the smoothed ramp/loop join must not shed the rider");
-    };
     assert!(
-        s > entry_s + 200.0,
-        "the rider must advance well into the loop instead of freezing at the ramp edge: entry_s={entry_s}, s={s}"
+        reached_runout,
+        "the rider must complete the full loop and enter the runout: entry_s={entry_s}, closure_s={closure_s}, motion={:?}",
+        body.motion
+    );
+}
+
+#[test]
+fn authored_sanic_speed_clears_the_depth_crossover_before_any_launch() {
+    let room = sanic_speedway();
+    let chain = room
+        .world
+        .chains
+        .iter()
+        .find(|chain| chain.name == "sanic_loop")
+        .expect("the speedway owns its ramp+loop route");
+    let entry_s: f32 = (0..LOOP_ENTRY_POINT_INDEX)
+        .map(|segment| chain.segment_length(segment))
+        .sum();
+    let closure_s: f32 = (0..LOOP_CLOSURE_POINT_INDEX)
+        .map(|segment| chain.segment_length(segment))
+        .sum();
+    let frame = chain.frame_at(entry_s);
+    let speed = 1120.0;
+    let mut body = ae::surface::SurfaceBody {
+        pos: frame.point + frame.normal * 16.0,
+        vel: frame.tangent * speed,
+        radius: 16.0,
+        depth_lane: chain.segment_depth(frame.segment),
+        motion: ae::surface::SurfaceMotion::Riding {
+            on: ae::surface::SurfaceRef::Chain(0),
+            s: entry_s,
+            v_t: speed,
+        },
+    };
+    let params = ae::surface::MomentumParams {
+        ground_accel: 900.0,
+        top_speed: 1200.0,
+        jump_speed: 700.0,
+        ..Default::default()
+    };
+
+    let clear_s = closure_s + 160.0;
+    for _ in 0..180 {
+        ae::surface::step_surface_body(
+            &mut body,
+            &room.world,
+            &params,
+            ae::Vec2::new(0.0, 1450.0),
+            ae::surface::SurfaceInputs {
+                run: 1.0,
+                steer: ae::Vec2::ZERO,
+                jump_pressed: false,
+            },
+            1.0 / 60.0,
+            None,
+        );
+        let ae::surface::SurfaceMotion::Riding { s, .. } = body.motion else {
+            panic!("authored Sanic speed must stay attached through the loop mouth; body={body:?}");
+        };
+        if s > clear_s {
+            return;
+        }
+    }
+    panic!(
+        "authored Sanic speed never cleared the foreground overpass; motion={:?}",
+        body.motion
     );
 }
 
@@ -390,4 +564,246 @@ fn the_speedway_claims_the_sanic_mode_and_wakes_a_hosted_ruleset() {
         .run_system_once(in_mode(SANIC_MODE))
         .expect("the mode condition runs");
     assert!(!awake, "and it sleeps in a room that claims no mode");
+}
+
+#[test]
+fn loop_mouth_steering_selects_the_up_or_down_route_in_both_directions() {
+    let room = sanic_speedway();
+    let chain = room
+        .world
+        .chains
+        .iter()
+        .find(|chain| chain.name == "sanic_loop")
+        .expect("the speedway owns its ramp+loop route");
+    let entry_s = chain.arc_at_vertex(LOOP_ENTRY_POINT_INDEX);
+    let closure_s = chain.arc_at_vertex(LOOP_CLOSURE_POINT_INDEX);
+    let params = ae::surface::MomentumParams {
+        ground_accel: 0.0,
+        brake: 0.0,
+        friction: 0.0,
+        slope_factor: 0.0,
+        top_speed: 2000.0,
+        air_accel: 0.0,
+        stick_factor: 1000.0,
+        min_stick_speed: 0.0,
+        ..Default::default()
+    };
+
+    let step_from = |s: f32, v_t: f32, steer: ae::Vec2| {
+        let frame = chain.frame_at(s);
+        let mut body = ae::surface::SurfaceBody {
+            pos: frame.point + frame.normal * 16.0,
+            vel: frame.tangent * v_t,
+            radius: 16.0,
+            depth_lane: chain.segment_depth(frame.segment),
+            motion: ae::surface::SurfaceMotion::Riding {
+                on: ae::surface::SurfaceRef::Chain(0),
+                s,
+                v_t,
+            },
+        };
+        ae::surface::step_surface_body(
+            &mut body,
+            &room.world,
+            &params,
+            ae::Vec2::new(0.0, 1450.0),
+            ae::surface::SurfaceInputs {
+                run: v_t.signum(),
+                steer,
+                jump_pressed: false,
+            },
+            1.0 / 60.0,
+            None,
+        );
+        body
+    };
+
+    let up_into_loop = step_from(entry_s - 3.0, 600.0, ae::Vec2::new(1.0, -1.0));
+    let ae::surface::SurfaceMotion::Riding { s, .. } = up_into_loop.motion else {
+        panic!("the authored route switch guides the rider instead of launching");
+    };
+    assert!(s > entry_s && s < closure_s, "up-right enters the loop");
+
+    let down_to_runout = step_from(entry_s - 3.0, 600.0, ae::Vec2::new(1.0, 1.0));
+    let ae::surface::SurfaceMotion::Riding { s, .. } = down_to_runout.motion else {
+        panic!("the authored route switch guides the rider instead of launching");
+    };
+    assert!(s > closure_s, "down-right selects the lower/outbound route");
+
+    let up_into_reverse_loop = step_from(closure_s + 3.0, -600.0, ae::Vec2::new(-1.0, -1.0));
+    let ae::surface::SurfaceMotion::Riding { s, .. } = up_into_reverse_loop.motion else {
+        panic!("the authored route switch guides the rider instead of launching");
+    };
+    assert!(
+        s > entry_s && s < closure_s,
+        "up-left enters the loop in reverse"
+    );
+
+    let down_to_ramp = step_from(closure_s + 3.0, -600.0, ae::Vec2::new(-1.0, 1.0));
+    let ae::surface::SurfaceMotion::Riding { s, .. } = down_to_ramp.motion else {
+        panic!("the authored route switch guides the rider instead of launching");
+    };
+    assert!(s < entry_s, "down-left selects the descending ramp");
+
+    let forward_default = step_from(closure_s - 3.0, 600.0, ae::Vec2::X);
+    let ae::surface::SurfaceMotion::Riding { s, .. } = forward_default.motion else {
+        panic!("horizontal input preserves the authored forward exit");
+    };
+    assert!(s > closure_s, "holding Right exits after one forward lap");
+
+    let reverse_default = step_from(entry_s + 3.0, -600.0, -ae::Vec2::X);
+    let ae::surface::SurfaceMotion::Riding { s, .. } = reverse_default.motion else {
+        panic!("horizontal input preserves the authored reverse exit");
+    };
+    assert!(s < entry_s, "holding Left exits after one reverse lap");
+}
+
+#[test]
+fn floor_route_steering_enters_the_ramp_without_jumping() {
+    let room = sanic_speedway();
+    let floor_index = room
+        .world
+        .chains
+        .iter()
+        .position(|chain| chain.name == "sanic_floor_route")
+        .expect("the speedway owns a momentum floor route");
+    let floor = &room.world.chains[floor_index];
+    let branch_s = floor.arc_at_vertex(1);
+    let params = ae::surface::MomentumParams {
+        ground_accel: 0.0,
+        brake: 0.0,
+        friction: 0.0,
+        slope_factor: 0.0,
+        top_speed: 2000.0,
+        air_accel: 0.0,
+        stick_factor: 1000.0,
+        min_stick_speed: 0.0,
+        ..Default::default()
+    };
+
+    let step = |steer: ae::Vec2| {
+        let frame = floor.frame_at(branch_s - 3.0);
+        let mut body = ae::surface::SurfaceBody {
+            pos: frame.point + frame.normal * 16.0,
+            vel: frame.tangent * 600.0,
+            radius: 16.0,
+            depth_lane: floor.segment_depth(frame.segment),
+            motion: ae::surface::SurfaceMotion::Riding {
+                on: ae::surface::SurfaceRef::Chain(floor_index),
+                s: branch_s - 3.0,
+                v_t: 600.0,
+            },
+        };
+        ae::surface::step_surface_body(
+            &mut body,
+            &room.world,
+            &params,
+            ae::Vec2::new(0.0, 1450.0),
+            ae::surface::SurfaceInputs {
+                run: 1.0,
+                steer,
+                jump_pressed: false,
+            },
+            1.0 / 60.0,
+            None,
+        );
+        body
+    };
+
+    let raised = step(ae::Vec2::new(1.0, -1.0));
+    assert!(
+        matches!(
+            raised.motion,
+            ae::surface::SurfaceMotion::Riding {
+                on: ae::surface::SurfaceRef::Chain(0),
+                ..
+            }
+        ),
+        "up-right transfers directly from the floor guide onto the ramp: {raised:?}"
+    );
+
+    let flat = step(ae::Vec2::X);
+    assert!(
+        matches!(
+            flat.motion,
+            ae::surface::SurfaceMotion::Riding {
+                on: ae::surface::SurfaceRef::Chain(index),
+                ..
+            } if index == floor_index
+        ),
+        "plain Right preserves the flat route: {flat:?}"
+    );
+}
+
+#[test]
+fn reverse_loop_exits_after_one_revolution_instead_of_reentering_forever() {
+    let room = sanic_speedway();
+    let chain = room
+        .world
+        .chains
+        .iter()
+        .find(|chain| chain.name == "sanic_loop")
+        .expect("the speedway owns its ramp+loop route");
+    let entry_s = chain.arc_at_vertex(LOOP_ENTRY_POINT_INDEX);
+    let closure_s = chain.arc_at_vertex(LOOP_CLOSURE_POINT_INDEX);
+    let start_s = closure_s + 180.0;
+    let frame = chain.frame_at(start_s);
+    let mut body = ae::surface::SurfaceBody {
+        pos: frame.point + frame.normal * 16.0,
+        vel: frame.tangent * -900.0,
+        radius: 16.0,
+        depth_lane: chain.segment_depth(frame.segment),
+        motion: ae::surface::SurfaceMotion::Riding {
+            on: ae::surface::SurfaceRef::Chain(0),
+            s: start_s,
+            v_t: -900.0,
+        },
+    };
+    // Isolate route topology from feel tuning: this oracle asks whether the
+    // authored reverse continuation exits after one lap, not whether a
+    // particular speed/stick-factor combination sheds from a convex ramp.
+    let params = ae::surface::MomentumParams {
+        ground_accel: 0.0,
+        brake: 0.0,
+        friction: 0.0,
+        slope_factor: 0.0,
+        top_speed: 2000.0,
+        air_accel: 0.0,
+        stick_factor: 1000.0,
+        min_stick_speed: 0.0,
+        ..Default::default()
+    };
+
+    let mut entered_loop = false;
+    for _ in 0..420 {
+        ae::surface::step_surface_body(
+            &mut body,
+            &room.world,
+            &params,
+            ae::Vec2::new(0.0, 1450.0),
+            ae::surface::SurfaceInputs {
+                run: -1.0,
+                steer: ae::Vec2::new(-1.0, 0.0),
+                jump_pressed: false,
+            },
+            1.0 / 60.0,
+            None,
+        );
+        match body.motion {
+            ae::surface::SurfaceMotion::Riding { s, .. } => {
+                entered_loop |= s > entry_s + 100.0 && s < closure_s - 100.0;
+                if entered_loop && s < entry_s - 0.5 {
+                    return;
+                }
+            }
+            ae::surface::SurfaceMotion::Airborne => {
+                panic!(
+                    "the topology oracle uses sticky, slope-free tuning and must remain attached; body={body:?}"
+                );
+            }
+        }
+    }
+    panic!(
+        "reverse traversal must leave after one revolution instead of re-entering; body={body:?}"
+    );
 }

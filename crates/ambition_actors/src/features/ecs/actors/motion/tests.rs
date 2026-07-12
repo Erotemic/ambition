@@ -54,6 +54,7 @@ fn momentum_body_falls_lands_and_runs_up_the_ramp() {
             &world,
             G,
             1.0,
+            ae::Vec2::X,
             false,
             1.0,
             DT,
@@ -89,6 +90,7 @@ fn jump_intent_launches_and_facing_writes_back() {
             &world,
             G,
             0.0,
+            ae::Vec2::ZERO,
             false,
             0.0,
             DT,
@@ -104,6 +106,7 @@ fn jump_intent_launches_and_facing_writes_back() {
         &world,
         G,
         0.0,
+        ae::Vec2::ZERO,
         true,
         -1.0,
         DT,
@@ -112,4 +115,73 @@ fn jump_intent_launches_and_facing_writes_back() {
     assert!(kin.vel.y < -400.0, "launched along +normal: {:?}", kin.vel);
     assert_eq!(kin.facing, -1.0, "explicit facing intent applied");
     assert_eq!(normal, ae::Vec2::new(0.0, -1.0), "airborne frame = gravity");
+}
+
+#[test]
+fn momentum_wrapper_forwards_two_dimensional_route_intent() {
+    let chain = ae::SurfaceChain::open(
+        "route-switch",
+        vec![
+            ae::Vec2::new(-100.0, 50.0),
+            ae::Vec2::ZERO,
+            ae::Vec2::new(100.0, -50.0),
+            ae::Vec2::new(-100.0, -50.0),
+            ae::Vec2::ZERO,
+            ae::Vec2::new(100.0, 0.0),
+        ],
+    )
+    .with_junctions(vec![ae::SurfaceJunction::new(vec![1, 4])]);
+    let entry_s = chain.arc_at_vertex(1);
+    let runout_s = chain.arc_at_vertex(4);
+    let world = ae::World::new(
+        "route-test",
+        ae::Vec2::new(1000.0, 1000.0),
+        ae::Vec2::ZERO,
+        Vec::new(),
+    )
+    .with_chains(vec![chain]);
+    let frame = world.chains[0].frame_at(entry_s - 1.0);
+    let mut kin = kin_at(frame.point + frame.normal * 14.0);
+    kin.vel = frame.tangent * 240.0;
+    let mut motion = MomentumMotion::new(ae::surface::MomentumParams {
+        ground_accel: 0.0,
+        brake: 0.0,
+        friction: 0.0,
+        slope_factor: 0.0,
+        top_speed: 1000.0,
+        air_accel: 0.0,
+        stick_factor: 1000.0,
+        min_stick_speed: 0.0,
+        ..Default::default()
+    });
+    motion.state = ae::surface::SurfaceMotion::Riding {
+        on: ae::surface::SurfaceRef::Chain(0),
+        s: entry_s - 1.0,
+        v_t: 240.0,
+    };
+    let mut on_ground = true;
+    let mut normal = frame.normal;
+
+    step_momentum_body(
+        &mut kin,
+        &mut on_ground,
+        &mut normal,
+        &mut motion,
+        &world,
+        G,
+        1.0,
+        ae::Vec2::new(1.0, 1.0),
+        false,
+        1.0,
+        DT,
+    );
+
+    let ae::surface::SurfaceMotion::Riding { s, v_t, .. } = motion.state else {
+        panic!("an authored route switch should guide rather than launch");
+    };
+    assert!(
+        s > runout_s,
+        "the actor wrapper must forward Down+Right so the lower route wins"
+    );
+    assert!(v_t > 0.0, "route choice preserves forward momentum");
 }

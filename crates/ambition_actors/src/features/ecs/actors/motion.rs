@@ -35,6 +35,8 @@ pub struct MomentumMotion {
     pub params: ae::surface::MomentumParams,
     /// The follower's persistent state (airborne vs riding-at-arc-length).
     pub state: ae::surface::SurfaceMotion,
+    /// Simulated-depth lane retained through airborne crossover motion.
+    pub depth_lane: i8,
 }
 
 impl MomentumMotion {
@@ -42,6 +44,7 @@ impl MomentumMotion {
         Self {
             params,
             state: ae::surface::SurfaceMotion::Airborne,
+            depth_lane: 0,
         }
     }
 }
@@ -49,8 +52,9 @@ impl MomentumMotion {
 /// One frame of surface-momentum motion for an actor body — the pure core
 /// `integrate_actor_body` dispatches to when the body carries
 /// `MotionModel::SurfaceMomentum`. Reads the same brain-produced intent every
-/// controller writes (`run` = `locomotion.x`, `jump_pressed`), so human / AI /
-/// RL / possession are indistinguishable here.
+/// controller writes (`run` = `locomotion.x`, `steer_local` = the full local
+/// locomotion vector, `jump_pressed`), so human / AI / RL / possession are
+/// indistinguishable here.
 ///
 /// Writes back: position/velocity, `on_ground` (= riding), and the body's
 /// reference frame (`surface_normal` follows the ridden chain — the footprint
@@ -67,6 +71,7 @@ pub fn step_momentum_body(
     world: &ae::World,
     gravity: ae::Vec2,
     run: f32,
+    steer_local: ae::Vec2,
     jump_pressed: bool,
     facing: f32,
     dt: f32,
@@ -75,6 +80,7 @@ pub fn step_momentum_body(
         pos: kin.pos,
         vel: kin.vel,
         radius: kin.size.min_element() * 0.5,
+        depth_lane: m.depth_lane,
         motion: m.state,
     };
     let mut contacts = Vec::new();
@@ -83,13 +89,18 @@ pub fn step_momentum_body(
         world,
         &m.params,
         gravity,
-        ae::surface::SurfaceInputs { run, jump_pressed },
+        ae::surface::SurfaceInputs {
+            run,
+            steer: ae::AccelerationFrame::new(gravity).to_world(steer_local),
+            jump_pressed,
+        },
         dt,
         Some(&mut contacts),
     );
     kin.pos = body.pos;
     kin.vel = body.vel;
     m.state = body.motion;
+    m.depth_lane = body.depth_lane;
     *on_ground = body.riding();
     if facing != 0.0 {
         kin.facing = facing;

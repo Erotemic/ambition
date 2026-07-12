@@ -101,8 +101,10 @@ fn the_demo_loads_shared_assets_and_draws_landmarks_and_the_loop() {
         .count();
     assert_eq!(
         loop_segments,
-        ambition_demo_sanic::LOOP_RAMP_SEGMENTS + ambition_demo_sanic::LOOP_SEGMENTS,
-        "every collision segment in the smooth raised ramp+loop route must have a visible strip"
+        ambition_demo_sanic::LOOP_RAMP_SEGMENTS
+            + ambition_demo_sanic::LOOP_SEGMENTS
+            + ambition_demo_sanic::LOOP_RUNOUT_SEGMENTS,
+        "every collision segment in the smooth ramp+loop+runout route must have a visible strip"
     );
 }
 

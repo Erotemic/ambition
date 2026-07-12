@@ -120,13 +120,33 @@ the canonical worn-character systems rather than a demo-local sprite swap. The
 mode rule consumes Utility so the inherited control box cannot also interpret D
 as the generic fly toggle.
 
-**The showcase loop has a real raised on-ramp, without an edge seam.** The
-rebound lands on a short cubic ramp whose final tangent exactly matches the
-first tangent of a densely sampled 270-degree loop. Ramp and arc are one
-`SurfaceChain`, so the follower never launches and reprojects at their join.
-The open exit points steeply down/right, reaches the floor before the raised
-ramp, and then passes underneath with full body clearance. This preserves the
-classic entry/exit layering instead of deleting the ramp to avoid the bug.
+**The showcase loop is a complete 360-degree track with a real ramp and
+runout.** A cubic rises from the floor to the loop's bottom with a horizontal
+entry tangent; the densely sampled loop makes one full revolution, returns to
+the same world point at a later arc length, and continues through a tangent-
+matched cubic runout back to the floor. Ramp, loop, and runout remain one open
+`SurfaceChain`. A second authored floor guide sits on the tiled solid and joins
+the ramp/runout through cross-chain `SurfaceJunction` ports, so a momentum body
+can choose flat ground or the raised route while remaining continuously riding.
+The repeated loop-mouth point is disambiguated by persistent arc length, not by
+removing part of the loop.
+
+**Route choice uses where a branch goes, not only its tangent at the switch.**
+Classic ramps are tangent-continuous with the floor and loop mouth, so the two
+candidate tangents can be identical exactly where input is sampled. The engine
+scores a short lookahead heading for each outgoing half-edge. Only the input
+component transverse to the incoming route may override the authored path:
+holding Up/Down selects the rising/falling branch, while plain Left/Right remains
+locomotion and preserves the one-lap continuation. Near-ties also preserve the
+authored route, so reverse travel cannot become an accidental infinite loop.
+
+**Zero-speed surface joints are an engine invariant, not level-authoring
+policy.** Arc length is ambiguous exactly at a polyline vertex. The follower
+now resolves a resting joint by travel direction, then the adjacent branch
+with the strongest gravity support, using run intent only when support is tied. A body stopped on a ramp or
+loop polygon therefore remains grounded on the support branch: jump, crouch,
+and walking away continue to work instead of losing authority because
+`frame_at` happened to select a wall-like neighbor.
 
 **The rev has a visible pose without a demo-local animator.** While Down is held,
 the rule arms the shared `BodyAnimFacts::dash_startup_timer`. The canonical body
@@ -163,7 +183,9 @@ the airborne sweep re-attached the body at the very vertex the ride step had jus
 launched it from — a two-frame limit cycle with the position frozen at the lip.
 The mirrored air control had been shoving the body back *over* the chain instead
 of off it, so the one test that walked a flat chain end passed for the wrong
-reason. `leaving_an_open_end()` is the guard; it is one-directional, so landing on
+reason. `leaving_an_open_end()` is the guard; an ignored endpoint hit consumes
+the rest of the ballistic frame rather than repeatedly reporting TOI zero. The
+guard is one-directional, so landing on
 a ramp's tip while moving inward still attaches.
 
 Both are fixed with tests, in `ambition_engine_core::surface`. Neither is an

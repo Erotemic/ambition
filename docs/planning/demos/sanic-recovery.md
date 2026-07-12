@@ -234,10 +234,12 @@ must provide:
   press D (the semantic Utility action) to toggle Sanic / Super Sanic;
 - holding Down visibly enters the shared crouch/rev presentation path, and the
   technique works from ordinary flat tiled ground as well as a ramp;
-- visible movement of the canonical actor across tiled, landmarked ground and an
-  raised cubic on-ramp and 270-degree open loop authored as one continuous
-  route: the ramp/arc tangent matches at the join, while the steep open exit
-  lands before the ramp and carries the rider underneath it;
+- visible movement of the canonical actor across tiled, landmarked ground and a
+  raised cubic on-ramp, complete 360-degree loop, and floor-level runout;
+  cross-chain route ports let held direction choose the flat floor or raised
+  route without an airborne hop, and transverse lookahead branch scoring uses
+  Up/Down as route bias while plain Left/Right preserves the authored one-lap
+  exit in both directions;
 - actual selected character art and animation for both Sanic forms, not a rectangle;
 - camera follow;
 - looping `you_are_too_slow` music;

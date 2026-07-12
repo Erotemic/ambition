@@ -98,6 +98,7 @@ fn ride_into_the_corner(o: RampOrientation) -> ae::Vec2 {
         pos: f.point + f.normal * radius,
         vel: ae::Vec2::ZERO,
         radius,
+        depth_lane: 0,
         motion: ae::surface::SurfaceMotion::Riding {
             on: ae::surface::SurfaceRef::Chain(0),
             s,
@@ -123,6 +124,7 @@ fn ride_into_the_corner(o: RampOrientation) -> ae::Vec2 {
             gravity,
             ae::surface::SurfaceInputs {
                 run,
+                steer: ae::Vec2::ZERO,
                 jump_pressed: false,
             },
             DT,

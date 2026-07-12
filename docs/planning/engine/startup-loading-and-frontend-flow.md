@@ -401,6 +401,17 @@ invariant. Commands to re-verify are at the end of this section.
     non-initial home)** — DONE.
     `tests/shell_cycle.rs::sanic_quit_to_home_is_host_relative`: the identical
     provider under two different declared homes returns to each.
+- **Mary-O (SMB1) is the SECOND customer of the identical architecture** — one
+  session-scope + provider + shell machinery serves two unrelated games.
+  `Smb1ExperiencePlugin` (`game/ambition_demo_smb1/src/provider.rs`), a thin
+  `build_demo_app` host (`mary_o_gameplay` / `mary_o_launcher`), and
+  `game/ambition_demo_smb1_app/tests/shell_cycle.rs::{mary_o_launch_quit_relaunch_is_leak_free,
+  mary_o_quit_to_home_is_host_relative}` — both poison-proven. *(commit
+  `383a9662`)* This satisfies I1/I3/I4/#20/#21/#22 for Mary-O too, and the
+  acceptance-#18 "Sanic and Mary-O share minimal plugins and semantic contracts"
+  is now demonstrated for the shell/session/teardown layer. The provider lifecycle
+  is currently a clean copy of Sanic's; extracting the shared bridge is a
+  follow-up when the third consumer (Ambition) lands.
 
 ### OPEN / BLOCKED (scoped, not started or partial)
 - **App-local content catalogs.** Characters/music/SFX are still process-global
@@ -459,10 +470,10 @@ acceptance test passes; do not close a broad parent with a caveat.
 | P2 activity host and engagement | OPEN | two unrelated activities need no engine branch |
 | P3 ready-hold and cleanup | OPEN | engaged activity continues; Continue cleans/commits |
 | I0 asset/save/world contributors | OPEN | at least three contributor kinds share protocol |
-| I1 reusable game/demo experience providers | SANIC DONE | `SanicExperiencePlugin`; Mary-O/Ambition OPEN |
+| I1 reusable game/demo experience providers | SANIC + MARY-O DONE | `SanicExperiencePlugin` / `Smb1ExperiencePlugin`; Ambition OPEN |
 | I2 Ambition launcher integration | OPEN (blocked on App-local catalogs) | Ambition game + every bundled demo are selectable |
-| I3 standalone demo hosts | SANIC DONE | `build_demo_app` thin host; Mary-O OPEN |
-| I4 quit-to-home and repeated relaunch | SANIC DONE | `shell_cycle.rs` leak-free + host-relative + poison |
+| I3 standalone demo hosts | SANIC + MARY-O DONE | both `build_demo_app`s thin hosts |
+| I4 quit-to-home and repeated relaunch | SANIC + MARY-O DONE | both `shell_cycle.rs` leak-free + host-relative + poison |
 | I5 startup/menu/gameplay route | OPEN | sequence -> launcher -> prepared session end to end |
 | I6 credits and cutscene adapters | OPEN | direct credits and top-level cutscene entry work |
 | I7 architecture/poison policy | PARTIAL | standalone-no-app-dep policy green; more poison OPEN |

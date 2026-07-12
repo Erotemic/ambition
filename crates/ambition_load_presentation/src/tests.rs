@@ -305,3 +305,182 @@ fn engaged_activity_holds_ready_until_continue_and_cleans_scope() {
     );
     assert!(app.world().get_entity(scoped).is_err());
 }
+
+// ── Composed slow-reveal and failure paths (acceptance #27, #28, #32) ───────────
+
+/// Like `composed_app` but with a configurable hidden-grace reveal delay so a
+/// test can hold a load pending and control when the foreground reveals.
+fn composed_app_revealing(
+    reveal_after: Duration,
+) -> (
+    bevy::prelude::App,
+    ambition_load::LoadId,
+    ambition_load::LoadBarrierId,
+) {
+    use ambition_game_shell::{
+        ShellHostConfiguration, ShellHostSpec, ShellRouteCatalog, ShellRouteSpec,
+    };
+    use ambition_load::{LoadBarrierSpec, LoadCommand, LoadPlanSpec};
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.add_plugins(MinimalLoadShellPlugins);
+    app.insert_resource(Time::<()>::default());
+
+    let load = ambition_load::LoadId::new("fixture-load");
+    let barrier = ambition_load::LoadBarrierId::new("fixture-ready");
+    {
+        let mut loads = app
+            .world_mut()
+            .resource_mut::<ambition_load::LoadCoordinator>();
+        loads.apply(LoadCommand::Begin(LoadPlanSpec::new(
+            load.clone(),
+            "Fixture load",
+        )));
+        loads.apply(LoadCommand::DeclareBarrier {
+            load_id: load.clone(),
+            spec: LoadBarrierSpec::new(barrier.clone(), "Preparing world"),
+        });
+    }
+    app.world_mut()
+        .resource_mut::<ShellRouteCatalog>()
+        .register(
+            ShellRouteSpec::new("game", "fixture-game").requiring(load.clone(), barrier.clone()),
+        );
+    app.world_mut()
+        .resource_mut::<ShellHostConfiguration>()
+        .spec = Some(ShellHostSpec::new("game", "game"));
+    app.world_mut()
+        .resource_mut::<LoadPresentationCatalog>()
+        .by_route
+        .insert(
+            ShellRouteId::new("game"),
+            LoadExperienceSpec {
+                id: LoadExperienceId::new("fixture-presentation"),
+                reveal_after,
+                ready_policy: ReadyTransitionPolicy::AutoAdvance,
+                activity: None,
+                show_estimated_percentage: true,
+            },
+        );
+    (app, load, barrier)
+}
+
+#[test]
+fn slow_required_work_reveals_basic_presentation_with_exact_facts() {
+    use ambition_load::{LoadCommand, LoadWorkSpec, LoadWorkState};
+    use bevy::prelude::Time;
+
+    let (mut app, load, barrier) = composed_app_revealing(Duration::from_millis(200));
+    // Two required steps: one already done, one still running.
+    {
+        let mut loads = app
+            .world_mut()
+            .resource_mut::<ambition_load::LoadCoordinator>();
+        for (id, label) in [
+            ("geometry", "Decode geometry"),
+            ("entities", "Build entities"),
+        ] {
+            loads.apply(LoadCommand::UpsertWork {
+                load_id: load.clone(),
+                spec: LoadWorkSpec::required(id, label, barrier.clone()),
+            });
+        }
+        loads.apply(LoadCommand::SetWorkState {
+            load_id: load.clone(),
+            work_id: ambition_load::LoadWorkId::new("geometry"),
+            state: LoadWorkState::Complete,
+        });
+        loads.apply(LoadCommand::SetWorkState {
+            load_id: load.clone(),
+            work_id: ambition_load::LoadWorkId::new("entities"),
+            state: LoadWorkState::Running { progress: None },
+        });
+    }
+
+    // Within hidden grace, nothing is shown even though the barrier is unresolved.
+    app.update();
+    assert!(!app.world().resource::<LoadPresentationModel>().visible);
+
+    // Past the grace budget, the basic presentation reveals with EXACT facts.
+    app.world_mut()
+        .resource_mut::<Time>()
+        .advance_by(Duration::from_millis(250));
+    app.update();
+    let model = app.world().resource::<LoadPresentationModel>();
+    assert!(
+        model.visible,
+        "slow required work must reveal the foreground"
+    );
+    assert_eq!(
+        (
+            model.completed_steps,
+            model.active_steps,
+            model.known_remaining_steps
+        ),
+        (1, 1, 1),
+    );
+    assert_eq!(model.stage, "Preparing world");
+    // A route still pending: the barrier never committed while work is unresolved.
+    assert!(app
+        .world()
+        .resource::<ambition_game_shell::ShellRouter>()
+        .active
+        .is_none());
+    let _ = barrier;
+}
+
+#[derive(bevy::prelude::Resource, Default)]
+struct RetryLog(Vec<ShellRouteId>);
+
+#[test]
+fn failure_produces_basic_retry_path() {
+    use ambition_load::{LoadCommand, LoadFailure, LoadWorkSpec, LoadWorkState};
+    use bevy::prelude::*;
+
+    let (mut app, load, barrier) = composed_app_revealing(Duration::ZERO);
+    app.init_resource::<RetryLog>();
+    app.add_systems(
+        Update,
+        (|mut reader: MessageReader<LoadPresentationEvent>, mut log: ResMut<RetryLog>| {
+            for event in reader.read() {
+                let LoadPresentationEvent::RetryRequested { route_id, .. } = event;
+                log.0.push(route_id.clone());
+            }
+        })
+        .in_set(LoadPresentationSet::Render),
+    );
+    {
+        let mut loads = app
+            .world_mut()
+            .resource_mut::<ambition_load::LoadCoordinator>();
+        loads.apply(LoadCommand::UpsertWork {
+            load_id: load.clone(),
+            spec: LoadWorkSpec::required("decode", "Decode save", barrier.clone()),
+        });
+        loads.apply(LoadCommand::SetWorkState {
+            load_id: load.clone(),
+            work_id: ambition_load::LoadWorkId::new("decode"),
+            state: LoadWorkState::Failed(
+                LoadFailure::new("Could not read your save", "fixture io error").retryable(true),
+            ),
+        });
+    }
+    app.update();
+
+    // The foreground surfaces the failure with a retryable message.
+    let model = app.world().resource::<LoadPresentationModel>();
+    assert_eq!(
+        model.readiness,
+        Some(ambition_load::BarrierReadiness::Failed)
+    );
+    assert_eq!(model.failures.len(), 1);
+    assert!(model.failures[0].retryable);
+
+    // The universal Retry action asks the game to rebuild the plan (the
+    // presentation cannot manufacture readiness itself).
+    app.world_mut().write_message(LoadPresentationAction::Retry);
+    app.update();
+    let log = app.world().resource::<RetryLog>();
+    assert_eq!(log.0, vec![ShellRouteId::new("game")]);
+}

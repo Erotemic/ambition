@@ -183,10 +183,12 @@ mod composed {
     use bevy::prelude::{App, Component};
 
     use crate::{
-        ExperienceRegistration, MinimalShellPlugins, ShellCommand, ShellExperienceRegistry,
-        ShellHostConfiguration, ShellHostSpec, ShellLaunchCatalog, ShellLauncherCommand,
-        ShellLauncherState, ShellRouteCatalog, ShellRouteId, ShellRouteSpec, ShellRouter,
-        ShellScopedEntity,
+        ActiveShellSequence, ExperienceRegistration, MinimalShellPlugins, ShellCommand,
+        ShellCompletionPolicy, ShellExperienceId, ShellExperienceRegistry, ShellHostConfiguration,
+        ShellHostSpec, ShellLaunchCatalog, ShellLauncherCommand, ShellLauncherState,
+        ShellRouteCatalog, ShellRouteId, ShellRouteSpec, ShellRouter, ShellScopedEntity,
+        ShellSegmentId, ShellSegmentRole, ShellSegmentSpec, ShellSequenceCatalog,
+        ShellSequenceCommand, ShellSequenceSpec,
     };
 
     /// A minimal headless shell host: router + sequence + launcher, no rendering.
@@ -351,5 +353,127 @@ mod composed {
             q.iter(app.world()).count()
         };
         assert_eq!(leaked, 0, "no scoped gameplay entity may survive a return");
+    }
+
+    // ── Startup sequence integration (acceptance #37, #39, #40) ─────────────────
+
+    /// Register a startup route that plays a programmatic sequence, then routes
+    /// to the launcher when the sequence completes.
+    fn register_startup_sequence(app: &mut App, segments: Vec<&str>) {
+        let experience = ShellExperienceId::new("startup-seq");
+        app.world_mut()
+            .resource_mut::<ShellRouteCatalog>()
+            .register(
+                ShellRouteSpec::new("startup", experience.clone())
+                    .on_complete(ShellCompletionPolicy::GoTo(ShellRouteId::new("launcher"))),
+            );
+        app.world_mut()
+            .resource_mut::<ShellSequenceCatalog>()
+            .register(
+                experience,
+                ShellSequenceSpec {
+                    segments: segments
+                        .into_iter()
+                        .map(|id| {
+                            ShellSegmentSpec::registered(
+                                id,
+                                ShellSegmentRole::Vanity,
+                                format!("{id}-card"),
+                            )
+                        })
+                        .collect(),
+                },
+            );
+    }
+
+    fn active_registered_segment(app: &App) -> Option<(crate::ShellActivationId, ShellSegmentId)> {
+        app.world()
+            .resource::<ActiveShellSequence>()
+            .registered_segment()
+            .map(|(activation, segment, _)| (activation, segment.clone()))
+    }
+
+    #[test]
+    fn startup_sequence_hands_off_to_configured_route() {
+        let mut app = shell_app();
+        register_home(&mut app, "launcher");
+        register_startup_sequence(&mut app, vec!["boot"]);
+        app.world_mut()
+            .resource_mut::<ShellHostConfiguration>()
+            .spec = Some(ShellHostSpec::new("startup", "launcher"));
+        app.update();
+        assert_eq!(active_route(&app), Some("startup".to_owned()));
+
+        // Complete the one programmatic segment; the sequence finishes and the
+        // route's on_complete policy hands off to the launcher.
+        let (activation_id, segment_id) =
+            active_registered_segment(&app).expect("boot segment is active");
+        app.world_mut()
+            .write_message(ShellSequenceCommand::ProgrammaticSegmentCompleted {
+                activation_id,
+                segment_id,
+            });
+        app.update();
+        app.update();
+        assert_eq!(active_route(&app), Some("launcher".to_owned()));
+    }
+
+    #[test]
+    fn stale_segment_completion_cannot_advance_a_later_segment() {
+        let mut app = shell_app();
+        register_home(&mut app, "launcher");
+        register_startup_sequence(&mut app, vec!["first", "second"]);
+        app.world_mut()
+            .resource_mut::<ShellHostConfiguration>()
+            .spec = Some(ShellHostSpec::new("startup", "launcher"));
+        app.update();
+
+        let (activation_id, first_id) =
+            active_registered_segment(&app).expect("first segment active");
+        app.world_mut()
+            .write_message(ShellSequenceCommand::ProgrammaticSegmentCompleted {
+                activation_id,
+                segment_id: first_id.clone(),
+            });
+        app.update();
+        let (_, second_id) = active_registered_segment(&app).expect("second segment active");
+        assert_ne!(first_id, second_id);
+
+        // A stale completion naming the retired first segment must not advance the
+        // now-current second segment.
+        app.world_mut()
+            .write_message(ShellSequenceCommand::ProgrammaticSegmentCompleted {
+                activation_id,
+                segment_id: first_id,
+            });
+        app.update();
+        assert_eq!(
+            active_registered_segment(&app).map(|(_, id)| id),
+            Some(second_id),
+            "stale completion must not advance the sequence",
+        );
+        assert_eq!(active_route(&app), Some("startup".to_owned()));
+    }
+
+    #[test]
+    fn dev_host_bypasses_startup_sequence_and_enters_route_directly() {
+        let mut app = shell_app();
+        register_home(&mut app, "launcher");
+        // A plain gameplay route with no registered sequence.
+        app.world_mut()
+            .resource_mut::<ShellRouteCatalog>()
+            .register(ShellRouteSpec::new("gameplay", "game-exp"));
+        app.world_mut()
+            .resource_mut::<ShellHostConfiguration>()
+            .spec = Some(ShellHostSpec::new("gameplay", "launcher"));
+        app.update();
+        assert_eq!(active_route(&app), Some("gameplay".to_owned()));
+        assert!(
+            app.world()
+                .resource::<ActiveShellSequence>()
+                .runtime
+                .is_none(),
+            "no sequence runs when entering a plain route directly",
+        );
     }
 }

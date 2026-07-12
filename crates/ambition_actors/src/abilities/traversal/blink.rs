@@ -101,16 +101,14 @@ pub fn blink_system(
     // blink/dash machinery absent) — a worn speedster must not teleport with
     // the robot's blink. Absence is never interpreted as an axis policy.
     controlled: Res<ControlledSubject>,
-    mut bodies: Query<
-        (
-            Entity,
-            &mut BodyKinematics,
-            &HeldItem,
-            &ActorControl,
-            Option<&mut crate::ability_cooldown::AbilityCooldown>,
-            &crate::features::MotionModel,
-        ),
-    >,
+    mut bodies: Query<(
+        Entity,
+        &mut BodyKinematics,
+        &HeldItem,
+        &ActorControl,
+        Option<&mut crate::ability_cooldown::AbilityCooldown>,
+        &crate::features::MotionModel,
+    )>,
     mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut hits: MessageWriter<crate::features::HitEvent>,
@@ -121,8 +119,7 @@ pub fn blink_system(
     let Some(subject) = controlled.0 else {
         return;
     };
-    let Ok((player, mut kin, held, control, mut cooldown, motion_model)) =
-        bodies.get_mut(subject)
+    let Ok((player, mut kin, held, control, mut cooldown, motion_model)) = bodies.get_mut(subject)
     else {
         return;
     };

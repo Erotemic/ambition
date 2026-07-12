@@ -561,6 +561,7 @@ fn boss_actor_cluster(
     super::super::enemies::ActorSurfaceState,
     super::super::components::BodyMelee,
     crate::actor::AncillaryMovementBundle,
+    crate::features::MotionModel,
     crate::combat::CombatCapabilities,
     crate::combat::CombatTuning,
 ) {
@@ -621,6 +622,10 @@ fn boss_actor_cluster(
         crate::actor::AncillaryMovementBundle::from_scratch(
             super::actor_clusters::ActorBody::from_caps(&caps, true).0,
         ),
+        // Every integrated body carries an explicit policy from spawn — the
+        // boss is axis-swept (its direct-velocity flight rides the per-tick
+        // axis-parameter refresh in `integrate_body`).
+        crate::features::MotionModel::default(),
         caps,
         // Project the boss's weight onto the combat-owned carrier at spawn
         // (E2 verdict b); default `1.0` here since bosses don't author weight.

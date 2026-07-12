@@ -374,6 +374,11 @@ pub fn gate_worn_player_control(
             &ActionSet,
             &mut ambition_characters::brain::ActorControl,
             Has<ambition_characters::brain::ChargesProjectiles>,
+            // Holding an item REPURPOSES the attack verb (the pickup stashes the
+            // melee kit precisely so item-use fires instead), so the persona
+            // gate must not eat melee/shield presses while an item is held —
+            // by IDENTITY, not by racing the item systems in schedule order.
+            Has<ambition_combat::held_items::HeldItem>,
         ),
         With<crate::actor::PlayerEntity>,
     >,
@@ -385,13 +390,13 @@ pub fn gate_worn_player_control(
         return;
     };
 
-    for (worn, actions, mut control, has_charge_marker) in &mut players {
-        if actions.melee.is_none() {
+    for (worn, actions, mut control, has_charge_marker, holds_item) in &mut players {
+        if actions.melee.is_none() && !holds_item {
             control.0.melee_pressed = false;
             control.0.pogo_pressed = false;
             control.0.attack_axis = ambition_engine_core::Vec2::ZERO;
         }
-        if actions.ranged.is_none() {
+        if actions.ranged.is_none() && !holds_item {
             control.0.fire = None;
         }
 
@@ -399,7 +404,9 @@ pub fn gate_worn_player_control(
             actions.special.as_ref(),
             Some(SpecialActionSpec::Special(key)) if key == "bubble_shield"
         );
-        if !allows_body_shield {
+        // Shield+Attack is the universal "throw the held item" gesture, so a
+        // held item keeps the shield verb alive too.
+        if !allows_body_shield && !holds_item {
             control.0.shield_held = false;
         }
 

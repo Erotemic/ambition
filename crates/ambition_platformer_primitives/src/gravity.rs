@@ -217,6 +217,26 @@ pub fn gravity_dir_at(pos: Vec2, zones: &GravityZones, base_dir: Vec2) -> Vec2 {
     base_dir.normalize_or_zero()
 }
 
+/// The localized gravity direction for a BODY: the first [`GravityZone`] the
+/// body's AABB overlaps, else `base_dir`. This is the resolver the movement
+/// frame uses — a field grabs a body when the body TOUCHES it (the same rule
+/// [`resolve_active_gravity`] applies to the primary body), not when its center
+/// point crosses in; the point form above stays for cheap observation reads
+/// (perception, VFX).
+pub fn gravity_dir_for(
+    body: ambition_engine_core::Aabb,
+    zones: &GravityZones,
+    base_dir: Vec2,
+) -> Vec2 {
+    use ambition_engine_core::AabbExt;
+    for (aabb, dir) in &zones.zones {
+        if body.strict_intersects(*aabb) {
+            return dir.normalize_or_zero();
+        }
+    }
+    base_dir.normalize_or_zero()
+}
+
 /// Sign of the localized gravity along Y at `pos` (`+1` down / `-1` up) — the
 /// per-body analogue of [`GravityField::vertical_sign`] for the axis-based
 /// collision controllers (enemies, NPCs).
@@ -290,12 +310,27 @@ impl GravityCtx<'_> {
         }
     }
 
-    /// Resolve one body's current acceleration/reference frame at its world
-    /// position. This is the canonical ECS-to-kernel seam: callers construct it
-    /// once per body tick and pass the same value to input projection and the
-    /// selected movement policy.
-    pub fn motion_frame_at(&self, pos: Vec2, magnitude: f32) -> ambition_engine_core::MotionFrame {
-        ambition_engine_core::MotionFrame::from_direction(self.dir_at(pos), magnitude)
+    /// Localized gravity direction for a body AABB (zone grabs on OVERLAP —
+    /// the same rule [`resolve_active_gravity`] applies to the primary body);
+    /// falls back to the player's field if no zone snapshot is present.
+    pub fn dir_for(&self, body: ambition_engine_core::Aabb) -> Vec2 {
+        match self.zones.as_deref() {
+            Some(zones) => gravity_dir_for(body, zones, self.base_dir()),
+            None => self.field_dir(),
+        }
+    }
+
+    /// Resolve one body's current acceleration/reference frame. This is the
+    /// canonical ECS-to-kernel seam: the driver constructs it exactly once per
+    /// body tick — composing the localized field the BODY overlaps with the
+    /// body's authored response magnitude — and passes the same value to input
+    /// projection and the selected movement policy.
+    pub fn motion_frame_for(
+        &self,
+        body: ambition_engine_core::Aabb,
+        magnitude: f32,
+    ) -> ambition_engine_core::MotionFrame {
+        ambition_engine_core::MotionFrame::from_direction(self.dir_for(body), magnitude)
     }
 
     /// Localized gravity sign at `pos` (`+1` down / `-1` up).

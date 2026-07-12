@@ -25,7 +25,7 @@ fn step_axis_for_test(
     tuning: ae::MovementTuning,
 ) -> ae::FrameEvents {
     let mut model = ae::MotionModel::axis_swept(tuning.axis_swept_params());
-    let frame = ae::MotionFrame::from_direction(tuning.gravity_dir, tuning.gravity);
+    let frame = ae::MotionFrame::from_direction(ae::DEFAULT_GRAVITY_DIR, tuning.gravity);
     let mut clusters = scratch.as_mut();
     ae::step_motion(
         &mut model,
@@ -34,7 +34,7 @@ fn step_axis_for_test(
             world,
             input,
             frame,
-            facing_intent: input.axis_x,
+            facing_intent: input.axes.x,
             dt,
         },
     )
@@ -107,7 +107,7 @@ fn square_arena_wall_cling_does_not_teleport() {
         &world,
         &mut player,
         InputState {
-            axis_x: -1.0,
+            axes: ae::LocalAxes::new(-1.0, 0.0),
             control_dt: 1.0 / 144.0,
             ..Default::default()
         },
@@ -177,7 +177,7 @@ fn square_arena_wall_cling_with_subpixel_penetration_does_not_teleport() {
         &world,
         &mut player,
         InputState {
-            axis_x: -1.0,
+            axes: ae::LocalAxes::new(-1.0, 0.0),
             control_dt: 1.0 / 144.0,
             ..Default::default()
         },
@@ -241,7 +241,7 @@ fn locate_teleport_target_block() {
             &single,
             &mut player,
             InputState {
-                axis_x: -1.0,
+                axes: ae::LocalAxes::new(-1.0, 0.0),
                 control_dt: 0.0069,
                 ..Default::default()
             },
@@ -304,7 +304,7 @@ fn square_arena_wall_cling_full_world_does_not_teleport() {
         &augmented,
         &mut player,
         InputState {
-            axis_x: -1.0,
+            axes: ae::LocalAxes::new(-1.0, 0.0),
             control_dt: dt,
             ..Default::default()
         },
@@ -371,7 +371,7 @@ fn square_arena_wall_cling_full_world_steps_many_times() {
             &augmented,
             &mut player,
             InputState {
-                axis_x: -1.0,
+                axes: ae::LocalAxes::new(-1.0, 0.0),
                 control_dt: dt,
                 ..Default::default()
             },
@@ -461,7 +461,7 @@ fn wall_cling_displacement_budget_holds_across_pose_sweep() {
                         &world,
                         &mut player,
                         InputState {
-                            axis_x: -1.0,
+                            axes: ae::LocalAxes::new(-1.0, 0.0),
                             control_dt: dt,
                             ..Default::default()
                         },
@@ -554,7 +554,7 @@ fn mob_lab_lock_wall_cling_does_not_teleport() {
         &world,
         &mut player,
         InputState {
-            axis_x: -1.0, // pressing into the wall (cling)
+            axes: ae::LocalAxes::new(-1.0, 0.0), // pressing into the wall (cling)
             control_dt: 1.0 / 144.0,
             ..Default::default()
         },
@@ -668,18 +668,12 @@ fn goblin_encounter_full_world_lock_wall_cling_repro() {
         let pre = player.kinematics.pos;
         let pre_vel = player.kinematics.vel;
         let input = InputState {
-            axis_x: 0.0,
+            axes: ae::LocalAxes::new(0.0, 0.0),
             jump_held: frame < 8,
             control_dt: dt,
             ..Default::default()
         };
-        let _ = step_axis_for_test(
-            &augmented,
-            &mut player,
-            input,
-            dt,
-            DEFAULT_TUNING,
-        );
+        let _ = step_axis_for_test(&augmented, &mut player, input, dt, DEFAULT_TUNING);
         let moved = (player.kinematics.pos - pre).length();
         if frame < 4 || moved > 40.0 {
             println!(
@@ -740,20 +734,14 @@ fn goblin_encounter_real_walljump_repro() {
         let pre = player.kinematics.pos;
         let pre_vel = player.kinematics.vel;
         let input = InputState {
-            axis_x: if frame == 0 { -1.0 } else { 0.0 },
+            axes: ae::LocalAxes::new(if frame == 0 { -1.0 } else { 0.0 }, 0.0),
             jump_pressed: frame == 0,
             jump_held: frame < 8,
             control_dt: dt,
             ..Default::default()
         };
         // The unified kernel owns intent and simulation in one deterministic tick.
-        let _ = step_axis_for_test(
-            &augmented,
-            &mut player,
-            input,
-            dt,
-            DEFAULT_TUNING,
-        );
+        let _ = step_axis_for_test(&augmented, &mut player, input, dt, DEFAULT_TUNING);
         let moved = (player.kinematics.pos - pre).length();
         if frame < 4 || moved > 40.0 {
             println!(

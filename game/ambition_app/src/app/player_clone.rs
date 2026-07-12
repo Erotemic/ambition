@@ -127,6 +127,11 @@ pub fn spawn_requested_player_clone(
         // `PlayerDemo` brain is ticked by `tick_player_clone_brains` with real
         // sim-time/dt instead).
         ambition::actors::actor::PlayerEntity,
+        // Every integrated body carries one explicit movement policy from
+        // spawn, and every player body carries the movement→policy hand-off —
+        // the unified integration phase requires both.
+        ambition::actors::features::MotionModel::default(),
+        ambition::actors::avatar::PlayerBodyFrameOutput::default(),
         (
             ambition::actors::body_mode::BodyModeCapabilities::full(),
             ambition::actors::actor::BodyMelee::default(),

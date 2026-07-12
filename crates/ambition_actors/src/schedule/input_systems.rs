@@ -80,10 +80,9 @@ pub fn attach_player_input_components(
 ) {
     let preset = KeyboardPreset::by_index(dev_state.preset_index);
     for player in &players {
-        commands.entity(player).insert((
-            ActionState::<SandboxAction>::default(),
-            preset.input_map(),
-        ));
+        commands
+            .entity(player)
+            .insert((ActionState::<SandboxAction>::default(), preset.input_map()));
     }
 }
 
@@ -350,11 +349,15 @@ mod focus_gate_tests {
             .id();
         app.update();
         assert!(
-            app.world().entity(first).contains::<ActionState<SandboxAction>>(),
+            app.world()
+                .entity(first)
+                .contains::<ActionState<SandboxAction>>(),
             "a player spawned after startup receives leafwing state"
         );
         assert!(
-            app.world().entity(first).contains::<InputMap<SandboxAction>>(),
+            app.world()
+                .entity(first)
+                .contains::<InputMap<SandboxAction>>(),
             "a player spawned after startup receives the active input map"
         );
 

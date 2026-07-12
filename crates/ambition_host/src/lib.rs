@@ -156,8 +156,7 @@ impl Plugin for HostInputBindingsPlugin {
             // deferred insertion becomes visible on the following input frame.
             .add_systems(
                 Update,
-                attach_player_input_components
-                    .before(populate_menu_control_frame_from_actions),
+                attach_player_input_components.before(populate_menu_control_frame_from_actions),
             )
             // Collect semantic menu intent before gameplay input is
             // suppressed. `populate_control_frame_from_actions` may zero the

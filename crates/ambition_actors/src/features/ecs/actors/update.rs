@@ -650,7 +650,7 @@ pub(crate) fn integrate_actor_body(
     // tick. Input projection, the active policy, and every frame-relative limb
     // downstream consume this same value.
     let response = em.config.tuning.movement.gravity * em.surface.gravity_scale;
-    let motion_frame = gravity.motion_frame_at(em.kin.pos, response);
+    let motion_frame = gravity.motion_frame_for(em.kin.aabb(), response);
     // Crawler route steering is CONTROLLER-side: reverse the crawl when a
     // same-kind neighbor blocks the path ahead (anti-clump). The kernel only
     // moves; the ECS resolves steering intent.
@@ -899,7 +899,7 @@ pub fn integrate_sim_bodies(
     {
         let mut clusters = cluster_item.as_clusters_mut();
         let player_motion_frame =
-            gravity.motion_frame_at(clusters.kinematics.pos, player_tuning.gravity);
+            gravity.motion_frame_for(clusters.kinematics.aabb(), player_tuning.gravity);
         crate::avatar::integrate_home_body(
             control.0,
             &world.0,

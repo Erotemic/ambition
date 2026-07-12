@@ -182,31 +182,12 @@
         ),
         hall_dialogue_id: Some("hall_player"),
         ),
-        // Sanic — the momentum-demo speedster (S-track). Playable via
-        // `AMBITION_START_CHARACTER=sanic`: the `momentum` field opts the worn
-        // home box into `MotionModel::SurfaceMomentum` (rides slopes + loops),
-        // the S2 seam. A fast profile — higher top speed + snappier ground
-        // accel than the kernel baseline; omitted fields inherit the defaults.
-        "sanic": (
-            sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
-            display_name: "Sanic",
-            spritesheet: "sprites/sanic_spritesheet.png",
-            manifest: "sprites/sanic_spritesheet.ron",
-            tier: MainHall,
-            body_kind: Standard,
-            composition: None,
-            default_brain: "stand_still",
-            default_action_set: "peaceful",
-            tags: ["playable", "speedster", "demo"],
-            momentum: Some((
-                ground_accel: 900.0,
-                top_speed: 1200.0,
-                jump_speed: 700.0,
-            )),
-            barks: (
-                hall: ["Gotta go fast. That's the whole personality.", "You draw me in ten seconds, you get what you get."],
-            ),
-        ),
+        // Sanic (the momentum-demo speedster) is no longer authored here: that
+        // identity now belongs to the standalone Sanic experience PROVIDER
+        // (`ambition_demo_sanic`). A single character id has a single owning
+        // provider, so the Ambition launcher host surfaces Sanic by LINKING that
+        // provider (see the App-local catalog composition), not by duplicating
+        // the row in Ambition's own roster.
         "robot": (
             sprite_tuning: Some((collision_scale: 2.1, frame_sample_inset: 1)),
             display_name: "Robot",

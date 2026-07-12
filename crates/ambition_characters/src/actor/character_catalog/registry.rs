@@ -93,7 +93,7 @@ impl CharacterCatalogRegistry {
         let mut action_set_presets = BTreeMap::new();
         let mut characters = BTreeMap::new();
         let mut defaults = BTreeMap::new();
-        let mut owners = BTreeMap::new();
+        let mut owners: BTreeMap<String, String> = BTreeMap::new();
 
         for (provider_id, fragment) in &self.fragments {
             let brain_names: BTreeMap<String, String> = fragment

@@ -321,20 +321,13 @@ fn exemplar_hall_dialogue_ids_resolve() {
 }
 
 #[test]
-fn sanic_authors_a_fast_momentum_profile_others_ride_axis_swept() {
-    // The demo speedster opts into surface momentum with a tuned fast
-    // profile; the protagonist (axis-swept) and unknown ids resolve None so
-    // `apply_worn_motion_model` REMOVES any stale model on them.
-    let sanic =
-        momentum_params_for_character_id("sanic").expect("sanic authors a `momentum` field");
-    assert_eq!(sanic.top_speed, 1200.0, "Sanic's authored top speed");
-    assert_eq!(sanic.ground_accel, 900.0);
-    assert_eq!(sanic.jump_speed, 700.0);
-    // Omitted field inherits the kernel baseline.
-    assert_eq!(
-        sanic.brake,
-        ambition_engine_core::surface::MomentumParams::default().brake
-    );
+fn a_non_momentum_character_and_unknown_ids_ride_axis_swept() {
+    // The protagonist (axis-swept) and unknown ids resolve None so
+    // `apply_worn_motion_model` REMOVES any stale model on them. (Momentum
+    // resolution for a speedster row is covered content-independently by
+    // `avatar::starting_character::tests` against a local fixture; the shipped
+    // Ambition roster no longer authors one — that identity belongs to the
+    // Sanic experience provider.)
     assert!(
         momentum_params_for_character_id("player").is_none(),
         "the protagonist stays axis-swept"

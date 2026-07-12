@@ -1,11 +1,45 @@
 use super::*;
 
+/// A self-contained momentum speedster. Ambition's shipped roster no longer
+/// authors one — Sanic's identity belongs to the standalone Sanic experience
+/// provider now — but these tests exercise the `SurfaceMomentum` derivation, so
+/// the momentum row under test is supplied locally. Its `stand_still`/`peaceful`
+/// presets already exist in the real roster, so merging just the character entry
+/// keeps it resolvable while leaving the authored `goblin`/`npc_pirate_admiral`
+/// kits the kit tests rely on untouched.
+const SANIC_MOMENTUM_FIXTURE: &str = r#"(
+    brain_presets: { "stand_still": StandStill },
+    action_set_presets: { "peaceful": (move_style: Walk) },
+    characters: {
+        "sanic": (
+            display_name: "Sanic",
+            spritesheet: "sprites/sanic_spritesheet.png",
+            manifest: "sprites/sanic_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["playable", "speedster", "demo"],
+            momentum: Some((
+                ground_accel: 900.0,
+                top_speed: 1200.0,
+                jump_speed: 700.0,
+            )),
+        ),
+    },
+)"#;
+
 fn test_catalog() -> ambition_characters::actor::character_catalog::CharacterCatalog {
-    ambition_characters::actor::character_catalog::CharacterCatalog(
-        ambition_characters::actor::character_catalog::parse_catalog(include_str!(
-            "../../../../game/ambition_content/assets/data/character_catalog.ron"
-        )),
-    )
+    use ambition_characters::actor::character_catalog::parse_catalog;
+    let mut data = parse_catalog(include_str!(
+        "../../../../../game/ambition_content/assets/data/character_catalog.ron"
+    ));
+    let fixture = parse_catalog(SANIC_MOMENTUM_FIXTURE);
+    if let Some(sanic) = fixture.characters.get("sanic") {
+        data.characters.insert("sanic".to_string(), sanic.clone());
+    }
+    ambition_characters::actor::character_catalog::CharacterCatalog(data)
 }
 
 fn install_test_catalog(app: &mut bevy::prelude::App) {

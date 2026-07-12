@@ -208,7 +208,7 @@ pub fn apply_worn_character_overlay(
     // label — deterministic and never stale, and a legible diagnostic that a body
     // is wearing an id the catalog does not know.
     match catalog.display_name(character_id) {
-        Some(display) => *name = Name::new(display),
+        Some(display) => *name = Name::new(display.to_string()),
         None => *name = Name::new(character_id.to_string()),
     }
 

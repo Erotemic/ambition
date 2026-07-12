@@ -133,10 +133,16 @@ scope = "game"
 kind = "dependency-allowlist"
 owners = ["ambition_app"]
 watch_paths = ["game/ambition_app/Cargo.toml"]
-rationale = "ambition_app uses the umbrella plus app-local content/extension crates"
+rationale = "ambition_app uses the umbrella plus app-local content/extension crates and the reusable game providers it hosts"
 source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
-allow = ["ambition", "ambition_content", "ambition_menu_kaleidoscope"]
+allow = [
+    "ambition",
+    "ambition_content",
+    "ambition_menu_kaleidoscope",
+    "ambition_demo_sanic",
+    "ambition_demo_smb1",
+]
 manifest = "game/ambition_app/Cargo.toml"
 
 [[policy]]

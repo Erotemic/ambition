@@ -1,6 +1,13 @@
 # Loading and game-shell architecture
-> **Status:** core-tools checkpoint. All executable slices remain **OPEN** until
-> their acceptance tests pass. No game/demo/subsystem integration has landed.
+> **Status:** first real customer landed. The three core crates are green, and
+> **Sanic is a real, leak-free shell experience** with direct standalone entry,
+> host-relative Quit to Home, activation-scoped teardown, and repeatable relaunch
+> — proven by headless integration tests on the actual `build_demo_app()` host.
+> A reusable, engine-neutral **session-scope** primitive underlies teardown. The
+> Ambition launcher (I2), Mary-O (I1/I3 for SMB1), real load contributors (I0),
+> the startup sequence (I5), and App-local content catalogs remain **OPEN** — see
+> the *Integration status* ledger below for the honest per-slice state and cited
+> tests.
 ## Maintainer intent
 - Loading screens should be nonexistent when preparation finishes quickly.
 - When waiting is unavoidable, the engine should honestly report what is done,
@@ -357,14 +364,80 @@ cleanup need, and configured fallback route. The shell may offer Retry, Return, 
 cannot hide failure. Retry may reuse verified immutable results but creates a new request identity.
 Cancellation/supersession rejects late completion. Route failure must not strand input, camera, audio
 focus, entities, or an inactive prepared session.
-## Core-tools checkpoint at HEAD
-Initial source exists in all three crates: load plans/barriers/evidence and commit
-authorization; shell routing/holds/launcher/scopes/sequences; and load foreground,
-progress/failure, activities, engagement, ready-hold, retry requests, and plain
-optional UI. `MinimalLoadShellPlugins` composes them without game content.
-No real contributor or game is integrated. Rust acceptance tests, real Bevy
-adapters, two activity customers, isolation poison tests, and host-relative
-Ambition/Sanic/Mary-O behavior remain OPEN.
+## Integration status (living ledger)
+Source + passing tests are the authority here; a caveat is an OPEN/BLOCKED row,
+never a qualified DONE. Every DONE cites a passing test or a machine-checked
+invariant. Commands to re-verify are at the end of this section.
+
+### DONE
+- **Core crates green.** `ambition_load` (11 tests), `ambition_game_shell`
+  (9), `ambition_load_presentation` (9), `ambition_workspace_policy` (30 —
+  includes the load/shell carve + the standalone-demos-do-not-depend-on-
+  `ambition_app` policy). These cover the L*, S*, P* slices headlessly.
+- **Engine-neutral session scope** (`ambition_platformer_primitives::lifecycle::
+  session`). `SessionScopeId` / `ActiveSessionScope` / `SessionScopedEntity` /
+  `SessionRoot` / `SessionScopeRetired` + `SpawnSessionScopedExt` (ambient-scope
+  inheritance for nested and deferred spawns) + the retire sweep. 6 unit tests;
+  the inheritance and exact-per-scope-teardown invariants are poison-proven. This
+  is the reusable teardown substrate a route provider maps its activation onto,
+  and it is shell-free (usable by simulation/world-construction code alone).
+  *(commit `8f7094a7`)*
+- **Sanic is a real, host-independent shell experience** — the first mandatory
+  milestone. `SanicExperiencePlugin` (`game/ambition_demo_sanic/src/provider.rs`)
+  registers the `sanic` experience + gameplay route, builds the real session on
+  `RouteActivated` (the player body from `simulation_world` inherits the session
+  scope), and retires it on `RouteDeactivated`. `build_demo_app` is now a thin
+  standalone host (session-scope + `MinimalShellPlugins` + the provider;
+  `initial_route = sanic_gameplay`, `home_route = sanic_launcher`). *(commit
+  `8d7eb43f`)*
+  - **I1 (reusable provider), I3 (standalone host)** — DONE for Sanic. The
+    provider names no home route; the host supplies it.
+  - **I4 / #22 (quit-to-home + repeated leak-free relaunch)** — DONE.
+    `tests/shell_cycle.rs::sanic_launch_quit_relaunch_is_leak_free`: one player in
+    gameplay, ZERO after `QuitToHome` (player + act state + all session-scoped
+    entities gone), one after relaunch with a DISTINCT scope, clean second
+    teardown. Poison-proven (drop the retire signal → a player leaks home).
+  - **#20 / #21 (host-relative return; direct-entry standalone quits to a
+    non-initial home)** — DONE.
+    `tests/shell_cycle.rs::sanic_quit_to_home_is_host_relative`: the identical
+    provider under two different declared homes returns to each.
+
+### OPEN / BLOCKED (scoped, not started or partial)
+- **App-local content catalogs.** Characters/music/SFX are still process-global
+  first-install-wins seams (`character_roster.rs`, `session/data.rs`) read by many
+  non-`World` free functions across the engine (761 `ambition_actors` tests depend
+  on them). True per-App composition (acceptance: two Apps compose *different*
+  catalogs) requires threading a catalog handle through those call sites — a
+  whole-engine refactor. This is the **prerequisite for the Ambition host** (I2):
+  hosting Ambition + Sanic in one App needs both rosters, which global
+  first-install-wins cannot provide. **OPEN.**
+- **I0 real load contributors.** The Sanic route does not yet gate on a real
+  `ambition_load` barrier. `LoadCommand::Begin` overwrites a plan (resetting the
+  one-shot `commit_authorized`), so a reactive design — provider Begins/populates
+  the barrier on `ShellEvent::WaitingForLoad`, re-Begins per launch — is viable;
+  it just adds several frames of shell↔load↔shell latency (would shift exit_3 /
+  shell_cycle timing). **OPEN.**
+- **I2 Ambition launcher** (lists + launches Ambition + Sanic + Mary-O),
+  **I5 startup sequence** (vanity → launcher → session), **Ambition-as-provider**
+  (converting the main game's large startup/state flow into an experience),
+  **Mary-O provider/host** (SMB1), **P2/P3 arbitrary loading activity as a real
+  customer**, **I6 credits/cutscene adapters**. **OPEN** (Mary-O is explicitly
+  optional per maintainer note; Ambition takes priority).
+- **General feature-entity session-scoping.** `simulation_world` scopes the
+  player; the room-feature spawn helpers (`spawn_room_feature_entities`) are not
+  yet session-scoped. The Sanic room authors no feature entities, so Sanic
+  teardown is complete; content-heavy providers (Mary-O/Ambition) will need the
+  feature-spawn path threaded through `spawn_session_scoped`. **OPEN.**
+
+### Re-verify
+```bash
+export PATH="$HOME/.cargo/bin:$PATH"
+cargo test -p ambition_platformer_primitives lifecycle::session   # 6
+cargo test -p ambition_demo_sanic_app --test shell_cycle          # 2
+cargo test -p ambition_demo_sanic_app --test exit_3               # 3
+cargo test -p ambition_load -p ambition_game_shell -p ambition_load_presentation
+cargo test -p ambition_workspace_policy                           # 30
+```
 ## Step-by-step implementation plan
 The executor must implement in this dependency order. Each step remains OPEN until every listed
 acceptance test passes; do not close a broad parent with a caveat.
@@ -386,13 +459,14 @@ acceptance test passes; do not close a broad parent with a caveat.
 | P2 activity host and engagement | OPEN | two unrelated activities need no engine branch |
 | P3 ready-hold and cleanup | OPEN | engaged activity continues; Continue cleans/commits |
 | I0 asset/save/world contributors | OPEN | at least three contributor kinds share protocol |
-| I1 reusable game/demo experience providers | OPEN | content crates expose host-independent sessions |
-| I2 Ambition launcher integration | OPEN | Ambition game + every bundled demo are selectable |
-| I3 standalone demo hosts | OPEN | each demo has a minimal private launcher/home route |
-| I4 quit-to-home and repeated relaunch | OPEN | host-specific return, teardown, and relaunch work |
+| I1 reusable game/demo experience providers | SANIC DONE | `SanicExperiencePlugin`; Mary-O/Ambition OPEN |
+| I2 Ambition launcher integration | OPEN (blocked on App-local catalogs) | Ambition game + every bundled demo are selectable |
+| I3 standalone demo hosts | SANIC DONE | `build_demo_app` thin host; Mary-O OPEN |
+| I4 quit-to-home and repeated relaunch | SANIC DONE | `shell_cycle.rs` leak-free + host-relative + poison |
 | I5 startup/menu/gameplay route | OPEN | sequence -> launcher -> prepared session end to end |
 | I6 credits and cutscene adapters | OPEN | direct credits and top-level cutscene entry work |
-| I7 architecture/poison policy | OPEN | app-crate deps, hard-coded home routes, leaks fail |
+| I7 architecture/poison policy | PARTIAL | standalone-no-app-dep policy green; more poison OPEN |
+| SS session-scope primitive (new) | DONE | `lifecycle::session`; 6 tests + 2 poison (`8f7094a7`) |
 ### L0 — skeleton and dependency proof
 1. Create all three crates and add them to the workspace.
 2. Declare one concern per `MODULES.md` and crate-level doc.

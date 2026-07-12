@@ -39,7 +39,9 @@ fn install_content() {
 #[test]
 fn every_dedicated_boss_sheet_resolves_a_catalog_path() {
     install_content();
-    let catalog = ambition::actors::assets::sandbox_assets::desktop_dev_default_catalog();
+    let catalog = ambition::actors::assets::sandbox_assets::desktop_dev_default_catalog(
+        &ambition_content::audio_registries::load_music_registry(),
+    );
 
     let mut missing = Vec::new();
     for (key, _spec) in ambition::actors::boss_encounter::sprites::dedicated_boss_sheets() {

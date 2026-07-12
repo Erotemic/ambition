@@ -12,11 +12,11 @@ fn embedded_sandbox_data_parses() {
 
 #[test]
 fn embedded_registries_parse_and_validate() {
-    authored_sfx_registry()
+    fixture_sfx_registry()
         .clone()
         .validate()
         .expect("embedded sfx registry validates");
-    authored_music_registry()
+    fixture_music_registry()
         .clone()
         .validate()
         .expect("embedded music registry validates");
@@ -24,7 +24,7 @@ fn embedded_registries_parse_and_validate() {
 
 #[test]
 fn embedded_music_tracks_are_unique_and_default_resolves() {
-    let music = authored_music_registry().clone();
+    let music = fixture_music_registry().clone();
     let mut ids = HashSet::new();
     for track in &music.tracks {
         assert!(ids.insert(track.id.as_str()), "duplicate id {}", track.id);
@@ -112,7 +112,7 @@ fn validate_rejects_empty_track_id() {
 
 #[test]
 fn embedded_music_includes_original_and_long_default() {
-    let music = authored_music_registry().clone();
+    let music = fixture_music_registry().clone();
     assert_eq!(music.default_track, "long_lofi_drift");
     assert!(
         music.track("original_lofi_loop").is_some(),

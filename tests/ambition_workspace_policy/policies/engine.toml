@@ -2265,3 +2265,21 @@ source_doc = "docs/planning/engine/startup-loading-and-frontend-flow.md#constitu
 severity = "error"
 roots = ["crates/ambition_load/src", "crates/ambition_game_shell/src", "crates/ambition_load_presentation/src"]
 forbid = ["ambition_content", "ambition_app", "ambition_demo_sanic", "ambition_demo_smb1"]
+
+# ── App-local audio authority ratchet (audio process-global retirement) ──
+# The former process-global audio install/override seam is retired: authored
+# music and SFX are App-local (a provider registers an
+# `ambition_audio::catalog::AudioCatalogFragment`; hosts read the assembled
+# `AudioCatalogRegistry` resource or pass a selected registry explicitly). This
+# rejects re-introduction of the retired global seam anywhere in runtime source.
+[[policy]]
+id = "engine.audio-authority-is-app-local"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_audio", "ambition_actors"]
+watch_paths = ["crates/ambition_actors/src", "crates/ambition_audio/src", "game/ambition_content/src", "game/ambition_app/src", "game/ambition_demo_sanic/src", "game/ambition_demo_smb1/src"]
+rationale = "Authored audio is App-local via AudioCatalogRegistry. The retired process-global install/override seam (install_music_registry / install_sfx_registry / authored_music_registry / authored_sfx_registry / *_REGISTRY_OVERRIDE) must never return; a new host reads the registry resource instead."
+source_doc = "docs/planning/engine/startup-loading-and-frontend-flow.md"
+severity = "error"
+roots = ["crates/ambition_actors/src", "crates/ambition_audio/src", "game/ambition_content/src", "game/ambition_app/src", "game/ambition_demo_sanic/src", "game/ambition_demo_smb1/src"]
+forbid = ["install_music_registry", "install_sfx_registry", "authored_music_registry", "authored_sfx_registry", "MUSIC_REGISTRY_OVERRIDE", "SFX_REGISTRY_OVERRIDE"]

@@ -435,22 +435,10 @@ pub fn install_sanic_content(app: &mut App) {
         .expect("Sanic audio catalogs should be valid"),
     );
 
-    // Legacy pure lookup consumers are migrated in the next slice. Keep their
-    // compatibility seam fed while the App-local resources are already the
-    // provider-composition authority exercised by new hosts and tests.
+    // Audio is fully App-local: the fragment registered above is the sole
+    // authority. The remaining legacy character seam stays fed while the
+    // pure character-lookup consumers are migrated in the next slice.
     ambition::runtime::demo_fixture::install_character_catalog(SANIC_CATALOG_RON);
-    ambition::actors::session::data::install_music_registry(ambition::audio::spec::MusicRegistry {
-        default_track: "you_are_too_slow".to_string(),
-        tracks: vec![ambition::audio::spec::MusicTrack {
-            id: "you_are_too_slow".to_string(),
-            display_name: "You Are Too Slow".to_string(),
-            asset_path: Some(SANIC_MUSIC_ASSET_PATH.to_string()),
-        }],
-    });
-    ambition::actors::session::data::install_sfx_registry(ambition::audio::spec::SfxRegistry {
-        sample_rate: 44_100,
-        sfx: Vec::new(),
-    });
 }
 
 impl Plugin for SanicDemoContentPlugin {

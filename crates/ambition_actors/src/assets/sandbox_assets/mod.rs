@@ -49,13 +49,16 @@ impl bevy::prelude::Plugin for AmbitionAssetSourcePlugin {
 }
 
 /// Convenience: build a desktop-dev catalog from the embedded sandbox spec,
-/// suitable for headless / RL / test fixtures.
-pub fn desktop_dev_default_catalog() -> SandboxAssetCatalog {
+/// suitable for headless / RL / test fixtures. The caller supplies the authored
+/// music registry explicitly (from its App-local `AudioCatalogRegistry` or a
+/// content fixture) — this seam consults no process-global audio state.
+pub fn desktop_dev_default_catalog(
+    music: &crate::session::data::MusicRegistry,
+) -> SandboxAssetCatalog {
     let config = GameAssetConfig {
         asset_profile: AssetProfile::DesktopDevLoose,
         ..Default::default()
     };
-    let music = crate::session::data::authored_music_registry();
     build_sandbox_catalog(&config, music)
 }
 

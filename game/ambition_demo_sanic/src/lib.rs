@@ -30,8 +30,7 @@ pub const SANIC_MODE: &str = "sanic";
 
 /// Authored soundtrack for the standalone Sanic demo. The rendered asset lives
 /// in the shared engine asset tree beside the other generated music tracks.
-pub const SANIC_MUSIC_ASSET_PATH: &str =
-    "audio/music/generated/you_are_too_slow/full.ogg";
+pub const SANIC_MUSIC_ASSET_PATH: &str = "audio/music/generated/you_are_too_slow/full.ogg";
 
 /// Number of segments in the generated Sonic loop polygon.
 const LOOP_SEGMENTS: usize = 24;

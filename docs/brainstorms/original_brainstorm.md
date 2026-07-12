@@ -669,3 +669,10 @@ where combat is only one option of many, similar to Skyrim.
 
 
 Galwah is probably your friend with Fia in Act 1.
+
+---
+
+
+A character named Sintheta might be fun if we can make it read more like
+Cynthea and less like sin-theta, even those it refers to the latter. Maybe
+Cyntheta? 

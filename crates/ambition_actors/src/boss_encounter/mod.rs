@@ -58,7 +58,8 @@ pub use encounter_entity::{
     EncounterDef, EncounterProgress, MemberProgress, PayloadReleased, ReleaseOnDeath,
 };
 pub use encounter_script::{
-    tick_commanded_moves, tick_encounter_scripts, tick_falling_hazards, CommandedMove, FallingHazard,
+    tick_commanded_moves, tick_encounter_scripts, tick_falling_hazards, CommandedMove,
+    FallingHazard,
 };
 // The generic timeline vocabulary lives in `ambition_encounter` (the one
 // timeline authority); re-exported here so boss content + the schedule keep

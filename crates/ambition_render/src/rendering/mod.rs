@@ -50,10 +50,10 @@ pub(crate) mod slash_visuals;
 mod world;
 
 pub use actors::{
-    animate_bosses, animate_characters, animate_player, apply_hide_sprites_override,
-    apply_placeholder_sprites_override, refresh_player_sprites_on_game_assets_change,
-    actor_sprite_path_owns, refresh_prop_sprites_on_game_assets_change, sync_visuals,
-    upgrade_actor_sprites, upgrade_boss_sprites, PlayerSpriteCharacter,
+    actor_sprite_path_owns, animate_bosses, animate_characters, animate_player,
+    apply_hide_sprites_override, apply_placeholder_sprites_override,
+    refresh_player_sprites_on_game_assets_change, refresh_prop_sprites_on_game_assets_change,
+    sync_visuals, upgrade_actor_sprites, upgrade_boss_sprites, PlayerSpriteCharacter,
 };
 // `BoundFeatureKind` lives with the combat event vocabulary; re-exported here
 // so existing render call sites resolve unchanged.

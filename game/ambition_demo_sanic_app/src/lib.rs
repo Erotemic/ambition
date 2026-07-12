@@ -5,9 +5,9 @@
 
 use bevy::prelude::*;
 
-use ambition_demo_sanic::{SanicDemoContentPlugin, SanicRulesPlugin};
 #[cfg(feature = "visible")]
 use ambition_demo_sanic::SANIC_MUSIC_ASSET_PATH;
+use ambition_demo_sanic::{SanicDemoContentPlugin, SanicRulesPlugin};
 
 /// Assemble the demo: foundation + the engine group + the host group + this
 /// demo's content and rules. **Zero engine edits, zero `ambition_app`.**
@@ -126,10 +126,7 @@ fn desktop_asset_root() -> String {
 }
 
 #[cfg(feature = "visible")]
-fn start_sanic_music(
-    asset_server: Res<AssetServer>,
-    audio: Res<bevy_kira_audio::prelude::Audio>,
-) {
+fn start_sanic_music(asset_server: Res<AssetServer>, audio: Res<bevy_kira_audio::prelude::Audio>) {
     use bevy_kira_audio::prelude::AudioControl;
 
     audio

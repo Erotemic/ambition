@@ -15,7 +15,6 @@ use ambition_actors::boss_encounter::{
     BossEncounterRegistry, EncounterBeat, EncounterEffect, EncounterScript, EncounterTrigger,
     ReleaseOnDeath,
 };
-use ambition_encounter::EncounterParticipants;
 use ambition_actors::features::BossConfig;
 use ambition_actors::features::{
     ActorPose, BossClusterQueryData, BossClusterRef, BossRef, CenteredAabb, DamageableVolumes,
@@ -26,6 +25,7 @@ use ambition_actors::rooms::{PropSpec, RoomSet};
 use ambition_characters::brain::ActorControl;
 use ambition_characters::brain::BossAttackState;
 use ambition_combat::{GameplayBanner, HitEvent, HitSource, ResetRoomFeaturesEvent};
+use ambition_encounter::EncounterParticipants;
 use ambition_engine_core::config::world_to_bevy;
 use ambition_engine_core::{self as ae, AabbExt};
 use ambition_render::rendering::PropVisual;

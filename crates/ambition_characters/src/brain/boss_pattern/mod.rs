@@ -675,7 +675,10 @@ impl BossPatternCfg {
             } => {
                 for pattern in [intro, phase1, transition, phase2, enrage] {
                     for step in &pattern.steps {
-                        if let BossPatternStep::Telegraph { profile, duration, .. } = step {
+                        if let BossPatternStep::Telegraph {
+                            profile, duration, ..
+                        } = step
+                        {
                             push(profile, *duration);
                         }
                     }

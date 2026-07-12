@@ -117,7 +117,8 @@ fn lock_inserts_invulnerable_tell_before_swap() {
 /// boss start there and advance to Phase1 on its own.
 #[test]
 fn intro_is_opt_in_time_trigger() {
-    let mut state = ActorPhaseState::new(vec![PhaseTrigger::time_in_phase(0.5, Intro, Phase1, 0.0)]);
+    let mut state =
+        ActorPhaseState::new(vec![PhaseTrigger::time_in_phase(0.5, Intro, Phase1, 0.0)]);
     assert_eq!(state.start_phase, Intro);
     state.wake();
     assert_eq!(state.phase, Intro);

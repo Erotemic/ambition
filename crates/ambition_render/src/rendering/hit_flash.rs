@@ -519,11 +519,7 @@ mod tests {
     /// overlay, and the shader discards a zero-intensity fragment for free.
     #[test]
     fn a_visible_source_still_flashes_exactly_as_before() {
-        for vis in [
-            Some(Visibility::Visible),
-            Some(Visibility::Inherited),
-            None,
-        ] {
+        for vis in [Some(Visibility::Visible), Some(Visibility::Inherited), None] {
             assert_eq!(
                 overlay_intensity(Some(10.0), vis),
                 normalize_hit_flash(10.0),

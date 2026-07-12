@@ -288,7 +288,10 @@ mod tests {
         app.update();
         assert_eq!(vis(&app, player), Visibility::Hidden);
 
-        app.world_mut().get_mut::<BodyPoseView>(player).unwrap().morph_ball = false;
+        app.world_mut()
+            .get_mut::<BodyPoseView>(player)
+            .unwrap()
+            .morph_ball = false;
         app.update();
         assert_eq!(vis(&app, ball), Visibility::Hidden);
         assert_eq!(

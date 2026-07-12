@@ -56,13 +56,10 @@ fn the_demo_spawns_a_renderable_player_sprite() {
     app.update();
 
     let visible_players = {
-        let mut q = app.world_mut().query_filtered::<
-            Entity,
-            (
-                With<ambition::platformer::lifecycle::PlayerVisual>,
-                With<Sprite>,
-            ),
-        >();
+        let mut q = app.world_mut().query_filtered::<Entity, (
+            With<ambition::platformer::lifecycle::PlayerVisual>,
+            With<Sprite>,
+        )>();
         q.iter(app.world()).count()
     };
     assert_eq!(

@@ -105,3 +105,132 @@ fn without_input_the_player_does_not_drift_right() {
         "no device input → neutral ControlFrame; got {frame:?}"
     );
 }
+
+/// The assembled Sanic customer receives the raw host inputs, but its authored
+/// peaceful persona removes the protagonist-only combat verbs before effects.
+/// This is stronger than inspecting ActionSet: it drives the production keyboard
+/// bridge and observes both the sanitized ActorControl and inert body state.
+///
+/// The demo steps a FIXED tick (it does not fire every frame), and `attack` /
+/// `projectile` are rising edges (`just_pressed`), so a single read would race
+/// the latch. We hold the shield level and re-arm the attack/projectile edges
+/// across a window, ACCUMULATING what the slot saw and what the body ever did.
+/// That is robust to tick timing and a stronger claim than a one-frame snapshot:
+/// the standard path must deliver every host combat input, and the peaceful kit
+/// must suppress every one of them on every frame.
+#[test]
+fn peaceful_sanic_filters_host_combat_inputs_before_effects() {
+    use ambition::characters::brain::ActorControl;
+
+    let mut app = ambition_demo_sanic_app::build_demo_app();
+    app.update();
+    for _ in 0..10 {
+        app.update();
+    }
+
+    // Default Arrows+Z/X/C preset: X = attack, E = quick-action/shield,
+    // V = host chargeable projectile.
+    let mut slot_saw_attack = false;
+    let mut slot_saw_shield = false;
+    let mut slot_saw_projectile = false;
+    let mut control_ever_meleed = false;
+    let mut control_ever_pogoed = false;
+    let mut control_ever_fired = false;
+    let mut control_ever_shielded = false;
+    let mut control_ever_projectiled = false;
+    let mut shield_ever_active = false;
+    let mut melee_ever_swinging = false;
+    let mut projectiles_ever_live = false;
+
+    for i in 0..120 {
+        {
+            let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+            // Toggle X/V so `just_pressed` re-arms every other frame — at least one
+            // rising edge then coincides with a fixed tick. Hold E as a level.
+            if i % 2 == 0 {
+                keys.press(KeyCode::KeyX);
+                keys.press(KeyCode::KeyV);
+            } else {
+                keys.release(KeyCode::KeyX);
+                keys.release(KeyCode::KeyV);
+            }
+            keys.press(KeyCode::KeyE);
+        }
+        app.update();
+
+        let slot = app
+            .world()
+            .resource::<SlotControls>()
+            .get(PlayerSlot::PRIMARY);
+        slot_saw_attack |= slot.attack_pressed;
+        slot_saw_shield |= slot.shield_held;
+        slot_saw_projectile |= slot.projectile_pressed || slot.projectile_held;
+
+        let (control, shield_active, melee_swinging) = {
+            let mut q = app.world_mut().query_filtered::<(
+                &ActorControl,
+                &ambition::actors::actor::BodyShieldState,
+                &ambition::actors::actor::BodyMelee,
+            ), With<ambition::actors::actor::PrimaryPlayer>>(
+            );
+            let (control, shield, melee) = q
+                .iter(app.world())
+                .next()
+                .expect("the demo spawned its primary body");
+            (control.0, shield.active, melee.is_swinging())
+        };
+        control_ever_meleed |= control.melee_pressed;
+        control_ever_pogoed |= control.pogo_pressed;
+        control_ever_fired |= control.fire.is_some();
+        control_ever_shielded |= control.shield_held;
+        control_ever_projectiled |=
+            control.projectile_pressed || control.projectile_held || control.projectile_released;
+        shield_ever_active |= shield_active;
+        melee_ever_swinging |= melee_swinging;
+
+        let live = {
+            let mut q = app
+                .world_mut()
+                .query::<&ambition::projectiles::LiveProjectile>();
+            q.iter(app.world()).count()
+        };
+        projectiles_ever_live |= live > 0;
+    }
+
+    // Non-vacuity: the standard path DID deliver the host combat inputs to the slot.
+    assert!(slot_saw_attack, "the standard input path saw X (attack)");
+    assert!(
+        slot_saw_shield,
+        "the standard input path saw held E (quick-action / shield)"
+    );
+    assert!(
+        slot_saw_projectile,
+        "the standard input path saw V (projectile)"
+    );
+
+    // Suppression: the peaceful authored persona filtered every combat verb before
+    // any body/effects system, on every frame of the window.
+    assert!(!control_ever_meleed, "peaceful kit filters raw attack");
+    assert!(
+        !control_ever_pogoed,
+        "peaceful kit filters the melee variant"
+    );
+    assert!(!control_ever_fired, "peaceful kit filters flat ranged fire");
+    assert!(
+        !control_ever_shielded,
+        "peaceful kit filters the body shield"
+    );
+    assert!(
+        !control_ever_projectiled,
+        "peaceful kit filters the host charge projectile"
+    );
+    assert!(!shield_ever_active, "the body shield never activates");
+    assert!(
+        !melee_ever_swinging,
+        "the body never starts a melee lifecycle"
+    );
+    assert!(
+        !projectiles_ever_live,
+        "the host projectile input cannot create a projectile for Sanic"
+    );
+}

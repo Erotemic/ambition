@@ -261,6 +261,38 @@ fn every_engine_codec_round_trips_exactly() {
         invulnerable: true,
     }));
     round_trip(SimIdCounter(u64::MAX));
+    let mut ability_pattern = ambition_engine_core::AbilitySet::basic();
+    ability_pattern.move_horizontal = false;
+    ability_pattern.jump = true;
+    ability_pattern.variable_jump = false;
+    ability_pattern.double_jump = true;
+    ability_pattern.fast_fall = false;
+    ability_pattern.wall_jump = true;
+    ability_pattern.wall_cling = false;
+    ability_pattern.wall_climb = true;
+    ability_pattern.dash = false;
+    ability_pattern.double_dash = true;
+    ability_pattern.fly = false;
+    ability_pattern.blink = true;
+    ability_pattern.precision_blink = false;
+    ability_pattern.blink_through_soft_walls = true;
+    ability_pattern.blink_through_hard_walls = false;
+    ability_pattern.attack = true;
+    ability_pattern.pogo = false;
+    ability_pattern.directional_primary = true;
+    ability_pattern.directional_special = false;
+    ability_pattern.rebound = true;
+    ability_pattern.reset = false;
+    ability_pattern.ledge_grab = true;
+    ability_pattern.swim = false;
+    ability_pattern.glide = true;
+    ability_pattern.dodge = false;
+    ability_pattern.shield = true;
+    let ability_bytes = encode_one(&ability_pattern);
+    let ability_back =
+        decode_one::<ambition_engine_core::AbilitySet>(&ability_bytes).expect("AbilitySet decodes");
+    assert_eq!(ability_back, ability_pattern, "every ability flag survives");
+    round_trip(bc::BodyAbilities::new(ability_pattern));
 
     // The body-state clusters. `snapshot_pod!` writes these codecs from a field
     // list, so the risk is a field OMITTED from the list, not a field mistyped —
@@ -453,19 +485,104 @@ fn every_registered_component_survives_a_world_round_trip() {
             timer: 0.75,
             cooldown: 1.5,
         },
+        bc::BodyAbilities::new(ambition_engine_core::AbilitySet::sandbox_all()),
     ));
     let before = reg.hash_world(&world);
     let snap = take(&world, &reg);
 
-    world
-        .entity_mut(id)
-        .insert((bc::BodyGroundState::default(), bc::BodyDashState::default()));
+    world.entity_mut(id).insert((
+        bc::BodyGroundState::default(),
+        bc::BodyDashState::default(),
+        bc::BodyAbilities::new(ambition_engine_core::AbilitySet::basic()),
+    ));
     assert_ne!(reg.hash_world(&world), before);
 
     restore(&mut world, &snap, &reg).unwrap();
     assert_eq!(reg.hash_world(&world), before);
     let ground = *world.entity(id).get::<bc::BodyGroundState>().unwrap();
     assert_eq!(ground.coyote_timer, 0.125, "the timer came back");
+    assert_eq!(
+        world
+            .entity(id)
+            .get::<bc::BodyAbilities>()
+            .unwrap()
+            .abilities,
+        ambition_engine_core::AbilitySet::sandbox_all(),
+        "the host-kit derivation input came back"
+    );
+}
+
+/// Restoring a host-code persona restores BOTH the identity and the ability set
+/// it derives from, then the ordinary Changed<> system reconstructs the same kit.
+/// This is the regression the generic codec round-trip cannot express: changing
+/// abilities after capture must not influence the restored protagonist profile.
+#[test]
+fn restoring_worn_host_code_rebuilds_from_the_snapshotted_abilities() {
+    use ambition_actors::combat::moveset::ActorMoveset;
+    use ambition_characters::actor::WornCharacter;
+    use ambition_characters::brain::{ActionSet, MeleeActionSpec, RangedActionSpec};
+    use bevy::prelude::*;
+
+    ambition_actors::character_roster::install_character_catalog(include_str!(
+        "../../../../game/ambition_content/assets/data/character_catalog.ron"
+    ));
+    ambition_actors::character_roster::install_default_character_id("player");
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.add_systems(
+        Update,
+        ambition_actors::avatar::apply_worn_character_gameplay,
+    );
+    let entity = app
+        .world_mut()
+        .spawn((
+            SimId::player_slot(0),
+            WornCharacter::new("player"),
+            Name::new("unset"),
+            ActionSet::default(),
+            ActorMoveset(Default::default()),
+            bc::BodyAbilities::new(ambition_engine_core::AbilitySet::sandbox_all()),
+        ))
+        .id();
+    app.update();
+
+    let mut reg = SnapshotRegistry::default();
+    reg.register_component::<WornCharacter>("worn_character");
+    reg.register_component::<bc::BodyAbilities>("body_abilities");
+    let snap = take(app.world(), &reg);
+
+    let mut reduced = ambition_engine_core::AbilitySet::basic();
+    reduced.attack = false;
+    reduced.shield = false;
+    app.world_mut().entity_mut(entity).insert((
+        WornCharacter::new("npc_pirate_admiral"),
+        bc::BodyAbilities::new(reduced),
+    ));
+    app.update();
+    assert!(matches!(
+        app.world().get::<ActionSet>(entity).unwrap().ranged,
+        Some(RangedActionSpec::Pistol { .. })
+    ));
+
+    restore(app.world_mut(), &snap, &reg).expect("restore succeeds");
+    app.update();
+
+    let restored_abilities = app
+        .world()
+        .get::<bc::BodyAbilities>(entity)
+        .unwrap()
+        .abilities;
+    assert_eq!(
+        restored_abilities,
+        ambition_engine_core::AbilitySet::sandbox_all()
+    );
+    let restored = app.world().get::<ActionSet>(entity).unwrap();
+    assert!(matches!(restored.melee, Some(MeleeActionSpec::Swipe(_))));
+    assert!(matches!(
+        restored.ranged,
+        Some(RangedActionSpec::Bolt { .. })
+    ));
 }
 
 /// A truncated blob decodes to `None` rather than to a plausible lie.

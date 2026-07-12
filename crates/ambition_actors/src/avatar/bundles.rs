@@ -211,13 +211,17 @@ impl PlayerSimulationBundle {
         let mut bundle = Self::from_scratch(scratch, health);
         // The SAME overlay the runtime re-wear system applies (name + the resolved
         // kit), so spawn and runtime can never disagree on what a character is.
-        crate::avatar::apply_worn_character_overlay(
+        let _ = crate::avatar::apply_worn_character_overlay(
             &mut bundle.name,
             &mut bundle.action_set,
             &mut bundle.moveset,
             character_id,
             base_abilities,
         );
+        // The returned capability is synchronized on the spawned entity by
+        // `apply_worn_character_gameplay` from its Added<WornCharacter> edge.
+        // A Bundle cannot conditionally omit a component, so the canonical
+        // derive system owns marker insertion/removal before player effects run.
         bundle
     }
 }

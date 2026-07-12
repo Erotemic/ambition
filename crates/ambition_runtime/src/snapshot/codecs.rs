@@ -35,6 +35,83 @@ impl SnapshotState for ambition_time::WorldTime {
     }
 }
 
+impl SnapshotState for ambition_engine_core::AbilitySet {
+    fn encode(&self, out: &mut Vec<u8>) {
+        put_bool(out, self.move_horizontal);
+        put_bool(out, self.jump);
+        put_bool(out, self.variable_jump);
+        put_bool(out, self.double_jump);
+        put_bool(out, self.fast_fall);
+        put_bool(out, self.wall_jump);
+        put_bool(out, self.wall_cling);
+        put_bool(out, self.wall_climb);
+        put_bool(out, self.dash);
+        put_bool(out, self.double_dash);
+        put_bool(out, self.fly);
+        put_bool(out, self.blink);
+        put_bool(out, self.precision_blink);
+        put_bool(out, self.blink_through_soft_walls);
+        put_bool(out, self.blink_through_hard_walls);
+        put_bool(out, self.attack);
+        put_bool(out, self.pogo);
+        put_bool(out, self.directional_primary);
+        put_bool(out, self.directional_special);
+        put_bool(out, self.rebound);
+        put_bool(out, self.reset);
+        put_bool(out, self.ledge_grab);
+        put_bool(out, self.swim);
+        put_bool(out, self.glide);
+        put_bool(out, self.dodge);
+        put_bool(out, self.shield);
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(Self {
+            move_horizontal: r.bool()?,
+            jump: r.bool()?,
+            variable_jump: r.bool()?,
+            double_jump: r.bool()?,
+            fast_fall: r.bool()?,
+            wall_jump: r.bool()?,
+            wall_cling: r.bool()?,
+            wall_climb: r.bool()?,
+            dash: r.bool()?,
+            double_dash: r.bool()?,
+            fly: r.bool()?,
+            blink: r.bool()?,
+            precision_blink: r.bool()?,
+            blink_through_soft_walls: r.bool()?,
+            blink_through_hard_walls: r.bool()?,
+            attack: r.bool()?,
+            pogo: r.bool()?,
+            directional_primary: r.bool()?,
+            directional_special: r.bool()?,
+            rebound: r.bool()?,
+            reset: r.bool()?,
+            ledge_grab: r.bool()?,
+            swim: r.bool()?,
+            glide: r.bool()?,
+            dodge: r.bool()?,
+            shield: r.bool()?,
+        })
+    }
+}
+
+/// The host-code playable kit is derived from this component. Registering the
+/// identity without its derivation input made a restore depend on whatever
+/// abilities happened to be live at restore time; both now rewind together.
+impl SnapshotState for bc::BodyAbilities {
+    fn encode(&self, out: &mut Vec<u8>) {
+        self.abilities.encode(out);
+    }
+
+    fn decode(r: &mut Reader<'_>) -> Option<Self> {
+        Some(bc::BodyAbilities::new(
+            <ambition_engine_core::AbilitySet as SnapshotState>::decode(r)?,
+        ))
+    }
+}
+
 impl SnapshotState for BodyKinematics {
     fn encode(&self, out: &mut Vec<u8>) {
         put_vec2(out, self.pos);
@@ -452,8 +529,8 @@ impl SnapshotState for ambition_characters::actor::BodyHealth {
 /// wears. A length-delimited string id — the choice, not the content: the
 /// catalog it names is authored data that survives the rewind. Registered as a
 /// full component (not a resolve) because the id IS the value; the entity's
-/// gameplay/presentation are re-derived from it by `Changed<WornCharacter>`
-/// systems the tick after a restore patches it.
+/// gameplay/presentation are re-derived from the restored identity (and, for
+/// HostCode, the restored `BodyAbilities`) the following tick.
 impl SnapshotState for ambition_characters::actor::WornCharacter {
     fn encode(&self, out: &mut Vec<u8>) {
         put_str(out, self.id());

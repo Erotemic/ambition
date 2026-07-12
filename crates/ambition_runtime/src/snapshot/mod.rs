@@ -1019,6 +1019,10 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     // The mutable body-state clusters. A coyote timer that survives a rollback is a
     // jump the player did not earn; a dash cooldown that survives one is a dash they
     // did. Each is plain data, and each is exactly what the sim advances.
+    // A worn `HostCode` persona derives its effective ActionSet from this
+    // source. It is mutable progression/dev state, not authored configuration;
+    // rewinding identity without it reconstructs the wrong kit.
+    registry.register_component::<bc::BodyAbilities>("body_abilities");
     registry.register_component::<bc::BodyGroundState>("body_ground_state");
     registry.register_component::<bc::BodyWallState>("body_wall_state");
     registry.register_component::<bc::BodyJumpState>("body_jump_state");
@@ -1050,8 +1054,8 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
     //   discriminant codec whose mapping is EXPLICIT, not declaration order.
     registry.register_component::<ambition_characters::actor::pose::ActorPose>("actor_pose");
     // The canonical playable-persona identity. A restore patches it onto the
-    // survivor, and the `Changed<WornCharacter>` derive systems re-apply the
-    // character's gameplay + presentation the following tick.
+    // survivor; the identity/ability Changed<> derive re-applies gameplay and
+    // the presentation binder re-applies the visual the following tick.
     registry.register_component::<ambition_characters::actor::WornCharacter>("worn_character");
     registry
         .register_component::<ambition_platformer_primitives::orientation::ActorRoll>("actor_roll");

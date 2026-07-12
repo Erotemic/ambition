@@ -132,9 +132,19 @@ impl Plugin for PlayerSchedulePlugin {
                     ambition_actors::control::sync_local_player_input_frame,
                 )
                     .chain(),
+                // Canonical persona derive. It reacts both to identity changes
+                // and to live BodyAbilities edits; placing it in this chain gives
+                // its deferred capability-marker commands an apply-deferred seam
+                // before the brain/effects consumers run.
+                ambition_actors::avatar::apply_worn_character_gameplay,
                 // Universal-brain seam: translate this frame's slot input into
                 // each controlled body's ActorControl frame.
                 ambition_actors::avatar::tick_player_brains,
+                // ActionSet gates the generic resolver, but the body shield,
+                // slash/recoil, and charge-projectile paths still read raw control.
+                // Sanitize those direct verbs from the same worn kit before any
+                // simulation/effects phase consumes them.
+                ambition_actors::avatar::gate_worn_player_control,
                 // Body-mode policy (crouch / morph / climb) consumes the
                 // CONTROLLED body's freshly-produced ActorControl + its slot
                 // gestures, so it runs AFTER `tick_player_brains` and before
@@ -145,18 +155,6 @@ impl Plugin for PlayerSchedulePlugin {
                 .chain()
                 .in_set(SandboxSet::PlayerInput)
                 .after(ambition_dev_tools::sync_live_player_dev_edits_system),
-        );
-
-        // Derive gameplay config from the canonical worn-character identity.
-        // Runs in PlayerInput before `tick_player_brains` so a re-wear's new kit
-        // (ActionSet + moveset + movement model) is live the same tick the brain
-        // reads it. `Changed<WornCharacter>` covers both spawn (Added) and any
-        // later transformation.
-        app.add_systems(
-            sim,
-            ambition_actors::avatar::apply_worn_character_gameplay
-                .in_set(SandboxSet::PlayerInput)
-                .before(ambition_actors::avatar::tick_player_brains),
         );
 
         // The content dialogue-followup slot lives in PlayerInput; the HOST

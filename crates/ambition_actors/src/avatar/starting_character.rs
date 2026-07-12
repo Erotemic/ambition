@@ -26,7 +26,7 @@
 
 use bevy::ecs::resource::Resource;
 use bevy::ecs::system::{Commands, Query};
-use bevy::prelude::{Changed, Entity, Name};
+use bevy::prelude::{Changed, Entity, Has, Name, Or, With};
 
 use ambition_characters::actor::WornCharacter;
 use ambition_characters::brain::ActionSet;
@@ -114,38 +114,57 @@ pub fn apply_worn_motion_model(commands: &mut Commands, entity: Entity, characte
     }
 }
 
-/// **The gameplay OVERLAY a body derives from wearing `character_id`.** The ONE
-/// authority both the spawn bundle
-/// ([`crate::avatar::PlayerSimulationBundle::from_scratch_as_character`]) and the
-/// runtime re-wear system ([`apply_worn_character_gameplay`]) apply, so spawn and
-/// runtime can never disagree on what a character is. Every field it writes is
-/// resolved from the identity plus the body's own persisted `AbilitySet` — NEVER
-/// from the component's prior value — so wearing an id is TOTAL and deterministic
-/// (a re-wear, a snapshot restore onto a survivor: same id → same result). Applied
-/// in place:
+/// Resolve a playable ActionSet without collapsing an invalid authored row into
+/// the privileged host-code fallback. The returned bool says whether the body
+/// owns the host's chargeable-projectile capability.
+fn resolve_playable_action_set(
+    source: Option<ambition_characters::actor::character_catalog::PlayableKitSource>,
+    authored: Option<ActionSet>,
+    base_abilities: ambition_engine_core::AbilitySet,
+) -> (ActionSet, bool) {
+    use ambition_characters::actor::character_catalog::PlayableKitSource;
+
+    match source {
+        Some(PlayableKitSource::HostCode) => (
+            crate::avatar::bundles::default_player_action_set(base_abilities),
+            true,
+        ),
+        Some(PlayableKitSource::Authored) => {
+            // A known authored row with a missing preset is malformed content.
+            // The startup validator reports it; runtime remains fail-safe and
+            // peaceful rather than silently granting the host protagonist kit.
+            (authored.unwrap_or_else(ActionSet::peaceful), false)
+        }
+        None => (
+            // Unknown ids use one explicit compatibility fallback. This is
+            // intentionally distinct from a known-but-invalid Authored row.
+            crate::avatar::bundles::default_player_action_set(base_abilities),
+            true,
+        ),
+    }
+}
+
+/// **The gameplay overlay a body derives from wearing `character_id`.**
 ///
-/// * the display [`Name`]: a known row's `display_name`, else the id itself (so an
-///   unknown id is a visible diagnostic, never a stale prior name);
-/// * the [`ActionSet`] + the melee [`ActorMoveset`] derived from it, from ONE of
-///   three deterministic sources:
-///   - an [`Authored`](ambition_characters::actor::character_catalog::PlayableKitSource::Authored)
-///     row (the general case) → its catalog `default_action_set` IS the kit;
-///   - a [`HostCode`](ambition_characters::actor::character_catalog::PlayableKitSource::HostCode)
-///     row (a protagonist whose combat is a runtime `AbilitySet` concern) →
-///     rebuild the code kit from `base_abilities`;
-///   - an UNKNOWN id → the same code kit (a defined fallback) plus a warning.
+/// This is the single resolver used by both spawn and runtime re-wear. Every
+/// field it writes is a deterministic function of the identity plus the body's
+/// persisted `AbilitySet`, never of the prior ActionSet or moveset:
 ///
-/// `base_abilities` is the body's capability set (its `BodyAbilities` at runtime,
-/// the spawn `AbilitySet` at spawn) — the persisted source that makes the code
-/// kit reconstructible, so being the content default no longer means "keep the
-/// host's hardcoded kit" and there is no re-wear-to-default gap.
+/// - known `Authored` row: use its resolved `default_action_set`; a malformed
+///   missing preset receives a safe peaceful kit rather than host privileges;
+/// - known `HostCode` row: rebuild the host kit from `base_abilities`;
+/// - unknown id: install the explicit host-code compatibility fallback and name
+///   the body after the id so the problem is visible.
+///
+/// Returns whether the resolved persona owns the host chargeable-projectile
+/// capability; the ECS derive system synchronizes its marker and mutable state.
 pub fn apply_worn_character_overlay(
     name: &mut Name,
     action_set: &mut ActionSet,
     moveset: &mut ActorMoveset,
     character_id: &str,
     base_abilities: ambition_engine_core::AbilitySet,
-) {
+) -> bool {
     // NAME. A known row supplies a display name; an unknown id becomes its own
     // label — deterministic and never stale, and a legible diagnostic that a body
     // is wearing an id the catalog does not know.
@@ -154,37 +173,41 @@ pub fn apply_worn_character_overlay(
         None => *name = Name::new(character_id.to_string()),
     }
 
-    // KIT. Three deterministic sources, none of them the component's prior value:
-    let set = if crate::character_roster::playable_kit_is_host_code(character_id) {
-        // A protagonist whose combat is a runtime `AbilitySet` concern: rebuild
-        // its code kit from the body's own capabilities (a `HostCode` row's
-        // catalog action set describes its Hall/NPC face, not its playable kit).
-        crate::avatar::bundles::default_player_action_set(base_abilities)
-    } else if let Some(character_set) =
-        crate::character_roster::default_action_set_for_character_id(character_id)
+    let source = crate::character_roster::playable_kit_source_for_character_id(character_id);
+    let authored = crate::character_roster::default_action_set_for_character_id(character_id);
+    if matches!(
+        source,
+        Some(ambition_characters::actor::character_catalog::PlayableKitSource::Authored)
+    ) && authored.is_none()
     {
-        // The general case: the worn character's authored ActionSet IS the kit.
-        character_set
-    } else {
-        // An unknown id (or a row whose preset is missing): fall back to the code
-        // kit — a DEFINED profile, never arbitrary prior state — and say so.
-        bevy::log::warn_once!(
-            "worn character id '{character_id}' has no catalog action set; wearing \
-             the code-side default kit and showing the id as the display name"
+        bevy::log::error!(
+            "worn character '{character_id}' declares an Authored playable kit but its \
+             default_action_set does not resolve; installing a safe peaceful kit"
         );
-        crate::avatar::bundles::default_player_action_set(base_abilities)
-    };
-    *moveset = ActorMoveset(build_actor_moveset(None, set.melee.as_ref(), None).unwrap_or_default());
+    } else if source.is_none() {
+        bevy::log::warn_once!(
+            "worn character id '{character_id}' is not in the catalog; wearing the \
+             code-side compatibility kit and showing the id as the display name"
+        );
+    }
+
+    let (set, charges_projectiles) = resolve_playable_action_set(source, authored, base_abilities);
+    *moveset =
+        ActorMoveset(build_actor_moveset(None, set.melee.as_ref(), None).unwrap_or_default());
     *action_set = set;
+    charges_projectiles
 }
 
-/// **Derive a body's gameplay from its worn identity, at spawn and on re-wear.**
+/// **Derive a body's gameplay from its worn identity and host ability source.**
 ///
-/// Runs whenever a player's [`WornCharacter`] is added or changes (Bevy's `Changed`
-/// filter covers both). Applies [`apply_worn_character_overlay`] (name + kit — the
-/// SAME overlay the spawn bundle uses, fed the body's persisted [`BodyAbilities`]
-/// so a `HostCode`/unknown re-wear rebuilds the code kit deterministically) then
-/// the movement identity via [`apply_worn_motion_model`].
+/// Runs when either [`WornCharacter`] or [`crate::actor::BodyAbilities`] changes.
+/// The second edge is load-bearing for `HostCode`: live developer/progression
+/// changes must rebuild the code-derived ActionSet immediately instead of leaving
+/// a stale kit until the character is worn again. The system also synchronizes
+/// the chargeable-projectile capability: authored characters use their authored
+/// ranged path, while HostCode/unknown compatibility profiles own both the host
+/// charge marker and its per-body state. Removing both prevents a nominally
+/// peaceful persona from retaining a dormant protagonist-only charge machine.
 pub fn apply_worn_character_gameplay(
     mut commands: Commands,
     mut worn: Query<
@@ -195,23 +218,100 @@ pub fn apply_worn_character_gameplay(
             &mut ActionSet,
             &mut ActorMoveset,
             &crate::actor::BodyAbilities,
+            Has<ambition_projectiles::PlayerProjectileState>,
         ),
-        Changed<WornCharacter>,
+        Or<(Changed<WornCharacter>, Changed<crate::actor::BodyAbilities>)>,
     >,
 ) {
-    for (entity, character, mut name, mut action_set, mut moveset, abilities) in &mut worn {
+    for (
+        entity,
+        character,
+        mut name,
+        mut action_set,
+        mut moveset,
+        abilities,
+        has_projectile_state,
+    ) in &mut worn
+    {
         let id = character.id();
-        apply_worn_character_overlay(
+        let charges_projectiles = apply_worn_character_overlay(
             &mut name,
             &mut action_set,
             &mut moveset,
             id,
             abilities.abilities,
         );
+        {
+            let mut entity_commands = commands.entity(entity);
+            if charges_projectiles {
+                entity_commands.insert(ambition_characters::brain::ChargesProjectiles);
+                if !has_projectile_state {
+                    entity_commands.insert(ambition_projectiles::PlayerProjectileState::default());
+                }
+            } else {
+                entity_commands.remove::<ambition_characters::brain::ChargesProjectiles>();
+                entity_commands.remove::<ambition_projectiles::PlayerProjectileState>();
+            }
+        }
         // Movement identity: insert SurfaceMomentum for a momentum character,
         // else REMOVE any stale model so a re-wear never rides a chain the new
         // character can't (the render-refresh clobber gotcha in reverse).
         apply_worn_motion_model(&mut commands, entity, id);
+    }
+}
+
+/// Gate the raw player-control frame by the effective worn kit before any body
+/// or effects system consumes it.
+///
+/// `ActionSet` already gates the generic message resolver, but several legacy
+/// player-body paths still read `ActorControl` directly: the movement engine's
+/// attack recoil/slash limb, bubble shield, and the chargeable projectile input.
+/// Clearing those verbs here makes a peaceful authored persona peaceful in
+/// behavior, not merely in its nominal `ActionSet`.
+pub fn gate_worn_player_control(
+    mut players: Query<
+        (
+            &WornCharacter,
+            &ActionSet,
+            &mut ambition_characters::brain::ActorControl,
+            Has<ambition_characters::brain::ChargesProjectiles>,
+        ),
+        With<crate::actor::PlayerEntity>,
+    >,
+) {
+    use ambition_characters::actor::character_catalog::PlayableKitSource;
+    use ambition_characters::brain::SpecialActionSpec;
+
+    for (worn, actions, mut control, has_charge_marker) in &mut players {
+        if actions.melee.is_none() {
+            control.0.melee_pressed = false;
+            control.0.pogo_pressed = false;
+            control.0.attack_axis = ambition_engine_core::Vec2::ZERO;
+        }
+        if actions.ranged.is_none() {
+            control.0.fire = None;
+        }
+
+        let allows_body_shield = matches!(
+            actions.special.as_ref(),
+            Some(SpecialActionSpec::Special(key)) if key == "bubble_shield"
+        );
+        if !allows_body_shield {
+            control.0.shield_held = false;
+        }
+
+        // Use the row declaration as the same-tick source of truth. The marker is
+        // synchronized by `apply_worn_character_gameplay`, but Commands are
+        // deferred; consulting the identity prevents a one-tick projectile leak
+        // on an Authored re-wear before that removal is applied.
+        let source = crate::character_roster::playable_kit_source_for_character_id(worn.id());
+        let allows_charge_projectiles =
+            source == Some(PlayableKitSource::HostCode) || source.is_none();
+        if !allows_charge_projectiles || !has_charge_marker {
+            control.0.projectile_pressed = false;
+            control.0.projectile_held = false;
+            control.0.projectile_released = false;
+        }
     }
 }
 

@@ -56,7 +56,6 @@ ambition_combat::components::features::PogoTargetVolumes
 ambition_combat::held_items::HeldItem
 ambition_combat::moveset::ActorMoveset
 ambition_combat::moveset::MovesetMelee
-ambition_engine_core::body_clusters::BodyAbilities
 ambition_platformer_primitives::body::PrimaryBody
 ambition_platformer_primitives::lifecycle::markers::FeatureSimEntity
 ambition_platformer_primitives::lifecycle::markers::PlayerVisual

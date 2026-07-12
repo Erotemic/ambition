@@ -126,12 +126,12 @@ fn gameplay_derives_from_worn_identity_at_add_and_on_change() {
     );
 }
 
-/// **S1 poison / non-vacuity:** with NO change to `WornCharacter`, the derive
-/// system does not fire, so a hand-set movement model is left untouched. This
-/// proves the assertion above is driven by the `Changed` edge, not by the
-/// system running unconditionally every frame.
+/// **S1 poison / non-vacuity:** with no change to either `WornCharacter` or
+/// `BodyAbilities`, the derive system does not fire, so a hand-set movement model
+/// is left untouched. This proves the assertions above are driven by the two
+/// `Changed` edges, not by the system running unconditionally every frame.
 #[test]
-fn derive_system_only_fires_on_identity_change() {
+fn derive_system_only_fires_on_identity_or_ability_change() {
     use crate::combat::moveset::ActorMoveset;
     use ambition_characters::brain::ActionSet;
     use bevy::prelude::*;
@@ -161,7 +161,7 @@ fn derive_system_only_fires_on_identity_change() {
     app.update();
     assert!(
         app.world().get::<MotionModel>(e).is_none(),
-        "with no WornCharacter change the derive system must not re-fire"
+        "with no identity or ability change the derive system must not re-fire"
     );
 }
 
@@ -282,6 +282,18 @@ fn runtime_rewear_to_a_host_code_protagonist_rebuilds_the_code_kit() {
         matches!(set.special, Some(SpecialActionSpec::Special(_))),
         "the code kit's bubble_shield special is rebuilt"
     );
+    assert!(
+        app.world()
+            .get::<ambition_characters::brain::ChargesProjectiles>(e)
+            .is_some(),
+        "the host charge capability is rebuilt with the host kit"
+    );
+    assert!(
+        app.world()
+            .get::<ambition_projectiles::PlayerProjectileState>(e)
+            .is_some(),
+        "the per-body host charge state is reconstructed when absent"
+    );
 }
 
 /// **Unknown ids are deterministic, not stale.** Re-wearing an id the catalog
@@ -324,4 +336,134 @@ fn runtime_rewear_to_an_unknown_id_is_a_defined_fallback_not_stale_state() {
             && matches!(set.ranged, Some(RangedActionSpec::Bolt { .. })),
         "an unknown id falls back to the defined code kit, not the stale pistol"
     );
+}
+
+/// A HostCode row is derived from the body's mutable ability source, so changing
+/// that source must refresh the effective kit even when the worn identity does
+/// not change. This is the live-dev/progression edge the identity-only filter
+/// missed.
+#[test]
+fn host_code_kit_refreshes_when_body_abilities_change() {
+    use crate::combat::moveset::ActorMoveset;
+    use ambition_characters::brain::{ActionSet, MeleeActionSpec, RangedActionSpec};
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.add_systems(Update, apply_worn_character_gameplay);
+    let entity = app
+        .world_mut()
+        .spawn((
+            WornCharacter::new("player"),
+            Name::new("unset"),
+            ActionSet::default(),
+            ActorMoveset(Default::default()),
+            crate::actor::BodyAbilities::new(ambition_engine_core::AbilitySet::sandbox_all()),
+        ))
+        .id();
+    app.update();
+
+    let initial = app.world().get::<ActionSet>(entity).unwrap();
+    assert!(matches!(initial.melee, Some(MeleeActionSpec::Swipe(_))));
+    assert!(matches!(
+        initial.ranged,
+        Some(RangedActionSpec::Bolt { .. })
+    ));
+    assert!(initial.special.is_some());
+
+    {
+        let mut abilities = app
+            .world_mut()
+            .get_mut::<crate::actor::BodyAbilities>(entity)
+            .unwrap();
+        abilities.abilities.attack = false;
+        abilities.abilities.pogo = false;
+        abilities.abilities.shield = false;
+    }
+    app.update();
+
+    let refreshed = app.world().get::<ActionSet>(entity).unwrap();
+    assert!(
+        refreshed.melee.is_none(),
+        "Changed<BodyAbilities> removes the now-disabled melee"
+    );
+    assert!(
+        matches!(refreshed.ranged, Some(RangedActionSpec::Bolt { .. })),
+        "an unrelated enabled ability remains in the rebuilt host kit"
+    );
+    assert!(
+        refreshed.special.is_none(),
+        "Changed<BodyAbilities> removes the now-disabled bubble shield"
+    );
+    assert!(
+        app.world()
+            .get::<ActorMoveset>(entity)
+            .unwrap()
+            .0
+            .moves
+            .is_empty(),
+        "the derived moveset refreshes with the ActionSet"
+    );
+}
+
+/// A peaceful authored persona must be peaceful at the final body-control seam,
+/// not only in its nominal ActionSet. Legacy player mechanics consume these raw
+/// fields directly, bypassing the generic action resolver unless they are gated.
+#[test]
+fn peaceful_worn_kit_gates_direct_player_combat_verbs() {
+    use ambition_characters::actor::control::{ActorControlFrame, ActorFireRequest};
+    use ambition_characters::brain::{ActionSet, ActorControl};
+    use bevy::prelude::*;
+
+    let mut frame = ActorControlFrame::neutral();
+    frame.melee_pressed = true;
+    frame.pogo_pressed = true;
+    frame.attack_axis = Vec2::new(1.0, -1.0);
+    frame.fire = Some(ActorFireRequest::world_space(Vec2::X, 123.0));
+    frame.shield_held = true;
+    frame.projectile_pressed = true;
+    frame.projectile_held = true;
+    frame.projectile_released = true;
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.add_systems(Update, gate_worn_player_control);
+    let entity = app
+        .world_mut()
+        .spawn((
+            crate::actor::PlayerEntity,
+            WornCharacter::new("sanic"),
+            ActionSet::peaceful(),
+            ActorControl(frame),
+        ))
+        .id();
+    app.update();
+
+    let gated = &app.world().get::<ActorControl>(entity).unwrap().0;
+    assert!(!gated.melee_pressed);
+    assert!(!gated.pogo_pressed);
+    assert_eq!(gated.attack_axis, Vec2::ZERO);
+    assert!(gated.fire.is_none());
+    assert!(!gated.shield_held);
+    assert!(!gated.projectile_pressed);
+    assert!(!gated.projectile_held);
+    assert!(!gated.projectile_released);
+}
+
+/// A typo in a known Authored row is content corruption, not permission to gain
+/// the host protagonist's code kit. Validation reports the bad row; the runtime
+/// fallback is deliberately inert.
+#[test]
+fn malformed_authored_resolution_is_safe_peaceful_not_host_code() {
+    use ambition_characters::actor::character_catalog::PlayableKitSource;
+
+    let (set, charges_projectiles) = resolve_playable_action_set(
+        Some(PlayableKitSource::Authored),
+        None,
+        ambition_engine_core::AbilitySet::sandbox_all(),
+    );
+    assert!(set.melee.is_none());
+    assert!(set.ranged.is_none());
+    assert!(set.special.is_none());
+    assert!(!charges_projectiles);
 }

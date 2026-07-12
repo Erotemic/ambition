@@ -232,8 +232,8 @@ impl CharacterBarks {
     }
 }
 
-/// Where a character's PLAYABLE combat kit comes from when the home box WEARS
-/// it — the catalog, or the host game's code.
+/// Where a character's PLAYABLE action/combat kit comes from when the home box
+/// WEARS it — the catalog, or the host game's code.
 ///
 /// This exists to separate two concepts that are NOT the same: "which row is the
 /// content default" and "whose kit does the playable body use". The general case
@@ -248,14 +248,17 @@ impl CharacterBarks {
 ///
 /// A standalone game whose default protagonist wants its OWN authored profile
 /// simply leaves this `Authored` (the default). Only a game that layers a code
-/// kit on its protagonist (Ambition's robot) marks that row `HostCode`.
+/// kit on its protagonist (Ambition's robot) marks that row `HostCode`. This
+/// selector does not replace the body's movement/progression `AbilitySet`; it
+/// owns the ActionSet, derived moveset, and direct combat adjuncts such as the
+/// host charge-projectile capability.
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Eq)]
 pub enum PlayableKitSource {
-    /// The worn kit is the row's `default_action_set` (the general case).
+    /// The worn action/combat kit is the row's `default_action_set`.
     #[default]
     Authored,
-    /// The worn body keeps its host-code-built kit; the catalog action set does
-    /// not define the playable kit (a protagonist with a runtime code kit).
+    /// The worn body uses its host-code-built action/combat kit; the catalog
+    /// action set does not define the playable kit for this row.
     HostCode,
 }
 
@@ -286,7 +289,8 @@ pub struct CharacterCatalogEntry {
     pub default_brain: String,
     /// Name of the preset in `action_set_presets` to apply by default.
     pub default_action_set: String,
-    /// Whose kit the PLAYABLE body uses when the home box wears this character:
+    /// Whose action/combat kit the PLAYABLE body uses when the home box wears
+    /// this character:
     /// the catalog's `default_action_set` ([`PlayableKitSource::Authored`], the
     /// default) or the host game's code-built kit ([`PlayableKitSource::HostCode`],
     /// a protagonist with a runtime `AbilitySet`/progression kit). Defaults to

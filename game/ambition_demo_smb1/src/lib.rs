@@ -147,7 +147,14 @@ pub fn goal_pole() -> flag::FlagPole {
 /// engine ships none (ADR 0017).
 const SMB1_CATALOG_RON: &str = r#"(
     brain_presets: { "stand_still": StandStill },
-    action_set_presets: {},
+    action_set_presets: {
+        "peaceful": (
+            move_style: Walk,
+            melee: None,
+            ranged: None,
+            special: None,
+        ),
+    },
     characters: {
         "mary_o": (
             display_name: "Mary-O",
@@ -158,6 +165,10 @@ const SMB1_CATALOG_RON: &str = r#"(
             composition: None,
             default_brain: "stand_still",
             default_action_set: "peaceful",
+            // This fixture intentionally exercises the host-built protagonist
+            // kit. Declare that ownership explicitly; malformed Authored rows
+            // must never gain host capabilities by falling through.
+            playable_kit: HostCode,
             tags: ["player"],
         ),
     },

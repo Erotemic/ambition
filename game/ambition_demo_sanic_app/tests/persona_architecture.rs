@@ -140,13 +140,16 @@ fn the_demo_body_wears_the_authored_peaceful_kit_not_the_host_protagonist_kit() 
         app.update();
     }
 
-    let (action_set, moveset_len) = {
+    let (player, action_set, moveset_len) = {
         let mut q = app.world_mut().query_filtered::<
-            (&ActionSet, &ActorMoveset),
+            (Entity, &ActionSet, &ActorMoveset),
             With<ambition::actors::actor::PrimaryPlayer>,
         >();
-        let (set, moveset) = q.iter(app.world()).next().expect("primary player has a kit");
-        (set.clone(), moveset.0.moves.len())
+        let (entity, set, moveset) = q
+            .iter(app.world())
+            .next()
+            .expect("primary player has a kit");
+        (entity, set.clone(), moveset.0.moves.len())
     };
 
     assert!(
@@ -164,5 +167,17 @@ fn the_demo_body_wears_the_authored_peaceful_kit_not_the_host_protagonist_kit() 
     assert_eq!(
         moveset_len, 0,
         "an empty melee derives an empty directional moveset"
+    );
+    assert!(
+        app.world()
+            .get::<ambition::characters::brain::ChargesProjectiles>(player)
+            .is_none(),
+        "an authored peaceful persona does not retain the host charge capability"
+    );
+    assert!(
+        app.world()
+            .get::<ambition::projectiles::PlayerProjectileState>(player)
+            .is_none(),
+        "the protagonist-only charge state is removed with its capability"
     );
 }

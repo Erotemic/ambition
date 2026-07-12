@@ -167,25 +167,32 @@ pub fn hall_dialogue_id_for_character_id(character_id: &str) -> Option<&'static 
         .as_deref()
 }
 
-/// True when the character row declares its PLAYABLE kit is host-code-owned
-/// ([`PlayableKitSource::HostCode`]) rather than authored in the catalog — a
-/// protagonist whose combat is a runtime `AbilitySet`/progression concern, not
-/// static catalog data. The single lookup that lets the player-wear seam decide
-/// whether to overlay the row's `default_action_set` or keep the body's
-/// code-built kit, WITHOUT keying off "is this the content default" (a demo whose
-/// only/default character authors its own kit must still get that kit).
+/// The declared source of a catalog row's PLAYABLE kit.
 ///
-/// Unknown ids return `false`: they have no row to opt in, and the wear seam
-/// handles an unknown id with its own code-kit fallback.
-pub fn playable_kit_is_host_code(character_id: &str) -> bool {
+/// This deliberately returns `None` for an unknown id instead of folding it into
+/// either enum variant. The wear seam must distinguish three cases:
+///
+/// - known [`PlayableKitSource::Authored`] row → the referenced preset must win;
+/// - known [`PlayableKitSource::HostCode`] row → rebuild from host abilities;
+/// - unknown id → the explicit unknown-character fallback.
+///
+/// Keeping "unknown" separate also prevents a malformed authored row (known row,
+/// missing preset) from silently receiving the host protagonist's privileged kit.
+pub fn playable_kit_source_for_character_id(
+    character_id: &str,
+) -> Option<ambition_characters::actor::character_catalog::PlayableKitSource> {
     catalog()
         .characters
         .get(character_id)
-        .map(|entry| {
-            entry.playable_kit
-                == ambition_characters::actor::character_catalog::PlayableKitSource::HostCode
-        })
-        .unwrap_or(false)
+        .map(|entry| entry.playable_kit)
+}
+
+/// Compatibility helper for call sites that only need the yes/no question.
+/// Prefer [`playable_kit_source_for_character_id`] at resolution boundaries so
+/// unknown ids remain distinguishable from authored rows.
+pub fn playable_kit_is_host_code(character_id: &str) -> bool {
+    playable_kit_source_for_character_id(character_id)
+        == Some(ambition_characters::actor::character_catalog::PlayableKitSource::HostCode)
 }
 
 /// The authored surface-momentum params for a character id, hydrated into the

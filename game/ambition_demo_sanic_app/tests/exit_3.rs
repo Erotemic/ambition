@@ -88,21 +88,30 @@ fn the_demo_steps_the_real_simulation_on_the_fixed_timeline() {
 #[test]
 fn the_demos_own_rules_run_because_its_room_claims_its_mode() {
     let mut app = build_demo_app();
-    app.update();
+    // Drive past the shell's frame-1 activation so the session is live and the
+    // mode-scoped act owner has been spawned (the shell activates in `Update`,
+    // one frame after direct-entry would; measure a delta, not an absolute).
+    for _ in 0..3 {
+        app.update();
+    }
+    let start = act_elapsed(&mut app).expect(
+        "the session's act state must exist — `sanic_speedway` claims \
+         `mode: sanic` and the rules plugin spawns its owner once the session \
+         is live",
+    );
+
     for _ in 0..60 {
         app.update();
     }
+    let end = act_elapsed(&mut app).expect("the act state persists across the session");
 
-    let elapsed = act_elapsed(&mut app).expect(
-        "the mode-scoped act state must exist — `sanic_speedway` claims \
-         `mode: sanic` and the rules plugin spawns its owner",
-    );
     // 60 ticks at the fixed dt. The act clock is the SIM clock, so bullet-time
     // and pause would slow it exactly as they slow everything else.
     assert!(
-        (elapsed - 60.0 * TICK_DT).abs() < 1e-3,
-        "the act timer runs on `WorldTime::scaled_dt`: expected {}, got {elapsed}",
-        60.0 * TICK_DT
+        (end - start - 60.0 * TICK_DT).abs() < 1e-3,
+        "the act timer runs on `WorldTime::scaled_dt`: expected +{}, got +{}",
+        60.0 * TICK_DT,
+        end - start
     );
     assert_eq!(SANIC_MODE, "sanic");
 }

@@ -380,6 +380,12 @@ const SANIC_CATALOG_RON: &str = r#"(
 )"#;
 
 pub mod ball_dash;
+pub mod provider;
+
+pub use provider::{
+    sanic_session_world, SanicExperiencePlugin, SanicSessionLink, SanicSessionWorld,
+    SANIC_EXPERIENCE, SANIC_GAMEPLAY_ROUTE, SANIC_LAUNCHER_ROUTE,
+};
 
 /// Content plugin for the Sanic movement demo: installs the roster, the world,
 /// and the engine's own sim-world setup. This is the shape
@@ -387,29 +393,39 @@ pub mod ball_dash;
 /// `ambition` umbrella alone.
 pub struct SanicDemoContentPlugin;
 
+/// Install Sanic's immutable, process-resident content definitions: the character
+/// roster and the music/SFX registries. Shared by the historical
+/// [`SanicDemoContentPlugin`] (Startup-driven construction) and the new
+/// [`provider::SanicExperiencePlugin`] (shell-activation-driven construction), so
+/// there is one definition of Sanic's content seam.
+///
+/// These are global first-install-wins installs today; App-local composition is a
+/// later phase.
+pub fn install_sanic_content() {
+    ambition::runtime::demo_fixture::install_character_catalog(SANIC_CATALOG_RON);
+    ambition::actors::session::data::install_music_registry(ambition::audio::spec::MusicRegistry {
+        default_track: "you_are_too_slow".to_string(),
+        tracks: vec![ambition::audio::spec::MusicTrack {
+            id: "you_are_too_slow".to_string(),
+            display_name: "You Are Too Slow".to_string(),
+            asset_path: Some(SANIC_MUSIC_ASSET_PATH.to_string()),
+        }],
+    });
+    // The packed Ambition bank supplies the actual typed cues. The registry
+    // remains intentionally minimal but valid so the demo owns its audio
+    // data seam instead of borrowing the full game's content registry.
+    ambition::actors::session::data::install_sfx_registry(ambition::audio::spec::SfxRegistry {
+        sample_rate: 44_100,
+        sfx: Vec::new(),
+    });
+}
+
 impl Plugin for SanicDemoContentPlugin {
     fn build(&self, app: &mut App) {
         use ambition::runtime::demo_fixture::{ActiveRoomMetadata, RoomSet};
         use bevy::prelude::IntoScheduleConfigs;
 
-        ambition::runtime::demo_fixture::install_character_catalog(SANIC_CATALOG_RON);
-        ambition::actors::session::data::install_music_registry(
-            ambition::audio::spec::MusicRegistry {
-                default_track: "you_are_too_slow".to_string(),
-                tracks: vec![ambition::audio::spec::MusicTrack {
-                    id: "you_are_too_slow".to_string(),
-                    display_name: "You Are Too Slow".to_string(),
-                    asset_path: Some(SANIC_MUSIC_ASSET_PATH.to_string()),
-                }],
-            },
-        );
-        // The packed Ambition bank supplies the actual typed cues. The registry
-        // remains intentionally minimal but valid so the demo owns its audio
-        // data seam instead of borrowing the full game's content registry.
-        ambition::actors::session::data::install_sfx_registry(ambition::audio::spec::SfxRegistry {
-            sample_rate: 44_100,
-            sfx: Vec::new(),
-        });
+        install_sanic_content();
         // The demo's player is explicitly the speedster rather than relying on
         // whichever row happens to be the installed catalog default.
         app.insert_resource(ambition::runtime::demo_fixture::StartingCharacter::new(
@@ -600,11 +616,26 @@ fn toggle_sanic_form(
 fn spawn_sanic_mode_owner(
     mut commands: bevy::prelude::Commands,
     existing: bevy::prelude::Query<(), bevy::prelude::With<SanicActState>>,
+    session: Option<bevy::prelude::Res<ambition::platformer::lifecycle::ActiveSessionScope>>,
     mut sfx: bevy::prelude::MessageWriter<ambition::sfx::SfxMessage>,
 ) {
-    use ambition::platformer::lifecycle::SpawnScopedExt;
-    if existing.iter().next().is_none() {
-        commands.spawn_mode_scoped(SANIC_MODE, SanicActState::default());
+    use ambition::platformer::lifecycle::SpawnSessionScopedExt;
+    // Sleep when a session-scoped host has retired the live session (i.e. at the
+    // launcher): the room metadata may still read "sanic" until the next
+    // activation overwrites it, but there is no session to own new state, so the
+    // act owner must not be resurrected. When no `ActiveSessionScope` exists at
+    // all (the historical Startup path and the D-C tests) the guard is inert.
+    let session_live = session.map_or(true, |scope| scope.current().is_some());
+    if session_live && existing.iter().next().is_none() {
+        // Owned by BOTH the mode (survives in-session room changes) and the
+        // active session (torn down on a shell relaunch, which a same-mode
+        // reload is NOT — so mode-scope alone would leak the act across a
+        // launch → quit → relaunch cycle).
+        commands
+            .spawn_session_scoped(SanicActState::default())
+            .insert(ambition::platformer::lifecycle::ModeScopedEntity(
+                SANIC_MODE.to_string(),
+            ));
         // Audible confirmation that the standalone shell is draining the
         // standard SfxMessage seam. Distance markers emit alternating cues as
         // the player advances, so this one also proves the bank at room entry.

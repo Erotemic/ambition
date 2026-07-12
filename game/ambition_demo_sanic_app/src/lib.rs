@@ -5,17 +5,32 @@
 
 use bevy::prelude::*;
 
+// The windowed demo still uses the historical Startup-driven content path; the
+// headless `build_demo_app` uses the shell-integrated provider path instead.
 #[cfg(feature = "visible")]
-use ambition_demo_sanic::SANIC_MUSIC_ASSET_PATH;
-use ambition_demo_sanic::{SanicDemoContentPlugin, SanicRulesPlugin};
+use ambition_demo_sanic::{SanicDemoContentPlugin, SanicRulesPlugin, SANIC_MUSIC_ASSET_PATH};
 
-/// Assemble the demo: foundation + the engine group + the host group + this
-/// demo's content and rules. **Zero engine edits, zero `ambition_app`.**
+/// Assemble the demo: foundation + the engine group + the host group + the Sanic
+/// experience under a standalone shell host. **Zero engine edits, zero
+/// `ambition_app`.**
+///
+/// The shell owns entry: `initial_route = sanic_gameplay` (direct standalone
+/// entry) and `home_route = sanic_launcher`, so a `QuitToHome` returns to a
+/// Sanic-only launcher and a relaunch rebuilds a fresh, scope-clean session. The
+/// SAME [`SanicExperiencePlugin`] powers direct entry and launcher relaunch.
 ///
 /// Headless-foundation here; a windowed shell swaps that one call for
-/// `DefaultPlugins` + `ambition::engine::init_engine_states`. Everything below it
-/// is identical, which is the claim exit 3 makes.
+/// `DefaultPlugins` + `ambition::engine::init_engine_states`.
 pub fn build_demo_app() -> App {
+    build_demo_app_with_home(ambition_demo_sanic::SANIC_LAUNCHER_ROUTE)
+}
+
+/// The same standalone Sanic host, but with an explicitly named home route.
+///
+/// Exposed so a lifecycle test can build a SECOND host from the identical
+/// provider and prove that `QuitToHome` resolves relative to whichever home this
+/// host declared — the provider never names either launcher.
+pub fn build_demo_app_with_home(home_route: &str) -> App {
     let mut app = App::new();
     ambition::engine::add_headless_foundation(&mut app);
     app.add_plugins(ambition::engine::PlatformerEnginePlugins::fixed_tick());
@@ -23,11 +38,48 @@ pub fn build_demo_app() -> App {
     // TODO(sanic-demo-trail-toggle): `PlatformerHostPlugins` currently carries
     // the sandbox's B-key trail debug affordance. Move that behind an explicit
     // host/dev capability later; it is inherited here, not a Sanic ability.
-    app.add_plugins((SanicDemoContentPlugin, SanicRulesPlugin::global()));
+    compose_sanic_shell(&mut app, home_route);
     // Pin the frame dt to the tick dt so one `update()` is exactly one sim tick.
     let timestep = app.world().resource::<Time<Fixed>>().timestep();
     app.insert_resource(bevy::time::TimeUpdateStrategy::ManualDuration(timestep));
     app
+}
+
+/// Compose the Sanic experience under a thin standalone host: the session-scope
+/// mechanism, the minimal shell, the reusable Sanic provider, and a launcher
+/// home. The provider is host-independent — only these host lines (the two
+/// routes, the host spec, and the build-time world) are host-specific.
+fn compose_sanic_shell(app: &mut App, home_route: &str) {
+    use ambition::game_shell::{
+        ShellHostConfiguration, ShellHostSpec, ShellLaunchCatalog, ShellRouteCatalog,
+        ShellRouteSpec,
+    };
+    use ambition_demo_sanic::{sanic_session_world, SanicExperiencePlugin, SANIC_GAMEPLAY_ROUTE};
+
+    app.add_plugins(ambition::platformer::lifecycle::SessionScopePlugin);
+    app.add_plugins(ambition::game_shell::MinimalShellPlugins);
+    app.add_plugins(SanicExperiencePlugin);
+
+    // This host's home route: a launcher listing this host's registered
+    // experiences (here, just Sanic + the built-in exit).
+    app.world_mut()
+        .resource_mut::<ShellRouteCatalog>()
+        .register(ShellRouteSpec::new(
+            home_route,
+            ShellLaunchCatalog::basic_experience_id(),
+        ));
+    app.world_mut()
+        .resource_mut::<ShellHostConfiguration>()
+        .spec = Some(ShellHostSpec::new(SANIC_GAMEPLAY_ROUTE, home_route));
+
+    // Build-time initial world so the fixed-tick sim already has a
+    // `RoomGeometry`/`RoomSet`/`ActiveRoomMetadata` on frame 1: `FixedUpdate`
+    // runs before `Update`, and the first shell activation lands in `Update`.
+    let world = sanic_session_world();
+    app.insert_resource(world.geometry);
+    app.insert_resource(world.room_set);
+    app.insert_resource(world.metadata);
+    app.insert_resource(world.starting_character);
 }
 
 /// The same demo, DRAWN — foundation swapped for `DefaultPlugins`, plus the

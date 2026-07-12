@@ -25,6 +25,7 @@ use crate::session::data::SandboxDataAsset;
 use ambition_dev_tools::dev_tools::{EditableAbilitySet, EditableMovementTuning};
 use ambition_engine_core::config::{world_to_bevy, WORLD_Z_PLAYER};
 use ambition_engine_core::RoomGeometry;
+use ambition_platformer_primitives::lifecycle::SpawnSessionScopedExt;
 
 /// Borrowed inputs for `simulation_world`.
 ///
@@ -121,8 +122,13 @@ pub fn simulation_world(commands: &mut Commands, params: SimulationSetup<'_>) ->
             &starting_character.character_id,
         )
     };
+    // Session ownership: the player body inherits the ambient session scope
+    // (`ActiveSessionScope`) at command-flush time, so a shell-driven relaunch
+    // tears the previous session's body down with its scope. When no session is
+    // active (the historical Startup path, RL/headless fixtures), the ambient
+    // scope is absent and this spawns unscoped exactly as before.
     let player = commands
-        .spawn((
+        .spawn_session_scoped((
             Transform::from_translation(world_to_bevy(&world.0, world.0.spawn, WORLD_Z_PLAYER)),
             PlayerVisual,
             // The canonical playable-persona identity: WHICH catalog character

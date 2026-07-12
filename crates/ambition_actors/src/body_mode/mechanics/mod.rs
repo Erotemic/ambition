@@ -56,6 +56,7 @@ pub fn update_body_mode(
         &mut crate::actor::BodyModeState,
         &mut crate::actor::BodyJumpState,
         &crate::actor::BodyGroundState,
+        Option<&crate::features::MotionModel>,
         &crate::actor::BodyWallState,
         &crate::actor::BodyDashState,
         &crate::actor::BodyBlinkState,
@@ -79,6 +80,7 @@ pub fn update_body_mode(
         mut body_mode_state,
         mut jump_state,
         ground,
+        motion,
         wall,
         dash,
         blink,
@@ -131,7 +133,19 @@ pub fn update_body_mode(
         let jump_pressed = control.jump_pressed;
         let dash_pressed = control.dash_pressed;
         let stand_up_gesture = jump_pressed || up_held;
-        let on_ground = ground.on_ground;
+        // Momentum bodies publish support through their ride state. The generic
+        // AABB ground cluster can remain false while a body is attached to a
+        // chain or block boundary, so body-mode policy must consume the unified
+        // support fact rather than privileging one movement model.
+        let on_ground = ground.on_ground
+            || matches!(
+                motion,
+                Some(crate::features::MotionModel::SurfaceMomentum(momentum))
+                    if matches!(
+                        momentum.state,
+                        ae::surface::SurfaceMotion::Riding { .. }
+                    )
+            );
         let mode = body_mode_state.body_mode;
         let solid = |b: &ae::Block| matches!(b.kind, ae::BlockKind::Solid);
         let climbable_contact_present = env_contact.climbable.is_some();

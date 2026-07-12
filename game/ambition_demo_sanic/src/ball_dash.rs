@@ -15,17 +15,22 @@
 //!
 //! ## The input, and why it needed no new binding
 //!
-//! Sonic 2's spin dash is *hold down, tap jump to rev, release down to launch*.
-//! Every one of those already exists on `ActorControlFrame`:
+//! The demo's keyboard contract is *hold down, tap attack (X in the default
+//! arrows + Z/X/C preset) to rev, release down to launch*. Every one of those
+//! already exists on `ActorControlFrame`:
 //!
 //! - **crouch** = `locomotion.y ≥ threshold`. `locomotion` is in the body's LOCAL
 //!   frame, `+y` toward the feet — so this is gravity-relative for free, and a
 //!   Sanic running the ceiling of a loop revs the same way he does on the floor.
-//! - **rev** = `jump_pressed` (a rising edge) while crouched.
+//! - **rev** = the raw `melee_pressed` edge while crouched. The Sanic rules
+//!   capture it before the persona gate removes generic combat, so X becomes a
+//!   Sanic technique without leaking a melee attack.
 //! - **launch** = the crouch releasing while charge is above the launch floor.
 //!
-//! No new device binding, no new engine field. `locomotion.y` existing as a local
-//! axis rather than a screen axis is what makes the loop case fall out.
+//! No new device binding and no engine field: [`capture_ball_dash_input`] samples
+//! the ordinary actor-control seam between the player brain and the generic worn-kit
+//! gate. `locomotion.y` being local rather than screen-space is what makes the loop
+//! case fall out.
 //!
 //! ## The sign of `v_t`
 //!
@@ -51,7 +56,7 @@ use bevy::prelude::*;
 /// component write, and so a test can build an extreme one.
 #[derive(Resource, Clone, Copy, Debug)]
 pub struct BallDashTuning {
-    /// Charge added per rev tap. `0.25` = four taps to full.
+    /// Charge added per rev tap. One tap clears the launch floor; three reach full.
     pub rev_per_tap: f32,
     /// Charge bled off per second while crouched. Holding forever must not
     /// guarantee a max launch — the rev is a rhythm, not a timer.
@@ -68,18 +73,23 @@ pub struct BallDashTuning {
     pub exit_speed: f32,
     /// `locomotion.y` past this reads as a crouch (local down is `+y`).
     pub crouch_threshold: f32,
+    /// Grace after losing a ride contact while a rev is already armed. Surface
+    /// hand-offs and ramp lips can report one brief airborne tick; that must not
+    /// erase a deliberate charge before the release edge reaches the rules.
+    pub contact_grace_s: f32,
 }
 
 impl Default for BallDashTuning {
     fn default() -> Self {
         Self {
-            rev_per_tap: 0.25,
+            rev_per_tap: 0.4,
             decay_per_s: 0.55,
             launch_speed: 900.0,
             min_launch_charge: 0.3,
             ball_size: ae::Vec2::new(24.0, 24.0),
             exit_speed: 90.0,
             crouch_threshold: 0.5,
+            contact_grace_s: 0.12,
         }
     }
 }
@@ -92,6 +102,66 @@ pub struct BallDash {
     pub charge: f32,
     /// Was the body crouched at the end of last tick? The release edge.
     pub crouched: bool,
+    /// Remaining time in which a previously grounded rev may survive a brief
+    /// contact seam. This is refreshed only by a real riding contact.
+    pub contact_grace: f32,
+}
+
+/// Mode-local input latched before the generic worn-kit gate strips peaceful
+/// personas' combat verbs. This is not a second device map: it is a content-side
+/// interpretation of the same controller-neutral `ActorControl` frame.
+#[derive(Component, Clone, Copy, Debug, Default, PartialEq)]
+pub struct BallDashInput {
+    /// Local-down is held past the authored threshold.
+    pub crouch_held: bool,
+    /// Falling edge of local-down, captured at the same controller-neutral seam
+    /// as the rev. Keeping the edge here makes release independent of later
+    /// body-mode clearance and fixed-tick latch timing.
+    pub crouch_released: bool,
+    /// Rising edge of the default attack verb (X in arrows + Z/X/C).
+    pub rev_pressed: bool,
+    /// Whether the body had support when input was captured, before crouch
+    /// compaction or movement could transiently detach it from a flat block.
+    pub grounded_at_capture: bool,
+}
+
+/// Capture Sanic's X-button technique before `gate_worn_player_control` removes
+/// the peaceful persona's generic melee intent. Vacated bodies are reset so a
+/// possession handoff cannot replay a stale rev edge.
+pub fn capture_ball_dash_input(
+    subject: Option<Res<ambition::platformer::markers::ControlledSubject>>,
+    tuning: Res<BallDashTuning>,
+    mut bodies: Query<
+        (
+            Entity,
+            &ambition::characters::brain::ActorControl,
+            &ambition::actors::features::MotionModel,
+            &ambition::actors::actor::BodyGroundState,
+            &mut BallDashInput,
+        ),
+        With<BallDash>,
+    >,
+) {
+    let controlled = subject.and_then(|subject| subject.0);
+    for (entity, control, motion, ground, mut input) in &mut bodies {
+        *input = if Some(entity) == controlled {
+            let grounded_at_capture = ground.on_ground
+                || matches!(
+                    motion,
+                    ambition::actors::features::MotionModel::SurfaceMomentum(momentum)
+                        if matches!(momentum.state, ae::surface::SurfaceMotion::Riding { .. })
+                );
+            let crouch_held = control.0.locomotion.y >= tuning.crouch_threshold;
+            BallDashInput {
+                crouch_released: input.crouch_held && !crouch_held,
+                crouch_held,
+                rev_pressed: control.0.melee_pressed,
+                grounded_at_capture,
+            }
+        } else {
+            BallDashInput::default()
+        };
+    }
 }
 
 /// The rolling flag. Carries the size to restore, so nothing has to re-derive
@@ -114,70 +184,94 @@ pub enum BallDashStep {
     Launch(f32),
 }
 
-/// One tick of the charge machine. `grounded` is "riding a surface" — you cannot
-/// rev in mid-air, which is Sonic's rule and also the only one that makes the
-/// launch's `v_t` meaningful.
+/// One tick of the charge machine. `grounded` is the support state sampled at
+/// the PlayerInput seam — you cannot start a rev in mid-air, which is Sonic's
+/// rule and also the only one that makes the launch's `v_t` meaningful.
 ///
-/// A body that goes airborne mid-rev **loses the charge**. That is deliberate: an
-/// airborne launch exists (the spec asks for it) but an airborne *rev* would let a
-/// player bank a dash across a jump, and the whole point of the verb is that it
-/// costs you your position while you build it.
+/// A body must be genuinely riding to ADD charge. Once a charge exists, a short
+/// contact grace tolerates the one-tick airborne seams produced by block/chain
+/// hand-offs and ramp lips. Staying airborne past that grace still clears the rev,
+/// so the player cannot bank a dash across an actual jump.
 pub fn ball_dash_step(
     state: &mut BallDash,
     grounded: bool,
     crouch: bool,
+    crouch_released: bool,
     rev_pressed: bool,
     dt: f32,
     tuning: &BallDashTuning,
 ) -> BallDashStep {
-    if !grounded {
-        *state = BallDash::default();
-        return BallDashStep::Idle;
+    // Release is an INPUT edge, not a statement about the contact resolver. Once
+    // a grounded rev has armed charge, the falling edge must spend it exactly
+    // once even if body-mode expansion or a surface hand-off changes support in
+    // this tick. This is also what makes a ramp lip launch rather than eat the
+    // spin dash.
+    if crouch_released || (state.crouched && !crouch) {
+        state.crouched = false;
+        state.contact_grace = 0.0;
+        let charge = std::mem::take(&mut state.charge);
+        return if charge >= tuning.min_launch_charge {
+            BallDashStep::Launch(charge)
+        } else {
+            BallDashStep::Idle
+        };
     }
 
+    if grounded {
+        state.contact_grace = tuning.contact_grace_s;
+    } else {
+        state.contact_grace = (state.contact_grace - dt).max(0.0);
+    }
+    let contact_is_credible = grounded || state.contact_grace > 0.0;
+
     if crouch {
-        if rev_pressed {
+        // A rev may only START from a real ride contact. Once armed, a tiny
+        // airborne seam is tolerated so crossing a block/chain boundary or a
+        // ramp lip cannot delete the charge before the release tick arrives.
+        if rev_pressed && grounded {
             state.charge = (state.charge + tuning.rev_per_tap).min(1.0);
+        }
+        if !contact_is_credible {
+            *state = BallDash::default();
+            return BallDashStep::Idle;
         }
         state.charge = (state.charge - tuning.decay_per_s * dt).max(0.0);
         state.crouched = true;
         return BallDashStep::Charging(state.charge);
     }
 
-    // Not crouching. Was he, last tick?
-    let released = state.crouched;
-    state.crouched = false;
-    let charge = state.charge;
-    state.charge = 0.0;
-
-    if released && charge >= tuning.min_launch_charge {
-        BallDashStep::Launch(charge)
-    } else {
-        BallDashStep::Idle
+    // No crouch and no falling edge: neutral. The explicit edge above owns
+    // launch, so a stale level cannot fire twice.
+    if !contact_is_credible {
+        state.contact_grace = 0.0;
     }
+    BallDashStep::Idle
 }
 
-/// Rev, launch, roll. Runs on the controlled body only — `ActorControl` is the
-/// brain output, and a body with no brain has none.
+/// Rev, launch, roll. [`BallDashInput`] was sampled from the controlled body's
+/// actor-control frame before the peaceful-kit gate; this system only consumes the
+/// mode-local technique input and never reopens generic combat.
 #[allow(clippy::type_complexity)]
 pub fn tick_ball_dash(
     mut commands: Commands,
     time: Res<ambition::time::WorldTime>,
     tuning: Res<BallDashTuning>,
     gravity: Option<Res<ambition::platformer::gravity::GravityField>>,
+    mut sfx: MessageWriter<ambition::sfx::SfxMessage>,
     mut bodies: Query<(
         Entity,
-        &ambition::characters::brain::ActorControl,
+        &BallDashInput,
         &mut ambition::actors::features::MotionModel,
         &mut ae::BodyKinematics,
         &mut BallDash,
         Option<&Rolling>,
+        Option<&mut ambition::actors::actor::BodyAnimFacts>,
     )>,
 ) {
     let gravity_down = ambition::platformer::gravity::gravity_dir_or_default(gravity.as_deref());
     let frame = ae::AccelerationFrame::new(gravity_down);
 
-    for (entity, control, mut motion, mut kin, mut state, rolling) in &mut bodies {
+    for (entity, input, mut motion, mut kin, mut state, rolling, mut anim) in &mut bodies {
         let ambition::actors::features::MotionModel::SurfaceMomentum(m) = &mut *motion else {
             // A Sanic on the AABB path is a Sanic in a different demo. Nothing
             // here reaches for `MotionModel::AxisSwept`, on purpose: the verb is
@@ -185,18 +279,35 @@ pub fn tick_ball_dash(
             // velocity write would produce a dash that ignores slopes.
             continue;
         };
-        let c = control.0;
-        let grounded = matches!(m.state, ae::surface::SurfaceMotion::Riding { .. });
+        // Use the contact sampled in PlayerInput. Generic crouch compaction and
+        // the momentum step run after that seam and can briefly detach a body
+        // from a flat block during the same tick. Rev eligibility belongs to the
+        // contact the player actually pressed X on, not that later artifact.
+        let grounded = input.grounded_at_capture;
 
         match ball_dash_step(
             &mut state,
             grounded,
-            c.locomotion.y >= tuning.crouch_threshold,
-            c.jump_pressed,
+            input.crouch_held,
+            input.crouch_released,
+            input.rev_pressed,
             time.scaled_dt,
             &tuning,
         ) {
-            BallDashStep::Idle | BallDashStep::Charging(_) => {}
+            BallDashStep::Idle => {}
+            BallDashStep::Charging(_) => {
+                // Reuse the shared dash-startup pose. A Sanic sheet with a
+                // dedicated row plays it; a lean sheet walks the standard
+                // fallback chain DashStartup -> Dash -> Run -> Walk -> Idle.
+                // This is presentation-only state already consumed by the one
+                // body animation picker, not a demo-local rendering branch.
+                if let Some(anim) = anim.as_deref_mut() {
+                    anim.dash_startup_timer = anim.dash_startup_timer.max(0.10);
+                }
+                if input.rev_pressed {
+                    sfx.write(ambition::sfx::SfxMessage::Jump { pos: kin.pos });
+                }
+            }
             BallDashStep::Launch(charge) => {
                 let speed = tuning.launch_speed * charge;
                 let facing = if kin.facing == 0.0 { 1.0 } else { kin.facing };
@@ -212,6 +323,7 @@ pub fn tick_ball_dash(
                         kin.vel = frame.side * facing * speed;
                     }
                 }
+                sfx.write(ambition::sfx::SfxMessage::Dash { pos: kin.pos });
                 if rolling.is_none() {
                     commands.entity(entity).insert(Rolling {
                         restore_size: kin.size,
@@ -265,7 +377,9 @@ pub fn attach_ball_dash(
         return;
     };
     if without.get(entity).is_ok() {
-        commands.entity(entity).insert(BallDash::default());
+        commands
+            .entity(entity)
+            .insert((BallDash::default(), BallDashInput::default()));
     }
 }
 

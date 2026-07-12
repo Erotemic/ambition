@@ -97,13 +97,43 @@ REWARDED, verified headlessly).
 oracle (*"could another platformer be built by ADDING a content crate without
 editing core?"*) holds for a brand-new movement verb.
 
-**The input needed no new binding.** Sonic 2's spin dash is *hold down, tap jump
-to rev, release down to launch*, and every one of those is already on
-`ActorControlFrame`: crouch is `locomotion.y ≥ threshold`, rev is `jump_pressed`,
-launch is the crouch's release edge. Because `locomotion` is in the body's LOCAL
-frame — `+y` toward the feet, not toward the bottom of the screen — Sanic revs the
-same way on the ceiling of a loop as on the floor. That is what the relativity
-principle buys, cashed.
+**The input needed no new binding.** The demo contract is *hold down, tap attack
+(X in the default arrows + Z/X/C preset) to rev, release down to launch; one tap
+produces a small dash and repeated taps build to full charge*. The
+content rules capture the ordinary `ActorControlFrame::melee_pressed` edge before
+the peaceful-persona gate removes generic combat, so X becomes a Sanic technique
+without reopening melee. Crouch remains `locomotion.y ≥ threshold`; because that
+axis is in the body's LOCAL frame — `+y` toward the feet, not toward the bottom of
+the screen — Sanic revs the same way on the ceiling of a loop as on the floor.
+The rule samples ride contact and latches Down's falling edge at that
+PlayerInput seam, before generic crouch compaction and movement can transiently
+detach the momentum circle from a flat block. A short contact grace keeps an
+armed charge across a block/chain handoff, while the explicit one-tick release
+edge spends it independently of later body-mode or fixed-tick timing. Sustained
+airborne time still clears the charge, so it cannot be banked across a real jump.
+
+**The second form uses the same identity seam.** The semantic Utility action
+(`D` in the classic preset) toggles `WornCharacter` between `sanic` and
+`super_sanic`. Both catalog rows own their generated sheet and declare the same
+peaceful momentum profile; gameplay and presentation therefore re-derive through
+the canonical worn-character systems rather than a demo-local sprite swap. The
+mode rule consumes Utility so the inherited control box cannot also interpret D
+as the generic fly toggle.
+
+**The showcase loop has a real raised on-ramp, without an edge seam.** The
+rebound lands on a short cubic ramp whose final tangent exactly matches the
+first tangent of a densely sampled 270-degree loop. Ramp and arc are one
+`SurfaceChain`, so the follower never launches and reprojects at their join.
+The open exit points steeply down/right, reaches the floor before the raised
+ramp, and then passes underneath with full body clearance. This preserves the
+classic entry/exit layering instead of deleting the ramp to avoid the bug.
+
+**The rev has a visible pose without a demo-local animator.** While Down is held,
+the rule arms the shared `BodyAnimFacts::dash_startup_timer`. The canonical body
+animation picker requests `CharacterAnim::DashStartup`; a rich sheet can draw a
+dedicated row, while a lean sheet follows the standard
+`DashStartup -> Dash -> Run -> Walk -> Idle` fallback and still shows an existing
+motion frame rather than freezing on idle.
 
 **The launch is one line** because the momentum kernel integrates
 `v_t += run * accel * dt` with `run = locomotion.x`, so `v_t` and `facing` share a

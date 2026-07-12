@@ -20,6 +20,9 @@ pub fn build_demo_app() -> App {
     ambition::engine::add_headless_foundation(&mut app);
     app.add_plugins(ambition::engine::PlatformerEnginePlugins::fixed_tick());
     app.add_plugins(ambition::windowed_host::PlatformerHostPlugins);
+    // TODO(sanic-demo-trail-toggle): `PlatformerHostPlugins` currently carries
+    // the sandbox's B-key trail debug affordance. Move that behind an explicit
+    // host/dev capability later; it is inherited here, not a Sanic ability.
     app.add_plugins((SanicDemoContentPlugin, SanicRulesPlugin::global()));
     // Pin the frame dt to the tick dt so one `update()` is exactly one sim tick.
     let timestep = app.world().resource::<Time<Fixed>>().timestep();
@@ -72,6 +75,16 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
         RenderMode::Windowed => app.add_plugins(plugins),
         RenderMode::Headless => app.add_plugins(
             plugins
+                // Presentation tests construct several Apps in one process. Bevy's
+                // logger/tracing subscriber is process-global, and the no-backend
+                // render recipe intentionally has no RenderApp to receive extract
+                // diagnostics. Disable logging in this test-only shell instead of
+                // reporting expected global-subscriber/extract errors as failures.
+                .disable::<bevy::log::LogPlugin>()
+                // `backends: None` deliberately omits the RenderApp. Disable the
+                // core-pipeline extractor as well so it does not report the
+                // expected missing sub-app once per headless test App.
+                .disable::<bevy::core_pipeline::CorePipelinePlugin>()
                 .set(RenderPlugin {
                     render_creation: RenderCreation::Automatic(WgpuSettings {
                         backends: None,
@@ -82,19 +95,148 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
                 .disable::<bevy::winit::WinitPlugin>(),
         ),
     };
-    if matches!(render, RenderMode::Windowed) {
-        // Keep headless render tests independent of the host audio device.
-        app.add_plugins(bevy_kira_audio::prelude::AudioPlugin);
-        app.add_systems(Startup, start_sanic_music);
-    }
     ambition::engine::init_engine_states(&mut app);
     app.add_plugins(ambition::engine::PlatformerEnginePlugins::fixed_tick());
     app.add_plugins(ambition::windowed_host::PlatformerHostPlugins);
+    // TODO(sanic-demo-trail-toggle): `PlatformerHostPlugins` currently carries
+    // the sandbox's B-key trail debug affordance. Move that behind an explicit
+    // host/dev capability later; it is inherited here, not a Sanic ability.
+
+    // Content must install its character catalog before the shared asset catalog
+    // is built: that catalog discovers Sanic's sheet through the same public
+    // character-loader path the full Ambition game uses.
+    app.add_plugins((SanicDemoContentPlugin, SanicRulesPlugin::global()));
+    let sfx_bank_path = install_sanic_asset_resources(&mut app);
+
     // OV1, closed: a camera, the room's static visuals, and the sprite/animation
     // chain. No HUD, no menus, no dev stack — those are the GAME's.
+    app.insert_resource(ClearColor(Color::srgb(0.025, 0.045, 0.09)));
     app.add_plugins(ambition::presentation::PlatformerPresentationPlugin);
-    app.add_plugins((SanicDemoContentPlugin, SanicRulesPlugin::global()));
+
+    if matches!(render, RenderMode::Windowed) {
+        // Keep headless render tests independent of the host audio device. The
+        // demo still uses Ambition's standard SfxMessage -> packed-bank bridge.
+        install_sanic_audio(&mut app, sfx_bank_path);
+        app.add_systems(Startup, start_sanic_music);
+    }
     app
+}
+
+#[cfg(feature = "visible")]
+fn install_sanic_asset_resources(app: &mut App) -> Option<String> {
+    use bevy::prelude::IntoScheduleConfigs as _;
+
+    let config = ambition::sprite_sheet::game_assets::GameAssetConfig::from_args();
+    // The Sanic course is procedural, not LDtk-backed. Build the ordinary
+    // shared asset catalog without world-file rows instead of installing a fake
+    // process-global world manifest just to reach sprites and parallax art.
+    let catalog = ambition::actors::assets::sandbox_assets::build_sandbox_catalog_without_worlds(
+        &config,
+        ambition::actors::session::data::authored_music_registry(),
+    );
+    let sfx_bank_path = catalog.path_for(&ambition::asset_manager::sandbox_assets::ids::sfx_bank());
+
+    app.insert_resource(config);
+    app.insert_resource(catalog);
+    app.init_resource::<ambition::sprite_sheet::game_assets::GameAssets>();
+    app.add_systems(
+        Startup,
+        load_sanic_game_assets.before(ambition::presentation::PlatformerPresentationSetupSet),
+    );
+    sfx_bank_path
+}
+
+/// Load the same shared `GameAssets` resource consumed by Ambition's generic
+/// presentation plugin. This is the single path for Sanic art, block/entity art,
+/// and the room's skybridge parallax stack.
+#[cfg(feature = "visible")]
+fn load_sanic_game_assets(
+    config: Res<ambition::sprite_sheet::game_assets::GameAssetConfig>,
+    catalog: Res<ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>,
+    asset_server: Res<AssetServer>,
+    mut layouts: ResMut<Assets<TextureAtlasLayout>>,
+    active_room: Res<ambition::world::rooms::ActiveRoomMetadata>,
+    quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
+    mut game_assets: ResMut<ambition::sprite_sheet::game_assets::GameAssets>,
+) {
+    *game_assets = ambition::actors::assets::game_assets::load_game_assets(
+        &config,
+        &catalog,
+        &asset_server,
+        &mut layouts,
+        &active_room.0,
+        quality.as_deref().map(|q| &q.budget),
+    );
+
+    for (character_id, sheet_stem) in [
+        (ambition_demo_sanic::SANIC_CHARACTER_ID, "sanic_spritesheet"),
+        (
+            ambition_demo_sanic::SUPER_SANIC_CHARACTER_ID,
+            "super_sanic_spritesheet",
+        ),
+    ] {
+        if game_assets
+            .characters
+            .asset_for_character_id(character_id)
+            .is_some()
+        {
+            info!(
+                "sanic_demo: bound sprites/{sheet_stem}.png through the shared character asset path"
+            );
+        } else {
+            warn!(
+                "sanic_demo: no {character_id} sheet was bound; expected assets/sprites/\
+                 {sheet_stem}.png and {sheet_stem}.ron. The marked player fallback \
+                 remains visible. Rebuild after publishing the generated manifest."
+            );
+        }
+    }
+    info!(
+        "sanic_demo: loaded {} parallax layer handle(s) for the active room",
+        game_assets.parallax_layers.len()
+    );
+}
+
+/// Minimal audio face for the demo: the regular packed SFX bank, one SFX
+/// channel, and the standard `SfxMessage` consumer. Music remains the demo's
+/// direct authored loop; this avoids importing the full Ambition app director.
+#[cfg(feature = "visible")]
+fn install_sanic_audio(app: &mut App, sfx_bank_path: Option<String>) {
+    use bevy::prelude::IntoScheduleConfigs as _;
+    use bevy_kira_audio::prelude::AudioApp as _;
+
+    app.add_plugins(bevy_kira_audio::prelude::AudioPlugin);
+    if let Some(path) = sfx_bank_path {
+        info!("sanic_demo: SFX bank path = {path}");
+        app.insert_resource(ambition::audio::SfxBankAssetPath(path));
+    } else {
+        warn!("sanic_demo: no SFX bank path resolved; milestone cues will be silent stubs");
+    }
+    app.add_plugins(ambition::audio::SfxBankAssetPlugin)
+        .init_resource::<ambition::audio::render::SfxBankHandleCache>()
+        .add_audio_channel::<ambition::audio::library::SfxChannel>()
+        .add_systems(Startup, setup_sanic_audio_library)
+        .add_systems(
+            Update,
+            ambition::audio::audio_play_sfx_messages
+                .after(ambition::platformer::schedule::SandboxSet::CoreSimulation),
+        );
+}
+
+#[cfg(feature = "visible")]
+fn setup_sanic_audio_library(
+    mut commands: Commands,
+    mut audio_sources: ResMut<Assets<bevy_kira_audio::prelude::AudioSource>>,
+) {
+    let library = ambition::audio::library::AudioLibrary::new(
+        &mut audio_sources,
+        ambition::actors::session::data::authored_sfx_registry(),
+        ambition::actors::session::data::authored_music_registry(),
+        None,
+        None,
+        None,
+    );
+    commands.insert_resource(library);
 }
 
 /// Whether [`build_windowed_demo_app`] opens a window and creates a GPU device.
@@ -147,5 +289,38 @@ mod tests {
             "Sanic's visible shell must resolve the shared Ambition asset tree; got {}",
             root.display()
         );
+    }
+
+    #[test]
+    fn published_local_sanic_forms_bind_through_game_assets() {
+        let root = std::path::PathBuf::from(super::desktop_asset_root());
+        let forms = [
+            (ambition_demo_sanic::SANIC_CHARACTER_ID, "sanic_spritesheet"),
+            (
+                ambition_demo_sanic::SUPER_SANIC_CHARACTER_ID,
+                "super_sanic_spritesheet",
+            ),
+        ];
+        if !forms.iter().all(|(_, stem)| {
+            root.join(format!("sprites/{stem}.png")).is_file()
+                && root.join(format!("sprites/{stem}.ron")).is_file()
+        }) {
+            return;
+        }
+
+        let mut app = super::build_windowed_demo_app(super::RenderMode::Headless);
+        app.update();
+        let assets = app
+            .world()
+            .resource::<ambition::sprite_sheet::game_assets::GameAssets>();
+        for (character_id, _) in forms {
+            assert!(
+                assets
+                    .characters
+                    .asset_for_character_id(character_id)
+                    .is_some(),
+                "published {character_id} PNG+RON must bind through the shared GameAssets path"
+            );
+        }
     }
 }

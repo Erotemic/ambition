@@ -80,6 +80,67 @@ fn synthetic_keyboard_moves_the_player_through_the_standard_path() {
     );
 }
 
+#[test]
+fn d_toggles_sanic_to_super_sanic_and_back_through_the_standard_path() {
+    use ambition::characters::actor::WornCharacter;
+    use ambition_demo_sanic::{SANIC_CHARACTER_ID, SUPER_SANIC_CHARACTER_ID};
+
+    fn worn_id(app: &mut App) -> String {
+        let mut q = app
+            .world_mut()
+            .query_filtered::<&WornCharacter, With<ambition::actors::actor::PrimaryPlayer>>();
+        q.iter(app.world())
+            .next()
+            .expect("the demo spawned a primary worn character")
+            .id()
+            .to_string()
+    }
+
+    fn pulse_d_until(app: &mut App, target: &str) {
+        for frame in 0..120 {
+            {
+                let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+                if frame % 4 == 0 {
+                    keys.press(KeyCode::KeyD);
+                } else if frame % 4 == 1 {
+                    keys.release(KeyCode::KeyD);
+                }
+            }
+            app.update();
+            if worn_id(app) == target {
+                return;
+            }
+        }
+        panic!("semantic Utility/D never transformed the player to {target}");
+    }
+
+    let mut app = ambition_demo_sanic_app::build_demo_app();
+    app.update();
+    for _ in 0..30 {
+        app.update();
+    }
+    assert_eq!(worn_id(&mut app), SANIC_CHARACTER_ID);
+
+    pulse_d_until(&mut app, SUPER_SANIC_CHARACTER_ID);
+    assert_eq!(worn_id(&mut app), SUPER_SANIC_CHARACTER_ID);
+    let flight = {
+        let mut q = app.world_mut().query_filtered::<
+            &ambition::actors::actor::BodyFlightState,
+            With<ambition::actors::actor::PrimaryPlayer>,
+        >();
+        *q.iter(app.world())
+            .next()
+            .expect("the demo player carries flight state")
+    };
+    assert!(
+        !flight.fly_enabled,
+        "D belongs to the Sanic transformation and must not leak into the generic fly toggle"
+    );
+
+    pulse_d_until(&mut app, SANIC_CHARACTER_ID);
+    assert_eq!(worn_id(&mut app), SANIC_CHARACTER_ID);
+}
+
 /// Non-vacuity: with NO synthetic input the body does not drift right. Proves the
 /// movement above is driven by the injected input, not by gravity/momentum alone.
 #[test]
@@ -232,5 +293,140 @@ fn peaceful_sanic_filters_host_combat_inputs_before_effects() {
     assert!(
         !projectiles_ever_live,
         "the host projectile input cannot create a projectile for Sanic"
+    );
+}
+
+/// The visible control contract is real, not just documented: local Down plus
+/// the ordinary X/attack edge is captured before the peaceful-kit gate, builds
+/// charge, and releasing Down launches the momentum body without reopening
+/// generic melee.
+#[test]
+fn down_plus_x_revs_and_releasing_down_launches_the_ball_dash() {
+    use ambition::actors::features::MotionModel;
+    use ambition::engine_core::BodyMode;
+    use ambition::sprite_sheet::character::CharacterAnim;
+    use ambition_demo_sanic::ball_dash::{BallDash, BallDashTuning, Rolling};
+
+    let mut app = ambition_demo_sanic_app::build_demo_app();
+    app.update();
+    for _ in 0..30 {
+        app.update();
+    }
+
+    // Re-arm X until one edge crosses a fixed tick. While Down is held the
+    // body must enter its compact mode and the shared animation picker must
+    // request DashStartup (or a sheet fallback from that row), rather than
+    // freezing on idle. Stop as soon as the state proves a launchable charge;
+    // an arbitrary post-charge delay would test charge decay, not release.
+    let tuning = BallDashTuning::default();
+    let mut max_charge = 0.0_f32;
+    let mut slot_saw_attack = false;
+    let mut saw_crouching = false;
+    let mut saw_rev_pose = false;
+    for frame in 0..120 {
+        {
+            let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+            keys.press(KeyCode::ArrowDown);
+            if frame % 4 == 0 {
+                keys.press(KeyCode::KeyX);
+            } else if frame % 4 == 1 {
+                keys.release(KeyCode::KeyX);
+            }
+        }
+        app.update();
+
+        let slot = app
+            .world()
+            .resource::<SlotControls>()
+            .get(PlayerSlot::PRIMARY);
+        slot_saw_attack |= slot.attack_pressed;
+
+        let (charge, mode, anim) = {
+            let mut q = app.world_mut().query_filtered::<(
+                &BallDash,
+                &ambition::actors::actor::BodyModeState,
+                &ambition::sim_view::BodyPoseView,
+            ), With<ambition::actors::actor::PrimaryPlayer>>(
+            );
+            let (dash, mode, pose) = q
+                .iter(app.world())
+                .next()
+                .expect("the demo spawned a primary player body with dash and pose state");
+            (dash.charge, mode.body_mode, pose.anim)
+        };
+        max_charge = max_charge.max(charge);
+        saw_crouching |= mode == BodyMode::Crouching;
+        saw_rev_pose |= anim == CharacterAnim::DashStartup;
+        if charge >= tuning.min_launch_charge && saw_crouching && saw_rev_pose {
+            break;
+        }
+    }
+    assert!(slot_saw_attack, "the standard input path must deliver X");
+    assert!(
+        max_charge >= tuning.min_launch_charge,
+        "Down+X must build enough charge to launch; max charge was {max_charge}"
+    );
+    assert!(saw_crouching, "held Down must put Sanic into crouch mode");
+    assert!(
+        saw_rev_pose,
+        "revving must request the shared dash-startup animation pose"
+    );
+
+    {
+        let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
+        keys.release(KeyCode::ArrowDown);
+        keys.release(KeyCode::KeyX);
+    }
+    let mut saw_rolling = false;
+    let mut saw_charge_spent = false;
+    let mut max_launch_speed = 0.0_f32;
+    let mut final_dash = BallDash::default();
+    for _ in 0..60 {
+        app.update();
+        let (rolling, speed, dash) = {
+            let mut q = app.world_mut().query_filtered::<(
+                &BallDash,
+                Option<&Rolling>,
+                &MotionModel,
+                &ambition::actors::actor::BodyKinematics,
+            ), With<ambition::actors::actor::PrimaryPlayer>>(
+            );
+            let (dash, rolling, motion, kin) = q
+                .iter(app.world())
+                .next()
+                .expect("the demo spawned a primary player body");
+            let speed = match motion {
+                MotionModel::SurfaceMomentum(momentum) => match momentum.state {
+                    ambition::engine_core::surface::SurfaceMotion::Riding { v_t, .. } => v_t.abs(),
+                    ambition::engine_core::surface::SurfaceMotion::Airborne => kin.vel.length(),
+                },
+                MotionModel::AxisSwept => 0.0,
+            };
+            (rolling.is_some(), speed, *dash)
+        };
+        saw_rolling |= rolling;
+        saw_charge_spent |= dash.charge < tuning.min_launch_charge;
+        max_launch_speed = max_launch_speed.max(speed);
+        final_dash = dash;
+        if saw_rolling && saw_charge_spent {
+            break;
+        }
+    }
+    // The focused `capture_ball_dash_input` unit test directly proves that the
+    // PlayerInput seam emits a one-tick `crouch_released` edge. At this full-app
+    // boundary that transient may already have been consumed by
+    // `tick_ball_dash` before `App::update` returns, so the durable behavioral
+    // oracle is that the launch spent the armed charge and entered Rolling.
+    assert!(
+        saw_charge_spent,
+        "releasing Down must consume the armed spin-dash charge; final dash state was {final_dash:?}"
+    );
+    assert!(
+        saw_rolling,
+        "releasing Down after revving must launch and enter the rolling state; final dash state was {final_dash:?}"
+    );
+    assert!(
+        max_launch_speed >= tuning.launch_speed * tuning.min_launch_charge,
+        "the launch must produce at least the authored minimum speed; observed {max_launch_speed}"
     );
 }

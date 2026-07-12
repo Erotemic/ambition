@@ -229,8 +229,16 @@ cargo run -p ambition_demo_sanic_app --features visible --bin sanic_demo -- --wi
 must provide:
 
 - responsive keyboard/gamepad input through the standard host bridge;
-- visible movement of the canonical actor;
-- actual selected character art and animation, not a rectangle;
+- the default keyboard contract is Z to jump; hold Down + tap X to rev, then
+  release Down to launch (one tap is sufficient; repeated taps add charge); and
+  press D (the semantic Utility action) to toggle Sanic / Super Sanic;
+- holding Down visibly enters the shared crouch/rev presentation path, and the
+  technique works from ordinary flat tiled ground as well as a ramp;
+- visible movement of the canonical actor across tiled, landmarked ground and an
+  raised cubic on-ramp and 270-degree open loop authored as one continuous
+  route: the ramp/arc tangent matches at the join, while the steep open exit
+  lands before the ramp and carries the rider underneath it;
+- actual selected character art and animation for both Sanic forms, not a rectangle;
 - camera follow;
 - looping `you_are_too_slow` music;
 - no missing selected-character asset errors.

@@ -66,6 +66,26 @@ pub fn build_sandbox_catalog(
     build_sandbox_catalog_with(config, music, |_| {})
 }
 
+/// Build the shared sprite/parallax/audio catalog for a composition that owns
+/// procedural rooms and therefore has no LDtk [`WorldManifest`](crate::ldtk_world::WorldManifest).
+///
+/// This deliberately omits only world-file rows. All ordinary image, character,
+/// boss, data, SFX, font, sprite-pack, and music entries remain available. A
+/// standalone procedural demo must use this seam instead of installing a fake
+/// process-global world manifest merely to load presentation assets.
+pub fn build_sandbox_catalog_without_worlds(
+    config: &GameAssetConfig,
+    music: &crate::session::data::MusicRegistry,
+) -> SandboxAssetCatalog {
+    let core_config = SandboxAssetConfig {
+        sprite_folder: config.sprite_folder.clone(),
+        asset_profile: config.asset_profile,
+    };
+    let image_manifest = sandbox_image_manifest(&config.sprite_folder);
+    let inputs = sandbox_catalog_inputs_without_worlds(music);
+    core::build_sandbox_catalog(&core_config, image_manifest, &inputs)
+}
+
 pub fn scaled_asset_id(
     id: &ambition_asset_manager::AssetId,
     scale: crate::persistence::settings::TextureResolutionScale,
@@ -88,6 +108,24 @@ pub fn build_sandbox_catalog_with(
 }
 
 pub fn sandbox_catalog_inputs(music: &crate::session::data::MusicRegistry) -> SandboxCatalogInputs {
+    let mut inputs = sandbox_catalog_inputs_without_worlds(music);
+    inputs.worlds = crate::ldtk_world::world_manifest()
+        .worlds
+        .iter()
+        .map(|source| WorldCatalogRow {
+            id: source.id.clone(),
+            asset_path: source.asset_path.clone(),
+            required: source.required,
+            loose_path: source.loose_path.clone(),
+            embedded_bevy_path: source.embedded_bevy_path,
+        })
+        .collect();
+    inputs
+}
+
+fn sandbox_catalog_inputs_without_worlds(
+    music: &crate::session::data::MusicRegistry,
+) -> SandboxCatalogInputs {
     SandboxCatalogInputs {
         scale_variants: texture_scale_variants(),
         character_sprites: crate::character_sprites::all_character_sprite_filenames()
@@ -109,17 +147,7 @@ pub fn sandbox_catalog_inputs(music: &crate::session::data::MusicRegistry) -> Sa
                 asset_path: track.resolved_asset_path(),
             })
             .collect(),
-        worlds: crate::ldtk_world::world_manifest()
-            .worlds
-            .iter()
-            .map(|source| WorldCatalogRow {
-                id: source.id.clone(),
-                asset_path: source.asset_path.clone(),
-                required: source.required,
-                loose_path: source.loose_path.clone(),
-                embedded_bevy_path: source.embedded_bevy_path,
-            })
-            .collect(),
+        worlds: Vec::new(),
     }
 }
 

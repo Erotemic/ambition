@@ -148,6 +148,41 @@ fn try_change_body_mode_to_crouching_keeps_feet_planted_and_shrinks() {
 }
 
 #[test]
+fn shrinking_is_allowed_when_surface_contact_slightly_overlaps_the_floor() {
+    let floor_y = 140.0;
+    let world = World::new(
+        "contact tolerance",
+        Vec2::new(400.0, 400.0),
+        Vec2::new(100.0, 100.0),
+        vec![crate::Block::solid(
+            "floor",
+            Vec2::new(0.0, floor_y),
+            Vec2::new(400.0, 20.0),
+        )],
+    );
+    let mut s = scratch_at(Vec2::new(100.0, floor_y - 24.0 + 0.25));
+    assert!(
+        world.body_overlaps_any(s.kinematics.aabb(), |_| true),
+        "the fixture reproduces a tiny inherited support overlap"
+    );
+
+    let ok = try_change_body_mode_clusters(
+        &mut s.kinematics,
+        &s.base_size,
+        &mut s.body_mode,
+        BodyMode::Crouching,
+        &world,
+        Vec2::Y,
+        |_| true,
+    );
+    assert!(
+        ok,
+        "a feet-anchored shrink is a subset of the occupied space and cannot create a new collision"
+    );
+    assert_eq!(s.body_mode.body_mode, BodyMode::Crouching);
+}
+
+#[test]
 fn try_change_body_mode_to_crouching_keeps_feet_planted_under_sideways_gravity() {
     // Under wall-walking gravity the FEET are the AABB's gravity-facing side
     // edge. Crouching must keep that side edge planted; otherwise the body

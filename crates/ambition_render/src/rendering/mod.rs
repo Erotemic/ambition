@@ -84,7 +84,8 @@ pub use primitives::{
     RoomScopedEntity, RoomVisual, SceneEntities,
 };
 pub use world::{
-    refresh_entity_sprite_handles_on_game_assets_change, spawn_room_visuals, sync_lock_wall_visuals,
+    refresh_entity_sprite_handles_on_game_assets_change, spawn_room_visuals,
+    spawn_surface_chain_visuals, sync_lock_wall_visuals,
 };
 
 /// Module-local Bevy plugin: schedules player-bound visual systems

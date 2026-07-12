@@ -51,21 +51,113 @@ fn the_demo_spawns_the_rooms_static_visuals() {
 }
 
 #[test]
+fn the_demo_loads_shared_assets_and_draws_landmarks_and_the_loop() {
+    let mut app = drawn_demo();
+    app.update();
+
+    assert!(
+        app.world()
+            .get_resource::<ambition::sprite_sheet::game_assets::GameAssets>()
+            .is_some(),
+        "the standalone demo must use the shared GameAssets loader, not an app-local sprite path"
+    );
+
+    let names: Vec<String> = {
+        let mut q = app.world_mut().query::<&Name>();
+        q.iter(app.world())
+            .map(|name| name.as_str().to_owned())
+            .collect()
+    };
+    for landmark in [
+        "Block: start_gantry",
+        "Block: distance_marker_1",
+        "Block: speed_booster",
+        "Block: finish_warning_spikes",
+        "Block: finish_tower",
+    ] {
+        assert!(
+            names.iter().any(|name| name == landmark),
+            "missing visible speedway landmark {landmark:?}"
+        );
+    }
+
+    let floor_is_tiled = {
+        let mut q = app.world_mut().query::<(&Name, &Sprite)>();
+        q.iter(app.world()).any(|(name, sprite)| {
+            name.as_str() == "Block: speedway_floor"
+                && matches!(
+                    &sprite.image_mode,
+                    bevy::sprite::SpriteImageMode::Tiled { .. }
+                )
+        })
+    };
+    assert!(
+        floor_is_tiled,
+        "the procedural speedway floor must use Ambition's tiled ground sprite path"
+    );
+    let loop_segments = names
+        .iter()
+        .filter(|name| name.starts_with("Surface: sanic_loop segment "))
+        .count();
+    assert_eq!(
+        loop_segments,
+        ambition_demo_sanic::LOOP_RAMP_SEGMENTS + ambition_demo_sanic::LOOP_SEGMENTS,
+        "every collision segment in the smooth raised ramp+loop route must have a visible strip"
+    );
+}
+
+#[test]
 fn the_demo_spawns_a_renderable_player_sprite() {
     let mut app = drawn_demo();
     app.update();
 
     let visible_players = {
-        let mut q = app.world_mut().query_filtered::<Entity, (
+        let mut q = app.world_mut().query_filtered::<
+            (&ambition::render::rendering::PlayerSpriteCharacter, &Sprite),
             With<ambition::platformer::lifecycle::PlayerVisual>,
-            With<Sprite>,
-        )>();
-        q.iter(app.world()).count()
+        >();
+        q.iter(app.world())
+            .filter(|(bound, _)| bound.id == "sanic")
+            .count()
     };
     assert_eq!(
         visible_players, 1,
-        "the generic presentation face must attach a fallback Sprite to the
-         simulation-owned PlayerVisual; otherwise demos draw the room but no player"
+        "the generic character binder must attach the Sanic identity to the player sprite; \
+         it uses the published sheet when present and the marked fallback otherwise"
+    );
+}
+
+#[test]
+fn changing_the_worn_form_rebinds_the_existing_super_sanic_sheet_path() {
+    let mut app = drawn_demo();
+    app.update();
+
+    {
+        let mut q = app.world_mut().query_filtered::<
+            &mut ambition::characters::actor::WornCharacter,
+            With<ambition::actors::actor::PrimaryPlayer>,
+        >();
+        let mut worn = q
+            .iter_mut(app.world_mut())
+            .next()
+            .expect("the visible demo spawned its canonical player");
+        *worn = ambition::characters::actor::WornCharacter::new(
+            ambition_demo_sanic::SUPER_SANIC_CHARACTER_ID,
+        );
+    }
+    app.update();
+
+    let rebound = {
+        let mut q = app.world_mut().query_filtered::<
+            &ambition::render::rendering::PlayerSpriteCharacter,
+            With<ambition::platformer::lifecycle::PlayerVisual>,
+        >();
+        q.iter(app.world())
+            .any(|bound| bound.id == ambition_demo_sanic::SUPER_SANIC_CHARACTER_ID)
+    };
+    assert!(
+        rebound,
+        "the generic binder must rebind the same player to the Super Sanic catalog row"
     );
 }
 

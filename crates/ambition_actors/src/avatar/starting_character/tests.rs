@@ -128,6 +128,56 @@ fn gameplay_derives_from_worn_identity_at_add_and_on_change() {
     );
 }
 
+#[test]
+fn rewearing_an_equivalent_momentum_profile_preserves_live_ride_state() {
+    use crate::combat::moveset::ActorMoveset;
+    use ambition_characters::brain::ActionSet;
+    use bevy::prelude::*;
+
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.add_systems(Update, apply_worn_character_gameplay);
+    let entity = app
+        .world_mut()
+        .spawn((
+            WornCharacter::new("sanic"),
+            Name::new("unset"),
+            ActionSet::default(),
+            ActorMoveset(Default::default()),
+            crate::actor::BodyAbilities::new(ambition_engine_core::AbilitySet::sandbox_all()),
+        ))
+        .id();
+    app.update();
+
+    let expected = ambition_engine_core::surface::SurfaceMotion::Riding {
+        on: ambition_engine_core::surface::SurfaceRef::Chain(0),
+        s: 123.0,
+        v_t: 456.0,
+    };
+    {
+        let mut motion = app
+            .world_mut()
+            .get_mut::<MotionModel>(entity)
+            .expect("Sanic must derive a momentum model");
+        let MotionModel::SurfaceMomentum(momentum) = &mut *motion else {
+            panic!("Sanic must derive a momentum model");
+        };
+        momentum.state = expected;
+    }
+
+    // Assigning the equivalent identity still creates a real Changed edge. The
+    // derive must refresh name/kit without replacing the matching motion model.
+    *app.world_mut().get_mut::<WornCharacter>(entity).unwrap() = WornCharacter::new("sanic");
+    app.update();
+
+    match app.world().get::<MotionModel>(entity) {
+        Some(MotionModel::SurfaceMomentum(momentum)) => {
+            assert_eq!(momentum.state, expected);
+        }
+        other => panic!("expected preserved SurfaceMomentum, got {other:?}"),
+    }
+}
+
 /// **S1 poison / non-vacuity:** with no change to either `WornCharacter` or
 /// `BodyAbilities`, the derive system does not fire, so a hand-set movement model
 /// is left untouched. This proves the assertions above are driven by the two

@@ -7,11 +7,11 @@
 //! If authoring a room here needs a type the umbrella does not re-export, that
 //! is a real engine leak — and it fails to compile HERE, which is the point.
 //!
-//! What lives here is the SHOWCASE GEOMETRY (a long momentum speedway with a
-//! rideable Sonic loop). The movement-identity FEEL (momentum tuning, the
-//! playable binary, character art) is a separate interactive build — it cannot
-//! be dialed in headlessly — but the room a Sanic demo runs on is authored and
-//! verified here through the engine's public surface.
+//! What lives here is the SHOWCASE GEOMETRY (a landmarked momentum speedway
+//! with a rideable loop), plus the mode-local rules that make progress legible
+//! through milestone SFX. The windowed shell loads the shared Ambition art tree
+//! through the public facade, so generated Sanic art and existing parallax /
+//! block assets light up without an `ambition_app` dependency.
 
 use ambition::engine_core as ae;
 use ambition::prelude::*;
@@ -32,58 +32,205 @@ pub const SANIC_MODE: &str = "sanic";
 /// in the shared engine asset tree beside the other generated music tracks.
 pub const SANIC_MUSIC_ASSET_PATH: &str = "audio/music/generated/you_are_too_slow/full.ogg";
 
-/// Number of segments in the generated Sonic loop polygon.
-const LOOP_SEGMENTS: usize = 24;
+/// Number of segments in the loop body. The authored entry ramp is sampled
+/// separately so its final tangent is exactly the loop's first tangent.
+pub const LOOP_SEGMENTS: usize = 96;
+
+/// Samples in the raised entry ramp. A smooth cubic here replaces the old
+/// one-segment spur whose corner could strand a momentum body at the join.
+pub const LOOP_RAMP_SEGMENTS: usize = 24;
+
+/// Index of the loop's first arc point inside the combined ramp+loop chain.
+pub const LOOP_ENTRY_POINT_INDEX: usize = LOOP_RAMP_SEGMENTS;
+
+/// Index of the loop's open release endpoint.
+pub const LOOP_EXIT_POINT_INDEX: usize = LOOP_ENTRY_POINT_INDEX + LOOP_SEGMENTS;
+
+const LOOP_RADIUS: f32 = 180.0;
+const LOOP_START_ANGLE: f32 = std::f32::consts::FRAC_PI_3;
+const LOOP_SWEEP_ANGLE: f32 = std::f32::consts::TAU * 0.75;
+const LOOP_RAMP_START_X: f32 = 2000.0;
+const LOOP_RAMP_START_CLEARANCE: f32 = 92.0;
+
+fn cubic_bezier(p0: ae::Vec2, p1: ae::Vec2, p2: ae::Vec2, p3: ae::Vec2, t: f32) -> ae::Vec2 {
+    let u = 1.0 - t;
+    p0 * (u * u * u) + p1 * (3.0 * u * u * t) + p2 * (3.0 * u * t * t) + p3 * (t * t * t)
+}
+
+/// Build one authored route for the raised on-ramp and loop arc.
+///
+/// The old course joined a single straight spur directly to a coarse arc. The
+/// body's route was technically one chain, but the tangent discontinuity at the
+/// join behaved like an edge: the follower could shed, project back to the lip,
+/// and appear frozen. This cubic ends with the exact first-loop tangent, so the
+/// ramp/loop boundary is an ordinary sampled curve rather than a collision seam.
+///
+/// The open 270-degree release remains intentionally separate from the ramp:
+/// it sends the rider down and right to the floor *before* the raised ramp. The
+/// body then passes underneath with standing-height clearance, preserving the
+/// classic entry/exit layering without deleting the ramp or making it ghostly.
+fn raised_ramp_loop_points(floor_top: f32) -> (Vec<ae::Vec2>, ae::Vec2) {
+    let center = ae::Vec2::new(2000.0, floor_top - 312.0);
+    let ramp_start = ae::Vec2::new(LOOP_RAMP_START_X, floor_top - LOOP_RAMP_START_CLEARANCE);
+    let loop_start =
+        center + ae::Vec2::new(LOOP_START_ANGLE.cos(), LOOP_START_ANGLE.sin()) * LOOP_RADIUS;
+    // The authored loop winds with decreasing angle. Its travel tangent is
+    // therefore (sin(theta), -cos(theta)); use it as the cubic's final handle.
+    let loop_start_tangent = ae::Vec2::new(LOOP_START_ANGLE.sin(), -LOOP_START_ANGLE.cos());
+
+    let mut points = Vec::with_capacity(1 + LOOP_RAMP_SEGMENTS + LOOP_SEGMENTS);
+    points.push(ramp_start);
+    let ramp_control_1 = ramp_start + ae::Vec2::new(25.0, 0.0);
+    let ramp_control_2 = loop_start - loop_start_tangent * 55.0;
+    for step in 1..=LOOP_RAMP_SEGMENTS {
+        let t = step as f32 / LOOP_RAMP_SEGMENTS as f32;
+        points.push(cubic_bezier(
+            ramp_start,
+            ramp_control_1,
+            ramp_control_2,
+            loop_start,
+            t,
+        ));
+    }
+    for step in 1..=LOOP_SEGMENTS {
+        let t = step as f32 / LOOP_SEGMENTS as f32;
+        let theta = LOOP_START_ANGLE - LOOP_SWEEP_ANGLE * t;
+        points.push(center + ae::Vec2::new(theta.cos(), theta.sin()) * LOOP_RADIUS);
+    }
+    (points, center)
+}
+
+/// Canonical transform pair for the demo's semantic Utility action (D in the
+/// classic arrows+Z/X/C preset).
+pub const SANIC_CHARACTER_ID: &str = "sanic";
+pub const SUPER_SANIC_CHARACTER_ID: &str = "super_sanic";
+
+/// Visually authored distance markers. The floating marker platforms and the
+/// one-shot milestone SFX share this table so the eye and ear measure the same
+/// positions instead of drifting as the speedway changes.
+pub const SPEED_MARKER_XS: [f32; 5] = [600.0, 1200.0, 1800.0, 2600.0, 3400.0];
 
 /// Build the Sanic momentum showcase room through the `ambition` umbrella
-/// surface ONLY: a wide room with a long solid floor and a rideable full LOOP
-/// authored as a `SurfaceChain` (the momentum-locomotion geometry — a fast body
-/// rides up the inside of the loop, across the top, and back down).
-///
-/// The loop winds with DECREASING angle so each segment's `(t.y, -t.x)` normal
-/// points toward the loop center (interior-rideable), matching the engine's
-/// `SurfaceLoop` marker convention.
+/// surface ONLY. The tiled solid floor remains the ordinary run surface. A
+/// rebound reaches one raised, continuously sampled ramp+loop chain; its open
+/// release lands before the ramp and then runs underneath it.
 pub fn sanic_speedway() -> RoomSpec {
     let width = 4000.0;
     let height = 720.0;
     let floor_top = height - 48.0;
 
-    // A single long solid floor spanning the room, plus a spawn just above it.
-    let floor = ae::Block::solid(
+    // Ambition's tiled block-art path supplies a readable ground fill. This is
+    // a real solid floor: the raised loop route is reached by the existing
+    // rebound, then releases back onto the same ordinary ground.
+    let mut tiled_floor = ae::Block::solid(
         "speedway_floor",
         ae::Vec2::new(0.0, floor_top),
         ae::Vec2::new(width, 48.0),
     );
+    tiled_floor.id = ae::GeoId::tile_layer("sanic_speedway_ground", 0);
+    let mut blocks = vec![tiled_floor];
+    blocks.push(ae::Block::one_way(
+        "start_gantry",
+        ae::Vec2::new(64.0, floor_top - 190.0),
+        ae::Vec2::new(260.0, 18.0),
+    ));
+    for (index, x) in SPEED_MARKER_XS.into_iter().enumerate() {
+        let lift = if index % 2 == 0 { 150.0 } else { 220.0 };
+        blocks.push(ae::Block::one_way(
+            format!("distance_marker_{}", index + 1),
+            ae::Vec2::new(x - 52.0, floor_top - lift),
+            ae::Vec2::new(104.0, 14.0),
+        ));
+    }
+    blocks.push(ae::Block::rebound(
+        "speed_booster",
+        ae::Vec2::new(1640.0, floor_top - 22.0),
+        ae::Vec2::new(72.0, 22.0),
+        // Reach the raised ramp from below. The ramp and arc are one smooth
+        // route, so the rebound is entry staging rather than a seam workaround.
+        ae::Vec2::new(700.0, -550.0),
+    ));
+    blocks.push(ae::Block::hazard(
+        "finish_warning_spikes",
+        ae::Vec2::new(width - 220.0, floor_top - 20.0),
+        ae::Vec2::new(116.0, 20.0),
+    ));
+    blocks.push(ae::Block::solid(
+        "finish_tower",
+        ae::Vec2::new(width - 72.0, floor_top - 250.0),
+        ae::Vec2::new(32.0, 250.0),
+    ));
     let spawn = ae::Vec2::new(160.0, floor_top - 64.0);
 
-    // The Sonic loop: a closed polygon centered over the floor, interior-rideable.
-    let loop_center = ae::Vec2::new(width * 0.5, floor_top - 200.0);
-    let loop_radius = 180.0;
-    let loop_points: Vec<ae::Vec2> = (0..LOOP_SEGMENTS)
-        .map(|k| {
-            let theta = -std::f32::consts::TAU * (k as f32) / (LOOP_SEGMENTS as f32);
-            loop_center + ae::Vec2::new(theta.cos(), theta.sin()) * loop_radius
-        })
-        .collect();
-    let sonic_loop = ae::SurfaceChain::closed_loop("sanic_loop", loop_points);
+    let (ramp_loop_points, loop_center) = raised_ramp_loop_points(floor_top);
+    let ramp_loop = ae::SurfaceChain::open("sanic_loop", ramp_loop_points);
 
     let world = ae::World::new(
         "Sanic Speedway",
         ae::Vec2::new(width, height),
         spawn,
-        vec![floor],
+        blocks,
     )
-    .with_chains(vec![sonic_loop]);
+    .with_chains(vec![ramp_loop]);
 
     let mut room = RoomSpec::new(SPEEDWAY_ROOM_ID, world);
     room.metadata.mode = Some(SANIC_MODE.to_string());
+    // Borrow Ambition's generated skybridge stack. The visible shell loads the
+    // shared `GameAssets`; if those optional images are absent the renderer keeps
+    // the deterministic clear-color + landmark geometry fallback.
+    room.metadata.biome = Some("skybridge".to_string());
+    room.metadata.visual_theme = Some("skybridge".to_string());
+    room.metadata.visual_profile.id = Some("sanic_speedway".to_string());
+    room.metadata.visual_profile.parallax_theme = Some("skybridge".to_string());
+
+    // World-space labels turn the speedway into a ruler. They are ordinary room
+    // debug labels rendered by the generic presentation face, not app-local UI.
+    let mut labels = vec![
+        (
+            "start".to_string(),
+            "START   Z: JUMP   DOWN+X: REV   RELEASE DOWN: DASH   D: SUPER".to_string(),
+            ae::Vec2::new(300.0, floor_top - 230.0),
+        ),
+        (
+            "loop".to_string(),
+            "LOOP".to_string(),
+            ae::Vec2::new(loop_center.x, loop_center.y - LOOP_RADIUS - 36.0),
+        ),
+        (
+            "finish".to_string(),
+            "FINISH".to_string(),
+            ae::Vec2::new(width - 130.0, floor_top - 300.0),
+        ),
+    ];
+    labels.extend(SPEED_MARKER_XS.into_iter().enumerate().map(|(index, x)| {
+        (
+            format!("marker_{}", index + 1),
+            format!("{x:.0}"),
+            ae::Vec2::new(x, floor_top - 280.0),
+        )
+    }));
+    room.debug_labels = labels
+        .into_iter()
+        .map(|(id, text, position)| {
+            ambition::world::rooms::Authored::new(
+                format!("sanic_{id}"),
+                text.clone(),
+                ae::Aabb::new(position, ae::Vec2::splat(1.0)),
+                ambition::world::debug_label::DebugLabel::new(
+                    text,
+                    position,
+                    ambition::world::debug_label::DebugLabelKind::Custom,
+                ),
+            )
+        })
+        .collect();
     room
 }
 
-/// The demo's one-character catalog. Every demo installs its own roster; the
-/// engine ships none (ADR 0017). The speedster wears the engine's fallback box
-/// until the sheet lands — the FEEL half is the separate interactive build, but
-/// the shell must not wait on it.
+/// The demo's two-form catalog. Every demo installs its own roster; the engine
+/// ships none (ADR 0017). The visible shell resolves both generated Sanic forms
+/// through the shared Ambition asset catalog. Missing local artifacts remain a
+/// loud, marked fallback rather than a second sprite path.
 const SANIC_CATALOG_RON: &str = r#"(
     brain_presets: { "stand_still": StandStill },
     action_set_presets: {
@@ -98,6 +245,7 @@ const SANIC_CATALOG_RON: &str = r#"(
     },
     characters: {
         "sanic": (
+            sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
             display_name: "Sanic",
             spritesheet: "sprites/sanic_spritesheet.png",
             manifest: "sprites/sanic_spritesheet.ron",
@@ -112,6 +260,26 @@ const SANIC_CATALOG_RON: &str = r#"(
             // loop), which is also what `ball_dash` requires to charge/launch.
             // Without this the body is axis-swept and ball dash is inert — the
             // demo would be an Ambition player wearing the name "Sanic".
+            momentum: Some((
+                ground_accel: 900.0,
+                top_speed: 1200.0,
+                jump_speed: 700.0,
+            )),
+        ),
+        "super_sanic": (
+            sprite_tuning: Some((collision_scale: 1.6, frame_sample_inset: 1)),
+            display_name: "Super Sanic",
+            spritesheet: "sprites/super_sanic_spritesheet.png",
+            manifest: "sprites/super_sanic_spritesheet.ron",
+            tier: MainHall,
+            body_kind: Standard,
+            composition: None,
+            default_brain: "stand_still",
+            default_action_set: "peaceful",
+            tags: ["player", "super", "transformation"],
+            // This slice is an identity/presentation transformation. It keeps
+            // the same authored peaceful kit and momentum tuning so D cannot
+            // accidentally become a second gameplay-authority path.
             momentum: Some((
                 ground_accel: 900.0,
                 top_speed: 1200.0,
@@ -135,6 +303,23 @@ impl Plugin for SanicDemoContentPlugin {
         use bevy::prelude::IntoScheduleConfigs;
 
         ambition::runtime::demo_fixture::install_character_catalog(SANIC_CATALOG_RON);
+        ambition::actors::session::data::install_music_registry(
+            ambition::audio::spec::MusicRegistry {
+                default_track: "you_are_too_slow".to_string(),
+                tracks: vec![ambition::audio::spec::MusicTrack {
+                    id: "you_are_too_slow".to_string(),
+                    display_name: "You Are Too Slow".to_string(),
+                    asset_path: Some(SANIC_MUSIC_ASSET_PATH.to_string()),
+                }],
+            },
+        );
+        // The packed Ambition bank supplies the actual typed cues. The registry
+        // remains intentionally minimal but valid so the demo owns its audio
+        // data seam instead of borrowing the full game's content registry.
+        ambition::actors::session::data::install_sfx_registry(ambition::audio::spec::SfxRegistry {
+            sample_rate: 44_100,
+            sfx: Vec::new(),
+        });
         // The demo's player is explicitly the speedster rather than relying on
         // whichever row happens to be the installed catalog default.
         app.insert_resource(ambition::runtime::demo_fixture::StartingCharacter::new(
@@ -196,6 +381,10 @@ fn sanic_setup(
 pub struct SanicActState {
     /// Seconds the act has been running (sim clock, so bullet-time slows it).
     pub elapsed: f32,
+    /// Next index in [`SPEED_MARKER_XS`] that should emit its one-shot progress
+    /// cue. Mode-scoped with the act, so leaving and re-entering the demo resets
+    /// the audible ruler without a global resource leak.
+    pub next_milestone: usize,
 }
 
 /// Sanic's level rules. **ONE system list; a constructor flag decides its gating**
@@ -224,25 +413,95 @@ impl Plugin for SanicRulesPlugin {
         use bevy::prelude::IntoScheduleConfigs;
         let sim = ambition::platformer::schedule::SimScheduleExt::sim_schedule(app);
         app.init_resource::<ball_dash::BallDashTuning>();
+        // Attach the mode-local state and consume Sanic's semantic input verbs
+        // before the generic peaceful-kit gate erases combat intent. Chaining
+        // provides an apply-deferred seam, so the first eligible X edge cannot be
+        // lost on a newly controlled body. Utility is D in the classic preset;
+        // the transform system consumes that edge so it cannot also toggle a
+        // host-code flight ability inherited by the control box.
+        let sanic_input_rules = (
+            ball_dash::attach_ball_dash,
+            ball_dash::capture_ball_dash_input,
+            toggle_sanic_form,
+        )
+            .chain()
+            .in_set(ambition::platformer::schedule::SandboxSet::PlayerInput)
+            .after(ambition::actors::avatar::tick_player_brains)
+            .before(ambition::actors::avatar::gate_worn_player_control);
+        if self.hosted {
+            app.add_systems(
+                sim,
+                sanic_input_rules.run_if(ambition::runtime::in_mode(SANIC_MODE)),
+            );
+        } else {
+            app.add_systems(sim, sanic_input_rules);
+        }
+
         // The ball dash is a RULE, not world content: it exists while the Sanic
-        // mode is live and nowhere else, exactly like the act clock. Ordered
-        // before `tick_rolling` so a launch and its un-balling can never share a
-        // frame — a body that just launched is above `exit_speed` by definition,
-        // but the ordering says so rather than relying on the tuning.
+        // mode is live and nowhere else, exactly like the act clock. Effects run
+        // after PlayerInput captured the technique and before later presentation.
+        // `tick_ball_dash` precedes `tick_rolling`, so a launch cannot un-ball in
+        // the same frame even if tuning changes.
         let rules = (
             spawn_sanic_mode_owner,
             tick_sanic_act,
-            ball_dash::attach_ball_dash,
             ball_dash::tick_ball_dash,
             ball_dash::tick_rolling,
         )
-            .chain();
+            .chain()
+            .in_set(ambition::platformer::schedule::SandboxSet::GameplayEffects);
+        let milestone_sfx = emit_sanic_milestone_sfx
+            .in_set(ambition::platformer::schedule::SandboxSet::GameplayEffects);
         if self.hosted {
             app.add_systems(sim, rules.run_if(ambition::runtime::in_mode(SANIC_MODE)));
+            app.add_systems(
+                sim,
+                milestone_sfx.run_if(ambition::runtime::in_mode(SANIC_MODE)),
+            );
         } else {
             app.add_systems(sim, rules);
+            app.add_systems(sim, milestone_sfx);
         }
     }
+}
+
+/// Toggle the controlled body between the two catalog-authored Sanic forms.
+///
+/// This consumes the already-semantic Utility edge (`D` in the demo's classic
+/// keyboard preset), never a raw key. Both rows carry the same movement and
+/// peaceful action profile, so `WornCharacter` remains the single gameplay +
+/// presentation authority and the transformation cannot fork a second kit path.
+fn toggle_sanic_form(
+    subject: Option<bevy::prelude::Res<ambition::platformer::markers::ControlledSubject>>,
+    mut bodies: bevy::prelude::Query<(
+        &mut ambition::characters::brain::ActorControl,
+        &mut ambition::characters::actor::WornCharacter,
+        &ae::BodyKinematics,
+    )>,
+    mut sfx: bevy::prelude::MessageWriter<ambition::sfx::SfxMessage>,
+) {
+    let Some(entity) = subject.and_then(|subject| subject.0) else {
+        return;
+    };
+    let Ok((mut control, mut worn, kinematics)) = bodies.get_mut(entity) else {
+        return;
+    };
+    if !control.0.fly_toggle_pressed {
+        return;
+    }
+
+    // Utility belongs to this mode-local transformation. Consume the edge before
+    // lower movement layers can interpret it as the generic fly toggle.
+    control.0.fly_toggle_pressed = false;
+    let next = match worn.id() {
+        SANIC_CHARACTER_ID => SUPER_SANIC_CHARACTER_ID,
+        SUPER_SANIC_CHARACTER_ID => SANIC_CHARACTER_ID,
+        _ => return,
+    };
+    *worn = ambition::characters::actor::WornCharacter::new(next);
+    sfx.write(ambition::sfx::SfxMessage::Dash {
+        pos: kinematics.pos,
+    });
 }
 
 /// Bring the act state into being the first frame the mode is live. Spawned
@@ -251,10 +510,17 @@ impl Plugin for SanicRulesPlugin {
 fn spawn_sanic_mode_owner(
     mut commands: bevy::prelude::Commands,
     existing: bevy::prelude::Query<(), bevy::prelude::With<SanicActState>>,
+    mut sfx: bevy::prelude::MessageWriter<ambition::sfx::SfxMessage>,
 ) {
     use ambition::platformer::lifecycle::SpawnScopedExt;
     if existing.iter().next().is_none() {
         commands.spawn_mode_scoped(SANIC_MODE, SanicActState::default());
+        // Audible confirmation that the standalone shell is draining the
+        // standard SfxMessage seam. Distance markers emit alternating cues as
+        // the player advances, so this one also proves the bank at room entry.
+        sfx.write(ambition::sfx::SfxMessage::Dash {
+            pos: ae::Vec2::ZERO,
+        });
     }
 }
 
@@ -269,161 +535,41 @@ fn tick_sanic_act(
     }
 }
 
+/// Emit a small, existing Ambition cue when the primary body crosses each
+/// visible distance marker. These are deliberately simple diagnostic sounds:
+/// the demo is proving that its shell drains the standard [`ambition::sfx::SfxMessage`] seam,
+/// not inventing a parallel Sanic audio stack.
+fn emit_sanic_milestone_sfx(
+    player: bevy::prelude::Query<
+        &ae::BodyKinematics,
+        bevy::prelude::With<ambition::actors::actor::PrimaryPlayer>,
+    >,
+    mut act: bevy::prelude::Query<&mut SanicActState>,
+    mut sfx: bevy::prelude::MessageWriter<ambition::sfx::SfxMessage>,
+) {
+    let Ok(kin) = player.single() else {
+        return;
+    };
+    for mut state in &mut act {
+        while let Some(&marker_x) = SPEED_MARKER_XS.get(state.next_milestone) {
+            if kin.pos.x < marker_x {
+                break;
+            }
+            let message = if state.next_milestone % 2 == 0 {
+                ambition::sfx::SfxMessage::Dash { pos: kin.pos }
+            } else {
+                ambition::sfx::SfxMessage::Jump { pos: kin.pos }
+            };
+            sfx.write(message);
+            state.next_milestone += 1;
+        }
+    }
+}
+
 /// Install the Sanic demo content layer into an engine app.
 pub fn add_demo_content(app: &mut App) {
     app.add_plugins(SanicDemoContentPlugin);
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn sanic_demo_content_plugin_installs() {
-        let mut app = App::new();
-        add_demo_content(&mut app);
-    }
-
-    /// The oracle: the momentum showcase room composes through the umbrella
-    /// surface alone — floor geometry present, the Sonic loop validates, and the
-    /// spawn sits inside the room bounds.
-    #[test]
-    fn sanic_speedway_composes_through_the_umbrella() {
-        let room = sanic_speedway();
-        assert_eq!(room.id, SPEEDWAY_ROOM_ID);
-
-        // Solid floor geometry made it into the world.
-        assert!(
-            room.world.blocks.iter().any(|b| b.name == "speedway_floor"),
-            "the speedway floor block is present"
-        );
-
-        // The Sonic loop is a valid rideable closed chain (the engine's own
-        // validator runs here, so a degenerate/self-intersecting loop fails).
-        let loop_chain = room
-            .world
-            .chains
-            .iter()
-            .find(|c| c.name == "sanic_loop")
-            .expect("the sanic loop chain is present");
-        assert_eq!(loop_chain.points.len(), LOOP_SEGMENTS);
-        assert!(
-            loop_chain.validate().is_empty(),
-            "the generated Sonic loop is a valid rideable chain: {:?}",
-            loop_chain.validate()
-        );
-
-        // Spawn is inside the room bounds (not floating/falling on load).
-        let s = room.world.spawn;
-        assert!(
-            s.x >= 0.0 && s.x <= room.world.size.x && s.y >= 0.0 && s.y <= room.world.size.y,
-            "spawn {s:?} is inside room bounds {:?}",
-            room.world.size
-        );
-    }
-
-    /// **The D-C pattern, end to end.** `SanicRulesPlugin::hosted()` ticks the act
-    /// timer only inside the Sanic rooms; `::global()` ticks it everywhere. The
-    /// mode-owner entity is `spawn_mode_scoped`, so the engine tears it down when
-    /// the active room leaves the mode — this demo writes no teardown code.
-    #[test]
-    fn hosted_rules_run_only_in_sanic_rooms_and_global_rules_run_everywhere() {
-        use ambition::bevy::ecs::system::RunSystemOnce as _;
-        use ambition::world::rooms::{ActiveRoomMetadata, RoomMetadata};
-
-        fn elapsed(app: &mut App) -> Option<f32> {
-            let mut q = app.world_mut().query::<&SanicActState>();
-            q.iter(app.world()).next().map(|s| s.elapsed)
-        }
-        fn shell(rules: SanicRulesPlugin, mode: Option<&str>) -> App {
-            let mut app = App::new();
-            ambition::engine::add_headless_foundation(&mut app);
-            app.insert_resource(ActiveRoomMetadata(RoomMetadata {
-                mode: mode.map(str::to_string),
-                ..Default::default()
-            }));
-            app.insert_resource(ambition::time::WorldTime {
-                scaled_dt: 0.5,
-                ..Default::default()
-            });
-            app.add_plugins(rules);
-            app
-        }
-
-        // HOSTED, inside a `sanic` room: the mode owner spawns and the act ticks.
-        // `.chain()` puts a sync point between spawn and tick, so the owner exists
-        // in time to tick on its own first frame: two frames = two ticks.
-        let mut app = shell(SanicRulesPlugin::hosted(), Some(SANIC_MODE));
-        app.update();
-        app.update();
-        assert_eq!(elapsed(&mut app), Some(1.0), "hosted rules tick in-mode");
-
-        // HOSTED, in one of Ambition's own rooms: nothing spawns, nothing ticks.
-        let mut app = shell(SanicRulesPlugin::hosted(), None);
-        app.update();
-        app.update();
-        assert_eq!(elapsed(&mut app), None, "hosted rules sleep out of mode");
-
-        // GLOBAL (the demo IS the game): the rules run with no mode at all.
-        let mut app = shell(SanicRulesPlugin::global(), None);
-        app.update();
-        app.update();
-        assert_eq!(
-            elapsed(&mut app),
-            Some(1.0),
-            "standalone rules need no mode"
-        );
-
-        // The mode owner really is mode-scoped: the engine's own sweep retires it.
-        let mut app = shell(SanicRulesPlugin::hosted(), Some(SANIC_MODE));
-        app.update();
-        app.update();
-        assert!(elapsed(&mut app).is_some());
-        app.insert_resource(ActiveRoomMetadata::default()); // left the Sanic rooms
-        app.world_mut()
-            .run_system_once(ambition::runtime::despawn_departed_mode_entities)
-            .expect("the engine's mode sweep runs");
-        assert_eq!(
-            elapsed(&mut app),
-            None,
-            "leaving the mode tears the act state down — no demo teardown code"
-        );
-    }
-
-    /// The D-C hosting oracle: a demo's room claims its mode, and the run
-    /// condition that wakes a hosted ruleset inside it reaches this crate
-    /// through the `ambition` umbrella alone. If gating a hosted demo ever
-    /// needs a lower `ambition_*` crate, it fails to compile HERE.
-    ///
-    /// The condition is evaluated directly rather than through `.run_if` on a
-    /// bespoke marker resource: a crate whose manifest names only `ambition`
-    /// cannot `#[derive(Resource)]`, because bevy's derive macros resolve
-    /// `bevy_ecs` through the CONSUMER's manifest and a re-export does not
-    /// satisfy them. The `.run_if` wiring itself is pinned in
-    /// `ambition_runtime/tests/mode_scope.rs`.
-    #[test]
-    fn the_speedway_claims_the_sanic_mode_and_wakes_a_hosted_ruleset() {
-        use ambition::bevy::ecs::system::RunSystemOnce as _;
-        use ambition::runtime::in_mode;
-        use ambition::world::rooms::ActiveRoomMetadata;
-
-        let room = sanic_speedway();
-        assert_eq!(room.metadata.mode.as_deref(), Some(SANIC_MODE));
-
-        let mut app = App::new();
-        app.insert_resource(ActiveRoomMetadata(room.metadata.clone()));
-        let awake = app
-            .world_mut()
-            .run_system_once(in_mode(SANIC_MODE))
-            .expect("the mode condition runs");
-        assert!(awake, "a hosted Sanic ruleset wakes inside the speedway");
-
-        // Ambition's own rooms carry no mode, so the demo's rules sleep there.
-        app.insert_resource(ActiveRoomMetadata::default());
-        let awake = app
-            .world_mut()
-            .run_system_once(in_mode(SANIC_MODE))
-            .expect("the mode condition runs");
-        assert!(!awake, "and it sleeps in a room that claims no mode");
-    }
-}
+mod tests;

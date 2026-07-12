@@ -60,6 +60,7 @@ pub fn spawn_room_visuals(
 ) {
     let world = &spec.world;
     spawn_grid(commands, world);
+    spawn_surface_chain_visuals(commands, world);
     for block in &world.blocks {
         spawn_block(commands, world, block, physics_settings, assets);
     }
@@ -351,6 +352,37 @@ fn spawn_climbable_region(
                 RoomVisual,
             ));
             y += 16.0;
+        }
+    }
+}
+
+/// Draw the simulation's rideable surface chains as thin, rotated strips.
+///
+/// Surface chains were previously collision-only, which made momentum demos
+/// especially hard to read: the body could ride a loop that the player could
+/// not see. This is intentionally generic room presentation rather than
+/// Sanic-specific drawing; any game that authors a chain gets a matching visual.
+pub fn spawn_surface_chain_visuals(commands: &mut Commands, world: &ae::World) {
+    const THICKNESS: f32 = 8.0;
+    let color = Color::srgba(0.22, 0.88, 0.96, 0.92);
+
+    for chain in &world.chains {
+        for segment_index in 0..chain.segment_count() {
+            let (a_world, b_world) = chain.segment(segment_index);
+            let a = world_to_bevy(world, a_world, WORLD_Z_BLOCK + 2.0);
+            let b = world_to_bevy(world, b_world, WORLD_Z_BLOCK + 2.0);
+            let delta = b.truncate() - a.truncate();
+            let length = delta.length();
+            if length <= f32::EPSILON {
+                continue;
+            }
+            commands.spawn((
+                Sprite::from_color(color, BVec2::new(length, THICKNESS)),
+                Transform::from_translation((a + b) * 0.5)
+                    .with_rotation(Quat::from_rotation_z(delta.y.atan2(delta.x))),
+                Name::new(format!("Surface: {} segment {}", chain.name, segment_index)),
+                RoomVisual,
+            ));
         }
     }
 }

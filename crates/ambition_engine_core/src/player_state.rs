@@ -302,8 +302,20 @@ where
         new_world_half.x * gravity_axis.x.abs() + new_world_half.y * gravity_axis.y.abs();
     let new_center = kinematics.pos + gravity_axis * (old_feet_half - new_feet_half);
 
+    let old_aabb = crate::geometry::Aabb::new(kinematics.pos, old_world_half);
     let new_aabb = crate::geometry::Aabb::new(new_center, new_world_half);
-    if world.body_overlaps_any(new_aabb, predicate) {
+    // A feet-anchored shrink occupies a subset of the body's current space. It
+    // cannot create a new collision, and must remain legal even when a surface
+    // follower's contact tolerance leaves the standing AABB microscopically
+    // embedded in its supporting floor. Re-testing that inherited overlap made
+    // momentum bodies refuse to crouch on flat blocks while the same input
+    // worked on SurfaceChains. Expansion still performs the full clearance test.
+    let subset_eps = 1.0e-4;
+    let is_spatial_subset = new_aabb.min.x >= old_aabb.min.x - subset_eps
+        && new_aabb.min.y >= old_aabb.min.y - subset_eps
+        && new_aabb.max.x <= old_aabb.max.x + subset_eps
+        && new_aabb.max.y <= old_aabb.max.y + subset_eps;
+    if !is_spatial_subset && world.body_overlaps_any(new_aabb, predicate) {
         return false;
     }
     kinematics.pos = new_center;

@@ -17,7 +17,7 @@ default = []
 # — a windowed demo that ignored the keyboard would not be a playable-persona demo.
 # Without it the shell steps the sim headlessly (`tests/exit_3.rs`, the `sanic_demo`
 # bin default).
-visible = ["ambition/visible", "input", "dep:bevy_kira_audio"]
+visible = ["ambition/visible", "ambition/audio", "input", "dep:bevy_kira_audio"]
 # The STANDARD host input path (leafwing bindings + the device→ControlFrame bridge +
 # the fixed-tick latch), the same production wiring the full app uses. Folded into
 # `visible` above so the windowed binary is interactive; also usable alone for the

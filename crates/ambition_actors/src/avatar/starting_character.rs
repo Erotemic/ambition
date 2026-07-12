@@ -115,6 +115,36 @@ pub fn apply_worn_motion_model(commands: &mut Commands, entity: Entity, characte
     }
 }
 
+/// Synchronize movement identity without discarding live solver state when two
+/// forms author the same momentum profile. This is the transformation case:
+/// changing the worn sprite/name must not throw a rider off its surface or erase
+/// its tangential speed merely because the identity component changed.
+fn sync_worn_motion_model_preserving_state(
+    commands: &mut Commands,
+    entity: Entity,
+    character_id: &str,
+    current: Option<&MotionModel>,
+) {
+    match crate::character_roster::momentum_params_for_character_id(character_id) {
+        Some(params) => {
+            let already_matches = matches!(
+                current,
+                Some(MotionModel::SurfaceMomentum(momentum)) if momentum.params == params
+            );
+            if !already_matches {
+                commands
+                    .entity(entity)
+                    .insert(MotionModel::SurfaceMomentum(MomentumMotion::new(params)));
+            }
+        }
+        None => {
+            if current.is_some() {
+                commands.entity(entity).remove::<MotionModel>();
+            }
+        }
+    }
+}
+
 /// Resolve a playable ActionSet without collapsing an invalid authored row into
 /// the privileged host-code fallback. The returned bool says whether the body
 /// owns the host's chargeable-projectile capability.
@@ -251,6 +281,7 @@ pub fn apply_worn_character_gameplay(
             &mut ActionSet,
             &mut ActorMoveset,
             Ref<crate::actor::BodyAbilities>,
+            Option<&MotionModel>,
             Has<ambition_projectiles::PlayerProjectileState>,
         ),
         Or<(Changed<WornCharacter>, Changed<crate::actor::BodyAbilities>)>,
@@ -265,6 +296,7 @@ pub fn apply_worn_character_gameplay(
         mut action_set,
         mut moveset,
         abilities,
+        motion_model,
         has_projectile_state,
     ) in &mut worn
     {
@@ -288,7 +320,7 @@ pub fn apply_worn_character_gameplay(
             // a wear/re-wear may replace the model; doing this for a live
             // ability edit would reset SurfaceMomentum's persistent riding
             // state to Airborne.
-            apply_worn_motion_model(&mut commands, entity, id);
+            sync_worn_motion_model_preserving_state(&mut commands, entity, id, motion_model);
             continue;
         }
 

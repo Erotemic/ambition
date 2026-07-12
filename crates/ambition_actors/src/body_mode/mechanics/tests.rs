@@ -222,6 +222,38 @@ fn player_input_frame_is_not_body_mode_authority() {
     );
 }
 
+/// A momentum ride is the same support fact as the AABB path's ground cluster.
+/// Without this, holding local Down on a chain or block boundary leaves the body
+/// Standing even though the movement kernel is physically attached to a surface.
+#[test]
+fn momentum_riding_support_allows_the_controlled_body_to_crouch() {
+    let (mut app, body) = build_body_mode_test_app();
+    app.world_mut()
+        .get_mut::<BodyGroundState>(body)
+        .unwrap()
+        .on_ground = false;
+    let mut momentum = crate::features::MomentumMotion::new(Default::default());
+    momentum.state = ae::surface::SurfaceMotion::Riding {
+        on: ae::surface::SurfaceRef::Block(0),
+        s: 10.0,
+        v_t: 0.0,
+    };
+    app.world_mut()
+        .entity_mut(body)
+        .insert(crate::features::MotionModel::SurfaceMomentum(momentum));
+    set_control(&mut app, body, |control| {
+        control.locomotion = Vec2::new(0.0, 1.0)
+    });
+
+    app.update();
+
+    assert_eq!(
+        app.world().get::<BodyModeState>(body).unwrap().body_mode,
+        ae::BodyMode::Crouching,
+        "momentum ride support must drive the same crouch policy as AABB ground support",
+    );
+}
+
 fn place_player_on_test_ladder(app: &mut App, player: Entity, vel: Option<Vec2>) {
     app.world_mut()
         .resource_mut::<ambition_engine_core::RoomGeometry>()

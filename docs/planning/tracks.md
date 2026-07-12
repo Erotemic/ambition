@@ -84,19 +84,21 @@ statuses + test evidence in the plan.
 
 ### 4. Unified swappable movement kernel
 
-**PARTIAL.** [ADR 0024](../adr/0024-frame-aware-unified-movement-kernel.md) is
-the binding architecture;
-[`engine/unified-movement-kernel.md`](engine/unified-movement-kernel.md) is the
-migration ledger. The drift-aware first cut preserves the App-local character
-catalog and later Sanic surface fixes while placing axis-swept and surface-momentum
-behind `step_motion`. It is not completion evidence: the authoritative frame
-resolver, typed intent seam, crawler policy, private-state migration, snapshots,
-and guards remain open.
+**DONE** (commit `17685105`). [ADR 0024](../adr/0024-frame-aware-unified-movement-kernel.md)
+is implemented: one `step_motion` entry with three sibling policies
+(axis-swept, surface momentum, adhesive crawler — the former hidden
+`surface_walker` integrator), one environment-resolved `MotionFrame` per body
+tick (`GravityCtx::motion_frame_at`), typed input-frame vocabulary
+(`ScreenAxes`/`LocalAxes`/`WorldVec2`), `switch_motion_model` transition
+semantics, `MotionModel` in the snapshot ledger, and poison-tested
+workspace-policy guards.
+[`engine/unified-movement-kernel.md`](engine/unified-movement-kernel.md)
+documents the invariants, ownership map, and residual debt (axis private-state
+physical placement; gravity-resource snapshot registration; crawler cardinal
+attachment; device-latch typing; ball-dash typed op).
 
-**Next slice:** finish the no-alternate-entry migration, move genuinely private
-axis state out of shared clusters, introduce the authoritative per-body net
-acceleration resolver, and add guards/covariance tests that make frame sensitivity
-and explicit model ownership mechanically unavoidable.
+**Next slice:** none scheduled; pick up a residual-debt item opportunistically
+alongside the next snapshot-ledger or input pass.
 
 ### 5. CC3 enforcement
 

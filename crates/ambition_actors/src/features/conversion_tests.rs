@@ -772,13 +772,19 @@ mod conversion_tests {
             ambition_entity_catalog::placements::CharacterBrain::Passive,
             &[],
         );
-        // Force the surface-walker grounded state directly (independent of which
-        // archetype the brain resolves to): glued to the platform top.
+        // The crawler POLICY with a live attachment (independent of which
+        // archetype the brain resolves to): glued to the platform top. This is
+        // exactly the model `ActorTuning::motion_model` selects for a
+        // `surface_walker` archetype at spawn.
         enemy.config.tuning.surface_walker = true;
         enemy.body.0.ground.on_ground = true;
         enemy.surface.surface_normal = ae::Vec2::new(0.0, -1.0);
         let x0 = enemy.kin.pos.x;
-        let mut model = crate::features::MotionModel::default();
+        let mut model = enemy.config.tuning.motion_model();
+        let crate::features::MotionModel::AdhesiveCrawler(crawler) = &mut model else {
+            panic!("a surface_walker archetype must select the crawler policy at spawn");
+        };
+        crawler.state = ae::CrawlerState::attached(ae::Vec2::new(0.0, -1.0));
         enemy.update_for_test(
             &world,
             ae::Vec2::new(1500.0, 492.0),

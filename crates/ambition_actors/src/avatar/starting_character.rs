@@ -129,13 +129,19 @@ pub fn apply_worn_motion_model(
 
 /// Synchronize movement identity without discarding live solver state when the
 /// selected policy is unchanged. A same-model refresh updates only parameters;
-/// a cross-model transition initializes only destination-private state.
+/// a cross-model transition preserves every shared body fact and initializes
+/// ONLY destination-private state — through the one kernel transition seam.
 fn sync_worn_motion_model_preserving_state(
     catalog: &CharacterCatalog,
     character_id: &str,
     current: &mut MotionModel,
+    clusters: &mut ambition_engine_core::BodyClustersMut<'_>,
 ) {
-    current.apply_spec(motion_model_spec_for_character_id(catalog, character_id));
+    ambition_engine_core::switch_motion_model(
+        current,
+        motion_model_spec_for_character_id(catalog, character_id),
+        clusters,
+    );
 }
 
 /// Resolve a playable ActionSet without collapsing an invalid authored row into
@@ -278,6 +284,10 @@ pub fn apply_worn_character_gameplay(
             &mut ActorMoveset,
             Ref<crate::actor::BodyAbilities>,
             &mut MotionModel,
+            // The full body clusters, so a cross-model re-wear initializes the
+            // destination policy's cluster-resident private state through the
+            // ONE transition seam (`switch_motion_model`).
+            ambition_engine_core::BodyClusterQueryData,
             Has<ambition_projectiles::PlayerProjectileState>,
         ),
         Or<(Changed<WornCharacter>, Changed<crate::actor::BodyAbilities>)>,
@@ -297,6 +307,7 @@ pub fn apply_worn_character_gameplay(
         mut moveset,
         abilities,
         mut motion_model,
+        mut cluster_item,
         has_projectile_state,
     ) in &mut worn
     {
@@ -321,7 +332,8 @@ pub fn apply_worn_character_gameplay(
             // a wear/re-wear may replace the model; doing this for a live
             // ability edit would reset SurfaceMomentum's persistent riding
             // state to Airborne.
-            sync_worn_motion_model_preserving_state(&catalog, id, &mut motion_model);
+            let mut clusters = cluster_item.as_clusters_mut();
+            sync_worn_motion_model_preserving_state(&catalog, id, &mut motion_model, &mut clusters);
             continue;
         }
 

@@ -184,3 +184,13 @@ bevy_ecs::message::messages::Messages<bevy_asset::event::AssetLoadFailedEvent<am
 bevy_ecs::message::messages::Messages<bevy_state::state::transitions::StateTransitionEvent<ambition_platformer_primitives::schedule::GameMode>>
 bevy_state::state::resources::NextState<ambition_platformer_primitives::schedule::GameMode>
 bevy_state::state::resources::State<ambition_platformer_primitives::schedule::GameMode>
+
+# Reviewed diff (2026-07-12, movement-kernel landing run): the App-local catalog
+# registries from the character/audio authority migration. All four are
+# ASSEMBLED AUTHORED CONTENT (immutable after provider registration), not
+# mutable sim state — candidates for SIM_RESOURCE_EXCLUSIONS or registration
+# when the catalog migration closes.
+ambition_audio::catalog::AudioCatalogRegistry
+ambition_characters::actor::character_catalog::registry::CharacterCatalogDefaults
+ambition_characters::actor::character_catalog::registry::CharacterCatalogOwners
+ambition_characters::actor::character_catalog::registry::CharacterCatalogRegistry

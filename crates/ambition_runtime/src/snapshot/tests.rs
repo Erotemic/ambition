@@ -545,10 +545,16 @@ fn restoring_worn_host_code_rebuilds_from_the_snapshotted_abilities() {
             Name::new("unset"),
             ActionSet::default(),
             ActorMoveset(Default::default()),
-            bc::BodyAbilities::new(ambition_engine_core::AbilitySet::sandbox_all()),
-            // Every worn body carries an explicit movement policy from spawn;
-            // the worn-character system refreshes it through the one
-            // transition seam.
+            kin(Vec2::ZERO, Vec2::ZERO),
+            // A worn body is a FULL body: the movement clusters + one explicit
+            // policy from spawn; the worn-character system refreshes movement
+            // identity through the one transition seam.
+            ambition_actors::actor::AncillaryMovementBundle::from_scratch(
+                ambition_engine_core::BodyClusterScratch::new_with_abilities(
+                    Vec2::ZERO,
+                    ambition_engine_core::AbilitySet::sandbox_all(),
+                ),
+            ),
             ambition_engine_core::MotionModel::default(),
         ))
         .id();

@@ -195,7 +195,7 @@ was aiming at.
 - `game/ambition_app/src/app/player_clone.rs`: a `PlayerClone` is a non-player
   entity carrying all 18 player movement clusters + a `PlayerDemo` brain + an
   `ActorControl`. `drive_player_clones` ticks its brain → `ActorControl` and runs
-  the SHARED `update_player_with_tuning_clusters` (the exact human-player movement
+  the SHARED `step_motion` kernel (the exact human-player movement
   core) on it. Press **K** in-game to spawn one at the player; it runs/jumps/dashes/
   flies on its own. Live integration test `tests/player_clone_live.rs` asserts it
   moves + leaves the ground in the real app schedule; replay stays byte-identical

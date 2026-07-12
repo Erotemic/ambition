@@ -1,8 +1,6 @@
 use ambition_characters::actor::WornCharacter;
 use ambition_characters::brain::ActionSet;
-use ambition_engine_core::{
-    BodyAbilities, BodyBlinkState, BodyDashState, BodyFlightState, BodyJumpState,
-};
+use ambition_engine_core::BodyAbilities;
 use ambition_platformer_primitives::markers::PrimaryPlayer;
 use bevy::prelude::*;
 
@@ -54,11 +52,13 @@ fn live_ability_sync_does_not_rederive_authored_movement_identity() {
             Name::new("unset"),
             ActionSet::default(),
             ActorMoveset(Default::default()),
-            BodyAbilities::new(ambition_engine_core::AbilitySet::sandbox_all()),
-            BodyFlightState::default(),
-            BodyBlinkState::default(),
-            BodyDashState::default(),
-            BodyJumpState::default(),
+            ambition_engine_core::BodyKinematics::default(),
+            crate::actor::AncillaryMovementBundle::from_scratch(
+                ambition_engine_core::BodyClusterScratch::new_with_abilities(
+                    ambition_engine_core::Vec2::ZERO,
+                    ambition_engine_core::AbilitySet::sandbox_all(),
+                ),
+            ),
         ))
         .id();
 
@@ -118,4 +118,114 @@ fn assert_riding_state(
         }
         other => panic!("expected Sanic SurfaceMomentum, got {other:?}"),
     }
+}
+
+/// A CROSS-model runtime re-wear (momentum persona → axis persona) preserves
+/// every shared body fact (world position, velocity, facing) and initializes
+/// ONLY the destination policy's private state — the ADR 0024 §7 swap
+/// invariant, exercised through the production worn-character seam and
+/// therefore independent of who controls the body (the system never reads a
+/// controller).
+#[test]
+fn cross_model_rewear_preserves_shared_state_and_initializes_axis_private_state() {
+    let mut app = App::new();
+    app.add_plugins(MinimalPlugins);
+    app.insert_resource(super::test_catalog());
+    app.add_systems(Update, super::super::apply_worn_character_gameplay);
+
+    let entity = app
+        .world_mut()
+        .spawn((
+            PlayerEntity,
+            PrimaryPlayer,
+            WornCharacter::new("sanic"),
+            MotionModel::default(),
+            Name::new("unset"),
+            ActionSet::default(),
+            ActorMoveset(Default::default()),
+            ambition_engine_core::BodyKinematics::default(),
+            crate::actor::AncillaryMovementBundle::from_scratch(
+                ambition_engine_core::BodyClusterScratch::new_with_abilities(
+                    ambition_engine_core::Vec2::ZERO,
+                    ambition_engine_core::AbilitySet::sandbox_all(),
+                ),
+            ),
+        ))
+        .id();
+    app.update();
+    assert!(
+        matches!(
+            app.world().get::<MotionModel>(entity).unwrap(),
+            MotionModel::SurfaceMomentum(_)
+        ),
+        "wearing sanic selects the momentum policy"
+    );
+
+    // Live shared state + stale would-be axis maneuver state accumulated while
+    // riding as sanic.
+    let pose = ambition_engine_core::BodyKinematics {
+        pos: ambition_engine_core::Vec2::new(321.0, 654.0),
+        vel: ambition_engine_core::Vec2::new(900.0, -50.0),
+        size: ambition_engine_core::Vec2::new(24.0, 40.0),
+        facing: -1.0,
+    };
+    *app.world_mut()
+        .get_mut::<ambition_engine_core::BodyKinematics>(entity)
+        .unwrap() = pose;
+    app.world_mut()
+        .get_mut::<ambition_engine_core::BodyGroundState>(entity)
+        .unwrap()
+        .coyote_timer = 0.1;
+    app.world_mut()
+        .get_mut::<ambition_engine_core::BodyWallState>(entity)
+        .unwrap()
+        .wall_clinging = true;
+    app.world_mut()
+        .get_mut::<ambition_engine_core::BodyDashState>(entity)
+        .unwrap()
+        .charges_available = 2;
+
+    // Re-wear an axis persona (the default protagonist).
+    app.world_mut()
+        .entity_mut(entity)
+        .insert(WornCharacter::new("player"));
+    app.update();
+
+    assert!(
+        matches!(
+            app.world().get::<MotionModel>(entity).unwrap(),
+            MotionModel::AxisSwept(_)
+        ),
+        "re-wearing the protagonist selects the axis policy"
+    );
+    assert_eq!(
+        *app.world()
+            .get::<ambition_engine_core::BodyKinematics>(entity)
+            .unwrap(),
+        pose,
+        "world pose, velocity, and facing survive the swap untouched"
+    );
+    assert_eq!(
+        app.world()
+            .get::<ambition_engine_core::BodyGroundState>(entity)
+            .unwrap()
+            .coyote_timer,
+        0.0,
+        "the axis destination begins with NO imported coyote grace"
+    );
+    assert!(
+        !app.world()
+            .get::<ambition_engine_core::BodyWallState>(entity)
+            .unwrap()
+            .wall_clinging,
+        "no imported wall engagement"
+    );
+    assert_eq!(
+        app.world()
+            .get::<ambition_engine_core::BodyDashState>(entity)
+            .unwrap()
+            .charges_available,
+        2,
+        "body RESOURCES (dash charges) are shared facts and survive"
+    );
 }

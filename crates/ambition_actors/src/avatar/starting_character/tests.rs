@@ -142,9 +142,16 @@ fn gameplay_derives_from_worn_identity_at_add_and_on_change() {
             Name::new("unset"),
             ActionSet::default(),
             ActorMoveset(Default::default()),
-            // The persisted capability set the overlay rebuilds a HostCode /
-            // unknown kit from — every real player body carries it.
-            crate::actor::BodyAbilities::new(ambition_engine_core::AbilitySet::sandbox_all()),
+            // A worn body is a FULL body: kinematics + the movement clusters
+            // (which include the persisted capability set the overlay rebuilds
+            // a HostCode / unknown kit from).
+            ambition_engine_core::BodyKinematics::default(),
+            crate::actor::AncillaryMovementBundle::from_scratch(
+                ambition_engine_core::BodyClusterScratch::new_with_abilities(
+                    ambition_engine_core::Vec2::ZERO,
+                    ambition_engine_core::AbilitySet::sandbox_all(),
+                ),
+            ),
         ))
         .id();
     app.update();
@@ -200,7 +207,13 @@ fn rewearing_an_equivalent_momentum_profile_preserves_live_ride_state() {
             Name::new("unset"),
             ActionSet::default(),
             ActorMoveset(Default::default()),
-            crate::actor::BodyAbilities::new(ambition_engine_core::AbilitySet::sandbox_all()),
+            ambition_engine_core::BodyKinematics::default(),
+            crate::actor::AncillaryMovementBundle::from_scratch(
+                ambition_engine_core::BodyClusterScratch::new_with_abilities(
+                    ambition_engine_core::Vec2::ZERO,
+                    ambition_engine_core::AbilitySet::sandbox_all(),
+                ),
+            ),
         ))
         .id();
     app.update();
@@ -256,9 +269,16 @@ fn derive_system_only_fires_on_identity_or_ability_change() {
             Name::new("unset"),
             ActionSet::default(),
             ActorMoveset(Default::default()),
-            // The persisted capability set the overlay rebuilds a HostCode /
-            // unknown kit from — every real player body carries it.
-            crate::actor::BodyAbilities::new(ambition_engine_core::AbilitySet::sandbox_all()),
+            // A worn body is a FULL body: kinematics + the movement clusters
+            // (which include the persisted capability set the overlay rebuilds
+            // a HostCode / unknown kit from).
+            ambition_engine_core::BodyKinematics::default(),
+            crate::actor::AncillaryMovementBundle::from_scratch(
+                ambition_engine_core::BodyClusterScratch::new_with_abilities(
+                    ambition_engine_core::Vec2::ZERO,
+                    ambition_engine_core::AbilitySet::sandbox_all(),
+                ),
+            ),
         ))
         .id();
     app.update(); // Added → derives SurfaceMomentum for sanic.
@@ -302,9 +322,16 @@ fn worn_kit_fully_follows_a_known_character_rewear() {
             Name::new("unset"),
             ActionSet::default(),
             ActorMoveset(Default::default()),
-            // The persisted capability set the overlay rebuilds a HostCode /
-            // unknown kit from — every real player body carries it.
-            crate::actor::BodyAbilities::new(ambition_engine_core::AbilitySet::sandbox_all()),
+            // A worn body is a FULL body: kinematics + the movement clusters
+            // (which include the persisted capability set the overlay rebuilds
+            // a HostCode / unknown kit from).
+            ambition_engine_core::BodyKinematics::default(),
+            crate::actor::AncillaryMovementBundle::from_scratch(
+                ambition_engine_core::BodyClusterScratch::new_with_abilities(
+                    ambition_engine_core::Vec2::ZERO,
+                    ambition_engine_core::AbilitySet::sandbox_all(),
+                ),
+            ),
         ))
         .id();
     app.update();
@@ -367,9 +394,16 @@ fn runtime_rewear_to_a_host_code_protagonist_rebuilds_the_code_kit() {
             Name::new("unset"),
             ActionSet::default(),
             ActorMoveset(Default::default()),
-            // The persisted capability set the overlay rebuilds a HostCode /
-            // unknown kit from — every real player body carries it.
-            crate::actor::BodyAbilities::new(ambition_engine_core::AbilitySet::sandbox_all()),
+            // A worn body is a FULL body: kinematics + the movement clusters
+            // (which include the persisted capability set the overlay rebuilds
+            // a HostCode / unknown kit from).
+            ambition_engine_core::BodyKinematics::default(),
+            crate::actor::AncillaryMovementBundle::from_scratch(
+                ambition_engine_core::BodyClusterScratch::new_with_abilities(
+                    ambition_engine_core::Vec2::ZERO,
+                    ambition_engine_core::AbilitySet::sandbox_all(),
+                ),
+            ),
         ))
         .id();
     app.update();
@@ -435,7 +469,13 @@ fn runtime_rewear_to_an_unknown_id_is_a_defined_fallback_not_stale_state() {
             Name::new("unset"),
             ActionSet::default(),
             ActorMoveset(Default::default()),
-            crate::actor::BodyAbilities::new(ambition_engine_core::AbilitySet::sandbox_all()),
+            ambition_engine_core::BodyKinematics::default(),
+            crate::actor::AncillaryMovementBundle::from_scratch(
+                ambition_engine_core::BodyClusterScratch::new_with_abilities(
+                    ambition_engine_core::Vec2::ZERO,
+                    ambition_engine_core::AbilitySet::sandbox_all(),
+                ),
+            ),
         ))
         .id();
     app.update();
@@ -478,7 +518,13 @@ fn host_code_kit_refreshes_when_body_abilities_change() {
             Name::new("unset"),
             ActionSet::default(),
             ActorMoveset(Default::default()),
-            crate::actor::BodyAbilities::new(ambition_engine_core::AbilitySet::sandbox_all()),
+            ambition_engine_core::BodyKinematics::default(),
+            crate::actor::AncillaryMovementBundle::from_scratch(
+                ambition_engine_core::BodyClusterScratch::new_with_abilities(
+                    ambition_engine_core::Vec2::ZERO,
+                    ambition_engine_core::AbilitySet::sandbox_all(),
+                ),
+            ),
         ))
         .id();
     app.update();

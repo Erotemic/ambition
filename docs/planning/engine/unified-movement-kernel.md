@@ -1,150 +1,130 @@
 # Frame-aware unified movement kernel
 
 > **Binding decision:** [ADR 0024](../../adr/0024-frame-aware-unified-movement-kernel.md).
-> This document is the migration ledger; where wording differs, the ADR wins.
+> **State:** LANDED (commit `17685105`). This document records the invariants
+> and ownership of the shipped architecture, plus the honest residual debt.
 
-## Non-negotiable law
+## The law
 
-Every movement tick is interpreted in the body's **current acceleration/reference
-frame**.
+Every movement tick is interpreted in the body's **current acceleration/
+reference frame**, resolved by the environment exactly once per body tick.
 
-The environment resolves one immutable `MotionFrame` for the body before movement
-dispatch. It contains an independently supplied reference basis and the complete
-world-space acceleration for the tick. That exact value reaches controller-intent
-resolution, every movement policy, and every frame-relative limb.
+`MotionFrame` is one immutable value with two independent parts: an
+orthonormal reference basis (`AccelerationFrame`: `side`, `down`, world-space)
+and the complete world-space acceleration vector for the tick. Ordinary
+gravity aligns them; neither is derived from the other at the trusted
+boundary. Zero acceleration retains the environment-supplied orientation;
+lateral/inertial acceleration does not rotate the basis.
 
-A movement model must never:
+A movement policy never caches, authors, snapshots, or reconstructs the
+current frame. A frame change is not a model change and resets no private
+state; a model change is not a frame change and writes no environment.
 
-- cache the current gravity/reference direction;
-- reconstruct a private frame from its parameters;
-- read raw screen-space controls;
-- interpret world X/Y as body side/down;
-- reset private state merely because the frame rotated or its acceleration
-  magnitude changed.
+## Ownership map
 
-`MotionFrame` carries both the complete world-space acceleration vector and an
-orthonormal reference basis. Ordinary gravity may align them, but neither is
-derived from the other at the trusted boundary. Zero acceleration retains the
-environment-supplied orientation, and lateral/inertial acceleration does not
-silently rotate that orientation.
+| Fact | Owner | Where |
+|---|---|---|
+| Current frame (basis + acceleration) | ENVIRONMENT | `GravityCtx::motion_frame_at(pos, response)` — localized zone/ambient direction × the body's authored response (`movement.gravity × gravity_scale`; a zero-scale flyer is the zero-acceleration-with-orientation case). Resolved once per body tick by the integration drivers (`integrate_sim_bodies`, `integrate_boss_bodies`) and passed unchanged to input projection and the policy. |
+| Controller intent | CONTROLLER SEAM | Raw device axes are `ScreenAxes`; the seam resolves them against the SAME frame into `LocalAxes` (body-local) or `WorldVec2` (world-space, e.g. blink aim) per the user's `InputFrameMode` policy. `InputState` is the resolved intent artifact; every directional field carries its frame in its type. Screen/body-relative preference is controller policy, never a movement parameter. |
+| Physics policy | `MotionModel` (one per body, from spawn) | `AxisSwept(AxisSweptMotion)` / `SurfaceMomentum(SurfaceMomentumMotion)` / `AdhesiveCrawler(AdhesiveCrawlerMotion)`. Absence is never a policy; integration queries take the component as REQUIRED and a workspace-policy guard rejects `Option<&MotionModel>` / `Without<MotionModel>`. |
+| Policy parameters | The policy | `AxisSweptParams` (grouped: `AxisLocomotion` + `TraversalAbilityTuning` + `FlightTuning`), `MomentumParams`, `CrawlerParams`. No parameter type contains gravity direction, acceleration, reference orientation, or input-frame preference. `MovementTuning` remains the flat AUTHORING aggregate; its `gravity` field is the authored response magnitude fed to the resolver, not a policy input. |
+| Policy-private runtime state | The policy | Surface momentum: attach/airborne, `SurfaceRef` + arc `s` + signed `v_t`, depth lane. Crawler: the attachment normal (`CrawlerState`), mutated externally only via the typed `detach()` op. Axis: coyote/buffers/wall/ledge/dash/blink maneuver state — physically still on the per-body cluster components (see debt), but OWNED by the policy: `switch_motion_model` initializes it on cross-model entry and no other policy reads it. |
+| Shared body state | Body clusters | Position, velocity, facing, size, body mode, abilities, resources, health, combat — everything whose meaning survives a policy change. |
 
-This is the movement form of the project's principle of relativity: the laws are
-written once in body-local coordinates and remain covariant when the environment,
-body, or room frame rotates.
+## One entry
 
-## Intent
+`ambition_engine_core::movement::step_motion` is the ONLY movement entry.
+Dispatch is a single enum match inside the kernel. Home bodies, actors,
+bosses, possessed bodies, clones, RL bodies, demo bodies, and tests all reach
+it; the ECS drivers only gather state, resolve the frame and intent, call it
+once, and publish the result (`MotionStepResult`: `FrameEvents` + the support
+`surface_normal`, mirrored into `ActorSurfaceState` for every body by one
+rule). Phase helpers and individual solvers (`step_surface_body`,
+`step_crawler`, the axis phase functions) are kernel-private; the historical
+whole-policy `update_player_*`/`update_body_*` entries are deleted (engine
+tests drive `step_motion` through the crate-private `test_support` module).
 
-Ambition has multiple legitimate movement policies. Axis-swept action-platformer
-movement and surface momentum for slopes, loops, and high-speed routes are
-currently the two customers. They are different algorithms, not different actor
-pipelines.
+Side paths, resolved:
 
-The target is one small trusted kernel family:
+- **`surface_walker`** → the `AdhesiveCrawler` policy (kernel-owned crawl,
+  corner transit, moving-surface carry, detached fall through the shared axis
+  collision doctrine under `frame.acceleration()`). The authored
+  `surface_walker` boolean is spawn-time policy SELECTION only
+  (`ActorTuning::motion_model`), guard-enforced.
+- **Moving platforms** — contact kinematics consumed inside the kernel
+  (support velocity carry; crawler cling carry), plus the axis-model-private
+  ledge-platform carry in the home integrator.
+- **Water/climbing/flight/blink/ledge/fast-fall** — policy modes and typed
+  ability verbs consumed inside the axis policy.
+- **Knockback/recoil/impulses** — additive world-space velocity writes outside
+  the tick, consumed by the next kernel step; launch directions use the
+  environment-resolved direction, never a tuning field.
+- **Crawler anti-clump reversal** — controller-side steering intent in the
+  driver (the kernel only moves).
 
-- one explicit `MotionModel` on every integrated body;
-- one `step_motion` entry for human, brain, RL, possessed, home, enemy, boss, and
-  test controllers;
-- one shared world/body/input/frame/timestep contract;
-- sibling model implementations with private parameters and runtime state;
-- one explicit state-preserving model-transition operation;
-- no `None means axis swept` convention;
-- no actor/home/demo-owned physics dispatch;
-- no direct solver calls outside the kernel implementation.
+## Transition semantics
 
-## Drift-aware starting point
+`switch_motion_model(model, spec, clusters)` is THE runtime swap:
 
-The rebased structural overlay is intentionally a migration foundation, not
-completion evidence. It preserves the current App-local character catalog and the
-later Sanic discrete-depth-lane and tangent-release fixes while establishing the
-first shared boundary. The historical axis-only whole-tick APIs become
-crate-private rather than a second public architecture:
+- **Same-variant** — parameters refresh; ALL private runtime state survives
+  (ride surface/arc/speed/lane, crawler attachment, axis timers).
+- **Cross-variant** — every shared body fact survives untouched; ONLY the
+  destination's private state is initialized: axis enters with empty
+  support/contact caches and no in-flight maneuver (resource counts and
+  recharge cooldowns are body facts and survive); surface momentum enters
+  `Airborne` on the unchanged pose (attachment only via its own same-tick
+  contact rules); the crawler enters detached (no nearest-surface snapping).
+- The operation reads no controller, no environment; swapping is
+  controller-independent by construction. The worn-character re-wear path
+  (`apply_worn_character_gameplay`) goes through this seam.
 
-- `surface_momentum` physically lives beside the axis-swept implementation under
-  `ambition_engine_core::movement`;
-- the old crate-root `surface` alias is removed and callers name the actual model;
-- engine-owned `MotionModel` / `MotionModelSpec` values select the policy;
-- `AxisSweptMotion` owns frame-independent `AxisSweptParams`;
-- `SurfaceMomentumMotion` owns `MomentumParams`, ride state, and depth lane;
-- `MovementTuning` remains only an authoring/control-boundary aggregate and is
-  projected into `AxisSweptParams`; its gravity and input-mode fields do not enter
-  the model;
-- `MotionFrame` pairs net acceleration with the existing `AccelerationFrame`
-  basis and is passed through `MotionStepContext`;
-- home and ordinary actor integration both invoke `step_motion`;
-- model refresh preserves same-model private state, while cross-model transition
-  initializes only destination-private state;
-- frame tests begin pinning zero-force orientation and arbitrary-angle covariance
-  for both policies. They do not yet prove one environment resolution and one typed
-  intent artifact end-to-end.
+## Snapshots
 
-## Frame ownership
+`MotionModel` is registered in the N3.1 ledger (`motion_codec.rs`): policy
+identity + authored params + private state round-trip; the environmental
+frame is deliberately NOT encoded — after restore the next tick resolves it
+from the live restored environment.
 
-The three relevant facts have different owners and must remain separate:
+## Guards
 
-1. **Environment** — current net acceleration / reference frame (`MotionFrame`).
-2. **Controller seam** — raw input mapped once into controlled-body-local axes.
-3. **Movement policy** — authored parameters and solver-private runtime state.
+- `engine.movement-model-is-never-optional` — no production
+  `Option<&MotionModel>` / `Without<MotionModel>` anywhere in `crates/` or
+  `game/`.
+- `engine.crawler-flag-is-spawn-selection-only` — `tuning.surface_walker` is
+  readable only by the spawn selector.
+- Both poison-tested (`movement_kernel_guards_react`); solver privacy is
+  `pub(crate)` visibility, enforced by rustc.
 
-The current frame is not authored identity, model configuration, or snapshot
-state. A snapshot stores the active model and the model-private state required to
-continue it; after restore, the live environment supplies the current frame.
+## Evidence
 
-Likewise, input mapping preference is not an axis-swept parameter. The kernel
-receives local `InputState`; screen/body-relative accommodation happens before the
-trusted movement boundary using the same `AccelerationFrame` basis.
+Pure kernel tests (`movement/kernel/tests.rs`): three-policy arbitrary-angle
+covariance; zero-acceleration retained orientation; lateral acceleration not
+rotating the basis; frame rotation/time-variation preserving each policy's
+private state; cross-policy round trips preserving shared state and
+initializing only destination state; crawler convex-corner wrap with the
+published support fact. Assembled tests: worn re-wear same-model ride
+preservation and cross-model swap semantics (`live_refresh.rs`), crawler
+cling-break typed detach (damage tests), slug moving-platform carry through
+the kernel (conversion tests), snapshot policy round-trip
+(`ambition_runtime` snapshot tests), Sanic loop/momentum acceptance through
+`step_motion`, and the Mary-O/host/app suites.
 
-## Swap invariant
+## Residual debt (honest)
 
-Changing movement policy preserves all model-independent facts:
-
-- world position and world velocity;
-- facing and body shape/mode;
-- identity, controller ownership, health, abilities, and resources;
-- environment contacts that are genuinely shared observations.
-
-Only destination-private state is initialized. A same-model parameter refresh
-must preserve private state such as surface identity, arc length, signed tangent
-speed, depth lane, coyote/jump buffers, or other state that remains meaningful to
-that model.
-
-A frame change is not a model swap and must not reset either model.
-
-## Remaining integration work
-
-1. Replace the remaining phase-level axis test adapters with tests that enter via
-   `step_motion`, then make the individual solver arms private.
-2. Audit the current body clusters: retain only facts with genuinely shared
-   semantics; move axis-only timers/contact state into `AxisSweptMotion` and keep
-   surface-only facts in `SurfaceMomentumMotion`.
-3. Separate locomotion policy from optional ability tuning currently bundled in
-   `MovementTuning`; do not move that entire historical aggregate into the model.
-4. Give the environment one authoritative per-body net-acceleration resolver.
-   Room gravity, local fields, moving/non-inertial frames, and body-specific
-   response compose there before `MotionFrame` construction.
-5. Migrate the historical `surface_walker` integrator into the explicit
-   `AdhesiveCrawler` policy selected by ADR 0024, then remove the tuning boolean and
-   actor-owned pose-writing branch.
-6. Define authored hydration and snapshot codecs at the model boundary. Never
-   snapshot `MotionFrame` as model state.
-7. Add architecture guards forbidding optional `MotionModel`, direct policy-step
-   calls, model-owned gravity/reference fields, and raw screen input below the
-   kernel seam.
-8. Expand covariance evidence from cardinal rotations to arbitrary-angle and
-   time-varying frames, including model swaps while the frame rotates.
-
-## Acceptance evidence
-
-The completed integration must prove:
-
-- every integrated body carries an explicit model;
-- all controller/body kinds reach the same public movement entry;
-- both policies consume the same frame value for a tick;
-- rotating the world, acceleration, velocity, geometry, and local controls rotates
-  the result without changing body-local behavior;
-- changing acceleration magnitude does not rotate the basis or reset model state;
-- rotating/changing the frame does not count as a model refresh;
-- axis → momentum → axis and momentum → axis → momentum preserve shared
-  world-space state;
-- snapshots restore model parameters/private state but resolve the frame from the
-  restored body's live environment;
-- no model parameter type contains current gravity direction or acceleration.
+1. **Axis private state placement.** Coyote/buffer/wall/ledge/dash/blink
+   maneuver state still lives physically on per-body cluster components
+   (individually snapshot-registered). Ownership and cross-model
+   initialization are kernel-enforced; physically relocating the fields into
+   `AxisSweptMotion` would collapse several ledger rows and is deferred until
+   the next snapshot-ledger pass.
+2. **`GravityField`/`GravityZones`** remain unregistered snapshot resources
+   (pre-existing rollback debt; the frame law makes restore use the live
+   field by construction, but rewinding a mid-rewind gravity switch is not
+   yet covered).
+3. **Crawler covariance** is proven for detached fall at arbitrary angles;
+   attached crawling is cardinal-frame like the AABB world it climbs.
+4. **`ControlFrame`** (the device latch) still carries raw `f32` axes; typed
+   `ScreenAxes` begin at the resolution seams that consume it.
+5. **Sanic ball dash** writes `SurfaceMotion::Riding { v_t }` directly from
+   demo content — a content-side ability authoring policy state; a typed
+   tangential-impulse op on `SurfaceMomentumMotion` would close it.

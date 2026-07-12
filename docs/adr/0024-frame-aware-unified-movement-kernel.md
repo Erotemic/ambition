@@ -2,12 +2,15 @@
 
 ## Status
 
-Accepted; migration in progress.
+Accepted; implemented (commit `17685105`).
 
-This decision is binding now. The current code is not yet complete evidence of
-it: the structural movement-kernel overlay establishes the first shared entry,
-but remaining alternate integrators, frame reconstruction, snapshot work, and
-architecture guards must be removed before the migration is declared complete.
+The alternate integrators are gone (`surface_walker` became the
+`AdhesiveCrawler` policy), the environment resolves one `MotionFrame` per body
+tick, directional values crossing the boundary are typed
+(`ScreenAxes`/`LocalAxes`/`WorldVec2`), `switch_motion_model` owns transition
+semantics, `MotionModel` is snapshot-registered, and the optional-model /
+crawler-flag guards are live and poison-tested. Residual debt is recorded in
+[`docs/planning/engine/unified-movement-kernel.md`](../planning/engine/unified-movement-kernel.md).
 
 ## Context
 
@@ -308,8 +311,9 @@ below the resolver, and integrated pose writers outside the kernel.
 
 ## Current implications for agents
 
-- Treat `docs/planning/engine/unified-movement-kernel.md` as the migration ledger;
-  this ADR is the source of truth for the final architecture.
+- `docs/planning/engine/unified-movement-kernel.md` documents the shipped
+  invariants + ownership map; this ADR is the source of truth for the
+  architecture.
 - Preserve the App-local character catalog. Movement policy authored by a
   character is resolved from the active experience's catalog, never a
   process-global Ambition roster.

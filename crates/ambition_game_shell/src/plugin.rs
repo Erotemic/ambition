@@ -8,11 +8,11 @@ use bevy::prelude::{
 use ambition_load::{AmbitionLoadSet, LoadCoordinator};
 
 use crate::{
-    ActiveShellSequence, AmbitionGameShellSet, ShellCommand, ShellEvent, ShellHostConfiguration,
-    ShellInputFocus, ShellLaunchCatalog, ShellLauncherCommand, ShellLauncherPresentation,
-    ShellLauncherState, ShellRouteCatalog, ShellRouteHolds, ShellRouter, ShellScopedEntity,
-    ShellSegmentScopedEntity, ShellSequenceCatalog, ShellSequenceCommand, ShellSequenceRuntime,
-    ShellSequenceSet, BASIC_LAUNCHER_EXPERIENCE,
+    ActiveShellSequence, AmbitionGameShellSet, ShellCommand, ShellEvent, ShellExperienceRegistry,
+    ShellHostConfiguration, ShellInputFocus, ShellLaunchCatalog, ShellLauncherCommand,
+    ShellLauncherPresentation, ShellLauncherState, ShellRouteCatalog, ShellRouteHolds, ShellRouter,
+    ShellScopedEntity, ShellSegmentScopedEntity, ShellSequenceCatalog, ShellSequenceCommand,
+    ShellSequenceRuntime, ShellSequenceSet, BASIC_LAUNCHER_EXPERIENCE,
 };
 
 #[derive(Default)]
@@ -63,7 +63,10 @@ impl Plugin for AmbitionGameShellPlugin {
 
 impl Plugin for ShellSequencePlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<ShellSequenceCatalog>()
+        // Idempotent: a windowed host's DefaultPlugins already own Time; a bare
+        // headless host needs one so drive_sequence can tick.
+        app.init_resource::<bevy::prelude::Time>()
+            .init_resource::<ShellSequenceCatalog>()
             .init_resource::<ActiveShellSequence>()
             .add_message::<ShellSequenceCommand>()
             .configure_sets(
@@ -98,12 +101,19 @@ impl Plugin for ShellSequencePlugin {
 impl Plugin for ShellLauncherPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<ShellLaunchCatalog>()
+            .init_resource::<ShellExperienceRegistry>()
             .init_resource::<ShellLauncherPresentation>()
             .init_resource::<ShellLauncherState>()
             .add_message::<ShellLauncherCommand>()
             .add_systems(
                 Update,
-                (sync_launcher_activation, process_launcher_commands).chain(),
+                (
+                    crate::experience::sync_registry_into_launch_catalog,
+                    sync_launcher_activation,
+                    process_launcher_commands,
+                )
+                    .chain()
+                    .after(AmbitionGameShellSet::Pending),
             );
     }
 }

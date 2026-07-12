@@ -12,6 +12,8 @@ pub struct ShellLaunchEntry {
     pub label: String,
     pub description: String,
     pub available: bool,
+    /// Player-facing reason this entry is disabled, when `available` is false.
+    pub unavailable_reason: Option<String>,
 }
 
 #[derive(Resource, Default)]

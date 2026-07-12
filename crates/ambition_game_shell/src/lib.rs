@@ -6,6 +6,7 @@
 //! them. The neutral sequence and launcher modules are reusable shell
 //! experiences, not a universal gameplay state machine.
 
+mod experience;
 mod id;
 mod launcher;
 mod plugin;
@@ -15,6 +16,9 @@ mod sequence;
 #[cfg(feature = "basic_presentation")]
 mod basic_presentation;
 
+pub use experience::{
+    ExperienceAvailability, ExperienceRegistration, ShellExperienceAppExt, ShellExperienceRegistry,
+};
 pub use id::*;
 pub use launcher::*;
 pub use plugin::{AmbitionGameShellPlugin, ShellLauncherPlugin, ShellSequencePlugin};

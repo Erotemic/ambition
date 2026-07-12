@@ -170,11 +170,6 @@ fn spawn_launcher_menu(
     presentation: &ShellLauncherPresentation,
     asset_server: Option<&AssetServer>,
 ) {
-    let available: Vec<_> = catalog
-        .entries
-        .iter()
-        .filter(|entry| entry.available)
-        .collect();
     let mut page = MenuPageModel::new(
         BasicLauncherPage::Home,
         presentation.title.clone(),
@@ -188,7 +183,7 @@ fn spawn_launcher_menu(
         MenuTextAlign::Center,
         MenuColor::WHITE,
     );
-    if available.is_empty() {
+    if catalog.entries.is_empty() {
         page.text(
             50.0,
             48.0,
@@ -198,8 +193,35 @@ fn spawn_launcher_menu(
             MenuColor::WHITE,
         );
     } else {
-        let row_height = (60.0 / available.len().max(1) as f32).min(12.0);
-        for (index, entry) in available.iter().enumerate() {
+        // Every registered experience gets a row: available ones are selectable
+        // Actions; unavailable ones are non-actionable Items showing the reason.
+        // The navigation cursor addresses only available entries, so map that
+        // cursor onto the full list when deciding what to highlight.
+        let row_height = (60.0 / catalog.entries.len().max(1) as f32).min(12.0);
+        let mut available_index = 0usize;
+        for (index, entry) in catalog.entries.iter().enumerate() {
+            let (kind, action, detail, selected) = if entry.available {
+                let selected = available_index == launcher.selected;
+                available_index += 1;
+                (
+                    MenuControlKind::Action,
+                    Some(entry.route_id.clone()),
+                    (!entry.description.is_empty()).then_some(entry.description.clone()),
+                    selected,
+                )
+            } else {
+                (
+                    MenuControlKind::Item,
+                    None,
+                    Some(
+                        entry
+                            .unavailable_reason
+                            .clone()
+                            .unwrap_or_else(|| "Unavailable".to_owned()),
+                    ),
+                    false,
+                )
+            };
             page.control(
                 MenuRect::new(
                     16.0,
@@ -207,12 +229,12 @@ fn spawn_launcher_menu(
                     68.0,
                     row_height,
                 ),
-                MenuControlKind::Action,
+                kind,
                 entry.label.clone(),
-                (!entry.description.is_empty()).then_some(entry.description.clone()),
-                index == launcher.selected,
+                detail,
+                selected,
                 false,
-                Some(entry.route_id.clone()),
+                action,
             );
         }
         if !presentation.footer.is_empty() {

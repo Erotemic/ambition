@@ -5894,10 +5894,7 @@
 			"enumTags": [],
 			"customData": [],
 			"savedSelections": [],
-			"cachedPixelData": {
-				"opaqueTiles": "0000000000100000000001000000000010000000000100000000001000000000010000000000100000000001000000000010000000000111111111111",
-				"averageColors": "3bbb4bbc4bbc5bbb4bbb4bcc5bbb4bbb3bbc5bbb00003bbb4bbb3bbb4bbb2aab4bbb4bbb4bbb4bbb5bbb00004bbc2bbc5bbc3bbb5bbc5bbc6bbb4bbb5bbb5bbc00005bbb5bbb4bbb4bbc4abb4bbb5bbb4bbb3bab5bbb00005bbb5bbb5bbc4bbb4bbb5bbb4bbb4bbb7bbc7bbb00005bbc4bbb5bbb5bbb6bbb5bbb4bbb5bbb3bab6bbb00006bbb6bbb7bbb6bbb6bbb5bbb5bbb7bbb5bbb8bbb00006bbb6bbb5bbb7bbb5bbb5bbb6bbb6bbb5bbb5bbb00007bbb7bbb6bbb5bbb5bbb6bbb8bbb8bbb7bbb7bbb00006bbb6bbb7bbb6bbb7bbb7bbb7bbb8bbb7bbb2bbb000000000000000000000000000000000000000000000000"
-			}
+			"cachedPixelData": null
 		}
 	], "enums": [{ "identifier": "BreakablePlatformCollision", "uid": 5002, "values": [ { "id": "Solid", "tileRect": null, "color": 14180189 }, { "id": "OneWayUp", "tileRect": null, "color": 10802479 } ], "iconTilesetUid": null, "externalRelPath": null, "externalFileChecksum": null, "tags": [] }], "externalEnums": [], "levelFields": [
 		{
@@ -49095,13 +49092,13 @@
 							"defUid": 2007,
 							"px": [554,448],
 							"fieldInstances": [
-								{ "__identifier": "name", "__type": "String", "__value": "kernel_label", "__tile": null, "defUid": 3015, "realEditorValues": [{
+								{ "__identifier": "name", "__type": "String", "__value": "c4_room_label", "__tile": null, "defUid": 3015, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["kernel_label"]
+									"params": ["c4_room_label"]
 								}] },
-								{ "__identifier": "text", "__type": "String", "__value": "C4 Kernel", "__tile": null, "defUid": 3016, "realEditorValues": [{
+								{ "__identifier": "text", "__type": "String", "__value": "C4 Symmetry Room", "__tile": null, "defUid": 3016, "realEditorValues": [{
 									"id": "V_String",
-									"params": ["C4 Kernel"]
+									"params": ["C4 Symmetry Room"]
 								}] },
 								{ "__identifier": "category", "__type": "String", "__value": "Custom", "__tile": null, "defUid": 3017, "realEditorValues": [] }
 							],
@@ -49135,39 +49132,17 @@
 							"__worldY": 1858
 						},
 						{
-							"__identifier": "Switch",
-							"__grid": [76,26],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#FFC857",
-							"iid": "653ce200-48b0-11f1-ab80-17283dc9a73b",
-							"width": 24,
-							"height": 32,
-							"defUid": 4051,
-							"px": [1216,416],
-							"fieldInstances": [
-								{ "__identifier": "id", "__type": "String", "__value": "", "__tile": null, "defUid": 4046, "realEditorValues": [] },
-								{ "__identifier": "name", "__type": "String", "__value": "", "__tile": null, "defUid": 4047, "realEditorValues": [] },
-								{ "__identifier": "prompt", "__type": "String", "__value": "Activate", "__tile": null, "defUid": 4048, "realEditorValues": [] },
-								{ "__identifier": "target_encounter", "__type": "String", "__value": "", "__tile": null, "defUid": 4049, "realEditorValues": [] },
-								{ "__identifier": "action", "__type": "String", "__value": "ResetEncounter", "__tile": null, "defUid": 4050, "realEditorValues": [] }
-							],
-							"__worldX": -2112,
-							"__worldY": 1184
-						},
-						{
 							"__identifier": "NpcSpawn",
-							"__grid": [37,50],
+							"__grid": [33,50],
 							"__pivot": [0,0],
 							"__tags": [],
 							"__tile": null,
 							"__smartColor": "#FF9EEA",
 							"iid": "NpcSpawn-6576",
-							"width": 48,
+							"width": 32,
 							"height": 48,
 							"defUid": 2006,
-							"px": [596,808],
+							"px": [532,808],
 							"fieldInstances": [
 								{ "__identifier": "character_id", "__type": "String", "__value": "perfect_cellular_automaton", "__tile": null, "defUid": 3012, "realEditorValues": [{
 									"id": "V_String",
@@ -49184,7 +49159,7 @@
 								{ "__identifier": "patrol_radius", "__type": "Float", "__value": 0, "__tile": null, "defUid": 4123, "realEditorValues": [] },
 								{ "__identifier": "path_id", "__type": "String", "__value": null, "__tile": null, "defUid": 4343, "realEditorValues": [] }
 							],
-							"__worldX": -2732,
+							"__worldX": -2796,
 							"__worldY": 1576
 						}
 					]

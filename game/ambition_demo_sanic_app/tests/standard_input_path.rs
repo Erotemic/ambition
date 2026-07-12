@@ -36,6 +36,47 @@ fn press_key(app: &mut App, key: KeyCode) {
         .press(key);
 }
 
+/// Test-owned keyboard levels applied inside Bevy's canonical input stage.
+///
+/// Mutating `ButtonInput` immediately before `App::update()` is adequate for a
+/// held-level smoke test, but it is not a faithful way to synthesize a release:
+/// Bevy's keyboard input system clears frame edges before Leafwing collects the
+/// physical inputs. Installing this driver in `InputSystems`, after the ordinary
+/// keyboard event consumer, makes press and release transitions visible at the
+/// same seam as real window input without bypassing Leafwing, the ControlFrame
+/// bridge, the fixed-tick latch, slots, or the player brain.
+#[derive(Resource, Default)]
+struct SyntheticBallDashKeyboard {
+    down: bool,
+    rev: bool,
+}
+
+fn drive_synthetic_ball_dash_keyboard(
+    desired: Res<SyntheticBallDashKeyboard>,
+    mut keys: ResMut<ButtonInput<KeyCode>>,
+) {
+    if desired.down {
+        keys.press(KeyCode::ArrowDown);
+    } else {
+        keys.release(KeyCode::ArrowDown);
+    }
+    if desired.rev {
+        keys.press(KeyCode::KeyX);
+    } else {
+        keys.release(KeyCode::KeyX);
+    }
+}
+
+fn install_synthetic_ball_dash_keyboard(app: &mut App) {
+    app.init_resource::<SyntheticBallDashKeyboard>();
+    app.add_systems(
+        PreUpdate,
+        drive_synthetic_ball_dash_keyboard
+            .in_set(bevy::input::InputSystems)
+            .after(bevy::input::keyboard::keyboard_input_system),
+    );
+}
+
 /// Hold the default preset's "move right" key (ArrowRight) and watch the player
 /// body travel right through the whole standard path.
 #[test]
@@ -308,6 +349,7 @@ fn down_plus_x_revs_and_releasing_down_launches_the_ball_dash() {
     use ambition_demo_sanic::ball_dash::{BallDash, BallDashTuning, Rolling};
 
     let mut app = ambition_demo_sanic_app::build_demo_app();
+    install_synthetic_ball_dash_keyboard(&mut app);
     app.update();
     for _ in 0..30 {
         app.update();
@@ -325,13 +367,11 @@ fn down_plus_x_revs_and_releasing_down_launches_the_ball_dash() {
     let mut saw_rev_pose = false;
     for frame in 0..120 {
         {
-            let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
-            keys.press(KeyCode::ArrowDown);
-            if frame % 4 == 0 {
-                keys.press(KeyCode::KeyX);
-            } else if frame % 4 == 1 {
-                keys.release(KeyCode::KeyX);
-            }
+            let mut keyboard = app.world_mut().resource_mut::<SyntheticBallDashKeyboard>();
+            keyboard.down = true;
+            // One frame pressed, three released: each cycle produces exactly
+            // one physical X edge inside the same input stage real keys use.
+            keyboard.rev = frame % 4 == 0;
         }
         app.update();
 
@@ -373,25 +413,34 @@ fn down_plus_x_revs_and_releasing_down_launches_the_ball_dash() {
     );
 
     {
-        let mut keys = app.world_mut().resource_mut::<ButtonInput<KeyCode>>();
-        keys.release(KeyCode::ArrowDown);
-        keys.release(KeyCode::KeyX);
+        let mut keyboard = app.world_mut().resource_mut::<SyntheticBallDashKeyboard>();
+        keyboard.down = false;
+        keyboard.rev = false;
     }
+    let mut saw_slot_release = false;
+    let mut saw_technique_release = false;
     let mut saw_rolling = false;
     let mut saw_charge_spent = false;
     let mut max_launch_speed = 0.0_f32;
     let mut final_dash = BallDash::default();
     for _ in 0..60 {
         app.update();
-        let (rolling, speed, dash) = {
+        let slot = app
+            .world()
+            .resource::<SlotControls>()
+            .get(PlayerSlot::PRIMARY);
+        saw_slot_release |= slot.axis_y.abs() < 0.01;
+
+        let (rolling, speed, dash, technique_input) = {
             let mut q = app.world_mut().query_filtered::<(
                 &BallDash,
                 Option<&Rolling>,
                 &MotionModel,
                 &ambition::actors::actor::BodyKinematics,
+                &ambition_demo_sanic::ball_dash::BallDashInput,
             ), With<ambition::actors::actor::PrimaryPlayer>>(
             );
-            let (dash, rolling, motion, kin) = q
+            let (dash, rolling, motion, kin, technique_input) = q
                 .iter(app.world())
                 .next()
                 .expect("the demo spawned a primary player body");
@@ -402,13 +451,14 @@ fn down_plus_x_revs_and_releasing_down_launches_the_ball_dash() {
                 },
                 MotionModel::AxisSwept => 0.0,
             };
-            (rolling.is_some(), speed, *dash)
+            (rolling.is_some(), speed, *dash, *technique_input)
         };
+        saw_technique_release |= !technique_input.crouch_held;
         saw_rolling |= rolling;
         saw_charge_spent |= dash.charge < tuning.min_launch_charge;
         max_launch_speed = max_launch_speed.max(speed);
         final_dash = dash;
-        if saw_rolling && saw_charge_spent {
+        if saw_slot_release && saw_technique_release && saw_rolling && saw_charge_spent {
             break;
         }
     }
@@ -417,6 +467,14 @@ fn down_plus_x_revs_and_releasing_down_launches_the_ball_dash() {
     // boundary that transient may already have been consumed by
     // `tick_ball_dash` before `App::update` returns, so the durable behavioral
     // oracle is that the launch spent the armed charge and entered Rolling.
+    assert!(
+        saw_slot_release,
+        "the real keyboard path must publish a neutral Down level to the fixed-tick player slot"
+    );
+    assert!(
+        saw_technique_release,
+        "the Sanic technique seam must observe that Down is no longer held"
+    );
     assert!(
         saw_charge_spent,
         "releasing Down must consume the armed spin-dash charge; final dash state was {final_dash:?}"

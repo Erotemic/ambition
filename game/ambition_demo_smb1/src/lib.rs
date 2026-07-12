@@ -18,6 +18,12 @@
 
 pub mod flag;
 pub mod powerups;
+pub mod provider;
+
+pub use provider::{
+    smb1_session_world, Smb1ExperiencePlugin, Smb1SessionLink, Smb1SessionWorld,
+    MARY_O_CHARACTER_ID, MARY_O_EXPERIENCE, MARY_O_GAMEPLAY_ROUTE, MARY_O_LAUNCHER_ROUTE,
+};
 
 use ambition::engine_core as ae;
 use ambition::prelude::*;
@@ -178,12 +184,19 @@ const SMB1_CATALOG_RON: &str = r#"(
 /// setup. The shape `crates/ambition_host/tests/demo_shell_smoke.rs` prescribes.
 pub struct Smb1DemoContentPlugin;
 
+/// Install Mary-O's immutable, process-resident content (its character roster).
+/// Shared by the historical [`Smb1DemoContentPlugin`] (Startup construction) and
+/// the new [`provider::Smb1ExperiencePlugin`] (shell-activation construction).
+pub fn install_smb1_content() {
+    ambition::runtime::demo_fixture::install_character_catalog(SMB1_CATALOG_RON);
+}
+
 impl Plugin for Smb1DemoContentPlugin {
     fn build(&self, app: &mut App) {
         use ambition::runtime::demo_fixture::{ActiveRoomMetadata, RoomSet};
         use bevy::prelude::IntoScheduleConfigs;
 
-        ambition::runtime::demo_fixture::install_character_catalog(SMB1_CATALOG_RON);
+        install_smb1_content();
         let room = level_1_1();
         app.insert_resource(ae::RoomGeometry(room.world.clone()));
         app.insert_resource(ActiveRoomMetadata(room.metadata.clone()));
@@ -293,15 +306,23 @@ impl Plugin for Smb1RulesPlugin {
 fn spawn_smb1_mode_owner(
     mut commands: bevy::prelude::Commands,
     existing: bevy::prelude::Query<(), bevy::prelude::With<Smb1LevelState>>,
+    session: Option<bevy::prelude::Res<ambition::platformer::lifecycle::ActiveSessionScope>>,
 ) {
-    use ambition::platformer::lifecycle::SpawnScopedExt;
-    if existing.iter().next().is_none() {
-        // The sequence rides the same mode-scoped entity as the clock: both are
-        // level state, and the engine tears them down together.
-        commands.spawn_mode_scoped(
-            SMB1_MODE,
-            (Smb1LevelState::default(), flag::FlagSequence::default()),
-        );
+    use ambition::platformer::lifecycle::SpawnSessionScopedExt;
+    // Sleep once a session-scoped host has retired the live session (at the
+    // launcher), so the level state is not resurrected from stale "mary_o" room
+    // metadata. Inert when no `ActiveSessionScope` exists (Startup path / D-C
+    // tests). Mirrors Sanic's `spawn_sanic_mode_owner`.
+    let session_live = session.map_or(true, |scope| scope.current().is_some());
+    if session_live && existing.iter().next().is_none() {
+        // The sequence rides the same entity as the clock. Owned by BOTH the mode
+        // (survives in-session room changes) and the active session (torn down on
+        // a shell relaunch, which a same-mode reload is NOT).
+        commands
+            .spawn_session_scoped((Smb1LevelState::default(), flag::FlagSequence::default()))
+            .insert(ambition::platformer::lifecycle::ModeScopedEntity(
+                SMB1_MODE.to_string(),
+            ));
     }
 }
 

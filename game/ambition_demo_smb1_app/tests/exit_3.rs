@@ -88,21 +88,31 @@ fn the_demo_steps_the_real_simulation_on_the_fixed_timeline() {
 #[test]
 fn the_demos_own_rules_run_because_its_room_claims_its_mode() {
     let mut app = build_demo_app();
-    app.update();
+    // Drive past the shell's frame-1 activation so the session is live and the
+    // mode-scoped level owner exists; measure a delta, not an absolute (the shell
+    // activates in `Update`, one frame after a direct-entry spawn would).
+    for _ in 0..3 {
+        app.update();
+    }
+    let start = clock_remaining(&mut app).expect(
+        "the session's level state must exist — `level_1_1` claims \
+         `mode: mary_o` and the rules plugin spawns its owner once the session \
+         is live",
+    );
+
     for _ in 0..60 {
         app.update();
     }
+    let end = clock_remaining(&mut app).expect("the level state persists across the session");
 
-    let remaining = clock_remaining(&mut app).expect(
-        "the mode-scoped level state must exist — `level_1_1` claims \
-         `mode: mary_o` and the rules plugin spawns its owner",
-    );
     // 60 ticks at the fixed dt, counting DOWN. The level clock is the SIM clock,
     // so bullet-time and pause slow it exactly as they slow everything else.
-    let expected = STARTING_TIME - 60.0 * TICK_DT;
     assert!(
-        (remaining - expected).abs() < 1e-3,
-        "the level clock runs on `WorldTime::scaled_dt`: expected {expected}, got {remaining}"
+        (start - end - 60.0 * TICK_DT).abs() < 1e-3,
+        "the level clock runs on `WorldTime::scaled_dt`: expected -{}, got -{}",
+        60.0 * TICK_DT,
+        start - end
     );
     assert_eq!(SMB1_MODE, "mary_o");
+    assert!(STARTING_TIME > 0.0);
 }

@@ -44,15 +44,28 @@ pub fn init_sandbox_resources(app: &mut App) {
     // Install the authored audio registries into the engine's audio-data
     // seam (R3.2 — the engine ships no tracks/cues). Same choke-point
     // rationale as the boss roster; first-install-wins.
-    ambition_content::audio_registries::install();
-    ambition_content::character_catalog::install();
+    ambition_content::audio_registries::register(app);
+    ambition_content::character_catalog::register(app);
     ambition_content::worlds::install();
 
     let sandbox_data = data::SandboxDataSpec::load_embedded();
     // Audio lives in its own registries, separate from sandbox tuning and
     // from each other (SFX synthesis vs. generated music pointers).
-    let music_registry = data::authored_music_registry().clone();
-    let sfx_registry = data::authored_sfx_registry().clone();
+    let (music_registry, sfx_registry) = {
+        let catalogs = app
+            .world()
+            .resource::<ambition::audio::catalog::AudioCatalogRegistry>();
+        (
+            catalogs
+                .music_for(ambition_content::AMBITION_CONTENT_PROVIDER)
+                .expect("Ambition music fragment registered")
+                .clone(),
+            catalogs
+                .sfx_for(ambition_content::AMBITION_CONTENT_PROVIDER)
+                .expect("Ambition SFX fragment registered")
+                .clone(),
+        )
+    };
 
     // Build the singleton SandboxAssetCatalog before anything else asks
     // it for a path. Every asset path/source policy in the visible

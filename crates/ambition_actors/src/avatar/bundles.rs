@@ -199,6 +199,7 @@ impl PlayerSimulationBundle {
     /// default": a standalone demo whose default character authors its own kit
     /// gets that authored kit.
     pub fn from_scratch_as_character(
+        catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
         scratch: ae::BodyClusterScratch,
         health: ambition_characters::actor::Health,
         character_id: &str,
@@ -212,6 +213,7 @@ impl PlayerSimulationBundle {
         // The SAME overlay the runtime re-wear system applies (name + the resolved
         // kit), so spawn and runtime can never disagree on what a character is.
         let _ = crate::avatar::apply_worn_character_overlay(
+            catalog,
             &mut bundle.name,
             &mut bundle.action_set,
             &mut bundle.moveset,
@@ -281,14 +283,23 @@ mod tests {
         crate::avatar::primary_player_scratch(ae::Vec2::ZERO, ae::AbilitySet::sandbox_all())
     }
 
+    fn catalog() -> ambition_characters::actor::character_catalog::CharacterCatalog {
+        ambition_characters::actor::character_catalog::CharacterCatalog(
+            ambition_characters::actor::character_catalog::parse_catalog(include_str!(
+                "../../../../game/ambition_content/assets/data/character_catalog.ron"
+            )),
+        )
+    }
+
     #[test]
     fn wearing_the_default_id_is_the_protagonist() {
         // Explicitly wearing the DEFAULT id keeps the protagonist name and the
         // full code-side player kit — the protagonist is the one row whose kit
         // is NOT its (peaceful) catalog action set. Production installs the
         // default at the content choke point; mirror that here.
-        crate::character_roster::install_default_character_id("player");
+        let catalog = catalog();
         let bundle = PlayerSimulationBundle::from_scratch_as_character(
+            &catalog,
             player_scratch(),
             Health::new(20),
             "player",
@@ -312,8 +323,9 @@ mod tests {
         // worn character's ActionSet IS the kit (no fallback to the player's
         // bolt). Pin the installed default so the protagonist branch is
         // deterministic regardless of test order.
-        crate::character_roster::install_default_character_id("player");
+        let catalog = catalog();
         let bundle = PlayerSimulationBundle::from_scratch_as_character(
+            &catalog,
             player_scratch(),
             Health::new(20),
             "npc_pirate_admiral",
@@ -336,8 +348,9 @@ mod tests {
         // still Brain::Player. The NAME becomes the id itself — a legible
         // diagnostic, never a stale prior name. The sprite falls back to the
         // colored rectangle presentation-side.
-        crate::character_roster::install_default_character_id("player");
+        let catalog = catalog();
         let bundle = PlayerSimulationBundle::from_scratch_as_character(
+            &catalog,
             player_scratch(),
             Health::new(20),
             "not_a_real_character",

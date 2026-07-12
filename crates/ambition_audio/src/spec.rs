@@ -21,7 +21,7 @@ use std::collections::HashSet;
 /// Hand-tuned sound design: the synth `sample_rate` plus one [`SfxSpec`]
 /// per cue. Deliberately separate from [`MusicRegistry`] — different
 /// concern, different file.
-#[derive(Clone, Debug, Deserialize, Resource)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Resource)]
 pub struct SfxRegistry {
     pub sample_rate: u32,
     pub sfx: Vec<SfxSpec>,
@@ -54,7 +54,7 @@ pub enum SoundCueKey {
     Respawn,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize)]
 pub enum WaveformSpec {
     Sine,
     Square,
@@ -62,7 +62,7 @@ pub enum WaveformSpec {
     Saw,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize)]
+#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
 pub struct SfxSpec {
     pub cue: SoundCueKey,
     pub waveform: WaveformSpec,
@@ -84,7 +84,7 @@ pub struct SfxSpec {
 /// is intentionally trivial (just ids) precisely so it can be generated:
 /// there is no tempo/arrangement metadata because the OGG is what plays
 /// and the runtime music director owns looping/crossfade.
-#[derive(Clone, Debug, Deserialize, Resource)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Resource)]
 pub struct MusicRegistry {
     /// Track id played at startup / when no radio station is selected.
     pub default_track: String,
@@ -130,7 +130,7 @@ impl MusicRegistry {
 /// adaptive cue's section mix). No arrangement/tempo metadata: that data
 /// was vestigial (the OGG dictates length), and dropping it is what lets
 /// the registry be generated from `id` alone.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct MusicTrack {
     pub id: String,
     pub display_name: String,

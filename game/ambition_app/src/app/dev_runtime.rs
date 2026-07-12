@@ -76,7 +76,7 @@ pub(super) fn sync_preset_input_map(
 }
 
 pub(super) fn handle_ldtk_hot_reload(
-    mut commands: Commands,
+    mut commands: ambition::platformer::lifecycle::SessionCommands<'_, '_>,
     keys: Res<ButtonInput<KeyCode>>,
     mut world: ResMut<RoomGeometry>,
     mut room_set: ResMut<rooms::RoomSet>,
@@ -105,7 +105,6 @@ pub(super) fn handle_ldtk_hot_reload(
         ambition::actors::actor::PrimaryPlayerOnly,
     >,
     catalog: Res<ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>,
-    active_session: Option<Res<ambition::platformer::lifecycle::ActiveSessionScope>>,
 ) {
     if keys.just_pressed(KeyCode::F12) {
         ldtk_reload.auto_apply = !ldtk_reload.auto_apply;
@@ -139,11 +138,7 @@ pub(super) fn handle_ldtk_hot_reload(
         return;
     };
     if let Ok((mut cluster_item, mut combat, mut safety)) = player_q.single_mut() {
-        let Some(session_scope) =
-            ambition::platformer::lifecycle::SessionSpawnScope::for_optional_active_session(
-                active_session.as_deref(),
-            )
-        else {
+        let Some(session_scope) = commands.spawn_scope() else {
             return;
         };
         let mut clusters = cluster_item.as_clusters_mut();

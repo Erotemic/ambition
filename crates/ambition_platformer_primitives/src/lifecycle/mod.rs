@@ -17,8 +17,8 @@ pub use markers::{
     RoomScopedEntity, RoomVisual, RunScopedEntity, SceneEntities,
 };
 pub use session::{
-    despawn_retired_session_entities, ActiveSessionScope, SessionRoot, SessionScopeId,
-    SessionScopePlugin, SessionScopeRetired, SessionScopeSet, SessionScopedEntity,
+    despawn_retired_session_entities, ActiveSessionScope, SessionCommands, SessionRoot,
+    SessionScopeId, SessionScopePlugin, SessionScopeRetired, SessionScopeSet, SessionScopedEntity,
     SessionSpawnScope, SpawnSessionScopedExt,
 };
 pub use spawn_ext::SpawnScopedExt;

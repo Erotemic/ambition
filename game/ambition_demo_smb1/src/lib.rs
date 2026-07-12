@@ -180,14 +180,29 @@ const SMB1_CATALOG_RON: &str = r#"(
     },
 )"#;
 
-/// Content plugin: installs the roster, the level, and the engine's own sim-world
-/// setup. The shape `crates/ambition_host/tests/demo_shell_smoke.rs` prescribes.
+/// Content plugin: registers Mary-O's App-local character fragment, installs
+/// the level, and adds the engine's sim-world setup. The shape `crates/ambition_host/tests/demo_shell_smoke.rs` prescribes.
 pub struct Smb1DemoContentPlugin;
 
-/// Install Mary-O's immutable, process-resident content (its character roster).
+/// Register Mary-O's immutable authored character fragment in one Bevy `App`.
 /// Shared by the historical [`Smb1DemoContentPlugin`] (Startup construction) and
 /// the new [`provider::Smb1ExperiencePlugin`] (shell-activation construction).
-pub fn install_smb1_content() {
+pub fn install_smb1_content(app: &mut App) {
+    use ambition::characters::actor::character_catalog::{
+        CharacterCatalogAppExt, CharacterCatalogFragment,
+    };
+
+    app.register_character_catalog_fragment(
+        CharacterCatalogFragment::from_ron(
+            provider::MARY_O_EXPERIENCE,
+            Some(provider::MARY_O_CHARACTER_ID),
+            SMB1_CATALOG_RON,
+        )
+        .expect("Mary-O character catalog should be valid"),
+    );
+
+    // Compatibility for remaining pure lookup consumers during the App-local
+    // catalog migration. New composition reads the App resource above.
     ambition::runtime::demo_fixture::install_character_catalog(SMB1_CATALOG_RON);
 }
 
@@ -196,7 +211,7 @@ impl Plugin for Smb1DemoContentPlugin {
         use ambition::runtime::demo_fixture::{ActiveRoomMetadata, RoomSet};
         use bevy::prelude::IntoScheduleConfigs;
 
-        install_smb1_content();
+        install_smb1_content(app);
         let room = level_1_1();
         app.insert_resource(ae::RoomGeometry(room.world.clone()));
         app.insert_resource(ActiveRoomMetadata(room.metadata.clone()));
@@ -222,6 +237,9 @@ fn smb1_setup(
     editable_tuning: bevy::prelude::Res<ambition::runtime::demo_fixture::EditableMovementTuning>,
     starting_character: bevy::prelude::Res<ambition::runtime::demo_fixture::StartingCharacter>,
     asset_server: bevy::prelude::Res<bevy::asset::AssetServer>,
+    character_catalog: bevy::prelude::Res<
+        ambition::characters::actor::character_catalog::CharacterCatalog,
+    >,
 ) {
     ambition::runtime::demo_fixture::simulation_world(
         &mut commands,
@@ -233,6 +251,8 @@ fn smb1_setup(
             editable_abilities: &editable_abilities,
             editable_tuning: &editable_tuning,
             starting_character: &starting_character,
+            character_catalog: &character_catalog,
+            default_character_id: provider::MARY_O_CHARACTER_ID,
             sandbox_data_asset: None,
             sandbox_asset_collection: None,
             asset_server: &asset_server,
@@ -364,6 +384,18 @@ mod tests {
     fn smb1_demo_content_plugin_installs() {
         let mut app = App::new();
         add_demo_content(&mut app);
+        let catalog = app
+            .world()
+            .resource::<ambition::characters::actor::character_catalog::CharacterCatalog>();
+        assert!(catalog.get(provider::MARY_O_CHARACTER_ID).is_some());
+        let defaults = app
+            .world()
+            .resource::<ambition::characters::actor::character_catalog::CharacterCatalogDefaults>(
+        );
+        assert_eq!(
+            defaults.for_provider(provider::MARY_O_EXPERIENCE),
+            Some(provider::MARY_O_CHARACTER_ID)
+        );
     }
 
     /// **The 1-1 grammar, asserted as geometry rather than as a screenshot.** An

@@ -30,6 +30,7 @@ fn observe_body_ability_changes(
 fn live_ability_sync_does_not_rederive_authored_movement_identity() {
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
+    app.insert_resource(super::test_catalog());
     app.init_resource::<ambition_dev_tools::dev_tools::EditableAbilitySet>();
     app.init_resource::<ambition_dev_tools::dev_tools::EditableMovementTuning>();
     app.init_resource::<AbilityChangeObservations>();

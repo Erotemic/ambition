@@ -15,7 +15,7 @@ default = []
 portal = ["ambition_actors/portal"]
 portal_render = ["portal", "dep:ambition_portal_presentation"]
 ui = ["ambition_actors/ui", "ambition_dialog/ui", "dep:bevy_yarnspinner"]
-audio = ["ambition_actors/audio", "dep:ambition_audio"]
+audio = ["ambition_actors/audio"]
 # Embed the LDtk world JSON into the binary (web / Android / bundled builds
 # + the desktop disk-failure fallback). Forwards to the machinery feature so
 # the loader's embedded paths light up together.
@@ -49,7 +49,7 @@ ambition_asset_manager = { path = "../../crates/ambition_asset_manager", feature
 ambition_sfx = { path = "../../crates/ambition_sfx" }
 ambition_vfx = { path = "../../crates/ambition_vfx" }
 ambition_time = { path = "../../crates/ambition_time" }
-ambition_audio = { path = "../../crates/ambition_audio", optional = true }
+ambition_audio = { path = "../../crates/ambition_audio" }
 ambition_platformer_primitives = { path = "../../crates/ambition_platformer_primitives" }
 # `MovingPlatformSet` + `world_with_sandbox_solids` — the composited collision
 # world the portal host adapter and the arena-gate tests read (R3).

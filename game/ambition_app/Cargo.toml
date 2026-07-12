@@ -161,5 +161,7 @@ name = "trace_replay"
 required-features = ["rl_sim"]
 
 [dev-dependencies]
+ambition_demo_sanic = { path = "../ambition_demo_sanic" }
+ambition_demo_smb1 = { path = "../ambition_demo_smb1" }
 insta = { version = "1", features = ["ron"] }
 proptest = "1"

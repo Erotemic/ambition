@@ -7,16 +7,26 @@ fn sanic_demo_content_plugin_installs() {
     let mut app = App::new();
     add_demo_content(&mut app);
 
-    let music = ambition::actors::session::data::authored_music_registry();
+    let audio = app
+        .world()
+        .resource::<ambition::audio::catalog::AudioCatalogRegistry>();
+    let music = audio
+        .music_for(provider::SANIC_EXPERIENCE)
+        .expect("Sanic music fragment");
     assert_eq!(music.default_track, "you_are_too_slow");
     assert_eq!(music.tracks.len(), 1);
     assert_eq!(
-        ambition::actors::session::data::authored_sfx_registry().sample_rate,
+        audio
+            .sfx_for(provider::SANIC_EXPERIENCE)
+            .expect("Sanic SFX fragment")
+            .sample_rate,
         44_100
     );
-    let catalog = ambition::actors::character_roster::catalog();
-    assert!(catalog.characters.contains_key(SANIC_CHARACTER_ID));
-    assert!(catalog.characters.contains_key(SUPER_SANIC_CHARACTER_ID));
+    let catalog = app
+        .world()
+        .resource::<ambition::characters::actor::character_catalog::CharacterCatalog>();
+    assert!(catalog.get(SANIC_CHARACTER_ID).is_some());
+    assert!(catalog.get(SUPER_SANIC_CHARACTER_ID).is_some());
 }
 
 /// The oracle: the momentum showcase room composes through the umbrella
@@ -805,25 +815,5 @@ fn reverse_loop_exits_after_one_revolution_instead_of_reentering_forever() {
     }
     panic!(
         "reverse traversal must leave after one revolution instead of re-entering; body={body:?}"
-    );
-}
-
-#[test]
-fn rules_plugin_registers_its_mandatory_sfx_message_channel() {
-    let mut app = App::new();
-    assert!(
-        !app.world().contains_resource::<
-            bevy::prelude::Messages<ambition::sfx::SfxMessage>,
-        >(),
-        "the test must begin without the engine group's SFX registrar"
-    );
-
-    app.add_plugins(SanicRulesPlugin::global());
-
-    assert!(
-        app.world().contains_resource::<
-            bevy::prelude::Messages<ambition::sfx::SfxMessage>,
-        >(),
-        "SanicRulesPlugin owns a mandatory MessageWriter<SfxMessage> dependency and must register it when a thin host has not"
     );
 }

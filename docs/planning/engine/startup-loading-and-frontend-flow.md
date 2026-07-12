@@ -1,6 +1,6 @@
 # Loading, shell, and frontend integration
 
-> **Status:** the incoming baseline has tested load/shell cores and headless Sanic/Mary-O provider lifecycles. The current worktree adds captured spawn-time session ownership, a shared shell-to-session bridge, broad simulation/presentation scoping, and shared visible/headless demo composition. These additions remain **OPEN pending Rust compilation and runtime tests**. The next architectural chain is: canonical active-session world -> App-local catalogs -> real provider load plans -> Ambition provider/launcher -> cross-experience proof.
+> **Status:** load/shell cores, captured session ownership, the shared shell-to-session bridge, and Sanic/Mary-O headless and visible lifecycle tests are green on the maintainer machine. The current overlay introduces deterministic App-local character/music/SFX fragment registries, real three-provider composition tests, provider-specific audio lookup, and explicit App-local character use in player construction/re-wear. This catalog slice remains **OPEN pending compilation and tests**. The remaining chain is: finish runtime catalog migration -> canonical active-session world -> real provider load plans -> Ambition provider/launcher -> cross-experience proof.
 
 ## Target experience
 
@@ -107,28 +107,27 @@ A startup route is an ordinary shell sequence of text, static/image-sequence med
 
 ## Current implementation state
 
-### Verified incoming baseline
+### Verified baseline
 
-Passing tests established the core load/shell/presentation contracts, provider-derived launcher registration, host-relative `QuitToHome`, exact synthetic scope cleanup, headless Sanic and Mary-O launch/return/relaunch, the initial shell-free session primitive, and dependency policy.
+Passing maintainer tests establish the load/shell/presentation contracts, provider-derived launcher registration, host-relative `QuitToHome`, request-time captured `SessionSpawnScope`, immediate revocation and exact retirement, the shared `GameplaySessionBridgePlugin`, broad simulation/presentation entity ownership, and Sanic/Mary-O headless and visible launch/return/relaunch.
 
-### Current worktree awaiting verification
+### Current catalog slice awaiting verification
 
-Implemented but still `OPEN` until compiled and exercised: request-time captured `SessionSpawnScope`; immediate spawn-authority revocation plus exact retirement; shared `GameplaySessionBridgePlugin`; Sanic/Mary-O provider migration to that bridge; shared visible/headless provider composition; route-aware room presentation; broad session ownership across actor/feature/encounter/projectile/platform/world/transient-render spawns; and visible lifecycle tests for both demos.
+The current overlay adds provider-indexed `CharacterCatalogRegistry` and `AudioCatalogRegistry` resources; deterministic fragment assembly; namespaced local character presets; stable duplicate diagnostics; atomic failed registration; registration-order and multiple-App tests; real Ambition/Sanic/Mary-O fragment composition; provider-specific Sanic audio setup; and explicit assembled-catalog access in player construction and runtime re-wear. Remaining pure actor, sprite, dialogue, asset-catalog, snapshot-fixture, and audio-bootstrap call sites still use the temporary process-global compatibility seams.
 
 ## Remaining-work ledger
 
 | ID | Status | Required result |
 |---|---|---|
-| V0 | OPEN | Compile modified dependency chain; run narrow, policy, headless, and visible tests |
-| V1 | OPEN | Poison captured-scope, immediate-revocation, bridge, and visible-cleanup tests |
+| C0 | OPEN | Compile and test App-local character/audio registries, real-provider composition, and player-path migration |
+| C1 | OPEN after C0 | Migrate remaining actor/sprite/dialogue/asset/audio consumers to explicit App-local catalogs |
+| C2 | OPEN after C1 | Remove character/music/SFX `OnceLock` authority and compatibility installers |
 | W0 | OPEN | Canonical App-local active session owns current world state |
 | W1 | OPEN | Gameplay sleeps with no session; build-time placeholder worlds disappear |
 | W2 | OPEN | Camera, HUD, dialog, map, cutscene UI, input, and audio gain explicit ownership |
-| C0 | OPEN | Character/music/SFX authority becomes App-local provider fragments plus deterministic catalogs |
-| C1 | OPEN | Three-provider coexistence, order independence, duplicate diagnostics, multi-App isolation |
-| L0 | OPEN | Sanic/Mary-O report real preparation through `ambition_load` |
-| L1 | OPEN | Relaunch/retry/cancel/stream/promotion use correct fresh transaction authority |
-| A0 | OPEN after W0/C0 | Main Ambition game becomes a provider on the shared lifecycle |
+| L0 | OPEN after C2/W0 | Sanic/Mary-O report real preparation through `ambition_load` |
+| L1 | OPEN | Relaunch/retry/cancel/stream/promotion use fresh transaction authority |
+| A0 | OPEN after C2/W0 | Main Ambition game becomes a provider on the shared lifecycle |
 | A1 | OPEN after A0 | Ambition launcher derives Ambition + Sanic + Mary-O + Exit |
 | X0 | OPEN after A1 | Headless cross-experience cycle is leak-free |
 | X1 | OPEN after X0 | No-window rendered cycle proves presentation/camera/UI ownership |
@@ -138,15 +137,22 @@ Implemented but still `OPEN` until compiled and exercised: request-time captured
 
 ## Ordered implementation plan
 
-### Step 0 — Verify this worktree
+### Step 0 — Verify the App-local catalog slice
 
-1. Run formatter, metadata, and generated-doc checks.
-2. Compile from platformer primitives through actors/render/shell/providers/apps.
-3. Run session, shell, headless lifecycle, and visible lifecycle tests.
-4. Fix feature gates, signatures, and schedule ordering from compiler/runtime evidence.
-5. Poison the captured-scope and immediate-retirement invariants; then update statuses.
+1. Compile `ambition_audio`, `ambition_characters`, `ambition_actors`, provider crates, standalone apps, and `ambition_app`.
+2. Run synthetic registry tests plus `app_local_catalog_composition`.
+3. Verify player spawn and re-wear use the assembled App resource under Sanic, Mary-O, and Ambition defaults.
+4. Poison provider order, duplicate IDs, failed registration atomicity, and multiple-App isolation before marking C0 `DONE`.
 
-### Step 1 — Canonical active-session world
+### Step 1 — Finish explicit catalog authority
+
+1. Thread `&CharacterCatalog`/`Res<CharacterCatalog>` through NPC/enemy construction, actor barks/body kinds/momentum, sprite manifests/body metrics, intro/dialogue validation, and every pure helper that currently reads `character_roster`.
+2. Move sandbox asset-catalog construction and audio-library setup to `AudioCatalogRegistry`, with the active provider selecting defaults and deterministic combined music rows supplying shared assets.
+3. Migrate snapshot, fixture, and content-conformance tests to local App resources or explicit parsed fixtures.
+4. Delete the character/music/SFX process globals, installers, and authored-registry fallback APIs.
+5. Add a source-policy ratchet preventing new runtime use of the retired global seams.
+
+### Step 2 — Canonical active-session world
 
 1. Introduce one App-local active gameplay-session representation containing scope, provider/activation identity, room/world state, and staged session data.
 2. Move current-world pointers into it or explicit handles; gate gameplay schedules on its presence.
@@ -154,19 +160,11 @@ Implemented but still `OPEN` until compiled and exercised: request-time captured
 4. Remove standalone build-time placeholder worlds.
 5. Prove safe launcher frames, fresh relaunch, and exact Sanic-to-Mary-O world replacement.
 
-### Step 2 — Complete runtime ownership
+### Step 3 — Complete runtime ownership
 
 1. Audit every gameplay spawn against captured scope and add a content-heavy fixture covering authored, nested, deferred, and dynamic spawns.
 2. Assign camera, gameplay input, HUD, map, dialog, cutscene UI, music, ambience, and looped SFX to host/session/experience owners.
 3. Prove each owner retires once while frontend camera/menu/input survive at home.
-
-### Step 3 — App-local catalogs
-
-1. Define character/music/SFX fragment types and generic provider registration.
-2. Assemble deterministically by provider/item ID; validate references and emit stable duplicate diagnostics.
-3. Publish App-local resources and migrate systems/pure helpers to explicit resources/parameters.
-4. Remove process-global lookup from integrated runtime authority.
-5. Prove standalone-only, Ambition-only, three-provider, registration-order, duplicate, and multiple-App cases.
 
 ### Step 4 — Real provider load plans
 

@@ -17,7 +17,7 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
 use ambition_engine_core as ae;
-use ambition_platformer_primitives::lifecycle::{ActiveSessionScope, SessionSpawnScope};
+use ambition_platformer_primitives::lifecycle::SessionCommands;
 
 /// Room-transition slot for *content-side* reset work (named boss
 /// arenas, story state). Content plugins register their reset systems in
@@ -97,8 +97,7 @@ pub fn process_sandbox_reset_request(
     mut world: ResMut<ambition_engine_core::RoomGeometry>,
     tuning: Res<ambition_dev_tools::dev_tools::EditableMovementTuning>,
     mut respawn_visuals: MessageWriter<crate::session::RespawnRoomVisualsRequested>,
-    mut commands: Commands,
-    active_session: Option<Res<ActiveSessionScope>>,
+    mut commands: SessionCommands<'_, '_>,
     mut banner: ResMut<crate::features::GameplayBanner>,
     room_visuals: Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     // E1: the live wave encounters are entities now; despawn them so
@@ -124,9 +123,7 @@ pub fn process_sandbox_reset_request(
         return;
     }
     request.request = false;
-    let Some(session_scope) =
-        SessionSpawnScope::for_optional_active_session(active_session.as_deref())
-    else {
+    let Some(session_scope) = commands.spawn_scope() else {
         // A shell host may receive a late reset request after gameplay has
         // retired. With no active session there is no world to reset and no
         // scope that may own the replacement entities.

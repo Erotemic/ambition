@@ -27,8 +27,9 @@
 use bevy::ecs::change_detection::{DetectChanges, Ref};
 use bevy::ecs::resource::Resource;
 use bevy::ecs::system::{Commands, Query};
-use bevy::prelude::{Changed, Entity, Has, Name, Or, With};
+use bevy::prelude::{Changed, Entity, Has, Name, Or, Res, With};
 
+use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_characters::actor::WornCharacter;
 use ambition_characters::brain::ActionSet;
 
@@ -67,9 +68,9 @@ impl StartingCharacter {
     /// The concrete catalog id to wear: the explicit override, or the
     /// content-installed default when unset. Resolve at spawn time, never at
     /// resource init (the content default installs at the catalog choke point).
-    pub fn effective_id(&self) -> &str {
+    pub fn effective_id<'a>(&'a self, default_character_id: &'a str) -> &'a str {
         if self.character_id.is_empty() {
-            crate::character_roster::default_character_id()
+            default_character_id
         } else {
             &self.character_id
         }
@@ -102,8 +103,13 @@ impl StartingCharacter {
 /// clobber gotcha in reverse. `momentum_params_for_character_id` is the single
 /// source of truth, so the player-wear seam and the actor spawn path can never
 /// disagree on which characters ride surfaces.
-pub fn apply_worn_motion_model(commands: &mut Commands, entity: Entity, character_id: &str) {
-    match crate::character_roster::momentum_params_for_character_id(character_id) {
+pub fn apply_worn_motion_model(
+    catalog: &CharacterCatalog,
+    commands: &mut Commands,
+    entity: Entity,
+    character_id: &str,
+) {
+    match catalog.momentum_params(character_id) {
         Some(params) => {
             commands
                 .entity(entity)
@@ -120,12 +126,13 @@ pub fn apply_worn_motion_model(commands: &mut Commands, entity: Entity, characte
 /// changing the worn sprite/name must not throw a rider off its surface or erase
 /// its tangential speed merely because the identity component changed.
 fn sync_worn_motion_model_preserving_state(
+    catalog: &CharacterCatalog,
     commands: &mut Commands,
     entity: Entity,
     character_id: &str,
     current: Option<&MotionModel>,
 ) {
-    match crate::character_roster::momentum_params_for_character_id(character_id) {
+    match catalog.momentum_params(character_id) {
         Some(params) => {
             let already_matches = matches!(
                 current,
@@ -190,6 +197,7 @@ fn resolve_playable_action_set(
 /// Returns whether the resolved persona owns the host chargeable-projectile
 /// capability; the ECS derive system synchronizes its marker and mutable state.
 pub fn apply_worn_character_overlay(
+    catalog: &CharacterCatalog,
     name: &mut Name,
     action_set: &mut ActionSet,
     moveset: &mut ActorMoveset,
@@ -199,12 +207,12 @@ pub fn apply_worn_character_overlay(
     // NAME. A known row supplies a display name; an unknown id becomes its own
     // label — deterministic and never stale, and a legible diagnostic that a body
     // is wearing an id the catalog does not know.
-    match crate::character_roster::display_name_for_character_id(character_id) {
+    match catalog.display_name(character_id) {
         Some(display) => *name = Name::new(display),
         None => *name = Name::new(character_id.to_string()),
     }
 
-    apply_worn_character_kit(action_set, moveset, character_id, base_abilities)
+    apply_worn_character_kit(catalog, action_set, moveset, character_id, base_abilities)
 }
 
 /// Refresh only the action/moveset portion of a playable persona.
@@ -215,13 +223,14 @@ pub fn apply_worn_character_overlay(
 /// Authored personas deliberately ignore that edge so an inspector edit cannot
 /// reset their name, authored kit, or persistent movement state.
 fn apply_worn_character_kit(
+    catalog: &CharacterCatalog,
     action_set: &mut ActionSet,
     moveset: &mut ActorMoveset,
     character_id: &str,
     base_abilities: ambition_engine_core::AbilitySet,
 ) -> bool {
-    let source = crate::character_roster::playable_kit_source_for_character_id(character_id);
-    let authored = crate::character_roster::default_action_set_for_character_id(character_id);
+    let source = catalog.playable_kit_source(character_id);
+    let authored = catalog.build_default_action_set(character_id);
     if matches!(
         source,
         Some(ambition_characters::actor::character_catalog::PlayableKitSource::Authored)
@@ -272,6 +281,7 @@ fn sync_charge_projectile_capability(
 /// In particular, an authored Sanic keeps the persistent `MomentumMotion.state`
 /// it accumulated while riding a surface.
 pub fn apply_worn_character_gameplay(
+    catalog: Option<Res<CharacterCatalog>>,
     mut commands: Commands,
     mut worn: Query<
         (
@@ -289,6 +299,10 @@ pub fn apply_worn_character_gameplay(
 ) {
     use ambition_characters::actor::character_catalog::PlayableKitSource;
 
+    let Some(catalog) = catalog else {
+        return;
+    };
+
     for (
         entity,
         character,
@@ -303,6 +317,7 @@ pub fn apply_worn_character_gameplay(
         let id = character.id();
         if character.is_changed() {
             let charges_projectiles = apply_worn_character_overlay(
+                &catalog,
                 &mut name,
                 &mut action_set,
                 &mut moveset,
@@ -320,14 +335,21 @@ pub fn apply_worn_character_gameplay(
             // a wear/re-wear may replace the model; doing this for a live
             // ability edit would reset SurfaceMomentum's persistent riding
             // state to Airborne.
-            sync_worn_motion_model_preserving_state(&mut commands, entity, id, motion_model);
+            sync_worn_motion_model_preserving_state(
+                &catalog,
+                &mut commands,
+                entity,
+                id,
+                motion_model,
+            );
             continue;
         }
 
         if abilities.is_changed() {
-            let source = crate::character_roster::playable_kit_source_for_character_id(id);
+            let source = catalog.playable_kit_source(id);
             if matches!(source, Some(PlayableKitSource::HostCode)) || source.is_none() {
                 let charges_projectiles = apply_worn_character_kit(
+                    &catalog,
                     &mut action_set,
                     &mut moveset,
                     id,
@@ -353,6 +375,7 @@ pub fn apply_worn_character_gameplay(
 /// Clearing those verbs here makes a peaceful authored persona peaceful in
 /// behavior, not merely in its nominal `ActionSet`.
 pub fn gate_worn_player_control(
+    catalog: Option<Res<CharacterCatalog>>,
     mut players: Query<
         (
             &WornCharacter,
@@ -365,6 +388,10 @@ pub fn gate_worn_player_control(
 ) {
     use ambition_characters::actor::character_catalog::PlayableKitSource;
     use ambition_characters::brain::SpecialActionSpec;
+
+    let Some(catalog) = catalog else {
+        return;
+    };
 
     for (worn, actions, mut control, has_charge_marker) in &mut players {
         if actions.melee.is_none() {
@@ -388,7 +415,7 @@ pub fn gate_worn_player_control(
         // synchronized by `apply_worn_character_gameplay`, but Commands are
         // deferred; consulting the identity prevents a one-tick projectile leak
         // on an Authored re-wear before that removal is applied.
-        let source = crate::character_roster::playable_kit_source_for_character_id(worn.id());
+        let source = catalog.playable_kit_source(worn.id());
         let allows_charge_projectiles =
             source == Some(PlayableKitSource::HostCode) || source.is_none();
         if !allows_charge_projectiles || !has_charge_marker {

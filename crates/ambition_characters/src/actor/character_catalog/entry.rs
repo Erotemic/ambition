@@ -39,7 +39,7 @@ pub enum CharacterBodyKind {
     dead_code,
     reason = "Reserved for future layered-rendering of multi-part sprites; ships as schema-stable scaffolding so adding composition to a catalog entry is forwards-compatible."
 )]
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct CompositionLayer {
     pub id: String,
     pub layer: i32,
@@ -267,7 +267,7 @@ pub enum PlayableKitSource {
     dead_code,
     reason = "Public catalog schema; future consumers (Hall layout generator, dialogue UI, faction-aware spawn rules) read tier / body_kind / composition / tags. Today the validator + sprite loader use a subset."
 )]
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct CharacterCatalogEntry {
     /// Human-facing label (UI, dialogue, debug overlays).
     pub display_name: String,
@@ -519,7 +519,7 @@ pub struct ActionSetPreset {
 
 /// Top-level RON shape: brain presets + action-set presets + the
 /// character map keyed by `character_id`.
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct CharacterCatalogData {
     pub brain_presets: BTreeMap<String, BrainPreset>,
     pub action_set_presets: BTreeMap<String, ActionSetPreset>,

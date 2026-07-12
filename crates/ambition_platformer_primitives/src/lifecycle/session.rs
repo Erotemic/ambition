@@ -16,6 +16,9 @@
 //! activations to session scopes, while simulation and world-construction code
 //! use the scope without importing shell vocabulary.
 
+use std::ops::{Deref, DerefMut};
+
+use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
 use super::markers::RoomScopedEntity;
@@ -121,6 +124,44 @@ impl SessionSpawnScope {
 impl From<SessionScopeId> for SessionSpawnScope {
     fn from(id: SessionScopeId) -> Self {
         Self::scoped(id)
+    }
+}
+
+/// A single Bevy system parameter carrying entity commands and the session
+/// ownership captured for work requested by that system invocation.
+///
+/// Besides making the intended spawn context explicit, this keeps large
+/// gameplay systems within Bevy's supported system-parameter arity: replacing
+/// separate `Commands` and `Option<Res<ActiveSessionScope>>` parameters with
+/// `SessionCommands` consumes one parameter slot.
+#[derive(SystemParam)]
+pub struct SessionCommands<'w, 's> {
+    commands: Commands<'w, 's>,
+    active: Option<Res<'w, ActiveSessionScope>>,
+}
+
+impl SessionCommands<'_, '_> {
+    /// Resolve the captured spawn policy for this system invocation.
+    ///
+    /// Legacy apps without [`SessionScopePlugin`] receive an unscoped command
+    /// context. Shell hosts at a non-gameplay route receive `None`, allowing
+    /// gameplay-owned systems to sleep rather than author frontend entities.
+    pub fn spawn_scope(&self) -> Option<SessionSpawnScope> {
+        SessionSpawnScope::for_optional_active_session(self.active.as_deref())
+    }
+}
+
+impl<'w, 's> Deref for SessionCommands<'w, 's> {
+    type Target = Commands<'w, 's>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.commands
+    }
+}
+
+impl<'w, 's> DerefMut for SessionCommands<'w, 's> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.commands
     }
 }
 

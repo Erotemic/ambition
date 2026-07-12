@@ -57,6 +57,9 @@ pub mod portal;
 
 pub use plugin::AmbitionContentPlugin;
 
+/// Stable provider identity used by App-local content registries and the shell.
+pub const AMBITION_CONTENT_PROVIDER: &str = "ambition";
+
 // The character catalog *machinery* (schema, loader, brain resolver,
 // validation) moved to `ambition_characters::actor::character_catalog`; the authored
 // entries live in `assets/data/character_catalog.ron`.

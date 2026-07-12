@@ -31,11 +31,11 @@ impl Plugin for AmbitionContentPlugin {
         // Install the authored music/SFX registries into the engine's
         // audio-data seam (R3.2 — the engine ships no tracks/cues). The app
         // startup choke point also installs; first install wins.
-        super::audio_registries::install();
+        super::audio_registries::register(app);
 
         // Install the character catalog into the engine's roster seam before
         // any lookup (LDtk NpcSpawn conversion, spawn paths, sprite joins).
-        super::character_catalog::install();
+        super::character_catalog::register(app);
 
         // Install the world manifest (which .ldtk files exist + the entry
         // room) before any catalog build or world load reads it.

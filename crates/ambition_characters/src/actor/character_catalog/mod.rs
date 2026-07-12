@@ -25,6 +25,7 @@ use bevy::prelude::*;
 
 pub mod entry;
 pub mod loader;
+pub mod registry;
 pub mod resolver;
 pub mod validator;
 
@@ -43,11 +44,16 @@ pub use entry::{
     reason = "CHARACTER_CATALOG_ASSET used by tooling that loads off disk"
 )]
 pub use loader::parse_catalog;
+pub use registry::{
+    AssembledCharacterCatalog, CharacterCatalogAppExt, CharacterCatalogAssemblyError,
+    CharacterCatalogDefaults, CharacterCatalogFragment, CharacterCatalogOwners,
+    CharacterCatalogRegistry,
+};
 pub use resolver::{action_set_from_preset, brain_from_preset};
 
 /// Bevy resource holding the parsed catalog. Inserted at Startup by
 /// [`CharacterCatalogPlugin`].
-#[derive(Resource, Clone, Debug)]
+#[derive(Resource, Clone, Debug, PartialEq)]
 pub struct CharacterCatalog(pub CharacterCatalogData);
 
 #[allow(
@@ -101,6 +107,48 @@ impl CharacterCatalog {
         let preset = self.0.action_set_presets.get(&entry.default_action_set)?;
         Some(action_set_from_preset(preset))
     }
+
+    pub fn display_name(&self, character_id: &str) -> Option<&str> {
+        self.get(character_id)
+            .map(|entry| entry.display_name.as_str())
+    }
+
+    pub fn id_for_display_name(&self, display_name: &str) -> Option<&str> {
+        self.iter()
+            .find(|(_, entry)| entry.display_name == display_name)
+            .map(|(id, _)| id.as_str())
+    }
+
+    pub fn bark_line(
+        &self,
+        character_id: &str,
+        situation: BarkSituation,
+        rotation: u32,
+    ) -> Option<&str> {
+        self.get(character_id)?.barks.pick(situation, rotation)
+    }
+
+    pub fn playable_kit_source(&self, character_id: &str) -> Option<PlayableKitSource> {
+        self.get(character_id).map(|entry| entry.playable_kit)
+    }
+
+    pub fn momentum_params(
+        &self,
+        character_id: &str,
+    ) -> Option<ambition_engine_core::surface::MomentumParams> {
+        self.get(character_id)?
+            .momentum
+            .as_ref()
+            .map(|spec| spec.to_kernel())
+    }
+
+    pub fn body_kind(&self, character_id: &str) -> Option<CharacterBodyKind> {
+        self.get(character_id).map(|entry| entry.body_kind)
+    }
+
+    pub fn hall_dialogue_id(&self, character_id: &str) -> Option<&str> {
+        self.get(character_id)?.hall_dialogue_id.as_deref()
+    }
 }
 
 /// Plugin: load the catalog at app build, install it as a resource,
@@ -115,8 +163,10 @@ pub struct CharacterCatalogPlugin {
 
 impl Plugin for CharacterCatalogPlugin {
     fn build(&self, app: &mut App) {
-        let catalog = CharacterCatalog(parse_catalog(self.catalog_ron));
-        app.insert_resource(catalog);
+        app.register_character_catalog_fragment(
+            CharacterCatalogFragment::from_ron("default", None::<String>, self.catalog_ron)
+                .expect("single character catalog should be valid"),
+        );
         app.add_systems(Startup, validate_catalog_on_startup);
     }
 }

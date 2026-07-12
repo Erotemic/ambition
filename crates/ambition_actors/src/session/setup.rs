@@ -42,6 +42,10 @@ pub struct SimulationSetup<'a> {
     /// Which catalog character the local player spawns as. `is_default()` (the
     /// `player` protagonist) takes the untouched `from_scratch` path.
     pub starting_character: &'a crate::avatar::StartingCharacter,
+    /// App-local assembled character definitions used by spawn and re-wear.
+    pub character_catalog: &'a ambition_characters::actor::character_catalog::CharacterCatalog,
+    /// Provider-selected default used only when `StartingCharacter` is empty.
+    pub default_character_id: &'a str,
     pub sandbox_data_asset: Option<&'a SandboxDataAsset>,
     pub sandbox_asset_collection: Option<&'a SandboxAssetCollection>,
     pub asset_server: &'a AssetServer,
@@ -77,6 +81,8 @@ pub fn simulation_world(
         editable_abilities,
         editable_tuning,
         starting_character,
+        character_catalog,
+        default_character_id,
         sandbox_data_asset,
         sandbox_asset_collection,
         asset_server,
@@ -121,6 +127,7 @@ pub fn simulation_world(
         crate::avatar::PlayerSimulationBundle::from_scratch(initial_scratch, player_health)
     } else {
         crate::avatar::PlayerSimulationBundle::from_scratch_as_character(
+            character_catalog,
             initial_scratch,
             player_health,
             &starting_character.character_id,
@@ -141,7 +148,9 @@ pub fn simulation_world(
                 // rediscovering the selection from separate authorities. Resolved to
                 // a concrete id (the content default when unset) so the identity is
                 // never empty on the entity.
-                ambition_characters::actor::WornCharacter::new(starting_character.effective_id()),
+                ambition_characters::actor::WornCharacter::new(
+                    starting_character.effective_id(default_character_id),
+                ),
                 player_bundle,
             ),
         )
@@ -152,7 +161,12 @@ pub fn simulation_world(
     // any other character removes the model so the box stays axis-swept. The
     // default `player` row authors no momentum, so this is a no-op for the
     // protagonist.
-    crate::avatar::apply_worn_motion_model(commands, player, starting_character.effective_id());
+    crate::avatar::apply_worn_motion_model(
+        character_catalog,
+        commands,
+        player,
+        starting_character.effective_id(default_character_id),
+    );
 
     // HUD entity is presentation-side; placeholder until presentation_world
     // overwrites this resource.

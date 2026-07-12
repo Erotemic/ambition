@@ -33,6 +33,7 @@ pub(super) fn setup_simulation_system(
     editable_tuning: Res<EditableMovementTuning>,
     editable_abilities: Res<EditableAbilitySet>,
     starting_character: Res<ambition::actors::avatar::StartingCharacter>,
+    character_catalog: Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
     mut platform_set: ResMut<ambition::world::collision::MovingPlatformSet>,
 ) {
     let _player = setup::simulation_world(
@@ -45,6 +46,8 @@ pub(super) fn setup_simulation_system(
             editable_abilities: &editable_abilities,
             editable_tuning: &editable_tuning,
             starting_character: &starting_character,
+            character_catalog: &character_catalog,
+            default_character_id: ambition_content::character_catalog::PLAYABLE_ROSTER[0],
             sandbox_data_asset: sandbox_data_asset.as_deref(),
             sandbox_asset_collection: sandbox_asset_collection.as_deref(),
             asset_server: &asset_server,

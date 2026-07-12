@@ -181,9 +181,14 @@ fn install_sanic_asset_resources(app: &mut App) -> Option<String> {
     // The Sanic course is procedural, not LDtk-backed. Build the ordinary
     // shared asset catalog without world-file rows instead of installing a fake
     // process-global world manifest just to reach sprites and parallax art.
+    let music = app
+        .world()
+        .resource::<ambition::audio::catalog::AudioCatalogRegistry>()
+        .music_for(ambition_demo_sanic::SANIC_EXPERIENCE)
+        .expect("Sanic provider registered its App-local music catalog")
+        .clone();
     let catalog = ambition::actors::assets::sandbox_assets::build_sandbox_catalog_without_worlds(
-        &config,
-        ambition::actors::session::data::authored_music_registry(),
+        &config, &music,
     );
     let sfx_bank_path = catalog.path_for(&ambition::asset_manager::sandbox_assets::ids::sfx_bank());
 
@@ -277,12 +282,19 @@ fn install_sanic_audio(app: &mut App, sfx_bank_path: Option<String>) {
 #[cfg(feature = "visible")]
 fn setup_sanic_audio_library(
     mut commands: Commands,
+    catalogs: Res<ambition::audio::catalog::AudioCatalogRegistry>,
     mut audio_sources: ResMut<Assets<bevy_kira_audio::prelude::AudioSource>>,
 ) {
+    let music = catalogs
+        .music_for(ambition_demo_sanic::SANIC_EXPERIENCE)
+        .expect("Sanic provider registered its App-local music catalog");
+    let sfx = catalogs
+        .sfx_for(ambition_demo_sanic::SANIC_EXPERIENCE)
+        .expect("Sanic provider registered its App-local SFX catalog");
     let library = ambition::audio::library::AudioLibrary::new(
         &mut audio_sources,
-        ambition::actors::session::data::authored_sfx_registry(),
-        ambition::actors::session::data::authored_music_registry(),
+        sfx,
+        music,
         None,
         None,
         None,

@@ -77,7 +77,7 @@ impl Plugin for SanicExperiencePlugin {
         // Immutable, process-resident content definitions (roster + audio
         // registries). App-local composition is Phase 5; today these remain the
         // existing first-install-wins global installs.
-        crate::install_sanic_content();
+        crate::install_sanic_content(app);
 
         // Advertise the experience + its gameplay route. The launcher catalog is
         // derived from this registration, so no host writes a Sanic match.
@@ -112,6 +112,7 @@ fn sanic_activate_session(
     editable_abilities: Res<EditableAbilitySet>,
     editable_tuning: Res<EditableMovementTuning>,
     asset_server: Res<AssetServer>,
+    character_catalog: Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
     mut geometry: ResMut<ae::RoomGeometry>,
     mut room_set: ResMut<RoomSet>,
     mut metadata: ResMut<ActiveRoomMetadata>,
@@ -145,6 +146,8 @@ fn sanic_activate_session(
                 editable_abilities: &editable_abilities,
                 editable_tuning: &editable_tuning,
                 starting_character: &world.starting_character,
+                character_catalog: &character_catalog,
+                default_character_id: crate::SANIC_CHARACTER_ID,
                 sandbox_data_asset: None,
                 sandbox_asset_collection: None,
                 asset_server: &asset_server,

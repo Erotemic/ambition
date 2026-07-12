@@ -1,11 +1,11 @@
 //! Ambition's character-catalog DATA + the curated playable cast —
 //! CONTENT, evicted from the engine core (R3.2, violations #3 and #10).
 //!
-//! The catalog SCHEMA + parser live in
-//! `ambition_characters::actor::character_catalog`; the engine-side parse
-//! cache + lookup helpers live in
-//! `ambition_actors::character_roster` and read whatever this
-//! module installs. The RON stays a loose file here so the Python tools
+//! The catalog schema, parser, and App-local fragment registry live in
+//! `ambition_characters::actor::character_catalog`. Runtime systems consume the
+//! assembled `CharacterCatalog` resource. The legacy
+//! `ambition_actors::character_roster` cache remains temporarily for pure helper
+//! call sites that have not yet received explicit catalog access. The RON stays a loose file here so the Python tools
 //! (`ambition_ldtk_tools.codegen_character_catalog`, the hall generator)
 //! keep reading it off disk.
 
@@ -13,14 +13,31 @@
 /// shared with the off-disk tooling).
 pub const CHARACTER_CATALOG_RON: &str = include_str!("../assets/data/character_catalog.ron");
 
-/// Install the catalog into the engine's roster seam. Called from the
-/// app's sim-entry choke points and `AmbitionContentPlugin::build`; first
-/// install wins, so the multiple calls are harmless.
+/// Feed the temporary process-global compatibility seam used by remaining pure
+/// lookup call sites. New provider and player-session paths use [`register`].
 pub fn install() {
     ambition_actors::character_roster::install_character_catalog(CHARACTER_CATALOG_RON);
     // Content owns which row is the default the home box wears with no override
     // (C2): the engine names no character, so inject `PLAYABLE_ROSTER[0]` here.
     ambition_actors::character_roster::install_default_character_id(PLAYABLE_ROSTER[0]);
+}
+
+/// Register Ambition's immutable character fragment in one Bevy `App` and
+/// rebuild the deterministic assembled catalog resource.
+pub fn register(app: &mut bevy::prelude::App) {
+    use ambition_characters::actor::character_catalog::{
+        CharacterCatalogAppExt, CharacterCatalogFragment,
+    };
+
+    app.register_character_catalog_fragment(
+        CharacterCatalogFragment::from_ron(
+            crate::AMBITION_CONTENT_PROVIDER,
+            Some(PLAYABLE_ROSTER[0]),
+            CHARACTER_CATALOG_RON,
+        )
+        .expect("Ambition character catalog should be valid"),
+    );
+    install();
 }
 
 /// A curated cast of characters the player can start as. The character-select
@@ -82,7 +99,7 @@ mod tests {
             "content install injects the default character id"
         );
         assert_eq!(
-            StartingCharacter::default().effective_id(),
+            StartingCharacter::default().effective_id(PLAYABLE_ROSTER[0]),
             PLAYABLE_ROSTER[0]
         );
         for (i, a) in PLAYABLE_ROSTER.iter().enumerate() {

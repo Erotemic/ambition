@@ -1,5 +1,17 @@
 use super::*;
 
+fn test_catalog() -> ambition_characters::actor::character_catalog::CharacterCatalog {
+    ambition_characters::actor::character_catalog::CharacterCatalog(
+        ambition_characters::actor::character_catalog::parse_catalog(include_str!(
+            "../../../../game/ambition_content/assets/data/character_catalog.ron"
+        )),
+    )
+}
+
+fn install_test_catalog(app: &mut bevy::prelude::App) {
+    app.insert_resource(test_catalog());
+}
+
 mod live_refresh;
 
 #[test]
@@ -13,11 +25,9 @@ fn default_is_unset_and_is_default() {
     // `effective_id` resolves to a real catalog row (the content-installed
     // default, or the first row as fallback) — never empty, never a name
     // the ENGINE baked in.
-    let eff = sc.effective_id();
+    let eff = sc.effective_id("player");
     assert!(!eff.is_empty());
-    assert!(crate::character_roster::catalog()
-        .characters
-        .contains_key(eff));
+    assert!(test_catalog().get(eff).is_some());
 }
 
 #[test]
@@ -32,13 +42,18 @@ fn wearing_sanic_inserts_momentum_then_unwearing_removes_it() {
 
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
+    install_test_catalog(&mut app);
     let entity = app.world_mut().spawn_empty().id();
+    let catalog = app
+        .world()
+        .resource::<ambition_characters::actor::character_catalog::CharacterCatalog>()
+        .clone();
 
     // Wear Sanic → SurfaceMomentum inserted with the authored fast profile.
     let mut queue = bevy::ecs::world::CommandQueue::default();
     {
         let mut commands = Commands::new(&mut queue, app.world());
-        apply_worn_motion_model(&mut commands, entity, "sanic");
+        apply_worn_motion_model(&catalog, &mut commands, entity, "sanic");
     }
     queue.apply(app.world_mut());
     match app.world().get::<MotionModel>(entity) {
@@ -52,7 +67,7 @@ fn wearing_sanic_inserts_momentum_then_unwearing_removes_it() {
     let mut queue = bevy::ecs::world::CommandQueue::default();
     {
         let mut commands = Commands::new(&mut queue, app.world());
-        apply_worn_motion_model(&mut commands, entity, "player");
+        apply_worn_motion_model(&catalog, &mut commands, entity, "player");
     }
     queue.apply(app.world_mut());
     assert!(
@@ -77,10 +92,10 @@ fn gameplay_derives_from_worn_identity_at_add_and_on_change() {
     use bevy::prelude::*;
 
     // Pin the installed default so the protagonist branch is deterministic.
-    crate::character_roster::install_default_character_id("player");
 
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
+    install_test_catalog(&mut app);
     app.add_systems(Update, apply_worn_character_gameplay);
 
     // Spawn wearing the momentum speedster.
@@ -136,6 +151,7 @@ fn rewearing_an_equivalent_momentum_profile_preserves_live_ride_state() {
 
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
+    install_test_catalog(&mut app);
     app.add_systems(Update, apply_worn_character_gameplay);
     let entity = app
         .world_mut()
@@ -188,9 +204,9 @@ fn derive_system_only_fires_on_identity_or_ability_change() {
     use ambition_characters::brain::ActionSet;
     use bevy::prelude::*;
 
-    crate::character_roster::install_default_character_id("player");
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
+    install_test_catalog(&mut app);
     app.add_systems(Update, apply_worn_character_gameplay);
     let e = app
         .world_mut()
@@ -227,9 +243,9 @@ fn worn_kit_fully_follows_a_known_character_rewear() {
     use ambition_characters::brain::{ActionSet, RangedActionSpec};
     use bevy::prelude::*;
 
-    crate::character_roster::install_default_character_id("player");
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
+    install_test_catalog(&mut app);
     app.add_systems(Update, apply_worn_character_gameplay);
     let e = app
         .world_mut()
@@ -291,9 +307,9 @@ fn runtime_rewear_to_a_host_code_protagonist_rebuilds_the_code_kit() {
     };
     use bevy::prelude::*;
 
-    crate::character_roster::install_default_character_id("player");
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
+    install_test_catalog(&mut app);
     app.add_systems(Update, apply_worn_character_gameplay);
     let e = app
         .world_mut()
@@ -358,9 +374,9 @@ fn runtime_rewear_to_an_unknown_id_is_a_defined_fallback_not_stale_state() {
     use ambition_characters::brain::{ActionSet, MeleeActionSpec, RangedActionSpec};
     use bevy::prelude::*;
 
-    crate::character_roster::install_default_character_id("player");
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
+    install_test_catalog(&mut app);
     app.add_systems(Update, apply_worn_character_gameplay);
     let e = app
         .world_mut()
@@ -402,6 +418,7 @@ fn host_code_kit_refreshes_when_body_abilities_change() {
 
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
+    install_test_catalog(&mut app);
     app.add_systems(Update, apply_worn_character_gameplay);
     let entity = app
         .world_mut()
@@ -479,6 +496,7 @@ fn peaceful_worn_kit_gates_direct_player_combat_verbs() {
 
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
+    install_test_catalog(&mut app);
     app.add_systems(Update, gate_worn_player_control);
     let entity = app
         .world_mut()

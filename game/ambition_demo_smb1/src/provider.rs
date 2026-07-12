@@ -61,7 +61,7 @@ pub struct Smb1ExperiencePlugin;
 
 impl Plugin for Smb1ExperiencePlugin {
     fn build(&self, app: &mut App) {
-        crate::install_smb1_content();
+        crate::install_smb1_content(app);
 
         app.register_gameplay_experience(
             ExperienceRegistration::new(MARY_O_EXPERIENCE, "Mary-O", MARY_O_GAMEPLAY_ROUTE)
@@ -87,6 +87,7 @@ fn smb1_activate_session(
     editable_abilities: Res<EditableAbilitySet>,
     editable_tuning: Res<EditableMovementTuning>,
     asset_server: Res<AssetServer>,
+    character_catalog: Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
     mut geometry: ResMut<ae::RoomGeometry>,
     mut room_set: ResMut<RoomSet>,
     mut metadata: ResMut<ActiveRoomMetadata>,
@@ -120,6 +121,8 @@ fn smb1_activate_session(
                 editable_abilities: &editable_abilities,
                 editable_tuning: &editable_tuning,
                 starting_character: &world.starting_character,
+                character_catalog: &character_catalog,
+                default_character_id: MARY_O_CHARACTER_ID,
                 sandbox_data_asset: None,
                 sandbox_asset_collection: None,
                 asset_server: &asset_server,

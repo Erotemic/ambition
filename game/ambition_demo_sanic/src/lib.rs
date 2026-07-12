@@ -387,21 +387,57 @@ pub use provider::{
     SANIC_GAMEPLAY_ROUTE, SANIC_LAUNCHER_ROUTE,
 };
 
-/// Content plugin for the Sanic movement demo: installs the roster, the world,
-/// and the engine's own sim-world setup. This is the shape
+/// Content plugin for the Sanic movement demo: registers Sanic's App-local
+/// authored catalogs, installs the world, and adds the engine's sim-world setup. This is the shape
 /// `crates/ambition_host/tests/demo_shell_smoke.rs` prescribes, built through the
 /// `ambition` umbrella alone.
 pub struct SanicDemoContentPlugin;
 
-/// Install Sanic's immutable, process-resident content definitions: the character
-/// roster and the music/SFX registries. Shared by the historical
+/// Register Sanic's immutable authored definitions in one Bevy `App`: the
+/// character fragment and the provider-indexed music/SFX fragments. Shared by the historical
 /// [`SanicDemoContentPlugin`] (Startup-driven construction) and the new
 /// [`provider::SanicExperiencePlugin`] (shell-activation-driven construction), so
 /// there is one definition of Sanic's content seam.
 ///
-/// These are global first-install-wins installs today; App-local composition is a
-/// later phase.
-pub fn install_sanic_content() {
+/// The App-local resources are the new composition authority. The final block
+/// dual-writes the legacy pure-lookup seams until every remaining actor/sprite
+/// consumer has been migrated to explicit catalog access.
+pub fn install_sanic_content(app: &mut App) {
+    use ambition::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
+    use ambition::characters::actor::character_catalog::{
+        CharacterCatalogAppExt, CharacterCatalogFragment,
+    };
+
+    app.register_character_catalog_fragment(
+        CharacterCatalogFragment::from_ron(
+            provider::SANIC_EXPERIENCE,
+            Some(SANIC_CHARACTER_ID),
+            SANIC_CATALOG_RON,
+        )
+        .expect("Sanic character catalog should be valid"),
+    );
+    app.register_audio_catalog_fragment(
+        AudioCatalogFragment::new(
+            provider::SANIC_EXPERIENCE,
+            Some(ambition::audio::spec::MusicRegistry {
+                default_track: "you_are_too_slow".to_string(),
+                tracks: vec![ambition::audio::spec::MusicTrack {
+                    id: "you_are_too_slow".to_string(),
+                    display_name: "You Are Too Slow".to_string(),
+                    asset_path: Some(SANIC_MUSIC_ASSET_PATH.to_string()),
+                }],
+            }),
+            Some(ambition::audio::spec::SfxRegistry {
+                sample_rate: 44_100,
+                sfx: Vec::new(),
+            }),
+        )
+        .expect("Sanic audio catalogs should be valid"),
+    );
+
+    // Legacy pure lookup consumers are migrated in the next slice. Keep their
+    // compatibility seam fed while the App-local resources are already the
+    // provider-composition authority exercised by new hosts and tests.
     ambition::runtime::demo_fixture::install_character_catalog(SANIC_CATALOG_RON);
     ambition::actors::session::data::install_music_registry(ambition::audio::spec::MusicRegistry {
         default_track: "you_are_too_slow".to_string(),
@@ -411,9 +447,6 @@ pub fn install_sanic_content() {
             asset_path: Some(SANIC_MUSIC_ASSET_PATH.to_string()),
         }],
     });
-    // The packed Ambition bank supplies the actual typed cues. The registry
-    // remains intentionally minimal but valid so the demo owns its audio
-    // data seam instead of borrowing the full game's content registry.
     ambition::actors::session::data::install_sfx_registry(ambition::audio::spec::SfxRegistry {
         sample_rate: 44_100,
         sfx: Vec::new(),
@@ -425,7 +458,7 @@ impl Plugin for SanicDemoContentPlugin {
         use ambition::runtime::demo_fixture::{ActiveRoomMetadata, RoomSet};
         use bevy::prelude::IntoScheduleConfigs;
 
-        install_sanic_content();
+        install_sanic_content(app);
         // The demo's player is explicitly the speedster rather than relying on
         // whichever row happens to be the installed catalog default.
         app.insert_resource(ambition::runtime::demo_fixture::StartingCharacter::new(
@@ -459,6 +492,9 @@ fn sanic_setup(
     editable_tuning: bevy::prelude::Res<ambition::runtime::demo_fixture::EditableMovementTuning>,
     starting_character: bevy::prelude::Res<ambition::runtime::demo_fixture::StartingCharacter>,
     asset_server: bevy::prelude::Res<bevy::asset::AssetServer>,
+    character_catalog: bevy::prelude::Res<
+        ambition::characters::actor::character_catalog::CharacterCatalog,
+    >,
 ) {
     ambition::runtime::demo_fixture::simulation_world(
         &mut commands,
@@ -470,6 +506,8 @@ fn sanic_setup(
             editable_abilities: &editable_abilities,
             editable_tuning: &editable_tuning,
             starting_character: &starting_character,
+            character_catalog: &character_catalog,
+            default_character_id: SANIC_CHARACTER_ID,
             sandbox_data_asset: None,
             sandbox_asset_collection: None,
             asset_server: &asset_server,

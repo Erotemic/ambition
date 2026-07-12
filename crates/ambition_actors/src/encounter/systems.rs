@@ -11,6 +11,7 @@
 use bevy::prelude::*;
 
 use ambition_engine_core as ae;
+use ambition_platformer_primitives::lifecycle::SessionCommands;
 
 use super::{
     load_encounter_specs_from_ldtk, Encounter, EncounterEvent, EncounterMusicRequest,
@@ -71,7 +72,7 @@ pub fn populate_encounter_registry(
 /// deliberate sandbox UX — the encounter is "in play" only while the
 /// player is actually inside the room.
 pub fn update_encounters_from_world(
-    mut commands: Commands,
+    mut commands: SessionCommands<'_, '_>,
     world_time: Res<ambition_time::WorldTime>,
     mut died_messages: MessageReader<crate::ActorDiedMessage>,
     mut encounters: Query<(&Encounter, &mut EncounterState, &mut EncounterParticipants)>,
@@ -91,7 +92,6 @@ pub fn update_encounters_from_world(
         &crate::features::FeatureId,
         &ambition_characters::actor::BodyCombat,
     )>,
-    active_session: Option<Res<ambition_platformer_primitives::lifecycle::ActiveSessionScope>>,
     reward_chests: Query<
         (
             Entity,
@@ -102,11 +102,7 @@ pub fn update_encounters_from_world(
         With<crate::features::ChestFeature>,
     >,
 ) {
-    let Some(session_scope) =
-        ambition_platformer_primitives::lifecycle::SessionSpawnScope::for_optional_active_session(
-            active_session.as_deref(),
-        )
-    else {
+    let Some(session_scope) = commands.spawn_scope() else {
         return;
     };
     let active_area = room_set.active_spec().id.clone();

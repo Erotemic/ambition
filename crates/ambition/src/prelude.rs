@@ -8,7 +8,7 @@ pub use crate::runtime;
 pub use crate::windowed_host::PlatformerHostPlugins;
 
 pub use crate::{
-    actors, asset_manager, characters, combat, dialog, encounter, engine_core, host, input,
-    ldtk_map, menu, persistence, platformer, projectiles, render, sim_view, sprite_sheet, time,
-    world,
+    actors, asset_manager, characters, combat, dialog, encounter, engine_core, game_shell, host,
+    input, ldtk_map, load, load_presentation, menu, persistence, platformer, projectiles, render,
+    sim_view, sprite_sheet, time, world,
 };

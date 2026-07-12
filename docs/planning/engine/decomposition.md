@@ -355,7 +355,7 @@ agents can navigate the code *inside* those boundaries.
 - `scripts/modules_md.py` checks concern headers and generated maps, but does not
   enforce line size;
 - `game/ambition_demo_smb1/MODULES.md` is stale in the audited tree;
-- the workspace has 45 members (44 crates + the `ambition_workspace_policy` test-policy package), not the documented 42.
+- the workspace had 45 members at that audit point (44 crates + the `ambition_workspace_policy` test-policy package), not the documented 42; the load/shell core carve later raised current HEAD to 48.
 
 **Re-close criteria:**
 
@@ -386,8 +386,8 @@ excluded by path; inline `#[cfg(test)]` counts), fails any unwaived module over 
 lines, and — bidirectionally — fails a waiver whose file is no longer oversized.
 Exceptions are a named waiver list with one reviewed reason per path; nothing is
 inferred. It is poison-tested (`poison_reacts` drives the real walk with a hostile
-limit + a stale waiver). The stale `MODULES.md` was regenerated and the 45-member
-count corrected. **What re-closed D-B was criterion 4's other half — now done:** the
+limit + a stale waiver). The stale `MODULES.md` was regenerated and the then-current 45-member
+count corrected; current HEAD is 48 after the load/shell core carve. **What re-closed D-B was criterion 4's other half — now done:** the
 over-limit debt list is cleared. The gate counts **total** lines (`s.lines().count()`, test
 files excluded by path) against the 1500 limit — there is no separate "code-line"
 count, so an earlier note calling `moveset.rs` (1536) "under the code-line limit"

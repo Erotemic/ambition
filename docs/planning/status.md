@@ -37,7 +37,7 @@ is never equivalent to a passing acceptance test or an enforced invariant.
 <!-- planning-evidence: boss-validator errors=8 warnings=10 -->
 <!-- planning-evidence: inline-test path=crates/ambition_characters/src/equipment.rs kind=behavioral-local disposition=maintainer-review-pending -->
 <!-- planning-evidence: inline-test path=game/ambition_demo_smb1/src/flag.rs kind=behavioral-local disposition=maintainer-review-pending -->
-<!-- planning-evidence: workspace-members count=45 -->
+<!-- planning-evidence: workspace-members count=48 -->
 <!-- planning-evidence: module-size waivers=1 unwaived-violations=0 stale-waivers=0 invalid-waivers=0 -->
 <!-- planning-evidence: cc3 status=ignored -->
 
@@ -45,7 +45,7 @@ is never equivalent to a passing acceptance test or an enforced invariant.
 
 These are current facts, not active tasks:
 
-- The workspace has 45 members (44 crates + the `ambition_workspace_policy`
+- The workspace has 48 members (47 crates + the `ambition_workspace_policy`
   test-policy package). Machine-checked against `Cargo.toml`.
 - D-B's module-size policy counts physical source lines. The KB marker is a fast
   source-derived cross-check (waivers / unwaived-violations / stale-waivers /

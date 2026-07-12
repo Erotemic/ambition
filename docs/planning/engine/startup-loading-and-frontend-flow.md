@@ -1,8 +1,6 @@
 # Loading and game-shell architecture
-> **Status:** design plan. Every implementation slice in this document is
-> **OPEN**. The types and APIs are illustrative unless a slice explicitly lands
-> them. This document defines the intended ownership, dependency direction, and
-> acceptance bar; it does not claim that HEAD implements the design.
+> **Status:** core-tools checkpoint. All executable slices remain **OPEN** until
+> their acceptance tests pass. No game/demo/subsystem integration has landed.
 ## Maintainer intent
 - Loading screens should be nonexistent when preparation finishes quickly.
 - When waiting is unavoidable, the engine should honestly report what is done,
@@ -359,6 +357,14 @@ cleanup need, and configured fallback route. The shell may offer Retry, Return, 
 cannot hide failure. Retry may reuse verified immutable results but creates a new request identity.
 Cancellation/supersession rejects late completion. Route failure must not strand input, camera, audio
 focus, entities, or an inactive prepared session.
+## Core-tools checkpoint at HEAD
+Initial source exists in all three crates: load plans/barriers/evidence and commit
+authorization; shell routing/holds/launcher/scopes/sequences; and load foreground,
+progress/failure, activities, engagement, ready-hold, retry requests, and plain
+optional UI. `MinimalLoadShellPlugins` composes them without game content.
+No real contributor or game is integrated. Rust acceptance tests, real Bevy
+adapters, two activity customers, isolation poison tests, and host-relative
+Ambition/Sanic/Mary-O behavior remain OPEN.
 ## Step-by-step implementation plan
 The executor must implement in this dependency order. Each step remains OPEN until every listed
 acceptance test passes; do not close a broad parent with a caveat.

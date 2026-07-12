@@ -2205,3 +2205,63 @@ source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 contains = ["PlayerSlot", "AMBITION_REVIEW(determinism)"]
 file = "crates/ambition_actors/src/features/ecs/actors/update.rs"
+
+# ── Loading and game-shell core carve ─────────────────────────────────────────
+[[policy]]
+id = "engine.load-shell-core-members"
+scope = "engine"
+kind = "workspace-member"
+owners = ["ambition_load", "ambition_game_shell", "ambition_load_presentation"]
+watch_paths = ["Cargo.toml"]
+rationale = "The load truth, top-level shell router, and replaceable load presentation are independent reusable engine concerns, not app-local behavior."
+source_doc = "docs/planning/engine/startup-loading-and-frontend-flow.md#binding-crate-carve"
+severity = "error"
+members = ["ambition_load", "ambition_game_shell", "ambition_load_presentation"]
+
+[[policy]]
+id = "engine.load-core-dependency-purity"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_load"]
+watch_paths = ["crates/ambition_load/Cargo.toml"]
+rationale = "ambition_load owns headless evidence and barriers; it must not reach into shell, presentation, app, content, menu, render, or subsystem-specific loaders."
+source_doc = "docs/planning/engine/startup-loading-and-frontend-flow.md#ambition_load"
+severity = "error"
+manifest = "crates/ambition_load/Cargo.toml"
+deny = ["ambition_game_shell", "ambition_load_presentation", "ambition_render", "ambition_menu", "ambition_asset_manager", "ambition_persistence", "ambition_world", "ambition_content", "ambition_app"]
+
+[[policy]]
+id = "engine.game-shell-dependency-purity"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_game_shell"]
+watch_paths = ["crates/ambition_game_shell/Cargo.toml"]
+rationale = "The shell may consume load truth but must not depend on the load presentation, renderer, game content, app shell, or any named demo."
+source_doc = "docs/planning/engine/startup-loading-and-frontend-flow.md#ambition_game_shell"
+severity = "error"
+manifest = "crates/ambition_game_shell/Cargo.toml"
+deny = ["ambition_load_presentation", "ambition_render", "ambition_content", "ambition_app", "ambition_demo_sanic", "ambition_demo_sanic_app", "ambition_demo_smb1", "ambition_demo_smb1_app"]
+
+[[policy]]
+id = "engine.load-presentation-dependency-direction"
+scope = "engine"
+kind = "dependency-denylist"
+owners = ["ambition_load_presentation"]
+watch_paths = ["crates/ambition_load_presentation/Cargo.toml"]
+rationale = "The reusable load presentation depends downward on load and shell contracts, never upward on game content, app shells, or demo identities."
+source_doc = "docs/planning/engine/startup-loading-and-frontend-flow.md#ambition_load_presentation"
+severity = "error"
+manifest = "crates/ambition_load_presentation/Cargo.toml"
+deny = ["ambition_render", "ambition_content", "ambition_app", "ambition_demo_sanic", "ambition_demo_sanic_app", "ambition_demo_smb1", "ambition_demo_smb1_app"]
+
+[[policy]]
+id = "engine.load-shell-source-content-free"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_load", "ambition_game_shell", "ambition_load_presentation"]
+watch_paths = ["crates/ambition_load/src", "crates/ambition_game_shell/src", "crates/ambition_load_presentation/src"]
+rationale = "Core load and shell crates must stay free of Ambition-specific content, app, and demo route identities."
+source_doc = "docs/planning/engine/startup-loading-and-frontend-flow.md#constitutional-dependency-shape"
+severity = "error"
+roots = ["crates/ambition_load/src", "crates/ambition_game_shell/src", "crates/ambition_load_presentation/src"]
+forbid = ["ambition_content", "ambition_app", "ambition_demo_sanic", "ambition_demo_smb1"]

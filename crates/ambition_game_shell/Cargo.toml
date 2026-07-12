@@ -1,0 +1,26 @@
+[package]
+name = "ambition_game_shell"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+description = "Renderer-independent routing and scoped lifecycle for top-level game experiences, plus neutral sequences and a minimal launcher."
+publish = false
+
+[lib]
+crate-type = ["rlib"]
+
+[features]
+default = []
+basic_presentation = [
+    "dep:ambition_menu",
+    "ambition_menu/bevy_ui_menu",
+    "bevy/ui_api",
+    "bevy/bevy_asset",
+    "bevy/bevy_image",
+]
+
+[dependencies]
+ambition_menu = { path = "../ambition_menu", default-features = false, optional = true }
+ambition_load = { path = "../ambition_load" }
+bevy = { version = "0.18.1", default-features = false }

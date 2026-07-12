@@ -51,6 +51,10 @@ audio = ["ambition_actors/audio", "ambition_audio/kira"]
 ui = ["ambition_actors/ui"]
 bevy_ui_menu = ["ambition_actors/bevy_ui_menu", "ambition_menu/bevy_ui_menu"]
 kaleidoscope_menu = ["ambition_actors/kaleidoscope_menu", "ambition_menu/kaleidoscope_menu"]
+basic_shell_presentation = [
+    "ambition_game_shell/basic_presentation",
+    "ambition_load_presentation/basic_presentation",
+]
 
 [dependencies]
 ambition_actors = { path = "../ambition_actors", default-features = false }
@@ -70,6 +74,9 @@ ambition_interaction = { path = "../ambition_interaction" }
 ambition_inventory_ui = { path = "../ambition_inventory_ui" }
 ambition_items = { path = "../ambition_items" }
 ambition_ldtk_map = { path = "../ambition_ldtk_map" }
+ambition_game_shell = { path = "../ambition_game_shell", default-features = false }
+ambition_load = { path = "../ambition_load" }
+ambition_load_presentation = { path = "../ambition_load_presentation", default-features = false }
 ambition_menu = { path = "../ambition_menu" }
 ambition_persistence = { path = "../ambition_persistence" }
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }

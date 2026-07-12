@@ -1,6 +1,6 @@
 # Loading, shell, and frontend integration
 
-> **Status:** load/shell cores, captured session ownership, the shared shell-to-session bridge, and Sanic/Mary-O headless and visible lifecycle tests are green on the maintainer machine. The current overlay introduces deterministic App-local character/music/SFX fragment registries, real three-provider composition tests, provider-specific audio lookup, and explicit App-local character use in player construction/re-wear. This catalog slice remains **OPEN pending compilation and tests**. The remaining chain is: finish runtime catalog migration -> canonical active-session world -> real provider load plans -> Ambition provider/launcher -> cross-experience proof.
+> **Status:** load/shell cores, captured session ownership, the shared shell-to-session bridge, and Sanic/Mary-O headless and visible lifecycle tests are green. The App-local character/music/SFX fragment registries, real three-provider composition, and player-path migration now **compile and pass** (C0 DONE, commit `889d3442`, which also resolved the `sanic` single-owner collision). **Music + SFX authority is fully App-local** — the process-global audio seam is deleted with a re-introduction ratchet (C1-audio/C2-audio DONE, commit `4bbba8f2`). Character authority is **in progress**: combat-voice barks migrated (commit `a613d528`); the sprite/spawn/asset-manifest cluster + global deletion remain (C1-char/C2-char). The remaining chain is: finish runtime character migration -> canonical active-session world -> real provider load plans -> Ambition provider/launcher -> cross-experience proof.
 
 ## Target experience
 
@@ -111,17 +111,23 @@ A startup route is an ordinary shell sequence of text, static/image-sequence med
 
 Passing maintainer tests establish the load/shell/presentation contracts, provider-derived launcher registration, host-relative `QuitToHome`, request-time captured `SessionSpawnScope`, immediate revocation and exact retirement, the shared `GameplaySessionBridgePlugin`, broad simulation/presentation entity ownership, and Sanic/Mary-O headless and visible launch/return/relaunch.
 
-### Current catalog slice awaiting verification
+### Catalog slice — verified state
 
-The current overlay adds provider-indexed `CharacterCatalogRegistry` and `AudioCatalogRegistry` resources; deterministic fragment assembly; namespaced local character presets; stable duplicate diagnostics; atomic failed registration; registration-order and multiple-App tests; real Ambition/Sanic/Mary-O fragment composition; provider-specific Sanic audio setup; and explicit assembled-catalog access in player construction and runtime re-wear. Remaining pure actor, sprite, dialogue, asset-catalog, snapshot-fixture, and audio-bootstrap call sites still use the temporary process-global compatibility seams.
+Provider-indexed `CharacterCatalogRegistry` and `AudioCatalogRegistry` resources; deterministic fragment assembly; namespaced local character presets; stable duplicate diagnostics; atomic failed registration; registration-order and multiple-App isolation tests; and real Ambition/Sanic/Mary-O fragment composition all compile and pass (C0). One character id now has exactly one owning provider — Ambition's redundant `sanic` row was removed (Sanic's identity belongs to the Sanic provider; the launcher host surfaces it by linking that provider).
+
+**Audio is fully App-local**: the `install_music/sfx_registry` / `authored_*_registry` / `*_REGISTRY_OVERRIDE` process-global seam is deleted; the sole authority is the registered `AudioCatalogFragment` read from the `AudioCatalogRegistry` resource, guarded by the `engine.audio-authority-is-app-local` source ratchet.
+
+**Character is partway migrated**: player construction, runtime re-wear, and the combat-voice bark path read the App-local `CharacterCatalog`. The remaining pure sprite/asset, actor-spawn/cluster, `npc_brain_from_catalog`, `interact` default, and `known_dialogue_ids` call sites (plus the `sandbox_catalog_inputs*` asset-manifest choke point) still read the process-global roster, which therefore stays alive; the global↔resource pair carry identical data, so the tree is green at each migration slice.
 
 ## Remaining-work ledger
 
 | ID | Status | Required result |
 |---|---|---|
-| C0 | OPEN | Compile and test App-local character/audio registries, real-provider composition, and player-path migration |
-| C1 | OPEN after C0 | Migrate remaining actor/sprite/dialogue/asset/audio consumers to explicit App-local catalogs |
-| C2 | OPEN after C1 | Remove character/music/SFX `OnceLock` authority and compatibility installers |
+| C0 | DONE | App-local character/audio registries, real three-provider composition, and player-path migration compile and pass. Evidence: `ambition_app::app_local_catalog_composition` (2/2), `ambition_characters` (373), `ambition_actors` (762), `ambition_workspace_policy` (30). Commit `889d3442` repaired the overlay + resolved the `sanic` single-owner collision. |
+| C1-audio | DONE | Music + SFX consumers are fully App-local: `desktop_dev_default_catalog` takes an explicit `&MusicRegistry`; the visible/headless/RL bootstrap reads `AudioCatalogRegistry`. Commit `4bbba8f2`. |
+| C1-char | OPEN (partial) | Combat-voice lookup (hit/provoked/ambient barks + `apply_actor_hit`) reads `&CharacterCatalog` via `Option<Res<CharacterCatalog>>` + `CharacterCatalog::empty()` fallback — commit `a613d528`. Remaining readers (census, 22 prod sites): `character_sprites::{sheet_for_character_id, character_variant_tuning, sprite_body_collision_for_character_id, all_character_sprite_filenames, load_character_sprites_in, actor_attack_hitbox_world}`, `features::ecs::{actor_clusters::{ActorClusterSeed, sprite_render_size_for_name}, spawn_actors::NpcActorSpawnPlan, interact}`, `features::npcs::npc_brain_from_catalog`, `content::dialogue::known_dialogue_ids`, and the asset-manifest choke point `sandbox_catalog_inputs*`. |
+| C2-audio | DONE | `install_music/sfx_registry`, `authored_*_registry`, `*_REGISTRY_OVERRIDE` deleted; ratchet `engine.audio-authority-is-app-local` guards re-introduction. Commit `4bbba8f2`. |
+| C2-char | OPEN after C1-char | Delete `install_character_catalog`, `catalog()`, `catalog_ron()`, `default_character_id`, `character_roster_plugin`; migrate the seam's `#[cfg(test)]` fixtures; add the character ratchet. |
 | W0 | OPEN | Canonical App-local active session owns current world state |
 | W1 | OPEN | Gameplay sleeps with no session; build-time placeholder worlds disappear |
 | W2 | OPEN | Camera, HUD, dialog, map, cutscene UI, input, and audio gain explicit ownership |

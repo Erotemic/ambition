@@ -106,6 +106,15 @@ fn assert_home(app: &mut App, context: &str) {
         app.world().resource::<ActiveGameplaySession>().0.is_none(),
         "{context}: no active gameplay session at home"
     );
+    // Structural (not merely gated) absence of world authority: the session is
+    // the canonical world reference-holder, and there is no session at home.
+    assert!(
+        app.world()
+            .resource::<ActiveGameplaySession>()
+            .active_world()
+            .is_none(),
+        "{context}: no active gameplay-world authority at home (session owns the world ref)"
+    );
     assert_eq!(live_scope(app), None, "{context}: no live session scope");
     assert_eq!(
         session_entities(app),
@@ -197,6 +206,21 @@ fn assert_in_game(
         "{context}: session belongs to the selected provider"
     );
     let scope = instance.scope;
+    // The session is the canonical world authority: it references a prepared
+    // world (a `RoomSet`), and that reference names THIS session's active room
+    // — not a room resident from a prior provider's session.
+    let session_room = session
+        .active_world_as::<RoomSet>()
+        .unwrap_or_else(|| panic!("{context}: the session references its prepared world"))
+        .active_spec()
+        .id
+        .as_str()
+        .to_owned();
+    assert_eq!(
+        session_room,
+        app.world().resource::<RoomSet>().active_spec().id.as_str(),
+        "{context}: the session's world authority matches the resident projection"
+    );
     assert_eq!(
         live_scope(app),
         Some(scope),

@@ -106,6 +106,7 @@ fn smb1_activate_session(
     mut room_set: ResMut<RoomSet>,
     mut metadata: ResMut<ActiveRoomMetadata>,
     mut starting_character: ResMut<StartingCharacter>,
+    mut active_session: ResMut<ambition::game_shell::ActiveGameplaySession>,
 ) {
     for event in events.read() {
         let GameplaySessionEvent::Activated { activation, scope } = event else {
@@ -144,6 +145,12 @@ fn smb1_activate_session(
                 asset_server: &asset_server,
             },
         );
+
+        // The session owns the reference to this world; the resident resources
+        // below are its published projection.
+        active_session.attach_world(ambition::game_shell::SessionWorldRef::new(
+            world.room_set.clone(),
+        ));
 
         *geometry = world.geometry;
         *room_set = world.room_set;

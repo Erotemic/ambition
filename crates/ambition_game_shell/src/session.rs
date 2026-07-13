@@ -95,6 +95,42 @@ impl GameplaySessionRegistry {
     }
 }
 
+/// A type-erased reference to the active session's prepared gameplay world.
+///
+/// The engine crate names no provider's world type, so the world is carried
+/// behind `Arc<dyn Any>`; a consumer (or a poison test) downcasts to the
+/// provider's concrete world. Equality is Arc pointer identity — two sessions
+/// referencing the SAME prepared world are equal, a fresh build is not — which
+/// is exactly what proves "session B does not observe session A's world."
+#[derive(Clone)]
+pub struct SessionWorldRef(std::sync::Arc<dyn std::any::Any + Send + Sync>);
+
+impl SessionWorldRef {
+    pub fn new<T: std::any::Any + Send + Sync>(world: T) -> Self {
+        Self(std::sync::Arc::new(world))
+    }
+
+    /// Reinterpret the world as `T`, or `None` if it was built by a different
+    /// provider (a different concrete type).
+    pub fn downcast_ref<T: std::any::Any>(&self) -> Option<&T> {
+        self.0.downcast_ref::<T>()
+    }
+}
+
+impl std::fmt::Debug for SessionWorldRef {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "SessionWorldRef(<type-erased provider world>)")
+    }
+}
+
+impl PartialEq for SessionWorldRef {
+    fn eq(&self, other: &Self) -> bool {
+        std::sync::Arc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+impl Eq for SessionWorldRef {}
+
 /// Canonical identity of the one active top-level gameplay session.
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct GameplaySessionInstance {
@@ -104,12 +140,43 @@ pub struct GameplaySessionInstance {
     /// required one. Captured at activation so acceptance checks can prove no
     /// stale load transaction outlives the session it prepared.
     pub load: Option<LoadBarrierRef>,
+    /// The prepared gameplay world this session owns. `None` until the
+    /// provider's activation system attaches it (the bridge sets identity/scope
+    /// first; the provider builds and attaches the world in the same frame). A
+    /// frontend route has no session at all, so no world authority exists there
+    /// by construction — not merely because gameplay schedules are gated.
+    pub world: Option<SessionWorldRef>,
 }
 
 /// App-local gameplay-session authority. It is `None` at launchers, credits,
 /// startup sequences, and other non-gameplay shell experiences.
 #[derive(Resource, Default, Debug)]
 pub struct ActiveGameplaySession(pub Option<GameplaySessionInstance>);
+
+impl ActiveGameplaySession {
+    /// Attach the provider's prepared world to the live session. A no-op if no
+    /// session is active (a provider system must not run without one, but this
+    /// keeps the seam total).
+    pub fn attach_world(&mut self, world: SessionWorldRef) {
+        if let Some(instance) = self.0.as_mut() {
+            instance.world = Some(world);
+        }
+    }
+
+    /// The active session's prepared world reference, if a session is live AND
+    /// its provider has attached one.
+    pub fn active_world(&self) -> Option<&SessionWorldRef> {
+        self.0.as_ref().and_then(|instance| instance.world.as_ref())
+    }
+
+    /// The active world downcast to a provider's concrete world type. `None` at
+    /// a frontend route (no session), or when the active provider's world is a
+    /// different type.
+    pub fn active_world_as<T: std::any::Any>(&self) -> Option<&T> {
+        self.active_world()
+            .and_then(|world| world.downcast_ref::<T>())
+    }
+}
 
 /// Exact shell-activation to session-scope bindings.
 #[derive(Resource, Default)]
@@ -324,6 +391,10 @@ fn translate_shell_session_lifecycle(
                     load: routes
                         .get(&activation.route_id)
                         .and_then(|route| route.required_barrier.clone()),
+                    // The provider's activation system attaches the prepared
+                    // world this frame (it runs after the bridge in
+                    // `GameplaySessionSet::Providers`).
+                    world: None,
                 });
                 session_events.write(GameplaySessionEvent::Activated {
                     activation: activation.clone(),

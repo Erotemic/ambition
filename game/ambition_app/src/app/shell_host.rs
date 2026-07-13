@@ -111,6 +111,7 @@ fn ambition_activate_session(
     character_roster: Res<ambition::actors::features::CharacterRoster>,
     boss_catalog: Res<ambition::actors::boss_encounter::BossCatalog>,
     mut platform_set: ResMut<ambition::world::collision::MovingPlatformSet>,
+    mut active_session: ResMut<ambition::game_shell::ActiveGameplaySession>,
 ) {
     for event in sessions.read() {
         let GameplaySessionEvent::Activated { activation, scope } = event else {
@@ -147,6 +148,12 @@ fn ambition_activate_session(
         );
         platform_set.0 =
             ambition::actors::world::platforms::moving_platforms_for_room(room_set.active_spec());
+
+        // The session OWNS the reference to this activation's world; the
+        // resident resources below are its published projection. At a frontend
+        // route there is no session, so this authority is absent by
+        // construction — not merely gated.
+        active_session.attach_world(ambition::game_shell::SessionWorldRef::new(room_set.clone()));
 
         commands.insert_resource(prepared.ldtk_index.clone());
         commands.insert_resource(world);

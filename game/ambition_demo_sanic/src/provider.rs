@@ -119,6 +119,7 @@ fn sanic_activate_session(
     mut room_set: ResMut<RoomSet>,
     mut metadata: ResMut<ActiveRoomMetadata>,
     mut starting_character: ResMut<StartingCharacter>,
+    mut active_session: ResMut<ambition::game_shell::ActiveGameplaySession>,
 ) {
     for event in events.read() {
         let GameplaySessionEvent::Activated { activation, scope } = event else {
@@ -157,6 +158,13 @@ fn sanic_activate_session(
                 asset_server: &asset_server,
             },
         );
+
+        // The session owns the reference to this world; the resident resources
+        // below are its published projection. A relaunch builds a fresh world,
+        // so `active_world_as::<RoomSet>()` differs from the prior session's.
+        active_session.attach_world(ambition::game_shell::SessionWorldRef::new(
+            world.room_set.clone(),
+        ));
 
         // Republish the session's "current world" (a relaunch must overwrite any
         // stale world left by the previous session).

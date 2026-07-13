@@ -113,12 +113,17 @@ fn assert_home(app: &mut App, context: &str) {
         "{context}: zero session-scoped entities at home"
     );
     assert_eq!(primary_players(app), 0, "{context}: zero players at home");
+    let selection = app.world().resource::<ActiveAudioSelection>();
     assert!(
-        app.world()
-            .resource::<ActiveAudioSelection>()
-            .current()
-            .is_none(),
+        selection.current().is_none(),
         "{context}: no provider owns audio playback at home"
+    );
+    assert!(
+        matches!(
+            selection.music_authority(),
+            ambition::audio::selection::MusicAuthority::Ungoverned
+        ),
+        "{context}: no session governs music authority at home"
     );
     // The simulation — its tick timeline included — sleeps at the title.
     let frozen = sim_tick(app);
@@ -209,11 +214,37 @@ fn assert_in_game(
             "{context}: the player wears the provider's character"
         );
     }
+    let selection = app.world().resource::<ActiveAudioSelection>();
     assert_eq!(
-        app.world().resource::<ActiveAudioSelection>().provider_id(),
+        selection.provider_id(),
         Some(audio_provider),
         "{context}: the provider owns audio playback"
     );
+    // Authority is the PERMISSION the music director enforces, not merely a
+    // selection label. A session that authored music governs exactly its own
+    // tracks; a music-less provider is deliberate silence (never "retain the
+    // previous provider's track").
+    let authority = selection.music_authority();
+    assert!(
+        authority.is_governed(),
+        "{context}: an active session governs music authority"
+    );
+    match selection.music() {
+        Some(music) => {
+            assert!(
+                !authority.is_deliberate_silence(),
+                "{context}: a provider with music is not silence"
+            );
+            assert!(
+                authority.allows(&music.default_track),
+                "{context}: the provider's own default track is authorized"
+            );
+        }
+        None => assert!(
+            authority.is_deliberate_silence(),
+            "{context}: a music-less provider is deliberate silence, not retain"
+        ),
+    }
     // The simulation runs while a session is live.
     let before = sim_tick(app);
     app.update();
@@ -324,13 +355,13 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
         "central_hub_complex",
         "ambition: the real LDtk entry room is the active world authority"
     );
-    assert!(
-        app.world()
-            .resource::<ActiveAudioSelection>()
-            .music()
-            .is_some(),
-        "ambition: Ambition's authored music is selected"
-    );
+    let ambition_default_track = app
+        .world()
+        .resource::<ActiveAudioSelection>()
+        .music()
+        .expect("ambition: Ambition's authored music is selected")
+        .default_track
+        .clone();
 
     app.world_mut().write_message(ShellCommand::QuitToHome);
     settle(&mut app);
@@ -347,6 +378,19 @@ fn the_full_multi_game_lifecycle_is_leak_free() {
         "sanic #2",
     );
     fresh(scope, "sanic #2");
+    // Provider-relative-authority poison (Issue 1): Ambition ran a moment ago and
+    // its default track is still resident in the process-wide combined library.
+    // A Sanic session must NOT be authorized to play it — the library is storage,
+    // the provider is permission.
+    let sanic_authority = app
+        .world()
+        .resource::<ActiveAudioSelection>()
+        .music_authority();
+    assert!(
+        !sanic_authority.allows(&ambition_default_track),
+        "sanic #2: an Ambition track present in the combined library is NOT \
+         authorized for a Sanic session"
+    );
 
     app.world_mut().write_message(ShellCommand::QuitToHome);
     settle(&mut app);

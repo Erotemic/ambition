@@ -134,6 +134,10 @@ fn assert_home(app: &mut App, context: &str) {
         ),
         "{context}: no session governs music authority at home"
     );
+    assert!(
+        !selection.sfx_authority().is_governed(),
+        "{context}: no session governs SFX authority at home (ungoverned frontend)"
+    );
     // The simulation — its tick timeline included — sleeps at the title.
     let frozen = sim_tick(app);
     for _ in 0..5 {
@@ -268,6 +272,10 @@ fn assert_in_game(
     assert!(
         authority.is_governed(),
         "{context}: an active session governs music authority"
+    );
+    assert!(
+        selection.sfx_authority().is_governed(),
+        "{context}: an active session governs SFX authority (never ungoverned in gameplay)"
     );
     match selection.music() {
         Some(music) => {

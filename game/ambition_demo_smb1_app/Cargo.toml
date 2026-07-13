@@ -12,10 +12,16 @@ path = "src/main.rs"
 
 [features]
 default = []
-# Draw the world. Adds the engine's generic presentation face (OV1) and the
-# renderer's `visible` dependency chain. Without it the shell steps the sim
-# headlessly, which is what `tests/exit_3.rs` and the `mary_o_demo` bin do.
-visible = ["ambition/visible", "ambition/basic_shell_presentation"]
+# Draw the world AND make it playable. Adds the engine's generic presentation
+# face (OV1), the renderer's `visible` chain, AND the standard host input path
+# (`input`) — a windowed demo you cannot control is not a playable demo. Without
+# it the shell steps the sim headlessly (`tests/exit_3.rs`, the `mary_o_demo`
+# bin default).
+visible = ["ambition/visible", "ambition/basic_shell_presentation", "input"]
+# The STANDARD host input path (leafwing bindings + the device->ControlFrame
+# bridge + the fixed-tick latch), the same production wiring the full app uses.
+# Folded into `visible` so the windowed binary is interactive.
+input = ["ambition/input"]
 
 [dependencies]
 # The engine, host, and vocabulary — through the ONE umbrella surface. A demo app

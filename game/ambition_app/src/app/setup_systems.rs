@@ -185,20 +185,59 @@ pub(crate) fn setup_presentation_system(
 pub(crate) fn setup_host_presentation_system(
     mut commands: Commands,
     room_set: Res<rooms::RoomSet>,
-    music_registry: Res<data::MusicRegistry>,
     sfx_registry: Res<data::SfxRegistry>,
+    audio_catalog: Res<ambition::audio::catalog::AudioCatalogRegistry>,
     catalogs: PresentationCatalogs,
+    hosted: Option<Res<super::shell_host::AmbitionShellHosted>>,
     mut audio_sources: ResMut<Assets<KiraAudioSource>>,
     asset_server: Res<AssetServer>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     asset_config: Res<GameAssetConfig>,
     quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
 ) {
+    // The host-resident music library must resolve EVERY linked provider's
+    // authored tracks — not just Ambition's — so a Sanic or Mary-O session's
+    // music plays through the same director in this shared host. Each track
+    // keeps its own `asset_path`, so the sandbox-catalog path resolver in
+    // `install_audio_library` still blesses Ambition's paths and falls back to
+    // the provider-authored path for the others. A duplicate track id across
+    // providers is a deterministic composition failure here.
+    let music_registry = audio_catalog
+        .combined_music_registry(ambition_content::AMBITION_CONTENT_PROVIDER)
+        .unwrap_or_else(|error| panic!("host audio composition failed: {error}"));
+
+    // As the multi-game host, the sandbox asset catalog built at startup
+    // (`init_sandbox_resources`) predates the Sanic/Mary-O provider
+    // registrations, so it carries only Ambition's character-sprite rows and
+    // their actors would fall back to the colored-rectangle placeholder. Rebuild
+    // it from the now-fully-merged character catalog so EVERY provider's sprites
+    // resolve through the one shared `GameAssets` path — with no per-provider
+    // host code. Direct-entry apps register only Ambition, so their frozen
+    // catalog is already complete and no rebuild happens.
+    let rebuilt_catalog = hosted.is_some().then(|| {
+        ambition::actors::assets::sandbox_assets::build_sandbox_catalog_with(
+            &asset_config,
+            &catalogs.characters,
+            &catalogs.bosses,
+            &music_registry,
+            |manifest| {
+                ambition_content::intro::sprites::extend_with_intro_sprite_entries(
+                    manifest,
+                    &asset_config.sprite_folder,
+                    &catalogs.characters,
+                );
+            },
+        )
+    });
+    let frozen_catalog: &ambition::asset_manager::sandbox_assets::SandboxAssetCatalog =
+        &catalogs.assets;
+    let asset_catalog = rebuilt_catalog.as_ref().unwrap_or(frozen_catalog);
+
     let game_assets = actor_game_assets::load_game_assets(
         &asset_config,
         &catalogs.characters,
         &catalogs.bosses,
-        &catalogs.assets,
+        asset_catalog,
         &asset_server,
         &mut atlas_layouts,
         &room_set.active_spec().metadata,
@@ -209,11 +248,16 @@ pub(crate) fn setup_host_presentation_system(
         &mut commands,
         &mut audio_sources,
         &asset_server,
-        &catalogs.assets,
+        asset_catalog,
         &music_registry,
         &sfx_registry,
     );
     commands.insert_resource(game_assets);
+    // Publish the merged superset catalog so gameplay-time sprite/asset lookups
+    // (any provider's actors) resolve against provider rows too.
+    if let Some(catalog) = rebuilt_catalog {
+        commands.insert_resource(catalog);
+    }
     // Placeholder pointers until the first session activation publishes real
     // ones; consumers use fallible `.get(...)` and no-op on the placeholder.
     commands.insert_resource(SceneEntities {
@@ -228,16 +272,43 @@ pub(crate) fn setup_host_presentation_system(
     mut commands: Commands,
     room_set: Res<rooms::RoomSet>,
     catalogs: PresentationCatalogs,
+    hosted: Option<Res<super::shell_host::AmbitionShellHosted>>,
+    audio_catalog: Res<ambition::audio::catalog::AudioCatalogRegistry>,
     asset_server: Res<AssetServer>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
     asset_config: Res<GameAssetConfig>,
     quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
 ) {
+    // Same provider-sprite composition as the audio variant: rebuild the sandbox
+    // asset catalog from the merged character catalog so host-launched Sanic and
+    // Mary-O actors resolve their sheets. The music registry only supplies
+    // catalog music-track rows here (no playback in a headless build).
+    let music_registry = audio_catalog
+        .combined_music_registry(ambition_content::AMBITION_CONTENT_PROVIDER)
+        .unwrap_or_else(|error| panic!("host asset composition failed: {error}"));
+    let rebuilt_catalog = hosted.is_some().then(|| {
+        ambition::actors::assets::sandbox_assets::build_sandbox_catalog_with(
+            &asset_config,
+            &catalogs.characters,
+            &catalogs.bosses,
+            &music_registry,
+            |manifest| {
+                ambition_content::intro::sprites::extend_with_intro_sprite_entries(
+                    manifest,
+                    &asset_config.sprite_folder,
+                    &catalogs.characters,
+                );
+            },
+        )
+    });
+    let frozen_catalog: &ambition::asset_manager::sandbox_assets::SandboxAssetCatalog =
+        &catalogs.assets;
+    let asset_catalog = rebuilt_catalog.as_ref().unwrap_or(frozen_catalog);
     let game_assets = actor_game_assets::load_game_assets(
         &asset_config,
         &catalogs.characters,
         &catalogs.bosses,
-        &catalogs.assets,
+        asset_catalog,
         &asset_server,
         &mut atlas_layouts,
         &room_set.active_spec().metadata,
@@ -245,6 +316,9 @@ pub(crate) fn setup_host_presentation_system(
     );
     scene_setup::host_presentation_scaffold(&mut commands);
     commands.insert_resource(game_assets);
+    if let Some(catalog) = rebuilt_catalog {
+        commands.insert_resource(catalog);
+    }
     commands.insert_resource(SceneEntities {
         player: Entity::PLACEHOLDER,
         hud: Entity::PLACEHOLDER,

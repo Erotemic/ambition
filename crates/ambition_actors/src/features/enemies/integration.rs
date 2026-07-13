@@ -135,8 +135,15 @@ impl<'a> ActorMut<'a> {
             {
                 // `health.reset()` IS the revive — restoring HP makes `alive()` true.
                 self.health.reset();
-                self.kin.pos = self.config.spawn.pos;
-                self.kin.vel = ae::Vec2::ZERO;
+                // Respawn is a discrete transit: arrive at rest with departure
+                // contacts and any attachment reconciled (ADR 0024 authority).
+                let spawn = self.config.spawn.pos;
+                ae::movement::transit_body(
+                    motion_model,
+                    &mut self.clusters_mut(),
+                    spawn,
+                    ae::movement::TransitVelocity::Zero,
+                );
             }
             self.status.ai_mode = ambition_characters::actor::ai::CharacterAiMode::Dead;
             return (
@@ -423,14 +430,21 @@ impl<'a> ActorMut<'a> {
         })
     }
 
-    pub fn reset_to_spawn(&mut self) {
+    pub fn reset_to_spawn(&mut self, motion_model: &mut crate::features::MotionModel) {
         // Restore the authored spatial baseline. `tuning` / `brain_spec`
         // are projected once at spawn and never mutate at runtime (no
         // entity morphs its archetype in place), so they already hold the
         // baseline — there is nothing to re-project here.
         self.kin.size = self.config.spawn.size;
-        self.kin.pos = self.config.spawn.pos;
-        self.kin.vel = ae::Vec2::ZERO;
+        // Respawn is a discrete transit (ADR 0024 authority): arrive at rest,
+        // departure contacts and any attachment reconciled.
+        let spawn = self.config.spawn.pos;
+        ae::movement::transit_body(
+            motion_model,
+            &mut self.clusters_mut(),
+            spawn,
+            ae::movement::TransitVelocity::Zero,
+        );
         // Fresh full-HP body → `alive()` is true; no separate liveness flag.
         *self.health = ambition_characters::actor::BodyHealth::new(
             ambition_characters::actor::Health::new(self.config.tuning.max_health),

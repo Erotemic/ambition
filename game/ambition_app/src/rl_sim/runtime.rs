@@ -424,15 +424,22 @@ impl SandboxSim {
         settings.gameplay.movement_frame_mode = mode;
     }
 
-    /// Teleport the player to `pos` and zero its velocity. Test setup.
+    /// Teleport the player to `pos` and zero its velocity. Test setup — still a
+    /// discrete TRANSIT (ADR 0024 authority): contacts and attachment reconcile
+    /// so a scenario cannot start with stale departure facts.
     pub fn teleport_player(&mut self, pos: (f32, f32)) {
-        let mut q = self
-            .app
-            .world_mut()
-            .query_filtered::<&mut ambition::actors::actor::BodyKinematics, ambition::actors::actor::PrimaryPlayerOnly>();
-        if let Ok(mut kin) = q.single_mut(self.app.world_mut()) {
-            kin.pos = ae::Vec2::new(pos.0, pos.1);
-            kin.vel = ae::Vec2::ZERO;
+        let mut q = self.app.world_mut().query_filtered::<(
+            ae::BodyClusterQueryData,
+            &mut ambition::actors::features::MotionModel,
+        ), ambition::actors::actor::PrimaryPlayerOnly>();
+        if let Ok((mut cluster_item, mut motion_model)) = q.single_mut(self.app.world_mut()) {
+            let mut clusters = cluster_item.as_clusters_mut();
+            ae::movement::transit_body(
+                &mut motion_model,
+                &mut clusters,
+                ae::Vec2::new(pos.0, pos.1),
+                ae::movement::TransitVelocity::Zero,
+            );
         }
     }
 

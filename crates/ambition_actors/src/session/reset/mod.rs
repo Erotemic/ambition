@@ -107,6 +107,7 @@ pub fn process_sandbox_reset_request(
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
+            &mut crate::features::MotionModel,
             &mut crate::actor::BodyAnimFacts,
             &mut ambition_characters::actor::BodyCombat,
             &mut crate::avatar::PlayerBlinkCameraState,
@@ -180,11 +181,18 @@ pub fn process_sandbox_reset_request(
     // Reset the ECS authority directly so the next player tick frame
     // starts from the spawn position. Also zero animation state so post-reset
     // frames don't continue a mid-air slash or dash-startup pose.
-    if let Ok((mut cluster_item, mut anim, mut combat, mut blink_cam, mut attack, mut safety)) =
-        player_q.single_mut()
+    if let Ok((
+        mut cluster_item,
+        mut motion_model,
+        mut anim,
+        mut combat,
+        mut blink_cam,
+        mut attack,
+        mut safety,
+    )) = player_q.single_mut()
     {
         let mut clusters = cluster_item.as_clusters_mut();
-        ae::reset_body_clusters(&mut clusters, world.0.spawn);
+        ae::reset_body_clusters(&mut motion_model, &mut clusters, world.0.spawn);
         // reset_body_clusters uses DEFAULT_TUNING for the post-reset
         // dash/jump refresh; redo with the live tuning so a F3
         // editable-tuning session sees its overridden air_jumps /

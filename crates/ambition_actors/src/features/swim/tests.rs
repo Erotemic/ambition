@@ -27,7 +27,8 @@ fn step_axis_player(
     );
     let events = result.events;
     if events.reset {
-        ae::reset_body_clusters(&mut clusters, world.spawn);
+        let mut model = ae::MotionModel::default();
+        ae::reset_body_clusters(&mut model, &mut clusters, world.spawn);
     }
     events
 }

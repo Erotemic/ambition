@@ -5,6 +5,7 @@
 
 use super::*;
 use crate::abilities::test_support::spawn_primary_player_holding;
+use crate::actor::{BodyKinematics, BodyMana};
 
 fn test_app() -> App {
     let mut app = App::new();

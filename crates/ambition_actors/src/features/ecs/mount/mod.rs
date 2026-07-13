@@ -402,9 +402,10 @@ pub fn sync_riders_to_mounts(
         // COG relative to the mount center (mount at 0, rider at `rider_offset`).
         let cog_local = mountable.rider_offset * w_rider;
         let rider_local = cog_local + frame.to_world(mountable.rider_offset - cog_local);
-        rider.kin.pos = mount_c.kin.pos + rider_local;
+        // ADR 0020 saddle pin = the external-constraint authority (ADR 0024):
+        // the mount owns the rider's pose while mounted.
+        ae::movement::constrain_body_pose(rider.kin, mount_c.kin.pos + rider_local, ae::Vec2::ZERO);
         rider.kin.facing = mount_c.kin.facing;
-        rider.kin.vel = ae::Vec2::ZERO;
         rider.surface.gravity_scale = 0.0;
         rider.ground.on_ground = false;
         // Keep the CenteredAabb mirror in sync so damage / spatial

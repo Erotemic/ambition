@@ -14,7 +14,6 @@
 
 use bevy::prelude::*;
 
-use crate::actor::BodyKinematics;
 use crate::features::HeldItem;
 use ambition_characters::brain::ActorControl;
 use ambition_engine_core::{self as ae, AabbExt};
@@ -102,12 +101,12 @@ pub fn blink_system(
     controlled: Res<ControlledSubject>,
     mut bodies: Query<(
         Entity,
-        &mut BodyKinematics,
+        ae::BodyClusterQueryData,
         &crate::physics::ResolvedMotionFrame,
         &HeldItem,
         &ActorControl,
         Option<&mut crate::ability_cooldown::AbilityCooldown>,
-        &crate::features::MotionModel,
+        &mut crate::features::MotionModel,
     )>,
     mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
@@ -119,12 +118,19 @@ pub fn blink_system(
     let Some(subject) = controlled.0 else {
         return;
     };
-    let Ok((player, mut kin, resolved_frame, held, control, mut cooldown, motion_model)) =
-        bodies.get_mut(subject)
+    let Ok((
+        player,
+        mut cluster_item,
+        resolved_frame,
+        held,
+        control,
+        mut cooldown,
+        mut motion_model,
+    )) = bodies.get_mut(subject)
     else {
         return;
     };
-    if !matches!(motion_model, crate::features::MotionModel::AxisSwept(_)) {
+    if !matches!(*motion_model, crate::features::MotionModel::AxisSwept(_)) {
         return;
     }
     let c = control.0;
@@ -140,8 +146,8 @@ pub fn blink_system(
     // re-reading of raw input.
     // The body's per-tick resolved frame (ADR 0024 frame law).
     let gravity_dir = resolved_frame.down();
-    let dir =
-        crate::items::pickup::ability_aim_world(&c, kin.facing, gravity_dir).normalize_or_zero();
+    let facing = cluster_item.kinematics.facing;
+    let dir = crate::items::pickup::ability_aim_world(&c, facing, gravity_dir).normalize_or_zero();
     if dir == ae::Vec2::ZERO {
         return;
     }
@@ -155,8 +161,9 @@ pub fn blink_system(
     ) {
         return;
     }
-    let from = kin.pos;
-    let half = kin.size * 0.5;
+    let mut clusters = cluster_item.as_clusters_mut();
+    let from = clusters.kinematics.pos;
+    let half = clusters.kinematics.size * 0.5;
     // One composited collision view (moving platforms + ECS solids included),
     // shared by the clamp raycast and the embed safety net inside `blink_target`.
     let collision = world.solids();
@@ -165,7 +172,14 @@ pub fn blink_system(
         // No collision world (tests / degenerate) — blink the full distance.
         None => from + dir * BLINK_DISTANCE,
     };
-    kin.pos = target;
+    // THE discrete-transit authority: arrive with momentum kept, departure
+    // contacts and any attachment reconciled (ADR 0024 authority model).
+    ae::movement::transit_body(
+        &mut motion_model,
+        &mut clusters,
+        target,
+        ae::movement::TransitVelocity::Keep,
+    );
     // Class-B transit authority (`collision-and-ccd.md` §3.2): a traversal
     // ability that JUMPS a body is a scripted teleport, ranked weakest — dying
     // mid-blink is a death, not a blink.

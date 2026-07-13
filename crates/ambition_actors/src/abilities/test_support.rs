@@ -27,17 +27,21 @@ pub(crate) fn spawn_primary_player_holding(app: &mut App, held_item_id: &str) ->
                 size: ae::Vec2::new(24.0, 40.0),
                 facing: 1.0,
             },
-            BodyBaseSize {
-                base_size: ae::Vec2::new(24.0, 40.0),
-            },
             PlayerInputFrame::default(),
             ActorControl::default(),
             ActionSet::default(),
             HeldItem::new(spec),
-            BodyMana::default(),
-            // Ability systems read the per-tick resolved frame (ADR 0024); the
-            // default is the screen-down basis these headless tests assume.
-            crate::physics::ResolvedMotionFrame::default(),
+            crate::features::MotionModel::default(),
+            // Ability systems read the per-tick resolved frame (ADR 0024) and
+            // the FULL movement clusters (the transit authority reconciles
+            // contacts/attachment through `BodyClusterQueryData`) — both live
+            // inside `AncillaryMovementBundle`, like production spawns.
+            crate::actor::AncillaryMovementBundle::from_scratch(
+                ae::BodyClusterScratch::new_with_abilities(
+                    ae::Vec2::new(100.0, 100.0),
+                    ae::AbilitySet::default(),
+                ),
+            ),
         ))
         .id();
     // Ability systems now key on the controlled subject, not a `PrimaryPlayer`
@@ -69,16 +73,18 @@ pub(crate) fn spawn_primary_player_holding_at(
                 size: ae::Vec2::new(24.0, 40.0),
                 facing,
             },
-            BodyBaseSize {
-                base_size: ae::Vec2::new(24.0, 40.0),
-            },
             PlayerInputFrame::default(),
             ActorControl::default(),
             ActionSet::default(),
             HeldItem::new(spec),
             crate::features::MotionModel::default(),
-            // Ability systems read the per-tick resolved frame (ADR 0024).
-            crate::physics::ResolvedMotionFrame::default(),
+            // Ability systems read the per-tick resolved frame (ADR 0024) and
+            // the FULL movement clusters (the transit authority reconciles
+            // contacts/attachment through `BodyClusterQueryData`) — both live
+            // inside `AncillaryMovementBundle`, like production spawns.
+            crate::actor::AncillaryMovementBundle::from_scratch(
+                ae::BodyClusterScratch::new_with_abilities(pos, ae::AbilitySet::default()),
+            ),
         ))
         .id();
     app.insert_resource(ControlledSubject(Some(entity)));

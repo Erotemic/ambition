@@ -423,7 +423,8 @@ pub fn run_flag_sequence(
     let Some(next) = step_flag_sequence(&mut sequence, &pole, kin.pos, time.scaled_dt) else {
         return;
     };
-    kin.pos = next;
-    kin.vel = ae::Vec2::ZERO;
+    // The scripted end-of-level slide is an external kinematic constraint
+    // (ADR 0024 authority): the sequence owns the pose while it plays.
+    ae::movement::constrain_body_pose(&mut kin, next, ae::Vec2::ZERO);
     control.0 = ambition::characters::actor::control::ActorControlFrame::default();
 }

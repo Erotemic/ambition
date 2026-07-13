@@ -125,7 +125,10 @@ pub fn update_vortex_wells(
                 continue;
             }
             if kin.pos.distance(well.center) <= VORTEX_RADIUS {
-                kin.pos = kin.pos.lerp(well.center, factor);
+                // The well is an external kinematic constraint (ADR 0024 authority):
+                // it carries the body toward the center by this tick's pull delta.
+                let delta = kin.pos.lerp(well.center, factor) - kin.pos;
+                ae::movement::carry_body(&mut kin, delta);
             }
         }
         well.remaining_s -= dt;

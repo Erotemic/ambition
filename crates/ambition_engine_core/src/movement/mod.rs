@@ -22,6 +22,7 @@ use crate::MotionFrame;
 
 mod abilities;
 mod adhesive_crawler;
+mod authority;
 mod blink;
 pub(crate) mod collision;
 mod control;
@@ -43,6 +44,9 @@ pub use abilities::resolve_shield;
 pub use blink::{blink_destination_clusters, blink_destination_to_point_clusters};
 // The ONE hazard-touch rule, exported so external observers apply the SAME
 // predicate the kernel applies — never a duplicated near-copy.
+pub use authority::{
+    carry_body, constrain_body_pose, reconcile_transit, transit_body, TransitVelocity,
+};
 pub use collision::touching_hazard_aabb;
 pub use events::{BlinkEvent, FrameEvents};
 pub use input::InputState;
@@ -61,7 +65,7 @@ pub use integration::set_jump_velocity;
 /// clusters; enemies/NPCs feed it [`NormalSpineCtx::bare`] + per-actor tuning, so
 /// every actor falls + runs through the SAME core (the non-player-centric seam).
 pub use integration::{integrate_normal_spine, NormalSpineCtx};
-pub use kernel::{step_motion, MotionStepContext, MotionStepResult};
+pub use kernel::{step_motion, MotionStepContext, MotionStepResult, SupportFact};
 pub use model::{
     switch_motion_model, AxisSweptMotion, MotionModel, MotionModelKind, MotionModelSpec,
     SurfaceMomentumMotion,

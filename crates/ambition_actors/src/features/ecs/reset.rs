@@ -28,6 +28,7 @@ pub fn reset_ecs_room_features(
             &mut ActorCooldowns,
             &mut ActorAggression,
             Option<&ActorInteraction>,
+            &mut crate::features::MotionModel,
             super::actor_clusters::ActorClusterQueryData,
         ),
         // Bosses are reset by the disjoint `bosses` query below. Both this
@@ -42,8 +43,10 @@ pub fn reset_ecs_room_features(
     mut switches: Query<&mut SwitchOn, With<SwitchFeature>>,
     mut bosses: Query<
         (
-            super::boss_clusters::BossClusterQueryData,
-            &mut ambition_characters::actor::BodyHealth,
+            super::actor_clusters::ActorClusterQueryData,
+            &mut super::boss_clusters::BossConfig,
+            &mut super::boss_clusters::BossEncounter,
+            &mut crate::features::MotionModel,
             &mut ambition_characters::actor::BodyCombat,
             &mut ambition_characters::brain::Brain,
             &mut ambition_characters::brain::BossAttackState,
@@ -104,6 +107,7 @@ pub fn reset_ecs_room_features(
         mut cooldowns,
         mut aggression,
         interaction,
+        mut motion_model,
         mut cq,
     ) in &mut actors
     {
@@ -112,7 +116,7 @@ pub fn reset_ecs_room_features(
         // BurningFlyingShark) return as their fused archetype, non-morphing
         // enemies to a clean baseline, and peaceful NPCs to their spawn pose.
         let mut em = cq.as_actor_mut();
-        em.reset_to_spawn();
+        em.reset_to_spawn(&mut motion_model);
         aabb.center = em.kin.pos;
         aabb.half_size = em.kin.size * 0.5;
         // Restore the SPAWN disposition (it is derived from targeting at runtime, so
@@ -142,8 +146,10 @@ pub fn reset_ecs_room_features(
         );
     }
     for (
-        mut feature,
-        mut health,
+        mut cq,
+        config,
+        mut status,
+        mut motion_model,
         mut combat,
         mut brain,
         mut attack_state,
@@ -151,13 +157,28 @@ pub fn reset_ecs_room_features(
         mut anim_frame,
     ) in &mut bosses
     {
-        // Full revive (pos / facing / health / hit_flash + clear the entity-local
-        // encounter so it re-seeds fresh next frame). One definition on `BossMut`
-        // so a new `BossEncounter` field can't desync this from the seed/save-skip
-        // paths. (Why clearing `encounter` is load-bearing: see the helper docs.)
-        feature
-            .as_boss_mut()
-            .reset_to_spawn(&mut health, &mut combat);
+        // Full revive: the pose snap is a discrete TRANSIT (ADR 0024 authority
+        // model) — arrive at rest with departure contacts and any attachment
+        // reconciled — plus liveness/HP restore and clearing the entity-local
+        // encounter so it re-seeds fresh next frame (keeping last attempt's
+        // `Death` phase would re-kill the boss the instant it revives; pinned
+        // by `boss_revives_after_a_room_reset`).
+        {
+            let mut em = cq.as_actor_mut();
+            let spawn = config.spawn;
+            ae::movement::transit_body(
+                &mut motion_model,
+                &mut em.clusters_mut(),
+                spawn,
+                ae::movement::TransitVelocity::Zero,
+            );
+            em.kin.facing = 1.0;
+            em.health.reset();
+        }
+        combat.reset();
+        combat.alive = true;
+        status.encounter = None;
+        status.encounter_phase = crate::boss_encounter::BossEncounterPhase::Dormant;
         // Brain-owned state: zero the per-actor `BossPatternState`
         // (cursor / clocks / cycle phase / last_phase) and the
         // `BossAttackState` mirror (live telegraph + active profile

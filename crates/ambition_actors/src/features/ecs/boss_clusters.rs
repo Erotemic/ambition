@@ -187,32 +187,10 @@ impl<'a> BossMut<'a> {
         self.config.behavior = behavior;
     }
 
-    /// Full same-room revive of a boss: restore the authored spawn pose +
-    /// liveness + HP and CLEAR the entity-local encounter so
-    /// `update_boss_encounters` re-seeds fresh phase state (Dormant → wake) the
-    /// next frame. The single definition of "revive a boss" — the room-reset
-    /// loop routes through it (the actor mirror of `ActorMut::reset_to_spawn`),
-    /// so adding a [`BossEncounter`] field can't desync the revive from the
-    /// seed/save-skip paths.
-    ///
-    /// Clearing `encounter` is load-bearing: keep last attempt's `Death` phase
-    /// and the death-resolution re-kills the boss the instant it "respawns" (the
-    /// in-place replay regression, pinned by `boss_revives_after_a_room_reset`).
-    /// The brain / attack-state / control are separate components the room-reset
-    /// loop clears alongside this.
-    pub fn reset_to_spawn(
-        &mut self,
-        health: &mut ambition_characters::actor::BodyHealth,
-        combat: &mut ambition_characters::actor::BodyCombat,
-    ) {
-        self.kin.pos = self.config.spawn;
-        self.kin.facing = 1.0;
-        health.reset();
-        combat.reset();
-        combat.alive = true;
-        self.status.encounter = None;
-        self.status.encounter_phase = BossEncounterPhase::Dormant;
-    }
+    // `reset_to_spawn` moved to the room-reset system (its only caller): the
+    // boss respawn is a discrete TRANSIT (ADR 0024 authority) and needs the
+    // boss's unified actor-cluster view + MotionModel, which this narrow
+    // boss-cluster view deliberately does not carry.
 
     // Boss body integration lives on the SHARED movement seam now (archetype swap
     // AS4c): `integrate_boss_bodies` → `ActorMut::update` → the flight limb in

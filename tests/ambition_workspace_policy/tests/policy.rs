@@ -619,3 +619,39 @@ fn movement_kernel_guards_react() {
         );
     }
 }
+
+/// The pose-write authority guard reacts to every bare-write shape it bans
+/// (a green guardrail proves nothing until poisoned).
+#[test]
+fn pose_write_guard_reacts() {
+    let p = poison(
+        r#"
+        id = "poison.pose-writes"
+        scope = "engine"
+        kind = "forbidden-source-reference"
+        rationale = "poison"
+        production_only = true
+        roots = ["tests/ambition_workspace_policy/fixtures/poison/pose_writes"]
+        forbid = [
+            "kin.pos = ", "kin.pos += ", "kin.pos -= ",
+            "kinematics.pos = ", "kinematics.pos += ", "kinematics.pos -= ",
+            "kin.pos.x = ", "kin.pos.y = ",
+        ]
+    "#,
+    );
+    let report = run_one(&p);
+    for needle in [
+        "kin.pos = ",
+        "kinematics.pos += ",
+        "kinematics.pos -= ",
+        "kin.pos.y = ",
+    ] {
+        assert!(
+            report
+                .diagnostics()
+                .iter()
+                .any(|d| d.detail.contains(needle)),
+            "pose-write guard dropped `{needle}`"
+        );
+    }
+}

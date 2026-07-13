@@ -62,6 +62,7 @@ pub fn apply_player_reset_input_system(
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
+            &mut ambition::actors::features::MotionModel,
             &mut ambition::actors::actor::BodyAnimFacts,
             &mut ambition::characters::actor::BodyCombat,
             &mut ambition::actors::avatar::PlayerBlinkCameraState,
@@ -77,8 +78,15 @@ pub fn apply_player_reset_input_system(
     if !control_frame.reset_pressed {
         return;
     }
-    let Ok((mut cluster_item, mut anim, mut combat, mut blink_cam, mut attack, mut safety)) =
-        player_q.single_mut()
+    let Ok((
+        mut cluster_item,
+        mut motion_model,
+        mut anim,
+        mut combat,
+        mut blink_cam,
+        mut attack,
+        mut safety,
+    )) = player_q.single_mut()
     else {
         return;
     };
@@ -92,6 +100,7 @@ pub fn apply_player_reset_input_system(
         &world.0,
         &mut sfx_writer,
         &mut vfx_writer,
+        &mut motion_model,
         &mut clusters,
         &mut sim_state,
         &mut clock_resets,
@@ -136,6 +145,7 @@ pub fn apply_room_replay_request_system(
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
+            &mut ambition::actors::features::MotionModel,
             &mut ambition::actors::actor::BodyAnimFacts,
             &mut ambition::characters::actor::BodyCombat,
             &mut ambition::actors::avatar::PlayerBlinkCameraState,
@@ -161,8 +171,15 @@ pub fn apply_room_replay_request_system(
         &cut_rope_placements,
     );
 
-    let Ok((mut cluster_item, mut anim, mut combat, mut blink_cam, mut attack, mut safety)) =
-        player_q.single_mut()
+    let Ok((
+        mut cluster_item,
+        mut motion_model,
+        mut anim,
+        mut combat,
+        mut blink_cam,
+        mut attack,
+        mut safety,
+    )) = player_q.single_mut()
     else {
         reset_room_features.write(ResetRoomFeaturesEvent {
             reason: RoomResetReason::Manual,
@@ -175,6 +192,7 @@ pub fn apply_room_replay_request_system(
         &world.0,
         &mut sfx_writer,
         &mut vfx_writer,
+        &mut motion_model,
         &mut clusters,
         &mut sim_state,
         &mut clock_resets,

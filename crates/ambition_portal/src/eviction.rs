@@ -99,15 +99,18 @@ fn evict_for_plane(
         // centroid's side.
         let d = pp::front_distance(kin.pos, &plane.frame);
         let half_n = (kin.size * 0.5).dot(n.abs());
+        // Jon's ONE pushout exception, expressed as the external-constraint
+        // authority (ADR 0024): the closing portal carries the straddling body
+        // clear of the plane.
         if d >= 0.0 {
             let push = half_n - d + EVICT_MARGIN;
             if push > 0.0 {
-                kin.pos += n * push;
+                ambition_engine_core::movement::carry_body(&mut kin, n * push);
             }
         } else {
             let push = half_n + d + EVICT_MARGIN;
             if push > 0.0 {
-                kin.pos -= n * push;
+                ambition_engine_core::movement::carry_body(&mut kin, -n * push);
             }
         }
     }

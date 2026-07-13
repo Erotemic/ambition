@@ -59,6 +59,7 @@ pub struct RoomLoadResult {
 pub fn load_room_geometry(
     commands: &mut Commands,
     sfx: &mut MessageWriter<SfxMessage>,
+    motion_model: &mut ae::MotionModel,
     clusters: &mut ae::BodyClustersMut<'_>,
     dev_state: &mut SandboxDevState,
     sim_state: &mut SandboxSimState,
@@ -103,7 +104,7 @@ pub fn load_room_geometry(
     // velocity so side-to-side room changes feel continuous. Door transitions
     // intentionally zero velocity because they are discrete interactions.
     let arrival = validated_spawn(&world.0, transition.arrival, player_size);
-    ae::reset_body_clusters(clusters, arrival);
+    ae::reset_body_clusters(motion_model, clusters, arrival);
     ae::refresh_movement_resources_clusters(
         clusters.abilities,
         &mut *clusters.dash,

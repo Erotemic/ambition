@@ -32,7 +32,6 @@ use ambition_characters::brain::{ActorControl, Brain, PlayerSlot};
 
 use ambition_platformer_primitives::markers::ControlledSubject;
 
-use crate::actor::BodyKinematics;
 use crate::actor::PlayerEntity;
 use crate::features::{CenteredAabb, FeatureSimEntity};
 
@@ -162,7 +161,14 @@ pub fn possession_trigger_system(
     // SLOT-0 BY DESIGN: the HOME AVATAR is a real concept — the body slot 0 owns and
     // returns to on release. It is precisely the body that is NOT the controlled
     // subject while possession is active, so it cannot be found any other way.
-    mut home_q: Query<(Entity, &mut BodyKinematics), crate::actor::PrimaryPlayerOnly>,
+    mut home_q: Query<
+        (
+            Entity,
+            ambition_engine_core::BodyClusterQueryData,
+            &mut crate::features::MotionModel,
+        ),
+        crate::actor::PrimaryPlayerOnly,
+    >,
     // Possession candidates: any brain-driven feature body — INCLUDING bosses.
     // Bosses are valid controllable bodies (their tick consumes `Brain::Player`),
     // so there is no `Without<BossConfig>` barrier here. Restricting WHICH boss is
@@ -189,7 +195,7 @@ pub fn possession_trigger_system(
     // gesture — while possessing, that is the possessed body's frame.
     let gravity_dir = crate::control::controlled_frame_down(
         controlled.as_deref(),
-        home_q.single().map(|(entity, _)| entity).ok(),
+        home_q.single().map(|(entity, _, _)| entity).ok(),
         &frames,
     );
     let movement_mode = user_settings.as_deref().map_or(
@@ -225,10 +231,10 @@ pub fn possession_trigger_system(
     }
     *hold_timer = 0.0;
 
-    let Ok((home_entity, home_kin)) = home_q.single() else {
+    let Ok((home_entity, home_clusters, _)) = home_q.single() else {
         return;
     };
-    let home_pos = home_kin.pos;
+    let home_pos = home_clusters.kinematics.pos;
     let nearest = candidates
         .iter()
         .map(|(entity, aabb)| (entity, (aabb.center - home_pos).length()))
@@ -269,7 +275,14 @@ fn release_possession(
     target: Entity,
     actor_aabbs: &Query<&CenteredAabb>,
     // SLOT-0 BY DESIGN: the home avatar (see `possession_trigger_system`).
-    home_q: &mut Query<(Entity, &mut BodyKinematics), crate::actor::PrimaryPlayerOnly>,
+    home_q: &mut Query<
+        (
+            Entity,
+            ambition_engine_core::BodyClusterQueryData,
+            &mut crate::features::MotionModel,
+        ),
+        crate::actor::PrimaryPlayerOnly,
+    >,
 ) {
     state.possessed = None;
 
@@ -287,9 +300,18 @@ fn release_possession(
             ec.insert(Brain::Player(PlayerSlot::PRIMARY))
                 .insert(ActorControl::default());
         }
-        if let (Ok(aabb), Ok((_, mut kin))) = (actor_aabbs.get(target), home_q.get_mut(home)) {
-            kin.pos = aabb.center;
-            kin.vel = ambition_engine_core::Vec2::ZERO;
+        if let (Ok(aabb), Ok((_, mut cluster_item, mut motion_model))) =
+            (actor_aabbs.get(target), home_q.get_mut(home))
+        {
+            // THE discrete-transit authority: the vacate-exit is a scripted
+            // teleport arriving at rest (ADR 0024 authority model).
+            let mut clusters = cluster_item.as_clusters_mut();
+            ambition_engine_core::movement::transit_body(
+                &mut motion_model,
+                &mut clusters,
+                aabb.center,
+                ambition_engine_core::movement::TransitVelocity::Zero,
+            );
         }
     }
 }

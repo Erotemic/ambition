@@ -29,7 +29,8 @@ use super::transit_adapter::{
 };
 use super::transit_body_adapter::{
     apply_portal_carried_momentum, ensure_portal_bodies, ensure_projectile_portal_bodies,
-    portal_player_input_adapter, sync_portal_reorient_from_settings,
+    portal_player_input_adapter, reconcile_kernel_bodies_after_portal_transit,
+    sync_portal_reorient_from_settings,
 };
 use ambition_platformer_primitives::schedule::SimScheduleExt;
 
@@ -294,6 +295,16 @@ impl Plugin for AmbitionPortalAdaptersPlugin {
         // (BodyTeleported + PortalEmission + PortalInputWarp) from the core's
         // `PortalBodyTransited` event, AFTER transit, so they exist the same
         // frame the controller runs — exactly as the old inline insertion did.
+        // Kernel-body transit reconciliation (ADR 0024 authority model): the
+        // core wrote the pose; this completes the transit for cluster-bearing
+        // bodies (contacts/attachment/motion-record), same frame, post-transit.
+        app.add_systems(
+            sim,
+            reconcile_kernel_bodies_after_portal_transit
+                .run_if(gameplay_allowed)
+                .in_set(PortalSet::Transit)
+                .after(portal_transit),
+        );
         app.add_systems(
             sim,
             portal_player_input_adapter

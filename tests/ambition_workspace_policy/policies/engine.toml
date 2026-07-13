@@ -2329,3 +2329,45 @@ skip_tests = true
 skip_paths = ["features/ecs/actor_tuning.rs", "features/enemies/mod.rs"]
 roots = ["crates/ambition_actors/src"]
 forbid = ["tuning.surface_walker", ".config.tuning.surface_walker"]
+
+# ADR 0024 authority model: every production write to authoritative body pose
+# belongs to a NAMED authority — the movement kernel (continuous integration),
+# `transit_body` (discrete teleports), `carry_body`/`constrain_body_pose`
+# (external kinematic constraints), or a domain integrator (projectiles, free
+# items, the portal core's aperture transit). A bare `kin.pos = …` anywhere
+# else is an authority leak: it moves a body without reconciling contacts,
+# attachment, model-private state, or the §3.1 motion record.
+[[policy]]
+id = "engine.pose-writes-are-authority-only"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_engine_core", "ambition_actors"]
+watch_paths = ["crates", "game"]
+rationale = "ADR 0024 authority model: body pose writes go through the kernel, transit_body, carry_body/constrain_body_pose, or a sanctioned domain integrator — never a bare field write."
+source_doc = "docs/adr/0024-frame-aware-unified-movement-kernel.md"
+severity = "error"
+production_only = true
+skip_tests = true
+roots = ["crates", "game"]
+forbid = [
+    "kin.pos = ", "kin.pos += ", "kin.pos -= ",
+    "kinematics.pos = ", "kinematics.pos += ", "kinematics.pos -= ",
+    "kin.pos.x = ", "kin.pos.y = ", "kinematics.pos.x = ", "kinematics.pos.y = ",
+]
+skip_paths = [
+    # The authorities themselves + kernel-internal solvers.
+    "ambition_engine_core/src/movement/",
+    "ambition_engine_core/src/ledge_grab/",
+    # Engine body-shape ops (feet-planted resize recenters).
+    "ambition_engine_core/src/player_state.rs",
+    # Sanctioned domain integrators: generic kinematic bodies, projectile
+    # physics, free thrown items, and the portal core's aperture transit
+    # (whose kernel-body reconciliation is completed by the content adapter).
+    "ambition_platformer_primitives/src/kinematic.rs",
+    "ambition_platformer_primitives/src/projectile/",
+    "ambition_projectiles/src/",
+    "ambition_portal/src/transit.rs",
+    "ambition_actors/src/items/pickup/",
+    # Dev tooling body-profile resize (feet-planted recenter).
+    "ambition_dev_tools/src/dev_tools/editable.rs",
+]

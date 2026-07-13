@@ -189,6 +189,34 @@ pub fn apply_portal_carried_momentum(
     }
 }
 
+/// Complete the kernel-body half of the portal-transit authority (ADR 0024).
+///
+/// The portal core moves ANY `BodyKinematics` — including cluster-less
+/// projectiles — so it cannot reconcile kernel body state itself. For every
+/// transited body that IS a kernel body (full movement clusters + an explicit
+/// `MotionModel`), run the shared transit reconciliation: departure contacts
+/// invalidated, wall cling and ledge grab released, a riding momentum body
+/// arrives Airborne, an attached crawler arrives detached, and the §3.1 motion
+/// record collapses to the arrival point. Runs `.after(portal_transit)` in the
+/// same set so the reconciled state is what the next movement tick sees.
+pub fn reconcile_kernel_bodies_after_portal_transit(
+    mut transited: MessageReader<PortalBodyTransited>,
+    mut bodies: Query<(
+        ambition_engine_core::BodyClusterQueryData,
+        &mut ambition_actors::features::MotionModel,
+    )>,
+) {
+    for ev in transited.read() {
+        let Ok((mut cluster_item, mut motion_model)) = bodies.get_mut(ev.body) else {
+            // A cluster-less transiting body (a projectile) has nothing to
+            // reconcile.
+            continue;
+        };
+        let mut clusters = cluster_item.as_clusters_mut();
+        ambition_engine_core::movement::reconcile_transit(&mut motion_model, &mut clusters);
+    }
+}
+
 /// Apply player-only input/trace side effects after generic portal transit.
 /// Reads [`PortalBodyTransited`] events and, for the primary-player entity only:
 ///

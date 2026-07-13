@@ -167,7 +167,9 @@ pub fn integrate_home_body(
                     clusters.ledge.knock_off_on_hit();
                 }
                 LedgePlatformCarry::Carry => {
-                    clusters.kinematics.pos += platform_delta;
+                    // Parent-frame carry (ADR 0024 external-constraint
+                    // authority): the platform moves the grabbed body.
+                    ae::movement::carry_body(clusters.kinematics, platform_delta);
                     if let Some(grab) = clusters.ledge.grab.as_mut() {
                         grab.contact.anchor += platform_delta;
                         grab.contact.climb_target += platform_delta;
@@ -194,7 +196,7 @@ pub fn integrate_home_body(
 
     // Respawn is home-body policy. The pure kernel only reports the reset event.
     if result.events.reset {
-        ae::reset_body_clusters(clusters, world.spawn);
+        ae::reset_body_clusters(motion_model, clusters, world.spawn);
     }
 
     *frame_out = PlayerBodyFrameOutput {

@@ -4,6 +4,7 @@
 //! `use super::*;`.
 
 use super::*;
+use crate::actor::BodyKinematics;
 
 /// The shared teleport rule (used by both the player blink and any actor
 /// body): full distance over open space, clamped a body-half short of a wall,
@@ -203,8 +204,15 @@ fn blink_executes_on_the_controlled_actor_not_the_home_avatar() {
             },
             crate::features::MotionModel::default(),
             HeldItem::new(home_spec),
-            // Every body carries the per-tick resolved frame (ADR 0024).
-            crate::physics::ResolvedMotionFrame::default(),
+            // Every body carries the per-tick resolved frame + full clusters
+            // (ADR 0024; the transit authority reconciles through them) — the
+            // ancillary bundle carries both.
+            crate::actor::AncillaryMovementBundle::from_scratch(
+                ae::BodyClusterScratch::new_with_abilities(
+                    ae::Vec2::new(100.0, 100.0),
+                    ae::AbilitySet::default(),
+                ),
+            ),
             {
                 let mut c = ActorControl::default();
                 c.0.melee_pressed = true; // even pressing attack, it must not blink
@@ -226,8 +234,12 @@ fn blink_executes_on_the_controlled_actor_not_the_home_avatar() {
             },
             crate::features::MotionModel::default(),
             HeldItem::new(actor_spec),
-            // Every body carries the per-tick resolved frame (ADR 0024).
-            crate::physics::ResolvedMotionFrame::default(),
+            crate::actor::AncillaryMovementBundle::from_scratch(
+                ae::BodyClusterScratch::new_with_abilities(
+                    ae::Vec2::new(500.0, 500.0),
+                    ae::AbilitySet::default(),
+                ),
+            ),
             {
                 let mut c = ActorControl::default();
                 c.0.melee_pressed = true;

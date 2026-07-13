@@ -669,8 +669,10 @@ pub(crate) fn integrate_actor_body(
                 em.surface.surface_normal,
                 neighbor,
             ) {
+                // Steering is controller intent: flip the crawl direction. The
+                // kernel owns velocity (the attached crawl rewrites it each
+                // tick from the new facing).
                 em.kin.facing = -em.kin.facing;
-                em.kin.vel = ae::Vec2::ZERO;
             }
         }
     }

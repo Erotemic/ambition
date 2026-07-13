@@ -46,6 +46,7 @@ pub(crate) fn apply_home_reset_policy(
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
+            &mut ambition::actors::features::MotionModel,
             &mut ambition::actors::actor::BodyAnimFacts,
             &mut ambition::characters::actor::BodyCombat,
             &mut ambition::actors::avatar::PlayerBlinkCameraState,
@@ -62,6 +63,7 @@ pub(crate) fn apply_home_reset_policy(
 ) {
     let Ok((
         mut cluster_item,
+        mut motion_model,
         mut anim,
         mut combat,
         mut blink_cam,
@@ -81,6 +83,7 @@ pub(crate) fn apply_home_reset_policy(
         &world.0,
         &mut event_writers.sfx,
         &mut event_writers.vfx,
+        &mut motion_model,
         &mut clusters,
         &mut room_clock.sim_state,
         &mut room_clock.clock_resets,

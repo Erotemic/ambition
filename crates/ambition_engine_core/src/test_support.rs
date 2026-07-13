@@ -93,7 +93,7 @@ pub(crate) fn update_player_with_tuning_clusters(
         },
     );
     if result.events.reset {
-        reset_body_clusters(clusters, world.spawn);
+        reset_body_clusters(&mut model, clusters, world.spawn);
     }
     result.events
 }
@@ -146,7 +146,8 @@ pub(crate) fn update_player_control_with_tuning_scratch(
         tuning.params(),
     );
     if events.reset {
-        reset_body_clusters(&mut clusters, world.spawn);
+        let mut model = MotionModel::axis_swept(tuning.params());
+        reset_body_clusters(&mut model, &mut clusters, world.spawn);
     }
     events
 }
@@ -189,7 +190,8 @@ pub(crate) fn update_player_simulation_with_clusters(
         tuning.params(),
     );
     if events.reset {
-        reset_body_clusters(clusters, world.spawn);
+        let mut model = MotionModel::axis_swept(tuning.params());
+        reset_body_clusters(&mut model, clusters, world.spawn);
     }
     events
 }

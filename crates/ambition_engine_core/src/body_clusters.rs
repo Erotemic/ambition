@@ -423,7 +423,16 @@ impl BodyShieldState {
 /// Reset a live player back to spawn while preserving the
 /// `BodyAbilities` and incrementing the lifetime reset counter. The
 /// combo trace is wiped and a fresh `MovementOp::Reset` mark is pushed.
-pub fn reset_body_clusters(clusters: &mut BodyClustersMut<'_>, spawn: Vec2) {
+///
+/// The pose snap is a discrete TRANSIT ([`crate::movement::transit_body`], the
+/// ADR 0024 authority): it also reconciles model-private attachment, so a
+/// riding momentum body or an attached crawler cannot carry a stale surface
+/// identity into the destination room/spawn.
+pub fn reset_body_clusters(
+    model: &mut crate::movement::MotionModel,
+    clusters: &mut BodyClustersMut<'_>,
+    spawn: Vec2,
+) {
     use crate::movement::{default_player_body_size, ComboMark, MovementOp, DEFAULT_TUNING};
 
     let new_resets = clusters.lifetime.resets + 1;
@@ -432,23 +441,14 @@ pub fn reset_body_clusters(clusters: &mut BodyClustersMut<'_>, spawn: Vec2) {
     let dash_charges = abilities.dash_charge_count();
     let air_jumps = abilities.air_jump_count(DEFAULT_TUNING.air_jumps);
 
-    *clusters.kinematics = BodyKinematics {
-        pos: spawn,
-        vel: Vec2::ZERO,
-        size: body,
-        facing: 1.0,
-    };
-    // Zero-length record at the spawn point: a respawn is a teleport, never
-    // path (the next sim tick overwrites this; keeping it honest costs one
-    // write).
-    if let Some(sweep) = clusters.sweep.as_deref_mut() {
-        *sweep = SweepSample {
-            prev: spawn,
-            curr: spawn,
-            vel: Vec2::ZERO,
-            half: body * 0.5,
-        };
-    }
+    clusters.kinematics.size = body;
+    clusters.kinematics.facing = 1.0;
+    crate::movement::transit_body(
+        model,
+        clusters,
+        spawn,
+        crate::movement::TransitVelocity::Zero,
+    );
     *clusters.base_size = BodyBaseSize { base_size: body };
     *clusters.ground = BodyGroundState::default();
     *clusters.wall = BodyWallState::default();

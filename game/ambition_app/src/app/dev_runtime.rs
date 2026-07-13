@@ -97,6 +97,7 @@ pub(super) fn handle_ldtk_hot_reload(
     mut player_q: Query<
         (
             ae::BodyClusterQueryData,
+            &mut ambition::actors::features::MotionModel,
             &mut ambition::characters::actor::BodyCombat,
             &mut ambition::actors::avatar::PlayerSafetyState,
         ),
@@ -137,7 +138,8 @@ pub(super) fn handle_ldtk_hot_reload(
         ldtk_reload.pending = false;
         return;
     };
-    if let Ok((mut cluster_item, mut combat, mut safety)) = player_q.single_mut() {
+    if let Ok((mut cluster_item, mut motion_model, mut combat, mut safety)) = player_q.single_mut()
+    {
         let Some(session_scope) = commands.spawn_scope() else {
             return;
         };
@@ -146,6 +148,7 @@ pub(super) fn handle_ldtk_hot_reload(
             &mut commands,
             &mut world,
             &mut room_set,
+            &mut motion_model,
             &mut clusters,
             &mut dev_state,
             &mut sim_state,
@@ -241,6 +244,7 @@ pub(super) fn reload_ldtk_world_from_disk(
     commands: &mut Commands,
     world: &mut RoomGeometry,
     room_set: &mut rooms::RoomSet,
+    motion_model: &mut ae::MotionModel,
     clusters: &mut ae::BodyClustersMut<'_>,
     dev_state: &mut SandboxDevState,
     sim_state: &mut ambition::actors::SandboxSimState,
@@ -284,7 +288,15 @@ pub(super) fn reload_ldtk_world_from_disk(
     *room_set = transaction.next_room_set;
     world.0 = transaction.next_spec.world.clone();
 
-    clusters.kinematics.pos = transaction.safe_player_pos;
+    // The repaired placement is a discrete TRANSIT (ADR 0024 authority):
+    // momentum kept for a same-spot reload, contacts/attachment reconciled
+    // against the replaced geometry.
+    ae::movement::transit_body(
+        motion_model,
+        clusters,
+        transaction.safe_player_pos,
+        ae::movement::TransitVelocity::Keep,
+    );
     ae::refresh_movement_resources_clusters(
         clusters.abilities,
         &mut *clusters.dash,

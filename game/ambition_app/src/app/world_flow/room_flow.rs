@@ -26,6 +26,7 @@ pub(crate) fn reset_sandbox(
     world: &ae::World,
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
+    motion_model: &mut ae::MotionModel,
     clusters: &mut ae::BodyClustersMut<'_>,
     sim_state: &mut ambition::actors::SandboxSimState,
     clock_resets: &mut MessageWriter<ClockResetRequest>,
@@ -39,7 +40,7 @@ pub(crate) fn reset_sandbox(
     feel: SandboxFeelTuning,
 ) {
     let reset_from = clusters.kinematics.pos;
-    ae::reset_body_clusters(clusters, world.spawn);
+    ae::reset_body_clusters(motion_model, clusters, world.spawn);
     ae::refresh_movement_resources_clusters(
         clusters.abilities,
         &mut *clusters.dash,
@@ -114,6 +115,7 @@ pub(crate) fn load_room(
     commands: &mut Commands,
     sfx: &mut MessageWriter<SfxMessage>,
     vfx: &mut MessageWriter<VfxMessage>,
+    motion_model: &mut ae::MotionModel,
     clusters: &mut ae::BodyClustersMut<'_>,
     dev_state: &mut ambition::dev_tools::SandboxDevState,
     sim_state: &mut ambition::actors::SandboxSimState,
@@ -148,6 +150,7 @@ pub(crate) fn load_room(
     } = rooms::load_room_geometry(
         commands,
         sfx,
+        motion_model,
         clusters,
         dev_state,
         sim_state,
@@ -255,6 +258,9 @@ pub fn ensure_requested_room_parallax_system(
 pub(crate) struct TransitBodies<'w, 's> {
     controlled: Option<Res<'w, ambition::platformer::markers::ControlledSubject>>,
     clusters: Query<'w, 's, ae::BodyClusterQueryData>,
+    /// The transiting body's movement policy — a room transition is a discrete
+    /// TRANSIT (ADR 0024 authority) and must reconcile model-private attachment.
+    motion_models: Query<'w, 's, &'static mut ambition::actors::features::MotionModel>,
     combat: Query<'w, 's, &'static mut ambition::characters::actor::BodyCombat>,
     presentation: Query<
         'w,
@@ -311,6 +317,9 @@ pub(crate) fn apply_room_transition_system(
         else {
             continue;
         };
+        let Ok(mut motion_model) = transit.motion_models.get_mut(subject) else {
+            continue;
+        };
         let Ok(mut cluster_item) = transit.clusters.get_mut(subject) else {
             continue;
         };
@@ -358,6 +367,7 @@ pub(crate) fn apply_room_transition_system(
             &mut commands,
             &mut event_writers.sfx,
             &mut event_writers.vfx,
+            &mut motion_model,
             &mut clusters,
             &mut dev_state,
             &mut room_clock.sim_state,

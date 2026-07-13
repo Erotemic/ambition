@@ -5,6 +5,7 @@
 
 use super::*;
 use crate::actor::BodyBaseSize;
+use crate::actor::BodyKinematics;
 use crate::actor::PrimaryPlayer;
 use crate::features::ActorFaction;
 use ambition_characters::brain::{PlayerSlot, StateMachineCfg};
@@ -42,9 +43,15 @@ fn spawn_home(app: &mut App) -> Entity {
                 size: vec2(24.0, 40.0),
                 facing: 1.0,
             },
-            BodyBaseSize {
-                base_size: vec2(24.0, 40.0),
-            },
+            // The vacate-exit is a discrete transit through the home body's
+            // full clusters + policy (ADR 0024 authority) — spawn the real set.
+            crate::features::MotionModel::default(),
+            crate::actor::AncillaryMovementBundle::from_scratch(
+                ambition_engine_core::BodyClusterScratch::new_with_abilities(
+                    vec2(0.0, 0.0),
+                    ambition_engine_core::AbilitySet::default(),
+                ),
+            ),
         ))
         .id()
 }

@@ -23,8 +23,6 @@
 
 use bevy::prelude::*;
 
-use crate::actor::BodyKinematics;
-use crate::actor::BodyMana;
 use crate::features::HeldItem;
 use ambition_characters::brain::ActorControl;
 use ambition_engine_core::{self as ae, AabbExt};
@@ -92,10 +90,10 @@ pub fn fire_dive_system(
     mut players: Query<(
         Entity,
         &ActorControl,
-        &mut BodyKinematics,
+        ae::BodyClusterQueryData,
+        &mut crate::features::MotionModel,
         &crate::physics::ResolvedMotionFrame,
         &HeldItem,
-        &mut BodyMana,
     )>,
     mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
     mut hits: MessageWriter<crate::features::HitEvent>,
@@ -106,10 +104,12 @@ pub fn fire_dive_system(
     let Some(subject) = controlled.0 else {
         return;
     };
-    let Ok((player, control, mut kin, resolved_frame, held, mut mana)) = players.get_mut(subject)
+    let Ok((player, control, mut cluster_item, mut motion_model, resolved_frame, held)) =
+        players.get_mut(subject)
     else {
         return;
     };
+    let mut clusters = cluster_item.as_clusters_mut();
     let c = control.0;
     if !c.melee_pressed || c.shield_held {
         return;
@@ -117,20 +117,21 @@ pub fn fire_dive_system(
     if held.spec.id != DIVE_ID {
         return;
     }
-    if !mana.meter.try_spend(DIVE_MANA_COST) {
+    if !clusters.mana.meter.try_spend(DIVE_MANA_COST) {
         return;
     }
     // The body's per-tick resolved frame (ADR 0024 frame law).
     let frame = resolved_frame.basis();
-    let local_aim = crate::items::pickup::ability_aim_local(&c, kin.facing);
-    let local_dir = dive_dir(local_aim, kin.facing).normalize_or_zero();
+    let facing = clusters.kinematics.facing;
+    let local_aim = crate::items::pickup::ability_aim_local(&c, facing);
+    let local_dir = dive_dir(local_aim, facing).normalize_or_zero();
     let dir = frame.to_world(local_dir).normalize_or_zero();
-    let from = kin.pos;
+    let from = clusters.kinematics.pos;
     // Stop a body-half short of the wall so the lunge never embeds. The pull-back
     // must use the body's extent IN THE LUNGE DIRECTION -- half-height for a
     // vertical dive, not half-width -- the same direction-aware clamp the blink
     // uses (or a down/diagonal dive embeds in the floor and trips the OOB detector).
-    let half = kin.size * 0.5;
+    let half = clusters.kinematics.size * 0.5;
     let margin = (half.x * dir.x.abs() + half.y * dir.y.abs()) + 2.0;
     // One composited collision view, shared by the clamp raycast and the embed
     // safety net, so the lunge is stopped by moving platforms / ECS solids too.
@@ -161,7 +162,14 @@ pub fn fire_dive_system(
             target = from;
         }
     }
-    kin.pos = target;
+    // THE discrete-transit authority: arrive with momentum kept, departure
+    // contacts and any attachment reconciled (ADR 0024 authority model).
+    ae::movement::transit_body(
+        &mut motion_model,
+        &mut clusters,
+        target,
+        ae::movement::TransitVelocity::Keep,
+    );
     // Class-B transit authority (`collision-and-ccd.md` §3.2): a traversal
     // ability that JUMPS a body is a scripted teleport, ranked weakest — dying
     // mid-dive is a death, not a dive.
@@ -169,7 +177,7 @@ pub fn fire_dive_system(
         log.record(player, ClassBRemap::ScriptedTeleport);
     }
     if local_dir.x.abs() > 0.001 {
-        kin.facing = local_dir.x.signum();
+        clusters.kinematics.facing = local_dir.x.signum();
     }
     // The dash corridor cuts everything between start and landing — a one-shot
     // PlayerSlash volume (spares the player, shoves enemies along the dash).

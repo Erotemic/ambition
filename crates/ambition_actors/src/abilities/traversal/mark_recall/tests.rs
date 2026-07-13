@@ -4,6 +4,7 @@
 //! `use super::*;`.
 
 use super::*;
+use crate::actor::BodyKinematics;
 
 fn test_app() -> App {
     let mut app = App::new();

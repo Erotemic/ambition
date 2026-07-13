@@ -24,7 +24,6 @@
 
 use bevy::prelude::*;
 
-use crate::actor::BodyKinematics;
 use crate::features::HeldItem;
 use ambition_characters::brain::ActorControl;
 use ambition_engine_core as ae;
@@ -60,7 +59,8 @@ pub fn mark_recall_system(
     mut players: Query<(
         Entity,
         &ActorControl,
-        &mut BodyKinematics,
+        ae::BodyClusterQueryData,
+        &mut crate::features::MotionModel,
         &HeldItem,
         Option<&mut PlayerMark>,
     )>,
@@ -74,9 +74,12 @@ pub fn mark_recall_system(
     let Some(subject) = controlled.0 else {
         return;
     };
-    let Ok((player, control, mut kin, held, mut mark)) = players.get_mut(subject) else {
+    let Ok((player, control, mut cluster_item, mut motion_model, held, mut mark)) =
+        players.get_mut(subject)
+    else {
         return;
     };
+    let mut clusters = cluster_item.as_clusters_mut();
     let c = control.0;
     if held.spec.id != MARK_RECALL_ID {
         return;
@@ -85,7 +88,7 @@ pub fn mark_recall_system(
     // Plain Attack drops / moves the mark. Shield+Attack is the generic "throw
     // the item away", so a marked frame must not be a shielded one.
     if c.melee_pressed && !c.shield_held {
-        let pos = kin.pos;
+        let pos = clusters.kinematics.pos;
         match mark.as_deref_mut() {
             Some(existing) => existing.pos = Some(pos),
             None => {
@@ -109,7 +112,14 @@ pub fn mark_recall_system(
     // Blink recalls to the mark, if one is set.
     if c.blink_pressed {
         if let Some(target) = mark.and_then(|m| m.pos) {
-            kin.pos = target;
+            // THE discrete-transit authority: momentum kept, departure contacts
+            // and any attachment reconciled (ADR 0024 authority model).
+            ae::movement::transit_body(
+                &mut motion_model,
+                &mut clusters,
+                target,
+                ae::movement::TransitVelocity::Keep,
+            );
             // Class-B transit authority (`collision-and-ccd.md` §3.2): the
             // recall JUMPS the body, so it is a scripted teleport.
             if let Some(log) = class_b.as_mut() {

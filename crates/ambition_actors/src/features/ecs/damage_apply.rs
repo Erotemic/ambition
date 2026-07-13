@@ -213,9 +213,10 @@ pub(crate) fn death_respawn_player(
     cause: crate::DeathCause,
     anim: &mut BodyAnimFacts,
     combat: &mut BodyCombat,
+    motion_model: &mut ae::MotionModel,
 ) {
     let to = world.spawn;
-    ae::reset_body_clusters(clusters, world.spawn);
+    ae::reset_body_clusters(motion_model, clusters, world.spawn);
     ae::refresh_movement_resources_clusters(
         clusters.abilities,
         &mut *clusters.dash,
@@ -275,6 +276,7 @@ pub(crate) fn handle_player_damage_events(
     di_input_local: ae::Vec2,
     anim: &mut BodyAnimFacts,
     combat: &mut BodyCombat,
+    motion_model: &mut ae::MotionModel,
 ) -> bool {
     let Some(damage) = damage_events.first().cloned() else {
         return false;
@@ -360,6 +362,7 @@ pub(crate) fn handle_player_damage_events(
                 cause,
                 anim,
                 combat,
+                motion_model,
             );
             true
         }
@@ -375,6 +378,7 @@ pub(crate) fn handle_player_damage_events(
                     tuning,
                     feel,
                     impact_pos,
+                    motion_model,
                 );
                 true
             }
@@ -410,9 +414,10 @@ pub(crate) fn safe_respawn_player(
     tuning: ae::MovementTuning,
     feel: SandboxFeelTuning,
     from: ae::Vec2,
+    motion_model: &mut ae::MotionModel,
 ) {
     let to = safety.last_safe_pos;
-    ae::reset_body_clusters(clusters, to);
+    ae::reset_body_clusters(motion_model, clusters, to);
     ae::refresh_movement_resources_clusters(
         clusters.abilities,
         &mut *clusters.dash,
@@ -642,6 +647,9 @@ pub fn apply_player_hit_events(
             // The victim's per-tick resolved frame (shield side + knockback
             // launch are frame-relative facts of the VICTIM's body).
             &crate::physics::ResolvedMotionFrame,
+            // The body's movement policy: a death/safe respawn is a discrete
+            // TRANSIT and must reconcile model-private attachment.
+            &mut crate::features::MotionModel,
         ),
         // SLOT-0 BY DESIGN: this is the PLAYER-VICTIM path — hitstop, the death
         // banner, the safe-position rewind. Actor-vs-actor damage runs through
@@ -720,6 +728,7 @@ pub fn apply_player_hit_events(
         mut safety,
         control,
         resolved_frame,
+        mut motion_model,
     ) in &mut player_q
     {
         let target_events: Vec<FeatureHitEvent> = resolved
@@ -756,6 +765,7 @@ pub fn apply_player_hit_events(
             di_input_local,
             &mut anim,
             &mut combat,
+            &mut motion_model,
         );
         // Class-B transit authority (`collision-and-ccd.md` §3.2). Death and the
         // hazard safe-respawn both teleport the victim; recorded here because

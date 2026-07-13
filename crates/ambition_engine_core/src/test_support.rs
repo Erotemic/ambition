@@ -7,11 +7,18 @@
 //! explicit frame direction the ENVIRONMENT would resolve in production — the
 //! direction is test-fixture state here precisely because it may no longer
 //! live inside any tuning/parameter type.
+//!
+//! Model-private maneuver state (ADR 0024) lives inside the scratch body's
+//! persistent [`MotionModel`] (`BodyClusterScratch::model`), NOT in a
+//! per-call temporary: every helper refreshes the axis params from the
+//! fixture tuning via the production same-variant `apply_spec` path, so
+//! multi-tick tests keep coyote windows, buffers, dash timers, and ledge
+//! grabs across steps exactly as a live entity would.
 
 use crate::body_clusters::{reset_body_clusters, BodyClusterScratch, BodyClustersMut};
 use crate::movement::{
-    step_motion, AxisSweptParams, FrameEvents, InputState, MotionModel, MotionStepContext,
-    MovementTuning, DEFAULT_GRAVITY_DIR, DEFAULT_TUNING,
+    step_motion, AxisSweptParams, FrameEvents, InputState, MotionModel, MotionModelSpec,
+    MotionStepContext, MovementTuning, DEFAULT_GRAVITY_DIR, DEFAULT_TUNING,
 };
 use crate::{LedgeContact, LedgeGrabState, MotionFrame, Vec2, World};
 
@@ -71,18 +78,34 @@ impl TestTuning {
     }
 }
 
+/// Refresh the persistent model's axis params from the fixture tuning through
+/// the production same-variant path (state preserved by construction), and
+/// panic-borrow the axis variant for the phase-level helpers.
+fn refresh_axis<'m>(
+    model: &'m mut MotionModel,
+    tuning: &TestTuning,
+) -> &'m mut crate::movement::AxisSweptMotion {
+    model.apply_spec(MotionModelSpec::AxisSwept(tuning.params()));
+    match model {
+        MotionModel::AxisSwept(axis) => axis,
+        _ => unreachable!("apply_spec(AxisSwept) always installs the axis variant"),
+    }
+}
+
 /// Whole-tick axis-swept step through [`step_motion`] + the home respawn
-/// policy (a flagged reset teleports to `world.spawn`).
+/// policy (a flagged reset teleports to `world.spawn`). `model` is the body's
+/// persistent policy — private maneuver state carries across calls.
 pub(crate) fn update_player_with_tuning_clusters(
     world: &World,
+    model: &mut MotionModel,
     clusters: &mut BodyClustersMut<'_>,
     input: InputState,
     raw_dt: f32,
     tuning: TestTuning,
 ) -> FrameEvents {
-    let mut model = MotionModel::axis_swept(tuning.params());
+    let _ = refresh_axis(model, &tuning);
     let result = step_motion(
-        &mut model,
+        model,
         clusters,
         MotionStepContext {
             world,
@@ -93,7 +116,7 @@ pub(crate) fn update_player_with_tuning_clusters(
         },
     );
     if result.events.reset {
-        reset_body_clusters(&mut model, clusters, world.spawn);
+        reset_body_clusters(model, clusters, world.spawn);
     }
     result.events
 }
@@ -105,8 +128,8 @@ pub(crate) fn update_player_with_tuning_scratch(
     raw_dt: f32,
     tuning: TestTuning,
 ) -> FrameEvents {
-    let mut clusters = scratch.as_mut();
-    update_player_with_tuning_clusters(world, &mut clusters, input, raw_dt, tuning)
+    let (model, mut clusters) = scratch.parts();
+    update_player_with_tuning_clusters(world, model, &mut clusters, input, raw_dt, tuning)
 }
 
 pub(crate) fn update_player_scratch(
@@ -120,11 +143,12 @@ pub(crate) fn update_player_scratch(
 
 pub(crate) fn update_player_clusters(
     world: &World,
+    model: &mut MotionModel,
     clusters: &mut BodyClustersMut<'_>,
     input: InputState,
     raw_dt: f32,
 ) -> FrameEvents {
-    update_player_with_tuning_clusters(world, clusters, input, raw_dt, TEST_TUNING)
+    update_player_with_tuning_clusters(world, model, clusters, input, raw_dt, TEST_TUNING)
 }
 
 /// Control PHASE only (kernel-private phase vocabulary) + the home respawn
@@ -136,18 +160,19 @@ pub(crate) fn update_player_control_with_tuning_scratch(
     control_dt: f32,
     tuning: TestTuning,
 ) -> FrameEvents {
-    let mut clusters = scratch.as_mut();
+    let (model, mut clusters) = scratch.parts();
+    let axis = refresh_axis(model, &tuning);
     let events = crate::movement::update_body_control_in_frame(
         world,
         &mut clusters,
+        &mut axis.state,
         input,
         control_dt,
         tuning.frame(),
         tuning.params(),
     );
     if events.reset {
-        let mut model = MotionModel::axis_swept(tuning.params());
-        reset_body_clusters(&mut model, &mut clusters, world.spawn);
+        reset_body_clusters(model, &mut clusters, world.spawn);
     }
     events
 }
@@ -170,28 +195,30 @@ pub(crate) fn update_player_simulation_with_tuning_scratch(
     raw_dt: f32,
     tuning: TestTuning,
 ) -> FrameEvents {
-    let mut clusters = scratch.as_mut();
-    update_player_simulation_with_clusters(world, &mut clusters, input, raw_dt, tuning)
+    let (model, mut clusters) = scratch.parts();
+    update_player_simulation_with_clusters(world, model, &mut clusters, input, raw_dt, tuning)
 }
 
 pub(crate) fn update_player_simulation_with_clusters(
     world: &World,
+    model: &mut MotionModel,
     clusters: &mut BodyClustersMut<'_>,
     input: InputState,
     raw_dt: f32,
     tuning: TestTuning,
 ) -> FrameEvents {
+    let axis = refresh_axis(model, &tuning);
     let events = crate::movement::update_body_simulation_in_frame(
         world,
         clusters,
+        &mut axis.state,
         input,
         raw_dt,
         tuning.frame(),
         tuning.params(),
     );
     if events.reset {
-        let mut model = MotionModel::axis_swept(tuning.params());
-        reset_body_clusters(&mut model, clusters, world.spawn);
+        reset_body_clusters(model, clusters, world.spawn);
     }
     events
 }
@@ -213,9 +240,11 @@ pub(crate) fn tick_active_ledge_grab_scratch(
     tuning: TestTuning,
     events: &mut FrameEvents,
 ) -> bool {
-    let mut clusters = scratch.as_mut();
+    let (model, mut clusters) = scratch.parts();
+    let axis = refresh_axis(model, &tuning);
     crate::ledge_grab::tick_active_ledge_grab_clusters_in_frame(
         &mut clusters,
+        &mut axis.state,
         input,
         dt,
         tuning.frame(),
@@ -231,10 +260,12 @@ pub(crate) fn try_start_ledge_grab_scratch(
     input: InputState,
     events: &mut FrameEvents,
 ) -> bool {
-    let mut clusters = scratch.as_mut();
+    let (model, mut clusters) = scratch.parts();
+    let axis = refresh_axis(model, &TEST_TUNING);
     crate::ledge_grab::try_start_ledge_grab_clusters_in_frame(
         world,
         &mut clusters,
+        &mut axis.state,
         input,
         TEST_TUNING.frame(),
         events,

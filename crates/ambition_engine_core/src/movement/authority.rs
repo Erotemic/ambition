@@ -77,11 +77,15 @@ pub fn reconcile_transit(model: &mut MotionModel, clusters: &mut BodyClustersMut
     clusters.ground.on_ground = false;
     clusters.wall.on_wall = false;
     clusters.wall.wall_normal_x = 0.0;
-    clusters.wall.wall_clinging = false;
-    clusters.wall.wall_climbing = false;
-    clusters.ledge.grab = None;
     match model {
-        MotionModel::AxisSwept(_) => {}
+        MotionModel::AxisSwept(axis) => {
+            // Wall engagement and the ledge anchor were facts of the departure
+            // point; axis maneuver TIME facts (coyote, buffers, dash timers)
+            // are deliberately kept.
+            axis.state.wall_clinging = false;
+            axis.state.wall_climbing = false;
+            axis.state.ledge_grab = None;
+        }
         MotionModel::SurfaceMomentum(momentum) => {
             momentum.state = super::surface_momentum::SurfaceMotion::Airborne;
         }
@@ -133,7 +137,6 @@ mod tests {
             BodyClusterScratch::new_with_abilities(Vec2::new(100.0, 100.0), AbilitySet::default());
         scratch.ground.on_ground = true;
         scratch.wall.on_wall = true;
-        scratch.wall.wall_clinging = true;
         scratch.kinematics.vel = Vec2::new(300.0, -50.0);
         // A riding momentum body teleports: it must arrive Airborne with its
         // ride identity gone, but its velocity kept (a blink keeps momentum).
@@ -155,11 +158,36 @@ mod tests {
         assert_eq!(clusters.kinematics.pos, Vec2::new(900.0, 40.0));
         assert_eq!(clusters.kinematics.vel, Vec2::new(300.0, -50.0));
         assert!(!clusters.ground.on_ground, "support was a departure fact");
-        assert!(!clusters.wall.on_wall && !clusters.wall.wall_clinging);
+        assert!(!clusters.wall.on_wall);
         let MotionModel::SurfaceMomentum(momentum) = &model else {
             panic!("transit never changes the policy");
         };
         assert_eq!(momentum.state, SurfaceMotion::Airborne);
+
+        // An axis body: wall engagement + ledge anchor are place facts and
+        // clear; maneuver TIME facts (coyote window) survive the transit.
+        let mut axis_model = MotionModel::axis_swept(crate::AxisSweptParams::default());
+        if let MotionModel::AxisSwept(axis) = &mut axis_model {
+            axis.state.wall_clinging = true;
+            axis.state.ledge_grab = Some(crate::LedgeGrabState::hanging(crate::LedgeContact {
+                wall_normal_x: 1.0,
+                anchor: Vec2::new(100.0, 100.0),
+                climb_target: Vec2::new(90.0, 80.0),
+            }));
+            axis.state.coyote_timer = 0.07;
+        }
+        transit_body(
+            &mut axis_model,
+            &mut clusters,
+            Vec2::new(500.0, 40.0),
+            TransitVelocity::Keep,
+        );
+        let MotionModel::AxisSwept(axis) = &axis_model else {
+            panic!("transit never changes the policy");
+        };
+        assert!(!axis.state.wall_clinging && !axis.state.wall_climbing);
+        assert!(axis.state.ledge_grab.is_none(), "the anchor was positional");
+        assert_eq!(axis.state.coyote_timer, 0.07, "time facts are kept");
 
         // The crawler variant arrives detached.
         let mut crawler = MotionModel::AdhesiveCrawler(crate::movement::AdhesiveCrawlerMotion {

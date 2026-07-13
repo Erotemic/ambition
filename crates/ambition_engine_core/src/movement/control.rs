@@ -10,15 +10,15 @@ use crate::MotionFrame;
 /// when the cooldown has cleared, enter precision-aim after the hold
 /// threshold (precision_blink ability required), update the aim
 /// offset from stick input, and complete the blink on release.
+/// The hold/aim lifecycle is axis-policy maneuver state (`state.blink_*`);
+/// only the recharge cooldown lives on the shared blink cluster.
 #[allow(clippy::too_many_arguments)]
 pub fn handle_blink_clusters(
     world: &World,
     kinematics: &mut crate::body_clusters::BodyKinematics,
     abilities: &crate::body_clusters::BodyAbilities,
-    flight: &mut crate::body_clusters::BodyFlightState,
-    wall: &mut crate::body_clusters::BodyWallState,
-    dash: &mut crate::body_clusters::BodyDashState,
     blink: &mut crate::body_clusters::BodyBlinkState,
+    state: &mut crate::movement::AxisManeuverState,
     combo_trace: &mut crate::body_clusters::BodyComboTrace,
     input: InputState,
     dt: f32,
@@ -32,57 +32,59 @@ pub fn handle_blink_clusters(
     let facing_aim_offset = frame.side() * (tuning.abilities.blink_distance * kinematics.facing);
 
     if !abilities.abilities.blink {
-        blink.hold_active = false;
-        blink.aiming = false;
-        blink.hold_timer = 0.0;
-        blink.aim_offset = facing_aim_offset;
+        state.blink_hold_active = false;
+        state.blink_aiming = false;
+        state.blink_hold_timer = 0.0;
+        state.blink_aim_offset = facing_aim_offset;
         return;
     }
 
-    if (input.blink_pressed || (input.blink_held && !blink.hold_active)) && blink.cooldown <= 0.0 {
-        blink.hold_active = true;
-        blink.hold_timer = 0.0;
-        blink.aiming = false;
-        blink.aim_offset = facing_aim_offset;
+    if (input.blink_pressed || (input.blink_held && !state.blink_hold_active))
+        && blink.cooldown <= 0.0
+    {
+        state.blink_hold_active = true;
+        state.blink_hold_timer = 0.0;
+        state.blink_aiming = false;
+        state.blink_aim_offset = facing_aim_offset;
     }
 
-    if blink.hold_active && input.blink_held {
+    if state.blink_hold_active && input.blink_held {
         let control_dt = dt.min(1.0 / 20.0);
-        blink.hold_timer += control_dt;
+        state.blink_hold_timer += control_dt;
         if abilities.abilities.precision_blink
-            && blink.hold_timer >= tuning.abilities.blink_hold_threshold
+            && state.blink_hold_timer >= tuning.abilities.blink_hold_threshold
         {
-            blink.aiming = true;
+            state.blink_aiming = true;
         }
-        if blink.aiming {
+        if state.blink_aiming {
             // Precision steer in WORLD space, already resolved through the AIM
             // frame mode at the seam (screen-directed by default), so the cursor
             // moves the way the stick points ON SCREEN at any gravity.
             let aim_input = input.blink_aim_step.vec();
             if aim_input.length_squared() > 0.01 {
-                blink.aim_offset +=
+                state.blink_aim_offset +=
                     aim_input * (tuning.abilities.precision_blink_aim_speed * control_dt);
-                blink.aim_offset = blink
-                    .aim_offset
+                state.blink_aim_offset = state
+                    .blink_aim_offset
                     .clamp_length_max(tuning.abilities.precision_blink_distance);
             }
         }
     }
 
-    if blink.hold_active && input.blink_released {
+    if state.blink_hold_active && input.blink_released {
         // Quick blink direction in WORLD space, resolved through the MOVEMENT
         // frame mode at the seam (locomotion-framed). Zero stick → forward
         // along facing, which lives on the body's local side axis.
         let fallback = frame.side() * kinematics.facing;
         let aim = input.blink_quick_dir.normalize_or(fallback);
-        let precision = blink.aiming && abilities.abilities.precision_blink;
+        let precision = state.blink_aiming && abilities.abilities.precision_blink;
         let from = kinematics.pos;
         let to = if precision {
             super::blink::blink_destination_to_point_clusters(
                 world,
                 kinematics,
                 abilities,
-                kinematics.pos + blink.aim_offset,
+                kinematics.pos + state.blink_aim_offset,
             )
         } else {
             super::blink::blink_destination_clusters(
@@ -95,10 +97,8 @@ pub fn handle_blink_clusters(
         };
         super::blink::complete_blink_clusters(
             kinematics,
-            flight,
-            wall,
-            dash,
             blink,
+            state,
             combo_trace,
             from,
             to,
@@ -109,11 +109,11 @@ pub fn handle_blink_clusters(
         );
     }
 
-    if blink.hold_active && !input.blink_held && !input.blink_released {
-        blink.hold_active = false;
-        blink.aiming = false;
-        blink.hold_timer = 0.0;
-        blink.aim_offset = facing_aim_offset;
+    if state.blink_hold_active && !input.blink_held && !input.blink_released {
+        state.blink_hold_active = false;
+        state.blink_aiming = false;
+        state.blink_hold_timer = 0.0;
+        state.blink_aim_offset = facing_aim_offset;
     }
 }
 

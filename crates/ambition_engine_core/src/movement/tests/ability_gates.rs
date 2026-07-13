@@ -17,7 +17,7 @@ fn double_jump_ability_controls_air_jump() {
     abilities.double_jump = false;
     let mut scratch = scratch_with(abilities, world.spawn);
     scratch.ground.on_ground = false;
-    scratch.ground.coyote_timer = 0.0;
+    scratch.axis_mut().coyote_timer = 0.0;
     scratch.jump.air_jumps_available = 0;
     let events = step_scratch(
         &world,
@@ -32,7 +32,7 @@ fn double_jump_ability_controls_air_jump() {
     abilities.double_jump = true;
     let mut scratch = scratch_with(abilities, world.spawn);
     scratch.ground.on_ground = false;
-    scratch.ground.coyote_timer = 0.0;
+    scratch.axis_mut().coyote_timer = 0.0;
     scratch.jump.air_jumps_available = 1;
     let events = step_scratch(
         &world,

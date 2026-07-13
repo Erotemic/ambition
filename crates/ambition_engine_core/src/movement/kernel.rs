@@ -100,12 +100,7 @@ pub fn step_motion(
     match model {
         MotionModel::AxisSwept(axis) => {
             let events = super::update_body_with_frame_clusters(
-                ctx.world,
-                clusters,
-                ctx.input,
-                ctx.frame,
-                ctx.dt,
-                axis.params,
+                ctx.world, axis, clusters, ctx.input, ctx.frame, ctx.dt,
             );
             MotionStepResult::from_events(events, ctx.frame)
         }

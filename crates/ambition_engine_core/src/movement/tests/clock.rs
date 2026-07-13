@@ -17,7 +17,7 @@ fn tiny_dt_preserves_bullet_time_scale() {
     let world = test_world();
     let mut scratch = scratch_at(world.spawn);
     scratch.ground.on_ground = false;
-    scratch.ground.coyote_timer = 0.0;
+    scratch.axis_mut().coyote_timer = 0.0;
     scratch.kinematics.vel = Vec2::ZERO;
     let _ = update_player_with_tuning_scratch(
         &world,
@@ -30,7 +30,7 @@ fn tiny_dt_preserves_bullet_time_scale() {
 
     let mut slow = scratch_at(world.spawn);
     slow.ground.on_ground = false;
-    slow.ground.coyote_timer = 0.0;
+    slow.axis_mut().coyote_timer = 0.0;
     slow.kinematics.vel = Vec2::ZERO;
     let _ = update_player_with_tuning_scratch(
         &world,
@@ -52,7 +52,7 @@ fn control_clock_can_aim_blink_while_sim_clock_is_nearly_frozen() {
     let world = test_world();
     let mut scratch = scratch_at(world.spawn);
     scratch.ground.on_ground = false;
-    scratch.ground.coyote_timer = 0.0;
+    scratch.axis_mut().coyote_timer = 0.0;
     scratch.kinematics.vel = Vec2::ZERO;
 
     // Real-time control crosses the precision-blink threshold.
@@ -71,7 +71,7 @@ fn control_clock_can_aim_blink_while_sim_clock_is_nearly_frozen() {
         );
     }
     assert!(
-        scratch.blink.aiming,
+        scratch.axis().blink_aiming,
         "control time should enter precision aim quickly"
     );
 
@@ -101,9 +101,14 @@ fn update_player_clusters_runs_one_frame() {
     scratch.ground.on_ground = false;
     scratch.kinematics.vel = Vec2::ZERO;
     {
-        let mut clusters = scratch.as_mut();
-        let _events =
-            update_player_clusters(&world, &mut clusters, InputState::default(), 1.0 / 60.0);
+        let (model, mut clusters) = scratch.parts();
+        let _events = update_player_clusters(
+            &world,
+            model,
+            &mut clusters,
+            InputState::default(),
+            1.0 / 60.0,
+        );
     }
     // Idle frame should still produce gravity-driven downward velocity.
     assert!(

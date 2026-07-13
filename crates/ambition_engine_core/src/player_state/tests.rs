@@ -13,7 +13,7 @@ fn scratch_at(pos: Vec2) -> crate::BodyClusterScratch {
 }
 
 fn locomotion(s: &crate::BodyClusterScratch) -> LocomotionState {
-    LocomotionState::from_clusters(&s.ground, &s.wall, &s.flight, &s.dash, &s.blink, &s.ledge)
+    LocomotionState::from_body(&s.model, &s.ground, &s.wall, &s.flight)
 }
 
 #[test]
@@ -33,14 +33,14 @@ fn locomotion_airborne_when_off_ground() {
 fn locomotion_dashing_overrides_other_states() {
     let mut s = scratch_at(Vec2::new(0.0, 0.0));
     s.ground.on_ground = true;
-    s.dash.timer = 0.10;
+    s.axis_mut().dash_timer = 0.10;
     assert_eq!(locomotion(&s), LocomotionState::Dashing);
 }
 
 #[test]
 fn locomotion_blink_aiming_recognized() {
     let mut s = scratch_at(Vec2::new(0.0, 0.0));
-    s.blink.aiming = true;
+    s.axis_mut().blink_aiming = true;
     assert_eq!(locomotion(&s), LocomotionState::BlinkAiming);
 }
 
@@ -422,39 +422,45 @@ fn morphball_fits_one_grid_cell_tunnel() {
     }
 }
 
-/// Parity check: the cluster-native `LocomotionState::from_clusters`
-/// reproduces `from_player` exactly on default cluster state. Pins
-/// the priority-order contract so future edits to one variant
-/// trip a CI test if they diverge.
+/// Priority-order contract for the body-native `LocomotionState::from_body`:
+/// grounded at rest, the axis policy's private dash maneuver overrides it,
+/// and a non-axis policy projects to grounded/airborne from the shared
+/// support fact (it owns no axis maneuver verbs).
 #[test]
-fn locomotion_from_clusters_matches_from_player_at_rest() {
-    use crate::body_clusters::{
-        BodyBlinkState, BodyDashState, BodyFlightState, BodyGroundState, BodyLedgeState,
-        BodyWallState,
-    };
-    let ground = BodyGroundState {
-        on_ground: true,
-        ..Default::default()
-    };
+fn locomotion_from_body_priority_order_and_non_axis_projection() {
+    use crate::body_clusters::{BodyFlightState, BodyGroundState, BodyWallState};
+    use crate::movement::{AxisSweptParams, MomentumParams, MotionModel};
+    let ground = BodyGroundState { on_ground: true };
     let wall = BodyWallState::default();
     let flight = BodyFlightState::default();
-    let dash = BodyDashState::default();
-    let blink = BodyBlinkState::default();
-    let ledge = BodyLedgeState::default();
+    let model = MotionModel::axis_swept(AxisSweptParams::default());
     assert_eq!(
-        LocomotionState::from_clusters(&ground, &wall, &flight, &dash, &blink, &ledge),
+        LocomotionState::from_body(&model, &ground, &wall, &flight),
         LocomotionState::Grounded
     );
 
     let ground = BodyGroundState::default();
-    let dash = BodyDashState {
-        timer: 0.1,
-        ..Default::default()
+    let mut model = MotionModel::axis_swept(AxisSweptParams::default());
+    let MotionModel::AxisSwept(axis) = &mut model else {
+        unreachable!();
     };
+    axis.state.dash_timer = 0.1;
     assert_eq!(
-        LocomotionState::from_clusters(&ground, &wall, &flight, &dash, &blink, &ledge),
+        LocomotionState::from_body(&model, &ground, &wall, &flight),
         LocomotionState::Dashing,
-        "dash timer overrides ground state"
+        "the model-private dash timer overrides ground state"
+    );
+
+    let momentum = MotionModel::surface_momentum(MomentumParams::default());
+    assert_eq!(
+        LocomotionState::from_body(&momentum, &ground, &wall, &flight),
+        LocomotionState::Airborne,
+        "non-axis policies project grounded/airborne from the support fact"
+    );
+    let ground = BodyGroundState { on_ground: true };
+    assert_eq!(
+        LocomotionState::from_body(&momentum, &ground, &wall, &flight),
+        LocomotionState::Grounded
     );
 }
 

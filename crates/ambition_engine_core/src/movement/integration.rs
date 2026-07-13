@@ -59,6 +59,7 @@ pub(super) fn wants_drop_through(descend: f32, jump_pressed: bool) -> bool {
 use super::dec;
 use super::events::FrameEvents;
 use super::input::InputState;
+use super::model::AxisManeuverState;
 use super::ops::MovementOp;
 use super::tuning::AxisSweptParams;
 use crate::MotionFrame;
@@ -67,10 +68,12 @@ use crate::MotionFrame;
 /// between dash / climb / flight / normal physics, run the per-mode
 /// integration, sweep the kinematics through X then Y collisions,
 /// apply wall abilities + rebound + end-of-frame `pre_wall_vel`
-/// bookkeeping. Reads and writes every relevant cluster directly.
+/// bookkeeping. Reads and writes the shared clusters plus the axis
+/// policy's model-private maneuver `state`.
 pub(super) fn integrate_velocity_clusters(
     world: &World,
     clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
+    state: &mut AxisManeuverState,
     input: InputState,
     dt: f32,
     frame: MotionFrame,
@@ -85,14 +88,13 @@ pub(super) fn integrate_velocity_clusters(
         clusters.jump.ladder_jump_boost = 0.0;
     }
 
-    if clusters.dash.timer > 0.0 {
-        clusters.dash.timer = dec(clusters.dash.timer, dt);
+    if state.dash_timer > 0.0 {
+        state.dash_timer = dec(state.dash_timer, dt);
     } else if climbing {
         integrate_climb_clusters(
             clusters.kinematics,
             clusters.env_contact,
-            clusters.flight,
-            clusters.wall,
+            state,
             clusters.jump,
             input,
             dt,
@@ -100,22 +102,14 @@ pub(super) fn integrate_velocity_clusters(
             tuning,
         );
     } else if clusters.flight.fly_enabled && clusters.abilities.abilities.fly {
-        integrate_flight_clusters(
-            clusters.kinematics,
-            clusters.flight,
-            clusters.wall,
-            input,
-            dt,
-            frame,
-            tuning,
-        );
+        integrate_flight_clusters(clusters.kinematics, state, input, dt, frame, tuning);
     } else {
         // Normal mode — the shared physics spine (gravity-direction-relative).
         integrate_normal_clusters(
             clusters.kinematics,
             clusters.flight,
+            state,
             clusters.ground,
-            clusters.blink,
             clusters.env_contact,
             clusters.abilities,
             input,
@@ -129,9 +123,9 @@ pub(super) fn integrate_velocity_clusters(
     clusters.wall.on_wall = false;
     let pre_wall_snapshot = clusters.kinematics.vel;
     clusters.wall.wall_normal_x = 0.0;
-    clusters.wall.wall_climbing = false;
-    let was_clinging = clusters.wall.wall_clinging;
-    clusters.wall.wall_clinging = false;
+    state.wall_climbing = false;
+    let was_clinging = state.wall_clinging;
+    state.wall_clinging = false;
 
     // The sweeps are still X/Y because the world is axis-aligned, but both the
     // ORDER and the SEMANTICS are local-frame: sweep the controlled body's side
@@ -157,7 +151,7 @@ pub(super) fn integrate_velocity_clusters(
     };
 
     let drop_through = wants_drop_through(input.local_axis().y, input.jump_pressed)
-        || clusters.ground.drop_through_timer > 0.0;
+        || state.drop_through_timer > 0.0;
 
     let sweep = |clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
                  axis: crate::collision_semantics::Axis,
@@ -191,6 +185,7 @@ pub(super) fn integrate_velocity_clusters(
         clusters.kinematics,
         clusters.ground,
         clusters.wall,
+        state,
         clusters.abilities,
         clusters.combo_trace,
         input,
@@ -216,7 +211,7 @@ pub(super) fn integrate_velocity_clusters(
             world,
             oriented,
             g,
-            clusters.ground.drop_through_timer > 0.0,
+            state.drop_through_timer > 0.0,
         ) {
             let v = support.velocity;
             clusters.kinematics.pos += v - v.dot(g) * g;
@@ -242,15 +237,15 @@ pub(super) fn integrate_velocity_clusters(
             &mut *clusters.jump,
             tuning.locomotion.air_jumps,
         );
-        clusters.blink.grace_timer = 0.0;
-        clusters.flight.fast_falling = false;
-        clusters.flight.gliding = false;
-        clusters.wall.wall_clinging = false;
-        clusters.wall.wall_climbing = false;
-        clusters.ground.drop_through_timer = 0.0;
+        state.blink_grace_timer = 0.0;
+        state.fast_falling = false;
+        state.gliding = false;
+        state.wall_clinging = false;
+        state.wall_climbing = false;
+        state.drop_through_timer = 0.0;
     }
 
-    if clusters.abilities.abilities.rebound && clusters.ground.rebound_cooldown <= 0.0 {
+    if clusters.abilities.abilities.rebound && state.rebound_cooldown <= 0.0 {
         if let Some(impulse) = super::collision::touching_rebound_aabb(
             world,
             clusters.kinematics.aabb_oriented(frame.down()),
@@ -263,7 +258,7 @@ pub(super) fn integrate_velocity_clusters(
                 tuning.locomotion.air_jumps,
             );
             clusters.ground.on_ground = false;
-            clusters.ground.rebound_cooldown = 0.18;
+            state.rebound_cooldown = 0.18;
             events.op_clusters(clusters.combo_trace, MovementOp::Rebound);
         }
     }
@@ -271,9 +266,9 @@ pub(super) fn integrate_velocity_clusters(
     // End-of-integration: if the frame settled into airborne free
     // flight, commit the pre-wall snapshot as the most recent valid
     // `pre_wall_vel`.
-    if !clusters.ground.on_ground && !clusters.wall.wall_clinging {
-        clusters.wall.pre_wall_vel = pre_wall_snapshot;
-        clusters.wall.pre_wall_vel_age = 0.0;
+    if !clusters.ground.on_ground && !state.wall_clinging {
+        state.pre_wall_vel = pre_wall_snapshot;
+        state.pre_wall_vel_age = 0.0;
     }
 }
 
@@ -289,8 +284,8 @@ pub(super) fn integrate_velocity_clusters(
 pub(super) fn integrate_normal_clusters(
     kinematics: &mut crate::body_clusters::BodyKinematics,
     flight: &mut crate::body_clusters::BodyFlightState,
+    state: &mut AxisManeuverState,
     ground: &crate::body_clusters::BodyGroundState,
-    blink: &crate::body_clusters::BodyBlinkState,
     env_contact: &crate::body_clusters::BodyEnvironmentContact,
     abilities: &crate::body_clusters::BodyAbilities,
     input: InputState,
@@ -298,16 +293,17 @@ pub(super) fn integrate_normal_clusters(
     frame: MotionFrame,
     tuning: AxisSweptParams,
 ) {
-    // The player adapter: project its rich clusters into the actor-generic
-    // spine context (ability components → gating flags) and run the one spine.
+    // The player adapter: project its clusters + private maneuver state into
+    // the actor-generic spine context (ability components → gating flags) and
+    // run the one spine.
     integrate_normal_spine(
         &mut kinematics.vel,
-        &mut flight.fast_falling,
-        &mut flight.gliding,
+        &mut state.fast_falling,
+        &mut state.gliding,
         &mut flight.carried_run,
         NormalSpineCtx {
             on_ground: ground.on_ground,
-            blink_grace: blink.grace_timer > 0.0,
+            blink_grace: state.blink_grace_timer > 0.0,
             water: env_contact.water,
             can_fast_fall: abilities.abilities.fast_fall,
             can_glide: abilities.abilities.glide,
@@ -328,7 +324,8 @@ pub(super) fn integrate_normal_clusters(
 #[derive(Clone, Copy)]
 pub struct NormalSpineCtx {
     pub on_ground: bool,
-    /// Blink hang-time is active this frame (`BodyBlinkState::grace_timer > 0`).
+    /// Blink hang-time is active this frame
+    /// (`AxisManeuverState::blink_grace_timer > 0`).
     pub blink_grace: bool,
     pub water: Option<crate::world::WaterContact>,
     pub can_fast_fall: bool,
@@ -475,8 +472,7 @@ pub fn integrate_normal_spine(
 pub(super) fn integrate_climb_clusters(
     kinematics: &mut crate::body_clusters::BodyKinematics,
     env_contact: &crate::body_clusters::BodyEnvironmentContact,
-    flight: &mut crate::body_clusters::BodyFlightState,
-    wall: &mut crate::body_clusters::BodyWallState,
+    state: &mut AxisManeuverState,
     jump: &mut crate::body_clusters::BodyJumpState,
     input: InputState,
     dt: f32,
@@ -508,10 +504,10 @@ pub(super) fn integrate_climb_clusters(
         target_vel += body_frame.down * (away_from_feet - along_down);
     }
     kinematics.vel = target_vel;
-    flight.fast_falling = false;
-    flight.gliding = false;
-    wall.wall_clinging = false;
-    wall.wall_climbing = false;
+    state.fast_falling = false;
+    state.gliding = false;
+    state.wall_clinging = false;
+    state.wall_climbing = false;
     let _ = dt;
 }
 
@@ -520,17 +516,16 @@ pub(super) fn integrate_climb_clusters(
 /// terminal speed. Clears fast-fall + wall-cling flags by mode.
 pub(super) fn integrate_flight_clusters(
     kinematics: &mut crate::body_clusters::BodyKinematics,
-    flight: &mut crate::body_clusters::BodyFlightState,
-    wall: &mut crate::body_clusters::BodyWallState,
+    state: &mut AxisManeuverState,
     input: InputState,
     dt: f32,
     frame: MotionFrame,
     tuning: AxisSweptParams,
 ) {
-    flight.fast_falling = false;
-    wall.wall_clinging = false;
-    wall.wall_climbing = false;
-    flight.flight_phase += dt * tuning.flight.hover_hz * std::f32::consts::TAU;
+    state.fast_falling = false;
+    state.wall_clinging = false;
+    state.wall_climbing = false;
+    state.flight_phase += dt * tuning.flight.hover_hz * std::f32::consts::TAU;
 
     // Free flight consumes controlled-body-local input. Resolve raw input before
     // it reaches `InputState`; this layer only projects local side/down motion
@@ -543,7 +538,7 @@ pub(super) fn integrate_flight_clusters(
     let target_run = local_stick.x * tuning.flight.terminal_speed;
     let mut target_descend = local_stick.y * tuning.flight.terminal_speed;
     if !tuning.flight.direct_velocity && local_stick.y.abs() <= 0.10 {
-        target_descend = flight.flight_phase.sin() * tuning.flight.hover_speed;
+        target_descend = state.flight_phase.sin() * tuning.flight.hover_speed;
     }
 
     let (mut new_run, mut new_descend) = if tuning.flight.direct_velocity {
@@ -582,7 +577,8 @@ pub(super) fn integrate_flight_clusters(
 pub(super) fn apply_wall_abilities_clusters(
     kinematics: &mut crate::body_clusters::BodyKinematics,
     ground: &crate::body_clusters::BodyGroundState,
-    wall: &mut crate::body_clusters::BodyWallState,
+    wall: &crate::body_clusters::BodyWallState,
+    state: &mut AxisManeuverState,
     abilities: &crate::body_clusters::BodyAbilities,
     combo_trace: &mut crate::body_clusters::BodyComboTrace,
     input: InputState,
@@ -601,9 +597,9 @@ pub(super) fn apply_wall_abilities_clusters(
     if !pressing_into_wall {
         return;
     }
-    wall.wall_clinging = true;
+    state.wall_clinging = true;
     if abilities.abilities.wall_climb && local_stick.y.abs() > 0.25 {
-        wall.wall_climbing = true;
+        state.wall_climbing = true;
         let along_down = kinematics.vel.dot(basis.down);
         kinematics.vel +=
             basis.down * (local_stick.y * tuning.locomotion.wall_climb_speed - along_down);

@@ -17,7 +17,7 @@ const LADDER_JUMP_BOOST_TIME: f32 = 0.10;
 #[allow(clippy::too_many_arguments)]
 pub fn handle_jump_buffer_clusters(
     world: &World,
-    action_buffer: &mut crate::body_clusters::BodyActionBuffer,
+    state: &mut crate::movement::AxisManeuverState,
     env_contact: &crate::body_clusters::BodyEnvironmentContact,
     abilities: &crate::body_clusters::BodyAbilities,
     body_mode: BodyMode,
@@ -37,7 +37,7 @@ pub fn handle_jump_buffer_clusters(
     tuning: AxisSweptParams,
     events: &mut FrameEvents,
 ) {
-    if action_buffer.jump <= 0.0 {
+    if state.buffer_jump <= 0.0 {
         return;
     }
 
@@ -51,8 +51,8 @@ pub fn handle_jump_buffer_clusters(
             if descend > ascend_target {
                 kinematics.vel += basis.down * (ascend_target - descend);
             }
-            action_buffer.jump = 0.0;
-            ground.coyote_timer = 0.0;
+            state.buffer_jump = 0.0;
+            state.coyote_timer = 0.0;
             events.op_clusters(combo_trace, MovementOp::SwimStroke);
             return;
         }
@@ -69,8 +69,8 @@ pub fn handle_jump_buffer_clusters(
         if descend < 0.0 {
             kinematics.vel -= basis.down * descend;
         }
-        action_buffer.jump = 0.0;
-        ground.coyote_timer = 0.0;
+        state.buffer_jump = 0.0;
+        state.coyote_timer = 0.0;
         return;
     }
 
@@ -81,8 +81,8 @@ pub fn handle_jump_buffer_clusters(
             jump_state.ladder_jump_boost = LADDER_JUMP_BOOST_TIME;
             events.op_clusters(combo_trace, MovementOp::Jump);
         }
-        action_buffer.jump = 0.0;
-        ground.coyote_timer = 0.0;
+        state.buffer_jump = 0.0;
+        state.coyote_timer = 0.0;
         return;
     }
 
@@ -95,10 +95,10 @@ pub fn handle_jump_buffer_clusters(
             frame.down(),
         )
     {
-        action_buffer.jump = 0.0;
+        state.buffer_jump = 0.0;
         ground.on_ground = false;
-        ground.coyote_timer = 0.0;
-        ground.drop_through_timer = ONE_WAY_DROP_THROUGH_GRACE;
+        state.coyote_timer = 0.0;
+        state.drop_through_timer = ONE_WAY_DROP_THROUGH_GRACE;
         return;
     }
 
@@ -113,14 +113,14 @@ pub fn handle_jump_buffer_clusters(
             tuning.locomotion.jump_speed * 0.94,
         );
         wall.on_wall = false;
-        wall.wall_clinging = false;
-        wall.wall_climbing = false;
-        action_buffer.jump = 0.0;
-        ground.coyote_timer = 0.0;
+        state.wall_clinging = false;
+        state.wall_climbing = false;
+        state.buffer_jump = 0.0;
+        state.coyote_timer = 0.0;
         events.op_clusters(combo_trace, MovementOp::WallJump);
     } else if abilities.abilities.jump
         && !flying
-        && (ground.on_ground || ground.coyote_timer > 0.0 || can_ladder_jump)
+        && (ground.on_ground || state.coyote_timer > 0.0 || can_ladder_jump)
     {
         super::integration::set_jump_velocity(
             &mut kinematics.vel,
@@ -128,8 +128,8 @@ pub fn handle_jump_buffer_clusters(
             tuning.locomotion.jump_speed,
         );
         ground.on_ground = false;
-        action_buffer.jump = 0.0;
-        ground.coyote_timer = 0.0;
+        state.buffer_jump = 0.0;
+        state.coyote_timer = 0.0;
         jump_state.air_jumps_available = abilities
             .abilities
             .air_jump_count(tuning.locomotion.air_jumps);
@@ -142,9 +142,9 @@ pub fn handle_jump_buffer_clusters(
         );
         ground.on_ground = false;
         wall.on_wall = false;
-        wall.wall_clinging = false;
-        wall.wall_climbing = false;
-        action_buffer.jump = 0.0;
+        state.wall_clinging = false;
+        state.wall_climbing = false;
+        state.buffer_jump = 0.0;
         jump_state.air_jumps_available -= 1;
         events.op_clusters(combo_trace, MovementOp::DoubleJump);
     }

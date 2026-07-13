@@ -115,7 +115,7 @@ fn wall_jump_does_not_catapult_through_left_wall() {
     scratch.ground.on_ground = false;
     scratch.wall.on_wall = true;
     scratch.wall.wall_normal_x = 1.0;
-    scratch.ground.coyote_timer = 0.0;
+    scratch.axis_mut().coyote_timer = 0.0;
 
     let initial_x = scratch.kinematics.pos.x;
     let _ = update_player_with_tuning_scratch(
@@ -153,18 +153,21 @@ fn wall_jump_uses_local_side_axis_under_sideways_gravity() {
     tuning.gravity_dir = Vec2::new(1.0, 0.0);
 
     scratch.ground.on_ground = false;
-    scratch.ground.coyote_timer = 0.0;
+    scratch.axis_mut().coyote_timer = 0.0;
     scratch.wall.on_wall = true;
     scratch.wall.wall_normal_x = 1.0;
-    scratch.action_buffer.jump = tuning.jump_buffer;
+    scratch.axis_mut().buffer_jump = tuning.jump_buffer;
     scratch.kinematics.vel = Vec2::ZERO;
 
     let mut events = FrameEvents::default();
     {
-        let clusters = scratch.as_mut();
+        let (model, clusters) = scratch.parts();
+        let crate::movement::MotionModel::AxisSwept(axis) = model else {
+            unreachable!("scratch bodies default to the axis policy");
+        };
         super::super::simulation::handle_jump_buffer_clusters(
             &world,
-            clusters.action_buffer,
+            &mut axis.state,
             clusters.env_contact,
             clusters.abilities,
             clusters.body_mode.body_mode,
@@ -252,7 +255,7 @@ fn wall_cling_does_not_teleport_to_wall_top_on_y_sweep() {
     scratch.ground.on_ground = false;
     scratch.wall.on_wall = true;
     scratch.wall.wall_normal_x = 1.0;
-    scratch.wall.wall_clinging = true;
+    scratch.axis_mut().wall_clinging = true;
 
     let initial_y = scratch.kinematics.pos.y;
     let _ = update_player_simulation_with_tuning_scratch(
@@ -311,7 +314,7 @@ fn partial_wall_cling_overlap_does_not_teleport_upward() {
     scratch.kinematics.vel = Vec2::new(0.0, 15.0); // gravity-decelerated tiny downward
     scratch.ground.on_ground = false;
     scratch.wall.on_wall = true;
-    scratch.wall.wall_clinging = true;
+    scratch.axis_mut().wall_clinging = true;
     scratch.wall.wall_normal_x = -1.0;
 
     let start_y = scratch.kinematics.pos.y;

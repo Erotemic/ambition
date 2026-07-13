@@ -27,8 +27,10 @@ use bevy_ecs::component::Component;
 
 use super::adhesive_crawler::{AdhesiveCrawlerMotion, CrawlerParams};
 use super::surface_momentum::{MomentumParams, SurfaceMotion};
+use super::tuning::BLINK_DISTANCE;
 use super::AxisSweptParams;
-use crate::body_clusters::BodyClustersMut;
+use crate::body_clusters::{BodyLedgeState, LEDGE_KNOCK_OFF_COOLDOWN};
+use crate::Vec2;
 
 /// Stable identity for diagnostics, authoring, and transition tests.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -50,22 +52,87 @@ pub enum MotionModelSpec {
     AdhesiveCrawler(CrawlerParams),
 }
 
-/// Axis-swept model-owned data.
+/// The axis-swept policy's PRIVATE persistent maneuver state. Lives INSIDE the
+/// model variant (ADR 0024): no other policy can read it, leaving axis movement
+/// cannot leak stale maneuver facts, and a same-variant parameter refresh
+/// preserves it by construction. The shared clusters keep only the CONTACT
+/// facts the collision doctrine writes (`on_ground`, `on_wall`,
+/// `wall_normal_x`) and the preserved body RESOURCES (charges, cooldowns).
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct AxisManeuverState {
+    pub coyote_timer: f32,
+    pub drop_through_timer: f32,
+    pub rebound_cooldown: f32,
+    pub wall_clinging: bool,
+    pub wall_climbing: bool,
+    pub pre_wall_vel: Vec2,
+    pub pre_wall_vel_age: f32,
+    /// Buffered MOVEMENT actions (jump/dash/blink press windows). Combat
+    /// buffers (attack/pogo/projectile) stay on the shared BodyActionBuffer.
+    pub buffer_jump: f32,
+    pub buffer_dash: f32,
+    pub buffer_blink: f32,
+    pub dash_timer: f32,
+    pub blink_hold_active: bool,
+    pub blink_hold_timer: f32,
+    pub blink_aiming: bool,
+    pub blink_aim_offset: Vec2,
+    pub blink_grace_timer: f32,
+    pub dodge_roll_timer: f32,
+    pub ledge_grab: Option<crate::LedgeGrabState>,
+    pub gliding: bool,
+    pub fast_falling: bool,
+    pub flight_phase: f32,
+}
+
+impl Default for AxisManeuverState {
+    /// No in-flight maneuver: everything zero/false/None except the blink aim
+    /// offset, which rests at "one blink forward" (matching the historical
+    /// blink-state default).
+    fn default() -> Self {
+        Self {
+            coyote_timer: 0.0,
+            drop_through_timer: 0.0,
+            rebound_cooldown: 0.0,
+            wall_clinging: false,
+            wall_climbing: false,
+            pre_wall_vel: Vec2::ZERO,
+            pre_wall_vel_age: 0.0,
+            buffer_jump: 0.0,
+            buffer_dash: 0.0,
+            buffer_blink: 0.0,
+            dash_timer: 0.0,
+            blink_hold_active: false,
+            blink_hold_timer: 0.0,
+            blink_aiming: false,
+            blink_aim_offset: Vec2::new(BLINK_DISTANCE, 0.0),
+            blink_grace_timer: 0.0,
+            dodge_roll_timer: 0.0,
+            ledge_grab: None,
+            gliding: false,
+            fast_falling: false,
+            flight_phase: 0.0,
+        }
+    }
+}
+
+/// Axis-swept model-owned parameters and persistent maneuver state.
 ///
-/// The axis solver's persistent runtime state (coyote/jump buffers, wall and
-/// ledge engagement, dash/blink maneuver timers, axis contact caches) lives on
-/// the per-body movement clusters, which double as the snapshot ledger's
-/// registered components. Ownership is the policy's regardless of physical
-/// placement: [`switch_motion_model`] initializes that state on cross-variant
-/// entry, and no other policy reads it.
+/// Cross-variant entry installs a fresh value (default state); a same-variant
+/// parameter refresh touches only `params`, so maneuver state is preserved by
+/// construction — no external initializer exists or is needed.
 #[derive(Clone, Copy, Debug)]
 pub struct AxisSweptMotion {
     pub params: AxisSweptParams,
+    pub state: AxisManeuverState,
 }
 
 impl AxisSweptMotion {
-    pub const fn new(params: AxisSweptParams) -> Self {
-        Self { params }
+    pub fn new(params: AxisSweptParams) -> Self {
+        Self {
+            params,
+            state: AxisManeuverState::default(),
+        }
     }
 }
 
@@ -148,9 +215,9 @@ impl MotionModel {
     /// Model-internal half of a policy request: refresh parameters in place on
     /// a same-variant spec, install a fresh destination on a cross-variant one.
     ///
-    /// Runtime code paths use [`switch_motion_model`], which also initializes
-    /// the destination's cluster-resident private state; this method alone is
-    /// correct only at spawn/insert time, before a body has accumulated any.
+    /// Every variant carries its private state inside the variant value, so
+    /// this IS the complete transition; [`switch_motion_model`] is the named
+    /// runtime seam over it.
     pub fn apply_spec(&mut self, spec: MotionModelSpec) {
         match (self, spec) {
             (Self::AxisSwept(current), MotionModelSpec::AxisSwept(params)) => {
@@ -179,56 +246,86 @@ impl MotionModel {
 /// semantics). Shared body state — position, velocity, facing, size, body
 /// mode, abilities, resources, health, identity, controller ownership — is
 /// deliberately not an argument of the destination initializer and therefore
-/// cannot be reset here.
-pub fn switch_motion_model(
-    model: &mut MotionModel,
-    spec: MotionModelSpec,
-    clusters: &mut BodyClustersMut<'_>,
-) {
-    let crossed = model.kind() != spec_kind(spec);
+/// cannot be reset here. Every destination's fresh private state lives inside
+/// the new variant value (default maneuver state / Airborne / detached), so
+/// no cluster is touched: resource COUNTS (dash charges, air jumps), recharge
+/// cooldowns, and ability mode facts (`fly_enabled`) survive by construction.
+pub fn switch_motion_model(model: &mut MotionModel, spec: MotionModelSpec) {
     model.apply_spec(spec);
-    if !crossed {
-        return;
-    }
-    if let MotionModel::AxisSwept(_) = model {
-        initialize_axis_private_state(clusters);
-    }
-    // SurfaceMomentum / AdhesiveCrawler destinations carry their fresh private
-    // state inside the new variant value (Airborne / detached); they own no
-    // cluster-resident state.
 }
 
-const fn spec_kind(spec: MotionModelSpec) -> MotionModelKind {
-    match spec {
-        MotionModelSpec::AxisSwept(_) => MotionModelKind::AxisSwept,
-        MotionModelSpec::SurfaceMomentum(_) => MotionModelKind::SurfaceMomentum,
-        MotionModelSpec::AdhesiveCrawler(_) => MotionModelKind::AdhesiveCrawler,
+/// Drop any active ledge grab because the body was hit, arming a brief
+/// re-grab lockout on the shared ledge cluster. Returns true if it was
+/// hanging (so the caller can react — e.g. let the knockback carry it).
+/// The typed combat→movement op over the axis policy's private hang state;
+/// non-axis policies have no ledge grab and return false.
+pub fn knock_off_ledge(model: &mut MotionModel, ledge: &mut BodyLedgeState) -> bool {
+    let MotionModel::AxisSwept(axis) = model else {
+        return false;
+    };
+    if axis.state.ledge_grab.take().is_some() {
+        ledge.release_cooldown = ledge.release_cooldown.max(LEDGE_KNOCK_OFF_COOLDOWN);
+        true
+    } else {
+        false
     }
 }
 
-/// Initialize the axis-swept policy's cluster-resident private state on
-/// cross-variant entry: empty support/contact caches and no in-flight maneuver.
-/// The same tick's ordinary collision phase computes current contacts from the
-/// unchanged pose. Resource COUNTS (dash charges, air jumps) and recharge
-/// cooldowns are body resources, not maneuver state, and are preserved — as is
-/// `fly_enabled`, an ability mode fact.
-fn initialize_axis_private_state(clusters: &mut BodyClustersMut<'_>) {
-    clusters.ground.coyote_timer = 0.0;
-    clusters.ground.drop_through_timer = 0.0;
-    clusters.ground.rebound_cooldown = 0.0;
-    *clusters.action_buffer = Default::default();
-    *clusters.wall = Default::default();
-    clusters.dash.timer = 0.0;
-    clusters.blink.hold_active = false;
-    clusters.blink.hold_timer = 0.0;
-    clusters.blink.aiming = false;
-    clusters.blink.grace_timer = 0.0;
-    clusters.dodge.roll_timer = 0.0;
-    clusters.ledge.grab = None;
-    clusters.flight.gliding = false;
-    clusters.flight.fast_falling = false;
-    clusters.flight.flight_phase = 0.0;
-    clusters.flight.carried_run = 0.0;
+#[cfg(test)]
+mod ledge_knock_off_tests {
+    use super::*;
+    use crate::ledge_grab::{LedgeContact, LedgeGrabState};
+
+    fn hanging() -> LedgeGrabState {
+        LedgeGrabState::hanging(LedgeContact {
+            wall_normal_x: 1.0,
+            anchor: Vec2::ZERO,
+            climb_target: Vec2::ZERO,
+        })
+    }
+
+    #[test]
+    fn getting_hit_knocks_the_player_off_a_ledge_grab() {
+        let mut model = MotionModel::axis_swept(AxisSweptParams::default());
+        let MotionModel::AxisSwept(axis) = &mut model else {
+            unreachable!();
+        };
+        axis.state.ledge_grab = Some(hanging());
+        let mut ledge = BodyLedgeState {
+            release_cooldown: 0.0,
+        };
+        assert!(
+            knock_off_ledge(&mut model, &mut ledge),
+            "was hanging → reports knocked off"
+        );
+        let MotionModel::AxisSwept(axis) = &model else {
+            unreachable!();
+        };
+        assert!(
+            axis.state.ledge_grab.is_none(),
+            "ledge grab cleared so the player falls"
+        );
+        assert!(
+            ledge.release_cooldown >= LEDGE_KNOCK_OFF_COOLDOWN,
+            "re-grab lockout armed"
+        );
+    }
+
+    #[test]
+    fn knock_off_is_a_noop_when_not_grabbing() {
+        let mut model = MotionModel::axis_swept(AxisSweptParams::default());
+        let mut ledge = BodyLedgeState::default();
+        assert!(!knock_off_ledge(&mut model, &mut ledge));
+        assert_eq!(
+            ledge.release_cooldown, 0.0,
+            "no lockout when nothing to drop"
+        );
+
+        // A non-axis policy has no ledge grab to drop.
+        let mut momentum = MotionModel::surface_momentum(MomentumParams::default());
+        assert!(!knock_off_ledge(&mut momentum, &mut ledge));
+        assert_eq!(ledge.release_cooldown, 0.0);
+    }
 }
 
 #[cfg(test)]

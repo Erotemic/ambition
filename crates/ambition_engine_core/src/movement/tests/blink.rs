@@ -35,7 +35,7 @@ fn held_blink_arms_when_cooldown_clears_without_new_press() {
         1.0 / 60.0,
         TEST_TUNING,
     );
-    assert!(!scratch.blink.hold_active);
+    assert!(!scratch.axis().blink_hold_active);
 
     // Cooldown clears in simulation time.
     let _ = update_player_simulation_with_tuning_scratch(
@@ -59,7 +59,7 @@ fn held_blink_arms_when_cooldown_clears_without_new_press() {
         1.0 / 60.0,
         TEST_TUNING,
     );
-    assert!(scratch.blink.hold_active);
+    assert!(scratch.axis().blink_hold_active);
 }
 
 #[test]
@@ -134,7 +134,7 @@ fn held_blink_enters_precision_aiming() {
     let world = test_world();
     let mut scratch = scratch_with(AbilitySet::sandbox_all(), world.spawn);
     for _ in 0..20 {
-        let blink_pressed = !scratch.blink.hold_active;
+        let blink_pressed = !scratch.axis().blink_hold_active;
         step_scratch(
             &world,
             &mut scratch,
@@ -146,7 +146,7 @@ fn held_blink_enters_precision_aiming() {
             },
         );
     }
-    assert!(scratch.blink.aiming);
+    assert!(scratch.axis().blink_aiming);
     let events = step_scratch(
         &world,
         &mut scratch,
@@ -170,8 +170,8 @@ fn repeated_blinks_clamp_downward_velocity_each_time() {
     for _ in 0..2 {
         scratch.kinematics.vel = Vec2::new(25.0, 900.0);
         scratch.blink.cooldown = 0.0;
-        scratch.blink.hold_active = true;
-        scratch.blink.aiming = false;
+        scratch.axis_mut().blink_hold_active = true;
+        scratch.axis_mut().blink_aiming = false;
         let events = update_player_with_tuning_scratch(
             &world,
             &mut scratch,
@@ -190,7 +190,7 @@ fn repeated_blinks_clamp_downward_velocity_each_time() {
             "blink should not preserve a large downward fall speed; got {}",
             scratch.kinematics.vel.y
         );
-        assert!(scratch.blink.grace_timer > 0.0);
+        assert!(scratch.axis().blink_grace_timer > 0.0);
     }
 }
 
@@ -200,7 +200,7 @@ fn post_blink_grace_suspends_gravity_for_tiny_window() {
     let mut scratch = scratch_at(world.spawn);
     scratch.kinematics.pos = Vec2::new(420.0, 620.0);
     scratch.kinematics.vel = Vec2::new(0.0, 900.0);
-    scratch.blink.hold_active = true;
+    scratch.axis_mut().blink_hold_active = true;
     let _events = update_player_with_tuning_scratch(
         &world,
         &mut scratch,

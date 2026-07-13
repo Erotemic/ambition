@@ -69,42 +69,52 @@ impl LocomotionState {
         }
     }
 
-    /// Project `LocomotionState` from cluster components. Mirrors the
-    /// same priority order callers used to drive off of `&Player`.
-    pub fn from_clusters(
+    /// Project `LocomotionState` from a body: the shared contact clusters plus
+    /// the movement policy, whose model-private maneuver state (ADR 0024) owns
+    /// the dash/blink/ledge/wall-engagement facts. Mirrors the same priority
+    /// order callers used to drive off of `&Player`. Non-axis policies expose
+    /// no maneuver verbs here and project to grounded/airborne from the shared
+    /// support fact.
+    pub fn from_body(
+        model: &crate::movement::MotionModel,
         ground: &crate::body_clusters::BodyGroundState,
         wall: &crate::body_clusters::BodyWallState,
         flight: &crate::body_clusters::BodyFlightState,
-        dash: &crate::body_clusters::BodyDashState,
-        blink: &crate::body_clusters::BodyBlinkState,
-        ledge: &crate::body_clusters::BodyLedgeState,
     ) -> Self {
-        if dash.timer > 0.0 {
+        let crate::movement::MotionModel::AxisSwept(axis) = model else {
+            return if ground.on_ground {
+                LocomotionState::Grounded
+            } else {
+                LocomotionState::Airborne
+            };
+        };
+        let state = &axis.state;
+        if state.dash_timer > 0.0 {
             return LocomotionState::Dashing;
         }
-        if blink.aiming {
+        if state.blink_aiming {
             return LocomotionState::BlinkAiming;
         }
         if flight.fly_enabled {
             return LocomotionState::Flying;
         }
-        if let Some(grab) = ledge.grab {
+        if let Some(grab) = state.ledge_grab {
             return if grab.climbing {
                 LocomotionState::LedgeClimb
             } else {
                 LocomotionState::LedgeHang
             };
         }
-        if wall.wall_climbing {
+        if state.wall_climbing {
             return LocomotionState::WallClimb;
         }
-        if wall.wall_clinging {
+        if state.wall_clinging {
             return LocomotionState::WallCling;
         }
         if wall.on_wall && !ground.on_ground {
             return LocomotionState::WallSlide;
         }
-        if flight.fast_falling {
+        if state.fast_falling {
             return LocomotionState::FastFalling;
         }
         if ground.on_ground {

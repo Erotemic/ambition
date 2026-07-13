@@ -8,18 +8,16 @@ use super::tuning::AxisSweptParams;
 use crate::MotionFrame;
 
 /// Complete a blink: teleport to `to`, damp post-blink velocity,
-/// clamp downward speed, clear fast-fall / wall-cling / dash state,
-/// arm the post-blink grace timer + cooldown, and push the
+/// clamp downward speed, clear fast-fall / wall-cling / dash maneuver
+/// state, arm the post-blink grace timer + cooldown, and push the
 /// `Blink` / `PrecisionBlink` op + `BlinkEvent`. Mutates kinematics
-/// (pos, vel), flight (fast_falling), wall (wall_clinging, wall_climbing),
-/// dash (timer), blink (cooldown, aim_offset, hold_*), and pushes
-/// blink ops + the BlinkEvent.
+/// (pos, vel), the axis maneuver state (fast_falling, wall cling/climb,
+/// dash_timer, blink hold/aim/grace), the blink cluster (cooldown), and
+/// pushes blink ops + the BlinkEvent.
 pub fn complete_blink_clusters(
     kinematics: &mut crate::body_clusters::BodyKinematics,
-    flight: &mut crate::body_clusters::BodyFlightState,
-    wall: &mut crate::body_clusters::BodyWallState,
-    dash: &mut crate::body_clusters::BodyDashState,
     blink: &mut crate::body_clusters::BodyBlinkState,
+    state: &mut crate::movement::AxisManeuverState,
     combo_trace: &mut crate::body_clusters::BodyComboTrace,
     from: Vec2,
     to: Vec2,
@@ -48,17 +46,17 @@ pub fn complete_blink_clusters(
         local_vel.y *= damping;
     }
     kinematics.vel = frame.to_world(local_vel);
-    flight.fast_falling = false;
-    wall.wall_clinging = false;
-    wall.wall_climbing = false;
-    dash.timer = 0.0;
-    blink.grace_timer = tuning.abilities.blink_grace_time;
+    state.fast_falling = false;
+    state.wall_clinging = false;
+    state.wall_climbing = false;
+    state.dash_timer = 0.0;
+    state.blink_grace_timer = tuning.abilities.blink_grace_time;
 
     blink.cooldown = tuning.abilities.blink_cooldown;
-    blink.hold_active = false;
-    blink.hold_timer = 0.0;
-    blink.aiming = false;
-    blink.aim_offset = frame.side() * (tuning.abilities.blink_distance * kinematics.facing);
+    state.blink_hold_active = false;
+    state.blink_hold_timer = 0.0;
+    state.blink_aiming = false;
+    state.blink_aim_offset = frame.side() * (tuning.abilities.blink_distance * kinematics.facing);
     let op = if precision {
         MovementOp::PrecisionBlink
     } else {

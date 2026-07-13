@@ -2,9 +2,12 @@
 //! carries, the player included (NOT player-specific).
 //!
 //! Each Bevy `Component` carries one tightly related slice of body state
-//! (kinematics, ground contact, dash timers, …). Together they form the
+//! (kinematics, ground contact, dash charges, …). Together they form the
 //! authoritative movement aggregate every body — player, enemy, NPC, boss —
-//! shares.
+//! shares. The clusters hold SHARED facts: contact facts the collision
+//! doctrine writes and preserved resources/cooldowns. Policy-PRIVATE maneuver
+//! state lives inside the body's `MotionModel` variant (ADR 0024 — see
+//! [`crate::movement::AxisManeuverState`]).
 //!
 //! [`BodyClustersMut`] is a struct-of-`&mut` view assembled from a
 //! `Query<BodyClusterQueryData, …>::as_clusters_mut()` call; every
@@ -14,8 +17,7 @@
 //! `BodyClusterScratch::as_mut`.
 
 use crate::abilities::AbilitySet;
-use crate::ledge_grab::LedgeGrabState;
-use crate::movement::{ComboMark, BLINK_DISTANCE};
+use crate::movement::ComboMark;
 use crate::player_state::{BodyMode, ResourceMeter};
 use crate::world::{ClimbableContact, WaterContact};
 use crate::Vec2;
@@ -244,32 +246,30 @@ impl Default for BodyBaseSize {
     }
 }
 
-/// Ground contact + airborne grace timers (coyote, drop-through,
-/// pogo rebound).
+/// Ground CONTACT fact, written by the shared collision doctrine. The
+/// coyote / drop-through / rebound grace timers are axis-policy maneuver
+/// state and live inside the model variant
+/// ([`crate::movement::AxisManeuverState`], ADR 0024).
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyGroundState {
     pub on_ground: bool,
-    pub coyote_timer: f32,
-    pub drop_through_timer: f32,
-    pub rebound_cooldown: f32,
 }
 
-/// Wall contact + wall-cling / wall-climb state and the pre-wall
-/// momentum window the ledge-grab boost reads.
+/// Wall CONTACT facts, written by the shared collision doctrine. The
+/// cling/climb engagement and the pre-wall momentum window are axis-policy
+/// maneuver state and live inside the model variant
+/// ([`crate::movement::AxisManeuverState`]).
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyWallState {
     pub on_wall: bool,
     pub wall_normal_x: f32,
-    pub wall_clinging: bool,
-    pub wall_climbing: bool,
-    pub pre_wall_vel: Vec2,
-    pub pre_wall_vel_age: f32,
 }
 
-/// Jump-cluster state. The jump buffer itself lives on
-/// [`BodyActionBuffer`]; this component owns the air-jump charge
-/// count plus the transient ladder-jump boost / ladder drop-through
-/// timers today.
+/// Jump-cluster state. The jump buffer is axis-policy maneuver state
+/// ([`crate::movement::AxisManeuverState::buffer_jump`]). This component owns
+/// `air_jumps_available` — a PRESERVED body resource, not maneuver state —
+/// plus the transient ladder-jump boost / ladder drop-through timers, which
+/// are body-mode (climbing) mechanics state owned outside the movement policy.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyJumpState {
     pub air_jumps_available: u8,
@@ -278,62 +278,46 @@ pub struct BodyJumpState {
     pub ladder_drop_through_hold_lock: bool,
 }
 
-/// Dash-cluster state. The dash buffer lives on [`BodyActionBuffer`];
-/// this owns the charge count, the active-dash countdown, and the
-/// cooldown.
+/// Dash-cluster RESOURCES: the charge count and recharge cooldown, preserved
+/// across policy switches. The buffered press and the active-dash countdown
+/// are axis maneuver state ([`crate::movement::AxisManeuverState`]).
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyDashState {
     pub charges_available: u8,
-    pub timer: f32,
     pub cooldown: f32,
 }
 
-/// Free-flight, glide, and fast-fall flags + the idle hover-bob phase, plus
-/// the airborne carried-momentum channel.
+/// Flight ability mode + the airborne carried-momentum channel. The glide /
+/// fast-fall flags and hover-bob phase are axis maneuver state
+/// ([`crate::movement::AxisManeuverState`]).
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyFlightState {
     pub fly_enabled: bool,
-    pub flight_phase: f32,
-    pub gliding: bool,
-    pub fast_falling: bool,
     /// Signed run-axis velocity CARRIED by the body from the world (a portal
     /// fling, knockback, wind) — the floor the hands-off air stop assist
     /// decays toward instead of zero, so imparted momentum is conserved while
     /// ordinary jump drift keeps the tight stop-on-release feel. Clamped each
     /// frame to the actual run velocity (opposing input, walls, and landing
     /// all shrink it naturally) and bled by `MovementTuning::carried_decay`.
+    /// World-imparted (written by the portal adapter) — SHARED, not
+    /// policy-private.
     pub carried_run: f32,
 }
 
-/// Blink cluster: cooldown, hold-to-aim state, precision aim offset,
-/// and the post-blink grace timer.
-#[derive(bevy_ecs::component::Component, Clone, Copy, Debug, PartialEq)]
+/// Blink RESOURCE: the recharge cooldown, preserved across policy switches.
+/// The hold-to-aim lifecycle, aim offset, and post-blink grace timer are axis
+/// maneuver state ([`crate::movement::AxisManeuverState`]).
+#[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyBlinkState {
     pub cooldown: f32,
-    pub hold_active: bool,
-    pub hold_timer: f32,
-    pub aiming: bool,
-    pub aim_offset: Vec2,
-    pub grace_timer: f32,
 }
 
-impl Default for BodyBlinkState {
-    fn default() -> Self {
-        Self {
-            cooldown: 0.0,
-            hold_active: false,
-            hold_timer: 0.0,
-            aiming: false,
-            aim_offset: Vec2::new(BLINK_DISTANCE, 0.0),
-            grace_timer: 0.0,
-        }
-    }
-}
-
-/// Engine-owned ledge hang / pull-up state + the re-grab cooldown.
+/// Ledge re-grab cooldown (a time fact, shared with combat's knock-off rule).
+/// The hang / pull-up state itself is axis maneuver state
+/// ([`crate::movement::AxisManeuverState::ledge_grab`]); combat knocks a body
+/// off a ledge through the typed [`crate::movement::knock_off_ledge`] op.
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyLedgeState {
-    pub grab: Option<LedgeGrabState>,
     pub release_cooldown: f32,
 }
 
@@ -341,69 +325,10 @@ pub struct BodyLedgeState {
 /// fall with the knockback instead of instantly re-latching.
 pub const LEDGE_KNOCK_OFF_COOLDOWN: f32 = 0.35;
 
-impl BodyLedgeState {
-    /// Drop any active ledge grab because the player was hit, arming a brief
-    /// re-grab lockout. Returns true if the player was actually hanging (so the
-    /// caller can react). A no-op when not grabbing.
-    pub fn knock_off_on_hit(&mut self) -> bool {
-        if self.grab.take().is_some() {
-            self.release_cooldown = self.release_cooldown.max(LEDGE_KNOCK_OFF_COOLDOWN);
-            true
-        } else {
-            false
-        }
-    }
-}
-
-#[cfg(test)]
-mod ledge_knock_off_tests {
-    use super::*;
-    use crate::ledge_grab::LedgeContact;
-
-    fn hanging() -> LedgeGrabState {
-        LedgeGrabState::hanging(LedgeContact {
-            wall_normal_x: 1.0,
-            anchor: Vec2::ZERO,
-            climb_target: Vec2::ZERO,
-        })
-    }
-
-    #[test]
-    fn getting_hit_knocks_the_player_off_a_ledge_grab() {
-        let mut ledge = BodyLedgeState {
-            grab: Some(hanging()),
-            release_cooldown: 0.0,
-        };
-        assert!(
-            ledge.knock_off_on_hit(),
-            "was hanging → reports knocked off"
-        );
-        assert!(
-            ledge.grab.is_none(),
-            "ledge grab cleared so the player falls"
-        );
-        assert!(
-            ledge.release_cooldown >= LEDGE_KNOCK_OFF_COOLDOWN,
-            "re-grab lockout armed"
-        );
-    }
-
-    #[test]
-    fn knock_off_is_a_noop_when_not_grabbing() {
-        let mut ledge = BodyLedgeState::default();
-        assert!(!ledge.knock_off_on_hit());
-        assert!(ledge.grab.is_none());
-        assert_eq!(
-            ledge.release_cooldown, 0.0,
-            "no lockout when nothing to drop"
-        );
-    }
-}
-
-/// Dodge-roll i-frame timer + cooldown.
+/// Dodge RESOURCE: the cooldown. The active i-frame roll timer is axis
+/// maneuver state ([`crate::movement::AxisManeuverState::dodge_roll_timer`]).
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyDodgeState {
-    pub roll_timer: f32,
     pub cooldown: f32,
 }
 
@@ -427,7 +352,8 @@ impl BodyShieldState {
 /// The pose snap is a discrete TRANSIT ([`crate::movement::transit_body`], the
 /// ADR 0024 authority): it also reconciles model-private attachment, so a
 /// riding momentum body or an attached crawler cannot carry a stale surface
-/// identity into the destination room/spawn.
+/// identity into the destination room/spawn. A body reset is a full respawn,
+/// so the axis policy's private maneuver state is reset wholesale too.
 pub fn reset_body_clusters(
     model: &mut crate::movement::MotionModel,
     clusters: &mut BodyClustersMut<'_>,
@@ -449,6 +375,9 @@ pub fn reset_body_clusters(
         spawn,
         crate::movement::TransitVelocity::Zero,
     );
+    if let crate::movement::MotionModel::AxisSwept(axis) = model {
+        axis.state = crate::movement::AxisManeuverState::default();
+    }
     *clusters.base_size = BodyBaseSize { base_size: body };
     *clusters.ground = BodyGroundState::default();
     *clusters.wall = BodyWallState::default();
@@ -539,53 +468,19 @@ impl Default for BodyOffense {
     }
 }
 
-/// Generic ECS-owned action buffer.
+/// ECS-owned COMBAT action buffer (attack / pogo / projectile press windows).
+/// The MOVEMENT buffers (jump / dash / blink) are axis-policy maneuver state
+/// ([`crate::movement::AxisManeuverState::buffer_jump`] and siblings).
 #[derive(bevy_ecs::component::Component, Clone, Copy, Debug, Default, PartialEq)]
 pub struct BodyActionBuffer {
-    pub jump: f32,
-    pub dash: f32,
     pub attack: f32,
     pub pogo: f32,
     pub projectile: f32,
-    pub blink: f32,
 }
 
 impl BodyActionBuffer {
-    pub fn press_jump(&mut self, window: f32) {
-        self.jump = window;
-    }
-
-    pub fn press_dash(&mut self, window: f32) {
-        self.dash = window;
-    }
-
-    pub fn consume_jump(&mut self) -> bool {
-        if self.jump > 0.0 {
-            self.jump = 0.0;
-            true
-        } else {
-            false
-        }
-    }
-
-    pub fn consume_dash(&mut self) -> bool {
-        if self.dash > 0.0 {
-            self.dash = 0.0;
-            true
-        } else {
-            false
-        }
-    }
-
     pub fn tick(&mut self, dt: f32) {
-        for slot in [
-            &mut self.jump,
-            &mut self.dash,
-            &mut self.attack,
-            &mut self.pogo,
-            &mut self.projectile,
-            &mut self.blink,
-        ] {
+        for slot in [&mut self.attack, &mut self.pogo, &mut self.projectile] {
             *slot = (*slot - dt).max(0.0);
         }
     }
@@ -620,13 +515,19 @@ impl BodyComboTrace {
     }
 }
 
-/// Owned bag of all 18 player cluster components, used by unit tests
-/// and the non-ECS call sites that need to assemble a
-/// `BodyClustersMut` without a Bevy entity. Construct via
-/// [`BodyClusterScratch::new_with_abilities`] and re-borrow as a view
-/// via [`BodyClusterScratch::as_mut`].
+/// Owned bag of all 18 player cluster components PLUS the body's
+/// [`MotionModel`], used by unit tests and the non-ECS call sites that need
+/// to assemble a whole body without a Bevy entity (a body without a policy is
+/// not a body). Construct via [`BodyClusterScratch::new_with_abilities`] and
+/// re-borrow the cluster view via [`BodyClusterScratch::as_mut`], or split
+/// model + clusters via [`BodyClusterScratch::parts`].
 #[derive(Clone, Debug)]
 pub struct BodyClusterScratch {
+    /// The movement policy, held ALONGSIDE the clusters (in ECS it is its own
+    /// component). Persistent across steps so model-private maneuver state
+    /// (ADR 0024) survives multi-tick scratch tests exactly as it does on a
+    /// live entity.
+    pub model: crate::movement::MotionModel,
     pub abilities: BodyAbilities,
     pub kinematics: BodyKinematics,
     pub base_size: BodyBaseSize,
@@ -654,11 +555,12 @@ impl BodyClusterScratch {
     /// `Player::new_with_abilities` but without materializing the
     /// monolithic `Player` aggregate.
     pub fn new_with_abilities(spawn: Vec2, abilities: crate::abilities::AbilitySet) -> Self {
-        use crate::movement::{default_player_body_size, BLINK_DISTANCE, DEFAULT_TUNING};
+        use crate::movement::{default_player_body_size, DEFAULT_TUNING};
         let body = default_player_body_size();
         let dash_charges = abilities.dash_charge_count();
         let air_jumps = abilities.air_jump_count(DEFAULT_TUNING.air_jumps);
         Self {
+            model: crate::movement::MotionModel::default(),
             abilities: BodyAbilities { abilities },
             kinematics: BodyKinematics {
                 pos: spawn,
@@ -677,18 +579,10 @@ impl BodyClusterScratch {
             },
             dash: BodyDashState {
                 charges_available: dash_charges,
-                timer: 0.0,
                 cooldown: 0.0,
             },
             flight: BodyFlightState::default(),
-            blink: BodyBlinkState {
-                cooldown: 0.0,
-                hold_active: false,
-                hold_timer: 0.0,
-                aiming: false,
-                aim_offset: Vec2::new(BLINK_DISTANCE, 0.0),
-                grace_timer: 0.0,
-            },
+            blink: BodyBlinkState::default(),
             ledge: BodyLedgeState::default(),
             dodge: BodyDodgeState::default(),
             shield: BodyShieldState::default(),
@@ -704,6 +598,56 @@ impl BodyClusterScratch {
             action_buffer: BodyActionBuffer::default(),
             lifetime: BodyLifetime::default(),
             combo_trace: BodyComboTrace::default(),
+        }
+    }
+
+    /// Split-borrow the scratch body into its policy and its cluster view,
+    /// mirroring the ECS shape (the model is a separate component from the
+    /// clusters) so scratch callers can hand both to [`crate::step_motion`].
+    pub fn parts(&mut self) -> (&mut crate::movement::MotionModel, BodyClustersMut<'_>) {
+        let clusters = BodyClustersMut {
+            abilities: &self.abilities,
+            kinematics: &mut self.kinematics,
+            // Scratch is the non-ECS test scratchpad; it carries no sample
+            // (tests that observe the sample set `clusters.sweep` on the
+            // borrowed view directly).
+            sweep: None,
+            base_size: &mut self.base_size,
+            ground: &mut self.ground,
+            wall: &mut self.wall,
+            jump: &mut self.jump,
+            dash: &mut self.dash,
+            flight: &mut self.flight,
+            blink: &mut self.blink,
+            ledge: &mut self.ledge,
+            dodge: &mut self.dodge,
+            shield: &mut self.shield,
+            body_mode: &mut self.body_mode,
+            env_contact: &mut self.env_contact,
+            mana: &mut self.mana,
+            offense: &mut self.offense,
+            action_buffer: &mut self.action_buffer,
+            lifetime: &mut self.lifetime,
+            combo_trace: &mut self.combo_trace,
+        };
+        (&mut self.model, clusters)
+    }
+
+    /// The axis-swept policy's private maneuver state (panics if the scratch
+    /// body runs a different policy). Test ergonomics for asserting/arranging
+    /// model-private facts.
+    pub fn axis(&self) -> &crate::movement::AxisManeuverState {
+        match &self.model {
+            crate::movement::MotionModel::AxisSwept(axis) => &axis.state,
+            other => panic!("scratch body is not axis-swept: {other:?}"),
+        }
+    }
+
+    /// Mutable flavor of [`Self::axis`].
+    pub fn axis_mut(&mut self) -> &mut crate::movement::AxisManeuverState {
+        match &mut self.model {
+            crate::movement::MotionModel::AxisSwept(axis) => &mut axis.state,
+            other => panic!("scratch body is not axis-swept: {other:?}"),
         }
     }
 

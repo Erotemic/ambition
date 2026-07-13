@@ -67,8 +67,8 @@ pub use integration::set_jump_velocity;
 pub use integration::{integrate_normal_spine, NormalSpineCtx};
 pub use kernel::{step_motion, MotionStepContext, MotionStepResult, SupportFact};
 pub use model::{
-    switch_motion_model, AxisSweptMotion, MotionModel, MotionModelKind, MotionModelSpec,
-    SurfaceMomentumMotion,
+    knock_off_ledge, switch_motion_model, AxisManeuverState, AxisSweptMotion, MotionModel,
+    MotionModelKind, MotionModelSpec, SurfaceMomentumMotion,
 };
 pub use ops::{ComboMark, MovementOp};
 pub use player::{default_player_body_size, DEFAULT_PLAYER_BODY_HEIGHT, DEFAULT_PLAYER_BODY_WIDTH};
@@ -91,10 +91,13 @@ use collision::body_is_side_contact;
 
 /// Frame-explicit axis-swept control phase — kernel-private. The current
 /// acceleration frame is supplied by the environment, never read from or
-/// written into model parameters.
+/// written into model parameters. `state` is the axis policy's model-private
+/// maneuver state ([`AxisManeuverState`]), threaded from the active
+/// [`AxisSweptMotion`] variant.
 pub(crate) fn update_body_control_in_frame(
     world: &World,
     clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
+    state: &mut AxisManeuverState,
     input: InputState,
     control_dt: f32,
     frame: MotionFrame,
@@ -114,7 +117,7 @@ pub(crate) fn update_body_control_in_frame(
         clusters.kinematics,
         clusters.ground,
         clusters.flight,
-        clusters.action_buffer,
+        state,
         clusters.abilities,
         input,
         tuning,
@@ -122,9 +125,7 @@ pub(crate) fn update_body_control_in_frame(
 
     abilities::apply_fly_toggle(
         clusters.flight,
-        clusters.wall,
-        clusters.dash,
-        clusters.blink,
+        state,
         clusters.abilities,
         clusters.combo_trace,
         input,
@@ -136,10 +137,8 @@ pub(crate) fn update_body_control_in_frame(
         world,
         clusters.kinematics,
         clusters.abilities,
-        clusters.flight,
-        clusters.wall,
-        clusters.dash,
         clusters.blink,
+        state,
         clusters.combo_trace,
         input,
         control_dt,
@@ -160,7 +159,7 @@ pub(crate) fn update_body_control_in_frame(
     abilities::apply_dodge(
         clusters.kinematics,
         clusters.dodge,
-        clusters.action_buffer,
+        state,
         clusters.ground,
         clusters.abilities,
         clusters.combo_trace,
@@ -173,7 +172,7 @@ pub(crate) fn update_body_control_in_frame(
     abilities::apply_dash(
         clusters.kinematics,
         clusters.dash,
-        clusters.action_buffer,
+        state,
         clusters.abilities,
         clusters.combo_trace,
         input,
@@ -184,7 +183,7 @@ pub(crate) fn update_body_control_in_frame(
 
     abilities::apply_shield(
         clusters.shield,
-        clusters.dash,
+        state,
         clusters.abilities,
         clusters.combo_trace,
         input,
@@ -202,6 +201,7 @@ pub(crate) fn update_body_control_in_frame(
 pub(crate) fn update_body_simulation_in_frame(
     world: &World,
     clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
+    state: &mut AxisManeuverState,
     input: InputState,
     raw_dt: f32,
     frame: MotionFrame,
@@ -216,7 +216,7 @@ pub(crate) fn update_body_simulation_in_frame(
     // segment, never a stale one).
     let entry_pos = clusters.kinematics.pos;
     let entry_vel = clusters.kinematics.vel;
-    let events = update_body_simulation_inner(world, clusters, input, raw_dt, frame, tuning);
+    let events = update_body_simulation_inner(world, clusters, state, input, raw_dt, frame, tuning);
     if let Some(sweep) = clusters.sweep.as_deref_mut() {
         *sweep = crate::body_clusters::SweepSample {
             prev: entry_pos,
@@ -231,6 +231,7 @@ pub(crate) fn update_body_simulation_in_frame(
 fn update_body_simulation_inner(
     world: &World,
     clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
+    state: &mut AxisManeuverState,
     input: InputState,
     raw_dt: f32,
     frame: MotionFrame,
@@ -248,7 +249,7 @@ fn update_body_simulation_inner(
     clusters.env_contact.water = world.water_at(clusters.kinematics.aabb());
     clusters.env_contact.climbable = world.climbable_at(clusters.kinematics.aabb());
     if !clusters.abilities.abilities.ledge_grab {
-        clusters.ledge.grab = None;
+        state.ledge_grab = None;
     }
 
     // Drowning gate — body flags hazard + reset; the owner applies its policy.
@@ -258,7 +259,7 @@ fn update_body_simulation_inner(
         return events;
     }
 
-    // Age lifetime + timers + combo trace — cluster-native inline.
+    // Age lifetime + timers + combo trace — cluster + maneuver-state inline.
     {
         clusters.lifetime.time_alive += dt;
         let speed = clusters.kinematics.vel.length();
@@ -272,25 +273,25 @@ fn update_body_simulation_inner(
             .retain(|m| m.age < 4.0 || m.op == ops::MovementOp::Reset);
 
         let dec = |v: f32| (v - dt).max(0.0);
-        clusters.action_buffer.jump = dec(clusters.action_buffer.jump);
-        clusters.action_buffer.dash = dec(clusters.action_buffer.dash);
-        clusters.ground.coyote_timer = dec(clusters.ground.coyote_timer);
-        clusters.ground.drop_through_timer = dec(clusters.ground.drop_through_timer);
+        state.buffer_jump = dec(state.buffer_jump);
+        state.buffer_dash = dec(state.buffer_dash);
+        state.coyote_timer = dec(state.coyote_timer);
+        state.drop_through_timer = dec(state.drop_through_timer);
         clusters.jump.ladder_jump_boost = dec(clusters.jump.ladder_jump_boost);
         clusters.jump.ladder_drop_through_timer = dec(clusters.jump.ladder_drop_through_timer);
         clusters.dash.cooldown = dec(clusters.dash.cooldown);
         clusters.blink.cooldown = dec(clusters.blink.cooldown);
-        clusters.blink.grace_timer = dec(clusters.blink.grace_timer);
-        clusters.ground.rebound_cooldown = dec(clusters.ground.rebound_cooldown);
-        clusters.dodge.roll_timer = dec(clusters.dodge.roll_timer);
+        state.blink_grace_timer = dec(state.blink_grace_timer);
+        state.rebound_cooldown = dec(state.rebound_cooldown);
+        state.dodge_roll_timer = dec(state.dodge_roll_timer);
         clusters.dodge.cooldown = dec(clusters.dodge.cooldown);
         clusters.shield.parry_window_timer = dec(clusters.shield.parry_window_timer);
         clusters.ledge.release_cooldown = dec(clusters.ledge.release_cooldown);
-        if clusters.wall.wall_clinging || clusters.ground.on_ground {
-            clusters.wall.pre_wall_vel_age += dt;
+        if state.wall_clinging || clusters.ground.on_ground {
+            state.pre_wall_vel_age += dt;
         }
         if clusters.ground.on_ground {
-            clusters.ground.coyote_timer = tuning.locomotion.coyote_time;
+            state.coyote_timer = tuning.locomotion.coyote_time;
             crate::body_clusters::refresh_movement_resources_clusters(
                 clusters.abilities,
                 clusters.dash,
@@ -304,6 +305,7 @@ fn update_body_simulation_inner(
     // (the rest of the simulation phase short-circuits).
     if crate::ledge_grab::tick_active_ledge_grab_clusters_in_frame(
         clusters,
+        state,
         input,
         dt,
         frame,
@@ -317,7 +319,7 @@ fn update_body_simulation_inner(
     // drop-through / wall-jump / double-jump).
     simulation::handle_jump_buffer_clusters(
         world,
-        clusters.action_buffer,
+        state,
         clusters.env_contact,
         clusters.abilities,
         clusters.body_mode.body_mode,
@@ -336,6 +338,7 @@ fn update_body_simulation_inner(
     integration::integrate_velocity_clusters(
         world,
         clusters,
+        state,
         input,
         dt,
         frame,
@@ -349,6 +352,7 @@ fn update_body_simulation_inner(
     crate::ledge_grab::try_start_ledge_grab_clusters_in_frame(
         world,
         clusters,
+        state,
         input,
         frame,
         &mut events,
@@ -379,24 +383,29 @@ fn dec(value: f32, dt: f32) -> f32 {
 
 /// Axis-swept implementation arm behind [`step_motion`] — kernel-private. All
 /// frame-sensitive control and integration receives the exact same per-tick
-/// frame value. `InputState::control_dt` overrides `raw_dt` for the control
-/// phase when positive (so bullet-time slowing gravity does not slow input).
+/// frame value, and both phases share the SAME model-private maneuver state
+/// borrowed from the active [`AxisSweptMotion`] variant.
+/// `InputState::control_dt` overrides `raw_dt` for the control phase when
+/// positive (so bullet-time slowing gravity does not slow input).
 pub(crate) fn update_body_with_frame_clusters(
     world: &World,
+    axis: &mut AxisSweptMotion,
     clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
     input: InputState,
     frame: MotionFrame,
     raw_dt: f32,
-    tuning: AxisSweptParams,
 ) -> FrameEvents {
+    let tuning = axis.params;
+    let state = &mut axis.state;
     let control_dt = if input.control_dt > 0.0 {
         input.control_dt
     } else {
         raw_dt
     };
     let mut events =
-        update_body_control_in_frame(world, clusters, input, control_dt, frame, tuning);
-    let sim_events = update_body_simulation_in_frame(world, clusters, input, raw_dt, frame, tuning);
+        update_body_control_in_frame(world, clusters, state, input, control_dt, frame, tuning);
+    let sim_events =
+        update_body_simulation_in_frame(world, clusters, state, input, raw_dt, frame, tuning);
     events.extend(sim_events);
     events
 }

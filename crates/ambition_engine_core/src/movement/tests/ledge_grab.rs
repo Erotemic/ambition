@@ -26,7 +26,7 @@ fn simulation_latches_ledge_grab_on_blink_wall_surface() {
     abilities.ledge_grab = true;
     let mut scratch = scratch_with(abilities, Vec2::new(86.0, 110.0));
     scratch.kinematics.vel = Vec2::new(120.0, 20.0);
-    scratch.wall.wall_clinging = true;
+    scratch.axis_mut().wall_clinging = true;
     scratch.wall.on_wall = true;
     scratch.wall.wall_normal_x = -1.0;
 
@@ -42,7 +42,7 @@ fn simulation_latches_ledge_grab_on_blink_wall_surface() {
         TEST_TUNING,
     );
     assert!(
-        scratch.ledge.grab.is_some(),
+        scratch.axis().ledge_grab.is_some(),
         "blink wall ledge should latch"
     );
     assert!(events.operations.contains(&MovementOp::LedgeGrab));
@@ -74,7 +74,7 @@ fn simulation_latches_ledge_grab_on_one_way_surface_without_wall_collision() {
         TEST_TUNING,
     );
     assert!(
-        scratch.ledge.grab.is_some(),
+        scratch.axis().ledge_grab.is_some(),
         "pressing toward a one-way edge should allow a pull-up even though one-way platforms do not collide on X"
     );
     assert!(events.operations.contains(&MovementOp::LedgeGrab));
@@ -94,7 +94,7 @@ fn attack_press_from_hang_starts_getup_attack_and_fires_slash() {
     let mut state = crate::LedgeGrabState::hanging(contact);
     // Skip past the hang debounce so the input is accepted this tick.
     state.elapsed = crate::LEDGE_MIN_CLIMB_DELAY;
-    scratch.ledge.grab = Some(state);
+    scratch.axis_mut().ledge_grab = Some(state);
 
     let events = update_player_simulation_with_tuning_scratch(
         &world,
@@ -116,11 +116,14 @@ fn attack_press_from_hang_starts_getup_attack_and_fires_slash() {
         events.operations.contains(&MovementOp::Slash),
         "getup attack should also emit a Slash op so the hitbox fires"
     );
-    let new_state = scratch.ledge.grab.expect("getup-attack keeps ledge state");
+    let new_state = scratch
+        .axis()
+        .ledge_grab
+        .expect("getup-attack keeps ledge state");
     assert!(new_state.climbing, "state should be in getup transition");
     assert_eq!(new_state.getup_kind, crate::LedgeGetupKind::Attack);
     assert!(
-        scratch.dodge.roll_timer > 0.0,
+        scratch.axis().dodge_roll_timer > 0.0,
         "getup attack grants invuln frames via dodge_roll_timer"
     );
 }
@@ -140,7 +143,7 @@ fn active_ledge_grab_climb_finishes_inside_simulation_tick() {
     state.elapsed = crate::LEDGE_MIN_CLIMB_DELAY;
     state.climbing = true;
     state.climb_elapsed = crate::LEDGE_CLIMB_TIME;
-    scratch.ledge.grab = Some(state);
+    scratch.axis_mut().ledge_grab = Some(state);
 
     let events = update_player_simulation_with_tuning_scratch(
         &world,
@@ -150,7 +153,7 @@ fn active_ledge_grab_climb_finishes_inside_simulation_tick() {
         TEST_TUNING,
     );
     assert!(
-        scratch.ledge.grab.is_none(),
+        scratch.axis().ledge_grab.is_none(),
         "completed climb clears ledge state"
     );
     assert_eq!(scratch.kinematics.pos, contact.climb_target);

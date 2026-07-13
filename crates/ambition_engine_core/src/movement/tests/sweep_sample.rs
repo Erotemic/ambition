@@ -25,9 +25,9 @@ fn sim_step_sampled(
     input: InputState,
     dt: f32,
 ) -> FrameEvents {
-    let mut clusters = scratch.as_mut();
+    let (model, mut clusters) = scratch.parts();
     clusters.sweep = Some(sample);
-    update_player_simulation_with_clusters(world, &mut clusters, input, dt, TEST_TUNING)
+    update_player_simulation_with_clusters(world, model, &mut clusters, input, dt, TEST_TUNING)
 }
 
 #[test]
@@ -158,10 +158,11 @@ fn the_respawn_wrapper_leaves_a_zero_length_record_at_spawn() {
     scratch.kinematics.pos = Vec2::new(world.spawn.x, world.size.y + 500.0);
     let mut sample = SweepSample::default();
 
-    let mut clusters = scratch.as_mut();
+    let (model, mut clusters) = scratch.parts();
     clusters.sweep = Some(&mut sample);
     let events = update_player_simulation_with_clusters(
         &world,
+        model,
         &mut clusters,
         InputState::default(),
         1.0 / 60.0,

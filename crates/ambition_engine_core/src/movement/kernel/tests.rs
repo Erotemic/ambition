@@ -147,12 +147,16 @@ fn lateral_acceleration_does_not_rotate_the_supplied_basis() {
 
 #[test]
 fn a_frame_change_is_not_a_model_change_and_preserves_private_state() {
-    // AXIS: an in-flight coyote window survives a frame rotation.
+    // AXIS: an in-flight coyote window — model-private maneuver state inside
+    // the AxisSwept variant — survives a frame rotation.
     let world = empty_world();
     let mut scratch =
         BodyClusterScratch::new_with_abilities(Vec2::splat(500.0), AbilitySet::default());
-    scratch.ground.coyote_timer = 0.08;
     let mut model = MotionModel::axis_swept(AxisSweptParams::default());
+    let MotionModel::AxisSwept(axis) = &mut model else {
+        unreachable!();
+    };
+    axis.state.coyote_timer = 0.08;
     let rotated = MotionFrame::from_acceleration(rotate(Vec2::new(0.0, 900.0), 0.4)).unwrap();
     step(
         &mut model,
@@ -161,10 +165,13 @@ fn a_frame_change_is_not_a_model_change_and_preserves_private_state() {
         rotated,
         InputState::default(),
     );
+    let MotionModel::AxisSwept(axis) = &model else {
+        unreachable!();
+    };
     assert!(
-        (scratch.ground.coyote_timer - (0.08 - DT)).abs() < 1e-4,
+        (axis.state.coyote_timer - (0.08 - DT)).abs() < 1e-4,
         "a frame rotation must decay, not reset, the coyote window: {}",
-        scratch.ground.coyote_timer
+        axis.state.coyote_timer
     );
 
     // SURFACE MOMENTUM: riding state (surface identity, arc position, speed)
@@ -262,24 +269,37 @@ fn cross_policy_switches_preserve_shared_state_and_initialize_only_destination_s
     scratch.kinematics.pos = Vec2::new(12.0, 34.0);
     scratch.kinematics.vel = Vec2::new(56.0, -78.0);
     scratch.kinematics.facing = -1.0;
-    scratch.ground.coyote_timer = 0.1;
-    scratch.wall.wall_clinging = true;
-    scratch.dash.timer = 0.05;
     scratch.dash.charges_available = 2;
     scratch.jump.air_jumps_available = 1;
     let before = scratch.kinematics;
 
+    // Accumulated axis-private maneuver state, inside the variant.
+    let mut model = MotionModel::axis_swept(AxisSweptParams::default());
+    let MotionModel::AxisSwept(axis) = &mut model else {
+        unreachable!();
+    };
+    axis.state.coyote_timer = 0.1;
+    axis.state.wall_clinging = true;
+    axis.state.dash_timer = 0.05;
+
+    // Same-variant refresh first: parameters change, maneuver state survives
+    // by construction.
+    let mut refreshed = AxisSweptParams::default();
+    refreshed.locomotion.max_run_speed += 50.0;
+    switch_motion_model(&mut model, MotionModelSpec::AxisSwept(refreshed));
+    let MotionModel::AxisSwept(axis) = &model else {
+        panic!("same-variant refresh changed movement policy");
+    };
+    assert_eq!(axis.state.coyote_timer, 0.1, "refresh keeps coyote grace");
+    assert!(axis.state.wall_clinging, "refresh keeps wall engagement");
+    assert_eq!(axis.state.dash_timer, 0.05, "refresh keeps dash maneuver");
+
     // Axis → surface momentum: shared world state untouched, destination
     // begins Airborne on lane 0 (no route search, no teleport).
-    let mut model = MotionModel::axis_swept(AxisSweptParams::default());
-    {
-        let mut clusters = scratch.as_mut();
-        switch_motion_model(
-            &mut model,
-            MotionModelSpec::SurfaceMomentum(MomentumParams::default()),
-            &mut clusters,
-        );
-    }
+    switch_motion_model(
+        &mut model,
+        MotionModelSpec::SurfaceMomentum(MomentumParams::default()),
+    );
     assert_eq!(scratch.kinematics, before);
     let MotionModel::SurfaceMomentum(motion) = &model else {
         panic!("surface destination was not installed");
@@ -288,9 +308,9 @@ fn cross_policy_switches_preserve_shared_state_and_initialize_only_destination_s
     assert_eq!(motion.depth_lane, 0);
 
     // Simulate accumulated surface-private state, then switch back to axis:
-    // shared state still untouched; the axis policy's maneuver state is
-    // freshly initialized while body RESOURCES (dash charges, air jumps)
-    // survive.
+    // shared state still untouched; the axis policy's maneuver state is the
+    // fresh default (the old variant value is gone WITH its private state)
+    // while body RESOURCES (dash charges, air jumps) survive on the clusters.
     let MotionModel::SurfaceMomentum(motion) = &mut model else {
         unreachable!();
     };
@@ -300,36 +320,36 @@ fn cross_policy_switches_preserve_shared_state_and_initialize_only_destination_s
         v_t: 800.0,
     };
     motion.depth_lane = -1;
-    {
-        let mut clusters = scratch.as_mut();
-        switch_motion_model(
-            &mut model,
-            MotionModelSpec::AxisSwept(AxisSweptParams::default()),
-            &mut clusters,
-        );
-    }
+    switch_motion_model(
+        &mut model,
+        MotionModelSpec::AxisSwept(AxisSweptParams::default()),
+    );
     assert_eq!(
         scratch.kinematics, before,
         "shared world state must survive"
     );
     assert_eq!(model.kind(), MotionModelKind::AxisSwept);
-    assert_eq!(scratch.ground.coyote_timer, 0.0, "no imported coyote grace");
-    assert!(!scratch.wall.wall_clinging, "no imported wall engagement");
-    assert_eq!(scratch.dash.timer, 0.0, "no imported dash maneuver");
+    let MotionModel::AxisSwept(axis) = &model else {
+        unreachable!();
+    };
+    assert_eq!(
+        axis.state,
+        crate::movement::AxisManeuverState::default(),
+        "destination maneuver state is initialized, never imported"
+    );
+    assert_eq!(axis.state.coyote_timer, 0.0, "no imported coyote grace");
+    assert!(!axis.state.wall_clinging, "no imported wall engagement");
+    assert_eq!(axis.state.dash_timer, 0.0, "no imported dash maneuver");
     assert_eq!(scratch.dash.charges_available, 2, "resources preserved");
     assert_eq!(scratch.jump.air_jumps_available, 1, "resources preserved");
 
     // Surface → axis → surface round trip initialized only destination-private
     // state: the re-entered surface policy is Airborne again (its old ride was
     // its own private state, legitimately gone), still on the unchanged pose.
-    {
-        let mut clusters = scratch.as_mut();
-        switch_motion_model(
-            &mut model,
-            MotionModelSpec::SurfaceMomentum(MomentumParams::default()),
-            &mut clusters,
-        );
-    }
+    switch_motion_model(
+        &mut model,
+        MotionModelSpec::SurfaceMomentum(MomentumParams::default()),
+    );
     assert_eq!(scratch.kinematics, before);
     let MotionModel::SurfaceMomentum(motion) = &model else {
         panic!("surface destination was not installed");
@@ -338,14 +358,10 @@ fn cross_policy_switches_preserve_shared_state_and_initialize_only_destination_s
 
     // → crawler: begins detached; acquires support only via its own contact
     // rule on a later tick.
-    {
-        let mut clusters = scratch.as_mut();
-        switch_motion_model(
-            &mut model,
-            MotionModelSpec::AdhesiveCrawler(CrawlerParams::default()),
-            &mut clusters,
-        );
-    }
+    switch_motion_model(
+        &mut model,
+        MotionModelSpec::AdhesiveCrawler(CrawlerParams::default()),
+    );
     assert_eq!(scratch.kinematics, before);
     let MotionModel::AdhesiveCrawler(crawler) = &model else {
         panic!("crawler destination was not installed");

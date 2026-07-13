@@ -177,19 +177,24 @@ pub fn probe_ledge_grab(
 /// If the player is currently hanging/climbing, advance that state and return
 /// true to indicate that the normal movement integrator should not run this
 /// frame. Frame-explicit: the caller supplies the environment-resolved frame.
+/// `axis_state` is the axis policy's model-private maneuver state — the hang
+/// itself (`ledge_grab`), the wall engagement flags, and the invuln roll
+/// timer all live there; the shared clusters keep only contact facts and the
+/// re-grab cooldown.
 pub fn tick_active_ledge_grab_clusters_in_frame(
     clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
+    axis_state: &mut crate::movement::AxisManeuverState,
     input: InputState,
     dt: f32,
     frame: crate::MotionFrame,
     tuning: AxisSweptParams,
     events: &mut crate::movement::FrameEvents,
 ) -> bool {
-    let Some(mut state) = clusters.ledge.grab else {
+    let Some(mut state) = axis_state.ledge_grab else {
         return false;
     };
     if !clusters.abilities.abilities.ledge_grab {
-        clusters.ledge.grab = None;
+        axis_state.ledge_grab = None;
         return false;
     }
 
@@ -204,8 +209,8 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
         clusters.kinematics.pos = getup_position(state, progress, frame.down());
         clusters.kinematics.vel = Vec2::ZERO;
         clusters.ground.on_ground = false;
-        clusters.wall.wall_clinging = false;
-        clusters.wall.wall_climbing = false;
+        axis_state.wall_clinging = false;
+        axis_state.wall_climbing = false;
         clusters.wall.on_wall = false;
 
         if progress >= 1.0 {
@@ -216,13 +221,13 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
             let boost = ledge_boost_for_state_in_frame(state, frame, &tuning);
             clusters.kinematics.vel = boost - frame.down() * boost.dot(frame.down());
             clusters.ground.on_ground = true;
-            clusters.wall.wall_clinging = false;
-            clusters.wall.wall_climbing = false;
+            axis_state.wall_clinging = false;
+            axis_state.wall_climbing = false;
             clusters.wall.on_wall = false;
-            clusters.ledge.grab = None;
+            axis_state.ledge_grab = None;
             events.op_clusters(clusters.combo_trace, MovementOp::LedgeClimbFinish);
         } else {
-            clusters.ledge.grab = Some(state);
+            axis_state.ledge_grab = Some(state);
         }
         return true;
     }
@@ -266,21 +271,21 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
         clusters.kinematics.pos = state.contact.anchor;
         clusters.kinematics.vel = Vec2::ZERO;
         clusters.ground.on_ground = false;
-        clusters.wall.wall_clinging = false;
-        clusters.wall.wall_climbing = false;
+        axis_state.wall_clinging = false;
+        axis_state.wall_climbing = false;
         clusters.wall.on_wall = false;
-        clusters.dodge.roll_timer = LEDGE_ROLL_TIME + 0.10;
-        clusters.ledge.grab = Some(state);
+        axis_state.dodge_roll_timer = LEDGE_ROLL_TIME + 0.10;
+        axis_state.ledge_grab = Some(state);
         events.op_clusters(clusters.combo_trace, MovementOp::LedgeRoll);
         return true;
     }
     if want_ledge_release {
         let away_x = away_from_platform_axis(state.contact);
-        clusters.wall.wall_clinging = false;
-        clusters.wall.wall_climbing = false;
+        axis_state.wall_clinging = false;
+        axis_state.wall_climbing = false;
         clusters.wall.on_wall = false;
         clusters.ground.on_ground = false;
-        clusters.ledge.grab = None;
+        axis_state.ledge_grab = None;
         clusters.ledge.release_cooldown = LEDGE_REGRAB_COOLDOWN;
         clusters.kinematics.vel =
             launch_away_from_feet(frame, tuning, away_x, tuning.locomotion.wall_jump_x);
@@ -295,11 +300,11 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
     }
     if want_ledge_jump {
         let into_x = into_platform_axis(state.contact);
-        clusters.wall.wall_clinging = false;
-        clusters.wall.wall_climbing = false;
+        axis_state.wall_clinging = false;
+        axis_state.wall_climbing = false;
         clusters.wall.on_wall = false;
         clusters.ground.on_ground = false;
-        clusters.ledge.grab = None;
+        axis_state.ledge_grab = None;
         clusters.ledge.release_cooldown = LEDGE_REGRAB_COOLDOWN;
         let mut launch =
             launch_away_from_feet(frame, tuning, into_x, tuning.locomotion.jump_speed * 0.35);
@@ -315,10 +320,10 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
         return true;
     }
     if want_drop && !want_climb && !want_getup_attack {
-        clusters.wall.wall_clinging = false;
-        clusters.wall.wall_climbing = false;
+        axis_state.wall_clinging = false;
+        axis_state.wall_climbing = false;
         clusters.wall.on_wall = false;
-        clusters.ledge.grab = None;
+        axis_state.ledge_grab = None;
         clusters.ledge.release_cooldown = LEDGE_REGRAB_COOLDOWN;
         events.op_clusters(clusters.combo_trace, MovementOp::LedgeDrop);
         return true;
@@ -330,11 +335,11 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
         clusters.kinematics.pos = state.contact.anchor;
         clusters.kinematics.vel = Vec2::ZERO;
         clusters.ground.on_ground = false;
-        clusters.wall.wall_clinging = false;
-        clusters.wall.wall_climbing = false;
+        axis_state.wall_clinging = false;
+        axis_state.wall_climbing = false;
         clusters.wall.on_wall = false;
-        clusters.dodge.roll_timer = LEDGE_GETUP_ATTACK_TIME;
-        clusters.ledge.grab = Some(state);
+        axis_state.dodge_roll_timer = LEDGE_GETUP_ATTACK_TIME;
+        axis_state.ledge_grab = Some(state);
         events.op_clusters(clusters.combo_trace, MovementOp::LedgeGetupAttack);
         events.op_clusters(clusters.combo_trace, MovementOp::Slash);
         return true;
@@ -346,10 +351,10 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
         clusters.kinematics.pos = state.contact.anchor;
         clusters.kinematics.vel = Vec2::ZERO;
         clusters.ground.on_ground = false;
-        clusters.wall.wall_clinging = false;
-        clusters.wall.wall_climbing = false;
+        axis_state.wall_clinging = false;
+        axis_state.wall_climbing = false;
         clusters.wall.on_wall = false;
-        clusters.ledge.grab = Some(state);
+        axis_state.ledge_grab = Some(state);
         events.op_clusters(clusters.combo_trace, MovementOp::LedgeClimbStart);
         return true;
     }
@@ -358,10 +363,10 @@ pub fn tick_active_ledge_grab_clusters_in_frame(
     // so gravity / wall-slide doesn't drift the player off the lip.
     clusters.kinematics.pos = state.contact.anchor;
     clusters.kinematics.vel = Vec2::ZERO;
-    clusters.wall.wall_clinging = true;
-    clusters.wall.wall_climbing = false;
+    axis_state.wall_clinging = true;
+    axis_state.wall_climbing = false;
     clusters.wall.on_wall = true;
-    clusters.ledge.grab = Some(state);
+    axis_state.ledge_grab = Some(state);
     true
 }
 
@@ -418,13 +423,15 @@ pub fn is_precise_ledge_grab(player_pos: Vec2, player_size: Vec2, contact: Ledge
 }
 
 /// Pick a side-face normal to probe for a ledge: the active wall-cling normal
-/// first, else a local side-axis press while airborne.
+/// first (engagement from the axis maneuver state, face from the shared wall
+/// contact), else a local side-axis press while airborne.
 fn requested_wall_normal_clusters(
     wall: &crate::body_clusters::BodyWallState,
+    axis_state: &crate::movement::AxisManeuverState,
     ground: &crate::body_clusters::BodyGroundState,
     input: InputState,
 ) -> Option<f32> {
-    if wall.wall_clinging && wall.wall_normal_x.abs() >= 0.5 {
+    if axis_state.wall_clinging && wall.wall_normal_x.abs() >= 0.5 {
         return Some(wall.wall_normal_x);
     }
     let local_stick = input.local_axis();
@@ -565,12 +572,13 @@ const FALL_SNAP_MIN_VY: f32 = 45.0;
 pub fn try_start_ledge_grab_clusters_in_frame(
     world: &World,
     clusters: &mut crate::body_clusters::BodyClustersMut<'_>,
+    axis_state: &mut crate::movement::AxisManeuverState,
     input: InputState,
     frame: crate::MotionFrame,
     events: &mut crate::movement::FrameEvents,
 ) -> bool {
     if !clusters.abilities.abilities.ledge_grab
-        || clusters.ledge.grab.is_some()
+        || axis_state.ledge_grab.is_some()
         || clusters.ground.on_ground
     {
         return false;
@@ -580,7 +588,8 @@ pub fn try_start_ledge_grab_clusters_in_frame(
     }
 
     let mut contact: Option<LedgeContact> = None;
-    if let Some(wall_normal) = requested_wall_normal_clusters(clusters.wall, clusters.ground, input)
+    if let Some(wall_normal) =
+        requested_wall_normal_clusters(clusters.wall, axis_state, clusters.ground, input)
     {
         contact = probe_ledge_grab_in_frame(
             clusters.kinematics.pos,
@@ -618,11 +627,11 @@ pub fn try_start_ledge_grab_clusters_in_frame(
         frame.down(),
     );
 
-    let pre_wall_fresh = clusters.wall.pre_wall_vel_age <= LEDGE_REGRAB_COOLDOWN;
+    let pre_wall_fresh = axis_state.pre_wall_vel_age <= LEDGE_REGRAB_COOLDOWN;
     let momentum_at_grab = if pre_wall_fresh
-        && clusters.wall.pre_wall_vel.length_squared() > clusters.kinematics.vel.length_squared()
+        && axis_state.pre_wall_vel.length_squared() > clusters.kinematics.vel.length_squared()
     {
-        clusters.wall.pre_wall_vel
+        axis_state.pre_wall_vel
     } else {
         clusters.kinematics.vel
     };
@@ -630,19 +639,19 @@ pub fn try_start_ledge_grab_clusters_in_frame(
     clusters.kinematics.pos = contact.anchor;
     clusters.kinematics.vel = Vec2::ZERO;
     clusters.kinematics.facing = into_platform_axis(contact);
-    clusters.wall.wall_clinging = true;
-    clusters.wall.wall_climbing = false;
+    axis_state.wall_clinging = true;
+    axis_state.wall_climbing = false;
     clusters.wall.on_wall = true;
     clusters.wall.wall_normal_x = contact.wall_normal_x;
-    clusters.ledge.grab = Some(LedgeGrabState {
+    axis_state.ledge_grab = Some(LedgeGrabState {
         momentum_at_grab,
         ..LedgeGrabState::hanging_with_quality(contact, grab_quality)
     });
     // Smash-Bros style ledge intangibility: a brief invuln window on
     // grab. Reuses `dodge_roll_timer` because that field already gates
     // damage — same pipeline, single source of truth.
-    if clusters.dodge.roll_timer < LEDGE_GRAB_INVULN_TIME {
-        clusters.dodge.roll_timer = LEDGE_GRAB_INVULN_TIME;
+    if axis_state.dodge_roll_timer < LEDGE_GRAB_INVULN_TIME {
+        axis_state.dodge_roll_timer = LEDGE_GRAB_INVULN_TIME;
     }
     events.op_clusters(clusters.combo_trace, MovementOp::LedgeGrab);
     true

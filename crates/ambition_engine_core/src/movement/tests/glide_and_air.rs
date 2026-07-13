@@ -271,7 +271,7 @@ fn glide_caps_fall_speed_while_jump_held() {
     let _ = events; // unused
 
     assert!(
-        scratch.flight.gliding,
+        scratch.axis().gliding,
         "hold-jump while falling should engage glide"
     );
     assert!(
@@ -303,12 +303,12 @@ fn glide_disengages_when_jump_released() {
             ..Default::default()
         },
     );
-    assert!(scratch.flight.gliding);
+    assert!(scratch.axis().gliding);
 
     // Frame 2: released → glide disengages, fall speed climbs back
     // toward max_fall_speed (gravity reapplied without the glide cap)
     step_scratch(&world, &mut scratch, InputState::default());
-    assert!(!scratch.flight.gliding);
+    assert!(!scratch.axis().gliding);
 }
 
 #[test]
@@ -330,7 +330,7 @@ fn glide_requires_ability_flag() {
         },
     );
     assert!(
-        !scratch.flight.gliding,
+        !scratch.axis().gliding,
         "glide should not engage when the ability flag is off"
     );
 }
@@ -368,9 +368,11 @@ fn glide_sustains_across_many_frames() {
         // assert on the very first frames where vel.y < cap.
         if frame >= 6 {
             assert!(
-                scratch.flight.gliding,
+                scratch.axis().gliding,
                 "frame {frame}: gliding flipped off (vel=({},{}) on_ground={})",
-                scratch.kinematics.vel.x, scratch.kinematics.vel.y, scratch.ground.on_ground,
+                scratch.kinematics.vel.x,
+                scratch.kinematics.vel.y,
+                scratch.ground.on_ground,
             );
             assert!(
                 scratch.kinematics.vel.y <= TEST_TUNING.glide_fall_speed + 5.0,
@@ -399,7 +401,7 @@ fn fast_fall_requires_double_tap_signal() {
             ..Default::default()
         },
     );
-    assert!(!scratch.flight.fast_falling);
+    assert!(!scratch.axis().fast_falling);
 
     // The presentation layer recognizes double-tap-down and sends this
     // explicit event to the engine.
@@ -412,7 +414,7 @@ fn fast_fall_requires_double_tap_signal() {
             ..Default::default()
         },
     );
-    assert!(scratch.flight.fast_falling);
+    assert!(scratch.axis().fast_falling);
 }
 
 #[test]

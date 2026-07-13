@@ -11,11 +11,12 @@
 
 use super::events::FrameEvents;
 use super::input::InputState;
+use super::model::AxisManeuverState;
 use super::ops::MovementOp;
 use super::tuning::AxisSweptParams;
 use crate::body_clusters::{
-    BodyAbilities, BodyActionBuffer, BodyBlinkState, BodyComboTrace, BodyDashState, BodyDodgeState,
-    BodyFlightState, BodyGroundState, BodyKinematics, BodyShieldState, BodyWallState,
+    BodyAbilities, BodyComboTrace, BodyDashState, BodyDodgeState, BodyFlightState, BodyGroundState,
+    BodyKinematics, BodyShieldState,
 };
 use crate::MotionFrame;
 
@@ -26,7 +27,7 @@ pub(super) fn apply_intent(
     kinematics: &mut BodyKinematics,
     ground: &BodyGroundState,
     flight: &BodyFlightState,
-    action_buffer: &mut BodyActionBuffer,
+    state: &mut AxisManeuverState,
     abilities: &BodyAbilities,
     input: InputState,
     tuning: AxisSweptParams,
@@ -37,20 +38,18 @@ pub(super) fn apply_intent(
         kinematics.facing = local_stick.x.signum();
     }
     if input.jump_pressed && abilities.abilities.jump {
-        action_buffer.jump = tuning.locomotion.jump_buffer;
+        state.buffer_jump = tuning.locomotion.jump_buffer;
     }
     if input.dash_pressed && abilities.abilities.dash {
-        action_buffer.dash = tuning.abilities.dash_buffer;
+        state.buffer_dash = tuning.abilities.dash_buffer;
     }
 }
 
-/// Flight toggle: flip fly mode; on entering, clear transient ground/wall/dash/
-/// blink state so the body cleanly enters free flight.
+/// Flight toggle: flip fly mode; on entering, clear transient wall/dash/blink
+/// maneuver state so the body cleanly enters free flight.
 pub(super) fn apply_fly_toggle(
     flight: &mut BodyFlightState,
-    wall: &mut BodyWallState,
-    dash: &mut BodyDashState,
-    blink: &mut BodyBlinkState,
+    state: &mut AxisManeuverState,
     abilities: &BodyAbilities,
     combo_trace: &mut BodyComboTrace,
     input: InputState,
@@ -59,11 +58,11 @@ pub(super) fn apply_fly_toggle(
     if input.fly_toggle_pressed && abilities.abilities.fly {
         flight.fly_enabled = !flight.fly_enabled;
         if flight.fly_enabled {
-            flight.fast_falling = false;
-            wall.wall_clinging = false;
-            wall.wall_climbing = false;
-            dash.timer = 0.0;
-            blink.grace_timer = 0.0;
+            state.fast_falling = false;
+            state.wall_clinging = false;
+            state.wall_climbing = false;
+            state.dash_timer = 0.0;
+            state.blink_grace_timer = 0.0;
         }
         events.op_clusters(combo_trace, MovementOp::FlyToggle);
     }
@@ -74,7 +73,7 @@ pub(super) fn apply_fly_toggle(
 pub(super) fn apply_dodge(
     kinematics: &mut BodyKinematics,
     dodge: &mut BodyDodgeState,
-    action_buffer: &mut BodyActionBuffer,
+    state: &mut AxisManeuverState,
     ground: &BodyGroundState,
     abilities: &BodyAbilities,
     combo_trace: &mut BodyComboTrace,
@@ -83,7 +82,7 @@ pub(super) fn apply_dodge(
     tuning: AxisSweptParams,
     events: &mut FrameEvents,
 ) {
-    if action_buffer.dash > 0.0
+    if state.buffer_dash > 0.0
         && abilities.abilities.dodge
         && ground.on_ground
         && dodge.cooldown <= 0.0
@@ -97,9 +96,9 @@ pub(super) fn apply_dodge(
         let descend = kinematics.vel.dot(frame.down()).min(0.0);
         kinematics.vel =
             frame.side() * (dir * tuning.abilities.dodge_roll_speed) + frame.down() * descend;
-        dodge.roll_timer = tuning.abilities.dodge_roll_time;
+        state.dodge_roll_timer = tuning.abilities.dodge_roll_time;
         dodge.cooldown = tuning.abilities.dodge_roll_cooldown;
-        action_buffer.dash = 0.0;
+        state.buffer_dash = 0.0;
         events.op_clusters(combo_trace, MovementOp::DodgeRoll);
     }
 }
@@ -141,7 +140,7 @@ pub fn resolve_shield(
 /// rising edge. Thin player-side wrapper over the shared [`resolve_shield`] rule.
 pub(super) fn apply_shield(
     shield: &mut BodyShieldState,
-    dash: &BodyDashState,
+    state: &AxisManeuverState,
     abilities: &BodyAbilities,
     combo_trace: &mut BodyComboTrace,
     input: InputState,
@@ -152,7 +151,7 @@ pub(super) fn apply_shield(
         &mut shield.active,
         &mut shield.parry_window_timer,
         abilities.abilities.shield,
-        dash.timer > 0.0,
+        state.dash_timer > 0.0,
         input.shield_held,
         tuning.abilities.parry_window_time,
     );
@@ -188,7 +187,7 @@ pub(super) fn apply_jump_release(
 pub(super) fn apply_dash(
     kinematics: &mut BodyKinematics,
     dash: &mut BodyDashState,
-    action_buffer: &mut BodyActionBuffer,
+    state: &mut AxisManeuverState,
     abilities: &BodyAbilities,
     combo_trace: &mut BodyComboTrace,
     input: InputState,
@@ -196,7 +195,7 @@ pub(super) fn apply_dash(
     tuning: AxisSweptParams,
     events: &mut FrameEvents,
 ) {
-    if action_buffer.dash > 0.0
+    if state.buffer_dash > 0.0
         && abilities.abilities.dash
         && dash.charges_available > 0
         && dash.cooldown <= 0.0
@@ -204,9 +203,9 @@ pub(super) fn apply_dash(
         let fallback = bevy_math::Vec2::new(kinematics.facing, 0.0);
         let aim = input.local_axis().normalize_or(fallback);
         kinematics.vel = frame.to_world(aim) * tuning.abilities.dash_speed;
-        dash.timer = tuning.abilities.dash_time;
+        state.dash_timer = tuning.abilities.dash_time;
         dash.cooldown = tuning.abilities.dash_cooldown;
-        action_buffer.dash = 0.0;
+        state.buffer_dash = 0.0;
         let before = dash.charges_available;
         dash.charges_available = dash.charges_available.saturating_sub(1);
         let op = if before >= 2 {

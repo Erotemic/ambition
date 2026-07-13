@@ -38,7 +38,7 @@ fn dodge_roll_triggers_on_ground_with_ability() {
         "dash on ground with dodge ability should trigger DodgeRoll"
     );
     assert!(
-        scratch.dodge.roll_timer > 0.0,
+        scratch.axis().dodge_roll_timer > 0.0,
         "dodge_roll_timer should be set"
     );
     assert!(
@@ -149,7 +149,7 @@ fn shield_blocked_during_dash() {
     let mut scratch = scratch_at(world.spawn);
     scratch.ground.on_ground = true;
     scratch.abilities.abilities.shield = true;
-    scratch.dash.timer = 0.10; // force active dash
+    scratch.axis_mut().dash_timer = 0.10; // force active dash
     step_scratch(
         &world,
         &mut scratch,

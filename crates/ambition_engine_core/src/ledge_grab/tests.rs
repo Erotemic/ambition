@@ -218,14 +218,17 @@ fn precise_grab_keeps_momentum_boost_reward() {
     )]);
     let mut scratch = scratch_at(Vec2::new(86.0, 110.0));
     scratch.abilities.abilities.ledge_grab = true;
-    scratch.wall.wall_clinging = true;
+    scratch.axis_mut().wall_clinging = true;
     scratch.wall.wall_normal_x = -1.0;
     scratch.kinematics.vel = Vec2::new(240.0, -120.0);
     let mut events = crate::movement::FrameEvents::default();
     let latched =
         try_start_ledge_grab_scratch(&world, &mut scratch, InputState::default(), &mut events);
     assert!(latched, "tight-window grab should latch");
-    let state = scratch.ledge.grab.expect("grab state should be active");
+    let state = scratch
+        .axis()
+        .ledge_grab
+        .expect("grab state should be active");
     assert!(
         state.grab_quality.is_precise(),
         "old tight window should be precise"
@@ -250,14 +253,17 @@ fn forgiving_grab_latches_but_suppresses_momentum_boost_reward() {
     )]);
     let mut scratch = scratch_at(Vec2::new(86.0, 150.0));
     scratch.abilities.abilities.ledge_grab = true;
-    scratch.wall.wall_clinging = true;
+    scratch.axis_mut().wall_clinging = true;
     scratch.wall.wall_normal_x = -1.0;
     scratch.kinematics.vel = Vec2::new(240.0, -120.0);
     let mut events = crate::movement::FrameEvents::default();
     let latched =
         try_start_ledge_grab_scratch(&world, &mut scratch, InputState::default(), &mut events);
     assert!(latched, "outer-window grab should still latch");
-    let state = scratch.ledge.grab.expect("grab state should be active");
+    let state = scratch
+        .axis()
+        .ledge_grab
+        .expect("grab state should be active");
     assert!(
         !state.grab_quality.is_precise(),
         "outer-window grab should be forgiving, not precise"
@@ -279,9 +285,10 @@ fn forgiving_grab_latches_but_suppresses_momentum_boost_reward() {
 fn forgiving_grab_still_allows_regular_ledge_jump_without_bonus_velocity() {
     let contact = rightward_ledge_contact();
     let mut scratch = make_hanging_player_with_momentum(contact, Vec2::new(240.0, -120.0));
-    scratch.ledge.grab = Some(LedgeGrabState {
+    let hanging = scratch.axis().ledge_grab.expect("hanging state");
+    scratch.axis_mut().ledge_grab = Some(LedgeGrabState {
         grab_quality: LedgeGrabQuality::Forgiving,
-        ..scratch.ledge.grab.expect("hanging state")
+        ..hanging
     });
     let mut events = crate::movement::FrameEvents::default();
     let tuning = TestTuning::default();
@@ -293,7 +300,7 @@ fn forgiving_grab_still_allows_regular_ledge_jump_without_bonus_velocity() {
     let consumed = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
 
     assert!(consumed);
-    assert!(scratch.ledge.grab.is_none());
+    assert!(scratch.axis().ledge_grab.is_none());
     let expected_regular_x = into_platform_axis(contact) * tuning.jump_speed * 0.35;
     assert!(
         (scratch.kinematics.vel.x - expected_regular_x).abs() < 0.01,
@@ -456,7 +463,7 @@ fn make_hanging_player_with_momentum(contact: LedgeContact, momentum: Vec2) -> B
     let mut scratch = scratch_at(Vec2::ZERO);
     scratch.abilities.abilities.ledge_grab = true;
     scratch.abilities.abilities.shield = true;
-    scratch.ledge.grab = Some(LedgeGrabState {
+    scratch.axis_mut().ledge_grab = Some(LedgeGrabState {
         contact,
         elapsed: LEDGE_MIN_CLIMB_DELAY + 0.01,
         climbing: false,
@@ -465,7 +472,7 @@ fn make_hanging_player_with_momentum(contact: LedgeContact, momentum: Vec2) -> B
         momentum_at_grab: momentum,
         grab_quality: LedgeGrabQuality::Precise,
     });
-    scratch.wall.wall_clinging = true;
+    scratch.axis_mut().wall_clinging = true;
     scratch.wall.on_wall = true;
     scratch
 }
@@ -493,7 +500,10 @@ fn ledge_jump_away_launches_player_outward() {
     };
     let consumed = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
     assert!(consumed, "tick should consume the frame");
-    assert!(scratch.ledge.grab.is_none(), "ledge should be released");
+    assert!(
+        scratch.axis().ledge_grab.is_none(),
+        "ledge should be released"
+    );
     // Player should move left (away from the right-side wall).
     assert!(
         scratch.kinematics.vel.x < -100.0,
@@ -530,7 +540,7 @@ fn jump_toward_platform_now_hops_up_not_climbs() {
     let consumed = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
     assert!(consumed);
     assert!(
-        scratch.ledge.grab.is_none(),
+        scratch.axis().ledge_grab.is_none(),
         "ledge should be released by the hop"
     );
     assert!(
@@ -567,7 +577,7 @@ fn jump_with_no_horizontal_input_hops_up() {
     };
     let consumed = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
     assert!(consumed);
-    assert!(scratch.ledge.grab.is_none());
+    assert!(scratch.axis().ledge_grab.is_none());
     assert!(
         scratch.kinematics.vel.y < -100.0,
         "pure jump should still go up, got vy={}",
@@ -593,8 +603,8 @@ fn up_alone_still_starts_a_climb() {
     };
     let _ = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
     let state = scratch
-        .ledge
-        .grab
+        .axis()
+        .ledge_grab
         .expect("climb should leave transitioning state");
     assert!(state.climbing, "Up should start a climb");
     assert_eq!(state.getup_kind, LedgeGetupKind::Climb);
@@ -647,7 +657,7 @@ fn falling_player_auto_snaps_to_nearby_ledge() {
     let latched =
         try_start_ledge_grab_scratch(&world, &mut scratch, InputState::default(), &mut events);
     assert!(latched, "fast-falling near a ledge should auto-snap");
-    assert!(scratch.ledge.grab.is_some());
+    assert!(scratch.axis().ledge_grab.is_some());
 }
 
 /// A loitering player (slow descent, no stick input) should NOT
@@ -716,13 +726,13 @@ fn shield_held_starts_a_ledge_roll() {
     let consumed = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
     assert!(consumed);
     let state = scratch
-        .ledge
-        .grab
+        .axis()
+        .ledge_grab
         .expect("roll should leave a transitioning state");
     assert!(state.climbing, "roll must enter the climbing state");
     assert_eq!(state.getup_kind, LedgeGetupKind::Roll);
     assert!(
-        scratch.dodge.roll_timer > 0.0,
+        scratch.axis().dodge_roll_timer > 0.0,
         "ledge roll must arm dodge_roll_timer for invuln",
     );
 }
@@ -746,7 +756,7 @@ fn shield_overrides_climb_when_both_inputs_are_held() {
         ..InputState::default()
     };
     let _ = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
-    let state = scratch.ledge.grab.expect("active transition");
+    let state = scratch.axis().ledge_grab.expect("active transition");
     assert_eq!(state.getup_kind, LedgeGetupKind::Roll);
 }
 
@@ -786,7 +796,10 @@ fn ledge_roll_lands_further_inboard_than_climb() {
     // After the roll finishes, the player should be at the roll
     // landing position which is past climb_target along the
     // into-platform axis. For a -1 wall normal that's +x.
-    assert!(scratch.ledge.grab.is_none(), "roll should have finished");
+    assert!(
+        scratch.axis().ledge_grab.is_none(),
+        "roll should have finished"
+    );
     assert!(
         scratch.ground.on_ground,
         "roll lands the player on the platform"
@@ -855,7 +868,7 @@ fn voluntary_drop_arms_a_regrab_cooldown() {
     let consumed = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
     assert!(consumed);
     assert!(
-        scratch.ledge.grab.is_none(),
+        scratch.axis().ledge_grab.is_none(),
         "drop should release the ledge"
     );
     assert!(
@@ -889,7 +902,7 @@ fn regrab_cooldown_blocks_auto_snap_on_fall() {
         !latched,
         "regrab cooldown should block the auto-snap-on-fall path"
     );
-    assert!(scratch.ledge.grab.is_none());
+    assert!(scratch.axis().ledge_grab.is_none());
 }
 
 /// After the cooldown expires the player can grab again normally.
@@ -938,7 +951,7 @@ fn ledge_jump_options_also_arm_regrab_cooldown() {
             ..InputState::default()
         };
         let _ = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
-        assert!(scratch.ledge.grab.is_none());
+        assert!(scratch.axis().ledge_grab.is_none());
         assert!(
             scratch.ledge.release_cooldown >= LEDGE_REGRAB_COOLDOWN - 0.001,
             "ledge release should arm cooldown",
@@ -954,7 +967,7 @@ fn ledge_jump_options_also_arm_regrab_cooldown() {
             ..InputState::default()
         };
         let _ = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
-        assert!(scratch.ledge.grab.is_none());
+        assert!(scratch.axis().ledge_grab.is_none());
         assert!(
             scratch.ledge.release_cooldown >= LEDGE_REGRAB_COOLDOWN - 0.001,
             "ledge jump should arm cooldown",
@@ -974,17 +987,17 @@ fn ledge_grab_arms_intangibility_window() {
     )]);
     let mut scratch = scratch_at(Vec2::new(86.0, 110.0));
     scratch.abilities.abilities.ledge_grab = true;
-    scratch.wall.wall_clinging = true;
+    scratch.axis_mut().wall_clinging = true;
     scratch.wall.wall_normal_x = -1.0;
     let mut events = crate::movement::FrameEvents::default();
     let latched =
         try_start_ledge_grab_scratch(&world, &mut scratch, InputState::default(), &mut events);
     assert!(latched, "expected ledge grab to latch");
     assert!(
-        scratch.dodge.roll_timer >= LEDGE_GRAB_INVULN_TIME - 0.001,
+        scratch.axis().dodge_roll_timer >= LEDGE_GRAB_INVULN_TIME - 0.001,
         "grab should arm at least {}s of invuln, got {}",
         LEDGE_GRAB_INVULN_TIME,
-        scratch.dodge.roll_timer,
+        scratch.axis().dodge_roll_timer,
     );
 }
 
@@ -1031,7 +1044,7 @@ fn try_start_ledge_grab_captures_incoming_velocity() {
     // Player arriving at the ledge with rightward + upward momentum
     // (i.e. running up against the wall during a jump).
     scratch.kinematics.vel = Vec2::new(180.0, -240.0);
-    scratch.wall.wall_clinging = true;
+    scratch.axis_mut().wall_clinging = true;
     scratch.wall.wall_normal_x = -1.0;
     let mut events = crate::movement::FrameEvents::default();
     let latched =
@@ -1041,7 +1054,7 @@ fn try_start_ledge_grab_captures_incoming_velocity() {
     assert_eq!(scratch.kinematics.vel, Vec2::ZERO);
     // ...but the state retains the pre-grab velocity for the
     // boost path.
-    let state = scratch.ledge.grab.unwrap();
+    let state = scratch.axis().ledge_grab.unwrap();
     assert!(
         (state.momentum_at_grab - Vec2::new(180.0, -240.0)).length() < 0.01,
         "momentum_at_grab should mirror pre-grab vel, got {:?}",
@@ -1194,7 +1207,7 @@ fn drop_does_not_apply_boost() {
         ..InputState::default()
     };
     let _ = tick_active_ledge_grab_scratch(&mut scratch, input, 0.016, tuning, &mut events);
-    assert!(scratch.ledge.grab.is_none());
+    assert!(scratch.axis().ledge_grab.is_none());
     // After a drop the player has no claimed launch velocity —
     // the existing behavior is that vel is whatever it was when
     // the ledge released, and for `want_drop` we leave it
@@ -1260,7 +1273,10 @@ fn climb_finish_carries_momentum_when_grabbed_with_speed() {
         tuning,
         &mut events,
     );
-    assert!(scratch.ledge.grab.is_none(), "climb should have finished");
+    assert!(
+        scratch.axis().ledge_grab.is_none(),
+        "climb should have finished"
+    );
     // Carried x velocity into platform. The forward-into is +x
     // here (right-side wall_normal, into = +1).
     assert!(
@@ -1301,7 +1317,7 @@ fn climb_finish_does_not_carry_vertical_boost() {
         tuning,
         &mut events,
     );
-    assert!(scratch.ledge.grab.is_none());
+    assert!(scratch.axis().ledge_grab.is_none());
     assert!(
         scratch.kinematics.vel.x > 0.0,
         "horizontal carry should still apply, got vx={}",
@@ -1358,11 +1374,11 @@ fn getup_transition_completes_faster_with_momentum_carry() {
         &mut events,
     );
     assert!(
-        boosted.ledge.grab.is_none(),
+        boosted.axis().ledge_grab.is_none(),
         "boosted climb should have completed by 60% of base duration"
     );
     assert!(
-        baseline.ledge.grab.is_some(),
+        baseline.axis().ledge_grab.is_some(),
         "baseline climb should still be in progress at 60% of base duration"
     );
 }
@@ -1387,15 +1403,15 @@ fn grab_prefers_pre_wall_vel_when_fresh() {
     // vel.x is zero (collision zeroed it), but pre_wall_vel
     // still has the approach momentum from a frame ago.
     scratch.kinematics.vel = Vec2::new(0.0, 50.0);
-    scratch.wall.pre_wall_vel = Vec2::new(260.0, -180.0);
-    scratch.wall.pre_wall_vel_age = 0.05; // fresh
-    scratch.wall.wall_clinging = true;
+    scratch.axis_mut().pre_wall_vel = Vec2::new(260.0, -180.0);
+    scratch.axis_mut().pre_wall_vel_age = 0.05; // fresh
+    scratch.axis_mut().wall_clinging = true;
     scratch.wall.wall_normal_x = -1.0;
     let mut events = crate::movement::FrameEvents::default();
     let latched =
         try_start_ledge_grab_scratch(&world, &mut scratch, InputState::default(), &mut events);
     assert!(latched);
-    let state = scratch.ledge.grab.unwrap();
+    let state = scratch.axis().ledge_grab.unwrap();
     assert!(
         (state.momentum_at_grab - Vec2::new(260.0, -180.0)).length() < 0.01,
         "grab should snapshot the pre-wall vel, got {:?}",
@@ -1416,15 +1432,15 @@ fn grab_falls_back_to_current_vel_when_pre_wall_stale() {
     let mut scratch = scratch_at(Vec2::new(86.0, 110.0));
     scratch.abilities.abilities.ledge_grab = true;
     scratch.kinematics.vel = Vec2::new(0.0, 50.0);
-    scratch.wall.pre_wall_vel = Vec2::new(260.0, -180.0);
-    scratch.wall.pre_wall_vel_age = LEDGE_REGRAB_COOLDOWN * 4.0; // very stale
-    scratch.wall.wall_clinging = true;
+    scratch.axis_mut().pre_wall_vel = Vec2::new(260.0, -180.0);
+    scratch.axis_mut().pre_wall_vel_age = LEDGE_REGRAB_COOLDOWN * 4.0; // very stale
+    scratch.axis_mut().wall_clinging = true;
     scratch.wall.wall_normal_x = -1.0;
     let mut events = crate::movement::FrameEvents::default();
     let latched =
         try_start_ledge_grab_scratch(&world, &mut scratch, InputState::default(), &mut events);
     assert!(latched);
-    let state = scratch.ledge.grab.unwrap();
+    let state = scratch.axis().ledge_grab.unwrap();
     // Should fall back to current vel, NOT the stale pre_wall.
     assert!(
         (state.momentum_at_grab - Vec2::new(0.0, 50.0)).length() < 0.01,
@@ -1471,7 +1487,10 @@ fn boost_decays_to_zero_outside_window() {
         tuning,
         &mut events,
     );
-    assert!(scratch.ledge.grab.is_none(), "climb should have finished");
+    assert!(
+        scratch.axis().ledge_grab.is_none(),
+        "climb should have finished"
+    );
     assert_eq!(
         scratch.kinematics.vel,
         Vec2::ZERO,

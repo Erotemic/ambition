@@ -218,12 +218,24 @@ pub(super) fn integrate_velocity_clusters(
             // The grounded-frame REST contact: the one place per frame that
             // knows both the support and its frame motion, so the contact
             // carries `surface_velocity` (moving-platform carry made visible).
+            // The support face's TRUE outward normal (a cardinal block face);
+            // equals -g for cardinal gravity, and stays the surface fact under
+            // an oblique frame.
+            let axis = crate::collision_semantics::gravity_axis(g);
+            let sign = match axis {
+                crate::collision_semantics::Axis::X => -g.x.signum(),
+                crate::collision_semantics::Axis::Y => -g.y.signum(),
+            };
+            let normal = match axis {
+                crate::collision_semantics::Axis::X => crate::Vec2::new(sign, 0.0),
+                crate::collision_semantics::Axis::Y => crate::Vec2::new(0.0, sign),
+            };
             events
                 .contacts
                 .push(crate::collision_semantics::block_face_contact(
                     oriented,
                     support,
-                    -g,
+                    normal,
                     0.0,
                     crate::collision_semantics::ContactKind::Support,
                 ));

@@ -295,12 +295,12 @@ fn fall_step(
         clusters.kinematics.vel -= (along - cap) * g;
     }
 
-    let gravity_on_x = g.x != 0.0;
-    let (side_axis, gravity_axis) = if gravity_on_x {
-        (Axis::Y, Axis::X)
-    } else {
-        (Axis::X, Axis::Y)
-    };
+    // Sweep the frame's SIDE-role world axis first, then its gravity-role
+    // axis — the same role classification the shared collision doctrine uses
+    // (dominant component decides; an oblique frame sweeps both axes with the
+    // full per-axis velocity, classified frame-relatively inside the sweep).
+    let gravity_axis = crate::collision_semantics::gravity_axis(g);
+    let side_axis = gravity_axis.perpendicular();
     let mut sweep = |clusters: &mut BodyClustersMut<'_>, axis: Axis| {
         let prev_feet_coord = clusters.kinematics.aabb_oriented(g).feet_coord(g);
         let delta_along = match axis {
@@ -327,18 +327,36 @@ fn fall_step(
     sweep(clusters, gravity_axis);
 
     if clusters.ground.on_ground {
-        motion.state = CrawlerState::attached(-g.normalize_or(Vec2::new(0.0, 1.0)));
+        // Attach to the LANDED surface's true outward normal (the semantic
+        // Support contact) — under an oblique frame the surface's normal and
+        // the frame's anti-down differ, and adhesion is about the surface.
+        let landed = contacts
+            .iter()
+            .rev()
+            .find(|contact| contact.kind == ContactKind::Support)
+            .map(|contact| contact.normal)
+            .unwrap_or_else(|| -g.normalize_or(Vec2::new(0.0, 1.0)));
+        motion.state = CrawlerState::attached(landed);
         clusters.kinematics.vel = Vec2::ZERO;
     }
 }
 
+/// World-AABB half-extent BOUNDING a box authored in a surface-local basis
+/// (`along` on the tangent axis, `across` on the normal axis). Exact for
+/// cardinal bases (90° swaps components); a conservative bound for oblique
+/// ones — the crawler's probes are covariant constructions, never world-axis
+/// cases.
+fn surface_probe_half(tangent: Vec2, normal: Vec2, along: f32, across: f32) -> Vec2 {
+    Vec2::new(
+        (tangent.x * along).abs() + (normal.x * across).abs(),
+        (tangent.y * along).abs() + (normal.y * across).abs(),
+    )
+}
+
 fn wall_ahead(world: &World, pos: Vec2, tangent: Vec2, body_long: f32, body_thick: f32) -> bool {
     let probe_center = pos + tangent * (body_long + 3.0);
-    let half = if tangent.x.abs() > 0.5 {
-        Vec2::new(2.0, body_thick * 0.7)
-    } else {
-        Vec2::new(body_thick * 0.7, 2.0)
-    };
+    let normal = Vec2::new(-tangent.y, tangent.x);
+    let half = surface_probe_half(tangent, normal, 2.0, body_thick * 0.7);
     let probe = Aabb::new(probe_center, half);
     world.body_overlaps_any(probe, wall_pred)
 }
@@ -355,11 +373,8 @@ fn snapped_to_surface(
 ) -> Option<Vec2> {
     let down = -normal;
     let max_d = (body_thick + body_long + 4.0) as i32;
-    let half = if normal.x.abs() > 0.5 {
-        Vec2::new(0.75, body_long * 0.35)
-    } else {
-        Vec2::new(body_long * 0.35, 0.75)
-    };
+    let tangent = Vec2::new(-normal.y, normal.x);
+    let half = surface_probe_half(tangent, normal, body_long * 0.35, 0.75);
     for i in 0..=max_d {
         let d = i as f32;
         let probe = Aabb::new(pos + down * d, half);

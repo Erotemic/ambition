@@ -27,6 +27,7 @@ mod blink;
 pub(crate) mod collision;
 mod control;
 mod events;
+mod facts;
 mod input;
 mod integration;
 mod kernel;
@@ -49,6 +50,7 @@ pub use authority::{
 };
 pub use collision::touching_hazard_aabb;
 pub use events::{BlinkEvent, FrameEvents};
+pub use facts::{BodyMotionFacts, LedgeFacts};
 pub use input::InputState;
 /// Screen-vertical input → gravity-relative "descend" intent (the vertical
 /// sibling of the run-axis transform). Every crouch/pogo/drop-through/fast-fall

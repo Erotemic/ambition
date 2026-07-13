@@ -535,3 +535,119 @@ fn attachment_and_airborne_support_facts_are_semantic() {
     assert_eq!(result.support, SupportFact::Airborne);
     assert_eq!(result.surface_normal, Vec2::new(0.0, -1.0));
 }
+
+/// O6 evidence: attached crawling is one surface-basis algorithm — the crawler
+/// circumnavigates a solid island, wrapping all four convex corners, staying
+/// seated one half-thickness off WHICHEVER face it clings to. Every attachment
+/// (floor-top, both walls, the underside) exercises the same crawl/corner/seat
+/// math; nothing branches on world axes.
+#[test]
+fn the_crawler_circumnavigates_an_island_gluing_to_all_four_faces() {
+    let block = Block::solid("island", Vec2::new(400.0, 600.0), Vec2::new(200.0, 200.0));
+    let world = World::new(
+        "crawler_lap",
+        Vec2::splat(10_000.0),
+        Vec2::splat(500.0),
+        vec![block],
+    );
+    let mut scratch =
+        BodyClusterScratch::new_with_abilities(Vec2::new(500.0, 560.0), AbilitySet::default());
+    scratch.kinematics.size = Vec2::new(24.0, 16.0);
+    scratch.kinematics.facing = 1.0;
+    let mut model = MotionModel::adhesive_crawler(CrawlerParams {
+        crawl_speed: 240.0,
+        ..CrawlerParams::default()
+    });
+    let frame = MotionFrame::from_direction(Vec2::new(0.0, 1.0), 900.0);
+    let body_thick = scratch.kinematics.size.y * 0.5;
+
+    let mut seen: std::collections::BTreeSet<(i32, i32)> = std::collections::BTreeSet::new();
+    for _ in 0..2000 {
+        step(
+            &mut model,
+            &world,
+            &mut scratch,
+            frame,
+            InputState::default(),
+        );
+        let MotionModel::AdhesiveCrawler(crawler) = &model else {
+            unreachable!();
+        };
+        let Some(normal) = crawler.state.attachment() else {
+            continue;
+        };
+        seen.insert((normal.x.round() as i32, normal.y.round() as i32));
+        // Seated: the body sits ~half a thickness off the clung face, for
+        // EVERY face — the seat rule is basis-relative, not a floor special
+        // case. (The face coordinate along the normal axis.)
+        let pos = scratch.kinematics.pos;
+        let face_coord = match (normal.x.round() as i32, normal.y.round() as i32) {
+            (0, -1) => 600.0 - pos.y, // top face: distance above y=600
+            (1, 0) => pos.x - 600.0,  // right face at x=600
+            (0, 1) => pos.y - 800.0,  // underside at y=800
+            (-1, 0) => 400.0 - pos.x, // left face at x=400
+            other => panic!("unexpected attachment normal {other:?}"),
+        };
+        assert!(
+            (face_coord - body_thick).abs() <= 2.0,
+            "seated {face_coord:.2}px off the {normal:?} face (want ~{body_thick})"
+        );
+        if seen.len() == 4 {
+            break;
+        }
+    }
+    assert_eq!(
+        seen.len(),
+        4,
+        "the crawler must glue to all four faces in one lap; saw {seen:?}"
+    );
+}
+
+/// O6 evidence: a crawler falling under an OBLIQUE frame lands on cardinal
+/// world geometry and attaches to the SURFACE's true normal (the semantic
+/// Support contact), not the frame's anti-down — adhesion is about the
+/// surface, and the detached leg is fully frame-covariant.
+#[test]
+fn an_oblique_frame_crawler_attaches_to_the_landed_surfaces_true_normal() {
+    let world = World::new(
+        "crawler_oblique_landing",
+        Vec2::splat(4_000.0),
+        Vec2::splat(500.0),
+        vec![Block::solid(
+            "floor",
+            Vec2::new(0.0, 1000.0),
+            Vec2::new(4000.0, 60.0),
+        )],
+    );
+    // Down tilted ~22° off vertical: the fall drifts sideways while dropping.
+    let oblique = rotate(Vec2::new(0.0, 1.0), 0.4);
+    let frame = MotionFrame::from_direction(oblique, 900.0);
+    let mut model = MotionModel::adhesive_crawler(CrawlerParams::default());
+    let mut scratch =
+        BodyClusterScratch::new_with_abilities(Vec2::new(1200.0, 700.0), AbilitySet::default());
+    scratch.kinematics.size = Vec2::new(24.0, 16.0);
+
+    let mut attached = None;
+    for _ in 0..600 {
+        step(
+            &mut model,
+            &world,
+            &mut scratch,
+            frame,
+            InputState::default(),
+        );
+        let MotionModel::AdhesiveCrawler(crawler) = &model else {
+            unreachable!();
+        };
+        if let Some(normal) = crawler.state.attachment() {
+            attached = Some(normal);
+            break;
+        }
+    }
+    assert_eq!(
+        attached,
+        Some(Vec2::new(0.0, -1.0)),
+        "the attachment is the FLOOR's outward normal, not -frame.down ({:?})",
+        -frame.down()
+    );
+}

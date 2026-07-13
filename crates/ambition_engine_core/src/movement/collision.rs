@@ -44,6 +44,15 @@ fn one_way_landing_from_feet(
     )
 }
 
+/// The outward normal of the SUPPORT face resolved on the gravity-role world
+/// axis: the cardinal face the body's feet snapped onto. For cardinal gravity
+/// this equals `-gravity_dir`; under an oblique frame the surface is still a
+/// cardinal face and the contact must carry ITS normal (the `Contact` doc's
+/// "outward normal of the SURFACE" contract).
+fn support_face_normal(axis: Axis, gravity_dir: Vec2) -> Vec2 {
+    axis_vec(axis, -axis_component(gravity_dir, axis).signum())
+}
+
 fn axis_face_resolution(body: Aabb, block: Aabb, axis: Axis) -> (Vec2, Vec2) {
     match axis {
         Axis::X => {
@@ -301,7 +310,7 @@ pub(super) fn sweep_player_axis_clusters(
             contacts.push(block_face_contact(
                 body,
                 hit.block,
-                -gravity_dir,
+                support_face_normal(axis, gravity_dir),
                 toi_fraction,
                 ContactKind::Support,
             ));
@@ -429,7 +438,7 @@ fn resolve_axis_repair(
                 let (delta, normal) = if on_support {
                     (
                         snap_feet_to_surface(aabb, block.aabb, gravity_dir),
-                        -gravity_dir,
+                        support_face_normal(axis, gravity_dir),
                     )
                 } else {
                     axis_face_resolution(aabb, block.aabb, axis)

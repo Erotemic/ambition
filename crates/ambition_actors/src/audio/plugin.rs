@@ -25,6 +25,9 @@ use ambition_audio::audio_play_sfx_messages;
 use ambition_audio::library::{
     start_default_music_when_ready, DefaultMusicStarted, MusicChannel, SfxChannel,
 };
+use ambition_platformer_primitives::lifecycle::{
+    simulation_authorized, ActiveSessionScope, SessionGatedSimulation,
+};
 
 /// Public Bevy plugin: installs the Kira backend, channel resources,
 /// per-frame audio systems, and the deferred music-start poller.
@@ -85,7 +88,15 @@ impl Plugin for SandboxAudioPlugin {
             // against a suspended AudioContext; on desktop the gate
             // flips during Startup so behavior matches the old direct-
             // startup system.
-            .add_systems(Update, start_default_music_when_ready)
+            // Deferred first-play is a DIRECT-ENTRY convenience: it auto-starts
+            // the resident default track. Under a session-routed host the
+            // director owns music per activation (driven by
+            // `ActiveAudioSelection`), and the title route is deliberately
+            // silent, so this must not fire there.
+            .add_systems(
+                Update,
+                start_default_music_when_ready.run_if(music_auto_start_when_ungated),
+            )
             .add_systems(
                 Update,
                 audio_play_sfx_messages.after(crate::schedule::SandboxSet::CoreSimulation),
@@ -130,7 +141,70 @@ impl Plugin for SandboxAudioPlugin {
                     crate::music::drive_music_director,
                 )
                     .chain()
+                    // Gameplay music only drives while the simulation is
+                    // authorized. In direct-entry apps there is no session gate,
+                    // so `simulation_authorized` is always true (unchanged). In a
+                    // session-routed host the chain sleeps at frontend/title
+                    // routes, so a stale room/encounter candidate cannot re-switch
+                    // the base channel frame after frame.
+                    .run_if(simulation_authorized)
                     .after(crate::schedule::SandboxSet::CoreSimulation),
+            )
+            // Enforce deterministic frontend silence: the frame the simulation
+            // deauthorizes (Quit to Home), stop every music channel once and
+            // reset the director so no previous session's music lingers under
+            // the title. Ungated so it can observe the transition; latched so it
+            // acts exactly once per frontend entry (no per-frame thrash).
+            .add_systems(
+                Update,
+                enforce_frontend_music_silence.after(crate::schedule::SandboxSet::CoreSimulation),
             );
     }
+}
+
+/// Run condition: auto-start the resident default music track only when this App
+/// is NOT a session-routed host (no [`SessionGatedSimulation`] marker). A
+/// session-routed host starts music per activation through the director +
+/// `ActiveAudioSelection` instead, and keeps the title route silent.
+fn music_auto_start_when_ungated(gate: Option<Res<SessionGatedSimulation>>) -> bool {
+    gate.is_none()
+}
+
+/// Stop all music and reset the director the frame the simulation deauthorizes,
+/// so a session-routed host's title route owns no playback. Acts once per
+/// frontend entry via the `entered_frontend` latch; no-op in direct-entry apps
+/// (there the simulation is always authorized).
+#[allow(clippy::too_many_arguments)]
+fn enforce_frontend_music_silence(
+    gate: Option<Res<SessionGatedSimulation>>,
+    scope: Option<Res<ActiveSessionScope>>,
+    base_music_channel: Res<bevy_kira_audio::prelude::AudioChannel<MusicChannel>>,
+    layer_channels: crate::music::MusicLayerChannels,
+    director: Option<ResMut<crate::music::MusicDirectorState>>,
+    music_state: Option<ResMut<ambition_audio::library::MusicPlaybackState>>,
+    mut intent: ResMut<crate::music::MusicIntent>,
+    mut started: ResMut<DefaultMusicStarted>,
+    mut entered_frontend: Local<bool>,
+) {
+    if simulation_authorized(gate, scope) {
+        *entered_frontend = false;
+        return;
+    }
+    if *entered_frontend {
+        return;
+    }
+    if let (Some(mut director), Some(mut music_state)) = (director, music_state) {
+        ambition_audio::music::silence_music_backend(
+            &base_music_channel,
+            &layer_channels,
+            &mut director,
+            &mut music_state,
+        );
+    }
+    intent.simple_track_candidates.clear();
+    intent.adaptive = None;
+    // Keep the deferred first-play latched shut at the frontend; a fresh
+    // session re-selects and the director restarts music from the selection.
+    started.0 = true;
+    *entered_frontend = true;
 }

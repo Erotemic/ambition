@@ -97,3 +97,23 @@ pub fn drive_selected_session_music(
         }
     }
 }
+
+/// Hard-stop all music playback and reset the director to its idle state.
+///
+/// Stops the base [`MusicChannel`] and every adaptive layer channel, resets the
+/// [`MusicDirectorState`] to `Default` (mode `Idle`, no active cue, no
+/// last-simple track), and clears the [`MusicPlaybackState`] active track. Used
+/// by a host to enforce deterministic silence when leaving gameplay for a
+/// frontend/title route — cached assets stay resident, but nothing is playing
+/// and no stale director state can resurrect a previous session's music.
+pub fn silence_music_backend(
+    base_music_channel: &AudioChannel<MusicChannel>,
+    layer_channels: &MusicLayerChannels,
+    director: &mut MusicDirectorState,
+    music_state: &mut MusicPlaybackState,
+) {
+    base_music_channel.stop();
+    layer_channels.stop_all(0);
+    *director = MusicDirectorState::default();
+    music_state.active_track.clear();
+}

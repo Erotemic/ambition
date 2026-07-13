@@ -229,7 +229,7 @@ fn select_session_audio_authority(
 ) {
     for event in sessions.read() {
         match event {
-            GameplaySessionEvent::Activated { activation, .. } => {
+            GameplaySessionEvent::Activated { activation, scope } => {
                 let provider = registry
                     .profile(&activation.experience_id)
                     .and_then(|profile| profile.audio_provider.clone())
@@ -243,10 +243,13 @@ fn select_session_audio_authority(
                         )
                     })
                     .unwrap_or((None, None));
-                selection.select(provider, music, sfx);
+                // Tag the selection with THIS session's scope token so a delayed
+                // retirement for an older session cannot silence it.
+                selection.select(Some(scope.0), provider, music, sfx);
             }
-            GameplaySessionEvent::Retiring { .. } => {
-                selection.clear();
+            GameplaySessionEvent::Retiring { scope, .. } => {
+                // Clear ONLY if this exact session still owns the selection.
+                selection.clear_if_owner(scope.0);
             }
         }
     }

@@ -134,21 +134,29 @@ impl AudioCatalogRegistry {
             })?
             .default_track
             .clone();
-        let mut seen = BTreeMap::<String, String>::new();
+        // id -> (first provider, its resolved asset path). Two providers naming
+        // the SAME id for the SAME underlying asset (a shared track in the
+        // common asset tree) is a benign duplicate — dedup it. Two providers
+        // naming one id for DIFFERENT assets is a genuine conflict.
+        let mut seen = BTreeMap::<String, (String, String)>::new();
         let mut tracks = Vec::<MusicTrack>::new();
         for (provider_id, fragment) in &self.fragments {
             let Some(music) = &fragment.music else {
                 continue;
             };
             for track in &music.tracks {
-                if let Some(first_provider) = seen.get(&track.id) {
+                let resolved = track.resolved_asset_path();
+                if let Some((first_provider, first_path)) = seen.get(&track.id) {
+                    if first_path == &resolved {
+                        continue;
+                    }
                     return Err(AudioCatalogError::DuplicateMusicTrack {
                         track_id: track.id.clone(),
                         first_provider: first_provider.clone(),
                         second_provider: provider_id.clone(),
                     });
                 }
-                seen.insert(track.id.clone(), provider_id.clone());
+                seen.insert(track.id.clone(), (provider_id.clone(), resolved));
                 tracks.push(track.clone());
             }
         }
@@ -163,20 +171,30 @@ impl AudioCatalogRegistry {
         Ok(combined)
     }
 
+    /// A shared track (same id, same resolved asset path) may legitimately
+    /// appear in more than one provider's registry — Ambition owns a superset
+    /// of the asset tree and a demo carries a small subset that points at the
+    /// SAME files. That is benign. Only a genuine collision — one id mapped to
+    /// two DIFFERENT assets — is an error.
     pub fn validate_global_music_ids(&self) -> Result<(), AudioCatalogError> {
-        let mut seen = BTreeMap::<String, String>::new();
+        let mut seen = BTreeMap::<String, (String, String)>::new();
         for (provider_id, fragment) in &self.fragments {
             let Some(music) = &fragment.music else {
                 continue;
             };
             for track in &music.tracks {
-                if let Some(first_provider) = seen.insert(track.id.clone(), provider_id.clone()) {
+                let resolved = track.resolved_asset_path();
+                if let Some((first_provider, first_path)) = seen.get(&track.id) {
+                    if first_path == &resolved {
+                        continue;
+                    }
                     return Err(AudioCatalogError::DuplicateMusicTrack {
                         track_id: track.id.clone(),
-                        first_provider,
+                        first_provider: first_provider.clone(),
                         second_provider: provider_id.clone(),
                     });
                 }
+                seen.insert(track.id.clone(), (provider_id.clone(), resolved));
             }
         }
         Ok(())
@@ -298,6 +316,19 @@ mod tests {
         }
     }
 
+    /// A track whose id collides with another provider's but points at a
+    /// DIFFERENT asset — a genuine conflict.
+    fn music_at(id: &str, asset_path: &str) -> MusicRegistry {
+        MusicRegistry {
+            default_track: id.to_string(),
+            tracks: vec![MusicTrack {
+                id: id.to_string(),
+                display_name: id.to_string(),
+                asset_path: Some(asset_path.to_string()),
+            }],
+        }
+    }
+
     #[test]
     fn registration_order_does_not_change_provider_or_track_order() {
         let a = AudioCatalogFragment::new("a", Some(music("alpha")), None).unwrap();
@@ -334,13 +365,18 @@ mod tests {
     }
 
     #[test]
-    fn duplicate_music_ids_report_both_providers() {
+    fn duplicate_music_ids_for_different_assets_report_both_providers() {
         let mut registry = AudioCatalogRegistry::default();
         registry
-            .register(AudioCatalogFragment::new("a", Some(music("same")), None).unwrap())
+            .register(
+                AudioCatalogFragment::new("a", Some(music_at("same", "a/x.ogg")), None).unwrap(),
+            )
             .unwrap();
+        // Same id, DIFFERENT asset — a genuine conflict.
         registry
-            .register(AudioCatalogFragment::new("b", Some(music("same")), None).unwrap())
+            .register(
+                AudioCatalogFragment::new("b", Some(music_at("same", "b/y.ogg")), None).unwrap(),
+            )
             .unwrap();
         assert_eq!(
             registry.validate_global_music_ids().unwrap_err(),
@@ -353,14 +389,44 @@ mod tests {
     }
 
     #[test]
+    fn shared_track_across_providers_is_deduped_not_a_conflict() {
+        // Ambition owns the superset; a demo carries a small subset pointing at
+        // the SAME asset. Same id + same resolved path is benign.
+        let mut registry = AudioCatalogRegistry::default();
+        registry
+            .register(AudioCatalogFragment::new("ambition", Some(music("shared")), None).unwrap())
+            .unwrap();
+        registry
+            .register(
+                AudioCatalogFragment::new(
+                    "sanic",
+                    Some(music_at("shared", "audio/music/generated/shared/full.ogg")),
+                    None,
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        // `music("shared")` resolves to the conventional
+        // `audio/music/generated/shared/full.ogg` — the same asset the demo
+        // names explicitly, so validation and combination both accept it.
+        registry.validate_global_music_ids().unwrap();
+        let combined = registry.combined_music_registry("ambition").unwrap();
+        assert_eq!(
+            combined.tracks.iter().filter(|t| t.id == "shared").count(),
+            1,
+            "the shared track appears exactly once in the combined registry"
+        );
+    }
+
+    #[test]
     fn failed_registration_leaves_the_previous_registry_intact() {
         let mut app = App::new();
         app.register_audio_catalog_fragment(
-            AudioCatalogFragment::new("a", Some(music("same")), None).unwrap(),
+            AudioCatalogFragment::new("a", Some(music_at("same", "a/x.ogg")), None).unwrap(),
         );
         let error = app
             .try_register_audio_catalog_fragment(
-                AudioCatalogFragment::new("b", Some(music("same")), None).unwrap(),
+                AudioCatalogFragment::new("b", Some(music_at("same", "b/y.ogg")), None).unwrap(),
             )
             .err()
             .expect("registration should fail");

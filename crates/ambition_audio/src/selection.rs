@@ -32,6 +32,12 @@ pub struct ActiveAudioSelection {
 /// One selected provider's live audio authority.
 #[derive(Debug, Clone)]
 pub struct ActiveAudioAuthority {
+    /// The gameplay-session scope token that owns this selection, or `None`
+    /// for a statically-selected direct-entry host (which owns no session and
+    /// is never cleared by a retirement). This is the identity that makes
+    /// retirement safe: a delayed retirement for an OLDER session must not
+    /// clear a NEWER session's audio (see [`ActiveAudioSelection::clear_if_owner`]).
+    pub owner: Option<u64>,
     /// Provider id in the audio catalog registry (usually the experience id).
     pub provider_id: String,
     /// The provider's authored music, `None` when it registered none —
@@ -42,38 +48,57 @@ pub struct ActiveAudioAuthority {
 }
 
 impl ActiveAudioSelection {
-    /// Select `provider_id`'s audio, replacing any previous selection.
+    /// Select `provider_id`'s audio for the session identified by `owner`,
+    /// replacing any previous selection. `owner` is the gameplay-session scope
+    /// token; pass `None` only for a direct-entry host with no session.
     pub fn select(
         &mut self,
+        owner: Option<u64>,
         provider_id: impl Into<String>,
         music: Option<MusicRegistry>,
         sfx: Option<SfxRegistry>,
     ) {
         self.current = Some(ActiveAudioAuthority {
+            owner,
             provider_id: provider_id.into(),
             music,
             sfx,
         });
     }
 
-    /// A statically selected value for direct-entry hosts.
+    /// A statically selected value for direct-entry hosts (no session owner).
     pub fn selected(
         provider_id: impl Into<String>,
         music: Option<MusicRegistry>,
         sfx: Option<SfxRegistry>,
     ) -> Self {
         let mut selection = Self::default();
-        selection.select(provider_id, music, sfx);
+        selection.select(None, provider_id, music, sfx);
         selection
     }
 
-    /// Retire playback authority (returning to a frontend route).
+    /// Retire playback authority unconditionally (returning to a frontend route
+    /// without an identity to match, e.g. a host-level reset).
     pub fn clear(&mut self) {
         self.current = None;
     }
 
+    /// Retire playback authority ONLY if `owner` is the session that currently
+    /// holds it. A retirement carrying an older session's token is a no-op, so a
+    /// delayed retirement for session A cannot silence session B.
+    pub fn clear_if_owner(&mut self, owner: u64) {
+        if self.current.as_ref().and_then(|a| a.owner) == Some(owner) {
+            self.current = None;
+        }
+    }
+
     pub fn current(&self) -> Option<&ActiveAudioAuthority> {
         self.current.as_ref()
+    }
+
+    /// The session scope token that owns the current selection, if any.
+    pub fn owner(&self) -> Option<u64> {
+        self.current.as_ref().and_then(|a| a.owner)
     }
 
     pub fn provider_id(&self) -> Option<&str> {
@@ -115,15 +140,16 @@ mod tests {
         assert!(selection.current().is_none());
         assert!(selection.music().is_none());
 
-        selection.select("sanic", Some(music("you_are_too_slow")), None);
+        selection.select(Some(1), "sanic", Some(music("you_are_too_slow")), None);
         assert_eq!(selection.provider_id(), Some("sanic"));
+        assert_eq!(selection.owner(), Some(1));
         assert_eq!(
             selection.music().map(|m| m.default_track.as_str()),
             Some("you_are_too_slow")
         );
 
         // Switching providers REPLACES — no residue of the previous authority.
-        selection.select("mary_o", None, None);
+        selection.select(Some(2), "mary_o", None, None);
         assert_eq!(selection.provider_id(), Some("mary_o"));
         assert!(
             selection.music().is_none(),
@@ -131,6 +157,31 @@ mod tests {
         );
 
         selection.clear();
+        assert!(selection.current().is_none());
+    }
+
+    /// Poison: a delayed retirement for an OLDER session must not clear a NEWER
+    /// session's audio authority. Activate A, activate B, then deliver A's stale
+    /// retirement — B must keep ownership.
+    #[test]
+    fn stale_retirement_does_not_clear_a_newer_selection() {
+        let mut selection = ActiveAudioSelection::default();
+        selection.select(Some(1), "sanic", Some(music("you_are_too_slow")), None);
+        // Session B (scope 2) takes over.
+        selection.select(Some(2), "ambition", Some(music("ambition_theme")), None);
+        assert_eq!(selection.owner(), Some(2));
+
+        // A stale retirement for scope 1 arrives late.
+        selection.clear_if_owner(1);
+        assert_eq!(
+            selection.owner(),
+            Some(2),
+            "session B must still own audio after A's delayed retirement"
+        );
+        assert_eq!(selection.provider_id(), Some("ambition"));
+
+        // B's own retirement DOES clear it.
+        selection.clear_if_owner(2);
         assert!(selection.current().is_none());
     }
 }

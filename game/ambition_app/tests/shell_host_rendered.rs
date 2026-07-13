@@ -65,9 +65,10 @@ fn assert_title_ownership(app: &mut App, context: &str) {
         1,
         "{context}: exactly one host main camera"
     );
-    assert!(
-        launcher_ui_roots(app) >= 1,
-        "{context}: the title/launcher UI is present"
+    assert_eq!(
+        launcher_ui_roots(app),
+        1,
+        "{context}: exactly one launcher/frontend UI root owns the title"
     );
     assert_eq!(
         count::<RoomVisual>(app),
@@ -135,6 +136,29 @@ fn rendered_ownership_across_the_title_and_two_games() {
     app.world_mut().write_message(ShellCommand::QuitToHome);
     settle(&mut app);
     assert_title_ownership(&mut app, "title after sanic");
+
+    // ── Mary-O, through the SAME generic session visuals ───────────────
+    app.world_mut()
+        .write_message(ShellCommand::GoTo("mary_o_gameplay".into()));
+    settle(&mut app);
+    assert_eq!(
+        active_route(&app),
+        Some("mary_o_gameplay".to_owned()),
+        "mary-o session active"
+    );
+    assert!(
+        count::<RoomVisual>(&mut app) > 0,
+        "mary-o: the 1-1 room draws through the provider-agnostic session visuals"
+    );
+    assert_eq!(
+        main_cameras(&mut app),
+        1,
+        "mary-o: still exactly one host main camera"
+    );
+
+    app.world_mut().write_message(ShellCommand::QuitToHome);
+    settle(&mut app);
+    assert_title_ownership(&mut app, "title after mary-o");
 
     // The launcher still works after the whole cycle: relaunch Ambition
     // through the real launcher command path.

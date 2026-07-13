@@ -23,6 +23,17 @@ cargo_timings=0
 extra_features=()
 game_args=()
 
+# Launch target. Defaults to the multi-game host (the Ambition title screen).
+# The `sanic` / `mary-o` mode aliases retarget this to a demo's OWN standalone
+# shell crate — the same binary `game/ambition_demo_*_app` ships, unrelated to
+# the host. This script is a launcher: demos default to WINDOWED
+# (`--features visible` + the `--window` game arg). `--headless` opts a demo
+# into its sim-only shell instead (no window, no `visible`).
+target_pkg="ambition_app"
+target_bin="ambition_game_bin"
+target_kind="host"
+demo_headless=0
+
 usage() {
     cat <<'USAGE'
 Usage:
@@ -47,6 +58,13 @@ Common commands:
   ./run_game.sh smirking-behemoth
       Run directly in the You Have To Cut The Rope boss arena.
 
+  ./run_game.sh sanic
+  ./run_game.sh mary-o
+      Launch a demo's OWN standalone shell (windowed) instead of the host.
+
+  ./run_game.sh sanic --headless -- --ticks 600
+      Run a demo's sim-only shell headlessly and pass game args through.
+
   ./run_game.sh validate
   ./run_game.sh ldtk
       Validate the sandbox LDtk world and exit.
@@ -60,6 +78,15 @@ Common commands:
 
   ./run_game.sh --timings
       Run with cargo build timing output enabled.
+
+Launch targets (mode aliases):
+  (default)               The multi-game host — the Ambition title screen.
+  sanic, sanic-demo       Sanic's standalone shell (ambition_demo_sanic_app).
+  mary-o, mary_o, smb1    Mary-O's standalone shell (ambition_demo_smb1_app).
+                          Demos default to windowed (--features visible + the
+                          --window game arg).
+  --headless, headless    Opt the selected demo into its sim-only shell (no
+                          window). Ignored for the host.
 
 Options and mode aliases:
   -h, --help              Show this help.
@@ -178,6 +205,19 @@ while [[ $# -gt 0 ]]; do
         cut-rope|cut-rope-boss|smirking-behemoth|you-have-to-cut-the-rope)
             game_args+=(--start-room you_have_to_cut_the_rope)
             ;;
+        sanic|sanic-demo)
+            target_pkg="ambition_demo_sanic_app"
+            target_bin="sanic_demo"
+            target_kind="demo"
+            ;;
+        mary-o|mary_o|maryo|mary-o-demo|smb1|smb1-demo)
+            target_pkg="ambition_demo_smb1_app"
+            target_bin="mary_o_demo"
+            target_kind="demo"
+            ;;
+        --headless|headless)
+            demo_headless=1
+            ;;
         --features)
             shift
             [[ $# -gt 0 ]] || fail "--features requires a comma-separated feature list"
@@ -244,7 +284,7 @@ else
     cargo_args+=(run)
 fi
 
-cargo_args+=(-p ambition_app --bin ambition_game_bin)
+cargo_args+=(-p "$target_pkg" --bin "$target_bin")
 
 if [[ "$no_default_features" -eq 1 ]]; then
     cargo_args+=(--no-default-features)
@@ -259,7 +299,16 @@ if [[ "$cargo_timings" -eq 1 ]]; then
 fi
 
 features=()
-if [[ "$hot_reload" -eq 1 ]]; then
+if [[ "$target_kind" == "demo" ]]; then
+    if [[ "$demo_headless" -eq 0 ]]; then
+        # The demo shells draw only under `visible`. The bin checks
+        # `std::env::args().any(|a| a == "--window")` to pick its drawn path,
+        # so prepend it — it survives even with no other game args.
+        features+=(visible)
+        game_args=(--window "${game_args[@]}")
+    fi
+elif [[ "$hot_reload" -eq 1 ]]; then
+    # Hot reload is a host feature; the demo shells don't define it.
     features+=(dev_hot_reload)
 fi
 for feature_list in "${extra_features[@]}"; do

@@ -369,7 +369,9 @@ pub fn advance_move_playback(
                             let clip = pb.spec.clip.clip.as_str();
                             let sprite_cid = config
                                 .and_then(|c| c.sprite_character_id.as_deref())
-                                .or_else(|| worn.map(ambition_characters::actor::WornCharacter::id));
+                                .or_else(|| {
+                                    worn.map(ambition_characters::actor::WornCharacter::id)
+                                });
                             authored_volumes.resolve(
                                 &character_catalog,
                                 sprite_cid,

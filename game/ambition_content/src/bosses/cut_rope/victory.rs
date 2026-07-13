@@ -15,9 +15,7 @@ pub fn spawn_cut_rope_victory_npc(
     mut commands: Commands,
     room_set: Res<RoomSet>,
     save: Res<ambition_persistence::save::SandboxSave>,
-    character_catalog: Res<
-        ambition_characters::actor::character_catalog::CharacterCatalog,
-    >,
+    character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     character_roster: Res<ambition_actors::features::CharacterRoster>,
     mut released: MessageReader<ambition_actors::boss_encounter::PayloadReleased>,
     existing: Query<&FeatureId, With<SmirkingBehemothVictoryNpc>>,

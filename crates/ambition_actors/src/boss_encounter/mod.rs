@@ -51,12 +51,12 @@ pub use ambition_characters::boss_encounter::{
     PhaseTriggerCondition,
 };
 pub use behavior::{BossProfileRegistry, LimbMotion, LimbRoute};
+#[cfg(test)]
+pub(crate) use catalog::test_boss_catalog;
 pub use catalog::{
     BossCatalog, BossCatalogAppExt, BossCatalogAssemblyError, BossCatalogFragment,
     BossCatalogRegistry,
 };
-#[cfg(test)]
-pub(crate) use catalog::test_boss_catalog;
 pub use encounter_entity::{
     release_payloads_on_death, sync_boss_encounter_entities, update_encounter_progress,
     EncounterDef, EncounterProgress, MemberProgress, PayloadReleased, ReleaseOnDeath,

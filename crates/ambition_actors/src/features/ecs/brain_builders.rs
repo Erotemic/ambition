@@ -259,10 +259,12 @@ pub(super) fn dismounted_rider_brain_and_action_set(
     let mut action_set = kit.to_action_set(held_item);
     if action_set.melee.is_none() {
         action_set.melee = roster
-        .spec_for_brain(
-            &ambition_entity_catalog::placements::CharacterBrain::Custom("pirate_raider".into()),
-        )
-        .melee_spec();
+            .spec_for_brain(
+                &ambition_entity_catalog::placements::CharacterBrain::Custom(
+                    "pirate_raider".into(),
+                ),
+            )
+            .melee_spec();
     }
 
     // If the dismounted rider still has a ranged held item, keep using a

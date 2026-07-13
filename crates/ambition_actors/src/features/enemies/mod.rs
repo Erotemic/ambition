@@ -292,6 +292,142 @@ mod vec2_option {
 /// path. See [`crate::features::ecs::actor_tuning::CharacterBrainTemplate`].
 pub(super) use crate::features::ecs::actor_tuning::CharacterBrainTemplate;
 
+/// Every authored spawn brain key in the lib's fixture roster — the
+/// string-keyed replacement for the deleted `CharacterArchetype` iteration
+/// constants. `COMBAT_*` excludes the training-dummy + raw-mite rows that
+/// don't run the standard combat AI loop (was `COMBAT_ALL`).
+#[cfg(test)]
+pub(crate) const COMBAT_BRAIN_KEYS: &[&str] = &[
+    "combatant",
+    "small_skitter",
+    "small_lurker",
+    "medium_striker",
+    "large_brute",
+    "large_colossus",
+    "gradient_seeker",
+    "pirate_raider",
+    "burning_flying_shark",
+    "pirate_shark_rider",
+    "puppy_slug",
+    "pirate_heavy",
+    "pirate_heavy_shark_rider",
+    "cellular_automaton_fighter",
+];
+
+/// Every authored row in the fixture (combat + training dummies + raw mites).
+#[cfg(test)]
+pub(crate) const ALL_BRAIN_KEYS: &[&str] = &[
+    "combatant",
+    "small_skitter",
+    "small_lurker",
+    "medium_striker",
+    "large_brute",
+    "large_colossus",
+    "gradient_seeker",
+    "sandbag_infinite",
+    "sandbag_finite",
+    "pirate_raider",
+    "burning_flying_shark",
+    "pirate_shark_rider",
+    "pirate_heavy",
+    "pirate_heavy_shark_rider",
+    "puppy_slug",
+    "exploding_mite",
+    "dividing_mite",
+    "ranged_skirmisher",
+];
+
+impl CharacterArchetypeSpec {
+    /// Project the generic brain-construction inputs (kit vocabulary) the
+    /// runtime brain rebuilds reconstruct without naming the roster.
+    pub(super) fn brain_spec(&self) -> crate::features::ecs::actor_tuning::CharacterBrainSpec {
+        crate::features::ecs::actor_tuning::CharacterBrainSpec {
+            template: self.brain_template,
+            smash_hit_band: self.smash_hit_band.unwrap_or(
+                crate::features::ecs::actor_tuning::CharacterBrainSpec::DEFAULT_SMASH_HIT_BAND,
+            ),
+            smash_heavy: self.smash_heavy,
+            smash_dash_to_close: self.smash_dash_to_close,
+            smash_duelist: self.smash_duelist,
+            smash_can_blink: self.smash_can_blink,
+            smash_can_fly: self.smash_can_fly,
+            smash_can_shield: self.smash_can_shield,
+            provoke_forced_brute_min_aggro: self.provoke_forced_brute_min_aggro,
+        }
+    }
+
+    /// Authored held item resolved against the held-item registry.
+    pub(super) fn held_item_spec(&self) -> Option<ambition_characters::brain::HeldItemSpec> {
+        self.held_item
+            .as_deref()
+            .and_then(ambition_characters::brain::held_item_by_id)
+    }
+
+    /// Concrete melee/ranged/locomotion the actor's `ActionSet` carries
+    /// at spawn. Thin field accessors so the spawn path can read the spec
+    /// without naming the roster enum.
+    pub(super) fn melee_spec(&self) -> Option<ambition_characters::brain::MeleeActionSpec> {
+        self.melee.clone()
+    }
+    pub(super) fn ranged_spec(&self) -> Option<ambition_characters::brain::RangedActionSpec> {
+        self.ranged.clone()
+    }
+    pub(super) fn move_style(&self) -> ambition_characters::brain::MoveStyleSpec {
+        self.move_style
+    }
+
+    /// Project the per-frame runtime tuning carried on `ActorConfig.tuning`.
+    pub(crate) fn tuning(&self) -> crate::features::ecs::actor_tuning::ActorTuning {
+        crate::features::ecs::actor_tuning::ActorTuning {
+            // Resolved at roster-build time from the archetype hierarchy
+            // (BASELINE <- inherits-chain <- this row's `movement` patch).
+            movement: self.movement_resolved,
+            max_health: self.max_health,
+            patrol_speed: self.patrol_speed,
+            chase_speed: self.chase_speed,
+            // Ground-run capability = the fastest this body locomotes; the brain
+            // expresses patrol/chase (with jitter) as a throttle of it.
+            max_run_speed: self.patrol_speed.max(self.chase_speed),
+            aggro_radius: self.aggro_radius,
+            attack_range: self.attack_range,
+            contact_strength: self.contact_strength,
+            damage_amount: self.damage_amount,
+            attack_cooldown_mult: self.attack_cooldown_mult,
+            attacks_player: self.attacks_player,
+            surface_walker: self.surface_walker,
+            cling_breaks_on_hit: self.cling_breaks_on_hit,
+            // The ONE authored respawn policy (ADR 0022) — the kill hook and
+            // the in-place revive tick both match on it.
+            respawn: self.respawn,
+            weight: self.weight,
+            death_policy: self.death_policy,
+            is_aerial: self.is_aerial,
+            // Archetype flyers use smoothed accel flight; direct-velocity is a boss
+            // opt-in (its brain commands exact velocities). See AS4.
+            flight_direct_velocity: false,
+            is_sandbag: self.is_sandbag,
+            body_contact_damage: self.body_contact_damage,
+            dream_seed: self.dream_seed,
+            ranged_visual: self.ranged_visual,
+        }
+    }
+
+    /// Project the authored capability flags into the combat kit.
+    pub(crate) fn combat_capabilities(&self) -> crate::combat::CombatCapabilities {
+        crate::combat::CombatCapabilities {
+            explodes_on_death: self.explodes_on_death,
+            divides_on_death: self.divides_on_death,
+            charge_crash_explodes: self.charge_crash_explodes,
+            never_dies: self.never_dies,
+            drops_held_item: self.held_item_spec(),
+            can_blink: self.smash_can_blink,
+            can_fly: self.smash_can_fly,
+            can_shield: self.smash_can_shield,
+            can_dash: self.smash_can_dash,
+        }
+    }
+}
+
 /// Serde default for [`CharacterArchetypeSpec::attack_cooldown_mult`]: the
 /// multiplicative identity (most archetypes use the shared cooldown).
 fn default_attack_cooldown_mult() -> f32 {
@@ -523,14 +659,12 @@ impl CharacterRosterFragment {
         if provider_id.trim().is_empty() {
             return Err(CharacterRosterAssemblyError::EmptyProviderId);
         }
-        let by_brain = ron::from_str::<std::collections::BTreeMap<
-            String,
-            CharacterArchetypeSpec,
-        >>(roster_ron)
-        .map_err(|error| CharacterRosterAssemblyError::MalformedFragment {
-            provider_id: provider_id.clone(),
-            message: error.to_string(),
-        })?;
+        let by_brain =
+            ron::from_str::<std::collections::BTreeMap<String, CharacterArchetypeSpec>>(roster_ron)
+                .map_err(|error| CharacterRosterAssemblyError::MalformedFragment {
+                    provider_id: provider_id.clone(),
+                    message: error.to_string(),
+                })?;
         let fragment = Self {
             provider_id,
             fallback_brain_id: fallback_brain_id.map(Into::into),
@@ -553,7 +687,11 @@ impl CharacterRosterFragment {
         if self.provider_id.trim().is_empty() {
             return Err(CharacterRosterAssemblyError::EmptyProviderId);
         }
-        if let Some(brain_id) = self.by_brain.keys().find(|brain_id| brain_id.trim().is_empty()) {
+        if let Some(brain_id) = self
+            .by_brain
+            .keys()
+            .find(|brain_id| brain_id.trim().is_empty())
+        {
             return Err(CharacterRosterAssemblyError::EmptyBrainId {
                 provider_id: self.provider_id.clone(),
                 brain_id: brain_id.clone(),
@@ -829,11 +967,19 @@ mod app_local_roster_tests {
         second.register_character_roster_fragment(a);
         let brain = ambition_entity_catalog::placements::CharacterBrain::Custom("beta".into());
         assert_eq!(
-            first.world().resource::<CharacterRoster>().spec_for_brain(&brain).max_health,
+            first
+                .world()
+                .resource::<CharacterRoster>()
+                .spec_for_brain(&brain)
+                .max_health,
             7
         );
         assert_eq!(
-            second.world().resource::<CharacterRoster>().spec_for_brain(&brain).max_health,
+            second
+                .world()
+                .resource::<CharacterRoster>()
+                .spec_for_brain(&brain)
+                .max_health,
             7
         );
 
@@ -870,7 +1016,10 @@ mod app_local_roster_tests {
         ));
         let brain = ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into());
         assert_eq!(
-            app.world().resource::<CharacterRoster>().spec_for_brain(&brain).max_health,
+            app.world()
+                .resource::<CharacterRoster>()
+                .spec_for_brain(&brain)
+                .max_health,
             2
         );
         assert_eq!(
@@ -881,7 +1030,6 @@ mod app_local_roster_tests {
             vec!["a"]
         );
     }
-
 
     #[test]
     fn provider_defaults_coexist_without_becoming_a_cross_game_global() {
@@ -895,8 +1043,7 @@ mod app_local_roster_tests {
         let roster = app.world().resource::<CharacterRoster>();
         assert_eq!(roster.fallback_for_provider("a").unwrap().max_health, 2);
         assert_eq!(roster.fallback_for_provider("b").unwrap().max_health, 7);
-        let unknown =
-            ambition_entity_catalog::placements::CharacterBrain::Custom("unknown".into());
+        let unknown = ambition_entity_catalog::placements::CharacterBrain::Custom("unknown".into());
         assert_eq!(
             roster.spec_for_brain(&unknown).max_health,
             1,
@@ -912,8 +1059,7 @@ mod app_local_roster_tests {
         );
         let roster = app.world().resource::<CharacterRoster>();
         let beta = ambition_entity_catalog::placements::CharacterBrain::Custom("beta".into());
-        let unknown =
-            ambition_entity_catalog::placements::CharacterBrain::Custom("unknown".into());
+        let unknown = ambition_entity_catalog::placements::CharacterBrain::Custom("unknown".into());
         assert_eq!(roster.spec_for_brain(&beta).max_health, 7);
         assert_eq!(
             roster.spec_for_brain(&unknown).max_health,

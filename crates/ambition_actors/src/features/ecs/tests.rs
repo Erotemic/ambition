@@ -24,7 +24,17 @@ fn spawn_interaction_player(app: &mut App, player_pos: ae::Vec2) {
         scratch,
         ambition_characters::actor::Health::new(10),
     );
-    let entity = app.world_mut().spawn(bundle).id();
+    // Production home avatars always wear a catalog character
+    // (`simulation_world` attaches `WornCharacter`); dialogue speaks as the
+    // worn identity, so the fixture mirrors that instead of leaning on a
+    // process-global default speaker.
+    let entity = app
+        .world_mut()
+        .spawn((
+            bundle,
+            ambition_characters::actor::WornCharacter::new("player_robot"),
+        ))
+        .id();
     // The interact buffer is SLOT state now; prime the primary controller slot and
     // point the controlled subject at this body.
     app.world_mut()

@@ -5,12 +5,10 @@
 //! so placement interpreters can resolve authored character ids without adding
 //! an upward dependency to the world IR or consulting process-global state.
 
-pub use ambition_world::placements::{
-    PlacementLoweringAppExt, PlacementRecord,
-};
+pub use ambition_world::placements::{PlacementLoweringAppExt, PlacementRecord};
 
-use ambition_characters::actor::character_catalog::CharacterCatalog;
 use crate::features::CharacterRoster;
+use ambition_characters::actor::character_catalog::CharacterCatalog;
 
 /// Immutable App-local authored context supplied to room placement lowering.
 #[derive(Clone, Debug)]

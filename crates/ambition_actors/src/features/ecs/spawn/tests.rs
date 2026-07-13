@@ -85,6 +85,7 @@ fn boss_spawn_attaches_brain_components() {
         };
         spawn_boss(
             &mut commands,
+            &crate::boss_encounter::test_boss_catalog(),
             ambition_platformer_primitives::lifecycle::SessionSpawnScope::UNSCOPED,
             &authored,
         );

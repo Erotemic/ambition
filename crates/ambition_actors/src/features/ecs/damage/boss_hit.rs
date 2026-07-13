@@ -139,8 +139,12 @@ pub(crate) fn apply_boss_hit(
         // generic damage branch so harmless feedback cannot accidentally
         // route through `record_boss_damage`.
         let damageable = crate::features::damageable_volumes(
-            &crate::features::BossVolumeContext::from_ref(boss_catalog, boss.as_ref(), attack_state)
-                .with_animation_frame(animation_frame),
+            &crate::features::BossVolumeContext::from_ref(
+                boss_catalog,
+                boss.as_ref(),
+                attack_state,
+            )
+            .with_animation_frame(animation_frame),
         );
         if let Some(hit_aabb) = damageable
             .iter()

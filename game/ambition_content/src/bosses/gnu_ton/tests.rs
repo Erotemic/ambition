@@ -63,7 +63,8 @@ fn floor_gate_count(app: &App) -> usize {
 /// `giant_gnu` mount (ADR 0020 / G4). GNU-ton IS this boss — the fused
 /// single profile was torn down in the E6 teardown.
 fn spawn_gnu_ton_runtime() -> BossClusterScratch {
-    let behavior = BossBehaviorProfile::from_data(&crate::bosses::authored_boss_catalog(), "gnu_ton_rider");
+    let behavior =
+        BossBehaviorProfile::from_data(&crate::bosses::authored_boss_catalog(), "gnu_ton_rider");
     let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(54.0, 96.0));
     let pos = ae::Vec2::new(500.0, 400.0);
     let aabb = ae::Aabb::new(pos, combat_size * 0.5);
@@ -85,7 +86,8 @@ fn spawn_gnu_ton_runtime() -> BossClusterScratch {
 /// still has to handle such a sheet (the fused GNU-ton was exactly this
 /// shape), and the head-hurtbox alignment guard below is what pins it.
 fn spawn_giant_bodied_boss_runtime() -> BossClusterScratch {
-    let mut behavior = BossBehaviorProfile::from_data(&crate::bosses::authored_boss_catalog(), "gnu_ton_rider");
+    let mut behavior =
+        BossBehaviorProfile::from_data(&crate::bosses::authored_boss_catalog(), "gnu_ton_rider");
     behavior.sprite_target = Some("giant_gnu".to_string());
     let combat_size = ae::Vec2::new(220.0, 220.0);
     behavior.combat_size = Some(combat_size);

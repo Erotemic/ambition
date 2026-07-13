@@ -443,7 +443,7 @@ fn sprite_loader_resolves_a_sheet_for_most_catalog_entries() {
 
     let data = crate::character_roster::catalog();
     let covered = data
-        .0
+        .data()
         .characters
         .keys()
         .filter(|cid| sheet_for_character_id(cid).is_some())

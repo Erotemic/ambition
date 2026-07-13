@@ -25,9 +25,9 @@ use super::super::enemies::{
     ActorSpawnState, ActorSurfaceState, CharacterArchetypeSpec, CharacterRoster,
 };
 use super::super::path_motion::PathMotion;
+use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
-use ambition_characters::actor::character_catalog::CharacterCatalog;
 
 use crate::actor::{
     AncillaryMovementBundle, BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState,
@@ -435,9 +435,7 @@ impl ActorClusterSeed {
         let ldtk_size = spec.default_size.unwrap_or_else(|| aabb.half_size() * 2.0);
         let sprite_body = sprite_character_id.as_deref().and_then(|cid| {
             crate::character_sprites::sprite_body_collision_for_character_id_in(
-                catalog,
-                cid,
-                ldtk_size,
+                catalog, cid, ldtk_size,
             )
         });
         let size = sprite_body.map_or(ldtk_size, |b| b.collision);
@@ -625,9 +623,8 @@ impl ActorClusterSeed {
             caps: crate::combat::CombatCapabilities::default(),
             // Inert: peaceful actors never spawn through the archetype path that
             // reads `spec`. `Passive` resolves to the roster's fallback row.
-            spec: roster.spec_for_brain(
-                &ambition_entity_catalog::placements::CharacterBrain::Passive,
-            ),
+            spec: roster
+                .spec_for_brain(&ambition_entity_catalog::placements::CharacterBrain::Passive),
         };
         (seed, render_size)
     }

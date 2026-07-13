@@ -96,6 +96,8 @@ pub mod host_seams {
 /// a direct `ambition_actors` dependency.
 pub mod demo_fixture {
     pub use ambition_actors::avatar::StartingCharacter;
+    pub use ambition_actors::boss_encounter::BossCatalog;
+    pub use ambition_actors::features::CharacterRoster;
     pub use ambition_actors::ldtk_world::LdtkRuntimeIndex;
     pub use ambition_actors::rooms::{ActiveRoomMetadata, RoomSet, RoomSpec};
     pub use ambition_actors::session::setup::{simulation_world, SimulationSetup};

@@ -44,7 +44,6 @@ use image::{Rgba, RgbaImage};
 use sb::persistence::settings::video::CameraFramingPreset;
 use sb::persistence::settings::CameraAspectPolicy;
 
-
 fn ambition_boss_catalog() -> sb::boss_encounter::BossCatalog {
     const ENCOUNTERS: &[&str] = &[
         include_str!("../../../game/ambition_content/assets/data/boss_encounters/clockwork_warden.ron"),
@@ -277,14 +276,7 @@ fn render_room_snapshot(
     image_size: (u32, u32),
 ) -> RgbaImage {
     let (proj, w, h) = Projection::from_snapshot(snapshot, image_size);
-    render_room_projected(
-        boss_catalog,
-        room,
-        &proj,
-        w,
-        h,
-        Some(snapshot.target_world),
-    )
+    render_room_projected(boss_catalog, room, &proj, w, h, Some(snapshot.target_world))
 }
 
 fn render_room_projected(

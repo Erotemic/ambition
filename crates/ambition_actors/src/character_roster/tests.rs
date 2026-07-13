@@ -107,8 +107,9 @@ fn display_name_resolves_for_every_catalog_entry() {
     // therefore round-trip — otherwise the Authored.name field
     // ends up populated with the id (e.g. "npc_alice") instead
     // of the human label ("Alice").
-    for (id, entry) in &catalog().data().characters {
-        let label = catalog().display_name(id);
+    let cat = catalog();
+    for (id, entry) in &cat.data().characters {
+        let label = cat.display_name(id);
         assert_eq!(
             label,
             Some(entry.display_name.as_str()),
@@ -282,7 +283,9 @@ fn exemplar_barks_resolve_from_catalog() {
         Some("Broadside, ye bilge rat!"),
     );
     assert!(
-        catalog().bark_line("npc_pirate_admiral", BarkSituation::Hall, 0).is_some(),
+        catalog()
+            .bark_line("npc_pirate_admiral", BarkSituation::Hall, 0)
+            .is_some(),
         "admiral should have a Hall bark"
     );
     // A row with no authored pool for a situation returns None so the
@@ -308,10 +311,7 @@ fn exemplar_hall_dialogue_ids_resolve() {
         catalog().hall_dialogue_id("npc_pirate_admiral"),
         Some("hall_pirate_admiral"),
     );
-    assert_eq!(
-        catalog().hall_dialogue_id("npc_not_a_character"),
-        None
-    );
+    assert_eq!(catalog().hall_dialogue_id("npc_not_a_character"), None);
 }
 
 #[test]
@@ -330,7 +330,9 @@ fn display_name_returns_none_for_unknown_id() {
     // Negative: callers fall back to the id itself when a lookup
     // misses. Pins the contract so a future panic-on-miss change
     // doesn't sneak through.
-    assert!(catalog().display_name("npc_definitely_not_in_catalog").is_none());
+    assert!(catalog()
+        .display_name("npc_definitely_not_in_catalog")
+        .is_none());
 }
 
 #[test]

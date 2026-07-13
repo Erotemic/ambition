@@ -144,7 +144,10 @@ fn separate_apps_select_independent_provider_sets() {
         .is_none());
 
     for app in [&sanic, &mary_o] {
-        assert!(app.world().get_resource::<CharacterRosterRegistry>().is_none());
+        assert!(app
+            .world()
+            .get_resource::<CharacterRosterRegistry>()
+            .is_none());
         assert!(app.world().get_resource::<BossCatalogRegistry>().is_none());
         assert!(app.world().get_resource::<BossCatalog>().is_none());
     }

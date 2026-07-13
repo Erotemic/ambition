@@ -38,11 +38,12 @@ fn content_boss_catalog() -> ambition::actors::boss_encounter::BossCatalog {
 #[test]
 fn every_dedicated_boss_sheet_resolves_a_catalog_path() {
     let boss_catalog = content_boss_catalog();
-    let character_catalog = ambition::characters::actor::character_catalog::CharacterCatalog::from_data(
-        ambition::characters::actor::character_catalog::parse_catalog(
-            ambition_content::character_catalog::CHARACTER_CATALOG_RON,
-        ),
-    );
+    let character_catalog =
+        ambition::characters::actor::character_catalog::CharacterCatalog::from_data(
+            ambition::characters::actor::character_catalog::parse_catalog(
+                ambition_content::character_catalog::CHARACTER_CATALOG_RON,
+            ),
+        );
     let catalog = ambition::actors::assets::sandbox_assets::desktop_dev_default_catalog(
         &character_catalog,
         &boss_catalog,
@@ -170,8 +171,10 @@ fn every_authored_boss_placement_resolves_the_profile_the_sim_will_spawn() {
                 &spawn.name,
                 &spawn.payload,
             );
-            let profile =
-                ambition::actors::features::BossBehaviorProfile::for_authored_boss(&boss_catalog, &canonical);
+            let profile = ambition::actors::features::BossBehaviorProfile::for_authored_boss(
+                &boss_catalog,
+                &canonical,
+            );
             let render_key = profile.id.to_ascii_lowercase().replace('-', "_");
             if sheet_keys.contains(render_key.as_str())
                 || DELIBERATELY_GENERIC.contains(&render_key.as_str())

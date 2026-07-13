@@ -122,10 +122,7 @@ pub fn manifest_attack_hitbox_world(
 /// App-local catalog the same way the renderer does. `None` if the player has
 /// no sheet spec. The baked manifest registry remains the only immutable
 /// process-wide cache; catalog-dependent sheet selection is never cached.
-fn player_render_size(
-    catalog: &CharacterCatalog,
-    collision: ae::Vec2,
-) -> Option<ae::Vec2> {
+fn player_render_size(catalog: &CharacterCatalog, collision: ae::Vec2) -> Option<ae::Vec2> {
     let spec = super::assets::sheet_for_character_id_in(catalog, PLAYER_CHARACTER_ID)?;
     Some(sheets::player_placeholder_render_size(&spec, collision))
 }
@@ -158,14 +155,9 @@ pub fn authored_attack_volume_resolver(
             facing,
             gravity_dir,
         ),
-        None => player_attack_hitbox_world(
-            catalog,
-            animation,
-            body_pos,
-            collision,
-            facing,
-            gravity_dir,
-        ),
+        None => {
+            player_attack_hitbox_world(catalog, animation, body_pos, collision, facing, gravity_dir)
+        }
     }
 }
 

@@ -47,9 +47,7 @@ fn victim_side_enemy_body_hit_does_not_damage_features() {
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
-    app.insert_resource(
-        ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-    );
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
     app.add_message::<SfxMessage>();
@@ -89,9 +87,7 @@ fn enemy_charge_crash_is_processed_as_enemy_damage() {
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
-    app.insert_resource(
-        ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-    );
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
     app.add_message::<SfxMessage>();
@@ -143,9 +139,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
-    app.insert_resource(
-        ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-    );
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
     app.add_message::<SfxMessage>();
@@ -233,9 +227,7 @@ fn a_sustained_overlap_lands_one_hit_per_iframe_window_not_one_per_frame() {
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
-    app.insert_resource(
-        ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-    );
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
     app.add_message::<SfxMessage>();
@@ -289,9 +281,7 @@ fn slash_clung_surface_walker(cling_breaks_on_hit: bool) -> (App, bevy::prelude:
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
-    app.insert_resource(
-        ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-    );
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
     app.add_message::<SfxMessage>();
@@ -410,9 +400,7 @@ fn player_slash_shatters_a_breakable() {
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
-    app.insert_resource(
-        ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-    );
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
     app.add_message::<SfxMessage>();
@@ -513,7 +501,8 @@ fn defeated_boss_drops_its_signature_ability() {
         ("smirking_behemoth_boss", None),
     ];
     for (id, ability) in expect {
-        let profile = BossBehaviorProfile::from_data(crate::boss_encounter::test_boss_catalog(), id);
+        let profile =
+            BossBehaviorProfile::from_data(crate::boss_encounter::test_boss_catalog(), id);
         assert_eq!(
             profile.reward_ability.as_deref(),
             *ability,
@@ -581,7 +570,8 @@ fn boss_signature_gauntlets_map_to_real_wielded_held_items() {
     let mut gauntlets = 0;
     let mut abilities = 0;
     for (id, gauntlet) in expect {
-        let profile = BossBehaviorProfile::from_data(crate::boss_encounter::test_boss_catalog(), id);
+        let profile =
+            BossBehaviorProfile::from_data(crate::boss_encounter::test_boss_catalog(), id);
         assert_eq!(
             profile.signature_gauntlet.as_deref(),
             *gauntlet,
@@ -645,9 +635,7 @@ fn dividing_mite_splits_into_two_hostile_offspring_on_death() {
     let mut app = App::new();
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
     app.insert_resource(crate::features::enemies::test_roster());
-    app.insert_resource(
-        ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-    );
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.add_systems(
         Update,
         |mut c: Commands,
@@ -771,9 +759,7 @@ fn shield_test_app() -> App {
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
-    app.insert_resource(
-        ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-    );
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
     app.add_message::<SfxMessage>();
@@ -973,9 +959,7 @@ fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
-    app.insert_resource(
-        ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-    );
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
     app.add_message::<SfxMessage>();
@@ -1045,9 +1029,7 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
     app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
     app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
-    app.insert_resource(
-        ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-    );
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
     app.add_message::<SfxMessage>();

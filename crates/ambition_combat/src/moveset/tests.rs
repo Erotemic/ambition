@@ -310,9 +310,9 @@ fn app_with_victim() -> (App, Entity) {
     // sprites-side (`character_sprites::attack_hitbox` tests).
     let mut app = App::new();
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
-    app.insert_resource(super::super::authored_volumes::AuthoredAttackVolumeResolver::new(
-        test_blade_resolver,
-    ));
+    app.insert_resource(
+        super::super::authored_volumes::AuthoredAttackVolumeResolver::new(test_blade_resolver),
+    );
     app.add_message::<HitEvent>();
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();

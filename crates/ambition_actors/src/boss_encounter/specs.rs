@@ -7,9 +7,7 @@
 use super::BossCatalog;
 
 /// Boss specs authored by the providers linked into this App.
-pub fn default_boss_specs(
-    catalog: &BossCatalog,
-) -> Vec<crate::boss_encounter::BossEncounterSpec> {
+pub fn default_boss_specs(catalog: &BossCatalog) -> Vec<crate::boss_encounter::BossEncounterSpec> {
     catalog.encounter_specs().cloned().collect()
 }
 
@@ -39,6 +37,9 @@ mod tests {
             .iter()
             .filter_map(|spec| (!seen.insert(spec.id.clone())).then(|| spec.id.clone()))
             .collect();
-        assert!(dupes.is_empty(), "duplicate assembled boss spec ids: {dupes:?}");
+        assert!(
+            dupes.is_empty(),
+            "duplicate assembled boss spec ids: {dupes:?}"
+        );
     }
 }

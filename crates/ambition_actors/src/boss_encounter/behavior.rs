@@ -636,7 +636,7 @@ mod pilotable_mount_tests {
         );
 
         let rider = BossBehaviorProfile::from_data(
-            super::catalog::test_boss_catalog(),
+            crate::boss_encounter::test_boss_catalog(),
             "gnu_ton_rider",
         );
         assert!(

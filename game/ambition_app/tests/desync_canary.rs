@@ -637,7 +637,11 @@ fn the_snapshot_coverage_ledger() {
     );
 
     // The count thresholds, kept as SUMMARIES beneath the name-level subset gate above.
-    const KNOWN_RESOURCE_DEBT: usize = 181;
+    // 2026-07-13: +5 reviewed authored-content resources from the App-local
+    // character/hostile/boss authority completion (BossCatalog{,Registry},
+    // CharacterRoster{,Registry}, AuthoredAttackVolumeResolver, actor placement
+    // lowering registry) — reviewed in known_resource_debt.txt.
+    const KNOWN_RESOURCE_DEBT: usize = 186;
     assert!(
         resources.len() <= KNOWN_RESOURCE_DEBT,
         "{} unregistered `ambition_*` resources, up from the pinned \

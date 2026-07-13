@@ -152,7 +152,7 @@ mod tests {
             aabb,
             BossBrain::Dormant,
         )
-            .into_components();
+        .into_components();
         let actor = app
             .world_mut()
             .spawn((FeatureSimEntity, ExplodingGradientState::default(), boss))

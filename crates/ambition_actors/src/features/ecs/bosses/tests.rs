@@ -142,8 +142,12 @@ fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
     );
     boss.config.behavior = behavior;
 
-    let (metrics, derived_size) = boss_sprite_metrics_from_registry(crate::boss_encounter::test_boss_catalog(), boss.as_ref(), &registry)
-        .expect("the giant_gnu sheet has body metrics in the baked registry");
+    let (metrics, derived_size) = boss_sprite_metrics_from_registry(
+        crate::boss_encounter::test_boss_catalog(),
+        boss.as_ref(),
+        &registry,
+    )
+    .expect("the giant_gnu sheet has body metrics in the baked registry");
     // The head/hand hurtboxes (what damageable_volumes consumes) live
     // in the per-animation map.
     assert!(
@@ -180,7 +184,12 @@ fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
     );
     rider.config.behavior = BossBehaviorProfile::gnu_ton_rider();
     assert!(
-        boss_sprite_metrics_from_registry(crate::boss_encounter::test_boss_catalog(), rider.as_ref(), &registry).is_none(),
+        boss_sprite_metrics_from_registry(
+            crate::boss_encounter::test_boss_catalog(),
+            rider.as_ref(),
+            &registry
+        )
+        .is_none(),
         "the scholar's trimmed sheet authors no body metrics — the giant carries them",
     );
 }
@@ -219,8 +228,12 @@ fn mockingbird_resolves_a_body_hurtbox_from_the_baked_registry() {
     );
     boss.config.behavior = behavior;
 
-    let (metrics, derived_size) = boss_sprite_metrics_from_registry(crate::boss_encounter::test_boss_catalog(), boss.as_ref(), &registry)
-        .expect("mockingbird sheet target should have body metrics in the baked registry");
+    let (metrics, derived_size) = boss_sprite_metrics_from_registry(
+        crate::boss_encounter::test_boss_catalog(),
+        boss.as_ref(),
+        &registry,
+    )
+    .expect("mockingbird sheet target should have body metrics in the baked registry");
     // Unlike GNU-ton (per-animation hurtboxes), the mockingbird's body
     // comes from a single static alpha bbox.
     assert!(

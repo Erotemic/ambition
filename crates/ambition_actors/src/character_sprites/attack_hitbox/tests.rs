@@ -117,7 +117,7 @@ fn player_attack_side_is_an_authored_convex_blade() {
         1.0,
         down(),
     )
-        .expect("attack_side authored");
+    .expect("attack_side authored");
     assert!(
         matches!(vol, ae::CombatVolume::Convex { .. }),
         "expected a Convex blade, got {vol:?}"

@@ -195,3 +195,16 @@ ambition_audio::catalog::AudioCatalogRegistry
 ambition_characters::actor::character_catalog::registry::CharacterCatalogDefaults
 ambition_characters::actor::character_catalog::registry::CharacterCatalogOwners
 ambition_characters::actor::character_catalog::registry::CharacterCatalogRegistry
+
+# Reviewed diff (2026-07-13, App-local authority completion run): the remaining
+# App-local authored-authority resources from the character/hostile/boss
+# migration. Same category as the four registry rows above — ASSEMBLED
+# AUTHORED CONTENT (immutable after provider registration) plus the authored
+# attack-geometry resolver (a pure fn-pointer resource) and the placement
+# lowering registry (authored lowering rules). None are mutable sim state.
+ambition_actors::boss_encounter::catalog::BossCatalog
+ambition_actors::boss_encounter::catalog::BossCatalogRegistry
+ambition_actors::features::enemies::CharacterRoster
+ambition_actors::features::enemies::CharacterRosterRegistry
+ambition_combat::authored_volumes::AuthoredAttackVolumeResolver
+ambition_world::placements::PlacementLoweringRegistry<ambition_actors::world::placements::ActorPlacementContext>

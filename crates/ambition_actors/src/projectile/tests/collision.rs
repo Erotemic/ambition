@@ -23,9 +23,7 @@ fn fireball_damages_enemy_on_intersect() {
     app.add_systems(
         Startup,
         |mut commands: Commands,
-         catalog: Res<
-            ambition_characters::actor::character_catalog::CharacterCatalog,
-        >,
+         catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
          roster: Res<crate::features::CharacterRoster>| {
             crate::features::spawn_encounter_mob(
                 &mut commands,

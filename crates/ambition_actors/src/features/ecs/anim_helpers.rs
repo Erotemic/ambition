@@ -94,9 +94,7 @@ fn boss_animation_key_for_sample(
         // `gnu_shockwave`) but the damageable head/body box should follow
         // the rendered row. Keep the sample keyed to the visual row so
         // authored row frames are the source of truth for hurtboxes.
-        ("hand_slam" | "converging_shockwave", BossAnim::FloorSlam) => {
-            Some("hand_slam".into())
-        }
+        ("hand_slam" | "converging_shockwave", BossAnim::FloorSlam) => Some("hand_slam".into()),
         ("hand_sweep", BossAnim::SideSweep) => Some("hand_sweep".into()),
         ("head_descent", BossAnim::SpikeHalo) => Some("head_down".into()),
         // GNU-ton's apple rain reads the head row for its damageable hurtbox.
@@ -236,7 +234,9 @@ pub fn ecs_boss_animation_frame_sample(
                             crate::features::BossAnimationFrameSample {
                                 profile: Some(profile.clone()),
                                 frame_index,
-                                animation_key: boss_animation_key_for_sample(catalog, profile, anim),
+                                animation_key: boss_animation_key_for_sample(
+                                    catalog, profile, anim,
+                                ),
                             },
                         ));
                     }

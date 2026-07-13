@@ -88,8 +88,8 @@ fn fixture_setup(
     editable_tuning: Res<ambition_runtime::demo_fixture::EditableMovementTuning>,
     starting_character: Res<ambition_runtime::demo_fixture::StartingCharacter>,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
-    character_roster: Res<ambition_actors::features::CharacterRoster>,
-    boss_catalog: Res<ambition_actors::boss_encounter::BossCatalog>,
+    character_roster: Res<ambition_runtime::demo_fixture::CharacterRoster>,
+    boss_catalog: Res<ambition_runtime::demo_fixture::BossCatalog>,
     asset_server: Res<AssetServer>,
 ) {
     ambition_runtime::demo_fixture::simulation_world(

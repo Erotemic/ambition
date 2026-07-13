@@ -199,30 +199,15 @@ pub(crate) fn load_intro_npc_sprites_system(
     layouts: Option<ResMut<Assets<TextureAtlasLayout>>>,
     game_assets: Option<ResMut<GameAssets>>,
     catalog: Option<Res<ambition_asset_manager::sandbox_assets::SandboxAssetCatalog>>,
-    character_catalog: Option<
-        Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
-    >,
+    character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
 ) {
     if installed.0 {
         return;
     }
     // `GameAssets` is inserted by `setup_presentation_system` partway
     // through startup. Wait for it before installing intro sprites.
-    let (
-        Some(config),
-        Some(asset_server),
-        Some(mut layouts),
-        Some(mut game_assets),
-        Some(catalog),
-        Some(character_catalog),
-    ) = (
-        config,
-        asset_server,
-        layouts,
-        game_assets,
-        catalog,
-        character_catalog,
-    )
+    let (Some(config), Some(asset_server), Some(mut layouts), Some(mut game_assets), Some(catalog)) =
+        (config, asset_server, layouts, game_assets, catalog)
     else {
         return;
     };

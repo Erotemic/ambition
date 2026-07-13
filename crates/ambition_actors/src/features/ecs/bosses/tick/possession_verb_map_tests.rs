@@ -9,7 +9,10 @@ use ambition_characters::brain::{BossAttackProfile, BossCapability};
 use ambition_engine_core as ae;
 
 fn rider_behavior() -> crate::features::bosses::BossBehaviorProfile {
-    crate::features::bosses::BossBehaviorProfile::from_data(crate::boss_encounter::test_boss_catalog(), "gnu_ton_rider")
+    crate::features::bosses::BossBehaviorProfile::from_data(
+        crate::boss_encounter::test_boss_catalog(),
+        "gnu_ton_rider",
+    )
 }
 
 fn melee_frame(axis: ae::Vec2) -> ActorControlFrame {

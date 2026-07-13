@@ -98,17 +98,18 @@ pub fn interact_ecs_actors_and_switches(
     // the home avatar speaks as the character it WEARS; a body that is neither
     // speaks as its placement. Ids, never display names — a name is a
     // localization artifact and two characters can share one.
-    let Some(speaker_id) =
+    // A gameplay body without an authored identity is not a valid dialogue
+    // speaker. Do not silently substitute a process-global default: that
+    // would make dialogue authority depend on whichever provider initialized
+    // first in this process. A speaker-less body skips dialogue but still
+    // works switches below.
+    let speaker_id =
         dialogue_identity(interactions.get(subject).ok(), identities.get(subject).ok())
-            .or_else(|| dialogue.worn.get(subject).ok().map(|w| w.id().to_string()))
-    else {
-        // A gameplay body without an authored identity is not a valid dialogue
-        // speaker. Do not silently substitute a process-global default: that
-        // would make dialogue authority depend on whichever provider initialized
-        // first in this process.
-        return;
-    };
+            .or_else(|| dialogue.worn.get(subject).ok().map(|w| w.id().to_string()));
     for (actor_entity, aabb, disposition, identity, interaction_payload) in &actors {
+        let Some(speaker_id) = speaker_id.as_deref() else {
+            break;
+        };
         if disposition.is_hostile() {
             continue;
         }
@@ -119,7 +120,7 @@ pub fn interact_ecs_actors_and_switches(
         let request =
             super::super::npcs::npc_dialogue_request(interactable, &identity.name, &identity.id);
         let listener_id = character_id_of(interactable).unwrap_or(&identity.id);
-        let context = ambition_dialog::DialogueContext::between(&speaker_id, listener_id);
+        let context = ambition_dialog::DialogueContext::between(speaker_id, listener_id);
 
         // SELF-TALK. The speaker IS the listener — the player possessed this body,
         // or wears the character it is. By default a body has nothing to say to

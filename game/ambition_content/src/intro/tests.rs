@@ -19,8 +19,9 @@ fn every_intro_dialogue_id_is_registered_with_validator() {
     // lives in `.yarn` files; the runtime body smoke-check moved
     // to the bridge's integration tests.
     let catalog = crate::character_catalog::load_catalog();
-    let known: std::collections::HashSet<String> =
-        crate::dialogue::known_dialogue_ids(&catalog).into_iter().collect();
+    let known: std::collections::HashSet<String> = crate::dialogue::known_dialogue_ids(&catalog)
+        .into_iter()
+        .collect();
     for id in intro_dialogue_ids() {
         assert!(
             known.contains(*id),
@@ -57,11 +58,12 @@ fn known_dialogue_ids_contains_every_intro_id() {
 
 #[test]
 fn intro_npc_sprite_rows_have_unique_names() {
-    let character_catalog = ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
-        ambition_characters::actor::character_catalog::parse_catalog(
-            crate::character_catalog::CHARACTER_CATALOG_RON,
-        ),
-    );
+    let character_catalog =
+        ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
+            ambition_characters::actor::character_catalog::parse_catalog(
+                crate::character_catalog::CHARACTER_CATALOG_RON,
+            ),
+        );
     let mut seen = std::collections::HashSet::new();
     for (name, _, _) in intro_npc_sprite_rows(&character_catalog) {
         assert!(

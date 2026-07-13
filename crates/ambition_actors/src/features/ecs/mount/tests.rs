@@ -987,8 +987,8 @@ fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge()
     use ambition_characters::actor::control::ActorControlFrame;
     use ambition_characters::brain::{ActorControl, BossAttackProfile, BossAttackState};
 
-    let profile =
-        BossProfile::from_id(crate::boss_encounter::test_boss_catalog(), "gnu_ton_rider").expect("gnu_ton_rider boss profile is authored");
+    let profile = BossProfile::from_id(crate::boss_encounter::test_boss_catalog(), "gnu_ton_rider")
+        .expect("gnu_ton_rider boss profile is authored");
     // The RON `limb_routing` loaded: hand_slam is authored as a limb route.
     assert!(
         profile
@@ -1145,8 +1145,8 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
         SlotControls,
     };
 
-    let profile =
-        BossProfile::from_id(crate::boss_encounter::test_boss_catalog(), "gnu_ton_rider").expect("gnu_ton_rider boss profile is authored");
+    let profile = BossProfile::from_id(crate::boss_encounter::test_boss_catalog(), "gnu_ton_rider")
+        .expect("gnu_ton_rider boss profile is authored");
     assert!(
         profile
             .behavior

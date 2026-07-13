@@ -263,13 +263,12 @@ fn gnu_ton_head_is_always_damageable_but_descent_brings_it_lower() {
     // exactly one head AABB.
     let boss = gnu_ton_runtime();
     let mut attack_state = ambition_characters::brain::BossAttackState::default();
-    let rest_head = crate::features::damageable_volumes(
-        &crate::features::BossVolumeContext::from_ref(
+    let rest_head =
+        crate::features::damageable_volumes(&crate::features::BossVolumeContext::from_ref(
             crate::boss_encounter::test_boss_catalog(),
             boss.as_ref(),
             &attack_state,
-        ),
-    );
+        ));
     assert_eq!(
         rest_head.len(),
         1,
@@ -284,13 +283,12 @@ fn gnu_ton_head_is_always_damageable_but_descent_brings_it_lower() {
     );
 
     attack_state.active_profile = Some(BossAttackProfile::Strike("head_descent".to_string()));
-    let descent_head = crate::features::damageable_volumes(
-        &crate::features::BossVolumeContext::from_ref(
+    let descent_head =
+        crate::features::damageable_volumes(&crate::features::BossVolumeContext::from_ref(
             crate::boss_encounter::test_boss_catalog(),
             boss.as_ref(),
             &attack_state,
-        ),
-    );
+        ));
     assert_eq!(descent_head.len(), 1);
     let descent_y = descent_head[0].center().y;
     // Descended head sits BELOW the shoulder anchor (at player level).

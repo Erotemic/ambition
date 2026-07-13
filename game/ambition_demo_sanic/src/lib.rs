@@ -434,7 +434,6 @@ pub fn install_sanic_content(app: &mut App) {
         )
         .expect("Sanic audio catalogs should be valid"),
     );
-
 }
 
 impl Plugin for SanicDemoContentPlugin {

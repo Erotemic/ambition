@@ -68,8 +68,7 @@ pub struct LoweringCtx<'w, 's, 'a, C: ?Sized = ()> {
     pub context: &'a C,
 }
 
-pub type LoweringFn<C = ()> =
-    for<'w, 's, 'a> fn(&PlacementRecord, &mut LoweringCtx<'w, 's, 'a, C>);
+pub type LoweringFn<C = ()> = for<'w, 's, 'a> fn(&PlacementRecord, &mut LoweringCtx<'w, 's, 'a, C>);
 
 /// Registry from authored placement kind to the simulation/content interpreter
 /// that lowers the record into live room-scoped entities.

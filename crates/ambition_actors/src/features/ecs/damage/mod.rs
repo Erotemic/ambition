@@ -64,8 +64,7 @@ impl FeatureHitWriters<'_, '_> {
 
 #[derive(SystemParam)]
 pub struct FeatureHitCatalogs<'w> {
-    pub characters:
-        Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
+    pub characters: Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
     pub hostile_archetypes: Res<'w, crate::features::CharacterRoster>,
     pub bosses: Res<'w, crate::boss_encounter::BossCatalog>,
 }

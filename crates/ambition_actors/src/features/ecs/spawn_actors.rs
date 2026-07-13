@@ -4,17 +4,17 @@
 //! boss minions, and encounter mobs. Static pickups/chests/breakables live in
 //! `spawn_static.rs`; composite mount/rider fan-out lives in `spawn_mounts.rs`.
 
+use super::super::enemies::CharacterRoster;
 use super::brain_builders::{
     enemy_combat_kit_for_spec, enemy_default_action_set, enemy_default_brain,
 };
 use super::*;
+use crate::boss_encounter::BossCatalog;
+use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_platformer_primitives::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use bevy::prelude::{Message, Name};
-use ambition_characters::actor::character_catalog::CharacterCatalog;
-use super::super::enemies::CharacterRoster;
-use crate::boss_encounter::BossCatalog;
 
 /// Programmatic actor-spawn request — the public seam for dropping a specific
 /// actor into a live sim at an arbitrary position WITHOUT authoring an LDtk room.
@@ -378,9 +378,6 @@ pub(super) struct NpcActorSpawnPlan {
     action_set: ambition_characters::brain::ActionSet,
     combat_kit: crate::combat::CombatKit,
     aggression: super::ActorAggression,
-    /// Catalog `character_id` this NPC was authored from (Npc interaction
-    /// kind), used to resolve movement identity (`MotionModel`) at spawn.
-    interaction_character_id: Option<String>,
 }
 
 impl NpcActorSpawnPlan {
@@ -402,10 +399,6 @@ impl NpcActorSpawnPlan {
             ambition_interaction::InteractionKind::Npc { dialogue_id, .. } => {
                 dialogue_id.as_deref()
             }
-            _ => None,
-        };
-        let interaction_character_id = match &interactable.kind {
-            ambition_interaction::InteractionKind::Npc { character_id, .. } => character_id.clone(),
             _ => None,
         };
         // The hostile archetype this actor becomes when provoked: feeds its
@@ -463,7 +456,6 @@ impl NpcActorSpawnPlan {
             aggression: super::ActorAggression::retaliates_when_hit(
                 super::super::NPC_HOSTILE_STRIKE_THRESHOLD as u8,
             ),
-            interaction_character_id,
         }
     }
 
@@ -958,16 +950,15 @@ pub(crate) fn spawn_runtime_minion(
     let encounter_id = encounter_id.into();
     let aabb = ae::Aabb::new(world_pos, half_size);
     let brain = ambition_entity_catalog::placements::CharacterBrain::Custom(archetype_id.into());
-    let mut enemy =
-        super::actor_clusters::ActorClusterSeed::new_in(
-            catalog,
-            roster,
-            id.clone(),
-            name.clone(),
-            aabb,
-            brain,
-            &[],
-        );
+    let mut enemy = super::actor_clusters::ActorClusterSeed::new_in(
+        catalog,
+        roster,
+        id.clone(),
+        name.clone(),
+        aabb,
+        brain,
+        &[],
+    );
     // `ActorClusterSeed::new_in` already sets HP from the resolved spec.
     // Boss-spawned minions shouldn't auto-respawn — they're part of
     // the encounter, not a static sandbag.
@@ -986,13 +977,11 @@ pub(crate) fn spawn_runtime_minion(
     commands
         .entity(entity)
         .insert(super::EncounterMob::new(encounter_id));
-    if let Some(rs) =
-        super::actor_clusters::sprite_render_size_for_name_in(
-            catalog,
-            &name,
-            aabb.half_size() * 2.0,
-        )
-    {
+    if let Some(rs) = super::actor_clusters::sprite_render_size_for_name_in(
+        catalog,
+        &name,
+        aabb.half_size() * 2.0,
+    ) {
         commands
             .entity(entity)
             .insert(crate::features::ActorRenderSize(rs));
@@ -1338,16 +1327,15 @@ pub(super) fn spawn_encounter_mob(
 ) {
     let encounter_id = encounter_id.into();
     let aabb = ae::Aabb::new(pos, size * 0.5);
-    let mut enemy =
-        super::actor_clusters::ActorClusterSeed::new_in(
-            catalog,
-            roster,
-            id.clone(),
-            id.clone(),
-            aabb,
-            brain,
-            &[],
-        );
+    let mut enemy = super::actor_clusters::ActorClusterSeed::new_in(
+        catalog,
+        roster,
+        id.clone(),
+        id.clone(),
+        aabb,
+        brain,
+        &[],
+    );
     // `ActorClusterSeed::new_in` already sets HP from the resolved spec.
     // Encounter mobs should not auto-respawn like training sandbags.
     enemy.status.respawn_timer = 999_999.0;

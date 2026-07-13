@@ -17,11 +17,12 @@ fn intro_npc_and_prop_sprite_ids_resolve_through_the_catalog() {
     let mut config = GameAssetConfig::default();
     config.asset_profile = AssetProfile::DesktopDevLoose;
     let music = load_music_registry();
-    let character_catalog = ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
-        ambition_characters::actor::character_catalog::parse_catalog(
-            ambition_content::character_catalog::CHARACTER_CATALOG_RON,
-        ),
-    );
+    let character_catalog =
+        ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
+            ambition_characters::actor::character_catalog::parse_catalog(
+                ambition_content::character_catalog::CHARACTER_CATALOG_RON,
+            ),
+        );
     let boss_catalog = ambition_content::bosses::authored_boss_catalog();
     // The intro entries are a CONTENT extension (the app assembly wires
     // them through `build_sandbox_catalog_with`); mirror that wiring here.

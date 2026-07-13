@@ -834,8 +834,6 @@ pub fn builtin_boss_sheets() -> std::collections::HashMap<String, BossSheetSpec>
     m
 }
 
-
-
 /// Build the boss sprite asset for the gradient sentinel sheet.
 /// Returns `None` if the catalog reports the asset disabled or the
 /// active profile's optional-image gate skips it — callers fall back

@@ -4,7 +4,6 @@
 //! `use super::*;`.
 
 use super::*;
-use crate::actor::BodyBaseSize;
 use crate::actor::BodyKinematics;
 use crate::actor::PrimaryPlayer;
 use crate::features::ActorFaction;

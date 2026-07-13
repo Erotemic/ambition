@@ -5,7 +5,7 @@
 //! current Bevy [`App`](bevy::prelude::App); no process-global install order is
 //! involved.
 
-use ambition_actors::features::{CharacterRoster, CharacterRosterAppExt, CharacterRosterFragment};
+use ambition_actors::features::{CharacterRosterAppExt, CharacterRosterFragment};
 use bevy::prelude::App;
 
 /// Provider identity used by every Ambition-authored catalog fragment.
@@ -32,7 +32,9 @@ mod tests {
     fn embedded_roster_parses_and_registers() {
         let mut app = App::new();
         register(&mut app);
-        assert!(app.world().contains_resource::<CharacterRoster>());
+        assert!(app
+            .world()
+            .contains_resource::<ambition_actors::features::CharacterRoster>());
     }
 
     #[test]
@@ -40,7 +42,9 @@ mod tests {
         let mut app = App::new();
         register(&mut app);
         assert!(
-            app.world().resource::<CharacterRoster>().sandbags_are_passive(),
+            app.world()
+                .resource::<ambition_actors::features::CharacterRoster>()
+                .sandbags_are_passive(),
             "a sandbag/training-dummy archetype carries a melee attack — passive targets must have `melee: None`"
         );
     }

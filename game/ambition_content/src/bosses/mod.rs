@@ -125,10 +125,7 @@ fn special_animation_keys() -> std::collections::BTreeMap<String, Vec<String>> {
         ("minima_trap".into(), vec!["spike_halo".into()]),
         ("saddle_point".into(), vec!["spike_halo".into()]),
         ("gradient_cascade".into(), vec!["spike_halo".into()]),
-        (
-            "mode_collapse_converge".into(),
-            vec!["spike_halo".into()],
-        ),
+        ("mode_collapse_converge".into(), vec!["spike_halo".into()]),
         ("gradient_nova".into(), vec!["spike_halo".into()]),
         ("overflow_flood".into(), vec!["spike_halo".into()]),
         (

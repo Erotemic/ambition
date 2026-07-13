@@ -21,10 +21,9 @@ pub(super) fn sprite_authored_volumes(
     // (collision_scale > 1.0 in every sheet spec). Using ctx.size
     // would render hitboxes at half the visible size of the attack.
     let world_size = sprite_world_size(metrics, ctx.size);
-    for animation in crate::boss_encounter::behavior::boss_animation_keys_for_profile(
-        ctx.boss_catalog,
-        profile,
-    ) {
+    for animation in
+        crate::boss_encounter::behavior::boss_animation_keys_for_profile(ctx.boss_catalog, profile)
+    {
         let Some(entry) = metrics.animations.get(&animation) else {
             continue;
         };

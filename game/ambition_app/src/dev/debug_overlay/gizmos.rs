@@ -754,9 +754,12 @@ pub(crate) fn draw_feature_debug(
         if !health.alive() {
             continue;
         }
-        let ctx =
-            ambition::actors::features::BossVolumeContext::from_ref(&feature_q.boss_catalog, bf.as_boss_ref(), attack_state)
-                .with_animation_frame(animation_frame);
+        let ctx = ambition::actors::features::BossVolumeContext::from_ref(
+            &feature_q.boss_catalog,
+            bf.as_boss_ref(),
+            attack_state,
+        )
+        .with_animation_frame(animation_frame);
         draw_aabb_styled(gizmos, world, boss.aabb(), boss_color, developer_tools);
         label_box(
             labels,

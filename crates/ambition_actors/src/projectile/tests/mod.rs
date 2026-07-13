@@ -70,9 +70,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     app.insert_resource(ambition_persistence::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
     app.insert_resource(GameplayBanner::default());
-    app.insert_resource(
-        ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
-    );
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     // Projectile state lives on the player; this counter only gives in-flight
     // projectile entities stable spawn order.
     app.init_resource::<crate::projectile::ProjectileSeqCounter>();

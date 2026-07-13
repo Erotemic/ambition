@@ -5,7 +5,6 @@
 //! test focus on the behavior it is asserting instead of repeating spawn wiring.
 
 use crate::actor::BodyKinematics;
-use crate::actor::{BodyBaseSize, BodyMana};
 use crate::actor::{PlayerEntity, PrimaryPlayer};
 use crate::control::PlayerInputFrame;
 use crate::features::HeldItem;

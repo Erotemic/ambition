@@ -82,6 +82,7 @@ pub fn known_dialogue_ids(
     }
     ids.extend(
         catalog
+            .data()
             .characters
             .values()
             .filter_map(|entry| entry.hall_dialogue_id.clone()),

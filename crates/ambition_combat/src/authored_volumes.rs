@@ -139,11 +139,15 @@ mod tests {
     fn separate_apps_resolve_against_their_own_character_catalog() {
         let mut alpha = App::new();
         alpha.insert_resource(CharacterCatalog::from_data(parse_catalog(ALPHA)));
-        alpha.insert_resource(AuthoredAttackVolumeResolver::new(catalog_sensitive_resolver));
+        alpha.insert_resource(AuthoredAttackVolumeResolver::new(
+            catalog_sensitive_resolver,
+        ));
 
         let mut beta = App::new();
         beta.insert_resource(CharacterCatalog::from_data(parse_catalog(BETA)));
-        beta.insert_resource(AuthoredAttackVolumeResolver::new(catalog_sensitive_resolver));
+        beta.insert_resource(AuthoredAttackVolumeResolver::new(
+            catalog_sensitive_resolver,
+        ));
 
         let resolve = |app: &App| {
             app.world()

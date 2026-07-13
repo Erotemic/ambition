@@ -62,8 +62,7 @@ pub struct ResetPlayState<'w> {
     sim_state: ResMut<'w, crate::SandboxSimState>,
     clock_resets: MessageWriter<'w, crate::time::time_control::ClockResetRequest>,
     moving_platforms: ResMut<'w, ambition_world::collision::MovingPlatformSet>,
-    character_catalog:
-        Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
+    character_catalog: Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
     character_roster: Res<'w, crate::features::CharacterRoster>,
     boss_catalog: Res<'w, crate::boss_encounter::BossCatalog>,
 }

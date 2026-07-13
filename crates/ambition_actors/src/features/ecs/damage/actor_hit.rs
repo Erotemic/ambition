@@ -322,7 +322,7 @@ pub(crate) fn apply_actor_hit(
                 if caps.divides_on_death {
                     spawn_split_offspring(
                         &mut writers.commands,
-                        character_catalog,
+                        catalog,
                         roster,
                         session_scope,
                         &em.config.id,

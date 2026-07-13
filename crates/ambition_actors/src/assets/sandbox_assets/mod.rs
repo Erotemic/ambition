@@ -124,8 +124,7 @@ pub fn sandbox_catalog_inputs(
     boss_catalog: &crate::boss_encounter::BossCatalog,
     music: &crate::session::data::MusicRegistry,
 ) -> SandboxCatalogInputs {
-    let mut inputs =
-        sandbox_catalog_inputs_without_worlds(character_catalog, boss_catalog, music);
+    let mut inputs = sandbox_catalog_inputs_without_worlds(character_catalog, boss_catalog, music);
     inputs.worlds = crate::ldtk_world::world_manifest()
         .worlds
         .iter()
@@ -147,11 +146,12 @@ fn sandbox_catalog_inputs_without_worlds(
 ) -> SandboxCatalogInputs {
     SandboxCatalogInputs {
         scale_variants: texture_scale_variants(),
-        character_sprites:
-            crate::character_sprites::all_character_sprite_filenames_in(character_catalog)
-                .into_iter()
-                .map(|(name, filename)| CharacterSpriteCatalogRow { name, filename })
-                .collect(),
+        character_sprites: crate::character_sprites::all_character_sprite_filenames_in(
+            character_catalog,
+        )
+        .into_iter()
+        .map(|(name, filename)| CharacterSpriteCatalogRow { name, filename })
+        .collect(),
         boss_sprites: boss_catalog
             .sprite_filenames()
             .map(|(name, filename)| BossSpriteCatalogRow {

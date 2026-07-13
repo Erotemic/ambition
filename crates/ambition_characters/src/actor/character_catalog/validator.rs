@@ -54,7 +54,6 @@ pub fn validate(catalog: &CharacterCatalogData) -> Vec<String> {
     errors
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;

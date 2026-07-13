@@ -56,6 +56,7 @@ fn every_catalog_hall_dialogue_id_has_a_yarn_node() {
 
     let catalog = catalog();
     let missing: Vec<(&String, &str)> = catalog
+        .data()
         .characters
         .iter()
         .filter_map(|(id, entry)| {

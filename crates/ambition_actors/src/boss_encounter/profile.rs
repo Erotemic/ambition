@@ -145,7 +145,8 @@ mod tests {
 
     #[test]
     fn mockingbird_profile_declares_reward_chest() {
-        let profile = BossProfile::from_id(super::super::test_boss_catalog(), "mockingbird").expect("mockingbird is authored");
+        let profile = BossProfile::from_id(super::super::test_boss_catalog(), "mockingbird")
+            .expect("mockingbird is authored");
         assert!(matches!(
             profile.reward,
             BossRewardProfile::DropChest { .. }
@@ -158,7 +159,7 @@ mod tests {
             super::super::test_boss_catalog(),
             "flying_spaghetti_monster_boss",
         )
-            .expect("flying_spaghetti_monster_boss is authored");
+        .expect("flying_spaghetti_monster_boss is authored");
         assert!(matches!(
             profile.reward,
             BossRewardProfile::DropChest { .. }
@@ -204,7 +205,7 @@ mod tests {
             super::super::test_boss_catalog(),
             "gradient_sentinel",
         )
-            .expect("gradient_sentinel aliases to clockwork_warden");
+        .expect("gradient_sentinel aliases to clockwork_warden");
         assert_eq!(profile.id, "clockwork_warden");
     }
 }

@@ -29,7 +29,8 @@
 //! — the whole relationship is data (ADR 0020).
 
 use bevy::prelude::{
-    Commands, Component, Entity, Message, MessageWriter, Query, ResMut, Resource, With, Without,
+    Commands, Component, Entity, Message, MessageWriter, Query, Res, ResMut, Resource, With,
+    Without,
 };
 
 use super::brain_builders::dismounted_rider_brain_and_action_set;

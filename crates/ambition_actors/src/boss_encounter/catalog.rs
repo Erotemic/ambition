@@ -103,7 +103,9 @@ impl BossCatalog {
     }
 
     pub fn fallback_sheet_key_for_provider(&self, provider_id: &str) -> Option<&str> {
-        self.fallback_sheet_keys.get(provider_id).map(String::as_str)
+        self.fallback_sheet_keys
+            .get(provider_id)
+            .map(String::as_str)
     }
 
     /// Resolve a content-authored sheet, then an engine built-in sheet, then
@@ -112,7 +114,11 @@ impl BossCatalog {
         self.sheets
             .get(key)
             .cloned()
-            .or_else(|| ambition_sprite_sheet::boss::builtin_boss_sheets().get(key).cloned())
+            .or_else(|| {
+                ambition_sprite_sheet::boss::builtin_boss_sheets()
+                    .get(key)
+                    .cloned()
+            })
             .unwrap_or_else(|| (*ambition_sprite_sheet::boss::BOSS_SHEET).clone())
     }
 
@@ -172,19 +178,20 @@ impl BossCatalogFragment {
         special_anim_keys: BTreeMap<String, Vec<String>>,
     ) -> Result<Self, BossCatalogAssemblyError> {
         let provider_id = provider_id.into();
-        let behaviors = ron::from_str::<BTreeMap<String, BossBehaviorProfile>>(
-            behavior_profiles_ron,
-        )
-        .map_err(|error| BossCatalogAssemblyError::MalformedBehaviorProfiles {
-            provider_id: provider_id.clone(),
-            message: error.to_string(),
-        })?;
-        let sheets = ron::from_str::<BTreeMap<String, BossSheetSpec>>(boss_sheets_ron).map_err(
-            |error| BossCatalogAssemblyError::MalformedSheets {
-                provider_id: provider_id.clone(),
-                message: error.to_string(),
-            },
-        )?;
+        let behaviors =
+            ron::from_str::<BTreeMap<String, BossBehaviorProfile>>(behavior_profiles_ron).map_err(
+                |error| BossCatalogAssemblyError::MalformedBehaviorProfiles {
+                    provider_id: provider_id.clone(),
+                    message: error.to_string(),
+                },
+            )?;
+        let sheets =
+            ron::from_str::<BTreeMap<String, BossSheetSpec>>(boss_sheets_ron).map_err(|error| {
+                BossCatalogAssemblyError::MalformedSheets {
+                    provider_id: provider_id.clone(),
+                    message: error.to_string(),
+                }
+            })?;
         let mut encounters = BTreeMap::new();
         for encounter_ron in encounter_rons {
             let spec = ron::from_str::<BossEncounterSpec>(encounter_ron).map_err(|error| {
@@ -194,9 +201,7 @@ impl BossCatalogFragment {
                 }
             })?;
             if encounters.insert(spec.id.clone(), spec).is_some() {
-                return Err(BossCatalogAssemblyError::DuplicateEncounterInFragment {
-                    provider_id,
-                });
+                return Err(BossCatalogAssemblyError::DuplicateEncounterInFragment { provider_id });
             }
         }
         let fragment = Self {
@@ -440,25 +445,85 @@ impl BossCatalogRegistry {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum BossCatalogAssemblyError {
     EmptyProviderId,
-    EmptyBossId { provider_id: String },
-    DuplicateProvider { provider_id: String },
-    MalformedBehaviorProfiles { provider_id: String, message: String },
-    MalformedEncounter { provider_id: String, message: String },
-    MalformedSheets { provider_id: String, message: String },
-    DuplicateEncounterInFragment { provider_id: String },
-    BehaviorIdMismatch { provider_id: String, map_id: String, profile_id: String },
-    MissingBehavior { provider_id: String, boss_id: String },
-    MissingEncounter { provider_id: String, boss_id: String },
-    MissingFallbackBoss { provider_id: String, boss_id: String },
-    MissingFallbackSheet { provider_id: String, sheet_key: String },
-    EmptySheetKey { provider_id: String, sheet_key: String },
-    InvalidSpriteFilename { provider_id: String, sheet_key: String, filename: String },
-    MissingSpriteFilename { provider_id: String, sheet_key: String },
-    InvalidSpecialAnimation { provider_id: String, special: String },
-    DuplicateBoss { boss_id: String, first_provider: String, second_provider: String },
-    DuplicateSheet { sheet_key: String, first_provider: String, second_provider: String },
-    DuplicateSpriteFilename { sheet_key: String, first_provider: String, second_provider: String },
-    DuplicateSpecialAnimation { special: String, first_provider: String, second_provider: String },
+    EmptyBossId {
+        provider_id: String,
+    },
+    DuplicateProvider {
+        provider_id: String,
+    },
+    MalformedBehaviorProfiles {
+        provider_id: String,
+        message: String,
+    },
+    MalformedEncounter {
+        provider_id: String,
+        message: String,
+    },
+    MalformedSheets {
+        provider_id: String,
+        message: String,
+    },
+    DuplicateEncounterInFragment {
+        provider_id: String,
+    },
+    BehaviorIdMismatch {
+        provider_id: String,
+        map_id: String,
+        profile_id: String,
+    },
+    MissingBehavior {
+        provider_id: String,
+        boss_id: String,
+    },
+    MissingEncounter {
+        provider_id: String,
+        boss_id: String,
+    },
+    MissingFallbackBoss {
+        provider_id: String,
+        boss_id: String,
+    },
+    MissingFallbackSheet {
+        provider_id: String,
+        sheet_key: String,
+    },
+    EmptySheetKey {
+        provider_id: String,
+        sheet_key: String,
+    },
+    InvalidSpriteFilename {
+        provider_id: String,
+        sheet_key: String,
+        filename: String,
+    },
+    MissingSpriteFilename {
+        provider_id: String,
+        sheet_key: String,
+    },
+    InvalidSpecialAnimation {
+        provider_id: String,
+        special: String,
+    },
+    DuplicateBoss {
+        boss_id: String,
+        first_provider: String,
+        second_provider: String,
+    },
+    DuplicateSheet {
+        sheet_key: String,
+        first_provider: String,
+        second_provider: String,
+    },
+    DuplicateSpriteFilename {
+        sheet_key: String,
+        first_provider: String,
+        second_provider: String,
+    },
+    DuplicateSpecialAnimation {
+        special: String,
+        first_provider: String,
+        second_provider: String,
+    },
 }
 
 impl fmt::Display for BossCatalogAssemblyError {
@@ -619,16 +684,28 @@ pub(crate) fn test_boss_catalog() -> &'static BossCatalog {
             include_str!("../../../../game/ambition_content/assets/data/boss_encounters/overflow_boss.ron"),
         ];
         let special_anim_keys = BTreeMap::from([
-            ("overfit_volley".into(), vec!["spike_halo".into(), "eye_beam".into()]),
-            ("eye_beam".into(), vec!["eye_beam".into(), "spike_halo".into()]),
+            (
+                "overfit_volley".into(),
+                vec!["spike_halo".into(), "eye_beam".into()],
+            ),
+            (
+                "eye_beam".into(),
+                vec!["eye_beam".into(), "spike_halo".into()],
+            ),
             ("minima_trap".into(), vec!["spike_halo".into()]),
             ("saddle_point".into(), vec!["spike_halo".into()]),
             ("gradient_cascade".into(), vec!["spike_halo".into()]),
             ("mode_collapse_converge".into(), vec!["spike_halo".into()]),
             ("gradient_nova".into(), vec!["spike_halo".into()]),
             ("overflow_flood".into(), vec!["spike_halo".into()]),
-            ("seismic_stomp".into(), vec!["floor_slam".into(), "spike_halo".into()]),
-            ("echo_fan".into(), vec!["spike_halo".into(), "eye_beam".into()]),
+            (
+                "seismic_stomp".into(),
+                vec!["floor_slam".into(), "spike_halo".into()],
+            ),
+            (
+                "echo_fan".into(),
+                vec!["spike_halo".into(), "eye_beam".into()],
+            ),
         ]);
         let fragment = BossCatalogFragment::from_ron(
             "ambition-test",
@@ -720,7 +797,10 @@ mod tests {
             .try_register_boss_catalog_fragment(fragment("b"))
             .err()
             .expect("duplicate boss ids must fail");
-        assert!(matches!(error, BossCatalogAssemblyError::DuplicateBoss { .. }));
+        assert!(matches!(
+            error,
+            BossCatalogAssemblyError::DuplicateBoss { .. }
+        ));
         assert_eq!(
             first
                 .world()
@@ -788,8 +868,14 @@ mod tests {
         reverse.register(beta).unwrap();
         reverse.register(alpha).unwrap();
 
-        assert_eq!(direct.providers().collect::<Vec<_>>(), vec!["alpha", "beta"]);
-        assert_eq!(reverse.providers().collect::<Vec<_>>(), vec!["alpha", "beta"]);
+        assert_eq!(
+            direct.providers().collect::<Vec<_>>(),
+            vec!["alpha", "beta"]
+        );
+        assert_eq!(
+            reverse.providers().collect::<Vec<_>>(),
+            vec!["alpha", "beta"]
+        );
 
         let direct = direct.assemble().unwrap();
         let reverse = reverse.assemble().unwrap();

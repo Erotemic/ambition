@@ -5,11 +5,11 @@
 //! This keeps the active ECS path readable without changing the entity shapes
 //! or scheduling surfaces that callers use.
 
-use ambition_platformer_primitives::lifecycle::SessionSpawnScope;
-use bevy::prelude::{Commands, Entity, Query};
-use ambition_characters::actor::character_catalog::CharacterCatalog;
 use crate::boss_encounter::BossCatalog;
 use crate::features::CharacterRoster;
+use ambition_characters::actor::character_catalog::CharacterCatalog;
+use ambition_platformer_primitives::lifecycle::SessionSpawnScope;
+use bevy::prelude::{Commands, Entity, Query};
 
 pub(crate) use super::spawn_actors::spawn_runtime_minion;
 
@@ -119,14 +119,7 @@ pub fn respawn_authored_entity(
         return true;
     }
     if let Some(enemy) = room.enemy_spawns.iter().find(|e| e.id == authored_id) {
-        super::spawn_actors::spawn_enemy(
-            commands,
-            catalog,
-            roster,
-            session_scope,
-            enemy,
-            &paths,
-        );
+        super::spawn_actors::spawn_enemy(commands, catalog, roster, session_scope, enemy, &paths);
         return true;
     }
     if let Some(boss) = room.boss_spawns.iter().find(|b| b.id == authored_id) {
@@ -184,14 +177,7 @@ pub fn spawn_room_feature_entities_with_registry(
     // Chests now lower through the `placements` channel above (fable audit F9.2).
     // Breakables now lower through the `placements` channel above (fable audit F9.2).
     for enemy in &room.enemy_spawns {
-        super::spawn_actors::spawn_enemy(
-            commands,
-            catalog,
-            roster,
-            session_scope,
-            enemy,
-            &paths,
-        );
+        super::spawn_actors::spawn_enemy(commands, catalog, roster, session_scope, enemy, &paths);
     }
     // ADR 0020: hand the room's authored `(rider, mount)` links to the
     // resolver resource. It links them by `FeatureId` once the actors above

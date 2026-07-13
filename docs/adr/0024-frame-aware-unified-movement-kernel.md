@@ -2,14 +2,35 @@
 
 ## Status
 
-Accepted; implemented (commit `17685105`).
+Accepted; implemented, INCLUDING the frame-authority migration
+(commits `17685105` → `477700e9`).
 
-The alternate integrators are gone (`surface_walker` became the
-`AdhesiveCrawler` policy), the environment resolves one `MotionFrame` per body
-tick, directional values crossing the boundary are typed
-(`ScreenAxes`/`LocalAxes`/`WorldVec2`), `switch_motion_model` owns transition
-semantics, `MotionModel` is snapshot-registered, and the optional-model /
-crawler-flag guards are live and poison-tested. Residual debt is recorded in
+Mechanically enforced today:
+
+- ONE frame resolution per integrated body per tick: the frame resolution
+  phase publishes `ResolvedMotionFrame` (basis + accumulated acceleration
+  contributions, body-overlap zone selection) and every body-relative
+  consumer — controller interpretation, brains (incl. possessed bodies and
+  clones), combat, abilities, mounts, body-mode, and both integration
+  drivers — reads that artifact. Guarded:
+  `engine.mechanics-consume-the-resolved-frame` (poison-tested).
+- ONE continuous-movement entry (`step_motion`, `pub(crate)` solvers) plus
+  three named non-kernel authorities (`transit_body` with documented
+  reconciliation semantics, `carry_body`, `constrain_body_pose`); bare pose
+  writes are guarded: `engine.pose-writes-are-authority-only` (poison-tested).
+- Policy-private state lives INSIDE the model variant (`AxisManeuverState`,
+  ride state, `CrawlAttachment`); the published `BodyMotionFacts` projection
+  is the only outside read surface, so a non-axis body cannot leak stale
+  maneuver facts. `MotionModel` snapshot round-trips all of it; the frame and
+  the facts are declared derived.
+- Support is a semantic fact (`SupportFact`, contact kinds assigned
+  frame-relatively at generation), never contact-list ordering.
+- The crawler attaches at arbitrary angles through `SurfaceChain` geometry
+  (block faces stay probe-based over the AABB world, with surface-basis
+  constructions and no world-axis cases).
+- The optional-model / crawler-flag guards remain live and poison-tested.
+
+Residual debt is recorded in
 [`docs/planning/engine/unified-movement-kernel.md`](../planning/engine/unified-movement-kernel.md).
 
 ## Context

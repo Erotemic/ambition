@@ -655,3 +655,30 @@ fn pose_write_guard_reacts() {
         );
     }
 }
+
+/// The mechanics-consume-the-resolved-frame guard reacts to every
+/// reconstruction shape it bans.
+#[test]
+fn frame_reconstruction_guard_reacts() {
+    let p = poison(
+        r#"
+        id = "poison.frame-reads"
+        scope = "engine"
+        kind = "forbidden-source-reference"
+        rationale = "poison"
+        production_only = true
+        roots = ["tests/ambition_workspace_policy/fixtures/poison/frame_reads"]
+        forbid = [".dir_at(", "Res<GravityField>", "gravity_dir_or_default("]
+    "#,
+    );
+    let report = run_one(&p);
+    for needle in [".dir_at(", "Res<GravityField>", "gravity_dir_or_default("] {
+        assert!(
+            report
+                .diagnostics()
+                .iter()
+                .any(|d| d.detail.contains(needle)),
+            "frame-reconstruction guard dropped `{needle}`"
+        );
+    }
+}

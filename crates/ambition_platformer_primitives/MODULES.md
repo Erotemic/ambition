@@ -11,6 +11,7 @@
 | [`camera_layers`](src/camera_layers.rs) | Presentation camera markers shared by host, render, and app wiring. |
 | [`class_b`](src/class_b.rs) | **Class-B transit authority** — the per-frame remap ledger. |
 | [`feature_overlay`](src/feature_overlay.rs) | Shared read resource for transient ECS-derived world collision overlays. |
+| [`frame_env`](src/frame_env.rs) | The authoritative per-body movement frame: resolved once, consumed everywhere. |
 | [`gravity`](src/gravity.rs) | Shared world physics applied to every actor body. |
 | [`kinematic`](src/kinematic.rs) | Generic kinematic body — gravity + axis-separated sweep against a `World`. |
 | [`lifecycle`](src/lifecycle/mod.rs) | Lifecycle vocabulary for entities spawned by reusable platformer systems. |
@@ -26,7 +27,7 @@
 | [`time`](src/time.rs) | Neutral simulation-time resource for the platformer runtime. |
 | [`transit`](src/transit.rs) | Generic body-transit velocity math for platformer mechanics. |
 
-_19 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_20 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

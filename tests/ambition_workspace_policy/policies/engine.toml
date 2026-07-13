@@ -2371,3 +2371,41 @@ skip_paths = [
     # Dev tooling body-profile resize (feet-planted recenter).
     "ambition_dev_tools/src/dev_tools/editable.rs",
 ]
+
+# ADR 0024 frame law: body-relative MECHANICS consume the body's per-tick
+# ResolvedMotionFrame — published once by the frame resolution phase — never a
+# reconstructed frame. Point sampling (`dir_at`) and the presentation
+# `GravityField` mirror remain legal ONLY for observation: rendering, sprite
+# roll easing, dev overlays, touch glyph labels, and the gravity machinery
+# itself. A mechanics-side read is a second frame resolver growing back.
+[[policy]]
+id = "engine.mechanics-consume-the-resolved-frame"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_engine_core", "ambition_actors"]
+watch_paths = ["crates", "game"]
+rationale = "ADR 0024 frame law: gameplay mechanics read ResolvedMotionFrame; dir_at/GravityField are observation-only (render, roll easing, dev, the gravity machinery)."
+source_doc = "docs/adr/0024-frame-aware-unified-movement-kernel.md"
+severity = "error"
+production_only = true
+skip_tests = true
+roots = [
+    "crates/ambition_actors/src",
+    "crates/ambition_combat/src",
+    "crates/ambition_characters/src",
+    "game",
+]
+forbid = [".dir_at(", "Res<GravityField>", "gravity_dir_or_default("]
+skip_paths = [
+    # The gravity machinery + frame resolution phase itself.
+    "ambition_actors/src/gravity/",
+    # Free-body integrators resolve per body inline (dir_for) and feed the
+    # shared world-forces seam through a local field value.
+    "ambition_actors/src/items/pickup/",
+    # Presentation, dev tooling, and the RL observation port.
+    "ambition_app/src/dev/",
+    "ambition_app/src/rl_sim/",
+    # The portal adapters orient exits from the presentation mirror (the
+    # portal core moves cluster-less bodies too); recorded residual debt.
+    "ambition_content/src/portal/",
+]

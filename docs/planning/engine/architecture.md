@@ -74,7 +74,7 @@ IR] pure while authored maps still declare rich content.
 | Crate | ROLE | Owns | Must never contain |
 |---|---|---|---|
 | `ambition_engine_core` | **[the movement kernel]** ([ADR 0024](../../adr/0024-frame-aware-unified-movement-kernel.md)) | the cast library (ONE home for swept AABB/circle/segment/portal-aware queries — collision doctrine CC1); one explicit swappable `MotionModel` + frame-aware `step_motion` facade over sibling axis-swept, surface-momentum, and adhesive-crawler policies; body clusters; canonical per-tick `MotionFrame` (independent reference basis + world acceleration); per-room geometry types (`World`, `Block`, `SurfaceChain`); abilities mask; tuning | rooms/authoring IR; ECS systems; content |
-| `ambition_platformer_primitives` | **[the kinematic toolkit]** | kinematic stepping, gravity field, lifecycle, projectile primitive, transit/frame helpers, body markers | — |
+| `ambition_platformer_primitives` | **[the kinematic toolkit]** | kinematic stepping, the frame environment (gravity/force zones, `FrameEnv::resolve`, the per-body `ResolvedMotionFrame` artifact — ADR 0024), lifecycle, projectile primitive, transit/frame helpers, body markers | — |
 | `ambition_time` | **[the clocks]** | time domains (ADR 0010/0011), `WorldTime`, proper-time policy, `ClockScaleRequest` | camera easing (lives with [the observation boundary]) |
 
 ### Tier 2 — domain service kits *(one plugin crate per domain)*

@@ -84,18 +84,20 @@ statuses + test evidence in the plan.
 
 ### 4. Unified swappable movement kernel
 
-**DONE** (commit `17685105`). [ADR 0024](../adr/0024-frame-aware-unified-movement-kernel.md)
-is implemented: one `step_motion` entry with three sibling policies
-(axis-swept, surface momentum, adhesive crawler — the former hidden
-`surface_walker` integrator), one environment-resolved `MotionFrame` per body
-tick (`GravityCtx::motion_frame_at`), typed input-frame vocabulary
-(`ScreenAxes`/`LocalAxes`/`WorldVec2`), `switch_motion_model` transition
-semantics, `MotionModel` in the snapshot ledger, and poison-tested
-workspace-policy guards.
+**DONE**, including the frame-authority migration (commits `17685105` →
+`477700e9`). [ADR 0024](../adr/0024-frame-aware-unified-movement-kernel.md) is
+mechanically enforced: ONE frame resolution phase publishes every body's
+`ResolvedMotionFrame` (independent basis + accumulated `ForceZone`
+contributions) and every consumer reads it; ONE `step_motion` entry plus three
+named non-kernel authorities (`transit_body`/`carry_body`/
+`constrain_body_pose`); policy-private state lives inside the `MotionModel`
+variant with `BodyMotionFacts` as the only outside read surface; support is a
+semantic `SupportFact`; the crawler attaches at arbitrary angles through
+`SurfaceChain` geometry. Four poison-tested workspace-policy guards.
 [`engine/unified-movement-kernel.md`](engine/unified-movement-kernel.md)
-documents the invariants, ownership map, and residual debt (axis private-state
-physical placement; gravity-resource snapshot registration; crawler cardinal
-attachment; device-latch typing; ball-dash typed op).
+documents the invariants, ownership map, and residual debt (portal-transit
+orientation source; gravity-resource snapshot registration; device-latch
+typing; ball-dash typed op; block↔chain crawl transfer).
 
 **Next slice:** none scheduled; pick up a residual-debt item opportunistically
 alongside the next snapshot-ledger or input pass.

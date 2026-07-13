@@ -173,6 +173,29 @@ impl ShellExperienceAppExt for App {
             registration.id
         );
         let world = self.world_mut();
+        // A duplicate provider id is a deterministic composition error — two
+        // providers claiming one launcher identity would make the launcher
+        // order and routing ambiguous. Detect it BEFORE mutating either
+        // catalog, so a conflicting registration leaves prior valid state
+        // intact. An IDENTICAL re-registration (same plugin composed twice) is
+        // idempotent. The diagnostic names both owners and does not depend on
+        // registration order.
+        if let Some(existing) = world
+            .get_resource::<ShellExperienceRegistry>()
+            .and_then(|registry| registry.get(&registration.id).cloned())
+        {
+            assert!(
+                existing == registration,
+                "duplicate shell experience id '{}': already registered as \
+                 '{}' (route '{}') and refused re-registration as '{}' (route '{}')",
+                registration.id.as_str(),
+                existing.display_name,
+                existing.launch_route.as_str(),
+                registration.display_name,
+                registration.launch_route.as_str(),
+            );
+            return self;
+        }
         world
             .get_resource_or_insert_with(ShellRouteCatalog::default)
             .register(route);
@@ -201,4 +224,75 @@ pub(crate) fn sync_registry_into_launch_catalog(
         return;
     }
     catalog.entries = registry.launch_entries();
+}
+
+#[cfg(test)]
+mod register_tests {
+    use super::*;
+    use bevy::prelude::App;
+
+    fn reg(id: &str, name: &str, route: &str) -> ExperienceRegistration {
+        ExperienceRegistration::new(id, name, route)
+    }
+
+    #[test]
+    fn identical_re_registration_is_idempotent() {
+        let mut app = App::new();
+        app.register_experience(
+            reg("sanic", "Sanic", "sanic_gameplay"),
+            ShellRouteSpec::new("sanic_gameplay", "sanic"),
+        );
+        app.register_experience(
+            reg("sanic", "Sanic", "sanic_gameplay"),
+            ShellRouteSpec::new("sanic_gameplay", "sanic"),
+        );
+        assert_eq!(
+            app.world().resource::<ShellExperienceRegistry>().len(),
+            1,
+            "an identical re-registration is a no-op, not a second entry"
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "duplicate shell experience id 'sanic'")]
+    fn conflicting_duplicate_experience_id_panics() {
+        let mut app = App::new();
+        app.register_experience(
+            reg("sanic", "Sanic", "sanic_gameplay"),
+            ShellRouteSpec::new("sanic_gameplay", "sanic"),
+        );
+        // Same id, different owner/route — a genuine conflict.
+        app.register_experience(
+            reg("sanic", "Impostor", "impostor_route"),
+            ShellRouteSpec::new("impostor_route", "sanic"),
+        );
+    }
+
+    #[test]
+    fn launcher_entries_stay_unique_and_ordered() {
+        let mut app = App::new();
+        for (id, name) in [
+            ("ambition", "Ambition"),
+            ("sanic", "Sanic"),
+            ("mary_o", "Mary-O"),
+        ] {
+            let route = format!("{id}_gameplay");
+            app.register_experience(
+                reg(id, name, &route),
+                ShellRouteSpec::new(route.as_str(), id),
+            );
+        }
+        let registry = app.world().resource::<ShellExperienceRegistry>();
+        let ids: Vec<_> = registry.iter().map(|e| e.id.as_str().to_owned()).collect();
+        assert_eq!(
+            ids,
+            vec!["ambition", "sanic", "mary_o"],
+            "registration order is stable"
+        );
+        assert_eq!(
+            registry.launch_entries().len(),
+            3,
+            "each provider appears exactly once"
+        );
+    }
 }

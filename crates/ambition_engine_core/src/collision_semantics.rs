@@ -246,6 +246,42 @@ pub fn supporting_block<'a>(
 // still acts on axis faces, and the surface-follower solver consumes the same
 // vocabulary for chains. Observability first, byte-identical.
 
+/// The SEMANTIC role a resolved contact plays for the body, judged against the
+/// body's CURRENT resolved frame (never world Y) at the moment the contact is
+/// generated — the sweep knows which pass produced it, an attached policy knows
+/// its adhesion. Consumers read this instead of re-deriving meaning from
+/// contact-list ordering or normal comparisons.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ContactKind {
+    /// A feet-side resting/landing contact: the surface currently holding the
+    /// body up against its frame's pull. THE source of the published support
+    /// normal.
+    Support,
+    /// An anti-feet (head) blocking contact.
+    Head,
+    /// A lateral blocking contact along the frame's side axis.
+    Side,
+    /// A policy-owned adhesion contact (the crawler's cling): support-like, but
+    /// its normal is the policy's attachment, deliberately independent of the
+    /// frame's pull.
+    Attachment,
+}
+
+/// Frame-relative fallback classification for generators without structural
+/// knowledge of which pass produced the hit (swept TOI hits on chains). The
+/// axis sweep classifies structurally instead (its pass + direction already
+/// know the role).
+pub fn classify_contact_normal(normal: Vec2, frame_down: Vec2) -> ContactKind {
+    let support_dot = normal.dot(-frame_down);
+    if support_dot >= 0.5 {
+        ContactKind::Support
+    } else if support_dot <= -0.5 {
+        ContactKind::Head
+    } else {
+        ContactKind::Side
+    }
+}
+
 /// What a contact was made against.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ContactSource {
@@ -267,6 +303,9 @@ pub enum ContactSource {
 ///   "rightward along the surface". `t = (-n.y, n.x)`, `n = (t.y, -t.x)`.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Contact {
+    /// The semantic role this contact plays for the body (frame-relative,
+    /// assigned at generation).
+    pub kind: ContactKind,
     /// Approximate contact point on the surface (face midpoint of the
     /// perpendicular overlap for block faces).
     pub point: Vec2,
@@ -289,9 +328,17 @@ impl Contact {
 }
 
 /// Build a [`Contact`] for a body touching an axis-aligned face of `block`.
-/// `normal` is the SURFACE outward normal (cardinal for block faces).
-pub fn block_face_contact(body: Aabb, block: &Block, normal: Vec2, toi: f32) -> Contact {
+/// `normal` is the SURFACE outward normal (cardinal for block faces); `kind`
+/// is the generator's structural classification of the contact's role.
+pub fn block_face_contact(
+    body: Aabb,
+    block: &Block,
+    normal: Vec2,
+    toi: f32,
+    kind: ContactKind,
+) -> Contact {
     Contact {
+        kind,
         point: face_contact_point(body, block.aabb, normal),
         normal,
         toi,

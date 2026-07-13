@@ -6,7 +6,7 @@
 //! plus the complete world-space acceleration for the body tick. It never lives
 //! inside a model spec and is never rebuilt by an individual solver.
 
-use crate::collision_semantics::Contact;
+use crate::collision_semantics::{Contact, ContactKind};
 use crate::{BodyClustersMut, MotionFrame, SweepSample, Vec2, World};
 
 use super::adhesive_crawler;
@@ -28,13 +28,64 @@ pub struct MotionStepContext<'a> {
     pub dt: f32,
 }
 
+/// The tick's SEMANTIC support fact, selected from contact KINDS — never from
+/// contact-list ordering. A lateral graze can no longer masquerade as support.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum SupportFact {
+    /// No support or attachment this tick.
+    Airborne,
+    /// Resting on / riding a surface holding the body against its frame's pull.
+    Supported(Contact),
+    /// Adhesively attached (policy-owned cling); the normal is the attachment,
+    /// deliberately independent of the frame's pull.
+    Attached(Contact),
+}
+
+impl SupportFact {
+    /// The outward support/attachment normal, if any surface holds the body.
+    pub fn normal(&self) -> Option<Vec2> {
+        match self {
+            SupportFact::Airborne => None,
+            SupportFact::Supported(contact) | SupportFact::Attached(contact) => {
+                Some(contact.normal)
+            }
+        }
+    }
+
+    /// The supporting/attached contact, if any.
+    pub fn contact(&self) -> Option<&Contact> {
+        match self {
+            SupportFact::Airborne => None,
+            SupportFact::Supported(contact) | SupportFact::Attached(contact) => Some(contact),
+        }
+    }
+
+    pub fn is_held(&self) -> bool {
+        !matches!(self, SupportFact::Airborne)
+    }
+}
+
 /// Common observations produced by every movement policy.
 #[derive(Clone, Debug)]
 pub struct MotionStepResult {
     pub events: FrameEvents,
-    /// Outward support normal while attached/supported; opposite the resolved
-    /// reference frame's down axis otherwise.
+    /// The tick's semantic support fact (see [`SupportFact`]).
+    pub support: SupportFact,
+    /// Outward support normal for publishers that need a direction every tick:
+    /// the support/attachment normal while held, opposite the resolved frame's
+    /// down axis otherwise. Always derived from [`Self::support`].
     pub surface_normal: Vec2,
+}
+
+impl MotionStepResult {
+    fn from_events(events: FrameEvents, frame: MotionFrame) -> Self {
+        let support = support_fact(&events.contacts);
+        Self {
+            surface_normal: support.normal().unwrap_or(-frame.down()),
+            support,
+            events,
+        }
+    }
 }
 
 /// Step one body through its selected movement policy.
@@ -56,10 +107,7 @@ pub fn step_motion(
                 ctx.dt,
                 axis.params,
             );
-            MotionStepResult {
-                surface_normal: support_normal(&events.contacts, ctx.frame),
-                events,
-            }
+            MotionStepResult::from_events(events, ctx.frame)
         }
         MotionModel::SurfaceMomentum(momentum) => step_surface_momentum(momentum, clusters, ctx),
         MotionModel::AdhesiveCrawler(crawler) => step_adhesive_crawler(crawler, clusters, ctx),
@@ -109,10 +157,7 @@ fn step_surface_momentum(
     };
     apply_world_hazard_gate(ctx.world, clusters, ctx.frame, &mut events);
 
-    MotionStepResult {
-        surface_normal: support_normal(&events.contacts, ctx.frame),
-        events,
-    }
+    MotionStepResult::from_events(events, ctx.frame)
 }
 
 fn step_adhesive_crawler(
@@ -122,7 +167,7 @@ fn step_adhesive_crawler(
 ) -> MotionStepResult {
     let sweep_entry = (clusters.kinematics.pos, clusters.kinematics.vel);
     let mut events = FrameEvents::default();
-    let surface_normal = adhesive_crawler::step_crawler(
+    adhesive_crawler::step_crawler(
         motion,
         ctx.world,
         clusters,
@@ -134,10 +179,7 @@ fn step_adhesive_crawler(
     write_sweep_sample(clusters, sweep_entry);
     apply_world_hazard_gate(ctx.world, clusters, ctx.frame, &mut events);
 
-    MotionStepResult {
-        surface_normal,
-        events,
-    }
+    MotionStepResult::from_events(events, ctx.frame)
 }
 
 /// §3.1 motion record for the non-axis policy arms: both endpoints captured
@@ -179,13 +221,24 @@ fn apply_world_hazard_gate(
     }
 }
 
-fn support_normal(contacts: &[Contact], frame: MotionFrame) -> Vec2 {
+/// Select the tick's semantic support fact from the contact kinds: the newest
+/// Attachment wins (an adhesive policy's cling overrides gravity support),
+/// else the newest Support contact, else airborne. Head and Side contacts can
+/// NEVER become the published support.
+fn support_fact(contacts: &[Contact]) -> SupportFact {
+    if let Some(contact) = contacts
+        .iter()
+        .rev()
+        .find(|contact| contact.kind == ContactKind::Attachment)
+    {
+        return SupportFact::Attached(*contact);
+    }
     contacts
         .iter()
         .rev()
-        .map(|contact| contact.normal)
-        .find(|normal| normal.length_squared() > 0.5)
-        .unwrap_or(-frame.down())
+        .find(|contact| contact.kind == ContactKind::Support)
+        .map(|contact| SupportFact::Supported(*contact))
+        .unwrap_or(SupportFact::Airborne)
 }
 
 #[cfg(test)]

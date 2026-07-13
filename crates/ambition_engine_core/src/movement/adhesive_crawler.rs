@@ -19,7 +19,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::body_clusters::BodyClustersMut;
-use crate::collision_semantics::{Axis, Contact};
+use crate::collision_semantics::{Axis, Contact, ContactKind, ContactSource};
 use crate::geometry::AabbExt;
 use crate::world::{Block, BlockKind, World};
 use crate::{Aabb, MotionFrame, Vec2};
@@ -126,8 +126,9 @@ fn wall_pred(b: &Block) -> bool {
 /// One crawler tick. Kernel-private: reached only through
 /// [`super::step_motion`]'s dispatch.
 ///
-/// Returns the support normal to publish (the attachment while clung, the
-/// anti-down direction of the frame otherwise).
+/// While attached it pushes one [`ContactKind::Attachment`] contact per tick —
+/// the crawler's semantic support fact — so the kernel result derives the
+/// published normal from the SAME contact vocabulary every policy speaks.
 pub(super) fn step_crawler(
     motion: &mut AdhesiveCrawlerMotion,
     world: &World,
@@ -136,14 +137,15 @@ pub(super) fn step_crawler(
     facing_intent: f32,
     dt: f32,
     contacts: &mut Vec<Contact>,
-) -> Vec2 {
+) {
     if facing_intent.abs() > 0.001 {
         clusters.kinematics.facing = facing_intent.signum();
     }
 
     let Some(normal) = motion.state.attachment() else {
         fall_step(motion, world, clusters, frame, dt, contacts);
-        return published_normal(motion, frame);
+        publish_attachment_contact(motion, world, clusters, contacts);
+        return;
     };
 
     // Emergent riding for a crawler: it is GLUED to its surface (it crawls
@@ -188,7 +190,8 @@ pub(super) fn step_crawler(
             clusters.kinematics.vel = Vec2::ZERO;
             motion.state = CrawlerState::attached(-tangent);
             finish_attached(clusters);
-            return published_normal(motion, frame);
+            publish_attachment_contact(motion, world, clusters, contacts);
+            return;
         }
     }
 
@@ -200,7 +203,8 @@ pub(super) fn step_crawler(
     {
         clusters.kinematics.pos = pos;
         finish_attached(clusters);
-        return published_normal(motion, frame);
+        publish_attachment_contact(motion, world, clusters, contacts);
+        return;
     }
 
     // Convex corner: wrap around the block edge; the old tangent becomes the
@@ -211,7 +215,8 @@ pub(super) fn step_crawler(
         clusters.kinematics.vel = Vec2::ZERO;
         motion.state = CrawlerState::attached(tangent);
         finish_attached(clusters);
-        return published_normal(motion, frame);
+        publish_attachment_contact(motion, world, clusters, contacts);
+        return;
     }
 
     // Reverse-side reattach (the surface curled back under the body).
@@ -220,22 +225,50 @@ pub(super) fn step_crawler(
         clusters.kinematics.vel = Vec2::ZERO;
         motion.state = CrawlerState::attached(-tangent);
         finish_attached(clusters);
-        return published_normal(motion, frame);
+        publish_attachment_contact(motion, world, clusters, contacts);
+        return;
     }
 
     // Nothing to cling to: detach and free-fall under the live frame.
     clusters.kinematics.pos = original_pos;
     motion.detach();
     fall_step(motion, world, clusters, frame, dt, contacts);
-    published_normal(motion, frame)
+    publish_attachment_contact(motion, world, clusters, contacts);
 }
 
 fn finish_attached(clusters: &mut BodyClustersMut<'_>) {
     clusters.ground.on_ground = true;
 }
 
-fn published_normal(motion: &AdhesiveCrawlerMotion, frame: MotionFrame) -> Vec2 {
-    motion.state.attachment().unwrap_or(-frame.down())
+/// Push the tick's [`ContactKind::Attachment`] contact while attached — the
+/// crawler's semantic support fact. The clung block supplies the source kind
+/// and its frame motion; if the probe unexpectedly finds nothing the contact
+/// still records the attachment (static, unknown-solid), never silence.
+fn publish_attachment_contact(
+    motion: &AdhesiveCrawlerMotion,
+    world: &World,
+    clusters: &BodyClustersMut<'_>,
+    contacts: &mut Vec<Contact>,
+) {
+    let Some(normal) = motion.state.attachment() else {
+        return;
+    };
+    let body_thick = clusters.kinematics.size.y * 0.5;
+    let probe = Aabb::new(
+        clusters.kinematics.pos - normal * 2.0,
+        clusters.kinematics.size * 0.5,
+    );
+    let clung = world.first_overlapping_block(probe, cling_pred);
+    contacts.push(Contact {
+        kind: ContactKind::Attachment,
+        point: clusters.kinematics.pos - normal * body_thick,
+        normal,
+        toi: 0.0,
+        surface_velocity: clung.map_or(Vec2::ZERO, |b| b.velocity),
+        source: ContactSource::Block {
+            kind: clung.map_or(crate::world::BlockKind::Solid, |b| b.kind),
+        },
+    });
 }
 
 /// Detached free-fall under the live frame, swept through the SAME axis

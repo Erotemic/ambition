@@ -164,6 +164,7 @@ fn one_way_landing_is_false_without_gravity() {
 fn contact_tangent_winding_is_consistent() {
     // Floor under down-gravity: normal up (0,-1) -> tangent rightward (1,0).
     let c = Contact {
+        kind: ContactKind::Support,
         point: Vec2::ZERO,
         normal: Vec2::new(0.0, -1.0),
         toi: 0.0,
@@ -183,7 +184,13 @@ fn block_face_contact_point_lies_on_the_face_for_all_cardinals() {
     let block = Block::solid("floor", Vec2::new(0.0, 100.0), Vec2::new(100.0, 20.0));
     // Body resting on top of the block (normal up).
     let body = aabb_from_min_size(Vec2::new(30.0, 80.0), Vec2::new(20.0, 20.0));
-    let c = block_face_contact(body, &block, Vec2::new(0.0, -1.0), 0.25);
+    let c = block_face_contact(
+        body,
+        &block,
+        Vec2::new(0.0, -1.0),
+        0.25,
+        ContactKind::Support,
+    );
     assert!((c.point.y - 100.0).abs() < 1e-4, "on the top face");
     assert!((c.point.x - 40.0).abs() < 1e-4, "midpoint of x overlap");
     assert_eq!(c.toi, 0.25);
@@ -196,13 +203,25 @@ fn block_face_contact_point_lies_on_the_face_for_all_cardinals() {
     );
     // Body pressed against the block's left face (normal pointing -x).
     let side_body = aabb_from_min_size(Vec2::new(-20.0, 105.0), Vec2::new(20.0, 10.0));
-    let side = block_face_contact(side_body, &block, Vec2::new(-1.0, 0.0), 0.0);
+    let side = block_face_contact(
+        side_body,
+        &block,
+        Vec2::new(-1.0, 0.0),
+        0.0,
+        ContactKind::Side,
+    );
     assert!((side.point.x - 0.0).abs() < 1e-4, "on the left face");
     assert!((side.point.y - 110.0).abs() < 1e-4, "midpoint of y overlap");
     // A moving block stamps its velocity onto the contact.
     let mut mover = block.clone();
     mover.velocity = Vec2::new(3.0, 0.0);
-    let carried = block_face_contact(body, &mover, Vec2::new(0.0, -1.0), 0.0);
+    let carried = block_face_contact(
+        body,
+        &mover,
+        Vec2::new(0.0, -1.0),
+        0.0,
+        ContactKind::Support,
+    );
     assert_eq!(carried.surface_velocity, Vec2::new(3.0, 0.0));
 }
 

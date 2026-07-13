@@ -371,6 +371,7 @@ fn step_riding(
             };
             if let Some(sink) = contacts.as_deref_mut() {
                 sink.push(Contact {
+                    kind: crate::collision_semantics::ContactKind::Support,
                     point: f.point,
                     normal: f.normal,
                     toi: 0.0,
@@ -1101,7 +1102,19 @@ fn step_airborne(
             }
             if report_contact {
                 if let Some(sink) = contacts.as_deref_mut() {
+                    // Landing (now Riding) is a support contact by construction;
+                    // a deflect classifies frame-relatively (this solver has no
+                    // structural wall pass).
+                    let kind = if body.riding() {
+                        crate::collision_semantics::ContactKind::Support
+                    } else {
+                        crate::collision_semantics::classify_contact_normal(
+                            hit.normal,
+                            frame.down(),
+                        )
+                    };
                     sink.push(Contact {
+                        kind,
                         point: body.pos - hit.normal * body.radius,
                         normal: hit.normal,
                         toi: hit.toi,

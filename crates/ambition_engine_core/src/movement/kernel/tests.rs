@@ -408,3 +408,114 @@ fn the_crawler_crawls_wraps_a_convex_corner_and_keeps_gluing() {
         "the crawler never wrapped the convex corner onto the wall face"
     );
 }
+
+/// O5 evidence: the published support is a SEMANTIC fact selected by contact
+/// kind. A grounded body shoved against a wall keeps its FLOOR support normal;
+/// the lateral contact can never masquerade as support (the old last-nonzero-
+/// contact rule published the wall normal here).
+#[test]
+fn a_wall_graze_never_masquerades_as_support() {
+    use crate::collision_semantics::ContactKind;
+    let world = World::new(
+        "support_facts",
+        Vec2::new(1000.0, 600.0),
+        Vec2::new(200.0, 100.0),
+        vec![
+            Block::solid("floor", Vec2::new(0.0, 400.0), Vec2::new(1000.0, 40.0)),
+            Block::solid("wall", Vec2::new(300.0, 0.0), Vec2::new(40.0, 400.0)),
+        ],
+    );
+    let frame = MotionFrame::from_direction(Vec2::new(0.0, 1.0), 900.0);
+    let mut model = MotionModel::axis_swept(AxisSweptParams::default());
+    // Standing on the floor, hard against the wall's left face.
+    let mut scratch =
+        BodyClusterScratch::new_with_abilities(Vec2::new(285.0, 377.0), AbilitySet::default());
+    scratch.ground.on_ground = true;
+    let mut result = MotionStepResult::from_events(crate::movement::FrameEvents::default(), frame);
+    for _ in 0..3 {
+        let input = InputState {
+            axes: LocalAxes::new(1.0, 0.0), // run INTO the wall
+            ..InputState::default()
+        };
+        result = step(&mut model, &world, &mut scratch, frame, input);
+    }
+    assert!(
+        result
+            .events
+            .contacts
+            .iter()
+            .any(|c| c.kind == ContactKind::Side),
+        "the wall contact is present, classified as Side: {:?}",
+        result.events.contacts
+    );
+    assert_eq!(
+        result.surface_normal,
+        Vec2::new(0.0, -1.0),
+        "support is the FLOOR, not the last lateral contact"
+    );
+    match result.support {
+        SupportFact::Supported(contact) => {
+            assert_eq!(
+                contact.kind,
+                crate::collision_semantics::ContactKind::Support
+            );
+            assert_eq!(contact.normal, Vec2::new(0.0, -1.0));
+        }
+        other => panic!("grounded body must be Supported, got {other:?}"),
+    }
+}
+
+/// O5 evidence: an attached crawler publishes an ATTACHMENT support fact whose
+/// normal is the clung surface (independent of the frame), and an airborne body
+/// publishes Airborne with the frame-up fallback normal.
+#[test]
+fn attachment_and_airborne_support_facts_are_semantic() {
+    let world = World::new(
+        "support_facts_crawler",
+        Vec2::new(1000.0, 600.0),
+        Vec2::new(200.0, 100.0),
+        vec![Block::solid(
+            "wall",
+            Vec2::new(300.0, 0.0),
+            Vec2::new(40.0, 600.0),
+        )],
+    );
+    let frame = MotionFrame::from_direction(Vec2::new(0.0, 1.0), 900.0);
+
+    // A crawler clung to the wall's LEFT face (normal (-1,0)) under ordinary
+    // down gravity: support is the attachment, not the gravity floor.
+    let mut model = MotionModel::AdhesiveCrawler(crate::movement::AdhesiveCrawlerMotion {
+        params: CrawlerParams::default(),
+        state: CrawlerState::attached(Vec2::new(-1.0, 0.0)),
+    });
+    let mut scratch =
+        BodyClusterScratch::new_with_abilities(Vec2::new(276.0, 300.0), AbilitySet::default());
+    let result = step(
+        &mut model,
+        &world,
+        &mut scratch,
+        frame,
+        InputState::default(),
+    );
+    match result.support {
+        SupportFact::Attached(contact) => {
+            assert_eq!(contact.normal, Vec2::new(-1.0, 0.0));
+        }
+        other => panic!("attached crawler must publish Attached, got {other:?}"),
+    }
+    assert_eq!(result.surface_normal, Vec2::new(-1.0, 0.0));
+
+    // A free-falling axis body far from any surface: Airborne + frame-up.
+    let mut model = MotionModel::axis_swept(AxisSweptParams::default());
+    let mut scratch =
+        BodyClusterScratch::new_with_abilities(Vec2::new(700.0, 100.0), AbilitySet::default());
+    let result = step(
+        &mut model,
+        &world,
+        &mut scratch,
+        frame,
+        InputState::default(),
+    );
+    assert_eq!(result.support, SupportFact::Airborne);
+    assert_eq!(result.surface_normal, Vec2::new(0.0, -1.0));
+}

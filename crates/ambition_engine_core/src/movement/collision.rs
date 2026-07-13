@@ -2,7 +2,7 @@ use crate::collision_semantics::{
     axis_role, block_face_contact, body_on_support_side, is_contact_range_snap,
     is_full_collision_surface, is_solid_for_axis, moving_toward_feet,
     one_way_landing_from_previous_feet, snap_feet_to_surface, surface_supports_body_at_rest, Axis,
-    AxisRole, Contact,
+    AxisRole, Contact, ContactKind,
 };
 use crate::geometry::{Aabb, AabbExt};
 use crate::world::{BlockKind, World};
@@ -303,6 +303,7 @@ pub(super) fn sweep_player_axis_clusters(
                 hit.block,
                 -gravity_dir,
                 toi_fraction,
+                ContactKind::Support,
             ));
         } else if role == AxisRole::Gravity {
             let (push, push_normal) = axis_face_resolution(body, hit.block.aabb, axis);
@@ -313,6 +314,7 @@ pub(super) fn sweep_player_axis_clusters(
                     hit.block,
                     push_normal,
                     toi_fraction,
+                    ContactKind::Head,
                 ));
             }
         } else {
@@ -352,6 +354,7 @@ pub(super) fn sweep_player_axis_clusters(
                     hit.block,
                     axis_vec(axis, normal_sign),
                     toi_fraction,
+                    ContactKind::Side,
                 ));
             }
         }
@@ -436,7 +439,12 @@ fn resolve_axis_repair(
                         ground.on_ground = true;
                     }
                     zero_axis_vel(kinematics, axis);
-                    contacts.push(block_face_contact(aabb, block, normal, 0.0));
+                    let kind = if on_support {
+                        ContactKind::Support
+                    } else {
+                        ContactKind::Head
+                    };
+                    contacts.push(block_face_contact(aabb, block, normal, 0.0, kind));
                 }
             }
             AxisRole::Side => {
@@ -454,6 +462,7 @@ fn resolve_axis_repair(
                         block,
                         axis_vec(axis, normal_sign),
                         0.0,
+                        ContactKind::Side,
                     ));
                 }
             }

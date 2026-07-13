@@ -35,7 +35,8 @@ use ambition_engine_core::collision_semantics::{
     axis_role, block_face_contact, body_on_support_side, gravity_axis, is_contact_range_snap,
     is_full_collision_surface, is_solid_for_axis, moving_toward_feet,
     one_way_landing_from_previous_feet, perpendicular_overlap, snap_feet_to_surface,
-    supporting_block, surface_supports_body_at_rest, Axis, AxisRole, Contact, MOTION_EPS,
+    supporting_block, surface_supports_body_at_rest, Axis, AxisRole, Contact, ContactKind,
+    MOTION_EPS,
 };
 use ambition_engine_core::Vec2;
 use ambition_engine_core::{Aabb, AabbExt};
@@ -197,7 +198,13 @@ pub fn step_kinematic_observed(
             let v = support.velocity;
             body.pos += v - v.dot(g) * g;
             if let Some(sink) = contacts.as_deref_mut() {
-                sink.push(block_face_contact(body.aabb(), support, -g, 0.0));
+                sink.push(block_face_contact(
+                    body.aabb(),
+                    support,
+                    -g,
+                    0.0,
+                    ContactKind::Support,
+                ));
             }
         }
     }
@@ -309,6 +316,7 @@ fn sweep_axis(
                     hit.block,
                     -gravity_dir,
                     toi,
+                    ContactKind::Support,
                 ));
             }
         } else {
@@ -322,7 +330,20 @@ fn sweep_axis(
                 } else {
                     axis_delta(axis, -delta_amount.signum())
                 };
-                sink.push(block_face_contact(body.aabb(), hit.block, normal, toi));
+                // Structural role: on the gravity pass a non-landing block is a
+                // head contact; on the side pass it is a wall.
+                let kind = if axis_role(axis, gravity_dir) == AxisRole::Gravity {
+                    ContactKind::Head
+                } else {
+                    ContactKind::Side
+                };
+                sink.push(block_face_contact(
+                    body.aabb(),
+                    hit.block,
+                    normal,
+                    toi,
+                    kind,
+                ));
             }
         }
     } else {
@@ -386,7 +407,13 @@ fn resolve_axis(
             clear_axis_velocity(&mut body.vel, axis);
             clear_velocity_toward_feet(&mut body.vel, gravity_dir);
             if let Some(sink) = contacts.as_deref_mut() {
-                sink.push(block_face_contact(aabb, block, -gravity_dir, 0.0));
+                sink.push(block_face_contact(
+                    aabb,
+                    block,
+                    -gravity_dir,
+                    0.0,
+                    ContactKind::Support,
+                ));
             }
         } else {
             let push = axis_resolution(aabb, block.aabb, axis);
@@ -410,7 +437,14 @@ fn resolve_axis(
             if let Some(sink) = contacts.as_deref_mut() {
                 let normal = push.normalize_or_zero();
                 if normal != Vec2::ZERO {
-                    sink.push(block_face_contact(aabb, block, normal, 0.0));
+                    let kind = if axis_role(axis, gravity_dir) != AxisRole::Gravity {
+                        ContactKind::Side
+                    } else if body_on_support_side(aabb, block.aabb, gravity_dir) {
+                        ContactKind::Support
+                    } else {
+                        ContactKind::Head
+                    };
+                    sink.push(block_face_contact(aabb, block, normal, 0.0, kind));
                 }
             }
         }
@@ -445,7 +479,13 @@ fn resolve_penetration(
             body.on_ground = true;
             clear_velocity_toward_feet(&mut body.vel, gravity_dir);
             if let Some(sink) = contacts.as_deref_mut() {
-                sink.push(block_face_contact(aabb, block, -gravity_dir, 0.0));
+                sink.push(block_face_contact(
+                    aabb,
+                    block,
+                    -gravity_dir,
+                    0.0,
+                    ContactKind::Support,
+                ));
             }
             break;
         }

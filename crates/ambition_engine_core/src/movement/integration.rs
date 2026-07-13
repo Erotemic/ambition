@@ -226,7 +226,11 @@ pub(super) fn integrate_velocity_clusters(
             events
                 .contacts
                 .push(crate::collision_semantics::block_face_contact(
-                    oriented, support, -g, 0.0,
+                    oriented,
+                    support,
+                    -g,
+                    0.0,
+                    crate::collision_semantics::ContactKind::Support,
                 ));
         }
     }

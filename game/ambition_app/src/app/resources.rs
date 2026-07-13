@@ -69,10 +69,13 @@ pub fn init_sandbox_resources(app: &mut App) {
         .world()
         .contains_resource::<super::shell_host::AmbitionShellHosted>()
     {
+        // Bank ids are folded in by `publish_resident_sfx_bank_authority` once
+        // the resident bank finishes loading; the cues are authorized here.
         app.insert_resource(ambition::audio::selection::ActiveAudioSelection::selected(
             ambition_content::AMBITION_CONTENT_PROVIDER,
             Some(music_registry.clone()),
             Some(sfx_registry.clone()),
+            std::collections::BTreeSet::new(),
         ));
     }
     let character_catalog = app

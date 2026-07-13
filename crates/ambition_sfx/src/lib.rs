@@ -156,6 +156,24 @@ impl BankProvider {
             .iter()
             .map(|entry| (SfxId::from_hash(entry.record.id_hash), entry.name))
     }
+
+    /// A content fingerprint per bank id: an FNV-1a-64 hash of the encoded
+    /// payload bytes. Two providers naming the same id for the SAME entry share
+    /// a fingerprint (benign duplicate); a mismatched fingerprint marks an id
+    /// that resolves to incompatible assets. Consumed by
+    /// `ambition_audio::catalog::SfxBankRegistry` to compose banks across
+    /// providers deterministically.
+    pub fn content_fingerprints(&self) -> std::collections::BTreeMap<SfxId, u64> {
+        self.bank
+            .iter()
+            .map(|entry| {
+                (
+                    SfxId::from_hash(entry.record.id_hash),
+                    fnv1a_64(entry.payload),
+                )
+            })
+            .collect()
+    }
 }
 
 impl SfxProvider for BankProvider {

@@ -6,7 +6,7 @@
 use crate::render::{audio_source_from_sfx_clip, silent_audio_source};
 use crate::spec::{MusicRegistry, SfxRegistry, SoundCueKey};
 use crate::web_unlock::AudioUnlockState;
-use ambition_sfx::{self as sfx, SfxId, SfxMessage, SfxProvider};
+use ambition_sfx::{SfxId, SfxMessage, SfxProvider};
 use bevy::platform::collections::HashMap;
 use bevy::prelude::*;
 use bevy_kira_audio::prelude::{
@@ -52,6 +52,21 @@ impl SfxMessageCue for SfxMessage {
             SfxMessage::Reset { .. } => SoundCue::Reset,
             SfxMessage::Play { .. } => return None,
         })
+    }
+}
+
+/// The [`SfxId`] a message resolves to for provider-authority checks: the id of
+/// its typed cue, or the open-ended `Play { id }`'s id. The gate uses the id the
+/// emitter *requested* — before the `Play`→cue rescue in the consumer — so a
+/// provider is judged on what it actually authored.
+pub fn sfx_message_target_id(message: SfxMessage) -> SfxId {
+    match message.cue() {
+        Some(cue) => cue.sfx_id(),
+        None => match message {
+            SfxMessage::Play { id, .. } => id,
+            // `cue()` returns `None` only for `Play`, so this is unreachable.
+            _ => unreachable!("every non-Play SfxMessage variant maps to a cue"),
+        },
     }
 }
 
@@ -103,19 +118,10 @@ impl SoundCue {
     }
 
     pub fn sfx_id(self) -> SfxId {
-        match self {
-            Self::Jump => sfx::ids::PLAYER_JUMP,
-            Self::DoubleJump => sfx::ids::PLAYER_DOUBLE_JUMP,
-            Self::Dash => sfx::ids::PLAYER_DASH,
-            Self::Blink => sfx::ids::PLAYER_BLINK,
-            Self::PrecisionBlink => sfx::ids::PLAYER_PRECISION_BLINK,
-            Self::Slash => sfx::ids::PLAYER_SLASH,
-            Self::Hit => sfx::ids::PLAYER_HIT,
-            Self::Pogo => sfx::ids::PLAYER_POGO,
-            Self::Reset => sfx::ids::PLAYER_RESET,
-            Self::Death => sfx::ids::PLAYER_DEATH,
-            Self::Respawn => sfx::ids::PLAYER_RESPAWN,
-        }
+        // Delegate to the kira-free [`SoundCueKey::sfx_id`] table so the
+        // authority projection (used to gate provider-relative playback) and
+        // the playback handle lookup can never drift out of sync.
+        SoundCueKey::from(self).sfx_id()
     }
 }
 

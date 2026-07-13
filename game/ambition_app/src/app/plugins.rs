@@ -774,6 +774,12 @@ pub(super) fn add_mobile_touch_plugin(_app: &mut App) {}
 #[cfg(feature = "audio")]
 pub(super) fn add_audio_plugins(app: &mut App) {
     app.add_plugins(ambition::actors::audio::SandboxAudioPlugin);
+    // Once the resident SFX bank lands, publish its ids as Ambition's
+    // provider-relative SFX authority (bank = storage, selection = permission).
+    app.add_systems(
+        Update,
+        super::setup_systems::publish_resident_sfx_bank_authority,
+    );
 }
 
 #[cfg(not(feature = "audio"))]

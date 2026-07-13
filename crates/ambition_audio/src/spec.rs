@@ -12,9 +12,10 @@
 //! hand-authored sound-design data, and neither lives inside the
 //! gameplay-tuning `sandbox.ron`.
 
+use ambition_sfx::SfxId;
 use bevy::prelude::Resource;
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{BTreeSet, HashSet};
 
 /// Procedural SFX-synthesis registry, authored in `sfx_registry.ron`.
 ///
@@ -36,6 +37,38 @@ impl SfxRegistry {
             ));
         }
         Ok(())
+    }
+
+    /// The [`SfxId`]s this registry authorizes through its procedural cue
+    /// specs. This is the *authority* projection of the registry (kira-free):
+    /// a provider that authors a cue authorizes the id that cue resolves to,
+    /// so provider-relative playback can gate an [`ambition_sfx::SfxMessage`]
+    /// without the resident synth handle table. A registry with no cues
+    /// authorizes no procedural ids — deliberate silence for that path.
+    pub fn authorized_cue_ids(&self) -> BTreeSet<SfxId> {
+        self.sfx.iter().map(|spec| spec.cue.sfx_id()).collect()
+    }
+}
+
+impl SoundCueKey {
+    /// The stable [`SfxId`] a procedural cue resolves to. Mirrors the
+    /// consumer-side `SoundCue::sfx_id` table but lives in the kira-free data
+    /// layer so provider authority can be derived without the playback crate.
+    pub fn sfx_id(self) -> SfxId {
+        use ambition_sfx::ids;
+        match self {
+            Self::Jump => ids::PLAYER_JUMP,
+            Self::DoubleJump => ids::PLAYER_DOUBLE_JUMP,
+            Self::Dash => ids::PLAYER_DASH,
+            Self::Blink => ids::PLAYER_BLINK,
+            Self::PrecisionBlink => ids::PLAYER_PRECISION_BLINK,
+            Self::Slash => ids::PLAYER_SLASH,
+            Self::Hit => ids::PLAYER_HIT,
+            Self::Pogo => ids::PLAYER_POGO,
+            Self::Reset => ids::PLAYER_RESET,
+            Self::Death => ids::PLAYER_DEATH,
+            Self::Respawn => ids::PLAYER_RESPAWN,
+        }
     }
 }
 

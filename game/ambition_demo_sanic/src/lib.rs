@@ -427,13 +427,40 @@ pub fn install_sanic_content(app: &mut App) {
                     asset_path: Some(SANIC_MUSIC_ASSET_PATH.to_string()),
                 }],
             }),
+            // Sanic AUTHORS the cues it emits (Dash, Jump) rather than
+            // inheriting them from the resident Ambition synth table. Declaring
+            // them is what authorizes them under provider-relative SFX: a Sanic
+            // session plays these and nothing else, and an Ambition-only bank id
+            // resident in the shared bank cannot resolve here.
             Some(ambition::audio::spec::SfxRegistry {
                 sample_rate: 44_100,
-                sfx: Vec::new(),
+                sfx: vec![
+                    sanic_cue(ambition::audio::spec::SoundCueKey::Dash, 900.0, 1400.0),
+                    sanic_cue(ambition::audio::spec::SoundCueKey::Jump, 700.0, 1200.0),
+                ],
             }),
         )
         .expect("Sanic audio catalogs should be valid"),
     );
+}
+
+/// A bright, fast procedural cue spec in Sanic's voice.
+fn sanic_cue(
+    cue: ambition::audio::spec::SoundCueKey,
+    frequency: f32,
+    frequency_end: f32,
+) -> ambition::audio::spec::SfxSpec {
+    ambition::audio::spec::SfxSpec {
+        cue,
+        waveform: ambition::audio::spec::WaveformSpec::Square,
+        frequency,
+        frequency_end,
+        duration: 0.12,
+        volume: 0.5,
+        attack: 0.005,
+        release: 0.06,
+        noise: 0.0,
+    }
 }
 
 impl Plugin for SanicDemoContentPlugin {

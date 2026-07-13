@@ -20,6 +20,7 @@
 
 use std::collections::BTreeSet;
 
+use ambition_sfx::SfxId;
 use bevy::prelude::Resource;
 
 use crate::spec::{MusicRegistry, SfxRegistry};
@@ -73,6 +74,61 @@ impl MusicAuthority {
     }
 }
 
+/// Provider-relative playback authority for sound effects.
+///
+/// The SFX consumer enforces this exactly as the music director enforces
+/// [`MusicAuthority`]: an [`ambition_sfx::SfxMessage`] may play only when the
+/// active provider authorized the [`SfxId`] it resolves to. This is what stops
+/// a sound that merely EXISTS in the process-wide resident bank / synth handle
+/// table from being audible in a session whose provider never authored it — the
+/// bank is *storage*, this is *permission*.
+///
+/// A provider's authorized set is *declared*: the ids of the procedural cues it
+/// authors ([`SfxRegistry::authorized_cue_ids`]) plus the bank ids it
+/// contributes ([`crate::catalog::SfxBankRegistry`]). The typed cue shortcuts
+/// (jump, dash, hit, …) are gated by this too — a provider hears a cue only when
+/// it declared it, never because the resident synth table happens to hold it.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub enum SfxAuthority {
+    /// No gameplay session governs SFX this frame (frontend/title, or a host
+    /// with no selection). Nothing is rejected — frontend routes emit no
+    /// gameplay SFX, and a permissive default preserves standalone behavior.
+    #[default]
+    Ungoverned,
+    /// A session is live; only these ids may play. An EMPTY set is a provider
+    /// that authored no SFX — DELIBERATE silence (Mary-O), not "play whatever
+    /// the resident bank still holds."
+    Governed { authorized: BTreeSet<SfxId> },
+}
+
+impl SfxAuthority {
+    /// A governed authority permitting exactly `authorized`.
+    pub fn governed(authorized: impl IntoIterator<Item = SfxId>) -> Self {
+        Self::Governed {
+            authorized: authorized.into_iter().collect(),
+        }
+    }
+
+    /// True when `id` may play this frame.
+    pub fn allows(&self, id: SfxId) -> bool {
+        match self {
+            Self::Ungoverned => true,
+            Self::Governed { authorized } => authorized.contains(&id),
+        }
+    }
+
+    /// True when the active provider authored no SFX — every emission is
+    /// dropped rather than resolving against the resident bank.
+    pub fn is_deliberate_silence(&self) -> bool {
+        matches!(self, Self::Governed { authorized } if authorized.is_empty())
+    }
+
+    /// True when a session governs SFX (as opposed to a frontend route).
+    pub fn is_governed(&self) -> bool {
+        matches!(self, Self::Governed { .. })
+    }
+}
+
 /// Host policy for what plays at frontend/title routes (no gameplay session).
 ///
 /// The engine's frontend audio system enforces silence when returning to a
@@ -115,8 +171,13 @@ pub struct ActiveAudioAuthority {
     /// The provider's authored music, `None` when it registered none —
     /// a DELIBERATE empty set, not a fallback slot.
     pub music: Option<MusicRegistry>,
-    /// The provider's authored SFX, `None` when it registered none.
+    /// The provider's authored SFX synth registry, `None` when it registered
+    /// none. Its procedural cues contribute to the authorized id set.
     pub sfx: Option<SfxRegistry>,
+    /// The bank [`SfxId`]s this provider contributes (from
+    /// [`crate::catalog::SfxBankRegistry`]), on top of its procedural cues.
+    /// Empty for a provider that ships no bank (it authorizes only its cues).
+    pub sfx_ids: BTreeSet<SfxId>,
 }
 
 impl ActiveAudioSelection {
@@ -129,12 +190,14 @@ impl ActiveAudioSelection {
         provider_id: impl Into<String>,
         music: Option<MusicRegistry>,
         sfx: Option<SfxRegistry>,
+        sfx_ids: BTreeSet<SfxId>,
     ) {
         self.current = Some(ActiveAudioAuthority {
             owner,
             provider_id: provider_id.into(),
             music,
             sfx,
+            sfx_ids,
         });
     }
 
@@ -143,9 +206,10 @@ impl ActiveAudioSelection {
         provider_id: impl Into<String>,
         music: Option<MusicRegistry>,
         sfx: Option<SfxRegistry>,
+        sfx_ids: BTreeSet<SfxId>,
     ) -> Self {
         let mut selection = Self::default();
-        selection.select(None, provider_id, music, sfx);
+        selection.select(None, provider_id, music, sfx, sfx_ids);
         selection
     }
 
@@ -168,6 +232,17 @@ impl ActiveAudioSelection {
         self.current.as_ref()
     }
 
+    /// Replace the current selection's contributed bank ids in place, without
+    /// rebuilding the selection. Used when the resident SFX bank finishes
+    /// loading *after* a statically-selected direct-entry host already chose its
+    /// provider: the cues were authorized at selection time, the bank ids become
+    /// known a frame or two later. A no-op when nothing is selected.
+    pub fn set_current_sfx_ids(&mut self, sfx_ids: BTreeSet<SfxId>) {
+        if let Some(current) = self.current.as_mut() {
+            current.sfx_ids = sfx_ids;
+        }
+    }
+
     /// The session scope token that owns the current selection, if any.
     pub fn owner(&self) -> Option<u64> {
         self.current.as_ref().and_then(|a| a.owner)
@@ -187,6 +262,32 @@ impl ActiveAudioSelection {
     /// authored SFX.
     pub fn sfx(&self) -> Option<&SfxRegistry> {
         self.current.as_ref().and_then(|a| a.sfx.as_ref())
+    }
+
+    /// The provider-relative SFX authority implied by the current selection.
+    ///
+    /// - no selection → [`SfxAuthority::Ungoverned`] (frontend routes);
+    /// - a provider with authored SFX (cues and/or bank ids) → `Governed` with
+    ///   exactly that provider's authorized id set;
+    /// - a provider that authored no SFX → `Governed` with an EMPTY set, i.e.
+    ///   deliberate silence.
+    ///
+    /// The SFX consumer consults this so a sound present in the process-wide
+    /// resident bank / synth table but foreign to the active provider can never
+    /// play — the exact SFX analogue of [`Self::music_authority`].
+    pub fn sfx_authority(&self) -> SfxAuthority {
+        match &self.current {
+            None => SfxAuthority::Ungoverned,
+            Some(authority) => {
+                let mut authorized = authority
+                    .sfx
+                    .as_ref()
+                    .map(SfxRegistry::authorized_cue_ids)
+                    .unwrap_or_default();
+                authorized.extend(authority.sfx_ids.iter().copied());
+                SfxAuthority::Governed { authorized }
+            }
+        }
     }
 
     /// The provider-relative music authority implied by the current selection.
@@ -216,7 +317,28 @@ impl ActiveAudioSelection {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::spec::MusicTrack;
+    use crate::spec::{MusicTrack, SfxSpec, SoundCueKey, WaveformSpec};
+
+    fn cue(cue: SoundCueKey) -> SfxSpec {
+        SfxSpec {
+            cue,
+            waveform: WaveformSpec::Sine,
+            frequency: 440.0,
+            frequency_end: 440.0,
+            duration: 0.1,
+            volume: 0.5,
+            attack: 0.0,
+            release: 0.0,
+            noise: 0.0,
+        }
+    }
+
+    fn sfx(cues: impl IntoIterator<Item = SoundCueKey>) -> SfxRegistry {
+        SfxRegistry {
+            sample_rate: 44_100,
+            sfx: cues.into_iter().map(cue).collect(),
+        }
+    }
 
     fn music(id: &str) -> MusicRegistry {
         MusicRegistry {
@@ -235,7 +357,13 @@ mod tests {
         assert!(selection.current().is_none());
         assert!(selection.music().is_none());
 
-        selection.select(Some(1), "sanic", Some(music("you_are_too_slow")), None);
+        selection.select(
+            Some(1),
+            "sanic",
+            Some(music("you_are_too_slow")),
+            None,
+            BTreeSet::new(),
+        );
         assert_eq!(selection.provider_id(), Some("sanic"));
         assert_eq!(selection.owner(), Some(1));
         assert_eq!(
@@ -244,7 +372,7 @@ mod tests {
         );
 
         // Switching providers REPLACES — no residue of the previous authority.
-        selection.select(Some(2), "mary_o", None, None);
+        selection.select(Some(2), "mary_o", None, None, BTreeSet::new());
         assert_eq!(selection.provider_id(), Some("mary_o"));
         assert!(
             selection.music().is_none(),
@@ -261,9 +389,21 @@ mod tests {
     #[test]
     fn stale_retirement_does_not_clear_a_newer_selection() {
         let mut selection = ActiveAudioSelection::default();
-        selection.select(Some(1), "sanic", Some(music("you_are_too_slow")), None);
+        selection.select(
+            Some(1),
+            "sanic",
+            Some(music("you_are_too_slow")),
+            None,
+            BTreeSet::new(),
+        );
         // Session B (scope 2) takes over.
-        selection.select(Some(2), "ambition", Some(music("ambition_theme")), None);
+        selection.select(
+            Some(2),
+            "ambition",
+            Some(music("ambition_theme")),
+            None,
+            BTreeSet::new(),
+        );
         assert_eq!(selection.owner(), Some(2));
 
         // A stale retirement for scope 1 arrives late.
@@ -295,7 +435,13 @@ mod tests {
         // The heart of Issue 1: a Sanic session must not be able to play an
         // Ambition track that merely EXISTS in the combined library.
         let mut selection = ActiveAudioSelection::default();
-        selection.select(Some(7), "sanic", Some(music("you_are_too_slow")), None);
+        selection.select(
+            Some(7),
+            "sanic",
+            Some(music("you_are_too_slow")),
+            None,
+            BTreeSet::new(),
+        );
         let authority = selection.music_authority();
         assert!(authority.allows("you_are_too_slow"));
         assert!(
@@ -310,7 +456,7 @@ mod tests {
     fn a_provider_with_no_music_is_deliberate_silence() {
         // Mary-O authors no music: a live session, but nothing may play.
         let mut selection = ActiveAudioSelection::default();
-        selection.select(Some(3), "mary_o", None, None);
+        selection.select(Some(3), "mary_o", None, None, BTreeSet::new());
         let authority = selection.music_authority();
         assert!(authority.is_governed());
         assert!(
@@ -318,5 +464,58 @@ mod tests {
             "an empty authorized set is a stop request, not 'retain current'"
         );
         assert!(!authority.allows("you_are_too_slow"));
+    }
+
+    #[test]
+    fn no_selection_is_ungoverned_sfx_authority() {
+        let selection = ActiveAudioSelection::default();
+        assert_eq!(selection.sfx_authority(), SfxAuthority::Ungoverned);
+        // Ungoverned rejects nothing — standalone/frontend SFX is unrestricted.
+        assert!(selection.sfx_authority().allows(SoundCueKey::Jump.sfx_id()));
+        assert!(!selection.sfx_authority().is_deliberate_silence());
+    }
+
+    #[test]
+    fn an_sfx_provider_only_authorizes_its_own_cues_and_bank_ids() {
+        // Sanic authors Dash + Jump cues and contributes one bank id; it must
+        // not be able to play an Ambition-only id merely resident in the bank.
+        let ambition_only = SfxId::from_static("boss.mirror.shatter");
+        let sanic_bank = SfxId::from_static("sanic.ring.collect");
+        let mut selection = ActiveAudioSelection::default();
+        selection.select(
+            Some(7),
+            "sanic",
+            None,
+            Some(sfx([SoundCueKey::Dash, SoundCueKey::Jump])),
+            BTreeSet::from([sanic_bank]),
+        );
+        let authority = selection.sfx_authority();
+        assert!(authority.allows(SoundCueKey::Dash.sfx_id()));
+        assert!(authority.allows(SoundCueKey::Jump.sfx_id()));
+        assert!(authority.allows(sanic_bank));
+        assert!(
+            !authority.allows(ambition_only),
+            "a foreign provider's bank id is not authorized by this session"
+        );
+        assert!(
+            !authority.allows(SoundCueKey::Slash.sfx_id()),
+            "an undeclared cue is not authorized, even though the resident synth holds it"
+        );
+        assert!(authority.is_governed());
+        assert!(!authority.is_deliberate_silence());
+    }
+
+    #[test]
+    fn a_provider_with_no_sfx_is_deliberate_silence() {
+        // Mary-O authors no SFX: a live session, but nothing may play.
+        let mut selection = ActiveAudioSelection::default();
+        selection.select(Some(3), "mary_o", None, None, BTreeSet::new());
+        let authority = selection.sfx_authority();
+        assert!(authority.is_governed());
+        assert!(
+            authority.is_deliberate_silence(),
+            "no authored SFX is a stop request, not 'resolve against the resident bank'"
+        );
+        assert!(!authority.allows(SoundCueKey::Jump.sfx_id()));
     }
 }

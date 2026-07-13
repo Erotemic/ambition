@@ -7,6 +7,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
+use ambition_sfx::SfxId;
 use bevy::prelude::{App, Resource};
 
 use crate::spec::{MusicRegistry, MusicTrack, SfxRegistry};
@@ -217,6 +218,128 @@ impl AudioCatalogRegistry {
     }
 }
 
+/// Provider-contributed SFX **bank** ids, App-local, indexed by provider.
+///
+/// A provider's procedural cues live in its [`SfxRegistry`]; the arbitrary
+/// [`SfxId`]s carried by the open-ended `SfxMessage::Play { id }` path live in a
+/// packed bank instead. This registry records which provider *contributes* each
+/// bank id (paired with a content fingerprint) so the session bridge can build
+/// that provider's authorized id set. It is the SFX analogue of the music
+/// track-id index: **storage is process-wide, authority is provider-relative.**
+///
+/// Combined indexing is deterministic (`BTreeMap` order). Two providers naming
+/// the SAME id for the SAME underlying entry (matching fingerprint) is a benign
+/// duplicate — Ambition owns the superset bank and a demo may point at the same
+/// entry. Two providers naming one id for DIFFERENT entries is a genuine
+/// conflict, rejected transactionally.
+#[derive(Resource, Clone, Debug, Default)]
+pub struct SfxBankRegistry {
+    /// provider id -> (bank id -> content fingerprint).
+    fragments: BTreeMap<String, BTreeMap<SfxId, u64>>,
+}
+
+impl SfxBankRegistry {
+    /// Record the bank ids `provider_id` contributes, each with a content
+    /// fingerprint (a hash of the packed entry). Re-registering a provider with
+    /// an identical map is idempotent; a different map, or an id colliding with
+    /// another provider's DIFFERENT fingerprint, is rejected and leaves the
+    /// registry unchanged.
+    pub fn register(
+        &mut self,
+        provider_id: impl Into<String>,
+        entries: BTreeMap<SfxId, u64>,
+    ) -> Result<(), AudioCatalogError> {
+        let provider_id = provider_id.into();
+        if provider_id.trim().is_empty() {
+            return Err(AudioCatalogError::EmptyProviderId);
+        }
+        if let Some(existing) = self.fragments.get(&provider_id) {
+            if existing == &entries {
+                return Ok(());
+            }
+            return Err(AudioCatalogError::DuplicateSfxBankProvider { provider_id });
+        }
+        // Transactional cross-provider conflict check BEFORE mutating.
+        for (other_provider, other_entries) in &self.fragments {
+            for (id, fingerprint) in &entries {
+                if let Some(existing_fingerprint) = other_entries.get(id) {
+                    if existing_fingerprint != fingerprint {
+                        return Err(AudioCatalogError::ConflictingSfxEntry {
+                            id: *id,
+                            first_provider: other_provider.clone(),
+                            second_provider: provider_id,
+                        });
+                    }
+                }
+            }
+        }
+        self.fragments.insert(provider_id, entries);
+        Ok(())
+    }
+
+    /// The bank ids `provider_id` contributes (empty if it ships no bank).
+    pub fn ids_for(&self, provider_id: &str) -> BTreeSet<SfxId> {
+        self.fragments
+            .get(provider_id)
+            .map(|entries| entries.keys().copied().collect())
+            .unwrap_or_default()
+    }
+
+    pub fn providers(&self) -> impl Iterator<Item = &str> {
+        self.fragments.keys().map(String::as_str)
+    }
+
+    /// The deduplicated union of every provider's bank ids (deterministic).
+    /// Identical (id, fingerprint) entries collapse; a conflict cannot exist
+    /// here because [`Self::register`] rejects one at insertion.
+    pub fn combined(&self) -> BTreeMap<SfxId, u64> {
+        let mut combined = BTreeMap::new();
+        for entries in self.fragments.values() {
+            for (id, fingerprint) in entries {
+                combined.insert(*id, *fingerprint);
+            }
+        }
+        combined
+    }
+}
+
+pub trait SfxBankAppExt {
+    fn try_register_sfx_bank_fragment(
+        &mut self,
+        provider_id: impl Into<String>,
+        entries: BTreeMap<SfxId, u64>,
+    ) -> Result<&mut Self, AudioCatalogError>;
+
+    fn register_sfx_bank_fragment(
+        &mut self,
+        provider_id: impl Into<String>,
+        entries: BTreeMap<SfxId, u64>,
+    ) -> &mut Self {
+        self.try_register_sfx_bank_fragment(provider_id, entries)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+}
+
+impl SfxBankAppExt for App {
+    fn try_register_sfx_bank_fragment(
+        &mut self,
+        provider_id: impl Into<String>,
+        entries: BTreeMap<SfxId, u64>,
+    ) -> Result<&mut Self, AudioCatalogError> {
+        let registry = {
+            let mut candidate = self
+                .world()
+                .get_resource::<SfxBankRegistry>()
+                .cloned()
+                .unwrap_or_default();
+            candidate.register(provider_id, entries)?;
+            candidate
+        };
+        self.insert_resource(registry);
+        Ok(self)
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum AudioCatalogError {
     EmptyProviderId,
@@ -240,6 +363,14 @@ pub enum AudioCatalogError {
         second_provider: String,
     },
     InvalidCombinedMusic(String),
+    DuplicateSfxBankProvider {
+        provider_id: String,
+    },
+    ConflictingSfxEntry {
+        id: SfxId,
+        first_provider: String,
+        second_provider: String,
+    },
 }
 
 impl fmt::Display for AudioCatalogError {
@@ -271,6 +402,19 @@ impl fmt::Display for AudioCatalogError {
             Self::InvalidCombinedMusic(message) => {
                 write!(f, "combined music catalog is invalid: {message}")
             }
+            Self::DuplicateSfxBankProvider { provider_id } => write!(
+                f,
+                "SFX bank provider '{provider_id}' contributed a different id set on re-registration"
+            ),
+            Self::ConflictingSfxEntry {
+                id,
+                first_provider,
+                second_provider,
+            } => write!(
+                f,
+                "SFX bank id {id} is contributed with different content by both \
+                 '{first_provider}' and '{second_provider}'"
+            ),
         }
     }
 }
@@ -445,6 +589,100 @@ mod tests {
         let registry = app.world().resource::<AudioCatalogRegistry>();
         assert_eq!(registry.providers().collect::<Vec<_>>(), vec!["a"]);
         assert!(registry.music_for("b").is_none());
+    }
+
+    fn id(s: &str) -> SfxId {
+        SfxId::new(s)
+    }
+
+    #[test]
+    fn sfx_bank_registry_indexes_ids_per_provider_deterministically() {
+        // Ambition contributes the superset bank; the ids belong to it and to
+        // nobody else until another provider ships a bank.
+        let mut a = SfxBankRegistry::default();
+        a.register(
+            "ambition",
+            BTreeMap::from([(id("boss.shatter"), 1), (id("player.slash"), 2)]),
+        )
+        .unwrap();
+        a.register("sanic", BTreeMap::from([(id("sanic.ring"), 3)]))
+            .unwrap();
+        // Reverse registration order yields the same combined index.
+        let mut b = SfxBankRegistry::default();
+        b.register("sanic", BTreeMap::from([(id("sanic.ring"), 3)]))
+            .unwrap();
+        b.register(
+            "ambition",
+            BTreeMap::from([(id("boss.shatter"), 1), (id("player.slash"), 2)]),
+        )
+        .unwrap();
+        assert_eq!(a.combined(), b.combined());
+        assert!(a.ids_for("ambition").contains(&id("boss.shatter")));
+        assert!(!a.ids_for("sanic").contains(&id("boss.shatter")));
+        assert!(a.ids_for("mary_o").is_empty());
+    }
+
+    #[test]
+    fn shared_sfx_entry_across_providers_is_deduped_not_a_conflict() {
+        // Same id + same fingerprint = the same underlying entry: benign.
+        let mut registry = SfxBankRegistry::default();
+        registry
+            .register("ambition", BTreeMap::from([(id("shared.thud"), 42)]))
+            .unwrap();
+        registry
+            .register("sanic", BTreeMap::from([(id("shared.thud"), 42)]))
+            .unwrap();
+        let combined = registry.combined();
+        assert_eq!(combined.len(), 1, "the shared entry is deduplicated");
+        assert_eq!(combined.get(&id("shared.thud")), Some(&42));
+    }
+
+    #[test]
+    fn conflicting_sfx_entry_is_rejected_transactionally_in_both_orders() {
+        // Same id + DIFFERENT fingerprint = incompatible assets: a hard error,
+        // and the failed registration must leave the registry untouched.
+        let mut forward = SfxBankRegistry::default();
+        forward
+            .register("a", BTreeMap::from([(id("clash"), 1)]))
+            .unwrap();
+        let err = forward
+            .register("b", BTreeMap::from([(id("clash"), 2)]))
+            .unwrap_err();
+        assert!(matches!(err, AudioCatalogError::ConflictingSfxEntry { .. }));
+        assert_eq!(forward.providers().collect::<Vec<_>>(), vec!["a"]);
+
+        let mut reverse = SfxBankRegistry::default();
+        reverse
+            .register("b", BTreeMap::from([(id("clash"), 2)]))
+            .unwrap();
+        let err = reverse
+            .register("a", BTreeMap::from([(id("clash"), 1)]))
+            .unwrap_err();
+        assert!(matches!(err, AudioCatalogError::ConflictingSfxEntry { .. }));
+        assert_eq!(reverse.providers().collect::<Vec<_>>(), vec!["b"]);
+    }
+
+    #[test]
+    fn separate_apps_hold_independent_sfx_bank_registries() {
+        let mut app_a = App::new();
+        app_a.register_sfx_bank_fragment("a", BTreeMap::from([(id("a.one"), 1)]));
+        let mut app_b = App::new();
+        app_b.register_sfx_bank_fragment("b", BTreeMap::from([(id("b.one"), 9)]));
+        assert!(app_a
+            .world()
+            .resource::<SfxBankRegistry>()
+            .ids_for("a")
+            .contains(&id("a.one")));
+        assert!(app_a
+            .world()
+            .resource::<SfxBankRegistry>()
+            .ids_for("b")
+            .is_empty());
+        assert!(app_b
+            .world()
+            .resource::<SfxBankRegistry>()
+            .ids_for("b")
+            .contains(&id("b.one")));
     }
 
     #[test]

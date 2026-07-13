@@ -125,6 +125,10 @@ impl Plugin for SandboxAudioPlugin {
             // the shell bridge; direct-entry hosts select their provider
             // statically at composition.
             .init_resource::<ambition_audio::selection::ActiveAudioSelection>()
+            // Provider-contributed SFX bank ids, feeding each session's SFX
+            // authority. Defaults empty (a host may ship no bank); the resident
+            // bank's owner registers its ids once the bank loads.
+            .init_resource::<ambition_audio::catalog::SfxBankRegistry>()
             // The HOST owns its settings model and the authored cue
             // catalog; the reusable music core consumes the synced
             // `MusicMix` + the inserted catalog (Stage 20 / B1 seam).

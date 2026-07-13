@@ -8,7 +8,7 @@
 
 use std::collections::BTreeMap;
 
-use ambition_audio::catalog::AudioCatalogRegistry;
+use ambition_audio::catalog::{AudioCatalogRegistry, SfxBankRegistry};
 use ambition_audio::selection::ActiveAudioSelection;
 use ambition_platformer_primitives::lifecycle::{
     ActiveSessionScope, SessionGatedSimulation, SessionScopeId, SessionScopePlugin,
@@ -194,6 +194,10 @@ impl Plugin for GameplaySessionBridgePlugin {
             // if the host was built without an audio system rather than treating
             // a missing registry as "everyone is silent."
             .init_resource::<AudioCatalogRegistry>()
+            // The bank-id index defaults empty (a host may ship no SFX bank);
+            // providers that contribute a bank register their ids here so a
+            // session's SFX authority spans its cues AND its bank content.
+            .init_resource::<SfxBankRegistry>()
             .add_message::<GameplaySessionEvent>()
             .configure_sets(
                 Update,
@@ -229,6 +233,7 @@ fn select_session_audio_authority(
     mut sessions: MessageReader<GameplaySessionEvent>,
     registry: Res<GameplaySessionRegistry>,
     catalogs: Res<AudioCatalogRegistry>,
+    sfx_banks: Res<SfxBankRegistry>,
     mut selection: ResMut<ActiveAudioSelection>,
 ) {
     for event in sessions.read() {
@@ -251,9 +256,12 @@ fn select_session_audio_authority(
                 );
                 let music = catalogs.music_for(&provider).cloned();
                 let sfx = catalogs.sfx_for(&provider).cloned();
+                // The provider's bank ids (empty if it ships no bank) round out
+                // its SFX authority beyond its procedural cues.
+                let sfx_ids = sfx_banks.ids_for(&provider);
                 // Tag the selection with THIS session's scope token so a delayed
                 // retirement for an older session cannot silence it.
-                selection.select(Some(scope.0), provider, music, sfx);
+                selection.select(Some(scope.0), provider, music, sfx, sfx_ids);
             }
             GameplaySessionEvent::Retiring { scope, .. } => {
                 // Clear ONLY if this exact session still owns the selection.

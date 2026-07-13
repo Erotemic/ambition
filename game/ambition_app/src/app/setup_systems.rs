@@ -267,6 +267,47 @@ pub(crate) fn setup_host_presentation_system(
     });
 }
 
+/// Once the resident SFX bank is loaded, publish its ids as Ambition's
+/// provider-relative SFX authority.
+///
+/// The bank is process-wide *storage*; authority is provider-relative. This
+/// registers the bank's ids in the App-local [`SfxBankRegistry`] under the
+/// owning provider (Ambition — the superset that packs every shared asset), so
+/// the session bridge authorizes an Ambition session over the whole bank while
+/// other providers get none of it. For a direct-entry host that statically
+/// selected Ambition *before* the bank finished loading, it also folds the ids
+/// into the live selection so Ambition's open-ended `Play { id }` sounds
+/// resolve. Retries until it succeeds once (the bank may land asynchronously).
+#[cfg(feature = "audio")]
+pub(crate) fn publish_resident_sfx_bank_authority(
+    bank: Option<Res<ambition::audio::SfxBankResource>>,
+    mut registry: ResMut<ambition::audio::catalog::SfxBankRegistry>,
+    mut selection: ResMut<ambition::audio::selection::ActiveAudioSelection>,
+    mut published: Local<bool>,
+) {
+    if *published {
+        return;
+    }
+    let Some(bank) = bank else {
+        return;
+    };
+    let fingerprints = bank.0.content_fingerprints();
+    let ids: std::collections::BTreeSet<_> = fingerprints.keys().copied().collect();
+    if let Err(error) = registry.register(ambition_content::AMBITION_CONTENT_PROVIDER, fingerprints)
+    {
+        warn!("resident sfx bank registration failed: {error}");
+    }
+    // Refresh a statically-selected Ambition direct-entry selection (owner
+    // None). A session-routed host selects per activation through the bridge, so
+    // leave those (owner Some, or None-at-title) untouched.
+    if selection.owner().is_none()
+        && selection.provider_id() == Some(ambition_content::AMBITION_CONTENT_PROVIDER)
+    {
+        selection.set_current_sfx_ids(ids);
+    }
+    *published = true;
+}
+
 #[cfg(not(feature = "audio"))]
 pub(crate) fn setup_host_presentation_system(
     mut commands: Commands,

@@ -173,28 +173,43 @@ impl ShellExperienceAppExt for App {
             registration.id
         );
         let world = self.world_mut();
-        // A duplicate provider id is a deterministic composition error — two
-        // providers claiming one launcher identity would make the launcher
-        // order and routing ambiguous. Detect it BEFORE mutating either
-        // catalog, so a conflicting registration leaves prior valid state
-        // intact. An IDENTICAL re-registration (same plugin composed twice) is
-        // idempotent. The diagnostic names both owners and does not depend on
-        // registration order.
+        // Validate the COMPLETE candidate against BOTH catalogs before mutating
+        // either, so a conflicting registration leaves prior valid state intact
+        // (transactional). Two failure modes, both deterministic composition
+        // errors with order-independent diagnostics:
+        //
+        //  1. duplicate experience id — two providers claiming one launcher
+        //     identity would make launcher order and routing ambiguous;
+        //  2. duplicate route id — two experiences claiming one route would make
+        //     activation ambiguous (and `BTreeMap::insert` would silently clobber
+        //     the first route).
+        //
+        // An IDENTICAL re-registration (same plugin composed twice) is
+        // idempotent and returns before any mutation.
         if let Some(existing) = world
             .get_resource::<ShellExperienceRegistry>()
             .and_then(|registry| registry.get(&registration.id).cloned())
         {
             assert!(
                 existing == registration,
-                "duplicate shell experience id '{}': already registered as \
-                 '{}' (route '{}') and refused re-registration as '{}' (route '{}')",
-                registration.id.as_str(),
-                existing.display_name,
-                existing.launch_route.as_str(),
-                registration.display_name,
-                registration.launch_route.as_str(),
+                "{}",
+                duplicate_experience_diagnostic(&registration.id, &existing, &registration),
             );
+            // Same id AND identical spec: the route is already registered from the
+            // first call, so re-registering it would trip the duplicate-route
+            // check below. Return here — idempotent, no mutation.
             return self;
+        }
+        // The experience id is NEW. Any existing route under this id therefore
+        // belongs to a DIFFERENT experience — a genuine collision.
+        if let Some(existing_route) = world
+            .get_resource::<ShellRouteCatalog>()
+            .and_then(|catalog| catalog.get(&route.id).cloned())
+        {
+            panic!(
+                "{}",
+                duplicate_route_diagnostic(&route.id, &existing_route.experience, &registration.id),
+            );
         }
         world
             .get_resource_or_insert_with(ShellRouteCatalog::default)
@@ -203,6 +218,54 @@ impl ShellExperienceAppExt for App {
             .get_resource_or_insert_with(ShellExperienceRegistry::default)
             .register(registration);
         self
+    }
+}
+
+/// Order-independent diagnostic for two experiences claiming one id. Both
+/// descriptors are sorted before formatting so registering A-then-B and
+/// B-then-A produce the byte-identical message.
+fn duplicate_experience_diagnostic(
+    id: &ShellExperienceId,
+    a: &ExperienceRegistration,
+    b: &ExperienceRegistration,
+) -> String {
+    let describe = |reg: &ExperienceRegistration| {
+        format!(
+            "'{}' (route '{}')",
+            reg.display_name,
+            reg.launch_route.as_str()
+        )
+    };
+    let (first, second) = canonical_pair(describe(a), describe(b));
+    format!(
+        "duplicate shell experience id '{}': two experiences claim it: {first} and {second}",
+        id.as_str(),
+    )
+}
+
+/// Order-independent diagnostic for two experiences claiming one route id.
+fn duplicate_route_diagnostic(
+    route: &ShellRouteId,
+    a: &ShellExperienceId,
+    b: &ShellExperienceId,
+) -> String {
+    let (first, second) = canonical_pair(
+        format!("experience '{}'", a.as_str()),
+        format!("experience '{}'", b.as_str()),
+    );
+    format!(
+        "duplicate shell route id '{}': claimed by {first} and {second}",
+        route.as_str()
+    )
+}
+
+/// Sort two descriptors so a diagnostic reads the same regardless of which
+/// registration arrived first.
+fn canonical_pair(a: String, b: String) -> (String, String) {
+    if a <= b {
+        (a, b)
+    } else {
+        (b, a)
     }
 }
 
@@ -265,6 +328,107 @@ mod register_tests {
         app.register_experience(
             reg("sanic", "Impostor", "impostor_route"),
             ShellRouteSpec::new("impostor_route", "sanic"),
+        );
+    }
+
+    /// Capture the panic message from `build`, suppressing the default hook so
+    /// the test output stays clean.
+    fn capture_panic(build: impl FnOnce() + std::panic::UnwindSafe) -> String {
+        let previous = std::panic::take_hook();
+        std::panic::set_hook(Box::new(|_| {}));
+        let result = std::panic::catch_unwind(build);
+        std::panic::set_hook(previous);
+        let payload = result.expect_err("expected a panic");
+        payload
+            .downcast_ref::<String>()
+            .cloned()
+            .or_else(|| payload.downcast_ref::<&str>().map(|s| s.to_string()))
+            .expect("panic payload is a string")
+    }
+
+    /// Issue 7: two different experiences claiming one route id is a collision,
+    /// not a silent clobber. Issue 8: the diagnostic is byte-identical regardless
+    /// of which registered first.
+    #[test]
+    fn duplicate_route_id_is_rejected_in_both_orders_with_one_message() {
+        let forward = capture_panic(|| {
+            let mut app = App::new();
+            app.register_experience(
+                reg("alpha", "Alpha", "shared_route"),
+                ShellRouteSpec::new("shared_route", "alpha"),
+            );
+            app.register_experience(
+                reg("beta", "Beta", "shared_route"),
+                ShellRouteSpec::new("shared_route", "beta"),
+            );
+        });
+        let reverse = capture_panic(|| {
+            let mut app = App::new();
+            app.register_experience(
+                reg("beta", "Beta", "shared_route"),
+                ShellRouteSpec::new("shared_route", "beta"),
+            );
+            app.register_experience(
+                reg("alpha", "Alpha", "shared_route"),
+                ShellRouteSpec::new("shared_route", "alpha"),
+            );
+        });
+        assert!(
+            forward.contains("duplicate shell route id 'shared_route'"),
+            "message names the colliding route: {forward}"
+        );
+        assert_eq!(
+            forward, reverse,
+            "the route-collision diagnostic is registration-order-independent"
+        );
+    }
+
+    /// Issue 8: the duplicate-experience-id diagnostic is also order-independent.
+    #[test]
+    fn duplicate_experience_id_diagnostic_is_order_independent() {
+        let forward = capture_panic(|| {
+            let mut app = App::new();
+            app.register_experience(
+                reg("dup", "First", "route_a"),
+                ShellRouteSpec::new("route_a", "dup"),
+            );
+            app.register_experience(
+                reg("dup", "Second", "route_b"),
+                ShellRouteSpec::new("route_b", "dup"),
+            );
+        });
+        let reverse = capture_panic(|| {
+            let mut app = App::new();
+            app.register_experience(
+                reg("dup", "Second", "route_b"),
+                ShellRouteSpec::new("route_b", "dup"),
+            );
+            app.register_experience(
+                reg("dup", "First", "route_a"),
+                ShellRouteSpec::new("route_a", "dup"),
+            );
+        });
+        assert!(forward.contains("duplicate shell experience id 'dup'"));
+        assert_eq!(forward, reverse);
+    }
+
+    /// A route registered by a host directly (e.g. a non-gameplay home route)
+    /// still collides deterministically with a later experience claiming it.
+    #[test]
+    fn preexisting_route_blocks_a_later_experience_claiming_it() {
+        let message = capture_panic(|| {
+            let mut app = App::new();
+            app.world_mut()
+                .get_resource_or_insert_with(ShellRouteCatalog::default)
+                .register(ShellRouteSpec::new("home", "host_home"));
+            app.register_experience(
+                reg("game", "Game", "home"),
+                ShellRouteSpec::new("home", "game"),
+            );
+        });
+        assert!(
+            message.contains("duplicate shell route id 'home'"),
+            "a manually-registered route is still protected: {message}"
         );
     }
 

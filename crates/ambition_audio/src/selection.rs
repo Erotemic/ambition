@@ -22,6 +22,27 @@ use bevy::prelude::Resource;
 
 use crate::spec::{MusicRegistry, SfxRegistry};
 
+/// Host policy for what plays at frontend/title routes (no gameplay session).
+///
+/// The engine's frontend audio system enforces silence when returning to a
+/// frontend route; this resource lets a HOST override that with a deliberate
+/// title theme. `None` (the default) is silence. The named track must exist in
+/// the host's assembled `AudioLibrary`. Engine = mechanism, host = which track:
+/// no engine crate names a specific song.
+#[derive(Resource, Default, Debug, Clone)]
+pub struct FrontendMusicPolicy {
+    /// Track id to loop at frontend routes, or `None` for silence.
+    pub title_track: Option<String>,
+}
+
+impl FrontendMusicPolicy {
+    pub fn title(track_id: impl Into<String>) -> Self {
+        Self {
+            title_track: Some(track_id.into()),
+        }
+    }
+}
+
 /// The provider-relative audio authority of the active gameplay session.
 /// `Default` = nothing selected (frontend routes, or before composition).
 #[derive(Resource, Default, Debug, Clone)]

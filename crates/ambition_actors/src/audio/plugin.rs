@@ -16,7 +16,7 @@
 //! re-export added in `app.rs`.
 
 use bevy::prelude::*;
-use bevy_kira_audio::prelude::{AudioApp, AudioPlugin as KiraAudioPlugin};
+use bevy_kira_audio::prelude::{AudioApp, AudioControl, AudioPlugin as KiraAudioPlugin};
 
 use super::environment::{
     apply_audio_environment, detect_audio_environment, smooth_audio_environment, AudioEnvironment,
@@ -150,14 +150,15 @@ impl Plugin for SandboxAudioPlugin {
                     .run_if(simulation_authorized)
                     .after(crate::schedule::SandboxSet::CoreSimulation),
             )
-            // Enforce deterministic frontend silence: the frame the simulation
-            // deauthorizes (Quit to Home), stop every music channel once and
-            // reset the director so no previous session's music lingers under
-            // the title. Ungated so it can observe the transition; latched so it
-            // acts exactly once per frontend entry (no per-frame thrash).
+            // Apply the frontend audio policy: the frame the simulation
+            // deauthorizes (Quit to Home), stop every gameplay music channel
+            // once, reset the director so no previous session's music lingers,
+            // then start the host's title theme if one is configured (else
+            // deliberate silence). Ungated so it can observe the transition;
+            // latched so it acts exactly once per frontend entry (no thrash).
             .add_systems(
                 Update,
-                enforce_frontend_music_silence.after(crate::schedule::SandboxSet::CoreSimulation),
+                apply_frontend_music_policy.after(crate::schedule::SandboxSet::CoreSimulation),
             );
     }
 }
@@ -170,16 +171,21 @@ fn music_auto_start_when_ungated(gate: Option<Res<SessionGatedSimulation>>) -> b
     gate.is_none()
 }
 
-/// Stop all music and reset the director the frame the simulation deauthorizes,
-/// so a session-routed host's title route owns no playback. Acts once per
-/// frontend entry via the `entered_frontend` latch; no-op in direct-entry apps
-/// (there the simulation is always authorized).
+/// Apply the frontend audio policy the frame the simulation deauthorizes: stop
+/// all gameplay music, reset the director so a session-routed host's title route
+/// owns no gameplay playback, then start the host's title theme
+/// ([`FrontendMusicPolicy`]) if one is configured — otherwise deliberate
+/// silence. Acts once per frontend entry via the `entered_frontend` latch;
+/// no-op in direct-entry apps (there the simulation is always authorized).
 #[allow(clippy::too_many_arguments)]
-fn enforce_frontend_music_silence(
+fn apply_frontend_music_policy(
     gate: Option<Res<SessionGatedSimulation>>,
     scope: Option<Res<ActiveSessionScope>>,
     base_music_channel: Res<bevy_kira_audio::prelude::AudioChannel<MusicChannel>>,
     layer_channels: crate::music::MusicLayerChannels,
+    library: Option<ResMut<ambition_audio::library::AudioLibrary>>,
+    asset_server: Res<AssetServer>,
+    policy: Option<Res<ambition_audio::selection::FrontendMusicPolicy>>,
     director: Option<ResMut<crate::music::MusicDirectorState>>,
     music_state: Option<ResMut<ambition_audio::library::MusicPlaybackState>>,
     mut intent: ResMut<crate::music::MusicIntent>,
@@ -193,18 +199,31 @@ fn enforce_frontend_music_silence(
     if *entered_frontend {
         return;
     }
-    if let (Some(mut director), Some(mut music_state)) = (director, music_state) {
-        ambition_audio::music::silence_music_backend(
-            &base_music_channel,
-            &layer_channels,
-            &mut director,
-            &mut music_state,
-        );
-    }
+    let (Some(mut director), Some(mut music_state), Some(mut library)) =
+        (director, music_state, library)
+    else {
+        *entered_frontend = true;
+        return;
+    };
+    ambition_audio::music::silence_music_backend(
+        &base_music_channel,
+        &layer_channels,
+        &mut director,
+        &mut music_state,
+    );
     intent.simple_track_candidates.clear();
     intent.adaptive = None;
     // Keep the deferred first-play latched shut at the frontend; a fresh
     // session re-selects and the director restarts music from the selection.
     started.0 = true;
+
+    // Host title theme, if any: loop it on the base music channel. Absent policy
+    // (or an unresolvable track) leaves the frontend deliberately silent.
+    if let Some(track_id) = policy.and_then(|policy| policy.title_track.clone()) {
+        if let Some(handle) = library.resolve_track_handle(&track_id, &asset_server) {
+            base_music_channel.play(handle).looped();
+            music_state.active_track = track_id;
+        }
+    }
     *entered_frontend = true;
 }

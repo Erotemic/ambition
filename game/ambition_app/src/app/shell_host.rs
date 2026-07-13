@@ -163,6 +163,13 @@ fn ambition_activate_session(
 pub fn compose_ambition_shell_host(app: &mut App) {
     app.insert_resource(AmbitionShellHosted);
 
+    // The title screen has its own theme. The engine's frontend audio policy
+    // loops this track whenever no gameplay session is live (and enforces
+    // silence otherwise); the host names the song, the engine owns the seam.
+    app.insert_resource(ambition::audio::selection::FrontendMusicPolicy::title(
+        "a_possible_morning",
+    ));
+
     app.add_plugins((
         ambition::game_shell::MinimalShellPlugins,
         ambition::load::AmbitionLoadPlugin,

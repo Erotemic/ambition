@@ -115,7 +115,14 @@ pub fn install_audio_library(
     commands.insert_resource(music_state);
     if let Some(provider) = bank_provider {
         info!("loaded sfx bank: {} entries", provider.entry_count());
-        commands.insert_resource(SfxBankResource(std::sync::Arc::new(provider)));
+        let mut banks = SfxBankResource::default();
+        banks
+            .register(
+                ambition_content::AMBITION_CONTENT_PROVIDER,
+                std::sync::Arc::new(provider),
+            )
+            .expect("initial Ambition SFX bank registration should be unique");
+        commands.insert_resource(banks);
     }
 }
 

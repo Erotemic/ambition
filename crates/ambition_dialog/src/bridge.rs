@@ -24,7 +24,7 @@ use crate::content::DialogChoice;
 use crate::context::{DialogueContext, DialogueNodeIndex};
 use crate::runtime::{DialogSpeechStyle, DialogState};
 use ambition_persistence::save::SandboxSave;
-use ambition_sfx::SfxMessage;
+use ambition_sfx::{SfxMessage, SfxWriter};
 
 /// Bevy resource: entity id of the singleton `DialogueRunner`.
 #[derive(Resource, Debug, Clone, Copy)]
@@ -257,7 +257,7 @@ fn on_present_line(
     event: On<PresentLine>,
     mut state: ResMut<DialogState>,
     mut cue: ResMut<YarnPresentationCue>,
-    mut sfx: MessageWriter<SfxMessage>,
+    mut sfx: SfxWriter,
 ) {
     // PresentLine is now the hand-off point for the typewriter
     // reveal. Store the raw line text here; the UI reads the

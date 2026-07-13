@@ -644,10 +644,13 @@ fn the_snapshot_coverage_ledger() {
     // 2026-07-13 (shell-host campaign): +2 reviewed composition resources
     // (AmbitionPreparedWorld immutable boot data, ActiveAudioSelection
     // presentation authority) — reviewed in known_resource_debt.txt.
-    // 2026-07-14 (provider-relative adaptive music): +1 reviewed composition
-    // resource (AdaptiveCueRegistry — App-local provider->cue-id index feeding
-    // the music authority; immutable after registration) — in known_resource_debt.txt.
-    const KNOWN_RESOURCE_DEBT: usize = 189;
+    // 2026-07-14 (exact audio contexts + provider-rendered SFX/adaptive music):
+    // replace the cue-id-only index and raw SfxMessage queue with App-local
+    // provider catalogs, provider-qualified bank/cache resources, exact
+    // frontend/gameplay ownership, playback evidence, and context-change facts.
+    // These are presentation/composition state, not rollback simulation state;
+    // each reviewed type is listed in known_resource_debt.txt.
+    const KNOWN_RESOURCE_DEBT: usize = 197;
     assert!(
         resources.len() <= KNOWN_RESOURCE_DEBT,
         "{} unregistered `ambition_*` resources, up from the pinned \

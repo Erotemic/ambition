@@ -147,7 +147,7 @@ fn move_event_dispatch_bridges_vfx_to_a_cosmetic_burst() {
 
     let mut app = App::new();
     app.add_message::<MoveEventMessage>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<ActorActionMessage>();
     app.init_resource::<Seen>();
@@ -314,7 +314,7 @@ fn app_with_victim() -> (App, Entity) {
         super::super::authored_volumes::AuthoredAttackVolumeResolver::new(test_blade_resolver),
     );
     app.add_message::<HitEvent>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<MoveEventMessage>();
@@ -919,7 +919,7 @@ fn a_control_verb_edge_triggers_the_moveset_move_and_lands_it() {
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.init_resource::<super::super::authored_volumes::AuthoredAttackVolumeResolver>();
     app.add_message::<HitEvent>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<MoveEventMessage>();
@@ -1053,7 +1053,7 @@ fn move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special() {
     let mut app = App::new();
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ActorActionMessage>();
     app.add_systems(Update, dispatch_move_events);
     let owner = app
@@ -1091,8 +1091,9 @@ fn move_event_dispatch_bridges_sfx_to_sound_and_effect_to_special() {
 
     let sfx: Vec<SfxMessage> = app
         .world_mut()
-        .resource_mut::<Messages<SfxMessage>>()
+        .resource_mut::<Messages<ambition_sfx::OwnedSfxMessage>>()
         .drain()
+        .map(|message| message.request)
         .collect();
     assert_eq!(sfx.len(), 1, "the Sfx event played one sound");
     assert!(
@@ -1141,7 +1142,7 @@ fn move_event_dispatch_bridges_ranged_to_a_live_aimed_shot() {
     let mut app = App::new();
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ActorActionMessage>();
     app.add_systems(Update, dispatch_move_events);
 

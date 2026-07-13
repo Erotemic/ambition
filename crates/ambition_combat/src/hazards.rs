@@ -7,7 +7,7 @@ use super::*;
 /// Tick ECS-authored hazards and publish player damage through Bevy messages.
 pub fn update_ecs_hazards(
     world_time: Res<WorldTime>,
-    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
+    mut sfx: ambition_sfx::SfxWriter,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut hit_events: MessageWriter<HitEvent>,

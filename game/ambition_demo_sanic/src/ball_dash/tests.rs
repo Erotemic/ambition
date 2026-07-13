@@ -177,7 +177,7 @@ fn body_app() -> (App, Entity) {
         ..Default::default()
     });
     app.insert_resource(ambition::time::WorldTime::default());
-    app.add_message::<ambition::sfx::SfxMessage>();
+    app.add_message::<ambition::sfx::OwnedSfxMessage>();
     app.add_systems(bevy::app::Update, (tick_ball_dash, tick_rolling).chain());
 
     let mut kin = ae::BodyKinematics::default();

@@ -66,7 +66,7 @@ pub fn fire_sentry_system(
         Option<&SessionScopedEntity>,
     )>,
     mut commands: Commands,
-    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
+    mut sfx: ambition_sfx::SfxWriter,
 ) {
     for (control, kin, held, mut mana, owner) in &mut wielders {
         if !control.0.melee_pressed || control.0.shield_held {
@@ -106,7 +106,7 @@ pub fn update_sentries(
     mut sentries: Query<(Entity, &mut Sentry)>,
     enemies: Query<(&CenteredAabb, &ActorFaction), With<FeatureSimEntity>>,
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
-    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
+    mut sfx: ambition_sfx::SfxWriter,
 ) {
     let dt = world_time.scaled_dt;
     if dt <= 0.0 {
@@ -178,7 +178,7 @@ mod tests {
 
     fn test_app() -> App {
         let mut app = App::new();
-        app.add_message::<ambition_sfx::SfxMessage>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<ambition_vfx::EffectRequest>();
         app.insert_resource(ambition_time::WorldTime {
             raw_dt: 0.1,

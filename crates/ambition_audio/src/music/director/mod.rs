@@ -44,7 +44,7 @@ fn authorized_adaptive(
 /// sources; adaptive cues use the generic layer-bank scheduler in this module.
 pub fn drive_music_director(
     time: Res<Time>,
-    catalog: Option<Res<MusicCueCatalog>>,
+    catalogs: Res<AdaptiveMusicCatalogRegistry>,
     assets: Option<ResMut<LoadedMusicCueAssets>>,
     director: Option<ResMut<MusicDirectorState>>,
     intent: Res<MusicIntent>,
@@ -55,9 +55,8 @@ pub fn drive_music_director(
     mut music_state: ResMut<MusicPlaybackState>,
     settings: Res<MusicMix>,
 ) {
-    let Some(catalog) = catalog else {
-        return;
-    };
+    let provider_id = intent.provider_id.as_deref();
+    let catalog = provider_id.and_then(|provider| catalogs.catalog_for(provider));
     let Some(mut assets) = assets else {
         return;
     };
@@ -105,13 +104,18 @@ pub fn drive_music_director(
     match adaptive {
         Some(AdaptiveCueDirective::Play { cue_id, state_id }) => {
             if let (Some(cue), Some(target_state)) = (
-                catalog.cue(&cue_id),
-                catalog.cue(&cue_id).and_then(|cue| cue.state(&state_id)),
+                catalog.and_then(|catalog| catalog.cue(&cue_id)),
+                catalog
+                    .and_then(|catalog| catalog.cue(&cue_id))
+                    .and_then(|cue| cue.state(&state_id)),
             ) {
-                // Lazily pull this cue's sources on first play (no-op afterwards).
-                assets.ensure_cue_loaded(cue, &asset_server);
+                // Lazily pull this provider's cue sources on first play. Cue ids
+                // are provider-local, so the loaded-source key includes provider.
+                let provider_id = provider_id.expect("selected adaptive catalog has a provider");
+                assets.ensure_cue_loaded(provider_id, cue, &asset_server);
                 drive_adaptive_cue_state(
                     &mut director,
+                    provider_id,
                     cue,
                     target_state,
                     &assets,
@@ -172,7 +176,7 @@ pub fn drive_music_director(
     }
 
     if let Some(cue_id) = director.active_cue_id.clone() {
-        if let Some(cue) = catalog.cue(&cue_id) {
+        if let Some(cue) = catalog.and_then(|catalog| catalog.cue(&cue_id)) {
             update_gain_smoothing(&mut director, &layer_channels, dt);
             drive_outro_tail(
                 &mut director,
@@ -227,11 +231,10 @@ mod adaptive_authority_tests {
     }
 
     #[test]
-    fn ungoverned_and_stop_pass_through() {
-        // Frontend (ungoverned) does not restrict; StopNow is never a Play.
+    fn denied_context_blocks_play_while_stop_passes_through() {
         assert_eq!(
-            authorized_adaptive(&MusicAuthority::Ungoverned, play("anything")),
-            play("anything")
+            authorized_adaptive(&MusicAuthority::Denied, play("anything")),
+            None
         );
         assert_eq!(
             authorized_adaptive(

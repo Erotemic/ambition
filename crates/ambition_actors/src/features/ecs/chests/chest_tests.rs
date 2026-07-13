@@ -20,7 +20,7 @@ fn app() -> App {
     app.insert_resource(GameplayBanner::default());
     app.init_resource::<SlotInteractionState>();
     app.add_message::<SetFlagRequested>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_systems(Update, open_ecs_chests);
     app

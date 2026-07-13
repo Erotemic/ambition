@@ -19,7 +19,7 @@ use crate::features::{
 use crate::projectile::ProjectileGameplay;
 use crate::trace::GameplayTraceBuffer;
 use ambition_characters::actor::BodyCombat;
-use ambition_sfx::SfxMessage;
+use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_vfx::vfx::VfxMessage;
 
 /// Speed multiplier applied to a parried shot as it reverses — a timed parry
@@ -41,7 +41,7 @@ fn reflect_parried_shot(
     proj_entity: Entity,
     kin: &mut BodyKinematics,
     parrier: Entity,
-    sfx: &mut MessageWriter<SfxMessage>,
+    sfx: &mut SfxWriter,
     vfx: &mut MessageWriter<VfxMessage>,
 ) {
     commands
@@ -414,7 +414,7 @@ pub fn step_projectiles(
         ),
         With<FeatureSimEntity>,
     >,
-    mut sfx: MessageWriter<SfxMessage>,
+    mut sfx: SfxWriter,
     mut vfx: MessageWriter<VfxMessage>,
     mut heals: MessageWriter<crate::avatar::PlayerHealRequested>,
     mut trace: ResMut<GameplayTraceBuffer>,
@@ -783,7 +783,7 @@ mod parry_tests {
     fn reflect_the_shot(
         mut commands: Commands,
         parrier: Res<Parrier>,
-        mut sfx: MessageWriter<SfxMessage>,
+        mut sfx: SfxWriter,
         mut vfx: MessageWriter<VfxMessage>,
         mut shots: Query<(Entity, &mut BodyKinematics)>,
     ) {
@@ -801,7 +801,7 @@ mod parry_tests {
     #[test]
     fn reflect_re_owns_the_shot_to_the_parrier_and_reverses_velocity() {
         let mut app = App::new();
-        app.add_message::<SfxMessage>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<VfxMessage>();
         let parrier = app.world_mut().spawn_empty().id();
         let proj = app

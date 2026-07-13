@@ -25,7 +25,7 @@ pub fn update_ecs_breakables(
         ),
         With<FeatureSimEntity>,
     >,
-    mut sfx: MessageWriter<SfxMessage>,
+    mut sfx: SfxWriter,
     mut vfx: MessageWriter<VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
 ) {
@@ -109,7 +109,7 @@ mod breakable_tests {
             raw_dt: 0.1,
             scaled_dt: 0.1,
         });
-        app.add_message::<SfxMessage>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<VfxMessage>();
         app.add_message::<DebrisBurstMessage>();
         app.add_systems(Update, update_ecs_breakables);
@@ -194,7 +194,7 @@ pub fn begin_ecs_breakable_respawn(
 /// Common VFX/SFX/debris emission when a breakable is destroyed by any path.
 pub fn emit_breakable_destroyed(
     pos: ae::Vec2,
-    sfx: &mut MessageWriter<SfxMessage>,
+    sfx: &mut SfxWriter,
     vfx: &mut MessageWriter<VfxMessage>,
     debris: &mut MessageWriter<DebrisBurstMessage>,
 ) {

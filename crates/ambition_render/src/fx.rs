@@ -12,7 +12,7 @@ use ambition_engine_core::config::{world_to_bevy, WORLD_Z_FX};
 use ambition_platformer_primitives::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
-use ambition_sfx::SfxMessage;
+use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_sprite_sheet::character::{
     build_character_sprite_with_render_size, CharacterAnim, CharacterAnimator,
 };
@@ -143,7 +143,7 @@ pub struct BlinkPreviewVisual {
 pub fn process_explosion_requests(
     mut requests: MessageReader<ExplosionRequest>,
     mut vfx: MessageWriter<VfxMessage>,
-    mut sfx: MessageWriter<SfxMessage>,
+    mut sfx: SfxWriter,
 ) {
     for request in requests.read() {
         vfx.write(VfxMessage::Explosion {

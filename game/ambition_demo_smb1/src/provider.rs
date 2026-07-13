@@ -148,7 +148,7 @@ fn smb1_activate_session(
 
         // The session owns the reference to this world; the resident resources
         // below are its published projection.
-        active_session.attach_world(ambition::game_shell::SessionWorldRef::new(
+        active_session.attach_world_for(activation.activation_id, ambition::game_shell::SessionWorldRef::new(
             world.room_set.clone(),
         ));
 

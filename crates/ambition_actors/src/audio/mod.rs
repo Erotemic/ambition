@@ -51,7 +51,7 @@ pub use ambition_audio::library::{
     RadioStationState, SfxChannel, SfxMessageCue, SoundCue, ORIGINAL_TRACK_ID,
 };
 #[cfg(feature = "audio")]
-pub use ambition_audio::render::SfxBankHandleCache;
+pub use ambition_audio::render::ProviderSfxHandleCache;
 #[cfg(feature = "audio")]
 pub use ambition_audio::web_unlock::{AudioUnlockState, WebAudioUnlockPlugin};
 #[cfg(feature = "audio")]

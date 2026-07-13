@@ -1067,7 +1067,7 @@ fn portal_shot_travels_and_opens_a_portal_on_a_wall() {
     // `portal_projectile_step` (the Ambition shot adapter) still writes sfx;
     // `portal_fire_system` now emits the portal-owned `PortalShotFired` signal
     // (the FIRE/TRAVEL sfx moved to the `play_portal_sfx` adapter, Phase 5a).
-    app.add_message::<ambition_sfx::SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ambition_portal::PortalShotFired>();
     app.insert_resource(world_with_two_walls());
     app.insert_resource(ambition_time::WorldTime {

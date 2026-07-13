@@ -65,6 +65,7 @@ pub(super) fn should_start_new_bank_at_target_gain(
 
 pub(super) fn drive_adaptive_cue_state(
     director: &mut MusicDirectorState,
+    provider_id: &str,
     cue: &MusicCueSpec,
     target_state: &MusicStateSpec,
     assets: &LoadedMusicCueAssets,
@@ -85,6 +86,7 @@ pub(super) fn drive_adaptive_cue_state(
         ));
         start_adaptive_state(
             director,
+            provider_id,
             cue,
             target_state,
             assets,
@@ -135,7 +137,16 @@ pub(super) fn drive_adaptive_cue_state(
     }
 
     if is_outro_target(cue, target_state) && director.mode != MusicDirectorMode::AdaptiveOutro {
-        queue_or_fire_outro(director, cue, target_state, assets, channels, settings, dt);
+        queue_or_fire_outro(
+            director,
+            provider_id,
+            cue,
+            target_state,
+            assets,
+            channels,
+            settings,
+            dt,
+        );
         return;
     }
 
@@ -171,6 +182,7 @@ pub(super) fn drive_adaptive_cue_state(
             };
             start_adaptive_state(
                 director,
+                provider_id,
                 cue,
                 target_state,
                 assets,
@@ -205,6 +217,7 @@ pub(super) fn drive_adaptive_cue_state(
 
 fn queue_or_fire_outro(
     director: &mut MusicDirectorState,
+    provider_id: &str,
     cue: &MusicCueSpec,
     target_state: &MusicStateSpec,
     assets: &LoadedMusicCueAssets,
@@ -246,6 +259,7 @@ fn queue_or_fire_outro(
             director.pending_state = None;
             start_adaptive_state(
                 director,
+                provider_id,
                 cue,
                 target_state,
                 assets,
@@ -261,6 +275,7 @@ fn queue_or_fire_outro(
 
 fn start_adaptive_state(
     director: &mut MusicDirectorState,
+    provider_id: &str,
     cue: &MusicCueSpec,
     target_state: &MusicStateSpec,
     assets: &LoadedMusicCueAssets,
@@ -315,7 +330,12 @@ fn start_adaptive_state(
             .layer(&source.layer_id)
             .map(|layer| layer.slot.min(MAX_LAYERS - 1))
             .unwrap_or(0);
-        if let Some(handle) = assets.get(&cue.id, &section.id, &source.layer_id) {
+        if let Some(handle) = assets.get(
+            provider_id,
+            &cue.id,
+            &section.id,
+            &source.layer_id,
+        ) {
             channels.play_layer(new_bank, slot, handle, section.looped, LAYER_START_FADE_MS);
             started += 1;
         } else {

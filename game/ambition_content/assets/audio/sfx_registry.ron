@@ -11,16 +11,23 @@
 (
     sample_rate: 44100,
     sfx: [
-        (cue: Jump, waveform: Sine, frequency: 460.0, frequency_end: 720.0, duration: 0.085, volume: 0.22, attack: 0.003, release: 0.045, noise: 0.0),
-        (cue: DoubleJump, waveform: Triangle, frequency: 520.0, frequency_end: 940.0, duration: 0.115, volume: 0.22, attack: 0.003, release: 0.045, noise: 0.0),
-        (cue: Dash, waveform: Saw, frequency: 260.0, frequency_end: 110.0, duration: 0.105, volume: 0.18, attack: 0.003, release: 0.045, noise: 0.0),
-        (cue: Blink, waveform: Triangle, frequency: 740.0, frequency_end: 260.0, duration: 0.090, volume: 0.18, attack: 0.003, release: 0.045, noise: 0.0),
-        (cue: PrecisionBlink, waveform: Sine, frequency: 880.0, frequency_end: 180.0, duration: 0.160, volume: 0.20, attack: 0.003, release: 0.045, noise: 0.08),
-        (cue: Slash, waveform: Square, frequency: 620.0, frequency_end: 340.0, duration: 0.075, volume: 0.16, attack: 0.003, release: 0.045, noise: 0.0),
-        (cue: Hit, waveform: Triangle, frequency: 220.0, frequency_end: 88.0, duration: 0.105, volume: 0.26, attack: 0.003, release: 0.045, noise: 0.44),
-        (cue: Pogo, waveform: Sine, frequency: 360.0, frequency_end: 880.0, duration: 0.105, volume: 0.22, attack: 0.003, release: 0.045, noise: 0.0),
-        (cue: Reset, waveform: Sine, frequency: 160.0, frequency_end: 90.0, duration: 0.150, volume: 0.16, attack: 0.003, release: 0.045, noise: 0.0),
-        (cue: Death, waveform: Saw, frequency: 140.0, frequency_end: 48.0, duration: 0.220, volume: 0.24, attack: 0.003, release: 0.045, noise: 0.18),
-        (cue: Respawn, waveform: Triangle, frequency: 440.0, frequency_end: 660.0, duration: 0.145, volume: 0.20, attack: 0.003, release: 0.045, noise: 0.0),
+        (cue: Some(Jump), waveform: Sine, frequency: 460.0, frequency_end: 720.0, duration: 0.085, volume: 0.22, attack: 0.003, release: 0.045, noise: 0.0),
+        (cue: Some(DoubleJump), waveform: Triangle, frequency: 520.0, frequency_end: 940.0, duration: 0.115, volume: 0.22, attack: 0.003, release: 0.045, noise: 0.0),
+        (cue: Some(Dash), waveform: Saw, frequency: 260.0, frequency_end: 110.0, duration: 0.105, volume: 0.18, attack: 0.003, release: 0.045, noise: 0.0),
+        (cue: Some(Blink), waveform: Triangle, frequency: 740.0, frequency_end: 260.0, duration: 0.090, volume: 0.18, attack: 0.003, release: 0.045, noise: 0.0),
+        (cue: Some(PrecisionBlink), waveform: Sine, frequency: 880.0, frequency_end: 180.0, duration: 0.160, volume: 0.20, attack: 0.003, release: 0.045, noise: 0.08),
+        (cue: Some(Slash), waveform: Square, frequency: 620.0, frequency_end: 340.0, duration: 0.075, volume: 0.16, attack: 0.003, release: 0.045, noise: 0.0),
+        (cue: Some(Hit), waveform: Triangle, frequency: 220.0, frequency_end: 88.0, duration: 0.105, volume: 0.26, attack: 0.003, release: 0.045, noise: 0.44),
+        (cue: Some(Pogo), waveform: Sine, frequency: 360.0, frequency_end: 880.0, duration: 0.105, volume: 0.22, attack: 0.003, release: 0.045, noise: 0.0),
+        (cue: Some(Reset), waveform: Sine, frequency: 160.0, frequency_end: 90.0, duration: 0.150, volume: 0.16, attack: 0.003, release: 0.045, noise: 0.0),
+        (cue: Some(Death), waveform: Saw, frequency: 140.0, frequency_end: 48.0, duration: 0.220, volume: 0.24, attack: 0.003, release: 0.045, noise: 0.18),
+        (cue: Some(Respawn), waveform: Triangle, frequency: 440.0, frequency_end: 660.0, duration: 0.145, volume: 0.20, attack: 0.003, release: 0.045, noise: 0.0),
+
+        // Host/frontend cues are authored by id so shell experiences use the
+        // same provider-relative procedural path as gameplay. A packed bank may
+        // override these with higher-fidelity samples when present.
+        (id: Some("ui.menu.move_icon"), waveform: Triangle, frequency: 520.0, frequency_end: 680.0, duration: 0.055, volume: 0.16, attack: 0.002, release: 0.025, noise: 0.0),
+        (id: Some("ui.menu.accept"), waveform: Sine, frequency: 620.0, frequency_end: 920.0, duration: 0.090, volume: 0.18, attack: 0.002, release: 0.040, noise: 0.0),
+        (id: Some("ui.menu.back"), waveform: Triangle, frequency: 520.0, frequency_end: 260.0, duration: 0.085, volume: 0.16, attack: 0.002, release: 0.040, noise: 0.02),
     ],
 )

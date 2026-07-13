@@ -124,19 +124,26 @@ fn assert_home(app: &mut App, context: &str) {
     assert_eq!(primary_players(app), 0, "{context}: zero players at home");
     let selection = app.world().resource::<ActiveAudioSelection>();
     assert!(
-        selection.current().is_none(),
-        "{context}: no provider owns audio playback at home"
-    );
-    assert!(
         matches!(
-            selection.music_authority(),
-            ambition::audio::selection::MusicAuthority::Ungoverned
+            selection.owner(),
+            Some(ambition::sfx::AudioContextOwner::Frontend(_))
         ),
-        "{context}: no session governs music authority at home"
+        "{context}: the exact launcher activation owns frontend audio"
+    );
+    assert_eq!(
+        selection.preferred_track(),
+        Some("a_possible_morning"),
+        "{context}: the launcher owns the host-selected title theme"
     );
     assert!(
-        !selection.sfx_authority().is_governed(),
-        "{context}: no session governs SFX authority at home (ungoverned frontend)"
+        selection.music_authority().allows("a_possible_morning"),
+        "{context}: title music is explicitly authorized"
+    );
+    assert!(
+        selection
+            .sfx_authority()
+            .allows(ambition::sfx::ids::UI_MENU_MOVE),
+        "{context}: frontend menu SFX are authorized without granting gameplay SFX"
     );
     // The simulation — its tick timeline included — sleeps at the title.
     let frozen = sim_tick(app);

@@ -347,7 +347,7 @@ pub fn boss_phase_transition_feedback(
     mut last_phase: Local<
         std::collections::HashMap<String, crate::boss_encounter::BossEncounterPhase>,
     >,
-    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
+    mut sfx: ambition_sfx::SfxWriter,
     // Optional: a headless / camera-less build may not insert the shake resource.
     mut shake: Option<ResMut<ambition_platformer_primitives::camera_ease::CameraShakeState>>,
     // Boss entities — phase read from the entity-local state + the actor that
@@ -455,7 +455,7 @@ mod phase_feedback_tests {
 
     fn test_app() -> App {
         let mut app = App::new();
-        app.add_message::<ambition_sfx::SfxMessage>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<ambition_vfx::EffectRequest>();
         app.add_message::<ambition_vfx::vfx::VfxMessage>();
         app.init_resource::<CameraShakeState>();

@@ -44,7 +44,7 @@ pub fn detect_cut_rope_rope_cut(
     mut state: ResMut<CutRopeBossArenaState>,
     mut hit_events: MessageReader<HitEvent>,
     mut reset_events: MessageReader<ResetRoomFeaturesEvent>,
-    mut sfx: MessageWriter<SfxMessage>,
+    mut sfx: SfxWriter,
     mut vfx: MessageWriter<VfxMessage>,
     mut gate_writer: MessageWriter<EncounterGate>,
 ) {

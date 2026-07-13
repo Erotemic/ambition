@@ -291,20 +291,20 @@ pub(crate) fn publish_resident_sfx_bank_authority(
     let Some(bank) = bank else {
         return;
     };
-    let fingerprints = bank.0.content_fingerprints();
+    let fingerprints = bank.fingerprints_for(ambition_content::AMBITION_CONTENT_PROVIDER);
+    if fingerprints.is_empty() {
+        return;
+    }
     let ids: std::collections::BTreeSet<_> = fingerprints.keys().copied().collect();
     if let Err(error) = registry.register(ambition_content::AMBITION_CONTENT_PROVIDER, fingerprints)
     {
         warn!("resident sfx bank registration failed: {error}");
     }
-    // Refresh a statically-selected Ambition direct-entry selection (owner
-    // None). A session-routed host selects per activation through the bridge, so
-    // leave those (owner Some, or None-at-title) untouched.
-    if selection.owner().is_none()
-        && selection.provider_id() == Some(ambition_content::AMBITION_CONTENT_PROVIDER)
-    {
-        selection.set_current_sfx_ids(ids);
-    }
+    // Refresh whichever live context actually belongs to Ambition. This is
+    // identity-safe for gameplay, direct entry, and the Ambition frontend; a
+    // bank arriving late for one provider cannot expand another provider's
+    // authority.
+    selection.refresh_provider_sfx_ids(ambition_content::AMBITION_CONTENT_PROVIDER, ids);
     *published = true;
 }
 

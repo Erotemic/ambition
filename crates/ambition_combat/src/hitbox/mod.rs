@@ -37,7 +37,7 @@ use super::events::{HitEvent, HitKnockback, HitMode, HitSource, HitTarget};
 use super::targeting::{damage_lands, effective_faction};
 use super::util::midpoint;
 use crate::{actor_faction_from_hit_side, hit_side_from_actor_faction};
-use ambition_sfx::SfxMessage;
+use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_time::WorldTime;
 use ambition_vfx::vfx::{DebrisBurstMessage, PhysicsDebrisCue};
 use ambition_vfx::vfx::{ParticleKind, VfxMessage};
@@ -116,7 +116,7 @@ pub fn apply_hitbox_damage(
     // knockback side (§B11). Looked up by victim entity; a bare test hurtbox
     // without a body frame falls back to the engine default down.
     victim_frames: Query<&ambition_platformer_primitives::frame_env::ResolvedMotionFrame>,
-    mut sfx: MessageWriter<SfxMessage>,
+    mut sfx: SfxWriter,
     mut vfx: MessageWriter<VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut hit_events: MessageWriter<HitEvent>,

@@ -53,7 +53,7 @@ pub fn gravity_flip_switch_system(
     // that is a design call about the Noether Chamber, not a refactor.)
     players: Query<&BodyKinematics, crate::actor::PrimaryPlayerOnly>,
     mut switches: Query<&mut GravityFlipSwitch>,
-    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
+    mut sfx: ambition_sfx::SfxWriter,
 ) {
     let Ok(kin) = players.single() else {
         return;
@@ -107,7 +107,7 @@ mod tests {
     #[test]
     fn gravity_switch_flips_on_entry_and_rearms_on_exit() {
         let mut app = App::new();
-        app.add_message::<ambition_sfx::SfxMessage>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.init_resource::<GravityField>();
         app.init_resource::<BaseGravity>();
         app.add_systems(Update, gravity_flip_switch_system);

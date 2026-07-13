@@ -45,7 +45,7 @@ pub fn apply_quest_effects(
 pub fn apply_switch_effects(
     mut effects: MessageReader<SwitchActivated>,
     mut switch_activations: ResMut<crate::encounter::SwitchActivationQueue>,
-    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
+    mut sfx: ambition_sfx::SfxWriter,
 ) {
     for effect in effects.read() {
         switch_activations.0.push(effect.activation.clone());
@@ -61,7 +61,7 @@ pub fn apply_switch_effects(
 /// bare SFX requests.
 pub fn apply_gameplay_sfx_effects(
     mut effects: MessageReader<GameplaySfxRequested>,
-    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
+    mut sfx: ambition_sfx::SfxWriter,
 ) {
     for effect in effects.read() {
         sfx.write(ambition_sfx::SfxMessage::Play {

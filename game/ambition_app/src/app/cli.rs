@@ -182,19 +182,27 @@ pub fn run_visible() {
         } else {
             "no DISPLAY / WAYLAND_DISPLAY env var"
         };
-        eprintln!(
-            "ambition_app: running headless ({reason}); use `--bin headless` for the dedicated runner"
-        );
-        match crate::headless::run_headless(max_ticks) {
-            Ok(report) => {
-                println!("{report}");
-                return;
-            }
-            Err(error) => {
-                eprintln!("headless fallback failed: {error}");
-                std::process::exit(1);
+        if cli_direct_entry() {
+            eprintln!(
+                "ambition_app: running the explicit direct sandbox headlessly ({reason})"
+            );
+            match crate::headless::run_headless(max_ticks) {
+                Ok(report) => {
+                    println!("{report}");
+                    return;
+                }
+                Err(error) => {
+                    eprintln!("direct headless run failed: {error}");
+                    std::process::exit(1);
+                }
             }
         }
+        eprintln!(
+            "ambition_app: running the production shared host headlessly ({reason})"
+        );
+        let report = run_shared_host_headless(max_ticks);
+        println!("{report}");
+        return;
     }
     let shell_hosted = !cli_direct_entry();
     let mut app = build_visible_app(VisibleRenderMode::Windowed, shell_hosted);
@@ -205,6 +213,71 @@ pub fn run_visible() {
         super::shell_host::compose_ambition_startup_sequence(&mut app);
     }
     app.run();
+}
+
+/// Observable result of stepping the exact production shared-host composition
+/// without a window or GPU backend.
+#[cfg(not(target_arch = "wasm32"))]
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SharedHostHeadlessReport {
+    pub ticks_run: u32,
+    pub active_route: Option<String>,
+    pub launcher_active: bool,
+    pub gameplay_session_active: bool,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl std::fmt::Display for SharedHostHeadlessReport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "shared host: {} tick(s), route={}, launcher={}, gameplay_session={}",
+            self.ticks_run,
+            self.active_route.as_deref().unwrap_or("<none>"),
+            self.launcher_active,
+            self.gameplay_session_active,
+        )
+    }
+}
+
+/// Step the same multi-game host that the windowed binary ships, using Bevy's
+/// no-window/no-backend presentation mode and deterministic frame time.
+///
+/// This is intentionally distinct from [`crate::headless::run_headless`], the
+/// explicit direct-sandbox runner. Startup, launcher, providers, session bridge,
+/// frontend audio context, and host-relative routing are all composed here.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn run_shared_host_headless(max_ticks: u32) -> SharedHostHeadlessReport {
+    use bevy::time::TimeUpdateStrategy;
+    use std::time::Duration;
+
+    let mut app = build_visible_app(VisibleRenderMode::NoWindow, true);
+    super::shell_host::compose_ambition_startup_sequence(&mut app);
+    app.insert_resource(TimeUpdateStrategy::ManualDuration(Duration::from_secs_f64(
+        1.0 / 60.0,
+    )));
+    for _ in 0..max_ticks {
+        app.update();
+    }
+
+    let world = app.world();
+    let active_route = world
+        .get_resource::<ambition::game_shell::ShellRouter>()
+        .and_then(|router| router.active.as_ref())
+        .map(|active| active.route_id.as_str().to_owned());
+    let launcher_active = world
+        .get_resource::<ambition::game_shell::ShellLauncherState>()
+        .is_some_and(|launcher| launcher.active);
+    let gameplay_session_active = world
+        .get_resource::<ambition::game_shell::ActiveGameplaySession>()
+        .is_some_and(|session| session.0.is_some());
+
+    SharedHostHeadlessReport {
+        ticks_run: max_ticks,
+        active_route,
+        launcher_active,
+        gameplay_session_active,
+    }
 }
 
 /// How [`build_visible_app`] creates its render surface.

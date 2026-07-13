@@ -153,7 +153,7 @@ fn ambition_activate_session(
         // resident resources below are its published projection. At a frontend
         // route there is no session, so this authority is absent by
         // construction — not merely gated.
-        active_session.attach_world(ambition::game_shell::SessionWorldRef::new(room_set.clone()));
+        active_session.attach_world_for(activation.activation_id, ambition::game_shell::SessionWorldRef::new(room_set.clone()));
 
         commands.insert_resource(prepared.ldtk_index.clone());
         commands.insert_resource(world);
@@ -173,9 +173,15 @@ pub fn compose_ambition_shell_host(app: &mut App) {
     // The title screen has its own theme. The engine's frontend audio policy
     // loops this track whenever no gameplay session is live (and enforces
     // silence otherwise); the host names the song, the engine owns the seam.
-    app.insert_resource(ambition::audio::selection::FrontendMusicPolicy::title(
-        "a_possible_morning",
-    ));
+    app.insert_resource(
+        ambition::audio::selection::FrontendAudioProfile::new(ambition_content::AMBITION_CONTENT_PROVIDER)
+            .with_title_track("a_possible_morning")
+            .with_sfx([
+                ambition::sfx::ids::UI_MENU_MOVE,
+                ambition::sfx::ids::UI_MENU_ACCEPT,
+                ambition::sfx::ids::UI_MENU_BACK,
+            ]),
+    );
 
     app.add_plugins((
         ambition::game_shell::MinimalShellPlugins,

@@ -419,7 +419,7 @@ fn authored_sanic_speed_clears_the_depth_crossover_before_any_launch() {
 #[test]
 fn crossing_a_visible_distance_marker_emits_the_standard_sfx_message() {
     let mut app = App::new();
-    app.add_message::<ambition::sfx::SfxMessage>();
+    app.add_message::<ambition::sfx::OwnedSfxMessage>();
     app.world_mut().spawn((
         ambition::actors::actor::PrimaryPlayer,
         ae::BodyKinematics {
@@ -434,11 +434,11 @@ fn crossing_a_visible_distance_marker_emits_the_standard_sfx_message() {
 
     let messages = app
         .world()
-        .resource::<bevy::prelude::Messages<ambition::sfx::SfxMessage>>();
+        .resource::<bevy::prelude::Messages<ambition::sfx::OwnedSfxMessage>>();
     assert!(
         messages
             .iter_current_update_messages()
-            .any(|message| matches!(message, ambition::sfx::SfxMessage::Dash { .. })),
+            .any(|message| matches!(message.request, ambition::sfx::SfxMessage::Dash { .. })),
         "the first visual marker emits the first standard diagnostic cue"
     );
     let mut q = app.world_mut().query::<&SanicActState>();
@@ -448,7 +448,7 @@ fn crossing_a_visible_distance_marker_emits_the_standard_sfx_message() {
 #[test]
 fn semantic_utility_toggles_both_sanic_forms_and_is_consumed() {
     let mut app = App::new();
-    app.add_message::<ambition::sfx::SfxMessage>();
+    app.add_message::<ambition::sfx::OwnedSfxMessage>();
     let entity = app
         .world_mut()
         .spawn((
@@ -517,7 +517,7 @@ fn hosted_rules_run_only_in_sanic_rooms_and_global_rules_run_everywhere() {
         ambition::engine::add_headless_foundation(&mut app);
         // The focused rules-only shell omits PlatformerEnginePlugins, whose
         // SimCoreResourcesPlugin normally registers the shared SFX message.
-        app.add_message::<ambition::sfx::SfxMessage>();
+        app.add_message::<ambition::sfx::OwnedSfxMessage>();
         app.insert_resource(ActiveRoomMetadata(RoomMetadata {
             mode: mode.map(str::to_string),
             ..Default::default()
@@ -787,7 +787,7 @@ fn rules_plugin_registers_its_mandatory_sfx_message_channel() {
     let mut app = App::new();
     assert!(
         !app.world()
-            .contains_resource::<bevy::prelude::Messages<ambition::sfx::SfxMessage>>(),
+            .contains_resource::<bevy::prelude::Messages<ambition::sfx::OwnedSfxMessage>>(),
         "the test must begin without the engine group's SFX registrar"
     );
 
@@ -795,8 +795,8 @@ fn rules_plugin_registers_its_mandatory_sfx_message_channel() {
 
     assert!(
         app.world().contains_resource::<
-            bevy::prelude::Messages<ambition::sfx::SfxMessage>,
+            bevy::prelude::Messages<ambition::sfx::OwnedSfxMessage>,
         >(),
-        "SanicRulesPlugin owns a mandatory MessageWriter<SfxMessage> dependency and must register it when a thin host has not"
+        "SanicRulesPlugin owns a mandatory SfxWriter dependency and must register it when a thin host has not"
     );
 }

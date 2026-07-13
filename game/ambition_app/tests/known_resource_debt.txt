@@ -37,7 +37,6 @@ ambition_app::app::player_clone::PlayerCloneClock
 ambition_app::app::player_clone::SpawnPlayerCloneRequest
 ambition_asset_manager::sandbox_assets::SandboxAssetCatalog
 ambition_audio::bank_asset::SfxBankAssetPath
-ambition_audio::music::catalog::MusicCueCatalog
 ambition_audio::spec::MusicRegistry
 ambition_audio::spec::SfxRegistry
 ambition_characters::actor::character_catalog::CharacterCatalog
@@ -171,7 +170,7 @@ bevy_ecs::message::messages::Messages<ambition_portal::messages::TogglePortalGun
 bevy_ecs::message::messages::Messages<ambition_portal::transit::BodyTeleported>
 bevy_ecs::message::messages::Messages<ambition_portal::transit::PortalBodyTransited>
 bevy_ecs::message::messages::Messages<ambition_projectiles::spawn_message::SpawnProjectile>
-bevy_ecs::message::messages::Messages<ambition_sfx::message::SfxMessage>
+bevy_ecs::message::messages::Messages<ambition_sfx::message::OwnedSfxMessage>
 bevy_ecs::message::messages::Messages<ambition_vfx::EffectRequest>
 bevy_ecs::message::messages::Messages<ambition_vfx::vfx::DebrisBurstMessage>
 bevy_ecs::message::messages::Messages<ambition_vfx::vfx::ExplosionRequest>
@@ -186,12 +185,22 @@ bevy_ecs::message::messages::Messages<bevy_state::state::transitions::StateTrans
 bevy_state::state::resources::NextState<ambition_platformer_primitives::schedule::GameMode>
 bevy_state::state::resources::State<ambition_platformer_primitives::schedule::GameMode>
 
-# Reviewed diff (2026-07-12, movement-kernel landing run): the App-local catalog
-# registries from the character/audio authority migration. All four are
-# ASSEMBLED AUTHORED CONTENT (immutable after provider registration), not
-# mutable sim state — candidates for SIM_RESOURCE_EXCLUSIONS or registration
-# when the catalog migration closes.
-ambition_audio::catalog::AdaptiveCueRegistry
+# Reviewed audio-composition resources (2026-07-12 through 2026-07-14):
+# immutable App-local authored catalogs, provider-qualified bank/cache state,
+# exact frontend/gameplay audio ownership, playback evidence, and neutral
+# context-change queues. These are presentation/composition state rather than
+# rewindable simulation state; candidates for explicit exclusion or dedicated
+# session registration as the rollback boundary matures.
+ambition_audio::bank_asset::PendingSfxBankHandles
+ambition_audio::bank_asset::SfxBankAssetCatalog
+ambition_audio::bank_asset::SfxBankResource
+ambition_audio::catalog::SfxBankRegistry
+ambition_audio::music::catalog::AdaptiveMusicCatalogRegistry
+ambition_audio::render::ProviderSfxHandleCache
+ambition_audio::render::SfxPlaybackState
+ambition_audio::selection::FrontendAudioProfile
+ambition_sfx::message::SfxEmissionContext
+bevy_ecs::message::messages::Messages<ambition_audio::selection::AudioContextChanged>
 ambition_audio::catalog::AudioCatalogRegistry
 ambition_characters::actor::character_catalog::registry::CharacterCatalogDefaults
 ambition_characters::actor::character_catalog::registry::CharacterCatalogOwners

@@ -16,7 +16,7 @@ use ambition::dev_tools::dev_tools::EditableMovementTuning;
 use ambition::engine_core::RoomGeometry;
 use ambition::engine_core::{self as ae, AabbExt};
 use ambition::render::rendering::spawn_room_visuals;
-use ambition::sfx::SfxMessage;
+use ambition::sfx::{SfxMessage, SfxWriter};
 use ambition::vfx::{ParticleKind, VfxMessage};
 
 use super::super::feedback::SandboxEventWriters;
@@ -24,7 +24,7 @@ use super::{ground_gap_below_feet, RoomClock};
 
 pub(crate) fn reset_sandbox(
     world: &ae::World,
-    sfx: &mut MessageWriter<SfxMessage>,
+    sfx: &mut SfxWriter,
     vfx: &mut MessageWriter<VfxMessage>,
     motion_model: &mut ae::MotionModel,
     clusters: &mut ae::BodyClustersMut<'_>,
@@ -113,7 +113,7 @@ fn apply_room_transition_resets(
 
 pub(crate) fn load_room(
     commands: &mut Commands,
-    sfx: &mut MessageWriter<SfxMessage>,
+    sfx: &mut SfxWriter,
     vfx: &mut MessageWriter<VfxMessage>,
     motion_model: &mut ae::MotionModel,
     clusters: &mut ae::BodyClustersMut<'_>,

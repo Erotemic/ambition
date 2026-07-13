@@ -20,7 +20,6 @@ use crate::trace::GameplayTraceBuffer;
 use ambition_characters::actor::BodyHealth;
 use ambition_engine_core::RoomGeometry;
 use ambition_input::ControlFrame;
-use ambition_sfx::SfxMessage;
 use ambition_vfx::vfx::DebrisBurstMessage;
 use ambition_vfx::vfx::VfxMessage;
 
@@ -74,7 +73,7 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     // Projectile state lives on the player; this counter only gives in-flight
     // projectile entities stable spawn order.
     app.init_resource::<crate::projectile::ProjectileSeqCounter>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<SetFlagRequested>();

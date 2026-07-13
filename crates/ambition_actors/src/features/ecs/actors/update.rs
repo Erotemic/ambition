@@ -636,7 +636,7 @@ pub(crate) fn integrate_actor_body(
     motion_frame: ae::MotionFrame,
     dt: f32,
     feel: crate::time::feel::SandboxFeelTuning,
-    sfx: &mut MessageWriter<ambition_sfx::SfxMessage>,
+    sfx: &mut ambition_sfx::SfxWriter,
     vfx: &mut MessageWriter<ambition_vfx::vfx::VfxMessage>,
     hit_events: &mut MessageWriter<HitEvent>,
 ) {
@@ -796,7 +796,7 @@ pub fn integrate_sim_bodies(
     steering: Res<ActorSteering>,
     editable_tuning: Res<ambition_dev_tools::dev_tools::EditableMovementTuning>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
-    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
+    mut sfx: ambition_sfx::SfxWriter,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut hit_events: MessageWriter<HitEvent>,
     mut actors: Query<
@@ -999,7 +999,7 @@ pub fn sync_actor_read_model(
 /// strike + boss damage use).
 #[allow(clippy::too_many_arguments)]
 pub fn apply_actor_contact_damage(
-    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
+    mut sfx: ambition_sfx::SfxWriter,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
     mut hit_events: MessageWriter<HitEvent>,

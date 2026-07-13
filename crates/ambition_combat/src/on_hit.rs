@@ -32,7 +32,7 @@ use ambition_entity_catalog::EffectRef;
 
 use super::components::{ActorAggression, ActorFaction};
 use super::targeting::{damage_lands, effective_faction};
-use ambition_sfx::SfxMessage;
+use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_vfx::Hitbox;
 
 // ---------------------------------------------------------------------------
@@ -226,7 +226,7 @@ pub fn apply_pogo_bounce(
         &mut ae::BodyKinematics,
         &mut ambition_engine_core::BodyGroundState,
     )>,
-    mut sfx: MessageWriter<SfxMessage>,
+    mut sfx: SfxWriter,
 ) {
     for msg in messages.read() {
         if msg.effect.key != POGO_BOUNCE_KEY {

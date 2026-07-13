@@ -51,7 +51,7 @@ pub fn fire_shockwave_system(
         &mut BodyMana,
     )>,
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
-    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
+    mut sfx: ambition_sfx::SfxWriter,
 ) {
     for (entity, control, held, kin, resolved_frame, mut mana) in &mut wielders {
         if !control.0.melee_pressed || control.0.shield_held {

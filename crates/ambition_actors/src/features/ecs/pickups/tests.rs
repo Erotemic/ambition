@@ -48,7 +48,7 @@ fn collect_marks_only_the_overlapping_pickup() {
     let mut app = App::new();
     app.insert_resource(GameplayBanner::default());
     app.add_message::<PlayerHealRequested>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<SetFlagRequested>();
     app.add_systems(Update, collect_ecs_pickups);
@@ -75,7 +75,7 @@ fn currency_pickup_credits_the_player_wallet() {
     let mut app = App::new();
     app.insert_resource(GameplayBanner::default());
     app.add_message::<PlayerHealRequested>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<SetFlagRequested>();
     app.add_systems(Update, collect_ecs_pickups);
@@ -125,7 +125,7 @@ fn collecting_an_ability_pickup_grants_it_to_the_catalog() {
     app.insert_resource(GameplayBanner::default());
     app.insert_resource(crate::items::OwnedItems::default());
     app.add_message::<PlayerHealRequested>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<SetFlagRequested>();
     app.add_systems(Update, collect_ecs_pickups);
@@ -171,7 +171,7 @@ fn collect_is_a_noop_with_no_player() {
     let mut app = App::new();
     app.insert_resource(GameplayBanner::default());
     app.add_message::<PlayerHealRequested>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<SetFlagRequested>();
     app.add_systems(Update, collect_ecs_pickups);

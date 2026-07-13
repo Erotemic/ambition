@@ -43,7 +43,7 @@ use ambition_characters::brain::action_set::{
 };
 use ambition_characters::brain::{ActorActionMessage, ActorControl};
 use ambition_entity_catalog::placements::DamageKind;
-use ambition_sfx::{SfxId, SfxMessage};
+use ambition_sfx::{SfxId, SfxMessage, SfxWriter};
 use ambition_time::WorldTime;
 
 /// The canonical verb id a body's basic melee swing binds to in its moveset.
@@ -716,7 +716,7 @@ pub fn dispatch_move_events(
         // scales the shot's damage/speed at fire (trigger-resolve).
         Option<&ambition_characters::equipment::WornEquipment>,
     )>,
-    mut sfx: MessageWriter<SfxMessage>,
+    mut sfx: SfxWriter,
     mut vfx: MessageWriter<ambition_vfx::VfxMessage>,
     mut actions: MessageWriter<ActorActionMessage>,
 ) {

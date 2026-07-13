@@ -50,7 +50,7 @@ fn victim_side_enemy_body_hit_does_not_damage_features() {
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<ActorStimulus>();
@@ -90,7 +90,7 @@ fn enemy_charge_crash_is_processed_as_enemy_damage() {
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<ActorStimulus>();
@@ -142,7 +142,7 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<ActorStimulus>();
@@ -230,7 +230,7 @@ fn a_sustained_overlap_lands_one_hit_per_iframe_window_not_one_per_frame() {
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<ActorStimulus>();
@@ -284,7 +284,7 @@ fn slash_clung_surface_walker(cling_breaks_on_hit: bool) -> (App, bevy::prelude:
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<ActorStimulus>();
@@ -403,7 +403,7 @@ fn player_slash_shatters_a_breakable() {
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<ActorStimulus>();
@@ -762,7 +762,7 @@ fn shield_test_app() -> App {
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<ActorStimulus>();
@@ -962,7 +962,7 @@ fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<ActorStimulus>();
@@ -1032,7 +1032,7 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
     app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_message::<ActorStimulus>();

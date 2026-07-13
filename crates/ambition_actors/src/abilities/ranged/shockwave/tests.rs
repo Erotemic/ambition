@@ -9,7 +9,7 @@ use crate::features::{ActorFaction, CenteredAabb, FeatureSimEntity, Hitbox, Hitb
 
 fn test_app() -> App {
     let mut app = App::new();
-    app.add_message::<ambition_sfx::SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ambition_vfx::EffectRequest>();
     app.add_systems(
         Update,

@@ -437,11 +437,34 @@ pub fn install_sanic_content(app: &mut App) {
                 sfx: vec![
                     sanic_cue(ambition::audio::spec::SoundCueKey::Dash, 900.0, 1400.0),
                     sanic_cue(ambition::audio::spec::SoundCueKey::Jump, 700.0, 1200.0),
+                    sanic_open_cue("ui.menu.move_icon", 760.0, 980.0),
+                    sanic_open_cue("ui.menu.accept", 880.0, 1320.0),
+                    sanic_open_cue("ui.menu.back", 620.0, 360.0),
                 ],
             }),
         )
         .expect("Sanic audio catalogs should be valid"),
     );
+}
+
+/// An open provider-local procedural cue for shell/menu vocabulary.
+fn sanic_open_cue(
+    id: &str,
+    frequency: f32,
+    frequency_end: f32,
+) -> ambition::audio::spec::SfxSpec {
+    ambition::audio::spec::SfxSpec {
+        cue: None,
+        id: Some(id.to_owned()),
+        waveform: ambition::audio::spec::WaveformSpec::Square,
+        frequency,
+        frequency_end,
+        duration: 0.09,
+        volume: 0.35,
+        attack: 0.004,
+        release: 0.045,
+        noise: 0.0,
+    }
 }
 
 /// A bright, fast procedural cue spec in Sanic's voice.
@@ -451,7 +474,8 @@ fn sanic_cue(
     frequency_end: f32,
 ) -> ambition::audio::spec::SfxSpec {
     ambition::audio::spec::SfxSpec {
-        cue,
+        cue: Some(cue),
+        id: None,
         waveform: ambition::audio::spec::WaveformSpec::Square,
         frequency,
         frequency_end,
@@ -571,7 +595,7 @@ impl Plugin for SanicRulesPlugin {
     fn build(&self, app: &mut App) {
         // The plugin OWNS its mandatory message channels: three of its systems
         // write SFX cues, so a thin host without the audio stack still builds.
-        app.add_message::<ambition::sfx::SfxMessage>();
+        app.add_message::<ambition::sfx::OwnedSfxMessage>();
         use bevy::prelude::IntoScheduleConfigs;
         let sim = ambition::platformer::schedule::SimScheduleExt::sim_schedule(app);
         app.init_resource::<ball_dash::BallDashTuning>();
@@ -640,7 +664,7 @@ fn toggle_sanic_form(
         &mut ambition::characters::actor::WornCharacter,
         &ae::BodyKinematics,
     )>,
-    mut sfx: bevy::prelude::MessageWriter<ambition::sfx::SfxMessage>,
+    mut sfx: ambition::sfx::SfxWriter,
 ) {
     let Some(entity) = subject.and_then(|subject| subject.0) else {
         return;
@@ -673,7 +697,7 @@ fn spawn_sanic_mode_owner(
     mut commands: bevy::prelude::Commands,
     existing: bevy::prelude::Query<(), bevy::prelude::With<SanicActState>>,
     session: Option<bevy::prelude::Res<ambition::platformer::lifecycle::ActiveSessionScope>>,
-    mut sfx: bevy::prelude::MessageWriter<ambition::sfx::SfxMessage>,
+    mut sfx: ambition::sfx::SfxWriter,
 ) {
     use ambition::platformer::lifecycle::{SessionSpawnScope, SpawnSessionScopedExt};
     // Sleep when a session-scoped host has retired the live session (i.e. at the
@@ -727,7 +751,7 @@ fn emit_sanic_milestone_sfx(
         bevy::prelude::With<ambition::actors::actor::PrimaryPlayer>,
     >,
     mut act: bevy::prelude::Query<&mut SanicActState>,
-    mut sfx: bevy::prelude::MessageWriter<ambition::sfx::SfxMessage>,
+    mut sfx: ambition::sfx::SfxWriter,
 ) {
     let Ok(kin) = player.single() else {
         return;

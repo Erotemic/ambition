@@ -23,7 +23,7 @@ use crate::enemy_projectile::EnemyProjectileSpawn;
 #[cfg(test)]
 use crate::time::feel::SandboxFeelTuning;
 use ambition_characters::brain::{action_set::ActionRequest, ActorActionMessage};
-use ambition_sfx::SfxMessage;
+use ambition_sfx::{SfxMessage, SfxWriter};
 
 /// Recoil applied to the firing enemy along the negative fire
 /// direction. Per-archetype because PirateOnShark visibly knocks
@@ -62,7 +62,7 @@ const SHOOT_ANIM_HOLD_SECS: f32 = 0.18;
 pub fn spawn_enemy_projectiles_from_brain_actions(
     mut messages: MessageReader<ActorActionMessage>,
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
-    mut sfx: MessageWriter<SfxMessage>,
+    mut sfx: SfxWriter,
     mut actors: Query<Option<super::actor_clusters::ActorClusterQueryData>>,
     // Disjoint from `actors` — `ActorClusterQueryData` carries no `BodyAnimFacts`,
     // so this second view borrows the firing body's overlay-pose facts without

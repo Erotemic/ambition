@@ -12,7 +12,7 @@
 
 use ambition::input::ControlFrame;
 use ambition::platformer::schedule::GameMode;
-use ambition::sfx::SfxMessage;
+use ambition::sfx::{OwnedSfxMessage, SfxMessage};
 use bevy::asset::AssetPlugin;
 use bevy::ecs::message::Messages;
 use bevy::image::ImagePlugin;
@@ -45,10 +45,10 @@ fn write_control_frame(app: &mut App, frame: ControlFrame) {
 }
 
 fn count_reset_messages(app: &App) -> usize {
-    let messages = app.world().resource::<Messages<SfxMessage>>();
+    let messages = app.world().resource::<Messages<OwnedSfxMessage>>();
     messages
         .iter_current_update_messages()
-        .filter(|m| matches!(m, SfxMessage::Reset { .. }))
+        .filter(|m| matches!(m.request, SfxMessage::Reset { .. }))
         .count()
 }
 
@@ -131,7 +131,7 @@ fn scripted_heterogeneous_input_sequence_runs_to_completion() {
     // If we got here without panicking the sim accepted every input
     // combination. Light sanity check on the message channel: it
     // exists and is readable.
-    let messages = app.world().resource::<Messages<SfxMessage>>();
+    let messages = app.world().resource::<Messages<OwnedSfxMessage>>();
     let _seen: usize = messages.iter_current_update_messages().count();
 }
 
@@ -147,10 +147,10 @@ fn scripted_thirty_idle_frames_emit_no_player_lifecycle_events() {
         // The Reset message channel is the cheapest gate. Death
         // requires hazard contact; in an empty room with no contacts
         // the player just falls until ground.
-        let messages = app.world().resource::<Messages<SfxMessage>>();
+        let messages = app.world().resource::<Messages<OwnedSfxMessage>>();
         let lifecycle_count = messages
             .iter_current_update_messages()
-            .filter(|m| matches!(m, SfxMessage::Reset { .. } | SfxMessage::Death { .. }))
+            .filter(|m| matches!(m.request, SfxMessage::Reset { .. } | SfxMessage::Death { .. }))
             .count();
         assert_eq!(
             lifecycle_count, 0,

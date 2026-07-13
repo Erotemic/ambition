@@ -1,14 +1,13 @@
-//! Bevy `Asset` + `AssetLoader` for the packed SFX bank.
+//! Provider-qualified SFX bank loading and playback.
 //!
-//! Hosts decide *which* bank path to load by inserting [`SfxBankAssetPath`].
-//! This module owns the reusable pieces after that: decode the `.bank` /
-//! `.sfxbank` asset, promote it into [`SfxBankResource`], refresh the typed SFX
-//! handles in [`AudioLibrary`], and drain [`ambition_sfx::SfxMessage`] into the
-//! Kira SFX channel.
+//! A Bevy App may cache banks for many linked providers. Playback never reads a
+//! process-global "current bank": it resolves through the active audio
+//! context's provider and the request's captured owner.
 
+use std::collections::BTreeMap;
 use std::sync::Arc;
 
-use ambition_sfx::{BankProvider, SfxError, SfxMessage, SfxProvider};
+use ambition_sfx::{BankProvider, OwnedSfxMessage, SfxError, SfxId, SfxProvider};
 use bevy::asset::{
     io::Reader, Asset, AssetApp, AssetLoader, AssetServer, Assets, Handle, LoadContext,
 };
@@ -19,28 +18,145 @@ use bevy::prelude::{
 use bevy::reflect::TypePath;
 use bevy_kira_audio::prelude::{AudioChannel, AudioControl, AudioSource as KiraAudioSource};
 
-use crate::library::{sfx_message_target_id, AudioLibrary, SfxChannel, SfxMessageCue, SoundCue};
-use crate::render::SfxBankHandleCache;
+use crate::catalog::SfxBankRegistry;
+use crate::library::{sfx_message_target_id, SfxChannel};
+use crate::render::{ProviderSfxHandleCache, SfxPlaybackRecord, SfxPlaybackState};
 use crate::selection::ActiveAudioSelection;
 use crate::web_unlock::AUDIO_LOG_TARGET;
 
-/// Host-supplied Bevy asset path for the async bank load.
-///
-/// The path usually comes from an app/content catalog. Keeping that resolution
-/// outside `ambition_audio` lets the reusable loader avoid naming any one
-/// game's asset profile type.
+/// Host-supplied provider-qualified asset path for one packed bank.
 #[derive(Resource, Clone, Debug)]
-pub struct SfxBankAssetPath(pub String);
+pub struct SfxBankAssetPath {
+    pub provider_id: String,
+    pub asset_path: String,
+}
 
-/// Process-wide handle to the loaded SFX bank, when one was found at startup.
-/// Wrapped in `Arc` so systems that need to play catalog SFX can clone cheaply
-/// and look up by id without re-reading the file.
-#[derive(Resource, Clone)]
-pub struct SfxBankResource(pub Arc<BankProvider>);
+impl SfxBankAssetPath {
+    pub fn new(provider_id: impl Into<String>, asset_path: impl Into<String>) -> Self {
+        let provider_id = provider_id.into();
+        assert!(!provider_id.trim().is_empty(), "SFX bank provider id cannot be empty");
+        Self {
+            provider_id,
+            asset_path: asset_path.into(),
+        }
+    }
+}
 
-/// Loaded SFX-bank asset. Wraps the parsed [`BankProvider`] in an `Arc` so
-/// the [`SfxBankResource`] and any future direct consumers can share it
-/// without re-decoding.
+/// Provider-composable packed-bank paths. Hosts may register any number of
+/// linked providers; the loader caches all of them while playback remains
+/// governed by the active audio context.
+#[derive(Resource, Clone, Debug, Default)]
+pub struct SfxBankAssetCatalog {
+    paths: BTreeMap<String, String>,
+}
+
+impl SfxBankAssetCatalog {
+    pub fn register(
+        &mut self,
+        provider_id: impl Into<String>,
+        asset_path: impl Into<String>,
+    ) -> Result<(), String> {
+        let provider_id = provider_id.into();
+        let asset_path = asset_path.into();
+        if provider_id.trim().is_empty() || asset_path.trim().is_empty() {
+            return Err("SFX bank provider and asset path must not be empty".to_owned());
+        }
+        if let Some(existing) = self.paths.get(&provider_id) {
+            if existing == &asset_path {
+                return Ok(());
+            }
+            return Err(format!(
+                "SFX bank provider '{provider_id}' registered both '{existing}' and '{asset_path}'"
+            ));
+        }
+        self.paths.insert(provider_id, asset_path);
+        Ok(())
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = (&str, &str)> {
+        self.paths
+            .iter()
+            .map(|(provider, path)| (provider.as_str(), path.as_str()))
+    }
+}
+
+pub trait SfxBankAssetAppExt {
+    fn register_sfx_bank_asset(
+        &mut self,
+        provider_id: impl Into<String>,
+        asset_path: impl Into<String>,
+    ) -> &mut Self;
+}
+
+impl SfxBankAssetAppExt for App {
+    fn register_sfx_bank_asset(
+        &mut self,
+        provider_id: impl Into<String>,
+        asset_path: impl Into<String>,
+    ) -> &mut Self {
+        self.world_mut()
+            .get_resource_or_insert_with(SfxBankAssetCatalog::default)
+            .register(provider_id, asset_path)
+            .unwrap_or_else(|error| panic!("{error}"));
+        self
+    }
+}
+
+/// Runtime banks indexed by provider. Cached storage does not confer authority;
+/// [`ActiveAudioSelection`] chooses which provider may resolve a request.
+#[derive(Resource, Clone, Default)]
+pub struct SfxBankResource {
+    providers: BTreeMap<String, Arc<BankProvider>>,
+}
+
+impl SfxBankResource {
+    pub fn register(
+        &mut self,
+        provider_id: impl Into<String>,
+        provider: Arc<BankProvider>,
+    ) -> Result<(), String> {
+        let provider_id = provider_id.into();
+        if let Some(existing) = self.providers.get(&provider_id) {
+            let existing_fingerprints = existing.content_fingerprints();
+            let incoming_fingerprints = provider.content_fingerprints();
+            if existing_fingerprints == incoming_fingerprints {
+                return Ok(());
+            }
+            return Err(format!(
+                "provider '{provider_id}' attempted to replace its loaded SFX bank with different content"
+            ));
+        }
+        self.providers.insert(provider_id, provider);
+        Ok(())
+    }
+
+    pub fn provider(&self, provider_id: &str) -> Option<&dyn SfxProvider> {
+        self.providers
+            .get(provider_id)
+            .map(|provider| provider.as_ref() as &dyn SfxProvider)
+    }
+
+    pub fn ids_for(&self, provider_id: &str) -> std::collections::BTreeSet<SfxId> {
+        self.providers
+            .get(provider_id)
+            .map(|provider| provider.iter_ids().map(|(id, _)| id).collect())
+            .unwrap_or_default()
+    }
+
+    pub fn fingerprints_for(&self, provider_id: &str) -> BTreeMap<SfxId, u64> {
+        self.providers
+            .get(provider_id)
+            .map(|provider| provider.content_fingerprints())
+            .unwrap_or_default()
+    }
+
+    pub fn fingerprint_for(&self, provider_id: &str, id: SfxId) -> Option<u64> {
+        self.providers
+            .get(provider_id)
+            .and_then(|provider| provider.content_fingerprints().get(&id).copied())
+    }
+}
+
 #[derive(Asset, TypePath)]
 pub struct SfxBankAsset {
     pub provider: Arc<BankProvider>,
@@ -58,30 +174,23 @@ pub enum SfxBankLoaderError {
 impl std::fmt::Display for SfxBankLoaderError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::Io(e) => write!(f, "io: {e}"),
-            Self::Sfx(e) => write!(f, "sfx bank: {e}"),
+            Self::Io(error) => write!(f, "io: {error}"),
+            Self::Sfx(error) => write!(f, "sfx bank: {error}"),
         }
     }
 }
 
-impl std::error::Error for SfxBankLoaderError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::Io(e) => Some(e),
-            Self::Sfx(e) => Some(e),
-        }
-    }
-}
+impl std::error::Error for SfxBankLoaderError {}
 
 impl From<std::io::Error> for SfxBankLoaderError {
-    fn from(e: std::io::Error) -> Self {
-        Self::Io(e)
+    fn from(error: std::io::Error) -> Self {
+        Self::Io(error)
     }
 }
 
 impl From<SfxError> for SfxBankLoaderError {
-    fn from(e: SfxError) -> Self {
-        Self::Sfx(e)
+    fn from(error: SfxError) -> Self {
+        Self::Sfx(error)
     }
 }
 
@@ -94,13 +203,12 @@ impl AssetLoader for SfxBankLoader {
         &self,
         reader: &mut dyn Reader,
         _settings: &(),
-        _ctx: &mut LoadContext<'_>,
+        _context: &mut LoadContext<'_>,
     ) -> Result<SfxBankAsset, SfxBankLoaderError> {
         let mut bytes = Vec::new();
         reader.read_to_end(&mut bytes).await?;
-        let provider = BankProvider::from_bytes(bytes)?;
         Ok(SfxBankAsset {
-            provider: Arc::new(provider),
+            provider: Arc::new(BankProvider::from_bytes(bytes)?),
         })
     }
 
@@ -109,10 +217,10 @@ impl AssetLoader for SfxBankLoader {
     }
 }
 
-/// In-flight handle for the async bank load. Removed once
-/// [`promote_loaded_sfx_bank`] sees the asset land.
-#[derive(Resource)]
-pub struct PendingSfxBankHandle(pub Handle<SfxBankAsset>);
+#[derive(Resource, Default)]
+pub struct PendingSfxBankHandles {
+    handles: BTreeMap<String, Handle<SfxBankAsset>>,
+}
 
 pub struct SfxBankAssetPlugin;
 
@@ -120,258 +228,218 @@ impl Plugin for SfxBankAssetPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset::<SfxBankAsset>()
             .register_asset_loader(SfxBankLoader)
+            .init_resource::<SfxBankResource>()
+            .init_resource::<SfxBankAssetCatalog>()
+            .init_resource::<SfxBankRegistry>()
+            .init_resource::<ProviderSfxHandleCache>()
+            .init_resource::<SfxPlaybackState>()
             .add_systems(Startup, kick_off_bank_load)
             .add_systems(Update, promote_loaded_sfx_bank);
     }
 }
 
-/// Startup: if no sync-loaded [`SfxBankResource`] is present, ask the asset
-/// server to fetch the host-selected bank path through Bevy's active
-/// [`bevy::asset::AssetReader`] (loose FS on desktop / Android, HTTP on wasm).
 fn kick_off_bank_load(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    path: Option<Res<SfxBankAssetPath>>,
-    existing: Option<Res<SfxBankResource>>,
+    catalog: Res<SfxBankAssetCatalog>,
+    legacy_path: Option<Res<SfxBankAssetPath>>,
+    banks: Res<SfxBankResource>,
 ) {
-    if existing.is_some() {
-        debug!(
-            target: AUDIO_LOG_TARGET,
-            "ambition audio: sfx bank already loaded synchronously; skipping async load"
-        );
-        return;
+    let mut requested = BTreeMap::<String, String>::new();
+    for (provider, path) in catalog.iter() {
+        requested.insert(provider.to_owned(), path.to_owned());
     }
-    let Some(path) = path else {
-        warn!(
+    if let Some(path) = legacy_path {
+        match requested.get(&path.provider_id) {
+            Some(existing) if existing != &path.asset_path => panic!(
+                "provider '{}' has conflicting SFX bank paths '{}' and '{}'",
+                path.provider_id, existing, path.asset_path
+            ),
+            _ => {
+                requested.insert(path.provider_id.clone(), path.asset_path.clone());
+            }
+        }
+    }
+    let mut pending = PendingSfxBankHandles::default();
+    for (provider_id, asset_path) in requested {
+        if banks.provider(&provider_id).is_some() {
+            continue;
+        }
+        info!(
             target: AUDIO_LOG_TARGET,
-            "ambition audio: no SfxBankAssetPath resource; SFX will play silent stubs"
+            "ambition audio: loading provider '{}' SFX bank from '{}'",
+            provider_id,
+            asset_path,
         );
-        return;
-    };
-    info!(
-        target: AUDIO_LOG_TARGET,
-        "ambition audio: loading sfx bank from `{}` (async via AssetServer)",
-        path.0
-    );
-    let handle: Handle<SfxBankAsset> = asset_server.load(path.0.clone());
-    commands.insert_resource(PendingSfxBankHandle(handle));
+        pending
+            .handles
+            .insert(provider_id, asset_server.load(asset_path));
+    }
+    if pending.handles.is_empty() {
+        debug!(target: AUDIO_LOG_TARGET, "ambition audio: no provider SFX banks requested");
+    } else {
+        commands.insert_resource(pending);
+    }
 }
 
-/// Update: poll for the bank asset; once it lands, install the
-/// [`SfxBankResource`] and refresh the typed SFX cue handles in the
-/// [`AudioLibrary`] (which may have been built at startup with no bank).
+/// Promote a late bank transactionally and refresh the live context only when
+/// it belongs to the same provider. Missing handles are never cached, so the
+/// active session can resolve the bank immediately after this system runs.
 fn promote_loaded_sfx_bank(
     mut commands: Commands,
-    pending: Option<Res<PendingSfxBankHandle>>,
+    pending: Option<ResMut<PendingSfxBankHandles>>,
     assets: Res<Assets<SfxBankAsset>>,
-    existing: Option<Res<SfxBankResource>>,
-    library: Option<ResMut<AudioLibrary>>,
-    audio_sources: Option<ResMut<Assets<KiraAudioSource>>>,
+    mut banks: ResMut<SfxBankResource>,
+    mut bank_ids: ResMut<SfxBankRegistry>,
+    mut selection: ResMut<ActiveAudioSelection>,
 ) {
-    if existing.is_some() {
-        return;
-    }
-    let Some(pending) = pending else {
+    let Some(mut pending) = pending else {
         return;
     };
-    let Some(asset) = assets.get(&pending.0) else {
-        return;
-    };
-    let provider = asset.provider.clone();
-    info!(
-        target: AUDIO_LOG_TARGET,
-        "ambition audio: sfx bank loaded async ({} entries) - promoting to SfxBankResource",
-        provider.entry_count()
-    );
-    let mut refreshed_library = false;
-    if let (Some(mut library), Some(mut audio_sources)) = (library, audio_sources) {
-        library.refresh_sfx_from_bank(&mut audio_sources, provider.as_ref());
-        refreshed_library = true;
+    let ready: Vec<String> = pending
+        .handles
+        .iter()
+        .filter_map(|(provider, handle)| assets.get(handle).map(|_| provider.clone()))
+        .collect();
+    for provider_id in ready {
+        let handle = pending
+            .handles
+            .remove(&provider_id)
+            .expect("ready provider handle remains pending");
+        let asset = assets
+            .get(&handle)
+            .expect("ready provider bank asset remains available");
+        let provider = asset.provider.clone();
+        let fingerprints = provider.content_fingerprints();
+        bank_ids
+            .register(provider_id.clone(), fingerprints)
+            .unwrap_or_else(|error| panic!("provider SFX bank composition failed: {error}"));
+        banks
+            .register(provider_id.clone(), provider)
+            .unwrap_or_else(|error| panic!("provider SFX bank promotion failed: {error}"));
+        selection.refresh_provider_sfx_ids(&provider_id, bank_ids.ids_for(&provider_id));
+        info!(
+            target: AUDIO_LOG_TARGET,
+            "ambition audio: provider '{}' SFX bank is ready",
+            provider_id,
+        );
     }
-    info!(
-        target: AUDIO_LOG_TARGET,
-        "ambition audio: SfxBankResource installed (audio_library_refreshed={refreshed_library})"
-    );
-    commands.insert_resource(SfxBankResource(provider));
-    commands.remove_resource::<PendingSfxBankHandle>();
+    if pending.handles.is_empty() {
+        commands.remove_resource::<PendingSfxBankHandles>();
+    }
 }
 
 pub fn audio_play_sfx_messages(
-    mut messages: MessageReader<SfxMessage>,
-    library: Res<AudioLibrary>,
-    sfx_channel: Res<AudioChannel<SfxChannel>>,
-    bank: Option<Res<SfxBankResource>>,
+    mut messages: MessageReader<OwnedSfxMessage>,
     selection: Res<ActiveAudioSelection>,
-    mut cache: ResMut<SfxBankHandleCache>,
+    banks: Res<SfxBankResource>,
+    sfx_channel: Res<AudioChannel<SfxChannel>>,
+    mut cache: ResMut<ProviderSfxHandleCache>,
     mut audio_sources: ResMut<Assets<KiraAudioSource>>,
+    mut playback: ResMut<SfxPlaybackState>,
     mut first_play_logged: Local<bool>,
 ) {
-    // Provider-relative authority: an emission may play only when the active
-    // gameplay session authored the id it resolves to. This is the SFX analogue
-    // of the music director filtering candidates — the resident bank / synth
-    // table is storage, this selection is permission. Ungoverned (frontend /
-    // standalone) permits everything; a music-less-and-SFX-less provider
-    // (deliberate silence) permits nothing.
-    let authority = selection.sfx_authority();
-    for message in messages.read() {
+    for owned in messages.read() {
+        let request = owned.request;
         if !*first_play_logged {
             info!(
                 target: AUDIO_LOG_TARGET,
-                "ambition audio: first SFX play attempt (cue={:?}, bank_loaded={})",
-                message.cue(),
-                bank.is_some()
+                "ambition audio: first owned SFX play attempt (owner={:?})",
+                owned.owner,
             );
             *first_play_logged = true;
         }
-        if !authority.allows(sfx_message_target_id(*message)) {
-            // A sound the active provider never authored — drop it rather than
-            // resolve it against the resident bank / synth handles.
+        if !selection.accepts_request_owner(owned.owner) {
+            playback.rejected_wrong_owner = playback.rejected_wrong_owner.saturating_add(1);
             continue;
         }
-        if let Some(cue) = message.cue() {
-            sfx_channel.play(library.sfx_handle(cue));
-            continue;
-        }
-        let SfxMessage::Play { id, .. } = *message else {
+        let Some(owner) = owned.owner else {
+            playback.rejected_wrong_owner = playback.rejected_wrong_owner.saturating_add(1);
             continue;
         };
-        // A string-keyed `Play` naming a procedural cue (e.g. the moveset's
-        // "player.slash" swing) resolves to the guaranteed typed sound rather
-        // than falling through to a possibly-absent bank sample.
-        if let Some(cue) = SoundCue::from_sfx_id(id) {
-            sfx_channel.play(library.sfx_handle(cue));
-            continue;
-        }
-        let bank_provider = bank.as_deref().map(|bank| &*bank.0 as &dyn SfxProvider);
-        let Some(handle) = cache.handle_for(id, bank_provider, audio_sources.as_mut()) else {
+        let Some(provider_id) = selection.provider_id() else {
+            playback.rejected_wrong_owner = playback.rejected_wrong_owner.saturating_add(1);
             continue;
         };
-        sfx_channel.play(handle);
+        let id = sfx_message_target_id(request);
+        if !selection.sfx_authority().allows(id) {
+            playback.rejected_unauthorized = playback.rejected_unauthorized.saturating_add(1);
+            continue;
+        }
+        let resolved = cache.handle_for(
+            provider_id,
+            id,
+            selection.sfx(),
+            banks.provider(provider_id),
+            banks.fingerprint_for(provider_id, id),
+            audio_sources.as_mut(),
+        );
+        let Some(resolved) = resolved else {
+            playback.missing_source = playback.missing_source.saturating_add(1);
+            continue;
+        };
+        sfx_channel.play(resolved.handle);
+        playback.last_played = Some(SfxPlaybackRecord {
+            owner,
+            provider_id: provider_id.to_owned(),
+            id,
+            source: resolved.source,
+        });
     }
 }
 
 #[cfg(test)]
-mod authority_gate_tests {
-    //! The provider-relative gate `audio_play_sfx_messages` applies before it
-    //! ever touches the resident bank / synth handles: exactly
-    //! `authority.allows(sfx_message_target_id(msg))`. These tests drive that
-    //! predicate with real [`SfxMessage`]s and real [`ActiveAudioSelection`]s so
-    //! the poison scenarios are proven at the decision the playback system makes.
+mod tests {
+    use std::collections::{BTreeMap, BTreeSet};
 
-    use std::collections::BTreeSet;
-
-    use ambition_sfx::{SfxId, SfxMessage};
+    use ambition_sfx::{AudioContextOwner, OwnedSfxMessage, SfxId, SfxMessage};
     use bevy::math::Vec2;
 
-    use crate::library::sfx_message_target_id;
     use crate::selection::ActiveAudioSelection;
     use crate::spec::{SfxRegistry, SfxSpec, SoundCueKey, WaveformSpec};
 
-    fn cue(cue: SoundCueKey) -> SfxSpec {
-        SfxSpec {
-            cue,
-            waveform: WaveformSpec::Sine,
-            frequency: 440.0,
-            frequency_end: 440.0,
-            duration: 0.1,
-            volume: 0.5,
-            attack: 0.0,
-            release: 0.0,
-            noise: 0.0,
-        }
-    }
-
-    fn sfx(cues: impl IntoIterator<Item = SoundCueKey>) -> SfxRegistry {
+    fn sfx_registry(cue: SoundCueKey) -> SfxRegistry {
         SfxRegistry {
             sample_rate: 44_100,
-            sfx: cues.into_iter().map(cue).collect(),
+            sfx: vec![SfxSpec {
+                cue: Some(cue),
+                id: None,
+                waveform: WaveformSpec::Square,
+                frequency: 330.0,
+                frequency_end: 660.0,
+                duration: 0.1,
+                volume: 0.5,
+                attack: 0.0,
+                release: 0.02,
+                noise: 0.0,
+            }],
         }
     }
 
-    /// Would the playback system play this message under `selection`? This is a
-    /// verbatim copy of the guard inside `audio_play_sfx_messages`.
-    fn would_play(selection: &ActiveAudioSelection, message: SfxMessage) -> bool {
-        selection
-            .sfx_authority()
-            .allows(sfx_message_target_id(message))
-    }
-
     #[test]
-    fn an_ambition_only_sfx_cannot_resolve_after_switching_to_sanic() {
-        let ambition_only = SfxMessage::Play {
-            id: SfxId::from_static("boss.mirror.shatter"),
-            pos: Vec2::ZERO,
+    fn same_provider_relaunch_rejects_the_old_owner() {
+        let mut selection = ActiveAudioSelection::default();
+        selection.select_gameplay(
+            2,
+            "sanic",
+            None,
+            Some(sfx_registry(SoundCueKey::Dash)),
+            BTreeSet::new(),
+        );
+        let stale = OwnedSfxMessage {
+            owner: Some(AudioContextOwner::Gameplay(1)),
+            request: SfxMessage::Dash { pos: Vec2::ZERO },
         };
-        // A Sanic session authors Dash + Jump, no bank ids.
-        let mut selection = ActiveAudioSelection::default();
-        selection.select(
-            Some(2),
-            "sanic",
-            None,
-            Some(sfx([SoundCueKey::Dash, SoundCueKey::Jump])),
-            BTreeSet::new(),
-        );
-        assert!(
-            !would_play(&selection, ambition_only),
-            "an Ambition-only bank sound must not play in a Sanic session"
-        );
-        // Sanic's OWN authored cue still plays.
-        assert!(would_play(&selection, SfxMessage::Dash { pos: Vec2::ZERO }));
+        assert!(!selection.accepts_request_owner(stale.owner));
     }
 
     #[test]
-    fn a_music_and_sfx_less_provider_is_silent() {
-        // Mary-O authored nothing → deliberate silence → even a shared cue drops.
-        let mut selection = ActiveAudioSelection::default();
-        selection.select(Some(3), "mary_o", None, None, BTreeSet::new());
-        assert!(!would_play(
-            &selection,
-            SfxMessage::Jump { pos: Vec2::ZERO }
-        ));
-        assert!(!would_play(
-            &selection,
-            SfxMessage::Play {
-                id: SfxId::from_static("sanic.ring"),
-                pos: Vec2::ZERO,
-            }
-        ));
-    }
-
-    #[test]
-    fn a_message_queued_under_a_is_judged_by_bs_authority_at_drain() {
-        // The gate recomputes authority from the CURRENT selection every drain,
-        // so a delayed emission from session A is checked against session B.
-        let a_only = SfxMessage::Dash { pos: Vec2::ZERO };
-        let mut selection = ActiveAudioSelection::default();
-        // Session A authored Dash and could play it.
-        selection.select(
-            Some(1),
-            "sanic",
-            None,
-            Some(sfx([SoundCueKey::Dash])),
-            BTreeSet::new(),
-        );
-        assert!(would_play(&selection, a_only));
-        // Session B (Mary-O, silent) takes over; A's stale Dash cannot play now.
-        selection.select(Some(2), "mary_o", None, None, BTreeSet::new());
-        assert!(
-            !would_play(&selection, a_only),
-            "a delayed emission from session A must not play in session B"
-        );
-    }
-
-    #[test]
-    fn no_selection_permits_standalone_sfx() {
-        // Ungoverned (frontend / a standalone single-provider app that never
-        // selected) does not restrict — playback keeps its prior behavior.
-        let selection = ActiveAudioSelection::default();
-        assert!(would_play(&selection, SfxMessage::Jump { pos: Vec2::ZERO }));
-        assert!(would_play(
-            &selection,
-            SfxMessage::Play {
-                id: SfxId::from_static("anything.at.all"),
-                pos: Vec2::ZERO,
-            }
-        ));
+    fn bank_registry_accepts_benign_shared_content() {
+        let id = SfxId::from_static("shared");
+        let mut registry = SfxBankRegistry::default();
+        registry.register("a", BTreeMap::from([(id, 7)])).unwrap();
+        registry.register("b", BTreeMap::from([(id, 7)])).unwrap();
+        assert_eq!(registry.ids_for("a"), BTreeSet::from([id]));
+        assert_eq!(registry.ids_for("b"), BTreeSet::from([id]));
     }
 }

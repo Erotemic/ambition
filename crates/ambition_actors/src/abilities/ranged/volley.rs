@@ -70,7 +70,7 @@ pub fn fire_volley_system(
         &mut BodyMana,
     )>,
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
-    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
+    mut sfx: ambition_sfx::SfxWriter,
 ) {
     let Some(subject) = controlled.0 else {
         return;

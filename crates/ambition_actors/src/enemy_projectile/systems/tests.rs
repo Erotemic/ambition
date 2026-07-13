@@ -6,7 +6,6 @@
 use super::*;
 use crate::features::{HitEvent, HitSource};
 use ambition_engine_core as ae;
-use ambition_sfx::SfxMessage;
 use ambition_vfx::vfx::VfxMessage;
 
 use crate::combat::components::ActorFaction;
@@ -50,7 +49,7 @@ fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
         scaled_dt: 1.0 / 60.0,
     });
     app.add_message::<HitEvent>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<crate::avatar::PlayerHealRequested>();
     app.init_resource::<ProjectileSeqCounter>();
@@ -137,7 +136,7 @@ fn an_ownerless_shot_damages_a_same_faction_actor_indiscriminately() {
         scaled_dt: 1.0 / 60.0,
     });
     app.add_message::<HitEvent>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<crate::avatar::PlayerHealRequested>();
     app.init_resource::<ProjectileSeqCounter>();
@@ -203,7 +202,7 @@ fn arena_projectile_app(relations: crate::features::FactionRelations) -> App {
         scaled_dt: 1.0 / 60.0,
     });
     app.add_message::<HitEvent>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<crate::avatar::PlayerHealRequested>();
     app.init_resource::<ProjectileSeqCounter>();
@@ -318,7 +317,7 @@ fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
         scaled_dt: 1.0 / 60.0,
     });
     app.add_message::<HitEvent>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<crate::avatar::PlayerHealRequested>();
     app.init_resource::<ProjectileSeqCounter>();
@@ -425,7 +424,7 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
         scaled_dt: 1.0 / 60.0,
     });
     app.add_message::<HitEvent>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<ambition_vfx::EffectRequest>();
     app.add_message::<crate::avatar::PlayerHealRequested>();

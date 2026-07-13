@@ -10,7 +10,7 @@ use crate::actor::{PlayerEntity, PrimaryPlayer};
 #[test]
 fn interacting_at_the_shrine_heals_to_full() {
     let mut app = App::new();
-    app.add_message::<ambition_sfx::SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.init_resource::<ambition_persistence::save::SandboxSave>();
     app.init_resource::<ShrineActivationPulse>();
     app.add_systems(Update, heal_save_shrine_system);
@@ -70,7 +70,7 @@ fn interacting_at_the_shrine_heals_to_full() {
 #[test]
 fn no_heal_without_interact_or_when_not_touching() {
     let mut app = App::new();
-    app.add_message::<ambition_sfx::SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.init_resource::<ambition_persistence::save::SandboxSave>();
     app.init_resource::<ShrineActivationPulse>();
     app.add_systems(Update, heal_save_shrine_system);

@@ -25,5 +25,11 @@ pub use mix::MusicMix;
 
 #[cfg(feature = "kira")]
 pub use bank_asset::{
-    audio_play_sfx_messages, SfxBankAsset, SfxBankAssetPath, SfxBankAssetPlugin, SfxBankResource,
+    audio_play_sfx_messages, PendingSfxBankHandles, SfxBankAsset, SfxBankAssetAppExt,
+    SfxBankAssetCatalog, SfxBankAssetPath, SfxBankAssetPlugin, SfxBankResource,
+};
+#[cfg(feature = "kira")]
+pub use render::{
+    ProviderSfxHandleCache, SfxPlaybackRecord, SfxPlaybackState, SfxSourceIdentity,
+    SfxSourceKind,
 };

@@ -8,7 +8,6 @@ use crate::moveset::{advance_move_playback, MoveEventMessage, MovePlayback};
 use ambition_entity_catalog::{
     ClipBinding, HitVolume, MoveSpec, MoveWindow, VolumeShape, WindowTag,
 };
-use ambition_sfx::SfxMessage;
 use ambition_time::WorldTime;
 use bevy::prelude::*;
 
@@ -57,7 +56,7 @@ fn harness(victim_is_pogoable: bool) -> (App, Entity) {
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
     app.add_message::<OnHitEffectMessage>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.init_resource::<WorldTime>();
     app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
     app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;
@@ -140,7 +139,7 @@ fn down_air_pogos_off_a_factionless_world_orb() {
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
     app.add_message::<OnHitEffectMessage>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.init_resource::<WorldTime>();
     app.world_mut().resource_mut::<WorldTime>().scaled_dt = 0.016;
     app.world_mut().resource_mut::<WorldTime>().raw_dt = 0.016;

@@ -52,6 +52,16 @@ fn compose_sanic_shell(app: &mut App, home_route: &str) {
     use ambition_demo_sanic::{sanic_session_world, SanicExperiencePlugin, SANIC_GAMEPLAY_ROUTE};
 
     app.add_plugins(ambition::game_shell::MinimalShellPlugins);
+    app.insert_resource(
+        ambition::audio::selection::FrontendAudioProfile::new(
+            ambition_demo_sanic::SANIC_EXPERIENCE,
+        )
+        .with_sfx([
+            ambition::sfx::ids::UI_MENU_MOVE,
+            ambition::sfx::ids::UI_MENU_ACCEPT,
+            ambition::sfx::ids::UI_MENU_BACK,
+        ]),
+    );
     app.add_plugins(ambition::load::AmbitionLoadPlugin);
     app.add_plugins(ambition::load_presentation::MinimalLoadPresentationPlugins);
     app.add_plugins(SanicExperiencePlugin);
@@ -280,12 +290,15 @@ fn install_sanic_audio(app: &mut App, sfx_bank_path: Option<String>) {
     app.add_plugins(bevy_kira_audio::prelude::AudioPlugin);
     if let Some(path) = sfx_bank_path {
         info!("sanic_demo: SFX bank path = {path}");
-        app.insert_resource(ambition::audio::SfxBankAssetPath(path));
+        app.insert_resource(ambition::audio::SfxBankAssetPath::new(
+            ambition_demo_sanic::SANIC_EXPERIENCE,
+            path,
+        ));
     } else {
         warn!("sanic_demo: no SFX bank path resolved; milestone cues will be silent stubs");
     }
     app.add_plugins(ambition::audio::SfxBankAssetPlugin)
-        .init_resource::<ambition::audio::render::SfxBankHandleCache>()
+        .init_resource::<ambition::audio::render::ProviderSfxHandleCache>()
         .add_audio_channel::<ambition::audio::library::SfxChannel>()
         .add_systems(Startup, setup_sanic_audio_library)
         .add_systems(

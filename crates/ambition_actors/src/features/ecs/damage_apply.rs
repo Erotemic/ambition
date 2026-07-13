@@ -34,7 +34,7 @@ use ambition_characters::actor::BodyHealth;
 use ambition_characters::equipment::WornEquipment;
 use ambition_dev_tools::dev_tools::EditableMovementTuning;
 use ambition_engine_core::RoomGeometry;
-use ambition_sfx::SfxMessage;
+use ambition_sfx::{SfxMessage, SfxWriter};
 
 // `body_vulnerable` / `shield_blocks_hit` moved to `crate::combat::util`
 // (E2): they are the shared victim-gate predicates every damage EMITTER
@@ -198,7 +198,7 @@ pub fn resolve_body_hit(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn death_respawn_player(
     world: &ae::World,
-    sfx: &mut MessageWriter<SfxMessage>,
+    sfx: &mut SfxWriter,
     vfx: &mut MessageWriter<VfxMessage>,
     died: &mut MessageWriter<ActorDiedMessage>,
     clusters: &mut ae::BodyClustersMut<'_>,
@@ -254,7 +254,7 @@ pub(crate) fn death_respawn_player(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn handle_player_damage_events(
     world: &ae::World,
-    sfx: &mut MessageWriter<SfxMessage>,
+    sfx: &mut SfxWriter,
     vfx: &mut MessageWriter<VfxMessage>,
     died: &mut MessageWriter<ActorDiedMessage>,
     clusters: &mut ae::BodyClustersMut<'_>,
@@ -414,7 +414,7 @@ pub(crate) fn handle_player_damage_events(
 
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn safe_respawn_player(
-    sfx: &mut MessageWriter<SfxMessage>,
+    sfx: &mut SfxWriter,
     vfx: &mut MessageWriter<VfxMessage>,
     clusters: &mut ae::BodyClustersMut<'_>,
     clock_resets: &mut MessageWriter<ClockResetRequest>,
@@ -550,7 +550,7 @@ pub(crate) fn apply_body_hit_reaction(
 }
 
 pub(crate) fn apply_player_knockback(
-    sfx: &mut MessageWriter<SfxMessage>,
+    sfx: &mut SfxWriter,
     vfx: &mut MessageWriter<VfxMessage>,
     clusters: &mut ae::BodyClustersMut<'_>,
     combat: &mut BodyCombat,
@@ -625,7 +625,7 @@ pub fn apply_player_hit_events(
     mut banner_requests: MessageWriter<GameplayBannerRequested>,
     mut hit_events: MessageReader<FeatureHitEvent>,
     mut died_writer: MessageWriter<ActorDiedMessage>,
-    mut sfx_writer: MessageWriter<SfxMessage>,
+    mut sfx_writer: SfxWriter,
     mut vfx_writer: MessageWriter<VfxMessage>,
     // SLOT-0 BY DESIGN: the safe-position memory this feeds is slot 0's respawn
     // point. Damage ROUTING itself is body-generic (it runs off factions and the

@@ -11,7 +11,7 @@ use bevy::prelude::*;
 use ambition::actors::avatar::PlayerBodyFrameOutput;
 use ambition::actors::features::handle_player_events;
 use ambition::engine_core as ae;
-use ambition::sfx::SfxMessage;
+use ambition::sfx::{SfxMessage, SfxWriter};
 use ambition::vfx::VfxMessage;
 
 /// PHASE — sync player presentation. Reads the [`PlayerBodyFrameOutput`] the
@@ -27,7 +27,7 @@ pub(super) fn sync_player_presentation(
     combat: &mut ambition::characters::actor::BodyCombat,
     blink_cam: &mut ambition::actors::avatar::PlayerBlinkCameraState,
     anim: &mut ambition::actors::actor::BodyAnimFacts,
-    sfx_writer: &mut MessageWriter<SfxMessage>,
+    sfx_writer: &mut SfxWriter,
     vfx_writer: &mut MessageWriter<VfxMessage>,
     shake: &mut ambition::platformer::camera_ease::CameraShakeState,
     is_primary: bool,

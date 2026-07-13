@@ -41,7 +41,10 @@ fn active_world_is_absent_without_a_session_and_present_after_attach() {
     assert!(session.active_world().is_none());
     assert!(session.active_world_as::<FakeWorldA>().is_none());
     // Attaching without an active session is a total no-op (never panics).
-    session.attach_world(SessionWorldRef::new(FakeWorldA(1)));
+    assert!(!session.attach_world_for(
+        ShellActivationId(1),
+        SessionWorldRef::new(FakeWorldA(1)),
+    ));
     assert!(session.active_world().is_none());
 }
 

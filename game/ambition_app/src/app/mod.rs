@@ -48,7 +48,9 @@ pub use cli::run_visible;
 #[cfg(all(target_arch = "wasm32", feature = "web_platform"))]
 pub use cli::run_web;
 #[cfg(not(target_arch = "wasm32"))]
-pub use cli::{build_visible_app, VisibleRenderMode};
+pub use cli::{
+    build_visible_app, run_shared_host_headless, SharedHostHeadlessReport, VisibleRenderMode,
+};
 pub use feedback::{ProgressionResources, SandboxEventWriters, SandboxQueues};
 pub use hud::update_quest_panel;
 pub use player_clone::{PlayerClone, SpawnPlayerCloneRequest};

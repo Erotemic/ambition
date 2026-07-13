@@ -11,7 +11,7 @@ use crate::projectile::ProjectileSeqCounter;
 
 fn test_app() -> App {
     let mut app = App::new();
-    app.add_message::<ambition_sfx::SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ambition_vfx::EffectRequest>();
     app.init_resource::<EnemyProjectileState>();
     app.init_resource::<ProjectileSeqCounter>();

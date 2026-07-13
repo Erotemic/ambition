@@ -30,7 +30,7 @@ pub fn play_portal_sfx(
     mut fired: MessageReader<PortalShotFired>,
     mut entered: MessageReader<PortalBodyEntered>,
     mut transited: MessageReader<PortalBodyTransited>,
-    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
+    mut sfx: ambition_sfx::SfxWriter,
 ) {
     for ev in fired.read() {
         sfx.write(ambition_sfx::SfxMessage::Play {

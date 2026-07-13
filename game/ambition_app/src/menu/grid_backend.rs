@@ -35,7 +35,7 @@ use ambition::items::{OwnedItems, ITEM_GRID_COLS, ITEM_GRID_ROWS};
 use ambition::menu::backend::{InventoryUiBackend, BEVY_UI_MENU_BACKEND_ENABLED};
 use ambition::persistence::settings::{UserSettings, VisualQualityProfile};
 use ambition::settings_menu::system::{SystemMenuEntryId, SystemMenuModel};
-use ambition::sfx::SfxMessage;
+use ambition::sfx::SfxWriter;
 
 /// The effect/dispatch resources shared by [`grid_menu_nav`] and
 /// [`grid_menu_pointer_release`], bundled into one [`SystemParam`] so each stays
@@ -49,7 +49,7 @@ pub(crate) struct MenuDispatchParams<'w, 's> {
     players: MenuEffectPlayers<'w, 's>,
     mana_q: MenuEffectManaQuery<'w, 's>,
     heals: MessageWriter<'w, PlayerHealRequested>,
-    sfx: MessageWriter<'w, SfxMessage>,
+    sfx: SfxWriter<'w>,
     system: SystemMenuParams<'w>,
 }
 
@@ -317,7 +317,7 @@ pub(crate) fn grid_menu_open_routing(
     mut tab_state: ResMut<GridMenuTabState>,
     mut cursor: ResMut<KaleidoscopeCursor>,
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
-    mut sfx: MessageWriter<SfxMessage>,
+    mut sfx: SfxWriter,
     mut last_start: Local<bool>,
 ) {
     use ambition::platformer::schedule::GameMode;

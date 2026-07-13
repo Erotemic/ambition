@@ -13,8 +13,9 @@
 //!   often. Add entries there when the IDE help is worth a const; otherwise
 //!   `SfxId::from_static("foo.bar")` at the call site is fine.
 //!
-//! No Bevy dependency; this crate stays usable from headless / RL /
-//! benchmarking contexts.
+//! The default `bevy` feature supplies the request/message adapter. Consumers
+//! that only need ids, clips, and providers may disable default features to keep
+//! this crate independent of Bevy for headless, RL, and benchmarking contexts.
 
 pub use ambition_sfx_bank::{fnv1a_64, fnv1a_64_str, Codec};
 use ambition_sfx_bank::{EntryRecord, SfxBank};
@@ -29,7 +30,9 @@ pub mod ids;
 #[cfg(feature = "bevy")]
 mod message;
 #[cfg(feature = "bevy")]
-pub use message::SfxMessage;
+pub use message::{
+    AudioContextOwner, OwnedSfxMessage, SfxEmissionContext, SfxMessage, SfxWriter,
+};
 
 /// Stable, hashed identifier for an SFX entry. Construct via
 /// [`SfxId::from_static`] for compile-time hashing of literal ids
@@ -158,11 +161,9 @@ impl BankProvider {
     }
 
     /// A content fingerprint per bank id: an FNV-1a-64 hash of the encoded
-    /// payload bytes. Two providers naming the same id for the SAME entry share
-    /// a fingerprint (benign duplicate); a mismatched fingerprint marks an id
-    /// that resolves to incompatible assets. Consumed by
-    /// `ambition_audio::catalog::SfxBankRegistry` to compose banks across
-    /// providers deterministically.
+    /// payload bytes. The audio layer records these fingerprints beside the
+    /// provider-qualified id for cache invalidation, diagnostics, and stable
+    /// source-identity tests.
     pub fn content_fingerprints(&self) -> std::collections::BTreeMap<SfxId, u64> {
         self.bank
             .iter()

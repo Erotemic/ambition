@@ -49,7 +49,7 @@ pub fn grapple_system(
         &HeldItem,
         Option<&mut crate::ability_cooldown::AbilityCooldown>,
     )>,
-    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
+    mut sfx: ambition_sfx::SfxWriter,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
     let Some(subject) = controlled.0 else {

@@ -7,7 +7,7 @@
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
 | [`ids`](src/ids.rs) | Hand-maintained SFX ids for gameplay code that benefits from named constants. |
-| [`message`](src/message.rs) | SFX request message. |
+| [`message`](src/message.rs) | Session-owned SFX requests. |
 
 _2 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 

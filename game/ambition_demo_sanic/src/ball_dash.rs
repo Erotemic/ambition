@@ -256,7 +256,7 @@ pub fn tick_ball_dash(
     mut commands: Commands,
     time: Res<ambition::time::WorldTime>,
     tuning: Res<BallDashTuning>,
-    mut sfx: MessageWriter<ambition::sfx::SfxMessage>,
+    mut sfx: ambition::sfx::SfxWriter,
     mut bodies: Query<(
         Entity,
         &BallDashInput,

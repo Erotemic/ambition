@@ -36,6 +36,13 @@ impl SfxRegistry {
                 self.sample_rate
             ));
         }
+        let mut ids = BTreeSet::new();
+        for spec in &self.sfx {
+            let id = spec.sfx_id()?;
+            if !ids.insert(id) {
+                return Err(format!("duplicate procedural SFX id {id}"));
+            }
+        }
         Ok(())
     }
 
@@ -46,7 +53,19 @@ impl SfxRegistry {
     /// without the resident synth handle table. A registry with no cues
     /// authorizes no procedural ids — deliberate silence for that path.
     pub fn authorized_cue_ids(&self) -> BTreeSet<SfxId> {
-        self.sfx.iter().map(|spec| spec.cue.sfx_id()).collect()
+        self.sfx
+            .iter()
+            .filter_map(|spec| spec.sfx_id().ok())
+            .collect()
+    }
+
+    /// Provider-authored procedural definition for `id`, if this registry owns
+    /// it. Playback uses this directly, so authorizing a cue and rendering its
+    /// actual sound cannot drift onto another provider's resident handle.
+    pub fn spec_for_id(&self, id: SfxId) -> Option<&SfxSpec> {
+        self.sfx
+            .iter()
+            .find(|spec| spec.sfx_id().ok() == Some(id))
     }
 }
 
@@ -95,9 +114,16 @@ pub enum WaveformSpec {
     Saw,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq)]
+#[derive(Clone, Debug, Deserialize, PartialEq)]
 pub struct SfxSpec {
-    pub cue: SoundCueKey,
+    /// Compatibility shorthand for the engine's common typed gameplay cues.
+    /// Exactly one of `cue` or `id` must be authored.
+    #[serde(default)]
+    pub cue: Option<SoundCueKey>,
+    /// Open provider-local identity for menu, shell, content, and future-game
+    /// cues that do not belong in the engine's fixed convenience enum.
+    #[serde(default)]
+    pub id: Option<String>,
     pub waveform: WaveformSpec,
     pub frequency: f32,
     pub frequency_end: f32,
@@ -106,6 +132,20 @@ pub struct SfxSpec {
     pub attack: f32,
     pub release: f32,
     pub noise: f32,
+}
+
+impl SfxSpec {
+    pub fn sfx_id(&self) -> Result<SfxId, String> {
+        match (self.cue, self.id.as_deref()) {
+            (Some(cue), None) => Ok(cue.sfx_id()),
+            (None, Some(id)) if !id.trim().is_empty() => Ok(SfxId::new(id)),
+            (None, Some(_)) => Err("procedural SFX id must not be empty".to_owned()),
+            (None, None) => Err("procedural SFX must author either cue or id".to_owned()),
+            (Some(_), Some(_)) => {
+                Err("procedural SFX must not author both cue and id".to_owned())
+            }
+        }
+    }
 }
 
 /// Music-cue registry, authored in `music_registry.ron`.
@@ -178,5 +218,56 @@ impl MusicTrack {
         self.asset_path
             .clone()
             .unwrap_or_else(|| format!("audio/music/generated/{}/full.ogg", self.id))
+    }
+}
+
+#[cfg(test)]
+mod open_sfx_id_tests {
+    use super::*;
+
+    fn open_spec(id: &str) -> SfxSpec {
+        SfxSpec {
+            cue: None,
+            id: Some(id.to_owned()),
+            waveform: WaveformSpec::Triangle,
+            frequency: 440.0,
+            frequency_end: 660.0,
+            duration: 0.1,
+            volume: 0.5,
+            attack: 0.0,
+            release: 0.02,
+            noise: 0.0,
+        }
+    }
+
+    #[test]
+    fn providers_can_author_open_procedural_ids() {
+        let registry = SfxRegistry {
+            sample_rate: 44_100,
+            sfx: vec![open_spec("ui.menu.move")],
+        };
+        registry.validate().unwrap();
+        let id = SfxId::new("ui.menu.move");
+        assert!(registry.authorized_cue_ids().contains(&id));
+        assert_eq!(registry.spec_for_id(id), registry.sfx.first());
+    }
+
+    #[test]
+    fn identity_is_unambiguous_and_unique() {
+        let both = SfxRegistry {
+            sample_rate: 44_100,
+            sfx: vec![SfxSpec {
+                cue: Some(SoundCueKey::Jump),
+                id: Some("also.jump".to_owned()),
+                ..open_spec("ignored")
+            }],
+        };
+        assert!(both.validate().unwrap_err().contains("both cue and id"));
+
+        let duplicate = SfxRegistry {
+            sample_rate: 44_100,
+            sfx: vec![open_spec("same"), open_spec("same")],
+        };
+        assert!(duplicate.validate().unwrap_err().contains("duplicate"));
     }
 }

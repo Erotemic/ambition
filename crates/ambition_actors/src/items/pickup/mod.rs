@@ -571,7 +571,7 @@ fn emit_fireball_explosion(
     half: f32,
     attacker: Option<Entity>,
     feature_damage: &mut MessageWriter<crate::features::HitEvent>,
-    sfx: &mut MessageWriter<ambition_sfx::SfxMessage>,
+    sfx: &mut ambition_sfx::SfxWriter,
     vfx: &mut MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
     feature_damage.write(crate::features::HitEvent {
@@ -704,7 +704,7 @@ pub fn fire_held_ranged_system(
         &crate::physics::ResolvedMotionFrame,
         &HeldItem,
     )>,
-    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
+    mut sfx: ambition_sfx::SfxWriter,
 ) {
     let Some(subject) = controlled.0 else {
         return;
@@ -855,7 +855,7 @@ pub fn held_projectile_step(
         With<crate::features::FeatureSimEntity>,
     >,
     mut feature_damage: MessageWriter<crate::features::HitEvent>,
-    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
+    mut sfx: ambition_sfx::SfxWriter,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
     let dt = time.sim_dt();

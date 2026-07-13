@@ -54,7 +54,7 @@ pub fn drop_portal_gun_system(
         (With<PortalGun>, Without<HeldItem>),
     >,
     primary_fallback: Query<Entity, (With<PlayerEntity>, With<PrimaryPlayer>)>,
-    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
+    mut sfx: ambition_sfx::SfxWriter,
 ) {
     if drops.read().next().is_none() {
         return;
@@ -113,7 +113,7 @@ pub fn pickup_portal_gun_system(
     pickups: Query<(Entity, &PortalGunPickup)>,
     mut owned: Option<ResMut<OwnedItems>>,
     mut equipped: MessageWriter<PortalGunEquipped>,
-    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
+    mut sfx: ambition_sfx::SfxWriter,
 ) {
     if picks.read().next().is_none() {
         return;

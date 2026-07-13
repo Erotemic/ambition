@@ -1,64 +1,42 @@
-//! **Active session audio authority** — which provider's authored music/SFX
-//! are live RIGHT NOW.
+//! App-local active audio context.
 //!
-//! [`crate::catalog::AudioCatalogRegistry`] is App-local *storage*: every
-//! linked provider's authored fragments, immutable after registration. This
-//! resource is the *selection*: the one provider whose registries currently
-//! own playback. The two are deliberately separate authorities — storage
-//! outlives sessions (cached assets may persist), selection does not.
-//!
-//! Who writes it:
-//! - a session-routed host's shell bridge selects on gameplay-session
-//!   activation and clears on retirement (`ambition_game_shell::session_audio`);
-//! - a direct-entry host (no launcher) selects its sole provider statically at
-//!   composition time.
-//!
-//! Consumers (the music-intent resolver, playback drivers) read the selection
-//! and treat `None` as deliberate silence: no session, or a provider that
-//! registered no audio. They never fall back to "whichever registry happens to
-//! be resident" — that would resurrect first-install-wins authority.
+//! [`crate::catalog::AudioCatalogRegistry`] stores every linked provider's
+//! authored definitions. [`ActiveAudioSelection`] identifies the one shell
+//! activation that owns playback now. Frontend routes and gameplay sessions use
+//! the same mechanism: a title screen may own title music and menu SFX, while a
+//! retired gameplay activation cannot leak queued work into it.
 
 use std::collections::BTreeSet;
 
-use ambition_sfx::SfxId;
-use bevy::prelude::Resource;
+use ambition_sfx::{AudioContextOwner, SfxId};
+use bevy::prelude::{Message, Resource};
 
 use crate::spec::{MusicRegistry, SfxRegistry};
 
-/// Provider-relative playback authority for one frame of music intent.
+/// Exact transition between shell-owned audio contexts.
 ///
-/// The music director enforces this: a track id may drive the base channel only
-/// when the active provider authorizes it. This is precisely what stops a track
-/// that merely EXISTS in the process-wide combined asset library from being
-/// playable by a session whose provider never authored it — the combined library
-/// is *storage*, this is *permission*.
+/// Lower-level playback and gameplay crates consume this neutral fact to reset
+/// activation-local request/director state without depending on the shell crate.
+#[derive(Message, Clone, Copy, Debug, Eq, PartialEq)]
+pub struct AudioContextChanged {
+    pub previous: Option<AudioContextOwner>,
+    pub current: Option<AudioContextOwner>,
+}
+
+/// Provider-relative playback authority for one frame of music intent.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum MusicAuthority {
-    /// No gameplay session governs music this frame (frontend/title, or a
-    /// direct-entry host before selection). The director must not change base
-    /// playback — the host's frontend policy owns silence/title there.
+    /// No active audio context. The music director may not start gameplay music.
     #[default]
-    Ungoverned,
-    /// A session is live; only these track ids (base channel) and cue ids
-    /// (adaptive layers) may play. BOTH empty is a provider that authored no
-    /// music — DELIBERATE silence, not "retain whatever is playing." That
-    /// distinction is the fix for the ambiguity where an empty candidate list
-    /// meant "leave the previous track running."
+    Denied,
+    /// The active context permits exactly these simple tracks and adaptive cues.
     Governed {
         authorized: BTreeSet<String>,
-        /// Adaptive cue ids this provider authored. An adaptive cue that merely
-        /// exists in the process-wide `MusicCueCatalog` but is foreign to the
-        /// active provider cannot start — the exact adaptive analogue of the
-        /// simple-track filter.
         authorized_cues: BTreeSet<String>,
     },
 }
 
 impl MusicAuthority {
-    /// A governed authority permitting exactly `authorized` simple tracks and no
-    /// adaptive cues. Cues are added separately by the intent resolver
-    /// ([`Self::authorize_cues`]), so the selection layer (which knows only
-    /// track ids) constructs this and the content layer folds in the cue ids.
     pub fn governed(authorized: impl IntoIterator<Item = String>) -> Self {
         Self::Governed {
             authorized: authorized.into_iter().collect(),
@@ -66,9 +44,6 @@ impl MusicAuthority {
         }
     }
 
-    /// Add authorized adaptive cue ids to a governed authority (no-op when
-    /// ungoverned). Used by `compute_music_intent` to project the active
-    /// provider's cue ids onto the authority the director enforces.
     pub fn authorize_cues(&mut self, cues: impl IntoIterator<Item = String>) {
         if let Self::Governed {
             authorized_cues, ..
@@ -78,191 +53,268 @@ impl MusicAuthority {
         }
     }
 
-    /// True when `track_id` is allowed to drive the base channel this frame.
     pub fn allows(&self, track_id: &str) -> bool {
-        match self {
-            Self::Ungoverned => true,
-            Self::Governed { authorized, .. } => authorized.contains(track_id),
-        }
+        matches!(self, Self::Governed { authorized, .. } if authorized.contains(track_id))
     }
 
-    /// True when `cue_id` is allowed to drive an adaptive layer this frame.
     pub fn allows_cue(&self, cue_id: &str) -> bool {
-        match self {
-            Self::Ungoverned => true,
-            Self::Governed {
-                authorized_cues, ..
-            } => authorized_cues.contains(cue_id),
-        }
-    }
-
-    /// True when the active provider authored no music at all — no simple tracks
-    /// AND no adaptive cues — so the director must stop playback rather than
-    /// retain the previous session's track/cue.
-    pub fn is_deliberate_silence(&self) -> bool {
         matches!(
             self,
-            Self::Governed { authorized, authorized_cues }
-                if authorized.is_empty() && authorized_cues.is_empty()
+            Self::Governed {
+                authorized_cues,
+                ..
+            } if authorized_cues.contains(cue_id)
         )
     }
 
-    /// True when a session governs playback (as opposed to a frontend route).
+    pub fn is_deliberate_silence(&self) -> bool {
+        matches!(
+            self,
+            Self::Governed {
+                authorized,
+                authorized_cues,
+            } if authorized.is_empty() && authorized_cues.is_empty()
+        )
+    }
+
     pub fn is_governed(&self) -> bool {
         matches!(self, Self::Governed { .. })
     }
 }
 
 /// Provider-relative playback authority for sound effects.
-///
-/// The SFX consumer enforces this exactly as the music director enforces
-/// [`MusicAuthority`]: an [`ambition_sfx::SfxMessage`] may play only when the
-/// active provider authorized the [`SfxId`] it resolves to. This is what stops
-/// a sound that merely EXISTS in the process-wide resident bank / synth handle
-/// table from being audible in a session whose provider never authored it — the
-/// bank is *storage*, this is *permission*.
-///
-/// A provider's authorized set is *declared*: the ids of the procedural cues it
-/// authors ([`SfxRegistry::authorized_cue_ids`]) plus the bank ids it
-/// contributes ([`crate::catalog::SfxBankRegistry`]). The typed cue shortcuts
-/// (jump, dash, hit, …) are gated by this too — a provider hears a cue only when
-/// it declared it, never because the resident synth table happens to hold it.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub enum SfxAuthority {
-    /// No gameplay session governs SFX this frame (frontend/title, or a host
-    /// with no selection). Nothing is rejected — frontend routes emit no
-    /// gameplay SFX, and a permissive default preserves standalone behavior.
+    /// No active audio context. Gameplay and frontend SFX are both denied.
     #[default]
-    Ungoverned,
-    /// A session is live; only these ids may play. An EMPTY set is a provider
-    /// that authored no SFX — DELIBERATE silence (Mary-O), not "play whatever
-    /// the resident bank still holds."
+    Denied,
+    /// The active context permits exactly these authored ids.
     Governed { authorized: BTreeSet<SfxId> },
 }
 
 impl SfxAuthority {
-    /// A governed authority permitting exactly `authorized`.
     pub fn governed(authorized: impl IntoIterator<Item = SfxId>) -> Self {
         Self::Governed {
             authorized: authorized.into_iter().collect(),
         }
     }
 
-    /// True when `id` may play this frame.
     pub fn allows(&self, id: SfxId) -> bool {
-        match self {
-            Self::Ungoverned => true,
-            Self::Governed { authorized } => authorized.contains(&id),
-        }
+        matches!(self, Self::Governed { authorized } if authorized.contains(&id))
     }
 
-    /// True when the active provider authored no SFX — every emission is
-    /// dropped rather than resolving against the resident bank.
     pub fn is_deliberate_silence(&self) -> bool {
         matches!(self, Self::Governed { authorized } if authorized.is_empty())
     }
 
-    /// True when a session governs SFX (as opposed to a frontend route).
     pub fn is_governed(&self) -> bool {
         matches!(self, Self::Governed { .. })
     }
 }
 
-/// Host policy for what plays at frontend/title routes (no gameplay session).
+/// Host-authored audio profile for frontend shell experiences.
 ///
-/// The engine's frontend audio system enforces silence when returning to a
-/// frontend route; this resource lets a HOST override that with a deliberate
-/// title theme. `None` (the default) is silence. The named track must exist in
-/// the host's assembled `AudioLibrary`. Engine = mechanism, host = which track:
-/// no engine crate names a specific song.
-#[derive(Resource, Default, Debug, Clone)]
-pub struct FrontendMusicPolicy {
-    /// Track id to loop at frontend routes, or `None` for silence.
-    pub title_track: Option<String>,
+/// The profile is explicit rather than an exception to gameplay authority. A
+/// launcher/startup/loading route may own one title track and a narrow menu-SFX
+/// allowlist. The provider supplies the actual source definitions; the host
+/// chooses which subset belongs to its frontend.
+#[derive(Resource, Clone, Debug, PartialEq, Eq)]
+pub struct FrontendAudioProfile {
+    provider_id: String,
+    title_track: Option<String>,
+    sfx_ids: BTreeSet<SfxId>,
 }
 
-impl FrontendMusicPolicy {
-    pub fn title(track_id: impl Into<String>) -> Self {
+impl FrontendAudioProfile {
+    pub fn new(provider_id: impl Into<String>) -> Self {
+        let provider_id = provider_id.into();
+        assert!(!provider_id.trim().is_empty(), "frontend audio provider cannot be empty");
         Self {
-            title_track: Some(track_id.into()),
+            provider_id,
+            title_track: None,
+            sfx_ids: BTreeSet::new(),
         }
+    }
+
+    pub fn with_title_track(mut self, track_id: impl Into<String>) -> Self {
+        self.title_track = Some(track_id.into());
+        self
+    }
+
+    pub fn with_sfx(mut self, ids: impl IntoIterator<Item = SfxId>) -> Self {
+        self.sfx_ids.extend(ids);
+        self
+    }
+
+    pub fn provider_id(&self) -> &str {
+        &self.provider_id
+    }
+
+    pub fn title_track(&self) -> Option<&str> {
+        self.title_track.as_deref()
+    }
+
+    pub fn sfx_ids(&self) -> &BTreeSet<SfxId> {
+        &self.sfx_ids
     }
 }
 
-/// The provider-relative audio authority of the active gameplay session.
-/// `Default` = nothing selected (frontend routes, or before composition).
+/// The provider-relative audio authority of the active shell context.
 #[derive(Resource, Default, Debug, Clone)]
 pub struct ActiveAudioSelection {
     current: Option<ActiveAudioAuthority>,
 }
 
-/// One selected provider's live audio authority.
+/// One frontend, gameplay, or direct-entry context's live audio authority.
 #[derive(Debug, Clone)]
 pub struct ActiveAudioAuthority {
-    /// The gameplay-session scope token that owns this selection, or `None`
-    /// for a statically-selected direct-entry host (which owns no session and
-    /// is never cleared by a retirement). This is the identity that makes
-    /// retirement safe: a delayed retirement for an OLDER session must not
-    /// clear a NEWER session's audio (see [`ActiveAudioSelection::clear_if_owner`]).
-    pub owner: Option<u64>,
-    /// Provider id in the audio catalog registry (usually the experience id).
-    pub provider_id: String,
-    /// The provider's authored music, `None` when it registered none —
-    /// a DELIBERATE empty set, not a fallback slot.
-    pub music: Option<MusicRegistry>,
-    /// The provider's authored SFX synth registry, `None` when it registered
-    /// none. Its procedural cues contribute to the authorized id set.
-    pub sfx: Option<SfxRegistry>,
-    /// The bank [`SfxId`]s this provider contributes (from
-    /// [`crate::catalog::SfxBankRegistry`]), on top of its procedural cues.
-    /// Empty for a provider that ships no bank (it authorizes only its cues).
-    pub sfx_ids: BTreeSet<SfxId>,
+    owner: AudioContextOwner,
+    provider_id: String,
+    music: Option<MusicRegistry>,
+    sfx: Option<SfxRegistry>,
+    authorized_music: BTreeSet<String>,
+    authorized_cues: BTreeSet<String>,
+    authorized_sfx: BTreeSet<SfxId>,
+    /// `None` means all provider bank ids are part of this context (gameplay /
+    /// direct entry). `Some` is the frontend's explicit narrow allowlist.
+    explicit_sfx_allowlist: Option<BTreeSet<SfxId>>,
+    preferred_track: Option<String>,
 }
 
 impl ActiveAudioSelection {
-    /// Select `provider_id`'s audio for the session identified by `owner`,
-    /// replacing any previous selection. `owner` is the gameplay-session scope
-    /// token; pass `None` only for a direct-entry host with no session.
-    pub fn select(
+    /// Select a gameplay session. Every track/cue/SFX authored by its provider
+    /// is eligible; exact request ownership still decides whether queued work is
+    /// current.
+    pub fn select_gameplay(
         &mut self,
-        owner: Option<u64>,
+        owner: u64,
         provider_id: impl Into<String>,
         music: Option<MusicRegistry>,
         sfx: Option<SfxRegistry>,
-        sfx_ids: BTreeSet<SfxId>,
+        bank_ids: BTreeSet<SfxId>,
     ) {
-        self.current = Some(ActiveAudioAuthority {
-            owner,
-            provider_id: provider_id.into(),
+        self.select_provider(
+            AudioContextOwner::Gameplay(owner),
+            provider_id.into(),
             music,
             sfx,
-            sfx_ids,
-        });
+            bank_ids,
+            None,
+            None,
+            None,
+        );
     }
 
-    /// A statically selected value for direct-entry hosts (no session owner).
-    pub fn selected(
+    /// Select one frontend shell activation. The actual source definitions come
+    /// from `music` / `sfx`; the profile restricts playback to its title track
+    /// and menu cue allowlist.
+    pub fn select_frontend(
+        &mut self,
+        activation_id: u64,
+        profile: &FrontendAudioProfile,
+        music: Option<MusicRegistry>,
+        sfx: Option<SfxRegistry>,
+        bank_ids: BTreeSet<SfxId>,
+    ) {
+        let explicit_music = profile.title_track.iter().cloned().collect();
+        let explicit_sfx = profile.sfx_ids.clone();
+        self.select_provider(
+            AudioContextOwner::Frontend(activation_id),
+            profile.provider_id.clone(),
+            music,
+            sfx,
+            bank_ids,
+            Some(explicit_music),
+            Some(explicit_sfx),
+            profile.title_track.clone(),
+        );
+    }
+
+    /// A statically selected value for direct-entry hosts.
+    pub fn selected_direct(
         provider_id: impl Into<String>,
         music: Option<MusicRegistry>,
         sfx: Option<SfxRegistry>,
-        sfx_ids: BTreeSet<SfxId>,
+        bank_ids: BTreeSet<SfxId>,
     ) -> Self {
         let mut selection = Self::default();
-        selection.select(None, provider_id, music, sfx, sfx_ids);
+        selection.select_provider(
+            AudioContextOwner::Direct,
+            provider_id.into(),
+            music,
+            sfx,
+            bank_ids,
+            None,
+            None,
+            None,
+        );
         selection
     }
 
-    /// Retire playback authority unconditionally (returning to a frontend route
-    /// without an identity to match, e.g. a host-level reset).
+    #[allow(clippy::too_many_arguments)]
+    fn select_provider(
+        &mut self,
+        owner: AudioContextOwner,
+        provider_id: String,
+        music: Option<MusicRegistry>,
+        sfx: Option<SfxRegistry>,
+        bank_ids: BTreeSet<SfxId>,
+        explicit_music_allowlist: Option<BTreeSet<String>>,
+        explicit_sfx_allowlist: Option<BTreeSet<SfxId>>,
+        preferred_track: Option<String>,
+    ) {
+        let provider_music = music
+            .as_ref()
+            .map(|registry| {
+                registry
+                    .tracks
+                    .iter()
+                    .map(|track| track.id.clone())
+                    .collect::<BTreeSet<_>>()
+            })
+            .unwrap_or_default();
+        let authorized_music = explicit_music_allowlist
+            .as_ref()
+            .map(|allowlist| {
+                allowlist
+                    .intersection(&provider_music)
+                    .cloned()
+                    .collect::<BTreeSet<_>>()
+            })
+            .unwrap_or(provider_music);
+        let mut provider_sfx = sfx
+            .as_ref()
+            .map(SfxRegistry::authorized_cue_ids)
+            .unwrap_or_default();
+        provider_sfx.extend(bank_ids);
+        let authorized_sfx = explicit_sfx_allowlist
+            .as_ref()
+            .map(|allowlist| {
+                allowlist
+                    .intersection(&provider_sfx)
+                    .copied()
+                    .collect::<BTreeSet<_>>()
+            })
+            .unwrap_or(provider_sfx);
+        self.current = Some(ActiveAudioAuthority {
+            owner,
+            provider_id,
+            music,
+            sfx,
+            authorized_music,
+            authorized_cues: BTreeSet::new(),
+            authorized_sfx,
+            explicit_sfx_allowlist,
+            preferred_track,
+        });
+    }
+
     pub fn clear(&mut self) {
         self.current = None;
     }
 
-    /// Retire playback authority ONLY if `owner` is the session that currently
-    /// holds it. A retirement carrying an older session's token is a no-op, so a
-    /// delayed retirement for session A cannot silence session B.
-    pub fn clear_if_owner(&mut self, owner: u64) {
-        if self.current.as_ref().and_then(|a| a.owner) == Some(owner) {
+    pub fn clear_if_owner(&mut self, owner: AudioContextOwner) {
+        if self.owner() == Some(owner) {
             self.current = None;
         }
     }
@@ -271,89 +323,77 @@ impl ActiveAudioSelection {
         self.current.as_ref()
     }
 
-    /// Replace the current selection's contributed bank ids in place, without
-    /// rebuilding the selection. Used when the resident SFX bank finishes
-    /// loading *after* a statically-selected direct-entry host already chose its
-    /// provider: the cues were authorized at selection time, the bank ids become
-    /// known a frame or two later. A no-op when nothing is selected.
-    pub fn set_current_sfx_ids(&mut self, sfx_ids: BTreeSet<SfxId>) {
-        if let Some(current) = self.current.as_mut() {
-            current.sfx_ids = sfx_ids;
-        }
+    pub fn owner(&self) -> Option<AudioContextOwner> {
+        self.current.as_ref().map(|authority| authority.owner)
     }
 
-    /// The session scope token that owns the current selection, if any.
-    pub fn owner(&self) -> Option<u64> {
-        self.current.as_ref().and_then(|a| a.owner)
+    pub fn accepts_request_owner(&self, owner: Option<AudioContextOwner>) -> bool {
+        self.owner() == owner && owner.is_some()
     }
 
     pub fn provider_id(&self) -> Option<&str> {
-        self.current.as_ref().map(|a| a.provider_id.as_str())
+        self.current.as_ref().map(|authority| authority.provider_id.as_str())
     }
 
-    /// The active music registry, when a session is live AND its provider
-    /// authored music.
     pub fn music(&self) -> Option<&MusicRegistry> {
-        self.current.as_ref().and_then(|a| a.music.as_ref())
+        self.current.as_ref().and_then(|authority| authority.music.as_ref())
     }
 
-    /// The active SFX registry, when a session is live AND its provider
-    /// authored SFX.
     pub fn sfx(&self) -> Option<&SfxRegistry> {
-        self.current.as_ref().and_then(|a| a.sfx.as_ref())
+        self.current.as_ref().and_then(|authority| authority.sfx.as_ref())
     }
 
-    /// The provider-relative SFX authority implied by the current selection.
-    ///
-    /// - no selection → [`SfxAuthority::Ungoverned`] (frontend routes);
-    /// - a provider with authored SFX (cues and/or bank ids) → `Governed` with
-    ///   exactly that provider's authorized id set;
-    /// - a provider that authored no SFX → `Governed` with an EMPTY set, i.e.
-    ///   deliberate silence.
-    ///
-    /// The SFX consumer consults this so a sound present in the process-wide
-    /// resident bank / synth table but foreign to the active provider can never
-    /// play — the exact SFX analogue of [`Self::music_authority`].
+    pub fn preferred_track(&self) -> Option<&str> {
+        self.current
+            .as_ref()
+            .and_then(|authority| authority.preferred_track.as_deref())
+    }
+
+    /// Refresh one provider's runtime bank identities after asynchronous load.
+    /// The live context changes only when it belongs to that provider.
+    pub fn refresh_provider_sfx_ids(&mut self, provider_id: &str, bank_ids: BTreeSet<SfxId>) {
+        let Some(current) = self.current.as_mut() else {
+            return;
+        };
+        if current.provider_id != provider_id {
+            return;
+        }
+        let mut provider_sfx = current
+            .sfx
+            .as_ref()
+            .map(SfxRegistry::authorized_cue_ids)
+            .unwrap_or_default();
+        provider_sfx.extend(bank_ids);
+        current.authorized_sfx = current
+            .explicit_sfx_allowlist
+            .as_ref()
+            .map(|allowlist| allowlist.intersection(&provider_sfx).copied().collect())
+            .unwrap_or(provider_sfx);
+    }
+
+    pub fn authorize_adaptive_cues(&mut self, cues: impl IntoIterator<Item = String>) {
+        if let Some(current) = self.current.as_mut() {
+            current.authorized_cues.extend(cues);
+        }
+    }
+
     pub fn sfx_authority(&self) -> SfxAuthority {
-        match &self.current {
-            None => SfxAuthority::Ungoverned,
-            Some(authority) => {
-                let mut authorized = authority
-                    .sfx
-                    .as_ref()
-                    .map(SfxRegistry::authorized_cue_ids)
-                    .unwrap_or_default();
-                authorized.extend(authority.sfx_ids.iter().copied());
-                SfxAuthority::Governed { authorized }
-            }
-        }
+        self.current
+            .as_ref()
+            .map(|authority| SfxAuthority::Governed {
+                authorized: authority.authorized_sfx.clone(),
+            })
+            .unwrap_or(SfxAuthority::Denied)
     }
 
-    /// The provider-relative music authority implied by the current selection.
-    ///
-    /// - no selection → [`MusicAuthority::Ungoverned`] (frontend routes);
-    /// - a provider with authored music → `Governed` with exactly that
-    ///   provider's track ids;
-    /// - a provider that authored no music → `Governed` with an EMPTY set,
-    ///   i.e. deliberate silence.
-    ///
-    /// The director consults this so a track present in the process-wide
-    /// combined library but foreign to the active provider can never play.
     pub fn music_authority(&self) -> MusicAuthority {
-        match &self.current {
-            None => MusicAuthority::Ungoverned,
-            Some(authority) => MusicAuthority::Governed {
-                authorized: authority
-                    .music
-                    .as_ref()
-                    .map(|music| music.tracks.iter().map(|track| track.id.clone()).collect())
-                    .unwrap_or_default(),
-                // Adaptive cue ids are folded in by the intent resolver from the
-                // provider's `AdaptiveCueRegistry` entry — the selection layer
-                // only knows track ids.
-                authorized_cues: BTreeSet::new(),
-            },
-        }
+        self.current
+            .as_ref()
+            .map(|authority| MusicAuthority::Governed {
+                authorized: authority.authorized_music.clone(),
+                authorized_cues: authority.authorized_cues.clone(),
+            })
+            .unwrap_or(MusicAuthority::Denied)
     }
 }
 
@@ -364,7 +404,8 @@ mod tests {
 
     fn cue(cue: SoundCueKey) -> SfxSpec {
         SfxSpec {
-            cue,
+            cue: Some(cue),
+            id: None,
             waveform: WaveformSpec::Sine,
             frequency: 440.0,
             frequency_end: 440.0,
@@ -395,199 +436,73 @@ mod tests {
     }
 
     #[test]
-    fn selection_replaces_and_clears_cleanly() {
-        let mut selection = ActiveAudioSelection::default();
-        assert!(selection.current().is_none());
-        assert!(selection.music().is_none());
-
-        selection.select(
-            Some(1),
-            "sanic",
-            Some(music("you_are_too_slow")),
-            None,
-            BTreeSet::new(),
-        );
-        assert_eq!(selection.provider_id(), Some("sanic"));
-        assert_eq!(selection.owner(), Some(1));
-        assert_eq!(
-            selection.music().map(|m| m.default_track.as_str()),
-            Some("you_are_too_slow")
-        );
-
-        // Switching providers REPLACES — no residue of the previous authority.
-        selection.select(Some(2), "mary_o", None, None, BTreeSet::new());
-        assert_eq!(selection.provider_id(), Some("mary_o"));
-        assert!(
-            selection.music().is_none(),
-            "a provider that authored no music is a deliberate empty set"
-        );
-
-        selection.clear();
-        assert!(selection.current().is_none());
-    }
-
-    /// Poison: a delayed retirement for an OLDER session must not clear a NEWER
-    /// session's audio authority. Activate A, activate B, then deliver A's stale
-    /// retirement — B must keep ownership.
-    #[test]
-    fn stale_retirement_does_not_clear_a_newer_selection() {
-        let mut selection = ActiveAudioSelection::default();
-        selection.select(
-            Some(1),
-            "sanic",
-            Some(music("you_are_too_slow")),
-            None,
-            BTreeSet::new(),
-        );
-        // Session B (scope 2) takes over.
-        selection.select(
-            Some(2),
-            "ambition",
-            Some(music("ambition_theme")),
-            None,
-            BTreeSet::new(),
-        );
-        assert_eq!(selection.owner(), Some(2));
-
-        // A stale retirement for scope 1 arrives late.
-        selection.clear_if_owner(1);
-        assert_eq!(
-            selection.owner(),
-            Some(2),
-            "session B must still own audio after A's delayed retirement"
-        );
-        assert_eq!(selection.provider_id(), Some("ambition"));
-
-        // B's own retirement DOES clear it.
-        selection.clear_if_owner(2);
-        assert!(selection.current().is_none());
-    }
-
-    #[test]
-    fn no_selection_is_ungoverned_authority() {
+    fn no_context_denies_audio() {
         let selection = ActiveAudioSelection::default();
-        assert_eq!(selection.music_authority(), MusicAuthority::Ungoverned);
-        // Ungoverned permits nothing to be *rejected* — the director must not
-        // change playback at a frontend route (the frontend policy owns it).
-        assert!(selection.music_authority().allows("anything"));
-        assert!(!selection.music_authority().is_deliberate_silence());
+        assert_eq!(selection.music_authority(), MusicAuthority::Denied);
+        assert_eq!(selection.sfx_authority(), SfxAuthority::Denied);
+        assert!(!selection.sfx_authority().allows(SoundCueKey::Jump.sfx_id()));
     }
 
     #[test]
-    fn a_music_provider_only_authorizes_its_own_tracks() {
-        // The heart of Issue 1: a Sanic session must not be able to play an
-        // Ambition track that merely EXISTS in the combined library.
+    fn frontend_is_a_first_class_narrow_audio_context() {
+        let profile = FrontendAudioProfile::new("ambition")
+            .with_title_track("title")
+            .with_sfx([SoundCueKey::Jump.sfx_id()]);
         let mut selection = ActiveAudioSelection::default();
-        selection.select(
-            Some(7),
-            "sanic",
-            Some(music("you_are_too_slow")),
-            None,
+        selection.select_frontend(
+            11,
+            &profile,
+            Some(music("title")),
+            Some(sfx([SoundCueKey::Jump, SoundCueKey::Dash])),
             BTreeSet::new(),
         );
-        let authority = selection.music_authority();
-        assert!(authority.allows("you_are_too_slow"));
-        assert!(
-            !authority.allows("ambition_boss_theme"),
-            "a foreign provider's track is not authorized by this session"
-        );
-        assert!(!authority.is_deliberate_silence());
-        assert!(authority.is_governed());
-    }
-
-    #[test]
-    fn a_provider_with_no_music_is_deliberate_silence() {
-        // Mary-O authors no music: a live session, but nothing may play.
-        let mut selection = ActiveAudioSelection::default();
-        selection.select(Some(3), "mary_o", None, None, BTreeSet::new());
-        let authority = selection.music_authority();
-        assert!(authority.is_governed());
-        assert!(
-            authority.is_deliberate_silence(),
-            "an empty authorized set is a stop request, not 'retain current'"
-        );
-        assert!(!authority.allows("you_are_too_slow"));
-    }
-
-    #[test]
-    fn music_authority_governs_adaptive_cues_separately_from_tracks() {
-        let mut authority = MusicAuthority::governed(vec!["a_possible_morning".to_string()]);
-        // A track is authorized; no cue is until the resolver folds them in.
-        assert!(authority.allows("a_possible_morning"));
-        assert!(!authority.allows_cue("first_goblin_tune_v2"));
-        assert!(!authority.is_deliberate_silence(), "it has a track");
-        authority.authorize_cues(vec!["first_goblin_tune_v2".to_string()]);
-        assert!(authority.allows_cue("first_goblin_tune_v2"));
-        assert!(
-            !authority.allows_cue("some_boss_cue"),
-            "a cue the provider did not author stays unauthorized"
-        );
-    }
-
-    #[test]
-    fn neither_tracks_nor_cues_is_deliberate_silence() {
-        let mut authority = MusicAuthority::governed(Vec::<String>::new());
-        assert!(authority.is_deliberate_silence());
-        authority.authorize_cues(vec!["cue".to_string()]);
-        assert!(
-            !authority.is_deliberate_silence(),
-            "authorizing an adaptive cue lifts deliberate silence"
-        );
-        assert!(authority.allows_cue("cue"));
-        // Ungoverned never restricts cues.
-        assert!(MusicAuthority::Ungoverned.allows_cue("anything"));
-    }
-
-    #[test]
-    fn no_selection_is_ungoverned_sfx_authority() {
-        let selection = ActiveAudioSelection::default();
-        assert_eq!(selection.sfx_authority(), SfxAuthority::Ungoverned);
-        // Ungoverned rejects nothing — standalone/frontend SFX is unrestricted.
+        assert_eq!(selection.owner(), Some(AudioContextOwner::Frontend(11)));
+        assert!(selection.music_authority().allows("title"));
         assert!(selection.sfx_authority().allows(SoundCueKey::Jump.sfx_id()));
-        assert!(!selection.sfx_authority().is_deliberate_silence());
+        assert!(!selection.sfx_authority().allows(SoundCueKey::Dash.sfx_id()));
     }
 
     #[test]
-    fn an_sfx_provider_only_authorizes_its_own_cues_and_bank_ids() {
-        // Sanic authors Dash + Jump cues and contributes one bank id; it must
-        // not be able to play an Ambition-only id merely resident in the bank.
-        let ambition_only = SfxId::from_static("boss.mirror.shatter");
-        let sanic_bank = SfxId::from_static("sanic.ring.collect");
+    fn stale_same_provider_owner_is_rejected() {
         let mut selection = ActiveAudioSelection::default();
-        selection.select(
-            Some(7),
+        selection.select_gameplay(
+            2,
             "sanic",
             None,
-            Some(sfx([SoundCueKey::Dash, SoundCueKey::Jump])),
-            BTreeSet::from([sanic_bank]),
+            Some(sfx([SoundCueKey::Dash])),
+            BTreeSet::new(),
         );
-        let authority = selection.sfx_authority();
-        assert!(authority.allows(SoundCueKey::Dash.sfx_id()));
-        assert!(authority.allows(SoundCueKey::Jump.sfx_id()));
-        assert!(authority.allows(sanic_bank));
-        assert!(
-            !authority.allows(ambition_only),
-            "a foreign provider's bank id is not authorized by this session"
-        );
-        assert!(
-            !authority.allows(SoundCueKey::Slash.sfx_id()),
-            "an undeclared cue is not authorized, even though the resident synth holds it"
-        );
-        assert!(authority.is_governed());
-        assert!(!authority.is_deliberate_silence());
+        assert!(!selection.accepts_request_owner(Some(AudioContextOwner::Gameplay(1))));
+        assert!(selection.accepts_request_owner(Some(AudioContextOwner::Gameplay(2))));
     }
 
     #[test]
-    fn a_provider_with_no_sfx_is_deliberate_silence() {
-        // Mary-O authors no SFX: a live session, but nothing may play.
+    fn stale_retirement_does_not_clear_a_newer_context() {
         let mut selection = ActiveAudioSelection::default();
-        selection.select(Some(3), "mary_o", None, None, BTreeSet::new());
-        let authority = selection.sfx_authority();
-        assert!(authority.is_governed());
-        assert!(
-            authority.is_deliberate_silence(),
-            "no authored SFX is a stop request, not 'resolve against the resident bank'"
-        );
-        assert!(!authority.allows(SoundCueKey::Jump.sfx_id()));
+        selection.select_gameplay(1, "sanic", Some(music("fast")), None, BTreeSet::new());
+        selection.select_gameplay(2, "sanic", Some(music("fast")), None, BTreeSet::new());
+        selection.clear_if_owner(AudioContextOwner::Gameplay(1));
+        assert_eq!(selection.owner(), Some(AudioContextOwner::Gameplay(2)));
+        selection.clear_if_owner(AudioContextOwner::Gameplay(2));
+        assert!(selection.current().is_none());
+    }
+
+    #[test]
+    fn late_bank_refresh_updates_only_the_owning_provider() {
+        let late = SfxId::from_static("late.bank.id");
+        let mut selection = ActiveAudioSelection::default();
+        selection.select_gameplay(3, "ambition", None, None, BTreeSet::new());
+        selection.refresh_provider_sfx_ids("sanic", BTreeSet::from([late]));
+        assert!(!selection.sfx_authority().allows(late));
+        selection.refresh_provider_sfx_ids("ambition", BTreeSet::from([late]));
+        assert!(selection.sfx_authority().allows(late));
+    }
+
+    #[test]
+    fn silent_gameplay_provider_is_explicit() {
+        let mut selection = ActiveAudioSelection::default();
+        selection.select_gameplay(3, "mary_o", None, None, BTreeSet::new());
+        assert!(selection.music_authority().is_deliberate_silence());
+        assert!(selection.sfx_authority().is_deliberate_silence());
     }
 }

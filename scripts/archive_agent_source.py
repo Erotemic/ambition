@@ -129,6 +129,7 @@ CONFIG = {
     # importable or fails, the built-in lightweight walker below is used as a
     # fallback. These describe the staged archive contents, not ignored build
     # products in the user's live checkout.
+    'run_dirstats': True,
     'dirstats': [
         {
             'output': '.agent/dirstats-crates-summary.txt',
@@ -220,12 +221,18 @@ CONFIG = {
     'scan_forbidden_history': True,
 
     # Final archive validation. Paths are relative to the staged archive root.
+    # The base list is always required; the step-specific lists below are only
+    # enforced when their step actually runs, so per-step skips stay valid.
     'required_archive_paths': [
         '.agent/source_archive_manifest.yaml',
+        'SOURCE_ARCHIVE_MANIFEST.txt',
+    ],
+    'required_dirstats_paths': [
         '.agent/dirstats-repo-summary.txt',
+    ],
+    'required_live_disk_inventory_paths': [
         '.agent/live-disk-inventory-summary.txt',
         '.agent/live-git-status-ignored.txt',
-        'SOURCE_ARCHIVE_MANIFEST.txt',
     ],
 }
 
@@ -1088,6 +1095,10 @@ def validate_archive_root(archive_root: Path) -> None:
         required.extend(CONFIG['required_agent_index_paths'])
     if CONFIG['run_ecs_inventory']:
         required.extend(CONFIG['required_ecs_inventory_paths'])
+    if CONFIG['run_dirstats']:
+        required.extend(CONFIG['required_dirstats_paths'])
+    if CONFIG['run_live_disk_inventory']:
+        required.extend(CONFIG['required_live_disk_inventory_paths'])
     missing = [path for path in required if not (archive_root / path).exists()]
     if missing:
         details = '\n'.join(f'  - {m}' for m in missing)
@@ -1285,6 +1296,9 @@ def run_full_agent_reports(archive_root: Path, generated_at: str, log: Log) -> N
         run_cargo_modules_report(archive_root, generated_at, spec, log)
 
 def run_dirstats(archive_root: Path, generated_at: str, log: Log) -> None:
+    if not CONFIG['run_dirstats']:
+        log('[archive-agent-source] skipping dirstats generation')
+        return
     for spec in CONFIG['dirstats']:
         log(f'[archive-agent-source] writing {spec["output"]}')
         write_dirstats_report(archive_root, spec, generated_at, log)
@@ -1449,18 +1463,35 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument('--prefix', default=None, help='override the top-level directory name inside the archive')
     parser.add_argument('--skip-index', action='store_true', help='do not run CONFIG["agent_index_command"]')
     parser.add_argument('--skip-ecs-inventory', action='store_true', help='do not run CONFIG["ecs_inventory_command"]')
+    parser.add_argument('--skip-dirstats', action='store_true', help='do not generate the staged dirstats reports')
+    parser.add_argument('--skip-live-inventory', action='store_true', help='do not generate the live-disk inventory or live git-status reports')
     parser.add_argument('--full', action='store_true', help='also run slower cargo reports: cargo check --workspace --lib and cargo-modules')
+    parser.add_argument('--quick', action='store_true', help='only stage the shallow clones; skip every heavy step (agent index, ECS inventory, dirstats, live-disk inventory). Implies all --skip-* flags and is incompatible with --full')
     parser.add_argument('--allow-forbidden', action='store_true', help='bypass CONFIG["forbidden_path_globs"] guardrails for this run')
     parser.add_argument('--keep-stage', action='store_true', help='copy the staged archive root to .tmp-<prefix>-stage for debugging')
     parser.add_argument('-q', '--quiet', action='store_true', help='reduce logging')
     args = parser.parse_args(argv)
 
-    old_run_index = CONFIG['run_agent_index']
-    old_run_ecs_inventory = CONFIG['run_ecs_inventory']
-    if args.skip_index:
-        CONFIG['run_agent_index'] = False
-    if args.skip_ecs_inventory:
-        CONFIG['run_ecs_inventory'] = False
+    if args.quick:
+        if args.full:
+            parser.error('--quick and --full are mutually exclusive')
+        args.skip_index = True
+        args.skip_ecs_inventory = True
+        args.skip_dirstats = True
+        args.skip_live_inventory = True
+
+    # Each heavy step is a CONFIG toggle; flip the requested ones off for this
+    # run and restore the originals afterward so CONFIG stays a static default.
+    step_toggles = {
+        'run_agent_index': not args.skip_index,
+        'run_ecs_inventory': not args.skip_ecs_inventory,
+        'run_dirstats': not args.skip_dirstats,
+        'run_live_disk_inventory': not args.skip_live_inventory,
+    }
+    saved = {key: CONFIG[key] for key in step_toggles}
+    for key, keep in step_toggles.items():
+        if not keep:
+            CONFIG[key] = False
     try:
         output = build_archive(
             args.repo,
@@ -1472,8 +1503,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             full_reports=args.full,
         )
     finally:
-        CONFIG['run_agent_index'] = old_run_index
-        CONFIG['run_ecs_inventory'] = old_run_ecs_inventory
+        CONFIG.update(saved)
     print_output_location(output)
     return 0
 

@@ -57,7 +57,7 @@ pub fn heal_save_shrine_system(
     shrines: Query<&HealShrine>,
     mut save: ResMut<ambition_persistence::save::SandboxSave>,
     mut activation: ResMut<ShrineActivationPulse>,
-    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
+    mut sfx: ambition_sfx::SfxWriter,
 ) {
     let Some(subject) = controlled
         .and_then(|subject| subject.0)

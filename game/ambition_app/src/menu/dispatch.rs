@@ -25,7 +25,7 @@ use ambition::settings_menu::settings::{
     apply_settings_option, settings_menu_model, SettingsOptionId, SettingsOptionKind,
 };
 use ambition::settings_menu::system::SystemMenuAction;
-use ambition::sfx::SfxMessage;
+use ambition::sfx::SfxWriter;
 
 /// Dispatch a [`MenuPageAction`]. Item Equip/Use reuse the grid's shared
 /// [`dispatch_item_confirm`] (no portal/equip/heal duplication); page-change sets
@@ -44,7 +44,7 @@ pub(crate) fn dispatch_menu_action(
     players: &mut MenuEffectPlayers,
     mana_q: &mut MenuEffectManaQuery,
     heals: &mut MessageWriter<PlayerHealRequested>,
-    sfx: &mut MessageWriter<SfxMessage>,
+    sfx: &mut SfxWriter,
     system: &mut SystemMenuParams,
 ) {
     match action {
@@ -184,7 +184,7 @@ fn apply_system_option(
     settings: &mut UserSettings,
     quality_confirm: &mut VisualQualityConfirmState,
     close_menu: &mut bool,
-    sfx: &mut MessageWriter<SfxMessage>,
+    sfx: &mut SfxWriter,
 ) {
     if option == SettingsOptionId::VisualQuality {
         quality_confirm.step_from(settings.video.quality.profile, 1);

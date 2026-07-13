@@ -82,6 +82,9 @@ pub enum AdaptiveCueDirective {
 /// director unchanged.
 #[derive(Resource, Default, Debug, Clone)]
 pub struct MusicIntent {
+    /// Provider whose actual adaptive definitions and track authority apply to
+    /// this frame. `None` means no active music context.
+    pub provider_id: Option<String>,
     /// Adaptive cue directive for this frame, if any content owns audio.
     /// `None` means "no adaptive claim — fall back to the simple track."
     pub adaptive: Option<AdaptiveCueDirective>,

@@ -62,7 +62,7 @@ pub fn fire_vortex_system(
         Option<&SessionScopedEntity>,
     )>,
     mut commands: Commands,
-    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
+    mut sfx: ambition_sfx::SfxWriter,
 ) {
     let Some(subject) = controlled.0 else {
         return;
@@ -147,7 +147,7 @@ mod tests {
 
     fn test_app() -> App {
         let mut app = App::new();
-        app.add_message::<ambition_sfx::SfxMessage>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.insert_resource(ambition_time::WorldTime {
             raw_dt: 0.016,
             scaled_dt: 0.016,

@@ -40,7 +40,7 @@ use crate::world::platforms::MovingPlatformState;
 use crate::{physics, MeleeSwing};
 use ambition_characters::actor::BodyCombat;
 use ambition_engine_core::RoomGeometry;
-use ambition_sfx::SfxMessage;
+use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_world::collision::MovingPlatformSet;
 
 /// Build the engine's `InputState` purely from `ActorControl` —
@@ -171,7 +171,7 @@ pub fn pogo_moveset_off_world_orbs(
         &mut ae::BodyKinematics,
         &mut ambition_engine_core::BodyGroundState,
     )>,
-    mut sfx: MessageWriter<SfxMessage>,
+    mut sfx: SfxWriter,
 ) {
     // The pogo hitboxes live this frame + where their volume covers. A hitbox that
     // has ALREADY world-bounced this strike is skipped: the world-orb pogo carries
@@ -227,7 +227,7 @@ pub fn pogo_moveset_off_world_orbs(
 
 #[allow(clippy::too_many_arguments)]
 pub fn start_attack(
-    sfx: &mut MessageWriter<SfxMessage>,
+    sfx: &mut SfxWriter,
     vfx: &mut MessageWriter<VfxMessage>,
     clusters: &mut ae::BodyClustersMut<'_>,
     // The body's published maneuver facts (ADR 0024): the view's
@@ -398,7 +398,7 @@ pub fn advance_attack(
     // box drives the strike (the same data-driven lookup for player + actor).
     // `None` → the player's hardcoded manifest root.
     sprite_cid: Option<&str>,
-    sfx: &mut MessageWriter<SfxMessage>,
+    sfx: &mut SfxWriter,
     vfx: &mut MessageWriter<VfxMessage>,
     world: &ae::World,
     moving_platforms: &[MovingPlatformState],
@@ -569,7 +569,7 @@ pub fn advance_attack(
 /// `start_enemy_melee_from_brain_actions` — one body-action START phase.
 pub fn start_body_melee(
     mut brain_actions: MessageReader<ActorActionMessage>,
-    mut sfx_writer: MessageWriter<SfxMessage>,
+    mut sfx_writer: SfxWriter,
     mut vfx_writer: MessageWriter<VfxMessage>,
     mut bodies: Query<(
         ae::BodyClusterQueryData,
@@ -688,7 +688,7 @@ pub fn advance_body_melee(
     editable_tuning: Res<EditableMovementTuning>,
     feature_ecs_overlay: Res<FeatureEcsWorldOverlay>,
     mut commands: bevy::prelude::Commands,
-    mut sfx_writer: MessageWriter<SfxMessage>,
+    mut sfx_writer: SfxWriter,
     mut vfx_writer: MessageWriter<VfxMessage>,
     mut hit_events: MessageWriter<crate::combat::events::HitEvent>,
     mut bodies: Query<(

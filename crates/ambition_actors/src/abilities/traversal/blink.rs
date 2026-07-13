@@ -108,7 +108,7 @@ pub fn blink_system(
         Option<&mut crate::ability_cooldown::AbilityCooldown>,
         &mut crate::features::MotionModel,
     )>,
-    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
+    mut sfx: ambition_sfx::SfxWriter,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut hits: MessageWriter<crate::features::HitEvent>,
     // Optional: the diagnostic-only Class-B ledger (§3.2). A minimal test app

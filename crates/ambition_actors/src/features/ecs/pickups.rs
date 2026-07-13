@@ -2,7 +2,7 @@
 
 use super::*;
 use crate::features::SetFlagRequested;
-use ambition_sfx::SfxMessage;
+use ambition_sfx::{SfxMessage, SfxWriter};
 
 /// Range within which dropped loot drifts toward the player — a coin/loot magnet,
 /// so the coins + hearts this run drops come to you instead of needing a pixel-
@@ -55,7 +55,7 @@ pub fn collect_ecs_pickups(
     >,
     mut heals: MessageWriter<crate::avatar::PlayerHealRequested>,
     mut wallets: Query<&mut ambition_characters::actor::BodyWallet>,
-    mut sfx: MessageWriter<SfxMessage>,
+    mut sfx: SfxWriter,
     mut vfx: MessageWriter<VfxMessage>,
     mut set_flag: MessageWriter<SetFlagRequested>,
     mut owned: Option<ResMut<crate::items::OwnedItems>>,

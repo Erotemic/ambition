@@ -228,7 +228,7 @@ fn capture_hits(mut reader: MessageReader<HitEvent>, mut cap: ResMut<CapturedHit
 fn player_faction_hitbox_emits_an_attacker_side_feature_hit() {
     let mut app = App::new();
     app.add_message::<HitEvent>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.init_resource::<CapturedHits>();
@@ -288,7 +288,7 @@ use crate::targeting::FactionRelations;
 fn arena_hitbox_app(relations: FactionRelations, victim_faction: ActorFaction) -> (App, Entity) {
     let mut app = App::new();
     app.add_message::<HitEvent>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.init_resource::<CapturedHits>();
@@ -395,7 +395,7 @@ fn actor_vs_actor_damage_is_physical_for_different_factions() {
 fn enemy_hitbox_over_player_app(relations: FactionRelations) -> (App, Entity) {
     let mut app = App::new();
     app.add_message::<HitEvent>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.init_resource::<CapturedHits>();
@@ -492,7 +492,7 @@ fn enemy_hitbox_hits_a_non_targeted_player_strays_are_physical() {
 fn player_faction_hitbox_only_fires_once() {
     let mut app = App::new();
     app.add_message::<HitEvent>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.init_resource::<CapturedHits>();
@@ -541,7 +541,7 @@ fn player_faction_hitbox_only_fires_once() {
 fn player_followowner_melee_strike_emits_player_slash_with_knock_x() {
     let mut app = App::new();
     app.add_message::<HitEvent>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.init_resource::<CapturedHits>();
@@ -611,7 +611,7 @@ fn player_followowner_melee_strike_emits_player_slash_with_knock_x() {
 fn player_followowner_strike_without_a_swing_is_inert() {
     let mut app = App::new();
     app.add_message::<HitEvent>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.init_resource::<CapturedHits>();

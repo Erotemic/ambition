@@ -24,7 +24,6 @@ use bevy::prelude::*;
 
 use ambition_actors::session::data;
 use ambition_actors::ActorDiedMessage;
-use ambition_sfx::SfxMessage;
 use ambition_vfx::vfx::DebrisBurstMessage;
 use ambition_vfx::{ExplosionRequest, FireworksRequest, VfxMessage};
 
@@ -34,7 +33,7 @@ pub struct SimCoreResourcesPlugin;
 
 impl Plugin for SimCoreResourcesPlugin {
     fn build(&self, app: &mut App) {
-        app.add_message::<SfxMessage>()
+        app.add_message::<ambition_sfx::OwnedSfxMessage>()
             .add_message::<VfxMessage>()
             .add_message::<ambition_projectiles::SpawnProjectile>()
             .add_message::<ExplosionRequest>()

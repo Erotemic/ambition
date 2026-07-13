@@ -22,7 +22,7 @@ use ambition_vfx::vfx::{ParticleKind, VfxMessage};
 use crate::actor::BodyAnimFacts;
 use crate::avatar::PlayerBlinkCameraState;
 use ambition_characters::actor::BodyCombat;
-use ambition_sfx::SfxMessage;
+use ambition_sfx::{SfxMessage, SfxWriter};
 
 /// How long the wall-jump push-off pose holds after the WallJump op fires. Short
 /// enough to clear before the apex of the jump arc so the regular `Jump` row
@@ -119,7 +119,7 @@ pub fn arm_movement_anim_overlays(anim: &mut BodyAnimFacts, events: &ae::FrameEv
 /// fable review §A8).
 #[allow(clippy::too_many_arguments)]
 pub fn emit_movement_fx(
-    sfx: &mut MessageWriter<SfxMessage>,
+    sfx: &mut SfxWriter,
     vfx: &mut MessageWriter<VfxMessage>,
     events: &ae::FrameEvents,
     pos: ae::Vec2,
@@ -268,7 +268,7 @@ pub fn emit_movement_fx(
 
 #[allow(clippy::too_many_arguments)]
 pub fn handle_player_events(
-    sfx: &mut MessageWriter<SfxMessage>,
+    sfx: &mut SfxWriter,
     vfx: &mut MessageWriter<VfxMessage>,
     clusters: &ae::BodyClustersMut<'_>,
     combat: &mut BodyCombat,
@@ -317,7 +317,7 @@ mod tests {
     struct TestEvents(ae::FrameEvents);
 
     fn emit_system(
-        mut sfx: MessageWriter<SfxMessage>,
+        mut sfx: SfxWriter,
         mut vfx: MessageWriter<VfxMessage>,
         events: Res<TestEvents>,
     ) {
@@ -343,15 +343,16 @@ mod tests {
         let mut events = ae::FrameEvents::default();
         events.operations.push(ae::MovementOp::Jump);
         let mut app = App::new();
-        app.add_message::<SfxMessage>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<VfxMessage>();
         app.insert_resource(TestEvents(events));
         app.add_systems(Update, emit_system);
         app.update();
         let sfx: Vec<SfxMessage> = app
             .world_mut()
-            .resource_mut::<bevy::ecs::message::Messages<SfxMessage>>()
+            .resource_mut::<bevy::ecs::message::Messages<ambition_sfx::OwnedSfxMessage>>()
             .drain()
+            .map(|message| message.request)
             .collect();
         let vfx: Vec<VfxMessage> = app
             .world_mut()

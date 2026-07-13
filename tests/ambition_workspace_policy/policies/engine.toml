@@ -2461,3 +2461,48 @@ forbid = [
     "Option<Res<ambition_actors::boss_encounter::BossCatalog>>",
     "pub struct CharacterCatalog(pub",
 ]
+
+# Shell audio is activation-owned. Gameplay and frontend experiences may both
+# author music/SFX, but every emitted SFX command captures the exact current
+# audio owner through SfxWriter. Raw message-channel access would lose that
+# ownership and allow delayed work to cross route/session boundaries.
+[[policy]]
+id = "engine.sfx-emission-captures-exact-audio-owner"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_sfx", "ambition_audio", "ambition_game_shell"]
+watch_paths = ["crates", "game"]
+rationale = "All SFX emission must go through SfxWriter so frontend and gameplay work captures its exact AudioContextOwner; raw SfxMessage channels permit stale cross-activation playback."
+source_doc = "docs/planning/engine/startup-loading-and-frontend-flow.md#current-integration-candidate-and-remaining-limits"
+severity = "error"
+production_only = true
+skip_tests = true
+roots = ["crates", "game"]
+forbid = [
+    "MessageWriter<SfxMessage>",
+    "MessageReader<SfxMessage>",
+    "Messages<SfxMessage>",
+    "add_message::<SfxMessage>",
+]
+
+# Absence of a gameplay session is not an ungoverned audio mode. A frontend
+# shell activation owns an explicit host profile; direct apps install an
+# explicit direct profile; gameplay owns a scope-qualified provider profile.
+[[policy]]
+id = "engine.shell-audio-authority-is-explicit"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_audio", "ambition_game_shell"]
+watch_paths = ["crates", "game"]
+rationale = "Every shell activation has an explicit frontend/gameplay/direct audio context. Ungoverned authority or an optional audio registry would conflate missing composition with legitimate frontend or silent-provider policy."
+source_doc = "docs/planning/engine/startup-loading-and-frontend-flow.md#current-integration-candidate-and-remaining-limits"
+severity = "error"
+production_only = true
+skip_tests = true
+roots = ["crates", "game"]
+forbid = [
+    "MusicAuthority::Ungoverned",
+    "SfxAuthority::Ungoverned",
+    "Option<Res<AudioCatalogRegistry>>",
+    "Option<Res<ambition_audio::AudioCatalogRegistry>>",
+]

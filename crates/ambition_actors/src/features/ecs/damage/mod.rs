@@ -31,7 +31,7 @@ use super::damage_predicates::target_is_ignored;
 #[cfg(test)]
 use super::PickupFeature;
 use crate::features::ActorStimulus;
-use ambition_sfx::SfxMessage;
+use ambition_sfx::{SfxMessage, SfxWriter};
 use ambition_vfx::vfx::DebrisBurstMessage;
 use ambition_vfx::vfx::VfxMessage;
 
@@ -39,7 +39,7 @@ use ambition_vfx::vfx::VfxMessage;
 pub struct FeatureHitWriters<'w, 's> {
     pub set_flag: MessageWriter<'w, SetFlagRequested>,
     pub actor_stimuli: MessageWriter<'w, ActorStimulus>,
-    pub sfx: MessageWriter<'w, SfxMessage>,
+    pub sfx: SfxWriter<'w>,
     pub vfx: MessageWriter<'w, VfxMessage>,
     pub debris: MessageWriter<'w, DebrisBurstMessage>,
     /// Refactor 3: spawning loot/respawns on a hit is a one-liner

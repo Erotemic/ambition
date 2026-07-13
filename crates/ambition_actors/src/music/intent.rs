@@ -23,7 +23,9 @@ use ambition_audio::selection::ActiveAudioSelection;
 use ambition_audio::music::{
     AdaptiveCueDirective, MusicDirectorMode, MusicDirectorState, MusicIntent,
 };
-use ambition_audio::music::{EncounterMusicBinding, MusicCueCatalog};
+use ambition_audio::music::{
+    AdaptiveMusicCatalogRegistry, EncounterMusicBinding, MusicCueCatalog,
+};
 
 /// Delay after wave 2 starts before the music promotes to its "reinforced"
 /// (large-brute) state. Content tuning — owned here, not by the director.
@@ -35,14 +37,13 @@ pub(super) const LARGE_BRUTE_DELAY_SECONDS: f32 = 3.5;
 /// system that bridges encounter/room/content gameplay into the music layer.
 #[allow(clippy::too_many_arguments)]
 pub fn compute_music_intent(
-    catalog: Option<Res<MusicCueCatalog>>,
+    catalogs: Res<AdaptiveMusicCatalogRegistry>,
     director: Option<Res<MusicDirectorState>>,
     encounters: Query<(&Encounter, &EncounterState)>,
     mut encounter_music: ResMut<EncounterMusicRequest>,
     room_music: Res<RoomMusicRequest>,
     radio: Option<Res<RadioStationState>>,
     audio_selection: Res<ActiveAudioSelection>,
-    adaptive_cues: Res<ambition_audio::catalog::AdaptiveCueRegistry>,
     mut intent: ResMut<MusicIntent>,
 ) {
     // The music director keys adaptive cues by encounter id; build the id →
@@ -52,7 +53,10 @@ pub fn compute_music_intent(
         .iter()
         .map(|(enc, state)| (enc.id.as_str(), state))
         .collect();
-    let adaptive = match (catalog.as_ref(), director.as_ref()) {
+    let active_catalog = audio_selection
+        .provider_id()
+        .and_then(|provider| catalogs.catalog_for(provider));
+    let adaptive = match (active_catalog, director.as_ref()) {
         (Some(catalog), Some(director)) => resolve_adaptive_directive(catalog, &states, director),
         _ => None,
     };
@@ -71,18 +75,17 @@ pub fn compute_music_intent(
         encounter_music.last_applied = Some(top);
     }
 
+    intent.provider_id = audio_selection.provider_id().map(str::to_owned);
     intent.adaptive = adaptive;
     intent.simple_track_candidates = candidates;
     // Provider-relative authority: the director may only play tracks this
     // session's provider authored. No selection is ungoverned (frontend); a
     // provider with no music is deliberate silence.
     let mut authority = audio_selection.music_authority();
-    // Fold in the active provider's authored adaptive cue ids so the director
-    // can gate the adaptive `Play` branch the same way it gates simple tracks —
-    // a cue in the process-wide catalog but foreign to this provider cannot
-    // start.
-    if let Some(provider) = audio_selection.provider_id() {
-        authority.authorize_cues(adaptive_cues.ids_for(provider));
+    // The actual selected provider catalog supplies both definitions and the
+    // cue-id authority. A cue cached for another provider is never visible.
+    if let Some(catalog) = active_catalog {
+        authority.authorize_cues(catalog.cue_ids().map(str::to_owned));
     }
     intent.authority = authority;
 }

@@ -41,6 +41,7 @@ pub struct SandboxAudioPlugin;
 impl Plugin for SandboxAudioPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(KiraAudioPlugin)
+            .add_message::<ambition_audio::selection::AudioContextChanged>()
             // Async SFX-bank loader for profiles whose bank is not picked
             // up by the sync fast path in `setup::try_load_sfx_bank_via_catalog`
             // (web HTTP fetch, plain desktop loose FS without env override).
@@ -54,7 +55,7 @@ impl Plugin for SandboxAudioPlugin {
             // before they click.
             .add_plugins(super::WebAudioUnlockPlugin)
             .init_resource::<super::RadioStationState>()
-            .init_resource::<ambition_audio::render::SfxBankHandleCache>()
+            .init_resource::<ambition_audio::render::ProviderSfxHandleCache>()
             .init_resource::<AudioEnvironment>()
             .init_resource::<DefaultMusicStarted>()
             .add_audio_channel::<MusicChannel>()
@@ -91,8 +92,8 @@ impl Plugin for SandboxAudioPlugin {
             // Deferred first-play is a DIRECT-ENTRY convenience: it auto-starts
             // the resident default track. Under a session-routed host the
             // director owns music per activation (driven by
-            // `ActiveAudioSelection`), and the title route is deliberately
-            // silent, so this must not fire there.
+            // `ActiveAudioSelection`), and frontend routes own their explicit
+            // title/menu audio profile, so this must not fire there.
             .add_systems(
                 Update,
                 start_default_music_when_ready.run_if(music_auto_start_when_ungated),
@@ -125,14 +126,15 @@ impl Plugin for SandboxAudioPlugin {
             // the shell bridge; direct-entry hosts select their provider
             // statically at composition.
             .init_resource::<ambition_audio::selection::ActiveAudioSelection>()
+            .init_resource::<ambition_sfx::SfxEmissionContext>()
             // Provider-contributed SFX bank ids, feeding each session's SFX
             // authority. Defaults empty (a host may ship no bank); the resident
             // bank's owner registers its ids once the bank loads.
             .init_resource::<ambition_audio::catalog::SfxBankRegistry>()
-            // Provider-contributed adaptive cue ids, feeding each session's
-            // music authority so an adaptive cue foreign to the active provider
-            // cannot start. Defaults empty; content registers its cues.
-            .init_resource::<ambition_audio::catalog::AdaptiveCueRegistry>()
+            // Complete provider-contributed adaptive catalogs. Cached
+            // definitions do not confer authority: the active audio context
+            // selects the one provider the director may resolve.
+            .init_resource::<ambition_audio::music::AdaptiveMusicCatalogRegistry>()
             // The HOST owns its settings model and the authored cue
             // catalog; the reusable music core consumes the synced
             // `MusicMix` + the inserted catalog (Stage 20 / B1 seam).
@@ -158,6 +160,17 @@ impl Plugin for SandboxAudioPlugin {
                     .run_if(simulation_authorized)
                     .after(crate::schedule::SandboxSet::CoreSimulation),
             )
+            // Reset all activation-local audio request/director state on both
+            // gameplay and frontend transitions. This runs outside the gameplay
+            // gate so returning home clears ownership immediately.
+            .add_systems(
+                Update,
+                reset_audio_request_state_on_context_change
+                    .after(crate::schedule::SandboxSet::CoreSimulation)
+                    .before(audio_play_sfx_messages)
+                    .before(crate::music::compute_music_intent)
+                    .before(apply_frontend_music_policy),
+            )
             // Apply the frontend audio policy: the frame the simulation
             // deauthorizes (Quit to Home), stop every gameplay music channel
             // once, reset the director so no previous session's music lingers,
@@ -171,20 +184,95 @@ impl Plugin for SandboxAudioPlugin {
     }
 }
 
+#[derive(SystemParam)]
+struct AudioRequestState<'w> {
+    encounter: Option<ResMut<'w, crate::encounter::EncounterMusicRequest>>,
+    room: Option<ResMut<'w, crate::rooms::RoomMusicRequest>>,
+    radio: Option<ResMut<'w, super::RadioStationState>>,
+    intent: Option<ResMut<'w, crate::music::MusicIntent>>,
+    director: Option<ResMut<'w, crate::music::MusicDirectorState>>,
+    music_playback: Option<ResMut<'w, ambition_audio::library::MusicPlaybackState>>,
+    sfx_playback: Option<ResMut<'w, ambition_audio::render::SfxPlaybackState>>,
+    default_started: Option<ResMut<'w, DefaultMusicStarted>>,
+}
+
+/// Reset activation-local audio requests exactly when the shell audio owner
+/// changes. The bundle keeps the mutable request resources behind one Bevy parameter, well below
+/// the system argument limit, while making same-provider relaunch as fresh as a
+/// cross-provider switch.
+fn reset_audio_request_state_on_context_change(
+    mut changes: MessageReader<ambition_audio::selection::AudioContextChanged>,
+    selection: Res<ambition_audio::selection::ActiveAudioSelection>,
+    base_music_channel: Res<bevy_kira_audio::prelude::AudioChannel<MusicChannel>>,
+    sfx_channel: Res<bevy_kira_audio::prelude::AudioChannel<SfxChannel>>,
+    layer_channels: crate::music::MusicLayerChannels,
+    mut state: AudioRequestState,
+) {
+    let current = selection.owner();
+    let reset = changes
+        .read()
+        .any(|change| change.current == current && change.previous != change.current);
+    if !reset {
+        return;
+    }
+    if let Some(encounter) = state.encounter.as_deref_mut() {
+        *encounter = Default::default();
+    }
+    if let Some(room) = state.room.as_deref_mut() {
+        *room = Default::default();
+    }
+    if let Some(radio) = state.radio.as_deref_mut() {
+        *radio = Default::default();
+    }
+    if let Some(intent) = state.intent.as_deref_mut() {
+        *intent = Default::default();
+    }
+    match (&mut state.director, &mut state.music_playback) {
+        (Some(director), Some(playback)) => {
+            ambition_audio::music::silence_music_backend(
+                &base_music_channel,
+                &layer_channels,
+                &mut **director,
+                &mut **playback,
+            );
+        }
+        (director, playback) => {
+            if let Some(director) = director.as_deref_mut() {
+                *director = Default::default();
+            }
+            if let Some(playback) = playback.as_deref_mut() {
+                playback.active_track.clear();
+            }
+        }
+    }
+    // SFX channels are activation-owned too. Stop any in-flight loop or long
+    // one-shot from the previous context before the new context's owned queue
+    // is drained later in this frame.
+    sfx_channel.stop();
+    if let Some(playback) = state.sfx_playback.as_deref_mut() {
+        playback.last_played = None;
+    }
+    if let Some(started) = state.default_started.as_deref_mut() {
+        started.0 = false;
+    }
+}
+
 /// Run condition: auto-start the resident default music track only when this App
 /// is NOT a session-routed host (no [`SessionGatedSimulation`] marker). A
 /// session-routed host starts music per activation through the director +
-/// `ActiveAudioSelection` instead, and keeps the title route silent.
+/// `ActiveAudioSelection`; frontend routes use their explicit host profile.
 fn music_auto_start_when_ungated(gate: Option<Res<SessionGatedSimulation>>) -> bool {
     gate.is_none()
 }
 
-/// Apply the frontend audio policy the frame the simulation deauthorizes: stop
-/// all gameplay music, reset the director so a session-routed host's title route
-/// owns no gameplay playback, then start the host's title theme
-/// ([`FrontendMusicPolicy`]) if one is configured — otherwise deliberate
-/// silence. Acts once per frontend entry via the `entered_frontend` latch;
-/// no-op in direct-entry apps (there the simulation is always authorized).
+/// Apply the current frontend shell activation's audio profile.
+///
+/// Frontend audio is not an exception to authority: the shell bridge selects an
+/// exact [`ambition_sfx::AudioContextOwner::Frontend`] context, whose preferred
+/// title track and menu-SFX allowlist come from `FrontendAudioProfile`. On every
+/// frontend activation change this system stops gameplay channels, resets the
+/// director, and starts that context's title track (or deliberate silence).
+/// Direct-entry apps remain unaffected because their simulation stays authorized.
 #[allow(clippy::too_many_arguments)]
 fn apply_frontend_music_policy(
     gate: Option<Res<SessionGatedSimulation>>,
@@ -193,24 +281,26 @@ fn apply_frontend_music_policy(
     layer_channels: crate::music::MusicLayerChannels,
     library: Option<ResMut<ambition_audio::library::AudioLibrary>>,
     asset_server: Res<AssetServer>,
-    policy: Option<Res<ambition_audio::selection::FrontendMusicPolicy>>,
+    selection: Res<ambition_audio::selection::ActiveAudioSelection>,
+    emission: Res<ambition_sfx::SfxEmissionContext>,
     director: Option<ResMut<crate::music::MusicDirectorState>>,
     music_state: Option<ResMut<ambition_audio::library::MusicPlaybackState>>,
     mut intent: ResMut<crate::music::MusicIntent>,
     mut started: ResMut<DefaultMusicStarted>,
-    mut entered_frontend: Local<bool>,
+    mut applied_owner: Local<Option<ambition_sfx::AudioContextOwner>>,
 ) {
     if simulation_authorized(gate, scope) {
-        *entered_frontend = false;
+        *applied_owner = None;
         return;
     }
-    if *entered_frontend {
+    let owner = emission.owner();
+    if *applied_owner == owner {
         return;
     }
     let (Some(mut director), Some(mut music_state), Some(mut library)) =
         (director, music_state, library)
     else {
-        *entered_frontend = true;
+        *applied_owner = owner;
         return;
     };
     ambition_audio::music::silence_music_backend(
@@ -227,11 +317,15 @@ fn apply_frontend_music_policy(
 
     // Host title theme, if any: loop it on the base music channel. Absent policy
     // (or an unresolvable track) leaves the frontend deliberately silent.
-    if let Some(track_id) = policy.and_then(|policy| policy.title_track.clone()) {
-        if let Some(handle) = library.resolve_track_handle(&track_id, &asset_server) {
-            base_music_channel.play(handle).looped();
-            music_state.active_track = track_id;
+    if matches!(owner, Some(ambition_sfx::AudioContextOwner::Frontend(_))) {
+        if let Some(track_id) = selection.preferred_track() {
+            if selection.music_authority().allows(track_id) {
+                if let Some(handle) = library.resolve_track_handle(track_id, &asset_server) {
+                    base_music_channel.play(handle).looped();
+                    music_state.active_track = track_id.to_owned();
+                }
+            }
         }
     }
-    *entered_frontend = true;
+    *applied_owner = owner;
 }

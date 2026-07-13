@@ -2,7 +2,7 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
 use ambition::combat::{GameplayBanner, HitEvent, ResetRoomFeaturesEvent};
-use ambition::sfx::SfxMessage;
+use ambition::sfx::SfxWriter;
 use ambition::vfx::VfxMessage;
 
 /// Bundled `MessageWriter`s for the sim → presentation event channels
@@ -19,7 +19,7 @@ use ambition::vfx::VfxMessage;
 /// extracted systems' `MessageWriter` params.
 #[derive(SystemParam)]
 pub struct SandboxEventWriters<'w> {
-    pub(super) sfx: MessageWriter<'w, SfxMessage>,
+    pub(super) sfx: SfxWriter<'w>,
     pub(super) vfx: MessageWriter<'w, VfxMessage>,
 }
 

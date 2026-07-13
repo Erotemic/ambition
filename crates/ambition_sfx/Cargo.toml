@@ -7,8 +7,8 @@ authors.workspace = true
 description = "SFX runtime contract for Ambition: SfxId, SfxClip, SfxProvider trait, and Bank/Filesystem/Silent/Layered providers."
 
 [features]
-# `bevy` (default) enables the gameplay-facing `SfxMessage` request enum,
-# which derives `bevy_ecs::Message` and carries `bevy_math::Vec2`. Disable
+# `bevy` (default) enables the gameplay-facing request vocabulary plus the
+# exact-owner `OwnedSfxMessage` queue and `SfxWriter` SystemParam. Disable
 # (`default-features = false`) to keep the crate Bevy-free for headless /
 # RL / benchmarking use — only `SfxId` / providers / ids remain.
 default = ["bevy"]

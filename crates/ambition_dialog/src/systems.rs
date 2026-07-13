@@ -15,7 +15,7 @@ use crate::runtime::DialogState;
 use crate::speech_sfx::{should_play_talk_blip, talk_blip_id_for_speaker};
 #[cfg(feature = "input")]
 use ambition_input::MenuControlFrame;
-use ambition_sfx::SfxMessage;
+use ambition_sfx::{SfxMessage, SfxWriter};
 #[cfg(feature = "input")]
 use ambition_ui_nav::{apply_vertical_scroll, resolve_selectable_row_interaction};
 #[cfg(feature = "input")]
@@ -29,7 +29,7 @@ use bevy::window::PrimaryWindow;
 pub fn dialog_reveal_tick(
     time: Res<Time>,
     mut dialogue: ResMut<DialogState>,
-    mut sfx: MessageWriter<SfxMessage>,
+    mut sfx: SfxWriter,
 ) {
     if !dialogue.active() || dialogue.current_line.is_empty() {
         return;

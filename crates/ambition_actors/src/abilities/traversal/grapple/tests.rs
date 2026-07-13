@@ -22,7 +22,7 @@ fn world_with_right_wall() -> ambition_engine_core::RoomGeometry {
 
 fn test_app(world: Option<ambition_engine_core::RoomGeometry>) -> App {
     let mut app = App::new();
-    app.add_message::<ambition_sfx::SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
     if let Some(w) = world {
         app.insert_resource(w);

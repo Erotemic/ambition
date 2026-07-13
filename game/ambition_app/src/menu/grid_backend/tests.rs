@@ -78,7 +78,7 @@ fn grid_app() -> App {
     app.init_resource::<GridPointerPress>();
     app.init_resource::<ambition::input::ActiveInputKind>();
     app.add_message::<PlayerHealRequested>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<bevy::app::AppExit>();
     app.add_observer(grid_menu_pointer_hover);
     app.add_systems(Update, (grid_menu_open_routing, grid_menu_nav).chain());

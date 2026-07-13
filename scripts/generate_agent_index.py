@@ -10,8 +10,6 @@ from __future__ import annotations
 import json
 import os
 import re
-import subprocess
-from datetime import datetime, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -21,24 +19,15 @@ SKIP_DIRS = {".git", "target", ".venv", "__pycache__"}
 TEXT_EXTS = {".md", ".rs", ".toml", ".ron", ".yaml", ".yml", ".py", ".sh", ".json"}
 
 
-def git_commit() -> str:
-    try:
-        return subprocess.check_output(
-            ["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, text=True
-        ).strip()
-    except Exception:
-        return "unknown"
-
-
 def generated_meta() -> dict[str, str]:
-    return {
-        "generated_from_commit": git_commit(),
-        "generated_at": datetime.now(timezone.utc)
-        .replace(microsecond=0)
-        .isoformat()
-        .replace("+00:00", "Z"),
-        "generator": "scripts/generate_agent_index.py",
-    }
+    """Stable metadata for committed navigation indexes.
+
+    The tracked indexes intentionally omit HEAD and wall-clock time. Embedding
+    either makes generation self-invalidating: committing the generated file
+    changes HEAD, and rerunning at a later second changes the timestamp. Source
+    content is already represented by the generated index bodies themselves.
+    """
+    return {"generator": "scripts/generate_agent_index.py"}
 
 
 def iter_files() -> list[Path]:
@@ -419,21 +408,28 @@ def patch_yaml_top_level_scalars(text: str, updates: dict[str, object], *, after
 
 
 def update_agent_manifest(meta: dict[str, str]) -> None:
-    """Refresh manifest generation metadata alongside the JSON indexes."""
-    manifest = ROOT / '.agent' / 'manifest.yaml'
+    """Refresh stable manifest metadata alongside the JSON indexes.
+
+    Remove legacy volatile generation keys if present. The manifest must be
+    byte-identical after repeated generation when source content is unchanged.
+    """
+    manifest = ROOT / ".agent" / "manifest.yaml"
     manifest.parent.mkdir(parents=True, exist_ok=True)
     if manifest.exists():
-        text = manifest.read_text(encoding='utf-8')
+        lines = manifest.read_text(encoding="utf-8").splitlines()
+        lines = [
+            line
+            for line in lines
+            if not line.startswith("generated_from_commit:")
+            and not line.startswith("generated_at:")
+        ]
+        text = "\n".join(lines).rstrip() + "\n"
     else:
-        text = 'schema_version: 4\n'
-    updates = {
-        'generated_from_commit': meta['generated_from_commit'],
-        'generated_at': meta['generated_at'],
-        'generator': meta['generator'],
-    }
+        text = "schema_version: 4\n"
+    updates = {"generator": meta["generator"]}
     manifest.write_text(
-        patch_yaml_top_level_scalars(text, updates, after_key='schema_version'),
-        encoding='utf-8',
+        patch_yaml_top_level_scalars(text, updates, after_key="schema_version"),
+        encoding="utf-8",
     )
 
 def main() -> int:

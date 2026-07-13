@@ -439,7 +439,6 @@ mod dispatch_parity {
     use ambition::persistence::settings::UserSettings;
     use ambition::platformer::schedule::GameMode;
     use ambition::settings_menu::system::SystemMenuEntryId;
-    use ambition::sfx::SfxMessage;
 
     /// Build a menu app for one backend, with every resource/observer the shared
     /// cursor/dispatch path touches. Mirrors the per-backend harnesses in
@@ -469,7 +468,7 @@ mod dispatch_parity {
         app.init_resource::<MenuControlFrame>();
         app.init_resource::<ambition::input::ActiveInputKind>();
         app.add_message::<PlayerHealRequested>();
-        app.add_message::<SfxMessage>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<bevy::app::AppExit>();
         // BOTH backends' pointer observers are installed; each gates on the active
         // backend, so only the matching one dispatches.

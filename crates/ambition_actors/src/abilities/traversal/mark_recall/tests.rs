@@ -8,7 +8,7 @@ use crate::actor::BodyKinematics;
 
 fn test_app() -> App {
     let mut app = App::new();
-    app.add_message::<ambition_sfx::SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
     app.add_message::<crate::features::HitEvent>();
     app.add_systems(Update, mark_recall_system);

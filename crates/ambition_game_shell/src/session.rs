@@ -9,7 +9,10 @@
 use std::collections::BTreeMap;
 
 use ambition_audio::catalog::{AudioCatalogRegistry, SfxBankRegistry};
-use ambition_audio::selection::ActiveAudioSelection;
+use ambition_audio::selection::{
+    ActiveAudioSelection, AudioContextChanged, FrontendAudioProfile,
+};
+use ambition_sfx::{AudioContextOwner, SfxEmissionContext};
 use ambition_platformer_primitives::lifecycle::{
     ActiveSessionScope, SessionGatedSimulation, SessionScopeId, SessionScopePlugin,
     SessionScopeRetired, SessionScopeSet,
@@ -154,13 +157,22 @@ pub struct GameplaySessionInstance {
 pub struct ActiveGameplaySession(pub Option<GameplaySessionInstance>);
 
 impl ActiveGameplaySession {
-    /// Attach the provider's prepared world to the live session. A no-op if no
-    /// session is active (a provider system must not run without one, but this
-    /// keeps the seam total).
-    pub fn attach_world(&mut self, world: SessionWorldRef) {
-        if let Some(instance) = self.0.as_mut() {
-            instance.world = Some(world);
+    /// Attach a provider world only when `activation_id` still names the live
+    /// session. Delayed provider work from activation A cannot overwrite B's
+    /// world after a fast route replacement.
+    pub fn attach_world_for(
+        &mut self,
+        activation_id: ShellActivationId,
+        world: SessionWorldRef,
+    ) -> bool {
+        let Some(instance) = self.0.as_mut() else {
+            return false;
+        };
+        if instance.activation.activation_id != activation_id {
+            return false;
         }
+        instance.world = Some(world);
+        true
     }
 
     /// The active session's prepared world reference, if a session is live AND
@@ -257,6 +269,7 @@ impl Plugin for GameplaySessionBridgePlugin {
             .init_resource::<GameplaySessionLinks>()
             .init_resource::<ActiveGameplaySession>()
             .init_resource::<ActiveAudioSelection>()
+            .init_resource::<SfxEmissionContext>()
             // Required, never Option: session-audio composition must fail loudly
             // if the host was built without an audio system rather than treating
             // a missing registry as "everyone is silent."
@@ -266,6 +279,7 @@ impl Plugin for GameplaySessionBridgePlugin {
             // session's SFX authority spans its cues AND its bank content.
             .init_resource::<SfxBankRegistry>()
             .add_message::<GameplaySessionEvent>()
+            .add_message::<AudioContextChanged>()
             .configure_sets(
                 Update,
                 (GameplaySessionSet::Bridge, GameplaySessionSet::Providers)
@@ -277,7 +291,7 @@ impl Plugin for GameplaySessionBridgePlugin {
                 Update,
                 (
                     translate_shell_session_lifecycle,
-                    select_session_audio_authority,
+                    select_shell_audio_context,
                 )
                     .chain()
                     .in_set(GameplaySessionSet::Bridge),
@@ -289,20 +303,25 @@ impl Plugin for GameplaySessionBridgePlugin {
 ///
 /// Activation selects the session profile's audio provider (defaulting to the
 /// experience id) out of the App-local [`AudioCatalogRegistry`]; a provider
-/// that registered no fragments gets a DELIBERATE empty authority, never a
-/// fallback to another provider's audio. Retirement clears playback authority
+/// that registered no fragment is a composition error; deliberate silence is
+/// represented by an explicit empty fragment. Retirement clears playback authority
 /// — cached assets may outlive the session, the selection does not.
 ///
 /// Chained directly after [`translate_shell_session_lifecycle`], so providers
 /// in [`GameplaySessionSet::Providers`] already observe the new selection on
 /// the activation frame.
-fn select_session_audio_authority(
+fn select_shell_audio_context(
     mut sessions: MessageReader<GameplaySessionEvent>,
+    mut shell_events: MessageReader<ShellEvent>,
     registry: Res<GameplaySessionRegistry>,
     catalogs: Res<AudioCatalogRegistry>,
     sfx_banks: Res<SfxBankRegistry>,
+    frontend: Option<Res<FrontendAudioProfile>>,
     mut selection: ResMut<ActiveAudioSelection>,
+    mut emission: ResMut<SfxEmissionContext>,
+    mut context_changes: MessageWriter<AudioContextChanged>,
 ) {
+    // Gameplay lifecycle owns gameplay audio contexts.
     for event in sessions.read() {
         match event {
             GameplaySessionEvent::Activated { activation, scope } => {
@@ -310,30 +329,83 @@ fn select_session_audio_authority(
                     .profile(&activation.experience_id)
                     .and_then(|profile| profile.audio_provider.clone())
                     .unwrap_or_else(|| activation.experience_id.as_str().to_owned());
-                // The registry is REQUIRED (never Option) so a host composed
-                // without an audio system cannot be silently mistaken for "every
-                // provider is deliberately silent." A gameplay provider must
-                // register a fragment — an explicitly-empty one for silence — so
-                // absence is a real composition error, not inferred quiet.
                 assert!(
                     catalogs.has_provider(&provider),
-                    "gameplay provider '{provider}' activated a session but registered no \
-                     audio catalog fragment; register one (empty music/SFX for deliberate \
-                     silence) so composition is never mistaken for silence",
+                    "gameplay provider '{provider}' activated a session but registered no audio catalog fragment; register an explicit empty fragment for silence",
                 );
-                let music = catalogs.music_for(&provider).cloned();
-                let sfx = catalogs.sfx_for(&provider).cloned();
-                // The provider's bank ids (empty if it ships no bank) round out
-                // its SFX authority beyond its procedural cues.
-                let sfx_ids = sfx_banks.ids_for(&provider);
-                // Tag the selection with THIS session's scope token so a delayed
-                // retirement for an older session cannot silence it.
-                selection.select(Some(scope.0), provider, music, sfx, sfx_ids);
+                let previous = selection.owner();
+                selection.select_gameplay(
+                    scope.0,
+                    provider.clone(),
+                    catalogs.music_for(&provider).cloned(),
+                    catalogs.sfx_for(&provider).cloned(),
+                    sfx_banks.ids_for(&provider),
+                );
+                emission.set(AudioContextOwner::Gameplay(scope.0));
+                let current = selection.owner();
+                if previous != current {
+                    context_changes.write(AudioContextChanged { previous, current });
+                }
             }
             GameplaySessionEvent::Retiring { scope, .. } => {
-                // Clear ONLY if this exact session still owns the selection.
-                selection.clear_if_owner(scope.0);
+                let owner = AudioContextOwner::Gameplay(scope.0);
+                let previous = selection.owner();
+                selection.clear_if_owner(owner);
+                emission.clear_if(owner);
+                let current = selection.owner();
+                if previous != current {
+                    context_changes.write(AudioContextChanged { previous, current });
+                }
             }
+        }
+    }
+
+    // Plain shell experiences (startup, launcher, loading, credits) share the
+    // host's explicit frontend profile. They are not "ungoverned": menu SFX and
+    // title music are authorized by the exact shell activation that emitted
+    // them, while stale gameplay requests remain invalid.
+    for event in shell_events.read() {
+        match event {
+            ShellEvent::RouteActivated(activation)
+                if !registry.contains(&activation.experience_id) =>
+            {
+                let owner = AudioContextOwner::Frontend(activation.activation_id.0);
+                let previous = selection.owner();
+                emission.set(owner);
+                if let Some(frontend) = frontend.as_deref() {
+                    let provider = frontend.provider_id();
+                    assert!(
+                        catalogs.has_provider(provider),
+                        "frontend audio provider '{provider}' registered no audio fragment",
+                    );
+                    selection.select_frontend(
+                        activation.activation_id.0,
+                        frontend,
+                        catalogs.music_for(provider).cloned(),
+                        catalogs.sfx_for(provider).cloned(),
+                        sfx_banks.ids_for(provider),
+                    );
+                } else {
+                    selection.clear();
+                }
+                let current = selection.owner();
+                if previous != current {
+                    context_changes.write(AudioContextChanged { previous, current });
+                }
+            }
+            ShellEvent::RouteDeactivated(activation)
+                if !registry.contains(&activation.experience_id) =>
+            {
+                let owner = AudioContextOwner::Frontend(activation.activation_id.0);
+                let previous = selection.owner();
+                selection.clear_if_owner(owner);
+                emission.clear_if(owner);
+                let current = selection.owner();
+                if previous != current {
+                    context_changes.write(AudioContextChanged { previous, current });
+                }
+            }
+            _ => {}
         }
     }
 }

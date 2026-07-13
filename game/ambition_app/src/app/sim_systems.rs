@@ -30,7 +30,7 @@ use ambition::combat::{ResetRoomFeaturesEvent, RoomResetReason};
 use ambition::dev_tools::dev_tools::EditableMovementTuning;
 use ambition::engine_core::RoomGeometry;
 use ambition::input::ControlFrame;
-use ambition::sfx::SfxMessage;
+use ambition::sfx::SfxWriter;
 use ambition::vfx::VfxMessage;
 
 /// Detect a player-pressed reset (the Reset button / `controls.reset_pressed`)
@@ -57,7 +57,7 @@ pub fn apply_player_reset_input_system(
     mut sim_state: ResMut<SandboxSimState>,
     mut clock_resets: MessageWriter<ClockResetRequest>,
     mut reset_room_features: MessageWriter<ResetRoomFeaturesEvent>,
-    mut sfx_writer: MessageWriter<SfxMessage>,
+    mut sfx_writer: SfxWriter,
     mut vfx_writer: MessageWriter<VfxMessage>,
     mut player_q: Query<
         (
@@ -140,7 +140,7 @@ pub fn apply_room_replay_request_system(
     // the same LDtk id).
     cut_rope_bosses: Query<&ambition::actors::features::ecs::boss_clusters::BossConfig>,
     mut reset_room_features: MessageWriter<ResetRoomFeaturesEvent>,
-    mut sfx_writer: MessageWriter<SfxMessage>,
+    mut sfx_writer: SfxWriter,
     mut vfx_writer: MessageWriter<VfxMessage>,
     mut player_q: Query<
         (

@@ -29,7 +29,7 @@ fn spawn_player(app: &mut App, pos: Vec2, facing: f32) -> Entity {
 #[test]
 fn picking_up_the_portal_gun_activates_it() {
     let mut app = App::new();
-    app.add_message::<ambition_sfx::SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<PickUpPortalGun>();
     app.add_message::<PortalGunEquipped>();
     app.add_systems(Update, pickup_portal_gun_system);
@@ -76,7 +76,7 @@ fn picking_up_the_portal_gun_activates_it() {
 #[test]
 fn dropped_portal_gun_arms_before_it_can_be_regrabbed() {
     let mut app = App::new();
-    app.add_message::<ambition_sfx::SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<DropPortalGun>();
     app.add_message::<PickUpPortalGun>();
     app.add_message::<PortalGunEquipped>();

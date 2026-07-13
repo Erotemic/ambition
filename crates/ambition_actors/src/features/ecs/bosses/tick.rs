@@ -678,7 +678,7 @@ pub fn integrate_boss_bodies(
     overlay: Res<FeatureEcsWorldOverlay>,
     feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,
     steering: Res<super::super::actors::ActorSteering>,
-    mut sfx: bevy::prelude::MessageWriter<ambition_sfx::SfxMessage>,
+    mut sfx: ambition_sfx::SfxWriter,
     mut vfx: bevy::prelude::MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut hit_events: bevy::prelude::MessageWriter<HitEvent>,
     mut bosses: Query<

@@ -9,6 +9,7 @@ use ambition_menu::render::bevy_ui::{
     spawn_bevy_ui_menu_with_assets, BevyUiMenuRoot, BevyUiMenuTabSpec, BevyUiMenuView,
 };
 use ambition_menu::{MenuColor, MenuControlKind, MenuPageModel, MenuRect, MenuTextAlign};
+use ambition_sfx::{ids, OwnedSfxMessage, SfxMessage, SfxWriter};
 use bevy::input::gamepad::{Gamepad, GamepadButton};
 use bevy::prelude::*;
 
@@ -35,7 +36,9 @@ pub struct BasicShellPresentationPlugin;
 
 impl Plugin for BasicShellPresentationPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (basic_shell_keyboard, render_basic_shell).chain());
+        app.add_message::<OwnedSfxMessage>()
+            .init_resource::<ambition_sfx::SfxEmissionContext>()
+            .add_systems(Update, (basic_shell_keyboard, render_basic_shell).chain());
     }
 }
 
@@ -52,22 +55,39 @@ fn basic_shell_keyboard(
     sequence: Res<ActiveShellSequence>,
     mut launcher_commands: MessageWriter<ShellLauncherCommand>,
     mut sequence_commands: MessageWriter<ShellSequenceCommand>,
+    mut sfx: SfxWriter,
 ) {
     let (up, down, confirm) = menu_nav_edges(keys.as_deref(), &pads);
     if launcher.active {
         if up {
             launcher_commands.write(ShellLauncherCommand::Previous);
+            sfx.write(SfxMessage::Play {
+                id: ids::UI_MENU_MOVE,
+                pos: Vec2::ZERO,
+            });
         }
         if down {
             launcher_commands.write(ShellLauncherCommand::Next);
+            sfx.write(SfxMessage::Play {
+                id: ids::UI_MENU_MOVE,
+                pos: Vec2::ZERO,
+            });
         }
         if confirm {
             launcher_commands.write(ShellLauncherCommand::LaunchSelected);
+            sfx.write(SfxMessage::Play {
+                id: ids::UI_MENU_ACCEPT,
+                pos: Vec2::ZERO,
+            });
         }
     } else if let (Some(activation_id), Some(runtime)) =
         (sequence.activation_id, sequence.runtime.as_ref())
     {
         if confirm {
+            sfx.write(SfxMessage::Play {
+                id: ids::UI_MENU_ACCEPT,
+                pos: Vec2::ZERO,
+            });
             if runtime
                 .current()
                 .is_some_and(|segment| segment.policy.requires_acknowledgement)
@@ -388,6 +408,11 @@ mod raw_input_tests {
         let mut app = App::new();
         app.add_message::<ShellLauncherCommand>();
         app.add_message::<ShellSequenceCommand>();
+        app.add_message::<OwnedSfxMessage>();
+        app.init_resource::<ambition_sfx::SfxEmissionContext>();
+        app.world_mut()
+            .resource_mut::<ambition_sfx::SfxEmissionContext>()
+            .set(ambition_sfx::AudioContextOwner::Frontend(9));
         app.init_resource::<ShellLauncherState>();
         app.init_resource::<ActiveShellSequence>();
         app.init_resource::<ButtonInput<KeyCode>>();
@@ -415,13 +440,29 @@ mod raw_input_tests {
             .collect()
     }
 
+    fn drained_sfx(app: &mut App) -> Vec<OwnedSfxMessage> {
+        app.world_mut()
+            .resource_mut::<Messages<OwnedSfxMessage>>()
+            .drain()
+            .collect()
+    }
+
     #[test]
     fn arrow_keys_move_the_launcher_cursor() {
         let mut app = app_with_launcher(true);
         tap(&mut app, KeyCode::ArrowDown);
         assert_eq!(drained(&mut app), vec![ShellLauncherCommand::Next]);
+        let sfx = drained_sfx(&mut app);
+        assert!(matches!(
+            sfx.as_slice(),
+            [OwnedSfxMessage {
+                owner: Some(ambition_sfx::AudioContextOwner::Frontend(9)),
+                request: SfxMessage::Play { id, .. },
+            }] if *id == ids::UI_MENU_MOVE
+        ));
         tap(&mut app, KeyCode::ArrowUp);
         assert_eq!(drained(&mut app), vec![ShellLauncherCommand::Previous]);
+        let _ = drained_sfx(&mut app);
     }
 
     #[test]
@@ -432,11 +473,19 @@ mod raw_input_tests {
             drained(&mut app),
             vec![ShellLauncherCommand::LaunchSelected]
         );
+        assert!(matches!(
+            drained_sfx(&mut app).as_slice(),
+            [OwnedSfxMessage {
+                request: SfxMessage::Play { id, .. },
+                ..
+            }] if *id == ids::UI_MENU_ACCEPT
+        ));
         tap(&mut app, KeyCode::Space);
         assert_eq!(
             drained(&mut app),
             vec![ShellLauncherCommand::LaunchSelected]
         );
+        let _ = drained_sfx(&mut app);
     }
 
     #[test]

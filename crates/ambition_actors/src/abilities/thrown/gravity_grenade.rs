@@ -63,7 +63,7 @@ pub fn tick_gravity_grenade_fuses(
         &mut GravityGrenadeFuse,
         Option<&SessionScopedEntity>,
     )>,
-    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
+    mut sfx: ambition_sfx::SfxWriter,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
     let dt = time.sim_dt();
@@ -137,7 +137,7 @@ mod tests {
     #[test]
     fn fuse_expiry_opens_a_temporary_up_well_and_despawns() {
         let mut app = App::new();
-        app.add_message::<ambition_sfx::SfxMessage>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<ambition_vfx::vfx::VfxMessage>();
         let mut wt = ambition_time::WorldTime::default();
         wt.scaled_dt = GRAVITY_GRENADE_FUSE_SECS + 0.1;

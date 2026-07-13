@@ -9,7 +9,7 @@ use crate::actor::{BodyKinematics, BodyMana};
 
 fn test_app() -> App {
     let mut app = App::new();
-    app.add_message::<ambition_sfx::SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<crate::features::HitEvent>();
     app.add_systems(Update, fire_dive_system);
     app

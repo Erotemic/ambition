@@ -58,7 +58,7 @@ pub(crate) fn kaleidoscope_pointer_move(
     // Feature E: a press in flight is cancelled (no click) once the pointer drags
     // past the tap threshold from its press origin.
     mut press: ResMut<KaleidoscopePointerPress>,
-    mut sfx: MessageWriter<SfxMessage>,
+    mut sfx: SfxWriter,
 ) {
     // Feature E: if a press is active and the pointer has now travelled past the tap
     // threshold, this is a DRAG — mark the press cancelled so the eventual click does
@@ -136,7 +136,7 @@ pub(crate) fn kaleidoscope_pointer_release(
     mut players: MenuEffectPlayers,
     mut mana_q: MenuEffectManaQuery,
     mut heals: MessageWriter<PlayerHealRequested>,
-    mut sfx: MessageWriter<SfxMessage>,
+    mut sfx: SfxWriter,
     mut system: SystemMenuParams,
     // In-flight press; activation uses the action stored at press time.
     mut press: ResMut<KaleidoscopePointerPress>,

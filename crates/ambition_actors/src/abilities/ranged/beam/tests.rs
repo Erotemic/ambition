@@ -9,7 +9,7 @@ use crate::features::{Hitbox, HitboxAnchor};
 
 fn test_app() -> App {
     let mut app = App::new();
-    app.add_message::<ambition_sfx::SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<ambition_vfx::EffectRequest>();
     // fire_beam emits Effect::DamageBox; apply_effects spawns the hitbox.
     app.add_systems(

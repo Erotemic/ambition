@@ -57,7 +57,7 @@ fn app_with_hazard_system() -> App {
     app.insert_resource(ambition_time::WorldTime::default());
     app.init_resource::<HitLog>();
     app.add_message::<HitEvent>();
-    app.add_message::<SfxMessage>();
+    app.add_message::<ambition_sfx::OwnedSfxMessage>();
     app.add_message::<VfxMessage>();
     app.add_message::<DebrisBurstMessage>();
     app.add_systems(Update, (update_ecs_hazards, record_hits).chain());

@@ -27,7 +27,7 @@ pub fn portal_projectile_step(
     mut commands: Commands,
     mut projectiles: Query<(Entity, &mut PortalShot)>,
     portals: Query<(Entity, &PlacedPortal)>,
-    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
+    mut sfx: ambition_sfx::SfxWriter,
 ) {
     let dt = time.sim_dt();
     if dt <= 0.0 {

@@ -54,7 +54,7 @@ pub fn tick_bomb_fuses(
     mut commands: Commands,
     mut bombs: Query<(Entity, &GroundItem, &mut BombFuse)>,
     mut hits: MessageWriter<HitEvent>,
-    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
+    mut sfx: ambition_sfx::SfxWriter,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
 ) {
     let dt = time.sim_dt();
@@ -135,7 +135,7 @@ mod tests {
     fn fuse_expiry_detonates_a_player_side_blast_and_despawns() {
         let mut app = App::new();
         app.add_message::<HitEvent>();
-        app.add_message::<ambition_sfx::SfxMessage>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.add_message::<ambition_vfx::vfx::VfxMessage>();
         app.init_resource::<CapturedHits>();
         let mut wt = ambition_time::WorldTime::default();

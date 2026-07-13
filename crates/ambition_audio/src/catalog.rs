@@ -225,7 +225,7 @@ impl AudioCatalogRegistry {
 /// packed bank instead. This registry records which provider *contributes* each
 /// bank id (paired with a content fingerprint) so the session bridge can build
 /// that provider's authorized id set. It is the SFX analogue of the music
-/// track-id index: **storage is process-wide, authority is provider-relative.**
+/// track-id index: **storage is App-local, authority is provider-relative.**
 ///
 /// Combined indexing is deterministic (`BTreeMap` order). Two providers naming
 /// the SAME id for the SAME underlying entry (matching fingerprint) is a benign
@@ -264,10 +264,15 @@ impl SfxBankRegistry {
             for (id, fingerprint) in &entries {
                 if let Some(existing_fingerprint) = other_entries.get(id) {
                     if existing_fingerprint != fingerprint {
+                        let (first_provider, second_provider) = if other_provider <= &provider_id {
+                            (other_provider.clone(), provider_id)
+                        } else {
+                            (provider_id, other_provider.clone())
+                        };
                         return Err(AudioCatalogError::ConflictingSfxEntry {
                             id: *id,
-                            first_provider: other_provider.clone(),
-                            second_provider: provider_id,
+                            first_provider,
+                            second_provider,
                         });
                     }
                 }
@@ -300,91 +305,6 @@ impl SfxBankRegistry {
             }
         }
         combined
-    }
-}
-
-/// Provider-contributed adaptive music **cue ids**, App-local, indexed by
-/// provider.
-///
-/// Adaptive cue definitions live in a process-wide `MusicCueCatalog` (storage);
-/// this registry records which provider authored each cue id so a session's
-/// music authority can gate adaptive playback. Sanic/Mary-O author none, so an
-/// Ambition adaptive cue that merely exists in the shared catalog cannot start
-/// during their sessions. The SFX/music-track analogue: storage is process-wide,
-/// authority is provider-relative.
-#[derive(Resource, Clone, Debug, Default)]
-pub struct AdaptiveCueRegistry {
-    fragments: BTreeMap<String, BTreeSet<String>>,
-}
-
-impl AdaptiveCueRegistry {
-    /// Record the adaptive cue ids `provider_id` authors. Re-registering an
-    /// identical set is idempotent; a different set is rejected and leaves the
-    /// registry unchanged.
-    pub fn register(
-        &mut self,
-        provider_id: impl Into<String>,
-        cue_ids: impl IntoIterator<Item = String>,
-    ) -> Result<(), AudioCatalogError> {
-        let provider_id = provider_id.into();
-        if provider_id.trim().is_empty() {
-            return Err(AudioCatalogError::EmptyProviderId);
-        }
-        let cue_ids: BTreeSet<String> = cue_ids.into_iter().collect();
-        if let Some(existing) = self.fragments.get(&provider_id) {
-            if existing == &cue_ids {
-                return Ok(());
-            }
-            return Err(AudioCatalogError::DuplicateAdaptiveCueProvider { provider_id });
-        }
-        self.fragments.insert(provider_id, cue_ids);
-        Ok(())
-    }
-
-    /// The adaptive cue ids `provider_id` authors (empty if it authors none).
-    pub fn ids_for(&self, provider_id: &str) -> BTreeSet<String> {
-        self.fragments.get(provider_id).cloned().unwrap_or_default()
-    }
-
-    pub fn providers(&self) -> impl Iterator<Item = &str> {
-        self.fragments.keys().map(String::as_str)
-    }
-}
-
-pub trait AdaptiveCueAppExt {
-    fn try_register_adaptive_cue_fragment(
-        &mut self,
-        provider_id: impl Into<String>,
-        cue_ids: impl IntoIterator<Item = String>,
-    ) -> Result<&mut Self, AudioCatalogError>;
-
-    fn register_adaptive_cue_fragment(
-        &mut self,
-        provider_id: impl Into<String>,
-        cue_ids: impl IntoIterator<Item = String>,
-    ) -> &mut Self {
-        self.try_register_adaptive_cue_fragment(provider_id, cue_ids)
-            .unwrap_or_else(|error| panic!("{error}"))
-    }
-}
-
-impl AdaptiveCueAppExt for App {
-    fn try_register_adaptive_cue_fragment(
-        &mut self,
-        provider_id: impl Into<String>,
-        cue_ids: impl IntoIterator<Item = String>,
-    ) -> Result<&mut Self, AudioCatalogError> {
-        let registry = {
-            let mut candidate = self
-                .world()
-                .get_resource::<AdaptiveCueRegistry>()
-                .cloned()
-                .unwrap_or_default();
-            candidate.register(provider_id, cue_ids)?;
-            candidate
-        };
-        self.insert_resource(registry);
-        Ok(self)
     }
 }
 
@@ -451,9 +371,6 @@ pub enum AudioCatalogError {
     DuplicateSfxBankProvider {
         provider_id: String,
     },
-    DuplicateAdaptiveCueProvider {
-        provider_id: String,
-    },
     ConflictingSfxEntry {
         id: SfxId,
         first_provider: String,
@@ -493,10 +410,6 @@ impl fmt::Display for AudioCatalogError {
             Self::DuplicateSfxBankProvider { provider_id } => write!(
                 f,
                 "SFX bank provider '{provider_id}' contributed a different id set on re-registration"
-            ),
-            Self::DuplicateAdaptiveCueProvider { provider_id } => write!(
-                f,
-                "adaptive cue provider '{provider_id}' contributed a different cue set on re-registration"
             ),
             Self::ConflictingSfxEntry {
                 id,
@@ -747,33 +660,12 @@ mod tests {
         reverse
             .register("b", BTreeMap::from([(id("clash"), 2)]))
             .unwrap();
-        let err = reverse
+        let reverse_err = reverse
             .register("a", BTreeMap::from([(id("clash"), 1)]))
             .unwrap_err();
-        assert!(matches!(err, AudioCatalogError::ConflictingSfxEntry { .. }));
+        assert_eq!(err, reverse_err, "diagnostics are registration-order independent");
+        assert_eq!(err.to_string(), reverse_err.to_string());
         assert_eq!(reverse.providers().collect::<Vec<_>>(), vec!["b"]);
-    }
-
-    #[test]
-    fn adaptive_cue_registry_indexes_cues_per_provider() {
-        let mut registry = AdaptiveCueRegistry::default();
-        registry
-            .register("ambition", ["goblin".to_string(), "boss".to_string()])
-            .unwrap();
-        assert!(registry.ids_for("ambition").contains("goblin"));
-        assert!(
-            registry.ids_for("sanic").is_empty(),
-            "a provider that authored no cues authorizes none"
-        );
-        // Idempotent on the same set (order-independent).
-        registry
-            .register("ambition", ["boss".to_string(), "goblin".to_string()])
-            .unwrap();
-        // A different set for an already-registered provider is rejected.
-        assert!(matches!(
-            registry.register("ambition", ["goblin".to_string()]),
-            Err(AudioCatalogError::DuplicateAdaptiveCueProvider { .. })
-        ));
     }
 
     #[test]

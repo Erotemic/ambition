@@ -252,3 +252,132 @@ fn provider_relative_music_drives_the_base_channel() {
         "Mary-O is deliberately silent — a music-less provider STOPS playback"
     );
 }
+
+fn play_owned_sfx(
+    app: &mut App,
+    request: ambition::sfx::SfxMessage,
+) -> Option<ambition::audio::render::SfxPlaybackRecord> {
+    let owner = app
+        .world()
+        .resource::<ambition::audio::selection::ActiveAudioSelection>()
+        .owner();
+    app.world_mut()
+        .write_message(ambition::sfx::OwnedSfxMessage { owner, request });
+    app.update();
+    app.update();
+    app.world()
+        .resource::<ambition::audio::render::SfxPlaybackState>()
+        .last_played
+        .clone()
+}
+
+/// Frontend and gameplay contexts share one exact ownership mechanism while
+/// resolving their actual provider-authored source definitions.
+#[test]
+fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
+    use ambition::audio::render::SfxSourceKind;
+    use ambition::sfx::{ids, AudioContextOwner, OwnedSfxMessage, SfxMessage};
+
+    let mut app = ambition_app::app::build_visible_app(VisibleRenderMode::NoWindow, true);
+    settle(&mut app);
+
+    let menu = play_owned_sfx(
+        &mut app,
+        SfxMessage::Play {
+            id: ids::UI_MENU_MOVE,
+            pos: Vec2::ZERO,
+        },
+    )
+    .expect("the title owns and resolves its menu-move SFX");
+    assert_eq!(menu.provider_id, ambition_content::AMBITION_CONTENT_PROVIDER);
+    assert!(matches!(menu.owner, AudioContextOwner::Frontend(_)));
+    assert_eq!(menu.id, ids::UI_MENU_MOVE);
+
+    app.world_mut().write_message(ShellCommand::GoTo(
+        shell_host::AMBITION_GAMEPLAY_ROUTE.into(),
+    ));
+    settle(&mut app);
+    let ambition_dash = play_owned_sfx(&mut app, SfxMessage::Dash { pos: Vec2::ZERO })
+        .expect("Ambition resolves its Dash source");
+    assert_eq!(
+        ambition_dash.provider_id,
+        ambition_content::AMBITION_CONTENT_PROVIDER
+    );
+    assert!(matches!(ambition_dash.owner, AudioContextOwner::Gameplay(_)));
+
+    app.world_mut().write_message(ShellCommand::QuitToHome);
+    settle(&mut app);
+    assert!(
+        app.world()
+            .resource::<ambition::audio::render::SfxPlaybackState>()
+            .last_played
+            .is_none(),
+        "returning home clears gameplay SFX playback ownership"
+    );
+
+    app.world_mut()
+        .write_message(ShellCommand::GoTo("sanic_gameplay".into()));
+    settle(&mut app);
+    let first_sanic_owner = app
+        .world()
+        .resource::<ambition::audio::selection::ActiveAudioSelection>()
+        .owner()
+        .expect("Sanic owns audio");
+    let sanic_dash = play_owned_sfx(&mut app, SfxMessage::Dash { pos: Vec2::ZERO })
+        .expect("Sanic resolves its authored procedural Dash");
+    assert_eq!(sanic_dash.provider_id, "sanic");
+    assert_eq!(sanic_dash.source.kind, SfxSourceKind::Procedural);
+    assert_ne!(
+        sanic_dash.source.fingerprint, ambition_dash.source.fingerprint,
+        "the same logical Dash id resolves from the active provider's actual definition"
+    );
+
+    app.world_mut().write_message(ShellCommand::QuitToHome);
+    settle(&mut app);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo("mary_o_gameplay".into()));
+    settle(&mut app);
+    let rejected_before = app
+        .world()
+        .resource::<ambition::audio::render::SfxPlaybackState>()
+        .rejected_unauthorized;
+    assert!(
+        play_owned_sfx(&mut app, SfxMessage::Dash { pos: Vec2::ZERO }).is_none(),
+        "Mary-O's explicit empty fragment means deliberate SFX silence"
+    );
+    assert!(
+        app.world()
+            .resource::<ambition::audio::render::SfxPlaybackState>()
+            .rejected_unauthorized
+            > rejected_before
+    );
+
+    // Same-provider relaunch poison: a queued request carrying Sanic A's exact
+    // owner must not play during a fresh Sanic B session.
+    app.world_mut().write_message(ShellCommand::QuitToHome);
+    settle(&mut app);
+    app.world_mut()
+        .write_message(ShellCommand::GoTo("sanic_gameplay".into()));
+    settle(&mut app);
+    let current_owner = app
+        .world()
+        .resource::<ambition::audio::selection::ActiveAudioSelection>()
+        .owner()
+        .expect("fresh Sanic session owns audio");
+    assert_ne!(first_sanic_owner, current_owner);
+    let rejected_before = app
+        .world()
+        .resource::<ambition::audio::render::SfxPlaybackState>()
+        .rejected_wrong_owner;
+    app.world_mut().write_message(OwnedSfxMessage {
+        owner: Some(first_sanic_owner),
+        request: SfxMessage::Dash { pos: Vec2::ZERO },
+    });
+    app.update();
+    app.update();
+    let playback = app
+        .world()
+        .resource::<ambition::audio::render::SfxPlaybackState>();
+    assert!(playback.last_played.is_none());
+    assert!(playback.rejected_wrong_owner > rejected_before);
+}

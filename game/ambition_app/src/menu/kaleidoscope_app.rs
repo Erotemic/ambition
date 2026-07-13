@@ -39,7 +39,7 @@ use ambition::settings_menu::system::{
     DevSnapshot, DevToggleId, RadioSnapshot, SystemMenuAction, SystemMenuEntryId, SystemMenuModel,
     SystemMenuTarget, SystemOptionId,
 };
-use ambition::sfx::SfxMessage;
+use ambition::sfx::{SfxMessage, SfxWriter};
 
 /// Play a one-shot UI sound for the cube menu: `Play { id, pos }` with `pos = ZERO`.
 /// `Play` is non-spatialized (see `ambition::audio::audio_play_sfx_messages` — it
@@ -47,7 +47,7 @@ use ambition::sfx::SfxMessage;
 /// `Play`), so `Vec2::ZERO` keeps menu sounds audible at full volume. If the id
 /// isn't packed into the runtime bank yet the play just no-ops (safe).
 #[inline]
-pub(crate) fn play_ui(sfx: &mut MessageWriter<SfxMessage>, id: ambition::sfx::SfxId) {
+pub(crate) fn play_ui(sfx: &mut SfxWriter, id: ambition::sfx::SfxId) {
     sfx.write(SfxMessage::Play {
         id,
         pos: Vec2::ZERO,
@@ -694,7 +694,7 @@ fn kaleidoscope_focus_nav(
     mut players: MenuEffectPlayers,
     mut mana_q: MenuEffectManaQuery,
     mut heals: MessageWriter<PlayerHealRequested>,
-    mut sfx: MessageWriter<SfxMessage>,
+    mut sfx: SfxWriter,
     mut system: SystemMenuParams,
 ) {
     // Read the backend from `system` (the bundle owns it); a separate `Res` here
@@ -915,7 +915,7 @@ fn kaleidoscope_focus_nav(
 /// single gate that keeps the per-frame republish churn from spamming the move sound:
 /// it compares the pre-frame focus to the post-frame focus, not "did a system run".
 fn emit_move_sfx(
-    sfx: &mut MessageWriter<SfxMessage>,
+    sfx: &mut SfxWriter,
     focus_before: MenuFocus,
     focus_after: MenuFocus,
     page_before: Option<MenuPage>,
@@ -962,7 +962,7 @@ pub(crate) fn system_focus_nav(
     players: &mut MenuEffectPlayers,
     mana_q: &mut MenuEffectManaQuery,
     heals: &mut MessageWriter<PlayerHealRequested>,
-    sfx: &mut MessageWriter<SfxMessage>,
+    sfx: &mut SfxWriter,
     system: &mut SystemMenuParams,
     // The cube turns its face when LEFT/RIGHT walks off the row list onto the
     // page-turn edge buttons; the flat Grid switches pages with its TAB BAR, never
@@ -1150,7 +1150,7 @@ fn apply_system_option_step(
     dx: i32,
     settings: &mut UserSettings,
     quality_confirm: &mut VisualQualityConfirmState,
-    sfx: &mut MessageWriter<SfxMessage>,
+    sfx: &mut SfxWriter,
 ) {
     if option == SettingsOptionId::VisualQuality {
         quality_confirm.step_from(settings.video.quality.profile, dx);
@@ -1257,7 +1257,7 @@ fn turn_page_seeded(
     pages: &mut ActiveMenuPages<MenuPage, MenuPageAction>,
     cursor: &mut KaleidoscopeCursor,
     page: MenuPage,
-    sfx: &mut MessageWriter<SfxMessage>,
+    sfx: &mut SfxWriter,
 ) {
     let from = pages.active;
     turn_page(pages, page, sfx);
@@ -1304,7 +1304,7 @@ fn edge_button_nav(
     select: bool,
     allow_page_turn: bool,
     inward: EdgeInward,
-    sfx: &mut MessageWriter<SfxMessage>,
+    sfx: &mut SfxWriter,
 ) -> EdgeNav {
     let edge = cursor.focus;
     let on_left = edge == MenuFocus::EdgeLeft;
@@ -1345,7 +1345,7 @@ fn edge_button_nav(
 fn turn_page(
     pages: &mut ActiveMenuPages<MenuPage, MenuPageAction>,
     page: MenuPage,
-    sfx: &mut MessageWriter<SfxMessage>,
+    sfx: &mut SfxWriter,
 ) {
     if pages.active != Some(page) {
         play_ui(sfx, rotate_sfx(pages.active, page));
@@ -1464,7 +1464,7 @@ fn kaleidoscope_menu_open_routing(
     mut system_nav: ResMut<KaleidoscopeSystemNav>,
     mut quality_confirm: ResMut<VisualQualityConfirmState>,
     mut map: ResMut<ambition::menu::map::MapMenuState>,
-    mut sfx: MessageWriter<SfxMessage>,
+    mut sfx: SfxWriter,
     // Tracks last frame's `menu.start` so we only act on its RISING edge (below).
     mut last_start: Local<bool>,
 ) {

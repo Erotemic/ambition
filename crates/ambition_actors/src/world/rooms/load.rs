@@ -24,7 +24,7 @@ use ambition_dev_tools::SandboxDevState;
 use ambition_engine_core as ae;
 use ambition_engine_core::RoomGeometry;
 use ambition_platformer_primitives::lifecycle::SessionSpawnScope;
-use ambition_sfx::SfxMessage;
+use ambition_sfx::{SfxMessage, SfxWriter};
 
 /// What [`load_room_geometry`] hands back to the composition layer so the host
 /// can spawn parallax/room visuals + arrival VFX and apply the cross-domain
@@ -58,7 +58,7 @@ pub struct RoomLoadResult {
 #[allow(clippy::too_many_arguments)]
 pub fn load_room_geometry(
     commands: &mut Commands,
-    sfx: &mut MessageWriter<SfxMessage>,
+    sfx: &mut SfxWriter,
     motion_model: &mut ae::MotionModel,
     clusters: &mut ae::BodyClustersMut<'_>,
     dev_state: &mut SandboxDevState,

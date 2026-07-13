@@ -53,7 +53,7 @@ pub fn fire_puppy_slug_gun_system(
         Option<&SessionScopedEntity>,
     )>,
     allies: Query<(), With<PuppySlugAlly>>,
-    mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
+    mut sfx: ambition_sfx::SfxWriter,
 ) {
     let Some(subject) = controlled.0 else {
         return;
@@ -117,7 +117,7 @@ mod tests {
     fn test_app() -> App {
         let mut app = App::new();
         app.insert_resource(crate::features::enemies::test_roster());
-        app.add_message::<ambition_sfx::SfxMessage>();
+        app.add_message::<ambition_sfx::OwnedSfxMessage>();
         app.insert_resource(
             ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
         );

@@ -1,7 +1,7 @@
 //! Player → static-chest open path on the ECS feature side.
 
 use super::*;
-use ambition_sfx::SfxMessage;
+use ambition_sfx::{SfxMessage, SfxWriter};
 
 /// Open ECS-owned static chests from the same interaction buffer used by doors
 /// and legacy NPCs/switches.
@@ -34,7 +34,7 @@ pub fn open_ecs_chests(
         (With<FeatureSimEntity>, With<ChestFeature>),
     >,
     mut set_flag: MessageWriter<SetFlagRequested>,
-    mut sfx: MessageWriter<SfxMessage>,
+    mut sfx: SfxWriter,
     mut vfx: MessageWriter<VfxMessage>,
 ) {
     // Iterate every player so each player's own buffered interact

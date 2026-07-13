@@ -7,8 +7,9 @@ use crate::selection::MusicAuthority;
 /// This is the provider-relative-authority gate (Issue 1): a track id present in
 /// the process-wide combined [`AudioLibrary`] but foreign to the active provider
 /// is dropped here, BEFORE the director resolves anything against the library, so
-/// it can never drive the base channel. Under an ungoverned authority (frontend
-/// routes) nothing is dropped — the frontend policy owns playback there.
+/// it can never drive the base channel. Frontend music is started by the
+/// frontend policy from its own explicit governed context, not by this gameplay
+/// director.
 pub(super) fn authorized_candidates(
     authority: &MusicAuthority,
     candidates: &[String],
@@ -140,15 +141,12 @@ mod authority_tests {
         );
     }
 
-    /// A frontend/ungoverned authority never rejects — the frontend policy, not
-    /// the director, owns what plays at the title.
+    /// No active context authorizes no gameplay candidate. Frontend playback is
+    /// driven by its explicit shell-owned profile instead.
     #[test]
-    fn ungoverned_authority_filters_nothing() {
+    fn denied_authority_filters_everything() {
         let candidates = ids(&["a_possible_morning"]);
-        assert_eq!(
-            authorized_candidates(&MusicAuthority::Ungoverned, &candidates),
-            candidates
-        );
+        assert!(authorized_candidates(&MusicAuthority::Denied, &candidates).is_empty());
     }
 
     /// A deliberately-silent provider (empty authorized set) drops everything;

@@ -196,7 +196,14 @@ pub fn run_visible() {
             }
         }
     }
-    let mut app = build_visible_app(VisibleRenderMode::Windowed, !cli_direct_entry());
+    let shell_hosted = !cli_direct_entry();
+    let mut app = build_visible_app(VisibleRenderMode::Windowed, shell_hosted);
+    // The production windowed host opens on the "Powered by Ambition" card, then
+    // hands off to the launcher. Direct entry and the headless ownership tests
+    // (which call `build_visible_app` directly) deliberately skip it.
+    if shell_hosted {
+        super::shell_host::compose_ambition_startup_sequence(&mut app);
+    }
     app.run();
 }
 

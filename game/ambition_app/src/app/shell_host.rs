@@ -211,6 +211,55 @@ pub fn compose_ambition_shell_host(app: &mut App) {
     app.add_systems(Update, (exit_on_shell_request, quit_to_home_on_key));
 }
 
+/// The optional "Powered by Ambition" startup vanity sequence.
+pub const AMBITION_STARTUP_EXPERIENCE: &str = "ambition_startup";
+pub const AMBITION_STARTUP_ROUTE: &str = "ambition_startup";
+
+/// Compose the optional startup vanity screen in front of the launcher.
+///
+/// The HOST chooses this frontend presentation policy — `--direct` and the
+/// rendered-ownership tests simply don't compose it and boot straight to the
+/// launcher. It is one text card, auto-advancing after a couple seconds and
+/// skippable with confirm (Enter / South); on completion it routes to the
+/// launcher. No gameplay session exists during startup: it is a plain shell
+/// experience, not a gameplay route, so the simulation stays asleep and the
+/// launcher owns exactly one frontend authority once the card hands off.
+///
+/// Uses the existing shell SEQUENCE mechanism (no new state machine): a
+/// `ShellSequenceCatalog` entry keyed by the startup experience, a route whose
+/// `on_complete` is `GoTo(launcher)`, and the startup route as the initial one.
+pub fn compose_ambition_startup_sequence(app: &mut App) {
+    use ambition::game_shell::{
+        ShellExperienceId, ShellSegmentSpec, ShellSequenceCatalog, ShellSequenceSpec,
+    };
+
+    app.world_mut()
+        .resource_mut::<ShellRouteCatalog>()
+        .register(
+            ShellRouteSpec::new(AMBITION_STARTUP_ROUTE, AMBITION_STARTUP_EXPERIENCE)
+                .on_complete(ShellCompletionPolicy::GoTo(AMBITION_LAUNCHER_ROUTE.into())),
+        );
+    app.world_mut()
+        .resource_mut::<ShellSequenceCatalog>()
+        .register(
+            ShellExperienceId::new(AMBITION_STARTUP_EXPERIENCE),
+            ShellSequenceSpec {
+                segments: vec![ShellSegmentSpec::text(
+                    "powered_by_ambition",
+                    "Powered by Ambition",
+                )],
+            },
+        );
+    // Boot into the startup card; home stays the launcher, so the startup's
+    // completion AND any later QuitToHome both resolve to the launcher.
+    app.world_mut()
+        .resource_mut::<ShellHostConfiguration>()
+        .spec = Some(ShellHostSpec::new(
+        AMBITION_STARTUP_ROUTE,
+        AMBITION_LAUNCHER_ROUTE,
+    ));
+}
+
 /// Visible-host wiring: per-session presentation (room visuals, parallax,
 /// moving platforms, HUD, LDtk visual spine roots) constructed on Ambition
 /// activation with the session's captured scope. Registered only by the

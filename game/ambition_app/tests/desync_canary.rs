@@ -644,7 +644,10 @@ fn the_snapshot_coverage_ledger() {
     // 2026-07-13 (shell-host campaign): +2 reviewed composition resources
     // (AmbitionPreparedWorld immutable boot data, ActiveAudioSelection
     // presentation authority) — reviewed in known_resource_debt.txt.
-    const KNOWN_RESOURCE_DEBT: usize = 188;
+    // 2026-07-14 (provider-relative adaptive music): +1 reviewed composition
+    // resource (AdaptiveCueRegistry — App-local provider->cue-id index feeding
+    // the music authority; immutable after registration) — in known_resource_debt.txt.
+    const KNOWN_RESOURCE_DEBT: usize = 189;
     assert!(
         resources.len() <= KNOWN_RESOURCE_DEBT,
         "{} unregistered `ambition_*` resources, up from the pinned \

@@ -129,6 +129,10 @@ impl Plugin for SandboxAudioPlugin {
             // authority. Defaults empty (a host may ship no bank); the resident
             // bank's owner registers its ids once the bank loads.
             .init_resource::<ambition_audio::catalog::SfxBankRegistry>()
+            // Provider-contributed adaptive cue ids, feeding each session's
+            // music authority so an adaptive cue foreign to the active provider
+            // cannot start. Defaults empty; content registers its cues.
+            .init_resource::<ambition_audio::catalog::AdaptiveCueRegistry>()
             // The HOST owns its settings model and the authored cue
             // catalog; the reusable music core consumes the synced
             // `MusicMix` + the inserted catalog (Stage 20 / B1 seam).

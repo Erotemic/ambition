@@ -191,6 +191,7 @@ bevy_state::state::resources::State<ambition_platformer_primitives::schedule::Ga
 # ASSEMBLED AUTHORED CONTENT (immutable after provider registration), not
 # mutable sim state — candidates for SIM_RESOURCE_EXCLUSIONS or registration
 # when the catalog migration closes.
+ambition_audio::catalog::AdaptiveCueRegistry
 ambition_audio::catalog::AudioCatalogRegistry
 ambition_characters::actor::character_catalog::registry::CharacterCatalogDefaults
 ambition_characters::actor::character_catalog::registry::CharacterCatalogOwners

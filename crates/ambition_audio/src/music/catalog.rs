@@ -126,6 +126,13 @@ impl MusicCueCatalog {
         self.cues.get(id)
     }
 
+    /// The ids of every adaptive cue this catalog defines. A provider registers
+    /// these in [`crate::catalog::AdaptiveCueRegistry`] so the music authority
+    /// can gate adaptive playback to the cues that provider actually authored.
+    pub fn cue_ids(&self) -> impl Iterator<Item = &str> {
+        self.cues.keys().map(String::as_str)
+    }
+
     /// The host's encounter -> cue bindings (read by the host's
     /// intent-mapping adapter).
     pub fn encounter_bindings(&self) -> &[EncounterMusicBinding] {

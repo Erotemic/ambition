@@ -42,6 +42,7 @@ pub fn compute_music_intent(
     room_music: Res<RoomMusicRequest>,
     radio: Option<Res<RadioStationState>>,
     audio_selection: Res<ActiveAudioSelection>,
+    adaptive_cues: Res<ambition_audio::catalog::AdaptiveCueRegistry>,
     mut intent: ResMut<MusicIntent>,
 ) {
     // The music director keys adaptive cues by encounter id; build the id →
@@ -75,7 +76,15 @@ pub fn compute_music_intent(
     // Provider-relative authority: the director may only play tracks this
     // session's provider authored. No selection is ungoverned (frontend); a
     // provider with no music is deliberate silence.
-    intent.authority = audio_selection.music_authority();
+    let mut authority = audio_selection.music_authority();
+    // Fold in the active provider's authored adaptive cue ids so the director
+    // can gate the adaptive `Play` branch the same way it gates simple tracks —
+    // a cue in the process-wide catalog but foreign to this provider cannot
+    // start.
+    if let Some(provider) = audio_selection.provider_id() {
+        authority.authorize_cues(adaptive_cues.ids_for(provider));
+    }
+    intent.authority = authority;
 }
 
 /// Build the simple-track priority list. Priority: encounter music (boss beats

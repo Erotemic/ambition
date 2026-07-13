@@ -17,6 +17,21 @@ use simple::apply_simple_music_intent;
 #[cfg(test)]
 pub(super) use adaptive::should_restart_adaptive;
 
+/// Gate an adaptive directive by provider authority: an unauthorized `Play`
+/// (a cue the active provider did not author) is downgraded to `None`, so any
+/// running adaptive layer is shut down and the base channel resumes rather than
+/// a foreign cue starting. `StopNow` and `None` pass through unchanged. This is
+/// the adaptive analogue of [`simple::authorized_candidates`].
+fn authorized_adaptive(
+    authority: &crate::selection::MusicAuthority,
+    adaptive: Option<AdaptiveCueDirective>,
+) -> Option<AdaptiveCueDirective> {
+    match adaptive {
+        Some(AdaptiveCueDirective::Play { cue_id, .. }) if !authority.allows_cue(&cue_id) => None,
+        other => other,
+    }
+}
+
 /// Content-agnostic music director.
 ///
 /// Handles both simple track selection and adaptive cue state transitions. It
@@ -81,7 +96,13 @@ pub fn drive_music_director(
     let authorized =
         simple::authorized_candidates(&intent.authority, &intent.simple_track_candidates);
     let candidates = authorized.as_slice();
-    match intent.adaptive.clone() {
+    // An adaptive cue the active provider did not author must not start, even
+    // when the cue exists in the process-wide catalog and a (stale) directive
+    // requests it. Downgrade an unauthorized `Play` to `None` so any running
+    // adaptive layer is shut down and the base channel resumes — the adaptive
+    // analogue of `simple::authorized_candidates`.
+    let adaptive = authorized_adaptive(&intent.authority, intent.adaptive.clone());
+    match adaptive {
         Some(AdaptiveCueDirective::Play { cue_id, state_id }) => {
             if let (Some(cue), Some(target_state)) = (
                 catalog.cue(&cue_id),
@@ -165,6 +186,60 @@ pub fn drive_music_director(
             );
             log_periodic_state(&mut director, cue, dt);
         }
+    }
+}
+
+#[cfg(test)]
+mod adaptive_authority_tests {
+    use super::authorized_adaptive;
+    use crate::music::AdaptiveCueDirective;
+    use crate::selection::MusicAuthority;
+
+    fn play(cue: &str) -> Option<AdaptiveCueDirective> {
+        Some(AdaptiveCueDirective::Play {
+            cue_id: cue.to_string(),
+            state_id: "intro".to_string(),
+        })
+    }
+
+    #[test]
+    fn a_foreign_adaptive_cue_is_downgraded_to_stop() {
+        // Sanic's session (authorizes no cues) must not start Ambition's
+        // goblin cue even if a stale directive requests it.
+        let mut sanic = MusicAuthority::governed(vec!["you_are_too_slow".to_string()]);
+        sanic.authorize_cues(Vec::<String>::new());
+        assert_eq!(
+            authorized_adaptive(&sanic, play("first_goblin_tune_v2")),
+            None,
+            "an unauthorized adaptive cue is downgraded so the layer shuts down"
+        );
+    }
+
+    #[test]
+    fn the_authoring_provider_keeps_its_cue() {
+        let mut ambition = MusicAuthority::governed(vec!["a_possible_morning".to_string()]);
+        ambition.authorize_cues(vec!["first_goblin_tune_v2".to_string()]);
+        assert_eq!(
+            authorized_adaptive(&ambition, play("first_goblin_tune_v2")),
+            play("first_goblin_tune_v2"),
+            "the provider that authored the cue keeps it"
+        );
+    }
+
+    #[test]
+    fn ungoverned_and_stop_pass_through() {
+        // Frontend (ungoverned) does not restrict; StopNow is never a Play.
+        assert_eq!(
+            authorized_adaptive(&MusicAuthority::Ungoverned, play("anything")),
+            play("anything")
+        );
+        assert_eq!(
+            authorized_adaptive(
+                &MusicAuthority::governed(Vec::<String>::new()),
+                Some(AdaptiveCueDirective::StopNow)
+            ),
+            Some(AdaptiveCueDirective::StopNow)
+        );
     }
 }
 

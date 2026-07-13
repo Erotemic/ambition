@@ -58,7 +58,17 @@ impl Plugin for AmbitionContentPlugin {
         // build just has no adaptive music. The catalog is CONTENT — it left the
         // machinery lib's audio plugin here (the B1 seam).
         #[cfg(feature = "audio")]
-        app.insert_resource(crate::music::ambition_music_cue_catalog());
+        {
+            let cue_catalog = crate::music::ambition_music_cue_catalog();
+            // Register Ambition's adaptive cue ids so a session's music
+            // authority authorizes them for Ambition and for nobody else — a
+            // Sanic/Mary-O session cannot start an Ambition cue that merely
+            // exists in this process-wide catalog.
+            use ambition_audio::catalog::AdaptiveCueAppExt;
+            let cue_ids: Vec<String> = cue_catalog.cue_ids().map(str::to_owned).collect();
+            app.register_adaptive_cue_fragment(crate::AMBITION_CONTENT_PROVIDER, cue_ids);
+            app.insert_resource(cue_catalog);
+        }
 
         // Install authored encounter wave timelines (goblin mob-lab, …) into the
         // machinery lib's wave book before the encounter loader runs — the engine

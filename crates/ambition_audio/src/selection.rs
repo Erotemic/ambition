@@ -39,33 +39,72 @@ pub enum MusicAuthority {
     /// playback — the host's frontend policy owns silence/title there.
     #[default]
     Ungoverned,
-    /// A session is live; only these track ids may play. An EMPTY set is a
-    /// provider that authored no music — DELIBERATE silence, not "retain
-    /// whatever is playing." That distinction is the fix for the ambiguity where
-    /// an empty candidate list meant "leave the previous track running."
-    Governed { authorized: BTreeSet<String> },
+    /// A session is live; only these track ids (base channel) and cue ids
+    /// (adaptive layers) may play. BOTH empty is a provider that authored no
+    /// music — DELIBERATE silence, not "retain whatever is playing." That
+    /// distinction is the fix for the ambiguity where an empty candidate list
+    /// meant "leave the previous track running."
+    Governed {
+        authorized: BTreeSet<String>,
+        /// Adaptive cue ids this provider authored. An adaptive cue that merely
+        /// exists in the process-wide `MusicCueCatalog` but is foreign to the
+        /// active provider cannot start — the exact adaptive analogue of the
+        /// simple-track filter.
+        authorized_cues: BTreeSet<String>,
+    },
 }
 
 impl MusicAuthority {
-    /// A governed authority permitting exactly `authorized`.
+    /// A governed authority permitting exactly `authorized` simple tracks and no
+    /// adaptive cues. Cues are added separately by the intent resolver
+    /// ([`Self::authorize_cues`]), so the selection layer (which knows only
+    /// track ids) constructs this and the content layer folds in the cue ids.
     pub fn governed(authorized: impl IntoIterator<Item = String>) -> Self {
         Self::Governed {
             authorized: authorized.into_iter().collect(),
+            authorized_cues: BTreeSet::new(),
         }
     }
 
-    /// True when `track_id` is allowed to drive playback this frame.
+    /// Add authorized adaptive cue ids to a governed authority (no-op when
+    /// ungoverned). Used by `compute_music_intent` to project the active
+    /// provider's cue ids onto the authority the director enforces.
+    pub fn authorize_cues(&mut self, cues: impl IntoIterator<Item = String>) {
+        if let Self::Governed {
+            authorized_cues, ..
+        } = self
+        {
+            authorized_cues.extend(cues);
+        }
+    }
+
+    /// True when `track_id` is allowed to drive the base channel this frame.
     pub fn allows(&self, track_id: &str) -> bool {
         match self {
             Self::Ungoverned => true,
-            Self::Governed { authorized } => authorized.contains(track_id),
+            Self::Governed { authorized, .. } => authorized.contains(track_id),
         }
     }
 
-    /// True when the active provider authored no music — the director must stop
-    /// playback rather than retain the previous session's track.
+    /// True when `cue_id` is allowed to drive an adaptive layer this frame.
+    pub fn allows_cue(&self, cue_id: &str) -> bool {
+        match self {
+            Self::Ungoverned => true,
+            Self::Governed {
+                authorized_cues, ..
+            } => authorized_cues.contains(cue_id),
+        }
+    }
+
+    /// True when the active provider authored no music at all — no simple tracks
+    /// AND no adaptive cues — so the director must stop playback rather than
+    /// retain the previous session's track/cue.
     pub fn is_deliberate_silence(&self) -> bool {
-        matches!(self, Self::Governed { authorized } if authorized.is_empty())
+        matches!(
+            self,
+            Self::Governed { authorized, authorized_cues }
+                if authorized.is_empty() && authorized_cues.is_empty()
+        )
     }
 
     /// True when a session governs playback (as opposed to a frontend route).
@@ -309,6 +348,10 @@ impl ActiveAudioSelection {
                     .as_ref()
                     .map(|music| music.tracks.iter().map(|track| track.id.clone()).collect())
                     .unwrap_or_default(),
+                // Adaptive cue ids are folded in by the intent resolver from the
+                // provider's `AdaptiveCueRegistry` entry — the selection layer
+                // only knows track ids.
+                authorized_cues: BTreeSet::new(),
             },
         }
     }
@@ -464,6 +507,35 @@ mod tests {
             "an empty authorized set is a stop request, not 'retain current'"
         );
         assert!(!authority.allows("you_are_too_slow"));
+    }
+
+    #[test]
+    fn music_authority_governs_adaptive_cues_separately_from_tracks() {
+        let mut authority = MusicAuthority::governed(vec!["a_possible_morning".to_string()]);
+        // A track is authorized; no cue is until the resolver folds them in.
+        assert!(authority.allows("a_possible_morning"));
+        assert!(!authority.allows_cue("first_goblin_tune_v2"));
+        assert!(!authority.is_deliberate_silence(), "it has a track");
+        authority.authorize_cues(vec!["first_goblin_tune_v2".to_string()]);
+        assert!(authority.allows_cue("first_goblin_tune_v2"));
+        assert!(
+            !authority.allows_cue("some_boss_cue"),
+            "a cue the provider did not author stays unauthorized"
+        );
+    }
+
+    #[test]
+    fn neither_tracks_nor_cues_is_deliberate_silence() {
+        let mut authority = MusicAuthority::governed(Vec::<String>::new());
+        assert!(authority.is_deliberate_silence());
+        authority.authorize_cues(vec!["cue".to_string()]);
+        assert!(
+            !authority.is_deliberate_silence(),
+            "authorizing an adaptive cue lifts deliberate silence"
+        );
+        assert!(authority.allows_cue("cue"));
+        // Ungoverned never restricts cues.
+        assert!(MusicAuthority::Ungoverned.allows_cue("anything"));
     }
 
     #[test]

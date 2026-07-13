@@ -194,6 +194,13 @@ pub struct SfxPlaybackRecord {
 #[derive(Resource, Default, Clone, Debug)]
 pub struct SfxPlaybackState {
     pub last_played: Option<SfxPlaybackRecord>,
+    /// Number of requests accepted by the real playback decision path.
+    ///
+    /// Unlike `last_played`, this monotonic counter is not cleared on an
+    /// audio-context transition, so tests and diagnostics can prove that a
+    /// rejected delayed request did not reach playback even when the fresh
+    /// session legitimately emitted another cue during activation.
+    pub accepted_playbacks: u64,
     pub rejected_wrong_owner: u64,
     pub rejected_unauthorized: u64,
     pub missing_source: u64,

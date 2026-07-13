@@ -468,6 +468,7 @@ dependencies = [
  "ambition_load",
  "ambition_menu",
  "ambition_platformer_primitives",
+ "ambition_sfx",
  "bevy",
 ]
 

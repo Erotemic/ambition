@@ -365,10 +365,11 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
         .owner()
         .expect("fresh Sanic session owns audio");
     assert_ne!(first_sanic_owner, current_owner);
-    let rejected_before = app
+    let playback_before = app
         .world()
-        .resource::<ambition::audio::render::SfxPlaybackState>()
-        .rejected_wrong_owner;
+        .resource::<ambition::audio::render::SfxPlaybackState>();
+    let accepted_before = playback_before.accepted_playbacks;
+    let rejected_before = playback_before.rejected_wrong_owner;
     app.world_mut().write_message(OwnedSfxMessage {
         owner: Some(first_sanic_owner),
         request: SfxMessage::Dash { pos: Vec2::ZERO },
@@ -378,6 +379,9 @@ fn provider_relative_sfx_resolves_the_real_source_and_rejects_stale_work() {
     let playback = app
         .world()
         .resource::<ambition::audio::render::SfxPlaybackState>();
-    assert!(playback.last_played.is_none());
+    assert_eq!(
+        playback.accepted_playbacks, accepted_before,
+        "the stale Sanic-A request must not reach the real playback path",
+    );
     assert!(playback.rejected_wrong_owner > rejected_before);
 }

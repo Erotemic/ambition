@@ -458,6 +458,7 @@ fn default_weight() -> f32 {
 pub struct CharacterRoster {
     by_brain: std::collections::HashMap<String, CharacterArchetypeSpec>,
     fallback: CharacterArchetypeSpec,
+    #[cfg(test)]
     provider_fallbacks: std::collections::BTreeMap<String, CharacterArchetypeSpec>,
 }
 
@@ -472,6 +473,7 @@ impl CharacterRoster {
         Self {
             by_brain,
             fallback,
+            #[cfg(test)]
             provider_fallbacks: std::collections::BTreeMap::new(),
         }
     }
@@ -481,15 +483,19 @@ impl CharacterRoster {
         fallback: CharacterArchetypeSpec,
         provider_fallbacks: std::collections::BTreeMap<String, CharacterArchetypeSpec>,
     ) -> Self {
+        #[cfg(not(test))]
+        let _ = &provider_fallbacks;
         Self {
             by_brain,
             fallback,
+            #[cfg(test)]
             provider_fallbacks,
         }
     }
 
     /// Resolve one provider's authored default without making it the default
     /// for every other game linked into the App.
+    #[cfg(test)]
     pub(crate) fn fallback_for_provider(
         &self,
         provider_id: &str,

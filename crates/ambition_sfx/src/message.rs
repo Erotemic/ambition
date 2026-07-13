@@ -12,7 +12,8 @@
 
 use crate::SfxId;
 use bevy_ecs::message::{Message, MessageWriter};
-use bevy_ecs::system::{Res, Resource, SystemParam};
+use bevy_ecs::resource::Resource;
+use bevy_ecs::system::{Res, SystemParam};
 use bevy_math::Vec2;
 
 /// Exact owner of one active audio context.

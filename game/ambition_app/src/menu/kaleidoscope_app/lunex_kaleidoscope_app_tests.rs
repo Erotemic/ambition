@@ -69,7 +69,7 @@ fn base_kaleidoscope_test_app() -> App {
     app.init_resource::<ambition::menu::map::MapMenuState>();
     app.init_resource::<MenuControlFrame>();
     app.add_message::<PlayerHealRequested>();
-    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<ambition::sfx::OwnedSfxMessage>();
     *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::LunexKaleidoscope;
     app
 }
@@ -913,7 +913,7 @@ fn esc_backs_out_then_closes_the_kaleidoscope_via_real_input() {
     app.init_resource::<MenuControlFrame>();
     app.init_resource::<ambition::input::MenuInputState>();
     app.add_message::<PlayerHealRequested>();
-    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<ambition::sfx::OwnedSfxMessage>();
     app.add_systems(
         Update,
         (
@@ -1658,7 +1658,7 @@ fn highlight_app_ordered(owned_item: Item, writer_first: bool) -> App {
     app.init_resource::<ambition::dev_tools::dev_tools::EditableMovementTuning>();
     app.init_resource::<UserSettings>();
     app.init_resource::<ambition::inventory_ui::InventoryUiState>();
-    app.add_message::<ambition_sfx::OwnedSfxMessage>();
+    app.add_message::<ambition::sfx::OwnedSfxMessage>();
     *app.world_mut().resource_mut::<InventoryUiBackend>() = InventoryUiBackend::LunexKaleidoscope;
     app.world_mut()
         .resource_mut::<ambition::inventory_ui::InventoryUiState>()

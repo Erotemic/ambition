@@ -15,6 +15,7 @@
 //! `crate::schedule::setup_presentation_system` through the `pub(crate)`
 //! re-export added in `app.rs`.
 
+use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy_kira_audio::prelude::{AudioApp, AudioControl, AudioPlugin as KiraAudioPlugin};
 

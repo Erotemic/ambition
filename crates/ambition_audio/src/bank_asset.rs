@@ -11,7 +11,7 @@ use ambition_sfx::{BankProvider, OwnedSfxMessage, SfxError, SfxId, SfxProvider};
 use bevy::asset::{
     io::Reader, Asset, AssetApp, AssetLoader, AssetServer, Assets, Handle, LoadContext,
 };
-use bevy::log::{debug, info, warn};
+use bevy::log::{debug, info};
 use bevy::prelude::{
     App, Commands, Local, MessageReader, Plugin, Res, ResMut, Resource, Startup, Update,
 };
@@ -379,6 +379,7 @@ pub fn audio_play_sfx_messages(
             continue;
         };
         sfx_channel.play(resolved.handle);
+        playback.accepted_playbacks = playback.accepted_playbacks.saturating_add(1);
         playback.last_played = Some(SfxPlaybackRecord {
             owner,
             provider_id: provider_id.to_owned(),
@@ -395,6 +396,7 @@ mod tests {
     use ambition_sfx::{AudioContextOwner, OwnedSfxMessage, SfxId, SfxMessage};
     use bevy::math::Vec2;
 
+    use crate::catalog::SfxBankRegistry;
     use crate::selection::ActiveAudioSelection;
     use crate::spec::{SfxRegistry, SfxSpec, SoundCueKey, WaveformSpec};
 

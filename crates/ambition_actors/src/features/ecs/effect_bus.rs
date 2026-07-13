@@ -8,7 +8,7 @@
 use crate::encounter::SwitchActivated;
 use crate::features::events::{GameplaySfxRequested, SetFlagRequested};
 use ambition_persistence::quest::QuestAdvanceRequested;
-use bevy::prelude::{MessageReader, MessageWriter, ResMut};
+use bevy::prelude::{MessageReader, ResMut};
 
 /// Save writes first so quest conditions that read flags see them this same
 /// frame. `on == true` also mirrors into `QuestAdvanceEvent::FlagSet`, matching

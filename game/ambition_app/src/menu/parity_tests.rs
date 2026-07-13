@@ -468,7 +468,7 @@ mod dispatch_parity {
         app.init_resource::<MenuControlFrame>();
         app.init_resource::<ambition::input::ActiveInputKind>();
         app.add_message::<PlayerHealRequested>();
-        app.add_message::<ambition_sfx::OwnedSfxMessage>();
+        app.add_message::<ambition::sfx::OwnedSfxMessage>();
         app.add_message::<bevy::app::AppExit>();
         // BOTH backends' pointer observers are installed; each gates on the active
         // backend, so only the matching one dispatches.

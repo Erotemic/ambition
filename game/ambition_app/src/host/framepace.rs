@@ -21,6 +21,12 @@ pub struct FramePacePlugin;
 
 impl Plugin for FramePacePlugin {
     fn build(&self, app: &mut App) {
+        // bevy_framepace's limiter lives in the render sub-app; the no-window
+        // render recipe (rendered ownership tests) has none, and pacing a
+        // headless test app is meaningless anyway.
+        if app.get_sub_app_mut(bevy::render::RenderApp).is_none() {
+            return;
+        }
         app.add_plugins(FramepacePlugin)
             .add_systems(Update, sync_framepace_from_settings);
     }

@@ -344,7 +344,6 @@ pub fn session_presentation(
     let physics_settings = params.physics_settings;
     let game_assets = params.game_assets;
     let quality = params.quality;
-    let ui_fonts = params.ui_fonts;
 
     // `Instant::now()` is unsupported under `wasm32-unknown-unknown`
     // (panics with "time not implemented on this platform"). Gate the
@@ -374,6 +373,39 @@ pub fn session_presentation(
             "[startup]   presentation_world breakdown: spawn_room_visuals={t_room_ms:.1}ms (active room only)"
         );
     }
+    session_gameplay_dressing(
+        commands,
+        scope,
+        SessionDressingSetup {
+            world,
+            room_set,
+            ui_fonts: params.ui_fonts,
+        },
+        player,
+    );
+}
+
+/// Borrowed inputs for [`session_gameplay_dressing`].
+pub struct SessionDressingSetup<'a> {
+    pub world: &'a RoomGeometry,
+    pub room_set: &'a RoomSet,
+    pub ui_fonts: Option<&'a UiFonts>,
+}
+
+/// The Ambition-specific SESSION dressing: moving platforms, the HUD/quest
+/// text widgets, and the `SceneEntities` pointers. Split from the generic
+/// room visuals so the shell host can delegate parallax/room visuals to the
+/// provider-agnostic `SessionRoomVisualsPlugin` (one system serves every
+/// linked game) while Ambition keeps its own dressing.
+pub fn session_gameplay_dressing(
+    commands: &mut Commands,
+    scope: ambition::platformer::lifecycle::SessionSpawnScope,
+    params: SessionDressingSetup<'_>,
+    player: Entity,
+) {
+    let world = params.world;
+    let room_set = params.room_set;
+    let ui_fonts = params.ui_fonts;
     platforms::spawn_moving_platforms(
         commands,
         scope,

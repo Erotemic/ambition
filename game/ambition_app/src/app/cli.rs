@@ -196,6 +196,25 @@ pub fn run_visible() {
             }
         }
     }
+    let mut app = build_visible_app(VisibleRenderMode::Windowed, !cli_direct_entry());
+    app.run();
+}
+
+/// How [`build_visible_app`] creates its render surface.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum VisibleRenderMode {
+    /// A real desktop window.
+    Windowed,
+    /// The full render graph with NO window and NO wgpu backend — the
+    /// standard Bevy recipe for exercising the real presentation composition
+    /// in tests/CI without a GPU or display server.
+    NoWindow,
+}
+
+/// Assemble the visible Ambition app — the ONE composition the desktop binary
+/// runs and the rendered ownership tests drive. `shell_hosted` selects the
+/// multi-game title-screen host (the default) or direct gameplay entry.
+pub fn build_visible_app(render: VisibleRenderMode, shell_hosted: bool) -> App {
     let asset_config = GameAssetConfig::from_args();
     let asset_root = desktop_asset_root();
     eprintln!("ambition_app: asset root = {asset_root}");
@@ -210,16 +229,16 @@ pub fn run_visible() {
         "game",
         bevy::asset::io::AssetSourceBuilder::platform_default(&game_asset_root(), None),
     );
-    app.add_plugins(
-        DefaultPlugins
-            .set(bevy::asset::AssetPlugin {
-                // See `desktop_asset_root`: post-bisection the binary's
-                // crate has no assets/ tree; the canonical one lives with
-                // the machinery lib.
-                file_path: asset_root,
-                ..default()
-            })
-            .set(WindowPlugin {
+    let plugins = DefaultPlugins.set(bevy::asset::AssetPlugin {
+        // See `desktop_asset_root`: post-bisection the binary's
+        // crate has no assets/ tree; the canonical one lives with
+        // the machinery lib.
+        file_path: asset_root,
+        ..default()
+    });
+    match render {
+        VisibleRenderMode::Windowed => {
+            app.add_plugins(plugins.set(WindowPlugin {
                 primary_window: Some(Window {
                     title: "Ambition - Tangent Space Sandbox (Bevy)".into(),
                     resolution: WindowResolution::new(WINDOW_W, WINDOW_H),
@@ -232,8 +251,39 @@ pub fn run_visible() {
                     ..default()
                 }),
                 ..default()
-            }),
-    );
+            }));
+        }
+        VisibleRenderMode::NoWindow => {
+            use bevy::render::settings::{RenderCreation, WgpuSettings};
+            use bevy::render::RenderPlugin;
+            use bevy::window::ExitCondition;
+            app.add_plugins(
+                plugins
+                    // Tests build several Apps per process; the tracing
+                    // subscriber is process-global.
+                    .disable::<bevy::log::LogPlugin>()
+                    // `backends: None` omits the RenderApp; disable the
+                    // core-pipeline extractor that would report it missing.
+                    .disable::<bevy::core_pipeline::CorePipelinePlugin>()
+                    .set(RenderPlugin {
+                        render_creation: RenderCreation::Automatic(WgpuSettings {
+                            backends: None,
+                            ..default()
+                        }),
+                        ..default()
+                    })
+                    .set(WindowPlugin {
+                        primary_window: None,
+                        exit_condition: ExitCondition::DontExit,
+                        close_when_requested: false,
+                        ..default()
+                    })
+                    // No window means no event loop; tests run off the main
+                    // thread where winit refuses to initialize one.
+                    .disable::<bevy::winit::WinitPlugin>(),
+            );
+        }
+    }
     // DefaultPlugins installs StatesPlugin, so initialize GameMode after it.
     ambition::runtime::init_engine_states(&mut app);
     let active_profile = asset_config.asset_profile;
@@ -247,15 +297,26 @@ pub fn run_visible() {
     // configuration: `--direct`, or any explicit start-room request (the
     // run_game.sh mode aliases pass `--start-room`, and their intent is to
     // land in that room immediately).
-    let shell_hosted = !cli_direct_entry();
     if shell_hosted {
         app.insert_resource(super::shell_host::AmbitionShellHosted);
     }
-    app.add_plugins((
-        SandboxSimulationPlugin,
-        SandboxLdtkPlugin,
-        SandboxPresentationPlugin,
-    ));
+    match render {
+        VisibleRenderMode::Windowed => {
+            app.add_plugins((
+                SandboxSimulationPlugin,
+                SandboxLdtkPlugin,
+                SandboxPresentationPlugin,
+            ));
+        }
+        VisibleRenderMode::NoWindow => {
+            // bevy_ecs_tilemap (inside LdtkPlugin) requires a RenderApp, which
+            // the no-backend recipe deliberately omits. Ambition's own room
+            // visuals are ordinary sprites and still draw; only the painted
+            // LDtk tile spine is absent in this mode. The session LDtk roots
+            // guard on the asset registry so nothing dangles.
+            app.add_plugins((SandboxSimulationPlugin, SandboxPresentationPlugin));
+        }
+    }
     if shell_hosted {
         super::shell_host::compose_ambition_shell_host(&mut app);
         super::shell_host::install_ambition_shell_visuals(&mut app);
@@ -267,7 +328,7 @@ pub fn run_visible() {
             active_profile,
         ),
     );
-    app.run();
+    app
 }
 
 /// True when this process should boot straight into gameplay (the pre-shell
@@ -370,11 +431,23 @@ pub fn run_web() {
     app.insert_resource(asset_config);
     // Launch-time starting-character override (no-op on wasm: env reads Err).
     insert_starting_character_override(&mut app);
-    app.add_plugins((
-        SandboxSimulationPlugin,
-        SandboxLdtkPlugin,
-        SandboxPresentationPlugin,
-    ));
+    match render {
+        VisibleRenderMode::Windowed => {
+            app.add_plugins((
+                SandboxSimulationPlugin,
+                SandboxLdtkPlugin,
+                SandboxPresentationPlugin,
+            ));
+        }
+        VisibleRenderMode::NoWindow => {
+            // bevy_ecs_tilemap (inside LdtkPlugin) requires a RenderApp, which
+            // the no-backend recipe deliberately omits. Ambition's own room
+            // visuals are ordinary sprites and still draw; only the painted
+            // LDtk tile spine is absent in this mode. The session LDtk roots
+            // guard on the asset registry so nothing dangles.
+            app.add_plugins((SandboxSimulationPlugin, SandboxPresentationPlugin));
+        }
+    }
     // AssetSource registration runs LAST so EmbeddedAssetRegistry (added
     // by `AssetPlugin` inside `DefaultPlugins`) is already present.
     app.add_plugins(

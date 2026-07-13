@@ -66,26 +66,41 @@ pub struct PlatformerPresentationSetupSet;
 #[derive(Resource, Default)]
 struct PresentedSessionScope(Option<SessionScopeId>);
 
+/// The provider-agnostic per-session room presentation: whenever a fresh
+/// session scope goes live, spawn the active `RoomSet` room's parallax layers
+/// and static visuals exactly once, owned by that scope. Every provider's
+/// activation republishes its own `RoomSet` before this runs, so one system
+/// serves every game a host links — no per-provider visual wiring.
+///
+/// `PlatformerPresentationPlugin` includes it; a host with its own camera and
+/// presentation stack (the Ambition shell host) adds JUST this plugin.
+pub struct SessionRoomVisualsPlugin;
+
+impl Plugin for SessionRoomVisualsPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<PresentedSessionScope>();
+        app.init_resource::<PhysicsSandboxSettings>();
+        app.add_systems(
+            Update,
+            sync_session_room_visuals.in_set(SessionScopeSet::Presentation),
+        );
+    }
+}
+
 /// See the module docs. The generic platformer presentation: a camera, the room's
 /// static visuals, and the sprite/animation chain.
 pub struct PlatformerPresentationPlugin;
 
 impl Plugin for PlatformerPresentationPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<crate::quality::ResolvedVisualQuality>()
-            .init_resource::<PresentedSessionScope>();
-        // `spawn_room_visuals` reads this; the sim's physics plugin does not own it.
-        app.init_resource::<PhysicsSandboxSettings>();
+        app.init_resource::<crate::quality::ResolvedVisualQuality>();
         app.add_systems(
             Startup,
             (spawn_main_camera, spawn_initial_room_visuals)
                 .chain()
                 .in_set(PlatformerPresentationSetupSet),
         );
-        app.add_systems(
-            Update,
-            sync_session_room_visuals.in_set(SessionScopeSet::Presentation),
-        );
+        app.add_plugins(SessionRoomVisualsPlugin);
         // Room TRANSITIONS rebuild the visuals through
         // `respawn_room_visuals_on_request`, which `PresentationVisualAnimationPlugin`
         // already registers — the sim emits the request and never imports render.

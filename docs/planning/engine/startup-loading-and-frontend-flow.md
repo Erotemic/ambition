@@ -352,8 +352,9 @@ Remaining honest gaps after the 2026-07-13 host campaign:
 - no rendered/no-window Ambition-host ownership cycle (X1) and no startup
   vanity sequence (B0) / loading activity (B1);
 - the windowed lifecycle was exercised through the headless X0 acceptance
-  test and the demos' OV1 rendered suites; this dev VM has no display server,
-  so the literal `./run_game.sh` window pass remains for a machine with one.
+  test AND the no-window rendered X1 cycle over the real visible composition;
+  this dev VM has no display server, so the literal `./run_game.sh` window
+  pass (and audio-device playback) remains for a machine with one.
 
 ## Evidence-backed ledger
 
@@ -377,7 +378,7 @@ Remaining honest gaps after the 2026-07-13 host campaign:
 | A0 | DONE (2026-07-13: `AmbitionExperiencePlugin` — registration + session-scoped construction from immutable `AmbitionPreparedWorld` (real LDtk data); teardown is the generic scope sweep; direct entry preserved as host configuration (`--direct`/`--start-room`)) | Main Ambition game becomes a provider using the shared lifecycle. |
 | A1 | DONE (2026-07-13: `compose_ambition_shell_host` links the three providers; launcher entries derive from registrations (asserted in X0); Exit is a built-in launcher row emitting semantic `ExitProcess`, mapped to `AppExit` by the HOST) | Ambition host derives Ambition + Sanic + Mary-O + Exit from registrations. |
 | X0 | DONE (2026-07-13: `shell_host_lifecycle::the_full_multi_game_lifecycle_is_leak_free` — launcher → Sanic → Mary-O → Ambition → fresh Sanic → Exit; zero-state contract at every home (no session/scope/entities/players/audio, frozen timeline), identity contract in every game (provider, one player, worn character, room authority, audio provider, never-reused scope)) | Headless cross-experience cycle proves exact replacement and no stale authority. |
-| X1 | OPEN (the demo OV1 suites prove per-session presentation retirement for Sanic/Mary-O; the Ambition host has no no-window rendered cycle yet, and this VM has no display server for a literal windowed pass) | No-window rendered cycle proves camera/UI/input/audio ownership. |
+| X1 | DONE (2026-07-13: `shell_host_rendered::rendered_ownership_across_the_title_and_two_games` drives `build_visible_app(NoWindow)` — the real windowed composition minus window/backend — through title → Ambition → title → Sanic → title → relaunch, asserting host-camera constancy, launcher UI presence, and ZERO gameplay presentation at every title stop. Found+fixed a real clobber: the grid pause menu despawned every `BevyUiMenuRoot` incl. the launcher's; both producers now arbitrate by identity markers. Residual: no-window mode skips the LDtk painted-tile spine (bevy_ecs_tilemap needs a RenderApp); a literal windowed pass needs a machine with a display server) | No-window rendered cycle proves camera/UI/input/audio ownership. |
 | B0 | OPEN | Startup sequence hands off to launcher while direct route entry remains available. |
 | B1 | OPEN | One deterministic loading activity proves engagement, ready-hold, Continue, cleanup, and destination isolation. |
 | F0 | LATER | Game-owned credits route and top-level cutscene adapter. |

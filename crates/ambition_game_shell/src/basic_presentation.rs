@@ -19,6 +19,11 @@ use crate::{
 #[derive(Component)]
 struct BasicSequenceRoot;
 
+/// Marker on the basic shell presentation's own launcher menu root, so its
+/// rebuild teardown never claims another producer's `BevyUiMenuRoot`.
+#[derive(Component)]
+pub struct BasicShellUiRoot;
+
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 enum BasicLauncherPage {
     Home,
@@ -84,7 +89,9 @@ fn render_basic_shell(
     sequence: Res<ActiveShellSequence>,
     asset_server: Option<Res<AssetServer>>,
     sequence_roots: Query<Entity, With<BasicSequenceRoot>>,
-    launcher_roots: Query<Entity, With<BevyUiMenuRoot>>,
+    // Identity, not species: only THIS presentation's launcher tree. Other
+    // `BevyUiMenuRoot` producers (a game's pause menu) coexist in the host.
+    launcher_roots: Query<Entity, (With<BevyUiMenuRoot>, With<BasicShellUiRoot>)>,
     mut prior_key: Local<String>,
 ) {
     let frame_key = shell_frame_key(&launcher, &catalog, &launcher_presentation, &sequence);
@@ -277,7 +284,8 @@ fn spawn_launcher_menu(
         focused: None,
         focused_tab: None,
     };
-    spawn_bevy_ui_menu_with_assets(commands, &view, asset_server);
+    let root = spawn_bevy_ui_menu_with_assets(commands, &view, asset_server);
+    commands.entity(root).insert(BasicShellUiRoot);
 }
 
 fn shell_frame_key(

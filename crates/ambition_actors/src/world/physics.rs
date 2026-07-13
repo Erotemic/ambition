@@ -102,6 +102,13 @@ impl Plugin for AmbitionPhysicsPlugin {
         app.insert_resource(PhysicsSandboxSettings::default())
             .insert_resource(Gravity(BVec2::new(0.0, -SANDBOX_GRAVITY)))
             .add_plugins(PhysicsPlugins::default())
+            // Avian's per-plugin `register_physics_diagnostics` guard can skip
+            // the resource init in some compositions (observed in the
+            // no-window render recipe); explicit init is idempotent and keeps
+            // `collect_collision_pairs`/solver from failing validation.
+            .init_resource::<avian2d::collision::CollisionDiagnostics>()
+            .init_resource::<avian2d::dynamics::solver::SolverDiagnostics>()
+            .init_resource::<avian2d::spatial_query::SpatialQueryDiagnostics>()
             .add_systems(
                 Update,
                 (

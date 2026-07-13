@@ -521,3 +521,27 @@ source_doc = "docs/architecture/architecture-boundaries.md"
 severity = "error"
 roots = ["game/ambition_app/src", "crates/ambition_actors/src"]
 forbid = ["ambition_actors::persistence::settings", "ambition_actors::menu::ir"]
+
+# ── frontend campaign (2026-07-13): providers stay host-ignorant ──
+
+[[policy]]
+id = "game.providers-are-host-ignorant"
+scope = "game"
+kind = "forbidden-source-reference"
+owners = ["ambition_demo_sanic", "ambition_demo_smb1"]
+watch_paths = ["game/ambition_demo_sanic/src", "game/ambition_demo_smb1/src"]
+rationale = "A provider expresses one game; the HOST decides home/initial routes, launcher, and process exit. A provider that names the Ambition launcher route, the shell-hosted marker, a host crate, or issues QuitToHome/ExitProcess routing itself has grown a host dependency — the exact coupling the host-relative return contract exists to prevent. (Providers' own *_LAUNCHER_ROUTE consts are conventions their standalone hosts choose to use; naming ANOTHER host's home is the defect.)"
+source_doc = "docs/planning/engine/startup-loading-and-frontend-flow.md#host-and-frontend-model"
+severity = "error"
+production_only = true
+skip_tests = true
+roots = ["game/ambition_demo_sanic/src", "game/ambition_demo_smb1/src"]
+forbid = [
+    "ambition_launcher",
+    "AmbitionShellHosted",
+    "ambition_app::",
+    "ambition_demo_sanic_app",
+    "ambition_demo_smb1_app",
+    "ShellCompletionPolicy::GoTo",
+    "ShellCommand::ExitProcess",
+]

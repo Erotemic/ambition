@@ -202,6 +202,10 @@ pub fn compose_ambition_shell_host(app: &mut App) {
 /// activation with the session's captured scope. Registered only by the
 /// windowed composition — headless hosts run the same lifecycle without it.
 pub fn install_ambition_shell_visuals(app: &mut App) {
+    // Provider-agnostic per-session room presentation: parallax + static room
+    // visuals for WHATEVER RoomSet the activating provider republished —
+    // Sanic and Mary-O draw in this host through the same one system.
+    app.add_plugins(ambition::render::platformer_presentation::SessionRoomVisualsPlugin);
     app.add_systems(
         Update,
         ambition_activate_session_visuals.in_set(SessionScopeSet::Presentation),
@@ -216,15 +220,16 @@ fn ambition_activate_session_visuals(
     mut sessions: MessageReader<GameplaySessionEvent>,
     mut commands: Commands,
     prepared: Res<AmbitionPreparedWorld>,
-    physics_settings: Res<ambition::actors::world::physics::PhysicsSandboxSettings>,
     game_assets: Option<Res<ambition::sprite_sheet::game_assets::GameAssets>>,
-    quality: Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
     ui_fonts: Option<Res<ambition::render::ui_fonts::UiFonts>>,
     asset_server: Res<AssetServer>,
     world_assets: Option<Res<ldtk_world::LdtkWorldAssets>>,
     sandbox_asset_collection: Option<
         Res<ambition::actors::assets::loading::SandboxAssetCollection>,
     >,
+    // Present iff the LDtk plugin stack is composed (absent in the no-window
+    // render recipe, where bevy_ecs_tilemap cannot run without a RenderApp).
+    ldtk_projects: Option<Res<Assets<bevy_ecs_ldtk::assets::LdtkProject>>>,
     players: Query<Entity, With<ambition::actors::actor::PrimaryPlayer>>,
 ) {
     for event in sessions.read() {
@@ -234,38 +239,39 @@ fn ambition_activate_session_visuals(
         if activation.experience_id.as_str() != AMBITION_EXPERIENCE {
             continue;
         }
-        let Some(game_assets) = game_assets.as_deref() else {
+        if game_assets.is_none() {
             // No presentation assets loaded (headless composition) — the
             // session is sim-only by construction.
             continue;
-        };
+        }
         let scope = ambition::platformer::lifecycle::SessionSpawnScope::scoped(*scope);
         let world = RoomGeometry(prepared.room_set.active_world().clone());
         let Ok(player) = players.single() else {
             continue;
         };
-        super::scene_setup::session_presentation(
+        // Parallax + room visuals are the generic `SessionRoomVisualsPlugin`'s
+        // job; this system adds only Ambition's own dressing.
+        super::scene_setup::session_gameplay_dressing(
             &mut commands,
             scope,
-            super::scene_setup::SessionPresentationSetup {
+            super::scene_setup::SessionDressingSetup {
                 world: &world,
                 room_set: &prepared.room_set,
-                physics_settings: *physics_settings,
-                game_assets,
-                quality: quality.as_deref(),
                 ui_fonts: ui_fonts.as_deref(),
             },
             player,
         );
-        super::plugins::spawn_ldtk_world_roots_scoped(
-            &mut commands,
-            scope,
-            &asset_server,
-            &prepared.ldtk_index,
-            &prepared.room_set,
-            world_assets.as_deref(),
-            sandbox_asset_collection.as_deref(),
-        );
+        if ldtk_projects.is_some() {
+            super::plugins::spawn_ldtk_world_roots_scoped(
+                &mut commands,
+                scope,
+                &asset_server,
+                &prepared.ldtk_index,
+                &prepared.room_set,
+                world_assets.as_deref(),
+                sandbox_asset_collection.as_deref(),
+            );
+        }
     }
 }
 

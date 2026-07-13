@@ -701,7 +701,7 @@ pub(crate) fn grid_menu_republish_view(
     quality_confirm: Res<VisualQualityConfirmState>,
     system: SystemMenuParams,
     mut tab_state: ResMut<GridMenuTabState>,
-    roots: Query<Entity, With<BevyUiMenuRoot>>,
+    roots: Query<Entity, (With<BevyUiMenuRoot>, With<GridMenuRoot>)>,
     assets: Option<Res<AssetServer>>,
     mut commands: Commands,
 ) {
@@ -843,12 +843,21 @@ pub(crate) fn grid_menu_republish_view(
     };
     // Fix 3: hand the `AssetServer` to the renderer so the Items tab shows its
     // sprite ICONS (the model's per-cell icon path), like the cube does.
-    ambition::menu::render::bevy_ui::spawn_bevy_ui_menu_with_assets(
+    let root = ambition::menu::render::bevy_ui::spawn_bevy_ui_menu_with_assets(
         &mut commands,
         &view,
         assets.as_deref(),
     );
+    // Identity, not species: the teardown above must only claim the GRID's own
+    // tree. Other `BevyUiMenuRoot` producers (the shell launcher/title screen)
+    // coexist in the same App.
+    commands.entity(root).insert(GridMenuRoot);
 }
+
+/// Marker on the grid backend's own menu root, so its open/close teardown
+/// never despawns another producer's `BevyUiMenuRoot` (the shell launcher).
+#[derive(Component)]
+pub(crate) struct GridMenuRoot;
 
 /// The live System row count for the Grid's current drill-down state (0 outside the
 /// System tab). Shared by the wheel + drag scroll appliers to clamp the override,

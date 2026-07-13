@@ -1240,12 +1240,13 @@ fn restore_reports_the_components_it_could_not_rewind() {
     let report = restore(&mut world, &snap, &reg).unwrap();
     assert_eq!(report.patched, 2, "both entities survived and were patched");
     assert_eq!(report.respawned, 0);
-    // Not lossless: an unregistered component survives, stale. `restore` now measures
-    // the resource term itself; in this crate's tests bevy's `debug` names are off, so
-    // the census is unreliable and `lossless()` refuses on that ground alone — which is
-    // the point of the census flag (finding 6): it does not falsely succeed blind.
+    // Not lossless: an unregistered component survives, stale — sufficient
+    // ground on its own. (The census flag additionally depends on bevy's
+    // `debug` feature: OFF when this crate tests standalone, but WORKSPACE
+    // builds unify it in through other crates, so the flag's value is an
+    // environment fact, not this test's invariant. `lossless()` must refuse
+    // in BOTH environments because the stale component exists either way.)
     assert!(!report.lossless());
-    assert!(!report.resource_census_reliable);
     assert_eq!(report.stale_components, unclaimed);
 
     // It SURVIVED — and it is stale, still reading the tick we rewound FROM.

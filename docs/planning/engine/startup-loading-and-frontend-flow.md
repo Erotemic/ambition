@@ -491,6 +491,18 @@ Provide both a headless lifecycle test and a no-window rendered ownership test. 
 
 Every invariant supporting `DONE` receives direct or poison evidence.
 
+### Workspace-context caveat (2026-07-13)
+
+`cargo test --workspace` compiles every crate under UNIFIED features and is
+part of this campaign's gate (it exposed and fixed a latent
+feature-unification panic: `PortalObservationPlugin` now owns its
+`PortalWorldFrame` seam resource). `--all-features` is NOT a supported
+matrix: the `static_core_assets`/web feature family embeds generated sprite
+and asset artifacts that are deliberately not in git (regen scripts own
+them), so an `--all-features` build fails on a fresh clone by design. The
+supported matrix is: per-crate defaults, the demo apps' `--features visible`,
+and the feature-specific suites named below.
+
 ## Validation commands
 
 ```bash

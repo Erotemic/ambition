@@ -597,11 +597,10 @@ pub fn apply_player_hit_events(
     // (S3e's relational `relations` + `attacker_factions` pushed this to 17).
     // `class_b` is the §3.2 transit ledger — death and hazard respawn are both
     // Class-B remaps, and this system is where the victim's entity id is known.
-    (world, moving_platforms, mut class_b, gravity): (
+    (world, moving_platforms, mut class_b): (
         Res<RoomGeometry>,
         Res<MovingPlatformSet>,
         Option<ResMut<ambition_platformer_primitives::class_b::ClassBRemapLog>>,
-        crate::physics::GravityCtx,
     ),
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
@@ -640,6 +639,9 @@ pub fn apply_player_hit_events(
             // `Option` so a headless player with no brain still resolves (→ ZERO,
             // no DI). Inert unless `feel.di_max_angle` is authored nonzero.
             Option<&ambition_characters::brain::ActorControl>,
+            // The victim's per-tick resolved frame (shield side + knockback
+            // launch are frame-relative facts of the VICTIM's body).
+            &crate::physics::ResolvedMotionFrame,
         ),
         // SLOT-0 BY DESIGN: this is the PLAYER-VICTIM path — hitstop, the death
         // banner, the safe-position rewind. Actor-vs-actor damage runs through
@@ -717,6 +719,7 @@ pub fn apply_player_hit_events(
         mut combat,
         mut safety,
         control,
+        resolved_frame,
     ) in &mut player_q
     {
         let target_events: Vec<FeatureHitEvent> = resolved
@@ -729,9 +732,10 @@ pub fn apply_player_hit_events(
         let di_input_local = control.map(|c| c.0.locomotion).unwrap_or(ae::Vec2::ZERO);
 
         let mut clusters = cluster_item.as_clusters_mut();
-        // The victim's frame direction, resolved by the environment at its
-        // position (shield side + knockback launch are frame-relative).
-        let victim_gravity_dir = gravity.dir_at(clusters.kinematics.pos);
+        // The victim's per-tick resolved frame direction (shield side +
+        // knockback launch are frame-relative) — the same value its own
+        // movement integrated under this tick.
+        let victim_gravity_dir = resolved_frame.down();
         let remapped = handle_player_damage_events(
             &world.0,
             &mut sfx_writer,

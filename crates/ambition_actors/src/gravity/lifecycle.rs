@@ -6,20 +6,20 @@
 use bevy::prelude::*;
 
 use crate::actor::BodyKinematics;
-use crate::physics::GravityField;
 use ambition_engine_core::{self as ae, AabbExt};
 
-/// Reset gravity to the default (down) when the room resets, so a flipped /
-/// zoned room doesn't carry over.
+/// Reset the AMBIENT gravity to the default (down) when the room resets, so a
+/// flipped room doesn't carry over. Only the ambient is authored state; the
+/// presentation `GravityField` is a per-tick mirror of the primary body's
+/// resolved frame with exactly one writer (`resolve_active_gravity`), so it
+/// follows on the next resolution.
 pub fn reset_gravity_on_room_reset(
     mut resets: MessageReader<crate::features::ResetRoomFeaturesEvent>,
-    mut gravity: ResMut<GravityField>,
     mut base: ResMut<crate::physics::BaseGravity>,
 ) {
     if resets.read().next().is_none() {
         return;
     }
-    *gravity = GravityField::default();
     *base = crate::physics::BaseGravity::default();
 }
 

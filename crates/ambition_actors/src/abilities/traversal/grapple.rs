@@ -34,7 +34,6 @@ const GRAPPLE_COOLDOWN_S: f32 = 0.55;
 /// `Attack` while holding the Grapple ability casts along the aim direction; on
 /// hitting a solid within [`GRAPPLE_RANGE`] it yanks the player toward the hit.
 pub fn grapple_system(
-    gravity: crate::physics::GravityCtx,
     world: ambition_world::collision::CollisionWorld,
     mut commands: Commands,
     // Ability execution is SUBJECT-GENERIC: acts on the `ControlledSubject`,
@@ -46,6 +45,7 @@ pub fn grapple_system(
         Entity,
         &ActorControl,
         &mut BodyKinematics,
+        &crate::physics::ResolvedMotionFrame,
         &HeldItem,
         Option<&mut crate::ability_cooldown::AbilityCooldown>,
     )>,
@@ -55,7 +55,9 @@ pub fn grapple_system(
     let Some(subject) = controlled.0 else {
         return;
     };
-    let Ok((player, control, mut kin, held, mut cooldown)) = bodies.get_mut(subject) else {
+    let Ok((player, control, mut kin, resolved_frame, held, mut cooldown)) =
+        bodies.get_mut(subject)
+    else {
         return;
     };
     let c = control.0;
@@ -65,7 +67,8 @@ pub fn grapple_system(
     if held.spec.id != GRAPPLE_ID {
         return;
     }
-    let gravity_dir = gravity.dir_at(kin.pos);
+    // The body's per-tick resolved frame (ADR 0024 frame law).
+    let gravity_dir = resolved_frame.down();
     let dir =
         crate::items::pickup::ability_aim_world(&c, kin.facing, gravity_dir).normalize_or_zero();
     if dir == ae::Vec2::ZERO {

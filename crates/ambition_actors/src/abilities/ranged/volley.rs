@@ -59,13 +59,13 @@ fn volley_origin_world(
 /// shared `held_shot_aim`). Plain Attack only — `Shield + Attack` drops the item
 /// (the id is excluded from throw-on-plain-Attack in `throw_held_item_system`).
 pub fn fire_volley_system(
-    gravity: crate::physics::GravityCtx,
     // Ability ORIGIN = the controlled subject, not a `PrimaryPlayer` filter.
     controlled: Res<ControlledSubject>,
     mut players: Query<(
         Entity,
         &ActorControl,
         &BodyKinematics,
+        &crate::physics::ResolvedMotionFrame,
         &HeldItem,
         &mut BodyMana,
     )>,
@@ -75,7 +75,8 @@ pub fn fire_volley_system(
     let Some(subject) = controlled.0 else {
         return;
     };
-    let Ok((entity, control, kin, held, mut mana)) = players.get_mut(subject) else {
+    let Ok((entity, control, kin, resolved_frame, held, mut mana)) = players.get_mut(subject)
+    else {
         return;
     };
     let c = control.0;
@@ -89,8 +90,8 @@ pub fn fire_volley_system(
     if !mana.meter.try_spend(VOLLEY_MANA_COST) {
         return;
     }
-    let gravity_dir = gravity.dir_at(kin.pos);
-    let frame = ae::AccelerationFrame::new(gravity_dir);
+    // The body's per-tick resolved frame (ADR 0024 frame law).
+    let frame = resolved_frame.basis();
     let aim_local = crate::items::pickup::ability_aim_local(&c, kin.facing);
     let aim = frame.to_world(aim_local).normalize_or_zero();
     if aim == ae::Vec2::ZERO {

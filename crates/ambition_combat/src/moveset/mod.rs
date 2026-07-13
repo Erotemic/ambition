@@ -251,7 +251,10 @@ pub fn retire_orphaned_strike_volumes(
 pub fn advance_move_playback(
     mut commands: Commands,
     world_time: Res<WorldTime>,
-    gravity: ambition_platformer_primitives::gravity::GravityCtx,
+    // The owner's per-tick resolved frame (ADR 0024), for rotating authored
+    // body-local volumes into world space. Looked up by owner entity; a bare
+    // test body without one uses the engine default down.
+    owner_frames: Query<&ambition_platformer_primitives::frame_env::ResolvedMotionFrame>,
     mut events: MessageWriter<MoveEventMessage>,
     // §7.2: a vfx-tagged volume draws its slash FROM the spawned hitbox
     // geometry — one box drives damage AND presentation, so they can never
@@ -335,8 +338,11 @@ pub fn advance_move_playback(
                     // above-the-head volume stays above the head under any
                     // gravity (fable review 2026-07-02 §B1: the unrotated form
                     // spawned it screen-up, into a sideways body's ceiling).
-                    let frame_down = gravity.dir_at(kin.pos);
-                    let body_frame = ae::AccelerationFrame::new(frame_down);
+                    let body_frame = owner_frames
+                        .get(owner)
+                        .map(|frame| frame.basis())
+                        .unwrap_or(ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR));
+                    let frame_down = body_frame.down;
                     // CM3: the smash-charge payoff. The scale interpolates
                     // `1.0 → smash_charge_mult` by the charge fraction reached at
                     // this release instant (`t`, the owner's clock), so a held
@@ -532,11 +538,14 @@ pub fn attack_dir_from_axis(axis: ae::Vec2) -> AttackDir {
 /// resolves every direction to it — byte-identical to the pre-directional path.
 pub fn trigger_moveset_moves(
     mut commands: Commands,
-    gravity: ambition_platformer_primitives::gravity::GravityCtx,
     mut bodies: Query<(
         Entity,
         &ActorMoveset,
         &ActorControl,
+        // The body's per-tick resolved frame (ADR 0024): a move's authored
+        // body-local start impulse rotates through the SAME frame the body's
+        // movement integrated under. `Option` for bare test bodies.
+        Option<&ambition_platformer_primitives::frame_env::ResolvedMotionFrame>,
         // Mutable so a move's authored `start_impulse` (self-motion) lands at
         // trigger — the move-start seam.
         &mut ae::BodyKinematics,
@@ -549,7 +558,10 @@ pub fn trigger_moveset_moves(
         Option<&mut MovePlayback>,
     )>,
 ) {
-    for (entity, moveset, control, mut kin, ground, playback) in &mut bodies {
+    for (entity, moveset, control, resolved_frame, mut kin, ground, playback) in &mut bodies {
+        let body_frame = resolved_frame
+            .map(|frame| frame.basis())
+            .unwrap_or(ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR));
         let frame = &control.0;
         let grounded = ground.map(|g| g.on_ground).unwrap_or(true);
         // Resolve the requested verb + the names the candidate answers to
@@ -617,8 +629,7 @@ pub fn trigger_moveset_moves(
             }
             if let Some((ix, iy)) = spec.start_impulse {
                 let local = ae::Vec2::new(ix * kin.facing, iy);
-                let world_impulse =
-                    ae::AccelerationFrame::new(gravity.dir_at(kin.pos)).to_world(local);
+                let world_impulse = body_frame.to_world(local);
                 kin.vel += world_impulse;
             }
             commands
@@ -633,8 +644,7 @@ pub fn trigger_moveset_moves(
             // under any gravity). Identity when the move authors none.
             if let Some((ix, iy)) = spec.start_impulse {
                 let local = ae::Vec2::new(ix * kin.facing, iy);
-                let world_impulse =
-                    ae::AccelerationFrame::new(gravity.dir_at(kin.pos)).to_world(local);
+                let world_impulse = body_frame.to_world(local);
                 kin.vel += world_impulse;
             }
             commands

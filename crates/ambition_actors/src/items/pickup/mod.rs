@@ -69,9 +69,6 @@ impl Plugin for ItemPickupSimulationPlugin {
                 // gravity zones are LDtk-authored room entities.
                 crate::shrine::heal_save_shrine_system
                     .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
-                // Resolve the live GravityField from zones + ambient after the
-                // FlipGravity switch and before ground_item_physics reads it.
-                crate::physics::resolve_active_gravity,
                 pickup_held_item_system
                     .run_if(ambition_platformer_primitives::schedule::gameplay_allowed),
                 fire_held_ranged_system
@@ -210,8 +207,10 @@ pub fn ground_item_physics(
         if item.vel == Vec2::ZERO {
             continue;
         }
+        // Free bodies resolve gravity by the body-overlap rule, not the center
+        // point (ADR 0024) — a zone grabs an item the item TOUCHES.
         let local = crate::physics::GravityField {
-            dir: gravity.dir_at(item.pos),
+            dir: gravity.dir_for(ae::Aabb::new(item.pos, item.half_extent)),
         };
         crate::physics::apply_world_forces(&mut item.vel, GROUND_ITEM_GRAVITY, &local, dt);
         let next = item.pos + item.vel * dt;
@@ -690,27 +689,27 @@ pub(crate) fn control_frame_modes_from_settings(
     })
 }
 
-fn gravity_dir_at(gravity: &crate::physics::GravityCtx, pos: Vec2) -> Vec2 {
-    gravity.dir_at(pos)
-}
-
 /// `Attack` while holding a *ranged* item fires a laser bolt along the aim
 /// direction. `Shield + Attack` is the throw/drop gesture, so don't fire on it.
 pub fn fire_held_ranged_system(
-    gravity: crate::physics::GravityCtx,
     mut commands: Commands,
     // SUBJECT-GENERIC held-weapon fire: acts on the `ControlledSubject`, reading
     // that body's OWN `ActorControl` (brain output) + `HeldItem`. No
     // `With<PlayerEntity>` filter, no `PlayerInputFrame` — a possessed body firing
     // its held gun works exactly like the home avatar.
     controlled: Res<ambition_platformer_primitives::markers::ControlledSubject>,
-    bodies: Query<(&ActorControl, &BodyKinematics, &HeldItem)>,
+    bodies: Query<(
+        &ActorControl,
+        &BodyKinematics,
+        &crate::physics::ResolvedMotionFrame,
+        &HeldItem,
+    )>,
     mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
 ) {
     let Some(subject) = controlled.0 else {
         return;
     };
-    let Ok((control, kin, held)) = bodies.get(subject) else {
+    let Ok((control, kin, resolved_frame, held)) = bodies.get(subject) else {
         return;
     };
     let c = control.0;
@@ -720,8 +719,8 @@ pub fn fire_held_ranged_system(
     let Some(ranged) = held.spec.ranged else {
         return;
     };
-    let gravity_dir = gravity_dir_at(&gravity, kin.pos);
-    let frame = ae::AccelerationFrame::new(gravity_dir);
+    // The body's per-tick resolved frame (ADR 0024 frame law).
+    let frame = resolved_frame.basis();
     let local_dir = ability_aim_local(&c, kin.facing);
     let dir = frame.to_world(local_dir).normalize_or_zero();
     if dir == Vec2::ZERO {

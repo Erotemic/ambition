@@ -87,6 +87,7 @@ fn harness(victim_is_pogoable: bool) -> (App, Entity) {
             },
             ActorFaction::Player,
             MovePlayback::new(pogo_dair(), 1.0),
+            ambition_platformer_primitives::frame_env::ResolvedMotionFrame::default(),
         ))
         .id();
     let victim = app
@@ -167,6 +168,7 @@ fn down_air_pogos_off_a_factionless_world_orb() {
             },
             ActorFaction::Player,
             MovePlayback::new(pogo_dair(), 1.0),
+            ambition_platformer_primitives::frame_env::ResolvedMotionFrame::default(),
         ))
         .id();
     // The orb below: NO ActorFaction, just the capability.

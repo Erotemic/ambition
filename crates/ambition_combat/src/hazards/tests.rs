@@ -37,6 +37,7 @@ fn spawn_player(app: &mut App, pos: ae::Vec2) {
         BodyDodgeState::default(),
         BodyShieldState::default(),
         BodyCombat::default(),
+        ambition_platformer_primitives::frame_env::ResolvedMotionFrame::default(),
     ));
 }
 
@@ -162,6 +163,7 @@ fn a_fast_body_cannot_tunnel_through_a_hazard_between_frames() {
         BodyDodgeState::default(),
         BodyShieldState::default(),
         BodyCombat::default(),
+        ambition_platformer_primitives::frame_env::ResolvedMotionFrame::default(),
     ));
     spawn_hazard(&mut app, "spikes", ae::Vec2::new(100.0, 100.0));
     // Sanity: at the END position the player is CLEAR of the hazard, so a

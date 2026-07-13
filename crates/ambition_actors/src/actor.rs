@@ -85,6 +85,9 @@ pub struct AncillaryMovementBundle {
     pub action_buffer: BodyActionBuffer,
     pub lifetime: BodyLifetime,
     pub combo_trace: BodyComboTrace,
+    /// The per-tick environment-resolved frame artifact (ADR 0024): spawned at
+    /// its default and published by the frame resolution phase each sim tick.
+    pub frame: ambition_platformer_primitives::frame_env::ResolvedMotionFrame,
 }
 
 impl AncillaryMovementBundle {
@@ -133,6 +136,7 @@ impl AncillaryMovementBundle {
             action_buffer,
             lifetime,
             combo_trace,
+            frame: Default::default(),
         }
     }
 }

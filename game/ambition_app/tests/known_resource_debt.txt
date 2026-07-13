@@ -96,6 +96,7 @@ ambition_platformer_primitives::camera_ease::CameraEaseTuning
 ambition_platformer_primitives::camera_ease::CameraShakeState
 ambition_platformer_primitives::class_b::ClassBRemapLog
 ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay
+ambition_platformer_primitives::frame_env::ForceZones
 ambition_platformer_primitives::gravity::BaseGravity
 ambition_platformer_primitives::gravity::GravityField
 ambition_platformer_primitives::gravity::GravityZones

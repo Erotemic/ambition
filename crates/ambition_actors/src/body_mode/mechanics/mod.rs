@@ -40,7 +40,6 @@ const CROUCH_AXIS_Y_THRESHOLD: f32 = 0.4;
 
 pub fn update_body_mode(
     world: ambition_world::collision::CollisionWorld,
-    gravity_field: Option<Res<crate::physics::GravityField>>,
     // Slot gestures (double-tap-down → morph) keyed by the controlling slot. The
     // body reads ITS controller's gesture, never a privileged home avatar's.
     mut slot_gestures: ResMut<crate::control::SlotInteractionState>,
@@ -63,8 +62,11 @@ pub fn update_body_mode(
         &crate::actor::BodyLedgeState,
         &crate::actor::BodyEnvironmentContact,
         &ambition_characters::brain::ActorControl,
-        &crate::body_mode::BodyModeCapabilities,
-        &crate::actor::BodyFlightState,
+        (
+            &crate::body_mode::BodyModeCapabilities,
+            &crate::actor::BodyFlightState,
+            &crate::physics::ResolvedMotionFrame,
+        ),
     )>,
 ) {
     // Body-mode changes test overhead/standing clearance against the composited
@@ -87,8 +89,7 @@ pub fn update_body_mode(
         ledge,
         env_contact,
         control,
-        caps,
-        flight,
+        (caps, flight, resolved_frame),
     ) in &mut bodies
     {
         // Only bodies a controller is DRIVING act — the entity carrying
@@ -121,8 +122,11 @@ pub fn update_body_mode(
         // gravity- and input-mode-relative), so we consume THAT directly — no second
         // resolve, no `PlayerInputFrame`. `up_held` replaces the old raw up-edge for
         // the unmorph gesture: a held-up (or jump) stands the body up.
-        let gravity_dir = crate::physics::gravity_dir_or_default(gravity_field.as_deref());
-        let frame = ae::AccelerationFrame::new(gravity_dir);
+        // The body's OWN per-tick resolved frame (ADR 0024) — never a global
+        // field: a possessed body inside a rotated-gravity zone crouches and
+        // climbs in ITS frame.
+        let gravity_dir = resolved_frame.down();
+        let frame = resolved_frame.basis();
         let local_axis = control.locomotion;
         let descend = local_axis.y;
         let down_held = descend > CROUCH_AXIS_Y_THRESHOLD;

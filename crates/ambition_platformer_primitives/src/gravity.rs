@@ -320,19 +320,6 @@ impl GravityCtx<'_> {
         }
     }
 
-    /// Resolve one body's current acceleration/reference frame. This is the
-    /// canonical ECS-to-kernel seam: the driver constructs it exactly once per
-    /// body tick — composing the localized field the BODY overlaps with the
-    /// body's authored response magnitude — and passes the same value to input
-    /// projection and the selected movement policy.
-    pub fn motion_frame_for(
-        &self,
-        body: ambition_engine_core::Aabb,
-        magnitude: f32,
-    ) -> ambition_engine_core::MotionFrame {
-        ambition_engine_core::MotionFrame::from_direction(self.dir_for(body), magnitude)
-    }
-
     /// Localized gravity sign at `pos` (`+1` down / `-1` up).
     pub fn sign_at(&self, pos: Vec2) -> f32 {
         match self.zones.as_deref() {
@@ -342,32 +329,23 @@ impl GravityCtx<'_> {
     }
 }
 
-/// Resolve the live [`GravityField`] each frame: it points along the first
-/// [`GravityZone`] the player overlaps, else the room's [`BaseGravity`]. This is
-/// the one writer of `GravityField.dir`, so zones and the ambient switch compose
-/// cleanly (zone overrides ambient while inside). Reorientation is handled for
-/// free by the shared `update_actor_roll`, which eases every body toward the new
-/// gravity.
+/// Mirror the PRIMARY body's resolved frame into the presentation-facing
+/// [`GravityField`]. This is the one writer of `GravityField.dir`, and it is a
+/// MIRROR, not a resolver: the authoritative per-body resolution is the frame
+/// resolution phase publishing [`crate::frame_env::ResolvedMotionFrame`]; this
+/// derives the global presentation value (camera roll, gravity visuals, HUD)
+/// from that same artifact so no second zone-overlap computation exists. Falls
+/// back to the ambient when no primary body exists yet (menus, tests).
 pub fn resolve_active_gravity(
     base: Option<Res<BaseGravity>>,
-    zones: Query<&GravityZone>,
-    bodies: Query<&crate::body::BodyKinematics, With<crate::body::PrimaryBody>>,
+    bodies: Query<&crate::frame_env::ResolvedMotionFrame, With<crate::body::PrimaryBody>>,
     mut gravity: ResMut<GravityField>,
 ) {
-    use ambition_engine_core::AabbExt;
     let base_dir = base.map_or(ambition_engine_core::DEFAULT_GRAVITY_DIR, |b| b.dir);
-    let target = bodies
+    gravity.dir = bodies
         .single()
-        .ok()
-        .and_then(|kin| {
-            let body = ambition_engine_core::Aabb::new(kin.pos, kin.size * 0.5);
-            zones
-                .iter()
-                .find(|z| body.strict_intersects(z.aabb))
-                .map(|z| z.dir)
-        })
-        .unwrap_or(base_dir);
-    gravity.dir = target.normalize_or_zero();
+        .map_or(base_dir, |frame| frame.down())
+        .normalize_or_zero();
 }
 
 /// Apply the world's per-frame global forces to a free body's velocity. This is
@@ -443,55 +421,37 @@ mod tests {
     }
 
     #[test]
-    fn gravity_zone_overrides_ambient_while_inside_then_reverts() {
+    fn gravity_field_mirrors_the_primary_bodys_resolved_frame() {
         let mut app = App::new();
         app.init_resource::<GravityField>();
         app.init_resource::<BaseGravity>();
         app.add_systems(Update, resolve_active_gravity);
+
+        // No primary body yet → the ambient direction.
+        app.update();
+        assert!(
+            app.world().resource::<GravityField>().dir.y > 0.0,
+            "no primary body: ambient down"
+        );
+
         let player = app
             .world_mut()
             .spawn((
                 crate::body::PrimaryBody,
-                crate::body::BodyKinematics {
-                    pos: Vec2::new(0.0, 0.0),
-                    vel: Vec2::ZERO,
-                    size: Vec2::new(24.0, 40.0),
-                    facing: 1.0,
-                },
+                crate::frame_env::ResolvedMotionFrame::default(),
             ))
             .id();
-        app.world_mut().spawn(GravityZone {
-            aabb: ambition_engine_core::Aabb::new(Vec2::new(200.0, 0.0), Vec2::new(60.0, 60.0)),
-            dir: Vec2::new(0.0, -1.0), // up
-        });
-
-        // Outside the zone → ambient (down).
-        app.update();
-        assert!(
-            app.world().resource::<GravityField>().dir.y > 0.0,
-            "starts ambient down"
-        );
-
-        // Inside the zone → gravity points up.
         app.world_mut()
-            .get_mut::<crate::body::BodyKinematics>(player)
+            .get_mut::<crate::frame_env::ResolvedMotionFrame>(player)
             .unwrap()
-            .pos = Vec2::new(200.0, 0.0);
+            .publish(ambition_engine_core::MotionFrame::from_direction(
+                Vec2::new(0.0, -1.0),
+                900.0,
+            ));
         app.update();
         assert!(
             app.world().resource::<GravityField>().dir.y < 0.0,
-            "inside the gravity-up zone, gravity points up"
-        );
-
-        // Leave the zone → reverts to ambient down.
-        app.world_mut()
-            .get_mut::<crate::body::BodyKinematics>(player)
-            .unwrap()
-            .pos = Vec2::new(0.0, 0.0);
-        app.update();
-        assert!(
-            app.world().resource::<GravityField>().dir.y > 0.0,
-            "exiting the zone reverts to ambient gravity"
+            "the field mirrors the primary body's resolved frame, not a second resolution"
         );
     }
 

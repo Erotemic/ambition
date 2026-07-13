@@ -39,7 +39,6 @@ pub struct CombatRoomReset<'w, 's> {
         Query<'w, 's, Entity, With<ambition::projectiles::enemy::EnemyProjectile>>,
     pub slot_board: ResMut<'w, ambition::actors::combat::slots::CombatSlotsRes>,
     pub feature_overlay: Res<'w, ambition::platformer::feature_overlay::FeatureEcsWorldOverlay>,
-    pub gravity: ResMut<'w, ambition::actors::physics::GravityField>,
     pub base_gravity: ResMut<'w, ambition::actors::physics::BaseGravity>,
 }
 
@@ -55,7 +54,9 @@ impl<'w, 's> CombatRoomReset<'w, 's> {
             self.commands.entity(entity).despawn();
         }
         self.slot_board.0.clear_assignments();
-        *self.gravity = ambition::actors::physics::GravityField::default();
+        // Resetting the AMBIENT is the real gravity reset; the presentation
+        // `GravityField` is a per-tick mirror of the primary body's resolved
+        // frame and has exactly one writer (`resolve_active_gravity`).
         *self.base_gravity = ambition::actors::physics::BaseGravity::default();
     }
 }

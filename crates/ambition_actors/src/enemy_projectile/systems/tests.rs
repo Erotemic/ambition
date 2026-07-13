@@ -343,6 +343,8 @@ fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
                 parry_window_timer: 0.2,
             },
             BodyCombat::default(),
+            // `step_projectiles` reads the victim's resolved frame (ADR 0024).
+            crate::physics::ResolvedMotionFrame::default(),
         ))
         .id();
     // An enemy bolt overlapping the player, travelling left (toward where it
@@ -457,6 +459,8 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
             parry_window_timer: 0.0,
         },
         BodyCombat::default(),
+        // `step_projectiles` reads the victim's resolved frame (ADR 0024).
+        crate::physics::ResolvedMotionFrame::default(),
     ));
 
     // Fire an enemy-faction shot owned by `attacker`, overlapping the player.

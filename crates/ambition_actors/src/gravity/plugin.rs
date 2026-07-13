@@ -15,6 +15,7 @@
 use bevy::prelude::*;
 
 use super::lifecycle::reset_gravity_on_room_reset;
+use ambition_platformer_primitives::frame_env::{collect_force_zones, FrameResolveSet};
 use ambition_platformer_primitives::schedule::SimScheduleExt;
 
 /// Gravity-mechanic schedule labels, local to the gravity subsystem.
@@ -41,21 +42,46 @@ impl Plugin for GravityPlugin {
         app.init_resource::<crate::physics::GravityField>();
         app.init_resource::<crate::physics::BaseGravity>();
         app.init_resource::<crate::physics::GravityZones>();
+        app.init_resource::<ambition_platformer_primitives::frame_env::ForceZones>();
 
-        // Snapshot all gravity zones once per frame BEFORE actor integrators read
-        // them, so every body can resolve local gravity by position. Portal carve
-        // publishing pins `.after(collect_gravity_zones)` so the combined cadence
-        // is byte-identical to the pre-extraction `PortalSet::GravityAndCarves`
+        // Snapshot all gravity + force zones once per frame BEFORE the frame
+        // resolution phase reads them, so every body can resolve its local frame
+        // from this tick's environment. Portal carve publishing pins
+        // `.after(collect_gravity_zones)` so the combined cadence is
+        // byte-identical to the pre-extraction `PortalSet::GravityAndCarves`
         // chain.
         app.add_systems(
             sim,
             (
                 crate::physics::oscillate_gravity_zones,
                 crate::physics::collect_gravity_zones,
+                collect_force_zones,
             )
                 .chain()
                 .in_set(GravitySet::ZoneSnapshot)
                 .before(crate::schedule::SandboxSet::CoreSimulation),
+        );
+
+        // THE frame resolution phase (ADR 0024): after the zone snapshot, before
+        // any CoreSimulation consumer — the player brain (`PlayerInput`), actor
+        // and possessed brains (`WorldPrep`), body integration, and combat all
+        // read the per-body `ResolvedMotionFrame` published here. The
+        // presentation `GravityField` mirror derives from the SAME artifact,
+        // chained immediately after the resolver.
+        app.configure_sets(
+            sim,
+            FrameResolveSet
+                .after(GravitySet::ZoneSnapshot)
+                .before(crate::schedule::SandboxSet::CoreSimulation),
+        );
+        app.add_systems(
+            sim,
+            (
+                super::resolve::resolve_body_motion_frames,
+                crate::physics::resolve_active_gravity,
+            )
+                .chain()
+                .in_set(FrameResolveSet),
         );
 
         // NOTE: `gravity_flip_switch_system` is intentionally NOT registered.

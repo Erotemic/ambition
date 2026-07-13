@@ -23,6 +23,8 @@ fn spawn_player(app: &mut App, pos: Vec2) -> Entity {
             },
             ActionSet::default(),
             ambition_characters::brain::ActorControl::default(),
+            // `fire_held_ranged_system` reads the resolved frame (ADR 0024).
+            crate::physics::ResolvedMotionFrame::default(),
         ))
         .id();
     // `fire_held_ranged_system` keys on the controlled subject; in tests the

@@ -149,7 +149,8 @@ pub fn holding_descend(
 #[allow(clippy::too_many_arguments)]
 pub fn possession_trigger_system(
     control: Res<ambition_input::ControlFrame>,
-    gravity_field: Option<Res<crate::physics::GravityField>>,
+    controlled: Option<Res<ambition_platformer_primitives::markers::ControlledSubject>>,
+    frames: Query<&crate::physics::ResolvedMotionFrame>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     world_time: Res<ambition_time::WorldTime>,
     mut hold_timer: Local<f32>,
@@ -184,7 +185,13 @@ pub fn possession_trigger_system(
     // Read-only AABB lookup for the vacate exit on release.
     actor_aabbs: Query<&CenteredAabb>,
 ) {
-    let gravity_dir = crate::physics::gravity_dir_or_default(gravity_field.as_deref());
+    // The CONTROLLED body's resolved frame decides what "down" means for the
+    // gesture — while possessing, that is the possessed body's frame.
+    let gravity_dir = crate::control::controlled_frame_down(
+        controlled.as_deref(),
+        home_q.single().map(|(entity, _)| entity).ok(),
+        &frames,
+    );
     let movement_mode = user_settings.as_deref().map_or(
         ambition_engine_core::InputFrameMode::DEFAULT_MOVEMENT,
         |s| s.gameplay.movement_frame_mode,

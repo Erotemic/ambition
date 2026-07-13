@@ -42,24 +42,27 @@ pub fn sync_player_actor_poses(
 /// body carrying a player brain; multi-player ready even though only one slot
 /// exists today.
 pub fn tick_player_brains(
-    gravity_field: Option<Res<crate::physics::GravityField>>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     slots: Res<SlotControls>,
     mut players: Query<(
         &BodyKinematics,
         &BodyGroundState,
+        &ambition_platformer_primitives::frame_env::ResolvedMotionFrame,
         &mut Brain,
         &mut ActorControl,
     )>,
 ) {
-    let control_down = crate::physics::gravity_dir_or_default(gravity_field.as_deref());
     let control_frame_modes = user_settings
         .as_deref()
         .map_or(ae::ControlFrameModes::default(), |s| {
             s.gameplay.control_frame_modes()
         });
 
-    for (kin, ground, mut brain, mut control) in &mut players {
+    for (kin, ground, resolved_frame, mut brain, mut control) in &mut players {
+        // The body's OWN per-tick resolved frame (ADR 0024): the same value
+        // this tick's integration moves the body under, so controller
+        // interpretation and physics can never disagree at a zone boundary.
+        let control_down = resolved_frame.down();
         // INPUT AUTHORITY: this body's OWN slot frame, keyed by the brain it
         // carries — the SAME `Brain::Player(slot)` → `SlotControls` path a
         // possessed actor reads. A body whose brain isn't a player brain is

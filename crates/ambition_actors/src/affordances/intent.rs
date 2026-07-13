@@ -138,12 +138,12 @@ pub struct PlayerIntent {
 /// restructuring blueprint — and the intent and affordances compute see
 /// exactly the same facing within one frame.
 pub fn compute_controlled_actor_intent(
-    gravity_field: Option<Res<crate::physics::GravityField>>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     player_q: Query<
         (
             &crate::control::PlayerInputFrame,
             &crate::actor::BodyKinematics,
+            &crate::physics::ResolvedMotionFrame,
         ),
         (
             With<crate::actor::PlayerEntity>,
@@ -152,13 +152,14 @@ pub fn compute_controlled_actor_intent(
     >,
     mut intent: ResMut<PlayerIntent>,
 ) {
-    let Ok((input, kinematics)) = player_q.single() else {
+    let Ok((input, kinematics, resolved_frame)) = player_q.single() else {
         // No player yet — leave the resource at its default. Any
         // downstream consumer reads `Aim::Neutral`, which is the
         // correct conservative behavior pre-spawn.
         return;
     };
-    let gravity_dir = crate::physics::gravity_dir_or_default(gravity_field.as_deref());
+    // The body's own per-tick resolved frame (ADR 0024), not a global field.
+    let gravity_dir = resolved_frame.down();
     let movement_mode = user_settings.as_deref().map_or(
         ambition_engine_core::InputFrameMode::DEFAULT_MOVEMENT,
         |s| s.gameplay.movement_frame_mode,

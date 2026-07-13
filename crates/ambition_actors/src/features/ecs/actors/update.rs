@@ -86,7 +86,6 @@ pub fn tick_actor_brains(
         Option<Res<crate::features::ecs::perception::PerceptionProjectiles>>,
     ),
     world: Res<ambition_engine_core::RoomGeometry>,
-    gravity: crate::physics::GravityCtx,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     platform_set: Res<ambition_world::collision::MovingPlatformSet>,
     overlay: Res<FeatureEcsWorldOverlay>,
@@ -150,6 +149,12 @@ pub fn tick_actor_brains(
             // from `SlotControls`.
             (
                 Option<super::super::actor_clusters::ActorClusterQueryData>,
+                // The body's per-tick resolved frame (ADR 0024): published by
+                // the frame resolution phase before this brain tick, and the
+                // SAME value `integrate_sim_bodies` moves the body under. The
+                // brain interprets controller input and perceives "down"
+                // through it — never through a private gravity lookup.
+                Option<&ambition_platformer_primitives::frame_env::ResolvedMotionFrame>,
                 // Faction — read to scope the anti-clump crowding signal to
                 // SAME-faction allies. Without this, two hostiles of different
                 // factions (the spectator-duel fighters) count each other as
@@ -272,7 +277,7 @@ pub fn tick_actor_brains(
     for (entity, _, _, health) in &player_query {
         alive_by_entity.insert(entity, health.current() > 0);
     }
-    for (entity, _, _, disposition, _, _, _, target, _, _, _, _, (clusters, faction, _, _, _)) in
+    for (entity, _, _, disposition, _, _, _, target, _, _, _, _, (clusters, _, faction, _, _, _)) in
         &actors
     {
         if let Some(c) = &clusters {
@@ -339,7 +344,7 @@ pub fn tick_actor_brains(
         mut control,
         action_set,
         _mounted,
-        (clusters, faction, aggression, mut perception_memory, perception),
+        (clusters, resolved_frame, faction, aggression, mut perception_memory, perception),
     ) in &mut actors
     {
         // Body-generic reaction timers on the body's authoritative `BodyCombat`
@@ -398,9 +403,14 @@ pub fn tick_actor_brains(
                 // Sniper / Wanderer all flow through this single path. A body without
                 // a brain gets a neutral frame (production spawns always attach one).
                 //
-                // Localized gravity: each actor feels the gravity of the column it is
-                // standing in (its own position), not one global field.
-                let enemy_gravity_dir = gravity.dir_at(em.kin.pos);
+                // The body's authoritative per-tick frame (resolved once; the
+                // SAME value integration consumes). A cluster-bearing body
+                // always carries it; absence skips the whole actor, loudly
+                // caught by the reachability suites (like MotionModel).
+                let Some(resolved_frame) = resolved_frame else {
+                    continue;
+                };
+                let enemy_gravity_dir = resolved_frame.down();
                 let brain_frame = if let Some(brain_ref) = brain.as_deref_mut() {
                     let crowding = crowding_by_id.get(&em.config.id).copied();
                     let mut snapshot = build_enemy_brain_snapshot(
@@ -623,7 +633,7 @@ pub(crate) fn integrate_actor_body(
     feature_world: &ae::World,
     combat_tuning: crate::features::FeatureCombatTuning,
     steering: &ActorSteering,
-    gravity: &crate::physics::GravityCtx,
+    motion_frame: ae::MotionFrame,
     dt: f32,
     feel: crate::time::feel::SandboxFeelTuning,
     sfx: &mut MessageWriter<ambition_sfx::SfxMessage>,
@@ -643,14 +653,10 @@ pub(crate) fn integrate_actor_body(
     // flash here on the dead→alive transition (the damage-blink lives on
     // `BodyCombat`).
     let was_dead = !em.health.alive();
-    // THE per-body frame resolution: the environment composes the localized
-    // gravity direction at the body's position with the body's authored
-    // response (magnitude × gravity_scale — an aerial body's 0 scale is the
-    // zero-acceleration-with-retained-orientation case) exactly ONCE for this
-    // tick. Input projection, the active policy, and every frame-relative limb
-    // downstream consume this same value.
-    let response = em.config.tuning.movement.gravity * em.surface.gravity_scale;
-    let motion_frame = gravity.motion_frame_for(em.kin.aabb(), response);
+    // `motion_frame` is the body's per-tick resolved frame, published ONCE by
+    // the frame resolution phase and read from the body's
+    // `ResolvedMotionFrame` by this driver — the same value the brain
+    // interpreted controller input in earlier this tick.
     // Crawler route steering is CONTROLLER-side: reverse the crawl when a
     // same-kind neighbor blocks the path ahead (anti-clump). The kernel only
     // moves; the ECS resolves steering intent.
@@ -782,7 +788,6 @@ pub(crate) fn integrate_actor_body(
 pub fn integrate_sim_bodies(
     world_time: Res<WorldTime>,
     world: Res<ambition_engine_core::RoomGeometry>,
-    gravity: crate::physics::GravityCtx,
     platform_set: Res<ambition_world::collision::MovingPlatformSet>,
     feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,
     overlay: Res<FeatureEcsWorldOverlay>,
@@ -802,6 +807,7 @@ pub fn integrate_sim_bodies(
             Option<&mut crate::actor::BodyAnimFacts>,
             Option<&super::super::Mounted>,
             &mut MotionModel,
+            &ambition_platformer_primitives::frame_env::ResolvedMotionFrame,
             Option<super::super::actor_clusters::ActorClusterQueryData>,
         ),
         (
@@ -831,6 +837,7 @@ pub fn integrate_sim_bodies(
             &mut CenteredAabb,
             &mut crate::avatar::PlayerBodyFrameOutput,
             &mut MotionModel,
+            &ambition_platformer_primitives::frame_env::ResolvedMotionFrame,
         ),
         With<crate::actor::PlayerEntity>,
     >,
@@ -849,6 +856,7 @@ pub fn integrate_sim_bodies(
         mut anim,
         mounted,
         mut motion_model,
+        resolved_frame,
         clusters,
     ) in &mut actors
     {
@@ -872,7 +880,7 @@ pub fn integrate_sim_bodies(
             &feature_world,
             combat_tuning,
             &steering,
-            &gravity,
+            resolved_frame.get(),
             dt,
             *feel_tuning,
             &mut sfx,
@@ -894,12 +902,18 @@ pub fn integrate_sim_bodies(
     let player_feel = *feel_tuning;
     let frame_dt = world_time.raw_dt;
     let scaled_dt = world_time.scaled_dt;
-    for (mut cluster_item, combat, control, mut hurtbox, mut frame_out, mut motion_model) in
-        &mut players
+    for (
+        mut cluster_item,
+        combat,
+        control,
+        mut hurtbox,
+        mut frame_out,
+        mut motion_model,
+        resolved_frame,
+    ) in &mut players
     {
         let mut clusters = cluster_item.as_clusters_mut();
-        let player_motion_frame =
-            gravity.motion_frame_for(clusters.kinematics.aabb(), player_tuning.gravity);
+        let player_motion_frame = resolved_frame.get();
         crate::avatar::integrate_home_body(
             control.0,
             &world.0,

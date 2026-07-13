@@ -99,6 +99,7 @@ fn build_body_mode_test_app() -> (App, Entity) {
                 BodyModeState::default(),
                 BodyJumpState::default(),
                 crate::actor::BodyFlightState::default(),
+                crate::physics::ResolvedMotionFrame::default(),
             ),
         ))
         .id();
@@ -135,6 +136,7 @@ fn spawn_mode_body(app: &mut App, pos: Vec2, slot: Option<PlayerSlot>) -> Entity
             BodyModeState::default(),
             BodyJumpState::default(),
             crate::actor::BodyFlightState::default(),
+            crate::physics::ResolvedMotionFrame::default(),
         ),
     ));
     if let Some(slot) = slot {

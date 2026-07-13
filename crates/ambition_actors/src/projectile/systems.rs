@@ -110,6 +110,7 @@ pub fn charge_projectile_input(
         (
             Entity,
             &crate::actor::BodyKinematics,
+            &crate::physics::ResolvedMotionFrame,
             &mut crate::projectile::PlayerProjectileState,
             Option<&mut crate::actor::BodyAnimFacts>,
         ),
@@ -117,7 +118,6 @@ pub fn charge_projectile_input(
     >,
     mut brain_actions: MessageReader<ambition_characters::brain::ActorActionMessage>,
     user_settings: Res<ambition_persistence::settings::UserSettings>,
-    gravity: crate::physics::GravityCtx,
     mut trace: ResMut<GameplayTraceBuffer>,
     // Firing emits `SpawnProjectile`; the player-pool consumer runs after this
     // system so newly-fired projectiles first tick next frame.
@@ -155,7 +155,7 @@ pub fn charge_projectile_input(
         .collect();
 
     let damage_mult = user_settings.gameplay.player_damage_multiplier;
-    for (body_entity, kin, mut state, mut anim) in &mut charge_body_q {
+    for (body_entity, kin, resolved_frame, mut state, mut anim) in &mut charge_body_q {
         let tick_info = tick_infos.get(&body_entity).copied().unwrap_or_default();
         state.clock += dt;
         state.spawner.tick(dt);
@@ -179,7 +179,8 @@ pub fn charge_projectile_input(
         } else {
             kin.facing.signum()
         };
-        let frame = ae::AccelerationFrame::new(gravity.dir_at(kin.pos));
+        // The firing body's per-tick resolved frame (ADR 0024 frame law).
+        let frame = resolved_frame.basis();
         let local_dir = player_projectile_local_fire_dir(tick_info.aim, facing);
         let local_muzzle = player_projectile_muzzle_local_offset(local_dir, facing, kin.size);
         let origin = kin.pos + frame.to_world(local_muzzle);
@@ -387,6 +388,7 @@ pub fn step_projectiles(
         (
             Entity,
             &BodyKinematics,
+            &crate::physics::ResolvedMotionFrame,
             &crate::features::CenteredAabb,
             &crate::actor::BodyOffense,
             &crate::actor::BodyDodgeState,
@@ -489,7 +491,9 @@ pub fn step_projectiles(
 
         // Tick + lifetime. A dead lasersword detonates; everything else logs an
         // Expired trace event.
-        let gravity_dir = gravity.dir_at(kin.pos);
+        // A projectile is a FREE body (not a kernel body): resolve its gravity
+        // inline by the body-overlap rule, not the center point (ADR 0024).
+        let gravity_dir = gravity.dir_for(kin.aabb());
         if !game.tick(&mut kin, dt, gravity_dir) {
             if let Some(boom) = visual_kind.expiry_vfx(kin.pos) {
                 vfx.write(boom);
@@ -558,8 +562,16 @@ pub fn step_projectiles(
             let can_hit_player = indiscriminate
                 || firer_faction
                     .is_some_and(|f| can_damage(f, ActorFaction::Player, friendly_fire));
-            for (player_entity, player_kin, hurtbox, offense, dodge, shield, combat) in
-                &player_body_q
+            for (
+                player_entity,
+                player_kin,
+                player_frame,
+                hurtbox,
+                offense,
+                dodge,
+                shield,
+                combat,
+            ) in &player_body_q
             {
                 if !can_hit_player {
                     break;
@@ -599,7 +611,8 @@ pub fn step_projectiles(
                 // Knockback side in the victim's LOCAL frame (fable review
                 // 2026-07-02 §B11): a screen-X difference degenerates exactly
                 // when sideways gravity separates the pair along world-Y.
-                let side = ae::AccelerationFrame::new(gravity.dir_at(player_kin.pos)).side;
+                // The victim's per-tick resolved frame (ADR 0024 frame law).
+                let side = player_frame.basis().side;
                 let knock_dir = (player_kin.pos - kin.pos).dot(side).signum();
                 let knock_dir = if knock_dir.abs() < 0.001 {
                     1.0

@@ -9,4 +9,7 @@
 //! in `crate::gravity` because it depends on sandbox content
 //! (audio / features / app schedule / presentation); it consumes the moved core
 //! types through this facade.
+pub use ambition_platformer_primitives::frame_env::{
+    collect_force_zones, ForceZone, ForceZones, FrameEnv, FrameResolveSet, ResolvedMotionFrame,
+};
 pub use ambition_platformer_primitives::gravity::*;

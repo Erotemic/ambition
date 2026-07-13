@@ -200,6 +200,7 @@ fn body_app() -> (App, Entity) {
             BallDash::default(),
             BallDashInput::default(),
             ambition::actors::actor::BodyAnimFacts::default(),
+            ambition::actors::physics::ResolvedMotionFrame::default(),
         ))
         .id();
     (app, e)

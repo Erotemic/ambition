@@ -676,7 +676,6 @@ pub fn integrate_boss_bodies(
     overlay: Res<FeatureEcsWorldOverlay>,
     feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,
     steering: Res<super::super::actors::ActorSteering>,
-    gravity: crate::physics::GravityCtx,
     mut sfx: bevy::prelude::MessageWriter<ambition_sfx::SfxMessage>,
     mut vfx: bevy::prelude::MessageWriter<ambition_vfx::vfx::VfxMessage>,
     mut hit_events: bevy::prelude::MessageWriter<HitEvent>,
@@ -694,6 +693,9 @@ pub fn integrate_boss_bodies(
             // The body's explicit movement policy — a boss carries one from
             // spawn like every integrated body (absence is never a policy).
             &'static mut crate::features::MotionModel,
+            // The per-tick resolved frame published by the frame resolution
+            // phase — the SAME artifact every other body integrates under.
+            &'static ambition_platformer_primitives::frame_env::ResolvedMotionFrame,
         ),
         (With<FeatureSimEntity>, Without<crate::actor::PlayerEntity>),
     >,
@@ -713,6 +715,7 @@ pub fn integrate_boss_bodies(
         mut aabb,
         mut combat,
         mut motion_model,
+        resolved_frame,
     ) in &mut bosses
     {
         // Self-heal the collision envelope onto `kin.size` (the seam sweeps it),
@@ -739,7 +742,7 @@ pub fn integrate_boss_bodies(
             &feature_world,
             combat_tuning,
             &steering,
-            &gravity,
+            resolved_frame.get(),
             dt,
             *feel_tuning,
             &mut sfx,

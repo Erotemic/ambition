@@ -34,5 +34,5 @@ pub use components::{
     LocalPlayer, PlayerInputFrame, PlayerSlot, SlotGestures, SlotInteractionState,
 };
 pub use input_systems::{cleanup_timers_system, input_timer_system, interaction_input_system};
-pub use queries::{primary_player_entity, sort_players_by_slot};
+pub use queries::{controlled_frame_down, primary_player_entity, sort_players_by_slot};
 pub use slots::{populate_slot_controls, sync_local_player_input_frame};

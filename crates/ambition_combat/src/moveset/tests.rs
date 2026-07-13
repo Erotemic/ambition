@@ -569,13 +569,17 @@ fn moveset_hitboxes_spawn_in_the_owner_gravity_frame() {
     // and read the live `FollowOwner` hitbox's world-frame offset + half.
     fn spawn_and_read(gravity: ae::Vec2) -> (ae::Vec2, ae::Vec2) {
         let (mut app, _victim) = app_with_victim();
-        app.insert_resource(ambition_platformer_primitives::gravity::GravityField { dir: gravity });
-        spawn_attacker(
+        let attacker = spawn_attacker(
             &mut app,
             ae::Vec2::new(100.0, 100.0),
             ae::Vec2::new(15.0, 24.0),
             overhead_swat(),
         );
+        // The owner's per-tick resolved frame is the rotation authority now —
+        // publish the test gravity on the BODY, as the resolution phase would.
+        let mut frame = ambition_platformer_primitives::frame_env::ResolvedMotionFrame::default();
+        frame.publish(ae::MotionFrame::from_direction(gravity, 900.0));
+        app.world_mut().entity_mut(attacker).insert(frame);
         run_seconds(&mut app, 0.31); // t ≈ 0.32, inside the active window
         let mut state = app.world_mut().query::<&Hitbox>();
         let hb = state

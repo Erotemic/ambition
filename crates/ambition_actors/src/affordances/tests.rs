@@ -46,6 +46,7 @@ fn build_test_app() -> (App, Entity) {
             BodyLedgeState::default(),
             BodyModeState::default(),
             BodyEnvironmentContact::default(),
+            crate::physics::ResolvedMotionFrame::default(),
         ))
         .id();
     (app, entity)

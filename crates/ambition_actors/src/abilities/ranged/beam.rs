@@ -80,7 +80,6 @@ fn beam_geometry(aim: ae::Vec2, facing: f32) -> (ae::Vec2, ae::Vec2) {
 /// `Shield + Attack` drops the item (the id is `UseSystem`, excluded from
 /// throw-on-plain-Attack in `throw_held_item_system`).
 pub fn fire_beam_system(
-    gravity: crate::physics::GravityCtx,
     // Ability ORIGIN = the controlled subject, not a `PrimaryPlayer` filter.
     controlled: Res<ControlledSubject>,
     mut players: Query<(
@@ -88,6 +87,7 @@ pub fn fire_beam_system(
         &ActorControl,
         &HeldItem,
         &BodyKinematics,
+        &crate::physics::ResolvedMotionFrame,
         &mut BodyMana,
     )>,
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
@@ -96,7 +96,8 @@ pub fn fire_beam_system(
     let Some(subject) = controlled.0 else {
         return;
     };
-    let Ok((entity, control, held, kin, mut mana)) = players.get_mut(subject) else {
+    let Ok((entity, control, held, kin, resolved_frame, mut mana)) = players.get_mut(subject)
+    else {
         return;
     };
     let c = control.0;
@@ -110,8 +111,8 @@ pub fn fire_beam_system(
     if !mana.meter.try_spend(BEAM_MANA_COST) {
         return;
     }
-    let gravity_dir = gravity.dir_at(kin.pos);
-    let frame = ae::AccelerationFrame::new(gravity_dir);
+    // The body's per-tick resolved frame (ADR 0024 frame law).
+    let frame = resolved_frame.basis();
     let aim = crate::items::pickup::ability_aim_local(&c, kin.facing);
     let (offset_local, half_local) = beam_geometry(aim, kin.facing);
     let offset = frame.to_world(offset_local);

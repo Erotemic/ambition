@@ -159,7 +159,6 @@ pub fn pogo_moveset_off_world_orbs(
     world: Res<RoomGeometry>,
     moving_platforms: Res<MovingPlatformSet>,
     feature_ecs_overlay: Res<FeatureEcsWorldOverlay>,
-    gravity: physics::GravityCtx,
     mut hitboxes: Query<(
         Entity,
         &ambition_vfx::Hitbox,
@@ -167,6 +166,7 @@ pub fn pogo_moveset_off_world_orbs(
     )>,
     boxes: Query<&ae::CenteredAabb>,
     mut owners: Query<(
+        &physics::ResolvedMotionFrame,
         &mut ae::BodyKinematics,
         &mut ambition_engine_core::BodyGroundState,
     )>,
@@ -205,10 +205,12 @@ pub fn pogo_moveset_off_world_orbs(
         if pogo_target_for_attack_hitbox(&assembled, world_box).is_none() {
             continue;
         }
-        let Ok((mut kin, mut ground)) = owners.get_mut(owner) else {
+        let Ok((resolved_frame, mut kin, mut ground)) = owners.get_mut(owner) else {
             continue;
         };
-        let gdir = gravity.dir_at(kin.pos);
+        // The owner's per-tick resolved frame: the pogo launches opposite ITS
+        // down, the same value its movement integrated under.
+        let gdir = resolved_frame.down();
         let pos = kin.pos;
         ae::movement::set_jump_velocity(&mut kin.vel, gdir, rise);
         ground.on_ground = false;
@@ -554,12 +556,12 @@ pub fn advance_attack(
 /// Replaces BOTH the player-only `attack_advance_system` start and the actor-only
 /// `start_enemy_melee_from_brain_actions` — one body-action START phase.
 pub fn start_body_melee(
-    gravity: physics::GravityCtx,
     mut brain_actions: MessageReader<ActorActionMessage>,
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,
     mut bodies: Query<(
         ae::BodyClusterQueryData,
+        &physics::ResolvedMotionFrame,
         &mut BodyMelee,
         &BodyCombat,
         &ActorControl,
@@ -587,8 +589,17 @@ pub fn start_body_melee(
         .filter(|actor| requested.insert(*actor))
         .collect();
     for actor in melee_actors {
-        let Ok((mut cq, mut melee, combat, control, held, config, mut anim, moveset_melee)) =
-            bodies.get_mut(actor)
+        let Ok((
+            mut cq,
+            resolved_frame,
+            mut melee,
+            combat,
+            control,
+            held,
+            config,
+            mut anim,
+            moveset_melee,
+        )) = bodies.get_mut(actor)
         else {
             continue;
         };
@@ -615,7 +626,7 @@ pub fn start_body_melee(
         let cooldown = config
             .map(|c| ENEMY_ATTACK_COOLDOWN * c.attack_cooldown_mult)
             .unwrap_or(0.0);
-        let gravity_dir = gravity.dir_at(cq.kinematics.pos);
+        let gravity_dir = resolved_frame.down();
         let mut clusters = cq.as_clusters_mut();
         start_attack(
             &mut sfx_writer,
@@ -659,7 +670,6 @@ pub fn advance_body_melee(
     moving_platforms: Res<MovingPlatformSet>,
     editable_tuning: Res<EditableMovementTuning>,
     feature_ecs_overlay: Res<FeatureEcsWorldOverlay>,
-    gravity: physics::GravityCtx,
     mut commands: bevy::prelude::Commands,
     mut sfx_writer: MessageWriter<SfxMessage>,
     mut vfx_writer: MessageWriter<VfxMessage>,
@@ -667,6 +677,7 @@ pub fn advance_body_melee(
     mut bodies: Query<(
         Entity,
         ae::BodyClusterQueryData,
+        &physics::ResolvedMotionFrame,
         &mut BodyMelee,
         &ambition_characters::actor::pose::ActorFaction,
         Option<&ambition_characters::brain::Brain>,
@@ -676,7 +687,17 @@ pub fn advance_body_melee(
     )>,
 ) {
     let dt = world_time.sim_dt();
-    for (entity, mut cq, mut melee, faction, brain, config, mut anim, moveset_melee) in &mut bodies
+    for (
+        entity,
+        mut cq,
+        resolved_frame,
+        mut melee,
+        faction,
+        brain,
+        config,
+        mut anim,
+        moveset_melee,
+    ) in &mut bodies
     {
         // The recovery / refire floors tick every frame regardless of a live swing
         // (`advance_attack` advances the swing's own `elapsed`).
@@ -696,11 +717,10 @@ pub fn advance_body_melee(
             }
             continue;
         }
-        let pos = cq.kinematics.pos;
         let tuning = editable_tuning.as_engine();
-        // Live frame direction at the body's position, so the pogo bounce
-        // launches OPPOSITE live gravity.
-        let gravity_dir = gravity.dir_at(pos);
+        // The body's per-tick resolved frame, so the pogo bounce launches
+        // OPPOSITE the same down its movement integrated under.
+        let gravity_dir = resolved_frame.down();
         // The strike's effective allegiance picks the damage channel; the sprite id
         // (actors) resolves the authored per-animation box, else the player root.
         let strike_faction = crate::combat::targeting::effective_faction(*faction, brain);

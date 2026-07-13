@@ -112,8 +112,10 @@ pub fn apply_hitbox_damage(
     // Iterate every player so a multi-player build hits each
     // overlapping player independently. Single-player behavior is
     // preserved because the iterator has exactly one entity today.
-    // The victim's gravity frame, for the local-frame knockback side (§B11).
-    gravity: ambition_platformer_primitives::gravity::GravityCtx,
+    // The victim's per-tick resolved frame (ADR 0024), for the local-frame
+    // knockback side (§B11). Looked up by victim entity; a bare test hurtbox
+    // without a body frame falls back to the engine default down.
+    victim_frames: Query<&ambition_platformer_primitives::frame_env::ResolvedMotionFrame>,
     mut sfx: MessageWriter<SfxMessage>,
     mut vfx: MessageWriter<VfxMessage>,
     mut debris: MessageWriter<DebrisBurstMessage>,
@@ -237,7 +239,11 @@ pub fn apply_hitbox_damage(
                     // its fallback, so the stored side must be frame-correct
                     // too. Attached for EVERY victim (§A2 step 6): an actor
                     // victim rides the same resolved knockback the player does.
-                    let side = ae::AccelerationFrame::new(gravity.dir_at(victim_aabb.center)).side;
+                    let side = victim_frames
+                        .get(victim_entity)
+                        .map(|frame| frame.basis())
+                        .unwrap_or(ae::AccelerationFrame::new(ae::DEFAULT_GRAVITY_DIR))
+                        .side;
                     let dir = if (victim_body.center() - owner_pos).dot(side) >= 0.0 {
                         1.0
                     } else {

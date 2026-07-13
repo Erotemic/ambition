@@ -28,7 +28,9 @@ use ambition_input::ControlFrame;
 pub fn input_timer_system(
     time: Res<Time>,
     feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,
-    gravity_field: Option<Res<crate::physics::GravityField>>,
+    controlled: Option<Res<ambition_platformer_primitives::markers::ControlledSubject>>,
+    frames: Query<&crate::physics::ResolvedMotionFrame>,
+    primary_q: Query<Entity, crate::actor::PrimaryPlayerOnly>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     mut sim_state: ResMut<crate::SandboxSimState>,
     mut control_frame: ResMut<ControlFrame>,
@@ -54,7 +56,11 @@ pub fn input_timer_system(
     // edges are resolved through the same input mapping policy as locomotion,
     // so ScreenDirected sideways gravity can map raw-right/raw-left into local
     // down/up without bespoke cases here.
-    let gravity_dir = crate::physics::gravity_dir_or_default(gravity_field.as_deref());
+    let gravity_dir = crate::control::controlled_frame_down(
+        controlled.as_deref(),
+        primary_q.single().ok(),
+        &frames,
+    );
     let movement_mode = user_settings
         .as_deref()
         .map_or(ae::InputFrameMode::DEFAULT_MOVEMENT, |s| {
@@ -98,7 +104,7 @@ pub fn interaction_input_system(
     time: Res<Time>,
     feel_tuning: Res<crate::time::feel::SandboxFeelTuning>,
     control_frame: Res<ControlFrame>,
-    gravity_field: Option<Res<crate::physics::GravityField>>,
+    frames: Query<&crate::physics::ResolvedMotionFrame>,
     user_settings: Option<Res<ambition_persistence::settings::UserSettings>>,
     controlled: Option<Res<ambition_platformer_primitives::markers::ControlledSubject>>,
     mut slot_gestures: ResMut<crate::control::SlotInteractionState>,
@@ -130,7 +136,8 @@ pub fn interaction_input_system(
     // interact EDGE while Down is held, using the SAME gravity-resolved "down" the
     // possession trigger uses so they agree under any gravity. The double-tap-UP
     // door request is an Up gesture, so it is never suppressed.
-    let gravity_dir = crate::physics::gravity_dir_or_default(gravity_field.as_deref());
+    // `subject` already resolved controlled-or-primary above.
+    let gravity_dir = crate::control::controlled_frame_down(None, subject, &frames);
     let movement_mode = user_settings
         .as_deref()
         .map_or(ae::InputFrameMode::DEFAULT_MOVEMENT, |s| {

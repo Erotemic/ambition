@@ -1128,6 +1128,13 @@ pub fn register_engine_sim_state(registry: &mut SnapshotRegistry) {
         "rewritten every movement step from the body's AABB and the world's geometry",
     );
 
+    // ADR 0024 frame law: the per-body resolved frame is transient environment
+    // output, recomputed by the frame resolution phase every tick from the
+    // restored world — snapshotting it would freeze an environmental fact.
+    registry.declare_derived::<ambition_platformer_primitives::frame_env::ResolvedMotionFrame>(
+        "published by the frame resolution phase every tick from the live environment",
+    );
+
     // The SimView and its indexes: netcode.md excludes these structurally
     // ("rebuilt every tick by construction").
     registry.declare_derived::<ambition_sim_view::BodyPoseView>(

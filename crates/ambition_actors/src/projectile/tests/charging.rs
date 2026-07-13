@@ -129,6 +129,8 @@ fn a_non_home_charge_body_fires_from_its_own_muzzle_not_the_home_avatar() {
                 facing: 1.0,
             },
             ActorControl::default(),
+            // The input driver reads the body's resolved frame (ADR 0024).
+            crate::physics::ResolvedMotionFrame::default(),
         ))
         .id();
 
@@ -301,6 +303,27 @@ fn released_fireball_uses_controlled_body_local_aim_under_sideways_gravity() {
     app.insert_resource(crate::physics::GravityField {
         dir: ambition_engine_core::Vec2::new(1.0, 0.0),
     });
+    // The input driver reads the body's per-tick resolved frame (ADR 0024); this
+    // headless app runs no resolution phase, so publish the sideways frame on the
+    // BODY, as the resolution phase would.
+    {
+        let world = app.world_mut();
+        let player = {
+            let mut q = world
+                .try_query::<(
+                    bevy::prelude::Entity,
+                    &crate::projectile::PlayerProjectileState,
+                )>()
+                .unwrap();
+            q.iter(world).next().unwrap().0
+        };
+        let mut frame = crate::physics::ResolvedMotionFrame::default();
+        frame.publish(ambition_engine_core::MotionFrame::from_direction(
+            ambition_engine_core::Vec2::new(1.0, 0.0),
+            900.0,
+        ));
+        world.entity_mut(player).insert(frame);
+    }
     // Precision aiming (charged fire) now defaults to screen-directed, so opt
     // into a body-relative aim mode to exercise the controlled-body-local seam
     // this test is about.

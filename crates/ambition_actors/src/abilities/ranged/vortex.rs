@@ -51,12 +51,12 @@ pub struct VortexWell {
 /// ahead of the player along the aim. Plain Attack only — `Shield + Attack`
 /// drops the item (the id is `UseSystem`, excluded from throw-on-plain-Attack).
 pub fn fire_vortex_system(
-    gravity: crate::physics::GravityCtx,
     // Ability ORIGIN = the controlled subject, not a `PrimaryPlayer` filter.
     controlled: Res<ControlledSubject>,
     mut bodies: Query<(
         &ActorControl,
         &BodyKinematics,
+        &crate::physics::ResolvedMotionFrame,
         &HeldItem,
         &mut BodyMana,
         Option<&SessionScopedEntity>,
@@ -67,7 +67,7 @@ pub fn fire_vortex_system(
     let Some(subject) = controlled.0 else {
         return;
     };
-    let Ok((control, kin, held, mut mana, owner)) = bodies.get_mut(subject) else {
+    let Ok((control, kin, resolved_frame, held, mut mana, owner)) = bodies.get_mut(subject) else {
         return;
     };
     let c = control.0;
@@ -80,7 +80,8 @@ pub fn fire_vortex_system(
     if !mana.meter.try_spend(VORTEX_MANA_COST) {
         return;
     }
-    let gravity_dir = gravity.dir_at(kin.pos);
+    // The body's per-tick resolved frame (ADR 0024 frame law).
+    let gravity_dir = resolved_frame.down();
     let aim =
         crate::items::pickup::ability_aim_world(&c, kin.facing, gravity_dir).normalize_or_zero();
     if aim == ae::Vec2::ZERO {

@@ -58,3 +58,23 @@ where
     out.sort_by_key(|(_, slot)| *slot);
     out
 }
+
+/// The CONTROLLED body's per-tick resolved "down" (ADR 0024): the frame every
+/// slot-0 gesture (fast-fall double-tap, possession Down+Interact, interact
+/// suppression) is interpreted in. Resolution order: the `ControlledSubject`
+/// (a possessed body reads ITS frame), else the primary player's body, else the
+/// engine default. This reads the frame-resolution artifact — it never
+/// reconstructs a frame from a gravity field.
+pub fn controlled_frame_down(
+    controlled: Option<&ambition_platformer_primitives::markers::ControlledSubject>,
+    primary: Option<Entity>,
+    frames: &Query<&ambition_platformer_primitives::frame_env::ResolvedMotionFrame>,
+) -> ambition_engine_core::Vec2 {
+    controlled
+        .and_then(|subject| subject.0)
+        .or(primary)
+        .and_then(|entity| frames.get(entity).ok())
+        .map_or(ambition_engine_core::DEFAULT_GRAVITY_DIR, |frame| {
+            frame.down()
+        })
+}

@@ -83,13 +83,13 @@ fn meteor_strike_origins(
 /// `Player`-faction projectiles onto the zone ahead. Plain Attack only — `Shield
 /// + Attack` drops the item (the id is `UseSystem`).
 pub fn fire_meteor_system(
-    gravity: crate::physics::GravityCtx,
     // Ability ORIGIN = the controlled subject, not a `PrimaryPlayer` filter.
     controlled: Res<ControlledSubject>,
     mut players: Query<(
         Entity,
         &ActorControl,
         &BodyKinematics,
+        &crate::physics::ResolvedMotionFrame,
         &HeldItem,
         &mut BodyMana,
     )>,
@@ -99,7 +99,8 @@ pub fn fire_meteor_system(
     let Some(subject) = controlled.0 else {
         return;
     };
-    let Ok((entity, control, kin, held, mut mana)) = players.get_mut(subject) else {
+    let Ok((entity, control, kin, resolved_frame, held, mut mana)) = players.get_mut(subject)
+    else {
         return;
     };
     let c = control.0;
@@ -112,7 +113,8 @@ pub fn fire_meteor_system(
     if !mana.meter.try_spend(METEOR_MANA_COST) {
         return;
     }
-    let gravity_dir = gravity.dir_at(kin.pos);
+    // The body's per-tick resolved frame (ADR 0024 frame law).
+    let gravity_dir = resolved_frame.down();
     let aim = crate::items::pickup::ability_aim_local(&c, kin.facing);
     for origin in meteor_strike_origins(kin.pos, aim, kin.facing, gravity_dir) {
         effects.write(ambition_vfx::EffectRequest {

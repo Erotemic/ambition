@@ -256,11 +256,13 @@ pub fn tick_ball_dash(
     mut commands: Commands,
     time: Res<ambition::time::WorldTime>,
     tuning: Res<BallDashTuning>,
-    gravity: Option<Res<ambition::platformer::gravity::GravityField>>,
     mut sfx: MessageWriter<ambition::sfx::SfxMessage>,
     mut bodies: Query<(
         Entity,
         &BallDashInput,
+        // The body's per-tick resolved frame (ADR 0024): the airborne launch
+        // direction is the SAME frame the momentum kernel integrates under.
+        &ambition::actors::physics::ResolvedMotionFrame,
         &mut ambition::actors::features::MotionModel,
         &mut ae::BodyKinematics,
         &mut BallDash,
@@ -268,10 +270,10 @@ pub fn tick_ball_dash(
         Option<&mut ambition::actors::actor::BodyAnimFacts>,
     )>,
 ) {
-    let gravity_down = ambition::platformer::gravity::gravity_dir_or_default(gravity.as_deref());
-    let frame = ae::AccelerationFrame::new(gravity_down);
-
-    for (entity, input, mut motion, mut kin, mut state, rolling, mut anim) in &mut bodies {
+    for (entity, input, resolved_frame, mut motion, mut kin, mut state, rolling, mut anim) in
+        &mut bodies
+    {
+        let frame = resolved_frame.basis();
         let ambition::actors::features::MotionModel::SurfaceMomentum(m) = &mut *motion else {
             // A Sanic on the AABB path is a Sanic in a different demo. Nothing
             // here reaches for `MotionModel::AxisSwept`, on purpose: the verb is

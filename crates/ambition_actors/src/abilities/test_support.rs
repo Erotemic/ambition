@@ -35,6 +35,9 @@ pub(crate) fn spawn_primary_player_holding(app: &mut App, held_item_id: &str) ->
             ActionSet::default(),
             HeldItem::new(spec),
             BodyMana::default(),
+            // Ability systems read the per-tick resolved frame (ADR 0024); the
+            // default is the screen-down basis these headless tests assume.
+            crate::physics::ResolvedMotionFrame::default(),
         ))
         .id();
     // Ability systems now key on the controlled subject, not a `PrimaryPlayer`
@@ -74,6 +77,8 @@ pub(crate) fn spawn_primary_player_holding_at(
             ActionSet::default(),
             HeldItem::new(spec),
             crate::features::MotionModel::default(),
+            // Ability systems read the per-tick resolved frame (ADR 0024).
+            crate::physics::ResolvedMotionFrame::default(),
         ))
         .id();
     app.insert_resource(ControlledSubject(Some(entity)));

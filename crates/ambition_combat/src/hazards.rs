@@ -23,13 +23,15 @@ pub fn update_ecs_hazards(
             &ambition_engine_core::BodyDodgeState,
             &ambition_engine_core::BodyShieldState,
             &ambition_characters::actor::BodyCombat,
+            // The victim's per-tick resolved frame (ADR 0024): the knockback
+            // side is a fact of the VICTIM's own frame.
+            &ambition_platformer_primitives::frame_env::ResolvedMotionFrame,
         ),
         (
             With<ambition_platformer_primitives::markers::PlayerEntity>,
             Without<FeatureSimEntity>,
         ),
     >,
-    gravity: ambition_platformer_primitives::gravity::GravityCtx,
     // Every OTHER body with a published footprint burns too (fable review
     // 2026-07-02 §A4): hazards are relational-agnostic world danger — an NPC
     // in lava takes the hit, a boss can be lured into spikes. Deliberately NOT
@@ -88,7 +90,9 @@ pub fn update_ecs_hazards(
         // OVERNIGHT-TODO #17.8 (B-bucket iterate-all-players for
         // hazard hits). Single-player behavior preserved because the
         // iterator has exactly one entity today.
-        for (player_entity, kin, sweep, hurtbox, offense, dodge, shield, combat) in &player {
+        for (player_entity, kin, sweep, hurtbox, offense, dodge, shield, combat, resolved_frame) in
+            &player
+        {
             // CC2 (the sweep law): a hazard touch is path-dependent — a fast body
             // (dash, Sanic run) must not tunnel through a thin spike between
             // frames. The path is the §3.1 SweepSample — the kernel's TRUE
@@ -108,8 +112,9 @@ pub fn update_ecs_hazards(
                 continue;
             }
             let pos = kin.pos;
-            // Knockback side in the victim's LOCAL frame (§B11).
-            let side = ae::AccelerationFrame::new(gravity.dir_at(pos)).side;
+            // Knockback side in the victim's LOCAL frame (§B11), from its own
+            // per-tick resolved frame.
+            let side = resolved_frame.basis().side;
             let knockback_dir = (pos - hazard.pos).dot(side).signum();
             vfx.write(VfxMessage::Impact { pos });
             vfx.write(VfxMessage::Burst {

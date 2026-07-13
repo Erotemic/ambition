@@ -192,6 +192,7 @@ pub fn tick_player_clone_brains(
         (
             &ambition::actors::actor::BodyKinematics,
             &ambition::actors::actor::BodyGroundState,
+            &ambition::actors::physics::ResolvedMotionFrame,
             &mut Brain,
             &mut ActorControl,
         ),
@@ -203,11 +204,16 @@ pub fn tick_player_clone_brains(
         return;
     }
     clock.0 += dt;
-    for (kin, ground, mut brain, mut control) in &mut clones {
+    for (kin, ground, resolved_frame, mut brain, mut control) in &mut clones {
         let mut snapshot = BrainSnapshot::idle();
         snapshot.actor_pos = kin.pos;
         snapshot.actor_vel = kin.vel;
         snapshot.actor_facing = kin.facing;
+        // The clone resolves and consumes its OWN body frame: its demo brain
+        // interprets directions in the same frame its integration uses, so a
+        // clone inside a rotated-gravity zone walks that zone's way instead of
+        // the hardcoded screen frame it used to assume.
+        snapshot.control_down = resolved_frame.down();
         snapshot.actor_on_ground = ground.on_ground;
         snapshot.alive = true;
         snapshot.sim_time = clock.0;

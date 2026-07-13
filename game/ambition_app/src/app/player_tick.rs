@@ -40,7 +40,6 @@ pub(crate) fn apply_home_reset_policy(
     world: Res<RoomGeometry>,
     editable_tuning: Res<EditableMovementTuning>,
     feel_tuning: Res<SandboxFeelTuning>,
-    gravity_field: Option<Res<ambition::actors::physics::GravityField>>,
     mut event_writers: SandboxEventWriters,
     mut room_clock: RoomClock,
     mut reset_room_features: MessageWriter<ResetRoomFeaturesEvent>,

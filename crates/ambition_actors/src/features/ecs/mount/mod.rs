@@ -349,17 +349,19 @@ pub fn sync_riders_to_mounts(
         (
             &Mountable,
             Option<&Mass>,
+            // The mount's per-tick resolved frame: the saddle offset rotates
+            // with the PAIR's reference frame (the rider orbits the mount under
+            // a gravity flip instead of floating off the saddle in fixed screen
+            // space), and the constraint's frame authority is the carrying body.
+            &crate::physics::ResolvedMotionFrame,
             Option<super::actor_clusters::ActorClusterQueryData>,
         ),
         With<MountSlot>,
     >,
-    // Per-position gravity so the saddle offset rotates with the pair's reference
-    // frame (the rider orbits the mount under a gravity flip instead of floating
-    // off the saddle in fixed screen space).
-    gravity: crate::physics::GravityCtx,
 ) {
     for (riding, mut rider_aabb, mounted_size, rider_mass, rider_clusters) in &mut riders {
-        let Ok((mountable, mount_mass, mount_clusters)) = mounts.get(riding.mount) else {
+        let Ok((mountable, mount_mass, mount_frame, mount_clusters)) = mounts.get(riding.mount)
+        else {
             continue;
         };
         let Some(mount_c) = mount_clusters else {
@@ -393,7 +395,7 @@ pub fn sync_riders_to_mounts(
         // orbits it on a gravity flip; vertical gravity is identity
         // (`to_world` == I, COG term cancels), so this is byte-identical to the
         // old fixed-offset snap.
-        let frame = ae::AccelerationFrame::new(gravity.dir_at(mount_c.kin.pos));
+        let frame = mount_frame.basis();
         let mass_mount = mount_mass.copied().unwrap_or_default().0.max(0.0001);
         let mass_rider = rider_mass.copied().unwrap_or_default().0.max(0.0001);
         let w_rider = mass_rider / (mass_mount + mass_rider);

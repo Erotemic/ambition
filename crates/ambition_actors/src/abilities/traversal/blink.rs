@@ -86,7 +86,6 @@ pub fn blink_target(
 /// [`BLINK_DISTANCE`] along the aim direction, stopping a body-half short of the
 /// first solid wall so the teleport never lands inside geometry.
 pub fn blink_system(
-    gravity: crate::physics::GravityCtx,
     world: ambition_world::collision::CollisionWorld,
     mut commands: Commands,
     // Ability execution is SUBJECT-GENERIC: it acts on the CONTROLLED SUBJECT (the
@@ -104,6 +103,7 @@ pub fn blink_system(
     mut bodies: Query<(
         Entity,
         &mut BodyKinematics,
+        &crate::physics::ResolvedMotionFrame,
         &HeldItem,
         &ActorControl,
         Option<&mut crate::ability_cooldown::AbilityCooldown>,
@@ -119,7 +119,8 @@ pub fn blink_system(
     let Some(subject) = controlled.0 else {
         return;
     };
-    let Ok((player, mut kin, held, control, mut cooldown, motion_model)) = bodies.get_mut(subject)
+    let Ok((player, mut kin, resolved_frame, held, control, mut cooldown, motion_model)) =
+        bodies.get_mut(subject)
     else {
         return;
     };
@@ -137,7 +138,8 @@ pub fn blink_system(
     // Aim from the brain-resolved frame (aim stick → movement stick → facing),
     // rotated to world for the raycast/teleport. Body-generic — no per-ability
     // re-reading of raw input.
-    let gravity_dir = gravity.dir_at(kin.pos);
+    // The body's per-tick resolved frame (ADR 0024 frame law).
+    let gravity_dir = resolved_frame.down();
     let dir =
         crate::items::pickup::ability_aim_world(&c, kin.facing, gravity_dir).normalize_or_zero();
     if dir == ae::Vec2::ZERO {

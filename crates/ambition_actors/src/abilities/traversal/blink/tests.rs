@@ -203,6 +203,8 @@ fn blink_executes_on_the_controlled_actor_not_the_home_avatar() {
             },
             crate::features::MotionModel::default(),
             HeldItem::new(home_spec),
+            // Every body carries the per-tick resolved frame (ADR 0024).
+            crate::physics::ResolvedMotionFrame::default(),
             {
                 let mut c = ActorControl::default();
                 c.0.melee_pressed = true; // even pressing attack, it must not blink
@@ -224,6 +226,8 @@ fn blink_executes_on_the_controlled_actor_not_the_home_avatar() {
             },
             crate::features::MotionModel::default(),
             HeldItem::new(actor_spec),
+            // Every body carries the per-tick resolved frame (ADR 0024).
+            crate::physics::ResolvedMotionFrame::default(),
             {
                 let mut c = ActorControl::default();
                 c.0.melee_pressed = true;

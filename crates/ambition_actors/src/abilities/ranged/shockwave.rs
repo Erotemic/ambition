@@ -42,18 +42,18 @@ const SHOCKWAVE_KNOCKBACK: f32 = 1.3;
 /// gate (player-only today), so a possessed/robot body that gains mana + this
 /// gauntlet slams through this exact path — no player-casing.
 pub fn fire_shockwave_system(
-    gravity: crate::physics::GravityCtx,
     mut wielders: Query<(
         Entity,
         &ActorControl,
         &HeldItem,
         &BodyKinematics,
+        &crate::physics::ResolvedMotionFrame,
         &mut BodyMana,
     )>,
     mut effects: MessageWriter<ambition_vfx::EffectRequest>,
     mut sfx: MessageWriter<ambition_sfx::SfxMessage>,
 ) {
-    for (entity, control, held, kin, mut mana) in &mut wielders {
+    for (entity, control, held, kin, resolved_frame, mut mana) in &mut wielders {
         if !control.0.melee_pressed || control.0.shield_held {
             continue;
         }
@@ -64,8 +64,8 @@ pub fn fire_shockwave_system(
         if !mana.meter.try_spend(SHOCKWAVE_MANA_COST) {
             continue;
         }
-        let gravity_dir = gravity.dir_at(kin.pos);
-        let half_extent = ae::AccelerationFrame::new(gravity_dir).to_world_half(SHOCKWAVE_HALF);
+        // The body's per-tick resolved frame (ADR 0024 frame law).
+        let half_extent = resolved_frame.basis().to_world_half(SHOCKWAVE_HALF);
         effects.write(ambition_vfx::EffectRequest {
             owner: entity,
             effect: ambition_vfx::Effect::DamageBox(ambition_vfx::DamageBoxEffect {

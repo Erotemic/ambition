@@ -221,8 +221,8 @@ pub fn pogo_rise_from(effect: &EffectRef) -> f32 {
 pub fn apply_pogo_bounce(
     mut messages: MessageReader<OnHitEffectMessage>,
     pogo_targets: Query<(), With<PogoTarget>>,
-    gravity: ambition_platformer_primitives::gravity::GravityCtx,
     mut owners: Query<(
+        &ambition_platformer_primitives::frame_env::ResolvedMotionFrame,
         &mut ae::BodyKinematics,
         &mut ambition_engine_core::BodyGroundState,
     )>,
@@ -237,10 +237,12 @@ pub fn apply_pogo_bounce(
             continue;
         }
         let rise = pogo_rise_from(&msg.effect);
-        let Ok((mut kin, mut ground)) = owners.get_mut(msg.owner) else {
+        let Ok((resolved_frame, mut kin, mut ground)) = owners.get_mut(msg.owner) else {
             continue;
         };
-        let gdir = gravity.dir_at(kin.pos);
+        // The owner's per-tick resolved frame (ADR 0024): the bounce launches
+        // opposite the same down its movement integrated under.
+        let gdir = resolved_frame.down();
         // SET (not add) the jump velocity → idempotent if two victims land the
         // same frame. No cross-frame dedup needed: the owner bounces away.
         let pos = kin.pos;

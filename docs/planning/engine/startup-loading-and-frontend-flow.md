@@ -1,220 +1,484 @@
 # Loading, shell, and frontend integration
 
-> **Status:** load/shell cores, captured session ownership, the shared shell-to-session bridge, and Sanic/Mary-O headless and visible lifecycle tests are green. The App-local character/music/SFX fragment registries, real three-provider composition, and player-path migration now **compile and pass** (C0 DONE, commit `889d3442`, which also resolved the `sanic` single-owner collision). **Music + SFX authority is fully App-local** — the process-global audio seam is deleted with a re-introduction ratchet (C1-audio/C2-audio DONE, commit `4bbba8f2`). Character authority is **in progress**: combat-voice barks migrated (commit `a613d528`); the sprite/spawn/asset-manifest cluster + global deletion remain (C1-char/C2-char). The remaining chain is: finish runtime character migration -> canonical active-session world -> real provider load plans -> Ambition provider/launcher -> cross-experience proof.
+> **Purpose:** define the desired reusable engine architecture first, then track the shortest dependency-ordered path from the current repository to that state.
+>
+> **Current status:** the load/shell cores, captured session ownership, shared shell-to-session bridge, standalone Sanic/Mary-O lifecycle, and App-local catalog registries exist. Process-global music/SFX registries have been removed. Character runtime authority is only partly migrated, active-provider audio selection is not yet complete, and the canonical active gameplay-session model remains the next major architectural seam. The launcher, real provider load plans, main Ambition provider, cross-experience proof, startup sequence, and loading activity remain open.
 
-## Target experience
+## Desired end state
 
-```text
-process entry -> configured shell route -> optional startup sequence -> host launcher
-              -> provider load plan -> activation authorization -> gameplay session
-              -> QuitToHome -> exact session retirement -> host launcher
-```
+Ambition is an engine in which an independently authored game can be added by:
 
-Ambition's launcher exposes Ambition, Sanic, Mary-O, and Exit. Standalone Sanic and Mary-O use the same providers under private minimal hosts: gameplay may be the initial route while the demo-only launcher is the home route. Completion means all three games share one provider, session, load, shell, catalog, minimal-presentation, teardown, and relaunch architecture.
+1. defining its authored content;
+2. contributing immutable App-local catalog fragments;
+3. implementing one reusable experience provider;
+4. describing real preparation work;
+5. constructing a fresh gameplay session after load authorization;
+6. composing that provider into a standalone host or a multi-game host;
+7. receiving correct loading, routing, ownership, teardown, return-to-home, and relaunch behavior from shared engine infrastructure.
 
-## Maintainer intent
-
-1. Fast preparation shows no loading screen; unavoidable waits show honest facts and optional estimates.
-2. Activation-critical, streamable, and speculative work share one load model and stable work identity.
-3. Arbitrary loading activities are isolated first-class experiences; engaged activities may continue after readiness until universal Continue.
-4. Minimal launcher/loading presentation is complete for demos and early Ambition; polish replaces visuals rather than authority.
-5. Boot is route configuration. Vanity segments may be arbitrary Bevy programs, with text/static/image-sequence helpers and optional video adapters.
-6. Credits and top-level cutscenes are shell experiences; ordinary in-session cutscenes remain under `ambition_cutscene`.
-
-## Binding crate carve
+The same provider implementation serves every host. A standalone host may start directly in gameplay and return to a private launcher. The Ambition host starts through its configured startup route and returns every embedded game to the Ambition launcher.
 
 ```text
-crates/ambition_load
-crates/ambition_game_shell
-crates/ambition_load_presentation
+Standalone Sanic process:
+    initial route -> Sanic gameplay
+    QuitToHome -> Sanic-only launcher
+    launcher -> Sanic gameplay or Exit
+
+Standalone Mary-O process:
+    initial route -> Mary-O gameplay
+    QuitToHome -> Mary-O-only launcher
+    launcher -> Mary-O gameplay or Exit
+
+Ambition host process:
+    startup sequence -> Ambition launcher
+    launcher -> Ambition | Sanic | Mary-O | future providers | Exit
+    every embedded gameplay session -> QuitToHome -> Ambition launcher
 ```
 
-### `ambition_load`
+The architecture is complete only when adding a fourth provider does not require a new host match arm, a new lifecycle path, or knowledge of shell internals.
 
-Owns headless preparation truth: stable plan/request/work/barrier IDs; exact work state; discovery accounting; activation-critical, streamable, and speculative roles; priority; promotion without restart; cancellation/supersession; failure/retry facts; barrier readiness; and one-shot activation authorization. Asset, save, world, and content systems perform work and report through this protocol. The crate remains renderer-, menu-, and game-content-free.
+## Architectural authorities
 
-### `ambition_game_shell`
-
-Owns renderer-independent top-level lifecycle: `initial_route`; `home_route`; provider and route registration; launcher projection; activation/replacement/completion/failure/return/exit; semantic `QuitToHome`; top-level focus transfer; shell/gameplay activation identity; neutral presentation sequences; and minimal launcher behavior through `ambition_menu`. Gameplay owns rooms, combat, inventory, dialogue, pause, bosses, and in-session cutscenes. The shell bridge maps shell activation to an engine-neutral gameplay-session scope.
-
-### `ambition_load_presentation`
-
-Owns hidden grace, exact stage/step presentation, optional estimated percentage, indeterminate/failure/retry/return views, arbitrary activity registration, activity input/engagement/result, ready-hold, Continue, cleanup, and the basic no-art implementation. It consumes load and shell facts and never manufactures readiness.
-
-## Constitutional dependency shape
+Five authorities define the design.
 
 ```text
-AssetServer / save / world / content contributors
-                     |
-                     v
-               ambition_load
-          work facts, barriers, commit
-              /               \
-             v                 v
- ambition_game_shell       headless clients
-             ^
-             |
- ambition_load_presentation
-             ^
-             |
- providers, activities, styling, app hosts
+Host
+    Owns process entry, linked providers, initial route, home route, launcher,
+    startup sequence, presentation policy, platform integration, and exit.
 
-ambition_platformer_primitives::lifecycle::session
-             ^
-             |
- ambition_game_shell session bridge
-             ^
-             |
-      gameplay providers
+Provider
+    Owns one experience's identity, metadata, authored fragments, preparation,
+    prepared-session construction, activation, gameplay construction, and teardown.
+
+Session
+    Owns everything created for one gameplay activation, including current world
+    authority and all activation-local simulation and presentation state.
+
+App
+    Owns the immutable authored catalogs assembled from its linked providers.
+
+Load
+    Owns readiness facts, progress evidence, failure/retry state, cancellation,
+    supersession, and one-shot activation authorization.
 ```
 
-Rules: providers self-register and launcher entries derive from the registry; hosts select providers/routes/presentation; standalone apps depend on provider crates rather than `ambition_app`; `ambition_app` links provider crates rather than demo apps; session identity is shell-free and captured when spawn work is requested; load evidence alone controls readiness; one active gameplay session owns current gameplay-world authority; authored catalogs are App-local and composable.
+No authority should be duplicated. In particular:
 
-## Provider, host, and session contracts
+- the host does not know provider-specific gameplay construction;
+- the provider does not know which host linked it or where that host's home route is;
+- the launcher does not retain gameplay-world authority;
+- catalogs are not process-global runtime state;
+- presentation never manufactures readiness;
+- route changes do not redefine ownership of already-requested deferred spawns.
 
-A provider owns registration, immutable catalog fragments, load contribution, preparation, activation-specific construction, session scope, teardown, and semantic shell commands. A host owns linked providers, initial/home routes, startup sequence, platform/render/audio selection, launcher projection, and process exit.
+## Canonical lifecycle
 
 ```text
-Ambition:        initial = ambition_startup   home = ambition_launcher
-Standalone Sanic: initial = sanic_gameplay    home = sanic_launcher
-Standalone Mary-O: initial = mary_o_gameplay  home = mary_o_launcher
+host requests a provider route
+-> provider creates a preparation plan
+-> load contributors perform real work and report evidence
+-> the required activation barrier becomes ready
+-> shell consumes one-shot activation authorization
+-> provider publishes a prepared gameplay session
+-> provider constructs a fresh live gameplay session
+-> the session owns all activation-local state
+-> gameplay emits semantic QuitToHome
+-> exact session authority is revoked and retired
+-> the host's configured home route resumes
 ```
 
-Every gameplay activation receives a fresh `SessionScopeId`. `SessionSpawnScope` captures ownership at spawn-request time, so nested/deferred work cannot be reassigned by a later route change. Session ownership covers actors, authored features, enemies/bosses/hazards/pickups/rewards, abilities/projectiles/debris, room visuals/parallax, overlays/health/effects/gameplay UI, and eventually gameplay camera/audio/input.
+Cancellation, supersession, retry, and relaunch always create fresh transaction or activation identity. Stale load completions, deferred commands, retirement requests, or route messages cannot activate or damage a newer session.
 
-The shell bridge owns `ShellActivationId <-> SessionScopeId`. Retirement removes active-session authority, revokes ambient spawn authority immediately, emits provider and exact-scope retirement facts, cleans only that scope, and preserves a newer scope during same-frame replacement.
+At a frontend route there is no active gameplay session. That absence is normal and explicit: gameplay schedules sleep, no placeholder room is authoritative, and only frontend input/camera/UI authority remains.
 
-The canonical active gameplay session must own `RoomGeometry`, `RoomSet`, `ActiveRoomMetadata`, `StartingCharacter`, and related scene/runtime state. At launchers, credits, or other non-gameplay routes there is no active gameplay session and gameplay schedules sleep safely.
+## Provider authoring experience
 
-## Load, evidence, and activities
-
-A plan groups preparation for one route request; a barrier decides activation. Background streaming may continue afterward.
+The common path for a new game should look like normal Bevy composition:
 
 ```rust
-pub enum ActivationRequirement { RequiredFor(LoadBarrierId), Degradable, Speculative }
-pub enum LoadPriority { Immediate, High, Normal, Low }
+app.add_plugins(MyGameExperiencePlugin);
 ```
 
-Required examples: save header, collision/world data, player definition, required sprites/entities. Degradable examples: distant art, ambience, high-resolution variants. Speculative examples: likely next route/room. Promotion preserves work identity and progress. Cancelled/superseded transactions cannot authorize activation; commit is one-shot for the current request.
+The provider should contribute concepts equivalent to:
 
-Player-facing work steps are semantic units such as catalog assembly, required asset request, room/save decode, content validation, staged world preparation, or required pipeline warmup. Snapshots separate exact completed/active/known-remaining work, discovery openness, stage labels, optional undiscovered-work forecast, optional effort/confidence/provenance, failures/retryability, and exact readiness. Presentation may show stages, counts, estimate, both, or indeterminate; 100% appears only after readiness.
+```text
+ExperienceRegistration
+AuthoredCatalogFragments
+LoadPlan
+PreparedGameplaySession
+GameplaySessionBuilder
+SessionTeardown
+```
 
-A waiting foreground attaches to one unresolved barrier after hidden grace. An activity has stable identity, scoped state/input, explicit engagement, optional result, and no destination authority. Policies are `AutoAdvance`, `AwaitConfirmation`, and `AutoUnlessEngaged`; engaged ready-hold continues until Continue cleans the activity and commits exactly once.
+A declarative surface may resemble:
 
-## Startup, vanity, credits, and cutscenes
+```rust
+GameExperiencePlugin::new(MY_GAME)
+    .with_route(MY_GAMEPLAY_ROUTE)
+    .with_catalogs(MyGameCatalogFragments::default())
+    .with_load_plan(build_my_game_load_plan)
+    .with_session_builder(build_my_game_session);
+```
 
-A startup route is an ordinary shell sequence of text, static/image-sequence media, optional video adapters, arbitrary registered Bevy segments, notices, acknowledgements, and route transitions. Minimal Ambition flow: `Powered by Ambition -> Ambition title -> ambition_launcher`. Credits are initially game-owned shell experiences. Top-level cutscene previews adapt `ambition_cutscene`; in-session cutscenes remain inside gameplay.
+The exact API should follow repository and Bevy conventions, but these properties are required:
+
+- provider registration is deterministic and compositional;
+- provider-local identities and presets are intuitive;
+- simple providers receive complete defaults;
+- advanced providers can extend preparation and activation without replacing lifecycle truth;
+- providers depend on reusable engine crates, never on host app crates;
+- standalone hosts reuse the provider unchanged;
+- headless tests can exercise the provider without rendering dependencies;
+- incorrect ownership or missing authority is difficult to express silently.
+
+Excessive boilerplate is an architectural defect. The design should make the correct path shorter than bespoke wiring.
+
+## Session and ownership model
+
+Every gameplay activation receives fresh typed identities equivalent to:
+
+```text
+ShellActivationId
+GameplaySessionId
+SessionScopeId
+LoadTransactionId
+```
+
+One canonical App-local active gameplay-session representation owns or references:
+
+- provider identity;
+- shell activation identity;
+- session scope;
+- prepared world data;
+- `RoomGeometry`;
+- `RoomSet`;
+- `ActiveRoomMetadata`;
+- starting character;
+- selected character/audio provider authority;
+- load transaction identity;
+- provider-local session resources.
+
+`SessionSpawnScope` captures ownership when spawn work is requested. Nested helpers, deferred commands, authored features, and dynamic effects inherit that captured scope rather than consulting whichever route happens to be active later.
+
+Session ownership covers at least:
+
+- players, NPCs, enemies, bosses, and encounters;
+- portals, room features, moving platforms, hazards, pickups, and rewards;
+- abilities, projectiles, attack volumes, debris, and transient effects;
+- gameplay sprites, parallax, overlays, HUD, dialog, map, and cutscene UI;
+- gameplay cameras and input contexts;
+- music, ambience, looped SFX, and other playback ownership;
+- load activity state and provider-local session resources.
+
+At the host home route there must be:
+
+```text
+zero session entities
+zero gameplay cameras
+zero gameplay input owners
+zero gameplay UI roots
+zero gameplay audio owners
+zero active gameplay session
+zero session load transactions
+exactly one frontend authority
+```
+
+## App-local authored catalogs
+
+Linked providers contribute immutable authored fragments to each Bevy `App`. Assembly must be:
+
+- deterministic;
+- independent of provider registration order;
+- transactional;
+- isolated between separate Apps in one process;
+- explicit about ownership of duplicate identities;
+- stable and actionable in diagnostics;
+- immutable after successful assembly where practical.
+
+Runtime consumers use:
+
+- `Res<CharacterCatalog>` in ECS systems;
+- `&CharacterCatalog` in pure helpers;
+- explicit character IDs at the authored-to-runtime boundary;
+- focused system parameters when several catalog resources travel together;
+- App-local audio registries plus explicit active-provider/session selection.
+
+Display names are presentation, not identity. Missing required catalogs in production composition should not silently degrade to empty data. Minimal test worlds may insert explicit empty fixtures.
+
+Shared asset caches may outlive a gameplay session, but playback authority does not. Activating a provider selects its audio authority; returning home retires gameplay playback ownership; switching providers cannot observe stale defaults or active loops from the prior session.
+
+## Load and presentation model
+
+`ambition_load` owns preparation truth. A plan groups work for one route request; a barrier authorizes activation.
+
+```rust
+pub enum ActivationRequirement {
+    RequiredFor(LoadBarrierId),
+    Degradable,
+    Speculative,
+}
+
+pub enum LoadPriority {
+    Immediate,
+    High,
+    Normal,
+    Low,
+}
+```
+
+Provider preparation reports semantic work such as:
+
+- catalog assembly and validation;
+- required asset requests;
+- sprite/character readiness;
+- save or session decoding;
+- room/world-data preparation;
+- immutable prepared-session construction;
+- provider audio readiness.
+
+Exact facts distinguish completed, active, known remaining, discovery openness, failure, retryability, and barrier readiness. Estimates are optional and never authoritative. Fast required work remains inside hidden grace. Slow work reveals minimal honest presentation. Streamable work may continue after activation. Speculative work may be promoted without restarting.
+
+A loading activity is an isolated shell experience with scoped input/state, explicit engagement, optional result, ready-hold, universal Continue, exact cleanup, and no ability to mutate destination state. Engaged activities may continue after readiness until the player confirms.
+
+## Host and frontend model
+
+The shell owns top-level routing and host-relative return semantics.
+
+```text
+Ambition host:
+    initial = ambition_startup
+    home = ambition_launcher
+
+Standalone Sanic host:
+    initial = sanic_gameplay
+    home = sanic_launcher
+
+Standalone Mary-O host:
+    initial = mary_o_gameplay
+    home = mary_o_launcher
+```
+
+The Ambition launcher derives entries from linked provider registrations and contains Ambition, Sanic, Mary-O, and Exit. Providers remain unaware of the host that linked them.
+
+The minimal Ambition startup route is:
+
+```text
+Powered by Ambition
+-> Ambition title
+-> Ambition launcher
+```
+
+Startup segments may be arbitrary registered Bevy programs as well as reusable text, static-image, image-sequence, and optional video adapters. Direct route entry remains available for tests and development. Credits and top-level cutscene previews are shell experiences; ordinary in-session cutscenes remain gameplay-session concerns.
+
+## Compile-time architecture
+
+Compile performance is an engine feature. Preserve these dependency rules:
+
+- small headless core crates remain independent of rendering;
+- generic session/catalog/load types contain no game-specific enums;
+- reusable engine crates never depend on game content or host apps;
+- provider crates never depend on standalone app crates;
+- hosts depend on providers, not the reverse;
+- `ambition_app` composes provider crates rather than demo app crates;
+- presentation remains feature-gated where practical;
+- one provider can be built and tested without compiling unrelated games;
+- public types live at the lowest correct layer;
+- adding a provider does not broaden low-level dependency fanout.
+
+Workspace policy tests should protect critical dependency direction and retired global-authority seams.
+
+## Completion criteria
+
+The campaign is complete when all of these are true:
+
+1. Ambition, Sanic, and Mary-O use one provider/session/load/shell/catalog lifecycle.
+2. Standalone and embedded hosts use identical provider implementations.
+3. Every activation creates fresh session and load identities.
+4. Returning home leaves no gameplay authority or activation-local ownership behind.
+5. Cross-provider transitions cannot observe stale world, catalog, input, camera, UI, audio, or load state.
+6. Catalog assembly is deterministic, transactional, App-local, and order independent.
+7. Runtime code has no hidden process-global character or audio authority.
+8. Real provider preparation controls activation through one-shot authorization.
+9. Minimal launcher/loading/startup presentation is complete without owning lifecycle truth.
+10. Adding a fourth provider requires provider composition, not engine or host-specific lifecycle edits.
+11. Narrow headless tests and compile paths remain available.
+12. The architecture is simpler to explain after implementation than before it.
 
 ## Current implementation state
 
-### Verified baseline
+### Established foundation
 
-Passing maintainer tests establish the load/shell/presentation contracts, provider-derived launcher registration, host-relative `QuitToHome`, request-time captured `SessionSpawnScope`, immediate revocation and exact retirement, the shared `GameplaySessionBridgePlugin`, broad simulation/presentation entity ownership, and Sanic/Mary-O headless and visible launch/return/relaunch.
+The repository currently contains:
 
-### Catalog slice — verified state
+- headless `ambition_load`, `ambition_game_shell`, and `ambition_load_presentation` cores;
+- provider-derived launcher registration and host-relative `QuitToHome` behavior;
+- engine-neutral session scope and request-time captured spawn ownership;
+- a shared shell-to-gameplay-session bridge;
+- broad session ownership across existing simulation and presentation paths;
+- Sanic and Mary-O provider/standalone lifecycle customers;
+- deterministic App-local character and audio fragment registries;
+- real Ambition/Sanic/Mary-O fragment composition;
+- removal of the old process-global music/SFX registry APIs;
+- a source-policy ratchet against reintroducing those audio globals.
 
-Provider-indexed `CharacterCatalogRegistry` and `AudioCatalogRegistry` resources; deterministic fragment assembly; namespaced local character presets; stable duplicate diagnostics; atomic failed registration; registration-order and multiple-App isolation tests; and real Ambition/Sanic/Mary-O fragment composition all compile and pass (C0). One character id now has exactly one owning provider — Ambition's redundant `sanic` row was removed (Sanic's identity belongs to the Sanic provider; the launcher host surfaces it by linking that provider).
+### Important limitations in the current slice
 
-**Audio is fully App-local**: the `install_music/sfx_registry` / `authored_*_registry` / `*_REGISTRY_OVERRIDE` process-global seam is deleted; the sole authority is the registered `AudioCatalogFragment` read from the `AudioCatalogRegistry` resource, guarded by the `engine.audio-authority-is-app-local` source ratchet.
+The current source must not be described as the completed desired authority model:
 
-**Character is partway migrated**: player construction, runtime re-wear, and the combat-voice bark path read the App-local `CharacterCatalog`. The remaining pure sprite/asset, actor-spawn/cluster, `npc_brain_from_catalog`, `interact` default, and `known_dialogue_ids` call sites (plus the `sandbox_catalog_inputs*` asset-manifest choke point) still read the process-global roster, which therefore stays alive; the global↔resource pair carry identical data, so the tree is green at each migration slice.
+- character migration is partial;
+- the combat-bark slice currently permits an absent `CharacterCatalog` and falls back to an empty catalog;
+- bark lookup reverses a display name instead of carrying a stable character ID;
+- fragment structs still expose mutable validated state and need stronger registration-boundary validation;
+- audio fragments are App-local, but active provider/session audio selection and cross-experience replacement are not implemented;
+- the combined audio surface does not yet prove deterministic provider-relative SFX authority;
+- the launcher can still have gameplay-world authority through historically global resources;
+- real provider preparation plans do not yet govern activation;
+- the main Ambition game is not yet a provider;
+- no full cross-experience lifecycle test proves exact cleanup and replacement.
 
-## Remaining-work ledger
+## Evidence-backed ledger
+
+`DONE` means a passing test or machine-derived invariant supports the exact claim. `OPEN` means implementation is absent or incomplete. `BLOCKED` means the dependency that must land first is named.
 
 | ID | Status | Required result |
 |---|---|---|
-| C0 | DONE | App-local character/audio registries, real three-provider composition, and player-path migration compile and pass. Evidence: `ambition_app::app_local_catalog_composition` (2/2), `ambition_characters` (373), `ambition_actors` (762), `ambition_workspace_policy` (30). Commit `889d3442` repaired the overlay + resolved the `sanic` single-owner collision. |
-| C1-audio | DONE | Music + SFX consumers are fully App-local: `desktop_dev_default_catalog` takes an explicit `&MusicRegistry`; the visible/headless/RL bootstrap reads `AudioCatalogRegistry`. Commit `4bbba8f2`. |
-| C1-char | OPEN (partial) | Combat-voice lookup (hit/provoked/ambient barks + `apply_actor_hit`) reads `&CharacterCatalog` via `Option<Res<CharacterCatalog>>` + `CharacterCatalog::empty()` fallback — commit `a613d528`. Remaining readers (census, 22 prod sites): `character_sprites::{sheet_for_character_id, character_variant_tuning, sprite_body_collision_for_character_id, all_character_sprite_filenames, load_character_sprites_in, actor_attack_hitbox_world}`, `features::ecs::{actor_clusters::{ActorClusterSeed, sprite_render_size_for_name}, spawn_actors::NpcActorSpawnPlan, interact}`, `features::npcs::npc_brain_from_catalog`, `content::dialogue::known_dialogue_ids`, and the asset-manifest choke point `sandbox_catalog_inputs*`. |
-| C2-audio | DONE | `install_music/sfx_registry`, `authored_*_registry`, `*_REGISTRY_OVERRIDE` deleted; ratchet `engine.audio-authority-is-app-local` guards re-introduction. Commit `4bbba8f2`. |
-| C2-char | OPEN after C1-char | Delete `install_character_catalog`, `catalog()`, `catalog_ron()`, `default_character_id`, `character_roster_plugin`; migrate the seam's `#[cfg(test)]` fixtures; add the character ratchet. |
-| W0 | OPEN | Canonical App-local active session owns current world state |
-| W1 | OPEN | Gameplay sleeps with no session; build-time placeholder worlds disappear |
-| W2 | OPEN | Camera, HUD, dialog, map, cutscene UI, input, and audio gain explicit ownership |
-| L0 | OPEN after C2/W0 | Sanic/Mary-O report real preparation through `ambition_load` |
-| L1 | OPEN | Relaunch/retry/cancel/stream/promotion use fresh transaction authority |
-| A0 | OPEN after C2/W0 | Main Ambition game becomes a provider on the shared lifecycle |
-| A1 | OPEN after A0 | Ambition launcher derives Ambition + Sanic + Mary-O + Exit |
-| X0 | OPEN after A1 | Headless cross-experience cycle is leak-free |
-| X1 | OPEN after X0 | No-window rendered cycle proves presentation/camera/UI ownership |
-| B0 | OPEN | Startup sequence hands off to launcher; direct route entry remains available |
-| B1 | OPEN | Arbitrary loading activity proves engagement, ready-hold, Continue, cleanup |
-| F0 | LATER | Game-owned credits route and top-level cutscene adapter |
+| C0 | DONE | Deterministic App-local character/audio fragment registries; real Ambition/Sanic/Mary-O coexistence; registration-order and separate-App isolation coverage; stable duplicate ownership diagnostics; candidate-before-commit App updates. |
+| C0H | OPEN | Harden fragment APIs: private validated state, fallible parsing, registration-boundary revalidation, and no panic-based reliance on externally mutable invariants. |
+| C1-char | OPEN (partial) | Every meaningful character consumer uses explicit App-local authority. Replace display-name reverse lookup with stable character IDs; require the resource in production systems; migrate sprite/spawn/brain/dialogue/asset-manifest consumers; add direct authority and poison tests. |
+| C2-char | BLOCKED on C1-char | Delete `install_character_catalog`, `catalog()`, `catalog_ron()`, `default_character_id`, and `character_roster_plugin`; migrate fixtures; add a source-policy ratchet. |
+| C1-audio-registry | DONE | Process-global music/SFX registry APIs are removed; App-local provider fragments are registered and read explicitly by current bootstrap paths. |
+| C1-audio-session | OPEN | Active gameplay session selects provider-relative music/SFX authority; activation replaces prior authority; home retirement clears playback ownership; Sanic -> Mary-O switching is proven. |
+| C2-audio | DONE | `install_music_registry`, `install_sfx_registry`, `authored_music_registry`, `authored_sfx_registry`, `MUSIC_REGISTRY_OVERRIDE`, and `SFX_REGISTRY_OVERRIDE` are deleted and guarded by policy. |
+| W0 | OPEN | One canonical App-local active gameplay-session representation owns current world/provider/session/load authority. |
+| W1 | BLOCKED on W0 | Frontend routes safely have no gameplay session; gameplay schedules sleep; placeholder worlds disappear. |
+| W2 | BLOCKED on W0 | Camera, HUD, dialog, map, cutscene UI, input, and audio receive explicit host/session ownership. |
+| L0 | BLOCKED on C2-char/W0 | Sanic and Mary-O contribute real preparation through `ambition_load` and produce immutable prepared sessions. |
+| L1 | BLOCKED on L0 | Retry, cancellation, supersession, streaming, promotion, and relaunch use fresh transaction authority. |
+| P0 | OPEN | Provider authoring surface is compact, documented by an example/test provider, and supplies reusable standalone/load/session defaults. |
+| A0 | BLOCKED on C2-char/W0/P0 | Main Ambition game becomes a provider using the shared lifecycle. |
+| A1 | BLOCKED on A0 | Ambition host derives Ambition + Sanic + Mary-O + Exit from registrations. |
+| X0 | BLOCKED on A1/L1/W2 | Headless cross-experience cycle proves exact replacement and no stale authority. |
+| X1 | BLOCKED on X0 | No-window rendered cycle proves camera/UI/input/audio ownership. |
+| B0 | OPEN | Startup sequence hands off to launcher while direct route entry remains available. |
+| B1 | OPEN | One deterministic loading activity proves engagement, ready-hold, Continue, cleanup, and destination isolation. |
+| F0 | LATER | Game-owned credits route and top-level cutscene adapter. |
 
-## Ordered implementation plan
+## Dependency-ordered roadmap
 
-### Step 0 — Verify the App-local catalog slice
+### Phase 0 — Harden the catalog foundation
 
-1. Compile `ambition_audio`, `ambition_characters`, `ambition_actors`, provider crates, standalone apps, and `ambition_app`.
-2. Run synthetic registry tests plus `app_local_catalog_composition`.
-3. Verify player spawn and re-wear use the assembled App resource under Sanic, Mary-O, and Ambition defaults.
-4. Poison provider order, duplicate IDs, failed registration atomicity, and multiple-App isolation before marking C0 `DONE`.
+1. Make character/audio fragments immutable after validated construction.
+2. Make parsing and registration failures structured and non-panicking.
+3. Revalidate at the transactional registration boundary.
+4. Replace bark display-name reversal with explicit runtime character identity.
+5. Require catalog authority in production systems; use explicit empty fixtures only in minimal tests.
+6. Add direct tests proving different Apps/catalogs produce different runtime behavior.
+7. Correct stale comments and evidence claims before expanding the architecture.
 
-### Step 1 — Finish explicit catalog authority
+### Phase 1 — Finish explicit character and audio authority
 
-1. Thread `&CharacterCatalog`/`Res<CharacterCatalog>` through NPC/enemy construction, actor barks/body kinds/momentum, sprite manifests/body metrics, intro/dialogue validation, and every pure helper that currently reads `character_roster`.
-2. Move sandbox asset-catalog construction and audio-library setup to `AudioCatalogRegistry`, with the active provider selecting defaults and deterministic combined music rows supplying shared assets.
-3. Migrate snapshot, fixture, and content-conformance tests to local App resources or explicit parsed fixtures.
-4. Delete the character/music/SFX process globals, installers, and authored-registry fallback APIs.
-5. Add a source-policy ratchet preventing new runtime use of the retired global seams.
+1. Thread `&CharacterCatalog` or `Res<CharacterCatalog>` through NPC/enemy construction, actor seeds, brains, actions, movement/body selection, sprite manifests/tuning/collision/render dimensions, attack volumes, dialogue validation, wear/re-wear, and content fixtures.
+2. Remove every remaining process-global character lookup and add the character policy ratchet.
+3. Add explicit active-provider audio selection to prepared/live gameplay-session state.
+4. Build deterministic provider-relative music and SFX indexing as required by runtime consumers.
+5. Prove Ambition, Sanic, and Mary-O defaults; two-App isolation; home cleanup; and Sanic-to-Mary-O replacement.
 
-### Step 2 — Canonical active-session world
+### Phase 2 — Canonical active gameplay session
 
-1. Introduce one App-local active gameplay-session representation containing scope, provider/activation identity, room/world state, and staged session data.
-2. Move current-world pointers into it or explicit handles; gate gameplay schedules on its presence.
-3. Publish a prepared world atomically on activation and clear authority before frontend execution on retirement.
-4. Remove standalone build-time placeholder worlds.
-5. Prove safe launcher frames, fresh relaunch, and exact Sanic-to-Mary-O world replacement.
+1. Introduce one App-local active gameplay-session representation containing scope, provider/activation identity, world state, selected catalog/audio authority, and load transaction identity.
+2. Publish prepared world data atomically during activation.
+3. Revoke gameplay authority before frontend execution during retirement.
+4. Gate gameplay schedules on active-session presence.
+5. Remove build-time placeholder worlds and historically global current-world pointers.
+6. Prove fresh relaunch and that retirement of activation A cannot damage activation B.
 
-### Step 3 — Complete runtime ownership
+### Phase 3 — Complete exact ownership
 
-1. Audit every gameplay spawn against captured scope and add a content-heavy fixture covering authored, nested, deferred, and dynamic spawns.
-2. Assign camera, gameplay input, HUD, map, dialog, cutscene UI, music, ambience, and looped SFX to host/session/experience owners.
-3. Prove each owner retires once while frontend camera/menu/input survive at home.
+1. Audit every gameplay spawn against captured session scope.
+2. Add a content-heavy fixture covering authored, nested, deferred, and dynamic spawns.
+3. Assign gameplay cameras, input, HUD, dialog, map, cutscene UI, music, ambience, loops, and provider-local resources to exact owners.
+4. Prove the home-route zero-state contract while frontend authority survives.
 
-### Step 4 — Real provider load plans
+### Phase 4 — Add real provider load plans
 
-1. Create a fresh transaction per route request/relaunch.
-2. Report catalog validation, required assets, room/session preparation, staged immutable data, and classified streamable/speculative work.
-3. Consume one-shot authorization before activation.
-4. Prove hidden grace, slow reveal, exact facts, optional estimate, failure/Retry/Return Home, cancellation, streaming, promotion, and fresh relaunch authorization.
+1. Create a fresh load transaction for every route request and relaunch.
+2. Report catalog validation, required assets, sprite readiness, room/session decoding, immutable prepared-session construction, and audio readiness.
+3. Classify activation-critical, streamable, and speculative work.
+4. Consume one-shot authorization before live gameplay construction.
+5. Prove hidden grace, slow honest presentation, optional estimates, retry/return-home, cancellation, streaming, promotion, and fresh relaunch authorization.
 
-### Step 5 — Ambition provider and launcher
+### Phase 5 — Make providers exceptionally easy to author
 
-1. Extract main-game lifecycle from `ambition_app` startup authority and register it through the shared gameplay provider contract.
-2. Use shared session scope, active world, catalogs, load plan, ownership, and `QuitToHome`.
-3. Configure `ambition_startup`/`ambition_launcher`, link reusable Sanic/Mary-O providers, and derive entries from registrations.
-4. Prove each entry launches, returns, and relaunches.
+1. Consolidate registration, catalog contribution, load planning, prepared-session construction, activation, and teardown behind one obvious provider plugin.
+2. Supply reusable defaults for standalone hosts, direct gameplay entry, demo launchers, host-relative home, minimal loading presentation, and headless lifecycle tests.
+3. Add a small example/test provider demonstrating the intended authoring experience.
+4. Measure dependency fanout and preserve narrow provider/headless compile paths.
 
-### Step 6 — Cross-experience proof
+### Phase 6 — Convert Ambition and build the host
 
-Exercise `launcher -> Sanic -> launcher -> Mary-O -> launcher -> Ambition -> launcher -> Sanic -> launcher`. At every boundary assert one shell experience, zero/one gameplay session as appropriate, fresh IDs, correct world/catalog/input/camera/UI/audio, no stale load transaction, and no previous-provider state. Repeat in no-window rendered composition.
+1. Convert the main Ambition game to the shared provider contract.
+2. Move main-game session state, ownership, catalogs, load plan, activation, teardown, and `QuitToHome` behind that provider.
+3. Configure `ambition_startup` and `ambition_launcher` in the host.
+4. Link reusable Ambition, Sanic, and Mary-O providers.
+5. Derive launcher entries from provider registrations.
+6. Preserve direct development entry through host configuration.
 
-### Step 7 — Startup and activity
+### Phase 7 — Cross-experience acceptance
 
-1. Configure minimal programmatic/text startup sequence without using vanity timing as load concealment.
-2. Preserve direct routes for tests/development.
-3. Add one deterministic arbitrary activity and prove unengaged auto-advance, engaged ready-hold, Continue, exact cleanup, and one activation commit.
+Exercise:
 
-### Step 8 — Credits and cutscene adapters
+```text
+Ambition launcher
+-> Sanic
+-> Ambition launcher
+-> Mary-O
+-> Ambition launcher
+-> Ambition
+-> Ambition launcher
+-> Sanic
+-> Ambition launcher
+```
 
-Register game-owned credits with postgame/home routing and a top-level cutscene adapter for previews/openings/endings; preserve ordinary in-session cutscenes.
+At every boundary assert:
+
+- one active shell experience;
+- zero or one gameplay session as appropriate;
+- fresh activation/session identities;
+- correct provider and world authority;
+- correct character/audio selection;
+- correct input, camera, and UI ownership;
+- zero previous-provider entities or session resources;
+- zero stale load transactions;
+- exactly one launcher authority at home.
+
+Provide both a headless lifecycle test and a no-window rendered ownership test. Poison stale catalog selection, stale room authority, skipped scope retirement, stale camera/input/audio, reused load authorization, hard-coded return routes, and registration-order dependence.
+
+### Phase 8 — Startup sequence and loading activity
+
+1. Configure the minimal startup route without using vanity timing to conceal load.
+2. Preserve direct route entry for tests and development.
+3. Add one deterministic activity proving scoped input/state, engagement, ready-hold, universal Continue, optional result, exact cleanup, and destination isolation.
+4. Leave credits and top-level cutscene adapters as later shell-experience extensions of the same architecture.
 
 ## Required acceptance tests
 
 | Area | Proofs |
 |---|---|
-| Session | request-time ownership; nested/deferred inheritance; ambient-change immunity; immediate retirement revocation; A retirement preserves B; complete representative ownership; zero session state at home; visible/headless same lifecycle |
-| Catalog | provider-only catalogs; all three coexist; order independence; deterministic duplicates; multiple Apps; simulation/presentation same authority |
-| Load | hidden fast load; slow honest evidence; estimates non-authoritative; streaming activation; promotion reuse; cancelled/superseded inert; fresh retry/relaunch; one-shot commit |
-| Hosts | Ambition catalog exactly once each; direct standalone entry/private home; embedded host-relative return; repeated/cross-provider leak-free cycles; startup handoff; direct gameplay/credits/cutscene entry |
-| Activity | two unrelated registrations; unengaged auto-advance; engaged ready-hold; Continue cleanup/commit; destination isolation |
+| Catalog | Provider-only fragments; all three coexist; registration-order independence; deterministic duplicate diagnostics; failed registration preserves prior valid state; separate Apps; immutable validated fragments; simulation/presentation agree on one authority; no hidden process globals. |
+| Session | Request-time captured ownership; nested/deferred inheritance; ambient-route immunity; immediate retirement revocation; A retirement preserves B; frontend-safe absence; fresh relaunch; zero session authority at home. |
+| Audio | Ambition/Sanic/Mary-O provider selection; combined deterministic indexing; clean activation replacement; home playback retirement; separate-App isolation; no central host match. |
+| Load | Hidden fast load; slow honest evidence; optional estimates; streaming activation; promotion reuse; cancelled/superseded inert; retry/relaunch freshness; one-shot commit. |
+| Hosts | Registration-derived launcher; direct standalone entry/private home; embedded host-relative return; identical provider implementation; repeated and cross-provider leak-free cycles; startup handoff. |
+| Activity | Unengaged auto-advance; engaged ready-hold; Continue cleanup/commit; scoped input/state; destination isolation. |
+| Compile | Headless cores avoid render dependencies; providers avoid app crates; engine avoids game content; one provider tests without unrelated games; dependency policies remain green. |
 
-Every invariant supporting `DONE` receives poison evidence.
+Every invariant supporting `DONE` receives direct or poison evidence.
 
 ## Validation commands
 
 ```bash
+cargo test -p ambition_audio
+cargo test -p ambition_characters
 cargo test -p ambition_platformer_primitives
 cargo test -p ambition_game_shell
 cargo test -p ambition_load
@@ -223,8 +487,11 @@ cargo test -p ambition_actors
 cargo test -p ambition_render
 cargo test -p ambition_demo_sanic
 cargo test -p ambition_demo_sanic_app
+cargo test -p ambition_demo_sanic_app --features visible
 cargo test -p ambition_demo_smb1
 cargo test -p ambition_demo_smb1_app
+cargo test -p ambition_demo_smb1_app --features visible
+cargo test -p ambition_app
 cargo test -p ambition_workspace_policy
 cargo fmt --all -- --check
 python3 scripts/modules_md.py
@@ -233,8 +500,8 @@ python3 scripts/check_agent_kb.py
 python3 scripts/check_doc_links.py
 ```
 
-Run visible/no-window tests with their required features and add main Ambition packages once its provider lands. Report only executed commands.
+Run visible/no-window tests with their required features. Report only commands actually executed, their exact result, and any source-inspection-only claims separately.
 
 ## Completion reporting
 
-Track executable slices as `DONE`, `OPEN`, or `BLOCKED`. `DONE` cites a passing test or machine-derived invariant; source inspection remains labeled. This live plan records current architecture and remaining work. Commit history or an archive holds detailed execution history.
+Track executable slices as `DONE`, `OPEN`, or `BLOCKED`. A `DONE` row cites a passing test or machine-derived invariant supporting the exact wording. Do not call App-local storage complete runtime authority when active provider/session selection remains absent. Keep implementation history in commits or archives; keep this live document focused on the desired architecture, present constraints, dependency order, and remaining work.

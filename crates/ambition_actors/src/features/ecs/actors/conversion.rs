@@ -61,6 +61,7 @@ pub(crate) fn hostile_brain_id_for_actor(
 /// provoked. Spawn-time use: feeds the actor's stored `CombatKit` so a provoked
 /// NPC fights with the right weapon. Generalized from `hostile_enemy_spec_for_npc`.
 pub(crate) fn hostile_spec_for_actor(
+    roster: &super::super::super::enemies::CharacterRoster,
     id: &str,
     name: &str,
     dialogue_id: Option<&str>,
@@ -68,7 +69,7 @@ pub(crate) fn hostile_spec_for_actor(
     let brain = ambition_entity_catalog::placements::CharacterBrain::Custom(
         hostile_brain_id_for_actor(id, name, dialogue_id).into(),
     );
-    super::super::super::enemies::spec_for_brain(&brain)
+    roster.spec_for_brain(&brain)
 }
 
 /// Build the read-model mirror components for an actor cluster seed at the given
@@ -134,6 +135,7 @@ pub fn enemy_component_snapshot(
 /// stimulus and save-load provoke paths.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn provoke_actor_in_place(
+    roster: &super::super::super::enemies::CharacterRoster,
     commands: &mut Commands,
     entity: Entity,
     em: &mut super::super::actor_clusters::ActorMut<'_>,
@@ -145,7 +147,7 @@ pub(crate) fn provoke_actor_in_place(
 ) {
     if disposition.is_peaceful() {
         let hostile_id = hostile_brain_id_for_actor(&em.config.id, &em.config.name, dialogue_id);
-        let spec = super::super::super::enemies::spec_for_brain(
+        let spec = roster.spec_for_brain(
             &ambition_entity_catalog::placements::CharacterBrain::Custom(hostile_id.into()),
         );
         em.config.tuning = spec.tuning();

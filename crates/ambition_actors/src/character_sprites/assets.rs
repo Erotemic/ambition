@@ -21,15 +21,16 @@
 //! `NPC_SPRITE_REGISTRY` table (display name + filename + sheet
 //! const) and a parallel `npc_sprite_label` display-name → catalog-
 //! id mapper. Both are gone now: the catalog is the single source
-//! of `display_name` and on-disk path, while `sheet_for_character_id`
-//! is the only place that pairs a catalog id with its sheet const.
+//! of `display_name` and on-disk path, while
+//! `sheet_for_character_id_in` is the only place that joins a catalog id
+//! to its sheet metadata through an explicit App-local catalog.
 
 use bevy::prelude::*;
 
 use ambition_asset_manager::AssetId;
 
 use crate::assets::sandbox_assets::{ids, SandboxAssetCatalog};
-use crate::character_roster::catalog;
+use ambition_characters::actor::character_catalog::{CharacterCatalog, CharacterCatalogData};
 use ambition_engine_core as ae;
 use ambition_persistence::settings::VisualQualityBudget;
 use ambition_sprite_sheet::character::sheets;
@@ -58,8 +59,11 @@ pub use ambition_sprite_sheet::character::CharacterSpriteAssets;
 /// Returns `None` only when no manifest exists for the id — usually
 /// because the renderer hasn't been run for that target; the actor
 /// then renders the colored-rectangle placeholder.
-pub fn sheet_for_character_id(character_id: &str) -> Option<CharacterSheetSpec> {
-    if let Some(entry) = catalog().characters.get(character_id) {
+fn sheet_for_character_id_from_data(
+    catalog: &CharacterCatalogData,
+    character_id: &str,
+) -> Option<CharacterSheetSpec> {
+    if let Some(entry) = catalog.characters.get(character_id) {
         if let Some(target) = entry.manifest_target() {
             let tuning = entry
                 .sprite_tuning
@@ -87,13 +91,24 @@ pub fn sheet_for_character_id(character_id: &str) -> Option<CharacterSheetSpec> 
     spec
 }
 
+/// Resolve a sheet from the caller's assembled App-local catalog.
+pub fn sheet_for_character_id_in(
+    character_catalog: &CharacterCatalog,
+    character_id: &str,
+) -> Option<CharacterSheetSpec> {
+    sheet_for_character_id_from_data(character_catalog.data(), character_id)
+}
+
 /// The manifest target + resolution-independent tuning for a catalog `cid`,
 /// when it has a catalog row that names a sheet. This is what
 /// [`build_optional_via_catalog`] needs to fetch the **scaled-variant** record
 /// keyed `<target>.<suffix>`. `None` for ids resolved through the manifest-by-id
 /// fallback (they stay at base resolution — acceptable, they render fine).
-fn character_variant_tuning(cid: &str) -> Option<(&'static str, sheets::SheetTuning)> {
-    let entry = catalog().characters.get(cid)?;
+fn character_variant_tuning<'a>(
+    character_catalog: &'a CharacterCatalog,
+    cid: &str,
+) -> Option<(&'a str, sheets::SheetTuning)> {
+    let entry = character_catalog.get(cid)?;
     let target = entry.manifest_target()?;
     let tuning = entry
         .sprite_tuning
@@ -160,13 +175,14 @@ fn body_pixel_extent(metrics: &BodyMetrics) -> Option<(f32, f32)> {
 /// is the "sprite metadata supersedes the spawn box when present, else fall
 /// back to LDtk" rule (matching the boss `body_metrics` pipeline, generalized
 /// to ordinary catalog characters).
-pub fn sprite_body_collision_for_character_id(
+fn sprite_body_collision_for_character_id_from_data(
+    catalog: &CharacterCatalogData,
     character_id: &str,
     ldtk_collision: ae::Vec2,
 ) -> Option<SpriteBodyCollision> {
-    let entry = catalog().characters.get(character_id)?;
+    let entry = catalog.characters.get(character_id)?;
     let target = entry.manifest_target()?;
-    let spec = sheet_for_character_id(character_id)?;
+    let spec = sheet_for_character_id_from_data(catalog, character_id)?;
     let record = sheets::record_for_target(target)?;
     let metrics = record.body_metrics.as_ref()?;
     let (body_w, body_h) = body_pixel_extent(metrics)?;
@@ -185,6 +201,19 @@ pub fn sprite_body_collision_for_character_id(
     })
 }
 
+/// Derive sprite-body collision from the caller's App-local catalog.
+pub fn sprite_body_collision_for_character_id_in(
+    character_catalog: &CharacterCatalog,
+    character_id: &str,
+    ldtk_collision: ae::Vec2,
+) -> Option<SpriteBodyCollision> {
+    sprite_body_collision_for_character_id_from_data(
+        character_catalog.data(),
+        character_id,
+        ldtk_collision,
+    )
+}
+
 /// Return every `(character_id, on-disk filename)` pair the catalog
 /// declares, for asset-manifest registration. Used by the sandbox-
 /// assets aggregator (`builders/visuals.rs::extend_with_character_entries`)
@@ -193,9 +222,11 @@ pub fn sprite_body_collision_for_character_id(
 /// Filename is the basename of the catalog entry's `spritesheet`
 /// field (stripped of the `sprites/` prefix the catalog stores them
 /// under).
-pub fn all_character_sprite_filenames() -> Vec<(String, String)> {
-    let mut out: Vec<(String, String)> = Vec::with_capacity(catalog().characters.len());
-    for (cid, entry) in catalog().characters.iter() {
+fn all_character_sprite_filenames_from_data(
+    catalog: &CharacterCatalogData,
+) -> Vec<(String, String)> {
+    let mut out: Vec<(String, String)> = Vec::with_capacity(catalog.characters.len());
+    for (cid, entry) in &catalog.characters {
         let filename = entry
             .spritesheet
             .strip_prefix("sprites/")
@@ -204,6 +235,13 @@ pub fn all_character_sprite_filenames() -> Vec<(String, String)> {
         out.push((cid.clone(), filename));
     }
     out
+}
+
+/// Project the caller's App-local catalog into asset-manifest rows.
+pub fn all_character_sprite_filenames_in(
+    character_catalog: &CharacterCatalog,
+) -> Vec<(String, String)> {
+    all_character_sprite_filenames_from_data(character_catalog.data())
 }
 
 fn sprite_texture_scale(
@@ -227,14 +265,15 @@ fn sprite_texture_scale(
 
 /// Probe the sandbox `assets/<sprite_folder>/` directory for spritesheets.
 ///
-/// Iterates the embedded character catalog and, for each entry, looks
-/// up its [`CharacterSheetSpec`] via [`sheet_for_character_id`]. Asset
+/// Iterates the caller's App-local character catalog and, for each entry,
+/// looks up its [`CharacterSheetSpec`] via [`sheet_for_character_id_in`]. Asset
 /// availability gates through
 /// [`SandboxAssetCatalog::should_attempt_optional_load`]; missing
 /// files produce no map entry (callers fall back to colored
 /// rectangles).
 pub fn load_character_sprites_in(
-    catalog: &SandboxAssetCatalog,
+    character_catalog: &CharacterCatalog,
+    asset_catalog: &SandboxAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
     quality: Option<&VisualQualityBudget>,
@@ -244,11 +283,9 @@ pub fn load_character_sprites_in(
     let mut loaded = 0usize;
     let mut skipped_no_spec: Vec<&str> = Vec::new();
     let mut skipped_no_path: Vec<&str> = Vec::new();
-    // NB: `catalog` here is the ASSET catalog param; the roster comes from
-    // the installed character catalog.
-    for (cid, entry) in crate::character_roster::catalog().characters.iter() {
+    for (cid, entry) in character_catalog.iter() {
         total += 1;
-        let Some(sheet_spec) = sheet_for_character_id(cid) else {
+        let Some(sheet_spec) = sheet_for_character_id_in(character_catalog, cid) else {
             // Neither a hardcoded const nor a manifest in
             // `assets/sprites/` exists for this id — skip silently.
             // The character falls back to the colored-rectangle
@@ -257,10 +294,10 @@ pub fn load_character_sprites_in(
             continue;
         };
         let asset_id = ids::character_sprite(cid);
-        let variant_tuning = character_variant_tuning(cid);
+        let variant_tuning = character_variant_tuning(character_catalog, cid);
         let variant = variant_tuning.as_ref().map(|(t, tn)| (*t, tn));
         let Some(asset) = build_optional_via_catalog(
-            catalog,
+            asset_catalog,
             asset_server,
             layouts,
             &asset_id,
@@ -524,6 +561,53 @@ mod sprite_body_collision_tests {
     use super::*;
     use ambition_sprite_sheet::{BodyMetrics, NamedPixelRect, PixelRect};
 
+    const CATALOG_A: &str = r#"(
+        brain_presets: { "idle": StandStill },
+        action_set_presets: { "peaceful": (move_style: Walk) },
+        characters: {
+            "alpha": (
+                display_name: "Alpha", spritesheet: "sprites/alpha.png",
+                manifest: "alpha.ron", tier: MainHall, body_kind: Standard,
+                composition: None, default_brain: "idle",
+                default_action_set: "peaceful", tags: [],
+            ),
+        },
+    )"#;
+
+    const CATALOG_B: &str = r#"(
+        brain_presets: { "idle": StandStill },
+        action_set_presets: { "peaceful": (move_style: Walk) },
+        characters: {
+            "beta": (
+                display_name: "Beta", spritesheet: "sprites/beta.png",
+                manifest: "beta.ron", tier: MainHall, body_kind: Standard,
+                composition: None, default_brain: "idle",
+                default_action_set: "peaceful", tags: [],
+            ),
+        },
+    )"#;
+
+    fn catalog(ron: &str) -> CharacterCatalog {
+        CharacterCatalog::from_data(
+            ambition_characters::actor::character_catalog::parse_catalog(ron),
+        )
+    }
+
+    #[test]
+    fn sprite_manifest_projection_obeys_the_explicit_catalog() {
+        let first = catalog(CATALOG_A);
+        let second = catalog(CATALOG_B);
+
+        assert_eq!(
+            all_character_sprite_filenames_in(&first),
+            vec![("alpha".to_string(), "alpha.png".to_string())]
+        );
+        assert_eq!(
+            all_character_sprite_filenames_in(&second),
+            vec![("beta".to_string(), "beta.png".to_string())]
+        );
+    }
+
     fn metrics_with_bbox(bbox: Option<PixelRect>, parts: Vec<NamedPixelRect>) -> BodyMetrics {
         BodyMetrics {
             body_pixel_bbox: bbox,
@@ -602,16 +686,16 @@ mod sprite_body_collision_tests {
     #[test]
     fn derived_collision_is_the_visible_body_and_preserves_the_render() {
         let ldtk = ae::Vec2::new(40.0, 60.0);
-        let Some((cid, derived)) = catalog()
-            .characters
-            .keys()
-            .find_map(|cid| sprite_body_collision_for_character_id(cid, ldtk).map(|d| (cid, d)))
-        else {
+        let catalog = crate::character_roster::catalog();
+        let Some((cid, derived)) = catalog.iter().find_map(|(cid, _)| {
+            sprite_body_collision_for_character_id_in(&catalog, cid, ldtk)
+                .map(|derived| (cid, derived))
+        }) else {
             return; // no baked sheet with metrics available
         };
-        let entry = catalog().characters.get(cid).unwrap();
+        let entry = catalog.get(cid).unwrap();
         let target = entry.manifest_target().unwrap();
-        let spec = sheet_for_character_id(cid).unwrap();
+        let spec = sheet_for_character_id_in(&catalog, cid).unwrap();
         let record = sheets::record_for_target(target).unwrap();
         let metrics = record.body_metrics.as_ref().unwrap();
         let (body_w, body_h) = body_pixel_extent(metrics).unwrap();

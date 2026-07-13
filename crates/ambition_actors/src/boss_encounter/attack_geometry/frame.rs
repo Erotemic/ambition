@@ -21,8 +21,11 @@ pub(super) fn sprite_authored_volumes(
     // (collision_scale > 1.0 in every sheet spec). Using ctx.size
     // would render hitboxes at half the visible size of the attack.
     let world_size = sprite_world_size(metrics, ctx.size);
-    for animation in crate::boss_encounter::behavior::boss_animation_keys_for_profile(profile) {
-        let Some(entry) = metrics.animations.get(*animation) else {
+    for animation in crate::boss_encounter::behavior::boss_animation_keys_for_profile(
+        ctx.boss_catalog,
+        profile,
+    ) {
+        let Some(entry) = metrics.animations.get(&animation) else {
             continue;
         };
         let Some(hitbox) = entry.hitbox.as_ref() else {
@@ -90,9 +93,9 @@ pub(super) fn authored_animation_frame_index(
     animation_frame_index(entry, elapsed_s)
 }
 
-pub(super) fn push_unique_animation_key(keys: &mut Vec<&'static str>, key: &'static str) {
+pub(super) fn push_unique_animation_key(keys: &mut Vec<String>, key: &str) {
     if !key.is_empty() && !keys.iter().any(|existing| *existing == key) {
-        keys.push(key);
+        keys.push(key.to_string());
     }
 }
 
@@ -100,20 +103,25 @@ pub(super) fn runtime_animation_keys(
     ctx: &BossVolumeContext,
     active_profile: Option<&BossAttackProfile>,
     rest_keys: &[&'static str],
-) -> Vec<&'static str> {
-    let mut keys: Vec<&'static str> = Vec::new();
+) -> Vec<String> {
+    let mut keys: Vec<String> = Vec::new();
     if let (Some(sample), Some(profile)) = (ctx.animation_frame, active_profile) {
         if sample.profile.as_ref() == Some(profile) {
-            if let Some(animation_key) = sample.animation_key {
+            if let Some(animation_key) = sample.animation_key.as_deref() {
                 push_unique_animation_key(&mut keys, animation_key);
             }
         }
     }
     let mapped_keys = active_profile
-        .map(crate::boss_encounter::behavior::boss_animation_keys_for_profile)
-        .unwrap_or(rest_keys);
+        .map(|profile| {
+            crate::boss_encounter::behavior::boss_animation_keys_for_profile(
+                ctx.boss_catalog,
+                profile,
+            )
+        })
+        .unwrap_or_else(|| rest_keys.iter().map(|key| (*key).to_string()).collect());
     for key in mapped_keys {
-        push_unique_animation_key(&mut keys, key);
+        push_unique_animation_key(&mut keys, &key);
     }
     keys
 }

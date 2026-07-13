@@ -6,6 +6,8 @@
 //! their immutable definitions into one App without plugin-order authority or
 //! process-global cross-App contamination.
 
+use ambition::actors::boss_encounter::{BossCatalog, BossCatalogRegistry};
+use ambition::actors::features::CharacterRosterRegistry;
 use ambition::audio::catalog::AudioCatalogRegistry;
 use ambition::characters::actor::character_catalog::{
     CharacterCatalog, CharacterCatalogDefaults, CharacterCatalogOwners,
@@ -14,6 +16,8 @@ use bevy::prelude::*;
 
 fn register_ambition(app: &mut App) {
     ambition_content::character_catalog::register(app);
+    ambition_content::enemy_roster::register(app);
+    ambition_content::bosses::register(app);
     ambition_content::audio_registries::register(app);
 }
 
@@ -41,6 +45,22 @@ fn audio_providers(app: &App) -> Vec<String> {
         .collect()
 }
 
+fn hostile_providers(app: &App) -> Vec<String> {
+    app.world()
+        .resource::<CharacterRosterRegistry>()
+        .providers()
+        .map(str::to_string)
+        .collect()
+}
+
+fn boss_providers(app: &App) -> Vec<String> {
+    app.world()
+        .resource::<BossCatalogRegistry>()
+        .providers()
+        .map(str::to_string)
+        .collect()
+}
+
 #[test]
 fn three_real_providers_compose_independent_of_registration_order() {
     let mut forward = App::new();
@@ -59,6 +79,8 @@ fn three_real_providers_compose_independent_of_registration_order() {
         reverse.world().resource::<CharacterCatalog>()
     );
     assert_eq!(audio_providers(&forward), audio_providers(&reverse));
+    assert_eq!(hostile_providers(&forward), hostile_providers(&reverse));
+    assert_eq!(boss_providers(&forward), boss_providers(&reverse));
 
     let catalog = forward.world().resource::<CharacterCatalog>();
     for id in ["player", "sanic", "super_sanic", "mary_o"] {
@@ -87,6 +109,12 @@ fn three_real_providers_compose_independent_of_registration_order() {
     audio
         .combined_music_registry("ambition")
         .expect("real provider music ids must compose without collision");
+
+    assert_eq!(hostile_providers(&forward), vec!["ambition"]);
+    assert_eq!(boss_providers(&forward), vec!["ambition"]);
+    let bosses = forward.world().resource::<BossCatalog>();
+    assert!(bosses.behavior("clockwork_warden").is_some());
+    assert!(bosses.encounter("clockwork_warden").is_some());
 }
 
 #[test]
@@ -114,4 +142,10 @@ fn separate_apps_select_independent_provider_sets() {
         .world()
         .get_resource::<AudioCatalogRegistry>()
         .is_none());
+
+    for app in [&sanic, &mary_o] {
+        assert!(app.world().get_resource::<CharacterRosterRegistry>().is_none());
+        assert!(app.world().get_resource::<BossCatalogRegistry>().is_none());
+        assert!(app.world().get_resource::<BossCatalog>().is_none());
+    }
 }

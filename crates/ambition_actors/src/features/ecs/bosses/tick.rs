@@ -325,6 +325,7 @@ pub fn project_boss_attack_state_from_move(
 /// frame's) and before the renderer's `animate_bosses`.
 pub fn drive_boss_animators(
     mut commands: Commands,
+    boss_catalog: Res<crate::boss_encounter::BossCatalog>,
     world_time: Res<WorldTime>,
     ecs_bosses: Query<(
         Entity,
@@ -353,6 +354,7 @@ pub fn drive_boss_animators(
         frame.request_for_phase(anim, state.drive_phase());
         frame.tick(dt);
         match crate::features::ecs_boss_animation_frame_sample(
+            &boss_catalog,
             feature_id.as_str(),
             &ecs_bosses,
             anim,

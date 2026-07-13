@@ -59,7 +59,7 @@ pub(crate) fn fixture_sfx_registry() -> &'static SfxRegistry {
 }
 
 /// Test fixture = the game's REAL authored registries, read cross-crate
-/// from `ambition_content` (the `install_enemy_roster` fixture pattern) so
+/// from `ambition_content` as an explicit cross-crate test fixture so
 /// core's catalog/audio tests exercise real data without core embedding it.
 #[cfg(test)]
 static TEST_FIXTURE_MUSIC_REGISTRY: std::sync::LazyLock<MusicRegistry> =

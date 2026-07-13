@@ -586,7 +586,7 @@ fn directional_attack_variants(base: &MoveSpec) -> Vec<(String, MoveSpec)> {
         m
     };
     // NB: the second `variant(...)` arg is the CLIP the strike resolves its
-    // AUTHORED hitbox polygon from (`authored_attack_volume` → a plain manifest
+    // AUTHORED hitbox polygon from the App-local resolver → a plain manifest
     // animation-name lookup). It MUST match a real authored row or the strike
     // silently falls back to the tiny default Rect. The manifest authors the
     // aerials as `air_up` / `air_down` / `air_back` / `air_forward` (NOT

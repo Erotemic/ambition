@@ -2,7 +2,7 @@
 
 > **Purpose:** define the desired reusable engine architecture first, then track the shortest dependency-ordered path from the current repository to that state.
 >
-> **Current status:** the load/shell cores, captured session ownership, shared shell-to-session bridge, standalone Sanic/Mary-O lifecycle, and App-local catalog registries exist. Process-global music/SFX registries have been removed. Character runtime authority is only partly migrated, active-provider audio selection is not yet complete, and the canonical active gameplay-session model remains the next major architectural seam. The launcher, real provider load plans, main Ambition provider, cross-experience proof, startup sequence, and loading activity remain open.
+> **Current status:** the load/shell cores, captured session ownership, shared shell-to-session bridge, standalone Sanic/Mary-O lifecycle, and App-local catalog registries exist. Process-global music/SFX registries have been removed. The current additive candidate completes the authored character-authority migration in source: catalog fragments are hardened; production consumers receive the App-local `CharacterCatalog`, hostile `CharacterRoster`, and `BossCatalog` explicitly; authored attack geometry resolves through an App-local Bevy resource; and the old roster/install/implicit-lookup seams are retired behind one policy ratchet. Rust compilation, focused tests, formatting, and the workspace-policy suite must still verify that candidate before it becomes `DONE`. Active-provider audio selection and the canonical active gameplay-session model remain open, followed by the launcher, real provider load plans, main Ambition provider, cross-experience proof, startup sequence, and loading activity.
 
 ## Desired end state
 
@@ -316,19 +316,25 @@ The repository currently contains:
 - a shared shell-to-gameplay-session bridge;
 - broad session ownership across existing simulation and presentation paths;
 - Sanic and Mary-O provider/standalone lifecycle customers;
-- deterministic App-local character and audio fragment registries;
-- real Ambition/Sanic/Mary-O fragment composition;
+- deterministic App-local playable-character, hostile-archetype, boss, and audio fragment registries;
+- real Ambition/Sanic/Mary-O character/audio composition plus provider-owned hostile and boss content;
 - removal of the old process-global music/SFX registry APIs;
-- a source-policy ratchet against reintroducing those audio globals.
+- a source-policy ratchet against reintroducing those audio globals;
+- a character-authority completion candidate with private validated fragments, fallible parsing, and transactional registration-boundary revalidation;
+- explicit App-local `CharacterCatalog` flow through player wear/re-wear, actor and NPC construction, sprite and collision resolution, asset manifests, room lowering, reset/hot reload, snapshot reconstruction, encounter and summon spawns, interaction, dialogue, barks, and authored attack geometry;
+- a deterministic App-local hostile `CharacterRoster` assembled from provider fragments, including provider-relative defaults that can coexist without selecting one process-wide winner;
+- one App-local `BossCatalog` assembling provider-owned behavior profiles, encounter specifications, sheet geometry, sprite filenames, special-animation vocabulary, and provider-relative defaults;
+- App-local `AuthoredAttackVolumeResolver`, hostile roster, and boss catalog resources threaded through simulation, presentation, snapshots, encounters, projectiles, and content validation, with separate-App isolation coverage;
+- required catalog resources at production ECS boundaries: playable-character authority no longer degrades through optional resources or implicit empty-catalog constructors; reusable boss-free/hostile-free Apps carry explicit content-free resources, while provider activation validation remains part of W0;
+- deterministic validation of reverse display-name authoring joins, followed by stable character IDs carried in runtime components;
+- deletion of production character/hostile/boss install caches, demo installers, global attack-volume and boss lookup seams, engine-owned provider asset enumeration, and implicit sprite lookup wrappers;
+- one complete source-policy ratchet protecting the retired process-global character, hostile-archetype, and boss authority across production crates and games.
 
 ### Important limitations in the current slice
 
-The current source must not be described as the completed desired authority model:
+The current source must not yet be described as fully verified:
 
-- character migration is partial;
-- the combat-bark slice currently permits an absent `CharacterCatalog` and falls back to an empty catalog;
-- bark lookup reverses a display name instead of carrying a stable character ID;
-- fragment structs still expose mutable validated state and need stronger registration-boundary validation;
+- the playable-character, hostile-archetype, and boss authority implementation is code-complete as a candidate, but its Rust compilation, focused tests, formatting, and workspace-policy suite must pass before C0H/C1-char/C2-char become `DONE`;
 - audio fragments are App-local, but active provider/session audio selection and cross-experience replacement are not implemented;
 - the combined audio surface does not yet prove deterministic provider-relative SFX authority;
 - the launcher can still have gameplay-world authority through historically global resources;
@@ -343,19 +349,19 @@ The current source must not be described as the completed desired authority mode
 | ID | Status | Required result |
 |---|---|---|
 | C0 | DONE | Deterministic App-local character/audio fragment registries; real Ambition/Sanic/Mary-O coexistence; registration-order and separate-App isolation coverage; stable duplicate ownership diagnostics; candidate-before-commit App updates. |
-| C0H | OPEN | Harden fragment APIs: private validated state, fallible parsing, registration-boundary revalidation, and no panic-based reliance on externally mutable invariants. |
-| C1-char | OPEN (partial) | Every meaningful character consumer uses explicit App-local authority. Replace display-name reverse lookup with stable character IDs; require the resource in production systems; migrate sprite/spawn/brain/dialogue/asset-manifest consumers; add direct authority and poison tests. |
-| C2-char | BLOCKED on C1-char | Delete `install_character_catalog`, `catalog()`, `catalog_ron()`, `default_character_id`, and `character_roster_plugin`; migrate fixtures; add a source-policy ratchet. |
+| C0H | OPEN (completion candidate implemented; verification required) | Playable-character, hostile-roster, boss, and audio fragments are immutable after validation; malformed RON is a structured error; registration revalidates and assembles a candidate before App mutation; duplicate identity ownership fails deterministically. Mark `DONE` only after focused Rust tests pass. |
+| C1-char | OPEN (completion candidate implemented; verification required) | Every production playable-character, hostile-archetype, and boss consumer uses explicit App-local authority: wear/re-wear, construction, brain/action/movement/body resolution, boss behavior/encounters/art/special rows, sprites, collision, manifests, room lowering, reset/hot reload, snapshots, projectiles, encounters/summons, interaction, dialogue, barks, and attack volumes. Playable-character consumers fail visibly when composition is absent; content-free hostile/boss resources remain explicit for reusable frontend/demo Apps, and W0 must reject activation when a selected provider's required fragments are absent. Separate Apps prove isolation and provider defaults coexist without a global winner. |
+| C2-char | OPEN (completion candidate implemented; verification required) | Production playable-character, hostile-roster, and boss install/override globals; the global attack-volume function pointer; engine-owned provider boss-asset lists; demo installers; and implicit sprite wrappers are removed. One workspace-policy ratchet rejects their return and rejects optional authority resources in production. Pure test fixtures may construct explicit values without becoming runtime authority. |
 | C1-audio-registry | DONE | Process-global music/SFX registry APIs are removed; App-local provider fragments are registered and read explicitly by current bootstrap paths. |
 | C1-audio-session | OPEN | Active gameplay session selects provider-relative music/SFX authority; activation replaces prior authority; home retirement clears playback ownership; Sanic -> Mary-O switching is proven. |
 | C2-audio | DONE | `install_music_registry`, `install_sfx_registry`, `authored_music_registry`, `authored_sfx_registry`, `MUSIC_REGISTRY_OVERRIDE`, and `SFX_REGISTRY_OVERRIDE` are deleted and guarded by policy. |
 | W0 | OPEN | One canonical App-local active gameplay-session representation owns current world/provider/session/load authority. |
 | W1 | BLOCKED on W0 | Frontend routes safely have no gameplay session; gameplay schedules sleep; placeholder worlds disappear. |
 | W2 | BLOCKED on W0 | Camera, HUD, dialog, map, cutscene UI, input, and audio receive explicit host/session ownership. |
-| L0 | BLOCKED on C2-char/W0 | Sanic and Mary-O contribute real preparation through `ambition_load` and produce immutable prepared sessions. |
+| L0 | BLOCKED on verified C2-char/W0 | Sanic and Mary-O contribute real preparation through `ambition_load` and produce immutable prepared sessions. |
 | L1 | BLOCKED on L0 | Retry, cancellation, supersession, streaming, promotion, and relaunch use fresh transaction authority. |
 | P0 | OPEN | Provider authoring surface is compact, documented by an example/test provider, and supplies reusable standalone/load/session defaults. |
-| A0 | BLOCKED on C2-char/W0/P0 | Main Ambition game becomes a provider using the shared lifecycle. |
+| A0 | BLOCKED on verified C2-char/W0/P0 | Main Ambition game becomes a provider using the shared lifecycle. |
 | A1 | BLOCKED on A0 | Ambition host derives Ambition + Sanic + Mary-O + Exit from registrations. |
 | X0 | BLOCKED on A1/L1/W2 | Headless cross-experience cycle proves exact replacement and no stale authority. |
 | X1 | BLOCKED on X0 | No-window rendered cycle proves camera/UI/input/audio ownership. |
@@ -365,23 +371,20 @@ The current source must not be described as the completed desired authority mode
 
 ## Dependency-ordered roadmap
 
-### Phase 0 — Harden the catalog foundation
+### Phase 0 — Verify and land complete App-local character authority
 
-1. Make character/audio fragments immutable after validated construction.
-2. Make parsing and registration failures structured and non-panicking.
-3. Revalidate at the transactional registration boundary.
-4. Replace bark display-name reversal with explicit runtime character identity.
-5. Require catalog authority in production systems; use explicit empty fixtures only in minimal tests.
-6. Add direct tests proving different Apps/catalogs produce different runtime behavior.
-7. Correct stale comments and evidence claims before expanding the architecture.
+1. Run `ambition_characters`, `ambition_audio`, `ambition_combat`, `ambition_actors`, `ambition_runtime`, `ambition_content`, `ambition_app`, both demos in visible/headless modes, and `ambition_workspace_policy`.
+2. Confirm malformed playable-character, hostile-roster, and boss fragments return stable structured errors; duplicate identities report both providers; and failed registration preserves the previous valid App assembly.
+3. Confirm Ambition, Sanic, Mary-O, combined, and separate-App compositions select the expected playable-character, hostile, and boss definitions across spawn, sprite, bark, dialogue, collision, attack geometry, encounter behavior, projectiles, and asset indexing.
+4. Confirm multiple provider defaults coexist without one linked game becoming the implicit fallback for another; active-session provider selection remains the later W0 responsibility.
+5. Poison missing `CharacterCatalog`; optional-resource fallback; reintroduced install/override globals; implicit sprite lookup; engine-owned provider boss asset lists; and process-global attack resolution. Also prove that explicit content-free `CharacterRoster`/`BossCatalog` resources are safe outside gameplay and that W0 rejects activation when the selected provider's required fragments are absent. Every poison must fail for the intended reason.
+6. Run `cargo fmt --all -- --check`, module/doc/agent checks, and resolve every failure before changing C0H/C1-char/C2-char to `DONE`.
 
-### Phase 1 — Finish explicit character and audio authority
+### Phase 1 — Finish active session-level audio authority
 
-1. Thread `&CharacterCatalog` or `Res<CharacterCatalog>` through NPC/enemy construction, actor seeds, brains, actions, movement/body selection, sprite manifests/tuning/collision/render dimensions, attack volumes, dialogue validation, wear/re-wear, and content fixtures.
-2. Remove every remaining process-global character lookup and add the character policy ratchet.
-3. Add explicit active-provider audio selection to prepared/live gameplay-session state.
-4. Build deterministic provider-relative music and SFX indexing as required by runtime consumers.
-5. Prove Ambition, Sanic, and Mary-O defaults; two-App isolation; home cleanup; and Sanic-to-Mary-O replacement.
+1. Add explicit active-provider audio selection to prepared/live gameplay-session state.
+2. Build deterministic provider-relative music and SFX indexing as required by runtime consumers.
+3. Prove Ambition, Sanic, and Mary-O defaults; two-App isolation; home cleanup; and Sanic-to-Mary-O replacement.
 
 ### Phase 2 — Canonical active gameplay session
 

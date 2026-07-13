@@ -84,23 +84,26 @@ fn boss_anim_for_attack_profile(
 }
 
 fn boss_animation_key_for_sample(
+    catalog: &crate::boss_encounter::BossCatalog,
     profile: &ambition_characters::brain::BossAttackProfile,
     anim: crate::boss_encounter::sprites::BossAnim,
-) -> Option<&'static str> {
+) -> Option<String> {
     use crate::boss_encounter::sprites::BossAnim;
     match (profile.move_id().as_str(), anim) {
         // GNU-ton has profile-specific dangerous boxes (for example
         // `gnu_shockwave`) but the damageable head/body box should follow
         // the rendered row. Keep the sample keyed to the visual row so
         // authored row frames are the source of truth for hurtboxes.
-        ("hand_slam" | "converging_shockwave", BossAnim::FloorSlam) => Some("hand_slam"),
-        ("hand_sweep", BossAnim::SideSweep) => Some("hand_sweep"),
-        ("head_descent", BossAnim::SpikeHalo) => Some("head_down"),
+        ("hand_slam" | "converging_shockwave", BossAnim::FloorSlam) => {
+            Some("hand_slam".into())
+        }
+        ("hand_sweep", BossAnim::SideSweep) => Some("hand_sweep".into()),
+        ("head_descent", BossAnim::SpikeHalo) => Some("head_down".into()),
         // GNU-ton's apple rain reads the head row for its damageable hurtbox.
-        ("apple_rain", BossAnim::SpikeHalo) => Some("head_down"),
-        _ => super::super::bosses::boss_animation_keys_for_profile(profile)
+        ("apple_rain", BossAnim::SpikeHalo) => Some("head_down".into()),
+        _ => super::super::bosses::boss_animation_keys_for_profile(catalog, profile)
             .first()
-            .copied(),
+            .cloned(),
     }
 }
 
@@ -182,6 +185,7 @@ pub fn ecs_boss_anim_state_and_entity(
 /// callers then fall back to elapsed-time sampling instead of using a
 /// frame from the wrong visual row.
 pub fn ecs_boss_animation_frame_sample(
+    catalog: &crate::boss_encounter::BossCatalog,
     id: &str,
     bosses: &Query<(
         bevy::prelude::Entity,
@@ -219,7 +223,7 @@ pub fn ecs_boss_animation_frame_sample(
                         crate::features::BossAnimationFrameSample {
                             profile: Some(profile.clone()),
                             frame_index,
-                            animation_key: boss_animation_key_for_sample(profile, anim),
+                            animation_key: boss_animation_key_for_sample(catalog, profile, anim),
                         },
                     ));
                 }
@@ -232,7 +236,7 @@ pub fn ecs_boss_animation_frame_sample(
                             crate::features::BossAnimationFrameSample {
                                 profile: Some(profile.clone()),
                                 frame_index,
-                                animation_key: boss_animation_key_for_sample(profile, anim),
+                                animation_key: boss_animation_key_for_sample(catalog, profile, anim),
                             },
                         ));
                     }
@@ -249,7 +253,7 @@ pub fn ecs_boss_animation_frame_sample(
                     crate::features::BossAnimationFrameSample {
                         profile: None,
                         frame_index,
-                        animation_key: Some("rest"),
+                        animation_key: Some("rest".into()),
                     },
                 ));
             }

@@ -14,9 +14,9 @@ use crate::spec::{MusicRegistry, MusicTrack, SfxRegistry};
 /// One provider's immutable authored-audio definitions.
 #[derive(Clone, Debug, PartialEq)]
 pub struct AudioCatalogFragment {
-    pub provider_id: String,
-    pub music: Option<MusicRegistry>,
-    pub sfx: Option<SfxRegistry>,
+    provider_id: String,
+    music: Option<MusicRegistry>,
+    sfx: Option<SfxRegistry>,
 }
 
 impl AudioCatalogFragment {
@@ -50,6 +50,40 @@ impl AudioCatalogFragment {
             sfx,
         })
     }
+
+    pub fn provider_id(&self) -> &str {
+        &self.provider_id
+    }
+
+    pub fn music(&self) -> Option<&MusicRegistry> {
+        self.music.as_ref()
+    }
+
+    pub fn sfx(&self) -> Option<&SfxRegistry> {
+        self.sfx.as_ref()
+    }
+
+    fn validate(&self) -> Result<(), AudioCatalogError> {
+        if self.provider_id.trim().is_empty() {
+            return Err(AudioCatalogError::EmptyProviderId);
+        }
+        if let Some(music) = &self.music {
+            music
+                .validate()
+                .map_err(|message| AudioCatalogError::InvalidMusic {
+                    provider_id: self.provider_id.clone(),
+                    message,
+                })?;
+        }
+        if let Some(sfx) = &self.sfx {
+            sfx.validate()
+                .map_err(|message| AudioCatalogError::InvalidSfx {
+                    provider_id: self.provider_id.clone(),
+                    message,
+                })?;
+        }
+        Ok(())
+    }
 }
 
 /// Provider-indexed authored audio for one Bevy `App`.
@@ -60,6 +94,7 @@ pub struct AudioCatalogRegistry {
 
 impl AudioCatalogRegistry {
     pub fn register(&mut self, fragment: AudioCatalogFragment) -> Result<(), AudioCatalogError> {
+        fragment.validate()?;
         if let Some(existing) = self.fragments.get(&fragment.provider_id) {
             if existing == &fragment {
                 return Ok(());
@@ -85,7 +120,7 @@ impl AudioCatalogRegistry {
         self.fragments.get(provider_id)?.sfx.as_ref()
     }
 
-    /// Build the process-visible music asset index while preserving a selected
+    /// Build the App-visible music asset index while preserving a selected
     /// provider's default track. Track ids are global asset identities and must
     /// therefore be unique across linked providers.
     pub fn combined_music_registry(
@@ -233,12 +268,12 @@ impl AudioCatalogAppExt for App {
         &mut self,
         fragment: AudioCatalogFragment,
     ) -> Result<&mut Self, AudioCatalogError> {
-        if !self.world().contains_resource::<AudioCatalogRegistry>() {
-            self.init_resource::<AudioCatalogRegistry>();
-        }
         let registry = {
-            let current = self.world().resource::<AudioCatalogRegistry>();
-            let mut candidate = current.clone();
+            let mut candidate = self
+                .world()
+                .get_resource::<AudioCatalogRegistry>()
+                .cloned()
+                .unwrap_or_default();
             candidate.register(fragment)?;
             candidate.validate_global_music_ids()?;
             candidate

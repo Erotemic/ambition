@@ -98,6 +98,7 @@ pub(crate) fn draw_debug_overlay(
             &ae::MotionModel,
             Option<&ambition::characters::actor::BodyHealth>,
             &ambition::actors::actor::BodyMelee,
+            &ambition::characters::actor::WornCharacter,
         ),
         // The primary player never carries `FeatureSimEntity` (player vs
         // feature-sim entities are mutually exclusive — see the kinematics
@@ -131,7 +132,9 @@ pub(crate) fn draw_debug_overlay(
     } else {
         None
     };
-    let Ok((mut cluster_item, motion_model, player_health, attack)) = player_q.single_mut() else {
+    let Ok((mut cluster_item, motion_model, player_health, attack, worn_character)) =
+        player_q.single_mut()
+    else {
         return;
     };
     // Both debug-overlay helpers (`draw_player_debug`,
@@ -174,6 +177,9 @@ pub(crate) fn draw_debug_overlay(
     draw_player_debug(
         &mut gizmos,
         world,
+        &feature_q.character_catalog,
+        &feature_q.authored_attack_volumes,
+        worn_character.id(),
         &clusters,
         motion_model,
         &platform_set.0,

@@ -247,6 +247,7 @@ fn charge_crash_brain_for_enemy(enemy: &ActorConfig) -> Brain {
 /// default is peaceful. Dismount means "fall off and fight," so the builder
 /// installs an aggressive MeleeBrute brain plus a melee-only action set.
 pub(super) fn dismounted_rider_brain_and_action_set(
+    roster: &super::super::enemies::CharacterRoster,
     rider: &ActorConfig,
     kit: &CombatKit,
     held_item: Option<&ambition_characters::brain::HeldItemSpec>,
@@ -257,7 +258,8 @@ pub(super) fn dismounted_rider_brain_and_action_set(
     // the entity so the runtime dismount never re-reads the roster enum.
     let mut action_set = kit.to_action_set(held_item);
     if action_set.melee.is_none() {
-        action_set.melee = super::super::enemies::spec_for_brain(
+        action_set.melee = roster
+        .spec_for_brain(
             &ambition_entity_catalog::placements::CharacterBrain::Custom("pirate_raider".into()),
         )
         .melee_spec();

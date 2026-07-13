@@ -17,13 +17,13 @@
 //! their machinery half (e.g. [`data`], [`features`]) so historical
 //! `crate::…` paths keep resolving.
 
-/// The authored audio registries (music/sfx RON) — content DATA installed
-/// into the engine's `session::data` seam at startup.
+/// The authored audio registries (music/SFX RON), registered as an App-local
+/// provider fragment.
 pub mod audio_registries;
 pub mod banter;
 pub mod bosses;
-/// The character catalog DATA + the curated playable cast (install seam:
-/// `ambition_actors::character_roster`).
+/// The character catalog data and curated playable cast, contributed as an
+/// immutable provider fragment to the App-local catalog assembly.
 pub mod character_catalog;
 pub mod content_validation;
 pub mod dialogue;
@@ -38,8 +38,8 @@ pub mod falling_sand;
 // the rest of this content module becomes the `ambition_content`
 // crate. Re-exported here so `content::features` paths keep working.
 pub use ambition_actors::features;
-/// The named enemy roster DATA, installed into the machinery lib at
-/// content-plugin build time.
+/// The named hostile-archetype data, contributed as an immutable provider
+/// fragment to the App-local roster assembly.
 pub mod enemy_roster;
 pub mod intro;
 pub mod items;
@@ -60,9 +60,9 @@ pub use plugin::AmbitionContentPlugin;
 /// Stable provider identity used by App-local content registries and the shell.
 pub const AMBITION_CONTENT_PROVIDER: &str = "ambition";
 
-// The character catalog *machinery* (schema, loader, brain resolver,
-// validation) moved to `ambition_characters::actor::character_catalog`; the authored
-// entries live in `assets/data/character_catalog.ron`.
+// Character, hostile-archetype, and boss catalog machinery lives in reusable
+// engine crates; this provider contributes only its authored fragments. The
+// character entries live in `assets/data/character_catalog.ron`.
 
 /// Facade: the data-manifest *machinery* (spec schema + asset wiring)
 /// moved to [`ambition_actors::session::data`]; the authored RON it loads is the

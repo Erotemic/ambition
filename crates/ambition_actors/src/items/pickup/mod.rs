@@ -822,6 +822,7 @@ pub fn held_projectile_step(
     // because retargeting a thrown bolt's owner changes hit attribution (feel), and
     // that never ships blind. Tracked in refactor-chain.md R6.
     player: Query<Entity, crate::actor::PrimaryPlayerOnly>,
+    boss_catalog: Res<crate::boss_encounter::BossCatalog>,
     ecs_breakables: Query<
         (
             &crate::features::FeatureId,
@@ -887,7 +888,7 @@ pub fn held_projectile_step(
         };
         let hit = crate::features::ecs_hit_event_hits_breakable(&hit_event, &ecs_breakables)
             || crate::features::ecs_hit_event_hits_actor(&hit_event, &ecs_actors)
-            || crate::features::ecs_hit_event_hits_boss(&hit_event, &ecs_bosses);
+            || crate::features::ecs_hit_event_hits_boss(&boss_catalog, &hit_event, &ecs_bosses);
         if hit {
             if proj.explode_half > 0.0 {
                 // Fireball: the splash box covers the body we hit plus anything

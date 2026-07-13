@@ -255,6 +255,8 @@ pub fn advance_move_playback(
     // body-local volumes into world space. Looked up by owner entity; a bare
     // test body without one uses the engine default down.
     owner_frames: Query<&ambition_platformer_primitives::frame_env::ResolvedMotionFrame>,
+    character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
+    authored_volumes: Res<super::authored_volumes::AuthoredAttackVolumeResolver>,
     mut events: MessageWriter<MoveEventMessage>,
     // §7.2: a vfx-tagged volume draws its slash FROM the spawned hitbox
     // geometry — one box drives damage AND presentation, so they can never
@@ -271,15 +273,16 @@ pub fn advance_move_playback(
         // strike is one of them. `None`/non-player-brain ⇒ the authored faction
         // (identity for every ordinary actor + the player's own body).
         Option<&ambition_characters::brain::Brain>,
-        // §7.1: the owner's sprite catalog id (projected onto the combat-owned
-        // `CombatTuning` at spawn; the home body carries none → the player
-        // manifest root), resolving the authored per-animation blade polygon.
+        // §7.1: actors project their sprite catalog id onto combat tuning;
+        // controllable bodies carry the same identity as WornCharacter. Both
+        // resolve authored per-animation blade geometry from the App-local catalog.
         Option<&super::components::CombatTuning>,
+        Option<&ambition_characters::actor::WornCharacter>,
         &ae::BodyKinematics,
         Option<&ProperTimeScale>,
     )>,
 ) {
-    for (owner, mut playback, faction, brain, config, kin, scale) in &mut players {
+    for (owner, mut playback, faction, brain, config, worn, kin, scale) in &mut players {
         let strike_faction = crate::targeting::effective_faction(*faction, brain);
         // ADR 0011: entity dt collapses to sim dt when the actor carries no
         // ProperTimeScale — undilated actors are the identity case.
@@ -364,8 +367,11 @@ pub fn advance_move_playback(
                         // synthetic authored shape.
                         let manifest = volume.vfx.as_ref().and_then(|_| {
                             let clip = pb.spec.clip.clip.as_str();
-                            let sprite_cid = config.and_then(|c| c.sprite_character_id.as_deref());
-                            super::authored_volumes::authored_attack_volume(
+                            let sprite_cid = config
+                                .and_then(|c| c.sprite_character_id.as_deref())
+                                .or_else(|| worn.map(ambition_characters::actor::WornCharacter::id));
+                            authored_volumes.resolve(
+                                &character_catalog,
                                 sprite_cid,
                                 clip,
                                 ae::Vec2::ZERO,

@@ -1,6 +1,6 @@
 schema_version: 4
-generated_from_commit: 04058812
-generated_at: "2026-07-12T18:02:00Z"
+generated_from_commit: 23c48d4
+generated_at: "2026-07-13T03:17:36Z"
 
 generator: scripts/generate_agent_index.py
 lint: scripts/check_agent_kb.py

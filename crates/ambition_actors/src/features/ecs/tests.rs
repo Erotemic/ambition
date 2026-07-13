@@ -100,6 +100,7 @@ fn overlay_uses_published_pogo_volumes_instead_of_boss_body_aabb() {
     let boss_body = ae::Aabb::new(ae::Vec2::new(500.0, 500.0), ae::Vec2::new(80.0, 120.0));
     let pogo_hurtbox = ae::Aabb::new(ae::Vec2::new(440.0, 420.0), ae::Vec2::new(12.0, 16.0));
     let boss = super::boss_clusters::BossClusterScratch::new(
+        crate::boss_encounter::test_boss_catalog(),
         "gnu_ton_rider",
         "GNU-ton",
         boss_body,

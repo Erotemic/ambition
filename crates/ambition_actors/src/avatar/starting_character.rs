@@ -41,7 +41,7 @@ use crate::features::MotionModel;
 ///
 /// Read at session setup by both the simulation (moveset + name) and
 /// presentation (sprite) halves. An EMPTY `character_id` means "no override —
-/// wear the content-installed default" ([`crate::character_roster::default_character_id`]);
+/// wear the provider-relative default supplied by the session builder.
 /// [`Default`] is exactly that. The engine names no specific character (C2):
 /// which row is the default is CONTENT's choice, resolved lazily at spawn.
 #[derive(Resource, Clone, Debug, Default, PartialEq, Eq)]
@@ -271,7 +271,7 @@ fn sync_charge_projectile_capability(
 /// In particular, an authored Sanic keeps the persistent `MomentumMotion.state`
 /// it accumulated while riding a surface.
 pub fn apply_worn_character_gameplay(
-    catalog: Option<Res<CharacterCatalog>>,
+    catalog: Res<CharacterCatalog>,
     mut commands: Commands,
     mut worn: Query<
         (
@@ -291,10 +291,6 @@ pub fn apply_worn_character_gameplay(
     >,
 ) {
     use ambition_characters::actor::character_catalog::PlayableKitSource;
-
-    let Some(catalog) = catalog else {
-        return;
-    };
 
     for (
         entity,
@@ -362,7 +358,7 @@ pub fn apply_worn_character_gameplay(
 /// Clearing those verbs here makes a peaceful authored persona peaceful in
 /// behavior, not merely in its nominal `ActionSet`.
 pub fn gate_worn_player_control(
-    catalog: Option<Res<CharacterCatalog>>,
+    catalog: Res<CharacterCatalog>,
     mut players: Query<
         (
             &WornCharacter,
@@ -380,10 +376,6 @@ pub fn gate_worn_player_control(
 ) {
     use ambition_characters::actor::character_catalog::PlayableKitSource;
     use ambition_characters::brain::SpecialActionSpec;
-
-    let Some(catalog) = catalog else {
-        return;
-    };
 
     for (worn, actions, mut control, has_charge_marker, holds_item) in &mut players {
         if actions.melee.is_none() && !holds_item {

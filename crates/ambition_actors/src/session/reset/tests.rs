@@ -136,6 +136,10 @@ fn min_app() -> App {
     app.insert_resource(QuestRegistry::default());
     app.insert_resource(EncounterMusicRequest::default());
     app.insert_resource(crate::features::GameplayBanner::default());
+    app.insert_resource(
+        ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+    );
+    app.insert_resource(crate::features::CharacterRoster::default());
     // Spawn the player entity so process_sandbox_reset_request can query it.
     // Uses the full simulation bundle so every cluster component lands
     // — the reset path queries `BodyClusterQueryData` which needs all

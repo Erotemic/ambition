@@ -41,6 +41,7 @@ const CLING_DETACH_POP_SPEED: f32 = 180.0;
 pub(crate) fn apply_actor_hit(
     event: &HitEvent,
     catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
+    roster: &crate::features::CharacterRoster,
     actor_entity: Entity,
     disposition: ActorDisposition,
     em: &mut super::super::actor_clusters::ActorMut<'_>,
@@ -169,12 +170,13 @@ pub(crate) fn apply_actor_hit(
             return false;
         }
         if should_bark {
-            // Catalog-first: resolve the enemy's catalog id from its display
-            // name (the identity every actor carries) and read its `on_hit`
-            // pool. TEMP fallback to the CombatBanterRegistry until enemy rows
-            // are populated (then drop the registry + its content installers).
-            let line = catalog
-                .id_for_display_name(&em.config.name)
+            // Catalog-first: the actor seed carries the stable authored
+            // character id through spawn. Display names remain presentation and
+            // are never reverse-resolved into identity.
+            let line = em
+                .config
+                .sprite_character_id
+                .as_deref()
                 .and_then(|cid| {
                     catalog.bark_line(
                         cid,
@@ -320,6 +322,8 @@ pub(crate) fn apply_actor_hit(
                 if caps.divides_on_death {
                     spawn_split_offspring(
                         &mut writers.commands,
+                        character_catalog,
+                        roster,
                         session_scope,
                         &em.config.id,
                         em.kin.pos,

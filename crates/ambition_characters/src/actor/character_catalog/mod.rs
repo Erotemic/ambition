@@ -1,25 +1,15 @@
-//! Character catalog — the data-driven registry of every character
-//! the sandbox can spawn. The catalog is the single source of truth
-//! for `(character_id, sprite path, default brain, default action
-//! set)` tuples that NPCs / enemies / bosses pull from at spawn.
+//! Character catalog schema, validation, resolution, and App-local assembly.
 //!
-//! Architectural posture (to be ADR 0017):
+//! Experience providers own immutable RON fragments. A host composes those
+//! fragments through [`CharacterCatalogAppExt`], which transactionally rebuilds
+//! one deterministic [`CharacterCatalog`] resource for that Bevy `App`. Runtime
+//! systems consume the resource or an explicit shared reference; provider-local
+//! preset names are namespaced during assembly, while character IDs remain the
+//! cross-provider identity.
 //!
-//! > **Rust = behavior, RON = content, LDtk = space.**
-//!
-//! Brain *variants* (the `MeleeBrute` evaluator) and ActionSet
-//! *variants* (the `Swipe` hitbox shape) stay typed in Rust so the
-//! compiler enforces exhaustiveness. Brain *configs* (aggro radius,
-//! attack range) and ActionSet *specs* (windup timing) move to RON
-//! so adding a new character — Skeletal Crow, AI-era Spaghetti
-//! Event, etc. — is a RON edit, not a Rust patch.
-//!
-//! The plugin shape is intentionally minimal: load the RON, hand it
-//! to a Bevy `Resource`, and run a Startup validator that panics if
-//! a `default_brain` references a preset that doesn't exist. No hot
-//! reload yet — the resource is built once at startup. Future work
-//! can lift this into a separate `ambition_character_catalog` crate
-//! when a second Ambition-powered game needs it.
+//! Architectural posture: **Rust = behavior, RON = content, LDtk = space.**
+//! Brain and action variants remain typed in Rust for exhaustive behavior, while
+//! provider-authored configurations and character definitions live in RON.
 
 use bevy::prelude::*;
 
@@ -43,7 +33,7 @@ pub use entry::{
     unused_imports,
     reason = "CHARACTER_CATALOG_ASSET used by tooling that loads off disk"
 )]
-pub use loader::parse_catalog;
+pub use loader::{parse_catalog, try_parse_catalog};
 pub use registry::{
     AssembledCharacterCatalog, CharacterCatalogAppExt, CharacterCatalogAssemblyError,
     CharacterCatalogDefaults, CharacterCatalogFragment, CharacterCatalogOwners,
@@ -54,17 +44,30 @@ pub use resolver::{action_set_from_preset, brain_from_preset};
 /// Bevy resource holding the parsed catalog. Inserted at Startup by
 /// [`CharacterCatalogPlugin`].
 #[derive(Resource, Clone, Debug, PartialEq)]
-pub struct CharacterCatalog(pub CharacterCatalogData);
+pub struct CharacterCatalog(CharacterCatalogData);
 
 #[allow(
     dead_code,
     reason = "Public catalog API for future spawn-site consumers (EnemySpawn / BossSpawn migrations, custom spawn paths). Tested but not yet wired into a runtime call site."
 )]
 impl CharacterCatalog {
-    /// An empty catalog (no characters/presets). A safe fallback for a system
-    /// that may run before any provider fragment is registered — e.g. a minimal
-    /// test world that exercises one system without a full content bootstrap.
-    /// Every lookup returns `None`, so callers take their content-free default.
+    /// Construct an assembled or fixture catalog from validated data. Provider
+    /// registration should normally use [`CharacterCatalogFragment`]; this
+    /// constructor exists for focused tests and tools that already own the data.
+    pub fn from_data(data: CharacterCatalogData) -> Self {
+        Self(data)
+    }
+
+    /// Read-only access to the complete catalog data. The field is private so
+    /// callers cannot invalidate an assembled App resource after registration.
+    pub fn data(&self) -> &CharacterCatalogData {
+        &self.0
+    }
+
+    /// An empty catalog (no characters/presets) for explicitly content-free
+    /// fixtures. Production systems that consume authored characters should
+    /// require the App-local resource instead of silently substituting this.
+    /// Every lookup returns `None`.
     pub fn empty() -> Self {
         Self(CharacterCatalogData {
             brain_presets: Default::default(),
@@ -125,6 +128,12 @@ impl CharacterCatalog {
             .map(|entry| entry.display_name.as_str())
     }
 
+    /// Resolve an authored display name to its stable character id.
+    ///
+    /// Catalog validation rejects duplicate display names across the assembled
+    /// App, so this authoring-boundary conversion is deterministic. Runtime
+    /// components carry the returned id; presentation never remains keyed by the
+    /// display label.
     pub fn id_for_display_name(&self, display_name: &str) -> Option<&str> {
         self.iter()
             .find(|(_, entry)| entry.display_name == display_name)
@@ -186,7 +195,7 @@ impl Plugin for CharacterCatalogPlugin {
 /// Startup system: validate the catalog and panic with the joined
 /// errors if any. Runs once.
 pub fn validate_catalog_on_startup(catalog: Res<CharacterCatalog>) {
-    let errors = validator::validate(&catalog.0);
+    let errors = validator::validate(catalog.data());
     if !errors.is_empty() {
         panic!(
             "character_catalog.ron has {} reference error(s):\n  - {}",

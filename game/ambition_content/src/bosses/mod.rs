@@ -1,8 +1,8 @@
 //! Named Ambition boss content registration.
 //!
-//! Owns the install of the default [`BossEncounterRegistry`] so the named
-//! boss roster is constructed in one content-owned place. The general boss
-//! machinery (profiles, specs, encounter registry/system, patterns) still
+//! Owns Ambition's immutable App-local boss fragment and the live
+//! [`BossEncounterRegistry`] resource used by an active session. The general
+//! boss machinery (profiles, specs, encounter registry/system, patterns) still
 //! lives in `ambition_actors::boss_encounter`; this module owns the bespoke per-boss
 //! *behavior* and *bark content* that names individual bosses:
 //!
@@ -72,85 +72,126 @@ pub fn seed_library() -> &'static ambition_characters::brain::boss_pattern::seed
     &LIB
 }
 
-/// Install the named boss-behavior roster (`boss_profiles.ron`) into the
-/// machinery lib's holder. Called by [`AmbitionBossContentPlugin`] at build
-/// time, and by content tests that resolve boss profiles without assembling the
-/// full app. First install wins (idempotent across the test binary).
-pub fn install_boss_roster() {
-    // Per-boss behavior (movement / attacks / rewards).
-    ambition_actors::boss_encounter::install_boss_profiles(
-        ambition_actors::boss_encounter::BossProfileRegistry::from_ron(BOSS_PROFILES_RON),
-    );
+/// Embedded encounter rows contributed by the Ambition provider.
+pub const BOSS_ENCOUNTER_RONS: &[&str] = &[
+    include_str!("../../assets/data/boss_encounters/clockwork_warden.ron"),
+    include_str!("../../assets/data/boss_encounters/mockingbird.ron"),
+    include_str!("../../assets/data/boss_encounters/gnu_ton_rider.ron"),
+    include_str!("../../assets/data/boss_encounters/smirking_behemoth_boss.ron"),
+    include_str!("../../assets/data/boss_encounters/flying_spaghetti_monster_boss.ron"),
+    include_str!("../../assets/data/boss_encounters/trex_boss.ron"),
+    include_str!("../../assets/data/boss_encounters/mode_collapse_boss.ron"),
+    include_str!("../../assets/data/boss_encounters/exploding_gradient_boss.ron"),
+    include_str!("../../assets/data/boss_encounters/overflow_boss.ron"),
+];
 
-    // Per-boss SPRITESHEET layouts (C6 — content out of core). Byte-identical to
-    // the engine's built-in demo-boss defaults (pinned by
-    // `boss_sheets_ron_matches_builtin_defaults`), so shipped bosses render
-    // unchanged; content re-authors a boss's sheet by editing its row in
-    // `boss_sheets.ron` with no Rust change.
-    ambition_actors::boss_encounter::sprites::install_boss_sheets(
-        ambition_actors::boss_encounter::sprites::BossSheetRegistry::from_ron(include_str!(
-            "../../assets/data/boss_sheets.ron"
-        )),
-    );
-
-    // Per-boss encounter specs (HP / phase thresholds / timings / music), one
-    // embedded RON per boss. Embedded (not fs-read) so shipped binaries carry
-    // the data; the lib holds only the generic `BossEncounterSpec` schema.
-    const BOSS_ENCOUNTER_RONS: &[&str] = &[
-        include_str!("../../assets/data/boss_encounters/clockwork_warden.ron"),
-        include_str!("../../assets/data/boss_encounters/mockingbird.ron"),
-        include_str!("../../assets/data/boss_encounters/gnu_ton_rider.ron"),
-        include_str!("../../assets/data/boss_encounters/smirking_behemoth_boss.ron"),
-        include_str!("../../assets/data/boss_encounters/flying_spaghetti_monster_boss.ron"),
-        include_str!("../../assets/data/boss_encounters/trex_boss.ron"),
-        include_str!("../../assets/data/boss_encounters/mode_collapse_boss.ron"),
-        include_str!("../../assets/data/boss_encounters/exploding_gradient_boss.ron"),
-        include_str!("../../assets/data/boss_encounters/overflow_boss.ron"),
-    ];
-    let specs = BOSS_ENCOUNTER_RONS
-        .iter()
-        .map(|text| {
-            ron::from_str::<ambition_actors::boss_encounter::BossEncounterSpec>(text)
-                .expect("boss_encounters/*.ron should parse as BossEncounterSpec")
-        })
-        .collect();
-    ambition_actors::boss_encounter::install_boss_encounter_specs(specs);
-
-    // Telegraph anim rows for each content boss-special key. The engine ships
-    // no anim row for content specials (it names none); this is where the
-    // key→sprite-row mapping lives. `apple_rain` damages via projectile bodies
-    // and has no body-mounted telegraph row, so it's simply absent (→ no row).
-    ambition_actors::boss_encounter::install_boss_special_anim_keys(
-        std::collections::HashMap::from([
-            (
-                "overfit_volley".to_string(),
-                &["spike_halo", "eye_beam"] as &'static [&'static str],
-            ),
-            ("eye_beam".to_string(), &["eye_beam", "spike_halo"]),
-            ("minima_trap".to_string(), &["spike_halo"]),
-            ("saddle_point".to_string(), &["spike_halo"]),
-            ("gradient_cascade".to_string(), &["spike_halo"]),
-            ("mode_collapse_converge".to_string(), &["spike_halo"]),
-            ("gradient_nova".to_string(), &["spike_halo"]),
-            ("overflow_flood".to_string(), &["spike_halo"]),
-            ("seismic_stomp".to_string(), &["floor_slam", "spike_halo"]),
-            ("echo_fan".to_string(), &["spike_halo", "eye_beam"]),
-        ]),
-    );
+fn boss_sprite_filenames() -> std::collections::BTreeMap<String, String> {
+    std::collections::BTreeMap::from([
+        ("gradient_sentinel".into(), "boss_spritesheet.png".into()),
+        (
+            "mockingbird".into(),
+            "mockingbird_boss/mockingbird_boss_spritesheet.png".into(),
+        ),
+        (
+            "smirking_behemoth_boss".into(),
+            "smirking_behemoth_boss_spritesheet.png".into(),
+        ),
+        (
+            "giant_gnu".into(),
+            "gnu_ton_boss/giant_gnu_spritesheet.png".into(),
+        ),
+        (
+            "gnu_ton_rider".into(),
+            "gnu_ton_boss/gnu_ton_rider_spritesheet.png".into(),
+        ),
+        (
+            "flying_spaghetti_monster_boss".into(),
+            "flying_spaghetti_monster_boss_spritesheet.png".into(),
+        ),
+        ("trex_boss".into(), "trex_enemy_spritesheet.png".into()),
+    ])
 }
 
-/// Installs the default Ambition boss encounter registry resource and
-/// the cut-rope Yarn vocabulary + mirror feed.
+fn special_animation_keys() -> std::collections::BTreeMap<String, Vec<String>> {
+    std::collections::BTreeMap::from([
+        (
+            "overfit_volley".into(),
+            vec!["spike_halo".into(), "eye_beam".into()],
+        ),
+        (
+            "eye_beam".into(),
+            vec!["eye_beam".into(), "spike_halo".into()],
+        ),
+        ("minima_trap".into(), vec!["spike_halo".into()]),
+        ("saddle_point".into(), vec!["spike_halo".into()]),
+        ("gradient_cascade".into(), vec!["spike_halo".into()]),
+        (
+            "mode_collapse_converge".into(),
+            vec!["spike_halo".into()],
+        ),
+        ("gradient_nova".into(), vec!["spike_halo".into()]),
+        ("overflow_flood".into(), vec!["spike_halo".into()]),
+        (
+            "seismic_stomp".into(),
+            vec!["floor_slam".into(), "spike_halo".into()],
+        ),
+        (
+            "echo_fan".into(),
+            vec!["spike_halo".into(), "eye_beam".into()],
+        ),
+    ])
+}
+
+/// Ambition's immutable App-local boss contribution.
+pub fn boss_catalog_fragment() -> ambition_actors::boss_encounter::BossCatalogFragment {
+    ambition_actors::boss_encounter::BossCatalogFragment::from_ron(
+        crate::AMBITION_CONTENT_PROVIDER,
+        Some("clockwork_warden"),
+        Some("gradient_sentinel"),
+        BOSS_PROFILES_RON,
+        BOSS_ENCOUNTER_RONS,
+        include_str!("../../assets/data/boss_sheets.ron"),
+        boss_sprite_filenames(),
+        special_animation_keys(),
+    )
+    .expect("Ambition boss content should form one valid catalog fragment")
+}
+
+/// Assemble Ambition's boss catalog without constructing a Bevy App.
+///
+/// Pure content tests use this helper so they exercise the same provider
+/// fragment as production composition rather than installing process state.
+pub fn authored_boss_catalog() -> ambition_actors::boss_encounter::BossCatalog {
+    let mut registry = ambition_actors::boss_encounter::BossCatalogRegistry::default();
+    registry
+        .register(boss_catalog_fragment())
+        .expect("Ambition boss fragment should register");
+    registry
+        .assemble()
+        .expect("Ambition boss fragment should assemble")
+}
+
+/// Contribute Ambition's immutable boss fragment to one Bevy App.
+///
+/// Registration is idempotent for the same provider payload, so a host may
+/// call this before building its asset catalog and later add
+/// [`AmbitionBossContentPlugin`] without coordinating install order.
+pub fn register(app: &mut App) {
+    use ambition_actors::boss_encounter::BossCatalogAppExt as _;
+    app.register_boss_catalog_fragment(boss_catalog_fragment());
+}
+
+/// Registers Ambition's boss fragment, initializes the live encounter
+/// registry resource, and installs the cut-rope Yarn vocabulary + mirror feed.
 pub struct AmbitionBossContentPlugin;
 
 impl Plugin for AmbitionBossContentPlugin {
     fn build(&self, app: &mut App) {
         let sim = app.sim_schedule();
-        // Install the named boss-behavior roster into the machinery lib's
-        // holder at plugin-build time (before any boss spawn / profile clone),
-        // so `BossBehaviorProfile::from_data` resolves against content data —
-        // the lib embeds no boss data in production. Mirrors the enemy roster.
-        install_boss_roster();
+        // Compose all authored boss behavior, encounter, sheet, and special-row
+        // data into this App. The same provider fragment serves standalone and
+        // multi-game hosts without process-global install order.
+        register(app);
 
         app.insert_resource(ambition_actors::boss_encounter::BossEncounterRegistry::default());
 

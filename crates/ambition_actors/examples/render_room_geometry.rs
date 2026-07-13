@@ -44,6 +44,58 @@ use image::{Rgba, RgbaImage};
 use sb::persistence::settings::video::CameraFramingPreset;
 use sb::persistence::settings::CameraAspectPolicy;
 
+
+fn ambition_boss_catalog() -> sb::boss_encounter::BossCatalog {
+    const ENCOUNTERS: &[&str] = &[
+        include_str!("../../../game/ambition_content/assets/data/boss_encounters/clockwork_warden.ron"),
+        include_str!("../../../game/ambition_content/assets/data/boss_encounters/mockingbird.ron"),
+        include_str!("../../../game/ambition_content/assets/data/boss_encounters/gnu_ton_rider.ron"),
+        include_str!("../../../game/ambition_content/assets/data/boss_encounters/smirking_behemoth_boss.ron"),
+        include_str!("../../../game/ambition_content/assets/data/boss_encounters/flying_spaghetti_monster_boss.ron"),
+        include_str!("../../../game/ambition_content/assets/data/boss_encounters/trex_boss.ron"),
+        include_str!("../../../game/ambition_content/assets/data/boss_encounters/mode_collapse_boss.ron"),
+        include_str!("../../../game/ambition_content/assets/data/boss_encounters/exploding_gradient_boss.ron"),
+        include_str!("../../../game/ambition_content/assets/data/boss_encounters/overflow_boss.ron"),
+    ];
+    let fragment = sb::boss_encounter::BossCatalogFragment::from_ron(
+        "geometry-debug",
+        Some("clockwork_warden"),
+        Some("gradient_sentinel"),
+        include_str!("../../../game/ambition_content/assets/data/boss_profiles.ron"),
+        ENCOUNTERS,
+        include_str!("../../../game/ambition_content/assets/data/boss_sheets.ron"),
+        std::collections::BTreeMap::from([
+            ("gradient_sentinel".into(), "boss_spritesheet.png".into()),
+            (
+                "mockingbird".into(),
+                "mockingbird_boss/mockingbird_boss_spritesheet.png".into(),
+            ),
+            (
+                "smirking_behemoth_boss".into(),
+                "smirking_behemoth_boss_spritesheet.png".into(),
+            ),
+            (
+                "giant_gnu".into(),
+                "gnu_ton_boss/giant_gnu_spritesheet.png".into(),
+            ),
+            (
+                "gnu_ton_rider".into(),
+                "gnu_ton_boss/gnu_ton_rider_spritesheet.png".into(),
+            ),
+            (
+                "flying_spaghetti_monster_boss".into(),
+                "flying_spaghetti_monster_boss_spritesheet.png".into(),
+            ),
+            ("trex_boss".into(), "trex_enemy_spritesheet.png".into()),
+        ]),
+        std::collections::BTreeMap::new(),
+    )
+    .expect("geometry-debug boss fixture should parse");
+    let mut registry = sb::boss_encounter::BossCatalogRegistry::default();
+    registry.register(fragment).unwrap();
+    registry.assemble().unwrap()
+}
+
 /// Longest edge of the output image, in pixels. Worlds scale down to fit.
 const MAX_CANVAS_PX: u32 = 1000;
 /// Padding around the world inside the canvas.
@@ -209,22 +261,34 @@ fn overlay_aabb(img: &mut RgbaImage, proj: &Projection, aabb: ae::Aabb, color: R
     stroke_rect(img, min, max, color);
 }
 
-fn render_room(room: &sb::rooms::RoomSpec) -> RgbaImage {
+fn render_room(
+    boss_catalog: &sb::boss_encounter::BossCatalog,
+    room: &sb::rooms::RoomSpec,
+) -> RgbaImage {
     let world = &room.world;
     let (proj, w, h) = Projection::new(world.size);
-    render_room_projected(room, &proj, w, h, None)
+    render_room_projected(boss_catalog, room, &proj, w, h, None)
 }
 
 fn render_room_snapshot(
+    boss_catalog: &sb::boss_encounter::BossCatalog,
     room: &sb::rooms::RoomSpec,
     snapshot: &CameraSnapshot2d,
     image_size: (u32, u32),
 ) -> RgbaImage {
     let (proj, w, h) = Projection::from_snapshot(snapshot, image_size);
-    render_room_projected(room, &proj, w, h, Some(snapshot.target_world))
+    render_room_projected(
+        boss_catalog,
+        room,
+        &proj,
+        w,
+        h,
+        Some(snapshot.target_world),
+    )
 }
 
 fn render_room_projected(
+    boss_catalog: &sb::boss_encounter::BossCatalog,
     room: &sb::rooms::RoomSpec,
     proj: &Projection,
     w: u32,
@@ -280,7 +344,13 @@ fn render_room_projected(
         // player must hit — derived from the boss's sprite metrics, so a
         // boss whose hurtbox is a small head inside a big body envelope
         // reads correctly.
-        for hb in sb::features::boss_spawn_hurtboxes(&b.id, &b.name, b.aabb, b.payload.clone()) {
+        for hb in sb::features::boss_spawn_hurtboxes(
+            boss_catalog,
+            &b.id,
+            &b.name,
+            b.aabb,
+            b.payload.clone(),
+        ) {
             overlay_aabb(&mut img, proj, hb, Rgba([60, 240, 255, 255]));
         }
     }
@@ -518,6 +588,7 @@ fn main() {
         eprintln!("warning: LDtk validation reported issues; rendering anyway");
     }
     let room_set = project.to_room_set().expect("room_set should build");
+    let boss_catalog = ambition_boss_catalog();
 
     // `report` mode: scan every room's RUNTIME projection for spatial
     // anomalies the LDtk validator can't see (it validates LDtk-level
@@ -536,7 +607,7 @@ fn main() {
             .unwrap_or_else(|| "/tmp/rooms".to_string());
         std::fs::create_dir_all(&dir).expect("create output dir");
         for room in &room_set.rooms {
-            let img = render_room(room);
+            let img = render_room(&boss_catalog, room);
             let out = format!("{dir}/room_{}.png", room.id);
             img.save(&out).expect("PNG save should succeed");
         }
@@ -585,7 +656,7 @@ fn main() {
             std::process::exit(1);
         };
         let snapshot = resolve_headless_snapshot(room, focus, image_size);
-        let img = render_room_snapshot(room, &snapshot, image_size);
+        let img = render_room_snapshot(&boss_catalog, room, &snapshot, image_size);
         let out = args
             .get(2)
             .cloned()
@@ -631,7 +702,7 @@ fn main() {
         std::process::exit(1);
     };
 
-    let img = render_room(room);
+    let img = render_room(&boss_catalog, room);
     let out = out_path.unwrap_or_else(|| format!("/tmp/room_{room_id}.png"));
     img.save(&out).expect("PNG save should succeed");
     println!(

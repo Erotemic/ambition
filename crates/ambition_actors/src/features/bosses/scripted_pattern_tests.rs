@@ -16,6 +16,7 @@ fn gnu_ton_runtime() -> super::super::ecs::boss_clusters::BossClusterScratch {
     let pos = ae::Vec2::new(500.0, 400.0);
     let aabb = ae::Aabb::new(pos, combat_size * 0.5);
     let mut scratch = super::super::ecs::boss_clusters::BossClusterScratch::new(
+        crate::boss_encounter::test_boss_catalog(),
         "boss_gnu_ton",
         "GNU-ton",
         aabb,
@@ -97,7 +98,7 @@ fn gnu_ton_sprite_metrics_fixture() -> super::ActorSpriteMetrics {
         frame_height: 576,
         body_pixel_bbox: None,
         body_pixel_parts: Vec::new(),
-        // Match what `sprite_render_size_for("giant_gnu", boss.size)`
+        // Match what `sprite_render_size_for(catalog, giant_behavior, boss.size)`
         // would produce for a (220, 220) spawn → GIANT_GNU_SHEET's
         // 4.5× collision_scale: render = 990×990 with aspect
         // adjustment to 1320×990 for the 768/576 frame ratio.
@@ -263,7 +264,11 @@ fn gnu_ton_head_is_always_damageable_but_descent_brings_it_lower() {
     let boss = gnu_ton_runtime();
     let mut attack_state = ambition_characters::brain::BossAttackState::default();
     let rest_head = crate::features::damageable_volumes(
-        &crate::features::BossVolumeContext::from_ref(boss.as_ref(), &attack_state),
+        &crate::features::BossVolumeContext::from_ref(
+            crate::boss_encounter::test_boss_catalog(),
+            boss.as_ref(),
+            &attack_state,
+        ),
     );
     assert_eq!(
         rest_head.len(),
@@ -280,7 +285,11 @@ fn gnu_ton_head_is_always_damageable_but_descent_brings_it_lower() {
 
     attack_state.active_profile = Some(BossAttackProfile::Strike("head_descent".to_string()));
     let descent_head = crate::features::damageable_volumes(
-        &crate::features::BossVolumeContext::from_ref(boss.as_ref(), &attack_state),
+        &crate::features::BossVolumeContext::from_ref(
+            crate::boss_encounter::test_boss_catalog(),
+            boss.as_ref(),
+            &attack_state,
+        ),
     );
     assert_eq!(descent_head.len(), 1);
     let descent_y = descent_head[0].center().y;

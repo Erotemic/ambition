@@ -249,6 +249,7 @@ fn damageable_volumes_uses_per_animation_hurtbox_during_attack() {
     attack_state.active_profile = Some(BossAttackProfile::Strike("side_sweep".to_string()));
 
     let ctx = BossVolumeContext {
+        boss_catalog: crate::boss_encounter::test_boss_catalog(),
         pos: ae::Vec2::new(640.0, 656.0),
         size: ae::Vec2::new(128.0, 160.0),
         combat_size: ae::Vec2::new(54.0, 56.0),
@@ -347,6 +348,7 @@ fn damageable_volumes_samples_per_frame_hurtbox_from_animation_elapsed() {
     attack_state.active_elapsed = 0.15; // frame index 1 at 0.1s/frame.
 
     let ctx = BossVolumeContext {
+        boss_catalog: crate::boss_encounter::test_boss_catalog(),
         pos: ae::Vec2::ZERO,
         size: ae::Vec2::new(100.0, 100.0),
         combat_size: ae::Vec2::new(100.0, 100.0),
@@ -426,10 +428,11 @@ fn animation_frame_sample_overrides_elapsed_frame_for_authored_boxes() {
     let visual_frame = BossAnimationFrameSample {
         profile: Some(BossAttackProfile::Strike("head_descent".to_string())),
         frame_index: 0,
-        animation_key: Some("gnu_head_descent"),
+        animation_key: Some("gnu_head_descent".into()),
     };
 
     let ctx = BossVolumeContext {
+        boss_catalog: crate::boss_encounter::test_boss_catalog(),
         pos: ae::Vec2::ZERO,
         size: ae::Vec2::new(100.0, 100.0),
         combat_size: ae::Vec2::new(100.0, 100.0),
@@ -514,6 +517,7 @@ fn idle_rest_hurtbox_follows_the_live_animation_frame() {
 
     // Without a sample, elapsed 0 locks to frame 0 (y = -35).
     let ctx0 = BossVolumeContext {
+        boss_catalog: crate::boss_encounter::test_boss_catalog(),
         pos: ae::Vec2::ZERO,
         size: ae::Vec2::new(100.0, 100.0),
         combat_size: ae::Vec2::new(100.0, 100.0),
@@ -535,9 +539,10 @@ fn idle_rest_hurtbox_follows_the_live_animation_frame() {
     let idle_frame = BossAnimationFrameSample {
         profile: None,
         frame_index: 1,
-        animation_key: Some("rest"),
+        animation_key: Some("rest".into()),
     };
     let ctx1 = BossVolumeContext {
+        boss_catalog: crate::boss_encounter::test_boss_catalog(),
         animation_frame: Some(&idle_frame),
         ..ctx0
     };
@@ -635,6 +640,7 @@ fn gnu_head_descent_accepts_visual_row_alias_for_runtime_boxes() {
     attack_state.active_profile = Some(BossAttackProfile::Strike("head_descent".to_string()));
     attack_state.active_elapsed = 0.15;
     let ctx = BossVolumeContext {
+        boss_catalog: crate::boss_encounter::test_boss_catalog(),
         pos: ae::Vec2::ZERO,
         size: ae::Vec2::new(100.0, 100.0),
         combat_size: ae::Vec2::new(100.0, 100.0),
@@ -701,6 +707,7 @@ fn damageable_volumes_scales_to_sprite_render_size() {
     };
 
     let legacy_ctx = BossVolumeContext {
+        boss_catalog: crate::boss_encounter::test_boss_catalog(),
         pos: ae::Vec2::ZERO,
         size: ae::Vec2::new(128.0, 160.0),
         combat_size: ae::Vec2::new(54.0, 56.0),
@@ -711,6 +718,7 @@ fn damageable_volumes_scales_to_sprite_render_size() {
         facing: 1.0,
     };
     let render_ctx = BossVolumeContext {
+        boss_catalog: crate::boss_encounter::test_boss_catalog(),
         pos: ae::Vec2::ZERO,
         size: ae::Vec2::new(128.0, 160.0),
         combat_size: ae::Vec2::new(54.0, 56.0),
@@ -835,6 +843,7 @@ fn attack_fully_inside_boss_volume_still_registers() {
     let behavior = BossBehaviorProfile::clockwork_warden();
     let attack_state = BossAttackState::default();
     let ctx = BossVolumeContext {
+        boss_catalog: crate::boss_encounter::test_boss_catalog(),
         pos: ae::Vec2::ZERO,
         size: ae::Vec2::new(500.0, 185.0),
         combat_size: ae::Vec2::new(500.0, 185.0),
@@ -874,6 +883,7 @@ fn mockingbird_combat_size_fallback_undershoots_the_visible_sprite() {
 
     // Current state: no authored hurtbox -> combat_size fallback (±92.5 tall).
     let ctx_fallback = BossVolumeContext {
+        boss_catalog: crate::boss_encounter::test_boss_catalog(),
         pos: ae::Vec2::ZERO,
         size: ae::Vec2::new(500.0, 185.0),
         combat_size: ae::Vec2::new(500.0, 185.0),
@@ -907,6 +917,7 @@ fn mockingbird_combat_size_fallback_undershoots_the_visible_sprite() {
         animations: HashMap::new(),
     };
     let ctx_authored = BossVolumeContext {
+        boss_catalog: crate::boss_encounter::test_boss_catalog(),
         pos: ae::Vec2::ZERO,
         size: ae::Vec2::new(500.0, 185.0),
         combat_size: ae::Vec2::new(500.0, 185.0),

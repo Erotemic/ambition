@@ -161,6 +161,14 @@ pub struct FeatureDebugQueries<'w, 's> {
     /// bundle (not a top-level param) to keep `draw_debug_overlay` under Bevy's
     /// 16-system-param ceiling.
     pub gravity: Option<Res<'w, ambition::actors::physics::GravityField>>,
+    /// App-local character authority and attack-volume bridge used by the combat
+    /// preview. Keeping them in this bundle preserves the top-level system's
+    /// parameter budget.
+    pub character_catalog:
+        Res<'w, ambition::characters::actor::character_catalog::CharacterCatalog>,
+    pub boss_catalog: Res<'w, ambition::actors::boss_encounter::BossCatalog>,
+    pub authored_attack_volumes:
+        Res<'w, ambition::actors::combat::authored_volumes::AuthoredAttackVolumeResolver>,
     /// In-flight player projectiles (ECS entities). Bundled here (rather than a
     /// top-level param) so `draw_debug_overlay` has a slot free for the
     /// debug-label buffer while staying under the 16-param ceiling.
@@ -370,6 +378,9 @@ pub(crate) fn draw_ldtk_runtime_spine(
 pub(crate) fn draw_player_debug(
     gizmos: &mut Gizmos,
     world: &ae::World,
+    character_catalog: &ambition::characters::actor::character_catalog::CharacterCatalog,
+    authored_attack_volumes: &ambition::actors::combat::authored_volumes::AuthoredAttackVolumeResolver,
+    worn_character_id: &str,
     clusters: &ae::BodyClustersMut<'_>,
     // Dev-tool read: the overlay draws the policy's private internals (the
     // ledge anchor/climb-target, the live blink aim) straight off the model.
@@ -456,6 +467,9 @@ pub(crate) fn draw_player_debug(
             // hardcoded AABB fallback) the slash emits — not a separate preview
             // box, so the overlay matches what hits.
             let volume = ambition::actors::features::ecs::attack::player_attack_hitbox(
+                character_catalog,
+                authored_attack_volumes,
+                Some(worn_character_id),
                 &view,
                 attack_state.spec.intent,
                 gravity_dir,
@@ -741,7 +755,7 @@ pub(crate) fn draw_feature_debug(
             continue;
         }
         let ctx =
-            ambition::actors::features::BossVolumeContext::from_ref(bf.as_boss_ref(), attack_state)
+            ambition::actors::features::BossVolumeContext::from_ref(&feature_q.boss_catalog, bf.as_boss_ref(), attack_state)
                 .with_animation_frame(animation_frame);
         draw_aabb_styled(gizmos, world, boss.aabb(), boss_color, developer_tools);
         label_box(

@@ -20,7 +20,7 @@ fn ron_carries_every_known_boss() {
     ] {
         // `from_data` panics with a clear message when the row is
         // missing (the registry static is private to behavior.rs).
-        let _ = BossBehaviorProfile::from_data(id);
+        let _ = BossBehaviorProfile::from_data(crate::boss_encounter::test_boss_catalog(), id);
     }
 }
 

@@ -22,11 +22,12 @@ use bevy::prelude::Component;
 
 use super::super::components::BodyMelee;
 use super::super::enemies::{
-    spec_for_brain, ActorSpawnState, ActorSurfaceState, CharacterArchetypeSpec,
+    ActorSpawnState, ActorSurfaceState, CharacterArchetypeSpec, CharacterRoster,
 };
 use super::super::path_motion::PathMotion;
 use ambition_engine_core as ae;
 use ambition_engine_core::AabbExt;
+use ambition_characters::actor::character_catalog::CharacterCatalog;
 
 use crate::actor::{
     AncillaryMovementBundle, BodyAbilities, BodyActionBuffer, BodyBaseSize, BodyBlinkState,
@@ -377,30 +378,42 @@ fn actor_spawn_center_for_collision(authored: ae::Aabb, collision_size: ae::Vec2
 /// peaceful-NPC path resolves — making e.g. the PCA identical whether it spawns
 /// peaceful (symmetry room) or hostile (duel). `ldtk_fallback` only seeds the
 /// collision fallback inside the resolver; the render size comes from the sheet.
-pub fn sprite_render_size_for_name(name: &str, ldtk_fallback: ae::Vec2) -> Option<ae::Vec2> {
-    crate::character_roster::character_id_for_display_name(name)
+pub fn sprite_render_size_for_name_in(
+    catalog: &CharacterCatalog,
+    name: &str,
+    ldtk_fallback: ae::Vec2,
+) -> Option<ae::Vec2> {
+    catalog
+        .id_for_display_name(name)
         .and_then(|cid| {
-            crate::character_sprites::sprite_body_collision_for_character_id(cid, ldtk_fallback)
+            crate::character_sprites::sprite_body_collision_for_character_id_in(
+                catalog,
+                cid,
+                ldtk_fallback,
+            )
         })
         .map(|b| b.render_size)
 }
 
 impl ActorClusterSeed {
-    /// Build enemy component seed state from authored spawn inputs.
-    pub fn new(
+    /// Build an actor seed while resolving authored character identity from the
+    /// caller's App-local catalog. Content-free tests pass an explicit empty
+    /// catalog, so production construction never has a hidden fallback.
+    pub fn new_in(
+        catalog: &CharacterCatalog,
+        roster: &CharacterRoster,
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: ae::Aabb,
         brain: ambition_entity_catalog::placements::CharacterBrain,
         paths: &[(String, ambition_engine_core::KinematicPath)],
     ) -> Self {
-        let spec = spec_for_brain(&brain);
+        let spec = roster.spec_for_brain(&brain);
         let name: String = name.into();
         // Resolve this enemy's uniform sprite identity from its display name
         // (the same name → sheet join presentation does). `None` for a generic
         // enemy whose name isn't a catalog character.
-        let sprite_character_id =
-            crate::character_roster::character_id_for_display_name(&name).map(String::from);
+        let sprite_character_id = catalog.id_for_display_name(&name).map(String::from);
         let motion = match &brain {
             ambition_entity_catalog::placements::CharacterBrain::Patrol {
                 path_id: Some(path_id),
@@ -417,11 +430,15 @@ impl ActorClusterSeed {
         // hostile (the duel). A generic enemy with no catalog character keeps the
         // archetype `default_size` / LDtk spawn box, exactly as before. The matching
         // sprite RENDER size is lifted onto `ActorRenderSize` at the spawn sites via
-        // [`sprite_render_size_for_name`] (the per-frame `CenteredAabb` sync then
+        // [`sprite_render_size_for_name_in`] (the per-frame `CenteredAabb` sync then
         // follows this collision so the visual and hitbox stay together).
         let ldtk_size = spec.default_size.unwrap_or_else(|| aabb.half_size() * 2.0);
         let sprite_body = sprite_character_id.as_deref().and_then(|cid| {
-            crate::character_sprites::sprite_body_collision_for_character_id(cid, ldtk_size)
+            crate::character_sprites::sprite_body_collision_for_character_id_in(
+                catalog,
+                cid,
+                ldtk_size,
+            )
         });
         let size = sprite_body.map_or(ldtk_size, |b| b.collision);
         let pos = motion
@@ -474,8 +491,10 @@ impl ActorClusterSeed {
     /// field is filled with an inert default (peaceful actors never spawn through
     /// the archetype path), so callers — including the content crate — need no
     /// `CharacterArchetypeSpec`. Returns the seed plus the optional sprite render size
-    /// (lifted onto the shared `ActorRenderSize` at spawn so it survives a flip).
-    pub fn new_peaceful_npc(
+    /// Build a peaceful actor from the caller's App-local character catalog.
+    pub fn new_peaceful_npc_in(
+        catalog: &CharacterCatalog,
+        roster: &CharacterRoster,
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: ae::Aabb,
@@ -512,7 +531,7 @@ impl ActorClusterSeed {
             match character_id {
                 Some(cid)
                     if matches!(
-                    crate::character_roster::body_kind_for_character_id(cid),
+                    catalog.body_kind(cid),
                     Some(ambition_characters::actor::character_catalog::CharacterBodyKind::Floating)
                 ) =>
                 {
@@ -526,7 +545,11 @@ impl ActorClusterSeed {
         // remember the render-quad size so the sprite still draws at scale.
         let ldtk_collision = aabb.half_size() * 2.0;
         let body = character_id.and_then(|cid| {
-            crate::character_sprites::sprite_body_collision_for_character_id(cid, ldtk_collision)
+            crate::character_sprites::sprite_body_collision_for_character_id_in(
+                catalog,
+                cid,
+                ldtk_collision,
+            )
         });
         let (collision_size, render_size) = match body {
             Some(b) => (b.collision, Some(b.render_size)),
@@ -602,7 +625,9 @@ impl ActorClusterSeed {
             caps: crate::combat::CombatCapabilities::default(),
             // Inert: peaceful actors never spawn through the archetype path that
             // reads `spec`. `Passive` resolves to the roster's fallback row.
-            spec: spec_for_brain(&ambition_entity_catalog::placements::CharacterBrain::Passive),
+            spec: roster.spec_for_brain(
+                &ambition_entity_catalog::placements::CharacterBrain::Passive,
+            ),
         };
         (seed, render_size)
     }
@@ -712,6 +737,48 @@ impl ActorClusterSeed {
             AncillaryMovementBundle::from_scratch(self.body.0),
             self.caps,
             combat_tuning,
+        )
+    }
+}
+
+#[cfg(test)]
+impl ActorClusterSeed {
+    /// Content-free convenience constructor for unit tests. Production spawn
+    /// paths must use [`Self::new_in`] with their App-local catalog.
+    pub fn new(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        aabb: ae::Aabb,
+        brain: ambition_entity_catalog::placements::CharacterBrain,
+        paths: &[(String, ambition_engine_core::KinematicPath)],
+    ) -> Self {
+        Self::new_in(
+            &CharacterCatalog::empty(),
+            &super::super::enemies::test_roster(),
+            id,
+            name,
+            aabb,
+            brain,
+            paths,
+        )
+    }
+
+    /// Content-free peaceful-NPC constructor for unit tests.
+    pub fn new_peaceful_npc(
+        id: impl Into<String>,
+        name: impl Into<String>,
+        aabb: ae::Aabb,
+        interactable: &ambition_interaction::Interactable,
+        paths: &[(String, ambition_engine_core::KinematicPath)],
+    ) -> (Self, Option<ae::Vec2>) {
+        Self::new_peaceful_npc_in(
+            &CharacterCatalog::empty(),
+            &super::super::enemies::test_roster(),
+            id,
+            name,
+            aabb,
+            interactable,
+            paths,
         )
     }
 }

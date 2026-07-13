@@ -62,6 +62,7 @@ pub fn ecs_hit_event_hits_actor(
 }
 
 pub fn ecs_hit_event_hits_boss(
+    boss_catalog: &crate::boss_encounter::BossCatalog,
     event: &HitEvent,
     bosses: &Query<
         (
@@ -98,7 +99,7 @@ pub fn ecs_hit_event_hits_boss(
                 return false;
             }
             crate::features::damageable_volumes(
-                &crate::features::BossVolumeContext::from_ref(feature.as_boss_ref(), attack_state)
+                &crate::features::BossVolumeContext::from_ref(boss_catalog, feature.as_boss_ref(), attack_state)
                     .with_animation_frame(animation_frame),
             )
             .iter()

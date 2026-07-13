@@ -29,6 +29,8 @@ use frame::*;
 /// All the per-tick inputs the volume helpers need. Owned by the
 /// caller so the helpers themselves stay pure.
 pub struct BossVolumeContext<'a> {
+    /// App-local authored boss authority used for special animation aliases.
+    pub boss_catalog: &'a super::BossCatalog,
     pub pos: ae::Vec2,
     pub size: ae::Vec2,
     pub combat_size: ae::Vec2,
@@ -74,15 +76,20 @@ pub struct BossAnimationFrameSample {
     /// redundant with `profile` for most rows, but keeping the key on
     /// the sample makes the bridge explicit and prevents future
     /// profile↔row alias drift from silently selecting a fallback box.
-    pub animation_key: Option<&'static str>,
+    pub animation_key: Option<String>,
 }
 
 impl<'a> BossVolumeContext<'a> {
     /// Build the context from a live boss view + its attack-state component.
     /// The boss contributes only body fields, not policy; volume selection is
     /// data-driven via `sprite_metrics`.
-    pub fn from_ref(boss: crate::features::BossRef<'a>, attack_state: &'a BossAttackState) -> Self {
+    pub fn from_ref(
+        boss_catalog: &'a super::BossCatalog,
+        boss: crate::features::BossRef<'a>,
+        attack_state: &'a BossAttackState,
+    ) -> Self {
         Self {
+            boss_catalog,
             pos: boss.kin.pos,
             // The sprite render-BASIS (AS4b) — the world scale sprite-metric hurtboxes
             // derive from. Was `kin.size`; that's now the COLLISION envelope, so read
@@ -116,7 +123,7 @@ impl<'a> BossVolumeContext<'a> {
 /// rows; a player/enemy just reports its current animation), but once resolved
 /// the world-space volume derivation is identical for all of them.
 pub struct AnimationSelection {
-    pub keys: Vec<&'static str>,
+    pub keys: Vec<String>,
     pub elapsed_s: f32,
     pub live_frame_index: Option<usize>,
 }
@@ -335,7 +342,7 @@ fn damageable_volumes_unmirrored(g: &impl CombatGeometry) -> Vec<ae::Aabb> {
         // resolves which row(s) it is showing; the sampling is uniform.
         let sel = g.hurtbox_selection();
         for active_anim in &sel.keys {
-            let Some(entry) = metrics.animations.get(*active_anim) else {
+            let Some(entry) = metrics.animations.get(active_anim) else {
                 continue;
             };
             let Some(box_) = entry.hurtbox.as_ref() else {

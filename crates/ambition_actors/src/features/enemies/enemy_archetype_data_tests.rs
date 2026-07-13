@@ -7,11 +7,11 @@
 use super::integration::enemy_attack_aabb_dir;
 use super::*;
 
-/// The installable [`CharacterRoster`] holder resolves a known brain key to
+/// The App-local [`CharacterRoster`] holder resolves a known brain key to
 /// its spec and falls back for an unknown / non-`Custom` brain, and the
 /// lib's embedded default reproduces `from_brain` exactly (the
 /// replay-identity guarantee for the resolution inversion). Built
-/// locally so it doesn't touch the process-global override.
+/// locally so the test controls its exact authority.
 #[test]
 fn enemy_roster_resolves_brain_keys_with_fallback() {
     use ambition_entity_catalog::placements::CharacterBrain;
@@ -39,7 +39,7 @@ fn enemy_roster_resolves_brain_keys_with_fallback() {
 fn ron_carries_every_known_brain_key() {
     for key in ALL_BRAIN_KEYS {
         assert!(
-            ENEMY_ARCHETYPE_REGISTRY.contains_key(*key),
+            test_roster().contains_brain(key),
             "character_archetypes.ron missing row for brain key '{key}'",
         );
     }

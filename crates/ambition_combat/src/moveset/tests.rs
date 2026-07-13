@@ -281,6 +281,7 @@ fn capture(
 /// Fixture seam resolver: a fixed convex blade for the `attack_side`
 /// clip (what the player manifest authors), `None` for everything else.
 fn test_blade_resolver(
+    _catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
     _cid: Option<&str>,
     animation: &str,
     body_pos: ae::Vec2,
@@ -303,12 +304,15 @@ fn test_blade_resolver(
 
 fn app_with_victim() -> (App, Entity) {
     // The authored-blade path resolves through the install seam exactly
-    // like production. Tests install a FIXTURE resolver (a fixed convex
+    // like production. Tests insert a FIXTURE resolver (a fixed convex
     // blade for the `attack_side` clip) — the seam + convex plumbing is
     // what combat owns; the REAL sprite-data resolution is asserted
     // sprites-side (`character_sprites::attack_hitbox` tests).
-    super::super::authored_volumes::install_authored_attack_volumes(test_blade_resolver);
     let mut app = App::new();
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.insert_resource(super::super::authored_volumes::AuthoredAttackVolumeResolver::new(
+        test_blade_resolver,
+    ));
     app.add_message::<HitEvent>();
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();
@@ -912,6 +916,8 @@ fn a_control_verb_edge_triggers_the_moveset_move_and_lands_it() {
     // Self-contained app: the full production chain registered ONCE
     // (trigger → advance → damage → capture) + a victim in reach.
     let mut app = App::new();
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<super::super::authored_volumes::AuthoredAttackVolumeResolver>();
     app.add_message::<HitEvent>();
     app.add_message::<SfxMessage>();
     app.add_message::<VfxMessage>();

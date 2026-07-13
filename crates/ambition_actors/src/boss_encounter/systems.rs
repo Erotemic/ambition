@@ -15,35 +15,34 @@ use bevy::prelude::*;
 use crate::cutscene_trigger::CutsceneTriggerQueue;
 use ambition_persistence::quest::QuestRegistry;
 
-use super::{default_boss_profiles, events::publish_events, BossEncounterRegistry, BossProfile};
+use super::{
+    default_boss_profiles, events::publish_events, BossCatalog, BossEncounterRegistry, BossProfile,
+};
 
-pub fn populate_boss_encounter_registry(mut registry: ResMut<BossEncounterRegistry>) {
+pub fn populate_boss_encounter_registry(
+    catalog: Res<BossCatalog>,
+    mut registry: ResMut<BossEncounterRegistry>,
+) {
     if registry.specs_loaded {
         return;
     }
-    // A game with no boss content (demo shell, boss-free platformer) never
-    // calls the install — that's a legitimately empty roster, not the
-    // missing-install mis-assembly the specs panic guards (which stays live
-    // on any path that actually resolves a boss). Lib tests keep the
-    // cfg(test) directory fallback instead of this short-circuit.
-    #[cfg(not(test))]
-    if !super::boss_content_installed() {
+    if catalog.is_empty() {
         bevy::log::info!(
             target: "ambition::boss_encounter",
-            "boss_encounter registry: no boss content installed (empty roster)"
+            "boss_encounter registry: App has no boss catalog fragments"
         );
         registry.specs_loaded = true;
         return;
     }
     // Per ADR 0017: named boss encounter specs are authored in
-    // `ambition_content/assets/data/boss_encounters/<id>.ron` and installed
-    // before the registry is populated. Log a one-time startup census so a
-    // missing content install or empty roster is visible immediately.
-    let profiles = default_boss_profiles();
+    // `ambition_content/assets/data/boss_encounters/<id>.ron` and assembled
+    // into the App-local catalog before the registry is populated. Log a one-time startup census so a
+    // missing provider composition or empty catalog is visible immediately.
+    let profiles = default_boss_profiles(&catalog);
     let total = profiles.len();
     bevy::log::info!(
         target: "ambition::boss_encounter",
-        "boss_encounter registry: {total} content-installed profile(s) loaded"
+        "boss_encounter registry: {total} App-local profile(s) loaded"
     );
     for profile in profiles {
         registry.ensure_profile(profile);
@@ -60,6 +59,7 @@ pub fn populate_boss_encounter_registry(mut registry: ResMut<BossEncounterRegist
 /// The body's `BodyHealth` (§A1) + `BossEncounter.encounter` ARE the source of truth.
 pub fn update_boss_encounters(
     mut commands: Commands,
+    catalog: Res<BossCatalog>,
     world_time: Res<ambition_time::WorldTime>,
     registry: Res<BossEncounterRegistry>,
     mut banner: ResMut<crate::features::GameplayBanner>,
@@ -123,9 +123,14 @@ pub fn update_boss_encounters(
             .profiles
             .get(&archetype_id)
             .cloned()
-            .or_else(|| BossProfile::for_encounter_id_or_name(&archetype_id))
+            .or_else(|| BossProfile::for_encounter_id_or_name(&catalog, &archetype_id))
             .unwrap_or_else(|| {
-                BossProfile::generic(archetype_id.clone(), boss_name.clone(), health.max())
+                BossProfile::generic(
+                    &catalog,
+                    archetype_id.clone(),
+                    boss_name.clone(),
+                    health.max(),
+                )
             });
         let spec = profile.encounter.clone();
 

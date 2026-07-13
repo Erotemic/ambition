@@ -1,11 +1,10 @@
 // Boss SPRITESHEET layouts — content-authored sheet specs (C6).
 //
 // Top-level shape: `{ "<boss_key>": BossSheetSpec }`, parsed into a
-// `BossSheetRegistry` and installed via `install_boss_sheets` at plugin-build
-// time (mirrors `boss_profiles.ron` / `BossProfileRegistry`). An installed key
+// `BossCatalogFragment` for focused validation and assembled with the provider's
+// other boss data into the App-local `BossCatalog`. An authored key
 // REPLACES the engine's built-in default sheet for that key; keys absent here
-// fall back to the built-in `LazyLock` default in
-// `gameplay_core::boss_encounter::sprites`.
+// fall back to the immutable layout defaults in `ambition_sprite_sheet`.
 //
 // These rows are byte-identical to the built-in demo-boss defaults (pinned by
 // `boss_sheets_ron_matches_builtin_defaults`). To re-author a boss's sheet

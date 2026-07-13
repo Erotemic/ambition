@@ -5,6 +5,10 @@
 
 use super::*;
 
+fn catalog() -> CharacterCatalog {
+    crate::character_roster::catalog()
+}
+
 fn collision() -> ae::Vec2 {
     ae::Vec2::new(30.0, 48.0)
 }
@@ -16,6 +20,7 @@ fn down() -> ae::Vec2 {
 
 fn player_box(facing: f32) -> ae::Aabb {
     player_attack_hitbox_world(
+        &catalog(),
         "attack_side",
         ae::Vec2::new(0.0, 0.0),
         collision(),
@@ -37,7 +42,7 @@ fn player_box(facing: f32) -> ae::Aabb {
 fn attack_hitbox_covaries_with_gravity_like_the_slash_vfx() {
     let body = ae::Vec2::new(100.0, 100.0);
     let center = |g: ae::Vec2| {
-        let b = player_attack_hitbox_world("attack_side", body, collision(), 1.0, g)
+        let b = player_attack_hitbox_world(&catalog(), "attack_side", body, collision(), 1.0, g)
             .expect("attack_side authored")
             .bounds();
         (b.min + b.max) * 0.5
@@ -104,7 +109,14 @@ fn player_attack_side_mirrors_with_facing() {
 fn player_attack_side_is_an_authored_convex_blade() {
     // The robot's attack_side authors a poly (blade arc), so the player
     // slash resolves a Convex volume — not a box.
-    let vol = player_attack_hitbox_world("attack_side", ae::Vec2::ZERO, collision(), 1.0, down())
+    let vol = player_attack_hitbox_world(
+        &catalog(),
+        "attack_side",
+        ae::Vec2::ZERO,
+        collision(),
+        1.0,
+        down(),
+    )
         .expect("attack_side authored");
     assert!(
         matches!(vol, ae::CombatVolume::Convex { .. }),
@@ -119,6 +131,7 @@ fn actor_attack_hitbox_resolves_an_authored_enemy_blade() {
     // the hardcoded fallback — the unification payoff: an enemy swings the
     // authored blade you see in `debug-hitboxes`, not magic numbers.
     let aabb = actor_attack_hitbox_world(
+        &catalog(),
         "robot",
         "attack_side",
         ae::Vec2::new(0.0, 0.0),
@@ -135,6 +148,7 @@ fn actor_attack_hitbox_resolves_an_authored_enemy_blade() {
 #[test]
 fn actor_attack_hitbox_is_none_for_unknown_character() {
     assert!(actor_attack_hitbox_world(
+        &catalog(),
         "definitely_not_a_character",
         "attack_side",
         ae::Vec2::ZERO,
@@ -152,6 +166,7 @@ fn actor_attack_hitbox_is_none_for_unknown_character() {
 #[test]
 fn seam_resolver_resolves_the_authored_player_blade() {
     let volume = authored_attack_volume_resolver(
+        &catalog(),
         None,
         "attack_side",
         ae::Vec2::new(100.0, 100.0),

@@ -25,12 +25,11 @@
 
 use std::collections::BTreeSet;
 
-/// Install the content seams the asset catalog and the boss roster read.
-/// First install wins, so this is safe to call from every test.
-fn install_content() {
+/// Load the provider-owned world manifest and assemble the same immutable
+/// App-local boss contribution production uses.
+fn content_boss_catalog() -> ambition::actors::boss_encounter::BossCatalog {
     ambition_content::worlds::install();
-    ambition_content::character_catalog::install();
-    ambition_content::bosses::install_boss_roster();
+    ambition_content::bosses::authored_boss_catalog()
 }
 
 /// (1) Every dedicated boss sheet the renderer will look for resolves to a real
@@ -38,13 +37,20 @@ fn install_content() {
 /// boss.
 #[test]
 fn every_dedicated_boss_sheet_resolves_a_catalog_path() {
-    install_content();
+    let boss_catalog = content_boss_catalog();
+    let character_catalog = ambition::characters::actor::character_catalog::CharacterCatalog::from_data(
+        ambition::characters::actor::character_catalog::parse_catalog(
+            ambition_content::character_catalog::CHARACTER_CATALOG_RON,
+        ),
+    );
     let catalog = ambition::actors::assets::sandbox_assets::desktop_dev_default_catalog(
+        &character_catalog,
+        &boss_catalog,
         &ambition_content::audio_registries::load_music_registry(),
     );
 
     let mut missing = Vec::new();
-    for (key, _spec) in ambition::actors::boss_encounter::sprites::dedicated_boss_sheets() {
+    for (key, _filename) in boss_catalog.sprite_filenames() {
         let id = ambition::asset_manager::sandbox_assets::ids::boss_sprite(key);
         if catalog.try_path_for_load(&id).is_none() {
             missing.push(key);
@@ -54,7 +60,7 @@ fn every_dedicated_boss_sheet_resolves_a_catalog_path() {
         missing.is_empty(),
         "these boss sheets resolve no asset path, so `GameAssets::boss_sprites` \
          will not carry them and their bosses will draw the GENERIC body: {missing:?}. \
-         Run `./regen_sprites.sh`, or fix the row in `all_boss_sprite_filenames`."
+         Run `./regen_sprites.sh`, or fix the provider boss-catalog filename row."
     );
 }
 
@@ -62,19 +68,15 @@ fn every_dedicated_boss_sheet_resolves_a_catalog_path() {
 ///
 /// `upgrade_boss_sprites` computes `boss_key = behavior.id.to_ascii_lowercase()`.
 /// So every authored boss profile that HAS art must appear in
-/// `dedicated_boss_sheets()` under its own id — not under its `sprite_target`,
-/// which is a different key the SIM uses for hurtbox metrics. That divergence is
+/// the provider boss catalog under its own id — not under its `sprite_target`,
+/// which is a different key the simulation uses for hurtbox metrics. That divergence is
 /// the "disproven `sprite_target` dispatch" the bug note warns against; this test
 /// is why it stays disproven.
 #[test]
 fn the_render_key_is_the_behavior_id_not_the_sprite_target() {
-    install_content();
+    let boss_catalog = content_boss_catalog();
 
-    let sheet_keys: BTreeSet<&str> =
-        ambition::actors::boss_encounter::sprites::dedicated_boss_sheets()
-            .into_iter()
-            .map(|(key, _)| key)
-            .collect();
+    let sheet_keys: BTreeSet<&str> = boss_catalog.authored_sheet_keys().collect();
 
     // Bosses that ship their own art. The rest deliberately draw the generic
     // gradient-sentinel body, which is a design choice, not this bug.
@@ -85,7 +87,7 @@ fn the_render_key_is_the_behavior_id_not_the_sprite_target() {
         "flying_spaghetti_monster_boss",
         "trex_boss",
     ] {
-        let profile = ambition::actors::features::BossBehaviorProfile::from_data(id);
+        let profile = ambition::actors::features::BossBehaviorProfile::from_data(&boss_catalog, id);
         assert_eq!(
             profile.id, id,
             "the profile registry must round-trip its own id"
@@ -93,10 +95,10 @@ fn the_render_key_is_the_behavior_id_not_the_sprite_target() {
         assert!(
             sheet_keys.contains(id),
             "`upgrade_boss_sprites` looks up `boss_sprites[\"{id}\"]` (the lowercased \
-             BEHAVIOR ID). It is not in `dedicated_boss_sheets()` — so this boss draws \
+             BEHAVIOR ID). It has no provider-authored sheet, so this boss draws \
              the generic body. Its `sprite_target` is {:?}, which is a DIFFERENT key, \
-             used by the sim for hurtbox metrics. Add the behavior id to the sheet \
-             registry; do not re-route the renderer through `sprite_target`.",
+             used by the sim for hurtbox metrics. Add the behavior id to the provider boss \
+             catalog; do not re-route the renderer through `sprite_target`.",
             profile.sprite_target,
         );
     }
@@ -108,12 +110,8 @@ fn the_render_key_is_the_behavior_id_not_the_sprite_target() {
 /// which would make the real regression invisible.
 #[test]
 fn a_boss_with_no_authored_sheet_is_absent_from_the_registry_on_purpose() {
-    install_content();
-    let sheet_keys: BTreeSet<&str> =
-        ambition::actors::boss_encounter::sprites::dedicated_boss_sheets()
-            .into_iter()
-            .map(|(key, _)| key)
-            .collect();
+    let boss_catalog = content_boss_catalog();
+    let sheet_keys: BTreeSet<&str> = boss_catalog.authored_sheet_keys().collect();
     for id in ["clockwork_warden", "mode_collapse_boss", "overflow_boss"] {
         assert!(
             !sheet_keys.contains(id),
@@ -126,7 +124,7 @@ fn a_boss_with_no_authored_sheet_is_absent_from_the_registry_on_purpose() {
 /// **(2') The cause the other two tests could not see.**
 ///
 /// `the_render_key_is_the_behavior_id_not_the_sprite_target` resolves profiles
-/// through `BossBehaviorProfile::from_data(id)` — the DIRECT path, which panics on
+/// through `BossBehaviorProfile::from_data(&boss_catalog, id)` — the DIRECT path, which panics on
 /// a miss. The SIM does not use that path. `BossConfig::new` runs
 /// `canonical_boss_id_from(name, brain)` and then `for_authored_boss`, which
 /// **silently falls back** to `BossBehaviorProfile::generic(key)`: a clone of the
@@ -142,18 +140,14 @@ fn a_boss_with_no_authored_sheet_is_absent_from_the_registry_on_purpose() {
 /// to do so by accident.
 #[test]
 fn every_authored_boss_placement_resolves_the_profile_the_sim_will_spawn() {
-    install_content();
+    let boss_catalog = content_boss_catalog();
     ambition_content::worlds::install();
 
     let project = ambition::actors::ldtk_world::LdtkProject::load_default_for_dev()
         .expect("the shipped LDtk project loads");
     let room_set = project.to_room_set().expect("it lowers to rooms");
 
-    let sheet_keys: BTreeSet<&str> =
-        ambition::actors::boss_encounter::sprites::dedicated_boss_sheets()
-            .into_iter()
-            .map(|(key, _)| key)
-            .collect();
+    let sheet_keys: BTreeSet<&str> = boss_catalog.authored_sheet_keys().collect();
 
     // Bosses the game deliberately ships without their own art. Everything else
     // that a room actually places must land on a sheet.
@@ -177,7 +171,7 @@ fn every_authored_boss_placement_resolves_the_profile_the_sim_will_spawn() {
                 &spawn.payload,
             );
             let profile =
-                ambition::actors::features::BossBehaviorProfile::for_authored_boss(&canonical);
+                ambition::actors::features::BossBehaviorProfile::for_authored_boss(&boss_catalog, &canonical);
             let render_key = profile.id.to_ascii_lowercase().replace('-', "_");
             if sheet_keys.contains(render_key.as_str())
                 || DELIBERATELY_GENERIC.contains(&render_key.as_str())

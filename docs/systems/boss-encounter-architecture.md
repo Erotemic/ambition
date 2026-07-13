@@ -75,7 +75,7 @@ when test fixtures don't install the boss machine). Unit tests in
 The encounter's numeric fields (HP, phase thresholds, timings,
 music ids) are content rather than Rust constants. Each authored boss ships an
 encounter RON under `game/ambition_content/assets/data/boss_encounters/<id>.ron`.
-`ambition_content::bosses::install_boss_roster` embeds and installs those specs
+`ambition_content::bosses::register` embeds those specs in an App-local boss fragment
 into gameplay-core's generic holder during sandbox resource initialization.
 
 `ambition_actors` owns the reusable schema and encounter state machine.

@@ -11,27 +11,35 @@ fn intro_npc_and_prop_sprite_ids_resolve_through_the_catalog() {
         intro_npc_asset_id, intro_npc_sprite_rows, intro_prop_asset_id, intro_prop_sprite_rows,
     };
 
-    // Catalog building resolves character sprite rows through the installed
-    // character catalog (integration tests install like the app does).
-    ambition_content::character_catalog::install();
+    // Catalog building resolves character sprite rows through the explicit
+    // App-local catalog supplied by the composition root.
     ambition_content::worlds::install();
     let mut config = GameAssetConfig::default();
     config.asset_profile = AssetProfile::DesktopDevLoose;
     let music = load_music_registry();
+    let character_catalog = ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
+        ambition_characters::actor::character_catalog::parse_catalog(
+            ambition_content::character_catalog::CHARACTER_CATALOG_RON,
+        ),
+    );
+    let boss_catalog = ambition_content::bosses::authored_boss_catalog();
     // The intro entries are a CONTENT extension (the app assembly wires
     // them through `build_sandbox_catalog_with`); mirror that wiring here.
     let catalog = ambition_actors::assets::sandbox_assets::build_sandbox_catalog_with(
         &config,
+        &character_catalog,
+        &boss_catalog,
         &music,
         |manifest| {
             ambition_content::intro::sprites::extend_with_intro_sprite_entries(
                 manifest,
                 &config.sprite_folder,
+                &character_catalog,
             );
         },
     );
 
-    for (name, filename, _spec) in intro_npc_sprite_rows() {
+    for (name, filename, _spec) in intro_npc_sprite_rows(&character_catalog) {
         let id = intro_npc_asset_id(name);
         let resolved = catalog.resolve(&id).unwrap_or_else(|err| {
             panic!("intro NPC `{name}` (id {id}) missing from catalog: {err}")

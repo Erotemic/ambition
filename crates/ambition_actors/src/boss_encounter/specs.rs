@@ -1,145 +1,44 @@
-//! Installed boss-encounter spec holder.
+//! App-local boss-encounter spec access.
 //!
-//! Holds the content-installed `BossEncounterSpec`s (the numeric encounter
-//! schema from `boss_encounters/<id>.ron`, per ADR 0017). `ambition_content`
-//! calls `install_boss_encounter_specs`; production REQUIRES it, while
-//! `cfg(test)` falls back to reading the content RON dir directly so lib tests
-//! resolve standalone. `boss_encounter_specs` / `default_boss_specs` read the
-//! installed set; the lib embeds no boss data itself.
+//! Named encounter data is assembled in [`super::BossCatalog`]. This module
+//! keeps the compatibility projection used by validation and registry code;
+//! it owns no process-global content state.
 
-use super::profile::default_boss_profiles;
+use super::BossCatalog;
 
-/// Default boss specs shipped with the sandbox. Populated lazily so
-/// hot reloads of LDtk content don't double-register.
-pub fn default_boss_specs() -> Vec<crate::boss_encounter::BossEncounterSpec> {
-    default_boss_profiles()
-        .into_iter()
-        .map(|profile| profile.encounter)
-        .collect()
-}
-
-use crate::boss_encounter::BossEncounterSpec;
-
-/// The installed per-boss encounter specs (`boss_encounters/<id>.ron`). The
-/// named encounter DATA is content, owned + installed by `ambition_content`
-/// (`install_boss_roster`); the lib holds only this generic holder + the
-/// `BossEncounterSpec` schema. Per ADR 0017 the RON owns the encounter numbers
-/// (HP / phase thresholds / timings / music ids); the `BossBehaviorProfile`
-/// (boss_profiles.ron) owns movement/attacks/rewards.
-///
-/// §5 classification (restructuring-blueprint): **content registry** —
-/// install-once seam, immutable after install, read from the pure
-/// `boss_encounter_specs` helper (called from non-system profile/roster code).
-/// Kept a process-global `OnceLock`, not a Bevy `Resource`, for the same reason
-/// as [`super::behavior`]'s registries; `install_boss_encounter_specs` + the
-/// `cfg(test)` directory fallback ARE the test-override mechanism.
-static BOSS_ENCOUNTER_SPEC_OVERRIDE: std::sync::OnceLock<Vec<BossEncounterSpec>> =
-    std::sync::OnceLock::new();
-
-/// Install the authored per-boss encounter specs — `ambition_content` calls
-/// this (alongside `install_boss_profiles`) with the parsed, embedded
-/// `boss_encounters/*.ron`.
-pub fn install_boss_encounter_specs(specs: Vec<BossEncounterSpec>) {
-    let _ = BOSS_ENCOUNTER_SPEC_OVERRIDE.set(specs);
-}
-
-/// Whether any game installed boss content. A game with NO bosses (a demo
-/// shell, a boss-free platformer) legitimately never installs — the registry
-/// populate treats that as an empty roster instead of tripping the
-/// missing-install panic, which stays live for any path that actually
-/// RESOLVES a boss (`boss_encounter_specs`).
-pub fn boss_content_installed() -> bool {
-    BOSS_ENCOUNTER_SPEC_OVERRIDE.get().is_some()
-}
-
-/// The installed encounter specs. Production REQUIRES the content install (no
-/// embedded boss data in the lib binary); lib unit tests read content's
-/// authored `boss_encounters/` at compile-relative path so they resolve
-/// standalone.
-pub(super) fn boss_encounter_specs() -> Vec<BossEncounterSpec> {
-    if let Some(specs) = BOSS_ENCOUNTER_SPEC_OVERRIDE.get() {
-        return specs.clone();
-    }
-    boss_encounter_specs_fallback()
-}
-
-#[cfg(test)]
-fn boss_encounter_specs_fallback() -> Vec<BossEncounterSpec> {
-    let dir = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../game/ambition_content/assets/data/boss_encounters");
-    let Ok(entries) = std::fs::read_dir(&dir) else {
-        return Vec::new();
-    };
-    let mut out = Vec::new();
-    for entry in entries.flatten() {
-        let path = entry.path();
-        if path.extension().and_then(|s| s.to_str()) != Some("ron") {
-            continue;
-        }
-        let Ok(text) = std::fs::read_to_string(&path) else {
-            continue;
-        };
-        if let Ok(spec) = ron::from_str::<BossEncounterSpec>(&text) {
-            out.push(spec);
-        }
-    }
-    out
-}
-
-#[cfg(not(test))]
-fn boss_encounter_specs_fallback() -> Vec<BossEncounterSpec> {
-    panic!(
-        "boss encounter specs not installed — AmbitionContent must call \
-         install_boss_encounter_specs() (via init_sandbox_resources) before any \
-         boss resolves"
-    )
+/// Boss specs authored by the providers linked into this App.
+pub fn default_boss_specs(
+    catalog: &BossCatalog,
+) -> Vec<crate::boss_encounter::BossEncounterSpec> {
+    catalog.encounter_specs().cloned().collect()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    /// Every installed RON spec under `boss_encounters/` must correspond to an
-    /// authored behavior profile. A stray RON (typo'd filename, leftover from a
-    /// renamed boss) would otherwise install unusable content; this test trips
-    /// instead.
     #[test]
-    fn every_on_disk_ron_matches_an_authored_profile() {
-        let profile_ids: std::collections::BTreeSet<String> =
-            default_boss_profiles().into_iter().map(|p| p.id).collect();
-        let orphans: Vec<String> = boss_encounter_specs()
-            .into_iter()
-            .map(|s| s.id)
-            .filter(|id| !profile_ids.contains(id))
+    fn every_encounter_has_an_authored_behavior() {
+        let catalog = super::super::test_boss_catalog();
+        let orphans: Vec<String> = catalog
+            .encounter_specs()
+            .filter(|spec| catalog.behavior(&spec.id).is_none())
+            .map(|spec| spec.id.clone())
             .collect();
         assert!(
             orphans.is_empty(),
-            "boss_encounters/<id>.ron files have no matching authored profile: {orphans:?}"
+            "boss encounters have no matching authored behavior: {orphans:?}"
         );
     }
 
-    /// The loader produces no duplicate ids — a misnamed `.ron` file
-    /// (e.g. `mockingbird_old.ron` with `id: \"mockingbird\"`) would land
-    /// duplicate specs in the override map; the profile loop would
-    /// then nondeterministically pick whichever the BTreeMap collected
-    /// last. This test trips on that case.
     #[test]
-    fn installed_boss_specs_have_no_duplicate_ids() {
-        let specs = boss_encounter_specs();
-        let mut seen: std::collections::BTreeSet<String> = std::collections::BTreeSet::new();
+    fn assembled_boss_specs_have_unique_ids() {
+        let specs = default_boss_specs(super::super::test_boss_catalog());
+        let mut seen = std::collections::BTreeSet::new();
         let dupes: Vec<String> = specs
             .iter()
-            .filter_map(|s| {
-                if seen.insert(s.id.clone()) {
-                    None
-                } else {
-                    Some(s.id.clone())
-                }
-            })
+            .filter_map(|spec| (!seen.insert(spec.id.clone())).then(|| spec.id.clone()))
             .collect();
-        assert!(
-            dupes.is_empty(),
-            "duplicate installed boss spec ids: {dupes:?}"
-        );
+        assert!(dupes.is_empty(), "duplicate assembled boss spec ids: {dupes:?}");
     }
 }

@@ -11,14 +11,14 @@ use std::fmt;
 
 use bevy::prelude::{App, Resource};
 
-use super::{parse_catalog, validator, CharacterCatalog, CharacterCatalogData};
+use super::{try_parse_catalog, validator, CharacterCatalog, CharacterCatalogData};
 
 /// One provider's immutable character definitions.
 #[derive(Clone, Debug)]
 pub struct CharacterCatalogFragment {
-    pub provider_id: String,
-    pub default_character_id: Option<String>,
-    pub catalog: CharacterCatalogData,
+    provider_id: String,
+    default_character_id: Option<String>,
+    catalog: CharacterCatalogData,
     source_ron: String,
 }
 
@@ -32,7 +32,12 @@ impl CharacterCatalogFragment {
         if provider_id.trim().is_empty() {
             return Err(CharacterCatalogAssemblyError::EmptyProviderId);
         }
-        let catalog = parse_catalog(catalog_ron);
+        let catalog = try_parse_catalog(catalog_ron).map_err(|message| {
+            CharacterCatalogAssemblyError::MalformedFragment {
+                provider_id: provider_id.clone(),
+                message,
+            }
+        })?;
         let validation = validator::validate(&catalog);
         if !validation.is_empty() {
             return Err(CharacterCatalogAssemblyError::InvalidFragment {
@@ -56,6 +61,40 @@ impl CharacterCatalogFragment {
             source_ron: catalog_ron.to_string(),
         })
     }
+
+    pub fn provider_id(&self) -> &str {
+        &self.provider_id
+    }
+
+    pub fn default_character_id(&self) -> Option<&str> {
+        self.default_character_id.as_deref()
+    }
+
+    pub fn catalog(&self) -> &CharacterCatalogData {
+        &self.catalog
+    }
+
+    fn validate(&self) -> Result<(), CharacterCatalogAssemblyError> {
+        if self.provider_id.trim().is_empty() {
+            return Err(CharacterCatalogAssemblyError::EmptyProviderId);
+        }
+        let errors = validator::validate(&self.catalog);
+        if !errors.is_empty() {
+            return Err(CharacterCatalogAssemblyError::InvalidFragment {
+                provider_id: self.provider_id.clone(),
+                errors,
+            });
+        }
+        if let Some(default_id) = self.default_character_id.as_deref() {
+            if !self.catalog.characters.contains_key(default_id) {
+                return Err(CharacterCatalogAssemblyError::MissingDefaultCharacter {
+                    provider_id: self.provider_id.clone(),
+                    character_id: default_id.to_string(),
+                });
+            }
+        }
+        Ok(())
+    }
 }
 
 /// All linked provider fragments for one Bevy `App`.
@@ -69,6 +108,7 @@ impl CharacterCatalogRegistry {
         &mut self,
         fragment: CharacterCatalogFragment,
     ) -> Result<(), CharacterCatalogAssemblyError> {
+        fragment.validate()?;
         if let Some(existing) = self.fragments.get(&fragment.provider_id) {
             if existing.default_character_id == fragment.default_character_id
                 && existing.source_ron == fragment.source_ron
@@ -142,12 +182,12 @@ impl CharacterCatalogRegistry {
             }
         }
 
-        let catalog = CharacterCatalog(CharacterCatalogData {
+        let catalog = CharacterCatalog::from_data(CharacterCatalogData {
             brain_presets,
             action_set_presets,
             characters,
         });
-        let validation = validator::validate(&catalog.0);
+        let validation = validator::validate(catalog.data());
         if !validation.is_empty() {
             return Err(CharacterCatalogAssemblyError::InvalidAssembly(validation));
         }
@@ -196,6 +236,10 @@ pub enum CharacterCatalogAssemblyError {
     DuplicateProvider {
         provider_id: String,
     },
+    MalformedFragment {
+        provider_id: String,
+        message: String,
+    },
     InvalidFragment {
         provider_id: String,
         errors: Vec<String>,
@@ -219,6 +263,13 @@ impl fmt::Display for CharacterCatalogAssemblyError {
             Self::DuplicateProvider { provider_id } => {
                 write!(f, "character catalog provider '{provider_id}' registered twice")
             }
+            Self::MalformedFragment {
+                provider_id,
+                message,
+            } => write!(
+                f,
+                "character catalog fragment '{provider_id}' is malformed RON: {message}"
+            ),
             Self::InvalidFragment {
                 provider_id,
                 errors,
@@ -274,12 +325,12 @@ impl CharacterCatalogAppExt for App {
         &mut self,
         fragment: CharacterCatalogFragment,
     ) -> Result<&mut Self, CharacterCatalogAssemblyError> {
-        if !self.world().contains_resource::<CharacterCatalogRegistry>() {
-            self.init_resource::<CharacterCatalogRegistry>();
-        }
         let (registry, assembled) = {
-            let current = self.world().resource::<CharacterCatalogRegistry>();
-            let mut candidate = current.clone();
+            let mut candidate = self
+                .world()
+                .get_resource::<CharacterCatalogRegistry>()
+                .cloned()
+                .unwrap_or_default();
             candidate.register(fragment)?;
             let assembled = candidate.assemble()?;
             (candidate, assembled)
@@ -324,6 +375,17 @@ mod tests {
     }
 
     #[test]
+    fn malformed_ron_is_a_structured_error() {
+        let error = CharacterCatalogFragment::from_ron("broken", None::<String>, "not ron")
+            .expect_err("malformed provider data must not panic");
+        assert!(matches!(
+            error,
+            CharacterCatalogAssemblyError::MalformedFragment { provider_id, .. }
+                if provider_id == "broken"
+        ));
+    }
+
+    #[test]
     fn provider_order_does_not_change_the_assembly() {
         let mut first = CharacterCatalogRegistry::default();
         first.register(fragment("a", "alpha", A)).unwrap();
@@ -338,8 +400,8 @@ mod tests {
         assert_eq!(first.catalog, second.catalog);
         assert_eq!(first.defaults, second.defaults);
         assert_eq!(first.owners, second.owners);
-        assert!(first.catalog.0.brain_presets.contains_key("a::idle"));
-        assert!(first.catalog.0.brain_presets.contains_key("b::idle"));
+        assert!(first.catalog.data().brain_presets.contains_key("a::idle"));
+        assert!(first.catalog.data().brain_presets.contains_key("b::idle"));
     }
 
     #[test]

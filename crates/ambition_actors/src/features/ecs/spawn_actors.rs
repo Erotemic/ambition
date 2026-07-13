@@ -12,6 +12,9 @@ use ambition_platformer_primitives::lifecycle::{
     ActiveSessionScope, SessionSpawnScope, SpawnSessionScopedExt,
 };
 use bevy::prelude::{Message, Name};
+use ambition_characters::actor::character_catalog::CharacterCatalog;
+use super::super::enemies::CharacterRoster;
+use crate::boss_encounter::BossCatalog;
 
 /// Programmatic actor-spawn request — the public seam for dropping a specific
 /// actor into a live sim at an arbitrary position WITHOUT authoring an LDtk room.
@@ -117,6 +120,9 @@ pub struct BossOverrides {
 pub fn apply_spawn_actor_requests(
     mut commands: bevy::prelude::Commands,
     mut requests: bevy::prelude::MessageReader<SpawnActorRequest>,
+    character_catalog: bevy::prelude::Res<CharacterCatalog>,
+    character_roster: bevy::prelude::Res<CharacterRoster>,
+    boss_catalog: bevy::prelude::Res<BossCatalog>,
     active_session: Option<bevy::prelude::Res<ActiveSessionScope>>,
 ) {
     // Collect (feature id, entity, grudge-target id) for the Enemy spawns this batch
@@ -140,7 +146,13 @@ pub fn apply_spawn_actor_requests(
                     aabb,
                     brain.clone(),
                 );
-                spawn_boss_with_overrides(&mut commands, session_scope, &authored, overrides);
+                spawn_boss_with_overrides(
+                    &mut commands,
+                    &boss_catalog,
+                    session_scope,
+                    &authored,
+                    overrides,
+                );
             }
             SpawnActorKind::Enemy { brain } => {
                 let authored = crate::rooms::Authored::new(
@@ -154,6 +166,8 @@ pub fn apply_spawn_actor_requests(
                 // same as any authored enemy.
                 if let Some(entity) = spawn_enemy_with_faction(
                     &mut commands,
+                    &character_catalog,
+                    &character_roster,
                     session_scope,
                     &authored,
                     &[],
@@ -372,6 +386,8 @@ pub(super) struct NpcActorSpawnPlan {
 impl NpcActorSpawnPlan {
     #[allow(clippy::too_many_arguments)]
     pub(super) fn peaceful(
+        catalog: &CharacterCatalog,
+        roster: &CharacterRoster,
         entity_name: impl Into<String>,
         feature_aabb: CenteredAabb,
         id: impl Into<String>,
@@ -395,14 +411,17 @@ impl NpcActorSpawnPlan {
         // The hostile archetype this actor becomes when provoked: feeds its
         // stored CombatKit (so a provoked NPC fights with the right weapon) and
         // the seed's inert reconstruction spec.
-        let mut hostile_spec = super::actors::hostile_spec_for_actor(&id, &name, dialogue_id);
+        let mut hostile_spec =
+            super::actors::hostile_spec_for_actor(roster, &id, &name, dialogue_id);
         // An NPC is by construction a UNIQUE named placement: its death is
         // permanent (ADR 0022 "Morrowind rules") regardless of the mob-tier
         // respawn policy the borrowed combat archetype authors. The policy is
         // a property of the PLACEMENT, and this placement is a person.
         hostile_spec.respawn = ambition_entity_catalog::placements::RespawnPolicy::DeadStaysDead;
         let combat_kit = super::brain_builders::enemy_combat_kit_for_spec(&hostile_spec);
-        let (seed, render_size) = super::actor_clusters::ActorClusterSeed::new_peaceful_npc(
+        let (seed, render_size) = super::actor_clusters::ActorClusterSeed::new_peaceful_npc_in(
+            catalog,
+            roster,
             id.clone(),
             name.clone(),
             spawn_aabb,
@@ -416,6 +435,7 @@ impl NpcActorSpawnPlan {
             _ => 0.0,
         };
         let brain = super::super::npcs::npc_brain_from_catalog(
+            catalog,
             &interactable,
             seed.config.spawn.pos.x,
             patrol_radius,
@@ -524,10 +544,17 @@ impl NpcActorSpawnPlan {
 /// Spawn a boss with no spawn-time tweaks (room-load + the default seam path).
 pub(super) fn spawn_boss(
     commands: &mut Commands,
+    boss_catalog: &BossCatalog,
     session_scope: SessionSpawnScope,
     authored: &crate::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
 ) {
-    spawn_boss_with_overrides(commands, session_scope, authored, &BossOverrides::default());
+    spawn_boss_with_overrides(
+        commands,
+        boss_catalog,
+        session_scope,
+        authored,
+        &BossOverrides::default(),
+    );
 }
 
 /// The flight ceiling a boss body steers under. A boss's `BossPattern` brain
@@ -645,11 +672,13 @@ fn boss_actor_cluster(
 /// them); the encounter opt-out is honored by `sync_boss_encounter_entities`.
 pub(super) fn spawn_boss_with_overrides(
     commands: &mut Commands,
+    boss_catalog: &BossCatalog,
     session_scope: SessionSpawnScope,
     authored: &crate::rooms::Authored<ambition_entity_catalog::placements::BossBrain>,
     overrides: &BossOverrides,
 ) {
     let mut boss = BossClusterScratch::new(
+        boss_catalog,
         authored.id.clone(),
         authored.name.clone(),
         authored.aabb,
@@ -692,7 +721,7 @@ pub(super) fn spawn_boss_with_overrides(
     let encounter_id = boss.config.behavior.id.clone();
     let boss_sheet_key = encounter_id.to_ascii_lowercase().replace('-', "_");
     let boss_anim_frame = crate::boss_encounter::sprites::BossAnimFrame::new(
-        crate::boss_encounter::sprites::boss_sheet_for_key(&boss_sheet_key),
+        boss_catalog.sheet_for_key(&boss_sheet_key),
     );
     let combat_tuning = crate::time::feel::SandboxFeelTuning::default().feature_combat_tuning();
     let cycle_attack_active = boss
@@ -908,6 +937,8 @@ pub(super) fn spawn_boss_with_overrides(
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn spawn_runtime_minion(
     commands: &mut Commands,
+    catalog: &CharacterCatalog,
+    roster: &CharacterRoster,
     session_scope: SessionSpawnScope,
     id: impl Into<String>,
     name: impl Into<String>,
@@ -928,8 +959,16 @@ pub(crate) fn spawn_runtime_minion(
     let aabb = ae::Aabb::new(world_pos, half_size);
     let brain = ambition_entity_catalog::placements::CharacterBrain::Custom(archetype_id.into());
     let mut enemy =
-        super::actor_clusters::ActorClusterSeed::new(id.clone(), name.clone(), aabb, brain, &[]);
-    // `ActorClusterSeed::new` already sets HP from the resolved spec.
+        super::actor_clusters::ActorClusterSeed::new_in(
+            catalog,
+            roster,
+            id.clone(),
+            name.clone(),
+            aabb,
+            brain,
+            &[],
+        );
+    // `ActorClusterSeed::new_in` already sets HP from the resolved spec.
     // Boss-spawned minions shouldn't auto-respawn — they're part of
     // the encounter, not a static sandbag.
     enemy.status.respawn_timer = 999_999.0;
@@ -948,7 +987,11 @@ pub(crate) fn spawn_runtime_minion(
         .entity(entity)
         .insert(super::EncounterMob::new(encounter_id));
     if let Some(rs) =
-        super::actor_clusters::sprite_render_size_for_name(&name, aabb.half_size() * 2.0)
+        super::actor_clusters::sprite_render_size_for_name_in(
+            catalog,
+            &name,
+            aabb.half_size() * 2.0,
+        )
     {
         commands
             .entity(entity)
@@ -959,12 +1002,16 @@ pub(crate) fn spawn_runtime_minion(
 
 pub(super) fn spawn_enemy(
     commands: &mut Commands,
+    catalog: &CharacterCatalog,
+    roster: &CharacterRoster,
     session_scope: SessionSpawnScope,
     authored: &crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
     paths: &[(String, ambition_engine_core::KinematicPath)],
 ) {
     let _ = spawn_enemy_with_faction(
         commands,
+        catalog,
+        roster,
         session_scope,
         authored,
         paths,
@@ -980,20 +1027,24 @@ pub(super) fn spawn_enemy(
 /// for the composite mount/rider path (it fans out two of its own entities).
 pub(super) fn spawn_enemy_with_faction(
     commands: &mut Commands,
+    catalog: &CharacterCatalog,
+    roster: &CharacterRoster,
     session_scope: SessionSpawnScope,
     authored: &crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
     paths: &[(String, ambition_engine_core::KinematicPath)],
     faction: super::ActorFaction,
 ) -> Option<bevy::ecs::entity::Entity> {
-    let spec = super::super::enemies::spec_for_brain(&authored.payload);
-    let enemy = super::actor_clusters::ActorClusterSeed::new(
+    let spec = roster.spec_for_brain(&authored.payload);
+    let enemy = super::actor_clusters::ActorClusterSeed::new_in(
+        catalog,
+        roster,
         authored.id.clone(),
         authored.name.clone(),
         authored.aabb,
         authored.payload.clone(),
         paths,
     );
-    let entity = spawn_solo_enemy(commands, session_scope, enemy, authored, faction);
+    let entity = spawn_solo_enemy(commands, catalog, session_scope, enemy, authored, faction);
     attach_mount_role(commands, entity, &spec);
     // Q18 (G3): a mount archetype that carries articulated hands (the `giant`-class
     // giant_gnu) grows a `LimbRig` + two hand limb bodies the rider boss's strikes
@@ -1003,6 +1054,8 @@ pub(super) fn spawn_enemy_with_faction(
     if mount_has_hand_limbs(&spec) {
         spawn_giant_hand_limbs(
             commands,
+            catalog,
+            roster,
             session_scope,
             entity,
             &authored.id,
@@ -1048,6 +1101,8 @@ fn giant_hand_feature_id(giant_id: &str, side: &str) -> String {
 
 fn spawn_giant_hand_limbs(
     commands: &mut Commands,
+    catalog: &CharacterCatalog,
+    roster: &CharacterRoster,
     session_scope: SessionSpawnScope,
     giant: bevy::ecs::entity::Entity,
     giant_id: &str,
@@ -1089,7 +1144,9 @@ fn spawn_giant_hand_limbs(
         // Deterministic + unique per giant instance: derived from the giant's
         // AUTHORED id (not `giant.index()`), so two sims agree on the identity.
         let hand_id = giant_hand_feature_id(giant_id, tag);
-        let seed = super::actor_clusters::ActorClusterSeed::new(
+        let seed = super::actor_clusters::ActorClusterSeed::new_in(
+            catalog,
+            roster,
             hand_id.clone(),
             "Giant GNU Hand",
             aabb,
@@ -1098,6 +1155,7 @@ fn spawn_giant_hand_limbs(
         );
         let hand = spawn_solo_enemy(
             commands,
+            catalog,
             session_scope,
             seed,
             &crate::rooms::Authored {
@@ -1186,6 +1244,7 @@ fn attach_mount_role(
 /// mount/rider fan-out has been handled. Returns the spawned body entity.
 pub(super) fn spawn_solo_enemy(
     commands: &mut Commands,
+    catalog: &CharacterCatalog,
     session_scope: SessionSpawnScope,
     enemy: super::actor_clusters::ActorClusterSeed,
     authored: &crate::rooms::Authored<ambition_entity_catalog::placements::CharacterBrain>,
@@ -1205,7 +1264,8 @@ pub(super) fn spawn_solo_enemy(
     // shared `ActorRenderSize` (the same component the peaceful-NPC path sets), so
     // the sprite draws at the authored scale and matches the body the per-frame
     // `CenteredAabb` sync derives from the sprite-sized collision.
-    if let Some(rs) = super::actor_clusters::sprite_render_size_for_name(
+    if let Some(rs) = super::actor_clusters::sprite_render_size_for_name_in(
+        catalog,
         &authored.name,
         authored.aabb.half_size() * 2.0,
     ) {
@@ -1217,6 +1277,8 @@ pub(super) fn spawn_solo_enemy(
 }
 pub(super) fn spawn_interactable(
     commands: &mut Commands,
+    catalog: &CharacterCatalog,
+    roster: &CharacterRoster,
     session_scope: SessionSpawnScope,
     authored: &crate::rooms::Authored<crate::rooms::InteractableSpec>,
     paths: &[(String, ambition_engine_core::KinematicPath)],
@@ -1229,6 +1291,8 @@ pub(super) fn spawn_interactable(
         ambition_interaction::InteractionKind::Npc { .. }
     ) {
         NpcActorSpawnPlan::peaceful(
+            catalog,
+            roster,
             format!("Feature actor npc: {}", authored.name),
             feature_aabb,
             authored.id.clone(),
@@ -1263,6 +1327,8 @@ pub(super) fn spawn_interactable(
 /// feature entity queried by actor, projectile, rendering, and health systems.
 pub(super) fn spawn_encounter_mob(
     commands: &mut Commands,
+    catalog: &CharacterCatalog,
+    roster: &CharacterRoster,
     session_scope: SessionSpawnScope,
     encounter_id: impl Into<String>,
     id: String,
@@ -1273,8 +1339,16 @@ pub(super) fn spawn_encounter_mob(
     let encounter_id = encounter_id.into();
     let aabb = ae::Aabb::new(pos, size * 0.5);
     let mut enemy =
-        super::actor_clusters::ActorClusterSeed::new(id.clone(), id.clone(), aabb, brain, &[]);
-    // `ActorClusterSeed::new` already sets HP from the resolved spec.
+        super::actor_clusters::ActorClusterSeed::new_in(
+            catalog,
+            roster,
+            id.clone(),
+            id.clone(),
+            aabb,
+            brain,
+            &[],
+        );
+    // `ActorClusterSeed::new_in` already sets HP from the resolved spec.
     // Encounter mobs should not auto-respawn like training sandbags.
     enemy.status.respawn_timer = 999_999.0;
     let feature_aabb = CenteredAabb::from_center_size(pos, size);
@@ -1289,7 +1363,9 @@ pub(super) fn spawn_encounter_mob(
     commands
         .entity(entity)
         .insert(EncounterMob::new(encounter_id));
-    if let Some(rs) = super::actor_clusters::sprite_render_size_for_name(&id, size * 0.5 * 2.0) {
+    if let Some(rs) =
+        super::actor_clusters::sprite_render_size_for_name_in(catalog, &id, size * 0.5 * 2.0)
+    {
         commands
             .entity(entity)
             .insert(crate::features::ActorRenderSize(rs));
@@ -1316,6 +1392,8 @@ pub(super) fn despawn_encounter_mobs(
 pub fn apply_summon_effects(
     mut commands: bevy::prelude::Commands,
     mut requests: bevy::prelude::MessageReader<ambition_vfx::EffectRequest>,
+    character_catalog: bevy::prelude::Res<CharacterCatalog>,
+    character_roster: bevy::prelude::Res<CharacterRoster>,
     active_session: Option<bevy::prelude::Res<ActiveSessionScope>>,
 ) {
     let Some(session_scope) =
@@ -1328,6 +1406,8 @@ pub fn apply_summon_effects(
         if let ambition_vfx::Effect::Summon(s) = &req.effect {
             spawn_runtime_minion(
                 &mut commands,
+                &character_catalog,
+                &character_roster,
                 session_scope,
                 s.id.clone(),
                 s.name.clone(),

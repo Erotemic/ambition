@@ -44,6 +44,8 @@ pub fn fire_puppy_slug_gun_system(
     mut next_id: Local<u64>,
     // Ability ORIGIN = the controlled subject, not a `PrimaryPlayer` filter.
     controlled: Res<ControlledSubject>,
+    character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
+    character_roster: Res<crate::features::CharacterRoster>,
     players: Query<(
         &ActorControl,
         &BodyKinematics,
@@ -77,6 +79,8 @@ pub fn fire_puppy_slug_gun_system(
     let session_scope = SessionSpawnScope::new(owner.map(|owner| owner.0));
     let entity = crate::features::spawn_runtime_minion(
         &mut commands,
+        &character_catalog,
+        &character_roster,
         session_scope,
         format!("puppy_slug_ally_{}", *next_id),
         // Must be the catalog `display_name` ("Puppy Slug"), NOT a decorated label
@@ -112,7 +116,11 @@ mod tests {
 
     fn test_app() -> App {
         let mut app = App::new();
+        app.insert_resource(crate::features::enemies::test_roster());
         app.add_message::<ambition_sfx::SfxMessage>();
+        app.insert_resource(
+            ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+        );
         app.add_systems(Update, fire_puppy_slug_gun_system);
         app
     }

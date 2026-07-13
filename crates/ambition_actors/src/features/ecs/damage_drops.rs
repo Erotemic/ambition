@@ -102,6 +102,8 @@ const SPLIT_OFFSPRING_HALF: ae::Vec2 = ae::Vec2::new(15.0, 20.0);
 /// recursion, just "kill the slow parent, then handle two quick children."
 pub(super) fn spawn_split_offspring(
     commands: &mut Commands,
+    character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
+    character_roster: &crate::features::CharacterRoster,
     session_scope: SessionSpawnScope,
     parent_id: &str,
     pos: ae::Vec2,
@@ -109,6 +111,8 @@ pub(super) fn spawn_split_offspring(
     for (i, side) in [-1.0f32, 1.0].into_iter().enumerate() {
         crate::features::spawn_runtime_minion(
             commands,
+            character_catalog,
+            character_roster,
             session_scope,
             format!("{parent_id}:split{i}"),
             "Divided cell",

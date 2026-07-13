@@ -1,6 +1,6 @@
 //! Enemy data + state for the actor simulation: the [`CharacterRoster`] of
-//! archetype specs (loaded from `character_archetypes.ron`, installed via
-//! [`install_enemy_roster`]), per-actor locomotion state ([`ActorSpawnState`],
+//! archetype specs assembled as an App-local resource from provider fragments,
+//! per-actor locomotion state ([`ActorSpawnState`],
 //! [`ActorSurfaceState`]), and composite-visual planning. The per-frame
 //! physics/AI tick lives in the `integration` submodule; every actor —
 //! grounded, aerial, and the adhesive crawler — integrates through the one
@@ -308,42 +308,21 @@ fn default_weight() -> f32 {
     1.0
 }
 
-/// Test fixture for the lib's own unit tests: the AUTHORITATIVE roster lives in
-/// `ambition_content`, and the lib's tests validate the generic spawn machinery
-/// against that single source of truth by reading the same file at compile time
-/// (`#[cfg(test)]` only — a production lib build embeds no enemy data; content
-/// installs the roster via `install_enemy_roster`). The cross-crate include
-/// keeps one roster file instead of a guarded duplicate.
-#[cfg(test)]
-static ENEMY_ARCHETYPE_REGISTRY: std::sync::LazyLock<
-    std::collections::HashMap<String, CharacterArchetypeSpec>,
-> = std::sync::LazyLock::new(|| {
-    const ENEMY_ARCHETYPES_RON: &str =
-        include_str!("../../../../../game/ambition_content/assets/data/character_archetypes.ron");
-    ron::from_str(ENEMY_ARCHETYPES_RON).unwrap_or_else(|err| {
-        panic!("ambition_content character_archetypes.ron failed to deserialize: {err}")
-    })
-});
-
-/// The installed enemy roster: a brain-key → spec table plus the fallback
-/// spec used for unknown brain keys and non-`Custom` brains. This is the
+/// App-local hostile-archetype authority: a brain-key → spec table plus the
+/// fallback used for unknown brain keys and non-`Custom` brains. This is the
 /// spawn path's only resolution surface and it is **roster-enum-free** — a
 /// pure string lookup, so the named `CharacterArchetype` enum / RON / brain-name
 /// table can be owned and installed by the content layer.
 ///
-/// Held as an installable global (not a Bevy `Resource`) because spec
-/// resolution is read from many non-system contexts — plain constructors
-/// (`ActorClusterSeed::new`), presentation sprite-binding
-/// (`presentation::rendering::world`), and asset resolution
-/// (`assets::game_assets`) — where threading `Res<CharacterRoster>` would be a
-/// pervasive, ugly ripple. The content layer installs the real table at
-/// startup via [`install_enemy_roster`]; the lib ships an embedded default
-/// (built from the bundled RON) so lib tests and the headless bin resolve
-/// standalone.
-#[derive(Clone, Debug)]
+/// Providers assemble this resource transactionally inside each Bevy App.
+/// Runtime systems receive `Res<CharacterRoster>` and pure construction helpers
+/// receive `&CharacterRoster`; no process-global fallback participates in
+/// production resolution.
+#[derive(bevy::prelude::Resource, Clone, Debug)]
 pub struct CharacterRoster {
     by_brain: std::collections::HashMap<String, CharacterArchetypeSpec>,
     fallback: CharacterArchetypeSpec,
+    provider_fallbacks: std::collections::BTreeMap<String, CharacterArchetypeSpec>,
 }
 
 impl CharacterRoster {
@@ -354,7 +333,32 @@ impl CharacterRoster {
         by_brain: std::collections::HashMap<String, CharacterArchetypeSpec>,
         fallback: CharacterArchetypeSpec,
     ) -> Self {
-        Self { by_brain, fallback }
+        Self {
+            by_brain,
+            fallback,
+            provider_fallbacks: std::collections::BTreeMap::new(),
+        }
+    }
+
+    fn with_provider_fallbacks(
+        by_brain: std::collections::HashMap<String, CharacterArchetypeSpec>,
+        fallback: CharacterArchetypeSpec,
+        provider_fallbacks: std::collections::BTreeMap<String, CharacterArchetypeSpec>,
+    ) -> Self {
+        Self {
+            by_brain,
+            fallback,
+            provider_fallbacks,
+        }
+    }
+
+    /// Resolve one provider's authored default without making it the default
+    /// for every other game linked into the App.
+    pub(crate) fn fallback_for_provider(
+        &self,
+        provider_id: &str,
+    ) -> Option<&CharacterArchetypeSpec> {
+        self.provider_fallbacks.get(provider_id)
     }
 
     /// Invariant: a practice-target ("sandbag" / `is_sandbag`) archetype is
@@ -365,6 +369,11 @@ impl CharacterRoster {
             .values()
             .chain(std::iter::once(&self.fallback))
             .all(|spec| !spec.is_sandbag || spec.melee.is_none())
+    }
+
+    #[cfg(test)]
+    pub(crate) fn contains_brain(&self, brain_id: &str) -> bool {
+        self.by_brain.contains_key(brain_id)
     }
 
     /// Resolve the authored spec for a spawn `CharacterBrain` payload by its
@@ -403,10 +412,9 @@ impl CharacterRoster {
         Self::new(by_brain, fallback)
     }
 
-    /// Parse a brain-keyed roster RON document — the content layer's entry
-    /// point: `install_enemy_roster(CharacterRoster::from_ron(MY_RON))`. Movement
-    /// inheritance is resolved by `from_map`.
-    pub fn from_ron(ron: &str) -> Self {
+    /// Internal parser used by the engine-generic empty default and test fixture.
+    /// Provider code uses the fallible [`CharacterRosterFragment::from_ron`].
+    fn from_ron(ron: &str) -> Self {
         let by_brain: std::collections::HashMap<String, CharacterArchetypeSpec> =
             ron::from_str(ron)
                 .unwrap_or_else(|err| panic!("enemy roster RON failed to deserialize: {err}"));
@@ -471,209 +479,450 @@ fn resolve_movement_for(
     patch.apply_onto(base)
 }
 
-/// Test-only fallback roster, parsed from the lib's bundled fixture RON so
-/// the lib's own unit tests resolve enemies standalone (without the content
-/// plugin). In a real build the named roster is owned and installed by
-/// `ambition_content`; the production binary embeds no enemy data here.
-#[cfg(test)]
-static EMBEDDED_ENEMY_ROSTER: std::sync::LazyLock<CharacterRoster> =
-    std::sync::LazyLock::new(|| CharacterRoster::from_map(ENEMY_ARCHETYPE_REGISTRY.clone()));
+/// Engine-generic fallback used by Apps that intentionally register no hostile
+/// archetype content. It is inert and exists only so the reusable engine can run
+/// menu/demo worlds without installing Ambition's authored enemy table.
+const CONTENT_FREE_ROSTER_RON: &str = r#"{
+    "combatant": (
+        max_health: 1,
+        patrol_speed: 0.0,
+        chase_speed: 0.0,
+        aggro_radius: 0.0,
+        attack_range: 0.0,
+        contact_strength: 0.0,
+        damage_amount: 0,
+        brain_template: StandStill,
+        move_style: Walk,
+        attacks_player: false,
+        body_contact_damage: false,
+    ),
+}"#;
 
-/// Content-installed roster. Set once at plugin-build time; production
-/// resolution REQUIRES it (there is no production embedded default).
-///
-/// §5 classification (restructuring-blueprint): **content registry** —
-/// install-once seam, immutable after install, read from the pure
-/// `spec_for_brain` helper (called deep in non-system spawn code). Deliberately
-/// a process-global `OnceLock`, not a Bevy `Resource`: the spawn-path readers
-/// have no `World` access and a resource would couple pure spec resolution to
-/// the ECS. `install_enemy_roster` + the `cfg(test)` fixture ARE the
-/// test-override mechanism.
-static ENEMY_ROSTER_OVERRIDE: std::sync::OnceLock<CharacterRoster> = std::sync::OnceLock::new();
+impl Default for CharacterRoster {
+    fn default() -> Self {
+        Self::from_ron(CONTENT_FREE_ROSTER_RON)
+    }
+}
 
-/// Install the authored enemy roster — the content layer calls this at
-/// plugin-build time (before any spawn system runs). First install wins; later
-/// calls are ignored, so a mid-run call can't clobber the live roster.
-pub fn install_enemy_roster(roster: CharacterRoster) {
-    let _ = ENEMY_ROSTER_OVERRIDE.set(roster);
+/// One provider's immutable hostile-archetype definitions.
+#[derive(Clone, Debug)]
+pub struct CharacterRosterFragment {
+    provider_id: String,
+    fallback_brain_id: Option<String>,
+    by_brain: std::collections::BTreeMap<String, CharacterArchetypeSpec>,
+    source_ron: String,
+}
+
+impl CharacterRosterFragment {
+    pub fn from_ron(
+        provider_id: impl Into<String>,
+        fallback_brain_id: Option<impl Into<String>>,
+        roster_ron: &str,
+    ) -> Result<Self, CharacterRosterAssemblyError> {
+        let provider_id = provider_id.into();
+        if provider_id.trim().is_empty() {
+            return Err(CharacterRosterAssemblyError::EmptyProviderId);
+        }
+        let by_brain = ron::from_str::<std::collections::BTreeMap<
+            String,
+            CharacterArchetypeSpec,
+        >>(roster_ron)
+        .map_err(|error| CharacterRosterAssemblyError::MalformedFragment {
+            provider_id: provider_id.clone(),
+            message: error.to_string(),
+        })?;
+        let fragment = Self {
+            provider_id,
+            fallback_brain_id: fallback_brain_id.map(Into::into),
+            by_brain,
+            source_ron: roster_ron.to_string(),
+        };
+        fragment.validate()?;
+        Ok(fragment)
+    }
+
+    pub fn provider_id(&self) -> &str {
+        &self.provider_id
+    }
+
+    pub fn fallback_brain_id(&self) -> Option<&str> {
+        self.fallback_brain_id.as_deref()
+    }
+
+    fn validate(&self) -> Result<(), CharacterRosterAssemblyError> {
+        if self.provider_id.trim().is_empty() {
+            return Err(CharacterRosterAssemblyError::EmptyProviderId);
+        }
+        if let Some(brain_id) = self.by_brain.keys().find(|brain_id| brain_id.trim().is_empty()) {
+            return Err(CharacterRosterAssemblyError::EmptyBrainId {
+                provider_id: self.provider_id.clone(),
+                brain_id: brain_id.clone(),
+            });
+        }
+        if let Some(fallback) = self.fallback_brain_id.as_deref() {
+            if fallback.trim().is_empty() {
+                return Err(CharacterRosterAssemblyError::EmptyFallbackBrainId {
+                    provider_id: self.provider_id.clone(),
+                });
+            }
+            if !self.by_brain.contains_key(fallback) {
+                return Err(CharacterRosterAssemblyError::MissingFallbackBrain {
+                    provider_id: self.provider_id.clone(),
+                    brain_id: fallback.to_string(),
+                });
+            }
+        }
+        Ok(())
+    }
+}
+
+/// All hostile-archetype fragments linked into one Bevy App.
+#[derive(bevy::prelude::Resource, Clone, Debug, Default)]
+pub struct CharacterRosterRegistry {
+    fragments: std::collections::BTreeMap<String, CharacterRosterFragment>,
+}
+
+impl CharacterRosterRegistry {
+    pub fn providers(&self) -> impl Iterator<Item = &str> {
+        self.fragments.keys().map(String::as_str)
+    }
+
+    pub fn register(
+        &mut self,
+        fragment: CharacterRosterFragment,
+    ) -> Result<(), CharacterRosterAssemblyError> {
+        fragment.validate()?;
+        if let Some(existing) = self.fragments.get(&fragment.provider_id) {
+            if existing.fallback_brain_id == fragment.fallback_brain_id
+                && existing.source_ron == fragment.source_ron
+            {
+                return Ok(());
+            }
+            return Err(CharacterRosterAssemblyError::DuplicateProvider {
+                provider_id: fragment.provider_id,
+            });
+        }
+        self.fragments
+            .insert(fragment.provider_id.clone(), fragment);
+        Ok(())
+    }
+
+    pub fn assemble(&self) -> Result<CharacterRoster, CharacterRosterAssemblyError> {
+        let mut by_brain = std::collections::HashMap::new();
+        let mut owners = std::collections::BTreeMap::<String, String>::new();
+        let mut provider_fallback_ids = std::collections::BTreeMap::<String, String>::new();
+        for (provider_id, fragment) in &self.fragments {
+            for (brain_id, spec) in &fragment.by_brain {
+                if let Some(first_provider) = owners.get(brain_id) {
+                    return Err(CharacterRosterAssemblyError::DuplicateBrain {
+                        brain_id: brain_id.clone(),
+                        first_provider: first_provider.clone(),
+                        second_provider: provider_id.clone(),
+                    });
+                }
+                owners.insert(brain_id.clone(), provider_id.clone());
+                by_brain.insert(brain_id.clone(), spec.clone());
+            }
+            if let Some(brain_id) = fragment.fallback_brain_id.as_ref() {
+                provider_fallback_ids.insert(provider_id.clone(), brain_id.clone());
+            }
+        }
+        resolve_movement_inheritance(&mut by_brain);
+        let mut provider_fallbacks = std::collections::BTreeMap::new();
+        for (provider_id, fallback_brain) in provider_fallback_ids {
+            let spec = by_brain.get(&fallback_brain).cloned().ok_or_else(|| {
+                CharacterRosterAssemblyError::MissingAssembledFallback {
+                    brain_id: fallback_brain.clone(),
+                }
+            })?;
+            provider_fallbacks.insert(provider_id, spec);
+        }
+        // Preserve the historical single-game fallback without allowing two
+        // linked providers to fight over one process-wide default. A host with
+        // multiple provider defaults must select one through session authority;
+        // until then, unknown/non-Custom brains use the inert engine fallback.
+        let fallback = if provider_fallbacks.len() == 1 {
+            provider_fallbacks
+                .values()
+                .next()
+                .expect("length checked")
+                .clone()
+        } else {
+            CharacterRoster::default().fallback
+        };
+        Ok(CharacterRoster::with_provider_fallbacks(
+            by_brain,
+            fallback,
+            provider_fallbacks,
+        ))
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CharacterRosterAssemblyError {
+    EmptyProviderId,
+    EmptyBrainId {
+        provider_id: String,
+        brain_id: String,
+    },
+    EmptyFallbackBrainId {
+        provider_id: String,
+    },
+    DuplicateProvider {
+        provider_id: String,
+    },
+    MalformedFragment {
+        provider_id: String,
+        message: String,
+    },
+    MissingFallbackBrain {
+        provider_id: String,
+        brain_id: String,
+    },
+    DuplicateBrain {
+        brain_id: String,
+        first_provider: String,
+        second_provider: String,
+    },
+    MissingAssembledFallback {
+        brain_id: String,
+    },
+}
+
+impl std::fmt::Display for CharacterRosterAssemblyError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::EmptyProviderId => write!(f, "character roster provider id must not be empty"),
+            Self::EmptyBrainId {
+                provider_id,
+                brain_id,
+            } => write!(
+                f,
+                "character roster fragment '{provider_id}' contains empty brain id '{brain_id}'"
+            ),
+            Self::EmptyFallbackBrainId { provider_id } => write!(
+                f,
+                "character roster fragment '{provider_id}' names an empty fallback brain id"
+            ),
+            Self::DuplicateProvider { provider_id } => {
+                write!(f, "character roster provider '{provider_id}' registered twice")
+            }
+            Self::MalformedFragment {
+                provider_id,
+                message,
+            } => write!(
+                f,
+                "character roster fragment '{provider_id}' is malformed RON: {message}"
+            ),
+            Self::MissingFallbackBrain {
+                provider_id,
+                brain_id,
+            } => write!(
+                f,
+                "character roster fragment '{provider_id}' names missing fallback brain '{brain_id}'"
+            ),
+            Self::DuplicateBrain {
+                brain_id,
+                first_provider,
+                second_provider,
+            } => write!(
+                f,
+                "character brain id '{brain_id}' is authored by both '{first_provider}' and '{second_provider}'"
+            ),
+            Self::MissingAssembledFallback { brain_id } => write!(
+                f,
+                "assembled character roster is missing fallback brain '{brain_id}'"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for CharacterRosterAssemblyError {}
+
+/// Bevy build-time registration seam for provider-owned hostile archetypes.
+pub trait CharacterRosterAppExt {
+    fn try_register_character_roster_fragment(
+        &mut self,
+        fragment: CharacterRosterFragment,
+    ) -> Result<&mut Self, CharacterRosterAssemblyError>;
+
+    fn register_character_roster_fragment(
+        &mut self,
+        fragment: CharacterRosterFragment,
+    ) -> &mut Self {
+        self.try_register_character_roster_fragment(fragment)
+            .unwrap_or_else(|error| panic!("{error}"))
+    }
+}
+
+impl CharacterRosterAppExt for bevy::prelude::App {
+    fn try_register_character_roster_fragment(
+        &mut self,
+        fragment: CharacterRosterFragment,
+    ) -> Result<&mut Self, CharacterRosterAssemblyError> {
+        let (registry, roster) = {
+            let mut candidate = self
+                .world()
+                .get_resource::<CharacterRosterRegistry>()
+                .cloned()
+                .unwrap_or_default();
+            candidate.register(fragment)?;
+            let roster = candidate.assemble()?;
+            (candidate, roster)
+        };
+        self.insert_resource(registry).insert_resource(roster);
+        Ok(self)
+    }
 }
 
 #[cfg(test)]
-fn roster_fallback() -> &'static CharacterRoster {
-    &EMBEDDED_ENEMY_ROSTER
+pub(crate) fn test_roster() -> CharacterRoster {
+    CharacterRoster::from_ron(include_str!(
+        "../../../../../game/ambition_content/assets/data/character_archetypes.ron"
+    ))
 }
 
-/// Production has no embedded enemy data: the content plugin must install the
-/// roster at build time. Reaching here means `AmbitionContentPlugin` was not
-/// mounted before the first enemy spawn.
-#[cfg(not(test))]
-fn roster_fallback() -> &'static CharacterRoster {
-    panic!(
-        "enemy roster not installed — AmbitionContentPlugin must call \
-         install_enemy_roster() at build time before any enemy spawns"
-    )
-}
-
-fn enemy_roster() -> &'static CharacterRoster {
-    ENEMY_ROSTER_OVERRIDE.get().unwrap_or_else(roster_fallback)
-}
-
-/// Resolve the authored spec for a spawn `CharacterBrain` payload — a pure
-/// string lookup against the installed [`CharacterRoster`]. The spawn path holds
-/// the returned spec; the roster enum never appears here.
-pub(crate) fn spec_for_brain(
-    brain: &ambition_entity_catalog::placements::CharacterBrain,
-) -> CharacterArchetypeSpec {
-    enemy_roster().spec_for_brain(brain)
-}
-
-/// Resolve a spec by its spawn brain key against the lib's `#[cfg(test)]`
-/// fixture roster — the test-side replacement for the deleted
-/// `CharacterArchetype::X.spec()`. Tests are roster-string-keyed now: the named
-/// enum is gone, so they reference enemies by the same `Custom("…")` key the
-/// game authors.
+/// Resolve a spec by its spawn brain key against the checked-in Ambition test
+/// fixture. Production callers always receive an explicit App-local roster.
 #[cfg(test)]
 pub(crate) fn test_spec(brain_key: &str) -> CharacterArchetypeSpec {
-    spec_for_brain(
+    test_roster().spec_for_brain(
         &ambition_entity_catalog::placements::CharacterBrain::Custom(brain_key.to_string()),
     )
 }
 
-/// Every authored spawn brain key in the lib's fixture roster — the
-/// string-keyed replacement for the deleted `CharacterArchetype` iteration
-/// constants. `COMBAT_*` excludes the training-dummy + raw-mite rows that
-/// don't run the standard combat AI loop (was `COMBAT_ALL`).
 #[cfg(test)]
-pub(crate) const COMBAT_BRAIN_KEYS: &[&str] = &[
-    "combatant",
-    "small_skitter",
-    "small_lurker",
-    "medium_striker",
-    "large_brute",
-    "large_colossus",
-    "gradient_seeker",
-    "pirate_raider",
-    "burning_flying_shark",
-    "pirate_shark_rider",
-    "puppy_slug",
-    "pirate_heavy",
-    "pirate_heavy_shark_rider",
-    "cellular_automaton_fighter",
-];
+mod app_local_roster_tests {
+    use super::*;
 
-/// Every authored row in the fixture (combat + training dummies + raw mites).
-#[cfg(test)]
-pub(crate) const ALL_BRAIN_KEYS: &[&str] = &[
-    "combatant",
-    "small_skitter",
-    "small_lurker",
-    "medium_striker",
-    "large_brute",
-    "large_colossus",
-    "gradient_seeker",
-    "sandbag_infinite",
-    "sandbag_finite",
-    "pirate_raider",
-    "burning_flying_shark",
-    "pirate_shark_rider",
-    "pirate_heavy",
-    "pirate_heavy_shark_rider",
-    "puppy_slug",
-    "exploding_mite",
-    "dividing_mite",
-    "ranged_skirmisher",
-];
+    const A: &str = r#"{
+        "combatant": (
+            max_health: 2, patrol_speed: 0.0, chase_speed: 0.0,
+            aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
+            damage_amount: 0, brain_template: StandStill, move_style: Walk,
+        ),
+    }"#;
+    const B: &str = r#"{
+        "beta": (
+            max_health: 7, patrol_speed: 0.0, chase_speed: 0.0,
+            aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
+            damage_amount: 0, brain_template: StandStill, move_style: Walk,
+        ),
+    }"#;
+    const B_WITH_DEFAULT: &str = r#"{
+        "beta": (
+            max_health: 7, patrol_speed: 0.0, chase_speed: 0.0,
+            aggro_radius: 0.0, attack_range: 0.0, contact_strength: 0.0,
+            damage_amount: 0, brain_template: StandStill, move_style: Walk,
+        ),
+    }"#;
 
-impl CharacterArchetypeSpec {
-    /// Project the generic brain-construction inputs (kit vocabulary) the
-    /// runtime brain rebuilds reconstruct without naming the roster.
-    pub(super) fn brain_spec(&self) -> crate::features::ecs::actor_tuning::CharacterBrainSpec {
-        crate::features::ecs::actor_tuning::CharacterBrainSpec {
-            template: self.brain_template,
-            smash_hit_band: self.smash_hit_band.unwrap_or(
-                crate::features::ecs::actor_tuning::CharacterBrainSpec::DEFAULT_SMASH_HIT_BAND,
-            ),
-            smash_heavy: self.smash_heavy,
-            smash_dash_to_close: self.smash_dash_to_close,
-            smash_duelist: self.smash_duelist,
-            smash_can_blink: self.smash_can_blink,
-            smash_can_fly: self.smash_can_fly,
-            smash_can_shield: self.smash_can_shield,
-            provoke_forced_brute_min_aggro: self.provoke_forced_brute_min_aggro,
-        }
+    #[test]
+    fn provider_order_is_deterministic_and_separate_apps_are_isolated() {
+        let a = CharacterRosterFragment::from_ron("a", Some("combatant"), A).unwrap();
+        let b = CharacterRosterFragment::from_ron("b", None::<String>, B).unwrap();
+        let mut first = bevy::prelude::App::new();
+        first.register_character_roster_fragment(a.clone());
+        first.register_character_roster_fragment(b.clone());
+        let mut second = bevy::prelude::App::new();
+        second.register_character_roster_fragment(b);
+        second.register_character_roster_fragment(a);
+        let brain = ambition_entity_catalog::placements::CharacterBrain::Custom("beta".into());
+        assert_eq!(
+            first.world().resource::<CharacterRoster>().spec_for_brain(&brain).max_health,
+            7
+        );
+        assert_eq!(
+            second.world().resource::<CharacterRoster>().spec_for_brain(&brain).max_health,
+            7
+        );
+
+        let mut isolated = bevy::prelude::App::new();
+        isolated.register_character_roster_fragment(
+            CharacterRosterFragment::from_ron("a", Some("combatant"), A).unwrap(),
+        );
+        assert_eq!(
+            isolated
+                .world()
+                .resource::<CharacterRoster>()
+                .spec_for_brain(&brain)
+                .max_health,
+            2,
+            "the second App must not observe provider b"
+        );
     }
 
-    /// Authored held item resolved against the held-item registry.
-    pub(super) fn held_item_spec(&self) -> Option<ambition_characters::brain::HeldItemSpec> {
-        self.held_item
-            .as_deref()
-            .and_then(ambition_characters::brain::held_item_by_id)
+    #[test]
+    fn failed_registration_preserves_the_previous_roster() {
+        let mut app = bevy::prelude::App::new();
+        app.register_character_roster_fragment(
+            CharacterRosterFragment::from_ron("a", Some("combatant"), A).unwrap(),
+        );
+        let error = app
+            .try_register_character_roster_fragment(
+                CharacterRosterFragment::from_ron("b", None::<String>, A).unwrap(),
+            )
+            .err()
+            .expect("duplicate brain id should fail");
+        assert!(matches!(
+            error,
+            CharacterRosterAssemblyError::DuplicateBrain { .. }
+        ));
+        let brain = ambition_entity_catalog::placements::CharacterBrain::Custom("combatant".into());
+        assert_eq!(
+            app.world().resource::<CharacterRoster>().spec_for_brain(&brain).max_health,
+            2
+        );
+        assert_eq!(
+            app.world()
+                .resource::<CharacterRosterRegistry>()
+                .providers()
+                .collect::<Vec<_>>(),
+            vec!["a"]
+        );
     }
 
-    /// Concrete melee/ranged/locomotion the actor's `ActionSet` carries
-    /// at spawn. Thin field accessors so the spawn path can read the spec
-    /// without naming the roster enum.
-    pub(super) fn melee_spec(&self) -> Option<ambition_characters::brain::MeleeActionSpec> {
-        self.melee.clone()
-    }
-    pub(super) fn ranged_spec(&self) -> Option<ambition_characters::brain::RangedActionSpec> {
-        self.ranged.clone()
-    }
-    pub(super) fn move_style(&self) -> ambition_characters::brain::MoveStyleSpec {
-        self.move_style
+
+    #[test]
+    fn provider_defaults_coexist_without_becoming_a_cross_game_global() {
+        let mut app = bevy::prelude::App::new();
+        app.register_character_roster_fragment(
+            CharacterRosterFragment::from_ron("a", Some("combatant"), A).unwrap(),
+        );
+        app.register_character_roster_fragment(
+            CharacterRosterFragment::from_ron("b", Some("beta"), B_WITH_DEFAULT).unwrap(),
+        );
+        let roster = app.world().resource::<CharacterRoster>();
+        assert_eq!(roster.fallback_for_provider("a").unwrap().max_health, 2);
+        assert_eq!(roster.fallback_for_provider("b").unwrap().max_health, 7);
+        let unknown =
+            ambition_entity_catalog::placements::CharacterBrain::Custom("unknown".into());
+        assert_eq!(
+            roster.spec_for_brain(&unknown).max_health,
+            1,
+            "without active-provider selection, an ambiguous default must not leak across games"
+        );
     }
 
-    /// Project the per-frame runtime tuning carried on `ActorConfig.tuning`.
-    pub(crate) fn tuning(&self) -> crate::features::ecs::actor_tuning::ActorTuning {
-        crate::features::ecs::actor_tuning::ActorTuning {
-            // Resolved at roster-build time from the archetype hierarchy
-            // (BASELINE <- inherits-chain <- this row's `movement` patch).
-            movement: self.movement_resolved,
-            max_health: self.max_health,
-            patrol_speed: self.patrol_speed,
-            chase_speed: self.chase_speed,
-            // Ground-run capability = the fastest this body locomotes; the brain
-            // expresses patrol/chase (with jitter) as a throttle of it.
-            max_run_speed: self.patrol_speed.max(self.chase_speed),
-            aggro_radius: self.aggro_radius,
-            attack_range: self.attack_range,
-            contact_strength: self.contact_strength,
-            damage_amount: self.damage_amount,
-            attack_cooldown_mult: self.attack_cooldown_mult,
-            attacks_player: self.attacks_player,
-            surface_walker: self.surface_walker,
-            cling_breaks_on_hit: self.cling_breaks_on_hit,
-            // The ONE authored respawn policy (ADR 0022) — the kill hook and
-            // the in-place revive tick both match on it.
-            respawn: self.respawn,
-            weight: self.weight,
-            death_policy: self.death_policy,
-            is_aerial: self.is_aerial,
-            // Archetype flyers use smoothed accel flight; direct-velocity is a boss
-            // opt-in (its brain commands exact velocities). See AS4.
-            flight_direct_velocity: false,
-            is_sandbag: self.is_sandbag,
-            body_contact_damage: self.body_contact_damage,
-            dream_seed: self.dream_seed,
-            ranged_visual: self.ranged_visual,
-        }
-    }
-
-    /// Project the authored capability flags into the combat kit.
-    pub(crate) fn combat_capabilities(&self) -> crate::combat::CombatCapabilities {
-        crate::combat::CombatCapabilities {
-            explodes_on_death: self.explodes_on_death,
-            divides_on_death: self.divides_on_death,
-            charge_crash_explodes: self.charge_crash_explodes,
-            never_dies: self.never_dies,
-            drops_held_item: self.held_item_spec(),
-            can_blink: self.smash_can_blink,
-            can_fly: self.smash_can_fly,
-            can_shield: self.smash_can_shield,
-            can_dash: self.smash_can_dash,
-        }
+    #[test]
+    fn provider_without_fallback_keeps_its_rows_and_uses_generic_default() {
+        let mut app = bevy::prelude::App::new();
+        app.register_character_roster_fragment(
+            CharacterRosterFragment::from_ron("b", None::<String>, B).unwrap(),
+        );
+        let roster = app.world().resource::<CharacterRoster>();
+        let beta = ambition_entity_catalog::placements::CharacterBrain::Custom("beta".into());
+        let unknown =
+            ambition_entity_catalog::placements::CharacterBrain::Custom("unknown".into());
+        assert_eq!(roster.spec_for_brain(&beta).max_health, 7);
+        assert_eq!(
+            roster.spec_for_brain(&unknown).max_health,
+            1,
+            "an App with no provider fallback uses the explicit engine-generic default"
+        );
     }
 }
+
 /// Whether a spawn payload is a sandbag (passive practice-target archetype).
 /// The ONE surviving fragment of the deleted `enemy_visual_kind` derivation:
 /// used at spawn to pick the static sandbag sprite (the rest of the
@@ -681,9 +930,10 @@ impl CharacterArchetypeSpec {
 /// single `FeatureVisualKind::Actor`; live depiction is name-first + a
 /// state-keyed fallback in `upgrade_actor_sprites`).
 pub fn enemy_spawn_is_sandbag(
+    roster: &CharacterRoster,
     payload: &ambition_entity_catalog::placements::CharacterBrain,
 ) -> bool {
-    spec_for_brain(payload).is_sandbag
+    roster.spec_for_brain(payload).is_sandbag
 }
 
 #[cfg(test)]

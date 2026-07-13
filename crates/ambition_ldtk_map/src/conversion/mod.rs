@@ -610,7 +610,7 @@ pub type LdtkEntityConverter = fn(&LdtkEntityCtx<'_>) -> Result<RoomEmission, St
 
 /// Content-installed LDtk entity converters (ADR 0009). Set once at
 /// plugin-build time; first install wins (same seam contract as
-/// `install_enemy_roster`). Deliberately a process-global `OnceLock`, not a
+/// other legacy content-install seams). Deliberately a process-global `OnceLock`, not a
 /// Bevy `Resource`: conversion runs from pure non-system code
 /// (`LdtkProject::to_room_set`, validators, tools) with no `World` in hand.
 static EXTRA_ENTITY_CONVERTERS: OnceLock<BTreeMap<String, LdtkEntityConverter>> = OnceLock::new();

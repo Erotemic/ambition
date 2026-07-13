@@ -203,7 +203,6 @@ pub fn install_smb1_content(app: &mut App) {
 
     // Compatibility for remaining pure lookup consumers during the App-local
     // catalog migration. New composition reads the App resource above.
-    ambition::runtime::demo_fixture::install_character_catalog(SMB1_CATALOG_RON);
 }
 
 impl Plugin for Smb1DemoContentPlugin {
@@ -240,6 +239,8 @@ fn smb1_setup(
     character_catalog: bevy::prelude::Res<
         ambition::characters::actor::character_catalog::CharacterCatalog,
     >,
+    character_roster: bevy::prelude::Res<ambition::actors::features::CharacterRoster>,
+    boss_catalog: bevy::prelude::Res<ambition::actors::boss_encounter::BossCatalog>,
 ) {
     ambition::runtime::demo_fixture::simulation_world(
         &mut commands,
@@ -252,6 +253,8 @@ fn smb1_setup(
             editable_tuning: &editable_tuning,
             starting_character: &starting_character,
             character_catalog: &character_catalog,
+            character_roster: &character_roster,
+            boss_catalog: &boss_catalog,
             default_character_id: provider::MARY_O_CHARACTER_ID,
             sandbox_data_asset: None,
             sandbox_asset_collection: None,

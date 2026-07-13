@@ -65,6 +65,7 @@ fn rider_surface(
 
 fn build_app() -> App {
     let mut app = App::new();
+    app.insert_resource(crate::features::enemies::test_roster());
     app.add_plugins(MinimalPlugins);
     // `enforce_mount_rider_link` emits `MountDied` on dissolution; register the
     // message so its `MessageWriter` resolves in the harness (Q19).
@@ -288,7 +289,10 @@ fn boss_rider_keeps_its_brain_and_emits_mount_died_on_dismount() {
             name: "Boss Rider".into(),
             spawn: ae::Vec2::ZERO,
             brain: ambition_entity_catalog::placements::BossBrain::Dormant,
-            behavior: crate::features::BossBehaviorProfile::generic("boss_rider"),
+            behavior: crate::features::BossBehaviorProfile::generic(
+                crate::boss_encounter::test_boss_catalog(),
+                "boss_rider",
+            ),
         },
         Brain::Player(PlayerSlot(0)),
     ));
@@ -826,7 +830,11 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
     // present (sprites are gitignored/regenerated; a fresh clone has none).
     if crate::character_sprites::record_for_target("giant_gnu").is_some() {
         assert!(
-            crate::character_sprites::sheet_for_character_id("npc_giant_gnu").is_some(),
+            crate::character_sprites::sheet_for_character_id_in(
+                &crate::character_roster::catalog(),
+                "npc_giant_gnu",
+            )
+            .is_some(),
             "npc_giant_gnu should resolve the baked giant_gnu sheet spec",
         );
     }
@@ -834,7 +842,7 @@ fn giant_gnu_mount_and_gnu_ton_rider_dismount_bridge_end_to_end() {
     // (3) The authored `gnu_ton_rider` boss profile carries the on-foot
     // `mount_died` External trigger (this is what makes the mini-phase authored,
     // not test-injected).
-    let profile = BossProfile::from_id("gnu_ton_rider")
+    let profile = BossProfile::from_id(crate::boss_encounter::test_boss_catalog(), "gnu_ton_rider")
         .expect("gnu_ton_rider boss profile+encounter are authored");
     assert_eq!(
         profile.behavior.pilotable_mount_classes,
@@ -980,7 +988,7 @@ fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge()
     use ambition_characters::brain::{ActorControl, BossAttackProfile, BossAttackState};
 
     let profile =
-        BossProfile::from_id("gnu_ton_rider").expect("gnu_ton_rider boss profile is authored");
+        BossProfile::from_id(crate::boss_encounter::test_boss_catalog(), "gnu_ton_rider").expect("gnu_ton_rider boss profile is authored");
     // The RON `limb_routing` loaded: hand_slam is authored as a limb route.
     assert!(
         profile
@@ -992,6 +1000,7 @@ fn gnu_ton_rider_hand_slam_routes_both_giant_hands_downward_with_a_strike_edge()
     );
 
     let mut app = App::new();
+    app.insert_resource(crate::features::enemies::test_roster());
     app.add_plugins(MinimalPlugins);
     app.add_systems(
         Update,
@@ -1137,7 +1146,7 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
     };
 
     let profile =
-        BossProfile::from_id("gnu_ton_rider").expect("gnu_ton_rider boss profile is authored");
+        BossProfile::from_id(crate::boss_encounter::test_boss_catalog(), "gnu_ton_rider").expect("gnu_ton_rider boss profile is authored");
     assert!(
         profile
             .behavior
@@ -1148,6 +1157,9 @@ fn a_possessing_player_slams_the_giants_hands_via_the_verb_map() {
     );
 
     let mut app = App::new();
+    app.insert_resource(crate::features::enemies::test_roster());
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<crate::combat::authored_volumes::AuthoredAttackVolumeResolver>();
     app.add_plugins(MinimalPlugins);
     app.init_resource::<ambition_time::WorldTime>();
     {

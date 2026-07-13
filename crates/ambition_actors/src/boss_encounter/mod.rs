@@ -11,7 +11,7 @@
 //! This `mod.rs` is intentionally a facade: type ownership, registration,
 //! update systems, rewards, and event publication live in child modules so
 //! future boss work doesn't pile into the entry point. Children:
-//! `behavior`/`profile`/`specs`/`roster` (data schemas + installed registries),
+//! `behavior`/`profile`/`specs`/`roster` (data schemas + App-local catalog views),
 //! `registry` (`BossEncounterRegistry` resource), `systems` (per-frame tick +
 //! HP mirror), `encounter_entity`/`encounter_script` (the optional encounter
 //! entity + its scripted beats), `events` (event publication), `rewards`
@@ -28,6 +28,7 @@
 
 pub mod attack_geometry;
 pub mod behavior;
+mod catalog;
 mod encounter_entity;
 mod encounter_script;
 mod events;
@@ -49,10 +50,13 @@ pub use ambition_characters::boss_encounter::{
     ActorPhaseState, BossEncounterPhase, BossEncounterSpec, BossPhaseEvent, PhaseTrigger,
     PhaseTriggerCondition,
 };
-pub use behavior::{
-    install_boss_profiles, install_boss_special_anim_keys, BossProfileRegistry, LimbMotion,
-    LimbRoute,
+pub use behavior::{BossProfileRegistry, LimbMotion, LimbRoute};
+pub use catalog::{
+    BossCatalog, BossCatalogAppExt, BossCatalogAssemblyError, BossCatalogFragment,
+    BossCatalogRegistry,
 };
+#[cfg(test)]
+pub(crate) use catalog::test_boss_catalog;
 pub use encounter_entity::{
     release_payloads_on_death, sync_boss_encounter_entities, update_encounter_progress,
     EncounterDef, EncounterProgress, MemberProgress, PayloadReleased, ReleaseOnDeath,
@@ -70,7 +74,7 @@ pub use ambition_encounter::{
 pub use profile::{default_boss_profiles, BossProfile, BossRewardProfile};
 pub use registry::BossEncounterRegistry;
 pub use roster::BossSpecRoster;
-pub use specs::{boss_content_installed, default_boss_specs, install_boss_encounter_specs};
+pub use specs::default_boss_specs;
 pub use systems::{
     boss_phase_transition_feedback, notify_bosses_on_mount_death, populate_boss_encounter_registry,
     update_boss_encounters,

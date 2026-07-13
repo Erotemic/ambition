@@ -2,10 +2,10 @@
 //!
 //! `BossBehaviorProfile` / `BarkAnchorSpec` / `BossRewardProfile` /
 //! `ActorSpriteMetrics` are the schemas every boss instance is authored INTO:
-//! the named rows live in `boss_profiles.ron`, parsed by `BossProfileRegistry`
-//! and installed via `install_boss_profiles`. Owns movement/attacks/damage/
-//! hitbox tuning (the engine `BossEncounterSpec` owns phase progression + HP).
-//! `BossBehaviorProfile::from_data("id")` clones an installed row; the named
+//! the named rows live in provider `boss_profiles.ron` fragments assembled in
+//! the App-local [`super::BossCatalog`]. Owns movement/attacks/damage/hitbox
+//! tuning (the engine `BossEncounterSpec` owns phase progression + HP).
+//! `BossBehaviorProfile::from_data(catalog, "id")` clones an App-local row; the named
 //! constructors (`clockwork_warden()` etc.) are thin lookups. Also holds
 //! `boss_animation_keys_for_profile` (attack-profile -> sprite-row keys) and
 //! `canonical_boss_id_from` (resolves the boss kind from LDtk name + brain).
@@ -20,10 +20,11 @@ use ambition_engine_core as ae;
 /// thresholds, while this profile owns sandbox movement, contact size, damage,
 /// and hitbox shapes.
 ///
-/// Every field here is authored in `ambition_content`'s `boss_profiles.ron`,
-/// parsed into the installable [`BossProfileRegistry`] below (content installs
-/// it at plugin-build time). Adding a new boss is a single new key + row in
-/// that file when it needs custom behavior; unknown authored bosses fall back
+/// Every field here is authored in a provider's `boss_profiles.ron` fragment.
+/// [`BossProfileRegistry`] remains a pure parser for focused tests and tools;
+/// production providers assemble those rows into the App-local
+/// [`super::BossCatalog`]. Adding a new boss is a new key + row in provider
+/// data when it needs custom behavior; unknown authored bosses fall back
 /// to the generic profile.
 #[derive(Clone, Debug, PartialEq, serde::Deserialize)]
 pub struct BossBehaviorProfile {
@@ -286,21 +287,15 @@ mod boss_vec2_required {
     }
 }
 
-/// The installed boss-behavior registry (canonical id → profile). The named
-/// boss DATA (`boss_profiles.ron`) is content, owned and installed by
-/// `ambition_content` at plugin-build time; the lib owns only this generic
-/// holder + the `BossBehaviorProfile` schema. Held as an installable global
-/// (not a Bevy `Resource`) because `from_data` is called from many non-system
-/// contexts (spawn sites, profile clones) — the same rationale as the enemy
-/// `CharacterRoster`.
+/// Parsed boss-behavior rows used by content tooling and focused tests. Runtime
+/// authority lives in the App-local [`super::BossCatalog`].
 #[derive(Clone, Debug, Default)]
 pub struct BossProfileRegistry {
     by_id: std::collections::HashMap<String, BossBehaviorProfile>,
 }
 
 impl BossProfileRegistry {
-    /// Parse a boss-profile RON document (`HashMap<id, BossBehaviorProfile>`) —
-    /// the content layer's install entry point.
+    /// Parse a boss-profile RON document (`HashMap<id, BossBehaviorProfile>`).
     pub fn from_ron(ron: &str) -> Self {
         let by_id = ron::from_str(ron).unwrap_or_else(|err| {
             panic!("boss_profiles.ron failed to deserialize as HashMap<String, BossBehaviorProfile>: {err}")
@@ -308,93 +303,18 @@ impl BossProfileRegistry {
         Self { by_id }
     }
 
-    fn get(&self, id: &str) -> Option<&BossBehaviorProfile> {
+    pub fn get(&self, id: &str) -> Option<&BossBehaviorProfile> {
         self.by_id.get(id)
     }
 }
 
-/// Content-installed boss-profile registry. Set once at plugin-build time;
-/// production resolution REQUIRES it (there is no production embedded default).
-///
-/// §5 classification (restructuring-blueprint): **content registry** — an
-/// install-once seam, immutable after install, read from pure resolution fns
-/// (`BossBehaviorProfile::from_data`, called deep in non-system spawn/profile
-/// code). Deliberately a process-global `OnceLock`, not a Bevy `Resource`: the
-/// readers have no `World` access and a resource would force an ECS dependency
-/// through pure spec resolution. `install_boss_profiles` + the `cfg(test)`
-/// fixture below ARE the test-override mechanism.
-static BOSS_PROFILE_OVERRIDE: std::sync::OnceLock<BossProfileRegistry> = std::sync::OnceLock::new();
-
-/// Install the authored boss-behavior registry — `ambition_content` calls this
-/// at plugin-build time (before any boss spawn / profile clone runs).
-pub fn install_boss_profiles(registry: BossProfileRegistry) {
-    let _ = BOSS_PROFILE_OVERRIDE.set(registry);
-}
-
-/// Content-installed telegraph-animation hints per boss `Special(key)`. The
-/// engine ships no anim row for content specials; content registers which
-/// sprite rows telegraph each one. Visual only — an unregistered key simply
-/// shows no special telegraph row, the strike still fires. This is what keeps
-/// the engine from naming `overfit_volley`/`minima_trap`/etc.: the key→rows
-/// mapping is content data, not a lib `match`.
-///
-/// §5 classification: **content registry** — same class as
-/// [`BOSS_PROFILE_OVERRIDE`]; install-once, read from the pure
-/// `special_anim_keys` helper. Kept an `OnceLock` for the same reason.
-static BOSS_SPECIAL_ANIM_KEYS: std::sync::OnceLock<
-    std::collections::HashMap<String, &'static [&'static str]>,
-> = std::sync::OnceLock::new();
-
-/// Install per-special telegraph anim hints — `ambition_content` calls this at
-/// plugin-build time alongside [`install_boss_profiles`].
-pub fn install_boss_special_anim_keys(
-    map: std::collections::HashMap<String, &'static [&'static str]>,
-) {
-    let _ = BOSS_SPECIAL_ANIM_KEYS.set(map);
-}
-
-/// Telegraph anim rows for a content special key (empty if unregistered).
-fn special_anim_keys(key: &str) -> &'static [&'static str] {
-    BOSS_SPECIAL_ANIM_KEYS
-        .get()
-        .and_then(|m| m.get(key))
-        .copied()
-        .unwrap_or(&[])
-}
-
-/// Test fixture: the lib's own unit tests read content's authoritative
-/// `boss_profiles.ron` at compile time (cfg(test) only — production embeds no
-/// boss data and requires the content install).
-#[cfg(test)]
-static BOSS_PROFILE_FIXTURE: std::sync::LazyLock<BossProfileRegistry> =
-    std::sync::LazyLock::new(|| {
-        BossProfileRegistry::from_ron(include_str!(
-            "../../../../game/ambition_content/assets/data/boss_profiles.ron"
-        ))
-    });
-
-#[cfg(test)]
-fn boss_profiles() -> &'static BossProfileRegistry {
-    BOSS_PROFILE_OVERRIDE.get().unwrap_or(&BOSS_PROFILE_FIXTURE)
-}
-
-#[cfg(not(test))]
-fn boss_profiles() -> &'static BossProfileRegistry {
-    BOSS_PROFILE_OVERRIDE.get().unwrap_or_else(|| {
-        panic!(
-            "boss profiles not installed — AmbitionContentPlugin must call \
-             install_boss_profiles() at build time before any boss spawns"
-        )
-    })
-}
-
 impl BossBehaviorProfile {
     /// Look up a boss profile by canonical id, cloning the parsed row from the
-    /// installed registry. Panics if the id isn't present — call sites that
+    /// App-local boss catalog. Panics if the id isn't present — call sites that
     /// need a fallback should route through `for_authored_boss` instead.
-    pub fn from_data(id: &str) -> Self {
-        boss_profiles()
-            .get(id)
+    pub fn from_data(catalog: &super::BossCatalog, id: &str) -> Self {
+        catalog
+            .behavior(id)
             .cloned()
             .unwrap_or_else(|| panic!("boss profile '{id}' not in boss_profiles.ron"))
     }
@@ -404,8 +324,15 @@ impl BossBehaviorProfile {
     /// (`clockwork_warden`, the polished multi-phase reference) and
     /// overrides the id so the encounter pipeline doesn't fault when an
     /// unknown boss spawns.
-    pub fn generic(id: impl Into<String>) -> Self {
-        let mut profile = Self::from_data("clockwork_warden");
+    pub fn generic(catalog: &super::BossCatalog, id: impl Into<String>) -> Self {
+        let mut profile = catalog
+            .fallback_behavior()
+            .cloned()
+            .unwrap_or_else(|| {
+                panic!(
+                    "boss catalog has no unambiguous fallback behavior; select a provider default through active-session authority"
+                )
+            });
         profile.id = id.into();
         // A generic boss draws from ITS OWN id's sheet, not the warden's
         // `"boss"` sheet — reset the cloned sprite target to identity.
@@ -423,19 +350,19 @@ impl BossBehaviorProfile {
     /// `PhaseScript:tri_slam_sweep_halo` — a pattern name, not a boss id. The
     /// slug matched nothing, `generic(slug)` cloned the warden's tuning under a
     /// bogus id, and the render then looked up `boss_sprites["tri_slam_sweep_halo"]`,
-    /// missed, and drew the generic gradient-sentinel body. Nothing anywhere said a
+    /// missed, and drew the provider-selected fallback body. Nothing anywhere said a
     /// word. A boss that is generic BY ACCIDENT looks exactly like a boss that is
     /// generic by design, which is why this warns.
-    pub fn for_authored_boss(id_or_name: &str) -> Self {
+    pub fn for_authored_boss(catalog: &super::BossCatalog, id_or_name: &str) -> Self {
         let key = crate::boss_encounter::encounter_id_from_name(id_or_name);
         if key == "gradient_sentinel" {
-            return Self::from_data("clockwork_warden");
+            return Self::from_data(catalog, "clockwork_warden");
         }
-        match boss_profiles().get(&key) {
+        match catalog.behavior(&key) {
             Some(profile) => profile.clone(),
             None => {
                 warn_once_unregistered_boss(&key);
-                Self::generic(key)
+                Self::generic(catalog, key)
             }
         }
     }
@@ -476,12 +403,12 @@ impl BossBehaviorProfile {
     /// Scripted reference boss (design notes:
     /// `dev/journals/gradient-sentinel-boss-design-2026-05-25.md`).
     pub fn clockwork_warden() -> Self {
-        Self::from_data("clockwork_warden")
+        Self::from_data(super::catalog::test_boss_catalog(), "clockwork_warden")
     }
 
     /// Mockingbird — airborne ship/bird-like Cycle boss.
     pub fn mockingbird() -> Self {
-        Self::from_data("mockingbird")
+        Self::from_data(super::catalog::test_boss_catalog(), "mockingbird")
     }
 
     /// GNU-ton's scholar RIDER — the boss half of the ADR-0020 linked pair. He
@@ -489,7 +416,7 @@ impl BossBehaviorProfile {
     /// replaced the fused single `gnu_ton` profile in the E6 teardown; the
     /// giant's body geometry now lives on the MOUNT's sheet, not the boss's.
     pub fn gnu_ton_rider() -> Self {
-        Self::from_data("gnu_ton_rider")
+        Self::from_data(super::catalog::test_boss_catalog(), "gnu_ton_rider")
     }
 }
 
@@ -633,32 +560,36 @@ impl ActorSpriteMetrics {
 /// generator names the visual row `head_down` but gameplay asks for
 /// `HeadDescent`.
 pub fn boss_animation_keys_for_profile(
+    catalog: &super::BossCatalog,
     profile: &ambition_characters::brain::BossAttackProfile,
-) -> &'static [&'static str] {
+) -> Vec<String> {
     use ambition_characters::brain::BossAttackProfile;
-    // Content specials carry their telegraph rows as installed data
-    // (see `install_boss_special_anim_keys`), so the engine names no
+    // Content specials carry their telegraph rows in the App-local boss catalog, so the engine names no
     // specific special here. Unregistered → no special row.
     if let BossAttackProfile::Special(key) = profile {
-        return special_anim_keys(key);
+        return catalog
+            .special_animation_keys(key)
+            .iter()
+            .cloned()
+            .collect();
     }
     match profile.move_id().as_str() {
-        "floor_slam" => &["floor_slam", "mouth_open"],
-        "side_sweep" => &["side_sweep"],
-        "full_body_pulse" => &["spike_halo", "eye_beam"],
-        "hazard_column" => &["dash_echo", "eye_beam"],
+        "floor_slam" => vec!["floor_slam".into(), "mouth_open".into()],
+        "side_sweep" => vec!["side_sweep".into()],
+        "full_body_pulse" => vec!["spike_halo".into(), "eye_beam".into()],
+        "hazard_column" => vec!["dash_echo".into(), "eye_beam".into()],
         // GNU-ton profiles use gameplay-specific canonical keys in
         // the runtime RON so one visual row can expose multiple
         // boxes (e.g. hand_slam vs shockwave). Accept the visual row
         // names too, so regenerated manifests and review images can
         // stay row-oriented without disconnecting the in-game boxes.
-        "hand_slam" => &["gnu_hand_slam", "hand_slam"],
-        "converging_shockwave" => &["gnu_shockwave", "hand_slam"],
-        "hand_sweep" => &["gnu_hand_sweep", "hand_sweep"],
-        "head_descent" => &["gnu_head_descent", "head_down"],
+        "hand_slam" => vec!["gnu_hand_slam".into(), "hand_slam".into()],
+        "converging_shockwave" => vec!["gnu_shockwave".into(), "hand_slam".into()],
+        "hand_sweep" => vec!["gnu_hand_sweep".into(), "hand_sweep".into()],
+        "head_descent" => vec!["gnu_head_descent".into(), "head_down".into()],
         // Remaining strikes (wing_sweep / dive_lane / broadside) belong to
         // the legacy aerial bosses that still rely on `volumes_for_profile`.
-        _ => &[],
+        _ => Vec::new(),
     }
 }
 
@@ -704,7 +635,10 @@ mod pilotable_mount_tests {
             "unauthored profiles keep the legacy possession mapping",
         );
 
-        let rider = BossBehaviorProfile::from_data("gnu_ton_rider");
+        let rider = BossBehaviorProfile::from_data(
+            super::catalog::test_boss_catalog(),
+            "gnu_ton_rider",
+        );
         assert!(
             !rider.possessed_verbs.is_empty(),
             "the gnu-ton rider authors the G5 possessed-verb map",

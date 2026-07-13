@@ -13,7 +13,7 @@
 | [`content_validation`](src/content_validation.rs) | Cross-content validation for authored sandbox data. |
 | [`dialogue`](src/dialogue/mod.rs) | Named Ambition dialogue / cutscene content registration. |
 | [`duel_arena`](src/duel_arena.rs) | Spectator-duel CONTENT — the PCA-vs-robot exhibition fight (R3.3: room mechanics split by kind; this one is a `RoomLoaded` consumer). |
-| [`enemy_roster`](src/enemy_roster.rs) | THE Ambition enemy roster — the named, authored enemy DATA. |
+| [`enemy_roster`](src/enemy_roster.rs) | THE Ambition hostile-archetype roster — named, authored game data. |
 | [`falling_sand`](src/falling_sand.rs) | Falling-sand prototype room integration — CONTENT (a self-gating room plugin: feature-gated, active only while its authored room is; R3.3 room-mechanics-by-kind). |
 | [`intro`](src/intro/mod.rs) | Intro sequence story content. |
 | [`items`](src/items/mod.rs) | Named Ambition item-roster / default-inventory registration. |

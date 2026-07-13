@@ -17,6 +17,7 @@ use bevy::prelude::{Entity, Has, MessageReader, MessageWriter, Query, Res};
 
 use crate::combat::moveset::MovesetMelee;
 
+use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_characters::actor::control::ActorControlFrame;
 use ambition_characters::brain::{ActorActionMessage, ActorControl, MeleeActionSpec};
 use ambition_engine_core::{self as ae, AabbExt};
@@ -332,23 +333,27 @@ pub fn slash_kind(intent: AttackIntent) -> SlashKind {
 
 // `emit_melee_slash` (+ its size curve) moved to `crate::combat::util`
 // (E2): the ONE slash-emit is shared by the moveset/hitbox strike paths
-// (combat) and this legacy flat path.
+// (combat) and this shared body-melee path.
 pub use crate::combat::util::emit_melee_slash;
 
 /// Source the player's melee hitbox from the sprite manifest — the box authored
 /// and shown by `debug-hitboxes` — so the gameplay damage volume matches the
 /// visible blade, the same data-driven path bosses use
-/// (the installed `authored_volumes` resolver). Returns `None` when the
+/// through the App-local `AuthoredAttackVolumeResolver`. Returns `None` when the
 /// current swing's animation has no authored hitbox, so callers fall back to the
 /// hardcoded `AttackSpec` volume.
 pub fn player_attack_hitbox(
+    character_catalog: &CharacterCatalog,
+    authored_volumes: &crate::combat::authored_volumes::AuthoredAttackVolumeResolver,
+    sprite_character_id: Option<&str>,
     view: &AttackView,
     intent: AttackIntent,
     gravity_dir: ae::Vec2,
 ) -> Option<ae::CombatVolume> {
     let animation = attack_intent_animation(intent);
-    crate::combat::authored_volumes::authored_attack_volume(
-        None,
+    authored_volumes.resolve(
+        character_catalog,
+        sprite_character_id,
         animation,
         view.pos,
         view.size,
@@ -375,8 +380,9 @@ fn attack_intent_animation(intent: AttackIntent) -> &'static str {
 }
 
 #[allow(clippy::too_many_arguments)]
-#[allow(clippy::too_many_arguments)]
 pub fn advance_attack(
+    character_catalog: &CharacterCatalog,
+    authored_volumes: &crate::combat::authored_volumes::AuthoredAttackVolumeResolver,
     commands: &mut bevy::prelude::Commands,
     // The body that owns the swing — the source of truth for the strike's owner
     // and effective allegiance. NOT rediscovered as "the player" in here.
@@ -441,7 +447,8 @@ pub fn advance_attack(
         // `spawn_melee_strike`), so they can never diverge.
         let spec_box = attack_hitbox_from_view(&view, attack_state.spec);
         let animation = attack_intent_animation(attack_state.spec.intent);
-        let manifest = crate::combat::authored_volumes::authored_attack_volume(
+        let manifest = authored_volumes.resolve(
+            character_catalog,
             sprite_cid,
             animation,
             view.pos,
@@ -673,6 +680,8 @@ pub fn start_body_melee(
 /// `self.attack.tick` that used to ride the actor movement integration).
 #[allow(clippy::too_many_arguments)]
 pub fn advance_body_melee(
+    character_catalog: Res<CharacterCatalog>,
+    authored_volumes: Res<crate::combat::authored_volumes::AuthoredAttackVolumeResolver>,
     world_time: Res<ambition_time::WorldTime>,
     world: Res<RoomGeometry>,
     moving_platforms: Res<MovingPlatformSet>,
@@ -691,6 +700,7 @@ pub fn advance_body_melee(
         &ambition_characters::actor::pose::ActorFaction,
         Option<&ambition_characters::brain::Brain>,
         Option<&super::components::CombatTuning>,
+        Option<&ambition_characters::actor::WornCharacter>,
         Option<&mut BodyAnimFacts>,
         Has<MovesetMelee>,
     )>,
@@ -705,6 +715,7 @@ pub fn advance_body_melee(
         faction,
         brain,
         config,
+        worn,
         mut anim,
         moveset_melee,
     ) in &mut bodies
@@ -731,12 +742,16 @@ pub fn advance_body_melee(
         // The body's per-tick resolved frame, so the pogo bounce launches
         // OPPOSITE the same down its movement integrated under.
         let gravity_dir = resolved_frame.down();
-        // The strike's effective allegiance picks the damage channel; the sprite id
-        // (actors) resolves the authored per-animation box, else the player root.
+        // The strike's effective allegiance picks the damage channel. Actors use
+        // their spawn-projected catalog id; controllable bodies use their worn id.
         let strike_faction = crate::combat::targeting::effective_faction(*faction, brain);
-        let sprite_cid = config.and_then(|c| c.sprite_character_id.as_deref());
+        let sprite_cid = config
+            .and_then(|c| c.sprite_character_id.as_deref())
+            .or_else(|| worn.map(ambition_characters::actor::WornCharacter::id));
         let mut clusters = cq.as_clusters_mut();
         advance_attack(
+            &character_catalog,
+            &authored_volumes,
             &mut commands,
             entity,
             strike_faction,

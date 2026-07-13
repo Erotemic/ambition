@@ -63,11 +63,13 @@ fn floor_gate_count(app: &App) -> usize {
 /// `giant_gnu` mount (ADR 0020 / G4). GNU-ton IS this boss — the fused
 /// single profile was torn down in the E6 teardown.
 fn spawn_gnu_ton_runtime() -> BossClusterScratch {
-    let behavior = BossBehaviorProfile::from_data("gnu_ton_rider");
+    let behavior = BossBehaviorProfile::from_data(&crate::bosses::authored_boss_catalog(), "gnu_ton_rider");
     let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(54.0, 96.0));
     let pos = ae::Vec2::new(500.0, 400.0);
     let aabb = ae::Aabb::new(pos, combat_size * 0.5);
+    let catalog = crate::bosses::authored_boss_catalog();
     let mut scratch = BossClusterScratch::new(
+        &catalog,
         "boss_gnu_ton_rider",
         "GNU-ton",
         aabb,
@@ -83,13 +85,15 @@ fn spawn_gnu_ton_runtime() -> BossClusterScratch {
 /// still has to handle such a sheet (the fused GNU-ton was exactly this
 /// shape), and the head-hurtbox alignment guard below is what pins it.
 fn spawn_giant_bodied_boss_runtime() -> BossClusterScratch {
-    let mut behavior = BossBehaviorProfile::from_data("gnu_ton_rider");
+    let mut behavior = BossBehaviorProfile::from_data(&crate::bosses::authored_boss_catalog(), "gnu_ton_rider");
     behavior.sprite_target = Some("giant_gnu".to_string());
     let combat_size = ae::Vec2::new(220.0, 220.0);
     behavior.combat_size = Some(combat_size);
     let pos = ae::Vec2::new(500.0, 400.0);
     let aabb = ae::Aabb::new(pos, combat_size * 0.5);
+    let catalog = crate::bosses::authored_boss_catalog();
     let mut scratch = BossClusterScratch::new(
+        &catalog,
         "boss_giant_gnu",
         "Giant GNU",
         aabb,
@@ -111,8 +115,8 @@ fn spawn_giant_bodied_boss_runtime() -> BossClusterScratch {
 fn giant_head_hurtbox_overlaps_the_body_envelope() {
     use ambition_engine_core::AabbExt;
 
-    crate::bosses::install_boss_roster();
     let mut app = App::new();
+    app.insert_resource(crate::bosses::authored_boss_catalog());
     app.add_plugins(ambition_sprite_sheet::SheetRegistryPlugin);
     let entity = app
         .world_mut()
@@ -159,7 +163,8 @@ fn giant_head_hurtbox_overlaps_the_body_envelope() {
         config,
         status,
     };
-    let ctx = ambition_actors::features::BossVolumeContext::from_ref(boss_ref, attack);
+    let catalog = crate::bosses::authored_boss_catalog();
+    let ctx = ambition_actors::features::BossVolumeContext::from_ref(&catalog, boss_ref, attack);
     let hurtboxes = ambition_actors::features::damageable_volumes(&ctx);
     assert!(
         !hurtboxes.is_empty(),
@@ -193,7 +198,6 @@ fn giant_head_hurtbox_overlaps_the_body_envelope() {
 }
 
 fn make_app(world: ambition_engine_core::RoomGeometry) -> App {
-    crate::bosses::install_boss_roster();
     let mut app = App::new();
     app.insert_resource(world);
     app.init_resource::<FeatureEcsWorldOverlay>();
@@ -241,10 +245,9 @@ fn arena_spawns_the_adr0020_linked_pair() {
     use ambition_entity_catalog::placements::{BossBrain, CharacterBrain};
 
     // `to_room_set` reads the world manifest + resolves spawn display names
-    // through the character roster; install both content seams before
-    // composing (first install wins, so this is safe to call in any test).
+    // through stable authored ids; install the provider-owned world manifest
+    // before composing the partial project.
     crate::worlds::install();
-    crate::character_catalog::install();
     let mut project = LdtkProject::load_default_for_dev().expect("sandbox LDtk should load");
     // Compose ONLY the arena area. The full sandbox composes portal rooms
     // whose entities need the `portal_ldtk` feature (off in this test build);

@@ -74,9 +74,9 @@ pub struct SanicExperiencePlugin;
 
 impl Plugin for SanicExperiencePlugin {
     fn build(&self, app: &mut App) {
-        // Immutable, process-resident content definitions (roster + audio
-        // registries). App-local composition is Phase 5; today these remain the
-        // existing first-install-wins global installs.
+        // Provider-authored character/audio fragments assemble into resources
+        // owned by this Bevy App. The same provider plugin is therefore safe in
+        // a standalone host and in a future multi-game host.
         crate::install_sanic_content(app);
 
         // Advertise the experience + its gameplay route. The launcher catalog is
@@ -113,6 +113,8 @@ fn sanic_activate_session(
     editable_tuning: Res<EditableMovementTuning>,
     asset_server: Res<AssetServer>,
     character_catalog: Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
+    character_roster: Res<ambition::actors::features::CharacterRoster>,
+    boss_catalog: Res<ambition::actors::boss_encounter::BossCatalog>,
     mut geometry: ResMut<ae::RoomGeometry>,
     mut room_set: ResMut<RoomSet>,
     mut metadata: ResMut<ActiveRoomMetadata>,
@@ -147,6 +149,8 @@ fn sanic_activate_session(
                 editable_tuning: &editable_tuning,
                 starting_character: &world.starting_character,
                 character_catalog: &character_catalog,
+                character_roster: &character_roster,
+                boss_catalog: &boss_catalog,
                 default_character_id: crate::SANIC_CHARACTER_ID,
                 sandbox_data_asset: None,
                 sandbox_asset_collection: None,

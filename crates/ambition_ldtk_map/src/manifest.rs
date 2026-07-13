@@ -4,7 +4,7 @@
 //! relocated the payload to `ambition_content::worlds`, which installs here.
 //!
 //! Content installs the manifest at every sim-entry choke point via
-//! [`install_world_manifest`] (first install wins — the `install_enemy_roster`
+//! [`install_world_manifest`] (first install wins — the legacy manifest
 //! seam contract). Every world-loading site derives from the installed rows:
 //! the asset-catalog entries, the serde loader's disk/embedded fallback
 //! chain, the Bevy `EmbeddedAssetRegistry` registration, the hot-reload
@@ -92,7 +92,7 @@ pub fn world_manifest() -> &'static WorldManifest {
     #[cfg(test)]
     {
         // Test fixture = the game's REAL worlds, read cross-crate (the
-        // install_enemy_roster fixture pattern) so this crate's conversion /
+        // explicit cross-crate fixture pattern) so this crate's conversion /
         // ron-room contract tests exercise real data without shipping any.
         // Restored by the fable final audit (F7): the W3 carve dropped it,
         // which is what orphaned the ruled contract tests.

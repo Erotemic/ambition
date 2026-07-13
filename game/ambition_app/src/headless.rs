@@ -93,12 +93,9 @@ pub fn run_headless(max_ticks: u32) -> Result<HeadlessReport, String> {
     // Validate the embedded LDtk file up front so we can return Err with a
     // useful diagnostic. `init_sandbox_resources` does this too but exits
     // the process on failure; tests want a structured error instead.
-    // Sim-entry choke point: install the game's content data (character
-    // catalog, worlds) before the catalog build / world load reads them.
-    // First-install-wins, same as install_boss_roster. Audio is App-local:
-    // `SandboxSimulationPlugin`'s `init_sandbox_resources` registers the audio
-    // fragment and reads it from the `AudioCatalogRegistry` resource.
-    ambition_content::character_catalog::install();
+    // Validate the embedded world before constructing the App. Provider-owned
+    // character, hostile-archetype, boss, and audio catalogs are composed as
+    // App-local resources by `SandboxSimulationPlugin`.
     ambition_content::worlds::install();
     let project = ldtk_world::LdtkProject::load_default_for_dev()?;
     let report = project.validate();

@@ -142,8 +142,9 @@ pub use ecs::{
 };
 pub use ecs::{AxisSweptMotion, MomentumMotion, MotionModel};
 pub use enemies::{
-    enemy_spawn_is_sandbag, install_enemy_roster, ActorSpawnState, ActorSurfaceState,
-    CharacterRoster, RespawnPolicy, ENEMY_DEAD_UNTIL_REST_SUFFIX,
+    enemy_spawn_is_sandbag, ActorSpawnState, ActorSurfaceState, CharacterRoster,
+    CharacterRosterAppExt, CharacterRosterAssemblyError, CharacterRosterFragment,
+    CharacterRosterRegistry, RespawnPolicy, ENEMY_DEAD_UNTIL_REST_SUFFIX,
 };
 pub use events::{
     ActorStimulus, FeatureCombatTuning, FeatureView, FeatureVisualKind, GameplayBanner,

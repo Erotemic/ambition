@@ -145,21 +145,12 @@ pub fn sprite_target_for_boss(
 /// Unknown targets get a 1.0 scale fallback (sprite renders at
 /// `boss.size`) — that's the safe "no sprite spec known" case used
 /// by test fixtures and bosses without a registered sheet.
-pub fn sprite_render_size_for(target: &str, boss_size: ae::Vec2) -> ae::Vec2 {
-    use crate::boss_encounter::sprites;
-    let spec: Option<&sprites::BossSheetSpec> = match target {
-        "boss" => Some(&*sprites::BOSS_SHEET),
-        "mockingbird" | "mockingbird_boss" => Some(&*sprites::MOCKINGBIRD_SHEET),
-        "smirking_behemoth_boss" => Some(&*sprites::SMIRKING_BEHEMOTH_SHEET),
-        // The GNU-ton giant. It is a MOUNT actor since the ADR-0020 split, so no
-        // live boss targets it — but a boss CAN (the E6-teardown tests do), and
-        // it is the only sheet whose body geometry is authored per animation.
-        "giant_gnu" => Some(&*sprites::GIANT_GNU_SHEET),
-        _ => None,
-    };
-    let Some(spec) = spec else {
-        return boss_size;
-    };
+pub fn sprite_render_size_for(
+    catalog: &crate::boss_encounter::BossCatalog,
+    behavior: &crate::boss_encounter::behavior::BossBehaviorProfile,
+    boss_size: ae::Vec2,
+) -> ae::Vec2 {
+    let spec = catalog.sheet_for_behavior(behavior);
     let bevy_size = bevy::math::Vec2::new(boss_size.x, boss_size.y);
     let render = spec.render_size(bevy_size);
     ae::Vec2::new(render.x, render.y)
@@ -184,6 +175,7 @@ pub fn sprite_render_size_for(target: &str, boss_size: ae::Vec2) -> ae::Vec2 {
 /// stale 64×80 spawn AABB).
 pub fn derive_boss_sprite_metrics(
     mut commands: Commands,
+    boss_catalog: Res<crate::boss_encounter::BossCatalog>,
     registry: Option<Res<SheetRegistry>>,
     mut bosses: Query<
         (
@@ -207,7 +199,7 @@ pub fn derive_boss_sprite_metrics(
     }
     for (entity, mut feature, brain_opt) in &mut bosses {
         let Some((snapshot, derived_combat_size)) =
-            boss_sprite_metrics_from_registry(feature.as_boss_ref(), &registry)
+            boss_sprite_metrics_from_registry(&boss_catalog, feature.as_boss_ref(), &registry)
         else {
             // No metadata for this boss — leave defaults alone.
             commands.entity(entity).insert(BossSpriteMetricsApplied);
@@ -254,24 +246,29 @@ pub fn derive_boss_sprite_metrics(
 /// renderer so boss combat geometry can be verified in a room without
 /// launching the game; live combat uses the ECS path.
 pub fn boss_spawn_hurtboxes(
+    boss_catalog: &crate::boss_encounter::BossCatalog,
     id: &str,
     name: &str,
     aabb: ae::Aabb,
     brain: ambition_entity_catalog::placements::BossBrain,
 ) -> Vec<ae::Aabb> {
     let registry = crate::character_sprites::baked_sheet_registry();
-    let mut boss = super::super::boss_clusters::BossClusterScratch::new(id, name, aabb, brain);
-    if let Some((metrics, _)) = boss_sprite_metrics_from_registry(boss.as_ref(), &registry) {
+    let mut boss = super::super::boss_clusters::BossClusterScratch::new(boss_catalog, id, name, aabb, brain);
+    if let Some((metrics, _)) =
+        boss_sprite_metrics_from_registry(boss_catalog, boss.as_ref(), &registry)
+    {
         boss.status.sprite_metrics = Some(metrics);
     }
     let attack_state = ambition_characters::brain::BossAttackState::default();
     crate::features::damageable_volumes(&crate::features::BossVolumeContext::from_ref(
+        boss_catalog,
         boss.as_ref(),
         &attack_state,
     ))
 }
 
 pub(crate) fn boss_sprite_metrics_from_registry(
+    boss_catalog: &crate::boss_encounter::BossCatalog,
     boss: super::super::boss_clusters::BossRef<'_>,
     registry: &SheetRegistry,
 ) -> Option<(ActorSpriteMetrics, Option<ae::Vec2>)> {
@@ -279,7 +276,8 @@ pub(crate) fn boss_sprite_metrics_from_registry(
     let (metrics, frame_w, frame_h) = registry.body_metrics(target)?;
     // AS4b: scale from the sprite render BASIS, not `kin.size` (now the collision
     // envelope) — so the derived world metrics are unchanged by the size flip.
-    let sprite_render_size = sprite_render_size_for(target, boss.status.render_size);
+    let sprite_render_size =
+        sprite_render_size_for(boss_catalog, &boss.config.behavior, boss.status.render_size);
     let mut snapshot = ActorSpriteMetrics {
         frame_width: frame_w,
         frame_height: frame_h,

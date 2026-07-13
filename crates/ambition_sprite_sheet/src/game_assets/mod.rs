@@ -360,11 +360,11 @@ pub struct GameAssets {
     /// falls back to `boss`. This replaced a hand-maintained set of named fields
     /// (`giant_gnu`, `mockingbird`, `trex_boss`, …) + a per-boss if-else chain in
     /// the render layer, so the MACHINERY no longer names any boss: adding a boss
-    /// sheet is a new [`boss_sprite_keys`] entry + its loader, not a struct edit.
+    /// sheet is a provider catalog row plus an asset-manifest entry, not a struct edit.
     ///
     /// Multi-part bosses store their pieces under suffixed keys: GNU-ton's split
     /// body/hands render reads `"gnu_ton_body"` / `"gnu_ton_hands"`.
-    pub boss_sprites: HashMap<&'static str, BossSpriteAsset>,
+    pub boss_sprites: HashMap<String, BossSpriteAsset>,
     /// Optional generated biome sky/background/parallax layers. Missing PNGs
     /// are fine: room rendering simply skips the extra layers and keeps the
     /// existing clear-color/grid/block visuals.

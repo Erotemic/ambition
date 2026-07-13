@@ -34,18 +34,13 @@ fn sandbox_init_failed() -> ! {
 }
 
 pub fn init_sandbox_resources(app: &mut App) {
-    // Install the named boss roster into the machinery lib's holder before
-    // anything in this function (or any later system) resolves a boss profile
-    // via `BossBehaviorProfile::from_data` (the boss encounter registry +
-    // content validation read it). This is the single choke point every sim
-    // entry path flows through (the plugin and the test harnesses), so the
-    // content data is always present. First-install-wins.
-    ambition_content::bosses::install_boss_roster();
-    // Install the authored audio registries into the engine's audio-data
-    // seam (R3.2 — the engine ships no tracks/cues). Same choke-point
-    // rationale as the boss roster; first-install-wins.
+    // Register this provider's authored audio and character fragments into the
+    // App-local registries. Boss content is contributed by
+    // `AmbitionBossContentPlugin` through the same App-local composition model.
     ambition_content::audio_registries::register(app);
     ambition_content::character_catalog::register(app);
+    ambition_content::enemy_roster::register(app);
+    ambition_content::bosses::register(app);
     ambition_content::worlds::install();
 
     let sandbox_data = data::SandboxDataSpec::load_embedded();
@@ -66,6 +61,14 @@ pub fn init_sandbox_resources(app: &mut App) {
                 .clone(),
         )
     };
+    let character_catalog = app
+        .world()
+        .resource::<ambition::characters::actor::character_catalog::CharacterCatalog>()
+        .clone();
+    let boss_catalog = app
+        .world()
+        .resource::<ambition::actors::boss_encounter::BossCatalog>()
+        .clone();
 
     // Build the singleton SandboxAssetCatalog before anything else asks
     // it for a path. Every asset path/source policy in the visible
@@ -79,11 +82,14 @@ pub fn init_sandbox_resources(app: &mut App) {
         .unwrap_or_default();
     let sandbox_catalog = ambition::actors::assets::sandbox_assets::build_sandbox_catalog_with(
         &asset_config,
+        &character_catalog,
+        &boss_catalog,
         &music_registry,
         |manifest| {
             ambition_content::intro::sprites::extend_with_intro_sprite_entries(
                 manifest,
                 &asset_config.sprite_folder,
+                &character_catalog,
             );
         },
     );
@@ -99,7 +105,11 @@ pub fn init_sandbox_resources(app: &mut App) {
             sandbox_init_failed();
         }
     };
-    let content_report = content_validation::validate_content_graph(&music_registry, &ldtk_project);
+    let content_report = content_validation::validate_content_graph(
+        &music_registry,
+        &ldtk_project,
+        &character_catalog,
+    );
     for warning in &content_report.warnings {
         eprintln!("content validation warning: {warning}");
     }

@@ -14,6 +14,7 @@ use super::*;
 /// because their lifecycle belongs to encounter state.
 pub fn sync_ecs_actors_with_save(
     mut commands: Commands,
+    roster: Res<crate::features::CharacterRoster>,
     save: Res<ambition_persistence::save::SandboxSave>,
     // A persisted-hostile NPC re-establishes its grudge against a stable player
     // slot on load (the original attacker entity doesn't survive a save round-trip;
@@ -80,6 +81,7 @@ pub fn sync_ecs_actors_with_save(
             aggression.grudge = stable_player_grudge;
             let mut em = cq.as_actor_mut();
             super::actors::provoke_actor_in_place(
+                &roster,
                 &mut commands,
                 entity,
                 &mut em,

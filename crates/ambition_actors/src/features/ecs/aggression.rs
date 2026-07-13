@@ -20,6 +20,7 @@ use crate::features::ActorStimulus;
 /// archetype), and an already-hostile actor re-derives its aggressive brain.
 pub fn apply_actor_stimuli(
     mut commands: Commands,
+    roster: Res<crate::features::CharacterRoster>,
     mut stimuli: MessageReader<ActorStimulus>,
     mut actors: Query<
         (
@@ -106,6 +107,7 @@ pub fn apply_actor_stimuli(
 
         let mut em = cq.as_actor_mut();
         super::actors::provoke_actor_in_place(
+            &roster,
             &mut commands,
             entity,
             &mut em,

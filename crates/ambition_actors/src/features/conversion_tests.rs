@@ -52,7 +52,9 @@ mod conversion_tests {
             &interactable,
             &[],
         );
+        let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
         let brain = crate::features::npcs::npc_brain_from_catalog(
+            &catalog,
             &interactable,
             seed.config.spawn.pos.x,
             patrol_radius.max(0.0),
@@ -244,7 +246,9 @@ mod conversion_tests {
                 },
             )
         };
+        let catalog = ambition_characters::actor::character_catalog::CharacterCatalog::empty();
         match crate::features::npcs::npc_brain_from_catalog(
+            &catalog,
             &interactable(0.0),
             800.0,
             0.0,
@@ -257,6 +261,7 @@ mod conversion_tests {
             other => panic!("expected StandStill for zero-radius NPC, got {other:?}"),
         }
         match crate::features::npcs::npc_brain_from_catalog(
+            &catalog,
             &interactable(64.0),
             800.0,
             64.0,

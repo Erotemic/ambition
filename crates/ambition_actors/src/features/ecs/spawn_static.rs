@@ -280,7 +280,14 @@ pub(crate) fn lower_interactable_placement(
         aabb: record.aabb,
         payload: spec.clone(),
     };
-    super::spawn_actors::spawn_interactable(ctx.commands, ctx.session_scope, &authored, ctx.paths);
+    super::spawn_actors::spawn_interactable(
+        ctx.commands,
+        &ctx.context.characters,
+        &ctx.context.roster,
+        ctx.session_scope,
+        &authored,
+        ctx.paths,
+    );
 }
 
 pub(crate) fn lower_pickup_placement(

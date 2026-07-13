@@ -437,7 +437,18 @@ fn every_live_music_track_resolves_under_web_served_assets() {
     let music = fixture_music_registry().clone();
     let mut config = GameAssetConfig::default();
     config.asset_profile = AssetProfile::WebServedAssets;
-    let catalog = crate::assets::sandbox_assets::build_sandbox_catalog(&config, &music);
+    let character_catalog = ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
+        ambition_characters::actor::character_catalog::parse_catalog(include_str!(
+            "../../../../game/ambition_content/assets/data/character_catalog.ron"
+        )),
+    );
+    let boss_catalog = crate::boss_encounter::BossCatalog::default();
+    let catalog = crate::assets::sandbox_assets::build_sandbox_catalog(
+        &config,
+        &character_catalog,
+        &boss_catalog,
+        &music,
+    );
 
     let mut missing: Vec<String> = Vec::new();
     for track in &music.tracks {

@@ -187,8 +187,19 @@ fn install_sanic_asset_resources(app: &mut App) -> Option<String> {
         .music_for(ambition_demo_sanic::SANIC_EXPERIENCE)
         .expect("Sanic provider registered its App-local music catalog")
         .clone();
+    let character_catalog = app
+        .world()
+        .resource::<ambition::characters::actor::character_catalog::CharacterCatalog>()
+        .clone();
+    let boss_catalog = app
+        .world()
+        .resource::<ambition::actors::boss_encounter::BossCatalog>()
+        .clone();
     let catalog = ambition::actors::assets::sandbox_assets::build_sandbox_catalog_without_worlds(
-        &config, &music,
+        &config,
+        &character_catalog,
+        &boss_catalog,
+        &music,
     );
     let sfx_bank_path = catalog.path_for(&ambition::asset_manager::sandbox_assets::ids::sfx_bank());
 
@@ -208,6 +219,8 @@ fn install_sanic_asset_resources(app: &mut App) -> Option<String> {
 #[cfg(feature = "visible")]
 fn load_sanic_game_assets(
     config: Res<ambition::sprite_sheet::game_assets::GameAssetConfig>,
+    character_catalog: Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
+    boss_catalog: Res<ambition::actors::boss_encounter::BossCatalog>,
     catalog: Res<ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>,
     asset_server: Res<AssetServer>,
     mut layouts: ResMut<Assets<TextureAtlasLayout>>,
@@ -217,6 +230,8 @@ fn load_sanic_game_assets(
 ) {
     *game_assets = ambition::actors::assets::game_assets::load_game_assets(
         &config,
+        &character_catalog,
+        &boss_catalog,
         &catalog,
         &asset_server,
         &mut layouts,

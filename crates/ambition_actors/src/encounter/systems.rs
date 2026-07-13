@@ -85,7 +85,11 @@ pub fn update_encounters_from_world(
     mut encounter_view: ResMut<EncounterView>,
     mut quests: ResMut<ambition_persistence::quest::QuestRegistry>,
     mut banner_requests: MessageWriter<crate::features::GameplayBannerRequested>,
-    room_set: Res<crate::rooms::RoomSet>,
+    session_content: (
+        Res<crate::rooms::RoomSet>,
+        Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
+        Res<crate::features::CharacterRoster>,
+    ),
     encounter_mobs: Query<(
         Entity,
         &crate::features::EncounterMob,
@@ -105,7 +109,7 @@ pub fn update_encounters_from_world(
     let Some(session_scope) = commands.spawn_scope() else {
         return;
     };
-    let active_area = room_set.active_spec().id.clone();
+    let active_area = session_content.0.active_spec().id.clone();
     if player_body_q.is_empty() {
         return;
     }
@@ -260,6 +264,8 @@ pub fn update_encounters_from_world(
     for (id, kind, pos, size) in spawn_commands {
         crate::features::spawn_encounter_mob(
             &mut commands,
+            &session_content.1,
+            &session_content.2,
             session_scope,
             active_area.clone(),
             id,

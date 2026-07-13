@@ -129,6 +129,9 @@ pub(crate) fn load_room(
     world: &mut RoomGeometry,
     room_set: &mut rooms::RoomSet,
     placement_lowering: &ambition::actors::world::placements::PlacementLoweringRegistry,
+    character_catalog: &ambition::characters::actor::character_catalog::CharacterCatalog,
+    character_roster: &ambition::actors::features::CharacterRoster,
+    boss_catalog: &ambition::actors::boss_encounter::BossCatalog,
     session_scope: ambition::platformer::lifecycle::SessionSpawnScope,
     room_visuals: &Query<(Entity, Option<&physics::PhysicsRoomEntity>), With<RoomScopedEntity>>,
     // The transiting body, exempt from the old-room despawn so it rides along.
@@ -157,6 +160,9 @@ pub(crate) fn load_room(
         clock_resets,
         moving_platforms,
         placement_lowering,
+        character_catalog,
+        character_roster,
+        boss_catalog,
         session_scope,
         world,
         room_set,
@@ -298,6 +304,9 @@ pub(crate) fn apply_room_transition_system(
     // Bundled into one tuple param to stay within Bevy's 16-param system limit.
     load_resources: (
         Res<ambition::actors::world::placements::PlacementLoweringRegistry>,
+        Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
+        Res<ambition::actors::features::CharacterRoster>,
+        Res<ambition::actors::boss_encounter::BossCatalog>,
         Option<Res<ambition::sprite_sheet::game_assets::GameAssets>>,
         Option<Res<ambition::render::quality::ResolvedVisualQuality>>,
         Option<Res<ambition::platformer::lifecycle::ActiveSessionScope>>,
@@ -357,7 +366,7 @@ pub(crate) fn apply_room_transition_system(
         }
         let Some(session_scope) =
             ambition::platformer::lifecycle::SessionSpawnScope::for_optional_active_session(
-                load_resources.3.as_deref(),
+                load_resources.6.as_deref(),
             )
         else {
             continue;
@@ -380,6 +389,9 @@ pub(crate) fn apply_room_transition_system(
             &mut world,
             &mut room_set,
             &load_resources.0,
+            &load_resources.1,
+            &load_resources.2,
+            &load_resources.3,
             session_scope,
             &room_visuals,
             carry_body,
@@ -387,8 +399,8 @@ pub(crate) fn apply_room_transition_system(
             editable_tuning.as_engine(),
             *feel_tuning,
             *physics_settings,
-            load_resources.1.as_deref(),
-            load_resources.2.as_deref(),
+            load_resources.4.as_deref(),
+            load_resources.5.as_deref(),
         );
         // Class-B transit authority (`collision-and-ccd.md` §3.2): the load just
         // relocated `subject` into the new room. Recorded AFTER the move, so a

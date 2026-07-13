@@ -6,7 +6,17 @@
 use bevy::prelude::Vec2;
 
 use super::anim::CharacterAnim;
-use super::assets::sheet_for_character_id;
+use super::assets::sheet_for_character_id_in;
+
+fn test_catalog() -> ambition_characters::actor::character_catalog::CharacterCatalog {
+    crate::character_roster::catalog()
+}
+
+fn sheet_for_character_id(
+    character_id: &str,
+) -> Option<ambition_sprite_sheet::character::sheets::CharacterSheetSpec> {
+    sheet_for_character_id_in(&test_catalog(), character_id)
+}
 
 /// Data-path stand-in for the deleted `ROBOT_SHEET` static.
 fn robot_sheet() -> ambition_sprite_sheet::character::sheets::CharacterSheetSpec {
@@ -164,7 +174,7 @@ fn frame_duration_positive_for_every_row() {
 fn every_reachable_sheet_loads() {
     use crate::character_roster::catalog;
     let mut checked = 0usize;
-    for (cid, entry) in catalog().characters.iter() {
+    for (cid, entry) in catalog().data().characters.iter() {
         let Some(target) = entry.manifest_target() else {
             continue;
         };
@@ -402,7 +412,7 @@ fn every_catalog_sprite_spec_has_idle_row_if_loaded() {
     // sheet only had run/walk rows (no idle).
 
     let data = crate::character_roster::catalog();
-    for cid in data.characters.keys() {
+    for cid in data.data().characters.keys() {
         let Some(spec) = sheet_for_character_id(cid) else {
             continue;
         };
@@ -433,6 +443,7 @@ fn sprite_loader_resolves_a_sheet_for_most_catalog_entries() {
 
     let data = crate::character_roster::catalog();
     let covered = data
+        .0
         .characters
         .keys()
         .filter(|cid| sheet_for_character_id(cid).is_some())

@@ -44,7 +44,12 @@ fn spawn_hostile_actor(app: &mut App) -> bevy::prelude::Entity {
 #[test]
 fn victim_side_enemy_body_hit_does_not_damage_features() {
     let mut app = App::new();
+    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
+    app.insert_resource(
+        ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+    );
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
     app.add_message::<SfxMessage>();
@@ -81,7 +86,12 @@ fn victim_side_enemy_body_hit_does_not_damage_features() {
 #[test]
 fn enemy_charge_crash_is_processed_as_enemy_damage() {
     let mut app = App::new();
+    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
+    app.insert_resource(
+        ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+    );
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
     app.add_message::<SfxMessage>();
@@ -130,7 +140,12 @@ fn player_slash_damages_and_can_kill_a_hostile_actor() {
     // actor's HP, and enough damage routes through the normal kill
     // path. Complements the enemy-side tests above.
     let mut app = App::new();
+    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
+    app.insert_resource(
+        ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+    );
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
     app.add_message::<SfxMessage>();
@@ -215,7 +230,12 @@ fn a_sustained_overlap_lands_one_hit_per_iframe_window_not_one_per_frame() {
     // still hot lands exactly once. (This minimal app runs no integration tick, so the
     // window never decays between the two updates — exactly the sustained-overlap case.)
     let mut app = App::new();
+    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
+    app.insert_resource(
+        ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+    );
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
     app.add_message::<SfxMessage>();
@@ -266,7 +286,12 @@ fn a_sustained_overlap_lands_one_hit_per_iframe_window_not_one_per_frame() {
 /// adhesive crawler clung to a LEFT wall (outward normal +x), then slash it.
 fn slash_clung_surface_walker(cling_breaks_on_hit: bool) -> (App, bevy::prelude::Entity) {
     let mut app = App::new();
+    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
+    app.insert_resource(
+        ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+    );
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
     app.add_message::<SfxMessage>();
@@ -382,7 +407,12 @@ fn player_slash_shatters_a_breakable() {
     // Completes the attacker-side hit matrix: a player slash on a
     // 1-HP breakable shatters it through apply_feature_hit_events.
     let mut app = App::new();
+    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
+    app.insert_resource(
+        ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+    );
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
     app.add_message::<SfxMessage>();
@@ -440,6 +470,8 @@ fn player_slash_shatters_a_breakable() {
 #[test]
 fn enemy_defeat_drops_a_collectible_currency_coin() {
     let mut app = App::new();
+    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(crate::features::enemies::test_roster());
     app.add_systems(Update, |mut c: Commands| {
         drop_currency_coin(
             &mut c,
@@ -481,7 +513,7 @@ fn defeated_boss_drops_its_signature_ability() {
         ("smirking_behemoth_boss", None),
     ];
     for (id, ability) in expect {
-        let profile = BossBehaviorProfile::from_data(id);
+        let profile = BossBehaviorProfile::from_data(crate::boss_encounter::test_boss_catalog(), id);
         assert_eq!(
             profile.reward_ability.as_deref(),
             *ability,
@@ -497,6 +529,8 @@ fn defeated_boss_drops_its_signature_ability() {
 
     // The drop spawns a single collectible Ability pickup.
     let mut app = App::new();
+    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(crate::features::enemies::test_roster());
     app.add_systems(Update, |mut c: Commands| {
         drop_ability_pickup(
             &mut c,
@@ -547,7 +581,7 @@ fn boss_signature_gauntlets_map_to_real_wielded_held_items() {
     let mut gauntlets = 0;
     let mut abilities = 0;
     for (id, gauntlet) in expect {
-        let profile = BossBehaviorProfile::from_data(id);
+        let profile = BossBehaviorProfile::from_data(crate::boss_encounter::test_boss_catalog(), id);
         assert_eq!(
             profile.signature_gauntlet.as_deref(),
             *gauntlet,
@@ -575,6 +609,8 @@ fn boss_signature_gauntlets_map_to_real_wielded_held_items() {
 #[test]
 fn exploding_mite_blast_is_a_player_damaging_enemy_hitbox() {
     let mut app = App::new();
+    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(crate::features::enemies::test_roster());
     app.add_systems(Update, |mut c: Commands| {
         spawn_death_explosion(
             &mut c,
@@ -607,14 +643,28 @@ fn exploding_mite_blast_is_a_player_damaging_enemy_hitbox() {
 #[test]
 fn dividing_mite_splits_into_two_hostile_offspring_on_death() {
     let mut app = App::new();
-    app.add_systems(Update, |mut c: Commands| {
-        spawn_split_offspring(
-            &mut c,
-            ambition_platformer_primitives::lifecycle::SessionSpawnScope::UNSCOPED,
-            "divider_1",
-            ae::Vec2::new(100.0, 100.0),
-        );
-    });
+    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(crate::features::enemies::test_roster());
+    app.insert_resource(
+        ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+    );
+    app.add_systems(
+        Update,
+        |mut c: Commands,
+         catalog: bevy::prelude::Res<
+            ambition_characters::actor::character_catalog::CharacterCatalog,
+        >,
+         roster: bevy::prelude::Res<crate::features::CharacterRoster>| {
+            spawn_split_offspring(
+                &mut c,
+                &catalog,
+                &roster,
+                ambition_platformer_primitives::lifecycle::SessionSpawnScope::UNSCOPED,
+                "divider_1",
+                ae::Vec2::new(100.0, 100.0),
+            );
+        },
+    );
     app.update();
     let mut q = app.world_mut().query::<&crate::features::ActorFaction>();
     let factions: Vec<crate::features::ActorFaction> = q.iter(app.world()).cloned().collect();
@@ -637,6 +687,8 @@ fn enemy_health_drop_is_deterministic_and_spawns_a_heart() {
     assert_eq!(id_drops_health("goblin_42"), id_drops_health("goblin_42"));
     // The drop spawns one collectible Health pickup.
     let mut app = App::new();
+    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(crate::features::enemies::test_roster());
     app.add_systems(Update, |mut c: Commands| {
         drop_health_pickup(
             &mut c,
@@ -716,7 +768,12 @@ fn spawn_shielding_actor(app: &mut App, shield_raised: bool) -> bevy::prelude::E
 
 fn shield_test_app() -> App {
     let mut app = App::new();
+    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
+    app.insert_resource(
+        ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+    );
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
     app.add_message::<SfxMessage>();
@@ -913,7 +970,12 @@ fn an_actor_targeted_hit_damages_only_the_named_actor() {
 fn a_player_slash_folds_the_struck_target_onto_the_move_accumulator() {
     use crate::combat::moveset::{simple_melee, MovePlayback, SimpleMeleeParams};
     let mut app = App::new();
+    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
+    app.insert_resource(
+        ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+    );
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
     app.add_message::<SfxMessage>();
@@ -980,7 +1042,12 @@ fn a_moveset_player_strike_hits_a_target_once_across_a_multi_tick_window() {
         }
     }
     let mut app = App::new();
+    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(GameplayBanner::default());
+    app.insert_resource(
+        ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+    );
     app.add_message::<HitEvent>();
     app.add_message::<SetFlagRequested>();
     app.add_message::<SfxMessage>();

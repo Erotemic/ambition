@@ -549,16 +549,15 @@ fn restoring_worn_host_code_rebuilds_from_the_snapshotted_abilities() {
     use ambition_characters::brain::{ActionSet, MeleeActionSpec, RangedActionSpec};
     use bevy::prelude::*;
 
-    ambition_actors::character_roster::install_character_catalog(include_str!(
-        "../../../../game/ambition_content/assets/data/character_catalog.ron"
-    ));
-    ambition_actors::character_roster::install_default_character_id("player");
-
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
-    // The App-local catalog resource the worn-character system reads (the
-    // process-global install above only stages the RON for this plugin).
-    app.add_plugins(ambition_actors::character_roster::character_roster_plugin());
+    app.add_plugins(
+        ambition_characters::actor::character_catalog::CharacterCatalogPlugin {
+            catalog_ron: include_str!(
+                "../../../../game/ambition_content/assets/data/character_catalog.ron"
+            ),
+        },
+    );
     app.add_systems(
         Update,
         ambition_actors::avatar::apply_worn_character_gameplay,

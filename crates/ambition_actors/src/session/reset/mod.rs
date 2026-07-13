@@ -62,6 +62,10 @@ pub struct ResetPlayState<'w> {
     sim_state: ResMut<'w, crate::SandboxSimState>,
     clock_resets: MessageWriter<'w, crate::time::time_control::ClockResetRequest>,
     moving_platforms: ResMut<'w, ambition_world::collision::MovingPlatformSet>,
+    character_catalog:
+        Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
+    character_roster: Res<'w, crate::features::CharacterRoster>,
+    boss_catalog: Res<'w, crate::boss_encounter::BossCatalog>,
 }
 
 /// Cross-system trigger for "wipe the save and rebuild the runtime."
@@ -211,7 +215,14 @@ pub fn process_sandbox_reset_request(
         attack.clear();
         safety.last_safe_pos = world.0.spawn;
     }
-    crate::features::spawn_room_feature_entities(&mut commands, &start_spec, session_scope);
+    crate::features::spawn_room_feature_entities(
+        &mut commands,
+        &play_state.character_catalog,
+        &play_state.character_roster,
+        &play_state.boss_catalog,
+        &start_spec,
+        session_scope,
+    );
     play_state.moving_platforms.0 = platforms::moving_platforms_for_room(&start_spec);
 
     // 7. Respawn the static world visuals + parallax for the start room.

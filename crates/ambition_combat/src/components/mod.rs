@@ -240,8 +240,9 @@ pub struct CombatTuning {
     /// bodies without the component skip the floor entirely).
     pub attack_cooldown_mult: f32,
     /// Sprite-catalog id whose AUTHORED per-animation attack polygons the
-    /// strike paths resolve (`None` = the player manifest root). Combat only
-    /// forwards it to the installed authored-volume resolver.
+    /// strike paths resolve. Controllable bodies use `WornCharacter`; `None`
+    /// remains only for content-free fixtures. Combat forwards the stable id to
+    /// the App-local authored-volume resolver.
     pub sprite_character_id: Option<String>,
 }
 

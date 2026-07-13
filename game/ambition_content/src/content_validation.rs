@@ -66,7 +66,8 @@ pub fn validate_embedded_content_graph() -> ContentValidationReport {
             return report;
         }
     };
-    validate_content_graph(&music, &project)
+    let character_catalog = crate::character_catalog::load_catalog();
+    validate_content_graph(&music, &project, &character_catalog)
 }
 
 /// Validate relationships among the music registry and the LDtk world
@@ -74,6 +75,7 @@ pub fn validate_embedded_content_graph() -> ContentValidationReport {
 pub fn validate_content_graph(
     music: &MusicRegistry,
     project: &LdtkProject,
+    character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
 ) -> ContentValidationReport {
     let mut report = ContentValidationReport::default();
 
@@ -97,9 +99,10 @@ pub fn validate_content_graph(
 
     validate_ldtk_room_links(project, &mut report);
     validate_room_music_tracks(project, music, &mut report);
-    validate_npc_dialogue_ids(project, &mut report);
+    validate_npc_dialogue_ids(project, character_catalog, &mut report);
     validate_quest_conditions(project, music, &mut report);
-    validate_boss_music_tracks(music, &mut report);
+    let boss_catalog = crate::bosses::authored_boss_catalog();
+    validate_boss_music_tracks(music, &boss_catalog, &mut report);
     validate_patrol_brain_paths(project, &mut report);
 
     #[cfg(feature = "audio")]
@@ -285,10 +288,15 @@ fn validate_room_music_tracks(
     );
 }
 
-fn validate_npc_dialogue_ids(project: &LdtkProject, report: &mut ContentValidationReport) {
-    let known = crate::dialogue::known_dialogue_ids()
+fn validate_npc_dialogue_ids(
+    project: &LdtkProject,
+    character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
+    report: &mut ContentValidationReport,
+) {
+    let known_ids = crate::dialogue::known_dialogue_ids(character_catalog);
+    let known = known_ids
         .iter()
-        .copied()
+        .map(String::as_str)
         .collect::<BTreeSet<_>>();
     for level in &project.levels {
         for entity in level.all_entity_instances() {
@@ -403,13 +411,17 @@ fn validate_quest_conditions(
     }
 }
 
-fn validate_boss_music_tracks(music: &MusicRegistry, report: &mut ContentValidationReport) {
+fn validate_boss_music_tracks(
+    music: &MusicRegistry,
+    boss_catalog: &ambition_actors::boss_encounter::BossCatalog,
+    report: &mut ContentValidationReport,
+) {
     let tracks = music
         .tracks
         .iter()
         .map(|track| track.id.as_str())
         .collect::<BTreeSet<_>>();
-    for spec in ambition_actors::boss_encounter::default_boss_specs() {
+    for spec in ambition_actors::boss_encounter::default_boss_specs(boss_catalog) {
         for (field, track) in [
             ("music_intro", spec.music_intro.as_str()),
             ("music_phase1", spec.music_phase1.as_str()),
@@ -562,21 +574,18 @@ mod tests {
 
     #[test]
     fn embedded_content_graph_validates() {
-        crate::bosses::install_boss_roster();
         crate::worlds::install();
-        crate::character_catalog::install();
         let report = validate_embedded_content_graph();
         report.panic_if_errors();
     }
 
     #[test]
     fn validates_ldtk_loading_zone_targets() {
-        crate::bosses::install_boss_roster();
         crate::worlds::install();
-        crate::character_catalog::install();
         let music = crate::audio_registries::load_music_registry();
         let project = LdtkProject::load_default_for_dev().expect("embedded LDtk loads");
-        let report = validate_content_graph(&music, &project);
+        let character_catalog = crate::character_catalog::load_catalog();
+        let report = validate_content_graph(&music, &project, &character_catalog);
         assert!(
             report
                 .errors
@@ -590,7 +599,6 @@ mod tests {
     #[test]
     fn quest_boss_conditions_point_at_authored_bosses() {
         crate::worlds::install();
-        crate::character_catalog::install();
         let project = LdtkProject::load_default_for_dev().expect("embedded LDtk loads");
         let boss_ids = authored_boss_encounter_ids(&project);
         assert!(boss_ids.contains("clockwork_warden"));

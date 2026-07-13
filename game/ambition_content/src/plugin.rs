@@ -22,19 +22,19 @@ pub struct AmbitionContentPlugin;
 
 impl Plugin for AmbitionContentPlugin {
     fn build(&self, app: &mut App) {
-        // Install the named enemy roster into the machinery lib BEFORE any
-        // spawn system runs (plugin build precedes all systems), so every
-        // enemy spawn resolves against this authored data, not the lib's
-        // standalone fallback.
-        super::enemy_roster::install();
+        // Contribute Ambition's hostile-archetype fragment to this App before
+        // any spawn system runs. Registration is deterministic, transactional,
+        // and independent of other Apps in the process.
+        super::enemy_roster::register(app);
 
-        // Install the authored music/SFX registries into the engine's
-        // audio-data seam (R3.2 — the engine ships no tracks/cues). The app
-        // startup choke point also installs; first install wins.
+        // Contribute authored music/SFX to this Bevy App. Re-registering the
+        // identical provider fragment is idempotent, so hosts may compose this
+        // plugin without coordinating a process-global install order.
         super::audio_registries::register(app);
 
-        // Install the character catalog into the engine's roster seam before
-        // any lookup (LDtk NpcSpawn conversion, spawn paths, sprite joins).
+        // Contribute the provider's character fragment to the App-local
+        // assembly. Runtime simulation, presentation, dialogue, and authored
+        // attack geometry all read the assembled resource explicitly.
         super::character_catalog::register(app);
 
         // Install the world manifest (which .ldtk files exist + the entry

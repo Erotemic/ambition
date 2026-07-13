@@ -62,6 +62,14 @@ impl FeatureHitWriters<'_, '_> {
     }
 }
 
+#[derive(SystemParam)]
+pub struct FeatureHitCatalogs<'w> {
+    pub characters:
+        Res<'w, ambition_characters::actor::character_catalog::CharacterCatalog>,
+    pub hostile_archetypes: Res<'w, crate::features::CharacterRoster>,
+    pub bosses: Res<'w, crate::boss_encounter::BossCatalog>,
+}
+
 /// Coins a defeated standard enemy drops. A flat amount — a *working* earn-side
 /// (kill -> coin -> wallet -> merchant), not a balanced economy.
 pub const ENEMY_BOUNTY: i32 = 5;
@@ -86,10 +94,10 @@ pub fn apply_feature_hit_events(
     // headless test worlds that don't stand up the tuning resource still run
     // (they get the default feel).
     feel_tuning: Option<Res<crate::time::feel::SandboxFeelTuning>>,
-    // Authored character voice for struck NPCs (barks). App-local: `Option` so a
-    // minimal test world that exercises the hit path without a content bootstrap
-    // still runs (an empty catalog → the engine-generic barks).
-    character_catalog: Option<Res<ambition_characters::actor::character_catalog::CharacterCatalog>>,
+    // Authored character voice for struck NPCs. This resource is required:
+    // a production App that omitted provider catalog composition is malformed,
+    // and must not silently degrade to anonymous barks.
+    catalogs: FeatureHitCatalogs,
     mut breakables: Query<
         (
             Entity,
@@ -191,18 +199,7 @@ pub fn apply_feature_hit_events(
     // `update_boss_encounters`.
 ) {
     let feel = feel_tuning.map(|r| *r).unwrap_or_default();
-    // Resolve the App-local character catalog once (or an empty fallback), so the
-    // struck-NPC bark helpers read authored voice without a process global.
-    let empty_catalog;
-    let catalog: &ambition_characters::actor::character_catalog::CharacterCatalog =
-        match character_catalog.as_deref() {
-            Some(catalog) => catalog,
-            None => {
-                empty_catalog =
-                    ambition_characters::actor::character_catalog::CharacterCatalog::empty();
-                &empty_catalog
-            }
-        };
+    let catalog = &*catalogs.characters;
     for event in hit_events.read().cloned() {
         // PogoBounce hits target only the breakable whose AABB
         // approximately matches the orb volume the engine reported.
@@ -293,6 +290,7 @@ pub fn apply_feature_hit_events(
             if apply_actor_hit(
                 &event,
                 catalog,
+                &catalogs.hostile_archetypes,
                 actor_entity,
                 *disposition,
                 &mut em,
@@ -327,6 +325,7 @@ pub fn apply_feature_hit_events(
                 continue;
             }
             if apply_boss_hit(
+                &catalogs.bosses,
                 &event,
                 feature.as_boss_mut(),
                 &mut health,

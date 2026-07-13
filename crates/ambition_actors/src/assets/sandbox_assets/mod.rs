@@ -8,6 +8,7 @@
 
 use ambition_asset_manager::sandbox_assets as core;
 use ambition_asset_manager::{AssetManifest, AssetProfile};
+use ambition_characters::actor::character_catalog::CharacterCatalog;
 
 use crate::assets::game_assets::{sandbox_image_manifest, GameAssetConfig};
 
@@ -53,20 +54,24 @@ impl bevy::prelude::Plugin for AmbitionAssetSourcePlugin {
 /// music registry explicitly (from its App-local `AudioCatalogRegistry` or a
 /// content fixture) — this seam consults no process-global audio state.
 pub fn desktop_dev_default_catalog(
+    character_catalog: &CharacterCatalog,
+    boss_catalog: &crate::boss_encounter::BossCatalog,
     music: &crate::session::data::MusicRegistry,
 ) -> SandboxAssetCatalog {
     let config = GameAssetConfig {
         asset_profile: AssetProfile::DesktopDevLoose,
         ..Default::default()
     };
-    build_sandbox_catalog(&config, music)
+    build_sandbox_catalog(&config, character_catalog, boss_catalog, music)
 }
 
 pub fn build_sandbox_catalog(
     config: &GameAssetConfig,
+    character_catalog: &CharacterCatalog,
+    boss_catalog: &crate::boss_encounter::BossCatalog,
     music: &crate::session::data::MusicRegistry,
 ) -> SandboxAssetCatalog {
-    build_sandbox_catalog_with(config, music, |_| {})
+    build_sandbox_catalog_with(config, character_catalog, boss_catalog, music, |_| {})
 }
 
 /// Build the shared sprite/parallax/audio catalog for a composition that owns
@@ -78,6 +83,8 @@ pub fn build_sandbox_catalog(
 /// process-global world manifest merely to load presentation assets.
 pub fn build_sandbox_catalog_without_worlds(
     config: &GameAssetConfig,
+    character_catalog: &CharacterCatalog,
+    boss_catalog: &crate::boss_encounter::BossCatalog,
     music: &crate::session::data::MusicRegistry,
 ) -> SandboxAssetCatalog {
     let core_config = SandboxAssetConfig {
@@ -85,7 +92,7 @@ pub fn build_sandbox_catalog_without_worlds(
         asset_profile: config.asset_profile,
     };
     let image_manifest = sandbox_image_manifest(&config.sprite_folder);
-    let inputs = sandbox_catalog_inputs_without_worlds(music);
+    let inputs = sandbox_catalog_inputs_without_worlds(character_catalog, boss_catalog, music);
     core::build_sandbox_catalog(&core_config, image_manifest, &inputs)
 }
 
@@ -98,6 +105,8 @@ pub fn scaled_asset_id(
 
 pub fn build_sandbox_catalog_with(
     config: &GameAssetConfig,
+    character_catalog: &CharacterCatalog,
+    boss_catalog: &crate::boss_encounter::BossCatalog,
     music: &crate::session::data::MusicRegistry,
     extend: impl FnOnce(&mut AssetManifest),
 ) -> SandboxAssetCatalog {
@@ -106,12 +115,17 @@ pub fn build_sandbox_catalog_with(
         asset_profile: config.asset_profile,
     };
     let image_manifest = sandbox_image_manifest(&config.sprite_folder);
-    let inputs = sandbox_catalog_inputs(music);
+    let inputs = sandbox_catalog_inputs(character_catalog, boss_catalog, music);
     core::build_sandbox_catalog_with(&core_config, image_manifest, &inputs, extend)
 }
 
-pub fn sandbox_catalog_inputs(music: &crate::session::data::MusicRegistry) -> SandboxCatalogInputs {
-    let mut inputs = sandbox_catalog_inputs_without_worlds(music);
+pub fn sandbox_catalog_inputs(
+    character_catalog: &CharacterCatalog,
+    boss_catalog: &crate::boss_encounter::BossCatalog,
+    music: &crate::session::data::MusicRegistry,
+) -> SandboxCatalogInputs {
+    let mut inputs =
+        sandbox_catalog_inputs_without_worlds(character_catalog, boss_catalog, music);
     inputs.worlds = crate::ldtk_world::world_manifest()
         .worlds
         .iter()
@@ -127,16 +141,19 @@ pub fn sandbox_catalog_inputs(music: &crate::session::data::MusicRegistry) -> Sa
 }
 
 fn sandbox_catalog_inputs_without_worlds(
+    character_catalog: &CharacterCatalog,
+    boss_catalog: &crate::boss_encounter::BossCatalog,
     music: &crate::session::data::MusicRegistry,
 ) -> SandboxCatalogInputs {
     SandboxCatalogInputs {
         scale_variants: texture_scale_variants(),
-        character_sprites: crate::character_sprites::all_character_sprite_filenames()
-            .into_iter()
-            .map(|(name, filename)| CharacterSpriteCatalogRow { name, filename })
-            .collect(),
-        boss_sprites: crate::boss_encounter::sprites::all_boss_sprite_filenames()
-            .into_iter()
+        character_sprites:
+            crate::character_sprites::all_character_sprite_filenames_in(character_catalog)
+                .into_iter()
+                .map(|(name, filename)| CharacterSpriteCatalogRow { name, filename })
+                .collect(),
+        boss_sprites: boss_catalog
+            .sprite_filenames()
             .map(|(name, filename)| BossSpriteCatalogRow {
                 name: name.to_string(),
                 filename: filename.to_string(),

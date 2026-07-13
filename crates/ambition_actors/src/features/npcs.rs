@@ -56,6 +56,7 @@ const GENERIC_HOSTILE_BARK: &str = "That's it!";
 /// Drives the actor's movement at the unified tick; the cluster `config.brain`
 /// (an `CharacterBrain`) only feeds the integrator's patrol-stall intent.
 pub(crate) fn npc_brain_from_catalog(
+    catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
     interactable: &ambition_interaction::Interactable,
     spawn_x: f32,
     patrol_radius: f32,
@@ -67,7 +68,7 @@ pub(crate) fn npc_brain_from_catalog(
         ..
     } = &interactable.kind
     {
-        if let Some(brain) = crate::character_roster::default_brain_for_character_id(cid, spawn_x) {
+        if let Some(brain) = catalog.build_default_brain(cid, spawn_x) {
             let is_basic = matches!(
                 brain,
                 ambition_characters::brain::Brain::StateMachine(
@@ -159,13 +160,13 @@ pub(crate) fn npc_hostile_bark_line<'a>(
 /// ticker skips this actor (an anonymous actor has no ambient voice). Rotation
 /// cycles the pool.
 pub(crate) fn npc_ambient_bark_line<'a>(
-    catalog: Option<&'a CharacterCatalog>,
+    catalog: &'a CharacterCatalog,
     interactable: &Interactable,
     situation: BarkSituation,
     rotation: u32,
 ) -> Option<&'a str> {
     let cid = npc_character_id(interactable)?;
-    catalog?.bark_line(cid, situation, rotation)
+    catalog.bark_line(cid, situation, rotation)
 }
 
 pub(crate) fn npc_message(interactable: &Interactable, name: &str, hostile: bool) -> String {
@@ -197,5 +198,82 @@ pub(crate) fn npc_dialogue_request(
         npc_id: id.to_string(),
         npc_name: name.to_string(),
         dialogue_id,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use ambition_characters::actor::character_catalog::{parse_catalog, CharacterCatalog};
+
+    const FIRST: &str = r#"(
+        brain_presets: { "idle": StandStill },
+        action_set_presets: { "peaceful": (move_style: Walk) },
+        characters: {
+            "voice": (
+                display_name: "Voice", spritesheet: "voice.png",
+                manifest: "voice_spritesheet.ron", tier: MainHall,
+                body_kind: Standard, composition: None,
+                default_brain: "idle", default_action_set: "peaceful", tags: [],
+                barks: (
+                    on_hit: ["first hit"], provoked: ["first provoked"],
+                    idle: ["first idle"],
+                ),
+            ),
+        },
+    )"#;
+
+    const SECOND: &str = r#"(
+        brain_presets: { "idle": StandStill },
+        action_set_presets: { "peaceful": (move_style: Walk) },
+        characters: {
+            "voice": (
+                display_name: "Voice", spritesheet: "voice.png",
+                manifest: "voice_spritesheet.ron", tier: MainHall,
+                body_kind: Standard, composition: None,
+                default_brain: "idle", default_action_set: "peaceful", tags: [],
+                barks: (
+                    on_hit: ["second hit"], provoked: ["second provoked"],
+                    idle: ["second idle"],
+                ),
+            ),
+        },
+    )"#;
+
+    fn interactable() -> Interactable {
+        Interactable::new(
+            "voice",
+            "Talk",
+            ambition_engine_core::Aabb::new(
+                ambition_engine_core::Vec2::ZERO,
+                ambition_engine_core::Vec2::new(1.0, 1.0),
+            ),
+            InteractionKind::Npc {
+                character_id: Some("voice".to_string()),
+                dialogue_id: None,
+                patrol_radius: 0.0,
+                patrol_path_id: None,
+            },
+        )
+    }
+
+    #[test]
+    fn explicit_catalog_argument_is_the_bark_authority() {
+        let first = CharacterCatalog::from_data(parse_catalog(FIRST));
+        let second = CharacterCatalog::from_data(parse_catalog(SECOND));
+        let npc = interactable();
+
+        assert_eq!(npc_hit_bark_line(&first, &npc, 1), "first hit");
+        assert_eq!(npc_hit_bark_line(&second, &npc, 1), "second hit");
+        assert_eq!(npc_hostile_bark_line(&first, &npc), "first provoked");
+        assert_eq!(npc_hostile_bark_line(&second, &npc), "second provoked");
+        assert_eq!(
+            npc_ambient_bark_line(&first, &npc, BarkSituation::Idle, 0),
+            Some("first idle")
+        );
+        assert_eq!(
+            npc_ambient_bark_line(&second, &npc, BarkSituation::Idle, 0),
+            Some("second idle")
+        );
     }
 }

@@ -3,9 +3,7 @@
 //!
 //! The catalog schema, parser, and App-local fragment registry live in
 //! `ambition_characters::actor::character_catalog`. Runtime systems consume the
-//! assembled `CharacterCatalog` resource. The legacy
-//! `ambition_actors::character_roster` cache remains temporarily for pure helper
-//! call sites that have not yet received explicit catalog access. The RON stays a loose file here so the Python tools
+//! assembled `CharacterCatalog` resource. The RON stays a loose file here so the Python tools
 //! (`ambition_ldtk_tools.codegen_character_catalog`, the hall generator)
 //! keep reading it off disk.
 
@@ -13,13 +11,14 @@
 /// shared with the off-disk tooling).
 pub const CHARACTER_CATALOG_RON: &str = include_str!("../assets/data/character_catalog.ron");
 
-/// Feed the temporary process-global compatibility seam used by remaining pure
-/// lookup call sites. New provider and player-session paths use [`register`].
-pub fn install() {
-    ambition_actors::character_roster::install_character_catalog(CHARACTER_CATALOG_RON);
-    // Content owns which row is the default the home box wears with no override
-    // (C2): the engine names no character, so inject `PLAYABLE_ROSTER[0]` here.
-    ambition_actors::character_roster::install_default_character_id(PLAYABLE_ROSTER[0]);
+/// Parse Ambition's checked-in catalog into an explicit immutable value.
+///
+/// Tests and pure validators use this without constructing a Bevy `App`.
+/// Runtime composition should use [`register`].
+pub fn load_catalog() -> ambition_characters::actor::character_catalog::CharacterCatalog {
+    ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
+        ambition_characters::actor::character_catalog::parse_catalog(CHARACTER_CATALOG_RON),
+    )
 }
 
 /// Register Ambition's immutable character fragment in one Bevy `App` and
@@ -37,7 +36,6 @@ pub fn register(app: &mut bevy::prelude::App) {
         )
         .expect("Ambition character catalog should be valid"),
     );
-    install();
 }
 
 /// A curated cast of characters the player can start as. The character-select
@@ -75,10 +73,10 @@ mod tests {
         // The curated cast is a hand-maintained list; without this pin it rots
         // silently when a catalog id is renamed/removed, and the launch flag
         // would spawn a colored rectangle. Every id must resolve a catalog row.
-        install();
+        let catalog = load_catalog();
         for id in PLAYABLE_ROSTER {
             assert!(
-                ambition_actors::character_roster::display_name_for_character_id(id).is_some(),
+                catalog.display_name(id).is_some(),
                 "PLAYABLE_ROSTER id '{id}' has no character_catalog.ron row — the \
                  curated cast rotted; fix the roster or the catalog",
             );
@@ -87,16 +85,17 @@ mod tests {
 
     #[test]
     fn playable_roster_starts_with_protagonist_and_has_no_dupes() {
-        // The protagonist ("player") is the roster's head. Content OWNS this
-        // (C2): installing the catalog injects `PLAYABLE_ROSTER[0]` as the
-        // engine's default character, and an unset `StartingCharacter` then
-        // resolves to it.
+        // The protagonist ("player") is the roster's head. Content owns this
+        // provider-relative default through the App-local registry.
         assert_eq!(PLAYABLE_ROSTER[0], "player");
-        install();
+        let mut app = bevy::prelude::App::new();
+        register(&mut app);
         assert_eq!(
-            ambition_actors::character_roster::default_character_id(),
-            PLAYABLE_ROSTER[0],
-            "content install injects the default character id"
+            app.world()
+                .resource::<ambition_characters::actor::character_catalog::CharacterCatalogDefaults>()
+                .for_provider(crate::AMBITION_CONTENT_PROVIDER),
+            Some(PLAYABLE_ROSTER[0]),
+            "the App-local fragment publishes the provider default"
         );
         assert_eq!(
             StartingCharacter::default().effective_id(PLAYABLE_ROSTER[0]),

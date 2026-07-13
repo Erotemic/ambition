@@ -428,7 +428,7 @@ something adjacent and reports green.
 
 §3's original aspiration was a gate (*"fight does not install"*). That contract is
 deliberately NOT implemented, and by maintainer decision it is not a current
-requirement: `install_boss_roster` does not call the validator, the current test
+requirement: provider boss-fragment registration does not call the validator, the current test
 accepts eight hard errors through `EXPECTED_ERRORS`, and **the 8 errors / 10
 warnings are diagnostic findings, not a failure condition.** The validator is useful
 early infrastructure; it is not on the critical architectural path, must not gate

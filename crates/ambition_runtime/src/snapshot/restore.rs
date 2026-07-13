@@ -17,7 +17,16 @@ use super::*;
 fn respawn_from_the_room(world: &mut World, sim_id: &str) -> Option<Entity> {
     let iid = sim_id.strip_prefix("placement:")?;
     let registry = world
-        .get_resource::<ambition_world::placements::PlacementLoweringRegistry>()?
+        .get_resource::<ambition_actors::world::placements::PlacementLoweringRegistry>()?
+        .clone();
+    let character_catalog = world
+        .get_resource::<ambition_characters::actor::character_catalog::CharacterCatalog>()?
+        .clone();
+    let character_roster = world
+        .get_resource::<ambition_actors::features::CharacterRoster>()?
+        .clone();
+    let boss_catalog = world
+        .get_resource::<ambition_actors::boss_encounter::BossCatalog>()?
         .clone();
     let room = {
         let rooms = world.get_resource::<ambition_world::rooms::RoomSet>()?;
@@ -32,6 +41,9 @@ fn respawn_from_the_room(world: &mut World, sim_id: &str) -> Option<Entity> {
         let mut commands = world.commands();
         ambition_actors::features::respawn_authored_entity(
             &mut commands,
+            &character_catalog,
+            &character_roster,
+            &boss_catalog,
             &room,
             &registry,
             session_scope,

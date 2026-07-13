@@ -49,11 +49,9 @@ pub struct AnimRow {
 /// characters.
 ///
 /// **Owned + serde-authorable (C6):** `rows` is an owned `Vec` and the whole
-/// spec is `serde`-round-trippable, so a content boss authors its sheet layout as
-/// DATA in `boss_sheets.ron` (installed via [`install_boss_sheets`], mirroring
-/// `boss_profiles.ron` / [`BossProfileRegistry`]).
-/// The engine's built-in demo bosses stay in [`builtin_boss_sheets`] as the
-/// byte-identical default; an installed override REPLACES a key's sheet.
+/// spec is `serde`-round-trippable, so a provider can author its sheet layout
+/// as data. App-local provider composition lives above this crate; this module
+/// supplies only the generic schema and built-in fallback sheets.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 pub struct BossSheetSpec {
     pub label_width: u32,
@@ -97,21 +95,17 @@ pub struct BossSheetSpec {
     pub authored_faces_left: bool,
 }
 
-/// Content-installed boss SHEET registry (C6), mirroring
-/// [`BossProfileRegistry`]. A content boss
-/// authors its sheet layout in `boss_sheets.ron`
-/// (`HashMap<boss_key, BossSheetSpec>`) and installs it via [`install_boss_sheets`]
-/// at plugin-build time; an installed key REPLACES the built-in sheet for that
-/// key. Absent = the built-in `LazyLock` default — the E58 "empty default =
-/// built-in" pattern, so no content edit to core is needed to author a sheet.
+/// Parsed boss-sheet data used by provider catalog builders and tests.
+///
+/// Runtime authority is the App-local `ambition_actors::boss_encounter::BossCatalog`;
+/// this low-level crate deliberately owns no process-global override.
 #[derive(Clone, Debug, Default)]
 pub struct BossSheetRegistry {
     by_key: std::collections::HashMap<String, BossSheetSpec>,
 }
 
 impl BossSheetRegistry {
-    /// Parse a boss-sheet RON document (`HashMap<boss_key, BossSheetSpec>`) — the
-    /// content layer's install entry point.
+    /// Parse a boss-sheet RON document (`HashMap<boss_key, BossSheetSpec>`).
     pub fn from_ron(ron: &str) -> Self {
         let by_key = ron::from_str(ron).unwrap_or_else(|err| {
             panic!("boss_sheets.ron failed to deserialize as HashMap<String, BossSheetSpec>: {err}")
@@ -122,34 +116,6 @@ impl BossSheetRegistry {
     pub fn get(&self, key: &str) -> Option<&BossSheetSpec> {
         self.by_key.get(key)
     }
-}
-
-/// Content-installed boss-sheet override. Set once at plugin-build time; ADDITIVE
-/// — only the keys present here override the built-ins (unlike the mandatory
-/// `BossProfileRegistry`, since the engine ships its own demo-boss sheets).
-static BOSS_SHEET_OVERRIDE: std::sync::OnceLock<BossSheetRegistry> = std::sync::OnceLock::new();
-
-/// Install the authored boss-sheet registry — `ambition_content` calls this at
-/// plugin-build time alongside `install_boss_profiles`.
-pub fn install_boss_sheets(registry: BossSheetRegistry) {
-    let _ = BOSS_SHEET_OVERRIDE.set(registry);
-}
-
-/// The content-authored sheet override for `boss_key`, if one was installed.
-/// Returns `None` (→ built-in default) when no registry is installed or the key
-/// is absent from it.
-pub fn boss_sheet_override(key: &str) -> Option<BossSheetSpec> {
-    BOSS_SHEET_OVERRIDE.get().and_then(|r| r.get(key).cloned())
-}
-
-/// Resolve the sim-side sheet timing for a boss key. The renderer may bind a
-/// split body/overlay sheet, but gameplay only needs the row timing.
-pub fn boss_sheet_for_key(key: &str) -> BossSheetSpec {
-    boss_sheet_override(key)
-        .or_else(|| builtin_boss_sheets().remove(key))
-        .unwrap_or_else(|| {
-            boss_sheet_override("gradient_sentinel").unwrap_or_else(|| BOSS_SHEET.clone())
-        })
 }
 
 // `feet_anchor_y` matches the body-metrics measurement for the current
@@ -527,9 +493,6 @@ impl BossSpriteAsset {
     }
 }
 
-pub(crate) const BOSS_FILENAME: &str = "boss_spritesheet.png";
-pub(crate) const MOCKINGBIRD_FILENAME: &str = "mockingbird_boss/mockingbird_boss_spritesheet.png";
-pub(crate) const SMIRKING_BEHEMOTH_FILENAME: &str = "smirking_behemoth_boss_spritesheet.png";
 // ADR 0020 mount/rider split (G1): the GNU-ton generator emits the giant GNU
 // MOUNT (the body, scholar-less) and the scholar RIDER (drawn alone) into the
 // `gnu_ton_boss/` install dir. `giant_gnu` is the giant; `gnu_ton_rider` is the
@@ -537,13 +500,8 @@ pub(crate) const SMIRKING_BEHEMOTH_FILENAME: &str = "smirking_behemoth_boss_spri
 // `gnu_ton_boss*` sheets and the `_body`/`_hands` layer pages the old split
 // render consumed; nothing loads them since the E6 teardown (R2), and stripping
 // them is a change to the `tools/ambition_sprite2d_renderer` submodule.
-pub(crate) const GIANT_GNU_FILENAME: &str = "gnu_ton_boss/giant_gnu_spritesheet.png";
-pub(crate) const GNU_TON_RIDER_FILENAME: &str = "gnu_ton_boss/gnu_ton_rider_spritesheet.png";
-pub(crate) const FLYING_SPAGHETTI_MONSTER_FILENAME: &str =
-    "flying_spaghetti_monster_boss_spritesheet.png";
 // The T-Rex boss reuses the published trex *enemy* sheet — no separate boss
 // render is generated; the boss path just maps `trex_boss` onto this sheet.
-pub(crate) const TREX_BOSS_FILENAME: &str = "trex_enemy_spritesheet.png";
 
 /// Giant GNU MOUNT sheet — the giant wildebeest body (ADR 0020 mount/rider
 /// split, G1).
@@ -854,40 +812,9 @@ pub static TREX_BOSS_SHEET: std::sync::LazyLock<BossSheetSpec> =
         authored_faces_left: false,
     });
 
-/// Sandbox-side `(label, filename)` rows for every boss spritesheet
-/// the sandbox knows about. The aggregator in
-/// [`ambition_asset_manager::sandbox_assets`] registers one catalog entry per row;
-/// loaders here read the catalog by label.
-pub fn all_boss_sprite_filenames() -> Vec<(&'static str, &'static str)> {
-    vec![
-        ("gradient_sentinel", BOSS_FILENAME),
-        ("mockingbird", MOCKINGBIRD_FILENAME),
-        ("smirking_behemoth_boss", SMIRKING_BEHEMOTH_FILENAME),
-        // ADR 0020 split: giant MOUNT + scholar RIDER sheets.
-        ("giant_gnu", GIANT_GNU_FILENAME),
-        ("gnu_ton_rider", GNU_TON_RIDER_FILENAME),
-        (
-            "flying_spaghetti_monster_boss",
-            FLYING_SPAGHETTI_MONSTER_FILENAME,
-        ),
-        ("trex_boss", TREX_BOSS_FILENAME),
-    ]
-}
-
-/// The dedicated per-boss spritesheets, as `(boss_key, BossSheetSpec)` rows.
-///
-/// `boss_key` is the lowercased boss behavior id the renderer dispatches on
-/// (`assets.boss_sprite(&boss_key)`). This is the ONE place the
-/// machinery names a boss sheet â `load_game_assets` loops it to fill
-/// `GameAssets::boss_sprites`. Adding a boss is a row here (+ its catalog filename
-/// in `all_boss_sprite_filenames`), not a new loader fn or struct field. The
-/// generic `gradient_sentinel` sheet is excluded: it loads into `GameAssets::boss`
-/// as the fallback via `load_boss_sprite_in`.
-/// The engine's built-in demo-boss sheets, keyed by the boss key the override
-/// system resolves by. This is the byte-identical REFERENCE the content
-/// `boss_sheets.ron` is authored from (and pinned against by
-/// `boss_sheets_ron_matches_builtin_defaults`). Content that ships its own
-/// bosses adds keys here in RON and installs via [`install_boss_sheets`].
+/// The engine's built-in demo-boss sheets, keyed by boss id. These are
+/// layout fallbacks only: provider-authored sheet geometry and asset filenames
+/// belong to the App-local boss catalog. A new provider does not edit this map.
 pub fn builtin_boss_sheets() -> std::collections::HashMap<String, BossSheetSpec> {
     let mut m = std::collections::HashMap::new();
     m.insert("gradient_sentinel".to_string(), BOSS_SHEET.clone());
@@ -907,31 +834,7 @@ pub fn builtin_boss_sheets() -> std::collections::HashMap<String, BossSheetSpec>
     m
 }
 
-pub fn dedicated_boss_sheets() -> [(&'static str, BossSheetSpec); 6] {
-    // Each key resolves to the content-authored override (`boss_sheets.ron`) if
-    // one is installed, else the built-in default — the E58 "empty default =
-    // built-in" pattern, now for sheet layouts.
-    let resolve = |key: &'static str,
-                   builtin: &std::sync::LazyLock<BossSheetSpec>|
-     -> (&'static str, BossSheetSpec) {
-        (
-            key,
-            boss_sheet_override(key).unwrap_or_else(|| (*builtin).clone()),
-        )
-    };
-    [
-        resolve("mockingbird", &MOCKINGBIRD_SHEET),
-        resolve("smirking_behemoth_boss", &SMIRKING_BEHEMOTH_SHEET),
-        // ADR 0020 split: giant MOUNT + scholar RIDER.
-        resolve("giant_gnu", &GIANT_GNU_SHEET),
-        resolve("gnu_ton_rider", &GNU_TON_RIDER_SHEET),
-        resolve(
-            "flying_spaghetti_monster_boss",
-            &FLYING_SPAGHETTI_MONSTER_SHEET,
-        ),
-        resolve("trex_boss", &TREX_BOSS_SHEET),
-    ]
-}
+
 
 /// Build the boss sprite asset for the gradient sentinel sheet.
 /// Returns `None` if the catalog reports the asset disabled or the
@@ -942,16 +845,11 @@ pub fn load_boss_sprite_in(
     catalog: &ambition_asset_manager::sandbox_assets::SandboxAssetCatalog,
     asset_server: &AssetServer,
     layouts: &mut Assets<TextureAtlasLayout>,
+    label: &str,
+    sheet: BossSheetSpec,
     quality: Option<&VisualQualityBudget>,
 ) -> Option<BossSpriteAsset> {
-    load_named_boss_sprite_via_catalog(
-        catalog,
-        asset_server,
-        layouts,
-        "gradient_sentinel",
-        boss_sheet_override("gradient_sentinel").unwrap_or_else(|| BOSS_SHEET.clone()),
-        quality,
-    )
+    load_named_boss_sprite_via_catalog(catalog, asset_server, layouts, label, sheet, quality)
 }
 
 /// Build the Smirking Behemoth boss sprite asset.

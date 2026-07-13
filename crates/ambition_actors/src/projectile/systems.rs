@@ -433,7 +433,8 @@ pub fn step_projectiles(
     //   owner, not a side label); the grudge is the per-entity DAMAGE override that
     //   lets a shot hit a same-faction body its firer feuds with (an `Npc` duelist's
     //   bolt). Read-only, so it may overlap `actor_victims`.
-    (actor_victims, owner_combat): (
+    // - `boss_catalog` — App-local authored boss geometry used by the hit predicate.
+    (actor_victims, owner_combat, boss_catalog): (
         Query<
             (
                 Entity,
@@ -444,6 +445,7 @@ pub fn step_projectiles(
             (With<FeatureSimEntity>, Without<BossConfig>),
         >,
         Query<(&ActorFaction, Option<&ActorAggression>)>,
+        Res<crate::boss_encounter::BossCatalog>,
     ),
 ) {
     let dt = world_time.sim_dt();
@@ -534,7 +536,7 @@ pub fn step_projectiles(
             };
             let hit = crate::features::ecs_hit_event_hits_breakable(&hit_event, &ecs_breakables)
                 || crate::features::ecs_hit_event_hits_actor(&hit_event, &ecs_actors)
-                || crate::features::ecs_hit_event_hits_boss(&hit_event, &ecs_bosses);
+                || crate::features::ecs_hit_event_hits_boss(&boss_catalog, &hit_event, &ecs_bosses);
             if hit {
                 feature_damage.write(hit_event);
                 sfx.write(SfxMessage::Hit { pos: kin.pos });

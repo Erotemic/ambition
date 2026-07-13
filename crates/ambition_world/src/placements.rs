@@ -56,25 +56,38 @@ impl PlacementRecord {
 
 /// Room-load context handed to placement interpreters. It wraps exactly the
 /// facts a lowering function needs today and can grow by explicit need.
-pub struct LoweringCtx<'w, 's, 'a> {
+pub struct LoweringCtx<'w, 's, 'a, C: ?Sized = ()> {
     pub commands: &'a mut Commands<'w, 's>,
     pub room_id: &'a str,
     pub paths: &'a [(String, ae::KinematicPath)],
     /// Gameplay-session ownership captured when room staging was requested.
     pub session_scope: SessionSpawnScope,
+    /// Runtime context supplied by the simulation layer. The world IR remains
+    /// generic and content-free; callers choose the context type needed by
+    /// their lowering interpreters.
+    pub context: &'a C,
 }
 
-pub type LoweringFn = for<'w, 's, 'a> fn(&PlacementRecord, &mut LoweringCtx<'w, 's, 'a>);
+pub type LoweringFn<C = ()> =
+    for<'w, 's, 'a> fn(&PlacementRecord, &mut LoweringCtx<'w, 's, 'a, C>);
 
 /// Registry from authored placement kind to the simulation/content interpreter
 /// that lowers the record into live room-scoped entities.
-#[derive(Resource, Clone, Default)]
-pub struct PlacementLoweringRegistry {
-    interpreters: HashMap<PlacementKind, LoweringFn>,
+#[derive(Resource, Clone)]
+pub struct PlacementLoweringRegistry<C: Send + Sync + 'static = ()> {
+    interpreters: HashMap<PlacementKind, LoweringFn<C>>,
 }
 
-impl PlacementLoweringRegistry {
-    pub fn register(&mut self, kind: PlacementKind, f: LoweringFn) {
+impl<C: Send + Sync + 'static> Default for PlacementLoweringRegistry<C> {
+    fn default() -> Self {
+        Self {
+            interpreters: HashMap::new(),
+        }
+    }
+}
+
+impl<C: Send + Sync + 'static> PlacementLoweringRegistry<C> {
+    pub fn register(&mut self, kind: PlacementKind, f: LoweringFn<C>) {
         if self.interpreters.insert(kind, f).is_some() {
             panic!("duplicate placement lowering interpreter registered for {kind:?}");
         }
@@ -90,7 +103,7 @@ impl PlacementLoweringRegistry {
         kinds
     }
 
-    fn interpreter_for(&self, record: &PlacementRecord, room_id: &str) -> LoweringFn {
+    fn interpreter_for(&self, record: &PlacementRecord, room_id: &str) -> LoweringFn<C> {
         let kind = record.kind();
         let Some(lower) = self.interpreters.get(&kind) else {
             panic!(
@@ -103,26 +116,38 @@ impl PlacementLoweringRegistry {
         *lower
     }
 
-    pub fn lower<'w, 's, 'a>(&self, record: &PlacementRecord, ctx: &mut LoweringCtx<'w, 's, 'a>) {
+    pub fn lower<'w, 's, 'a>(
+        &self,
+        record: &PlacementRecord,
+        ctx: &mut LoweringCtx<'w, 's, 'a, C>,
+    ) {
         let lower = self.interpreter_for(record, ctx.room_id);
         lower(record, ctx);
     }
 }
 
-pub trait PlacementLoweringAppExt {
-    fn register_placement_interpreter(&mut self, kind: PlacementKind, f: LoweringFn) -> &mut Self;
+pub trait PlacementLoweringAppExt<C: Send + Sync + 'static> {
+    fn register_placement_interpreter(
+        &mut self,
+        kind: PlacementKind,
+        f: LoweringFn<C>,
+    ) -> &mut Self;
 }
 
-impl PlacementLoweringAppExt for App {
-    fn register_placement_interpreter(&mut self, kind: PlacementKind, f: LoweringFn) -> &mut Self {
+impl<C: Send + Sync + 'static> PlacementLoweringAppExt<C> for App {
+    fn register_placement_interpreter(
+        &mut self,
+        kind: PlacementKind,
+        f: LoweringFn<C>,
+    ) -> &mut Self {
         if !self
             .world()
-            .contains_resource::<PlacementLoweringRegistry>()
+            .contains_resource::<PlacementLoweringRegistry<C>>()
         {
-            self.init_resource::<PlacementLoweringRegistry>();
+            self.init_resource::<PlacementLoweringRegistry<C>>();
         }
         self.world_mut()
-            .resource_mut::<PlacementLoweringRegistry>()
+            .resource_mut::<PlacementLoweringRegistry<C>>()
             .register(kind, f);
         self
     }
@@ -149,7 +174,7 @@ mod tests {
         )
     }
 
-    fn noop_lowering(_record: &PlacementRecord, _ctx: &mut LoweringCtx<'_, '_, '_>) {}
+    fn noop_lowering(_record: &PlacementRecord, _ctx: &mut LoweringCtx<'_, '_, '_, ()>) {}
 
     #[test]
     fn placement_schema_reports_kind() {
@@ -159,7 +184,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "duplicate placement lowering interpreter")]
     fn duplicate_interpreter_registration_panics() {
-        let mut registry = PlacementLoweringRegistry::default();
+        let mut registry = PlacementLoweringRegistry::<()>::default();
         registry.register(PlacementKind::Hazard, noop_lowering);
         registry.register(PlacementKind::Hazard, noop_lowering);
     }
@@ -167,6 +192,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "unknown placement kind Hazard")]
     fn missing_interpreter_panics_with_kind() {
-        PlacementLoweringRegistry::default().interpreter_for(&sample_record("haz_1"), "test_room");
+        PlacementLoweringRegistry::<()>::default()
+            .interpreter_for(&sample_record("haz_1"), "test_room");
     }
 }

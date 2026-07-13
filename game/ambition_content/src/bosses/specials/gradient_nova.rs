@@ -121,11 +121,7 @@ mod tests {
         use ambition_projectiles::enemy::{EnemyProjectile, EnemyProjectileState};
         use ambition_projectiles::ProjectileSeqCounter;
 
-        // The boss-profile registry must be installed before `BossClusterScratch`
-        // resolves a behavior (the lib panics otherwise in non-test builds, which
-        // is how the lib compiles for a content test). Idempotent.
-        crate::bosses::install_boss_roster();
-
+        // Use the same App-local provider catalog production composition builds.
         let mut app = App::new();
         app.add_plugins(MinimalPlugins);
         app.add_message::<ActorActionMessage>();
@@ -148,7 +144,14 @@ mod tests {
         );
 
         let aabb = ae::Aabb::new(ae::Vec2::new(640.0, 400.0), ae::Vec2::new(64.0, 64.0));
-        let boss = BossClusterScratch::new("test_boss", "Test Boss", aabb, BossBrain::Dormant)
+        let boss_catalog = crate::bosses::authored_boss_catalog();
+        let boss = BossClusterScratch::new(
+            &boss_catalog,
+            "test_boss",
+            "Test Boss",
+            aabb,
+            BossBrain::Dormant,
+        )
             .into_components();
         let actor = app
             .world_mut()

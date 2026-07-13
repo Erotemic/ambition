@@ -266,6 +266,7 @@ impl BossClusterScratch {
     /// Build the boss clusters directly from spawn inputs (tests / non-ECS
     /// callers; see the struct docs).
     pub fn new(
+        boss_catalog: &crate::boss_encounter::BossCatalog,
         id: impl Into<String>,
         name: impl Into<String>,
         aabb: ae::Aabb,
@@ -278,7 +279,7 @@ impl BossClusterScratch {
         // clockwork_warden / Gradient Sentinel profile.
         let canonical_id = canonical_boss_id_from(&name, &brain);
         let center = aabb.center();
-        let behavior = BossBehaviorProfile::for_authored_boss(&canonical_id);
+        let behavior = BossBehaviorProfile::for_authored_boss(boss_catalog, &canonical_id);
         // AS4b: the LDtk spawn box is the sprite RENDER-BASIS (`render_size`); the
         // COLLISION envelope is `combat_size` (the profile's, refined later by
         // `derive_boss_sprite_metrics`). `kin.size` carries the COLLISION size so the
@@ -419,7 +420,10 @@ pub(crate) mod test_support {
             brain: ambition_entity_catalog::placements::BossBrain::PhaseScript {
                 script_id: script_id.to_string(),
             },
-            behavior: BossBehaviorProfile::for_authored_boss(script_id),
+            behavior: BossBehaviorProfile::for_authored_boss(
+                crate::boss_encounter::test_boss_catalog(),
+                script_id,
+            ),
         }
     }
 }

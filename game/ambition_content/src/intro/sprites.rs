@@ -15,7 +15,8 @@
 
 use ambition_asset_manager::AssetId;
 
-use ambition_actors::character_sprites::sheet_for_character_id;
+use ambition_actors::character_sprites::sheet_for_character_id_in;
+use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_sprite_sheet::character::{try_load_spec_for_target, CharacterSheetSpec, SheetTuning};
 
 /// Default toon-NPC tuning the old intro `*_SHEET` statics carried.
@@ -33,7 +34,9 @@ fn intro_sheet(target: &str, tuning: &SheetTuning) -> Option<CharacterSheetSpec>
 /// intro NPCs, resolved from the generated sheet manifests + the
 /// intro's own tuning (Stage 20 / B3: the named `*_SHEET` statics in
 /// the machinery lib are gone; story content owns its named sheets).
-pub fn intro_npc_sprite_rows() -> Vec<(&'static str, &'static str, CharacterSheetSpec)> {
+pub fn intro_npc_sprite_rows(
+    character_catalog: &CharacterCatalog,
+) -> Vec<(&'static str, &'static str, CharacterSheetSpec)> {
     let t = &INTRO_NPC_TUNING;
     let mut rows: Vec<(&str, &str, Option<CharacterSheetSpec>)> = vec![
         // Wake-room creator + raid-corridor variant (same sheet so the
@@ -55,7 +58,7 @@ pub fn intro_npc_sprite_rows() -> Vec<(&'static str, &'static str, CharacterShee
         (
             "Gate Janitor",
             "kernel_guide_spritesheet.png",
-            sheet_for_character_id("npc_kernel_guide"),
+            sheet_for_character_id_in(character_catalog, "npc_kernel_guide"),
         ),
         // Erdish: pre-registered for later LDtk authoring.
         ("Erdish", "erdish_spritesheet.png", intro_sheet("erdish", t)),
@@ -64,18 +67,18 @@ pub fn intro_npc_sprite_rows() -> Vec<(&'static str, &'static str, CharacterShee
         (
             "Lab Raider",
             "goblin_spritesheet.png",
-            sheet_for_character_id("goblin"),
+            sheet_for_character_id_in(character_catalog, "goblin"),
         ),
         (
             "Salvage Guard",
             "goblin_spritesheet.png",
-            sheet_for_character_id("goblin"),
+            sheet_for_character_id_in(character_catalog, "goblin"),
         ),
         // Manifest clerk: architect sheet reads as "person at a podium".
         (
             "Manifest Clerk",
             "architect_spritesheet.png",
-            sheet_for_character_id("npc_architect"),
+            sheet_for_character_id_in(character_catalog, "npc_architect"),
         ),
         // News board: wall-mounted bulletin board rendered through the
         // NpcSpawn path.
@@ -258,8 +261,12 @@ use ambition_asset_manager::{
 /// `sprite.character.intro_prop_<kind_snake>` for props. Both use
 /// `SilentPlaceholder` because missing intro art falls back to colored
 /// rectangles per the existing contract.
-pub fn extend_with_intro_sprite_entries(manifest: &mut AssetManifest, sprite_folder: &str) {
-    for (name, filename, _spec) in intro_npc_sprite_rows() {
+pub fn extend_with_intro_sprite_entries(
+    manifest: &mut AssetManifest,
+    sprite_folder: &str,
+    character_catalog: &CharacterCatalog,
+) {
+    for (name, filename, _spec) in intro_npc_sprite_rows(character_catalog) {
         let id = intro_npc_asset_id(name);
         let logical_path = format!("{sprite_folder}/{filename}");
         manifest.insert(

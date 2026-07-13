@@ -771,10 +771,9 @@ fn goblin_encounter_real_walljump_repro() {
 }
 
 /// Load the game's merged LDtk project the way a sim entry point does:
-/// install the content data (world manifest, character catalog) first —
-/// post-R3.2 the engine ships no worlds and panics without an install.
+/// install the world manifest first — post-R3.2 the engine ships no worlds
+/// and panics without a provider-owned manifest.
 fn load_project_for_test() -> Result<ambition::actors::ldtk_world::LdtkProject, String> {
     ambition_content::worlds::install();
-    ambition_content::character_catalog::install();
     ambition::actors::ldtk_world::LdtkProject::load_default_for_dev()
 }

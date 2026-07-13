@@ -1432,15 +1432,16 @@ pub fn tick_npc_idle_barks(
     >,
     mut vfx: MessageWriter<ambition_vfx::vfx::VfxMessage>,
     room_set: Option<Res<crate::rooms::RoomSet>>,
-    // App-local authored voice (`Option` → a bootstrap-free test world barks nothing).
-    character_catalog: Option<Res<ambition_characters::actor::character_catalog::CharacterCatalog>>,
+    // App-local authored voice. Required so a mis-composed production App
+    // cannot silently erase provider-authored dialogue.
+    character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
     mut state: Local<NpcIdleBarkState>,
 ) {
     let dt = world_time.scaled_dt;
     if dt <= 0.0 {
         return;
     }
-    let catalog = character_catalog.as_deref();
+    let catalog = &*character_catalog;
     // In a GALLERY room (the Hall of Characters), pedestals draw their `Hall`
     // bark pool (the fun gallery lines); everywhere else NPCs mutter their
     // `Idle` pool. Same ambient ticker, different occasion — keyed off the

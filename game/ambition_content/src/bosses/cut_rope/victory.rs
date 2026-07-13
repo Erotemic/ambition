@@ -15,6 +15,10 @@ pub fn spawn_cut_rope_victory_npc(
     mut commands: Commands,
     room_set: Res<RoomSet>,
     save: Res<ambition_persistence::save::SandboxSave>,
+    character_catalog: Res<
+        ambition_characters::actor::character_catalog::CharacterCatalog,
+    >,
+    character_roster: Res<ambition_actors::features::CharacterRoster>,
     mut released: MessageReader<ambition_actors::boss_encounter::PayloadReleased>,
     existing: Query<&FeatureId, With<SmirkingBehemothVictoryNpc>>,
     bosses: Query<(Entity, &FeatureId, &CenteredAabb, BossClusterRef), With<FeatureSimEntity>>,
@@ -56,14 +60,24 @@ pub fn spawn_cut_rope_victory_npc(
     }
     let boss_bottom_y = boss_aabb.center.y + boss_aabb.half_size.y;
     let spawn_pos = ae::Vec2::new(boss.kin.pos.x, boss_bottom_y - CUT_ROPE_VICTORY_NPC_H * 0.5);
-    spawn_victory_npc_entity(&mut commands, spawn_pos);
+    spawn_victory_npc_entity(
+        &mut commands,
+        &character_catalog,
+        &character_roster,
+        spawn_pos,
+    );
 }
 
 fn victory_npc_size() -> ae::Vec2 {
     ae::Vec2::new(CUT_ROPE_VICTORY_NPC_W, CUT_ROPE_VICTORY_NPC_H)
 }
 
-fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
+fn spawn_victory_npc_entity(
+    commands: &mut Commands,
+    character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
+    character_roster: &ambition_actors::features::CharacterRoster,
+    pos: ae::Vec2,
+) -> Entity {
     let size = victory_npc_size();
     let aabb = ae::Aabb::new(pos, size * 0.5);
     let interactable = ambition_interaction::Interactable {
@@ -81,7 +95,9 @@ fn spawn_victory_npc_entity(commands: &mut Commands, pos: ae::Vec2) -> Entity {
     };
     // Peaceful actors are the SAME unified cluster as enemies now — build the
     // victory NPC through the shared peaceful seed.
-    let (mut seed, _render) = ambition_actors::features::ActorClusterSeed::new_peaceful_npc(
+    let (mut seed, _render) = ambition_actors::features::ActorClusterSeed::new_peaceful_npc_in(
+        character_catalog,
+        character_roster,
         CUT_ROPE_VICTORY_NPC_ID,
         CUT_ROPE_VICTORY_NPC_NAME,
         aabb,

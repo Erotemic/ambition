@@ -35,17 +35,30 @@ fn make_enemy(brain_key: &str) -> ActorConfig {
 fn encounter_mob_brain_is_per_archetype_melee_brute() {
     use ambition_characters::brain::{Brain, StateMachineCfg};
     let mut app = App::new();
-    app.add_systems(Update, |mut commands: Commands| {
-        spawn_encounter_mob(
-            &mut commands,
-            ambition_platformer_primitives::lifecycle::SessionSpawnScope::UNSCOPED,
-            "test_encounter",
-            "test_mob".to_string(),
-            ambition_entity_catalog::placements::CharacterBrain::Custom("medium_striker".into()),
-            ae::Vec2::new(100.0, 100.0),
-            ae::Vec2::new(20.0, 30.0),
-        );
-    });
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.insert_resource(crate::features::enemies::test_roster());
+    app.add_systems(
+        Update,
+        |mut commands: Commands,
+         catalog: bevy::prelude::Res<
+            ambition_characters::actor::character_catalog::CharacterCatalog,
+        >,
+         roster: bevy::prelude::Res<crate::features::CharacterRoster>| {
+            spawn_encounter_mob(
+                &mut commands,
+                &catalog,
+                &roster,
+                ambition_platformer_primitives::lifecycle::SessionSpawnScope::UNSCOPED,
+                "test_encounter",
+                "test_mob".to_string(),
+                ambition_entity_catalog::placements::CharacterBrain::Custom(
+                    "medium_striker".into(),
+                ),
+                ae::Vec2::new(100.0, 100.0),
+                ae::Vec2::new(20.0, 30.0),
+            );
+        },
+    );
     app.update();
     let mut q = app.world_mut().query::<&Brain>();
     let brain = q.iter(app.world()).next().expect("encounter mob exists");
@@ -150,17 +163,30 @@ fn boss_spawn_attaches_brain_components() {
 #[test]
 fn encounter_mob_spawns_with_brain_components() {
     let mut app = App::new();
-    app.add_systems(Update, |mut commands: Commands| {
-        spawn_encounter_mob(
-            &mut commands,
-            ambition_platformer_primitives::lifecycle::SessionSpawnScope::UNSCOPED,
-            "test_encounter",
-            "test_mob".to_string(),
-            ambition_entity_catalog::placements::CharacterBrain::Custom("medium_striker".into()),
-            ae::Vec2::new(100.0, 100.0),
-            ae::Vec2::new(20.0, 30.0),
-        );
-    });
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.insert_resource(crate::features::enemies::test_roster());
+    app.add_systems(
+        Update,
+        |mut commands: Commands,
+         catalog: bevy::prelude::Res<
+            ambition_characters::actor::character_catalog::CharacterCatalog,
+        >,
+         roster: bevy::prelude::Res<crate::features::CharacterRoster>| {
+            spawn_encounter_mob(
+                &mut commands,
+                &catalog,
+                &roster,
+                ambition_platformer_primitives::lifecycle::SessionSpawnScope::UNSCOPED,
+                "test_encounter",
+                "test_mob".to_string(),
+                ambition_entity_catalog::placements::CharacterBrain::Custom(
+                    "medium_striker".into(),
+                ),
+                ae::Vec2::new(100.0, 100.0),
+                ae::Vec2::new(20.0, 30.0),
+            );
+        },
+    );
     app.update();
     let mut q = app
         .world_mut()

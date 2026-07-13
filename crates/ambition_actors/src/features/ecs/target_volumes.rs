@@ -54,6 +54,7 @@ pub fn refresh_actor_damageable_volumes(
 /// pogo derivation therefore exposes the thing the player can actually damage,
 /// not the composite body's bounding rectangle.
 pub fn refresh_boss_damageable_volumes(
+    boss_catalog: Res<crate::boss_encounter::BossCatalog>,
     mut bosses: Query<
         (
             super::boss_clusters::BossClusterRef,
@@ -71,7 +72,7 @@ pub fn refresh_boss_damageable_volumes(
             damageable.clear();
             continue;
         }
-        let ctx = crate::features::BossVolumeContext::from_ref(boss, attack_state)
+        let ctx = crate::features::BossVolumeContext::from_ref(&boss_catalog, boss, attack_state)
             .with_animation_frame(animation_frame);
         damageable.volumes = crate::features::damageable_volumes(&ctx);
     }

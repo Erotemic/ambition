@@ -6,7 +6,7 @@
 
 | Module | Its ONE concern (from the module's own `//!` header) |
 |---|---|
-| [`authored_volumes`](src/authored_volumes.rs) | The authored attack-volume SEAM (E2): combat asks "what convex hit polygon did the artist author for this body's `animation` clip?" without naming the sprite-metadata pipeline. |
+| [`authored_volumes`](src/authored_volumes.rs) | App-local authored attack-volume resolution. |
 | [`banner`](src/banner.rs) | Gameplay banner ticking and deferred-request application. |
 | [`breakables`](src/breakables.rs) | Per-frame tick for breakable feature entities: respawn countdown and the stand-to-break collapse trigger. |
 | [`components`](src/components/mod.rs) | ECS-native feature components. |

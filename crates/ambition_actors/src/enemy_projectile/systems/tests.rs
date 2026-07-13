@@ -22,6 +22,10 @@ fn capture_hits(mut reader: MessageReader<HitEvent>, mut cap: ResMut<CapturedHit
     }
 }
 
+fn insert_projectile_authority(app: &mut App) {
+    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+}
+
 /// The faction-aware routing keystone: a **Player**-faction shot in the
 /// shared pool damages the enemy it overlaps (a PlayerProjectile hit, NOT an
 /// EnemyProjectile one) and expires on contact — the substrate for the
@@ -30,6 +34,7 @@ fn capture_hits(mut reader: MessageReader<HitEvent>, mut cap: ResMut<CapturedHit
 #[test]
 fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
     let mut app = App::new();
+    insert_projectile_authority(&mut app);
     app.insert_resource(ambition_engine_core::RoomGeometry(ae::World::new(
         "phys",
         ae::Vec2::new(800.0, 800.0),
@@ -120,6 +125,7 @@ fn player_faction_shot_damages_an_overlapping_enemy_and_expires() {
 fn an_ownerless_shot_damages_a_same_faction_actor_indiscriminately() {
     use crate::enemy_projectile::test_support::spawn_ownerless_projectile;
     let mut app = App::new();
+    insert_projectile_authority(&mut app);
     app.insert_resource(ambition_engine_core::RoomGeometry(ae::World::new(
         "phys",
         ae::Vec2::new(800.0, 800.0),
@@ -185,6 +191,7 @@ fn an_ownerless_shot_damages_a_same_faction_actor_indiscriminately() {
 /// Build a headless app wired for `step_projectiles` with the given relations.
 fn arena_projectile_app(relations: crate::features::FactionRelations) -> App {
     let mut app = App::new();
+    insert_projectile_authority(&mut app);
     app.insert_resource(ambition_engine_core::RoomGeometry(ae::World::new(
         "phys",
         ae::Vec2::new(800.0, 800.0),
@@ -299,6 +306,7 @@ fn a_parried_enemy_shot_flips_to_player_faction_and_reverses() {
     use crate::actor::{BodyBaseSize, BodyOffense, BodyShieldState};
     use ambition_characters::actor::BodyCombat;
     let mut app = App::new();
+    insert_projectile_authority(&mut app);
     app.insert_resource(ambition_engine_core::RoomGeometry(ae::World::new(
         "phys",
         ae::Vec2::new(800.0, 800.0),
@@ -405,6 +413,7 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
     use crate::actor::{BodyBaseSize, BodyOffense, BodyShieldState};
     use ambition_characters::actor::BodyCombat;
     let mut app = App::new();
+    insert_projectile_authority(&mut app);
     app.insert_resource(ambition_engine_core::RoomGeometry(ae::World::new(
         "phys",
         ae::Vec2::new(800.0, 800.0),
@@ -503,6 +512,7 @@ fn an_owned_enemy_shot_attributes_its_player_hit_to_the_firing_actor() {
 fn spawn_executor_attaches_visual_kind_from_tag() {
     use crate::projectile::ProjectileVisualKind;
     let mut app = App::new();
+    insert_projectile_authority(&mut app);
     app.add_message::<ambition_vfx::EffectRequest>();
     app.init_resource::<ProjectileSeqCounter>();
     app.add_systems(Update, apply_projectile_effects);

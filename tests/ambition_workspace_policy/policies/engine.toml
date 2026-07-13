@@ -2409,3 +2409,55 @@ skip_paths = [
     # portal core moves cluster-less bodies too); recorded residual debt.
     "ambition_content/src/portal/",
 ]
+
+# ── Complete App-local character authority ratchet ──
+# Provider fragments assemble one validated CharacterCatalog per Bevy App.
+# Production systems require that resource or an explicit reference; authored
+# attack geometry is selected through an App-local resolver resource. The old
+# process-global roster/install APIs and implicit catalog helpers are retired.
+[[policy]]
+id = "engine.character-authority-is-app-local"
+scope = "engine"
+kind = "forbidden-source-reference"
+owners = ["ambition_characters", "ambition_actors", "ambition_combat", "ambition_runtime", "ambition_content", "ambition_app"]
+watch_paths = ["crates", "game"]
+rationale = "Playable-character definitions, hostile archetypes, boss behavior/encounters/art, presentation, dialogue, bark, collision, and authored attack geometry must come from validated resources assembled in each Bevy App. Production code may not reinstall process-global authority, silently substitute an empty catalog, make those resources optional, or use retired implicit lookup wrappers."
+source_doc = "docs/planning/engine/startup-loading-and-frontend-flow.md#app-local-authored-catalogs"
+severity = "error"
+production_only = true
+skip_tests = true
+roots = ["crates", "game"]
+forbid = [
+    "install_character_catalog",
+    "install_default_character_id",
+    "character_roster_plugin",
+    "install_authored_attack_volumes",
+    "OnceLock<AuthoredAttackVolumeFn>",
+    "character_roster::",
+    "sheet_for_character_id(",
+    "sprite_body_collision_for_character_id(",
+    "all_character_sprite_filenames(",
+    "Option<Res<CharacterCatalog>>",
+    "Option<Res<ambition_characters::actor::character_catalog::CharacterCatalog>>",
+    "Option<Res<CharacterRoster>>",
+    "Option<Res<ambition_actors::features::CharacterRoster>>",
+    "install_enemy_roster",
+    "ENEMY_ROSTER_OVERRIDE",
+    "OnceLock<CharacterRoster>",
+    "LazyLock<CharacterRoster>",
+    "fn enemy_roster(",
+    "install_boss_roster",
+    "install_boss_profiles",
+    "install_boss_special_anim_keys",
+    "install_boss_sheets",
+    "BOSS_PROFILE_OVERRIDE",
+    "BOSS_SHEET_OVERRIDE",
+    "boss_sheet_override(",
+    "boss_sheet_for_key(",
+    "all_boss_sprite_filenames(",
+    "dedicated_boss_sheets(",
+    "sprite_render_size_for(target: &str",
+    "Option<Res<BossCatalog>>",
+    "Option<Res<ambition_actors::boss_encounter::BossCatalog>>",
+    "pub struct CharacterCatalog(pub",
+]

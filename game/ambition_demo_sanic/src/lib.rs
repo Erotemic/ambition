@@ -399,9 +399,9 @@ pub struct SanicDemoContentPlugin;
 /// [`provider::SanicExperiencePlugin`] (shell-activation-driven construction), so
 /// there is one definition of Sanic's content seam.
 ///
-/// The App-local resources are the new composition authority. The final block
-/// dual-writes the legacy pure-lookup seams until every remaining actor/sprite
-/// consumer has been migrated to explicit catalog access.
+/// The registered App-local resources are the sole composition authority.
+/// Runtime simulation, presentation, dialogue, and combat consumers receive
+/// the assembled catalog explicitly through Bevy resources.
 pub fn install_sanic_content(app: &mut App) {
     use ambition::audio::catalog::{AudioCatalogAppExt, AudioCatalogFragment};
     use ambition::characters::actor::character_catalog::{
@@ -435,10 +435,6 @@ pub fn install_sanic_content(app: &mut App) {
         .expect("Sanic audio catalogs should be valid"),
     );
 
-    // Audio is fully App-local: the fragment registered above is the sole
-    // authority. The remaining legacy character seam stays fed while the
-    // pure character-lookup consumers are migrated in the next slice.
-    ambition::runtime::demo_fixture::install_character_catalog(SANIC_CATALOG_RON);
 }
 
 impl Plugin for SanicDemoContentPlugin {
@@ -448,7 +444,7 @@ impl Plugin for SanicDemoContentPlugin {
 
         install_sanic_content(app);
         // The demo's player is explicitly the speedster rather than relying on
-        // whichever row happens to be the installed catalog default.
+        // whichever row happens to be the provider-relative catalog default.
         app.insert_resource(ambition::runtime::demo_fixture::StartingCharacter::new(
             "sanic",
         ));
@@ -483,6 +479,8 @@ fn sanic_setup(
     character_catalog: bevy::prelude::Res<
         ambition::characters::actor::character_catalog::CharacterCatalog,
     >,
+    character_roster: bevy::prelude::Res<ambition::actors::features::CharacterRoster>,
+    boss_catalog: bevy::prelude::Res<ambition::actors::boss_encounter::BossCatalog>,
 ) {
     ambition::runtime::demo_fixture::simulation_world(
         &mut commands,
@@ -495,6 +493,8 @@ fn sanic_setup(
             editable_tuning: &editable_tuning,
             starting_character: &starting_character,
             character_catalog: &character_catalog,
+            character_roster: &character_roster,
+            boss_catalog: &boss_catalog,
             default_character_id: SANIC_CHARACTER_ID,
             sandbox_data_asset: None,
             sandbox_asset_collection: None,

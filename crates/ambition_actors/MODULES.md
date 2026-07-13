@@ -15,7 +15,6 @@
 | [`avatar`](src/avatar/mod.rs) | **The HOME AVATAR** — the body slot 0 owns and returns to, and the policy that belongs to the local human rather than to any body. |
 | [`body_mode`](src/body_mode/mod.rs) | Sandbox-side body-mode driver: facade re-exporting [`update_body_mode`]. |
 | [`boss_encounter`](src/boss_encounter/mod.rs) | Sandbox-side coordinator for boss fights (distinct from the generic `crate::encounter` enemy-wave system). |
-| [`character_roster`](src/character_roster.rs) | The character-roster SEAM: the game installs its `character_catalog.ron` text; this module owns the parse cache + the lookup helpers the non-Bevy call sites use. |
 | [`character_sprites`](src/character_sprites/mod.rs) | Spritesheet metadata, atlas/animation logic, and loading for every animated character (player robot, goblins, sandbag, boss, NPCs). |
 | [`config`](src/config.rs) | The render-only `rgba` color helper. |
 | [`control`](src/control/mod.rs) | **The local control seam** — device frame → slot → the body carrying that slot's player brain. |
@@ -43,7 +42,7 @@
 | [`time`](src/time/mod.rs) | Time domain plumbing: clocks (ADR 0010/0011), time-control authority, per-entity proper-time scale, and game-feel tuning. |
 | [`world`](src/world/mod.rs) | World / level authoring runtime: room graph + spawning, the code-first room builder, the LDtk hot-reloadable project loader, the Avian2D physics adapter, and LDtk-authored moving platforms. |
 
-_36 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
+_35 crate-root modules. Regenerate: `python scripts/modules_md.py --write`._
 
 <!-- END generated module map -->
 

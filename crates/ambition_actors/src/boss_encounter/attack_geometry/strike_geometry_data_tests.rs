@@ -120,7 +120,7 @@ fn strike_geometry_is_byte_identical_to_the_old_hardcoded_match() {
 fn an_authored_override_replaces_the_built_in_geometry_for_that_move() {
     use crate::boss_encounter::behavior::BossBehaviorProfile;
 
-    let mut behavior = BossBehaviorProfile::from_data("clockwork_warden");
+    let mut behavior = BossBehaviorProfile::from_data(crate::boss_encounter::test_boss_catalog(), "clockwork_warden");
     let size = ae::Vec2::new(80.0, 80.0);
     let pos = ae::Vec2::new(200.0, 100.0);
     let origin = pos + behavior.attack_origin_offset;

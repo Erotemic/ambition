@@ -17,15 +17,15 @@ fn catalog_loads_without_panic() {
     // baseline.
     let data = catalog();
     assert!(
-        !data.characters.is_empty(),
+        !data.data().characters.is_empty(),
         "embedded character_catalog.ron should have characters"
     );
     assert!(
-        !data.brain_presets.is_empty(),
+        !data.data().brain_presets.is_empty(),
         "embedded character_catalog.ron should declare brain presets"
     );
     assert!(
-        !data.action_set_presets.is_empty(),
+        !data.data().action_set_presets.is_empty(),
         "embedded character_catalog.ron should declare action-set presets"
     );
 }
@@ -36,7 +36,7 @@ fn embedded_catalog_passes_validator() {
     // the catalog as internally consistent so that the Startup
     // panic never fires under normal builds.
     let data = catalog();
-    let errors = validator::validate(&data);
+    let errors = validator::validate(data.data());
     assert!(
         errors.is_empty(),
         "embedded catalog has reference errors: {errors:?}"
@@ -49,8 +49,9 @@ fn brain_preset_resolves_to_valid_variant_for_each_entry() {
     // runtime `Brain` value. Catches preset enum typos at test
     // time rather than first-spawn time.
     let data = catalog();
-    for (id, entry) in &data.characters {
+    for (id, entry) in &data.data().characters {
         let preset = data
+            .data()
             .brain_presets
             .get(&entry.default_brain)
             .unwrap_or_else(|| panic!("character '{id}' missing brain preset"));
@@ -72,8 +73,9 @@ fn action_set_preset_resolves_for_each_entry() {
     // Pair test for action_set: every entry's default_action_set
     // must produce a runtime ActionSet without panicking.
     let data = catalog();
-    for (id, entry) in &data.characters {
+    for (id, entry) in &data.data().characters {
         let preset = data
+            .data()
             .action_set_presets
             .get(&entry.default_action_set)
             .unwrap_or_else(|| panic!("character '{id}' missing action_set preset"));
@@ -85,7 +87,8 @@ fn action_set_preset_resolves_for_each_entry() {
 fn validator_reports_missing_brain_preset() {
     // Sanity: validator should detect a default_brain that
     // doesn't exist. Pre-poison the data by mutating a copy.
-    let mut data = catalog().clone();
+    let catalog = catalog();
+    let mut data = catalog.data().clone();
     // Pick the first character and break its default_brain.
     let first_id = data.characters.keys().next().cloned().unwrap();
     data.characters.get_mut(&first_id).unwrap().default_brain = "DOES_NOT_EXIST".to_string();
@@ -104,8 +107,8 @@ fn display_name_resolves_for_every_catalog_entry() {
     // therefore round-trip — otherwise the Authored.name field
     // ends up populated with the id (e.g. "npc_alice") instead
     // of the human label ("Alice").
-    for (id, entry) in &catalog().characters {
-        let label = display_name_for_character_id(id);
+    for (id, entry) in &catalog().data().characters {
+        let label = catalog().display_name(id);
         assert_eq!(
             label,
             Some(entry.display_name.as_str()),
@@ -118,28 +121,19 @@ fn display_name_resolves_for_every_catalog_entry() {
 #[test]
 fn character_id_round_trips_through_display_name() {
     // The unified actor sprite identity is resolved from the display name
-    // (every actor carries one) back to the catalog id. Each entry whose
-    // display name is unique must round-trip id → name → id, so a spawned
-    // actor recovers the same catalog id presentation resolves its sheet by.
-    for (id, entry) in &catalog().characters {
-        // Skip ids that share a display name with another entry — the
-        // reverse lookup can only return one, and uniqueness isn't promised.
-        let shares_name = catalog()
-            .characters
-            .iter()
-            .any(|(other_id, other)| other_id != id && other.display_name == entry.display_name);
-        if shares_name {
-            continue;
-        }
+    // (every actor carries one) back to the catalog id. Catalog validation
+    // rejects duplicate display names, so every entry must round-trip
+    // id → name → id.
+    for (id, entry) in &catalog().data().characters {
         assert_eq!(
-            character_id_for_display_name(&entry.display_name),
+            catalog().id_for_display_name(&entry.display_name),
             Some(id.as_str()),
             "'{}' should round-trip back to id '{id}'",
             entry.display_name,
         );
     }
     assert_eq!(
-        character_id_for_display_name("Definitely Not A Character"),
+        catalog().id_for_display_name("Definitely Not A Character"),
         None
     );
 }
@@ -258,7 +252,7 @@ fn every_renderer_target_has_catalog_entry_or_explicit_exclusion() {
     let data = catalog();
     let mut missing: Vec<&str> = Vec::new();
     for target in RENDERER_COVERAGE_TARGETS {
-        if !data.characters.contains_key(*target) {
+        if !data.data().characters.contains_key(*target) {
             missing.push(target);
         }
     }
@@ -275,31 +269,31 @@ fn exemplar_barks_resolve_from_catalog() {
     // hall pool. Catalog-first resolution must return them (the npcs.rs
     // legacy table is now only a fallback for unmigrated rows).
     assert_eq!(
-        bark_line_for_character_id("npc_pirate_admiral", BarkSituation::OnHit, 0),
+        catalog().bark_line("npc_pirate_admiral", BarkSituation::OnHit, 0),
         Some("Belay that, ye barnacle!"),
     );
     // on_hit rotates with strike count.
     assert_eq!(
-        bark_line_for_character_id("npc_pirate_admiral", BarkSituation::OnHit, 1),
+        catalog().bark_line("npc_pirate_admiral", BarkSituation::OnHit, 1),
         Some("Mind the epaulettes, scallywag!"),
     );
     assert_eq!(
-        bark_line_for_character_id("npc_pirate_admiral", BarkSituation::Provoked, 0),
+        catalog().bark_line("npc_pirate_admiral", BarkSituation::Provoked, 0),
         Some("Broadside, ye bilge rat!"),
     );
     assert!(
-        bark_line_for_character_id("npc_pirate_admiral", BarkSituation::Hall, 0).is_some(),
+        catalog().bark_line("npc_pirate_admiral", BarkSituation::Hall, 0).is_some(),
         "admiral should have a Hall bark"
     );
     // A row with no authored pool for a situation returns None so the
     // firing site falls back.
     assert_eq!(
-        bark_line_for_character_id("npc_kernel_guide", BarkSituation::Idle, 0),
+        catalog().bark_line("npc_kernel_guide", BarkSituation::Idle, 0),
         None,
     );
     // Unknown id is always None.
     assert_eq!(
-        bark_line_for_character_id("npc_not_a_character", BarkSituation::OnHit, 0),
+        catalog().bark_line("npc_not_a_character", BarkSituation::OnHit, 0),
         None,
     );
 }
@@ -311,11 +305,11 @@ fn exemplar_hall_dialogue_ids_resolve() {
     // CONTENT-conformance tests — they live with the yarn payload in
     // `ambition_content::dialogue::yarn`.)
     assert_eq!(
-        hall_dialogue_id_for_character_id("npc_pirate_admiral"),
+        catalog().hall_dialogue_id("npc_pirate_admiral"),
         Some("hall_pirate_admiral"),
     );
     assert_eq!(
-        hall_dialogue_id_for_character_id("npc_not_a_character"),
+        catalog().hall_dialogue_id("npc_not_a_character"),
         None
     );
 }
@@ -325,10 +319,10 @@ fn built_in_roster_non_momentum_and_unknown_ids_have_no_momentum_profile() {
     // Momentum identities are App-local catalog data. The Ambition roster does
     // not own Sanic; standalone providers test their own momentum rows locally.
     assert!(
-        momentum_params_for_character_id("player").is_none(),
+        catalog().momentum_params("player").is_none(),
         "the protagonist authors no surface-momentum profile"
     );
-    assert!(momentum_params_for_character_id("npc_not_a_character").is_none());
+    assert!(catalog().momentum_params("npc_not_a_character").is_none());
 }
 
 #[test]
@@ -336,7 +330,7 @@ fn display_name_returns_none_for_unknown_id() {
     // Negative: callers fall back to the id itself when a lookup
     // misses. Pins the contract so a future panic-on-miss change
     // doesn't sneak through.
-    assert!(display_name_for_character_id("npc_definitely_not_in_catalog").is_none());
+    assert!(catalog().display_name("npc_definitely_not_in_catalog").is_none());
 }
 
 #[test]
@@ -347,7 +341,11 @@ fn plugin_inserts_resource_and_validates() {
     use bevy::prelude::*;
     let mut app = App::new();
     app.add_plugins(MinimalPlugins);
-    app.add_plugins(character_roster_plugin());
+    app.add_plugins(CharacterCatalogPlugin {
+        catalog_ron: include_str!(
+            "../../../../game/ambition_content/assets/data/character_catalog.ron"
+        ),
+    });
     app.update(); // runs Startup
     let catalog = app
         .world()

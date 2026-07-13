@@ -55,7 +55,7 @@ fn app() -> App {
     let mut reg = BossEncounterRegistry::default();
     reg.profiles.insert(
         "test_boss".into(),
-        BossProfile::from_id("mockingbird").expect("mockingbird is authored"),
+        BossProfile::from_id(crate::boss_encounter::test_boss_catalog(), "mockingbird").expect("mockingbird is authored"),
     );
     app.insert_resource(reg);
     app.insert_resource(TestWorld(ae::World::new(

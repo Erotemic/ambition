@@ -120,7 +120,8 @@ fn stochastic_parrot_is_friendly_in_the_cove_and_hostile_in_the_sky() {
     );
 
     // Friendly cove form: a catalog character with a peaceful default.
-    let display = crate::character_roster::display_name_for_character_id("stochastic_parrot");
+    let catalog = crate::character_roster::catalog();
+    let display = catalog.display_name("stochastic_parrot");
     assert_eq!(
         display,
         Some("Stochastic Parrot"),
@@ -130,16 +131,17 @@ fn stochastic_parrot_is_friendly_in_the_cove_and_hostile_in_the_sky() {
     // Both forms wear the same parrot sheet (the friendly form binds it by
     // character_id; the sheet must actually resolve).
     assert!(
-        crate::character_sprites::sheet_for_character_id("stochastic_parrot").is_some(),
+        crate::character_sprites::sheet_for_character_id_in(&catalog, "stochastic_parrot")
+            .is_some(),
         "the parrot catalog row must resolve a sprite sheet",
     );
 
     // Friendly form is authored ENTIRELY in data as a lively flyer (the
     // commit-3 refactor payoff): the catalog default_brain resolves to a
     // PEACEFUL Aerial brain, and body_kind is Floating so it's gravity-free.
-    let friendly =
-        crate::character_roster::default_brain_for_character_id("stochastic_parrot", 0.0)
-            .expect("parrot has a catalog default brain");
+    let friendly = catalog
+        .build_default_brain("stochastic_parrot", 0.0)
+        .expect("parrot has a catalog default brain");
     assert!(
         matches!(
             friendly,
@@ -151,7 +153,7 @@ fn stochastic_parrot_is_friendly_in_the_cove_and_hostile_in_the_sky() {
         "the cove parrot is authored as a peaceful Aerial flyer in data",
     );
     assert_eq!(
-        crate::character_roster::body_kind_for_character_id("stochastic_parrot"),
+        catalog.body_kind("stochastic_parrot"),
         Some(ambition_characters::actor::character_catalog::CharacterBodyKind::Floating),
         "the cove parrot is Floating (gravity-free) so the Aerial brain flies it",
     );

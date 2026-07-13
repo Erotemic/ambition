@@ -5,29 +5,33 @@
 
 use super::*;
 
+fn catalog() -> ambition_characters::actor::character_catalog::CharacterCatalog {
+    crate::character_catalog::load_catalog()
+}
+
 #[test]
 fn known_dialogue_ids_are_derived_from_yarn_titles() {
-    let ids = known_dialogue_ids();
-    assert!(ids.contains(&"creator_intro"));
-    assert!(ids.contains(&"oiler_post_stabilizer"));
-    assert!(ids.contains(&"hub_guide__test_sfx"));
-    assert!(ids.contains(&"hall_player"));
+    let ids = known_dialogue_ids(&catalog());
+    assert!(ids.iter().any(|id| id == "creator_intro"));
+    assert!(ids.iter().any(|id| id == "oiler_post_stabilizer"));
+    assert!(ids.iter().any(|id| id == "hub_guide__test_sfx"));
+    assert!(ids.iter().any(|id| id == "hall_player"));
     assert_eq!(ids.windows(2).filter(|pair| pair[0] == pair[1]).count(), 0);
 }
 
 #[test]
 fn catalog_hall_dialogue_ids_are_known() {
-    // known_dialogue_ids() folds the catalog ids in so the LDtk validator
+    // known_dialogue_ids(&catalog()) folds the catalog ids in so the LDtk validator
     // accepts authored hall_<id> nodes without a second list.
-    let known = known_dialogue_ids();
+    let known = known_dialogue_ids(&catalog());
     for expected in [
         "hall_pirate_admiral",
         "hall_stochastic_parrot",
         "hall_architect",
     ] {
         assert!(
-            known.contains(&expected),
-            "{expected} should be in known_dialogue_ids() via the catalog fold-in"
+            known.iter().any(|id| id == expected),
+            "{expected} should be in known_dialogue_ids(&catalog()) via the catalog fold-in"
         );
     }
 }
@@ -50,7 +54,8 @@ fn every_catalog_hall_dialogue_id_has_a_yarn_node() {
         .map(str::trim)
         .collect();
 
-    let missing: Vec<(&String, &str)> = ambition_actors::character_roster::catalog()
+    let catalog = catalog();
+    let missing: Vec<(&String, &str)> = catalog
         .characters
         .iter()
         .filter_map(|(id, entry)| {
@@ -83,17 +88,14 @@ fn every_catalog_hall_dialogue_id_has_a_yarn_node() {
 /// un-talkable. The mirror scene is content; that it must exist is structure.
 #[test]
 fn the_player_pedestal_has_a_self_branch_because_the_default_character_is_the_player() {
-    // `known_dialogue_ids()` folds in catalog rows, so the roster must exist.
-    // Self-sufficient rather than order-dependent on a sibling test.
-    crate::character_catalog::install();
     assert_eq!(
         crate::character_catalog::PLAYABLE_ROSTER[0],
         "player",
         "this guard assumes the default worn character",
     );
-    let known = known_dialogue_ids();
+    let known = known_dialogue_ids(&catalog());
     assert!(
-        known.contains(&"hall_player__self"),
+        known.iter().any(|id| id == "hall_player__self"),
         "hall.yarn must author `hall_player__self`: the default player wears \
          `player`, so interacting with the `player` pedestal is self-talk, which \
          the engine suppresses unless content authored the branch",

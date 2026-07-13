@@ -294,7 +294,7 @@ mod tests {
     }
 
     fn catalog() -> ambition_characters::actor::character_catalog::CharacterCatalog {
-        ambition_characters::actor::character_catalog::CharacterCatalog(
+        ambition_characters::actor::character_catalog::CharacterCatalog::from_data(
             ambition_characters::actor::character_catalog::parse_catalog(include_str!(
                 "../../../../game/ambition_content/assets/data/character_catalog.ron"
             )),

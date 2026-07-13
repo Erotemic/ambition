@@ -61,7 +61,7 @@ fn encounter_id_from_name_drops_non_ascii() {
 #[test]
 fn mockingbird_profile_registers_in_the_catalog() {
     let mut registry = BossEncounterRegistry::default();
-    registry.ensure_profile(BossProfile::from_id("mockingbird").expect("mockingbird is authored"));
+    registry.ensure_profile(BossProfile::from_id(crate::boss_encounter::test_boss_catalog(), "mockingbird").expect("mockingbird is authored"));
     assert!(registry.profiles.contains_key(MOCKINGBIRD_ENCOUNTER_ID));
     assert_eq!(
         registry

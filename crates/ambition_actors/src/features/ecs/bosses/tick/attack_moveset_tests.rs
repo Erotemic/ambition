@@ -102,6 +102,8 @@ fn telegraph_boss_app() -> (App, Entity) {
     .expect("a boss with a telegraphed strike → a moveset");
 
     let mut app = App::new();
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<crate::combat::authored_volumes::AuthoredAttackVolumeResolver>();
     app.init_resource::<ambition_time::WorldTime>();
     {
         let mut wt = app.world_mut().resource_mut::<ambition_time::WorldTime>();

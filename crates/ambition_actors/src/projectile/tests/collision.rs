@@ -18,17 +18,30 @@ use super::{advance_time, min_app, projectile_test_app, ActorIdentity, BodyHealt
 #[test]
 fn fireball_damages_enemy_on_intersect() {
     let mut app = min_app();
-    app.add_systems(Startup, |mut commands: Commands| {
-        crate::features::spawn_encounter_mob(
-            &mut commands,
-            ambition_platformer_primitives::lifecycle::SessionSpawnScope::UNSCOPED,
-            "projectile_test",
-            "test_enemy".into(),
-            ambition_entity_catalog::placements::CharacterBrain::Custom("medium_striker".into()),
-            ae::Vec2::new(400.0, 300.0),
-            ae::Vec2::new(28.0, 46.0),
-        );
-    });
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.insert_resource(crate::features::enemies::test_roster());
+    app.add_systems(
+        Startup,
+        |mut commands: Commands,
+         catalog: Res<
+            ambition_characters::actor::character_catalog::CharacterCatalog,
+        >,
+         roster: Res<crate::features::CharacterRoster>| {
+            crate::features::spawn_encounter_mob(
+                &mut commands,
+                &catalog,
+                &roster,
+                ambition_platformer_primitives::lifecycle::SessionSpawnScope::UNSCOPED,
+                "projectile_test",
+                "test_enemy".into(),
+                ambition_entity_catalog::placements::CharacterBrain::Custom(
+                    "medium_striker".into(),
+                ),
+                ae::Vec2::new(400.0, 300.0),
+                ae::Vec2::new(28.0, 46.0),
+            );
+        },
+    );
     // Run startup once so the Commands-spawned ECS actor exists before
     // the projectile tick. Encounter-spawned mobs enter the world through
     // Commands at schedule boundaries, so a projectile should not be expected

@@ -1,3 +1,4 @@
+use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
 #[cfg(feature = "audio")]
@@ -18,6 +19,16 @@ use ambition::sprite_sheet::game_assets::{self, GameAssetConfig};
 
 use super::scene_setup;
 
+/// App-local authored catalogs consumed together by presentation asset loading.
+/// Grouping them keeps Bevy system signatures below the function-parameter
+/// implementation limit while preserving explicit authority.
+#[derive(SystemParam)]
+pub(crate) struct PresentationCatalogs<'w> {
+    characters: Res<'w, ambition::characters::actor::character_catalog::CharacterCatalog>,
+    bosses: Res<'w, ambition::actors::boss_encounter::BossCatalog>,
+    assets: Res<'w, ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>,
+}
+
 /// Sim-only startup. Calls `ambition::actors::session::setup::simulation_world` to spawn the
 /// LdtkWorldBundle and the player entity (with gameplay-essential components
 /// but no Sprite). Inserts SceneEntities with `hud: Entity::PLACEHOLDER`;
@@ -34,6 +45,8 @@ pub(super) fn setup_simulation_system(
     editable_abilities: Res<EditableAbilitySet>,
     starting_character: Res<ambition::actors::avatar::StartingCharacter>,
     character_catalog: Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
+    character_roster: Res<ambition::actors::features::CharacterRoster>,
+    boss_catalog: Res<ambition::actors::boss_encounter::BossCatalog>,
     mut platform_set: ResMut<ambition::world::collision::MovingPlatformSet>,
 ) {
     let _player = setup::simulation_world(
@@ -47,6 +60,8 @@ pub(super) fn setup_simulation_system(
             editable_tuning: &editable_tuning,
             starting_character: &starting_character,
             character_catalog: &character_catalog,
+            character_roster: &character_roster,
+            boss_catalog: &boss_catalog,
             default_character_id: ambition_content::character_catalog::PLAYABLE_ROSTER[0],
             sandbox_data_asset: sandbox_data_asset.as_deref(),
             sandbox_asset_collection: sandbox_asset_collection.as_deref(),
@@ -73,7 +88,7 @@ pub(crate) fn setup_presentation_system(
     room_set: Res<rooms::RoomSet>,
     music_registry: Res<data::MusicRegistry>,
     sfx_registry: Res<data::SfxRegistry>,
-    sandbox_catalog: Res<ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>,
+    catalogs: PresentationCatalogs,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
     mut audio_sources: ResMut<Assets<KiraAudioSource>>,
     asset_server: Res<AssetServer>,
@@ -92,7 +107,9 @@ pub(crate) fn setup_presentation_system(
     let t0 = std::time::Instant::now();
     let game_assets = actor_game_assets::load_game_assets(
         &asset_config,
-        &sandbox_catalog,
+        &catalogs.characters,
+        &catalogs.bosses,
+        &catalogs.assets,
         &asset_server,
         &mut atlas_layouts,
         &room_set.active_spec().metadata,
@@ -110,7 +127,7 @@ pub(crate) fn setup_presentation_system(
             &mut commands,
             &mut audio_sources,
             &asset_server,
-            &sandbox_catalog,
+            &catalogs.assets,
             scene_setup::PresentationSetup {
                 world: &world,
                 room_set: &room_set,
@@ -142,7 +159,7 @@ pub(crate) fn setup_presentation_system(
             &mut commands,
             &mut audio_sources,
             &asset_server,
-            &sandbox_catalog,
+            &catalogs.assets,
             scene_setup::PresentationSetup {
                 world: &world,
                 room_set: &room_set,
@@ -162,7 +179,7 @@ pub(crate) fn setup_presentation_system(
 pub(crate) fn reload_visual_quality_assets_on_scale_change(
     quality: Res<ambition::render::quality::ResolvedVisualQuality>,
     asset_config: Res<GameAssetConfig>,
-    sandbox_catalog: Res<ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>,
+    catalogs: PresentationCatalogs,
     asset_server: Res<AssetServer>,
     room_set: Res<rooms::RoomSet>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
@@ -186,7 +203,9 @@ pub(crate) fn reload_visual_quality_assets_on_scale_change(
     };
     *game_assets = actor_game_assets::load_game_assets(
         &asset_config,
-        &sandbox_catalog,
+        &catalogs.characters,
+        &catalogs.bosses,
+        &catalogs.assets,
         &asset_server,
         &mut atlas_layouts,
         &room_set.active_spec().metadata,
@@ -199,7 +218,7 @@ pub(crate) fn setup_presentation_system(
     mut commands: Commands,
     world: Res<RoomGeometry>,
     room_set: Res<rooms::RoomSet>,
-    sandbox_catalog: Res<ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>,
+    catalogs: PresentationCatalogs,
     physics_settings: Res<physics::PhysicsSandboxSettings>,
     asset_server: Res<AssetServer>,
     mut atlas_layouts: ResMut<Assets<TextureAtlasLayout>>,
@@ -209,7 +228,9 @@ pub(crate) fn setup_presentation_system(
 ) {
     let game_assets = actor_game_assets::load_game_assets(
         &asset_config,
-        &sandbox_catalog,
+        &catalogs.characters,
+        &catalogs.bosses,
+        &catalogs.assets,
         &asset_server,
         &mut atlas_layouts,
         &room_set.active_spec().metadata,

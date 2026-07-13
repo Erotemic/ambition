@@ -59,7 +59,6 @@ impl Plugin for FixtureContentPlugin {
             CharacterCatalogFragment::from_ron("fixture", Some("player"), FIXTURE_CATALOG_RON)
                 .expect("fixture character catalog should be valid"),
         );
-        ambition_runtime::demo_fixture::install_character_catalog(FIXTURE_CATALOG_RON);
         let world = ae::World::new(
             "fixture_room",
             ae::Vec2::new(640.0, 480.0),
@@ -89,6 +88,8 @@ fn fixture_setup(
     editable_tuning: Res<ambition_runtime::demo_fixture::EditableMovementTuning>,
     starting_character: Res<ambition_runtime::demo_fixture::StartingCharacter>,
     character_catalog: Res<ambition_characters::actor::character_catalog::CharacterCatalog>,
+    character_roster: Res<ambition_actors::features::CharacterRoster>,
+    boss_catalog: Res<ambition_actors::boss_encounter::BossCatalog>,
     asset_server: Res<AssetServer>,
 ) {
     ambition_runtime::demo_fixture::simulation_world(
@@ -102,6 +103,8 @@ fn fixture_setup(
             editable_tuning: &editable_tuning,
             starting_character: &starting_character,
             character_catalog: &character_catalog,
+            character_roster: &character_roster,
+            boss_catalog: &boss_catalog,
             default_character_id: "player",
             sandbox_data_asset: None,
             sandbox_asset_collection: None,

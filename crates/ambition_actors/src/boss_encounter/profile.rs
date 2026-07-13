@@ -32,6 +32,7 @@ pub struct BossProfile {
 }
 
 use super::behavior;
+use super::BossCatalog;
 use crate::boss_encounter::BossSpecRoster;
 /// `BossRewardProfile` is authored in `boss_profiles.ron` and parsed
 /// into `BossBehaviorProfile::reward`. Re-exported from its definition
@@ -46,9 +47,9 @@ impl BossProfile {
     /// * behavior + reward from `boss_profiles.ron`.
     ///
     /// Returns `None` if the id has no authored encounter spec.
-    pub fn from_id(id: &str) -> Option<Self> {
-        let encounter = default_boss_specs_by_id().get(id)?.clone();
-        let behavior = crate::features::BossBehaviorProfile::from_data(id);
+    pub fn from_id(catalog: &BossCatalog, id: &str) -> Option<Self> {
+        let encounter = default_boss_specs_by_id(catalog).get(id)?.clone();
+        let behavior = crate::features::BossBehaviorProfile::from_data(catalog, id);
         Some(Self {
             id: encounter.id.clone(),
             display_name: encounter.name.clone(),
@@ -58,7 +59,12 @@ impl BossProfile {
         })
     }
 
-    pub fn generic(id: impl Into<String>, display_name: impl Into<String>, max_hp: i32) -> Self {
+    pub fn generic(
+        catalog: &BossCatalog,
+        id: impl Into<String>,
+        display_name: impl Into<String>,
+        max_hp: i32,
+    ) -> Self {
         let id = id.into();
         let display_name = display_name.into();
         let mut encounter = crate::boss_encounter::BossEncounterSpec::gradient_sentinel();
@@ -69,45 +75,46 @@ impl BossProfile {
             id: id.clone(),
             display_name,
             encounter,
-            behavior: crate::features::BossBehaviorProfile::generic(id),
+            behavior: crate::features::BossBehaviorProfile::generic(catalog, id),
             reward: BossRewardProfile::None,
         }
     }
 
-    pub fn for_encounter_id_or_name(id_or_name: &str) -> Option<Self> {
+    pub fn for_encounter_id_or_name(catalog: &BossCatalog, id_or_name: &str) -> Option<Self> {
         let id = super::encounter_id_from_name(id_or_name);
-        Self::from_id(&id)
+        Self::from_id(catalog, &id)
             // Legacy alias: pre-rename gradient_sentinel ids in saves still
             // resolve to the renamed `clockwork_warden` profile.
             .or_else(|| match id.as_str() {
-                "gradient_sentinel" => Self::from_id("clockwork_warden"),
+                "gradient_sentinel" => Self::from_id(catalog, "clockwork_warden"),
                 _ => None,
             })
     }
 }
 
-/// Installed encounter specs keyed by id. Per ADR 0017, named boss encounter
+/// App-local encounter specs keyed by id. Per ADR 0017, named boss encounter
 /// numbers live in `ambition_content/assets/data/boss_encounters/<id>.ron`;
 /// gameplay-core only holds the generic schema and the installed roster.
 fn default_boss_specs_by_id(
+    catalog: &BossCatalog,
 ) -> std::collections::BTreeMap<String, crate::boss_encounter::BossEncounterSpec> {
     let mut specs: std::collections::BTreeMap<String, crate::boss_encounter::BossEncounterSpec> =
         std::collections::BTreeMap::new();
-    for spec in super::specs::boss_encounter_specs() {
-        specs.insert(spec.id.clone(), spec);
+    for spec in catalog.encounter_specs() {
+        specs.insert(spec.id.clone(), spec.clone());
     }
     specs
 }
 
-/// Every authored boss profile, derived from the content-installed encounter
+/// Every authored boss profile, derived from the App-local encounter
 /// specs (`boss_encounters/<id>.ron`). The engine hardcodes no boss list —
 /// adding a boss is purely content data (an encounter RON + a `boss_profiles.ron`
-/// row), with no lib edit. Iterates the installed specs in install order so
+/// row), with no lib edit. Iterates the assembled specs in deterministic id order so
 /// registration/spawn order stays stable (and replay-deterministic).
-pub fn default_boss_profiles() -> Vec<BossProfile> {
-    super::specs::boss_encounter_specs()
-        .iter()
-        .filter_map(|spec| BossProfile::from_id(&spec.id))
+pub fn default_boss_profiles(catalog: &BossCatalog) -> Vec<BossProfile> {
+    catalog
+        .encounter_specs()
+        .filter_map(|spec| BossProfile::from_id(catalog, &spec.id))
         .collect()
 }
 
@@ -117,10 +124,11 @@ mod tests {
 
     #[test]
     fn authored_profiles_have_unique_ids() {
-        let profiles = default_boss_profiles();
+        let catalog = super::super::test_boss_catalog();
+        let profiles = default_boss_profiles(catalog);
         assert_eq!(
             profiles.len(),
-            super::super::specs::boss_encounter_specs().len(),
+            catalog.encounter_specs().count(),
             "every installed boss encounter spec must resolve to a profile",
         );
         let mut ids = std::collections::BTreeSet::new();
@@ -137,7 +145,7 @@ mod tests {
 
     #[test]
     fn mockingbird_profile_declares_reward_chest() {
-        let profile = BossProfile::from_id("mockingbird").expect("mockingbird is authored");
+        let profile = BossProfile::from_id(super::super::test_boss_catalog(), "mockingbird").expect("mockingbird is authored");
         assert!(matches!(
             profile.reward,
             BossRewardProfile::DropChest { .. }
@@ -146,7 +154,10 @@ mod tests {
 
     #[test]
     fn flying_spaghetti_monster_boss_profile_declares_reward_chest() {
-        let profile = BossProfile::from_id("flying_spaghetti_monster_boss")
+        let profile = BossProfile::from_id(
+            super::super::test_boss_catalog(),
+            "flying_spaghetti_monster_boss",
+        )
             .expect("flying_spaghetti_monster_boss is authored");
         assert!(matches!(
             profile.reward,
@@ -162,7 +173,7 @@ mod tests {
     #[test]
     fn reward_kinds_match_legacy_constructors() {
         for id in ["clockwork_warden", "smirking_behemoth_boss"] {
-            let profile = BossProfile::from_id(id).unwrap();
+            let profile = BossProfile::from_id(super::super::test_boss_catalog(), id).unwrap();
             assert!(
                 matches!(profile.reward, BossRewardProfile::None),
                 "{id} should have no reward chest",
@@ -177,7 +188,7 @@ mod tests {
             "exploding_gradient_boss",
             "overflow_boss",
         ] {
-            let profile = BossProfile::from_id(id).unwrap();
+            let profile = BossProfile::from_id(super::super::test_boss_catalog(), id).unwrap();
             assert!(
                 matches!(profile.reward, BossRewardProfile::DropChest { .. }),
                 "{id} should drop a reward chest",
@@ -189,7 +200,10 @@ mod tests {
     /// clockwork_warden profile.
     #[test]
     fn gradient_sentinel_id_aliases_to_clockwork_warden() {
-        let profile = BossProfile::for_encounter_id_or_name("gradient_sentinel")
+        let profile = BossProfile::for_encounter_id_or_name(
+            super::super::test_boss_catalog(),
+            "gradient_sentinel",
+        )
             .expect("gradient_sentinel aliases to clockwork_warden");
         assert_eq!(profile.id, "clockwork_warden");
     }

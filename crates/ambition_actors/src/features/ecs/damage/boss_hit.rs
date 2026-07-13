@@ -106,6 +106,7 @@ pub(crate) fn apply_entity_boss_damage(
 /// swallow.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn apply_boss_hit(
+    boss_catalog: &crate::boss_encounter::BossCatalog,
     event: &HitEvent,
     boss: super::super::boss_clusters::BossMut<'_>,
     // The boss's shared body components (§A1): `BodyHealth` is the HP
@@ -138,7 +139,7 @@ pub(crate) fn apply_boss_hit(
         // generic damage branch so harmless feedback cannot accidentally
         // route through `record_boss_damage`.
         let damageable = crate::features::damageable_volumes(
-            &crate::features::BossVolumeContext::from_ref(boss.as_ref(), attack_state)
+            &crate::features::BossVolumeContext::from_ref(boss_catalog, boss.as_ref(), attack_state)
                 .with_animation_frame(animation_frame),
         );
         if let Some(hit_aabb) = damageable
@@ -158,7 +159,7 @@ pub(crate) fn apply_boss_hit(
     // and the standard whole-body hurtbox agree on a single
     // attack-state source.
     let damageable = crate::features::damageable_volumes(
-        &crate::features::BossVolumeContext::from_ref(boss.as_ref(), attack_state)
+        &crate::features::BossVolumeContext::from_ref(boss_catalog, boss.as_ref(), attack_state)
             .with_animation_frame(animation_frame),
     );
     let Some(hit_aabb) = damageable

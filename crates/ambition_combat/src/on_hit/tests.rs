@@ -52,6 +52,8 @@ fn pogo_dair() -> MoveSpec {
 /// its down-volume. `victim_is_pogoable` toggles the `PogoTarget` capability.
 fn harness(victim_is_pogoable: bool) -> (App, Entity) {
     let mut app = App::new();
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<crate::authored_volumes::AuthoredAttackVolumeResolver>();
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
     app.add_message::<OnHitEffectMessage>();
@@ -133,6 +135,8 @@ fn down_air_pogos_off_a_factionless_world_orb() {
     // no ActorFaction). Victim-pogo and world-orb pogo unify under the one
     // capability (fable review R2.5, Jon's call).
     let mut app = App::new();
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<crate::authored_volumes::AuthoredAttackVolumeResolver>();
     app.add_message::<MoveEventMessage>();
     app.add_message::<ambition_vfx::vfx::VfxMessage>();
     app.add_message::<OnHitEffectMessage>();

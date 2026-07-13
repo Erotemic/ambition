@@ -58,6 +58,8 @@ fn spawn_player(app: &mut App, pos: ae::Vec2, facing: f32) {
 
 fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     let mut app = App::new();
+    app.insert_resource(crate::boss_encounter::test_boss_catalog().clone());
+    app.insert_resource(crate::features::enemies::test_roster());
     app.insert_resource(Time::<()>::default());
     app.insert_resource(ambition_time::WorldTime::default());
     app.insert_resource(RoomGeometry(world));
@@ -68,6 +70,9 @@ fn projectile_test_app(world: World, player_pos: ae::Vec2, facing: f32) -> App {
     app.insert_resource(ambition_persistence::settings::UserSettings::default());
     app.insert_resource(GameplayTraceBuffer::default());
     app.insert_resource(GameplayBanner::default());
+    app.insert_resource(
+        ambition_characters::actor::character_catalog::CharacterCatalog::empty(),
+    );
     // Projectile state lives on the player; this counter only gives in-flight
     // projectile entities stable spawn order.
     app.init_resource::<crate::projectile::ProjectileSeqCounter>();

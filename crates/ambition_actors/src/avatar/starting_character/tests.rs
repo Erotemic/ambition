@@ -39,7 +39,7 @@ fn test_catalog() -> ambition_characters::actor::character_catalog::CharacterCat
     if let Some(sanic) = fixture.characters.get("sanic") {
         data.characters.insert("sanic".to_string(), sanic.clone());
     }
-    ambition_characters::actor::character_catalog::CharacterCatalog(data)
+    ambition_characters::actor::character_catalog::CharacterCatalog::from_data(data)
 }
 
 fn install_test_catalog(app: &mut bevy::prelude::App) {

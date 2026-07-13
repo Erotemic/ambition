@@ -35,6 +35,8 @@ fn boss_strike_spawns_a_boss_hitbox_through_the_moveset() {
         .expect("a boss with a strike → a moveset");
 
     let mut app = App::new();
+    app.insert_resource(ambition_characters::actor::character_catalog::CharacterCatalog::empty());
+    app.init_resource::<crate::combat::authored_volumes::AuthoredAttackVolumeResolver>();
     app.init_resource::<ambition_time::WorldTime>();
     app.world_mut()
         .resource_mut::<ambition_time::WorldTime>()
@@ -101,6 +103,7 @@ fn boss_spawn_hurtboxes_resolves_without_panicking() {
     // fallback) and never panics.
     let aabb = ae::Aabb::new(ae::Vec2::new(500.0, 400.0), ae::Vec2::new(110.0, 110.0));
     let hbs = boss_spawn_hurtboxes(
+        crate::boss_encounter::test_boss_catalog(),
         "boss_gnu_ton",
         "GNU-ton",
         aabb,
@@ -131,6 +134,7 @@ fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
     behavior.sprite_target = Some("giant_gnu".to_string());
     let combat_size = ae::Vec2::new(220.0, 220.0);
     let mut boss = super::super::boss_clusters::BossClusterScratch::new(
+        crate::boss_encounter::test_boss_catalog(),
         "boss_giant_gnu",
         "Giant GNU",
         ae::Aabb::new(pos, combat_size * 0.5),
@@ -138,7 +142,7 @@ fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
     );
     boss.config.behavior = behavior;
 
-    let (metrics, derived_size) = boss_sprite_metrics_from_registry(boss.as_ref(), &registry)
+    let (metrics, derived_size) = boss_sprite_metrics_from_registry(crate::boss_encounter::test_boss_catalog(), boss.as_ref(), &registry)
         .expect("the giant_gnu sheet has body metrics in the baked registry");
     // The head/hand hurtboxes (what damageable_volumes consumes) live
     // in the per-animation map.
@@ -168,6 +172,7 @@ fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
     // The rider, on its own tight sheet, has no body metrics to resolve — his
     // damageable volume falls back to his authored `combat_size`.
     let mut rider = super::super::boss_clusters::BossClusterScratch::new(
+        crate::boss_encounter::test_boss_catalog(),
         "boss_gnu_ton_rider",
         "GNU-ton",
         ae::Aabb::new(pos, ae::Vec2::new(27.0, 48.0)),
@@ -175,7 +180,7 @@ fn a_per_animation_hurtbox_sheet_yields_animation_metrics_not_static_parts() {
     );
     rider.config.behavior = BossBehaviorProfile::gnu_ton_rider();
     assert!(
-        boss_sprite_metrics_from_registry(rider.as_ref(), &registry).is_none(),
+        boss_sprite_metrics_from_registry(crate::boss_encounter::test_boss_catalog(), rider.as_ref(), &registry).is_none(),
         "the scholar's trimmed sheet authors no body metrics — the giant carries them",
     );
 }
@@ -206,6 +211,7 @@ fn mockingbird_resolves_a_body_hurtbox_from_the_baked_registry() {
     let combat_size = behavior.combat_size.unwrap_or(ae::Vec2::new(500.0, 185.0));
     let pos = ae::Vec2::new(500.0, 400.0);
     let mut boss = super::super::boss_clusters::BossClusterScratch::new(
+        crate::boss_encounter::test_boss_catalog(),
         "boss_mockingbird",
         "Mockingbird",
         ae::Aabb::new(pos, combat_size * 0.5),
@@ -213,7 +219,7 @@ fn mockingbird_resolves_a_body_hurtbox_from_the_baked_registry() {
     );
     boss.config.behavior = behavior;
 
-    let (metrics, derived_size) = boss_sprite_metrics_from_registry(boss.as_ref(), &registry)
+    let (metrics, derived_size) = boss_sprite_metrics_from_registry(crate::boss_encounter::test_boss_catalog(), boss.as_ref(), &registry)
         .expect("mockingbird sheet target should have body metrics in the baked registry");
     // Unlike GNU-ton (per-animation hurtboxes), the mockingbird's body
     // comes from a single static alpha bbox.

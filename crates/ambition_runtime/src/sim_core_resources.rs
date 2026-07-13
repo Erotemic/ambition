@@ -9,8 +9,11 @@
 //! What the engine group deliberately does NOT provide (the game/fixture
 //! must): the INSTALLED WORLD state (`RoomSet`, `RoomGeometry`,
 //! `ActiveRoomMetadata` — which world is loaded is the game's choice), the
-//! content catalogs/registries (character catalog, music/sfx registries,
-//! item roster), and the app startup chain (`setup_simulation_system`).
+//! authored content catalogs/registries (character catalog, music/sfx
+//! registries, item roster), and the app startup chain
+//! (`setup_simulation_system`). The content-free [`CharacterRoster`] default
+//! below is only an explicit authority resource for Apps with no hostile
+//! provider; provider registration replaces it transactionally.
 //!
 //! Ownership notes (anti-god rule 5): several defaults here belong to
 //! domains whose plugins haven't been carved yet — the dev-tools editables
@@ -69,6 +72,12 @@ impl Plugin for SimCoreResourcesPlugin {
             .init_resource::<ambition_dialog::DialogueNodeIndex>()
             .init_resource::<ambition_world::collision::MovingPlatformSet>()
             .init_resource::<ambition_actors::SandboxSimState>()
+            // Content-free default. Provider plugins replace/assemble this at
+            // App build time; `init_resource` never clobbers their resource.
+            .init_resource::<ambition_actors::features::CharacterRoster>()
+            // App-local boss authority. Boss-free providers keep the explicit
+            // empty resource; content plugins assemble provider fragments.
+            .init_resource::<ambition_actors::boss_encounter::BossCatalog>()
             .init_resource::<ambition_dev_tools::SandboxDevState>()
             .init_resource::<ambition_combat::GameplayBanner>()
             .init_resource::<ambition_platformer_primitives::feature_overlay::FeatureEcsWorldOverlay>()

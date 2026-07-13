@@ -105,7 +105,12 @@ pub(super) fn handle_ldtk_hot_reload(
         // validated spawn — a single-player dev flow.
         ambition::actors::actor::PrimaryPlayerOnly,
     >,
-    catalog: Res<ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>,
+    catalogs: (
+        Res<ambition::asset_manager::sandbox_assets::SandboxAssetCatalog>,
+        Res<ambition::characters::actor::character_catalog::CharacterCatalog>,
+        Res<ambition::actors::features::CharacterRoster>,
+        Res<ambition::actors::boss_encounter::BossCatalog>,
+    ),
 ) {
     if keys.just_pressed(KeyCode::F12) {
         ldtk_reload.auto_apply = !ldtk_reload.auto_apply;
@@ -163,7 +168,10 @@ pub(super) fn handle_ldtk_hot_reload(
             visual_assets.0.as_deref(),
             visual_assets.1.as_deref(),
             &watch_path,
-            &catalog,
+            &catalogs.0,
+            &catalogs.1,
+            &catalogs.2,
+            &catalogs.3,
             session_scope,
         );
         match result {
@@ -260,6 +268,9 @@ pub(super) fn reload_ldtk_world_from_disk(
     quality: Option<&ambition::render::quality::ResolvedVisualQuality>,
     watch_path: &std::path::Path,
     catalog: &ambition::asset_manager::sandbox_assets::SandboxAssetCatalog,
+    character_catalog: &ambition::characters::actor::character_catalog::CharacterCatalog,
+    character_roster: &ambition::actors::features::CharacterRoster,
+    boss_catalog: &ambition::actors::boss_encounter::BossCatalog,
     session_scope: ambition::platformer::lifecycle::SessionSpawnScope,
 ) -> Result<String, Vec<String>> {
     let current_room_id = room_set.active_spec().id.clone();
@@ -305,7 +316,14 @@ pub(super) fn reload_ldtk_world_from_disk(
     );
     safety.last_safe_pos = transaction.safe_player_pos;
     *moving_platforms = platforms::moving_platforms_for_room(&transaction.next_spec);
-    features::spawn_room_feature_entities(commands, &transaction.next_spec, session_scope);
+    features::spawn_room_feature_entities(
+        commands,
+        character_catalog,
+        character_roster,
+        boss_catalog,
+        &transaction.next_spec,
+        session_scope,
+    );
     dialogue.close();
     combat.hitstop_timer = 0.0;
     combat.hitstun_timer = 0.0;

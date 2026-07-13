@@ -98,10 +98,16 @@ pub fn interact_ecs_actors_and_switches(
     // the home avatar speaks as the character it WEARS; a body that is neither
     // speaks as its placement. Ids, never display names — a name is a
     // localization artifact and two characters can share one.
-    let speaker_id =
+    let Some(speaker_id) =
         dialogue_identity(interactions.get(subject).ok(), identities.get(subject).ok())
             .or_else(|| dialogue.worn.get(subject).ok().map(|w| w.id().to_string()))
-            .unwrap_or_else(|| crate::character_roster::default_character_id().to_string());
+    else {
+        // A gameplay body without an authored identity is not a valid dialogue
+        // speaker. Do not silently substitute a process-global default: that
+        // would make dialogue authority depend on whichever provider initialized
+        // first in this process.
+        return;
+    };
     for (actor_entity, aabb, disposition, identity, interaction_payload) in &actors {
         if disposition.is_hostile() {
             continue;

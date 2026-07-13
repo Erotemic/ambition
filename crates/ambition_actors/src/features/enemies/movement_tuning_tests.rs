@@ -4,7 +4,7 @@
 //! private access via `use super::*;` (a direct sibling, so `super` depth is
 //! unchanged).
 
-use super::{resolve_movement_for, CharacterRoster};
+use super::resolve_movement_for;
 use crate::combat::{BodyMovementPatch, BodyMovementTuning};
 use ambition_entity_catalog::placements::CharacterBrain;
 use std::collections::HashMap;
@@ -78,7 +78,7 @@ fn inheritance_cycle_falls_back_to_baseline() {
 /// resolved tuning is what the runtime `ActorTuning` carries.
 #[test]
 fn roster_resolves_baseline_for_unauthored_movement() {
-    let roster = CharacterRoster::from_map(super::ENEMY_ARCHETYPE_REGISTRY.clone());
+    let roster = super::test_roster();
     let combatant = roster
         .spec_for_brain(&CharacterBrain::Custom("combatant".to_string()))
         .tuning()

@@ -62,7 +62,7 @@ pub use ambition_sprite_sheet::{SheetRecord, SheetRegistry};
     reason = "sheet_for_character_id is the public catalog→spec entry; consumed by tests under content::character_catalog::tests (not by non-test crate code today). Public surface for future spawn-site callers."
 )]
 pub use assets::{
-    all_character_sprite_filenames, build_npc_sprite_asset, build_prop_sprite_asset,
-    build_prop_sprite_asset_packed, load_character_sprites_in, sheet_for_character_id,
-    sprite_body_collision_for_character_id, CharacterSpriteAssets, SpriteBodyCollision,
+    all_character_sprite_filenames_in, build_npc_sprite_asset, build_prop_sprite_asset,
+    build_prop_sprite_asset_packed, load_character_sprites_in, sheet_for_character_id_in,
+    sprite_body_collision_for_character_id_in, CharacterSpriteAssets, SpriteBodyCollision,
 };

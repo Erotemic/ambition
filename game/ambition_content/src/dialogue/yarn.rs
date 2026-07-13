@@ -68,21 +68,23 @@ fn yarn_title_ids(source: &'static str) -> impl Iterator<Item = &'static str> {
 /// Hall-of-Characters dialogue ids declared in the catalog
 /// (`hall_dialogue_id`), so authored `hall_<id>` nodes are accepted without a
 /// second hand-maintained list — the catalog is their single source of truth.
-pub fn known_dialogue_ids() -> Vec<&'static str> {
-    let mut ids: Vec<&'static str> = Vec::new();
+pub fn known_dialogue_ids(
+    catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
+) -> Vec<String> {
+    let mut ids: Vec<String> = Vec::new();
     for (_, source) in YARN_SOURCES {
         for title in yarn_title_ids(source) {
-            ids.push(title);
+            ids.push(title.to_string());
             if let Some((root, _)) = title.split_once("__") {
-                ids.push(root);
+                ids.push(root.to_string());
             }
         }
     }
     ids.extend(
-        ambition_actors::character_roster::catalog()
+        catalog
             .characters
             .values()
-            .filter_map(|entry| entry.hall_dialogue_id.as_deref()),
+            .filter_map(|entry| entry.hall_dialogue_id.clone()),
     );
     ids.sort_unstable();
     ids.dedup();

@@ -66,6 +66,9 @@ pub fn load_room_geometry(
     clock_resets: &mut MessageWriter<ClockResetRequest>,
     moving_platforms: &mut Vec<MovingPlatformState>,
     placement_lowering: &crate::world::placements::PlacementLoweringRegistry,
+    character_catalog: &ambition_characters::actor::character_catalog::CharacterCatalog,
+    character_roster: &crate::features::CharacterRoster,
+    boss_catalog: &crate::boss_encounter::BossCatalog,
     session_scope: SessionSpawnScope,
     world: &mut RoomGeometry,
     room_set: &mut RoomSet,
@@ -122,6 +125,9 @@ pub fn load_room_geometry(
     *moving_platforms = platforms::moving_platforms_for_room(&spec);
     features::spawn_room_feature_entities_with_registry(
         commands,
+        character_catalog,
+        character_roster,
+        boss_catalog,
         &spec,
         placement_lowering,
         session_scope,

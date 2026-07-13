@@ -11,6 +11,7 @@
 //! renderer uses, so the gameplay box lines up with the drawn blade.
 //! Facing mirrors the box's forward offset.
 
+use ambition_characters::actor::character_catalog::CharacterCatalog;
 use ambition_engine_core as ae;
 use ambition_sprite_sheet::character::sheets;
 use ambition_sprite_sheet::{baked_sheet_rons, SheetRecord, SheetRegistry};
@@ -117,31 +118,29 @@ pub fn manifest_attack_hitbox_world(
     Some(ae::CombatVolume::aabb(ae::Aabb::new(center, half)))
 }
 
-/// Render size of the player's sprite quad, resolved (and cached) the
-/// same way the renderer does. `None` if the player has no sheet spec.
-///
-/// §5 classification: **immutable asset cache** — the resolved sheet spec is
-/// derived once from baked metadata; an `OnceLock`, no override seam.
-fn player_render_size(collision: ae::Vec2) -> Option<ae::Vec2> {
-    static SPEC: OnceLock<Option<sheets::CharacterSheetSpec>> = OnceLock::new();
-    let spec = SPEC
-        .get_or_init(|| super::assets::sheet_for_character_id(PLAYER_CHARACTER_ID))
-        .as_ref()?;
-    Some(sheets::player_placeholder_render_size(spec, collision))
+/// Render size of the player's sprite quad, resolved from the supplied
+/// App-local catalog the same way the renderer does. `None` if the player has
+/// no sheet spec. The baked manifest registry remains the only immutable
+/// process-wide cache; catalog-dependent sheet selection is never cached.
+fn player_render_size(
+    catalog: &CharacterCatalog,
+    collision: ae::Vec2,
+) -> Option<ae::Vec2> {
+    let spec = super::assets::sheet_for_character_id_in(catalog, PLAYER_CHARACTER_ID)?;
+    Some(sheets::player_placeholder_render_size(&spec, collision))
 }
 
 /// Resolve the player's melee attack hitbox for `animation` from the
-/// baked manifest. Cheap per-frame (the file-root registry and the spec
-/// are cached). Returns `None` when no hitbox is authored for that
-/// animation — the caller falls back to its hardcoded `AttackSpec` volume.
+/// baked manifest. Cheap per-frame because the file-root registry is an
+/// immutable baked-asset cache. Returns `None` when no hitbox is authored for
+/// that animation, so the caller falls back to its `AttackSpec` volume.
 ///
-/// TODO(non-player-centric): take the controlled actor's sheet/character
-/// ids instead of the hardcoded player ones, so any possessed actor's
-
-/// The combat-seam resolver (`combat::authored_volumes`): one entry point the
-/// runtime assembly installs so the strike paths resolve authored volumes
-/// without naming this module. `None` cid = the player manifest root.
+/// The combat-seam resolver (`combat::authored_volumes`) is installed as an
+/// App-local Bevy resource by runtime composition. It receives the same
+/// `CharacterCatalog` as spawning and rendering without naming this module.
+/// `None` cid selects the player manifest root.
 pub fn authored_attack_volume_resolver(
+    catalog: &CharacterCatalog,
     sprite_character_id: Option<&str>,
     animation: &str,
     body_pos: ae::Vec2,
@@ -150,10 +149,23 @@ pub fn authored_attack_volume_resolver(
     gravity_dir: ae::Vec2,
 ) -> Option<ae::CombatVolume> {
     match sprite_character_id {
-        Some(cid) => {
-            actor_attack_hitbox_world(cid, animation, body_pos, collision, facing, gravity_dir)
-        }
-        None => player_attack_hitbox_world(animation, body_pos, collision, facing, gravity_dir),
+        Some(cid) => actor_attack_hitbox_world(
+            catalog,
+            cid,
+            animation,
+            body_pos,
+            collision,
+            facing,
+            gravity_dir,
+        ),
+        None => player_attack_hitbox_world(
+            catalog,
+            animation,
+            body_pos,
+            collision,
+            facing,
+            gravity_dir,
+        ),
     }
 }
 
@@ -167,6 +179,7 @@ const PLAYER_ATTACK_HITBOX_SCALE: f32 = 1.3;
 
 /// authored melee box drives its attack.
 pub fn player_attack_hitbox_world(
+    catalog: &CharacterCatalog,
     animation: &str,
     body_pos: ae::Vec2,
     collision: ae::Vec2,
@@ -176,7 +189,7 @@ pub fn player_attack_hitbox_world(
     let record = file_root_registry().get(PLAYER_FILE_ROOT)?;
     // Enlarge the hitbox by scaling the render size the poly/bbox offsets derive
     // from — grows reach + size about the feet anchor, player-only.
-    let render_size = player_render_size(collision)? * PLAYER_ATTACK_HITBOX_SCALE;
+    let render_size = player_render_size(catalog, collision)? * PLAYER_ATTACK_HITBOX_SCALE;
     manifest_attack_hitbox_world(
         record,
         animation,
@@ -190,7 +203,7 @@ pub fn player_attack_hitbox_world(
 
 /// Resolve ANY catalog actor's melee attack hitbox for `animation` from its
 /// baked manifest — the actor-neutral generalization of
-/// [`player_attack_hitbox_world`] (the `TODO(non-player-centric)` above). The
+/// [`player_attack_hitbox_world`]. The
 /// actor's sheet is resolved by its catalog `character_id` through the
 /// file-root registry (so robot-family characters — the player and the robot
 /// enemy both author `target: "robot"` — stay distinct), and pixel rects scale
@@ -202,6 +215,7 @@ pub fn player_attack_hitbox_world(
 /// the player uses, so an enemy with an authored blade swings the box you see
 /// in `debug-hitboxes`, not a divergent hardcoded rectangle.
 pub fn actor_attack_hitbox_world(
+    catalog: &CharacterCatalog,
     character_id: &str,
     animation: &str,
     body_pos: ae::Vec2,
@@ -209,15 +223,12 @@ pub fn actor_attack_hitbox_world(
     facing: f32,
     gravity_dir: ae::Vec2,
 ) -> Option<ae::CombatVolume> {
-    let file_root = crate::character_roster::catalog()
-        .characters
-        .get(character_id)?
-        .manifest_target()?;
+    let file_root = catalog.get(character_id)?.manifest_target()?;
     let record = file_root_registry().get(file_root)?;
     // Scale by the actor's rendered sprite size (same derivation its collision
     // came from); fall back to the collision box when no sheet spec resolves.
     let render_size =
-        super::assets::sprite_body_collision_for_character_id(character_id, collision)
+        super::assets::sprite_body_collision_for_character_id_in(catalog, character_id, collision)
             .map(|b| b.render_size)
             .unwrap_or(collision);
     manifest_attack_hitbox_world(

@@ -70,6 +70,34 @@ impl ActiveSessionScope {
     }
 }
 
+/// Marker resource: this App's gameplay simulation belongs to shell-routed
+/// gameplay sessions. Inserted by the session bridge (the host composition that
+/// routes gameplay through a launcher); never inserted by direct-entry apps or
+/// headless harnesses, which keep today's always-on simulation.
+///
+/// [`simulation_authorized`] reads it: with the marker present, the gameplay
+/// simulation root set runs only while a session scope is live, so launcher /
+/// title / loading frames run zero simulation against zero session entities.
+#[derive(Resource, Default, Debug, Clone, Copy)]
+pub struct SessionGatedSimulation;
+
+/// Run condition for the gameplay-simulation root set.
+///
+/// - No [`SessionGatedSimulation`] marker: the App did not opt into
+///   session-routed gameplay (direct-entry / headless) — simulate every frame.
+/// - Marker present: simulate only while [`ActiveSessionScope`] holds a live
+///   session. At frontend routes there is no session and the simulation —
+///   including its tick timeline — sleeps.
+pub fn simulation_authorized(
+    gate: Option<Res<SessionGatedSimulation>>,
+    scope: Option<Res<ActiveSessionScope>>,
+) -> bool {
+    match gate {
+        None => true,
+        Some(_) => scope.is_some_and(|scope| scope.current().is_some()),
+    }
+}
+
 /// A captured entity-ownership context.
 ///
 /// The value is copied into spawn commands when work is requested. It never

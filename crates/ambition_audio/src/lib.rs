@@ -6,6 +6,7 @@
 //! request, where bank bytes come from, and how settings map into [`mix::MusicMix`].
 
 pub mod mix;
+pub mod selection;
 pub mod spec;
 
 #[cfg(feature = "kira")]

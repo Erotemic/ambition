@@ -194,12 +194,30 @@ pub enum CombatSet {
     ContentFlavor,
 }
 
+/// The one umbrella set containing EVERY gameplay-simulation phase in the sim
+/// schedule: all of [`SandboxSet`], the portal/projectile/combat sub-chains
+/// nested inside them, and the pre-`CoreSimulation` strays (sim-id minting,
+/// class-B log clear, portal carves).
+///
+/// Its purpose is the session gate: the whole gameplay simulation carries ONE
+/// run condition
+/// ([`crate::lifecycle::simulation_authorized`]) so a host that routes
+/// gameplay through shell sessions gets a sleeping simulation — frozen tick
+/// timeline included — at launcher/title/loading routes, while direct-entry
+/// and headless apps (no [`crate::lifecycle::SessionGatedSimulation`] marker)
+/// keep today's always-on behavior.
+#[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
+pub struct GameplaySimulationRoot;
+
 /// Coarse simulation ordering for sandbox gameplay systems.
 ///
 /// This is the concrete sandbox app realization of the lower
 /// [`PlatformerRuntimeSet`] vocabulary, plus Ambition-specific tail phases. It
 /// lives here because host, runtime, content, sim-view, and render all need to
 /// order against the same labels without depending on the actor-domain crate.
+///
+/// Every variant is nested inside [`GameplaySimulationRoot`]
+/// (`configure_sandbox_sets`), which carries the session-gate run condition.
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone, Copy)]
 pub enum SandboxSet {
     /// Top-level set that contains the six sub-sets below. Kept as a

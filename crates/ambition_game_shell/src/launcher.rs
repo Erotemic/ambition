@@ -44,6 +44,11 @@ pub struct ShellLauncherPresentation {
     pub title: String,
     pub empty_message: String,
     pub footer: String,
+    /// Label of the built-in Exit entry appended after the experience rows.
+    /// `None` hides it (kiosk builds / hosts that own quit elsewhere).
+    /// Selecting it emits the semantic `ShellCommand::ExitProcess`; acting on
+    /// the resulting `ShellEvent::ExitRequested` remains the HOST's job.
+    pub exit_label: Option<String>,
 }
 
 impl Default for ShellLauncherPresentation {
@@ -52,6 +57,7 @@ impl Default for ShellLauncherPresentation {
             title: "Ambition".to_owned(),
             empty_message: "No experiences registered".to_owned(),
             footer: "Arrow keys select · Enter launches".to_owned(),
+            exit_label: Some("Exit".to_owned()),
         }
     }
 }

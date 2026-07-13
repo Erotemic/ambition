@@ -6,16 +6,20 @@
 //! fresh engine-neutral [`SessionScopeId`] whenever that experience activates.
 //! Route retirement emits the matching session-retirement signal exactly once.
 
-use std::collections::BTreeSet;
+use std::collections::BTreeMap;
 
+use ambition_audio::catalog::AudioCatalogRegistry;
+use ambition_audio::selection::ActiveAudioSelection;
 use ambition_platformer_primitives::lifecycle::{
-    ActiveSessionScope, SessionScopeId, SessionScopePlugin, SessionScopeRetired, SessionScopeSet,
+    ActiveSessionScope, SessionGatedSimulation, SessionScopeId, SessionScopePlugin,
+    SessionScopeRetired, SessionScopeSet,
 };
 use bevy::prelude::*;
 
 use crate::{
-    ActiveShellExperience, AmbitionGameShellSet, ExperienceRegistration, ShellActivationId,
-    ShellEvent, ShellExperienceAppExt, ShellExperienceId, ShellRouteSpec,
+    ActiveShellExperience, AmbitionGameShellSet, ExperienceRegistration, LoadBarrierRef,
+    ShellActivationId, ShellEvent, ShellExperienceAppExt, ShellExperienceId, ShellRouteCatalog,
+    ShellRouteSpec,
 };
 
 /// Gameplay-session lifecycle facts delivered to provider systems.
@@ -47,23 +51,47 @@ impl GameplaySessionEvent {
     }
 }
 
-/// Deterministic registry of experiences whose routes own gameplay sessions.
+/// Per-experience session configuration a provider declares at registration.
+/// Complete defaults: the common provider registers with `Default::default()`.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct GameplaySessionProfile {
+    /// Audio-catalog provider id whose registered music/SFX become the active
+    /// audio authority while this experience's session is live. `None` (the
+    /// default) selects the experience id itself — providers conventionally
+    /// register audio fragments under their own experience id.
+    pub audio_provider: Option<String>,
+}
+
+/// Deterministic registry of experiences whose routes own gameplay sessions,
+/// with each experience's session profile.
 #[derive(Resource, Default)]
 pub struct GameplaySessionRegistry {
-    experiences: BTreeSet<ShellExperienceId>,
+    experiences: BTreeMap<ShellExperienceId, GameplaySessionProfile>,
 }
 
 impl GameplaySessionRegistry {
     pub fn register(&mut self, experience: ShellExperienceId) -> bool {
-        self.experiences.insert(experience)
+        self.register_with_profile(experience, GameplaySessionProfile::default())
+    }
+
+    pub fn register_with_profile(
+        &mut self,
+        experience: ShellExperienceId,
+        profile: GameplaySessionProfile,
+    ) -> bool {
+        self.experiences.insert(experience, profile).is_none()
     }
 
     pub fn contains(&self, experience: &ShellExperienceId) -> bool {
-        self.experiences.contains(experience)
+        self.experiences.contains_key(experience)
+    }
+
+    pub fn profile(&self, experience: &ShellExperienceId) -> Option<&GameplaySessionProfile> {
+        self.experiences.get(experience)
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &ShellExperienceId> {
-        self.experiences.iter()
+        self.experiences.keys()
     }
 }
 
@@ -72,6 +100,10 @@ impl GameplaySessionRegistry {
 pub struct GameplaySessionInstance {
     pub activation: ActiveShellExperience,
     pub scope: SessionScopeId,
+    /// The load barrier that authorized this activation, when its route
+    /// required one. Captured at activation so acceptance checks can prove no
+    /// stale load transaction outlives the session it prepared.
+    pub load: Option<LoadBarrierRef>,
 }
 
 /// App-local gameplay-session authority. It is `None` at launchers, credits,
@@ -149,9 +181,15 @@ pub struct GameplaySessionBridgePlugin;
 impl Plugin for GameplaySessionBridgePlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(SessionScopePlugin)
+            // Opt this App into session-gated simulation: composing the bridge
+            // IS the declaration that gameplay belongs to shell-routed
+            // sessions, so the gameplay-simulation root sleeps whenever no
+            // session scope is live (launcher/title/loading frames).
+            .init_resource::<SessionGatedSimulation>()
             .init_resource::<GameplaySessionRegistry>()
             .init_resource::<GameplaySessionLinks>()
             .init_resource::<ActiveGameplaySession>()
+            .init_resource::<ActiveAudioSelection>()
             .add_message::<GameplaySessionEvent>()
             .configure_sets(
                 Update,
@@ -162,14 +200,62 @@ impl Plugin for GameplaySessionBridgePlugin {
             )
             .add_systems(
                 Update,
-                translate_shell_session_lifecycle.in_set(GameplaySessionSet::Bridge),
+                (
+                    translate_shell_session_lifecycle,
+                    select_session_audio_authority,
+                )
+                    .chain()
+                    .in_set(GameplaySessionSet::Bridge),
             );
+    }
+}
+
+/// Derive the active audio authority from gameplay-session lifecycle.
+///
+/// Activation selects the session profile's audio provider (defaulting to the
+/// experience id) out of the App-local [`AudioCatalogRegistry`]; a provider
+/// that registered no fragments gets a DELIBERATE empty authority, never a
+/// fallback to another provider's audio. Retirement clears playback authority
+/// — cached assets may outlive the session, the selection does not.
+///
+/// Chained directly after [`translate_shell_session_lifecycle`], so providers
+/// in [`GameplaySessionSet::Providers`] already observe the new selection on
+/// the activation frame.
+fn select_session_audio_authority(
+    mut sessions: MessageReader<GameplaySessionEvent>,
+    registry: Res<GameplaySessionRegistry>,
+    catalogs: Option<Res<AudioCatalogRegistry>>,
+    mut selection: ResMut<ActiveAudioSelection>,
+) {
+    for event in sessions.read() {
+        match event {
+            GameplaySessionEvent::Activated { activation, .. } => {
+                let provider = registry
+                    .profile(&activation.experience_id)
+                    .and_then(|profile| profile.audio_provider.clone())
+                    .unwrap_or_else(|| activation.experience_id.as_str().to_owned());
+                let (music, sfx) = catalogs
+                    .as_ref()
+                    .map(|catalogs| {
+                        (
+                            catalogs.music_for(&provider).cloned(),
+                            catalogs.sfx_for(&provider).cloned(),
+                        )
+                    })
+                    .unwrap_or((None, None));
+                selection.select(provider, music, sfx);
+            }
+            GameplaySessionEvent::Retiring { .. } => {
+                selection.clear();
+            }
+        }
     }
 }
 
 fn translate_shell_session_lifecycle(
     mut shell_events: MessageReader<ShellEvent>,
     registry: Res<GameplaySessionRegistry>,
+    routes: Res<ShellRouteCatalog>,
     mut active_scope: ResMut<ActiveSessionScope>,
     mut links: ResMut<GameplaySessionLinks>,
     mut active_session: ResMut<ActiveGameplaySession>,
@@ -215,6 +301,9 @@ fn translate_shell_session_lifecycle(
                 active_session.0 = Some(GameplaySessionInstance {
                     activation: activation.clone(),
                     scope,
+                    load: routes
+                        .get(&activation.route_id)
+                        .and_then(|route| route.required_barrier.clone()),
                 });
                 session_events.write(GameplaySessionEvent::Activated {
                     activation: activation.clone(),
@@ -352,6 +441,131 @@ mod tests {
             Some(None),
             "provider teardown must observe no ambient owner for the retired session",
         );
+    }
+
+    /// C1-audio-session: activating a session selects ITS provider's audio;
+    /// a provider with no registered fragments gets a deliberate empty
+    /// authority (never another provider's); switching sessions replaces the
+    /// selection; returning home retires playback authority entirely.
+    #[test]
+    fn session_activation_owns_audio_authority_and_home_retires_it() {
+        use ambition_audio::catalog::{AudioCatalogFragment, AudioCatalogRegistry};
+        use ambition_audio::selection::ActiveAudioSelection;
+        use ambition_audio::spec::{MusicRegistry, MusicTrack};
+
+        const SILENT_GAME: &str = "silent_game";
+        const SILENT_ROUTE: &str = "silent_gameplay";
+
+        let mut app = app();
+        app.register_gameplay_experience(
+            ExperienceRegistration::new(SILENT_GAME, "Silent game", SILENT_ROUTE),
+            ShellRouteSpec::new(SILENT_ROUTE, SILENT_GAME),
+        );
+        // Only `test_game` registers audio; `silent_game` deliberately none.
+        let mut catalogs = AudioCatalogRegistry::default();
+        catalogs
+            .register(
+                AudioCatalogFragment::new(
+                    GAME,
+                    Some(MusicRegistry {
+                        default_track: "test_theme".into(),
+                        tracks: vec![MusicTrack {
+                            id: "test_theme".into(),
+                            display_name: "Test theme".into(),
+                            asset_path: None,
+                        }],
+                    }),
+                    None,
+                )
+                .unwrap(),
+            )
+            .unwrap();
+        app.insert_resource(catalogs);
+
+        settle(&mut app);
+        let selection = app.world().resource::<ActiveAudioSelection>();
+        assert_eq!(selection.provider_id(), Some(GAME));
+        assert_eq!(
+            selection.music().map(|m| m.default_track.as_str()),
+            Some("test_theme"),
+            "activation selects the provider's registered music"
+        );
+
+        // Switch to the silent game: authority REPLACED, not inherited.
+        app.world_mut()
+            .write_message(ShellCommand::ReplaceWith(SILENT_ROUTE.into()));
+        settle(&mut app);
+        let selection = app.world().resource::<ActiveAudioSelection>();
+        assert_eq!(selection.provider_id(), Some(SILENT_GAME));
+        assert!(
+            selection.music().is_none(),
+            "a provider that registered no audio gets a deliberate empty set, \
+             never the previous provider's music"
+        );
+
+        // Home retires playback authority.
+        app.world_mut().write_message(ShellCommand::QuitToHome);
+        settle(&mut app);
+        let selection = app.world().resource::<ActiveAudioSelection>();
+        assert!(
+            selection.current().is_none(),
+            "no provider owns playback at the home route"
+        );
+    }
+
+    /// W0: the canonical session instance captures the load barrier that
+    /// authorized its activation.
+    #[test]
+    fn session_instance_carries_its_load_barrier_identity() {
+        use ambition_load::{
+            AmbitionLoadPlugin, LoadBarrierSpec, LoadCommand, LoadCoordinator, LoadPlanSpec,
+        };
+
+        const LOADED_GAME: &str = "loaded_game";
+        const LOADED_ROUTE: &str = "loaded_gameplay";
+
+        let mut app = App::new();
+        app.add_plugins((
+            AmbitionLoadPlugin,
+            AmbitionGameShellPlugin,
+            GameplaySessionBridgePlugin,
+        ));
+        app.register_gameplay_experience(
+            ExperienceRegistration::new(LOADED_GAME, "Loaded game", LOADED_ROUTE),
+            ShellRouteSpec::new(LOADED_ROUTE, LOADED_GAME)
+                .requiring("load-plan".into(), "ready-barrier".into()),
+        );
+        app.world_mut()
+            .resource_mut::<ShellRouteCatalog>()
+            .register(ShellRouteSpec::new(HOME, "home"));
+        app.world_mut()
+            .resource_mut::<ShellHostConfiguration>()
+            .spec = Some(ShellHostSpec::new(LOADED_ROUTE, HOME));
+        // Declare and immediately satisfy the barrier (no work, discovery
+        // closed) so the route can activate.
+        {
+            let mut coordinator = app.world_mut().resource_mut::<LoadCoordinator>();
+            coordinator.apply(LoadCommand::Begin(LoadPlanSpec::new(
+                "load-plan",
+                "test plan",
+            )));
+            coordinator.apply(LoadCommand::DeclareBarrier {
+                load_id: "load-plan".into(),
+                spec: LoadBarrierSpec::new("ready-barrier", "ready"),
+            });
+            coordinator.apply(LoadCommand::SetDiscovery {
+                load_id: "load-plan".into(),
+                barrier_id: "ready-barrier".into(),
+                open: false,
+                forecast: None,
+            });
+        }
+        settle(&mut app);
+        let session = app.world().resource::<ActiveGameplaySession>();
+        let instance = session.0.as_ref().expect("session active");
+        let load = instance.load.as_ref().expect("load identity captured");
+        assert_eq!(load.load_id.as_str(), "load-plan");
+        assert_eq!(load.barrier_id.as_str(), "ready-barrier");
     }
 
     #[test]

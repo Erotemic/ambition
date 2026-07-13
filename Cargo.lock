@@ -464,6 +464,7 @@ dependencies = [
 name = "ambition_game_shell"
 version = "0.1.0"
 dependencies = [
+ "ambition_audio",
  "ambition_load",
  "ambition_menu",
  "ambition_platformer_primitives",

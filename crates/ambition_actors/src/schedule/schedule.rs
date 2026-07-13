@@ -15,7 +15,10 @@ use bevy::prelude::*;
 // runtime, host, content, sim-view, and render can order systems without
 // depending on `ambition_actors`. This module keeps only the concrete ordering
 // function because it still refers to actor-system anchors.
-use ambition_platformer_primitives::schedule::{SandboxSet, SimScheduleExt};
+use ambition_platformer_primitives::lifecycle::simulation_authorized;
+use ambition_platformer_primitives::schedule::{
+    GameplaySimulationRoot, SandboxSet, SimScheduleExt,
+};
 
 /// Configure the chained ordering between [`SandboxSet`] variants.
 ///
@@ -44,6 +47,31 @@ use ambition_platformer_primitives::schedule::{SandboxSet, SimScheduleExt};
 /// [`SimSchedule`]: ambition_platformer_primitives::schedule::SimSchedule
 pub fn configure_sandbox_sets(app: &mut App) {
     let sim = app.sim_schedule();
+
+    // THE session gate. Every SandboxSet variant is nested inside
+    // `GameplaySimulationRoot` below, so this ONE condition puts the whole
+    // gameplay simulation (tick timeline included) to sleep at frontend routes
+    // in session-gated hosts, and is inert everywhere else
+    // (see `simulation_authorized`).
+    app.configure_sets(sim, GameplaySimulationRoot.run_if(simulation_authorized));
+    app.configure_sets(
+        sim,
+        (
+            SandboxSet::CoreSimulation,
+            SandboxSet::FeatureCollection,
+            SandboxSet::FeatureInteraction,
+            SandboxSet::LdtkRuntimeSpine,
+            SandboxSet::EncounterSimulation,
+            SandboxSet::Cutscene,
+            SandboxSet::GameplayEffects,
+            SandboxSet::Progression,
+            SandboxSet::ResetProcessing,
+            SandboxSet::FeatureViewSync,
+            SandboxSet::PresentationVisualSync,
+            SandboxSet::Trace,
+        )
+            .in_set(GameplaySimulationRoot),
+    );
 
     // Sub-sets inside CoreSimulation, ordered.
     //

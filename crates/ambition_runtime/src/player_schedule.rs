@@ -179,6 +179,7 @@ impl Plugin for PlayerSchedulePlugin {
                 ambition_characters::brain::observe_brain_action_counter,
             )
                 .chain()
+                .in_set(ambition_platformer_primitives::schedule::GameplaySimulationRoot)
                 .after(SandboxSet::WorldPrep)
                 .before(SandboxSet::PlayerSimulation),
         );

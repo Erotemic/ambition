@@ -22,6 +22,7 @@ basic_presentation = [
 
 [dependencies]
 ambition_menu = { path = "../ambition_menu", default-features = false, optional = true }
+ambition_audio = { path = "../ambition_audio", default-features = false }
 ambition_load = { path = "../ambition_load" }
 ambition_platformer_primitives = { path = "../ambition_platformer_primitives" }
 bevy = { version = "0.18.1", default-features = false }

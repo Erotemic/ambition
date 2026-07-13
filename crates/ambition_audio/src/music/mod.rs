@@ -68,3 +68,32 @@ use state::PendingMusicStateTransition;
 pub use state::{AdaptiveCueDirective, MusicDirectorMode, MusicDirectorState, MusicIntent};
 
 use channels::{LayerGains, MusicBank};
+
+/// Minimal session-music driver for hosts WITHOUT the full adaptive director
+/// (demo hosts, multi-game launchers): whenever the active audio selection
+/// changes, stop playback and start the newly selected provider's default
+/// track, looped. No selection — or a provider with no authored music — is
+/// deliberate silence.
+///
+/// Provider-agnostic by construction: it reads only
+/// [`crate::selection::ActiveAudioSelection`], so a new game's music plays
+/// with zero host edits once its fragment is registered and its session
+/// activates. Hosts running the full director do NOT add this system — the
+/// director owns playback there.
+pub fn drive_selected_session_music(
+    selection: Res<crate::selection::ActiveAudioSelection>,
+    asset_server: Res<AssetServer>,
+    audio: Res<bevy_kira_audio::prelude::Audio>,
+) {
+    if !selection.is_changed() {
+        return;
+    }
+    audio.stop();
+    if let Some(music) = selection.music() {
+        if let Some(track) = music.track(&music.default_track) {
+            audio
+                .play(asset_server.load(track.resolved_asset_path()))
+                .looped();
+        }
+    }
+}

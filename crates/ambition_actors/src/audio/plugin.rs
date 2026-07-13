@@ -109,6 +109,11 @@ impl Plugin for SandboxAudioPlugin {
             // encounter/boss/room/radio gameplay into a content-agnostic
             // `MusicIntent`, then the director consumes only that resource.
             .init_resource::<crate::music::MusicIntent>()
+            // The active session audio authority. Empty (silence) until a
+            // host selects it: session-routed hosts select per activation via
+            // the shell bridge; direct-entry hosts select their provider
+            // statically at composition.
+            .init_resource::<ambition_audio::selection::ActiveAudioSelection>()
             // The HOST owns its settings model and the authored cue
             // catalog; the reusable music core consumes the synced
             // `MusicMix` + the inserted catalog (Stage 20 / B1 seam).

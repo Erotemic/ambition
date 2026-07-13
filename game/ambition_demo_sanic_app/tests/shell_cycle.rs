@@ -127,6 +127,58 @@ fn sanic_launch_quit_relaunch_is_leak_free() {
     );
 }
 
+/// W1: at the launcher there is no gameplay session, and the SIMULATION —
+/// its tick timeline included — sleeps. Not a shell-only claim: this drives
+/// the real fixed-tick host and reads the real `SimTick`.
+///
+/// The poison this guards: an ungated sim at the frontend keeps ticking a
+/// stale or placeholder world under the menu (burning time, mutating state,
+/// and re-arming the exact class of stale-authority bugs the session model
+/// exists to kill).
+#[test]
+fn simulation_sleeps_at_the_launcher_and_wakes_per_session() {
+    let mut app = build_demo_app();
+    settle(&mut app);
+    assert_eq!(active_route(&app), Some("sanic_gameplay".to_owned()));
+
+    // In-session the timeline advances: one update == one fixed tick.
+    let in_session = app.world().resource::<ambition::runtime::SimTick>().0;
+    app.update();
+    app.update();
+    assert_eq!(
+        app.world().resource::<ambition::runtime::SimTick>().0,
+        in_session + 2,
+        "fixed-tick simulation advances while a session is live"
+    );
+
+    // At the launcher the timeline is FROZEN.
+    app.world_mut().write_message(ShellCommand::QuitToHome);
+    settle(&mut app);
+    assert_eq!(active_route(&app), Some("sanic_launcher".to_owned()));
+    let at_home = app.world().resource::<ambition::runtime::SimTick>().0;
+    for _ in 0..8 {
+        app.update();
+    }
+    assert_eq!(
+        app.world().resource::<ambition::runtime::SimTick>().0,
+        at_home,
+        "no fixed-update gameplay simulation runs at the launcher"
+    );
+
+    // Relaunch wakes it again.
+    app.world_mut()
+        .write_message(ShellLauncherCommand::LaunchSelected);
+    settle(&mut app);
+    let relaunched = app.world().resource::<ambition::runtime::SimTick>().0;
+    app.update();
+    app.update();
+    assert_eq!(
+        app.world().resource::<ambition::runtime::SimTick>().0,
+        relaunched + 2,
+        "a fresh session resumes the simulation"
+    );
+}
+
 /// The SAME `SanicExperiencePlugin` under a DIFFERENT host resolves `QuitToHome`
 /// to THAT host's declared home route. The provider named neither launcher — the
 /// return is semantic and host-relative — so one provider serves every host.

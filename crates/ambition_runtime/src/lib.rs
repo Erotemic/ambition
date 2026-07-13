@@ -162,6 +162,7 @@ impl Plugin for SandboxSetsPlugin {
         app.add_systems(
             sim,
             ambition_platformer_primitives::class_b::clear_class_b_remap_log
+                .in_set(ambition_platformer_primitives::schedule::GameplaySimulationRoot)
                 .before(ambition_platformer_primitives::schedule::SandboxSet::CoreSimulation),
         );
         // N3.1's identity vocabulary. Every body the sim can identify from an
@@ -171,6 +172,7 @@ impl Plugin for SandboxSetsPlugin {
             sim,
             (snapshot::ensure_sim_id, snapshot::mint_spawned_sim_ids)
                 .chain()
+                .in_set(ambition_platformer_primitives::schedule::GameplaySimulationRoot)
                 .before(ambition_platformer_primitives::schedule::SandboxSet::CoreSimulation),
         );
         // Shrine activation pulse (interaction → save flash).

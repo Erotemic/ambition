@@ -320,6 +320,7 @@ fn cleanup_segment_scoped_entities(
 fn sync_launcher_activation(
     router: Res<ShellRouter>,
     catalog: Res<ShellLaunchCatalog>,
+    presentation: Res<ShellLauncherPresentation>,
     mut state: ResMut<ShellLauncherState>,
 ) {
     let active = router
@@ -331,18 +332,22 @@ fn sync_launcher_activation(
         state.selected = 0;
     }
     if state.active {
+        // Selection space: the available experiences plus the built-in Exit
+        // row (when the presentation shows one).
         let available = catalog
             .entries
             .iter()
             .filter(|entry| entry.available)
             .count();
-        state.selected = state.selected.min(available.saturating_sub(1));
+        let selectable = available + usize::from(presentation.exit_label.is_some());
+        state.selected = state.selected.min(selectable.saturating_sub(1));
     }
 }
 
 fn process_launcher_commands(
     mut commands: MessageReader<ShellLauncherCommand>,
     catalog: Res<ShellLaunchCatalog>,
+    presentation: Res<ShellLauncherPresentation>,
     mut state: ResMut<ShellLauncherState>,
     mut shell: MessageWriter<ShellCommand>,
 ) {
@@ -354,23 +359,27 @@ fn process_launcher_commands(
         .iter()
         .filter(|entry| entry.available)
         .collect();
-    if available.is_empty() {
+    // The Exit row sits after the last available experience.
+    let exit_index = presentation.exit_label.is_some().then_some(available.len());
+    let selectable = available.len() + usize::from(exit_index.is_some());
+    if selectable == 0 {
         return;
     }
     for command in commands.read() {
         match command {
             ShellLauncherCommand::Previous => {
-                state.selected = state.selected.checked_sub(1).unwrap_or(available.len() - 1);
+                state.selected = state.selected.checked_sub(1).unwrap_or(selectable - 1);
             }
             ShellLauncherCommand::Next => {
-                state.selected = (state.selected + 1) % available.len();
+                state.selected = (state.selected + 1) % selectable;
             }
             ShellLauncherCommand::LaunchSelected => {
-                shell.write(ShellCommand::GoTo(
-                    available[state.selected.min(available.len() - 1)]
-                        .route_id
-                        .clone(),
-                ));
+                let selected = state.selected.min(selectable - 1);
+                if exit_index == Some(selected) {
+                    shell.write(ShellCommand::ExitProcess);
+                } else if let Some(entry) = available.get(selected) {
+                    shell.write(ShellCommand::GoTo(entry.route_id.clone()));
+                }
             }
         }
     }

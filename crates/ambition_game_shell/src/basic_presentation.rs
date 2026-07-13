@@ -183,7 +183,7 @@ fn spawn_launcher_menu(
         MenuTextAlign::Center,
         MenuColor::WHITE,
     );
-    if catalog.entries.is_empty() {
+    if catalog.entries.is_empty() && presentation.exit_label.is_none() {
         page.text(
             50.0,
             48.0,
@@ -197,7 +197,8 @@ fn spawn_launcher_menu(
         // Actions; unavailable ones are non-actionable Items showing the reason.
         // The navigation cursor addresses only available entries, so map that
         // cursor onto the full list when deciding what to highlight.
-        let row_height = (60.0 / catalog.entries.len().max(1) as f32).min(12.0);
+        let exit_rows = usize::from(presentation.exit_label.is_some());
+        let row_height = (60.0 / (catalog.entries.len() + exit_rows).max(1) as f32).min(12.0);
         let mut available_index = 0usize;
         for (index, entry) in catalog.entries.iter().enumerate() {
             let (kind, action, detail, selected) = if entry.available {
@@ -235,6 +236,25 @@ fn spawn_launcher_menu(
                 selected,
                 false,
                 action,
+            );
+        }
+        // The built-in Exit row after the experiences. The navigation cursor
+        // addresses available entries then Exit, so Exit is selected when the
+        // cursor equals the available count.
+        if let Some(exit_label) = &presentation.exit_label {
+            page.control(
+                MenuRect::new(
+                    16.0,
+                    18.0 + catalog.entries.len() as f32 * (row_height + 1.5),
+                    68.0,
+                    row_height,
+                ),
+                MenuControlKind::Action,
+                exit_label.clone(),
+                Some("Leave the game".to_owned()),
+                available_index == launcher.selected,
+                false,
+                None,
             );
         }
         if !presentation.footer.is_empty() {

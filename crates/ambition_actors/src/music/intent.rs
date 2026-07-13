@@ -18,7 +18,7 @@ use std::collections::HashMap;
 use crate::audio::RadioStationState;
 use crate::encounter::{Encounter, EncounterMusicRequest, EncounterPhase, EncounterState};
 use crate::rooms::RoomMusicRequest;
-use crate::session::data::MusicRegistry;
+use ambition_audio::selection::ActiveAudioSelection;
 
 use ambition_audio::music::{
     AdaptiveCueDirective, MusicDirectorMode, MusicDirectorState, MusicIntent,
@@ -41,7 +41,7 @@ pub fn compute_music_intent(
     mut encounter_music: ResMut<EncounterMusicRequest>,
     room_music: Res<RoomMusicRequest>,
     radio: Option<Res<RadioStationState>>,
-    music_registry: Res<MusicRegistry>,
+    audio_selection: Res<ActiveAudioSelection>,
     mut intent: ResMut<MusicIntent>,
 ) {
     // The music director keys adaptive cues by encounter id; build the id →
@@ -59,7 +59,7 @@ pub fn compute_music_intent(
     let candidates = simple_track_candidates(
         &room_music,
         radio.as_deref(),
-        &music_registry,
+        &audio_selection,
         &encounter_music,
     );
 
@@ -82,7 +82,7 @@ pub fn compute_music_intent(
 fn simple_track_candidates(
     room_music: &RoomMusicRequest,
     radio: Option<&RadioStationState>,
-    music_registry: &MusicRegistry,
+    audio_selection: &ActiveAudioSelection,
     encounter_music: &EncounterMusicRequest,
 ) -> Vec<String> {
     let mut candidates = Vec::new();
@@ -95,7 +95,13 @@ fn simple_track_candidates(
     if let Some(track) = &room_music.desired_track {
         candidates.push(track.clone());
     }
-    candidates.push(music_registry.default_track.clone());
+    // The ACTIVE provider's default track closes the priority list. No
+    // selection (frontend routes) or a provider with no authored music means
+    // deliberate silence — never a fallback to whichever registry happens to
+    // be process-resident.
+    if let Some(music) = audio_selection.music() {
+        candidates.push(music.default_track.clone());
+    }
     candidates
 }
 

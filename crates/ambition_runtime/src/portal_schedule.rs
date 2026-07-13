@@ -34,6 +34,7 @@ impl Plugin for PortalSchedulePlugin {
         app.configure_sets(
             sim,
             PortalSet::Carves
+                .in_set(ambition_platformer_primitives::schedule::GameplaySimulationRoot)
                 .after(ambition_actors::physics::collect_gravity_zones)
                 .before(SandboxSet::CoreSimulation),
         );

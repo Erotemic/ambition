@@ -5,9 +5,6 @@
 
 use bevy::prelude::*;
 
-#[cfg(feature = "visible")]
-use ambition_demo_sanic::SANIC_MUSIC_ASSET_PATH;
-
 /// Assemble the demo: foundation + the engine group + the host group + the Sanic
 /// experience under a standalone shell host. **Zero engine edits, zero
 /// `ambition_app`.**
@@ -168,7 +165,11 @@ pub fn build_windowed_demo_app(render: RenderMode) -> App {
         // Keep headless render tests independent of the host audio device. The
         // demo still uses Ambition's standard SfxMessage -> packed-bank bridge.
         install_sanic_audio(&mut app, sfx_bank_path);
-        app.add_systems(Update, drive_sanic_music_for_session);
+        // Session music is authority-driven: the shell bridge selects Sanic's
+        // registered music registry on activation and clears it on Quit to
+        // Home; this shared driver plays whatever is selected. No
+        // Sanic-specific playback code remains.
+        app.add_systems(Update, ambition::audio::music::drive_selected_session_music);
     }
     app
 }
@@ -343,31 +344,6 @@ fn desktop_asset_root() -> String {
 #[cfg(all(feature = "visible", target_arch = "wasm32"))]
 fn desktop_asset_root() -> String {
     "assets".to_string()
-}
-
-#[cfg(feature = "visible")]
-fn drive_sanic_music_for_session(
-    mut sessions: MessageReader<ambition::game_shell::GameplaySessionEvent>,
-    asset_server: Res<AssetServer>,
-    audio: Res<bevy_kira_audio::prelude::Audio>,
-) {
-    use bevy_kira_audio::prelude::AudioControl;
-
-    for event in sessions.read() {
-        if event.activation().experience_id.as_str() != ambition_demo_sanic::SANIC_EXPERIENCE {
-            continue;
-        }
-        match event {
-            ambition::game_shell::GameplaySessionEvent::Activated { .. } => {
-                audio
-                    .play(asset_server.load(SANIC_MUSIC_ASSET_PATH))
-                    .looped();
-            }
-            ambition::game_shell::GameplaySessionEvent::Retiring { .. } => {
-                audio.stop();
-            }
-        }
-    }
 }
 
 #[cfg(all(test, feature = "visible", not(target_arch = "wasm32")))]

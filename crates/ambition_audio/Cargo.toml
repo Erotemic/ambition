@@ -10,11 +10,11 @@ description = "Authored-audio stack: data schema, Kira playback library, adaptiv
 default = []
 # The playback half (library/render/music director/web unlock). Off by
 # default so headless hosts get the data schema without the Kira backend.
-kira = ["dep:bevy_kira_audio"]
+kira = ["dep:bevy_kira_audio", "bevy/ui_api"]
 
 [dependencies]
 ambition_sfx = { path = "../ambition_sfx" }
-bevy = { version = "0.18.1", default-features = false, features = ["ui_api"] }
+bevy = { version = "0.18.1", default-features = false }
 bevy_kira_audio = { version = "0.25", default-features = false, features = ["wav", "ogg"], optional = true }
 serde = { version = "1", features = ["derive"] }
 
